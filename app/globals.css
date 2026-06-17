@@ -28399,6 +28399,19 @@ select.samples-filter-field-input {
   stroke-linejoin: round;
 }
 
+/* Titulo dentro do body (confirm SEM .app-modal-header): mesmo tamanho do antigo
+   titulo do header, escuro sobre o branco. Para confirms que dispensam o header
+   verde (ex.: "Descartar amostra?" do NewSampleModal) — fica entre o icone e a
+   mensagem. */
+.app-confirm-modal-title {
+  margin: 0;
+  font-size: clamp(1.05rem, 3.6vw, 1.18rem);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--ink);
+  text-align: center;
+}
+
 .app-confirm-modal-message {
   margin: 0;
   font-size: clamp(13px, 3.6vw, 14px);

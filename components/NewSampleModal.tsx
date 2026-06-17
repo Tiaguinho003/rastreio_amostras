@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useReducer, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 
 import { ANIMATION_MS, BottomSheet } from './BottomSheet';
@@ -757,53 +758,63 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
         }}
       />
 
-      {confirmDiscardOpen ? (
-        <div className="app-modal-backdrop is-stacked" onClick={() => setConfirmDiscardOpen(false)}>
-          <section
-            className="app-modal is-themed app-confirm-modal is-stacked"
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="discard-sample-title"
-            aria-describedby="discard-sample-description"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="app-modal-header">
-              <div className="app-modal-title-wrap">
-                <h3 id="discard-sample-title" className="app-modal-title">
-                  Descartar amostra?
-                </h3>
-              </div>
-            </header>
-
-            <div className="app-modal-content">
-              <div className="app-confirm-modal-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" focusable="false">
-                  <path d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
-                  <path d="M12 9v4" />
-                  <path d="M12 17v.01" />
-                </svg>
-              </div>
-              <p id="discard-sample-description" className="app-confirm-modal-message">
-                Os dados preenchidos serão perdidos. Esta ação não pode ser desfeita.
-              </p>
-            </div>
-
-            <div className="app-modal-actions">
-              <button
-                type="button"
-                className="app-modal-secondary"
-                onClick={() => setConfirmDiscardOpen(false)}
-                autoFocus
+      {confirmDiscardOpen
+        ? createPortal(
+            // Portal pro body: o sheet de Nova Amostra ja e portalado (z-modal);
+            // sem portar, este confirm inline ficava preso no contexto de
+            // empilhamento da pagina e aparecia ATRAS do sheet. Portado, o
+            // .is-stacked (z-modal-stacked) fica na frente. Sem header
+            // (.app-modal-header) — titulo vai no corpo, padrao de confirm enxuto.
+            <div
+              className="app-modal-backdrop is-stacked"
+              onClick={() => setConfirmDiscardOpen(false)}
+            >
+              <section
+                className="app-modal is-themed app-confirm-modal is-stacked"
+                role="alertdialog"
+                aria-modal="true"
+                aria-labelledby="discard-sample-title"
+                aria-describedby="discard-sample-description"
+                onClick={(event) => event.stopPropagation()}
               >
-                Continuar
-              </button>
-              <button type="button" className="app-modal-submit is-danger" onClick={handleDiscard}>
-                Descartar
-              </button>
-            </div>
-          </section>
-        </div>
-      ) : null}
+                <div className="app-modal-content">
+                  <div className="app-confirm-modal-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                      <path d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+                      <path d="M12 9v4" />
+                      <path d="M12 17v.01" />
+                    </svg>
+                  </div>
+                  <h3 id="discard-sample-title" className="app-confirm-modal-title">
+                    Descartar amostra?
+                  </h3>
+                  <p id="discard-sample-description" className="app-confirm-modal-message">
+                    Os dados preenchidos serão perdidos. Esta ação não pode ser desfeita.
+                  </p>
+                </div>
+
+                <div className="app-modal-actions">
+                  <button
+                    type="button"
+                    className="app-modal-secondary"
+                    onClick={() => setConfirmDiscardOpen(false)}
+                    autoFocus
+                  >
+                    Continuar
+                  </button>
+                  <button
+                    type="button"
+                    className="app-modal-submit is-danger"
+                    onClick={handleDiscard}
+                  >
+                    Descartar
+                  </button>
+                </div>
+              </section>
+            </div>,
+            document.body
+          )
+        : null}
     </>
   );
 }
