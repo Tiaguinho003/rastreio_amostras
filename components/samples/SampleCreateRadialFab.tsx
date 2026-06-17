@@ -238,12 +238,14 @@ export function SampleCreateRadialFab(props: SampleCreateRadialFabProps) {
                 focusable="false"
                 aria-hidden="true"
               >
-                {/* Grao de cafe: oval levemente rotacionado (-18°) + crease
-                    S-shape ao longo do eixo longo. */}
-                <g transform="rotate(-18 12 12)">
-                  <path d="M12 3c-3.9 0-6 4-6 9s2.1 9 6 9 6-4 6-9-2.1-9-6-9z" />
-                  <path d="M14.5 5.5c-3 4-3 9 0 13" />
-                </g>
+                {/* Grao de cafe: mesma silhueta do icone da aba "Lotes"
+                    (AppShell `renderNavIcon('samples')`) — elipse inclinada 28°
+                    + fenda central em S (sulco do grao). O estilo de traco
+                    (verde, stroke-width 2.2, pontas arredondadas) vem do CSS
+                    `.fab-fan-option-icon`, adaptando o grao ao peso dos botoes
+                    do leque. */}
+                <ellipse cx="12" cy="12" rx="6.2" ry="8.7" transform="rotate(28 12 12)" />
+                <path d="M15.9 4.9c-2.9 2.1-1.1 5-2.9 7.1-1.8 2.1-4.3 2.6-4.9 7" />
               </svg>
             </span>
           </button>
