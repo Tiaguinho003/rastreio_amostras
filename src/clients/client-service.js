@@ -161,7 +161,16 @@ function compactSearchInput(input) {
   return normalizeSearchInput(input).replace(/\s+/g, '');
 }
 
-function buildClientWhereFromSearch(search) {
+// matchMode:
+//  - 'contains' (default, LEGADO): casa substring em QUALQUER posicao. Usado
+//    pelo lookup/typeahead de cliente (ClientLookupField nos formularios).
+//  - 'prefix': busca da PAGINA de clientes (/clients), alinhada a /samples —
+//    casa por PREFIXO DE PALAVRA (qualquer palavra de qualquer nome COMECA com
+//    o termo), nao substring no meio. Como search_normalized concatena os 3
+//    nomes com espaco, "uma palavra comeca com X" === a string COMECA com X OU
+//    CONTEM " X" (fronteira de palavra). search_compact (sem espacos) usa so
+//    startsWith. CPF/CNPJ tambem por prefixo. O `code` segue match exato.
+function buildClientWhereFromSearch(search, { matchMode = 'contains' } = {}) {
   if (!search) {
     return undefined;
   }
@@ -177,10 +186,19 @@ function buildClientWhereFromSearch(search) {
   // L5: cnpj e cnpjRoot vivem direto no Client. Search cobre cpf, cnpj e
   // cnpjRoot via OR — sem mais lookup transitivo via units.
   const cnpjDigits = digits.length > 0 ? digits : null;
+  const isPrefix = matchMode === 'prefix';
   const or = [];
 
   if (normalizedSearch.length > 0) {
-    or.push({ searchNormalized: { contains: normalizedSearch } });
+    if (isPrefix) {
+      // prefixo de palavra: a string COMECA com o termo (1a palavra do
+      // full_name) OU contem " termo" (inicio de qualquer palavra seguinte,
+      // inclusive o comeco de trade_name/legal_name na concatenacao).
+      or.push({ searchNormalized: { startsWith: normalizedSearch } });
+      or.push({ searchNormalized: { contains: ` ${normalizedSearch}` } });
+    } else {
+      or.push({ searchNormalized: { contains: normalizedSearch } });
+    }
 
     // 14.7: se input nao tem espacos, tenta tambem na search_compact
     // pra casar nomes com espacamento decorativo entre letras (ex: input
@@ -190,17 +208,20 @@ function buildClientWhereFromSearch(search) {
     if (!/\s/.test(search.trim())) {
       const compact = compactSearchInput(search);
       if (compact.length > 0) {
-        or.push({ searchCompact: { contains: compact } });
+        // compact nao tem espacos -> sem fronteira de palavra interna; no modo
+        // prefixo basta startsWith (comeca com), no legado contains.
+        or.push({ searchCompact: isPrefix ? { startsWith: compact } : { contains: compact } });
       }
     }
   }
 
-  // CPF: digits-only (mantem como antes — CPF nao precisa de unaccent)
-  or.push({ cpf: { contains: digits.length > 0 ? digits : search } });
+  // CPF/CNPJ: digits-only (nao precisa de unaccent). Prefixo no modo 'prefix'.
+  const docMatch = isPrefix ? 'startsWith' : 'contains';
+  or.push({ cpf: { [docMatch]: digits.length > 0 ? digits : search } });
 
   if (cnpjDigits) {
     or.push({ cnpjRoot: { startsWith: cnpjDigits.slice(0, 8) } });
-    or.push({ cnpj: { contains: cnpjDigits } });
+    or.push({ cnpj: { [docMatch]: cnpjDigits } });
   }
 
   if (Number.isInteger(numericSearch) && String(numericSearch) === search.trim()) {
@@ -793,7 +814,9 @@ export class ClientService {
 
     const where = {
       ...baseWhere,
-      ...(buildClientWhereFromSearch(search) ?? {}),
+      // Pagina /clients: busca por PREFIXO de palavra (alinhada a /samples).
+      // O lookup/typeahead (lookupClients) segue por contains (default).
+      ...(buildClientWhereFromSearch(search, { matchMode: 'prefix' }) ?? {}),
     };
 
     const [rows, total, incompleteTotal] = await this.prisma.$transaction([

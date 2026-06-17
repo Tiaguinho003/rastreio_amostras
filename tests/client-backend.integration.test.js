@@ -1555,7 +1555,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(result.body.items[0].legalName, 'G A S Comercio de Cafe LTDA');
   });
 
-  test('14.7: busca normal continua casando token contido no meio do nome', async () => {
+  test('prefixo: palavra inteira no meio do nome casa, mas substring no MEIO de palavra nao (alinhado a /samples)', async () => {
     await api.createClient(
       buildInput({
         body: {
@@ -1570,9 +1570,43 @@ if (!databaseUrl || !databaseReachable) {
       })
     );
 
-    const result = await api.listClients(buildInput({ query: { search: 'comercio' } }));
-    assert.equal(result.status, 200);
-    assert.equal(result.body.items.length, 1);
+    // "comercio" e uma PALAVRA do nome (prefixo de palavra) -> casa.
+    const wholeWord = await api.listClients(buildInput({ query: { search: 'comercio' } }));
+    assert.equal(wholeWord.status, 200);
+    assert.equal(wholeWord.body.items.length, 1);
+
+    // "omercio" e substring no MEIO de "comercio" -> NAO casa. Antes (contains)
+    // casava; a busca da pagina /clients agora e por PREFIXO de palavra.
+    const midWord = await api.listClients(buildInput({ query: { search: 'omercio' } }));
+    assert.equal(midWord.status, 200);
+    assert.equal(midWord.body.items.length, 0);
+  });
+
+  test('prefixo: casa o inicio de QUALQUER palavra do nome (ex.: sobrenome)', async () => {
+    await api.createClient(
+      buildInput({
+        body: {
+          personType: 'PF',
+          fullName: 'Joao Pedro Silva',
+          cpf: generateValidCpf(401),
+          phone: '35 99000-0001',
+          isBuyer: false,
+          isSeller: true,
+        },
+      })
+    );
+
+    // prefixo da 1a palavra
+    const first = await api.listClients(buildInput({ query: { search: 'joao' } }));
+    assert.equal(first.body.items.length, 1);
+
+    // prefixo de uma palavra do meio/fim (sobrenome) tambem casa
+    const surname = await api.listClients(buildInput({ query: { search: 'silva' } }));
+    assert.equal(surname.body.items.length, 1);
+
+    // substring no meio de palavra nao casa
+    const mid = await api.listClients(buildInput({ query: { search: 'ilva' } }));
+    assert.equal(mid.body.items.length, 0);
   });
 
   test('14.7.D: getClient retorna openLots agregado (zerado quando sem samples)', async () => {

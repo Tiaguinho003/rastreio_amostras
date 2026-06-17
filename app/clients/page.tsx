@@ -486,14 +486,17 @@ function ClientsPage() {
       window.clearTimeout(clientSearchDebounceRef.current);
     }
 
+    // Alinhado a /samples: aplica so a partir de 2 caracteres; com <2 desfiltra
+    // (mostra todos). Evita disparar a busca ja na 1a letra.
     const trimmed = clientSearchInput.trim();
-    if (trimmed === appliedClientSearch) {
+    const next = trimmed.length >= 2 ? trimmed : '';
+    if (next === appliedClientSearch) {
       return;
     }
 
     clientSearchDebounceRef.current = window.setTimeout(() => {
       clientSearchDebounceRef.current = null;
-      setAppliedClientSearch(trimmed);
+      setAppliedClientSearch(next);
     }, 400);
 
     return () => {
@@ -864,7 +867,8 @@ function ClientsPage() {
       window.clearTimeout(clientSearchDebounceRef.current);
       clientSearchDebounceRef.current = null;
     }
-    setAppliedClientSearch(clientSearchInput.trim());
+    const trimmed = clientSearchInput.trim();
+    setAppliedClientSearch(trimmed.length >= 2 ? trimmed : '');
   }
 
   // ── Filtros (modal central) — handlers espelhando /samples ──
