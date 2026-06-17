@@ -29906,6 +29906,15 @@ select.samples-filter-field-input {
   }
 }
 
+/* Sheets curtos (ex.: Nova Amostra): a altura ACOMPANHA o conteudo em vez de
+   esticar ate o topo. Sem isso, o `.bottom-sheet-body` (flex:1) cresce e sobra
+   um vao grande entre o ultimo campo (Observacoes) e a linha do footer num
+   formulario curto. O `max-height` (base) segue como teto: se o conteudo crescer
+   ou o teclado abrir, o body rola normalmente. */
+.bottom-sheet.is-fit-content {
+  height: auto;
+}
+
 .bottom-sheet.is-open {
   transform: translate3d(0, 0, 0);
 }

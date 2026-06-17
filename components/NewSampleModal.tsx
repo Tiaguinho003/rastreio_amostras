@@ -723,6 +723,7 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
         title="Nova amostra"
         footer={formFooter}
         ariaLabel="Nova amostra"
+        className="is-fit-content"
         dragToDismiss
         dragDisabled={quickCreateOpen}
       >
