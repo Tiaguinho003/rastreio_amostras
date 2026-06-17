@@ -6211,6 +6211,26 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   min-height: 0;
 }
 
+/* ── BRANCO puro (batch /clients alinhado ao /samples, 2026-06-17) ──
+   Sheet E cards de /clients em #ffffff (sai o gradiente bege quente), cards com
+   a SOMBRA REFORCADA do Lotes pra definir as bordas sobre o branco. Espelha
+   `.samples-page-v2:not(.informe-commercial-page)` (~5337-5350). Escopado a
+   `.clients-page-v2` (no desktop o background tambem cai pra branco puro; a
+   sombra elevada do desktop em ~26618 continua vencendo por vir depois). Ver
+   design-system §1. */
+.clients-page-v2 .clients-v2-sheet {
+  background: #ffffff;
+}
+
+.clients-page-v2 .cv2-card {
+  background: #ffffff;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.06),
+    0 6px 14px rgba(0, 0, 0, 0.11),
+    0 14px 28px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
 /* ── Client card ── */
 
 .cv2-load-more-sentinel {
@@ -6457,11 +6477,10 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   position: sticky;
   top: 0;
   z-index: 1;
-  /* Bege quente que casa com o gradiente do .clients-v2-sheet (#fdf9ec ->
-     #f4f0e7) na faixa onde o divisor sticky fica — antes era #faf8f4 (branco
-     mais frio), que destacava o retangulo sobre o bege. Opaco pra esconder os
-     cards que rolam por baixo. */
-  background: #faf6ea;
+  /* BRANCO pra casar com o sheet branco (batch /clients alinhado ao /samples,
+     2026-06-17 — antes era bege #faf6ea, que casava com o gradiente quente).
+     Opaco pra esconder os cards que rolam por baixo. */
+  background: #ffffff;
 }
 
 .cv2-section-divider-letter {
