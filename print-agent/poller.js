@@ -212,7 +212,7 @@ async function processJob(config, job) {
 }
 
 // ============================================================
-// Etiqueta avulsa (card do dashboard admin). Fila propria
+// Etiqueta de Aprovacao (modal do leque "+" em /samples). Fila propria
 // (/api/v1/custom-print), independente da fila de amostras. Pollada em
 // paralelo dentro do pollCycle, com try/catch proprio pra tolerar
 // indisponibilidade momentanea do endpoint sem derrubar o ciclo.

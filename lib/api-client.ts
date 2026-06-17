@@ -1338,7 +1338,7 @@ export function requestQrPrint(
   });
 }
 
-// Enfileira uma etiqueta avulsa (card do dashboard admin).
+// Enfileira uma Etiqueta de Aprovacao (modal do leque "+" em /samples).
 // lines = [{ label, value }] na ordem de impressao. Sem vinculo com Sample.
 export function requestCustomPrint(
   session: SessionData,

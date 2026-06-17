@@ -19,7 +19,7 @@ const LOGO_SRC = join(ROOT, 'assets', 'Safras-logo-ori.png');
 const OUT_DIR = join(ROOT, 'print-agent');
 
 // Largura x altura (dots) das fontes internas TSPL (multiplicador 1).
-const FONT = { 1: [8, 12], 2: [12, 20], 3: [16, 24], 4: [24, 32], 5: [32, 48] };
+const FONT = { 1: [8, 12], 2: [12, 20], 3: [16, 24], 4: [24, 32] };
 
 const SCALE = 2; // px por dot no PNG final
 const CAPTION_H = 46; // faixa de legenda abaixo da etiqueta (dots)
@@ -161,7 +161,11 @@ async function main() {
       cap: 'Aprovacao — 2 lotes (1 linha, caixas grandes).',
     },
     { n: 6, name: 'custom-label-preview-6.png', cap: 'Aprovacao — 6 lotes (2x3).' },
-    { n: 14, name: 'custom-label-preview-14.png', cap: 'Aprovacao — 14 lotes (2x7, fonte menor).' },
+    {
+      n: 16,
+      name: 'custom-label-preview-16.png',
+      cap: 'Aprovacao — 16 lotes (teto; numero NAO pode cortar).',
+    },
   ];
   for (const v of variants) {
     await render(
@@ -170,6 +174,22 @@ async function main() {
       v.cap
     );
   }
+  // Valida o fix de vazio: so Compra preenchida + 3 lotes; o resto NAO pode sair
+  // como "---" (e nenhuma caixa de lote vazia).
+  await render(
+    {
+      lines: [
+        { label: 'N° COMPRA', value: 'C003364' },
+        { label: 'N° FECHAMENTO', value: '' },
+        { label: 'SACAS', value: '' },
+        { label: 'PRODUT', value: '' },
+        { label: 'ARMAZ', value: '' },
+        { label: 'LOTE', value: lotsValue(3) },
+      ],
+    },
+    'custom-label-preview-vazio.png',
+    'Aprovacao — campos vazios (so Compra + 3 lotes): sem "---".'
+  );
 }
 
 main().catch((err) => {
