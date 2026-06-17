@@ -79,8 +79,8 @@ const FORM_ROWS: Array<Array<{ key: string; weight: number }>> = [
     { key: 'fechamento', weight: 1 },
   ],
   [
-    { key: 'produtor', weight: 3 },
-    { key: 'sacas', weight: 2 },
+    { key: 'produtor', weight: 2 },
+    { key: 'sacas', weight: 1 },
   ],
   [{ key: 'armazem', weight: 1 }],
   [{ key: 'lote', weight: 1 }],
