@@ -18010,6 +18010,246 @@ select.samples-filter-field-input {
   color: #c45c5c !important;
 }
 
+/* === ChipMultiSelectField (Responsavel/Papel no modal de novo cliente) ===
+   Campo fechado de ALTURA FIXA (casa com os inputs do modal: borda 2px, raio
+   10px, 2.5rem): chips numa linha + "+N" + chevron. Clicar abre o dropdown
+   checklist. Componente em components/ChipMultiSelectField.tsx. */
+.chip-select-field {
+  display: grid;
+  gap: clamp(0.22rem, 1vw, 0.32rem);
+  font-size: clamp(0.82rem, 2.8vw, 0.88rem);
+  min-width: 0;
+}
+
+.chip-select-wrap {
+  position: relative;
+  min-width: 0;
+}
+
+.chip-select {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0 0.55rem 0 0.7rem;
+  border: 2px solid rgba(0, 0, 0, 0.18);
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.15s ease;
+}
+
+.chip-select.is-open {
+  border-color: rgba(22, 91, 42, 0.5);
+}
+
+.chip-select.is-disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.chip-select-field.is-field-error .chip-select {
+  border-color: rgba(196, 92, 92, 0.5);
+}
+
+.chip-select-placeholder {
+  flex: 1;
+  min-width: 0;
+  color: rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip-select-chips {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.3rem;
+  overflow: hidden;
+}
+
+.chip-select-token {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #eef3ee;
+  color: #2a3d2f;
+  font-size: clamp(0.74rem, 2.4vw, 0.82rem);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.chip-select-token-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip-select-more {
+  flex-shrink: 0;
+  font-size: clamp(0.74rem, 2.4vw, 0.82rem);
+  font-weight: 700;
+  color: var(--brand-green, #1f5d43);
+}
+
+.chip-select-chevron {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: #6b8a74;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.2s ease;
+}
+
+.chip-select.is-open .chip-select-chevron {
+  transform: rotate(180deg);
+}
+
+/* Mirror invisivel: so pra medir a largura natural de cada chip + "+N". */
+.chip-select-measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  pointer-events: none;
+  height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+
+.chip-select-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 25;
+  max-height: min(14rem, 38vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 0.3rem;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  box-shadow: 0 10px 24px rgba(19, 35, 24, 0.16);
+  scrollbar-width: thin;
+}
+
+/* Abre pra cima quando perto do rodape (ex.: campo Papel, o ultimo). */
+.chip-select-wrap.is-drop-up .chip-select-dropdown {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+
+.chip-select-search {
+  width: 100%;
+  margin-bottom: 0.3rem;
+  padding: 0.45rem 0.6rem;
+  border: 1.5px solid rgba(0, 0, 0, 0.14);
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.chip-select-empty {
+  margin: 0;
+  padding: 0.5rem 0.6rem;
+  color: rgba(0, 0, 0, 0.5);
+  font-size: 0.85rem;
+}
+
+.chip-select-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.chip-select-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.55rem;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  font-size: 0.88rem;
+  color: #1a1a1a;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.chip-select-option:active {
+  transform: scale(0.99);
+}
+
+@media (hover: hover) {
+  .chip-select-option:hover {
+    background: rgba(0, 0, 0, 0.04);
+  }
+}
+
+.chip-select-option.is-selected {
+  background: #eef3ee;
+}
+
+.chip-select-check {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  display: inline-grid;
+  place-items: center;
+  border: 1.5px solid rgba(0, 0, 0, 0.25);
+  border-radius: 5px;
+  background: #fff;
+  color: #fff;
+}
+
+.chip-select-option.is-selected .chip-select-check {
+  background: var(--brand-green, #1f5d43);
+  border-color: var(--brand-green, #1f5d43);
+}
+
+.chip-select-check svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.chip-select-option-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip-select-option-sub {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: rgba(0, 0, 0, 0.45);
+}
+
 .client-quick-create-flags.is-field-error {
   border: 1px solid rgba(178, 59, 59, 0.4);
   border-radius: 10px;

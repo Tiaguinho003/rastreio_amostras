@@ -8,7 +8,7 @@ import { isValidCnpjChecksum, isValidCpfChecksum } from '../../lib/document-vali
 import { isCommercialRole } from '../../lib/roles';
 import type { ClientPersonType, ClientSummary, SessionData, UserLookupItem } from '../../lib/types';
 import { BottomSheet } from '../BottomSheet';
-import { UserMultiSelect } from '../users/UserMultiSelect';
+import { ChipMultiSelectField } from '../ChipMultiSelectField';
 
 // Mapeia mensagens de erro do backend (em ingles) para pt-BR.
 const FIELD_LABELS: Record<string, string> = {
@@ -521,45 +521,39 @@ export function ClientQuickCreateModal({
               />
             </label>
 
-            <div className="client-quick-create-field">
-              Responsavel
-              <UserMultiSelect
-                value={form.commercialUserIds}
-                onChange={(next) => setForm((current) => ({ ...current, commercialUserIds: next }))}
-                users={users}
-                loading={loadingUsers}
-                disabled={saving}
-                placeholder=""
-                errorMessage={hasCommercialUserError ? 'Obrigatorio' : undefined}
-                hideRoleInChips
-              />
-            </div>
+            <ChipMultiSelectField
+              label="Responsável"
+              placeholder="Selecione"
+              searchable
+              options={users.map((user) => ({ id: user.id, label: user.fullName }))}
+              selected={form.commercialUserIds}
+              onChange={(next) => setForm((current) => ({ ...current, commercialUserIds: next }))}
+              loading={loadingUsers}
+              disabled={saving}
+              errorMessage={hasCommercialUserError ? 'Obrigatorio' : undefined}
+            />
           </div>
 
-          {/* Linha 5: Vendedor | Comprador checkboxes */}
-          <div className="client-modal-flags client-quick-create-flags">
-            <label className="client-modal-flag client-quick-create-flag">
-              <input
-                type="checkbox"
-                checked={form.isSeller}
-                disabled={saving}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, isSeller: event.target.checked }))
-                }
-              />
-              <span className="client-quick-create-flag-label">Vendedor</span>
-            </label>
-            <label className="client-modal-flag client-quick-create-flag">
-              <input
-                type="checkbox"
-                checked={form.isBuyer}
-                disabled={saving}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, isBuyer: event.target.checked }))
-                }
-              />
-              <span className="client-quick-create-flag-label">Comprador</span>
-            </label>
+          {/* Linha 5: Papel (Vendedor/Comprador) — multi-select com chips, mesmo
+              padrao do Responsavel. Cliente pode ser os dois (ou nenhum). */}
+          <div className="client-quick-create-grid client-quick-create-grid-single">
+            <ChipMultiSelectField
+              label="Papel"
+              placeholder="Selecione"
+              options={[
+                { id: 'seller', label: 'Vendedor' },
+                { id: 'buyer', label: 'Comprador' },
+              ]}
+              selected={[...(form.isSeller ? ['seller'] : []), ...(form.isBuyer ? ['buyer'] : [])]}
+              onChange={(next) =>
+                setForm((current) => ({
+                  ...current,
+                  isSeller: next.includes('seller'),
+                  isBuyer: next.includes('buyer'),
+                }))
+              }
+              disabled={saving}
+            />
           </div>
         </div>
       </form>
