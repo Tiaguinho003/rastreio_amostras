@@ -1,9 +1,9 @@
 import { LOGO_WIDTH_BYTES, LOGO_HEIGHT, LOGO_DATA } from './logo-data.js';
-// NB: o logo pequeno da etiqueta avulsa (logo-small-data.js) e carregado SOB
-// DEMANDA dentro de buildCustomLabel (loadSmallLogo) DE PROPOSITO: assim este
-// modulo — usado tambem pela etiqueta de amostra (buildLabel) — NAO depende
+// NB: o logo pequeno da etiqueta de Aprovacao (logo-small-data.js) e carregado
+// SOB DEMANDA dentro de buildCustomLabel (loadSmallLogo) DE PROPOSITO: assim
+// este modulo — usado tambem pela etiqueta de amostra (buildLabel) — NAO depende
 // daquele arquivo. Se ele faltar (ex: deploy parcial), a etiqueta de amostra
-// imprime normalmente e a avulsa apenas sai sem logo.
+// imprime normalmente e a de Aprovacao apenas sai sem logo.
 
 const ACCENT_MAP = {
   '\u00e0': 'a',
@@ -227,7 +227,7 @@ const KEY_PRODUTOR = 'PRODUT';
 const KEY_ARMAZEM = 'ARMAZ';
 const KEY_LOTE = 'LOTE';
 // Carrega o logo pequeno sob demanda. Se logo-small-data.js nao existir,
-// retorna null e a etiqueta avulsa sai sem logo (a de amostra nao depende
+// retorna null e a etiqueta de Aprovacao sai sem logo (a de amostra nao depende
 // disso). Node faz cache do import, entao o custo so existe na 1a chamada.
 async function loadSmallLogo() {
   try {
@@ -244,6 +244,8 @@ async function loadSmallLogo() {
 
 // Normaliza o rotulo recebido pra casar com as chaves dos campos (remove
 // "°"/"º"/":" e padroniza espacos/caixa). Ex.: "N° COMPRA:" -> "N COMPRA".
+// CONTRATO: src/api/v1/backend-api.js reimplementa esta mesma norma pra detectar
+// o 'LOTE' (cap/grade de lotes) — manter as duas copias em sincronia.
 function normalizeFieldKey(label) {
   return label.replace(/[°º:]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
 }
@@ -300,17 +302,25 @@ export async function buildCustomLabelLayout(payload) {
   }
   function valueOf(key) {
     const line = byKey.get(key);
-    return line && typeof line.value === 'string' ? sanitize(line.value.trim(), 300) : '';
+    if (!line || typeof line.value !== 'string') return '';
+    // Vazio retorna '' e NAO passa pelo sanitize (cujo fallback '---' e da
+    // etiqueta de amostra): campo em branco sai so com o rotulo, e LOTE vazio
+    // nao desenha caixa (splitLots('') = []).
+    const trimmed = line.value.trim();
+    return trimmed ? sanitize(trimmed, 300) : '';
   }
 
   const texts = [];
   const dividers = [];
   const boxes = [];
 
-  // Rotulo pequeno (LABEL_FONT) em (x, y) — sem ":" (segue o mockup).
-  function pushLabel(rawLabel, x, y) {
-    const text = sanitize(rawLabel || '', 40);
-    if (text) texts.push({ x, y, font: LABEL_FONT, xMul: 1, yMul: 1, bold: false, text });
+  // Rotulo pequeno (LABEL_FONT) em (x, y) — sem ":" (segue o mockup). Com
+  // `maxWidth`, corta pra nao estourar a coluna (rotulo longo via API direta).
+  function pushLabel(rawLabel, x, y, maxWidth) {
+    let text = sanitize(rawLabel || '', 40);
+    if (!text) return;
+    if (maxWidth) text = fitText(text, LABEL_FONT, maxWidth);
+    texts.push({ x, y, font: LABEL_FONT, xMul: 1, yMul: 1, bold: false, text });
   }
 
   // Valor com fonte AUTO-AJUSTADA a `maxWidth` (1 linha), em negrito.
@@ -323,7 +333,7 @@ export async function buildCustomLabelLayout(payload) {
 
   // Campo "rotulo em cima + valor embaixo" numa coluna [x, x+w].
   function pushField(key, fallbackLabel, x, w, labelY, valueY) {
-    pushLabel(labelOf(key, fallbackLabel), x + COL_PAD, labelY);
+    pushLabel(labelOf(key, fallbackLabel), x + COL_PAD, labelY, w - 2 * COL_PAD);
     pushValue(valueOf(key), x + COL_PAD, valueY, w - 2 * COL_PAD);
   }
 
