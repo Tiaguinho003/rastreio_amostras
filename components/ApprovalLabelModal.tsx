@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { ANIMATION_MS, BottomSheet } from './BottomSheet';
 import { ApiError, requestCustomPrint } from '../lib/api-client';
@@ -134,6 +134,11 @@ export function ApprovalLabelModal({ open, onClose, session }: ApprovalLabelModa
   // O check central só aparece depois que o sheet termina de descer.
   const [successVisible, setSuccessVisible] = useState(false);
 
+  // Scroll-into-view do lote recém-adicionado (acompanha quando ele quebra pra
+  // próxima linha). lotsRef = fila de lotes; o flag dispara o scroll no effect.
+  const lotsRef = useRef<HTMLDivElement | null>(null);
+  const scrollToNewLotRef = useRef(false);
+
   function setField(key: string, value: string) {
     setValues((prev) => ({ ...prev, [key]: value }));
     if (formError) setFormError(null);
@@ -146,7 +151,8 @@ export function ApprovalLabelModal({ open, onClose, session }: ApprovalLabelModa
 
   function addLot() {
     // Sem auto-foco: o campo é criado vazio; o teclado só abre quando o usuário
-    // toca no campo pra digitar.
+    // toca no campo pra digitar. Só sinaliza o scroll-into-view do campo novo.
+    scrollToNewLotRef.current = true;
     setLots((prev) => [...prev, { id: nextLotId(), value: '' }]);
     if (formError) setFormError(null);
   }
@@ -203,6 +209,19 @@ export function ApprovalLabelModal({ open, onClose, session }: ApprovalLabelModa
       setSubmitting(false);
     }
   }
+
+  // Rola o corpo do modal pra mostrar o lote recém-adicionado. `block: 'nearest'`
+  // só rola quando o campo está fora de vista (ex.: quebrou pra próxima linha);
+  // se já está visível, não mexe. Sem foco — não abre teclado.
+  useEffect(() => {
+    if (!scrollToNewLotRef.current) return;
+    scrollToNewLotRef.current = false;
+    const fields = lotsRef.current?.querySelectorAll<HTMLElement>('.alm-lot-field');
+    const last = fields?.[fields.length - 1];
+    if (!last) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    last.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
+  }, [lots.length]);
 
   // Reset total quando o modal é totalmente dispensado (pai fecha, inclusive
   // após o auto-close do sucesso). Garante form limpo na próxima abertura.
@@ -308,7 +327,7 @@ export function ApprovalLabelModal({ open, onClose, session }: ApprovalLabelModa
                 3 + botão por linha; o 4º quebra). "×" remove (some quando só 1). */}
             <div className="alm-lots-group">
               <span className="nsv2-field-label">Lotes</span>
-              <div className="alm-lots">
+              <div className="alm-lots" ref={lotsRef}>
                 {lots.map((lot, index) => (
                   <div key={lot.id} className="alm-lot-field">
                     <input
