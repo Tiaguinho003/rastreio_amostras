@@ -1228,6 +1228,7 @@ export class SampleQueryService {
     catacoes = [],
     certificados = [],
     harvest = null,
+    harvests = [],
     sacksMin = null,
     sacksMax = null,
     createdFrom = null,
@@ -1415,10 +1416,20 @@ export class SampleQueryService {
     // "AA/AA" (sem virgula interna) separada por ", ", entao "24/25" so aparece
     // como componente, nunca como substring acidental. Amostra de safra unica
     // casa normalmente.
-    const normalizedHarvest = normalizeOptionalText(harvest);
-    if (normalizedHarvest) {
+    // Aceita safra unica (`harvest`, legado) ou multi (`harvests`, novo). Cada
+    // valor casa por COMPONENTE via `contains`; entre eles e OR (uniao).
+    const harvestValues = Array.from(
+      new Set(
+        [...(Array.isArray(harvests) ? harvests : []), harvest]
+          .map((value) => normalizeOptionalText(value))
+          .filter((value) => typeof value === 'string' && value.length > 0)
+      )
+    );
+    if (harvestValues.length > 0) {
       conditions.push({
-        declaredHarvest: { contains: normalizedHarvest },
+        OR: harvestValues.map((value) => ({
+          declaredHarvest: { contains: value },
+        })),
       });
     }
 

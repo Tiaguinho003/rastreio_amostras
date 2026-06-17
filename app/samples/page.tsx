@@ -73,7 +73,9 @@ interface HiddenFilters {
   catacoes: string[];
   certificados: string[];
   displayStatus: DisplayStatusFilter;
-  harvest: string;
+  // Safra: multi-selecao de presets. Match por COMPONENTE (liga mista casa por
+  // qualquer uma das safras que a compoem).
+  harvests: string[];
   sacksMin: string;
   sacksMax: string;
   periodFrom: string;
@@ -90,7 +92,7 @@ const EMPTY_HIDDEN_FILTERS: HiddenFilters = {
   catacoes: [],
   certificados: [],
   displayStatus: '',
-  harvest: '',
+  harvests: [],
   sacksMin: '',
   sacksMax: '',
   periodFrom: '',
@@ -119,7 +121,7 @@ function hasAnyHiddenFilter(filters: HiddenFilters) {
     filters.catacoes.length > 0 ||
     filters.certificados.length > 0 ||
     filters.displayStatus.length > 0 ||
-    filters.harvest.trim().length > 0 ||
+    filters.harvests.length > 0 ||
     filters.sacksMin.trim().length > 0 ||
     filters.sacksMax.trim().length > 0 ||
     filters.periodFrom.trim().length > 0 ||
@@ -138,7 +140,7 @@ function normalizeHiddenFilters(filters: HiddenFilters): HiddenFilters {
     catacoes: filters.catacoes,
     certificados: filters.certificados,
     displayStatus: filters.displayStatus,
-    harvest: filters.harvest.trim(),
+    harvests: filters.harvests,
     sacksMin: filters.sacksMin.trim(),
     sacksMax: filters.sacksMax.trim(),
     periodFrom: filters.periodFrom.trim(),
@@ -157,7 +159,7 @@ function countActiveHiddenFilters(filters: HiddenFilters) {
   if (filters.catacoes.length > 0) count += 1;
   if (filters.certificados.length > 0) count += 1;
   if (filters.displayStatus) count += 1;
-  if (filters.harvest.trim()) count += 1;
+  if (filters.harvests.length > 0) count += 1;
   if (filters.sacksMin.trim() || filters.sacksMax.trim()) count += 1;
   if (filters.periodFrom.trim() || filters.periodTo.trim()) count += 1;
   if (filters.onlyBlend) count += 1;
@@ -257,7 +259,7 @@ function hasFilterSectionValue(sectionId: FilterSectionId, filters: HiddenFilter
   }
 
   if (sectionId === 'harvest') {
-    return filters.harvest.trim().length > 0;
+    return filters.harvests.length > 0;
   }
 
   if (sectionId === 'sacks') {
@@ -289,7 +291,9 @@ function getFilterSectionSummary(sectionId: FilterSectionId, filters: HiddenFilt
   }
 
   if (sectionId === 'harvest') {
-    return filters.harvest.trim() || 'Qualquer safra';
+    if (filters.harvests.length === 0) return 'Qualquer safra';
+    if (filters.harvests.length === 1) return filters.harvests[0];
+    return `${filters.harvests.length} safras`;
   }
 
   if (sectionId === 'sacks') {
@@ -346,10 +350,20 @@ function readSamplesSnapshot(): SamplesSnapshot | null {
     if (typeof parsed.savedAt !== 'number') return null;
     // Snapshots antigos podem nao ter campos novos de HiddenFilters (ex.:
     // padroes). Mescla com os defaults pra garantir arrays/strings validos.
-    parsed.appliedHiddenFilters = {
+    const mergedHiddenFilters = {
       ...EMPTY_HIDDEN_FILTERS,
       ...(parsed.appliedHiddenFilters ?? {}),
-    };
+    } as HiddenFilters & { harvest?: string };
+    // Migra snapshot antigo: harvest (string unica) -> harvests (array).
+    if (
+      mergedHiddenFilters.harvests.length === 0 &&
+      typeof mergedHiddenFilters.harvest === 'string' &&
+      mergedHiddenFilters.harvest.trim()
+    ) {
+      mergedHiddenFilters.harvests = [mergedHiddenFilters.harvest.trim()];
+    }
+    delete mergedHiddenFilters.harvest;
+    parsed.appliedHiddenFilters = mergedHiddenFilters;
     // Snapshots antigos podem nao ter expandedSampleIds (cards expandidos).
     parsed.expandedSampleIds = Array.isArray(parsed.expandedSampleIds)
       ? parsed.expandedSampleIds
@@ -915,7 +929,7 @@ function SamplesPage() {
       catacoes: filters.appliedHiddenFilters.catacoes,
       certificados: filters.appliedHiddenFilters.certificados,
       displayStatus: filters.appliedHiddenFilters.displayStatus || undefined,
-      harvest: filters.appliedHiddenFilters.harvest || undefined,
+      harvests: filters.appliedHiddenFilters.harvests,
       isBlend: filters.appliedHiddenFilters.onlyBlend || undefined,
       sacksMin: filters.appliedHiddenFilters.sacksMin || undefined,
       sacksMax: filters.appliedHiddenFilters.sacksMax || undefined,
@@ -976,7 +990,7 @@ function SamplesPage() {
         catacoes: appliedHiddenFilters.catacoes,
         certificados: appliedHiddenFilters.certificados,
         displayStatus: appliedHiddenFilters.displayStatus || undefined,
-        harvest: appliedHiddenFilters.harvest || undefined,
+        harvests: appliedHiddenFilters.harvests,
         isBlend: appliedHiddenFilters.onlyBlend || undefined,
         sacksMin: appliedHiddenFilters.sacksMin || undefined,
         sacksMax: appliedHiddenFilters.sacksMax || undefined,
@@ -1045,7 +1059,7 @@ function SamplesPage() {
             catacoes: appliedHiddenFilters.catacoes,
             certificados: appliedHiddenFilters.certificados,
             displayStatus: appliedHiddenFilters.displayStatus || undefined,
-            harvest: appliedHiddenFilters.harvest || undefined,
+            harvests: appliedHiddenFilters.harvests,
             isBlend: appliedHiddenFilters.onlyBlend || undefined,
             sacksMin: appliedHiddenFilters.sacksMin || undefined,
             sacksMax: appliedHiddenFilters.sacksMax || undefined,
@@ -1624,6 +1638,7 @@ function SamplesPage() {
             options={classificationOptions.catacao}
             selected={draftHiddenFilters.catacoes}
             loading={classificationOptionsLoading}
+            searchable
             onChange={(next) => setDraftHiddenFilters((c) => ({ ...c, catacoes: next }))}
           />
 
@@ -1659,23 +1674,13 @@ function SamplesPage() {
             </select>
           </div>
 
-          <div className="samples-filter-field">
-            <span className="samples-filter-field-label">Safra</span>
-            <select
-              className="samples-filter-field-input"
-              value={draftHiddenFilters.harvest}
-              onChange={(event) =>
-                setDraftHiddenFilters((c) => ({ ...c, harvest: event.target.value }))
-              }
-            >
-              <option value="">Selecionar</option>
-              {HARVEST_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
+          <ClassificationFilterField
+            label="Safra"
+            placeholder="Qualquer safra"
+            options={[...HARVEST_OPTIONS]}
+            selected={draftHiddenFilters.harvests}
+            onChange={(next) => setDraftHiddenFilters((c) => ({ ...c, harvests: next }))}
+          />
         </div>
 
         <div className="samples-filter-field">

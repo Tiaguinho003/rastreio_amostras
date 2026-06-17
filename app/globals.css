@@ -15137,9 +15137,62 @@ body:has(.app-modal-backdrop) .prospector-fab {
   box-shadow: none;
 }
 
-/* Variante select (Padrao): box clicavel + chevron a direita. */
+/* Variante select (Padrao/Aspecto/Catacao/Certificado/Safra): box clicavel,
+   chips numa UNICA linha + bolinha de total + chevron a direita. Nunca quebra
+   (nowrap) — o excesso de chips colapsa num "+N" via JS. */
 .samples-filter-multi--select {
   cursor: pointer;
+  flex-wrap: nowrap;
+}
+
+/* Fila horizontal de chips selecionados dentro do box fechado. Ocupa o espaco
+   que sobra (flex:1), nunca quebra, e o que passa da largura fica oculto — o
+   "+N" (calculado no JS) cobre o excesso. */
+.samples-filter-multi-chips {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.3rem;
+  overflow: hidden;
+}
+
+/* Tokens label-only (sem botao "×") dentro do select: padding simetrico, nao
+   encolhem. Tambem aplicado ao mirror de medicao pra a largura bater 1:1. */
+.samples-filter-multi-chips .samples-filter-token,
+.samples-filter-multi-measure .samples-filter-token {
+  flex-shrink: 0;
+  padding: 0.18rem 0.5rem;
+}
+
+/* "+N": quantos selecionados nao couberam na linha. Pill neutra, discreta. */
+.samples-filter-multi-more {
+  flex-shrink: 0;
+  padding: 0.1rem 0.34rem;
+  border-radius: 999px;
+  background: #eef3ec;
+  color: #5a6b5e;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* Mirror invisivel de medicao: renderiza TODOS os chips no tamanho natural fora
+   do fluxo, pra o JS ler as larguras sem depender do estado ja recortado (senao
+   o calculo entraria em loop). Nunca visivel nem clicavel. */
+.samples-filter-multi-measure {
+  position: absolute;
+  top: 0;
+  left: -9999px;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .samples-filter-multi-placeholder {

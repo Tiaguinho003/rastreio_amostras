@@ -1,12 +1,17 @@
 'use client';
 
 // Filtro multi-selecao de um campo de classificacao (Padrao/Aspecto/Catacao/
-// Certificado) no modal de /samples. As opcoes sao os valores distintos
-// canonicos existentes (carregados sob demanda). Os selecionados ficam como
-// chips DENTRO do campo; um clique abre o dropdown com a checklist (busca
-// aparece quando ha muitas opcoes).
+// Certificado/Safra) no modal de /samples. As opcoes sao os valores distintos
+// canonicos existentes (carregados sob demanda).
+//
+// Card FECHADO: os valores selecionados ficam enfileirados numa UNICA linha
+// horizontal (sem quebrar); o que nao couber na largura colapsa num "+N"
+// (medido via ResizeObserver + um mirror invisivel) e uma bolinha verde a
+// direita mostra o total selecionado. Clicar abre o dropdown com a checklist.
+// A busca so aparece quando `searchable` (hoje so a Catacao) e ha opcoes
+// suficientes; os demais campos tem checklist seca.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 type Props = {
   /** Rotulo do campo (ex.: "Padrão", "Aspecto"). */
@@ -19,6 +24,8 @@ type Props = {
   selected: string[];
   /** Carregando as opcoes. */
   loading?: boolean;
+  /** Mostra a busca no dropdown (so Catacao). Demais campos: checklist seca. */
+  searchable?: boolean;
   onChange: (next: string[]) => void;
 };
 
@@ -30,11 +37,17 @@ export function ClassificationFilterField({
   options,
   selected,
   loading = false,
+  searchable = false,
   onChange,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const chipsRowRef = useRef<HTMLDivElement | null>(null);
+  const measureRef = useRef<HTMLDivElement | null>(null);
+  // Quantos chips cabem na linha; o restante vira "+N". Comeca otimista
+  // (todos) e o efeito de medicao ajusta antes da pintura.
+  const [visibleCount, setVisibleCount] = useState(selected.length);
 
   useEffect(() => {
     if (!open) return;
@@ -57,19 +70,68 @@ export function ClassificationFilterField({
     };
   }, [open]);
 
+  // Mede quantos chips cabem em UMA linha. As larguras saem do mirror invisivel
+  // (renderiza todos os chips no tamanho natural), comparadas contra a largura
+  // util da fila visivel. Recalcula quando muda a selecao ou a largura do campo.
+  useLayoutEffect(() => {
+    const row = chipsRowRef.current;
+    const measure = measureRef.current;
+    if (!row || !measure || selected.length === 0) {
+      return;
+    }
+
+    function recompute() {
+      if (!row || !measure) return;
+      const available = row.clientWidth;
+      const chipEls = Array.from(measure.querySelectorAll<HTMLElement>('[data-chip]'));
+      const moreEl = measure.querySelector<HTMLElement>('[data-more]');
+      const rowStyles = window.getComputedStyle(row);
+      const gap = Number.parseFloat(rowStyles.columnGap || rowStyles.gap || '0') || 0;
+      const moreWidth = moreEl ? moreEl.offsetWidth : 0;
+
+      // Cabe tudo? Sem "+N".
+      let totalWidth = 0;
+      for (let i = 0; i < chipEls.length; i += 1) {
+        totalWidth += (i > 0 ? gap : 0) + chipEls[i].offsetWidth;
+      }
+      if (totalWidth <= available) {
+        setVisibleCount(selected.length);
+        return;
+      }
+
+      // Ha overflow: encaixa o maximo reservando espaco pro "+N".
+      let used = 0;
+      let count = 0;
+      for (let i = 0; i < chipEls.length; i += 1) {
+        const next = used + (i > 0 ? gap : 0) + chipEls[i].offsetWidth;
+        if (next + gap + moreWidth <= available) {
+          used = next;
+          count += 1;
+        } else {
+          break;
+        }
+      }
+      // Sempre mostra ao menos 1 chip (clipado pelo overflow se for o caso).
+      setVisibleCount(Math.max(count, 1));
+    }
+
+    recompute();
+    const observer = new ResizeObserver(recompute);
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [selected]);
+
   const normalizedSearch = search.trim().toLowerCase();
   const filtered = normalizedSearch
     ? options.filter((option) => option.toLowerCase().includes(normalizedSearch))
     : options;
-  const showSearch = options.length > SEARCH_THRESHOLD;
+  const showSearch = searchable && options.length > SEARCH_THRESHOLD;
 
   function toggle(value: string) {
     onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value]);
   }
 
-  function remove(value: string) {
-    onChange(selected.filter((v) => v !== value));
-  }
+  const hiddenCount = selected.length - visibleCount;
 
   return (
     <div className="samples-filter-field" ref={wrapRef}>
@@ -81,6 +143,7 @@ export function ClassificationFilterField({
           tabIndex={0}
           aria-haspopup="listbox"
           aria-expanded={open}
+          aria-label={selected.length > 0 ? `${label}: ${selected.length} selecionado(s)` : label}
           onClick={() => setOpen((value) => !value)}
           onKeyDown={(event) => {
             if (event.key === 'Enter' || event.key === ' ') {
@@ -92,27 +155,43 @@ export function ClassificationFilterField({
           {selected.length === 0 ? (
             <span className="samples-filter-multi-placeholder">{placeholder}</span>
           ) : (
-            selected.map((value) => (
-              <span key={value} className="samples-filter-token">
-                <span className="samples-filter-token-label">{value}</span>
-                <button
-                  type="button"
-                  className="samples-filter-token-remove"
-                  aria-label={`Remover ${label}: ${value}`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    remove(value);
-                  }}
-                >
-                  ×
-                </button>
-              </span>
-            ))
+            <div className="samples-filter-multi-chips" ref={chipsRowRef}>
+              {selected.slice(0, visibleCount).map((value) => (
+                <span key={value} className="samples-filter-token" data-chip>
+                  <span className="samples-filter-token-label">{value}</span>
+                </span>
+              ))}
+              {hiddenCount > 0 ? (
+                <span className="samples-filter-multi-more">+{hiddenCount}</span>
+              ) : null}
+            </div>
           )}
+
+          {selected.length > 0 ? (
+            <span className="samples-filter-retract-count" aria-hidden="true">
+              {selected.length}
+            </span>
+          ) : null}
+
           <svg className="samples-filter-multi-chevron" viewBox="0 0 24 24" aria-hidden="true">
             <path d="m6 9 6 6 6-6" />
           </svg>
         </div>
+
+        {/* Mirror invisivel: so pra medir a largura natural de cada chip e do
+            "+N". Fora do fluxo visivel (CSS), nunca aparece nem e lido por AT. */}
+        {selected.length > 0 ? (
+          <div className="samples-filter-multi-measure" ref={measureRef} aria-hidden="true">
+            {selected.map((value) => (
+              <span key={value} className="samples-filter-token" data-chip>
+                <span className="samples-filter-token-label">{value}</span>
+              </span>
+            ))}
+            <span className="samples-filter-multi-more" data-more>
+              +{selected.length}
+            </span>
+          </div>
+        ) : null}
 
         {open ? (
           <div className="samples-filter-multi-dropdown" role="listbox" aria-multiselectable="true">

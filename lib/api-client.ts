@@ -861,7 +861,10 @@ export function listSamples(
     statusGroup?: string;
     commercialStatus?: string;
     displayStatus?: string;
+    /** Safra unica (legado). Preferir `harvests`. */
     harvest?: string;
+    /** Safras (multi-selecao). CSV no backend; OR por componente. */
+    harvests?: string[];
     sacksMin?: string;
     sacksMax?: string;
     createdFrom?: string;
@@ -910,6 +913,9 @@ export function listSamples(
   if (query.statusGroup) params.set('statusGroup', query.statusGroup);
   if (query.commercialStatus) params.set('commercialStatus', query.commercialStatus);
   if (query.displayStatus) params.set('displayStatus', query.displayStatus);
+  if (query.harvests && query.harvests.length > 0) {
+    params.set('harvests', query.harvests.join(','));
+  }
   if (query.harvest) params.set('harvest', query.harvest);
   if (query.sacksMin) params.set('sacksMin', query.sacksMin);
   if (query.sacksMax) params.set('sacksMax', query.sacksMax);

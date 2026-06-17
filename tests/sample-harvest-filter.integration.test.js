@@ -84,6 +84,26 @@ if (!databaseUrl || !databaseReachable) {
     const result = await queryService.listSamples({});
     assert.equal(result.items.length, 3);
   });
+
+  test('filtro por MULTIPLAS safras (harvests) casa a UNIAO', async () => {
+    await resetDatabase();
+    await seedHarvests(['24/25', '24/25, 25/26', '26/27', '27/28']);
+
+    const result = await queryService.listSamples({ harvests: ['24/25', '27/28'] });
+
+    // '24/25' (direto), '24/25, 25/26' (componente) e '27/28' (direto); '26/27' fica de fora.
+    assert.equal(result.items.length, 3);
+    const harvests = result.items.map((item) => item.declared.harvest).sort();
+    assert.deepEqual(harvests, ['24/25', '24/25, 25/26', '27/28']);
+  });
+
+  test('harvests vazio -> nao restringe', async () => {
+    await resetDatabase();
+    await seedHarvests(['24/25', '25/26']);
+
+    const result = await queryService.listSamples({ harvests: [] });
+    assert.equal(result.items.length, 2);
+  });
 }
 
 async function canReachDatabase(databaseUrlValue) {
