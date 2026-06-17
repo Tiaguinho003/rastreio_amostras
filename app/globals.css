@@ -24952,7 +24952,7 @@ select.samples-filter-field-input {
 }
 
 .alm-lots {
-  --alm-add-w: 2.5rem;
+  --alm-add-w: 2rem;
   --alm-lots-gap: 8px;
   display: flex;
   flex-wrap: wrap;
@@ -25032,8 +25032,8 @@ select.samples-filter-field-input {
 }
 
 .alm-lot-add svg {
-  width: 1.15rem;
-  height: 1.15rem;
+  width: 0.95rem;
+  height: 0.95rem;
   fill: none;
   stroke: #fff;
   stroke-width: 2.5;
