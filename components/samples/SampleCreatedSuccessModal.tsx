@@ -90,8 +90,6 @@ export function SampleCreatedSuccessModal({
             <p className="sample-created-label">{copy.label}</p>
             <p className="sample-created-lot">{lotNumber}</p>
           </div>
-
-          <p className="sample-created-hint">Anote este número na saca antes de seguir.</p>
         </div>
 
         <div className="app-modal-actions">

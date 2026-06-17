@@ -17590,14 +17590,6 @@ select.samples-filter-field-input {
   line-height: 1;
 }
 
-.sample-created-hint {
-  margin: 0;
-  font-size: clamp(0.82rem, 2.6vw, 0.9rem);
-  color: rgba(0, 0, 0, 0.55);
-  line-height: 1.4;
-  max-width: 22ch;
-}
-
 /* Linha de confirmacao "Etiqueta impressa" no modal de sucesso da
    classificacao (auto-print best-effort apos CLASSIFICATION_COMPLETED). */
 .classification-success-print {
