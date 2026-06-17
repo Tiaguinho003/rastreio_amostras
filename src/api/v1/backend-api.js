@@ -1003,7 +1003,7 @@ export function createBackendApiV1({
       }),
 
     // ============================================================
-    // Etiqueta avulsa (card do dashboard admin).
+    // Etiqueta de Aprovacao (modal "Aprovacao" do leque "+" em /samples).
     // Fila propria (custom_print_job) — endpoint separado de proposito
     // pra nao tocar no fluxo de impressao das amostras. O print agent
     // poll este /pending alem do /print-queue/pending de sempre.
@@ -1011,12 +1011,10 @@ export function createBackendApiV1({
 
     enqueueCustomPrintJob: (input) =>
       executeApiForInput(input, async () => {
-        const actor = await resolveActorContext(input, authService);
-        if (actor.role !== USER_ROLES.ADMIN) {
-          throw new HttpError(403, 'Apenas administradores podem imprimir etiquetas avulsas', {
-            code: 'ROLE_FORBIDDEN',
-          });
-        }
+        // Qualquer sessao autenticada nao-PROSPECTOR pode enfileirar: o gate
+        // central do PROSPECTOR (allowlist em src/auth/prospector-access.js)
+        // ja barra prospector; os demais papeis acessam o modal em /samples.
+        await resolveActorContext(input, authService);
 
         const body = readRequestBody(input);
         const lines = normalizeCustomLabelLines(body.lines);

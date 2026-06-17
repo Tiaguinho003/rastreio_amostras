@@ -15,6 +15,7 @@ import {
 } from 'react';
 
 import { AppShell } from '../../components/AppShell';
+import { ApprovalLabelModal } from '../../components/ApprovalLabelModal';
 import { NewSampleModal } from '../../components/NewSampleModal';
 import { ClientLookupField } from '../../components/clients/ClientLookupField';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
@@ -536,6 +537,10 @@ function SamplesPage() {
   const [expandedSampleIds, setExpandedSampleIds] = useState<Set<string>>(() => new Set());
   const [newSampleModalOpen, setNewSampleModalOpen] = useState(false);
   const [newSampleModalMounted, setNewSampleModalMounted] = useState(false);
+  // Etiqueta de Aprovação (opção "Aprovação" do leque do "+"). Modal próprio,
+  // mesmo padrão do NewSampleModal (delayed unmount pro slide-down do sheet).
+  const [approvalModalOpen, setApprovalModalOpen] = useState(false);
+  const [approvalModalMounted, setApprovalModalMounted] = useState(false);
   // Incrementa apos criar amostra via FAB/botao pra forcar refetch da lista
   // (decisao 5.31 = a — refetch automatico).
   const [newSampleRefetchKey, setNewSampleRefetchKey] = useState(0);
@@ -793,6 +798,16 @@ function SamplesPage() {
     const t = window.setTimeout(() => setNewSampleModalMounted(false), 400);
     return () => window.clearTimeout(t);
   }, [newSampleModalOpen]);
+
+  // Delayed unmount do ApprovalLabelModal (mesma lógica do NewSampleModal).
+  useEffect(() => {
+    if (approvalModalOpen) {
+      setApprovalModalMounted(true);
+      return;
+    }
+    const t = window.setTimeout(() => setApprovalModalMounted(false), 400);
+    return () => window.clearTimeout(t);
+  }, [approvalModalOpen]);
 
   const runLoadMore = useCallback((cursor: SampleCursor) => {
     const state = loadMoreStateRef.current;
@@ -1627,6 +1642,7 @@ function SamplesPage() {
               mode="idle"
               onCreateUnit={() => setNewSampleModalOpen(true)}
               onStartBlendSelection={enterBlendMode}
+              onCreateApproval={() => setApprovalModalOpen(true)}
             />
           )}
         </div>
@@ -1816,6 +1832,14 @@ function SamplesPage() {
             setNewSampleModalOpen(false);
             setNewSampleRefetchKey((current) => current + 1);
           }}
+        />
+      ) : null}
+
+      {approvalModalMounted ? (
+        <ApprovalLabelModal
+          open={approvalModalOpen}
+          session={session}
+          onClose={() => setApprovalModalOpen(false)}
         />
       ) : null}
 

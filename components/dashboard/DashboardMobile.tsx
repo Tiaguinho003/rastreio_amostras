@@ -7,13 +7,11 @@ import { useEffect, useRef, useState } from 'react';
 import { HeaderAvatarMenu } from '../HeaderAvatarMenu';
 import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
 import { getDashboardRecentActivity } from '../../lib/api-client';
-import { getRoleLabel, isAdmin } from '../../lib/roles';
+import { getRoleLabel } from '../../lib/roles';
 import { getGreeting, getInitials } from './greeting';
 import { useOperationModal } from './useOperationModal';
 import { OperationModal } from './OperationModal';
 import { RecentActivityListMobile } from './RecentActivityListMobile';
-// Card de etiqueta avulsa no fim do dashboard (admin).
-import { CustomLabelPrintCard } from './CustomLabelPrintCard';
 import type {
   DashboardPendingResponse,
   DashboardRecentActivityItem,
@@ -221,13 +219,6 @@ export function DashboardMobile({
             <section className="dashboard-sheet-section dashboard-sheet-content is-slot-activities">
               <RecentActivityListMobile items={recentActivity} />
             </section>
-
-            {/* Etiqueta avulsa (admin) — ultimo bloco do dashboard. */}
-            {isAdmin(session.user.role) ? (
-              <section className="dashboard-sheet-section dashboard-sheet-content is-slot-custom-print">
-                <CustomLabelPrintCard session={session} />
-              </section>
-            ) : null}
           </section>
         </div>
       </section>

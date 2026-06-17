@@ -2,9 +2,10 @@
 
 // FAB de criação na página /samples (Lotes). Dois modos:
 //
-// - 'idle': mostra "+". Tap abre um LEQUE (speed-dial) de 2 opções circulares
-//   que parecem sair de DENTRO do FAB: Lote sobe direto ACIMA do FAB e Liga vai
-//   direto À ESQUERDA (canto inferior direito). Ao abrir, o FAB encolhe, vira
+// - 'idle': mostra "+". Tap abre um LEQUE (speed-dial) de 3 opções circulares
+//   em ARCO de quarto de círculo que parecem sair de DENTRO do FAB: Lote sobe
+//   ACIMA do FAB, Liga vai no DIAGONAL (45°) e Aprovação vai À ESQUERDA (canto
+//   inferior direito). Ao abrir, o FAB encolhe, vira
 //   circular e o "+" gira 45° virando "×"; a página escurece (scrim no tier de
 //   modal) e fica não-clicável. A tabbar é portalada no body (fora da isolation
 //   do shell), então o scrim — preso DENTRO do shell — não a alcança por
@@ -27,13 +28,14 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-type MenuAction = 'unit' | 'blend';
+type MenuAction = 'unit' | 'blend' | 'approval';
 
 type SampleCreateRadialFabProps =
   | {
       mode: 'idle';
       onCreateUnit: () => void;
       onStartBlendSelection: () => void;
+      onCreateApproval: () => void;
       disabled?: boolean;
     }
   | {
@@ -179,6 +181,11 @@ export function SampleCreateRadialFab(props: SampleCreateRadialFabProps) {
         // ele fecha em paralelo — sem jank visual.
         props.onCreateUnit();
         actionFiredRef.current = false;
+      } else if (action === 'approval') {
+        // ApprovalLabelModal: mesmo padrão do Lote — o backdrop do bottom-sheet
+        // cobre o leque fechando em paralelo.
+        props.onCreateApproval();
+        actionFiredRef.current = false;
       } else {
         // Mode troca pra 'blendArrow' e o early return do component
         // desmontaria o leque instantaneamente. Espera o close
@@ -241,7 +248,7 @@ export function SampleCreateRadialFab(props: SampleCreateRadialFabProps) {
             </span>
           </button>
 
-          {/* Liga — à esquerda do FAB */}
+          {/* Liga — no diagonal (45°) do FAB */}
           <button
             type="button"
             className={`fab-fan-option is-liga${open ? ' is-open' : ''}${
@@ -263,6 +270,33 @@ export function SampleCreateRadialFab(props: SampleCreateRadialFabProps) {
                 <path d="M6 4v6a4 4 0 0 0 4 4h4a4 4 0 0 0 4-4V4" />
                 <path d="M10 14v6" />
                 <path d="M14 14v6" />
+              </svg>
+            </span>
+          </button>
+
+          {/* Aprovação — à esquerda do FAB (etiqueta de aprovação) */}
+          <button
+            type="button"
+            className={`fab-fan-option is-aprovacao${open ? ' is-open' : ''}${
+              pulsingOption === 'approval' ? ' is-pulsing' : ''
+            }`}
+            aria-label="Nova etiqueta de aprovação"
+            role="menuitem"
+            tabIndex={open ? 0 : -1}
+            onClick={() => handleOptionTap('approval')}
+          >
+            <span className="fab-fan-option-label">Aprovação</span>
+            <span className="fab-fan-option-circle">
+              <svg
+                className="fab-fan-option-icon"
+                viewBox="0 0 24 24"
+                focusable="false"
+                aria-hidden="true"
+              >
+                {/* Prancheta com check (aprovação de etiqueta). */}
+                <path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2" />
+                <rect x="8" y="3" width="8" height="4" rx="1" />
+                <path d="m9 14 2 2 4-4" />
               </svg>
             </span>
           </button>

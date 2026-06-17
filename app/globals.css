@@ -5206,9 +5206,15 @@ button:disabled {
   --fab-bottom: calc(
     var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(6.3rem, 27vw, 6.8rem)
   );
-  /* Leque: tamanho do circulo da opcao + gap entre o FAB e cada opcao. */
+  /* Leque: tamanho do circulo da opcao + gap entre o FAB e cada opcao. Gap
+     dimensionado pra os 3 itens do arco (Lote/Liga/Aprovacao) caberem com
+     folga confortavel — ver --fan-radius. */
   --fan-opt-size: clamp(44px, 12vw, 50px);
-  --fan-gap: clamp(11px, 3vw, 15px);
+  --fan-gap: clamp(18px, 5vw, 24px);
+  /* Raio centro-a-centro do arco do leque. Lote (topo) e Aprovacao (esquerda)
+     sao ortogonais ao FAB; Liga fica no diagonal a 45° usando este raio
+     (offset --fan-radius * 0.7071 em cada eixo). */
+  --fan-radius: calc(var(--fab-size) / 2 + var(--fan-gap) + var(--fan-opt-size) / 2);
 }
 
 /* Sheet E cards em BRANCO puro `#ffffff` (a pedido do usuario, 2026-06-16; vai
@@ -5398,13 +5404,16 @@ button:disabled {
   }
 }
 
+/* Entrada do sheet (Lotes / Clientes / Informe, que reusam .samples-page-v2-sheet):
+   SO translateY, SEM opacity. Com opacity:0 o conteudo entrava em 2 fases
+   ("pagina vazia -> preenche", revelando o fundo) no load; opaco desde o 1o frame
+   elimina isso e mantem so o slide sutil. Mesmo racional do dashboard
+   (dashboard-sheet-rise). */
 @keyframes samples-sheet-in {
   from {
-    opacity: 0;
     transform: translateY(20px);
   }
   to {
-    opacity: 1;
     transform: translateY(0);
   }
 }
@@ -7235,13 +7244,14 @@ button:disabled {
   }
 }
 
+/* Entrada do conteudo do detalhe (.sdv-content): SO translateY, SEM opacity —
+   opaco desde o 1o frame pra nao aparecer "corpo vazio -> preenche" no load
+   (mesmo racional do dashboard-sheet-rise / samples-sheet-in). */
 @keyframes sdv-card-in {
   from {
-    opacity: 0;
     transform: translateY(20px);
   }
   to {
-    opacity: 1;
     transform: translateY(0);
   }
 }
@@ -24281,13 +24291,14 @@ select.samples-filter-field-input {
   }
 }
 
+/* Entrada do form card de Nova Amostra: SO translateY, SEM opacity — opaco
+   desde o 1o frame pra nao aparecer "pagina vazia -> preenche" no load (mesmo
+   racional do dashboard-sheet-rise / samples-sheet-in). */
 @keyframes nsv2-form-card-in {
   from {
-    opacity: 0;
     transform: translateY(20px);
   }
   to {
-    opacity: 1;
     transform: translateY(0);
   }
 }
@@ -30491,9 +30502,10 @@ select.samples-filter-field-input {
    Substitui o drawer vertical antigo SO no /samples. O drawer (classes
    `.fab-menu-*` / `.fab-radial-backdrop`) continua em uso pelo
    InformeCreateRadialFab — NAO mexer la. Aqui: scrim escuro no tier de modal
-   (cobre a tabbar e bloqueia cliques) + 2 opcoes circulares (Lote ACIMA, Liga
-   A ESQUERDA) que emergem do FAB. Posicoes ancoradas nas vars `--fab-*` /
-   `--fan-*` (herdadas de `.samples-page-v2:not(.informe-commercial-page)`). O
+   (cobre a tabbar e bloqueia cliques) + 3 opcoes circulares em ARCO de quarto
+   de circulo (Lote ACIMA, Liga no DIAGONAL a 45°, Aprovacao A ESQUERDA) que
+   emergem do FAB. Posicoes ancoradas nas vars `--fab-*` / `--fan-*` /
+   `--fan-radius` (herdadas de `.samples-page-v2:not(.informe-commercial-page)`). O
    encolher/arredondar do FAB esta em `.cv2-fab.is-expanded:not(.is-informe-fab)`.
 */
 
@@ -30549,17 +30561,31 @@ select.samples-filter-field-input {
     transform 0.36s cubic-bezier(0.34, 1.46, 0.5, 1);
 }
 
-/* Lote: ACIMA do FAB (centro horizontal alinhado ao FAB). transform-origin no
-   canto inferior-direito do botao (onde fica o circulo, logo acima do FAB). */
+/* Lote: ACIMA do FAB (centro horizontal alinhado ao FAB, topo do arco).
+   transform-origin no canto inferior-direito do botao (onde fica o circulo,
+   logo acima do FAB). */
 .fab-fan-option.is-lote {
   right: calc(var(--fab-right) + (var(--fab-size) - var(--fan-opt-size)) / 2);
   bottom: calc(var(--fab-bottom) + var(--fab-size) + var(--fan-gap));
   transform-origin: right bottom;
 }
 
-/* Liga: A ESQUERDA do FAB (centro vertical alinhado ao FAB). transform-origin
-   na direita-centro (lado do FAB). */
+/* Liga: DIAGONAL a 45° (acima-esquerda), meio do arco. Offset igual em x e y
+   = --fan-radius * cos45 (0.7071). transform-origin no canto inferior-direito
+   (em direcao ao FAB, que fica abaixo-direita desta opcao). */
 .fab-fan-option.is-liga {
+  right: calc(
+    var(--fab-right) + var(--fab-size) / 2 + var(--fan-radius) * 0.7071 - var(--fan-opt-size) / 2
+  );
+  bottom: calc(
+    var(--fab-bottom) + var(--fab-size) / 2 + var(--fan-radius) * 0.7071 - var(--fan-opt-size) / 2
+  );
+  transform-origin: right bottom;
+}
+
+/* Aprovacao: A ESQUERDA do FAB (centro vertical alinhado ao FAB, base do arco).
+   transform-origin na direita-centro (lado do FAB). */
+.fab-fan-option.is-aprovacao {
   right: calc(var(--fab-right) + var(--fab-size) + var(--fan-gap));
   bottom: calc(var(--fab-bottom) + (var(--fab-size) - var(--fan-opt-size)) / 2);
   transform-origin: right center;
@@ -30570,11 +30596,18 @@ select.samples-filter-field-input {
   transform: scale(1);
 }
 
-/* Liga chega ~40ms depois (stagger sutil, so na abertura). */
+/* Stagger sutil na abertura, varrendo do topo (Lote, 0ms) pro diagonal (Liga,
+   ~40ms) ate a esquerda (Aprovacao, ~80ms). */
 .fab-fan-option.is-liga.is-open {
   transition:
     opacity 0.2s ease 0.04s,
     transform 0.36s cubic-bezier(0.34, 1.46, 0.5, 1) 0.04s;
+}
+
+.fab-fan-option.is-aprovacao.is-open {
+  transition:
+    opacity 0.2s ease 0.08s,
+    transform 0.36s cubic-bezier(0.34, 1.46, 0.5, 1) 0.08s;
 }
 
 .fab-fan-option-label {
@@ -30652,7 +30685,8 @@ select.samples-filter-field-input {
 @media (prefers-reduced-motion: reduce) {
   .fab-fan-option,
   .fab-fan-option.is-open,
-  .fab-fan-option.is-liga.is-open {
+  .fab-fan-option.is-liga.is-open,
+  .fab-fan-option.is-aprovacao.is-open {
     transform: none;
     transition: opacity 0.16s ease;
   }
@@ -31555,174 +31589,4 @@ body.is-selection-mode .hero-search-filter-btn {
 
 .spv2-card.is-blend-selectable .spv2-card-chevron {
   display: none;
-}
-
-/* ══════════════════════════════════════════════════════════════
-   TEMPORARIO: card de etiqueta avulsa (CustomLabelPrintCard) —
-   ultimo bloco do dashboard admin. Remover este bloco junto com o card.
-   ══════════════════════════════════════════════════════════════ */
-.clp-card {
-  background: linear-gradient(180deg, #ffffff 0%, #f9f7f2 100%);
-  border-radius: clamp(16px, 4.5vw, 20px);
-  border-top: 1px solid rgba(255, 255, 255, 0.9);
-  box-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.06),
-    0 6px 16px rgba(0, 0, 0, 0.08),
-    0 12px 28px rgba(0, 0, 0, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  padding: clamp(16px, 5vw, 20px);
-}
-
-.clp-head {
-  display: flex;
-  align-items: center;
-  gap: clamp(10px, 3vw, 12px);
-  margin-bottom: clamp(14px, 4vw, 18px);
-}
-
-.clp-badge {
-  flex-shrink: 0;
-  width: clamp(40px, 11vw, 46px);
-  height: clamp(40px, 11vw, 46px);
-  border-radius: clamp(12px, 3.4vw, 14px);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(var(--brand-green-rgb), 0.1);
-  color: var(--color-accent-strong);
-}
-
-.clp-badge svg {
-  width: 22px;
-  height: 22px;
-}
-
-.clp-head-text {
-  min-width: 0;
-}
-
-.clp-title {
-  margin: 0;
-  font-size: var(--font-size-lg);
-  font-weight: 600;
-  color: var(--color-ink);
-  line-height: 1.2;
-}
-
-.clp-subtitle {
-  margin: 2px 0 0;
-  font-size: var(--font-size-xs);
-  color: var(--color-muted);
-}
-
-.clp-form {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(10px, 3vw, 12px);
-}
-
-.clp-field {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.clp-field-label {
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  color: var(--color-muted);
-  letter-spacing: 0.01em;
-}
-
-.clp-input {
-  width: 100%;
-  box-sizing: border-box;
-  padding: clamp(10px, 3vw, 12px) clamp(12px, 3.5vw, 14px);
-  border: 1px solid var(--color-line);
-  border-radius: 12px;
-  background: var(--color-surface);
-  color: var(--color-ink);
-  font-family: inherit;
-  font-size: var(--font-size-base);
-  -webkit-appearance: none;
-  appearance: none;
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
-}
-
-.clp-input::placeholder {
-  color: var(--color-muted);
-  opacity: 0.7;
-}
-
-.clp-input:focus {
-  outline: none;
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px rgba(var(--brand-green-rgb), 0.14);
-}
-
-.clp-error {
-  margin: 0;
-  font-size: var(--font-size-sm);
-  color: var(--color-danger);
-}
-
-.clp-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: clamp(4px, 2vw, 6px);
-}
-
-.clp-clear {
-  flex-shrink: 0;
-  padding: clamp(11px, 3vw, 13px) clamp(14px, 4vw, 18px);
-  border: 1px solid var(--color-line);
-  border-radius: 12px;
-  background: transparent;
-  color: var(--color-muted);
-  font-family: inherit;
-  font-size: var(--font-size-base);
-  font-weight: 600;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.12s ease;
-}
-
-.clp-clear:active {
-  transform: scale(0.96);
-}
-
-.clp-submit {
-  flex: 1;
-  padding: clamp(12px, 3.4vw, 14px) clamp(16px, 4vw, 20px);
-  border: 0;
-  border-radius: 12px;
-  background: var(--brand-green);
-  color: #fff;
-  font-family: inherit;
-  font-size: var(--font-size-md);
-  font-weight: 600;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 4px 12px rgba(var(--brand-green-rgb), 0.28);
-  transition:
-    transform 0.12s ease,
-    box-shadow 0.15s ease;
-}
-
-.clp-submit:active {
-  transform: scale(0.97);
-  box-shadow: 0 2px 6px rgba(var(--brand-green-rgb), 0.22);
-}
-
-.clp-submit:disabled,
-.clp-clear:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.clp-submit:disabled:active {
-  transform: none;
 }
