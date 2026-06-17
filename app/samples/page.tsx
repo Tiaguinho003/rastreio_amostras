@@ -38,6 +38,7 @@ import { buildHarvestPresets } from '../../lib/sample-identification';
 import { useToast } from '../../lib/toast/ToastProvider';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { ClientSummary, SampleEligibilityReason, SampleSnapshot } from '../../lib/types';
+import { getRouteLeftBehind } from '../../lib/navigation/route-history';
 import { useRequireAuth } from '../../lib/use-auth';
 import { NON_PROSPECTOR_ROLES } from '../../lib/roles';
 
@@ -308,9 +309,15 @@ function getInitialFilterSection(filters: HiddenFilters): FilterSectionId {
   );
 }
 
-/* ── Snapshot do estado da lista (preserva scroll e itens ao voltar da detail) ── */
+/* ── Snapshot do estado da lista (preserva scroll, itens, busca, filtros e cards
+   expandidos ao sair da pagina). Salvo CONTINUAMENTE (debounce) enquanto o user
+   esta na Lotes — cobre QUALQUER saida, nao so o card. Na volta: vir do DETALHE
+   da amostra restaura sempre (permanente); vir de outra rota restaura so dentro
+   da janela do TTL (contada desde que saiu da Lotes). ── */
 
 const SAMPLES_SNAPSHOT_KEY = 'samples-list-snapshot-v2';
+// Janela de validade SO pra retorno que NAO veio do detalhe da amostra.
+const SAMPLES_SNAPSHOT_TTL_MS = 30 * 60 * 1000;
 
 interface SamplesSnapshot {
   items: SampleSnapshot[];
@@ -320,20 +327,23 @@ interface SamplesSnapshot {
   searchInput: string;
   appliedSearch: string;
   appliedHiddenFilters: HiddenFilters;
-  // Ids dos cards expandidos (versao estendida) no momento de sair pra detail.
+  // Ids dos cards expandidos (versao estendida) no momento de sair.
   expandedSampleIds: string[];
+  // Hora do ultimo save (≈ hora de sair da Lotes). Usada pelo TTL acima.
+  savedAt: number;
 }
 
 function readSamplesSnapshot(): SamplesSnapshot | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = window.sessionStorage.getItem(SAMPLES_SNAPSHOT_KEY);
-    // Consume-once: snapshot sobrevive apenas uma leitura. SEM expiracao por
-    // tempo — vale ate ser consumido aqui ou limpo (busca/filtro/deep-link).
-    window.sessionStorage.removeItem(SAMPLES_SNAPSHOT_KEY);
+    // Leitura pura (NAO consome): o snapshot persiste e e re-salvo continuamente
+    // enquanto o user esta na Lotes. A remocao e explicita (clearSamplesSnapshot)
+    // no descarte pelo TTL, em deep-link conflitante e ao mudar busca/filtro.
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || !Array.isArray(parsed.items)) return null;
+    if (typeof parsed.savedAt !== 'number') return null;
     // Snapshots antigos podem nao ter campos novos de HiddenFilters (ex.:
     // padroes). Mescla com os defaults pra garantir arrays/strings validos.
     parsed.appliedHiddenFilters = {
@@ -484,6 +494,17 @@ function SamplesPage() {
     if (!snap) return null;
     // O deep-link da URL tem prioridade sobre um snapshot com status diferente.
     if (urlDisplayStatus && snap.appliedHiddenFilters.displayStatus !== urlDisplayStatus) {
+      clearSamplesSnapshot();
+      return null;
+    }
+    // Dois regimes: voltar do DETALHE da amostra (/samples/:id) restaura sempre
+    // (permanente); voltar de qualquer outra rota restaura so dentro do TTL,
+    // contado desde que saiu da Lotes. `getRouteLeftBehind()` lido aqui no render
+    // devolve a rota de origem (ver lib/navigation/route-history). `/samples/new`
+    // NAO conta como detalhe.
+    const prev = getRouteLeftBehind();
+    const cameFromDetail = !!prev && /^\/samples\/[^/]+$/.test(prev) && prev !== '/samples/new';
+    if (!cameFromDetail && Date.now() - snap.savedAt > SAMPLES_SNAPSHOT_TTL_MS) {
       clearSamplesSnapshot();
       return null;
     }
@@ -1116,6 +1137,9 @@ function SamplesPage() {
     setActiveFilterSection('owner');
   }
 
+  // Flush sincrono do snapshot — cinto de seguranca pro caso "rolei e cliquei
+  // num card em <200ms" (antes do save continuo debounced gravar). Cabeado no
+  // onClick do card. As demais saidas dependem do save continuo abaixo.
   const saveSnapshotBeforeLeave = useCallback(() => {
     writeSamplesSnapshot({
       items: samplesState.items,
@@ -1126,6 +1150,7 @@ function SamplesPage() {
       appliedSearch,
       appliedHiddenFilters,
       expandedSampleIds: Array.from(expandedSampleIds),
+      savedAt: Date.now(),
     });
   }, [
     samplesState.items,
@@ -1136,6 +1161,69 @@ function SamplesPage() {
     appliedHiddenFilters,
     expandedSampleIds,
   ]);
+
+  // Save CONTINUO (debounce 250ms): persiste o snapshot em qualquer mudanca
+  // relevante, pra preservar o estado ao sair por QUALQUER rota (tabbar, seta,
+  // perfil, voltar do navegador) — nao so pelo card. Pula loading-initial/error
+  // pra nao gravar lista vazia por cima de um snapshot bom. Espelha a Clientes.
+  useEffect(() => {
+    if (samplesState.status === 'loading-initial' || samplesState.status === 'error') return;
+    const handle = window.setTimeout(() => {
+      writeSamplesSnapshot({
+        items: samplesState.items,
+        total: samplesState.total,
+        nextCursor: samplesState.nextCursor,
+        scrollTop: readListScrollTop(samplesScrollRef.current),
+        searchInput,
+        appliedSearch,
+        appliedHiddenFilters,
+        expandedSampleIds: Array.from(expandedSampleIds),
+        savedAt: Date.now(),
+      });
+    }, 250);
+    return () => window.clearTimeout(handle);
+  }, [
+    samplesState.items,
+    samplesState.total,
+    samplesState.nextCursor,
+    samplesState.status,
+    searchInput,
+    appliedSearch,
+    appliedHiddenFilters,
+    expandedSampleIds,
+  ]);
+
+  // Scroll nao e estado React — listener dedicado (debounce 200ms) mantem o
+  // scrollTop do snapshot fresco. Escuta window E o container (so o scroller
+  // real dispara); readListScrollTop pega o valor certo (window no mobile,
+  // container no desktop). So atualiza um snapshot ja existente.
+  useEffect(() => {
+    const container = samplesScrollRef.current;
+    let timer: number | null = null;
+    function persistScrollTop() {
+      const raw = window.sessionStorage.getItem(SAMPLES_SNAPSHOT_KEY);
+      if (!raw) return;
+      try {
+        const snap = JSON.parse(raw) as SamplesSnapshot;
+        snap.scrollTop = readListScrollTop(samplesScrollRef.current);
+        snap.savedAt = Date.now();
+        window.sessionStorage.setItem(SAMPLES_SNAPSHOT_KEY, JSON.stringify(snap));
+      } catch {
+        /* ignora */
+      }
+    }
+    function onScroll() {
+      if (timer !== null) window.clearTimeout(timer);
+      timer = window.setTimeout(persistScrollTop, 200);
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    container?.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      container?.removeEventListener('scroll', onScroll);
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [samplesState.items.length]);
 
   function openFilters(trigger: HTMLButtonElement) {
     lastFilterTriggerRef.current = trigger;
