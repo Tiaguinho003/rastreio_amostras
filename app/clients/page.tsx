@@ -1083,11 +1083,7 @@ function ClientsPage() {
               </div>
             </div>
           ) : (
-            <div
-              ref={clientsScrollRef}
-              className={`spv2-list-scroll${clientsState.status === 'loading-more' ? ' is-loading-more' : ''}`}
-              tabIndex={-1}
-            >
+            <div ref={clientsScrollRef} className="spv2-list-scroll" tabIndex={-1}>
               {groupedDisplay.map((node) => {
                 if (node.kind === 'divider') {
                   return (
@@ -1155,24 +1151,15 @@ function ClientsPage() {
                   </button>
                 );
               })}
-              {/* 14.6.D: sentinel + spinner. Quando loading-more, scroll trava
-                  via classe is-loading-more no parent (CSS overflow:hidden) e
-                  spinner anima centrado abaixo dos cards. */}
+              {/* Carregar mais: 3 skeleton cards acima (sem travar o scroll),
+                  igual /samples. O sentinel fino abaixo dispara o IntersectionObserver. */}
+              {clientsState.status === 'loading-more'
+                ? Array.from({ length: 3 }).map((_, i) => (
+                    <div key={`skel-${i}`} className="spv2-skeleton-card" aria-hidden />
+                  ))
+                : null}
               {clientsState.nextCursor ? (
-                <div ref={loadMoreRef} className="cv2-load-more-sentinel">
-                  {clientsState.status === 'loading-more' ? (
-                    <>
-                      <span
-                        className="cv2-load-more-spinner"
-                        aria-hidden="true"
-                        role="presentation"
-                      />
-                      <span className="cv2-load-more-text">
-                        Carregando proximos {CLIENT_PAGE_LIMIT}...
-                      </span>
-                    </>
-                  ) : null}
-                </div>
+                <div ref={loadMoreRef} className="cv2-load-more-sentinel" aria-hidden />
               ) : null}
             </div>
           )}
