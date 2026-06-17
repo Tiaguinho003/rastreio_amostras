@@ -4564,6 +4564,19 @@ button:disabled {
   }
 }
 
+/* Igual ao dashboard-sheet-in, mas SEM opacity: usado no dashboard admin mobile
+   (.dashboard-mobile .dashboard-sheet) pra o sheet entrar OPACO desde o 1o frame
+   — cobrindo o fundo claro dos 40% de baixo do shell — e nao revelar a "meia
+   tela branca" no load. Mantem so o slide sutil. */
+@keyframes dashboard-sheet-rise {
+  from {
+    transform: translateY(20px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
 @keyframes dashboard-card-in {
   from {
     opacity: 0;
@@ -19339,6 +19352,13 @@ select.samples-filter-field-input {
        do conteudo e preenche a tela quando o conteudo e curto. */
     overflow: visible;
     flex: 1 0 auto;
+    /* Entrada SEM opacity (override do dashboard-sheet-in herdado da regra base
+       .dashboard-sheet): o sheet opaco desde o 1o frame cobre o fundo claro dos
+       40% de baixo do shell (.is-dashboard-route). Com opacity:0 (animacao
+       antiga) o fundo aparecia no load -> "meia tela branca, depois completa".
+       Mantem so o slide sutil (translateY). Escopo admin mobile; o prospector
+       segue no dashboard-sheet-in base. */
+    animation: dashboard-sheet-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
   }
 
   /* Scroll simples da pagina inteira: a saudacao + avatar (hero), a busca
