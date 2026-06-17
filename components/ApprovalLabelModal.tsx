@@ -69,6 +69,27 @@ const FIELDS: FieldConfig[] = [
   },
 ];
 
+// Disposição dos campos no formulário (linhas; pares ficam lado a lado). `weight`
+// = fração da largura da linha (colunas desiguais via grid-template-columns em
+// `fr`). Referencia as keys de FIELDS — a etiqueta IMPRESSA não depende desta
+// ordem (o print agent posiciona cada campo pelo rótulo, não pela ordem).
+const FORM_ROWS: Array<Array<{ key: string; weight: number }>> = [
+  [
+    { key: 'compra', weight: 1 },
+    { key: 'fechamento', weight: 1 },
+  ],
+  [
+    { key: 'produtor', weight: 3 },
+    { key: 'sacas', weight: 2 },
+  ],
+  [{ key: 'armazem', weight: 1 }],
+  [{ key: 'lote', weight: 1 }],
+];
+
+const FIELD_BY_KEY: Record<string, FieldConfig> = Object.fromEntries(
+  FIELDS.map((field) => [field.key, field])
+);
+
 function emptyValues(): Record<string, string> {
   const acc: Record<string, string> = {};
   for (const field of FIELDS) {
@@ -199,31 +220,40 @@ export function ApprovalLabelModal({ open, onClose, session }: ApprovalLabelModa
         dragToDismiss
       >
         <div className="new-sample-step-content">
-          <div className="nsv2-form-grid">
-            {FIELDS.map((field) => (
-              <div key={field.key} className="nsv2-grid-full">
-                <label className="nsv2-field">
-                  <span className="nsv2-field-label">{field.uiLabel}</span>
-                  <div className="nsv2-field-input-wrap">
-                    <input
-                      className="nsv2-field-input"
-                      type="text"
-                      inputMode={field.numeric ? 'numeric' : 'text'}
-                      value={values[field.key]}
-                      onChange={(event) =>
-                        setField(
-                          field.key,
-                          field.noSpaces
-                            ? event.target.value.replace(/\s/g, '')
-                            : event.target.value
-                        )
-                      }
-                      placeholder={field.placeholder}
-                      maxLength={field.maxChars ?? 80}
-                      autoComplete="off"
-                    />
-                  </div>
-                </label>
+          <div className="alm-form">
+            {FORM_ROWS.map((row) => (
+              <div
+                key={row.map((cell) => cell.key).join('-')}
+                className="alm-form-row"
+                style={{ gridTemplateColumns: row.map((cell) => `${cell.weight}fr`).join(' ') }}
+              >
+                {row.map((cell) => {
+                  const field = FIELD_BY_KEY[cell.key];
+                  return (
+                    <label key={field.key} className="nsv2-field alm-field">
+                      <span className="nsv2-field-label">{field.uiLabel}</span>
+                      <div className="nsv2-field-input-wrap">
+                        <input
+                          className="nsv2-field-input alm-input"
+                          type="text"
+                          inputMode={field.numeric ? 'numeric' : 'text'}
+                          value={values[field.key]}
+                          onChange={(event) =>
+                            setField(
+                              field.key,
+                              field.noSpaces
+                                ? event.target.value.replace(/\s/g, '')
+                                : event.target.value
+                            )
+                          }
+                          placeholder={field.placeholder}
+                          maxLength={field.maxChars ?? 80}
+                          autoComplete="off"
+                        />
+                      </div>
+                    </label>
+                  );
+                })}
               </div>
             ))}
           </div>

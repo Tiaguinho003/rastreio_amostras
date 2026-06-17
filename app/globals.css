@@ -24981,6 +24981,32 @@ select.samples-filter-field-input {
   position: relative;
 }
 
+/* Etiqueta de Aprovação — disposição própria dos campos em linhas (pares lado a
+   lado), SEM tocar no .nsv2-form-grid compartilhado com o NewSampleModal. Cada
+   .alm-form-row é um grid próprio; as colunas (em fr) vêm do style inline por
+   linha (FORM_ROWS no ApprovalLabelModal). O min-width:0 nos campos e no input
+   é o que segura a largura FIXA: sem ele, texto longo (ou o tamanho intrínseco
+   do input) esticaria a coluna. Input de linha única já rola lateralmente por
+   conta própria — o campo não cresce em altura nem largura. */
+.alm-form {
+  display: grid;
+  gap: clamp(10px, 2.8vw, 14px);
+}
+
+.alm-form-row {
+  display: grid;
+  gap: clamp(8px, 2.5vw, 10px);
+  align-items: start;
+}
+
+.alm-form-row > .alm-field {
+  min-width: 0;
+}
+
+.alm-input {
+  min-width: 0;
+}
+
 .nsv2-field {
   display: flex;
   flex-direction: column;
