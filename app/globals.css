@@ -6274,7 +6274,9 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
    SVG amarelo com pulsacao (opacidade + scale). */
 .cv2-card-incomplete-badge {
   position: absolute;
-  top: 6px;
+  /* top negativo: a ponta superior do icone POPA um pouco acima da borda do
+     card (o card e overflow:visible). Antes ficava todo dentro (top:6px). */
+  top: -5px;
   right: 6px;
   /* 14.6.J: -1/3 do tamanho de 14.6.H (36 -> 24px). */
   width: 24px;
