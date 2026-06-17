@@ -30,6 +30,7 @@ import type {
   ClientUnitSummary,
   ClientStatus,
   ClientSummary,
+  ClientPersonType,
   UserLookupItem,
 } from '../../lib/types';
 import { useRequireAuth } from '../../lib/use-auth';
@@ -141,36 +142,11 @@ function clientRoleSummary(client: ClientSummary | null) {
   return 'Sem papel operacional';
 }
 
-// brand-green / brand-green-soft / brand-green-deep (paleta Safras)
-const AVATAR_COLORS = [
-  '#1f5d43',
-  '#2f6b4a',
-  '#173c30',
-  '#0D47A1',
-  '#1565C0',
-  '#4E342E',
-  '#5D4037',
-  '#6D4C41',
-  '#AD1457',
-  '#C62828',
-  '#6A1B9A',
-  '#4527A0',
-  '#00695C',
-  '#00838F',
-  '#E65100',
-];
-
-function hashName(name: string): number {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = (hash << 5) - hash + name.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash);
-}
-
-function getAvatarColor(name: string): string {
-  return AVATAR_COLORS[hashName(name) % AVATAR_COLORS.length];
+// Avatar de iniciais do cliente: VERDE por TIPO (decisao 2026-06) — PJ verde
+// escuro (brand-green), PF verde mais claro (brand-green-soft). O gradiente +
+// sombra do `.cv2-card-avatar` derivam de `--avatar-color`.
+function getClientAvatarColor(personType: ClientPersonType): string {
+  return personType === 'PF' ? '#2f8a5e' : '#1f5d43';
 }
 
 function getClientInitials(name: string): string {
@@ -1103,7 +1079,7 @@ function ClientsPage() {
                 }
                 const { client, index: i } = node;
                 const name = clientDisplayName(client);
-                const avatarColor = getAvatarColor(name);
+                const avatarColor = getClientAvatarColor(client.personType);
                 const initials = getClientInitials(name);
                 const incomplete = !isClientComplete(client).complete;
                 return (
@@ -1182,12 +1158,12 @@ function ClientsPage() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="cdm-header">
-              {/* 14.7.H: avatar grande do cliente volta a esquerda do header
-                  (com iniciais por hash do nome). */}
+              {/* 14.7.H: avatar grande do cliente a esquerda do header. Verde
+                  por TIPO (PJ escuro / PF claro), igual ao avatar do card. */}
               {clientsState.detail
                 ? (() => {
                     const detailName = clientDisplayName(clientsState.detail!);
-                    const detailColor = getAvatarColor(detailName);
+                    const detailColor = getClientAvatarColor(clientsState.detail!.personType);
                     const detailInitials = getClientInitials(detailName);
                     return (
                       <span

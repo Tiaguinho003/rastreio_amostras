@@ -6229,6 +6229,10 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
     0 6px 14px rgba(0, 0, 0, 0.11),
     0 14px 28px rgba(0, 0, 0, 0.06),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  /* Folga a esquerda pra "lane" da barra de status (::before) — sem ela a barra
+     encostaria no avatar. (mobile; no desktop o `padding` shorthand da media
+     query de >901px manda.) */
+  padding-left: clamp(15px, 4.5vw, 19px);
 }
 
 /* ── Client card ── */
@@ -6284,12 +6288,12 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
 @keyframes cv2-incomplete-pulse {
   0%,
   100% {
-    opacity: 0.75;
+    opacity: 0.82;
     transform: scale(1);
   }
   50% {
     opacity: 1;
-    transform: scale(1.18);
+    transform: scale(1.08);
   }
 }
 
@@ -6937,7 +6941,8 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: min(160px, 42vw);
+  /* +10% de largura vs. antes (160px / 42vw) pra o nome cobrir mais do card. */
+  max-width: min(176px, 46vw);
 }
 
 .cv2-card-type {
@@ -29797,18 +29802,31 @@ select.samples-filter-field-input {
   opacity: 0.85;
 }
 
-/* Barra esquerda laranja em cards de cliente incompleto. Mais larga +
-   gradiente vertical (mesmo padrao visual das filiais incompletas e dos
-   cards de amostra). */
-.sdv-client-card.is-incomplete,
-.cv2-card.is-incomplete {
-  position: relative;
-  border-left: 0;
-  overflow: hidden;
+/* Linha de status do card de cliente — MESMO padrao dos cards de Lotes
+   (.spv2-card-bar): barra CURTA arredondada e centralizada na esquerda (antes
+   era uma faixa de ALTURA CHEIA que contornava a lateral). VERDE = cadastro
+   completo; LARANJA = pendente (.is-incomplete). Escopado a .clients-page-v2. */
+.clients-page-v2 .cv2-card::before {
+  content: '';
+  position: absolute;
+  left: clamp(6px, 1.8vw, 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: clamp(38px, 11vw, 46px);
+  border-radius: 2px;
+  background: #2a6539;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.08);
+  z-index: 1;
+  pointer-events: none;
 }
 
-.sdv-client-card.is-incomplete::before,
-.cv2-card.is-incomplete::before {
+.clients-page-v2 .cv2-card.is-incomplete::before {
+  background: #f59e0b;
+}
+
+/* Faixa lateral de ALTURA CHEIA do `.sdv-client-card` (outro contexto) — mantida. */
+.sdv-client-card.is-incomplete::before {
   content: '';
   position: absolute;
   left: 0;
@@ -29893,9 +29911,9 @@ select.samples-filter-field-input {
 }
 
 .cv2-card-name {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  /* Bloco (nao inline-flex) pra o text-overflow:ellipsis funcionar no mobile —
+     antes o inline-flex clipava o nome SEM o "..." (o nome e so texto agora). */
+  display: block;
 }
 
 /* Toggle "Só incompletos" no header da listagem. */

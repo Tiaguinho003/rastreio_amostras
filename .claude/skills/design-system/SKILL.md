@@ -168,14 +168,14 @@ Existem dois padroes em uso (ambos validos — usar conforme o contexto do card)
 
 ### Variantes de card especificas
 
-| Classe                      | Uso                                                                                                             |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `.sdv-card`                 | Card branco padrao (sombra 3D, radius 18px) — base para detalhe de cliente/amostra                              |
-| `.sdv-card-themed`          | Card com header verde (gradient `--brand-green`) + body branco — Informacoes / Endereco / Filiais               |
-| `.sdv-card-commercial-mini` | Mini-card-filtro (Em aberto/Vendido/Perdido/Comprado), modificadores `is-open\|sold\|lost\|bought\|active\|dim` |
-| `.sdv-commercial-list-row`  | Linha de lista detalhada com barra lateral colorida via `--card-status-color`                                   |
-| `.sdv-unit-card-mini`       | Card minimalista de filial — barra lateral verde (completo) / amber (incompleto) / cinza (inativo)              |
-| `.cv2-card`                 | Card de cliente na listagem `/clients` — barra lateral amber via `::before` quando `.is-incomplete`             |
+| Classe                      | Uso                                                                                                                                                                                                                                                                                                                        |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.sdv-card`                 | Card branco padrao (sombra 3D, radius 18px) — base para detalhe de cliente/amostra                                                                                                                                                                                                                                         |
+| `.sdv-card-themed`          | Card com header verde (gradient `--brand-green`) + body branco — Informacoes / Endereco / Filiais                                                                                                                                                                                                                          |
+| `.sdv-card-commercial-mini` | Mini-card-filtro (Em aberto/Vendido/Perdido/Comprado), modificadores `is-open\|sold\|lost\|bought\|active\|dim`                                                                                                                                                                                                            |
+| `.sdv-commercial-list-row`  | Linha de lista detalhada com barra lateral colorida via `--card-status-color`                                                                                                                                                                                                                                              |
+| `.sdv-unit-card-mini`       | Card minimalista de filial — barra lateral verde (completo) / amber (incompleto) / cinza (inativo)                                                                                                                                                                                                                         |
+| `.cv2-card`                 | Card de cliente `/clients` — barra lateral CURTA estilo Lotes (`::before` centralizada, NAO mais faixa de altura cheia): VERDE (completo) / LARANJA (`.is-incomplete`). Avatar de iniciais VERDE por TIPO (PJ `#1f5d43` escuro / PF `#2f8a5e` claro, via `--avatar-color`). Nome com ellipsis no mobile (`display:block`). |
 
 ## 4. Icones
 
