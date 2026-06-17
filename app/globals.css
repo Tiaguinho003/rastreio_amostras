@@ -5206,13 +5206,13 @@ button:disabled {
   --fab-bottom: calc(
     var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(6.3rem, 27vw, 6.8rem)
   );
-  /* Leque: tamanho do circulo da opcao + gap entre o FAB e cada opcao. Com 3
-     itens no arco de 90° (45° entre cada), o raio precisa ser grande o bastante
-     pra os circulos E os rotulos (que saem A ESQUERDA de cada circulo) nao se
-     sobreporem — o par mais apertado e Lote↔Liga, cuja distancia vertical entre
-     rotulos e ~0.293*raio. Gap calibrado pra dar essa folga; ver --fan-radius. */
+  /* Leque: tamanho do circulo da opcao + gap entre o FAB e cada opcao. Os 3
+     itens ficam num arco de 90° (45° entre cada). O rotulo de cada opcao fica
+     ABAIXO do seu circulo (centralizado, fora do fluxo). O gap da folga entre os
+     circulos E impede que o rotulo da Liga (que desce na direcao da Aprovacao)
+     encoste no circulo dela. */
   --fan-opt-size: clamp(44px, 12vw, 50px);
-  --fan-gap: clamp(32px, 9vw, 42px);
+  --fan-gap: clamp(40px, 12vw, 50px);
   /* Raio centro-a-centro do arco do leque. Lote (topo) e Aprovacao (esquerda)
      sao ortogonais ao FAB; Liga fica no diagonal a 45° usando este raio
      (offset --fan-radius * 0.7071 em cada eixo). */
@@ -30546,9 +30546,13 @@ select.samples-filter-field-input {
    parece emergir de dentro dele. */
 .fab-fan-option {
   position: fixed;
-  display: flex;
-  align-items: center;
-  gap: clamp(8px, 2.4vw, 10px);
+  /* O botao tem o tamanho do CIRCULO; o rotulo fica ABSOLUTO abaixo dele
+     (centralizado), fora do fluxo — assim a ancoragem por right/bottom continua
+     mirando o circulo (arco uniforme) independente do tamanho do texto. */
+  display: grid;
+  place-items: center;
+  width: var(--fan-opt-size);
+  height: var(--fan-opt-size);
   margin: 0;
   padding: 0;
   border: 0;
@@ -30613,7 +30617,11 @@ select.samples-filter-field-input {
 }
 
 .fab-fan-option-label {
-  font-size: clamp(13px, 3.7vw, 15px);
+  position: absolute;
+  top: calc(100% + clamp(5px, 1.6vw, 7px));
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: clamp(12px, 3.4vw, 14px);
   font-weight: 600;
   letter-spacing: 0.01em;
   color: #ffffff;
