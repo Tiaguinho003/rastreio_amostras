@@ -1792,8 +1792,12 @@ function SamplesPage() {
         </header>
 
         {/* Search bar — in green area, dashboard style. Filtro fica
-            FORA do form, alinhado a direita (mesmo padrao do "+" em /clients). */}
-        <div className="hero-search-wrap">
+            FORA do form, alinhado a direita (mesmo padrao do "+" em /clients).
+            has-applied-filters: mostra o botao "X" de limpar entre a busca e o
+            filtro (a busca encolhe; sem filtros o "X" tuca atras do filtro). */}
+        <div
+          className={`hero-search-wrap${activeHiddenFiltersCount > 0 ? ' has-applied-filters' : ''}`}
+        >
           {/* Busca AO VIVO: o onChange so atualiza o texto; o debounce
               (useEffect acima) aplica/desfiltra. role=search + onSubmit no-op
               pra Enter nao recarregar. Sem `has-input`: o botao fica no estado
@@ -1823,6 +1827,21 @@ function SamplesPage() {
               </svg>
             </span>
           </form>
+          {selectionMode !== 'blend' ? (
+            <span className="hero-search-clear-slot" aria-hidden={activeHiddenFiltersCount === 0}>
+              <button
+                type="button"
+                className="hero-search-clear-btn"
+                aria-label="Limpar filtros"
+                tabIndex={activeHiddenFiltersCount > 0 ? 0 : -1}
+                onClick={handleClearFiltersOnly}
+              >
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            </span>
+          ) : null}
           {selectionMode !== 'blend' ? (
             <button
               type="button"

@@ -4929,7 +4929,10 @@ button:disabled {
      gap proprio (@media min-width:901px abaixo). */
   display: flex;
   align-items: center;
-  gap: clamp(8px, 2.5vw, 10px);
+  /* Gap em var pra o slot do botao "X" (limpar filtros) cancelar exatamente
+     uma unidade de gap quando colapsado (ver .hero-search-clear-slot). */
+  --search-row-gap: clamp(8px, 2.5vw, 10px);
+  gap: var(--search-row-gap);
 }
 
 .samples-page-v2 .hero-search-wrap .hero-search-bar {
@@ -4943,11 +4946,98 @@ button:disabled {
 .samples-page-v2 .hero-search-filter-btn {
   background: #ffffff;
   box-shadow: 0 4px 14px rgba(10, 30, 18, 0.1);
+  /* Acima do botao "X" (que tuca ATRAS dele ao colapsar). */
+  position: relative;
+  z-index: 1;
 }
 
 .samples-page-v2 .hero-search-filter-btn svg,
 .samples-page-v2 .hero-search-filter-btn.has-filters svg {
   stroke: var(--brand-green);
+}
+
+/* ── Botao "X" (limpar filtros) — só aparece quando ha filtros aplicados
+   (wrap.has-applied-filters), entre a busca e o filtro. Dois níveis:
+   - SLOT: colapsa a LARGURA (e cancela 1 gap com margin-left negativa) pra a
+     busca crescer/encolher suavemente.
+   - BOTAO: desliza com transform pra ATRAS do botao de filtro (z-index menor) +
+     fade, sem ser cortado (slot tem overflow:visible).
+   Default = COLAPSADO (sem filtros). */
+.hero-search-clear-slot {
+  --clear-btn-size: clamp(31px, 8.2vw, 35px);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  overflow: visible;
+  width: 0;
+  margin-left: calc(-1 * var(--search-row-gap));
+  transition:
+    width 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+    margin-left 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hero-search-clear-btn {
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  width: var(--clear-btn-size);
+  height: var(--clear-btn-size);
+  border: 0;
+  /* padding:0 + box-sizing: SEM isto o padding padrao do <button> descentraliza
+     o icone (pra direita/baixo) — mesmo motivo do `padding: 0` no filtro. */
+  padding: 0;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(10, 30, 18, 0.1);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  /* Colapsado: desliza só o suficiente pra parar CENTRALIZADO atras do botao de
+     filtro (não passa pro outro lado) + encolhe + some. O slot já colapsou a
+     largura, então este offset é pequeno (gap + meia diferença de tamanho). */
+  transform: translateX(calc(var(--search-row-gap) + 4px)) scale(0.6);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.26s ease;
+}
+
+/* "X" como SVG de tamanho FIXO (não %, que renderizava a 0 neste contexto). O
+   path é simétrico no viewBox 0-24, então o grid `place-items: center` do botao
+   centraliza perfeitamente. */
+.hero-search-clear-btn svg {
+  display: block;
+  width: clamp(16px, 4.6vw, 19px);
+  height: clamp(16px, 4.6vw, 19px);
+  fill: none;
+  stroke: var(--brand-green);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.hero-search-clear-btn:active {
+  transform: scale(0.9);
+}
+
+/* Expandido: ha filtros aplicados → o "X" aparece e a busca encolhe. */
+.hero-search-wrap.has-applied-filters .hero-search-clear-slot {
+  width: var(--clear-btn-size);
+  margin-left: 0;
+}
+
+.hero-search-wrap.has-applied-filters .hero-search-clear-btn {
+  transform: translateX(0) scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-search-clear-slot,
+  .hero-search-clear-btn {
+    transition: none;
+  }
 }
 
 .hero-search-bar {
@@ -26254,7 +26344,8 @@ select.samples-filter-field-input {
     padding: 0 0 0.75rem;
     display: flex;
     align-items: center;
-    gap: 1rem;
+    --search-row-gap: 1rem;
+    gap: var(--search-row-gap);
   }
 
   .samples-page-v2 .hero-search-wrap .hero-search-bar {
