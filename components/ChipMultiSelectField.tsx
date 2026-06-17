@@ -166,7 +166,11 @@ export function ChipMultiSelectField({
           aria-haspopup="listbox"
           aria-expanded={open}
           aria-label={
-            label && selected.length > 0 ? `${label}: ${selected.length} selecionado(s)` : label
+            errorMessage
+              ? `${label ?? ''} ${errorMessage}`.trim()
+              : label && selected.length > 0
+                ? `${label}: ${selected.length} selecionado(s)`
+                : label
           }
           onClick={toggleOpen}
           onKeyDown={(event) => {
@@ -178,7 +182,11 @@ export function ChipMultiSelectField({
           }}
         >
           {selected.length === 0 ? (
-            <span className="chip-select-placeholder">{placeholder}</span>
+            // Erro DENTRO do campo (placeholder vermelho), não abaixo — o campo
+            // não muda de posição. O erro só ocorre vazio (campo obrigatório).
+            <span className={`chip-select-placeholder${errorMessage ? ' is-error' : ''}`}>
+              {errorMessage ?? placeholder}
+            </span>
           ) : (
             <div className="chip-select-chips" ref={chipsRowRef}>
               {selectedOptions.slice(0, visibleCount).map((option) => (
@@ -272,11 +280,6 @@ export function ChipMultiSelectField({
           </div>
         ) : null}
       </div>
-      {errorMessage ? (
-        <span className="app-modal-error" role="alert">
-          {errorMessage}
-        </span>
-      ) : null}
     </div>
   );
 }

@@ -18064,6 +18064,13 @@ select.samples-filter-field-input {
   white-space: nowrap;
 }
 
+/* Erro DENTRO do campo: "Obrigatorio" em vermelho suave (mesmo tom dos demais
+   campos, ver feedback_error_inside_field). A borda vermelha vem do
+   .chip-select-field.is-field-error .chip-select. */
+.chip-select-placeholder.is-error {
+  color: #c45c5c;
+}
+
 .chip-select-chips {
   flex: 1;
   min-width: 0;

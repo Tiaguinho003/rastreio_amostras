@@ -7,6 +7,7 @@ import { maskDocumentInput, maskPhoneInput } from '../../lib/client-field-format
 import { isValidCnpjChecksum, isValidCpfChecksum } from '../../lib/document-validation';
 import { isCommercialRole } from '../../lib/roles';
 import type { ClientPersonType, ClientSummary, SessionData, UserLookupItem } from '../../lib/types';
+import { useToast } from '../../lib/toast/ToastProvider';
 import { BottomSheet } from '../BottomSheet';
 import { ChipMultiSelectField } from '../ChipMultiSelectField';
 
@@ -148,6 +149,7 @@ export function ClientQuickCreateModal({
   onCreated,
 }: ClientQuickCreateModalProps) {
   const formId = useId();
+  const toast = useToast();
   const [form, setForm] = useState(() =>
     buildInitialForm({
       initialSearch,
@@ -160,7 +162,6 @@ export function ClientQuickCreateModal({
   // Snapshot do form inicial pra detectar "dirty" (gatilho do "Descartar?").
   const initialFormRef = useRef(form);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
@@ -180,7 +181,6 @@ export function ClientQuickCreateModal({
       setForm(initial);
       initialFormRef.current = initial;
       setSaving(false);
-      setError(null);
       setSubmitted(false);
       setDiscardOpen(false);
     }
@@ -294,7 +294,6 @@ export function ClientQuickCreateModal({
     });
     setForm(initial);
     initialFormRef.current = initial;
-    setError(null);
     setSubmitted(false);
     setDiscardOpen(false);
   }
@@ -330,12 +329,11 @@ export function ClientQuickCreateModal({
     event.preventDefault();
     setSubmitted(true);
     if (!canSubmit) {
-      setError('Preencha os campos obrigatorios destacados.');
+      toast.error({ title: 'Preencha os campos obrigatórios destacados.' });
       return;
     }
 
     setSaving(true);
-    setError(null);
 
     try {
       // L5: PJ guarda cnpj direto no Client (sem branches). PF nao tem cnpj
@@ -361,7 +359,7 @@ export function ClientQuickCreateModal({
         onCreated(response.client);
       }, 900);
     } catch (cause) {
-      setError(translateCreateClientError(cause));
+      toast.error({ title: translateCreateClientError(cause) });
       setSaving(false);
     }
   }
@@ -405,8 +403,6 @@ export function ClientQuickCreateModal({
     >
       <form id={formId} className="client-quick-create-form" onSubmit={handleSubmit}>
         <div className="client-quick-create-body">
-          {error ? <p className="error client-quick-create-error">{error}</p> : null}
-
           {/* 14.7.C: 1 bloco unico (sem sections "Identificacao/Contato/...").
                 5 linhas ordenadas: tipo+doc / nome / nome fantasia (PJ) /
                 telefone+responsavel / vendedor+comprador. */}
@@ -422,7 +418,6 @@ export function ClientQuickCreateModal({
                   const nextType = event.target.value as ClientPersonType;
                   setForm((current) => ({ ...current, personType: nextType }));
                   setSubmitted(false);
-                  setError(null);
                 }}
               >
                 <option value="PJ">Pessoa juridica</option>
