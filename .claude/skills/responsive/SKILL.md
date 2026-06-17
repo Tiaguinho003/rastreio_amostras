@@ -72,6 +72,7 @@ Toda pagina deve respeitar as safe areas do dispositivo:
 - Classe `.mobile-edge-shell-auth` ja possui `::after` cobrindo `env(safe-area-inset-top)` com `#1f5d43`
 - Qualquer nova pagina autenticada deve usar `mobile-edge-shell-auth` para herdar esse comportamento
 - O `themeColor` do app e `#1f5d43` - todas as superficies verdes do topo devem usar essa cor
+- **Gotcha (não tente):** mudar a cor da status bar DINAMICAMENTE por scroll NÃO funciona no PWA iOS instalado. `theme-color` é inerte em standalone com `black-translucent` (só vale no Safari); a barra é coberta pela faixa opaca `::after`; e os ícones ficam travados em branco (definidos no launch pelo `statusBarStyle`, sem troca em runtime). Experimento abandonado em 2026-06-17 — ver memória `project_ios_status_bar_scroll_color`
 
 ### 7. Textos e conteudo
 
