@@ -18777,7 +18777,8 @@ select.samples-filter-field-input {
     transition:
       opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1),
       visibility 0s linear 0s,
-      transform 120ms ease-out;
+      transform 120ms ease-out,
+      filter 0.3s ease;
   }
   body.is-bottom-sheet-open .mobile-tabbar,
   body:has(.app-modal-backdrop) .mobile-tabbar {
@@ -18791,17 +18792,26 @@ select.samples-filter-field-input {
   }
 
   /* Leque (speed-dial) do FAB de Lotes vs tabbar.
-     O scrim (.fab-fan-backdrop, z-modal) vive DENTRO da isolation do
-     .mobile-edge-shell (z-index:0 acima), entao seu z-index alto fica preso
-     nessa camada e NAO alcanca a tabbar — portalada direto no body (z-70),
-     fora do shell. Diferente dos modais (que ESCONDEM a tabbar via regra
-     acima), aqui queremos que o scrim a ESCUREÇA junto com o resto da pagina.
-     Enquanto o leque existe, elevamos o shell inteiro acima da tabbar: o scrim
-     (dentro do shell) passa a cobri-la e deixa-la nao-clicavel, sem precisar
-     mover o FAB/opcoes do DOM. JS: SampleCreateRadialFab marca
-     body.is-fab-fan-open enquanto o leque esta montado. */
-  body.is-fab-fan-open .app-shell-root {
-    z-index: 80;
+     O scrim (.fab-fan-backdrop) vive DENTRO da isolation do .mobile-edge-shell
+     (z-index:0), entao seu z-index nao alcanca a tabbar — portalada no body
+     (z-70), fora do shell. Diferente dos modais (que ESCONDEM a tabbar via a
+     regra acima), aqui a tabbar deve ficar ESCURECIDA + nao-clicavel, igual ao
+     resto da pagina. Em vez de mover o shell/scrim (elevar o shell enterraria a
+     tabbar sob o conteudo opaco da pagina; portar so o scrim cobriria o proprio
+     FAB), aplicamos na tabbar o MESMO escurecimento do scrim:
+     filter:brightness(0.45) === overlay rgba(0,0,0,0.55) sobre pixels opacos
+     (C*(1-0.55) = C*0.45), e cobre o circulo da camera (que sobressai via
+     margin-top negativo) + sombras sem depender de geometria.
+     - pointer-events:none enquanto MONTADO (taps caem no scrim, que fecha o
+       leque) — nao some, so fica inerte.
+     - brightness segue o estado ABERTO pra o fade casar com o do scrim (some
+       junto no fechamento, antes do unmount).
+     JS: SampleCreateRadialFab marca is-fab-fan-mounted e is-fab-fan-open. */
+  body.is-fab-fan-mounted .mobile-tabbar {
+    pointer-events: none;
+  }
+  body.is-fab-fan-open .mobile-tabbar {
+    filter: brightness(0.45);
   }
 
   /* Rotas declaradas em ROUTES_WITHOUT_MOBILE_TABBAR (AppShell): a tabbar
@@ -30468,11 +30478,12 @@ select.samples-filter-field-input {
 */
 
 /* Scrim: escurece a pagina INTEIRA no tier de modal e bloqueia cliques — so as
-   opcoes + o "×" respondem. Tambem cobre a tabbar (z-70): como ela e portalada
-   no body, FORA da isolation do .mobile-edge-shell, o scrim (preso no shell) so
-   a alcanca porque body.is-fab-fan-open eleva o shell acima dela (ver a regra
-   na media query mobile, junto das regras de tabbar). Sem blur (padrao dos
-   modais de acao). Fica montado durante o close pra fazer fade-out. */
+   opcoes + o "×" respondem. A tabbar (z-70) e portalada no body, fora da
+   isolation do .mobile-edge-shell, entao o scrim NAO a cobre por z-index; ela
+   recebe o mesmo escurecimento via filter:brightness + pointer-events:none (ver
+   body.is-fab-fan-mounted/-open na media query mobile, junto das regras de
+   tabbar). Sem blur (padrao dos modais de acao). Fica montado durante o close
+   pra fazer fade-out. */
 .fab-fan-backdrop {
   position: fixed;
   inset: 0;
