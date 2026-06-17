@@ -321,6 +321,8 @@ interface SamplesSnapshot {
   searchInput: string;
   appliedSearch: string;
   appliedHiddenFilters: HiddenFilters;
+  // Ids dos cards expandidos (versao estendida) no momento de sair pra detail.
+  expandedSampleIds: string[];
   savedAt: number;
 }
 
@@ -341,6 +343,10 @@ function readSamplesSnapshot(): SamplesSnapshot | null {
       ...EMPTY_HIDDEN_FILTERS,
       ...(parsed.appliedHiddenFilters ?? {}),
     };
+    // Snapshots antigos podem nao ter expandedSampleIds (cards expandidos).
+    parsed.expandedSampleIds = Array.isArray(parsed.expandedSampleIds)
+      ? parsed.expandedSampleIds
+      : [];
     return parsed as SamplesSnapshot;
   } catch {
     return null;
@@ -534,7 +540,9 @@ function SamplesPage() {
   // Expandable cards: ids dos cards expandidos. Multiplos podem ficar
   // abertos simultaneamente (decisao UX). Tap no card expande/contrai;
   // navegacao pra detalhe so via botao "Ver detalhes" dentro do painel.
-  const [expandedSampleIds, setExpandedSampleIds] = useState<Set<string>>(() => new Set());
+  const [expandedSampleIds, setExpandedSampleIds] = useState<Set<string>>(
+    () => new Set(initialSnapshot?.expandedSampleIds ?? [])
+  );
   const [newSampleModalOpen, setNewSampleModalOpen] = useState(false);
   const [newSampleModalMounted, setNewSampleModalMounted] = useState(false);
   // Etiqueta de Aprovação (opção "Aprovação" do leque do "+"). Modal próprio,
@@ -663,12 +671,30 @@ function SamplesPage() {
 
   useLayoutEffect(() => {
     const pending = pendingScrollRestoreRef.current;
-    if (pending === null) return;
-    pendingScrollRestoreRef.current = null;
-    applyListScrollTop(samplesScrollRef.current, pending);
-    // Belt: reaplica no proximo frame. No mobile quem rola e a janela e o
-    // valor pode nao "pegar" antes do layout final / da navegacao concluir.
-    const raf = requestAnimationFrame(() => applyListScrollTop(samplesScrollRef.current, pending));
+    if (pending === null || pending <= 0) {
+      pendingScrollRestoreRef.current = null;
+      return;
+    }
+    // Restaura o scroll ao voltar da detail. No mobile quem rola e a janela e o
+    // layout/altura so assenta depois de alguns frames (safe-areas, sheet,
+    // settle de scroll do iOS) — por isso um unico scrollTo "pegava" perto do
+    // topo e o scroll se perdia. Reaplica a cada frame ate o scroll bater no
+    // alvo (±2px) ou esgotar as tentativas (~20 frames). Para cedo ao acertar,
+    // pra nao brigar com um scroll do usuario.
+    let raf = 0;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 20;
+    const tick = () => {
+      applyListScrollTop(samplesScrollRef.current, pending);
+      attempts += 1;
+      const reached = Math.abs(readListScrollTop(samplesScrollRef.current) - pending) <= 2;
+      if (reached || attempts >= MAX_ATTEMPTS) {
+        pendingScrollRestoreRef.current = null;
+        return;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    tick();
     return () => cancelAnimationFrame(raf);
   }, []);
 
@@ -1103,6 +1129,7 @@ function SamplesPage() {
       searchInput,
       appliedSearch,
       appliedHiddenFilters,
+      expandedSampleIds: Array.from(expandedSampleIds),
     });
   }, [
     samplesState.items,
@@ -1111,6 +1138,7 @@ function SamplesPage() {
     searchInput,
     appliedSearch,
     appliedHiddenFilters,
+    expandedSampleIds,
   ]);
 
   function openFilters(trigger: HTMLButtonElement) {
