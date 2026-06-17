@@ -25335,6 +25335,13 @@ select.samples-filter-field-input {
   box-shadow: 0 0 0 3px rgba(124, 161, 111, 0.4);
 }
 
+/* No teto de lotes (MAX_LOTS) o "+" fica desabilitado: apaga e nao reage. */
+.alm-lot-add:disabled {
+  opacity: 0.4;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
 @keyframes alm-lot-in {
   from {
     opacity: 0;

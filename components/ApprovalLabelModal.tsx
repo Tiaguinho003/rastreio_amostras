@@ -89,10 +89,13 @@ const FIELD_BY_KEY: Record<string, FieldConfig> = Object.fromEntries(
 );
 
 // Rótulo impresso do Lote. O campo virou grupo dinâmico: no envio, os lotes
-// não-vazios são juntados numa ÚNICA linha LOTE (a divisão por quantidade na
-// etiqueta — substituindo o wrap automático — é o próximo passo).
+// não-vazios são juntados numa ÚNICA linha LOTE; o print agent divide por
+// vírgula numa grade. MAX_LOTS limita a quantidade — acima disso a etiqueta não
+// comporta sem encolher a fonte a ponto de cortar o número (o backend espelha o
+// mesmo teto em src/api/v1/backend-api.js).
 const LOTE_PRINT_LABEL = 'LOTE';
 const LOT_MAX_CHARS = 16;
+const MAX_LOTS = 16;
 
 type Lot = { id: number; value: string };
 
@@ -150,16 +153,20 @@ export function ApprovalLabelModal({ open, onClose, session }: ApprovalLabelModa
   }
 
   function addLot() {
+    // Teto de lotes (o botão "+" também fica disabled em MAX_LOTS; a guarda no
+    // updater cobre clique duplo antes do re-render).
+    if (lots.length >= MAX_LOTS) return;
     // Sem auto-foco: o campo é criado vazio; o teclado só abre quando o usuário
     // toca no campo pra digitar. Só sinaliza o scroll-into-view do campo novo.
     scrollToNewLotRef.current = true;
-    setLots((prev) => [...prev, { id: nextLotId(), value: '' }]);
+    setLots((prev) => (prev.length >= MAX_LOTS ? prev : [...prev, { id: nextLotId(), value: '' }]));
     if (formError) setFormError(null);
   }
 
   function removeLot(id: number) {
     // O último lote nunca some (precisa de ao menos um campo).
     setLots((prev) => (prev.length > 1 ? prev.filter((lot) => lot.id !== id) : prev));
+    if (formError) setFormError(null);
   }
 
   function handleClear() {
@@ -304,14 +311,15 @@ export function ApprovalLabelModal({ open, onClose, session }: ApprovalLabelModa
                           type="text"
                           inputMode={field.numeric ? 'numeric' : 'text'}
                           value={values[field.key]}
-                          onChange={(event) =>
-                            setField(
-                              field.key,
-                              field.noSpaces
-                                ? event.target.value.replace(/\s/g, '')
-                                : event.target.value
-                            )
-                          }
+                          onChange={(event) => {
+                            const raw = event.target.value;
+                            const next = field.numeric
+                              ? raw.replace(/\D/g, '')
+                              : field.noSpaces
+                                ? raw.replace(/\s/g, '')
+                                : raw;
+                            setField(field.key, next);
+                          }}
                           placeholder={field.placeholder}
                           maxLength={field.maxChars ?? 80}
                           autoComplete="off"
@@ -334,7 +342,7 @@ export function ApprovalLabelModal({ open, onClose, session }: ApprovalLabelModa
                       className="nsv2-field-input alm-input alm-lot-input"
                       type="text"
                       value={lot.value}
-                      onChange={(event) => setLot(lot.id, event.target.value)}
+                      onChange={(event) => setLot(lot.id, event.target.value.replace(/[,\n]/g, ''))}
                       placeholder={`Lote ${index + 1}`}
                       aria-label={`Lote ${index + 1}`}
                       maxLength={LOT_MAX_CHARS}
@@ -356,6 +364,7 @@ export function ApprovalLabelModal({ open, onClose, session }: ApprovalLabelModa
                   type="button"
                   className="alm-lot-add"
                   aria-label="Adicionar lote"
+                  disabled={lots.length >= MAX_LOTS}
                   onClick={addLot}
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true">
