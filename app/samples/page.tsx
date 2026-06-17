@@ -300,7 +300,7 @@ function getFilterSectionSummary(sectionId: FilterSectionId, filters: HiddenFilt
     return formatPeriodSummary(filters);
   }
 
-  return filters.onlyBlend ? 'Apenas ligas' : 'Todas';
+  return filters.onlyBlend ? 'Ligas' : 'Todas';
 }
 
 function getInitialFilterSection(filters: HiddenFilters): FilterSectionId {
@@ -538,6 +538,13 @@ function SamplesPage() {
     () => initialFilters
   );
   const [filtersOpen, setFiltersOpen] = useState(false);
+  // Campos de cliente RETRÁTEIS (Proprietário/Comprador/Enviado para): só um
+  // expande por vez; ao expandir, mostra o typeahead; colapsado mostra só os
+  // chips. Fecha ao clicar fora.
+  const [openClientFilter, setOpenClientFilter] = useState<'owner' | 'buyer' | 'sentTo' | null>(
+    null
+  );
+  const expandedFilterInputRef = useRef<HTMLInputElement | null>(null);
   // Opcoes dos filtros de classificacao (valores distintos canonicos), por
   // campo, carregadas sob demanda toda vez que o modal de filtros abre.
   const [classificationOptions, setClassificationOptions] = useState<{
@@ -805,6 +812,37 @@ function SamplesPage() {
 
     return () => window.clearTimeout(scrollTimer);
   }, [activeFilterSection, filtersOpen]);
+
+  // Campos retráteis de cliente: foca o typeahead ao expandir; fecha ao clicar
+  // fora do campo aberto OU ao rolar o modal; reseta quando o modal fecha.
+  useEffect(() => {
+    if (!openClientFilter) return;
+    const focusTimer = window.setTimeout(() => expandedFilterInputRef.current?.focus(), 0);
+    const close = () => setOpenClientFilter(null);
+    function onPointerDown(event: MouseEvent) {
+      const openField = document.querySelector('.samples-filter-field--retractable.is-open');
+      if (openField && !openField.contains(event.target as Node)) {
+        close();
+      }
+    }
+    const modalContent = document.querySelector('.samples-filter-modal-content');
+    document.addEventListener('mousedown', onPointerDown);
+    // O scroll do modal fecha o campo. Atrasado pra o scroll que o foco inicial
+    // do input pode disparar (scrollIntoView) não fechar logo na abertura.
+    const scrollAttachTimer = window.setTimeout(() => {
+      modalContent?.addEventListener('scroll', close, { passive: true });
+    }, 250);
+    return () => {
+      window.clearTimeout(focusTimer);
+      window.clearTimeout(scrollAttachTimer);
+      document.removeEventListener('mousedown', onPointerDown);
+      modalContent?.removeEventListener('scroll', close);
+    };
+  }, [openClientFilter]);
+
+  useEffect(() => {
+    if (!filtersOpen) setOpenClientFilter(null);
+  }, [filtersOpen]);
 
   useEffect(() => {
     sessionRef.current = session;
@@ -1392,9 +1430,13 @@ function SamplesPage() {
     samplesState.items.length > 0 &&
     samplesState.nextCursor === null;
 
-  // Filtro multi-select de cliente (proprietario/comprador): picker que
-  // adiciona (ClientLookupField com clearOnSelect) + chips removiveis.
+  // Filtro multi-select de cliente (Proprietário/Comprador/Enviado para):
+  // campo RETRÁTIL (disclosure). Colapsado mostra SÓ o nome do campo + seta +
+  // bolinha com a contagem — nenhuma caixa de input à vista. Clicar abre a caixa
+  // de busca (chips dos selecionados + typeahead). Fecha ao clicar fora ou
+  // rolar o modal (effect acima).
   function renderClientMultiFilter(
+    fieldKey: 'owner' | 'buyer' | 'sentTo',
     kind: 'owner' | 'buyer' | 'any',
     label: string,
     placeholder: string,
@@ -1405,40 +1447,81 @@ function SamplesPage() {
     onRemove: (clientId: string) => void
   ) {
     if (!session) return null;
-    // Chips dos selecionados ficam DENTRO do box (.samples-filter-multi), antes
-    // do typeahead (que vira borderless e ocupa a linha de baixo). Sem chips, o
-    // box parece um campo normal.
-    return (
-      <div className="samples-filter-field">
-        <span className="samples-filter-field-label">{label}</span>
-        <div className="samples-filter-multi samples-filter-multi--lookup">
-          {selected.map((client) => (
-            <span key={client.id} className="samples-filter-token">
-              <span className="samples-filter-token-label">{getClientFilterLabel(client)}</span>
-              <button
-                type="button"
-                className="samples-filter-token-remove"
-                aria-label={`${removeLabel}: ${getClientFilterLabel(client)}`}
-                onClick={() => onRemove(client.id)}
-              >
-                ×
-              </button>
-            </span>
-          ))}
-          <ClientLookupField
-            session={session}
-            kind={kind}
-            label={label}
-            compact
-            clearOnSelect
-            selectedClient={null}
-            onSelectClient={(client) => {
-              if (client) onAdd(client);
-            }}
-            placeholder={placeholder}
-            emptyMessage={emptyMessage}
-          />
+    const isOpen = openClientFilter === fieldKey;
+    // Chips numa ÚNICA linha horizontal rolável (nunca quebram linha — altura
+    // do campo fixa). Rótulo truncado por CSS (~8 chars); nome completo no title.
+    const chipsRow =
+      selected.length > 0 ? (
+        <div className="samples-filter-chips-row">
+          {selected.map((client) => {
+            const fullName = getClientFilterLabel(client);
+            return (
+              <span key={client.id} className="samples-filter-token" title={fullName}>
+                <span className="samples-filter-token-label">{fullName}</span>
+                <button
+                  type="button"
+                  className="samples-filter-token-remove"
+                  aria-label={`${removeLabel}: ${fullName}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onRemove(client.id);
+                  }}
+                >
+                  ×
+                </button>
+              </span>
+            );
+          })}
         </div>
+      ) : null;
+
+    return (
+      <div
+        className={`samples-filter-field samples-filter-field--retractable${isOpen ? ' is-open' : ''}`}
+      >
+        {/* COLAPSADO: só o nome do campo (gatilho clicável) + seta + bolinha com
+            a contagem. Nenhuma caixa de input à vista. */}
+        <button
+          type="button"
+          className="samples-filter-retract-trigger"
+          aria-expanded={isOpen}
+          aria-label={`${label}${selected.length > 0 ? `: ${selected.length} selecionado(s)` : ''}`}
+          onClick={() => setOpenClientFilter(isOpen ? null : fieldKey)}
+        >
+          <span className="samples-filter-field-label">{label}</span>
+          {!isOpen && selected.length > 0 ? (
+            <span className="samples-filter-retract-count">{selected.length}</span>
+          ) : null}
+          <svg
+            className={`samples-filter-retract-chevron${isOpen ? ' is-open' : ''}`}
+            viewBox="0 0 24 24"
+            focusable="false"
+            aria-hidden="true"
+          >
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+
+        {/* ABERTO: a caixa de busca aparece (chips dos selecionados + typeahead). */}
+        {isOpen ? (
+          <div className="samples-filter-multi samples-filter-multi--lookup samples-filter-multi--retractable is-open">
+            {chipsRow}
+            <ClientLookupField
+              session={session}
+              kind={kind}
+              label={label}
+              compact
+              clearOnSelect
+              selectedClient={null}
+              inputRef={expandedFilterInputRef}
+              onSelectClient={(client) => {
+                if (client) onAdd(client);
+              }}
+              placeholder={selected.length > 0 ? '' : placeholder}
+              emptyMessage={emptyMessage}
+            />
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -1450,6 +1533,7 @@ function SamplesPage() {
     return (
       <div className="samples-filter-fields">
         {renderClientMultiFilter(
+          'owner',
           'owner',
           'Proprietario',
           'Buscar proprietario',
@@ -1471,6 +1555,7 @@ function SamplesPage() {
 
         {renderClientMultiFilter(
           'buyer',
+          'buyer',
           'Comprador',
           'Buscar comprador',
           'Nenhum comprador encontrado',
@@ -1490,6 +1575,7 @@ function SamplesPage() {
         )}
 
         {renderClientMultiFilter(
+          'sentTo',
           'any',
           'Enviado para',
           'Buscar destinatario',
@@ -1652,20 +1738,23 @@ function SamplesPage() {
           </div>
         </div>
 
-        <div className="samples-filter-field">
-          <span className="samples-filter-field-label">Tipo de lote</span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={draftHiddenFilters.onlyBlend}
-            className={`samples-filter-toggle${draftHiddenFilters.onlyBlend ? ' is-on' : ''}`}
-            onClick={() => setDraftHiddenFilters((c) => ({ ...c, onlyBlend: !c.onlyBlend }))}
-          >
-            <span className="samples-filter-toggle-track" aria-hidden="true">
-              <span className="samples-filter-toggle-thumb" />
-            </span>
-            <span className="samples-filter-toggle-text">Apenas ligas</span>
-          </button>
+        {/* Meia largura: ocupa só a coluna esquerda do grid de 2 colunas. */}
+        <div className="samples-filter-row">
+          <div className="samples-filter-field">
+            <span className="samples-filter-field-label">Tipo de lote</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={draftHiddenFilters.onlyBlend}
+              className={`samples-filter-toggle${draftHiddenFilters.onlyBlend ? ' is-on' : ''}`}
+              onClick={() => setDraftHiddenFilters((c) => ({ ...c, onlyBlend: !c.onlyBlend }))}
+            >
+              <span className="samples-filter-toggle-track" aria-hidden="true">
+                <span className="samples-filter-toggle-thumb" />
+              </span>
+              <span className="samples-filter-toggle-text">Ligas</span>
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -1732,17 +1821,31 @@ function SamplesPage() {
                 <circle cx="11" cy="11" r="7" />
                 <path d="m16.2 16.2 4.1 4.1" />
               </svg>
-              <svg
-                className="hero-search-icon-submit"
-                viewBox="0 0 24 24"
-                focusable="false"
-                aria-hidden="true"
-              >
-                <path d="M5 12h14" />
-                <path d="m13 6 6 6-6 6" />
-              </svg>
-            </button>
+            </span>
           </form>
+          {selectionMode !== 'blend' ? (
+            <button
+              type="button"
+              className={`hero-search-filter-btn${activeHiddenFiltersCount > 0 ? ' has-filters' : ''}`}
+              aria-label="Filtros avancados"
+              onClick={(event) => {
+                if (filtersOpen) {
+                  closeFilters();
+                  return;
+                }
+                openFilters(event.currentTarget);
+              }}
+            >
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="M4 6h16" />
+                <path d="M7 12h10" />
+                <path d="M10 18h4" />
+              </svg>
+              {activeHiddenFiltersCount > 0 ? (
+                <span className="hero-search-filter-badge">{activeHiddenFiltersCount}</span>
+              ) : null}
+            </button>
+          ) : null}
           {selectionMode === 'blend' ? (
             <SampleCreateRadialFab
               mode="blendArrow"
@@ -1801,29 +1904,7 @@ function SamplesPage() {
                   />
                 ) : null}
               </div>
-            ) : (
-              <button
-                type="button"
-                className={`hero-search-filter-btn${activeHiddenFiltersCount > 0 ? ' has-filters' : ''}`}
-                aria-label="Filtros avancados"
-                onClick={(event) => {
-                  if (filtersOpen) {
-                    closeFilters();
-                    return;
-                  }
-                  openFilters(event.currentTarget);
-                }}
-              >
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <path d="M4 6h16" />
-                  <path d="M7 12h10" />
-                  <path d="M10 18h4" />
-                </svg>
-                {activeHiddenFiltersCount > 0 ? (
-                  <span className="hero-search-filter-badge">{activeHiddenFiltersCount}</span>
-                ) : null}
-              </button>
-            )}
+            ) : null}
           </div>
 
           {/* Section 3: Card list */}

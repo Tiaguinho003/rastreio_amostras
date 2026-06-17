@@ -4948,6 +4948,31 @@ button:disabled {
      viraria containing block e prenderia o FAB dentro do wrapper. Mesmo
      padrao usado em `.clients-page-v2 .hero-search-wrap`. */
   animation: samples-search-in 0.4s ease-out 0.1s backwards;
+  /* Busca + botao de filtro na MESMA linha (mobile). A busca (flex:1) encurta
+     sozinha pra dar espaco ao filtro a direita; o FAB segue flutuando
+     (position:fixed, fora do fluxo flex). No desktop o wrap reusa esse flex com
+     gap proprio (@media min-width:901px abaixo). */
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 2.5vw, 10px);
+}
+
+.samples-page-v2 .hero-search-wrap .hero-search-bar {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Filtro como pilula BRANCA (irma da barra de busca) + icone verde; o badge
+   vermelho sinaliza filtros ativos. Escopado a /samples — NAO afeta o filtro
+   reusado em /clients (la o `.hero-search-filter-btn` base segue verde). */
+.samples-page-v2 .hero-search-filter-btn {
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(10, 30, 18, 0.1);
+}
+
+.samples-page-v2 .hero-search-filter-btn svg,
+.samples-page-v2 .hero-search-filter-btn.has-filters svg {
+  stroke: var(--brand-green);
 }
 
 .hero-search-bar {
@@ -5244,6 +5269,17 @@ button:disabled {
 .samples-page-v2:not(.informe-commercial-page) .spv2-list-meta {
   padding-left: var(--lotes-inner-pad);
   padding-right: var(--lotes-inner-pad);
+}
+
+/* "N registros" alinhado a DIREITA (onde ficava o botao de filtro, na mesma
+   borda dos cards). No modo liga a linha volta a space-between (contador a
+   esquerda, contador-de-selecao a direita). */
+.samples-page-v2:not(.informe-commercial-page) .spv2-list-meta {
+  justify-content: flex-end;
+}
+
+body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list-meta {
+  justify-content: space-between;
 }
 
 /* FAB "+": borda direita na MESMA linha vertical dos cards/filtro (era
@@ -14693,10 +14729,13 @@ body:has(.app-modal-backdrop) .prospector-fab {
   justify-self: end;
 }
 
+/* Backdrop ESCURO sem blur — padrao de modal de ACAO (mesmo dos bottom sheets
+   de criar/liga e dos 2 centrais de acao do dashboard). Anima so a opacidade. */
 .samples-filter-modal-backdrop {
-  background: rgba(244, 246, 242, 0.18);
-  -webkit-backdrop-filter: blur(20px) saturate(1.02);
-  backdrop-filter: blur(20px) saturate(1.02);
+  background: rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  animation: app-modal-scrim-in 0.3s ease backwards;
 }
 
 /* Largura mais estreita que o default do .is-themed (38rem) — painel de
@@ -14706,6 +14745,25 @@ body:has(.app-modal-backdrop) .prospector-fab {
   width: min(26rem, calc(100vw - 1rem));
   max-height: min(42rem, calc(100dvh - 2rem));
   box-sizing: border-box;
+}
+
+/* Visual de ACAO (form que o usuario opera): header CLARO + titulo verde a
+   esquerda + X claro — igual aos 2 centrais de acao do dashboard
+   (.app-modal-lookup-result) e aos bottom sheets de /samples. O header verde do
+   .is-themed fica reservado pra modais de AVISO/confirm. */
+.app-modal.is-themed.samples-filter-modal .app-modal-header {
+  background: #ffffff;
+  color: var(--color-ink);
+}
+.app-modal.is-themed.samples-filter-modal .app-modal-title {
+  color: var(--brand-green);
+}
+.app-modal.is-themed.samples-filter-modal .app-modal-close {
+  background: #eef1ee;
+  color: #4a5751;
+}
+.app-modal.is-themed.samples-filter-modal .app-modal-close span {
+  color: #4a5751;
 }
 
 /* Form ocupa o espaco restante do modal flex-column e bound a a area de
@@ -14786,8 +14844,173 @@ body:has(.app-modal-backdrop) .prospector-fab {
   font-size: 0.82rem;
 }
 
+/* Sem outline/borda preta do browser ao focar o input — o destaque de foco já
+   vem do `:focus-within` verde do box externo. */
+.samples-filter-multi--lookup .client-lookup-shell input:focus,
+.samples-filter-multi--lookup .client-lookup-shell input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
 .samples-filter-multi--lookup .client-lookup-shell.has-selection input {
   padding-right: 2.4rem;
+}
+
+/* ── Campos de cliente RETRÁTEIS (Proprietário / Comprador / Enviado para):
+   disclosure. Colapsado mostra SÓ o gatilho (nome do campo + bolinha de
+   contagem + seta) — nenhuma caixa de input à vista. A caixa de busca
+   (.samples-filter-multi--retractable) só é renderizada quando ABERTA. Fecha ao
+   clicar fora ou rolar o modal (JS, app/samples/page.tsx). */
+.samples-filter-field--retractable {
+  gap: 0.3rem;
+}
+
+/* Gatilho clicável (estado COLAPSADO): caixa com BORDA FINA mostrando o nome do
+   campo + bolinha de contagem + seta. Ao abrir, a borda some (regra .is-open
+   abaixo) e a caixa de busca é apresentada. */
+.samples-filter-retract-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  background: #fff;
+  border: 1px solid rgba(195, 200, 190, 0.85);
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  cursor: pointer;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    border-color 200ms ease,
+    background 200ms ease,
+    box-shadow 200ms ease;
+}
+
+.samples-filter-retract-trigger .samples-filter-field-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #3a463b;
+}
+
+.samples-filter-retract-trigger:focus-visible {
+  outline: none;
+  border-color: #7ca16f;
+  box-shadow: 0 0 0 3px rgba(124, 161, 111, 0.14);
+}
+
+/* Aberto: a borda do gatilho SOME (vira um cabeçalho) e a caixa de busca
+   aparece abaixo com animação suave. */
+.samples-filter-field--retractable.is-open .samples-filter-retract-trigger {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Bolinha com o nº de clientes selecionados (indicativo no colapsado). */
+.samples-filter-retract-count {
+  flex-shrink: 0;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.32rem;
+  border-radius: 999px;
+  background: var(--brand-green);
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-grid;
+  place-items: center;
+}
+
+/* Seta (chevron) — gira 180° ao abrir. */
+.samples-filter-retract-chevron {
+  flex-shrink: 0;
+  width: 1.05rem;
+  height: 1.05rem;
+  fill: none;
+  stroke: #5a6b5e;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.2s ease;
+}
+
+.samples-filter-retract-chevron.is-open {
+  transform: rotate(180deg);
+}
+
+/* Chips em UMA linha horizontal — nunca quebram (altura do campo fixa); o
+   excesso rola pro lado (swipe). `flex: 0 1 auto` = não cresce e pode encolher,
+   deixando o espaço pro typeahead na mesma linha. */
+.samples-filter-chips-row {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.3rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.samples-filter-chips-row::-webkit-scrollbar {
+  display: none;
+}
+
+.samples-filter-chips-row .samples-filter-token {
+  flex-shrink: 0;
+}
+
+/* Rótulo do cliente truncado (~8 caracteres) — cada chip ocupa pouco espaço;
+   nome completo no `title` do chip. */
+.samples-filter-multi--retractable .samples-filter-token-label {
+  max-width: 8ch;
+}
+
+/* Aberto: chips + typeahead na MESMA linha (nowrap) — o campo NÃO cresce de
+   altura ao selecionar. O typeahead (`.client-lookup-field`, item flex real do
+   box) fica inline e cresce no espaço que sobra; a fila de chips encolhe e rola.
+   (Mirar só o `.shell` não estica — fix do export/laudo, ver nota perto do 14922.) */
+.samples-filter-multi--retractable.is-open {
+  flex-wrap: nowrap;
+  /* Abertura natural: fade + leve deslize de cima, easing suave. */
+  animation: samples-filter-field-reveal 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes samples-filter-field-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .samples-filter-multi--retractable.is-open {
+    animation: none;
+  }
+  .samples-filter-retract-chevron {
+    transition: none;
+  }
+}
+
+.samples-filter-multi--retractable.is-open .client-lookup-field {
+  flex: 1 1 auto;
+  min-width: 4.5rem;
+  width: auto;
+}
+
+.samples-filter-multi--retractable.is-open .client-lookup-shell,
+.samples-filter-multi--retractable.is-open .client-lookup-shell input {
+  width: 100%;
 }
 
 /* Laudo: o input de busca ocupa o campo inteiro (placeholder preenche bem),
@@ -15019,7 +15242,9 @@ body:has(.app-modal-backdrop) .prospector-fab {
 
 .samples-filter-fields {
   display: grid;
-  gap: 0.5rem;
+  /* Folga um pouco maior entre os 3 campos retráteis (cada um com sua borda
+     fina no colapsado). */
+  gap: 0.7rem;
   min-width: 0;
   max-width: 100%;
 }
@@ -15039,7 +15264,7 @@ body:has(.app-modal-backdrop) .prospector-fab {
   padding-left: 0.05rem;
 }
 
-/* Liga: toggle "Apenas ligas" no filtro de /samples (switch on/off). */
+/* Liga: toggle "Ligas" no filtro de /samples (switch on/off). */
 .samples-filter-toggle {
   display: flex;
   align-items: center;
@@ -15060,10 +15285,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
 
 .samples-filter-toggle:active {
   transform: scale(0.99);
-}
-
-.samples-filter-toggle.is-on {
-  border-color: var(--brand-green);
 }
 
 .samples-filter-toggle-track {
@@ -26197,11 +26418,6 @@ select.samples-filter-field-input {
     font-size: 0.95rem;
     border-radius: 999px;
     transition: transform 0.15s ease;
-  }
-
-  .samples-filter-modal-actions .app-modal-secondary:hover,
-  .samples-filter-modal-actions .app-modal-submit:hover {
-    transform: translateY(-2px);
   }
 
   .samples-filter-modal-actions .app-modal-secondary:active,
