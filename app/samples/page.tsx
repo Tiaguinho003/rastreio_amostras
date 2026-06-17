@@ -311,7 +311,6 @@ function getInitialFilterSection(filters: HiddenFilters): FilterSectionId {
 /* ── Snapshot do estado da lista (preserva scroll e itens ao voltar da detail) ── */
 
 const SAMPLES_SNAPSHOT_KEY = 'samples-list-snapshot-v2';
-const SAMPLES_SNAPSHOT_TTL_MS = 5 * 60 * 1000;
 
 interface SamplesSnapshot {
   items: SampleSnapshot[];
@@ -323,20 +322,18 @@ interface SamplesSnapshot {
   appliedHiddenFilters: HiddenFilters;
   // Ids dos cards expandidos (versao estendida) no momento de sair pra detail.
   expandedSampleIds: string[];
-  savedAt: number;
 }
 
 function readSamplesSnapshot(): SamplesSnapshot | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = window.sessionStorage.getItem(SAMPLES_SNAPSHOT_KEY);
-    // Consume-once: snapshot sobrevive apenas uma leitura.
+    // Consume-once: snapshot sobrevive apenas uma leitura. SEM expiracao por
+    // tempo — vale ate ser consumido aqui ou limpo (busca/filtro/deep-link).
     window.sessionStorage.removeItem(SAMPLES_SNAPSHOT_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || !Array.isArray(parsed.items)) return null;
-    if (typeof parsed.savedAt !== 'number') return null;
-    if (Date.now() - parsed.savedAt > SAMPLES_SNAPSHOT_TTL_MS) return null;
     // Snapshots antigos podem nao ter campos novos de HiddenFilters (ex.:
     // padroes). Mescla com os defaults pra garantir arrays/strings validos.
     parsed.appliedHiddenFilters = {
@@ -353,11 +350,10 @@ function readSamplesSnapshot(): SamplesSnapshot | null {
   }
 }
 
-function writeSamplesSnapshot(snapshot: Omit<SamplesSnapshot, 'savedAt'>) {
+function writeSamplesSnapshot(snapshot: SamplesSnapshot) {
   if (typeof window === 'undefined') return;
   try {
-    const payload: SamplesSnapshot = { ...snapshot, savedAt: Date.now() };
-    window.sessionStorage.setItem(SAMPLES_SNAPSHOT_KEY, JSON.stringify(payload));
+    window.sessionStorage.setItem(SAMPLES_SNAPSHOT_KEY, JSON.stringify(snapshot));
   } catch {
     /* ignora quota/serialization errors — snapshot é otimização, não crítico */
   }
