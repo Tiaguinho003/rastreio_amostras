@@ -7189,6 +7189,25 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   stroke: var(--brand-green);
 }
 
+/* Lupa da busca de /clients = DECORATIVA (a busca filtra ao vivo; Enter ainda
+   submete via o form). Mesmo override de /samples, escopado a .clients-page-v2
+   pra NAO afetar /users (que mantem a lupa-botao com cross-fade pra seta). */
+.clients-page-v2 .hero-search-submit {
+  width: auto;
+  height: auto;
+  cursor: default;
+}
+
+.clients-page-v2 .hero-search-submit:active {
+  transform: none;
+}
+
+.clients-page-v2 .hero-search-icon-search {
+  position: static;
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
 /* "N clientes" alinhado a DIREITA no mobile (onde ficava o filtro, na mesma
    borda dos cards — espelha /samples). No desktop o meta segue como header
    (space-between via media query). */
