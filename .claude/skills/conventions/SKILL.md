@@ -15,6 +15,7 @@ description: Use this skill when writing or reviewing any code in this project. 
 - `components/` — componentes React compartilhados
 - `lib/` — tipos TS, schemas de formulario, cliente HTTP, utilitarios UI
 - `lib/offline/` — infra offline da PWA: snapshot local de sessao (session-cache), fila de informes em IndexedDB (visit-outbox) + sync com Idempotency-Key (visit-sync)
+- `lib/navigation/` — `route-history` (rastreador da rota anterior): `RouteHistoryTracker` no layout atualiza em efeito; `getRouteLeftBehind()` lido no render de uma pagina devolve a rota de origem (ex.: Lotes decide preservacao permanente vs com timer ao voltar)
 - `src/api/` — API framework-agnostic (backend-api.js)
 - `src/samples/` — dominio de amostras (command + query services)
 - `src/users/`, `src/auth/` — usuarios, sessoes, roles, auditoria
