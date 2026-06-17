@@ -22,7 +22,6 @@ import {
   type ClientFilters,
 } from '../../components/clients/ClientsFilterButton';
 import { IncompleteIcon } from '../../components/clients/IncompleteIcon';
-import { UserAvatarStack } from '../../components/users/UserAvatarStack';
 import { isClientComplete } from '../../lib/clients/client-completeness';
 import { ApiError, getClient, listClients, lookupUsersForReference } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
@@ -1050,23 +1049,16 @@ function ClientsPage() {
                     onClick={(event) => openClientDetail(client.id, event.currentTarget)}
                   >
                     {incomplete ? <IncompleteIcon className="cv2-card-incomplete-badge" /> : null}
-                    {/* 14.6.E: card em 2 blocos. Topo: avatar + nome + meta
-                        (type pill + responsaveis). Rodape: indicador de tipo
-                        de pessoa + arrow-btn. */}
+                    {/* Card em 2 blocos. Topo: avatar + nome. Rodape: arrow-btn.
+                        O UserAvatarStack de responsaveis comerciais foi removido
+                        do card (2026-06-17, batch /clients alinhado ao /samples);
+                        responsaveis seguem visiveis no detalhe/gestao do cliente. */}
                     <div className="cv2-card-head">
                       <span className="cv2-card-avatar">
                         <span>{initials}</span>
                       </span>
                       <div className="cv2-card-content">
                         <span className="cv2-card-name">{name}</span>
-                        <div className="cv2-card-meta">
-                          {/* 14.6.G: pill PJ/PF removido — info redundante com
-                              "Pessoa Juridica/Fisica" no rodape. So fica o
-                              UserAvatarStack sozinho. */}
-                          {client.commercialUsers && client.commercialUsers.length > 0 ? (
-                            <UserAvatarStack users={client.commercialUsers} size="sm" />
-                          ) : null}
-                        </div>
                       </div>
                     </div>
                     <span className="cv2-card-divider" aria-hidden="true" />
