@@ -863,7 +863,35 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(searchByOwner.body.page.total, 1);
     assert.equal(searchByOwner.body.items[0].declared.owner, targetOwner);
 
-    // owner agora e busca PARCIAL (contains, insensitive), igual a busca geral:
+    // Busca GERAL por PREFIXO (nao contains): 'Filtro' esta no MEIO de
+    // 'Fazenda Filtro Unica', entao NAO casa (nenhum proprietario/lote COMECA
+    // com 'Filtro'). Com a busca antiga (contains) casaria 1.
+    const searchMiddleNoMatch = await api.listSamples(
+      buildInput({
+        query: {
+          search: 'Filtro',
+        },
+      })
+    );
+
+    assert.equal(searchMiddleNoMatch.status, 200);
+    assert.equal(searchMiddleNoMatch.body.page.total, 0);
+
+    // ...mas o PREFIXO do nome casa: 'Fazenda Filtro' comeca 'Fazenda Filtro Unica'.
+    const searchByPrefix = await api.listSamples(
+      buildInput({
+        query: {
+          search: 'Fazenda Filtro',
+        },
+      })
+    );
+
+    assert.equal(searchByPrefix.status, 200);
+    assert.equal(searchByPrefix.body.page.total, 1);
+    assert.equal(searchByPrefix.body.items[0].internalLotNumber, targetInternalLotNumber);
+
+    // O FILTRO `owner` (avancado) e busca PARCIAL (contains, insensitive) —
+    // DIFERENTE da busca GERAL (`search`), que agora e por PREFIXO.
     // 'Fazenda Filtro' casa 'Fazenda Filtro Unica'. Antes era match exato (0).
     const ownerPartial = await api.listSamples(
       buildInput({

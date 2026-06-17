@@ -1114,11 +1114,21 @@ function SamplesPage() {
     return () => observer.disconnect();
   }, [runLoadMore, samplesState.nextCursor, samplesState.status, session]);
 
-  function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    clearSamplesSnapshot();
-    setAppliedSearch(searchInput.trim());
-  }
+  // Busca AO VIVO (debounce 400ms, espelha a Clientes): a partir de 2 caracteres
+  // aplica o termo (o backend casa por PREFIXO); com <2 caracteres desfiltra
+  // (mostra todos). Sem botao de confirmar. O guard evita re-disparo no mount
+  // (estado restaurado do snapshot). clearSamplesSnapshot evita restaurar lista
+  // stale durante o fetch da busca (mesmo papel do antigo handleSearchSubmit).
+  useEffect(() => {
+    const trimmed = searchInput.trim();
+    const nextSearch = trimmed.length >= 2 ? trimmed : '';
+    if (nextSearch === appliedSearch) return;
+    const handle = window.setTimeout(() => {
+      clearSamplesSnapshot();
+      setAppliedSearch(nextSearch);
+    }, 400);
+    return () => window.clearTimeout(handle);
+  }, [searchInput, appliedSearch]);
 
   function handleApplyFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1695,34 +1705,24 @@ function SamplesPage() {
         {/* Search bar — in green area, dashboard style. Filtro fica
             FORA do form, alinhado a direita (mesmo padrao do "+" em /clients). */}
         <div className="hero-search-wrap">
+          {/* Busca AO VIVO: o onChange so atualiza o texto; o debounce
+              (useEffect acima) aplica/desfiltra. role=search + onSubmit no-op
+              pra Enter nao recarregar. Sem `has-input`: o botao fica no estado
+              idle (lupa visivel, seta escondida) — vira so um icone decorativo. */}
           <form
-            className={`hero-search-bar${searchInput.trim().length > 0 ? ' has-input' : ''}`}
+            className="hero-search-bar"
             role="search"
-            onSubmit={handleSearchSubmit}
+            onSubmit={(event) => event.preventDefault()}
           >
             <input
               className="hero-search-input"
               value={searchInput}
-              onChange={(event) => {
-                const newValue = event.target.value;
-                setSearchInput(newValue);
-                // Auto-reset da lista quando o user limpa o input —
-                // mesmo padrao do clients (debounced), aqui aplicado
-                // imediatamente pra nao precisar submeter o form.
-                if (newValue.trim() === '' && appliedSearch !== '') {
-                  clearSamplesSnapshot();
-                  setAppliedSearch('');
-                }
-              }}
+              onChange={(event) => setSearchInput(event.target.value)}
               placeholder="Buscar por lote ou proprietario"
               autoComplete="off"
               spellCheck={false}
             />
-            <button
-              type="submit"
-              className="hero-search-submit"
-              aria-label={searchInput.trim().length > 0 ? 'Pesquisar' : 'Buscar'}
-            >
+            <span className="hero-search-submit" aria-hidden="true">
               <svg
                 className="hero-search-icon-search"
                 viewBox="0 0 24 24"

@@ -1266,17 +1266,21 @@ export class SampleQueryService {
     const conditions = [];
     const normalizedSearch = normalizeOptionalText(search);
     if (normalizedSearch) {
+      // Busca da pagina de Lotes: por PREFIXO ("comeca com"), case-insensitive.
+      // Casa numero do lote OU nome do proprietario (direto e das origens da
+      // liga). startsWith, nao contains: "55" traz lotes que COMECAM com 55, nao
+      // os que contem 55 no meio. (O filtro avancado `owner` segue por contains.)
       conditions.push({
         OR: [
           {
             internalLotNumber: {
-              contains: normalizedSearch,
+              startsWith: normalizedSearch,
               mode: 'insensitive',
             },
           },
           {
             declaredOwner: {
-              contains: normalizedSearch,
+              startsWith: normalizedSearch,
               mode: 'insensitive',
             },
           },
@@ -1286,7 +1290,7 @@ export class SampleQueryService {
             blendComponents: {
               some: {
                 originSample: {
-                  declaredOwner: { contains: normalizedSearch, mode: 'insensitive' },
+                  declaredOwner: { startsWith: normalizedSearch, mode: 'insensitive' },
                 },
               },
             },
