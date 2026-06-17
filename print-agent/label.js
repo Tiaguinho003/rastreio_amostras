@@ -169,51 +169,63 @@ export function buildLabel(job) {
   return Buffer.concat(parts);
 }
 
-// Etiqueta avulsa do dashboard admin (100x35mm; calibracao de SIZE/GAP/DENSITY
-// vive em calibratePrinter() no startup). Layout em 2 colunas — detalhes nas
-// constantes/funcoes abaixo. O preview (scripts/preview-custom-label.mjs)
-// consome buildCustomLabelLayout, entao o que aparece la == o que imprime.
+// Etiqueta de Aprovacao (ex-avulsa, 100x35mm; calibracao de SIZE/GAP/DENSITY
+// vive em calibratePrinter() no startup). Layout em FAIXAS — ver constantes
+// abaixo. O preview (scripts/preview-custom-label.mjs) consome
+// buildCustomLabelLayout, entao o que aparece la == o que imprime.
 
 // Largura/altura (dots) das fontes internas TSPL usadas aqui.
 const TSPL_FONT_W = { 1: 8, 2: 12, 3: 16, 4: 24 };
 const TSPL_FONT_H = { 1: 12, 2: 20, 3: 24, 4: 32 };
 
-// --- Layout em 2 colunas (modelo aprovado 2026-06-16) ---
-// Geometria em dots (etiqueta 800x280). Ajuste fino destes numeros aqui; o
-// preview (scripts/preview-custom-label.mjs) consome buildCustomLabelLayout,
-// entao o que aparece la == o que imprime.
+// --- Layout em 3 FAIXAS (revisao 2026-06-17, mockup do usuario) ---
+// (1) logo + Nº COMPRA + FECHAMENTO + SACAS; (2) PRODUTOR + ARMAZEM; (3) LOTES
+// (grade responsiva de caixas). Cada VALOR tem fonte AUTO-AJUSTADA a largura da
+// coluna (1 linha) — campo longo encolhe a fonte em vez de quebrar. Os lotes
+// saem do valor do campo LOTE (separado por virgula): cada um vira uma caixa,
+// com tamanho / nº de colunas / fonte variando pela quantidade. Geometria em
+// dots (etiqueta 800x280).
 const LABEL_W = 800;
 const LABEL_H = 280;
-const M_TOP = 18; // margens (respiro com a borda — prioridade do usuario)
-const M_BOTTOM = 24;
-const M_LEFT = 22;
-const M_RIGHT = 22;
-const DIVIDER_X = 300; // linha vertical entre as 2 colunas
-const DIVIDER_GAP = 14; // respiro de cada lado da divisoria
-const LINE_PITCH = 22; // topo-a-topo entre linhas de texto
-const FIELD_GAP = 12; // espaco vertical entre campos
-const LABEL_VALUE_GAP = 10; // entre "ROTULO:" e o valor (modo inline)
-const LABEL_INDENT = 12; // recuo do TITULO em relacao a borda/linha da coluna
-const VALUE_INDENT = 22; // recuo do VALOR sob o titulo (modo "abaixo" da esquerda)
+const M_TOP = 14;
+const M_BOTTOM = 14;
+const M_LEFT = 20;
+const M_RIGHT = 20;
+const BAR_W = 3; // espessura das divisorias (BAR)
 
-const CUSTOM_FONT = '2'; // rotulo e valor no MESMO tamanho (12x20)
-const CUSTOM_DEGREE_FONT = '1'; // "°"/"º" pequeno e sobrescrito (tipo "N°")
+// Faixas: y de topo/base de cada banda + y das divisorias horizontais.
+const BAND1_TOP = M_TOP;
+const BAND1_BOT = 82;
+const DIV1_Y = 84;
+const BAND2_TOP = 92;
+const BAND2_BOT = 156;
+const DIV2_Y = 158;
+const BAND3_TOP = 166;
+const BAND3_BOT = LABEL_H - M_BOTTOM;
 
-// Campos por ROTULO normalizado (sem "°"/":"), NAO por ordem do card (robusto
-// a reordenacao). mode 'below' = valor abaixo do rotulo; 'inline' = ao lado.
-// maxChars = limite de caracteres POR LINHA (incl. espaco); ausente = usa a
-// largura da coluna. Word-wrap nao corta palavra no meio (so palavra unica
-// maior que o limite e quebrada na forca).
-const CUSTOM_FIELDS = {
-  'N COMPRA': { mode: 'below', maxLines: 2, maxChars: 18 },
-  'N FECHAMENTO': { mode: 'below', maxLines: 2, maxChars: 18 },
-  PRODUT: { mode: 'inline', maxLines: 2, maxChars: 26 },
-  ARMAZ: { mode: 'inline', maxLines: 2, maxChars: 26 },
-  SACAS: { mode: 'inline', maxLines: 1, maxChars: 26 },
-  LOTE: { mode: 'inline', maxLines: 3, maxChars: 26 },
-};
-const CUSTOM_LEFT_ORDER = ['N COMPRA', 'N FECHAMENTO'];
-const CUSTOM_RIGHT_ORDER = ['PRODUT', 'ARMAZ', 'SACAS', 'LOTE'];
+const LABEL_FONT = '1'; // rotulos pequenos (8x12)
+const LABEL_GAP_Y = 6; // gap vertical entre rotulo e valor
+const COL_PAD = 10; // recuo do conteudo dentro da coluna
+const LOGO_SEP_GAP = 16; // respiro dos dois lados da divisoria apos o logo
+const VALUE_FONTS = ['4', '3', '2', '1']; // tiers do valor (maior -> menor)
+const VALUE_BAND_H = 34; // altura util do valor numa faixa (cabe a fonte 4)
+
+// Lotes: grade responsiva. Ate LOTS_ONE_ROW_MAX em 1 linha; acima, 2 linhas
+// (colunas = ceil(n / linhas)). Caixa e fonte encolhem conforme a quantidade.
+const LOTS_ONE_ROW_MAX = 4;
+const LOTS_GAP = 10;
+const LOTS_BOX_PAD = 8; // respiro horizontal do numero dentro da caixa
+const LOTS_BOX_THICK = 2; // espessura da linha da caixa (BOX)
+const LOTS_BOX_RADIUS = 6; // cantos arredondados (TSPL2 BOX radius; 0 = reto)
+
+// Chaves normalizadas dos campos de valor unico (vindas do printLabel do modal;
+// o LOTE e tratado a parte, como grade).
+const KEY_COMPRA = 'N COMPRA';
+const KEY_FECHAMENTO = 'N FECHAMENTO';
+const KEY_SACAS = 'SACAS';
+const KEY_PRODUTOR = 'PRODUT';
+const KEY_ARMAZEM = 'ARMAZ';
+const KEY_LOTE = 'LOTE';
 // Carrega o logo pequeno sob demanda. Se logo-small-data.js nao existir,
 // retorna null e a etiqueta avulsa sai sem logo (a de amostra nao depende
 // disso). Node faz cache do import, entao o custo so existe na 1a chamada.
@@ -230,100 +242,46 @@ async function loadSmallLogo() {
   }
 }
 
-// Quebra o rotulo em segmentos pra desenhar "°"/"º" como um sobrescrito
-// pequeno (fonte 1, tipo "N°") e o resto na fonte do rotulo. Retorna os
-// segmentos (cada um com offset dx relativo ao inicio do rotulo) + o avanco
-// total (largura "real" do rotulo, pra posicionar o valor depois).
-function buildLabelSegments(label) {
-  const bigW = TSPL_FONT_W[Number(CUSTOM_FONT)] ?? 12;
-  const smallW = TSPL_FONT_W[Number(CUSTOM_DEGREE_FONT)] ?? 8;
-  const segments = [];
-  let dx = 0;
-  let run = '';
-  function flushRun() {
-    if (run.length > 0) {
-      segments.push({ dx, font: CUSTOM_FONT, bold: true, text: run });
-      dx += run.length * bigW;
-      run = '';
-    }
-  }
-  for (const ch of label) {
-    if (ch === '°' || ch === 'º') {
-      flushRun();
-      segments.push({ dx, font: CUSTOM_DEGREE_FONT, bold: false, text: '°' });
-      dx += smallW;
-    } else {
-      run += ch;
-    }
-  }
-  flushRun();
-  return { segments, advance: dx };
-}
-
-// Normaliza o rotulo recebido pra casar com as chaves de CUSTOM_FIELDS
-// (remove "°"/"º"/":" e padroniza espacos/caixa). Ex.: "N° COMPRA:" -> "N COMPRA".
+// Normaliza o rotulo recebido pra casar com as chaves dos campos (remove
+// "°"/"º"/":" e padroniza espacos/caixa). Ex.: "N° COMPRA:" -> "N COMPRA".
 function normalizeFieldKey(label) {
   return label.replace(/[°º:]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
 }
 
-// Word-wrap greedy: quebra `text` em linhas de no maximo `maxChars` (palavra
-// maior que a linha e quebrada na forca).
-function wrapWords(text, maxChars) {
-  const words = text.split(/\s+/).filter(Boolean);
-  const lines = [];
-  let cur = '';
-  for (let word of words) {
-    while (word.length > maxChars) {
-      if (cur) {
-        lines.push(cur);
-        cur = '';
-      }
-      lines.push(word.slice(0, maxChars));
-      word = word.slice(maxChars);
-    }
-    if (cur === '') {
-      cur = word;
-    } else if (cur.length + 1 + word.length <= maxChars) {
-      cur += ' ' + word;
-    } else {
-      lines.push(cur);
-      cur = word;
+// Maior fonte (de `fonts`, do maior pro menor) cujo texto em 1 linha cabe em
+// `maxWidth` e cuja altura cabe em `maxHeight`. Se nem a menor couber, devolve a
+// menor (o fitText corta como trava). Responsavel pela "responsividade" da
+// fonte: campo/lote mais apertado -> fonte menor.
+function pickFont(text, maxWidth, maxHeight, fonts) {
+  for (const f of fonts) {
+    const w = TSPL_FONT_W[Number(f)] ?? 8;
+    const h = TSPL_FONT_H[Number(f)] ?? 12;
+    if (text.length * w <= maxWidth && h <= maxHeight) {
+      return f;
     }
   }
-  if (cur) {
-    lines.push(cur);
-  }
-  return lines.length > 0 ? lines : [''];
+  return fonts[fonts.length - 1];
 }
 
-// Quebra o valor por PALAVRA pra caber em `maxLines` dentro de `maxWidth`
-// (dots), opcionalmente limitado a `charCap` caracteres/linha. NAO reduz a
-// fonte (decisao do usuario): mantem a fonte padrao e, se ainda exceder
-// maxLines (raro — o input do card ja limita o tamanho), corta a ultima linha
-// com "..." como trava de seguranca. Retorna { font, lines }.
-function wrapValue(text, maxWidth, maxLines, charCap = 0) {
-  const charW = TSPL_FONT_W[Number(CUSTOM_FONT)] ?? 12;
-  let maxChars = Math.max(1, Math.floor(maxWidth / charW));
-  if (charCap > 0) {
-    maxChars = Math.min(maxChars, charCap);
-  }
-  const wrapped = wrapWords(text, maxChars);
-  if (wrapped.length <= maxLines) {
-    return { font: CUSTOM_FONT, lines: wrapped };
-  }
-  const kept = wrapped.slice(0, maxLines);
-  let last = kept[maxLines - 1] ?? '';
-  if (last.length > maxChars - 3) {
-    last = last.slice(0, Math.max(0, maxChars - 3));
-  }
-  kept[maxLines - 1] = `${last}...`;
-  return { font: CUSTOM_FONT, lines: kept };
+// Corta `text` pra caber em `maxWidth` na fonte dada (trava de seguranca; raro,
+// porque a fonte ja foi escolhida pra caber).
+function fitText(text, font, maxWidth) {
+  const w = TSPL_FONT_W[Number(font)] ?? 8;
+  const maxChars = Math.max(1, Math.floor(maxWidth / w));
+  return text.length > maxChars ? text.slice(0, maxChars) : text;
 }
 
-// Calcula o layout (posicoes/fontes/quebras ja resolvidas) SEM serializar
-// TSPL. Fonte unica compartilhada por buildCustomLabel (impressao) e pelo
-// preview. Layout por FLUXO (cursor que avanca pela altura real de cada campo)
-// em 2 colunas. Retorna { width, height, copies, logo, texts, divider, safeArea }.
+// Separa o valor do campo LOTE numa lista (virgula ou quebra de linha).
+function splitLots(value) {
+  return String(value || '')
+    .split(/[,\n]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+// Calcula o layout (posicoes/fontes/caixas ja resolvidas) SEM serializar TSPL.
+// Fonte unica compartilhada por buildCustomLabel (impressao) e pelo preview.
+// Retorna { width, height, copies, logo, texts, dividers, boxes, safeArea }.
 export async function buildCustomLabelLayout(payload) {
   const lines = Array.isArray(payload?.lines) ? payload.lines : [];
   if (lines.length === 0) {
@@ -335,125 +293,157 @@ export async function buildCustomLabelLayout(payload) {
   for (const line of lines) {
     byKey.set(normalizeFieldKey(sanitize(line?.label || '', 40)), line);
   }
+  function labelOf(key, fallback) {
+    const line = byKey.get(key);
+    const raw = line && typeof line.label === 'string' ? line.label : fallback;
+    return sanitize(raw, 40);
+  }
+  function valueOf(key) {
+    const line = byKey.get(key);
+    return line && typeof line.value === 'string' ? sanitize(line.value.trim(), 300) : '';
+  }
 
   const texts = [];
+  const dividers = [];
+  const boxes = [];
 
-  // Desenha o rotulo (com "°" sobrescrito) em (x,y); retorna o avanco do rotulo.
+  // Rotulo pequeno (LABEL_FONT) em (x, y) — sem ":" (segue o mockup).
   function pushLabel(rawLabel, x, y) {
-    let label = sanitize(rawLabel || '', 40);
-    if (!label.endsWith(':')) {
-      label += ':';
-    }
-    const { segments, advance } = buildLabelSegments(label);
-    for (const seg of segments) {
-      texts.push({
-        x: x + seg.dx,
-        y,
-        font: seg.font,
-        xMul: 1,
-        yMul: 1,
-        bold: seg.bold,
-        text: seg.text,
-      });
-    }
-    return advance;
+    const text = sanitize(rawLabel || '', 40);
+    if (text) texts.push({ x, y, font: LABEL_FONT, xMul: 1, yMul: 1, bold: false, text });
   }
 
-  // Empilha as linhas (ja quebradas) do valor a partir de (x, startY); retorna
-  // o y logo abaixo da ultima linha.
-  function pushValue(vlines, font, x, startY) {
-    let y = startY;
-    for (const vl of vlines) {
-      texts.push({ x, y, font, xMul: 1, yMul: 1, bold: false, text: vl });
-      y += LINE_PITCH;
+  // Valor com fonte AUTO-AJUSTADA a `maxWidth` (1 linha), em negrito.
+  function pushValue(rawValue, x, y, maxWidth) {
+    const value = rawValue || '';
+    if (!value) return;
+    const font = pickFont(value, maxWidth, VALUE_BAND_H, VALUE_FONTS);
+    texts.push({ x, y, font, xMul: 1, yMul: 1, bold: true, text: fitText(value, font, maxWidth) });
+  }
+
+  // Campo "rotulo em cima + valor embaixo" numa coluna [x, x+w].
+  function pushField(key, fallbackLabel, x, w, labelY, valueY) {
+    pushLabel(labelOf(key, fallbackLabel), x + COL_PAD, labelY);
+    pushValue(valueOf(key), x + COL_PAD, valueY, w - 2 * COL_PAD);
+  }
+
+  // Distribui colunas (com pesos) em [start, end], com divisoria vertical entre
+  // elas, e desenha cada campo.
+  function layoutColumns(start, end, fields, bandTop, bandBot, labelY, valueY) {
+    const wsum = fields.reduce((a, f) => a + f.weight, 0);
+    const usableW = end - start - (fields.length - 1) * BAR_W;
+    let x = start;
+    for (let i = 0; i < fields.length; i += 1) {
+      const colW = Math.floor((usableW * fields[i].weight) / wsum);
+      pushField(fields[i].key, fields[i].fallback, x, colW, labelY, valueY);
+      x += colW;
+      if (i < fields.length - 1) {
+        dividers.push({ x, y: bandTop, width: BAR_W, height: bandBot - bandTop });
+        x += BAR_W;
+      }
     }
-    return y;
   }
 
-  function readValue(line) {
-    return typeof line?.value === 'string' ? line.value.trim() : '';
-  }
-
-  // Logo no topo-ESQUERDA (opcional — degrada sem o arquivo).
+  // Logo no topo-esquerda da faixa 1 (opcional — degrada sem o arquivo).
   const logo = await loadSmallLogo();
   const logoOp = logo
     ? {
         widthBytes: logo.widthBytes,
         height: logo.height,
-        // Centralizado entre a borda esquerda e a divisoria.
-        x: Math.max(M_LEFT, Math.floor((DIVIDER_X - logo.widthBytes * 8) / 2)),
-        y: M_TOP,
+        x: M_LEFT,
+        y: BAND1_TOP + Math.max(0, Math.floor((BAND1_BOT - BAND1_TOP - logo.height) / 2)),
         data: logo.data,
       }
     : null;
+  const logoRight = logoOp ? logoOp.x + logoOp.widthBytes * 8 : M_LEFT;
 
-  // Coluna ESQUERDA: logo + campos com valor ABAIXO do rotulo. RESERVA SEMPRE
-  // maxLines linhas de valor (espacamento fixo entre os campos, mesmo quando o
-  // valor ocupa menos) e limita cada linha a LEFT_MAX_CHARS caracteres.
-  const leftLabelX = M_LEFT + LABEL_INDENT; // titulo afastado da borda
-  const leftValueX = leftLabelX + VALUE_INDENT; // valor recuado sob o titulo
-  const leftValueW = DIVIDER_X - DIVIDER_GAP - leftValueX;
-  let yL = M_TOP + (logoOp ? logoOp.height + FIELD_GAP : 0);
-  for (const key of CUSTOM_LEFT_ORDER) {
-    const line = byKey.get(key);
-    if (!line) continue;
-    const cfg = CUSTOM_FIELDS[key];
-    pushLabel(line.label, leftLabelX, yL);
-    const rawValue = readValue(line);
-    if (rawValue) {
-      const { font, lines: vlines } = wrapValue(
-        sanitize(rawValue, 300),
-        leftValueW,
-        cfg.maxLines,
-        cfg.maxChars
-      );
-      pushValue(vlines, font, leftValueX, yL + LINE_PITCH);
+  // Faixa 1: divisoria apos o logo + COMPRA | FECHAMENTO | SACAS.
+  const sepX = logoRight + LOGO_SEP_GAP;
+  dividers.push({ x: sepX, y: BAND1_TOP, width: BAR_W, height: BAND1_BOT - BAND1_TOP });
+  const b1LabelY = BAND1_TOP + 8;
+  const b1ValueY = b1LabelY + TSPL_FONT_H[Number(LABEL_FONT)] + LABEL_GAP_Y;
+  layoutColumns(
+    sepX + BAR_W + LOGO_SEP_GAP,
+    LABEL_W - M_RIGHT,
+    [
+      { key: KEY_COMPRA, fallback: 'N° COMPRA', weight: 1 },
+      { key: KEY_FECHAMENTO, fallback: 'N° FECHAMENTO', weight: 1 },
+      { key: KEY_SACAS, fallback: 'SACAS', weight: 0.62 },
+    ],
+    BAND1_TOP,
+    BAND1_BOT,
+    b1LabelY,
+    b1ValueY
+  );
+
+  // Faixa 2: PRODUTOR | ARMAZEM (produtor mais largo).
+  const b2LabelY = BAND2_TOP + 8;
+  const b2ValueY = b2LabelY + TSPL_FONT_H[Number(LABEL_FONT)] + LABEL_GAP_Y;
+  layoutColumns(
+    M_LEFT,
+    LABEL_W - M_RIGHT,
+    [
+      { key: KEY_PRODUTOR, fallback: 'PRODUT', weight: 1.5 },
+      { key: KEY_ARMAZEM, fallback: 'ARMAZ', weight: 1 },
+    ],
+    BAND2_TOP,
+    BAND2_BOT,
+    b2LabelY,
+    b2ValueY
+  );
+
+  // Divisorias horizontais entre as faixas.
+  const innerLeft = M_LEFT;
+  const innerRight = LABEL_W - M_RIGHT;
+  dividers.push({ x: innerLeft, y: DIV1_Y, width: innerRight - innerLeft, height: BAR_W });
+  dividers.push({ x: innerLeft, y: DIV2_Y, width: innerRight - innerLeft, height: BAR_W });
+
+  // Faixa 3: rotulo "LOTES" (sempre plural) + grade responsiva de caixas.
+  pushLabel('LOTES', innerLeft, BAND3_TOP + 2);
+  const lots = splitLots(valueOf(KEY_LOTE));
+  if (lots.length > 0) {
+    const gridTop = BAND3_TOP + TSPL_FONT_H[Number(LABEL_FONT)] + 8;
+    const gridH = BAND3_BOT - gridTop;
+    const gridW = innerRight - innerLeft;
+
+    const rows = lots.length <= LOTS_ONE_ROW_MAX ? 1 : 2;
+    const cols = Math.ceil(lots.length / rows);
+    const boxW = Math.floor((gridW - (cols - 1) * LOTS_GAP) / cols);
+    const boxH = Math.floor((gridH - (rows - 1) * LOTS_GAP) / rows);
+
+    // Fonte UNICA pra todos os lotes: a maior que cabe o maior numero na caixa
+    // (mais colunas -> caixa menor -> fonte menor = a "responsividade").
+    const longest = lots.reduce((m, l) => Math.max(m, l.length), 1);
+    const lotFont = pickFont('0'.repeat(longest), boxW - 2 * LOTS_BOX_PAD, boxH - 8, VALUE_FONTS);
+    const lotFontW = TSPL_FONT_W[Number(lotFont)] ?? 8;
+    const lotFontH = TSPL_FONT_H[Number(lotFont)] ?? 12;
+
+    for (let i = 0; i < lots.length; i += 1) {
+      const r = Math.floor(i / cols);
+      const c = i % cols;
+      const bx = innerLeft + c * (boxW + LOTS_GAP);
+      const by = gridTop + r * (boxH + LOTS_GAP);
+      boxes.push({
+        x: bx,
+        y: by,
+        w: boxW,
+        h: boxH,
+        thickness: LOTS_BOX_THICK,
+        radius: LOTS_BOX_RADIUS,
+      });
+      const lot = fitText(lots[i], lotFont, boxW - 2 * LOTS_BOX_PAD);
+      texts.push({
+        x: bx + Math.max(LOTS_BOX_PAD, Math.floor((boxW - lot.length * lotFontW) / 2)),
+        y: by + Math.max(0, Math.floor((boxH - lotFontH) / 2)),
+        font: lotFont,
+        xMul: 1,
+        yMul: 1,
+        bold: true,
+        text: lot,
+      });
     }
-    // Avanca sempre por (rotulo + maxLines de valor), reservando o espaco.
-    yL += (1 + cfg.maxLines) * LINE_PITCH + FIELD_GAP;
   }
 
-  // Coluna DIREITA: rotulo + valor, com TODOS os valores alinhados numa coluna
-  // (referencia = inicio do valor do rotulo mais largo, que e o PRODUT). Quebra
-  // com recuo pendurado (continuacao alinha sob o inicio do valor).
-  const rightX = DIVIDER_X + DIVIDER_GAP;
-  const rightLabelX = rightX + LABEL_INDENT; // titulo afastado da divisoria
-
-  // x fixo da coluna de valor: maior avanco de rotulo entre os campos da direita.
-  let rightMaxAdvance = 0;
-  for (const key of CUSTOM_RIGHT_ORDER) {
-    const line = byKey.get(key);
-    if (!line) continue;
-    let lbl = sanitize(line.label || '', 40);
-    if (!lbl.endsWith(':')) lbl += ':';
-    rightMaxAdvance = Math.max(rightMaxAdvance, buildLabelSegments(lbl).advance);
-  }
-  const rightValueX = rightLabelX + rightMaxAdvance + LABEL_VALUE_GAP;
-  const rightValueW = LABEL_W - M_RIGHT - rightValueX;
-
-  // PRODUT afastado da borda superior na mesma proporcao do recuo lateral dos N°.
-  let yR = M_TOP + LABEL_INDENT;
-  for (const key of CUSTOM_RIGHT_ORDER) {
-    const line = byKey.get(key);
-    if (!line) continue;
-    const cfg = CUSTOM_FIELDS[key];
-    pushLabel(line.label, rightLabelX, yR);
-    const rawValue = readValue(line);
-    if (rawValue) {
-      const { font, lines: vlines } = wrapValue(
-        sanitize(rawValue, 300),
-        rightValueW,
-        cfg.maxLines,
-        cfg.maxChars
-      );
-      pushValue(vlines, font, rightValueX, yR);
-    }
-    // Reserva SEMPRE maxLines linhas (espacamento uniforme entre os campos,
-    // espelhando a coluna esquerda) — mesmo quando o valor ocupa menos.
-    yR += cfg.maxLines * LINE_PITCH + FIELD_GAP;
-  }
-
-  const divider = { x: DIVIDER_X, y: M_TOP, width: 3, height: LABEL_H - M_BOTTOM - M_TOP };
   const safeArea = {
     left: M_LEFT,
     right: LABEL_W - M_RIGHT,
@@ -461,7 +451,16 @@ export async function buildCustomLabelLayout(payload) {
     bottom: LABEL_H - M_BOTTOM,
   };
 
-  return { width: LABEL_W, height: LABEL_H, copies: 1, logo: logoOp, texts, divider, safeArea };
+  return {
+    width: LABEL_W,
+    height: LABEL_H,
+    copies: 1,
+    logo: logoOp,
+    texts,
+    dividers,
+    boxes,
+    safeArea,
+  };
 }
 
 export async function buildCustomLabel(payload) {
@@ -472,10 +471,14 @@ export async function buildCustomLabel(payload) {
   // logo (binario) e o PRINT vao por ultimo. A ordem de desenho nao muda o
   // resultado (campos e logo nao se sobrepoem).
   const head = ['CLS', ''];
-  // Divisoria vertical entre as 2 colunas.
-  if (layout.divider) {
-    const d = layout.divider;
+  // Divisorias (barras solidas: horizontais entre faixas + verticais nas colunas).
+  for (const d of layout.dividers || []) {
     head.push(`BAR ${d.x},${d.y},${d.width},${d.height}`);
+  }
+  // Caixas dos lotes (BOX; radius p/ cantos arredondados em TSPL2 — 0 = reto).
+  for (const b of layout.boxes || []) {
+    const radius = b.radius ? `,${b.radius}` : '';
+    head.push(`BOX ${b.x},${b.y},${b.x + b.w},${b.y + b.h},${b.thickness}${radius}`);
   }
   for (const t of layout.texts) {
     head.push(`TEXT ${t.x},${t.y},"${t.font}",0,${t.xMul},${t.yMul},"${t.text}"`);

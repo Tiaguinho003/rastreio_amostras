@@ -6,18 +6,17 @@ import sharp from 'sharp';
 
 import { buildCustomLabelLayout } from '../print-agent/label.js';
 
-// Gera um PNG do preview da ETIQUETA AVULSA pra revisao de layout SEM deploy.
-// Le buildCustomLabelLayout (mesma fonte que a impressao), desenha o texto
-// com a LARGURA REAL das fontes internas TSPL (monospace travado por
+// Gera PNGs do preview da ETIQUETA DE APROVACAO pra revisao de layout SEM
+// deploy. Le buildCustomLabelLayout (mesma fonte que a impressao), desenha o
+// texto com a LARGURA REAL das fontes internas TSPL (monospace travado por
 // caractere) dentro do canvas exato 800x280 dots — entao o que estoura aqui
-// estoura na impressao. Estouro da borda OU sobreposicao do logo = vermelho.
-// O logo entra do PNG-fonte (assets) so pra dar a nocao de tamanho/posicao;
-// no print real ele sai como bitmap 1-bit (logo-small-data.js).
+// estoura na impressao. Estouro da margem OU sobreposicao do logo = vermelho.
+// Varias contagens de lotes sao geradas pra validar a responsividade da grade.
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 const LOGO_SRC = join(ROOT, 'assets', 'Safras-logo-ori.png');
-const OUT_PNG = join(ROOT, 'print-agent', 'custom-label-preview.png');
+const OUT_DIR = join(ROOT, 'print-agent');
 
 // Largura x altura (dots) das fontes internas TSPL (multiplicador 1).
 const FONT = { 1: [8, 12], 2: [12, 20], 3: [16, 24], 4: [24, 32], 5: [32, 48] };
@@ -25,21 +24,18 @@ const FONT = { 1: [8, 12], 2: [12, 20], 3: [16, 24], 4: [24, 32], 5: [32, 48] };
 const SCALE = 2; // px por dot no PNG final
 const CAPTION_H = 46; // faixa de legenda abaixo da etiqueta (dots)
 
-// PIOR-CASO: valores longos que atingem o maximo de linhas de cada campo, pra
-// validar que nem o cenario mais cheio encosta nas margens.
-const SAMPLE = {
-  lines: [
-    { label: 'N° COMPRA', value: 'OC20250001234NF998877' },
-    { label: 'N° FECHAMENTO', value: 'FC2025554433LOTE202506' },
-    { label: 'PRODUT', value: 'Fazenda Boa Esperança do Rio Verde Ltda ME' },
-    { label: 'ARMAZ', value: 'Armazém Central Patrocínio MG' },
-    { label: 'SACAS', value: '320' },
-    {
-      label: 'LOTE',
-      value: 'A-1234, A-1235, A-1236, A-1237, A-1238, A-1239, A-1240, A-1241, A-1242',
-    },
-  ],
-};
+// Campos fixos (mockup do usuario). Os lotes variam por contagem.
+const BASE_FIELDS = [
+  { label: 'N° COMPRA', value: 'C003364' },
+  { label: 'N° FECHAMENTO', value: '3228/26' },
+  { label: 'SACAS', value: '248' },
+  { label: 'PRODUT', value: 'JERONITO ANTONIO PEREIRA' },
+  { label: 'ARMAZ', value: 'PENEIRA ALTA' },
+];
+
+function lotsValue(n) {
+  return Array.from({ length: n }, (_, i) => String(5839 + i)).join(', ');
+}
 
 function esc(text) {
   return text
@@ -53,8 +49,8 @@ function overlaps(ax, ay, aw, ah, bx, by, bw, bh) {
   return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
 }
 
-async function main() {
-  const layout = await buildCustomLabelLayout(SAMPLE);
+async function render(sample, outName, caption) {
+  const layout = await buildCustomLabelLayout(sample);
   const W = layout.width;
   const H = layout.height;
   const logo = layout.logo;
@@ -62,17 +58,22 @@ async function main() {
   const logoH = logo ? logo.height : 0;
 
   const els = [];
-  // Fundo + borda fisica da etiqueta.
   els.push(`<rect x="0" y="0" width="${W}" height="${H}" fill="#ffffff" />`);
   els.push(
     `<rect x="0.5" y="0.5" width="${W - 1}" height="${H - 1}" fill="none" stroke="#bbbbbb" />`
   );
 
-  // Divisoria vertical entre as colunas.
-  if (layout.divider) {
-    const d = layout.divider;
+  // Divisorias (barras solidas: horizontais entre faixas + verticais).
+  for (const d of layout.dividers || []) {
     els.push(
-      `<rect x="${d.x}" y="${d.y}" width="${d.width}" height="${d.height}" fill="#333333" />`
+      `<rect x="${d.x}" y="${d.y}" width="${d.width}" height="${d.height}" fill="#222222" />`
+    );
+  }
+
+  // Caixas dos lotes (cantos arredondados via rx).
+  for (const b of layout.boxes || []) {
+    els.push(
+      `<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="${b.radius || 0}" fill="none" stroke="#111111" stroke-width="${b.thickness}" />`
     );
   }
 
@@ -100,7 +101,10 @@ async function main() {
 
     const s = layout.safeArea;
     const offEdge = s
-      ? t.x + width > s.right || t.y + charH > s.bottom || t.x < s.left - 1 || t.y < s.top - 1
+      ? t.x + width > s.right + 1 ||
+        t.y + charH > s.bottom + 1 ||
+        t.x < s.left - 1 ||
+        t.y < s.top - 1
       : t.x + width > W || t.y + charH > H;
     const onLogo = logo && overlaps(t.x, t.y, width, charH, logo.x, logo.y, logoW, logoH);
     const bad = offEdge || onLogo;
@@ -119,7 +123,7 @@ async function main() {
 
   // Legenda.
   els.push(
-    `<text x="0" y="${H + 30}" font-family="sans-serif" font-size="20" fill="#666666">Etiqueta avulsa — 100 x 35 mm.  Azul tracejado = margem util.  Vermelho = texto fora da margem.</text>`
+    `<text x="0" y="${H + 30}" font-family="sans-serif" font-size="20" fill="#666666">${esc(caption)}</text>`
   );
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W * SCALE}" height="${(H + CAPTION_H) * SCALE}" viewBox="0 0 ${W} ${H + CAPTION_H}"><rect width="${W}" height="${H + CAPTION_H}" fill="#f4f4f4"/>${els.join('')}</svg>`;
@@ -138,9 +142,34 @@ async function main() {
     ]);
   }
 
-  await img.png().toFile(OUT_PNG);
-  writeFileSync(OUT_PNG.replace(/\.png$/, '.svg'), svg);
-  console.log(`Preview gerado: ${OUT_PNG}`);
+  const outPng = join(OUT_DIR, outName);
+  await img.png().toFile(outPng);
+  writeFileSync(outPng.replace(/\.png$/, '.svg'), svg);
+  console.log(`Preview gerado: ${outPng}`);
+}
+
+async function main() {
+  const variants = [
+    {
+      n: 8,
+      name: 'custom-label-preview.png',
+      cap: 'Aprovacao — 8 lotes (mockup).  Azul = margem util.  Vermelho = fora.',
+    },
+    {
+      n: 2,
+      name: 'custom-label-preview-2.png',
+      cap: 'Aprovacao — 2 lotes (1 linha, caixas grandes).',
+    },
+    { n: 6, name: 'custom-label-preview-6.png', cap: 'Aprovacao — 6 lotes (2x3).' },
+    { n: 14, name: 'custom-label-preview-14.png', cap: 'Aprovacao — 14 lotes (2x7, fonte menor).' },
+  ];
+  for (const v of variants) {
+    await render(
+      { lines: [...BASE_FIELDS, { label: 'LOTE', value: lotsValue(v.n) }] },
+      v.name,
+      v.cap
+    );
+  }
 }
 
 main().catch((err) => {
