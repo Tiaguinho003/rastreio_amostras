@@ -289,11 +289,15 @@ export function ClientQuickCreateModal({
     }
   }
 
+  // is-stacked: este modal e sempre aberto SOBRE outra coisa (sheet de Nova
+  // Amostra z-modal, modal de vinculo do /resumo, lookup do detalhe). Sem o
+  // tier stacked (z-modal-stacked) ele ficava no z-modal-backdrop, ATRAS do
+  // sheet de Nova Amostra (que e z-modal).
   return createPortal(
-    <div className="app-modal-backdrop">
+    <div className="app-modal-backdrop is-stacked">
       <section
         ref={focusTrapRef}
-        className="app-modal client-quick-create-modal"
+        className="app-modal client-quick-create-modal is-stacked"
         role="dialog"
         aria-modal="true"
         aria-labelledby="client-quick-create-title"

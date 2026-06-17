@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 import { useFocusTrap } from '../../lib/use-focus-trap';
 
@@ -61,7 +62,9 @@ export function SampleCreatedSuccessModal({
 
   if (!open) return null;
 
-  return (
+  // Portal pro body: central SEMPRE porta (skill modals). Sem isso ficava preso
+  // no contexto de empilhamento da pagina (mesmo motivo do "Descartar").
+  return createPortal(
     <div className="app-modal-backdrop" onClick={onClose}>
       <section
         ref={focusTrapRef}
@@ -110,6 +113,7 @@ export function SampleCreatedSuccessModal({
           </button>
         </div>
       </section>
-    </div>
+    </div>,
+    document.body
   );
 }
