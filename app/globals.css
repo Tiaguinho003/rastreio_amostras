@@ -17911,6 +17911,33 @@ select.samples-filter-field-input {
   gap: clamp(0.22rem, 1vw, 0.32rem);
   font-size: clamp(0.82rem, 2.8vw, 0.88rem);
   min-width: 0;
+  /* desbota/reacende suave ao alternar PJ/PF (ver .is-dimmed). */
+  transition: opacity 0.18s ease;
+}
+
+/* Razao social no PF: campo PERMANECE renderizado (altura estavel) mas desbota
+   e fica nao-clicavel. O `disabled` no input ja barra edicao/foco; o
+   pointer-events reforca no label inteiro. */
+.client-quick-create-field.is-dimmed {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* Rotulo com troca de texto por CROSSFADE (documento CNPJ↔CPF e nome do topo
+   Nome fantasia↔Nome completo). O JS (CrossfadeLabel) alterna .is-hidden; o
+   CROSSFADE_MS (150) casa com esta transition. */
+.cqc-label-fade {
+  transition: opacity 0.15s ease;
+}
+
+.cqc-label-fade.is-hidden {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cqc-label-fade {
+    transition: none;
+  }
 }
 
 .client-quick-create-field input,
@@ -17922,32 +17949,32 @@ select.samples-filter-field-input {
 /* 14.7.C: bordas mais visiveis (1px -> 2px) — campos do modal de novo
    cliente estavam quase invisiveis sem foco. Tom levemente mais escuro
    pra dar mais presenca. */
-.client-quick-create-modal .client-quick-create-field input,
-.client-quick-create-modal .client-quick-create-field select {
+.client-quick-create-sheet .client-quick-create-field input,
+.client-quick-create-sheet .client-quick-create-field select {
   border-width: 2px;
   border-color: rgba(0, 0, 0, 0.18);
 }
 
-.client-quick-create-modal .client-quick-create-field input:focus,
-.client-quick-create-modal .client-quick-create-field select:focus {
+.client-quick-create-sheet .client-quick-create-field input:focus,
+.client-quick-create-sheet .client-quick-create-field select:focus {
   border-color: rgba(22, 91, 42, 0.5);
 }
 
-.client-quick-create-modal .user-multi-select {
+.client-quick-create-sheet .user-multi-select {
   border-width: 2px;
   /* Mesma altura do input Telefone (campo nao cresce ao adicionar chips). */
   min-height: 2.5rem;
   justify-content: center;
 }
 
-.client-quick-create-modal .client-quick-create-field input,
-.client-quick-create-modal .client-quick-create-field select {
+.client-quick-create-sheet .client-quick-create-field input,
+.client-quick-create-sheet .client-quick-create-field select {
   min-height: 2.5rem;
 }
 
 /* Chips dos responsaveis enfileiram na horizontal (linha unica). Excesso
    rola lateralmente em vez de empurrar o campo pra baixo. */
-.client-quick-create-modal .user-multi-select__chips {
+.client-quick-create-sheet .user-multi-select__chips {
   flex: 1;
   min-height: 0;
   flex-wrap: nowrap;
@@ -17958,15 +17985,15 @@ select.samples-filter-field-input {
   scrollbar-width: none;
 }
 
-.client-quick-create-modal .user-multi-select__chips::-webkit-scrollbar {
+.client-quick-create-sheet .user-multi-select__chips::-webkit-scrollbar {
   display: none;
 }
 
-.client-quick-create-modal .user-multi-select__chip {
+.client-quick-create-sheet .user-multi-select__chip {
   flex-shrink: 0;
 }
 
-.client-quick-create-modal .user-multi-select__input {
+.client-quick-create-sheet .user-multi-select__input {
   min-width: 60px;
 }
 

@@ -95,6 +95,46 @@ function buildInitialForm({
   };
 }
 
+// Rotulo que troca de texto com CROSSFADE suave (sem efeito de digitacao) —
+// usado nos campos que mudam de nome ao alternar PJ/PF (Documento: CNPJ↔CPF;
+// nome do topo: Nome fantasia↔Nome completo). Fade-out do texto antigo → swap →
+// fade-in do novo. `prefers-reduced-motion` = troca instantanea. O <span> e
+// aria-hidden (o nome acessivel do input vem do `aria-label` no proprio input).
+const CROSSFADE_MS = 150;
+
+function CrossfadeLabel({ text }: { text: string }) {
+  const [shown, setShown] = useState(text);
+  const [visible, setVisible] = useState(true);
+  const prevTextRef = useRef(text);
+
+  useEffect(() => {
+    if (prevTextRef.current === text) return;
+    prevTextRef.current = text;
+
+    const reduceMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion) {
+      setShown(text);
+      setVisible(true);
+      return;
+    }
+
+    setVisible(false); // fade-out do texto atual
+    const timer = window.setTimeout(() => {
+      setShown(text); // troca o texto
+      setVisible(true); // fade-in do novo
+    }, CROSSFADE_MS);
+    return () => window.clearTimeout(timer);
+  }, [text]);
+
+  return (
+    <span className={`cqc-label-fade${visible ? '' : ' is-hidden'}`} aria-hidden="true">
+      {shown}
+    </span>
+  );
+}
+
 export function ClientQuickCreateModal({
   session,
   open,
@@ -198,8 +238,13 @@ export function ClientQuickCreateModal({
   }, [isDocumentComplete, form.personType, documentDigits]);
   const isDocumentValid = !isDocumentFilled || isChecksumValid;
 
-  const nameValue = form.personType === 'PF' ? form.fullName : form.legalName;
-  const isNameFilled = nameValue.trim().length > 0;
+  // Nome OBRIGATORIO (validacao): PF→fullName (campo do topo), PJ→legalName (razao).
+  const requiredNameValue = form.personType === 'PF' ? form.fullName : form.legalName;
+  const isNameFilled = requiredNameValue.trim().length > 0;
+  // Campo de nome do TOPO (exibicao/edicao): PF→Nome completo (fullName) /
+  // PJ→Nome fantasia (tradeName). A Razao social (legalName) e a linha de baixo.
+  const topNameValue = form.personType === 'PF' ? form.fullName : form.tradeName;
+  const topNameLabel = form.personType === 'PF' ? 'Nome completo' : 'Nome fantasia';
   // Telefone e opcional. Se preenchido, exige formato (10 ou 11 digitos).
   const isPhoneValid =
     form.phone.replace(/\D/g, '').length === 0 ||
@@ -222,6 +267,9 @@ export function ClientQuickCreateModal({
       : `${documentLabel} invalido (digito verificador errado)`
     : null;
   const hasNameError = showFieldErrors && !isNameFilled;
+  // O obrigatorio fica no TOPO no PF (fullName) e na RAZAO no PJ (legalName).
+  const hasTopNameError = hasNameError && form.personType === 'PF';
+  const hasRazaoError = hasNameError && form.personType === 'PJ';
   const hasPhoneError = showFieldErrors && !isPhoneValid;
   const phoneHint = !isPhoneValid ? 'Telefone deve ter 10 ou 11 digitos' : null;
   // 14.7.C: erro do responsavel agora so aparece apos tentativa de
@@ -381,10 +429,11 @@ export function ClientQuickCreateModal({
             <label
               className={`client-quick-create-field${hasDocumentError ? ' is-field-error' : ''}`}
             >
-              {documentLabel}
+              <CrossfadeLabel text={documentLabel} />
               <input
                 value={documentValue}
                 disabled={saving}
+                aria-label={documentLabel}
                 className={hasDocumentError ? 'cqc-input-error' : undefined}
                 onChange={(event) =>
                   setForm((current) => ({
@@ -404,46 +453,55 @@ export function ClientQuickCreateModal({
             </label>
           </div>
 
-          {/* Linha 2: Nome (PF: completo, PJ: razao social) — full width */}
+          {/* Linha 2 (topo): nome principal — PF "Nome completo" (fullName) /
+              PJ "Nome fantasia" (tradeName). Rotulo com crossfade ao trocar. */}
           <div className="client-quick-create-grid client-quick-create-grid-single">
-            <label className={`client-quick-create-field${hasNameError ? ' is-field-error' : ''}`}>
-              {form.personType === 'PF' ? 'Nome completo' : 'Razao social'}
+            <label
+              className={`client-quick-create-field${hasTopNameError ? ' is-field-error' : ''}`}
+            >
+              <CrossfadeLabel text={topNameLabel} />
               <input
-                value={nameValue}
+                value={topNameValue}
                 disabled={saving}
-                className={hasNameError ? 'cqc-input-error' : undefined}
+                aria-label={topNameLabel}
+                className={hasTopNameError ? 'cqc-input-error' : undefined}
                 onChange={(event) => {
                   const value = event.target.value.toUpperCase();
                   setForm((current) => ({
                     ...current,
                     fullName: current.personType === 'PF' ? value : current.fullName,
-                    legalName: current.personType === 'PJ' ? value : current.legalName,
+                    tradeName: current.personType === 'PJ' ? value : current.tradeName,
                   }));
                 }}
-                placeholder={hasNameError ? 'Obrigatorio' : ''}
+                placeholder={hasTopNameError ? 'Obrigatorio' : ''}
               />
             </label>
           </div>
 
-          {/* Linha 3 (so PJ): Nome fantasia — full width */}
-          {form.personType === 'PJ' ? (
-            <div className="client-quick-create-grid client-quick-create-grid-single">
-              <label className="client-quick-create-field">
-                Nome fantasia
-                <input
-                  value={form.tradeName}
-                  disabled={saving}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      tradeName: event.target.value.toUpperCase(),
-                    }))
-                  }
-                  placeholder=""
-                />
-              </label>
-            </div>
-          ) : null}
+          {/* Linha 3: Razao social (legalName). Ativa no PJ; no PF DESBOTA +
+              desabilita (is-dimmed) mas PERMANECE renderizada — assim a altura do
+              modal nao pula ao alternar o tipo. */}
+          <div className="client-quick-create-grid client-quick-create-grid-single">
+            <label
+              className={`client-quick-create-field${hasRazaoError ? ' is-field-error' : ''}${
+                form.personType === 'PF' ? ' is-dimmed' : ''
+              }`}
+            >
+              Razao social
+              <input
+                value={form.legalName}
+                disabled={saving || form.personType === 'PF'}
+                className={hasRazaoError ? 'cqc-input-error' : undefined}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    legalName: event.target.value.toUpperCase(),
+                  }))
+                }
+                placeholder={hasRazaoError ? 'Obrigatorio' : ''}
+              />
+            </label>
+          </div>
 
           {/* Linha 4: Telefone | Responsavel */}
           <div className="client-quick-create-grid client-quick-create-grid-2col">
