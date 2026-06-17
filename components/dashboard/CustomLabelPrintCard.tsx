@@ -148,7 +148,7 @@ export function CustomLabelPrintCard({ session }: CustomLabelPrintCardProps) {
         </span>
         <div className="clp-head-text">
           <h2 id="clp-title" className="clp-title">
-            Etiqueta avulsa
+            Etiqueta de Aprovação
           </h2>
           <p className="clp-subtitle">Imprime na impressora de etiquetas</p>
         </div>
