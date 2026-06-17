@@ -6325,147 +6325,6 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   }
 }
 
-/* ── Filtros de clientes — botao unico + dropdown diagonal ────────────
-   O botao reaproveita .hero-search-filter-btn (mesmo visual de /samples).
-   O painel abre ancorado ao botao, expandindo na diagonal a partir do canto
-   superior direito. Header verde + corpo branco (linguagem .is-themed); os
-   campos reaproveitam .samples-filter-* pra ficar identico ao de /samples. */
-.cv2-filters-wrap {
-  position: relative;
-  display: inline-flex;
-}
-
-.cv2-filters-panel {
-  position: absolute;
-  top: calc(100% + 0.5rem);
-  right: 0;
-  /* Acima do .cv2-fab (position:fixed, z-index:50): quando o dropdown chega
-     na altura do botao "+" de adicionar cliente, ele sobrepoe o FAB. */
-  z-index: 60;
-  width: min(22rem, calc(100vw - 1.5rem));
-  max-height: min(30rem, calc(100dvh - 7rem));
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border: 1px solid rgba(31, 93, 67, 0.16);
-  border-radius: 16px;
-  background: linear-gradient(180deg, #ffffff 0%, #fbfaf6 100%);
-  box-shadow:
-    0 10px 24px rgba(19, 35, 24, 0.18),
-    0 24px 48px rgba(19, 35, 24, 0.1);
-  transform-origin: top right;
-  animation: cv2-filters-panel-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-@keyframes cv2-filters-panel-in {
-  from {
-    opacity: 0;
-    transform: translate3d(10px, -10px, 0) scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-}
-
-.cv2-filters-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.7rem 0.95rem;
-  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
-  border-top-left-radius: 16px;
-  border-top-right-radius: 16px;
-}
-
-.cv2-filters-panel-title {
-  margin: 0;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: #ffffff;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-}
-
-.cv2-filters-panel-close {
-  display: inline-grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: 0;
-  background: rgba(255, 255, 255, 0.16);
-  color: #ffffff;
-  cursor: pointer;
-  border-radius: 6px;
-  -webkit-tap-highlight-color: transparent;
-  transition:
-    background 0.15s,
-    transform 0.15s;
-}
-
-.cv2-filters-panel-close:hover {
-  background: rgba(255, 255, 255, 0.28);
-}
-
-.cv2-filters-panel-close:active {
-  transform: scale(0.94);
-}
-
-.cv2-filters-panel-close svg {
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-}
-
-/* Form ocupa o resto do painel: body rola, actions fixas embaixo. */
-.cv2-filters-panel-form {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-}
-
-.cv2-filters-panel-body {
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: #d6d0c1 transparent;
-  padding: 0.85rem 0.95rem;
-}
-
-.cv2-filters-panel-body::-webkit-scrollbar {
-  width: 0.4rem;
-}
-
-.cv2-filters-panel-body::-webkit-scrollbar-thumb {
-  background: #d6d0c1;
-  border-radius: 999px;
-}
-
-.cv2-filters-panel-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem;
-  padding: 0.7rem 0.95rem 0.85rem;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.cv2-filters-panel-actions .app-modal-submit,
-.cv2-filters-panel-actions .app-modal-secondary {
-  min-height: 2.5rem;
-  font-size: 0.86rem;
-}
-
-.cv2-filters-panel-actions .app-modal-submit {
-  box-shadow: 0 8px 16px rgba(19, 44, 17, 0.14);
-}
-
 /* 14.4.B: divisor alfabetico tipo iPhone (mobile only).
    Sticky no topo do scroll container (.spv2-list-scroll). */
 .cv2-section-divider {
@@ -7296,7 +7155,45 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
 }
 
 .clients-page-v2 .hero-search-wrap {
+  /* `backwards` (nao `both`): aplica o keyframe inicial mas NAO mantem o
+     transform final — senao viraria containing block e prenderia o `.cv2-fab`
+     (position:fixed). Mesmo cuidado de /samples. */
   animation: samples-search-in 0.4s ease-out 0.1s backwards;
+  /* Busca + filtro na MESMA linha (mobile), espelhando /samples: a busca
+     (flex:1) encurta sozinha; o FAB segue flutuando (fixed, fora do fluxo).
+     Gap em var pro slot do "X" (limpar filtros) cancelar exatamente uma unidade
+     ao colapsar (ver .hero-search-clear-slot). */
+  display: flex;
+  align-items: center;
+  --search-row-gap: clamp(8px, 2.5vw, 10px);
+  gap: var(--search-row-gap);
+}
+
+.clients-page-v2 .hero-search-wrap .hero-search-bar {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Filtro = pilula BRANCA + icone verde (igual /samples; o badge vermelho conta
+   filtros ativos). Escopado a /clients — /users segue com o filtro base verde.
+   position/z-index + fundo opaco deixam o botao "X" tucar ATRAS ao colapsar. */
+.clients-page-v2 .hero-search-filter-btn {
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(10, 30, 18, 0.1);
+  position: relative;
+  z-index: 1;
+}
+
+.clients-page-v2 .hero-search-filter-btn svg,
+.clients-page-v2 .hero-search-filter-btn.has-filters svg {
+  stroke: var(--brand-green);
+}
+
+/* "N clientes" alinhado a DIREITA no mobile (onde ficava o filtro, na mesma
+   borda dos cards — espelha /samples). No desktop o meta segue como header
+   (space-between via media query). */
+.clients-page-v2 .spv2-list-meta {
+  justify-content: flex-end;
 }
 
 .clients-page-v2 .clients-v2-sheet {
