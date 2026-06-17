@@ -6,8 +6,12 @@
 //   que parecem sair de DENTRO do FAB: Lote sobe direto ACIMA do FAB e Liga vai
 //   direto À ESQUERDA (canto inferior direito). Ao abrir, o FAB encolhe, vira
 //   circular e o "+" gira 45° virando "×"; a página escurece (scrim no tier de
-//   modal, acima da tabbar) e fica não-clicável — só as opções respondem; tap
-//   fora fecha o leque. Fechamento reverte tudo.
+//   modal) e fica não-clicável. A tabbar é portalada no body (fora da isolation
+//   do shell), então o scrim — preso DENTRO do shell (z-0) — não a alcança só
+//   por z-index. Enquanto o leque existe, body.is-fab-fan-open eleva o shell
+//   inteiro acima da tabbar (regra em globals.css, media query mobile) pra que o
+//   scrim a escureça junto com o resto, em vez de fazê-la sumir como os modais.
+//   Só as opções respondem; tap fora fecha o leque. Fechamento reverte tudo.
 //
 // - 'blendArrow' (Liga F1.1 + F1.D): substitui "+" por seta direita ->.
 //   Disabled (opacity 40% + cursor not-allowed) quando selectedCount < 2.
@@ -100,6 +104,18 @@ export function SampleCreateRadialFab(props: SampleCreateRadialFabProps) {
     document.addEventListener('keydown', onKeydown);
     return () => document.removeEventListener('keydown', onKeydown);
   }, [open, props.mode]);
+
+  // Enquanto o leque existe (abrindo / aberto / fechando), marca o body pra
+  // elevar o shell acima da tabbar — que vive num portal no body, fora da
+  // isolation do .mobile-edge-shell. Sem isso o scrim (preso no shell) fica
+  // por baixo da tabbar e ela escapa do escurecimento. Atrelado a `mounted`
+  // pra cobrir tambem o fade-out do scrim. Ver regra `body.is-fab-fan-open`
+  // em globals.css. Em modo blendArrow `mounted` nunca vira true (sem leque).
+  useEffect(() => {
+    if (!mounted) return;
+    document.body.classList.add('is-fab-fan-open');
+    return () => document.body.classList.remove('is-fab-fan-open');
+  }, [mounted]);
 
   // Cleanup de timers/RAFs no unmount.
   useEffect(() => {

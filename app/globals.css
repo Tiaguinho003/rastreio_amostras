@@ -18790,6 +18790,20 @@ select.samples-filter-field-input {
       transform 120ms ease-out;
   }
 
+  /* Leque (speed-dial) do FAB de Lotes vs tabbar.
+     O scrim (.fab-fan-backdrop, z-modal) vive DENTRO da isolation do
+     .mobile-edge-shell (z-index:0 acima), entao seu z-index alto fica preso
+     nessa camada e NAO alcanca a tabbar — portalada direto no body (z-70),
+     fora do shell. Diferente dos modais (que ESCONDEM a tabbar via regra
+     acima), aqui queremos que o scrim a ESCUREÇA junto com o resto da pagina.
+     Enquanto o leque existe, elevamos o shell inteiro acima da tabbar: o scrim
+     (dentro do shell) passa a cobri-la e deixa-la nao-clicavel, sem precisar
+     mover o FAB/opcoes do DOM. JS: SampleCreateRadialFab marca
+     body.is-fab-fan-open enquanto o leque esta montado. */
+  body.is-fab-fan-open .app-shell-root {
+    z-index: 80;
+  }
+
   /* Rotas declaradas em ROUTES_WITHOUT_MOBILE_TABBAR (AppShell): a tabbar
      nem renderiza (Portal nao monta), entao so precisamos zerar a
      clearance pra que o main reganhe o espaco do bottom. */
@@ -30453,8 +30467,11 @@ select.samples-filter-field-input {
    encolher/arredondar do FAB esta em `.cv2-fab.is-expanded:not(.is-informe-fab)`.
 */
 
-/* Scrim: escurece a pagina INTEIRA (inclusive a tabbar z-70) no tier de modal
-   e bloqueia cliques — so as opcoes + o "×" respondem. Sem blur (padrao dos
+/* Scrim: escurece a pagina INTEIRA no tier de modal e bloqueia cliques — so as
+   opcoes + o "×" respondem. Tambem cobre a tabbar (z-70): como ela e portalada
+   no body, FORA da isolation do .mobile-edge-shell, o scrim (preso no shell) so
+   a alcanca porque body.is-fab-fan-open eleva o shell acima dela (ver a regra
+   na media query mobile, junto das regras de tabbar). Sem blur (padrao dos
    modais de acao). Fica montado durante o close pra fazer fade-out. */
 .fab-fan-backdrop {
   position: fixed;
