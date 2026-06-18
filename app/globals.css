@@ -9588,6 +9588,11 @@ body:has(.app-modal-backdrop) .prospector-fab {
    busca e cards de contagem ficam sempre visiveis) e .prospector-list-scroll
    assume o overflow. O clearance do botao "+" migra pro fim da lista. */
 .prospector-dashboard .dashboard-sheet {
+  /* Fundo frio claro do padrao atual (mesmo #f4f6f5 do dashboard do admin
+     em .dashboard-mobile). Sem este override o sheet do prospector herdava
+     o gradiente bege legado da base .dashboard-sheet (#fdf9ec -> #f4f0e7),
+     destoando do branco do resto do app. */
+  background: #f4f6f5;
   overflow: hidden;
   padding-bottom: 0;
 }
