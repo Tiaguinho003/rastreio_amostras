@@ -3,7 +3,7 @@ import type { UserRole } from './types';
 export const USER_ROLE_LABELS: Record<UserRole, string> = {
   ADMIN: 'Administração',
   CLASSIFIER: 'Classificação',
-  REGISTRATION: 'Registro',
+  REGISTRATION: 'Impressão',
   COMMERCIAL: 'Comercial',
   PROSPECTOR: 'Prospecção',
   CADASTRO: 'Cadastro',

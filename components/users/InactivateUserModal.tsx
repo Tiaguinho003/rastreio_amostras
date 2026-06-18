@@ -45,7 +45,7 @@ const ROLE_LABEL: Record<string, string> = {
   ADMIN: 'Admin',
   COMMERCIAL: 'Comercial',
   CLASSIFIER: 'Classificação',
-  REGISTRATION: 'Registro',
+  REGISTRATION: 'Impressão',
   PROSPECTOR: 'Prospecção',
   CADASTRO: 'Cadastro',
 };
