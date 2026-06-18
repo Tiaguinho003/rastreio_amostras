@@ -21359,15 +21359,14 @@ select.samples-filter-field-input {
   display: grid;
   place-items: center;
   padding: clamp(16px, 6vw, 32px);
-  background: rgba(7, 12, 10, 0.5);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+  /* Scrim escuro SEM blur — alinhado ao backdrop do visual de acao (.is-action). */
+  background: rgba(0, 0, 0, 0.55);
   z-index: 3;
   animation: cam-error-fade-in 0.22s ease-out;
 }
 
 .camera-hub-error-card {
-  background: #fdf9ec;
+  background: #ffffff;
   padding: clamp(22px, 6vw, 28px);
   border-radius: clamp(18px, 5vw, 22px);
   width: min(90%, 22rem);
@@ -22271,11 +22270,6 @@ select.samples-filter-field-input {
 }
 
 /* ── Q.cls.2.3: Modal de revisao dos dados extraidos (ficha unificada) ── */
-
-.review-modal {
-  width: min(46rem, calc(100vw - 1.5rem));
-  max-height: min(92dvh, 50rem);
-}
 
 .review-modal-form {
   /* display:flex explicito — o `gap` so vale em flex/grid. Antes o form era
@@ -24134,9 +24128,9 @@ select.samples-filter-field-input {
   font-family: inherit;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition:
-    transform 0.15s,
-    background 0.15s;
+  /* button-press-effect: feedback so por profundidade — sem transicao/mudanca
+     de background no :active (evita flash). */
+  transition: transform 0.15s;
 }
 
 .camera-hub-btn:active {
@@ -24149,10 +24143,6 @@ select.samples-filter-field-input {
   color: #fff;
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
-}
-
-.camera-hub-btn-secondary:active {
-  background: rgba(255, 255, 255, 0.26);
 }
 
 .camera-hub-btn-primary {
