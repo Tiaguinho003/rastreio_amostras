@@ -336,8 +336,7 @@ export default function ResumoPage() {
           <div className="rsm-feed">
             <header className="inf-intro rsm-intro">
               <div className="rsm-intro-text">
-                <h2 className="inf-intro-title">Informes</h2>
-                <p className="inf-intro-sub">Formulários da equipe, mais recentes primeiro.</p>
+                <h2 className="inf-intro-title">Relatórios</h2>
               </div>
               {!initialLoading && !error ? (
                 <span className="rsm-total-chip">
