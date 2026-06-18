@@ -197,6 +197,21 @@ function formatSieve(peneiras, fundos) {
   return parts.join(' | ');
 }
 
+// Campos percentuais avulsos da ficha de classificacao (catacao + os defeitos
+// IMP/PVA/BROCA/GPI/AP): na ficha todos exibem "%", entao o laudo tambem sufixa
+// "%" — exceto DEFEITO (total), que e contagem e fica sem "%" (igual a ficha).
+// So sufixa quando ha um digito ao qual ancorar o "%": valores de texto livre
+// (ex.: "a maquina", "tr") sao preservados como estao, sem "%". Espelha o
+// PERCENT_FIELD_KEYS do form (components/samples/ClassificationReviewSheetBody).
+function formatPercentValue(rawValue) {
+  const printable = toPrintableFieldValue(rawValue);
+  if (printable === null || printable === undefined) {
+    return null;
+  }
+  const text = String(printable);
+  return /\d/.test(text) ? `${text}%` : text;
+}
+
 function buildFieldValueMap(detail) {
   const sample = detail.sample;
   const classificationData = isRecord(sample.latestClassification?.data)
@@ -222,15 +237,15 @@ function buildFieldValueMap(detail) {
     originLot: sample.declared?.originLot,
     classificationDate: classificationData.dataClassificacao,
     padrao: classificationData.padrao,
-    catacao: classificationData.catacao,
+    catacao: formatPercentValue(classificationData.catacao),
     aspecto: classificationData.aspecto,
     bebida: classificationData.bebida,
     certif: classificationData.certif,
-    broca: defeitos.broca,
-    pva: defeitos.pva,
-    imp: defeitos.imp,
-    ap: defeitos.ap,
-    gpi: defeitos.gpi,
+    broca: formatPercentValue(defeitos.broca),
+    pva: formatPercentValue(defeitos.pva),
+    imp: formatPercentValue(defeitos.imp),
+    ap: formatPercentValue(defeitos.ap),
+    gpi: formatPercentValue(defeitos.gpi),
     defeito: defeitos.defeito,
     // `classificador` (legacy): deriva do array de classificadores; fallback
     // para string legacy armazenada em eventos antigos.

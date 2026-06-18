@@ -59,11 +59,15 @@ test('buildSelectedExportFieldEntries: le defeitos do sub-obj defeitos{} (fix do
     excludeEmpty: true,
   });
   const byId = new Map(entries.map((entry) => [entry.id, entry.value]));
-  assert.equal(byId.get('broca'), '2');
-  assert.equal(byId.get('pva'), '3');
-  assert.equal(byId.get('imp'), '1');
-  assert.equal(byId.get('ap'), '1');
-  assert.equal(byId.get('gpi'), '0');
+  // Defeitos sao percentuais na ficha (sufixo "%" no laudo, igual ao form).
+  assert.equal(byId.get('broca'), '2%');
+  assert.equal(byId.get('pva'), '3%');
+  assert.equal(byId.get('imp'), '1%');
+  assert.equal(byId.get('ap'), '1%');
+  assert.equal(byId.get('gpi'), '0%');
+  // Catacao tambem e percentual, mas o "%" so ancora quando ha digito: valor
+  // de texto livre ("a maquina") e preservado sem "%".
+  assert.equal(byId.get('catacao'), 'a maquina');
   // defeito null -> filtrado por excludeEmpty
   assert.equal(byId.has('defeito'), false);
 });
