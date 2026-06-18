@@ -695,6 +695,7 @@ if (!databaseUrl || !databaseReachable) {
     await resetDatabase();
     const prospector = await seedUser('PROSPECTOR');
     const commercial = await seedUser('COMMERCIAL');
+    const cadastro = await seedUser('CADASTRO');
 
     // search_normalized e coluna GERADA pelo Postgres a partir do nome —
     // o banco materializa 'jose produtor' sozinho.
@@ -751,8 +752,9 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(none.page.total, 0);
     assert.equal(none.items.length, 0);
 
-    // Viewer busca cruzando autores.
-    const viewer = await service.listVisitReports({ search: 'boa' }, actorFor(commercial));
+    // Viewer (ADMIN/CADASTRO) busca cruzando autores — COMMERCIAL deixou de ser
+    // viewer de informes (commit 8b0f654).
+    const viewer = await service.listVisitReports({ search: 'boa' }, actorFor(cadastro));
     assert.equal(viewer.page.total, 2);
   });
 

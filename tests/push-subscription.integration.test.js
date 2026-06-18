@@ -352,16 +352,19 @@ if (!databaseUrl || !databaseReachable) {
     fakeWebPush.sent.length = 0;
 
     // Situacao 1 isolada: cliente EXISTENTE + Medio + Alto -> so a
-    // promissora, pra ADMIN + COMMERCIAL com o autor (COMMERCIAL) excluido.
+    // promissora, pra ADMIN + CADASTRO com o autor (COMMERCIAL) excluido.
     await sendVisit({
       clientKind: 'EXISTING',
       clientId: existingClient.id,
       newClientName: null,
       farmSize: 'MEDIUM',
     });
-    assert.equal(fakeWebPush.sent.length, 1);
-    assert.equal(fakeWebPush.sent[0].endpoint, 'https://push.example/trig-admin');
-    assert.equal(fakeWebPush.sent[0].payload.title, 'Nova visita promissora enviada');
+    assert.equal(fakeWebPush.sent.length, 2);
+    assert.deepEqual(fakeWebPush.sent.map((s) => s.endpoint).sort(), [
+      'https://push.example/trig-admin',
+      'https://push.example/trig-cadastro',
+    ]);
+    assert.ok(fakeWebPush.sent.every((s) => s.payload.title === 'Nova visita promissora enviada'));
     assert.ok(fakeWebPush.sent[0].payload.body.includes('cliente promissor'));
     fakeWebPush.sent.length = 0;
 
@@ -386,10 +389,11 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(fakeWebPush.sent.length, 0);
 
     // As duas situacoes juntas: cliente NOVO + Grande + Alto -> promissora
-    // (ADMIN+COMMERCIAL, autor fora) E novo cliente (ADMIN+CADASTRO).
+    // (ADMIN+CADASTRO, autor fora) E novo cliente (ADMIN+CADASTRO).
     await sendVisit({ farmSize: 'LARGE' });
     const titles = fakeWebPush.sent.map((s) => s.payload.title).sort();
     assert.deepEqual(titles, [
+      'Nova visita promissora enviada',
       'Nova visita promissora enviada',
       'Novo cliente encontrado!',
       'Novo cliente encontrado!',
