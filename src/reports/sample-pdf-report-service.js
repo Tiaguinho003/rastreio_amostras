@@ -40,14 +40,6 @@ function drawPageBackground(page) {
   });
 }
 
-function formatIssuedAt(isoString) {
-  return new Intl.DateTimeFormat('pt-BR', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-    timeZone: 'America/Sao_Paulo',
-  }).format(new Date(isoString));
-}
-
 function drawHorizontalGradient(page, { x, y, width, height, leftColor, rightColor, steps = 96 }) {
   const safeSteps = Math.max(2, steps);
   const stepWidth = width / safeSteps;
@@ -277,7 +269,7 @@ export async function renderSamplePdf({
 
   // ─── Cabecalho: banda verde no topo do card ───
   // Logo (lockup branco) a esquerda | divisoria vertical | titulo "LAUDO
-  // TECNICO" + lote/emissao a direita, sobre marca d'agua do icone (arvore).
+  // TECNICO" + lote interno a direita, sobre marca d'agua do icone (arvore).
   const headerHeight = 116;
   const headerY = docTop - headerHeight;
   const headerGreen = rgb(0.098, 0.298, 0.169);
@@ -337,7 +329,7 @@ export async function renderSamplePdf({
     opacity: 0.33,
   });
 
-  // Titulo + meta (lote/emissao) no lado direito da banda.
+  // Titulo + meta (lote interno) no lado direito da banda.
   const headerRightX = dividerX + 26;
   const headerRightLimit = docX + docWidth - 150;
   const headerTitleY = headerY + headerHeight - 44;
@@ -366,7 +358,6 @@ export async function renderSamplePdf({
           ? sample.internalLotNumber
           : '-',
     },
-    { label: 'Emitido em', value: formatIssuedAt(issuedAtIso) },
   ];
   if (destination) {
     headerMeta.push({ label: 'Destinatário', value: destination });
@@ -413,7 +404,6 @@ export async function renderSamplePdf({
           ? sample.internalLotNumber
           : '-',
     },
-    { label: 'Emitido em', value: formatIssuedAt(issuedAtIso) },
     { label: 'Safra', value: asValue(entryById.get('harvest')) || '-' },
     { label: 'Sacas', value: asValue(entryById.get('sacks')) || '-' },
   ];
