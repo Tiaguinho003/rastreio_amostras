@@ -732,6 +732,60 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(result.body.items[0].id, pj.body.client.id);
   });
 
+  test('Armazem: cria so-armazem, lookup kind=warehouse e filtro isWarehouse', async () => {
+    // 1) Cliente SO armazem (sem comprador/vendedor): valida o constraint
+    //    relaxado chk_client_role_flags (is_buyer OR is_seller OR is_warehouse).
+    const armazem = await api.createClient(
+      buildInput({
+        body: {
+          personType: 'PJ',
+          legalName: 'Armazem Geral Lookup MARCO',
+          tradeName: 'Armazem Geral Lookup MARCO',
+          cnpj: nextValidCnpj(),
+          phone: '35 3222-0495',
+          isBuyer: false,
+          isSeller: false,
+          isWarehouse: true,
+        },
+      })
+    );
+    assert.equal(armazem.status, 201);
+    assert.equal(armazem.body.client.isWarehouse, true);
+    assert.equal(armazem.body.client.isSeller, false);
+    assert.equal(armazem.body.client.isBuyer, false);
+
+    // 2) Nao-armazem que casa com o mesmo termo de busca (so comprador).
+    await api.createClient(
+      buildInput({
+        body: {
+          personType: 'PJ',
+          legalName: 'Comprador Lookup MARCO',
+          tradeName: 'Comprador Lookup MARCO',
+          cnpj: nextValidCnpj(),
+          phone: '35 3222-0495',
+          isBuyer: true,
+          isSeller: false,
+          isWarehouse: false,
+        },
+      })
+    );
+
+    // 3) lookup kind='warehouse' retorna apenas o armazem.
+    const lookup = await api.lookupClients(
+      buildInput({ query: { search: 'Lookup MARCO', kind: 'warehouse' } })
+    );
+    assert.equal(lookup.status, 200);
+    assert.ok(lookup.body.items.length >= 1);
+    assert.ok(lookup.body.items.every((c) => c.isWarehouse === true));
+    assert.ok(lookup.body.items.some((c) => c.id === armazem.body.client.id));
+
+    // 4) filtro isWarehouse=true na listagem: todos os retornados sao armazem.
+    const list = await api.listClients(buildInput({ query: { isWarehouse: true, limit: 60 } }));
+    assert.equal(list.status, 200);
+    assert.ok(list.body.items.every((c) => c.isWarehouse === true));
+    assert.ok(list.body.items.some((c) => c.id === armazem.body.client.id));
+  });
+
   test('L5: email validation rejects malformed', async () => {
     const result = await api.createClient(
       buildInput({

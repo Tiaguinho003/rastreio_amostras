@@ -206,6 +206,7 @@ Quando presente, descreva **causa** ou **próximo passo** em uma frase curta:
 | dono / proprietário   | owner          |
 | filial                | unit           |
 | comprador             | buyer          |
+| armazém               | warehouse      |
 | safra                 | harvest        |
 
 ### Exemplos do `SIM`/`NÃO`

@@ -412,6 +412,32 @@ test('normalizeCreateClientInput accepts payload when both buyer and seller are 
   assert.equal(data.isSeller, false);
 });
 
+test('normalizeCreateClientInput mapeia isWarehouse (papel Armazem) e default false', () => {
+  // Armazem como unico papel: papel independente, pode existir sozinho.
+  const warehouseOnly = normalizeCreateClientInput({
+    personType: 'PJ',
+    legalName: 'Armazem Geral do Sul',
+    cnpj: '03.936.815/0001-75',
+    phone: '(35) 99999-0000',
+    isBuyer: false,
+    isSeller: false,
+    isWarehouse: true,
+  });
+  assert.equal(warehouseOnly.data.isWarehouse, true);
+  assert.equal(warehouseOnly.data.isBuyer, false);
+  assert.equal(warehouseOnly.data.isSeller, false);
+
+  // Omitido => default false, igual aos demais flags.
+  const omitted = normalizeCreateClientInput({
+    personType: 'PJ',
+    legalName: 'Coopercitrus',
+    cnpj: '03.936.815/0001-75',
+    phone: '(35) 99999-0000',
+    isSeller: true,
+  });
+  assert.equal(omitted.data.isWarehouse, false);
+});
+
 test('L5: normalizeCreateUnitInput validates address fields, canonicaliza registration, accepts car', () => {
   const { data } = normalizeCreateUnitInput({
     name: 'Fazenda Sao Joao',
