@@ -30917,14 +30917,14 @@ select.samples-filter-field-input {
 
 /* === Preview da foto capturada em bottom sheet === */
 /* Override pra exibir a foto inteira (object-fit: contain) num sheet
-   com fundo escuro. X e drag handle escondidos — controle exclusivo
+   com fundo claro (branco). X e drag handle escondidos — controle exclusivo
    pelos botoes "Tirar outra" e "Enviar" no footer.
    A transition de max-height anima a "reducao do modal para baixo"
    quando o flowState entra em processamento (is-processing).
    A transition padrao de transform do sheet original e preservada
    (slide-up/down) — declaramos as duas pra cobrir os 2 modos. */
 .bottom-sheet.camera-preview-sheet {
-  background: #15211c;
+  background: #ffffff;
   transition:
     max-height 0.45s cubic-bezier(0.22, 1, 0.36, 1),
     transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
@@ -30937,14 +30937,15 @@ select.samples-filter-field-input {
 /* Estado review: sheet expande de volta a altura cheia (max-height
    reverte ao padrao do .bottom-sheet via cascade). A transition
    ja configurada anima o crescimento — simetrico ao encolhimento
-   do is-processing. Body bege pra legibilidade dos 22 campos; header
-   claro (branco) com titulo verde, igual aos demais estados. */
+   do is-processing. Body BRANCO (era bege #fdf9ec) — uniforme com os estados
+   preview/processing; os 22 campos se definem pela borda 2px do
+   .review-field-input. Header claro com titulo verde, igual aos demais. */
 .bottom-sheet.camera-preview-sheet.is-review {
-  background: #fdf9ec;
+  background: #ffffff;
 }
 
 .bottom-sheet.camera-preview-sheet.is-review .bottom-sheet-footer {
-  background: #fdf9ec;
+  background: #ffffff;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
@@ -30985,8 +30986,8 @@ select.samples-filter-field-input {
    proprio — antes este sheet forcava blur, fora do padrao. */
 
 .bottom-sheet.camera-preview-sheet .bottom-sheet-footer {
-  background: #15211c;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: #ffffff;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .camera-preview-sheet-body {
@@ -31006,7 +31007,9 @@ select.samples-filter-field-input {
   height: auto;
   object-fit: contain;
   border-radius: clamp(8px, 2.5vw, 12px);
-  background: #0d1411;
+  /* Moldura clara atras da foto (letterbox do object-fit) pra combinar com o
+     corpo branco do sheet — antes era quase preto (#0d1411). */
+  background: #f1f0ec;
   display: block;
 }
 
@@ -31043,10 +31046,12 @@ select.samples-filter-field-input {
   box-shadow: 0 2px 8px rgba(31, 93, 67, 0.2);
 }
 
+/* Outline verde pra fundo claro (o sheet agora e branco). O override do estado
+   .is-review repete isto — pode divergir se um estado precisar de outro look. */
 .camera-preview-sheet-action-secondary {
   background: transparent;
-  color: rgba(253, 249, 236, 0.85);
-  border: 1.5px solid rgba(253, 249, 236, 0.3);
+  color: var(--brand-green-soft);
+  border: 1.5px solid rgba(31, 93, 67, 0.28);
 }
 
 .camera-preview-sheet-action-secondary:active {
@@ -31071,16 +31076,16 @@ select.samples-filter-field-input {
 
 /* Arco em fade via conic-gradient + mask radial — padrao moderno tipo
    iOS/Material. Sem o efeito "border-top recortado" do spinner classico.
-   Tom bege off-white pra combinar com o tema sem competir com a marca. */
+   Tom verde da marca pra contrastar com o fundo claro do sheet. */
 .camera-preview-sheet-spinner {
   width: clamp(36px, 9.5vw, 44px);
   height: clamp(36px, 9.5vw, 44px);
   border-radius: 50%;
   background: conic-gradient(
     from 0deg,
-    rgba(253, 249, 236, 0) 0deg,
-    rgba(253, 249, 236, 0.12) 90deg,
-    rgba(253, 249, 236, 0.85) 360deg
+    rgba(31, 93, 67, 0) 0deg,
+    rgba(31, 93, 67, 0.12) 90deg,
+    rgba(31, 93, 67, 0.85) 360deg
   );
   -webkit-mask: radial-gradient(transparent 58%, #000 60%);
   mask: radial-gradient(transparent 58%, #000 60%);
@@ -31111,7 +31116,7 @@ select.samples-filter-field-input {
 .camera-preview-sheet-processing-label {
   font-size: clamp(0.95rem, 3.6vw, 1.05rem);
   font-weight: 400;
-  color: rgba(253, 249, 236, 0.78);
+  color: rgba(0, 0, 0, 0.6);
   letter-spacing: 0.01em;
   text-align: center;
   line-height: 1.4;
