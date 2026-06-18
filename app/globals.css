@@ -8774,15 +8774,15 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
 .rsm-card {
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, #ffffff 0%, #f9f7f2 100%);
-  border-top: 1px solid rgba(255, 255, 255, 0.9);
+  background: linear-gradient(180deg, #ffffff 0%, #faf8f4 100%);
+  border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: clamp(14px, 4vw, 16px);
   padding: clamp(14px, 4vw, 16px);
   box-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.06),
-    0 6px 16px rgba(0, 0, 0, 0.08),
-    0 12px 28px rgba(0, 0, 0, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.07),
+    0 8px 24px rgba(0, 0, 0, 0.03),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
   animation: sdv-fadeIn 0.3s ease backwards;
 }
 
@@ -8806,7 +8806,7 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
 }
 
 .rsm-card-toggle:active {
-  transform: scale(0.99);
+  transform: scale(0.98);
 }
 
 .rsm-card-toggle:focus-visible {
@@ -8815,13 +8815,8 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   border-radius: clamp(10px, 3vw, 12px);
 }
 
-@media (hover: hover) {
-  .rsm-card-toggle:hover .rsm-card-client {
-    background: rgba(31, 93, 67, 0.08);
-  }
-}
-
-/* Chevron indicador do accordion — gira 180° quando o card expande. */
+/* Chevron indicador do accordion — gira 180° quando o card expande.
+   Sem hover de cor na faixa do cliente: tap-only, igual aos cards do Lotes. */
 .rsm-card-chevron {
   display: inline-grid;
   place-items: center;
@@ -8829,8 +8824,10 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   height: clamp(20px, 5.5vw, 22px);
   margin-left: auto;
   flex-shrink: 0;
-  color: #999;
-  transition: transform 0.3s ease;
+  color: #ccc;
+  transition:
+    transform 0.3s ease,
+    color 0.3s ease;
 }
 
 .rsm-card-chevron svg {
@@ -8845,6 +8842,7 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
 
 .rsm-card.is-expanded .rsm-card-chevron {
   transform: rotate(180deg);
+  color: var(--brand-green);
 }
 
 /* Area expansivel: tecnica grid 0fr -> 1fr (animacao natural sem medir
