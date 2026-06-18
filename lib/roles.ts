@@ -46,11 +46,12 @@ export const NON_PROSPECTOR_ROLES: UserRole[] = [
   'CADASTRO',
 ];
 
-// Quem ve a pagina /resumo (informes de visita). Espelha
-// VISIT_REPORT_VIEWER_ROLES do backend (src/visits/visit-report-service.js):
-// as notificacoes situacionais de visita apontam pra la.
+// Quem ve a pagina /resumo (informes de visita): ADMIN + CADASTRO. Espelha
+// VISIT_REPORT_VIEWER_ROLES do backend (src/visits/visit-report-service.js).
+// COMMERCIAL saiu (2026-06-18): ja ve os PROPRIOS formularios no /informe
+// (scope=mine); o /resumo e supervisao do time (funcao de ADMIN/Cadastro).
 export function isVisitReportViewer(role: UserRole | null | undefined): boolean {
-  return role === 'ADMIN' || role === 'COMMERCIAL' || role === 'CADASTRO';
+  return role === 'ADMIN' || role === 'CADASTRO';
 }
 
 // Quem cura o vinculo informe -> cliente no /resumo (Vincular / Cadastrar e

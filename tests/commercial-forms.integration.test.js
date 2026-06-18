@@ -332,7 +332,7 @@ if (!databaseUrl || !databaseReachable) {
       service.listInformeFeed({ scope: 'mine' }, actorFor(prospector)),
       (error) => error.status === 403
     );
-    for (const role of ['CLASSIFIER', 'REGISTRATION', 'PROSPECTOR']) {
+    for (const role of ['CLASSIFIER', 'REGISTRATION', 'PROSPECTOR', 'COMMERCIAL']) {
       const denied = await seedUser(role);
       await assert.rejects(
         service.listInformeFeed({ scope: 'all' }, actorFor(denied)),

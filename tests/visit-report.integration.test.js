@@ -371,9 +371,7 @@ if (!databaseUrl || !databaseReachable) {
       actorFor(commercial)
     );
 
-    // Papeis com acesso ao /resumo (VISIT_REPORT_VIEWER_ROLES) veem tudo.
-    const allowedCommercial = await service.listVisitReports({}, actorFor(commercial));
-    assert.equal(allowedCommercial.page.total, 4);
+    // Papeis com acesso ao /resumo (ADMIN + CADASTRO) veem tudo.
     const allowedCadastro = await service.listVisitReports({}, actorFor(cadastro));
     assert.equal(allowedCadastro.page.total, 4);
 
@@ -385,7 +383,7 @@ if (!databaseUrl || !databaseReachable) {
     const teamAuthors = new Set(team.items.map((item) => item.user.id));
     assert.deepEqual([...teamAuthors].sort(), [prospector.id, colleague.id].sort());
 
-    for (const denied of [classifier, registration]) {
+    for (const denied of [classifier, registration, commercial]) {
       await assert.rejects(
         service.listVisitReports({}, actorFor(denied)),
         (error) => error.status === 403

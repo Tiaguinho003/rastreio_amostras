@@ -25,7 +25,7 @@ import type { ClientSummary, InformeFeedItem, VisitReportSummary } from '../../l
 import { useRequireAuth } from '../../lib/use-auth';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 
-// Pagina "Resumo" (Administracao + Comercial + Cadastro — ver
+// Pagina "Resumo" (Administracao + Cadastro — ver
 // isVisitReportViewer; acessada pelo menu do avatar e pelas notificacoes
 // situacionais de visita): feed COMBINADO dos 3 tipos de formulario —
 // informe do prospector (badge Prospeccao), visita do comercial (Visita)
@@ -69,7 +69,7 @@ function deleteLabels(item: InformeFeedItem) {
 
 export default function ResumoPage() {
   const { session, loading, logout, setSession } = useRequireAuth({
-    allowedRoles: ['ADMIN', 'COMMERCIAL', 'CADASTRO'],
+    allowedRoles: ['ADMIN', 'CADASTRO'],
   });
   const toast = useToast();
 

@@ -28,14 +28,12 @@ export const VISIT_REPORT_LIST_LIMIT_DEFAULT = 20;
 export const VISIT_REPORT_LIST_LIMIT_MAX = 100;
 
 // Quem ve a pagina /resumo (espelhado no front em lib/roles.ts
-// isVisitReportViewer): Administracao + Comercial + Cadastro — as
-// notificacoes situacionais de visita apontam pra la. PROSPECTOR nao e
-// viewer: lista apenas informes de autores PROSPECTOR (escopo forcado).
-export const VISIT_REPORT_VIEWER_ROLES = Object.freeze([
-  USER_ROLES.ADMIN,
-  USER_ROLES.COMMERCIAL,
-  USER_ROLES.CADASTRO,
-]);
+// isVisitReportViewer): Administracao + Cadastro — as notificacoes
+// situacionais de visita apontam pra la. COMMERCIAL saiu (2026-06-18): ja ve
+// os PROPRIOS formularios no /informe (scope=mine, COMMERCIAL_FORM_AUTHOR_ROLES);
+// o /resumo e supervisao do time. PROSPECTOR nao e viewer: lista apenas
+// informes de autores PROSPECTOR (escopo forcado).
+export const VISIT_REPORT_VIEWER_ROLES = Object.freeze([USER_ROLES.ADMIN, USER_ROLES.CADASTRO]);
 
 // Quem cura o vinculo informe -> cliente no /resumo (Vincular / Cadastrar e
 // vincular / Remover vinculo; espelhado no front em lib/roles.ts
