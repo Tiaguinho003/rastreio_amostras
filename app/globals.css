@@ -10951,6 +10951,17 @@ body:has(.app-modal-backdrop) .prospector-fab {
   white-space: nowrap;
 }
 
+/* Header de modal com seta de voltar (←) + titulo AGRUPADOS a esquerda — usado
+   nos modais alcancados pelo chooser "Enviar" (laudo/fisico). O .app-modal-header
+   e flex space-between; agrupar os dois evita o titulo "flutuar" no centro
+   quando ha 3 filhos (seta + titulo + X). */
+.sdv-send-head-left {
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 2.5vw, 12px);
+  min-width: 0;
+}
+
 .sdv-edit-btn-inline {
   margin-top: clamp(6px, 1.5vw, 8px);
   padding: clamp(6px, 1.5vw, 8px) 0;

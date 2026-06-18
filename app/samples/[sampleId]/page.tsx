@@ -17,6 +17,7 @@ import { RelatedSampleRow } from '../../../components/samples/RelatedSampleRow';
 import { ReportHarvestSelectModal } from '../../../components/samples/ReportHarvestSelectModal';
 import { SampleInvalidateBlockedModal } from '../../../components/samples/SampleInvalidateBlockedModal';
 import { SampleMovementsPanel } from '../../../components/samples/SampleMovementsPanel';
+import { SendMethodChooserModal } from '../../../components/samples/SendMethodChooserModal';
 import {
   ApiError,
   cancelPhysicalSampleSend,
@@ -487,6 +488,9 @@ export default function SampleDetailPage() {
   // Efeito de check verde no modal de laudo (substitui a mensagem verde).
   const [exportPdfSuccess, setExportPdfSuccess] = useState(false);
   const [exportRecipientClients, setExportRecipientClients] = useState<ClientSummary[]>([]);
+  // Chooser do botao "Enviar": escolhe entre "Descricao" (laudo) e "Fisico"
+  // (envio fisico). Abre antes dos modais de cada fluxo.
+  const [sendChooserModalOpen, setSendChooserModalOpen] = useState(false);
   // Liga: modal de selecao de safra do laudo (amostra com mais de uma safra).
   const [harvestChoiceOpen, setHarvestChoiceOpen] = useState(false);
   const [harvestOptions, setHarvestOptions] = useState<string[]>([]);
@@ -787,6 +791,7 @@ export default function SampleDetailPage() {
   }, [detail?.latestPrintJob?.status, refreshDetail]);
 
   useEffect(() => {
+    setSendChooserModalOpen(false);
     setExportConfirmationOpen(false);
     setExportPending(false);
     setExportRecipientClients([]);
@@ -2250,14 +2255,10 @@ export default function SampleDetailPage() {
                       <button
                         type="button"
                         className="sdv-action-card is-send"
-                        onClick={() => {
-                          setEditingSendEventId(null);
-                          setPhysicalSendClients([]);
-                          setPhysicalSendDate(getTodayDateInput());
-                          setPhysicalSendError(null);
-                          setPhysicalSendModalOpen(true);
-                        }}
-                        disabled={!canPhysicalSend || physicalSending}
+                        onClick={() => setSendChooserModalOpen(true)}
+                        disabled={
+                          (!canPhysicalSend && !canQuickReport) || physicalSending || exportingPdf
+                        }
                       >
                         <span className="sdv-action-card-icon">
                           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -2418,22 +2419,6 @@ export default function SampleDetailPage() {
                         )}
 
                         <div className="sdv-info-actions">
-                          <button
-                            type="button"
-                            className="sdv-action-card is-report"
-                            onClick={() => handleOpenExportConfirmation()}
-                            disabled={!canQuickReport || exportingPdf}
-                          >
-                            <span className="sdv-action-card-icon">
-                              <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M7 4.8h7l3 3V19.2H7z" />
-                                <path d="M14 4.8v3h3" />
-                                <path d="M9 12h6" />
-                                <path d="M9 15h6" />
-                              </svg>
-                            </span>
-                            <span className="sdv-action-card-label">Laudo</span>
-                          </button>
                           <button
                             type="button"
                             className="sdv-action-card is-classify"
@@ -3922,6 +3907,24 @@ export default function SampleDetailPage() {
         />
       ) : null}
 
+      <SendMethodChooserModal
+        open={sendChooserModalOpen}
+        canDescricao={canQuickReport}
+        canFisico={canPhysicalSend}
+        onClose={() => setSendChooserModalOpen(false)}
+        onChooseDescricao={() => {
+          setSendChooserModalOpen(false);
+          handleOpenExportConfirmation();
+        }}
+        onChooseFisico={() => {
+          setSendChooserModalOpen(false);
+          setEditingSendEventId(null);
+          setPhysicalSendClients([]);
+          setPhysicalSendDate(getTodayDateInput());
+          setPhysicalSendError(null);
+          setPhysicalSendModalOpen(true);
+        }}
+      />
       {exportConfirmationOpen ? (
         <div className="app-modal-backdrop" onClick={handleCloseExportConfirmation}>
           <section
@@ -3948,10 +3951,33 @@ export default function SampleDetailPage() {
               </div>
             ) : null}
             <header className="app-modal-header">
-              <div className="app-modal-title-wrap">
-                <h3 id="export-confirm-title" className="app-modal-title">
-                  Gerar laudo
-                </h3>
+              <div className="sdv-send-head-left">
+                <button
+                  type="button"
+                  className="type-modal-back"
+                  onClick={() => {
+                    setExportConfirmationOpen(false);
+                    setSendChooserModalOpen(true);
+                  }}
+                  disabled={exportingPdf}
+                  aria-label="Voltar"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M15 18l-6-6 6-6"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+                <div className="app-modal-title-wrap">
+                  <h3 id="export-confirm-title" className="app-modal-title">
+                    Gerar laudo
+                  </h3>
+                </div>
               </div>
               <button
                 type="button"
@@ -4112,10 +4138,36 @@ export default function SampleDetailPage() {
               </div>
             ) : null}
             <header className="app-modal-header">
-              <div className="app-modal-title-wrap">
-                <h3 id="physical-send-modal-title" className="app-modal-title">
-                  {editingSendEventId ? 'Editar envio de amostra' : 'Enviar amostra'}
-                </h3>
+              <div className="sdv-send-head-left">
+                {!editingSendEventId ? (
+                  <button
+                    type="button"
+                    className="type-modal-back"
+                    onClick={() => {
+                      setPhysicalSendModalOpen(false);
+                      setPhysicalSendError(null);
+                      setSendChooserModalOpen(true);
+                    }}
+                    disabled={physicalSending}
+                    aria-label="Voltar"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M15 18l-6-6 6-6"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+                ) : null}
+                <div className="app-modal-title-wrap">
+                  <h3 id="physical-send-modal-title" className="app-modal-title">
+                    {editingSendEventId ? 'Editar envio de amostra' : 'Enviar amostra'}
+                  </h3>
+                </div>
               </div>
               <button
                 type="button"
