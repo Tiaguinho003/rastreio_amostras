@@ -445,7 +445,7 @@ export default function ResumoPage() {
 
       {deleteTarget ? (
         <div
-          className="app-modal-backdrop"
+          className="app-modal-backdrop is-scrim-dark"
           onClick={() => {
             if (!deleting) {
               setDeleteTarget(null);
@@ -460,14 +460,6 @@ export default function ResumoPage() {
             aria-describedby="rsm-delete-description"
             onClick={(event) => event.stopPropagation()}
           >
-            <header className="app-modal-header">
-              <div className="app-modal-title-wrap">
-                <h3 id="rsm-delete-title" className="app-modal-title">
-                  {deleteLabels(deleteTarget).title}
-                </h3>
-              </div>
-            </header>
-
             <div className="app-modal-content">
               <div className="app-confirm-modal-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" focusable="false">
@@ -476,6 +468,9 @@ export default function ResumoPage() {
                   <path d="M12 17v.01" />
                 </svg>
               </div>
+              <h3 id="rsm-delete-title" className="app-confirm-modal-title">
+                {deleteLabels(deleteTarget).title}
+              </h3>
               <p id="rsm-delete-description" className="app-confirm-modal-message">
                 Esta ação não pode ser desfeita.
               </p>
@@ -631,7 +626,7 @@ export default function ResumoPage() {
       {unlinkTarget
         ? createPortal(
             <div
-              className="app-modal-backdrop"
+              className="app-modal-backdrop is-scrim-dark"
               onClick={() => {
                 if (!linking) {
                   setUnlinkTarget(null);
@@ -646,14 +641,6 @@ export default function ResumoPage() {
                 aria-describedby="rsm-unlink-description"
                 onClick={(event) => event.stopPropagation()}
               >
-                <header className="app-modal-header">
-                  <div className="app-modal-title-wrap">
-                    <h3 id="rsm-unlink-title" className="app-modal-title">
-                      Remover vínculo?
-                    </h3>
-                  </div>
-                </header>
-
                 <div className="app-modal-content">
                   <div className="app-confirm-modal-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" focusable="false">
@@ -662,6 +649,9 @@ export default function ResumoPage() {
                       <path d="m3 3 18 18" />
                     </svg>
                   </div>
+                  <h3 id="rsm-unlink-title" className="app-confirm-modal-title">
+                    Remover vínculo?
+                  </h3>
                   <p id="rsm-unlink-description" className="app-confirm-modal-message">
                     O informe volta para “aguardando vínculo”. Você pode vincular de novo depois.
                   </p>
