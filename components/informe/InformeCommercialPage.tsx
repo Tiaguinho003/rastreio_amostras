@@ -324,7 +324,7 @@ export function InformeCommercialPage({ session, onLogout }: InformeCommercialPa
       {deleteTarget
         ? createPortal(
             <div
-              className="app-modal-backdrop"
+              className="app-modal-backdrop is-scrim-dark"
               onClick={() => {
                 if (!deleting) {
                   setDeleteTarget(null);
@@ -340,16 +340,6 @@ export function InformeCommercialPage({ session, onLogout }: InformeCommercialPa
                 aria-describedby="informe-delete-description"
                 onClick={(event) => event.stopPropagation()}
               >
-                <header className="app-modal-header">
-                  <div className="app-modal-title-wrap">
-                    <h3 id="informe-delete-title" className="app-modal-title">
-                      {deleteTarget.type === 'WEEKLY_REPORT'
-                        ? 'Excluir relatório?'
-                        : 'Excluir visita?'}
-                    </h3>
-                  </div>
-                </header>
-
                 <div className="app-modal-content">
                   <div className="app-confirm-modal-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" focusable="false">
@@ -358,6 +348,11 @@ export function InformeCommercialPage({ session, onLogout }: InformeCommercialPa
                       <path d="M12 17v.01" />
                     </svg>
                   </div>
+                  <h3 id="informe-delete-title" className="app-confirm-modal-title">
+                    {deleteTarget.type === 'WEEKLY_REPORT'
+                      ? 'Excluir relatório?'
+                      : 'Excluir visita?'}
+                  </h3>
                   <p id="informe-delete-description" className="app-confirm-modal-message">
                     Esta ação não pode ser desfeita.
                   </p>
