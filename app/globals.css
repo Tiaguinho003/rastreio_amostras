@@ -9610,7 +9610,7 @@ body:has(.app-modal-backdrop) .prospector-fab {
 }
 
 .bottom-sheet.is-informe .inf-card + .inf-card {
-  border-top: 1px solid rgba(31, 93, 67, 0.12);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .bottom-sheet.is-informe .inf-offline-banner,
