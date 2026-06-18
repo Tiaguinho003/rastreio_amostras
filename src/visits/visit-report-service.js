@@ -37,7 +37,8 @@ export const VISIT_REPORT_VIEWER_ROLES = Object.freeze([USER_ROLES.ADMIN, USER_R
 
 // Quem cura o vinculo informe -> cliente no /resumo (Vincular / Cadastrar e
 // vincular / Remover vinculo; espelhado no front em lib/roles.ts
-// isVisitLinkCurator). Subconjunto dos viewers: COMMERCIAL le, nao vincula.
+// isVisitLinkCurator). Desde 2026-06-18 IGUAL aos viewers (ADMIN + CADASTRO):
+// o COMMERCIAL saiu do /resumo, entao quem ve tambem cura.
 export const VISIT_REPORT_LINK_CURATOR_ROLES = Object.freeze([
   USER_ROLES.ADMIN,
   USER_ROLES.CADASTRO,
