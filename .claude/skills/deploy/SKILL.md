@@ -90,6 +90,22 @@ Atencao: inscricao de push e POR ORIGEM — o canary valida rotas/card, mas a
 notificacao real so se valida no host de producao pos-promote; rotacionar a chave
 VAPID invalida todas as inscricoes existentes.
 
+## Laudo publico do QR (Etiqueta de Envio) — `REPORT_PUBLIC_BASE_URL` + Firebase Hosting
+
+O QR da Etiqueta de Envio aponta pra `${REPORT_PUBLIC_BASE_URL}/laudo/<token>`
+(`buildLaudoReportUrl` em `src/api/v1/backend-api.js`; fallback `APP_BASE_URL`).
+`REPORT_PUBLIC_BASE_URL` e env normal em `.env.cloud-production` e **precisa estar**
+no `runtime_env_vars_csv` (`scripts/gcp/_lib.sh`) — senao o `--set-env-vars` do
+deploy a dropa. Valor em prod: `https://safras-negocios-laudo.web.app`.
+
+Esse dominio e um site DEDICADO do **Firebase Hosting** (`firebase.json` +
+`.firebaserc`, target `laudo`) que faz rewrite SO de `/laudo/**` pro Cloud Run
+(`rastreio-prod-app`, `southamerica-east1`): isola o laudo publico do app interno
+(resto do dominio = 404 via `public-laudo/404.html`), SSL gratis. Deploy do site
+(SEPARADO do Cloud Run; roda quem tem auth Google no projeto): `firebase deploy
+--only hosting:laudo`. `Cache-Control: no-store` (origem + `firebase.json`) garante
+que laudo revogado (D8) nao saia do cache do CDN.
+
 ## Antipadroes (NUNCA fazer)
 
 1. **NUNCA** `gcloud builds submit` sem ter commitado (gera codigo sem rastreabilidade)
