@@ -774,9 +774,6 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
                 <header className="app-modal-header">
                   <div className="app-modal-title-wrap">
                     <h3 className="app-modal-title">Nova senha</h3>
-                    <p className="app-modal-description">
-                      Escolha uma senha com no minimo 8 caracteres.
-                    </p>
                   </div>
                 </header>
                 <div className="app-modal-content">
