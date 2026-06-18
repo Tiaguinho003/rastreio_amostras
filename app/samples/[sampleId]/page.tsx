@@ -2373,18 +2373,6 @@ export default function SampleDetailPage() {
                         <div className="sdv-card-header">
                           <div className="sdv-cls-header-title">
                             <span className="sdv-card-title">Classificação</span>
-                            {sdvStatus && detail.sample.status === 'INVALIDATED' ? (
-                              <span
-                                className="sdv-cls-status-badge"
-                                style={{
-                                  color: sdvStatus.color,
-                                  background: sdvStatus.bg,
-                                  borderColor: sdvStatus.border,
-                                }}
-                              >
-                                {sdvStatus.label}
-                              </span>
-                            ) : null}
                           </div>
                           <button
                             type="button"
