@@ -31,12 +31,14 @@ interface FieldConfig {
 // ":" na etiqueta (o ":" é adicionado pelo buildCustomLabel).
 const FIELDS: FieldConfig[] = [
   {
+    // Permite espaço (a etiqueta quebra o Nº compra em até 2 linhas). maxChars 26
+    // = 2 linhas × 13 chars/linha, o máximo que a etiqueta exibe sem encolher a
+    // fonte abaixo do piso (ver print-agent/label.js, coluna COMPRA).
     key: 'compra',
     uiLabel: 'Nº compra',
     printLabel: 'N° COMPRA',
     placeholder: 'Nº da compra',
-    noSpaces: true,
-    maxChars: 36,
+    maxChars: 26,
   },
   {
     key: 'fechamento',

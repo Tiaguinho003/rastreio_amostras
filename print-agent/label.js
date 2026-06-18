@@ -183,7 +183,7 @@ const TSPL_FONT_H = { 1: 12, 2: 20, 3: 24, 4: 32 };
 // (grade responsiva, SEM caixa — so os numeros centralizados). Fonte do VALOR
 // AUTO-AJUSTADA: a faixa 2 (produtor/armazem) mantem a MAIOR fonte que couber em
 // ate 2 linhas (quebra o nome quando preciso, so reduz se nem assim couber); a
-// faixa 1 fica em 1 linha. Os lotes saem do valor do campo LOTE (separado por
+// faixa 1 fica em 1 linha (so o Nº COMPRA quebra em ate 2). Os lotes saem do valor do campo LOTE (separado por
 // virgula), com nº de colunas / fonte variando pela quantidade. Geometria em
 // dots (etiqueta 800x280).
 const LABEL_W = 800;
@@ -213,8 +213,16 @@ const COL_PAD = 10; // recuo do conteudo dentro da coluna
 const LOGO_SEP_GAP = 16; // respiro dos dois lados da divisoria apos o logo
 const VALUE_FONTS = ['4', '3', '2', '1']; // tiers do valor (maior -> menor)
 const VALUE_LINE_GAP = 2; // gap vertical entre as linhas de um valor de 2 linhas
-const BAND1_MAX_LINES = 1; // header (compra/fechamento/sacas) sempre 1 linha
+const BAND1_MAX_LINES = 1; // fechamento/sacas sempre 1 linha (compra e excecao)
 const BAND2_MAX_LINES = 2; // produtor/armazem podem quebrar em 2 linhas
+
+// Nº COMPRA (faixa 1) pode quebrar em ATE 2 linhas, com PISO de fonte. A coluna
+// COMPRA tem ~175 dots uteis: o tier '2' (12 dots/char) cabe 13 chars (13*12=156
+// <= 175) e o '3' (16) NAO (208 > 175). Entao o tier '2' e o piso (lista sem o
+// '1') e o teto por linha e 13 chars (valor ate 26 = 2x13, espelha o modal).
+const COMPRA_MAX_LINES = 2;
+const COMPRA_MAX_CHARS_PER_LINE = 13;
+const COMPRA_FONTS = ['4', '3', '2'];
 
 // Lotes: grade responsiva SEM caixa (so o numero centralizado na celula). Ate
 // LOTS_ONE_ROW_MAX em 1 linha; acima, 2 linhas (colunas = ceil(n / linhas)).
@@ -314,12 +322,16 @@ function wrapWords(text, maxChars) {
 // Maior fonte (de `fonts`) em que o texto cabe em ATE `maxLines` linhas de
 // `maxWidth`, com as linhas cabendo em `maxHeight`. Mantem a fonte e quebra em
 // linha quando precisa; so reduz a fonte se nem assim couber. Fallback: menor
-// fonte, cortado em maxLines.
-function pickFontWrap(text, maxWidth, maxHeight, maxLines, fonts) {
+// fonte, cortado em maxLines. `maxCharsPerLine` (opcional) limita os caracteres
+// por linha ALEM do que a largura permite (ex.: Nº COMPRA = 13) — sem ele, o
+// teto e so a largura (comportamento padrao das outras faixas).
+function pickFontWrap(text, maxWidth, maxHeight, maxLines, fonts, maxCharsPerLine) {
+  const lineCap = (charW) =>
+    Math.max(1, Math.min(Math.floor(maxWidth / charW), maxCharsPerLine ?? Infinity));
   for (const f of fonts) {
     const charW = TSPL_FONT_W[Number(f)] ?? 8;
     const lineH = TSPL_FONT_H[Number(f)] ?? 12;
-    const lines = wrapWords(text, Math.max(1, Math.floor(maxWidth / charW)));
+    const lines = wrapWords(text, lineCap(charW));
     if (lines.length <= maxLines && lines.length * lineH <= maxHeight) {
       return { font: f, lines };
     }
@@ -328,7 +340,7 @@ function pickFontWrap(text, maxWidth, maxHeight, maxLines, fonts) {
   const charW = TSPL_FONT_W[Number(f)] ?? 8;
   return {
     font: f,
-    lines: wrapWords(text, Math.max(1, Math.floor(maxWidth / charW))).slice(0, maxLines),
+    lines: wrapWords(text, lineCap(charW)).slice(0, maxLines),
   };
 }
 
@@ -376,10 +388,19 @@ export async function buildCustomLabelLayout(payload) {
   // Valor em negrito, fonte AUTO-AJUSTADA: mantem a maior fonte que cabe o texto
   // em ATE `maxLines` linhas de `maxWidth` (quebra o nome quando precisa); so
   // reduz a fonte se nem assim couber na altura util da faixa (`maxHeight`).
-  function pushValue(rawValue, x, y, maxWidth, maxLines, maxHeight) {
+  // `fonts`/`maxCharsPerLine` opcionais: por-campo (ex.: Nº COMPRA usa COMPRA_FONTS
+  // como piso e teto de 13 chars/linha); ausentes = VALUE_FONTS e teto so de largura.
+  function pushValue(rawValue, x, y, maxWidth, maxLines, maxHeight, fonts, maxCharsPerLine) {
     const value = rawValue || '';
     if (!value) return;
-    const { font, lines } = pickFontWrap(value, maxWidth, maxHeight, maxLines, VALUE_FONTS);
+    const { font, lines } = pickFontWrap(
+      value,
+      maxWidth,
+      maxHeight,
+      maxLines,
+      fonts ?? VALUE_FONTS,
+      maxCharsPerLine
+    );
     const lineH = (TSPL_FONT_H[Number(font)] ?? 12) + VALUE_LINE_GAP;
     for (let i = 0; i < lines.length; i += 1) {
       texts.push({ x, y: y + i * lineH, font, xMul: 1, yMul: 1, bold: true, text: lines[i] });
@@ -387,13 +408,23 @@ export async function buildCustomLabelLayout(payload) {
   }
 
   // Campo "rotulo em cima + valor embaixo" numa coluna [x, x+w].
-  function pushField(key, fallbackLabel, x, w, labelY, valueY, maxLines, valueMaxH) {
+  function pushField(key, fallbackLabel, x, w, labelY, valueY, maxLines, valueMaxH, fonts, maxCPL) {
     pushLabel(labelOf(key, fallbackLabel), x + COL_PAD, labelY, w - 2 * COL_PAD);
-    pushValue(valueOf(key), x + COL_PAD, valueY, w - 2 * COL_PAD, maxLines, valueMaxH);
+    pushValue(
+      valueOf(key),
+      x + COL_PAD,
+      valueY,
+      w - 2 * COL_PAD,
+      maxLines,
+      valueMaxH,
+      fonts,
+      maxCPL
+    );
   }
 
   // Distribui colunas (com pesos) em [start, end], com divisoria vertical entre
-  // elas, e desenha cada campo. `maxLines` = linhas permitidas no valor.
+  // elas, e desenha cada campo. `maxLines` = linhas permitidas no valor (default
+  // da faixa; cada campo pode sobrescrever via `maxLines`/`fonts`/`maxCharsPerLine`).
   function layoutColumns(start, end, fields, bandTop, bandBot, labelY, valueY, maxLines) {
     const wsum = fields.reduce((a, f) => a + f.weight, 0);
     const usableW = end - start - (fields.length - 1) * BAR_W;
@@ -401,7 +432,18 @@ export async function buildCustomLabelLayout(payload) {
     let x = start;
     for (let i = 0; i < fields.length; i += 1) {
       const colW = Math.floor((usableW * fields[i].weight) / wsum);
-      pushField(fields[i].key, fields[i].fallback, x, colW, labelY, valueY, maxLines, valueMaxH);
+      pushField(
+        fields[i].key,
+        fields[i].fallback,
+        x,
+        colW,
+        labelY,
+        valueY,
+        fields[i].maxLines ?? maxLines,
+        valueMaxH,
+        fields[i].fonts,
+        fields[i].maxCharsPerLine
+      );
       x += colW;
       if (i < fields.length - 1) {
         dividers.push({ x, y: bandTop, width: BAR_W, height: bandBot - bandTop });
@@ -426,13 +468,23 @@ export async function buildCustomLabelLayout(payload) {
   // Faixa 1: divisoria apos o logo + COMPRA | FECHAMENTO | SACAS.
   const sepX = logoRight + LOGO_SEP_GAP;
   dividers.push({ x: sepX, y: BAND1_TOP, width: BAR_W, height: BAND1_BOT - BAND1_TOP });
-  const b1LabelY = BAND1_TOP + 8;
-  const b1ValueY = b1LabelY + TSPL_FONT_H[Number(LABEL_FONT)] + LABEL_GAP_Y;
+  // Base do rotulo/valor da Faixa 1 sobe um pouco (gap menor que LABEL_GAP_Y) pra
+  // o Nº COMPRA caber 2 linhas do tier '2' (42 dots) folgando da divisoria DIV1_Y
+  // sem encostar. Fechamento/Sacas (1 linha) so acompanham a base.
+  const b1LabelY = BAND1_TOP + 4;
+  const b1ValueY = b1LabelY + TSPL_FONT_H[Number(LABEL_FONT)] + 4;
   layoutColumns(
     sepX + BAR_W + LOGO_SEP_GAP,
     LABEL_W - M_RIGHT,
     [
-      { key: KEY_COMPRA, fallback: 'N° COMPRA', weight: 1 },
+      {
+        key: KEY_COMPRA,
+        fallback: 'N° COMPRA',
+        weight: 1,
+        maxLines: COMPRA_MAX_LINES,
+        maxCharsPerLine: COMPRA_MAX_CHARS_PER_LINE,
+        fonts: COMPRA_FONTS,
+      },
       { key: KEY_FECHAMENTO, fallback: 'N° FECHAMENTO', weight: 1 },
       { key: KEY_SACAS, fallback: 'SACAS', weight: 0.62 },
     ],

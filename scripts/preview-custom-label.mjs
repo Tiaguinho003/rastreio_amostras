@@ -167,6 +167,37 @@ async function main() {
       v.cap
     );
   }
+  // Nº COMPRA longo: valida a quebra em ATE 2 linhas (max 13/linha, piso tier '2',
+  // SEM encostar nas divisorias da faixa). Curto ('C003364') ja sai 1 linha grande
+  // nas variantes acima. Espacos permitidos (word-wrap quebra nos espacos).
+  const compraVariants = [
+    {
+      compra: 'CC003364 12345',
+      name: 'custom-label-preview-compra-14.png',
+      cap: 'Aprovacao — Nº compra 14 chars (2 linhas).',
+    },
+    {
+      compra: 'C003364 SAFRA ARABICA 2026',
+      name: 'custom-label-preview-compra-26.png',
+      cap: 'Aprovacao — Nº compra 26 chars com espacos (2 linhas, piso de fonte).',
+    },
+  ];
+  for (const v of compraVariants) {
+    await render(
+      {
+        lines: [
+          { label: 'N° COMPRA', value: v.compra },
+          { label: 'N° FECHAMENTO', value: '3228/26' },
+          { label: 'SACAS', value: '248' },
+          { label: 'PRODUT', value: 'JERONITO ANTONIO PEREIRA' },
+          { label: 'ARMAZ', value: 'PENEIRA ALTA' },
+          { label: 'LOTE', value: lotsValue(4) },
+        ],
+      },
+      v.name,
+      v.cap
+    );
+  }
   // Valida o fix de vazio: so Compra preenchida + 3 lotes; o resto NAO pode sair
   // como "---" (e nenhuma caixa de lote vazia).
   await render(
