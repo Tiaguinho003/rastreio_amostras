@@ -498,6 +498,11 @@ export default function SampleDetailPage() {
   const [editingSendEventId, setEditingSendEventId] = useState<string | null>(null);
   const [physicalSendError, setPhysicalSendError] = useState<string | null>(null);
   const [physicalSendSuccess, setPhysicalSendSuccess] = useState(false);
+  // Liga CLASSIFIED no envio: escolha de safra pro laudo (reusa o modal do
+  // export). A safra escolhida e passada por argumento ao disparar o envio
+  // (nao vira estado persistente).
+  const [physicalSendHarvestOpen, setPhysicalSendHarvestOpen] = useState(false);
+  const [physicalSendHarvestOptions, setPhysicalSendHarvestOptions] = useState<string[]>([]);
   const [cancelConfirmSendEventId, setCancelConfirmSendEventId] = useState<string | null>(null);
   const [cancellingSend, setCancellingSend] = useState(false);
   const [cancelSendError, setCancelSendError] = useState<string | null>(null);
@@ -1168,7 +1173,7 @@ export default function SampleDetailPage() {
     await handleExportPdf(exportRecipientClients);
   }
 
-  async function handlePhysicalSend() {
+  async function handlePhysicalSend(reportedHarvest: string | null = null) {
     if (!session || !detail) {
       return;
     }
@@ -1198,6 +1203,7 @@ export default function SampleDetailPage() {
             await recordPhysicalSampleSent(session, sampleId, {
               recipientClientId: client?.id ?? null,
               sentDate: physicalSendDate,
+              reportedHarvest,
             });
           } catch (cause) {
             if (client) failed.push(client);
@@ -1223,6 +1229,7 @@ export default function SampleDetailPage() {
       window.setTimeout(() => {
         setPhysicalSendSuccess(false);
         setPhysicalSendModalOpen(false);
+        setPhysicalSendHarvestOpen(false);
         setEditingSendEventId(null);
         setPhysicalSendClients([]);
       }, 900);
@@ -1239,6 +1246,28 @@ export default function SampleDetailPage() {
     } finally {
       setPhysicalSending(false);
     }
+  }
+
+  // Intercepta o submit do envio: amostra liga (mais de uma safra) + CLASSIFIED
+  // exige escolher UMA safra pro laudo congelado antes de disparar os POSTs
+  // (mesmo constraint anti-vazamento do export). Edicao nunca regenera laudo.
+  async function handleConfirmPhysicalSend() {
+    if (!detail || physicalSending) {
+      return;
+    }
+    if (!editingSendEventId && detail.sample.status === 'CLASSIFIED') {
+      const options = (detail.sample.declared?.harvest ?? '')
+        .split(/\s*,\s*/)
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0);
+      if (options.length > 1) {
+        setPhysicalSendModalOpen(false);
+        setPhysicalSendHarvestOptions(options);
+        setPhysicalSendHarvestOpen(true);
+        return;
+      }
+    }
+    await handlePhysicalSend();
   }
 
   async function handleOpenEditSend(item: Extract<SendHistoryItem, { kind: 'PHYSICAL' }>) {
@@ -4031,6 +4060,23 @@ export default function SampleDetailPage() {
         }}
       />
 
+      <ReportHarvestSelectModal
+        open={physicalSendHarvestOpen}
+        harvests={physicalSendHarvestOptions}
+        submitting={physicalSending}
+        onConfirm={(selected) => {
+          setPhysicalSendHarvestOpen(false);
+          void handlePhysicalSend(selected);
+        }}
+        onBack={() => {
+          setPhysicalSendHarvestOpen(false);
+          setPhysicalSendModalOpen(true);
+        }}
+        onClose={() => {
+          setPhysicalSendHarvestOpen(false);
+        }}
+      />
+
       {physicalSendModalOpen ? (
         <div
           className="app-modal-backdrop"
@@ -4091,7 +4137,7 @@ export default function SampleDetailPage() {
               onSubmit={(event) => {
                 event.preventDefault();
                 if (physicalSending) return;
-                void handlePhysicalSend();
+                void handleConfirmPhysicalSend();
               }}
             >
               {editingSendEventId ? (

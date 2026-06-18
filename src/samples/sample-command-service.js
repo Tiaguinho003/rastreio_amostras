@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -40,6 +40,8 @@ const COMMERCIAL_MUTABLE_OPERATIONAL_STATUSES = new Set(['REGISTRATION_CONFIRMED
 // Envio fisico de amostra pode ser registrado assim que a amostra foi registrada
 // (REGISTRATION_CONFIRMED). Edicao e cancelamento do envio tambem usam esse range.
 const PHYSICAL_SEND_ALLOWED_STATUSES = ['REGISTRATION_CONFIRMED', 'CLASSIFIED'];
+// Etiqueta de Envio (fase 3): validade do link público do laudo (D7 = 30 dias).
+const REPORT_SHARE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const MOVEMENT_TYPES = {
   SALE: 'SALE',
   LOSS: 'LOSS',
@@ -3635,6 +3637,92 @@ export class SampleCommandService {
     });
 
     return this.eventService.appendEvent(event);
+  }
+
+  // Etiqueta de Envio (fase 3): envio de amostra CLASSIFIED com laudo congelado.
+  // O PDF JA foi gerado e gravado em UPLOADS_DIR pelo caller (reportService),
+  // FORA de transacao (render e lento). Aqui o evento PHYSICAL_SAMPLE_SENT e o
+  // SampleReportShare nascem ATOMICOS (appendEventBatch + beforeCommit), com o
+  // share apontando pro sendEventId recem-criado. Token aleatorio de 32 bytes,
+  // expiracao em 30 dias (D7). Nao registra REPORT_EXPORTED (o share e a
+  // auditoria do laudo). `report.recipientSnapshot` ja vem resolvido pelo
+  // handler (que tambem usou o displayName como destino no PDF) — evita
+  // re-resolver o cliente. Ver docs/Etiqueta-de-Envio-Plano-de-Trabalho.md.
+  async recordPhysicalSampleSentWithReport(input, report, actorContext) {
+    const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'record physical sample sent');
+
+    const sample = await this.queryService.requireSample(input.sampleId);
+    assertSampleStatus(sample, PHYSICAL_SEND_ALLOWED_STATUSES, 'record physical sample sent');
+    // Defesa em profundidade: o laudo congelado so existe para CLASSIFIED (o
+    // caller ja bifurcou por status; aqui garante a invariante).
+    if (sample.status !== 'CLASSIFIED') {
+      throw new HttpError(409, 'Sample must be CLASSIFIED to attach a report share');
+    }
+
+    let recipientClientId = null;
+    if (input.recipientClientId) {
+      const clientId = normalizeRequiredText(input.recipientClientId, 'recipientClientId');
+      if (!UUID_REGEX.test(clientId)) {
+        throw new HttpError(422, 'recipientClientId must be a valid UUID');
+      }
+      recipientClientId = clientId;
+    }
+    const recipientClientSnapshot = report?.recipientSnapshot ?? null;
+
+    const sentDate = input.sentDate
+      ? normalizeRequiredText(input.sentDate, 'sentDate')
+      : buildBusinessDateStamp();
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(sentDate)) {
+      throw new HttpError(422, 'sentDate must be in YYYY-MM-DD format');
+    }
+
+    const event = buildEventEnvelope({
+      eventType: 'PHYSICAL_SAMPLE_SENT',
+      sampleId: sample.id,
+      payload: {
+        recipientClientId,
+        recipientClientSnapshot,
+        sentDate,
+      },
+      fromStatus: null,
+      toStatus: null,
+      module: 'classification',
+      actorContext: actor,
+    });
+
+    const shareId = randomUUID();
+    const token = randomBytes(32).toString('hex');
+    const issuedAt = new Date();
+    const expiresAt = new Date(issuedAt.getTime() + REPORT_SHARE_TTL_MS);
+
+    const [result] = await this.eventService.appendEventBatch(
+      [event],
+      [{}],
+      async (tx, results) => {
+        await tx.createReportShare({
+          id: shareId,
+          token,
+          sampleId: sample.id,
+          sendEventId: results[0].event.eventId,
+          recipientClientId,
+          recipientSnapshot: recipientClientSnapshot,
+          storagePath: report.storagePath,
+          fileName: report.fileName,
+          checksumSha256: report.checksumSha256,
+          sizeBytes: report.sizeBytes,
+          reportedHarvest: report.reportedHarvest ?? null,
+          issuedByUserId: actor.actorUserId,
+          issuedAt,
+          expiresAt,
+        });
+      }
+    );
+
+    return {
+      event: result.event,
+      share: { id: shareId, token, expiresAt: expiresAt.toISOString() },
+    };
   }
 
   async updatePhysicalSampleSend(input, actorContext) {

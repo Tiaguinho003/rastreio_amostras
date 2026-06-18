@@ -1142,6 +1142,9 @@ export function recordPhysicalSampleSent(
   data: {
     recipientClientId: string | null;
     sentDate: string;
+    // Liga CLASSIFIED: safra escolhida pro laudo congelado (anti-vazamento).
+    // null em safra unica / amostra nao classificada.
+    reportedHarvest?: string | null;
   }
 ) {
   return request<CommandResponse>(`/samples/${sampleId}/physical-send`, {
@@ -1150,6 +1153,7 @@ export function recordPhysicalSampleSent(
     body: {
       recipientClientId: data.recipientClientId,
       sentDate: data.sentDate,
+      reportedHarvest: data.reportedHarvest ?? null,
     },
   });
 }

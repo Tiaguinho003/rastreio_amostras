@@ -408,6 +408,26 @@ model CustomPrintJob {
   @@map("custom_print_job")
 }
 
+// Fila da Etiqueta de Envio (3o tipo). Desacoplada de Sample/event store/
+// PrintJob (mesmo padrao do CustomPrintJob): o print agent busca os PENDING
+// via /api/v1/shipping-print/pending, imprime e marca DONE/FAILED. payload
+// guarda { sampleId, sendEventId, token?, qrUrl?, internalLotNumber,
+// recipientName, sentDate, sacks, harvest } — token/qrUrl so existem quando a
+// amostra estava CLASSIFIED (etiqueta com QR). Ver
+// docs/Etiqueta-de-Envio-Plano-de-Trabalho.md.
+model ShippingPrintJob {
+  id        String   @id @default(uuid()) @db.Uuid
+  status    String   @default("PENDING")
+  payload   Json
+  printerId String?  @map("printer_id")
+  error     String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([status, createdAt], map: "idx_shipping_print_job_status_created")
+  @@map("shipping_print_job")
+}
+
 // Etiqueta de Envio (3o tipo) — link publico do laudo, gerado quando uma
 // amostra CLASSIFIED e enviada. Cada PHYSICAL_SAMPLE_SENT (1 por destinatario)
 // gera 1 share: o PDF do laudo e CONGELADO em UPLOADS_DIR (storagePath) e o

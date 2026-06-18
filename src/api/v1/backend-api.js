@@ -208,6 +208,52 @@ export function createBackendApiV1({
   reportService = null,
   idempotencyStore = null,
 }) {
+  // Etiqueta de Envio (fase 3): monta a URL publica do laudo pro QR a partir de
+  // APP_BASE_URL. Em producao precisa ser o dominio real (hoje placeholder).
+  function buildLaudoReportUrl(token) {
+    const base = (process.env.APP_BASE_URL ?? '').replace(/\/+$/, '');
+    return base ? `${base}/laudo/${token}` : `/laudo/${token}`;
+  }
+
+  // Etiqueta de Envio (fase 3): enfileira a impressao da etiqueta (best-effort,
+  // mesmo padrao desacoplado da CustomPrintJob). token/qrUrl so vem preenchidos
+  // quando a amostra estava CLASSIFIED (etiqueta com QR). Se o insert falhar, o
+  // envio + share ja estao gravados — a etiqueta pode ser re-enfileirada depois.
+  async function enqueueShippingLabel({
+    sample,
+    recipient,
+    sentDate,
+    reportedHarvest,
+    sendEventId,
+    token = null,
+    qrUrl = null,
+  }) {
+    try {
+      await queryService.prisma.shippingPrintJob.create({
+        data: {
+          status: 'PENDING',
+          payload: {
+            sampleId: sample.id,
+            sendEventId,
+            token,
+            qrUrl,
+            internalLotNumber: sample.internalLotNumber ?? null,
+            recipientName: recipient?.displayName ?? null,
+            sentDate: sentDate ?? null,
+            sacks: sample.declared?.sacks ?? null,
+            harvest: reportedHarvest ?? sample.declared?.harvest ?? null,
+          },
+        },
+      });
+    } catch (cause) {
+      console.error('[shipping-print] falha ao enfileirar etiqueta de envio', {
+        sampleId: sample.id,
+        sendEventId,
+        cause,
+      });
+    }
+  }
+
   const api = {
     health: () =>
       executeApi(async () => ({
@@ -699,6 +745,67 @@ export function createBackendApiV1({
         const sampleId = requireSampleId(input?.params);
         const body = readRequestBody(input);
 
+        const sample = await queryService.requireSample(sampleId);
+
+        // Destinatario resolvido uma vez: o displayName vai no cabecalho do
+        // laudo e o snapshot e congelado no evento/share. Sem destinatario =>
+        // envio anonimo (laudo sem linha de destinatario).
+        let recipient = null;
+        if (body.recipientClientId) {
+          if (!clientService) {
+            throw new HttpError(501, 'Client service is not configured');
+          }
+          recipient = await clientService.resolveRecipientClient(body.recipientClientId);
+        }
+
+        // Bifurcacao por status (D4). CLASSIFIED: gera o laudo congelado + o
+        // SampleReportShare (atomicos com o evento) e enfileira etiqueta COM QR.
+        // REGISTRATION_CONFIRMED: so registra o envio + etiqueta SEM QR.
+        if (sample.status === 'CLASSIFIED') {
+          if (!reportService) {
+            throw new HttpError(501, 'Sample report service is not configured');
+          }
+
+          // PDF gerado e gravado FORA de transacao (render lento). Se a foto
+          // sumiu do storage, lanca 409 e nada e gravado (envio atomico —
+          // preserva a invariante "CLASSIFIED => laudo").
+          const persisted = await reportService.persistSampleReportPdf({
+            sampleId,
+            destination: recipient?.displayName ?? null,
+            recipientClientId: body.recipientClientId ?? null,
+            reportedHarvest: body.reportedHarvest ?? null,
+          });
+
+          const result = await commandService.recordPhysicalSampleSentWithReport(
+            { sampleId, recipientClientId: body.recipientClientId, sentDate: body.sentDate },
+            {
+              storagePath: persisted.storagePath,
+              fileName: persisted.fileName,
+              checksumSha256: persisted.checksumSha256,
+              sizeBytes: persisted.sizeBytes,
+              reportedHarvest: persisted.reportedHarvest,
+              recipientSnapshot: recipient,
+            },
+            actor
+          );
+
+          const qrUrl = buildLaudoReportUrl(result.share.token);
+          await enqueueShippingLabel({
+            sample,
+            recipient,
+            sentDate: result.event.payload?.sentDate ?? body.sentDate ?? null,
+            reportedHarvest: persisted.reportedHarvest,
+            sendEventId: result.event.eventId,
+            token: result.share.token,
+            qrUrl,
+          });
+
+          return {
+            status: 201,
+            body: { event: result.event, share: result.share, qrUrl },
+          };
+        }
+
         const result = await commandService.recordPhysicalSampleSent(
           {
             sampleId,
@@ -707,6 +814,14 @@ export function createBackendApiV1({
           },
           actor
         );
+
+        await enqueueShippingLabel({
+          sample,
+          recipient,
+          sentDate: result.event.payload?.sentDate ?? body.sentDate ?? null,
+          reportedHarvest: null,
+          sendEventId: result.event.eventId,
+        });
 
         return {
           status: 201,
@@ -1105,6 +1220,57 @@ export function createBackendApiV1({
             error,
             // cap defensivo (espelha o .slice de `error`); printerId vem do
             // config do agente, nao de input de usuario, mas a coluna e ilimitada.
+            printerId: typeof body.printerId === 'string' ? body.printerId.slice(0, 120) : null,
+          },
+        });
+
+        return { status: 200, body: { ok: true, updated: result.count } };
+      }),
+
+    // Etiqueta de Envio (fase 3): fila lida pelo print agent na fase 5. Mesma
+    // politica/forma dos handlers da CustomPrintJob.
+    getPendingShippingPrintJobs: (input) =>
+      executeApiForInput(input, async () => {
+        await resolveActorContext(input, authService);
+        const rows = await queryService.prisma.shippingPrintJob.findMany({
+          where: { status: 'PENDING' },
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          take: 10,
+          select: { id: true, payload: true, printerId: true, createdAt: true },
+        });
+        return {
+          status: 200,
+          body: {
+            items: rows.map((row) => ({
+              jobId: row.id,
+              kind: 'shipping',
+              payload: row.payload,
+              printerId: row.printerId ?? null,
+              createdAt: row.createdAt.toISOString(),
+            })),
+            total: rows.length,
+          },
+        };
+      }),
+
+    resolveShippingPrintJob: (input) =>
+      executeApiForInput(input, async () => {
+        await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+        const jobId = typeof body.jobId === 'string' ? body.jobId.trim() : '';
+        if (jobId.length === 0) {
+          throw new HttpError(422, 'jobId e obrigatorio');
+        }
+        const status = body.status === 'FAILED' ? 'FAILED' : 'DONE';
+        const error =
+          status === 'FAILED' && typeof body.error === 'string' ? body.error.slice(0, 500) : null;
+
+        // updateMany filtrando status=PENDING torna o report idempotente.
+        const result = await queryService.prisma.shippingPrintJob.updateMany({
+          where: { id: jobId, status: 'PENDING' },
+          data: {
+            status,
+            error,
             printerId: typeof body.printerId === 'string' ? body.printerId.slice(0, 120) : null,
           },
         });

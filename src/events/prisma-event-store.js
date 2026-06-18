@@ -406,6 +406,13 @@ class PrismaEventStoreTx {
     });
   }
 
+  // Etiqueta de Envio (fase 3): cria o SampleReportShare na mesma tx do evento
+  // PHYSICAL_SAMPLE_SENT (appendEventBatch + beforeCommit), com sendEventId
+  // apontando pro evento recém-criado. Tabela mutável, fora do event store.
+  async createReportShare(row) {
+    return this.tx.sampleReportShare.create({ data: row });
+  }
+
   async insertEvent(event) {
     return this.tx.sampleEvent.create({
       data: {
