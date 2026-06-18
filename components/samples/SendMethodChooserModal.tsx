@@ -9,7 +9,7 @@ import { useFocusTrap } from '../../lib/use-focus-trap';
 //   - "Descricao" -> fluxo de laudo (export PDF) — exige CLASSIFIED + foto.
 //   - "Fisico"    -> fluxo de envio fisico (REGISTRATION_CONFIRMED|CLASSIFIED).
 // Espelha o visual do ClassificationTypeModal (.is-action + .type-modal-grid /
-// .type-modal-choice), reaproveitando .is-disabled + .type-modal-choice-hint.
+// .type-modal-choice), reaproveitando .is-disabled. So o rotulo, sem dica.
 // Sem seta de voltar (e o primeiro modal): o X (ou tap-fora) fecha. As setas de
 // voltar ficam nos modais de destino (export/fisico), que reabrem este.
 
@@ -78,9 +78,6 @@ export function SendMethodChooserModal({
               disabled={!canDescricao}
             >
               <span className="type-modal-choice-label">Descrição</span>
-              <span className="type-modal-choice-hint">
-                {canDescricao ? 'Laudo (PDF)' : 'Disponível após classificar'}
-              </span>
             </button>
             <button
               type="button"
@@ -89,7 +86,6 @@ export function SendMethodChooserModal({
               disabled={!canFisico}
             >
               <span className="type-modal-choice-label">Físico</span>
-              <span className="type-modal-choice-hint">Envio da amostra</span>
             </button>
           </div>
         </div>
