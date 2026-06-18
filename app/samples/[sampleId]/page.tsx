@@ -409,6 +409,7 @@ function mapSampleOwnerClientToSummary(
     registrationNumber: null,
     isBuyer: client.isBuyer,
     isSeller: client.isSeller,
+    isWarehouse: client.isWarehouse,
     status: client.status,
     commercialUser: null,
     commercialUsers: [],

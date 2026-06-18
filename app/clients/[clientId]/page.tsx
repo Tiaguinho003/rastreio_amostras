@@ -156,6 +156,7 @@ function clientSummaryToForm(client: ClientSummary) {
     complement: client.complement ?? '',
     isBuyer: client.isBuyer,
     isSeller: client.isSeller,
+    isWarehouse: client.isWarehouse,
     commercialUserIds: (client.commercialUsers ?? []).map((u) => u.id),
     reasonText: '',
   };
@@ -357,6 +358,7 @@ export default function ClientDetailPage() {
       phone: null,
       isBuyer: false,
       isSeller: true,
+      isWarehouse: false,
       status: 'ACTIVE',
       commercialUser: null,
       commercialUsers: [],
@@ -703,6 +705,7 @@ export default function ClientDetailPage() {
       if (editClientTab === 'info') {
         data.isBuyer = editClientForm.isBuyer;
         data.isSeller = editClientForm.isSeller;
+        data.isWarehouse = editClientForm.isWarehouse;
 
         if (editClientForm.personType === 'PF') {
           data.fullName = editClientForm.fullName;
@@ -1115,6 +1118,11 @@ export default function ClientDetailPage() {
                           className={`cv2-card-role is-buyer${client.isBuyer ? '' : ' is-dim'}`}
                         >
                           Comprador
+                        </span>
+                        <span
+                          className={`cv2-card-role is-warehouse${client.isWarehouse ? '' : ' is-dim'}`}
+                        >
+                          Armazém
                         </span>
                       </div>
                     </div>
@@ -1782,6 +1790,17 @@ export default function ClientDetailPage() {
                           }
                         />
                         Comprador
+                      </label>
+                      <label className="client-detail-modal-flag">
+                        <input
+                          type="checkbox"
+                          checked={editClientForm.isWarehouse}
+                          disabled={savingClient}
+                          onChange={(e) =>
+                            setEditClientForm((c) => ({ ...c, isWarehouse: e.target.checked }))
+                          }
+                        />
+                        Armazém
                       </label>
                     </div>
                   </>

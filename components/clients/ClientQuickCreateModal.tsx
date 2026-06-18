@@ -74,12 +74,14 @@ function buildInitialForm({
   initialPersonType = 'PJ',
   initialIsBuyer = false,
   initialIsSeller = false,
+  initialIsWarehouse = false,
   initialPhone = '',
 }: {
   initialSearch?: string;
   initialPersonType?: ClientPersonType;
   initialIsBuyer?: boolean;
   initialIsSeller?: boolean;
+  initialIsWarehouse?: boolean;
   initialPhone?: string;
 }) {
   return {
@@ -92,6 +94,7 @@ function buildInitialForm({
     phone: maskPhoneInput(initialPhone),
     isBuyer: initialIsBuyer,
     isSeller: initialIsSeller,
+    isWarehouse: initialIsWarehouse,
     commercialUserIds: [] as string[],
   };
 }
@@ -251,9 +254,9 @@ export function ClientQuickCreateModal({
     [10, 11].includes(form.phone.replace(/\D/g, '').length);
 
   const hasCommercialUser = form.commercialUserIds.length > 0;
-  // Papel obrigatorio: o usuario deve escolher ao menos Vendedor ou Comprador
-  // (o campo vem VAZIO, sem default — pra forcar a escolha consciente).
-  const hasRole = form.isSeller || form.isBuyer;
+  // Papel obrigatorio: o usuario deve escolher ao menos Vendedor, Comprador ou
+  // Armazem (o campo vem VAZIO, sem default — pra forcar a escolha consciente).
+  const hasRole = form.isSeller || form.isBuyer || form.isWarehouse;
   const canSubmit = useMemo(() => {
     return isNameFilled && isPhoneValid && isDocumentValid && hasCommercialUser && hasRole;
   }, [isNameFilled, isPhoneValid, isDocumentValid, hasCommercialUser, hasRole]);
@@ -349,6 +352,7 @@ export function ClientQuickCreateModal({
         phone: form.phone,
         isBuyer: form.isBuyer,
         isSeller: form.isSeller,
+        isWarehouse: form.isWarehouse,
         commercialUserIds: form.commercialUserIds,
       });
 
@@ -533,8 +537,8 @@ export function ClientQuickCreateModal({
             />
           </div>
 
-          {/* Linha 5: Papel (Vendedor/Comprador) — multi-select com chips, mesmo
-              padrao do Responsavel. Cliente pode ser os dois (ou nenhum). */}
+          {/* Linha 5: Papel (Vendedor/Comprador/Armazem) — multi-select com chips,
+              mesmo padrao do Responsavel. Cliente pode ser qualquer combinacao. */}
           <div className="client-quick-create-grid client-quick-create-grid-single">
             <ChipMultiSelectField
               label="Papel"
@@ -542,13 +546,19 @@ export function ClientQuickCreateModal({
               options={[
                 { id: 'seller', label: 'Vendedor' },
                 { id: 'buyer', label: 'Comprador' },
+                { id: 'warehouse', label: 'Armazém' },
               ]}
-              selected={[...(form.isSeller ? ['seller'] : []), ...(form.isBuyer ? ['buyer'] : [])]}
+              selected={[
+                ...(form.isSeller ? ['seller'] : []),
+                ...(form.isBuyer ? ['buyer'] : []),
+                ...(form.isWarehouse ? ['warehouse'] : []),
+              ]}
               onChange={(next) =>
                 setForm((current) => ({
                   ...current,
                   isSeller: next.includes('seller'),
                   isBuyer: next.includes('buyer'),
+                  isWarehouse: next.includes('warehouse'),
                 }))
               }
               disabled={saving}

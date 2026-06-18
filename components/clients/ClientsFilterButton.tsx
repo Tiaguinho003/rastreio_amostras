@@ -17,8 +17,8 @@ export type ClientFilters = {
   commercialUserId: string;
   status: '' | 'ACTIVE' | 'INACTIVE';
   personType: '' | 'PF' | 'PJ';
-  /** papel operacional; mapeado pra isBuyer/isSeller no fetch */
-  role: '' | 'buyer' | 'seller';
+  /** papel operacional; mapeado pra isBuyer/isSeller/isWarehouse no fetch */
+  role: '' | 'buyer' | 'seller' | 'warehouse';
   completeness: '' | 'complete' | 'incomplete';
 };
 
@@ -223,6 +223,7 @@ export function ClientsFilterButton({ users, applied, onApply, onClear, incomple
                       <option value="">Qualquer</option>
                       <option value="buyer">Comprador</option>
                       <option value="seller">Vendedor</option>
+                      <option value="warehouse">Armazém</option>
                     </select>
                   </div>
 

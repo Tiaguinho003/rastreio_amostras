@@ -103,6 +103,7 @@ function clientFiltersToQuery(filters: ClientFilters) {
     personType: filters.personType || undefined,
     isBuyer: filters.role === 'buyer' ? true : undefined,
     isSeller: filters.role === 'seller' ? true : undefined,
+    isWarehouse: filters.role === 'warehouse' ? true : undefined,
     commercialUserId: filters.commercialUserId || undefined,
     completeness: filters.completeness || undefined,
   };
@@ -130,16 +131,13 @@ function clientRoleSummary(client: ClientSummary | null) {
   if (!client) {
     return 'Sem papel operacional';
   }
-  if (client.isBuyer && client.isSeller) {
-    return 'Comprador e vendedor';
-  }
-  if (client.isBuyer) {
-    return 'Comprador';
-  }
-  if (client.isSeller) {
-    return 'Proprietario/Vendedor';
-  }
-  return 'Sem papel operacional';
+  // Compoe os papeis ativos (qualquer combinacao dos tres). Rotulos alinhados
+  // com os badges do detalhe: Vendedor / Comprador / Armazem.
+  const roles: string[] = [];
+  if (client.isSeller) roles.push('Vendedor');
+  if (client.isBuyer) roles.push('Comprador');
+  if (client.isWarehouse) roles.push('Armazém');
+  return roles.length ? roles.join(' · ') : 'Sem papel operacional';
 }
 
 // Avatar de iniciais do cliente: VERDE por TIPO (decisao 2026-06) — PJ verde
@@ -1252,7 +1250,12 @@ function ClientsPage() {
                         {clientsState.detail.isSeller ? (
                           <span className="cv2-card-role is-seller">Vendedor</span>
                         ) : null}
-                        {!clientsState.detail.isBuyer && !clientsState.detail.isSeller ? (
+                        {clientsState.detail.isWarehouse ? (
+                          <span className="cv2-card-role is-warehouse">Armazém</span>
+                        ) : null}
+                        {!clientsState.detail.isBuyer &&
+                        !clientsState.detail.isSeller &&
+                        !clientsState.detail.isWarehouse ? (
                           <span className="cv2-card-role is-none">Sem papel</span>
                         ) : null}
                       </div>

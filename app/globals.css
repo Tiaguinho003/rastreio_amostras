@@ -6994,6 +6994,12 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   border-color: #bbf7d0;
 }
 
+.cv2-card-role.is-warehouse {
+  color: #b45309;
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
 .cv2-card-role.is-none {
   color: #999;
   background: #f5f5f5;
@@ -10515,6 +10521,12 @@ body:has(.app-modal-backdrop) .prospector-fab {
   box-shadow:
     0 0 0 1px rgba(41, 128, 185, 0.3),
     0 0 12px rgba(41, 128, 185, 0.45);
+}
+
+.sdv-roles-row .cv2-card-role.is-warehouse:not(.is-dim) {
+  box-shadow:
+    0 0 0 1px rgba(180, 83, 9, 0.3),
+    0 0 12px rgba(180, 83, 9, 0.45);
 }
 
 .sdv-roles-row .cv2-card-role.is-dim {
