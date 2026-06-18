@@ -125,7 +125,7 @@ export function ClassificationClassifierModal({
     <div className="app-modal-backdrop">
       <section
         ref={focusTrapRef}
-        className="app-modal is-themed classifier-modal"
+        className="app-modal is-themed is-action classifier-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="classifier-modal-title"

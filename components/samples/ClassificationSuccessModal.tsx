@@ -51,7 +51,7 @@ export function ClassificationSuccessModal({
     <div className="app-modal-backdrop" onClick={onClose}>
       <section
         ref={focusTrapRef}
-        className="app-modal is-themed sample-created-modal classification-success-modal"
+        className="app-modal is-themed is-action sample-created-modal classification-success-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="classification-success-title"

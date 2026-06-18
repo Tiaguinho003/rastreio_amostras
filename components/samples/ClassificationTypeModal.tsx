@@ -63,7 +63,7 @@ export function ClassificationTypeModal({
     <div className="app-modal-backdrop" onClick={onBack}>
       <section
         ref={focusTrapRef}
-        className="app-modal is-themed type-modal"
+        className="app-modal is-themed is-action type-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="type-modal-title"
