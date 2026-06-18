@@ -9474,12 +9474,20 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   animation: none;
 }
 
-/* Identidade dos cards do prospector (verde brand) — sem isto o icon-wrap
-   fica sem fundo e o SVG sem stroke (os cards padrao ganham cor via
-   modificadores .dashboard-op-*). */
+/* Cards de contagem do prospector ALINHADOS ao dashboard do admin
+   (.dashboard-mobile): branco flat + sombra; icon-wrap flat verde-claro
+   (icone segue stroke verde); badge = chip verde-claro flutuante (regra abaixo). */
+.prospector-dashboard .dashboard-operation-card.is-wide {
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.05),
+    0 8px 20px rgba(0, 0, 0, 0.06);
+}
+
 .prospector-dashboard .dashboard-operation-icon-wrap {
-  background: linear-gradient(135deg, rgba(31, 93, 67, 0.15), rgba(31, 93, 67, 0.08));
-  border: 1.5px solid rgba(31, 93, 67, 0.25);
+  background: #e8f1ec;
+  border: 0;
 }
 
 .prospector-dashboard .dashboard-operation-icon-wrap svg {
@@ -9487,8 +9495,20 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
 }
 
 .prospector-dashboard .dashboard-operation-badge {
-  background: var(--brand-green);
-  box-shadow: 0 2px 8px rgba(31, 93, 67, 0.45);
+  position: absolute;
+  top: clamp(-9px, -2.4vw, -7px);
+  right: clamp(0.5rem, 2vw, 0.7rem);
+  width: auto;
+  min-width: clamp(1.55rem, 6vw, 1.85rem);
+  height: clamp(1.45rem, 5.4vw, 1.7rem);
+  padding: 0 clamp(0.42rem, 1.7vw, 0.58rem);
+  border-radius: 999px;
+  background: #e8f1ec;
+  color: #1f5d43;
+  font-size: clamp(0.82rem, 3vw, 0.98rem);
+  border: 2px solid #ffffff;
+  box-shadow: 0 3px 8px rgba(20, 55, 42, 0.18);
+  flex-shrink: 0;
 }
 
 /* Botao "+" do formulario — gradiente/elevacao do botao da camera da
@@ -25911,18 +25931,18 @@ select.samples-filter-field-input {
   }
 
   .prospector-dashboard .dashboard-greeting-label {
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 1.25rem;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: clamp(1.25rem, 5vw, 1.5rem);
     font-weight: 400;
-    line-height: 1.2;
+    line-height: 1.25;
     padding-left: 0.2rem;
   }
 
   .prospector-dashboard .dashboard-greeting-name {
     color: #ffffff;
-    font-size: 2.2rem;
-    font-weight: 500;
-    line-height: 1.15;
+    font-size: clamp(2.3rem, 9.5vw, 3rem);
+    font-weight: 700;
+    line-height: 1.05;
     padding-left: 0.2rem;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -25958,8 +25978,8 @@ select.samples-filter-field-input {
     min-width: 3.4rem;
     height: 3.4rem;
     border-radius: 999px;
-    background: #ffffff;
-    border: 2px solid rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.22);
     box-shadow: 0 4px 14px rgba(8, 17, 13, 0.18);
     cursor: pointer;
     padding: 0;
@@ -25974,13 +25994,13 @@ select.samples-filter-field-input {
   .prospector-dashboard .dashboard-hero-avatar-initials {
     font-size: 1.25rem;
     font-weight: 700;
-    color: #1f5d43;
+    color: #ffffff;
     line-height: 1;
     letter-spacing: 0.02em;
   }
 
   .prospector-dashboard .dashboard-sheet {
-    background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
+    background: #f4f6f5;
     border-radius: 20px;
     padding: 2rem 1.6rem 1.6rem;
     display: flex;
