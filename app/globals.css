@@ -9113,6 +9113,14 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   white-space: nowrap;
 }
 
+/* "Aguardando vínculo" abaixo do nome (saiu de inline com o nome, que estourava
+   a borda do card). align-self mantém o badge no tamanho natural, à esquerda,
+   dentro da coluna .rsm-card-client-text. */
+.rsm-client-pending {
+  align-self: flex-start;
+  margin-top: 3px;
+}
+
 /* Respostas: lista label uppercase + valor. */
 .rsm-answers {
   margin: 0;

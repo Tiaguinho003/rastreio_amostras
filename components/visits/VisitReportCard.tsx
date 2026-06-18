@@ -79,9 +79,6 @@ export function VisitReportCard({
   const isLinked = report.client !== null;
   // Vinculado mostra o nome canonico do cadastro; sem vinculo, o anotado.
   const clientName = report.client?.displayName ?? report.newClient?.name ?? '—';
-  const clientMeta = isLinked
-    ? `Código ${report.client?.code}`
-    : [report.newClient?.city, report.newClient?.phone].filter(Boolean).join(' · ');
 
   return (
     <article
@@ -151,11 +148,18 @@ export function VisitReportCard({
             <p className="rsm-client-name">
               {clientName}
               {isNewClient ? <span className="rsm-client-tag">Cliente novo</span> : null}
-              {showLinkStatus && !isLinked ? (
-                <span className="rsm-client-tag is-pending-link">Aguardando vínculo</span>
-              ) : null}
             </p>
-            {clientMeta ? <p className="rsm-client-meta">{clientMeta}</p> : null}
+            {/* Abaixo do nome: vinculado mostra o codigo; aguardando vinculo
+                mostra o badge AQUI (saiu de inline com o nome — la estourava a
+                borda do card). Cidade/regiao + telefone foram pra versao
+                estendida (no card pequeno eram cortados pela reticencia). */}
+            {isLinked ? (
+              <p className="rsm-client-meta">Código {report.client?.code}</p>
+            ) : showLinkStatus ? (
+              <span className="rsm-client-tag is-pending-link rsm-client-pending">
+                Aguardando vínculo
+              </span>
+            ) : null}
           </div>
           <span className="rsm-card-chevron" aria-hidden="true">
             <svg viewBox="0 0 24 24" focusable="false">
@@ -168,6 +172,21 @@ export function VisitReportCard({
       <div className="rsm-card-details">
         <div className="rsm-card-details-inner">
           <dl className="rsm-answers">
+            {/* Cidade/regiao + telefone do cliente registrado no formulario:
+                ficam aqui na versao estendida (no card pequeno a .rsm-client-meta
+                cortava com reticencia). Padrao dt/dd das demais respostas. */}
+            {report.newClient?.city ? (
+              <div className="rsm-answer">
+                <dt>Cidade/região</dt>
+                <dd>{report.newClient.city}</dd>
+              </div>
+            ) : null}
+            {report.newClient?.phone ? (
+              <div className="rsm-answer">
+                <dt>Telefone</dt>
+                <dd>{report.newClient.phone}</dd>
+              </div>
+            ) : null}
             <div className="rsm-answer">
               <dt>Tamanho da fazenda</dt>
               <dd>{getVisitFarmSizeLabel(report.farmSize)}</dd>
