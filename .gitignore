@@ -63,3 +63,6 @@ print-agent/.printed-jobs.json
 
 # Saidas de scripts de auditoria/wizard (relatorios, JSON dumps, undo SQL)
 /tmp/
+
+# Cache local do Firebase CLI (deploy do Hosting do laudo) — nao versionar
+.firebase/
