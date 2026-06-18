@@ -31127,184 +31127,16 @@ select.samples-filter-field-input {
 }
 
 /* ============================================================
-   Liga B1.3 — FAB + menu glass-card (Sample / Liga)
+   Variantes do FAB no modo seleção de Liga (Sample / Liga)
    ============================================================
-   Reutiliza .cv2-fab como base do botao principal. Adiciona:
-   - .fab-radial-backdrop: overlay transparente full-screen pra
-     captar tap-fora quando expandido.
-   - .fab-menu-card: card retangular vidro-embacado que emerge de
-     dentro do FAB (transform-origin bottom + spring easing). Largura
-     igual ao FAB pra alinhamento visual com o "+".
-   - .fab-menu-option: cada opcao empilhada (icone grande + label).
-   - .fab-menu-option-separator: linha fina dividindo as opcoes.
+   Reutiliza .cv2-fab como base. (O antigo drawer glass-card do FAB —
+   .fab-menu-* / .fab-radial-backdrop — foi REMOVIDO: tanto Lotes quanto
+   Informe usam agora o leque .fab-fan-*, ver "Leque do FAB" mais abaixo.)
    - Variante .cv2-fab.is-blend-arrow: substitui SVG do "+" por "->"
      no modo de selecao (B1.4).
    - Variante .cv2-fab.is-disabled: opacity 0.4 + cursor not-allowed
      (quando selectedCount < 2 no modo blendArrow).
 */
-
-.fab-radial-backdrop {
-  position: fixed;
-  inset: 0;
-  background: transparent;
-  z-index: 48; /* abaixo do drawer (49) e do FAB (50), acima do conteudo */
-  pointer-events: auto;
-}
-
-.fab-menu-card {
-  position: fixed;
-  /* Largura e right EXATAMENTE iguais ao FAB pra alinhamento perfeito
-     (vertical line entre as duas formas). Bottom calculado pra que o
-     drawer sobreponha o topo do FAB pelo proprio border-radius —
-     o corpo retangular do drawer preenche os corner-cutouts do FAB e
-     visualmente os dois formam UMA pill continua: bottom corners do
-     FAB + body reto + top corners do drawer.
-     Calc: FAB.bottom + FAB.height − corner_radius (overlap). */
-  bottom: calc(
-    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(6.3rem, 27vw, 6.8rem) +
-      clamp(53px, 14.95vw, 60px) - clamp(16px, 4.6vw, 18px)
-  );
-  right: clamp(24px, 7vw, 34px);
-  width: clamp(53px, 14.95vw, 60px);
-  /* z=49 fica abaixo do FAB (z=50). FAB oclui a parte de baixo do
-     drawer — visualmente o drawer parece sair de dentro do botao. */
-  z-index: 49;
-  display: flex;
-  flex-direction: column;
-  /* Padding-bottom cobre a area de overlap (clamp 16-18) + breathing
-     pra que a ultima opcao nao cole no FAB. Padding-top respira acima
-     da primeira opcao. */
-  padding: clamp(8px, 2.2vw, 10px) 0 clamp(22px, 5.8vw, 26px);
-  /* Top corners arredondados (mesmo radius do FAB); bottom retos pra
-     que a borda inferior do drawer encoste reta no corpo do FAB sem
-     deixar curvas aparentes na transicao. */
-  border-radius: clamp(16px, 4.6vw, 18px) clamp(16px, 4.6vw, 18px) 0 0;
-  /* Glass embacado em tom verde — mais opaco pra harmonizar com o FAB
-     solido logo abaixo. Highlight interno no topo + sombra suave. */
-  background: linear-gradient(180deg, rgba(31, 93, 67, 0.94), rgba(20, 60, 44, 0.97));
-  backdrop-filter: blur(28px) saturate(1.6);
-  -webkit-backdrop-filter: blur(28px) saturate(1.6);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow:
-    0 16px 38px rgba(10, 30, 18, 0.36),
-    0 2px 6px rgba(10, 30, 18, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22);
-  overflow: hidden;
-  /* Estado inicial (mounted, !is-open): drawer 100% clipado a partir do
-     topo — invisivel, "comprimido" dentro do FAB. clip-path eh
-     animavel via transition, sem squish do conteudo (diferente de scaleY).
-     Close eh mais rapido + easing in-out (apple-like ease-in). */
-  clip-path: inset(100% 0 0 0);
-  opacity: 0;
-  transition:
-    clip-path 0.28s cubic-bezier(0.45, 0, 0.55, 1),
-    opacity 0.18s ease-in;
-}
-
-.fab-menu-card.is-open {
-  /* Aberto: clip retirado de cima pra baixo (top: 100% -> 0). Drawer
-     parece subir de dentro do FAB — a parte revelada aparece primeiro
-     acima da borda superior do FAB. Open mais longo + easing apple
-     out-spring (sem overshoot, suave). */
-  clip-path: inset(0 0 0 0);
-  opacity: 1;
-  transition:
-    clip-path 0.42s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.22s ease-out;
-}
-
-.fab-menu-option {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: clamp(10px, 2.6vw, 12px) 6px;
-  background: transparent;
-  border: 0;
-  color: #ffffff;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  /* Opcoes comecam levemente abaixadas + transparentes. Quando o
-     drawer abre, sobem suavemente em stagger curto. No fechamento,
-     somem rapido sem stagger (transition-delay 0 vem da regra base). */
-  opacity: 0;
-  transform: translateY(8px);
-  transition:
-    opacity 0.18s ease-in,
-    transform 0.2s ease-in,
-    background 0.18s ease;
-}
-
-.fab-menu-card.is-open .fab-menu-option {
-  opacity: 1;
-  transform: translateY(0);
-  transition:
-    opacity 0.26s ease-out 0.1s,
-    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1) 0.1s,
-    background 0.18s ease;
-}
-
-.fab-menu-card.is-open .fab-menu-option + .fab-menu-option-separator + .fab-menu-option {
-  /* Segunda opcao chega ~50ms depois pra stagger sutil. */
-  transition:
-    opacity 0.26s ease-out 0.16s,
-    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1) 0.16s,
-    background 0.18s ease;
-}
-
-.fab-menu-option:hover,
-.fab-menu-option:focus-visible {
-  background: rgba(255, 255, 255, 0.1);
-  outline: none;
-}
-
-.fab-menu-option:active {
-  background: rgba(255, 255, 255, 0.18);
-}
-
-.fab-menu-option-icon {
-  width: clamp(22px, 5.8vw, 26px);
-  height: clamp(22px, 5.8vw, 26px);
-  fill: none;
-  stroke: #ffffff;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.fab-menu-option-label {
-  font-size: clamp(10px, 2.6vw, 11.5px);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: #ffffff;
-  line-height: 1;
-}
-
-.fab-menu-option-separator {
-  height: 1px;
-  background: rgba(255, 255, 255, 0.16);
-  margin: 0 10px;
-}
-
-.fab-menu-option.is-pulsing {
-  animation: fab-menu-option-pulse 0.16s ease-out;
-}
-
-@keyframes fab-menu-option-pulse {
-  0% {
-    transform: scale(1);
-    background: rgba(255, 255, 255, 0.1);
-  }
-  50% {
-    transform: scale(0.94);
-    background: rgba(255, 255, 255, 0.34);
-  }
-  100% {
-    transform: scale(1);
-    background: rgba(255, 255, 255, 0.2);
-  }
-}
 
 /* Modo blendArrow (Liga F1.D — seta no FAB durante modo selecao). */
 .cv2-fab.is-disabled {
@@ -31319,16 +31151,16 @@ select.samples-filter-field-input {
 }
 
 /* ============================================================
-   Leque (speed-dial) do FAB "+" — pagina de Lotes (/samples)
+   Leque (speed-dial) do FAB — Lotes (/samples) E Informe (/informe)
    ============================================================
-   Substitui o drawer vertical antigo SO no /samples. O drawer (classes
-   `.fab-menu-*` / `.fab-radial-backdrop`) continua em uso pelo
-   InformeCreateRadialFab — NAO mexer la. Aqui: scrim escuro no tier de modal
-   (cobre a tabbar e bloqueia cliques) + 3 opcoes circulares em ARCO de quarto
-   de circulo (Lote ACIMA, Liga no DIAGONAL a 45°, Aprovacao A ESQUERDA) que
-   emergem do FAB. Posicoes ancoradas nas vars `--fab-*` / `--fan-*` /
-   `--fan-radius` (herdadas de `.samples-page-v2:not(.informe-commercial-page)`). O
-   encolher/arredondar do FAB esta em `.cv2-fab.is-expanded:not(.is-informe-fab)`.
+   Scrim escuro no tier de modal (cobre a tabbar e bloqueia cliques) + opcoes
+   circulares em ARCO de quarto de circulo que emergem do FAB. Lotes: 3 opcoes
+   (Lote ACIMA, Liga no DIAGONAL a 45°, Aprovacao A ESQUERDA). Informe: 2 opcoes
+   reusando is-lote (Visitas, acima) + is-aprovacao (Relatorio, esquerda).
+   Posicoes ancoradas nas vars `--fab-*` / `--fan-*` / `--fan-radius` — definidas
+   em `.samples-page-v2:not(.informe-commercial-page)` (Lotes) e em
+   `.samples-page-v2.informe-commercial-page` (Informe). O encolher/arredondar do
+   FAB esta em `.cv2-fab.is-expanded`.
 */
 
 /* Scrim: escurece a pagina INTEIRA no tier de modal e bloqueia cliques — so as

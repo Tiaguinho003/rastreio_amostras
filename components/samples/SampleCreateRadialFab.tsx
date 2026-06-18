@@ -19,12 +19,12 @@
 //   Disabled (opacity 40% + cursor not-allowed) quando selectedCount < 2.
 //   Tap habilitado dispara onContinue. Cabeado em B1.4 (modo selecao).
 //
-// CSS em app/globals.css (seção "Leque do FAB de Lotes"): .fab-fan-backdrop
-// (scrim escuro), .fab-fan / .fab-fan-option (opções circulares + rótulo ao
-// lado, posicionadas a partir das vars --fab-* do FAB), e o transform do FAB
-// em .cv2-fab.is-expanded:not(.is-informe-fab) (encolher + circular + z-index).
-// NÃO reusa as classes .fab-menu-* / .fab-radial-backdrop (essas continuam do
-// InformeCreateRadialFab). Reusa tokens existentes (--brand-green, .cv2-fab).
+// CSS em app/globals.css (seção "Leque do FAB"): .fab-fan-backdrop (scrim
+// escuro), .fab-fan / .fab-fan-option (opções circulares + rótulo ao lado,
+// posicionadas a partir das vars --fab-* do FAB), e o transform do FAB em
+// .cv2-fab.is-expanded (encolher + circular + z-index). O MESMO leque é usado
+// pelo InformeCreateRadialFab (2 opções, ícone lápis). Reusa tokens existentes
+// (--brand-green, .cv2-fab).
 
 import { useEffect, useRef, useState } from 'react';
 
