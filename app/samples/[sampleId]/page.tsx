@@ -1046,6 +1046,14 @@ export default function SampleDetailPage() {
     return null;
   }
 
+  // Evita o "shell vazio" no 1o load (topo verde + corpo creme antes do
+  // conteudo chegar): enquanto o detalhe nao carregou, fica em branco em vez
+  // de renderizar o AppShell/.sdv-page sem conteudo. So no 1o load (detail
+  // ainda null) — refetch mantem o detail e nao pisca.
+  if (loadingDetail && !detail) {
+    return null;
+  }
+
   if (!sampleId) {
     return (
       <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
@@ -2365,7 +2373,7 @@ export default function SampleDetailPage() {
                         <div className="sdv-card-header">
                           <div className="sdv-cls-header-title">
                             <span className="sdv-card-title">Classificação</span>
-                            {sdvStatus ? (
+                            {sdvStatus && detail.sample.status === 'INVALIDATED' ? (
                               <span
                                 className="sdv-cls-status-badge"
                                 style={{
@@ -2418,30 +2426,24 @@ export default function SampleDetailPage() {
                           </div>
                         )}
 
-                        <div className="sdv-info-actions">
-                          <button
-                            type="button"
-                            className="sdv-action-card is-classify"
-                            disabled={!canClassifyNow && !isClassified}
-                            onClick={() => {
-                              if (isClassified) {
-                                setReclassifyModalOpen(true);
-                              } else {
-                                router.push(`/camera?sampleId=${sampleId}`);
-                              }
-                            }}
-                          >
-                            <span className="sdv-action-card-icon">
-                              <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <circle cx="11" cy="11" r="8" />
-                                <path d="m21 21-4.35-4.35" />
-                              </svg>
-                            </span>
-                            <span className="sdv-action-card-label sdv-classify-label">
-                              <span>{isClassified ? 'Reclassificar' : 'Classificar'}</span>
-                            </span>
-                          </button>
-                        </div>
+                        {!isClassified ? (
+                          <div className="sdv-info-actions">
+                            <button
+                              type="button"
+                              className="sdv-action-card is-classify"
+                              disabled={!canClassifyNow}
+                              onClick={() => router.push(`/camera?sampleId=${sampleId}`)}
+                            >
+                              <span className="sdv-action-card-icon">
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                  <circle cx="11" cy="11" r="8" />
+                                  <path d="m21 21-4.35-4.35" />
+                                </svg>
+                              </span>
+                              <span className="sdv-action-card-label">Classificar</span>
+                            </button>
+                          </div>
+                        ) : null}
                       </div>
                     );
                   })()}
@@ -3404,6 +3406,25 @@ export default function SampleDetailPage() {
 
                         {canEdit ? (
                           <div className="cld-edit-row">
+                            <button
+                              type="button"
+                              className="cld-edit-action"
+                              onClick={() => setReclassifyModalOpen(true)}
+                            >
+                              <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
+                              >
+                                <circle cx="11" cy="11" r="8" />
+                                <path d="m21 21-4.35-4.35" />
+                              </svg>
+                              Reclassificar
+                            </button>
                             <button
                               type="button"
                               className="cld-edit-action"

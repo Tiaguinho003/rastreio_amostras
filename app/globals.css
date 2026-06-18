@@ -7960,7 +7960,7 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: clamp(12px, 3.5vw, 14px);
   padding: clamp(12px, 3.5vw, 14px) clamp(14px, 4vw, 16px);
-  animation: sdv-element-in 0.4s ease-out 0.08s backwards;
+  animation: sdv-element-in 0.4s ease-out backwards;
 }
 
 .sdv-identity-left {
@@ -8078,7 +8078,7 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   gap: clamp(6px, 2vw, 8px);
   padding: clamp(8px, 2.5vw, 10px) clamp(14px, 4vw, 20px);
   background: linear-gradient(180deg, #fdf9ec 0%, #f5f0e8 100%);
-  animation: sdv-element-in 0.4s ease-out 0.15s backwards;
+  animation: sdv-element-in 0.4s ease-out backwards;
 }
 
 .sdv-action-card {
@@ -8259,7 +8259,7 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   padding-bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + 1.5rem);
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  animation: sdv-card-in 0.5s ease-out 0.25s backwards;
+  animation: sdv-card-in 0.5s ease-out backwards;
 }
 
 /* ── Pagina Informe — formulario de visita ──
@@ -13533,13 +13533,15 @@ body:has(.app-modal-backdrop) .prospector-fab {
    .cld-header-action que era branco translucido sobre o header verde. */
 .cld-edit-row {
   display: flex;
-  justify-content: flex-end;
+  gap: clamp(8px, 2vw, 10px);
   margin-top: clamp(-8px, -1.8vw, -6px);
 }
 
 .cld-edit-action {
+  flex: 1;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   padding: 5px 12px;
   border: 1px solid rgba(22, 91, 42, 0.28);
