@@ -1,0 +1,27 @@
+{
+  "hosting": {
+    "target": "laudo",
+    "public": "public-laudo",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      {
+        "source": "/laudo/**",
+        "run": {
+          "serviceId": "rastreio-prod-app",
+          "region": "southamerica-east1"
+        }
+      }
+    ],
+    "headers": [
+      {
+        "source": "/laudo/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      }
+    ]
+  }
+}

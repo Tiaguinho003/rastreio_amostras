@@ -104,6 +104,14 @@ runtime_env_vars_csv() {
     csv="${csv},PUSH_VAPID_SUBJECT=${PUSH_VAPID_SUBJECT}"
   fi
 
+  # Etiqueta de Envio: dominio publico DEDICADO do laudo (Firebase Hosting, so
+  # expoe /laudo) que vai no QR. Precisa entrar no CSV porque o deploy usa
+  # --set-env-vars (SUBSTITUI o conjunto inteiro). Sem ela, o codigo cai no
+  # fallback APP_BASE_URL (a URL do Cloud Run).
+  if [[ -n "${REPORT_PUBLIC_BASE_URL:-}" ]]; then
+    csv="${csv},REPORT_PUBLIC_BASE_URL=${REPORT_PUBLIC_BASE_URL}"
+  fi
+
   printf '%s' "${csv}"
 }
 

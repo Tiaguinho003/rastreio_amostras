@@ -215,10 +215,16 @@ export function createBackendApiV1({
   reportService = null,
   idempotencyStore = null,
 }) {
-  // Etiqueta de Envio (fase 3): monta a URL publica do laudo pro QR a partir de
-  // APP_BASE_URL. Em producao precisa ser o dominio real (hoje placeholder).
+  // Etiqueta de Envio: monta a URL publica do laudo pro QR. Usa
+  // REPORT_PUBLIC_BASE_URL (dominio dedicado do Firebase Hosting que so expoe
+  // /laudo, ex: safras-negocios-laudo.web.app) com fallback pro APP_BASE_URL (a
+  // URL do proprio Cloud Run). Em prod a env vem de .env.cloud-production via
+  // runtime_env_vars_csv (scripts/gcp/_lib.sh).
   function buildLaudoReportUrl(token) {
-    const base = (process.env.APP_BASE_URL ?? '').replace(/\/+$/, '');
+    const base = (process.env.REPORT_PUBLIC_BASE_URL ?? process.env.APP_BASE_URL ?? '').replace(
+      /\/+$/,
+      ''
+    );
     return base ? `${base}/laudo/${token}` : `/laudo/${token}`;
   }
 

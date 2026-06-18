@@ -1,0 +1,12 @@
+{
+  "projects": {
+    "default": "safras-amostras-prod"
+  },
+  "targets": {
+    "safras-amostras-prod": {
+      "hosting": {
+        "laudo": ["safras-negocios-laudo"]
+      }
+    }
+  }
+}
