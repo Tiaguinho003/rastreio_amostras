@@ -574,7 +574,7 @@ Todos seguem `.app-modal.is-themed`. Ordem do fluxo: `idle → preview → handl
 
 | Modal                  | Arquivo                                         | Pendencia                                                                                                                                                                                                                                                      |
 | ---------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ClientQuickCreateModal | `components/clients/ClientQuickCreateModal.tsx` | **MIGRADO pra BottomSheet** (2026-06: slide de baixo + `stacked`) — NAO e mais modal central. Ainda usa classes `client-quick-create-*` pros campos (coabitam com o chrome do sheet); "Descartar?" e overlay interno (`.client-quick-create-discard-overlay`). |
+| ClientQuickCreateModal | `components/clients/ClientQuickCreateModal.tsx` | **MIGRADO pra BottomSheet** (2026-06: slide de baixo + `stacked`) — NAO e mais modal central. Ainda usa classes `client-quick-create-*` pros campos (coabitam com o chrome do sheet); "Descartar cadastro?" e overlay INTERNO (`.client-quick-create-discard-overlay`, scrim escuro `position:absolute`) que envolve o card canonico `.app-modal.is-themed.app-confirm-modal` (mesmo visual do "Descartar amostra?" do NewSampleModal, sem portar — ver pegadinha "Sheet sobre sheet" no §3). |
 
 ### ⚠ Compactos sem `.is-themed` (legados, refatorar quando tocar)
 
