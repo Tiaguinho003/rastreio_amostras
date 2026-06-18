@@ -585,27 +585,32 @@ export function ClientQuickCreateModal({
       ) : null}
 
       {discardOpen ? (
-        <div
-          className="client-quick-create-discard-overlay"
-          role="alertdialog"
-          aria-modal="true"
-          aria-labelledby="client-quick-create-discard-title"
-        >
-          <div className="client-quick-create-discard-card">
-            <div className="app-confirm-modal-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" focusable="false">
-                <path d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
-                <path d="M12 9v4" />
-                <path d="M12 17v.01" />
-              </svg>
+        <div className="client-quick-create-discard-overlay" onClick={() => setDiscardOpen(false)}>
+          <section
+            className="app-modal is-themed app-confirm-modal"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="client-quick-create-discard-title"
+            aria-describedby="client-quick-create-discard-description"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="app-modal-content">
+              <div className="app-confirm-modal-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <path d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+                  <path d="M12 9v4" />
+                  <path d="M12 17v.01" />
+                </svg>
+              </div>
+              <h3 id="client-quick-create-discard-title" className="app-confirm-modal-title">
+                Descartar cadastro?
+              </h3>
+              <p id="client-quick-create-discard-description" className="app-confirm-modal-message">
+                Os dados preenchidos serão perdidos. Esta ação não pode ser desfeita.
+              </p>
             </div>
-            <h3 id="client-quick-create-discard-title" className="app-confirm-modal-title">
-              Descartar cadastro?
-            </h3>
-            <p className="app-confirm-modal-message">
-              Os dados preenchidos serão perdidos. Esta ação não pode ser desfeita.
-            </p>
-            <div className="client-quick-create-discard-actions">
+
+            <div className="app-modal-actions">
               <button
                 type="button"
                 className="app-modal-secondary"
@@ -618,7 +623,7 @@ export function ClientQuickCreateModal({
                 Descartar
               </button>
             </div>
-          </div>
+          </section>
         </div>
       ) : null}
     </BottomSheet>

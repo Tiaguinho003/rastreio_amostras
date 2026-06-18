@@ -17976,6 +17976,11 @@ select.samples-filter-field-input {
    position:absolute e o .bottom-sheet (fixed), entao inset:0 cobre o sheet
    INTEIRO (header/body/footer), sem ser cortado pelo overflow do body. Evita um
    3o tier de z-index sobre o sheet ja empilhado (ver modals skill). */
+/* Confirm de "Descartar?" do sheet de novo cliente. Overlay INTERNO ao sheet
+   (NAO portado: o sheet pode abrir stacked sobre "Nova amostra" e um
+   .app-modal.is-stacked portado colidiria no mesmo tier — ver skill modals
+   "Sheet sobre sheet"). Scrim escuro + card canonico .app-confirm-modal, pra
+   ficar identico ao "Descartar amostra?" do NewSampleModal (que e portado). */
 .client-quick-create-discard-overlay {
   position: absolute;
   inset: 0;
@@ -17984,28 +17989,8 @@ select.samples-filter-field-input {
   align-items: center;
   justify-content: center;
   padding: clamp(1rem, 5vw, 1.5rem);
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(0, 0, 0, 0.55);
   animation: client-success-fade-in 0.2s ease;
-}
-
-.client-quick-create-discard-card {
-  width: min(100%, 22rem);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.55rem;
-  text-align: center;
-}
-
-.client-quick-create-discard-actions {
-  display: flex;
-  gap: 0.55rem;
-  width: 100%;
-  margin-top: 0.35rem;
-}
-
-.client-quick-create-discard-actions > button {
-  flex: 1;
 }
 
 .client-quick-create-error {
