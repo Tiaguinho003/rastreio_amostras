@@ -30953,8 +30953,7 @@ select.samples-filter-field-input {
    reverte ao padrao do .bottom-sheet via cascade). A transition
    ja configurada anima o crescimento — simetrico ao encolhimento
    do is-processing. Body bege pra legibilidade dos 22 campos; header
-   continua verde brand (heranca do .bottom-sheet-header) com titulo
-   branco. */
+   claro (branco) com titulo verde, igual aos demais estados. */
 .bottom-sheet.camera-preview-sheet.is-review {
   background: #fdf9ec;
 }
@@ -30974,7 +30973,8 @@ select.samples-filter-field-input {
 }
 
 .bottom-sheet.camera-preview-sheet .bottom-sheet-title {
-  color: #fdf9ec;
+  /* Padrao de acao: titulo VERDE da marca (o header agora e claro). */
+  color: var(--brand-green);
   text-align: center;
 }
 
@@ -30983,23 +30983,21 @@ select.samples-filter-field-input {
   display: none;
 }
 
-/* Camera preview NAO e modal de acao: restaura o header verde edge-to-edge
-   (o novo chrome claro do base nao se aplica a ela; sem isso o titulo claro
-   sumiria sobre o fundo bege do estado review). */
+/* Camera preview adota o chrome CLARO do padrao de acao: header BRANCO
+   edge-to-edge + titulo verde. O corpo (escuro no preview/processing, bege no
+   review) fica abaixo; a faixa branca + borda inferior clara separam o header
+   da area da foto. */
 .bottom-sheet.camera-preview-sheet .bottom-sheet-header {
   margin: 0 calc(-1 * clamp(1rem, 4vw, 1.4rem));
   justify-content: center;
   padding: clamp(1.1rem, 3.4vw, 1.45rem) clamp(1.2rem, 4vw, 1.5rem);
-  background: var(--brand-green);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: #ffffff;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
-/* E mantem o backdrop com blur (nao adota o escuro-sem-blur do padrao). */
-.bottom-sheet-backdrop.is-open:has(.bottom-sheet.camera-preview-sheet) {
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(16px) saturate(1.05);
-  -webkit-backdrop-filter: blur(16px) saturate(1.05);
-}
+/* Backdrop escuro SEM blur: adota o padrao de acao herdando a base
+   (.bottom-sheet-backdrop.is-open = rgba(0,0,0,.55), sem blur). Sem override
+   proprio — antes este sheet forcava blur, fora do padrao. */
 
 .bottom-sheet.camera-preview-sheet .bottom-sheet-footer {
   background: #15211c;
