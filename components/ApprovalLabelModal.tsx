@@ -386,13 +386,15 @@ export function ApprovalLabelModal({ open, onClose, session }: ApprovalLabelModa
 
       {successVisible
         ? createPortal(
-            // Modal central canonico (.app-modal.is-themed): header VERDE + corpo
-            // branco. Via createPortal (obrigatorio — sem ele o transform do
-            // <PageTransition> captura o position:fixed e o modal abre atras da
-            // pagina, escondendo o header verde). Ver skill `modals`.
+            // Modal central canonico no VISUAL DE ACAO (.app-modal.is-themed
+            // .is-action): header claro + titulo verde a esquerda + backdrop
+            // escuro SEM blur (via :has(.is-action) no globals.css). Mesmo padrao
+            // do ClassificationSuccessModal. Via createPortal (obrigatorio — sem
+            // ele o transform do <PageTransition> captura o position:fixed e o
+            // modal abre atras da pagina). Ver skill `modals`.
             <div className="app-modal-backdrop" onClick={onClose}>
               <section
-                className="app-modal is-themed"
+                className="app-modal is-themed is-action"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="approval-sent-title"
