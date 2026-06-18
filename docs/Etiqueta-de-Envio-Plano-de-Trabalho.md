@@ -1,6 +1,6 @@
 # Etiqueta de Envio — Plano de Trabalho
 
-**Status**: Em construção (iniciado em 2026-06-17). Bloco de decisões D1–D10 **fechado** em 2026-06-17 (sessão 2). Pronto para protótipo.
+**Status**: Fases 1–6 **deployadas em prod** (2026-06-18, rev `00354-pid`). URL pública do QR resolvida via **Firebase Hosting** (`safras-negocios-laudo.web.app`, site criado + verificado, sessão 7). Falta: deploy do app (env `REPORT_PUBLIC_BASE_URL`) + atualizar o print agent no cliente + validar QR no print real. Adiado (não bloqueia): revogação manual UI + reimpressão.
 **Escopo**: documento único de organização, análise, decisões e execução de um **novo tipo de etiqueta** — a **Etiqueta de Envio** — gerada quando uma amostra é enviada, contendo informações específicas do envio e um **QR code que abre publicamente o PDF do laudo do lote**, sem que o leitor precise de acesso ao sistema.
 
 **Como ler este doc**: a seção **Decisões fechadas** é o que está acordado; **Pendências** é o que ainda não foi decidido; **Arquitetura proposta** é o desenho corrente (muda conforme as decisões); **Log de sessões** é o histórico de avanços por data.
@@ -160,18 +160,49 @@ O grosso foi resolvido na sessão 2. Sobram detalhes de layout/implementação:
 
 ## Para a Etiqueta de Envio + QR funcionarem em produção
 
-O código das fases 1–6 está pronto e testado localmente, mas **ainda não foi deployado**. Para o fluxo completo (enviar → etiqueta com QR → destinatário abre o laudo) funcionar de ponta a ponta em produção, falta:
+As fases 1–6 **já estão deployadas em produção** (2026-06-18, rev `00354-pid` / SHA `a7e9466`, migrate job rodado). O fluxo do destinatário (`/laudo/<token>` → PDF) e a revogação automática (D8) já estão no ar. **Na feature em si não falta nada pré-deploy** — falta só rodar o deploy do app (com a env nova) e os passos físicos do print:
 
-1. **`APP_BASE_URL` real** (bloqueante do QR): em `.env.cloud-production` está `https://placeholder.invalid`. O QR codifica `${APP_BASE_URL}/laudo/<token>`, então **com o placeholder o QR aponta para um domínio inválido**. Configurar com o domínio real do app antes do deploy.
-2. **Deploy do backend + frontend** (fases 1–6): push + build da imagem + deploy canary. As migrations `20260617130000` (SampleReportShare) e `20260618120000` (ShippingPrintJob) já estão no repo; o `execute-job.sh migrate` aplica. Ver skill `deploy`.
-3. **Atualizar o print agent no PC do cliente** (Windows): o agente precisa dos novos `print-agent/poller.js` (consome a fila `shipping-print`) + `print-agent/label.js` (`buildShippingLabel`). **GOTCHA** (ver `project_custom_label`): deployar o backend **antes** de atualizar o agente, e copiar os arquivos do agente juntos (senão etiqueta em branco).
-4. **Validar no print real** (Elgin L42 Pro): conferir que (a) a etiqueta sai com o layout aprovado e (b) o **QR em byte mode** (`QRCODE ...,B,...`) escaneia num celular e abre o laudo. O modo `B` foi a conclusão da análise; só o print real confirma na firmware da Elgin (fallback: testar modo `A`/auto).
+1. **URL pública do QR — RESOLVIDA** (commits `782a492` + `e62c202`, sessão 7). O QR codifica `${REPORT_PUBLIC_BASE_URL}/laudo/<token>` (env nova; fallback `APP_BASE_URL`). O domínio é um site **dedicado** do Firebase Hosting (`safras-negocios-laudo.web.app`) que faz rewrite só de `/laudo/**` pro Cloud Run — detalhes/manutenção na seção **"Hospedagem da URL pública do laudo"** abaixo. **Site criado e rewrite verificado**; falta só o **deploy do app** (canary) pra a env entrar no Cloud Run e os novos envios usarem o domínio. (Sem o deploy o QR cai no fallback `APP_BASE_URL` = URL do Cloud Run, que também funciona.)
+2. **Atualizar o print agent no PC do cliente** (Windows) — **DEPOIS** do deploy do backend (GOTCHA). Copiar **`print-agent/poller.js`** (consome `shipping-print`: `pollShippingCycle`) + **`print-agent/label.js`** (`buildShippingLabel`) **juntos** + restart. **NÃO** precisa copiar logo (a etiqueta usa o logo grande `logo-data.js`, já presente desde a etiqueta de amostra), **NEM** `npm install` (o QR é TSPL `QRCODE`, não o pacote `qrcode`), **NEM** mudar config/`.env` do agente. Sem isso a etiqueta de envio **não imprime** (a fila enche, ninguém consome). `buildShippingLabel` é **síncrono** — sem a pegadinha async/await da avulsa, mas copie os 2 juntos porque o `poller.js` importa `buildShippingLabel` do `label.js`.
+3. **Validar no print real** (Elgin L42 Pro): (a) layout aprovado e (b) o **QR em byte mode** (`QRCODE ...,B,...`) escaneia num celular e abre o laudo. Só o print real confirma na firmware (fallback: modo `A`/auto).
 
 ### Features adiadas (não bloqueiam o QR — gestão pós-MVP)
 
 - **Revogação manual** (P7): a revogação automática no cancelamento do envio já existe (D8). Falta o botão "Revogar laudo" na timeline para revogar **sem** cancelar o envio.
 - **Reimpressão** da etiqueta: re-enfileirar um `ShippingPrintJob` com o MESMO token/share (sem gerar novo PDF), via botão na timeline.
 - Ambas exigem **expor o share na timeline**: incluir `reportShares` no `getSampleDetail` + cruzar por `sendEventId` em `projectSendHistoryItems` (`page.tsx`) + botões no `SampleMovementsPanel` + os endpoints de revogar/reimprimir.
+
+## Hospedagem da URL pública do laudo (Firebase Hosting)
+
+**Por que existe:** o QR precisa de uma URL HTTPS que abra **só o PDF** do laudo, sem expor o app interno e sem custo. Em vez de domínio próprio (pago), usamos um site **dedicado** do Firebase Hosting que faz _proxy_ (rewrite) só de `/laudo/**` pro Cloud Run.
+
+**Arquitetura (como foi feito):**
+
+- Domínio: `https://safras-negocios-laudo.web.app` (subdomínio grátis, SSL automático, free tier).
+- Site Firebase Hosting `safras-negocios-laudo`, **no mesmo projeto GCP do Cloud Run** (`safras-amostras-prod`). ⚠️ O rewrite Firebase→Cloud Run é **same-project** — por isso rodamos `firebase projects:addfirebase safras-amostras-prod` (habilitar Firebase no projeto GCP que já existia). **Não** dá pra usar o projeto `site-safras` (site institucional, projeto separado).
+- Config no repo: **`firebase.json`** (target `laudo`; rewrite `/laudo/**` → `run: { serviceId: rastreio-prod-app, region: southamerica-east1 }`; header `Cache-Control: no-store`; **sem catch-all** → todo resto cai no 404 estático); **`.firebaserc`** (target `laudo` → site); **`public-laudo/404.html`** (404 da marca; dir DEDICADO, **não** o `public/` do Next, pra não expor assets do app no domínio).
+- QR: `buildLaudoReportUrl` (`src/api/v1/backend-api.js`) usa `REPORT_PUBLIC_BASE_URL` (fallback `APP_BASE_URL`). A env vem de `.env.cloud-production` (gitignored) e **precisa** estar no `runtime_env_vars_csv` (`scripts/gcp/_lib.sh`) — o deploy usa `--set-env-vars` (substitui o conjunto inteiro), senão a env some a cada deploy.
+- **Isolamento:** o app (login/dashboard/APIs) **não** é alcançável pelo domínio web.app — só `/laudo/**`. O app segue na URL do Cloud Run (`APP_BASE_URL`, auto-setada no deploy).
+
+**Por que `no-store` é crítico:** o laudo é **revogável** (D8). Se o CDN do Firebase cacheasse o PDF, um laudo cancelado continuaria abrindo. A rota já manda `Cache-Control: no-store` (`route.ts`) e o `firebase.json` reforça. **Teste de regressão:** enviar → escanear (200) → cancelar envio → escanear → tem que dar **410** (não PDF cacheado).
+
+**Comandos (quem tem auth Google Owner no projeto; na raiz do repo):**
+
+```bash
+firebase projects:addfirebase safras-amostras-prod                          # 1x: habilita Firebase no projeto GCP
+firebase hosting:sites:create safras-negocios-laudo --project safras-amostras-prod
+firebase target:apply hosting laudo safras-negocios-laudo --project safras-amostras-prod
+firebase deploy --only hosting:laudo --project safras-amostras-prod         # re-rodar a cada mudança no firebase.json/404
+```
+
+Verificação: `curl -s …/laudo/zzz` → "Laudo não encontrado" (veio do Cloud Run); `curl -s …/dashboard` → "Página não encontrada" (404 estático = app não exposto); header `cache-control: no-store`.
+
+**Como AJUSTAR no futuro:**
+
+- **Trocar pra domínio próprio** (`laudo.suamarca.com.br`): mapear o domínio no Firebase (Console → Hosting → Add custom domain + TXT de verificação) e mudar `REPORT_PUBLIC_BASE_URL` pra ele (env **runtime, sem rebuild**) + redeploy do app pra a env valer. O `firebase.json` não muda.
+- **Mudar o que o site expõe / headers**: editar `firebase.json` + `firebase deploy --only hosting:laudo` (não precisa deploy do app).
+- **Trocar o subdomínio web.app**: `hosting:sites:create` (novo) + `target:apply` + atualizar `.firebaserc` + `REPORT_PUBLIC_BASE_URL` + redeploy do app.
+- `.firebase/` (cache local do CLI) é gitignored.
 
 ## Log de sessões
 
@@ -226,3 +257,12 @@ O código das fases 1–6 está pronto e testado localmente, mas **ainda não fo
 - **Revogação automática (D8)**: `cancelPhysicalSampleSend` agora revoga o `SampleReportShare` do envio **atomicamente** (via `appendEventBatch` + `beforeCommit` + helper `PrismaEventStoreTx.revokeReportShareBySendEvent`). Cancelar o envio → o destinatário deixa de acessar o laudo (a rota pública passa a 410). Teste de integração novo cobre o fluxo (envio → 200 → cancela → 410). Sem share (envio não-CLASSIFIED) é no-op.
 - Revogação **manual** (P7) e **reimpressão** ficaram como pendências (ver "Para funcionar em produção") — exigem UI na timeline + expor o share, e o foco aqui foi fechar o D8 sem conflitar com o outro agente na `page.tsx`.
 - Registrado o **checklist de produção** (APP_BASE_URL real, deploy, atualizar o print agent no cliente, validar o QR no print real).
+
+### 2026-06-18 — Sessão 7 (URL pública do laudo via Firebase Hosting)
+
+- **Decisão de hospedagem** (pesquisa de opções grátis→barato): escolhido **Firebase Hosting** com subdomínio grátis `*.web.app` (SSL grátis, infra Google, free tier). Descartados: Freenom/TLDs grátis (mortos desde 2024, ligados a phishing), Load Balancer do Cloud Run (~US$18/mês), e o domain mapping nativo do Cloud Run (preview, não-recomendado). Domínio próprio fica adiável (trocar = só mudar `REPORT_PUBLIC_BASE_URL` + mapear no Firebase).
+- **Implementado** (commits `782a492` feat + `e62c202` docs-skill + `2b9bfa6`/`47edcc8` chores): env dedicada **`REPORT_PUBLIC_BASE_URL`** pro QR (fallback `APP_BASE_URL`; adicionada ao `runtime_env_vars_csv` do `_lib.sh` senão o `--set-env-vars` a dropa); `firebase.json` + `.firebaserc` + `public-laudo/404.html`. Detalhes na seção "Hospedagem da URL pública do laudo".
+- **Site criado**: `firebase projects:addfirebase safras-amostras-prod` (rewrite é same-project → não dava pra usar `site-safras`) → `hosting:sites:create safras-negocios-laudo` → `target:apply` → `deploy --only hosting:laudo`. Conta `measyia@gmail.com` é Owner do projeto.
+- **Verificado** via curl: `/laudo/zzz` → "Laudo não encontrado" (Cloud Run, rewrite OK); `/dashboard` → "Página não encontrada" (404 estático, **app não exposto**); header `cache-control: no-store` (revogação-safe).
+- **Análise de risco**: `APP_BASE_URL` só é usado no QR + `metadataBase` (cosmético); e-mail não usa links. `next.config.mjs` (CSP `frame-ancestors 'none'` + `X-Frame-Options`) é inofensivo pra PDF em navegação top-level (só afeta iframe) — **não mudou**. Rate-limit lê `x-forwarded-for` → funciona atrás do proxy.
+- **Falta**: deploy do app (canary) pra `REPORT_PUBLIC_BASE_URL` entrar em prod e os QRs usarem o domínio; depois, atualizar o print agent (`poller.js`+`label.js`) no cliente; depois, validar o QR no print real.
