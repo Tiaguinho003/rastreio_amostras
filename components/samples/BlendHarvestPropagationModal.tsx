@@ -84,7 +84,7 @@ export function BlendHarvestPropagationModal({
     <div className="app-modal-backdrop" onClick={handleBackdrop}>
       <section
         ref={focusTrapRef}
-        className="app-modal is-themed blend-harvest-propagation-modal"
+        className="app-modal is-themed is-action blend-harvest-propagation-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="bhp-title"

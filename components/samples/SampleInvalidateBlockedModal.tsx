@@ -63,7 +63,7 @@ export function SampleInvalidateBlockedModal({
     <div className="app-modal-backdrop" onClick={onClose}>
       <section
         ref={focusTrapRef}
-        className="app-modal is-themed sample-invalidate-blocked-modal"
+        className="app-modal is-themed is-action sample-invalidate-blocked-modal"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="sample-invalidate-blocked-title"
