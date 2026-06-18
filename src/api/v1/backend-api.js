@@ -1129,6 +1129,7 @@ export function createBackendApiV1({
             personType: query.personType,
             isBuyer: query.isBuyer,
             isSeller: query.isSeller,
+            isWarehouse: query.isWarehouse,
             commercialUserId: query.commercialUserId,
             commercialUserIds: query.commercialUserIds,
             completeness: query.completeness,
@@ -1217,6 +1218,7 @@ export function createBackendApiV1({
               phone: body.phone,
               isBuyer: body.isBuyer,
               isSeller: body.isSeller,
+              isWarehouse: body.isWarehouse,
             };
             // L5: PJ guarda cnpj/endereco/IE direto no Client.
             assignIfDefined(createPayload, 'cnpj', body.cnpj);
@@ -1274,6 +1276,7 @@ export function createBackendApiV1({
         assignIfDefined(updatePayload, 'phone', body.phone);
         assignIfDefined(updatePayload, 'isBuyer', body.isBuyer);
         assignIfDefined(updatePayload, 'isSeller', body.isSeller);
+        assignIfDefined(updatePayload, 'isWarehouse', body.isWarehouse);
         assignIfDefined(updatePayload, 'commercialUserId', body.commercialUserId);
         assignIfDefined(updatePayload, 'commercialUserIds', body.commercialUserIds);
         assignIfDefined(updatePayload, 'reasonText', body.reasonText);

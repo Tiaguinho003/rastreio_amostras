@@ -97,6 +97,7 @@ const CLIENT_SUMMARY_SELECT = {
   email: true,
   isBuyer: true,
   isSeller: true,
+  isWarehouse: true,
   status: true,
   createdAt: true,
   updatedAt: true,
@@ -138,6 +139,7 @@ const CLIENT_DETAIL_SELECT = {
   email: true,
   isBuyer: true,
   isSeller: true,
+  isWarehouse: true,
   status: true,
   createdAt: true,
   updatedAt: true,
@@ -504,6 +506,7 @@ export class ClientService {
         phone: true,
         isBuyer: true,
         isSeller: true,
+        isWarehouse: true,
         status: true,
       },
     });
@@ -566,6 +569,7 @@ export class ClientService {
         email: true,
         isBuyer: true,
         isSeller: true,
+        isWarehouse: true,
         status: true,
         createdAt: true,
         updatedAt: true,
@@ -723,6 +727,7 @@ export class ClientService {
       personType,
       isBuyer,
       isSeller,
+      isWarehouse,
       commercialUserIds,
       completeness,
     } = normalizeListClientsInput(input);
@@ -751,6 +756,7 @@ export class ClientService {
       ...(personType ? { personType } : {}),
       ...(isBuyer === null ? {} : { isBuyer }),
       ...(isSeller === null ? {} : { isSeller }),
+      ...(isWarehouse === null ? {} : { isWarehouse }),
       ...(commercialUserIds.length > 0
         ? { commercialUsers: { some: { userId: { in: commercialUserIds } } } }
         : {}),
@@ -855,7 +861,8 @@ export class ClientService {
         pjOwner.status === CLIENT_STATUSES.ACTIVE &&
         (kind === CLIENT_LOOKUP_KINDS.ANY ||
           (kind === CLIENT_LOOKUP_KINDS.OWNER && pjOwner.isSeller) ||
-          (kind === CLIENT_LOOKUP_KINDS.BUYER && pjOwner.isBuyer))
+          (kind === CLIENT_LOOKUP_KINDS.BUYER && pjOwner.isBuyer) ||
+          (kind === CLIENT_LOOKUP_KINDS.WAREHOUSE && pjOwner.isWarehouse))
       ) {
         return {
           items: [mapClientRow(pjOwner)],
@@ -878,7 +885,8 @@ export class ClientService {
           owner.status === CLIENT_STATUSES.ACTIVE &&
           (kind === CLIENT_LOOKUP_KINDS.ANY ||
             (kind === CLIENT_LOOKUP_KINDS.OWNER && owner.isSeller) ||
-            (kind === CLIENT_LOOKUP_KINDS.BUYER && owner.isBuyer))
+            (kind === CLIENT_LOOKUP_KINDS.BUYER && owner.isBuyer) ||
+            (kind === CLIENT_LOOKUP_KINDS.WAREHOUSE && owner.isWarehouse))
         ) {
           return {
             items: [mapClientRow(owner)],
@@ -894,7 +902,9 @@ export class ClientService {
         ? { isSeller: true }
         : kind === CLIENT_LOOKUP_KINDS.BUYER
           ? { isBuyer: true }
-          : {}),
+          : kind === CLIENT_LOOKUP_KINDS.WAREHOUSE
+            ? { isWarehouse: true }
+            : {}),
       ...(buildClientWhereFromSearch(search) ?? {}),
     };
 

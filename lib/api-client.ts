@@ -313,6 +313,7 @@ export function listClients(
     personType?: string;
     isBuyer?: boolean;
     isSeller?: boolean;
+    isWarehouse?: boolean;
     commercialUserId?: string;
     completeness?: string;
     limit?: number;
@@ -327,6 +328,7 @@ export function listClients(
   if (query.personType) params.set('personType', query.personType);
   if (typeof query.isBuyer === 'boolean') params.set('isBuyer', String(query.isBuyer));
   if (typeof query.isSeller === 'boolean') params.set('isSeller', String(query.isSeller));
+  if (typeof query.isWarehouse === 'boolean') params.set('isWarehouse', String(query.isWarehouse));
   if (query.commercialUserId) params.set('commercialUserId', query.commercialUserId);
   if (query.completeness) params.set('completeness', query.completeness);
   if (typeof query.limit === 'number') params.set('limit', String(query.limit));
@@ -395,6 +397,7 @@ export function createClient(
     phone?: string | null;
     isBuyer: boolean;
     isSeller: boolean;
+    isWarehouse: boolean;
     commercialUserId?: string | null;
     commercialUserIds?: string[];
     units?: import('./types').ClientUnitInput[];
@@ -428,6 +431,7 @@ export function updateClient(
     phone?: string | null;
     isBuyer?: boolean;
     isSeller?: boolean;
+    isWarehouse?: boolean;
     commercialUserId?: string | null;
     commercialUserIds?: string[];
     reasonText: string;

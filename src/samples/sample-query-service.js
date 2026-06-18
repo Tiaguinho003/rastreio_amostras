@@ -217,6 +217,7 @@ const CLIENT_INCLUDE_SELECT = {
   phone: true,
   isBuyer: true,
   isSeller: true,
+  isWarehouse: true,
   status: true,
 };
 
@@ -694,6 +695,7 @@ function mapOwnerClient(ownerClient) {
     phone: ownerClient.phone ?? null,
     isBuyer: ownerClient.isBuyer,
     isSeller: ownerClient.isSeller,
+    isWarehouse: ownerClient.isWarehouse,
     status: ownerClient.status,
   };
 }

@@ -30,7 +30,7 @@ export type ClassificationType = 'BICA' | 'PREPARADO' | 'BAIXO' | 'ESCOLHA' | 'C
 export type ClientPersonType = 'PF' | 'PJ';
 export type ClientStatus = 'ACTIVE' | 'INACTIVE';
 export type ClientUnitStatus = 'ACTIVE' | 'INACTIVE';
-export type ClientLookupKind = 'owner' | 'buyer' | 'any';
+export type ClientLookupKind = 'owner' | 'buyer' | 'warehouse' | 'any';
 // L5: enum reduzido a 8 valores. Audit de unit usa CLIENT_UNIT_*.
 export type ClientAuditEventType =
   | 'CLIENT_CREATED'
@@ -177,6 +177,7 @@ export interface ClientSummary {
   registrationNumber: string | null;
   isBuyer: boolean;
   isSeller: boolean;
+  isWarehouse: boolean;
   status: ClientStatus;
   commercialUser: { id: string; fullName: string } | null;
   commercialUsers: { id: string; fullName: string }[];
@@ -437,6 +438,7 @@ export interface SampleSnapshot {
     phone: string | null;
     isBuyer: boolean;
     isSeller: boolean;
+    isWarehouse: boolean;
     status: ClientStatus;
   } | null;
   soldSacks?: number;

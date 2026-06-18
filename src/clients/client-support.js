@@ -48,6 +48,7 @@ export const CLIENT_AUDIT_EVENT_TYPES = {
 export const CLIENT_LOOKUP_KINDS = {
   OWNER: 'owner',
   BUYER: 'buyer',
+  WAREHOUSE: 'warehouse',
   ANY: 'any',
 };
 
@@ -411,10 +412,11 @@ function normalizeLookupKind(value, fieldName = 'kind') {
   return normalized;
 }
 
-function normalizeClientFlags({ isBuyer, isSeller }) {
+function normalizeClientFlags({ isBuyer, isSeller, isWarehouse }) {
   return {
     isBuyer: typeof isBuyer === 'boolean' ? isBuyer : false,
     isSeller: typeof isSeller === 'boolean' ? isSeller : false,
+    isWarehouse: typeof isWarehouse === 'boolean' ? isWarehouse : false,
   };
 }
 
@@ -463,7 +465,11 @@ function assertProtectedUnitFieldsAbsent(input) {
 // L5: PJ guarda cnpj/endereco/IE/email direto no Client. PF mantem
 // fullName/cpf/email; endereco e IE moram em ClientUnit (fazenda).
 function buildClientWriteData(personType, input) {
-  const flags = normalizeClientFlags({ isBuyer: input.isBuyer, isSeller: input.isSeller });
+  const flags = normalizeClientFlags({
+    isBuyer: input.isBuyer,
+    isSeller: input.isSeller,
+    isWarehouse: input.isWarehouse,
+  });
 
   if (personType === CLIENT_PERSON_TYPES.PF) {
     const normalizedFullName = normalizeRequiredText(input.fullName, 'fullName', 160);
@@ -652,6 +658,7 @@ export function normalizeUpdateClientInput(input, currentClient) {
     email: hasOwn(input, 'email') ? input.email : currentClient.email,
     isBuyer: hasOwn(input, 'isBuyer') ? input.isBuyer : currentClient.isBuyer,
     isSeller: hasOwn(input, 'isSeller') ? input.isSeller : currentClient.isSeller,
+    isWarehouse: hasOwn(input, 'isWarehouse') ? input.isWarehouse : currentClient.isWarehouse,
   };
 
   const data = buildClientWriteData(personType, merged);
@@ -828,6 +835,7 @@ export function normalizeListClientsInput(input) {
     personType: input.personType ? normalizeClientPersonType(input.personType) : null,
     isBuyer: normalizeOptionalBooleanQuery(input.isBuyer, 'isBuyer'),
     isSeller: normalizeOptionalBooleanQuery(input.isSeller, 'isSeller'),
+    isWarehouse: normalizeOptionalBooleanQuery(input.isWarehouse, 'isWarehouse'),
     commercialUserIds: commercialUserIdsList,
     completeness,
   };
@@ -936,6 +944,7 @@ export function toClientSummary(client, options = {}) {
     registrationNumber: isPj ? (client.registrationNumber ?? null) : null,
     isBuyer: client.isBuyer,
     isSeller: client.isSeller,
+    isWarehouse: client.isWarehouse,
     status: client.status,
     commercialUser,
     commercialUsers,
@@ -1051,6 +1060,7 @@ export function buildClientAuditState(client) {
     email: client.email ?? null,
     isBuyer: client.isBuyer,
     isSeller: client.isSeller,
+    isWarehouse: client.isWarehouse,
     status: client.status,
     commercialUserIds,
   };
