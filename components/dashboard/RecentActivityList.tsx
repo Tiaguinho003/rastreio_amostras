@@ -94,6 +94,9 @@ export function RecentActivityList({ items }: RecentActivityListProps) {
               <span className="dd-activity-lot">
                 {formatLot(item.internalLotNumber, item.sampleId)}
                 {item.isBlend ? <BlendBadge size="sm" /> : null}
+                {item.cancelled ? (
+                  <span className="dd-activity-cancelled-tag">Cancelado</span>
+                ) : null}
               </span>
               <span className="dd-activity-producer">{formatProducer(item.producer)}</span>
               <span className="dd-activity-event" style={{ color: cfg.color, background: cfg.bg }}>

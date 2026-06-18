@@ -139,6 +139,9 @@ export function RecentActivityListMobile({ items }: RecentActivityListMobileProp
                     <span className="recent-activity-mobile-lot">
                       <span className="recent-activity-mobile-lot-number">{lotLabel}</span>
                       {item.isBlend ? <BlendBadge size="sm" /> : null}
+                      {item.cancelled ? (
+                        <span className="recent-activity-mobile-cancelled-tag">Cancelado</span>
+                      ) : null}
                     </span>
                     <span className="recent-activity-mobile-type">{cfg.label}</span>
                   </span>

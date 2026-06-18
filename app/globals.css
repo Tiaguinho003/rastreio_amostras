@@ -20346,6 +20346,22 @@ select.samples-filter-field-input {
     min-width: 0;
   }
 
+  /* Selo "Cancelado" ao lado do lote em envios cancelados (mobile). O
+     numero do lote trunca antes (min-width:0); o selo nao encolhe. */
+  .recent-activity-mobile-cancelled-tag {
+    flex-shrink: 0;
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: #6b7280;
+    background: rgba(107, 114, 128, 0.16);
+    padding: 1px 7px;
+    border-radius: 999px;
+    line-height: 1.4;
+    white-space: nowrap;
+  }
+
   .recent-activity-mobile-type {
     font-size: 0.78rem;
     font-weight: 400;
@@ -26529,6 +26545,23 @@ select.samples-filter-field-input {
     letter-spacing: 0.01em;
     overflow: hidden;
     white-space: nowrap;
+  }
+
+  /* Selo "Cancelado" ao lado do lote em envios cancelados. Tom cinza
+     neutro (mesma familia de SALE_CANCELLED/LOSS_CANCELLED) reforca o
+     card esmaecido com um rotulo explicito, evitando depender so da
+     opacidade pra comunicar o cancelamento. */
+  .dd-activity-cancelled-tag {
+    flex-shrink: 0;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #6b7280;
+    background: rgba(107, 114, 128, 0.16);
+    padding: 1px 7px;
+    border-radius: 999px;
+    line-height: 1.5;
   }
 
   .dd-activity-producer {
