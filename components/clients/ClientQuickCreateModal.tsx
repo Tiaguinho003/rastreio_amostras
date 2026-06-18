@@ -63,6 +63,7 @@ type ClientQuickCreateModalProps = {
   initialPersonType?: ClientPersonType;
   initialIsBuyer?: boolean;
   initialIsSeller?: boolean;
+  initialIsWarehouse?: boolean;
   /** Prefill opcional do telefone (ex: anotado no informe de visita). */
   initialPhone?: string;
   onClose: () => void;
@@ -147,6 +148,7 @@ export function ClientQuickCreateModal({
   initialPersonType = 'PJ',
   initialIsBuyer = false,
   initialIsSeller = false,
+  initialIsWarehouse = false,
   initialPhone,
   onClose,
   onCreated,
@@ -159,6 +161,7 @@ export function ClientQuickCreateModal({
       initialPersonType,
       initialIsBuyer,
       initialIsSeller,
+      initialIsWarehouse,
       initialPhone,
     })
   );
@@ -179,6 +182,7 @@ export function ClientQuickCreateModal({
         initialPersonType,
         initialIsBuyer,
         initialIsSeller,
+        initialIsWarehouse,
         initialPhone,
       });
       setForm(initial);
@@ -189,7 +193,15 @@ export function ClientQuickCreateModal({
     }
 
     lastOpenRef.current = open;
-  }, [initialIsBuyer, initialIsSeller, initialPersonType, initialPhone, initialSearch, open]);
+  }, [
+    initialIsBuyer,
+    initialIsSeller,
+    initialIsWarehouse,
+    initialPersonType,
+    initialPhone,
+    initialSearch,
+    open,
+  ]);
 
   useEffect(() => {
     if (!open) {

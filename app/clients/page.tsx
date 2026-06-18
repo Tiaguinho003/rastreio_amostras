@@ -917,10 +917,6 @@ function ClientsPage() {
   }
 
   const selectedClientDocument = clientDocument(clientsState.detail);
-  const selectedClientRoles = [
-    clientsState.detail?.isSeller ? 'Proprietario/Vendedor' : null,
-    clientsState.detail?.isBuyer ? 'Comprador' : null,
-  ].filter((value): value is string => Boolean(value));
 
   const userFullName = session.user.fullName ?? session.user.username;
   const userAvatarInitials = userFullName
@@ -1383,6 +1379,7 @@ function ClientsPage() {
                         <option value="">Qualquer</option>
                         <option value="buyer">Comprador</option>
                         <option value="seller">Vendedor</option>
+                        <option value="warehouse">Armazém</option>
                       </select>
                     </div>
 
