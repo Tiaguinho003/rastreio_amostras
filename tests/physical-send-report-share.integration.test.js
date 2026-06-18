@@ -465,6 +465,45 @@ if (!databaseUrl || !databaseReachable) {
     });
     assert.equal(res.status, 410);
   });
+
+  test('cancelar o envio revoga o laudo (D8): a rota pública passa a 410', async () => {
+    const sampleId = await classifySample();
+    const buyer = await createSellerClient('Comprador Cancelado LTDA');
+    const sent = await sendPhysical(sampleId, {
+      recipientClientId: buyer.client.id,
+      sentDate: '2026-06-18',
+    });
+    const token = sent.body.share.token;
+    const sendEventId = sent.body.event.eventId;
+
+    // Antes do cancelamento: serve o PDF (200).
+    const before = await api.servePublicReportShare({
+      headers: {},
+      params: { token },
+      query: {},
+      body: {},
+    });
+    assert.equal(before.status, 200);
+
+    const cancel = await api.cancelPhysicalSampleSend({
+      headers: authHeaders,
+      params: { sampleId, sendEventId },
+      query: {},
+      body: {},
+    });
+    assert.equal(cancel.status, 200);
+
+    // O share foi revogado (atomico com o evento) e a rota publica agora dá 410.
+    const share = await prisma.sampleReportShare.findUnique({ where: { token } });
+    assert.ok(share.revokedAt, 'revokedAt setado no cancelamento');
+    const after = await api.servePublicReportShare({
+      headers: {},
+      params: { token },
+      query: {},
+      body: {},
+    });
+    assert.equal(after.status, 410);
+  });
 }
 
 async function canReachDatabase(databaseUrlValue) {

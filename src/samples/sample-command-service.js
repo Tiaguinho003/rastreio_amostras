@@ -3816,7 +3816,13 @@ export class SampleCommandService {
       actorContext: actor,
     });
 
-    return this.eventService.appendEvent(event);
+    // D8: cancelar o envio REVOGA o laudo (share) atomicamente — o destinatario
+    // deixa de acessar o PDF. Sem share (envio nao-CLASSIFIED), e no-op.
+    const revokedAt = new Date();
+    const [result] = await this.eventService.appendEventBatch([event], [{}], async (tx) => {
+      await tx.revokeReportShareBySendEvent(sendEventId, revokedAt);
+    });
+    return result;
   }
 
   async updateCommercialStatus(input, actorContext) {

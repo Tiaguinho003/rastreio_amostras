@@ -413,6 +413,17 @@ class PrismaEventStoreTx {
     return this.tx.sampleReportShare.create({ data: row });
   }
 
+  // Etiqueta de Envio (fase 6): revoga o share de um envio (D8) na mesma tx do
+  // PHYSICAL_SAMPLE_SEND_CANCELLED. updateMany (nao .update) porque o envio pode
+  // nao ter share (amostra nao-CLASSIFIED): 0 linhas e ok. Filtra revokedAt:null
+  // pra nao sobrescrever uma revogacao anterior.
+  async revokeReportShareBySendEvent(sendEventId, revokedAt) {
+    return this.tx.sampleReportShare.updateMany({
+      where: { sendEventId, revokedAt: null },
+      data: { revokedAt },
+    });
+  }
+
   async insertEvent(event) {
     return this.tx.sampleEvent.create({
       data: {
