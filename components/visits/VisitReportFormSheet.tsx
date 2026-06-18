@@ -89,7 +89,7 @@ export function VisitReportFormSheet({
       {confirmDiscardOpen
         ? createPortal(
             <div
-              className="app-modal-backdrop is-stacked"
+              className="app-modal-backdrop is-scrim-dark is-stacked"
               onClick={() => setConfirmDiscardOpen(false)}
             >
               <section
@@ -101,14 +101,6 @@ export function VisitReportFormSheet({
                 aria-describedby="discard-informe-description"
                 onClick={(event) => event.stopPropagation()}
               >
-                <header className="app-modal-header">
-                  <div className="app-modal-title-wrap">
-                    <h3 id="discard-informe-title" className="app-modal-title">
-                      Descartar informe?
-                    </h3>
-                  </div>
-                </header>
-
                 <div className="app-modal-content">
                   <div className="app-confirm-modal-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" focusable="false">
@@ -117,6 +109,9 @@ export function VisitReportFormSheet({
                       <path d="M12 17v.01" />
                     </svg>
                   </div>
+                  <h3 id="discard-informe-title" className="app-confirm-modal-title">
+                    Descartar informe?
+                  </h3>
                   <p id="discard-informe-description" className="app-confirm-modal-message">
                     Os dados preenchidos serão perdidos. Esta ação não pode ser desfeita.
                   </p>

@@ -448,7 +448,7 @@ export function ProspectorDashboard({ session, onLogout }: ProspectorDashboardPr
       {deleteTarget
         ? createPortal(
             <div
-              className="app-modal-backdrop"
+              className="app-modal-backdrop is-scrim-dark"
               onClick={() => {
                 if (!deleting) {
                   setDeleteTarget(null);
@@ -464,14 +464,6 @@ export function ProspectorDashboard({ session, onLogout }: ProspectorDashboardPr
                 aria-describedby="prospector-delete-description"
                 onClick={(event) => event.stopPropagation()}
               >
-                <header className="app-modal-header">
-                  <div className="app-modal-title-wrap">
-                    <h3 id="prospector-delete-title" className="app-modal-title">
-                      Excluir informe?
-                    </h3>
-                  </div>
-                </header>
-
                 <div className="app-modal-content">
                   <div className="app-confirm-modal-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" focusable="false">
@@ -480,6 +472,9 @@ export function ProspectorDashboard({ session, onLogout }: ProspectorDashboardPr
                       <path d="M12 17v.01" />
                     </svg>
                   </div>
+                  <h3 id="prospector-delete-title" className="app-confirm-modal-title">
+                    Excluir informe?
+                  </h3>
                   <p id="prospector-delete-description" className="app-confirm-modal-message">
                     Esta ação não pode ser desfeita.
                   </p>
