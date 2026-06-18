@@ -513,7 +513,7 @@ export default function ResumoPage() {
             >
               <section
                 ref={linkModalFocusTrapRef}
-                className="app-modal is-themed sample-detail-lookup-modal rsm-link-modal"
+                className="app-modal is-themed is-action sample-detail-lookup-modal rsm-link-modal"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="rsm-link-title"
