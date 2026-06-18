@@ -195,3 +195,13 @@ O grosso foi resolvido na sessão 2. Sobram detalhes de layout/implementação:
   - `/laudo` adicionado ao `PUBLIC_PATH_PREFIXES` (`middleware.ts`) — escapa do gate de manutenção (o middleware não força login fora disso).
   - Teste de integração (4 casos novos): serve o PDF por token válido (checksum bate + `accessCount`), 404 (inexistente/malformado), 410 (revogado), 410 (expirado). Todos os gates verdes; os 8 testes da feature passam.
 - **Marco**: com a fase 4, o QR já abre o laudo ponta a ponta (caminho do destinatário). Restam **fase 5** (builder TSPL `buildShippingLabel` + consumo da fila no print agent) e **fase 6** (revogação).
+
+### 2026-06-18 — Sessão 5 (fase 5: etiqueta física no print agent)
+
+- **Print agent organizado**: removidos 13 previews PNG/SVG órfãos (etiqueta de Aprovação); só código/config sobrou.
+- **Token base64url** (32B → 43 chars, em vez de 64 hex): encurta a URL do QR → QR v4 mais robusto. Ajuste em `recordPhysicalSampleSentWithReport` + na validação de `servePublicReportShare` (`^[A-Za-z0-9_-]{43}$`) + teste.
+- **Builder `buildShippingLabel`** (`print-agent/label.js`): arquitetura limpa (`buildShippingLabelLayout` calcula + serializa), espelhando `buildCustomLabel`. Layout aprovado pelo usuário: logo topo-esquerda + LOTE em destaque + ENVIO/SAFRA/SACAS em 3 colunas + QR à direita com "LAUDO" (só quando CLASSIFIED; senão sem QR). **SEM destinatário** (decisão do usuário). QR em **byte mode** (`B`) para as minúsculas da URL; `formatYmd` corrige o fuso da data date-only.
+- **Preview** `scripts/preview-shipping-label.mjs` (+ `qrcode` devDep): gera PNGs com o QR real (3 variantes), gitignorados.
+- **Consumo no print agent** (`print-agent/poller.js`): `pollShippingCycle` + `processShippingJob` + `reportShippingResult` + `fetchPendingShippingJobs`, espelhando a fila avulsa; chamado em `pollCycle`; reusa dedup/retry.
+- Gates verdes (os testes da feature passam; 2 falhas alheias na suite são do outro agente). Smoke test do builder: QR em byte mode, sem QR quando ausente.
+- **Marco**: a etiqueta de envio agora imprime ponta a ponta. ⚠️ `APP_BASE_URL` em prod precisa do domínio real antes do QR funcionar. Resta **fase 6** (revogação) + **reimpressão** (adiada).
