@@ -10967,6 +10967,25 @@ body:has(.app-modal-backdrop) .prospector-fab {
   min-width: 0;
 }
 
+/* Modal "Enviar amostra" (envio fisico): titulo centralizado no header,
+   entre a seta de voltar (esquerda) e o X (direita). Posicao absoluta pra
+   centralizar de verdade independente dos botoes laterais; pointer-events
+   none pra nunca bloquear o clique deles. */
+.app-modal-header.is-centered-title {
+  position: relative;
+}
+
+.app-modal-header.is-centered-title .app-modal-title-wrap {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: calc(100% - 6rem);
+  justify-items: center;
+  text-align: center;
+  pointer-events: none;
+}
+
 .sdv-edit-btn-inline {
   margin-top: clamp(6px, 1.5vw, 8px);
   padding: clamp(6px, 1.5vw, 8px) 0;
