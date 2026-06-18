@@ -3709,6 +3709,21 @@ button:disabled {
   gap: clamp(12px, 3vw, 16px);
 }
 
+/* Passo "Nova senha": botao unico ancorado ao canto inferior direito.
+   O grid base de 2 colunas (.app-modal-actions) deixaria o botao esticado
+   na metade esquerda; aqui viramos flex/flex-end. Largura por conteudo,
+   entao o submit precisa de padding horizontal proprio (mesmo motivo de
+   .classifier-confirm — .app-modal-submit so tem largura via grid). */
+.app-modal-password-form-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.app-modal-password-form-actions .app-modal-submit {
+  flex-shrink: 0;
+  padding: 0 clamp(1.4rem, 6vw, 2rem);
+}
+
 .app-modal-password-field {
   display: flex;
   flex-direction: column;

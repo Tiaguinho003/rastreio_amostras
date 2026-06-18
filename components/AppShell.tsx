@@ -870,14 +870,14 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
                     ) : null}
                   </form>
                 </div>
-                <div className="app-modal-actions">
+                <div className="app-modal-actions app-modal-password-form-actions">
                   <button
                     type="button"
                     className="app-modal-submit"
                     onClick={() => void handleSubmitNewPassword()}
                     disabled={passwordChangeLoading || newPassword.length < 8}
                   >
-                    {passwordChangeLoading ? 'Salvando...' : 'Salvar nova senha'}
+                    {passwordChangeLoading ? 'Salvando...' : 'Salvar'}
                   </button>
                 </div>
               </>
