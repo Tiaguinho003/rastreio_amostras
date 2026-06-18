@@ -1,6 +1,6 @@
 # Etiqueta de Envio — Plano de Trabalho
 
-**Status**: Fases 1–6 + URL pública do QR (Firebase Hosting `safras-negocios-laudo.web.app`) **deployadas em prod** (2026-06-18, rev `00356-vil`; `REPORT_PUBLIC_BASE_URL` ativo → QR no domínio web.app). Falta (não-bloqueante, fora do Cloud): atualizar o print agent no cliente (`poller.js`+`label.js`) + validar QR no print real + teste de revogação. Adiado: revogação manual UI + reimpressão.
+**Status**: ✅ **FUNCIONANDO EM PRODUÇÃO** (2026-06-18, rev `00356-vil`) — fases 1–6 + URL pública via Firebase Hosting (`safras-negocios-laudo.web.app`). Print agent atualizado e **QR validado no print real** (confirmado pelo usuário): enviar → etiqueta impressa → escanear → laudo abre. Resta confirmar o **teste de revogação** (cancelar envio → laudo dá 410). Adiado (gestão pós-MVP): revogação manual UI + reimpressão.
 **Escopo**: documento único de organização, análise, decisões e execução de um **novo tipo de etiqueta** — a **Etiqueta de Envio** — gerada quando uma amostra é enviada, contendo informações específicas do envio e um **QR code que abre publicamente o PDF do laudo do lote**, sem que o leitor precise de acesso ao sistema.
 
 **Como ler este doc**: a seção **Decisões fechadas** é o que está acordado; **Pendências** é o que ainda não foi decidido; **Arquitetura proposta** é o desenho corrente (muda conforme as decisões); **Log de sessões** é o histórico de avanços por data.
@@ -274,3 +274,8 @@ Verificação: `curl -s …/laudo/zzz` → "Laudo não encontrado" (veio do Clou
 - **QR ativo**: `REPORT_PUBLIC_BASE_URL=https://safras-negocios-laudo.web.app` confirmado no serviço rodando → os QRs dos novos envios usam o domínio web.app. (Rewrite Firebase já estava verificado na sessão 7.)
 - **Quirk pré-existente**: deploy `--canary` **não** dispara o auto-reset do `APP_BASE_URL` (`deploy-cloud.sh` só reseta em deploy não-canary) → `APP_BASE_URL` segue `placeholder.invalid` no serviço. **Não afeta o QR** (usa `REPORT_PUBLIC_BASE_URL`); só o `metadataBase` (cosmético). Fix manual via `gcloud` não gruda (canary com `--set-env-vars` reescreve); resolver de vez = setar no `.env.cloud-production` ou ajustar o auto-reset — fora do escopo desta sessão.
 - **Falta (não-bloqueante, fora do Cloud)**: atualizar o print agent no cliente (`poller.js`+`label.js` juntos + restart) pra a etiqueta de envio imprimir; depois validar o QR no print real (Elgin, byte mode) e o teste de revogação (enviar→escanear→cancelar→410).
+
+### 2026-06-18 — Sessão 9 (funcionando em produção)
+
+- **Print agent atualizado no cliente e QR validado no print real** — usuário confirmou a etiqueta de envio funcionando ponta a ponta: enviar amostra classificada → etiqueta impressa → escanear o QR → `safras-negocios-laudo.web.app` → laudo abre. ✅ A Etiqueta de Envio (3º tipo) está **viva em produção**.
+- **Resta** (último check, não-bloqueante): confirmar o **teste de revogação** — cancelar um envio e conferir que o laudo passa a dar 410 (o `no-store` no `firebase.json`/rota já deve garantir; é só a confirmação no mundo real).
