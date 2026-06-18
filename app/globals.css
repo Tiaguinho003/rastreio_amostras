@@ -10567,36 +10567,16 @@ body:has(.app-modal-backdrop) .prospector-fab {
   gap: 0 clamp(14px, 4vw, 20px);
 }
 
-/* Card de Informacoes dividido em 2: vazio na esquerda, info compacto na
-   direita. As info ficam empilhadas (1 coluna) pra caber na metade. */
-.sdv-general {
-  /* Avatar circular: clamp menor pro cap (220 em vez de 260) e vw mais
-     conservador (14 em vez de 38) — assim em desktops 901-1100px o
-     avatar nao estoura a coluna 2fr da .sdv-info-split-row. */
-  --nested-card-size: clamp(160px, 14vw, 220px);
-  --nested-vertical-margin: clamp(12px, 3vw, 20px);
-  /* Altura compartilhada da linha — nested + margem em cima e em baixo */
-  --row-height: calc(var(--nested-card-size) + 2 * var(--nested-vertical-margin));
-}
-
+/* Card de Informacoes ocupa a largura toda da coluna 1 da .sdv-general
+   (o avatar de iniciais que ficava a esquerda foi removido). */
 .sdv-info-split-row {
-  /* Grid 2fr/3fr: dentro da coluna 1 da .sdv-general (5fr de 8fr total),
-     o card Informacoes ocupa 3fr — mesmo proporcional do card Filiais/
-     Endereco (que tem 3fr na coluna 2 da .sdv-general). O nested card
-     fica na coluna esquerda 2fr, centralizado entre a borda e
-     Informacoes. minmax(180px, 2fr) garante espaco minimo pro avatar
-     em desktops estreitos; minmax(0, 3fr) permite shrink do card. */
+  /* Coluna unica: sem o avatar, o card Informacoes preenche a coluna. O
+     grid + align-items: stretch mantem o card esticado na --card-row-height
+     (desktop), alinhado verticalmente com o card Filiais/Endereco ao lado. */
   display: grid;
-  grid-template-columns: minmax(180px, 2fr) minmax(0, 3fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: clamp(12px, 3vw, 16px);
   align-items: stretch;
-}
-
-.sdv-info-split-row > .sdv-nested-stack {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-self: center;
 }
 
 .sdv-info-split-row > .sdv-card-info {
@@ -10606,41 +10586,34 @@ body:has(.app-modal-backdrop) .prospector-fab {
   overflow: hidden;
 }
 
-.sdv-card.sdv-card-nested {
-  width: var(--nested-card-size, clamp(190px, 38vw, 260px));
-  aspect-ratio: 1 / 1;
-  margin-top: var(--nested-vertical-margin, clamp(12px, 3vw, 20px));
-  padding: 0;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(
-    135deg,
-    var(--avatar-color, #1f5d43),
-    rgb(from var(--avatar-color, #1f5d43) r g b / 0.8)
-  );
-  border-radius: clamp(14px, 3.5vw, 20px);
-  border: 0;
-  box-shadow: 0 4px 14px rgb(from var(--avatar-color, #1f5d43) r g b / 0.32);
-  animation: none;
+/* Lado esquerdo do header verde do card Informacoes: titulo + badges de
+   papel lado a lado (o avatar de iniciais que ficava na coluna esquerda foi
+   removido). Ocupa o espaco e empurra o botao de editar pra direita; faz
+   wrap nos badges em telas estreitas. */
+.sdv-info-header-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: clamp(8px, 2vw, 14px);
+  min-width: 0;
+  flex: 1;
 }
 
-.sdv-card-nested-initials {
-  font-size: clamp(56px, 13vw, 88px);
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.02em;
-  color: #ffffff;
-  user-select: none;
-}
-
-/* Badges de papel (Vendedor/Comprador) abaixo do nested card. Ativos
-   "brilham" na cor; inativos ficam opacos pra mostrar que existem mas
-   nao se aplicam ao cliente. */
+/* Badges de papel (Vendedor/Comprador/Armazem) — vivem no header do card
+   Informacoes, ao lado do titulo. Ativos "brilham" na cor; inativos ficam
+   opacos pra mostrar que existem mas nao se aplicam ao cliente. */
 .sdv-roles-row {
   display: flex;
   gap: clamp(8px, 1.6vw, 10px);
-  justify-content: center;
-  margin-top: clamp(14px, 3.4vw, 22px);
+  flex-wrap: wrap;
+}
+
+/* No header verde os badges sao um pouco menores que a versao antiga (que
+   ficava sob o avatar), pra caber junto do titulo. Especificidade 0,3,0
+   vence a regra base .sdv-roles-row .cv2-card-role. */
+.sdv-info-header-left .sdv-roles-row .cv2-card-role {
+  font-size: clamp(10px, 2.6vw, 12px);
+  padding: clamp(3px, 0.9vw, 5px) clamp(8px, 2vw, 11px);
 }
 
 .sdv-roles-row .cv2-card-role {
@@ -28004,20 +27977,6 @@ select.samples-filter-field-input {
 
   .sdv-info-split-row > .sdv-card-info {
     overflow: hidden;
-  }
-
-  /* Avatar + roles centralizados verticalmente em relacao a altura da
-     row (matching o card Informacoes ao lado). Antes ficavam grudados
-     no topo. */
-  .sdv-info-split-row > .sdv-nested-stack {
-    align-self: center;
-    margin-top: 0;
-  }
-
-  /* Avatar nao precisa do margin-top extra quando o container ja esta
-     vertical-centralizado. */
-  .sdv-info-split-row > .sdv-nested-stack > .sdv-card-nested {
-    margin-top: 0;
   }
 
   /* 14.7.I: filiais agora usa themed body que cuida do scroll interno

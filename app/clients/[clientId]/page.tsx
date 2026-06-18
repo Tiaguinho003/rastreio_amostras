@@ -230,53 +230,6 @@ function translateClientUpdateError(cause: unknown): string {
   return cause.message || 'Falha ao atualizar cliente. Tente novamente.';
 }
 
-// Avatar helpers — mesmo set de cores e algoritmo da listagem (clients/page.tsx)
-// pra que o cliente tenha a MESMA cor/iniciais nas duas telas.
-const AVATAR_COLORS = [
-  '#1f5d43',
-  '#2f6b4a',
-  '#173c30',
-  '#0D47A1',
-  '#1565C0',
-  '#4E342E',
-  '#5D4037',
-  '#6D4C41',
-  '#AD1457',
-  '#C62828',
-  '#6A1B9A',
-  '#4527A0',
-  '#00695C',
-  '#00838F',
-  '#E65100',
-];
-
-function hashName(name: string): number {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = (hash << 5) - hash + name.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash);
-}
-
-function getAvatarColor(name: string): string {
-  return AVATAR_COLORS[hashName(name) % AVATAR_COLORS.length];
-}
-
-function getClientInitials(name: string): string {
-  return name
-    .split(' ')
-    .map((w) => w[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
-}
-
-function getClientDisplayName(client: ClientSummary): string {
-  return client.displayName ?? client.fullName ?? client.legalName ?? 'Cliente';
-}
-
 // Mapeia status comercial pra classe `is-card-*` (mesmo set da samples page).
 function commercialStatusClass(
   status: string | null | undefined,
@@ -1090,45 +1043,28 @@ export default function ClientDetailPage() {
                 <section className="sdv-general">
                   {/* card de Informacoes dividido em 2: vazio (esq) + compacto (dir) */}
                   <div className="sdv-info-split-row">
-                    <div className="sdv-nested-stack">
-                      {(() => {
-                        const displayName = getClientDisplayName(client);
-                        return (
-                          <div
-                            className="sdv-card sdv-card-nested"
-                            style={
-                              {
-                                '--avatar-color': getAvatarColor(displayName),
-                              } as React.CSSProperties
-                            }
-                          >
-                            <span className="sdv-card-nested-initials">
-                              {getClientInitials(displayName)}
-                            </span>
-                          </div>
-                        );
-                      })()}
-                      <div className="sdv-roles-row">
-                        <span
-                          className={`cv2-card-role is-seller${client.isSeller ? '' : ' is-dim'}`}
-                        >
-                          Vendedor
-                        </span>
-                        <span
-                          className={`cv2-card-role is-buyer${client.isBuyer ? '' : ' is-dim'}`}
-                        >
-                          Comprador
-                        </span>
-                        <span
-                          className={`cv2-card-role is-warehouse${client.isWarehouse ? '' : ' is-dim'}`}
-                        >
-                          Armazém
-                        </span>
-                      </div>
-                    </div>
                     <div className="sdv-card sdv-card-themed sdv-card-info sdv-card-info-compact">
                       <div className="sdv-card-themed-header">
-                        <span className="sdv-card-themed-title">Informações</span>
+                        <div className="sdv-info-header-left">
+                          <span className="sdv-card-themed-title">Informações</span>
+                          <div className="sdv-roles-row">
+                            <span
+                              className={`cv2-card-role is-seller${client.isSeller ? '' : ' is-dim'}`}
+                            >
+                              Vendedor
+                            </span>
+                            <span
+                              className={`cv2-card-role is-buyer${client.isBuyer ? '' : ' is-dim'}`}
+                            >
+                              Comprador
+                            </span>
+                            <span
+                              className={`cv2-card-role is-warehouse${client.isWarehouse ? '' : ' is-dim'}`}
+                            >
+                              Armazém
+                            </span>
+                          </div>
+                        </div>
                         <button
                           type="button"
                           className="sdv-card-themed-edit"
