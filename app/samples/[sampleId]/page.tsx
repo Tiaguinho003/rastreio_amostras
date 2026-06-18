@@ -3340,7 +3340,7 @@ export default function SampleDetailPage() {
               <div className="app-modal-backdrop" onClick={closeClassificationDetail}>
                 <section
                   ref={classificationDetailTrapRef}
-                  className="app-modal is-themed is-wide cld-modal"
+                  className="app-modal is-themed is-wide is-action cld-modal"
                   role="dialog"
                   aria-modal="true"
                   aria-labelledby="cld-modal-title"
@@ -3730,7 +3730,7 @@ export default function SampleDetailPage() {
         <div className="app-modal-backdrop" onClick={() => setClassificationSaveConfirmOpen(false)}>
           <section
             ref={classificationSaveConfirmTrapRef}
-            className="app-modal is-themed sample-detail-compact-modal"
+            className="app-modal is-themed is-action sample-detail-compact-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="cls-save-confirm-title"
@@ -3790,7 +3790,7 @@ export default function SampleDetailPage() {
         <div className="app-modal-backdrop">
           <section
             ref={classificationEditTrapRef}
-            className="app-modal"
+            className="app-modal is-themed is-action"
             role="dialog"
             aria-modal="true"
             aria-labelledby="classification-edit-reason-modal-title"
@@ -3897,7 +3897,7 @@ export default function SampleDetailPage() {
         <div className="app-modal-backdrop" onClick={handleCloseExportConfirmation}>
           <section
             ref={exportConfirmTrapRef}
-            className="app-modal is-themed sample-detail-compact-modal sample-detail-lookup-modal"
+            className="app-modal is-themed is-action sample-detail-compact-modal sample-detail-lookup-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="export-confirm-title"
@@ -4261,7 +4261,7 @@ export default function SampleDetailPage() {
       {reclassifyModalOpen ? (
         <div className="app-modal-backdrop sample-detail-reclassify-backdrop">
           <section
-            className="app-modal is-themed sample-detail-reclassify-modal"
+            className="app-modal is-themed is-action sample-detail-reclassify-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="sample-detail-reclassify-modal-title"

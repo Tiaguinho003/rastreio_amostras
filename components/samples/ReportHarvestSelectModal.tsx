@@ -77,7 +77,7 @@ export function ReportHarvestSelectModal({
     <div className="app-modal-backdrop" onClick={handleBackdrop}>
       <section
         ref={focusTrapRef}
-        className="app-modal is-themed report-harvest-select-modal"
+        className="app-modal is-themed is-action report-harvest-select-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="rhs-title"
