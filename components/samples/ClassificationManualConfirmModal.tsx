@@ -39,7 +39,7 @@ export function ClassificationManualConfirmModal({ open, onBack, onConfirm }: Pr
     <div className="app-modal-backdrop">
       <section
         ref={focusTrapRef}
-        className="app-modal is-themed manual-confirm-modal"
+        className="app-modal is-themed is-action manual-confirm-modal"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="manual-confirm-title"

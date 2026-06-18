@@ -69,7 +69,7 @@ export function ClassificationDataMismatchModal({
     <div className="app-modal-backdrop">
       <section
         ref={focusTrapRef}
-        className="app-modal is-themed is-wide data-mismatch-modal"
+        className="app-modal is-themed is-wide is-action data-mismatch-modal"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="data-mismatch-title"

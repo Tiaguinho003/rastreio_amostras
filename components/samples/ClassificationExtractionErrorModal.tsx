@@ -84,7 +84,7 @@ export function ClassificationExtractionErrorModal({
     <div className="app-modal-backdrop">
       <section
         ref={focusTrapRef}
-        className="app-modal is-themed extraction-error-modal"
+        className="app-modal is-themed is-action extraction-error-modal"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="extraction-error-title"

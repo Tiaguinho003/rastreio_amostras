@@ -83,7 +83,7 @@ export function ClassificationReclassifyModal({
     <div className="app-modal-backdrop">
       <section
         ref={focusTrapRef}
-        className="app-modal is-themed reclassify-modal"
+        className="app-modal is-themed is-action reclassify-modal"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="reclassify-title"
