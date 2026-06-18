@@ -186,3 +186,12 @@ O grosso foi resolvido na sessão 2. Sobram detalhes de layout/implementação:
   - **Fase 7 dobrada**: modal de envio reusa `ReportHarvestSelectModal` quando a amostra é liga (>1 safra) + `CLASSIFIED`; `recordPhysicalSampleSent` (api-client) passou a enviar `reportedHarvest`.
   - Teste `tests/physical-send-report-share.integration.test.js` (4 casos: CLASSIFIED com share+PDF+job, REGISTRATION_CONFIRMED sem share, multi-destinatário, foto sumida 409 atômico). Suite de integração completa verde (278) + todos os gates.
 - Restam: **fase 4** (rota pública `/laudo/[token]` + página mínima de indisponível), **fase 5** (builder TSPL + consumo no print agent), **fase 6** (revogação na timeline). Pendências menores: **P1** (layout da etiqueta), **P5** (rate-limit). ⚠️ `APP_BASE_URL` em produção precisa ser o domínio real (hoje `placeholder.invalid`) para o QR funcionar.
+
+### 2026-06-18 — Sessão 4 (fase 4: rota pública do laudo)
+
+- **Fase 4 implementada** (rota pública `GET /laudo/[token]`, sem login):
+  - Handler `servePublicReportShare` (`backend-api.js`): valida o token (64 hex), checa `revokedAt` → 410 (D8) / `expiresAt` → 410 (D7), devolve os bytes do PDF congelado (via `reportService.readPersistedReport`, método novo) e incrementa `accessCount`/`lastAccessedAt` (best-effort). Rate-limit leve por IP (`publicReportRateLimiter`, 60/min — resolve **P5**).
+  - Rota Next `app/laudo/[token]/route.ts`: token válido → PDF **inline** (D6: abre no navegador); inválido → página HTML mínima de indisponível (D10), com a marca, distinguindo 404 (não encontrado) / 410 (revogado/expirado) / 429 (rate-limit).
+  - `/laudo` adicionado ao `PUBLIC_PATH_PREFIXES` (`middleware.ts`) — escapa do gate de manutenção (o middleware não força login fora disso).
+  - Teste de integração (4 casos novos): serve o PDF por token válido (checksum bate + `accessCount`), 404 (inexistente/malformado), 410 (revogado), 410 (expirado). Todos os gates verdes; os 8 testes da feature passam.
+- **Marco**: com a fase 4, o QR já abre o laudo ponta a ponta (caminho do destinatário). Restam **fase 5** (builder TSPL `buildShippingLabel` + consumo da fila no print agent) e **fase 6** (revogação).
