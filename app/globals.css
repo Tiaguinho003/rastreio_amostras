@@ -8128,10 +8128,10 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
 }
 
 .sdv-action-card.is-send {
-  background: linear-gradient(135deg, #e39234, var(--color-warning, #c57d0c));
+  background: linear-gradient(135deg, #3a8fd0, var(--color-info, #1e5f8f));
   box-shadow:
-    0 2px 6px rgba(197, 125, 12, 0.28),
-    0 6px 14px rgba(197, 125, 12, 0.14);
+    0 2px 6px rgba(30, 95, 143, 0.28),
+    0 6px 14px rgba(30, 95, 143, 0.14);
 }
 
 /* Acao "Classificar" — reaproveita a identidade dourada do antigo FAB
@@ -22677,6 +22677,12 @@ select.samples-filter-field-input {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: clamp(8px, 2vw, 11px);
+}
+
+/* Chooser "Enviar": as 2 opcoes (Descricao | Fisico) lado a lado. Escopado
+   com .is-duo pra nao afetar o modal de Classificacao (5 tipos empilhados). */
+.type-modal-grid.is-duo {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .type-modal-choice {

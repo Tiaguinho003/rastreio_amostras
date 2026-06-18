@@ -70,7 +70,7 @@ export function SendMethodChooserModal({
         </header>
 
         <div className="app-modal-content type-modal-content">
-          <div className="type-modal-grid">
+          <div className="type-modal-grid is-duo">
             <button
               type="button"
               className={`type-modal-choice${canDescricao ? '' : ' is-disabled'}`}
