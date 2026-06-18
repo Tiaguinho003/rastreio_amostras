@@ -1071,7 +1071,6 @@ function ClientsPage() {
                       aria-hidden="true"
                     >
                       <span className="cv2-section-divider-letter">{node.letter}</span>
-                      <span className="cv2-section-divider-line" />
                     </div>
                   );
                 }

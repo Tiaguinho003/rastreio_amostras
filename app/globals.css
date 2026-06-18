@@ -6390,35 +6390,36 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   }
 }
 
-/* 14.4.B: divisor alfabetico tipo iPhone (mobile only).
-   Sticky no topo do scroll container (.spv2-list-scroll). */
+/* 14.4.B: indicador alfabetico tipo iPhone (mobile only) — CHIP flutuante.
+   Sticky no topo do scroll container (.spv2-list-scroll), ancorado a ESQUERDA
+   e ACIMA dos cards: z-index > barrinha colorida do card (.cv2-card::before e
+   .cv2-card-incomplete-badge sao z-index 1/2), pra a letra nao ser "furada"
+   pela barra de status que rola por baixo. So a letra (sem linha), colada na
+   borda esquerda. Opaco + sombra pra ler como etiqueta flutuando sobre os cards. */
 .cv2-section-divider {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 4px 4px;
+  justify-content: center;
+  align-self: flex-start; /* nao estica: chip compacto colado a esquerda */
   margin: 0;
+  padding: 4px 9px;
   position: sticky;
   top: 0;
-  z-index: 1;
-  /* BRANCO pra casar com o sheet branco (batch /clients alinhado ao /samples,
-     2026-06-17 — antes era bege #faf6ea, que casava com o gradiente quente).
-     Opaco pra esconder os cards que rolam por baixo. */
+  z-index: 5;
   background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.12),
+    0 6px 16px rgba(0, 0, 0, 0.1);
 }
 
 .cv2-section-divider-letter {
   font-size: 0.95rem;
   font-weight: 700;
-  color: rgba(0, 0, 0, 0.5);
+  color: rgba(0, 0, 0, 0.55);
   letter-spacing: 0.04em;
-  flex-shrink: 0;
-}
-
-.cv2-section-divider-line {
-  flex: 1;
-  height: 1px;
-  background: rgba(0, 0, 0, 0.08);
+  line-height: 1;
 }
 
 /* Desktop: divisor nao aparece (grid 6cols nao comporta). */
