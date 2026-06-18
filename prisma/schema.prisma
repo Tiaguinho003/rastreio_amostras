@@ -474,6 +474,7 @@ model Client {
   email                       String?
   isBuyer                     Boolean          @default(false) @map("is_buyer")
   isSeller                    Boolean          @default(false) @map("is_seller")
+  isWarehouse                 Boolean          @default(false) @map("is_warehouse")
   status                      ClientStatus     @default(ACTIVE)
   createdAt                   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
