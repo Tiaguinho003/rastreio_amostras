@@ -22685,6 +22685,35 @@ select.samples-filter-field-input {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+/* Variante verde do chooser "Enviar": fundo verde + texto branco. Escopado
+   em .is-duo pra nao afetar o modal de Classificacao (cards claros). */
+.type-modal-grid.is-duo .type-modal-choice {
+  background: linear-gradient(135deg, var(--brand-green-soft), var(--brand-green));
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow:
+    0 2px 6px rgba(27, 94, 32, 0.28),
+    0 6px 14px rgba(27, 94, 32, 0.14);
+}
+
+.type-modal-grid.is-duo .type-modal-choice:hover:not(:disabled) {
+  border-color: transparent;
+  filter: brightness(1.05);
+  box-shadow:
+    0 4px 10px rgba(27, 94, 32, 0.3),
+    0 10px 22px rgba(27, 94, 32, 0.16);
+}
+
+/* Desabilitada (ex.: "Descricao" antes de classificar): mantem o verde, so
+   esmaece — em vez do cinza padrao do .is-disabled. */
+.type-modal-grid.is-duo .type-modal-choice.is-disabled {
+  background: linear-gradient(135deg, var(--brand-green-soft), var(--brand-green));
+  color: #ffffff;
+  border-color: transparent;
+  opacity: 0.45;
+  box-shadow: none;
+}
+
 .type-modal-choice {
   display: flex;
   flex-direction: column;
