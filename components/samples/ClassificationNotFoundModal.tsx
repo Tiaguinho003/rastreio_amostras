@@ -38,7 +38,7 @@ export function ClassificationNotFoundModal({ open, lot, onBack, onCancel }: Pro
     <div className="app-modal-backdrop">
       <section
         ref={focusTrapRef}
-        className="app-modal is-themed not-found-modal"
+        className="app-modal is-themed is-action not-found-modal"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="not-found-title"

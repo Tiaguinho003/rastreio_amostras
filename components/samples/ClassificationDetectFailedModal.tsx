@@ -40,7 +40,7 @@ export function ClassificationDetectFailedModal({ open, onRetake, onContinue }: 
     <div className="app-modal-backdrop">
       <section
         ref={focusTrapRef}
-        className="app-modal is-themed detect-failed-modal"
+        className="app-modal is-themed is-action detect-failed-modal"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="detect-failed-title"

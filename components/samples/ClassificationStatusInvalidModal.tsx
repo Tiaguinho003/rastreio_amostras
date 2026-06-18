@@ -38,7 +38,7 @@ export function ClassificationStatusInvalidModal({ open, onCancel, onViewDetails
     <div className="app-modal-backdrop">
       <section
         ref={focusTrapRef}
-        className="app-modal is-themed status-invalid-modal"
+        className="app-modal is-themed is-action status-invalid-modal"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="status-invalid-title"

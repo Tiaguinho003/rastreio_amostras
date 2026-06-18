@@ -52,7 +52,7 @@ export function ClassificationLotMismatchModal({
     <div className="app-modal-backdrop">
       <section
         ref={focusTrapRef}
-        className="app-modal is-themed lot-mismatch-modal"
+        className="app-modal is-themed is-action lot-mismatch-modal"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="lot-mismatch-title"

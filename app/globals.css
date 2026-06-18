@@ -1287,6 +1287,19 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
 .app-modal.is-themed.is-action .app-modal-close span {
   color: #4a5751;
 }
+/* Sob o header claro do visual de acao, a descricao (branca no `.is-themed`) e
+   o back-arrow dos modais Tipo/Classificador (branco) precisam virar escuros —
+   senao somem no branco. */
+.app-modal.is-themed.is-action .app-modal-description {
+  color: rgba(0, 0, 0, 0.6);
+}
+.app-modal.is-themed.is-action .type-modal-back {
+  background: #eef1ee;
+  color: #4a5751;
+}
+.app-modal.is-themed.is-action .type-modal-back:hover:not(:disabled) {
+  background: #e2e7e3;
+}
 
 /* Amostra localizada (busca por lote; mesmo componente da camera). */
 .app-modal.is-themed.app-modal-lookup-result .app-modal-header {
