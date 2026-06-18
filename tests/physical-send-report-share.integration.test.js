@@ -266,7 +266,7 @@ if (!databaseUrl || !databaseReachable) {
 
     assert.equal(res.status, 201);
     assert.ok(res.body.share, 'resposta deve trazer o share');
-    assert.match(res.body.share.token, /^[0-9a-f]{64}$/, 'token = 32 bytes hex');
+    assert.match(res.body.share.token, /^[A-Za-z0-9_-]{43}$/, 'token = 32 bytes base64url');
     assert.ok(
       res.body.qrUrl.endsWith(`/laudo/${res.body.share.token}`),
       'qrUrl aponta pra /laudo/<token>'
@@ -418,7 +418,7 @@ if (!databaseUrl || !databaseReachable) {
   test('rota pública: token inexistente ou malformado retorna 404', async () => {
     const r1 = await api.servePublicReportShare({
       headers: {},
-      params: { token: 'a'.repeat(64) },
+      params: { token: 'a'.repeat(43) },
       query: {},
       body: {},
     });

@@ -1297,7 +1297,7 @@ export function createBackendApiV1({
         publicReportRateLimiter.check(readHeader(input?.headers ?? {}, 'x-forwarded-for') ?? null);
 
         const token = typeof input?.params?.token === 'string' ? input.params.token : '';
-        if (!/^[0-9a-f]{64}$/.test(token)) {
+        if (!/^[A-Za-z0-9_-]{43}$/.test(token)) {
           throw new HttpError(404, 'Laudo nao encontrado', { code: 'REPORT_NOT_FOUND' });
         }
 

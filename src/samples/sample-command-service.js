@@ -3692,7 +3692,9 @@ export class SampleCommandService {
     });
 
     const shareId = randomUUID();
-    const token = randomBytes(32).toString('hex');
+    // base64url (43 chars) em vez de hex (64): encurta a URL do QR da etiqueta
+    // de envio (fase 5) → QR menor/mais robusto na impressao termica.
+    const token = randomBytes(32).toString('base64url');
     const issuedAt = new Date();
     const expiresAt = new Date(issuedAt.getTime() + REPORT_SHARE_TTL_MS);
 
