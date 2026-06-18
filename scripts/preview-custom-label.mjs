@@ -70,13 +70,6 @@ async function render(sample, outName, caption) {
     );
   }
 
-  // Caixas dos lotes (cantos arredondados via rx).
-  for (const b of layout.boxes || []) {
-    els.push(
-      `<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="${b.radius || 0}" fill="none" stroke="#111111" stroke-width="${b.thickness}" />`
-    );
-  }
-
   // Guia da area util (margens) — azul tracejado; nada de texto deve passar dela.
   if (layout.safeArea) {
     const s = layout.safeArea;

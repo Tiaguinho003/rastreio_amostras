@@ -180,10 +180,11 @@ const TSPL_FONT_H = { 1: 12, 2: 20, 3: 24, 4: 32 };
 
 // --- Layout em 3 FAIXAS (revisao 2026-06-17, mockup do usuario) ---
 // (1) logo + Nº COMPRA + FECHAMENTO + SACAS; (2) PRODUTOR + ARMAZEM; (3) LOTES
-// (grade responsiva de caixas). Cada VALOR tem fonte AUTO-AJUSTADA a largura da
-// coluna (1 linha) — campo longo encolhe a fonte em vez de quebrar. Os lotes
-// saem do valor do campo LOTE (separado por virgula): cada um vira uma caixa,
-// com tamanho / nº de colunas / fonte variando pela quantidade. Geometria em
+// (grade responsiva, SEM caixa — so os numeros centralizados). Fonte do VALOR
+// AUTO-AJUSTADA: a faixa 2 (produtor/armazem) mantem a MAIOR fonte que couber em
+// ate 2 linhas (quebra o nome quando preciso, so reduz se nem assim couber); a
+// faixa 1 fica em 1 linha. Os lotes saem do valor do campo LOTE (separado por
+// virgula), com nº de colunas / fonte variando pela quantidade. Geometria em
 // dots (etiqueta 800x280).
 const LABEL_W = 800;
 const LABEL_H = 280;
@@ -193,14 +194,17 @@ const M_LEFT = 20;
 const M_RIGHT = 20;
 const BAR_W = 3; // espessura das divisorias (BAR)
 
-// Faixas: y de topo/base de cada banda + y das divisorias horizontais.
+// Faixas: y de topo/base de cada banda + y das divisorias horizontais. A faixa
+// CENTRAL (2: produtor/armazem) e mais alta pra caber 2 linhas de nome em fonte
+// grande; como os lotes nao tem mais caixa, a faixa 3 encolheu na MESMA medida
+// (~30 dots passaram da faixa 3 pra faixa 2: DIV2_Y 158->190).
 const BAND1_TOP = M_TOP;
 const BAND1_BOT = 82;
 const DIV1_Y = 84;
 const BAND2_TOP = 92;
-const BAND2_BOT = 156;
-const DIV2_Y = 158;
-const BAND3_TOP = 166;
+const BAND2_BOT = 186;
+const DIV2_Y = 190;
+const BAND3_TOP = 196;
 const BAND3_BOT = LABEL_H - M_BOTTOM;
 
 const LABEL_FONT = '1'; // rotulos pequenos (8x12)
@@ -208,15 +212,16 @@ const LABEL_GAP_Y = 6; // gap vertical entre rotulo e valor
 const COL_PAD = 10; // recuo do conteudo dentro da coluna
 const LOGO_SEP_GAP = 16; // respiro dos dois lados da divisoria apos o logo
 const VALUE_FONTS = ['4', '3', '2', '1']; // tiers do valor (maior -> menor)
-const VALUE_BAND_H = 34; // altura util do valor numa faixa (cabe a fonte 4)
+const VALUE_LINE_GAP = 2; // gap vertical entre as linhas de um valor de 2 linhas
+const BAND1_MAX_LINES = 1; // header (compra/fechamento/sacas) sempre 1 linha
+const BAND2_MAX_LINES = 2; // produtor/armazem podem quebrar em 2 linhas
 
-// Lotes: grade responsiva. Ate LOTS_ONE_ROW_MAX em 1 linha; acima, 2 linhas
-// (colunas = ceil(n / linhas)). Caixa e fonte encolhem conforme a quantidade.
+// Lotes: grade responsiva SEM caixa (so o numero centralizado na celula). Ate
+// LOTS_ONE_ROW_MAX em 1 linha; acima, 2 linhas (colunas = ceil(n / linhas)).
+// A fonte encolhe conforme a quantidade.
 const LOTS_ONE_ROW_MAX = 4;
 const LOTS_GAP = 10;
-const LOTS_BOX_PAD = 8; // respiro horizontal do numero dentro da caixa
-const LOTS_BOX_THICK = 2; // espessura da linha da caixa (BOX)
-const LOTS_BOX_RADIUS = 6; // cantos arredondados (TSPL2 BOX radius; 0 = reto)
+const LOTS_PAD = 4; // respiro horizontal do numero na celula
 
 // Chaves normalizadas dos campos de valor unico (vindas do printLabel do modal;
 // o LOTE e tratado a parte, como grade).
@@ -281,9 +286,55 @@ function splitLots(value) {
     .filter(Boolean);
 }
 
+// Word-wrap greedy por espacos; palavra unica maior que `maxChars` e quebrada na
+// forca. Sempre devolve ao menos 1 linha.
+function wrapWords(text, maxChars) {
+  const lines = [];
+  let cur = '';
+  for (let word of String(text).split(/\s+/).filter(Boolean)) {
+    while (word.length > maxChars) {
+      if (cur) {
+        lines.push(cur);
+        cur = '';
+      }
+      lines.push(word.slice(0, maxChars));
+      word = word.slice(maxChars);
+    }
+    if (!cur) cur = word;
+    else if (cur.length + 1 + word.length <= maxChars) cur += ' ' + word;
+    else {
+      lines.push(cur);
+      cur = word;
+    }
+  }
+  if (cur) lines.push(cur);
+  return lines.length ? lines : [''];
+}
+
+// Maior fonte (de `fonts`) em que o texto cabe em ATE `maxLines` linhas de
+// `maxWidth`, com as linhas cabendo em `maxHeight`. Mantem a fonte e quebra em
+// linha quando precisa; so reduz a fonte se nem assim couber. Fallback: menor
+// fonte, cortado em maxLines.
+function pickFontWrap(text, maxWidth, maxHeight, maxLines, fonts) {
+  for (const f of fonts) {
+    const charW = TSPL_FONT_W[Number(f)] ?? 8;
+    const lineH = TSPL_FONT_H[Number(f)] ?? 12;
+    const lines = wrapWords(text, Math.max(1, Math.floor(maxWidth / charW)));
+    if (lines.length <= maxLines && lines.length * lineH <= maxHeight) {
+      return { font: f, lines };
+    }
+  }
+  const f = fonts[fonts.length - 1];
+  const charW = TSPL_FONT_W[Number(f)] ?? 8;
+  return {
+    font: f,
+    lines: wrapWords(text, Math.max(1, Math.floor(maxWidth / charW))).slice(0, maxLines),
+  };
+}
+
 // Calcula o layout (posicoes/fontes/caixas ja resolvidas) SEM serializar TSPL.
 // Fonte unica compartilhada por buildCustomLabel (impressao) e pelo preview.
-// Retorna { width, height, copies, logo, texts, dividers, boxes, safeArea }.
+// Retorna { width, height, copies, logo, texts, dividers, safeArea }.
 export async function buildCustomLabelLayout(payload) {
   const lines = Array.isArray(payload?.lines) ? payload.lines : [];
   if (lines.length === 0) {
@@ -312,7 +363,6 @@ export async function buildCustomLabelLayout(payload) {
 
   const texts = [];
   const dividers = [];
-  const boxes = [];
 
   // Rotulo pequeno (LABEL_FONT) em (x, y) — sem ":" (segue o mockup). Com
   // `maxWidth`, corta pra nao estourar a coluna (rotulo longo via API direta).
@@ -323,29 +373,35 @@ export async function buildCustomLabelLayout(payload) {
     texts.push({ x, y, font: LABEL_FONT, xMul: 1, yMul: 1, bold: false, text });
   }
 
-  // Valor com fonte AUTO-AJUSTADA a `maxWidth` (1 linha), em negrito.
-  function pushValue(rawValue, x, y, maxWidth) {
+  // Valor em negrito, fonte AUTO-AJUSTADA: mantem a maior fonte que cabe o texto
+  // em ATE `maxLines` linhas de `maxWidth` (quebra o nome quando precisa); so
+  // reduz a fonte se nem assim couber na altura util da faixa (`maxHeight`).
+  function pushValue(rawValue, x, y, maxWidth, maxLines, maxHeight) {
     const value = rawValue || '';
     if (!value) return;
-    const font = pickFont(value, maxWidth, VALUE_BAND_H, VALUE_FONTS);
-    texts.push({ x, y, font, xMul: 1, yMul: 1, bold: true, text: fitText(value, font, maxWidth) });
+    const { font, lines } = pickFontWrap(value, maxWidth, maxHeight, maxLines, VALUE_FONTS);
+    const lineH = (TSPL_FONT_H[Number(font)] ?? 12) + VALUE_LINE_GAP;
+    for (let i = 0; i < lines.length; i += 1) {
+      texts.push({ x, y: y + i * lineH, font, xMul: 1, yMul: 1, bold: true, text: lines[i] });
+    }
   }
 
   // Campo "rotulo em cima + valor embaixo" numa coluna [x, x+w].
-  function pushField(key, fallbackLabel, x, w, labelY, valueY) {
+  function pushField(key, fallbackLabel, x, w, labelY, valueY, maxLines, valueMaxH) {
     pushLabel(labelOf(key, fallbackLabel), x + COL_PAD, labelY, w - 2 * COL_PAD);
-    pushValue(valueOf(key), x + COL_PAD, valueY, w - 2 * COL_PAD);
+    pushValue(valueOf(key), x + COL_PAD, valueY, w - 2 * COL_PAD, maxLines, valueMaxH);
   }
 
   // Distribui colunas (com pesos) em [start, end], com divisoria vertical entre
-  // elas, e desenha cada campo.
-  function layoutColumns(start, end, fields, bandTop, bandBot, labelY, valueY) {
+  // elas, e desenha cada campo. `maxLines` = linhas permitidas no valor.
+  function layoutColumns(start, end, fields, bandTop, bandBot, labelY, valueY, maxLines) {
     const wsum = fields.reduce((a, f) => a + f.weight, 0);
     const usableW = end - start - (fields.length - 1) * BAR_W;
+    const valueMaxH = bandBot - valueY;
     let x = start;
     for (let i = 0; i < fields.length; i += 1) {
       const colW = Math.floor((usableW * fields[i].weight) / wsum);
-      pushField(fields[i].key, fields[i].fallback, x, colW, labelY, valueY);
+      pushField(fields[i].key, fields[i].fallback, x, colW, labelY, valueY, maxLines, valueMaxH);
       x += colW;
       if (i < fields.length - 1) {
         dividers.push({ x, y: bandTop, width: BAR_W, height: bandBot - bandTop });
@@ -383,7 +439,8 @@ export async function buildCustomLabelLayout(payload) {
     BAND1_TOP,
     BAND1_BOT,
     b1LabelY,
-    b1ValueY
+    b1ValueY,
+    BAND1_MAX_LINES
   );
 
   // Faixa 2: PRODUTOR | ARMAZEM (produtor mais largo).
@@ -399,7 +456,8 @@ export async function buildCustomLabelLayout(payload) {
     BAND2_TOP,
     BAND2_BOT,
     b2LabelY,
-    b2ValueY
+    b2ValueY,
+    BAND2_MAX_LINES
   );
 
   // Divisorias horizontais entre as faixas.
@@ -408,7 +466,8 @@ export async function buildCustomLabelLayout(payload) {
   dividers.push({ x: innerLeft, y: DIV1_Y, width: innerRight - innerLeft, height: BAR_W });
   dividers.push({ x: innerLeft, y: DIV2_Y, width: innerRight - innerLeft, height: BAR_W });
 
-  // Faixa 3: rotulo "LOTES" (sempre plural) + grade responsiva de caixas.
+  // Faixa 3: rotulo "LOTES" (sempre plural) + grade responsiva SEM caixa (so os
+  // numeros, centralizados na celula da grade).
   pushLabel('LOTES', innerLeft, BAND3_TOP + 2);
   const lots = splitLots(valueOf(KEY_LOTE));
   if (lots.length > 0) {
@@ -418,33 +477,25 @@ export async function buildCustomLabelLayout(payload) {
 
     const rows = lots.length <= LOTS_ONE_ROW_MAX ? 1 : 2;
     const cols = Math.ceil(lots.length / rows);
-    const boxW = Math.floor((gridW - (cols - 1) * LOTS_GAP) / cols);
-    const boxH = Math.floor((gridH - (rows - 1) * LOTS_GAP) / rows);
+    const cellW = Math.floor((gridW - (cols - 1) * LOTS_GAP) / cols);
+    const cellH = Math.floor((gridH - (rows - 1) * LOTS_GAP) / rows);
 
-    // Fonte UNICA pra todos os lotes: a maior que cabe o maior numero na caixa
-    // (mais colunas -> caixa menor -> fonte menor = a "responsividade").
+    // Fonte UNICA pra todos os lotes: a maior que cabe o maior numero na celula
+    // (mais colunas -> celula menor -> fonte menor = a "responsividade").
     const longest = lots.reduce((m, l) => Math.max(m, l.length), 1);
-    const lotFont = pickFont('0'.repeat(longest), boxW - 2 * LOTS_BOX_PAD, boxH - 8, VALUE_FONTS);
+    const lotFont = pickFont('0'.repeat(longest), cellW - 2 * LOTS_PAD, cellH, VALUE_FONTS);
     const lotFontW = TSPL_FONT_W[Number(lotFont)] ?? 8;
     const lotFontH = TSPL_FONT_H[Number(lotFont)] ?? 12;
 
     for (let i = 0; i < lots.length; i += 1) {
       const r = Math.floor(i / cols);
       const c = i % cols;
-      const bx = innerLeft + c * (boxW + LOTS_GAP);
-      const by = gridTop + r * (boxH + LOTS_GAP);
-      boxes.push({
-        x: bx,
-        y: by,
-        w: boxW,
-        h: boxH,
-        thickness: LOTS_BOX_THICK,
-        radius: LOTS_BOX_RADIUS,
-      });
-      const lot = fitText(lots[i], lotFont, boxW - 2 * LOTS_BOX_PAD);
+      const cx = innerLeft + c * (cellW + LOTS_GAP);
+      const cy = gridTop + r * (cellH + LOTS_GAP);
+      const lot = fitText(lots[i], lotFont, cellW - 2 * LOTS_PAD);
       texts.push({
-        x: bx + Math.max(LOTS_BOX_PAD, Math.floor((boxW - lot.length * lotFontW) / 2)),
-        y: by + Math.max(0, Math.floor((boxH - lotFontH) / 2)),
+        x: cx + Math.max(LOTS_PAD, Math.floor((cellW - lot.length * lotFontW) / 2)),
+        y: cy + Math.max(0, Math.floor((cellH - lotFontH) / 2)),
         font: lotFont,
         xMul: 1,
         yMul: 1,
@@ -468,7 +519,6 @@ export async function buildCustomLabelLayout(payload) {
     logo: logoOp,
     texts,
     dividers,
-    boxes,
     safeArea,
   };
 }
@@ -484,11 +534,6 @@ export async function buildCustomLabel(payload) {
   // Divisorias (barras solidas: horizontais entre faixas + verticais nas colunas).
   for (const d of layout.dividers || []) {
     head.push(`BAR ${d.x},${d.y},${d.width},${d.height}`);
-  }
-  // Caixas dos lotes (BOX; radius p/ cantos arredondados em TSPL2 — 0 = reto).
-  for (const b of layout.boxes || []) {
-    const radius = b.radius ? `,${b.radius}` : '';
-    head.push(`BOX ${b.x},${b.y},${b.x + b.w},${b.y + b.h},${b.thickness}${radius}`);
   }
   for (const t of layout.texts) {
     head.push(`TEXT ${t.x},${t.y},"${t.font}",0,${t.xMul},${t.yMul},"${t.text}"`);
