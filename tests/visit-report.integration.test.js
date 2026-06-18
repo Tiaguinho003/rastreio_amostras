@@ -343,7 +343,7 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('listVisitReports: viewers veem tudo; PROSPECTOR ve so autores prospectores; 403 pros demais', async () => {
+  test('listVisitReports: viewers veem tudo; PROSPECTOR ve so os PROPRIOS; 403 pros demais', async () => {
     await resetDatabase();
     const commercial = await seedUser('COMMERCIAL');
     const cadastro = await seedUser('CADASTRO');
@@ -375,13 +375,13 @@ if (!databaseUrl || !databaseReachable) {
     const allowedCadastro = await service.listVisitReports({}, actorFor(cadastro));
     assert.equal(allowedCadastro.page.total, 4);
 
-    // PROSPECTOR ve os informes de TODOS os autores prospectores
-    // (comparacao da equipe), mas nao os dos demais papeis.
-    const team = await service.listVisitReports({}, actorFor(prospector));
-    assert.equal(team.page.total, 3);
-    assert.equal(team.items.length, 3);
-    const teamAuthors = new Set(team.items.map((item) => item.user.id));
-    assert.deepEqual([...teamAuthors].sort(), [prospector.id, colleague.id].sort());
+    // PROSPECTOR ve APENAS os PROPRIOS informes: nem os do colega prospector
+    // (isolamento por autor) nem os dos demais papeis.
+    const mine = await service.listVisitReports({}, actorFor(prospector));
+    assert.equal(mine.page.total, 2);
+    assert.equal(mine.items.length, 2);
+    const mineAuthors = new Set(mine.items.map((item) => item.user.id));
+    assert.deepEqual([...mineAuthors], [prospector.id]);
 
     for (const denied of [classifier, registration, commercial]) {
       await assert.rejects(
@@ -721,8 +721,8 @@ if (!databaseUrl || !databaseReachable) {
       baseInput({ clientKind: 'EXISTING', clientId: clientJose.id }),
       actorFor(prospector)
     );
-    // De autor COMERCIAL: casa a busca, mas prospector so ve autores
-    // prospectores.
+    // De autor COMERCIAL: casa a busca, mas prospector so ve os PROPRIOS
+    // informes (e o comercial nem e do papel prospector).
     await service.createVisitReport(
       baseInput({ newClientName: 'Boa Esperanca' }),
       actorFor(commercial)

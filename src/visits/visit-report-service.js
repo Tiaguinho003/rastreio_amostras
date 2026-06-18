@@ -16,9 +16,9 @@ import {
 // visit_report, imutavel via API EXCETO o trio de vinculo curado
 // (clientId/linkedByUserId/linkedAt — ver linkVisitReportClient). Qualquer
 // usuario autenticado envia; a listagem e dos viewers (pagina /resumo, veem
-// tudo) e do PROSPECTOR (informes de todos os autores prospectores —
-// comparacao da equipe — na lista do dashboard dele). userId e createdAt
-// sao carimbados no servidor — o body nunca decide quem enviou nem quando.
+// tudo) e do PROSPECTOR (apenas os PROPRIOS informes, na lista do dashboard
+// dele). userId e createdAt sao carimbados no servidor — o body nunca decide
+// quem enviou nem quando.
 
 export const VISIT_CLIENT_KINDS = Object.freeze(['EXISTING', 'NEW']);
 export const VISIT_FARM_SIZES = Object.freeze(['SMALL', 'MEDIUM', 'LARGE']);
@@ -31,8 +31,8 @@ export const VISIT_REPORT_LIST_LIMIT_MAX = 100;
 // isVisitReportViewer): Administracao + Cadastro — as notificacoes
 // situacionais de visita apontam pra la. COMMERCIAL saiu (2026-06-18): ja ve
 // os PROPRIOS formularios no /informe (scope=mine, COMMERCIAL_FORM_AUTHOR_ROLES);
-// o /resumo e supervisao do time. PROSPECTOR nao e viewer: lista apenas
-// informes de autores PROSPECTOR (escopo forcado).
+// o /resumo e supervisao do time. PROSPECTOR nao e viewer: lista apenas os
+// PROPRIOS informes (escopo forcado por userId).
 export const VISIT_REPORT_VIEWER_ROLES = Object.freeze([USER_ROLES.ADMIN, USER_ROLES.CADASTRO]);
 
 // Quem cura o vinculo informe -> cliente no /resumo (Vincular / Cadastrar e
@@ -494,14 +494,14 @@ export class VisitReportService {
       [...VISIT_REPORT_VIEWER_ROLES, USER_ROLES.PROSPECTOR],
       'list visit reports'
     );
-    // Viewers (/resumo) veem todos os informes; PROSPECTOR ve os informes
-    // de TODOS os autores com papel PROSPECTOR — o proprio incluido —
-    // para comparacao entre a equipe de campo (mas nao os dos demais
-    // papeis). O escopo e forcado aqui, nunca decidido pelo cliente; os
-    // contadores (getMyVisitReportStats) seguem sendo so do proprio ator.
+    // Viewers (/resumo) veem todos os informes; PROSPECTOR ve APENAS os
+    // PROPRIOS informes (so os que ele mesmo preencheu) na lista do dashboard
+    // dele. O escopo e forcado aqui por userId, nunca decidido pelo cliente;
+    // coerente com os contadores (getMyVisitReportStats), que ja sao so do
+    // proprio ator.
     const where = {};
     if (actor.role === USER_ROLES.PROSPECTOR) {
-      where.user = { is: { role: USER_ROLES.PROSPECTOR } };
+      where.userId = actor.actorUserId;
     }
 
     // Busca por nome do cliente (barra do dashboard do prospector) —
