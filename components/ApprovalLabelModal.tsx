@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { ANIMATION_MS, BottomSheet } from './BottomSheet';
 import { ApiError, requestCustomPrint } from '../lib/api-client';
@@ -383,37 +384,51 @@ export function ApprovalLabelModal({ open, onClose, session }: ApprovalLabelModa
         </div>
       </BottomSheet>
 
-      {successVisible ? (
-        <div className="app-modal-backdrop" onClick={onClose}>
-          <section
-            className="app-modal is-themed sample-created-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="approval-sent-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="app-modal-header">
-              <div className="app-modal-title-wrap">
-                <h3 id="approval-sent-title" className="app-modal-title">
-                  Etiqueta enviada
-                </h3>
-              </div>
-            </header>
+      {successVisible
+        ? createPortal(
+            // Modal central canonico (.app-modal.is-themed): header VERDE + corpo
+            // branco. Via createPortal (obrigatorio — sem ele o transform do
+            // <PageTransition> captura o position:fixed e o modal abre atras da
+            // pagina, escondendo o header verde). Ver skill `modals`.
+            <div className="app-modal-backdrop" onClick={onClose}>
+              <section
+                className="app-modal is-themed"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="approval-sent-title"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <header className="app-modal-header">
+                  <div className="app-modal-title-wrap">
+                    <h3 id="approval-sent-title" className="app-modal-title">
+                      Etiqueta enviada
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    className="app-modal-close"
+                    onClick={onClose}
+                    aria-label="Fechar"
+                  >
+                    <span aria-hidden="true">&times;</span>
+                  </button>
+                </header>
 
-            <div className="app-modal-content sample-created-body">
-              <div className="sample-created-check-wrap" aria-hidden="true">
-                <span className="sample-created-check-ring" />
-                <svg className="sample-created-check" viewBox="0 0 52 52">
-                  <circle cx="26" cy="26" r="24" />
-                  <path d="M14 27l8 8 16-16" />
-                </svg>
-              </div>
+                <div className="app-modal-content sample-created-body">
+                  <div className="sample-created-check-wrap" aria-hidden="true">
+                    <svg className="sample-created-check" viewBox="0 0 52 52">
+                      <circle cx="26" cy="26" r="24" />
+                      <path d="M14 27l8 8 16-16" />
+                    </svg>
+                  </div>
 
-              <p className="sample-created-hint">Deve sair na impressora em alguns segundos.</p>
-            </div>
-          </section>
-        </div>
-      ) : null}
+                  <p className="approval-sent-hint">Deve sair na impressora em alguns segundos.</p>
+                </div>
+              </section>
+            </div>,
+            document.body
+          )
+        : null}
     </>
   );
 }
