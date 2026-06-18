@@ -59,3 +59,13 @@ export function isVisitReportViewer(role: UserRole | null | undefined): boolean 
 export function isVisitLinkCurator(role: UserRole | null | undefined): boolean {
   return role === 'ADMIN' || role === 'CADASTRO';
 }
+
+// Classificacao e Cadastro: na barra de navegacao veem METRICAS no lugar do
+// Informe (e NAO acessam /informe). Para eles, Metricas tambem sai do menu do
+// avatar (vira item de navegacao). REGISTRATION continua com o /informe.
+export function isMetricsNavRole(role: UserRole | null | undefined): boolean {
+  return role === 'CLASSIFIER' || role === 'CADASTRO';
+}
+
+// allowedRoles do /informe: nao-prospector MENOS classificacao/cadastro.
+export const INFORME_ROLES: UserRole[] = ['ADMIN', 'COMMERCIAL', 'REGISTRATION'];

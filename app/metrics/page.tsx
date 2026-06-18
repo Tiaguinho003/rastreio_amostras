@@ -4,34 +4,20 @@ import Link from 'next/link';
 
 import { AppShell } from '../../components/AppShell';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
-import { InformeCommercialPage } from '../../components/informe/InformeCommercialPage';
 import { useRequireAuth } from '../../lib/use-auth';
-import { isAdmin, INFORME_ROLES } from '../../lib/roles';
+import { NON_PROSPECTOR_ROLES } from '../../lib/roles';
 
-// Pagina "Informe" — formularios POR PAPEL.
-// COMMERCIAL (e ADMIN): pagina propria espelhando a /samples, com FAB de
-// lapis abrindo os formularios "Visitas" e "Relatorio" e o feed dos
-// proprios envios (components/informe/InformeCommercialPage).
-// REGISTRATION: placeholder (formularios em construcao).
-// CLASSIFIER/CADASTRO: NAO acessam (veem Metricas na navbar; guard redireciona
-// pro /dashboard). PROSPECTOR tambem nao usa esta pagina (formulario no sheet
-// do dashboard).
-
-export default function InformePage() {
+// Pagina "Metricas" — placeholder EM CONSTRUCAO. Vive na barra de navegacao
+// dos papeis CLASSIFIER/CADASTRO (no lugar do Informe; ver isMetricsNavRole).
+// Acessivel a qualquer nao-prospector (ADMIN consegue previsualizar); o
+// conteudo real (cards de metrica) entra depois.
+export default function MetricsPage() {
   const { session, loading, logout, setSession } = useRequireAuth({
-    allowedRoles: INFORME_ROLES,
+    allowedRoles: NON_PROSPECTOR_ROLES,
   });
 
   if (loading || !session) {
     return null;
-  }
-
-  if (session.user.role === 'COMMERCIAL' || isAdmin(session.user.role)) {
-    return (
-      <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
-        <InformeCommercialPage session={session} onLogout={logout} />
-      </AppShell>
-    );
   }
 
   const userFullName = session.user.fullName ?? session.user.username;
@@ -55,7 +41,7 @@ export default function InformePage() {
               aria-hidden="true"
               style={{ visibility: 'hidden', pointerEvents: 'none' }}
             />
-            <span className="sdv-header-title">Informe</span>
+            <span className="sdv-header-title">Métricas</span>
             <HeaderAvatarMenu session={session} onLogout={logout} />
             <Link href="/profile" className="nsv2-avatar" aria-label="Ir para perfil">
               <span className="nsv2-avatar-initials">{userAvatarInitials}</span>
@@ -67,15 +53,14 @@ export default function InformePage() {
           <div className="informe-placeholder">
             <div className="rsm-empty">
               <span className="rsm-empty-icon" aria-hidden="true">
+                {/* Grao de cafe — mesma silhueta do icone da aba Lotes. */}
                 <svg viewBox="0 0 24 24" focusable="false">
-                  <rect x="5.5" y="4" width="13" height="17" rx="2.2" />
-                  <rect x="9" y="2.5" width="6" height="3.5" rx="1.2" />
-                  <path d="M9 12h6" />
-                  <path d="M9 15.5h4" />
+                  <ellipse cx="12" cy="12" rx="6.2" ry="8.7" transform="rotate(28 12 12)" />
+                  <path d="M15.9 4.9c-2.9 2.1-1.1 5-2.9 7.1-1.8 2.1-4.3 2.6-4.9 7" />
                 </svg>
               </span>
-              <p className="rsm-empty-title">Nenhum formulário disponível</p>
-              <p className="rsm-empty-sub">Os formulários do seu perfil vão aparecer aqui.</p>
+              <p className="rsm-empty-title">Em construção</p>
+              <p className="rsm-empty-sub">A página de métricas está sendo preparada.</p>
             </div>
           </div>
         </section>

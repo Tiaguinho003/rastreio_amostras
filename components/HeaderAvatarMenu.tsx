@@ -3,7 +3,13 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { getRoleLabel, isAdmin, isProspector, isVisitReportViewer } from '../lib/roles';
+import {
+  getRoleLabel,
+  isAdmin,
+  isMetricsNavRole,
+  isProspector,
+  isVisitReportViewer,
+} from '../lib/roles';
 import type { SessionData } from '../lib/types';
 import { BottomSheet } from './BottomSheet';
 import { UserAvatar } from './UserAvatar';
@@ -115,8 +121,9 @@ export function HeaderAvatarMenu({ session, onLogout }: HeaderAvatarMenuProps) {
               </button>
             ) : null}
 
-            {/* Teaser de metricas: fora do app restrito do prospector. */}
-            {!isProspector(session.user.role) ? (
+            {/* Teaser de metricas: fora do app restrito do prospector E fora dos
+                papeis que ja tem Metricas na NAVBAR (CLASSIFIER/CADASTRO). */}
+            {!isProspector(session.user.role) && !isMetricsNavRole(session.user.role) ? (
               <button
                 type="button"
                 className="header-avatar-menu-row is-disabled"

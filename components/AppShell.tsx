@@ -12,7 +12,13 @@ import { changeCurrentUserPassword, recordInitialPasswordDecision } from '../lib
 import { changePasswordSchema } from '../lib/form-schemas';
 import { useVisitOutboxAutoSync } from '../lib/offline/use-visit-outbox-sync';
 import { VISIT_SYNC_COMPLETED_EVENT, type VisitSyncResult } from '../lib/offline/visit-sync';
-import { getRoleLabel, isAdmin, isProspector, isVisitReportViewer } from '../lib/roles';
+import {
+  getRoleLabel,
+  isAdmin,
+  isMetricsNavRole,
+  isProspector,
+  isVisitReportViewer,
+} from '../lib/roles';
 import { useToast } from '../lib/toast/ToastProvider';
 import type { SessionData } from '../lib/types';
 import { mergeUserIntoSession } from '../lib/use-auth';
@@ -25,7 +31,15 @@ interface AppShellProps {
   children: React.ReactNode;
 }
 
-type NavIcon = 'dashboard' | 'camera' | 'samples' | 'users' | 'clients' | 'avatar' | 'informe';
+type NavIcon =
+  | 'dashboard'
+  | 'camera'
+  | 'samples'
+  | 'users'
+  | 'clients'
+  | 'avatar'
+  | 'informe'
+  | 'metrics';
 type MobileRouteMeta = {
   title: string;
   subtitle: string;
@@ -153,6 +167,15 @@ function renderNavIcon(icon: NavIcon, user?: SessionData['user']) {
         <path d="M9 8h6" />
         <path d="M9 11.5h6" />
         <path d="M9 15h4" />
+      </svg>
+    );
+  }
+
+  if (icon === 'metrics') {
+    // Barras de metrica (mesmo desenho do teaser do menu do avatar).
+    return (
+      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+        <path d="M4 20V10M10 20V4M16 20v-7M21 20H3" />
       </svg>
     );
   }
@@ -693,12 +716,16 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
 
       {!hideMobileTabbar ? (
         <MobileTabbar
-          items={MOBILE_NAV_ITEMS.map((item) => ({
-            href: item.href,
-            mobileLabel: item.mobileLabel,
-            icon: renderNavIcon(item.icon, session.user),
-            emphasis: item.emphasis,
-          }))}
+          items={MOBILE_NAV_ITEMS.map((item) => {
+            // Classificacao/Cadastro: Metricas no lugar do Informe na navbar.
+            const swapToMetrics = item.href === '/informe' && isMetricsNavRole(session.user.role);
+            return {
+              href: swapToMetrics ? '/metrics' : item.href,
+              mobileLabel: swapToMetrics ? 'Métricas' : item.mobileLabel,
+              icon: renderNavIcon(swapToMetrics ? ('metrics' as NavIcon) : item.icon, session.user),
+              emphasis: item.emphasis,
+            };
+          })}
           isActive={(href) => isMainNavItemActive(pathname, href)}
         />
       ) : null}
