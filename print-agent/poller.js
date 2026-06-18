@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import * as log from './logger.js';
 import { ensureAuthenticated, getAuthHeaders, clearSession, login } from './auth.js';
 import { sendToPrinter } from './printer.js';
-import { buildLabel, buildCustomLabel } from './label.js';
+import { buildLabel, buildCustomLabel, buildShippingLabel } from './label.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PRINTED_JOBS_FILE = join(__dirname, '.printed-jobs.json');
@@ -328,6 +328,118 @@ async function pollCustomCycle(config) {
   }
 }
 
+// ── Fila 3: Etiqueta de Envio (shipping-print). Espelha a fila avulsa: poll,
+// imprime via buildShippingLabel (payload do ShippingPrintJob) e reporta
+// DONE/FAILED. Reusa a dedup (printedJobIds) e o retry de impressao. ──
+
+async function fetchPendingShippingJobs(config) {
+  const url = `${config.backendUrl}/api/v1/shipping-print/pending`;
+  const res = await fetch(url, { headers: { ...getAuthHeaders() } });
+
+  if (res.status === 401) {
+    clearSession();
+    await login(config);
+    const retry = await fetch(url, { headers: { ...getAuthHeaders() } });
+    if (!retry.ok) throw new Error(`Falha ao buscar etiquetas de envio (HTTP ${retry.status})`);
+    return retry.json();
+  }
+
+  if (!res.ok) throw new Error(`Falha ao buscar etiquetas de envio (HTTP ${res.status})`);
+  return res.json();
+}
+
+async function reportShippingResult(config, jobId, status, errorMessage) {
+  const body = { jobId, status, printerId: config.printerId };
+  if (status === 'FAILED' && errorMessage) {
+    body.error = errorMessage;
+  }
+
+  const maxAttempts = status === 'DONE' ? 3 : 2;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await fetch(`${config.backendUrl}/api/v1/shipping-print/result`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) return;
+      const text = await res.text().catch(() => '');
+      throw new Error(`HTTP ${res.status} ${text}`);
+    } catch (err) {
+      if (attempt < maxAttempts) {
+        await sleep(2000 * attempt);
+      } else {
+        log.error(
+          `[envio ${jobId.slice(0, 8)}] Nao foi possivel reportar ${status} ao backend: ${err.message}`
+        );
+      }
+    }
+  }
+}
+
+async function processShippingJob(config, job) {
+  const shortId = job.jobId.slice(0, 8);
+
+  if (printedJobIds.has(job.jobId)) {
+    log.info(`[envio ${shortId}] Job ja impresso nesta sessao. Reportando done...`);
+    await reportShippingResult(config, job.jobId, 'DONE', null);
+    return;
+  }
+
+  let tspl;
+  try {
+    tspl = buildShippingLabel(job.payload);
+  } catch (err) {
+    log.error(`[envio ${shortId}] Payload invalido: ${err.message}`);
+    await reportShippingResult(config, job.jobId, 'FAILED', `Payload invalido: ${err.message}`);
+    return;
+  }
+
+  log.info(`[envio ${shortId}] Imprimindo etiqueta de envio...`);
+
+  const maxRetries = config.printRetryCount;
+  let lastError = null;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await sendToPrinter(config.printerName, null, tspl);
+      log.info(`[envio ${shortId}] Impressao enviada com sucesso`);
+      printedJobIds.add(job.jobId);
+      persistPrintedJobs();
+      await reportShippingResult(config, job.jobId, 'DONE', null);
+      return;
+    } catch (err) {
+      lastError = err;
+      if (attempt < maxRetries) {
+        const delayMs = config.printRetryDelayMs * Math.pow(2, attempt - 1);
+        log.warn(
+          `[envio ${shortId}] Tentativa ${attempt}/${maxRetries} falhou: ${err.message}. Retry em ${delayMs}ms...`
+        );
+        await sleep(delayMs);
+      }
+    }
+  }
+
+  log.error(
+    `[envio ${shortId}] Falha na impressao apos ${maxRetries} tentativa(s): ${lastError.message}`
+  );
+  await reportShippingResult(config, job.jobId, 'FAILED', lastError.message);
+}
+
+async function pollShippingCycle(config) {
+  try {
+    const data = await fetchPendingShippingJobs(config);
+    const jobs = data.items || [];
+    if (jobs.length === 0) return;
+
+    log.info(`${jobs.length} etiqueta(s) de envio pendente(s)`);
+    for (const job of jobs) {
+      await processShippingJob(config, job);
+    }
+  } catch (err) {
+    log.warn(`Fila de etiquetas de envio indisponivel (ignorado): ${err.message}`);
+  }
+}
+
 export async function pollCycle(config) {
   await ensureAuthenticated(config);
 
@@ -345,6 +457,9 @@ export async function pollCycle(config) {
 
   // Fila de etiquetas avulsas (independente da de amostras).
   await pollCustomCycle(config);
+
+  // Fila de etiquetas de envio (independente das demais).
+  await pollShippingCycle(config);
 }
 
 export async function startPolling(config) {

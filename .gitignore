@@ -55,6 +55,8 @@ print-agent/logo-preview.png
 # o principal + as variantes por quantidade de lotes (-2/-6/-14 etc.).
 print-agent/custom-label-preview*.png
 print-agent/custom-label-preview*.svg
+print-agent/shipping-label-preview*.png
+print-agent/shipping-label-preview*.svg
 
 # Estado local do print-agent (jobs ja impressos nesta sessao)
 print-agent/.printed-jobs.json

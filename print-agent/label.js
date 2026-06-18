@@ -559,3 +559,181 @@ export async function buildCustomLabel(payload) {
   parts.push(Buffer.from(`PRINT 1,${layout.copies}\r\n`, 'latin1'));
   return Buffer.concat(parts);
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Etiqueta de Envio (fase 5, 100x35mm = 800x280 dots). Layout: logo no topo-
+// esquerda; QR do laudo a DIREITA (grande, so quando ha qrUrl = amostra
+// CLASSIFIED); lote em destaque + data de envio / safra / sacas embaixo. SEM
+// destinatario (decisao de produto). Sem qrUrl, a coluna do QR fica vazia e os
+// dados usam a largura toda. Arquitetura espelha buildCustomLabel: o layout e
+// calculado em buildShippingLabelLayout (compartilhado com o preview) e
+// serializado em buildShippingLabel. O QR usa byte mode (B) porque a URL tem
+// minusculas (alphanumeric-QR nao cobre).
+
+// Formata 'YYYY-MM-DD' (date-only, sem fuso) como dd/mm/yyyy. NAO usa new Date()
+// (que deslocaria o dia pelo timezone em datas sem hora) — o sentDate do envio
+// chega como date-only.
+function formatYmd(ymd) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(ymd || ''));
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : '---';
+}
+
+const SHIP_W = 800;
+const SHIP_H = 280;
+const SHIP_M = 20;
+const SHIP_QR_CELL = 4; // dots por modulo (QR v4 ~33 mod -> 132 dots)
+
+export function buildShippingLabelLayout(payload) {
+  const lot = sanitize(payload?.internalLotNumber || '---', 14);
+  const sentDate = formatYmd(payload?.sentDate);
+  const harvest = sanitize(payload?.harvest || '---', 12);
+  const sacks =
+    payload?.sacks !== undefined && payload?.sacks !== null && payload.sacks !== ''
+      ? sanitize(String(payload.sacks), 6)
+      : '---';
+  const qrUrl =
+    typeof payload?.qrUrl === 'string' && payload.qrUrl.trim()
+      ? sanitize(payload.qrUrl.trim(), 300)
+      : null;
+
+  const texts = [];
+  const dividers = [];
+  let qr = null;
+
+  // Logo grande no topo-esquerda.
+  const logo = {
+    widthBytes: LOGO_WIDTH_BYTES,
+    height: LOGO_HEIGHT,
+    x: SHIP_M,
+    y: 16,
+    data: LOGO_DATA,
+  };
+
+  // Limite direito da area de dados (encolhe quando ha QR a direita).
+  let dataRight = SHIP_W - SHIP_M;
+
+  if (qrUrl) {
+    // Versao do QR pela quantidade de bytes (byte mode): v4 ate ~80, senao v5.
+    const modules = qrUrl.length <= 80 ? 33 : 37;
+    const size = modules * SHIP_QR_CELL;
+    const x = SHIP_W - SHIP_M - size;
+    const y = 26;
+    qr = { x, y, cell: SHIP_QR_CELL, modules, size, value: qrUrl };
+
+    // Rotulo "LAUDO" centralizado sob o QR.
+    const lbl = 'LAUDO';
+    const lblW = lbl.length * TSPL_FONT_W[3];
+    texts.push({
+      x: x + Math.max(0, Math.floor((size - lblW) / 2)),
+      y: y + size + 6,
+      font: '3',
+      xMul: 1,
+      yMul: 1,
+      bold: true,
+      text: lbl,
+    });
+
+    // Divisoria vertical entre os dados e o QR.
+    const divX = x - 16;
+    dividers.push({ x: divX, y: SHIP_M, width: BAR_W, height: SHIP_H - 2 * SHIP_M });
+    dataRight = divX - 14;
+  }
+
+  // ── Coluna esquerda: lote em destaque + envio/safra/sacas ──
+  const x0 = SHIP_M;
+  const dataW = dataRight - x0;
+
+  // Lote: rotulo pequeno (fonte 1) + valor grande (fonte 4, 2x).
+  texts.push({ x: x0, y: 120, font: '1', xMul: 1, yMul: 1, bold: false, text: 'LOTE' });
+  texts.push({
+    x: x0,
+    y: 142,
+    font: '4',
+    xMul: 2,
+    yMul: 2,
+    bold: false,
+    text: fitText(lot, '4', Math.floor(dataW / 2)),
+  });
+
+  // Envio / Safra / Sacas — rotulo (fonte 1) + valor (fonte 3, negrito), em 3
+  // colunas lado a lado na largura de dados.
+  const rowLabelY = 216;
+  const rowValueY = rowLabelY + TSPL_FONT_H[1] + 4;
+  const colGap = 16;
+  const colW = Math.floor((dataW - 2 * colGap) / 3);
+  const fields = [
+    { label: 'ENVIO', value: sentDate },
+    { label: 'SAFRA', value: harvest },
+    { label: 'SACAS', value: sacks },
+  ];
+  for (let i = 0; i < fields.length; i += 1) {
+    const fx = x0 + i * (colW + colGap);
+    texts.push({
+      x: fx,
+      y: rowLabelY,
+      font: '1',
+      xMul: 1,
+      yMul: 1,
+      bold: false,
+      text: fields[i].label,
+    });
+    texts.push({
+      x: fx,
+      y: rowValueY,
+      font: '3',
+      xMul: 1,
+      yMul: 1,
+      bold: true,
+      text: fitText(fields[i].value, '3', colW),
+    });
+  }
+
+  return {
+    width: SHIP_W,
+    height: SHIP_H,
+    copies: 1,
+    logo,
+    texts,
+    dividers,
+    qr,
+    safeArea: { left: SHIP_M, right: SHIP_W - SHIP_M, top: SHIP_M, bottom: SHIP_H - SHIP_M },
+  };
+}
+
+export function buildShippingLabel(payload) {
+  const layout = buildShippingLabelLayout(payload);
+  const parts = [];
+  const head = ['CLS', ''];
+
+  for (const d of layout.dividers || []) {
+    head.push(`BAR ${d.x},${d.y},${d.width},${d.height}`);
+  }
+  for (const t of layout.texts) {
+    head.push(`TEXT ${t.x},${t.y},"${t.font}",0,${t.xMul},${t.yMul},"${t.text}"`);
+    // Negrito por overstrike (mesma tecnica do buildCustomLabel).
+    if (t.bold) {
+      head.push(`TEXT ${t.x + 1},${t.y},"${t.font}",0,${t.xMul},${t.yMul},"${t.text}"`);
+    }
+  }
+  // QR do laudo — byte mode (B) p/ as minusculas da URL; ECC L.
+  if (layout.qr) {
+    head.push(
+      `QRCODE ${layout.qr.x},${layout.qr.y},L,${layout.qr.cell},B,0,M2,"${layout.qr.value}"`
+    );
+  }
+  parts.push(Buffer.from(head.join('\r\n') + '\r\n', 'latin1'));
+
+  if (layout.logo) {
+    parts.push(
+      Buffer.from(
+        `BITMAP ${layout.logo.x},${layout.logo.y},${layout.logo.widthBytes},${layout.logo.height},0,`,
+        'latin1'
+      )
+    );
+    parts.push(layout.logo.data);
+    parts.push(Buffer.from('\r\n', 'latin1'));
+  }
+
+  parts.push(Buffer.from(`PRINT 1,${layout.copies}\r\n`, 'latin1'));
+  return Buffer.concat(parts);
+}
