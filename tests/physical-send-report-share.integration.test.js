@@ -376,6 +376,95 @@ if (!databaseUrl || !databaseReachable) {
     );
     assert.equal(await prisma.shippingPrintJob.count({}), 0);
   });
+
+  // ── Rota pública /laudo/<token> (fase 4) ──
+  // Sem x-forwarded-for nos headers => o rate-limiter ignora (não conta), então
+  // as chamadas repetidas dos testes não disparam 429.
+
+  test('rota pública serve o PDF do laudo por token válido e registra o acesso', async () => {
+    const sampleId = await classifySample();
+    const buyer = await createSellerClient('Comprador Público LTDA');
+    const sent = await sendPhysical(sampleId, {
+      recipientClientId: buyer.client.id,
+      sentDate: '2026-06-18',
+    });
+    const token = sent.body.share.token;
+
+    const res = await api.servePublicReportShare({
+      headers: {},
+      params: { token },
+      query: {},
+      body: {},
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.contentType, 'application/pdf');
+    assert.ok(Buffer.isBuffer(res.body.buffer) && res.body.buffer.length > 0);
+
+    const share = await prisma.sampleReportShare.findUnique({ where: { token } });
+    assert.equal(res.body.fileName, share.fileName);
+    // O PDF servido é exatamente o congelado (checksum bate).
+    assert.equal(createHash('sha256').update(res.body.buffer).digest('hex'), share.checksumSha256);
+
+    // accessCount é incrementado best-effort (fire-and-forget) — aguarda propagar.
+    let updated = share;
+    for (let i = 0; i < 20 && updated.accessCount < 1; i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      updated = await prisma.sampleReportShare.findUnique({ where: { token } });
+    }
+    assert.equal(updated.accessCount, 1);
+    assert.ok(updated.lastAccessedAt);
+  });
+
+  test('rota pública: token inexistente ou malformado retorna 404', async () => {
+    const r1 = await api.servePublicReportShare({
+      headers: {},
+      params: { token: 'a'.repeat(64) },
+      query: {},
+      body: {},
+    });
+    assert.equal(r1.status, 404);
+
+    const r2 = await api.servePublicReportShare({
+      headers: {},
+      params: { token: 'nao-e-hex' },
+      query: {},
+      body: {},
+    });
+    assert.equal(r2.status, 404);
+  });
+
+  test('rota pública: laudo revogado retorna 410', async () => {
+    const sampleId = await classifySample();
+    const sent = await sendPhysical(sampleId, { recipientClientId: null, sentDate: '2026-06-18' });
+    const token = sent.body.share.token;
+    await prisma.sampleReportShare.update({ where: { token }, data: { revokedAt: new Date() } });
+
+    const res = await api.servePublicReportShare({
+      headers: {},
+      params: { token },
+      query: {},
+      body: {},
+    });
+    assert.equal(res.status, 410);
+  });
+
+  test('rota pública: laudo expirado retorna 410', async () => {
+    const sampleId = await classifySample();
+    const sent = await sendPhysical(sampleId, { recipientClientId: null, sentDate: '2026-06-18' });
+    const token = sent.body.share.token;
+    await prisma.sampleReportShare.update({
+      where: { token },
+      data: { expiresAt: new Date(Date.now() - 1000) },
+    });
+
+    const res = await api.servePublicReportShare({
+      headers: {},
+      params: { token },
+      query: {},
+      body: {},
+    });
+    assert.equal(res.status, 410);
+  });
 }
 
 async function canReachDatabase(databaseUrlValue) {

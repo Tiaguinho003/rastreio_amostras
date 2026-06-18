@@ -949,6 +949,14 @@ export class SamplePdfReportService {
       selectedFields: artifacts.exportedFields,
     };
   }
+
+  // Etiqueta de Envio (fase 4): le os bytes de um laudo ja congelado em
+  // UPLOADS_DIR (servido pela rota publica /laudo/[token]). sanitizeAttachmentPath
+  // garante que o storagePath nao escapa do baseDir.
+  async readPersistedReport(storagePath) {
+    const absolutePath = sanitizeAttachmentPath(this.uploadsBaseDir, storagePath);
+    return fs.readFile(absolutePath);
+  }
 }
 
 export { SAMPLE_EXPORT_FIELDS };

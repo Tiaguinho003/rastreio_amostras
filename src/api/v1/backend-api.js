@@ -13,6 +13,13 @@ const loginRateLimiter = createRateLimiter({
   maxRequests: Number(process.env.RATE_LIMIT_MAX_REQUESTS) || 10,
 });
 
+// Etiqueta de Envio (fase 4): rate-limit leve da rota publica do laudo (defesa
+// em profundidade — o token de 32 bytes ja torna brute-force inviavel).
+const publicReportRateLimiter = createRateLimiter({
+  windowMs: Number(process.env.PUBLIC_REPORT_RATE_LIMIT_WINDOW_MS) || 60_000,
+  maxRequests: Number(process.env.PUBLIC_REPORT_RATE_LIMIT_MAX_REQUESTS) || 60,
+});
+
 function readHeader(headers, key) {
   if (!headers || typeof headers !== 'object') {
     return undefined;
@@ -1276,6 +1283,56 @@ export function createBackendApiV1({
         });
 
         return { status: 200, body: { ok: true, updated: result.count } };
+      }),
+
+    // Etiqueta de Envio (fase 4): rota PUBLICA do laudo (sem login). Valida o
+    // token, checa revogacao (D8)/expiracao (D7), devolve os bytes do PDF
+    // congelado e registra o acesso (analytics, best-effort). Rate-limit leve
+    // por IP (P5). 404 = nao existe/arquivo sumido; 410 = revogado/expirado.
+    servePublicReportShare: (input) =>
+      executeApiForInput(input, async () => {
+        if (!reportService) {
+          throw new HttpError(501, 'Sample report service is not configured');
+        }
+        publicReportRateLimiter.check(readHeader(input?.headers ?? {}, 'x-forwarded-for') ?? null);
+
+        const token = typeof input?.params?.token === 'string' ? input.params.token : '';
+        if (!/^[0-9a-f]{64}$/.test(token)) {
+          throw new HttpError(404, 'Laudo nao encontrado', { code: 'REPORT_NOT_FOUND' });
+        }
+
+        const share = await queryService.prisma.sampleReportShare.findUnique({
+          where: { token },
+        });
+        if (!share) {
+          throw new HttpError(404, 'Laudo nao encontrado', { code: 'REPORT_NOT_FOUND' });
+        }
+        if (share.revokedAt) {
+          throw new HttpError(410, 'Laudo revogado', { code: 'REPORT_REVOKED' });
+        }
+        if (share.expiresAt.getTime() < Date.now()) {
+          throw new HttpError(410, 'Laudo expirado', { code: 'REPORT_EXPIRED' });
+        }
+
+        let buffer;
+        try {
+          buffer = await reportService.readPersistedReport(share.storagePath);
+        } catch {
+          throw new HttpError(404, 'Laudo nao encontrado', { code: 'REPORT_FILE_MISSING' });
+        }
+
+        // Analytics de leitura — best-effort, nao bloqueia a entrega do PDF.
+        queryService.prisma.sampleReportShare
+          .update({
+            where: { id: share.id },
+            data: { accessCount: { increment: 1 }, lastAccessedAt: new Date() },
+          })
+          .catch(() => {});
+
+        return {
+          status: 200,
+          body: { buffer, contentType: 'application/pdf', fileName: share.fileName },
+        };
       }),
 
     listClients: (input) =>

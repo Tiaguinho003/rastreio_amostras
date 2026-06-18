@@ -42,6 +42,8 @@ const PUBLIC_PATH_PREFIXES = [
   '/logo-',
   '/dashboard-coffee-cup',
   '/login-coffee-beans',
+  // Etiqueta de Envio: laudo publico via QR, sem login. Path: /laudo/<token>.
+  '/laudo',
 ];
 
 // Paginas do app restrito do PROSPECTOR (prefixos).
