@@ -244,7 +244,7 @@ export class VisitReportService {
     if (isPromising) {
       sends.push(
         this.pushService.sendToRoles(
-          ['ADMIN', 'COMMERCIAL'],
+          ['ADMIN', 'CADASTRO'],
           {
             title: 'Nova visita promissora enviada',
             body: `${visitorName} visitou um cliente promissor. Confira!`,
