@@ -175,3 +175,14 @@ O grosso foi resolvido na sessão 2. Sobram detalhes de layout/implementação:
 - Fechadas **D5** (impressão automática), **D6** (PDF direto), **D7** (expira em 30 dias), **D8** (cancelar revoga), **D9** (1 por destinatário), **D10** (página mínima de indisponível).
 - Defaults aceitos: revogação manual na timeline; reenvio = novo token; edição não regenera; rate-limit leve; nomes `SampleReportShare` / `/laudo/[token]` / `buildShippingLabel`.
 - Próximo passo: protótipo — começar pela **base** (migration `SampleReportShare` + variante de `exportSamplePdf` que persiste os bytes), depois rota pública e builder.
+
+### 2026-06-18 — Sessão 3 (passos 1-2 + fase 3)
+
+- **Passos 1-2 commitados**: tabela `SampleReportShare` (migration manual, por causa do drift preexistente) + `SamplePdfReportService.persistSampleReportPdf` (núcleo `_buildReportArtifacts` extraído; `exportSamplePdf` com comportamento inalterado).
+- **Fase 3 implementada** (orquestração do envio com laudo congelado):
+  - `recordPhysicalSampleSentWithReport` no command service: evento `PHYSICAL_SAMPLE_SENT` + `SampleReportShare` **atômicos** via `appendEventBatch` + `beforeCommit` (helper novo `PrismaEventStoreTx.createReportShare`). Token 32B, expiração 30d. **Não** registra `REPORT_EXPORTED` — resolve **P-impl-1** (a auditoria vive no share).
+  - Handler `recordPhysicalSampleSent` (`backend-api.js`) bifurca por status: `CLASSIFIED` gera o PDF (fora da tx) + share + enfileira etiqueta **com** QR; `REGISTRATION_CONFIRMED` só registra + etiqueta **sem** QR. Falha de geração do PDF = 409 atômico (nada gravado).
+  - **Fila incluída na fase 3** (decisão do usuário): tabela `ShippingPrintJob` (migration manual) + enqueue best-effort + endpoints `GET /shipping-print/pending` + `POST /shipping-print/result`. O print agent que consome + o builder TSPL `buildShippingLabel` ficam na **fase 5**.
+  - **Fase 7 dobrada**: modal de envio reusa `ReportHarvestSelectModal` quando a amostra é liga (>1 safra) + `CLASSIFIED`; `recordPhysicalSampleSent` (api-client) passou a enviar `reportedHarvest`.
+  - Teste `tests/physical-send-report-share.integration.test.js` (4 casos: CLASSIFIED com share+PDF+job, REGISTRATION_CONFIRMED sem share, multi-destinatário, foto sumida 409 atômico). Suite de integração completa verde (278) + todos os gates.
+- Restam: **fase 4** (rota pública `/laudo/[token]` + página mínima de indisponível), **fase 5** (builder TSPL + consumo no print agent), **fase 6** (revogação na timeline). Pendências menores: **P1** (layout da etiqueta), **P5** (rate-limit). ⚠️ `APP_BASE_URL` em produção precisa ser o domínio real (hoje `placeholder.invalid`) para o QR funcionar.
