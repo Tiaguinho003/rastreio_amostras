@@ -20272,6 +20272,11 @@ select.samples-filter-field-input {
     background: rgba(0, 0, 0, 0.025);
   }
 
+  /* Caminho A: envio cancelado — item esmaecido (segue clicavel). */
+  .recent-activity-mobile-item.is-cancelled .recent-activity-mobile-link {
+    opacity: 0.55;
+  }
+
   /* Circulo do icone colorido por ACAO: glifo na cor da acao
      (`EVENT_CONFIG[type].color`) sobre circulo no mesmo tom clarinho
      (`.bg`) — ambos vem inline do componente (ver RecentActivityListMobile).
@@ -26493,6 +26498,17 @@ select.samples-filter-field-input {
 
   .dd-activity-card:active {
     transform: translateX(1px) scale(0.998);
+  }
+
+  /* Caminho A: envio cancelado — card esmaecido (segue clicavel). A opacidade
+     no card inteiro apaga inclusive o pill ambar "Enviada", lendo como
+     inativo/cancelado. Hover leve pra continuar legivel ao passar o mouse. */
+  .dd-activity-card.is-cancelled {
+    opacity: 0.55;
+  }
+
+  .dd-activity-card.is-cancelled:hover {
+    opacity: 0.72;
   }
 
   .dd-activity-lot {

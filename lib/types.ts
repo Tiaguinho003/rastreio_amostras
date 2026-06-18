@@ -730,6 +730,9 @@ export interface DashboardRecentActivityItem {
   // Liga B3.1: true quando o sample e uma liga (isBlend). Frontend
   // renderiza <BlendBadge> ao lado do lote.
   isBlend: boolean;
+  // Caminho A: true so pra envios (PHYSICAL_SAMPLE_SENT) cujo envio foi
+  // cancelado — o frontend renderiza o card esmaecido (.is-cancelled).
+  cancelled: boolean;
   activity: {
     type: DashboardRecentActivityType;
     at: string;

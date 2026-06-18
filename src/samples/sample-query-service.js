@@ -195,6 +195,9 @@ function mapRecentActivityRow(row) {
     // Liga B3.1: flag pra renderizar <BlendBadge> ao lado do lote no
     // dashboard recent activity.
     isBlend: Boolean(row.isBlend),
+    // Caminho A: true so pra PHYSICAL_SAMPLE_SENT cujo envio foi cancelado
+    // (SEND_CANCELLED) — frontend esmaece o card. Demais tipos sempre false.
+    cancelled: Boolean(row.cancelled),
     activity: {
       type: eventType,
       at:
@@ -2139,7 +2142,22 @@ export class SampleQueryService {
         s.internal_lot_number AS "internalLotNumber",
         s.declared_owner AS "declaredOwner",
         s.declared_sacks AS "declaredSacks",
-        s.is_blend AS "isBlend"
+        s.is_blend AS "isBlend",
+        -- Caminho A do envio cancelado: marca o card PHYSICAL_SAMPLE_SENT como
+        -- cancelado (o frontend esmaece) quando existe um SEND_CANCELLED
+        -- apontando pra ESTE envio via payload.sendEventId = se.event_id. Mesmo
+        -- pareamento (forma negada) de resolveSampleIdsSentToClients. Cada
+        -- reenvio e independente; demais tipos de evento = false.
+        (
+          se.event_type = 'PHYSICAL_SAMPLE_SENT'
+          AND EXISTS (
+            SELECT 1
+            FROM "sample_event" canc
+            WHERE canc.sample_id = se.sample_id
+              AND canc.event_type = 'PHYSICAL_SAMPLE_SEND_CANCELLED'
+              AND canc.payload->>'sendEventId' = se.event_id::text
+          )
+        ) AS "cancelled"
       FROM "sample_event" se
       JOIN "sample" s ON s.id = se.sample_id
       WHERE se.event_type IN (

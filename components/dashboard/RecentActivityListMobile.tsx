@@ -118,7 +118,10 @@ export function RecentActivityListMobile({ items }: RecentActivityListMobileProp
             const cfg = getEventConfig(item.activity.type);
             const lotLabel = formatLot(item.internalLotNumber, item.sampleId);
             return (
-              <li key={item.id} className="recent-activity-mobile-item">
+              <li
+                key={item.id}
+                className={`recent-activity-mobile-item${item.cancelled ? ' is-cancelled' : ''}`}
+              >
                 <Link
                   href={`/samples/${item.sampleId}?focus=${getActivityFocus(item.activity.type)}`}
                   className="recent-activity-mobile-link"

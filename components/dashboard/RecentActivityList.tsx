@@ -89,7 +89,7 @@ export function RecentActivityList({ items }: RecentActivityListProps) {
             <Link
               key={item.id}
               href={`/samples/${item.sampleId}?focus=${getActivityFocus(item.activity.type)}`}
-              className="dd-activity-card"
+              className={`dd-activity-card${item.cancelled ? ' is-cancelled' : ''}`}
             >
               <span className="dd-activity-lot">
                 {formatLot(item.internalLotNumber, item.sampleId)}
