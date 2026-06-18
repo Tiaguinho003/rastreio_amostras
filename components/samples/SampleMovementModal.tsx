@@ -336,7 +336,7 @@ export function SampleMovementModal({
     <div className="app-modal-backdrop">
       <section
         ref={focusTrapRef}
-        className={`app-modal is-themed sample-detail-movement-modal${
+        className={`app-modal is-themed is-action sample-detail-movement-modal${
           stampType ? ' is-stamping' : ''
         }`}
         role="dialog"
@@ -619,7 +619,7 @@ export function SampleMovementModal({
                 }}
               >
                 <section
-                  className="app-modal is-themed is-stacked sample-detail-movement-owner-modal"
+                  className="app-modal is-themed is-action is-stacked sample-detail-movement-owner-modal"
                   role="dialog"
                   aria-modal="true"
                   aria-labelledby="assign-owner-modal-title"

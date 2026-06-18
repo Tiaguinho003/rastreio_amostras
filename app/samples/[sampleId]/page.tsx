@@ -4245,16 +4245,21 @@ export default function SampleDetailPage() {
       {cancelConfirmSendEventId ? (
         <div className="app-modal-backdrop">
           <section
-            className="app-modal cdm-modal cdm-lookup-modal"
+            className="app-modal is-themed is-action sample-detail-compact-modal"
             role="dialog"
             aria-modal="true"
+            aria-labelledby="cancel-send-modal-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="cdm-header">
-              <h3 className="cdm-header-name">Cancelar envio</h3>
+            <header className="app-modal-header">
+              <div className="app-modal-title-wrap">
+                <h3 id="cancel-send-modal-title" className="app-modal-title">
+                  Cancelar envio
+                </h3>
+              </div>
               <button
                 type="button"
-                className="app-modal-close cdm-close"
+                className="app-modal-close"
                 onClick={() => {
                   setCancelConfirmSendEventId(null);
                   setCancelSendError(null);
@@ -4262,13 +4267,10 @@ export default function SampleDetailPage() {
                 disabled={cancellingSend}
                 aria-label="Fechar"
               >
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <path d="M18 6 6 18" />
-                  <path d="m6 6 12 12" />
-                </svg>
+                <span aria-hidden="true">&times;</span>
               </button>
-            </div>
-            <div className="sdv-edit-fields">
+            </header>
+            <div className="app-modal-content">
               <p className="sdv-confirm-text">
                 Tem certeza que deseja cancelar este envio? Essa acao nao pode ser desfeita.
               </p>
@@ -4277,27 +4279,27 @@ export default function SampleDetailPage() {
                   {cancelSendError}
                 </div>
               ) : null}
-            </div>
-            <div className="sdv-edit-actions sdv-edit-actions-split">
-              <button
-                type="button"
-                className="cdm-manage-link is-secondary"
-                onClick={() => {
-                  setCancelConfirmSendEventId(null);
-                  setCancelSendError(null);
-                }}
-                disabled={cancellingSend}
-              >
-                Voltar
-              </button>
-              <button
-                type="button"
-                className="cdm-manage-link is-danger"
-                onClick={handleConfirmCancelSend}
-                disabled={cancellingSend}
-              >
-                {cancellingSend ? 'Cancelando...' : 'Confirmar cancelamento'}
-              </button>
+              <div className="app-modal-actions">
+                <button
+                  type="button"
+                  className="app-modal-secondary"
+                  onClick={() => {
+                    setCancelConfirmSendEventId(null);
+                    setCancelSendError(null);
+                  }}
+                  disabled={cancellingSend}
+                >
+                  Voltar
+                </button>
+                <button
+                  type="button"
+                  className="app-modal-submit is-danger"
+                  onClick={handleConfirmCancelSend}
+                  disabled={cancellingSend}
+                >
+                  {cancellingSend ? 'Cancelando...' : 'Confirmar cancelamento'}
+                </button>
+              </div>
             </div>
           </section>
         </div>

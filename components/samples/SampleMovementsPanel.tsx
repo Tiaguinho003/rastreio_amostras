@@ -551,7 +551,7 @@ export function SampleMovementsPanel({
             <div className="app-modal-backdrop">
               <section
                 ref={cancelTrapRef}
-                className="app-modal is-themed sample-detail-compact-modal"
+                className="app-modal is-themed is-action sample-detail-compact-modal"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="cancel-mov-title"
