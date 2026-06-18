@@ -8,7 +8,7 @@
 // servidos do cache antigo eternamente. Foi a causa do bug "barra bege
 // nao some" persistir por 13 tentativas de fix — todos os fixes estavam
 // em prod mas os clients viam HTML/JS cacheado do SW antigo.
-const CACHE_NAME = 'rastreio-shell-v12-2026-06-11-weekly-reminder';
+const CACHE_NAME = 'rastreio-shell-v13-2026-06-18-stale-shell-fix';
 const STATIC_PATHS = ['/', '/login', '/offline', '/informe', '/manifest.webmanifest', '/logo-laudo.png', '/logo-safras-branco.png'];
 // Documentos cujo HTML e varrido no install pra precachear tambem os chunks
 // JS/CSS que eles referenciam. Sem isso o precache do documento e inutil
