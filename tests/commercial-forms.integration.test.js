@@ -530,6 +530,100 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(all.page.total, 1);
     assert.equal(all.items[0].type, 'VISIT_REPORT');
   });
+
+  // Curadoria do vinculo da VISITA COMERCIAL (linkCommercialVisitClient) — so
+  // clientKind=NEW; EXISTING (born-linked pelo lookup) e barrado.
+  test('linkCommercialVisitClient NEW: vincula e carimba linkedBy/linkedAt', async () => {
+    await resetDatabase();
+    const commercial = await seedUser('COMMERCIAL');
+    const cadastro = await seedUser('CADASTRO');
+    const client = await seedClient();
+    const created = await service.createCommercialVisit(baseVisitInput(), actorFor(commercial));
+
+    const result = await service.linkCommercialVisitClient(
+      { visitId: created.visit.id, clientId: client.id },
+      actorFor(cadastro)
+    );
+
+    assert.equal(result.visit.client.id, client.id);
+    assert.equal(result.visit.linkedBy.id, cadastro.id);
+    assert.ok(result.visit.linkedAt);
+
+    const row = await prisma.commercialVisit.findUnique({ where: { id: created.visit.id } });
+    assert.equal(row.clientId, client.id);
+    assert.equal(row.linkedByUserId, cadastro.id);
+    assert.ok(row.linkedAt);
+  });
+
+  test('linkCommercialVisitClient NEW: desvincular (clientId null) zera o trio', async () => {
+    await resetDatabase();
+    const commercial = await seedUser('COMMERCIAL');
+    const cadastro = await seedUser('CADASTRO');
+    const client = await seedClient();
+    const created = await service.createCommercialVisit(baseVisitInput(), actorFor(commercial));
+    await service.linkCommercialVisitClient(
+      { visitId: created.visit.id, clientId: client.id },
+      actorFor(cadastro)
+    );
+
+    const result = await service.linkCommercialVisitClient(
+      { visitId: created.visit.id, clientId: null },
+      actorFor(cadastro)
+    );
+
+    assert.equal(result.visit.client, null);
+    assert.equal(result.visit.linkedBy, null);
+    assert.equal(result.visit.linkedAt, null);
+  });
+
+  test('linkCommercialVisitClient EXISTING: 422 (so cliente novo e curavel)', async () => {
+    await resetDatabase();
+    const commercial = await seedUser('COMMERCIAL');
+    const cadastro = await seedUser('CADASTRO');
+    const client = await seedClient();
+    const other = await seedClient({ fullName: 'Outro' });
+    const created = await service.createCommercialVisit(
+      baseVisitInput({ clientKind: 'EXISTING', clientId: client.id }),
+      actorFor(commercial)
+    );
+
+    await assert.rejects(
+      service.linkCommercialVisitClient(
+        { visitId: created.visit.id, clientId: other.id },
+        actorFor(cadastro)
+      ),
+      (error) => error.status === 422 && error.details?.code === 'COMMERCIAL_VISIT_NOT_CURATABLE'
+    );
+  });
+
+  test('linkCommercialVisitClient: papel nao-curador (COMMERCIAL) rejeitado', async () => {
+    await resetDatabase();
+    const commercial = await seedUser('COMMERCIAL');
+    const client = await seedClient();
+    const created = await service.createCommercialVisit(baseVisitInput(), actorFor(commercial));
+
+    await assert.rejects(
+      service.linkCommercialVisitClient(
+        { visitId: created.visit.id, clientId: client.id },
+        actorFor(commercial)
+      ),
+      (error) => error.status === 403
+    );
+  });
+
+  test('linkCommercialVisitClient: visita inexistente -> 404', async () => {
+    await resetDatabase();
+    const cadastro = await seedUser('CADASTRO');
+    const client = await seedClient();
+
+    await assert.rejects(
+      service.linkCommercialVisitClient(
+        { visitId: randomUUID(), clientId: client.id },
+        actorFor(cadastro)
+      ),
+      (error) => error.status === 404
+    );
+  });
 }
 
 async function canReachDatabase(url) {

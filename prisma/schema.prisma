@@ -496,7 +496,8 @@ model User {
   commercialClientLinks    ClientCommercialUser[]
   visitReports             VisitReport[]          @relation("VisitReportAuthor")
   visitReportsLinked       VisitReport[]          @relation("VisitReportLinkedBy")
-  commercialVisits         CommercialVisit[]
+  commercialVisits         CommercialVisit[]      @relation("CommercialVisitAuthor")
+  commercialVisitsLinked   CommercialVisit[]      @relation("CommercialVisitLinkedBy")
   weeklyReports            WeeklyReport[]
   weeklyReportReminders    WeeklyReportReminder[]
   pushSubscriptions        PushSubscription[]
@@ -846,6 +847,11 @@ model CommercialVisit {
   newClientNameNormalized String?       @map("new_client_name_normalized") @db.Text
   newClientCity  String?                @map("new_client_city")
   newClientPhone String?                @map("new_client_phone")
+  // Trio de vinculo CURADO (so quando clientKind=NEW; ver linkCommercialVisitClient).
+  // Espelha visit_report: linked_by_user_id (quem curou) + linked_at (quando).
+  // EXISTING e born-linked (clientId na criacao) e NAO e curavel.
+  linkedByUserId String?                @map("linked_by_user_id") @db.Uuid
+  linkedAt       DateTime?              @map("linked_at") @db.Timestamptz(6)
   reason         CommercialVisitReason
   reasonNotes    String?                @map("reason_notes")
   outcome        CommercialVisitOutcome
@@ -853,12 +859,14 @@ model CommercialVisit {
   generalNotes   String?                @map("general_notes")
   createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  user   User    @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  client Client? @relation(fields: [clientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  user     User    @relation("CommercialVisitAuthor", fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  linkedBy User?   @relation("CommercialVisitLinkedBy", fields: [linkedByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([createdAt, id], map: "idx_commercial_visit_created_id")
   @@index([userId, createdAt], map: "idx_commercial_visit_user_created")
   @@index([clientId], map: "idx_commercial_visit_client")
+  @@index([linkedByUserId], map: "idx_commercial_visit_linked_by")
   @@map("commercial_visit")
 }
 

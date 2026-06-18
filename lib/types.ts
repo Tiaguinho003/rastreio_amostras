@@ -1017,6 +1017,14 @@ export interface CommercialVisitSummary {
     city: string | null;
     phone: string | null;
   } | null;
+  /** Vínculo curado (ADM/Cadastro no /resumo) — só clientKind=NEW.
+      Null = aguardando vínculo (EXISTING born-linked não é curado aqui). */
+  linkedBy: {
+    id: string;
+    fullName: string;
+    username: string;
+  } | null;
+  linkedAt: string | null;
   reason: CommercialVisitReason;
   reasonNotes: string | null;
   outcome: CommercialVisitOutcome;

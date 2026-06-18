@@ -1780,6 +1780,20 @@ export function linkVisitReportClient(
   });
 }
 
+// Curadoria do vínculo da VISITA COMERCIAL (/resumo, ADMIN/CADASTRO). Só
+// clientKind=NEW; clientId null desvincula. Espelha linkVisitReportClient.
+export function linkCommercialVisitClient(
+  session: SessionData,
+  visitId: string,
+  clientId: string | null
+) {
+  return request<CommercialVisitMutationResponse>(`/commercial-visits/${visitId}/client`, {
+    method: 'PATCH',
+    session,
+    body: { clientId },
+  });
+}
+
 export function listVisitReports(
   session: SessionData,
   query: { page?: number; limit?: number; search?: string } = {}

@@ -2571,6 +2571,31 @@ export function createBackendApiV1({
         return { status: 200, body: result };
       }),
 
+    linkCommercialVisitClient: (input) =>
+      executeApiForInput(input, async () => {
+        if (!commercialFormsService) {
+          throw new HttpError(501, 'Commercial forms service is not configured');
+        }
+
+        // Curadoria do /resumo (ADMIN/CADASTRO): seta/troca/remove o cliente
+        // vinculado de uma VISITA COMERCIAL — so quando clientKind=NEW (a regra
+        // de papel + o gate NEW ficam no service). Body {clientId: string |
+        // null} — null desvincula.
+        const actor = await resolveActorContext(input, authService);
+        const visitId = input?.params?.visitId;
+        if (typeof visitId !== 'string' || visitId.length === 0) {
+          throw new HttpError(422, 'visitId path param is required');
+        }
+
+        const body = readRequestBody(input);
+        const result = await commercialFormsService.linkCommercialVisitClient(
+          { visitId, clientId: body.clientId },
+          actor
+        );
+
+        return { status: 200, body: result };
+      }),
+
     createWeeklyReport: (input) =>
       executeApiForInput(input, async () => {
         if (!commercialFormsService) {

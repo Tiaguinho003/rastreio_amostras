@@ -16,12 +16,18 @@ import {
   deleteCommercialVisit,
   deleteVisitReport,
   deleteWeeklyReport,
+  linkCommercialVisitClient,
   linkVisitReportClient,
   listInformeFeed,
 } from '../../lib/api-client';
 import { isVisitLinkCurator } from '../../lib/roles';
 import { useToast } from '../../lib/toast/ToastProvider';
-import type { ClientSummary, InformeFeedItem, VisitReportSummary } from '../../lib/types';
+import type {
+  ClientSummary,
+  CommercialVisitSummary,
+  InformeFeedItem,
+  VisitReportSummary,
+} from '../../lib/types';
 import { useRequireAuth } from '../../lib/use-auth';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 
@@ -67,6 +73,11 @@ function deleteLabels(item: InformeFeedItem) {
   return { title: 'Excluir informe?', success: 'Informe excluído' };
 }
 
+// Itens curáveis no /resumo (têm cliente vinculável): informe de prospecção e
+// visita comercial. Ambos carregam id/clientKind/client/newClient/linkedBy/
+// linkedAt. O `type` discrimina pra qual endpoint o vínculo despacha.
+type LinkableVisit = (VisitReportSummary & { type: 'VISIT_REPORT' }) | CommercialVisitSummary;
+
 export default function ResumoPage() {
   const { session, loading, logout, setSession } = useRequireAuth({
     allowedRoles: ['ADMIN', 'CADASTRO'],
@@ -91,7 +102,7 @@ export default function ResumoPage() {
   // Curadoria do vinculo (ADM/Cadastro): informe alvo + modo do fluxo
   // ('lookup' = modal de busca; 'create' = ClientQuickCreateModal).
   const [linkTarget, setLinkTarget] = useState<{
-    report: VisitReportSummary;
+    report: LinkableVisit;
     mode: 'lookup' | 'create';
   } | null>(null);
   const [linkClient, setLinkClient] = useState<ClientSummary | null>(null);
@@ -99,7 +110,7 @@ export default function ResumoPage() {
   // vazio "Cadastrar e vincular") ou o nome anotado pelo prospector.
   const [linkCreateName, setLinkCreateName] = useState('');
   const [linking, setLinking] = useState(false);
-  const [unlinkTarget, setUnlinkTarget] = useState<VisitReportSummary | null>(null);
+  const [unlinkTarget, setUnlinkTarget] = useState<LinkableVisit | null>(null);
 
   const linkModalFocusTrapRef = useFocusTrap(linkTarget?.mode === 'lookup');
 
@@ -176,18 +187,6 @@ export default function ResumoPage() {
     });
   }, []);
 
-  // Substitui o informe na lista pelo retorno do PATCH de vinculo (mesma
-  // view do feed; so recarimba o discriminante type).
-  const upsertReport = useCallback((updated: VisitReportSummary) => {
-    setItems((current) =>
-      current.map((item) =>
-        item.type === 'VISIT_REPORT' && item.id === updated.id
-          ? { ...updated, type: 'VISIT_REPORT' as const }
-          : item
-      )
-    );
-  }, []);
-
   const closeLinkFlow = useCallback(() => {
     setLinkTarget(null);
     setLinkClient(null);
@@ -195,7 +194,7 @@ export default function ResumoPage() {
     setUnlinkTarget(null);
   }, []);
 
-  const handleLinkAction = useCallback((report: VisitReportSummary, action: VisitLinkAction) => {
+  const handleLinkAction = useCallback((report: LinkableVisit, action: VisitLinkAction) => {
     if (action === 'unlink') {
       setUnlinkTarget(report);
       return;
@@ -209,29 +208,42 @@ export default function ResumoPage() {
   }, []);
 
   // Vincula (clientId) ou desvincula (null) e reflete a resposta na lista.
+  // Despacha por tipo: visita comercial -> linkCommercialVisitClient; informe
+  // de prospeccao -> linkVisitReportClient. So clientKind=NEW chega aqui no caso
+  // comercial (o card oferece a acao so pra NEW; o backend tambem barra EXISTING).
   const performLink = useCallback(
-    async (report: VisitReportSummary, clientId: string | null) => {
+    async (target: LinkableVisit, clientId: string | null) => {
       if (!session || linking) {
         return;
       }
 
       setLinking(true);
       try {
-        const response = await linkVisitReportClient(session, report.id, clientId);
-        upsertReport(response.report);
+        const updated =
+          target.type === 'COMMERCIAL_VISIT'
+            ? (await linkCommercialVisitClient(session, target.id, clientId)).visit
+            : (await linkVisitReportClient(session, target.id, clientId)).report;
+        // Recarimba o discriminante e substitui na lista (mesma view do feed).
+        setItems((current) =>
+          current.map((item) =>
+            item.id === updated.id ? ({ ...updated, type: target.type } as InformeFeedItem) : item
+          )
+        );
         closeLinkFlow();
         toast.success({
           title: clientId ? 'Cliente vinculado' : 'Vínculo removido',
           description: clientId
-            ? `Informe vinculado a ${response.report.client?.displayName ?? 'cliente'}.`
-            : 'O informe voltou para aguardando vínculo.',
+            ? `${target.type === 'COMMERCIAL_VISIT' ? 'Visita' : 'Informe'} vinculada a ${
+                updated.client?.displayName ?? 'cliente'
+              }.`
+            : 'Voltou para aguardando vínculo.',
         });
       } catch (cause) {
         if (cause instanceof ApiError && cause.status === 404) {
-          // Informe sumiu no servidor (excluido em outra sessao).
-          removeFromList(report.id);
+          // Item sumiu no servidor (excluido em outra sessao).
+          removeFromList(target.id);
           closeLinkFlow();
-          toast.info({ title: 'Este informe já havia sido excluído' });
+          toast.info({ title: 'Este item já havia sido excluído' });
         } else {
           toast.error({
             title: clientId ? 'Não foi possível vincular' : 'Não foi possível remover o vínculo',
@@ -242,7 +254,7 @@ export default function ResumoPage() {
         setLinking(false);
       }
     },
-    [session, linking, upsertReport, closeLinkFlow, removeFromList, toast]
+    [session, linking, closeLinkFlow, removeFromList, toast]
   );
 
   // ESC fecha o modal de vinculo (useFocusTrap so captura Tab).
@@ -392,6 +404,9 @@ export default function ResumoPage() {
                         expanded={expandedIds.has(item.id)}
                         onToggle={() => toggleExpanded(item.id)}
                         canDelete={item.user?.id === session.user.id}
+                        showLinkStatus
+                        canLinkClient={canLinkClient}
+                        onLinkAction={handleLinkAction}
                         onRequestDelete={setDeleteTarget}
                       />
                     );
@@ -418,7 +433,9 @@ export default function ResumoPage() {
                       canDelete={item.user?.id === session.user.id}
                       showLinkStatus
                       canLinkClient={canLinkClient}
-                      onLinkAction={handleLinkAction}
+                      onLinkAction={(report, action) =>
+                        handleLinkAction({ ...report, type: 'VISIT_REPORT' }, action)
+                      }
                       onRequestDelete={() => setDeleteTarget(item)}
                     />
                   );

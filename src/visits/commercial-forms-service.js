@@ -11,7 +11,11 @@ import {
   readPageQuery,
   toIsoString,
 } from '../users/user-support.js';
-import { VISIT_CLIENT_KINDS, VISIT_REPORT_VIEWER_ROLES } from './visit-report-service.js';
+import {
+  VISIT_CLIENT_KINDS,
+  VISIT_REPORT_LINK_CURATOR_ROLES,
+  VISIT_REPORT_VIEWER_ROLES,
+} from './visit-report-service.js';
 import { toVisitReportView } from './visit-report-service.js';
 
 // Formularios do COMERCIAL (pagina /informe do papel COMMERCIAL — plano
@@ -166,6 +170,16 @@ function toCommercialVisitView(row) {
     outcome: row.outcome,
     outcomeNotes: row.outcomeNotes,
     generalNotes: row.generalNotes,
+    // Curadoria do vinculo (espelha visit_report) — so povoado quando o ADM/
+    // Cadastro vincula uma visita de cliente NOVO no /resumo.
+    linkedBy: row.linkedBy
+      ? {
+          id: row.linkedBy.id,
+          fullName: row.linkedBy.fullName,
+          username: row.linkedBy.username,
+        }
+      : null,
+    linkedAt: toIsoString(row.linkedAt ?? null),
     createdAt: toIsoString(row.createdAt),
   };
 }
@@ -373,6 +387,87 @@ export class CommercialFormsService {
     return { removed: true };
   }
 
+  // Curadoria do vinculo da VISITA COMERCIAL (pagina /resumo): ADM/CADASTRO
+  // setam/trocam/removem o cliente vinculado — MAS so quando clientKind=NEW
+  // (cliente novo, sem vinculo). EXISTING e born-linked pelo lookup do form e
+  // NAO e curavel. Espelha linkVisitReportClient; clientId null desvincula
+  // (volta o trio a NULL); clientId === undefined responde 422.
+  async linkCommercialVisitClient(input, actorContext) {
+    const actor = assertAuthenticatedActor(actorContext, 'link commercial visit client');
+    assertRoleAllowed(actor.role, VISIT_REPORT_LINK_CURATOR_ROLES, 'link commercial visit client');
+
+    const visitId = normalizeRequiredText(input?.visitId, 'visitId', 100);
+
+    let clientId = null;
+    if (input?.clientId !== null) {
+      if (input?.clientId === undefined) {
+        throw new HttpError(422, 'clientId must be a client id string, or null to unlink', {
+          code: 'VALIDATION_ERROR',
+          field: 'clientId',
+        });
+      }
+
+      clientId = normalizeRequiredText(input.clientId, 'clientId', 100);
+      await this._assertActiveClient(clientId);
+    }
+
+    // So clientKind=NEW e curavel — EXISTING (born-linked pelo lookup do form)
+    // nao se mexe (decisao do usuario).
+    const existing = await this.prisma.commercialVisit.findUnique({
+      where: { id: visitId },
+      select: { clientKind: true },
+    });
+    if (!existing) {
+      throw new HttpError(404, 'Commercial visit not found', {
+        code: 'COMMERCIAL_VISIT_NOT_FOUND',
+      });
+    }
+    if (existing.clientKind !== 'NEW') {
+      throw new HttpError(422, 'Only NEW-client commercial visits can be curated', {
+        code: 'COMMERCIAL_VISIT_NOT_CURATABLE',
+        field: 'clientKind',
+      });
+    }
+
+    const updated = await this.prisma.commercialVisit.update({
+      where: { id: visitId },
+      data:
+        clientId === null
+          ? { clientId: null, linkedByUserId: null, linkedAt: null }
+          : { clientId, linkedByUserId: actor.actorUserId, linkedAt: new Date() },
+      include: {
+        user: { select: FORM_USER_SELECT },
+        client: { select: FORM_CLIENT_SELECT },
+        linkedBy: { select: FORM_USER_SELECT },
+      },
+    });
+
+    return { visit: toCommercialVisitView(updated) };
+  }
+
+  async _assertActiveClient(clientId) {
+    const client = await this.prisma.client.findUnique({
+      where: { id: clientId },
+      select: FORM_CLIENT_SELECT,
+    });
+
+    if (!client) {
+      throw new HttpError(422, 'clientId does not reference an existing client', {
+        code: 'VISIT_CLIENT_NOT_FOUND',
+        field: 'clientId',
+      });
+    }
+
+    if (client.status !== 'ACTIVE') {
+      throw new HttpError(422, 'clientId must reference an active client', {
+        code: 'VISIT_CLIENT_INACTIVE',
+        field: 'clientId',
+      });
+    }
+
+    return client;
+  }
+
   // Feed combinado paginado, mais recentes primeiro:
   //   scope=mine — visitas + relatorios DO PROPRIO ator (pagina /informe
   //                do comercial). Papeis: COMMERCIAL e ADMIN.
@@ -464,6 +559,8 @@ export class CommercialFormsService {
             include: {
               user: { select: FORM_USER_SELECT },
               client: { select: FORM_CLIENT_SELECT },
+              // Curadoria do vinculo (badge/acoes do /resumo) — so clientKind=NEW.
+              linkedBy: { select: FORM_USER_SELECT },
             },
           })
         : [],
