@@ -1267,6 +1267,27 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
    Header claro, titulo verde a esquerda, X quadrado claro, backdrop escuro
    sem blur. Continuam centrais (decisao do usuario). ────────────────────── */
 
+/* Modificador COMPARTILHADO `.is-action`: aplica o visual de acao (header
+   claro + titulo verde a esquerda + X quadrado claro) em qualquer modal
+   central `.is-themed` que seja um FORM que o usuario opera. Additivo e
+   opt-in — NAO toca no chrome verde compartilhado pelos modais de
+   AVISO/confirm. Especificidade 0,4,0 vence o `.is-themed` base (0,3,0).
+   O backdrop escuro sem blur vem da lista `:has()` abaixo. */
+.app-modal.is-themed.is-action .app-modal-header {
+  background: #ffffff;
+  color: var(--color-ink);
+}
+.app-modal.is-themed.is-action .app-modal-title {
+  color: var(--brand-green);
+}
+.app-modal.is-themed.is-action .app-modal-close {
+  background: #eef1ee;
+  color: #4a5751;
+}
+.app-modal.is-themed.is-action .app-modal-close span {
+  color: #4a5751;
+}
+
 /* Amostra localizada (busca por lote; mesmo componente da camera). */
 .app-modal.is-themed.app-modal-lookup-result .app-modal-header {
   background: #ffffff;
@@ -1291,7 +1312,8 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
 /* Backdrop escuro sem blur pros 2 centrais. Anima so a opacidade (sem
    reanimar o blur da @keyframes app-modal-backdrop-in). */
 .app-modal-backdrop:has(.app-modal-lookup-result),
-.app-modal-backdrop:has(.app-modal-password-decision) {
+.app-modal-backdrop:has(.app-modal-password-decision),
+.app-modal-backdrop:has(.is-action) {
   background: rgba(0, 0, 0, 0.55);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
@@ -8774,6 +8796,12 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
 .sdv-content.informe-content.rsm-content {
   overflow: hidden;
   padding-bottom: 0;
+  /* /resumo em BRANCO puro como /informe/samples/clients. Recuo lateral
+     redistribuido (pouco no sheet, mais no .rsm-feed) pra a sombra reforcada
+     dos cards nao ser decepada pelo overflow-x: hidden do feed. */
+  background: #ffffff;
+  padding-left: clamp(3px, 1vw, 5px);
+  padding-right: clamp(3px, 1vw, 5px);
 }
 .rsm-content .rsm-feed {
   flex: 1;
@@ -8782,6 +8810,8 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  padding-left: clamp(12px, 3.2vw, 14px);
+  padding-right: clamp(12px, 3.2vw, 14px);
   padding-bottom: calc(
     var(--app-safe-area-bottom, env(safe-area-inset-bottom)) +
       var(--mobile-tabbar-clearance, 0rem) + clamp(0.6rem, 2vw, 1rem)
@@ -8789,6 +8819,17 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
 }
 .rsm-content .rsm-feed::-webkit-scrollbar {
   display: none;
+}
+
+/* Cards da /resumo em BRANCO puro + sombra reforcada (igual /informe) pra
+   definir as bordas sobre o sheet branco. */
+.rsm-content .rsm-card {
+  background: #ffffff;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.06),
+    0 6px 14px rgba(0, 0, 0, 0.11),
+    0 14px 28px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .rsm-intro {

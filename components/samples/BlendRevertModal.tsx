@@ -92,7 +92,7 @@ export function BlendRevertModal({
     >
       <section
         ref={focusTrapRef}
-        className="app-modal is-themed blend-revert-modal"
+        className="app-modal is-themed is-action blend-revert-modal"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="blend-revert-modal-title"

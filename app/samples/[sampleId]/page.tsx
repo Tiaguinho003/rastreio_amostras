@@ -2634,7 +2634,7 @@ export default function SampleDetailPage() {
         <div className="app-modal-backdrop">
           <section
             ref={invalidateTrapRef}
-            className="app-modal is-themed sample-detail-invalidate-modal"
+            className="app-modal is-themed is-action sample-detail-invalidate-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="sample-detail-invalidate-modal-title"
@@ -2899,7 +2899,7 @@ export default function SampleDetailPage() {
         >
           <section
             ref={labelTrapRef}
-            className="app-modal is-themed sample-detail-compact-modal sample-detail-print-modal"
+            className="app-modal is-themed is-action sample-detail-compact-modal sample-detail-print-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="sample-detail-label-modal-title"
@@ -3014,7 +3014,7 @@ export default function SampleDetailPage() {
         >
           <section
             ref={registrationEditTrapRef}
-            className="app-modal is-themed sample-detail-reg-edit-modal"
+            className="app-modal is-themed is-action sample-detail-reg-edit-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="registration-edit-modal-title"
@@ -4044,7 +4044,7 @@ export default function SampleDetailPage() {
         >
           <section
             ref={physicalSendTrapRef}
-            className="app-modal is-themed sample-detail-compact-modal sample-detail-lookup-modal"
+            className="app-modal is-themed is-action sample-detail-compact-modal sample-detail-lookup-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="physical-send-modal-title"
