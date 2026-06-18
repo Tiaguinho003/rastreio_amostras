@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { ApiError, createVisitReport } from '../../lib/api-client';
+import { maskPhoneInput } from '../../lib/client-field-formatters';
 import { useRegisterDirtyState } from '../../lib/dirty-state/DirtyStateProvider';
 import { useOnlineStatus } from '../../lib/offline/use-online-status';
 import {
@@ -410,7 +411,7 @@ export function VisitReportForm({
                     placeholder="Ex.: (35) 99999-9999"
                     autoComplete="off"
                     maxLength={40}
-                    onChange={(event) => setNewClientPhone(event.target.value)}
+                    onChange={(event) => setNewClientPhone(maskPhoneInput(event.target.value))}
                   />
                 </label>
               </>

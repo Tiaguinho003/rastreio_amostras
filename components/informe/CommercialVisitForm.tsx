@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { ClientLookupField } from '../clients/ClientLookupField';
 import { ApiError, createCommercialVisit } from '../../lib/api-client';
+import { maskPhoneInput } from '../../lib/client-field-formatters';
 import {
   COMMERCIAL_VISIT_OUTCOME_OPTIONS,
   COMMERCIAL_VISIT_REASON_OPTIONS,
@@ -302,7 +303,7 @@ export function CommercialVisitForm({
                 placeholder="Ex.: (35) 99999-9999"
                 autoComplete="off"
                 maxLength={40}
-                onChange={(event) => setNewClientPhone(event.target.value)}
+                onChange={(event) => setNewClientPhone(maskPhoneInput(event.target.value))}
               />
             </label>
           </div>
