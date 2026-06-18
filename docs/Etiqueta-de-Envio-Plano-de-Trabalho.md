@@ -158,6 +158,21 @@ O grosso foi resolvido na sessão 2. Sobram detalhes de layout/implementação:
 
 ---
 
+## Para a Etiqueta de Envio + QR funcionarem em produção
+
+O código das fases 1–6 está pronto e testado localmente, mas **ainda não foi deployado**. Para o fluxo completo (enviar → etiqueta com QR → destinatário abre o laudo) funcionar de ponta a ponta em produção, falta:
+
+1. **`APP_BASE_URL` real** (bloqueante do QR): em `.env.cloud-production` está `https://placeholder.invalid`. O QR codifica `${APP_BASE_URL}/laudo/<token>`, então **com o placeholder o QR aponta para um domínio inválido**. Configurar com o domínio real do app antes do deploy.
+2. **Deploy do backend + frontend** (fases 1–6): push + build da imagem + deploy canary. As migrations `20260617130000` (SampleReportShare) e `20260618120000` (ShippingPrintJob) já estão no repo; o `execute-job.sh migrate` aplica. Ver skill `deploy`.
+3. **Atualizar o print agent no PC do cliente** (Windows): o agente precisa dos novos `print-agent/poller.js` (consome a fila `shipping-print`) + `print-agent/label.js` (`buildShippingLabel`). **GOTCHA** (ver `project_custom_label`): deployar o backend **antes** de atualizar o agente, e copiar os arquivos do agente juntos (senão etiqueta em branco).
+4. **Validar no print real** (Elgin L42 Pro): conferir que (a) a etiqueta sai com o layout aprovado e (b) o **QR em byte mode** (`QRCODE ...,B,...`) escaneia num celular e abre o laudo. O modo `B` foi a conclusão da análise; só o print real confirma na firmware da Elgin (fallback: testar modo `A`/auto).
+
+### Features adiadas (não bloqueiam o QR — gestão pós-MVP)
+
+- **Revogação manual** (P7): a revogação automática no cancelamento do envio já existe (D8). Falta o botão "Revogar laudo" na timeline para revogar **sem** cancelar o envio.
+- **Reimpressão** da etiqueta: re-enfileirar um `ShippingPrintJob` com o MESMO token/share (sem gerar novo PDF), via botão na timeline.
+- Ambas exigem **expor o share na timeline**: incluir `reportShares` no `getSampleDetail` + cruzar por `sendEventId` em `projectSendHistoryItems` (`page.tsx`) + botões no `SampleMovementsPanel` + os endpoints de revogar/reimprimir.
+
 ## Log de sessões
 
 ### 2026-06-17 — Sessão 1 (inicial)
@@ -204,4 +219,10 @@ O grosso foi resolvido na sessão 2. Sobram detalhes de layout/implementação:
 - **Preview** `scripts/preview-shipping-label.mjs` (+ `qrcode` devDep): gera PNGs com o QR real (3 variantes), gitignorados.
 - **Consumo no print agent** (`print-agent/poller.js`): `pollShippingCycle` + `processShippingJob` + `reportShippingResult` + `fetchPendingShippingJobs`, espelhando a fila avulsa; chamado em `pollCycle`; reusa dedup/retry.
 - Gates verdes (os testes da feature passam; 2 falhas alheias na suite são do outro agente). Smoke test do builder: QR em byte mode, sem QR quando ausente.
-- **Marco**: a etiqueta de envio agora imprime ponta a ponta. ⚠️ `APP_BASE_URL` em prod precisa do domínio real antes do QR funcionar. Resta **fase 6** (revogação) + **reimpressão** (adiada).
+- **Marco**: a etiqueta de envio agora imprime ponta a ponta. ⚠️ `APP_BASE_URL` em prod precisa do domínio real antes do QR funcionar.
+
+### 2026-06-18 — Sessão 6 (fase 6: revogação automática)
+
+- **Revogação automática (D8)**: `cancelPhysicalSampleSend` agora revoga o `SampleReportShare` do envio **atomicamente** (via `appendEventBatch` + `beforeCommit` + helper `PrismaEventStoreTx.revokeReportShareBySendEvent`). Cancelar o envio → o destinatário deixa de acessar o laudo (a rota pública passa a 410). Teste de integração novo cobre o fluxo (envio → 200 → cancela → 410). Sem share (envio não-CLASSIFIED) é no-op.
+- Revogação **manual** (P7) e **reimpressão** ficaram como pendências (ver "Para funcionar em produção") — exigem UI na timeline + expor o share, e o foco aqui foi fechar o D8 sem conflitar com o outro agente na `page.tsx`.
+- Registrado o **checklist de produção** (APP_BASE_URL real, deploy, atualizar o print agent no cliente, validar o QR no print real).
