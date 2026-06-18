@@ -58,6 +58,13 @@ async function render(payload, outName, caption) {
     );
   }
 
+  // Bordas (ex: moldura arredondada do "LAUDO").
+  for (const b of layout.boxes || []) {
+    els.push(
+      `<rect x="${b.x}" y="${b.y}" width="${b.width}" height="${b.height}" rx="${b.radius || 0}" fill="none" stroke="#222222" stroke-width="${b.thickness || 1}" />`
+    );
+  }
+
   if (layout.safeArea) {
     const s = layout.safeArea;
     els.push(
@@ -156,8 +163,9 @@ async function render(payload, outName, caption) {
   console.log(`Preview gerado: ${outPng}`);
 }
 
-// URL plausivel (dominio curto + token base64url de 43 chars) ~76 chars => QR v4.
-const SAMPLE_QR_URL = `https://amostras.measy.app/laudo/${'aBc1dEf2gHi3jKl4mNo5pQr6sTu7vWx8yZ012'}`;
+// URL REAL de producao (dominio Firebase Hosting + token base64url de 43 chars)
+// ~87 chars => QR v5 (37 modulos) — o caso que de fato imprime.
+const SAMPLE_QR_URL = `https://safras-negocios-laudo.web.app/laudo/${'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0uvw'}`;
 
 async function main() {
   await render(

@@ -638,7 +638,7 @@ function formatYmd(ymd) {
 const SHIP_W = 800;
 const SHIP_H = 280;
 const SHIP_M = 20;
-const SHIP_QR_CELL = 4; // dots por modulo (QR v4 ~33 mod -> 132 dots)
+const SHIP_QR_CELL = 5; // dots por modulo (maior; QR v5 ~37 mod -> 185 dots)
 
 export function buildShippingLabelLayout(payload) {
   const lot = sanitize(payload?.internalLotNumber || '---', 14);
@@ -655,9 +655,10 @@ export function buildShippingLabelLayout(payload) {
 
   const texts = [];
   const dividers = [];
+  const boxes = [];
   let qr = null;
 
-  // Logo grande no topo-esquerda.
+  // Logo grande no topo-esquerda (fica onde estava).
   const logo = {
     widthBytes: LOGO_WIDTH_BYTES,
     height: LOGO_HEIGHT,
@@ -665,84 +666,144 @@ export function buildShippingLabelLayout(payload) {
     y: 16,
     data: LOGO_DATA,
   };
+  const logoRight = logo.x + LOGO_WIDTH_BYTES * 8;
 
-  // Limite direito da area de dados (encolhe quando ha QR a direita).
-  let dataRight = SHIP_W - SHIP_M;
+  // Borda direita da zona de dados (encosta na divisoria do QR quando ha QR).
+  let zoneRight = SHIP_W - SHIP_M;
 
+  // ── QR + "LAUDO" a direita, centralizado na VERTICAL. O "LAUDO" fica ACIMA do
+  //    QR, dentro de uma borda arredondada e AFASTADO dele (gap). ──
   if (qrUrl) {
-    // Versao do QR pela quantidade de bytes (byte mode): v4 ate ~80, senao v5.
-    const modules = qrUrl.length <= 80 ? 33 : 37;
+    const modules = qrUrl.length <= 80 ? 33 : 37; // byte mode: v4 ate ~80 bytes, senao v5
     const size = modules * SHIP_QR_CELL;
-    const x = SHIP_W - SHIP_M - size;
-    const y = 26;
-    qr = { x, y, cell: SHIP_QR_CELL, modules, size, value: qrUrl };
 
-    // Rotulo "LAUDO" centralizado sob o QR.
     const lbl = 'LAUDO';
-    const lblW = lbl.length * TSPL_FONT_W[3];
+    const lblFont = '4';
+    const lblW = lbl.length * TSPL_FONT_W[Number(lblFont)];
+    const lblH = TSPL_FONT_H[Number(lblFont)];
+    const padX = 14;
+    const padY = 4;
+    const boxW = lblW + 2 * padX;
+    const boxH = lblH + 2 * padY;
+    const gap = 8; // afasta o "LAUDO" do QR
+
+    // Bloco (borda do LAUDO + gap + QR) centralizado na vertical da etiqueta.
+    const blockH = boxH + gap + size;
+    const top = Math.max(SHIP_M, Math.floor((SHIP_H - blockH) / 2));
+
+    const qrX = SHIP_W - SHIP_M - size; // encostado na margem direita
+    const qrY = top + boxH + gap;
+    const qrCenterX = qrX + Math.floor(size / 2);
+    qr = { x: qrX, y: qrY, cell: SHIP_QR_CELL, modules, size, value: qrUrl };
+
+    // Borda arredondada centrada sobre o QR + texto "LAUDO" dentro dela.
+    boxes.push({
+      x: qrCenterX - Math.floor(boxW / 2),
+      y: top,
+      width: boxW,
+      height: boxH,
+      thickness: 2,
+      radius: 10,
+    });
     texts.push({
-      x: x + Math.max(0, Math.floor((size - lblW) / 2)),
-      y: y + size + 6,
-      font: '3',
+      x: qrCenterX - Math.floor(lblW / 2),
+      y: top + padY,
+      font: lblFont,
       xMul: 1,
       yMul: 1,
       bold: true,
       text: lbl,
     });
 
-    // Divisoria vertical entre os dados e o QR.
-    const divX = x - 16;
-    dividers.push({ x: divX, y: SHIP_M, width: BAR_W, height: SHIP_H - 2 * SHIP_M });
-    dataRight = divX - 14;
+    // Divisoria vertical entre dados e QR — curta (nao encosta nas bordas).
+    const divX = qrX - 18;
+    dividers.push({ x: divX, y: 44, width: BAR_W, height: SHIP_H - 2 * 44 });
+    zoneRight = divX;
   }
 
-  // ── Coluna esquerda: lote em destaque + envio/safra/sacas ──
-  const x0 = SHIP_M;
-  const dataW = dataRight - x0;
-
-  // Lote: rotulo pequeno (fonte 1) + valor grande (fonte 4, 2x).
-  texts.push({ x: x0, y: 120, font: '1', xMul: 1, yMul: 1, bold: false, text: 'LOTE' });
+  // ── Faixa de cima: LOTE a direita do logo. MAIOR (fonte 4 em 2x), com a BASE
+  //    alinhada a borda inferior do logo (y = logo.y + LOGO_HEIGHT). ──
+  const loteX = logoRight + 28;
+  const loteBottom = logo.y + LOGO_HEIGHT;
+  const loteValueY = loteBottom - 2 * TSPL_FONT_H[4]; // fonte 4 em 2x = 64 dots de altura
   texts.push({
-    x: x0,
-    y: 142,
+    x: loteX,
+    y: loteValueY - TSPL_FONT_H[1] - 2,
+    font: '1',
+    xMul: 1,
+    yMul: 1,
+    bold: false,
+    text: 'LOTE',
+  });
+  texts.push({
+    x: loteX,
+    y: loteValueY,
     font: '4',
     xMul: 2,
     yMul: 2,
-    bold: false,
-    text: fitText(lot, '4', Math.floor(dataW / 2)),
+    bold: true,
+    text: fitText(lot, '4', Math.floor((zoneRight - loteX) / 2)),
   });
 
-  // Envio / Safra / Sacas — rotulo (fonte 1) + valor (fonte 3, negrito), em 3
-  // colunas lado a lado na largura de dados.
-  const rowLabelY = 216;
-  const rowValueY = rowLabelY + TSPL_FONT_H[1] + 4;
-  const colGap = 16;
-  const colW = Math.floor((dataW - 2 * colGap) / 3);
+  // ── Divisoria HORIZONTAL separando a parte de cima (logo+lote) da de baixo
+  //    (campos). Curta: nao encosta na borda esquerda nem na divisoria do QR. ──
+  const hDivY = 140;
+  dividers.push({
+    x: SHIP_M + 16,
+    y: hDivY,
+    width: zoneRight - (SHIP_M + 16) - 14,
+    height: BAR_W,
+  });
+
+  // ── Faixa de baixo: ENVIO / SAFRA / SACAS em 3 CELULAS (de SHIP_M ate
+  //    zoneRight), separadas por divisorias verticais curtas (que nao encostam
+  //    na horizontal nem na margem inferior). Em cada celula: ROTULO colado a
+  //    ESQUERDA + VALOR CENTRALIZADO (fonte 4). Larguras proporcionais ao
+  //    conteudo (a data e larga). ──
+  const valFont = '4';
+  const valCharW = TSPL_FONT_W[Number(valFont)];
+  const lblCharW = TSPL_FONT_W[1];
+  const labelY = 175;
+  const valueY = 195; // fonte 4 (32) -> base 227
+  const cellTop = 154;
+  const cellBot = SHIP_H - SHIP_M - 12; // 248
   const fields = [
-    { label: 'ENVIO', value: sentDate },
-    { label: 'SAFRA', value: harvest },
-    { label: 'SACAS', value: sacks },
+    { label: 'ENVIO', value: fitText(sentDate, valFont, zoneRight - SHIP_M) },
+    { label: 'SAFRA', value: fitText(harvest, valFont, zoneRight - SHIP_M) },
+    { label: 'SACAS', value: fitText(sacks, valFont, zoneRight - SHIP_M) },
   ];
+  const cellsW = zoneRight - SHIP_M - (fields.length - 1) * BAR_W;
+  const weights = fields.map((f) => Math.max(f.value.length * valCharW, f.label.length * lblCharW));
+  const wSum = weights.reduce((a, b) => a + b, 0);
+  let cx = SHIP_M;
   for (let i = 0; i < fields.length; i += 1) {
-    const fx = x0 + i * (colW + colGap);
+    const cw = Math.floor((cellsW * weights[i]) / wSum);
+    // Rotulo colado a esquerda da celula.
     texts.push({
-      x: fx,
-      y: rowLabelY,
+      x: cx + 4,
+      y: labelY,
       font: '1',
       xMul: 1,
       yMul: 1,
       bold: false,
       text: fields[i].label,
     });
+    // Valor centralizado na celula.
+    const valW = fields[i].value.length * valCharW;
     texts.push({
-      x: fx,
-      y: rowValueY,
-      font: '3',
+      x: cx + Math.max(0, Math.floor((cw - valW) / 2)),
+      y: valueY,
+      font: valFont,
       xMul: 1,
       yMul: 1,
       bold: true,
-      text: fitText(fields[i].value, '3', colW),
+      text: fields[i].value,
     });
+    cx += cw;
+    if (i < fields.length - 1) {
+      dividers.push({ x: cx, y: cellTop, width: BAR_W, height: cellBot - cellTop });
+      cx += BAR_W;
+    }
   }
 
   return {
@@ -752,6 +813,7 @@ export function buildShippingLabelLayout(payload) {
     logo,
     texts,
     dividers,
+    boxes,
     qr,
     safeArea: { left: SHIP_M, right: SHIP_W - SHIP_M, top: SHIP_M, bottom: SHIP_H - SHIP_M },
   };
@@ -764,6 +826,12 @@ export function buildShippingLabel(payload) {
 
   for (const d of layout.dividers || []) {
     head.push(`BAR ${d.x},${d.y},${d.width},${d.height}`);
+  }
+  // Bordas (ex: moldura do "LAUDO") via TSPL BOX com raio (TSPL2). Se a firmware
+  // da Elgin ignorar o raio, sai um retangulo reto — validar no print real.
+  for (const b of layout.boxes || []) {
+    const radius = b.radius ? `,${b.radius}` : '';
+    head.push(`BOX ${b.x},${b.y},${b.x + b.width},${b.y + b.height},${b.thickness || 1}${radius}`);
   }
   for (const t of layout.texts) {
     head.push(`TEXT ${t.x},${t.y},"${t.font}",0,${t.xMul},${t.yMul},"${t.text}"`);
