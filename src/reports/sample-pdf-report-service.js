@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
@@ -793,7 +793,12 @@ export class SamplePdfReportService {
     this.logoFallbackPath = path.resolve(process.cwd(), 'public/logo-laudo.png');
   }
 
-  async exportSamplePdf(input, actorContext) {
+  // Nucleo de geracao do laudo: valida (CLASSIFIED + foto de classificacao),
+  // resolve safra/campos, renderiza o PDF e calcula o checksum. SEM efeitos
+  // colaterais (nao registra evento nem grava em disco) — cada consumidor
+  // decide o que fazer com o buffer: exportSamplePdf transmite + audita;
+  // persistSampleReportPdf congela os bytes em UPLOADS_DIR (Etiqueta de Envio).
+  async _buildReportArtifacts(input) {
     const sampleId = typeof input?.sampleId === 'string' ? input.sampleId : null;
     if (!sampleId) {
       throw new HttpError(422, 'sampleId is required for export');
@@ -865,32 +870,83 @@ export class SamplePdfReportService {
 
     const checksumSha256 = createHash('sha256').update(pdfBuffer).digest('hex');
 
+    return {
+      sample: detail.sample,
+      pdfBuffer,
+      fileName,
+      checksumSha256,
+      destination,
+      reportedHarvest,
+      classificationPhotoId: classificationAttachment.id,
+      exportedFields,
+    };
+  }
+
+  // Gera o laudo, registra REPORT_EXPORTED e devolve o buffer para transmissao
+  // (download autenticado via POST /export/pdf). Comportamento inalterado — a
+  // logica de geracao foi extraida para _buildReportArtifacts.
+  async exportSamplePdf(input, actorContext) {
+    const artifacts = await this._buildReportArtifacts(input);
+
     const auditResult = await this.commandService.recordReportExported(
       {
-        sampleId: detail.sample.id,
+        sampleId: artifacts.sample.id,
         format: 'PDF',
-        fileName,
-        destination,
+        fileName: artifacts.fileName,
+        destination: artifacts.destination,
         recipientClientId: input.recipientClientId ?? null,
-        selectedFields: exportedFields,
-        classificationPhotoId: classificationAttachment.id,
+        selectedFields: artifacts.exportedFields,
+        classificationPhotoId: artifacts.classificationPhotoId,
         templateVersion: 'v1',
-        sizeBytes: pdfBuffer.length,
-        checksumSha256,
-        reportedHarvest,
+        sizeBytes: artifacts.pdfBuffer.length,
+        checksumSha256: artifacts.checksumSha256,
+        reportedHarvest: artifacts.reportedHarvest,
       },
       actorContext
     );
 
     return {
-      fileName,
+      fileName: artifacts.fileName,
       contentType: 'application/pdf',
-      sizeBytes: pdfBuffer.length,
-      checksumSha256,
-      destination,
-      selectedFields: exportedFields,
-      buffer: pdfBuffer,
+      sizeBytes: artifacts.pdfBuffer.length,
+      checksumSha256: artifacts.checksumSha256,
+      destination: artifacts.destination,
+      selectedFields: artifacts.exportedFields,
+      buffer: artifacts.pdfBuffer,
       auditEvent: auditResult.event,
+    };
+  }
+
+  // Etiqueta de Envio: gera o laudo e CONGELA os bytes em UPLOADS_DIR (sob
+  // samples/<sampleId>/report-shares/<uuid>.pdf), devolvendo o storagePath
+  // relativo + metadados para criar o SampleReportShare. NAO registra evento
+  // nem stream — a orquestracao do envio (passo 3) cria o share e a etiqueta.
+  // O caller continua responsavel por escolher destination/reportedHarvest.
+  async persistSampleReportPdf(input) {
+    const artifacts = await this._buildReportArtifacts(input);
+
+    const relativeStoragePath = path.join(
+      'samples',
+      artifacts.sample.id,
+      'report-shares',
+      `${randomUUID()}.pdf`
+    );
+    const absolutePath = sanitizeAttachmentPath(this.uploadsBaseDir, relativeStoragePath);
+
+    await fs.mkdir(path.dirname(absolutePath), { recursive: true });
+    await fs.writeFile(absolutePath, artifacts.pdfBuffer);
+
+    return {
+      sampleId: artifacts.sample.id,
+      storagePath: relativeStoragePath,
+      fileName: artifacts.fileName,
+      contentType: 'application/pdf',
+      sizeBytes: artifacts.pdfBuffer.length,
+      checksumSha256: artifacts.checksumSha256,
+      destination: artifacts.destination,
+      reportedHarvest: artifacts.reportedHarvest,
+      classificationPhotoId: artifacts.classificationPhotoId,
+      selectedFields: artifacts.exportedFields,
     };
   }
 }

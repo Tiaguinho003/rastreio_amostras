@@ -273,6 +273,7 @@ model Sample {
   movements                 SampleMovement[]
   blendComponents           SampleBlendComponent[] @relation("SampleBlendComponentBlend")
   asOriginInBlendComponents SampleBlendComponent[] @relation("SampleBlendComponentOrigin")
+  reportShares              SampleReportShare[]
 
   @@index([status], map: "idx_sample_status")
   @@index([commercialStatus], map: "idx_sample_commercial_status")
@@ -340,9 +341,10 @@ model SampleEvent {
   metadataUserAgent String?           @map("metadata_user_agent")
   createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  sample          Sample     @relation(fields: [sampleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  requestedByJobs PrintJob[] @relation("PrintJobRequestedEvent")
-  resultByJobs    PrintJob[] @relation("PrintJobResultEvent")
+  sample          Sample              @relation(fields: [sampleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  requestedByJobs PrintJob[]          @relation("PrintJobRequestedEvent")
+  resultByJobs    PrintJob[]          @relation("PrintJobResultEvent")
+  reportShares    SampleReportShare[]
 
   @@unique([sampleId, sequenceNumber], map: "uq_sample_event_sequence")
   @@index([sampleId, occurredAt], map: "idx_sample_event_sample_occurred")
@@ -406,6 +408,47 @@ model CustomPrintJob {
   @@map("custom_print_job")
 }
 
+// Etiqueta de Envio (3o tipo) — link publico do laudo, gerado quando uma
+// amostra CLASSIFIED e enviada. Cada PHYSICAL_SAMPLE_SENT (1 por destinatario)
+// gera 1 share: o PDF do laudo e CONGELADO em UPLOADS_DIR (storagePath) e o
+// token aleatorio vai no QR da etiqueta. A rota publica GET /laudo/[token] faz
+// stream do PDF sem login. Tabela MUTAVEL (revogacao/expiracao/analytics de
+// acesso) e DESACOPLADA do event store — nao cria SampleEvent nem toca os
+// triggers append-only. Ver docs/Etiqueta-de-Envio-Plano-de-Trabalho.md.
+model SampleReportShare {
+  id       String @id @db.Uuid
+  token    String @unique(map: "uq_sample_report_share_token")
+  sampleId String @map("sample_id") @db.Uuid
+  // 1 share por evento de envio (reimpressao reusa o mesmo token; reenvio gera
+  // novo envio + novo share). UNIQUE protege contra duplicar o snapshot.
+  sendEventId       String    @unique(map: "uq_sample_report_share_send_event") @map("send_event_id") @db.Uuid
+  recipientClientId String?   @map("recipient_client_id") @db.Uuid
+  recipientSnapshot Json?     @map("recipient_snapshot")
+  storagePath       String    @map("storage_path")
+  fileName          String    @map("file_name")
+  checksumSha256    String    @map("checksum_sha256")
+  sizeBytes         Int       @map("size_bytes")
+  reportedHarvest   String?   @map("reported_harvest")
+  issuedByUserId    String    @map("issued_by_user_id") @db.Uuid
+  issuedAt          DateTime  @default(now()) @map("issued_at") @db.Timestamptz(6)
+  expiresAt         DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt         DateTime? @map("revoked_at") @db.Timestamptz(6)
+  accessCount       Int       @default(0) @map("access_count")
+  lastAccessedAt    DateTime? @map("last_accessed_at") @db.Timestamptz(6)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  sample          Sample      @relation(fields: [sampleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  sendEvent       SampleEvent @relation(fields: [sendEventId], references: [eventId], onDelete: Restrict, onUpdate: Cascade)
+  recipientClient Client?     @relation(fields: [recipientClientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  issuedByUser    User        @relation(fields: [issuedByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([sampleId, createdAt], map: "idx_sample_report_share_sample_created")
+  @@index([recipientClientId], map: "idx_sample_report_share_recipient")
+  @@index([issuedByUserId], map: "idx_sample_report_share_issued_by")
+  @@map("sample_report_share")
+}
+
 model User {
   id                      String                  @id @db.Uuid
   fullName                String                  @map("full_name")
@@ -437,6 +480,7 @@ model User {
   weeklyReports            WeeklyReport[]
   weeklyReportReminders    WeeklyReportReminder[]
   pushSubscriptions        PushSubscription[]
+  issuedReportShares       SampleReportShare[]
 
   @@index([status, createdAt, id], map: "idx_user_status_created_id")
   @@index([role, createdAt, id], map: "idx_user_role_created_id")
@@ -492,6 +536,7 @@ model Client {
   commercialUsers     ClientCommercialUser[]
   visitReports        VisitReport[]
   commercialVisits    CommercialVisit[]
+  reportShares        SampleReportShare[]
 
   @@index([cnpjRoot], map: "idx_client_cnpj_root")
   @@index([status, code], map: "idx_client_status_code")
