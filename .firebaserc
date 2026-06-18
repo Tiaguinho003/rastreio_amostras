@@ -5,8 +5,11 @@
   "targets": {
     "safras-amostras-prod": {
       "hosting": {
-        "laudo": ["safras-negocios-laudo"]
+        "laudo": [
+          "safras-negocios-laudo"
+        ]
       }
     }
-  }
+  },
+  "etags": {}
 }
