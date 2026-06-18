@@ -198,14 +198,18 @@ const BAR_W = 3; // espessura das divisorias (BAR)
 // CENTRAL (2: produtor/armazem) e mais alta pra caber 2 linhas de nome em fonte
 // grande; como os lotes nao tem mais caixa, a faixa 3 encolheu na MESMA medida
 // (~30 dots passaram da faixa 3 pra faixa 2: DIV2_Y 158->190).
-const BAND1_TOP = M_TOP;
-const BAND1_BOT = 82;
-const DIV1_Y = 84;
-const BAND2_TOP = 92;
-const BAND2_BOT = 186;
-const DIV2_Y = 190;
-const BAND3_TOP = 196;
-const BAND3_BOT = LABEL_H - M_BOTTOM;
+// Sobe o BLOCO INTEIRO da etiqueta de Aprovacao BLOCK_Y_UP dots pra cima (pedido
+// do usuario): -1mm de gap em cima, +1mm embaixo. 8 dots = 1mm @ 203dpi. So a
+// etiqueta de Aprovacao (a de amostra/buildLabel nao usa estas constantes).
+const BLOCK_Y_UP = 8;
+const BAND1_TOP = M_TOP - BLOCK_Y_UP;
+const BAND1_BOT = 82 - BLOCK_Y_UP;
+const DIV1_Y = 84 - BLOCK_Y_UP;
+const BAND2_TOP = 92 - BLOCK_Y_UP;
+const BAND2_BOT = 186 - BLOCK_Y_UP;
+const DIV2_Y = 190 - BLOCK_Y_UP;
+const BAND3_TOP = 196 - BLOCK_Y_UP;
+const BAND3_BOT = LABEL_H - M_BOTTOM - BLOCK_Y_UP;
 
 const LABEL_FONT = '1'; // rotulos pequenos (8x12)
 const LABEL_GAP_Y = 6; // gap vertical entre rotulo e valor
@@ -560,8 +564,9 @@ export async function buildCustomLabelLayout(payload) {
   const safeArea = {
     left: M_LEFT,
     right: LABEL_W - M_RIGHT,
-    top: M_TOP,
-    bottom: LABEL_H - M_BOTTOM,
+    // Acompanha o BLOCK_Y_UP (bloco subiu 1mm): top e bottom deslocam junto.
+    top: M_TOP - BLOCK_Y_UP,
+    bottom: LABEL_H - M_BOTTOM - BLOCK_Y_UP,
   };
 
   return {
