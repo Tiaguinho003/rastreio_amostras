@@ -10228,81 +10228,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   animation: sdv-fadeIn 0.3s ease backwards;
 }
 
-/* 14.7.F: card "tematizado" — header verde brand + body branco. Usado
-   nos cards Identidade + Endereco fiscal da pagina de detalhes. */
-.sdv-card-themed {
-  padding: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.sdv-card-themed-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
-  padding: clamp(10px, 2.6vw, 14px) clamp(14px, 3.4vw, 18px);
-  color: #ffffff;
-  flex-shrink: 0;
-}
-
-.sdv-card-themed-title {
-  font-size: clamp(13px, 3.4vw, 15px);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: #ffffff;
-}
-
-.sdv-card-themed-edit {
-  display: inline-grid;
-  place-items: center;
-  width: clamp(28px, 7.5vw, 34px);
-  height: clamp(28px, 7.5vw, 34px);
-  padding: 0;
-  margin: 0;
-  line-height: 1;
-  border-radius: clamp(7px, 2vw, 9px);
-  background: #ffffff;
-  border: 0;
-  cursor: pointer;
-  flex-shrink: 0;
-  -webkit-tap-highlight-color: transparent;
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease;
-}
-
-.sdv-card-themed-edit:hover {
-  background: #ffffff;
-  transform: scale(1.08);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
-}
-
-.sdv-card-themed-edit:active {
-  transform: scale(0.94);
-}
-
-.sdv-card-themed-edit svg {
-  display: block;
-  width: 50%;
-  height: 50%;
-  fill: none;
-  stroke: var(--brand-green-soft);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.sdv-card-themed-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: clamp(12px, 3vw, 16px) clamp(14px, 3.5vw, 18px);
-  min-height: 0;
-}
-
 .sdv-card-title {
   display: block;
   font-size: clamp(9px, 2.5vw, 10px);
@@ -27774,41 +27699,6 @@ select.samples-filter-field-input {
     grid-row: 1;
   }
 
-  /* 14.7.F: cards tematizados na pagina detalhe (Identidade + Endereco
-     fiscal). Padding 0 no card pai pra header verde colar nas bordas;
-     header e body cuidam do proprio padding. Mesma altura via stretch. */
-  .sdv-card.sdv-card-themed {
-    padding: 0;
-    overflow: hidden;
-  }
-
-  .sdv-card-themed .sdv-card-themed-header {
-    padding: 0.75rem 1.25rem;
-  }
-
-  .sdv-card-themed .sdv-card-themed-title {
-    font-size: 0.85rem;
-    letter-spacing: 0.7px;
-  }
-
-  .sdv-card-themed .sdv-card-themed-edit {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-  }
-
-  .sdv-card-themed .sdv-card-themed-edit svg {
-    width: 18px;
-    height: 18px;
-  }
-
-  .sdv-card-themed .sdv-card-themed-body {
-    padding: 1.1rem 1.5rem 1.25rem;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-  }
-
   /* Cards Filiais / Endereco fiscal (coluna 2 do grid) — altura FIXA via
      --card-row-height. Garante que clientes com 4 filiais nao tenham
      container maior que clientes com 1 filial ou que PJ sem filiais —
@@ -27911,10 +27801,6 @@ select.samples-filter-field-input {
   .sdv-general > .sdv-card:nth-child(n + 3) {
     grid-column: 1 / -1;
   }
-
-  /* 14.7.I: regras antigas de #14.5.A do .sdv-card-filiais removidas.
-     Card filiais agora segue o pattern .sdv-card-themed (stretch +
-     min-height 28rem) com scroll interno gerenciado em outro bloco. */
 
   .sample-classification-measures-grid {
     max-width: 640px;
