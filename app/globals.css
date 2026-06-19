@@ -10090,9 +10090,10 @@ body:has(.app-modal-backdrop) .prospector-fab {
   margin-top: clamp(13px, 3.6vw, 16px);
 }
 
-/* Filiais (PF) movida pra baixo do Resumo comercial — mesmo gap dos demais
-   containers (gap uniforme entre os tres). */
-.sdv-content-inner > .sdv-card-filiais {
+/* Filiais (PF) e Endereco fiscal (PJ) ficam abaixo do Resumo comercial — mesmo
+   gap dos demais containers (gap uniforme entre os tres). */
+.sdv-content-inner > .sdv-card-filiais,
+.sdv-content-inner > .sdv-card-address {
   margin-top: clamp(13px, 3.6vw, 16px);
 }
 
@@ -18606,6 +18607,14 @@ select.samples-filter-field-input {
   margin: 0;
   padding: 0.7rem clamp(1rem, 3vw, 1.4rem) clamp(1rem, 3vw, 1.4rem);
   border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* Editar endereco fiscal/informacoes (ajuste do usuario): footer mais compacto —
+   colado no ultimo campo (menos padding no topo), botoes mais largos (menos
+   padding lateral) e area menor embaixo (menos padding inferior). Override so do
+   edit-modal; o .client-unit-modal mantem o padding base acima. */
+.app-modal.is-themed.client-detail-edit-modal .app-modal-actions {
+  padding: 0.5rem clamp(0.8rem, 2.6vw, 1.05rem) clamp(0.7rem, 2.2vw, 0.9rem);
 }
 
 .client-detail-edit-modal .client-detail-modal-form {
@@ -27759,16 +27768,19 @@ select.samples-filter-field-input {
      Resumo), nao no grid 2-col do PJ. Deteccao: a Filiais (PF) e filha
      DIRETA do .sdv-content-inner (foi movida pra baixo do Resumo); o PJ
      mantem o grid Informacoes | Endereco fiscal. */
-  .sdv-content-inner:has(> .sdv-card-filiais) > .sdv-general {
+  .sdv-content-inner:has(> .sdv-card-filiais) > .sdv-general,
+  .sdv-content-inner:has(> .sdv-card-address) > .sdv-general {
     display: block;
     max-width: 34rem;
   }
 
-  .sdv-content-inner:has(> .sdv-card-filiais) > .sdv-general .sdv-info-split-row {
+  .sdv-content-inner:has(> .sdv-card-filiais) > .sdv-general .sdv-info-split-row,
+  .sdv-content-inner:has(> .sdv-card-address) > .sdv-general .sdv-info-split-row {
     height: auto;
   }
 
-  .sdv-content-inner > .sdv-card-filiais {
+  .sdv-content-inner > .sdv-card-filiais,
+  .sdv-content-inner > .sdv-card-address {
     width: 100%;
     max-width: 34rem;
     margin-left: auto;

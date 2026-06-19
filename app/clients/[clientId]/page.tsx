@@ -1118,80 +1118,6 @@ export default function ClientDetailPage() {
                       <NoticeSlot notice={detailNotice} />
                     </div>
                   </div>
-
-                  {isPj ? (
-                    /* Card "Endereco fiscal" (PJ) — padrao branco dos containers
-                       (sem header verde), igual ao de Informacoes/Filiais: titulo +
-                       hairline + editar minimalista. sdv-card-address mantido pro
-                       posicionamento desktop na coluna 2. */
-                    <div className="sdv-card sdv-info-compact sdv-card-address">
-                      <div className="sdv-card-header">
-                        <span className="sdv-card-title">Endereço fiscal</span>
-                        <button
-                          type="button"
-                          className="sdv-edit-btn"
-                          onClick={() => openEditClient('address')}
-                          aria-label="Editar endereço fiscal"
-                        >
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M12 20h9" />
-                            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                          </svg>
-                          <span>Editar</span>
-                        </button>
-                      </div>
-                      <div className="sdv-info-grid">
-                        <div className="sdv-info-item">
-                          <span
-                            className={`sdv-info-label${isMissing('postalCode') ? ' is-missing' : ''}`}
-                          >
-                            CEP
-                          </span>
-                          <span className="sdv-info-value">
-                            {formatPostalCode(client.postalCode) || '—'}
-                          </span>
-                        </div>
-                        <div className="sdv-info-item">
-                          <span
-                            className={`sdv-info-label${isMissing('addressLine') ? ' is-missing' : ''}`}
-                          >
-                            Endereço
-                          </span>
-                          <span className="sdv-info-value">{client.addressLine || '—'}</span>
-                        </div>
-                        <div className="sdv-info-item">
-                          <span
-                            className={`sdv-info-label${isMissing('district') ? ' is-missing' : ''}`}
-                          >
-                            Bairro
-                          </span>
-                          <span className="sdv-info-value">{client.district || '—'}</span>
-                        </div>
-                        <div className="sdv-info-item">
-                          <span className="sdv-info-label">Complemento</span>
-                          <span className="sdv-info-value">{client.complement || '—'}</span>
-                        </div>
-                        <div className="sdv-info-item">
-                          <span
-                            className={`sdv-info-label${isMissing('city') || isMissing('state') ? ' is-missing' : ''}`}
-                          >
-                            Cidade/UF
-                          </span>
-                          <span className="sdv-info-value">
-                            {client.city && client.state ? `${client.city}/${client.state}` : '—'}
-                          </span>
-                        </div>
-                        <div className="sdv-info-item">
-                          <span
-                            className={`sdv-info-label${isMissing('registrationNumber') ? ' is-missing' : ''}`}
-                          >
-                            Inscrição estadual
-                          </span>
-                          <span className="sdv-info-value">{client.registrationNumber || '—'}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
                 </section>
 
                 {/* Resumo comercial — grafico (donut) das contagens por status,
@@ -1204,9 +1130,82 @@ export default function ClientDetailPage() {
                   />
                 </section>
 
+                {isPj ? (
+                  /* Card "Endereco fiscal" (PJ) — fica ABAIXO do Resumo comercial,
+                     espelhando a Filiais (PF): ultimo container, coluna unica, mesmo
+                     gap. Filho direto do .sdv-content-inner (sai do grid do .sdv-general). */
+                  <div className="sdv-card sdv-info-compact sdv-card-address">
+                    <div className="sdv-card-header">
+                      <span className="sdv-card-title">Endereço fiscal</span>
+                      <button
+                        type="button"
+                        className="sdv-edit-btn"
+                        onClick={() => openEditClient('address')}
+                        aria-label="Editar endereço fiscal"
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M12 20h9" />
+                          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                        </svg>
+                        <span>Editar</span>
+                      </button>
+                    </div>
+                    <div className="sdv-info-grid">
+                      <div className="sdv-info-item">
+                        <span
+                          className={`sdv-info-label${isMissing('postalCode') ? ' is-missing' : ''}`}
+                        >
+                          CEP
+                        </span>
+                        <span className="sdv-info-value">
+                          {formatPostalCode(client.postalCode) || '—'}
+                        </span>
+                      </div>
+                      <div className="sdv-info-item">
+                        <span
+                          className={`sdv-info-label${isMissing('addressLine') ? ' is-missing' : ''}`}
+                        >
+                          Endereço
+                        </span>
+                        <span className="sdv-info-value">{client.addressLine || '—'}</span>
+                      </div>
+                      <div className="sdv-info-item">
+                        <span
+                          className={`sdv-info-label${isMissing('district') ? ' is-missing' : ''}`}
+                        >
+                          Bairro
+                        </span>
+                        <span className="sdv-info-value">{client.district || '—'}</span>
+                      </div>
+                      <div className="sdv-info-item">
+                        <span className="sdv-info-label">Complemento</span>
+                        <span className="sdv-info-value">{client.complement || '—'}</span>
+                      </div>
+                      <div className="sdv-info-item">
+                        <span
+                          className={`sdv-info-label${isMissing('city') || isMissing('state') ? ' is-missing' : ''}`}
+                        >
+                          Cidade/UF
+                        </span>
+                        <span className="sdv-info-value">
+                          {client.city && client.state ? `${client.city}/${client.state}` : '—'}
+                        </span>
+                      </div>
+                      <div className="sdv-info-item">
+                        <span
+                          className={`sdv-info-label${isMissing('registrationNumber') ? ' is-missing' : ''}`}
+                        >
+                          Inscrição estadual
+                        </span>
+                        <span className="sdv-info-value">{client.registrationNumber || '—'}</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
                 {/* Filiais (PF) — fica ABAIXO do Resumo comercial (coluna unica,
                     mesmo gap dos demais containers). PJ usa o Endereco fiscal
-                    acima, dentro do .sdv-general. */}
+                    no lugar dela (tambem abaixo do Resumo). */}
                 {!isPj ? (
                   <div className="sdv-card sdv-info-compact sdv-card-filiais">
                     <div className="sdv-card-header">
