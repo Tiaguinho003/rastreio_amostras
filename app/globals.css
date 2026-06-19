@@ -25179,7 +25179,10 @@ select.samples-filter-field-input {
 
 .nsv2-form-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0, 1fr) (em vez de 1fr) forca colunas EXATAS de 50% — sem isso o
+     tamanho intrinseco de um campo (ex: o input[type=date] nativo) alarga a
+     coluna e desiguala/estoura. Par com o min-width:0 das celulas abaixo. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: clamp(10px, 2.8vw, 14px) clamp(8px, 2.5vw, 10px);
 }
 
@@ -25215,6 +25218,9 @@ select.samples-filter-field-input {
 
 .nsv2-grid-half {
   position: relative;
+  /* deixa a celula encolher ate a coluna de 50% (sobrepoe o min-width:auto =
+     min-content) pra o conteudo nao empurrar a coluna nem vazar a borda. */
+  min-width: 0;
 }
 
 /* Etiqueta de Aprovação — disposição própria dos campos em linhas (pares lado a
@@ -25420,6 +25426,27 @@ select.samples-filter-field-input {
     border-color 0.2s,
     box-shadow 0.2s;
   outline: none;
+}
+
+/* Data de chegada: o input[type=date] nativo tem min-width proprio e ignora
+   width:100%, vazando a celula de 50% (campo cortado pela borda do modal). Mesmo
+   fix do .app-modal-input[type=date]: desativa a aparencia nativa (passa a
+   respeitar a largura) e zera o min-width do pseudo do valor. O icone de
+   calendario ja vem pela esquerda via .has-icon-left. */
+.nsv2-field-input[type='date'] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+}
+
+.nsv2-field-input[type='date']::-webkit-date-and-time-value {
+  text-align: left;
+  min-width: 0;
+}
+
+.nsv2-field-input[type='date']::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Wrapper de input com icone decorativo (Sacas/Safra/Lote/Local/Observ).
