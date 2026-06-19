@@ -2463,6 +2463,7 @@ button:disabled {
 .app-modal.is-themed .app-modal-actions.blend-revert-actions,
 .app-modal.is-themed .app-modal-actions.blend-harvest-propagation-actions,
 .app-modal.is-themed .app-modal-actions.report-harvest-select-actions,
+.app-modal.is-themed .app-modal-actions.client-detail-status-actions,
 .app-modal.is-themed .app-modal-actions.samples-filter-modal-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2476,6 +2477,7 @@ button:disabled {
 .blend-revert-actions > button,
 .blend-harvest-propagation-actions > button,
 .report-harvest-select-actions > button,
+.client-detail-status-actions > button,
 .samples-filter-modal-actions > button {
   width: 100%;
   min-width: 0;

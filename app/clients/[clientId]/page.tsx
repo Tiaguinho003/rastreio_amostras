@@ -1960,8 +1960,8 @@ export default function ClientDetailPage() {
                 </h3>
                 <p className="app-modal-description">
                   {statusAction === 'inactivate'
-                    ? 'A inativacao impede que este cliente seja selecionado em novas amostras ou movimentacoes.'
-                    : 'A reativacao permitira que este cliente seja usado novamente em novas operacoes.'}
+                    ? 'Bloqueia este cliente em novas amostras e movimentacoes.'
+                    : 'Libera este cliente para novas operacoes.'}
                 </p>
               </div>
               <button
@@ -2015,7 +2015,15 @@ export default function ClientDetailPage() {
 
               <NoticeSlot notice={statusModalNotice} />
 
-              <div className="app-modal-actions">
+              <div className="app-modal-actions client-detail-status-actions">
+                <button
+                  type="button"
+                  className="app-modal-secondary"
+                  onClick={closeStatusModal}
+                  disabled={savingStatus}
+                >
+                  Cancelar
+                </button>
                 <button
                   type="submit"
                   className="app-modal-submit"
@@ -2026,16 +2034,8 @@ export default function ClientDetailPage() {
                   {savingStatus
                     ? 'Processando...'
                     : statusAction === 'inactivate'
-                      ? 'Confirmar inativacao'
-                      : 'Confirmar reativacao'}
-                </button>
-                <button
-                  type="button"
-                  className="app-modal-secondary"
-                  onClick={closeStatusModal}
-                  disabled={savingStatus}
-                >
-                  Cancelar
+                      ? 'Inativar'
+                      : 'Reativar'}
                 </button>
               </div>
             </form>
