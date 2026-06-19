@@ -344,7 +344,16 @@ export function ClientQuickCreateModal({
     event.preventDefault();
     setSubmitted(true);
     if (!canSubmit) {
-      toast.error({ title: 'Preencha os campos obrigatórios destacados.' });
+      // Mensagem ESPECIFICA quando o bloqueio e por valor invalido (CPF/telefone
+      // preenchidos mas errados) — senao o usuario ve "preencha os campos" achando
+      // que faltou algo, sem entender que o numero digitado e que esta invalido
+      // (a dica do campo fica no placeholder, que some quando ha valor).
+      const title = isDocumentInvalid
+        ? (documentHint ?? `${documentLabel} invalido.`)
+        : !isPhoneValid
+          ? (phoneHint ?? 'Telefone invalido.')
+          : 'Preencha os campos obrigatórios destacados.';
+      toast.error({ title });
       return;
     }
 
