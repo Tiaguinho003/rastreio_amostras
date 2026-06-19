@@ -3959,7 +3959,7 @@ export default function SampleDetailPage() {
                 </svg>
               </div>
             ) : null}
-            <header className="app-modal-header">
+            <header className="app-modal-header is-centered-title">
               <div className="sdv-send-head-left">
                 <button
                   type="button"
