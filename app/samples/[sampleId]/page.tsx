@@ -2056,25 +2056,23 @@ export default function SampleDetailPage() {
     .join('')
     .toUpperCase();
 
-  function getSdvStatusColor(status: string) {
-    switch (status) {
-      case 'REGISTRATION_CONFIRMED':
-        return {
-          color: '#E67E22',
-          bg: '#FFF7ED',
-          border: '#FDE68A',
-          label: 'Pendente',
-        };
-      case 'CLASSIFIED':
-        return { color: '#27AE60', bg: '#F0FDF4', border: '#BBF7D0', label: 'Classificada' };
-      case 'INVALIDATED':
-        return { color: '#C0392B', bg: '#FEF2F2', border: '#FECACA', label: 'Invalidada' };
-      default:
-        return { color: '#999', bg: '#f5f5f5', border: '#e0e0e0', label: '' };
+  // Badge do cabecalho: status COMERCIAL (Em aberto / Vendido / Perdido), com
+  // "Invalidada" quando a amostra foi invalidada. Cores espelham as dos cards
+  // (.is-card-*). PARTIALLY_SOLD cai em "Em aberto" (igual ao SampleCard).
+  function getSdvCommercialStatus(sample: { status: string; commercialStatus: string | null }) {
+    if (sample.status === 'INVALIDATED') {
+      return { color: '#6b7280', bg: '#f3f4f6', border: '#e5e7eb', label: 'Invalidada' };
     }
+    if (sample.commercialStatus === 'SOLD') {
+      return { color: '#2a6539', bg: '#e4f3e8', border: '#bcdcc6', label: 'Vendido' };
+    }
+    if (sample.commercialStatus === 'LOST') {
+      return { color: '#b44646', bg: '#f6e1e1', border: '#ecc6c6', label: 'Perdido' };
+    }
+    return { color: '#2563eb', bg: '#dbeafe', border: '#bfdbfe', label: 'Em aberto' };
   }
 
-  const sdvStatus = detail ? getSdvStatusColor(detail.sample.status) : null;
+  const sdvCommercialStatus = detail ? getSdvCommercialStatus(detail.sample) : null;
 
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
@@ -2108,16 +2106,16 @@ export default function SampleDetailPage() {
                       {detail.sample.internalLotNumber ?? detail.sample.id}
                     </span>
                     {detail.sample.isBlend ? <BlendBadge size="md" /> : null}
-                    {sdvStatus ? (
+                    {sdvCommercialStatus ? (
                       <span
                         className="sdv-identity-badge"
                         style={{
-                          color: sdvStatus.color,
-                          background: sdvStatus.bg,
-                          borderColor: sdvStatus.border,
+                          color: sdvCommercialStatus.color,
+                          background: sdvCommercialStatus.bg,
+                          borderColor: sdvCommercialStatus.border,
                         }}
                       >
-                        {sdvStatus.label}
+                        {sdvCommercialStatus.label}
                       </span>
                     ) : null}
                   </div>
@@ -4148,7 +4146,7 @@ export default function SampleDetailPage() {
                 </svg>
               </div>
             ) : null}
-            <header className="app-modal-header is-centered-title">
+            <header className={`app-modal-header${editingSendEventId ? '' : ' is-centered-title'}`}>
               <div className="sdv-send-head-left">
                 {!editingSendEventId ? (
                   <button
@@ -4176,7 +4174,7 @@ export default function SampleDetailPage() {
                 ) : null}
                 <div className="app-modal-title-wrap">
                   <h3 id="physical-send-modal-title" className="app-modal-title">
-                    {editingSendEventId ? 'Editar envio de amostra' : 'Enviar amostra'}
+                    {editingSendEventId ? 'Editar envio' : 'Enviar amostra'}
                   </h3>
                 </div>
               </div>
