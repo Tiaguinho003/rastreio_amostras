@@ -4,7 +4,6 @@ import { type FormEvent, useEffect, useId, useMemo, useRef, useState } from 'rea
 
 import { ApiError, createClient, lookupUsersForReference } from '../../lib/api-client';
 import { maskDocumentInput, maskPhoneInput } from '../../lib/client-field-formatters';
-import { isValidCnpjChecksum, isValidCpfChecksum } from '../../lib/document-validation';
 import { isCommercialRole } from '../../lib/roles';
 import type { ClientPersonType, ClientSummary, SessionData, UserLookupItem } from '../../lib/types';
 import { useToast } from '../../lib/toast/ToastProvider';
@@ -244,14 +243,9 @@ export function ClientQuickCreateModal({
   const expectedDocumentDigits = form.personType === 'PF' ? 11 : 14;
   const isDocumentFilled = documentDigitCount > 0;
   const isDocumentComplete = documentDigitCount === expectedDocumentDigits;
-  // F6.1: valida checksum (Receita Federal) alem do length
-  const isChecksumValid = useMemo(() => {
-    if (!isDocumentComplete) return false;
-    return form.personType === 'PF'
-      ? isValidCpfChecksum(documentDigits)
-      : isValidCnpjChecksum(documentDigits);
-  }, [isDocumentComplete, form.personType, documentDigits]);
-  const isDocumentValid = !isDocumentFilled || isChecksumValid;
+  // Decisao 2026-06-19: valida APENAS comprimento (sem digito verificador da
+  // Receita). Aceita qualquer documento com a contagem certa de digitos.
+  const isDocumentValid = !isDocumentFilled || isDocumentComplete;
 
   // Nome OBRIGATORIO (validacao): PF→fullName (campo do topo), PJ→legalName (razao).
   const requiredNameValue = form.personType === 'PF' ? form.fullName : form.legalName;
@@ -277,12 +271,10 @@ export function ClientQuickCreateModal({
   const documentValue = form.personType === 'PF' ? form.cpf : form.cnpj;
 
   const showFieldErrors = submitted && !canSubmit;
-  const isDocumentInvalid = isDocumentFilled && !isChecksumValid;
+  const isDocumentInvalid = isDocumentFilled && !isDocumentComplete;
   const hasDocumentError = showFieldErrors && isDocumentInvalid;
   const documentHint = isDocumentInvalid
-    ? !isDocumentComplete
-      ? `${documentLabel} deve ter ${expectedDocumentDigits} digitos (tem ${documentDigitCount})`
-      : `${documentLabel} invalido (digito verificador errado)`
+    ? `${documentLabel} deve ter ${expectedDocumentDigits} digitos (tem ${documentDigitCount})`
     : null;
   const hasNameError = showFieldErrors && !isNameFilled;
   // O obrigatorio fica no TOPO no PF (fullName) e na RAZAO no PJ (legalName).

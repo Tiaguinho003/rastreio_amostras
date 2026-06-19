@@ -227,7 +227,9 @@ function normalizeCpf(value, fieldName = 'cpf') {
   }
 
   const normalized = normalizeDigits(text);
-  if (normalized.length !== 11 || !isValidCpfChecksum(normalized)) {
+  // Decisao 2026-06-19: exige APENAS 11 digitos (sem checar o digito verificador
+  // da Receita). Aceita qualquer CPF com a contagem certa de digitos.
+  if (normalized.length !== 11) {
     throw new HttpError(422, `${fieldName} is invalid`, {
       code: 'VALIDATION_ERROR',
       field: fieldName,
@@ -244,7 +246,9 @@ function normalizeCnpj(value, fieldName = 'cnpj') {
   }
 
   const normalized = normalizeDigits(text);
-  if (normalized.length !== 14 || !isValidCnpjChecksum(normalized)) {
+  // Decisao 2026-06-19: exige APENAS 14 digitos (sem checar o digito verificador
+  // da Receita). Aceita qualquer CNPJ com a contagem certa de digitos.
+  if (normalized.length !== 14) {
     throw new HttpError(422, `${fieldName} is invalid`, {
       code: 'VALIDATION_ERROR',
       field: fieldName,

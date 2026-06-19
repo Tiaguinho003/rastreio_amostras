@@ -3,7 +3,7 @@
 import { type ChangeEvent, useCallback, useMemo, useState } from 'react';
 
 import { maskCnpjInput, maskCpfInput } from './client-field-formatters';
-import { digitsOnly, isValidCnpjChecksum, isValidCpfChecksum } from './document-validation';
+import { digitsOnly } from './document-validation';
 
 export type DocumentKind = 'cpf' | 'cnpj';
 
@@ -16,7 +16,7 @@ export interface UseDocumentMaskValue {
   touched: boolean;
   /** mensagem de erro pra exibir inline; null se ok ou ainda nao validado */
   error: string | null;
-  /** se o documento e valido (length + checksum) — para gating do submit */
+  /** se o documento e valido (apenas comprimento) — para gating do submit */
   isValid: boolean;
   /** handler para o input */
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
@@ -34,18 +34,15 @@ function maskByKind(kind: DocumentKind, value: string): string {
   return kind === 'cpf' ? maskCpfInput(value) : maskCnpjInput(value);
 }
 
-function checksumByKind(kind: DocumentKind, digits: string): boolean {
-  return kind === 'cpf' ? isValidCpfChecksum(digits) : isValidCnpjChecksum(digits);
-}
-
 function labelByKind(kind: DocumentKind): string {
   return kind === 'cpf' ? 'CPF' : 'CNPJ';
 }
 
 /**
  * Hook para input de CPF ou CNPJ com mascara visual (formato Receita) e
- * validacao de checksum. Erro so aparece apos blur — UX deixa user digitar
- * inteiro antes de queixar.
+ * validacao de COMPRIMENTO (11/14 digitos; sem digito verificador desde
+ * 2026-06-19). Erro so aparece apos blur — UX deixa user digitar inteiro
+ * antes de queixar.
  *
  * Uso:
  * ```tsx
@@ -63,17 +60,16 @@ export function useDocumentMask(kind: DocumentKind): UseDocumentMaskValue {
   const digits = useMemo(() => digitsOnly(masked), [masked]);
   const expected = EXPECTED_LENGTH[kind];
 
+  // Decisao 2026-06-19: valida APENAS comprimento (sem digito verificador).
   const isComplete = digits.length === expected;
-  const checksumOk = isComplete ? checksumByKind(kind, digits) : false;
-  const isValid = digits.length === 0 ? true : checksumOk;
+  const isValid = digits.length === 0 ? true : isComplete;
 
   const error = useMemo(() => {
     if (!touched) return null;
     if (digits.length === 0) return null;
     if (!isComplete) return `${labelByKind(kind)} incompleto`;
-    if (!checksumOk) return `${labelByKind(kind)} invalido`;
     return null;
-  }, [touched, digits.length, isComplete, checksumOk, kind]);
+  }, [touched, digits.length, isComplete, kind]);
 
   const onChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     setRaw(event.target.value);
