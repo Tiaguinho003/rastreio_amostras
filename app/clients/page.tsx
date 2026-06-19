@@ -127,6 +127,16 @@ function clientDisplayName(client: ClientSummary | null) {
   return client?.displayName ?? client?.fullName ?? client?.legalName ?? 'Cliente';
 }
 
+// Nome no cabecalho do modal de detalhe: corta em 23 caracteres (contando
+// espacos) e acrescenta reticencias (tres pontos) quando excede.
+const CLIENT_DETAIL_NAME_MAX_CHARS = 23;
+function truncateClientDetailName(name: string) {
+  if (name.length <= CLIENT_DETAIL_NAME_MAX_CHARS) {
+    return name;
+  }
+  return `${name.slice(0, CLIENT_DETAIL_NAME_MAX_CHARS).trimEnd()}...`;
+}
+
 function clientRoleSummary(client: ClientSummary | null) {
   if (!client) {
     return 'Sem papel operacional';
@@ -169,10 +179,6 @@ function formatClientCardMeta(client: ClientSummary) {
 
 function clientStatusBadgeClass(status: ClientStatus) {
   return status === 'ACTIVE' ? 'status-badge-success' : 'status-badge-muted';
-}
-
-function clientStatusLabel(status: ClientStatus) {
-  return status === 'ACTIVE' ? 'Ativo' : 'Inativo';
 }
 
 function getClientStatusThemeClass(status: ClientStatus): string {
@@ -1170,19 +1176,16 @@ function ClientsPage() {
                 : null}
               <div className="cdm-header-copy">
                 <h3 id="records-client-detail-title" className="cdm-header-name">
-                  {clientsState.detail ? clientDisplayName(clientsState.detail) : 'Cliente'}
+                  {clientsState.detail
+                    ? truncateClientDetailName(clientDisplayName(clientsState.detail))
+                    : 'Cliente'}
                 </h3>
                 {clientsState.detail ? (
                   <div className="cdm-header-meta">
                     <span className="cdm-header-code">Cod. {clientsState.detail.code}</span>
-                    <span
-                      className={`cdm-header-status ${clientsState.detail.status === 'ACTIVE' ? 'is-active' : 'is-inactive'}`}
-                    >
-                      {clientStatusLabel(clientsState.detail.status)}
-                    </span>
-                    {/* 14.7.H: pill com tipo de cliente (PF/PJ) inline ao
-                        lado de "Ativo". Nao confundir com o avatar de
-                        iniciais a esquerda — esse aqui indica TIPO. */}
+                    {/* 14.7.H: pill com tipo de cliente (PF/PJ) inline na meta
+                        line. Nao confundir com o avatar de iniciais a
+                        esquerda — esse aqui indica TIPO. */}
                     <span
                       className={`cdm-header-type ${clientsState.detail.personType === 'PF' ? 'is-pf' : 'is-pj'}`}
                       aria-label={`Tipo: ${clientsState.detail.personType === 'PF' ? 'Pessoa Fisica' : 'Pessoa Juridica'}`}
@@ -1239,14 +1242,16 @@ function ClientsPage() {
                     <div className="cdm-info-item">
                       <span className="cdm-info-label">Papel</span>
                       <div className="cdm-roles">
+                        {/* Ordem alfabetica: Armazem, Comprador, Vendedor. Com os
+                            tres papeis, o grid (.cdm-roles) quebra em 2 + 1. */}
+                        {clientsState.detail.isWarehouse ? (
+                          <span className="cv2-card-role is-warehouse">Armazém</span>
+                        ) : null}
                         {clientsState.detail.isBuyer ? (
                           <span className="cv2-card-role is-buyer">Comprador</span>
                         ) : null}
                         {clientsState.detail.isSeller ? (
                           <span className="cv2-card-role is-seller">Vendedor</span>
-                        ) : null}
-                        {clientsState.detail.isWarehouse ? (
-                          <span className="cv2-card-role is-warehouse">Armazém</span>
                         ) : null}
                         {!clientsState.detail.isBuyer &&
                         !clientsState.detail.isSeller &&

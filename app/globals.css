@@ -12672,10 +12672,15 @@ body:has(.app-modal-backdrop) .prospector-fab {
   background: #eff6ff;
 }
 
+/* Grid de 2 colunas (max-content) ancorado a esquerda: 1 papel = 1 celula,
+   2 papeis = uma linha, 3 papeis = 2 em cima + 1 embaixo. justify-items:start
+   evita que a pill estique para preencher a coluna. */
 .cdm-roles {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
+  justify-content: start;
+  justify-items: start;
   gap: 6px;
-  flex-wrap: wrap;
 }
 
 .cdm-manage-link {
