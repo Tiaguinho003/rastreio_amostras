@@ -10815,6 +10815,22 @@ body:has(.app-modal-backdrop) .prospector-fab {
   border-bottom: 2px solid rgba(0, 0, 0, 0.1);
 }
 
+/* Composicao da liga: lateral mais fina = cards mais largos. Reduz o padding
+   horizontal do container e reajusta o sangramento do header (margem negativa
+   + re-padding) pra acompanhar o novo padding sem vazar a borda arredondada.
+   So a liga muda (o .sdv-card global e os demais cards seguem iguais). */
+.sdv-blend-composition {
+  padding-left: clamp(7px, 1.8vw, 9px);
+  padding-right: clamp(7px, 1.8vw, 9px);
+}
+
+.sdv-blend-composition .sdv-card-header {
+  margin-left: calc(-1 * clamp(7px, 1.8vw, 9px));
+  margin-right: calc(-1 * clamp(7px, 1.8vw, 9px));
+  padding-left: clamp(7px, 1.8vw, 9px);
+  padding-right: clamp(7px, 1.8vw, 9px);
+}
+
 /* Titulo do cabecalho um pouco mais legivel que o cinza-claro padrao dos
    demais cards, pra ler como um header de secao — sem ficar chamativo. */
 .sdv-info-compact .sdv-card-header .sdv-card-title,
