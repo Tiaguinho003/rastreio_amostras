@@ -19070,6 +19070,13 @@ select.samples-filter-field-input {
   font-size: 0.9rem;
 }
 
+/* Campo com pendencia (recomendado + ainda vazio): borda laranja de atencao.
+   Some ao preencher (a classe is-pending cai). Nao colide com .has-error
+   (vermelho), que so aparece com valor invalido digitado. */
+.client-detail-edit-modal .app-modal-input.is-pending {
+  border-color: #d97706;
+}
+
 .client-detail-edit-modal .app-modal-label {
   font-size: 0.72rem;
 }

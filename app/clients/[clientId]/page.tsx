@@ -645,6 +645,10 @@ export default function ClientDetailPage() {
     return new Set(result.missing);
   }, [client]);
   const isMissing = (field: string) => missingSet.has(field);
+  // Borda laranja nos inputs do modal de edicao cujo campo esta pendente
+  // (recomendado e ainda vazio no form). Limpa ao digitar (some quando preenche).
+  const pendingClass = (field: string, value: string) =>
+    isMissing(field) && value.trim().length === 0 ? ' is-pending' : '';
 
   /* ================================================================ */
   /*  Edit client handlers                                            */
@@ -1644,13 +1648,12 @@ export default function ClientDetailPage() {
                         <label className="app-modal-field">
                           <span className="app-modal-label">CPF</span>
                           <input
-                            className={`app-modal-input${editCpfMask.error ? ' has-error' : ''}`}
+                            className={`app-modal-input${editCpfMask.error ? ' has-error' : ''}${pendingClass('cpf', editCpfMask.masked)}`}
                             value={editCpfMask.masked}
                             disabled={savingClient}
                             inputMode="numeric"
                             onChange={editCpfMask.onChange}
                             onBlur={editCpfMask.onBlur}
-                            placeholder="000.000.000-00"
                           />
                           {editCpfMask.error ? (
                             <span className="cudm-edit-error">{editCpfMask.error}</span>
@@ -1666,7 +1669,6 @@ export default function ClientDetailPage() {
                             inputMode="numeric"
                             onChange={editCnpjMask.onChange}
                             onBlur={editCnpjMask.onBlur}
-                            placeholder="00.000.000/0000-00"
                           />
                           {editCnpjMask.error ? (
                             <span className="cudm-edit-error">{editCnpjMask.error}</span>
@@ -1704,7 +1706,6 @@ export default function ClientDetailPage() {
                                 email: e.target.value.toUpperCase(),
                               }))
                             }
-                            placeholder="CONTATO@EXEMPLO.COM"
                           />
                         </label>
                       </>
@@ -1728,7 +1729,7 @@ export default function ClientDetailPage() {
                           <label className="app-modal-field">
                             <span className="app-modal-label">Nome fantasia</span>
                             <input
-                              className="app-modal-input"
+                              className={`app-modal-input${pendingClass('tradeName', editClientForm.tradeName)}`}
                               value={editClientForm.tradeName}
                               disabled={savingClient}
                               onChange={(e) =>
@@ -1753,7 +1754,6 @@ export default function ClientDetailPage() {
                                 email: e.target.value.toUpperCase(),
                               }))
                             }
-                            placeholder="CONTATO@EMPRESA.COM"
                           />
                         </label>
                       </>
@@ -1772,7 +1772,6 @@ export default function ClientDetailPage() {
                               phone: maskPhoneInput(e.target.value),
                             }))
                           }
-                          placeholder="(xx)xxxxx-xxxx"
                         />
                       </label>
                       <ChipMultiSelectField
@@ -1828,7 +1827,7 @@ export default function ClientDetailPage() {
                           {editCep.loading ? <span aria-hidden="true"> ⌛</span> : null}
                         </span>
                         <input
-                          className="app-modal-input"
+                          className={`app-modal-input${pendingClass('postalCode', editClientForm.postalCode)}`}
                           value={editClientForm.postalCode}
                           disabled={savingClient}
                           inputMode="numeric"
@@ -1838,13 +1837,12 @@ export default function ClientDetailPage() {
                               postalCode: maskPostalCodeInput(e.target.value),
                             }))
                           }
-                          placeholder="00000-000"
                         />
                       </label>
                       <label className="app-modal-field">
                         <span className="app-modal-label">Endereço</span>
                         <input
-                          className="app-modal-input"
+                          className={`app-modal-input${pendingClass('addressLine', editClientForm.addressLine)}`}
                           value={editClientForm.addressLine}
                           disabled={savingClient}
                           onChange={(e) =>
@@ -1861,7 +1859,7 @@ export default function ClientDetailPage() {
                       <label className="app-modal-field">
                         <span className="app-modal-label">Bairro</span>
                         <input
-                          className="app-modal-input"
+                          className={`app-modal-input${pendingClass('district', editClientForm.district)}`}
                           value={editClientForm.district}
                           disabled={savingClient}
                           onChange={(e) =>
@@ -1892,7 +1890,7 @@ export default function ClientDetailPage() {
                       <label className="app-modal-field">
                         <span className="app-modal-label">Cidade</span>
                         <input
-                          className="app-modal-input"
+                          className={`app-modal-input${pendingClass('city', editClientForm.city)}`}
                           value={editClientForm.city}
                           disabled={savingClient}
                           onChange={(e) =>
@@ -1906,7 +1904,7 @@ export default function ClientDetailPage() {
                       <label className="app-modal-field">
                         <span className="app-modal-label">UF</span>
                         <input
-                          className="app-modal-input"
+                          className={`app-modal-input${pendingClass('state', editClientForm.state)}`}
                           value={editClientForm.state}
                           disabled={savingClient}
                           maxLength={2}
@@ -1923,7 +1921,7 @@ export default function ClientDetailPage() {
                     <label className="app-modal-field">
                       <span className="app-modal-label">Inscrição estadual</span>
                       <input
-                        className="app-modal-input"
+                        className={`app-modal-input${pendingClass('registrationNumber', editClientForm.registrationNumber)}`}
                         value={editClientForm.registrationNumber}
                         disabled={savingClient}
                         inputMode="numeric"
@@ -1933,7 +1931,6 @@ export default function ClientDetailPage() {
                             registrationNumber: maskRegistrationNumberInput(e.target.value),
                           }))
                         }
-                        placeholder="000.000.000.00-00"
                       />
                     </label>
                   </>
