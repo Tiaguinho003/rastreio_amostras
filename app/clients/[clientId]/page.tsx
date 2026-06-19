@@ -1346,16 +1346,16 @@ export default function ClientDetailPage() {
                       </div>
                     </div>
                   ) : (
-                    /* 14.7.I: Card "Filiais" (PF) — themed (header verde + "+"
-                         button). Sub-cards minimalistas (so nome + cidade +
-                         seta clicavel). Click abre ClientUnitDetailModal. */
-                    <div className="sdv-card sdv-card-themed sdv-card-filiais">
-                      <div className="sdv-card-themed-header">
-                        <span className="sdv-card-themed-title">{unitPlural}</span>
+                    /* Card "Filiais" (PF) — padrao branco dos containers (sem
+                       header verde), igual ao de Informacoes: titulo + hairline +
+                       botao "Nova" minimalista. Click no card abre o detalhe. */
+                    <div className="sdv-card sdv-info-compact sdv-card-filiais">
+                      <div className="sdv-card-header">
+                        <span className="sdv-card-title">{unitPlural}</span>
                         {canAddUnit ? (
                           <button
                             type="button"
-                            className="sdv-card-themed-edit"
+                            className="sdv-edit-btn"
                             onClick={openUnitCreate}
                             aria-label="Nova filial"
                           >
@@ -1363,74 +1363,70 @@ export default function ClientDetailPage() {
                               <path d="M12 5v14" />
                               <path d="M5 12h14" />
                             </svg>
+                            <span>Nova</span>
                           </button>
                         ) : null}
                       </div>
-                      <div className="sdv-card-themed-body">
-                        {units.length === 0 ? (
-                          <div className="spv2-empty client-detail-empty-compact">
-                            <p className="spv2-empty-text">Nenhuma filial cadastrada</p>
-                          </div>
-                        ) : (
-                          <div className="sdv-unit-list">
-                            {visibleUnits.map((unit) => {
-                              const cityLabel =
-                                unit.city && unit.state
-                                  ? `${unit.city}/${unit.state}`
-                                  : 'Cidade não informada';
-                              const unitDisplayName =
-                                unit.name ?? unit.legalName ?? `Filial ${unit.code}`;
-                              // 14.7.M.2: detecta se a unit tem algum campo
-                              // recomendado missing — alimenta status-line
-                              // amber + warning icon.
-                              const unitIncomplete = Array.from(missingSet).some((key) =>
-                                key.startsWith(`units[${unit.id}].`)
-                              );
-                              return (
-                                <button
-                                  key={unit.id}
-                                  type="button"
-                                  className={`sdv-unit-card-mini${unit.status === 'INACTIVE' ? ' is-inactive' : ''}${unitIncomplete && unit.status !== 'INACTIVE' ? ' is-incomplete' : ''}`}
-                                  onClick={() => openUnitDetailModal(unit)}
-                                >
-                                  <div className="sdv-unit-card-mini-content">
-                                    <span className="sdv-unit-card-mini-name">
-                                      {unitDisplayName}
-                                      {unit.status === 'INACTIVE' ? (
-                                        <span className="sdv-unit-card-mini-inactive">Inativa</span>
-                                      ) : null}
-                                    </span>
-                                    <span className="sdv-unit-card-mini-city">{cityLabel}</span>
-                                  </div>
-                                  {unitIncomplete && unit.status !== 'INACTIVE' ? (
-                                    <IncompleteIcon className="sdv-unit-card-mini-warning" />
-                                  ) : null}
-                                  <svg
-                                    className="sdv-unit-card-mini-arrow"
-                                    viewBox="0 0 24 24"
-                                    aria-hidden="true"
-                                  >
-                                    <path d="m9 6 6 6-6 6" />
-                                  </svg>
-                                </button>
-                              );
-                            })}
-
-                            {inactiveUnitsCount > 0 ? (
+                      {units.length === 0 ? (
+                        <div className="spv2-empty client-detail-empty-compact">
+                          <p className="spv2-empty-text">Nenhuma filial cadastrada</p>
+                        </div>
+                      ) : (
+                        <div className="sdv-unit-list">
+                          {visibleUnits.map((unit) => {
+                            const cityLabel =
+                              unit.city && unit.state
+                                ? `${unit.city}/${unit.state}`
+                                : 'Cidade não informada';
+                            const unitDisplayName =
+                              unit.name ?? unit.legalName ?? `Filial ${unit.code}`;
+                            // 14.7.M.2: detecta se a unit tem algum campo
+                            // recomendado missing — alimenta a barra lateral
+                            // amber do card (.is-incomplete).
+                            const unitIncomplete = Array.from(missingSet).some((key) =>
+                              key.startsWith(`units[${unit.id}].`)
+                            );
+                            return (
                               <button
+                                key={unit.id}
                                 type="button"
-                                className="sdv-edit-btn-small"
-                                onClick={() => setShowInactiveUnits((v) => !v)}
+                                className={`sdv-unit-card-mini${unit.status === 'INACTIVE' ? ' is-inactive' : ''}${unitIncomplete && unit.status !== 'INACTIVE' ? ' is-incomplete' : ''}`}
+                                onClick={() => openUnitDetailModal(unit)}
                               >
-                                {showInactiveUnits
-                                  ? 'Esconder inativas'
-                                  : `Mostrar ${inactiveUnitsCount} inativa(s)`}
+                                <div className="sdv-unit-card-mini-content">
+                                  <span className="sdv-unit-card-mini-name">
+                                    {unitDisplayName}
+                                    {unit.status === 'INACTIVE' ? (
+                                      <span className="sdv-unit-card-mini-inactive">Inativa</span>
+                                    ) : null}
+                                  </span>
+                                  <span className="sdv-unit-card-mini-city">{cityLabel}</span>
+                                </div>
+                                <svg
+                                  className="sdv-unit-card-mini-arrow"
+                                  viewBox="0 0 24 24"
+                                  aria-hidden="true"
+                                >
+                                  <path d="m9 6 6 6-6 6" />
+                                </svg>
                               </button>
-                            ) : null}
-                          </div>
-                        )}
-                        <NoticeSlot notice={unitNotice} />
-                      </div>
+                            );
+                          })}
+
+                          {inactiveUnitsCount > 0 ? (
+                            <button
+                              type="button"
+                              className="sdv-edit-btn-small"
+                              onClick={() => setShowInactiveUnits((v) => !v)}
+                            >
+                              {showInactiveUnits
+                                ? 'Esconder inativas'
+                                : `Mostrar ${inactiveUnitsCount} inativa(s)`}
+                            </button>
+                          ) : null}
+                        </div>
+                      )}
+                      <NoticeSlot notice={unitNotice} />
                     </div>
                   )}
                 </section>

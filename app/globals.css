@@ -11315,14 +11315,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   --card-status-color: rgba(0, 0, 0, 0.32);
 }
 
-.sdv-unit-card-mini-warning {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.12));
-  animation: cv2-incomplete-pulse 1.5s ease-in-out infinite;
-}
-
 .sdv-unit-card-mini:hover {
   background: linear-gradient(180deg, #ffffff 0%, #f3eee5 100%);
   border-color: rgba(0, 0, 0, 0.12);
@@ -28171,10 +28163,9 @@ select.samples-filter-field-input {
     overflow: hidden;
   }
 
-  /* 14.7.I: filiais agora usa themed body que cuida do scroll interno
-     se houver muitas filiais. Override do filiais-specific de 14.5.A
-     pra usar a estrutura do themed-body. */
-  .sdv-card-themed.sdv-card-filiais .sdv-unit-list {
+  /* Filiais (card branco .sdv-info-compact): a lista rola internamente
+     quando ha mais filiais que cabem na altura fixa da row. */
+  .sdv-card-filiais .sdv-unit-list {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
@@ -28184,11 +28175,11 @@ select.samples-filter-field-input {
     scrollbar-color: #d6d0c1 transparent;
   }
 
-  .sdv-card-themed.sdv-card-filiais .sdv-unit-list::-webkit-scrollbar {
+  .sdv-card-filiais .sdv-unit-list::-webkit-scrollbar {
     width: 0.4rem;
   }
 
-  .sdv-card-themed.sdv-card-filiais .sdv-unit-list::-webkit-scrollbar-thumb {
+  .sdv-card-filiais .sdv-unit-list::-webkit-scrollbar-thumb {
     background: #d6d0c1;
     border-radius: 999px;
   }
