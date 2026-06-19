@@ -4358,7 +4358,7 @@ export default function SampleDetailPage() {
                   onClick={handleConfirmCancelSend}
                   disabled={cancellingSend}
                 >
-                  {cancellingSend ? 'Cancelando...' : 'Confirmar cancelamento'}
+                  {cancellingSend ? 'Cancelando...' : 'Confirmar'}
                 </button>
               </div>
             </div>
