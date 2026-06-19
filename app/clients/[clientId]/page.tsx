@@ -49,6 +49,7 @@ import { useFocusTrap } from '../../../lib/use-focus-trap';
 import { useRequireAuth } from '../../../lib/use-auth';
 import { isCommercialRole, NON_PROSPECTOR_ROLES } from '../../../lib/roles';
 import { UserMultiSelect } from '../../../components/users/UserMultiSelect';
+import { ChipMultiSelectField, type ChipOption } from '../../../components/ChipMultiSelectField';
 import type {
   ClientPurchaseListItem,
   ClientSampleListItem,
@@ -62,6 +63,14 @@ import type {
 /* ------------------------------------------------------------------ */
 
 type Notice = { kind: 'error' | 'success'; text: string } | null;
+
+// Papeis do cliente como opcoes do multi-select (mapeiam pras flags booleanas
+// isSeller/isBuyer/isWarehouse do form).
+const CLIENT_ROLE_OPTIONS: ChipOption[] = [
+  { id: 'seller', label: 'Vendedor' },
+  { id: 'buyer', label: 'Comprador' },
+  { id: 'warehouse', label: 'Armazém' },
+];
 
 function NoticeSlot({ notice }: { notice: Notice }) {
   return (
@@ -551,6 +560,15 @@ export default function ClientDetailPage() {
     const docOk = editClientForm.personType === 'PF' ? editCpfMask.isValid : editCnpjMask.isValid;
     return nameOk && phoneOk && docOk;
   }, [editClientForm, editClientTab, editCpfMask.isValid, editCnpjMask.isValid]);
+
+  // Papeis selecionados (ids) derivados das flags do form, pro multi-select.
+  const editClientRoleIds = useMemo(() => {
+    const ids: string[] = [];
+    if (editClientForm.isSeller) ids.push('seller');
+    if (editClientForm.isBuyer) ids.push('buyer');
+    if (editClientForm.isWarehouse) ids.push('warehouse');
+    return ids;
+  }, [editClientForm.isSeller, editClientForm.isBuyer, editClientForm.isWarehouse]);
 
   // L5: derived units lists for cards section
   const activeUnitsList = useMemo(() => units.filter((u) => u.status === 'ACTIVE'), [units]);
@@ -1675,67 +1693,45 @@ export default function ClientDetailPage() {
                           placeholder="(xx)xxxxx-xxxx"
                         />
                       </label>
-                      <UserMultiSelect
-                        label="Responsavel"
-                        value={editClientForm.commercialUserIds}
-                        onChange={(next) =>
-                          setEditClientForm((c) => ({ ...c, commercialUserIds: next }))
-                        }
-                        users={users}
-                        loading={loadingUsers}
+                      <ChipMultiSelectField
+                        label="Papel"
+                        placeholder="Selecione"
+                        options={CLIENT_ROLE_OPTIONS}
+                        selected={editClientRoleIds}
                         disabled={savingClient}
-                        hideRoleInChips
-                        firstNameOnly
-                        placeholder={
-                          editClientForm.commercialUserIds.length === 0 &&
-                          client?.status === 'ACTIVE'
-                            ? 'Obrigatorio'
-                            : 'Selecione 1+ responsaveis comerciais'
-                        }
-                        errorMessage={
-                          editClientForm.commercialUserIds.length === 0 &&
-                          client?.status === 'ACTIVE'
-                            ? 'required'
-                            : undefined
+                        onChange={(next) =>
+                          setEditClientForm((c) => ({
+                            ...c,
+                            isSeller: next.includes('seller'),
+                            isBuyer: next.includes('buyer'),
+                            isWarehouse: next.includes('warehouse'),
+                          }))
                         }
                       />
                     </div>
 
-                    <div className="sdv-edit-row client-detail-modal-flags">
-                      <label className="client-detail-modal-flag">
-                        <input
-                          type="checkbox"
-                          checked={editClientForm.isSeller}
-                          disabled={savingClient}
-                          onChange={(e) =>
-                            setEditClientForm((c) => ({ ...c, isSeller: e.target.checked }))
-                          }
-                        />
-                        Vendedor
-                      </label>
-                      <label className="client-detail-modal-flag">
-                        <input
-                          type="checkbox"
-                          checked={editClientForm.isBuyer}
-                          disabled={savingClient}
-                          onChange={(e) =>
-                            setEditClientForm((c) => ({ ...c, isBuyer: e.target.checked }))
-                          }
-                        />
-                        Comprador
-                      </label>
-                      <label className="client-detail-modal-flag">
-                        <input
-                          type="checkbox"
-                          checked={editClientForm.isWarehouse}
-                          disabled={savingClient}
-                          onChange={(e) =>
-                            setEditClientForm((c) => ({ ...c, isWarehouse: e.target.checked }))
-                          }
-                        />
-                        Armazém
-                      </label>
-                    </div>
+                    <UserMultiSelect
+                      label="Responsavel"
+                      value={editClientForm.commercialUserIds}
+                      onChange={(next) =>
+                        setEditClientForm((c) => ({ ...c, commercialUserIds: next }))
+                      }
+                      users={users}
+                      loading={loadingUsers}
+                      disabled={savingClient}
+                      hideRoleInChips
+                      firstNameOnly
+                      placeholder={
+                        editClientForm.commercialUserIds.length === 0 && client?.status === 'ACTIVE'
+                          ? 'Obrigatorio'
+                          : 'Selecione 1+ responsaveis comerciais'
+                      }
+                      errorMessage={
+                        editClientForm.commercialUserIds.length === 0 && client?.status === 'ACTIVE'
+                          ? 'required'
+                          : undefined
+                      }
+                    />
                   </>
                 ) : null}
 

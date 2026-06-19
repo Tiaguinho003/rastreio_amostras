@@ -19081,73 +19081,6 @@ select.samples-filter-field-input {
   display: none;
 }
 
-/* Papeis em duas caixas separadas (Vendedor | Comprador), cada uma
-   ocupando metade da largura. Mesma estetica dos inputs themed.
-   display:grid + 1fr 1fr forca cada label a ocupar metade da row,
-   sobrescrevendo o display:flex base de .client-detail-modal-flags. */
-/* Papeis: 3 caixas numa UNICA linha (repeat(3) + minmax(0,1fr) encolhe),
-   compactas o suficiente pra caber "Vendedor/Comprador/Armazem". */
-.client-detail-edit-modal .client-detail-modal-flags {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: clamp(5px, 1.6vw, 7px);
-  width: 100%;
-  background: transparent;
-  border: 0;
-  padding: 0;
-}
-
-.client-detail-edit-modal .client-detail-modal-flag {
-  display: flex;
-  width: 100%;
-  min-width: 0;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  padding: 0.4rem 0.45rem;
-  border: 2px solid rgba(0, 0, 0, 0.16);
-  border-radius: 10px;
-  background: #ffffff;
-  font-size: 0.72rem;
-  white-space: nowrap;
-  cursor: pointer;
-  box-sizing: border-box;
-}
-
-/* Indicador de selecao REDONDO (nao quadrado): zera o checkbox nativo e
-   desenha um circulo; quando marcado, vira verde com um check branco. */
-.client-detail-edit-modal .client-detail-modal-flag input[type='checkbox'] {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 1.05rem;
-  height: 1.05rem;
-  border-radius: 50%;
-  border: 2px solid rgba(0, 0, 0, 0.25);
-  background: #ffffff;
-  cursor: pointer;
-  margin: 0;
-  flex-shrink: 0;
-  display: grid;
-  place-content: center;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease;
-}
-
-.client-detail-edit-modal .client-detail-modal-flag input[type='checkbox']:checked {
-  background: var(--brand-green, #1f5d43);
-  border-color: var(--brand-green, #1f5d43);
-}
-
-.client-detail-edit-modal .client-detail-modal-flag input[type='checkbox']:checked::after {
-  content: '';
-  width: 0.3rem;
-  height: 0.52rem;
-  border: solid #ffffff;
-  border-width: 0 2px 2px 0;
-  transform: translateY(-1px) rotate(45deg);
-}
-
 .client-detail-edit-modal .app-modal-submit,
 .client-detail-edit-modal .app-modal-secondary,
 .client-detail-reg-modal .app-modal-submit,
@@ -19159,20 +19092,6 @@ select.samples-filter-field-input {
 .client-detail-edit-modal,
 .client-detail-reg-modal {
   width: min(92vw, 28rem);
-}
-
-.client-detail-modal-flags {
-  display: flex;
-  gap: 0.82rem;
-  flex-wrap: wrap;
-}
-
-.client-detail-modal-flag {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.38rem;
-  font-size: 0.84rem;
-  color: #45503f;
 }
 
 .client-detail-modal-row {
