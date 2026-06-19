@@ -23,7 +23,7 @@ import {
   updateProfileSchema,
 } from '../../lib/form-schemas';
 import { usePushNotifications } from '../../lib/push/use-push-notifications';
-import { isProspector } from '../../lib/roles';
+import { getRoleLabel, isProspector } from '../../lib/roles';
 import { mergeUserIntoSession, useRequireAuth } from '../../lib/use-auth';
 
 function formatExpiresAt(expiresAt: string): string | null {
@@ -355,10 +355,10 @@ export default function ProfilePage() {
             )}
           </div>
           <div className="stg-header-wrap">
-            <UserAvatar size="lg" user={session.user} />
+            <UserAvatar size="lg" user={session.user} className="stg-profile-avatar" />
             <div className="stg-header-text-wrap">
               <p className="stg-header-user-name">{fullName}</p>
-              <p className="stg-header-user-username">@{session.user.username}</p>
+              <p className="stg-header-user-role">{getRoleLabel(session.user.role)}</p>
             </div>
           </div>
         </header>

@@ -7509,33 +7509,28 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   width: clamp(32px, 9vw, 36px);
 }
 
+/* Header do perfil em LINHA: avatar à esquerda, nome + tipo de usuário à
+   direita. width:100% pra o wrap ocupar a largura toda (o .stg-header
+   centraliza os filhos por padrao). */
 .stg-header-wrap {
+  width: 100%;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: clamp(6px, 1.5vw, 8px);
+  gap: clamp(12px, 3.5vw, 16px);
 }
 
-.stg-header-avatar {
-  width: 72px;
-  height: 72px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.15);
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-  display: grid;
-  place-items: center;
-}
-
-.stg-header-avatar-text {
-  font-size: 26px;
-  font-weight: 700;
-  color: #ffffff;
-  line-height: 1;
+/* Avatar do perfil (UserAvatar): verde um pouco mais claro + borda branca,
+   IGUAL pra todos os usuários. !important pra vencer o background-color inline
+   por-usuário (hash) que o UserAvatar aplica via style. */
+.user-avatar.stg-profile-avatar {
+  background-color: #358760 !important;
+  border: 3px solid #ffffff;
 }
 
 .stg-header-text-wrap {
-  text-align: center;
+  min-width: 0;
+  text-align: left;
 }
 
 .stg-header-user-name {
@@ -7545,10 +7540,10 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   color: #ffffff;
 }
 
-.stg-header-user-username {
+.stg-header-user-role {
   margin: 0;
   font-size: clamp(11px, 3vw, 12px);
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .stg-content {
