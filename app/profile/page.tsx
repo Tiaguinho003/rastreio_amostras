@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 
 import { AppShell } from '../../components/AppShell';
@@ -27,6 +28,7 @@ import { usePushNotifications } from '../../lib/push/use-push-notifications';
 import { getRoleLabel, isProspector } from '../../lib/roles';
 import { useToast } from '../../lib/toast/ToastProvider';
 import { mergeUserIntoSession, useRequireAuth } from '../../lib/use-auth';
+import { useFocusTrap } from '../../lib/use-focus-trap';
 
 function formatExpiresAt(expiresAt: string): string | null {
   const expires = new Date(expiresAt);
@@ -85,6 +87,8 @@ export default function ProfilePage() {
   const [emailCode, setEmailCode] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [disableConfirmOpen, setDisableConfirmOpen] = useState(false);
+  const disableConfirmTrapRef = useFocusTrap(disableConfirmOpen);
   const [expandedField, setExpandedField] = useState<
     'nome' | 'usuario' | 'telefone' | 'email' | 'senha' | null
   >(null);
@@ -105,6 +109,18 @@ export default function ProfilePage() {
       abortRef.current?.abort();
     };
   }, []);
+
+  useEffect(() => {
+    if (!disableConfirmOpen) return;
+    function handleKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setDisableConfirmOpen(false);
+      }
+    }
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [disableConfirmOpen]);
 
   const loadProfile = useCallback(
     (targetSession: typeof session) => {
@@ -905,7 +921,7 @@ export default function ProfilePage() {
                     disabled={push.busy}
                     onClick={() => {
                       if (push.status === 'active') {
-                        void push.disable();
+                        setDisableConfirmOpen(true);
                       } else {
                         void push.enable();
                       }
@@ -955,6 +971,60 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
+
+          {disableConfirmOpen
+            ? createPortal(
+                <div className="app-modal-backdrop" onClick={() => setDisableConfirmOpen(false)}>
+                  <section
+                    ref={disableConfirmTrapRef}
+                    className="app-modal is-themed app-confirm-modal"
+                    role="alertdialog"
+                    aria-modal="true"
+                    aria-labelledby="push-disable-title"
+                    aria-describedby="push-disable-description"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <div className="app-modal-content">
+                      <div className="app-confirm-modal-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false">
+                          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+                          <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+                          <line x1="3" y1="3" x2="21" y2="21" />
+                        </svg>
+                      </div>
+                      <h3 id="push-disable-title" className="app-confirm-modal-title">
+                        Desativar notificações?
+                      </h3>
+                      <p id="push-disable-description" className="app-confirm-modal-message">
+                        Se desativar, você não receberá mais notificações neste aparelho.
+                      </p>
+                    </div>
+
+                    <div className="app-modal-actions">
+                      <button
+                        type="button"
+                        className="app-modal-secondary"
+                        onClick={() => setDisableConfirmOpen(false)}
+                        autoFocus
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        className="app-modal-submit is-warning"
+                        onClick={() => {
+                          setDisableConfirmOpen(false);
+                          void push.disable();
+                        }}
+                      >
+                        Desativar
+                      </button>
+                    </div>
+                  </section>
+                </div>,
+                document.body
+              )
+            : null}
         </section>
       </section>
     </AppShell>
