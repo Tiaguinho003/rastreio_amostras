@@ -10609,34 +10609,13 @@ body:has(.app-modal-backdrop) .prospector-fab {
   overflow: hidden;
 }
 
-/* Lado esquerdo do header verde do card Informacoes: titulo + badges de
-   papel lado a lado (o avatar de iniciais que ficava na coluna esquerda foi
-   removido). Ocupa o espaco e empurra o botao de editar pra direita; faz
-   wrap nos badges em telas estreitas. */
-.sdv-info-header-left {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: clamp(8px, 2vw, 14px);
-  min-width: 0;
-  flex: 1;
-}
-
-/* Badges de papel (Vendedor/Comprador/Armazem) — vivem no header do card
-   Informacoes, ao lado do titulo. Ativos "brilham" na cor; inativos ficam
-   opacos pra mostrar que existem mas nao se aplicam ao cliente. */
+/* Badges de papel (Vendedor/Comprador/Armazem) — agora um campo "Papeis" no
+   corpo do card Informacoes (saiu do cabecalho). Ativos "brilham" na cor;
+   inativos ficam opacos pra mostrar que existem mas nao se aplicam ao cliente. */
 .sdv-roles-row {
   display: flex;
   gap: clamp(8px, 1.6vw, 10px);
   flex-wrap: wrap;
-}
-
-/* No header verde os badges sao um pouco menores que a versao antiga (que
-   ficava sob o avatar), pra caber junto do titulo. Especificidade 0,3,0
-   vence a regra base .sdv-roles-row .cv2-card-role. */
-.sdv-info-header-left .sdv-roles-row .cv2-card-role {
-  font-size: clamp(10px, 2.6vw, 12px);
-  padding: clamp(3px, 0.9vw, 5px) clamp(8px, 2vw, 11px);
 }
 
 .sdv-roles-row .cv2-card-role {

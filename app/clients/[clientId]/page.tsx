@@ -1047,12 +1047,97 @@ export default function ClientDetailPage() {
             <section className="sdv-content">
               <div className="sdv-content-inner">
                 <section className="sdv-general">
-                  {/* card de Informacoes dividido em 2: vazio (esq) + compacto (dir) */}
+                  {/* Card de Informacoes — padrao branco dos containers (sem
+                      header verde): titulo + hairline + editar minimalista, igual
+                      ao container "Informacoes" do detalhe da amostra. Os papeis
+                      saem do cabecalho e viram um campo no corpo (ver abaixo). */}
                   <div className="sdv-info-split-row">
-                    <div className="sdv-card sdv-card-themed sdv-card-info sdv-card-info-compact">
-                      <div className="sdv-card-themed-header">
-                        <div className="sdv-info-header-left">
-                          <span className="sdv-card-themed-title">Informações</span>
+                    <div id="sdv-informacoes" className="sdv-card sdv-info-compact sdv-card-info">
+                      <div className="sdv-card-header">
+                        <span className="sdv-card-title">Informações</span>
+                        <button
+                          type="button"
+                          className="sdv-edit-btn"
+                          onClick={() => openEditClient('info')}
+                          aria-label="Editar informações"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 20h9" />
+                            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                          </svg>
+                          <span>Editar</span>
+                        </button>
+                      </div>
+                      <div className="sdv-info-grid">
+                        <div className="sdv-info-item is-full">
+                          <span className="sdv-info-label">
+                            {client.personType === 'PF' ? 'Nome completo' : 'Razao social'}
+                          </span>
+                          <span className="sdv-info-value">
+                            {client.personType === 'PF'
+                              ? client.fullName || '\u2014'
+                              : client.legalName || '\u2014'}
+                          </span>
+                        </div>
+                        {client.personType === 'PJ' ? (
+                          <div className="sdv-info-item is-full">
+                            <span
+                              className={`sdv-info-label${isMissing('tradeName') ? ' is-missing' : ''}`}
+                            >
+                              Nome fantasia
+                              {isMissing('tradeName') ? (
+                                <IncompleteIcon className="sdv-info-label-warning" />
+                              ) : null}
+                            </span>
+                            <span className="sdv-info-value">{client.tradeName || '\u2014'}</span>
+                          </div>
+                        ) : null}
+                        <div className="sdv-info-item">
+                          <span
+                            className={`sdv-info-label${client.personType === 'PF' && isMissing('cpf') ? ' is-missing' : ''}`}
+                          >
+                            {client.personType === 'PF' ? 'CPF' : 'CNPJ'}
+                            {client.personType === 'PF' && isMissing('cpf') ? (
+                              <IncompleteIcon className="sdv-info-label-warning" />
+                            ) : null}
+                          </span>
+                          <span className="sdv-info-value">
+                            {client.personType === 'PF'
+                              ? formatClientDocument(client.cpf, 'PF') || '\u2014'
+                              : formatClientDocument(client.cnpj, 'PJ') || '\u2014'}
+                          </span>
+                        </div>
+                        <div className="sdv-info-item">
+                          <span className="sdv-info-label">Email</span>
+                          <span className="sdv-info-value">{client.email || '\u2014'}</span>
+                        </div>
+                        <div className="sdv-info-item">
+                          <span className="sdv-info-label">Telefone</span>
+                          <span className="sdv-info-value">
+                            {formatPhone(client.phone) || '\u2014'}
+                          </span>
+                        </div>
+                        <div className="sdv-info-item is-full">
+                          <span className="sdv-info-label">
+                            Responsavel
+                            {client.commercialUsers.length > 0
+                              ? ` (${client.commercialUsers.length})`
+                              : ''}
+                          </span>
+                          <div className="sdv-commercial-users">
+                            {client.commercialUsers.length === 0 ? (
+                              <span className="sdv-info-value">{'\u2014'}</span>
+                            ) : (
+                              client.commercialUsers.map((u) => (
+                                <span key={u.id} className="sdv-commercial-user-chip">
+                                  {u.fullName}
+                                </span>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                        <div className="sdv-info-item is-full">
+                          <span className="sdv-info-label">Papéis</span>
                           <div className="sdv-roles-row">
                             <span
                               className={`cv2-card-role is-seller${client.isSeller ? '' : ' is-dim'}`}
@@ -1071,93 +1156,8 @@ export default function ClientDetailPage() {
                             </span>
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          className="sdv-card-themed-edit"
-                          onClick={() => openEditClient('info')}
-                          aria-label="Editar informações"
-                        >
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            {/* 14.7.M.1: lapis simetrico — desenho centrado em
-                                (12,12) do viewBox 24x24. Path antigo tinha
-                                centro de massa deslocado pra direita-baixo. */}
-                            <path d="M4 20h3l13-13-3-3L4 17z" />
-                            <path d="M14 6l4 4" />
-                          </svg>
-                        </button>
                       </div>
-                      <div className="sdv-card-themed-body">
-                        <div className="sdv-info-grid">
-                          <div className="sdv-info-item is-full">
-                            <span className="sdv-info-label">
-                              {client.personType === 'PF' ? 'Nome completo' : 'Razao social'}
-                            </span>
-                            <span className="sdv-info-value">
-                              {client.personType === 'PF'
-                                ? client.fullName || '\u2014'
-                                : client.legalName || '\u2014'}
-                            </span>
-                          </div>
-                          {client.personType === 'PJ' ? (
-                            <div className="sdv-info-item is-full">
-                              <span
-                                className={`sdv-info-label${isMissing('tradeName') ? ' is-missing' : ''}`}
-                              >
-                                Nome fantasia
-                                {isMissing('tradeName') ? (
-                                  <IncompleteIcon className="sdv-info-label-warning" />
-                                ) : null}
-                              </span>
-                              <span className="sdv-info-value">{client.tradeName || '\u2014'}</span>
-                            </div>
-                          ) : null}
-                          <div className="sdv-info-item">
-                            <span
-                              className={`sdv-info-label${client.personType === 'PF' && isMissing('cpf') ? ' is-missing' : ''}`}
-                            >
-                              {client.personType === 'PF' ? 'CPF' : 'CNPJ'}
-                              {client.personType === 'PF' && isMissing('cpf') ? (
-                                <IncompleteIcon className="sdv-info-label-warning" />
-                              ) : null}
-                            </span>
-                            <span className="sdv-info-value">
-                              {client.personType === 'PF'
-                                ? formatClientDocument(client.cpf, 'PF') || '\u2014'
-                                : formatClientDocument(client.cnpj, 'PJ') || '\u2014'}
-                            </span>
-                          </div>
-                          <div className="sdv-info-item">
-                            <span className="sdv-info-label">Email</span>
-                            <span className="sdv-info-value">{client.email || '\u2014'}</span>
-                          </div>
-                          <div className="sdv-info-item">
-                            <span className="sdv-info-label">Telefone</span>
-                            <span className="sdv-info-value">
-                              {formatPhone(client.phone) || '\u2014'}
-                            </span>
-                          </div>
-                          <div className="sdv-info-item is-full">
-                            <span className="sdv-info-label">
-                              Responsavel
-                              {client.commercialUsers.length > 0
-                                ? ` (${client.commercialUsers.length})`
-                                : ''}
-                            </span>
-                            <div className="sdv-commercial-users">
-                              {client.commercialUsers.length === 0 ? (
-                                <span className="sdv-info-value">{'\u2014'}</span>
-                              ) : (
-                                client.commercialUsers.map((u) => (
-                                  <span key={u.id} className="sdv-commercial-user-chip">
-                                    {u.fullName}
-                                  </span>
-                                ))
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <NoticeSlot notice={detailNotice} />
-                      </div>
+                      <NoticeSlot notice={detailNotice} />
                     </div>
                   </div>
 
