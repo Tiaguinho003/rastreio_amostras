@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { AppShell } from '../../components/AppShell';
+import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { UserAvatar } from '../../components/UserAvatar';
 import {
   ApiError,
@@ -334,31 +335,41 @@ export default function ProfilePage() {
         {/* Header */}
         <header className="sdv-header stg-header">
           <div className="sdv-header-top">
-            {/* Prospector nao tem navbar — sem o back ele ficaria preso aqui.
-                Spacer invisivel do outro lado mantem o titulo centrado. */}
+            {/* Esquerda: back (prospector, que nao tem navbar) ou spacer
+                invisivel (demais papeis), pra manter o titulo centrado com o
+                menu de conta a direita. */}
             {isProspector(session.user.role) ? (
-              <>
-                <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao início">
-                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                    <path d="M15 18l-6-6 6-6" />
-                  </svg>
-                </Link>
-                <span className="sdv-header-title">Meu Perfil</span>
-                <span
-                  className="nsv2-back"
-                  aria-hidden="true"
-                  style={{ visibility: 'hidden', pointerEvents: 'none' }}
-                />
-              </>
+              <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao início">
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+              </Link>
             ) : (
-              <span className="sdv-header-title">Meu Perfil</span>
+              <span
+                className="nsv2-back"
+                aria-hidden="true"
+                style={{ visibility: 'hidden', pointerEvents: 'none' }}
+              />
             )}
+            <span className="sdv-header-title">Meu Perfil</span>
+            <HeaderAvatarMenu session={session} onLogout={logout} />
           </div>
           <div className="stg-header-wrap">
             <UserAvatar size="lg" user={session.user} className="stg-profile-avatar" />
             <div className="stg-header-text-wrap">
               <p className="stg-header-user-name">{fullName}</p>
-              <p className="stg-header-user-role">{getRoleLabel(session.user.role)}</p>
+              <span className="stg-header-user-role">
+                <svg
+                  className="stg-header-user-role-icon"
+                  viewBox="0 0 24 24"
+                  focusable="false"
+                  aria-hidden="true"
+                >
+                  <path d="M12 3 5 5.5v6c0 4.5 3 8.3 7 9.5 4-1.2 7-5 7-9.5v-6L12 3z" />
+                  <path d="m9 12 2 2 4-4.5" />
+                </svg>
+                {getRoleLabel(session.user.role)}
+              </span>
             </div>
           </div>
         </header>
