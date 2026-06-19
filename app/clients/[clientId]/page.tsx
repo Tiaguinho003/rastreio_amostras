@@ -1947,7 +1947,7 @@ export default function ClientDetailPage() {
         <div className="app-modal-backdrop">
           <section
             ref={statusTrapRef}
-            className="app-modal is-themed"
+            className="app-modal is-themed is-action"
             role="dialog"
             aria-modal="true"
             aria-labelledby="status-modal-title"
