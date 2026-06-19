@@ -1398,6 +1398,9 @@ export default function ClientDetailPage() {
                                 className={`sdv-unit-card-mini${unit.status === 'INACTIVE' ? ' is-inactive' : ''}${unitIncomplete && unit.status !== 'INACTIVE' ? ' is-incomplete' : ''}`}
                                 onClick={() => openUnitDetailModal(unit)}
                               >
+                                {unitIncomplete && unit.status !== 'INACTIVE' ? (
+                                  <IncompleteIcon className="cv2-card-incomplete-badge" />
+                                ) : null}
                                 <div className="sdv-unit-card-mini-content">
                                   <span className="sdv-unit-card-mini-name">
                                     {unitDisplayName}
@@ -2122,7 +2125,7 @@ export default function ClientDetailPage() {
         <div className="app-modal-backdrop">
           <section
             ref={unitStatusTrapRef}
-            className="app-modal is-themed"
+            className="app-modal is-themed is-action"
             role="dialog"
             aria-modal="true"
             aria-labelledby="unit-status-modal-title"
@@ -2159,7 +2162,15 @@ export default function ClientDetailPage() {
 
               <NoticeSlot notice={unitStatusNotice} />
 
-              <div className="app-modal-actions">
+              <div className="app-modal-actions client-detail-status-actions">
+                <button
+                  type="button"
+                  className="app-modal-secondary"
+                  onClick={closeUnitStatusModal}
+                  disabled={savingUnitStatus}
+                >
+                  Cancelar
+                </button>
                 <button
                   type="submit"
                   className="app-modal-submit"
@@ -2168,16 +2179,8 @@ export default function ClientDetailPage() {
                   {savingUnitStatus
                     ? 'Processando...'
                     : unitStatusAction === 'inactivate'
-                      ? 'Confirmar inativação'
-                      : 'Confirmar reativação'}
-                </button>
-                <button
-                  type="button"
-                  className="app-modal-secondary"
-                  onClick={closeUnitStatusModal}
-                  disabled={savingUnitStatus}
-                >
-                  Cancelar
+                      ? 'Inativar'
+                      : 'Reativar'}
                 </button>
               </div>
             </form>

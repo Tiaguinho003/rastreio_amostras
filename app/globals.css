@@ -11289,7 +11289,7 @@ body:has(.app-modal-backdrop) .prospector-fab {
   -webkit-tap-highlight-color: transparent;
   text-align: left;
   width: 100%;
-  overflow: hidden;
+  overflow: visible;
   --card-status-color: var(--brand-green-soft);
   transition:
     background 0.15s ease,
@@ -11298,16 +11298,19 @@ body:has(.app-modal-backdrop) .prospector-fab {
     box-shadow 0.15s ease;
 }
 
-/* Barra lateral cobre TODA a altura, colada na borda esquerda interna
-   (dentro do border-radius). Igual ao .sdv-commercial-list-bar. */
+/* Barra lateral CURTA, arredondada e centralizada (nao encosta nas bordas) —
+   mesmo padrao dos cards de Lotes / Clientes (.cv2-card::before). */
 .sdv-unit-card-mini::before {
   content: '';
   position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: clamp(6px, 0.7vw, 8px);
+  left: clamp(6px, 1.8vw, 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: clamp(34px, 10vw, 42px);
+  border-radius: 2px;
   background: var(--card-status-color);
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.08);
   transition: background 0.15s ease;
 }
 
