@@ -5691,7 +5691,7 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   color: inherit;
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.15s;
-  animation: spv2-cardIn 0.35s ease backwards;
+  animation: spv2-cardIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) backwards;
   flex-shrink: 0;
 }
 
@@ -5859,7 +5859,7 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
   overflow: hidden;
   flex-shrink: 0;
-  animation: spv2-cardIn 0.35s ease backwards;
+  animation: spv2-cardIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) backwards;
   transition:
     opacity 0.2s ease,
     filter 0.2s ease,
@@ -6365,7 +6365,7 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   text-align: left;
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.15s ease;
-  animation: spv2-cardIn 0.35s ease backwards;
+  animation: spv2-cardIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) backwards;
   flex-shrink: 0;
 }
 
@@ -7763,7 +7763,7 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
 }
 
 .stg-card {
-  animation: stg-card-in 0.3s ease backwards;
+  animation: stg-card-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) backwards;
   animation-delay: calc(var(--i, 0) * 0.05s);
 }
 
@@ -9102,7 +9102,7 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
     0 4px 12px rgba(0, 0, 0, 0.07),
     0 8px 24px rgba(0, 0, 0, 0.03),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  animation: sdv-fadeIn 0.3s ease backwards;
+  animation: sdv-fadeIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 /* Toggle do accordion: head + faixa do cliente sao a area clicavel.
@@ -10057,7 +10057,7 @@ body:has(.app-modal-backdrop) .prospector-fab {
 }
 
 .sdv-content-inner {
-  animation: sdv-fadeIn 0.3s ease backwards;
+  animation: sdv-fadeIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 /* General tab */
@@ -10228,7 +10228,7 @@ body:has(.app-modal-backdrop) .prospector-fab {
     0 14px 32px rgba(0, 0, 0, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(0, 0, 0, 0.06);
-  animation: sdv-fadeIn 0.3s ease backwards;
+  animation: sdv-fadeIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 .sdv-card-title {
@@ -11141,7 +11141,7 @@ body:has(.app-modal-backdrop) .prospector-fab {
   display: flex;
   flex-direction: column;
   gap: clamp(10px, 3vw, 12px);
-  animation: sdv-fadeIn 0.3s ease backwards;
+  animation: sdv-fadeIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 .sdv-cls-pending {
@@ -11668,7 +11668,7 @@ body:has(.app-modal-backdrop) .prospector-fab {
   border-radius: clamp(10px, 3vw, 12px);
   border: 1px solid rgba(0, 0, 0, 0.04);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.07);
-  animation: spv2-cardIn 0.35s ease backwards;
+  animation: spv2-cardIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 .sdv-com-mov.is-cancelled {
@@ -20250,19 +20250,19 @@ select.samples-filter-field-input {
   }
 
   .dashboard-operations-grid .dashboard-operation-card:nth-child(1) {
-    animation: dashboard-card-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+    animation: dashboard-card-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both;
   }
 
   .dashboard-operations-grid .dashboard-operation-card:nth-child(2) {
-    animation: dashboard-card-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.4s both;
+    animation: dashboard-card-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.14s both;
   }
 
   .sales-card {
-    animation: dashboard-card-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.45s both;
+    animation: dashboard-card-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both;
   }
 
   .recent-activity-mobile {
-    animation: dashboard-card-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.5s both;
+    animation: dashboard-card-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.26s both;
   }
 
   .dashboard-sheet-section {
@@ -30593,7 +30593,7 @@ select.samples-filter-field-input {
 .stg-logout-row {
   display: flex;
   justify-content: flex-end;
-  animation: stg-card-in 0.3s ease backwards;
+  animation: stg-card-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) backwards;
   animation-delay: calc(var(--i, 0) * 0.05s);
 }
 
