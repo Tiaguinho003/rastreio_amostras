@@ -331,15 +331,15 @@ export function ClassificationReviewSheetBody({
 
         <section className="review-section">
           <h4 className="review-section-title">Fundos</h4>
-          <div className="review-fundos-row">
-            <label className="review-fundos-cell">
-              <span className="review-field-label">Peneira</span>
+          <div className="review-grid review-grid-2">
+            <div className="review-fundos-field">
               <input
                 type="text"
                 inputMode="numeric"
                 className="review-field-input"
                 value={form.fundo1Peneira}
                 disabled={saving}
+                aria-label="Fundo 1 — peneira"
                 onChange={(e) =>
                   commitWithCaret(
                     e.target,
@@ -348,18 +348,16 @@ export function ClassificationReviewSheetBody({
                   )
                 }
               />
-            </label>
-            <span className="review-fundos-eq" aria-hidden="true">
-              =
-            </span>
-            <label className="review-fundos-cell">
-              <span className="review-field-label">%</span>
+              <span className="review-fundos-eq" aria-hidden="true">
+                =
+              </span>
               <input
                 type="text"
                 inputMode="decimal"
                 className="review-field-input"
                 value={form.fundo1Percent}
                 disabled={saving}
+                aria-label="Fundo 1 — porcentagem"
                 onChange={(e) =>
                   commitWithCaret(
                     e.target,
@@ -368,17 +366,15 @@ export function ClassificationReviewSheetBody({
                   )
                 }
               />
-            </label>
-          </div>
-          <div className="review-fundos-row">
-            <label className="review-fundos-cell">
-              <span className="review-field-label">Peneira</span>
+            </div>
+            <div className="review-fundos-field">
               <input
                 type="text"
                 inputMode="numeric"
                 className="review-field-input"
                 value={form.fundo2Peneira}
                 disabled={saving}
+                aria-label="Fundo 2 — peneira"
                 onChange={(e) =>
                   commitWithCaret(
                     e.target,
@@ -387,18 +383,16 @@ export function ClassificationReviewSheetBody({
                   )
                 }
               />
-            </label>
-            <span className="review-fundos-eq" aria-hidden="true">
-              =
-            </span>
-            <label className="review-fundos-cell">
-              <span className="review-field-label">%</span>
+              <span className="review-fundos-eq" aria-hidden="true">
+                =
+              </span>
               <input
                 type="text"
                 inputMode="decimal"
                 className="review-field-input"
                 value={form.fundo2Percent}
                 disabled={saving}
+                aria-label="Fundo 2 — porcentagem"
                 onChange={(e) =>
                   commitWithCaret(
                     e.target,
@@ -407,7 +401,7 @@ export function ClassificationReviewSheetBody({
                   )
                 }
               />
-            </label>
+            </div>
           </div>
         </section>
 

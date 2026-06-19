@@ -22490,29 +22490,19 @@ select.samples-filter-field-input {
   color: #c45c5c;
 }
 
-.review-fundos-row {
+/* Fundos no modal de revisao: cada fundo num campo unico (peneira = %); os
+   dois ficam lado a lado via .review-grid-2 no markup. */
+.review-fundos-field {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: end;
-  gap: clamp(6px, 2vw, 10px);
-}
-
-.review-fundos-row + .review-fundos-row {
-  margin-top: clamp(4px, 1.2vw, 6px);
-}
-
-.review-fundos-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
+  align-items: center;
+  gap: clamp(5px, 1.6vw, 8px);
 }
 
 .review-fundos-eq {
-  font-size: clamp(1.2rem, 4vw, 1.5rem);
+  font-size: clamp(1.1rem, 3.6vw, 1.35rem);
   font-weight: 700;
   color: rgba(0, 0, 0, 0.5);
-  padding-bottom: clamp(8px, 2vw, 10px);
   user-select: none;
 }
 

@@ -3289,7 +3289,7 @@ export default function SampleDetailPage() {
               const percent = f[percentKey];
               const combined =
                 peneira && percent
-                  ? `${peneira}=${percent}%`
+                  ? `${peneira} = ${percent}%`
                   : peneira
                     ? peneira
                     : percent
@@ -3552,8 +3552,10 @@ export default function SampleDetailPage() {
 
                         <div className="cld-section is-funds">
                           <div className="cld-section-title">Fundos</div>
-                          {renderFundo('fundo1Peneira', 'fundo1Percent')}
-                          {renderFundo('fundo2Peneira', 'fundo2Percent')}
+                          <div className="cld-grid cld-grid-2">
+                            {renderFundo('fundo1Peneira', 'fundo1Percent')}
+                            {renderFundo('fundo2Peneira', 'fundo2Percent')}
+                          </div>
                         </div>
 
                         <div className="cld-section is-defects">
