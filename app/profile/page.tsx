@@ -76,7 +76,7 @@ export default function ProfilePage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [expandedField, setExpandedField] = useState<
-    'nome' | 'telefone' | 'email' | 'senha' | null
+    'nome' | 'usuario' | 'telefone' | 'email' | 'senha' | null
   >(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -195,7 +195,7 @@ export default function ProfilePage() {
     return null;
   }
 
-  function toggleField(field: 'nome' | 'telefone' | 'email' | 'senha') {
+  function toggleField(field: 'nome' | 'usuario' | 'telefone' | 'email' | 'senha') {
     setExpandedField((cur) => (cur === field ? null : field));
     // Limpa feedback transiente ao abrir/fechar um campo.
     setProfileError(null);
@@ -462,9 +462,21 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Usuário (FIXO) */}
-            <div className="stg-field-row">
-              <div className="stg-field-head is-static">
+            {/* Usuário */}
+            <div className={`stg-field-row${expandedField === 'usuario' ? ' is-open' : ''}`}>
+              <div
+                className="stg-field-head"
+                role="button"
+                tabIndex={0}
+                aria-expanded={expandedField === 'usuario'}
+                onClick={() => toggleField('usuario')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleField('usuario');
+                  }
+                }}
+              >
                 <span className="stg-field-icon">
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <circle cx="12" cy="12" r="4" />
@@ -475,7 +487,51 @@ export default function ProfilePage() {
                   <span className="stg-field-label">Usuário</span>
                   <span className="stg-field-value">@{profileForm.username}</span>
                 </span>
-                <span className="stg-field-fixed-badge">FIXO</span>
+                <svg className="stg-field-chevron" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="m9 6 6 6-6 6" />
+                </svg>
+              </div>
+              <div className="stg-field-expand">
+                <div className="stg-field-expand-inner">
+                  <div className="stg-password-warning">
+                    <svg
+                      className="stg-password-warning-icon"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                      <line x1="12" y1="9" x2="12" y2="13" />
+                      <line x1="12" y1="17" x2="12.01" y2="17" />
+                    </svg>
+                    <span className="stg-password-warning-text">
+                      Alterar o usuário encerra a sessão e exige novo login.
+                    </span>
+                  </div>
+                  <form className="sdv-edit-fields" onSubmit={handleProfileSubmit}>
+                    <label className="sdv-edit-field">
+                      <span className="sdv-edit-label">Usuário</span>
+                      <input
+                        className="sdv-edit-input stg-input"
+                        value={profileForm.username}
+                        onChange={(e) =>
+                          setProfileForm((c) => ({ ...c, username: e.target.value }))
+                        }
+                        autoComplete="username"
+                      />
+                    </label>
+                    {profileError ? <p className="stg-feedback is-error">{profileError}</p> : null}
+                    {profileMessage ? (
+                      <p className="stg-feedback is-success">{profileMessage}</p>
+                    ) : null}
+                    <button
+                      type="submit"
+                      className={`cdm-manage-link stg-btn-save-profile${profileLoading ? ' is-disabled' : ''}`}
+                      disabled={profileLoading}
+                    >
+                      {profileLoading ? 'Salvando...' : 'Salvar'}
+                    </button>
+                  </form>
+                </div>
               </div>
             </div>
 

@@ -7585,7 +7585,7 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   align-items: center;
   gap: clamp(10px, 3vw, 13px);
   width: 100%;
-  padding: clamp(10px, 2.8vw, 13px) clamp(10px, 2.6vw, 12px);
+  padding: clamp(7px, 2vw, 9px) clamp(10px, 2.6vw, 12px);
   background: transparent;
   border: 0;
   text-align: left;
@@ -7609,15 +7609,14 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   display: grid;
   place-items: center;
   border-radius: 10px;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
+  background: var(--brand-green-soft, #2f6b4a);
 }
 
 .stg-field-icon svg {
   width: 18px;
   height: 18px;
   fill: none;
-  stroke: #27ae60;
+  stroke: #ffffff;
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -7716,7 +7715,20 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
 .stg-field-expand-inner {
   overflow: hidden;
   min-height: 0;
-  padding: 0 clamp(10px, 2.6vw, 12px) clamp(8px, 2.2vw, 10px);
+  padding-left: clamp(10px, 2.6vw, 12px);
+  padding-right: clamp(10px, 2.6vw, 12px);
+}
+
+.stg-field-expand-inner > :first-child {
+  margin-top: clamp(2px, 1vw, 4px);
+}
+
+.stg-field-expand-inner > * + * {
+  margin-top: clamp(8px, 2.2vw, 10px);
+}
+
+.stg-field-expand-inner > :last-child {
+  margin-bottom: clamp(9px, 2.4vw, 11px);
 }
 
 .stg-content {
