@@ -57,6 +57,16 @@ function extractErrorMessage(cause: unknown, fallback: string): string {
   return fallback;
 }
 
+// Rótulo curto do estado das notificações (subtítulo da linha). O fallback
+// cobre needs-install/unsupported sem instrução específica de iPhone.
+const PUSH_STATUS_LABELS: Record<string, string> = {
+  active: 'Ativadas neste aparelho',
+  inactive: 'Receber neste aparelho',
+  loading: 'Verificando…',
+  'permission-denied': 'Bloqueadas nas permissões',
+  unavailable: 'Indisponível no momento',
+};
+
 export default function ProfilePage() {
   const router = useRouter();
   const { session, loading, logout, setSession } = useRequireAuth();
@@ -869,60 +879,21 @@ export default function ProfilePage() {
 
           {/* Notificacoes (Web Push) */}
           <div className="sdv-card stg-card" style={{ '--i': 3 } as React.CSSProperties}>
-            <div className="stg-card-title-row">
-              <div className="stg-card-icon is-notifications">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-                  <path d="M13.7 21a2 2 0 0 1-3.4 0" />
-                </svg>
-              </div>
-              <span className="stg-card-title">Notificações</span>
-            </div>
-
-            {push.status === 'loading' ? (
-              <p className="stg-push-description">Verificando o estado das notificações…</p>
-            ) : null}
-
-            {push.status === 'needs-install' ? (
-              <p className="stg-push-description">
-                Para receber notificações no iPhone, adicione o app à tela de início (compartilhar →
-                Adicionar à Tela de Início) e ative por lá.
-              </p>
-            ) : null}
-
-            {push.status === 'unsupported' ? (
-              <p className="stg-push-description">
-                Este navegador não suporta notificações. Use o app instalado no celular.
-              </p>
-            ) : null}
-
-            {push.status === 'unavailable' ? (
-              <p className="stg-push-description">
-                Notificações temporariamente indisponíveis no servidor.
-              </p>
-            ) : null}
-
-            {push.status === 'permission-denied' ? (
-              <p className="stg-push-description">
-                Notificações bloqueadas para este app. Ative em Ajustes &gt; Notificações no celular
-                (ou nas permissões do site no navegador) e volte aqui.
-              </p>
-            ) : null}
-
-            {push.status === 'inactive' || push.status === 'active' ? (
-              <>
-                <div className="stg-push-toggle-row">
-                  <div className="stg-push-toggle-text">
-                    <p className="stg-push-toggle-label">
-                      {push.status === 'active'
-                        ? 'Notificações ativadas neste aparelho'
-                        : 'Receber notificações neste aparelho'}
-                    </p>
-                    <p className="stg-push-description">
-                      Novos informes de visita, vendas e perdas registradas e o lembrete diário de
-                      pendências.
-                    </p>
-                  </div>
+            <div className="stg-field-row">
+              <div className="stg-field-head is-static">
+                <span className="stg-field-icon">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+                    <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+                  </svg>
+                </span>
+                <span className="stg-field-main">
+                  <span className="stg-field-label">Notificações</span>
+                  <span className="stg-field-value">
+                    {PUSH_STATUS_LABELS[push.status] ?? 'Indisponível neste navegador'}
+                  </span>
+                </span>
+                {push.status === 'inactive' || push.status === 'active' ? (
                   <button
                     type="button"
                     role="switch"
@@ -942,11 +913,11 @@ export default function ProfilePage() {
                   >
                     <span className="stg-push-switch-thumb" aria-hidden="true" />
                   </button>
-                </div>
-                {push.errorMessage ? (
-                  <p className="stg-feedback is-error">{push.errorMessage}</p>
                 ) : null}
-              </>
+              </div>
+            </div>
+            {push.errorMessage ? (
+              <p className="stg-feedback is-error is-top-gap">{push.errorMessage}</p>
             ) : null}
           </div>
 
