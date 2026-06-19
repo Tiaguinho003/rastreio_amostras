@@ -4,7 +4,7 @@ import type { ClientCommercialSummaryResponse } from '../../lib/types';
 
 // Card de APRESENTACAO (sem botoes/filtros) do resumo comercial do cliente no
 // mesmo padrao visual do "Lotes disponiveis" do dashboard (SalesAvailabilityCard):
-// donut SVG manual + legenda. As contagens (amostras) vem de
+// donut SVG manual + legenda. As contagens (lotes) vem de
 // getClientCommercialSummary. "Comprado" so entra quando o cliente e comprador.
 
 type StatusKey = 'open' | 'sold' | 'lost' | 'bought';
@@ -36,8 +36,18 @@ function CommercialDonut({ segments, total }: { segments: Segment[]; total: numb
   const segmentGap = visibleCount > 1 ? 2 : 0;
 
   const totalDigits = String(total).length;
+  // Numero central: ligeiramente menor que antes e com passo por digito — encolhe
+  // a cada digito a mais pra caber confortavelmente no furo do donut.
   const totalFontSize =
-    totalDigits <= 2 ? 33 : totalDigits === 3 ? 29 : totalDigits === 4 ? 23 : 19;
+    totalDigits <= 1
+      ? 30
+      : totalDigits === 2
+        ? 28
+        : totalDigits === 3
+          ? 24
+          : totalDigits === 4
+            ? 20
+            : 16;
 
   let accumulated = 0;
   const rings = segments.map((s) => {
@@ -93,7 +103,7 @@ function CommercialDonut({ segments, total }: { segments: Segment[]; total: numb
         dominantBaseline="central"
         className="sales-chart-donut-label"
       >
-        amostras
+        lotes
       </text>
     </svg>
   );

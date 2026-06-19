@@ -24755,6 +24755,12 @@ select.samples-filter-field-input {
   font-family: inherit;
 }
 
+/* Resumo comercial do cliente (ajuste do usuario): rotulo "lotes" ligeiramente
+   menor que o do dashboard. Escopado ao card pra nao afetar o donut do dashboard. */
+.client-commercial-card .sales-chart-donut-label {
+  font-size: 10px;
+}
+
 /* Legenda das cores a direita do donut — 3 linhas (over30/from15to30/under15),
    separadas por divisores sutis, centradas verticalmente com o donut. */
 .sales-chart-legend {
