@@ -520,14 +520,14 @@ UPPERCASE em campos de nome/dados cadastrais (`event.target.value.toUpperCase()`
 
 #### Cliente
 
-| Modal                               | Arquivo                                                   | Variantes                                                                  |
-| ----------------------------------- | --------------------------------------------------------- | -------------------------------------------------------------------------- |
-| ClientUnitModal (Nova filial)       | `components/clients/ClientUnitModal.tsx`                  | `is-themed is-action` (compacto ~30rem, 50/50 `client-unit-modal-actions`) |
-| ClientUnitDetailModal (view + edit) | `components/clients/ClientUnitDetailModal.tsx`            | `is-themed is-action` (compacto ~30rem, 50/50 `cudm-edit-actions`)         |
-| ClientInactivateWithCascadeModal    | `components/clients/ClientInactivateWithCascadeModal.tsx` | `is-themed` + `.is-danger`                                                 |
-| Edit Client (inline na detail page) | `app/clients/[clientId]/page.tsx` ~L1490                  | `is-themed is-action` (compacto ~30rem, espelha o reg-edit do lote)        |
-| Status modal cliente (inline)       | `app/clients/[clientId]/page.tsx` ~L1991                  | `is-themed is-action` (ações 50/50 `client-detail-status-actions`)         |
-| Status modal unit (inline)          | `app/clients/[clientId]/page.tsx` ~L2092                  | `is-themed`                                                                |
+| Modal                               | Arquivo                                                   | Variantes                                                                                                                                                                                 |
+| ----------------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ClientUnitModal (Nova filial)       | `components/clients/ClientUnitModal.tsx`                  | `is-themed is-action` (compacto ~30rem, 50/50 `client-unit-modal-actions`; form em grid c/ **acoes fixas** + body rolavel; sucesso via **efeito de check** `client-detail-success-check`) |
+| ClientUnitDetailModal (view + edit) | `components/clients/ClientUnitDetailModal.tsx`            | `is-themed is-action` (compacto ~30rem, 50/50 `cudm-edit-actions`)                                                                                                                        |
+| ClientInactivateWithCascadeModal    | `components/clients/ClientInactivateWithCascadeModal.tsx` | `is-themed` + `.is-danger`                                                                                                                                                                |
+| Edit Client (inline na detail page) | `app/clients/[clientId]/page.tsx` ~L1490                  | `is-themed is-action` (compacto ~30rem, espelha o reg-edit do lote)                                                                                                                       |
+| Status modal cliente (inline)       | `app/clients/[clientId]/page.tsx` ~L1991                  | `is-themed is-action` (ações 50/50 `client-detail-status-actions`)                                                                                                                        |
+| Status modal unit (inline)          | `app/clients/[clientId]/page.tsx` ~L2092                  | `is-themed is-action` (ações 50/50 `client-detail-status-actions`)                                                                                                                        |
 
 #### Dashboard
 
