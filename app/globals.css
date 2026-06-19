@@ -7564,6 +7564,14 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   stroke-linejoin: round;
 }
 
+/* Container único de informações (Dados pessoais + Email + Senha): cada seção
+   é uma .stg-subsection separada por uma divisória sutil dentro do mesmo card. */
+.stg-subsection + .stg-subsection {
+  margin-top: clamp(14px, 3.5vw, 18px);
+  padding-top: clamp(14px, 3.5vw, 18px);
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
 .stg-content {
   gap: clamp(10px, 3vw, 12px);
   display: flex;
