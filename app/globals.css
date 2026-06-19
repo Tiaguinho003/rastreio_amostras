@@ -2465,6 +2465,7 @@ button:disabled {
 .app-modal.is-themed .app-modal-actions.report-harvest-select-actions,
 .app-modal.is-themed .app-modal-actions.client-detail-status-actions,
 .app-modal.is-themed .app-modal-actions.client-detail-edit-actions,
+.app-modal.is-themed .app-modal-actions.client-unit-modal-actions,
 .app-modal.is-themed .app-modal-actions.samples-filter-modal-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2480,6 +2481,7 @@ button:disabled {
 .report-harvest-select-actions > button,
 .client-detail-status-actions > button,
 .client-detail-edit-actions > button,
+.client-unit-modal-actions > button,
 .samples-filter-modal-actions > button {
   width: 100%;
   min-width: 0;
@@ -19043,6 +19045,41 @@ select.samples-filter-field-input {
 .client-detail-edit-modal .app-modal-content,
 .client-unit-modal .app-modal-content {
   gap: 0.55rem;
+}
+
+/* Nova filial (create) no MESMO padrao do editar: largura ~30rem, inputs/labels
+   compactos, grids que encolhem (minmax(0,1fr) + min-width:0 nos filhos, inclui
+   o grid inline 1fr 2fr 0.6fr de CEP/Cidade/UF) e overflow-x:hidden no form pra
+   nao vazar nem ter scroll lateral. */
+.app-modal.is-themed.client-unit-modal {
+  width: min(30rem, calc(100vw - 1.5rem));
+  max-width: min(30rem, calc(100vw - 1.5rem));
+}
+
+.client-unit-modal .client-unit-modal-form {
+  overflow-x: hidden;
+}
+
+.client-unit-modal .app-modal-input {
+  padding: 0.5rem 0.7rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+}
+
+.client-unit-modal .app-modal-label {
+  font-size: 0.72rem;
+}
+
+.client-unit-modal .app-modal-field {
+  min-width: 0;
+}
+
+.client-unit-modal .sdv-edit-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.client-unit-modal .sdv-edit-row > * {
+  min-width: 0;
 }
 
 /* Largura ~30rem como o modal de edicao do lote (vence o 38rem do

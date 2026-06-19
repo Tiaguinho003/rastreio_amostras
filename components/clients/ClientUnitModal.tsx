@@ -126,7 +126,7 @@ export function ClientUnitModal({
     <div className="app-modal-backdrop">
       <section
         ref={focusTrapRef}
-        className="app-modal is-themed is-wide client-unit-modal"
+        className="app-modal is-themed is-action client-unit-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="client-unit-modal-title"
@@ -162,7 +162,6 @@ export function ClientUnitModal({
                 maxLength={160}
                 required
                 onChange={(event) => update('name', event.target.value.toUpperCase())}
-                placeholder="Ex.: FILIAL BOM RETIRO"
               />
             </label>
             <label className="app-modal-field">
@@ -187,7 +186,6 @@ export function ClientUnitModal({
                 inputMode="numeric"
                 onChange={cnpjMask.onChange}
                 onBlur={cnpjMask.onBlur}
-                placeholder="00.000.000/0000-00"
               />
               {cnpjMask.error ? (
                 <span className="sdv-edit-error" role="alert">
@@ -205,7 +203,6 @@ export function ClientUnitModal({
                 onChange={(event) =>
                   update('registrationNumber', maskRegistrationNumberInput(event.target.value))
                 }
-                placeholder="000.000.000.00-00"
               />
             </label>
           </div>
@@ -227,7 +224,6 @@ export function ClientUnitModal({
                 disabled={saving}
                 inputMode="numeric"
                 onChange={(event) => update('postalCode', maskPostalCodeInput(event.target.value))}
-                placeholder="00000-000"
               />
             </label>
             <label className="app-modal-field">
@@ -247,7 +243,6 @@ export function ClientUnitModal({
                 disabled={saving}
                 maxLength={2}
                 onChange={(event) => update('state', event.target.value.toUpperCase())}
-                placeholder="MG"
               />
             </label>
           </div>
@@ -292,15 +287,11 @@ export function ClientUnitModal({
                 disabled={saving}
                 inputMode="numeric"
                 onChange={(event) => update('phone', maskPhoneInput(event.target.value))}
-                placeholder="(00) 00000-0000"
               />
             </label>
           </div>
 
-          <div className="app-modal-actions">
-            <button type="submit" className="app-modal-submit" disabled={submitDisabled}>
-              {saving ? 'Salvando...' : 'Criar filial'}
-            </button>
+          <div className="app-modal-actions client-unit-modal-actions">
             <button
               type="button"
               className="app-modal-secondary"
@@ -308,6 +299,9 @@ export function ClientUnitModal({
               disabled={saving}
             >
               Cancelar
+            </button>
+            <button type="submit" className="app-modal-submit" disabled={submitDisabled}>
+              {saving ? 'Salvando...' : 'Criar filial'}
             </button>
           </div>
         </form>
