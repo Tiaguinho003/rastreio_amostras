@@ -10421,34 +10421,11 @@ body:has(.app-modal-backdrop) .prospector-fab {
   overflow: hidden;
 }
 
-.sdv-card-info-compact .sdv-info-grid,
+/* Endereco fiscal (PJ): grid de 1 coluna (o card fica na coluna 2 estreita
+   no desktop). O resto do espacamento vem do .sdv-info-compact — igual ao
+   container de Informacoes. */
 .sdv-card-address .sdv-info-grid {
   grid-template-columns: 1fr;
-  gap: 0;
-}
-
-/* Sobe os campos colando no header verde + reduz altura por item pra
-   caber tudo dentro da row-height. Fontes mantidas em tamanho normal —
-   so a separacao vertical foi reduzida.
-   Mesma regra aplicada no card Endereco fiscal (sdv-card-address) pra
-   os itens ficarem alinhados verticalmente com Informacoes. */
-.sdv-card-info-compact .sdv-card-themed-body,
-.sdv-card-address .sdv-card-themed-body {
-  padding: clamp(4px, 1.2vw, 6px) clamp(14px, 3.5vw, 18px) clamp(4px, 1.2vw, 6px);
-}
-
-.sdv-card-info-compact .sdv-info-item,
-.sdv-card-address .sdv-info-item {
-  padding: 1px 0;
-}
-
-.sdv-card-info-compact .sdv-info-item.is-full {
-  grid-column: auto;
-}
-
-.sdv-card-info-compact .sdv-info-label,
-.sdv-card-address .sdv-info-label {
-  margin-bottom: 1px;
 }
 
 .sdv-info-item {
@@ -27830,25 +27807,6 @@ select.samples-filter-field-input {
     flex: 1;
     display: flex;
     flex-direction: column;
-  }
-
-  /* Compact (Informacoes + Endereco fiscal) — mesmo padding pra os
-     itens dos dois cards stackearem nas mesmas Y positions. Override
-     do .sdv-card-themed .sdv-card-themed-body acima (mesma especifi-
-     cidade, mas vem depois → ganha em desktop). */
-  .sdv-card-info-compact .sdv-card-themed-body,
-  .sdv-card-address .sdv-card-themed-body {
-    padding: 0.45rem 1.5rem 0.5rem;
-  }
-
-  .sdv-card-info-compact .sdv-info-item,
-  .sdv-card-address .sdv-info-item {
-    padding: 0.18rem 0;
-  }
-
-  .sdv-card-info-compact .sdv-info-label,
-  .sdv-card-address .sdv-info-label {
-    margin-bottom: 2px;
   }
 
   /* Cards Filiais / Endereco fiscal (coluna 2 do grid) — altura FIXA via

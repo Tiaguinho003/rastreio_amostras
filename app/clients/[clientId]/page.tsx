@@ -1120,91 +1120,74 @@ export default function ClientDetailPage() {
                   </div>
 
                   {isPj ? (
-                    /* 14.7.F PJ — card "Endereço fiscal" — header verde + editar inline */
-                    <div className="sdv-card sdv-card-themed sdv-card-address">
-                      <div className="sdv-card-themed-header">
-                        <span className="sdv-card-themed-title">Endereço fiscal</span>
+                    /* Card "Endereco fiscal" (PJ) — padrao branco dos containers
+                       (sem header verde), igual ao de Informacoes/Filiais: titulo +
+                       hairline + editar minimalista. sdv-card-address mantido pro
+                       posicionamento desktop na coluna 2. */
+                    <div className="sdv-card sdv-info-compact sdv-card-address">
+                      <div className="sdv-card-header">
+                        <span className="sdv-card-title">Endereço fiscal</span>
                         <button
                           type="button"
-                          className="sdv-card-themed-edit"
+                          className="sdv-edit-btn"
                           onClick={() => openEditClient('address')}
                           aria-label="Editar endereço fiscal"
                         >
                           <svg viewBox="0 0 24 24" aria-hidden="true">
-                            {/* 14.7.M.1: lapis simetrico — mesmo path do
-                                  Card Informacoes (consistencia visual). */}
-                            <path d="M4 20h3l13-13-3-3L4 17z" />
-                            <path d="M14 6l4 4" />
+                            <path d="M12 20h9" />
+                            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
                           </svg>
+                          <span>Editar</span>
                         </button>
                       </div>
-                      <div className="sdv-card-themed-body">
-                        <div className="sdv-info-grid">
-                          <div className="sdv-info-item">
-                            <span
-                              className={`sdv-info-label${isMissing('postalCode') ? ' is-missing' : ''}`}
-                            >
-                              CEP
-                              {isMissing('postalCode') ? (
-                                <IncompleteIcon className="sdv-info-label-warning" />
-                              ) : null}
-                            </span>
-                            <span className="sdv-info-value">
-                              {formatPostalCode(client.postalCode) || '—'}
-                            </span>
-                          </div>
-                          <div className="sdv-info-item">
-                            <span
-                              className={`sdv-info-label${isMissing('addressLine') ? ' is-missing' : ''}`}
-                            >
-                              Endereço
-                              {isMissing('addressLine') ? (
-                                <IncompleteIcon className="sdv-info-label-warning" />
-                              ) : null}
-                            </span>
-                            <span className="sdv-info-value">{client.addressLine || '—'}</span>
-                          </div>
-                          <div className="sdv-info-item">
-                            <span
-                              className={`sdv-info-label${isMissing('district') ? ' is-missing' : ''}`}
-                            >
-                              Bairro
-                              {isMissing('district') ? (
-                                <IncompleteIcon className="sdv-info-label-warning" />
-                              ) : null}
-                            </span>
-                            <span className="sdv-info-value">{client.district || '—'}</span>
-                          </div>
-                          <div className="sdv-info-item">
-                            <span className="sdv-info-label">Complemento</span>
-                            <span className="sdv-info-value">{client.complement || '—'}</span>
-                          </div>
-                          <div className="sdv-info-item">
-                            <span
-                              className={`sdv-info-label${isMissing('city') || isMissing('state') ? ' is-missing' : ''}`}
-                            >
-                              Cidade/UF
-                              {isMissing('city') || isMissing('state') ? (
-                                <IncompleteIcon className="sdv-info-label-warning" />
-                              ) : null}
-                            </span>
-                            <span className="sdv-info-value">
-                              {client.city && client.state ? `${client.city}/${client.state}` : '—'}
-                            </span>
-                          </div>
-                          <div className="sdv-info-item">
-                            <span
-                              className={`sdv-info-label${isMissing('registrationNumber') ? ' is-missing' : ''}`}
-                            >
-                              Inscrição estadual
-                              {isMissing('registrationNumber') ? (
-                                <IncompleteIcon className="sdv-info-label-warning" />
-                              ) : null}
-                            </span>
-                            <span className="sdv-info-value">
-                              {client.registrationNumber || '—'}
-                            </span>
-                          </div>
+                      <div className="sdv-info-grid">
+                        <div className="sdv-info-item">
+                          <span
+                            className={`sdv-info-label${isMissing('postalCode') ? ' is-missing' : ''}`}
+                          >
+                            CEP
+                          </span>
+                          <span className="sdv-info-value">
+                            {formatPostalCode(client.postalCode) || '—'}
+                          </span>
+                        </div>
+                        <div className="sdv-info-item">
+                          <span
+                            className={`sdv-info-label${isMissing('addressLine') ? ' is-missing' : ''}`}
+                          >
+                            Endereço
+                          </span>
+                          <span className="sdv-info-value">{client.addressLine || '—'}</span>
+                        </div>
+                        <div className="sdv-info-item">
+                          <span
+                            className={`sdv-info-label${isMissing('district') ? ' is-missing' : ''}`}
+                          >
+                            Bairro
+                          </span>
+                          <span className="sdv-info-value">{client.district || '—'}</span>
+                        </div>
+                        <div className="sdv-info-item">
+                          <span className="sdv-info-label">Complemento</span>
+                          <span className="sdv-info-value">{client.complement || '—'}</span>
+                        </div>
+                        <div className="sdv-info-item">
+                          <span
+                            className={`sdv-info-label${isMissing('city') || isMissing('state') ? ' is-missing' : ''}`}
+                          >
+                            Cidade/UF
+                          </span>
+                          <span className="sdv-info-value">
+                            {client.city && client.state ? `${client.city}/${client.state}` : '—'}
+                          </span>
+                        </div>
+                        <div className="sdv-info-item">
+                          <span
+                            className={`sdv-info-label${isMissing('registrationNumber') ? ' is-missing' : ''}`}
+                          >
+                            Inscrição estadual
+                          </span>
+                          <span className="sdv-info-value">{client.registrationNumber || '—'}</span>
                         </div>
                       </div>
                     </div>
