@@ -13,14 +13,12 @@ import {
 } from '../../../components/clients/ClientInactivateWithCascadeModal';
 import { ClientUnitModal } from '../../../components/clients/ClientUnitModal';
 import { ClientUnitDetailModal } from '../../../components/clients/ClientUnitDetailModal';
-import { BlendBadge } from '../../../components/samples/BlendBadge';
+import { ClientCommercialSummaryCard } from '../../../components/clients/ClientCommercialSummaryCard';
 import {
   ApiError,
   getClient,
   getClientCommercialSummary,
   getClientImpact,
-  listClientPurchases,
-  listClientSamples,
   updateClient,
   inactivateClient,
   inactivateClientWithCascade,
@@ -52,8 +50,7 @@ import { isCommercialRole, NON_PROSPECTOR_ROLES } from '../../../lib/roles';
 import { UserMultiSelect } from '../../../components/users/UserMultiSelect';
 import { ChipMultiSelectField, type ChipOption } from '../../../components/ChipMultiSelectField';
 import type {
-  ClientPurchaseListItem,
-  ClientSampleListItem,
+  ClientCommercialSummaryResponse,
   ClientUnitSummary,
   ClientSummary,
   UserLookupItem,
@@ -267,17 +264,6 @@ function translateClientUpdateError(cause: unknown): string {
   return cause.message || 'Falha ao atualizar cliente. Tente novamente.';
 }
 
-// Mapeia status comercial pra classe `is-card-*` (mesmo set da samples page).
-function commercialStatusClass(
-  status: string | null | undefined,
-  sampleStatus: string | null | undefined
-): string {
-  if (sampleStatus === 'INVALIDATED') return 'is-card-invalid';
-  if (status === 'SOLD') return 'is-card-sold';
-  if (status === 'LOST') return 'is-card-lost';
-  return 'is-card-open';
-}
-
 /* ------------------------------------------------------------------ */
 /*  Page component                                                    */
 /* ------------------------------------------------------------------ */
@@ -312,24 +298,10 @@ export default function ClientDetailPage() {
   );
 
   /* ---- commercial summary (4 cards: open / sold / lost / bought) ---- */
-  const [commercialSummary, setCommercialSummary] = useState<{
-    openCount: number;
-    soldCount: number;
-    lostCount: number;
-    boughtCount: number;
-  } | null>(null);
-
-  /* ---- commercial filter (qual card esta ativo) + lista paginada ---- */
-  const [commercialFilter, setCommercialFilter] = useState<'open' | 'sold' | 'lost' | 'bought'>(
-    'open'
-  );
-  const [commercialSamples, setCommercialSamples] = useState<ClientSampleListItem[]>([]);
-  const [commercialPurchases, setCommercialPurchases] = useState<ClientPurchaseListItem[]>([]);
-  const [commercialPage, setCommercialPage] = useState(1);
-  const [commercialHasMore, setCommercialHasMore] = useState(false);
-  const [commercialLoading, setCommercialLoading] = useState(false);
-  // Incrementa quando uma operacao deve invalidar summary+lista (criar/editar
-  // amostra, inativar unit, etc). Plugado nas deps dos useEffect de fetch.
+  const [commercialSummary, setCommercialSummary] =
+    useState<ClientCommercialSummaryResponse | null>(null);
+  // Incrementa quando uma operacao deve invalidar o summary (criar/editar
+  // filial etc). Plugado nas deps do useEffect de fetch do summary.
   const [commercialRefreshKey, setCommercialRefreshKey] = useState(0);
   const invalidateCommercial = useCallback(() => setCommercialRefreshKey((k) => k + 1), []);
 
@@ -421,14 +393,6 @@ export default function ClientDetailPage() {
 
   /* ---- refs ---- */
   const fetchAbortRef = useRef<AbortController | null>(null);
-  // AbortController dedicado pra paginacao da lista comercial. Compartilhar
-  // com o controller do useEffect causaria interferencia entre re-fetch
-  // por filter change e load-more.
-  const loadMoreAbortRef = useRef<AbortController | null>(null);
-  // Token gerado a cada filter switch — load-more so persiste a pagina
-  // se o token bater (evita race onde response antiga sobrescreve filter
-  // novo).
-  const commercialFetchTokenRef = useRef(0);
 
   /* ================================================================ */
   /*  Data fetching                                                   */
@@ -482,104 +446,6 @@ export default function ClientDetailPage() {
     return () => controller.abort();
   }, [session, clientId, commercialRefreshKey]);
 
-  /* Lista comercial — refetch da pagina 1 toda vez que muda o filtro.
-     "Comprado" usa endpoint separado (/purchases); os outros 3 usam
-     /samples?status=. Cada switch incrementa um token; respostas com
-     token defasado sao ignoradas (evita race com load-more pendente). */
-  useEffect(() => {
-    if (!session || !clientId) return;
-    const controller = new AbortController();
-    const token = ++commercialFetchTokenRef.current;
-    // Cancela load-more pendente do filter anterior — evita que ele
-    // contamine a lista nova com items antigos.
-    loadMoreAbortRef.current?.abort();
-    loadMoreAbortRef.current = null;
-
-    setCommercialLoading(true);
-    setCommercialPage(1);
-    // Limpa lista imediato pra evitar mix de filters durante a transicao
-    // (state da lista antiga continua visivel ate response chegar — sem
-    // limpar, vendido aparece "encima de" em-aberto por 1 frame).
-    setCommercialSamples([]);
-    setCommercialPurchases([]);
-
-    const promise =
-      commercialFilter === 'bought'
-        ? listClientPurchases(
-            session,
-            clientId,
-            { page: 1, limit: 20 },
-            { signal: controller.signal }
-          )
-        : listClientSamples(
-            session,
-            clientId,
-            { status: commercialFilter, page: 1, limit: 20 },
-            { signal: controller.signal }
-          );
-
-    promise
-      .then((response) => {
-        // Token defasado = filter trocou enquanto request voava — descarta.
-        if (token !== commercialFetchTokenRef.current) return;
-        if ('items' in response && Array.isArray(response.items)) {
-          if (commercialFilter === 'bought') {
-            setCommercialPurchases(response.items as ClientPurchaseListItem[]);
-          } else {
-            setCommercialSamples(response.items as ClientSampleListItem[]);
-          }
-          setCommercialHasMore(response.page?.hasNext ?? false);
-        }
-      })
-      .catch(() => {
-        if (token !== commercialFetchTokenRef.current) return;
-        setCommercialHasMore(false);
-      })
-      .finally(() => {
-        if (token === commercialFetchTokenRef.current) setCommercialLoading(false);
-      });
-
-    return () => controller.abort();
-  }, [session, clientId, commercialFilter, commercialRefreshKey]);
-
-  async function loadMoreCommercial() {
-    if (!session || !clientId || commercialLoading || !commercialHasMore) return;
-    const nextPage = commercialPage + 1;
-    const token = commercialFetchTokenRef.current;
-    loadMoreAbortRef.current?.abort();
-    const controller = new AbortController();
-    loadMoreAbortRef.current = controller;
-    setCommercialLoading(true);
-    try {
-      if (commercialFilter === 'bought') {
-        const response = await listClientPurchases(
-          session,
-          clientId,
-          { page: nextPage, limit: 20 },
-          { signal: controller.signal }
-        );
-        if (token !== commercialFetchTokenRef.current) return;
-        setCommercialPurchases((prev) => [...prev, ...response.items]);
-        setCommercialHasMore(response.page?.hasNext ?? false);
-      } else {
-        const response = await listClientSamples(
-          session,
-          clientId,
-          { status: commercialFilter, page: nextPage, limit: 20 },
-          { signal: controller.signal }
-        );
-        if (token !== commercialFetchTokenRef.current) return;
-        setCommercialSamples((prev) => [...prev, ...response.items]);
-        setCommercialHasMore(response.page?.hasNext ?? false);
-      }
-      if (token === commercialFetchTokenRef.current) setCommercialPage(nextPage);
-    } catch {
-      // AbortError ou rede — ignora (controller pode ter sido abortado).
-    } finally {
-      if (token === commercialFetchTokenRef.current) setCommercialLoading(false);
-    }
-  }
-
   /* ================================================================ */
   /*  Validation                                                      */
   /* ================================================================ */
@@ -629,14 +495,6 @@ export default function ClientDetailPage() {
   const unitPlural = 'Filiais';
   // Backend rejeita unit em PJ com 422 CLIENT_PJ_HAS_NO_UNITS.
   const canAddUnit = isPf;
-
-  // Se cliente perde isBuyer (via edit), resetar filter 'bought' pra 'open'
-  // pra evitar lista orfa.
-  useEffect(() => {
-    if (client && !client.isBuyer && commercialFilter === 'bought') {
-      setCommercialFilter('open');
-    }
-  }, [client, commercialFilter]);
 
   // 14.7.G: indicador de pendencia inline. Em vez do banner grande de
   // "Cadastro incompleto" no topo, cada campo recomendado missing recebe
@@ -1439,150 +1297,14 @@ export default function ClientDetailPage() {
                   )}
                 </section>
 
-                <section className="sdv-commercial">
-                  <div className="sdv-commercial-mini-stack">
-                    <button
-                      type="button"
-                      onClick={() => setCommercialFilter('open')}
-                      className={`sdv-card sdv-card-commercial-mini is-open${commercialFilter === 'open' ? ' is-active' : ''}`}
-                    >
-                      <span className="sdv-card-commercial-mini-title">Em aberto</span>
-                      <strong className="sdv-card-commercial-mini-value">
-                        {commercialSummary?.openCount ?? 0}
-                      </strong>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCommercialFilter('sold')}
-                      className={`sdv-card sdv-card-commercial-mini is-sold${commercialFilter === 'sold' ? ' is-active' : ''}`}
-                    >
-                      <span className="sdv-card-commercial-mini-title">Vendido</span>
-                      <strong className="sdv-card-commercial-mini-value">
-                        {commercialSummary?.soldCount ?? 0}
-                      </strong>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCommercialFilter('lost')}
-                      className={`sdv-card sdv-card-commercial-mini is-lost${commercialFilter === 'lost' ? ' is-active' : ''}`}
-                    >
-                      <span className="sdv-card-commercial-mini-title">Perdido</span>
-                      <strong className="sdv-card-commercial-mini-value">
-                        {commercialSummary?.lostCount ?? 0}
-                      </strong>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCommercialFilter('bought')}
-                      disabled={!client?.isBuyer}
-                      className={`sdv-card sdv-card-commercial-mini is-bought${client?.isBuyer ? '' : ' is-dim'}${commercialFilter === 'bought' ? ' is-active' : ''}`}
-                    >
-                      <span className="sdv-card-commercial-mini-title">Comprado</span>
-                      <strong className="sdv-card-commercial-mini-value">
-                        {commercialSummary?.boughtCount ?? 0}
-                      </strong>
-                    </button>
-                  </div>
-                  <div className="sdv-card-commercial">
-                    {commercialLoading && commercialPage === 1 ? (
-                      <div className="sdv-commercial-skeleton" aria-hidden="true">
-                        {Array.from({ length: 4 }).map((_, i) => (
-                          <div
-                            key={i}
-                            className="sdv-commercial-skeleton-row"
-                            style={{ animationDelay: `${i * 0.06}s` }}
-                          />
-                        ))}
-                      </div>
-                    ) : commercialFilter === 'bought' ? (
-                      commercialPurchases.length === 0 ? (
-                        <div className="sdv-commercial-empty">Sem amostras compradas.</div>
-                      ) : (
-                        <ul className="sdv-commercial-list" key="bought">
-                          {commercialPurchases.map((p, idx) => (
-                            <li
-                              key={p.id}
-                              className="sdv-commercial-list-item"
-                              style={{ animationDelay: `${Math.min(idx, 10) * 0.025}s` }}
-                            >
-                              <Link
-                                href={`/samples/${p.sampleId}`}
-                                className={`sdv-commercial-list-row ${commercialStatusClass(p.commercialStatus, p.status)}`}
-                              >
-                                <span className="sdv-commercial-list-bar" aria-hidden="true" />
-                                <span className="sdv-commercial-list-lot">
-                                  {p.sampleLotNumber ?? '—'}
-                                </span>
-                                <span className="sdv-commercial-list-meta">
-                                  {p.sellerName ?? '—'}
-                                </span>
-                                <span className="sdv-commercial-list-meta">
-                                  {p.movementDate
-                                    ? new Date(p.movementDate).toLocaleDateString('pt-BR')
-                                    : '—'}
-                                </span>
-                              </Link>
-                            </li>
-                          ))}
-                        </ul>
-                      )
-                    ) : commercialSamples.length === 0 ? (
-                      <div className="sdv-commercial-empty">
-                        Sem amostras{' '}
-                        {commercialFilter === 'open'
-                          ? 'em aberto'
-                          : commercialFilter === 'sold'
-                            ? 'vendidas'
-                            : 'perdidas'}
-                        .
-                      </div>
-                    ) : (
-                      <ul className="sdv-commercial-list" key={commercialFilter}>
-                        {commercialSamples.map((s, idx) => (
-                          <li
-                            key={s.id}
-                            className="sdv-commercial-list-item"
-                            style={{ animationDelay: `${Math.min(idx, 10) * 0.025}s` }}
-                          >
-                            <Link
-                              href={`/samples/${s.id}`}
-                              className={`sdv-commercial-list-row ${commercialStatusClass(s.commercialStatus, s.status)}`}
-                            >
-                              <span className="sdv-commercial-list-bar" aria-hidden="true" />
-                              <span className="sdv-commercial-list-lot">
-                                {s.internalLotNumber ?? '—'}
-                                {s.isBlend ? <BlendBadge size="sm" /> : null}
-                              </span>
-                              <span className="sdv-commercial-list-meta">
-                                {s.createdAt
-                                  ? new Date(s.createdAt).toLocaleDateString('pt-BR')
-                                  : '—'}
-                              </span>
-                              <span className="sdv-commercial-list-meta">
-                                {s.declaredSacks} sacas
-                              </span>
-                              <span className="sdv-commercial-list-meta">
-                                {s.declaredHarvest ?? '—'}
-                              </span>
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    {commercialHasMore && !commercialLoading ? (
-                      <button
-                        type="button"
-                        className="sdv-commercial-load-more"
-                        onClick={() => void loadMoreCommercial()}
-                      >
-                        Carregar mais
-                      </button>
-                    ) : commercialHasMore && commercialPage > 1 && commercialLoading ? (
-                      <button type="button" className="sdv-commercial-load-more" disabled>
-                        Carregando...
-                      </button>
-                    ) : null}
-                  </div>
+                {/* Resumo comercial — grafico (donut) das contagens por status,
+                    no padrao do "Lotes disponiveis" do dashboard. So apresentacao
+                    (a lista/filtros sairam; os filtros vivem em /samples). */}
+                <section className="sdv-client-commercial-section">
+                  <ClientCommercialSummaryCard
+                    summary={commercialSummary}
+                    isBuyer={!!client.isBuyer}
+                  />
                 </section>
               </div>
             </section>
