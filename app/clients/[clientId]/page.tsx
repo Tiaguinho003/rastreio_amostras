@@ -1085,21 +1085,15 @@ export default function ClientDetailPage() {
                               className={`sdv-info-label${isMissing('tradeName') ? ' is-missing' : ''}`}
                             >
                               Nome fantasia
-                              {isMissing('tradeName') ? (
-                                <IncompleteIcon className="sdv-info-label-warning" />
-                              ) : null}
                             </span>
                             <span className="sdv-info-value">{client.tradeName || '\u2014'}</span>
                           </div>
                         ) : null}
-                        <div className="sdv-info-item">
+                        <div className="sdv-info-item is-full">
                           <span
                             className={`sdv-info-label${client.personType === 'PF' && isMissing('cpf') ? ' is-missing' : ''}`}
                           >
                             {client.personType === 'PF' ? 'CPF' : 'CNPJ'}
-                            {client.personType === 'PF' && isMissing('cpf') ? (
-                              <IncompleteIcon className="sdv-info-label-warning" />
-                            ) : null}
                           </span>
                           <span className="sdv-info-value">
                             {client.personType === 'PF'
@@ -1138,22 +1132,19 @@ export default function ClientDetailPage() {
                         </div>
                         <div className="sdv-info-item is-full">
                           <span className="sdv-info-label">Papéis</span>
-                          <div className="sdv-roles-row">
-                            <span
-                              className={`cv2-card-role is-seller${client.isSeller ? '' : ' is-dim'}`}
-                            >
-                              Vendedor
-                            </span>
-                            <span
-                              className={`cv2-card-role is-buyer${client.isBuyer ? '' : ' is-dim'}`}
-                            >
-                              Comprador
-                            </span>
-                            <span
-                              className={`cv2-card-role is-warehouse${client.isWarehouse ? '' : ' is-dim'}`}
-                            >
-                              Armazém
-                            </span>
+                          <div className="sdv-commercial-users">
+                            {client.isSeller ? (
+                              <span className="sdv-commercial-user-chip">Vendedor</span>
+                            ) : null}
+                            {client.isBuyer ? (
+                              <span className="sdv-commercial-user-chip">Comprador</span>
+                            ) : null}
+                            {client.isWarehouse ? (
+                              <span className="sdv-commercial-user-chip">Armazém</span>
+                            ) : null}
+                            {!client.isSeller && !client.isBuyer && !client.isWarehouse ? (
+                              <span className="sdv-info-value">{'—'}</span>
+                            ) : null}
                           </div>
                         </div>
                       </div>

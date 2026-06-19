@@ -10754,50 +10754,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   overflow: hidden;
 }
 
-/* Badges de papel (Vendedor/Comprador/Armazem) — agora um campo "Papeis" no
-   corpo do card Informacoes (saiu do cabecalho). Ativos "brilham" na cor;
-   inativos ficam opacos pra mostrar que existem mas nao se aplicam ao cliente. */
-.sdv-roles-row {
-  display: flex;
-  gap: clamp(8px, 1.6vw, 10px);
-  flex-wrap: wrap;
-}
-
-.sdv-roles-row .cv2-card-role {
-  font-size: clamp(12px, 2.9vw, 14px);
-  padding: clamp(5px, 1.2vw, 7px) clamp(12px, 2.8vw, 16px);
-  border-radius: 999px;
-  transition:
-    box-shadow 0.2s ease,
-    opacity 0.2s ease;
-}
-
-.sdv-roles-row .cv2-card-role.is-seller:not(.is-dim) {
-  box-shadow:
-    0 0 0 1px rgba(39, 174, 96, 0.3),
-    0 0 12px rgba(39, 174, 96, 0.45);
-}
-
-.sdv-roles-row .cv2-card-role.is-buyer:not(.is-dim) {
-  box-shadow:
-    0 0 0 1px rgba(41, 128, 185, 0.3),
-    0 0 12px rgba(41, 128, 185, 0.45);
-}
-
-.sdv-roles-row .cv2-card-role.is-warehouse:not(.is-dim) {
-  box-shadow:
-    0 0 0 1px rgba(180, 83, 9, 0.3),
-    0 0 12px rgba(180, 83, 9, 0.45);
-}
-
-.sdv-roles-row .cv2-card-role.is-dim {
-  color: #aaa;
-  background: #f4f3ef;
-  border-color: #e2dfd6;
-  opacity: 0.5;
-  box-shadow: none;
-}
-
 .sdv-card-info-compact .sdv-info-grid,
 .sdv-card-address .sdv-info-grid {
   grid-template-columns: 1fr;
