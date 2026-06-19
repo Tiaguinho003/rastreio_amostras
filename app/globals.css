@@ -6978,13 +6978,13 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
 .sdv-commercial-user-chip {
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
-  background: #ecfdf5;
-  border: 1px solid #a7f3d0;
+  padding: 2px 8px;
+  background: #f4f3ef;
+  border: 1px solid #e2dfd6;
   border-radius: 999px;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
-  color: #064e3b;
+  color: #5b6158;
 }
 
 .cv2-card-content {
@@ -10871,6 +10871,51 @@ body:has(.app-modal-backdrop) .prospector-fab {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Valor + botao de copia rapida na mesma linha. O valor encolhe (flex:1 +
+   min-width:0) e trunca com reticencias, entao NUNCA se sobrepoe ao botao
+   (que e flex-shrink:0). Botao de copia no padrao da pagina de perfil. */
+.sdv-info-value-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.sdv-info-value-row .sdv-info-value {
+  flex: 1;
+  min-width: 0;
+}
+
+.sdv-info-copy {
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--brand-green);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s ease;
+}
+
+.sdv-info-copy:active {
+  transform: scale(0.9);
+}
+
+.sdv-info-copy svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 /* Photo Card */

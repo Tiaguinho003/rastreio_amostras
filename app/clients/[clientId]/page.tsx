@@ -45,6 +45,7 @@ import { isClientComplete } from '../../../lib/clients/client-completeness';
 import { useCepLookup } from '../../../lib/clients/use-cep-lookup';
 import { useDocumentMask } from '../../../lib/use-document-mask';
 import { useGlobalLoading } from '../../../lib/loading/loading-context';
+import { useToast } from '../../../lib/toast/ToastProvider';
 import { useFocusTrap } from '../../../lib/use-focus-trap';
 import { useRequireAuth } from '../../../lib/use-auth';
 import { isCommercialRole, NON_PROSPECTOR_ROLES } from '../../../lib/roles';
@@ -71,6 +72,33 @@ const CLIENT_ROLE_OPTIONS: ChipOption[] = [
   { id: 'buyer', label: 'Comprador' },
   { id: 'warehouse', label: 'Armazém' },
 ];
+
+// Botao de copia rapida (mesmo padrao da pagina de perfil) ao lado de um valor
+// do card Informacoes. Auto-esconde quando nao ha valor.
+function InfoCopyButton({
+  value,
+  label,
+  onCopy,
+}: {
+  value: string | null | undefined;
+  label: string;
+  onCopy: (text: string, label: string) => void;
+}) {
+  if (!value) return null;
+  return (
+    <button
+      type="button"
+      className="sdv-info-copy"
+      aria-label={`Copiar ${label}`}
+      onClick={() => onCopy(value, label)}
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="9" y="9" width="13" height="13" rx="2" />
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+      </svg>
+    </button>
+  );
+}
 
 function NoticeSlot({ notice }: { notice: Notice }) {
   return (
@@ -269,6 +297,19 @@ export default function ClientDetailPage() {
   // Loader da marca (logo + barra + bolinhas) se o cliente demorar a carregar —
   // substitui o "Carregando cliente..." verde.
   useGlobalLoading(loadingPage);
+
+  const toast = useToast();
+  const handleCopyField = useCallback(
+    async (text: string, label: string) => {
+      try {
+        await navigator.clipboard.writeText(text);
+        toast.success({ title: `${label} copiado` });
+      } catch {
+        toast.error({ title: 'Nao foi possivel copiar' });
+      }
+    },
+    [toast]
+  );
 
   /* ---- commercial summary (4 cards: open / sold / lost / bought) ---- */
   const [commercialSummary, setCommercialSummary] = useState<{
@@ -1091,11 +1132,20 @@ export default function ClientDetailPage() {
                           <span className="sdv-info-label">
                             {client.personType === 'PF' ? 'Nome completo' : 'Razao social'}
                           </span>
-                          <span className="sdv-info-value">
-                            {client.personType === 'PF'
-                              ? client.fullName || '\u2014'
-                              : client.legalName || '\u2014'}
-                          </span>
+                          <div className="sdv-info-value-row">
+                            <span className="sdv-info-value">
+                              {client.personType === 'PF'
+                                ? client.fullName || '\u2014'
+                                : client.legalName || '\u2014'}
+                            </span>
+                            <InfoCopyButton
+                              value={
+                                client.personType === 'PF' ? client.fullName : client.legalName
+                              }
+                              label={client.personType === 'PF' ? 'Nome completo' : 'Razao social'}
+                              onCopy={handleCopyField}
+                            />
+                          </div>
                         </div>
                         {client.personType === 'PJ' ? (
                           <div className="sdv-info-item is-full">
@@ -1104,7 +1154,14 @@ export default function ClientDetailPage() {
                             >
                               Nome fantasia
                             </span>
-                            <span className="sdv-info-value">{client.tradeName || '\u2014'}</span>
+                            <div className="sdv-info-value-row">
+                              <span className="sdv-info-value">{client.tradeName || '\u2014'}</span>
+                              <InfoCopyButton
+                                value={client.tradeName}
+                                label="Nome fantasia"
+                                onCopy={handleCopyField}
+                              />
+                            </div>
                           </div>
                         ) : null}
                         <div className="sdv-info-item is-full">
@@ -1113,21 +1170,46 @@ export default function ClientDetailPage() {
                           >
                             {client.personType === 'PF' ? 'CPF' : 'CNPJ'}
                           </span>
-                          <span className="sdv-info-value">
-                            {client.personType === 'PF'
-                              ? formatClientDocument(client.cpf, 'PF') || '\u2014'
-                              : formatClientDocument(client.cnpj, 'PJ') || '\u2014'}
-                          </span>
+                          <div className="sdv-info-value-row">
+                            <span className="sdv-info-value">
+                              {client.personType === 'PF'
+                                ? formatClientDocument(client.cpf, 'PF') || '\u2014'
+                                : formatClientDocument(client.cnpj, 'PJ') || '\u2014'}
+                            </span>
+                            <InfoCopyButton
+                              value={
+                                client.personType === 'PF'
+                                  ? formatClientDocument(client.cpf, 'PF')
+                                  : formatClientDocument(client.cnpj, 'PJ')
+                              }
+                              label={client.personType === 'PF' ? 'CPF' : 'CNPJ'}
+                              onCopy={handleCopyField}
+                            />
+                          </div>
                         </div>
                         <div className="sdv-info-item">
                           <span className="sdv-info-label">Email</span>
-                          <span className="sdv-info-value">{client.email || '\u2014'}</span>
+                          <div className="sdv-info-value-row">
+                            <span className="sdv-info-value">{client.email || '\u2014'}</span>
+                            <InfoCopyButton
+                              value={client.email}
+                              label="Email"
+                              onCopy={handleCopyField}
+                            />
+                          </div>
                         </div>
                         <div className="sdv-info-item">
                           <span className="sdv-info-label">Telefone</span>
-                          <span className="sdv-info-value">
-                            {formatPhone(client.phone) || '\u2014'}
-                          </span>
+                          <div className="sdv-info-value-row">
+                            <span className="sdv-info-value">
+                              {formatPhone(client.phone) || '\u2014'}
+                            </span>
+                            <InfoCopyButton
+                              value={formatPhone(client.phone)}
+                              label="Telefone"
+                              onCopy={handleCopyField}
+                            />
+                          </div>
                         </div>
                         <div className="sdv-info-item is-full">
                           <span className="sdv-info-label">
