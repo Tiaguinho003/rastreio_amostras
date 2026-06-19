@@ -138,11 +138,10 @@ Existem dois padroes em uso (ambos validos — usar conforme o contexto do card)
 - `::before` com `position: absolute`, `left: 0`, `top: 20%`, `bottom: 20%`
 - `width: 3px`, `border-radius: 0 3px 3px 0`
 
-**Padrao amostras / cards detalhados** (`sdv-commercial-list-row`, `sdv-unit-card-mini`, `cv2-card.is-incomplete`):
+**Padrao amostras / cards detalhados** (`sdv-unit-card-mini`, `cv2-card.is-incomplete`):
 
-- `::before` com `position: absolute`, `left: 0`, `top: 0`, `bottom: 0` (cobre toda a borda)
-- `width: clamp(6px, 0.7vw, 8px)`, sem `border-radius` (corner segue o do card via `overflow: hidden`)
-- Cor via `--card-status-color` ou gradient (`linear-gradient(180deg, ...)`)
+- `::before` = barra lateral CURTA, arredondada e centralizada (NAO encosta nas bordas): `left: clamp(6px, 1.8vw, 8px)`, `top: 50%` + `translateY(-50%)`, `width: 4px`, `height: clamp(~34-46px)`, `border-radius: 2px`
+- Cor via `--card-status-color` (verde completo / amber `#d97706`/`#f59e0b` incompleto / cinza inativo)
 
 ### Interacao
 
@@ -156,7 +155,7 @@ Existem dois padroes em uso (ambos validos — usar conforme o contexto do card)
 
 - Formato identico ao card final (mesma altura, mesmo radius, mesma cor de fundo neutra)
 - Pode usar **shimmer suave** (`background-size: 200% 100%` + `linear-gradient` em movimento, `~1.4s ease-in-out infinite`) combinado com fade-in `cubic-bezier(0.22, 1, 0.36, 1)` na entrada
-- Exemplo em uso: `.sdv-commercial-skeleton-row` (ver `app/globals.css`)
+- Exemplo em uso: skeleton dos cards de `/samples` (`.spv2-card` + `spv2-skeleton-shimmer`, ver `app/globals.css`)
 - Skeleton e para **cards/secoes especificas** dentro de uma pagina ja carregada. Para a **pagina inteira** ainda nao pronta, usar o loader da marca (abaixo), nunca um texto "Carregando..."
 
 ### Loader de pagina lenta (branded)
@@ -169,15 +168,14 @@ Existem dois padroes em uso (ambos validos — usar conforme o contexto do card)
 
 ### Variantes de card especificas
 
-| Classe                      | Uso                                                                                                                                                                                                                                                                                                                                                                                                          |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `.sdv-card`                 | Card branco padrao (sombra 3D, radius 18px) — base para detalhe de cliente/amostra                                                                                                                                                                                                                                                                                                                           |
-| `.sdv-card-themed`          | Card com header verde (gradient `--brand-green`) + body branco — hoje so o **Endereco fiscal** (PJ) do detalhe do cliente. Informacoes e Filiais migraram pro padrao branco `.sdv-info-compact` (abaixo).                                                                                                                                                                                                    |
-| `.sdv-info-compact`         | Container branco padrao (SEM header verde): `.sdv-card-header` (titulo cinza + hairline full-bleed) + acao minimalista `.sdv-edit-btn` (lapis "Editar" ou "+" "Nova") + `.sdv-info-grid` (2 colunas). Containers Informacoes/Classificacao/Resumo do detalhe da amostra e **Informacoes + Filiais** do detalhe do cliente.                                                                                   |
-| `.sdv-card-commercial-mini` | **APOSENTADO 2026-06-19** — era o mini-card-filtro (Em aberto/Vendido/Perdido/Comprado) da seção comercial do detalhe do cliente; a seção virou um **gráfico donut** (`ClientCommercialSummaryCard`, ver §"Lotes disponiveis") sem filtros. CSS órfão (+ `.sdv-card-commercial`, `.sdv-commercial-list*`, `.sdv-commercial-empty/-skeleton/-load-more`) ainda no `globals.css`, pendente de limpeza dedicada |
-| `.sdv-commercial-list-row`  | Linha de lista detalhada com barra lateral colorida via `--card-status-color`                                                                                                                                                                                                                                                                                                                                |
-| `.sdv-unit-card-mini`       | Card minimalista de filial — barra lateral CURTA/arredondada/centralizada (não encosta nas bordas, padrão Lotes/Clientes): verde (completo) / amber (incompleto) / cinza (inativo). Incompleto tb mostra o badge `cv2-card-incomplete-badge` no canto sup. direito (card é `overflow:visible`).                                                                                                              |
-| `.cv2-card`                 | Card de cliente `/clients` — barra lateral CURTA estilo Lotes (`::before` centralizada, NAO mais faixa de altura cheia): VERDE (completo) / LARANJA (`.is-incomplete`). Avatar de iniciais VERDE por TIPO (PJ `#1f5d43` escuro / PF `#2f8a5e` claro, via `--avatar-color`). Nome com ellipsis no mobile (`display:block`).                                                                                   |
+| Classe                      | Uso                                                                                                                                                                                                                                                                                                                           |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.sdv-card`                 | Card branco padrao (sombra 3D, radius 18px) — base para detalhe de cliente/amostra                                                                                                                                                                                                                                            |
+| `.sdv-card-themed`          | Card com header verde (gradient `--brand-green`) + body branco — hoje so o **Endereco fiscal** (PJ) do detalhe do cliente. Informacoes e Filiais migraram pro padrao branco `.sdv-info-compact` (abaixo).                                                                                                                     |
+| `.sdv-info-compact`         | Container branco padrao (SEM header verde): `.sdv-card-header` (titulo cinza + hairline full-bleed) + acao minimalista `.sdv-edit-btn` (lapis "Editar" ou "+" "Nova") + `.sdv-info-grid` (2 colunas). Containers Informacoes/Classificacao/Resumo do detalhe da amostra e **Informacoes + Filiais** do detalhe do cliente.    |
+| `.sdv-card-commercial-mini` | **REMOVIDO 2026-06-19** — era o mini-card-filtro (Em aberto/Vendido/Perdido/Comprado) + a lista (`.sdv-commercial-list*`) da seção comercial do detalhe do cliente; a seção virou um **gráfico donut** (`ClientCommercialSummaryCard`, ver §"Lotes disponiveis") sem filtros. Todo o CSS órfão foi removido do `globals.css`. |
+| `.sdv-unit-card-mini`       | Card minimalista de filial — barra lateral CURTA/arredondada/centralizada (não encosta nas bordas, padrão Lotes/Clientes): verde (completo) / amber (incompleto) / cinza (inativo). Incompleto tb mostra o badge `cv2-card-incomplete-badge` no canto sup. direito (card é `overflow:visible`).                               |
+| `.cv2-card`                 | Card de cliente `/clients` — barra lateral CURTA estilo Lotes (`::before` centralizada, NAO mais faixa de altura cheia): VERDE (completo) / LARANJA (`.is-incomplete`). Avatar de iniciais VERDE por TIPO (PJ `#1f5d43` escuro / PF `#2f8a5e` claro, via `--avatar-color`). Nome com ellipsis no mobile (`display:block`).    |
 
 ## 4. Icones
 
