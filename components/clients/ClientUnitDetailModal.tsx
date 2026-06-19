@@ -13,7 +13,6 @@ import { useCepLookup } from '../../lib/clients/use-cep-lookup';
 import { useDocumentMask } from '../../lib/use-document-mask';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { ClientUnitInput, ClientUnitSummary } from '../../lib/types';
-import { IncompleteIcon } from './IncompleteIcon';
 
 // 14.7.I: modal de detalhe + edicao inline da filial. Substitui o fluxo
 // antigo onde clicar em "Editar" abria outro modal — agora o mesmo modal
@@ -135,6 +134,10 @@ export function ClientUnitDetailModal({
     if (!unit) return () => false;
     return (field: string) => missingSet.has(`units[${unit.id}].${field}`);
   }, [missingSet, unit]);
+  // Borda laranja no input quando o campo e pendente (recomendado + ainda
+  // vazio no form). Limpa ao digitar. Mesmo padrao do modal de editar cliente.
+  const pendingClass = (field: string, value: string) =>
+    isMissing(field) && value.trim().length === 0 ? ' is-pending' : '';
 
   if (!open || !unit) return null;
 
@@ -173,7 +176,7 @@ export function ClientUnitDetailModal({
     <div className="app-modal-backdrop" onClick={onClose}>
       <section
         ref={focusTrapRef}
-        className="app-modal is-themed is-wide cudm-modal"
+        className="app-modal is-themed is-action cudm-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="cudm-title"
@@ -212,36 +215,24 @@ export function ClientUnitDetailModal({
                   className={`cudm-info-label${isMissing('city') || isMissing('state') ? ' is-missing' : ''}`}
                 >
                   Cidade/UF
-                  {isMissing('city') || isMissing('state') ? (
-                    <IncompleteIcon className="sdv-info-label-warning" />
-                  ) : null}
                 </span>
                 <span className="cudm-info-value">{cityLabel || '—'}</span>
               </div>
               <div className="cudm-info-item is-full">
                 <span className={`cudm-info-label${isMissing('addressLine') ? ' is-missing' : ''}`}>
                   Endereço
-                  {isMissing('addressLine') ? (
-                    <IncompleteIcon className="sdv-info-label-warning" />
-                  ) : null}
                 </span>
                 <span className="cudm-info-value">{unit.addressLine || '—'}</span>
               </div>
               <div className="cudm-info-item">
                 <span className={`cudm-info-label${isMissing('district') ? ' is-missing' : ''}`}>
                   Bairro
-                  {isMissing('district') ? (
-                    <IncompleteIcon className="sdv-info-label-warning" />
-                  ) : null}
                 </span>
                 <span className="cudm-info-value">{unit.district || '—'}</span>
               </div>
               <div className="cudm-info-item">
                 <span className={`cudm-info-label${isMissing('postalCode') ? ' is-missing' : ''}`}>
                   CEP
-                  {isMissing('postalCode') ? (
-                    <IncompleteIcon className="sdv-info-label-warning" />
-                  ) : null}
                 </span>
                 <span className="cudm-info-value">{formatPostalCode(unit.postalCode) || '—'}</span>
               </div>
@@ -254,16 +245,12 @@ export function ClientUnitDetailModal({
                   className={`cudm-info-label${isMissing('registrationNumber') ? ' is-missing' : ''}`}
                 >
                   Inscrição estadual
-                  {isMissing('registrationNumber') ? (
-                    <IncompleteIcon className="sdv-info-label-warning" />
-                  ) : null}
                 </span>
                 <span className="cudm-info-value">{unit.registrationNumber || '—'}</span>
               </div>
               <div className="cudm-info-item">
                 <span className={`cudm-info-label${isMissing('car') ? ' is-missing' : ''}`}>
                   CAR
-                  {isMissing('car') ? <IncompleteIcon className="sdv-info-label-warning" /> : null}
                 </span>
                 <span className="cudm-info-value">{unit.car || '—'}</span>
               </div>
@@ -315,14 +302,13 @@ export function ClientUnitDetailModal({
                   inputMode="numeric"
                   onChange={cnpjMask.onChange}
                   onBlur={cnpjMask.onBlur}
-                  placeholder="00.000.000/0000-00"
                 />
                 {cnpjMask.error ? <span className="cudm-edit-error">{cnpjMask.error}</span> : null}
               </label>
               <label className="app-modal-field">
                 <span className="app-modal-label">CAR</span>
                 <input
-                  className="app-modal-input"
+                  className={`app-modal-input${pendingClass('car', form.car)}`}
                   value={form.car}
                   disabled={saving}
                   maxLength={80}
@@ -332,7 +318,7 @@ export function ClientUnitDetailModal({
               <label className="app-modal-field is-full">
                 <span className="app-modal-label">Endereço</span>
                 <input
-                  className="app-modal-input"
+                  className={`app-modal-input${pendingClass('addressLine', form.addressLine)}`}
                   value={form.addressLine}
                   disabled={saving}
                   onChange={(event) => update('addressLine', event.target.value.toUpperCase())}
@@ -341,7 +327,7 @@ export function ClientUnitDetailModal({
               <label className="app-modal-field">
                 <span className="app-modal-label">Bairro</span>
                 <input
-                  className="app-modal-input"
+                  className={`app-modal-input${pendingClass('district', form.district)}`}
                   value={form.district}
                   disabled={saving}
                   onChange={(event) => update('district', event.target.value.toUpperCase())}
@@ -352,20 +338,19 @@ export function ClientUnitDetailModal({
                   CEP{cep.loading ? <span aria-hidden="true"> ⌛</span> : null}
                 </span>
                 <input
-                  className="app-modal-input"
+                  className={`app-modal-input${pendingClass('postalCode', form.postalCode)}`}
                   value={form.postalCode}
                   disabled={saving}
                   inputMode="numeric"
                   onChange={(event) =>
                     update('postalCode', maskPostalCodeInput(event.target.value))
                   }
-                  placeholder="00000-000"
                 />
               </label>
               <label className="app-modal-field">
                 <span className="app-modal-label">Cidade</span>
                 <input
-                  className="app-modal-input"
+                  className={`app-modal-input${pendingClass('city', form.city)}`}
                   value={form.city}
                   disabled={saving}
                   onChange={(event) => update('city', event.target.value.toUpperCase())}
@@ -374,12 +359,11 @@ export function ClientUnitDetailModal({
               <label className="app-modal-field">
                 <span className="app-modal-label">UF</span>
                 <input
-                  className="app-modal-input"
+                  className={`app-modal-input${pendingClass('state', form.state)}`}
                   value={form.state}
                   disabled={saving}
                   maxLength={2}
                   onChange={(event) => update('state', event.target.value.toUpperCase())}
-                  placeholder="MG"
                 />
               </label>
               <label className="app-modal-field is-full">
@@ -395,14 +379,13 @@ export function ClientUnitDetailModal({
               <label className="app-modal-field">
                 <span className="app-modal-label">Inscrição estadual</span>
                 <input
-                  className="app-modal-input"
+                  className={`app-modal-input${pendingClass('registrationNumber', form.registrationNumber)}`}
                   value={form.registrationNumber}
                   disabled={saving}
                   inputMode="numeric"
                   onChange={(event) =>
                     update('registrationNumber', maskRegistrationNumberInput(event.target.value))
                   }
-                  placeholder="000.000.000.00-00"
                 />
               </label>
               <label className="app-modal-field">
@@ -413,7 +396,6 @@ export function ClientUnitDetailModal({
                   disabled={saving}
                   inputMode="numeric"
                   onChange={(event) => update('phone', maskPhoneInput(event.target.value))}
-                  placeholder="(00) 00000-0000"
                 />
               </label>
               <label className="app-modal-field is-full">
@@ -425,15 +407,11 @@ export function ClientUnitDetailModal({
                   rows={2}
                   maxLength={300}
                   onChange={(event) => update('reasonText', event.target.value)}
-                  placeholder="Ex.: corrigir endereço"
                 />
               </label>
             </div>
 
-            <div className="app-modal-actions">
-              <button type="submit" className="app-modal-submit" disabled={submitDisabled}>
-                {saving ? 'Salvando...' : 'Salvar'}
-              </button>
+            <div className="app-modal-actions cudm-edit-actions">
               <button
                 type="button"
                 className="app-modal-secondary"
@@ -441,6 +419,9 @@ export function ClientUnitDetailModal({
                 disabled={saving}
               >
                 Cancelar
+              </button>
+              <button type="submit" className="app-modal-submit" disabled={submitDisabled}>
+                {saving ? 'Salvando...' : 'Salvar'}
               </button>
             </div>
           </form>

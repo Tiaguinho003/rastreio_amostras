@@ -2466,6 +2466,7 @@ button:disabled {
 .app-modal.is-themed .app-modal-actions.client-detail-status-actions,
 .app-modal.is-themed .app-modal-actions.client-detail-edit-actions,
 .app-modal.is-themed .app-modal-actions.client-unit-modal-actions,
+.app-modal.is-themed .app-modal-actions.cudm-edit-actions,
 .app-modal.is-themed .app-modal-actions.samples-filter-modal-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2482,6 +2483,7 @@ button:disabled {
 .client-detail-status-actions > button,
 .client-detail-edit-actions > button,
 .client-unit-modal-actions > button,
+.cudm-edit-actions > button,
 .samples-filter-modal-actions > button {
   width: 100%;
   min-width: 0;
@@ -12442,12 +12444,14 @@ body:has(.app-modal-backdrop) .prospector-fab {
 /* 14.7.I/L: ClientUnitDetailModal — view + edit inline. Width/header
    herdados de .app-modal.is-themed. So sobra os specifics: eyebrow,
    inactive badge, body grid. */
+/* Header claro (is-action): eyebrow em cinza-verde mudo (era branco no header
+   verde) e badge "Inativa" em vermelho legivel sobre fundo claro. */
 .cudm-modal .cudm-header-eyebrow {
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.7px;
-  color: rgba(255, 255, 255, 0.78);
+  color: #8a948c;
 }
 
 .cudm-modal .cudm-header-name {
@@ -12459,9 +12463,9 @@ body:has(.app-modal-backdrop) .prospector-fab {
   margin-top: 4px;
   font-size: 0.7rem;
   font-weight: 700;
-  color: #ffd9d9;
-  background: rgba(255, 100, 80, 0.22);
-  border: 1px solid rgba(255, 100, 80, 0.4);
+  color: #b03224;
+  background: rgba(196, 92, 92, 0.1);
+  border: 1px solid rgba(196, 92, 92, 0.28);
   padding: 1px 8px;
   border-radius: 999px;
   text-transform: uppercase;
@@ -12529,6 +12533,40 @@ body:has(.app-modal-backdrop) .prospector-fab {
    Mantemos so o is-full do grid scoped + variante has-error global. */
 .cudm-info-grid > .app-modal-field.is-full {
   grid-column: 1 / -1;
+}
+
+/* Mesmo padrao dos demais modais do cliente: largura ~30rem, inputs/labels
+   compactos, borda laranja de pendencia e grid que ENCOLHE (minmax(0,1fr) +
+   min-width:0 + overflow-x:hidden) pra nada vazar nem ter scroll lateral. */
+.app-modal.is-themed.cudm-modal {
+  width: min(30rem, calc(100vw - 1.5rem));
+  max-width: min(30rem, calc(100vw - 1.5rem));
+}
+
+.cudm-modal .cudm-body {
+  overflow-x: hidden;
+}
+
+.cudm-modal .cudm-info-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.cudm-modal .app-modal-field {
+  min-width: 0;
+}
+
+.cudm-modal .app-modal-input {
+  padding: 0.5rem 0.7rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+}
+
+.cudm-modal .app-modal-label {
+  font-size: 0.72rem;
+}
+
+.cudm-modal .app-modal-input.is-pending {
+  border-color: #d97706;
 }
 
 .app-modal-input.has-error {
