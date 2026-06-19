@@ -7618,11 +7618,6 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   background: var(--brand-green-soft, #2f6b4a);
 }
 
-/* Variante vermelha do icone (ex.: Sair) - quadrado vermelho + glifo branco. */
-.stg-field-icon.is-danger {
-  background: #d32f2f;
-}
-
 .stg-field-icon svg {
   width: 18px;
   height: 18px;
@@ -7749,7 +7744,7 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   /* O perfil mantem a navbar inferior (exceto prospector, que nao a
      renderiza): o padding-bottom soma o clearance da tabbar — a var zera
      sozinha quando a navbar nao existe (is-tabbar-hidden) — pro ultimo
-     elemento (botao de sair) nao ficar tampado pela barra. */
+     elemento (card de notificacoes) nao ficar tampado pela barra. */
   padding-bottom: calc(
     var(--app-safe-area-bottom, env(safe-area-inset-bottom)) +
       var(--mobile-tabbar-clearance, 0rem) + clamp(1rem, 3vw, 1.5rem)
@@ -8466,7 +8461,7 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
 
 /* Perfil reusa .sdv-content (cujo padding-bottom e' p/ paginas SEM tabbar) +
    .stg-content. Como .sdv-content vem depois no arquivo, ele sobrescrevia a
-   clearance da tabbar e o botao "Sair" ficava atras da barra. Reafirma o
+   clearance da tabbar e o ultimo card (notificacoes) ficava atras da barra. Reafirma o
    padding-bottom com a clearance, com maior especificidade. */
 .sdv-content.stg-content {
   background: #ffffff;
