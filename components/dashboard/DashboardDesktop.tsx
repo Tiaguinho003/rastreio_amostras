@@ -238,7 +238,7 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
           {salesData ? (
             <div className="dd-card dd-card-sales">
               <div className="dd-card-sales-info">
-                <span className="dd-card-sales-kicker">Disponiveis para venda</span>
+                <span className="dd-card-sales-kicker">Lotes disponíveis</span>
                 <strong className="dd-card-count">{salesData.total}</strong>
                 <span className="dd-card-sales-unit">amostras</span>
               </div>

@@ -1951,23 +1951,22 @@ export class SampleQueryService {
     const rows = await this.prisma.$queryRaw`
       SELECT
         COUNT(*)::INTEGER                                                                    AS "total",
-        COUNT(*) FILTER (WHERE s."classified_at" >= ${todayStartUtc}
-                           AND s."classified_at" <  ${todayEndUtc})::INTEGER                 AS "classifiedToday",
-        COUNT(*) FILTER (WHERE s."classified_at" <  ${boundary30})::INTEGER                  AS "over30",
-        COUNT(*) FILTER (WHERE s."classified_at" >= ${boundary30}
-                           AND s."classified_at" <  ${boundary15})::INTEGER                  AS "from15to30",
-        COUNT(*) FILTER (WHERE s."classified_at" >= ${boundary15})::INTEGER                  AS "under15"
+        COUNT(*) FILTER (WHERE s."created_at" >= ${todayStartUtc}
+                           AND s."created_at" <  ${todayEndUtc})::INTEGER                 AS "registeredToday",
+        COUNT(*) FILTER (WHERE s."created_at" <  ${boundary30})::INTEGER                  AS "over30",
+        COUNT(*) FILTER (WHERE s."created_at" >= ${boundary30}
+                           AND s."created_at" <  ${boundary15})::INTEGER                  AS "from15to30",
+        COUNT(*) FILTER (WHERE s."created_at" >= ${boundary15})::INTEGER                  AS "under15"
       FROM "sample" s
-      WHERE s."status" = 'CLASSIFIED'
+      WHERE s."status" <> 'INVALIDATED'
         AND s."commercial_status" IN ('OPEN', 'PARTIALLY_SOLD')
-        AND s."classified_at" IS NOT NULL
     `;
 
     const row = rows[0] ?? {};
 
     return {
       total: toIntegerOrZero(row.total),
-      classifiedToday: toIntegerOrZero(row.classifiedToday),
+      registeredToday: toIntegerOrZero(row.registeredToday),
       bands: {
         over30: toIntegerOrZero(row.over30),
         from15to30: toIntegerOrZero(row.from15to30),

@@ -690,7 +690,7 @@ export interface DashboardPendingResponse {
 
 export interface DashboardSalesAvailabilityResponse {
   total: number;
-  classifiedToday: number;
+  registeredToday: number;
   bands: {
     over30: number;
     from15to30: number;
