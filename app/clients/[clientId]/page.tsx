@@ -1879,14 +1879,7 @@ export default function ClientDetailPage() {
 
                 <NoticeSlot notice={editClientModalNotice} />
 
-                <div className="app-modal-actions">
-                  <button
-                    type="submit"
-                    className="app-modal-submit"
-                    disabled={savingClient || !canSaveClient}
-                  >
-                    {savingClient ? 'Salvando...' : 'Salvar'}
-                  </button>
+                <div className="app-modal-actions client-detail-edit-actions">
                   <button
                     type="button"
                     className="app-modal-secondary"
@@ -1894,6 +1887,13 @@ export default function ClientDetailPage() {
                     disabled={savingClient}
                   >
                     Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="app-modal-submit"
+                    disabled={savingClient || !canSaveClient}
+                  >
+                    {savingClient ? 'Salvando...' : 'Salvar'}
                   </button>
                 </div>
               </form>
