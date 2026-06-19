@@ -18904,6 +18904,7 @@ select.samples-filter-field-input {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -18977,6 +18978,39 @@ select.samples-filter-field-input {
   gap: 0.55rem;
 }
 
+/* Largura ~30rem como o modal de edicao do lote (vence o 38rem do
+   .app-modal.is-themed base via especificidade 0,3,0). */
+.app-modal.is-themed.client-detail-edit-modal {
+  width: min(30rem, calc(100vw - 1.5rem));
+  max-width: min(30rem, calc(100vw - 1.5rem));
+}
+
+/* Campos compactos (espelha o modal de edicao do lote): inputs/labels menores
+   e grids que ENCOLHEM (minmax(0,1fr) + min-width:0 nos filhos) pra os campos
+   caberem confortavelmente, sem corte na borda nem scroll lateral. O min-width:0
+   tambem neutraliza os grids inline do endereco (1fr 2fr / 2fr 0.6fr). */
+.client-detail-edit-modal .app-modal-input {
+  padding: 0.5rem 0.7rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+}
+
+.client-detail-edit-modal .app-modal-label {
+  font-size: 0.72rem;
+}
+
+.client-detail-edit-modal .app-modal-field {
+  min-width: 0;
+}
+
+.client-detail-edit-modal .sdv-edit-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.client-detail-edit-modal .sdv-edit-row > * {
+  min-width: 0;
+}
+
 /* UserMultiSelect (Responsavel) alinhado com .app-modal-input — mesmo
    border / padding / font-size. Forca .user-multi-select-field a usar
    o mesmo layout (display:grid + gap) que .app-modal-field, senao o
@@ -18997,10 +19031,10 @@ select.samples-filter-field-input {
    1rem * line-height 1.2). Chips/input vivem dentro dessa caixa fixa,
    independente de quantos forem selecionados. */
 .client-detail-edit-modal .user-multi-select__chips {
-  height: 2.84rem;
-  padding: 0 1.1rem;
+  height: 2.3rem;
+  padding: 0 0.7rem;
   min-height: 0;
-  gap: 0.35rem;
+  gap: 0.3rem;
   flex-wrap: nowrap;
   overflow-x: auto;
   overflow-y: hidden;
@@ -19013,7 +19047,7 @@ select.samples-filter-field-input {
 }
 
 .client-detail-edit-modal .user-multi-select__input {
-  font-size: 1rem;
+  font-size: 0.9rem;
   padding: 0;
   line-height: 1.2;
 }
@@ -19047,20 +19081,21 @@ select.samples-filter-field-input {
 .client-detail-edit-modal .client-detail-modal-flag {
   display: flex;
   width: 100%;
+  min-width: 0;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.9rem 1.1rem;
+  gap: 0.5rem;
+  padding: 0.5rem 0.7rem;
   border: 2px solid rgba(0, 0, 0, 0.16);
-  border-radius: 12px;
+  border-radius: 10px;
   background: #ffffff;
-  font-size: 1rem;
+  font-size: 0.85rem;
   cursor: pointer;
   box-sizing: border-box;
 }
 
 .client-detail-edit-modal .client-detail-modal-flag input[type='checkbox'] {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.05rem;
+  height: 1.05rem;
   accent-color: var(--brand-green, #1f5d43);
   cursor: pointer;
   margin: 0;

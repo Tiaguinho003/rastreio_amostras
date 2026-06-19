@@ -1489,7 +1489,7 @@ export default function ClientDetailPage() {
         <div className="app-modal-backdrop">
           <section
             ref={editClientTrapRef}
-            className="app-modal is-themed is-wide client-detail-edit-modal client-detail-modal-scrollable"
+            className="app-modal is-themed is-action client-detail-edit-modal client-detail-modal-scrollable"
             role="dialog"
             aria-modal="true"
             aria-labelledby="edit-client-title"
