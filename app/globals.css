@@ -31575,14 +31575,26 @@ body.is-selection-mode .hero-search-filter-btn {
    .samples-page-v2-sheet + .spv2-list-scroll. Pagina ja continua tanto
    em modo normal quanto selecao.) */
 
-/* FAB-seta de "continuar liga" fica um pouco mais baixo que o "+" normal
-   (clamp 5.5-5.9rem vs 6.3-6.8rem do FAB padrao), aproximadamente 0.8rem
-   abaixo — pedido do user pra que o botao nao fique tao alto na pagina
-   apos selecionar amostras. */
+/* FAB-seta de "continuar liga": no modo liga a tabbar fica escondida, entao a
+   seta DESCE pra zona da tabbar (mesmo bottom baixo do .prospector-fab, app sem
+   navbar) em vez de ficar na posicao alta do "+". Right offset segue igual. */
 .cv2-fab.is-blend-arrow {
   bottom: calc(
-    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(5.5rem, 23vw, 5.9rem)
+    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(0.9rem, 3.6vw, 1.25rem)
   );
+}
+
+/* Entrada do modo liga: o header verde DESLIZA de cima (opaco) em vez de surgir
+   com fade a partir do transparente (que dava flash/gap no topo) — mais natural
+   e coerente com a saida. Keyframe proprio porque samples-header-in e
+   compartilhado por outros headers. */
+@keyframes samples-selection-header-in {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(0);
+  }
 }
 
 .samples-selection-header {
@@ -31599,7 +31611,7 @@ body.is-selection-mode .hero-search-filter-btn {
   position: sticky;
   top: 0;
   z-index: 10;
-  animation: samples-header-in 0.35s ease-out backwards;
+  animation: samples-selection-header-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 .samples-selection-header__exit {
