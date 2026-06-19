@@ -921,23 +921,39 @@ export default function ProfilePage() {
             ) : null}
           </div>
 
-          {/* Sair da conta — botao unico vermelho, alinhado a direita no
-              fim da pagina (substituiu o antigo card descritivo). */}
-          <div className="stg-logout-row" style={{ '--i': 4 } as React.CSSProperties}>
-            <button
-              type="button"
-              className="stg-logout-btn"
-              onClick={() => {
-                void logout();
-              }}
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                <polyline points="16 17 21 12 16 7" />
-                <line x1="21" y1="12" x2="9" y2="12" />
-              </svg>
-              <span>Sair da conta</span>
-            </button>
+          {/* Sair da conta — linha no padrão dos campos (ícone vermelho), full width */}
+          <div className="sdv-card stg-card" style={{ '--i': 4 } as React.CSSProperties}>
+            <div className="stg-field-row">
+              <div
+                className="stg-field-head"
+                role="button"
+                tabIndex={0}
+                aria-label="Sair da conta"
+                onClick={() => {
+                  void logout();
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    void logout();
+                  }
+                }}
+              >
+                <span className="stg-field-icon is-danger">
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" y1="12" x2="9" y2="12" />
+                  </svg>
+                </span>
+                <span className="stg-field-main">
+                  <span className="stg-field-label">Sair da conta</span>
+                </span>
+                <svg className="stg-field-chevron" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="m9 6 6 6-6 6" />
+                </svg>
+              </div>
+            </div>
           </div>
         </section>
       </section>

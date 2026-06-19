@@ -7614,6 +7614,11 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   background: var(--brand-green-soft, #2f6b4a);
 }
 
+/* Variante vermelha do icone (ex.: Sair) - quadrado vermelho + glifo branco. */
+.stg-field-icon.is-danger {
+  background: #d32f2f;
+}
+
 .stg-field-icon svg {
   width: 18px;
   height: 18px;
