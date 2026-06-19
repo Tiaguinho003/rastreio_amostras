@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useReducer, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 
@@ -8,7 +8,7 @@ import { ANIMATION_MS, BottomSheet } from './BottomSheet';
 import { ClientLookupField } from './clients/ClientLookupField';
 import { ClientQuickCreateModal } from './clients/ClientQuickCreateModal';
 import { SampleCreatedSuccessModal } from './samples/SampleCreatedSuccessModal';
-import { ApiError, createSample } from '../lib/api-client';
+import { ApiError, createSample, getNextLotNumber } from '../lib/api-client';
 import { useRegisterDirtyState } from '../lib/dirty-state/DirtyStateProvider';
 import { createSampleDraftSchema } from '../lib/form-schemas';
 import { buildHarvestPresets } from '../lib/sample-identification';
@@ -58,6 +58,16 @@ function clearPersistedDraftId() {
 
 const HARVEST_PRESET_OPTIONS = buildHarvestPresets();
 
+// Lote editavel: data de chegada default = hoje (no fuso do dispositivo, que
+// para o uso interno e America/Sao_Paulo). O backend revalida e bloqueia futuro.
+function todayAsInputDate() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 // ════════════════════════════════════════════════════════════════
 // Types
 // ════════════════════════════════════════════════════════════════
@@ -65,7 +75,7 @@ const HARVEST_PRESET_OPTIONS = buildHarvestPresets();
 type WizardStep = 'form' | 'created';
 type WizardStatus = 'idle' | 'submitting' | 'error';
 
-type RequiredFieldName = 'owner' | 'sacks' | 'harvest';
+type RequiredFieldName = 'owner' | 'sacks' | 'harvest' | 'lotNumber' | 'receivedDate';
 type RequiredFieldErrors = Record<RequiredFieldName, string | null>;
 
 interface WizardState {
@@ -99,6 +109,8 @@ const EMPTY_REQUIRED_FIELD_ERRORS: RequiredFieldErrors = {
   owner: null,
   sacks: null,
   harvest: null,
+  lotNumber: null,
+  receivedDate: null,
 };
 
 const initialState: WizardState = {
@@ -122,6 +134,8 @@ function getMissingRequiredFieldErrors(
     owner: values.owner.trim() ? null : REQUIRED_FIELD_MESSAGE,
     sacks: values.sacks.trim() ? null : REQUIRED_FIELD_MESSAGE,
     harvest: values.harvest.trim() ? null : REQUIRED_FIELD_MESSAGE,
+    lotNumber: null,
+    receivedDate: null,
   };
 }
 
@@ -210,6 +224,13 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
   const [location, setLocation] = useState('');
   const [notes, setNotes] = useState('');
   const [harvestOptionsOpen, setHarvestOptionsOpen] = useState(false);
+  // Lote editavel: numero (pre-preenchido com a sugestao da sequencia) + data
+  // de chegada (default hoje). lotSuggestion guarda a sugestao pra detectar se o
+  // usuario editou (manual) vs aceitou (auto, regenerado no servidor).
+  const [lotNumber, setLotNumber] = useState('');
+  const [lotSuggestion, setLotSuggestion] = useState('');
+  const [lotLoading, setLotLoading] = useState(false);
+  const [receivedDate, setReceivedDate] = useState(() => todayAsInputDate());
 
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -222,6 +243,10 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
   const sacksInputRef = useRef<HTMLInputElement | null>(null);
   const harvestInputRef = useRef<HTMLInputElement | null>(null);
   const harvestFieldRef = useRef<HTMLDivElement | null>(null);
+  const lotNumberInputRef = useRef<HTMLInputElement | null>(null);
+  const receivedDateInputRef = useRef<HTMLInputElement | null>(null);
+  // true assim que o usuario digita um numero de lote (some ao limpar o campo).
+  const lotEditedRef = useRef(false);
   const invalidFocusTimeoutRef = useRef<number | null>(null);
   const draftInitializedRef = useRef(false);
 
@@ -232,6 +257,29 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
     draftInitializedRef.current = true;
     setClientDraftId(loadOrCreateDraftId());
   }, [open]);
+
+  // Lote editavel: busca a sugestao do proximo numero da sequencia e pre-
+  // preenche o campo (so se o usuario ainda nao mexeu). Falha silenciosa: sem
+  // sugestao, o backend gera o numero no submit.
+  const loadLotSuggestion = useCallback(async () => {
+    setLotLoading(true);
+    try {
+      const res = await getNextLotNumber(session);
+      setLotSuggestion(res.nextLotNumber);
+      // So pre-preenche/atualiza se o usuario nao editou manualmente — assim,
+      // reabrir o modal mostra sempre a sugestao fresca da sequencia.
+      if (!lotEditedRef.current) setLotNumber(res.nextLotNumber);
+    } catch {
+      setLotSuggestion('');
+    } finally {
+      setLotLoading(false);
+    }
+  }, [session]);
+
+  useEffect(() => {
+    if (!open || state.step !== 'form') return;
+    void loadLotSuggestion();
+  }, [open, state.step, loadLotSuggestion]);
 
   // Apos SUBMIT_SUCCESS, state.step vira 'created'. O BottomSheet recebe
   // open={false} (animacao de saida ~ANIMATION_MS). Aguardamos esse tempo +
@@ -327,7 +375,11 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
             ? sacksInputRef.current
             : field === 'harvest'
               ? harvestInputRef.current
-              : null;
+              : field === 'lotNumber'
+                ? lotNumberInputRef.current
+                : field === 'receivedDate'
+                  ? receivedDateInputRef.current
+                  : null;
       target?.focus();
       target?.scrollIntoView({ block: 'nearest' });
       invalidFocusTimeoutRef.current = null;
@@ -353,9 +405,13 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
     setLocation('');
     setNotes('');
     setHarvestOptionsOpen(false);
+    setLotNumber('');
+    lotEditedRef.current = false;
+    setReceivedDate(todayAsInputDate());
     setError(null);
     setMessage(null);
     dispatch({ type: 'RESET' });
+    void loadLotSuggestion();
   }
 
   function hasUnsavedData() {
@@ -413,6 +469,11 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
     dispatch({ type: 'SET_FIELD_ERRORS', errors: EMPTY_REQUIRED_FIELD_ERRORS });
     dispatch({ type: 'SUBMIT_START' });
 
+    // Lote editavel: manual = usuario digitou um numero diferente da sugestao.
+    // Quando manual, mandamos o numero; senao, o servidor gera automaticamente.
+    const trimmedLot = lotNumber.trim();
+    const lotNumberManual = trimmedLot !== '' && trimmedLot !== lotSuggestion;
+
     try {
       const result = await createSample(session, {
         clientDraftId,
@@ -424,6 +485,9 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
         location: parsed.data.location ?? null,
         receivedChannel: parsed.data.receivedChannel,
         notes: parsed.data.notes ?? null,
+        lotNumber: trimmedLot || null,
+        lotNumberManual,
+        receivedDate: receivedDate || null,
       });
 
       clearPersistedDraftId();
@@ -433,6 +497,20 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
         lotNumber: result.sample.internalLotNumber ?? result.sample.id,
       });
     } catch (cause) {
+      // Erros de campo (lote duplicado, data no futuro) vem com details.field
+      // do backend -> exibe dentro do campo, sem banner generico.
+      if (cause instanceof ApiError && cause.details && typeof cause.details === 'object') {
+        const field = (cause.details as { field?: unknown }).field;
+        if (field === 'lotNumber' || field === 'receivedDate') {
+          dispatch({
+            type: 'SET_FIELD_ERRORS',
+            errors: { ...EMPTY_REQUIRED_FIELD_ERRORS, [field]: cause.message },
+          });
+          dispatch({ type: 'SUBMIT_ERROR', message: '' });
+          focusRequiredField(field);
+          return;
+        }
+      }
       const message =
         cause instanceof ApiError
           ? cause.message
@@ -492,6 +570,74 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
             createLabel="Adicionar cliente"
             createButtonStyle="inline-cta"
           />
+        </div>
+
+        <div className="nsv2-grid-half">
+          <label className="nsv2-field">
+            <span className="nsv2-field-label">Numero do lote</span>
+            <div className="nsv2-field-input-wrap">
+              <span className="nsv2-field-input-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <path d="M4 9h16" />
+                  <path d="M4 15h16" />
+                  <path d="M10 3 8 21" />
+                  <path d="M16 3l-2 18" />
+                </svg>
+              </span>
+              <input
+                ref={lotNumberInputRef}
+                value={lotNumber}
+                className={`nsv2-field-input has-icon-left ${fieldErrors.lotNumber ? 'has-error' : ''}`}
+                aria-invalid={Boolean(fieldErrors.lotNumber)}
+                onChange={(event) => {
+                  markDirty();
+                  const next = event.target.value.replace(/[^0-9]/g, '');
+                  lotEditedRef.current = next.trim() !== '';
+                  setLotNumber(next);
+                  clearFieldError('lotNumber');
+                }}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={7}
+                placeholder={lotLoading ? '...' : 'Ex: 5658'}
+              />
+            </div>
+            {fieldErrors.lotNumber ? (
+              <span className="nsv2-field-error">{fieldErrors.lotNumber}</span>
+            ) : null}
+          </label>
+        </div>
+
+        <div className="nsv2-grid-half">
+          <label className="nsv2-field">
+            <span className="nsv2-field-label">Data de chegada</span>
+            <div className="nsv2-field-input-wrap">
+              <span className="nsv2-field-input-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <rect x="3" y="5" width="18" height="16" rx="2" />
+                  <path d="M3 10h18" />
+                  <path d="M8 3v4" />
+                  <path d="M16 3v4" />
+                </svg>
+              </span>
+              <input
+                ref={receivedDateInputRef}
+                type="date"
+                value={receivedDate}
+                max={todayAsInputDate()}
+                className={`nsv2-field-input has-icon-left ${fieldErrors.receivedDate ? 'has-error' : ''}`}
+                aria-invalid={Boolean(fieldErrors.receivedDate)}
+                onChange={(event) => {
+                  markDirty();
+                  setReceivedDate(event.target.value);
+                  clearFieldError('receivedDate');
+                }}
+              />
+            </div>
+            {fieldErrors.receivedDate ? (
+              <span className="nsv2-field-error">{fieldErrors.receivedDate}</span>
+            ) : null}
+          </label>
         </div>
 
         <div className="nsv2-grid-half">

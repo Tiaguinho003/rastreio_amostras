@@ -906,7 +906,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(ownerPartial.body.items[0].internalLotNumber, targetInternalLotNumber);
   });
 
-  test('GET /samples paginates with cursor (createdAt + id) without duplicates', async () => {
+  test('GET /samples paginates with cursor (lot number + id) without duplicates', async () => {
     const ownerClient = await createSellerClient({
       legalName: 'Fazenda Cursor Test',
       tradeName: 'Fazenda Cursor Test',
@@ -939,16 +939,15 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(firstBatch.body.items.length, 15);
     assert.equal(firstBatch.body.page.total, 40);
     assert.ok(firstBatch.body.page.nextCursor);
-    assert.ok(firstBatch.body.page.nextCursor.createdAt);
+    assert.equal(typeof firstBatch.body.page.nextCursor.lotInt, 'number');
     assert.ok(firstBatch.body.page.nextCursor.id);
 
     const secondBatch = await api.listSamples(
       buildInput({
         query: {
           limit: '15',
-          cursorCreatedAt: firstBatch.body.page.nextCursor.createdAt,
+          cursorLotInt: String(firstBatch.body.page.nextCursor.lotInt),
           cursorId: firstBatch.body.page.nextCursor.id,
-          cursorInternalLotNumber: firstBatch.body.page.nextCursor.internalLotNumber ?? '',
         },
       })
     );
@@ -962,9 +961,8 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         query: {
           limit: '15',
-          cursorCreatedAt: secondBatch.body.page.nextCursor.createdAt,
+          cursorLotInt: String(secondBatch.body.page.nextCursor.lotInt),
           cursorId: secondBatch.body.page.nextCursor.id,
-          cursorInternalLotNumber: secondBatch.body.page.nextCursor.internalLotNumber ?? '',
         },
       })
     );
@@ -988,31 +986,159 @@ if (!databaseUrl || !databaseReachable) {
     const missingId = await api.listSamples(
       buildInput({
         query: {
-          cursorCreatedAt: new Date().toISOString(),
+          cursorLotInt: '5658',
         },
       })
     );
     assert.equal(missingId.status, 422);
 
-    const invalidDate = await api.listSamples(
+    const invalidLotInt = await api.listSamples(
       buildInput({
         query: {
-          cursorCreatedAt: 'not-a-date',
+          cursorLotInt: 'not-a-number',
           cursorId: randomUUID(),
         },
       })
     );
-    assert.equal(invalidDate.status, 422);
+    assert.equal(invalidLotInt.status, 422);
 
     const invalidId = await api.listSamples(
       buildInput({
         query: {
-          cursorCreatedAt: new Date().toISOString(),
+          cursorLotInt: '5658',
           cursorId: 'not-a-uuid',
         },
       })
     );
     assert.equal(invalidId.status, 422);
+  });
+
+  // ── Lote editavel: numero manual (fora de sequencia) + data de chegada ──
+  async function createLotOwner() {
+    const created = await createSellerClient({
+      legalName: 'Fazenda Lote Editavel LTDA',
+      tradeName: 'Fazenda Lote Editavel LTDA',
+    });
+    return created.client.id;
+  }
+
+  function createSampleLot(ownerClientId, extra = {}) {
+    return api.createSample(
+      buildInput({
+        body: {
+          clientDraftId: randomUUID(),
+          ownerClientId,
+          sacks: 10,
+          harvest: '25/26',
+          receivedChannel: 'in_person',
+          ...extra,
+        },
+      })
+    );
+  }
+
+  test('lote editavel: numero manual nao avanca a sequencia e pula ocupados', async () => {
+    const ownerClientId = await createLotOwner();
+
+    const auto1 = await createSampleLot(ownerClientId);
+    assert.equal(auto1.body.sample.internalLotNumber, '5658');
+
+    // Manual mais alto: NAO deve empurrar a sequencia automatica.
+    const manual = await createSampleLot(ownerClientId, {
+      sampleLotNumber: '5660',
+      lotNumberManual: true,
+    });
+    assert.equal(manual.status, 201);
+    assert.equal(manual.body.sample.internalLotNumber, '5660');
+
+    // Proximo auto continua de 5659 (ignora o manual 5660).
+    const auto2 = await createSampleLot(ownerClientId);
+    assert.equal(auto2.body.sample.internalLotNumber, '5659');
+
+    // Ao alcancar o 5660 (ocupado pelo manual), pula para 5661.
+    const auto3 = await createSampleLot(ownerClientId);
+    assert.equal(auto3.body.sample.internalLotNumber, '5661');
+  });
+
+  test('lote editavel: lista ordena por numero do lote desc, inclusive fora de sequencia', async () => {
+    const ownerClientId = await createLotOwner();
+    await createSampleLot(ownerClientId); // 5658
+    await createSampleLot(ownerClientId, { sampleLotNumber: '5544', lotNumberManual: true });
+    await createSampleLot(ownerClientId); // 5659
+
+    const list = await api.listSamples(buildInput({ query: { limit: '50' } }));
+    const lots = list.body.items.map((item) => item.internalLotNumber);
+    assert.deepEqual(lots, ['5659', '5658', '5544']);
+  });
+
+  test('lote editavel: numero duplicado -> 409 no campo lotNumber', async () => {
+    const ownerClientId = await createLotOwner();
+    const first = await createSampleLot(ownerClientId, {
+      sampleLotNumber: '7000',
+      lotNumberManual: true,
+    });
+    assert.equal(first.status, 201);
+
+    const dup = await createSampleLot(ownerClientId, {
+      sampleLotNumber: '7000',
+      lotNumberManual: true,
+    });
+    assert.equal(dup.status, 409);
+    assert.equal(dup.body.error.details.field, 'lotNumber');
+  });
+
+  test('lote editavel: numero nao-numerico ou >7 digitos -> 422 no campo lotNumber', async () => {
+    const ownerClientId = await createLotOwner();
+
+    const nonNumeric = await createSampleLot(ownerClientId, {
+      sampleLotNumber: 'abc',
+      lotNumberManual: true,
+    });
+    assert.equal(nonNumeric.status, 422);
+    assert.equal(nonNumeric.body.error.details.field, 'lotNumber');
+
+    const tooLong = await createSampleLot(ownerClientId, {
+      sampleLotNumber: '12345678',
+      lotNumberManual: true,
+    });
+    assert.equal(tooLong.status, 422);
+    assert.equal(tooLong.body.error.details.field, 'lotNumber');
+  });
+
+  test('lote editavel: zeros a esquerda sao normalizados', async () => {
+    const ownerClientId = await createLotOwner();
+    const created = await createSampleLot(ownerClientId, {
+      sampleLotNumber: '0055',
+      lotNumberManual: true,
+    });
+    assert.equal(created.status, 201);
+    assert.equal(created.body.sample.internalLotNumber, '55');
+  });
+
+  test('lote editavel: data no futuro -> 422; data no passado vira a data do lote', async () => {
+    const ownerClientId = await createLotOwner();
+
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const future = await createSampleLot(ownerClientId, { receivedDate: tomorrow });
+    assert.equal(future.status, 422);
+    assert.equal(future.body.error.details.field, 'receivedDate');
+
+    const past = await createSampleLot(ownerClientId, { receivedDate: '2020-01-15' });
+    assert.equal(past.status, 201);
+    const row = await prisma.sample.findUnique({
+      where: { id: past.body.sample.id },
+      select: { createdAt: true },
+    });
+    assert.equal(row.createdAt.toISOString().slice(0, 10), '2020-01-15');
+  });
+
+  test('lote editavel: GET /samples/next-lot-number sugere o proximo da sequencia', async () => {
+    const ownerClientId = await createLotOwner();
+    const before = await api.getNextLotNumber(buildInput({}));
+    assert.equal(before.body.nextLotNumber, '5658');
+    await createSampleLot(ownerClientId);
+    const after = await api.getNextLotNumber(buildInput({}));
+    assert.equal(after.body.nextLotNumber, '5659');
   });
 
   test('GET /samples supports statusGroup filter options', async () => {

@@ -850,7 +850,7 @@ export function listSamples(
     limit?: number;
     offset?: number;
     page?: number;
-    cursorCreatedAt?: string;
+    cursorLotInt?: string;
     cursorId?: string;
     lot?: string;
     owner?: string;
@@ -888,7 +888,7 @@ export function listSamples(
   if (typeof query.limit === 'number') params.set('limit', String(query.limit));
   if (typeof query.offset === 'number') params.set('offset', String(query.offset));
   if (typeof query.page === 'number') params.set('page', String(query.page));
-  if (query.cursorCreatedAt) params.set('cursorCreatedAt', query.cursorCreatedAt);
+  if (query.cursorLotInt) params.set('cursorLotInt', query.cursorLotInt);
   if (query.cursorId) params.set('cursorId', query.cursorId);
   if (query.lot) params.set('lot', query.lot);
   if (query.owner) params.set('owner', query.owner);
@@ -972,6 +972,11 @@ export function createSample(
     location?: string | null;
     receivedChannel?: 'in_person' | 'courier' | 'driver' | 'other';
     notes?: string | null;
+    // Lote editavel: numero informado manualmente (so quando lotNumberManual)
+    // e data de chegada (YYYY-MM-DD).
+    lotNumber?: string | null;
+    lotNumberManual?: boolean;
+    receivedDate?: string | null;
   }
 ) {
   return request<CreateSampleResponse>('/samples/create', {
@@ -987,7 +992,21 @@ export function createSample(
       location: data.location ?? null,
       receivedChannel: data.receivedChannel ?? 'in_person',
       notes: data.notes ?? null,
+      // Numero so vai quando manual (auto e gerado no servidor no submit);
+      // receivedDate vira o occurredAt do registro (e a data do lote).
+      ...(data.lotNumberManual && data.lotNumber ? { sampleLotNumber: data.lotNumber } : {}),
+      lotNumberManual: data.lotNumberManual ?? false,
+      receivedDate: data.receivedDate ?? null,
     },
+  });
+}
+
+// Lote editavel: sugestao do proximo numero da sequencia pra pre-preencher o
+// campo no modal de criacao. O numero real e gerado no submit (server-side).
+export function getNextLotNumber(session: SessionData) {
+  return request<{ nextLotNumber: string }>('/samples/next-lot-number', {
+    method: 'GET',
+    session,
   });
 }
 

@@ -319,14 +319,14 @@ function getInitialFilterSection(filters: HiddenFilters): FilterSectionId {
    da amostra restaura sempre (permanente); vir de outra rota restaura so dentro
    da janela do TTL (contada desde que saiu da Lotes). ── */
 
-const SAMPLES_SNAPSHOT_KEY = 'samples-list-snapshot-v2';
+const SAMPLES_SNAPSHOT_KEY = 'samples-list-snapshot-v3';
 // Janela de validade SO pra retorno que NAO veio do detalhe da amostra.
 const SAMPLES_SNAPSHOT_TTL_MS = 30 * 60 * 1000;
 
 interface SamplesSnapshot {
   items: SampleSnapshot[];
   total: number;
-  nextCursor: { createdAt: string; id: string } | null;
+  nextCursor: { lotInt: number | null; id: string } | null;
   scrollTop: number;
   searchInput: string;
   appliedSearch: string;
@@ -416,7 +416,7 @@ function applyListScrollTop(container: HTMLElement | null, top: number): void {
 
 /* ── Samples list reducer (scroll infinito com cursor) ── */
 
-type SampleCursor = { createdAt: string; id: string };
+type SampleCursor = { lotInt: number | null; id: string };
 type SamplesListStatus = 'loading-initial' | 'loading-more' | 'idle' | 'error';
 
 interface SamplesListState {
@@ -918,7 +918,7 @@ function SamplesPage() {
 
     listSamples(currentSession, {
       limit: SAMPLE_PAGE_LIMIT,
-      cursorCreatedAt: cursor.createdAt,
+      cursorLotInt: cursor.lotInt != null ? String(cursor.lotInt) : undefined,
       cursorId: cursor.id,
       search: filters.appliedSearch || undefined,
       ownerClientIds: filters.appliedHiddenFilters.ownerClients.map((client) => client.id),

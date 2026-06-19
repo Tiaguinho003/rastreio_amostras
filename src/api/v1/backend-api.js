@@ -347,6 +347,10 @@ export function createBackendApiV1({
             location: body.location,
             receivedChannel: body.receivedChannel,
             notes: body.notes ?? null,
+            // Lote editavel: numero manual + data de chegada informados no modal.
+            sampleLotNumber: body.sampleLotNumber,
+            lotNumberManual: body.lotNumberManual,
+            receivedDate: body.receivedDate,
           },
           actor
         );
@@ -633,9 +637,8 @@ export function createBackendApiV1({
           limit: readPositiveInteger(query.limit, 30, 'limit'),
           offset: readPositiveInteger(query.offset, 0, 'offset'),
           page: readPageQuery(query.page),
-          cursorCreatedAt: readOptionalQueryString(query.cursorCreatedAt),
+          cursorLotInt: readOptionalQueryString(query.cursorLotInt),
           cursorId: readOptionalQueryString(query.cursorId),
-          cursorInternalLotNumber: readOptionalQueryString(query.cursorInternalLotNumber),
           lot: readOptionalQueryString(query.lot),
           owner: readOptionalQueryString(query.owner),
           buyer: readOptionalQueryString(query.buyer),
@@ -667,6 +670,18 @@ export function createBackendApiV1({
         return {
           status: 200,
           body: result,
+        };
+      }),
+
+    // Lote editavel: sugestao do proximo numero da sequencia pra pre-preencher
+    // o campo no modal de criacao. O numero real e gerado no submit (server-side).
+    getNextLotNumber: (input) =>
+      executeApiForInput(input, async () => {
+        await resolveActorContext(input, authService);
+        const nextLotNumber = await queryService.getNextInternalLotNumber();
+        return {
+          status: 200,
+          body: { nextLotNumber },
         };
       }),
 

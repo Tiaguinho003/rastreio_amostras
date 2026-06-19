@@ -519,32 +519,37 @@ function resolveCreatedDateRangeInSaoPaulo({ createdFrom = null, createdTo = nul
   return { startUtc: single.startUtc, endUtc: single.endUtc };
 }
 
-function resolveCursor({ cursorCreatedAt, cursorId, cursorInternalLotNumber }) {
-  const normalizedCreatedAt = normalizeOptionalText(cursorCreatedAt);
+function resolveCursor({ cursorLotInt, cursorId }) {
   const normalizedId = normalizeOptionalText(cursorId);
-  const normalizedInternalLotNumber = normalizeOptionalText(cursorInternalLotNumber);
+  const normalizedLotInt = normalizeOptionalText(cursorLotInt);
 
-  if (!normalizedCreatedAt && !normalizedId) {
+  if (!normalizedId && normalizedLotInt === null) {
     return null;
   }
 
-  if (!normalizedCreatedAt || !normalizedId) {
-    throw new HttpError(422, 'cursorCreatedAt and cursorId must be provided together');
-  }
-
-  const parsed = new Date(normalizedCreatedAt);
-  if (Number.isNaN(parsed.getTime())) {
-    throw new HttpError(422, 'cursorCreatedAt must be a valid ISO timestamp');
+  if (!normalizedId) {
+    throw new HttpError(422, 'cursorId is required when paginating');
   }
 
   if (!new RegExp(`^${UUID_PATTERN}$`).test(normalizedId)) {
     throw new HttpError(422, 'cursorId must be a valid UUID');
   }
 
+  // Lote editavel: ordenacao por numero do lote (internalLotNumberInt desc,
+  // nulls last, desempate por id). O cursor keyset carrega o int + id. lotInt
+  // null = cauda de lotes sem numero (pagina so por id entre eles).
+  let lotInt = null;
+  if (normalizedLotInt !== null) {
+    const parsedInt = Number(normalizedLotInt);
+    if (!Number.isInteger(parsedInt)) {
+      throw new HttpError(422, 'cursorLotInt must be an integer');
+    }
+    lotInt = parsedInt;
+  }
+
   return {
-    createdAt: parsed,
+    lotInt,
     id: normalizedId,
-    internalLotNumber: normalizedInternalLotNumber,
   };
 }
 
@@ -1219,9 +1224,8 @@ export class SampleQueryService {
     limit = SAMPLES_LIST_DEFAULT_LIMIT,
     offset = 0,
     page = null,
-    cursorCreatedAt = null,
+    cursorLotInt = null,
     cursorId = null,
-    cursorInternalLotNumber = null,
     lot = null,
     owner = null,
     buyer = null,
@@ -1247,13 +1251,15 @@ export class SampleQueryService {
     isBlend = null,
   } = {}) {
     const safeLimit = Math.min(Math.max(limit, 1), SAMPLES_LIST_MAX_LIMIT);
-    const cursor = resolveCursor({ cursorCreatedAt, cursorId, cursorInternalLotNumber });
-    if (cursor && cursor.internalLotNumber === null) {
+    const cursor = resolveCursor({ cursorLotInt, cursorId });
+    // Defensivo: se veio so o id (sem lotInt), busca o int da linha pra montar
+    // o keyset. Para a cauda de lotes sem numero o int e null mesmo.
+    if (cursor && cursor.lotInt === null) {
       const cursorRow = await this.prisma.sample.findUnique({
         where: { id: cursor.id },
-        select: { internalLotNumber: true },
+        select: { internalLotNumberInt: true },
       });
-      cursor.internalLotNumber = cursorRow?.internalLotNumber ?? null;
+      cursor.lotInt = cursorRow?.internalLotNumberInt ?? null;
     }
     const safeOffset = Math.max(offset, 0);
     const safePage = typeof page === 'number' && Number.isInteger(page) && page > 0 ? page : null;
@@ -1491,27 +1497,22 @@ export class SampleQueryService {
 
     const whereForCount = conditions.length > 0 ? { AND: conditions } : undefined;
 
+    // Lote editavel: keyset por (internalLotNumberInt desc nulls last, id asc).
+    // Linhas "depois" do cursor: numero menor, OU numero nulo (cauda), OU mesmo
+    // numero com id maior. Quando o proprio cursor ja esta na cauda (lotInt
+    // null), pagina so por id entre os nulos.
     const rowConditions = cursor
       ? [
           ...conditions,
-          {
-            OR: [
-              { createdAt: { lt: cursor.createdAt } },
-              {
-                AND: [
-                  { createdAt: cursor.createdAt },
-                  { internalLotNumber: { lt: cursor.internalLotNumber ?? '' } },
+          cursor.lotInt === null
+            ? { internalLotNumberInt: null, id: { gt: cursor.id } }
+            : {
+                OR: [
+                  { internalLotNumberInt: { lt: cursor.lotInt } },
+                  { internalLotNumberInt: null },
+                  { internalLotNumberInt: cursor.lotInt, id: { gt: cursor.id } },
                 ],
               },
-              {
-                AND: [
-                  { createdAt: cursor.createdAt },
-                  { internalLotNumber: cursor.internalLotNumber ?? null },
-                  { id: { gt: cursor.id } },
-                ],
-              },
-            ],
-          },
         ]
       : conditions;
     const whereForRows = rowConditions.length > 0 ? { AND: rowConditions } : undefined;
@@ -1519,7 +1520,7 @@ export class SampleQueryService {
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.sample.findMany({
         where: whereForRows,
-        orderBy: [{ createdAt: 'desc' }, { internalLotNumber: 'desc' }, { id: 'asc' }],
+        orderBy: [{ internalLotNumberInt: { sort: 'desc', nulls: 'last' } }, { id: 'asc' }],
         skip: resolvedOffset,
         take: safeLimit,
         include: SAMPLE_INCLUDE,
@@ -1530,8 +1531,7 @@ export class SampleQueryService {
     const nextCursor =
       rows.length === safeLimit
         ? {
-            createdAt: rows[rows.length - 1].createdAt.toISOString(),
-            internalLotNumber: rows[rows.length - 1].internalLotNumber,
+            lotInt: rows[rows.length - 1].internalLotNumberInt,
             id: rows[rows.length - 1].id,
           }
         : null;
@@ -2184,20 +2184,40 @@ export class SampleQueryService {
     // 2026-05-12: empresa retomou uso do app apos reset do banco —
     // initialSequence bumpada de 5640 -> 5657 pra que a proxima amostra
     // criada (com tabela sample vazia) seja a "5658" definida pelo Flavio.
+    //
+    // Lote editavel (2026-06-19): o "proximo" considera SO os lotes automaticos
+    // (lot_number_manual = false) — um numero informado manualmente nunca avanca
+    // o ponteiro da sequencia. Alem disso pulamos qualquer numero ja ocupado
+    // (manual ou auto): quando a sequencia natural alcanca um numero manual ja
+    // usado, ela segue para o proximo livre. Janela de busca = 1000 numeros.
     const initialSequence = 5657;
 
     const result = await this.prisma.$queryRaw`
-      SELECT internal_lot_number FROM sample
-      WHERE internal_lot_number ~ '^[0-9]+$'
-      ORDER BY CAST(internal_lot_number AS INTEGER) DESC
+      WITH base AS (
+        SELECT COALESCE(MAX(internal_lot_number_int), ${initialSequence}::integer) AS m
+        FROM sample
+        WHERE lot_number_manual = false
+          AND internal_lot_number_int IS NOT NULL
+      )
+      SELECT g AS candidate
+      FROM base
+      CROSS JOIN generate_series(base.m + 1, base.m + 1000) AS g
+      WHERE NOT EXISTS (
+        SELECT 1 FROM sample s WHERE s.internal_lot_number_int = g
+      )
+      ORDER BY g ASC
       LIMIT 1`;
 
-    const lastLot = result[0]?.internal_lot_number ?? null;
-    const lastSequence = lastLot ? Number(lastLot) : initialSequence;
-    const nextSequence =
-      Number.isInteger(lastSequence) && lastSequence > 0 ? lastSequence + 1 : initialSequence + 1;
+    const candidate = result[0]?.candidate ?? null;
+    if (candidate !== null && candidate !== undefined) {
+      return String(Number(candidate));
+    }
 
-    return String(nextSequence);
+    // Fallback defensivo (janela de 1000 esgotada — cenario implausivel): o
+    // maior numero em uso + 1 e sempre livre (nada esta acima dele).
+    const maxRow = await this.prisma.$queryRaw`
+      SELECT COALESCE(MAX(internal_lot_number_int), ${initialSequence}::integer) AS m FROM sample`;
+    return String(Number(maxRow[0]?.m ?? initialSequence) + 1);
   }
 
   // Liga A2.1: CTE recursiva carregando a arvore inteira de descendentes

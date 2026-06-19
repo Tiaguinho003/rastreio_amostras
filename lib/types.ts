@@ -667,7 +667,7 @@ export interface ListSamplesResponse {
     totalPages: number;
     hasPrev: boolean;
     hasNext: boolean;
-    nextCursor: { createdAt: string; id: string } | null;
+    nextCursor: { lotInt: number | null; id: string } | null;
   };
 }
 

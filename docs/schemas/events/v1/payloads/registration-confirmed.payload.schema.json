@@ -8,6 +8,10 @@
       "type": "string",
       "pattern": "^[0-9]+$"
     },
+    "lotNumberManual": {
+      "type": "boolean",
+      "description": "Lote editavel (2026-06-19): true quando o numero foi informado manualmente (fora da sequencia automatica). O gerador automatico ignora lotes manuais ao calcular o proximo numero. Opcional; ausente = false (lotes historicos, ligas, imports)."
+    },
     "declared": {
       "type": "object",
       "properties": {

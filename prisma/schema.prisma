@@ -226,6 +226,13 @@ enum CommercialVisitOutcome {
 model Sample {
   id                String           @id @db.Uuid
   internalLotNumber String?          @unique(map: "uq_sample_internal_lot") @map("internal_lot_number")
+  // Espelho numerico de internalLotNumber (so digitos, ate 7 chars) usado pra
+  // ordenacao e paginacao keyset por numero do lote na pagina de Lotes.
+  // Null pra lotes nao-numericos/legado. Mantido pela projecao.
+  internalLotNumberInt Int? @map("internal_lot_number_int")
+  // True quando o numero foi informado manualmente (lote fora de sequencia).
+  // O gerador automatico ignora manuais no calculo do proximo numero.
+  lotNumberManual Boolean @default(false) @map("lot_number_manual")
   status            SampleStatus
   commercialStatus  CommercialStatus @default(OPEN) @map("commercial_status")
   version           Int              @default(0)
@@ -287,6 +294,7 @@ model Sample {
   @@index([status, createdAt, id], map: "idx_sample_status_created_id")
   @@index([status, commercialStatus, classifiedAt], map: "idx_sample_classified_availability")
   @@index([isBlend], map: "idx_sample_is_blend")
+  @@index([internalLotNumberInt(sort: Desc), id], map: "idx_sample_lot_int_id")
   @@map("sample")
 }
 

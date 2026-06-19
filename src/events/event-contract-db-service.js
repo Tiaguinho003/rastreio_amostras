@@ -261,6 +261,15 @@ function buildSampleCreateData(event) {
   // sobre um sample já criado por SAMPLE_RECEIVED).
   if (event.eventType === 'REGISTRATION_CONFIRMED') {
     data.internalLotNumber = event.payload.sampleLotNumber;
+    // Espelho numerico pra ordenacao/cursor por numero do lote. Null pra
+    // lotes nao-numericos/legado.
+    data.internalLotNumberInt = /^[0-9]{1,7}$/.test(event.payload.sampleLotNumber ?? '')
+      ? Number(event.payload.sampleLotNumber)
+      : null;
+    data.lotNumberManual = event.payload.lotNumberManual === true;
+    // Lote editavel: a data informada (occurredAt) vira a data do lote — dirige
+    // createdAt (em vez do now() do banco) pra ficar consistente apos rebuild.
+    data.createdAt = new Date(event.occurredAt);
     if (hasOwn(event.payload, 'ownerClientId')) {
       data.ownerClientId = event.payload.ownerClientId ?? null;
     }
@@ -296,6 +305,10 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
 
   if (event.eventType === 'REGISTRATION_CONFIRMED') {
     updateData.internalLotNumber = event.payload.sampleLotNumber;
+    updateData.internalLotNumberInt = /^[0-9]{1,7}$/.test(event.payload.sampleLotNumber ?? '')
+      ? Number(event.payload.sampleLotNumber)
+      : null;
+    updateData.lotNumberManual = event.payload.lotNumberManual === true;
     if (hasOwn(event.payload, 'ownerClientId')) {
       updateData.ownerClientId = event.payload.ownerClientId ?? null;
     }

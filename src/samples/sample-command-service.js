@@ -206,6 +206,44 @@ function normalizeMovementDate(value, fieldName = 'movementDate') {
   return normalized;
 }
 
+// Lote editavel: numero informado manualmente. Aceita so digitos, normaliza
+// zeros a esquerda ("0055" -> "55"), exige >0 e no maximo 7 digitos (cabe no
+// INTEGER do espelho numerico e bate com o truncamento da etiqueta impressa).
+// Erros saem com { field: 'lotNumber' } pra serem exibidos dentro do campo.
+function normalizeManualLotNumber(value, fieldName = 'lotNumber') {
+  const raw = typeof value === 'string' ? value.trim() : value == null ? '' : String(value).trim();
+  if (!/^[0-9]+$/.test(raw)) {
+    throw new HttpError(422, 'Numero do lote deve conter apenas digitos', { field: fieldName });
+  }
+  const normalized = raw.replace(/^0+/, '') || '0';
+  if (normalized === '0') {
+    throw new HttpError(422, 'Numero do lote deve ser maior que zero', { field: fieldName });
+  }
+  if (normalized.length > 7) {
+    throw new HttpError(422, 'Numero do lote pode ter no maximo 7 digitos', { field: fieldName });
+  }
+  return normalized;
+}
+
+// Lote editavel: data de chegada informada -> instante UTC do occurredAt.
+// Sem data = agora. Hoje (em Sao_Paulo) = agora (timestamp preciso). Dia
+// passado = meio-dia SP (UTC-3, sem horario de verao desde 2019) pra ficar
+// longe da meia-noite e nao "pular um dia" ao exibir. Futuro e bloqueado.
+function resolveReceivedAtInstant(value, fieldName = 'receivedDate') {
+  if (value === undefined || value === null || value === '') {
+    return new Date().toISOString();
+  }
+  const date = normalizeMovementDate(value, fieldName);
+  const today = buildBusinessDateStamp(new Date());
+  if (date > today) {
+    throw new HttpError(422, 'A data nao pode ser no futuro', { field: fieldName });
+  }
+  if (date === today) {
+    return new Date().toISOString();
+  }
+  return new Date(`${date}T12:00:00-03:00`).toISOString();
+}
+
 function normalizeMovementNotes(value, fieldName = 'notes', { required = false } = {}) {
   if (required) {
     return normalizeRequiredText(value, fieldName, 500);
@@ -1511,10 +1549,30 @@ export class SampleCommandService {
       };
     }
 
-    // Geração do internalLotNumber: aceita override via input.sampleLotNumber
-    // (caso de testes/imports). Sem override, gera sequencial e retenta se
-    // bater no UNIQUE constraint (corrida com outra request).
-    const fixedLotNumber = input.sampleLotNumber ?? null;
+    // Lote editavel: o usuario pode informar o numero manualmente (fora da
+    // sequencia) e a data de chegada via modal. Sem `lotNumberManual`, segue
+    // automatico. `sampleLotNumber` cru (sem flag) ainda e aceito p/ testes/imports.
+    const manualLot = input.lotNumberManual === true;
+    const fixedLotNumber = manualLot
+      ? normalizeManualLotNumber(input.sampleLotNumber)
+      : (input.sampleLotNumber ?? null);
+
+    if (manualLot) {
+      // Pre-check de unicidade pra devolver erro amigavel dentro do campo. O
+      // @unique do banco e o backstop (P2002) em caso de corrida.
+      const clash = await this.queryService.prisma.sample.findUnique({
+        where: { internalLotNumber: fixedLotNumber },
+        select: { id: true },
+      });
+      if (clash) {
+        throw new HttpError(409, `Lote ${fixedLotNumber} ja existe`, { field: 'lotNumber' });
+      }
+    }
+
+    // Data de chegada informada -> occurredAt do evento (e, via projecao, o
+    // createdAt do lote). Sem data, usa o agora.
+    const occurredAt = resolveReceivedAtInstant(input.receivedDate);
+
     const maxRetries = fixedLotNumber ? 1 : AUTO_LOT_NUMBER_MAX_RETRIES;
 
     for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
@@ -1524,8 +1582,10 @@ export class SampleCommandService {
       const event = buildEventEnvelope({
         eventType: 'REGISTRATION_CONFIRMED',
         sampleId,
+        occurredAt,
         payload: {
           sampleLotNumber,
+          lotNumberManual: manualLot,
           declared,
           ownerClientId: ownerBinding?.ownerClientId ?? null,
           // ownerUnitId nao e mais emitido: o lote nao vincula fazenda.
@@ -1556,6 +1616,11 @@ export class SampleCommandService {
       } catch (error) {
         if (!fixedLotNumber && isInternalLotNumberUniqueConflict(error) && attempt < maxRetries) {
           continue;
+        }
+        // Corrida no numero manual: o pre-check passou mas outra request gravou
+        // o mesmo numero antes. Backstop -> erro amigavel dentro do campo.
+        if (manualLot && isInternalLotNumberUniqueConflict(error)) {
+          throw new HttpError(409, `Lote ${fixedLotNumber} ja existe`, { field: 'lotNumber' });
         }
         throw error;
       }
@@ -1731,6 +1796,9 @@ export class SampleCommandService {
         sampleId,
         payload: {
           sampleLotNumber,
+          // Liga nunca usa numero manual: sempre automatico (lote editavel so
+          // no modal de amostra normal).
+          lotNumberManual: false,
           declared,
           ownerClientId: ownerBinding?.ownerClientId ?? null,
           // ownerUnitId nao e mais emitido: a liga/lote nao vincula fazenda.
