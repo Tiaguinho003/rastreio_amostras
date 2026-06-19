@@ -958,6 +958,12 @@ export default function ClientDetailPage() {
 
   if (loading || !session) return null;
 
+  // Evita o "shell vazio" no 1o load (topo + corpo antes do conteudo chegar):
+  // enquanto o cliente nao carregou, fica em branco em vez de renderizar o
+  // AppShell/.sdv-page sem conteudo (o loader global da marca cobre a tela). So
+  // no 1o load (client ainda null) — refetch mantem o client e nao pisca.
+  if (loadingPage && !client) return null;
+
   /* ================================================================ */
   /*  Render                                                          */
   /* ================================================================ */
