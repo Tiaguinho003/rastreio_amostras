@@ -10083,10 +10083,17 @@ body:has(.app-modal-backdrop) .prospector-fab {
 }
 
 /* Secao do "Resumo comercial" (grafico donut) do detalhe do cliente — wrapper
-   do ClientCommercialSummaryCard. Mesmo respiro do topo que o .sdv-commercial;
-   no desktop centraliza + limita a largura pra o card nao esticar. */
+   do ClientCommercialSummaryCard. Fica entre Informacoes e Filiais (PF) com o
+   MESMO gap dos demais containers (igual ao gap interno do .sdv-general); no
+   desktop centraliza + limita a largura pra o card nao esticar. */
 .sdv-client-commercial-section {
-  margin-top: clamp(72px, 16vw, 96px);
+  margin-top: clamp(13px, 3.6vw, 16px);
+}
+
+/* Filiais (PF) movida pra baixo do Resumo comercial — mesmo gap dos demais
+   containers (gap uniforme entre os tres). */
+.sdv-content-inner > .sdv-card-filiais {
+  margin-top: clamp(13px, 3.6vw, 16px);
 }
 
 @media (min-width: 901px) {
@@ -27699,12 +27706,11 @@ select.samples-filter-field-input {
     grid-row: 1;
   }
 
-  /* Cards Filiais / Endereco fiscal (coluna 2 do grid) — altura FIXA via
-     --card-row-height. Garante que clientes com 4 filiais nao tenham
-     container maior que clientes com 1 filial ou que PJ sem filiais —
-     o scroll interno do .sdv-unit-list cuida do excesso. */
-  .sdv-general > .sdv-card-address,
-  .sdv-general > .sdv-card-filiais {
+  /* Card Endereco fiscal (PJ) na coluna 2 do grid — altura FIXA via
+     --card-row-height, alinhada com o card Informacoes da coluna 1.
+     (A Filiais do PF NAO usa o grid: fica abaixo do Resumo comercial numa
+     coluna unica — ver .sdv-content-inner:has(> .sdv-card-filiais) adiante.) */
+  .sdv-general > .sdv-card-address {
     grid-column: 2;
     grid-row: 1;
     height: var(--card-row-height);
@@ -27746,6 +27752,34 @@ select.samples-filter-field-input {
   .sdv-card-filiais .sdv-unit-list::-webkit-scrollbar-thumb {
     background: #d6d0c1;
     border-radius: 999px;
+  }
+
+  /* Cliente PF: os tres containers (Informacoes -> Resumo comercial ->
+     Filiais) ficam numa COLUNA UNICA centralizada (max 34rem, igual ao
+     Resumo), nao no grid 2-col do PJ. Deteccao: a Filiais (PF) e filha
+     DIRETA do .sdv-content-inner (foi movida pra baixo do Resumo); o PJ
+     mantem o grid Informacoes | Endereco fiscal. */
+  .sdv-content-inner:has(> .sdv-card-filiais) > .sdv-general {
+    display: block;
+    max-width: 34rem;
+  }
+
+  .sdv-content-inner:has(> .sdv-card-filiais) > .sdv-general .sdv-info-split-row {
+    height: auto;
+  }
+
+  .sdv-content-inner > .sdv-card-filiais {
+    width: 100%;
+    max-width: 34rem;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* Na coluna unica a lista de filiais flui (a pagina rola) — sem a altura
+     fixa / scroll interno que o layout 2-col usava. */
+  .sdv-content-inner > .sdv-card-filiais .sdv-unit-list {
+    overflow: visible;
+    padding-right: 0;
   }
 
   .sdv-info-label {
