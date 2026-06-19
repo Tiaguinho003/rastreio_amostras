@@ -381,6 +381,7 @@ export default function ClientDetailPage() {
          Edicao inline absorvida pelo ClientUnitDetailModal. ---- */
   const [unitModalOpen, setUnitModalOpen] = useState(false);
   const [savingUnit, setSavingUnit] = useState(false);
+  const [unitCreateSuccess, setUnitCreateSuccess] = useState(false);
   const [showInactiveUnits, setShowInactiveUnits] = useState(false);
 
   /* ---- 14.7.I: detail modal (view + edit inline) — abre ao clicar no
@@ -779,6 +780,7 @@ export default function ClientDetailPage() {
   function openUnitCreate() {
     setUnitModalNotice(null);
     setSavingUnit(false);
+    setUnitCreateSuccess(false);
     setUnitModalOpen(true);
   }
 
@@ -844,10 +846,13 @@ export default function ClientDetailPage() {
 
     try {
       await createClientUnit(session, clientId, data);
-      setUnitNotice({ kind: 'success', text: 'Filial criada com sucesso.' });
+      setUnitCreateSuccess(true);
       void fetchData();
       invalidateCommercial();
-      setUnitModalOpen(false);
+      window.setTimeout(() => {
+        setUnitModalOpen(false);
+        setUnitCreateSuccess(false);
+      }, 1000);
     } catch (cause) {
       setUnitModalNotice({
         kind: 'error',
@@ -1977,6 +1982,7 @@ export default function ClientDetailPage() {
       <ClientUnitModal
         open={unitModalOpen}
         saving={savingUnit}
+        success={unitCreateSuccess}
         errorMessage={unitModalNotice?.kind === 'error' ? unitModalNotice.text : null}
         onClose={closeUnitModal}
         onSubmit={handleUnitSubmit}

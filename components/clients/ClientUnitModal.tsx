@@ -19,6 +19,7 @@ import type { ClientUnitInput } from '../../lib/types';
 type ClientUnitModalProps = {
   open: boolean;
   saving: boolean;
+  success?: boolean;
   errorMessage: string | null;
   onClose: () => void;
   onSubmit: (data: ClientUnitInput) => Promise<void> | void;
@@ -74,6 +75,7 @@ function formToInput(form: FormState, cnpjDigits: string): ClientUnitInput {
 export function ClientUnitModal({
   open,
   saving,
+  success = false,
   errorMessage,
   onClose,
   onSubmit,
@@ -142,169 +144,186 @@ export function ClientUnitModal({
             type="button"
             className="app-modal-close"
             onClick={onClose}
-            disabled={saving}
+            disabled={saving || success}
             aria-label="Fechar"
           >
             <span aria-hidden="true">×</span>
           </button>
         </header>
 
-        {errorMessage ? <p className="client-unit-modal-error">{errorMessage}</p> : null}
-
-        <form className="app-modal-content client-unit-modal-form" onSubmit={handleSubmit}>
-          <div className="sdv-edit-row">
-            <label className="app-modal-field">
-              <span className="app-modal-label">Nome (obrigatório)</span>
-              <input
-                className="app-modal-input"
-                value={form.name}
-                disabled={saving}
-                maxLength={160}
-                required
-                onChange={(event) => update('name', event.target.value.toUpperCase())}
-              />
-            </label>
-            <label className="app-modal-field">
-              <span className="app-modal-label">CAR (Cadastro Ambiental Rural)</span>
-              <input
-                className="app-modal-input"
-                value={form.car}
-                disabled={saving}
-                maxLength={80}
-                onChange={(event) => update('car', event.target.value.toUpperCase())}
-              />
-            </label>
+        {success ? (
+          <div className="client-detail-success-check">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" />
+              <path d="m9 12 2 2 4-4" />
+            </svg>
           </div>
+        ) : (
+          <>
+            {errorMessage ? <p className="client-unit-modal-error">{errorMessage}</p> : null}
 
-          <div className="sdv-edit-row">
-            <label className="app-modal-field">
-              <span className="app-modal-label">CNPJ (opcional)</span>
-              <input
-                className={`app-modal-input${cnpjMask.error ? ' has-error' : ''}`}
-                value={cnpjMask.masked}
-                disabled={saving}
-                inputMode="numeric"
-                onChange={cnpjMask.onChange}
-                onBlur={cnpjMask.onBlur}
-              />
-              {cnpjMask.error ? (
-                <span className="sdv-edit-error" role="alert">
-                  {cnpjMask.error}
-                </span>
-              ) : null}
-            </label>
-            <label className="app-modal-field">
-              <span className="app-modal-label">Inscrição estadual</span>
-              <input
-                className="app-modal-input"
-                value={form.registrationNumber}
-                disabled={saving}
-                inputMode="numeric"
-                onChange={(event) =>
-                  update('registrationNumber', maskRegistrationNumberInput(event.target.value))
-                }
-              />
-            </label>
-          </div>
+            <form className="client-unit-modal-form" onSubmit={handleSubmit}>
+              <div className="client-unit-modal-body">
+                <label className="app-modal-field">
+                  <span className="app-modal-label">Nome (obrigatório)</span>
+                  <input
+                    className="app-modal-input"
+                    value={form.name}
+                    disabled={saving}
+                    maxLength={160}
+                    required
+                    onChange={(event) => update('name', event.target.value.toUpperCase())}
+                  />
+                </label>
 
-          <div className="sdv-edit-row" style={{ gridTemplateColumns: '1fr 2fr 0.6fr' }}>
-            <label className="app-modal-field">
-              <span className="app-modal-label">
-                CEP
-                {cep.loading ? (
-                  <span className="sdv-cep-spinner" aria-hidden="true">
-                    {' '}
-                    ⌛
-                  </span>
-                ) : null}
-              </span>
-              <input
-                className="app-modal-input"
-                value={form.postalCode}
-                disabled={saving}
-                inputMode="numeric"
-                onChange={(event) => update('postalCode', maskPostalCodeInput(event.target.value))}
-              />
-            </label>
-            <label className="app-modal-field">
-              <span className="app-modal-label">Cidade</span>
-              <input
-                className="app-modal-input"
-                value={form.city}
-                disabled={saving}
-                onChange={(event) => update('city', event.target.value.toUpperCase())}
-              />
-            </label>
-            <label className="app-modal-field">
-              <span className="app-modal-label">UF</span>
-              <input
-                className="app-modal-input"
-                value={form.state}
-                disabled={saving}
-                maxLength={2}
-                onChange={(event) => update('state', event.target.value.toUpperCase())}
-              />
-            </label>
-          </div>
+                <label className="app-modal-field">
+                  <span className="app-modal-label">CAR (Cadastro Ambiental Rural)</span>
+                  <input
+                    className="app-modal-input"
+                    value={form.car}
+                    disabled={saving}
+                    maxLength={80}
+                    onChange={(event) => update('car', event.target.value.toUpperCase())}
+                  />
+                </label>
 
-          <div className="sdv-edit-row">
-            <label className="app-modal-field">
-              <span className="app-modal-label">Logradouro</span>
-              <input
-                className="app-modal-input"
-                value={form.addressLine}
-                disabled={saving}
-                onChange={(event) => update('addressLine', event.target.value.toUpperCase())}
-              />
-            </label>
-            <label className="app-modal-field">
-              <span className="app-modal-label">Bairro</span>
-              <input
-                className="app-modal-input"
-                value={form.district}
-                disabled={saving}
-                onChange={(event) => update('district', event.target.value.toUpperCase())}
-              />
-            </label>
-          </div>
+                <div className="sdv-edit-row">
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">CNPJ (opcional)</span>
+                    <input
+                      className={`app-modal-input${cnpjMask.error ? ' has-error' : ''}`}
+                      value={cnpjMask.masked}
+                      disabled={saving}
+                      inputMode="numeric"
+                      onChange={cnpjMask.onChange}
+                      onBlur={cnpjMask.onBlur}
+                    />
+                    {cnpjMask.error ? (
+                      <span className="sdv-edit-error" role="alert">
+                        {cnpjMask.error}
+                      </span>
+                    ) : null}
+                  </label>
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">Inscrição estadual</span>
+                    <input
+                      className="app-modal-input"
+                      value={form.registrationNumber}
+                      disabled={saving}
+                      inputMode="numeric"
+                      onChange={(event) =>
+                        update(
+                          'registrationNumber',
+                          maskRegistrationNumberInput(event.target.value)
+                        )
+                      }
+                    />
+                  </label>
+                </div>
 
-          <div className="sdv-edit-row">
-            <label className="app-modal-field">
-              <span className="app-modal-label">Complemento</span>
-              <input
-                className="app-modal-input"
-                value={form.complement}
-                disabled={saving}
-                maxLength={120}
-                onChange={(event) => update('complement', event.target.value.toUpperCase())}
-              />
-            </label>
-            <label className="app-modal-field">
-              <span className="app-modal-label">Telefone</span>
-              <input
-                className="app-modal-input"
-                value={form.phone}
-                disabled={saving}
-                inputMode="numeric"
-                onChange={(event) => update('phone', maskPhoneInput(event.target.value))}
-              />
-            </label>
-          </div>
+                <div className="sdv-edit-row" style={{ gridTemplateColumns: '1fr 2fr 0.6fr' }}>
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">
+                      CEP
+                      {cep.loading ? (
+                        <span className="sdv-cep-spinner" aria-hidden="true">
+                          {' '}
+                          ⌛
+                        </span>
+                      ) : null}
+                    </span>
+                    <input
+                      className="app-modal-input"
+                      value={form.postalCode}
+                      disabled={saving}
+                      inputMode="numeric"
+                      onChange={(event) =>
+                        update('postalCode', maskPostalCodeInput(event.target.value))
+                      }
+                    />
+                  </label>
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">Cidade</span>
+                    <input
+                      className="app-modal-input"
+                      value={form.city}
+                      disabled={saving}
+                      onChange={(event) => update('city', event.target.value.toUpperCase())}
+                    />
+                  </label>
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">UF</span>
+                    <input
+                      className="app-modal-input"
+                      value={form.state}
+                      disabled={saving}
+                      maxLength={2}
+                      onChange={(event) => update('state', event.target.value.toUpperCase())}
+                    />
+                  </label>
+                </div>
 
-          <div className="app-modal-actions client-unit-modal-actions">
-            <button
-              type="button"
-              className="app-modal-secondary"
-              onClick={onClose}
-              disabled={saving}
-            >
-              Cancelar
-            </button>
-            <button type="submit" className="app-modal-submit" disabled={submitDisabled}>
-              {saving ? 'Salvando...' : 'Criar filial'}
-            </button>
-          </div>
-        </form>
+                <div className="sdv-edit-row">
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">Logradouro</span>
+                    <input
+                      className="app-modal-input"
+                      value={form.addressLine}
+                      disabled={saving}
+                      onChange={(event) => update('addressLine', event.target.value.toUpperCase())}
+                    />
+                  </label>
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">Bairro</span>
+                    <input
+                      className="app-modal-input"
+                      value={form.district}
+                      disabled={saving}
+                      onChange={(event) => update('district', event.target.value.toUpperCase())}
+                    />
+                  </label>
+                </div>
+
+                <div className="sdv-edit-row">
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">Complemento</span>
+                    <input
+                      className="app-modal-input"
+                      value={form.complement}
+                      disabled={saving}
+                      maxLength={120}
+                      onChange={(event) => update('complement', event.target.value.toUpperCase())}
+                    />
+                  </label>
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">Telefone</span>
+                    <input
+                      className="app-modal-input"
+                      value={form.phone}
+                      disabled={saving}
+                      inputMode="numeric"
+                      onChange={(event) => update('phone', maskPhoneInput(event.target.value))}
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="app-modal-actions client-unit-modal-actions">
+                <button
+                  type="button"
+                  className="app-modal-secondary"
+                  onClick={onClose}
+                  disabled={saving}
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="app-modal-submit" disabled={submitDisabled}>
+                  {saving ? 'Salvando...' : 'Criar filial'}
+                </button>
+              </div>
+            </form>
+          </>
+        )}
       </section>
     </div>,
     document.body

@@ -19068,14 +19068,15 @@ select.samples-filter-field-input {
 /* Edit Client + Nova/Editar Filial — actions colam no ultimo campo,
    sem ar morto e sem border separadora */
 .client-detail-edit-modal .app-modal-actions,
+/* Acoes FIXAS fora do scroll (sempre visiveis, mesmo com o body rolado).
+   Padding proprio + separador no topo. */
 .client-unit-modal .app-modal-actions {
-  margin-top: 0;
-  padding-top: 0.5rem;
-  border-top: 0;
+  margin: 0;
+  padding: 0.7rem clamp(1rem, 3vw, 1.4rem) clamp(1rem, 3vw, 1.4rem);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
-.client-detail-edit-modal .client-detail-modal-form,
-.client-unit-modal .client-unit-modal-form {
+.client-detail-edit-modal .client-detail-modal-form {
   flex: 0 1 auto;
 }
 
@@ -19094,8 +19095,23 @@ select.samples-filter-field-input {
   max-width: min(30rem, calc(100vw - 1.5rem));
 }
 
+/* Form em grid: body rolavel (1a linha) + acoes fixas (2a linha) — botoes
+   sempre visiveis mesmo com o body rolando. */
 .client-unit-modal .client-unit-modal-form {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.client-unit-modal .client-unit-modal-body {
+  min-height: 0;
+  overflow-y: auto;
   overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: clamp(1rem, 3vw, 1.4rem);
 }
 
 .client-unit-modal .app-modal-input {
