@@ -8442,6 +8442,17 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   animation: sdv-card-in 0.5s ease-out backwards;
 }
 
+/* Perfil reusa .sdv-content (cujo padding-bottom e' p/ paginas SEM tabbar) +
+   .stg-content. Como .sdv-content vem depois no arquivo, ele sobrescrevia a
+   clearance da tabbar e o botao "Sair" ficava atras da barra. Reafirma o
+   padding-bottom com a clearance, com maior especificidade. */
+.sdv-content.stg-content {
+  padding-bottom: calc(
+    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) +
+      var(--mobile-tabbar-clearance, 0rem) + clamp(1rem, 3vw, 1.5rem)
+  );
+}
+
 /* ── Pagina Informe — formulario de visita ──
    Sheet bege com topo arredondado (mesmo padrao das paginas de lista:
    border-radius 20px 20px 0 0) contendo o formulario. A pagina mantem a
