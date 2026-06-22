@@ -32861,6 +32861,9 @@ body.is-selection-mode .hero-search-filter-btn {
     --fan-pivot-right: 28px;
     --fan-pivot-top: 28px;
     --fan-opt-size: 60px;
+    /* Desloca o leque INTEIRO pra direita (translacao rigida) sem mexer no gap
+       entre os botoes: subtrai esse valor do `right` de cada opcao. */
+    --fan-shift-right: 45px;
   }
 
   .samples-page-v2 .fab-fan {
@@ -32875,7 +32878,10 @@ body.is-selection-mode .hero-search-filter-btn {
     position: absolute;
     left: auto;
     bottom: auto;
-    right: calc(var(--fan-pivot-right) + var(--ox) - var(--fan-opt-size) / 2);
+    right: calc(
+      var(--fan-pivot-right) + var(--ox) - var(--fan-opt-size) / 2 -
+        var(--fan-shift-right)
+    );
     top: calc(var(--fan-pivot-top) + var(--oy) - var(--fan-opt-size) / 2);
     transform-origin: right top;
   }
