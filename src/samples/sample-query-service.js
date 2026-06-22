@@ -1933,6 +1933,73 @@ export class SampleQueryService {
     };
   }
 
+  // Serie comercial do dashboard (card "Vendas e perdas", desktop): volume em
+  // SACAS de vendas (SALE) e perdas (LOSS) por dia, nos ULTIMOS 7 DIAS UTEIS
+  // (seg-sex), em BRT. Eixo do tempo pula fim de semana; inclui hoje se for
+  // dia util (senao termina na ultima sexta). Posiciona pela DATA COMERCIAL
+  // (movement_date), conta so movimentos ATIVOS (cancelados fora). Feriados
+  // nao sao tratados (qualquer seg-sex e dia util).
+  async getDashboardCommercialTimeseries() {
+    const nowUtc = new Date();
+    const nowSp = new Date(nowUtc.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
+
+    // Anda pra tras a partir da data BRT de hoje juntando 7 dias uteis,
+    // antigo->recente (unshift). cursor e meia-noite UTC da data civil BRT.
+    const cursor = new Date(
+      Date.UTC(nowSp.getUTCFullYear(), nowSp.getUTCMonth(), nowSp.getUTCDate())
+    );
+    const businessDays = [];
+    while (businessDays.length < 7) {
+      const dow = cursor.getUTCDay(); // 0=dom .. 6=sab
+      if (dow !== 0 && dow !== 6) {
+        const y = cursor.getUTCFullYear();
+        const m = String(cursor.getUTCMonth() + 1).padStart(2, '0');
+        const d = String(cursor.getUTCDate()).padStart(2, '0');
+        businessDays.unshift(`${y}-${m}-${d}`);
+      }
+      cursor.setUTCDate(cursor.getUTCDate() - 1);
+    }
+
+    const firstDay = businessDays[0];
+    const lastDay = businessDays[businessDays.length - 1];
+
+    const rows = await this.prisma.$queryRaw`
+      SELECT
+        m."movement_date"::text          AS "date",
+        m."movement_type"                AS "type",
+        SUM(m."quantity_sacks")::INTEGER AS "sacks"
+      FROM "sample_movement" m
+      WHERE m."status" = 'ACTIVE'
+        AND m."movement_type" IN ('SALE', 'LOSS')
+        AND m."movement_date" >= ${firstDay}::date
+        AND m."movement_date" <= ${lastDay}::date
+        AND EXTRACT(ISODOW FROM m."movement_date") <= 5
+      GROUP BY m."movement_date", m."movement_type"
+    `;
+
+    const byDate = new Map();
+    for (const day of businessDays) {
+      byDate.set(day, { salesSacks: 0, lossSacks: 0 });
+    }
+    for (const row of rows) {
+      const bucket = byDate.get(row.date);
+      if (!bucket) continue; // defensivo: so os 7 dias-alvo
+      if (row.type === 'SALE') {
+        bucket.salesSacks = toIntegerOrZero(row.sacks);
+      } else if (row.type === 'LOSS') {
+        bucket.lossSacks = toIntegerOrZero(row.sacks);
+      }
+    }
+
+    return {
+      points: businessDays.map((date) => ({
+        date,
+        salesSacks: byDate.get(date).salesSacks,
+        lossSacks: byDate.get(date).lossSacks,
+      })),
+    };
+  }
+
   // Performance — Fase 2 do port mobile (2026-05-26): EXPLAIN ANALYZE
   // confirmou que a query atual e eficiente com PostgreSQL 15+ via
   // "Run Condition" no WindowAgg (corta ROW_NUMBER() cedo). Indices

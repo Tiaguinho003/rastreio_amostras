@@ -707,6 +707,18 @@ export interface DashboardSalesAvailabilityResponse {
   };
 }
 
+// Card comercial do dashboard (desktop): volume em sacas de vendas/perdas por
+// dia, nos ultimos 7 dias uteis (seg-sex), antigo->recente.
+export interface DashboardCommercialTimeseriesPoint {
+  date: string; // 'YYYY-MM-DD' (dia util BRT)
+  salesSacks: number;
+  lossSacks: number;
+}
+
+export interface DashboardCommercialTimeseriesResponse {
+  points: DashboardCommercialTimeseriesPoint[]; // exatamente 7, antigo->recente
+}
+
 export type DashboardRecentActivityType =
   | 'REGISTRATION_CONFIRMED'
   | 'SALE_CREATED'

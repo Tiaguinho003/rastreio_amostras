@@ -3,13 +3,15 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
-import { getDashboardRecentActivity } from '../../lib/api-client';
+import { getDashboardCommercialTimeseries, getDashboardRecentActivity } from '../../lib/api-client';
 import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
+import { CommercialTrendCard } from './CommercialTrendCard';
 import { useOperationModal } from './useOperationModal';
 import { OperationModal } from './OperationModal';
 import { RecentActivityList } from './RecentActivityList';
 import { StatCard, formatDelta } from './StatCard';
 import type {
+  DashboardCommercialTimeseriesResponse,
   DashboardPendingResponse,
   DashboardRecentActivityItem,
   DashboardSalesAvailabilityResponse,
@@ -35,6 +37,8 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
   } = useOperationModal(data);
 
   const [recentActivity, setRecentActivity] = useState<DashboardRecentActivityItem[] | null>(null);
+  const [commercialSeries, setCommercialSeries] =
+    useState<DashboardCommercialTimeseriesResponse | null>(null);
   // Throttle pro refetch on focus/visibilitychange: evita N requests
   // em Alt+Tab rapido. 30s alinha com o Cache-Control do endpoint.
   const lastFetchRef = useRef<number>(0);
@@ -51,6 +55,9 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
       lastFetchRef.current = Date.now();
       getDashboardRecentActivity(session)
         .then((response) => setRecentActivity(response.items))
+        .catch(() => {});
+      getDashboardCommercialTimeseries(session)
+        .then((response) => setCommercialSeries(response))
         .catch(() => {});
     }
 
@@ -154,8 +161,8 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
           ) : (
             <div className="sales-card sales-card-skeleton" aria-hidden="true" />
           )}
-          {/* Card placeholder, embaixo do "Lotes disponíveis" — conteúdo depois. */}
-          <div className="dd-placeholder-card" aria-hidden="true" />
+          {/* Card comercial (Vendas e perdas), embaixo do "Lotes disponíveis". */}
+          <CommercialTrendCard data={commercialSeries} />
           {/* Últimas atividades: coluna direita, ocupando as duas linhas. */}
           <RecentActivityList items={recentActivity} />
         </div>

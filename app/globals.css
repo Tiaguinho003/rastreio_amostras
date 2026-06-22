@@ -26139,15 +26139,140 @@ select.samples-filter-field-input {
   }
 
   /* ── 2a linha: card "Lotes disponiveis" (SalesAvailabilityCard) +
-     card placeholder, cada um na metade da largura ── */
+     card comercial "Vendas e perdas", cada um na metade da largura ── */
 
-  .dd-placeholder-card {
+  /* Card comercial "Vendas e perdas": grafico de linha (vendas verde / perdas
+     vermelho) em SACAS nos ultimos 7 dias uteis. Shell consistente com o card
+     "Lotes disponiveis" acima. */
+  .dd-trend-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    gap: clamp(0.45rem, 0.9vw, 0.7rem);
     background: #ffffff;
-    border: 1px dashed rgba(112, 130, 103, 0.35);
+    border: 1px solid rgba(112, 130, 103, 0.22);
     border-radius: 20px;
     box-shadow:
       0 2px 8px rgba(0, 0, 0, 0.04),
       0 8px 20px rgba(0, 0, 0, 0.05);
+    padding: clamp(0.8rem, 1.1vw, 1.1rem) clamp(0.95rem, 1.3vw, 1.3rem);
+  }
+
+  .dd-trend-card.is-skeleton {
+    pointer-events: none;
+  }
+
+  .dd-trend-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .dd-trend-title {
+    margin: 0;
+    font-size: clamp(0.9rem, 0.98vw, 1rem);
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: #1a2e1f;
+  }
+
+  .dd-trend-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: clamp(28px, 2.4vw, 34px);
+    height: clamp(28px, 2.4vw, 34px);
+    border-radius: 10px;
+    background: rgba(31, 93, 67, 0.1);
+  }
+
+  .dd-trend-icon svg {
+    width: 58%;
+    height: 58%;
+    fill: none;
+    stroke: #1f5d43;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .dd-trend-chart-wrap {
+    flex: 1;
+    min-height: clamp(64px, 8vw, 110px);
+    display: flex;
+  }
+
+  /* preserveAspectRatio="none": o SVG preenche a area; o stroke fica constante
+     via vector-effect (no markup) e os rotulos do eixo vivem fora do SVG. */
+  .dd-trend-chart {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .dd-trend-line {
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .dd-trend-chart-wrap.is-empty {
+    align-items: center;
+    justify-content: center;
+  }
+
+  .dd-trend-empty {
+    margin: 0;
+    padding: 0 1rem;
+    text-align: center;
+    font-size: clamp(0.78rem, 0.88vw, 0.88rem);
+    color: #8a9285;
+  }
+
+  /* Rotulos do eixo X (dia da semana + dia) — grid de 7 colunas iguais, casa
+     com os pontos centrados nas 7 colunas do grafico. */
+  .dd-trend-axis {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    align-items: start;
+  }
+
+  .dd-trend-axis-tick {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    line-height: 1.05;
+  }
+
+  .dd-trend-axis-wd {
+    font-size: clamp(0.56rem, 0.62vw, 0.64rem);
+    font-weight: 500;
+    color: #9aa39a;
+  }
+
+  .dd-trend-axis-day {
+    font-size: clamp(0.64rem, 0.72vw, 0.74rem);
+    font-weight: 700;
+    color: #4d5c52;
+  }
+
+  /* Legenda horizontal (sobrescreve a base vertical do .sales-chart-legend). */
+  .dd-trend-legend {
+    flex-direction: row;
+    justify-content: center;
+    gap: clamp(1rem, 2.2vw, 1.8rem);
+    padding-top: clamp(0.2rem, 0.5vw, 0.4rem);
+    border-top: 1px solid rgba(112, 130, 103, 0.14);
+  }
+
+  .dd-trend-legend .sales-chart-legend-item {
+    grid-template-columns: auto auto auto;
+    gap: 0.4rem;
+    padding: 0;
+    border-bottom: none;
   }
 
   /* ── Skeleton (placeholder das linhas da lista de atividades) ── */
@@ -26211,9 +26336,10 @@ select.samples-filter-field-input {
     min-height: 0;
   }
 
-  .dd-content-grid > .dd-placeholder-card {
+  .dd-content-grid > .dd-trend-card {
     grid-column: 1;
     grid-row: 2;
+    min-height: 0;
   }
 
   .dd-content-grid > .dd-activity-container {
@@ -32660,40 +32786,56 @@ body.is-selection-mode .hero-search-filter-btn {
       0 12px 28px rgba(10, 30, 18, 0.16);
   }
 
-  /* 4. Leque do "+" abrindo de CIMA pra BAIXO (FAB inline no topo da barra),
-     opcoes maiores. No mobile o leque sobe a partir do FAB fixo (canto inf-dir);
-     no desktop o FAB e inline no topo, entao as opcoes descem. O .fab-fan vira
-     static pra as opcoes ancorarem no wrap (relative), nao no seu inset:0 fixed;
-     quando aberto, o wrap sobe acima do scrim. */
+  /* 4. Leque do "+" abrindo de CIMA pra BAIXO em ARCO (leque), contido na
+     area dos cards. No mobile o leque sobe do FAB fixo (canto inf-dir); no
+     desktop o FAB e inline no canto SUP-DIREITO da barra, entao as opcoes
+     emergem dele num quarto de arco que DESCE e abre pra ESQUERDA — sem
+     passar das bordas da area de cards (direita/baixo/esquerda). O .fab-fan
+     vira static pras opcoes ancorarem no wrap (relative); quando aberto, o
+     wrap sobe acima do scrim. */
   .samples-page-v2 .hero-search-wrap {
     position: relative;
-    --fan-opt-size: 60px;
-    --fan-step: 94px;
+    /* Pivot = centro do "+" (56x56, colado na direita do wrap): ~28px da
+       direita e ~28px do topo. As opcoes ficam num quarto de arco (raio ~150)
+       em torno desse pivot, viesado pra esquerda/baixo: TODAS abaixo da barra
+       de busca (dentro da area de cards) e sem cruzar a borda direita. */
+    --fan-pivot-right: 28px;
+    --fan-pivot-top: 28px;
+    --fan-opt-size: 52px;
   }
 
   .samples-page-v2 .fab-fan {
     position: static;
   }
 
+  /* Cada opcao ancora ABSOLUTA no wrap, posicionada pelo offset (--ox pra
+     esquerda, --oy pra baixo) a partir do pivot. Origem do transform no canto
+     sup-direito (em direcao ao "+") pra emergir/recolher de dentro dele. */
   .samples-page-v2 .fab-fan-option {
     position: absolute;
-    top: auto;
-    bottom: auto;
     left: auto;
-    right: clamp(8px, 3vw, 14px);
-    transform-origin: top center;
+    bottom: auto;
+    right: calc(var(--fan-pivot-right) + var(--ox) - var(--fan-opt-size) / 2);
+    top: calc(var(--fan-pivot-top) + var(--oy) - var(--fan-opt-size) / 2);
+    transform-origin: right top;
   }
 
+  /* Lote: base do arco — quase a prumo abaixo do "+", levemente a esquerda. */
   .samples-page-v2 .fab-fan-option.is-lote {
-    top: 70px;
+    --ox: 32px;
+    --oy: 148px;
   }
 
+  /* Liga: meio do arco (diagonal baixo-esquerda). */
   .samples-page-v2 .fab-fan-option.is-liga {
-    top: calc(70px + var(--fan-step));
+    --ox: 84px;
+    --oy: 124px;
   }
 
+  /* Aprovacao: ponta do arco — mais a esquerda, ja abaixo da barra de busca. */
   .samples-page-v2 .fab-fan-option.is-aprovacao {
-    top: calc(70px + 2 * var(--fan-step));
+    --ox: 126px;
+    --oy: 84px;
   }
 
   /* Rotulo a ESQUERDA do circulo (no mobile fica abaixo dele). */

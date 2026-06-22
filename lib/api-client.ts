@@ -19,6 +19,7 @@ import type {
   DashboardPendingResponse,
   DetectFormResponse,
   DashboardSalesAvailabilityResponse,
+  DashboardCommercialTimeseriesResponse,
   DashboardRecentActivityResponse,
   InvalidateReasonCode,
   PendingPrintQueueResponse,
@@ -796,6 +797,15 @@ export function getDashboardSalesAvailability(session: SessionData) {
   return request<DashboardSalesAvailabilityResponse>('/dashboard/sales-availability', {
     method: 'GET',
     session,
+  });
+}
+
+export function getDashboardCommercialTimeseries(session: SessionData) {
+  return request<DashboardCommercialTimeseriesResponse>('/dashboard/commercial-timeseries', {
+    method: 'GET',
+    session,
+    // Respeita o Cache-Control private/max-age=60 do endpoint.
+    cachePolicy: 'default',
   });
 }
 
