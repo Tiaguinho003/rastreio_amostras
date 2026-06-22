@@ -32493,3 +32493,81 @@ body.is-selection-mode .hero-search-filter-btn {
     min-width: 0;
   }
 }
+
+/* ============================================================
+   Pagina Lotes (/samples) — ajustes desktop (>=901px)
+   ============================================================ */
+@media (min-width: 901px) {
+  /* 1. Sem o titulo "Lotes" no header da pagina (desktop). */
+  .samples-page-v2:not(.informe-commercial-page) .samples-page-v2-header .nsv2-title {
+    display: none;
+  }
+
+  /* 2. Botao de filtro: VERDE com icone branco (era branco + icone verde). */
+  .samples-page-v2 .hero-search-filter-btn {
+    background: var(--brand-green);
+    box-shadow: 0 4px 14px rgba(15, 64, 41, 0.28);
+  }
+
+  .samples-page-v2 .hero-search-filter-btn svg,
+  .samples-page-v2 .hero-search-filter-btn.has-filters svg {
+    stroke: #ffffff;
+  }
+
+  /* 3. Campo de busca com sombra mais forte. */
+  .samples-page-v2 .hero-search-wrap .hero-search-bar {
+    box-shadow:
+      0 2px 6px rgba(10, 30, 18, 0.1),
+      0 12px 28px rgba(10, 30, 18, 0.16);
+  }
+
+  /* 4. Leque do "+" abrindo de CIMA pra BAIXO (FAB inline no topo da barra),
+     opcoes maiores. No mobile o leque sobe a partir do FAB fixo (canto inf-dir);
+     no desktop o FAB e inline no topo, entao as opcoes descem. O .fab-fan vira
+     static pra as opcoes ancorarem no wrap (relative), nao no seu inset:0 fixed;
+     quando aberto, o wrap sobe acima do scrim. */
+  .samples-page-v2 .hero-search-wrap {
+    position: relative;
+    --fan-opt-size: 60px;
+    --fan-step: 94px;
+  }
+
+  .samples-page-v2 .fab-fan {
+    position: static;
+  }
+
+  .samples-page-v2 .fab-fan-option {
+    position: absolute;
+    top: auto;
+    bottom: auto;
+    left: auto;
+    right: clamp(8px, 3vw, 14px);
+    transform-origin: top center;
+  }
+
+  .samples-page-v2 .fab-fan-option.is-lote {
+    top: 70px;
+  }
+
+  .samples-page-v2 .fab-fan-option.is-liga {
+    top: calc(70px + var(--fan-step));
+  }
+
+  .samples-page-v2 .fab-fan-option.is-aprovacao {
+    top: calc(70px + 2 * var(--fan-step));
+  }
+
+  /* Rotulo a ESQUERDA do circulo (no mobile fica abaixo dele). */
+  .samples-page-v2 .fab-fan-option-label {
+    top: 50%;
+    left: auto;
+    right: calc(100% + 12px);
+    bottom: auto;
+    transform: translateY(-50%);
+  }
+
+  /* Leque (ancorado no wrap) acima do scrim escuro quando aberto. */
+  body.is-fab-fan-open .samples-page-v2 .hero-search-wrap {
+    z-index: calc(var(--z-modal, 500) + 1);
+  }
+}
