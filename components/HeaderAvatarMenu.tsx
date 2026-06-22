@@ -60,6 +60,14 @@ export function HeaderAvatarMenu({ session, onLogout }: HeaderAvatarMenuProps) {
         onClick={() => setOpen(true)}
       >
         <UserAvatar size="md" user={session.user} />
+        <svg
+          className="header-avatar-chevron"
+          viewBox="0 0 24 24"
+          focusable="false"
+          aria-hidden="true"
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
       </button>
 
       {/* Sem titulo visivel: o resumo (avatar + nome/cargo) ja encabeca o

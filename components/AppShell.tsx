@@ -318,6 +318,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
     typeof session.user.fullName === 'string' && session.user.fullName.trim().length > 0
       ? session.user.fullName.trim()
       : session.user.username;
+  const profileFirstName = profileName.split(/\s+/)[0];
   const desktopNavItems = prospector
     ? DESKTOP_NAV_ITEMS.filter((item) => item.href === '/dashboard')
     : isAdmin(session.user.role)
@@ -582,6 +583,38 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
     <div
       className={`app-shell-root mobile-edge-shell mobile-edge-shell-auth${hideMobileTabbar ? ' is-tabbar-hidden' : ''}`}
     >
+      <aside className="app-sidebar" aria-label="Navegacao principal">
+        <Link href="/dashboard" className="app-sidebar-logo" aria-label="Pagina inicial">
+          <Image
+            src="/logo-safras-branco.png"
+            alt="Safras e Negocios"
+            width={1024}
+            height={299}
+            priority
+            className="app-sidebar-logo-image"
+          />
+        </Link>
+
+        <nav className="app-sidebar-nav" aria-label="Paginas principais">
+          {desktopNavItems.map((item) => {
+            const active = isMainNavItemActive(pathname, item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`app-sidebar-link${active ? ' is-active' : ''}`}
+                aria-current={active ? 'page' : undefined}
+              >
+                <span className="app-sidebar-link-icon" aria-hidden="true">
+                  {renderNavIcon(item.icon)}
+                </span>
+                <span className="app-sidebar-link-label">{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+      </aside>
+
       <header className={`topbar ${headerMobileClass}`}>
         <div className="topbar-inner">
           <div className="topbar-mobile-spacer" aria-hidden="true" />
@@ -596,18 +629,6 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
               className="topbar-logo-image"
             />
           </Link>
-
-          <nav className="topbar-nav" aria-label="Paginas principais">
-            {desktopNavItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`topbar-nav-link${isMainNavItemActive(pathname, item.href) ? ' is-active' : ''}`}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
 
           <div className="topbar-tools">
             <div className="topbar-search-slot">
@@ -628,6 +649,15 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
                 onClick={() => setProfileMenuOpen((current) => !current)}
               >
                 <UserAvatar size="sm" user={session.user} />
+                <span className="topbar-profile-trigger-name">{profileFirstName}</span>
+                <svg
+                  className="topbar-profile-chevron"
+                  viewBox="0 0 24 24"
+                  focusable="false"
+                  aria-hidden="true"
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
               </button>
 
               {profileMenuOpen ? (

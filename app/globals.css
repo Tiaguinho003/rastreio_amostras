@@ -3555,47 +3555,6 @@ button:disabled {
   object-fit: contain;
 }
 
-.topbar-nav {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  min-width: 0;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.topbar-nav::-webkit-scrollbar {
-  display: none;
-}
-
-.topbar-nav-link {
-  padding: 0.5rem 0.76rem;
-  border-radius: 10px;
-  border: 1px solid transparent;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: rgba(244, 247, 242, 0.86);
-  white-space: nowrap;
-  transition:
-    background 140ms ease,
-    border-color 140ms ease,
-    color 140ms ease;
-}
-
-.topbar-nav-link:hover {
-  border-color: rgba(255, 255, 255, 0.24);
-  background: rgba(255, 255, 255, 0.09);
-  color: #ffffff;
-}
-
-.topbar-nav-link.is-active {
-  border-color: rgba(255, 255, 255, 0.27);
-  background: rgba(255, 255, 255, 0.14);
-  color: #ffffff;
-}
-
 .topbar-tools {
   display: flex;
   align-items: center;
@@ -19022,10 +18981,6 @@ select.samples-filter-field-input {
     width: auto;
   }
 
-  .topbar-nav {
-    display: none;
-  }
-
   .topbar-tools {
     position: relative;
     grid-column: 2;
@@ -19860,14 +19815,9 @@ select.samples-filter-field-input {
   /* Avatar translucido com iniciais brancas (mockup). No mobile o avatar
      visivel e o .header-avatar-trigger (UserAvatar); o backgroundColor
      vem INLINE do componente, dai o !important. */
-  .dashboard-mobile .dashboard-hero .header-avatar-trigger {
+  .dashboard-mobile .dashboard-hero .header-avatar-trigger .user-avatar {
     width: clamp(3.1rem, 12vw, 3.6rem);
     height: clamp(3.1rem, 12vw, 3.6rem);
-  }
-
-  .dashboard-mobile .dashboard-hero .header-avatar-trigger .user-avatar {
-    width: 100%;
-    height: 100%;
     background: rgba(255, 255, 255, 0.18) !important;
     border: 1px solid rgba(255, 255, 255, 0.22);
   }
@@ -24965,15 +24915,15 @@ select.samples-filter-field-input {
     display: none;
   }
 
-  /* Sem o back a esquerda, o botao de avatar (.header-avatar-trigger, 2.55rem)
-     a direita desbalanceia o flex e o titulo fica off-center pra esquerda.
-     Adiciona pseudo-element invisivel com a mesma largura pra restaurar o
-     centro visual. */
+  /* Sem o back a esquerda, o botao de avatar (.header-avatar-trigger:
+     avatar md + chevron ~3.6rem) a direita desbalanceia o flex e o titulo
+     fica off-center pra esquerda. Adiciona pseudo-element invisivel com a
+     mesma largura pra restaurar o centro visual. */
   .samples-page-v2-header::before,
   .clients-v2-header::before {
     content: '';
     flex-shrink: 0;
-    width: 2.55rem;
+    width: 3.6rem;
   }
 
   .sdv-header .nsv2-back {
@@ -26535,23 +26485,6 @@ select.samples-filter-field-input {
 
   .sales-total-number {
     font-size: 3rem;
-  }
-
-  /* ── Topbar: hover nos links ── */
-  .topbar-nav-link {
-    transition:
-      background 0.2s ease,
-      transform 0.15s ease;
-    border-radius: 8px;
-    padding: 0.4rem 0.7rem;
-  }
-
-  .topbar-nav-link:hover {
-    background: rgba(255, 255, 255, 0.12);
-  }
-
-  .topbar-nav-link:active {
-    transform: scale(0.96);
   }
 
   .topbar-profile-trigger {
@@ -30246,9 +30179,8 @@ select.samples-filter-field-input {
    acesso ao perfil continua pelo dropdown do topbar (.topbar-profile). */
 .header-avatar-trigger {
   display: none;
-  width: 2.55rem;
-  height: 2.55rem;
-  place-items: center;
+  align-items: center;
+  gap: 0.25rem;
   padding: 0;
   border: 0;
   background: transparent;
@@ -30267,7 +30199,7 @@ select.samples-filter-field-input {
     display: none;
   }
   .header-avatar-trigger {
-    display: inline-grid;
+    display: inline-flex;
   }
 }
 
@@ -32182,4 +32114,230 @@ body.is-selection-mode .hero-search-filter-btn {
 
 .spv2-card.is-blend-selectable .spv2-card-chevron {
   display: none;
+}
+
+/* ============================================================
+   Chrome desktop — barra de navegacao vertical + faixa branca
+   ------------------------------------------------------------
+   No desktop (>=901px) a navegacao vira uma barra vertical verde
+   fixa a esquerda (.app-sidebar) e a .topbar vira a faixa branca
+   superior (so busca + perfil). No mobile (<=900px) nada disso
+   aparece: a topbar verde + MobileTabbar seguem como antes.
+   ============================================================ */
+
+/* Ocultos por padrao — so o desktop liga a sidebar e os extras do
+   perfil (primeiro nome + chevron na faixa branca). */
+.app-sidebar {
+  display: none;
+}
+
+.topbar-profile-trigger-name,
+.topbar-profile-chevron {
+  display: none;
+}
+
+/* Chevron ao lado do avatar de perfil no mobile (HeaderAvatarMenu).
+   Cor herda do contexto (branco no hero verde, escuro nos headers
+   claros). */
+.header-avatar-chevron {
+  width: 0.85rem;
+  height: 0.85rem;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.75;
+}
+
+@media (min-width: 901px) {
+  /* Duas colunas: [sidebar] [faixa branca + conteudo]. Scroll fica
+     na janela (sticky, sem position:fixed — a transicao de pagina
+     aplica transform no ancestral e quebraria fixed, mesmo motivo
+     do portal da MobileTabbar). */
+  .app-shell-root {
+    display: grid;
+    grid-template-columns: var(--app-sidebar-w, 220px) minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+  }
+
+  .app-sidebar {
+    display: flex;
+    flex-direction: column;
+    grid-column: 1;
+    grid-row: 1 / 3;
+    align-self: start;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    height: 100lvh;
+    padding: 1.05rem 0.85rem;
+    background: linear-gradient(
+      180deg,
+      var(--topbar-bg-start) 0%,
+      #1b4f3d 55%,
+      var(--topbar-bg-end) 100%
+    );
+    border-right: 1px solid var(--topbar-line);
+    box-shadow: 4px 0 24px rgba(10, 18, 14, 0.16);
+    z-index: 30;
+  }
+
+  .app-sidebar-logo {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    margin: 0.2rem 0.3rem 1rem;
+  }
+
+  .app-sidebar-logo-image {
+    display: block;
+    height: 44px;
+    width: auto;
+    max-width: 100%;
+    object-fit: contain;
+  }
+
+  .app-sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .app-sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.6rem 0.7rem;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    color: rgba(244, 247, 242, 0.86);
+    font-size: 0.95rem;
+    font-weight: 600;
+    transition:
+      background 140ms ease,
+      border-color 140ms ease,
+      color 140ms ease;
+  }
+
+  .app-sidebar-link:hover {
+    background: rgba(255, 255, 255, 0.09);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+  }
+
+  .app-sidebar-link.is-active {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.26);
+    color: #ffffff;
+  }
+
+  .app-sidebar-link:active {
+    transform: scale(0.98);
+  }
+
+  .app-sidebar-link-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.4rem;
+    height: 1.4rem;
+    flex: none;
+  }
+
+  .app-sidebar-link-icon svg {
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .app-sidebar-link-label {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  /* .topbar vira a FAIXA BRANCA: so os tools (busca + perfil) a
+     direita, sobre fundo branco. */
+  .topbar {
+    grid-column: 2;
+    grid-row: 1;
+    position: sticky;
+    top: 0;
+    z-index: 25;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    box-shadow: none;
+    color: var(--ink);
+  }
+
+  .topbar-inner {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    width: auto;
+    max-width: none;
+    margin: 0;
+    gap: 1rem;
+    padding: 0.6rem clamp(1rem, 2.5vw, 2rem);
+  }
+
+  .topbar-logo-slot {
+    display: none;
+  }
+
+  /* Perfil vira pilula clara: avatar + primeiro nome + chevron */
+  .topbar-profile-trigger {
+    display: inline-flex;
+    align-items: center;
+    width: auto;
+    min-width: 0;
+    height: auto;
+    gap: 0.45rem;
+    padding: 0.28rem 0.5rem 0.28rem 0.32rem;
+    border-radius: 999px;
+    border-color: var(--line);
+    background: #f1f4ee;
+    color: var(--ink);
+  }
+
+  .topbar-profile-trigger:hover {
+    background: #e7ece1;
+  }
+
+  .topbar-profile-trigger-name {
+    display: inline-block;
+    max-width: 9rem;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .topbar-profile-chevron {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    flex: none;
+    fill: none;
+    stroke: var(--muted);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* Conteudo da pagina, coluna 2, abaixo da faixa branca */
+  .app-shell-main {
+    grid-column: 2;
+    grid-row: 2;
+    min-width: 0;
+  }
 }
