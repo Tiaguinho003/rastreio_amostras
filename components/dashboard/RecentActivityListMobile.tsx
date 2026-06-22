@@ -3,7 +3,12 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-import { formatRelativeTime, getActivityFocus, getEventConfig } from '../../lib/dashboard-activity';
+import {
+  formatRelativeTime,
+  getActivityFocus,
+  getEventConfig,
+  isCancellationType,
+} from '../../lib/dashboard-activity';
 import type { DashboardRecentActivityItem, DashboardRecentActivityType } from '../../lib/types';
 import { BlendBadge } from '../samples/BlendBadge';
 
@@ -117,10 +122,13 @@ export function RecentActivityListMobile({ items }: RecentActivityListMobileProp
           {items.slice(0, MAX_ITEMS).map((item) => {
             const cfg = getEventConfig(item.activity.type);
             const lotLabel = formatLot(item.internalLotNumber, item.sampleId);
+            // Esmaece envio cancelado (item.cancelled) E venda/perda cancelada
+            // (type proprio) — espelha o desktop (RecentActivityList).
+            const dimmed = item.cancelled || isCancellationType(item.activity.type);
             return (
               <li
                 key={item.id}
-                className={`recent-activity-mobile-item${item.cancelled ? ' is-cancelled' : ''}`}
+                className={`recent-activity-mobile-item${dimmed ? ' is-cancelled' : ''}`}
               >
                 <Link
                   href={`/samples/${item.sampleId}?focus=${getActivityFocus(item.activity.type)}`}
