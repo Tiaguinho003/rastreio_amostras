@@ -26705,7 +26705,7 @@ select.samples-filter-field-input {
     border: 1px solid rgba(112, 130, 103, 0.18);
     color: inherit;
     text-decoration: none;
-    min-height: 58px;
+    min-height: 44px;
     transition:
       transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
       background 0.18s ease,
@@ -26735,15 +26735,21 @@ select.samples-filter-field-input {
     flex-shrink: 0;
   }
 
-  /* Conteudo: grid horizontal — top e bottom viram contents pra achatar */
+  /* Conteudo: linha unica horizontal — top e bottom viram contents pra
+     achatar tudo numa so linha. */
   .samples-page-v2 .spv2-card-content {
     flex: 1;
-    display: grid;
-    grid-template-columns: 120px 140px minmax(0, 1fr) 140px;
+    min-width: 0;
+    display: flex;
+    flex-flow: row nowrap;
     align-items: center;
-    gap: 1rem;
-    padding: 0.9rem 1.1rem;
-    min-height: auto;
+    gap: 0.85rem;
+    /* Linha unica no desktop: code, Liga, status, proprietario, sacas e
+       safra numa so linha pra encurtar a altura do card. O proprietario
+       (owner) e o unico item flexivel — cresce e trunca, empurrando
+       sacas/safra pra direita. Liga inserida apos o code so empurra o
+       resto um pouco pra direita (natural do flex). */
+    padding: 0.5rem 1.1rem;
   }
 
   .samples-page-v2 .spv2-card-top,
@@ -26752,6 +26758,9 @@ select.samples-filter-field-input {
   }
 
   .samples-page-v2 .spv2-card-code {
+    flex: 0 0 auto;
+    min-width: 2.75rem;
+    max-width: 9rem;
     font-size: 0.92rem;
     font-weight: 700;
     color: #243a28;
@@ -26763,24 +26772,44 @@ select.samples-filter-field-input {
   }
 
   .samples-page-v2 .spv2-card-badge {
+    flex: 0 0 auto;
     font-size: 0.72rem;
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
     padding: 0.35rem 0.75rem;
     border-radius: 999px;
-    justify-self: start;
     white-space: nowrap;
   }
 
+  /* Liga: pill no mesmo tamanho/formato do indicativo de status (mesma
+     altura + cantos arredondados), em vez do tag fino e comprido herdado
+     do mobile. Escopado ao card de /samples no desktop — nao afeta a
+     BlendBadge em outras telas (dashboard, detalhe, RelatedSampleRow). */
+  .samples-page-v2 .spv2-card .blend-badge {
+    flex: 0 0 auto;
+    padding: 0.35rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    gap: 5px;
+  }
+
+  .samples-page-v2 .spv2-card .blend-badge__icon {
+    width: 12px;
+    height: 12px;
+  }
+
   .samples-page-v2 .spv2-card-owner {
+    flex: 1 1 auto;
+    min-width: 0;
     font-size: 0.88rem;
     font-weight: 500;
     color: #4d5c52;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    max-width: 100%;
   }
 
   .samples-page-v2 .spv2-card-sep {
@@ -26788,10 +26817,10 @@ select.samples-filter-field-input {
   }
 
   .samples-page-v2 .spv2-card-detail {
+    flex: 0 0 auto;
     font-size: 0.82rem;
     font-weight: 500;
     color: #72766f;
-    justify-self: end;
     white-space: nowrap;
   }
 
