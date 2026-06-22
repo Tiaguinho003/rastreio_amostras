@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
 
-import type { DashboardPendingResponse, SampleSnapshot } from '../../lib/types';
+import type { DashboardPendingResponse, DashboardPendingSample } from '../../lib/types';
 
 // Q.print: card "Impressao pendente" cortado — so resta classification_pending.
 export type OperationPanel = 'classification_pending' | null;
@@ -12,7 +12,7 @@ export type OperationPanelKey = Exclude<OperationPanel, null>;
 export interface OperationModalData {
   title: string;
   emptyMessage: string;
-  items: SampleSnapshot[];
+  items: DashboardPendingSample[];
   themeClass: string;
 }
 

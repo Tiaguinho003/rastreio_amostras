@@ -679,14 +679,31 @@ export interface DashboardDailyCount {
   yesterday: number;
 }
 
+// Projecao PARCIAL de sample devolvida em classificationPending.items pelo
+// getDashboardPending — NAO e o SampleSnapshot completo, apenas estes campos
+// (ver mapDashboardSample em src/samples/sample-query-service.js).
+export interface DashboardPendingSample {
+  id: string;
+  internalLotNumber: string | null;
+  status: SampleStatus;
+  commercialStatus: CommercialStatus;
+  declared: {
+    owner: string | null;
+    sacks: number | null;
+    harvest: string | null;
+    location: string | null;
+  };
+  createdAt: string;
+  isBlend: boolean;
+}
+
 export interface DashboardPendingResponse {
-  todayReceivedTotal: number;
   classificationPending: {
     counts: {
       REGISTRATION_CONFIRMED: number;
     };
     total: number;
-    items: SampleSnapshot[];
+    items: DashboardPendingSample[];
   };
   clientsIncomplete: {
     total: number;
@@ -698,8 +715,6 @@ export interface DashboardPendingResponse {
 }
 
 export interface DashboardSalesAvailabilityResponse {
-  total: number;
-  registeredToday: number;
   bands: {
     over30: number;
     from15to30: number;

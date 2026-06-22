@@ -6,6 +6,12 @@ import { PrismaClient } from '@prisma/client';
 
 import { SampleQueryService } from '../src/samples/sample-query-service.js';
 
+// O total e a soma das 3 bandas — getDashboardSalesAvailability nao devolve
+// mais um campo `total` proprio (o card recompoe das bandas).
+function bandsTotal(result) {
+  return result.bands.over30 + result.bands.from15to30 + result.bands.under15;
+}
+
 const databaseUrl = process.env.DATABASE_URL;
 const databaseReachable = await canReachDatabase(databaseUrl);
 
@@ -70,7 +76,7 @@ if (!databaseUrl || !databaseReachable) {
   test('sem amostras: total e bandas zerados', async () => {
     const result = await queryService.getDashboardSalesAvailability();
 
-    assert.strictEqual(result.total, 0);
+    assert.strictEqual(bandsTotal(result), 0);
     assert.deepStrictEqual(result.bands, { over30: 0, from15to30: 0, under15: 0 });
   });
 
@@ -79,7 +85,7 @@ if (!databaseUrl || !databaseReachable) {
 
     const result = await queryService.getDashboardSalesAvailability();
 
-    assert.strictEqual(result.total, 1);
+    assert.strictEqual(bandsTotal(result), 1);
     assert.strictEqual(result.bands.over30, 1);
     assert.strictEqual(result.bands.from15to30, 0);
     assert.strictEqual(result.bands.under15, 0);
@@ -96,7 +102,7 @@ if (!databaseUrl || !databaseReachable) {
 
     const result = await queryService.getDashboardSalesAvailability();
 
-    assert.strictEqual(result.total, 1);
+    assert.strictEqual(bandsTotal(result), 1);
     assert.strictEqual(result.bands.over30, 1);
     assert.strictEqual(result.bands.under15, 0);
   });
@@ -106,7 +112,7 @@ if (!databaseUrl || !databaseReachable) {
 
     const result = await queryService.getDashboardSalesAvailability();
 
-    assert.strictEqual(result.total, 0);
+    assert.strictEqual(bandsTotal(result), 0);
     assert.deepStrictEqual(result.bands, { over30: 0, from15to30: 0, under15: 0 });
   });
 
@@ -118,7 +124,7 @@ if (!databaseUrl || !databaseReachable) {
 
     const result = await queryService.getDashboardSalesAvailability();
 
-    assert.strictEqual(result.total, 2);
+    assert.strictEqual(bandsTotal(result), 2);
     assert.strictEqual(result.bands.under15, 2);
   });
 
@@ -130,15 +136,10 @@ if (!databaseUrl || !databaseReachable) {
 
     const result = await queryService.getDashboardSalesAvailability();
 
-    assert.strictEqual(result.total, 4);
+    assert.strictEqual(bandsTotal(result), 4);
     assert.strictEqual(result.bands.over30, 2);
     assert.strictEqual(result.bands.from15to30, 1);
     assert.strictEqual(result.bands.under15, 1);
-    // Invariante: a soma das bandas iguala o total (todo lote cai em uma banda).
-    assert.strictEqual(
-      result.bands.over30 + result.bands.from15to30 + result.bands.under15,
-      result.total
-    );
   });
 }
 

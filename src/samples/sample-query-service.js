@@ -42,7 +42,6 @@ const SAMPLE_STATUS_FILTER_GROUPS = {
 // (total != itens — ex: 41 pendentes, modal mostrava 20). 500 e salvaguarda de
 // payload, muito acima da fila real (dezenas/baixas centenas); sem paginacao.
 const DASHBOARD_LIST_LIMIT = 500;
-const DASHBOARD_BUSINESS_TIMEZONE = 'America/Sao_Paulo';
 const SAMPLES_LIST_DEFAULT_LIMIT = 30;
 const SAMPLES_LIST_MAX_LIMIT = 30;
 const SAO_PAULO_UTC_OFFSET_HOURS = 3;
@@ -668,6 +667,7 @@ const DASHBOARD_SAMPLE_SELECT = {
   declaredSacks: true,
   declaredHarvest: true,
   createdAt: true,
+  isBlend: true,
 };
 
 function mapDashboardSample(row) {
@@ -687,6 +687,7 @@ function mapDashboardSample(row) {
       location: row.declaredLocation ?? null,
     },
     createdAt: row.createdAt.toISOString(),
+    isBlend: Boolean(row.isBlend),
   };
 }
 
@@ -1761,68 +1762,46 @@ export class SampleQueryService {
   // tambem deletado (cobria QR_PENDING_PRINT que nao existe mais como
   // status). Resta apenas `classificationPending` (samples em RC).
   async getDashboardPending() {
-    const [
-      allStatusCounts,
-      classificationPendingRows,
-      todayReceivedRows,
-      clientsIncompleteTotal,
-      dailyCountsRows,
-    ] = await this.prisma.$transaction([
-      this.prisma.sample.groupBy({
-        by: ['status'],
-        where: {
-          status: { in: CLASSIFICATION_PENDING_STATUSES },
-        },
-        _count: { status: true },
-      }),
-      this.prisma.sample.findMany({
-        where: {
-          status: { in: CLASSIFICATION_PENDING_STATUSES },
-        },
-        orderBy: [{ updatedAt: 'asc' }, { internalLotNumber: 'asc' }, { id: 'asc' }],
-        take: DASHBOARD_LIST_LIMIT,
-        select: DASHBOARD_SAMPLE_SELECT,
-      }),
-      (() => {
-        const nowUtc = new Date();
-        const nowSp = new Date(nowUtc.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
-        const year = nowSp.getUTCFullYear();
-        const month = nowSp.getUTCMonth();
-        const day = nowSp.getUTCDate();
-        const startUtc = new Date(
-          Date.UTC(year, month, day, SAO_PAULO_UTC_OFFSET_HOURS + 7, 0, 0, 0)
-        );
-        const endUtc = new Date(
-          Date.UTC(year, month, day, SAO_PAULO_UTC_OFFSET_HOURS + 18, 0, 0, 0)
-        );
-        return this.prisma.$queryRaw`
-            SELECT COUNT(*)::INTEGER AS total
-            FROM "sample" s
-            WHERE s."created_at" >= ${startUtc}
-              AND s."created_at" <= ${endUtc}
-          `;
-      })(),
-      // Contagem de clientes com cadastro incompleto. Reusa o WHERE clause
-      // canonico de client-service (mesma regra do chip filtro em /clients).
-      this.prisma.client.count({
-        where: {
-          status: 'ACTIVE',
-          ...buildCompletenessWhere('incomplete'),
-        },
-      }),
-      // Pulso do dia (cards "Lotes registrados hoje" / "Envios concluidos
-      // hoje" do dashboard desktop): contagem de lotes por evento em hoje e
-      // ontem (dia BRT completo 00h-24h), para o delta "vs ontem".
-      (() => {
-        const nowUtc = new Date();
-        const nowSp = new Date(nowUtc.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
-        const y = nowSp.getUTCFullYear();
-        const m = nowSp.getUTCMonth();
-        const d = nowSp.getUTCDate();
-        const todayStart = new Date(Date.UTC(y, m, d, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
-        const todayEnd = new Date(Date.UTC(y, m, d + 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
-        const yesterdayStart = new Date(Date.UTC(y, m, d - 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
-        return this.prisma.$queryRaw`
+    const [allStatusCounts, classificationPendingRows, clientsIncompleteTotal, dailyCountsRows] =
+      await this.prisma.$transaction([
+        this.prisma.sample.groupBy({
+          by: ['status'],
+          where: {
+            status: { in: CLASSIFICATION_PENDING_STATUSES },
+          },
+          _count: { status: true },
+        }),
+        this.prisma.sample.findMany({
+          where: {
+            status: { in: CLASSIFICATION_PENDING_STATUSES },
+          },
+          orderBy: [{ updatedAt: 'asc' }, { internalLotNumber: 'asc' }, { id: 'asc' }],
+          take: DASHBOARD_LIST_LIMIT,
+          select: DASHBOARD_SAMPLE_SELECT,
+        }),
+        // Contagem de clientes com cadastro incompleto. Reusa o WHERE clause
+        // canonico de client-service (mesma regra do chip filtro em /clients).
+        this.prisma.client.count({
+          where: {
+            status: 'ACTIVE',
+            ...buildCompletenessWhere('incomplete'),
+          },
+        }),
+        // Pulso do dia (cards "Lotes registrados hoje" / "Envios concluidos
+        // hoje" do dashboard desktop): contagem de lotes por evento em hoje e
+        // ontem (dia BRT completo 00h-24h), para o delta "vs ontem".
+        (() => {
+          const nowUtc = new Date();
+          const nowSp = new Date(nowUtc.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
+          const y = nowSp.getUTCFullYear();
+          const m = nowSp.getUTCMonth();
+          const d = nowSp.getUTCDate();
+          const todayStart = new Date(Date.UTC(y, m, d, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
+          const todayEnd = new Date(Date.UTC(y, m, d + 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
+          const yesterdayStart = new Date(
+            Date.UTC(y, m, d - 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0)
+          );
+          return this.prisma.$queryRaw`
             SELECT
               COUNT(DISTINCT sample_id) FILTER (
                 WHERE event_type = 'REGISTRATION_CONFIRMED'
@@ -1844,8 +1823,8 @@ export class SampleQueryService {
             WHERE event_type IN ('REGISTRATION_CONFIRMED', 'PHYSICAL_SAMPLE_SENT')
               AND occurred_at >= ${yesterdayStart} AND occurred_at < ${todayEnd}
           `;
-      })(),
-    ]);
+        })(),
+      ]);
 
     const countByStatus = {};
     for (const row of allStatusCounts) {
@@ -1860,11 +1839,9 @@ export class SampleQueryService {
       classificationPendingTotal += count;
     }
 
-    const todayReceivedTotal = toIntegerOrZero(todayReceivedRows?.[0]?.total);
     const dailyRow = dailyCountsRows?.[0] ?? {};
 
     return {
-      todayReceivedTotal,
       classificationPending: {
         counts: classificationPendingCounts,
         total: classificationPendingTotal,
@@ -1892,13 +1869,6 @@ export class SampleQueryService {
     const spMonth = nowSp.getUTCMonth();
     const spDay = nowSp.getUTCDate();
 
-    const todayStartUtc = new Date(
-      Date.UTC(spYear, spMonth, spDay, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0)
-    );
-    const todayEndUtc = new Date(
-      Date.UTC(spYear, spMonth, spDay + 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0)
-    );
-
     const boundary30 = new Date(
       Date.UTC(spYear, spMonth, spDay - 30, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0)
     );
@@ -1908,9 +1878,6 @@ export class SampleQueryService {
 
     const rows = await this.prisma.$queryRaw`
       SELECT
-        COUNT(*)::INTEGER                                                                    AS "total",
-        COUNT(*) FILTER (WHERE s."created_at" >= ${todayStartUtc}
-                           AND s."created_at" <  ${todayEndUtc})::INTEGER                 AS "registeredToday",
         COUNT(*) FILTER (WHERE s."created_at" <  ${boundary30})::INTEGER                  AS "over30",
         COUNT(*) FILTER (WHERE s."created_at" >= ${boundary30}
                            AND s."created_at" <  ${boundary15})::INTEGER                  AS "from15to30",
@@ -1923,8 +1890,6 @@ export class SampleQueryService {
     const row = rows[0] ?? {};
 
     return {
-      total: toIntegerOrZero(row.total),
-      registeredToday: toIntegerOrZero(row.registeredToday),
       bands: {
         over30: toIntegerOrZero(row.over30),
         from15to30: toIntegerOrZero(row.from15to30),

@@ -42,9 +42,9 @@ export function OperationModal({ open, data, onClose, onItemAction }: OperationM
         <div className={`app-modal-list ${data.themeClass}`}>
           {data.items.map((sample) => {
             const lotLabel = sample.internalLotNumber ?? sample.id;
-            // Lotes pendentes podem nao ter `availableSacks` ainda — cai pro
-            // declarado pra sempre mostrar um numero util.
-            const sacksValue = sample.availableSacks ?? sample.declared.sacks;
+            // Sacas DECLARADAS — a projecao do dashboard (mapDashboardSample)
+            // nao traz availableSacks; declared.sacks e o numero util aqui.
+            const sacksValue = sample.declared.sacks;
             const sacksLabel = sacksValue === null || sacksValue === undefined ? '—' : sacksValue;
             return (
               <div key={sample.id} className="spv2-card-wrap is-card-pending">
