@@ -98,9 +98,8 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
                 ariaHasPopup="dialog"
                 icon={
                   <svg viewBox="0 0 24 24" focusable="false">
-                    <path d="M4 9.5V5.8A1.8 1.8 0 0 1 5.8 4h3.7" />
-                    <path d="m20 8.2-8.6 8.6a2.2 2.2 0 0 1-3.1 0L5.2 13.7a2.2 2.2 0 0 1 0-3.1L13.8 2 20 8.2Z" />
-                    <circle cx="14.6" cy="6.1" r="1" />
+                    <ellipse cx="12" cy="12" rx="6.2" ry="9" />
+                    <path d="M12 4.6 Q 13 8.5 12 12 Q 11 15.5 12 19.4" />
                   </svg>
                 }
               />

@@ -49,8 +49,8 @@ type MobileRouteMeta = {
 };
 
 const DESKTOP_NAV_ITEMS = [
-  { href: '/dashboard', label: 'Dashboard', icon: 'dashboard' as NavIcon },
-  { href: '/samples', label: 'Registros', icon: 'samples' as NavIcon },
+  { href: '/dashboard', label: 'Início', icon: 'dashboard' as NavIcon },
+  { href: '/samples', label: 'Lotes', icon: 'samples' as NavIcon },
   { href: '/clients', label: 'Clientes', icon: 'clients' as NavIcon },
 ] as const;
 
@@ -319,11 +319,19 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
       ? session.user.fullName.trim()
       : session.user.username;
   const profileFirstName = profileName.split(/\s+/)[0];
+  // Slot Informe/Métricas na barra lateral, espelhando a tabbar mobile:
+  // Classificacao/Cadastro veem "Métricas" (/metrics) no lugar do Informe
+  // (isMetricsNavRole); os demais nao-prospector veem "Informe" (/informe).
+  const informeNavItem = isMetricsNavRole(session.user.role)
+    ? { href: '/metrics', label: 'Métricas', icon: 'metrics' as NavIcon }
+    : { href: '/informe', label: 'Informe', icon: 'informe' as NavIcon };
   const desktopNavItems = prospector
     ? DESKTOP_NAV_ITEMS.filter((item) => item.href === '/dashboard')
-    : isAdmin(session.user.role)
-      ? [...DESKTOP_NAV_ITEMS, ADMIN_NAV_ITEM]
-      : DESKTOP_NAV_ITEMS;
+    : [
+        ...DESKTOP_NAV_ITEMS,
+        informeNavItem,
+        ...(isAdmin(session.user.role) ? [ADMIN_NAV_ITEM] : []),
+      ];
   const mobileRouteMeta = resolveMobileRouteMeta(pathname);
   const isCameraRoute = pathname === '/camera';
 
