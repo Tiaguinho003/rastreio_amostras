@@ -26017,6 +26017,10 @@ select.samples-filter-field-input {
   }
 
   .dashboard-page {
+    /* Sombra dos cards/containers do dashboard — reforcada (pedido do usuario).
+       Herdada por todos via cascata; tunavel num lugar so. */
+    --dd-card-shadow: 0 2px 6px rgba(0, 0, 0, 0.06), 0 14px 34px rgba(19, 35, 24, 0.14);
+    --dd-card-shadow-hover: 0 6px 14px rgba(0, 0, 0, 0.08), 0 22px 46px rgba(19, 35, 24, 0.18);
     max-width: var(--content-max-wide);
     margin: 0 auto;
     padding: clamp(1rem, 2vw, 2rem) clamp(0.85rem, 3vw, 4rem) clamp(1.5rem, 2vw, 2.5rem);
@@ -26050,9 +26054,7 @@ select.samples-filter-field-input {
     background: #ffffff;
     border: 1px solid rgba(112, 130, 103, 0.22);
     border-radius: 16px;
-    box-shadow:
-      0 2px 4px rgba(0, 0, 0, 0.04),
-      0 10px 22px rgba(19, 35, 24, 0.07);
+    box-shadow: var(--dd-card-shadow);
     text-align: left;
     font-family: inherit;
     -webkit-tap-highlight-color: transparent;
@@ -26067,9 +26069,7 @@ select.samples-filter-field-input {
 
   button.dd-stat-card:hover {
     transform: translateY(-3px);
-    box-shadow:
-      0 4px 8px rgba(0, 0, 0, 0.06),
-      0 16px 32px rgba(19, 35, 24, 0.12);
+    box-shadow: var(--dd-card-shadow-hover);
   }
 
   button.dd-stat-card:active {
@@ -26152,9 +26152,7 @@ select.samples-filter-field-input {
     background: #ffffff;
     border: 1px solid rgba(112, 130, 103, 0.22);
     border-radius: 20px;
-    box-shadow:
-      0 2px 8px rgba(0, 0, 0, 0.04),
-      0 8px 20px rgba(0, 0, 0, 0.05);
+    box-shadow: var(--dd-card-shadow);
     padding: clamp(0.8rem, 1.1vw, 1.1rem) clamp(0.95rem, 1.3vw, 1.3rem);
   }
 
@@ -26334,6 +26332,7 @@ select.samples-filter-field-input {
     grid-column: 1;
     grid-row: 1;
     min-height: 0;
+    box-shadow: var(--dd-card-shadow);
   }
 
   .dd-content-grid > .dd-trend-card {
@@ -26411,9 +26410,7 @@ select.samples-filter-field-input {
     background: #ffffff;
     border: 1px solid rgba(112, 130, 103, 0.22);
     border-radius: 18px;
-    box-shadow:
-      0 2px 4px rgba(0, 0, 0, 0.04),
-      0 12px 26px rgba(19, 35, 24, 0.08);
+    box-shadow: var(--dd-card-shadow);
     padding: clamp(0.8rem, 1vw, 1rem) clamp(0.9rem, 1.2vw, 1.2rem) clamp(0.6rem, 0.8vw, 0.8rem);
     animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.32s backwards;
   }
