@@ -26760,7 +26760,7 @@ select.samples-filter-field-input {
   .samples-page-v2 {
     max-width: none;
     margin: 0;
-    padding: 1rem var(--desktop-gutter) 1.5rem;
+    padding: 0.75rem var(--desktop-gutter) 1.5rem;
     flex: 1;
     min-height: 0;
     overflow: hidden;
@@ -26769,10 +26769,9 @@ select.samples-filter-field-input {
   }
 
   .samples-page-v2-header {
-    /* Mesmo padrao de espaco em torno do titulo usado em /clients e /users:
-       1.5rem em cima e embaixo deixa o titulo visualmente centralizado
-       entre o topo da pagina e a barra de busca. */
-    padding: 1.5rem 0 1.5rem;
+    /* Gap menor entre a faixa do topo e a barra de busca (pedido do usuario):
+       o espaco reclamado vai pro sheet dos cards (flex:1, cresce sozinho). */
+    padding: 0.5rem 0 0.7rem;
     flex-shrink: 0;
   }
 
@@ -26831,7 +26830,7 @@ select.samples-filter-field-input {
     border: 1px solid rgba(112, 130, 103, 0.18);
     color: inherit;
     text-decoration: none;
-    min-height: 44px;
+    min-height: 56px;
     transition:
       transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
       background 0.18s ease,
@@ -26852,12 +26851,57 @@ select.samples-filter-field-input {
     transform: translateX(1px) scale(0.998);
   }
 
-  /* Barra: vertical no lado esquerdo */
-  .samples-page-v2 .spv2-card-bar {
-    width: 4px;
-    height: auto;
+  /* #4: no desktop o chrome do card (recolhido E estendido) fica TODO no
+     .spv2-card-wrap; a linha (.spv2-card) dentro do wrap vira so layout
+     (transparente). Antes o chrome ficava nos dois com raios diferentes (12 vs
+     ~15px) e a faixa do wrap vazava embaixo do card recolhido, parecendo o
+     comeco da area estendida. Cards do modo blend (sem wrap) seguem com o
+     chrome da regra .spv2-card acima. */
+  .samples-page-v2:not(.informe-commercial-page) .spv2-card-wrap {
+    background: #fffefb;
+    border: 1px solid rgba(112, 130, 103, 0.18);
+    border-radius: 12px;
+    box-shadow: none;
+    transition:
+      transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+      background 0.18s ease,
+      border-color 0.18s ease,
+      box-shadow 0.18s ease;
+  }
+
+  .samples-page-v2 .spv2-card-wrap:hover {
+    transform: translateX(2px);
+    background: #fbf8ef;
+    border-color: rgba(112, 130, 103, 0.32);
+    box-shadow: 0 4px 10px rgba(19, 35, 24, 0.06);
+  }
+
+  .samples-page-v2 .spv2-card-wrap:active {
+    transform: translateX(1px) scale(0.997);
+  }
+
+  /* Linha dentro do wrap: so layout, sem chrome (o wrap carrega tudo). O
+     translateX/scale do hover/active fica no wrap, nao na linha (senao
+     dobraria). */
+  .samples-page-v2 .spv2-card-wrap > .spv2-card,
+  .samples-page-v2 .spv2-card-wrap > .spv2-card:hover,
+  .samples-page-v2 .spv2-card-wrap > .spv2-card:active {
+    background: transparent;
+    border: 0;
     border-radius: 0;
     box-shadow: none;
+    transform: none;
+  }
+
+  /* Barra de status: pilula FLUTUANTE (nao encosta nas bordas do card), igual
+     ao mobile — antes era full-height colada na borda esquerda/topo/baixo. */
+  .samples-page-v2 .spv2-card-bar {
+    width: 4px;
+    height: 38px;
+    align-self: center;
+    margin-left: 0.7rem;
+    border-radius: 999px;
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.08);
     flex-shrink: 0;
   }
 
@@ -26875,7 +26919,7 @@ select.samples-filter-field-input {
        (owner) e o unico item flexivel — cresce e trunca, empurrando
        sacas/safra pra direita. Liga inserida apos o code so empurra o
        resto um pouco pra direita (natural do flex). */
-    padding: 0.5rem 1.1rem;
+    padding: 0.75rem 1.1rem;
   }
 
   .samples-page-v2 .spv2-card-top,
@@ -26887,7 +26931,7 @@ select.samples-filter-field-input {
     flex: 0 0 auto;
     min-width: 2.75rem;
     max-width: 9rem;
-    font-size: 0.92rem;
+    font-size: 1rem;
     font-weight: 700;
     color: #243a28;
     letter-spacing: 0.01em;
@@ -26899,7 +26943,7 @@ select.samples-filter-field-input {
 
   .samples-page-v2 .spv2-card-badge {
     flex: 0 0 auto;
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -26916,21 +26960,21 @@ select.samples-filter-field-input {
     flex: 0 0 auto;
     padding: 0.35rem 0.6rem;
     border-radius: 999px;
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     font-weight: 700;
     letter-spacing: 0.02em;
     gap: 5px;
   }
 
   .samples-page-v2 .spv2-card .blend-badge__icon {
-    width: 12px;
-    height: 12px;
+    width: 13px;
+    height: 13px;
   }
 
   .samples-page-v2 .spv2-card-owner {
     flex: 1 1 auto;
     min-width: 0;
-    font-size: 0.88rem;
+    font-size: 0.96rem;
     font-weight: 500;
     color: #4d5c52;
     overflow: hidden;
@@ -26944,7 +26988,7 @@ select.samples-filter-field-input {
 
   .samples-page-v2 .spv2-card-detail {
     flex: 0 0 auto;
-    font-size: 0.82rem;
+    font-size: 0.9rem;
     font-weight: 500;
     color: #72766f;
     white-space: nowrap;
