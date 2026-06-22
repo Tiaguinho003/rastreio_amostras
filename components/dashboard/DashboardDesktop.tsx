@@ -148,17 +148,17 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
           )}
         </div>
 
-        <div className="dd-second-row">
+        <div className="dd-content-grid">
           {salesData ? (
-            <SalesAvailabilityCard data={salesData} />
+            <SalesAvailabilityCard data={salesData} compact />
           ) : (
             <div className="sales-card sales-card-skeleton" aria-hidden="true" />
           )}
-          {/* Segundo card da 2a linha — placeholder (conteudo definido depois). */}
+          {/* Card placeholder, embaixo do "Lotes disponíveis" — conteúdo depois. */}
           <div className="dd-placeholder-card" aria-hidden="true" />
+          {/* Últimas atividades: coluna direita, ocupando as duas linhas. */}
+          <RecentActivityList items={recentActivity} />
         </div>
-
-        <RecentActivityList items={recentActivity} />
       </section>
 
       <OperationModal

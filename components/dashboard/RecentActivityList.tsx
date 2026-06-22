@@ -42,6 +42,18 @@ export function RecentActivityList({ items }: RecentActivityListProps) {
     return () => window.clearInterval(id);
   }, []);
 
+  // Cabecalho de colunas (alinhado ao mesmo grid dos cards via --dd-activity-cols).
+  const columnHeader = (
+    <div className="dd-activity-colnames" aria-hidden="true">
+      <span>Lote</span>
+      <span>Produtor</span>
+      <span>Evento</span>
+      <span>Sacas</span>
+      <span>Destinatário</span>
+      <span>Quando</span>
+    </div>
+  );
+
   if (items === null) {
     return (
       <div className="dd-activity-container">
@@ -49,6 +61,7 @@ export function RecentActivityList({ items }: RecentActivityListProps) {
           <h3 className="dd-activity-title">Ultimas atividades</h3>
         </div>
         <div className="dd-activity-list" aria-busy="true">
+          {columnHeader}
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="dd-activity-card dd-activity-skeleton" aria-hidden="true">
               <span className="dd-card-label-placeholder" style={{ width: 70, height: 14 }} />
@@ -83,6 +96,7 @@ export function RecentActivityList({ items }: RecentActivityListProps) {
         <h3 className="dd-activity-title">Ultimas atividades</h3>
       </div>
       <div className="dd-activity-list">
+        {columnHeader}
         {items.map((item) => {
           const cfg = getEventConfig(item.activity.type);
           return (

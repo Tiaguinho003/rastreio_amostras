@@ -106,11 +106,47 @@ function AgingDonut({
   );
 }
 
-export function SalesAvailabilityCard({ data }: { data: DashboardSalesAvailabilityResponse }) {
+// `compact` (usado no dashboard DESKTOP): legenda + botao "Ver disponiveis"
+// ficam juntos ao lado do donut (coluna `.sales-card-aside`), pra o card
+// caber numa altura menor. Sem `compact` (mobile): layout vertical padrao —
+// donut + legenda no corpo e botao full-width no rodape.
+export function SalesAvailabilityCard({
+  data,
+  compact = false,
+}: {
+  data: DashboardSalesAvailabilityResponse;
+  compact?: boolean;
+}) {
   const total = data.bands.over30 + data.bands.from15to30 + data.bands.under15;
 
+  const legend = (
+    <ul className="sales-chart-legend">
+      {SEGMENT_ORDER.map(({ key, color, label }) => (
+        <li key={key} className="sales-chart-legend-item">
+          <span
+            className="sales-chart-legend-dot"
+            style={{ background: color }}
+            aria-hidden="true"
+          />
+          <span className="sales-chart-legend-label">{label}</span>
+          <span className="sales-chart-legend-count">{data.bands[key]}</span>
+        </li>
+      ))}
+    </ul>
+  );
+
+  // Unica acao do card: leva pra lista de amostras disponiveis (em aberto).
+  const detailButton = (
+    <Link href="/samples?displayStatus=OPEN" className="sales-card-detail-button">
+      <span className="sales-card-detail-label">Ver disponíveis</span>
+      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+        <path d="m9 6 6 6-6 6" />
+      </svg>
+    </Link>
+  );
+
   return (
-    <div className="sales-card">
+    <div className={`sales-card${compact ? ' is-compact' : ''}`}>
       <div className="sales-card-header">
         <h3 className="sales-card-title">Lotes disponíveis</h3>
         <span className="sales-card-chart-icon" aria-hidden="true">
@@ -123,31 +159,17 @@ export function SalesAvailabilityCard({ data }: { data: DashboardSalesAvailabili
 
       <div className="sales-card-body">
         <AgingDonut bands={data.bands} total={total} />
-
-        <ul className="sales-chart-legend">
-          {SEGMENT_ORDER.map(({ key, color, label }) => (
-            <li key={key} className="sales-chart-legend-item">
-              <span
-                className="sales-chart-legend-dot"
-                style={{ background: color }}
-                aria-hidden="true"
-              />
-              <span className="sales-chart-legend-label">{label}</span>
-              <span className="sales-chart-legend-count">{data.bands[key]}</span>
-            </li>
-          ))}
-        </ul>
+        {compact ? (
+          <div className="sales-card-aside">
+            {legend}
+            {detailButton}
+          </div>
+        ) : (
+          legend
+        )}
       </div>
 
-      {/* Unica acao do card: leva pra lista de amostras disponiveis (em
-          aberto). Botao full-width do mockup: label centrada + chevron
-          ancorado na borda direita (CSS). */}
-      <Link href="/samples?displayStatus=OPEN" className="sales-card-detail-button">
-        <span className="sales-card-detail-label">Ver disponíveis</span>
-        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-          <path d="m9 6 6 6-6 6" />
-        </svg>
-      </Link>
+      {compact ? null : detailButton}
     </div>
   );
 }
