@@ -57,6 +57,9 @@ print-agent/custom-label-preview*.png
 print-agent/custom-label-preview*.svg
 print-agent/shipping-label-preview*.png
 print-agent/shipping-label-preview*.svg
+print-agent/internal-label-preview*.png
+print-agent/internal-label-preview*.svg
+print-agent/internal-label-preview*.pdf
 
 # Estado local do print-agent (jobs ja impressos nesta sessao)
 print-agent/.printed-jobs.json

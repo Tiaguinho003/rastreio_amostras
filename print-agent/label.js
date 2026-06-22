@@ -1,9 +1,17 @@
 import { LOGO_WIDTH_BYTES, LOGO_HEIGHT, LOGO_DATA } from './logo-data.js';
-// NB: o logo pequeno da etiqueta de Aprovacao (logo-small-data.js) e carregado
-// SOB DEMANDA dentro de buildCustomLabel (loadSmallLogo) DE PROPOSITO: assim
-// este modulo — usado tambem pela etiqueta de amostra (buildLabel) — NAO depende
-// daquele arquivo. Se ele faltar (ex: deploy parcial), a etiqueta de amostra
-// imprime normalmente e a de Aprovacao apenas sai sem logo.
+import {
+  LOGO_INTERNAL_WIDTH_BYTES,
+  LOGO_INTERNAL_HEIGHT,
+  LOGO_INTERNAL_DATA,
+} from './logo-internal-data.js';
+// NB sobre logos: a etiqueta de amostra/controle interno (buildLabel) usa
+// logo-internal-data.js (logo pequeno no topo esq.) e a de Envio
+// (buildShippingLabel) usa logo-data.js (logo grande) — ambos hard-imports,
+// cada etiqueta com seu logo no tamanho certo. Ja o logo da etiqueta de
+// Aprovacao (logo-small-data.js) e carregado SOB DEMANDA dentro de
+// buildCustomLabel (loadSmallLogo) DE PROPOSITO: se ele faltar (ex: deploy
+// parcial), as demais etiquetas imprimem normalmente e a de Aprovacao so sai
+// sem logo.
 
 const ACCENT_MAP = {
   '\u00e0': 'a',
@@ -90,82 +98,220 @@ function formatDate(isoDate) {
   return `${dd}/${mm}/${yyyy}`;
 }
 
+// Calcula o layout (posicoes/fontes/divisorias/logo/QR ja resolvidos) SEM
+// serializar TSPL. Fonte UNICA compartilhada por buildLabel (impressao) e pelo
+// preview (scripts/preview-internal-label.mjs) — o que estoura no preview
+// estoura na impressao.
+//
+// LAYOUT (etiqueta 100x35mm = 800x280 dots, 203dpi):
+// - TERCO SUPERIOR: logo pequeno na ponta sup. esquerda + divisorias verticais
+//   (mesma altura do logo) separando DATA | SAFRA | SACAS (label em cima, valor
+//   embaixo; larguras proporcionais ao conteudo). Abaixo, divisoria horizontal.
+// - DOIS TERCOS INFERIORES: LOTE grande centralizado na metade esquerda; na
+//   metade direita PADRAO (font4) e ASPECTO (font4 2x, em destaque) um abaixo do
+//   outro + QR ao lado, centralizado na vertical das infos. PADRAO/ASPECTO so
+//   aparecem quando ha classificacao (sem classificacao, a coluna direita fica
+//   vazia e o QR centra na regiao).
+export function buildSampleLabelLayout(job) {
+  const s = job.sample || {};
+  const fw = (f) => TSPL_FONT_W[Number(f)] ?? 8;
+  const fh = (f) => TSPL_FONT_H[Number(f)] ?? 12;
+
+  const W = 800;
+  const H = 280;
+  const ML = 16;
+  const MR = 16;
+  const TOP = 10;
+  const BOT = 10;
+
+  const lot = sanitize(s.internalLotNumber || s.id, 7);
+  const date = formatDate(s.registeredAt);
+  const harvest = sanitize(s.declared?.harvest || '---', 10);
+  const sacks = s.declared?.sacks != null ? sanitize(String(s.declared.sacks), 6) : '---';
+  // Classificacao (so quando ha): caps conservadores p/ o valor nunca encostar
+  // no QR (PADRAO font4 = 24/char; ASPECTO font4 2x = 48/char).
+  const padrao = s.classification?.padrao ? sanitize(String(s.classification.padrao), 10) : null;
+  const aspecto = s.classification?.aspecto ? sanitize(String(s.classification.aspecto), 5) : null;
+  const qrValue = sanitize(s.qrValue || s.id || lot, 100);
+
+  const texts = [];
+  const dividers = [];
+
+  // ── TERCO SUPERIOR: logo + DATA | SAFRA | SACAS ──
+  const LOGO_H = LOGO_INTERNAL_HEIGHT; // 84 (~1/3 de 280)
+  const logoW = LOGO_INTERNAL_WIDTH_BYTES * 8; // 248
+  const logo = {
+    x: ML,
+    y: TOP,
+    widthBytes: LOGO_INTERNAL_WIDTH_BYTES,
+    height: LOGO_INTERNAL_HEIGHT,
+    data: LOGO_INTERNAL_DATA,
+  };
+  const bandTop = TOP;
+  const bandBot = TOP + LOGO_H;
+
+  // Divisoria vertical (mesma altura do logo) apos o logo.
+  const vdivX = logo.x + logoW + 16;
+  dividers.push({ x: vdivX, y: bandTop, width: 3, height: LOGO_H });
+
+  // DATA | SAFRA | SACAS — label (font1) em cima, valor (font3) embaixo; 3
+  // celulas separadas por divisoria vertical, larguras proporcionais ao conteudo.
+  const infoStart = vdivX + 3 + 18;
+  const infoEnd = W - MR;
+  const LBL = '1';
+  const VAL = '3';
+  const blockH = fh(LBL) + 4 + fh(VAL);
+  const lblY = bandTop + Math.floor((LOGO_H - blockH) / 2);
+  const valY = lblY + fh(LBL) + 4;
+  const CELL_PAD = 14;
+  const topFields = [
+    { label: 'DATA', value: date },
+    { label: 'SAFRA', value: harvest },
+    { label: 'SACAS', value: sacks },
+  ];
+  const topContentW = (f) => Math.max(f.value.length * fw(VAL), f.label.length * fw(LBL));
+  const topWeights = topFields.map(topContentW);
+  const topWsum = topWeights.reduce((a, b) => a + b, 0);
+  const topNdiv = topFields.length - 1;
+  const topUsable = infoEnd - infoStart - topNdiv * 3 - topFields.length * 2 * CELL_PAD;
+  let cx = infoStart;
+  topFields.forEach((f, i) => {
+    const cw = 2 * CELL_PAD + Math.round((topUsable * topWeights[i]) / topWsum);
+    const tx = cx + CELL_PAD;
+    texts.push({ x: tx, y: lblY, font: LBL, xMul: 1, yMul: 1, bold: false, text: f.label });
+    texts.push({ x: tx, y: valY, font: VAL, xMul: 1, yMul: 1, bold: true, text: f.value });
+    cx += cw;
+    if (i < topNdiv) {
+      dividers.push({ x: cx, y: bandTop, width: 3, height: LOGO_H });
+      cx += 3;
+    }
+  });
+
+  // ── DIVISORIA HORIZONTAL ──
+  const hDivY = bandBot + 6;
+  dividers.push({ x: ML, y: hDivY, width: W - ML - MR, height: 3 });
+
+  // ── DOIS TERCOS INFERIORES ──
+  const regTop = hDivY + 6;
+  const regBot = H - BOT;
+  const regH = regBot - regTop;
+  const regCY = regTop + Math.floor(regH / 2);
+
+  // LOTE grande (font4 2x4 = 48x128/char), centralizado na metade esquerda.
+  const LOT_F = '4';
+  const lotXMul = 2;
+  const lotYMul = 4;
+  const lotCharW = fw(LOT_F) * lotXMul;
+  const lotH = fh(LOT_F) * lotYMul;
+  const halfW = Math.floor(W / 2);
+  const lotW = lot.length * lotCharW;
+  const lotX = Math.max(ML, Math.floor((halfW - lotW) / 2));
+  const lotY = regCY - Math.floor(lotH / 2);
+  texts.push({
+    x: lotX,
+    y: lotY,
+    font: LOT_F,
+    xMul: lotXMul,
+    yMul: lotYMul,
+    bold: true,
+    text: lot,
+  });
+
+  // Metade direita: PADRAO/ASPECTO (so quando classificado) + QR ao lado.
+  const rightX = halfW + 10;
+  const QR_CELL = 5;
+  const QR_MODULES = 21; // v1 (lote curto, alfanumerico ECC L)
+  const qrSize = QR_CELL * QR_MODULES; // 105
+  const qrX = W - MR - qrSize;
+
+  const infoBlocks = [];
+  if (padrao) infoBlocks.push({ label: 'PADRAO', value: padrao, font: '4', xMul: 1, yMul: 1 });
+  if (aspecto) infoBlocks.push({ label: 'ASPECTO', value: aspecto, font: '4', xMul: 2, yMul: 2 });
+
+  let stackTop;
+  let stackBot;
+  if (infoBlocks.length > 0) {
+    const GAP = 18;
+    const heights = infoBlocks.map((b) => fh('1') + 3 + fh(b.font) * b.yMul);
+    const stackH = heights.reduce((a, h) => a + h, 0) + GAP * (infoBlocks.length - 1);
+    let y = regTop + Math.floor((regH - stackH) / 2);
+    stackTop = y;
+    infoBlocks.forEach((b, i) => {
+      texts.push({ x: rightX, y, font: '1', xMul: 1, yMul: 1, bold: false, text: b.label });
+      texts.push({
+        x: rightX,
+        y: y + fh('1') + 3,
+        font: b.font,
+        xMul: b.xMul,
+        yMul: b.yMul,
+        bold: true,
+        text: b.value,
+      });
+      y += heights[i] + GAP;
+    });
+    stackBot = stackTop + stackH;
+  } else {
+    // Sem classificacao: coluna direita vazia; QR centralizado na regiao toda.
+    stackTop = regCY;
+    stackBot = regCY;
+  }
+
+  const qrY = Math.round((stackTop + stackBot) / 2 - qrSize / 2);
+  const qr = { x: qrX, y: qrY, cell: QR_CELL, modules: QR_MODULES, size: qrSize, value: qrValue };
+
+  return {
+    width: W,
+    height: H,
+    copies: 1,
+    logo,
+    texts,
+    dividers,
+    qr,
+    safeArea: { left: ML, right: W - MR, top: TOP, bottom: H - BOT },
+  };
+}
+
 export function buildLabel(job) {
-  const qrValue = sanitize(job.sample.qrValue || job.sample.id, 100);
-  const lotNumber = sanitize(job.sample.internalLotNumber || job.sample.id, 7);
-  const sacks = job.sample.declared?.sacks != null ? String(job.sample.declared.sacks) : '---';
-  const harvest = sanitize(job.sample.declared?.harvest || '---', 10);
-  const date = formatDate(job.sample.registeredAt);
-
-  // --- Layout (etiqueta 100x35mm = 800x280 dots, 203dpi) ---
-  //
-  // Esquerda (x=0-335): apenas o lote, centralizado horizontal e verticalmente.
-  // Direita (x=335-800): logo no topo + infos (DATA/SAFRA/SACAS) em baixo + QR
-  // mais a direita, com centro vertical alinhado ao centro das infos.
-  //
-  // Gap superior padrao de 20 dots, mas o logo pode comecar em y=10 (passa
-  // um pouco do gap) pra ganhar mais respiro entre logo e infos.
-  //
-  // Lote em font "4" multiplier 2x4 (48x128 por char).
-  const LEFT_COLUMN_W = 335;
-  const RIGHT_COLUMN_X = 335;
-  const RIGHT_COLUMN_W = 800 - RIGHT_COLUMN_X; // 465
-  const LOT_CHAR_W = 48;
-  const LOT_HEIGHT = 128;
-
-  const lotWidth = lotNumber.length * LOT_CHAR_W;
-  const lotX = Math.max(0, Math.floor((LEFT_COLUMN_W - lotWidth) / 2));
-  // Lote centralizado verticalmente na area util (y=20 a y=260, altura 240)
-  const lotY = 20 + Math.floor((240 - LOT_HEIGHT) / 2);
-
-  const logoPixelWidth = LOGO_WIDTH_BYTES * 8;
-  // Logo centralizado horizontalmente no lado direito
-  const logoX = RIGHT_COLUMN_X + Math.floor((RIGHT_COLUMN_W - logoPixelWidth) / 2);
-
-  const copies = 1;
-
+  const layout = buildSampleLabelLayout(job);
   const parts = [];
 
-  // Header + logo bitmap no topo direito (y=10, um pouco acima do gap padrao
-  // de 20 pra dar respiro entre logo e infos que comecam em y=130).
-  // SIZE/GAP/DIRECTION/REFERENCE/OFFSET/SHIFT/DENSITY/SET TEAR/SET RIBBON/
-  // GAPDETECT vivem em calibratePrinter() (index.js), enviados uma unica
-  // vez no startup — re-enviar a cada job disparava auto-calibracao
-  // esporadica (etiqueta em branco intermitente).
-  const header = ['CLS', '', `BITMAP ${logoX},10,${LOGO_WIDTH_BYTES},${LOGO_HEIGHT},0,`].join(
-    '\r\n'
+  // CLS + divisorias + textos (ascii). SIZE/GAP/DENSITY/etc. vivem em
+  // calibratePrinter() (index.js), enviados uma unica vez no startup — re-enviar
+  // a cada job disparava auto-calibracao esporadica (etiqueta em branco).
+  const head = ['CLS', ''];
+  for (const d of layout.dividers) {
+    head.push(`BAR ${d.x},${d.y},${d.width},${d.height}`);
+  }
+  for (const t of layout.texts) {
+    head.push(`TEXT ${t.x},${t.y},"${t.font}",0,${t.xMul},${t.yMul},"${t.text}"`);
+    // Negrito por overstrike (2a passada 1 dot a direita), igual buildCustomLabel.
+    if (t.bold) {
+      head.push(`TEXT ${t.x + 1},${t.y},"${t.font}",0,${t.xMul},${t.yMul},"${t.text}"`);
+    }
+  }
+  parts.push(Buffer.from(head.join('\r\n') + '\r\n', 'ascii'));
+
+  // Logo bitmap (binario) no topo esquerdo.
+  parts.push(
+    Buffer.from(
+      `BITMAP ${layout.logo.x},${layout.logo.y},${layout.logo.widthBytes},${layout.logo.height},0,`,
+      'ascii'
+    )
   );
-  parts.push(Buffer.from(header, 'ascii'));
-  parts.push(LOGO_DATA);
+  parts.push(layout.logo.data);
+  parts.push(Buffer.from('\r\n', 'ascii'));
 
-  // Body commands
-  const body = [
-    '',
-    // Separador vertical entre coluna esquerda (lote) e coluna direita (logo+infos+QR)
-    `BAR 335,20,3,240`,
-    '',
-    // Lote grande — centralizado na coluna esquerda
-    `TEXT ${lotX},${lotY},"4",0,2,4,"${lotNumber}"`,
-    '',
-    // Coluna meio — DATA/SAFRA/SACAS (ordem de cima pra baixo).
-    // Gap de 55 dots entre linhas, valores alinhados em x=456.
-    `TEXT 360,130,"3",0,1,1,"DATA:"`,
-    `TEXT 456,130,"3",0,1,1,"${date}"`,
-    `TEXT 360,185,"3",0,1,1,"SAFRA:"`,
-    `TEXT 456,185,"3",0,1,1,"${harvest}"`,
-    `TEXT 360,240,"3",0,1,1,"SACAS:"`,
-    `TEXT 456,240,"3",0,1,1,"${sacks}"`,
-    '',
-    // QR code — mais a direita, centro vertical alinhado ao centro das infos
-    // (~y=195). Cell size 4 reduz o QR pra caber na area vertical das infos
-    // (y=130 a y=260, ~130 dots de altura). x=650 deixa ~10-20 dots da borda.
-    `QRCODE 650,130,L,4,A,0,M2,"${qrValue}"`,
-    '',
-    `PRINT 1,${copies}`,
-    '',
-  ].join('\r\n');
-  parts.push(Buffer.from(body, 'ascii'));
+  // QR — mode A (alfanumerico: lote curto em digitos/maiusculas); ECC L.
+  if (layout.qr) {
+    parts.push(
+      Buffer.from(
+        `QRCODE ${layout.qr.x},${layout.qr.y},L,${layout.qr.cell},A,0,M2,"${layout.qr.value}"\r\n`,
+        'ascii'
+      )
+    );
+  }
 
+  parts.push(Buffer.from(`PRINT 1,${layout.copies}\r\n`, 'ascii'));
   return Buffer.concat(parts);
 }
 

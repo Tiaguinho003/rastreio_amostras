@@ -796,6 +796,17 @@ function mapDashboardSample(row) {
 
 function mapPendingPrintJob(row) {
   const sample = row.sample;
+  // Classificacao (Padrao/Aspecto) p/ a etiqueta de controle interno — so quando
+  // ha classificacao. latestClassificationData e null ate a amostra ser
+  // classificada; a etiqueta omite os campos ausentes (imprime sem eles).
+  const classificationData = toObjectOrNull(sample.latestClassificationData);
+  const classification =
+    classificationData && (classificationData.padrao != null || classificationData.aspecto != null)
+      ? {
+          padrao: classificationData.padrao ?? null,
+          aspecto: classificationData.aspecto ?? null,
+        }
+      : null;
   return {
     jobId: row.id,
     sampleId: row.sampleId,
@@ -816,6 +827,7 @@ function mapPendingPrintJob(row) {
         originLot: sample.declaredOriginLot ?? null,
         location: sample.declaredLocation ?? null,
       },
+      classification,
     },
   };
 }
@@ -1033,6 +1045,7 @@ export class SampleQueryService {
             declaredSacks: true,
             declaredHarvest: true,
             declaredOriginLot: true,
+            latestClassificationData: true,
           },
         },
       },
