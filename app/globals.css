@@ -32809,10 +32809,11 @@ body.is-selection-mode .hero-search-filter-btn {
   .samples-page-v2 .hero-search-wrap {
     position: relative;
     /* Pivot = centro do "+" (56x56, colado na direita do wrap): ~28px da
-       direita e ~28px do topo. As opcoes ficam num quarto de arco (raio ~250)
-       em torno desse pivot, BEM espacadas (folga confortavel ~69px entre
-       elas), viesado pra esquerda/baixo: TODAS abaixo da barra de busca
-       (dentro da area de cards) e sem cruzar a borda direita. */
+       direita e ~28px do topo. As opcoes ficam num arco (raio ~280) em torno
+       desse pivot, BEM espacadas (folga confortavel ~69px entre elas), viesado
+       pra esquerda/baixo: arco SUAVE/aberto (o Lote sai de quase-embaixo do
+       "+"), TODAS abaixo da barra de busca (dentro da area de cards) e sem
+       cruzar a borda direita. */
     --fan-pivot-right: 28px;
     --fan-pivot-top: 28px;
     --fan-opt-size: 60px;
@@ -32835,22 +32836,23 @@ body.is-selection-mode .hero-search-filter-btn {
     transform-origin: right top;
   }
 
-  /* Lote: ponta DE BAIXO do arco — quase a prumo do "+". */
+  /* Lote: ponta de baixo do arco — puxado pra esquerda (longe da vertical do
+     "+") pra base do leque ficar mais suave/arredondada. */
   .samples-page-v2 .fab-fan-option.is-lote {
-    --ox: 39px;
-    --oy: 247px;
+    --ox: 80px;
+    --oy: 268px;
   }
 
   /* Liga: meio do arco (diagonal baixo-esquerda). */
   .samples-page-v2 .fab-fan-option.is-liga {
-    --ox: 157px;
-    --oy: 194px;
+    --ox: 192px;
+    --oy: 204px;
   }
 
   /* Aprovacao: ponta do arco — mais a esquerda, ja abaixo da barra de busca. */
   .samples-page-v2 .fab-fan-option.is-aprovacao {
-    --ox: 233px;
-    --oy: 90px;
+    --ox: 263px;
+    --oy: 96px;
   }
 
   /* Rotulo a ESQUERDA do circulo (no mobile fica abaixo dele); fonte um
