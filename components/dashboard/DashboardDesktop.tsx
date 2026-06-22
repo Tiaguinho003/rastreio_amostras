@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 import { getDashboardRecentActivity } from '../../lib/api-client';
+import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
 import { useOperationModal } from './useOperationModal';
 import { OperationModal } from './OperationModal';
 import { RecentActivityList } from './RecentActivityList';
@@ -14,89 +15,6 @@ import type {
   DashboardSalesAvailabilityResponse,
   SessionData,
 } from '../../lib/types';
-
-type BandKey = 'over30' | 'from15to30' | 'under15';
-
-const BAND_COLORS: Record<BandKey, string> = {
-  over30: '#C0392B',
-  from15to30: '#E5A100',
-  under15: '#27AE60',
-};
-
-function DonutChart({
-  bands,
-  total,
-}: {
-  bands: DashboardSalesAvailabilityResponse['bands'];
-  total: number;
-}) {
-  const size = 72;
-  const center = size / 2;
-  const radius = 26;
-  const strokeWidth = 10;
-  const circumference = 2 * Math.PI * radius;
-  const gap = 2;
-
-  if (total === 0) {
-    return (
-      <svg viewBox={`0 0 ${size} ${size}`} className="dd-donut">
-        <circle
-          cx={center}
-          cy={center}
-          r={radius}
-          fill="none"
-          stroke="#e8e3d5"
-          strokeWidth={strokeWidth}
-        />
-      </svg>
-    );
-  }
-
-  const segments = (
-    [
-      { key: 'over30' as const, value: bands.over30 },
-      { key: 'from15to30' as const, value: bands.from15to30 },
-      { key: 'under15' as const, value: bands.under15 },
-    ] as const
-  ).filter((s) => s.value > 0);
-
-  let offset = 0;
-  const rings = segments.map((segment) => {
-    const length = (segment.value / total) * circumference;
-    const dash = Math.max(0, length - (segments.length > 1 ? gap : 0));
-    const el = (
-      <circle
-        key={segment.key}
-        cx={center}
-        cy={center}
-        r={radius}
-        fill="none"
-        stroke={BAND_COLORS[segment.key]}
-        strokeWidth={strokeWidth}
-        strokeDasharray={`${dash} ${circumference - dash}`}
-        strokeDashoffset={-offset}
-        transform={`rotate(-90 ${center} ${center})`}
-        strokeLinecap="butt"
-      />
-    );
-    offset += length;
-    return el;
-  });
-
-  return (
-    <svg viewBox={`0 0 ${size} ${size}`} className="dd-donut">
-      <circle
-        cx={center}
-        cy={center}
-        r={radius}
-        fill="none"
-        stroke="#f0ebdf"
-        strokeWidth={strokeWidth}
-      />
-      {rings}
-    </svg>
-  );
-}
 
 interface DashboardDesktopProps {
   session: SessionData;
@@ -233,23 +151,12 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
 
         <div className="dd-second-row">
           {salesData ? (
-            <div className="dd-card dd-card-sales">
-              <div className="dd-card-sales-info">
-                <span className="dd-card-sales-kicker">Lotes disponíveis</span>
-                <strong className="dd-card-count">{salesData.total}</strong>
-                <span className="dd-card-sales-unit">amostras</span>
-              </div>
-              <DonutChart bands={salesData.bands} total={salesData.total} />
-            </div>
+            <SalesAvailabilityCard data={salesData} />
           ) : (
-            <div className="dd-card dd-card-sales dd-card-skeleton" aria-hidden="true">
-              <span className="dd-card-count-placeholder" style={{ width: '40%' }} />
-              <span
-                className="dd-card-icon-placeholder"
-                style={{ width: 72, height: 72, borderRadius: '50%', justifySelf: 'end' }}
-              />
-            </div>
+            <div className="sales-card sales-card-skeleton" aria-hidden="true" />
           )}
+          {/* Segundo card da 2a linha — placeholder (conteudo definido depois). */}
+          <div className="dd-placeholder-card" aria-hidden="true" />
         </div>
 
         <RecentActivityList items={recentActivity} />

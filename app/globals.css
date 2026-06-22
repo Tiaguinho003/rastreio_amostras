@@ -25981,51 +25981,15 @@ select.samples-filter-field-input {
     gap: clamp(0.75rem, 1.4vw, 1.25rem);
   }
 
-  .dd-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.4rem;
-    padding: clamp(0.9rem, 1.4vw, 1.3rem) clamp(0.85rem, 1.2vw, 1.2rem);
-    background: #ffffff;
-    border: 1px solid rgba(112, 130, 103, 0.22);
-    border-radius: 18px;
-    box-shadow:
-      0 2px 4px rgba(0, 0, 0, 0.04),
-      0 12px 26px rgba(19, 35, 24, 0.08);
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    transition:
-      transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
-      box-shadow 0.22s ease;
-  }
-
-  .dd-card:hover {
-    transform: translateY(-3px);
-    box-shadow:
-      0 4px 8px rgba(0, 0, 0, 0.06),
-      0 16px 32px rgba(19, 35, 24, 0.12);
-  }
-
-  .dd-card:active {
-    transform: translateY(-1px) scale(0.98);
-  }
-
-  .dd-card-count {
-    font-size: clamp(1.8rem, 2.4vw, 2.6rem);
-    font-weight: 800;
-    line-height: 1;
-    color: #1a2e1f;
-    letter-spacing: -0.02em;
-  }
-
   /* ── Stat cards da 1a linha (pendencias + pulso do dia) — visual da
      imagem: horizontal, icone verde em tile claro, baixo. ── */
   .dd-stat-card {
     display: flex;
     align-items: center;
     gap: clamp(0.6rem, 1vw, 0.9rem);
+    /* Altura fixa que ja comporta a metrica "vs ontem" — todos os 4 cards
+       da linha ficam iguais, com ou sem delta (nao "pulam" quando aparece). */
+    min-height: clamp(88px, 7vw, 100px);
     padding: clamp(0.7rem, 1vw, 0.95rem) clamp(0.85rem, 1.2vw, 1.15rem);
     background: #ffffff;
     border: 1px solid rgba(112, 130, 103, 0.22);
@@ -26114,110 +26078,23 @@ select.samples-filter-field-input {
   }
 
   .dd-stat-card.is-skeleton {
-    min-height: clamp(74px, 6.5vw, 90px);
     pointer-events: none;
     cursor: default;
   }
 
-  /* ── Sales summary card (donut, agora na 2a linha) ── */
+  /* ── 2a linha: card "Lotes disponiveis" (SalesAvailabilityCard) +
+     card placeholder, cada um na metade da largura ── */
 
-  .dd-card-sales {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    align-items: center;
-    gap: 0;
-    padding: clamp(0.9rem, 1.4vw, 1.3rem) clamp(1rem, 1.6vw, 1.6rem);
-    cursor: default;
-  }
-
-  .dd-card-sales .dd-card-sales-info {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 0.4rem;
-  }
-
-  .dd-card-sales:hover {
-    transform: none;
+  .dd-placeholder-card {
+    background: #ffffff;
+    border: 1px dashed rgba(112, 130, 103, 0.35);
+    border-radius: 20px;
     box-shadow:
-      0 2px 4px rgba(0, 0, 0, 0.04),
-      0 12px 26px rgba(19, 35, 24, 0.08);
+      0 2px 8px rgba(0, 0, 0, 0.04),
+      0 8px 20px rgba(0, 0, 0, 0.05);
   }
 
-  .dd-card-sales:active {
-    transform: none;
-  }
-
-  .dd-donut {
-    width: clamp(72px, 7vw, 100px);
-    height: clamp(72px, 7vw, 100px);
-    flex-shrink: 0;
-    justify-self: center;
-  }
-
-  .dd-card-sales-kicker {
-    font-size: clamp(0.7rem, 0.78vw, 0.78rem);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: #72766f;
-    min-height: clamp(32px, 3.6vw, 40px);
-    display: flex;
-    align-items: flex-start;
-  }
-
-  .dd-card-sales .dd-card-count {
-    color: #1f5d43;
-  }
-
-  .dd-card-sales-unit {
-    font-size: clamp(0.74rem, 0.82vw, 0.82rem);
-    font-weight: 500;
-    color: #72766f;
-    letter-spacing: 0.01em;
-  }
-
-  .dd-bar {
-    display: flex;
-    height: 8px;
-    gap: 2px;
-    border-radius: 4px;
-    overflow: hidden;
-  }
-
-  .dd-bar-segment {
-    min-width: 4px;
-    border-radius: 4px;
-    transition: flex 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  .dd-bar-empty {
-    height: 8px;
-    border-radius: 4px;
-    background: #e8e3d5;
-  }
-
-  /* ── Skeleton ── */
-
-  .dd-card-skeleton {
-    pointer-events: none;
-    cursor: default;
-  }
-
-  .dd-card-icon-placeholder {
-    width: clamp(44px, 4vw, 52px);
-    height: clamp(44px, 4vw, 52px);
-    border-radius: 14px;
-    background: #e8e3d5;
-  }
-
-  .dd-card-count-placeholder {
-    width: clamp(40px, 4vw, 48px);
-    height: clamp(24px, 2.4vw, 28px);
-    border-radius: 8px;
-    background: #e8e3d5;
-  }
+  /* ── Skeleton (placeholder das linhas da lista de atividades) ── */
 
   .dd-card-label-placeholder {
     width: clamp(64px, 6vw, 80px);
@@ -26246,13 +26123,10 @@ select.samples-filter-field-input {
 
   .dd-second-row {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: 1fr 1fr;
     gap: clamp(0.75rem, 1.4vw, 1.25rem);
+    align-items: stretch;
     animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.3s backwards;
-  }
-
-  .dd-second-row .dd-card-sales {
-    grid-column: span 2;
   }
 
   /* ── Dashboard Desktop: recent activity list ── */
@@ -30050,6 +29924,21 @@ select.samples-filter-field-input {
 
 .clients-page-v2 .cv2-card.is-incomplete::before {
   background: #f59e0b;
+}
+
+/* Cliente INATIVO: card apagado/esmaecido. O fade usa `filter: opacity()` (e
+   NAO a propriedade `opacity`) de proposito: a propriedade e animada de 0->1
+   pela entrada (spv2-cardIn), entao usar `opacity` direto daria flash (sobe a 1
+   e cai). O filter multiplica a opacidade animada -> entrada suave 0->0.55 sem
+   flash. A pendencia NAO aparece em inativos: o badge nao e renderizado
+   (app/clients/page.tsx) e a barra de status vira NEUTRA (cinza), nunca
+   verde/laranja. */
+.clients-page-v2 .cv2-card.is-inactive {
+  filter: opacity(0.55) grayscale(0.6);
+}
+
+.clients-page-v2 .cv2-card.is-inactive::before {
+  background: #9ca3af;
 }
 
 /* Faixa lateral de ALTURA CHEIA do `.sdv-client-card` (outro contexto) — mantida. */
