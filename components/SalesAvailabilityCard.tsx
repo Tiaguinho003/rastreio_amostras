@@ -159,17 +159,12 @@ export function SalesAvailabilityCard({
 
       <div className="sales-card-body">
         <AgingDonut bands={data.bands} total={total} />
-        {compact ? (
-          <div className="sales-card-aside">
-            {legend}
-            {detailButton}
-          </div>
-        ) : (
-          legend
-        )}
+        {compact ? <div className="sales-card-aside">{legend}</div> : legend}
       </div>
 
-      {compact ? null : detailButton}
+      {/* Botao "Ver disponiveis" no rodape, largura total do card — tanto no
+          mobile (non-compact) quanto no desktop compacto. */}
+      {detailButton}
     </div>
   );
 }

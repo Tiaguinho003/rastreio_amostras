@@ -26347,8 +26347,10 @@ select.samples-filter-field-input {
     min-height: 0;
   }
 
-  /* "Lotes disponiveis" compacto: legenda + botao ao lado do donut, tudo na
-     altura do grafico (sem botao full-width no rodape). */
+  /* "Lotes disponiveis" compacto: legenda ao lado do donut + botao "Ver
+     disponiveis" FULL-WIDTH no rodape do card. O card e grid-stretched (altura
+     fixa da celula), entao o donut e reduzido pra body + botao caberem sem
+     crescer o card. */
   .dd-content-grid .sales-card.is-compact {
     gap: clamp(0.4rem, 0.8vw, 0.6rem);
     padding: clamp(0.8rem, 1.1vw, 1.1rem) clamp(0.95rem, 1.3vw, 1.3rem);
@@ -26364,8 +26366,8 @@ select.samples-filter-field-input {
   }
 
   .dd-content-grid .sales-card.is-compact .sales-chart-donut {
-    width: clamp(118px, 11vw, 148px);
-    height: clamp(118px, 11vw, 148px);
+    width: clamp(100px, 9.5vw, 132px);
+    height: clamp(100px, 9.5vw, 132px);
     align-self: center;
   }
 
@@ -26381,7 +26383,8 @@ select.samples-filter-field-input {
     padding: clamp(0.22rem, 0.5vw, 0.36rem) 0;
   }
 
-  /* Botao mais estreito (largura da legenda), embaixo dela. */
+  /* Botao "Ver disponiveis" FULL-WIDTH no rodape do card (width:100% = largura
+     total agora que e filho direto do card, nao da aside). */
   .sales-card.is-compact .sales-card-detail-button {
     width: 100%;
     padding: clamp(0.5rem, 0.7vw, 0.62rem) 2rem;
