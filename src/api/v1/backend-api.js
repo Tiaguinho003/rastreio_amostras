@@ -1121,26 +1121,6 @@ export function createBackendApiV1({
         };
       }),
 
-    getDashboardOperationalMetrics: (input) =>
-      executeApiForInput(input, async () => {
-        await resolveActorContext(input, authService);
-        const result = await queryService.getDashboardOperationalMetrics();
-        return {
-          status: 200,
-          body: result,
-        };
-      }),
-
-    getDashboardCommercialMetrics: (input) =>
-      executeApiForInput(input, async () => {
-        await resolveActorContext(input, authService);
-        const result = await queryService.getDashboardCommercialMetrics();
-        return {
-          status: 200,
-          body: result,
-        };
-      }),
-
     getDashboardRecentActivity: (input) =>
       executeApiForInput(input, async () => {
         await resolveActorContext(input, authService);

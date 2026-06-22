@@ -3,17 +3,11 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
-import {
-  getDashboardOperationalMetrics,
-  getDashboardCommercialMetrics,
-  getDashboardRecentActivity,
-} from '../../lib/api-client';
+import { getDashboardRecentActivity } from '../../lib/api-client';
 import { useOperationModal } from './useOperationModal';
 import { OperationModal } from './OperationModal';
-import { MetricsCard } from './MetricsCard';
 import { RecentActivityList } from './RecentActivityList';
 import type {
-  DashboardOperationalMetricsResponse,
   DashboardPendingResponse,
   DashboardRecentActivityItem,
   DashboardSalesAvailabilityResponse,
@@ -121,10 +115,6 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
     operationModalData,
   } = useOperationModal(data);
 
-  const [operationalMetrics, setOperationalMetrics] =
-    useState<DashboardOperationalMetricsResponse | null>(null);
-  const [commercialMetrics, setCommercialMetrics] =
-    useState<DashboardOperationalMetricsResponse | null>(null);
   const [recentActivity, setRecentActivity] = useState<DashboardRecentActivityItem[] | null>(null);
   // Throttle pro refetch on focus/visibilitychange: evita N requests
   // em Alt+Tab rapido. 30s alinha com o Cache-Control do endpoint.
@@ -140,12 +130,6 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
     function refetchAll() {
       if (!session) return;
       lastFetchRef.current = Date.now();
-      getDashboardOperationalMetrics(session)
-        .then(setOperationalMetrics)
-        .catch(() => {});
-      getDashboardCommercialMetrics(session)
-        .then(setCommercialMetrics)
-        .catch(() => {});
       getDashboardRecentActivity(session)
         .then((response) => setRecentActivity(response.items))
         .catch(() => {});
@@ -253,24 +237,6 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
               />
             </div>
           )}
-        </div>
-
-        <div className="dd-metrics-row">
-          <MetricsCard
-            kicker="Operacional"
-            subtitle="Registro → Classificacao (ultimos 5 dias)"
-            data={operationalMetrics}
-            color="#5f8c6a"
-            id="operational"
-          />
-          <MetricsCard
-            kicker="Comercial"
-            subtitle="Classificacao → Venda (ultimas 4 semanas)"
-            data={commercialMetrics}
-            color="#3a6ea3"
-            id="commercial"
-            unitMode="days"
-          />
         </div>
 
         <RecentActivityList items={recentActivity} />

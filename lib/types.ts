@@ -698,17 +698,6 @@ export interface DashboardSalesAvailabilityResponse {
   };
 }
 
-export interface DashboardOperationalMetricsResponse {
-  overall: number | null;
-  meta: number;
-  sampleCount: number;
-  buckets: Array<{
-    date: string;
-    value: number;
-    count: number;
-  }>;
-}
-
 export type DashboardRecentActivityType =
   | 'REGISTRATION_CONFIRMED'
   | 'SALE_CREATED'
