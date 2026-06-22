@@ -18,8 +18,8 @@ interface OperationModalProps {
 
 // Pendencias operacionais num BottomSheet (sai de baixo no mobile; no desktop
 // o BottomSheet vira modal central via CSS responsivo >901px). Variante
-// .is-operations = altura por conteudo + header claro (novo padrao em
-// prototipagem). Cards reusam o visual do card da pagina de Lotes
+// .is-operations = altura por conteudo; o chrome (header claro + titulo verde)
+// ja e o BASE canonico de todos os bottom sheets. Cards reusam o visual de Lotes
 // (.spv2-card*), porem colapsado, sem status comercial e sem expandir; a
 // acao de classificar e um botao quadrado com seta no lugar do chevron.
 export function OperationModal({ open, data, onClose, onItemAction }: OperationModalProps) {

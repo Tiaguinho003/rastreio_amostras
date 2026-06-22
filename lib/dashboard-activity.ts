@@ -1,11 +1,11 @@
 /**
  * Config visual dos itens de "Ultimas atividades" do dashboard
- * (desktop + futuro mobile). Centralizado pra que ambas as
- * plataformas compartilhem labels/cores e pra que a adicao de um
- * novo tipo de evento seja um unico ponto de mudanca no client.
+ * (desktop + mobile). Centralizado pra que ambas as plataformas
+ * compartilhem labels/cores e pra que a adicao de um novo tipo de
+ * evento seja um unico ponto de mudanca no client.
  *
  * NAO movemos pro server pq:
- *  - tipos sao estaticos hoje (4 tipos, mudam raro)
+ *  - os tipos sao estaticos hoje (mudam raro; ver DashboardRecentActivityType)
  *  - label/cor sao puramente apresentacao (i18n cabe aqui)
  *  - evita round-trip de metadata constante
  */

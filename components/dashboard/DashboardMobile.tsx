@@ -138,8 +138,8 @@ export function DashboardMobile({
               {error ? <p className="error">{error}</p> : null}
               {data ? (
                 <div className="dashboard-operations-grid">
-                  {/* Fase P4: card "Impressão" removido (volta na Fase Pb quando
-                    a impressao pos-classificacao for implementada). */}
+                  {/* Q.print: card "Impressão" cortado definitivamente (decisao
+                    Q.1.c #20). PrintJob vive no detalhe da amostra, nao aqui. */}
                   <button
                     type="button"
                     className="dashboard-operation-card dashboard-op-classification is-wide"

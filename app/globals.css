@@ -9756,10 +9756,10 @@ body:has(.app-modal-backdrop) .prospector-fab {
    busca e cards de contagem ficam sempre visiveis) e .prospector-list-scroll
    assume o overflow. O clearance do botao "+" migra pro fim da lista. */
 .prospector-dashboard .dashboard-sheet {
-  /* Fundo frio claro do padrao atual (mesmo #f4f6f5 do dashboard do admin
-     em .dashboard-mobile). Sem este override o sheet do prospector herdava
-     o gradiente bege legado da base .dashboard-sheet (#fdf9ec -> #f4f0e7),
-     destoando do branco do resto do app. */
+  /* Fundo frio claro. O prospector mantem #f4f6f5 — divergiu do admin, que
+     passou a #ffffff em 2026-06-22 (.dashboard-mobile .dashboard-sheet). Sem
+     este override o sheet do prospector herdava o gradiente bege legado da
+     base .dashboard-sheet (#fdf9ec -> #f4f0e7). */
   background: #f4f6f5;
   overflow: hidden;
   padding-bottom: 0;
@@ -20012,8 +20012,8 @@ select.samples-filter-field-input {
      desktop). */
 
   .recent-activity-mobile {
-    /* Altura fixa pra mostrar ~5 items visiveis sem scroll. Cabem ate
-       15 items na lista interna (scroll vertical) — os 10 alem dos 5
+    /* Altura fixa pra mostrar ~6 items visiveis sem scroll. Cabem ate
+       20 items na lista interna (scroll vertical) — os 14 alem dos 6
        acessiveis via scroll dentro do card. */
     height: 400px;
     display: flex;
@@ -20056,7 +20056,7 @@ select.samples-filter-field-input {
     display: flex;
     flex-direction: column;
     gap: 0;
-    /* Scroll interno: cabem ~5 visiveis sem scroll, ate 15 com scroll
+    /* Scroll interno: cabem ~6 visiveis sem scroll, ate 20 com scroll
        vertical. overscroll-behavior: contain evita pull-to-refresh do
        iOS PWA. -webkit-overflow-scrolling: touch ativa momentum iOS. */
     flex: 1;
