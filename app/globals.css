@@ -32137,18 +32137,16 @@ body.is-selection-mode .hero-search-filter-btn {
 }
 
 /* Chevron ao lado do avatar de perfil no mobile (HeaderAvatarMenu).
-   Cor herda do contexto (branco no hero verde, escuro nos headers
-   claros). */
+   Sempre branco (pedido do usuario) — fica sobre os headers verdes. */
 .header-avatar-chevron {
   width: 0.85rem;
   height: 0.85rem;
   flex: none;
   fill: none;
-  stroke: currentColor;
+  stroke: #ffffff;
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
-  opacity: 0.75;
 }
 
 @media (min-width: 901px) {
