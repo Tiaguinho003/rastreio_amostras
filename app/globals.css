@@ -32185,8 +32185,8 @@ body.is-selection-mode .hero-search-filter-btn {
   .app-sidebar-logo {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
-    margin: 0.2rem 0.3rem 1rem;
+    justify-content: center;
+    margin: 0.5rem 0 1.9rem;
   }
 
   .app-sidebar-logo-image {
@@ -32205,14 +32205,16 @@ body.is-selection-mode .hero-search-filter-btn {
 
   .app-sidebar-link {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 0.7rem;
-    padding: 0.6rem 0.7rem;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.75rem 0.5rem;
     border-radius: 12px;
     border: 1px solid transparent;
     color: rgba(244, 247, 242, 0.86);
-    font-size: 0.95rem;
     font-weight: 600;
+    text-align: center;
     transition:
       background 140ms ease,
       border-color 140ms ease,
@@ -32255,10 +32257,63 @@ body.is-selection-mode .hero-search-filter-btn {
   }
 
   .app-sidebar-link-label {
-    min-width: 0;
+    max-width: 100%;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+    font-size: 0.78rem;
+    line-height: 1.1;
+  }
+
+  /* Botao "Sair" no rodape da barra — branco e fino (outline) */
+  .app-sidebar-logout {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 12px;
+    background: transparent;
+    color: rgba(244, 247, 242, 0.92);
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+      background 140ms ease,
+      border-color 140ms ease,
+      color 140ms ease;
+  }
+
+  .app-sidebar-logout:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.42);
+    color: #ffffff;
+  }
+
+  .app-sidebar-logout:active {
+    transform: scale(0.98);
+  }
+
+  .app-sidebar-logout-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.1rem;
+    height: 1.1rem;
+    flex: none;
+  }
+
+  .app-sidebar-logout-icon svg {
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
   /* .topbar vira a FAIXA BRANCA: so os tools (busca + perfil) a

@@ -613,6 +613,17 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
             );
           })}
         </nav>
+
+        <button type="button" className="app-sidebar-logout" onClick={() => onLogout()}>
+          <span className="app-sidebar-logout-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" />
+              <path d="M10 16l-4-4 4-4" />
+              <path d="M6 12h11" />
+            </svg>
+          </span>
+          Sair
+        </button>
       </aside>
 
       <header className={`topbar ${headerMobileClass}`}>
