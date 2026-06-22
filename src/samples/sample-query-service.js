@@ -1761,51 +1761,91 @@ export class SampleQueryService {
   // tambem deletado (cobria QR_PENDING_PRINT que nao existe mais como
   // status). Resta apenas `classificationPending` (samples em RC).
   async getDashboardPending() {
-    const [allStatusCounts, classificationPendingRows, todayReceivedRows, clientsIncompleteTotal] =
-      await this.prisma.$transaction([
-        this.prisma.sample.groupBy({
-          by: ['status'],
-          where: {
-            status: { in: CLASSIFICATION_PENDING_STATUSES },
-          },
-          _count: { status: true },
-        }),
-        this.prisma.sample.findMany({
-          where: {
-            status: { in: CLASSIFICATION_PENDING_STATUSES },
-          },
-          orderBy: [{ updatedAt: 'asc' }, { internalLotNumber: 'asc' }, { id: 'asc' }],
-          take: DASHBOARD_LIST_LIMIT,
-          select: DASHBOARD_SAMPLE_SELECT,
-        }),
-        (() => {
-          const nowUtc = new Date();
-          const nowSp = new Date(nowUtc.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
-          const year = nowSp.getUTCFullYear();
-          const month = nowSp.getUTCMonth();
-          const day = nowSp.getUTCDate();
-          const startUtc = new Date(
-            Date.UTC(year, month, day, SAO_PAULO_UTC_OFFSET_HOURS + 7, 0, 0, 0)
-          );
-          const endUtc = new Date(
-            Date.UTC(year, month, day, SAO_PAULO_UTC_OFFSET_HOURS + 18, 0, 0, 0)
-          );
-          return this.prisma.$queryRaw`
+    const [
+      allStatusCounts,
+      classificationPendingRows,
+      todayReceivedRows,
+      clientsIncompleteTotal,
+      dailyCountsRows,
+    ] = await this.prisma.$transaction([
+      this.prisma.sample.groupBy({
+        by: ['status'],
+        where: {
+          status: { in: CLASSIFICATION_PENDING_STATUSES },
+        },
+        _count: { status: true },
+      }),
+      this.prisma.sample.findMany({
+        where: {
+          status: { in: CLASSIFICATION_PENDING_STATUSES },
+        },
+        orderBy: [{ updatedAt: 'asc' }, { internalLotNumber: 'asc' }, { id: 'asc' }],
+        take: DASHBOARD_LIST_LIMIT,
+        select: DASHBOARD_SAMPLE_SELECT,
+      }),
+      (() => {
+        const nowUtc = new Date();
+        const nowSp = new Date(nowUtc.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
+        const year = nowSp.getUTCFullYear();
+        const month = nowSp.getUTCMonth();
+        const day = nowSp.getUTCDate();
+        const startUtc = new Date(
+          Date.UTC(year, month, day, SAO_PAULO_UTC_OFFSET_HOURS + 7, 0, 0, 0)
+        );
+        const endUtc = new Date(
+          Date.UTC(year, month, day, SAO_PAULO_UTC_OFFSET_HOURS + 18, 0, 0, 0)
+        );
+        return this.prisma.$queryRaw`
             SELECT COUNT(*)::INTEGER AS total
             FROM "sample" s
             WHERE s."created_at" >= ${startUtc}
               AND s."created_at" <= ${endUtc}
           `;
-        })(),
-        // Contagem de clientes com cadastro incompleto. Reusa o WHERE clause
-        // canonico de client-service (mesma regra do chip filtro em /clients).
-        this.prisma.client.count({
-          where: {
-            status: 'ACTIVE',
-            ...buildCompletenessWhere('incomplete'),
-          },
-        }),
-      ]);
+      })(),
+      // Contagem de clientes com cadastro incompleto. Reusa o WHERE clause
+      // canonico de client-service (mesma regra do chip filtro em /clients).
+      this.prisma.client.count({
+        where: {
+          status: 'ACTIVE',
+          ...buildCompletenessWhere('incomplete'),
+        },
+      }),
+      // Pulso do dia (cards "Lotes registrados hoje" / "Envios concluidos
+      // hoje" do dashboard desktop): contagem de lotes por evento em hoje e
+      // ontem (dia BRT completo 00h-24h), para o delta "vs ontem".
+      (() => {
+        const nowUtc = new Date();
+        const nowSp = new Date(nowUtc.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
+        const y = nowSp.getUTCFullYear();
+        const m = nowSp.getUTCMonth();
+        const d = nowSp.getUTCDate();
+        const todayStart = new Date(Date.UTC(y, m, d, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
+        const todayEnd = new Date(Date.UTC(y, m, d + 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
+        const yesterdayStart = new Date(Date.UTC(y, m, d - 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
+        return this.prisma.$queryRaw`
+            SELECT
+              COUNT(DISTINCT sample_id) FILTER (
+                WHERE event_type = 'REGISTRATION_CONFIRMED'
+                  AND occurred_at >= ${todayStart} AND occurred_at < ${todayEnd}
+              )::INTEGER AS "registeredToday",
+              COUNT(DISTINCT sample_id) FILTER (
+                WHERE event_type = 'REGISTRATION_CONFIRMED'
+                  AND occurred_at >= ${yesterdayStart} AND occurred_at < ${todayStart}
+              )::INTEGER AS "registeredYesterday",
+              COUNT(DISTINCT sample_id) FILTER (
+                WHERE event_type = 'PHYSICAL_SAMPLE_SENT'
+                  AND occurred_at >= ${todayStart} AND occurred_at < ${todayEnd}
+              )::INTEGER AS "sentToday",
+              COUNT(DISTINCT sample_id) FILTER (
+                WHERE event_type = 'PHYSICAL_SAMPLE_SENT'
+                  AND occurred_at >= ${yesterdayStart} AND occurred_at < ${todayStart}
+              )::INTEGER AS "sentYesterday"
+            FROM "sample_event"
+            WHERE event_type IN ('REGISTRATION_CONFIRMED', 'PHYSICAL_SAMPLE_SENT')
+              AND occurred_at >= ${yesterdayStart} AND occurred_at < ${todayEnd}
+          `;
+      })(),
+    ]);
 
     const countByStatus = {};
     for (const row of allStatusCounts) {
@@ -1821,6 +1861,7 @@ export class SampleQueryService {
     }
 
     const todayReceivedTotal = toIntegerOrZero(todayReceivedRows?.[0]?.total);
+    const dailyRow = dailyCountsRows?.[0] ?? {};
 
     return {
       todayReceivedTotal,
@@ -1831,6 +1872,14 @@ export class SampleQueryService {
       },
       clientsIncomplete: {
         total: clientsIncompleteTotal,
+      },
+      dailyRegistered: {
+        today: toIntegerOrZero(dailyRow.registeredToday),
+        yesterday: toIntegerOrZero(dailyRow.registeredYesterday),
+      },
+      dailySent: {
+        today: toIntegerOrZero(dailyRow.sentToday),
+        yesterday: toIntegerOrZero(dailyRow.sentYesterday),
       },
     };
   }
