@@ -55,7 +55,7 @@ const COLUMN_HEADER = (
 
 const HEADER = (
   <div className="dd-activity-header">
-    <h3 className="dd-activity-title">Ultimas atividades</h3>
+    <h3 className="dd-activity-title">Últimas atividades</h3>
   </div>
 );
 

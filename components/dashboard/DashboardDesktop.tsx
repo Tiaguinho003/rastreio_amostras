@@ -111,7 +111,7 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
           {data ? (
             <>
               <StatCard
-                title="Classificacao pendente"
+                title="Classificação pendente"
                 value={classificationTotal}
                 onClick={(event) =>
                   openOperationPanel('classification_pending', event.currentTarget)
@@ -152,7 +152,7 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
                 }
               />
               <StatCard
-                title="Envios concluidos hoje"
+                title="Envios concluídos hoje"
                 value={data.dailySent.today}
                 delta={formatDelta(data.dailySent.today, data.dailySent.yesterday)}
                 icon={

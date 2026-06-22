@@ -19,7 +19,7 @@ export interface OperationModalData {
 function buildOperationModalData(data: DashboardPendingResponse): OperationModalData {
   return {
     title: 'Lotes pendentes',
-    emptyMessage: 'Nenhuma amostra aguardando classificacao.',
+    emptyMessage: 'Nenhuma amostra aguardando classificação.',
     items: data.classificationPending.items,
     themeClass: 'is-status-classification-pending',
   };

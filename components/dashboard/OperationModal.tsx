@@ -36,7 +36,7 @@ export function OperationModal({ open, data, onClose, onItemAction }: OperationM
     >
       {!data || data.items.length === 0 ? (
         <p className="app-modal-empty">
-          {data?.emptyMessage ?? 'Nenhuma amostra aguardando classificacao.'}
+          {data?.emptyMessage ?? 'Nenhuma amostra aguardando classificação.'}
         </p>
       ) : (
         <div className={`app-modal-list ${data.themeClass}`}>
