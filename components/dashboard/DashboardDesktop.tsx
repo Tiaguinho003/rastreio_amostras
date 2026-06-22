@@ -44,20 +44,28 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
   const lastFetchRef = useRef<number>(0);
 
   useEffect(() => {
-    if (!session) return;
-    const isDesktop = window.matchMedia('(min-width: 901px)').matches;
-    if (!isDesktop) return;
+    if (!session) return undefined;
 
+    // So o breakpoint ATIVO busca (o twin mobile fica montado mas inerte via
+    // CSS). `active` evita setState apos unmount; o listener de 'change' do
+    // matchMedia re-busca ao ENTRAR no desktop num resize (senao os cards
+    // ficavam travados no skeleton — nada disparava o fetch).
+    const mq = window.matchMedia('(min-width: 901px)');
+    let active = true;
     const REFETCH_THROTTLE_MS = 30_000;
 
     function refetchAll() {
-      if (!session) return;
+      if (!active || !mq.matches) return;
       lastFetchRef.current = Date.now();
       getDashboardRecentActivity(session)
-        .then((response) => setRecentActivity(response.items))
+        .then((response) => {
+          if (active) setRecentActivity(response.items);
+        })
         .catch(() => {});
       getDashboardCommercialTimeseries(session)
-        .then((response) => setCommercialSeries(response))
+        .then((response) => {
+          if (active) setCommercialSeries(response);
+        })
         .catch(() => {});
     }
 
@@ -68,15 +76,22 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
 
     refetchAll();
 
+    function handleBreakpointChange() {
+      if (mq.matches) refetchAll();
+    }
+
     function handleVisibilityChange() {
       if (document.visibilityState === 'visible') {
         refetchAllThrottled();
       }
     }
 
+    mq.addEventListener('change', handleBreakpointChange);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', refetchAllThrottled);
     return () => {
+      active = false;
+      mq.removeEventListener('change', handleBreakpointChange);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', refetchAllThrottled);
     };

@@ -4,7 +4,8 @@ import type { MouseEvent, ReactNode } from 'react';
 
 export interface StatDelta {
   pct: number;
-  up: boolean;
+  // up = subiu, down = caiu, flat = igual OU variacao que arredonda pra 0%.
+  tone: 'up' | 'down' | 'flat';
 }
 
 // Delta "vs ontem" dos cards de pulso (registros/envios). Retorna null quando
@@ -14,7 +15,10 @@ export function formatDelta(today: number, yesterday: number): StatDelta | null 
     return null;
   }
   const pct = Math.round(((today - yesterday) / yesterday) * 100);
-  return { pct, up: pct >= 0 };
+  // tone pelo % JA arredondado: uma queda pequena que arredonda pra 0% fica
+  // NEUTRA (cinza), nunca verde — antes `up: pct >= 0` pintava 0% de verde.
+  const tone: StatDelta['tone'] = pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat';
+  return { pct, tone };
 }
 
 interface StatCardProps {
@@ -49,7 +53,7 @@ export function StatCard({
         <span className="dd-stat-title">{title}</span>
         <strong className="dd-stat-value">{value}</strong>
         {delta ? (
-          <span className={`dd-stat-delta${delta.up ? ' is-up' : ' is-down'}`}>
+          <span className={`dd-stat-delta is-${delta.tone}`}>
             {delta.pct > 0 ? '+' : ''}
             {delta.pct}% vs ontem
           </span>

@@ -56,12 +56,20 @@ export function DashboardMobile({
   const lastRecentFetchRef = useRef<number>(0);
 
   useEffect(() => {
+    // So o mobile (<=900px) busca; no desktop o twin fica montado mas inerte
+    // (evita request + timer fantasma). `active` evita setState apos unmount;
+    // o listener de 'change' re-busca ao ENTRAR no mobile num resize.
+    const mq = window.matchMedia('(max-width: 900px)');
+    let active = true;
     const REFETCH_THROTTLE_MS = 30_000;
 
     function refetchRecent() {
+      if (!active || !mq.matches) return;
       lastRecentFetchRef.current = Date.now();
       getDashboardRecentActivity(session)
-        .then((response) => setRecentActivity(response.items))
+        .then((response) => {
+          if (active) setRecentActivity(response.items);
+        })
         .catch(() => {});
     }
 
@@ -72,15 +80,22 @@ export function DashboardMobile({
 
     refetchRecent();
 
+    function handleBreakpointChange() {
+      if (mq.matches) refetchRecent();
+    }
+
     function handleVisibilityChange() {
       if (document.visibilityState === 'visible') {
         refetchRecentThrottled();
       }
     }
 
+    mq.addEventListener('change', handleBreakpointChange);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', refetchRecentThrottled);
     return () => {
+      active = false;
+      mq.removeEventListener('change', handleBreakpointChange);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', refetchRecentThrottled);
     };

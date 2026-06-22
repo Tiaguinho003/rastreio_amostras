@@ -26133,6 +26133,11 @@ select.samples-filter-field-input {
     color: #c0392b;
   }
 
+  /* 0% / igual a ontem: neutro cinza (nunca verde — ver formatDelta). */
+  .dd-stat-delta.is-flat {
+    color: #8a9285;
+  }
+
   .dd-stat-card.is-skeleton {
     pointer-events: none;
     cursor: default;
