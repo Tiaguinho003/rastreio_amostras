@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import { MobileTabbar } from './MobileTabbar';
 import { SampleSearchField } from './SampleSearchField';
 import { UserAvatar } from './UserAvatar';
+import { getGreeting } from './dashboard/greeting';
 import { changeCurrentUserPassword, recordInitialPasswordDecision } from '../lib/api-client';
 import { changePasswordSchema } from '../lib/form-schemas';
 import { useVisitOutboxAutoSync } from '../lib/offline/use-visit-outbox-sync';
@@ -648,6 +649,30 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
               className="topbar-logo-image"
             />
           </Link>
+
+          {/* Saudacao na faixa branca — so no dashboard desktop (>=901px;
+              escondida via CSS no mobile, onde o hero ja a exibe). Empurra a
+              busca + perfil pra direita (margin-right:auto no CSS). */}
+          {isDashboard && !prospector ? (
+            <div className="topbar-greeting">
+              <span className="topbar-greeting-line">
+                <span className="topbar-greeting-label">{getGreeting()}</span>
+                <span className="topbar-greeting-name">{profileFirstName}</span>
+              </span>
+              <span className="topbar-greeting-role">
+                <svg
+                  className="topbar-greeting-role-icon"
+                  viewBox="0 0 24 24"
+                  focusable="false"
+                  aria-hidden="true"
+                >
+                  <path d="M12 3 5 5.5v6c0 4.5 3 8.3 7 9.5 4-1.2 7-5 7-9.5v-6L12 3z" />
+                  <path d="m9 12 2 2 4-4.5" />
+                </svg>
+                {getRoleLabel(session.user.role)}
+              </span>
+            </div>
+          ) : null}
 
           <div className="topbar-tools">
             <div className="topbar-search-slot">

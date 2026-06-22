@@ -88,6 +88,17 @@ export function getActivityFocus(
 }
 
 /**
+ * `true` para eventos que sao o CANCELAMENTO de uma movimentacao (venda/perda)
+ * — rotulos longos ("Venda cancelada"/"Perda cancelada") que pedem card mais
+ * alto + pill com quebra, e o mesmo esmaecimento dos envios cancelados. O
+ * cancelamento de ENVIO nao entra aqui: ele nao e um type proprio, apenas
+ * esmaece o card "Enviada" via o campo `cancelled`.
+ */
+export function isCancellationType(type: DashboardRecentActivityType): boolean {
+  return type === 'SALE_CANCELLED' || type === 'LOSS_CANCELLED';
+}
+
+/**
  * Formata o intervalo entre `iso` e `now` (ms epoch) num label
  * relativo em pt-BR ("agora", "ha N min", "ha N h", "ha N dia(s)",
  * "ha N sem", "ha N mes(es)"). Recebe `now` explicito pra que o

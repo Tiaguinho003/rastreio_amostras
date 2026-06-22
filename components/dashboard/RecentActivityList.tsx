@@ -3,7 +3,12 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-import { formatRelativeTime, getActivityFocus, getEventConfig } from '../../lib/dashboard-activity';
+import {
+  formatRelativeTime,
+  getActivityFocus,
+  getEventConfig,
+  isCancellationType,
+} from '../../lib/dashboard-activity';
 import type { DashboardRecentActivityItem } from '../../lib/types';
 import { BlendBadge } from '../samples/BlendBadge';
 
@@ -33,6 +38,27 @@ interface RecentActivityListProps {
   items: DashboardRecentActivityItem[] | null;
 }
 
+// Cabecalho de colunas — agora FORA da lista rolavel, faz parte do cabecalho
+// fixo do card (titulo + nomes de coluna). Assim, ao rolar, nenhum dado de
+// atividade "vaza" acima dos nomes de coluna. Alinhado ao grid dos cards via
+// --dd-activity-cols.
+const COLUMN_HEADER = (
+  <div className="dd-activity-colnames" aria-hidden="true">
+    <span>Lote</span>
+    <span>Produtor</span>
+    <span>Evento</span>
+    <span>Sacas</span>
+    <span>Destinatário</span>
+    <span>Quando</span>
+  </div>
+);
+
+const HEADER = (
+  <div className="dd-activity-header">
+    <h3 className="dd-activity-title">Ultimas atividades</h3>
+  </div>
+);
+
 export function RecentActivityList({ items }: RecentActivityListProps) {
   // `now` re-renderizado a cada 60s pra timestamps relativos
   // ("ha N min") incrementarem sem precisar refetch dos dados.
@@ -43,26 +69,12 @@ export function RecentActivityList({ items }: RecentActivityListProps) {
     return () => window.clearInterval(id);
   }, []);
 
-  // Cabecalho de colunas (alinhado ao mesmo grid dos cards via --dd-activity-cols).
-  const columnHeader = (
-    <div className="dd-activity-colnames" aria-hidden="true">
-      <span>Lote</span>
-      <span>Produtor</span>
-      <span>Evento</span>
-      <span>Sacas</span>
-      <span>Destinatário</span>
-      <span>Quando</span>
-    </div>
-  );
-
   if (items === null) {
     return (
       <div className="dd-activity-container">
-        <div className="dd-activity-header">
-          <h3 className="dd-activity-title">Ultimas atividades</h3>
-        </div>
+        {HEADER}
+        {COLUMN_HEADER}
         <div className="dd-activity-list" aria-busy="true">
-          {columnHeader}
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="dd-activity-card dd-activity-skeleton" aria-hidden="true">
               <span className="dd-card-label-placeholder" style={{ width: 70, height: 14 }} />
@@ -81,9 +93,7 @@ export function RecentActivityList({ items }: RecentActivityListProps) {
   if (items.length === 0) {
     return (
       <div className="dd-activity-container">
-        <div className="dd-activity-header">
-          <h3 className="dd-activity-title">Ultimas atividades</h3>
-        </div>
+        {HEADER}
         <div className="dd-activity-empty">
           <p>Nenhuma atividade recente.</p>
         </div>
@@ -93,18 +103,23 @@ export function RecentActivityList({ items }: RecentActivityListProps) {
 
   return (
     <div className="dd-activity-container">
-      <div className="dd-activity-header">
-        <h3 className="dd-activity-title">Ultimas atividades</h3>
-      </div>
+      {HEADER}
+      {COLUMN_HEADER}
       <div className="dd-activity-list">
-        {columnHeader}
         {items.map((item) => {
           const cfg = getEventConfig(item.activity.type);
+          // Cancelamento de venda/perda: type proprio (rotulo longo). Cancelamento
+          // de envio: campo `cancelled` no card "Enviada". Ambos esmaecem; so o
+          // de venda/perda precisa de card mais alto + pill com quebra (`is-cancellation`).
+          const cancellationEvent = isCancellationType(item.activity.type);
+          const dimmed = item.cancelled || cancellationEvent;
           return (
             <Link
               key={item.id}
               href={`/samples/${item.sampleId}?focus=${getActivityFocus(item.activity.type)}`}
-              className={`dd-activity-card${item.cancelled ? ' is-cancelled' : ''}`}
+              className={`dd-activity-card${dimmed ? ' is-cancelled' : ''}${
+                cancellationEvent ? ' is-cancellation' : ''
+              }`}
             >
               <span className="dd-activity-lot">
                 {formatLot(item.internalLotNumber, item.sampleId)}

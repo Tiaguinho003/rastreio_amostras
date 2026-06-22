@@ -26005,6 +26005,17 @@ select.samples-filter-field-input {
     flex-direction: column;
   }
 
+  /* Alinha o conteudo da faixa branca (saudacao a esquerda, perfil a direita)
+     a MESMA coluna dos cards: mesmo box do .dashboard-page (max-width +
+     centralizacao + recuo lateral). Saudacao/nome/tipo comecam na linha do 1o
+     card e o perfil casa com a borda direita do ultimo card. */
+  .app-shell-root:has(.dashboard-page) .topbar-inner {
+    max-width: var(--content-max-wide);
+    width: 100%;
+    margin-inline: auto;
+    padding-inline: clamp(0.85rem, 3vw, 4rem);
+  }
+
   .dashboard-page {
     max-width: var(--content-max-wide);
     margin: 0 auto;
@@ -26170,14 +26181,26 @@ select.samples-filter-field-input {
      altura) + coluna direita (Ultimas atividades, ocupa as 2 linhas). A
      largura da esquerda (1.5 de 4) alinha ~com o meio do 2o card da 1a linha. */
   .dd-content-grid {
+    /* Altura de 1 linha da lista de atividades + gap entre linhas. Usados no
+       calc da altura da lista (8 linhas) e no min-height de cada card. Linhas
+       baixas (48px) p/ encolher os cards das linhas 2-3 e abrir espaco pra
+       faixa branca maior (saudacao + nome grandes em 3 linhas). */
+    --dd-act-row-h: 48px;
+    --dd-act-row-gap: 0.5rem;
+    /* Padding horizontal de cada card da lista — compartilhado com o recuo do
+       cabecalho de colunas (fora da lista) pra as colunas alinharem. */
+    --dd-act-card-pad-x: clamp(0.8rem, 1.1vw, 1.1rem);
     display: grid;
     grid-template-columns: 1.5fr 2.5fr;
     grid-template-rows: 1fr 1fr;
     gap: clamp(0.75rem, 1.4vw, 1.25rem);
-    /* Estica pra preencher o resto da viewport (sem scroll na pagina) — os
-       3 cards crescem com a altura da tela; o scroll fica na lista de
-       atividades. */
-    flex: 1;
+    /* NAO estica mais pra preencher a viewport: a altura vem do conteudo —
+       a lista de "Ultimas atividades" e fixada em 8 linhas (abaixo) e dita a
+       altura do grid; "Lotes disponiveis" + card vazio (coluna esquerda,
+       linhas 1fr/1fr) encolhem na mesma proporcao. O espaco que sobra ate o
+       fim da viewport vira folga inferior (a faixa branca maior ja consumiu
+       parte do topo). */
+    flex: 0 0 auto;
     min-height: 0;
     animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.3s backwards;
   }
@@ -26269,21 +26292,19 @@ select.samples-filter-field-input {
     animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.32s backwards;
   }
 
-  /* Cabecalho de colunas — sticky no topo da lista, alinhado ao grid dos
-     cards (mesma var + border lateral transparente p/ casar com o border
-     dos cards). */
+  /* Cabecalho de colunas — FORA da lista rolavel, no chrome fixo do card
+     (logo abaixo do titulo). Como nada rola por cima dele, nenhum dado de
+     atividade vaza acima dos nomes de coluna. Recuo casa com o grid dos cards:
+     recuo da lista (0.2rem) + padding horizontal do card; +0.45rem so a direita
+     pra compensar a barra de rolagem que estreita os cards. */
   .dd-activity-colnames {
-    position: sticky;
-    top: 0;
-    z-index: 1;
     display: grid;
     grid-template-columns: var(--dd-activity-cols);
     gap: var(--dd-activity-gap);
     align-items: center;
-    padding: 0 clamp(0.8rem, 1.1vw, 1.1rem) 0.4rem;
-    border: 1px solid transparent;
-    border-bottom-color: rgba(112, 130, 103, 0.16);
-    background: #ffffff;
+    padding: 0.1rem calc(0.2rem + var(--dd-act-card-pad-x) + 0.45rem) 0.5rem
+      calc(0.2rem + var(--dd-act-card-pad-x));
+    border-bottom: 1px solid rgba(112, 130, 103, 0.16);
   }
 
   .dd-activity-colnames > span {
@@ -26310,9 +26331,7 @@ select.samples-filter-field-input {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    padding: 0 0.2rem 0.6rem;
-    border-bottom: 1px solid rgba(112, 130, 103, 0.12);
-    margin-bottom: 0.4rem;
+    padding: 0 0.2rem 0.5rem;
   }
 
   .dd-activity-title {
@@ -26330,12 +26349,17 @@ select.samples-filter-field-input {
   }
 
   .dd-activity-list {
-    flex: 1;
+    /* Mostra exatamente 8 cards; os demais rolam. O cabecalho de colunas saiu
+       da lista (foi pro chrome fixo do card), entao aqui ficam so os 8 cards:
+       7 gaps entre eles + o padding vertical da lista. */
+    flex: none;
+    height: calc((8 * var(--dd-act-row-h)) + (7 * var(--dd-act-row-gap)) + 0.6rem);
     min-height: 0;
     overflow-y: auto;
+    scrollbar-width: thin;
     display: flex;
     flex-direction: column;
-    gap: clamp(0.4rem, 0.6vw, 0.5rem);
+    gap: var(--dd-act-row-gap);
     padding: 0.4rem 0.2rem 0.2rem;
   }
 
@@ -26357,13 +26381,13 @@ select.samples-filter-field-input {
     grid-template-columns: var(--dd-activity-cols);
     align-items: center;
     gap: var(--dd-activity-gap);
-    padding: clamp(0.75rem, 1vw, 1rem) clamp(0.8rem, 1.1vw, 1.1rem);
+    padding: clamp(0.45rem, 0.7vw, 0.62rem) var(--dd-act-card-pad-x);
     background: #fffefb;
     border: 1px solid rgba(112, 130, 103, 0.18);
     border-radius: 12px;
     color: inherit;
     text-decoration: none;
-    min-height: 58px;
+    min-height: var(--dd-act-row-h);
     transition:
       transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
       background 0.18s ease,
@@ -26382,15 +26406,29 @@ select.samples-filter-field-input {
     transform: translateX(1px) scale(0.998);
   }
 
-  /* Caminho A: envio cancelado — card esmaecido (segue clicavel). A opacidade
-     no card inteiro apaga inclusive o pill ambar "Enviada", lendo como
-     inativo/cancelado. Hover leve pra continuar legivel ao passar o mouse. */
+  /* Card esmaecido (segue clicavel). Cobre o envio cancelado (caminho A, card
+     "Enviada" com `cancelled`) E venda/perda canceladas (types proprios) — em
+     todos a opacidade le como inativo/cancelado. Hover leve pra continuar
+     legivel ao passar o mouse. */
   .dd-activity-card.is-cancelled {
     opacity: 0.55;
   }
 
   .dd-activity-card.is-cancelled:hover {
     opacity: 0.72;
+  }
+
+  /* Venda/perda cancelada: rotulo longo ("Venda cancelada"/"Perda cancelada").
+     Card mais ALTO e pill que QUEBRA dentro da coluna "Evento" — sem estourar
+     as bordas do mini-card nem invadir as colunas vizinhas. */
+  .dd-activity-card.is-cancellation {
+    min-height: calc(var(--dd-act-row-h) + 16px);
+  }
+
+  .dd-activity-card.is-cancellation .dd-activity-event {
+    white-space: normal;
+    line-height: 1.12;
+    padding-block: 0.3rem;
   }
 
   .dd-activity-lot {
@@ -26456,6 +26494,10 @@ select.samples-filter-field-input {
     border-radius: 999px;
     text-align: center;
     justify-self: center;
+    /* Nunca estoura a coluna "Evento": rotulos longos (cancelamentos) quebram
+       em vez de invadir as colunas vizinhas. */
+    max-width: 100%;
+    overflow-wrap: break-word;
   }
 
   .dd-activity-time {
@@ -32230,7 +32272,8 @@ body.is-selection-mode .hero-search-filter-btn {
 }
 
 .topbar-profile-trigger-name,
-.topbar-profile-chevron {
+.topbar-profile-chevron,
+.topbar-greeting {
   display: none;
 }
 
@@ -32442,6 +32485,73 @@ body.is-selection-mode .hero-search-filter-btn {
 
   .topbar-logo-slot {
     display: none;
+  }
+
+  /* Busca de lote sai da faixa branca no desktop: some sobre o branco (fica
+     "invisivel pela cor") e nao e necessaria aqui — a pagina de Lotes tem a
+     sua propria busca. Mobile (barra verde) segue com a busca. */
+  .topbar-search-slot {
+    display: none;
+  }
+
+  /* Saudacao na faixa branca (so dashboard): rotulo + nome + tipo de usuario.
+     margin-right:auto empurra a busca + perfil pro canto direito. Como o bloco
+     tem 2 linhas, a faixa branca cresce em altura — abrindo espaco que faz os
+     cards do dashboard encolherem (ver .dd-content-grid). */
+  .topbar-greeting {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.15rem;
+    margin-right: auto;
+    min-width: 0;
+    padding-block: 0.2rem;
+  }
+
+  /* Saudacao empilhada: rotulo ("Bom dia,") em cima, NOME embaixo e maior. */
+  .topbar-greeting-line {
+    display: flex;
+    flex-direction: column;
+    gap: 0.02rem;
+    min-width: 0;
+  }
+
+  .topbar-greeting-label {
+    font-size: 1.05rem;
+    font-weight: 500;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .topbar-greeting-name {
+    font-size: 2.1rem;
+    font-weight: 800;
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .topbar-greeting-role {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.32rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #1f5d43;
+  }
+
+  .topbar-greeting-role-icon {
+    width: 0.95rem;
+    height: 0.95rem;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
   /* Perfil vira pilula clara: avatar + primeiro nome + chevron */
