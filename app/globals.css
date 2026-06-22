@@ -14793,21 +14793,8 @@ body:has(.app-modal-backdrop) .prospector-fab {
   box-shadow: none;
 }
 
-/* Bolinha com o nº de clientes selecionados (indicativo no colapsado). */
-.samples-filter-retract-count {
-  flex-shrink: 0;
-  min-width: 1.15rem;
-  height: 1.15rem;
-  padding: 0 0.32rem;
-  border-radius: 999px;
-  background: var(--brand-green);
-  color: #fff;
-  font-size: 0.66rem;
-  font-weight: 700;
-  line-height: 1;
-  display: inline-grid;
-  place-items: center;
-}
+/* (A bolinha de contagem por campo agora e .samples-filter-field-count, no canto
+   superior direito do controle — comum a todos os campos dos modais de filtro.) */
 
 /* Seta (chevron) — gira 180° ao abrir. */
 .samples-filter-retract-chevron {
@@ -15298,6 +15285,61 @@ body:has(.app-modal-backdrop) .prospector-fab {
   outline: none;
   border-color: #7ca16f;
   box-shadow: 0 0 0 3px rgba(124, 161, 111, 0.14);
+}
+
+/* ── Filtro ATIVO por campo (modais de filtro de /samples e /clients) ──
+   Campo com filtro selecionado fica VERDE (borda da marca + leve fundo verde) e
+   ganha uma BOLINHA com a contagem de filtros ativos no canto superior direito,
+   metade dentro / metade fora do controle. A bolinha exige um ancestral
+   position:relative — o controle (ou seu wrapper .samples-filter-control / a
+   caixa multi / a grade do range / o campo retratil) cumpre esse papel. */
+.samples-filter-control {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+/* Controle ativo verde: cobre select/input nativo, a caixa multi-selecao e o
+   gatilho retratil (Proprietario/Comprador/Enviado para). */
+.samples-filter-field-input.is-active,
+.samples-filter-multi.is-active,
+.samples-filter-field--retractable.is-active:not(.is-open) .samples-filter-retract-trigger {
+  border-color: var(--brand-green);
+  background: #eef3ec;
+}
+
+/* Label do campo ativo tambem fica verde. */
+.samples-filter-field.is-active > .samples-filter-field-label,
+.samples-filter-field--retractable.is-active .samples-filter-field-label {
+  color: var(--brand-green);
+}
+
+/* Bolinha de contagem — metade dentro / metade fora do canto sup. direito. */
+.samples-filter-field-count {
+  position: absolute;
+  top: 0;
+  right: 0;
+  transform: translate(40%, -45%);
+  z-index: 4;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--brand-green);
+  color: #fff;
+  font-size: 0.64rem;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-grid;
+  place-items: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+  pointer-events: none;
+}
+
+/* Campos que hospedam a bolinha precisam ancorar (position:relative). */
+.samples-filter-field--retractable,
+.samples-filter-split-grid {
+  position: relative;
 }
 
 /* Linha de 2 campos lado a lado (ex: Status | Safra) — economiza espaco
@@ -25942,7 +25984,10 @@ select.samples-filter-field-input {
   }
 
   .app-shell-root:has(.dashboard-page) .app-shell-main {
-    height: calc(100vh - 4.5rem);
+    /* Altura vem do grid do shell (row 2 = 1fr = 100vh - faixa branca). Sem
+       height fixo: a faixa branca tem altura variavel, nao os 4.5rem da
+       topbar antiga. */
+    min-height: 0;
     width: 100%;
     max-width: none;
     margin: 0;
@@ -26125,11 +26170,15 @@ select.samples-filter-field-input {
      altura) + coluna direita (Ultimas atividades, ocupa as 2 linhas). A
      largura da esquerda (1.5 de 4) alinha ~com o meio do 2o card da 1a linha. */
   .dd-content-grid {
-    --dd-left-card-h: clamp(218px, 22vw, 256px);
     display: grid;
     grid-template-columns: 1.5fr 2.5fr;
-    grid-template-rows: repeat(2, var(--dd-left-card-h));
+    grid-template-rows: 1fr 1fr;
     gap: clamp(0.75rem, 1.4vw, 1.25rem);
+    /* Estica pra preencher o resto da viewport (sem scroll na pagina) — os
+       3 cards crescem com a altura da tela; o scroll fica na lista de
+       atividades. */
+    flex: 1;
+    min-height: 0;
     animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.3s backwards;
   }
 
@@ -26159,9 +26208,10 @@ select.samples-filter-field-input {
 
   .dd-content-grid .sales-card.is-compact .sales-card-body {
     grid-template-columns: auto 1fr;
-    align-items: stretch;
+    align-items: center;
     gap: clamp(0.7rem, 1.2vw, 1.1rem);
     padding-inline-start: 0;
+    flex: 1;
     min-height: 0;
   }
 
@@ -26174,8 +26224,8 @@ select.samples-filter-field-input {
   .sales-card-aside {
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    gap: 0.6rem;
+    justify-content: center;
+    gap: 0.7rem;
     min-width: 0;
   }
 
@@ -26201,7 +26251,7 @@ select.samples-filter-field-input {
       clamp(54px, 5.5vw, 76px)
       minmax(64px, 1.5fr)
       clamp(86px, 9vw, 112px)
-      clamp(52px, 5.5vw, 74px)
+      clamp(42px, 4vw, 56px)
       minmax(56px, 1fr)
       clamp(52px, 5.5vw, 72px);
     --dd-activity-gap: clamp(0.4rem, 0.7vw, 0.7rem);

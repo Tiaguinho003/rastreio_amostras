@@ -11,7 +11,8 @@ const RELATIVE_TIME_REFRESH_MS = 60_000;
 
 function formatSacks(sacks: number | null): string {
   if (sacks === null || sacks === undefined) return '—';
-  return `${sacks} ${sacks === 1 ? 'saca' : 'sacas'}`;
+  // So o numero (a coluna ja se chama "Sacas") — economiza espaco.
+  return String(sacks);
 }
 
 function formatProducer(producer: string | null): string {
