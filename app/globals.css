@@ -9031,6 +9031,43 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
+/* /resumo DESKTOP: mesma estrutura visual do /informe (sem o FAB de lapis —
+   pagina so de leitura). Sem titulo "Resumo" nem seta de voltar (cabecalho
+   oculto); o feed num CARD branco contido (borda + raio + sombra, igual ao
+   .samples-page-v2-sheet) com o total no topo; gap pra topbar. */
+@media (min-width: 901px) {
+  .sdv-page:has(.rsm-content) .sdv-header {
+    display: none;
+  }
+
+  /* Trava a altura (o desktop base poe .sdv-page em height:auto = scroll de
+     pagina): o card preenche a tela TODA e o feed rola POR DENTRO da area dos
+     cards — como o /informe e o painel comercial do detalhe. */
+  .sdv-page:has(.rsm-content) {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .sdv-content.informe-content.rsm-content {
+    /* flex:1 (ja vem do .sdv-content) preenche a altura do .sdv-page; o
+       .rsm-feed (flex:1 + overflow-y:auto) rola por dentro do card. */
+    flex: 1;
+    min-height: 0;
+    margin-top: 1.5rem;
+    border: 1px solid rgba(112, 130, 103, 0.22);
+    border-radius: 18px;
+    box-shadow:
+      0 2px 4px rgba(0, 0, 0, 0.04),
+      0 12px 26px rgba(19, 35, 24, 0.08);
+    padding: 1rem 1.2rem 0.8rem;
+  }
+
+  /* O feed preenche o card (no informe a lista preenche o sheet). */
+  .rsm-content .rsm-feed {
+    width: 100%;
+  }
+}
+
 .rsm-intro {
   flex-direction: row;
   align-items: center;
