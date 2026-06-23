@@ -1491,10 +1491,12 @@ function SamplesPage() {
 
     return (
       <div
-        className={`samples-filter-field samples-filter-field--retractable${isOpen ? ' is-open' : ''}`}
+        className={`samples-filter-field samples-filter-field--retractable${isOpen ? ' is-open' : ''}${
+          selected.length > 0 ? ' is-active' : ''
+        }`}
       >
-        {/* COLAPSADO: só o nome do campo (gatilho clicável) + seta + bolinha com
-            a contagem. Nenhuma caixa de input à vista. */}
+        {/* COLAPSADO: só o nome do campo (gatilho clicável) + seta. A contagem
+            agora vai na bolinha do canto (abaixo), comum a todos os campos. */}
         <button
           type="button"
           className="samples-filter-retract-trigger"
@@ -1503,9 +1505,6 @@ function SamplesPage() {
           onClick={() => setOpenClientFilter(isOpen ? null : fieldKey)}
         >
           <span className="samples-filter-field-label">{label}</span>
-          {!isOpen && selected.length > 0 ? (
-            <span className="samples-filter-retract-count">{selected.length}</span>
-          ) : null}
           <svg
             className={`samples-filter-retract-chevron${isOpen ? ' is-open' : ''}`}
             viewBox="0 0 24 24"
@@ -1536,6 +1535,13 @@ function SamplesPage() {
             />
           </div>
         ) : null}
+
+        {/* Bolinha de contagem (metade dentro/fora do canto sup. direito). */}
+        {selected.length > 0 ? (
+          <span className="samples-filter-field-count" aria-hidden="true">
+            {selected.length}
+          </span>
+        ) : null}
       </div>
     );
   }
@@ -1544,6 +1550,11 @@ function SamplesPage() {
     // O typeahead de cliente exige sessao nao-nula; o painel so abre logado,
     // entao isto e so o narrowing pro TS (nunca renderiza null na pratica).
     if (!session) return null;
+    // Contagem dos campos de range (Sacas/Periodo) = quantos limites preenchidos.
+    const sacksActiveCount =
+      (draftHiddenFilters.sacksMin.trim() ? 1 : 0) + (draftHiddenFilters.sacksMax.trim() ? 1 : 0);
+    const periodActiveCount =
+      (draftHiddenFilters.periodFrom ? 1 : 0) + (draftHiddenFilters.periodTo ? 1 : 0);
     return (
       <div className="samples-filter-fields">
         {renderClientMultiFilter(
@@ -1653,25 +1664,34 @@ function SamplesPage() {
         </div>
 
         <div className="samples-filter-row">
-          <div className="samples-filter-field">
+          <div
+            className={`samples-filter-field${draftHiddenFilters.displayStatus ? ' is-active' : ''}`}
+          >
             <span className="samples-filter-field-label">Status</span>
-            <select
-              className="samples-filter-field-input"
-              value={draftHiddenFilters.displayStatus}
-              onChange={(event) =>
-                setDraftHiddenFilters((c) => ({
-                  ...c,
-                  displayStatus: event.target.value as DisplayStatusFilter,
-                }))
-              }
-            >
-              <option value="">Selecionar</option>
-              {DISPLAY_STATUS_FILTER_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            <span className="samples-filter-control">
+              <select
+                className={`samples-filter-field-input${draftHiddenFilters.displayStatus ? ' is-active' : ''}`}
+                value={draftHiddenFilters.displayStatus}
+                onChange={(event) =>
+                  setDraftHiddenFilters((c) => ({
+                    ...c,
+                    displayStatus: event.target.value as DisplayStatusFilter,
+                  }))
+                }
+              >
+                <option value="">Selecionar</option>
+                {DISPLAY_STATUS_FILTER_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {draftHiddenFilters.displayStatus ? (
+                <span className="samples-filter-field-count" aria-hidden="true">
+                  1
+                </span>
+              ) : null}
+            </span>
           </div>
 
           <ClassificationFilterField
@@ -1683,11 +1703,11 @@ function SamplesPage() {
           />
         </div>
 
-        <div className="samples-filter-field">
+        <div className={`samples-filter-field${sacksActiveCount > 0 ? ' is-active' : ''}`}>
           <span className="samples-filter-field-label">Sacas</span>
           <div className="samples-filter-split-grid">
             <input
-              className="samples-filter-field-input"
+              className={`samples-filter-field-input${draftHiddenFilters.sacksMin.trim() ? ' is-active' : ''}`}
               type="number"
               min="1"
               step="1"
@@ -1702,7 +1722,7 @@ function SamplesPage() {
               placeholder="Ex.: 100"
             />
             <input
-              className="samples-filter-field-input"
+              className={`samples-filter-field-input${draftHiddenFilters.sacksMax.trim() ? ' is-active' : ''}`}
               type="number"
               min="1"
               step="1"
@@ -1716,14 +1736,19 @@ function SamplesPage() {
               }
               placeholder="até"
             />
+            {sacksActiveCount > 0 ? (
+              <span className="samples-filter-field-count" aria-hidden="true">
+                {sacksActiveCount}
+              </span>
+            ) : null}
           </div>
         </div>
 
-        <div className="samples-filter-field">
+        <div className={`samples-filter-field${periodActiveCount > 0 ? ' is-active' : ''}`}>
           <span className="samples-filter-field-label">Periodo</span>
           <div className="samples-filter-split-grid">
             <input
-              className={`samples-filter-field-input${draftHiddenFilters.periodFrom === '' ? ' is-placeholder' : ''}`}
+              className={`samples-filter-field-input${draftHiddenFilters.periodFrom === '' ? ' is-placeholder' : ' is-active'}`}
               type="date"
               value={draftHiddenFilters.periodFrom}
               onChange={(event) =>
@@ -1732,7 +1757,7 @@ function SamplesPage() {
               aria-label="Data inicial"
             />
             <input
-              className={`samples-filter-field-input${draftHiddenFilters.periodTo === '' ? ' is-placeholder' : ''}`}
+              className={`samples-filter-field-input${draftHiddenFilters.periodTo === '' ? ' is-placeholder' : ' is-active'}`}
               type="date"
               value={draftHiddenFilters.periodTo}
               onChange={(event) =>
@@ -1740,6 +1765,11 @@ function SamplesPage() {
               }
               aria-label="Data final"
             />
+            {periodActiveCount > 0 ? (
+              <span className="samples-filter-field-count" aria-hidden="true">
+                {periodActiveCount}
+              </span>
+            ) : null}
           </div>
         </div>
 

@@ -138,7 +138,9 @@ export function ClassificationFilterField({
       <span className="samples-filter-field-label">{label}</span>
       <div className="samples-filter-multi-wrap">
         <div
-          className={`samples-filter-multi samples-filter-multi--select${open ? ' is-open' : ''}`}
+          className={`samples-filter-multi samples-filter-multi--select${open ? ' is-open' : ''}${
+            selected.length > 0 ? ' is-active' : ''
+          }`}
           role="button"
           tabIndex={0}
           aria-haspopup="listbox"
@@ -167,16 +169,17 @@ export function ClassificationFilterField({
             </div>
           )}
 
-          {selected.length > 0 ? (
-            <span className="samples-filter-retract-count" aria-hidden="true">
-              {selected.length}
-            </span>
-          ) : null}
-
           <svg className="samples-filter-multi-chevron" viewBox="0 0 24 24" aria-hidden="true">
             <path d="m6 9 6 6 6-6" />
           </svg>
         </div>
+
+        {/* Bolinha de contagem (metade dentro/fora do canto sup. direito). */}
+        {selected.length > 0 ? (
+          <span className="samples-filter-field-count" aria-hidden="true">
+            {selected.length}
+          </span>
+        ) : null}
 
         {/* Mirror invisivel: so pra medir a largura natural de cada chip e do
             "+N". Fora do fluxo visivel (CSS), nunca aparece nem e lido por AT. */}
