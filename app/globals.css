@@ -5161,6 +5161,42 @@ button:disabled {
   transform: translateX(0) scale(1);
 }
 
+/* Botao "x" que SUBSTITUI a lupa quando ha texto na busca (limpa o campo de
+   uma vez). Mesmo padrao visual da lupa (.hero-search-submit) — box 2rem, cinza
+   #5f7165 — porem COM borda pra ler como botao. Vale /samples e /clients,
+   desktop e mobile. */
+.hero-search-clear-input {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid rgba(95, 113, 101, 0.5);
+  border-radius: 8px;
+  background: transparent;
+  color: #5f7165;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.1s ease;
+}
+
+.hero-search-clear-input svg {
+  display: block;
+  width: 1.05rem;
+  height: 1.05rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.hero-search-clear-input:active {
+  transform: scale(0.9);
+}
+
 .hero-search-input {
   flex: 1;
   border: 0;

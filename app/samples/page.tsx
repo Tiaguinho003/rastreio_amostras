@@ -1966,17 +1966,32 @@ function SamplesPage() {
               autoComplete="off"
               spellCheck={false}
             />
-            <span className="hero-search-submit" aria-hidden="true">
-              <svg
-                className="hero-search-icon-search"
-                viewBox="0 0 24 24"
-                focusable="false"
-                aria-hidden="true"
+            {/* Ao digitar, a lupa decorativa vira um botao "x" pra limpar a
+                busca de uma vez (mesmo padrao da lupa, com borda). */}
+            {searchInput ? (
+              <button
+                type="button"
+                className="hero-search-clear-input"
+                aria-label="Limpar busca"
+                onClick={() => setSearchInput('')}
               >
-                <circle cx="11" cy="11" r="7" />
-                <path d="m16.2 16.2 4.1 4.1" />
-              </svg>
-            </span>
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            ) : (
+              <span className="hero-search-submit" aria-hidden="true">
+                <svg
+                  className="hero-search-icon-search"
+                  viewBox="0 0 24 24"
+                  focusable="false"
+                  aria-hidden="true"
+                >
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m16.2 16.2 4.1 4.1" />
+                </svg>
+              </span>
+            )}
           </form>
           {selectionMode !== 'blend' ? (
             <span className="hero-search-clear-slot" aria-hidden={activeHiddenFiltersCount === 0}>
