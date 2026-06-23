@@ -350,19 +350,17 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
       ? session.user.fullName.trim()
       : session.user.username;
   const profileFirstName = profileName.split(/\s+/)[0];
-  // Barra lateral (desktop) montada por papel. Base: Inicio/Lotes/Clientes.
-  // Depois, por papel: Resumo (viewers = ADMIN/CADASTRO), Informe
-  // (INFORME_ROLES), Metricas (TODOS nao-prospector — pagina acessivel a
-  // todos), Usuarios (ADMIN). Resumo/Clientes sairam do dropdown do perfil
-  // (Clientes ja estava aqui); Metricas deixou de ser so o slot trocado do
-  // Informe e virou item proprio pra todos.
+  // Barra lateral (desktop) montada por papel. Ordem (pedido do usuario):
+  // Inicio / Lotes / Clientes (base) -> Informe (INFORME_ROLES) -> Metricas
+  // (TODOS nao-prospector) -> Resumo (viewers = ADMIN/CADASTRO) -> Usuarios
+  // (ADMIN). Itens condicionais somem por papel mantendo essa ordem relativa.
   const desktopNavItems = prospector
     ? DESKTOP_NAV_ITEMS.filter((item) => item.href === '/dashboard')
     : [
         ...DESKTOP_NAV_ITEMS,
-        ...(isVisitReportViewer(session.user.role) ? [RESUMO_NAV_ITEM] : []),
         ...(isRoleAllowed(session.user.role, INFORME_ROLES) ? [INFORME_NAV_ITEM] : []),
         METRICS_NAV_ITEM,
+        ...(isVisitReportViewer(session.user.role) ? [RESUMO_NAV_ITEM] : []),
         ...(isAdmin(session.user.role) ? [ADMIN_NAV_ITEM] : []),
       ];
   const mobileRouteMeta = resolveMobileRouteMeta(pathname);
