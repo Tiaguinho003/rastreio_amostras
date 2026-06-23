@@ -248,7 +248,8 @@ export class VisitReportService {
           {
             title: 'Nova visita promissora enviada',
             body: `${visitorName} visitou um cliente promissor. Confira!`,
-            url: '/resumo',
+            // Pagina "Relatorios" unificada (rota /informe; /resumo redireciona).
+            url: '/informe',
             tag: `visit-promising-${view.id}`,
           },
           exclude
@@ -264,7 +265,8 @@ export class VisitReportService {
           {
             title: 'Novo cliente encontrado!',
             body: 'Clique para ver os dados e cadastrá-lo',
-            url: '/resumo',
+            // Pagina "Relatorios" unificada (rota /informe; /resumo redireciona).
+            url: '/informe',
             tag: `visit-new-client-${view.id}`,
           },
           exclude

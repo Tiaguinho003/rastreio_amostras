@@ -348,7 +348,7 @@ if (!databaseUrl || !databaseReachable) {
       'https://push.example/trig-admin',
       'https://push.example/trig-cadastro',
     ]);
-    assert.equal(fakeWebPush.sent[0].payload.url, '/resumo');
+    assert.equal(fakeWebPush.sent[0].payload.url, '/informe');
     fakeWebPush.sent.length = 0;
 
     // Situacao 1 isolada: cliente EXISTENTE + Medio + Alto -> so a
