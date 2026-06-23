@@ -2370,6 +2370,79 @@ export default function SampleDetailPage() {
                       </div>
                     );
 
+                    // Desktop: ficha completa read-only abaixo do resumo, reusando
+                    // as classes globais cld-* do modal de detalhe. Escondida no
+                    // mobile via CSS (.sdv-cls-extra). So renderiza quando ha cd.
+                    const peneiras: Record<string, unknown> =
+                      cd && isRecord(cd.peneiras) ? cd.peneiras : {};
+                    const defeitos: Record<string, unknown> =
+                      cd && isRecord(cd.defeitos) ? cd.defeitos : {};
+                    const fundosArr = cd && Array.isArray(cd.fundos) ? cd.fundos : [];
+                    const fundoA: Record<string, unknown> = isRecord(fundosArr[0])
+                      ? fundosArr[0]
+                      : {};
+                    const fundoB: Record<string, unknown> = isRecord(fundosArr[1])
+                      ? fundosArr[1]
+                      : {};
+                    const fmtClsDate = (iso: string) => {
+                      if (!iso) return '';
+                      const [y, m, d] = iso.split('-');
+                      return d && m && y ? `${d}/${m}/${y}` : iso;
+                    };
+                    const clsItem = (label: string, value: unknown) => {
+                      const text =
+                        value !== null && value !== undefined && String(value).trim()
+                          ? String(value)
+                          : '—';
+                      return (
+                        <div className="sdv-info-item">
+                          <span className="sdv-info-label">{label}</span>
+                          <span className="sdv-info-value">{text}</span>
+                        </div>
+                      );
+                    };
+                    const fundoText = (fundo: Record<string, unknown>) => {
+                      const pen = toText(fundo.peneira);
+                      const pct = toText(fundo.percentual);
+                      if (!pen && !pct) return '';
+                      return `${pen || '—'}${pct ? ` · ${pct}%` : ''}`;
+                    };
+                    const observacoes = cd ? toText(cd.observacoes) : '';
+                    // Campos extras da ficha no MESMO formato dos do resumo
+                    // (Aspecto/Catacao/Padrao/Classificador): label + valor, grid 2col.
+                    // Preenchem as 2 linhas do card; Observacoes ocupa a largura toda.
+                    const clsExtraNode = (
+                      <div className={`sdv-cls-extra${cd ? '' : ' is-empty'}`}>
+                        {clsItem('Bebida', cd ? toText(cd.bebida) : '')}
+                        {clsItem('Certificação', cd ? toText(cd.certif) : '')}
+                        {clsItem('Data', cd ? fmtClsDate(toDateInput(cd.dataClassificacao)) : '')}
+                        {clsItem('P18', toText(peneiras.p18))}
+                        {clsItem('P17', toText(peneiras.p17))}
+                        {clsItem('P16', toText(peneiras.p16))}
+                        {clsItem('P15', toText(peneiras.p15))}
+                        {clsItem('P14', toText(peneiras.p14))}
+                        {clsItem('P13', toText(peneiras.p13))}
+                        {clsItem('P12', toText(peneiras.p12))}
+                        {clsItem('P11', toText(peneiras.p11))}
+                        {clsItem('P10', toText(peneiras.p10))}
+                        {clsItem('Moca (MK)', toText(peneiras.mk))}
+                        {clsItem('Fundo 1', fundoText(fundoA))}
+                        {clsItem('Fundo 2', fundoText(fundoB))}
+                        {clsItem('Impureza', toText(defeitos.imp))}
+                        {clsItem('PVA', toText(defeitos.pva))}
+                        {clsItem('Broca', toText(defeitos.broca))}
+                        {clsItem('GPI', toText(defeitos.gpi))}
+                        {clsItem('Ardidos (AP)', toText(defeitos.ap))}
+                        {clsItem('Defeito', toText(defeitos.defeito))}
+                        <div className="sdv-info-item is-full">
+                          <span className="sdv-info-label">Observações</span>
+                          <span className="sdv-info-value sdv-cls-obs-value">
+                            {observacoes || '—'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+
                     return (
                       <div className="sdv-card sdv-cls-block">
                         <div className="sdv-card-header">
@@ -2415,6 +2488,8 @@ export default function SampleDetailPage() {
                             {clsFieldsNode}
                           </div>
                         )}
+
+                        {clsExtraNode}
 
                         {!isClassified ? (
                           <div className="sdv-info-actions">
@@ -2518,7 +2593,7 @@ export default function SampleDetailPage() {
                   {!detail.sample.isBlend &&
                   detail.activeBlends &&
                   detail.activeBlends.length > 0 ? (
-                    <div className="sdv-card">
+                    <div className="sdv-card sdv-blend-compromised">
                       <span className="sdv-card-title">
                         Comprometida em {detail.activeBlends.length}{' '}
                         {detail.activeBlends.length === 1 ? 'liga ativa' : 'ligas ativas'}

@@ -11518,13 +11518,23 @@ body:has(.app-modal-backdrop) .prospector-fab {
   padding: clamp(3px, 1vw, 5px) 0;
 }
 
+/* Ficha completa da classificacao (peneiras/defeitos/fundos/observacoes) — so
+   aparece no desktop, onde o card de Classificacao tem o dobro da altura. No
+   mobile o card segue compacto (so o resumo), entao fica escondida. O desktop
+   reativa via .sdv-page--sample .sdv-cls-extra dentro do media query. */
+.sdv-cls-extra {
+  display: none;
+}
+
 /* Estado vazio: labels mais opacos e o tracinho do valor mais suave, pra
    sinalizar "sem informacao" mantendo posicao e tamanho dos campos. */
-.sdv-cls-block-summary.is-empty .sdv-info-label {
+.sdv-cls-block-summary.is-empty .sdv-info-label,
+.sdv-cls-extra.is-empty .sdv-info-label {
   opacity: 0.55;
 }
 
-.sdv-cls-block-summary.is-empty .sdv-info-value {
+.sdv-cls-block-summary.is-empty .sdv-info-value,
+.sdv-cls-extra.is-empty .sdv-info-value {
   color: #c4c4c4;
 }
 
@@ -28419,44 +28429,187 @@ select.samples-filter-field-input {
     overflow-x: hidden;
   }
 
+  /* ── Layout 2 colunas (redesign 2026-06-23) ──
+     ESQUERDA: Informacoes -> Classificacao.  DIREITA: Resumo -> Movimentacoes
+     (-> Liga, quando existe). Reposicionado SO via grid-template-areas: os cards
+     vem do DOM via display:contents e cada um declara seu grid-area
+     (info/resumo/classif/mov/liga) mais abaixo — trocar o mapa basta, sem mexer
+     no JSX nem na ordem do mobile (la o grid nao existe). */
   .sdv-page--sample .sdv-content > .sdv-content-inner {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      'info    resumo'
+      'classif mov';
+    /* Sem liga (base): 2 linhas. L1 fixa (Informacoes | Resumo, 22rem). L2
+       cresce com a ficha da Classificacao (col1); Movimentacoes (col2) acompanha
+       a altura via a regra :not(:has(...)) adiante. */
+    grid-template-rows: var(--sdv-r1-h) minmax(var(--sdv-r1-h), auto);
+    grid-auto-rows: auto;
     gap: 1rem;
-    align-items: start;
+    align-items: stretch;
     flex: none;
     min-height: 0;
   }
 
-  /* Coluna esquerda = secao geral empilhada (sai o grid 5fr/3fr). */
-  .sdv-page--sample .sdv-general {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    max-width: none;
-    margin: 0;
-    min-width: 0;
+  /* Com Liga (composicao OU comprometida presente no DOM): cria a 3a linha pra a
+     Liga (col2/L3), abaixo de Movimentacoes. A Classificacao passa a fazer span
+     L2-L3 (col1) = Movimentacoes + Liga = 45rem, alinhando as duas colunas.
+     Linhas fixas pra a altura ser deterministica (a ficha em 3 colunas cabe;
+     rola dentro do card se exceder). */
+  .sdv-page--sample
+    .sdv-content
+    > .sdv-content-inner:has(.sdv-blend-composition, .sdv-blend-compromised) {
+    grid-template-areas:
+      'info    resumo'
+      'classif mov'
+      'classif liga';
+    grid-template-rows: var(--sdv-r1-h) var(--sdv-r1-h) var(--sdv-r1-h);
   }
 
-  /* Coluna direita = painel comercial empilhado (sem flex:1 do modelo travado). */
-  .sdv-page--sample .sdv-content .sample-detail-commercial-pane {
-    flex: none;
-    min-height: 0;
-  }
-
+  /* As secoes esquerda/direita viram display:contents pra TODOS os .sdv-card
+     virarem itens diretos do grid 2x3 do .sdv-content-inner (posicionados
+     explicitamente abaixo). So no desktop: fora do media query as secoes
+     seguem empilhadas como no mobile. */
+  .sdv-page--sample .sdv-general,
+  .sdv-page--sample .sdv-content .sample-detail-commercial-pane,
   .sdv-page--sample .sdv-content .sdv-commercial {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    flex: none;
-    min-height: 0;
-    max-width: none;
-    margin: 0;
+    display: contents;
   }
 
-  /* Movimentacoes no TOPO da coluna direita (antes do Resumo comercial). */
+  /* Atribuicao das areas (ver grid-template-areas no .sdv-content-inner). */
+  .sdv-page--sample #sdv-informacoes {
+    grid-area: info;
+  }
+
+  .sdv-page--sample .sdv-com-summary {
+    grid-area: resumo;
+  }
+
   .sdv-page--sample #sdv-movimentacoes {
-    order: -1;
+    grid-area: mov;
+  }
+
+  /* Classificacao: area "classif" (col esquerda, abaixo de Informacoes).
+     Seletor `.sdv-general > .sdv-card.X` (especificidade 0,4,0) pra VENCER a regra
+     legada `.sdv-general > .sdv-card:nth-child(2)` (0,3,0, feita pro detalhe do
+     CLIENTE) que vazava pra ca e jogava a Classificacao pra col2/linha1. */
+  .sdv-page--sample .sdv-general > .sdv-card.sdv-cls-block {
+    grid-area: classif;
+    min-height: 0;
+  }
+
+  /* Card de liga (composicao XOR comprometida — mutuamente exclusivos) na area
+     "liga" (col2 / linha 3, ABAIXO de Movimentacoes). So existe quando ha liga —
+     a 3a linha so e criada pelo :has acima. MESMO tamanho de Movimentacoes:
+     1fr (50%) x 22rem (nao mais largura total). Card flex-column (header fixo +
+     lista rolando) pra a lista longa nao estourar os 22rem. Seletor
+     `.sdv-general > .sdv-card.X` (0,4,0) pra VENCER a regra legada
+     `.sdv-general > .sdv-card:nth-child(n+3)` (0,3,0) que a jogava pra largura
+     total. */
+  .sdv-page--sample .sdv-general > .sdv-card.sdv-blend-composition,
+  .sdv-page--sample .sdv-general > .sdv-card.sdv-blend-compromised {
+    grid-area: liga;
+    /* Mesma altura (22rem) e largura (1fr = 50%) do card de Movimentacoes,
+       logo abaixo dele (col2/L3). Card flex-column: header fixo + lista rolando. */
+    height: var(--sdv-r1-h);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .sdv-page--sample .sdv-blend-composition .sdv-related-list,
+  .sdv-page--sample .sdv-blend-compromised .sdv-related-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  /* Cards de status (raros): largura total. Sem grid-row fixo: como as linhas
+     1-3 estao ocupadas, o auto-flow os coloca na linha 4+. */
+  .sdv-page--sample .sdv-card-infeasible,
+  .sdv-page--sample .sdv-card-invalidated {
+    grid-column: 1 / -1;
+  }
+
+  /* ── Card de Classificacao no desktop (col esquerda, abaixo de Informacoes) ──
+     SEM liga: o card CRESCE com a ficha (a linha L2 e minmax(...,auto)); sem
+     height/overflow aqui, a ficha aparece inteira e Movimentacoes acompanha a
+     altura. COM liga: vira span L2-L3 (45rem) e a altura e travada (regra :has
+     logo abaixo). gap:0 pra nao dobrar com as margens da .sdv-card desktop. */
+  .sdv-page--sample .sdv-cls-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  /* COM liga: a Classificacao faz span L2-L3 = 45rem fixo. height:100% preenche
+     a celula e overflow:hidden a contem — a ficha (.sdv-cls-extra, flex:1 +
+     overflow-y:auto) rola DENTRO do card se exceder, em vez de vazar pra fora.
+     Sem liga essa regra nao casa, o card fica sem height fixo e cresce. */
+  .sdv-page--sample
+    .sdv-content-inner:has(.sdv-blend-composition, .sdv-blend-compromised)
+    .sdv-cls-block {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* Sem botao "Classificar" no desktop: aqui so se classifica pelo modal do
+     dashboard ou reclassificando (acao rara no computador). */
+  .sdv-page--sample .sdv-cls-block .sdv-info-actions {
+    display: none;
+  }
+
+  /* Resumo (foto + 4 campos) no topo, sem esticar; foto FIXA no topo-esquerda
+     (nao vira um sliver alto no card de dobro de altura). */
+  .sdv-page--sample .sdv-cls-block .sdv-cls-block-summary {
+    flex: none;
+    align-items: flex-start;
+  }
+
+  .sdv-page--sample .sdv-cls-block .sdv-cls-block-thumb {
+    align-self: flex-start;
+    width: 160px;
+    height: 160px;
+    min-height: 0;
+  }
+
+  /* Ficha completa no desktop: campos extras no MESMO formato dos do resumo
+     (.sdv-info-item = label + valor) em grid de 2 colunas, igual ao
+     .sdv-cls-block-fields. Ocupa o espaco restante do card (preenche as 2
+     linhas) e rola se exceder. */
+  .sdv-page--sample .sdv-cls-extra {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(6px, 1.5vw, 8px) clamp(10px, 2.5vw, 12px);
+    align-content: start;
+    /* 3 colunas (era 2): os ~21 campos cabem em ~7 linhas em vez de ~11,
+       baixando a altura da ficha pra caber nos 45rem do card. flex:1 +
+       min-height:0 + overflow-y:auto: a ficha ocupa o espaco abaixo do resumo e
+       rola DENTRO do card se um dia exceder, em vez de vazar pra fora. */
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    margin-top: 0.75rem;
+  }
+
+  /* Mesma compactacao dos campos do resumo da classificacao. */
+  .sdv-page--sample .sdv-cls-extra .sdv-info-item {
+    padding: clamp(3px, 1vw, 5px) 0;
+  }
+
+  /* Observacoes ocupa a largura toda; o valor quebra linha (nao trunca). */
+  .sdv-page--sample .sdv-cls-extra .sdv-info-item.is-full {
+    grid-column: 1 / -1;
+  }
+
+  .sdv-page--sample .sdv-cls-extra .sdv-cls-obs-value {
+    white-space: normal;
+    overflow: visible;
+    line-height: 1.35;
   }
 
   /* Movimentacoes com altura limitada + scroll interno (a pagina rola; sem o
@@ -29349,15 +29502,102 @@ select.samples-filter-field-input {
     height: 16px;
   }
 
-  /* Fonte branca: o desktop (.sdv-action-card-label) pinta o label de #333,
-     mas aqui o card e um gradiente colorido cheio (is-print/is-send azul,
-     is-sale verde, is-loss vermelho) — texto escuro fica com contraste ruim.
-     Branco casa com o icone (que ja herda currentColor #fff) e da o contraste
-     correto, igual nos botoes do card de Informacoes. */
+  /* Tamanho do label igual nos dois cards (Informacoes e Resumo). */
   .sdv-page--sample #sdv-informacoes .sdv-info-actions .sdv-action-card-label,
   .sdv-page--sample .sdv-com-summary .sdv-info-actions .sdv-action-card-label {
     font-size: 0.85rem;
+  }
+
+  /* Imprimir/Enviar (Informacoes): label branco sobre o gradiente cheio
+     (verde is-print / azul is-send) — o desktop pintava de #333, contraste
+     ruim. Venda/Perda usam cor semantica (ver bloco do Resumo abaixo). */
+  .sdv-page--sample #sdv-informacoes .sdv-info-actions .sdv-action-card-label {
     color: #ffffff;
+  }
+
+  /* Remove a faixa verde lateral (.sdv-action-card::before do desktop) dos 4
+     botoes de acao do detalhe: Imprimir/Enviar (Informacoes) e Venda/Perda
+     (Resumo comercial). */
+  .sdv-page--sample #sdv-informacoes .sdv-info-actions .sdv-action-card::before,
+  .sdv-page--sample .sdv-com-summary .sdv-info-actions .sdv-action-card::before {
+    display: none;
+  }
+
+  /* Resumo comercial com a MESMA altura do card de Informacoes (--sdv-r1-h) e
+     conteudo distribuido: header no topo, os 3 minis preenchendo o meio
+     (centralizados na vertical), botoes Venda/Perda colados na base. */
+  .sdv-page--sample .sdv-com-summary {
+    height: var(--sdv-r1-h);
+    flex: none;
+  }
+
+  .sdv-page--sample .sdv-com-summary .sdv-com-minis {
+    flex: 1;
+  }
+
+  .sdv-page--sample .sdv-com-summary .sdv-com-mini {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .sdv-page--sample .sdv-com-summary .sdv-info-actions {
+    flex-shrink: 0;
+  }
+
+  /* Minis (Vendidas/Perdidas/Disponiveis): BRANCOS (eram bege var(--surface))
+     com sombra suave pra destacar do card branco. Mantem o acento de cor
+     semantica no icone e no numero (verde/vermelho/azul). */
+  .sdv-page--sample .sdv-com-summary .sdv-com-mini {
+    background: #ffffff;
+    border-color: rgba(0, 0, 0, 0.06);
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.06),
+      0 4px 10px rgba(0, 0, 0, 0.05);
+  }
+
+  /* Venda/Perda: card BRANCO + sombra (em vez do gradiente cheio); icone e
+     label na cor semantica — Venda verde, Perda vermelho. O icone perde a
+     caixinha tintada (so o traco colorido, via currentColor herdado do card). */
+  .sdv-page--sample .sdv-com-summary .sdv-info-actions .sdv-action-card.is-sale,
+  .sdv-page--sample .sdv-com-summary .sdv-info-actions .sdv-action-card.is-loss {
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.08),
+      0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  .sdv-page--sample
+    .sdv-com-summary
+    .sdv-info-actions
+    .sdv-action-card.is-sale
+    .sdv-action-card-icon,
+  .sdv-page--sample
+    .sdv-com-summary
+    .sdv-info-actions
+    .sdv-action-card.is-loss
+    .sdv-action-card-icon {
+    background: none;
+    border: 0;
+  }
+
+  .sdv-page--sample .sdv-com-summary .sdv-info-actions .sdv-action-card.is-sale,
+  .sdv-page--sample
+    .sdv-com-summary
+    .sdv-info-actions
+    .sdv-action-card.is-sale
+    .sdv-action-card-label {
+    color: var(--brand-green);
+  }
+
+  .sdv-page--sample .sdv-com-summary .sdv-info-actions .sdv-action-card.is-loss,
+  .sdv-page--sample
+    .sdv-com-summary
+    .sdv-info-actions
+    .sdv-action-card.is-loss
+    .sdv-action-card-label {
+    color: var(--danger);
   }
 
   /* Movimentacoes: MESMA altura do container de Informacoes. */
@@ -29374,6 +29614,18 @@ select.samples-filter-field-input {
     min-height: 0;
     max-height: none;
     overflow-y: auto;
+  }
+
+  /* Sem liga (grid de 2 linhas): a Movimentacoes acompanha a altura da
+     Classificacao que cresce ao lado, na mesma linha L2 (minmax(...,auto)).
+     height:auto deixa o card esticar; min-height segura o piso de 22rem; a lista
+     interna (flex:1) preenche o espaco extra. Com liga, esta regra nao casa e o
+     mov volta a 22rem fixo (a Liga assume a 3a linha, abaixo dele). */
+  .sdv-page--sample
+    .sdv-content-inner:not(:has(.sdv-blend-composition, .sdv-blend-compromised))
+    #sdv-movimentacoes {
+    height: auto;
+    min-height: var(--sdv-r1-h);
   }
 }
 
