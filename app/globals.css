@@ -21458,6 +21458,45 @@ select.samples-filter-field-input {
   opacity: 0.7;
 }
 
+/* /camera no DESKTOP: a camera nunca funciona (exige traseira; webcam frontal
+   cai em OverconstrainedError -> cameraStatus='unsupported'). Some a area
+   escura do preview e toda a UI de camera, deixando SO o card de
+   indisponibilidade — ligeiramente maior e centrado na pagina. O chrome do
+   AppShell (sidebar/topbar) segue visivel para navegar. */
+@media (min-width: 901px) {
+  .camera-hub-stage {
+    min-height: 0;
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  .camera-hub-video,
+  .camera-hub-overlay,
+  .camera-hub-headline,
+  .camera-hub-gallery-btn,
+  .camera-hub-bottom-area {
+    display: none;
+  }
+
+  /* Sem scrim escuro (nao ha mais area preta); segue centrando o card. */
+  .camera-hub-error-overlay {
+    background: transparent;
+  }
+
+  /* Card ligeiramente maior + borda leve pra definir sobre o fundo claro. */
+  .camera-hub-error-card {
+    width: min(92%, 26rem);
+    padding: clamp(30px, 3vw, 38px);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  .camera-hub-error-card-title {
+    font-size: 1.35rem;
+    margin-bottom: 26px;
+  }
+}
+
 @keyframes cam-error-fade-in {
   from {
     opacity: 0;
