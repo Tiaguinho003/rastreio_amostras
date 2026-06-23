@@ -17744,6 +17744,20 @@ select.samples-filter-field-input {
   padding-right: 0.08rem;
 }
 
+/* Modal de novo cliente em BRANCO (pedido do usuario) — sai o creme do
+   .bottom-sheet base (--brand-cream-soft). Vale mobile (sheet) E desktop (modal
+   central — mesmo elemento). O `.bottom-sheet-footer` tem fundo creme proprio
+   (nao herda do sheet), entao precisa do mesmo override pra a faixa das acoes
+   (Cancelar/Cadastrar) tambem ficar branca. Espelha `.bottom-sheet.is-menu` /
+   `.is-operations`. */
+.bottom-sheet.client-quick-create-sheet {
+  background: #ffffff;
+}
+
+.bottom-sheet.client-quick-create-sheet .bottom-sheet-footer {
+  background: #ffffff;
+}
+
 /* "Novo cliente" agora e um BottomSheet (slide de baixo). O sheet ja da o scroll
    (.bottom-sheet-body) e o recuo lateral (padding do .bottom-sheet) — entao aqui
    o form/body viram blocos simples: sem grid-de-2-linhas (as acoes foram pro

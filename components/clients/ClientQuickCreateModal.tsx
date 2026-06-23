@@ -556,6 +556,9 @@ export function ClientQuickCreateModal({
             <ChipMultiSelectField
               label="Papel"
               placeholder="Selecione"
+              // Último campo do modal: abre o dropdown PRA CIMA pra as opções
+              // aparecerem acima do campo, sem gerar scroll na página.
+              forceDropUp
               options={[
                 { id: 'seller', label: 'Vendedor' },
                 { id: 'buyer', label: 'Comprador' },

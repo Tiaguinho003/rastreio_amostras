@@ -24,6 +24,12 @@ type Props = {
   disabled?: boolean;
   /** Mensagem de erro inline (vermelha suave). */
   errorMessage?: string;
+  /**
+   * Força o dropdown a abrir SEMPRE pra cima (acima do campo), ignorando a
+   * heurística de espaço. Usado no campo Papel (último do modal de novo
+   * cliente): garante que as opções apareçam acima sem gerar scroll na página.
+   */
+  forceDropUp?: boolean;
 };
 
 // Só vale a pena a busca quando há um número razoável de opções.
@@ -39,6 +45,7 @@ export function ChipMultiSelectField({
   loading = false,
   disabled = false,
   errorMessage,
+  forceDropUp = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -145,10 +152,15 @@ export function ChipMultiSelectField({
   function toggleOpen() {
     if (disabled) return;
     if (!open) {
-      const rect = triggerRef.current?.getBoundingClientRect();
-      if (rect) {
-        const spaceBelow = window.innerHeight - rect.bottom;
-        setDropUp(spaceBelow < 240 && rect.top > spaceBelow);
+      if (forceDropUp) {
+        // Sempre pra cima (sem heurística) — ver prop forceDropUp.
+        setDropUp(true);
+      } else {
+        const rect = triggerRef.current?.getBoundingClientRect();
+        if (rect) {
+          const spaceBelow = window.innerHeight - rect.bottom;
+          setDropUp(spaceBelow < 240 && rect.top > spaceBelow);
+        }
       }
     }
     setOpen((value) => !value);
