@@ -1,6 +1,5 @@
 'use client';
 
-import { QRCodeCanvas } from 'qrcode.react';
 import { useId } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -115,12 +114,6 @@ export function SampleLookupResultModal({
 
         <div className="app-modal-content">
           <article className="app-modal-lookup-layout">
-            {kind === 'lookup' ? (
-              <div className="app-modal-lookup-qr">
-                <QRCodeCanvas value={sample.internalLotNumber ?? sample.id} size={120} />
-              </div>
-            ) : null}
-
             <div className="app-modal-lookup-meta">
               <div className="app-modal-lookup-lot-row">
                 <p className="app-modal-card-line">

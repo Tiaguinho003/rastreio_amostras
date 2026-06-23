@@ -1943,17 +1943,6 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
   gap: 0.85rem;
 }
 
-.app-modal-lookup-qr {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.78rem;
-  border-radius: 22px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  background: rgba(0, 0, 0, 0.025);
-  box-shadow: 0 2px 8px rgba(18, 24, 20, 0.05);
-}
-
 /* Width compacto pro lookup result — menor que o default 38rem do
    .is-themed pra que o modal nao fique gigante em desktop. */
 .app-modal.is-themed.app-modal-lookup-result {
