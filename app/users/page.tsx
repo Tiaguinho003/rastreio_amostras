@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
@@ -30,42 +30,18 @@ const ROLE_OPTIONS: UserRole[] = [
   'COMMERCIAL',
   'PROSPECTOR',
 ];
-const PAGE_LIMIT = 10;
+// Scroll infinito: cada fetch traz ate 30 (cap backend 60). Espelha /clients.
+const USER_PAGE_LIMIT = 30;
+// rootMargin '0px': sentinel so dispara o load-more quando ja esta visivel
+// (sem prefetch agressivo). Mesmo valor de /clients.
+const USER_LOAD_MORE_ROOT_MARGIN = '0px';
+
+// Avatar unificado no verde da marca (decisao 2026-06): todos os usuarios usam
+// o mesmo verde do /clients. O gradiente + sombra derivam de --avatar-color.
+const USER_AVATAR_COLOR = '#1f5d43';
 
 function userStatusLabel(status: UserStatus) {
   return status === 'ACTIVE' ? 'Ativo' : 'Inativo';
-}
-
-function userStatusThemeClass(status: UserStatus) {
-  return status === 'ACTIVE' ? 'is-status-success' : 'is-status-danger';
-}
-
-// brand-green / brand-green-soft (paleta Safras)
-const AVATAR_COLORS = [
-  '#1f5d43',
-  '#2f6b4a',
-  '#0D47A1',
-  '#1565C0',
-  '#4E342E',
-  '#AD1457',
-  '#C62828',
-  '#6A1B9A',
-  '#4527A0',
-  '#00695C',
-  '#E65100',
-];
-
-function hashStr(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) {
-    h = (h << 5) - h + s.charCodeAt(i);
-    h |= 0;
-  }
-  return Math.abs(h);
-}
-
-function getUserAvatarColor(name: string): string {
-  return AVATAR_COLORS[hashStr(name) % AVATAR_COLORS.length];
 }
 
 function getUserInitials(name: string): string {
@@ -95,19 +71,6 @@ function getRoleModifierClass(role: UserRole): string {
   }
 }
 
-function formatUserCardSummary(user: UserSummary) {
-  return `${user.username} | ${user.email}`;
-}
-
-function formatUserCardMeta(user: UserSummary) {
-  const parts = [getRoleLabel(user.role), userStatusLabel(user.status)];
-  if (user.isLocked) {
-    parts.push('Bloqueado');
-  }
-
-  return parts.join(' | ');
-}
-
 function blankCreateForm() {
   return {
     fullName: '',
@@ -119,62 +82,65 @@ function blankCreateForm() {
   };
 }
 
-// --- List state ---
+// --- List state (scroll infinito por cursor, espelha /clients) ---
+
+type UserCursor = { fullName: string; id: string };
+type UsersListStatus = 'loading-initial' | 'loading-more' | 'idle' | 'error';
 
 interface UsersListState {
   items: UserSummary[];
   total: number;
-  totalPages: number;
-  currentPage: number;
-  hasPrev: boolean;
-  hasNext: boolean;
-  loading: boolean;
+  nextCursor: UserCursor | null;
+  status: UsersListStatus;
   error: string | null;
+  // indice (no array merged) do primeiro card recem-chegado, p/ animar SO os
+  // novos cards na cascade row-major. null = nenhum batch novo pendente.
+  firstNewIndex: number | null;
 }
 
 type UsersListAction =
-  | { type: 'fetch' }
-  | {
-      type: 'success';
-      items: UserSummary[];
-      total: number;
-      totalPages: number;
-      hasPrev: boolean;
-      hasNext: boolean;
-    }
-  | { type: 'error'; message: string }
-  | { type: 'setPage'; page: number };
+  | { type: 'fetch-initial' }
+  | { type: 'fetch-more' }
+  | { type: 'success-initial'; items: UserSummary[]; total: number; nextCursor: UserCursor | null }
+  | { type: 'success-more'; items: UserSummary[]; nextCursor: UserCursor | null }
+  | { type: 'error'; message: string };
 
 const USERS_INITIAL: UsersListState = {
   items: [],
   total: 0,
-  totalPages: 1,
-  currentPage: 1,
-  hasPrev: false,
-  hasNext: false,
-  loading: false,
+  nextCursor: null,
+  status: 'loading-initial',
   error: null,
+  firstNewIndex: null,
 };
 
 function usersListReducer(state: UsersListState, action: UsersListAction): UsersListState {
   switch (action.type) {
-    case 'fetch':
-      return { ...state, loading: true, error: null };
-    case 'success':
+    case 'fetch-initial':
+      return { ...USERS_INITIAL, status: 'loading-initial' };
+    case 'fetch-more':
+      return { ...state, status: 'loading-more', error: null };
+    case 'success-initial':
       return {
         ...state,
         items: action.items,
         total: action.total,
-        totalPages: action.totalPages,
-        hasPrev: action.hasPrev,
-        hasNext: action.hasNext,
-        loading: false,
+        nextCursor: action.nextCursor,
+        status: 'idle',
         error: null,
+        firstNewIndex: 0,
+      };
+    case 'success-more':
+      return {
+        ...state,
+        items: [...state.items, ...action.items],
+        nextCursor: action.nextCursor,
+        status: 'idle',
+        error: null,
+        firstNewIndex: state.items.length,
       };
     case 'error':
-      return { ...state, loading: false, error: action.message };
-    case 'setPage':
-      return { ...state, currentPage: action.page };
+      return { ...state, status: 'error', error: action.message };
     default:
       return state;
   }
@@ -260,8 +226,6 @@ export default function UsersPage() {
 
   const [searchInput, setSearchInput] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState<UserRole | ''>('');
-  const [statusFilter, setStatusFilter] = useState<UserStatus | ''>('');
   const [inactivateOpen, setInactivateOpen] = useState(false);
 
   const [createForm, setCreateForm] = useState(blankCreateForm());
@@ -277,29 +241,184 @@ export default function UsersPage() {
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const modalTrapRef = useFocusTrap(modal.mode !== 'closed');
+  const searchDebounceRef = useRef<number | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const loadMoreStateRef = useRef<{
+    inFlight: boolean;
+    token: number;
+    abort: AbortController | null;
+  }>({ inFlight: false, token: 0, abort: null });
 
-  // --- Load list ---
+  // Agrupa cards por inicial p/ divisores alfabeticos (mobile-only; CSS oculta
+  // no grid desktop). Mesmo padrao de /clients.
+  const groupedDisplay = useMemo(() => {
+    const out: Array<
+      { kind: 'divider'; letter: string } | { kind: 'card'; user: UserSummary; index: number }
+    > = [];
+    let lastLetter: string | null = null;
+    listState.items.forEach((u, i) => {
+      const letter = (u.fullName.trim().charAt(0) || '#').toUpperCase();
+      if (letter !== lastLetter) {
+        out.push({ kind: 'divider', letter });
+        lastLetter = letter;
+      }
+      out.push({ kind: 'card', user: u, index: i });
+    });
+    return out;
+  }, [listState.items]);
+
+  // Debounce da busca: aplica so com >=2 chars; <2 desfiltra. Espelha /clients.
+  useEffect(() => {
+    if (searchDebounceRef.current !== null) {
+      window.clearTimeout(searchDebounceRef.current);
+    }
+    const trimmed = searchInput.trim();
+    const next = trimmed.length >= 2 ? trimmed : '';
+    if (next === appliedSearch) {
+      return;
+    }
+    searchDebounceRef.current = window.setTimeout(() => {
+      searchDebounceRef.current = null;
+      setAppliedSearch(next);
+    }, 400);
+    return () => {
+      if (searchDebounceRef.current !== null) {
+        window.clearTimeout(searchDebounceRef.current);
+        searchDebounceRef.current = null;
+      }
+    };
+  }, [searchInput, appliedSearch]);
+
+  // Fetch inicial: dispara ao mudar busca ou sessao. Reseta o cursor.
+  useEffect(() => {
+    if (!session) {
+      return;
+    }
+
+    const abortController = new AbortController();
+    let active = true;
+    dispatchList({ type: 'fetch-initial' });
+    loadMoreStateRef.current.token += 1;
+    loadMoreStateRef.current.inFlight = false;
+    loadMoreStateRef.current.abort?.abort();
+    loadMoreStateRef.current.abort = null;
+
+    listUsers(
+      session,
+      { search: appliedSearch || undefined, limit: USER_PAGE_LIMIT },
+      { signal: abortController.signal }
+    )
+      .then((response) => {
+        if (!active) return;
+        dispatchList({
+          type: 'success-initial',
+          items: response.items,
+          total: response.page.total,
+          nextCursor: response.page.nextCursor,
+        });
+      })
+      .catch((cause) => {
+        if (!active) return;
+        if (cause instanceof DOMException && cause.name === 'AbortError') return;
+        dispatchList({
+          type: 'error',
+          message: cause instanceof ApiError ? cause.message : 'Falha ao carregar usuarios',
+        });
+      });
+
+    return () => {
+      active = false;
+      abortController.abort();
+    };
+  }, [appliedSearch, session]);
+
+  // Load-more pelo cursor. inFlight + token protegem contra race em scrolls
+  // rapidos (mesmo padrao de /clients).
+  const runLoadMore = useCallback(
+    (cursor: UserCursor) => {
+      const state = loadMoreStateRef.current;
+      if (state.inFlight) return;
+      if (!session) return;
+      state.inFlight = true;
+      state.token += 1;
+      const myToken = state.token;
+      state.abort?.abort();
+      const controller = new AbortController();
+      state.abort = controller;
+      dispatchList({ type: 'fetch-more' });
+
+      listUsers(
+        session,
+        {
+          search: appliedSearch || undefined,
+          limit: USER_PAGE_LIMIT,
+          cursorFullName: cursor.fullName,
+          cursorId: cursor.id,
+        },
+        { signal: controller.signal }
+      )
+        .then((response) => {
+          if (loadMoreStateRef.current.token !== myToken) return;
+          dispatchList({
+            type: 'success-more',
+            items: response.items,
+            nextCursor: response.page.nextCursor,
+          });
+        })
+        .catch((cause) => {
+          if (loadMoreStateRef.current.token !== myToken) return;
+          if (cause instanceof DOMException && cause.name === 'AbortError') return;
+          dispatchList({
+            type: 'error',
+            message: cause instanceof ApiError ? cause.message : 'Falha ao carregar mais',
+          });
+        })
+        .finally(() => {
+          if (loadMoreStateRef.current.token === myToken) {
+            loadMoreStateRef.current.inFlight = false;
+            loadMoreStateRef.current.abort = null;
+          }
+        });
+    },
+    [session, appliedSearch]
+  );
+
+  // IntersectionObserver no sentinel: dispara load-more quando entra na viewport.
+  useEffect(() => {
+    if (!session) return;
+    if (listState.status !== 'idle') return;
+    if (!listState.nextCursor) return;
+    const sentinel = loadMoreRef.current;
+    if (!sentinel) return;
+    const cursor = listState.nextCursor;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          runLoadMore(cursor);
+        }
+      },
+      { root: scrollRef.current, rootMargin: USER_LOAD_MORE_ROOT_MARGIN }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [runLoadMore, listState.nextCursor, listState.status, session]);
+
+  // Recarrega a primeira pagina apos mutacoes (criar/editar/inativar/etc).
   const refreshList = useCallback(async () => {
     if (!session) return;
-
-    dispatchList({ type: 'fetch' });
-
+    dispatchList({ type: 'fetch-initial' });
+    loadMoreStateRef.current.token += 1;
+    loadMoreStateRef.current.inFlight = false;
     try {
       const response = await listUsers(session, {
         search: appliedSearch || undefined,
-        role: roleFilter || undefined,
-        status: statusFilter || undefined,
-        page: listState.currentPage,
-        limit: PAGE_LIMIT,
+        limit: USER_PAGE_LIMIT,
       });
-
       dispatchList({
-        type: 'success',
+        type: 'success-initial',
         items: response.items,
         total: response.page.total,
-        totalPages: response.page.totalPages,
-        hasPrev: response.page.hasPrev,
-        hasNext: response.page.hasNext,
+        nextCursor: response.page.nextCursor,
       });
     } catch (cause) {
       dispatchList({
@@ -307,11 +426,7 @@ export default function UsersPage() {
         message: cause instanceof ApiError ? cause.message : 'Falha ao carregar usuarios',
       });
     }
-  }, [appliedSearch, listState.currentPage, roleFilter, session, statusFilter]);
-
-  useEffect(() => {
-    refreshList();
-  }, [refreshList]);
+  }, [appliedSearch, session]);
 
   // --- Load detail when modal opens ---
   useEffect(() => {
@@ -409,8 +524,12 @@ export default function UsersPage() {
 
   function handleSearchSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setAppliedSearch(searchInput.trim());
-    dispatchList({ type: 'setPage', page: 1 });
+    if (searchDebounceRef.current !== null) {
+      window.clearTimeout(searchDebounceRef.current);
+      searchDebounceRef.current = null;
+    }
+    const trimmed = searchInput.trim();
+    setAppliedSearch(trimmed.length >= 2 ? trimmed : '');
   }
 
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
@@ -596,7 +715,7 @@ export default function UsersPage() {
             </svg>
           </Link>
           <div className="clients-v2-header-center">
-            <h2 className="nsv2-title">Usuarios</h2>
+            <h2 className="nsv2-title">Usuários</h2>
           </div>
           <HeaderAvatarMenu session={session} onLogout={logout} />
           <Link href="/profile" className="nsv2-avatar" aria-label="Ir para perfil">
@@ -604,62 +723,65 @@ export default function UsersPage() {
           </Link>
         </header>
 
+        {/* Busca + FAB na mesma linha (mobile: FAB sai do fluxo via fixed).
+            Sem botao de filtro (decisao: so busca). Lupa DECORATIVA + "X" pra
+            limpar o input — espelha /clients (a busca filtra ao vivo). */}
         <div className="hero-search-wrap">
-          <form
-            className={`hero-search-bar${searchInput.trim().length > 0 ? ' has-input' : ''}`}
-            role="search"
-            onSubmit={handleSearchSubmit}
-          >
+          <form className="hero-search-bar" role="search" onSubmit={handleSearchSubmit}>
             <input
               className="hero-search-input"
               value={searchInput}
-              onChange={(event) => {
-                const newValue = event.target.value;
-                setSearchInput(newValue);
-                if (newValue.trim() === '' && appliedSearch !== '') {
-                  setAppliedSearch('');
-                  dispatchList({ type: 'setPage', page: 1 });
-                }
-              }}
+              onChange={(event) => setSearchInput(event.target.value)}
               placeholder="Buscar por nome ou email..."
               autoComplete="off"
               spellCheck={false}
             />
-            <button
-              type="submit"
-              className="hero-search-submit"
-              aria-label={searchInput.trim().length > 0 ? 'Pesquisar' : 'Buscar'}
-            >
-              <svg
-                className="hero-search-icon-search"
-                viewBox="0 0 24 24"
-                focusable="false"
-                aria-hidden="true"
+            {searchInput ? (
+              <button
+                type="button"
+                className="hero-search-clear-input"
+                aria-label="Limpar busca"
+                onClick={() => setSearchInput('')}
               >
-                <circle cx="11" cy="11" r="7" />
-                <path d="m16.2 16.2 4.1 4.1" />
-              </svg>
-              <svg
-                className="hero-search-icon-submit"
-                viewBox="0 0 24 24"
-                focusable="false"
-                aria-hidden="true"
-              >
-                <path d="M5 12h14" />
-                <path d="m13 6 6 6-6 6" />
-              </svg>
-            </button>
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            ) : (
+              <span className="hero-search-submit" aria-hidden="true">
+                <svg
+                  className="hero-search-icon-search"
+                  viewBox="0 0 24 24"
+                  focusable="false"
+                  aria-hidden="true"
+                >
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m16.2 16.2 4.1 4.1" />
+                </svg>
+              </span>
+            )}
           </form>
+          <button
+            type="button"
+            className="cv2-fab"
+            aria-label="Novo usuário"
+            onClick={(event) => openCreateModal(event.currentTarget)}
+          >
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M12 5v14" />
+              <path d="M5 12h14" />
+            </svg>
+          </button>
         </div>
 
         <section className="clients-v2-sheet">
-          {/* Count */}
+          {/* Contador a direita (espelha /clients). */}
           <div className="spv2-list-meta">
-            <span className="spv2-list-count">{listState.total} usuarios</span>
+            <span className="spv2-list-count">{listState.total} usuários</span>
           </div>
 
-          {/* List */}
-          {listState.loading ? (
+          {/* Card list */}
+          {listState.status === 'loading-initial' ? (
             <div className="spv2-list-scroll">
               <div className="spv2-empty">
                 <p className="spv2-empty-text">Carregando...</p>
@@ -672,14 +794,25 @@ export default function UsersPage() {
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                   <circle cx="12" cy="7" r="4" />
                 </svg>
-                <p className="spv2-empty-text">Nenhum usuario encontrado</p>
+                <p className="spv2-empty-text">Nenhum usuário encontrado</p>
                 <p className="spv2-empty-sub">Tente outro termo de busca</p>
               </div>
             </div>
           ) : (
             <div ref={scrollRef} className="spv2-list-scroll" tabIndex={-1}>
-              {listState.items.map((user, i) => {
-                const avatarColor = getUserAvatarColor(user.fullName);
+              {groupedDisplay.map((node) => {
+                if (node.kind === 'divider') {
+                  return (
+                    <div
+                      key={`div-${node.letter}`}
+                      className="cv2-section-divider"
+                      aria-hidden="true"
+                    >
+                      <span className="cv2-section-divider-letter">{node.letter}</span>
+                    </div>
+                  );
+                }
+                const { user, index: i } = node;
                 const initials = getUserInitials(user.fullName);
                 const roleModifier = getRoleModifierClass(user.role);
                 return (
@@ -689,82 +822,61 @@ export default function UsersPage() {
                     className="cv2-card"
                     style={
                       {
-                        animationDelay: `${i * 0.04}s`,
-                        '--avatar-color': avatarColor,
+                        // cascade row-major SO nos cards do batch atual (mesmo
+                        // calculo de /clients; cap 25 evita delay > 0.75s).
+                        animationDelay:
+                          listState.firstNewIndex !== null && i >= listState.firstNewIndex
+                            ? `${Math.min(i - listState.firstNewIndex, 25) * 0.03}s`
+                            : '0s',
+                        '--avatar-color': USER_AVATAR_COLOR,
                       } as React.CSSProperties
                     }
                     onClick={(event) => openUserDetail(user.id, event.currentTarget)}
                   >
-                    <span className="cv2-card-avatar">
-                      <span>{initials}</span>
-                    </span>
-                    <div className="cv2-card-content">
-                      <div className="cv2-card-top">
+                    <div className="cv2-card-head">
+                      <span className="cv2-card-avatar">
+                        <span>{initials}</span>
+                      </span>
+                      <div className="cv2-card-content">
                         <span className="cv2-card-name">{user.fullName}</span>
-                        <span className={`cv2-card-role ${roleModifier}`}>
-                          {getRoleLabel(user.role)}
-                        </span>
-                      </div>
-                      <div className="cv2-card-bottom">
-                        <span className="usr-card-email">{user.email}</span>
-                        {user.status !== 'ACTIVE' ? (
-                          <span className="cv2-card-role is-none">Inativo</span>
-                        ) : null}
-                        {user.isLocked ? (
-                          <span className="cv2-card-role is-locked">Bloqueado</span>
-                        ) : null}
+                        <div className="cv2-card-meta">
+                          <span className={`cv2-card-role ${roleModifier}`}>
+                            {getRoleLabel(user.role)}
+                          </span>
+                          {user.status !== 'ACTIVE' ? (
+                            <span className="cv2-card-role is-none">Inativo</span>
+                          ) : null}
+                          {user.isLocked ? (
+                            <span className="cv2-card-role is-locked">Bloqueado</span>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
-                    <svg className="spv2-card-chevron" viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="m9 6 6 6-6 6" />
-                    </svg>
+                    <span className="cv2-card-divider" aria-hidden="true" />
+                    <div className="cv2-card-foot">
+                      <span className="cv2-card-arrow-btn" aria-hidden="true">
+                        <svg className="spv2-card-chevron" viewBox="0 0 24 24">
+                          <path d="m9 6 6 6-6 6" />
+                        </svg>
+                      </span>
+                    </div>
                   </button>
                 );
               })}
+              {/* Carregar mais: 3 skeletons (sem travar o scroll); o sentinel
+                  fino abaixo dispara o IntersectionObserver. Igual /clients. */}
+              {listState.status === 'loading-more'
+                ? Array.from({ length: 3 }).map((_, i) => (
+                    <div key={`skel-${i}`} className="spv2-skeleton-card" aria-hidden />
+                  ))
+                : null}
+              {listState.nextCursor ? (
+                <div ref={loadMoreRef} className="cv2-load-more-sentinel" aria-hidden />
+              ) : null}
             </div>
           )}
-
-          {/* Pagination */}
-          <footer className="spv2-footer">
-            <button
-              type="button"
-              className="spv2-page-btn"
-              disabled={!listState.hasPrev || listState.loading}
-              onClick={() => dispatchList({ type: 'setPage', page: listState.currentPage - 1 })}
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="m14.5 6-6 6 6 6" />
-              </svg>
-            </button>
-            <span className="spv2-page-info">
-              <strong>{listState.currentPage}</strong> / {listState.totalPages}
-            </span>
-            <button
-              type="button"
-              className="spv2-page-btn"
-              disabled={!listState.hasNext || listState.loading}
-              onClick={() => dispatchList({ type: 'setPage', page: listState.currentPage + 1 })}
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="m9.5 6 6 6-6 6" />
-              </svg>
-            </button>
-          </footer>
         </section>
       </section>
-
-      {/* FAB */}
-      <button
-        type="button"
-        className="cv2-fab"
-        aria-label="Novo usuario"
-        onClick={(event) => openCreateModal(event.currentTarget)}
-      >
-        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-          <path d="M12 5v14" />
-          <path d="M5 12h14" />
-        </svg>
-      </button>
 
       {/* Detail / Edit Modal */}
       {modal.mode === 'view' || modal.mode === 'edit' ? (
@@ -778,13 +890,12 @@ export default function UsersPage() {
           >
             {modal.user && modal.user.fullName ? (
               (() => {
-                const detailColor = getUserAvatarColor(modal.user.fullName);
                 const detailInit = getUserInitials(modal.user.fullName);
                 return (
                   <div className="cdm-header">
                     <span
                       className="cdm-header-avatar"
-                      style={{ '--avatar-color': detailColor } as React.CSSProperties}
+                      style={{ '--avatar-color': USER_AVATAR_COLOR } as React.CSSProperties}
                     >
                       <span>{detailInit}</span>
                     </span>

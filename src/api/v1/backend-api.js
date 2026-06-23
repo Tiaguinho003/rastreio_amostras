@@ -2121,11 +2121,12 @@ export function createBackendApiV1({
         const query = input?.query ?? {};
         const result = await userService.listUsers(
           {
-            page: query.page,
             limit: query.limit,
             search: query.search,
             role: query.role,
             status: query.status,
+            cursorFullName: readOptionalQueryString(query.cursorFullName),
+            cursorId: readOptionalQueryString(query.cursorId),
           },
           actor
         );

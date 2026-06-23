@@ -55,8 +55,10 @@ export const REQUEST_CODE_TTL_MS = 15 * 60 * 1000;
 export const REQUEST_CODE_RESEND_MS = 60 * 1000;
 export const REQUEST_MAX_ATTEMPTS = 5;
 export const REQUEST_RETRY_MS = 5 * 60 * 1000;
-export const USER_LIST_LIMIT_DEFAULT = 10;
-export const USER_LIST_LIMIT_MAX = 10;
+// Lista de usuarios em scroll infinito por cursor (espelha /clients): cada
+// fetch traz ate 30; cap 60 da folga sem permitir paginas gigantes.
+export const USER_LIST_LIMIT_DEFAULT = 30;
+export const USER_LIST_LIMIT_MAX = 60;
 export const USER_AUDIT_LIMIT_DEFAULT = 10;
 export const USER_AUDIT_LIMIT_MAX = 10;
 

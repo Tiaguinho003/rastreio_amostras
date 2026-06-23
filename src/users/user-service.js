@@ -479,7 +479,6 @@ export class UserService {
 
   async listUsers(input, actorContext) {
     assertAdminActor(actorContext, 'list users');
-    const page = readPageQuery(input.page, 1);
     const limit = readLimitQuery(input.limit, {
       fallback: USER_LIST_LIMIT_DEFAULT,
       max: USER_LIST_LIMIT_MAX,
@@ -489,31 +488,57 @@ export class UserService {
     const status = input.status
       ? normalizeOptionalText(input.status, 'status', 20)?.toUpperCase()
       : null;
-    const skip = (page - 1) * limit;
 
-    const where = {
-      ...(role ? { role } : {}),
-      ...(status ? { status } : {}),
+    // Cursor alfabetico opcional (fullName ASC, id ASC). Ambos presentes =>
+    // busca itens posteriores ao cursor; ausentes => primeira pagina. Espelha o
+    // cursor de listClients (substitui a paginacao por offset).
+    const cursorFullNameRaw =
+      typeof input.cursorFullName === 'string' ? input.cursorFullName.trim() : null;
+    const cursorIdRaw = typeof input.cursorId === 'string' ? input.cursorId.trim() : null;
+    const cursor =
+      cursorFullNameRaw !== null && cursorIdRaw
+        ? { fullName: cursorFullNameRaw, id: cursorIdRaw }
+        : null;
+
+    // Filtros base como array AND (evita colidir a chave OR da busca com a do
+    // cursor). filterClauses (sem cursor) alimenta o count do total; pageWhere
+    // acrescenta o cursor para a pagina atual.
+    const filterClauses = [
+      ...(role ? [{ role }] : []),
+      ...(status ? [{ status }] : []),
       ...(search
-        ? {
-            OR: [
-              { fullName: { contains: search, mode: 'insensitive' } },
-              { username: { contains: search, mode: 'insensitive' } },
-              { email: { contains: search, mode: 'insensitive' } },
-            ],
-          }
-        : {}),
-    };
+        ? [
+            {
+              OR: [
+                { fullName: { contains: search, mode: 'insensitive' } },
+                { username: { contains: search, mode: 'insensitive' } },
+                { email: { contains: search, mode: 'insensitive' } },
+              ],
+            },
+          ]
+        : []),
+    ];
 
-    const [items, total, pendingRequests] = await this.prisma.$transaction([
+    const cursorWhere = cursor
+      ? {
+          OR: [
+            { fullName: { gt: cursor.fullName } },
+            { fullName: cursor.fullName, id: { gt: cursor.id } },
+          ],
+        }
+      : null;
+
+    const filterWhere = filterClauses.length ? { AND: filterClauses } : {};
+    const pageWhere = cursorWhere ? { AND: [...filterClauses, cursorWhere] } : filterWhere;
+
+    const [rows, total, pendingRequests] = await this.prisma.$transaction([
       this.prisma.user.findMany({
-        where,
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        skip,
-        take: limit,
+        where: pageWhere,
+        orderBy: [{ fullName: 'asc' }, { id: 'asc' }],
+        take: limit + 1,
         select: USER_SELECT,
       }),
-      this.prisma.user.count({ where }),
+      this.prisma.user.count({ where: filterWhere }),
       this.prisma.emailChangeRequest.findMany({
         where: {
           invalidatedAt: null,
@@ -533,6 +558,13 @@ export class UserService {
       }),
     ]);
 
+    // take: limit + 1 detecta se ha proxima pagina. nextCursor = ultimo item
+    // realmente retornado (fullName + id) ou null na ultima pagina.
+    const hasMore = rows.length > limit;
+    const pageRows = hasMore ? rows.slice(0, limit) : rows;
+    const lastRow = pageRows[pageRows.length - 1];
+    const nextCursor = hasMore && lastRow ? { fullName: lastRow.fullName, id: lastRow.id } : null;
+
     const pendingMap = new Map(
       pendingRequests.map((request) => [
         request.userId,
@@ -545,10 +577,10 @@ export class UserService {
     );
 
     return {
-      items: items.map((item) =>
+      items: pageRows.map((item) =>
         toUserSummary(item, { pendingEmailChange: pendingMap.get(item.id) ?? null })
       ),
-      page: buildPage(total, page, limit),
+      page: { limit, total, nextCursor },
     };
   }
 

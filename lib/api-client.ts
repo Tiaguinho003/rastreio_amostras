@@ -288,20 +288,26 @@ export function listUsers(
     search?: string;
     role?: string;
     status?: string;
-    page?: number;
     limit?: number;
-  } = {}
+    cursorFullName?: string;
+    cursorId?: string;
+  } = {},
+  options: { signal?: AbortSignal } = {}
 ) {
   const params = new URLSearchParams();
   if (query.search) params.set('search', query.search);
   if (query.role) params.set('role', query.role);
   if (query.status) params.set('status', query.status);
-  if (typeof query.page === 'number') params.set('page', String(query.page));
   if (typeof query.limit === 'number') params.set('limit', String(query.limit));
+  if (typeof query.cursorFullName === 'string') {
+    params.set('cursorFullName', query.cursorFullName);
+  }
+  if (query.cursorId) params.set('cursorId', query.cursorId);
   const suffix = params.size ? `?${params.toString()}` : '';
   return request<UsersListResponse>(`/users${suffix}`, {
     method: 'GET',
     session,
+    signal: options.signal,
   });
 }
 

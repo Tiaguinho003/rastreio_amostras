@@ -110,12 +110,9 @@ export interface UsersListResponse {
   items: UserSummary[];
   page: {
     limit: number;
-    page: number;
-    offset: number;
     total: number;
-    totalPages: number;
-    hasPrev: boolean;
-    hasNext: boolean;
+    // Scroll infinito por cursor (fullName ASC, id ASC). null = ultima pagina.
+    nextCursor: { fullName: string; id: string } | null;
   };
 }
 
