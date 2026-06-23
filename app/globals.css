@@ -21464,8 +21464,10 @@ select.samples-filter-field-input {
    indisponibilidade — ligeiramente maior e centrado na pagina. O chrome do
    AppShell (sidebar/topbar) segue visivel para navegar. */
 @media (min-width: 901px) {
+  /* Mantem o min-height base (34rem) — era load-bearing: a cadeia height:100%
+     nao resolve aqui, entao zera-lo colapsava o stage (com overflow:hidden) e
+     recortava o card. So tiramos o fundo escuro. */
   .camera-hub-stage {
-    min-height: 0;
     background: transparent;
     box-shadow: none;
     border-radius: 0;
