@@ -6387,10 +6387,40 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   line-height: 1;
 }
 
-/* Desktop: divisor nao aparece (grid 6cols nao comporta). */
+/* Desktop: divisor alfabetico vira uma LINHA FINA full-width (grid-column
+   1/-1), com a letra na ponta esquerda. Cada troca de letra empurra os
+   proximos clientes pra uma nova linha do grid (o item span-full quebra a
+   row). Sai o chip flutuante sticky do mobile. */
 @media (min-width: 901px) {
-  .cv2-section-divider {
-    display: none;
+  .clients-page-v2 .cv2-section-divider {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    grid-column: 1 / -1;
+    align-self: stretch;
+    width: 100%;
+    margin: 0.35rem 0 0.1rem;
+    padding: 0;
+    position: static;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .clients-page-v2 .cv2-section-divider::after {
+    content: '';
+    flex: 1 1 auto;
+    height: 1px;
+    background: rgba(0, 0, 0, 0.1);
+  }
+
+  .clients-page-v2 .cv2-section-divider-letter {
+    flex-shrink: 0;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: rgba(0, 0, 0, 0.4);
+    line-height: 1;
   }
 }
 
@@ -27310,12 +27340,15 @@ select.samples-filter-field-input {
     flex-shrink: 0;
   }
 
-  /* Sheet: container unico rounded (padrao dd-activity-container) */
+  /* Sheet: container unico rounded (padrao dd-activity-container).
+     Padding lateral enxuto + borda mais suave (0.22 -> 0.12) pra a borda
+     nao "pesar" ao lado dos cards; o respiro horizontal dos cards (e da
+     sua sombra) mora na .spv2-list-scroll abaixo. */
   .clients-v2-sheet {
     margin: 0;
-    padding: 1rem 1.2rem 0.8rem;
+    padding: 1rem 0.5rem 0.8rem;
     background: #ffffff;
-    border: 1px solid rgba(112, 130, 103, 0.22);
+    border: 1px solid rgba(112, 130, 103, 0.12);
     border-radius: 18px;
     box-shadow:
       0 2px 4px rgba(0, 0, 0, 0.04),
@@ -27327,12 +27360,15 @@ select.samples-filter-field-input {
     flex-direction: column;
   }
 
-  /* Grid 4 colunas com scroll interno */
+  /* Grid 3 colunas com scroll interno (era 4 — cards mais baixos/largos).
+     Padding horizontal de 1rem dentro do scroll: como overflow-x e hidden,
+     esse respiro evita que a SOMBRA lateral dos cards seja cortada na borda
+     do container. */
   .clients-v2-sheet .spv2-list-scroll {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 1rem;
-    padding: 0.4rem 0.2rem 0.2rem;
+    padding: 0.55rem 1rem 0.45rem;
     overflow-y: auto;
     overflow-x: hidden;
     flex: 1;
@@ -27353,17 +27389,17 @@ select.samples-filter-field-input {
     background: transparent;
   }
 
-  /* 14.6.E: card em 2 blocos (head + divider + foot). Layout vertical
-     left-aligned. Avatar quadrado arredondado a esquerda do nome.
-     14.6.G: sombra mais marcada pra dar mais profundidade visual. */
+  /* Card compacto: avatar a esquerda + nome em 1 linha no topo; a seta
+     (foot) e posicionada ABSOLUTA no canto inferior direito (nivel da "2a
+     linha" / base do avatar). Sem divisor interno. Sombra marcada. */
   .clients-page-v2 .cv2-card {
     flex-direction: column;
     align-items: stretch;
     justify-content: flex-start;
     text-align: left;
-    padding: 1rem 1.1rem;
+    padding: 0.8rem 1.1rem;
     border-radius: 16px;
-    gap: 0.75rem;
+    gap: 0;
     overflow: visible;
     box-shadow:
       0 4px 8px rgba(0, 0, 0, 0.08),
@@ -27395,29 +27431,22 @@ select.samples-filter-field-input {
     min-width: 0;
   }
 
-  /* 14.6.K: foot agora so tem o arrow-btn — alinhar a direita.
-     14.7.B: margin-top auto ancora o foot no rodape do card mesmo
-     quando a row do grid eh esticada por outro card mais alto. Antes,
-     com justify-content flex-start no card, o foot ficava logo apos
-     o divider — cards de nome curto pareciam ter espaco vazio
-     embaixo enquanto nome longo grudava o foot. */
+  /* foot = so a seta, ancorada ABSOLUTA no canto inferior direito (nivel
+     da base do avatar / "2a linha" do nome). Fora do fluxo: a altura do
+     card passa a ser so o head (avatar), deixando o card baixo. */
   .clients-page-v2 .cv2-card-foot {
+    position: absolute;
+    right: 1.1rem;
+    bottom: 0.8rem;
     display: flex;
-    flex-direction: row;
     align-items: center;
-    justify-content: flex-end;
-    gap: 0.5rem;
-    min-width: 0;
-    margin-top: auto;
+    gap: 0;
+    margin: 0;
   }
 
-  /* 14.6.K: divider mais visivel (0.06 -> 0.12) — agora separa nome+meta
-     da seta, sem o texto pessoa-type entre. */
+  /* divisor interno REMOVIDO (nome e seta agora convivem sem a linha). */
   .clients-page-v2 .cv2-card-divider {
-    display: block;
-    height: 1px;
-    background: rgba(0, 0, 0, 0.12);
-    margin: 0;
+    display: none;
   }
 
   /* Avatar maior + quadrado com cantos arredondados */
@@ -27446,25 +27475,19 @@ select.samples-filter-field-input {
     min-width: 0;
   }
 
-  /* Nome limitado a 2 linhas com truncamento. Nomes muito longos esticam
-     a row inteira do grid e quebram o visual de todos os cards na mesma
-     linha. */
+  /* Nome em UMA linha com reticencias (era 2 linhas/clamp). Truncamento
+     simples: nomes longos nao esticam mais a altura do card. */
   .clients-page-v2 .cv2-card-name {
     font-size: 1.1rem;
     font-weight: 800;
     color: #1a1a1a;
     max-width: 100%;
-    white-space: normal;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     text-align: left;
     line-height: 1.2;
     letter-spacing: -0.01em;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    word-break: break-word;
   }
 
   /* Linha meta: PJ/PF + UserAvatarStack lado a lado */
@@ -27506,38 +27529,31 @@ select.samples-filter-field-input {
     flex-shrink: 0;
   }
 
-  /* 14.6.I: container do chevron pintado inteiro com a cor do avatar
-     do cliente (gradient igual o avatar pra consistencia visual).
-     Antes era bege fixo; agora cada card tem o botao na sua cor unica
-     com a seta branca por cima. */
+  /* Seta SIMPLES: so o icone cinza, sem fundo/borda/sombra (era um quadrado
+     gradiente na cor do avatar com a seta branca por cima). */
   .clients-page-v2 .cv2-card-arrow-btn {
     display: inline-grid;
     place-items: center;
-    width: 2.2rem;
-    height: 2.2rem;
-    border-radius: 10px;
-    background: linear-gradient(
-      135deg,
-      var(--avatar-color, #1f5d43),
-      rgb(from var(--avatar-color, #1f5d43) r g b / 0.82)
-    );
+    width: auto;
+    height: auto;
+    padding: 0;
+    background: none;
     border: 0;
-    box-shadow: 0 2px 6px rgb(from var(--avatar-color, #1f5d43) r g b / 0.3);
+    border-radius: 0;
+    box-shadow: none;
     flex-shrink: 0;
-    transition:
-      transform 0.15s ease,
-      box-shadow 0.15s ease;
+    transition: transform 0.15s ease;
   }
 
   .clients-page-v2 .cv2-card:hover .cv2-card-arrow-btn {
-    box-shadow: 0 4px 12px rgb(from var(--avatar-color, #1f5d43) r g b / 0.45);
+    transform: translateX(2px);
   }
 
   .clients-page-v2 .cv2-card-arrow-btn .spv2-card-chevron {
-    width: 16px;
-    height: 16px;
-    stroke: #ffffff;
-    stroke-width: 2.4;
+    width: 18px;
+    height: 18px;
+    stroke: rgba(0, 0, 0, 0.42);
+    stroke-width: 2.2;
   }
 
   /* Chips: sem padding lateral (container pai cuida) */
@@ -29195,18 +29211,18 @@ select.samples-filter-field-input {
     width: auto;
   }
 
-  /* 14.6.K: clients — 4 colunas × 4 linhas (16 cards visiveis sem scroll).
-     Altura reduzida em 1/5 (180 -> 144) apos remocao do texto pessoa-type
-     do foot. Cards continuam comportando avatar 56px + nome + meta + divider
-     + arrow-btn. */
+  /* clients — 3 colunas (era 4). Sem altura de linha fixa: os cards agora
+     sao baixos (avatar + nome em 1 linha + seta), entao as linhas seguem o
+     conteudo (grid-auto-rows auto) e os divisores alfabeticos full-width
+     quebram a row sem virar um track gigante. */
   .clients-v2-sheet .spv2-list-scroll {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    grid-template-rows: repeat(4, minmax(144px, 1fr));
-    grid-auto-rows: minmax(144px, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-rows: auto;
     gap: 1rem;
     justify-content: start;
-    padding: 0.4rem 0.2rem 0.2rem;
+    align-content: start;
+    padding: 0.55rem 1rem 0.45rem;
     max-width: none;
     margin: 0;
     width: auto;
