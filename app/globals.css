@@ -8147,6 +8147,25 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   margin: 0;
 }
 
+/* Paginas placeholder (Metricas, placeholder de Relatorios): o titulo era
+   centrado via flex:1 entre um spacer (esquerda) e o avatar (direita), mas as
+   larguras divergem por viewport — no desktop os avatares somem (titulo cai pra
+   direita) e no mobile o menu do avatar e mais largo (cai pra esquerda).
+   Centraliza de verdade no header, escopado a esses placeholders pelo spacer
+   invisivel `span.nsv2-back` (as paginas de detalhe usam um <a> real, nao
+   batem). pointer-events:none deixa o clique passar pros controles atras. */
+.sdv-header-top:has(> span.nsv2-back) {
+  position: relative;
+}
+
+.sdv-header-top:has(> span.nsv2-back) .sdv-header-title {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
 .sdv-identity-card {
   display: flex;
   align-items: center;
