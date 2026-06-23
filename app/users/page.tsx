@@ -17,6 +17,7 @@ import {
   updateUser,
 } from '../../lib/api-client';
 import { maskPhoneInput } from '../../lib/client-field-formatters';
+import { useToast } from '../../lib/toast/ToastProvider';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import { getRoleLabel } from '../../lib/roles';
 import { useRequireAuth } from '../../lib/use-auth';
@@ -220,6 +221,7 @@ function modalReducer(state: ModalState, action: ModalAction): ModalState {
 
 export default function UsersPage() {
   const { session, loading, logout, setSession } = useRequireAuth({ allowedRoles: ['ADMIN'] });
+  const toast = useToast();
 
   const [listState, dispatchList] = useReducer(usersListReducer, USERS_INITIAL);
   const [modal, dispatchModal] = useReducer(modalReducer, MODAL_INITIAL);
@@ -502,6 +504,15 @@ export default function UsersPage() {
   function closeModal() {
     if (modal.saving) return;
     dispatchModal({ type: 'close' });
+  }
+
+  async function handleCopyField(text: string, label: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success({ title: `${label} copiado` });
+    } catch {
+      toast.error({ title: 'Não foi possível copiar' });
+    }
   }
 
   function handleSearchSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -928,13 +939,43 @@ export default function UsersPage() {
                       <div className="cdm-info-row">
                         <div className="cdm-info-item">
                           <span className="cdm-info-label">Email</span>
-                          <span className="cdm-info-value">{modal.user.email}</span>
+                          <div className="cdm-info-value-row">
+                            <span className="cdm-info-value">{modal.user.email}</span>
+                            <button
+                              type="button"
+                              className="cdm-info-copy"
+                              aria-label="Copiar email"
+                              onClick={() => void handleCopyField(modal.user!.email, 'Email')}
+                            >
+                              <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <rect x="9" y="9" width="13" height="13" rx="2" />
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                         <div className="cdm-info-item">
                           <span className="cdm-info-label">Telefone</span>
-                          <span className="cdm-info-value">
-                            {modal.user.phone ?? 'Nao informado'}
-                          </span>
+                          <div className="cdm-info-value-row">
+                            <span className="cdm-info-value">
+                              {modal.user.phone ?? 'Nao informado'}
+                            </span>
+                            {modal.user.phone ? (
+                              <button
+                                type="button"
+                                className="cdm-info-copy"
+                                aria-label="Copiar telefone"
+                                onClick={() =>
+                                  void handleCopyField(modal.user!.phone ?? '', 'Telefone')
+                                }
+                              >
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                  <rect x="9" y="9" width="13" height="13" rx="2" />
+                                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                                </svg>
+                              </button>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
                       <div className="cdm-info-row">
