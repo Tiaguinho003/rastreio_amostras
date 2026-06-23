@@ -33613,6 +33613,13 @@ body.is-selection-mode .hero-search-filter-btn {
     padding-block: 0.2rem;
   }
 
+  /* Faixa do topbar mais ALTA so no dashboard — a pedido do usuario (acompanha
+     o nome maior). Escopado pela saudacao (`.topbar-greeting`, que so existe no
+     dashboard); as demais paginas mantem o padding-block base (0.78rem). */
+  .topbar-inner:has(.topbar-greeting) {
+    padding-block: 1.1rem;
+  }
+
   /* Saudacao empilhada: rotulo ("Bom dia,") em cima, NOME embaixo e maior. */
   .topbar-greeting-line {
     display: flex;
@@ -33629,7 +33636,9 @@ body.is-selection-mode .hero-search-filter-btn {
   }
 
   .topbar-greeting-name {
-    font-size: 2.1rem;
+    /* Nome maior (era 2.1rem) — a pedido do usuario, junto com a faixa do
+       topbar mais alta (ver .topbar-inner:has(.topbar-greeting)). */
+    font-size: 2.5rem;
     font-weight: 800;
     line-height: 1.08;
     letter-spacing: -0.02em;
