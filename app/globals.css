@@ -29481,6 +29481,57 @@ select.samples-filter-field-input {
   .sdv-page:has(.stg-content) {
     max-width: min(var(--content-max-wide), calc(100vw - 4rem));
   }
+
+  /* Perfil desktop: cabecalho (avatar + nome) BEM maior e nome em VERDE. No
+     desktop o header fica sobre fundo BRANCO (a .sdv-header e transparente),
+     entao o nome branco do mobile sumia. A area maior do cabecalho empurra os
+     campos pra baixo, reduzindo o espaco vazio. Avatar e nome MANTEM a posicao
+     (avatar a esquerda + nome a direita, no topo). Escopado ao .stg-header pra
+     so afetar o /profile. */
+  .stg-header .stg-header-wrap {
+    gap: 1.5rem;
+    padding-block: 0 0.75rem;
+  }
+
+  /* Sem o titulo "Meu Perfil" no desktop (o nome do usuario ja titula a
+     pagina). O spacer invisivel do admin (span.nsv2-back) tambem sai pra a
+     linha do topo colapsar e o cabecalho colar na topbar; o back do prospector
+     (a.nsv2-back, link real) permanece. */
+  .stg-header .sdv-header-title {
+    display: none;
+  }
+
+  .stg-header .sdv-header-top span.nsv2-back {
+    display: none;
+  }
+
+  /* Cabecalho colado na topbar (era 1.5rem, muito afastado). */
+  .sdv-header.stg-header {
+    padding-top: 0.75rem;
+  }
+
+  .stg-header .stg-profile-avatar.user-avatar--lg {
+    width: 7rem;
+    height: 7rem;
+    font-size: 2.5rem;
+  }
+
+  .stg-header .stg-header-user-name {
+    font-size: 2.5rem;
+    line-height: 1.1;
+    color: var(--brand-green);
+  }
+
+  .stg-header .stg-header-user-role {
+    color: var(--brand-green-soft);
+    font-size: 1.05rem;
+    gap: 0.45rem;
+  }
+
+  .stg-header .stg-header-user-role-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
 }
 
 /* ════════════════════════════════════════════════════════════════
