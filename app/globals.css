@@ -29086,6 +29086,89 @@ select.samples-filter-field-input {
     transform: translateY(-1px);
     filter: brightness(1.04);
   }
+
+  /* ════════════════════════════════════════════════════════════════
+     Detalhe da AMOSTRA (desktop) — LINHA 1 travada e ALTURAS IGUAIS.
+     Sessao 2026-06-23. Tres objetivos:
+       1. Botoes Imprimir/Enviar do container de Informacoes mais BAIXOS
+          (sem o card grande de 52px de icone + 1.4rem de padding) e
+          colados na borda inferior do container.
+       2. Container de Informacoes com ALTURA FIXA (--sdv-r1-h): nao muda
+          com campos preenchidos ou vazios.
+       3. Container de Movimentacoes com a MESMA altura: o excesso rola
+          dentro do card; com poucas movimentacoes sobra espaco vazio (o
+          card nao encolhe).
+     Bloco no FIM do media query (min-width:901px) pra sobrescrever, por
+     cascata + especificidade de id, o max-height:22rem da lista de
+     movimentacoes definido no bloco anterior do detalhe. */
+  .sdv-page--sample {
+    /* Altura comum da linha 1 (Informacoes | Movimentacoes): cabe
+       cabecalho + 5 campos + a fileira de botoes compactos, e ainda fica
+       MENOR que a altura atual (botoes grandes). Ajustavel num so lugar. */
+    --sdv-r1-h: 20rem;
+  }
+
+  /* Informacoes: altura fixa. Sem overflow:hidden de proposito — em estados
+     transitorios (NoticeSlot de edicao) o aviso pode crescer sem ser
+     cortado; no estado normal o conteudo cabe folgado. */
+  .sdv-page--sample #sdv-informacoes {
+    height: var(--sdv-r1-h);
+  }
+
+  /* Padding inferior enxuto: botoes proximos da borda de baixo. */
+  .sdv-page--sample #sdv-informacoes.sdv-info-compact {
+    padding-bottom: 0.85rem;
+  }
+
+  /* Campos no topo; a fileira de acoes desce pro rodape do card. */
+  .sdv-page--sample #sdv-informacoes .sdv-info-actions {
+    margin-top: auto;
+  }
+
+  /* Reserva uma linha mesmo com valor vazio, pra a grade de campos nao
+     "pular" de altura entre amostras com campos preenchidos vs vazios
+     (o container ja e fixo; isto estabiliza a propria grade). */
+  .sdv-page--sample #sdv-informacoes .sdv-info-value:empty::after {
+    content: '\00a0';
+  }
+
+  /* Botoes Imprimir/Enviar compactos (bem mais baixos que o card padrao
+     do desktop). Mantem a faixa verde lateral (::before) com respiro. */
+  .sdv-page--sample #sdv-informacoes .sdv-info-actions .sdv-action-card {
+    padding: 0.55rem 0.9rem 0.55rem 1rem;
+    gap: 0.5rem;
+  }
+
+  .sdv-page--sample #sdv-informacoes .sdv-info-actions .sdv-action-card-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+  }
+
+  .sdv-page--sample #sdv-informacoes .sdv-info-actions .sdv-action-card-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .sdv-page--sample #sdv-informacoes .sdv-info-actions .sdv-action-card-label {
+    font-size: 0.85rem;
+  }
+
+  /* Movimentacoes: MESMA altura do container de Informacoes. */
+  .sdv-page--sample #sdv-movimentacoes {
+    height: var(--sdv-r1-h);
+    flex: none;
+  }
+
+  /* A lista preenche o card e rola quando passa da altura; com poucas
+     movimentacoes sobra espaco vazio (o card NAO encolhe). Sobrescreve o
+     max-height:22rem do bloco anterior (especificidade de id). */
+  .sdv-page--sample #sdv-movimentacoes .sdv-com-movements {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+  }
 }
 
 /* ════════════════════════════════════════════════════════════════
