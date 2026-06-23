@@ -11954,6 +11954,12 @@ body:has(.app-modal-backdrop) .prospector-fab {
   flex-direction: column;
   gap: clamp(14px, 3.5vw, 16px);
   padding: clamp(18px, 5vw, 24px);
+  /* Superficie BRANCA solida (pedido do usuario 2026-06-23): sai o gradiente
+     translucido + vidro do .app-modal base — agora abre sobre scrim escuro
+     (.is-scrim-dark), entao a translucidez deixaria o fundo escuro vazar. */
+  background: #fff;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 /* 14.7.I/L: ClientUnitDetailModal — view + edit inline. Width/header
@@ -12389,6 +12395,51 @@ body:has(.app-modal-backdrop) .prospector-fab {
   font-size: 13px;
   font-weight: 500;
   color: #1a1a1a;
+}
+
+/* Valor + botao de copiar na mesma linha (Documento/Telefone). Espelha o
+   .stg-field-copy do /profile, em tamanho compacto pra caber no info-item. */
+.cdm-info-value-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cdm-info-value-row .cdm-info-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cdm-info-copy {
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  background: transparent;
+  border-radius: 7px;
+  color: var(--brand-green);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s ease;
+}
+
+.cdm-info-copy svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cdm-info-copy:active {
+  transform: scale(0.9);
 }
 
 .cdm-type-badge {

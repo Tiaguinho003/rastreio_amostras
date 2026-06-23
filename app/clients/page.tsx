@@ -25,6 +25,7 @@ import { IncompleteIcon } from '../../components/clients/IncompleteIcon';
 import { isClientComplete } from '../../lib/clients/client-completeness';
 import { ApiError, getClient, listClients, lookupUsersForReference } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
+import { useToast } from '../../lib/toast/ToastProvider';
 import { formatClientDocument, formatPhone } from '../../lib/client-field-formatters';
 import type {
   ClientUnitSummary,
@@ -352,6 +353,7 @@ function ClientsPage() {
     allowedRoles: NON_PROSPECTOR_ROLES,
   });
   const searchParams = useSearchParams();
+  const toast = useToast();
 
   // URL ?incomplete=true tem precedencia sobre o snapshot — quando o user
   // clica no card "Cadastros pendentes" do dashboard, a intencao explicita e
@@ -887,6 +889,15 @@ function ClientsPage() {
     dispatchClients({ type: 'closeDetail' });
   }
 
+  async function handleCopyField(text: string, label: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success({ title: `${label} copiado` });
+    } catch {
+      toast.error({ title: 'Não foi possível copiar' });
+    }
+  }
+
   async function refreshClientsList(nextSearch = appliedClientSearch) {
     if (!session) {
       return;
@@ -1171,7 +1182,7 @@ function ClientsPage() {
 
       {/* Client detail modal */}
       {clientsState.detailOpen ? (
-        <div className="app-modal-backdrop" onClick={closeClientDetail}>
+        <div className="app-modal-backdrop is-scrim-dark" onClick={closeClientDetail}>
           <section
             ref={clientDetailTrapRef}
             className="app-modal cdm-modal"
@@ -1243,15 +1254,52 @@ function ClientsPage() {
                   <div className="cdm-info-row">
                     <div className="cdm-info-item">
                       <span className="cdm-info-label">Documento</span>
-                      <span className="cdm-info-value">
-                        {selectedClientDocument ?? 'Nao informado'}
-                      </span>
+                      <div className="cdm-info-value-row">
+                        <span className="cdm-info-value">
+                          {selectedClientDocument ?? 'Nao informado'}
+                        </span>
+                        {selectedClientDocument ? (
+                          <button
+                            type="button"
+                            className="cdm-info-copy"
+                            aria-label="Copiar documento"
+                            onClick={() =>
+                              void handleCopyField(selectedClientDocument, 'Documento')
+                            }
+                          >
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                              <rect x="9" y="9" width="13" height="13" rx="2" />
+                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                            </svg>
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
                     <div className="cdm-info-item">
                       <span className="cdm-info-label">Telefone</span>
-                      <span className="cdm-info-value">
-                        {formatPhone(clientsState.detail.phone) ?? 'Nao informado'}
-                      </span>
+                      <div className="cdm-info-value-row">
+                        <span className="cdm-info-value">
+                          {formatPhone(clientsState.detail.phone) ?? 'Nao informado'}
+                        </span>
+                        {formatPhone(clientsState.detail.phone) ? (
+                          <button
+                            type="button"
+                            className="cdm-info-copy"
+                            aria-label="Copiar telefone"
+                            onClick={() =>
+                              void handleCopyField(
+                                formatPhone(clientsState.detail!.phone) ?? '',
+                                'Telefone'
+                              )
+                            }
+                          >
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                              <rect x="9" y="9" width="13" height="13" rx="2" />
+                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                            </svg>
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                   <div className="cdm-info-row">
