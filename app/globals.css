@@ -26521,20 +26521,19 @@ select.samples-filter-field-input {
     min-height: var(--dd-act-row-h);
     transition:
       transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
-      background 0.18s ease,
-      border-color 0.18s ease,
       box-shadow 0.18s ease;
   }
 
+  /* Hover desktop: SO eleva + cresce a sombra. Sem aquecer o fundo nem
+     escurecer a borda (decisao do usuario — nenhuma mudanca de cor no hover
+     de elemento clicavel; padrao a ser propagado pelo app). */
   .dd-activity-card:hover {
-    transform: translateX(2px);
-    background: #fbf8ef;
-    border-color: rgba(112, 130, 103, 0.32);
-    box-shadow: 0 4px 10px rgba(19, 35, 24, 0.06);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(19, 35, 24, 0.12);
   }
 
   .dd-activity-card:active {
-    transform: translateX(1px) scale(0.998);
+    transform: translateY(0) scale(0.997);
   }
 
   /* Card esmaecido (segue clicavel). Cobre o envio cancelado (caminho A, card
@@ -26831,7 +26830,7 @@ select.samples-filter-field-input {
     border-radius: 12px;
     gap: 0;
     overflow: hidden;
-    background: #fffefb;
+    background: #ffffff;
     border: 1px solid rgba(112, 130, 103, 0.18);
     color: inherit;
     text-decoration: none;
@@ -26846,14 +26845,12 @@ select.samples-filter-field-input {
   }
 
   .samples-page-v2 .spv2-card:hover {
-    transform: translateX(2px);
-    background: #fbf8ef;
-    border-color: rgba(112, 130, 103, 0.32);
-    box-shadow: 0 4px 10px rgba(19, 35, 24, 0.06);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(19, 35, 24, 0.12);
   }
 
   .samples-page-v2 .spv2-card:active {
-    transform: translateX(1px) scale(0.998);
+    transform: translateY(0) scale(0.997);
   }
 
   /* #4: no desktop o chrome do card (recolhido E estendido) fica TODO no
@@ -26863,7 +26860,7 @@ select.samples-filter-field-input {
      comeco da area estendida. Cards do modo blend (sem wrap) seguem com o
      chrome da regra .spv2-card acima. */
   .samples-page-v2:not(.informe-commercial-page) .spv2-card-wrap {
-    background: #fffefb;
+    background: #ffffff;
     border: 1px solid rgba(112, 130, 103, 0.18);
     border-radius: 12px;
     box-shadow: none;
@@ -26875,19 +26872,30 @@ select.samples-filter-field-input {
   }
 
   .samples-page-v2 .spv2-card-wrap:hover {
-    transform: translateX(2px);
-    background: #fbf8ef;
-    border-color: rgba(112, 130, 103, 0.32);
-    box-shadow: 0 4px 10px rgba(19, 35, 24, 0.06);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(19, 35, 24, 0.12);
   }
 
   .samples-page-v2 .spv2-card-wrap:active {
-    transform: translateX(1px) scale(0.997);
+    transform: translateY(0) scale(0.997);
   }
 
-  /* Linha dentro do wrap: so layout, sem chrome (o wrap carrega tudo). O
-     translateX/scale do hover/active fica no wrap, nao na linha (senao
-     dobraria). */
+  /* Card expandido (desktop): emoldura todo o card aberto com uma borda
+     verde-escura FINA — apenas RECOLORE a borda de 1px que ja existe, entao
+     NAO cresce o card — e reforca a sombra do card inteiro. Deixa explicito
+     qual informacao pertence a qual card quando varios estao abertos ao
+     mesmo tempo. Especificidade (0,4,0) vence o chrome base (box-shadow:none)
+     e o hover. */
+  .samples-page-v2:not(.informe-commercial-page) .spv2-card-wrap.is-expanded {
+    border-color: #1f5d43;
+    box-shadow:
+      0 10px 26px rgba(19, 35, 24, 0.16),
+      0 3px 8px rgba(19, 35, 24, 0.09);
+  }
+
+  /* Linha dentro do wrap: so layout, sem chrome (o wrap carrega tudo). A
+     elevacao (translateY)/scale do hover/active fica no wrap, nao na linha
+     (senao dobraria). */
   .samples-page-v2 .spv2-card-wrap > .spv2-card,
   .samples-page-v2 .spv2-card-wrap > .spv2-card:hover,
   .samples-page-v2 .spv2-card-wrap > .spv2-card:active {
@@ -28742,10 +28750,8 @@ select.samples-filter-field-input {
   }
 
   .samples-page-v2 .spv2-card:hover {
-    transform: translateX(2px);
-    background: #fbf8ef;
-    border-color: rgba(112, 130, 103, 0.32);
-    box-shadow: 0 4px 10px rgba(19, 35, 24, 0.06);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(19, 35, 24, 0.12);
   }
 
   /* T2: hover com sombra marcada */
