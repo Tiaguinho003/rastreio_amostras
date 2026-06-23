@@ -29733,16 +29733,16 @@ select.samples-filter-field-input {
     overflow-y: auto;
   }
 
-  /* Sem liga (grid de 2 linhas): o Resumo comercial (agora em col2/L2) acompanha
-     a altura da Classificacao que cresce ao lado, na mesma linha L2
-     (minmax(...,auto)). height:auto deixa o card esticar; min-height segura o piso
-     de 22rem; os minis (flex:1) preenchem o espaco extra. Com liga, esta regra nao
-     casa e o Resumo volta a 22rem fixo (a Liga assume a 3a linha). */
+  /* Sem liga (grid de 2 linhas): o Resumo comercial NAO estica pra acompanhar a
+     Classificacao (fixa em 45rem ao lado). Mantem o tamanho padrao de 22rem
+     (= Informacoes/Movimentacoes) e fica alinhado ao TOPO da celula L2 — o espaco
+     extra abaixo (ate o fim da Classificacao) fica vazio. Com liga a 3a linha e a
+     da Liga, a celula do Resumo ja e 22rem e o align-self fica inocuo. */
   .sdv-page--sample
     .sdv-content-inner:not(:has(.sdv-blend-composition, .sdv-blend-compromised))
     .sdv-com-summary {
-    height: auto;
-    min-height: var(--sdv-r1-h);
+    height: var(--sdv-r1-h);
+    align-self: start;
   }
 }
 
