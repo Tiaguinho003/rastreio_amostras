@@ -3621,61 +3621,23 @@ button:disabled {
   stroke-linejoin: round;
 }
 
+/* Dropdown de perfil do desktop: mesmo desenho do menu da conta do mobile
+   (avatar + nome/cargo + linhas com icone — classes .header-avatar-menu*),
+   porem ancorado como POPOVER. BRANCO, institucional/minimalista, um pouco mais
+   largo pra acomodar o resumo com avatar. As regras .topbar-profile-summary/
+   -name/-meta/-link/-action sairam: o conteudo agora usa as .header-avatar-menu*
+   (fonte unica de estilo com o menu mobile). */
 .topbar-profile-menu {
   position: absolute;
   top: calc(100% + 0.55rem);
   right: 0;
-  width: min(18rem, calc(100vw - 1.4rem));
+  width: min(20rem, calc(100vw - 1.4rem));
   border-radius: 16px;
   border: 1px solid var(--line);
-  background: var(--surface);
+  background: #ffffff;
   box-shadow: 0 18px 40px rgba(15, 23, 15, 0.24);
-  padding: 0.75rem;
-  display: grid;
-  gap: 0.55rem;
+  padding: 0.4rem 0.5rem 0.5rem;
   color: var(--ink);
-}
-
-.topbar-profile-summary {
-  display: grid;
-  gap: 0.2rem;
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 0.55rem;
-}
-
-.topbar-profile-name {
-  margin: 0;
-  font-weight: 700;
-  font-size: 0.93rem;
-}
-
-.topbar-profile-meta {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.8rem;
-}
-
-.topbar-profile-action {
-  width: 100%;
-  text-align: left;
-  padding: 0.55rem 0.65rem;
-  font-size: 0.88rem;
-}
-
-.topbar-profile-link {
-  display: block;
-  width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 0.55rem 0.65rem;
-  font-size: 0.88rem;
-  font-weight: 600;
-  background: #e2e8d6;
-  color: #2f3b2f;
-}
-
-.topbar-profile-link:hover {
-  background: #d9e0ca;
 }
 
 .topbar-mobile-spacer,
@@ -30619,6 +30581,13 @@ select.samples-filter-field-input {
   max-height: min(72dvh, 30rem);
 }
 
+/* Menu da conta (mobile): superficie BRANCA em vez do creme do sheet base
+   (--brand-cream-soft). Pedido do usuario; espelha o branco do dropdown
+   desktop. (.is-operations ja e branco pela propria regra.) */
+.bottom-sheet.is-menu {
+  background: #ffffff;
+}
+
 @supports not (height: 100dvh) {
   .bottom-sheet.is-menu,
   .bottom-sheet.is-operations {
@@ -30986,6 +30955,14 @@ select.samples-filter-field-input {
    (precisa ser opaco pra mascarar o scroll do form). Pedido do usuario. */
 .bottom-sheet.is-fit-content,
 .bottom-sheet.is-fit-content .bottom-sheet-footer {
+  background: #ffffff;
+}
+
+/* Modal "Etiqueta de Aprovacao" (ApprovalLabelModal): mesma superficie BRANCA
+   do "Nova amostra" — sheet + footer sticky — em vez do creme base. Vale mobile
+   (sheet) E desktop (modal central, mesmo elemento). */
+.bottom-sheet.is-approval-label,
+.bottom-sheet.is-approval-label .bottom-sheet-footer {
   background: #ffffff;
 }
 
@@ -32596,7 +32573,6 @@ body.is-selection-mode .hero-search-filter-btn {
   display: none;
 }
 
-.topbar-profile-trigger-name,
 .topbar-profile-chevron,
 .topbar-greeting {
   display: none;
@@ -32879,40 +32855,32 @@ body.is-selection-mode .hero-search-filter-btn {
     stroke-linejoin: round;
   }
 
-  /* Perfil vira pilula clara: avatar + primeiro nome + chevron */
+  /* Perfil: SO o avatar (MAIOR) + chevron — sem nome e sem borda (pedido do
+     usuario). Mesma posicao (canto direito da faixa branca). Hover sem mudar
+     cor (a resposta visual fica no scale do bloco geral .topbar-profile-trigger
+     acima). */
   .topbar-profile-trigger {
     display: inline-flex;
     align-items: center;
     width: auto;
     min-width: 0;
     height: auto;
-    gap: 0.45rem;
-    padding: 0.28rem 0.5rem 0.28rem 0.32rem;
+    gap: 0.35rem;
+    padding: 0.1rem 0.25rem 0.1rem 0.1rem;
     border-radius: 999px;
-    border-color: var(--line);
-    background: #f1f4ee;
+    border: none;
+    background: transparent;
     color: var(--ink);
   }
 
   .topbar-profile-trigger:hover {
-    background: #e7ece1;
-  }
-
-  .topbar-profile-trigger-name {
-    display: inline-block;
-    max-width: 9rem;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--ink);
+    background: transparent;
   }
 
   .topbar-profile-chevron {
     display: inline-block;
-    width: 1rem;
-    height: 1rem;
+    width: 1.2rem;
+    height: 1.2rem;
     flex: none;
     fill: none;
     stroke: var(--muted);

@@ -15,9 +15,11 @@ import { useVisitOutboxAutoSync } from '../lib/offline/use-visit-outbox-sync';
 import { VISIT_SYNC_COMPLETED_EVENT, type VisitSyncResult } from '../lib/offline/visit-sync';
 import {
   getRoleLabel,
+  INFORME_ROLES,
   isAdmin,
   isMetricsNavRole,
   isProspector,
+  isRoleAllowed,
   isVisitReportViewer,
 } from '../lib/roles';
 import { useToast } from '../lib/toast/ToastProvider';
@@ -40,7 +42,8 @@ type NavIcon =
   | 'clients'
   | 'avatar'
   | 'informe'
-  | 'metrics';
+  | 'metrics'
+  | 'resumo';
 type MobileRouteMeta = {
   title: string;
   subtitle: string;
@@ -59,6 +62,22 @@ const ADMIN_NAV_ITEM = {
   href: '/users',
   label: 'Usuarios',
   icon: 'users' as NavIcon,
+} as const;
+
+// Itens da sidebar desktop que dependem do papel: Resumo (viewers), Informe
+// (INFORME_ROLES) e Metricas (todos nao-prospector). Antes Resumo/Clientes
+// viviam no dropdown do perfil e Metricas so existia no slot do Informe
+// (isMetricsNavRole); agora sao itens proprios da barra lateral.
+const RESUMO_NAV_ITEM = { href: '/resumo', label: 'Resumo', icon: 'resumo' as NavIcon } as const;
+const INFORME_NAV_ITEM = {
+  href: '/informe',
+  label: 'Informe',
+  icon: 'informe' as NavIcon,
+} as const;
+const METRICS_NAV_ITEM = {
+  href: '/metrics',
+  label: 'Métricas',
+  icon: 'metrics' as NavIcon,
 } as const;
 
 const MOBILE_NAV_ITEMS = [
@@ -177,6 +196,17 @@ function renderNavIcon(icon: NavIcon, user?: SessionData['user']) {
     return (
       <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
         <path d="M4 20V10M10 20V4M16 20v-7M21 20H3" />
+      </svg>
+    );
+  }
+
+  if (icon === 'resumo') {
+    // Mesmo glifo do "Resumo" no menu da conta (HeaderAvatarMenu).
+    return (
+      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+        <path d="M4 13h4l2 3h4l2-3h4" />
+        <path d="M4 13V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6" />
+        <path d="M4 13v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" />
       </svg>
     );
   }
@@ -320,17 +350,19 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
       ? session.user.fullName.trim()
       : session.user.username;
   const profileFirstName = profileName.split(/\s+/)[0];
-  // Slot Informe/Métricas na barra lateral, espelhando a tabbar mobile:
-  // Classificacao/Cadastro veem "Métricas" (/metrics) no lugar do Informe
-  // (isMetricsNavRole); os demais nao-prospector veem "Informe" (/informe).
-  const informeNavItem = isMetricsNavRole(session.user.role)
-    ? { href: '/metrics', label: 'Métricas', icon: 'metrics' as NavIcon }
-    : { href: '/informe', label: 'Informe', icon: 'informe' as NavIcon };
+  // Barra lateral (desktop) montada por papel. Base: Inicio/Lotes/Clientes.
+  // Depois, por papel: Resumo (viewers = ADMIN/CADASTRO), Informe
+  // (INFORME_ROLES), Metricas (TODOS nao-prospector — pagina acessivel a
+  // todos), Usuarios (ADMIN). Resumo/Clientes sairam do dropdown do perfil
+  // (Clientes ja estava aqui); Metricas deixou de ser so o slot trocado do
+  // Informe e virou item proprio pra todos.
   const desktopNavItems = prospector
     ? DESKTOP_NAV_ITEMS.filter((item) => item.href === '/dashboard')
     : [
         ...DESKTOP_NAV_ITEMS,
-        informeNavItem,
+        ...(isVisitReportViewer(session.user.role) ? [RESUMO_NAV_ITEM] : []),
+        ...(isRoleAllowed(session.user.role, INFORME_ROLES) ? [INFORME_NAV_ITEM] : []),
+        METRICS_NAV_ITEM,
         ...(isAdmin(session.user.role) ? [ADMIN_NAV_ITEM] : []),
       ];
   const mobileRouteMeta = resolveMobileRouteMeta(pathname);
@@ -692,8 +724,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
                 aria-label="Abrir menu de perfil"
                 onClick={() => setProfileMenuOpen((current) => !current)}
               >
-                <UserAvatar size="sm" user={session.user} />
-                <span className="topbar-profile-trigger-name">{profileFirstName}</span>
+                <UserAvatar size="md" user={session.user} />
                 <svg
                   className="topbar-profile-chevron"
                   viewBox="0 0 24 24"
@@ -706,57 +737,58 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
 
               {profileMenuOpen ? (
                 <section id="topbar-profile-menu" className="topbar-profile-menu" role="menu">
-                  <div className="topbar-profile-summary">
-                    <p className="topbar-profile-name">{profileName}</p>
-                    <p className="topbar-profile-meta">
-                      {getRoleLabel(session.user.role)} | {session.user.username}
-                    </p>
-                  </div>
+                  {/* Mesmo desenho do menu da conta do mobile (HeaderAvatarMenu):
+                      resumo com avatar + nome/cargo no topo e linhas com icone.
+                      Aqui fica num DROPDOWN (nao em bottom sheet). */}
+                  <div className="header-avatar-menu">
+                    <div className="header-avatar-menu-summary">
+                      <UserAvatar size="md" user={session.user} />
+                      <div className="header-avatar-menu-summary-text">
+                        <span className="header-avatar-menu-summary-name">{profileName}</span>
+                        <span className="header-avatar-menu-summary-role">
+                          {getRoleLabel(session.user.role)}
+                        </span>
+                      </div>
+                    </div>
 
-                  {isAdmin(session.user.role) ? (
-                    <Link
-                      href="/users"
-                      className="topbar-profile-link"
-                      onClick={() => setProfileMenuOpen(false)}
-                    >
-                      Usuarios
-                    </Link>
-                  ) : null}
-                  {isVisitReportViewer(session.user.role) ? (
-                    <Link
-                      href="/resumo"
-                      className="topbar-profile-link"
-                      onClick={() => setProfileMenuOpen(false)}
-                    >
-                      Resumo
-                    </Link>
-                  ) : null}
-                  {!prospector ? (
-                    <Link
-                      href="/clients"
-                      className="topbar-profile-link"
-                      onClick={() => setProfileMenuOpen(false)}
-                    >
-                      Clientes
-                    </Link>
-                  ) : null}
-                  <Link
-                    href="/profile"
-                    className="topbar-profile-link"
-                    onClick={() => setProfileMenuOpen(false)}
-                  >
-                    Meu perfil
-                  </Link>
-                  <button
-                    type="button"
-                    className="topbar-profile-action danger"
-                    onClick={() => {
-                      setProfileMenuOpen(false);
-                      onLogout();
-                    }}
-                  >
-                    Sair
-                  </button>
+                    <div className="header-avatar-menu-list">
+                      <Link
+                        href="/profile"
+                        className="header-avatar-menu-row"
+                        onClick={() => setProfileMenuOpen(false)}
+                      >
+                        <svg
+                          className="header-avatar-menu-row-icon"
+                          viewBox="0 0 24 24"
+                          aria-hidden="true"
+                        >
+                          <circle cx="12" cy="8" r="4" />
+                          <path d="M5 20a7 7 0 0 1 14 0" />
+                        </svg>
+                        <span className="header-avatar-menu-row-label">Meu perfil</span>
+                      </Link>
+
+                      <button
+                        type="button"
+                        className="header-avatar-menu-row is-danger"
+                        onClick={() => {
+                          setProfileMenuOpen(false);
+                          onLogout();
+                        }}
+                      >
+                        <svg
+                          className="header-avatar-menu-row-icon"
+                          viewBox="0 0 24 24"
+                          aria-hidden="true"
+                        >
+                          <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" />
+                          <path d="M10 16l-4-4 4-4" />
+                          <path d="M6 12h11" />
+                        </svg>
+                        <span className="header-avatar-menu-row-label">Sair</span>
+                      </button>
+                    </div>
+                  </div>
                 </section>
               ) : null}
             </div>

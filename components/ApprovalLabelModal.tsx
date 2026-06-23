@@ -293,6 +293,7 @@ export function ApprovalLabelModal({ open, onClose, session }: ApprovalLabelModa
         title="Etiqueta de Aprovação"
         footer={formFooter}
         ariaLabel="Etiqueta de Aprovação"
+        className="is-approval-label"
         dragToDismiss
       >
         <div className="new-sample-step-content">
