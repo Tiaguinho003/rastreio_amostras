@@ -27278,7 +27278,9 @@ select.samples-filter-field-input {
   .clients-page-v2 {
     max-width: none;
     margin: 0;
-    padding: 1rem var(--desktop-gutter) 1.5rem;
+    /* Mesmo recuo de topo da /samples (era 1rem) — o titulo "Clientes" saiu no
+       desktop, entao a pagina cola mais no topo e sobra mais altura pro sheet. */
+    padding: 0.75rem var(--desktop-gutter) 1.5rem;
     flex: 1;
     min-height: 0;
     overflow: hidden;
@@ -27287,10 +27289,10 @@ select.samples-filter-field-input {
   }
 
   .clients-v2-header {
-    /* Padding equilibrado em cima e embaixo pra deixar o titulo "Clientes"
-       visualmente CENTRALIZADO entre o topo da pagina e a barra de busca,
-       em vez de colado no topo. */
-    padding: 1.5rem 0 1.5rem;
+    /* Gap menor entre a faixa do topo e a barra de busca, espelhando a
+       /samples (o titulo "Clientes" saiu no desktop): o espaco reclamado vai
+       pro sheet dos cards (flex:1, cresce sozinho). */
+    padding: 0.5rem 0 0.7rem;
     flex-shrink: 0;
   }
 
@@ -27634,28 +27636,42 @@ select.samples-filter-field-input {
     height: 22px;
   }
 
+  /* FAB "+" inline a direita do filtro, IGUAL a /samples: 56x56, raio 16,
+     sombra verde e hover por SCALE (era 64x64/raio 18 com hover translateY). */
   .clients-page-v2 .hero-search-wrap .cv2-fab {
     position: relative;
     bottom: auto;
     right: auto;
     top: auto;
-    width: 64px;
-    height: 64px;
-    min-width: 64px;
-    border-radius: 18px;
+    flex-shrink: 0;
+    width: 56px;
+    height: 56px;
+    min-width: 56px;
+    border-radius: 16px;
     padding: 0;
     display: inline-grid;
     place-items: center;
     gap: 0;
-    flex-shrink: 0;
+    box-shadow: 0 6px 16px rgba(31, 93, 67, 0.32);
     transition:
-      transform 0.2s ease,
-      box-shadow 0.2s ease;
+      transform 0.15s,
+      box-shadow 0.18s ease;
+    z-index: auto;
+  }
+
+  .clients-page-v2 .hero-search-wrap .cv2-fab:hover {
+    transform: scale(1.05);
+    box-shadow: 0 8px 20px rgba(31, 93, 67, 0.42);
+  }
+
+  .clients-page-v2 .hero-search-wrap .cv2-fab:active {
+    transform: scale(0.96);
   }
 
   .clients-page-v2 .hero-search-wrap .cv2-fab svg {
-    width: 30px;
-    height: 30px;
+    width: 26px;
+    height: 26px;
+    stroke-width: 2.2;
   }
 
   /* 14.4.B: remove o texto "Novo cliente" — desktop fica igual mobile. */
@@ -33040,5 +33056,42 @@ body.is-selection-mode .hero-search-filter-btn {
   /* Leque (ancorado no wrap) acima do scrim escuro quando aberto. */
   body.is-fab-fan-open .samples-page-v2 .hero-search-wrap {
     z-index: calc(var(--z-modal, 500) + 1);
+  }
+}
+
+/* ============================================================
+   Pagina Clientes (/clients) — ajustes desktop (>=901px)
+   Espelha a composicao geral da /samples (ver bloco acima): titulo oculto,
+   filtro verde + icone branco, busca com sombra simetrica reforcada. Os
+   CARDS de cliente NAO sao tocados (grid + card vertical seguem como estao).
+   ============================================================ */
+@media (min-width: 901px) {
+  /* 1. Sem o titulo "Clientes" no header da pagina (desktop). O
+     .clients-v2-header-center (flex:1) continua como espacador entre o botao
+     de voltar e o avatar — igual /samples. */
+  .clients-page-v2 .clients-v2-header .nsv2-title {
+    display: none;
+  }
+
+  /* 2. Botao de filtro: VERDE com icone branco (era branco + icone verde),
+     igual /samples. */
+  .clients-page-v2 .hero-search-filter-btn {
+    background: var(--brand-green);
+    box-shadow: 0 4px 14px rgba(15, 64, 41, 0.28);
+  }
+
+  .clients-page-v2 .hero-search-filter-btn svg,
+  .clients-page-v2 .hero-search-filter-btn.has-filters svg {
+    stroke: #ffffff;
+  }
+
+  /* 3. Campo de busca com sombra mais forte e SIMETRICA (mesmas camadas
+     espelhadas pra cima), igual /samples. */
+  .clients-page-v2 .hero-search-wrap .hero-search-bar {
+    box-shadow:
+      0 2px 6px rgba(10, 30, 18, 0.1),
+      0 12px 28px rgba(10, 30, 18, 0.16),
+      0 -2px 6px rgba(10, 30, 18, 0.1),
+      0 -12px 28px rgba(10, 30, 18, 0.16);
   }
 }
