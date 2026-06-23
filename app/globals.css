@@ -29169,10 +29169,14 @@ select.samples-filter-field-input {
      cascata + especificidade de id, o max-height:22rem da lista de
      movimentacoes definido no bloco anterior do detalhe. */
   .sdv-page--sample {
-    /* Altura comum da linha 1 (Informacoes | Movimentacoes): cabe
-       cabecalho + 5 campos + a fileira de botoes compactos, e ainda fica
-       MENOR que a altura atual (botoes grandes). Ajustavel num so lugar. */
-    --sdv-r1-h: 20rem;
+    /* Altura comum da linha 1 (Informacoes | Movimentacoes): cabe o
+       cabecalho (titulo + hairline) + os 5 campos + a fileira de botoes
+       compactos INTEIRA dentro do card, sem cruzar a borda inferior.
+       20rem era curto demais — o NoticeSlot vazio somava um gap orfao de
+       flex e os botoes estouravam a borda; com o NoticeSlot vazio colapsado
+       (regra abaixo) e 22rem o conteudo cabe com folga. Ajustavel num so
+       lugar — Movimentacoes acompanha pela mesma variavel. */
+    --sdv-r1-h: 22rem;
   }
 
   /* Informacoes: altura fixa. Sem overflow:hidden de proposito — em estados
@@ -29190,6 +29194,15 @@ select.samples-filter-field-input {
   /* Campos no topo; a fileira de acoes desce pro rodape do card. */
   .sdv-page--sample #sdv-informacoes .sdv-info-actions {
     margin-top: auto;
+  }
+
+  /* NoticeSlot vazio (sem <p> dentro = :empty) sai do fluxo: senao ele soma
+     um gap orfao de 1.2rem (gap do flex-column do card) ABAIXO dos botoes,
+     descolando-os da base e empurrando o conteudo pra fora da altura fixa.
+     Colapsado, os botoes encostam no padding-bottom do card. Quando um aviso
+     aparece (estado de edicao) o slot deixa de ser :empty e volta ao fluxo. */
+  .sdv-page--sample #sdv-informacoes .notice-slot:empty {
+    display: none;
   }
 
   /* Reserva uma linha mesmo com valor vazio, pra a grade de campos nao
@@ -29217,8 +29230,13 @@ select.samples-filter-field-input {
     height: 16px;
   }
 
+  /* Fonte branca: o desktop (.sdv-action-card-label) pinta o label de #333,
+     mas aqui o card e um gradiente colorido cheio (is-print verde / is-send
+     azul) — texto escuro fica com contraste ruim. Branco casa com o icone
+     (que ja herda currentColor #fff) e da o contraste correto. */
   .sdv-page--sample #sdv-informacoes .sdv-info-actions .sdv-action-card-label {
     font-size: 0.85rem;
+    color: #ffffff;
   }
 
   /* Movimentacoes: MESMA altura do container de Informacoes. */
