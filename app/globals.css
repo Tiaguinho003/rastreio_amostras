@@ -27794,6 +27794,14 @@ select.samples-filter-field-input {
     background: transparent;
   }
 
+  /* Detalhe da AMOSTRA: aproxima do topbar pra casar com o /samples
+     (.samples-page-v2 usa padding-top 0.75rem). Escopado em .sdv-page--sample
+     pra NAO afetar os outros detalhes (cliente/perfil/metricas) ainda nao
+     revisados no desktop. */
+  .sdv-page--sample .sdv-header {
+    padding-top: 0.75rem;
+  }
+
   .sdv-header-title {
     color: var(--ink);
     font-size: 1.4rem;
@@ -28207,6 +28215,75 @@ select.samples-filter-field-input {
     > .sdv-card:nth-child(2)
     .sdv-com-movements::-webkit-scrollbar-track {
     background: transparent;
+  }
+
+  /* ════════════════════════════════════════
+     Detalhe da AMOSTRA (desktop) — LINHA 1 = Informacoes | Movimentacoes.
+     As DUAS secoes viram 2 COLUNAS (50/50) do .sdv-content-inner: esquerda =
+     geral (Informacoes no topo, Classificacao/liga abaixo); direita = painel
+     comercial, REORDENADO pra Movimentacoes vir antes do Resumo comercial.
+     Substitui o modelo antigo de "altura travada + scroll interno do painel":
+     a pagina volta a rolar normalmente. Tudo escopado em .sdv-page--sample;
+     os outros detalhes (cliente/perfil) nao mudam. ════════ */
+  .sdv-page--sample:has(.sample-detail-commercial-pane) {
+    height: auto;
+    overflow: visible;
+    display: block;
+  }
+
+  .sdv-page--sample .sdv-content {
+    display: block;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .sdv-page--sample .sdv-content > .sdv-content-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1rem;
+    align-items: start;
+    flex: none;
+    min-height: 0;
+  }
+
+  /* Coluna esquerda = secao geral empilhada (sai o grid 5fr/3fr). */
+  .sdv-page--sample .sdv-general {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-width: none;
+    margin: 0;
+    min-width: 0;
+  }
+
+  /* Coluna direita = painel comercial empilhado (sem flex:1 do modelo travado). */
+  .sdv-page--sample .sdv-content .sample-detail-commercial-pane {
+    flex: none;
+    min-height: 0;
+  }
+
+  .sdv-page--sample .sdv-content .sdv-commercial {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    flex: none;
+    min-height: 0;
+    max-width: none;
+    margin: 0;
+  }
+
+  /* Movimentacoes no TOPO da coluna direita (antes do Resumo comercial). */
+  .sdv-page--sample #sdv-movimentacoes {
+    order: -1;
+  }
+
+  /* Movimentacoes com altura limitada + scroll interno (a pagina rola; sem o
+     preenchimento do painel travado, que era max-height:none). */
+  .sdv-page--sample .sdv-content .sdv-commercial > .sdv-card:nth-child(2) .sdv-com-movements {
+    flex: none;
+    max-height: 22rem;
+    min-height: 0;
+    overflow-y: auto;
   }
 
   /* Botoes de acao: faixa verde lateral */

@@ -2076,7 +2076,7 @@ export default function SampleDetailPage() {
 
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
-      <section className="sdv-page">
+      <section className="sdv-page sdv-page--sample">
         {!loadingDetail && detail ? (
           <>
             {/* Header verde */}
