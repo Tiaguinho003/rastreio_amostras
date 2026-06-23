@@ -10064,6 +10064,14 @@ body:has(.app-modal-backdrop) .prospector-fab {
   gap: clamp(10px, 3vw, 12px);
 }
 
+/* Coluna lateral do detalhe do cliente (Resumo comercial + Filiais/Endereco).
+   No MOBILE e transparente (display: contents) — os cards fluem direto no
+   .sdv-content-inner na ordem do DOM (Resumo, depois Filiais/Endereco), como
+   antes. No DESKTOP (ver @media 901px) vira o item da col 2 (flex column). */
+.sdv-client-side-col {
+  display: contents;
+}
+
 /* Secao do "Resumo comercial" (grafico donut) do detalhe do cliente — wrapper
    do ClientCommercialSummaryCard. Fica entre Informacoes e Filiais (PF) com o
    MESMO gap dos demais containers (igual ao gap interno do .sdv-general); no
@@ -10073,9 +10081,11 @@ body:has(.app-modal-backdrop) .prospector-fab {
 }
 
 /* Filiais (PF) e Endereco fiscal (PJ) ficam abaixo do Resumo comercial — mesmo
-   gap dos demais containers (gap uniforme entre os tres). */
-.sdv-content-inner > .sdv-card-filiais,
-.sdv-content-inner > .sdv-card-address {
+   gap dos demais containers (gap uniforme entre os tres). Vivem dentro da
+   .sdv-client-side-col; no mobile (display: contents) o gap vertical e este
+   margin-top (no desktop o flex da coluna usa `gap` e zera este margin). */
+.sdv-client-side-col > .sdv-card-filiais,
+.sdv-client-side-col > .sdv-card-address {
   margin-top: clamp(13px, 3.6vw, 16px);
 }
 
@@ -27861,11 +27871,12 @@ select.samples-filter-field-input {
     background: transparent;
   }
 
-  /* Detalhe da AMOSTRA: aproxima do topbar pra casar com o /samples
-     (.samples-page-v2 usa padding-top 0.75rem). Escopado em .sdv-page--sample
-     pra NAO afetar os outros detalhes (cliente/perfil/metricas) ainda nao
-     revisados no desktop. */
-  .sdv-page--sample .sdv-header {
+  /* Detalhe da AMOSTRA e do CLIENTE: aproxima do topbar pra casar com o
+     /samples (.samples-page-v2 usa padding-top 0.75rem). O cliente e detectado
+     pela .sdv-client-side-col (so existe nesse detalhe). Escopado pra NAO
+     afetar perfil/metricas ainda nao revisados no desktop. */
+  .sdv-page--sample .sdv-header,
+  .sdv-page:has(.sdv-client-side-col) .sdv-header {
     padding-top: 0.75rem;
   }
 
@@ -28141,33 +28152,77 @@ select.samples-filter-field-input {
     border-radius: 999px;
   }
 
-  /* Cliente PF: os tres containers (Informacoes -> Resumo comercial ->
-     Filiais) ficam numa COLUNA UNICA centralizada (max 34rem, igual ao
-     Resumo), nao no grid 2-col do PJ. Deteccao: a Filiais (PF) e filha
-     DIRETA do .sdv-content-inner (foi movida pra baixo do Resumo); o PJ
-     mantem o grid Informacoes | Endereco fiscal. */
-  .sdv-content-inner:has(> .sdv-card-filiais) > .sdv-general,
-  .sdv-content-inner:has(> .sdv-card-address) > .sdv-general {
-    display: block;
-    max-width: 34rem;
+  /* Detalhe do cliente (PF e PJ): 2 colunas 50/50 (largura da pagina, cap
+     1600px, centrado). Col 1 = Informacoes (card alto, a referencia de
+     altura). Col 2 = .sdv-client-side-col com Filiais/Endereco EM CIMA +
+     Resumo comercial EMBAIXO, que JUNTOS somam a altura do Informacoes.
+     Deteccao: a .sdv-client-side-col so existe no detalhe do cliente. */
+  .sdv-content-inner:has(> .sdv-client-side-col) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 1rem;
+    align-items: stretch;
+    max-width: 1600px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
   }
 
-  .sdv-content-inner:has(> .sdv-card-filiais) > .sdv-general .sdv-info-split-row,
-  .sdv-content-inner:has(> .sdv-card-address) > .sdv-general .sdv-info-split-row {
+  /* Col 1: Informacoes. .sdv-general so segura o card (anula o grid 5fr/3fr
+     da base desktop) e preenche a coluna; altura natural do conteudo. */
+  .sdv-content-inner:has(> .sdv-client-side-col) > .sdv-general {
+    display: block;
+    max-width: none;
+    margin: 0;
+    min-width: 0;
+    grid-column: 1;
+  }
+
+  .sdv-content-inner:has(> .sdv-client-side-col) > .sdv-general .sdv-info-split-row {
     height: auto;
   }
 
-  .sdv-content-inner > .sdv-card-filiais,
-  .sdv-content-inner > .sdv-card-address {
-    width: 100%;
-    max-width: 34rem;
-    margin-left: auto;
-    margin-right: auto;
+  /* Col 2: coluna lateral em flex column; estica pra altura da row (= altura
+     do card Informacoes via align-items: stretch). */
+  .sdv-client-side-col {
+    grid-column: 2;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(13px, 3.6vw, 16px);
   }
 
-  /* Na coluna unica a lista de filiais flui (a pagina rola) — sem a altura
-     fixa / scroll interno que o layout 2-col usava. */
-  .sdv-content-inner > .sdv-card-filiais .sdv-unit-list {
+  /* Filiais (PF) / Endereco (PJ) EM CIMA (altura natural). No DOM o Resumo vem
+     antes, entao invertemos a ordem visual via `order`. */
+  .sdv-client-side-col > .sdv-card-address,
+  .sdv-client-side-col > .sdv-card-filiais {
+    order: 1;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+  }
+
+  /* Resumo comercial EMBAIXO, absorvendo o espaco restante (flex: 1) pra
+     fechar a altura do card Informacoes ao lado. Anula o cap 34rem +
+     centragem + margin-top do mobile da .sdv-client-commercial-section. */
+  .sdv-client-side-col > .sdv-client-commercial-section {
+    order: 2;
+    flex: 1;
+    min-height: 0;
+    max-width: none;
+    margin: 0;
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sdv-client-side-col > .sdv-client-commercial-section .client-commercial-card {
+    height: 100%;
+  }
+
+  /* Filiais na coluna: a lista flui (a pagina rola se passar). */
+  .sdv-client-side-col > .sdv-card-filiais .sdv-unit-list {
     overflow: visible;
     padding-right: 0;
   }
