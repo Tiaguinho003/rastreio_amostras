@@ -5,17 +5,18 @@ import Link from 'next/link';
 import { AppShell } from '../../components/AppShell';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { InformeCommercialPage } from '../../components/informe/InformeCommercialPage';
+import { RelatoriosViewer } from '../../components/informe/RelatoriosViewer';
 import { useRequireAuth } from '../../lib/use-auth';
-import { isAdmin, INFORME_ROLES } from '../../lib/roles';
+import { isAdmin, isVisitReportViewer, INFORME_ROLES } from '../../lib/roles';
 
-// Pagina "Informe" — formularios POR PAPEL.
-// COMMERCIAL (e ADMIN): pagina propria espelhando a /samples, com FAB de
-// lapis abrindo os formularios "Visitas" e "Relatorio" e o feed dos
-// proprios envios (components/informe/InformeCommercialPage).
-// REGISTRATION: placeholder (formularios em construcao).
-// CLASSIFIER/CADASTRO: NAO acessam (veem Metricas na navbar; guard redireciona
-// pro /dashboard). PROSPECTOR tambem nao usa esta pagina (formulario no sheet
-// do dashboard).
+// Pagina "Relatorios" (rota /informe — unificada com o antigo /resumo),
+// adaptativa por papel:
+// - ADMIN/CADASTRO (viewers): RelatoriosViewer — feed de TODOS (scope=all) +
+//   curadoria de vinculo; ADMIN tambem cria (FAB).
+// - COMMERCIAL: InformeCommercialPage — feed dos PROPRIOS (scope=mine) + FAB.
+// - REGISTRATION: placeholder vazio (sem formularios proprios).
+// - CLASSIFIER: NAO acessa (Metricas na navbar; guard -> /dashboard).
+// - PROSPECTOR: nao usa esta pagina (formulario no sheet do dashboard).
 
 export default function InformePage() {
   const { session, loading, logout, setSession } = useRequireAuth({
@@ -26,7 +27,20 @@ export default function InformePage() {
     return null;
   }
 
-  if (session.user.role === 'COMMERCIAL' || isAdmin(session.user.role)) {
+  const role = session.user.role;
+
+  // ADMIN/CADASTRO: visao de supervisao (todos os formularios + curadoria).
+  // ADMIN tambem cria (canCreate).
+  if (isVisitReportViewer(role)) {
+    return (
+      <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
+        <RelatoriosViewer session={session} onLogout={logout} canCreate={isAdmin(role)} />
+      </AppShell>
+    );
+  }
+
+  // COMMERCIAL: feed dos proprios envios + FAB de criacao.
+  if (role === 'COMMERCIAL') {
     return (
       <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
         <InformeCommercialPage session={session} onLogout={logout} />
@@ -34,6 +48,7 @@ export default function InformePage() {
     );
   }
 
+  // REGISTRATION (e qualquer outro papel sem formularios proprios): placeholder.
   const userFullName = session.user.fullName ?? session.user.username;
   const userAvatarInitials = userFullName
     .split(' ')
@@ -55,7 +70,7 @@ export default function InformePage() {
               aria-hidden="true"
               style={{ visibility: 'hidden', pointerEvents: 'none' }}
             />
-            <span className="sdv-header-title">Informe</span>
+            <span className="sdv-header-title">Relatórios</span>
             <HeaderAvatarMenu session={session} onLogout={logout} />
             <Link href="/profile" className="nsv2-avatar" aria-label="Ir para perfil">
               <span className="nsv2-avatar-initials">{userAvatarInitials}</span>

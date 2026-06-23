@@ -42,8 +42,7 @@ type NavIcon =
   | 'clients'
   | 'avatar'
   | 'informe'
-  | 'metrics'
-  | 'resumo';
+  | 'metrics';
 type MobileRouteMeta = {
   title: string;
   subtitle: string;
@@ -64,14 +63,12 @@ const ADMIN_NAV_ITEM = {
   icon: 'users' as NavIcon,
 } as const;
 
-// Itens da sidebar desktop que dependem do papel: Resumo (viewers), Informe
-// (INFORME_ROLES) e Metricas (todos nao-prospector). Antes Resumo/Clientes
-// viviam no dropdown do perfil e Metricas so existia no slot do Informe
-// (isMetricsNavRole); agora sao itens proprios da barra lateral.
-const RESUMO_NAV_ITEM = { href: '/resumo', label: 'Resumo', icon: 'resumo' as NavIcon } as const;
+// Itens da sidebar desktop que dependem do papel: Relatorios (rota /informe —
+// INFORME_ROLES OU viewers; unifica o antigo Informe + Resumo) e Metricas
+// (todos nao-prospector).
 const INFORME_NAV_ITEM = {
   href: '/informe',
-  label: 'Informe',
+  label: 'Relatórios',
   icon: 'informe' as NavIcon,
 } as const;
 const METRICS_NAV_ITEM = {
@@ -107,7 +104,7 @@ const MOBILE_NAV_ITEMS = [
   },
   {
     href: '/informe',
-    mobileLabel: 'Informe',
+    mobileLabel: 'Relatórios',
     icon: 'informe' as NavIcon,
     emphasis: 'default' as const,
   },
@@ -200,17 +197,6 @@ function renderNavIcon(icon: NavIcon, user?: SessionData['user']) {
     );
   }
 
-  if (icon === 'resumo') {
-    // Mesmo glifo do "Resumo" no menu da conta (HeaderAvatarMenu).
-    return (
-      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-        <path d="M4 13h4l2 3h4l2-3h4" />
-        <path d="M4 13V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6" />
-        <path d="M4 13v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" />
-      </svg>
-    );
-  }
-
   if (icon === 'avatar' && user) {
     return <UserAvatar size="sm" user={user} />;
   }
@@ -262,7 +248,6 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   const isUsersPage = pathname === '/users';
   const isProfilePage = pathname === '/profile';
   const isInformePage = pathname === '/informe';
-  const isResumoPage = pathname === '/resumo';
   const isLayeredRoute =
     isDashboard ||
     isNewSample ||
@@ -272,8 +257,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
     isClientDetail ||
     isUsersPage ||
     isProfilePage ||
-    isInformePage ||
-    isResumoPage;
+    isInformePage;
   const headerMobileClass = isLayeredRoute ? 'topbar--dashboard-only' : 'topbar--hidden';
   // Rotas onde a tabbar mobile NAO deve renderizar (paginas de detalhe com
   // header proprio + back button; a tabbar so polui visualmente). A tabbar
@@ -351,8 +335,8 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
       : session.user.username;
   const profileFirstName = profileName.split(/\s+/)[0];
   // Barra lateral (desktop) montada por papel. Ordem (pedido do usuario):
-  // Inicio / Lotes / Clientes (base) -> Informe (INFORME_ROLES) -> Metricas
-  // (TODOS nao-prospector) -> Resumo (viewers = ADMIN/CADASTRO) -> Usuarios
+  // Inicio / Lotes / Clientes (base) -> Relatorios (INFORME_ROLES, ja inclui os
+  // viewers ADMIN/CADASTRO) -> Metricas (TODOS nao-prospector) -> Usuarios
   // (ADMIN). Itens condicionais somem por papel mantendo essa ordem relativa.
   const desktopNavItems = prospector
     ? DESKTOP_NAV_ITEMS.filter((item) => item.href === '/dashboard')
@@ -360,7 +344,6 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
         ...DESKTOP_NAV_ITEMS,
         ...(isRoleAllowed(session.user.role, INFORME_ROLES) ? [INFORME_NAV_ITEM] : []),
         METRICS_NAV_ITEM,
-        ...(isVisitReportViewer(session.user.role) ? [RESUMO_NAV_ITEM] : []),
         ...(isAdmin(session.user.role) ? [ADMIN_NAV_ITEM] : []),
       ];
   const mobileRouteMeta = resolveMobileRouteMeta(pathname);
@@ -821,8 +804,13 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
       {!hideMobileTabbar ? (
         <MobileTabbar
           items={MOBILE_NAV_ITEMS.map((item) => {
-            // Classificacao/Cadastro: Metricas no lugar do Informe na navbar.
-            const swapToMetrics = item.href === '/informe' && isMetricsNavRole(session.user.role);
+            // CLASSIFIER: Metricas no lugar de Relatorios no 5o slot (nao e
+            // viewer). CADASTRO virou viewer de Relatorios — mantem Relatorios
+            // no slot e acessa Metricas pelo menu do avatar (ver HeaderAvatarMenu).
+            const swapToMetrics =
+              item.href === '/informe' &&
+              isMetricsNavRole(session.user.role) &&
+              !isVisitReportViewer(session.user.role);
             return {
               href: swapToMetrics ? '/metrics' : item.href,
               mobileLabel: swapToMetrics ? 'Métricas' : item.mobileLabel,

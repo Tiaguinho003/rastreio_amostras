@@ -5359,6 +5359,21 @@ button:disabled {
   --fan-radius: calc(var(--fab-size) / 2 + var(--fan-gap) + var(--fan-opt-size) / 2);
 }
 
+/* Ancoragem do FAB/leque (InformeCreateFab) quando renderizado FORA da
+   `.samples-page-v2.informe-commercial-page` — caso do viewer "Relatorios" do
+   ADMIN, que vive em `.sdv-page`. Espelha as vars do bloco acima pra o leque
+   (.fab-fan/.fab-fan-option, position:fixed) ancorar corretamente no FAB. */
+.rsm-fab-anchor {
+  --fab-right: clamp(24px, 7vw, 34px);
+  --fab-size: clamp(53px, 14.95vw, 60px);
+  --fab-bottom: calc(
+    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(6.3rem, 27vw, 6.8rem)
+  );
+  --fan-opt-size: clamp(44px, 12vw, 50px);
+  --fan-gap: clamp(40px, 12vw, 50px);
+  --fan-radius: calc(var(--fab-size) / 2 + var(--fan-gap) + var(--fan-opt-size) / 2);
+}
+
 /* Sheet E cards em BRANCO puro `#ffffff` (a pedido do usuario, 2026-06-16; vai
    alem do `#f4f6f5` do dashboard — UNICA excecao ao "nunca #fff puro", ver
    design-system §1). Cards sem o gradiente quente e com sombra reforcada pra

@@ -114,18 +114,20 @@ export function HeaderAvatarMenu({ session, onLogout }: HeaderAvatarMenuProps) {
               </button>
             ) : null}
 
-            {isVisitReportViewer(session.user.role) ? (
+            {/* CADASTRO: Metricas no menu do avatar — virou viewer de Relatorios
+                e por isso o 5o slot da tabbar passou a mostrar Relatorios (perdeu
+                Metricas). CLASSIFIER segue com Metricas na tabbar; ADMIN ve o
+                teaser abaixo. Condicao = viewer E metrics-nav = so CADASTRO. */}
+            {isVisitReportViewer(session.user.role) && isMetricsNavRole(session.user.role) ? (
               <button
                 type="button"
                 className="header-avatar-menu-row"
-                onClick={() => go('/resumo')}
+                onClick={() => go('/metrics')}
               >
                 <svg className="header-avatar-menu-row-icon" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M4 13h4l2 3h4l2-3h4" />
-                  <path d="M4 13V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6" />
-                  <path d="M4 13v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" />
+                  <path d="M4 20V10M10 20V4M16 20v-7M21 20H3" />
                 </svg>
-                <span className="header-avatar-menu-row-label">Resumo</span>
+                <span className="header-avatar-menu-row-label">Métricas</span>
               </button>
             ) : null}
 

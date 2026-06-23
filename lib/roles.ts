@@ -61,12 +61,17 @@ export function isVisitLinkCurator(role: UserRole | null | undefined): boolean {
   return role === 'ADMIN' || role === 'CADASTRO';
 }
 
-// Classificacao e Cadastro: na barra de navegacao veem METRICAS no lugar do
-// Informe (e NAO acessam /informe). Para eles, Metricas tambem sai do menu do
-// avatar (vira item de navegacao). REGISTRATION continua com o /informe.
+// Classificacao e Cadastro tem METRICAS como pagina de navegacao (alem do
+// dashboard). Usado pra: (a) o swap da tabbar do 5o slot e (b) esconder o
+// teaser "Em breve" de Metricas no menu do avatar. Pos-unificacao a tabbar
+// difere: CLASSIFIER ve Metricas no 5o slot; CADASTRO (que virou viewer de
+// Relatorios) ve Relatorios no slot e acessa Metricas pelo menu do avatar.
 export function isMetricsNavRole(role: UserRole | null | undefined): boolean {
   return role === 'CLASSIFIER' || role === 'CADASTRO';
 }
 
-// allowedRoles do /informe: nao-prospector MENOS classificacao/cadastro.
-export const INFORME_ROLES: UserRole[] = ['ADMIN', 'COMMERCIAL', 'REGISTRATION'];
+// allowedRoles da pagina "Relatorios" (rota /informe, unificada com o antigo
+// /resumo): nao-prospector MENOS classificacao. ADMIN/CADASTRO entram como
+// VIEWERS (scope=all + curadoria, via isVisitReportViewer); COMMERCIAL ve os
+// proprios (scope=mine); REGISTRATION cai no placeholder vazio.
+export const INFORME_ROLES: UserRole[] = ['ADMIN', 'COMMERCIAL', 'REGISTRATION', 'CADASTRO'];

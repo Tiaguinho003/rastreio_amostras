@@ -6,10 +6,8 @@ import { createPortal } from 'react-dom';
 
 import { HeaderAvatarMenu } from '../HeaderAvatarMenu';
 import { CommercialVisitCard } from './CommercialVisitCard';
-import { CommercialVisitFormSheet } from './CommercialVisitFormSheet';
-import { InformeCreateRadialFab } from './InformeCreateRadialFab';
+import { InformeCreateFab } from './InformeCreateFab';
 import { WeeklyReportCard } from './WeeklyReportCard';
-import { WeeklyReportFormSheet } from './WeeklyReportFormSheet';
 import {
   ApiError,
   deleteCommercialVisit,
@@ -102,31 +100,6 @@ export function InformeCommercialPage({ session, onLogout }: InformeCommercialPa
     });
   }, []);
 
-  // Sheets dos formularios: `open` controla intencao, `mounted` presenca
-  // no DOM (delayed unmount de 400ms pro slide-down do BottomSheet).
-  const [visitSheetOpen, setVisitSheetOpen] = useState(false);
-  const [visitSheetMounted, setVisitSheetMounted] = useState(false);
-  const [weeklySheetOpen, setWeeklySheetOpen] = useState(false);
-  const [weeklySheetMounted, setWeeklySheetMounted] = useState(false);
-
-  useEffect(() => {
-    if (visitSheetOpen) {
-      setVisitSheetMounted(true);
-      return;
-    }
-    const timer = window.setTimeout(() => setVisitSheetMounted(false), 400);
-    return () => window.clearTimeout(timer);
-  }, [visitSheetOpen]);
-
-  useEffect(() => {
-    if (weeklySheetOpen) {
-      setWeeklySheetMounted(true);
-      return;
-    }
-    const timer = window.setTimeout(() => setWeeklySheetMounted(false), 400);
-    return () => window.clearTimeout(timer);
-  }, [weeklySheetOpen]);
-
   const handleSubmitted = useCallback(() => {
     void loadPage(1, 'replace');
   }, [loadPage]);
@@ -190,7 +163,7 @@ export function InformeCommercialPage({ session, onLogout }: InformeCommercialPa
           </svg>
         </Link>
         <div className="samples-page-v2-header-center">
-          <h2 className="nsv2-title">Informe</h2>
+          <h2 className="nsv2-title">Relatórios</h2>
         </div>
         <HeaderAvatarMenu session={session} onLogout={onLogout} />
         <Link href="/profile" className="nsv2-avatar" aria-label="Ir para perfil">
@@ -206,10 +179,7 @@ export function InformeCommercialPage({ session, onLogout }: InformeCommercialPa
           .spv2-list-meta do sheet abaixo). MOBILE: faixa verde so de respiro
           (FAB flutua fixo). */}
       <div className="hero-search-wrap is-informe">
-        <InformeCreateRadialFab
-          onCreateVisit={() => setVisitSheetOpen(true)}
-          onCreateWeeklyReport={() => setWeeklySheetOpen(true)}
-        />
+        <InformeCreateFab session={session} onSubmitted={handleSubmitted} />
       </div>
 
       <section className="samples-page-v2-sheet">
@@ -306,24 +276,6 @@ export function InformeCommercialPage({ session, onLogout }: InformeCommercialPa
           {error && items.length > 0 ? <p className="rsm-feed-error">{error}</p> : null}
         </div>
       </section>
-
-      {visitSheetMounted ? (
-        <CommercialVisitFormSheet
-          open={visitSheetOpen}
-          session={session}
-          onClose={() => setVisitSheetOpen(false)}
-          onSubmitted={handleSubmitted}
-        />
-      ) : null}
-
-      {weeklySheetMounted ? (
-        <WeeklyReportFormSheet
-          open={weeklySheetOpen}
-          session={session}
-          onClose={() => setWeeklySheetOpen(false)}
-          onSubmitted={handleSubmitted}
-        />
-      ) : null}
 
       {/* Confirmacao de exclusao — portal pro body (skill modals). */}
       {deleteTarget
