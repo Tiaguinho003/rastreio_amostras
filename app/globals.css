@@ -27970,6 +27970,12 @@ select.samples-filter-field-input {
     font-size: 1.4rem;
   }
 
+  /* Sem o titulo "Detalhes" no desktop da amostra (segue o padrao das outras
+     paginas desktop, que nao exibem titulo de pagina). */
+  .sdv-page--sample .sdv-header-title {
+    display: none;
+  }
+
   /* Identidade: card verde escuro com destaque */
   .sdv-identity-card {
     background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
@@ -28454,11 +28460,11 @@ select.samples-filter-field-input {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-areas:
-      'info    resumo'
-      'classif mov';
-    /* Sem liga (base): 2 linhas. L1 fixa (Informacoes | Resumo, 22rem). L2
-       cresce com a ficha da Classificacao (col1); Movimentacoes (col2) acompanha
-       a altura via a regra :not(:has(...)) adiante. */
+      'info    mov'
+      'classif resumo';
+    /* Sem liga (base): 2 linhas. L1 fixa (Informacoes | Movimentacoes, 22rem). L2
+       cresce com a ficha da Classificacao (col1); o Resumo comercial (col2)
+       acompanha a altura via a regra :not(:has(...)) adiante. */
     grid-template-rows: var(--sdv-r1-h) minmax(var(--sdv-r1-h), auto);
     grid-auto-rows: auto;
     gap: 1rem;
@@ -28476,8 +28482,8 @@ select.samples-filter-field-input {
     .sdv-content
     > .sdv-content-inner:has(.sdv-blend-composition, .sdv-blend-compromised) {
     grid-template-areas:
-      'info    resumo'
-      'classif mov'
+      'info    mov'
+      'classif resumo'
       'classif liga';
     grid-template-rows: var(--sdv-r1-h) var(--sdv-r1-h) var(--sdv-r1-h);
   }
@@ -28534,12 +28540,30 @@ select.samples-filter-field-input {
     overflow: hidden;
   }
 
+  /* Lista da liga (composicao E comprometida) no desktop — MESMO padrao nos dois:
+     cards mais afastados (gap), respiro lateral pra a sombra reforcada nao ser
+     decepada pelo overflow, e sem o teto de altura da composicao (max-height:none)
+     pra ambas preencherem o card via flex:1. */
   .sdv-page--sample .sdv-blend-composition .sdv-related-list,
   .sdv-page--sample .sdv-blend-compromised .sdv-related-list {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(10px, 2.2vw, 14px);
     flex: 1;
     min-height: 0;
+    max-height: none;
     overflow-y: auto;
     overflow-x: hidden;
+    padding: 0.3rem 0.4rem;
+  }
+
+  /* Minicards dos lotes (composicao/comprometimento): BRANCO puro (era gradiente
+     branco->creme) + sombra reforcada nas bordas pra se destacarem. */
+  .sdv-page--sample .sdv-blend-card {
+    background: #ffffff;
+    box-shadow:
+      0 2px 6px rgba(0, 0, 0, 0.09),
+      0 10px 24px rgba(0, 0, 0, 0.13);
   }
 
   /* Cards de status (raros): largura total. Sem grid-row fixo: como as linhas
@@ -28549,21 +28573,31 @@ select.samples-filter-field-input {
     grid-column: 1 / -1;
   }
 
-  /* ── Card de Classificacao no desktop (col esquerda, abaixo de Informacoes) ──
-     SEM liga: o card CRESCE com a ficha (a linha L2 e minmax(...,auto)); sem
-     height/overflow aqui, a ficha aparece inteira e Movimentacoes acompanha a
-     altura. COM liga: vira span L2-L3 (45rem) e a altura e travada (regra :has
-     logo abaixo). gap:0 pra nao dobrar com as margens da .sdv-card desktop. */
-  .sdv-page--sample .sdv-cls-block {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
+  /* ── Card de Classificacao no desktop: UM BLOCO unico ──
+     O .sdv-cls-block vira um GRID de 3 colunas e summary/fields/extra viram
+     display:contents — assim a foto + TODOS os campos (Aspecto..Defeito +
+     Observacoes) sao itens do MESMO grid, alinhados em 3 colunas, sem a "costura"
+     entre o resumo e a ficha que existia antes (e sem o scroll que a evidenciava).
+     "Expandir" e o clique ficam desativados no desktop (as infos ja estao todas
+     no card). Seletor `.sdv-general > .sdv-card.X` (0,4,0) pra o display:grid
+     VENCER a regra legada `.sdv-general > .sdv-card:nth-child(2) { display:flex }`
+     (0,3,0) — a mesma que ja sobrescrevia o grid-area. */
+  .sdv-page--sample .sdv-general > .sdv-card.sdv-cls-block {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: clamp(10px, 2.5vw, 14px);
+    row-gap: clamp(3px, 1vw, 6px);
+    align-content: start;
   }
 
-  /* COM liga: a Classificacao faz span L2-L3 = 45rem fixo. height:100% preenche
-     a celula e overflow:hidden a contem — a ficha (.sdv-cls-extra, flex:1 +
-     overflow-y:auto) rola DENTRO do card se exceder, em vez de vazar pra fora.
-     Sem liga essa regra nao casa, o card fica sem height fixo e cresce. */
+  /* Titulo "Classificacao" no topo, largura toda do card. */
+  .sdv-page--sample .sdv-cls-block > .sdv-card-header {
+    grid-column: 1 / -1;
+    margin-bottom: 0.35rem;
+  }
+
+  /* COM liga: altura travada (= Movimentacoes + Liga). overflow:hidden so como
+     guarda — o conteudo cabe sem scroll. Sem liga, o card cresce com o conteudo. */
   .sdv-page--sample
     .sdv-content-inner:has(.sdv-blend-composition, .sdv-blend-compromised)
     .sdv-cls-block {
@@ -28571,57 +28605,50 @@ select.samples-filter-field-input {
     overflow: hidden;
   }
 
-  /* Sem botao "Classificar" no desktop: aqui so se classifica pelo modal do
-     dashboard ou reclassificando (acao rara no computador). */
+  /* Achatam: a foto e os campos do resumo/ficha viram itens diretos do grid. */
+  .sdv-page--sample .sdv-cls-block .sdv-cls-block-summary,
+  .sdv-page--sample .sdv-cls-block .sdv-cls-block-fields,
+  .sdv-page--sample .sdv-cls-block .sdv-cls-extra {
+    display: contents;
+  }
+
+  /* Foto: canto superior esquerdo, coluna 1 por 2 linhas (Aspecto/Catacao e
+     Padrao/Classificador ficam ao lado; a ficha continua abaixo, alinhada). */
+  .sdv-page--sample .sdv-cls-block .sdv-cls-block-thumb,
+  .sdv-page--sample .sdv-cls-block .sdv-cls-block-thumb-empty {
+    grid-column: 1;
+    grid-row: span 2;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    align-self: stretch;
+  }
+
+  /* Sem "Expandir"/"Classificar" e sem clique no desktop. pointer-events:none na
+     foto e nos campos do resumo neutraliza o onClick herdado do
+     .sdv-cls-block-clickable (o modal de expansao some). */
+  .sdv-page--sample .sdv-cls-block .sdv-edit-btn,
   .sdv-page--sample .sdv-cls-block .sdv-info-actions {
     display: none;
   }
-
-  /* Resumo (foto + 4 campos) no topo, sem esticar; foto FIXA no topo-esquerda
-     (nao vira um sliver alto no card de dobro de altura). */
-  .sdv-page--sample .sdv-cls-block .sdv-cls-block-summary {
-    flex: none;
-    align-items: flex-start;
+  .sdv-page--sample .sdv-cls-block .sdv-cls-block-clickable {
+    cursor: default;
+  }
+  .sdv-page--sample .sdv-cls-block .sdv-cls-block-thumb,
+  .sdv-page--sample .sdv-cls-block .sdv-cls-block-fields .sdv-info-item {
+    pointer-events: none;
   }
 
-  .sdv-page--sample .sdv-cls-block .sdv-cls-block-thumb {
-    align-self: flex-start;
-    width: 160px;
-    height: 160px;
-    min-height: 0;
-  }
-
-  /* Ficha completa no desktop: campos extras no MESMO formato dos do resumo
-     (.sdv-info-item = label + valor) em grid de 2 colunas, igual ao
-     .sdv-cls-block-fields. Ocupa o espaco restante do card (preenche as 2
-     linhas) e rola se exceder. */
-  .sdv-page--sample .sdv-cls-extra {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: clamp(6px, 1.5vw, 8px) clamp(10px, 2.5vw, 12px);
-    align-content: start;
-    /* 3 colunas (era 2): os ~21 campos cabem em ~7 linhas em vez de ~11,
-       baixando a altura da ficha pra caber nos 45rem do card. flex:1 +
-       min-height:0 + overflow-y:auto: a ficha ocupa o espaco abaixo do resumo e
-       rola DENTRO do card se um dia exceder, em vez de vazar pra fora. */
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
-    margin-top: 0.75rem;
-  }
-
-  /* Mesma compactacao dos campos do resumo da classificacao. */
-  .sdv-page--sample .sdv-cls-extra .sdv-info-item {
+  /* Campos compactos (label + valor), uniformes em todo o bloco. */
+  .sdv-page--sample .sdv-cls-block .sdv-info-item {
     padding: clamp(3px, 1vw, 5px) 0;
   }
 
-  /* Observacoes ocupa a largura toda; o valor quebra linha (nao trunca). */
-  .sdv-page--sample .sdv-cls-extra .sdv-info-item.is-full {
+  /* Observacoes: largura toda, valor quebra linha (nao trunca). */
+  .sdv-page--sample .sdv-cls-block .sdv-info-item.is-full {
     grid-column: 1 / -1;
   }
-
-  .sdv-page--sample .sdv-cls-extra .sdv-cls-obs-value {
+  .sdv-page--sample .sdv-cls-block .sdv-cls-obs-value {
     white-space: normal;
     overflow: visible;
     line-height: 1.35;
@@ -29631,14 +29658,14 @@ select.samples-filter-field-input {
     overflow-y: auto;
   }
 
-  /* Sem liga (grid de 2 linhas): a Movimentacoes acompanha a altura da
-     Classificacao que cresce ao lado, na mesma linha L2 (minmax(...,auto)).
-     height:auto deixa o card esticar; min-height segura o piso de 22rem; a lista
-     interna (flex:1) preenche o espaco extra. Com liga, esta regra nao casa e o
-     mov volta a 22rem fixo (a Liga assume a 3a linha, abaixo dele). */
+  /* Sem liga (grid de 2 linhas): o Resumo comercial (agora em col2/L2) acompanha
+     a altura da Classificacao que cresce ao lado, na mesma linha L2
+     (minmax(...,auto)). height:auto deixa o card esticar; min-height segura o piso
+     de 22rem; os minis (flex:1) preenchem o espaco extra. Com liga, esta regra nao
+     casa e o Resumo volta a 22rem fixo (a Liga assume a 3a linha). */
   .sdv-page--sample
     .sdv-content-inner:not(:has(.sdv-blend-composition, .sdv-blend-compromised))
-    #sdv-movimentacoes {
+    .sdv-com-summary {
     height: auto;
     min-height: var(--sdv-r1-h);
   }
