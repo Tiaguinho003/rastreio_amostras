@@ -198,8 +198,13 @@ export function InformeCommercialPage({ session, onLogout }: InformeCommercialPa
         </Link>
       </header>
 
-      {/* Faixa verde da /samples sem a barra de busca — so respiro + FAB
-          (o FAB e position: fixed; o wrap da a area verde da pagina). */}
+      {/* DESKTOP: o FAB do lapis vive AQUI, FORA do sheet (a direita). Motivo: o
+          sheet tem transform persistente (animacao samples-sheet-in) que viraria
+          containing block e prenderia o position:fixed do scrim/leque do FAB
+          dentro do sheet — aqui fora, o escurecimento cobre o app TODO, igual ao
+          "+" do /samples. O contador de registros fica DENTRO do container (no
+          .spv2-list-meta do sheet abaixo). MOBILE: faixa verde so de respiro
+          (FAB flutua fixo). */}
       <div className="hero-search-wrap is-informe">
         <InformeCreateRadialFab
           onCreateVisit={() => setVisitSheetOpen(true)}

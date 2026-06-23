@@ -27266,6 +27266,33 @@ select.samples-filter-field-input {
     stroke-width: 2.2;
   }
 
+  /* ── /informe desktop: contador + FAB do lapis NA MESMA LINHA, FORA do sheet
+     O titulo "Informe" (cabecalho da pagina) e ocultado pra a lista colar na
+     topbar. O contador + FAB vivem no .hero-search-wrap (FORA do sheet): o sheet
+     tem transform persistente (animacao samples-sheet-in) que viraria containing
+     block e prenderia o position:fixed do scrim do FAB — aqui fora, o leque/scrim
+     escurecem o app TODO, igual ao "+" do /samples. */
+  .samples-page-v2.informe-commercial-page .samples-page-v2-header {
+    display: none;
+  }
+
+  /* Faixa = row so do FAB do lapis, ancorado a DIREITA (fora do sheet pra o
+     scrim/leque cobrirem o app). O FAB herda o inline 56x56 de
+     `.samples-page-v2 .hero-search-wrap .cv2-fab` e o leque ancora pelos pivots
+     ja definidos em `.samples-page-v2 .hero-search-wrap`. O contador de registros
+     fica DENTRO do container (.spv2-list-meta do sheet, que segue visivel). */
+  .samples-page-v2.informe-commercial-page .hero-search-wrap.is-informe {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-height: 56px;
+    /* margin-top (nao padding) cria o gap pra topbar SEM mover o FAB dentro do
+       wrap — assim o pivot do leque (--fan-pivot-top, medido do topo do wrap)
+       segue casando com o centro do FAB. */
+    margin-top: 1.5rem;
+    padding: 0 0 0.75rem;
+  }
+
   .samples-page-v2 .spv2-empty {
     padding: 5rem 2rem;
   }
