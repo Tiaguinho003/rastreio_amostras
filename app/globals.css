@@ -11147,6 +11147,13 @@ body:has(.app-modal-backdrop) .prospector-fab {
   border-color: var(--brand-green-soft);
 }
 
+/* Campos do modal de usuario (Novo/editar — .app-modal.cdm-modal): superficie
+   BRANCA em repouso (era #f7f5f1 creme). Escopado a .cdm-modal pra NAO afetar
+   os mesmos campos no /profile. Pedido do usuario. */
+.cdm-modal .sdv-edit-input {
+  background: #ffffff;
+}
+
 .sdv-edit-sep {
   height: 1px;
   background: rgba(0, 0, 0, 0.06);
