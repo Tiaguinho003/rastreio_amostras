@@ -108,10 +108,11 @@ function formatDate(isoDate) {
 //   (mesma altura do logo) separando DATA | SAFRA | SACAS (label em cima, valor
 //   embaixo; larguras proporcionais ao conteudo). Abaixo, divisoria horizontal.
 // - DOIS TERCOS INFERIORES: LOTE grande centralizado na metade esquerda; na
-//   metade direita PADRAO (font4) e ASPECTO (font4 2x, em destaque) um abaixo do
-//   outro + QR ao lado, centralizado na vertical das infos. PADRAO/ASPECTO so
-//   aparecem quando ha classificacao (sem classificacao, a coluna direita fica
-//   vazia e o QR centra na regiao).
+//   metade direita ASPECTO (rotulo font1 + valor font4 1x) + QR ao lado,
+//   centralizado na vertical da regiao. ASPECTO so aparece quando ha
+//   classificacao com aspecto (senao a coluna direita fica vazia e o QR centra
+//   na regiao). PADRAO foi REMOVIDO da etiqueta (2026-06-23); o ASPECTO mantem a
+//   posicao que ocupava antes (2a linha do antigo bloco PADRAO+ASPECTO).
 export function buildSampleLabelLayout(job) {
   const s = job.sample || {};
   const fw = (f) => TSPL_FONT_W[Number(f)] ?? 8;
@@ -128,9 +129,8 @@ export function buildSampleLabelLayout(job) {
   const date = formatDate(s.registeredAt);
   const harvest = sanitize(s.declared?.harvest || '---', 10);
   const sacks = s.declared?.sacks != null ? sanitize(String(s.declared.sacks), 6) : '---';
-  // Classificacao (so quando ha): caps conservadores p/ o valor nunca encostar
-  // no QR (PADRAO font4 = 24/char; ASPECTO font4 2x = 48/char).
-  const padrao = s.classification?.padrao ? sanitize(String(s.classification.padrao), 10) : null;
+  // Classificacao (so quando ha): cap conservador p/ o valor nunca encostar no
+  // QR (ASPECTO font4 1x = 24/char). PADRAO nao e mais lido (removido da etiqueta).
   const aspecto = s.classification?.aspecto ? sanitize(String(s.classification.aspecto), 5) : null;
   const qrValue = sanitize(s.qrValue || s.id || lot, 100);
 
@@ -217,46 +217,47 @@ export function buildSampleLabelLayout(job) {
     text: lot,
   });
 
-  // Metade direita: PADRAO/ASPECTO (so quando classificado) + QR ao lado.
+  // Metade direita: ASPECTO (so quando classificado) + QR ao lado.
   const rightX = halfW + 10;
   const QR_CELL = 5;
   const QR_MODULES = 21; // v1 (lote curto, alfanumerico ECC L)
   const qrSize = QR_CELL * QR_MODULES; // 105
   const qrX = W - MR - qrSize;
 
-  const infoBlocks = [];
-  if (padrao) infoBlocks.push({ label: 'PADRAO', value: padrao, font: '4', xMul: 1, yMul: 1 });
-  if (aspecto) infoBlocks.push({ label: 'ASPECTO', value: aspecto, font: '4', xMul: 2, yMul: 2 });
-
-  let stackTop;
-  let stackBot;
-  if (infoBlocks.length > 0) {
+  // ASPECTO fixo na posicao que ocupava no layout anterior (PADRAO em cima +
+  // ASPECTO embaixo, bloco centralizado em regH): o ASPECTO ficava na 2a linha.
+  // Mantido nesse y EXATO pra o dado nao subir com a remocao do PADRAO. O VALOR
+  // agora vai em font4 1x (metade do font4 2x anterior = -50% no tamanho), com a
+  // MESMA ancora (canto sup. esq.) — encolhe pra baixo/direita, sem deslocar.
+  if (aspecto) {
     const GAP = 18;
-    const heights = infoBlocks.map((b) => fh('1') + 3 + fh(b.font) * b.yMul);
-    const stackH = heights.reduce((a, h) => a + h, 0) + GAP * (infoBlocks.length - 1);
-    let y = regTop + Math.floor((regH - stackH) / 2);
-    stackTop = y;
-    infoBlocks.forEach((b, i) => {
-      texts.push({ x: rightX, y, font: '1', xMul: 1, yMul: 1, bold: false, text: b.label });
-      texts.push({
-        x: rightX,
-        y: y + fh('1') + 3,
-        font: b.font,
-        xMul: b.xMul,
-        yMul: b.yMul,
-        bold: true,
-        text: b.value,
-      });
-      y += heights[i] + GAP;
+    const padBlockH = fh('1') + 3 + fh('4'); // bloco PADRAO antigo (47)
+    const aspBlockH = fh('1') + 3 + fh('4') * 2; // bloco ASPECTO antigo, 2x (79)
+    const oldStackTop = regTop + Math.floor((regH - (padBlockH + aspBlockH + GAP)) / 2);
+    const aspectoY = oldStackTop + padBlockH + GAP; // 181 (2a linha do bloco antigo)
+    texts.push({
+      x: rightX,
+      y: aspectoY,
+      font: '1',
+      xMul: 1,
+      yMul: 1,
+      bold: false,
+      text: 'ASPECTO',
     });
-    stackBot = stackTop + stackH;
-  } else {
-    // Sem classificacao: coluna direita vazia; QR centralizado na regiao toda.
-    stackTop = regCY;
-    stackBot = regCY;
+    texts.push({
+      x: rightX,
+      y: aspectoY + fh('1') + 3,
+      font: '4',
+      xMul: 1,
+      yMul: 1,
+      bold: true,
+      text: aspecto,
+    });
   }
 
-  const qrY = Math.round((stackTop + stackBot) / 2 - qrSize / 2);
+  // QR centralizado na vertical da regiao (regCY) — mesma posicao de hoje,
+  // classificado ou nao (o bloco antigo tambem ficava centrado em regCY).
+  const qrY = Math.round(regCY - qrSize / 2);
   const qr = { x: qrX, y: qrY, cell: QR_CELL, modules: QR_MODULES, size: qrSize, value: qrValue };
 
   return {
