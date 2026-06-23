@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
@@ -248,24 +248,6 @@ export default function UsersPage() {
     token: number;
     abort: AbortController | null;
   }>({ inFlight: false, token: 0, abort: null });
-
-  // Agrupa cards por inicial p/ divisores alfabeticos (mobile-only; CSS oculta
-  // no grid desktop). Mesmo padrao de /clients.
-  const groupedDisplay = useMemo(() => {
-    const out: Array<
-      { kind: 'divider'; letter: string } | { kind: 'card'; user: UserSummary; index: number }
-    > = [];
-    let lastLetter: string | null = null;
-    listState.items.forEach((u, i) => {
-      const letter = (u.fullName.trim().charAt(0) || '#').toUpperCase();
-      if (letter !== lastLetter) {
-        out.push({ kind: 'divider', letter });
-        lastLetter = letter;
-      }
-      out.push({ kind: 'card', user: u, index: i });
-    });
-    return out;
-  }, [listState.items]);
 
   // Debounce da busca: aplica so com >=2 chars; <2 desfiltra. Espelha /clients.
   useEffect(() => {
@@ -800,19 +782,7 @@ export default function UsersPage() {
             </div>
           ) : (
             <div ref={scrollRef} className="spv2-list-scroll" tabIndex={-1}>
-              {groupedDisplay.map((node) => {
-                if (node.kind === 'divider') {
-                  return (
-                    <div
-                      key={`div-${node.letter}`}
-                      className="cv2-section-divider"
-                      aria-hidden="true"
-                    >
-                      <span className="cv2-section-divider-letter">{node.letter}</span>
-                    </div>
-                  );
-                }
-                const { user, index: i } = node;
+              {listState.items.map((user, i) => {
                 const initials = getUserInitials(user.fullName);
                 const roleModifier = getRoleModifierClass(user.role);
                 return (
