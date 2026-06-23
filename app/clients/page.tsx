@@ -1081,11 +1081,18 @@ function ClientsPage() {
                 const avatarColor = getClientAvatarColor(client.personType);
                 const initials = getClientInitials(name);
                 const incomplete = !isClientComplete(client).complete;
+                const isInactive = client.status === 'INACTIVE';
+                // Pendencia (badge + barra laranja) so aparece em clientes
+                // ATIVOS; inativos saem apagados, sem destacar dados pendentes.
+                const showIncomplete = incomplete && !isInactive;
+                const cardClasses = ['cv2-card'];
+                if (showIncomplete) cardClasses.push('is-incomplete');
+                if (isInactive) cardClasses.push('is-inactive');
                 return (
                   <button
                     key={client.id}
                     type="button"
-                    className={`cv2-card${incomplete ? ' is-incomplete' : ''}`}
+                    className={cardClasses.join(' ')}
                     style={
                       {
                         // 14.6.D: cascade row-major SO nos cards do batch atual.
@@ -1103,7 +1110,9 @@ function ClientsPage() {
                     }
                     onClick={(event) => openClientDetail(client.id, event.currentTarget)}
                   >
-                    {incomplete ? <IncompleteIcon className="cv2-card-incomplete-badge" /> : null}
+                    {showIncomplete ? (
+                      <IncompleteIcon className="cv2-card-incomplete-badge" />
+                    ) : null}
                     {/* Card em 2 blocos. Topo: avatar + nome. Rodape: arrow-btn.
                         O UserAvatarStack de responsaveis comerciais foi removido
                         do card (2026-06-17, batch /clients alinhado ao /samples);
@@ -1309,105 +1318,148 @@ function ClientsPage() {
             <form className="samples-filter-modal-form" onSubmit={handleApplyFilters}>
               <div className="samples-filter-modal-content">
                 <div className="samples-filter-fields">
-                  <div className="samples-filter-field">
+                  <div
+                    className={`samples-filter-field${draftFilters.commercialUserId ? ' is-active' : ''}`}
+                  >
                     <span className="samples-filter-field-label">Responsável comercial</span>
-                    <select
-                      className="samples-filter-field-input"
-                      value={draftFilters.commercialUserId}
-                      onChange={(event) =>
-                        setDraftFilters((current) => ({
-                          ...current,
-                          commercialUserId: event.target.value,
-                        }))
-                      }
+                    <span className="samples-filter-control">
+                      <select
+                        className={`samples-filter-field-input${draftFilters.commercialUserId ? ' is-active' : ''}`}
+                        value={draftFilters.commercialUserId}
+                        onChange={(event) =>
+                          setDraftFilters((current) => ({
+                            ...current,
+                            commercialUserId: event.target.value,
+                          }))
+                        }
+                      >
+                        <option value="">Qualquer responsável</option>
+                        {users.map((user) => (
+                          <option key={user.id} value={user.id}>
+                            {user.fullName}
+                          </option>
+                        ))}
+                      </select>
+                      {draftFilters.commercialUserId ? (
+                        <span className="samples-filter-field-count" aria-hidden="true">
+                          1
+                        </span>
+                      ) : null}
+                    </span>
+                  </div>
+
+                  <div className="samples-filter-row">
+                    <div
+                      className={`samples-filter-field${draftFilters.status ? ' is-active' : ''}`}
                     >
-                      <option value="">Qualquer responsável</option>
-                      {users.map((user) => (
-                        <option key={user.id} value={user.id}>
-                          {user.fullName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="samples-filter-row">
-                    <div className="samples-filter-field">
                       <span className="samples-filter-field-label">Status</span>
-                      <select
-                        className="samples-filter-field-input"
-                        value={draftFilters.status}
-                        onChange={(event) =>
-                          setDraftFilters((current) => ({
-                            ...current,
-                            status: event.target.value as ClientFilters['status'],
-                          }))
-                        }
-                      >
-                        <option value="">Qualquer</option>
-                        <option value="ACTIVE">Ativo</option>
-                        <option value="INACTIVE">Inativo</option>
-                      </select>
+                      <span className="samples-filter-control">
+                        <select
+                          className={`samples-filter-field-input${draftFilters.status ? ' is-active' : ''}`}
+                          value={draftFilters.status}
+                          onChange={(event) =>
+                            setDraftFilters((current) => ({
+                              ...current,
+                              status: event.target.value as ClientFilters['status'],
+                            }))
+                          }
+                        >
+                          <option value="">Qualquer</option>
+                          <option value="ACTIVE">Ativo</option>
+                          <option value="INACTIVE">Inativo</option>
+                        </select>
+                        {draftFilters.status ? (
+                          <span className="samples-filter-field-count" aria-hidden="true">
+                            1
+                          </span>
+                        ) : null}
+                      </span>
                     </div>
 
-                    <div className="samples-filter-field">
+                    <div
+                      className={`samples-filter-field${draftFilters.personType ? ' is-active' : ''}`}
+                    >
                       <span className="samples-filter-field-label">Tipo</span>
-                      <select
-                        className="samples-filter-field-input"
-                        value={draftFilters.personType}
-                        onChange={(event) =>
-                          setDraftFilters((current) => ({
-                            ...current,
-                            personType: event.target.value as ClientFilters['personType'],
-                          }))
-                        }
-                      >
-                        <option value="">Qualquer</option>
-                        <option value="PF">Pessoa física</option>
-                        <option value="PJ">Pessoa jurídica</option>
-                      </select>
+                      <span className="samples-filter-control">
+                        <select
+                          className={`samples-filter-field-input${draftFilters.personType ? ' is-active' : ''}`}
+                          value={draftFilters.personType}
+                          onChange={(event) =>
+                            setDraftFilters((current) => ({
+                              ...current,
+                              personType: event.target.value as ClientFilters['personType'],
+                            }))
+                          }
+                        >
+                          <option value="">Qualquer</option>
+                          <option value="PF">Pessoa física</option>
+                          <option value="PJ">Pessoa jurídica</option>
+                        </select>
+                        {draftFilters.personType ? (
+                          <span className="samples-filter-field-count" aria-hidden="true">
+                            1
+                          </span>
+                        ) : null}
+                      </span>
                     </div>
                   </div>
 
                   <div className="samples-filter-row">
-                    <div className="samples-filter-field">
+                    <div className={`samples-filter-field${draftFilters.role ? ' is-active' : ''}`}>
                       <span className="samples-filter-field-label">Papel</span>
-                      <select
-                        className="samples-filter-field-input"
-                        value={draftFilters.role}
-                        onChange={(event) =>
-                          setDraftFilters((current) => ({
-                            ...current,
-                            role: event.target.value as ClientFilters['role'],
-                          }))
-                        }
-                      >
-                        <option value="">Qualquer</option>
-                        <option value="buyer">Comprador</option>
-                        <option value="seller">Vendedor</option>
-                        <option value="warehouse">Armazém</option>
-                      </select>
+                      <span className="samples-filter-control">
+                        <select
+                          className={`samples-filter-field-input${draftFilters.role ? ' is-active' : ''}`}
+                          value={draftFilters.role}
+                          onChange={(event) =>
+                            setDraftFilters((current) => ({
+                              ...current,
+                              role: event.target.value as ClientFilters['role'],
+                            }))
+                          }
+                        >
+                          <option value="">Qualquer</option>
+                          <option value="buyer">Comprador</option>
+                          <option value="seller">Vendedor</option>
+                          <option value="warehouse">Armazém</option>
+                        </select>
+                        {draftFilters.role ? (
+                          <span className="samples-filter-field-count" aria-hidden="true">
+                            1
+                          </span>
+                        ) : null}
+                      </span>
                     </div>
 
-                    <div className="samples-filter-field">
+                    <div
+                      className={`samples-filter-field${draftFilters.completeness ? ' is-active' : ''}`}
+                    >
                       <span className="samples-filter-field-label">Completude</span>
-                      <select
-                        className="samples-filter-field-input"
-                        value={draftFilters.completeness}
-                        onChange={(event) =>
-                          setDraftFilters((current) => ({
-                            ...current,
-                            completeness: event.target.value as ClientFilters['completeness'],
-                          }))
-                        }
-                      >
-                        <option value="">Qualquer</option>
-                        <option value="complete">Completo</option>
-                        <option value="incomplete">
-                          {clientsState.incompleteTotal && clientsState.incompleteTotal > 0
-                            ? `Incompleto (${clientsState.incompleteTotal})`
-                            : 'Incompleto'}
-                        </option>
-                      </select>
+                      <span className="samples-filter-control">
+                        <select
+                          className={`samples-filter-field-input${draftFilters.completeness ? ' is-active' : ''}`}
+                          value={draftFilters.completeness}
+                          onChange={(event) =>
+                            setDraftFilters((current) => ({
+                              ...current,
+                              completeness: event.target.value as ClientFilters['completeness'],
+                            }))
+                          }
+                        >
+                          <option value="">Qualquer</option>
+                          <option value="complete">Completo</option>
+                          <option value="incomplete">
+                            {clientsState.incompleteTotal && clientsState.incompleteTotal > 0
+                              ? `Incompleto (${clientsState.incompleteTotal})`
+                              : 'Incompleto'}
+                          </option>
+                        </select>
+                        {draftFilters.completeness ? (
+                          <span className="samples-filter-field-count" aria-hidden="true">
+                            1
+                          </span>
+                        ) : null}
+                      </span>
                     </div>
                   </div>
                 </div>
