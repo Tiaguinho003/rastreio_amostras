@@ -8362,20 +8362,26 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
     0 6px 14px rgba(166, 118, 15, 0.14);
 }
 
-/* Acoes Venda/Perda no rodape do Resumo comercial (mesmo padrao action-card).
-   Verde positivo pra venda, vermelho pra perda. */
+/* Acoes Venda/Perda no rodape do Resumo comercial: botao OUTLINE — fundo BRANCO,
+   BORDA + texto + icone na cor semantica (verde venda / vermelho perda) via
+   currentColor. MESMO padrao no mobile e no desktop (o desktop so reforca a
+   sombra/borda no bloco @media). */
 .sdv-action-card.is-sale {
-  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
+  background: #ffffff;
+  color: var(--brand-green);
+  border: 1.5px solid currentColor;
   box-shadow:
-    0 2px 6px rgba(27, 94, 32, 0.28),
-    0 6px 14px rgba(27, 94, 32, 0.14);
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .sdv-action-card.is-loss {
-  background: linear-gradient(135deg, #e05a4f, #c0392b);
+  background: #ffffff;
+  color: var(--danger);
+  border: 1.5px solid currentColor;
   box-shadow:
-    0 2px 6px rgba(192, 57, 43, 0.28),
-    0 6px 14px rgba(192, 57, 43, 0.14);
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .sdv-action-card.is-highlight-pulse {
@@ -28615,6 +28621,11 @@ select.samples-filter-field-input {
     column-gap: clamp(10px, 2.5vw, 14px);
     row-gap: clamp(3px, 1vw, 6px);
     align-content: start;
+    /* Altura FIXA = Movimentacoes + Liga (2 linhas + gap), SEMPRE — com ou sem
+       liga, com ou sem classificacao. O card NAO muda de tamanho conforme os
+       dados; overflow:hidden contem (a ficha cabe sem scroll). */
+    height: calc(var(--sdv-r1-h) * 2 + 1rem);
+    overflow: hidden;
   }
 
   /* Titulo "Classificacao" no topo, largura toda do card. */
@@ -28623,13 +28634,13 @@ select.samples-filter-field-input {
     margin-bottom: 0.35rem;
   }
 
-  /* COM liga: altura travada (= Movimentacoes + Liga). overflow:hidden so como
-     guarda — o conteudo cabe sem scroll. Sem liga, o card cresce com o conteudo. */
-  .sdv-page--sample
-    .sdv-content-inner:has(.sdv-blend-composition, .sdv-blend-compromised)
-    .sdv-cls-block {
-    height: 100%;
-    overflow: hidden;
+  /* Acoes do header (Reclassificar + Editar) a direita, em linha, sem aumentar a
+     altura do cabecalho (botoes .sdv-edit-btn compactos). So renderizam no
+     desktop (via isDesktop no JSX). */
+  .sdv-page--sample .sdv-cls-header-actions {
+    display: flex;
+    align-items: center;
+    gap: clamp(4px, 1.4vw, 8px);
   }
 
   /* Achatam: a foto e os campos do resumo/ficha viram itens diretos do grid. */
@@ -28651,19 +28662,17 @@ select.samples-filter-field-input {
     align-self: stretch;
   }
 
-  /* Sem "Expandir"/"Classificar" e sem clique no desktop. pointer-events:none na
-     foto e nos campos do resumo neutraliza o onClick herdado do
-     .sdv-cls-block-clickable (o modal de expansao some). */
-  .sdv-page--sample .sdv-cls-block .sdv-edit-btn,
+  /* "Classificar" (rodape) segue escondido no desktop — as acoes ficam no header
+     e o card mantem o mesmo tamanho com/sem classificacao. O "Expandir" nao
+     renderiza no desktop (isDesktop no JSX); Reclassificar/Editar usam .sdv-edit-btn
+     e DEVEM aparecer, entao nao escondemos mais .sdv-edit-btn aqui. */
   .sdv-page--sample .sdv-cls-block .sdv-info-actions {
     display: none;
   }
-  .sdv-page--sample .sdv-cls-block .sdv-cls-block-clickable {
-    cursor: default;
-  }
-  .sdv-page--sample .sdv-cls-block .sdv-cls-block-thumb,
-  .sdv-page--sample .sdv-cls-block .sdv-cls-block-fields .sdv-info-item {
-    pointer-events: none;
+
+  /* Foto clicavel (abre o modal da imagem completa): cursor de ponteiro. */
+  .sdv-page--sample .sdv-cls-block .sdv-cls-block-thumb[role='button'] {
+    cursor: pointer;
   }
 
   /* Campos compactos (label + valor), uniformes em todo o bloco. */
@@ -29625,13 +29634,13 @@ select.samples-filter-field-input {
       0 4px 10px rgba(0, 0, 0, 0.05);
   }
 
-  /* Venda/Perda: card BRANCO + sombra (em vez do gradiente cheio); icone e
-     label na cor semantica — Venda verde, Perda vermelho. O icone perde a
+  /* Venda/Perda: card BRANCO + BORDA na cor semantica (currentColor, = verde
+     venda / vermelho perda) + icone e label na mesma cor. O icone perde a
      caixinha tintada (so o traco colorido, via currentColor herdado do card). */
   .sdv-page--sample .sdv-com-summary .sdv-info-actions .sdv-action-card.is-sale,
   .sdv-page--sample .sdv-com-summary .sdv-info-actions .sdv-action-card.is-loss {
     background: #ffffff;
-    border: 1px solid rgba(0, 0, 0, 0.06);
+    border: 1.5px solid currentColor;
     box-shadow:
       0 1px 3px rgba(0, 0, 0, 0.08),
       0 4px 12px rgba(0, 0, 0, 0.08);

@@ -477,6 +477,17 @@ export default function SampleDetailPage() {
   const [invalidateModalNotice, setInvalidateModalNotice] = useState<Notice>(null);
 
   const [classificationImageModalOpen, setClassificationImageModalOpen] = useState(false);
+  // Desktop (>=901px): no card de classificacao, mostra Editar/Reclassificar no
+  // header e torna a foto clicavel; o mobile mantem o "Expandir". matchMedia
+  // client-side — o card so renderiza apos o fetch dos dados, sem hydration mismatch.
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 901px)');
+    const update = () => setIsDesktop(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
   const [classificationSelectedPhoto, setClassificationSelectedPhoto] = useState<File | null>(null);
   const [classificationSavedPhotoFile, setClassificationSavedPhotoFile] = useState<File | null>(
     null
@@ -1835,6 +1846,14 @@ export default function SampleDetailPage() {
     setClassificationDetailOpen(true);
   }
 
+  // Abre o modal de detalhe JA em modo edicao (botao "Editar" do header do card
+  // no desktop). openClassificationDetail prepara o form e zera editing; setar
+  // editing=true logo depois vence no mesmo batch de render.
+  function openClassificationEdit() {
+    openClassificationDetail();
+    setClassificationDetailEditing(true);
+  }
+
   function closeClassificationDetail() {
     setClassificationDetailOpen(false);
     setClassificationDetailEditing(false);
@@ -2332,7 +2351,30 @@ export default function SampleDetailPage() {
                     // sempre visiveis. Sem classificacao => placeholder "Sem foto" e
                     // valores "—" (labels mais opacos via .sdv-cls-block-summary.is-empty).
                     const clsPhotoNode = classPhotoUrl ? (
-                      <div className="sdv-cls-block-thumb">
+                      <div
+                        className="sdv-cls-block-thumb"
+                        role={isDesktop ? 'button' : undefined}
+                        tabIndex={isDesktop ? 0 : undefined}
+                        aria-label={isDesktop ? 'Ampliar foto da classificacao' : undefined}
+                        onClick={
+                          isDesktop
+                            ? (event) => {
+                                event.stopPropagation();
+                                setClassificationImageModalOpen(true);
+                              }
+                            : undefined
+                        }
+                        onKeyDown={
+                          isDesktop
+                            ? (event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault();
+                                  setClassificationImageModalOpen(true);
+                                }
+                              }
+                            : undefined
+                        }
+                      >
                         {/* next/image nao se aplica: src vem do upload local; dimensoes via CSS */}
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
@@ -2449,23 +2491,70 @@ export default function SampleDetailPage() {
                           <div className="sdv-cls-header-title">
                             <span className="sdv-card-title">Classificação</span>
                           </div>
-                          <button
-                            type="button"
-                            className="sdv-edit-btn"
-                            onClick={openClassificationDetail}
-                            disabled={!cd}
-                            aria-label="Expandir classificacao"
-                          >
-                            <svg viewBox="0 0 24 24" aria-hidden="true">
-                              <path d="M15 3h6v6" />
-                              <path d="M9 21H3v-6" />
-                              <path d="M21 3l-7 7" />
-                              <path d="M3 21l7-7" />
-                            </svg>
-                            <span>Expandir</span>
-                          </button>
+                          {isDesktop ? (
+                            isClassified ? (
+                              <div className="sdv-cls-header-actions">
+                                <button
+                                  type="button"
+                                  className="sdv-edit-btn"
+                                  onClick={() => setReclassifyModalOpen(true)}
+                                  aria-label="Reclassificar"
+                                >
+                                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <circle cx="11" cy="11" r="8" />
+                                    <path d="m21 21-4.35-4.35" />
+                                  </svg>
+                                  <span>Reclassificar</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="sdv-edit-btn"
+                                  onClick={openClassificationEdit}
+                                  aria-label="Editar classificacao"
+                                >
+                                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M12 20h9" />
+                                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                                  </svg>
+                                  <span>Editar</span>
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="sdv-cls-header-actions">
+                                <button
+                                  type="button"
+                                  className="sdv-edit-btn"
+                                  onClick={() => router.push(`/camera?sampleId=${sampleId}`)}
+                                  disabled={!canClassifyNow}
+                                  aria-label="Classificar"
+                                >
+                                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <circle cx="11" cy="11" r="8" />
+                                    <path d="m21 21-4.35-4.35" />
+                                  </svg>
+                                  <span>Classificar</span>
+                                </button>
+                              </div>
+                            )
+                          ) : (
+                            <button
+                              type="button"
+                              className="sdv-edit-btn"
+                              onClick={openClassificationDetail}
+                              disabled={!cd}
+                              aria-label="Expandir classificacao"
+                            >
+                              <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M15 3h6v6" />
+                                <path d="M9 21H3v-6" />
+                                <path d="M21 3l-7 7" />
+                                <path d="M3 21l7-7" />
+                              </svg>
+                              <span>Expandir</span>
+                            </button>
+                          )}
                         </div>
-                        {cd ? (
+                        {cd && !isDesktop ? (
                           <div
                             className="sdv-cls-block-summary sdv-cls-block-clickable"
                             role="button"
@@ -2483,7 +2572,7 @@ export default function SampleDetailPage() {
                             {clsFieldsNode}
                           </div>
                         ) : (
-                          <div className="sdv-cls-block-summary is-empty">
+                          <div className={`sdv-cls-block-summary${!cd ? ' is-empty' : ''}`}>
                             {clsPhotoNode}
                             {clsFieldsNode}
                           </div>
