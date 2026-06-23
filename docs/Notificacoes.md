@@ -257,7 +257,7 @@ autor** da ação do público.
 - Título:        "Nova visita promissora enviada"
 - Corpo:         "{nome do visitante} visitou um cliente promissor. Confira!"
                  (fullName; fallback username; fallback "Alguém")
-- Deep link:     /resumo
+- Deep link:     /informe   (página "Relatórios" unificada; /resumo redireciona)
 - Tag:           visit-promising-{id do informe}   (única — empilha, não substitui)
 - Entrega:       TTL 24h · urgency high (default)
 - Dedup:         hook curto-circuitado antes do service por Idempotency-Key
@@ -277,7 +277,7 @@ autor** da ação do público.
 - Público-alvo:  ADMIN, CADASTRO   (exclui: autor do informe)
 - Título:        "Novo cliente encontrado!"
 - Corpo:         "Clique para ver os dados e cadastrá-lo"
-- Deep link:     /resumo
+- Deep link:     /informe   (página "Relatórios" unificada; /resumo redireciona)
 - Tag:           visit-new-client-{id do informe}   (única — empilha)
 - Entrega:       TTL 24h · urgency high (default)
 - Dedup:         hook curto-circuitado antes do service por Idempotency-Key

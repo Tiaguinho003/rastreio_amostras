@@ -180,11 +180,11 @@ Endpoints somente-leitura usados pela pagina de detalhe do cliente (4 cards-filt
 1. `POST /api/v1/visit-reports`
    Qualquer usuario autenticado. `userId` e `createdAt` carimbados no servidor; `capturedAt` opcional (hora local da fila offline). Idempotente via `Idempotency-Key` (replay da fila nao duplica).
 2. `GET /api/v1/visit-reports`
-   Paginada (`page`, `limit` max 100), mais recentes primeiro. Viewers (`ADMIN`, `COMMERCIAL`, `CADASTRO`) veem tudo (`/resumo`); `PROSPECTOR` recebe os informes de todos os autores com papel `PROSPECTOR` (comparacao da equipe; escopo forcado no service). Demais papeis: 403. `search` (opcional, max 120) filtra por nome do cliente — acento-insensitive nos dois caminhos via colunas geradas: cliente novo (`visit_report.new_client_name_normalized`) e cliente cadastrado (`client.search_normalized`); `page.total` reflete o filtro.
+   Paginada (`page`, `limit` max 100), mais recentes primeiro. Viewers (`ADMIN`, `COMMERCIAL`, `CADASTRO`) veem tudo (pagina "Relatorios", `/informe`); `PROSPECTOR` recebe os informes de todos os autores com papel `PROSPECTOR` (comparacao da equipe; escopo forcado no service). Demais papeis: 403. `search` (opcional, max 120) filtra por nome do cliente — acento-insensitive nos dois caminhos via colunas geradas: cliente novo (`visit_report.new_client_name_normalized`) e cliente cadastrado (`client.search_normalized`); `page.total` reflete o filtro.
 3. `GET /api/v1/visit-reports/stats`
    Contadores do dashboard do prospector, sempre do proprio usuario: `{ todayCount, todayNewClientsCount }` (visitas de hoje e, dentre elas, as com "Cliente novo"). Janela do dia no fuso de Brasilia (UTC-3 fixo), base temporal `COALESCE(captured_at, created_at)`.
 4. `DELETE /api/v1/visit-reports/:reportId`
-   `ADMIN` exclui qualquer informe (curadoria do feed `/resumo`); os demais papeis excluem apenas o proprio (lixeira do dashboard do prospector). Informe alheio responde 404, igual a inexistente.
+   `ADMIN` exclui qualquer informe (curadoria do feed da pagina "Relatorios"); os demais papeis excluem apenas o proprio (lixeira do dashboard do prospector). Informe alheio responde 404, igual a inexistente.
 
 ### Formularios do comercial
 
@@ -197,7 +197,7 @@ Endpoints somente-leitura usados pela pagina de detalhe do cliente (4 cards-filt
 8. `DELETE /api/v1/weekly-reports/:reportId`
    Mesma regra autor-ou-admin.
 9. `GET /api/v1/informe-feed?scope=mine|all`
-   Feed combinado paginado (`page`, `limit` max 100), mais recentes primeiro, itens com `type` discriminador. `scope=mine` (papeis `COMMERCIAL`/`ADMIN`): visitas + relatorios do proprio ator — alimenta a pagina /informe do comercial. `scope=all` (viewers do /resumo): os 3 tipos (incluindo `VISIT_REPORT` do prospector) de todos os autores.
+   Feed combinado paginado (`page`, `limit` max 100), mais recentes primeiro, itens com `type` discriminador. `scope=mine` (papeis `COMMERCIAL`/`ADMIN`): visitas + relatorios do proprio ator — alimenta o branch COMMERCIAL da pagina "Relatorios" (`/informe`). `scope=all` (viewers `ADMIN`/`CADASTRO`): os 3 tipos (incluindo `VISIT_REPORT` do prospector) de todos os autores — o branch viewer da mesma pagina (ex-/resumo, que agora redireciona pra `/informe`).
 
 ### Politica de acesso do PROSPECTOR
 
