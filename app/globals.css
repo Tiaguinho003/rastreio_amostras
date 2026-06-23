@@ -29212,29 +29212,35 @@ select.samples-filter-field-input {
     content: '\00a0';
   }
 
-  /* Botoes Imprimir/Enviar compactos (bem mais baixos que o card padrao
-     do desktop). Mantem a faixa verde lateral (::before) com respiro. */
-  .sdv-page--sample #sdv-informacoes .sdv-info-actions .sdv-action-card {
+  /* Botoes de acao compactos (bem mais baixos que o card padrao do desktop).
+     Mesmo padrao em Informacoes (Imprimir/Enviar) e Resumo comercial
+     (Venda/Perda) — mesma estrutura .sdv-info-actions > .sdv-action-card. */
+  .sdv-page--sample #sdv-informacoes .sdv-info-actions .sdv-action-card,
+  .sdv-page--sample .sdv-com-summary .sdv-info-actions .sdv-action-card {
     padding: 0.55rem 0.9rem 0.55rem 1rem;
     gap: 0.5rem;
   }
 
-  .sdv-page--sample #sdv-informacoes .sdv-info-actions .sdv-action-card-icon {
+  .sdv-page--sample #sdv-informacoes .sdv-info-actions .sdv-action-card-icon,
+  .sdv-page--sample .sdv-com-summary .sdv-info-actions .sdv-action-card-icon {
     width: 28px;
     height: 28px;
     border-radius: 9px;
   }
 
-  .sdv-page--sample #sdv-informacoes .sdv-info-actions .sdv-action-card-icon svg {
+  .sdv-page--sample #sdv-informacoes .sdv-info-actions .sdv-action-card-icon svg,
+  .sdv-page--sample .sdv-com-summary .sdv-info-actions .sdv-action-card-icon svg {
     width: 16px;
     height: 16px;
   }
 
   /* Fonte branca: o desktop (.sdv-action-card-label) pinta o label de #333,
-     mas aqui o card e um gradiente colorido cheio (is-print verde / is-send
-     azul) — texto escuro fica com contraste ruim. Branco casa com o icone
-     (que ja herda currentColor #fff) e da o contraste correto. */
-  .sdv-page--sample #sdv-informacoes .sdv-info-actions .sdv-action-card-label {
+     mas aqui o card e um gradiente colorido cheio (is-print/is-send azul,
+     is-sale verde, is-loss vermelho) — texto escuro fica com contraste ruim.
+     Branco casa com o icone (que ja herda currentColor #fff) e da o contraste
+     correto, igual nos botoes do card de Informacoes. */
+  .sdv-page--sample #sdv-informacoes .sdv-info-actions .sdv-action-card-label,
+  .sdv-page--sample .sdv-com-summary .sdv-info-actions .sdv-action-card-label {
     font-size: 0.85rem;
     color: #ffffff;
   }
