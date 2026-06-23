@@ -298,6 +298,7 @@ export function BlendConfirmationSheet({
       ariaLabel="Confirmar amostras e contribuições da liga"
       footer={footer}
       dragToDismiss={false}
+      className="is-blend-confirm"
     >
       <ul className="blend-conf-list" role="list">
         {samples.map((sample) => (

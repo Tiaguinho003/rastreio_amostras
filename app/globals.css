@@ -26853,6 +26853,29 @@ select.samples-filter-field-input {
     transform: translateY(0) scale(0.997);
   }
 
+  /* Entrada do MODO LIGA (desktop): os cards de selecao fazem o mesmo
+     fade+subida dos cards normais (spv2-cardIn, escalonado pelo animationDelay
+     por indice) em vez de aparecer de uma vez. A troca idle->blend remonta a
+     lista inteira (DOM diferente por card; idle usa .spv2-card-wrap, liga usa
+     .spv2-card direto), e sem isso os cards "saltavam" no desktop — parecia
+     bug. No mobile a entrada ja vinha do `.spv2-card` base (spv2-cardIn); aqui
+     so restauramos a paridade, ja que o `.spv2-card` desktop zera a animation
+     (no idle quem anima e o wrap). Escopado a .is-blend-selectable pra NAO
+     reanimar os cards idle (que sao animados pelo wrap). */
+  .samples-page-v2 .spv2-card.is-blend-selectable {
+    animation: spv2-cardIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+
+  /* Modo liga (desktop): cards de selecao BRANCOS como no modo normal (sai o
+     gradiente quente #f9f7f2 do .is-blend-selectable base) + borda de 1px pra
+     o card branco se definir sobre o fundo branco da pagina (mesmo chrome dos
+     cards idle). So nos ELEGIVEIS — os inelegiveis seguem cinza/apagados de
+     proposito (estado desabilitado). */
+  .samples-page-v2 .spv2-card.is-blend-selectable:not(.is-ineligible-blend) {
+    background: #ffffff;
+    border: 1px solid rgba(112, 130, 103, 0.18);
+  }
+
   /* #4: no desktop o chrome do card (recolhido E estendido) fica TODO no
      .spv2-card-wrap; a linha (.spv2-card) dentro do wrap vira so layout
      (transparente). Antes o chrome ficava nos dois com raios diferentes (12 vs
@@ -27167,11 +27190,16 @@ select.samples-filter-field-input {
     font-size: 0.85rem;
   }
 
-  /* Modal de filtro: 50% maior */
-  .samples-filter-modal {
-    width: min(38rem, calc(100vw - 2rem));
-    max-height: min(52rem, calc(100dvh - 2rem));
-    padding: 1.25rem;
+  /* Modal de filtro DESKTOP: bem mais LARGO pra aproveitar o espaco e caber o
+     layout de 7 linhas SEM scroll (clientes diretos em linhas proprias +
+     linhas de 3 e 4 colunas). Altura acompanha o conteudo (cap na viewport).
+     Selector com 3 classes (.app-modal.is-themed.samples-filter-modal) pra
+     VENCER a largura base de 26rem — `.samples-filter-modal` sozinho (0,1,0)
+     perdia pra ela (0,3,0) e a largura nunca mudava no desktop. */
+  .app-modal.is-themed.samples-filter-modal {
+    width: min(58rem, calc(100vw - 3rem));
+    max-height: min(92dvh, 54rem);
+    padding: 1.5rem 1.75rem;
     border-radius: 28px;
   }
 
@@ -27216,6 +27244,33 @@ select.samples-filter-field-input {
   .samples-filter-modal-actions .app-modal-secondary:active,
   .samples-filter-modal-actions .app-modal-submit:active {
     transform: scale(0.97);
+  }
+
+  /* ── Layout do modal de filtro no DESKTOP (linhas pedidas pelo usuario) ──
+     Linhas de 3 colunas (Safra · Status · Tipo de lote) e 4 colunas
+     (Padrao · Aspecto · Catacao · Certificado). Os clientes (Proprietario,
+     Comprador, Enviado para) e Sacas/Periodo ficam full-width (1 por linha,
+     fora de .samples-filter-row). minmax(0,1fr) deixa as colunas IGUAIS e
+     deixa os campos encolherem sem estourar. */
+  .samples-filter-modal .samples-filter-row--3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .samples-filter-modal .samples-filter-row--4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  /* Box de busca de cliente DIRETO (nao-retratil): ocupa a largura toda da
+     linha. */
+  .samples-filter-modal .samples-filter-field--client-direct .samples-filter-multi--direct {
+    width: 100%;
+  }
+
+  /* Todos os controles com a MESMA altura -> campos uniformes na grade. */
+  .samples-filter-modal-content .samples-filter-field-input,
+  .samples-filter-modal-content .samples-filter-multi,
+  .samples-filter-modal-content .samples-filter-toggle {
+    min-height: 2.85rem;
   }
 
   /* ══════════════════════════════════════════
@@ -28388,13 +28443,13 @@ select.samples-filter-field-input {
 
   /* Form scroll: espaco interno generoso */
   .nsv2-form-scroll {
-    padding: 1.25rem 3rem 0.75rem;
+    padding: 0.9rem 3rem 0.4rem;
     overflow: visible;
   }
 
   /* Grid do form: gap grande */
   .nsv2-form-grid {
-    gap: 1.25rem 1.5rem;
+    gap: 1rem 1.5rem;
   }
 
   /* Labels: maiores e visiveis */
@@ -28480,14 +28535,23 @@ select.samples-filter-field-input {
   }
 
   /* Botao submit: grande, com efeitos */
+  /* Area dos botoes mais COMPACTA no desktop (menos padding vertical no wrap +
+     botoes mais baixos) -> sobra mais altura pros campos e evita scroll do
+     form. Recuo horizontal (3rem) mantido pra os botoes NAO relarem nas
+     bordas do modal. Tira tambem o empilhamento de padding no topo do footer
+     (base ~0.5rem + topo do wrap) — so neste modal. */
+  .bottom-sheet.is-fit-content .bottom-sheet-footer {
+    padding-top: 0.15rem;
+  }
+
   .nsv2-submit-wrap {
     grid-template-columns: 1fr 1fr;
     gap: 1rem;
-    padding: 0.75rem 3rem 1.25rem;
+    padding: 0.5rem 3rem 0.65rem;
   }
 
   .nsv2-submit-btn {
-    padding: 1.1rem;
+    padding: 0.8rem;
     font-size: 1.1rem;
     border-radius: 16px;
     transition:
@@ -28506,7 +28570,7 @@ select.samples-filter-field-input {
   }
 
   .nsv2-clear-btn {
-    padding: 1.1rem;
+    padding: 0.8rem;
     font-size: 1.1rem;
     border-radius: 16px;
     transition:
@@ -28769,14 +28833,6 @@ select.samples-filter-field-input {
       0 12px 24px rgba(19, 35, 24, 0.16),
       0 20px 44px rgba(19, 35, 24, 0.1);
     border-color: rgba(0, 0, 0, 0.09);
-  }
-
-  /* T3: modal de filtro de samples expande para min(720px, 60vw) */
-  .samples-filter-modal {
-    width: min(720px, 60vw);
-    max-height: min(54rem, calc(100dvh - 2rem));
-    padding: 1.5rem 1.75rem;
-    border-radius: 28px;
   }
 
   /* T5: role badges proporcionais ao card 25% menor */
@@ -30924,6 +30980,15 @@ select.samples-filter-field-input {
   height: auto;
 }
 
+/* Modal "Nova amostra" (unico BottomSheet com is-fit-content): superficie
+   BRANCA em vez do creme quente (--brand-cream-soft) — vale mobile (sheet) E
+   desktop (modal central, mesmo elemento). O footer sticky tambem fica branco
+   (precisa ser opaco pra mascarar o scroll do form). Pedido do usuario. */
+.bottom-sheet.is-fit-content,
+.bottom-sheet.is-fit-content .bottom-sheet-footer {
+  background: #ffffff;
+}
+
 .bottom-sheet.is-open {
   transform: translate3d(0, 0, 0);
 }
@@ -31696,6 +31761,31 @@ body.is-selection-mode .hero-search-filter-btn {
   pointer-events: none;
 }
 
+/* Modo selecao de liga — DESKTOP: barra TRANSPARENTE com tipografia verde e
+   botao X verde-ESCURO (icone branco, via currentColor), no lugar do verde
+   full-width com fonte branca do mobile. Mobile intacto. */
+@media (min-width: 901px) {
+  .samples-selection-header {
+    background: transparent;
+    color: var(--brand-green);
+  }
+
+  .samples-selection-header__title {
+    color: var(--brand-green);
+    font-size: 1.5rem;
+  }
+
+  .samples-selection-header__exit {
+    background: var(--brand-green-deep);
+    color: #ffffff;
+  }
+
+  .samples-selection-header__exit:hover,
+  .samples-selection-header__exit:focus-visible {
+    background: var(--brand-green);
+  }
+}
+
 /* Contador "N selecionadas" — na mesma linha do "X registros"
    (.spv2-list-meta), aparecendo no lugar do botao filtro durante o
    modo selecao. Usa pill verde da marca pra contrastar com fundo
@@ -32022,6 +32112,15 @@ body.is-selection-mode .hero-search-filter-btn {
    clonados do popover B1.5 (pill verde do lote, botao X 28x28) e do
    NewSampleModal (input numerico com placeholder vermelho em erro).
 */
+
+/* Superficie BRANCA (em vez do creme quente --brand-cream-soft do BottomSheet
+   base) — mobile (sheet) E desktop (modal central, mesmo elemento). O footer
+   sticky tambem fica branco (precisa ser opaco). O card de total verde-tint
+   (.blend-conf-footer__total-card) e proposital e nao muda. */
+.bottom-sheet.is-blend-confirm,
+.bottom-sheet.is-blend-confirm .bottom-sheet-footer {
+  background: #ffffff;
+}
 
 .blend-conf-list {
   display: flex;
@@ -32416,6 +32515,9 @@ body.is-selection-mode .hero-search-filter-btn {
   border-radius: 50%;
   display: inline-grid;
   place-items: center;
+  /* Folga a ESQUERDA pra a bolinha nao encostar/sobrepor a barra de status
+     colorida (.spv2-card-bar), que vem antes dela no card de liga. */
+  margin-left: 0.7rem;
   margin-right: 0.85rem;
   transition:
     background 0.15s,
@@ -32847,11 +32949,15 @@ body.is-selection-mode .hero-search-filter-btn {
     stroke: #ffffff;
   }
 
-  /* 3. Campo de busca com sombra mais forte. */
+  /* 3. Campo de busca com sombra mais forte e SIMETRICA: as mesmas camadas
+     espelhadas pra cima (Y negativo) deixam a sombra da borda SUPERIOR igual a
+     da INFERIOR. */
   .samples-page-v2 .hero-search-wrap .hero-search-bar {
     box-shadow:
       0 2px 6px rgba(10, 30, 18, 0.1),
-      0 12px 28px rgba(10, 30, 18, 0.16);
+      0 12px 28px rgba(10, 30, 18, 0.16),
+      0 -2px 6px rgba(10, 30, 18, 0.1),
+      0 -12px 28px rgba(10, 30, 18, 0.16);
   }
 
   /* 4. Leque do "+" abrindo de CIMA pra BAIXO em ARCO (leque), contido na

@@ -559,6 +559,17 @@ function SamplesPage() {
     null
   );
   const expandedFilterInputRef = useRef<HTMLInputElement | null>(null);
+  // Breakpoint desktop (>=901px). O modal de filtros usa layout PROPRIO no
+  // desktop (campos de cliente diretos/nao-retrateis + linhas de 3 e 4
+  // colunas, modal mais largo). No mobile segue o layout retratil/compacto.
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 901px)');
+    const update = () => setIsDesktop(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
   // Opcoes dos filtros de classificacao (valores distintos canonicos), por
   // campo, carregadas sob demanda toda vez que o modal de filtros abre.
   const [classificationOptions, setClassificationOptions] = useState<{
@@ -1458,7 +1469,8 @@ function SamplesPage() {
     removeLabel: string,
     selected: ClientSummary[],
     onAdd: (client: ClientSummary) => void,
-    onRemove: (clientId: string) => void
+    onRemove: (clientId: string) => void,
+    direct = false
   ) {
     if (!session) return null;
     const isOpen = openClientFilter === fieldKey;
@@ -1488,6 +1500,41 @@ function SamplesPage() {
           })}
         </div>
       ) : null;
+
+    // Desktop: campo DIRETO (nao-retratil) — a caixa de busca (chips +
+    // typeahead) fica sempre visivel, sem gatilho/seta de expandir.
+    if (direct) {
+      return (
+        <div
+          className={`samples-filter-field samples-filter-field--client-direct${
+            selected.length > 0 ? ' is-active' : ''
+          }`}
+        >
+          <span className="samples-filter-field-label">{label}</span>
+          <div className="samples-filter-multi samples-filter-multi--lookup samples-filter-multi--direct">
+            {chipsRow}
+            <ClientLookupField
+              session={session}
+              kind={kind}
+              label={label}
+              compact
+              clearOnSelect
+              selectedClient={null}
+              onSelectClient={(client) => {
+                if (client) onAdd(client);
+              }}
+              placeholder={selected.length > 0 ? '' : placeholder}
+              emptyMessage={emptyMessage}
+            />
+          </div>
+          {selected.length > 0 ? (
+            <span className="samples-filter-field-count" aria-hidden="true">
+              {selected.length}
+            </span>
+          ) : null}
+        </div>
+      );
+    }
 
     return (
       <div
@@ -1555,242 +1602,311 @@ function SamplesPage() {
       (draftHiddenFilters.sacksMin.trim() ? 1 : 0) + (draftHiddenFilters.sacksMax.trim() ? 1 : 0);
     const periodActiveCount =
       (draftHiddenFilters.periodFrom ? 1 : 0) + (draftHiddenFilters.periodTo ? 1 : 0);
+    // Campos de cliente: no desktop sao DIRETOS (nao-retrateis, via isDesktop ->
+    // param `direct`); no mobile seguem retrateis (disclosure).
+    const ownerFilter = renderClientMultiFilter(
+      'owner',
+      'owner',
+      'Proprietario',
+      'Buscar proprietario',
+      'Nenhum proprietario encontrado',
+      'Remover proprietario',
+      draftHiddenFilters.ownerClients,
+      (client) =>
+        setDraftHiddenFilters((c) =>
+          c.ownerClients.some((existing) => existing.id === client.id)
+            ? c
+            : { ...c, ownerClients: [...c.ownerClients, client] }
+        ),
+      (clientId) =>
+        setDraftHiddenFilters((c) => ({
+          ...c,
+          ownerClients: c.ownerClients.filter((existing) => existing.id !== clientId),
+        })),
+      isDesktop
+    );
+
+    const buyerFilter = renderClientMultiFilter(
+      'buyer',
+      'buyer',
+      'Comprador',
+      'Buscar comprador',
+      'Nenhum comprador encontrado',
+      'Remover comprador',
+      draftHiddenFilters.buyerClients,
+      (client) =>
+        setDraftHiddenFilters((c) =>
+          c.buyerClients.some((existing) => existing.id === client.id)
+            ? c
+            : { ...c, buyerClients: [...c.buyerClients, client] }
+        ),
+      (clientId) =>
+        setDraftHiddenFilters((c) => ({
+          ...c,
+          buyerClients: c.buyerClients.filter((existing) => existing.id !== clientId),
+        })),
+      isDesktop
+    );
+
+    const sentToFilter = renderClientMultiFilter(
+      'sentTo',
+      'any',
+      'Enviado para',
+      'Buscar destinatario',
+      'Nenhum destinatario encontrado',
+      'Remover destinatario',
+      draftHiddenFilters.sentToClients,
+      (client) =>
+        setDraftHiddenFilters((c) =>
+          c.sentToClients.some((existing) => existing.id === client.id)
+            ? c
+            : { ...c, sentToClients: [...c.sentToClients, client] }
+        ),
+      (clientId) =>
+        setDraftHiddenFilters((c) => ({
+          ...c,
+          sentToClients: c.sentToClients.filter((existing) => existing.id !== clientId),
+        })),
+      isDesktop
+    );
+
+    // Controles compartilhados (identicos nos dois layouts; muda so o
+    // agrupamento das linhas entre mobile e desktop).
+    const padraoField = (
+      <ClassificationFilterField
+        label="Padrão"
+        placeholder="Qualquer padrão"
+        options={classificationOptions.padrao}
+        selected={draftHiddenFilters.padroes}
+        loading={classificationOptionsLoading}
+        onChange={(next) => setDraftHiddenFilters((c) => ({ ...c, padroes: next }))}
+      />
+    );
+
+    const aspectoField = (
+      <ClassificationFilterField
+        label="Aspecto"
+        placeholder="Qualquer aspecto"
+        options={classificationOptions.aspecto}
+        selected={draftHiddenFilters.aspectos}
+        loading={classificationOptionsLoading}
+        onChange={(next) => setDraftHiddenFilters((c) => ({ ...c, aspectos: next }))}
+      />
+    );
+
+    const catacaoField = (
+      <ClassificationFilterField
+        label="Catação"
+        placeholder="Qualquer catação"
+        options={classificationOptions.catacao}
+        selected={draftHiddenFilters.catacoes}
+        loading={classificationOptionsLoading}
+        searchable
+        onChange={(next) => setDraftHiddenFilters((c) => ({ ...c, catacoes: next }))}
+      />
+    );
+
+    const certificadoField = (
+      <ClassificationFilterField
+        label="Certificado"
+        placeholder="Qualquer certificado"
+        options={classificationOptions.certif}
+        selected={draftHiddenFilters.certificados}
+        loading={classificationOptionsLoading}
+        onChange={(next) => setDraftHiddenFilters((c) => ({ ...c, certificados: next }))}
+      />
+    );
+
+    const statusField = (
+      <div
+        className={`samples-filter-field${draftHiddenFilters.displayStatus ? ' is-active' : ''}`}
+      >
+        <span className="samples-filter-field-label">Status</span>
+        <span className="samples-filter-control">
+          <select
+            className={`samples-filter-field-input${draftHiddenFilters.displayStatus ? ' is-active' : ''}`}
+            value={draftHiddenFilters.displayStatus}
+            onChange={(event) =>
+              setDraftHiddenFilters((c) => ({
+                ...c,
+                displayStatus: event.target.value as DisplayStatusFilter,
+              }))
+            }
+          >
+            <option value="">Selecionar</option>
+            {DISPLAY_STATUS_FILTER_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          {draftHiddenFilters.displayStatus ? (
+            <span className="samples-filter-field-count" aria-hidden="true">
+              1
+            </span>
+          ) : null}
+        </span>
+      </div>
+    );
+
+    const safraField = (
+      <ClassificationFilterField
+        label="Safra"
+        placeholder="Qualquer safra"
+        options={[...HARVEST_OPTIONS]}
+        selected={draftHiddenFilters.harvests}
+        onChange={(next) => setDraftHiddenFilters((c) => ({ ...c, harvests: next }))}
+      />
+    );
+
+    const tipoField = (
+      <div className="samples-filter-field">
+        <span className="samples-filter-field-label">Tipo de lote</span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={draftHiddenFilters.onlyBlend}
+          className={`samples-filter-toggle${draftHiddenFilters.onlyBlend ? ' is-on' : ''}`}
+          onClick={() => setDraftHiddenFilters((c) => ({ ...c, onlyBlend: !c.onlyBlend }))}
+        >
+          <span className="samples-filter-toggle-track" aria-hidden="true">
+            <span className="samples-filter-toggle-thumb" />
+          </span>
+          <span className="samples-filter-toggle-text">Ligas</span>
+        </button>
+      </div>
+    );
+
+    const sacasField = (
+      <div className={`samples-filter-field${sacksActiveCount > 0 ? ' is-active' : ''}`}>
+        <span className="samples-filter-field-label">Sacas</span>
+        <div className="samples-filter-split-grid">
+          <input
+            className={`samples-filter-field-input${draftHiddenFilters.sacksMin.trim() ? ' is-active' : ''}`}
+            type="number"
+            min="1"
+            step="1"
+            inputMode="numeric"
+            value={draftHiddenFilters.sacksMin}
+            onChange={(event) =>
+              setDraftHiddenFilters((c) => ({
+                ...c,
+                sacksMin: event.target.value.replace(/\D+/g, ''),
+              }))
+            }
+            placeholder="Ex.: 100"
+          />
+          <input
+            className={`samples-filter-field-input${draftHiddenFilters.sacksMax.trim() ? ' is-active' : ''}`}
+            type="number"
+            min="1"
+            step="1"
+            inputMode="numeric"
+            value={draftHiddenFilters.sacksMax}
+            onChange={(event) =>
+              setDraftHiddenFilters((c) => ({
+                ...c,
+                sacksMax: event.target.value.replace(/\D+/g, ''),
+              }))
+            }
+            placeholder="até"
+          />
+          {sacksActiveCount > 0 ? (
+            <span className="samples-filter-field-count" aria-hidden="true">
+              {sacksActiveCount}
+            </span>
+          ) : null}
+        </div>
+      </div>
+    );
+
+    const periodoField = (
+      <div className={`samples-filter-field${periodActiveCount > 0 ? ' is-active' : ''}`}>
+        <span className="samples-filter-field-label">Periodo</span>
+        <div className="samples-filter-split-grid">
+          <input
+            className={`samples-filter-field-input${draftHiddenFilters.periodFrom === '' ? ' is-placeholder' : ' is-active'}`}
+            type="date"
+            value={draftHiddenFilters.periodFrom}
+            onChange={(event) =>
+              setDraftHiddenFilters((c) => ({ ...c, periodFrom: event.target.value }))
+            }
+            aria-label="Data inicial"
+          />
+          <input
+            className={`samples-filter-field-input${draftHiddenFilters.periodTo === '' ? ' is-placeholder' : ' is-active'}`}
+            type="date"
+            value={draftHiddenFilters.periodTo}
+            onChange={(event) =>
+              setDraftHiddenFilters((c) => ({ ...c, periodTo: event.target.value }))
+            }
+            aria-label="Data final"
+          />
+          {periodActiveCount > 0 ? (
+            <span className="samples-filter-field-count" aria-hidden="true">
+              {periodActiveCount}
+            </span>
+          ) : null}
+        </div>
+      </div>
+    );
+
+    // DESKTOP: modal mais largo; clientes em linhas proprias (diretos) +
+    // Safra/Status/Tipo (3 col) + Padrao/Aspecto/Catacao/Certificado (4 col) +
+    // Sacas/Periodo em linhas proprias. (Layout pedido pelo usuario.)
+    if (isDesktop) {
+      return (
+        <div className="samples-filter-fields">
+          {ownerFilter}
+          {buyerFilter}
+          {sentToFilter}
+          <div className="samples-filter-row samples-filter-row--3">
+            {safraField}
+            {statusField}
+            {tipoField}
+          </div>
+          <div className="samples-filter-row samples-filter-row--4">
+            {padraoField}
+            {aspectoField}
+            {catacaoField}
+            {certificadoField}
+          </div>
+          {sacasField}
+          {periodoField}
+        </div>
+      );
+    }
+
+    // MOBILE: layout compacto original (cliente retratil + pares 2 colunas).
     return (
       <div className="samples-filter-fields">
-        {renderClientMultiFilter(
-          'owner',
-          'owner',
-          'Proprietario',
-          'Buscar proprietario',
-          'Nenhum proprietario encontrado',
-          'Remover proprietario',
-          draftHiddenFilters.ownerClients,
-          (client) =>
-            setDraftHiddenFilters((c) =>
-              c.ownerClients.some((existing) => existing.id === client.id)
-                ? c
-                : { ...c, ownerClients: [...c.ownerClients, client] }
-            ),
-          (clientId) =>
-            setDraftHiddenFilters((c) => ({
-              ...c,
-              ownerClients: c.ownerClients.filter((existing) => existing.id !== clientId),
-            }))
-        )}
-
-        {renderClientMultiFilter(
-          'buyer',
-          'buyer',
-          'Comprador',
-          'Buscar comprador',
-          'Nenhum comprador encontrado',
-          'Remover comprador',
-          draftHiddenFilters.buyerClients,
-          (client) =>
-            setDraftHiddenFilters((c) =>
-              c.buyerClients.some((existing) => existing.id === client.id)
-                ? c
-                : { ...c, buyerClients: [...c.buyerClients, client] }
-            ),
-          (clientId) =>
-            setDraftHiddenFilters((c) => ({
-              ...c,
-              buyerClients: c.buyerClients.filter((existing) => existing.id !== clientId),
-            }))
-        )}
-
-        {renderClientMultiFilter(
-          'sentTo',
-          'any',
-          'Enviado para',
-          'Buscar destinatario',
-          'Nenhum destinatario encontrado',
-          'Remover destinatario',
-          draftHiddenFilters.sentToClients,
-          (client) =>
-            setDraftHiddenFilters((c) =>
-              c.sentToClients.some((existing) => existing.id === client.id)
-                ? c
-                : { ...c, sentToClients: [...c.sentToClients, client] }
-            ),
-          (clientId) =>
-            setDraftHiddenFilters((c) => ({
-              ...c,
-              sentToClients: c.sentToClients.filter((existing) => existing.id !== clientId),
-            }))
-        )}
+        {ownerFilter}
+        {buyerFilter}
+        {sentToFilter}
 
         {/* Padrao + Aspecto e Catacao + Certificado vao 2 por linha (mesmo grid
             do par Status/Safra) pra economizar espaco vertical no modal. */}
         <div className="samples-filter-row">
-          <ClassificationFilterField
-            label="Padrão"
-            placeholder="Qualquer padrão"
-            options={classificationOptions.padrao}
-            selected={draftHiddenFilters.padroes}
-            loading={classificationOptionsLoading}
-            onChange={(next) => setDraftHiddenFilters((c) => ({ ...c, padroes: next }))}
-          />
-
-          <ClassificationFilterField
-            label="Aspecto"
-            placeholder="Qualquer aspecto"
-            options={classificationOptions.aspecto}
-            selected={draftHiddenFilters.aspectos}
-            loading={classificationOptionsLoading}
-            onChange={(next) => setDraftHiddenFilters((c) => ({ ...c, aspectos: next }))}
-          />
+          {padraoField}
+          {aspectoField}
         </div>
 
         <div className="samples-filter-row">
-          <ClassificationFilterField
-            label="Catação"
-            placeholder="Qualquer catação"
-            options={classificationOptions.catacao}
-            selected={draftHiddenFilters.catacoes}
-            loading={classificationOptionsLoading}
-            searchable
-            onChange={(next) => setDraftHiddenFilters((c) => ({ ...c, catacoes: next }))}
-          />
-
-          <ClassificationFilterField
-            label="Certificado"
-            placeholder="Qualquer certificado"
-            options={classificationOptions.certif}
-            selected={draftHiddenFilters.certificados}
-            loading={classificationOptionsLoading}
-            onChange={(next) => setDraftHiddenFilters((c) => ({ ...c, certificados: next }))}
-          />
+          {catacaoField}
+          {certificadoField}
         </div>
 
         <div className="samples-filter-row">
-          <div
-            className={`samples-filter-field${draftHiddenFilters.displayStatus ? ' is-active' : ''}`}
-          >
-            <span className="samples-filter-field-label">Status</span>
-            <span className="samples-filter-control">
-              <select
-                className={`samples-filter-field-input${draftHiddenFilters.displayStatus ? ' is-active' : ''}`}
-                value={draftHiddenFilters.displayStatus}
-                onChange={(event) =>
-                  setDraftHiddenFilters((c) => ({
-                    ...c,
-                    displayStatus: event.target.value as DisplayStatusFilter,
-                  }))
-                }
-              >
-                <option value="">Selecionar</option>
-                {DISPLAY_STATUS_FILTER_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              {draftHiddenFilters.displayStatus ? (
-                <span className="samples-filter-field-count" aria-hidden="true">
-                  1
-                </span>
-              ) : null}
-            </span>
-          </div>
-
-          <ClassificationFilterField
-            label="Safra"
-            placeholder="Qualquer safra"
-            options={[...HARVEST_OPTIONS]}
-            selected={draftHiddenFilters.harvests}
-            onChange={(next) => setDraftHiddenFilters((c) => ({ ...c, harvests: next }))}
-          />
+          {statusField}
+          {safraField}
         </div>
 
-        <div className={`samples-filter-field${sacksActiveCount > 0 ? ' is-active' : ''}`}>
-          <span className="samples-filter-field-label">Sacas</span>
-          <div className="samples-filter-split-grid">
-            <input
-              className={`samples-filter-field-input${draftHiddenFilters.sacksMin.trim() ? ' is-active' : ''}`}
-              type="number"
-              min="1"
-              step="1"
-              inputMode="numeric"
-              value={draftHiddenFilters.sacksMin}
-              onChange={(event) =>
-                setDraftHiddenFilters((c) => ({
-                  ...c,
-                  sacksMin: event.target.value.replace(/\D+/g, ''),
-                }))
-              }
-              placeholder="Ex.: 100"
-            />
-            <input
-              className={`samples-filter-field-input${draftHiddenFilters.sacksMax.trim() ? ' is-active' : ''}`}
-              type="number"
-              min="1"
-              step="1"
-              inputMode="numeric"
-              value={draftHiddenFilters.sacksMax}
-              onChange={(event) =>
-                setDraftHiddenFilters((c) => ({
-                  ...c,
-                  sacksMax: event.target.value.replace(/\D+/g, ''),
-                }))
-              }
-              placeholder="até"
-            />
-            {sacksActiveCount > 0 ? (
-              <span className="samples-filter-field-count" aria-hidden="true">
-                {sacksActiveCount}
-              </span>
-            ) : null}
-          </div>
-        </div>
+        {sacasField}
 
-        <div className={`samples-filter-field${periodActiveCount > 0 ? ' is-active' : ''}`}>
-          <span className="samples-filter-field-label">Periodo</span>
-          <div className="samples-filter-split-grid">
-            <input
-              className={`samples-filter-field-input${draftHiddenFilters.periodFrom === '' ? ' is-placeholder' : ' is-active'}`}
-              type="date"
-              value={draftHiddenFilters.periodFrom}
-              onChange={(event) =>
-                setDraftHiddenFilters((c) => ({ ...c, periodFrom: event.target.value }))
-              }
-              aria-label="Data inicial"
-            />
-            <input
-              className={`samples-filter-field-input${draftHiddenFilters.periodTo === '' ? ' is-placeholder' : ' is-active'}`}
-              type="date"
-              value={draftHiddenFilters.periodTo}
-              onChange={(event) =>
-                setDraftHiddenFilters((c) => ({ ...c, periodTo: event.target.value }))
-              }
-              aria-label="Data final"
-            />
-            {periodActiveCount > 0 ? (
-              <span className="samples-filter-field-count" aria-hidden="true">
-                {periodActiveCount}
-              </span>
-            ) : null}
-          </div>
-        </div>
+        {periodoField}
 
         {/* Meia largura: ocupa só a coluna esquerda do grid de 2 colunas. */}
-        <div className="samples-filter-row">
-          <div className="samples-filter-field">
-            <span className="samples-filter-field-label">Tipo de lote</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={draftHiddenFilters.onlyBlend}
-              className={`samples-filter-toggle${draftHiddenFilters.onlyBlend ? ' is-on' : ''}`}
-              onClick={() => setDraftHiddenFilters((c) => ({ ...c, onlyBlend: !c.onlyBlend }))}
-            >
-              <span className="samples-filter-toggle-track" aria-hidden="true">
-                <span className="samples-filter-toggle-thumb" />
-              </span>
-              <span className="samples-filter-toggle-text">Ligas</span>
-            </button>
-          </div>
-        </div>
+        <div className="samples-filter-row">{tipoField}</div>
       </div>
     );
   }
