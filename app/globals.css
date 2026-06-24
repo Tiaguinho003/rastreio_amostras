@@ -21465,35 +21465,45 @@ select.samples-filter-field-input {
    AppShell (sidebar/topbar) segue visivel para navegar. */
 @media (min-width: 901px) {
   /* Mantem o min-height base (34rem) — era load-bearing: a cadeia height:100%
-     nao resolve aqui, entao zera-lo colapsava o stage (com overflow:hidden) e
-     recortava o card. So tiramos o fundo escuro. */
-  .camera-hub-stage {
+     nao resolve aqui, entao zera-lo colapsava o stage (overflow:hidden) e
+     recortava o card. So tiramos o fundo escuro. Os seletores levam
+     `.camera-hub-page` na frente porque as defs base de varias destas classes
+     (headline, gallery-btn, bottom-area...) vem DEPOIS deste bloco no arquivo —
+     sem o ancestral, a regra base (mesma especificidade, fonte posterior)
+     venceria o override. */
+  .camera-hub-page .camera-hub-stage {
     background: transparent;
     box-shadow: none;
     border-radius: 0;
   }
 
-  .camera-hub-video,
-  .camera-hub-overlay,
-  .camera-hub-headline,
-  .camera-hub-gallery-btn,
-  .camera-hub-bottom-area {
+  /* Some a UI de camera — fica so o card + o botao de VOLTAR. NAO esconde a
+     headline: o back precisa ficar visivel e clicavel. O botao de galeria
+     flutuante sai (o "Usar galeria" do card ja faz esse papel). */
+  .camera-hub-page .camera-hub-video,
+  .camera-hub-page .camera-hub-overlay,
+  .camera-hub-page .camera-hub-gallery-btn,
+  .camera-hub-page .camera-hub-bottom-area {
     display: none;
   }
 
-  /* Sem scrim escuro (nao ha mais area preta); segue centrando o card. */
-  .camera-hub-error-overlay {
+  /* Overlay do card: transparente (sem scrim) E sem capturar cliques
+     (pointer-events:none), pra nao bloquear o botao de voltar que fica atras
+     (z-index menor). O card reativa os cliques pros proprios botoes. */
+  .camera-hub-page .camera-hub-error-overlay {
     background: transparent;
+    pointer-events: none;
   }
 
   /* Card ligeiramente maior + borda leve pra definir sobre o fundo claro. */
-  .camera-hub-error-card {
+  .camera-hub-page .camera-hub-error-card {
     width: min(92%, 26rem);
     padding: clamp(30px, 3vw, 38px);
     border: 1px solid rgba(0, 0, 0, 0.08);
+    pointer-events: auto;
   }
 
-  .camera-hub-error-card-title {
+  .camera-hub-page .camera-hub-error-card-title {
     font-size: 1.35rem;
     margin-bottom: 26px;
   }
