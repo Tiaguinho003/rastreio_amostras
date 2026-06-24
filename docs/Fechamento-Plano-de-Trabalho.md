@@ -199,16 +199,20 @@ cada campo é anotado conforme revisamos.
 - **Telefone e e-mail NÃO entram** no contrato (existem no snapshot, mas não são impressos).
 - _Comportamento específico (editável? etc.) — a definir depois._
 
-### B3 — Armazém do comprador
+### B3 — Armazém do comprador ✅ campos
 - **Armazém do comprador** — cliente-armazém via lookup `kind='warehouse'` (D26), snapshot.
-  _(Obrigatório? campos a imprimir: nome, CNPJ, cidade?)_
+- **Campos exibidos = os mesmos do comprador**: Nome/Razão social · CPF/CNPJ · Inscrição Estadual · Endereço · Cidade/UF (sem telefone/e-mail).
+- _Comportamento específico (obrigatório? editável?) — depois._
 
-### B4 — Vendedor
-- **Vendedor** — `ownerClient` do lote (D12), automático e **editável**, snapshot. Campos: nome/razão,
-  CPF/CNPJ, IE, endereço, cidade/UF, telefone _(conferir quais)_
+### B4 — Vendedor ✅ campos
+- **Vendedor** — `ownerClient` do lote (D12), snapshot.
+- **Campos exibidos = os mesmos do comprador**: Nome/Razão social · CPF/CNPJ · Inscrição Estadual · Endereço · Cidade/UF (sem telefone/e-mail).
+- _Comportamento específico (editável conforme D12, etc.) — depois._
 
-### B5 — Armazém do vendedor
-- **Armazém do vendedor** — cliente-armazém via lookup (D26), snapshot. _(Obrigatório?)_
+### B5 — Armazém do vendedor ✅ campos
+- **Armazém do vendedor** — cliente-armazém via lookup `kind='warehouse'` (D26), snapshot.
+- **Campos exibidos = os mesmos do comprador**: Nome/Razão social · CPF/CNPJ · Inscrição Estadual · Endereço · Cidade/UF (sem telefone/e-mail).
+- _Comportamento específico — depois._
 
 ### B6 — Corretagem
 - **Corretor(es)** — N via `Broker` / `SaleContractBroker` (D34); `userId` opcional p/ métrica
@@ -389,3 +393,10 @@ cada campo é anotado conforme revisamos.
   Cidade/UF. **Telefone e e-mail removidos** (não entram no contrato). Funcionalidades específicas
   (editável etc.) **adiadas**.
 - **Próximo**: **B3 — Armazém do comprador**.
+
+### 2026-06-24 — Sessão 19 (B3/B4/B5 — mesmos campos do comprador)
+
+- Flavio: **Armazém do comprador (B3), Vendedor (B4) e Armazém do vendedor (B5) usam os mesmos campos do
+  comprador** — Nome/Razão social, CPF/CNPJ, IE, Endereço, Cidade/UF (sem telefone/e-mail). Só muda a
+  origem (B3/B5 = cliente-armazém via lookup D26; B4 = `ownerClient` D12). Comportamentos específicos depois.
+- **Próximo**: **B6 — Corretagem**.
