@@ -21475,6 +21475,11 @@ select.samples-filter-field-input {
     background: transparent;
     box-shadow: none;
     border-radius: 0;
+    /* Preenche a area abaixo do topbar (~4.75rem) — a cadeia height:100% nao
+       resolve aqui (root e min-height, page-content e auto), entao sem isto o
+       stage ficava nos 34rem base colados no topo. Assim o card centraliza na
+       VERTICAL dentro do conteudo (abaixo do topbar, a direita da sidebar). */
+    min-height: calc(100dvh - 4.75rem);
   }
 
   /* Some a UI de camera — fica so o card + o botao de VOLTAR. NAO esconde a
@@ -21506,6 +21511,21 @@ select.samples-filter-field-input {
   .camera-hub-page .camera-hub-error-card-title {
     font-size: 1.35rem;
     margin-bottom: 26px;
+  }
+
+  /* Botao de voltar sobre o fundo claro: no hover NAO clareia (o global
+     `button:hover { background: transparent }` zerava o fundo e a seta branca
+     sumia) — mantem o fundo e so ELEVA com um pouco mais de sombra. */
+  .camera-hub-page .camera-hub-back-btn {
+    transition:
+      transform 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+
+  .camera-hub-page .camera-hub-back-btn:hover {
+    background: rgba(0, 0, 0, 0.35);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
   }
 }
 
