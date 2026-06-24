@@ -98,7 +98,7 @@ Síntese verificada no código em 2026-06-24. Detalhes nas referências.
 | D17 | **Quantidade = sacas da venda (inteira)**  | Reusa o `quantitySacks`; sem campo novo. **Peso (Kg)** é campo decimal **separado**.                                                                                |
 | D18 | **Valor total automático**                 | `preço/saca × sacas`, ajustado por ágio/deságio (ágio soma, deságio subtrai). _Base exata a confirmar na Fase B._                                                   |
 | D19 | **Corretagem calculada**                   | Vendedor e comprador, cada um em **% ou R$**; quando %, calcula o R$ sobre o total. Guarda tipo + valor + R$.                                                       |
-| D20 | **Listas (B8)**                            | **Forma de Pagamento {Faturado, Livre}** · **Modalidade {Retirar, Posto, Disponível}** · **Embalagem {Sacas, Bags, A granel}** (valores no B8; fixas ou cadastráveis a confirmar). **Condição de Pagamento = texto livre** (não é lista). _(Banco → entidade própria, D24.)_ |
+| D20 | **Listas (B8)**                            | **Forma de Pagamento {Faturado, Livre}** · **Modalidade {Retirar, Posto, Disponível}** · **Embalagem {Sacas, Bags, A granel}** (valores no B8; **cadastráveis pelo admin**, iniciam com esses valores). **Condição de Pagamento = texto livre** (não é lista). _(Banco → entidade própria, D24.)_ |
 | D21 | **Só vendas novas**                        | Fechamento/`SaleContract` só para vendas a partir da feature; antigas ficam **sem contrato** (sem backfill).                                                        |
 | D22 | **Geração automática ao salvar**           | Confirmar a venda já gera/abre o PDF do Fechamento. Re-geração depende de P10.                                                                                      |
 | D23 | **Permissão ampla**                        | Pode gerar o Fechamento **quem tem acesso à venda**.                                                                                                               |
@@ -106,7 +106,7 @@ Síntese verificada no código em 2026-06-24. Detalhes nas referências.
 | D25 | **Snapshot de dados de cliente**           | No fechamento, comprador, vendedor, corretor, **conta bancária** e **armazéns** são **congelados**; mudanças no cadastro não alteram contratos já emitidos.        |
 | D26 | **Armazém = `Client` com `isWarehouse`**   | Modelo **já existe** (flags multi-escolha + lookup `kind='warehouse'`). "Armazém do Comprador/Vendedor" = cliente-armazém (livre) → snapshot. **Sem entidade nova.** |
 | D27 | **Anexos do cliente**                      | `ClientAttachment` (1 cliente → N arquivos, lista livre + descrição), reusa `local-upload-service` + `UPLOADS_DIR`. **PDF + imagens** → +`application/pdf` no allowlist + atualizar CLAUDE.md#5/SECURITY. **Só arquivamento; independente do contrato.** |
-| D28 | **Campos da conta bancária**               | `ClientBankAccount` = banco (FK `Bank`) + **agência** + **conta (com dígito)** + **titular** + **chave PIX**. _(Sem tipo corrente/poupança.)_                       |
+| D28 | **Campos da conta bancária**               | `ClientBankAccount` = banco (FK `Bank`) + **agência** + **conta (com dígito)** + **titular (nome)** + **CNPJ/CPF do titular** + **chave PIX**. Titular pode diferir do cliente. _(Sem tipo corrente/poupança.)_ |
 | D29 | **Emissor fixo em config**                 | Promover `COMPANY_INFO` a módulo compartilhado + **CNPJ** (a fornecer). Sem tela editável (muda com deploy).                                                        |
 | D30 | **3 blocos de texto livre, sem cláusulas fixas** | Contrato tem **Observações**, **Descrição** e **Observações (Pág. 2)** — texto livre; **não há** boilerplate jurídico fixo.                                  |
 | D31 | **Linhas de assinatura do corretor**       | ~~Campo `corretorSignatureLines` (0–4).~~ **Substituído pela D35**: assinatura do corretor = imagem fixa do dono da empresa (sempre 1, automática).                                              |
@@ -128,7 +128,7 @@ O Fechamento **puxa dados de cliente** para o contrato (congelados via snapshot 
 vai crescer** conforme novas extensões aparecerem.
 
 1. **Dados bancários (D24/D28) — exige modelagem nova.** Tabela `Bank` (cadastrável pelo admin) +
-   `ClientBankAccount` por cliente (banco + agência + conta c/ dígito + titular + chave PIX). UI nova no
+   `ClientBankAccount` por cliente (banco + agência + conta c/ dígito + titular + CNPJ/CPF + chave PIX). UI nova no
    cadastro de Cliente. No contrato, "Banco do Vendedor" = escolher uma conta do vendedor → snapshot.
    **Única extensão que é pré-requisito do contrato.**
 2. **Armazéns (D26) — já resolvido, sem extensão nova.** Armazém é um `Client` com `isWarehouse`. No
@@ -156,7 +156,7 @@ Fonte: print do "Contrato de Compra e Venda de Café" (Sessão 2). Marcadores: �
 - ✅ **Comprador** — comprador da venda (snapshot), automático (D12).
 - ✅ **Vendedor** — dono do lote (`ownerClient`), automático e editável; snapshot (D12).
 - ⚠️ **Corretor(es)** — N por contrato via `SaleContractBroker` → cadastro `Broker` (nome + `userId` opcional p/ métrica + status); figuram no contrato (D13/D34).
-- ⚠️ **Banco do Vendedor** — conta do vendedor (`ClientBankAccount`: banco+agência+conta+titular+PIX), snapshot (D24/D28).
+- ⚠️ **Banco do Vendedor** — conta do vendedor (`ClientBankAccount`: banco+agência+conta+titular+CNPJ/CPF+PIX), snapshot (D24/D28).
 
 ### Armazéns
 - ✅ **Armazém do Comprador** · ✅ **Armazém do Vendedor** — cliente-armazém (`isWarehouse`) via lookup, snapshot (D26).
@@ -228,14 +228,14 @@ cada campo é anotado conforme revisamos.
 - **Valor total** — calculado `preço × sacas` ± ágio/deságio (D18) — **NÃO impresso** (interno)
 - _Pendente (de B6): se o contrato mostra a corretagem só em %, reavaliar se a entrada da corretagem é só %._
 
-### B8 — Pagamento & logística ✅ campos _(2 detalhes pendentes)_
+### B8 — Pagamento & logística ✅
 - **Condição de Pagamento** — **campo livre (texto)**, **impresso**. _(não é lista — sai da D20)_
 - **Forma de Pagamento** — lista **{Faturado, Livre}**, **impresso**.
 - **Modalidade** — lista **{Retirar, Posto, Disponível}**, **impresso**.
 - **Embalagem** _(renomeia "Sacaria")_ — lista **{Sacas, Bags, A granel}**, **impresso**.
 - **Data de Faturamento** · **Data de Pagamento** — datas escolhidas pelo usuário (sem default "hoje"), **impressas**.
 - **Banco do Vendedor** — puxa do cadastro do cliente: **Banco, Agência, Conta, CNPJ/CPF, Chave PIX**, **impresso**.
-- _Pendente: (a) Forma/Modalidade/Embalagem são fixas ou cadastráveis? (b) banco lista **CNPJ/CPF** (B8) vs. **titular** (D28) — reconciliar `ClientBankAccount`._
+- ✅ **Resolvido**: listas (Forma/Modalidade/Embalagem) **cadastráveis** pelo admin (iniciam com os valores acima); conta bancária guarda **nome + CNPJ/CPF do titular** (D28 revisada; titular pode diferir do cliente). No contrato saem: Banco/Agência/Conta/CNPJ-CPF/Chave PIX.
 
 ### B9 — Observações
 - **Observações** · **Descrição** · **Observações (Pág. 2)** — texto livre, sem cláusulas fixas (D30)
@@ -266,7 +266,7 @@ cada campo é anotado conforme revisamos.
 > Implementação **campo a campo** (D7). A Fase 0 (cadastro) é pré-requisito do que o contrato referencia.
 
 - **Fase 0 — Extensões do cadastro de Cliente.** **Bancário** (D24/D28): tabela `Bank` (`id` Int, nome,
-  status) + `ClientBankAccount` por cliente (banco + agência + conta c/ dígito + titular + chave PIX),
+  status) + `ClientBankAccount` por cliente (banco + agência + conta c/ dígito + titular + CNPJ/CPF + chave PIX),
   no padrão `ClientUnit`; UI nova no cadastro. **Anexos** (D27): `ClientAttachment` (independente do
   contrato; +`application/pdf` no allowlist + atualizar segurança). **Data de nascimento** (D36): coluna `Client.birthDate` (PF, opcional). Armazém não entra (D26). **O
   bancário precede a Fase B.**
@@ -425,3 +425,10 @@ cada campo é anotado conforme revisamos.
 - Pendente: (a) Forma/Modalidade/Embalagem fixas ou cadastráveis? (b) reconciliar banco **CNPJ/CPF** (B8)
   vs. **titular** (D28).
 - **Próximo**: resolver os 2 detalhes e ir pro **B9 — Observações**.
+
+### 2026-06-24 — Sessão 23 (B8 — detalhes finais)
+
+- **B8 fechado** ✅: listas Forma/Modalidade/Embalagem **cadastráveis** pelo admin (iniciam com os valores
+  dados); conta bancária (`ClientBankAccount`) guarda **nome + CNPJ/CPF do titular** (revisa D28; titular
+  pode diferir do cliente). No contrato: Banco/Agência/Conta/CNPJ-CPF/Chave PIX.
+- **Próximo**: **B9 — Observações** e **B10 — Assinaturas**.
