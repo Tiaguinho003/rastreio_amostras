@@ -6048,6 +6048,67 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   font-style: italic;
 }
 
+/* Peneiras no card expandido — DESKTOP only (mobile mantem so os 4 stats). So
+   as peneiras COM valor entram (ver SampleCard.filledPeneiras). */
+.spv2-card-peneiras {
+  display: none;
+}
+
+@media (min-width: 901px) {
+  .spv2-card-peneiras {
+    display: block;
+    margin-bottom: clamp(11px, 1.4vw, 14px);
+  }
+
+  .spv2-card-peneiras-title {
+    display: block;
+    margin-bottom: 7px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--brand-green);
+  }
+
+  /* UMA linha (nowrap); espacamento igual entre os itens e que se ADAPTA a
+     quantidade (1..10 peneiras) via space-evenly. O gap e o minimo entre eles
+     quando sao muitos. */
+  .spv2-card-peneiras-row {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: space-evenly;
+    align-items: flex-start;
+    gap: clamp(4px, 0.8vw, 12px);
+    min-width: 0;
+  }
+
+  .spv2-card-peneira {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .spv2-card-peneira-name {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--brand-green);
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+
+  .spv2-card-peneira-value {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: #2a3d2f;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+}
+
 /* CTA "Ver detalhes" — full-width pill brand. Compacto (padding y mais
    apertado que os outros CTAs porque eh um sub-action dentro do card). */
 .spv2-card-detail-btn {

@@ -56,6 +56,44 @@ function formatExpandedStat(raw: unknown, max: number): string | null {
   return text.length > max ? `${text.slice(0, max)}…` : text;
 }
 
+// Peneiras (sub-obj `peneiras` da ultima classificacao): ordem VISUAL da ficha
+// (P18,P17,P16,MK,P15 na 1a linha; P14..P10 na 2a). So as preenchidas entram no
+// card expandido (desktop) — ver `filledPeneiras`.
+const PENEIRA_ORDER = [
+  'p18',
+  'p17',
+  'p16',
+  'mk',
+  'p15',
+  'p14',
+  'p13',
+  'p12',
+  'p11',
+  'p10',
+] as const;
+const PENEIRA_LABELS: Record<(typeof PENEIRA_ORDER)[number], string> = {
+  p18: 'P18',
+  p17: 'P17',
+  p16: 'P16',
+  mk: 'MK',
+  p15: 'P15',
+  p14: 'P14',
+  p13: 'P13',
+  p12: 'P12',
+  p11: 'P11',
+  p10: 'P10',
+};
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function peneiraValueText(raw: unknown): string | null {
+  if (raw === null || raw === undefined) return null;
+  const text = String(raw).trim();
+  return text === '' ? null : text;
+}
+
 export type SampleCardSelectionMode = 'idle' | 'blend';
 
 export interface SampleCardProps {
@@ -193,6 +231,16 @@ export function SampleCard({
   const aspectoStat = formatExpandedStat(classData?.aspecto, EXPANDED_STAT_LIMIT.aspecto);
   const catacaoStat = formatExpandedStat(classData?.catacao, EXPANDED_STAT_LIMIT.catacao);
 
+  // Peneiras preenchidas da ultima classificacao (so as que tem valor; pode ser
+  // 0..10). Exibidas no card expandido SO no desktop (CSS), numa unica linha.
+  const peneirasSource = isPlainRecord(classData?.peneiras) ? classData.peneiras : null;
+  const filledPeneiras = peneirasSource
+    ? PENEIRA_ORDER.flatMap((key) => {
+        const value = peneiraValueText(peneirasSource[key]);
+        return value === null ? [] : [{ key, label: PENEIRA_LABELS[key], value }];
+      })
+    : [];
+
   return (
     <div
       className={`spv2-card-wrap ${cardStatus.className}${isExpanded ? ' is-expanded' : ''}`}
@@ -276,6 +324,22 @@ export function SampleCard({
               </span>
             </div>
           </div>
+
+          {/* Peneiras preenchidas — DESKTOP only (CSS). Uma linha, espacamento
+              igual que se adapta a quantidade (space-evenly). */}
+          {filledPeneiras.length > 0 ? (
+            <div className="spv2-card-peneiras">
+              <span className="spv2-card-peneiras-title">Peneiras</span>
+              <div className="spv2-card-peneiras-row">
+                {filledPeneiras.map((peneira) => (
+                  <span key={peneira.key} className="spv2-card-peneira">
+                    <span className="spv2-card-peneira-name">{peneira.label}</span>
+                    <span className="spv2-card-peneira-value">{peneira.value}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           <Link
             href={`/samples/${sample.id}`}
