@@ -193,9 +193,11 @@ cada campo é anotado conforme revisamos.
 - **Número do Lote** — `internalLotNumber` da amostra (auto, não editável)
 - ~~Mês/Ano~~ — **removidos**: deriváveis da data (formatar no PDF; derivar em filtros/relatórios)
 
-### B2 — Comprador
-- **Comprador** — Cliente da venda (D12), snapshot. Campos do snapshot a imprimir/usar: nome/razão,
-  CPF/CNPJ, IE, endereço, cidade/UF, telefone _(conferir quais)_
+### B2 — Comprador ✅ campos _(funcionalidades específicas depois)_
+- **Comprador** — Cliente da venda (D12), snapshot congelado.
+- **Campos exibidos no contrato**: Nome/Razão social · CPF/CNPJ · Inscrição Estadual · Endereço · Cidade/UF.
+- **Telefone e e-mail NÃO entram** no contrato (existem no snapshot, mas não são impressos).
+- _Comportamento específico (editável? etc.) — a definir depois._
 
 ### B3 — Armazém do comprador
 - **Armazém do comprador** — cliente-armazém via lookup `kind='warehouse'` (D26), snapshot.
@@ -380,3 +382,10 @@ cada campo é anotado conforme revisamos.
 - **Novo campo `Tipo`** (da operação): opções **Futuro / Mercado à vista / Wash-out** (D37) — campo
   **distinto** da Modalidade. Comportamento confirmado: **obrigatório, sem default, lista cadastrável** (inicia com os 3).
 - **B1 fechado** ✅. **Próximo**: revisar **B2 — Comprador**.
+
+### 2026-06-24 — Sessão 18 (B2 — Comprador: campos)
+
+- **B2 campos** ✅: exibidos no contrato — Nome/Razão social, CPF/CNPJ, Inscrição Estadual, Endereço,
+  Cidade/UF. **Telefone e e-mail removidos** (não entram no contrato). Funcionalidades específicas
+  (editável etc.) **adiadas**.
+- **Próximo**: **B3 — Armazém do comprador**.
