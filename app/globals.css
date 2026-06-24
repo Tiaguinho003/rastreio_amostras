@@ -26671,13 +26671,11 @@ select.samples-filter-field-input {
     /* Grid das colunas — card, cabecalho e skeleton compartilham a mesma var.
        Larguras reduzidas pra caber na coluna direita (2.5fr); as flexiveis
        (produtor/destinatario) truncam com "…". */
-    --dd-activity-cols:
-      clamp(54px, 5.5vw, 76px)
-      minmax(64px, 1.5fr)
-      clamp(86px, 9vw, 112px)
-      clamp(42px, 4vw, 56px)
-      minmax(56px, 1fr)
-      clamp(52px, 5.5vw, 72px);
+    /* Col "Lote" alargada (era clamp(54px,5.5vw,76px)) pra caber numero +
+       badge de Liga (icone + "Liga", ~50px) sem o overflow:hidden do
+       .dd-activity-lot cortar. O espaco extra vem da coluna direita maior. */
+    --dd-activity-cols: clamp(70px, 6.5vw, 102px) minmax(64px, 1.5fr) clamp(86px, 9vw, 112px)
+      clamp(42px, 4vw, 56px) minmax(56px, 1fr) clamp(52px, 5.5vw, 72px);
     --dd-activity-gap: clamp(0.4rem, 0.7vw, 0.7rem);
     display: flex;
     flex-direction: column;
