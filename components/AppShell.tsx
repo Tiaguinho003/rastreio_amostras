@@ -13,15 +13,7 @@ import { changeCurrentUserPassword, recordInitialPasswordDecision } from '../lib
 import { changePasswordSchema } from '../lib/form-schemas';
 import { useVisitOutboxAutoSync } from '../lib/offline/use-visit-outbox-sync';
 import { VISIT_SYNC_COMPLETED_EVENT, type VisitSyncResult } from '../lib/offline/visit-sync';
-import {
-  getRoleLabel,
-  INFORME_ROLES,
-  isAdmin,
-  isMetricsNavRole,
-  isProspector,
-  isRoleAllowed,
-  isVisitReportViewer,
-} from '../lib/roles';
+import { getRoleLabel, INFORME_ROLES, isAdmin, isProspector, isRoleAllowed } from '../lib/roles';
 import { useToast } from '../lib/toast/ToastProvider';
 import type { SessionData } from '../lib/types';
 import { mergeUserIntoSession } from '../lib/use-auth';
@@ -34,15 +26,7 @@ interface AppShellProps {
   children: React.ReactNode;
 }
 
-type NavIcon =
-  | 'dashboard'
-  | 'camera'
-  | 'samples'
-  | 'users'
-  | 'clients'
-  | 'avatar'
-  | 'informe'
-  | 'metrics';
+type NavIcon = 'dashboard' | 'camera' | 'samples' | 'users' | 'clients' | 'avatar' | 'informe';
 type MobileRouteMeta = {
   title: string;
   subtitle: string;
@@ -63,18 +47,12 @@ const ADMIN_NAV_ITEM = {
   icon: 'users' as NavIcon,
 } as const;
 
-// Itens da sidebar desktop que dependem do papel: Relatorios (rota /informe —
-// INFORME_ROLES OU viewers; unifica o antigo Informe + Resumo) e Metricas
-// (todos nao-prospector).
+// Item da sidebar desktop que depende do papel: Relatorios (rota /informe —
+// INFORME_ROLES OU viewers; unifica o antigo Informe + Resumo).
 const INFORME_NAV_ITEM = {
   href: '/informe',
   label: 'Relatórios',
   icon: 'informe' as NavIcon,
-} as const;
-const METRICS_NAV_ITEM = {
-  href: '/metrics',
-  label: 'Métricas',
-  icon: 'metrics' as NavIcon,
 } as const;
 
 const MOBILE_NAV_ITEMS = [
@@ -184,15 +162,6 @@ function renderNavIcon(icon: NavIcon, user?: SessionData['user']) {
         <path d="M9 8h6" />
         <path d="M9 11.5h6" />
         <path d="M9 15h4" />
-      </svg>
-    );
-  }
-
-  if (icon === 'metrics') {
-    // Barras de metrica (mesmo desenho do teaser do menu do avatar).
-    return (
-      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-        <path d="M4 20V10M10 20V4M16 20v-7M21 20H3" />
       </svg>
     );
   }
@@ -336,14 +305,13 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   const profileFirstName = profileName.split(/\s+/)[0];
   // Barra lateral (desktop) montada por papel. Ordem (pedido do usuario):
   // Inicio / Lotes / Clientes (base) -> Relatorios (INFORME_ROLES, ja inclui os
-  // viewers ADMIN/CADASTRO) -> Metricas (TODOS nao-prospector) -> Usuarios
-  // (ADMIN). Itens condicionais somem por papel mantendo essa ordem relativa.
+  // viewers ADMIN/CADASTRO) -> Usuarios (ADMIN). Itens condicionais somem por
+  // papel mantendo essa ordem relativa.
   const desktopNavItems = prospector
     ? DESKTOP_NAV_ITEMS.filter((item) => item.href === '/dashboard')
     : [
         ...DESKTOP_NAV_ITEMS,
         ...(isRoleAllowed(session.user.role, INFORME_ROLES) ? [INFORME_NAV_ITEM] : []),
-        METRICS_NAV_ITEM,
         ...(isAdmin(session.user.role) ? [ADMIN_NAV_ITEM] : []),
       ];
   const mobileRouteMeta = resolveMobileRouteMeta(pathname);
@@ -803,21 +771,20 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
 
       {!hideMobileTabbar ? (
         <MobileTabbar
-          items={MOBILE_NAV_ITEMS.map((item) => {
-            // CLASSIFIER: Metricas no lugar de Relatorios no 5o slot (nao e
-            // viewer). CADASTRO virou viewer de Relatorios — mantem Relatorios
-            // no slot e acessa Metricas pelo menu do avatar (ver HeaderAvatarMenu).
-            const swapToMetrics =
-              item.href === '/informe' &&
-              isMetricsNavRole(session.user.role) &&
-              !isVisitReportViewer(session.user.role);
-            return {
-              href: swapToMetrics ? '/metrics' : item.href,
-              mobileLabel: swapToMetrics ? 'Métricas' : item.mobileLabel,
-              icon: renderNavIcon(swapToMetrics ? ('metrics' as NavIcon) : item.icon, session.user),
-              emphasis: item.emphasis,
-            };
-          })}
+          items={MOBILE_NAV_ITEMS.filter((item) => {
+            // Relatorios (/informe) so pra quem acessa. CLASSIFIER (que antes via
+            // Metricas neste 5o slot, agora removida) nao tem o item — sua tabbar
+            // fica com 4 itens.
+            if (item.href === '/informe') {
+              return isRoleAllowed(session.user.role, INFORME_ROLES);
+            }
+            return true;
+          }).map((item) => ({
+            href: item.href,
+            mobileLabel: item.mobileLabel,
+            icon: renderNavIcon(item.icon, session.user),
+            emphasis: item.emphasis,
+          }))}
           isActive={(href) => isMainNavItemActive(pathname, href)}
         />
       ) : null}

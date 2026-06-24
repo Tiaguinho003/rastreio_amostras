@@ -15,7 +15,7 @@ import { isAdmin, isVisitReportViewer, INFORME_ROLES } from '../../lib/roles';
 //   curadoria de vinculo; ADMIN tambem cria (FAB).
 // - COMMERCIAL: InformeCommercialPage — feed dos PROPRIOS (scope=mine) + FAB.
 // - REGISTRATION: placeholder vazio (sem formularios proprios).
-// - CLASSIFIER: NAO acessa (Metricas na navbar; guard -> /dashboard).
+// - CLASSIFIER: NAO acessa (guard -> /dashboard).
 // - PROSPECTOR: nao usa esta pagina (formulario no sheet do dashboard).
 
 export default function InformePage() {

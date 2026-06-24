@@ -3,13 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import {
-  getRoleLabel,
-  isAdmin,
-  isMetricsNavRole,
-  isProspector,
-  isVisitReportViewer,
-} from '../lib/roles';
+import { getRoleLabel, isAdmin } from '../lib/roles';
 import type { SessionData } from '../lib/types';
 import { BottomSheet } from './BottomSheet';
 import { UserAvatar } from './UserAvatar';
@@ -111,40 +105,6 @@ export function HeaderAvatarMenu({ session, onLogout }: HeaderAvatarMenuProps) {
                   <path d="M17.2 19a5.5 5.5 0 0 0-2.6-4.7" />
                 </svg>
                 <span className="header-avatar-menu-row-label">Usuários</span>
-              </button>
-            ) : null}
-
-            {/* CADASTRO: Metricas no menu do avatar — virou viewer de Relatorios
-                e por isso o 5o slot da tabbar passou a mostrar Relatorios (perdeu
-                Metricas). CLASSIFIER segue com Metricas na tabbar; ADMIN ve o
-                teaser abaixo. Condicao = viewer E metrics-nav = so CADASTRO. */}
-            {isVisitReportViewer(session.user.role) && isMetricsNavRole(session.user.role) ? (
-              <button
-                type="button"
-                className="header-avatar-menu-row"
-                onClick={() => go('/metrics')}
-              >
-                <svg className="header-avatar-menu-row-icon" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M4 20V10M10 20V4M16 20v-7M21 20H3" />
-                </svg>
-                <span className="header-avatar-menu-row-label">Métricas</span>
-              </button>
-            ) : null}
-
-            {/* Teaser de metricas: fora do app restrito do prospector E fora dos
-                papeis que ja tem Metricas na NAVBAR (CLASSIFIER/CADASTRO). */}
-            {!isProspector(session.user.role) && !isMetricsNavRole(session.user.role) ? (
-              <button
-                type="button"
-                className="header-avatar-menu-row is-disabled"
-                disabled
-                aria-disabled="true"
-              >
-                <svg className="header-avatar-menu-row-icon" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M4 20V10M10 20V4M16 20v-7M21 20H3" />
-                </svg>
-                <span className="header-avatar-menu-row-label">Métricas</span>
-                <span className="header-avatar-menu-row-tag">Em breve</span>
               </button>
             ) : null}
 

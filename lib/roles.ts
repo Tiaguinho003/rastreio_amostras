@@ -61,15 +61,6 @@ export function isVisitLinkCurator(role: UserRole | null | undefined): boolean {
   return role === 'ADMIN' || role === 'CADASTRO';
 }
 
-// Classificacao e Cadastro tem METRICAS como pagina de navegacao (alem do
-// dashboard). Usado pra: (a) o swap da tabbar do 5o slot e (b) esconder o
-// teaser "Em breve" de Metricas no menu do avatar. Pos-unificacao a tabbar
-// difere: CLASSIFIER ve Metricas no 5o slot; CADASTRO (que virou viewer de
-// Relatorios) ve Relatorios no slot e acessa Metricas pelo menu do avatar.
-export function isMetricsNavRole(role: UserRole | null | undefined): boolean {
-  return role === 'CLASSIFIER' || role === 'CADASTRO';
-}
-
 // allowedRoles da pagina "Relatorios" (rota /informe, unificada com o antigo
 // /resumo): nao-prospector MENOS classificacao. ADMIN/CADASTRO entram como
 // VIEWERS (scope=all + curadoria, via isVisitReportViewer); COMMERCIAL ve os
