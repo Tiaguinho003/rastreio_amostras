@@ -214,10 +214,11 @@ cada campo é anotado conforme revisamos.
 - **Campos exibidos = os mesmos do comprador**: Nome/Razão social · CPF/CNPJ · Inscrição Estadual · Endereço · Cidade/UF (sem telefone/e-mail).
 - _Comportamento específico — depois._
 
-### B6 — Corretagem
-- **Corretor(es)** — N via `Broker` / `SaleContractBroker` (D34); `userId` opcional p/ métrica
-- **Corretagem do vendedor** — % ou R$, calculada sobre o total (D19)
-- **Corretagem do comprador** — % ou R$, calculada sobre o total (D19)
+### B6 — Corretagem ✅ campos
+- **Corretor(es)** — N via `Broker` / `SaleContractBroker` (D34, métrica). **NÃO impressos no contrato** (ficam só como registro/métrica).
+- **Corretagem do vendedor** — **entra no contrato exibindo apenas a % (porcentagem)**; o valor em R$ (D19) fica interno.
+- **Corretagem do comprador** — idem (só %).
+- _Nota: como o contrato mostra só a %, reavaliar no B7 se a entrada da corretagem é só % (vs. "% ou R$" da D19)._
 
 ### B7 — Negócio: quantidade & valores
 - **Quantidade (sacas)** — da venda (`quantitySacks`, inteira, D17)
@@ -400,3 +401,10 @@ cada campo é anotado conforme revisamos.
   comprador** — Nome/Razão social, CPF/CNPJ, IE, Endereço, Cidade/UF (sem telefone/e-mail). Só muda a
   origem (B3/B5 = cliente-armazém via lookup D26; B4 = `ownerClient` D12). Comportamentos específicos depois.
 - **Próximo**: **B6 — Corretagem**.
+
+### 2026-06-24 — Sessão 20 (B6 — Corretagem)
+
+- **B6 campos** ✅: corretores **NÃO impressos** no contrato (só registro/métrica via D34); **corretagens
+  do vendedor e do comprador entram, exibindo apenas a %** (o R$ da D19 fica interno).
+- Pendente reavaliar no B7: se o contrato mostra só %, talvez a entrada da corretagem seja só % (vs. "% ou R$" da D19).
+- **Próximo**: **B7 — Quantidade & valores**.
