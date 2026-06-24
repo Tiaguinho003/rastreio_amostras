@@ -1,28 +1,30 @@
 # Fechamento — Plano de Trabalho
 
-**Status**: **EM CONSTRUÇÃO (planejamento)** — iniciado em 2026-06-24. Análise do estado atual concluída e **decisões D1–D7** travadas em 2 rodadas de perguntas. **Nenhum código de feature ainda.** Próximo passo: detalhar as pendências (partes, campos do documento, pagamento) e então iniciar a Fase A/B.
-**Escopo**: documento único de organização, análise, decisões e execução da feature de **Fechamento** — a geração, **após uma venda**, de um documento profissional (nota/contrato em **PDF, para impressão**) que consolida os dados do negócio e serve de confirmação para comprador e vendedor.
+**Status**: **EM CONSTRUÇÃO (planejamento)** — iniciado em 2026-06-24. Análise do estado atual concluída e **decisões D1–D10** travadas em 3 rodadas de perguntas. O alvo está definido: **recriar no app o "Contrato de Compra e Venda de Café"** do sistema legado (print recebido na Sessão 2). **Nenhum código de feature ainda.** Próximo passo: implementar **um campo por vez**, a partir do inventário abaixo.
+**Escopo**: documento único de organização, análise, decisões e execução da feature de **Fechamento** — a geração, **após uma venda**, de um **Contrato de Compra e Venda de Café** profissional em **PDF, para impressão**, que consolida os dados do negócio e serve de confirmação para comprador e vendedor.
 
-**Como ler este doc**: a seção **Decisões fechadas** é o que está acordado; **Pendências** é o que ainda não foi decidido; **Roadmap** é o desenho corrente em fases (muda conforme as decisões); **Log de sessões** é o histórico de avanços por data.
+**Como ler este doc**: a seção **Decisões fechadas** é o que está acordado; **Contrato legado — inventário de campos** é o alvo do v1; **Pendências** é o que ainda não foi decidido; **Roadmap** é o desenho corrente em fases (muda conforme as decisões); **Log de sessões** é o histórico de avanços por data.
 
-**Princípio**: construído colaborativamente em formato pergunta → resposta → registro. A implementação de cada fase só começa depois que as decisões daquele bloco estiverem fechadas. Este doc **referencia** o código em vez de duplicar dados que mudam.
+**Princípio**: construído colaborativamente em formato pergunta → resposta → registro, e implementado **um campo por vez**. A implementação de cada bloco só começa depois que as decisões dele estiverem fechadas. Este doc **referencia** o código em vez de duplicar dados que mudam.
 
 ---
 
 ## Contexto
 
 A empresa precisa que, **logo após registrar uma venda**, o sistema produza um documento chamado
-**"Fechamento"** — uma nota/contrato que consolida as informações do negócio e é **impressa (gerada
-em PDF)**. É um documento importante e deve ser profissional e correto: serve como **confirmação
-para o comprador e para o vendedor** e tem **valor de contrato formal** (decisões da 1ª rodada).
+**"Fechamento"** — na prática, o **Contrato de Compra e Venda de Café** que ela já emite hoje em um
+sistema legado (ver o inventário de campos abaixo). É um documento importante e deve ser profissional
+e correto: serve como **confirmação para o comprador e para o vendedor** e tem **valor de contrato
+formal**, com **corretagem dos dois lados** (modelo de corretora).
 
-Hoje **não existe** nada parecido no sistema, e — ponto crítico — a venda **não captura nenhum dado
-financeiro** (preço, valor, moeda, pagamento). Como o Fechamento precisa desses valores, a feature
-necessariamente **estende a ação de venda** além de gerar o PDF.
+Hoje **não existe** nada parecido no app, e — ponto crítico — a venda **não captura nenhum dado
+financeiro nem contratual** (preço, valor, pagamento, partes além do comprador, etc.). Como o
+Fechamento replica o contrato legado, a feature necessariamente **estende a ação de venda** além de
+gerar o PDF.
 
-A construção é deliberadamente **incremental**: primeiro este documento de acompanhamento, depois o
-código por fases, ajustando os campos exatos do Fechamento conforme avançamos. A especificação
-funcional de vendas/movimentações comerciais que ancora este trabalho está em
+A construção é deliberadamente **incremental e campo a campo**: primeiro esta documentação de
+acompanhamento, depois o código por fases, ajustando cada campo conforme avançamos. A especificação
+funcional de vendas/movimentações que ancora este trabalho está em
 `docs/Clientes-e-Movimentacoes-Especificacao.md` (e o produto em `docs/Produto-e-Fluxos.md`).
 
 ---
@@ -40,100 +42,140 @@ Síntese verificada no código em 2026-06-24. Detalhes nas referências.
   `components/samples/SampleMovementModal.tsx` → `POST app/api/v1/samples/[sampleId]/movements/route.ts`
   → `createSampleMovement` em `src/samples/sample-command-service.js:2689-2804` → projetor em
   `src/samples/sample-query-service.js`.
-- **Captura hoje apenas**: comprador (Cliente vinculado, obrigatório), sacas (qtd), data
-  (`movementDate`), observações (opcional). Validação por normalizers manuais (sem zod).
-- **Nenhum dado financeiro existe em lugar nenhum** — nem coluna em `sample_movement`, nem no
-  payload do evento, nem no formulário. Preço/saca, valor total, moeda e pagamento estão ausentes.
-- Um lote pode ter **várias vendas parciais** (compradores/datas diferentes); cada uma é um
-  `SampleMovement` próprio. Por isso o Fechamento **por venda** (D3) encaixa 1:1 com o movimento.
-- O **event store é append-only** (triggers impedem UPDATE/DELETE — skill `prisma`). Adicionar
-  campos à venda exige migration nova + bump de `schemaVersion` no payload, nunca editar o existente.
+- **Captura hoje apenas**: comprador (Cliente vinculado, obrigatório), sacas (qtd inteira), data
+  (`movementDate`), observações (1 campo `notes`). Validação por normalizers manuais (sem zod).
+- **Nenhum dado financeiro/contratual existe** — nem coluna em `sample_movement`, nem no payload do
+  evento, nem no formulário.
+- Um lote pode ter **várias vendas parciais**; cada uma é um `SampleMovement` próprio → o Fechamento
+  **por venda** (D3) encaixa 1:1 com o movimento.
+- O **event store é append-only** (triggers impedem UPDATE/DELETE — skill `prisma`). Campos novos
+  exigem migration nova + bump de `schemaVersion` no payload, nunca editar o existente.
 
 ### Partes já disponíveis (comprador e vendedor)
 
-- **Comprador**: no momento da venda já se grava um **snapshot congelado** completo do Cliente via
-  `buildBuyerSnapshot` (`sample-command-service.js`) em `SampleMovement.buyerClientSnapshot` — nome/razão,
-  CPF/CNPJ, IE (`registrationNumber`), endereço, cidade/UF, telefone, e-mail. **Reutilizável** no PDF
-  sem busca extra, e imune a edições posteriores do cadastro.
-- **Vendedor/produtor**: é o dono do lote — `Sample.ownerClientId` (resolve o `Client`) e/ou o texto
-  `Sample.declaredOwner`. **Quem exatamente figura como "vendedor" depende do modelo de partes
-  (P1).**
-
-### Qualidade do café
-
-- Disponível em `Sample.latestClassificationData` (peneiras, fundos, defeitos — imp/pva/broca/gpi/ap,
-  bebida, padrão, aspecto, catação, certificação, observações) + campos técnicos cacheados
-  (`latestType`, `latestScreen`, `latestDefectsCount`, `latestDensity`). É a **mesma fonte** que o
-  laudo usa (`src/reports/export-fields.js`).
+- **Comprador**: a venda já grava um **snapshot congelado** do Cliente via `buildBuyerSnapshot`
+  (`sample-command-service.js`) em `SampleMovement.buyerClientSnapshot` (nome/razão, CPF/CNPJ, IE,
+  endereço, cidade/UF, telefone, e-mail). **Reutilizável** no PDF.
+- **Vendedor/produtor**: dono do lote — `Sample.ownerClientId` (resolve o `Client`) e/ou
+  `Sample.declaredOwner`. **Mapeamento exato é P1.**
+- **Armazéns / banco / corretor**: há `Client.isWarehouse`, `Client.isSeller`, `Client.isBuyer` e
+  `ClientUnit` (fazendas/filiais de PF), além de `User` com papel `COMMERCIAL` — material para
+  modelar armazéns, corretor e bancos, mas **nada disso é capturado na venda hoje**.
 
 ### Geração de PDF e emissor
 
-- Só **`pdf-lib`** está instalado (sem HTML→PDF). É usado em **um único lugar**: o laudo
-  (`src/reports/sample-pdf-report-service.js`) — `renderSamplePdf` (layout A4, cabeçalho verde + logo
-  + rodapé) e a classe `SamplePdfReportService`. É o **molde** do Fechamento (D6).
-- **Emissor**: constante `COMPANY_INFO` em `src/reports/sample-pdf-report-service.js:27-31` — nome
-  ("Safras & Negócios", hoje hardcoded na string do rodapé), cidade/UF, telefone, endereço.
-  **Falta CNPJ.** O **logo** já entra como bitmap no cabeçalho do laudo (reutilizável).
+- Só **`pdf-lib`** está instalado (sem HTML→PDF). Usado em **um único lugar**: o laudo
+  (`src/reports/sample-pdf-report-service.js`) — `renderSamplePdf` (A4, cabeçalho verde + logo +
+  rodapé) e a classe `SamplePdfReportService`. É o **molde** do Fechamento (D6).
+- **Emissor**: constante `COMPANY_INFO` em `src/reports/sample-pdf-report-service.js:27-31` (nome
+  "Safras & Negócios", cidade/UF, telefone, endereço) — **falta CNPJ**. Logo já entra como bitmap no
+  cabeçalho (reutilizável).
 - **Entrega**: download/compartilhar via `lib/share-blob.ts` + `lib/api-client.ts:1113` + rota
-  `app/api/v1/samples/[sampleId]/export/pdf/route.ts` (stream `application/pdf`). Há também a infra de
-  **link público com token/QR** (`app/laudo/[token]/route.ts` + tabela `SampleReportShare`,
-  congelamento em `UPLOADS_DIR`, expiração/revogação) — disponível se o Fechamento precisar.
+  `app/api/v1/samples/[sampleId]/export/pdf/route.ts`. Infra de **link público com token/QR**
+  (`app/laudo/[token]/route.ts` + `SampleReportShare`) disponível se necessário.
 - Auditoria de export hoje usa o evento `REPORT_EXPORTED`.
 
 ---
 
 ## Decisões fechadas
 
-| #   | Decisão                       | Detalhe                                                                                                                                                            |
-| --- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| D1  | Natureza **híbrida**          | Nota/contrato de **Fechamento**: dados estruturados + algumas **cláusulas/observações fixas** + **assinaturas**. Sem prosa jurídica extensa.                        |
-| D2  | Destinatários                 | Confirmação ao **comprador** e ao **vendedor**, com valor de **contrato formal** entre as partes.                                                                  |
-| D3  | Granularidade **por venda**   | Cada venda (movimento `SALE`) gera um Fechamento, chaveado pelo `movementId`.                                                                                       |
-| D4  | Financeiro **na venda (obrigatório)** | Preço/valor/pagamento passam a ser **capturados e exigidos** no modal de Venda; toda venda nova nasce com esses dados.                                       |
-| D5  | Emissor com **dados fixos**   | Cabeçalho com nome/CNPJ/logo da empresa/corretora, configurados de forma fixa (não escolhidos por venda).                                                          |
-| D6  | PDF via **`pdf-lib`**         | Clonando o pipeline do laudo (`sample-pdf-report-service.js`); **sem dependência nova**. Reaproveita cabeçalho/logo/rodapé e a infra de entrega.                    |
-| D7  | Campos/partes **deferidos**   | O modelo de partes (corretora vs. empresa-vendedora) e o conteúdo campo a campo serão detalhados na montagem da doc — viram as pendências abaixo.                   |
+| #   | Decisão                                    | Detalhe                                                                                                                                                            |
+| --- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| D1  | Natureza **híbrida**                       | Contrato de Fechamento: dados estruturados + cláusulas/observações fixas + **assinaturas**. Sem prosa jurídica extensa.                                            |
+| D2  | Destinatários                              | Confirmação ao **comprador** e ao **vendedor**, com valor de **contrato formal** entre as partes.                                                                  |
+| D3  | Granularidade **por venda**                | Cada venda (movimento `SALE`) gera um Fechamento, chaveado pelo `movementId`.                                                                                       |
+| D4  | Financeiro **na venda (obrigatório)**      | Os dados passam a ser capturados no modal de Venda; o núcleo financeiro é exigido. Obrigatoriedade dos demais campos definida caso a caso.                          |
+| D5  | Emissor com **dados fixos**                | Cabeçalho com nome/CNPJ/logo da empresa/corretora, fixos (não escolhidos por venda).                                                                               |
+| D6  | PDF via **`pdf-lib`**                       | Clonando o pipeline do laudo (`sample-pdf-report-service.js`); **sem dependência nova**. Reaproveita cabeçalho/logo/rodapé e a infra de entrega.                    |
+| D7  | Construção **campo a campo**               | Os campos são detalhados e implementados um a um; este doc é o backlog vivo.                                                                                        |
+| D8  | **Replicar o contrato legado por inteiro** | O v1 espelha o "Contrato de Compra e Venda de Café": ágio/deságio, corretagem dos 2 lados (%/R$), armazéns, banco do vendedor, modalidade, sacaria, datas, status. |
+| D9  | **Campos no modal de Venda**               | O `SampleMovementModal.tsx` vira o formulário do contrato (mantém D4). UI precisará de seções/abas dado o volume (~25 campos).                                      |
+| D10 | **Qualidade do café NÃO entra**            | Documento puramente comercial; classificação (peneiras/defeitos/bebida) fica só no laudo. Não há bloco de qualidade no PDF do Fechamento.                           |
+
+**Partes (P1) seguem deferidas**: o modelo é de corretora (Comprador + Vendedor + Corretor, com
+corretagem dos dois lados), mas o mapeamento de cada parte (automático do lote/venda vs. escolhido no
+formulário) será ajustado **campo a campo** durante o desenvolvimento.
 
 ---
 
-## Pendências (a detalhar antes de implementar cada fase)
+## Contrato legado — inventário de campos (alvo do v1)
+
+Fonte: print do "Contrato de Compra e Venda de Café" (Sessão 2). É o **backlog campo a campo**.
+Marcadores: ✅ existe no app · ⚠️ novo (não há hoje) · ❓ esclarecer.
+
+### Cabeçalho / identificação
+- ⚠️ **Número do Contrato** — sequencial `NNNN/AA` (ex.: `3295/26`). Precisa de gerador (P7).
+- ⚠️ **Status do Contrato** — dropdown; sugere um lifecycle (P13).
+- ✅ **Data do Contrato** — ≈ `movementDate`.
+- ❓ **Número de Compra** — referência da perna de "compra"? A esclarecer (P7).
+- ⚠️ **Mês / Ano** — deriváveis da data do contrato.
+- ✅ **Número do Lote** — `internalLotNumber`.
+
+### Partes
+- ✅ **Comprador** — comprador da venda (`buyerClient` + snapshot).
+- ✅/⚠️ **Vendedor** — provável `ownerClient` do lote (mapeamento P1).
+- ⚠️ **Corretor** — empresa? usuário `COMMERCIAL`? entidade nova? (P1/modelagem).
+- ⚠️ **Banco do Vendedor** — dropdown (lista de bancos — P3).
+
+### Armazéns
+- ⚠️ **Armazém do Comprador** · ⚠️ **Armazém do Vendedor** — reaproveitar `Client.isWarehouse` + `ClientUnit`.
+
+### Quantidade & valores
+- ⚠️ **Quantidade** — decimal no legado vs. **sacas inteiras** no app (P4).
+- ⚠️ **Preço por Saca** (R$) · ⚠️ **Peso (Kg)**.
+- ⚠️ **Ágio / Deságio** — tipo (dropdown) + **Vlr** alternando **% / R$**.
+- ⚠️ **Corretagem do Vendedor** (% / R$) · ⚠️ **Corretagem do Comprador** (% / R$).
+- _Valor total_ — provavelmente calculado (fórmula a definir — P4).
+
+### Pagamento & logística
+- ⚠️ **Condição de Pagamento** · ⚠️ **Modalidade** · ⚠️ **Sacaria** · ⚠️ **Forma de Pagamento** (dropdowns — P3).
+- ⚠️ **Data Faturamento** · ⚠️ **Data Pagamento**.
+
+### Assinaturas & observações
+- ❓ **Assinatura do Corretor** — opção `Em Branco / 1 / 2 / 3 / 4` (significado a esclarecer — P8).
+- ⚠️ **3 blocos de texto**: Observações · Descrição · Observações (Pág. 2) — hoje só existe `notes` (P7).
+
+---
+
+## Pendências (a detalhar antes de implementar cada campo/bloco)
 
 | #   | Pendência                  | O que falta decidir                                                                                                                            |
 | --- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| P1  | Partes/modelo              | Corretora (3 partes; vendedor = produtor/dono do lote) vs. empresa-vendedora vs. depende da venda. Define quem é "vendedor" no documento.       |
-| P2  | Campos exatos              | Conteúdo de cada bloco: cabeçalho, vendedor, comprador, café/qualidade, quantidade, valores, pagamento, observações/cláusulas, assinaturas.     |
-| P3  | Estrutura do pagamento     | À vista/prazo/parcelas, vencimentos; estruturado vs. texto livre; impostos/funrural/frete/descontos.                                            |
-| P4  | Representação do dinheiro  | Preço/saca e/ou valor total; total automático (preço×sacas) vs. digitado; moeda; precisão (sugestão: `Decimal(12,2)`, consistente com o schema).|
-| P5  | Vendas já existentes       | Sem dados financeiros: só-novas vs. permitir editar/backfill (lembrar do append-only ao desenhar a edição).                                     |
-| P6  | Home dos dados do emissor  | Promover `COMPANY_INFO` a módulo compartilhado vs. tabela de settings editável por ADMIN. Onde o CNPJ e demais campos passam a viver.           |
-| P7  | Cláusulas + numeração      | Texto das cláusulas/observações fixas (híbrido) e se existe **número de Fechamento sequencial**.                                               |
-| P8  | Assinaturas                | Quais partes assinam e como os blocos de assinatura aparecem no PDF.                                                                            |
-| P9  | Gatilho + permissão        | Botão sob demanda vs. geração automática ao salvar a venda; quais papéis podem gerar.                                                           |
+| P1  | Partes/modelo + corretor   | Mapeamento das 3 partes (Comprador da venda; Vendedor = `ownerClient`?; Corretor = empresa/usuário/entidade) — automático vs. escolhido. Campo a campo. |
+| P2  | Comportamento por campo    | Para cada item do inventário: origem (auto/manual), obrigatoriedade, validação, valores possíveis.                                             |
+| P3  | Domínios de listas         | Modalidade, Sacaria, Condição/Forma de Pagamento, Banco do Vendedor — listas fixas vs. cadastráveis.                                            |
+| P4  | Modelo de dinheiro         | Precisão (sugestão `Decimal(12,2)`); Quantidade decimal vs. sacas inteiras; total calculado; fórmulas de ágio/deságio e corretagem (% e R$).    |
+| P5  | Vendas já existentes       | Sem dados de contrato: só-novas vs. permitir editar/backfill (lembrar append-only).                                                            |
+| P6  | Home dos dados do emissor  | Promover `COMPANY_INFO` a módulo compartilhado vs. tabela de settings editável; onde o CNPJ passa a viver.                                      |
+| P7  | Numeração & observações    | Gerador do Número de Contrato `NNNN/AA` (+ Mês/Ano); o que é "Número de Compra"; os 3 blocos de texto + eventuais cláusulas fixas.              |
+| P8  | Assinaturas                | Quem assina e o significado de "Assinatura do Corretor (Em Branco/1/2/3/4)"; como os blocos aparecem no PDF.                                     |
+| P9  | Gatilho + permissão        | Gerar sob demanda (botão) vs. ao salvar a venda; quais papéis podem gerar.                                                                      |
 | P10 | Entrega                    | Só download/compartilhar, ou também link público/QR + arquivamento dos bytes (como o laudo via `SampleReportShare`).                            |
 | P11 | Evento de auditoria        | Novo `FECHAMENTO_EXPORTED` vs. reutilizar `REPORT_EXPORTED`.                                                                                    |
+| P12 | Persistência dos ~25 campos| Colunas em `sample_movement` vs. tabela dedicada `SaleContract` (1:1 com o movimento) vs. JSON no payload. Decide o desenho do schema.          |
+| P13 | Status do Contrato         | Enum/lifecycle e transições válidas.                                                                                                            |
 
 ---
 
 ## Roadmap proposto (fases — cada uma com plano e aprovação próprios)
 
-> O conteúdo do documento (Fase E) é iterativo e atravessa as demais fases; as fases A–D são a
-> infraestrutura. A ordem prática é A + B (pré-requisitos) → C → D, com E refinando ao longo.
+> Implementação **campo a campo** (D7). As fases A–D são a infraestrutura; cada campo do inventário
+> é incorporado incrementalmente, do schema ao PDF.
 
-- **Fase A — Emissor.** Promover `COMPANY_INFO` (`sample-pdf-report-service.js:27-31`) para um módulo
-  compartilhado e estendê-lo com **CNPJ** (e o que o cabeçalho do Fechamento exigir). Reaproveitar o
-  logo do laudo. Modelo editável in-app só se decidido em P6.
-- **Fase B — Dados financeiros na venda (obrigatórios).** Novas colunas em `sample_movement` (P4) via
-  **migration nova**; bump de `schemaVersion` + atualizar
+- **Fase A — Emissor + corretor.** Promover `COMPANY_INFO` (`sample-pdf-report-service.js:27-31`) a
+  módulo compartilhado e estendê-lo com **CNPJ** (e o que o cabeçalho exigir). Reaproveitar o logo.
+  Definir a modelagem do corretor (P1).
+- **Fase B — Contrato no modal de Venda (campo a campo).** Persistência dos campos (P12) via
+  **migration nova**; numeração `NNNN/AA` (P7) e status (P13); partes (P1); financeiros (P4);
+  pagamento/logística (P3); observações. Bump de `schemaVersion` + atualizar
   `docs/schemas/events/v1/payloads/sale-created.payload.schema.json` + `npm run validate:schemas` +
-  testes de contrato. Normalizers/validação em `createSampleMovement`. Campos + validação inline no
-  `SampleMovementModal.tsx` (skills `feedback-messages`/`design-system`/`responsive`).
-- **Fase C — Geração do PDF.** `renderFechamentoPdf` + serviço espelhando `SamplePdfReportService`,
-  reusando cabeçalho/logo/rodapé. Blocos: emissor → partes (vendedor/comprador) → café/qualidade →
-  quantidade/valores/pagamento → cláusulas/observações fixas → assinaturas.
+  testes de contrato. Normalizers/validação em `createSampleMovement`. UI com seções/abas + validação
+  inline no `SampleMovementModal.tsx` (skills `feedback-messages`/`design-system`/`responsive`).
+- **Fase C — PDF do Fechamento.** `renderFechamentoPdf` + serviço espelhando `SamplePdfReportService`,
+  reusando cabeçalho/logo/rodapé, **espelhando o layout do contrato legado** (cabeçalho → partes →
+  armazéns → valores → pagamento → observações → assinaturas). **Sem bloco de qualidade** (D10).
 - **Fase D — Ação/UX + entrega.** Botão "Gerar Fechamento" por venda no painel de movimentações, via
   `shareOrDownloadFile`. Link público/QR + arquivamento opcionais (P10); evento de auditoria (P11).
-- **Fase E — Conteúdo do documento (iterativo).** O "ajustar os campos depois": modelo de partes,
-  campos de cada bloco, cláusulas, assinaturas, layout. Onde mora o grosso da iteração.
 
 ---
 
@@ -143,10 +185,22 @@ Síntese verificada no código em 2026-06-24. Detalhes nas referências.
 
 - **Análise do estado atual** via 4 agentes em paralelo: fluxo de venda, modelo de dados, infra de
   PDF/impressão e convenção de docs. Achado central: **a venda não captura nada financeiro** e o
-  comprador já vem com **snapshot congelado** — bom ponto de partida.
-- **2 rodadas de perguntas** → decisões **D1–D7** travadas. Partes/campos exatos ficaram **deferidos**
-  por escolha do Flavio ("ajustar os campos do documento depois") → viram as pendências **P1–P11**.
+  comprador já vem com **snapshot congelado**.
+- **2 rodadas de perguntas** → decisões **D1–D6** (e o princípio campo-a-campo, hoje D7). Partes/campos
+  exatos ficaram deferidos → pendências P1–P11.
 - **Caminho do PDF** decidido: clonar o pipeline `pdf-lib` do laudo (sem dependência nova). Emissor
   reaproveita `COMPANY_INFO` (falta só o CNPJ).
-- **Criada esta doc** e registrada em `docs/README.md`. Nenhum código de feature tocado.
-- **Próximo**: detalhar P1 (partes) e P2/P4 (campos + dinheiro) para destravar as Fases A/B.
+- **Criada esta doc** e registrada em `docs/README.md` (#7). Nenhum código de feature tocado. Commit
+  `34c4af4` (não pushado).
+
+### 2026-06-24 — Sessão 2 (contrato legado + escopo)
+
+- Flavio enviou o **print do contrato legado** ("Contrato de Compra e Venda de Café"). Mapeei todos os
+  campos contra o app (ver inventário).
+- **3ª rodada de perguntas** → novas decisões **D8** (replicar tudo), **D9** (campos no modal de
+  Venda), **D10** (qualidade **fora** do Fechamento). Partes (P1) seguem deferidas, ajuste campo a campo.
+- Doc atualizada com o **inventário de campos** (backlog) e o **roadmap revisado** (qualidade removida;
+  Fase B = contrato completo no modal de Venda). Novas pendências de design: **P12** (persistência dos
+  campos) e **P13** (status do contrato).
+- **Próximo**: escolher o primeiro campo/grupo para implementar (candidatos: Número do Contrato +
+  Status, ou o núcleo financeiro Quantidade/Preço/Peso) e resolver suas pendências antes de codar.
