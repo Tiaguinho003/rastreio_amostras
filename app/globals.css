@@ -1960,8 +1960,11 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
 
 /* Footer do lookup ganha padding lateral (o .is-themed base nao tem) +
    padding-bottom pra desencostar das bordas. Botao primario tambem
-   menor (era 3.2rem min-height — desproporcional ao conteudo do modal). */
+   menor (era 3.2rem min-height — desproporcional ao conteudo do modal).
+   flex-wrap garante que, mesmo num device estreito, a acao nunca vaze a
+   borda do modal (overflow:hidden do .is-themed clipava antes). */
 .app-modal.is-themed.app-modal-lookup-result .app-modal-actions {
+  flex-wrap: wrap;
   padding: 0.75rem clamp(1rem, 3vw, 1.4rem) clamp(1rem, 3vw, 1.4rem);
 }
 
@@ -1997,6 +2000,13 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
 .app-modal-lookup-lot-row > .app-modal-card-line {
   flex: 1;
   min-width: 0;
+}
+
+/* Badge comercial nunca espreme/quebra: lote longo empurra o texto pra
+   nova linha (card-line tem min-width:0), badge segue inteiro a direita. */
+.app-modal-lookup-lot-row > .commercial-status-badge {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .app-modal-search {

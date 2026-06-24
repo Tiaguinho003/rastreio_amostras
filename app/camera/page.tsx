@@ -1145,16 +1145,6 @@ function CameraPageContent() {
     router.push(`/samples/${result.sample.id}`);
   }
 
-  // Bloco F1 (Frente C): handler de "Reclassificar" no modal de aviso de
-  // amostra ja classificada — vai direto pra /camera?sampleId=X (mesma rota
-  // do Caminho 1), onde o ClassificationReclassifyModal abre via useEffect.
-  function handleReclassifyFromScan() {
-    if (!result) return;
-    setResultModalOpen(false);
-    setResultModalKind('lookup');
-    router.push(`/camera?sampleId=${result.sample.id}`);
-  }
-
   // Bloco F2 (Frente C): handler de "Tentar novamente" quando a camera
   // esta em permission-denied ou unsupported. Re-dispara ensureScannerStarted
   // (idempotente — recria scanner se necessario e atualiza cameraStatus).
@@ -1392,11 +1382,7 @@ function CameraPageContent() {
           title="Amostra localizada"
           onDetails={handleOpenSampleDetails}
           detailsLabel="Ver detalhes"
-          onSecondaryAction={handleCloseResultModal}
-          secondaryActionLabel="Escanear novamente"
           onClose={handleCloseResultModal}
-          onReclassify={handleReclassifyFromScan}
-          onShowDetails={handleOpenSampleDetails}
         />
       ) : null}
 

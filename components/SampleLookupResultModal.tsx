@@ -12,31 +12,21 @@ export type LookupKind = 'lookup' | 'invalidated' | 'classified';
 interface SampleLookupResultModalProps {
   sample: ResolveSampleByQrResponse['sample'];
   /**
-   * Bloco F1 (Frente C): variante visual e conjunto de acoes.
-   * - 'lookup' (default): comportamento original — confirmar amostra encontrada.
-   * - 'invalidated': aviso de amostra invalidada, unica acao "Fechar".
-   * - 'classified': aviso de amostra ja classificada com 3 acoes
-   *   (Reclassificar / Ver detalhes / Fechar).
+   * Variante visual (apenas titulo + densidade da meta). Todas as variantes
+   * tem o MESMO conjunto de acoes: o "x" do header (onClose) + um unico
+   * botao "Ver detalhes" (onDetails). Decisao do usuario (2026-06-24): o
+   * modal de resultado do QR nao acumula botoes — reclassificar/escanear
+   * novamente sao feitos a partir do detalhe da amostra.
+   * - 'lookup' (default): amostra localizada — mostra meta completa.
+   * - 'invalidated': aviso de amostra invalidada.
+   * - 'classified': aviso de amostra ja classificada.
    */
   kind?: LookupKind;
   onClose: () => void;
 
-  // Usado apenas em kind='lookup'.
   title?: string;
   onDetails?: () => void;
   detailsLabel?: string;
-  /**
-   * Acao secundaria opcional pra kind='lookup'. Quando fornecida,
-   * renderiza um botao .app-modal-secondary antes do .app-modal-submit
-   * (ex: "Escanear novamente" no fluxo da camera). Dashboard nao passa
-   * — modal mostra so o submit "Ver detalhes".
-   */
-  onSecondaryAction?: () => void;
-  secondaryActionLabel?: string;
-
-  // Usado apenas em kind='classified'.
-  onReclassify?: () => void;
-  onShowDetails?: () => void;
 }
 
 const COPY = {
@@ -55,10 +45,6 @@ export function SampleLookupResultModal({
   title,
   onDetails,
   detailsLabel = 'Ver detalhes',
-  onSecondaryAction,
-  secondaryActionLabel,
-  onReclassify,
-  onShowDetails,
 }: SampleLookupResultModalProps) {
   const titleId = useId();
   const focusTrapRef = useFocusTrap(true);
@@ -146,38 +132,9 @@ export function SampleLookupResultModal({
         </div>
 
         <div className="app-modal-actions">
-          {kind === 'lookup' ? (
-            <>
-              {onSecondaryAction ? (
-                <button type="button" className="app-modal-secondary" onClick={onSecondaryAction}>
-                  {secondaryActionLabel}
-                </button>
-              ) : null}
-              <button type="button" className="app-modal-submit" onClick={onDetails}>
-                {detailsLabel}
-              </button>
-            </>
-          ) : null}
-
-          {kind === 'invalidated' ? (
-            <button type="button" className="app-modal-submit" onClick={onClose}>
-              Fechar
-            </button>
-          ) : null}
-
-          {kind === 'classified' ? (
-            <>
-              <button type="button" className="app-modal-secondary" onClick={onClose}>
-                Fechar
-              </button>
-              <button type="button" className="app-modal-secondary" onClick={onShowDetails}>
-                Ver detalhes
-              </button>
-              <button type="button" className="app-modal-submit" onClick={onReclassify}>
-                Reclassificar
-              </button>
-            </>
-          ) : null}
+          <button type="button" className="app-modal-submit" onClick={onDetails}>
+            {detailsLabel}
+          </button>
         </div>
       </section>
     </div>,
