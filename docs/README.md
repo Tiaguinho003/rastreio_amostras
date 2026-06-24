@@ -48,6 +48,8 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
    Uso: historico de decisoes da reorganizacao Q2 2026 (14 ADRs). Referencia para entender escolhas arquiteturais.
 6. `docs/Notificacoes.md`
    Uso: catalogo e processo de registro das notificacoes Web Push — fichas das notificacoes existentes (agendadas e por evento), template para novas ideias e ciclo Ideia -> Construida -> Validada.
+7. `docs/Fechamento-Plano-de-Trabalho.md`
+   Uso: organizacao, analise, decisoes e execucao da feature de Fechamento (nota/contrato de venda gerado em PDF apos a venda). Status: Em construcao (planejamento).
 
 ## Relatorios da reorganizacao
 
