@@ -115,6 +115,7 @@ Síntese verificada no código em 2026-06-24. Detalhes nas referências.
 | D34 | **Corretores: N por contrato**             | Cadastro **`Broker`** (id, nome, `userId` FK **anulável** [métrica], status ativo/inativo) para TODOS os corretores. Contrato → `SaleContractBroker` (brokerId + nome snapshot), N por contrato. Métrica por `brokerId` (todos os corretores); métrica de usuário via `Broker.userId`. Não-usuário = `Broker` com `userId` nulo — **reutilizável + com métrica**. _(Revisa D13. Rateio da corretagem: adiado.)_ |
 | D35 | **Assinaturas (layout fixo)**              | Corretor/empresa = **imagem da assinatura do dono** (asset fixo do emissor — D29), impressa automaticamente. Comprador e vendedor = **linhas em branco** (assinadas à mão). _(Substitui o `corretorSignatureLines` da D31.)_ |
 | D36 | **Data de nascimento (PF)**                | Coluna `Client.birthDate` (data), preenchível **só quando `personType = PF`**, **opcional**. **Só cadastro** — não entra no Fechamento. Sem tabela nova.            |
+| D37 | **Campo `Tipo` (da operação)**             | Novo campo do contrato: opções **Futuro · Mercado à vista · Wash-out**. Distinto da Modalidade (B8). _(Obrigatoriedade, default e se a lista é fixa/cadastrável: a confirmar.)_ |
 
 > **Representação monetária (padrão de implementação)**: R$ como `Decimal(12,2)`, percentuais
 > `Decimal(5,2)`, peso (Kg) `Decimal(10,2)`. Confirmar na Fase B.
@@ -185,7 +186,8 @@ cada campo é anotado conforme revisamos.
 
 ### B1 — Identificação do contrato (em revisão)
 - **Número do Contrato** — auto, sequencial `NNNN/AA`, gerado ao salvar, não editável (D15)
-- **Status do Contrato** — manual, default `EM_ABERTO`; `EM_ABERTO/CONFIRMADO/FATURADO/PAGO` (D14) _(opções em revisão)_
+- **Status do Contrato** — manual, default `EM_ABERTO`; `EM_ABERTO/CONFIRMADO/FATURADO/PAGO` (D14) ✅ mantidos
+- **Tipo (da operação)** — `Futuro / Mercado à vista / Wash-out` (D37) _(obrigatório? default? lista fixa/cadastrável? — a confirmar)_
 - **Data do Contrato** — default = data da venda (`movementDate`), **editável**
 - **Número de Compra** — manual, livre, **opcional** (D16)
 - **Número do Lote** — `internalLotNumber` da amostra (auto, não editável)
@@ -371,3 +373,10 @@ cada campo é anotado conforme revisamos.
   Futuro, mercado à vista, replicado). **Revertido**: Modalidade volta a "lista mista (D20)", a definir
   no B8; esses termos não estão decididos. _Lição: não concluir/registrar sem confirmação._
 - **Próximo**: continuar a revisão do **Status** do B1, sem suposições.
+
+### 2026-06-24 — Sessão 17 (B1: status mantido + campo Tipo)
+
+- **Status** do B1: **mantidos os 4** (sem mudança).
+- **Novo campo `Tipo`** (da operação): opções **Futuro / Mercado à vista / Wash-out** (D37) — campo
+  **distinto** da Modalidade. Comportamento (obrigatório/default/lista fixa ou cadastrável) a confirmar.
+- **Próximo**: confirmar o comportamento do `Tipo` e então fechar o B1.
