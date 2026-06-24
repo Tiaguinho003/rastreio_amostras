@@ -237,15 +237,16 @@ cada campo é anotado conforme revisamos.
 - **Banco do Vendedor** — puxa do cadastro do cliente: **Banco, Agência, Conta, CNPJ/CPF, Chave PIX**, **impresso**.
 - ✅ **Resolvido**: listas (Forma/Modalidade/Embalagem) **cadastráveis** pelo admin (iniciam com os valores acima); conta bancária guarda **nome + CNPJ/CPF do titular** (D28 revisada; titular pode diferir do cliente). No contrato saem: Banco/Agência/Conta/CNPJ-CPF/Chave PIX.
 
-### B9 — Observações
-- **Observações** · **Descrição** · **Observações (Pág. 2)** — texto livre, sem cláusulas fixas (D30)
+### B9 — Observações ✅ campos
+- **Observações** · **Descrição** · **Observações (Pág. 2)** — 3 blocos de texto livre, impressos, sem cláusulas fixas (D30). _(Uso específico de cada bloco — ex.: "Descrição" — na análise detalhada depois.)_
 
-### B10 — Assinaturas
+### B10 — Assinaturas ✅
 - **Corretor/empresa** — imagem fixa do dono, impressa automaticamente (D35)
 - **Comprador** — linha em branco (à mão)
 - **Vendedor** — linha em branco (à mão)
 
-> Próximo: revisar **bloco a bloco, campo a campo**, anotando o comportamento e os campos faltantes.
+> **Revisão geral (quais campos) dos 10 blocos: CONCLUÍDA (2026-06-24).** Todos os blocos ✅. Falta a
+> **análise precisa campo a campo** (comportamento/validação detalhada de cada campo) — parte da P2, a fazer depois.
 
 ---
 
@@ -432,3 +433,12 @@ cada campo é anotado conforme revisamos.
   dados); conta bancária (`ClientBankAccount`) guarda **nome + CNPJ/CPF do titular** (revisa D28; titular
   pode diferir do cliente). No contrato: Banco/Agência/Conta/CNPJ-CPF/Chave PIX.
 - **Próximo**: **B9 — Observações** e **B10 — Assinaturas**.
+
+### 2026-06-24 — Sessão 24 (revisão geral dos blocos concluída)
+
+- **B9 ✅** (3 blocos de texto livre, impressos) e **B10 ✅** (assinatura do dono em imagem + linhas em
+  branco do comprador/vendedor, D35).
+- **Revisão geral "quais campos" dos 10 blocos: CONCLUÍDA.** Flavio sinalizou que a **análise precisa
+  campo a campo** (comportamento/validação detalhada) vem **depois** (parte restante da P2).
+- **Próximo**: a combinar — rascunho das tabelas (`Bank`/`Broker`/`ClientBankAccount`/`ClientAttachment`/
+  `SaleContract`/`SaleContractBroker`), ou a análise detalhada campo a campo, ou outra frente.
