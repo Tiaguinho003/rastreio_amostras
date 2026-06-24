@@ -2474,7 +2474,7 @@ export default function SampleDetailPage() {
                         {clsItem('PVA', toText(defeitos.pva))}
                         {clsItem('Broca', toText(defeitos.broca))}
                         {clsItem('GPI', toText(defeitos.gpi))}
-                        {clsItem('Ardidos (AP)', toText(defeitos.ap))}
+                        {clsItem('Aproveitamento (AP)', toText(defeitos.ap))}
                         {clsItem('Defeito', toText(defeitos.defeito))}
                         <div className="sdv-info-item is-full">
                           <span className="sdv-info-label">Observações</span>
