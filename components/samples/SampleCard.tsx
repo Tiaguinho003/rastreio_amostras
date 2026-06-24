@@ -298,6 +298,12 @@ export function SampleCard({
         aria-hidden={!isExpanded}
       >
         <div className="spv2-card-expanded-inner">
+          {/* Stats + peneiras na MESMA linha. grid-auto-flow:column +
+              grid-auto-columns:1fr cria uma coluna igual por campo VISIVEL,
+              numa unica linha — 4 stats no mobile, 4 stats + N peneiras no
+              desktop (peneiras escondidas no mobile via CSS). Quanto mais
+              campos, mais estreitas as colunas: layout e espacamento se
+              ajustam sozinhos a quantidade. */}
           <div className="spv2-card-stats-grid">
             <div className={`spv2-card-stat${localStat === null ? ' is-empty' : ''}`}>
               <span className="spv2-card-stat-label">Local</span>
@@ -323,23 +329,15 @@ export function SampleCard({
                 {catacaoStat ?? <span className="spv2-card-stat-value--empty">—</span>}
               </span>
             </div>
-          </div>
-
-          {/* Peneiras preenchidas — DESKTOP only (CSS). Uma linha, espacamento
-              igual que se adapta a quantidade (space-evenly). */}
-          {filledPeneiras.length > 0 ? (
-            <div className="spv2-card-peneiras">
-              <span className="spv2-card-peneiras-title">Peneiras</span>
-              <div className="spv2-card-peneiras-row">
-                {filledPeneiras.map((peneira) => (
-                  <span key={peneira.key} className="spv2-card-peneira">
-                    <span className="spv2-card-peneira-name">{peneira.label}</span>
-                    <span className="spv2-card-peneira-value">{peneira.value}</span>
-                  </span>
-                ))}
+            {/* Peneiras preenchidas: mesmos campos (nome verde + valor) dos
+                demais stats, sem titulo. DESKTOP only (CSS esconde no mobile). */}
+            {filledPeneiras.map((peneira) => (
+              <div key={peneira.key} className="spv2-card-stat spv2-card-stat--peneira">
+                <span className="spv2-card-stat-label">{peneira.label}</span>
+                <span className="spv2-card-stat-value">{peneira.value}</span>
               </div>
-            </div>
-          ) : null}
+            ))}
+          </div>
 
           <Link
             href={`/samples/${sample.id}`}

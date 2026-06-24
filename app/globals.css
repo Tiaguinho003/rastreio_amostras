@@ -5960,16 +5960,26 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
 }
 
 .spv2-card-stats-grid {
-  /* 4 dados (Local, Padrão, Aspecto, Catação) numa UNICA linha (4 colunas)
-     pra deixar a versao estendida mais curta. minmax(0, 1fr) + min-width:0
-     no stat + overflow/ellipsis no label e no value garantem que nada
-     transborde o card nem se sobreponha — cada dado fica contido na sua
-     celula. Col-gap e fontes apertados pra caber em telas estreitas (foco
-     mobile). */
+  /* Todos os dados numa UNICA linha de colunas IGUAIS. grid-auto-flow:column +
+     grid-auto-columns:minmax(0,1fr) cria uma coluna por item VISIVEL — 4 stats
+     no mobile (Local/Padrão/Aspecto/Catação); 4 stats + N peneiras no desktop
+     (peneiras viram colunas extras, ver .spv2-card-stat--peneira). Quanto mais
+     campos, mais estreitas as colunas: o layout se ajusta sozinho a quantidade,
+     sem nunca quebrar pra 2a linha. min-width:0 + ellipsis no label/value
+     garantem que nada transborde nem se sobreponha. */
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   gap: 0 clamp(6px, 2vw, 9px);
   margin-bottom: clamp(11px, 3vw, 13px);
+}
+
+/* Peneiras entram so no desktop (mobile mantem so os 4 stats no card menor).
+   display:none remove o item do grid → nao cria coluna no mobile. Classe dupla
+   (0,2,0) pra vencer o `.spv2-card-stat { display:flex }` que vem logo abaixo,
+   independente da ordem. */
+.spv2-card-stat.spv2-card-stat--peneira {
+  display: none;
 }
 
 .spv2-card-stat {
@@ -6059,63 +6069,16 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
 }
 
 /* Peneiras no card expandido — DESKTOP only (mobile mantem so os 4 stats). So
-   as peneiras COM valor entram (ver SampleCard.filledPeneiras). */
-.spv2-card-peneiras {
-  display: none;
-}
-
+   as peneiras COM valor entram (ver SampleCard.filledPeneiras). Cada peneira e
+   um .spv2-card-stat normal: aparecer no desktop = virar mais uma coluna 1fr na
+   mesma linha dos stats. Gap um pouco maior pra respirar com mais colunas. */
 @media (min-width: 901px) {
-  .spv2-card-peneiras {
-    display: block;
-    margin-bottom: clamp(11px, 1.4vw, 14px);
-  }
-
-  .spv2-card-peneiras-title {
-    display: block;
-    margin-bottom: 7px;
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    color: var(--brand-green);
-  }
-
-  /* UMA linha (nowrap); espacamento igual entre os itens e que se ADAPTA a
-     quantidade (1..10 peneiras) via space-evenly. O gap e o minimo entre eles
-     quando sao muitos. */
-  .spv2-card-peneiras-row {
+  .spv2-card-stat.spv2-card-stat--peneira {
     display: flex;
-    flex-wrap: nowrap;
-    justify-content: space-evenly;
-    align-items: flex-start;
-    gap: clamp(4px, 0.8vw, 12px);
-    min-width: 0;
   }
 
-  .spv2-card-peneira {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    min-width: 0;
-  }
-
-  .spv2-card-peneira-name {
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    color: var(--brand-green);
-    line-height: 1.1;
-    white-space: nowrap;
-  }
-
-  .spv2-card-peneira-value {
-    font-size: 0.92rem;
-    font-weight: 600;
-    color: #2a3d2f;
-    font-variant-numeric: tabular-nums;
-    line-height: 1.2;
-    white-space: nowrap;
+  .spv2-card-stats-grid {
+    gap: 0 clamp(10px, 1.1vw, 18px);
   }
 }
 
