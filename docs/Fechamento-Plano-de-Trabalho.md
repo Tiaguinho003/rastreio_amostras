@@ -1,6 +1,6 @@
 # Fechamento — Plano de Trabalho
 
-**Status**: **EM CONSTRUÇÃO (planejamento)** — iniciado em 2026-06-24. Análise do estado atual concluída e **decisões D1–D13** travadas em 4 rodadas de perguntas. O alvo está definido: **recriar no app o "Contrato de Compra e Venda de Café"** do sistema legado (print recebido na Sessão 2). A **fundação de schema (`SaleContract`) e o modelo de partes já estão decididos.** **Nenhum código de feature ainda.** Próximo passo: implementar **um campo por vez**, a partir do inventário abaixo.
+**Status**: **EM CONSTRUÇÃO (planejamento)** — iniciado em 2026-06-24. Análise do estado atual concluída e **decisões D1–D16** travadas em 5 rodadas de perguntas. O alvo está definido: **recriar no app o "Contrato de Compra e Venda de Café"** do sistema legado (print recebido na Sessão 2). A **fundação de schema (`SaleContract`), partes, status e numeração já estão decididos.** **Nenhum código de feature ainda.** Próximo passo: resolver o **modelo financeiro (P4)** e então desenhar a `SaleContract`, implementando **um campo por vez**.
 **Escopo**: documento único de organização, análise, decisões e execução da feature de **Fechamento** — a geração, **após uma venda**, de um **Contrato de Compra e Venda de Café** profissional em **PDF, para impressão**, que consolida os dados do negócio e serve de confirmação para comprador e vendedor.
 
 **Como ler este doc**: a seção **Decisões fechadas** é o que está acordado; **Contrato legado — inventário de campos** é o alvo do v1; **Pendências** é o que ainda não foi decidido; **Roadmap** é o desenho corrente em fases (muda conforme as decisões); **Log de sessões** é o histórico de avanços por data.
@@ -94,6 +94,9 @@ Síntese verificada no código em 2026-06-24. Detalhes nas referências.
 | D11 | **Persistência: tabela `SaleContract`**    | Tabela dedicada 1:1 com o movimento `SALE` (FK `movementId`), colunas tipadas, escrita pelo projetor. Mantém `sample_movement` enxuto e abriga nº/status do contrato. |
 | D12 | **Comprador/Vendedor automáticos**         | Comprador = comprador da venda; Vendedor = dono do lote (`ownerClient`). Pré-preenchidos e **editáveis**; com snapshot congelado no fechamento (como o do comprador). |
 | D13 | **Corretor = usuário `COMMERCIAL`**        | Um usuário (papel `COMMERCIAL`) é o corretor responsável, figura no contrato e assina. Snapshot do nome no fechamento. Corretor **único** (não múltiplos).          |
+| D14 | **Status do Contrato (manual)**            | Enum editável pelo operador: `EM_ABERTO → CONFIRMADO → FATURADO → PAGO` (default `EM_ABERTO`). Cancelamento tratado via cancelar a venda (movimento `CANCELLED`).   |
+| D15 | **Número do Contrato automático**          | Sequencial **contínuo** + sufixo `/AA` do ano (ex.: `3295/26`), **não editável**. Gerador novo (reusar o padrão de sequência do `internalLotNumber`).               |
+| D16 | **"Número de Compra" = campo livre**       | Texto/número manual de pedido ou referência externa; **sem vínculo** a outra entidade (não modela a perna de compra).                                              |
 
 ---
 
@@ -103,11 +106,11 @@ Fonte: print do "Contrato de Compra e Venda de Café" (Sessão 2). É o **backlo
 Marcadores: ✅ existe no app · ⚠️ novo (não há hoje) · ❓ esclarecer.
 
 ### Cabeçalho / identificação
-- ⚠️ **Número do Contrato** — sequencial `NNNN/AA` (ex.: `3295/26`). Precisa de gerador (P7).
-- ⚠️ **Status do Contrato** — dropdown; sugere um lifecycle (P13).
+- ⚠️ **Número do Contrato** — automático sequencial contínuo + `/AA` (ex.: `3295/26`), não editável (D15).
+- ⚠️ **Status do Contrato** — enum manual `EM_ABERTO/CONFIRMADO/FATURADO/PAGO` (D14).
 - ✅ **Data do Contrato** — ≈ `movementDate`.
-- ❓ **Número de Compra** — referência da perna de "compra"? A esclarecer (P7).
-- ⚠️ **Mês / Ano** — deriváveis da data do contrato.
+- ⚠️ **Número de Compra** — campo livre manual (nº de pedido/externo), sem vínculo (D16).
+- ⚠️ **Mês / Ano** — derivados da data do contrato.
 - ✅ **Número do Lote** — `internalLotNumber`.
 
 ### Partes
@@ -143,16 +146,16 @@ Marcadores: ✅ existe no app · ⚠️ novo (não há hoje) · ❓ esclarecer.
 | P1  | ✅ Resolvida → D12/D13      | Comprador/Vendedor automáticos do lote/venda (editáveis); Corretor = usuário `COMMERCIAL`. Resta a representação da **assinatura** no PDF (P8). |
 | P2  | Comportamento por campo    | Para cada item do inventário: origem (auto/manual), obrigatoriedade, validação, valores possíveis.                                             |
 | P3  | Domínios de listas         | Modalidade, Sacaria, Condição/Forma de Pagamento, Banco do Vendedor — listas fixas vs. cadastráveis.                                            |
-| P4  | Modelo de dinheiro         | Precisão (sugestão `Decimal(12,2)`); Quantidade decimal vs. sacas inteiras; total calculado; fórmulas de ágio/deságio e corretagem (% e R$).    |
+| P4  | Modelo de dinheiro **(próximo)** | Precisão (sugestão `Decimal(12,2)`); Quantidade decimal vs. sacas inteiras; total calculado; fórmulas de ágio/deságio e corretagem (% e R$). |
 | P5  | Vendas já existentes       | Sem dados de contrato: só-novas vs. permitir editar/backfill (lembrar append-only).                                                            |
 | P6  | Home dos dados do emissor  | Promover `COMPANY_INFO` a módulo compartilhado vs. tabela de settings editável; onde o CNPJ passa a viver.                                      |
-| P7  | Numeração & observações    | Gerador do Número de Contrato `NNNN/AA` (+ Mês/Ano); o que é "Número de Compra"; os 3 blocos de texto + eventuais cláusulas fixas.              |
+| P7  | Observações & cláusulas    | Os 3 blocos de texto (Observações/Descrição/Obs Pág. 2) + eventuais cláusulas fixas. (Numeração → D15; Nº de Compra → D16; Mês/Ano derivados.)  |
 | P8  | Assinaturas                | Quem assina e o significado de "Assinatura do Corretor (Em Branco/1/2/3/4)"; como os blocos aparecem no PDF.                                     |
 | P9  | Gatilho + permissão        | Gerar sob demanda (botão) vs. ao salvar a venda; quais papéis podem gerar.                                                                      |
 | P10 | Entrega                    | Só download/compartilhar, ou também link público/QR + arquivamento dos bytes (como o laudo via `SampleReportShare`).                            |
 | P11 | Evento de auditoria        | Novo `FECHAMENTO_EXPORTED` vs. reutilizar `REPORT_EXPORTED`.                                                                                    |
 | P12 | ✅ Resolvida → D11          | Tabela dedicada `SaleContract` 1:1 com o movimento `SALE`, colunas tipadas, escrita pelo projetor.                                              |
-| P13 | Status do Contrato         | Enum/lifecycle e transições válidas (alimenta o campo "Status do Contrato").                                                                    |
+| P13 | ✅ Resolvida → D14          | Enum manual `EM_ABERTO/CONFIRMADO/FATURADO/PAGO`; cancelamento via cancelar a venda.                                                            |
 
 ---
 
@@ -165,7 +168,7 @@ Marcadores: ✅ existe no app · ⚠️ novo (não há hoje) · ❓ esclarecer.
   módulo compartilhado e estendê-lo com **CNPJ** (e o que o cabeçalho exigir). Reaproveitar o logo.
   Corretor = usuário `COMMERCIAL` (D13).
 - **Fase B — Contrato no modal de Venda (campo a campo).** Criar a tabela `SaleContract` (D11) via
-  **migration nova**; numeração `NNNN/AA` (P7) e status (P13); partes com snapshot de vendedor e
+  **migration nova**; numeração `NNNN/AA` (D15) e status (D14); partes com snapshot de vendedor e
   corretor (D12/D13); financeiros (P4); pagamento/logística (P3); observações. Bump de `schemaVersion`
   + atualizar `docs/schemas/events/v1/payloads/sale-created.payload.schema.json` +
   `npm run validate:schemas` + testes de contrato. Normalizers/validação em `createSampleMovement` +
@@ -210,6 +213,15 @@ Marcadores: ✅ existe no app · ⚠️ novo (não há hoje) · ❓ esclarecer.
   editáveis) e **D13** (Corretor = usuário `COMMERCIAL`, único, que assina). P1 e P12 fechadas.
 - **Implicações p/ a Fase B**: além do `buyerClientSnapshot`, congelar no fechamento também o snapshot
   do **vendedor** (`ownerClient`) e do **corretor** (usuário); a `SaleContract` é escrita pelo projetor
-  no `SALE_CREATED`.
-- **Próximo**: desenhar a `SaleContract` (colunas a partir do inventário) resolvendo, em paralelo, **P13**
-  (status) e **P7** (nº de contrato `NNNN/AA`) — o esqueleto da Fase B.
+  no `SALE_CREATED`. Commit `cf5e4a3` (não pushado).
+
+### 2026-06-24 — Sessão 4 (status + numeração)
+
+- **5ª rodada de perguntas** → **D14** (Status manual: `EM_ABERTO → CONFIRMADO → FATURADO → PAGO`,
+  cancelamento via venda), **D15** (Número do Contrato automático sequencial contínuo + `/AA`, não
+  editável) e **D16** ("Número de Compra" = campo livre manual, sem vínculo). **P13 fechada**; **P7**
+  reduzida a observações/cláusulas.
+- O esqueleto da `SaleContract` (identidade, numeração, status, partes) está definido. Falta o **modelo
+  financeiro (P4)** e os domínios das listas (P3) para fechar o grosso das colunas.
+- **Próximo**: resolver **P4** (Quantidade/Preço/Peso, total, ágio/deságio, corretagem %/R$) e então
+  desenhar a tabela `SaleContract`.
