@@ -1,6 +1,6 @@
 # Fechamento — Plano de Trabalho
 
-**Status**: **EM CONSTRUÇÃO** — iniciado em 2026-06-24. **Decisões D1–D26** travadas ao longo das sessões 1–8. O alvo é **recriar no app o "Contrato de Compra e Venda de Café"** do sistema legado (print na Sessão 2). **Importante:** o Fechamento puxa **extensões no cadastro de Cliente** — só o **bancário** exige modelagem nova (`Bank` + `ClientBankAccount`); **armazém já existe** (`isWarehouse`). **Nenhum código de feature ainda.** Próximo passo: planejar a **Fase 0 (bancário)** e desenhar a tabela `SaleContract` (Fase B).
+**Status**: **EM CONSTRUÇÃO** — iniciado em 2026-06-24. **Decisões D1–D27** travadas ao longo das sessões 1–9. O alvo é **recriar no app o "Contrato de Compra e Venda de Café"** do sistema legado (print na Sessão 2). **Importante:** o Fechamento puxa **extensões no cadastro de Cliente** — o **bancário** (`Bank`+`ClientBankAccount`, pré-requisito do contrato) e os **anexos do cliente** (`ClientAttachment`, independente) exigem tabelas novas; **armazém já existe** (`isWarehouse`). **Nenhum código de feature ainda.** Próximo passo: planejar a **Fase 0 (bancário)** e desenhar a tabela `SaleContract` (Fase B).
 **Escopo**: documento único de organização, análise, decisões e execução da feature de **Fechamento** — a geração, **após uma venda**, de um **Contrato de Compra e Venda de Café** profissional em **PDF, para impressão** — **e das extensões de cadastro que ele exige** (ver "Impacto no sistema").
 
 **Como ler este doc**: a seção **Decisões fechadas** é o que está acordado; **Impacto no sistema** lista as extensões de cadastro (pré-requisitos); **Contrato legado — inventário de campos** é o alvo do v1; **Pendências** é o que ainda não foi decidido; **Roadmap** é o desenho corrente em fases; **Log de sessões** é o histórico por data.
@@ -102,6 +102,7 @@ Síntese verificada no código em 2026-06-24. Detalhes nas referências.
 | D24 | **Dados bancários do cliente**             | `Bank` (lookup leve cadastrável: `id` Int, nome, status ativo/inativo) + `ClientBankAccount` por cliente (FK `Bank` + dados da conta), no padrão `ClientUnit`. "Banco do Vendedor" = uma conta do vendedor. |
 | D25 | **Snapshot de dados de cliente**           | No fechamento, comprador, vendedor, corretor, **conta bancária** e **armazéns** são **congelados**; mudanças no cadastro não alteram contratos já emitidos.        |
 | D26 | **Armazém = `Client` com `isWarehouse`**   | Modelo **já existe** (flags multi-escolha no cadastro + lookup `kind='warehouse'`). "Armazém do Comprador/Vendedor" = selecionar um cliente-armazém (livre) → snapshot. **Sem entidade nova.** Pré-vínculo cliente↔armazém seria extra futuro, não necessário. |
+| D27 | **Anexos do cliente**                      | `ClientAttachment` (1 cliente → N arquivos, **lista livre + descrição** opcional), reusa `local-upload-service` + `UPLOADS_DIR`. Aceita **PDF + imagens** (JPEG/PNG/WebP, magic bytes fortes) → adicionar `application/pdf` ao allowlist + atualizar CLAUDE.md (regra 5) e docs/SECURITY. **Só arquivamento no cadastro** (não entra no Fechamento); **independente do contrato**. |
 
 > **Representação monetária (padrão de implementação)**: R$ como `Decimal(12,2)`, percentuais
 > `Decimal(5,2)`, peso (Kg) `Decimal(10,2)`. Confirmar na Fase B.
@@ -120,7 +121,11 @@ vai crescer** conforme novas extensões aparecerem.
 2. **Armazéns (D26) — já resolvido, sem extensão nova.** Um armazém já é um `Client` com `isWarehouse`
    (multi-escolha no cadastro + lookup `kind='warehouse'`). No contrato, "Armazém do
    Comprador/Vendedor" = selecionar um cliente-armazém (livre) → snapshot. **Nada novo a modelar.**
-3. **Futuras.** Outras informações de cliente devem surgir ao longo da construção; entram aqui.
+3. **Anexos/documentos do cliente (D27) — independente do contrato.** `ClientAttachment` (lista livre
+   + descrição), **PDF + imagens**, reusando a infra de upload (+ `application/pdf` no allowlist;
+   atualizar a regra de segurança). **Só arquivamento** — não vai pro PDF do Fechamento; pode ser
+   construído à parte.
+4. **Futuras.** Outras informações de cliente devem surgir ao longo da construção; entram aqui.
 
 ---
 
@@ -183,7 +188,7 @@ Marcadores: ✅ existe no app · ⚠️ novo (não há hoje) · ❓ esclarecer.
 - **Fase 0 — Extensões do cadastro de Cliente (pré-requisitos).** **Só o bancário** (D24): tabela `Bank`
   (`id` Int, nome, status; cadastrável) + `ClientBankAccount` por cliente (FK `Bank` + dados da conta —
   P14), no padrão `ClientUnit`; UI nova no cadastro de Cliente. **Armazém não entra** (D26: já existe).
-  Futuras extensões entram aqui conforme decididas. **Precede a Fase B** no que o contrato consome.
+  **Anexos do cliente (D27)** entram como extensão de cadastro, mas são **independentes do contrato** (não bloqueiam a Fase B). Futuras idem. O **bancário precede a Fase B** no que o contrato consome.
 - **Fase A — Emissor + corretor.** Promover `COMPANY_INFO` a módulo compartilhado + **CNPJ** (P6).
   Reaproveitar o logo. Corretor = usuário `COMMERCIAL` (D13).
 - **Fase B — Contrato no modal de Venda (campo a campo).** Criar a tabela `SaleContract` (D11) via
@@ -248,3 +253,15 @@ Marcadores: ✅ existe no app · ⚠️ novo (não há hoje) · ❓ esclarecer.
   **sem entidade nova**. **P15 fechada**; a Fase 0 fica **só com o bancário**.
 - **Próximo**: planejar a **Fase 0** (bancário: `Bank` + `ClientBankAccount` + campos P14) e/ou desenhar
   a `SaleContract` (Fase B).
+
+### 2026-06-24 — Sessão 9 (anexos do cliente)
+
+- Flavio quer **anexar arquivos ao cliente** (guardar os documentos). Verifiquei: há infra de upload
+  (`SampleAttachment` + `local-upload-service`), mas **escopada em amostra e só-imagem**. **D27**:
+  `ClientAttachment` (lista livre + descrição), reusando a infra; aceita **PDF + imagens** (após alerta
+  de que Office só valida como ZIP genérico + risco de macro, Flavio optou por PDF+imagens); **só
+  arquivamento** no cadastro (não entra no contrato), **independente da Fase B**.
+- Implica adicionar `application/pdf` ao allowlist de upload + atualizar a **regra de segurança**
+  (CLAUDE.md #5 + docs/SECURITY).
+- **Próximo**: fechar **P14** (campos da `ClientBankAccount`) e desenhar `Bank` + `ClientBankAccount` +
+  `ClientAttachment` + `SaleContract`.
