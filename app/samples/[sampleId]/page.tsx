@@ -2431,15 +2431,19 @@ export default function SampleDetailPage() {
                       const [y, m, d] = iso.split('-');
                       return d && m && y ? `${d}/${m}/${y}` : iso;
                     };
-                    const clsItem = (label: string, value: unknown) => {
-                      const text =
-                        value !== null && value !== undefined && String(value).trim()
-                          ? String(value)
-                          : '—';
+                    // Campo dos blocos desktop: label (cinza) + valor (escuro).
+                    // Trata '—'/vazio como ausente -> valor cinza claro (.is-empty).
+                    // keyId distingue campos com o MESMO label (ex.: dois "Fundo")
+                    // pra nao colidir a key do React; default = o proprio label.
+                    const clsField = (label: string, raw: unknown, keyId?: string) => {
+                      const s = raw === null || raw === undefined ? '' : String(raw).trim();
+                      const filled = s !== '' && s !== '—';
                       return (
-                        <div className="sdv-info-item">
+                        <div className="sdv-info-item" key={keyId ?? label}>
                           <span className="sdv-info-label">{label}</span>
-                          <span className="sdv-info-value">{text}</span>
+                          <span className={`sdv-info-value${filled ? '' : ' is-empty'}`}>
+                            {filled ? s : '—'}
+                          </span>
                         </div>
                       );
                     };
@@ -2450,35 +2454,64 @@ export default function SampleDetailPage() {
                       return `${pen || '—'}${pct ? ` · ${pct}%` : ''}`;
                     };
                     const observacoes = cd ? toText(cd.observacoes) : '';
-                    // Campos extras da ficha no MESMO formato dos do resumo
-                    // (Aspecto/Catacao/Padrao/Classificador): label + valor, grid 2col.
-                    // Preenchem as 2 linhas do card; Observacoes ocupa a largura toda.
-                    const clsExtraNode = (
-                      <div className={`sdv-cls-extra${cd ? '' : ' is-empty'}`}>
-                        {clsItem('Bebida', cd ? toText(cd.bebida) : '')}
-                        {clsItem('Certificação', cd ? toText(cd.certif) : '')}
-                        {clsItem('Data', cd ? fmtClsDate(toDateInput(cd.dataClassificacao)) : '')}
-                        {clsItem('P18', toText(peneiras.p18))}
-                        {clsItem('P17', toText(peneiras.p17))}
-                        {clsItem('P16', toText(peneiras.p16))}
-                        {clsItem('P15', toText(peneiras.p15))}
-                        {clsItem('P14', toText(peneiras.p14))}
-                        {clsItem('P13', toText(peneiras.p13))}
-                        {clsItem('P12', toText(peneiras.p12))}
-                        {clsItem('P11', toText(peneiras.p11))}
-                        {clsItem('P10', toText(peneiras.p10))}
-                        {clsItem('Moca (MK)', toText(peneiras.mk))}
-                        {clsItem('Fundo 1', fundoText(fundoA))}
-                        {clsItem('Fundo 2', fundoText(fundoB))}
-                        {clsItem('Impureza', toText(defeitos.imp))}
-                        {clsItem('PVA', toText(defeitos.pva))}
-                        {clsItem('Broca', toText(defeitos.broca))}
-                        {clsItem('GPI', toText(defeitos.gpi))}
-                        {clsItem('Aproveitamento (AP)', toText(defeitos.ap))}
-                        {clsItem('Defeito', toText(defeitos.defeito))}
-                        <div className="sdv-info-item is-full">
-                          <span className="sdv-info-label">Observações</span>
-                          <span className="sdv-info-value sdv-cls-obs-value">
+                    // Layout DESKTOP em blocos (mockup 2026-06-24): foto + bloco de
+                    // stats (Aspecto/Catacao/Padrao · Classificador/Certificacao ·
+                    // Data/Bebida) no topo; Peneiras e Fundos&Defeitos no meio;
+                    // Observacoes embaixo. Escondido no mobile (la usa resumo + modal).
+                    const clsDesktopNode = (
+                      <div className="sdv-cls-desktop">
+                        {clsPhotoNode}
+                        <div className="sdv-cls-statbox">
+                          <div className="sdv-cls-statbox-row sdv-cls-statbox-row--3">
+                            {clsField('Aspecto', cd ? toText(cd.aspecto) : '')}
+                            {clsField('Catação', cd ? toText(cd.catacao) : '')}
+                            {clsField('Padrão', cd ? toText(cd.padrao) : '')}
+                          </div>
+                          <div className="sdv-cls-statbox-row sdv-cls-statbox-row--2">
+                            {clsField(classificadorLabel, classificador)}
+                            {clsField('Certificação', cd ? toText(cd.certif) : '')}
+                          </div>
+                          <div className="sdv-cls-statbox-row sdv-cls-statbox-row--2">
+                            {clsField(
+                              'Data',
+                              cd ? fmtClsDate(toDateInput(cd.dataClassificacao)) : ''
+                            )}
+                            {clsField('Bebida', cd ? toText(cd.bebida) : '')}
+                          </div>
+                        </div>
+                        <div className="sdv-cls-blk sdv-cls-blk--peneiras">
+                          <span className="sdv-cls-blk-title">Peneiras</span>
+                          <div className="sdv-cls-blk-grid">
+                            {clsField('P18', toText(peneiras.p18))}
+                            {clsField('P17', toText(peneiras.p17))}
+                            {clsField('P16', toText(peneiras.p16))}
+                            {clsField('P15', toText(peneiras.p15))}
+                            {clsField('P14', toText(peneiras.p14))}
+                            {clsField('P13', toText(peneiras.p13))}
+                            {clsField('P12', toText(peneiras.p12))}
+                            {clsField('P11', toText(peneiras.p11))}
+                            {clsField('P10', toText(peneiras.p10))}
+                            {clsField('Mk', toText(peneiras.mk))}
+                            {clsField('Fundo', fundoText(fundoA), 'fundo1')}
+                            {clsField('Fundo', fundoText(fundoB), 'fundo2')}
+                          </div>
+                        </div>
+                        <div className="sdv-cls-blk sdv-cls-blk--defeitos">
+                          <span className="sdv-cls-blk-title">Defeitos</span>
+                          <div className="sdv-cls-blk-grid">
+                            {clsField('Impureza', toText(defeitos.imp))}
+                            {clsField('PVA', toText(defeitos.pva))}
+                            {clsField('Broca', toText(defeitos.broca))}
+                            {clsField('GPI', toText(defeitos.gpi))}
+                            {clsField('AP', toText(defeitos.ap))}
+                            {clsField('Defeito', toText(defeitos.defeito))}
+                          </div>
+                        </div>
+                        <div className="sdv-cls-blk sdv-cls-blk--obs">
+                          <span className="sdv-cls-blk-title">Observações</span>
+                          <span
+                            className={`sdv-info-value sdv-cls-obs-value${observacoes ? '' : ' is-empty'}`}
+                          >
                             {observacoes || '—'}
                           </span>
                         </div>
@@ -2554,7 +2587,9 @@ export default function SampleDetailPage() {
                             </button>
                           )}
                         </div>
-                        {cd && !isDesktop ? (
+                        {isDesktop ? (
+                          clsDesktopNode
+                        ) : cd ? (
                           <div
                             className="sdv-cls-block-summary sdv-cls-block-clickable"
                             role="button"
@@ -2572,13 +2607,11 @@ export default function SampleDetailPage() {
                             {clsFieldsNode}
                           </div>
                         ) : (
-                          <div className={`sdv-cls-block-summary${!cd ? ' is-empty' : ''}`}>
+                          <div className="sdv-cls-block-summary is-empty">
                             {clsPhotoNode}
                             {clsFieldsNode}
                           </div>
                         )}
-
-                        {clsExtraNode}
 
                         {!isClassified ? (
                           <div className="sdv-info-actions">

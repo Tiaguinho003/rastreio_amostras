@@ -28589,21 +28589,26 @@ select.samples-filter-field-input {
     overflow-x: hidden;
   }
 
-  /* ── Layout 2 colunas (redesign 2026-06-23) ──
+  /* ── Layout 2 colunas (redesign 2026-06-23; mov<->resumo trocados 2026-06-24) ──
      ESQUERDA: Informacoes -> Classificacao.  DIREITA: Resumo -> Movimentacoes
-     (-> Liga, quando existe). Reposicionado SO via grid-template-areas: os cards
-     vem do DOM via display:contents e cada um declara seu grid-area
+     (-> Liga, quando existe). Movimentacoes fica ao LADO da Classificacao (col2
+     da mesma linha). Reposicionado SO via grid-template-areas: os cards vem do
+     DOM via display:contents e cada um declara seu grid-area
      (info/resumo/classif/mov/liga) mais abaixo — trocar o mapa basta, sem mexer
      no JSX nem na ordem do mobile (la o grid nao existe). */
   .sdv-page--sample .sdv-content > .sdv-content-inner {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    /* col1 (Informacoes/Classificacao) +15% e col2 (Resumo/Movimentacoes) -15%
+       a partir do 50/50 → 57,5% / 42,5% (1.15fr / 0.85fr). Como partiam iguais,
+       os 7,5% que saem da Movimentacoes entram exatos na Classificacao. minmax(0,…)
+       mantem o min-width:0 pra nada transbordar quando a col2 estreita. */
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
     grid-template-areas:
-      'info    mov'
-      'classif resumo';
-    /* Sem liga (base): 2 linhas. L1 fixa (Informacoes | Movimentacoes, 22rem). L2
-       cresce com a ficha da Classificacao (col1); o Resumo comercial (col2)
-       acompanha a altura via a regra :not(:has(...)) adiante. */
+      'info    resumo'
+      'classif mov';
+    /* Sem liga (base): 2 linhas. L1 fixa (Informacoes | Resumo, 22rem). L2 cresce
+       com a ficha da Classificacao (col1); Movimentacoes (col2) acompanha a
+       altura via o align-items:stretch do grid. */
     grid-template-rows: var(--sdv-r1-h) minmax(var(--sdv-r1-h), auto);
     grid-auto-rows: auto;
     gap: 1rem;
@@ -28621,8 +28626,8 @@ select.samples-filter-field-input {
     .sdv-content
     > .sdv-content-inner:has(.sdv-blend-composition, .sdv-blend-compromised) {
     grid-template-areas:
-      'info    mov'
-      'classif resumo'
+      'info    resumo'
+      'classif mov'
       'classif liga';
     grid-template-rows: var(--sdv-r1-h) var(--sdv-r1-h) var(--sdv-r1-h);
   }
@@ -28712,88 +28717,170 @@ select.samples-filter-field-input {
     grid-column: 1 / -1;
   }
 
-  /* ── Card de Classificacao no desktop: UM BLOCO unico ──
-     O .sdv-cls-block vira um GRID de 3 colunas e summary/fields/extra viram
-     display:contents — assim a foto + TODOS os campos (Aspecto..Defeito +
-     Observacoes) sao itens do MESMO grid, alinhados em 3 colunas, sem a "costura"
-     entre o resumo e a ficha que existia antes (e sem o scroll que a evidenciava).
-     "Expandir" e o clique ficam desativados no desktop (as infos ja estao todas
-     no card). Seletor `.sdv-general > .sdv-card.X` (0,4,0) pra o display:grid
-     VENCER a regra legada `.sdv-general > .sdv-card:nth-child(2) { display:flex }`
-     (0,3,0) — a mesma que ja sobrescrevia o grid-area. */
+  /* ── Card de Classificacao no desktop: BLOCOS nomeados (mockup 2026-06-24) ──
+     .sdv-cls-block = coluna flex: header fixo + .sdv-cls-desktop preenchendo o
+     resto. Altura FIXA + overflow:hidden => o card NAO muda de tamanho; os blocos
+     (foto, stats, peneiras, fundos&defeitos, observacoes) se distribuem dentro
+     dele. Seletor `.sdv-general > .sdv-card.X` (0,4,0) pra VENCER a regra legada
+     `.sdv-general > .sdv-card:nth-child(2) { display:flex }` (0,3,0). */
   .sdv-page--sample .sdv-general > .sdv-card.sdv-cls-block {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    column-gap: clamp(10px, 2.5vw, 14px);
-    row-gap: clamp(3px, 1vw, 6px);
-    align-content: start;
-    /* Altura FIXA = Movimentacoes + Liga (2 linhas + gap), SEMPRE — com ou sem
-       liga, com ou sem classificacao. O card NAO muda de tamanho conforme os
-       dados; overflow:hidden contem (a ficha cabe sem scroll). */
+    display: flex;
+    flex-direction: column;
     height: calc(var(--sdv-r1-h) * 2 + 1rem);
     overflow: hidden;
   }
 
-  /* Titulo "Classificacao" no topo, largura toda do card. */
+  /* Header (titulo + Reclassificar/Editar) fixo no topo. */
   .sdv-page--sample .sdv-cls-block > .sdv-card-header {
-    grid-column: 1 / -1;
-    margin-bottom: 0.35rem;
+    flex-shrink: 0;
+    margin-bottom: clamp(8px, 1.4vw, 12px);
   }
-
-  /* Acoes do header (Reclassificar + Editar) a direita, em linha, sem aumentar a
-     altura do cabecalho (botoes .sdv-edit-btn compactos). So renderizam no
-     desktop (via isDesktop no JSX). */
   .sdv-page--sample .sdv-cls-header-actions {
     display: flex;
     align-items: center;
     gap: clamp(4px, 1.4vw, 8px);
   }
 
-  /* Achatam: a foto e os campos do resumo/ficha viram itens diretos do grid. */
-  .sdv-page--sample .sdv-cls-block .sdv-cls-block-summary,
-  .sdv-page--sample .sdv-cls-block .sdv-cls-block-fields,
-  .sdv-page--sample .sdv-cls-block .sdv-cls-extra {
-    display: contents;
+  /* Grade dos blocos: 2 colunas, 3 linhas. Topo: foto | stats. Abaixo:
+     - PENEIRAS (esq) ocupa as DUAS linhas de baixo (span 'pen'/'pen') => bloco
+       ALTO, cabe os 12 campos (P18..P10 + MK + Fundo + Fundo) em 3 col x 4 linhas.
+     - DEFEITOS (dir, linha do meio): 6 campos (3 col x 2 linhas), mais baixo.
+     - OBSERVACOES (dir, linha de baixo): metade direita, faixa BAIXA (1 linha).
+       Defeitos (row2) ALTO e Observacoes (row3) baixo — a altura que sai do obs
+       entra no Defeitos; row2+row3 constante mantem a Peneiras (span) na mesma
+       altura total. */
+  .sdv-page--sample .sdv-cls-desktop {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      'photo stats'
+      'pen   def'
+      'pen   obs';
+    grid-template-rows: minmax(0, 0.85fr) minmax(0, 0.95fr) minmax(0, 0.27fr);
+    gap: clamp(8px, 1.4vw, 12px);
   }
 
-  /* Foto: canto superior esquerdo, coluna 1 por 2 linhas (Aspecto/Catacao e
-     Padrao/Classificador ficam ao lado; a ficha continua abaixo, alinhada). */
-  .sdv-page--sample .sdv-cls-block .sdv-cls-block-thumb,
-  .sdv-page--sample .sdv-cls-block .sdv-cls-block-thumb-empty {
-    grid-column: 1;
-    grid-row: span 2;
+  /* Foto: bloco topo-esquerda, preenche a celula (object-fit:cover ja recorta). */
+  .sdv-page--sample .sdv-cls-desktop > .sdv-cls-block-thumb,
+  .sdv-page--sample .sdv-cls-desktop > .sdv-cls-block-thumb-empty {
+    grid-area: photo;
     width: 100%;
     height: 100%;
     min-height: 0;
-    align-self: stretch;
   }
-
-  /* "Classificar" (rodape) segue escondido no desktop — as acoes ficam no header
-     e o card mantem o mesmo tamanho com/sem classificacao. O "Expandir" nao
-     renderiza no desktop (isDesktop no JSX); Reclassificar/Editar usam .sdv-edit-btn
-     e DEVEM aparecer, entao nao escondemos mais .sdv-edit-btn aqui. */
-  .sdv-page--sample .sdv-cls-block .sdv-info-actions {
-    display: none;
-  }
-
-  /* Foto clicavel (abre o modal da imagem completa): cursor de ponteiro. */
-  .sdv-page--sample .sdv-cls-block .sdv-cls-block-thumb[role='button'] {
+  .sdv-page--sample .sdv-cls-desktop > .sdv-cls-block-thumb[role='button'] {
     cursor: pointer;
   }
 
-  /* Campos compactos (label + valor), uniformes em todo o bloco. */
-  .sdv-page--sample .sdv-cls-block .sdv-info-item {
-    padding: clamp(3px, 1vw, 5px) 0;
+  /* Bloco de stats (sem titulo): 3 linhas separadas por divisorias, distribuidas
+     pra acompanhar a altura da foto. L1 = Aspecto/Catacao/Padrao (3col,
+     centralizado, headline); L2 = Classificador/Certificacao; L3 = Data/Bebida. */
+  .sdv-page--sample .sdv-cls-statbox {
+    grid-area: stats;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 12px;
+    padding: clamp(4px, 1vw, 8px) clamp(10px, 1.8vw, 14px);
+  }
+  .sdv-page--sample .sdv-cls-statbox-row {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    align-content: center;
+    gap: 2px clamp(8px, 1.6vw, 14px);
+    padding: clamp(3px, 0.9vw, 6px) 0;
+  }
+  .sdv-page--sample .sdv-cls-statbox-row + .sdv-cls-statbox-row {
+    border-top: 1px solid rgba(0, 0, 0, 0.07);
+  }
+  .sdv-page--sample .sdv-cls-statbox-row--3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    text-align: center;
+  }
+  .sdv-page--sample .sdv-cls-statbox-row--2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .sdv-page--sample .sdv-cls-statbox-row--3 .sdv-info-value {
+    font-size: clamp(15px, 1.9vw, 18px);
   }
 
-  /* Observacoes: largura toda, valor quebra linha (nao trunca). */
-  .sdv-page--sample .sdv-cls-block .sdv-info-item.is-full {
-    grid-column: 1 / -1;
+  /* Blocos nomeados (Peneiras / Fundos e defeitos / Observacoes): moldura +
+     titulo verde + grade interna 3 colunas, linhas distribuidas (space-between). */
+  .sdv-page--sample .sdv-cls-blk {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 12px;
+    padding: clamp(7px, 1.5vw, 11px) clamp(10px, 1.8vw, 14px);
+    overflow: hidden;
   }
-  .sdv-page--sample .sdv-cls-block .sdv-cls-obs-value {
+  .sdv-page--sample .sdv-cls-blk--peneiras {
+    grid-area: pen;
+  }
+  .sdv-page--sample .sdv-cls-blk--defeitos {
+    grid-area: def;
+  }
+  .sdv-page--sample .sdv-cls-blk--obs {
+    grid-area: obs;
+  }
+  .sdv-page--sample .sdv-cls-blk-title {
+    flex-shrink: 0;
+    font-size: clamp(11px, 1.5vw, 13px);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--brand-green);
+    margin-bottom: clamp(4px, 1vw, 8px);
+  }
+  .sdv-page--sample .sdv-cls-blk-grid {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    /* space-evenly distribui as linhas com folga IGUAL (topo/entre/baixo) — fica
+       equilibrado tanto na Peneiras (4 linhas) quanto no Defeitos (2 linhas) que
+       agora ocupa um bloco mais alto. */
+    align-content: space-evenly;
+    gap: clamp(3px, 1vw, 9px) clamp(8px, 1.6vw, 14px);
+  }
+
+  /* Campos compactos em toda a area de blocos (reusa .sdv-info-item/label/value). */
+  .sdv-page--sample .sdv-cls-desktop .sdv-info-item {
+    padding: 0;
+    min-width: 0;
+  }
+  .sdv-page--sample .sdv-cls-desktop .sdv-info-label {
+    margin-bottom: 2px;
+  }
+  /* Valor vazio (—): cinza claro. Peneira preenchida: verde (acento do mockup). */
+  .sdv-page--sample .sdv-cls-desktop .sdv-info-value.is-empty {
+    color: #cdcdcd;
+    font-weight: 500;
+  }
+  .sdv-page--sample .sdv-cls-blk--peneiras .sdv-info-value:not(.is-empty) {
+    color: var(--brand-green);
+  }
+
+  /* Observacoes (metade direita, faixa baixa): valor em 1 LINHA so, truncado com
+     reticencias — bloco curto, sem transbordar a moldura nem o card. */
+  .sdv-page--sample .sdv-cls-blk--obs .sdv-cls-obs-value {
     white-space: normal;
-    overflow: visible;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
     line-height: 1.35;
+  }
+
+  /* "Classificar" (rodape) escondido no desktop — as acoes ficam no header. */
+  .sdv-page--sample .sdv-cls-block .sdv-info-actions {
+    display: none;
   }
 
   /* Movimentacoes com altura limitada + scroll interno (a pagina rola; sem o
