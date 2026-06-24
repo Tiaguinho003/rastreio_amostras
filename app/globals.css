@@ -13700,6 +13700,19 @@ body:has(.app-modal-backdrop) .prospector-fab {
   --cld-field-pad: clamp(8px, 2.2vw, 10px) clamp(10px, 2.6vw, 12px);
 }
 
+/* DESKTOP (>=901px): o modal de edicao da classificacao difere do mobile — SEM a
+   foto e SEM a linha de acoes Reclassificar/Editar, mostrando so os campos. No
+   desktop esse modal abre sempre via "Editar" do card (ja em modo edicao) e
+   Reclassificar/Editar ja vivem no header do card. Salvar/Cancelar (.cld-edit-
+   actions) ficam no rodape, intactos. Mobile mantem foto + acoes (abre em
+   visualizacao e entra em edicao pela .cld-edit-row). */
+@media (min-width: 901px) {
+  .cld-modal .cld-photo-section,
+  .cld-modal .cld-edit-row {
+    display: none;
+  }
+}
+
 /* Acoes de edicao (Cancelar | Salvar): metade pra cada, com gap claro das bordas
    — alem do padding do corpo do modal, um inset horizontal extra recua os botoes
    (a divisoria/border-top continua na largura toda). margin-bottom afasta do
