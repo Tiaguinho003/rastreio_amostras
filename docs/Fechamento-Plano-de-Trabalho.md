@@ -1,6 +1,6 @@
 # Fechamento — Plano de Trabalho
 
-**Status**: **EM CONSTRUÇÃO (planejamento)** — iniciado em 2026-06-24. Análise do estado atual concluída e **decisões D1–D19** travadas em 6 rodadas de perguntas. O alvo está definido: **recriar no app o "Contrato de Compra e Venda de Café"** do sistema legado (print recebido na Sessão 2). A **fundação (`SaleContract`, partes, status, numeração) e o modelo financeiro já estão decididos.** **Nenhum código de feature ainda.** Próximo passo: resolver os campos operacionais (listas **P3**, vendas existentes **P5**, gatilho **P9**) e então **desenhar a `SaleContract`**.
+**Status**: **EM CONSTRUÇÃO** — iniciado em 2026-06-24. **Decisões D1–D23** travadas em 7 rodadas de perguntas; **todas as decisões que moldam o schema estão fechadas**. O alvo é **recriar no app o "Contrato de Compra e Venda de Café"** do sistema legado (print na Sessão 2). **Nenhum código de feature ainda.** Próximo passo: **desenhar a tabela `SaleContract` + o plano da Fase B** e começar a implementar (campo a campo). Pendências restantes (P6/P7/P8/P10/P11) resolvem dentro das fases A/C/D.
 **Escopo**: documento único de organização, análise, decisões e execução da feature de **Fechamento** — a geração, **após uma venda**, de um **Contrato de Compra e Venda de Café** profissional em **PDF, para impressão**, que consolida os dados do negócio e serve de confirmação para comprador e vendedor.
 
 **Como ler este doc**: a seção **Decisões fechadas** é o que está acordado; **Contrato legado — inventário de campos** é o alvo do v1; **Pendências** é o que ainda não foi decidido; **Roadmap** é o desenho corrente em fases (muda conforme as decisões); **Log de sessões** é o histórico de avanços por data.
@@ -100,6 +100,10 @@ Síntese verificada no código em 2026-06-24. Detalhes nas referências.
 | D17 | **Quantidade = sacas da venda (inteira)**  | Reusa o `quantitySacks` do movimento (inteiro); sem campo de quantidade novo. **Peso (Kg)** é um campo decimal **separado**.                                        |
 | D18 | **Valor total automático**                 | `preço/saca × sacas`, **ajustado por ágio/deságio** (ágio soma, deságio subtrai). Não digitado. _Base exata do ágio/deságio (por saca vs. total) a confirmar na Fase B._ |
 | D19 | **Corretagem calculada**                   | Vendedor e comprador, cada um em **% ou R$**; quando %, o sistema calcula o R$ a partir do total. Guarda tipo + valor informado + R$ resultante. É comissão da corretora (não abate o total). |
+| D20 | **Listas mistas**                          | Campos de lista: alguns **fixos no código** (ex.: Banco, Forma de Pagamento) e outros **cadastráveis pelo admin** (ex.: Modalidade, Sacaria). Divisão por campo definida na implementação. |
+| D21 | **Só vendas novas**                        | Fechamento/`SaleContract` só para vendas registradas a partir da feature; vendas antigas ficam **sem contrato** (sem backfill).                                     |
+| D22 | **Geração automática ao salvar**           | Confirmar a venda já gera/abre o PDF do Fechamento (não é passo separado). Re-geração pode existir (depende de P10).                                                |
+| D23 | **Permissão ampla**                        | Pode gerar o Fechamento **quem tem acesso à venda** (não restrito a papéis específicos).                                                                           |
 
 > **Representação monetária (padrão de implementação)**: valores em R$ como `Decimal(12,2)`,
 > percentuais como `Decimal(5,2)`, peso (Kg) como `Decimal(10,2)`. Confirmar na Fase B.
@@ -123,7 +127,7 @@ Marcadores: ✅ existe no app · ⚠️ novo (não há hoje) · ❓ esclarecer.
 - ✅ **Comprador** — comprador da venda (`buyerClient` + snapshot), automático (D12).
 - ✅ **Vendedor** — dono do lote (`ownerClient`), automático e editável; snapshot no fechamento (D12).
 - ⚠️ **Corretor** — usuário `COMMERCIAL` responsável; figura e assina (D13).
-- ⚠️ **Banco do Vendedor** — dropdown (lista de bancos — P3).
+- ⚠️ **Banco do Vendedor** — lista (fixa — D20).
 
 ### Armazéns
 - ⚠️ **Armazém do Comprador** · ⚠️ **Armazém do Vendedor** — reaproveitar `Client.isWarehouse` + `ClientUnit`.
@@ -136,7 +140,7 @@ Marcadores: ✅ existe no app · ⚠️ novo (não há hoje) · ❓ esclarecer.
 - ⚠️ **Corretagem do Vendedor** (% / R$) · ⚠️ **Corretagem do Comprador** (% / R$) — calculadas sobre o total (D19).
 
 ### Pagamento & logística
-- ⚠️ **Condição de Pagamento** · ⚠️ **Modalidade** · ⚠️ **Sacaria** · ⚠️ **Forma de Pagamento** (dropdowns — P3).
+- ⚠️ **Condição de Pagamento** · ⚠️ **Modalidade** · ⚠️ **Sacaria** · ⚠️ **Forma de Pagamento** (listas mistas — D20).
 - ⚠️ **Data Faturamento** · ⚠️ **Data Pagamento**.
 
 ### Assinaturas & observações
@@ -145,23 +149,18 @@ Marcadores: ✅ existe no app · ⚠️ novo (não há hoje) · ❓ esclarecer.
 
 ---
 
-## Pendências (a detalhar antes de implementar cada campo/bloco)
+## Pendências (restantes — resolvem dentro das fases A/C/D)
 
 | #   | Pendência                  | O que falta decidir                                                                                                                            |
 | --- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| P1  | ✅ Resolvida → D12/D13      | Comprador/Vendedor automáticos do lote/venda (editáveis); Corretor = usuário `COMMERCIAL`. Resta a representação da **assinatura** no PDF (P8). |
-| P2  | Comportamento por campo    | Para cada item do inventário: origem (auto/manual), obrigatoriedade, validação, valores possíveis.                                             |
-| P3  | Domínios de listas **(próximo)** | Modalidade, Sacaria, Condição/Forma de Pagamento, Banco do Vendedor — listas fixas (enum) vs. cadastráveis vs. texto livre.              |
-| P4  | ✅ Resolvida → D17/D18/D19  | Quantidade = sacas da venda; Peso Kg separado; total automático com ágio/deságio; corretagem calculada. Resta só a base exata do ágio (Fase B). |
-| P5  | Vendas já existentes **(próximo)** | Sem dados de contrato: só-novas vs. permitir editar/backfill (lembrar append-only).                                                    |
-| P6  | Home dos dados do emissor  | Promover `COMPANY_INFO` a módulo compartilhado vs. tabela de settings editável; onde o CNPJ passa a viver.                                      |
-| P7  | Observações & cláusulas    | Os 3 blocos de texto (Observações/Descrição/Obs Pág. 2) + eventuais cláusulas fixas. (Numeração → D15; Nº de Compra → D16; Mês/Ano derivados.)  |
-| P8  | Assinaturas                | Quem assina e o significado de "Assinatura do Corretor (Em Branco/1/2/3/4)"; como os blocos aparecem no PDF.                                     |
-| P9  | Gatilho + permissão **(próximo)** | Gerar sob demanda (botão) vs. ao salvar a venda; quais papéis podem gerar.                                                               |
-| P10 | Entrega                    | Só download/compartilhar, ou também link público/QR + arquivamento dos bytes (como o laudo via `SampleReportShare`).                            |
-| P11 | Evento de auditoria        | Novo `FECHAMENTO_EXPORTED` vs. reutilizar `REPORT_EXPORTED`.                                                                                    |
-| P12 | ✅ Resolvida → D11          | Tabela dedicada `SaleContract` 1:1 com o movimento `SALE`, colunas tipadas, escrita pelo projetor.                                              |
-| P13 | ✅ Resolvida → D14          | Enum manual `EM_ABERTO/CONFIRMADO/FATURADO/PAGO`; cancelamento via cancelar a venda.                                                            |
+| P2  | Comportamento por campo    | Para cada item do inventário: origem (auto/manual), obrigatoriedade, validação. Resolvido **campo a campo** na Fase B.                          |
+| P6  | Home dos dados do emissor  | Promover `COMPANY_INFO` a módulo compartilhado vs. tabela de settings editável; onde o CNPJ passa a viver. (Fase A)                             |
+| P7  | Observações & cláusulas    | Os 3 blocos de texto (Observações/Descrição/Obs Pág. 2) + eventuais cláusulas fixas. (Fase B/C)                                                 |
+| P8  | Assinaturas                | Quem assina e o significado de "Assinatura do Corretor (Em Branco/1/2/3/4)"; como os blocos aparecem no PDF. (Fase C)                           |
+| P10 | Entrega                    | Auto-gerado (D22) é só baixado/compartilhado, ou também persistido/link público + arquivamento (como o laudo via `SampleReportShare`)? (Fase D) |
+| P11 | Evento de auditoria        | Novo `FECHAMENTO_EXPORTED` vs. reutilizar `REPORT_EXPORTED`. (Fase D)                                                                           |
+
+**Pendências resolvidas**: P1→D12/D13 · P3→D20 · P4→D17/D18/D19 · P5→D21 · P9→D22/D23 · P12→D11 · P13→D14.
 
 ---
 
@@ -171,20 +170,22 @@ Marcadores: ✅ existe no app · ⚠️ novo (não há hoje) · ❓ esclarecer.
 > é incorporado incrementalmente, do schema ao PDF.
 
 - **Fase A — Emissor + corretor.** Promover `COMPANY_INFO` (`sample-pdf-report-service.js:27-31`) a
-  módulo compartilhado e estendê-lo com **CNPJ** (e o que o cabeçalho exigir). Reaproveitar o logo.
-  Corretor = usuário `COMMERCIAL` (D13).
+  módulo compartilhado e estendê-lo com **CNPJ** (P6). Reaproveitar o logo. Corretor = usuário
+  `COMMERCIAL` (D13).
 - **Fase B — Contrato no modal de Venda (campo a campo).** Criar a tabela `SaleContract` (D11) via
   **migration nova**; numeração `NNNN/AA` (D15) e status (D14); partes com snapshot de vendedor e
-  corretor (D12/D13); financeiros (D17/D18/D19); pagamento/logística (P3); observações. Bump de
-  `schemaVersion` + atualizar `docs/schemas/events/v1/payloads/sale-created.payload.schema.json` +
-  `npm run validate:schemas` + testes de contrato. Normalizers/validação em `createSampleMovement` +
-  projetor escreve a `SaleContract`. UI com seções/abas + validação inline no `SampleMovementModal.tsx`
-  (skills `feedback-messages`/`design-system`/`responsive`).
+  corretor (D12/D13); financeiros (D17/D18/D19); pagamento/logística com listas mistas (D20);
+  observações (P7). Bump de `schemaVersion` + atualizar
+  `docs/schemas/events/v1/payloads/sale-created.payload.schema.json` + `npm run validate:schemas` +
+  testes de contrato. Normalizers/validação em `createSampleMovement` + projetor escreve a
+  `SaleContract`. UI com seções/abas + validação inline no `SampleMovementModal.tsx` (skills
+  `feedback-messages`/`design-system`/`responsive`). **Só vendas novas (D21).**
 - **Fase C — PDF do Fechamento.** `renderFechamentoPdf` + serviço espelhando `SamplePdfReportService`,
   reusando cabeçalho/logo/rodapé, **espelhando o layout do contrato legado** (cabeçalho → partes →
-  armazéns → valores → pagamento → observações → assinaturas). **Sem bloco de qualidade** (D10).
-- **Fase D — Ação/UX + entrega.** Botão "Gerar Fechamento" por venda no painel de movimentações, via
-  `shareOrDownloadFile`. Link público/QR + arquivamento opcionais (P10); evento de auditoria (P11).
+  armazéns → valores → pagamento → observações → assinaturas P8). **Sem bloco de qualidade** (D10).
+- **Fase D — Geração + entrega.** Geração **automática ao salvar** a venda (D22); pode gerar quem
+  acessa a venda (D23); entrega via `shareOrDownloadFile`. Persistência/link público + arquivamento e
+  evento de auditoria conforme P10/P11.
 
 ---
 
@@ -233,6 +234,12 @@ Marcadores: ✅ existe no app · ⚠️ novo (não há hoje) · ❓ esclarecer.
 - **6ª rodada de perguntas** → **D17** (Quantidade = sacas inteiras da venda; Peso Kg separado), **D18**
   (Valor total automático `preço × sacas`, ajustado por ágio/deságio) e **D19** (corretagem dos dois
   lados calculada sobre o total quando em %). **P4 fechada.** Padrão monetário: `Decimal(12,2)`.
-- O modelo financeiro e o esqueleto da `SaleContract` estão definidos; faltam só campos operacionais.
-- **Próximo**: resolver **P3** (domínios das listas), **P5** (vendas existentes) e **P9** (gatilho +
-  permissão) — e então desenhar a `SaleContract` completa para iniciar a Fase B.
+
+### 2026-06-24 — Sessão 6 (bloco operacional)
+
+- **7ª rodada de perguntas** → **D20** (listas mistas: fixas + cadastráveis), **D21** (só vendas novas,
+  sem backfill), **D22** (geração automática ao salvar a venda) e **D23** (pode gerar quem tem acesso à
+  venda). **P3, P5 e P9 fechadas.**
+- **Todas as decisões que moldam o schema estão completas.** Restam só pendências de fase (P2/P6/P7/P8/P10/P11).
+- **Próximo**: desenhar a tabela `SaleContract` (colunas a partir do inventário + decisões) e o **plano
+  da Fase B**, então iniciar a implementação campo a campo.
