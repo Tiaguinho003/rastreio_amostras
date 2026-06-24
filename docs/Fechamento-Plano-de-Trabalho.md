@@ -183,9 +183,9 @@ automática vs. manual, obrigatório/opcional, validação) e checar se **falta 
 **P2** e guia o **formulário** (modal de Venda, D9) e o **layout do PDF** (Fase C). O comportamento de
 cada campo é anotado conforme revisamos.
 
-### B1 — Identificação do contrato ✅ revisado
+### B1 — Identificação do contrato (em revisão)
 - **Número do Contrato** — auto, sequencial `NNNN/AA`, gerado ao salvar, não editável (D15)
-- **Status do Contrato** — manual, default `EM_ABERTO`; `EM_ABERTO/CONFIRMADO/FATURADO/PAGO` (D14). _(à vista/futuro NÃO é status → é Modalidade, B8.)_
+- **Status do Contrato** — manual, default `EM_ABERTO`; `EM_ABERTO/CONFIRMADO/FATURADO/PAGO` (D14) _(opções em revisão)_
 - **Data do Contrato** — default = data da venda (`movementDate`), **editável**
 - **Número de Compra** — manual, livre, **opcional** (D16)
 - **Número do Lote** — `internalLotNumber` da amostra (auto, não editável)
@@ -221,7 +221,7 @@ cada campo é anotado conforme revisamos.
 ### B8 — Pagamento & logística
 - **Condição de Pagamento** — lista mista (D20)
 - **Forma de Pagamento** — lista mista (D20)
-- **Modalidade** — lista mista (D20); é o "tipo de operação". Valores (ex.): **retirar, posto, disponível, posto/futuro** _(confirmar lista completa em B8)_
+- **Modalidade** — lista mista (D20) _(significado e valores a definir no B8)_
 - **Sacaria** — lista mista (D20)
 - **Data de Faturamento** — data
 - **Data de Pagamento** — data
@@ -362,12 +362,12 @@ cada campo é anotado conforme revisamos.
   (D9) e o PDF (Fase C). (Os PDFs `formularios-campos.pdf`/`laudo-preview.pdf` são de outro agente.)
 - **Próximo**: revisar **bloco a bloco, campo a campo** — comportamento de cada campo + campos faltantes.
 
-### 2026-06-24 — Sessão 16 (revisão B1 + status vs tipo)
+### 2026-06-24 — Sessão 16 (revisão B1 — parcial)
 
-- **B1 revisado**: Data do Contrato = data da venda, editável; Número de Compra opcional; **Mês/Ano
-  removidos** (deriváveis da data); Status = os 4 (ciclo de vida).
-- Esclarecido **status × tipo**: "à vista / futuro / replicado" que o Flavio viu em outro sistema **não
-  são status**. À vista/futuro = **Modalidade** (campo já existente — valores: retirar, posto, disponível,
-  posto/futuro…), que é o "tipo de operação". **"Replicado"** = provavelmente uma feature de *replicar
-  contratos* — a esclarecer.
-- **Próximo**: confirmar lista completa de Modalidade (em B8) + decidir "Replicado"; seguir para **B2 — Comprador**.
+- **B1 (parcial)**: confirmados Data do Contrato = data da venda, editável; Número de Compra opcional;
+  **Mês/Ano removidos** (deriváveis da data). **Status: opções ainda em revisão.**
+- ⚠️ **Correção registrada**: cheguei a concluir que "Modalidade = tipo de operação" e a ligar "à
+  vista/futuro" à Modalidade — **o Flavio NÃO disse isso** (só citou termos vistos em outro sistema:
+  Futuro, mercado à vista, replicado). **Revertido**: Modalidade volta a "lista mista (D20)", a definir
+  no B8; esses termos não estão decididos. _Lição: não concluir/registrar sem confirmação._
+- **Próximo**: continuar a revisão do **Status** do B1, sem suposições.
