@@ -95,25 +95,37 @@ function fitTextToWidth(text, font, size, maxWidth) {
   return `${normalized.slice(0, low).trimEnd()}${ellipsis}`;
 }
 
-function drawImageCover(page, image, { x, y, width, height }) {
+// Desenha a imagem CONTIDA na caixa (fit): escala pra caber inteira SEM cortar,
+// centralizada. Retorna o retangulo efetivamente desenhado (pra borda fina).
+function drawImageContain(page, image, { x, y, width, height }) {
   if (width <= 0 || height <= 0) {
-    return;
+    return { x, y, width: 0, height: 0 };
   }
 
-  const scale = Math.max(width / image.width, height / image.height);
+  const scale = Math.min(width / image.width, height / image.height);
   const drawWidth = image.width * scale;
   const drawHeight = image.height * scale;
   const drawX = x + (width - drawWidth) / 2;
   const drawY = y + (height - drawHeight) / 2;
 
-  page.pushOperators(pushGraphicsState(), rectangle(x, y, width, height), clip(), endPath());
   page.drawImage(image, {
     x: drawX,
     y: drawY,
     width: drawWidth,
     height: drawHeight,
   });
-  page.pushOperators(popGraphicsState());
+  return { x: drawX, y: drawY, width: drawWidth, height: drawHeight };
+}
+
+// Segmento de linha AFILADO (cunha): ponta (espessura 0) em pointX e espessura
+// `maxThickness` em thickX, centrado verticalmente em `y`. Serve pros dois lados
+// do divisor do rodape — fino sumindo na borda, mais grosso perto do logo.
+function drawTaperedSegment(page, { pointX, thickX, y, maxThickness, color }) {
+  const dx = thickX - pointX;
+  const h = maxThickness / 2;
+  // drawSvgPath: origem em (pointX, y); +y do path aponta pra BAIXO (PDF y cai).
+  const d = `M 0 0 L ${dx.toFixed(2)} ${(-h).toFixed(2)} L ${dx.toFixed(2)} ${h.toFixed(2)} Z`;
+  page.drawSvgPath(d, { x: pointX, y, color });
 }
 
 function buildReportFileName(sample) {
@@ -187,18 +199,18 @@ async function embedImage(pdfDoc, bytes, mimeType) {
   return pdfDoc.embedPng(pngBytes);
 }
 
-// Silhueta branca preservando o canal alpha — usada pra marca d'agua clara do
-// icone (arvore) sobre a banda verde escura do cabecalho. Pinta todo pixel
-// visivel de branco e mantem a transparencia original.
-async function makeWhiteSilhouette(bytes) {
+// Silhueta colorida preservando o canal alpha — pinta todo pixel visivel da cor
+// (r,g,b 0-255) e mantem a transparencia. Usada pra marca d'agua branca do icone
+// no cabecalho e pro logo verde no divisor do rodape.
+async function makeColoredSilhouette(bytes, r, g, b) {
   const { data, info } = await sharp(bytes)
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
   for (let i = 0; i < data.length; i += info.channels) {
-    data[i] = 255;
-    data[i + 1] = 255;
-    data[i + 2] = 255;
+    data[i] = r;
+    data[i + 1] = g;
+    data[i + 2] = b;
   }
   return sharp(data, {
     raw: { width: info.width, height: info.height, channels: info.channels },
@@ -226,11 +238,18 @@ export async function renderSamplePdf({
 
   const iconBytes = await tryReadLogoBytes(iconPath);
   let iconWhiteImage = null;
+  let iconGreenImage = null;
   if (iconBytes) {
     try {
-      iconWhiteImage = await pdfDoc.embedPng(await makeWhiteSilhouette(iconBytes));
+      iconWhiteImage = await pdfDoc.embedPng(await makeColoredSilhouette(iconBytes, 255, 255, 255));
     } catch {
       iconWhiteImage = null;
+    }
+    try {
+      // Verde da marca (headerGreen ~ rgb 25,76,43) pro logo do divisor do rodape.
+      iconGreenImage = await pdfDoc.embedPng(await makeColoredSilhouette(iconBytes, 25, 76, 43));
+    } catch {
+      iconGreenImage = null;
     }
   }
   const classificationImage = await embedImage(
@@ -252,7 +271,6 @@ export async function renderSamplePdf({
   const docGreen = rgb(0.18, 0.43, 0.31);
   const docLine = rgb(0.82, 0.84, 0.86);
   const docText = rgb(0.18, 0.22, 0.2);
-  const sectionHeaderHeight = 22;
 
   page.drawRectangle({
     x: docX,
@@ -312,15 +330,17 @@ export async function renderSamplePdf({
       logoWidth = logoMaxWidth;
     }
     page.drawImage(logoImage, {
-      x: docX + 26,
+      // Logo centralizado na metade ESQUERDA da banda.
+      x: docX + docWidth / 4 - logoWidth / 2,
       y: headerY + (headerHeight - logoHeight) / 2,
       width: logoWidth,
       height: logoHeight,
     });
   }
 
-  // Divisoria vertical entre logo e titulo.
-  const dividerX = docX + 252;
+  // Divisoria vertical no MEIO da banda: logo na metade esquerda, titulo+meta na
+  // metade direita — cada area com metade da largura.
+  const dividerX = docX + docWidth / 2;
   page.drawLine({
     start: { x: dividerX, y: headerY + 22 },
     end: { x: dividerX, y: headerY + headerHeight - 22 },
@@ -329,12 +349,13 @@ export async function renderSamplePdf({
     opacity: 0.33,
   });
 
-  // Titulo + meta (lote interno) no lado direito da banda.
-  const headerRightX = dividerX + 26;
-  const headerRightLimit = docX + docWidth - 150;
+  // Titulo + meta (lote interno) centralizados na metade DIREITA da banda.
+  const rightHalfCenter = docX + (docWidth * 3) / 4;
   const headerTitleY = headerY + headerHeight - 44;
-  page.drawText('LAUDO TÉCNICO', {
-    x: headerRightX,
+  const titleText = 'LAUDO TÉCNICO';
+  const titleW = fontBold.widthOfTextAtSize(titleText, 21);
+  page.drawText(titleText, {
+    x: rightHalfCenter - titleW / 2,
     y: headerTitleY,
     size: 21,
     font: fontBold,
@@ -342,9 +363,10 @@ export async function renderSamplePdf({
   });
 
   const headerUnderlineY = headerTitleY - 13;
+  const underlineHalf = titleW / 2 + 6;
   page.drawLine({
-    start: { x: headerRightX, y: headerUnderlineY },
-    end: { x: headerRightLimit, y: headerUnderlineY },
+    start: { x: rightHalfCenter - underlineHalf, y: headerUnderlineY },
+    end: { x: rightHalfCenter + underlineHalf, y: headerUnderlineY },
     thickness: 0.8,
     color: rgb(1, 1, 1),
     opacity: 0.45,
@@ -366,24 +388,25 @@ export async function renderSamplePdf({
   let headerMetaY = headerUnderlineY - 20;
   for (const row of headerMeta) {
     const labelText = `${row.label}: `;
+    const labelW = fontRegular.widthOfTextAtSize(labelText, 10.5);
+    const value = fitTextToWidth(
+      String(row.value ?? '-'),
+      fontBold,
+      10.5,
+      docWidth / 2 - labelW - 24
+    );
+    const valueW = fontBold.widthOfTextAtSize(value || '-', 10.5);
+    // Centraliza o conjunto label+valor na metade direita.
+    const metaStartX = rightHalfCenter - (labelW + valueW) / 2;
     page.drawText(labelText, {
-      x: headerRightX,
+      x: metaStartX,
       y: headerMetaY,
       size: 10.5,
       font: fontRegular,
       color: rgb(1, 1, 1),
     });
-    const labelW = fontRegular.widthOfTextAtSize(labelText, 10.5);
-    // O valor pode avancar sobre a marca d'agua (texto solido por cima do
-    // icone clarinho), entao usa uma margem direita maior que a da divisoria.
-    const value = fitTextToWidth(
-      String(row.value ?? '-'),
-      fontBold,
-      10.5,
-      docX + docWidth - 30 - (headerRightX + labelW)
-    );
     page.drawText(value || '-', {
-      x: headerRightX + labelW,
+      x: metaStartX + labelW,
       y: headerMetaY,
       size: 10.5,
       font: fontBold,
@@ -406,13 +429,10 @@ export async function renderSamplePdf({
     },
     { label: 'Safra', value: asValue(entryById.get('harvest')) || '-' },
     { label: 'Sacas', value: asValue(entryById.get('sacks')) || '-' },
+    // Certificado: dado de classificacao apresentado no Resumo do Lote (decisao de
+    // produto). SEMPRE presente (igual aos outros 3) — "-" quando nao registrado.
+    { label: 'Certificado', value: asValue(entryById.get('certif')) || '-' },
   ];
-  // Certificado: dado de classificacao apresentado no Resumo do Lote (decisao de
-  // produto). So aparece quando registrado (entry ja vem filtrado por excludeEmpty).
-  const certifEntry = entryById.get('certif');
-  if (certifEntry) {
-    resumoRows.push({ label: 'Certificado', value: asValue(certifEntry) || '-' });
-  }
 
   // ── Dados de Classificacao: todos os campos autorizados no laudo, exceto os
   // que ja aparecem no Resumo do Lote. Campos sem valor ja vem filtrados de
@@ -436,9 +456,10 @@ export async function renderSamplePdf({
     }
   }
 
-  // Peneiras percentuais: uma row por peneira ("P18: 5%" -> Peneira P18 | 5%).
-  // Os fundos vem na mesma string como "Fundo 13=4%" (sem numeracao, peneira+%
-  // juntos) -> row "Fundo" | "13=4%".
+  // Peneiras percentuais: uma row por peneira ("P18: 5%" -> Peneira 18 | 5%).
+  // O "P" das peneiras numeradas e removido do label (P18 -> 18); MK (Moca) fica
+  // como esta. Os fundos vem na mesma string como "Fundo 13 = 4%" (sem numeracao,
+  // peneira+% juntos) -> row "Fundo" | "13 = 4%".
   const sieveEntry = entryById.get('peneirasPercentuais');
   if (sieveEntry) {
     const parts = asValue(sieveEntry)
@@ -452,8 +473,15 @@ export async function renderSamplePdf({
       }
       const sep = part.indexOf(':');
       if (sep > 0) {
+        // Numeradas: "P18" -> "Peneira 18" (sem o "P"). Moca: "MK" -> so "MK"
+        // (sem o prefixo "Peneira").
+        const sieveKey = part
+          .slice(0, sep)
+          .trim()
+          .replace(/^P(?=\d)/, '');
+        const label = sieveKey.toUpperCase() === 'MK' ? 'MK' : `Peneira ${sieveKey}`;
         classificationRows.push({
-          label: `Peneira ${part.slice(0, sep).trim()}`,
+          label,
           value: part.slice(sep + 1).trim(),
         });
       } else {
@@ -481,262 +509,207 @@ export async function renderSamplePdf({
     classificationRows.push({ label: 'Observações', value: asValue(observacoesEntry) });
   }
 
-  const drawSection = ({
-    x,
-    topY,
-    width,
-    height,
-    title,
-    rows,
-    labelRatio = 0.46,
-    maxColumns = 1,
-    fitAll = false,
-  }) => {
-    if (height <= sectionHeaderHeight + 18) {
+  // Lista de campos SEM moldura e SEM titulo: cada campo = label + valor, com uma
+  // LINHA FINA entre eles. Se o valor nao cabe ao lado do label, o campo quebra em
+  // 2 LINHAS (label em cima, valor embaixo na largura cheia). Os campos sao
+  // distribuidos pra PREENCHER `height` (limitado a altura da foto); a fonte
+  // encolhe (piso 6.5) se ficar apertado.
+  const drawFieldList = ({ x, topY, width, height, rows, labelRatio = 0.42 }) => {
+    if (!rows.length || height <= 8) {
       return;
     }
+    const baseFont = 8.8;
+    const labelColW = Math.max(58, width * labelRatio);
+    const valueColW = width - labelColW - 4;
 
-    page.drawRectangle({
-      x,
-      y: topY - height,
-      width,
-      height,
-      borderWidth: 1,
-      borderColor: docLine,
-      color: rgb(1, 1, 1),
-    });
-    page.drawRectangle({
-      x,
-      y: topY - sectionHeaderHeight,
-      width,
-      height: sectionHeaderHeight,
-      color: docGreen,
-    });
-    page.drawText(title, {
-      x: x + 12,
-      y: topY - sectionHeaderHeight + 6.5,
-      size: 9.8,
-      font: fontBold,
-      color: rgb(1, 1, 1),
-    });
-
-    const sx = x + 12;
-    const sWidth = width - 24;
-    const rowTop = topY - sectionHeaderHeight - 12;
-    const rowBottom = topY - height + 12;
-    const avail = rowTop - rowBottom;
-
-    let fontSize = 8.8;
-    // Gap vertical moderado: parte de distribuir pra encher, mas com um teto
-    // (pra nao espalhar demais quando ha poucas linhas) e um minimo de 17pt (pra
-    // caber mais info quando necessario — o excedente vira "+N adicionais").
-    const minRowHeight = 17;
-    const maxRowHeight = 26;
-    // Densidade a partir da qual uma unica coluna deixa de ser confortavel.
-    const comfortRowHeight = 22;
-
-    // ── Layout adaptativo de colunas ──
-    // Enquanto as linhas cabem confortavelmente numa unica coluna, mantem o
-    // padrao de coluna unica. Quando passam do que cabe confortavelmente (e a
-    // secao autoriza via maxColumns), divide em 2 colunas — assim o laudo acomoda
-    // bem mais informacao sem espremer nem truncar cedo demais.
-    // fitAll: forca 1 coluna e cabe TUDO (sem "+N"); a fonte encolhe se preciso.
-    const comfortPerColumn = Math.max(1, Math.floor(avail / comfortRowHeight));
-    const columns = fitAll ? 1 : maxColumns >= 2 && rows.length > comfortPerColumn ? 2 : 1;
-
-    // Capacidade total no pitch mais denso (somando as colunas). O que exceder
-    // vira "+N linhas adicionais" — exceto em fitAll, onde tudo entra.
-    const maxPerColumn = Math.max(1, Math.floor(avail / minRowHeight));
-    let visibleRows = fitAll ? rows : rows.slice(0, Math.min(rows.length, maxPerColumn * columns));
-    let hiddenRows = rows.length - visibleRows.length;
-    // Reserva um slot pro indicador "+N" quando ha excedente (nao em fitAll).
-    if (!fitAll && hiddenRows > 0 && visibleRows.length > 1) {
-      visibleRows = visibleRows.slice(0, visibleRows.length - 1);
-      hiddenRows = rows.length - visibleRows.length;
-    }
-
-    // Slots = linhas visiveis + (eventual) indicador. Preenchimento coluna-a-
-    // coluna, SEMPRE de cima pra baixo: a coluna da esquerda recebe a primeira
-    // metade; a da direita, o restante (incluindo o indicador). Nunca a partir
-    // do meio.
-    const indicatorSlots = hiddenRows > 0 ? 1 : 0;
-    const totalSlots = visibleRows.length + indicatorSlots;
-    const leftCount = columns === 2 ? Math.ceil(totalSlots / 2) : totalSlots;
-    const rightCount = totalSlots - leftCount;
-
-    // Pitch compartilhado pelas duas colunas (parte da coluna mais cheia), preso
-    // ao topo: a sobra, quando ha poucas linhas, fica embaixo.
-    const bands = Math.max(leftCount, rightCount, 1);
-    const step = Math.min(maxRowHeight, avail / bands);
-    // fitAll: se o pitch ficou apertado, reduz a fonte proporcionalmente (piso
-    // legivel 6.8) pra todas as linhas caberem sem espremer o texto.
-    if (fitAll && step < 15) {
-      fontSize = Math.max(6.8, 8.8 * (step / 15));
-    }
-
-    const colGap = 18;
-    const colWidth = columns === 2 ? (sWidth - colGap) / 2 : sWidth;
-    const labelColumnWidth = Math.max(64, colWidth * labelRatio);
-
-    // Resolve em qual coluna/linha cada slot cai (e quantas linhas tem a coluna,
-    // pra saber onde NAO desenhar separador).
-    const placeSlot = (slot) =>
-      columns === 2 && slot >= leftCount
-        ? { cellX: sx + colWidth + colGap, rowIndex: slot - leftCount, colCount: rightCount }
-        : { cellX: sx, rowIndex: slot, colCount: leftCount };
-
-    for (let slot = 0; slot < visibleRows.length; slot += 1) {
-      const row = visibleRows[slot];
-      const { cellX, rowIndex, colCount } = placeSlot(slot);
-      const baselineY = rowTop - (rowIndex + 0.5) * step - 3;
-      const label = fitTextToWidth(row.label, fontBold, fontSize, labelColumnWidth - 6);
-      const value = fitTextToWidth(
-        row.value,
-        fontRegular,
-        fontSize,
-        colWidth - labelColumnWidth - 2
+    // 2 linhas quando o valor nao cabe ao lado do label (na largura da coluna).
+    const lineCountAt = (size) =>
+      rows.map((r) =>
+        fontRegular.widthOfTextAtSize(String(r.value ?? ''), size) > valueColW ? 2 : 1
       );
 
-      page.drawText(label, {
-        x: cellX,
-        y: baselineY,
-        size: fontSize,
-        font: fontBold,
-        color: rgb(0.25, 0.29, 0.26),
-      });
-      page.drawText(value || '-', {
-        x: cellX + labelColumnWidth,
-        y: baselineY,
-        size: fontSize,
-        font: fontRegular,
-        color: docText,
-      });
+    let fontSize = baseFont;
+    let totalLines = lineCountAt(fontSize).reduce((a, b) => a + b, 0);
+    let lineSpace = height / totalLines;
+    if (lineSpace < 12) {
+      fontSize = Math.max(6.5, baseFont * (lineSpace / 12));
+    }
+    const lineCounts = lineCountAt(fontSize);
+    totalLines = lineCounts.reduce((a, b) => a + b, 0);
+    lineSpace = height / totalLines;
 
-      // Separador abaixo da linha, exceto na ultima linha da coluna.
-      if (rowIndex < colCount - 1) {
-        const sepY = rowTop - (rowIndex + 1) * step;
+    const labelColor = rgb(0.25, 0.29, 0.26);
+    let cursor = topY;
+    rows.forEach((row, i) => {
+      const lines = lineCounts[i];
+      const blockH = lines * lineSpace;
+      const label = fitTextToWidth(row.label, fontBold, fontSize, labelColW - 4);
+      if (lines === 1) {
+        const baseY = cursor - blockH / 2 - fontSize * 0.34;
+        page.drawText(label, { x, y: baseY, size: fontSize, font: fontBold, color: labelColor });
+        const value = fitTextToWidth(String(row.value ?? '-'), fontRegular, fontSize, valueColW);
+        page.drawText(value || '-', {
+          x: x + labelColW,
+          y: baseY,
+          size: fontSize,
+          font: fontRegular,
+          color: docText,
+        });
+      } else {
+        const labelY = cursor - lineSpace / 2 - fontSize * 0.34;
+        page.drawText(label, { x, y: labelY, size: fontSize, font: fontBold, color: labelColor });
+        const valueY = cursor - 1.5 * lineSpace - fontSize * 0.34;
+        const value = fitTextToWidth(String(row.value ?? '-'), fontRegular, fontSize, width);
+        page.drawText(value || '-', {
+          x,
+          y: valueY,
+          size: fontSize,
+          font: fontRegular,
+          color: docText,
+        });
+      }
+      cursor -= blockH;
+      // Linha fina entre campos (nao depois do ultimo).
+      if (i < rows.length - 1) {
         page.drawLine({
-          start: { x: cellX, y: sepY },
-          end: { x: cellX + colWidth, y: sepY },
-          thickness: 0.7,
+          start: { x, y: cursor },
+          end: { x: x + width, y: cursor },
+          thickness: 0.5,
           color: rgb(0.9, 0.91, 0.92),
         });
       }
-    }
-
-    if (hiddenRows > 0) {
-      const { cellX, rowIndex } = placeSlot(totalSlots - 1);
-      page.drawText(`+${hiddenRows} linhas adicionais`, {
-        x: cellX,
-        y: rowTop - (rowIndex + 0.5) * step - 3,
-        size: 8.2,
-        font: fontRegular,
-        color: rgb(0.45, 0.47, 0.44),
-      });
-    }
+    });
   };
 
   const contentX = docX + 24;
   const contentWidth = docWidth - 48;
   const blockGap = 14;
-  const footerAreaHeight = 77; // rodape (-20% do pico de 96)
+  // Rodape mais alto pra acomodar as ondas verdes na borda inferior.
+  const footerAreaHeight = 116;
+  const footerLineY = docBottom + footerAreaHeight - 12; // linha fina acima do rodape
 
-  const contentTop = headerY - 22;
-  const contentBottom = docBottom + footerAreaHeight;
-
-  // ── Duas colunas (redesign 2026-06-24) ──
-  // ESQUERDA: Resumo do Lote (topo, compacto) + Foto da Classificacao (abaixo).
-  // DIREITA: Dados de Classificacao em 1 coluna, ocupando a altura toda.
-  // Objetivo: aproveitar melhor o espaco — Resumo baixo + foto grande na esquerda;
-  // Dados empilhados na direita sem dividir em 2 colunas. Colunas ~50/50.
+  // ── Geometria das 2 colunas + foto (tamanho FIXO) ──
   const leftW = (contentWidth - blockGap) / 2;
   const rightW = contentWidth - leftW - blockGap;
   const rightX = contentX + leftW + blockGap;
 
-  // Resumo compacto: altura pelo numero de linhas (header + padding + ~24pt/linha).
-  const resumoHeight = sectionHeaderHeight + 24 + resumoRows.length * 24;
-  drawSection({
-    x: contentX,
-    topY: contentTop,
-    width: leftW,
-    height: resumoHeight,
-    title: 'Resumo do Lote',
-    rows: resumoRows,
-    labelRatio: 0.52,
+  const photoTitleSpace = 20;
+  // Foto SEMPRE vertical (retrato): caixa de tamanho FIXO 3:4 (largura da coluna x
+  // 4/3) — nao varia com a foto. A imagem e CONTIDA (sem corte) mais abaixo.
+  const PHOTO_BOX_ASPECT = 3 / 4; // largura/altura (retrato)
+  const imgBoxW = leftW;
+  const imgBoxH = imgBoxW / PHOTO_BOX_ASPECT;
+
+  // Gap (igual) acima do Resumo (header->Resumo) e entre o Resumo e a Foto/Dados.
+  // Menor que antes pra SUBIR os campos; o espaco que sobra fica embaixo (rodape
+  // com ondas). gap2 (Resumo->Foto/Dados) = gap1 (mesma proporcao). O conteudo
+  // fica ancorado no topo (logo abaixo do header).
+  const resumoBandH = 42;
+  const topGap = 40;
+
+  // ── Resumo do Lote: FAIXA horizontal de largura cheia, SEM moldura ──
+  // Os N campos (3 ou 4, conforme tenha Certificado) ficam em colunas iguais
+  // cobrindo toda a largura — label (verde, uppercase) sobre o valor (escuro),
+  // centralizados, com separadores verticais sutis entre os campos.
+  const resumoBandTop = headerY - topGap;
+  const resumoCount = Math.max(resumoRows.length, 1);
+  const resumoCellW = contentWidth / resumoCount;
+  resumoRows.forEach((row, i) => {
+    const cellX = contentX + i * resumoCellW;
+    const center = cellX + resumoCellW / 2;
+    const labelText = row.label.toUpperCase();
+    const labelW = fontBold.widthOfTextAtSize(labelText, 7.5);
+    page.drawText(labelText, {
+      x: center - labelW / 2,
+      y: resumoBandTop - 11,
+      size: 7.5,
+      font: fontBold,
+      color: docGreen,
+    });
+    const valueText = fitTextToWidth(row.value, fontBold, 11, resumoCellW - 14);
+    const valueW = fontBold.widthOfTextAtSize(valueText, 11);
+    page.drawText(valueText || '-', {
+      x: center - valueW / 2,
+      y: resumoBandTop - 29,
+      size: 11,
+      font: fontBold,
+      color: docText,
+    });
+    // Separador vertical entre campos (nao antes do 1o). Nao e moldura.
+    if (i > 0) {
+      page.drawLine({
+        start: { x: cellX, y: resumoBandTop - 4 },
+        end: { x: cellX, y: resumoBandTop - resumoBandH + 4 },
+        thickness: 0.6,
+        color: docLine,
+      });
+    }
   });
 
-  // Foto abaixo do Resumo, na largura da coluna esquerda. Caixa SEMPRE na proporcao
-  // da imagem (sem corte): parte da largura cheia; se a altura estourar o espaco
-  // disponivel, limita pela altura (retrato extremo) e centraliza na horizontal.
-  const photoTitleSpace = 20;
-  const imgAspect =
-    classificationImage.height > 0 ? classificationImage.width / classificationImage.height : 0.75;
-  const photoBlockTop = contentTop - resumoHeight - blockGap;
-  const availImgH = photoBlockTop - photoTitleSpace - contentBottom;
-  let imgBoxW = leftW;
-  let imgBoxH = imgBoxW / imgAspect;
-  if (imgBoxH > availImgH) {
-    imgBoxH = availImgH;
-    imgBoxW = imgBoxH * imgAspect;
-  }
+  // ── Linha abaixo do Resumo: Foto (esq) + Dados de Classificacao (dir) ──
+  // Mesma altura; topGap acima (= gap header->Resumo). A foto e CONTIDA na caixa
+  // fixa 3:4, sem corte. O espaco que sobra fica embaixo (rodape com ondas).
+  const rowTop = resumoBandTop - resumoBandH - topGap;
   const imgX = contentX + (leftW - imgBoxW) / 2;
 
   page.drawText('Foto da Classificação', {
     x: contentX + 2,
-    y: photoBlockTop - 13,
+    y: rowTop - 13,
     size: 9.8,
     font: fontBold,
     color: docGreen,
   });
   page.drawLine({
-    start: { x: contentX + 2, y: photoBlockTop - 16.5 },
-    end: { x: contentX + leftW - 2, y: photoBlockTop - 16.5 },
+    start: { x: contentX + 2, y: rowTop - 16.5 },
+    end: { x: contentX + leftW - 2, y: rowTop - 16.5 },
     thickness: 0.8,
     color: rgb(0.86, 0.89, 0.88),
   });
 
-  const imgBoxY = photoBlockTop - photoTitleSpace - imgBoxH;
-  drawImageCover(page, classificationImage, {
+  const imgBoxY = rowTop - photoTitleSpace - imgBoxH;
+  const drawnImg = drawImageContain(page, classificationImage, {
     x: imgX,
     y: imgBoxY,
     width: imgBoxW,
     height: imgBoxH,
   });
+  // Borda MUITO FINA, na imagem efetivamente desenhada (nao na caixa) — assim nao
+  // sobra espaco vazio dentro da moldura quando a foto nao for exatamente 3:4.
   page.drawRectangle({
-    x: imgX,
-    y: imgBoxY,
-    width: imgBoxW,
-    height: imgBoxH,
-    borderWidth: 1,
+    x: drawnImg.x,
+    y: drawnImg.y,
+    width: drawnImg.width,
+    height: drawnImg.height,
+    borderWidth: 0.5,
     borderColor: docLine,
   });
 
-  // ── Dados de Classificacao: coluna DIREITA, altura toda, 1 coluna (cabe tudo) ──
+  // Dados de Classificacao: coluna DIREITA, SEM moldura e SEM titulo, alinhado e
+  // LIMITADO a altura da foto (mesmo topo e base da imagem). Lista de campos com
+  // linha fina entre eles; valor que nao cabe ao lado do label quebra em 2 linhas.
   if (classificationRows.length > 0) {
-    drawSection({
+    drawFieldList({
       x: rightX,
-      topY: contentTop,
+      topY: rowTop - photoTitleSpace,
       width: rightW,
-      height: contentTop - contentBottom,
-      title: 'Dados de Classificação',
+      height: imgBoxH,
       rows: classificationRows,
       labelRatio: 0.42,
-      fitAll: true,
     });
   }
 
-  // ── Rodape (area ~50% maior, preenchida) ──
+  // ── Rodape: linha + textos (mais pra cima) + ONDAS VERDES na borda inferior ──
   const footerYear = new Date(issuedAtIso).getUTCFullYear();
   page.drawLine({
-    start: { x: lineLeft, y: docBottom + footerAreaHeight - 12 },
-    end: { x: lineRight, y: docBottom + footerAreaHeight - 12 },
+    start: { x: lineLeft, y: footerLineY },
+    end: { x: lineRight, y: footerLineY },
     thickness: 1,
     color: docLine,
   });
   const footerMain = `© ${footerYear} Safras & Negócios. Todos os direitos reservados.`;
   page.drawText(footerMain, {
     x: docX + (docWidth - fontBold.widthOfTextAtSize(footerMain, 8.5)) / 2,
-    y: docBottom + 48,
+    y: docBottom + 92,
     size: 8.5,
     font: fontBold,
     color: rgb(0.33, 0.37, 0.35),
@@ -744,7 +717,7 @@ export async function renderSamplePdf({
   const footerCityPhone = `${COMPANY_INFO.cityUf}   ·   ${COMPANY_INFO.phone}`;
   page.drawText(footerCityPhone, {
     x: docX + (docWidth - fontRegular.widthOfTextAtSize(footerCityPhone, 8)) / 2,
-    y: docBottom + 34,
+    y: docBottom + 76,
     size: 8,
     font: fontRegular,
     color: rgb(0.45, 0.48, 0.45),
@@ -753,10 +726,43 @@ export async function renderSamplePdf({
     fitTextToWidth(COMPANY_INFO.address, fontRegular, 8, docWidth - 80) || COMPANY_INFO.address;
   page.drawText(footerAddr, {
     x: docX + (docWidth - fontRegular.widthOfTextAtSize(footerAddr, 8)) / 2,
-    y: docBottom + 20,
+    y: docBottom + 62,
     size: 8,
     font: fontRegular,
     color: rgb(0.45, 0.48, 0.45),
+  });
+
+  // ── Divisor do rodape: linha verde AFILADA (some na borda, mais grossa perto
+  // do centro) com o LOGO da Safras no meio. Centralizado entre os textos do
+  // rodape e a borda inferior. As duas linhas nao se tocam (logo no meio) nem
+  // encostam no logo (gap). ──
+  const dividerY = docBottom + 30;
+  const dividerCenter = docX + docWidth / 2;
+  const logoGap = 11;
+  let logoFooterW = 0;
+  if (iconGreenImage) {
+    const logoFooterH = 24;
+    logoFooterW = (iconGreenImage.width / iconGreenImage.height) * logoFooterH;
+    page.drawImage(iconGreenImage, {
+      x: dividerCenter - logoFooterW / 2,
+      y: dividerY - logoFooterH / 2,
+      width: logoFooterW,
+      height: logoFooterH,
+    });
+  }
+  drawTaperedSegment(page, {
+    pointX: lineLeft,
+    thickX: dividerCenter - logoFooterW / 2 - logoGap,
+    y: dividerY,
+    maxThickness: 2.6,
+    color: headerGreen,
+  });
+  drawTaperedSegment(page, {
+    pointX: lineRight,
+    thickX: dividerCenter + logoFooterW / 2 + logoGap,
+    y: dividerY,
+    maxThickness: 2.6,
+    color: headerGreen,
   });
 
   const bytes = await pdfDoc.save();
