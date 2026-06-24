@@ -2343,6 +2343,22 @@ export default function SampleDetailPage() {
                       classifiersArr && classifiersArr.length > 1
                         ? 'Classificadores'
                         : 'Classificador';
+                    // Versao "primeiro nome" pro card desktop (bloco mini, estreito):
+                    // so o 1o nome de cada classificador, evitando corte de nomes
+                    // longos. Resumo mobile e modal de edicao seguem com nome completo.
+                    const firstNameOf = (full: string) => full.trim().split(/\s+/)[0] ?? '';
+                    const classificadorShort = classifiersArr
+                      ? classifiersArr
+                          .map((c) =>
+                            c && typeof c === 'object' && 'fullName' in c
+                              ? firstNameOf(String((c as { fullName: unknown }).fullName))
+                              : ''
+                          )
+                          .filter(Boolean)
+                          .join(', ') || '—'
+                      : cd && typeof cd.classificador === 'string' && cd.classificador.trim()
+                        ? firstNameOf(cd.classificador)
+                        : '—';
 
                     const isClassified = detail.sample.status === 'CLASSIFIED';
                     const canClassifyNow = detail.sample.status === 'REGISTRATION_CONFIRMED';
@@ -2461,22 +2477,28 @@ export default function SampleDetailPage() {
                     const clsDesktopNode = (
                       <div className="sdv-cls-desktop">
                         {clsPhotoNode}
-                        <div className="sdv-cls-statbox">
-                          <div className="sdv-cls-statbox-row sdv-cls-statbox-row--3">
-                            {clsField('Aspecto', cd ? toText(cd.aspecto) : '')}
-                            {clsField('Catação', cd ? toText(cd.catacao) : '')}
-                            {clsField('Padrão', cd ? toText(cd.padrao) : '')}
+                        <div className="sdv-cls-statwrap">
+                          <div className="sdv-cls-statbox sdv-cls-statbox--mini">
+                            <div className="sdv-cls-statbox-row sdv-cls-statbox-row--1">
+                              {clsField(
+                                'Data',
+                                cd ? fmtClsDate(toDateInput(cd.dataClassificacao)) : ''
+                              )}
+                            </div>
+                            <div className="sdv-cls-statbox-row sdv-cls-statbox-row--1">
+                              {clsField(classificadorLabel, classificadorShort)}
+                            </div>
                           </div>
-                          <div className="sdv-cls-statbox-row sdv-cls-statbox-row--2">
-                            {clsField(classificadorLabel, classificador)}
-                            {clsField('Certificação', cd ? toText(cd.certif) : '')}
-                          </div>
-                          <div className="sdv-cls-statbox-row sdv-cls-statbox-row--2">
-                            {clsField(
-                              'Data',
-                              cd ? fmtClsDate(toDateInput(cd.dataClassificacao)) : ''
-                            )}
-                            {clsField('Bebida', cd ? toText(cd.bebida) : '')}
+                          <div className="sdv-cls-statbox sdv-cls-statbox--main">
+                            <div className="sdv-cls-statbox-row sdv-cls-statbox-row--3">
+                              {clsField('Aspecto', cd ? toText(cd.aspecto) : '')}
+                              {clsField('Catação', cd ? toText(cd.catacao) : '')}
+                              {clsField('Padrão', cd ? toText(cd.padrao) : '')}
+                            </div>
+                            <div className="sdv-cls-statbox-row sdv-cls-statbox-row--2">
+                              {clsField('Certificação', cd ? toText(cd.certif) : '')}
+                              {clsField('Bebida', cd ? toText(cd.bebida) : '')}
+                            </div>
                           </div>
                         </div>
                         <div className="sdv-cls-blk sdv-cls-blk--peneiras">

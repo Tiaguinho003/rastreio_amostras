@@ -28787,17 +28787,34 @@ select.samples-filter-field-input {
     cursor: pointer;
   }
 
-  /* Bloco de stats (sem titulo): 3 linhas separadas por divisorias, distribuidas
-     pra acompanhar a altura da foto. L1 = Aspecto/Catacao/Padrao (3col,
-     centralizado, headline); L2 = Classificador/Certificacao; L3 = Data/Bebida. */
-  .sdv-page--sample .sdv-cls-statbox {
+  /* Area de stats (topo-direita, grid-area:stats) = DOIS blocos empilhados:
+     - MINI (cima): Data + Classificador, fonte reduzida, as 2 linhas somando ~1
+       linha normal (flex:1);
+     - MAIN (baixo): Aspecto/Catacao/Padrao (3col headline) + Certificacao/Bebida
+       (2col), linhas de tamanho padrao (flex:2 = 2 linhas normais). */
+  .sdv-page--sample .sdv-cls-statwrap {
     grid-area: stats;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(8px, 1.4vw, 12px);
+  }
+  .sdv-page--sample .sdv-cls-statbox {
     min-height: 0;
     display: flex;
     flex-direction: column;
     border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 12px;
     padding: clamp(4px, 1vw, 8px) clamp(10px, 1.8vw, 14px);
+  }
+  /* Bloco mini = 1 unidade (1 linha normal); bloco main = 2 unidades. */
+  .sdv-page--sample .sdv-cls-statbox--mini {
+    flex: 1;
+    padding-top: clamp(2px, 0.6vw, 4px);
+    padding-bottom: clamp(2px, 0.6vw, 4px);
+  }
+  .sdv-page--sample .sdv-cls-statbox--main {
+    flex: 2;
   }
   .sdv-page--sample .sdv-cls-statbox-row {
     flex: 1;
@@ -28806,19 +28823,36 @@ select.samples-filter-field-input {
     align-content: center;
     gap: 2px clamp(8px, 1.6vw, 14px);
     padding: clamp(3px, 0.9vw, 6px) 0;
+    /* Nome e valor centralizados em TODAS as linhas de stats: o valor cresce do
+       meio pras bordas (e trunca com ellipsis se estourar a celula). */
+    text-align: center;
   }
   .sdv-page--sample .sdv-cls-statbox-row + .sdv-cls-statbox-row {
     border-top: 1px solid rgba(0, 0, 0, 0.07);
   }
-  .sdv-page--sample .sdv-cls-statbox-row--3 {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    text-align: center;
+  .sdv-page--sample .sdv-cls-statbox-row--1 {
+    grid-template-columns: minmax(0, 1fr);
   }
   .sdv-page--sample .sdv-cls-statbox-row--2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .sdv-page--sample .sdv-cls-statbox-row--3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
   .sdv-page--sample .sdv-cls-statbox-row--3 .sdv-info-value {
     font-size: clamp(15px, 1.9vw, 18px);
+  }
+  /* Mini (Data/Classificador): fonte reduzida + linhas apertadas pra as 2 caberem
+     na altura de 1 linha normal. */
+  .sdv-page--sample .sdv-cls-statbox--mini .sdv-cls-statbox-row {
+    padding: clamp(1px, 0.4vw, 3px) 0;
+  }
+  .sdv-page--sample .sdv-cls-statbox--mini .sdv-info-label {
+    font-size: clamp(7.5px, 1vw, 8.5px);
+    margin-bottom: 0;
+  }
+  .sdv-page--sample .sdv-cls-statbox--mini .sdv-info-value {
+    font-size: clamp(10px, 1.3vw, 12px);
   }
 
   /* Blocos nomeados (Peneiras / Fundos e defeitos / Observacoes): moldura +
