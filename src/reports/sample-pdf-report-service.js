@@ -490,6 +490,7 @@ export async function renderSamplePdf({
     rows,
     labelRatio = 0.46,
     maxColumns = 1,
+    fitAll = false,
   }) => {
     if (height <= sectionHeaderHeight + 18) {
       return;
@@ -525,7 +526,7 @@ export async function renderSamplePdf({
     const rowBottom = topY - height + 12;
     const avail = rowTop - rowBottom;
 
-    const fontSize = 8.8;
+    let fontSize = 8.8;
     // Gap vertical moderado: parte de distribuir pra encher, mas com um teto
     // (pra nao espalhar demais quando ha poucas linhas) e um minimo de 17pt (pra
     // caber mais info quando necessario — o excedente vira "+N adicionais").
@@ -539,16 +540,17 @@ export async function renderSamplePdf({
     // padrao de coluna unica. Quando passam do que cabe confortavelmente (e a
     // secao autoriza via maxColumns), divide em 2 colunas — assim o laudo acomoda
     // bem mais informacao sem espremer nem truncar cedo demais.
+    // fitAll: forca 1 coluna e cabe TUDO (sem "+N"); a fonte encolhe se preciso.
     const comfortPerColumn = Math.max(1, Math.floor(avail / comfortRowHeight));
-    const columns = maxColumns >= 2 && rows.length > comfortPerColumn ? 2 : 1;
+    const columns = fitAll ? 1 : maxColumns >= 2 && rows.length > comfortPerColumn ? 2 : 1;
 
     // Capacidade total no pitch mais denso (somando as colunas). O que exceder
-    // vira "+N linhas adicionais".
+    // vira "+N linhas adicionais" — exceto em fitAll, onde tudo entra.
     const maxPerColumn = Math.max(1, Math.floor(avail / minRowHeight));
-    let visibleRows = rows.slice(0, Math.min(rows.length, maxPerColumn * columns));
+    let visibleRows = fitAll ? rows : rows.slice(0, Math.min(rows.length, maxPerColumn * columns));
     let hiddenRows = rows.length - visibleRows.length;
-    // Reserva um slot pro indicador "+N" quando ha excedente.
-    if (hiddenRows > 0 && visibleRows.length > 1) {
+    // Reserva um slot pro indicador "+N" quando ha excedente (nao em fitAll).
+    if (!fitAll && hiddenRows > 0 && visibleRows.length > 1) {
       visibleRows = visibleRows.slice(0, visibleRows.length - 1);
       hiddenRows = rows.length - visibleRows.length;
     }
@@ -566,6 +568,11 @@ export async function renderSamplePdf({
     // ao topo: a sobra, quando ha poucas linhas, fica embaixo.
     const bands = Math.max(leftCount, rightCount, 1);
     const step = Math.min(maxRowHeight, avail / bands);
+    // fitAll: se o pitch ficou apertado, reduz a fonte proporcionalmente (piso
+    // legivel 6.8) pra todas as linhas caberem sem espremer o texto.
+    if (fitAll && step < 15) {
+      fontSize = Math.max(6.8, 8.8 * (step / 15));
+    }
 
     const colGap = 18;
     const colWidth = columns === 2 ? (sWidth - colGap) / 2 : sWidth;
@@ -636,62 +643,67 @@ export async function renderSamplePdf({
 
   const contentTop = headerY - 22;
   const contentBottom = docBottom + footerAreaHeight;
-  const contentHeight = contentTop - contentBottom;
 
-  // ── Linha superior: Resumo do Lote (esq, mais largo) + Foto (dir, retrato) ──
-  // A caixa da foto respeita a proporcao real da imagem (foto de celular na
-  // vertical): mais alta e mais fina, sem barras. O Resumo ocupa a largura que
-  // sobra (mais larga), com os valores afastados dos rotulos (labelRatio).
-  const photoTitleSpace = 20;
-  const imgAspect =
-    classificationImage.height > 0 ? classificationImage.width / classificationImage.height : 0.75;
-  const photoMaxImgW = Math.round(contentWidth * 0.46);
-  const photoMaxImgH = Math.min(360, contentHeight - 170);
-  let imgBoxH = photoMaxImgH;
-  let imgBoxW = imgBoxH * imgAspect;
-  if (imgBoxW > photoMaxImgW) {
-    imgBoxW = photoMaxImgW;
-    imgBoxH = imgBoxW / imgAspect;
-  }
-  const topRowHeight = imgBoxH + photoTitleSpace;
-  const resumoWidth = contentWidth - imgBoxW - blockGap;
-  const photoX = contentX + resumoWidth + blockGap;
+  // ── Duas colunas (redesign 2026-06-24) ──
+  // ESQUERDA: Resumo do Lote (topo, compacto) + Foto da Classificacao (abaixo).
+  // DIREITA: Dados de Classificacao em 1 coluna, ocupando a altura toda.
+  // Objetivo: aproveitar melhor o espaco — Resumo baixo + foto grande na esquerda;
+  // Dados empilhados na direita sem dividir em 2 colunas. Colunas ~50/50.
+  const leftW = (contentWidth - blockGap) / 2;
+  const rightW = contentWidth - leftW - blockGap;
+  const rightX = contentX + leftW + blockGap;
 
-  let cursorTop = contentTop;
-
+  // Resumo compacto: altura pelo numero de linhas (header + padding + ~24pt/linha).
+  const resumoHeight = sectionHeaderHeight + 24 + resumoRows.length * 24;
   drawSection({
     x: contentX,
-    topY: cursorTop,
-    width: resumoWidth,
-    height: topRowHeight,
+    topY: contentTop,
+    width: leftW,
+    height: resumoHeight,
     title: 'Resumo do Lote',
     rows: resumoRows,
     labelRatio: 0.52,
   });
 
+  // Foto abaixo do Resumo, na largura da coluna esquerda. Caixa SEMPRE na proporcao
+  // da imagem (sem corte): parte da largura cheia; se a altura estourar o espaco
+  // disponivel, limita pela altura (retrato extremo) e centraliza na horizontal.
+  const photoTitleSpace = 20;
+  const imgAspect =
+    classificationImage.height > 0 ? classificationImage.width / classificationImage.height : 0.75;
+  const photoBlockTop = contentTop - resumoHeight - blockGap;
+  const availImgH = photoBlockTop - photoTitleSpace - contentBottom;
+  let imgBoxW = leftW;
+  let imgBoxH = imgBoxW / imgAspect;
+  if (imgBoxH > availImgH) {
+    imgBoxH = availImgH;
+    imgBoxW = imgBoxH * imgAspect;
+  }
+  const imgX = contentX + (leftW - imgBoxW) / 2;
+
   page.drawText('Foto da Classificação', {
-    x: photoX + 2,
-    y: cursorTop - 13,
+    x: contentX + 2,
+    y: photoBlockTop - 13,
     size: 9.8,
     font: fontBold,
     color: docGreen,
   });
   page.drawLine({
-    start: { x: photoX + 2, y: cursorTop - 16.5 },
-    end: { x: photoX + imgBoxW - 2, y: cursorTop - 16.5 },
+    start: { x: contentX + 2, y: photoBlockTop - 16.5 },
+    end: { x: contentX + leftW - 2, y: photoBlockTop - 16.5 },
     thickness: 0.8,
     color: rgb(0.86, 0.89, 0.88),
   });
 
-  const imgBoxY = cursorTop - topRowHeight;
+  const imgBoxY = photoBlockTop - photoTitleSpace - imgBoxH;
   drawImageCover(page, classificationImage, {
-    x: photoX,
+    x: imgX,
     y: imgBoxY,
     width: imgBoxW,
     height: imgBoxH,
   });
   page.drawRectangle({
-    x: photoX,
+    x: imgX,
     y: imgBoxY,
     width: imgBoxW,
     height: imgBoxH,
@@ -699,21 +711,17 @@ export async function renderSamplePdf({
     borderColor: docLine,
   });
 
-  cursorTop -= topRowHeight;
-
-  // ── Dados de Classificacao: largura total, ocupando ate o rodape ──
+  // ── Dados de Classificacao: coluna DIREITA, altura toda, 1 coluna (cabe tudo) ──
   if (classificationRows.length > 0) {
-    cursorTop -= blockGap;
-    const classHeight = cursorTop - contentBottom;
     drawSection({
-      x: contentX,
-      topY: cursorTop,
-      width: contentWidth,
-      height: classHeight,
+      x: rightX,
+      topY: contentTop,
+      width: rightW,
+      height: contentTop - contentBottom,
       title: 'Dados de Classificação',
       rows: classificationRows,
       labelRatio: 0.42,
-      maxColumns: 2,
+      fitAll: true,
     });
   }
 
