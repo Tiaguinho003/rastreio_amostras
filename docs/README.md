@@ -50,6 +50,8 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
    Uso: catalogo e processo de registro das notificacoes Web Push — fichas das notificacoes existentes (agendadas e por evento), template para novas ideias e ciclo Ideia -> Construida -> Validada.
 7. `docs/Fechamento-Plano-de-Trabalho.md`
    Uso: organizacao, analise, decisoes e execucao da feature de Fechamento (nota/contrato de venda gerado em PDF apos a venda). Status: Em construcao (planejamento).
+8. `docs/Revisao-Pagina-Lotes-Plano-de-Trabalho.md`
+   Uso: plano faseado da revisao da pagina de Lotes (lista /samples) — catalogo dos 29 achados (bugs, gargalos, dados, a11y, codigo morto), decisoes, status por fase e protocolo de verificacao. Status: Fase 1 concluida (commit 57dc023), fases 2-6 pendentes.
 
 ## Relatorios da reorganizacao
 
