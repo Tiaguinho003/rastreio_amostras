@@ -72,7 +72,7 @@ export function VisitReportFormSheet({
         ariaLabel="Nova visita"
         dragToDismiss
         dragDisabled={confirmDiscardOpen}
-        className="is-informe"
+        className="is-informe is-prospector-visit"
       >
         <VisitReportForm
           session={session}

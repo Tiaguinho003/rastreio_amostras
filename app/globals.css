@@ -8200,6 +8200,24 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   pointer-events: none;
 }
 
+/* Perfil (/profile): no PROSPECTOR a esquerda e um back REAL (a.nsv2-back), nao
+   o spacer <span> dos demais papeis, entao a regra acima nao centraliza — o
+   titulo ficava deslocado pra esquerda (back ~44px vs menu da conta ~56px).
+   Centraliza de verdade tambem com o <a>, escopado a .stg-header (so /profile;
+   paginas de detalhe com back <a> nao batem). space-between segura o back na
+   esquerda e o menu da conta na direita com o titulo fora do fluxo. */
+.sdv-header.stg-header .sdv-header-top:has(> a.nsv2-back) {
+  position: relative;
+  justify-content: space-between;
+}
+.sdv-header.stg-header .sdv-header-top:has(> a.nsv2-back) .sdv-header-title {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
 .sdv-identity-card {
   display: flex;
   align-items: center;
@@ -10053,6 +10071,14 @@ body:has(.app-modal-backdrop) .prospector-fab {
 
 .bottom-sheet.is-informe .inf-submit {
   margin-top: clamp(6px, 2vw, 10px);
+}
+
+/* "Nova visita" do PROSPECTOR em BRANCO (padrao do app), em vez do creme do
+   .bottom-sheet base (--brand-cream-soft). Escopado a .is-prospector-visit pra
+   NAO afetar a visita do COMERCIAL, que compartilha .is-informe. Header e
+   inf-card sao transparentes (herdam o fundo), entao so o sheet precisa mudar. */
+.bottom-sheet.is-prospector-visit {
+  background: #ffffff;
 }
 
 /* Placeholder da pagina /informe (formularios por papel em construcao). */
