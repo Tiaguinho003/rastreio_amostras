@@ -183,13 +183,13 @@ automática vs. manual, obrigatório/opcional, validação) e checar se **falta 
 **P2** e guia o **formulário** (modal de Venda, D9) e o **layout do PDF** (Fase C). O comportamento de
 cada campo é anotado conforme revisamos.
 
-### B1 — Identificação do contrato
-- **Número do Contrato** — auto, sequencial `NNNN/AA`, não editável (D15)
-- **Status do Contrato** — manual, `EM_ABERTO/CONFIRMADO/FATURADO/PAGO` (D14)
-- **Data do Contrato** — ≈ `movementDate` _(auto/editável? — conferir)_
-- **Número de Compra** — manual, livre (D16)
-- **Número do Lote** — `internalLotNumber` (auto)
-- _(Mês/Ano — derivados da data; imprimir?)_
+### B1 — Identificação do contrato ✅ revisado
+- **Número do Contrato** — auto, sequencial `NNNN/AA`, gerado ao salvar, não editável (D15)
+- **Status do Contrato** — manual, default `EM_ABERTO`; `EM_ABERTO/CONFIRMADO/FATURADO/PAGO` (D14). _(à vista/futuro NÃO é status → é Modalidade, B8.)_
+- **Data do Contrato** — default = data da venda (`movementDate`), **editável**
+- **Número de Compra** — manual, livre, **opcional** (D16)
+- **Número do Lote** — `internalLotNumber` da amostra (auto, não editável)
+- ~~Mês/Ano~~ — **removidos**: deriváveis da data (formatar no PDF; derivar em filtros/relatórios)
 
 ### B2 — Comprador
 - **Comprador** — Cliente da venda (D12), snapshot. Campos do snapshot a imprimir/usar: nome/razão,
@@ -221,7 +221,7 @@ cada campo é anotado conforme revisamos.
 ### B8 — Pagamento & logística
 - **Condição de Pagamento** — lista mista (D20)
 - **Forma de Pagamento** — lista mista (D20)
-- **Modalidade** — lista mista (D20)
+- **Modalidade** — lista mista (D20); é o "tipo de operação". Valores (ex.): **retirar, posto, disponível, posto/futuro** _(confirmar lista completa em B8)_
 - **Sacaria** — lista mista (D20)
 - **Data de Faturamento** — data
 - **Data de Pagamento** — data
@@ -361,3 +361,13 @@ cada campo é anotado conforme revisamos.
   Observações, Assinaturas) — seção **"Blocos do Fechamento"**. Estrutura a **P2** e guiará o formulário
   (D9) e o PDF (Fase C). (Os PDFs `formularios-campos.pdf`/`laudo-preview.pdf` são de outro agente.)
 - **Próximo**: revisar **bloco a bloco, campo a campo** — comportamento de cada campo + campos faltantes.
+
+### 2026-06-24 — Sessão 16 (revisão B1 + status vs tipo)
+
+- **B1 revisado**: Data do Contrato = data da venda, editável; Número de Compra opcional; **Mês/Ano
+  removidos** (deriváveis da data); Status = os 4 (ciclo de vida).
+- Esclarecido **status × tipo**: "à vista / futuro / replicado" que o Flavio viu em outro sistema **não
+  são status**. À vista/futuro = **Modalidade** (campo já existente — valores: retirar, posto, disponível,
+  posto/futuro…), que é o "tipo de operação". **"Replicado"** = provavelmente uma feature de *replicar
+  contratos* — a esclarecer.
+- **Próximo**: confirmar lista completa de Modalidade (em B8) + decidir "Replicado"; seguir para **B2 — Comprador**.
