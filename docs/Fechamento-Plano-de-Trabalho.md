@@ -1,6 +1,6 @@
 # Fechamento — Plano de Trabalho
 
-**Status**: **EM CONSTRUÇÃO** — iniciado em 2026-06-24. **Decisões D1–D25** travadas em 8 rodadas de perguntas. O alvo é **recriar no app o "Contrato de Compra e Venda de Café"** do sistema legado (print na Sessão 2). **Importante (Sessão 7):** o escopo **não é isolado** — o Fechamento puxa **extensões no cadastro de Cliente** (dados bancários agora; armazéns e outras depois) como **pré-requisitos**. **Nenhum código de feature ainda.** Próximo passo: planejar a **Fase 0 (extensões de cadastro — bancário)** e desenhar a tabela `SaleContract` (Fase B).
+**Status**: **EM CONSTRUÇÃO** — iniciado em 2026-06-24. **Decisões D1–D26** travadas ao longo das sessões 1–8. O alvo é **recriar no app o "Contrato de Compra e Venda de Café"** do sistema legado (print na Sessão 2). **Importante:** o Fechamento puxa **extensões no cadastro de Cliente** — só o **bancário** exige modelagem nova (`Bank` + `ClientBankAccount`); **armazém já existe** (`isWarehouse`). **Nenhum código de feature ainda.** Próximo passo: planejar a **Fase 0 (bancário)** e desenhar a tabela `SaleContract` (Fase B).
 **Escopo**: documento único de organização, análise, decisões e execução da feature de **Fechamento** — a geração, **após uma venda**, de um **Contrato de Compra e Venda de Café** profissional em **PDF, para impressão** — **e das extensões de cadastro que ele exige** (ver "Impacto no sistema").
 
 **Como ler este doc**: a seção **Decisões fechadas** é o que está acordado; **Impacto no sistema** lista as extensões de cadastro (pré-requisitos); **Contrato legado — inventário de campos** é o alvo do v1; **Pendências** é o que ainda não foi decidido; **Roadmap** é o desenho corrente em fases; **Log de sessões** é o histórico por data.
@@ -17,10 +17,9 @@ sistema legado (ver o inventário de campos abaixo). É um documento importante 
 e correto: serve como **confirmação para o comprador e para o vendedor** e tem **valor de contrato
 formal**, com **corretagem dos dois lados** (modelo de corretora).
 
-Hoje **não existe** nada parecido no app, e — ponto crítico — a venda **não captura nenhum dado
-financeiro nem contratual**, e o **cadastro de Cliente não tem dados bancários, armazéns vinculados**
-etc. Como o Fechamento replica o contrato legado, a feature **estende a ação de venda, gera o PDF e
-exige ampliar o cadastro de Cliente** (ver "Impacto no sistema").
+Hoje **não existe** nada parecido no app, e a venda **não captura dado financeiro nem contratual**, e o
+**cadastro de Cliente não tem dados bancários**. Como o Fechamento replica o contrato legado, a feature
+**estende a ação de venda, gera o PDF e amplia o cadastro de Cliente** (ver "Impacto no sistema").
 
 A construção é deliberadamente **incremental e campo a campo**. A especificação funcional de
 vendas/movimentações que ancora este trabalho está em
@@ -48,20 +47,25 @@ Síntese verificada no código em 2026-06-24. Detalhes nas referências.
 
 ### Cadastro de Cliente hoje
 
-- `Client` (`prisma/schema.prisma:520`) tem nome/razão, CPF/CNPJ, IE, endereço, contato e flags
-  `isBuyer/isSeller/isWarehouse` — **sem nenhum dado bancário** (confirmado por grep).
-- Já há **sub-tabelas do cliente** como precedente: `ClientUnit` (1 cliente → N fazendas, `:577`),
+- `Client` (`prisma/schema.prisma:520`) tem nome/razão, CPF/CNPJ, IE, endereço, contato e as flags
+  **`isBuyer/isSeller/isWarehouse`** (`:548-550`) — booleanos independentes (**multi-escolha**: o
+  cadastro permite marcar comprador/vendedor/armazém juntos — `ClientQuickCreateModal.tsx:565-577`).
+  **Sem nenhum dado bancário** (confirmado por grep).
+- Já há um **lookup por tipo** — `ClientLookupKind = 'owner' | 'buyer' | 'warehouse' | 'any'`
+  (`lib/types.ts:33`) — e filtro por papel (`ClientsFilterButton`): listar/selecionar
+  cliente-armazém é **nativo**.
+- **Sub-tabelas do cliente** como precedente: `ClientUnit` (1 cliente → N fazendas, `:577`),
   `ClientCommercialUser`, `ClientAuditEvent`. Uma conta bancária por cliente segue esse padrão.
-- **Vendedor** = `Sample.ownerClientId`; **comprador** = `buyerClient` da venda (já com snapshot
-  congelado via `buildBuyerSnapshot`). **Corretor** = `User` papel `COMMERCIAL`.
+- **Vendedor** = `Sample.ownerClientId`; **comprador** = `buyerClient` da venda (snapshot via
+  `buildBuyerSnapshot`). **Corretor** = `User` papel `COMMERCIAL`.
 
 ### Geração de PDF e emissor
 
 - Só **`pdf-lib`** está instalado (sem HTML→PDF). Usado em **um único lugar**: o laudo
   (`src/reports/sample-pdf-report-service.js`) — `renderSamplePdf` + `SamplePdfReportService`. É o
   **molde** do Fechamento (D6).
-- **Emissor**: constante `COMPANY_INFO` em `sample-pdf-report-service.js:27-31` (nome, cidade/UF,
-  telefone, endereço) — **falta CNPJ**. Logo já entra como bitmap no cabeçalho (reutilizável).
+- **Emissor**: `COMPANY_INFO` em `sample-pdf-report-service.js:27-31` (nome, cidade/UF, telefone,
+  endereço) — **falta CNPJ**. Logo já entra como bitmap no cabeçalho (reutilizável).
 - **Entrega**: download/compartilhar via `lib/share-blob.ts` + `lib/api-client.ts:1113` + rota
   `app/api/v1/samples/[sampleId]/export/pdf/route.ts`. Infra de link público com token/QR
   (`app/laudo/[token]/route.ts` + `SampleReportShare`) disponível.
@@ -95,8 +99,9 @@ Síntese verificada no código em 2026-06-24. Detalhes nas referências.
 | D21 | **Só vendas novas**                        | Fechamento/`SaleContract` só para vendas a partir da feature; antigas ficam **sem contrato** (sem backfill).                                                        |
 | D22 | **Geração automática ao salvar**           | Confirmar a venda já gera/abre o PDF do Fechamento. Re-geração depende de P10.                                                                                      |
 | D23 | **Permissão ampla**                        | Pode gerar o Fechamento **quem tem acesso à venda**.                                                                                                               |
-| D24 | **Dados bancários do cliente**             | `Bank` (lookup leve cadastrável: `id` Int, nome, status ativo/inativo) + `ClientBankAccount` por cliente (FK `Bank` + dados da conta), no padrão `ClientUnit`. O "Banco do Vendedor" do contrato = uma conta do vendedor. |
-| D25 | **Snapshot de dados de cliente**           | No fechamento, comprador, vendedor, corretor, **conta bancária** e (futuro) **armazém** são **congelados**; mudanças no cadastro não alteram contratos já emitidos. |
+| D24 | **Dados bancários do cliente**             | `Bank` (lookup leve cadastrável: `id` Int, nome, status ativo/inativo) + `ClientBankAccount` por cliente (FK `Bank` + dados da conta), no padrão `ClientUnit`. "Banco do Vendedor" = uma conta do vendedor. |
+| D25 | **Snapshot de dados de cliente**           | No fechamento, comprador, vendedor, corretor, **conta bancária** e **armazéns** são **congelados**; mudanças no cadastro não alteram contratos já emitidos.        |
+| D26 | **Armazém = `Client` com `isWarehouse`**   | Modelo **já existe** (flags multi-escolha no cadastro + lookup `kind='warehouse'`). "Armazém do Comprador/Vendedor" = selecionar um cliente-armazém (livre) → snapshot. **Sem entidade nova.** Pré-vínculo cliente↔armazém seria extra futuro, não necessário. |
 
 > **Representação monetária (padrão de implementação)**: R$ como `Decimal(12,2)`, percentuais
 > `Decimal(5,2)`, peso (Kg) `Decimal(10,2)`. Confirmar na Fase B.
@@ -105,16 +110,16 @@ Síntese verificada no código em 2026-06-24. Detalhes nas referências.
 
 ## Impacto no sistema — extensões do cadastro de Cliente (pré-requisitos)
 
-O Fechamento **puxa dados que hoje não existem no cadastro de Cliente**. Estes são **pré-requisitos**:
-precisam existir antes de o contrato poder referenciá-los, e o contrato **congela** (snapshot — D25)
-o que for escolhido. **Esta seção vai crescer** conforme novas extensões aparecerem.
+O Fechamento **puxa dados de cliente** para o contrato (congelados via snapshot — D25). **Esta seção
+vai crescer** conforme novas extensões aparecerem.
 
-1. **Dados bancários (D24) — definido.** Tabela `Bank` (cadastrável pelo admin) + `ClientBankAccount`
-   por cliente (padrão `ClientUnit`). UI nova no cadastro de Cliente para gerenciar contas. No
-   contrato, "Banco do Vendedor" = escolher uma conta do vendedor → snapshot. Campos da conta em **P14**.
-2. **Armazéns (P15) — a analisar.** "Armazém do Comprador/Vendedor" exige modelar a relação
-   cliente↔armazém (é um `Client` `isWarehouse` selecionável? um sub-registro do cliente?). Mesma
-   abordagem do bancário: referência + snapshot no contrato.
+1. **Dados bancários (D24) — exige modelagem nova.** Tabela `Bank` (cadastrável pelo admin) +
+   `ClientBankAccount` por cliente (padrão `ClientUnit`). UI nova no cadastro de Cliente para gerenciar
+   contas. No contrato, "Banco do Vendedor" = escolher uma conta do vendedor → snapshot. Campos da
+   conta em **P14**. **É a única extensão que precisa de tabelas novas.**
+2. **Armazéns (D26) — já resolvido, sem extensão nova.** Um armazém já é um `Client` com `isWarehouse`
+   (multi-escolha no cadastro + lookup `kind='warehouse'`). No contrato, "Armazém do
+   Comprador/Vendedor" = selecionar um cliente-armazém (livre) → snapshot. **Nada novo a modelar.**
 3. **Futuras.** Outras informações de cliente devem surgir ao longo da construção; entram aqui.
 
 ---
@@ -137,7 +142,7 @@ Marcadores: ✅ existe no app · ⚠️ novo (não há hoje) · ❓ esclarecer.
 - ⚠️ **Banco do Vendedor** — conta bancária do vendedor (`ClientBankAccount` via `Bank`), snapshot (D24).
 
 ### Armazéns
-- ⚠️ **Armazém do Comprador** · ⚠️ **Armazém do Vendedor** — relação cliente↔armazém a modelar, snapshot (P15).
+- ✅ **Armazém do Comprador** · ✅ **Armazém do Vendedor** — cliente-armazém (`isWarehouse`) via lookup, snapshot (D26).
 
 ### Quantidade & valores (modelo financeiro — D17/D18/D19)
 - ✅ **Quantidade** — sacas inteiras da venda (`quantitySacks`), reusada (D17).
@@ -166,9 +171,8 @@ Marcadores: ✅ existe no app · ⚠️ novo (não há hoje) · ❓ esclarecer.
 | P10 | Entrega                    | Auto-gerado (D22) só baixado/compartilhado, ou também persistido/link público + arquivamento? (Fase D)                                          |
 | P11 | Evento de auditoria        | Novo `FECHAMENTO_EXPORTED` vs. reutilizar `REPORT_EXPORTED`. (Fase D)                                                                           |
 | P14 | Campos da `ClientBankAccount` | Quais dados da conta: agência, conta + dígito, tipo, titular, PIX? — campo a campo. (Fase 0)                                                 |
-| P15 | Modelo de armazéns         | Relação cliente↔armazém (`Client` `isWarehouse` selecionável? sub-registro do cliente?) — mesma análise do bancário. (Fase 0)                   |
 
-**Resolvidas**: P1→D12/D13 · P3→D20 · P4→D17/18/19 · P5→D21 · P9→D22/D23 · P12→D11 · P13→D14 · banco→D24.
+**Resolvidas**: P1→D12/D13 · P3→D20 · P4→D17/18/19 · P5→D21 · P9→D22/D23 · P12→D11 · P13→D14 · banco→D24 · P15(armazéns)→D26.
 
 ---
 
@@ -176,18 +180,18 @@ Marcadores: ✅ existe no app · ⚠️ novo (não há hoje) · ❓ esclarecer.
 
 > Implementação **campo a campo** (D7). A Fase 0 (cadastro) é pré-requisito do que o contrato referencia.
 
-- **Fase 0 — Extensões do cadastro de Cliente (pré-requisitos).** Dados bancários (D24): tabela `Bank`
-  (`id` Int, nome, status; cadastrável pelo admin) + `ClientBankAccount` por cliente (FK `Bank` + dados
-  da conta — P14), no padrão `ClientUnit`; UI nova no cadastro de Cliente. Armazéns (P15) e futuras
-  extensões entram aqui conforme decididas. **Precede a Fase B** no que o contrato consome.
+- **Fase 0 — Extensões do cadastro de Cliente (pré-requisitos).** **Só o bancário** (D24): tabela `Bank`
+  (`id` Int, nome, status; cadastrável) + `ClientBankAccount` por cliente (FK `Bank` + dados da conta —
+  P14), no padrão `ClientUnit`; UI nova no cadastro de Cliente. **Armazém não entra** (D26: já existe).
+  Futuras extensões entram aqui conforme decididas. **Precede a Fase B** no que o contrato consome.
 - **Fase A — Emissor + corretor.** Promover `COMPANY_INFO` a módulo compartilhado + **CNPJ** (P6).
   Reaproveitar o logo. Corretor = usuário `COMMERCIAL` (D13).
 - **Fase B — Contrato no modal de Venda (campo a campo).** Criar a tabela `SaleContract` (D11) via
-  **migration nova**; numeração `NNNN/AA` (D15) e status (D14); partes/banco com **snapshots** (D12/D13/D24/D25);
-  financeiros (D17/18/19); pagamento/logística com listas mistas (D20); observações (P7). Bump de
-  `schemaVersion` + atualizar `sale-created.payload.schema.json` + `validate:schemas` + testes de
-  contrato. Projetor escreve a `SaleContract`. UI com seções/abas no `SampleMovementModal.tsx`. **Só
-  vendas novas (D21).**
+  **migration nova**; numeração `NNNN/AA` (D15) e status (D14); partes/banco/armazém com **snapshots**
+  (D12/D13/D24/D25/D26); financeiros (D17/18/19); pagamento/logística com listas mistas (D20);
+  observações (P7). Bump de `schemaVersion` + atualizar `sale-created.payload.schema.json` +
+  `validate:schemas` + testes de contrato. Projetor escreve a `SaleContract`. UI com seções/abas no
+  `SampleMovementModal.tsx`. **Só vendas novas (D21).**
 - **Fase C — PDF do Fechamento.** `renderFechamentoPdf` espelhando o layout do contrato legado
   (cabeçalho → partes → armazéns → valores → pagamento → observações → assinaturas P8). **Sem qualidade** (D10).
 - **Fase D — Geração + entrega.** Geração **automática ao salvar** (D22); pode gerar quem acessa a venda
@@ -231,11 +235,16 @@ Marcadores: ✅ existe no app · ⚠️ novo (não há hoje) · ❓ esclarecer.
 
 ### 2026-06-24 — Sessão 7 (extensões de cadastro — bancário)
 
-- Flavio sinalizou que o Fechamento exige **mudanças maiores no sistema**: o cadastro de Cliente ganha
-  dados bancários (e mais virá). Confirmei que **não há nada bancário hoje** e que `ClientUnit` é o
-  precedente de sub-tabela do cliente.
-- **8ª rodada** → **D24** (modelo bancário: `Bank` lookup [id Int, nome, status] + `ClientBankAccount`
-  por cliente) e **D25** (snapshot de dados de cliente no contrato). Decidido manter as extensões de
-  cadastro **nesta doc** (seção "Impacto no sistema"). Revisada a D20 (Banco saiu das "listas"); criadas
-  **P14** (campos da conta) e **P15** (armazéns); adicionada a **Fase 0** ao roadmap.
-- **Próximo**: planejar a **Fase 0** (bancário) e/ou desenhar a `SaleContract` (Fase B).
+- Flavio sinalizou que o Fechamento exige **mudanças maiores**: o cadastro de Cliente ganha dados
+  bancários (e mais virá). **8ª rodada** → **D24** (modelo bancário: `Bank` + `ClientBankAccount`) e
+  **D25** (snapshot de dados de cliente). Nova seção "Impacto no sistema"; revisada a D20 (Banco saiu
+  das listas); criadas P14/P15; adicionada a Fase 0. Commit `bd22fbf`.
+
+### 2026-06-24 — Sessão 8 (armazéns já existem)
+
+- Flavio apontou que o tipo de cliente (comprador/vendedor/**armazém**) já é multi-escolha. Verifiquei:
+  flags `isBuyer/isSeller/isWarehouse` (`schema:548-550`) + lookup `kind='warehouse'` (`lib/types.ts:33`)
+  já cobrem armazém. **D26**: "Armazém do Comprador/Vendedor" = cliente-armazém via lookup + snapshot,
+  **sem entidade nova**. **P15 fechada**; a Fase 0 fica **só com o bancário**.
+- **Próximo**: planejar a **Fase 0** (bancário: `Bank` + `ClientBankAccount` + campos P14) e/ou desenhar
+  a `SaleContract` (Fase B).
