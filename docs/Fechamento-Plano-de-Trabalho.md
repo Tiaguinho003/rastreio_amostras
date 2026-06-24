@@ -220,12 +220,13 @@ cada campo é anotado conforme revisamos.
 - **Corretagem do comprador** — idem (só %).
 - _Nota: como o contrato mostra só a %, reavaliar no B7 se a entrada da corretagem é só % (vs. "% ou R$" da D19)._
 
-### B7 — Negócio: quantidade & valores
-- **Quantidade (sacas)** — da venda (`quantitySacks`, inteira, D17)
-- **Peso (Kg)** — manual, decimal (D17)
-- **Preço por saca** — manual, R$
-- **Ágio / Deságio** — tipo + valor (% ou R$); ajusta o total (D18)
-- **Valor total** — calculado: `preço × sacas` ± ágio/deságio (D18)
+### B7 — Negócio: quantidade & valores ✅ campos
+- **Quantidade (sacas)** — da venda (`quantitySacks`, D17) — **impresso**
+- **Peso (Kg)** — manual, decimal (D17) — **impresso**
+- **Preço por saca** — manual, R$ — **impresso**
+- **Ágio / Deságio** — tipo + valor; ajusta o total (D18) — **NÃO impresso** (interno)
+- **Valor total** — calculado `preço × sacas` ± ágio/deságio (D18) — **NÃO impresso** (interno)
+- _Pendente (de B6): se o contrato mostra a corretagem só em %, reavaliar se a entrada da corretagem é só %._
 
 ### B8 — Pagamento & logística
 - **Condição de Pagamento** — lista mista (D20)
@@ -408,3 +409,9 @@ cada campo é anotado conforme revisamos.
   do vendedor e do comprador entram, exibindo apenas a %** (o R$ da D19 fica interno).
 - Pendente reavaliar no B7: se o contrato mostra só %, talvez a entrada da corretagem seja só % (vs. "% ou R$" da D19).
 - **Próximo**: **B7 — Quantidade & valores**.
+
+### 2026-06-24 — Sessão 21 (B7 — Quantidade & valores)
+
+- **B7 campos** ✅: **impressos** Quantidade (sacas), Peso (Kg), Preço por saca. **NÃO impressos** Ágio/Deságio
+  e Valor total (ficam internos/calculados, D18).
+- **Próximo**: **B8 — Pagamento & logística** (definir a lista da Modalidade, Banco do vendedor, etc.).
