@@ -656,6 +656,18 @@ function SamplesPage() {
   // recriaria o callback a cada mudanca e forcaria o observer a reconectar).
   const sessionRef = useRef(session);
   const filtersRef = useRef({ appliedSearch, appliedHiddenFilters });
+  // Modo de selecao atual lido dentro do load-more estavel (sem reconstruir o
+  // callback) — garante que paginar no modo Liga tambem peca eligibility.
+  const selectionModeRef = useRef(selectionMode);
+  // Entradas do ultimo fetch — pra distinguir "so trocou de modo" (Liga on/off,
+  // fetch OTIMISTA mantendo a lista visivel) de "filtros/busca mudaram" (recarrega
+  // com loading + scroll pro topo).
+  const prevFetchInputsRef = useRef({
+    appliedHiddenFilters,
+    appliedSearch,
+    newSampleRefetchKey,
+    selectionMode,
+  });
   const hasDraftHiddenFilters = useMemo(
     () => hasAnyHiddenFilter(draftHiddenFilters),
     [draftHiddenFilters]
@@ -887,6 +899,10 @@ function SamplesPage() {
   }, [appliedSearch, appliedHiddenFilters]);
 
   useEffect(() => {
+    selectionModeRef.current = selectionMode;
+  }, [selectionMode]);
+
+  useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
@@ -945,6 +961,9 @@ function SamplesPage() {
       sacksMin: filters.appliedHiddenFilters.sacksMin || undefined,
       sacksMax: filters.appliedHiddenFilters.sacksMax || undefined,
       ...buildPeriodQuery(filters.appliedHiddenFilters),
+      // No modo Liga, paginar tambem precisa trazer eligibility/committedSacks —
+      // senao itens da 2a pagina em diante chegariam selecionaveis indevidamente.
+      eligibleForBlend: selectionModeRef.current === 'blend' ? true : undefined,
     })
       .then((response) => {
         state.inFlight = false;
@@ -968,25 +987,50 @@ function SamplesPage() {
       });
   }, []);
 
+  // Fetch UNIFICADO da lista (revisao 2026-06-24): um unico caminho pro fetch
+  // inicial. eligibleForBlend acompanha o selectionMode, entao filtrar/buscar/
+  // paginar no modo Liga sempre traz eligibility (sem dois effects competindo).
+  // Entrar/sair do modo Liga e OTIMISTA: mantem a lista visivel e so troca quando
+  // o refetch enriquecido chega (sem flash de loading nem scroll pro topo). Em
+  // modo Liga, reconcilia selecoes (deseleciona o que virou inelegivel).
   useEffect(() => {
     if (!session) {
       return;
     }
+
+    const blend = selectionMode === 'blend';
+    const prev = prevFetchInputsRef.current;
+    const filtersChanged =
+      prev.appliedHiddenFilters !== appliedHiddenFilters ||
+      prev.appliedSearch !== appliedSearch ||
+      prev.newSampleRefetchKey !== newSampleRefetchKey;
+    const isModeToggleOnly = !filtersChanged && prev.selectionMode !== selectionMode;
+    prevFetchInputsRef.current = {
+      appliedHiddenFilters,
+      appliedSearch,
+      newSampleRefetchKey,
+      selectionMode,
+    };
 
     if (skipNextFetchRef.current) {
       skipNextFetchRef.current = false;
       return;
     }
 
-    // Invalida qualquer load-more em andamento: a proxima resposta obsoleta
-    // sera descartada ao comparar com o token atual.
+    // Invalida qualquer load-more em andamento (inclusive ao entrar/sair do modo
+    // Liga): a proxima resposta obsoleta sera descartada ao comparar com o token.
     loadMoreStateRef.current.token += 1;
     loadMoreStateRef.current.inFlight = false;
 
     const abortController = new AbortController();
     let active = true;
-    dispatchSamples({ type: 'fetch-initial' });
-    samplesScrollRef.current?.scrollTo({ top: 0 });
+
+    // Filtro/busca mudaram = recarrega do zero (loading + topo). So trocar de modo
+    // (Liga on/off) = otimista: mantem a lista atual visivel ate o refetch chegar.
+    if (!isModeToggleOnly) {
+      dispatchSamples({ type: 'fetch-initial' });
+      samplesScrollRef.current?.scrollTo({ top: 0 });
+    }
 
     listSamples(
       session,
@@ -1006,6 +1050,7 @@ function SamplesPage() {
         sacksMin: appliedHiddenFilters.sacksMin || undefined,
         sacksMax: appliedHiddenFilters.sacksMax || undefined,
         ...buildPeriodQuery(appliedHiddenFilters),
+        eligibleForBlend: blend ? true : undefined,
       },
       {
         signal: abortController.signal,
@@ -1022,6 +1067,31 @@ function SamplesPage() {
           total: response.page.total,
           nextCursor: response.page.nextCursor,
         });
+
+        // Modo Liga: reconcilia selecoes — pra cada selectedId visivel que virou
+        // inelegivel, deseleciona + toast.
+        if (blend) {
+          setSelectedIds((prevSel) => {
+            if (prevSel.size === 0) return prevSel;
+            const itemsById = new Map(response.items.map((s) => [s.id, s]));
+            const next = new Set(prevSel);
+            let didChange = false;
+            for (const id of prevSel) {
+              const item = itemsById.get(id);
+              if (!item) continue; // fora dos filtros atuais — mantem
+              if (item.eligibility && !item.eligibility.eligible) {
+                next.delete(id);
+                didChange = true;
+                const reasonLabel = mapEligibilityReasonToLabel(item.eligibility.reason);
+                toast.info({
+                  title: `Amostra ${item.internalLotNumber ?? '—'} removida da seleção`,
+                  description: reasonLabel ?? undefined,
+                });
+              }
+            }
+            return didChange ? next : prevSel;
+          });
+        }
       })
       .catch((cause) => {
         if (!active) {
@@ -1029,6 +1099,18 @@ function SamplesPage() {
         }
 
         if (cause instanceof DOMException && cause.name === 'AbortError') {
+          return;
+        }
+
+        if (blend) {
+          // Falha ao carregar a lista enriquecida pra liga: sai do modo + avisa
+          // (a saida re-dispara este effect em idle, recarregando a lista normal).
+          toast.error({
+            title: 'Não foi possível carregar amostras pra liga',
+            description: 'Tente novamente.',
+          });
+          setSelectionMode('idle');
+          setSelectedIds(new Set());
           return;
         }
 
@@ -1042,92 +1124,10 @@ function SamplesPage() {
       active = false;
       abortController.abort();
     };
-  }, [appliedHiddenFilters, appliedSearch, session, newSampleRefetchKey]);
-
-  // Liga B1.4 — refetch otimista quando entra em modo selecao.
-  // Lista atual permanece visivel; quando refetch retorna, atualiza com
-  // eligibility + committedSacks por amostra. Selecionadas que viram
-  // inelegiveis sao removidas + toast. Erro de refetch sai do modo +
-  // toast.
-  useEffect(() => {
-    if (!session) return;
-    if (selectionMode !== 'blend') return;
-
-    const controller = new AbortController();
-    let cancelled = false;
-    (async () => {
-      try {
-        const response = await listSamples(
-          session,
-          {
-            limit: SAMPLE_PAGE_LIMIT,
-            search: appliedSearch || undefined,
-            ownerClientIds: appliedHiddenFilters.ownerClients.map((client) => client.id),
-            buyerClientIds: appliedHiddenFilters.buyerClients.map((client) => client.id),
-            sentToClientIds: appliedHiddenFilters.sentToClients.map((client) => client.id),
-            padroes: appliedHiddenFilters.padroes,
-            aspectos: appliedHiddenFilters.aspectos,
-            catacoes: appliedHiddenFilters.catacoes,
-            certificados: appliedHiddenFilters.certificados,
-            displayStatus: appliedHiddenFilters.displayStatus || undefined,
-            harvests: appliedHiddenFilters.harvests,
-            isBlend: appliedHiddenFilters.onlyBlend || undefined,
-            sacksMin: appliedHiddenFilters.sacksMin || undefined,
-            sacksMax: appliedHiddenFilters.sacksMax || undefined,
-            eligibleForBlend: true,
-          },
-          { signal: controller.signal }
-        );
-
-        if (cancelled) return;
-
-        dispatchSamples({
-          type: 'success-initial',
-          items: response.items,
-          total: response.page.total,
-          nextCursor: response.page.nextCursor,
-        });
-
-        // Reconciliacao: pra cada selectedId, ver se virou inelegivel
-        // -> deselecionar + toast.
-        setSelectedIds((prev) => {
-          if (prev.size === 0) return prev;
-          const itemsById = new Map(response.items.map((s) => [s.id, s]));
-          const next = new Set(prev);
-          let didChange = false;
-          for (const id of prev) {
-            const item = itemsById.get(id);
-            if (!item) continue; // não visível com filtros atuais — mantém
-            if (item.eligibility && !item.eligibility.eligible) {
-              next.delete(id);
-              didChange = true;
-              const reasonLabel = mapEligibilityReasonToLabel(item.eligibility.reason);
-              toast.info({
-                title: `Amostra ${item.internalLotNumber ?? '—'} removida da seleção`,
-                description: reasonLabel ?? undefined,
-              });
-            }
-          }
-          return didChange ? next : prev;
-        });
-      } catch (error) {
-        if (cancelled) return;
-        if (error instanceof DOMException && error.name === 'AbortError') return;
-        toast.error({
-          title: 'Não foi possível carregar amostras pra liga',
-          description: 'Tente novamente.',
-        });
-        setSelectionMode('idle');
-        setSelectedIds(new Set());
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
+    // Deps curadas de proposito: o fetch deve rodar apenas quando filtros/busca/
+    // sessao/refetchKey/modo mudam (toast/setters/dispatch sao estaveis).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectionMode, session]);
+  }, [appliedHiddenFilters, appliedSearch, session, newSampleRefetchKey, selectionMode]);
 
   // Liga B2.1 — quando todas as amostras forem removidas via X dentro do
   // sheet, selectedIds zera e o sheet fecha automaticamente. Modo selecao
@@ -1214,6 +1214,10 @@ function SamplesPage() {
   // num card em <200ms" (antes do save continuo debounced gravar). Cabeado no
   // onClick do card. As demais saidas dependem do save continuo abaixo.
   const saveSnapshotBeforeLeave = useCallback(() => {
+    // Nao persiste a lista enriquecida do modo Liga (eligibility/committedSacks):
+    // a pagina restaura sempre em idle, entao guardar blend deixaria eligibility
+    // velha no snapshot. Le via ref pra nao re-criar o callback ao alternar modo.
+    if (selectionModeRef.current === 'blend') return;
     writeSamplesSnapshot({
       items: samplesState.items,
       total: samplesState.total,
@@ -1241,6 +1245,9 @@ function SamplesPage() {
   // pra nao gravar lista vazia por cima de um snapshot bom. Espelha a Clientes.
   useEffect(() => {
     if (samplesState.status === 'loading-initial' || samplesState.status === 'error') return;
+    // Mesmo motivo do saveSnapshotBeforeLeave: nao grava snapshot enquanto em
+    // modo Liga (ref, nao dep, pra nao re-rodar o save ao alternar de modo).
+    if (selectionModeRef.current === 'blend') return;
     const handle = window.setTimeout(() => {
       writeSamplesSnapshot({
         items: samplesState.items,
