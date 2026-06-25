@@ -16,7 +16,7 @@
 | 2    | Gargalos de render — G1, G2, G4 (G5 descartado)                    | ✅ **Código pronto** — falta validar no device                    |
 | 3    | Camada de dados (backend) — D1, D2, D3                             | ✅ **Código pronto** (247 unit + 290 integração) — falta deploy   |
 | 4    | Render da lista longa — G3 (content-visibility, não react-virtual) | ✅ **Código pronto** — validar em device (iOS PWA)                |
-| 5    | Inconsistências / acessibilidade — I2, I3, I4, I5, lacuna #6       | ⏳ pendente                                                       |
+| 5    | Inconsistências / acessibilidade — I2, I3, I4, I5, lacuna #6       | ✅ **Código pronto** — validar no device (visual + teclado/SR)    |
 | 6    | Código morto (CSS) + docs — M1–M6, S1                              | ⏳ pendente                                                       |
 | —    | Testes de regressão (lacuna #7)                                    | ⏳ pendente (junto das fases de lógica/dados)                     |
 
@@ -299,25 +299,37 @@ entrega o mesmo ganho de render com risco ~zero.
 
 ---
 
-## Fase 5 — Inconsistências / Acessibilidade
+## Fase 5 — Inconsistências / Acessibilidade ✅
 
-- **I2** — copy de empty-state no modo Liga (`page.tsx:2122` —
-  "Nenhuma amostra encontrada"): "Nenhuma amostra disponível para liga" quando
-  `selectionMode === 'blend'`.
-- **I3** — alinhar o skeleton (`.spv2-skeleton-card`, `page.tsx:2145` +
-  `app/globals.css`) ao card v2 branco (fundo branco/claro, raio
-  `clamp(14px,4vw,16px)`, sombra suave em vez de borda verde tracejada,
-  min-height ~ card real).
-- **I4** — `SampleCreateRadialFab` (`components/samples/SampleCreateRadialFab.tsx:53`):
-  focar a 1ª `.fab-fan-option` ao abrir + restaurar foco ao FAB ao fechar
-  (+ setas, opcional).
-- **I5** — card inelegível (`SampleCard.tsx:170-171`): omitir `aria-pressed`
-  (manter só `aria-disabled`).
-- **lacuna #6** — a11y do `BlendConfirmationSheet` e do modal de filtros (foco
-  ao abrir/fechar) + live region anunciando o load-more.
+**Status:** código pronto, gates verdes (lint/format/typecheck/build). Falta
+validação no device (visual + teclado/leitor de tela).
 
-**Verificação:** navegação por teclado + leitor de tela no leque, card
-inelegível e nos sheets.
+**O que foi feito:**
+
+- **I2 ✅** — empty-state da lista agora é condicional ao `selectionMode`: em
+  modo Liga mostra "Nenhuma amostra disponível para liga" / "Ajuste os filtros
+  ou saia do modo liga" (`app/samples/page.tsx`).
+- **I3 ✅** — `.spv2-skeleton-card` (`app/globals.css`) realinhado ao card v2
+  branco: raio `clamp(14px,4vw,16px)`, sombra suave (sai a borda verde
+  tracejada), base cinza-clara neutra (shimmer segue visível), min-height 80px.
+- **I4 ✅** — `SampleCreateRadialFab`: foca a 1ª opção (`Lote`) ao abrir o leque
+  e devolve o foco ao FAB ao fechar SEM ação (Escape/tap-fora/toggle) — guard
+  por `actionFiredRef` pra numa seleção o foco ir pro modal/tela aberta. Refs
+  `firstOptionRef`/`fabButtonRef` + effect no `open`. (Setas = não feito, era
+  opcional.)
+- **I5 ✅** — card inelegível (`SampleCard.tsx`): `aria-pressed` omitido quando
+  inelegível (`isIneligible ? undefined : isSelected`), mantém só `aria-disabled`.
+- **lacuna #6 — parcialmente já pronto + live region ✅:** o foco de
+  abrir/fechar do **`BlendConfirmationSheet`** já vem do `BottomSheet`
+  compartilhado (`role="dialog"` + `aria-modal` + `useFocusTrap` + Escape) e o
+  **modal de filtros** já tem trap + restauração + Escape próprios — nada a
+  mudar. Adicionado o que faltava: **live region** `role="status"
+aria-live="polite"` (classe `login-visually-hidden`) que anuncia "Carregando
+  mais amostras" no load-more (rolagem infinita não entra mais em silêncio).
+
+**Verificação:** visual (empty-state da Liga, skeleton no load-more) +
+teclado/leitor de tela (foco do leque: abrir→1ª opção, Escape→FAB; card
+inelegível sem "pressed"; anúncio do load-more).
 
 ---
 
