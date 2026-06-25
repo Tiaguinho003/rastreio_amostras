@@ -5400,10 +5400,13 @@ button:disabled {
 
 .samples-page-v2:not(.informe-commercial-page) .spv2-card-wrap {
   background: #ffffff;
+  /* Sombra um pouco mais marcada (mobile): card branco sobre o sheet branco
+     precisa da sombra pra destacar as bordas. O desktop sobrescreve pra flat
+     (box-shadow:none + hover) — entao isto so vale no mobile. */
   box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.06),
-    0 6px 14px rgba(0, 0, 0, 0.11),
-    0 14px 28px rgba(0, 0, 0, 0.06),
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    0 6px 16px rgba(0, 0, 0, 0.15),
+    0 16px 32px rgba(0, 0, 0, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
@@ -33449,6 +33452,13 @@ body.is-selection-mode .hero-search-filter-btn {
      em bege; o inelegivel mantem o cinza #f3f3f3 (regra abaixo, mais tardia). */
   background: #ffffff;
   border: 0;
+  /* Mesma sombra reforcada do card normal — modo Liga com a mesma definicao
+     de bordas sobre o branco. */
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    0 6px 16px rgba(0, 0, 0, 0.15),
+    0 16px 32px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 /* Selecionado no modo liga: o unico indicador e o circulo com check
