@@ -611,6 +611,15 @@ function SamplesPage() {
   // selectedIds persiste entre buscas/filtros — contador SEMPRE de .size.
   const [selectionMode, setSelectionMode] = useState<'idle' | 'blend'>('idle');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  // Lista de samples selecionadas pro BlendConfirmationSheet, memoizada: sem isso
+  // o `.filter()` inline gerava um array novo a cada render e o effect de
+  // SYNC_SAMPLES do sheet re-disparava à toa (M6). Recalcula quando os itens
+  // (ex.: refetch que atualiza availableSacks) ou a seleção mudam — então a
+  // re-sincronização de availableSacks no sheet continua valendo.
+  const selectedSamplesForSheet = useMemo(
+    () => samplesState.items.filter((s) => selectedIds.has(s.id)),
+    [samplesState.items, selectedIds]
+  );
   // Liga B1.5: popover de revisao das selecionadas (lista + X individual).
   // Abre via tap no contador, fecha via click fora / Escape / remocao da
   // ultima amostra.
@@ -2281,7 +2290,7 @@ function SamplesPage() {
           no backend; nada coletado do operador na criacao. */}
       <BlendConfirmationSheet
         open={confirmationSheetOpen && selectionMode === 'blend'}
-        samples={samplesState.items.filter((s) => selectedIds.has(s.id))}
+        samples={selectedSamplesForSheet}
         submitting={creatingBlend}
         onClose={closeConfirmation}
         onRemove={handleRemoveFromSelection}
