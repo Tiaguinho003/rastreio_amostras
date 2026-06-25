@@ -35,7 +35,7 @@ Síntese verificada no código em 2026-06-24. Detalhes nas referências.
 
 - **Venda = evento `SALE_CREATED`** (não "SAMPLE_SOLD") — enum em `prisma/schema.prisma:44-69`.
   É projetado em uma linha `SampleMovement` (`prisma/schema.prisma:656-686`, tabela `sample_movement`)
-  + contadores denormalizados no lote (`soldSacks`/`lostSacks`/`commercialStatus`).
+  - contadores denormalizados no lote (`soldSacks`/`lostSacks`/`commercialStatus`).
 - **Fluxo**: botão "Venda" em `components/samples/SampleMovementsPanel.tsx` → modal
   `components/samples/SampleMovementModal.tsx` → `POST app/api/v1/samples/[sampleId]/movements/route.ts`
   → `createSampleMovement` em `src/samples/sample-command-service.js:2689-2804` → projetor em
@@ -77,45 +77,45 @@ Síntese verificada no código em 2026-06-24. Detalhes nas referências.
 
 ## Decisões fechadas
 
-| #   | Decisão                                    | Detalhe                                                                                                                                                            |
-| --- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| D1  | Natureza **híbrida**                       | Contrato de Fechamento: dados estruturados + **3 blocos de texto livre** + **assinaturas**. Sem cláusulas jurídicas fixas (ver D30).                               |
-| D2  | Destinatários                              | Confirmação ao **comprador** e ao **vendedor**, com valor de **contrato formal** entre as partes.                                                                  |
-| D3  | Granularidade **por venda**                | Cada venda (movimento `SALE`) gera um Fechamento, chaveado pelo `movementId`.                                                                                       |
-| D4  | Financeiro **na venda (obrigatório)**      | Os dados passam a ser capturados no modal de Venda; o núcleo financeiro é exigido. Demais campos: obrigatoriedade caso a caso.                                      |
-| D5  | Emissor com **dados fixos**                | Cabeçalho com nome/CNPJ/logo da empresa/corretora, fixos (não escolhidos por venda).                                                                               |
-| D6  | PDF via **`pdf-lib`**                       | Clonando o pipeline do laudo (`sample-pdf-report-service.js`); **sem dependência nova**.                                                                           |
-| D7  | Construção **campo a campo**               | Os campos são detalhados e implementados um a um; este doc é o backlog vivo.                                                                                        |
-| D8  | **Replicar o contrato legado por inteiro** | O v1 espelha o "Contrato de Compra e Venda de Café".                                                                                                               |
-| D9  | **Campos no modal de Venda**               | O `SampleMovementModal.tsx` vira o formulário do contrato (mantém D4). UI com seções/abas dado o volume.                                                            |
-| D10 | **Qualidade do café NÃO entra**            | Documento puramente comercial; classificação fica só no laudo.                                                                                                     |
-| D11 | **Persistência: tabela `SaleContract`**    | Tabela dedicada 1:1 com o movimento `SALE` (FK `movementId`), colunas tipadas, escrita pelo projetor.                                                              |
-| D12 | **Comprador/Vendedor automáticos**         | Comprador = comprador da venda; Vendedor = dono do lote (`ownerClient`). Pré-preenchidos, **editáveis**, com snapshot.                                              |
-| D13 | **Corretor = usuário `COMMERCIAL`**        | Um usuário (papel `COMMERCIAL`) é o corretor responsável, figura e assina. Snapshot do nome. **Revisado pela D34**: N corretores por contrato, vínculo a `User` opcional.                                                    |
-| D14 | **Status do Contrato (manual)**            | Enum editável: `EM_ABERTO → CONFIRMADO → FATURADO → PAGO` (default `EM_ABERTO`). Cancelamento via cancelar a venda.                                                 |
-| D15 | **Número do Contrato automático**          | Sequencial **contínuo** + `/AA` do ano (ex.: `3295/26`), **não editável**. Gerador novo (padrão do `internalLotNumber`).                                            |
-| D16 | **"Número de Compra" = campo livre**       | Texto/número manual; **sem vínculo** a outra entidade.                                                                                                             |
-| D17 | **Quantidade = sacas da venda (inteira)**  | Reusa o `quantitySacks`; sem campo novo. **Peso (Kg)** é campo decimal **separado**.                                                                                |
-| D18 | **Valor total automático**                 | `preço/saca × sacas`, ajustado por ágio/deságio (ágio soma, deságio subtrai). _Base exata a confirmar na Fase B._                                                   |
-| D19 | **Corretagem calculada**                   | Vendedor e comprador, cada um em **% ou R$**; quando %, calcula o R$ sobre o total. Guarda tipo + valor + R$.                                                       |
-| D20 | **Listas (B8)**                            | **Forma de Pagamento {Faturado, Livre}** · **Modalidade {Retirar, Posto, Disponível}** · **Embalagem {Sacas, Bags, A granel}** (valores no B8; **cadastráveis pelo admin**, iniciam com esses valores). **Condição de Pagamento = texto livre** (não é lista). _(Banco → entidade própria, D24.)_ |
-| D21 | **Só vendas novas**                        | Fechamento/`SaleContract` só para vendas a partir da feature; antigas ficam **sem contrato** (sem backfill).                                                        |
-| D22 | **Geração automática ao salvar**           | Confirmar a venda já gera/abre o PDF do Fechamento. Re-geração depende de P10.                                                                                      |
-| D23 | **Permissão ampla**                        | Pode gerar o Fechamento **quem tem acesso à venda**.                                                                                                               |
-| D24 | **Dados bancários do cliente**             | `Bank` (lookup leve cadastrável: `id` Int, nome, status ativo/inativo) + `ClientBankAccount` por cliente, no padrão `ClientUnit`. "Banco do Vendedor" = uma conta do vendedor. |
-| D25 | **Snapshot de dados de cliente**           | No fechamento, comprador, vendedor, corretor, **conta bancária** e **armazéns** são **congelados**; mudanças no cadastro não alteram contratos já emitidos.        |
-| D26 | **Armazém = `Client` com `isWarehouse`**   | Modelo **já existe** (flags multi-escolha + lookup `kind='warehouse'`). "Armazém do Comprador/Vendedor" = cliente-armazém (livre) → snapshot. **Sem entidade nova.** |
-| D27 | **Anexos do cliente**                      | `ClientAttachment` (1 cliente → N arquivos, lista livre + descrição), reusa `local-upload-service` + `UPLOADS_DIR`. **PDF + imagens** → +`application/pdf` no allowlist + atualizar CLAUDE.md#5/SECURITY. **Só arquivamento; independente do contrato.** |
-| D28 | **Campos da conta bancária**               | `ClientBankAccount` = banco (FK `Bank`) + **agência** + **conta (com dígito)** + **titular (nome)** + **CNPJ/CPF do titular** + **chave PIX**. Titular pode diferir do cliente. _(Sem tipo corrente/poupança.)_ |
-| D29 | **Emissor fixo em config**                 | Promover `COMPANY_INFO` a módulo compartilhado + **CNPJ** (a fornecer). Sem tela editável (muda com deploy).                                                        |
-| D30 | **3 blocos de texto livre, sem cláusulas fixas** | Contrato tem **Observações**, **Descrição** e **Observações (Pág. 2)** — texto livre; **não há** boilerplate jurídico fixo.                                  |
-| D31 | **Linhas de assinatura do corretor**       | ~~Campo `corretorSignatureLines` (0–4).~~ **Substituído pela D35**: assinatura do corretor = imagem fixa do dono da empresa (sempre 1, automática).                                              |
-| D32 | **Entrega: baixar/compartilhar**           | PDF gerado e oferecido via `shareOrDownloadFile` (download/Web Share); **sem persistir bytes**. Regenerável da `SaleContract` (D11/D25) quando preciso.            |
-| D33 | **Auditoria: `FECHAMENTO_EXPORTED`**       | Novo tipo de evento no event store da amostra (`SampleEventType` + payload schema) registra cada geração do Fechamento. _(Append-only: migration + bump.)_         |
-| D34 | **Corretores: N por contrato**             | Cadastro **`Broker`** (id, nome, `userId` FK **anulável** [métrica], status ativo/inativo) para TODOS os corretores. Contrato → `SaleContractBroker` (brokerId + nome snapshot), N por contrato. Métrica por `brokerId` (todos os corretores); métrica de usuário via `Broker.userId`. Não-usuário = `Broker` com `userId` nulo — **reutilizável + com métrica**. _(Revisa D13. Rateio da corretagem: adiado.)_ |
-| D35 | **Assinaturas (layout fixo)**              | Corretor/empresa = **imagem da assinatura do dono** (asset fixo do emissor — D29), impressa automaticamente. Comprador e vendedor = **linhas em branco** (assinadas à mão). _(Substitui o `corretorSignatureLines` da D31.)_ |
-| D36 | **Data de nascimento (PF)**                | Coluna `Client.birthDate` (data), preenchível **só quando `personType = PF`**, **opcional**. **Só cadastro** — não entra no Fechamento. Sem tabela nova.            |
-| D37 | **Campo `Tipo` (da operação)**             | Campo **obrigatório**, **sem default** (força escolha), lista **cadastrável** pelo admin (inicia com **Futuro · Mercado à vista · Wash-out**). Distinto da Modalidade (B8). |
+| #   | Decisão                                          | Detalhe                                                                                                                                                                                                                                                                                                                                                                                                         |
+| --- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | Natureza **híbrida**                             | Contrato de Fechamento: dados estruturados + **3 blocos de texto livre** + **assinaturas**. Sem cláusulas jurídicas fixas (ver D30).                                                                                                                                                                                                                                                                            |
+| D2  | Destinatários                                    | Confirmação ao **comprador** e ao **vendedor**, com valor de **contrato formal** entre as partes.                                                                                                                                                                                                                                                                                                               |
+| D3  | Granularidade **por venda**                      | Cada venda (movimento `SALE`) gera um Fechamento, chaveado pelo `movementId`.                                                                                                                                                                                                                                                                                                                                   |
+| D4  | Financeiro **na venda (obrigatório)**            | Os dados passam a ser capturados no modal de Venda; o núcleo financeiro é exigido. Demais campos: obrigatoriedade caso a caso.                                                                                                                                                                                                                                                                                  |
+| D5  | Emissor com **dados fixos**                      | Cabeçalho com nome/CNPJ/logo da empresa/corretora, fixos (não escolhidos por venda).                                                                                                                                                                                                                                                                                                                            |
+| D6  | PDF via **`pdf-lib`**                            | Clonando o pipeline do laudo (`sample-pdf-report-service.js`); **sem dependência nova**.                                                                                                                                                                                                                                                                                                                        |
+| D7  | Construção **campo a campo**                     | Os campos são detalhados e implementados um a um; este doc é o backlog vivo.                                                                                                                                                                                                                                                                                                                                    |
+| D8  | **Replicar o contrato legado por inteiro**       | O v1 espelha o "Contrato de Compra e Venda de Café".                                                                                                                                                                                                                                                                                                                                                            |
+| D9  | **Campos no modal de Venda**                     | O `SampleMovementModal.tsx` vira o formulário do contrato (mantém D4). UI com seções/abas dado o volume.                                                                                                                                                                                                                                                                                                        |
+| D10 | **Qualidade do café NÃO entra**                  | Documento puramente comercial; classificação fica só no laudo.                                                                                                                                                                                                                                                                                                                                                  |
+| D11 | **Persistência: tabela `SaleContract`**          | Tabela dedicada 1:1 com o movimento `SALE` (FK `movementId`), colunas tipadas, escrita pelo projetor.                                                                                                                                                                                                                                                                                                           |
+| D12 | **Comprador/Vendedor automáticos**               | Comprador = comprador da venda; Vendedor = dono do lote (`ownerClient`). Pré-preenchidos, **editáveis**, com snapshot.                                                                                                                                                                                                                                                                                          |
+| D13 | **Corretor = usuário `COMMERCIAL`**              | Um usuário (papel `COMMERCIAL`) é o corretor responsável, figura e assina. Snapshot do nome. **Revisado pela D34**: N corretores por contrato, vínculo a `User` opcional.                                                                                                                                                                                                                                       |
+| D14 | **Status do Contrato (manual)**                  | Enum editável: `EM_ABERTO → CONFIRMADO → FATURADO → PAGO` (default `EM_ABERTO`). Cancelamento via cancelar a venda.                                                                                                                                                                                                                                                                                             |
+| D15 | **Número do Contrato automático**                | Sequencial **contínuo** + `/AA` do ano (ex.: `3295/26`), **não editável**. Gerador novo (padrão do `internalLotNumber`).                                                                                                                                                                                                                                                                                        |
+| D16 | **"Número de Compra" = campo livre**             | Texto/número manual; **sem vínculo** a outra entidade.                                                                                                                                                                                                                                                                                                                                                          |
+| D17 | **Quantidade = sacas da venda (inteira)**        | Reusa o `quantitySacks`; sem campo novo. **Peso (Kg)** é campo decimal **separado**.                                                                                                                                                                                                                                                                                                                            |
+| D18 | **Valor total automático**                       | `preço/saca × sacas`, ajustado por ágio/deságio (ágio soma, deságio subtrai). _Base exata a confirmar na Fase B._                                                                                                                                                                                                                                                                                               |
+| D19 | **Corretagem calculada**                         | Vendedor e comprador, cada um em **% ou R$**; quando %, calcula o R$ sobre o total. Guarda tipo + valor + R$.                                                                                                                                                                                                                                                                                                   |
+| D20 | **Listas (B8)**                                  | **Forma de Pagamento {Faturado, Livre}** · **Modalidade {Retirar, Posto, Disponível}** · **Embalagem {Sacas, Bags, A granel}** (valores no B8; **cadastráveis pelo admin**, iniciam com esses valores). **Condição de Pagamento = texto livre** (não é lista). _(Banco → entidade própria, D24.)_                                                                                                               |
+| D21 | **Só vendas novas**                              | Fechamento/`SaleContract` só para vendas a partir da feature; antigas ficam **sem contrato** (sem backfill).                                                                                                                                                                                                                                                                                                    |
+| D22 | **Geração automática ao salvar**                 | Confirmar a venda já gera/abre o PDF do Fechamento. Re-geração depende de P10.                                                                                                                                                                                                                                                                                                                                  |
+| D23 | **Permissão ampla**                              | Pode gerar o Fechamento **quem tem acesso à venda**.                                                                                                                                                                                                                                                                                                                                                            |
+| D24 | **Dados bancários do cliente**                   | `Bank` (lookup leve cadastrável: `id` Int, nome, status ativo/inativo) + `ClientBankAccount` por cliente, no padrão `ClientUnit`. "Banco do Vendedor" = uma conta do vendedor.                                                                                                                                                                                                                                  |
+| D25 | **Snapshot de dados de cliente**                 | No fechamento, comprador, vendedor, corretor, **conta bancária** e **armazéns** são **congelados**; mudanças no cadastro não alteram contratos já emitidos.                                                                                                                                                                                                                                                     |
+| D26 | **Armazém = `Client` com `isWarehouse`**         | Modelo **já existe** (flags multi-escolha + lookup `kind='warehouse'`). "Armazém do Comprador/Vendedor" = cliente-armazém (livre) → snapshot. **Sem entidade nova.**                                                                                                                                                                                                                                            |
+| D27 | **Anexos do cliente**                            | `ClientAttachment` (1 cliente → N arquivos, lista livre + descrição), reusa `local-upload-service` + `UPLOADS_DIR`. **PDF + imagens** → +`application/pdf` no allowlist + atualizar CLAUDE.md#5/SECURITY. **Só arquivamento; independente do contrato.**                                                                                                                                                        |
+| D28 | **Campos da conta bancária**                     | `ClientBankAccount` = banco (FK `Bank`) + **agência** + **conta (com dígito)** + **titular (nome)** + **CNPJ/CPF do titular** + **chave PIX**. Titular pode diferir do cliente. _(Sem tipo corrente/poupança.)_                                                                                                                                                                                                 |
+| D29 | **Emissor fixo em config**                       | Promover `COMPANY_INFO` a módulo compartilhado + **CNPJ** (a fornecer). Sem tela editável (muda com deploy).                                                                                                                                                                                                                                                                                                    |
+| D30 | **3 blocos de texto livre, sem cláusulas fixas** | Contrato tem **Observações**, **Descrição** e **Observações (Pág. 2)** — texto livre; **não há** boilerplate jurídico fixo.                                                                                                                                                                                                                                                                                     |
+| D31 | **Linhas de assinatura do corretor**             | ~~Campo `corretorSignatureLines` (0–4).~~ **Substituído pela D35**: assinatura do corretor = imagem fixa do dono da empresa (sempre 1, automática).                                                                                                                                                                                                                                                             |
+| D32 | **Entrega: baixar/compartilhar**                 | PDF gerado e oferecido via `shareOrDownloadFile` (download/Web Share); **sem persistir bytes**. Regenerável da `SaleContract` (D11/D25) quando preciso.                                                                                                                                                                                                                                                         |
+| D33 | **Auditoria: `FECHAMENTO_EXPORTED`**             | Novo tipo de evento no event store da amostra (`SampleEventType` + payload schema) registra cada geração do Fechamento. _(Append-only: migration + bump.)_                                                                                                                                                                                                                                                      |
+| D34 | **Corretores: N por contrato**                   | Cadastro **`Broker`** (id, nome, `userId` FK **anulável** [métrica], status ativo/inativo) para TODOS os corretores. Contrato → `SaleContractBroker` (brokerId + nome snapshot), N por contrato. Métrica por `brokerId` (todos os corretores); métrica de usuário via `Broker.userId`. Não-usuário = `Broker` com `userId` nulo — **reutilizável + com métrica**. _(Revisa D13. Rateio da corretagem: adiado.)_ |
+| D35 | **Assinaturas (layout fixo)**                    | Corretor/empresa = **imagem da assinatura do dono** (asset fixo do emissor — D29), impressa automaticamente. Comprador e vendedor = **linhas em branco** (assinadas à mão). _(Substitui o `corretorSignatureLines` da D31.)_                                                                                                                                                                                    |
+| D36 | **Data de nascimento (PF)**                      | Coluna `Client.birthDate` (data), preenchível **só quando `personType = PF`**, **opcional**. **Só cadastro** — não entra no Fechamento. Sem tabela nova.                                                                                                                                                                                                                                                        |
+| D37 | **Campo `Tipo` (da operação)**                   | Campo **obrigatório**, **sem default** (força escolha), lista **cadastrável** pelo admin (inicia com **Futuro · Mercado à vista · Wash-out**). Distinto da Modalidade (B8).                                                                                                                                                                                                                                     |
 
 > **Representação monetária (padrão de implementação)**: R$ como `Decimal(12,2)`, percentuais
 > `Decimal(5,2)`, peso (Kg) `Decimal(10,2)`. Confirmar na Fase B.
@@ -147,31 +147,37 @@ vai crescer** conforme novas extensões aparecerem.
 Fonte: print do "Contrato de Compra e Venda de Café" (Sessão 2). Marcadores: ✅ existe · ⚠️ novo · ❓ esclarecer.
 
 ### Cabeçalho / identificação
+
 - ⚠️ **Número do Contrato** — automático sequencial contínuo + `/AA`, não editável (D15).
 - ⚠️ **Status do Contrato** — enum manual `EM_ABERTO/CONFIRMADO/FATURADO/PAGO` (D14).
 - ✅ **Data do Contrato** — ≈ `movementDate`. · ⚠️ **Número de Compra** — campo livre (D16). · ⚠️ **Mês/Ano** — derivados.
 - ✅ **Número do Lote** — `internalLotNumber`.
 
 ### Partes
+
 - ✅ **Comprador** — comprador da venda (snapshot), automático (D12).
 - ✅ **Vendedor** — dono do lote (`ownerClient`), automático e editável; snapshot (D12).
 - ⚠️ **Corretor(es)** — N por contrato via `SaleContractBroker` → cadastro `Broker` (nome + `userId` opcional p/ métrica + status); figuram no contrato (D13/D34).
 - ⚠️ **Banco do Vendedor** — conta do vendedor (`ClientBankAccount`: banco+agência+conta+titular+CNPJ/CPF+PIX), snapshot (D24/D28).
 
 ### Armazéns
+
 - ✅ **Armazém do Comprador** · ✅ **Armazém do Vendedor** — cliente-armazém (`isWarehouse`) via lookup, snapshot (D26).
 
 ### Quantidade & valores (modelo financeiro — D17/D18/D19)
+
 - ✅ **Quantidade** — sacas inteiras da venda (`quantitySacks`), reusada (D17).
 - ⚠️ **Peso (Kg)** — campo decimal separado (D17) · ⚠️ **Preço por Saca** (R$).
 - _Valor total_ — calculado: `preço × sacas` ± ágio/deságio (D18).
 - ⚠️ **Ágio / Deságio** (tipo + valor %/R$, D18) · ⚠️ **Corretagem do Vendedor / do Comprador** (%/R$, D19).
 
 ### Pagamento & logística
+
 - **Condição de Pagamento** (texto livre) · **Forma de Pagamento** {Faturado/Livre} · **Modalidade** {Retirar/Posto/Disponível} · **Embalagem** (ex-Sacaria) {Sacas/Bags/A granel} — impressos (D20/B8).
 - ⚠️ **Data Faturamento** · ⚠️ **Data Pagamento**.
 
 ### Assinaturas & observações
+
 - ⚠️ **Assinaturas** — corretor/empresa = **imagem fixa do dono** (auto, D35); comprador e vendedor = **linhas em branco** (à mão).
 - ⚠️ **3 blocos de texto livre**: Observações · Descrição · Observações (Pág. 2) — sem cláusulas fixas (D30).
 
@@ -185,6 +191,7 @@ automática vs. manual, obrigatório/opcional, validação) e checar se **falta 
 cada campo é anotado conforme revisamos.
 
 ### B1 — Identificação do contrato ✅
+
 - **Número do Contrato** — auto, sequencial `NNNN/AA`, gerado ao salvar, não editável (D15)
 - **Status do Contrato** — manual, default `EM_ABERTO`; `EM_ABERTO/CONFIRMADO/FATURADO/PAGO` (D14) ✅ mantidos
 - **Tipo (da operação)** — **obrigatório**, **sem default** (força escolha), lista **cadastrável** (inicia com `Futuro / Mercado à vista / Wash-out`) (D37)
@@ -194,33 +201,39 @@ cada campo é anotado conforme revisamos.
 - ~~Mês/Ano~~ — **removidos**: deriváveis da data (formatar no PDF; derivar em filtros/relatórios)
 
 ### B2 — Comprador ✅ campos _(funcionalidades específicas depois)_
+
 - **Comprador** — Cliente da venda (D12), snapshot congelado.
 - **Campos exibidos no contrato**: Nome/Razão social · CPF/CNPJ · Inscrição Estadual · Endereço · Cidade/UF.
 - **Telefone e e-mail NÃO entram** no contrato (existem no snapshot, mas não são impressos).
 - _Comportamento específico (editável? etc.) — a definir depois._
 
 ### B3 — Armazém do comprador ✅ campos
+
 - **Armazém do comprador** — cliente-armazém via lookup `kind='warehouse'` (D26), snapshot.
 - **Campos exibidos = os mesmos do comprador**: Nome/Razão social · CPF/CNPJ · Inscrição Estadual · Endereço · Cidade/UF (sem telefone/e-mail).
 - _Comportamento específico (obrigatório? editável?) — depois._
 
 ### B4 — Vendedor ✅ campos
+
 - **Vendedor** — `ownerClient` do lote (D12), snapshot.
 - **Campos exibidos = os mesmos do comprador**: Nome/Razão social · CPF/CNPJ · Inscrição Estadual · Endereço · Cidade/UF (sem telefone/e-mail).
 - _Comportamento específico (editável conforme D12, etc.) — depois._
 
 ### B5 — Armazém do vendedor ✅ campos
+
 - **Armazém do vendedor** — cliente-armazém via lookup `kind='warehouse'` (D26), snapshot.
 - **Campos exibidos = os mesmos do comprador**: Nome/Razão social · CPF/CNPJ · Inscrição Estadual · Endereço · Cidade/UF (sem telefone/e-mail).
 - _Comportamento específico — depois._
 
 ### B6 — Corretagem ✅ campos
+
 - **Corretor(es)** — N via `Broker` / `SaleContractBroker` (D34, métrica). **NÃO impressos no contrato** (ficam só como registro/métrica).
 - **Corretagem do vendedor** — **entra no contrato exibindo apenas a % (porcentagem)**; o valor em R$ (D19) fica interno.
 - **Corretagem do comprador** — idem (só %).
 - _Nota: como o contrato mostra só a %, reavaliar no B7 se a entrada da corretagem é só % (vs. "% ou R$" da D19)._
 
 ### B7 — Negócio: quantidade & valores ✅ campos
+
 - **Quantidade (sacas)** — da venda (`quantitySacks`, D17) — **impresso**
 - **Peso (Kg)** — manual, decimal (D17) — **impresso**
 - **Preço por saca** — manual, R$ — **impresso**
@@ -229,6 +242,7 @@ cada campo é anotado conforme revisamos.
 - _Pendente (de B6): se o contrato mostra a corretagem só em %, reavaliar se a entrada da corretagem é só %._
 
 ### B8 — Pagamento & logística ✅
+
 - **Condição de Pagamento** — **campo livre (texto)**, **impresso**. _(não é lista — sai da D20)_
 - **Forma de Pagamento** — lista **{Faturado, Livre}**, **impresso**.
 - **Modalidade** — lista **{Retirar, Posto, Disponível}**, **impresso**.
@@ -238,9 +252,11 @@ cada campo é anotado conforme revisamos.
 - ✅ **Resolvido**: listas (Forma/Modalidade/Embalagem) **cadastráveis** pelo admin (iniciam com os valores acima); conta bancária guarda **nome + CNPJ/CPF do titular** (D28 revisada; titular pode diferir do cliente). No contrato saem: Banco/Agência/Conta/CNPJ-CPF/Chave PIX.
 
 ### B9 — Observações ✅ campos
+
 - **Observações** · **Descrição** · **Observações (Pág. 2)** — 3 blocos de texto livre, impressos, sem cláusulas fixas (D30). _(Uso específico de cada bloco — ex.: "Descrição" — na análise detalhada depois.)_
 
 ### B10 — Assinaturas ✅
+
 - **Corretor/empresa** — imagem fixa do dono, impressa automaticamente (D35)
 - **Comprador** — linha em branco (à mão)
 - **Vendedor** — linha em branco (à mão)
@@ -252,9 +268,9 @@ cada campo é anotado conforme revisamos.
 
 ## Pendências (restantes)
 
-| #   | Pendência                  | O que falta decidir                                                                                                                            |
-| --- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| P2  | Comportamento por campo    | Origem (auto/manual), obrigatoriedade, validação de cada campo. Estruturado em **"Blocos do Fechamento"**; em revisão **campo a campo**.         |
+| #   | Pendência               | O que falta decidir                                                                                                                      |
+| --- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| P2  | Comportamento por campo | Origem (auto/manual), obrigatoriedade, validação de cada campo. Estruturado em **"Blocos do Fechamento"**; em revisão **campo a campo**. |
 
 **Resolvidas**: P1→D12/D13 · P3→D20 · P4→D17/18/19 · P5→D21 · P6→D29 · P7→D30 · P8→D31 · P9→D22/D23 · P12→D11 · P13→D14 · P14→D28 · P15→D26 · banco→D24 · P10→D32 · P11→D33. **Só P2 segue aberta** (campo a campo, Fase B).
 
@@ -281,8 +297,8 @@ cada campo é anotado conforme revisamos.
   `SaleContract`. UI com seções/abas no `SampleMovementModal.tsx`. **Só vendas novas (D21).**
 - **Fase C — PDF do Fechamento.** `renderFechamentoPdf` espelhando o layout do contrato legado
   (cabeçalho → partes → armazéns → valores → pagamento → 3 blocos de texto → assinaturas: imagem do dono
-  + linhas em branco do comprador/vendedor, D35).
-  **Sem qualidade** (D10).
+  - linhas em branco do comprador/vendedor, D35).
+    **Sem qualidade** (D10).
 - **Fase D — Geração + entrega.** Geração **automática ao salvar** (D22); pode gerar quem acessa a venda
   (D23); entrega via `shareOrDownloadFile` **sem persistir** (D32); novo evento **`FECHAMENTO_EXPORTED`** registra a geração (D33).
 
@@ -291,37 +307,47 @@ cada campo é anotado conforme revisamos.
 ## Log de sessões
 
 ### 2026-06-24 — Sessão 1 (análise + frame)
+
 - Análise via 4 agentes; **2 rodadas** → **D1–D6** (+ campo-a-campo, hoje D7). Doc criada + índice
   `docs/README.md` (#7). Commit `34c4af4`.
 
 ### 2026-06-24 — Sessão 2 (contrato legado + escopo)
+
 - Print do contrato legado. **3ª rodada** → **D8/D9/D10**. Inventário + roadmap; P12/P13. Commit `a3d596b`.
 
 ### 2026-06-24 — Sessão 3 (arquitetura P12 + P1)
+
 - **4ª rodada** → **D11** (`SaleContract`), **D12** (partes auto), **D13** (corretor = usuário). Commit `cf5e4a3`.
 
 ### 2026-06-24 — Sessão 4 (status + numeração)
+
 - **5ª rodada** → **D14/D15/D16**. Commit `ca667c5`.
 
 ### 2026-06-24 — Sessão 5 (modelo financeiro)
+
 - **6ª rodada** → **D17/D18/D19**. Commit `e415d5c`.
 
 ### 2026-06-24 — Sessão 6 (bloco operacional)
+
 - **7ª rodada** → **D20/D21/D22/D23**. Commit `58472c2`.
 
 ### 2026-06-24 — Sessão 7 (extensões de cadastro — bancário)
+
 - O Fechamento exige **extensões no cadastro de Cliente**. **8ª rodada** → **D24** (modelo bancário) e
   **D25** (snapshot). Nova seção "Impacto no sistema"; D20 revisada; Fase 0. Commit `bd22fbf`.
 
 ### 2026-06-24 — Sessão 8 (armazéns já existem)
+
 - Verifiquei `isWarehouse` + lookup `kind='warehouse'`. **D26**: armazém sem entidade nova. P15 fechada.
   Commit `6103f4d`.
 
 ### 2026-06-24 — Sessão 9 (anexos do cliente)
+
 - **D27**: `ClientAttachment` (PDF+imagens; Office descartado por ser ZIP genérico). Só arquivamento,
   independente do contrato. Implica +`application/pdf` no allowlist + atualizar segurança. Commit `51168fb`.
 
 ### 2026-06-24 — Sessão 10 (conta, emissor, textos, assinatura)
+
 - **9ª rodada** → **D28** (campos da `ClientBankAccount`: agência + conta c/ dígito + titular + PIX),
   **D29** (emissor fixo em config + CNPJ a fornecer), **D30** (3 blocos de texto livre, sem cláusulas
   fixas — refina a D1) e **D31** (`corretorSignatureLines` 0–4). **P6/P7/P8/P14 fechadas.**
