@@ -17,7 +17,7 @@
 | 3    | Camada de dados (backend) — D1, D2, D3                             | ✅ **Código pronto** (247 unit + 290 integração) — falta deploy   |
 | 4    | Render da lista longa — G3 (content-visibility, não react-virtual) | ✅ **Código pronto** — validar em device (iOS PWA)                |
 | 5    | Inconsistências / acessibilidade — I2, I3, I4, I5, lacuna #6       | ✅ **Código pronto** — validar no device (visual + teclado/SR)    |
-| 6    | Código morto (CSS) + docs — M1–M6, S1                              | ⏳ pendente                                                       |
+| 6    | Código morto (CSS) + docs — M1–M6, S1                              | ✅ **Código pronto** (M1 legado grande DEFERIDO — interleaved)    |
 | —    | Testes de regressão (lacuna #7)                                    | ⏳ pendente (junto das fases de lógica/dados)                     |
 
 > ⚠️ As referências `arquivo:linha` abaixo são **âncoras por símbolo** — os
@@ -333,29 +333,46 @@ inelegível sem "pressed"; anúncio do load-more).
 
 ---
 
-## Fase 6 — Código morto (CSS) + docs [arquivo compartilhado]
+## Fase 6 — Código morto (CSS) + docs [arquivo compartilhado] ✅
 
-> **Remover só após `grep` confirmar 0 usos no JSX.** `app/globals.css` é
-> editado por outro agente → isolar hunks (`git add -p` / `git apply --cached`)
-> e commitar só o meu escopo. Linhas abaixo são aproximadas — confirmar por
-> seletor.
+**Status:** código pronto, gates verdes (lint/format/typecheck/build). Todos os
+seletores removidos foram confirmados com **0 usos no JSX** antes de apagar.
 
-- **M1** — `.samples-page-*` (não-v2) + `.samples-page-search`. ⚠️ checar
-  `.records-*` / `.records-client-*` intercaladas **separadamente** (lacuna #5)
-  — só os `.samples-page-*` estão confirmados mortos.
-- **M2** — `.spv2-footer` / `.spv2-page-btn` / `.spv2-page-info` (base +
-  overrides desktop). Confirmar que ProspectorDashboard/users **não** usam footer.
-- **M3** — `.spv2-sort-btn`.
-- **M4** — `.spv2-card-stat-{num,divider,total,unit,--primary}` (manter
-  `-label`, `-value`, `-value--empty`, `--peneira`).
-- **M5** — overrides `.samples-page-v2 .spv2-chips/.spv2-chip` (desktop).
-- **M6** — `BlendConfirmationSheet.tsx:182-185` — simplificar a dep dupla
-  `[samplesKey, samples]` (manter só `samplesKey`, ler `samples` via ref).
-- **S1** — atualizar `docs/API-e-Contratos.md` (item "1. `GET /api/v1/samples`",
-  ~`:79-81`) listando os filtros **reais**: busca por texto, `displayStatus`,
-  safra multi (`harvests`), proprietário/comprador/enviado-para (`clientIds`),
-  classificação (padrão/aspecto/catação/certificado), faixa de sacas
-  (`sacksMin`/`sacksMax`), período, `isBlend`; opcional `eligibleForBlend`.
+**O que foi feito (CSS morto /samples-scoped, removido cirurgicamente):**
+
+- **M3 ✅** — bloco `.spv2-sort-btn` (isolado).
+- **M4 ✅** — `.spv2-card-stat-{num,divider,total,unit}` + `--primary` (variantes
+  do design antigo de stats), **mantendo** `-label`/`-value`/`-value--empty`/
+  `--peneira` (vivos, intercalados — removido item a item).
+- **M2 ✅** — bloco base `.spv2-footer`/`.spv2-page-btn`/`.spv2-page-info`
+  (paginação por botão; a lista usa cursor) + os overrides desktop
+  `.samples-page-v2 .spv2-footer/.spv2-page-btn` (2 `@media`).
+- **M5 ✅** — overrides desktop `.samples-page-v2 .spv2-chips/.spv2-chip`
+  (2 `@media`), mantendo a base/`.clients-page-v2`.
+- **M1 (parcial) ✅** — `.samples-page-search` (regra isolada) removida.
+
+**M6 ✅ (mecanismo corrigido):** a "dep dupla" `[samplesKey, samples]` do effect
+de sync do `BlendConfirmationSheet` é **intencional** (o comentário explica: re-
+sincroniza `availableSacks` quando o refetch muda o array sem mudar os ids). O
+fix do plano ("ler via ref") **quebraria** essa re-sync. A raiz era a prop
+`samples` recriada a cada render (`.filter()` inline no `page.tsx`) → agora
+memoizada (`useMemo` `selectedSamplesForSheet`, deps `[items, selectedIds]`):
+o effect só re-dispara quando o conteúdo muda. `BlendConfirmationSheet` intacto.
+
+**S1 ✅** — `docs/API-e-Contratos.md` (`GET /api/v1/samples`) reescrito com os
+filtros reais (busca/displayStatus/harvests/clientIds/classificação/sacas/
+período/isBlend, `eligibleForBlend` opcional) + nota do `total: null` no load-more.
+
+**⚠️ DEFERIDO — bloco legado grande `.samples-page-*` (não-v2):** ~83 regras
+(toolbar/filtros/chips/search-bar/list) em `app/globals.css` (~`:14105–14762`),
+confirmadas mortas (0 JSX), MAS **intercaladas com `.records-client-*` VIVAS**
+(usadas pelo /clients, ~`:14498–14616`, sanduichadas entre dois trechos de
+`.samples-page-*`). Remover 83 regras intercaladas à mão, preservando as vivas,
+num arquivo compartilhado de 34k linhas, é arriscado demais pro valor (é higiene,
+0 impacto no usuário). Fica pra um passe dedicado de limpeza de CSS — de
+preferência com tooling que valide, e idealmente junto da revisão do /clients
+(dono das `.records-*`). Os satélites `.clients-page-v2 .spv2-footer/chip`
+(também mortos) também ficam pro passe do /clients.
 
 ---
 

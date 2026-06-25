@@ -78,7 +78,7 @@ Validacoes criticas nessas rotas:
 ### Leitura
 
 1. `GET /api/v1/samples`
-   Lista paginada com busca por texto, filtros de status, status comercial, safra, proprietario e periodo.
+   Lista paginada (cursor keyset por numero de lote). Filtros: busca por texto (`search`, casa por prefixo); status de exibicao (`displayStatus`); safra multipla (`harvests`); proprietario / comprador / enviado-para por cliente (`ownerClientIds` / `buyerClientIds` / `sentToClientIds`); classificacao (`padroes` / `aspectos` / `catacoes` / `certificados`); faixa de sacas (`sacksMin` / `sacksMax`); periodo de registro (`createdFrom` / `createdTo`); apenas ligas (`isBlend`). Opcional `eligibleForBlend` enriquece cada item com `eligibility` + `committedSacks` (modo Liga). No load-more (com cursor) `page.total`/`page.totalPages` vem `null` (o COUNT so roda na carga inicial).
 2. `GET /api/v1/samples/:sampleId`
    Retorna snapshot, anexos e preview inicial do historico.
 3. `GET /api/v1/samples/:sampleId/events`
