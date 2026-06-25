@@ -2157,11 +2157,10 @@ function SamplesPage() {
             </div>
           ) : (
             <div ref={samplesScrollRef} className="spv2-list-scroll">
-              {samplesState.items.map((sample, i) => (
+              {samplesState.items.map((sample) => (
                 <SampleCard
                   key={sample.id}
                   sample={sample}
-                  index={i}
                   onClickCapture={saveSnapshotBeforeLeave}
                   selectionMode={selectionMode === 'blend' ? 'blend' : 'idle'}
                   isSelected={selectedIds.has(sample.id)}

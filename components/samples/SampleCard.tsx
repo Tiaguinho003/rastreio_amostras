@@ -99,8 +99,6 @@ export type SampleCardSelectionMode = 'idle' | 'blend';
 
 export interface SampleCardProps {
   sample: SampleSnapshot;
-  /** Index na lista — usado pra calcular animationDelay escalonado. */
-  index: number;
   /** Callback executado antes de navegar pra `/samples/:id` (preserva snapshot na sessionStorage). */
   onClickCapture?: () => void;
   /** Liga B1.4 — modo selecao. 'idle' default mantem comportamento atual. */
@@ -119,7 +117,6 @@ export interface SampleCardProps {
 
 function SampleCardComponent({
   sample,
-  index,
   onClickCapture,
   selectionMode = 'idle',
   isSelected = false,
@@ -130,10 +127,6 @@ function SampleCardComponent({
 }: SampleCardProps) {
   const cardStatus = deriveCardStatus(sample);
   const availableSacks = sample.availableSacks;
-  // Teto no escalonamento: do 13o card em diante o delay satura (~0.48s). Sem
-  // o teto, cards profundos (apos varios load-more) demorariam segundos pra
-  // aparecer. index*0.04 cresce linear e nao tem fim.
-  const animationDelay = `${Math.min(index, 12) * 0.04}s`;
   // Liga: no card so a safra mais nova; "+" sinaliza que ha outras (liga de
   // safras diferentes). Detalhe da amostra mostra todas.
   const harvestSummary = sample.declared.harvest ? summarizeHarvest(sample.declared.harvest) : null;
@@ -169,7 +162,6 @@ function SampleCardComponent({
       <button
         type="button"
         className={cardClassName}
-        style={{ animationDelay }}
         onClick={handleClick}
         aria-pressed={isSelected}
         aria-disabled={isIneligible}
@@ -246,10 +238,7 @@ function SampleCardComponent({
     : [];
 
   return (
-    <div
-      className={`spv2-card-wrap ${cardStatus.className}${isExpanded ? ' is-expanded' : ''}`}
-      style={{ animationDelay }}
-    >
+    <div className={`spv2-card-wrap ${cardStatus.className}${isExpanded ? ' is-expanded' : ''}`}>
       <button
         type="button"
         className="spv2-card"

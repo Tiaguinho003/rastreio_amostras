@@ -5845,6 +5845,29 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
     box-shadow 0.25s ease;
 }
 
+/* G3 (Fase 4 — revisao /samples): content-visibility:auto faz o browser PULAR
+   render/layout/paint dos cards FORA da tela — o gargalo real da lista longa —
+   sem mexer no scroller (janela no mobile, container no desktop), no load-more
+   nem na restauracao de scroll. contain-intrinsic-size reserva a altura
+   estimada; com a keyword `auto`, apos o 1o render o browser LEMBRA a altura
+   real do card (colapsado OU expandido). Aplicado aos dois DOMs de item da
+   lista: .spv2-card-wrap (idle) e .spv2-card.is-blend-selectable (liga). Onde
+   nao ha suporte (Safari < 18), degrada para render normal. A animacao de
+   entrada perdeu o escalonamento por indice (ver SampleCard) pra um card
+   revelado no scroll nao piscar em branco durante o delay. */
+.samples-page-v2:not(.informe-commercial-page) .spv2-card-wrap,
+.samples-page-v2 .spv2-card.is-blend-selectable {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 88px;
+}
+
+@media (min-width: 901px) {
+  .samples-page-v2:not(.informe-commercial-page) .spv2-card-wrap,
+  .samples-page-v2 .spv2-card.is-blend-selectable {
+    contain-intrinsic-size: auto 108px;
+  }
+}
+
 .spv2-card-wrap.is-card-open {
   --card-status-color: #60a5fa;
   --card-status-bg: #dbeafe;
@@ -27193,14 +27216,15 @@ select.samples-filter-field-input {
   }
 
   /* Entrada do MODO LIGA (desktop): os cards de selecao fazem o mesmo
-     fade+subida dos cards normais (spv2-cardIn, escalonado pelo animationDelay
-     por indice) em vez de aparecer de uma vez. A troca idle->blend remonta a
-     lista inteira (DOM diferente por card; idle usa .spv2-card-wrap, liga usa
-     .spv2-card direto), e sem isso os cards "saltavam" no desktop — parecia
-     bug. No mobile a entrada ja vinha do `.spv2-card` base (spv2-cardIn); aqui
-     so restauramos a paridade, ja que o `.spv2-card` desktop zera a animation
-     (no idle quem anima e o wrap). Escopado a .is-blend-selectable pra NAO
-     reanimar os cards idle (que sao animados pelo wrap). */
+     fade+subida dos cards normais (spv2-cardIn, sem escalonamento por indice —
+     removido na Fase 4 por causa do content-visibility) em vez de aparecer de
+     uma vez. A troca idle->blend remonta a lista inteira (DOM diferente por
+     card; idle usa .spv2-card-wrap, liga usa .spv2-card direto), e sem isso os
+     cards "saltavam" no desktop — parecia bug. No mobile a entrada ja vinha do
+     `.spv2-card` base (spv2-cardIn); aqui so restauramos a paridade, ja que o
+     `.spv2-card` desktop zera a animation (no idle quem anima e o wrap).
+     Escopado a .is-blend-selectable pra NAO reanimar os cards idle (que sao
+     animados pelo wrap). */
   .samples-page-v2 .spv2-card.is-blend-selectable {
     animation: spv2-cardIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) backwards;
   }
