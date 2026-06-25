@@ -10,6 +10,7 @@
 //   onShowIneligibleReason em vez de toggle (Liga F1.B / F1.4).
 
 import Link from 'next/link';
+import { memo } from 'react';
 
 import { summarizeHarvest } from '../../lib/sample-identification';
 import type { SampleEligibilityReason, SampleSnapshot } from '../../lib/types';
@@ -116,7 +117,7 @@ export interface SampleCardProps {
   onToggleExpand?: (sampleId: string) => void;
 }
 
-export function SampleCard({
+function SampleCardComponent({
   sample,
   index,
   onClickCapture,
@@ -129,7 +130,10 @@ export function SampleCard({
 }: SampleCardProps) {
   const cardStatus = deriveCardStatus(sample);
   const availableSacks = sample.availableSacks;
-  const animationDelay = `${index * 0.04}s`;
+  // Teto no escalonamento: do 13o card em diante o delay satura (~0.48s). Sem
+  // o teto, cards profundos (apos varios load-more) demorariam segundos pra
+  // aparecer. index*0.04 cresce linear e nao tem fim.
+  const animationDelay = `${Math.min(index, 12) * 0.04}s`;
   // Liga: no card so a safra mais nova; "+" sinaliza que ha outras (liga de
   // safras diferentes). Detalhe da amostra mostra todas.
   const harvestSummary = sample.declared.harvest ? summarizeHarvest(sample.declared.harvest) : null;
@@ -356,3 +360,9 @@ export function SampleCard({
     </div>
   );
 }
+
+// Memoizado: a lista re-renderiza a cada tecla na busca / mudanca de estado da
+// pagina. Com props estaveis (sample por ref, handlers via useCallback no
+// page.tsx, demais primitivos) o card so re-renderiza quando OS SEUS dados
+// mudam — nao a cada keystroke. Comparacao rasa padrao do memo basta.
+export const SampleCard = memo(SampleCardComponent);

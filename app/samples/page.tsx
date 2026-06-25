@@ -579,6 +579,9 @@ function SamplesPage() {
     certif: string[];
   }>({ padrao: [], aspecto: [], catacao: [], certif: [] });
   const [classificationOptionsLoading, setClassificationOptionsLoading] = useState(false);
+  // Cache "carrega uma vez": vira true apos a 1a carga bem-sucedida das opcoes
+  // de classificacao; reabrir o modal de filtros nao refaz as 4 chamadas.
+  const classificationOptionsLoadedRef = useRef(false);
   // Modal de nova amostra: `open` controla intencao (abrir/fechar) e
   // `mounted` controla presenca no DOM. Quando o user fecha, `open`
   // vira false imediatamente (BottomSheet anima saida) mas `mounted`
@@ -791,10 +794,15 @@ function SamplesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtersOpen]);
 
-  // Carrega as opcoes dos filtros de classificacao (4 campos em paralelo) toda
-  // vez que o modal abre (mantem as listas atuais em caso de erro/abort).
+  // Carrega as opcoes dos filtros de classificacao (4 campos em paralelo). As
+  // opcoes mudam raramente, entao carrega UMA VEZ por montagem da pagina:
+  // reabrir o modal nao refaz as 4 chamadas. Em erro/abort, o ref fica false e
+  // tenta de novo na proxima abertura (mantem as listas atuais nesse meio-tempo).
   useEffect(() => {
     if (!filtersOpen || !session) {
+      return;
+    }
+    if (classificationOptionsLoadedRef.current) {
       return;
     }
     let active = true;
@@ -814,6 +822,7 @@ function SamplesPage() {
             catacao: catacao.values ?? [],
             certif: certif.values ?? [],
           });
+          classificationOptionsLoadedRef.current = true;
         }
       })
       .catch(() => {
@@ -1210,6 +1219,29 @@ function SamplesPage() {
     setActiveFilterSection('owner');
   }
 
+  // Inputs do snapshot mantidos frescos num ref (padrao "latest ref", atualizado
+  // a cada render). Permite que saveSnapshotBeforeLeave seja um callback ESTAVEL
+  // (deps []): senao ele mudaria a cada tecla na busca e, sendo o onClickCapture
+  // do card, quebraria o memo de TODO card a cada keystroke.
+  const snapshotInputsRef = useRef({
+    items: samplesState.items,
+    total: samplesState.total,
+    nextCursor: samplesState.nextCursor,
+    searchInput,
+    appliedSearch,
+    appliedHiddenFilters,
+    expandedSampleIds,
+  });
+  snapshotInputsRef.current = {
+    items: samplesState.items,
+    total: samplesState.total,
+    nextCursor: samplesState.nextCursor,
+    searchInput,
+    appliedSearch,
+    appliedHiddenFilters,
+    expandedSampleIds,
+  };
+
   // Flush sincrono do snapshot — cinto de seguranca pro caso "rolei e cliquei
   // num card em <200ms" (antes do save continuo debounced gravar). Cabeado no
   // onClick do card. As demais saidas dependem do save continuo abaixo.
@@ -1218,26 +1250,19 @@ function SamplesPage() {
     // a pagina restaura sempre em idle, entao guardar blend deixaria eligibility
     // velha no snapshot. Le via ref pra nao re-criar o callback ao alternar modo.
     if (selectionModeRef.current === 'blend') return;
+    const snap = snapshotInputsRef.current;
     writeSamplesSnapshot({
-      items: samplesState.items,
-      total: samplesState.total,
-      nextCursor: samplesState.nextCursor,
+      items: snap.items,
+      total: snap.total,
+      nextCursor: snap.nextCursor,
       scrollTop: readListScrollTop(samplesScrollRef.current),
-      searchInput,
-      appliedSearch,
-      appliedHiddenFilters,
-      expandedSampleIds: Array.from(expandedSampleIds),
+      searchInput: snap.searchInput,
+      appliedSearch: snap.appliedSearch,
+      appliedHiddenFilters: snap.appliedHiddenFilters,
+      expandedSampleIds: Array.from(snap.expandedSampleIds),
       savedAt: Date.now(),
     });
-  }, [
-    samplesState.items,
-    samplesState.total,
-    samplesState.nextCursor,
-    searchInput,
-    appliedSearch,
-    appliedHiddenFilters,
-    expandedSampleIds,
-  ]);
+  }, []);
 
   // Save CONTINUO (debounce 250ms): persiste o snapshot em qualquer mudanca
   // relevante, pra preservar o estado ao sair por QUALQUER rota (tabbar, seta,
@@ -1327,32 +1352,37 @@ function SamplesPage() {
     blendDraftIdRef.current = '';
   }
 
-  function toggleSampleSelection(sampleId: string) {
+  // Handlers passados ao SampleCard memoizado: estaveis via useCallback pra nao
+  // quebrar o memo. Usam updater funcional do setState -> deps vazias.
+  const toggleSampleSelection = useCallback((sampleId: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(sampleId)) next.delete(sampleId);
       else next.add(sampleId);
       return next;
     });
-  }
+  }, []);
 
   // Toggle do card expandido. Multiplos podem ficar abertos.
-  function toggleCardExpand(sampleId: string) {
+  const toggleCardExpand = useCallback((sampleId: string) => {
     setExpandedSampleIds((prev) => {
       const next = new Set(prev);
       if (next.has(sampleId)) next.delete(sampleId);
       else next.add(sampleId);
       return next;
     });
-  }
+  }, []);
 
-  function showIneligibleReason(reason: SampleEligibilityReason) {
-    const label = mapEligibilityReasonToLabel(reason);
-    toast.info({
-      title: 'Amostra indisponível pra liga',
-      description: label ?? undefined,
-    });
-  }
+  const showIneligibleReason = useCallback(
+    (reason: SampleEligibilityReason) => {
+      const label = mapEligibilityReasonToLabel(reason);
+      toast.info({
+        title: 'Amostra indisponível pra liga',
+        description: label ?? undefined,
+      });
+    },
+    [toast]
+  );
 
   // Liga B1.5: remover individual via X no popover. Se for a ultima,
   // fecha o popover automaticamente mas mantem o modo selecao ativo
