@@ -2131,6 +2131,13 @@ function SamplesPage() {
             ) : null}
           </div>
 
+          {/* Live region (a11y, lacuna #6): anuncia o load-more pro leitor de
+              tela — sem isso, na rolagem infinita o conteudo novo entra em
+              silencio. Sempre no DOM (so o texto muda) pra o aria-live disparar. */}
+          <div role="status" aria-live="polite" className="login-visually-hidden">
+            {isLoadingMore ? 'Carregando mais amostras' : ''}
+          </div>
+
           {/* Section 3: Card list */}
           {isLoadingInitial ? (
             <div className="spv2-list-scroll">
@@ -2151,8 +2158,16 @@ function SamplesPage() {
                     strokeLinecap="round"
                   />
                 </svg>
-                <p className="spv2-empty-text">Nenhuma amostra encontrada</p>
-                <p className="spv2-empty-sub">Tente outro filtro ou termo de busca</p>
+                <p className="spv2-empty-text">
+                  {selectionMode === 'blend'
+                    ? 'Nenhuma amostra disponível para liga'
+                    : 'Nenhuma amostra encontrada'}
+                </p>
+                <p className="spv2-empty-sub">
+                  {selectionMode === 'blend'
+                    ? 'Ajuste os filtros ou saia do modo liga'
+                    : 'Tente outro filtro ou termo de busca'}
+                </p>
               </div>
             </div>
           ) : (

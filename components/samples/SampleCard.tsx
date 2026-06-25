@@ -163,7 +163,9 @@ function SampleCardComponent({
         type="button"
         className={cardClassName}
         onClick={handleClick}
-        aria-pressed={isSelected}
+        // Inelegivel nao e alternavel: omitir aria-pressed (so aria-disabled),
+        // senao "pressed + disabled" juntos confundem o leitor de tela.
+        aria-pressed={isIneligible ? undefined : isSelected}
         aria-disabled={isIneligible}
       >
         <span className="spv2-card-bar" />

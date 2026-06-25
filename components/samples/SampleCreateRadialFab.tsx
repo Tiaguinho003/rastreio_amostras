@@ -67,6 +67,11 @@ export function SampleCreateRadialFab(props: SampleCreateRadialFabProps) {
   const pulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const openRafRef = useRef<number | null>(null);
+  // Gestao de foco do leque (a11y): foca a 1a opcao ao abrir e devolve o foco ao
+  // FAB ao fechar SEM acao (Escape/tap-fora/toggle). Numa selecao o foco vai pro
+  // modal/tela aberta — por isso o guard por actionFiredRef no closeMenu.
+  const firstOptionRef = useRef<HTMLButtonElement | null>(null);
+  const fabButtonRef = useRef<HTMLButtonElement | null>(null);
 
   function openMenu() {
     // Se vier de um fechamento em andamento, cancela o unmount pendente
@@ -91,6 +96,11 @@ export function SampleCreateRadialFab(props: SampleCreateRadialFabProps) {
       openRafRef.current = null;
     }
     setOpen(false);
+    // Devolve o foco ao FAB so num fechamento "cancelar" (Escape/tap-fora/toggle).
+    // Numa selecao (actionFiredRef) o foco pertence ao modal/tela que vai abrir.
+    if (!actionFiredRef.current) {
+      fabButtonRef.current?.focus();
+    }
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
     closeTimerRef.current = setTimeout(() => {
       setMounted(false);
@@ -106,6 +116,13 @@ export function SampleCreateRadialFab(props: SampleCreateRadialFabProps) {
     }
     document.addEventListener('keydown', onKeydown);
     return () => document.removeEventListener('keydown', onKeydown);
+  }, [open, props.mode]);
+
+  // Foca a 1a opcao do leque ao abrir (padrao menu-button do WAI-ARIA). O foco
+  // volta ao FAB no closeMenu. :focus-visible evita anel visivel em tap/mouse.
+  useEffect(() => {
+    if (props.mode !== 'idle' || !open) return;
+    firstOptionRef.current?.focus();
   }, [open, props.mode]);
 
   // A tabbar vive num portal no body, fora da isolation do .mobile-edge-shell,
@@ -221,6 +238,7 @@ export function SampleCreateRadialFab(props: SampleCreateRadialFabProps) {
         <div className="fab-fan" role="menu" aria-label="Opções de criação" aria-hidden={!open}>
           {/* Lote — acima do FAB */}
           <button
+            ref={firstOptionRef}
             type="button"
             className={`fab-fan-option is-lote${open ? ' is-open' : ''}${
               pulsingOption === 'unit' ? ' is-pulsing' : ''
@@ -306,6 +324,7 @@ export function SampleCreateRadialFab(props: SampleCreateRadialFabProps) {
       )}
 
       <button
+        ref={fabButtonRef}
         type="button"
         className={`cv2-fab${fabIsExpanded ? ' is-expanded' : ''}`}
         aria-label={open ? 'Fechar opções de criação' : 'Criar novo lote'}

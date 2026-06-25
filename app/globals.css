@@ -6184,10 +6184,16 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
 .spv2-skeleton-card {
   position: relative;
   overflow: hidden;
-  min-height: 58px;
-  border-radius: 12px;
-  background: #ede7d8;
-  border: 1px dashed rgba(112, 130, 103, 0.4);
+  min-height: 80px;
+  /* Espelha o card v2 branco: raio + sombra suave (sem a borda verde tracejada
+     antiga) e altura mais perto do card real. Base cinza-clara neutra pra o
+     shimmer branco do ::before continuar visivel. */
+  border-radius: clamp(14px, 4vw, 16px);
+  background: #eef0ec;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.06);
   flex-shrink: 0;
   pointer-events: none;
 }
