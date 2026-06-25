@@ -10,15 +10,15 @@
 
 ## Status geral
 
-| Fase | Tema                                                         | Status                                                            |
-| ---- | ------------------------------------------------------------ | ----------------------------------------------------------------- |
-| 1    | Bugs do Modo Liga (unificar o fetch) — B1–B5                 | ✅ **Código pronto + commit `57dc023`** — falta validar no device |
-| 2    | Gargalos de render — G1, G2, G4 (G5 descartado)              | ✅ **Código pronto** — falta validar no device                    |
-| 3    | Camada de dados (backend) — D1, D2, D3                       | ✅ **Código pronto** (247 unit + 290 integração) — falta deploy   |
-| 4    | Virtualização da lista — G3                                  | ⏳ pendente (maior risco — por último)                            |
-| 5    | Inconsistências / acessibilidade — I2, I3, I4, I5, lacuna #6 | ⏳ pendente                                                       |
-| 6    | Código morto (CSS) + docs — M1–M6, S1                        | ⏳ pendente                                                       |
-| —    | Testes de regressão (lacuna #7)                              | ⏳ pendente (junto das fases de lógica/dados)                     |
+| Fase | Tema                                                               | Status                                                            |
+| ---- | ------------------------------------------------------------------ | ----------------------------------------------------------------- |
+| 1    | Bugs do Modo Liga (unificar o fetch) — B1–B5                       | ✅ **Código pronto + commit `57dc023`** — falta validar no device |
+| 2    | Gargalos de render — G1, G2, G4 (G5 descartado)                    | ✅ **Código pronto** — falta validar no device                    |
+| 3    | Camada de dados (backend) — D1, D2, D3                             | ✅ **Código pronto** (247 unit + 290 integração) — falta deploy   |
+| 4    | Render da lista longa — G3 (content-visibility, não react-virtual) | ✅ **Código pronto** — validar em device (iOS PWA)                |
+| 5    | Inconsistências / acessibilidade — I2, I3, I4, I5, lacuna #6       | ⏳ pendente                                                       |
+| 6    | Código morto (CSS) + docs — M1–M6, S1                              | ⏳ pendente                                                       |
+| —    | Testes de regressão (lacuna #7)                                    | ⏳ pendente (junto das fases de lógica/dados)                     |
 
 > ⚠️ As referências `arquivo:linha` abaixo são **âncoras por símbolo** — os
 > números deslocam conforme os arquivos mudam (a Fase 1 já deslocou o
@@ -255,27 +255,47 @@ PII da lista. ⚠️ trunca o DB local — reseed feito (`db:seed`).
 
 ---
 
-## Fase 4 — Virtualização da lista (G3) [maior esforço/risco — por último]
+## Fase 4 — Gargalo de render da lista (G3) ✅
 
-Introduzir `@tanstack/react-virtual`. Pontos de design (pode virar sub-plano):
+**Status:** código pronto, gates verdes (lint/format/typecheck/build). Falta
+**validação em device real** (mobile + iOS PWA + desktop).
 
-- **Scroller difere por breakpoint:** mobile = scroll da **janela**; desktop =
-  container `.spv2-list-scroll`. Resolver com `useWindowVirtualizer` (mobile)
-  vs `useVirtualizer` + `getScrollElement` (desktop), ou unificar num container.
-- **Altura variável:** card colapsado vs expandido, mobile vs desktop → usar
-  `measureElement` (medição dinâmica) + remedir ao expandir.
-- **Load-more:** disparar pelo range do virtualizer (último item virtual perto
-  do fim) no lugar do/junto ao `IntersectionObserver` (`loadMoreRef`).
-- **Restauração de scroll** (`readListScrollTop`/snapshot) → vira offset do
-  virtualizer.
-- **Modo Liga:** lidar com as duas formas de DOM do card (`.spv2-card-wrap` vs
-  `.spv2-card`).
-- Render condicional do `.spv2-card-expanded-inner` só quando expandido.
+**Decisão (2026-06-25): NÃO usar `@tanstack/react-virtual` — usar
+`content-visibility`.** A análise mostrou que o scroller difere por breakpoint
+(mobile = janela; desktop = container `.spv2-list-scroll`), o que tornaria a
+virtualização real arriscada (hooks `useWindowVirtualizer` vs `useVirtualizer`
+não-condicionais → dois componentes ou unificar o scroller, mexendo no que o
+iOS PWA já provou frágil) e complexa (remedir altura, reescrever load-more +
+restauração de scroll, neutralizar re-animação no unmount). `content-visibility`
+entrega o mesmo ganho de render com risco ~zero.
 
-**Verificação:** device **real** — **iOS PWA standalone** (lacuna #8) + Android
+**O que foi feito:**
 
-- desktop. Conferir scroll suave, restauração ao voltar do detalhe, load-more,
-  e a foto/peneiras do card expandido.
+- **G3 ✅** — `content-visibility: auto` + `contain-intrinsic-size: auto <h>`
+  (88px mobile / 108px desktop) nos itens da lista (`.spv2-card-wrap` idle +
+  `.spv2-card.is-blend-selectable` liga) em `app/globals.css`. O browser pula
+  render/layout/paint dos cards fora da tela (o gargalo real) **sem** tocar no
+  scroller, load-more, observer nem na restauração de scroll. `auto` faz o
+  browser lembrar a altura real após o 1º render. Degrada para render normal
+  onde não há suporte (Safari < 18).
+- **Animação de entrada:** removido o escalonamento por índice (o
+  `animationDelay` inline + a prop `index` do `SampleCard`; supersede o cap do
+  G2). Motivo: com `content-visibility`, um card revelado no scroll começaria a
+  animação naquele momento e ficaria **invisível durante o delay** (`backwards`)
+  → "branco→fade". O fade `spv2-cardIn` (0.35s) foi **mantido**, só sem stagger.
+
+**Verificação (device real — iOS PWA é o ponto crítico):**
+
+- Rolar lista longa (vários load-more): scroll suave, sem cards em branco.
+- Animação de entrada: cards aparecem com fade (sem cascata), e revelados no
+  scroll **não** piscam em branco.
+- **Restauração de scroll** ao voltar do detalhe — ⚠️ ponto a observar: com
+  `content-visibility`, cards acima do ponto restaurado usam a altura estimada
+  até renderizar; se houver **cards expandidos** acima, pode haver leve deriva
+  (o comum, tudo colapsado, casa com a estimativa). Conferir em scroll profundo.
+- Expandir card, rolar pra longe e voltar: mantém a altura expandida.
+- Modo Liga: cards seguem selecionáveis/acinzentados; entrada OK.
+- Desktop: scroll do container suave.
 
 ---
 
