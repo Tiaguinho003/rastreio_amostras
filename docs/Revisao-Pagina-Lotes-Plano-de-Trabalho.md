@@ -13,7 +13,7 @@
 | Fase | Tema                                                         | Status                                                            |
 | ---- | ------------------------------------------------------------ | ----------------------------------------------------------------- |
 | 1    | Bugs do Modo Liga (unificar o fetch) — B1–B5                 | ✅ **Código pronto + commit `57dc023`** — falta validar no device |
-| 2    | Gargalos de render — G1, G2, G5, G4                          | ⏳ pendente                                                       |
+| 2    | Gargalos de render — G1, G2, G4 (G5 descartado)              | ✅ **Código pronto** — falta validar no device                    |
 | 3    | Camada de dados (backend) — D1, D2, D3                       | ⏳ pendente                                                       |
 | 4    | Virtualização da lista — G3                                  | ⏳ pendente (maior risco — por último)                            |
 | 5    | Inconsistências / acessibilidade — I2, I3, I4, I5, lacuna #6 | ⏳ pendente                                                       |
@@ -178,25 +178,43 @@ false`) → **B5**.
 
 ---
 
-## Fase 2 — Gargalos de render (quick wins, preparam a virtualização)
+## Fase 2 — Gargalos de render (quick wins, preparam a virtualização) ✅
 
-- **G1** — `React.memo` no `SampleCard` (`components/samples/SampleCard.tsx:119`
-  — `export function SampleCard`) + estabilizar handlers em `page.tsx` com
-  `useCallback`: `toggleSampleSelection` (`:1330`), `toggleCardExpand` (`:1340`),
-  `showIneligibleReason` (`:1349`) já usam updater funcional → deps vazias.
-- **G2** — cap no `animationDelay` (`SampleCard.tsx:132`):
-  `Math.min(index, 12) * 0.04` (ou zerar nos itens de load-more).
-- **G5** — extrair `renderFilterFields` (`page.tsx:1603`) e
-  `renderClientMultiFilter` (`page.tsx:1470`) para um componente **memoizado**
-  que recebe `draftHiddenFilters` + setters, isolando o re-render do modal da
-  lista.
-- **G4** — cachear `listClassificationValues` (4 chamadas em `page.tsx:804-807`):
-  refetch só se vazio/invalidado, **ou** `Cache-Control` no endpoint +
-  `cachePolicy: 'default'` na chamada (padrão do `getDashboard` em
-  `lib/api-client.ts`).
+**Status:** código pronto, gates verdes. Falta validar no device. **G5 foi
+descartado** (decisão do usuário 2026-06-25 — ver abaixo).
+
+**O que foi feito:**
+
+- **G1 ✅** — `SampleCard` agora é `export const SampleCard = memo(SampleCardComponent)`
+  (`components/samples/SampleCard.tsx`). Os 4 handlers passados ao card foram
+  estabilizados em `page.tsx`: `toggleSampleSelection`, `toggleCardExpand`,
+  `showIneligibleReason` viraram `useCallback` (updater funcional → deps `[]`,
+  exceto `showIneligibleReason` com `[toast]`); e `saveSnapshotBeforeLeave`
+  (= `onClickCapture`, que antes mudava a cada tecla na busca) virou `useCallback`
+  `[]` lendo um `snapshotInputsRef` (padrão "latest ref", atualizado a cada
+  render). Sem isso o `onClickCapture` instável quebraria o memo a cada keystroke.
+  Referências dos itens são preservadas no `success-more` (`[...state.items, …]`),
+  então paginar não re-renderiza cards já montados.
+- **G2 ✅** — `animationDelay` capado: `Math.min(index, 12) * 0.04` em
+  `SampleCard.tsx` (satura ~0.48s; sem o teto, cards profundos demorariam
+  segundos pra aparecer).
+- **G4 ✅** — `listClassificationValues` (4 chamadas) agora carrega **uma vez por
+  montagem** via `classificationOptionsLoadedRef`: reabrir o modal de filtros não
+  refaz as chamadas; em erro/abort o ref fica `false` e tenta de novo.
+- **G5 ❌ DESCARTADO** — extrair o modal de filtros pra um componente memoizado.
+  Motivo (confirmado com o usuário): o **G1 já entrega o objetivo declarado do
+  G5** ("isolar o re-render do modal da lista" — a lista agora é memoizada e não
+  re-renderiza com a digitação no filtro). Um componente memoizado do modal
+  re-renderizaria mesmo assim, porque o que muda durante o uso do modal
+  (`draftHiddenFilters`/`openClientFilter`/busca de cliente) é justamente o que
+  ele receberia como prop; e o `ClientLookupField` já é isolado. Extrair ~400
+  linhas (campos retráteis, foco, scroll-to-section, refs) seria a parte mais
+  intrincada da página, com risco de regressão e ganho não-mensurável.
 
 **Verificação:** React DevTools Profiler — digitar na busca **não** deve
 re-renderizar os cards; reabrir o modal de filtros **não** refaz as 4 chamadas.
+Smoke funcional: expandir card, selecionar na Liga, "Ver detalhes" (snapshot),
+filtros — tudo continua funcionando.
 
 ---
 
