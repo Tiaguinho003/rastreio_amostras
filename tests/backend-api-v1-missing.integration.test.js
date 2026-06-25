@@ -954,7 +954,9 @@ if (!databaseUrl || !databaseReachable) {
 
     assert.equal(secondBatch.status, 200);
     assert.equal(secondBatch.body.items.length, 15);
-    assert.equal(secondBatch.body.page.total, 40);
+    // D1: no load-more (com cursor) o backend pula o COUNT -> total/totalPages null.
+    assert.equal(secondBatch.body.page.total, null);
+    assert.equal(secondBatch.body.page.totalPages, null);
     assert.ok(secondBatch.body.page.nextCursor);
 
     const thirdBatch = await api.listSamples(
@@ -969,7 +971,8 @@ if (!databaseUrl || !databaseReachable) {
 
     assert.equal(thirdBatch.status, 200);
     assert.equal(thirdBatch.body.items.length, 10);
-    assert.equal(thirdBatch.body.page.total, 40);
+    // D1: cursor -> sem COUNT. hasNext deriva do nextCursor, nao do total.
+    assert.equal(thirdBatch.body.page.total, null);
     assert.equal(thirdBatch.body.page.nextCursor, null);
     assert.equal(thirdBatch.body.page.hasNext, false);
 

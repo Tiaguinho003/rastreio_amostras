@@ -1073,7 +1073,9 @@ function SamplesPage() {
         dispatchSamples({
           type: 'success-initial',
           items: response.items,
-          total: response.page.total,
+          // Caminho inicial (sem cursor) sempre traz total numerico; ?? 0 e so
+          // pro tipo (page.total agora e number | null por causa do load-more).
+          total: response.page.total ?? 0,
           nextCursor: response.page.nextCursor,
         });
 

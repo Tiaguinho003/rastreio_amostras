@@ -119,6 +119,26 @@ const CLIENT_INCLUDE_SELECT = {
   status: true,
 };
 
+// Projecao ENXUTA do ownerClient pra LISTA de /samples. O card usa
+// `declared.owner`; o unico consumidor do OBJETO ownerClient na lista e o
+// `displayName` (BlendConfirmationSheet), que precisa de personType +
+// fullName/legalName. Removemos a PII que a lista nao usa (cpf, cnpjRoot,
+// phone). O shape do retorno NAO muda — mapOwnerClient faz `?? null`, entao
+// esses campos so saem null na lista (o detalhe segue com CLIENT_INCLUDE_SELECT
+// completo). personType e code ficam (sao nao-nulaveis no tipo do front).
+const CLIENT_LIST_SELECT = {
+  id: true,
+  code: true,
+  personType: true,
+  fullName: true,
+  legalName: true,
+  tradeName: true,
+  isBuyer: true,
+  isSeller: true,
+  isWarehouse: true,
+  status: true,
+};
+
 const UNIT_INCLUDE_SELECT = {
   id: true,
   clientId: true,
@@ -147,6 +167,11 @@ const SAMPLE_OWNER_INCLUDE = {
   ownerClient: { select: CLIENT_INCLUDE_SELECT },
 };
 const SAMPLE_INCLUDE = { ...SAMPLE_OWNER_INCLUDE };
+// Include da LISTA (so /samples): ownerClient enxuto, sem PII. Detalhe/resolve
+// seguem usando SAMPLE_INCLUDE (completo).
+const SAMPLE_LIST_INCLUDE = {
+  ownerClient: { select: CLIENT_LIST_SELECT },
+};
 const SAMPLE_MOVEMENT_INCLUDE = {
   buyerClient: { select: CLIENT_INCLUDE_SELECT },
   buyerUnit: { select: UNIT_INCLUDE_SELECT },
@@ -1427,16 +1452,29 @@ export class SampleQueryService {
       : conditions;
     const whereForRows = rowConditions.length > 0 ? { AND: rowConditions } : undefined;
 
-    const [rows, total] = await this.prisma.$transaction([
-      this.prisma.sample.findMany({
-        where: whereForRows,
-        orderBy: [{ internalLotNumberInt: { sort: 'desc', nulls: 'last' } }, { id: 'asc' }],
-        skip: resolvedOffset,
-        take: safeLimit,
-        include: SAMPLE_INCLUDE,
-      }),
-      this.prisma.sample.count({ where: whereForCount }),
-    ]);
+    const findManyArgs = {
+      where: whereForRows,
+      orderBy: [{ internalLotNumberInt: { sort: 'desc', nulls: 'last' } }, { id: 'asc' }],
+      skip: resolvedOffset,
+      take: safeLimit,
+      include: SAMPLE_LIST_INCLUDE,
+    };
+
+    // D1: a contagem total so importa na carga inicial (sem cursor). No load-more
+    // (keyset) o front ignora `total` (success-more so le nextCursor), entao
+    // pulamos o COUNT — que reescaneia todo o conjunto filtrado a cada pagina.
+    // total/totalPages saem null no caminho com cursor.
+    let rows;
+    let total;
+    if (cursor) {
+      rows = await this.prisma.sample.findMany(findManyArgs);
+      total = null;
+    } else {
+      [rows, total] = await this.prisma.$transaction([
+        this.prisma.sample.findMany(findManyArgs),
+        this.prisma.sample.count({ where: whereForCount }),
+      ]);
+    }
 
     const nextCursor =
       rows.length === safeLimit
@@ -1445,7 +1483,7 @@ export class SampleQueryService {
             id: rows[rows.length - 1].id,
           }
         : null;
-    const totalPages = Math.max(1, Math.ceil(total / safeLimit));
+    const totalPages = total === null ? null : Math.max(1, Math.ceil(total / safeLimit));
     const hasPrev = cursor ? false : resolvedPage > 1;
     const hasNext = cursor ? nextCursor !== null : resolvedPage < totalPages;
 

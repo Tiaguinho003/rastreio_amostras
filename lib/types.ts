@@ -660,8 +660,10 @@ export interface ListSamplesResponse {
     limit: number;
     page: number | null;
     offset: number | null;
-    total: number;
-    totalPages: number;
+    // total/totalPages sao null no load-more (keyset com cursor): o backend pula
+    // o COUNT, que o front ignora no success-more. So a carga inicial os traz.
+    total: number | null;
+    totalPages: number | null;
     hasPrev: boolean;
     hasNext: boolean;
     nextCursor: { lotInt: number | null; id: string } | null;
