@@ -33445,7 +33445,9 @@ body.is-selection-mode .hero-search-filter-btn {
   text-align: left;
   cursor: pointer;
   font: inherit;
-  background: linear-gradient(180deg, #ffffff 0%, #f9f7f2 100%);
+  /* Branco puro no modo Liga (como os cards de liga no desktop) pra nao destoar
+     em bege; o inelegivel mantem o cinza #f3f3f3 (regra abaixo, mais tardia). */
+  background: #ffffff;
   border: 0;
 }
 
