@@ -4894,10 +4894,6 @@ button:disabled {
   color: #e8a0a0;
 }
 
-.samples-page-search {
-  width: min(30rem, 100%);
-}
-
 .sample-search-clear {
   min-width: 5.2rem;
 }
@@ -5552,38 +5548,6 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   font-weight: 600;
 }
 
-.spv2-sort-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  border: 0;
-  background: transparent;
-  padding: 4px 0;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.spv2-sort-btn svg {
-  width: 15px;
-  height: 15px;
-  fill: none;
-  stroke: var(--brand-green-soft);
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.spv2-sort-btn span {
-  font-size: clamp(12px, 3.5vw, 14px);
-  font-weight: 600;
-  color: var(--brand-green-soft);
-}
-
-.spv2-sort-btn:active {
-  transform: scale(0.95);
-  opacity: 0.7;
-}
-
 /* ── spv2: card list ── */
 
 @keyframes spv2-cardIn {
@@ -6048,43 +6012,6 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   white-space: nowrap;
 }
 
-.spv2-card-stat--primary .spv2-card-stat-label {
-  color: rgba(31, 93, 67, 0.7);
-}
-
-.spv2-card-stat--primary .spv2-card-stat-value {
-  color: var(--brand-green);
-  font-weight: 700;
-}
-
-.spv2-card-stat-num {
-  font-variant-numeric: tabular-nums;
-}
-
-.spv2-card-stat-divider {
-  margin: 0 1px;
-  color: rgba(0, 0, 0, 0.35);
-  font-weight: 500;
-}
-
-.spv2-card-stat-total {
-  color: rgba(0, 0, 0, 0.45);
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
-
-.spv2-card-stat-unit {
-  font-size: 0.76em;
-  font-weight: 600;
-  color: rgba(0, 0, 0, 0.4);
-  margin-left: 3px;
-  text-transform: lowercase;
-}
-
-.spv2-card-stat--primary .spv2-card-stat-unit {
-  color: rgba(31, 93, 67, 0.5);
-}
-
 .spv2-card-stat-value--empty {
   color: rgba(0, 0, 0, 0.3);
   font-weight: 500;
@@ -6235,65 +6162,6 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   margin: 0;
   flex-shrink: 0;
   letter-spacing: 0.01em;
-}
-
-/* ── spv2: pagination ── */
-
-.spv2-footer {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(12px, 3.5vw, 16px);
-  padding: clamp(6px, 1.5vw, 8px) 0 clamp(4px, 1vw, 6px);
-}
-
-.spv2-page-btn {
-  display: inline-grid;
-  place-items: center;
-  width: clamp(30px, 8vw, 34px);
-  height: clamp(30px, 8vw, 34px);
-  border: 1.5px solid rgba(0, 0, 0, 0.06);
-  border-radius: 10px;
-  background: #ffffff;
-  padding: 0;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.15s;
-}
-
-.spv2-page-btn:active {
-  transform: scale(0.92);
-}
-
-.spv2-page-btn:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
-.spv2-page-btn:disabled:active {
-  transform: none;
-}
-
-.spv2-page-btn svg {
-  width: 56%;
-  height: 56%;
-  fill: none;
-  stroke: #555;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.spv2-page-info {
-  font-size: clamp(12px, 3.2vw, 13px);
-  color: #888;
-  font-weight: 500;
-}
-
-.spv2-page-info strong {
-  color: #1a1a1a;
-  font-weight: 700;
 }
 
 /* ── Clients page v2 ── */
@@ -27404,27 +27272,6 @@ select.samples-filter-field-input {
     display: none;
   }
 
-  /* Chips: maiores */
-  .samples-page-v2 .spv2-chips {
-    padding: 0;
-    gap: 0.6rem;
-    flex-shrink: 0;
-  }
-
-  .samples-page-v2 .spv2-chip {
-    padding: 0.5rem 1rem;
-    font-size: 0.85rem;
-    border-radius: 10px;
-    transition:
-      transform 0.15s ease,
-      box-shadow 0.15s ease;
-  }
-
-  .samples-page-v2 .spv2-chip:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  }
-
   /* Meta: header do container — mesmo padrao compacto da /clients
      (padding e tamanho do contador alinhados pra consistencia entre as
      duas listagens). */
@@ -27443,36 +27290,6 @@ select.samples-filter-field-input {
     font-weight: 700;
     color: #555;
     letter-spacing: -0.01em;
-  }
-
-  /* Footer: paginacao no rodape do container */
-  .samples-page-v2 .spv2-footer {
-    padding: 0.6rem 0 0.2rem;
-    border-top: 1px solid rgba(112, 130, 103, 0.12);
-    margin-top: 0.4rem;
-    flex-shrink: 0;
-  }
-
-  .samples-page-v2 .spv2-page-btn {
-    width: 2.5rem;
-    height: 2.5rem;
-    border: 1px solid rgba(112, 130, 103, 0.22);
-    background: #ffffff;
-    box-shadow: 0 2px 4px rgba(19, 35, 24, 0.05);
-    transition:
-      transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
-      box-shadow 0.18s ease,
-      border-color 0.18s ease;
-  }
-
-  .samples-page-v2 .spv2-page-btn:hover:not(:disabled) {
-    transform: translateY(-2px);
-    border-color: rgba(112, 130, 103, 0.4);
-    box-shadow: 0 4px 10px rgba(19, 35, 24, 0.1);
-  }
-
-  .samples-page-v2 .spv2-page-btn:active:not(:disabled) {
-    transform: translateY(0) scale(0.96);
   }
 
   /* Mesmo padrao da /clients: barra de pesquisa em flex inline com botao
@@ -30060,25 +29877,8 @@ select.samples-filter-field-input {
     width: auto;
   }
 
-  .samples-page-v2 .spv2-chips {
-    justify-content: flex-start;
-    gap: 1rem;
-    padding: 0;
-    max-width: none;
-    margin: 0;
-    width: auto;
-  }
-
   /* T8: footer de paginacao */
   .clients-page-v2 .spv2-footer {
-    padding: 0.6rem 0 0.2rem;
-    max-width: none;
-    margin: 0.4rem 0 0;
-    width: auto;
-    gap: 1rem;
-  }
-
-  .samples-page-v2 .spv2-footer {
     padding: 0.6rem 0 0.2rem;
     max-width: none;
     margin: 0.4rem 0 0;
