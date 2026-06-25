@@ -14,7 +14,7 @@
 | ---- | ------------------------------------------------------------ | ----------------------------------------------------------------- |
 | 1    | Bugs do Modo Liga (unificar o fetch) — B1–B5                 | ✅ **Código pronto + commit `57dc023`** — falta validar no device |
 | 2    | Gargalos de render — G1, G2, G4 (G5 descartado)              | ✅ **Código pronto** — falta validar no device                    |
-| 3    | Camada de dados (backend) — D1, D2, D3                       | ⏳ pendente                                                       |
+| 3    | Camada de dados (backend) — D1, D2, D3                       | ✅ **Código pronto** (247 unit + 290 integração) — falta deploy   |
 | 4    | Virtualização da lista — G3                                  | ⏳ pendente (maior risco — por último)                            |
 | 5    | Inconsistências / acessibilidade — I2, I3, I4, I5, lacuna #6 | ⏳ pendente                                                       |
 | 6    | Código morto (CSS) + docs — M1–M6, S1                        | ⏳ pendente                                                       |
@@ -218,28 +218,40 @@ filtros — tudo continua funcionando.
 
 ---
 
-## Fase 3 — Camada de dados (backend)
+## Fase 3 — Camada de dados (backend) ✅
 
-- **D1** — em `src/samples/sample-query-service.js` (`listSamples`, ~`:1438`),
-  contar só sem cursor: `const total = cursor ? null : await
-prisma.sample.count(...)`. Mantém o `$transaction` apenas no caminho inicial.
-  O front já ignora `total` no `success-more`.
-- **D2** — projeção de **lista** enxuta, separada da de detalhe. Hoje
-  `SAMPLE_INCLUDE` usa `CLIENT_INCLUDE_SELECT` (`:106`) com
-  `code, personType, cpf, cnpjRoot, phone, legalName, tradeName, …`. Para a
-  lista, criar um select menor: **manter** `id`, `status`, e o que alimenta o
-  `displayName` em `mapOwnerClient` (`:764`) — `fullName`/`legalName`/
-  `tradeName` (o `displayName` derivado é usado como fallback do nome em
-  `BlendConfirmationSheet.tsx:353`). **Remover** `cpf`, `cnpjRoot`, `phone`,
-  `code`, `personType` da projeção da lista.
-- **D3** _(opcional/baixo)_ — nova migration recriando `idx_sample_lot_int_id`
-  como `("internal_lot_number_int" DESC NULLS LAST, "id" ASC)` pra casar com o
-  keyset; OU validar via `EXPLAIN ANALYZE` que não há `Sort` (tabela pequena
-  hoje). **Nunca editar a migration existente** — criar nova.
+**Status:** código pronto, gates verdes, **247 unit + 290 integração passando**
+(integração rodada contra o DB com a migration D3 aplicada). Falta deploy
+(migrate job) — push/deploy são do usuário.
 
-**Verificação:** `test:integration:db` (cobre `listSamples`) — ⚠️ trunca o DB
-local, reseed depois. Conferir payload da lista sem PII; `EXPLAIN` da query;
-smoke da paginação por cursor.
+**O que foi feito:**
+
+- **D1 ✅** — `listSamples` (`src/samples/sample-query-service.js`) só faz `COUNT`
+  na carga inicial (sem cursor); no load-more (keyset) pula o COUNT —
+  `findManyArgs` único, `$transaction([findMany, count])` só no caminho inicial,
+  senão `findMany` solto + `total = null`. `totalPages` vira null junto.
+  **Mudança de contrato (registrada):** `ListSamplesResponse.page.total` e
+  `.totalPages` agora são `number | null` (`lib/types.ts`); o front faz
+  `?? 0` no `success-initial` (caminho sem cursor, sempre numérico) e ignora
+  `total` no `success-more`. Teste de cursor (`backend-api-v1-missing`) atualizado
+  pra esperar `total: null` nas páginas com cursor.
+- **D2 ✅** — projeção de lista enxuta `CLIENT_LIST_SELECT` + `SAMPLE_LIST_INCLUDE`
+  (usados só no `findMany` da lista; detalhe/resolve seguem com `SAMPLE_INCLUDE`).
+  Remove a PII **cpf, cnpjRoot, phone** do payload da lista. **Refino da nota do
+  plano:** a nota dizia remover `code`/`personType` também, mas **ambos foram
+  MANTIDOS** — `personType` é necessário pro `displayName` (`PF ? fullName :
+legalName`) e `code` é não-nulável no tipo do front. Como `mapOwnerClient` faz
+  `?? null`, o **shape** do retorno não muda (cpf/cnpj/phone saem `null`).
+- **D3 ✅** — migration `20260625120000_sample_lot_int_id_nulls_last`: recria
+  `idx_sample_lot_int_id` como `("internal_lot_number_int" DESC NULLS LAST,
+"id" ASC)` pra casar com o keyset (antes era `DESC` = NULLS FIRST → mismatch →
+  Sort). Aplicada com `migrate deploy` local sem erro; raw SQL (não no
+  schema.prisma, consistente com o índice original). ⚠️ **Vai rodar no migrate
+  job do próximo deploy.**
+
+**Verificação:** ✅ `test:integration:db` (290) cobre `listSamples` filtros +
+cursor; teste de cursor confirma `total: null` no load-more; nenhum teste lê
+PII da lista. ⚠️ trunca o DB local — reseed feito (`db:seed`).
 
 ---
 
