@@ -5,12 +5,31 @@ import {
   assertBrokersResolved,
   buildSaleContractDraftFromSale,
   computeContractMoney,
+  computeContractMoneyWithAgio,
   formatContractNumber,
   normalizeBrokeragePct,
   normalizeBrokerIds,
+  normalizeEtapa2Input,
   normalizeUnitPrice,
   toSaleContractView,
 } from '../src/sale-contracts/sale-contract-support.js';
+
+const UUID_1 = '00000000-0000-4000-8000-000000000001';
+const UUID_2 = '00000000-0000-4000-8000-000000000002';
+const UUID_3 = '00000000-0000-4000-8000-000000000003';
+const UUID_4 = '00000000-0000-4000-8000-000000000004';
+
+function validEtapa2() {
+  return {
+    expectedVersion: 0,
+    sellerBankAccountId: UUID_1,
+    paymentFormId: UUID_2,
+    modalityId: UUID_3,
+    packagingId: UUID_4,
+    invoiceDate: '2026-07-10',
+    paymentDate: '2026-07-20',
+  };
+}
 
 const BROKER_A = '00000000-0000-4000-8000-00000000000a';
 const BROKER_B = '00000000-0000-4000-8000-00000000000b';
@@ -167,4 +186,91 @@ test('toSaleContractView: Decimals viram number, datas viram ISO', () => {
   assert.equal(view.weightKg, null);
   assert.equal(view.contractDate, '2026-06-26T00:00:00.000Z');
   assert.equal(view.createdAt, '2026-06-26T12:00:00.000Z');
+});
+
+test('computeContractMoneyWithAgio: ágio soma, deságio subtrai (por saca)', () => {
+  const agio = computeContractMoneyWithAgio({
+    unitPrice: 100,
+    quantitySacks: 10,
+    sellerPct: 2,
+    buyerPct: 0,
+    agioType: 'AGIO',
+    agioValue: 5,
+  });
+  // efetivo 105 x 10 = 1050; corretagem vend 2% = 21
+  assert.equal(agio.totalValue, '1050.00');
+  assert.equal(agio.sellerBrokerageValue, '21.00');
+
+  const desagio = computeContractMoneyWithAgio({
+    unitPrice: 100,
+    quantitySacks: 10,
+    sellerPct: 0,
+    buyerPct: 0,
+    agioType: 'DESAGIO',
+    agioValue: 5,
+  });
+  assert.equal(desagio.totalValue, '950.00');
+
+  // sem ágio = igual a computeContractMoney
+  const none = computeContractMoneyWithAgio({
+    unitPrice: 100,
+    quantitySacks: 10,
+    sellerPct: 0,
+    buyerPct: 0,
+  });
+  assert.equal(none.totalValue, '1000.00');
+  assert.equal(
+    computeContractMoney({ unitPrice: 100, quantitySacks: 10, sellerPct: 0, buyerPct: 0 })
+      .totalValue,
+    '1000.00'
+  );
+});
+
+test('normalizeEtapa2Input: válido passa, datas viram Date, opcionais null', () => {
+  const out = normalizeEtapa2Input(validEtapa2());
+  assert.equal(out.sellerBankAccountId, UUID_1);
+  assert.equal(out.paymentFormId, UUID_2);
+  assert.ok(out.invoiceDate instanceof Date);
+  assert.ok(out.paymentDate instanceof Date);
+  assert.equal(out.purchaseNumber, null);
+  assert.equal(out.weightKg, null);
+  assert.equal(out.agioDesagioType, null);
+  assert.equal(out.agioDesagioValue, null);
+});
+
+test('normalizeEtapa2Input: obrigatórios faltando lançam 422', () => {
+  assert.throws(
+    () => normalizeEtapa2Input({ ...validEtapa2(), sellerBankAccountId: undefined }),
+    /sellerBankAccountId/
+  );
+  assert.throws(
+    () => normalizeEtapa2Input({ ...validEtapa2(), paymentFormId: undefined }),
+    /paymentFormId/
+  );
+  assert.throws(
+    () => normalizeEtapa2Input({ ...validEtapa2(), invoiceDate: undefined }),
+    /invoiceDate/
+  );
+  assert.throws(
+    () => normalizeEtapa2Input({ ...validEtapa2(), invoiceDate: '10/07/2026' }),
+    /invoiceDate/
+  );
+});
+
+test('normalizeEtapa2Input: ágio exige valor > 0 e tipo válido', () => {
+  const out = normalizeEtapa2Input({
+    ...validEtapa2(),
+    agioDesagioType: 'agio',
+    agioDesagioValue: '3,5',
+  });
+  assert.equal(out.agioDesagioType, 'AGIO');
+  assert.equal(out.agioDesagioValue, 3.5);
+  assert.throws(
+    () => normalizeEtapa2Input({ ...validEtapa2(), agioDesagioType: 'X', agioDesagioValue: 1 }),
+    /AGIO or DESAGIO/
+  );
+  assert.throws(
+    () => normalizeEtapa2Input({ ...validEtapa2(), agioDesagioType: 'AGIO', agioDesagioValue: 0 }),
+    /greater than zero/
+  );
 });

@@ -130,11 +130,24 @@ export function assertBrokersResolved(brokers, requestedIds, fieldName = 'broker
   }
 }
 
-// Financeiro (Passo 1, sem agio/desagio -- isso e etapa 2 / D54):
-//   total = preco/saca x sacas; corretagem_lado = total x (% / 100).
-// Tudo arredondado a 2 casas e devolvido como string "0.00" (Decimal-safe).
-export function computeContractMoney({ unitPrice, quantitySacks, sellerPct, buyerPct }) {
-  const totalValue = round2(unitPrice * quantitySacks);
+// Financeiro com agio/desagio (D54 — R$ POR SACA): preco efetivo/saca = preco
+// +/- agio; total = efetivo x sacas; corretagem_lado = total x (% / 100). Tudo
+// arredondado a 2 casas e devolvido como string "0.00" (Decimal-safe).
+export function computeContractMoneyWithAgio({
+  unitPrice,
+  quantitySacks,
+  sellerPct,
+  buyerPct,
+  agioType = null,
+  agioValue = null,
+}) {
+  let effectiveUnit = unitPrice;
+  if (agioType === 'AGIO' && agioValue) {
+    effectiveUnit = round2(unitPrice + agioValue);
+  } else if (agioType === 'DESAGIO' && agioValue) {
+    effectiveUnit = round2(unitPrice - agioValue);
+  }
+  const totalValue = round2(effectiveUnit * quantitySacks);
   const sellerBrokerageValue = round2(totalValue * (sellerPct / 100));
   const buyerBrokerageValue = round2(totalValue * (buyerPct / 100));
   return {
@@ -142,6 +155,11 @@ export function computeContractMoney({ unitPrice, quantitySacks, sellerPct, buye
     sellerBrokerageValue: sellerBrokerageValue.toFixed(2),
     buyerBrokerageValue: buyerBrokerageValue.toFixed(2),
   };
+}
+
+// Passo 1 (criacao da venda) — sem agio/desagio; delega a variante com agio.
+export function computeContractMoney({ unitPrice, quantitySacks, sellerPct, buyerPct }) {
+  return computeContractMoneyWithAgio({ unitPrice, quantitySacks, sellerPct, buyerPct });
 }
 
 // Numero do contrato NNNN/AA: NNNN com zero-padding a 4 (cresce alem disso),
@@ -323,5 +341,226 @@ export function toSaleContractBrokerView(row) {
     id: row.id,
     brokerId: row.brokerId,
     brokerNameSnapshot: row.brokerNameSnapshot,
+  };
+}
+
+// ===========================================================================
+// Etapa 2 (Fase B.2 Passo 2): validacao dos campos da "Gerar documento" +
+// snapshots das partes/banco/armazens. A RESOLUCAO no banco (entidades existem,
+// filial pertence ao cliente, banco pertence ao vendedor, PF exige filial) fica
+// no service (precisa de prisma). Aqui so o que e puro.
+// ===========================================================================
+
+const DECIMAL_10_2_MAX = 99999999.99;
+
+function requireUuid(value, fieldName) {
+  if (typeof value !== 'string' || !UUID_REGEX.test(value.trim())) {
+    throw new HttpError(422, `${fieldName} is required`, {
+      code: 'VALIDATION_ERROR',
+      field: fieldName,
+    });
+  }
+  return value.trim();
+}
+
+function optionalUuid(value, fieldName) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+  return requireUuid(value, fieldName);
+}
+
+function requireDate(value, fieldName) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+    throw new HttpError(422, `${fieldName} must be a date (YYYY-MM-DD)`, {
+      code: 'VALIDATION_ERROR',
+      field: fieldName,
+    });
+  }
+  return new Date(value.trim());
+}
+
+function optionalText(value, fieldName, maxLength) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  if (typeof value !== 'string') {
+    throw new HttpError(422, `${fieldName} must be a string`, {
+      code: 'VALIDATION_ERROR',
+      field: fieldName,
+    });
+  }
+  const trimmed = value.trim();
+  if (trimmed === '') {
+    return null;
+  }
+  if (maxLength && trimmed.length > maxLength) {
+    throw new HttpError(422, `${fieldName} must have at most ${maxLength} characters`, {
+      code: 'VALIDATION_ERROR',
+      field: fieldName,
+    });
+  }
+  return trimmed;
+}
+
+function optionalWeight(value, fieldName = 'weightKg') {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+  const parsed = round2(parseDecimalInput(value, fieldName));
+  if (parsed < 0 || parsed > DECIMAL_10_2_MAX) {
+    throw new HttpError(422, `${fieldName} is invalid`, {
+      code: 'VALIDATION_ERROR',
+      field: fieldName,
+    });
+  }
+  return parsed;
+}
+
+// Agio/desagio (par opcional): se vier o tipo, o valor e obrigatorio (> 0, R$
+// por saca). Sem tipo => sem ajuste. (A UX "botoes no card" e da B.3 — P21.)
+function normalizeAgio(input, fieldName = 'agioDesagio') {
+  const rawType = input?.agioDesagioType;
+  if (rawType === undefined || rawType === null || rawType === '') {
+    return { agioDesagioType: null, agioDesagioValue: null };
+  }
+  const type = String(rawType).trim().toUpperCase();
+  if (type !== 'AGIO' && type !== 'DESAGIO') {
+    throw new HttpError(422, `${fieldName}Type must be AGIO or DESAGIO`, {
+      code: 'VALIDATION_ERROR',
+      field: `${fieldName}Type`,
+    });
+  }
+  const value = round2(parseDecimalInput(input?.agioDesagioValue, `${fieldName}Value`));
+  if (value <= 0) {
+    throw new HttpError(422, `${fieldName}Value must be greater than zero`, {
+      code: 'VALIDATION_ERROR',
+      field: `${fieldName}Value`,
+    });
+  }
+  return { agioDesagioType: type, agioDesagioValue: value };
+}
+
+export function normalizeEtapa2Input(input) {
+  const agio = normalizeAgio(input ?? {});
+  return {
+    // partes / banco / armazens (ids; resolucao + ownership no service)
+    sellerClientId: optionalUuid(input?.sellerClientId, 'sellerClientId'),
+    sellerUnitId: optionalUuid(input?.sellerUnitId, 'sellerUnitId'),
+    buyerUnitId: optionalUuid(input?.buyerUnitId, 'buyerUnitId'),
+    sellerBankAccountId: requireUuid(input?.sellerBankAccountId, 'sellerBankAccountId'),
+    buyerWarehouseClientId: optionalUuid(input?.buyerWarehouseClientId, 'buyerWarehouseClientId'),
+    sellerWarehouseClientId: optionalUuid(
+      input?.sellerWarehouseClientId,
+      'sellerWarehouseClientId'
+    ),
+    // listas (obrigatorias)
+    paymentFormId: requireUuid(input?.paymentFormId, 'paymentFormId'),
+    modalityId: requireUuid(input?.modalityId, 'modalityId'),
+    packagingId: requireUuid(input?.packagingId, 'packagingId'),
+    // datas (obrigatorias)
+    invoiceDate: requireDate(input?.invoiceDate, 'invoiceDate'),
+    paymentDate: requireDate(input?.paymentDate, 'paymentDate'),
+    // opcionais
+    purchaseNumber: optionalText(input?.purchaseNumber, 'purchaseNumber', 120),
+    paymentCondition: optionalText(input?.paymentCondition, 'paymentCondition', 2000),
+    observations: optionalText(input?.observations, 'observations', 5000),
+    description: optionalText(input?.description, 'description', 5000),
+    weightKg: optionalWeight(input?.weightKg),
+    agioDesagioType: agio.agioDesagioType,
+    agioDesagioValue: agio.agioDesagioValue,
+  };
+}
+
+export function clientDisplayName(client) {
+  if (!client) {
+    return null;
+  }
+  return client.personType === 'PF'
+    ? (client.fullName ?? null)
+    : (client.legalName ?? client.tradeName ?? null);
+}
+
+export function buildUnitSnapshot(unit) {
+  if (!unit) {
+    return null;
+  }
+  return {
+    unitId: unit.id,
+    name: unit.name ?? null,
+    cnpj: unit.cnpj ?? null,
+    legalName: unit.legalName ?? null,
+    tradeName: unit.tradeName ?? null,
+    registrationNumber: unit.registrationNumber ?? null,
+    addressLine: unit.addressLine ?? null,
+    district: unit.district ?? null,
+    city: unit.city ?? null,
+    state: unit.state ?? null,
+    postalCode: unit.postalCode ?? null,
+    complement: unit.complement ?? null,
+  };
+}
+
+// Snapshot de uma PARTE (vendedor/comprador) a partir do registro RAW do
+// cliente + filial opcional. Etapa 2 grava isto e o CONFIRMADO congela (D25).
+export function buildPartySnapshot(client, unit = null) {
+  if (!client) {
+    return null;
+  }
+  return {
+    clientId: client.id,
+    code: client.code ?? null,
+    personType: client.personType ?? null,
+    displayName: clientDisplayName(client),
+    fullName: client.fullName ?? null,
+    legalName: client.legalName ?? null,
+    tradeName: client.tradeName ?? null,
+    cpf: client.cpf ?? null,
+    cnpj: client.cnpj ?? null,
+    registrationNumber: client.registrationNumber ?? null,
+    addressLine: client.addressLine ?? null,
+    district: client.district ?? null,
+    city: client.city ?? null,
+    state: client.state ?? null,
+    postalCode: client.postalCode ?? null,
+    complement: client.complement ?? null,
+    unit: buildUnitSnapshot(unit),
+  };
+}
+
+export function buildWarehouseSnapshot(client) {
+  if (!client) {
+    return null;
+  }
+  return {
+    clientId: client.id,
+    code: client.code ?? null,
+    personType: client.personType ?? null,
+    displayName: clientDisplayName(client),
+    cpf: client.cpf ?? null,
+    cnpj: client.cnpj ?? null,
+    addressLine: client.addressLine ?? null,
+    district: client.district ?? null,
+    city: client.city ?? null,
+    state: client.state ?? null,
+    postalCode: client.postalCode ?? null,
+  };
+}
+
+// account = ClientBankAccount com o bank incluido ({ ...account, bank }).
+export function buildBankSnapshot(account) {
+  if (!account) {
+    return null;
+  }
+  return {
+    accountId: account.id,
+    bankId: account.bankId ?? null,
+    bankName: account.bank?.name ?? null,
+    compeCode: account.bank?.compeCode ?? null,
+    agency: account.agency ?? null,
+    accountNumber: account.accountNumber ?? null,
+    holderName: account.holderName ?? null,
+    holderTaxId: account.holderTaxId ?? null,
+    pixKey: account.pixKey ?? null,
   };
 }
