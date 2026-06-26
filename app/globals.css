@@ -34289,3 +34289,98 @@ body.is-selection-mode .hero-search-filter-btn {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+
+/* Fechamento (Fase B.2): seletor de corretores (BrokerMultiSelectField) no
+   modal de venda. Busca + chips dos corretores selecionados. */
+.bms-field {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.bms-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.bms-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--brand-green-ink);
+  background: var(--brand-green-soft);
+  border: 1px solid rgba(var(--brand-green-rgb), 0.25);
+  border-radius: 999px;
+  padding: 0.18rem 0.3rem 0.18rem 0.6rem;
+}
+.bms-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(var(--brand-green-rgb), 0.18);
+  color: var(--brand-green-ink);
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.bms-chip-remove:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.bms-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 6;
+  margin-top: 0.3rem;
+  max-height: 13rem;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--brand-cream-line);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+}
+.bms-empty {
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+  font-size: 0.85rem;
+  color: var(--brand-muted);
+}
+.bms-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.25rem;
+}
+.bms-option {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  padding: 0.55rem 0.6rem;
+  font-size: 0.9rem;
+  color: var(--brand-green-ink);
+  cursor: pointer;
+}
+.bms-option:hover {
+  background: var(--brand-green-soft);
+}
+
+/* Fechamento (Fase B.2): confirmacao do contrato criado na venda a vista. */
+.sdv-modal-notice {
+  margin: 0 0 0.6rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--brand-green-ink);
+  background: var(--brand-green-soft);
+  border: 1px solid rgba(var(--brand-green-rgb), 0.25);
+  border-radius: 10px;
+}

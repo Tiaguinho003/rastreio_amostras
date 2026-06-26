@@ -327,6 +327,86 @@ export interface BrokerResponse {
   broker: Broker;
 }
 
+// Fechamento (Fase B.2): contrato de venda "Mercado a vista". Os snapshots sao
+// JSON congelados de identidade/banco/armazens (preenchidos ao longo do fluxo).
+export type SaleContractType = 'MERCADO_A_VISTA' | 'FUTURO';
+export type SaleContractStatus =
+  | 'EM_ABERTO'
+  | 'CONFERIR'
+  | 'CONFIRMADO'
+  | 'FATURADO'
+  | 'PAGO'
+  | 'WASH_OUT';
+export type AgioDesagioType = 'AGIO' | 'DESAGIO';
+
+export interface SaleContractBrokerView {
+  id: string;
+  brokerId: string;
+  brokerNameSnapshot: string;
+}
+
+export interface SaleContract {
+  id: string;
+  type: SaleContractType;
+  contractSeq: number;
+  contractNumber: string;
+  status: SaleContractStatus;
+  washoutReason: string | null;
+  washoutAt: string | null;
+  contractDate: string | null;
+  purchaseNumber: string | null;
+  sampleId: string | null;
+  movementId: string | null;
+  sellerClientId: string | null;
+  sellerUnitId: string | null;
+  sellerSnapshot: Record<string, unknown> | null;
+  buyerClientId: string | null;
+  buyerUnitId: string | null;
+  buyerSnapshot: Record<string, unknown> | null;
+  buyerWarehouseClientId: string | null;
+  buyerWarehouseSnapshot: Record<string, unknown> | null;
+  sellerWarehouseClientId: string | null;
+  sellerWarehouseSnapshot: Record<string, unknown> | null;
+  sellerBankAccountId: string | null;
+  sellerBankSnapshot: Record<string, unknown> | null;
+  quantitySacks: number;
+  unitPrice: number | null;
+  agioDesagioType: AgioDesagioType | null;
+  agioDesagioValue: number | null;
+  totalValue: number | null;
+  weightKg: number | null;
+  sellerBrokeragePct: number | null;
+  sellerBrokerageValue: number | null;
+  buyerBrokeragePct: number | null;
+  buyerBrokerageValue: number | null;
+  paymentCondition: string | null;
+  paymentFormId: string | null;
+  paymentFormText: string | null;
+  modalityId: string | null;
+  modalityText: string | null;
+  packagingId: string | null;
+  packagingText: string | null;
+  invoiceDate: string | null;
+  paymentDate: string | null;
+  observations: string | null;
+  description: string | null;
+  version: number;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface SaleContractDetail extends SaleContract {
+  brokers: SaleContractBrokerView[];
+}
+
+export interface SaleContractListResponse {
+  items: SaleContract[];
+}
+
+export interface SaleContractResponse {
+  contract: SaleContractDetail;
+}
+
 export interface ClientBankAccountSummary {
   id: string;
   clientId: string;
@@ -946,6 +1026,9 @@ export interface CommandResponse<TSample = unknown> {
     checksumSha256: string;
   };
   extraction?: ExtractionResult | null;
+  // Fechamento (Fase B.2): venda a vista cria o contrato na mesma tx; o numero
+  // gerado volta aqui para o toast de confirmacao.
+  saleContract?: { id: string; contractNumber: string };
 }
 
 export interface DetectFormResponse {

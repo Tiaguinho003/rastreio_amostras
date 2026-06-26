@@ -87,6 +87,8 @@ export function SampleMovementsPanel({
   const [cancelReasonText, setCancelReasonText] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Fechamento (Fase B.2): confirmacao do contrato criado na venda a vista.
+  const [notice, setNotice] = useState<string | null>(null);
   const [stampType, setStampType] = useState<SampleMovementType | null>(null);
   const stampTimeoutRef = useRef<number | null>(null);
 
@@ -127,6 +129,7 @@ export function SampleMovementsPanel({
 
   function clearFeedback() {
     setError(null);
+    setNotice(null);
   }
 
   const sold = sample.soldSacks ?? 0;
@@ -248,6 +251,7 @@ export function SampleMovementsPanel({
         </div>
 
         {error ? <p className="sdv-modal-error">{error}</p> : null}
+        {notice ? <p className="sdv-modal-notice">{notice}</p> : null}
 
         {hasTimeline ? (
           <div className="sdv-com-movements">
@@ -502,7 +506,7 @@ export function SampleMovementsPanel({
           clearFeedback();
 
           try {
-            await createSampleMovement(session, sampleId, {
+            const result = await createSampleMovement(session, sampleId, {
               expectedVersion: sample.version,
               movementType: data.movementType,
               buyerClientId: data.buyerClientId,
@@ -511,7 +515,16 @@ export function SampleMovementsPanel({
               movementDate: data.movementDate,
               notes: data.notes,
               lossReasonText: data.lossReasonText,
+              // Fechamento (Fase B.2): termos do contrato (venda a vista).
+              unitPrice: data.unitPrice ?? undefined,
+              sellerBrokeragePct: data.sellerBrokeragePct ?? undefined,
+              buyerBrokeragePct: data.buyerBrokeragePct ?? undefined,
+              brokerIds: data.brokerIds.length > 0 ? data.brokerIds : undefined,
             });
+
+            if (result.saleContract) {
+              setNotice(`Contrato ${result.saleContract.contractNumber} criado.`);
+            }
 
             setStampType(data.movementType);
             if (stampTimeoutRef.current !== null) {

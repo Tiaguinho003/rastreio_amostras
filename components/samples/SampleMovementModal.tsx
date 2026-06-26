@@ -14,6 +14,7 @@ import type {
   SessionData,
 } from '../../lib/types';
 import { ClientLookupField } from '../clients/ClientLookupField';
+import { BrokerMultiSelectField } from './BrokerMultiSelectField';
 
 type SampleMovementModalSubmitInput = {
   movementType: SampleMovementType;
@@ -24,6 +25,11 @@ type SampleMovementModalSubmitInput = {
   notes: string | null;
   lossReasonText: string | null;
   reasonText: string | null;
+  // Fechamento (Fase B.2): termos do contrato (venda a vista, modo create).
+  unitPrice: number | null;
+  sellerBrokeragePct: number | null;
+  buyerBrokeragePct: number | null;
+  brokerIds: string[];
 };
 
 type SampleMovementModalProps = {
@@ -128,6 +134,11 @@ export function SampleMovementModal({
   const [notes, setNotes] = useState(movement?.notes ?? '');
   const [lossReasonText, setLossReasonText] = useState(movement?.lossReasonText ?? '');
   const [reasonText, setReasonText] = useState('');
+  // Fechamento (Fase B.2): termos do contrato exigidos na venda a vista (create).
+  const [unitPrice, setUnitPrice] = useState('');
+  const [sellerBrokeragePct, setSellerBrokeragePct] = useState('0');
+  const [buyerBrokeragePct, setBuyerBrokeragePct] = useState('0');
+  const [brokerIds, setBrokerIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   // Liga B4 Fase 5: viabilidade da venda da liga (pre-validacao da cascata).
   const [feasibility, setFeasibility] = useState<BlendFeasibilityResponse | null>(null);
@@ -180,6 +191,10 @@ export function SampleMovementModal({
     setNotes(movement?.notes ?? '');
     setLossReasonText(movement?.lossReasonText ?? '');
     setReasonText('');
+    setUnitPrice('');
+    setSellerBrokeragePct('0');
+    setBuyerBrokeragePct('0');
+    setBrokerIds([]);
     setError(null);
     setOwnerDismissed(false);
     setOwnerModalOpen(false);
@@ -239,6 +254,25 @@ export function SampleMovementModal({
     Number.isInteger(parsedQuantity) && parsedQuantity > 0 && parsedQuantity <= effectiveLimit;
   const isQuantityOverLimit = Number.isInteger(parsedQuantity) && parsedQuantity > effectiveLimit;
 
+  // Fechamento (Fase B.2): a venda a vista (SALE, modo create) exige os termos
+  // do contrato. Na edicao o contrato ja existe (alteracao = Passo 2); na perda
+  // (LOSS) nao ha contrato.
+  const needsContractTerms = mode === 'create' && movementType === 'SALE';
+  const parsedUnitPrice = Number(unitPrice.replace(',', '.'));
+  const isUnitPriceValid =
+    unitPrice.trim() !== '' && Number.isFinite(parsedUnitPrice) && parsedUnitPrice > 0;
+  const parsedSellerPct =
+    sellerBrokeragePct.trim() === '' ? 0 : Number(sellerBrokeragePct.replace(',', '.'));
+  const isSellerPctValid =
+    Number.isFinite(parsedSellerPct) && parsedSellerPct >= 0 && parsedSellerPct <= 100;
+  const parsedBuyerPct =
+    buyerBrokeragePct.trim() === '' ? 0 : Number(buyerBrokeragePct.replace(',', '.'));
+  const isBuyerPctValid =
+    Number.isFinite(parsedBuyerPct) && parsedBuyerPct >= 0 && parsedBuyerPct <= 100;
+  const isContractTermsValid =
+    !needsContractTerms ||
+    (isUnitPriceValid && isSellerPctValid && isBuyerPctValid && brokerIds.length > 0);
+
   const submitDisabled = useMemo(() => {
     if (!movementDate) {
       return true;
@@ -262,6 +296,12 @@ export function SampleMovementModal({
       return true;
     }
 
+    // Fechamento (Fase B.2): trava o submit ate os termos do contrato estarem
+    // completos (preco/saca > 0, corretagens 0-100, >=1 corretor).
+    if (needsContractTerms && !isContractTermsValid) {
+      return true;
+    }
+
     // F3.A: a liga sem dono trava o submit até o operador decidir — atribuir
     // um dono ou "Continuar mesmo assim". Nudge consciente, não um bloqueio
     // (uma das opções sempre destrava).
@@ -276,9 +316,11 @@ export function SampleMovementModal({
     feasibilityError,
     feasibilityLoading,
     isBlend,
+    isContractTermsValid,
     isQuantityValid,
     mode,
     movementDate,
+    needsContractTerms,
     needsOwnerNudge,
     quantitySacks,
     reasonText,
@@ -319,6 +361,21 @@ export function SampleMovementModal({
       return;
     }
 
+    if (needsContractTerms) {
+      if (!isUnitPriceValid) {
+        setError('Informe o preço por saca (maior que zero).');
+        return;
+      }
+      if (!isSellerPctValid || !isBuyerPctValid) {
+        setError('As corretagens devem estar entre 0 e 100%.');
+        return;
+      }
+      if (brokerIds.length === 0) {
+        setError('Selecione ao menos um corretor.');
+        return;
+      }
+    }
+
     setError(null);
     await onSubmit({
       movementType,
@@ -329,6 +386,10 @@ export function SampleMovementModal({
       notes: notes.trim() ? notes.trim() : null,
       lossReasonText: showBuyerFields ? null : lossReasonText.trim(),
       reasonText: mode === 'edit' ? reasonText.trim() : null,
+      unitPrice: needsContractTerms ? parsedUnitPrice : null,
+      sellerBrokeragePct: needsContractTerms ? parsedSellerPct : null,
+      buyerBrokeragePct: needsContractTerms ? parsedBuyerPct : null,
+      brokerIds: needsContractTerms ? brokerIds : [],
     });
   }
 
@@ -568,6 +629,67 @@ export function SampleMovementModal({
               </label>
             </>
           )}
+
+          {needsContractTerms ? (
+            <>
+              <label className="app-modal-field">
+                <span className="app-modal-label">Preço por saca (R$)</span>
+                <input
+                  className={`app-modal-input${
+                    unitPrice.trim() !== '' && !isUnitPriceValid ? ' has-error' : ''
+                  }`}
+                  inputMode="decimal"
+                  value={unitPrice}
+                  disabled={saving}
+                  onChange={(event) => {
+                    setUnitPrice(event.target.value.replace(/[^0-9.,]/g, ''));
+                    setError(null);
+                  }}
+                  placeholder="0,00"
+                />
+              </label>
+              <label className="app-modal-field">
+                <span className="app-modal-label">Corretagem do vendedor (%)</span>
+                <input
+                  className={`app-modal-input${!isSellerPctValid ? ' has-error' : ''}`}
+                  inputMode="decimal"
+                  value={sellerBrokeragePct}
+                  disabled={saving}
+                  onChange={(event) => {
+                    setSellerBrokeragePct(event.target.value.replace(/[^0-9.,]/g, ''));
+                    setError(null);
+                  }}
+                  placeholder="0"
+                />
+              </label>
+              <label className="app-modal-field">
+                <span className="app-modal-label">Corretagem do comprador (%)</span>
+                <input
+                  className={`app-modal-input${!isBuyerPctValid ? ' has-error' : ''}`}
+                  inputMode="decimal"
+                  value={buyerBrokeragePct}
+                  disabled={saving}
+                  onChange={(event) => {
+                    setBuyerBrokeragePct(event.target.value.replace(/[^0-9.,]/g, ''));
+                    setError(null);
+                  }}
+                  placeholder="0"
+                />
+              </label>
+              <div className="app-modal-field">
+                <span className="app-modal-label">Corretores</span>
+                <BrokerMultiSelectField
+                  session={session}
+                  selectedIds={brokerIds}
+                  disabled={saving}
+                  onChange={(ids) => {
+                    setBrokerIds(ids);
+                    setError(null);
+                  }}
+                />
+              </div>
+            </>
+          ) : null}
 
           {showBuyerFields ? (
             <label className="app-modal-field">

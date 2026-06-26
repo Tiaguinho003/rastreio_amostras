@@ -9,6 +9,10 @@ import type {
   BrokerInput,
   BrokerListResponse,
   BrokerResponse,
+  SaleContractListResponse,
+  SaleContractResponse,
+  SaleContractStatus,
+  SaleContractType,
   ClientBankAccountInput,
   ClientBankAccountListResponse,
   ClientBankAccountResponse,
@@ -783,6 +787,36 @@ export function updateBroker(
     method: 'PATCH',
     session,
     body: data as unknown as JsonValue,
+  });
+}
+
+// Fechamento (Fase B.2): gestao de contratos (ADMIN+CADASTRO no backend).
+export function listSaleContracts(
+  session: SessionData,
+  query: { search?: string; status?: SaleContractStatus; type?: SaleContractType } = {},
+  options: { signal?: AbortSignal } = {}
+) {
+  const params = new URLSearchParams();
+  if (query.search) params.set('search', query.search);
+  if (query.status) params.set('status', query.status);
+  if (query.type) params.set('type', query.type);
+  const suffix = params.size ? `?${params.toString()}` : '';
+  return request<SaleContractListResponse>(`/sale-contracts${suffix}`, {
+    method: 'GET',
+    session,
+    signal: options.signal,
+  });
+}
+
+export function getSaleContract(
+  session: SessionData,
+  contractId: string,
+  options: { signal?: AbortSignal } = {}
+) {
+  return request<SaleContractResponse>(`/sale-contracts/${contractId}`, {
+    method: 'GET',
+    session,
+    signal: options.signal,
   });
 }
 
@@ -1862,6 +1896,11 @@ export function createSampleMovement(
     movementDate: string;
     notes?: string | null;
     lossReasonText?: string | null;
+    // Fechamento (Fase B.2): termos do contrato exigidos na venda a vista (SALE).
+    unitPrice?: number;
+    sellerBrokeragePct?: number;
+    buyerBrokeragePct?: number;
+    brokerIds?: string[];
   }
 ) {
   return request<CommandResponse>(`/samples/${sampleId}/movements`, {
