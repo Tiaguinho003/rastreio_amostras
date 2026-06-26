@@ -9,6 +9,8 @@ import type {
   BrokerInput,
   BrokerListResponse,
   BrokerResponse,
+  ContractLookupsResponse,
+  SaleContractEtapa2Input,
   SaleContractListResponse,
   SaleContractResponse,
   SaleContractStatus,
@@ -814,6 +816,40 @@ export function getSaleContract(
   options: { signal?: AbortSignal } = {}
 ) {
   return request<SaleContractResponse>(`/sale-contracts/${contractId}`, {
+    method: 'GET',
+    session,
+    signal: options.signal,
+  });
+}
+
+// Fechamento (Fase B.2 Passo 2): "Emitir" (salva etapa 2 + EM_ABERTO/CONFERIR
+// -> CONFERIR) e "Confirmar" (CONFERIR -> CONFIRMADO). Gestao = ADMIN+CADASTRO.
+export function emitSaleContract(
+  session: SessionData,
+  contractId: string,
+  data: SaleContractEtapa2Input
+) {
+  return request<SaleContractResponse>(`/sale-contracts/${contractId}/emit`, {
+    method: 'POST',
+    session,
+    body: data as unknown as JsonValue,
+  });
+}
+
+export function confirmSaleContract(
+  session: SessionData,
+  contractId: string,
+  data: { expectedVersion: number }
+) {
+  return request<SaleContractResponse>(`/sale-contracts/${contractId}/confirm`, {
+    method: 'POST',
+    session,
+    body: data,
+  });
+}
+
+export function listContractLookups(session: SessionData, options: { signal?: AbortSignal } = {}) {
+  return request<ContractLookupsResponse>('/contract-lookups', {
     method: 'GET',
     session,
     signal: options.signal,

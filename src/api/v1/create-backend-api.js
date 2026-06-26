@@ -55,7 +55,6 @@ export function createBackendApiV1FromEnv() {
   const brokerService = new BrokerService({ prisma });
   const clientBankAccountService = new ClientBankAccountService({ prisma });
   const clientAttachmentService = new ClientAttachmentService({ prisma, uploadService });
-  const saleContractService = new SaleContractService({ prisma });
   const userService = new UserService({
     prisma,
     emailService,
@@ -85,6 +84,9 @@ export function createBackendApiV1FromEnv() {
     userService,
     pushService,
   });
+  // Fechamento (Fase B.2 Passo 2): instanciado APOS o commandService — usa-o
+  // (+ queryService) no D48 (sincronizar o vendedor do contrato com a amostra).
+  const saleContractService = new SaleContractService({ prisma, commandService, queryService });
   const reportService = new SamplePdfReportService({
     queryService,
     commandService,

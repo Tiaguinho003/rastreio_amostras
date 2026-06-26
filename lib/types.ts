@@ -407,6 +407,40 @@ export interface SaleContractResponse {
   contract: SaleContractDetail;
 }
 
+// Fechamento (Fase B.2 Passo 2): listas da etapa 2 + payload de "Emitir".
+export interface ContractLookupItem {
+  id: string;
+  name: string;
+}
+
+export interface ContractLookupsResponse {
+  paymentForms: ContractLookupItem[];
+  modalities: ContractLookupItem[];
+  packagings: ContractLookupItem[];
+}
+
+export interface SaleContractEtapa2Input {
+  expectedVersion: number;
+  sellerClientId?: string | null;
+  sellerUnitId?: string | null;
+  buyerUnitId?: string | null;
+  sellerBankAccountId: string;
+  buyerWarehouseClientId?: string | null;
+  sellerWarehouseClientId?: string | null;
+  paymentFormId: string;
+  modalityId: string;
+  packagingId: string;
+  invoiceDate: string;
+  paymentDate: string;
+  purchaseNumber?: string | null;
+  paymentCondition?: string | null;
+  observations?: string | null;
+  description?: string | null;
+  weightKg?: number | null;
+  agioDesagioType?: AgioDesagioType | null;
+  agioDesagioValue?: number | null;
+}
+
 export interface ClientBankAccountSummary {
   id: string;
   clientId: string;

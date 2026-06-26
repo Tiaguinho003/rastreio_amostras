@@ -2813,6 +2813,46 @@ export function createBackendApiV1({
         return { status: 200, body: result };
       }),
 
+    emitSaleContract: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractService) {
+          throw new HttpError(501, 'Sale contract service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const contractId = input?.params?.contractId;
+        if (typeof contractId !== 'string' || contractId.length === 0) {
+          throw new HttpError(422, 'contractId path param is required');
+        }
+        const body = readRequestBody(input);
+        const result = await saleContractService.emitSaleContract(contractId, body, actor);
+        return { status: 200, body: result };
+      }),
+
+    confirmSaleContract: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractService) {
+          throw new HttpError(501, 'Sale contract service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const contractId = input?.params?.contractId;
+        if (typeof contractId !== 'string' || contractId.length === 0) {
+          throw new HttpError(422, 'contractId path param is required');
+        }
+        const body = readRequestBody(input);
+        const result = await saleContractService.confirmSaleContract(contractId, body, actor);
+        return { status: 200, body: result };
+      }),
+
+    listContractLookups: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractService) {
+          throw new HttpError(501, 'Sale contract service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const result = await saleContractService.listContractLookups(actor);
+        return { status: 200, body: result };
+      }),
+
     // ============================================================
     // Contas bancarias de cliente (Fechamento Fase 0 -- D28)
     // ============================================================
