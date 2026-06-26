@@ -26,7 +26,13 @@ if (!databaseUrl || !databaseReachable) {
 
   const clientServiceMock = {
     async resolveOwnerBinding({ ownerClientId, ownerUnitId }) {
-      return { ownerClientId, ownerUnitId: ownerUnitId ?? null, displayName: 'Vendedor' };
+      return {
+        ownerClientId,
+        ownerUnitId: ownerUnitId ?? null,
+        displayName: `Vendedor ${ownerClientId.slice(0, 8)}`,
+        ownerClient: { id: ownerClientId, displayName: `Vendedor ${ownerClientId.slice(0, 8)}` },
+        ownerUnit: null,
+      };
     },
     async resolveBuyerBinding({ buyerClientId }) {
       return {
@@ -49,7 +55,7 @@ if (!databaseUrl || !databaseReachable) {
     clientService: clientServiceMock,
     userService: userServiceMock,
   });
-  const saleContractService = new SaleContractService({ prisma });
+  const saleContractService = new SaleContractService({ prisma, commandService, queryService });
 
   const commercialActor = {
     actorType: 'USER',
@@ -66,10 +72,119 @@ if (!databaseUrl || !databaseReachable) {
     );
   }
 
+  // PJ (legal_name + cnpj) evita o requisito de filial da etapa 2 (PF exige
+  // filial). cnpj e @unique → contador por processo (sem checksum no banco).
+  let cnpjCounter = 0;
+  function nextCnpj() {
+    cnpjCounter += 1;
+    return String(20000000000000 + cnpjCounter);
+  }
+
   async function createBuyerClient(id) {
     await prisma.client.create({
-      data: { id, personType: 'PF', fullName: 'Comprador', status: 'INACTIVE', isBuyer: true },
+      data: {
+        id,
+        personType: 'PJ',
+        legalName: 'Comprador PJ',
+        cnpj: nextCnpj(),
+        status: 'INACTIVE',
+        isBuyer: true,
+      },
     });
+  }
+
+  async function createSellerClient(id) {
+    await prisma.client.create({
+      data: {
+        id,
+        personType: 'PJ',
+        legalName: 'Vendedor PJ',
+        cnpj: nextCnpj(),
+        status: 'INACTIVE',
+        isSeller: true,
+      },
+    });
+  }
+
+  const TEST_BANK_ID = '0000ba0c-0000-4000-8000-00000000ba0c';
+  async function createSellerBankAccount(sellerId) {
+    await prisma.bank.upsert({
+      where: { id: TEST_BANK_ID },
+      update: {},
+      create: { id: TEST_BANK_ID, name: 'Banco Teste', compeCode: '001' },
+    });
+    const accountId = randomUUID();
+    await prisma.clientBankAccount.create({
+      data: {
+        id: accountId,
+        clientId: sellerId,
+        bankId: TEST_BANK_ID,
+        agency: '0001',
+        accountNumber: '12345-6',
+        holderName: 'Vendedor PJ',
+        holderTaxId: '12345678000199',
+      },
+    });
+    return accountId;
+  }
+
+  // SaleContractExport.generatedByUserId -> app_user (FK). app_user nao e
+  // truncado pelo resetDatabase, entao o upsert por id basta.
+  async function seedAdminUser() {
+    const suffix = adminActor.actorUserId.slice(0, 8);
+    await prisma.user.upsert({
+      where: { id: adminActor.actorUserId },
+      update: {},
+      create: {
+        id: adminActor.actorUserId,
+        fullName: `Admin ${suffix}`,
+        username: `admin-${suffix}`,
+        usernameCanonical: `admin-${suffix}`,
+        email: `admin-${suffix}@example.com`,
+        emailCanonical: `admin-${suffix}@example.com`,
+        passwordHash: 'x',
+        role: 'ADMIN',
+      },
+    });
+  }
+
+  async function fetchLookups() {
+    const [paymentForm, modality, packaging] = await Promise.all([
+      prisma.contractPaymentForm.findFirst({ where: { status: 'ACTIVE' } }),
+      prisma.contractModality.findFirst({ where: { status: 'ACTIVE' } }),
+      prisma.contractPackaging.findFirst({ where: { status: 'ACTIVE' } }),
+    ]);
+    return { paymentForm, modality, packaging };
+  }
+
+  // Cria amostra (com dono=vendedor) + registra a venda; devolve refs do contrato.
+  async function setupEmittableContract({ lotNumber }) {
+    const sellerId = randomUUID();
+    await createSellerClient(sellerId);
+    const bankAccountId = await createSellerBankAccount(sellerId);
+    const buyerId = randomUUID();
+    await createBuyerClient(buyerId);
+    const sampleId = randomUUID();
+    await createClassifiedSample({ id: sampleId, lotNumber, declaredSacks: 10 });
+    await prisma.sample.update({ where: { id: sampleId }, data: { ownerClientId: sellerId } });
+    const sample = await queryService.requireSample(sampleId);
+    const sale = await sell(sampleId, sample.version, buyerId);
+    return { contractId: sale.saleContract.id, sampleId, sellerId, buyerId, bankAccountId };
+  }
+
+  function etapa2Payload({ bankAccountId, lookups, expectedVersion = 0, overrides = {} }) {
+    return {
+      expectedVersion,
+      sellerBankAccountId: bankAccountId,
+      paymentFormId: lookups.paymentForm.id,
+      modalityId: lookups.modality.id,
+      packagingId: lookups.packaging.id,
+      invoiceDate: '2026-07-10',
+      paymentDate: '2026-07-20',
+      purchaseNumber: 'NF-123',
+      observations: 'OBS',
+      ...overrides,
+    };
   }
 
   async function createClassifiedSample({ id, lotNumber, declaredSacks = 10 }) {
@@ -112,6 +227,7 @@ if (!databaseUrl || !databaseReachable) {
   test.beforeEach(async () => {
     await resetDatabase();
     await seedTestBroker(prisma);
+    await seedAdminUser();
   });
 
   test('venda a vista cria 1 contrato EM_ABERTO com numero, total, corretagens e corretor', async () => {
@@ -234,6 +350,229 @@ if (!databaseUrl || !databaseReachable) {
     const detail = await saleContractService.getSaleContract(result.saleContract.id, adminActor);
     assert.equal(detail.contract.contractNumber, `0001/${currentYear2}`);
     assert.equal(detail.contract.brokers.length, 1);
+  });
+
+  test('emitir: EM_ABERTO -> CONFERIR com campos, snapshots e auditoria', async () => {
+    const { contractId, bankAccountId } = await setupEmittableContract({ lotNumber: '21001' });
+    const lookups = await fetchLookups();
+
+    const emitted = await saleContractService.emitSaleContract(
+      contractId,
+      etapa2Payload({ bankAccountId, lookups }),
+      adminActor
+    );
+
+    assert.equal(emitted.contract.status, 'CONFERIR');
+    assert.equal(emitted.contract.paymentFormText, lookups.paymentForm.name);
+    assert.equal(emitted.contract.modalityText, lookups.modality.name);
+    assert.equal(emitted.contract.packagingText, lookups.packaging.name);
+    assert.equal(emitted.contract.purchaseNumber, 'NF-123');
+    assert.ok(emitted.contract.sellerBankSnapshot);
+    assert.equal(emitted.contract.sellerBankSnapshot.accountId, bankAccountId);
+    assert.equal(emitted.contract.version, 1);
+
+    const exports = await prisma.saleContractExport.findMany({
+      where: { saleContractId: contractId },
+    });
+    assert.equal(exports.length, 1);
+  });
+
+  test('emitir: faltando obrigatorio (banco) -> 422', async () => {
+    const { contractId, bankAccountId } = await setupEmittableContract({ lotNumber: '21002' });
+    const lookups = await fetchLookups();
+    await assert.rejects(
+      () =>
+        saleContractService.emitSaleContract(
+          contractId,
+          etapa2Payload({ bankAccountId, lookups, overrides: { sellerBankAccountId: undefined } }),
+          adminActor
+        ),
+      (err) => err.status === 422
+    );
+  });
+
+  test('re-emitir (Editar): CONFERIR -> CONFERIR + nova auditoria', async () => {
+    const { contractId, bankAccountId } = await setupEmittableContract({ lotNumber: '21003' });
+    const lookups = await fetchLookups();
+    const first = await saleContractService.emitSaleContract(
+      contractId,
+      etapa2Payload({ bankAccountId, lookups }),
+      adminActor
+    );
+    const second = await saleContractService.emitSaleContract(
+      contractId,
+      etapa2Payload({ bankAccountId, lookups, expectedVersion: first.contract.version }),
+      adminActor
+    );
+    assert.equal(second.contract.status, 'CONFERIR');
+    const exports = await prisma.saleContractExport.findMany({
+      where: { saleContractId: contractId },
+    });
+    assert.equal(exports.length, 2);
+  });
+
+  test('confirmar: CONFERIR -> CONFIRMADO', async () => {
+    const { contractId, bankAccountId } = await setupEmittableContract({ lotNumber: '21004' });
+    const lookups = await fetchLookups();
+    const emitted = await saleContractService.emitSaleContract(
+      contractId,
+      etapa2Payload({ bankAccountId, lookups }),
+      adminActor
+    );
+    const confirmed = await saleContractService.confirmSaleContract(
+      contractId,
+      { expectedVersion: emitted.contract.version },
+      adminActor
+    );
+    assert.equal(confirmed.contract.status, 'CONFIRMADO');
+  });
+
+  test('guards: emitir CONFIRMADO -> 409; confirmar EM_ABERTO -> 409', async () => {
+    const { contractId, bankAccountId } = await setupEmittableContract({ lotNumber: '21005' });
+    const lookups = await fetchLookups();
+    const emitted = await saleContractService.emitSaleContract(
+      contractId,
+      etapa2Payload({ bankAccountId, lookups }),
+      adminActor
+    );
+    await saleContractService.confirmSaleContract(
+      contractId,
+      { expectedVersion: emitted.contract.version },
+      adminActor
+    );
+    await assert.rejects(
+      () =>
+        saleContractService.emitSaleContract(
+          contractId,
+          etapa2Payload({ bankAccountId, lookups, expectedVersion: emitted.contract.version + 1 }),
+          adminActor
+        ),
+      (err) => err.status === 409
+    );
+
+    const other = await setupEmittableContract({ lotNumber: '21006' });
+    await assert.rejects(
+      () =>
+        saleContractService.confirmSaleContract(
+          other.contractId,
+          { expectedVersion: 0 },
+          adminActor
+        ),
+      (err) => err.status === 409
+    );
+  });
+
+  test('concorrencia: expectedVersion stale -> 409', async () => {
+    const { contractId, bankAccountId } = await setupEmittableContract({ lotNumber: '21007' });
+    const lookups = await fetchLookups();
+    await assert.rejects(
+      () =>
+        saleContractService.emitSaleContract(
+          contractId,
+          etapa2Payload({ bankAccountId, lookups, expectedVersion: 99 }),
+          adminActor
+        ),
+      (err) => err.status === 409
+    );
+  });
+
+  test('D48: editar o vendedor sincroniza o Sample.ownerClientId', async () => {
+    const { contractId, sampleId } = await setupEmittableContract({ lotNumber: '21008' });
+    const lookups = await fetchLookups();
+    const newSellerId = randomUUID();
+    await createSellerClient(newSellerId);
+    const newBankAccountId = await createSellerBankAccount(newSellerId);
+
+    await saleContractService.emitSaleContract(
+      contractId,
+      etapa2Payload({
+        bankAccountId: newBankAccountId,
+        lookups,
+        overrides: { sellerClientId: newSellerId },
+      }),
+      adminActor
+    );
+
+    const sample = await prisma.sample.findUnique({
+      where: { id: sampleId },
+      select: { ownerClientId: true },
+    });
+    assert.equal(sample.ownerClientId, newSellerId);
+  });
+
+  test('WASH_OUT: cancelar a venda de contrato CONFERIR vira WASH_OUT', async () => {
+    const { contractId, sampleId, bankAccountId } = await setupEmittableContract({
+      lotNumber: '21009',
+    });
+    const lookups = await fetchLookups();
+    await saleContractService.emitSaleContract(
+      contractId,
+      etapa2Payload({ bankAccountId, lookups }),
+      adminActor
+    );
+
+    const movement = await prisma.sampleMovement.findFirst({ where: { sampleId } });
+    const sample = await queryService.requireSample(sampleId);
+    await commandService.cancelSampleMovement(
+      {
+        sampleId,
+        movementId: movement.id,
+        reasonText: 'Venda cancelada',
+        expectedVersion: sample.version,
+      },
+      commercialActor
+    );
+
+    const contract = await prisma.saleContract.findUnique({ where: { id: contractId } });
+    assert.equal(contract.status, 'WASH_OUT');
+    assert.equal(contract.washoutReason, 'Venda cancelada');
+    assert.ok(contract.washoutAt);
+  });
+
+  test('WASH_OUT: cancelar a venda de contrato CONFIRMADO vira WASH_OUT', async () => {
+    const { contractId, sampleId, bankAccountId } = await setupEmittableContract({
+      lotNumber: '21010',
+    });
+    const lookups = await fetchLookups();
+    const emitted = await saleContractService.emitSaleContract(
+      contractId,
+      etapa2Payload({ bankAccountId, lookups }),
+      adminActor
+    );
+    await saleContractService.confirmSaleContract(
+      contractId,
+      { expectedVersion: emitted.contract.version },
+      adminActor
+    );
+
+    const movement = await prisma.sampleMovement.findFirst({ where: { sampleId } });
+    const sample = await queryService.requireSample(sampleId);
+    await commandService.cancelSampleMovement(
+      { sampleId, movementId: movement.id, reasonText: 'Quebra', expectedVersion: sample.version },
+      commercialActor
+    );
+
+    const contract = await prisma.saleContract.findUnique({ where: { id: contractId } });
+    assert.equal(contract.status, 'WASH_OUT');
+  });
+
+  test('listContractLookups retorna as 3 listas; emit exige ADMIN/CADASTRO', async () => {
+    const lk = await saleContractService.listContractLookups(commercialActor);
+    assert.ok(lk.paymentForms.length >= 2);
+    assert.ok(lk.modalities.length >= 3);
+    assert.ok(lk.packagings.length >= 3);
+
+    const { contractId, bankAccountId } = await setupEmittableContract({ lotNumber: '21011' });
+    const lookups = await fetchLookups();
+    await assert.rejects(
+      () =>
+        saleContractService.emitSaleContract(
+          contractId,
+          etapa2Payload({ bankAccountId, lookups }),
+          commercialActor
+        ),
+      (err) => err.status === 403
+    );
   });
 }
 
