@@ -24,7 +24,8 @@ description: Use this skill when writing or reviewing any code in this project. 
 - `src/reports/` — laudos PDF (pdf-lib)
 - `src/uploads/` — upload com magic bytes validation
 - `src/email/` — email via SMTP ou outbox
-- `src/clients/` — dominio de clientes
+- `src/clients/` — dominio de clientes (+ `client-bank-account-service` e `client-attachment-service`: sub-cadastros do Fechamento, escopados por cliente)
+- `src/banks/`, `src/brokers/` — cadastros do Fechamento (bancos com codigo COMPE; corretores com vinculo opcional a usuario). Acesso = qualquer autenticado (D59); padrao service+support espelhando `src/clients`
 - `src/visits/` — formularios por papel: `visit-report-service` (informe do PROSPECTOR — sheet do dashboard dele, identificacao do cliente por DECLARACAO sem lookup, lista APENAS os proprios informes (`where.userId`) + stats proprios + busca por nome + curadoria do vinculo `linkVisitReportClient` ADM/Cadastro) e `commercial-forms-service` (visita do COMERCIAL + relatorio semanal com UNIQUE por semana + feed combinado `listInformeFeed` dos 3 tipos que alimenta a pagina /informe do comercial em scope=mine e o `/resumo` em scope=all); allowlist de API do prospector em `src/auth/prospector-access.js` (SEM `lookupClients` — papel de campo nao enumera a base de clientes)
 - `src/push/` — Web Push (inscricoes + envio VAPID; gatilhos fire-and-forget nos services)
 - `src/db/` — Prisma client singleton
