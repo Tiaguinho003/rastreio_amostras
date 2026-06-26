@@ -419,7 +419,8 @@ Três tabelas idênticas (molde lookup), iniciam com os valores: **`ContractPaym
 > - ✅ **Frontend — contas/anexos no detalhe do cliente** (`f0383fe` api-client + tipos; `045e963` UI): coluna lateral (PF e PJ) com **Contas bancárias** (BankSelectField busca + cadastra banco na hora; modal criar + modal detalhe ver/editar/inativar, inativas ocultas) e **Anexos** (grade de miniatura/selo PDF; upload PDF+imagem; preview `<img>`/`<iframe>` + baixar + excluir). typecheck/lint/format verdes; build adiado (next dev ativo).
 > - ✅ **Frontend — página "Cadastros"** (`870a0ef` api-client/tipos; `8c081ac` página+nav): rota `/cadastros` com abas **Bancos** e **Corretores** (D60), restrita a ADMIN+CADASTRO (nav na sidebar + avatar menu). CRUD leve: busca + lista + criar/editar + inativar via status. Corretor com `UserSelect` (vínculo opcional, D34).
 > - ✅ **Fase 0 (cadastro) COMPLETA** — backend + frontend (contas/anexos no cliente + página Cadastros). _(Ajustes da parte 1 — contas/anexos — pendentes, a definir com o Flavio.)_ build adiado (next dev ativo).
-> - 🚧 **Fase B (contrato) — parte 1** (`73247a3`): schema + migration `20260626130000_fechamento_contrato` — `SaleContract` (CRUD, não event-sourced), `SaleContractBroker`, `SaleContractExport`, 3 listas (Forma/Modalidade/Embalagem **seedadas**) + enums. Numeração `NNNN` começa em **1** (`0001/AA`). Smoke verde; dados intactos. **Falta:** B.2 (backend — gerador de número + criar na venda à vista + etapa 2 + status) e B.3 (frontend — campos na venda + página "Contratos").
+> - ✅ **Fase B (contrato) — B.1 schema** (`73247a3`): migration `20260626130000_fechamento_contrato` — `SaleContract` (CRUD, não event-sourced), `SaleContractBroker`, `SaleContractExport`, 3 listas (Forma/Modalidade/Embalagem **seedadas**) + enums. Numeração `NNNN` começa em **1** (`0001/AA`). Smoke verde; dados intactos.
+> - 🚧 **Fase B — B.2 Passo 1 (a venda à vista cria o contrato)**: domínio `src/sale-contracts/` (support **puro** — normalizadores/financeiro/número/snapshots/view — + `SaleContractService` listar/detalhar, acesso **ADMIN+CADASTRO**); a venda à vista (`createSampleMovement`, normal **e liga**) passa a exigir **preço/saca + corretagens % (vend/comp) + ≥1 corretor** e cria o `SaleContract` `EM_ABERTO` na **mesma tx** do `SALE_CREATED` (sem novo event type), número `NNNN/AA` gerado sob `pg_advisory_xact_lock` (`AA` = ano de criação); **cancelar a venda remove** o contrato ainda `EM_ABERTO` (decisão híbrida). Métodos tx novos em `PrismaEventStoreTx`. Rotas GET `/api/v1/sale-contracts[/:id]`. **Front (lado da venda):** campos no `SampleMovementModal` + `BrokerMultiSelectField` + toast com o nº do contrato. Testes: unit (`sale-contract-support`) + integração (`sale-contract.integration`) + tests de venda existentes ajustados (fixtures de corretor). **Todos os gates verdes** (typecheck/lint/format/schemas/contracts/unit/integration:db/build). **Falta:** B.2 **Passo 2** (etapa 2 "Gerar documento" + status `Emitir`→`CONFERIR`→`Confirmar`/`Editar`, `WASH_OUT` p/ emitidos) + **B.3** (página "Contratos") + PDF (Fase C).
 > - **Desvios do rascunho** (decididos na implementação): `id` **uuid** em todas (consistência com o schema, não Int); `Broker.cpf`/`Broker.userId` **UNIQUE**; `ClientAttachment.fileName` adicionado (nome original p/ download); **sem auditoria nem `version`** no Grupo A (rascunho enxuto).
 
 - **Fase 0 — Extensões do cadastro de Cliente.** _(EM ANDAMENTO — ver "Status da implementação" acima.)_ **Bancário** (D24/D28): tabela `Bank` (`id` **uuid**, nome,
@@ -842,3 +843,29 @@ Três tabelas idênticas (molde lookup), iniciam com os valores: **`ContractPaym
   vista via `appendEventBatch`+`beforeCommit` SEM novo event type; etapa 2; status) · B.3 frontend (campos na
   venda + página "Contratos"). PDF = Fase C; entrega = Fase D.
 - **Próximo: B.2 (backend do contrato).** BUILD adiado (next dev ativo). Nada pushado.
+
+### 2026-06-26 — Sessão 45 (Fase B.2 Passo 1: a venda à vista cria o contrato)
+
+- Plan mode + multiagentes (fluxo de venda, `appendEventBatch`/`beforeCommit`, gerador, padrões de
+  service/rotas) + Q&A — **4 decisões**: fatiar B.2 em 2 passos; `AA` = **ano de criação**; cancelar a venda =
+  **híbrido** (remove `EM_ABERTO`; `WASH_OUT` p/ emitidos no Passo 2); gestão de Contratos = **ADMIN+CADASTRO**.
+  Plano em `~/.claude/plans/witty-sparking-cloud.md`.
+- **Fatia vertical "venda à vista → contrato"** (NOT NULL em `unit_price`/`total_value` força os campos já no
+  modal de venda, senão vendas quebram):
+  - Domínio novo `src/sale-contracts/` (`sale-contract-support.js` puro + `sale-contract-service.js`
+    listar/detalhar, gate ADMIN+CADASTRO).
+  - `PrismaEventStoreTx`: `allocateNextContractSeq` (`pg_advisory_xact_lock` transacional + `MAX+1`;
+    **`$executeRaw` no lock** — `pg_advisory_xact_lock` retorna `void`), `createSaleContract`,
+    `createSaleContractBrokers`, `loadBrokersByIds`, `deleteOpenSaleContractByMovement`.
+  - `createSampleMovement` (normal **e** `_createBlendCascadeMovement`): SALE exige preço/saca + corretagens %
+    - ≥1 corretor; cria o contrato no `beforeCommit` (liga = 1 contrato no movimento **raiz**). Cancelamento
+      (normal + cascata) remove o contrato `EM_ABERTO`. `SALE_CREATED` **inalterado** (termos só no `sale_contract`).
+  - Rotas GET `/api/v1/sale-contracts[/:id]` + handlers (`listSaleContracts`/`getSaleContract`) + wiring; o
+    handler `createSampleMovement` passou a repassar os campos novos.
+  - Front: `BrokerMultiSelectField` + campos no `SampleMovementModal` (validação inline pt-BR) + toast com o nº
+    do contrato no `SampleMovementsPanel`; `api-client`/`types` estendidos (`listSaleContracts`/`getSaleContract`,
+    `CommandResponse.saleContract`).
+- **Testes**: unit `sale-contract-support` + integração `sale-contract.integration` (venda→contrato, 0001/0002,
+  liga, cancelar, gate 403); vendas dos testes existentes ajustadas via `tests/helpers/sale-contract-fixtures.js`.
+  **Gates 100% verdes** (typecheck/lint/format/schemas/contracts/unit 307/integration:db 295/build).
+- **Falta**: B.2 Passo 2 (etapa 2 + status + `WASH_OUT`) · B.3 (página "Contratos") · PDF (Fase C). Nada pushado.
