@@ -1,5 +1,11 @@
 import { Prisma } from '@prisma/client';
 
+// Fechamento (Fase B.2): chave fixa do advisory lock transacional que serializa
+// a geracao do numero do contrato (contract_seq). Lock por transacao (liberado
+// no commit/rollback) -> duas vendas concorrentes nunca colidem no MAX+1, e a
+// venda nunca falha por corrida de numero. Valor arbitrario e estavel.
+const SALE_CONTRACT_SEQ_LOCK_KEY = 831202606;
+
 function sourceToDb(source) {
   const map = {
     web: 'WEB',
@@ -422,6 +428,61 @@ class PrismaEventStoreTx {
       where: { sendEventId, revokedAt: null },
       data: { revokedAt },
     });
+  }
+
+  // Fechamento (Fase B.2): o contrato de venda a vista nasce na MESMA tx do
+  // evento SALE_CREATED (appendEventBatch + beforeCommit), espelhando o
+  // SampleReportShare. SaleContract e CRUD (fora do event store).
+
+  // Aloca o proximo numero sequencial do contrato sob advisory lock
+  // transacional. O lock serializa o MAX+1 entre vendas concorrentes; e
+  // liberado no commit/rollback. Gaps sao aceitaveis (D15).
+  async allocateNextContractSeq() {
+    // $executeRaw (nao $queryRaw): pg_advisory_xact_lock devolve void, que o
+    // $queryRaw nao consegue desserializar.
+    await this.tx.$executeRaw`SELECT pg_advisory_xact_lock(${SALE_CONTRACT_SEQ_LOCK_KEY}::bigint)`;
+    const rows = await this.tx.$queryRaw`
+      SELECT COALESCE(MAX(contract_seq), 0) + 1 AS next FROM sale_contract
+    `;
+    return Number(rows[0].next);
+  }
+
+  async createSaleContract(row) {
+    return this.tx.saleContract.create({ data: row });
+  }
+
+  async createSaleContractBrokers(rows) {
+    if (!rows || rows.length === 0) {
+      return { count: 0 };
+    }
+    return this.tx.saleContractBroker.createMany({ data: rows });
+  }
+
+  async loadBrokersByIds(ids) {
+    if (!ids || ids.length === 0) {
+      return [];
+    }
+    return this.tx.broker.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true, status: true },
+    });
+  }
+
+  // Cancelar a venda remove o contrato ainda EM_ABERTO (nunca emitido) ligado a
+  // ela -- decisao hibrida desta sessao. Apaga os brokers antes (FK RESTRICT).
+  // Contratos ja emitidos (CONFERIR+) viram WASH_OUT no Passo 2 (nao tocados
+  // aqui: o filtro status='EM_ABERTO' os ignora).
+  async deleteOpenSaleContractByMovement(movementId) {
+    const existing = await this.tx.saleContract.findFirst({
+      where: { movementId, status: 'EM_ABERTO' },
+      select: { id: true },
+    });
+    if (!existing) {
+      return null;
+    }
+    await this.tx.saleContractBroker.deleteMany({ where: { saleContractId: existing.id } });
+    await this.tx.saleContract.delete({ where: { id: existing.id } });
+    return existing.id;
   }
 
   async insertEvent(event) {
