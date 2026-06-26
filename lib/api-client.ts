@@ -6,6 +6,9 @@ import type {
   ClientDetailResponse,
   BankListResponse,
   BankResponse,
+  BrokerInput,
+  BrokerListResponse,
+  BrokerResponse,
   ClientBankAccountInput,
   ClientBankAccountListResponse,
   ClientBankAccountResponse,
@@ -732,6 +735,54 @@ export function createBank(session: SessionData, data: { name: string; compeCode
     method: 'POST',
     session,
     body: data,
+  });
+}
+
+export function updateBank(
+  session: SessionData,
+  bankId: string,
+  data: { name?: string; compeCode?: string; status?: 'ACTIVE' | 'INACTIVE' }
+) {
+  return request<BankResponse>(`/banks/${bankId}`, {
+    method: 'PATCH',
+    session,
+    body: data,
+  });
+}
+
+export function listBrokers(
+  session: SessionData,
+  query: { search?: string; status?: 'ACTIVE' | 'INACTIVE' } = {},
+  options: { signal?: AbortSignal } = {}
+) {
+  const params = new URLSearchParams();
+  if (query.search) params.set('search', query.search);
+  if (query.status) params.set('status', query.status);
+  const suffix = params.size ? `?${params.toString()}` : '';
+  return request<BrokerListResponse>(`/brokers${suffix}`, {
+    method: 'GET',
+    session,
+    signal: options.signal,
+  });
+}
+
+export function createBroker(session: SessionData, data: BrokerInput) {
+  return request<BrokerResponse>('/brokers', {
+    method: 'POST',
+    session,
+    body: data as unknown as JsonValue,
+  });
+}
+
+export function updateBroker(
+  session: SessionData,
+  brokerId: string,
+  data: Partial<BrokerInput> & { status?: 'ACTIVE' | 'INACTIVE' }
+) {
+  return request<BrokerResponse>(`/brokers/${brokerId}`, {
+    method: 'PATCH',
+    session,
+    body: data as unknown as JsonValue,
   });
 }
 

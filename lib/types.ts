@@ -298,6 +298,35 @@ export interface BankResponse {
   bank: Bank;
 }
 
+export interface Broker {
+  id: string;
+  name: string;
+  userId: string | null;
+  cpf: string | null;
+  phone: string | null;
+  email: string | null;
+  status: LookupStatus;
+  user: { id: string; fullName: string; username: string } | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface BrokerInput {
+  name: string;
+  userId?: string | null;
+  cpf?: string | null;
+  phone?: string | null;
+  email?: string | null;
+}
+
+export interface BrokerListResponse {
+  items: Broker[];
+}
+
+export interface BrokerResponse {
+  broker: Broker;
+}
+
 export interface ClientBankAccountSummary {
   id: string;
   clientId: string;
