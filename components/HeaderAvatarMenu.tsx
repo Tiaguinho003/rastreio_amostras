@@ -123,6 +123,22 @@ export function HeaderAvatarMenu({ session, onLogout }: HeaderAvatarMenuProps) {
               </button>
             ) : null}
 
+            {isAdmin(session.user.role) || session.user.role === 'CADASTRO' ? (
+              <button
+                type="button"
+                className="header-avatar-menu-row"
+                onClick={() => go('/contratos')}
+              >
+                <svg className="header-avatar-menu-row-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" />
+                  <path d="M14 3v5h5" />
+                  <path d="M9 13h6" />
+                  <path d="M9 17h5" />
+                </svg>
+                <span className="header-avatar-menu-row-label">Contratos</span>
+              </button>
+            ) : null}
+
             <button
               type="button"
               className="header-avatar-menu-row is-danger"
