@@ -33894,8 +33894,7 @@ body.is-selection-mode .hero-search-filter-btn {
     left: auto;
     bottom: auto;
     right: calc(
-      var(--fan-pivot-right) + var(--ox) - var(--fan-opt-size) / 2 -
-        var(--fan-shift-right)
+      var(--fan-pivot-right) + var(--ox) - var(--fan-opt-size) / 2 - var(--fan-shift-right)
     );
     top: calc(var(--fan-pivot-top) + var(--oy) - var(--fan-opt-size) / 2);
     transform-origin: right top;
@@ -33972,4 +33971,231 @@ body.is-selection-mode .hero-search-filter-btn {
       0 -2px 6px rgba(10, 30, 18, 0.1),
       0 -12px 28px rgba(10, 30, 18, 0.16);
   }
+}
+
+/* ============================================================
+   Fechamento Fase 0 — contas bancárias + anexos no detalhe do cliente
+   ============================================================ */
+
+/* Seletor de banco (BankSelectField) */
+.bsf-root {
+  position: relative;
+}
+.bsf-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  text-align: left;
+  cursor: pointer;
+}
+.bsf-trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.bsf-placeholder {
+  color: rgba(0, 0, 0, 0.52);
+}
+.bsf-caret {
+  flex: 0 0 auto;
+  color: var(--brand-muted);
+  font-size: 0.8rem;
+}
+.bsf-dropdown {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid var(--brand-cream-line);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(19, 35, 24, 0.18);
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.bsf-search {
+  font-size: 0.9rem;
+  padding: 0.55rem 0.8rem;
+}
+.bsf-options {
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.bsf-empty {
+  padding: 0.6rem 0.4rem;
+  color: var(--brand-muted);
+  font-size: 0.85rem;
+}
+.bsf-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  cursor: pointer;
+  font-size: 0.92rem;
+  color: var(--brand-green-ink);
+}
+.bsf-option:hover,
+.bsf-option.is-selected {
+  background: rgba(var(--brand-green-rgb), 0.08);
+}
+.bsf-option-code {
+  flex: 0 0 auto;
+  color: var(--brand-muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.82rem;
+}
+.bsf-add-toggle {
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--brand-cream-line);
+  padding: 0.55rem 0.4rem 0.2rem;
+  margin-top: 0.2rem;
+  color: var(--brand-green);
+  font-weight: 600;
+  font-size: 0.88rem;
+  text-align: left;
+  cursor: pointer;
+}
+.bsf-add {
+  display: grid;
+  grid-template-columns: 1fr 80px auto;
+  gap: 0.4rem;
+  align-items: center;
+  border-top: 1px solid var(--brand-cream-line);
+  padding-top: 0.5rem;
+}
+.bsf-add .app-modal-input {
+  padding: 0.5rem 0.7rem;
+  font-size: 0.9rem;
+}
+.bsf-add-save {
+  padding: 0.5rem 0.9rem;
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+.bsf-add-error {
+  grid-column: 1 / -1;
+}
+
+/* Anexos — grade de miniaturas */
+.sdv-attachment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 0.6rem;
+}
+.sdv-attachment-thumb {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  background: #fff;
+  border: 1px solid var(--brand-cream-line);
+  border-radius: 10px;
+  padding: 0.5rem;
+  cursor: pointer;
+  overflow: hidden;
+}
+.sdv-attachment-thumb:hover {
+  border-color: var(--brand-green-soft);
+  box-shadow: 0 2px 8px rgba(19, 35, 24, 0.1);
+}
+.sdv-attachment-thumb img {
+  width: 100%;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+.sdv-attachment-thumb-pdf {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 64px;
+  border-radius: 6px;
+  background: rgba(var(--brand-green-rgb), 0.08);
+  color: var(--brand-green);
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+}
+.sdv-attachment-thumb-name {
+  width: 100%;
+  font-size: 0.72rem;
+  color: var(--brand-green-ink);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Preview de anexo (ClientAttachmentPreviewModal) */
+.cap-modal {
+  max-width: 640px;
+  width: 92vw;
+}
+.cap-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cap-preview-img {
+  width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #f3f3f3;
+}
+.cap-preview-pdf {
+  width: 100%;
+  height: 60vh;
+  border: 0;
+  border-radius: 8px;
+  background: #f3f3f3;
+}
+.cap-preview-fallback {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--brand-muted);
+}
+.cap-description {
+  margin-top: 0.6rem;
+  font-size: 0.9rem;
+  color: var(--brand-green-ink);
+}
+.cap-actions {
+  align-items: center;
+  gap: 0.6rem;
+}
+.cap-confirm-text {
+  margin-right: auto;
+  font-size: 0.9rem;
+  color: var(--brand-green-ink);
+}
+.cap-delete-btn {
+  margin-right: auto;
+  background: transparent;
+  border: 1px solid rgba(200, 60, 60, 0.4);
+  color: #c0392b;
+  border-radius: 10px;
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.cap-download {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
 }

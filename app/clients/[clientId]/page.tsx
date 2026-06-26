@@ -13,6 +13,9 @@ import {
 } from '../../../components/clients/ClientInactivateWithCascadeModal';
 import { ClientUnitModal } from '../../../components/clients/ClientUnitModal';
 import { ClientUnitDetailModal } from '../../../components/clients/ClientUnitDetailModal';
+import { ClientBankAccountModal } from '../../../components/clients/ClientBankAccountModal';
+import { ClientBankAccountDetailModal } from '../../../components/clients/ClientBankAccountDetailModal';
+import { ClientAttachmentPreviewModal } from '../../../components/clients/ClientAttachmentPreviewModal';
 import { ClientCommercialSummaryCard } from '../../../components/clients/ClientCommercialSummaryCard';
 import {
   ApiError,
@@ -28,6 +31,13 @@ import {
   inactivateClientUnit,
   reactivateClientUnit,
   lookupUsersForReference,
+  listClientBankAccounts,
+  createClientBankAccount,
+  updateClientBankAccount,
+  listClientAttachments,
+  uploadClientAttachment,
+  deleteClientAttachment,
+  clientAttachmentDownloadUrl,
 } from '../../../lib/api-client';
 import {
   formatClientDocument,
@@ -53,6 +63,9 @@ import type {
   ClientCommercialSummaryResponse,
   ClientUnitSummary,
   ClientSummary,
+  ClientBankAccountSummary,
+  ClientBankAccountInput,
+  ClientAttachmentSummary,
   UserLookupItem,
 } from '../../../lib/types';
 
@@ -362,6 +375,37 @@ export default function ClientDetailPage() {
   const [unitDetailOpen, setUnitDetailOpen] = useState(false);
   const [unitDetailNotice, setUnitDetailNotice] = useState<string | null>(null);
 
+  /* ---- Fechamento Fase 0: contas bancárias do cliente (D28) ---- */
+  const [bankAccounts, setBankAccounts] = useState<ClientBankAccountSummary[]>([]);
+  const [showInactiveBankAccounts, setShowInactiveBankAccounts] = useState(false);
+  const [bankNotice, setBankNotice] = useState<Notice>(null);
+  const [bankAccountModalOpen, setBankAccountModalOpen] = useState(false);
+  const [bankAccountModalNotice, setBankAccountModalNotice] = useState<Notice>(null);
+  const [savingBankAccount, setSavingBankAccount] = useState(false);
+  const [bankAccountCreateSuccess, setBankAccountCreateSuccess] = useState(false);
+  const [bankAccountDetailAccount, setBankAccountDetailAccount] =
+    useState<ClientBankAccountSummary | null>(null);
+  const [bankAccountDetailOpen, setBankAccountDetailOpen] = useState(false);
+  const [bankAccountDetailNotice, setBankAccountDetailNotice] = useState<string | null>(null);
+  const [savingBankAccountStatus, setSavingBankAccountStatus] = useState(false);
+
+  /* ---- Fechamento Fase 0: anexos do cliente (D27) ---- */
+  const [attachments, setAttachments] = useState<ClientAttachmentSummary[]>([]);
+  const [attachmentNotice, setAttachmentNotice] = useState<Notice>(null);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [attachmentPreview, setAttachmentPreview] = useState<ClientAttachmentSummary | null>(null);
+  const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState(false);
+  const [attachmentPreviewNotice, setAttachmentPreviewNotice] = useState<string | null>(null);
+  const [deletingAttachment, setDeletingAttachment] = useState(false);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
+
+  const visibleBankAccounts = showInactiveBankAccounts
+    ? bankAccounts
+    : bankAccounts.filter((account) => account.status === 'ACTIVE');
+  const inactiveBankAccountsCount = bankAccounts.filter(
+    (account) => account.status === 'INACTIVE'
+  ).length;
+
   /* ---- status modal (inactivate/reactivate client) ---- */
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [statusAction, setStatusAction] = useState<'inactivate' | 'reactivate'>('inactivate');
@@ -407,10 +451,18 @@ export default function ClientDetailPage() {
       if (showLoading) setLoadingPage(true);
 
       try {
-        const response = await getClient(session, clientId, { signal: controller.signal });
+        const [response, accountsRes, attachmentsRes] = await Promise.all([
+          getClient(session, clientId, { signal: controller.signal }),
+          listClientBankAccounts(session, clientId, { signal: controller.signal }).catch(
+            () => null
+          ),
+          listClientAttachments(session, clientId, { signal: controller.signal }).catch(() => null),
+        ]);
         if (controller.signal.aborted) return;
         setClient(response.client);
         setUnits(response.units);
+        if (accountsRes) setBankAccounts(accountsRes.items);
+        if (attachmentsRes) setAttachments(attachmentsRes.items);
       } catch (cause) {
         if (controller.signal.aborted) return;
         if (cause instanceof DOMException && cause.name === 'AbortError') return;
@@ -718,6 +770,147 @@ export default function ClientDetailPage() {
       });
     } finally {
       setSavingUnit(false);
+    }
+  }
+
+  /* ================================================================ */
+  /*  Bank account handlers (Fechamento Fase 0)                       */
+  /* ================================================================ */
+
+  function openBankAccountCreate() {
+    setBankAccountModalNotice(null);
+    setBankAccountCreateSuccess(false);
+    setSavingBankAccount(false);
+    setBankAccountModalOpen(true);
+  }
+
+  function closeBankAccountModal() {
+    if (savingBankAccount) return;
+    setBankAccountModalOpen(false);
+  }
+
+  async function handleBankAccountSubmit(data: ClientBankAccountInput) {
+    if (!session || !clientId) return;
+    setSavingBankAccount(true);
+    setBankAccountModalNotice(null);
+    try {
+      await createClientBankAccount(session, clientId, data);
+      setBankAccountCreateSuccess(true);
+      void fetchData();
+      window.setTimeout(() => {
+        setBankAccountModalOpen(false);
+        setBankAccountCreateSuccess(false);
+      }, 1000);
+    } catch (cause) {
+      setBankAccountModalNotice({
+        kind: 'error',
+        text: cause instanceof ApiError ? cause.message : 'Falha ao salvar conta bancária.',
+      });
+    } finally {
+      setSavingBankAccount(false);
+    }
+  }
+
+  function openBankAccountDetail(account: ClientBankAccountSummary) {
+    setBankAccountDetailAccount(account);
+    setBankAccountDetailNotice(null);
+    setBankAccountDetailOpen(true);
+  }
+
+  function closeBankAccountDetail() {
+    if (savingBankAccount || savingBankAccountStatus) return;
+    setBankAccountDetailOpen(false);
+  }
+
+  async function handleBankAccountDetailSave(data: ClientBankAccountInput) {
+    if (!session || !clientId || !bankAccountDetailAccount) return;
+    setSavingBankAccount(true);
+    setBankAccountDetailNotice(null);
+    try {
+      await updateClientBankAccount(session, clientId, bankAccountDetailAccount.id, data);
+      setBankNotice({ kind: 'success', text: 'Conta bancária atualizada com sucesso.' });
+      void fetchData();
+      setBankAccountDetailOpen(false);
+    } catch (cause) {
+      setBankAccountDetailNotice(
+        cause instanceof ApiError ? cause.message : 'Falha ao salvar conta bancária.'
+      );
+    } finally {
+      setSavingBankAccount(false);
+    }
+  }
+
+  async function handleBankAccountStatusChange(status: 'ACTIVE' | 'INACTIVE') {
+    if (!session || !clientId || !bankAccountDetailAccount) return;
+    setSavingBankAccountStatus(true);
+    setBankAccountDetailNotice(null);
+    try {
+      await updateClientBankAccount(session, clientId, bankAccountDetailAccount.id, { status });
+      setBankNotice({
+        kind: 'success',
+        text: status === 'INACTIVE' ? 'Conta inativada.' : 'Conta reativada.',
+      });
+      void fetchData();
+      setBankAccountDetailOpen(false);
+    } catch (cause) {
+      setBankAccountDetailNotice(
+        cause instanceof ApiError ? cause.message : 'Falha ao alterar status da conta.'
+      );
+    } finally {
+      setSavingBankAccountStatus(false);
+    }
+  }
+
+  /* ================================================================ */
+  /*  Attachment handlers (Fechamento Fase 0)                         */
+  /* ================================================================ */
+
+  async function handleAttachmentSelected(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !session || !clientId) return;
+    setUploadingAttachment(true);
+    setAttachmentNotice(null);
+    try {
+      await uploadClientAttachment(session, clientId, file);
+      setAttachmentNotice({ kind: 'success', text: 'Anexo enviado com sucesso.' });
+      void fetchData();
+    } catch (cause) {
+      setAttachmentNotice({
+        kind: 'error',
+        text: cause instanceof ApiError ? cause.message : 'Falha ao enviar anexo.',
+      });
+    } finally {
+      setUploadingAttachment(false);
+    }
+  }
+
+  function openAttachmentPreview(attachment: ClientAttachmentSummary) {
+    setAttachmentPreview(attachment);
+    setAttachmentPreviewNotice(null);
+    setAttachmentPreviewOpen(true);
+  }
+
+  function closeAttachmentPreview() {
+    if (deletingAttachment) return;
+    setAttachmentPreviewOpen(false);
+  }
+
+  async function handleAttachmentDelete() {
+    if (!session || !clientId || !attachmentPreview) return;
+    setDeletingAttachment(true);
+    setAttachmentPreviewNotice(null);
+    try {
+      await deleteClientAttachment(session, clientId, attachmentPreview.id);
+      setAttachmentNotice({ kind: 'success', text: 'Anexo excluído.' });
+      setAttachmentPreviewOpen(false);
+      void fetchData();
+    } catch (cause) {
+      setAttachmentPreviewNotice(
+        cause instanceof ApiError ? cause.message : 'Falha ao excluir anexo.'
+      );
+    } finally {
+      setDeletingAttachment(false);
     }
   }
 
@@ -1299,6 +1492,135 @@ export default function ClientDetailPage() {
                       <NoticeSlot notice={unitNotice} />
                     </div>
                   ) : null}
+
+                  {/* Contas bancárias (Fechamento Fase 0 — D28) — PF e PJ */}
+                  <div className="sdv-card sdv-info-compact sdv-card-bank-accounts">
+                    <div className="sdv-card-header">
+                      <span className="sdv-card-title">Contas bancárias</span>
+                      <button
+                        type="button"
+                        className="sdv-edit-btn"
+                        onClick={openBankAccountCreate}
+                        aria-label="Nova conta bancária"
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M12 5v14" />
+                          <path d="M5 12h14" />
+                        </svg>
+                        <span>Nova</span>
+                      </button>
+                    </div>
+                    {bankAccounts.length === 0 ? (
+                      <div className="spv2-empty client-detail-empty-compact">
+                        <p className="spv2-empty-text">Nenhuma conta cadastrada</p>
+                      </div>
+                    ) : (
+                      <div className="sdv-unit-list">
+                        {visibleBankAccounts.map((account) => (
+                          <button
+                            key={account.id}
+                            type="button"
+                            className={`sdv-unit-card-mini${account.status === 'INACTIVE' ? ' is-inactive' : ''}`}
+                            onClick={() => openBankAccountDetail(account)}
+                          >
+                            <div className="sdv-unit-card-mini-content">
+                              <span className="sdv-unit-card-mini-name">
+                                {account.bank?.name ?? 'Banco'}
+                                {account.status === 'INACTIVE' ? (
+                                  <span className="sdv-unit-card-mini-inactive">Inativa</span>
+                                ) : null}
+                              </span>
+                              <span className="sdv-unit-card-mini-city">
+                                Ag. {account.agency} · Conta {account.accountNumber}
+                              </span>
+                            </div>
+                            <svg
+                              className="sdv-unit-card-mini-arrow"
+                              viewBox="0 0 24 24"
+                              aria-hidden="true"
+                            >
+                              <path d="m9 6 6 6-6 6" />
+                            </svg>
+                          </button>
+                        ))}
+                        {inactiveBankAccountsCount > 0 ? (
+                          <button
+                            type="button"
+                            className="sdv-edit-btn-small"
+                            onClick={() => setShowInactiveBankAccounts((v) => !v)}
+                          >
+                            {showInactiveBankAccounts
+                              ? 'Esconder inativas'
+                              : `Mostrar ${inactiveBankAccountsCount} inativa(s)`}
+                          </button>
+                        ) : null}
+                      </div>
+                    )}
+                    <NoticeSlot notice={bankNotice} />
+                  </div>
+
+                  {/* Anexos (Fechamento Fase 0 — D27) — PF e PJ */}
+                  <div className="sdv-card sdv-info-compact sdv-card-attachments">
+                    <div className="sdv-card-header">
+                      <span className="sdv-card-title">Anexos</span>
+                      <button
+                        type="button"
+                        className="sdv-edit-btn"
+                        onClick={() => attachmentInputRef.current?.click()}
+                        disabled={uploadingAttachment}
+                        aria-label="Adicionar anexo"
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M12 5v14" />
+                          <path d="M5 12h14" />
+                        </svg>
+                        <span>{uploadingAttachment ? 'Enviando…' : 'Adicionar'}</span>
+                      </button>
+                      <input
+                        ref={attachmentInputRef}
+                        type="file"
+                        accept="application/pdf,image/jpeg,image/png,image/webp"
+                        style={{ display: 'none' }}
+                        onChange={handleAttachmentSelected}
+                      />
+                    </div>
+                    {attachments.length === 0 ? (
+                      <div className="spv2-empty client-detail-empty-compact">
+                        <p className="spv2-empty-text">Nenhum anexo</p>
+                      </div>
+                    ) : (
+                      <div className="sdv-attachment-grid">
+                        {attachments.map((attachment) => {
+                          const isImage = (attachment.mimeType ?? '').startsWith('image/');
+                          return (
+                            <button
+                              key={attachment.id}
+                              type="button"
+                              className="sdv-attachment-thumb"
+                              onClick={() => openAttachmentPreview(attachment)}
+                              title={attachment.fileName ?? 'Anexo'}
+                            >
+                              {isImage ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={clientAttachmentDownloadUrl(clientId, attachment.id)}
+                                  alt={attachment.fileName ?? 'Anexo'}
+                                />
+                              ) : (
+                                <span className="sdv-attachment-thumb-pdf" aria-hidden="true">
+                                  PDF
+                                </span>
+                              )}
+                              <span className="sdv-attachment-thumb-name">
+                                {attachment.fileName ?? 'Anexo'}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <NoticeSlot notice={attachmentNotice} />
+                  </div>
                 </div>
               </div>
             </section>
@@ -1719,6 +2041,45 @@ export default function ClientDetailPage() {
         onSave={handleUnitDetailSave}
         onInactivate={handleUnitDetailInactivate}
         onReactivate={handleUnitDetailReactivate}
+      />
+
+      {/* ========== Fechamento Fase 0: Contas bancárias ========== */}
+      <ClientBankAccountModal
+        open={bankAccountModalOpen}
+        session={session}
+        saving={savingBankAccount}
+        success={bankAccountCreateSuccess}
+        errorMessage={bankAccountModalNotice?.kind === 'error' ? bankAccountModalNotice.text : null}
+        defaultHolderName={client?.displayName ?? null}
+        defaultHolderTaxId={client?.document ?? null}
+        onClose={closeBankAccountModal}
+        onSubmit={handleBankAccountSubmit}
+      />
+
+      <ClientBankAccountDetailModal
+        open={bankAccountDetailOpen}
+        account={bankAccountDetailAccount}
+        session={session}
+        saving={savingBankAccount}
+        savingStatus={savingBankAccountStatus}
+        errorMessage={bankAccountDetailNotice}
+        onClose={closeBankAccountDetail}
+        onSave={handleBankAccountDetailSave}
+        onInactivate={() => handleBankAccountStatusChange('INACTIVE')}
+        onReactivate={() => handleBankAccountStatusChange('ACTIVE')}
+      />
+
+      {/* ========== Fechamento Fase 0: Preview de anexo ========== */}
+      <ClientAttachmentPreviewModal
+        open={attachmentPreviewOpen}
+        attachment={attachmentPreview}
+        downloadUrl={
+          attachmentPreview ? clientAttachmentDownloadUrl(clientId, attachmentPreview.id) : null
+        }
+        deleting={deletingAttachment}
+        errorMessage={attachmentPreviewNotice}
+        onClose={closeAttachmentPreview}
+        onDelete={handleAttachmentDelete}
       />
 
       {/* ========== MODAL 2.5: Cascade Inactivate (#6/Q-05) ========== */}
