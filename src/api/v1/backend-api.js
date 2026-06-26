@@ -209,6 +209,7 @@ export function createBackendApiV1({
   clientService = null,
   bankService = null,
   brokerService = null,
+  clientBankAccountService = null,
   visitReportService = null,
   commercialFormsService = null,
   pushService = null,
@@ -2767,6 +2768,68 @@ export function createBackendApiV1({
             cpf: body.cpf,
             phone: body.phone,
             email: body.email,
+            status: body.status,
+          },
+          actor
+        );
+        return { status: 200, body: result };
+      }),
+
+    // ============================================================
+    // Contas bancarias de cliente (Fechamento Fase 0 -- D28)
+    // ============================================================
+    listClientBankAccounts: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientBankAccountService) {
+          throw new HttpError(501, 'Client bank account service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const result = await clientBankAccountService.listClientBankAccounts(
+          input?.params?.clientId,
+          actor
+        );
+        return { status: 200, body: result };
+      }),
+
+    createClientBankAccount: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientBankAccountService) {
+          throw new HttpError(501, 'Client bank account service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+        const result = await clientBankAccountService.createClientBankAccount(
+          input?.params?.clientId,
+          {
+            bankId: body.bankId,
+            agency: body.agency,
+            accountNumber: body.accountNumber,
+            holderName: body.holderName,
+            holderTaxId: body.holderTaxId,
+            pixKey: body.pixKey,
+          },
+          actor
+        );
+        return { status: 201, body: result };
+      }),
+
+    updateClientBankAccount: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientBankAccountService) {
+          throw new HttpError(501, 'Client bank account service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+        const result = await clientBankAccountService.updateClientBankAccount(
+          input?.params?.clientId,
+          input?.params?.accountId,
+          {
+            bankId: body.bankId,
+            agency: body.agency,
+            accountNumber: body.accountNumber,
+            holderName: body.holderName,
+            holderTaxId: body.holderTaxId,
+            pixKey: body.pixKey,
             status: body.status,
           },
           actor

@@ -10,6 +10,7 @@ import { UserService } from '../../users/user-service.js';
 import { ClientService } from '../../clients/client-service.js';
 import { BankService } from '../../banks/bank-service.js';
 import { BrokerService } from '../../brokers/broker-service.js';
+import { ClientBankAccountService } from '../../clients/client-bank-account-service.js';
 import { VisitReportService } from '../../visits/visit-report-service.js';
 import { CommercialFormsService } from '../../visits/commercial-forms-service.js';
 import { createPushServiceFromEnv } from '../../push/create-push-service.js';
@@ -50,6 +51,7 @@ export function createBackendApiV1FromEnv() {
   });
   const bankService = new BankService({ prisma });
   const brokerService = new BrokerService({ prisma });
+  const clientBankAccountService = new ClientBankAccountService({ prisma });
   const userService = new UserService({
     prisma,
     emailService,
@@ -98,6 +100,7 @@ export function createBackendApiV1FromEnv() {
     clientService,
     bankService,
     brokerService,
+    clientBankAccountService,
     visitReportService,
     commercialFormsService,
     pushService,
