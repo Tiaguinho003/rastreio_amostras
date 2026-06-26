@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
 import { HttpError } from '../contracts/errors.js';
-import { assertRoleAllowed, USER_ROLES } from '../auth/roles.js';
 import { assertAuthenticatedActor, readLimitQuery } from '../users/user-support.js';
 import {
   BROKER_VIEW_SELECT,
@@ -11,10 +10,9 @@ import {
   toBrokerView,
 } from './broker-support.js';
 
-// Quem pode CADASTRAR/EDITAR corretores. Leitura liberada a qualquer usuario
-// autenticado (gate central ja bloqueia PROSPECTOR), pois o lookup alimenta a
-// selecao de corretores no contrato.
-export const BROKER_MANAGE_ROLES = Object.freeze([USER_ROLES.ADMIN, USER_ROLES.CADASTRO]);
+// Politica de acesso (decisao do Flavio): cadastrar/editar/listar corretores e
+// liberado a QUALQUER usuario autenticado -- o gate central de PROSPECTOR
+// (src/auth/prospector-access.js) ja exclui o app restrito.
 
 const BROKER_LIST_LIMIT_DEFAULT = 200;
 const BROKER_LIST_LIMIT_MAX = 500;
@@ -60,8 +58,7 @@ export class BrokerService {
   }
 
   async createBroker(input, actorContext) {
-    const actor = assertAuthenticatedActor(actorContext, 'create broker');
-    assertRoleAllowed(actor.role, BROKER_MANAGE_ROLES, 'create broker');
+    assertAuthenticatedActor(actorContext, 'create broker');
 
     const data = normalizeCreateBrokerInput(input ?? {});
     await this._assertUserExists(data.userId);
@@ -87,8 +84,7 @@ export class BrokerService {
   }
 
   async updateBroker(brokerId, input, actorContext) {
-    const actor = assertAuthenticatedActor(actorContext, 'update broker');
-    assertRoleAllowed(actor.role, BROKER_MANAGE_ROLES, 'update broker');
+    assertAuthenticatedActor(actorContext, 'update broker');
 
     if (typeof brokerId !== 'string' || brokerId.length === 0) {
       throw new HttpError(422, 'brokerId is required', {

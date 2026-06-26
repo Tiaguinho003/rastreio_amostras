@@ -8,7 +8,7 @@ import {
   normalizeUpdateBankInput,
   toBankView,
 } from '../src/banks/bank-support.js';
-import { BankService, BANK_MANAGE_ROLES } from '../src/banks/bank-service.js';
+import { BankService } from '../src/banks/bank-service.js';
 
 const adminActor = { actorUserId: 'u1', role: 'ADMIN', requestId: 'r1' };
 const commercialActor = { actorUserId: 'u2', role: 'COMMERCIAL', requestId: 'r2' };
@@ -113,11 +113,17 @@ test('createBank: ADMIN cria e retorna a view', async () => {
   assert.equal(bank.status, 'ACTIVE');
 });
 
-test('createBank: COMMERCIAL recebe 403', async () => {
+test('createBank: qualquer usuario autenticado cria (ex.: COMMERCIAL)', async () => {
+  const svc = new BankService({ prisma: fakePrisma() });
+  const { bank } = await svc.createBank({ name: 'X', compeCode: '1' }, commercialActor);
+  assert.equal(bank.compeCode, '001');
+});
+
+test('createBank: sem autenticacao vira 401', async () => {
   const svc = new BankService({ prisma: fakePrisma() });
   await assert.rejects(
-    () => svc.createBank({ name: 'X', compeCode: '1' }, commercialActor),
-    (e) => e.status === 403
+    () => svc.createBank({ name: 'X', compeCode: '1' }, {}),
+    (e) => e.status === 401
   );
 });
 
@@ -158,8 +164,4 @@ test('listBanks: exige usuario autenticado', async () => {
     () => svc.listBanks({}, {}),
     (e) => e.status === 401
   );
-});
-
-test('BANK_MANAGE_ROLES = ADMIN + CADASTRO', () => {
-  assert.deepEqual([...BANK_MANAGE_ROLES].sort(), ['ADMIN', 'CADASTRO']);
 });

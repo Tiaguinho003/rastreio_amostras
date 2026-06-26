@@ -8,7 +8,7 @@ import {
   normalizeUpdateBrokerInput,
   toBrokerView,
 } from '../src/brokers/broker-support.js';
-import { BrokerService, BROKER_MANAGE_ROLES } from '../src/brokers/broker-service.js';
+import { BrokerService } from '../src/brokers/broker-service.js';
 
 const adminActor = { actorUserId: 'u1', role: 'ADMIN', requestId: 'r1' };
 const commercialActor = { actorUserId: 'u2', role: 'COMMERCIAL', requestId: 'r2' };
@@ -114,11 +114,17 @@ test('createBroker: ADMIN cria corretor externo (sem userId)', async () => {
   assert.equal(broker.cpf, '12345678900');
 });
 
-test('createBroker: COMMERCIAL recebe 403', async () => {
+test('createBroker: qualquer usuario autenticado cria (ex.: COMMERCIAL)', async () => {
+  const svc = new BrokerService({ prisma: fakePrisma() });
+  const { broker } = await svc.createBroker({ name: 'Maria' }, commercialActor);
+  assert.equal(broker.name, 'Maria');
+});
+
+test('createBroker: sem autenticacao vira 401', async () => {
   const svc = new BrokerService({ prisma: fakePrisma() });
   await assert.rejects(
-    () => svc.createBroker({ name: 'X' }, commercialActor),
-    (e) => e.status === 403
+    () => svc.createBroker({ name: 'X' }, {}),
+    (e) => e.status === 401
   );
 });
 
@@ -178,8 +184,4 @@ test('listBrokers: exige usuario autenticado', async () => {
     () => svc.listBrokers({}, {}),
     (e) => e.status === 401
   );
-});
-
-test('BROKER_MANAGE_ROLES = ADMIN + CADASTRO', () => {
-  assert.deepEqual([...BROKER_MANAGE_ROLES].sort(), ['ADMIN', 'CADASTRO']);
 });

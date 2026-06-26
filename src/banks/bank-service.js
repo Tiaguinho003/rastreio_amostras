@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
 import { HttpError } from '../contracts/errors.js';
-import { assertRoleAllowed, USER_ROLES } from '../auth/roles.js';
 import { assertAuthenticatedActor, readLimitQuery } from '../users/user-support.js';
 import {
   BANK_VIEW_SELECT,
@@ -11,10 +10,9 @@ import {
   toBankView,
 } from './bank-support.js';
 
-// Quem pode CADASTRAR/EDITAR bancos -- lookup controlado. Leitura (listBanks)
-// e liberada a qualquer usuario autenticado (o gate central ja bloqueia o
-// PROSPECTOR), pois o lookup alimenta o cadastro de contas bancarias.
-export const BANK_MANAGE_ROLES = Object.freeze([USER_ROLES.ADMIN, USER_ROLES.CADASTRO]);
+// Politica de acesso (decisao do Flavio): cadastrar/editar/listar bancos e
+// liberado a QUALQUER usuario autenticado -- o gate central de PROSPECTOR
+// (src/auth/prospector-access.js) ja exclui o app restrito.
 
 const BANK_LIST_LIMIT_DEFAULT = 200;
 const BANK_LIST_LIMIT_MAX = 500;
@@ -37,8 +35,7 @@ export class BankService {
   }
 
   async createBank(input, actorContext) {
-    const actor = assertAuthenticatedActor(actorContext, 'create bank');
-    assertRoleAllowed(actor.role, BANK_MANAGE_ROLES, 'create bank');
+    assertAuthenticatedActor(actorContext, 'create bank');
 
     const data = normalizeCreateBankInput(input ?? {});
 
@@ -56,8 +53,7 @@ export class BankService {
   }
 
   async updateBank(bankId, input, actorContext) {
-    const actor = assertAuthenticatedActor(actorContext, 'update bank');
-    assertRoleAllowed(actor.role, BANK_MANAGE_ROLES, 'update bank');
+    assertAuthenticatedActor(actorContext, 'update bank');
 
     if (typeof bankId !== 'string' || bankId.length === 0) {
       throw new HttpError(422, 'bankId is required', {
