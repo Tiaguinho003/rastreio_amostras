@@ -95,6 +95,25 @@ enum LookupStatus {
   INACTIVE
 }
 
+enum SaleContractType {
+  MERCADO_A_VISTA
+  FUTURO
+}
+
+enum SaleContractStatus {
+  EM_ABERTO
+  CONFERIR
+  CONFIRMADO
+  FATURADO
+  PAGO
+  WASH_OUT
+}
+
+enum AgioDesagioType {
+  AGIO
+  DESAGIO
+}
+
 enum SampleMovementType {
   SALE
   LOSS
@@ -734,6 +753,139 @@ model ClientAttachment {
 
   @@index([clientId, createdAt], map: "idx_client_attachment_client_created")
   @@map("client_attachment")
+}
+
+// ============================================================
+// Fechamento — Grupo B (listas) + Grupo C (contrato). Fase B.
+// Colunas de referência = escalares @db.Uuid (exibição via snapshots
+// JSON); as FKs de integridade ficam na migration SQL (sem @relation,
+// pra não exigir back-relations em ~10 modelos). SaleContract é CRUD
+// (não event-sourced); auditoria de emissão em SaleContractExport (D56).
+// ============================================================
+
+model ContractPaymentForm {
+  id        String       @id @db.Uuid
+  name      String       @unique(map: "uq_contract_payment_form_name")
+  sortOrder Int          @default(0) @map("sort_order")
+  status    LookupStatus @default(ACTIVE)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([status, sortOrder], map: "idx_contract_payment_form_status_order")
+  @@map("contract_payment_form")
+}
+
+model ContractModality {
+  id        String       @id @db.Uuid
+  name      String       @unique(map: "uq_contract_modality_name")
+  sortOrder Int          @default(0) @map("sort_order")
+  status    LookupStatus @default(ACTIVE)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([status, sortOrder], map: "idx_contract_modality_status_order")
+  @@map("contract_modality")
+}
+
+model ContractPackaging {
+  id        String       @id @db.Uuid
+  name      String       @unique(map: "uq_contract_packaging_name")
+  sortOrder Int          @default(0) @map("sort_order")
+  status    LookupStatus @default(ACTIVE)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([status, sortOrder], map: "idx_contract_packaging_status_order")
+  @@map("contract_packaging")
+}
+
+model SaleContract {
+  id             String             @id @db.Uuid
+  type           SaleContractType
+  contractSeq    Int                @unique(map: "uq_sale_contract_seq") @map("contract_seq")
+  contractNumber String             @unique(map: "uq_sale_contract_number") @map("contract_number")
+  status         SaleContractStatus @default(EM_ABERTO)
+  washoutReason  String?            @map("washout_reason")
+  washoutAt      DateTime?          @map("washout_at") @db.Timestamptz(6)
+  contractDate   DateTime           @map("contract_date") @db.Date
+  purchaseNumber String?            @map("purchase_number")
+
+  // Vínculos (à vista; nulos no Futuro) — escalares + FK na migration
+  sampleId   String? @map("sample_id") @db.Uuid
+  movementId String? @unique(map: "uq_sale_contract_movement") @map("movement_id") @db.Uuid
+
+  // Partes (escalares + snapshot JSON)
+  sellerClientId          String? @map("seller_client_id") @db.Uuid
+  sellerUnitId            String? @map("seller_unit_id") @db.Uuid
+  sellerSnapshot          Json?   @map("seller_snapshot")
+  buyerClientId           String? @map("buyer_client_id") @db.Uuid
+  buyerUnitId             String? @map("buyer_unit_id") @db.Uuid
+  buyerSnapshot           Json?   @map("buyer_snapshot")
+  buyerWarehouseClientId  String? @map("buyer_warehouse_client_id") @db.Uuid
+  buyerWarehouseSnapshot  Json?   @map("buyer_warehouse_snapshot")
+  sellerWarehouseClientId String? @map("seller_warehouse_client_id") @db.Uuid
+  sellerWarehouseSnapshot Json?   @map("seller_warehouse_snapshot")
+  sellerBankAccountId     String? @map("seller_bank_account_id") @db.Uuid
+  sellerBankSnapshot      Json?   @map("seller_bank_snapshot")
+
+  // Negócio / financeiro
+  quantitySacks        Int              @map("quantity_sacks")
+  unitPrice            Decimal          @map("unit_price") @db.Decimal(12, 2)
+  agioDesagioType      AgioDesagioType? @map("agio_desagio_type")
+  agioDesagioValue     Decimal?         @map("agio_desagio_value") @db.Decimal(12, 2)
+  totalValue           Decimal          @map("total_value") @db.Decimal(14, 2)
+  weightKg             Decimal?         @map("weight_kg") @db.Decimal(10, 2)
+  sellerBrokeragePct   Decimal          @default(0) @map("seller_brokerage_pct") @db.Decimal(5, 2)
+  sellerBrokerageValue Decimal          @default(0) @map("seller_brokerage_value") @db.Decimal(12, 2)
+  buyerBrokeragePct    Decimal          @default(0) @map("buyer_brokerage_pct") @db.Decimal(5, 2)
+  buyerBrokerageValue  Decimal          @default(0) @map("buyer_brokerage_value") @db.Decimal(12, 2)
+
+  // Pagamento / logística (lookup = id escalar + texto snapshot)
+  paymentCondition String?   @map("payment_condition")
+  paymentFormId    String?   @map("payment_form_id") @db.Uuid
+  paymentFormText  String?   @map("payment_form_text")
+  modalityId       String?   @map("modality_id") @db.Uuid
+  modalityText     String?   @map("modality_text")
+  packagingId      String?   @map("packaging_id") @db.Uuid
+  packagingText    String?   @map("packaging_text")
+  invoiceDate      DateTime? @map("invoice_date") @db.Date
+  paymentDate      DateTime? @map("payment_date") @db.Date
+
+  // Textos / meta
+  observations String?
+  description  String?
+  version      Int      @default(0)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([type, status, createdAt, id], map: "idx_sale_contract_type_status_created_id")
+  @@index([sellerClientId, status], map: "idx_sale_contract_seller_status")
+  @@index([buyerClientId, status], map: "idx_sale_contract_buyer_status")
+  @@index([sampleId], map: "idx_sale_contract_sample")
+  @@map("sale_contract")
+}
+
+model SaleContractBroker {
+  id                 String   @id @db.Uuid
+  saleContractId     String   @map("sale_contract_id") @db.Uuid
+  brokerId           String   @map("broker_id") @db.Uuid
+  brokerNameSnapshot String   @map("broker_name_snapshot")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([saleContractId, brokerId], map: "uq_sale_contract_broker")
+  @@index([brokerId], map: "idx_sale_contract_broker_broker")
+  @@map("sale_contract_broker")
+}
+
+model SaleContractExport {
+  id                String           @id @db.Uuid
+  saleContractId    String           @map("sale_contract_id") @db.Uuid
+  contractType      SaleContractType @map("contract_type")
+  generatedByUserId String?          @map("generated_by_user_id") @db.Uuid
+  generatedAt       DateTime         @default(now()) @map("generated_at") @db.Timestamptz(6)
+
+  @@index([saleContractId, generatedAt], map: "idx_sale_contract_export_contract_generated")
+  @@map("sale_contract_export")
 }
 
 model SampleMovement {
