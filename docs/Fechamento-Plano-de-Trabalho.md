@@ -420,7 +420,8 @@ Três tabelas idênticas (molde lookup), iniciam com os valores: **`ContractPaym
 > - ✅ **Frontend — página "Cadastros"** (`870a0ef` api-client/tipos; `8c081ac` página+nav): rota `/cadastros` com abas **Bancos** e **Corretores** (D60), restrita a ADMIN+CADASTRO (nav na sidebar + avatar menu). CRUD leve: busca + lista + criar/editar + inativar via status. Corretor com `UserSelect` (vínculo opcional, D34).
 > - ✅ **Fase 0 (cadastro) COMPLETA** — backend + frontend (contas/anexos no cliente + página Cadastros). _(Ajustes da parte 1 — contas/anexos — pendentes, a definir com o Flavio.)_ build adiado (next dev ativo).
 > - ✅ **Fase B (contrato) — B.1 schema** (`73247a3`): migration `20260626130000_fechamento_contrato` — `SaleContract` (CRUD, não event-sourced), `SaleContractBroker`, `SaleContractExport`, 3 listas (Forma/Modalidade/Embalagem **seedadas**) + enums. Numeração `NNNN` começa em **1** (`0001/AA`). Smoke verde; dados intactos.
-> - 🚧 **Fase B — B.2 Passo 1 (a venda à vista cria o contrato)**: domínio `src/sale-contracts/` (support **puro** — normalizadores/financeiro/número/snapshots/view — + `SaleContractService` listar/detalhar, acesso **ADMIN+CADASTRO**); a venda à vista (`createSampleMovement`, normal **e liga**) passa a exigir **preço/saca + corretagens % (vend/comp) + ≥1 corretor** e cria o `SaleContract` `EM_ABERTO` na **mesma tx** do `SALE_CREATED` (sem novo event type), número `NNNN/AA` gerado sob `pg_advisory_xact_lock` (`AA` = ano de criação); **cancelar a venda remove** o contrato ainda `EM_ABERTO` (decisão híbrida). Métodos tx novos em `PrismaEventStoreTx`. Rotas GET `/api/v1/sale-contracts[/:id]`. **Front (lado da venda):** campos no `SampleMovementModal` + `BrokerMultiSelectField` + toast com o nº do contrato. Testes: unit (`sale-contract-support`) + integração (`sale-contract.integration`) + tests de venda existentes ajustados (fixtures de corretor). **Todos os gates verdes** (typecheck/lint/format/schemas/contracts/unit/integration:db/build). **Falta:** B.2 **Passo 2** (etapa 2 "Gerar documento" + status `Emitir`→`CONFERIR`→`Confirmar`/`Editar`, `WASH_OUT` p/ emitidos) + **B.3** (página "Contratos") + PDF (Fase C).
+> - ✅ **Fase B — B.2 Passo 1 (a venda à vista cria o contrato)**: domínio `src/sale-contracts/` (support **puro** — normalizadores/financeiro/número/snapshots/view — + `SaleContractService` listar/detalhar, acesso **ADMIN+CADASTRO**); a venda à vista (`createSampleMovement`, normal **e liga**) passa a exigir **preço/saca + corretagens % (vend/comp) + ≥1 corretor** e cria o `SaleContract` `EM_ABERTO` na **mesma tx** do `SALE_CREATED` (sem novo event type), número `NNNN/AA` gerado sob `pg_advisory_xact_lock` (`AA` = ano de criação); **cancelar a venda remove** o contrato ainda `EM_ABERTO` (decisão híbrida). Métodos tx novos em `PrismaEventStoreTx`. Rotas GET `/api/v1/sale-contracts[/:id]`. **Front (lado da venda):** campos no `SampleMovementModal` + `BrokerMultiSelectField` + toast com o nº do contrato. Testes: unit (`sale-contract-support`) + integração (`sale-contract.integration`) + tests de venda existentes ajustados (fixtures de corretor). **Todos os gates verdes**.
+> - ✅ **Fase B — B.2 Passo 2 (etapa 2 + máquina de status, backend)**: `SaleContractService` ganhou **`emitSaleContract`** (salva os campos da etapa 2 — vendedor/filiais/banco/armazéns/listas/datas/textos/peso/ágio —, monta os **snapshots**, recalcula o total **com ágio/deságio**, leva `EM_ABERTO`/`CONFERIR`→`CONFERIR` e grava **`SaleContractExport`**; **D48**: editar o vendedor sincroniza o `Sample.ownerClientId` via `updateRegistration`), **`confirmSaleContract`** (`CONFERIR`→`CONFIRMADO`, congela) e **`listContractLookups`** (as 3 listas). Tudo **CRUD direto** (sem trigger), **concorrência otimista por `version`**, gate **ADMIN+CADASTRO**. Cancelar a venda agora usa **`washoutOrDeleteSaleContractByMovement`** — `EM_ABERTO`→remove, `CONFERIR`/`CONFIRMADO`→**`WASH_OUT`**+motivo/data (híbrido). Rotas POST `/api/v1/sale-contracts/[id]/emit` e `/confirm` + GET `/api/v1/contract-lookups`. **PDF adiado p/ Fase C** ("Emitir" já registra a auditoria). **Todos os gates verdes** (incl. integration:db 305 + build). **Falta:** **B.3** (página "Contratos") + PDF (**Fase C**); editar **etapa 1** com sync no movimento (**P20**); UX "botões ágio/deságio" (**P21**); onde exibir o total (**P22**); gestão/CRUD das 3 listas; `FATURADO`/`PAGO`.
 > - **Desvios do rascunho** (decididos na implementação): `id` **uuid** em todas (consistência com o schema, não Int); `Broker.cpf`/`Broker.userId` **UNIQUE**; `ClientAttachment.fileName` adicionado (nome original p/ download); **sem auditoria nem `version`** no Grupo A (rascunho enxuto).
 
 - **Fase 0 — Extensões do cadastro de Cliente.** _(EM ANDAMENTO — ver "Status da implementação" acima.)_ **Bancário** (D24/D28): tabela `Bank` (`id` **uuid**, nome,
@@ -869,3 +870,33 @@ Três tabelas idênticas (molde lookup), iniciam com os valores: **`ContractPaym
   liga, cancelar, gate 403); vendas dos testes existentes ajustadas via `tests/helpers/sale-contract-fixtures.js`.
   **Gates 100% verdes** (typecheck/lint/format/schemas/contracts/unit 307/integration:db 295/build).
 - **Falta**: B.2 Passo 2 (etapa 2 + status + `WASH_OUT`) · B.3 (página "Contratos") · PDF (Fase C). Nada pushado.
+
+### 2026-06-26 — Sessão 46 (Fase B.2 Passo 2: etapa 2 + máquina de status, backend)
+
+- Plan mode + multiagentes (fluxo etapa 2 + status pela doc; backend atual do contrato; dependências de
+  "+cadastrar na hora"/D48) + Q&A → **4 decisões**: **só backend** (página = B.3); **status completo agora,
+  PDF na Fase C**; **Editar = etapa 2 + sync do vendedor (D48)**, etapa 1 adiada (P20); **cancelar venda de
+  emitido → WASH_OUT**. Plano em `~/.claude/plans/witty-sparking-cloud.md` (reescrito p/ Passo 2). **Sem
+  migration** (colunas da etapa 2 + `WASH_OUT` + `SaleContractExport` já existiam da B.1).
+- **Descoberta que simplificou**: `SaleContract` é **CRUD puro (sem trigger de UPDATE)** → status/edição são
+  `prisma.saleContract.update` diretos no service; o fluxo reduz a **`emit` + `confirm`** ("Gerar documento"/
+  "Revisar"/"Editar" são modos da UI/B.3).
+- **`sale-contract-support.js`**: `normalizeEtapa2Input` (obrigatórios banco/forma/modalidade/embalagem/datas;
+  condicionais filiais PF; opcionais nº-compra/peso/condição/textos/ágio), `computeContractMoneyWithAgio`
+  (ágio/deságio R$/saca — `computeContractMoney` passou a delegar), `buildPartySnapshot`/`buildUnitSnapshot`/
+  `buildBankSnapshot`/`buildWarehouseSnapshot`, `clientDisplayName`.
+- **`SaleContractService`**: `emitSaleContract` (gate ADMIN+CADASTRO; guard status `EM_ABERTO`/`CONFERIR`;
+  `expectedVersion` + `updateMany(id+version)` 409; resolve/valida cliente/filial[PF]/banco-do-vendedor/listas
+  ACTIVE; monta snapshots; recalcula total/corretagens; **D48** via `commandService.updateRegistration` quando
+  o vendedor difere; grava `SaleContractExport`), `confirmSaleContract` (`CONFERIR`→`CONFIRMADO`),
+  `listContractLookups`. Injeta `commandService`+`queryService` (instanciado **depois** do commandService).
+- **WASH_OUT**: `PrismaEventStoreTx.deleteOpenSaleContractByMovement` → **`washoutOrDeleteSaleContractByMovement`**
+  (`EM_ABERTO`→apaga / `CONFERIR`/`CONFIRMADO`→`WASH_OUT`+motivo/data); os 2 pontos de cancelamento passam o
+  `reasonText`.
+- **Rotas/wiring**: handlers `emitSaleContract`/`confirmSaleContract`/`listContractLookups` + rotas POST
+  `/sale-contracts/[id]/emit|confirm` + GET `/contract-lookups`. `api-client`/`types` estendidos.
+- **Testes**: unit (etapa2 + ágio) + integração (emit→CONFERIR c/ snapshots+export; re-emit; confirm; guards
+  409; concorrência stale 409; D48 muda `ownerClientId`; WASH_OUT CONFERIR/CONFIRMADO; lookups 2/3/3 + gate 403).
+  **Todos os gates verdes** (typecheck/lint/format/schemas/contracts/unit **311**/integration:db **305**/build).
+- **Falta**: B.3 (página "Contratos") · PDF (Fase C) · P20 (editar etapa 1) · P21 (botões ágio/deságio) · P22
+  (exibir total) · gestão das 3 listas. Nada pushado.
