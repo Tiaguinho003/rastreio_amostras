@@ -22,30 +22,56 @@
 // verde do lote (B1.5 popover), padrão de input numérico inline-error
 // (NewSampleModal sacks field), animação `is-removing` (B1.5).
 
-import { useEffect, useMemo, useReducer, useRef, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 
 import { BottomSheet } from '../BottomSheet';
-import type { SampleSnapshot } from '../../lib/types';
+import { getNextLotNumber } from '../../lib/api-client';
+import type { SampleSnapshot, SessionData } from '../../lib/types';
 
 const REMOVE_ANIMATION_MS = 150;
 
 const TOOLTIP_BLEND_LOCKED = 'Para usar parte de uma liga, reverta-a primeiro e crie uma menor';
+
+// Liga editavel: data default = hoje (fuso do dispositivo). Backend revalida futuro.
+function todayAsInputDate() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 export interface BlendContribution {
   originSampleId: string;
   contributedSacks: number;
 }
 
+export interface BlendCreateOptions {
+  lotNumber: string | null;
+  lotNumberManual: boolean;
+  receivedDate: string | null;
+}
+
 interface BlendConfirmationSheetProps {
   open: boolean;
   samples: SampleSnapshot[];
+  /** Sessao — usada pra buscar a sugestao do proximo numero de lote. */
+  session: SessionData | null;
   /** Loading state externo — true durante o request de createBlend.
    *  Bloqueia o botao "Criar liga" e impede fechamento (Voltar/ESC/backdrop). */
   submitting?: boolean;
   onClose: () => void;
   onRemove: (sampleId: string) => void;
   /** Tap em "Criar liga". Parent chama createBlend e atualiza submitting. */
-  onProceed: (components: BlendContribution[]) => void;
+  onProceed: (components: BlendContribution[], options: BlendCreateOptions) => void;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -168,6 +194,7 @@ function sheetReducer(state: SheetState, action: SheetAction): SheetState {
 export function BlendConfirmationSheet({
   open,
   samples,
+  session,
   submitting = false,
   onClose,
   onRemove,
@@ -175,6 +202,34 @@ export function BlendConfirmationSheet({
 }: BlendConfirmationSheetProps) {
   const [state, dispatch] = useReducer(sheetReducer, initialState);
   const removeTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  // Liga editavel: numero do lote (pre-preenchido com a sugestao da sequencia)
+  // + data (default hoje). Espelha o NewSampleModal.
+  const [blendLotNumber, setBlendLotNumber] = useState('');
+  const [blendLotSuggestion, setBlendLotSuggestion] = useState('');
+  const [blendLotLoading, setBlendLotLoading] = useState(false);
+  const [blendReceivedDate, setBlendReceivedDate] = useState(() => todayAsInputDate());
+  const blendLotEditedRef = useRef(false);
+
+  const loadLotSuggestion = useCallback(async () => {
+    if (!session) return;
+    setBlendLotLoading(true);
+    try {
+      const res = await getNextLotNumber(session);
+      setBlendLotSuggestion(res.nextLotNumber);
+      // So pre-preenche se o usuario ainda nao mexeu (manual).
+      if (!blendLotEditedRef.current) setBlendLotNumber(res.nextLotNumber);
+    } catch {
+      setBlendLotSuggestion('');
+    } finally {
+      setBlendLotLoading(false);
+    }
+  }, [session]);
+
+  useEffect(() => {
+    if (!open) return;
+    void loadLotSuggestion();
+  }, [open, loadLotSuggestion]);
 
   // Sync sempre que a lista de samples (referencia ou IDs) mudar. Mantemos
   // ambas as deps (key estavel via IDs + samples) — o reducer usa o array
@@ -188,6 +243,9 @@ export function BlendConfirmationSheet({
   useEffect(() => {
     if (!open) {
       dispatch({ type: 'RESET' });
+      setBlendLotNumber('');
+      setBlendReceivedDate(todayAsInputDate());
+      blendLotEditedRef.current = false;
     }
   }, [open]);
 
@@ -250,7 +308,14 @@ export function BlendConfirmationSheet({
         originSampleId: s.id,
         contributedSacks: Number(state.values[s.id]),
       }));
-    onProceed(components);
+    const trimmedLot = blendLotNumber.trim();
+    // Manual quando o usuario digitou algo diferente da sugestao da sequencia.
+    const lotNumberManual = trimmedLot !== '' && trimmedLot !== blendLotSuggestion;
+    onProceed(components, {
+      lotNumber: trimmedLot || null,
+      lotNumberManual,
+      receivedDate: blendReceivedDate || null,
+    });
   }
 
   const footer: ReactNode = (
@@ -300,6 +365,67 @@ export function BlendConfirmationSheet({
       dragToDismiss={false}
       className="is-blend-confirm"
     >
+      <div
+        className="blend-conf-lotfields"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '0.75rem',
+          marginBottom: '0.85rem',
+        }}
+      >
+        <label className="nsv2-field">
+          <span className="nsv2-field-label">Número do lote</span>
+          <div className="nsv2-field-input-wrap">
+            <span className="nsv2-field-input-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M4 9h16" />
+                <path d="M4 15h16" />
+                <path d="M10 3 8 21" />
+                <path d="M16 3l-2 18" />
+              </svg>
+            </span>
+            <input
+              value={blendLotNumber}
+              className="nsv2-field-input has-icon-left"
+              onChange={(event) => {
+                const next = event.target.value.replace(/[^0-9]/g, '');
+                blendLotEditedRef.current = next.trim() !== '';
+                setBlendLotNumber(next);
+              }}
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={7}
+              placeholder={blendLotLoading ? '...' : 'Ex: 5658'}
+              aria-label="Número do lote da liga"
+              disabled={submitting}
+            />
+          </div>
+        </label>
+        <label className="nsv2-field">
+          <span className="nsv2-field-label">Data</span>
+          <div className="nsv2-field-input-wrap">
+            <span className="nsv2-field-input-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <rect x="3" y="5" width="18" height="16" rx="2" />
+                <path d="M3 10h18" />
+                <path d="M8 3v4" />
+                <path d="M16 3v4" />
+              </svg>
+            </span>
+            <input
+              type="date"
+              value={blendReceivedDate}
+              max={todayAsInputDate()}
+              className="nsv2-field-input has-icon-left"
+              onChange={(event) => setBlendReceivedDate(event.target.value)}
+              aria-label="Data da liga"
+              disabled={submitting}
+            />
+          </div>
+        </label>
+      </div>
+
       <ul className="blend-conf-list" role="list">
         {samples.map((sample) => (
           <BlendConfirmationRow

@@ -1783,8 +1783,28 @@ export class SampleCommandService {
       };
     }
 
-    // 6. Retry lot number (mesmo padrao do createSample).
-    const fixedLotNumber = input.sampleLotNumber ?? null;
+    // 6. Lote editavel (espelha createSample): numero manual + data de chegada.
+    //    Sem `lotNumberManual`, segue automatico. `sampleLotNumber` cru (sem flag)
+    //    ainda e aceito p/ testes/imports.
+    const manualLot = input.lotNumberManual === true;
+    const fixedLotNumber = manualLot
+      ? normalizeManualLotNumber(input.sampleLotNumber)
+      : (input.sampleLotNumber ?? null);
+
+    if (manualLot) {
+      // Pre-check de unicidade -> erro amigavel no campo (P2002 e o backstop).
+      const clash = await this.queryService.prisma.sample.findUnique({
+        where: { internalLotNumber: fixedLotNumber },
+        select: { id: true },
+      });
+      if (clash) {
+        throw new HttpError(409, `Lote ${fixedLotNumber} ja existe`, { field: 'lotNumber' });
+      }
+    }
+
+    // Data informada -> occurredAt dos eventos (e, via projecao, o createdAt da liga).
+    const occurredAt = resolveReceivedAtInstant(input.receivedDate);
+
     const maxRetries = fixedLotNumber ? 1 : AUTO_LOT_NUMBER_MAX_RETRIES;
 
     for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
@@ -1794,11 +1814,11 @@ export class SampleCommandService {
       const regConfirmedEvent = buildEventEnvelope({
         eventType: 'REGISTRATION_CONFIRMED',
         sampleId,
+        occurredAt,
         payload: {
           sampleLotNumber,
-          // Liga nunca usa numero manual: sempre automatico (lote editavel so
-          // no modal de amostra normal).
-          lotNumberManual: false,
+          // Liga editavel: numero manual + data, espelhando o lote normal.
+          lotNumberManual: manualLot,
           declared,
           ownerClientId: ownerBinding?.ownerClientId ?? null,
           // ownerUnitId nao e mais emitido: a liga/lote nao vincula fazenda.
@@ -1817,6 +1837,7 @@ export class SampleCommandService {
       const blendCreatedEvent = buildEventEnvelope({
         eventType: 'BLEND_CREATED',
         sampleId,
+        occurredAt,
         payload: {
           components: normalizedComponents,
           declaredSacks,
@@ -1860,6 +1881,10 @@ export class SampleCommandService {
       } catch (error) {
         if (!fixedLotNumber && isInternalLotNumberUniqueConflict(error) && attempt < maxRetries) {
           continue;
+        }
+        // Corrida no numero manual: pre-check passou mas outra request gravou antes.
+        if (manualLot && isInternalLotNumberUniqueConflict(error)) {
+          throw new HttpError(409, `Lote ${fixedLotNumber} ja existe`, { field: 'lotNumber' });
         }
         throw error;
       }

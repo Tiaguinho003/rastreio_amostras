@@ -1429,7 +1429,14 @@ function SamplesPage() {
   // null (carteira da corretora — F3.A), safra deriva das origens no
   // backend (distinct ', '), local/notes ficam null. Edicao posterior
   // permite refinar via detalhe.
-  async function handleProceedToCreate(components: BlendContribution[]) {
+  async function handleProceedToCreate(
+    components: BlendContribution[],
+    blendOptions?: {
+      lotNumber: string | null;
+      lotNumberManual: boolean;
+      receivedDate: string | null;
+    }
+  ) {
     if (creatingBlend) return;
     if (!session) return;
     if (components.length < 2) {
@@ -1448,6 +1455,9 @@ function SamplesPage() {
         clientDraftId: blendDraftIdRef.current,
         components,
         ownerClientId: null,
+        lotNumber: blendOptions?.lotNumber ?? null,
+        lotNumberManual: blendOptions?.lotNumberManual ?? false,
+        receivedDate: blendOptions?.receivedDate ?? null,
       });
       const sampleId = result.sample.id;
       const lotNumber = result.sample.internalLotNumber ?? sampleId;
@@ -2291,6 +2301,7 @@ function SamplesPage() {
       <BlendConfirmationSheet
         open={confirmationSheetOpen && selectionMode === 'blend'}
         samples={selectedSamplesForSheet}
+        session={session}
         submitting={creatingBlend}
         onClose={closeConfirmation}
         onRemove={handleRemoveFromSelection}

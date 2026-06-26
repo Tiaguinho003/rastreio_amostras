@@ -1025,6 +1025,11 @@ export function createBlend(
     clientDraftId: string;
     components: Array<{ originSampleId: string; contributedSacks: number }>;
     ownerClientId?: string | null;
+    // Liga editavel (espelha createSample): numero manual (so quando
+    // lotNumberManual) + data de chegada (YYYY-MM-DD).
+    lotNumber?: string | null;
+    lotNumberManual?: boolean;
+    receivedDate?: string | null;
     idempotencyKey?: string;
   }
 ) {
@@ -1032,6 +1037,9 @@ export function createBlend(
     clientDraftId: data.clientDraftId,
     components: data.components,
     ownerClientId: data.ownerClientId ?? null,
+    ...(data.lotNumberManual && data.lotNumber ? { sampleLotNumber: data.lotNumber } : {}),
+    lotNumberManual: data.lotNumberManual ?? false,
+    receivedDate: data.receivedDate ?? null,
   };
   if (data.idempotencyKey) body.idempotencyKey = data.idempotencyKey;
   return request<CreateSampleResponse>('/samples/blends', {
