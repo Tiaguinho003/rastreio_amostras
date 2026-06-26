@@ -34384,3 +34384,185 @@ body.is-selection-mode .hero-search-filter-btn {
   border: 1px solid rgba(var(--brand-green-rgb), 0.25);
   border-radius: 10px;
 }
+
+/* ===========================================================================
+   Fechamento (Fase B.3): pagina "Contratos" — filtros, cards e modal etapa 2.
+   =========================================================================== */
+.ctr-filter-row {
+  flex-shrink: 0;
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding: 0 clamp(8px, 3vw, 14px) clamp(8px, 2vw, 12px);
+  scrollbar-width: none;
+}
+.ctr-filter-row::-webkit-scrollbar {
+  display: none;
+}
+.ctr-filter {
+  flex: 0 0 auto;
+  border: 1px solid var(--brand-cream-line);
+  background: #fff;
+  color: var(--brand-muted);
+  border-radius: 999px;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ctr-filter.is-active {
+  background: var(--brand-green);
+  border-color: var(--brand-green);
+  color: #fff;
+}
+
+.ctr-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.ctr-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: #fff;
+  border: 1px solid var(--brand-cream-line);
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+.ctr-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+.ctr-card-number {
+  font-weight: 700;
+  color: var(--brand-green-ink);
+  font-size: 1rem;
+}
+.ctr-card-parties {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.ctr-card-party {
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.9rem;
+  color: var(--brand-green-ink);
+}
+.ctr-card-arrow {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: var(--brand-muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ctr-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  font-size: 0.82rem;
+  color: var(--brand-muted);
+}
+.ctr-card-washout {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--color-danger);
+}
+.ctr-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
+.ctr-btn {
+  border: 1px solid var(--brand-cream-line);
+  background: #fff;
+  color: var(--brand-green-ink);
+  border-radius: 10px;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s;
+}
+.ctr-btn:active {
+  transform: scale(0.97);
+}
+.ctr-btn-primary {
+  background: var(--brand-green);
+  border-color: var(--brand-green);
+  color: #fff;
+}
+
+.ctr-confirm-text {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--brand-green-ink);
+  line-height: 1.5;
+}
+
+.ctr-bankacct {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.ctr-inline-add {
+  align-self: flex-start;
+  border: none;
+  background: transparent;
+  color: var(--brand-green-soft);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.1rem 0;
+}
+.ctr-inline-add:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.ctr-etapa2-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.ctr-modal-loading {
+  margin: 0;
+  padding: 1rem 0;
+  text-align: center;
+  color: var(--brand-muted);
+}
+.ctr-section-title {
+  margin: 0.4rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--brand-muted);
+}
+.ctr-agio-row {
+  display: flex;
+  gap: 0.6rem;
+}
+.ctr-agio-row > .app-modal-field {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.ctr-textarea {
+  resize: vertical;
+  min-height: 2.5rem;
+  font-family: inherit;
+}
