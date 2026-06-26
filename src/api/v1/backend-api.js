@@ -210,6 +210,7 @@ export function createBackendApiV1({
   bankService = null,
   brokerService = null,
   clientBankAccountService = null,
+  clientAttachmentService = null,
   visitReportService = null,
   commercialFormsService = null,
   pushService = null,
@@ -2832,6 +2833,63 @@ export function createBackendApiV1({
             pixKey: body.pixKey,
             status: body.status,
           },
+          actor
+        );
+        return { status: 200, body: result };
+      }),
+
+    // ============================================================
+    // Anexos de cliente (Fechamento Fase 0 -- D27; PDF + imagens)
+    // ============================================================
+    listClientAttachments: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientAttachmentService) {
+          throw new HttpError(501, 'Client attachment service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const result = await clientAttachmentService.listClientAttachments(
+          input?.params?.clientId,
+          actor
+        );
+        return { status: 200, body: result };
+      }),
+
+    addClientAttachment: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientAttachmentService) {
+          throw new HttpError(501, 'Client attachment service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+
+        let fileBuffer = null;
+        if (Buffer.isBuffer(body.fileBuffer)) {
+          fileBuffer = body.fileBuffer;
+        } else if (typeof body.fileBase64 === 'string' && body.fileBase64.length > 0) {
+          fileBuffer = Buffer.from(body.fileBase64, 'base64');
+        }
+
+        const result = await clientAttachmentService.addClientAttachment(
+          input?.params?.clientId,
+          {
+            fileBuffer,
+            originalFileName: body.originalFileName ?? null,
+            description: body.description ?? null,
+          },
+          actor
+        );
+        return { status: 201, body: result };
+      }),
+
+    deleteClientAttachment: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientAttachmentService) {
+          throw new HttpError(501, 'Client attachment service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const result = await clientAttachmentService.deleteClientAttachment(
+          input?.params?.clientId,
+          input?.params?.attachmentId,
           actor
         );
         return { status: 200, body: result };

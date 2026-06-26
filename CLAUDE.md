@@ -54,7 +54,7 @@ scripts/gcp/deploy-cloud.sh cloud-production --canary
 2. **Nunca** editar migrations existentes em `prisma/migrations/`.
 3. **Nunca** hardcodar secrets em codigo.
 4. **Nunca** fazer deploy sem commit (working tree deve estar limpo).
-5. Uploads devem validar magic bytes (JPEG/PNG/WebP apenas).
+5. Uploads devem validar magic bytes. Fotos de amostra: JPEG/PNG/WebP. Anexos de cliente (`ClientAttachment`): JPEG/PNG/WebP + PDF.
 6. O event store (SampleEvent) e append-only. Triggers no banco impedem UPDATE/DELETE (ver skill `prisma` para detalhes).
 7. Commits atomicos tematicos. Mensagem: `tipo(escopo): descricao`.
 

@@ -67,7 +67,7 @@ Todos devem passar antes de qualquer push:
 ## Padroes de seguranca
 
 - Nunca hardcodar secrets em codigo. Usar env vars + Secret Manager.
-- Uploads: sempre validar magic bytes (file-type), restringir a JPEG/PNG/WebP.
+- Uploads: sempre validar magic bytes (file-type). Fotos de amostra: JPEG/PNG/WebP (`saveSamplePhoto`); anexos de cliente: JPEG/PNG/WebP + PDF (`saveClientAttachment`).
 - Inputs: usar normalizers no service layer.
 - SQL: sempre Prisma parameterized ou tagged templates (`$queryRaw`). Nunca string concat.
 - Headers HTTP: configurados em `next.config.mjs`. Nao remover sem justificativa.

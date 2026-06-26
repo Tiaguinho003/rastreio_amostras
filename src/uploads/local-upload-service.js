@@ -9,12 +9,22 @@ import { assertAcceptedUploadSize, DEFAULT_MAX_UPLOAD_SIZE_BYTES } from './uploa
 
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
+// Anexos de cliente (Fechamento, D27): imagens + PDF. O tipo real e validado
+// por magic bytes (fileTypeFromBuffer), NUNCA pela extensao/Content-Type
+// declarado pelo cliente.
+const ALLOWED_CLIENT_ATTACHMENT_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'application/pdf',
+]);
+
 const ATTACHMENT_KIND_TO_FOLDER = {
   CLASSIFICATION_PHOTO: 'classification',
 };
 
-function sanitizeFileName(fileName) {
-  const normalized = typeof fileName === 'string' && fileName.length > 0 ? fileName : 'photo.bin';
+function sanitizeFileName(fileName, fallback = 'photo.bin') {
+  const normalized = typeof fileName === 'string' && fileName.length > 0 ? fileName : fallback;
   return normalized.replace(/[^a-zA-Z0-9._-]/g, '_');
 }
 
@@ -64,6 +74,51 @@ export class LocalUploadService {
       'samples',
       sampleId,
       ATTACHMENT_KIND_TO_FOLDER[kind],
+      `${attachmentId}-${safeName}`
+    );
+    const absolutePath = path.join(this.baseDir, relativePath);
+
+    await fs.mkdir(path.dirname(absolutePath), { recursive: true });
+    await fs.writeFile(absolutePath, buffer);
+
+    const checksumSha256 = createHash('sha256').update(buffer).digest('hex');
+
+    return {
+      attachmentId,
+      storagePath: relativePath,
+      fileName: safeName,
+      mimeType: detected.mime,
+      sizeBytes: buffer.length,
+      checksumSha256,
+    };
+  }
+
+  async saveClientAttachment({ clientId, buffer, originalFileName = null }) {
+    if (!clientId || typeof clientId !== 'string') {
+      throw new HttpError(422, 'clientId is required for attachment upload');
+    }
+
+    if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
+      throw new HttpError(422, 'file buffer is required');
+    }
+
+    assertAcceptedUploadSize(buffer.length, {
+      limitBytes: this.maxUploadSizeBytes,
+      fieldLabel: 'Uploaded file',
+    });
+
+    // Magic bytes -- nao confia no Content-Type declarado (PDF = %PDF).
+    const detected = await fileTypeFromBuffer(buffer);
+    if (!detected || !ALLOWED_CLIENT_ATTACHMENT_TYPES.has(detected.mime)) {
+      throw new HttpError(415, 'Unsupported file type. Only JPEG, PNG, WebP and PDF are accepted');
+    }
+
+    const attachmentId = randomUUID();
+    const safeName = sanitizeFileName(originalFileName, 'arquivo.bin');
+    const relativePath = path.join(
+      'clients',
+      clientId,
+      'attachments',
       `${attachmentId}-${safeName}`
     );
     const absolutePath = path.join(this.baseDir, relativePath);

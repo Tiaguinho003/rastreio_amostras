@@ -18,7 +18,7 @@ Sistema interno B2B em estagio inicial (11 eventos em prod), operado pela Measy.
 5. Brute-force protection: lockout por user (8 tentativas, 5 min) + rate limit por IP (10 req/min, 429)
 6. CSP restritiva em production (`default-src 'self'`, `script-src 'self' 'unsafe-inline'`)
 7. Headers de seguranca: HSTS, Permissions-Policy, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, poweredByHeader off
-8. Upload validado por magic bytes via `file-type` (JPEG, PNG, WebP apenas)
+8. Upload validado por magic bytes via `file-type` (fotos de amostra: JPEG/PNG/WebP; anexos de cliente: JPEG/PNG/WebP + PDF)
 9. Dependabot semanal para monitoramento de dependencias npm e GitHub Actions
 10. Password enforcement: 403 PASSWORD_CHANGE_REQUIRED para primeiro login de admin
 

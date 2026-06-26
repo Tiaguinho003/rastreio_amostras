@@ -16,6 +16,9 @@ const TINY_PNG = Buffer.from(
   'base64'
 );
 
+// Magic bytes do PDF (%PDF) -- suficiente para fileTypeFromBuffer detectar.
+const TINY_PDF = Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n');
+
 test('resolveMaxUploadSizeBytes defaults to 8 MiB and rejects invalid values', () => {
   assert.equal(resolveMaxUploadSizeBytes(undefined), DEFAULT_MAX_UPLOAD_SIZE_BYTES);
   assert.equal(resolveMaxUploadSizeBytes('8388608'), 8 * 1024 * 1024);
@@ -92,6 +95,67 @@ test('LocalUploadService rejects non-image binary with 415', async () => {
       }),
       (error) => {
         assert.equal(error instanceof HttpError, true);
+        assert.equal(error.status, 415);
+        assert.match(error.message, /Unsupported file type/);
+        return true;
+      }
+    );
+  } finally {
+    await fs.rm(baseDir, { recursive: true, force: true });
+  }
+});
+
+test('saveClientAttachment stores a PDF under clients/.../attachments', async () => {
+  const baseDir = await fs.mkdtemp(path.join(os.tmpdir(), 'upload-client-pdf-'));
+  const service = new LocalUploadService({ baseDir, maxUploadSizeBytes: 4096 });
+
+  try {
+    const saved = await service.saveClientAttachment({
+      clientId: 'client-1',
+      buffer: TINY_PDF,
+      originalFileName: 'contrato.pdf',
+    });
+
+    assert.equal(saved.mimeType, 'application/pdf');
+    assert.equal(saved.sizeBytes, TINY_PDF.length);
+    assert.match(saved.storagePath, /^clients[\\/]+client-1[\\/]+attachments[\\/]/);
+
+    const bytes = await fs.readFile(path.join(baseDir, saved.storagePath));
+    assert.equal(bytes.length, TINY_PDF.length);
+  } finally {
+    await fs.rm(baseDir, { recursive: true, force: true });
+  }
+});
+
+test('saveClientAttachment accepts images too', async () => {
+  const baseDir = await fs.mkdtemp(path.join(os.tmpdir(), 'upload-client-img-'));
+  const service = new LocalUploadService({ baseDir, maxUploadSizeBytes: 4096 });
+
+  try {
+    const saved = await service.saveClientAttachment({
+      clientId: 'client-2',
+      buffer: TINY_PNG,
+      originalFileName: 'doc.png',
+    });
+
+    assert.equal(saved.mimeType, 'image/png');
+  } finally {
+    await fs.rm(baseDir, { recursive: true, force: true });
+  }
+});
+
+test('saveClientAttachment rejects unsupported type with 415', async () => {
+  const baseDir = await fs.mkdtemp(path.join(os.tmpdir(), 'upload-client-bad-'));
+  const service = new LocalUploadService({ baseDir, maxUploadSizeBytes: 4096 });
+
+  try {
+    await assert.rejects(
+      service.saveClientAttachment({
+        clientId: 'client-3',
+        buffer: Buffer.from('just random text, definitely not a real file'),
+        originalFileName: 'fake.pdf',
+      }),
+      (error) => {
         assert.equal(error.status, 415);
         assert.match(error.message, /Unsupported file type/);
         return true;
