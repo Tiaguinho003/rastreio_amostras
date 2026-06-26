@@ -468,21 +468,36 @@ class PrismaEventStoreTx {
     });
   }
 
-  // Cancelar a venda remove o contrato ainda EM_ABERTO (nunca emitido) ligado a
-  // ela -- decisao hibrida desta sessao. Apaga os brokers antes (FK RESTRICT).
-  // Contratos ja emitidos (CONFERIR+) viram WASH_OUT no Passo 2 (nao tocados
-  // aqui: o filtro status='EM_ABERTO' os ignora).
-  async deleteOpenSaleContractByMovement(movementId) {
+  // Cancelar a venda (decisao hibrida, D45/D58): contrato ainda `EM_ABERTO`
+  // (nunca emitido) -> apaga (brokers antes, FK RESTRICT); ja emitido
+  // (`CONFERIR`/`CONFIRMADO`) -> `WASH_OUT` + motivo/data; demais (ou sem
+  // contrato) -> no-op.
+  async washoutOrDeleteSaleContractByMovement(movementId, { reason = null, at = null } = {}) {
     const existing = await this.tx.saleContract.findFirst({
-      where: { movementId, status: 'EM_ABERTO' },
-      select: { id: true },
+      where: { movementId },
+      select: { id: true, status: true },
     });
     if (!existing) {
       return null;
     }
-    await this.tx.saleContractBroker.deleteMany({ where: { saleContractId: existing.id } });
-    await this.tx.saleContract.delete({ where: { id: existing.id } });
-    return existing.id;
+    if (existing.status === 'EM_ABERTO') {
+      await this.tx.saleContractBroker.deleteMany({ where: { saleContractId: existing.id } });
+      await this.tx.saleContract.delete({ where: { id: existing.id } });
+      return { id: existing.id, action: 'DELETED' };
+    }
+    if (existing.status === 'CONFERIR' || existing.status === 'CONFIRMADO') {
+      await this.tx.saleContract.update({
+        where: { id: existing.id },
+        data: {
+          status: 'WASH_OUT',
+          washoutReason: reason,
+          washoutAt: at ?? new Date(),
+          version: { increment: 1 },
+        },
+      });
+      return { id: existing.id, action: 'WASH_OUT' };
+    }
+    return null; // ja WASH_OUT/FATURADO/PAGO — nao mexe
   }
 
   async insertEvent(event) {

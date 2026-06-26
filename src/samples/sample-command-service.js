@@ -3237,7 +3237,10 @@ export class SampleCommandService {
     const beforeCommit =
       rootMovement.movementType === MOVEMENT_TYPES.SALE
         ? async (tx) => {
-            await tx.deleteOpenSaleContractByMovement(rootMovement.id);
+            await tx.washoutOrDeleteSaleContractByMovement(rootMovement.id, {
+              reason: normalizedReason,
+              at: new Date(),
+            });
           }
         : null;
 
@@ -3683,7 +3686,10 @@ export class SampleCommandService {
         [event],
         [{ expectedVersion: input.expectedVersion }],
         async (tx) => {
-          await tx.deleteOpenSaleContractByMovement(movement.id);
+          await tx.washoutOrDeleteSaleContractByMovement(movement.id, {
+            reason: normalizeRequiredText(input.reasonText, 'reasonText', 500),
+            at: new Date(),
+          });
         }
       );
       return result;
