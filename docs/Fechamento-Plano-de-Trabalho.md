@@ -416,7 +416,8 @@ Três tabelas idênticas (molde lookup), iniciam com os valores: **`ContractPaym
 > - ✅ **Backend `ClientBankAccount`** (`c695a69`): `ClientBankAccountService` (list/create/update escopados por cliente; valida cliente 404 + banco 422; `holderTaxId` CPF/CNPJ sem checksum; inativação via status). Rotas `/clients/[id]/bank-accounts`.
 > - ✅ **Backend `ClientAttachment` + upload de PDF** (`49ce3cf`): `saveClientAttachment` no upload service (allowlist +`application/pdf`, validação por **magic bytes**); rotas upload(multipart)/list/download(inline, guard UUID+path)/delete; a view não expõe `storagePath`/checksum. CLAUDE.md #5 + SECURITY + skill conventions atualizados.
 > - ✅ **Smoke real contra o banco** (cria→lê→limpa): bancos, contas (com banco incluído) e anexos OK — confirma os `select`/relações que os testes com prisma fake não cobrem.
-> - ⏳ **Falta na Fase 0:** apenas o **frontend** (página "Cadastros" com abas — D60 + contas/anexos no detalhe do cliente + nav + `api-client`).
+> - ✅ **Frontend — contas/anexos no detalhe do cliente** (`f0383fe` api-client + tipos; `045e963` UI): coluna lateral (PF e PJ) com **Contas bancárias** (BankSelectField busca + cadastra banco na hora; modal criar + modal detalhe ver/editar/inativar, inativas ocultas) e **Anexos** (grade de miniatura/selo PDF; upload PDF+imagem; preview `<img>`/`<iframe>` + baixar + excluir). typecheck/lint/format verdes; build adiado (next dev ativo).
+> - ⏳ **Falta na Fase 0:** página **"Cadastros"** com abas (Bancos/Corretores, D60) + item no menu.
 > - **Desvios do rascunho** (decididos na implementação): `id` **uuid** em todas (consistência com o schema, não Int); `Broker.cpf`/`Broker.userId` **UNIQUE**; `ClientAttachment.fileName` adicionado (nome original p/ download); **sem auditoria nem `version`** no Grupo A (rascunho enxuto).
 
 - **Fase 0 — Extensões do cadastro de Cliente.** _(EM ANDAMENTO — ver "Status da implementação" acima.)_ **Bancário** (D24/D28): tabela `Bank` (`id` **uuid**, nome,
@@ -798,3 +799,16 @@ Três tabelas idênticas (molde lookup), iniciam com os valores: **`ContractPaym
   OK — valida os `select`/relações que o prisma fake não cobre.
 - **Backend da Fase 0 COMPLETO.** Próximo: **frontend** (página "Cadastros" com abas D60 + contas/anexos no
   detalhe do cliente + nav + `api-client`). **Nada pushado.**
+
+### 2026-06-26 — Sessão 42 (frontend parte 1: contas/anexos no detalhe do cliente)
+
+- Plan mode + Q&A — decisões: seletor de banco **busca + cadastro inline**; anexos com **miniatura/preview**;
+  contas **iguais às Filiais**. Plano em `~/.claude/plans/witty-sparking-cloud.md`.
+- **api-client + tipos** (`f0383fe`): `listBanks`/`createBank`; list/create/update de conta; list/upload/delete
+  de anexo + `clientAttachmentDownloadUrl`; tipos espelhando a view do backend.
+- **UI** (`045e963`): 4 componentes em `components/clients/` (`BankSelectField`, `ClientBankAccountModal`,
+  `ClientBankAccountDetailModal`, `ClientAttachmentPreviewModal`) + integração no detalhe do cliente (coluna
+  lateral, **PF e PJ**; `fetchData` busca contas/anexos em paralelo, tolerante a falha). CSS isolado no fim de
+  `globals.css`. Reusa o padrão das Filiais (cards mini, `app-modal`, `cudm-*`).
+- Gates: typecheck/lint/format verdes. **Build adiado (next dev ativo).** Nada pushado.
+- **Próximo**: validar no device + página "Cadastros" (Bancos/Corretores, D60).
