@@ -277,6 +277,79 @@ export interface ClientUnitInactivateResponse extends ClientUnitMutationResponse
   };
 }
 
+// --- Fechamento Fase 0: bancos, contas bancarias e anexos do cliente ---
+
+export type LookupStatus = 'ACTIVE' | 'INACTIVE';
+
+export interface Bank {
+  id: string;
+  name: string;
+  compeCode: string;
+  status: LookupStatus;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface BankListResponse {
+  items: Bank[];
+}
+
+export interface BankResponse {
+  bank: Bank;
+}
+
+export interface ClientBankAccountSummary {
+  id: string;
+  clientId: string;
+  bankId: string;
+  agency: string;
+  accountNumber: string;
+  holderName: string;
+  holderTaxId: string;
+  pixKey: string | null;
+  status: LookupStatus;
+  bank: { id: string; name: string; compeCode: string } | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface ClientBankAccountInput {
+  bankId: string;
+  agency: string;
+  accountNumber: string;
+  holderName: string;
+  holderTaxId: string;
+  pixKey?: string | null;
+}
+
+export interface ClientBankAccountListResponse {
+  items: ClientBankAccountSummary[];
+}
+
+export interface ClientBankAccountResponse {
+  account: ClientBankAccountSummary;
+}
+
+export interface ClientAttachmentSummary {
+  id: string;
+  clientId: string;
+  fileName: string | null;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  description: string | null;
+  uploadedByUserId: string | null;
+  uploadedBy: { id: string; fullName: string } | null;
+  createdAt: string | null;
+}
+
+export interface ClientAttachmentListResponse {
+  items: ClientAttachmentSummary[];
+}
+
+export interface ClientAttachmentResponse {
+  attachment: ClientAttachmentSummary;
+}
+
 export interface ClientCommercialSummaryResponse {
   openCount: number;
   soldCount: number;

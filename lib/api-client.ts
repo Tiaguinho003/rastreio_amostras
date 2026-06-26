@@ -4,6 +4,13 @@ import type {
   ClientAuditListResponse,
   ClientCommercialSummaryResponse,
   ClientDetailResponse,
+  BankListResponse,
+  BankResponse,
+  ClientBankAccountInput,
+  ClientBankAccountListResponse,
+  ClientBankAccountResponse,
+  ClientAttachmentListResponse,
+  ClientAttachmentResponse,
   ClientLookupKind,
   ClientLookupResponse,
   ClientPurchasesListResponse,
@@ -700,6 +707,117 @@ export function reactivateClientUnit(
     session,
     body: { reasonText },
   });
+}
+
+// --- Fechamento Fase 0: bancos, contas bancarias e anexos do cliente ---
+
+export function listBanks(
+  session: SessionData,
+  query: { search?: string; status?: 'ACTIVE' | 'INACTIVE' } = {},
+  options: { signal?: AbortSignal } = {}
+) {
+  const params = new URLSearchParams();
+  if (query.search) params.set('search', query.search);
+  if (query.status) params.set('status', query.status);
+  const suffix = params.size ? `?${params.toString()}` : '';
+  return request<BankListResponse>(`/banks${suffix}`, {
+    method: 'GET',
+    session,
+    signal: options.signal,
+  });
+}
+
+export function createBank(session: SessionData, data: { name: string; compeCode: string }) {
+  return request<BankResponse>('/banks', {
+    method: 'POST',
+    session,
+    body: data,
+  });
+}
+
+export function listClientBankAccounts(
+  session: SessionData,
+  clientId: string,
+  options: { signal?: AbortSignal } = {}
+) {
+  return request<ClientBankAccountListResponse>(`/clients/${clientId}/bank-accounts`, {
+    method: 'GET',
+    session,
+    signal: options.signal,
+  });
+}
+
+export function createClientBankAccount(
+  session: SessionData,
+  clientId: string,
+  data: ClientBankAccountInput
+) {
+  return request<ClientBankAccountResponse>(`/clients/${clientId}/bank-accounts`, {
+    method: 'POST',
+    session,
+    body: data as unknown as JsonValue,
+  });
+}
+
+export function updateClientBankAccount(
+  session: SessionData,
+  clientId: string,
+  accountId: string,
+  data: Partial<ClientBankAccountInput> & { status?: 'ACTIVE' | 'INACTIVE' }
+) {
+  return request<ClientBankAccountResponse>(`/clients/${clientId}/bank-accounts/${accountId}`, {
+    method: 'PATCH',
+    session,
+    body: data as unknown as JsonValue,
+  });
+}
+
+export function listClientAttachments(
+  session: SessionData,
+  clientId: string,
+  options: { signal?: AbortSignal } = {}
+) {
+  return request<ClientAttachmentListResponse>(`/clients/${clientId}/attachments`, {
+    method: 'GET',
+    session,
+    signal: options.signal,
+  });
+}
+
+export function uploadClientAttachment(
+  session: SessionData,
+  clientId: string,
+  file: File,
+  description?: string | null
+) {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('originalFileName', file.name);
+  if (description) {
+    formData.append('description', description);
+  }
+  return request<ClientAttachmentResponse>(`/clients/${clientId}/attachments`, {
+    method: 'POST',
+    session,
+    formData,
+  });
+}
+
+export function deleteClientAttachment(
+  session: SessionData,
+  clientId: string,
+  attachmentId: string
+) {
+  return request<{ ok: boolean }>(`/clients/${clientId}/attachments/${attachmentId}`, {
+    method: 'DELETE',
+    session,
+  });
+}
+
+// URL da rota de download/preview de um anexo (serve inline). Usar em
+// <a href>, <img src> ou <iframe src>; cookies same-origin acompanham.
+export function clientAttachmentDownloadUrl(clientId: string, attachmentId: string): string {
+  return `${API_BASE}/clients/${clientId}/attachments/${attachmentId}`;
 }
 
 export function getUser(session: SessionData, userId: string) {
