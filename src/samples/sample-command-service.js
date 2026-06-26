@@ -4,6 +4,14 @@ import path from 'node:path';
 
 import { assertRoleAllowed, USER_ROLES } from '../auth/roles.js';
 import { HttpError } from '../contracts/errors.js';
+import {
+  assertBrokersResolved,
+  buildSaleContractDraftFromSale,
+  formatContractNumber,
+  normalizeBrokeragePct,
+  normalizeBrokerIds,
+  normalizeUnitPrice,
+} from '../sale-contracts/sale-contract-support.js';
 import { deriveBlendHarvest, deriveBlendOwner } from './blend-harvest.js';
 import { buildEventEnvelope, normalizeActorContext } from './sample-event-factory.js';
 
@@ -329,6 +337,38 @@ function buildBuyerSnapshot(binding) {
     buyerClientSnapshot: binding.buyerClient,
     buyerUnitSnapshot: binding.buyerUnit,
   };
+}
+
+// Fechamento (Fase B.2): cria o contrato de venda a vista DENTRO da transacao
+// da venda (chamado pelo beforeCommit do appendEventBatch). Resolve/valida os
+// corretores, aloca o numero NNNN/AA sob advisory lock e grava contrato +
+// corretores. Devolve { id, contractNumber } pra ecoar no retorno do comando.
+async function createSaleContractInTx(tx, { contractDraft, brokerIds, movementId }) {
+  const brokers = await tx.loadBrokersByIds(brokerIds);
+  assertBrokersResolved(brokers, brokerIds);
+
+  const brokerNameById = new Map(brokers.map((broker) => [broker.id, broker.name]));
+  const seq = await tx.allocateNextContractSeq();
+  const contractNumber = formatContractNumber(seq, new Date().getFullYear());
+  const contractId = randomUUID();
+
+  await tx.createSaleContract({
+    id: contractId,
+    contractSeq: seq,
+    contractNumber,
+    movementId,
+    ...contractDraft,
+  });
+  await tx.createSaleContractBrokers(
+    brokerIds.map((brokerId) => ({
+      id: randomUUID(),
+      saleContractId: contractId,
+      brokerId,
+      brokerNameSnapshot: brokerNameById.get(brokerId),
+    }))
+  );
+
+  return { id: contractId, contractNumber };
 }
 
 function formatMovementSnapshot(movement) {
@@ -2743,6 +2783,9 @@ export class SampleCommandService {
 
     let buyerBinding = null;
     let lossReasonText = null;
+    // Fechamento (Fase B.2): a venda a vista exige os termos do contrato
+    // (preco/saca, corretagens %, >=1 corretor) — D43/D44/D34.
+    let saleContractInput = null;
     if (movementType === MOVEMENT_TYPES.SALE) {
       const buyerClientId = normalizeNullableUuid(input.buyerClientId, 'buyerClientId');
       const buyerUnitId = normalizeNullableUuid(input.buyerUnitId, 'buyerUnitId');
@@ -2757,6 +2800,12 @@ export class SampleCommandService {
       if (input.lossReasonText !== undefined && input.lossReasonText !== null) {
         throw new HttpError(422, 'lossReasonText is not allowed for SALE');
       }
+      saleContractInput = {
+        unitPrice: normalizeUnitPrice(input.unitPrice),
+        sellerPct: normalizeBrokeragePct(input.sellerBrokeragePct, 'sellerBrokeragePct'),
+        buyerPct: normalizeBrokeragePct(input.buyerBrokeragePct, 'buyerBrokeragePct'),
+        brokerIds: normalizeBrokerIds(input.brokerIds),
+      };
     } else {
       if (input.buyerClientId !== undefined && input.buyerClientId !== null) {
         throw new HttpError(422, 'buyerClientId is not allowed for LOSS');
@@ -2781,6 +2830,7 @@ export class SampleCommandService {
         actor,
         rootExpectedVersion: input.expectedVersion,
         rootIdempotencyKey: input.idempotencyKey ?? randomUUID(),
+        saleContractInput,
       });
       // Notifica so a RAIZ da cascata (result.event e o evento da liga).
       await this._notifyMovementCreated(cascadeResult, sample, actor);
@@ -2820,6 +2870,34 @@ export class SampleCommandService {
       module: 'commercial',
       actorContext: actor,
     });
+
+    // Venda a vista (D43): o contrato nasce na MESMA tx do SALE_CREATED, via
+    // beforeCommit. Perda (LOSS) segue sem contrato, no append simples.
+    if (movementType === MOVEMENT_TYPES.SALE) {
+      const contractDraft = buildSaleContractDraftFromSale({
+        sample,
+        buyerBinding,
+        unitPrice: saleContractInput.unitPrice,
+        sellerPct: saleContractInput.sellerPct,
+        buyerPct: saleContractInput.buyerPct,
+        quantitySacks,
+        contractDate: movementDate,
+      });
+      let saleContract = null;
+      const [result] = await this.eventService.appendEventBatch(
+        [event],
+        [{ expectedVersion: input.expectedVersion }],
+        async (tx) => {
+          saleContract = await createSaleContractInTx(tx, {
+            contractDraft,
+            brokerIds: saleContractInput.brokerIds,
+            movementId,
+          });
+        }
+      );
+      await this._notifyMovementCreated(result, sample, actor);
+      return { ...result, saleContract };
+    }
 
     const result = await this.eventService.appendEvent(event, {
       expectedVersion: input.expectedVersion,
@@ -2890,6 +2968,7 @@ export class SampleCommandService {
     actor,
     rootExpectedVersion,
     rootIdempotencyKey,
+    saleContractInput = null,
   }) {
     const tree = await this.queryService.loadBlendTree(rootSample.id);
 
@@ -3010,7 +3089,32 @@ export class SampleCommandService {
       });
     }
 
-    const results = await this.eventService.appendEventBatch(drafts, optionsByIndex);
+    // Venda a vista de liga (D43): 1 contrato ligado ao movimento RAIZ (a liga
+    // vendida a 100%); descendentes sao bookkeeping, sem contrato. Nasce na
+    // mesma tx, via beforeCommit. Perda (LOSS) nao gera contrato.
+    const rootDraft = drafts[0];
+    let saleContract = null;
+    const beforeCommit =
+      movementType === MOVEMENT_TYPES.SALE && saleContractInput
+        ? async (tx) => {
+            const contractDraft = buildSaleContractDraftFromSale({
+              sample: rootSample,
+              buyerBinding,
+              unitPrice: saleContractInput.unitPrice,
+              sellerPct: saleContractInput.sellerPct,
+              buyerPct: saleContractInput.buyerPct,
+              quantitySacks: rootDraft.payload.quantitySacks,
+              contractDate: movementDate,
+            });
+            saleContract = await createSaleContractInTx(tx, {
+              contractDraft,
+              brokerIds: saleContractInput.brokerIds,
+              movementId: rootDraft.payload.movementId,
+            });
+          }
+        : null;
+
+    const results = await this.eventService.appendEventBatch(drafts, optionsByIndex, beforeCommit);
 
     // Retorno coerente com appendEvent (raiz primeiro) + events da
     // arvore inteira pra audit/observability.
@@ -3020,6 +3124,7 @@ export class SampleCommandService {
       event: results[0].event,
       events: results.map((r) => r.event),
       sample: results[0].sample,
+      ...(saleContract ? { saleContract } : {}),
     };
   }
 
@@ -3127,7 +3232,16 @@ export class SampleCommandService {
       });
     }
 
-    const results = await this.eventService.appendEventBatch(drafts, optionsByIndex);
+    // Cancelar a venda de liga remove o contrato EM_ABERTO ligado ao movimento
+    // RAIZ (so SALE; LOSS nao tem contrato), na mesma tx da cascata reversa.
+    const beforeCommit =
+      rootMovement.movementType === MOVEMENT_TYPES.SALE
+        ? async (tx) => {
+            await tx.deleteOpenSaleContractByMovement(rootMovement.id);
+          }
+        : null;
+
+    const results = await this.eventService.appendEventBatch(drafts, optionsByIndex, beforeCommit);
 
     return {
       statusCode: 201,
@@ -3560,6 +3674,20 @@ export class SampleCommandService {
       module: 'commercial',
       actorContext: actor,
     });
+
+    // Cancelar a venda remove o contrato ainda EM_ABERTO ligado a ela (decisao
+    // hibrida desta sessao), na mesma tx do SALE_CANCELLED. LOSS nao tem
+    // contrato -> append simples.
+    if (movement.movementType === MOVEMENT_TYPES.SALE) {
+      const [result] = await this.eventService.appendEventBatch(
+        [event],
+        [{ expectedVersion: input.expectedVersion }],
+        async (tx) => {
+          await tx.deleteOpenSaleContractByMovement(movement.id);
+        }
+      );
+      return result;
+    }
 
     return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
   }

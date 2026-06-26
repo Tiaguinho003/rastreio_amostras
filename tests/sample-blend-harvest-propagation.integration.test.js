@@ -9,6 +9,7 @@ import { PrismaEventStore } from '../src/events/prisma-event-store.js';
 import { SampleQueryService } from '../src/samples/sample-query-service.js';
 import { SampleCommandService } from '../src/samples/sample-command-service.js';
 import { registrationConfirmedEvent } from './helpers/event-builders.js';
+import { SALE_CONTRACT_TEST_FIELDS, seedTestBroker } from './helpers/sale-contract-fixtures.js';
 
 const databaseUrl = process.env.DATABASE_URL;
 const databaseReachable = await canReachDatabase(databaseUrl);
@@ -141,6 +142,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test.beforeEach(async () => {
     await resetDatabase();
+    await seedTestBroker(prisma);
   });
 
   // 1. Propagacao simples A -> B
@@ -332,6 +334,7 @@ if (!databaseUrl || !databaseReachable) {
       {
         sampleId: blend.sample.id,
         movementType: 'SALE',
+        ...SALE_CONTRACT_TEST_FIELDS,
         quantitySacks: 0,
         movementDate: '2026-05-20',
         buyerClientId: buyer,

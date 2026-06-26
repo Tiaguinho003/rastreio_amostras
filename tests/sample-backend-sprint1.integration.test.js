@@ -9,6 +9,7 @@ import { PrismaClient } from '@prisma/client';
 
 import { ClientService } from '../src/clients/client-service.js';
 import { generateValidCnpj, generateValidCpf } from './helpers/cnpj-generator.js';
+import { SALE_CONTRACT_TEST_FIELDS, seedTestBroker } from './helpers/sale-contract-fixtures.js';
 import { EventContractDbService } from '../src/events/event-contract-db-service.js';
 import { PrismaEventStore } from '../src/events/prisma-event-store.js';
 import { SampleCommandService } from '../src/samples/sample-command-service.js';
@@ -183,6 +184,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test.beforeEach(async () => {
     await resetDatabase();
+    await seedTestBroker(prisma);
   });
 
   test('confirms registration without label photos when business flow does not require image yet', async () => {
@@ -845,6 +847,7 @@ if (!databaseUrl || !databaseReachable) {
         sampleId,
         expectedVersion: currentBeforeSale.version,
         movementType: 'SALE',
+        ...SALE_CONTRACT_TEST_FIELDS,
         buyerClientId: buyerClient.client.id,
         quantitySacks: 8,
         movementDate: '2026-02-28',

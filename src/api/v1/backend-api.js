@@ -211,6 +211,7 @@ export function createBackendApiV1({
   brokerService = null,
   clientBankAccountService = null,
   clientAttachmentService = null,
+  saleContractService = null,
   visitReportService = null,
   commercialFormsService = null,
   pushService = null,
@@ -1042,6 +1043,11 @@ export function createBackendApiV1({
             movementDate: body.movementDate,
             notes: body.notes ?? null,
             lossReasonText: body.lossReasonText,
+            // Fechamento (Fase B.2): termos do contrato (venda a vista).
+            unitPrice: body.unitPrice,
+            sellerBrokeragePct: body.sellerBrokeragePct,
+            buyerBrokeragePct: body.buyerBrokeragePct,
+            brokerIds: body.brokerIds,
           },
           actor
         );
@@ -2773,6 +2779,37 @@ export function createBackendApiV1({
           },
           actor
         );
+        return { status: 200, body: result };
+      }),
+
+    // ============================================================
+    // Contratos de venda (Fechamento Fase B.2 -- gestao: ADMIN+CADASTRO)
+    // ============================================================
+    listSaleContracts: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractService) {
+          throw new HttpError(501, 'Sale contract service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const query = input?.query ?? {};
+        const result = await saleContractService.listSaleContracts(
+          { search: query.search, status: query.status, type: query.type, limit: query.limit },
+          actor
+        );
+        return { status: 200, body: result };
+      }),
+
+    getSaleContract: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractService) {
+          throw new HttpError(501, 'Sale contract service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const contractId = input?.params?.contractId;
+        if (typeof contractId !== 'string' || contractId.length === 0) {
+          throw new HttpError(422, 'contractId path param is required');
+        }
+        const result = await saleContractService.getSaleContract(contractId, actor);
         return { status: 200, body: result };
       }),
 

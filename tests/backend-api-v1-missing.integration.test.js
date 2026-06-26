@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 
 import { generateValidCnpj } from './helpers/cnpj-generator.js';
+import { SALE_CONTRACT_TEST_FIELDS, seedTestBroker } from './helpers/sale-contract-fixtures.js';
 import { createBackendApiV1 } from '../src/api/v1/backend-api.js';
 import { LocalAuthService } from '../src/auth/local-auth-service.js';
 import { ClientService } from '../src/clients/client-service.js';
@@ -330,6 +331,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test.beforeEach(async () => {
     await resetDatabase();
+    await seedTestBroker(prisma);
   });
 
   // Q.print: rota /qr/reprint/request foi removida. Toda impressao
@@ -1197,6 +1199,7 @@ if (!databaseUrl || !databaseReachable) {
         sampleId: soldSampleId,
         expectedVersion: 2,
         movementType: 'SALE',
+        ...SALE_CONTRACT_TEST_FIELDS,
         buyerClientId: buyer.client.id,
         quantitySacks: 11,
         movementDate: '2026-03-19',
@@ -1224,6 +1227,7 @@ if (!databaseUrl || !databaseReachable) {
         sampleId: partialSampleId,
         expectedVersion: 2,
         movementType: 'SALE',
+        ...SALE_CONTRACT_TEST_FIELDS,
         buyerClientId: buyer.client.id,
         quantitySacks: 4,
         movementDate: '2026-03-19',
@@ -1300,6 +1304,7 @@ if (!databaseUrl || !databaseReachable) {
         sampleId: partialSampleId,
         expectedVersion: 2,
         movementType: 'SALE',
+        ...SALE_CONTRACT_TEST_FIELDS,
         buyerClientId: buyer.client.id,
         quantitySacks: 4,
         movementDate: '2026-03-19',
@@ -1316,6 +1321,7 @@ if (!databaseUrl || !databaseReachable) {
         sampleId: soldSampleId,
         expectedVersion: 2,
         movementType: 'SALE',
+        ...SALE_CONTRACT_TEST_FIELDS,
         buyerClientId: buyer.client.id,
         quantitySacks: 11,
         movementDate: '2026-03-19',
@@ -1371,6 +1377,7 @@ if (!databaseUrl || !databaseReachable) {
         sampleId: soldSampleId,
         expectedVersion: 2,
         movementType: 'SALE',
+        ...SALE_CONTRACT_TEST_FIELDS,
         buyerClientId: buyer.client.id,
         quantitySacks: 11,
         movementDate: '2026-03-19',
@@ -1490,6 +1497,7 @@ if (!databaseUrl || !databaseReachable) {
         sampleId: soldSampleId,
         expectedVersion: 2,
         movementType: 'SALE',
+        ...SALE_CONTRACT_TEST_FIELDS,
         buyerClientId: buyer.client.id,
         quantitySacks: 11,
         movementDate: '2026-03-19',
@@ -2135,6 +2143,7 @@ if (!databaseUrl || !databaseReachable) {
         body: {
           expectedVersion: 2,
           movementType: 'SALE',
+          ...SALE_CONTRACT_TEST_FIELDS,
           buyerClientId: buyer.client.id,
           quantitySacks: 4,
           movementDate: '2026-03-19',
@@ -2210,6 +2219,7 @@ if (!databaseUrl || !databaseReachable) {
         body: {
           expectedVersion: 2,
           movementType: 'SALE',
+          ...SALE_CONTRACT_TEST_FIELDS,
           buyerClientId: buyerA.client.id,
           quantitySacks: 5,
           movementDate: '2026-03-19',
@@ -2324,6 +2334,7 @@ if (!databaseUrl || !databaseReachable) {
         body: {
           expectedVersion: 2,
           movementType: 'SALE',
+          ...SALE_CONTRACT_TEST_FIELDS,
           buyerClientId: inactiveBuyer.client.id,
           quantitySacks: 2,
           movementDate: '2026-03-19',
@@ -2347,6 +2358,7 @@ if (!databaseUrl || !databaseReachable) {
         body: {
           expectedVersion: 2,
           movementType: 'SALE',
+          ...SALE_CONTRACT_TEST_FIELDS,
           buyerClientId: sellerOnlyClient.client.id,
           quantitySacks: 2,
           movementDate: '2026-03-19',
@@ -2374,6 +2386,7 @@ if (!databaseUrl || !databaseReachable) {
         body: {
           expectedVersion: 1,
           movementType: 'SALE',
+          ...SALE_CONTRACT_TEST_FIELDS,
           buyerClientId: validBuyer.client.id,
           quantitySacks: 2,
           movementDate: '2026-03-19',
@@ -2428,6 +2441,7 @@ if (!databaseUrl || !databaseReachable) {
         body: {
           expectedVersion: 2,
           movementType: 'SALE',
+          ...SALE_CONTRACT_TEST_FIELDS,
           buyerClientId: buyer.client.id,
           quantitySacks: 5,
           movementDate: '2026-03-19',
