@@ -34199,3 +34199,93 @@ body.is-selection-mode .hero-search-filter-btn {
   display: inline-flex;
   align-items: center;
 }
+
+/* ============================================================
+   Página Cadastros (Bancos / Corretores) — Fechamento Fase 0
+   ============================================================ */
+.cad-tabs {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0 clamp(0.9rem, 4vw, 1.5rem);
+  margin-bottom: 0.4rem;
+}
+.cad-tab {
+  flex: 1 1 0;
+  max-width: 200px;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 0.6rem 0.4rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--brand-muted);
+  cursor: pointer;
+}
+.cad-tab.is-active {
+  color: var(--brand-green);
+  border-bottom-color: var(--brand-green);
+}
+.cad-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.cad-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  text-align: left;
+  background: #fff;
+  border: 1px solid var(--brand-cream-line);
+  border-radius: 12px;
+  padding: 0.8rem 1rem;
+  cursor: pointer;
+}
+.cad-row:hover {
+  border-color: var(--brand-green-soft);
+  box-shadow: 0 2px 8px rgba(19, 35, 24, 0.08);
+}
+.cad-row.is-inactive {
+  opacity: 0.6;
+}
+.cad-row-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cad-row-name {
+  font-weight: 600;
+  color: var(--brand-green-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cad-row-sub {
+  font-size: 0.82rem;
+  color: var(--brand-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cad-row-badge {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--brand-muted);
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+}
+.cad-row-arrow {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--brand-muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

@@ -26,7 +26,15 @@ interface AppShellProps {
   children: React.ReactNode;
 }
 
-type NavIcon = 'dashboard' | 'camera' | 'samples' | 'users' | 'clients' | 'avatar' | 'informe';
+type NavIcon =
+  | 'dashboard'
+  | 'camera'
+  | 'samples'
+  | 'users'
+  | 'clients'
+  | 'avatar'
+  | 'informe'
+  | 'cadastros';
 type MobileRouteMeta = {
   title: string;
   subtitle: string;
@@ -53,6 +61,14 @@ const INFORME_NAV_ITEM = {
   href: '/informe',
   label: 'Relatórios',
   icon: 'informe' as NavIcon,
+} as const;
+
+// Item da sidebar: Cadastros (Bancos/Corretores — Fechamento Fase 0).
+// Restrito a ADMIN + CADASTRO (item tambem no avatar menu p/ mobile).
+const CADASTROS_NAV_ITEM = {
+  href: '/cadastros',
+  label: 'Cadastros',
+  icon: 'cadastros' as NavIcon,
 } as const;
 
 const MOBILE_NAV_ITEMS = [
@@ -109,6 +125,10 @@ function isMainNavItemActive(pathname: string, href: string) {
     return pathname === '/informe';
   }
 
+  if (href === '/cadastros') {
+    return pathname === '/cadastros';
+  }
+
   return pathname === href;
 }
 
@@ -162,6 +182,16 @@ function renderNavIcon(icon: NavIcon, user?: SessionData['user']) {
         <path d="M9 8h6" />
         <path d="M9 11.5h6" />
         <path d="M9 15h4" />
+      </svg>
+    );
+  }
+
+  if (icon === 'cadastros') {
+    return (
+      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+        <path d="M4 7a2 2 0 0 1 2-2h3l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" />
+        <path d="M8 13h8" />
+        <path d="M8 16h5" />
       </svg>
     );
   }
@@ -312,6 +342,9 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
     : [
         ...DESKTOP_NAV_ITEMS,
         ...(isRoleAllowed(session.user.role, INFORME_ROLES) ? [INFORME_NAV_ITEM] : []),
+        ...(isAdmin(session.user.role) || session.user.role === 'CADASTRO'
+          ? [CADASTROS_NAV_ITEM]
+          : []),
         ...(isAdmin(session.user.role) ? [ADMIN_NAV_ITEM] : []),
       ];
   const mobileRouteMeta = resolveMobileRouteMeta(pathname);
