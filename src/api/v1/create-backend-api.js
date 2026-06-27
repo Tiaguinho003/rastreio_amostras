@@ -13,6 +13,7 @@ import { BrokerService } from '../../brokers/broker-service.js';
 import { ClientBankAccountService } from '../../clients/client-bank-account-service.js';
 import { ClientAttachmentService } from '../../clients/client-attachment-service.js';
 import { SaleContractService } from '../../sale-contracts/sale-contract-service.js';
+import { SaleContractPdfService } from '../../sale-contracts/sale-contract-pdf-service.js';
 import { VisitReportService } from '../../visits/visit-report-service.js';
 import { CommercialFormsService } from '../../visits/commercial-forms-service.js';
 import { createPushServiceFromEnv } from '../../push/create-push-service.js';
@@ -87,6 +88,7 @@ export function createBackendApiV1FromEnv() {
   // Fechamento (Fase B.2 Passo 2): instanciado APOS o commandService — usa-o
   // (+ queryService) no D48 (sincronizar o vendedor do contrato com a amostra).
   const saleContractService = new SaleContractService({ prisma, commandService, queryService });
+  const saleContractPdfService = new SaleContractPdfService();
   const reportService = new SamplePdfReportService({
     queryService,
     commandService,
@@ -109,6 +111,7 @@ export function createBackendApiV1FromEnv() {
     clientBankAccountService,
     clientAttachmentService,
     saleContractService,
+    saleContractPdfService,
     visitReportService,
     commercialFormsService,
     pushService,

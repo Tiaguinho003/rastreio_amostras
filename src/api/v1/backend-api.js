@@ -7,6 +7,7 @@ import { PROSPECTOR_ALLOWED_API_METHODS } from '../../auth/prospector-access.js'
 import { USER_ROLES } from '../../auth/roles.js';
 import { executeApi, readPositiveInteger } from '../http-utils.js';
 import { IDEMPOTENCY_SCOPES, buildScopeKey, withIdempotency } from './idempotency-helper.js';
+import { getContractIssuer } from '../../sale-contracts/issuer-config.js';
 
 const loginRateLimiter = createRateLimiter({
   windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000,
@@ -212,6 +213,7 @@ export function createBackendApiV1({
   clientBankAccountService = null,
   clientAttachmentService = null,
   saleContractService = null,
+  saleContractPdfService = null,
   visitReportService = null,
   commercialFormsService = null,
   pushService = null,
@@ -2851,6 +2853,49 @@ export function createBackendApiV1({
         const actor = await resolveActorContext(input, authService);
         const result = await saleContractService.listContractLookups(actor);
         return { status: 200, body: result };
+      }),
+
+    // Fechamento (Fase C): gera o PDF do contrato on-demand (regeneravel, sem
+    // armazenar — D32). Gate via getSaleContract (ADMIN+CADASTRO); so para
+    // contratos ja emitidos (status != EM_ABERTO). Devolve o buffer; a rota
+    // serve como application/pdf binario.
+    exportSaleContractPdf: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractService || !saleContractPdfService) {
+          throw new HttpError(501, 'Sale contract PDF service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const contractId = input?.params?.contractId;
+        if (typeof contractId !== 'string' || contractId.length === 0) {
+          throw new HttpError(422, 'contractId path param is required');
+        }
+        const { contract } = await saleContractService.getSaleContract(contractId, actor);
+        if (contract.status === 'EM_ABERTO') {
+          throw new HttpError(409, 'Gere o documento (Emitir) antes de baixar o PDF', {
+            code: 'SALE_CONTRACT_NOT_EMITTED',
+          });
+        }
+        let lotNumber = null;
+        if (contract.sampleId) {
+          try {
+            const sample = await queryService.requireSample(contract.sampleId);
+            lotNumber = sample.internalLotNumber ?? null;
+          } catch {
+            lotNumber = null;
+          }
+        }
+        const { buffer } = await saleContractPdfService.renderContractPdf(contract, {
+          lotNumber,
+          issuer: getContractIssuer(),
+        });
+        return {
+          status: 200,
+          body: {
+            buffer,
+            fileName: `contrato-${contract.contractNumber.replace('/', '-')}.pdf`,
+            contentType: 'application/pdf',
+          },
+        };
       }),
 
     // ============================================================
