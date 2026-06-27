@@ -1403,6 +1403,33 @@ export async function exportSamplePdf(
   };
 }
 
+// Fechamento (Fase C): baixa/visualiza o PDF do contrato (regenerado on-demand;
+// só para contratos emitidos). Cookie de sessão via credentials same-origin.
+export async function downloadSaleContractPdf(session: SessionData, contractId: string) {
+  void session;
+  const response = await fetch(`${API_BASE}/sale-contracts/${contractId}/pdf`, {
+    method: 'GET',
+    cache: 'no-store',
+    credentials: 'same-origin',
+  });
+
+  if (!response.ok) {
+    const payload = await parseJsonSafe(response);
+    const maybeError = payload.error as { message?: string; details?: unknown } | undefined;
+    throw new ApiError(
+      response.status,
+      maybeError?.message ?? 'Erro ao gerar o PDF do contrato.',
+      maybeError?.details ?? null
+    );
+  }
+
+  const blob = await response.blob();
+  const fileName =
+    parseFileNameFromContentDisposition(response.headers.get('content-disposition')) ||
+    'contrato.pdf';
+  return { blob, fileName };
+}
+
 export function recordPhysicalSampleSent(
   session: SessionData,
   sampleId: string,

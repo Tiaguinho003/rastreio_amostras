@@ -36,6 +36,7 @@ type SaleContractCardProps = {
   onEditar: () => void;
   onConfirmar: () => void;
   onVer: () => void;
+  onBaixarPdf: () => void;
 };
 
 export function SaleContractCard({
@@ -45,6 +46,7 @@ export function SaleContractCard({
   onEditar,
   onConfirmar,
   onVer,
+  onBaixarPdf,
 }: SaleContractCardProps) {
   const meta = STATUS_META[contract.status];
   const isTerminalView =
@@ -100,6 +102,11 @@ export function SaleContractCard({
         {isTerminalView ? (
           <button type="button" className="ctr-btn" onClick={onVer}>
             Ver
+          </button>
+        ) : null}
+        {contract.status !== 'EM_ABERTO' ? (
+          <button type="button" className="ctr-btn" onClick={onBaixarPdf}>
+            Baixar PDF
           </button>
         ) : null}
       </div>

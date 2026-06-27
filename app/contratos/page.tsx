@@ -8,7 +8,8 @@ import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { SaleContractCard } from '../../components/contracts/SaleContractCard';
 import { SaleContractConfirmDialog } from '../../components/contracts/SaleContractConfirmDialog';
 import { SaleContractEtapa2Modal } from '../../components/contracts/SaleContractEtapa2Modal';
-import { listSaleContracts } from '../../lib/api-client';
+import { ApiError, downloadSaleContractPdf, listSaleContracts } from '../../lib/api-client';
+import { shareOrDownloadFile } from '../../lib/share-blob';
 import { useRequireAuth } from '../../lib/use-auth';
 import { useToast } from '../../lib/toast/ToastProvider';
 import type { SaleContract, SaleContractStatus } from '../../lib/types';
@@ -83,6 +84,22 @@ export default function ContratosPage() {
     const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? '') : '';
     return (first + last).toUpperCase() || '?';
   })();
+
+  async function handleBaixarPdf(contract: SaleContract) {
+    if (!session) return;
+    try {
+      const { blob, fileName } = await downloadSaleContractPdf(session, contract.id);
+      await shareOrDownloadFile(blob, fileName, {
+        mimeType: 'application/pdf',
+        shareTitle: `Contrato ${contract.contractNumber}`,
+      });
+    } catch (cause) {
+      toast.error({
+        title: 'Não foi possível gerar o PDF',
+        description: cause instanceof ApiError ? cause.message : undefined,
+      });
+    }
+  }
 
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
@@ -177,6 +194,7 @@ export default function ContratosPage() {
                     onEditar={() => setEtapa2({ contractId: contract.id, mode: 'emit' })}
                     onRevisar={() => setEtapa2({ contractId: contract.id, mode: 'view' })}
                     onVer={() => setEtapa2({ contractId: contract.id, mode: 'view' })}
+                    onBaixarPdf={() => void handleBaixarPdf(contract)}
                     onConfirmar={() =>
                       setConfirmTarget({
                         contractId: contract.id,
