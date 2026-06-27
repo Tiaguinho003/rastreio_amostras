@@ -8,6 +8,8 @@ import { PrismaEventStore } from '../src/events/prisma-event-store.js';
 import { SampleQueryService } from '../src/samples/sample-query-service.js';
 import { SampleCommandService } from '../src/samples/sample-command-service.js';
 import { SaleContractService } from '../src/sale-contracts/sale-contract-service.js';
+import { SaleContractPdfService } from '../src/sale-contracts/sale-contract-pdf-service.js';
+import { getContractIssuer } from '../src/sale-contracts/issuer-config.js';
 import { registrationConfirmedEvent } from './helpers/event-builders.js';
 import { TEST_BROKER_ID, seedTestBroker } from './helpers/sale-contract-fixtures.js';
 
@@ -56,6 +58,7 @@ if (!databaseUrl || !databaseReachable) {
     userService: userServiceMock,
   });
   const saleContractService = new SaleContractService({ prisma, commandService, queryService });
+  const saleContractPdfService = new SaleContractPdfService();
 
   const commercialActor = {
     actorType: 'USER',
@@ -573,6 +576,28 @@ if (!databaseUrl || !databaseReachable) {
         ),
       (err) => err.status === 403
     );
+  });
+
+  test('PDF: contrato emitido gera um %PDF a partir dos snapshots reais', async () => {
+    const { contractId, sampleId, bankAccountId } = await setupEmittableContract({
+      lotNumber: '21012',
+    });
+    const lookups = await fetchLookups();
+    await saleContractService.emitSaleContract(
+      contractId,
+      etapa2Payload({ bankAccountId, lookups }),
+      adminActor
+    );
+
+    const { contract } = await saleContractService.getSaleContract(contractId, adminActor);
+    const sample = await queryService.requireSample(sampleId);
+    const { buffer } = await saleContractPdfService.renderContractPdf(contract, {
+      lotNumber: sample.internalLotNumber ?? null,
+      issuer: getContractIssuer(),
+    });
+
+    assert.equal(buffer.subarray(0, 5).toString('latin1'), '%PDF-');
+    assert.ok(buffer.length > 1500);
   });
 }
 
