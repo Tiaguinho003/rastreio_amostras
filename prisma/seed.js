@@ -54,6 +54,7 @@ async function importLegacyUsers() {
     return false;
   }
 
+  let processed = 0;
   for (const entry of parsed) {
     const passwordHash =
       typeof entry.passwordHash === 'string' && entry.passwordHash.length > 0
@@ -87,12 +88,26 @@ async function importLegacyUsers() {
       continue;
     }
 
-    await prisma.user.create({
-      data: {
+    const usernameCanonical = normalizeCanonical(username);
+    // Upsert idempotente: garante o usuario local mesmo se app_user foi truncado
+    // (suite de integracao) ou se sobraram outros usuarios. Reativa (status
+    // ACTIVE) e reaplica a senha do .env -> login deterministico a cada seed.
+    await prisma.user.upsert({
+      where: { usernameCanonical },
+      update: {
+        fullName,
+        email,
+        emailCanonical: normalizeCanonical(email),
+        phone,
+        passwordHash,
+        role,
+        status: 'ACTIVE',
+      },
+      create: {
         id: entry.id ?? randomUUID(),
         fullName,
         username,
-        usernameCanonical: normalizeCanonical(username),
+        usernameCanonical,
         email,
         emailCanonical: normalizeCanonical(email),
         phone,
@@ -102,9 +117,10 @@ async function importLegacyUsers() {
         initialPasswordDecision: 'PENDING',
       },
     });
+    processed += 1;
   }
 
-  return true;
+  return processed > 0;
 }
 
 async function createBootstrapAdmin() {
@@ -131,17 +147,20 @@ async function createBootstrapAdmin() {
 }
 
 async function main() {
-  const totalUsers = await prisma.user.count();
-  if (totalUsers > 0) {
-    return;
-  }
-
+  // Sempre garante os usuarios locais (LOCAL_AUTH_USERS_JSON) de forma
+  // IDEMPOTENTE — eles sobrevivem a TRUNCATE da suite de integracao e a
+  // migracoes/resets. Em producao (sem LOCAL_AUTH_USERS_JSON) isto e no-op.
   const imported = await importLegacyUsers();
   if (imported) {
     return;
   }
 
-  await createBootstrapAdmin();
+  // Sem usuarios locais (ex.: producao): cria o admin bootstrap so se o banco
+  // ainda nao tiver nenhum usuario.
+  const totalUsers = await prisma.user.count();
+  if (totalUsers === 0) {
+    await createBootstrapAdmin();
+  }
 }
 
 main()

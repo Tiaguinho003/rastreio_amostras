@@ -66,8 +66,9 @@ Convencao do projeto = **migration MANUAL aditiva** (ver migrations recentes com
 ## Seed
 
 - `npm run db:seed` ou `npx prisma db seed`
-- Cria admin bootstrap se nao existe nenhum user
-- Idempotente (nao duplica)
+- **Usuarios locais de dev (`LOCAL_AUTH_USERS_JSON` no `.env`: Flavio/ADMIN + Italo): UPSERT IDEMPOTENTE em TODO seed** — sempre recriados/reativados (status ACTIVE) + senha do `.env` reaplicada. Sobrevivem ao `TRUNCATE app_user` da suite de integracao e a migracoes/resets. (Antes o seed era no-op se houvesse qualquer usuario — por isso o login do Flavio sumia toda vez.)
+- Em **producao** (sem `LOCAL_AUTH_USERS_JSON`): cria o **admin bootstrap** (`BOOTSTRAP_ADMIN_*`) so se o banco nao tiver nenhum usuario (lanca se as envs faltarem — rede de seguranca do 1o deploy).
+- **`posttest:integration:db`** (`npm run db:seed || true`) restaura os usuarios locais automaticamente apos `npm run test:integration:db` (best-effort; `|| true` nao quebra o CI, que nao tem as envs). Se o login sumir mesmo assim (ex.: suite falhou antes do post-hook), rodar `npm run db:seed`.
 
 ## Reset local
 
