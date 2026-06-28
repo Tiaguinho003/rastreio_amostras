@@ -152,14 +152,6 @@ function drawImageContain(page, image, { x, y, width, height }) {
 // Segmento de linha AFILADO (cunha): ponta (espessura 0) em pointX e espessura
 // `maxThickness` em thickX, centrado verticalmente em `y`. Serve pros dois lados
 // do divisor do rodape — fino sumindo na borda, mais grosso perto do logo.
-function drawTaperedSegment(page, { pointX, thickX, y, maxThickness, color }) {
-  const dx = thickX - pointX;
-  const h = maxThickness / 2;
-  // drawSvgPath: origem em (pointX, y); +y do path aponta pra BAIXO (PDF y cai).
-  const d = `M 0 0 L ${dx.toFixed(2)} ${(-h).toFixed(2)} L ${dx.toFixed(2)} ${h.toFixed(2)} Z`;
-  page.drawSvgPath(d, { x: pointX, y, color });
-}
-
 function buildReportFileName(sample) {
   const internalLot =
     typeof sample?.internalLotNumber === 'string' ? sample.internalLotNumber.trim() : '';
@@ -335,7 +327,7 @@ export async function renderSamplePdf({
   // Numero do lote ABAIXO da pilula "Lote Interno" da arte: a pilula nao tem
   // folga interna p/ o numero, mas ha faixa branca logo abaixo dela no cabecalho.
   // Verde, centralizado no eixo da pilula. Coordenadas calibradas no preview.
-  const pillCenterX = PDF_PAGE_WIDTH * 0.656;
+  const pillCenterX = PDF_PAGE_WIDTH * 0.62; // centro do texto "Lote Interno" da arte
   const LOT_NUMBER_SIZE = 14;
   const lotNumberBaselineY = PDF_PAGE_HEIGHT - headerHeight * 0.92; // abaixo da pilula
   const lotW = fontBold.widthOfTextAtSize(lotNumber, LOT_NUMBER_SIZE);
@@ -693,18 +685,41 @@ export async function renderSamplePdf({
     }
   }
 
-  // ── Rodape: linha + textos (mais pra cima) + ONDAS VERDES na borda inferior ──
+  // ── Rodape: a LINHA com o LOGO (fina e uniforme) define o TOPO do rodape; os
+  // textos vem ABAIXO dela. A linha quebra ao redor do logo (gap) e nao encosta
+  // nas bordas (margem lineLeft/lineRight). ──
   const footerYear = new Date(issuedAtIso).getUTCFullYear();
+  const footerCenter = docX + docWidth / 2;
+  const footerLogoGap = 11;
+  let footerLogoW = 0;
+  if (iconGreenImage) {
+    const footerLogoH = 22;
+    footerLogoW = (iconGreenImage.width / iconGreenImage.height) * footerLogoH;
+    page.drawImage(iconGreenImage, {
+      x: footerCenter - footerLogoW / 2,
+      y: footerLineY - footerLogoH / 2,
+      width: footerLogoW,
+      height: footerLogoH,
+    });
+  }
+  // Dois segmentos finos de ESPESSURA UNIFORME, com gap pro logo e margem nas bordas.
   page.drawLine({
     start: { x: lineLeft, y: footerLineY },
-    end: { x: lineRight, y: footerLineY },
-    thickness: 1,
-    color: docLine,
+    end: { x: footerCenter - footerLogoW / 2 - footerLogoGap, y: footerLineY },
+    thickness: 0.8,
+    color: headerGreen,
   });
+  page.drawLine({
+    start: { x: footerCenter + footerLogoW / 2 + footerLogoGap, y: footerLineY },
+    end: { x: lineRight, y: footerLineY },
+    thickness: 0.8,
+    color: headerGreen,
+  });
+
   const footerMain = `© ${footerYear} Safras & Negócios. Todos os direitos reservados.`;
   page.drawText(footerMain, {
     x: docX + (docWidth - fontBold.widthOfTextAtSize(footerMain, 8.5)) / 2,
-    y: docBottom + 92,
+    y: docBottom + 78,
     size: 8.5,
     font: fontBold,
     color: rgb(0.33, 0.37, 0.35),
@@ -712,7 +727,7 @@ export async function renderSamplePdf({
   const footerCityPhone = `${COMPANY_INFO.cityUf}   ·   ${COMPANY_INFO.phone}`;
   page.drawText(footerCityPhone, {
     x: docX + (docWidth - fontRegular.widthOfTextAtSize(footerCityPhone, 8)) / 2,
-    y: docBottom + 76,
+    y: docBottom + 64,
     size: 8,
     font: fontRegular,
     color: rgb(0.45, 0.48, 0.45),
@@ -721,43 +736,10 @@ export async function renderSamplePdf({
     fitTextToWidth(COMPANY_INFO.address, fontRegular, 8, docWidth - 80) || COMPANY_INFO.address;
   page.drawText(footerAddr, {
     x: docX + (docWidth - fontRegular.widthOfTextAtSize(footerAddr, 8)) / 2,
-    y: docBottom + 62,
+    y: docBottom + 50,
     size: 8,
     font: fontRegular,
     color: rgb(0.45, 0.48, 0.45),
-  });
-
-  // ── Divisor do rodape: linha verde AFILADA (some na borda, mais grossa perto
-  // do centro) com o LOGO da Safras no meio. Centralizado entre os textos do
-  // rodape e a borda inferior. As duas linhas nao se tocam (logo no meio) nem
-  // encostam no logo (gap). ──
-  const dividerY = docBottom + 30;
-  const dividerCenter = docX + docWidth / 2;
-  const logoGap = 11;
-  let logoFooterW = 0;
-  if (iconGreenImage) {
-    const logoFooterH = 24;
-    logoFooterW = (iconGreenImage.width / iconGreenImage.height) * logoFooterH;
-    page.drawImage(iconGreenImage, {
-      x: dividerCenter - logoFooterW / 2,
-      y: dividerY - logoFooterH / 2,
-      width: logoFooterW,
-      height: logoFooterH,
-    });
-  }
-  drawTaperedSegment(page, {
-    pointX: lineLeft,
-    thickX: dividerCenter - logoFooterW / 2 - logoGap,
-    y: dividerY,
-    maxThickness: 2.6,
-    color: headerGreen,
-  });
-  drawTaperedSegment(page, {
-    pointX: lineRight,
-    thickX: dividerCenter + logoFooterW / 2 + logoGap,
-    y: dividerY,
-    maxThickness: 2.6,
-    color: headerGreen,
   });
 
   const bytes = await pdfDoc.save();
