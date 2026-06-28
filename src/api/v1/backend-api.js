@@ -15,11 +15,23 @@ const loginRateLimiter = createRateLimiter({
   maxRequests: Number(process.env.RATE_LIMIT_MAX_REQUESTS) || 10,
 });
 
-// Etiqueta de Envio (fase 4): rate-limit leve da rota publica do laudo (defesa
-// em profundidade — o token de 32 bytes ja torna brute-force inviavel).
+// Rate-limit da rota publica do laudo POR IP — BEST-EFFORT: o `x-forwarded-for`
+// vem do request e e SPOOFAVEL (um atacante forja o header e troca de chave a
+// cada request). Pega cliente normal/bot ingenuo, mas NAO um atacante que forja
+// XFF. O cap REAL contra DoS de render e o limite POR TOKEN abaixo.
 const publicReportRateLimiter = createRateLimiter({
   windowMs: Number(process.env.PUBLIC_REPORT_RATE_LIMIT_WINDOW_MS) || 60_000,
   maxRequests: Number(process.env.PUBLIC_REPORT_RATE_LIMIT_MAX_REQUESTS) || 60,
+});
+
+// Rate-limit da rota publica do laudo POR TOKEN — defesa primaria: a chave e o
+// proprio share na URL (NAO forjavel), entao limita diretamente a operacao cara
+// (gerar o laudo daquele share) por mais que o atacante troque de IP/XFF.
+// In-memory por instancia (no Cloud Run multi-instancia o cap efetivo e Nx —
+// aceitavel p/ este endpoint; store compartilhado seria o passo seguinte).
+const publicReportTokenRateLimiter = createRateLimiter({
+  windowMs: Number(process.env.PUBLIC_REPORT_TOKEN_RATE_LIMIT_WINDOW_MS) || 60_000,
+  maxRequests: Number(process.env.PUBLIC_REPORT_TOKEN_RATE_LIMIT_MAX_REQUESTS) || 30,
 });
 
 function readHeader(headers, key) {
@@ -1287,6 +1299,10 @@ export function createBackendApiV1({
         if (!/^[A-Za-z0-9_-]{43}$/.test(token)) {
           throw new HttpError(404, 'Laudo nao encontrado', { code: 'REPORT_NOT_FOUND' });
         }
+
+        // Cap a prova de bypass (chave = o token na URL, nao forjavel): limita o
+        // numero de geracoes por share, por mais que o atacante troque de IP/XFF.
+        publicReportTokenRateLimiter.check(token);
 
         const share = await queryService.prisma.sampleReportShare.findUnique({
           where: { token },

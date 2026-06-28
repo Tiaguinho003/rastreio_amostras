@@ -590,6 +590,31 @@ if (!databaseUrl || !databaseReachable) {
     });
     assert.equal(res.status, 500);
   });
+
+  test('rate-limit por token: martelar o mesmo token dispara 429 (a prova de XFF)', async () => {
+    // Token dummy bem-formado e DISTINTO dos demais testes. O check por token
+    // roda ANTES do lookup do share, entao nao precisa de share/DB real; e como
+    // headers={} (IP nulo), o limite por IP nao interfere. Tokens diferentes tem
+    // contadores independentes.
+    const token = 'Z'.repeat(43);
+    const statuses = [];
+    for (let i = 0; i < 40; i += 1) {
+      const res = await api.servePublicReportShare({
+        headers: {},
+        params: { token },
+        query: {},
+        body: {},
+      });
+      statuses.push(res.status);
+    }
+    // 1a resposta nao e 429 (abaixo do limite); aparece 429 dentro do loop
+    // (robusto ao valor exato do limite default).
+    assert.notEqual(statuses[0], 429);
+    assert.ok(
+      statuses.includes(429),
+      `esperava um 429 ao martelar o mesmo token; got ${statuses.join(',')}`
+    );
+  });
 }
 
 async function canReachDatabase(databaseUrlValue) {
