@@ -1312,8 +1312,15 @@ export function createBackendApiV1({
             destination: share.recipientSnapshot?.displayName ?? null,
             reportedHarvest: share.reportedHarvest,
           });
-        } catch {
-          throw new HttpError(404, 'Laudo nao encontrado', { code: 'REPORT_RENDER_FAILED' });
+        } catch (cause) {
+          // Falha REAL de geracao (nao "nao encontrado"): loga p/ diagnostico e
+          // alerta de 5xx. NUNCA loga o token (segredo) — usa share.id/sampleId.
+          console.error('[laudo] falha ao gerar o laudo ao vivo', {
+            shareId: share.id,
+            sampleId: share.sampleId,
+            cause,
+          });
+          throw new HttpError(500, 'Falha ao gerar o laudo', { code: 'REPORT_RENDER_FAILED' });
         }
 
         // Analytics de leitura — best-effort, nao bloqueia a entrega do PDF.

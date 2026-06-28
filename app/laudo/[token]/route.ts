@@ -154,6 +154,12 @@ export async function GET(request: NextRequest, context: { params: Promise<{ tok
     status = 410;
     title = 'Laudo indisponível';
     message = 'Este laudo não está mais disponível. Ele pode ter sido revogado ou ter expirado.';
+  } else if (result.status >= 500) {
+    // Falha de geração (não "não encontrado"): preserva o 5xx para alertas de
+    // monitoramento, com página amigável de erro temporário.
+    status = result.status;
+    title = 'Laudo temporariamente indisponível';
+    message = 'Houve um erro ao gerar o laudo. Tente novamente em instantes.';
   } else {
     status = 404;
     title = 'Laudo não encontrado';
