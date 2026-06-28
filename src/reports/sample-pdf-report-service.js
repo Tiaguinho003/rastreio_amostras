@@ -2,16 +2,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import {
-  PDFDocument,
-  StandardFonts,
-  clip,
-  endPath,
-  popGraphicsState,
-  pushGraphicsState,
-  rectangle,
-  rgb,
-} from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import sharp from 'sharp';
 
 import { HttpError } from '../contracts/errors.js';
@@ -36,7 +27,48 @@ function drawPageBackground(page) {
     y: 0,
     width: PDF_PAGE_WIDTH,
     height: PDF_PAGE_HEIGHT,
-    color: rgb(0.976, 0.972, 0.954),
+    color: rgb(0.945, 0.95, 0.955),
+  });
+}
+
+// Caminho SVG de um retangulo arredondado (origem no canto SUPERIOR-ESQUERDO,
+// eixo y do SVG para BAIXO — combina com page.drawSvgPath). Cantos via curva Q.
+function roundedRectPath(w, h, r) {
+  const rr = Math.max(0, Math.min(r, w / 2, h / 2));
+  return [
+    `M ${rr} 0`,
+    `H ${w - rr}`,
+    `Q ${w} 0 ${w} ${rr}`,
+    `V ${h - rr}`,
+    `Q ${w} ${h} ${w - rr} ${h}`,
+    `H ${rr}`,
+    `Q 0 ${h} 0 ${h - rr}`,
+    `V ${rr}`,
+    `Q 0 0 ${rr} 0`,
+    'Z',
+  ].join(' ');
+}
+
+// Card branco arredondado com sombra APROXIMADA (pdf-lib nao tem blur): desenha
+// alguns retangulos cinza levemente deslocados/empilhados atras e o card por cima.
+// (x, y) = canto SUPERIOR-ESQUERDO em coordenadas do PDF; topY cresce para cima.
+function drawRoundedCard(page, { x, topY, w, h, r = 10, fill = rgb(1, 1, 1), borderColor }) {
+  const path = roundedRectPath(w, h, r);
+  // Sombra: 3 camadas deslocadas pra baixo-direita, do mais claro ao mais escuro.
+  const shadow = [
+    { dx: 2.4, dy: 2.4, c: rgb(0.9, 0.91, 0.92) },
+    { dx: 1.5, dy: 1.5, c: rgb(0.86, 0.87, 0.89) },
+    { dx: 0.8, dy: 0.8, c: rgb(0.83, 0.84, 0.86) },
+  ];
+  for (const s of shadow) {
+    page.drawSvgPath(path, { x: x + s.dx, y: topY - s.dy, color: s.c });
+  }
+  page.drawSvgPath(path, {
+    x,
+    y: topY,
+    color: fill,
+    borderColor,
+    borderWidth: borderColor ? 0.8 : undefined,
   });
 }
 
@@ -225,9 +257,10 @@ export async function renderSamplePdf({
   classificationPhotoBytes = null,
   selectedFieldEntries,
   issuedAtIso,
-  logoPath,
+  // Cabecalho = imagem unica (logo + "LAUDO TECNICO" + ornamento + pilula). O
+  // sistema so escreve o numero do lote por cima.
+  headerImagePath,
   iconPath,
-  destination,
   // Amostra sem classificacao (laudo ao vivo): no lugar da Foto + Dados, um
   // aviso central. Resumo do Lote (Lote/Safra/Sacas) continua aparecendo.
   unclassified = false,
@@ -236,20 +269,15 @@ export async function renderSamplePdf({
   const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-  const logoBytes = await tryReadLogoBytes(logoPath);
-  const logoImage = logoBytes ? await pdfDoc.embedPng(logoBytes).catch(() => null) : null;
+  // Cabecalho: imagem unica (degrada se ausente — calibra no preview).
+  const headerBytes = await tryReadLogoBytes(headerImagePath);
+  const headerImage = headerBytes ? await pdfDoc.embedPng(headerBytes).catch(() => null) : null;
 
+  // Arvore verde do divisor do RODAPE (unico uso restante do iconPath).
   const iconBytes = await tryReadLogoBytes(iconPath);
-  let iconWhiteImage = null;
   let iconGreenImage = null;
   if (iconBytes) {
     try {
-      iconWhiteImage = await pdfDoc.embedPng(await makeColoredSilhouette(iconBytes, 255, 255, 255));
-    } catch {
-      iconWhiteImage = null;
-    }
-    try {
-      // Verde da marca (headerGreen ~ rgb 25,76,43) pro logo do divisor do rodape.
       iconGreenImage = await pdfDoc.embedPng(await makeColoredSilhouette(iconBytes, 25, 76, 43));
     } catch {
       iconGreenImage = null;
@@ -277,148 +305,47 @@ export async function renderSamplePdf({
   const docLine = rgb(0.82, 0.84, 0.86);
   const docText = rgb(0.18, 0.22, 0.2);
 
-  page.drawRectangle({
-    x: docX,
-    y: docY,
-    width: docWidth,
-    height: docHeight,
-    borderWidth: 1,
-    borderColor: rgb(0.84, 0.84, 0.84),
-    color: rgb(1, 1, 1),
-  });
-
+  const headerGreen = rgb(0.098, 0.298, 0.169);
   const lineLeft = docX + 24;
   const lineRight = docX + docWidth - 24;
 
-  // ─── Cabecalho: banda verde no topo do card ───
-  // Logo (lockup branco) a esquerda | divisoria vertical | titulo "LAUDO
-  // TECNICO" + lote interno a direita, sobre marca d'agua do icone (arvore).
-  const headerHeight = 116;
-  const headerY = docTop - headerHeight;
-  const headerGreen = rgb(0.098, 0.298, 0.169);
-  page.drawRectangle({
-    x: docX + 1,
-    y: headerY,
-    width: docWidth - 2,
-    height: headerHeight - 1,
+  // ─── Cabecalho: IMAGEM unica sangrando na largura total do topo ───
+  // (logo + "LAUDO TECNICO" + ornamento/folhagem + pilula "Lote Interno"). O
+  // sistema so escreve o NUMERO do lote por cima, a DIREITA da pilula.
+  const HEADER_ASPECT = 2508 / 627; // proporcao da arte enviada (fallback)
+  const headerHeight = headerImage
+    ? PDF_PAGE_WIDTH / (headerImage.width / headerImage.height)
+    : PDF_PAGE_WIDTH / HEADER_ASPECT;
+  const headerY = PDF_PAGE_HEIGHT - headerHeight;
+  if (headerImage) {
+    page.drawImage(headerImage, {
+      x: 0,
+      y: headerY,
+      width: PDF_PAGE_WIDTH,
+      height: headerHeight,
+    });
+  }
+
+  // Numero do lote, a DIREITA da pilula "Lote Interno". Coordenadas como fracao
+  // da pagina (calibradas no preview p/ baterem com a arte do cabecalho).
+  const lotNumber =
+    typeof sample.internalLotNumber === 'string' && sample.internalLotNumber.trim()
+      ? sample.internalLotNumber.trim()
+      : '-';
+  // Numero do lote ABAIXO da pilula "Lote Interno" da arte: a pilula nao tem
+  // folga interna p/ o numero, mas ha faixa branca logo abaixo dela no cabecalho.
+  // Verde, centralizado no eixo da pilula. Coordenadas calibradas no preview.
+  const pillCenterX = PDF_PAGE_WIDTH * 0.656;
+  const LOT_NUMBER_SIZE = 14;
+  const lotNumberBaselineY = PDF_PAGE_HEIGHT - headerHeight * 0.92; // abaixo da pilula
+  const lotW = fontBold.widthOfTextAtSize(lotNumber, LOT_NUMBER_SIZE);
+  page.drawText(lotNumber, {
+    x: pillCenterX - lotW / 2,
+    y: lotNumberBaselineY,
+    size: LOT_NUMBER_SIZE,
+    font: fontBold,
     color: headerGreen,
   });
-
-  // Marca d'agua: icone claro, grande, recortado nos limites da banda.
-  if (iconWhiteImage) {
-    const wmHeight = headerHeight * 1.55;
-    const wmScale = wmHeight / iconWhiteImage.height;
-    const wmWidth = iconWhiteImage.width * wmScale;
-    page.pushOperators(
-      pushGraphicsState(),
-      rectangle(docX + 1, headerY, docWidth - 2, headerHeight - 1),
-      clip(),
-      endPath()
-    );
-    page.drawImage(iconWhiteImage, {
-      x: docX + docWidth - wmWidth * 0.62,
-      y: headerY + (headerHeight - wmHeight) / 2,
-      width: wmWidth,
-      height: wmHeight,
-      opacity: 0.07,
-    });
-    page.pushOperators(popGraphicsState());
-  }
-
-  // Logo a esquerda, centralizado verticalmente.
-  if (logoImage) {
-    const logoMaxWidth = 200;
-    let logoHeight = 50;
-    let logoWidth = (logoImage.width / logoImage.height) * logoHeight;
-    if (logoWidth > logoMaxWidth) {
-      logoHeight *= logoMaxWidth / logoWidth;
-      logoWidth = logoMaxWidth;
-    }
-    page.drawImage(logoImage, {
-      // Logo centralizado na metade ESQUERDA da banda.
-      x: docX + docWidth / 4 - logoWidth / 2,
-      y: headerY + (headerHeight - logoHeight) / 2,
-      width: logoWidth,
-      height: logoHeight,
-    });
-  }
-
-  // Divisoria vertical no MEIO da banda: logo na metade esquerda, titulo+meta na
-  // metade direita — cada area com metade da largura.
-  const dividerX = docX + docWidth / 2;
-  page.drawLine({
-    start: { x: dividerX, y: headerY + 22 },
-    end: { x: dividerX, y: headerY + headerHeight - 22 },
-    thickness: 1,
-    color: rgb(1, 1, 1),
-    opacity: 0.33,
-  });
-
-  // Titulo + meta (lote interno) centralizados na metade DIREITA da banda.
-  const rightHalfCenter = docX + (docWidth * 3) / 4;
-  const headerTitleY = headerY + headerHeight - 44;
-  const titleText = 'LAUDO TÉCNICO';
-  const titleW = fontBold.widthOfTextAtSize(titleText, 21);
-  page.drawText(titleText, {
-    x: rightHalfCenter - titleW / 2,
-    y: headerTitleY,
-    size: 21,
-    font: fontBold,
-    color: rgb(1, 1, 1),
-  });
-
-  const headerUnderlineY = headerTitleY - 13;
-  const underlineHalf = titleW / 2 + 6;
-  page.drawLine({
-    start: { x: rightHalfCenter - underlineHalf, y: headerUnderlineY },
-    end: { x: rightHalfCenter + underlineHalf, y: headerUnderlineY },
-    thickness: 0.8,
-    color: rgb(1, 1, 1),
-    opacity: 0.45,
-  });
-
-  const headerMeta = [
-    {
-      label: 'Lote Interno',
-      value:
-        typeof sample.internalLotNumber === 'string' && sample.internalLotNumber.trim()
-          ? sample.internalLotNumber
-          : '-',
-    },
-  ];
-  if (destination) {
-    headerMeta.push({ label: 'Destinatário', value: destination });
-  }
-
-  let headerMetaY = headerUnderlineY - 20;
-  for (const row of headerMeta) {
-    const labelText = `${row.label}: `;
-    const labelW = fontRegular.widthOfTextAtSize(labelText, 10.5);
-    const value = fitTextToWidth(
-      String(row.value ?? '-'),
-      fontBold,
-      10.5,
-      docWidth / 2 - labelW - 24
-    );
-    const valueW = fontBold.widthOfTextAtSize(value || '-', 10.5);
-    // Centraliza o conjunto label+valor na metade direita.
-    const metaStartX = rightHalfCenter - (labelW + valueW) / 2;
-    page.drawText(labelText, {
-      x: metaStartX,
-      y: headerMetaY,
-      size: 10.5,
-      font: fontRegular,
-      color: rgb(1, 1, 1),
-    });
-    page.drawText(value || '-', {
-      x: metaStartX + labelW,
-      y: headerMetaY,
-      size: 10.5,
-      font: fontBold,
-      color: rgb(1, 1, 1),
-    });
-    headerMetaY -= 16;
-  }
 
   const entryById = new Map(selectedFieldEntries.map((entry) => [entry.id, entry]));
   const asValue = (entry) => String(entry?.value ?? '').trim();
@@ -574,13 +501,14 @@ export async function renderSamplePdf({
         });
       }
       cursor -= blockH;
-      // Linha fina entre campos (nao depois do ultimo).
+      // Separador PONTILHADO entre campos (nao depois do ultimo).
       if (i < rows.length - 1) {
         page.drawLine({
           start: { x, y: cursor },
           end: { x: x + width, y: cursor },
-          thickness: 0.5,
-          color: rgb(0.9, 0.91, 0.92),
+          thickness: 0.7,
+          color: rgb(0.74, 0.77, 0.79),
+          dashArray: [0.6, 2.4],
         });
       }
     });
@@ -589,6 +517,9 @@ export async function renderSamplePdf({
   const contentX = docX + 24;
   const contentWidth = docWidth - 48;
   const blockGap = 14;
+  // Cards brancos (Resumo, Foto+Dados) — largura com margem da pagina.
+  const cardX = 24;
+  const cardW = PDF_PAGE_WIDTH - 48;
   // Rodape mais alto pra acomodar as ondas verdes na borda inferior.
   const footerAreaHeight = 116;
   const footerLineY = docBottom + footerAreaHeight - 12; // linha fina acima do rodape
@@ -617,6 +548,14 @@ export async function renderSamplePdf({
   // cobrindo toda a largura — label (verde, uppercase) sobre o valor (escuro),
   // centralizados, com separadores verticais sutis entre os campos.
   const resumoBandTop = headerY - topGap;
+  // Card branco (com sombra) atras do Resumo do Lote.
+  drawRoundedCard(page, {
+    x: cardX,
+    topY: resumoBandTop + 13,
+    w: cardW,
+    h: resumoBandH + 24,
+    r: 12,
+  });
   const resumoCount = Math.max(resumoRows.length, 1);
   const resumoCellW = contentWidth / resumoCount;
   resumoRows.forEach((row, i) => {
@@ -658,8 +597,18 @@ export async function renderSamplePdf({
 
   if (unclassified) {
     // Amostra sem classificacao: o QR/laudo abre so com a identificacao (Resumo
-    // do Lote acima) + este aviso central no lugar da Foto + Dados.
-    const noticeMidY = (rowTop + (footerLineY + 10)) / 2;
+    // do Lote acima) + este aviso central no lugar da Foto + Dados, dentro de um
+    // card branco (mesmo chrome do laudo classificado).
+    const noticeTop = rowTop + 13;
+    const noticeBottom = footerLineY + 10;
+    drawRoundedCard(page, {
+      x: cardX,
+      topY: noticeTop,
+      w: cardW,
+      h: noticeTop - noticeBottom,
+      r: 12,
+    });
+    const noticeMidY = (noticeTop + noticeBottom) / 2;
     const centerX = docX + docWidth / 2;
     const title = 'Amostra ainda não classificada';
     const titleSize = 15;
@@ -683,45 +632,55 @@ export async function renderSamplePdf({
     });
   } else {
     const imgX = contentX + (leftW - imgBoxW) / 2;
-    // Foto so quando ha imagem (classificada com foto legivel). Sem foto, os
-    // Dados ocupam a largura cheia.
+    const imgBoxY = rowTop - photoTitleSpace - imgBoxH;
+    // Card branco (com sombra) atras da Foto + Dados.
+    drawRoundedCard(page, {
+      x: cardX,
+      topY: rowTop + 13,
+      w: cardW,
+      h: rowTop + 13 - (imgBoxY - 16),
+      r: 12,
+    });
+
+    // Titulo "Foto da Classificacao" + regua fina ate a direita. So quando ha
+    // foto (classificada com imagem legivel).
     if (classificationImage) {
-      page.drawText('Foto da Classificação', {
-        x: contentX + 2,
+      const titleX = contentX + 2;
+      const fotoTitle = 'Foto da Classificação';
+      page.drawText(fotoTitle, {
+        x: titleX,
         y: rowTop - 13,
         size: 9.8,
         font: fontBold,
         color: docGreen,
       });
       page.drawLine({
-        start: { x: contentX + 2, y: rowTop - 16.5 },
-        end: { x: contentX + leftW - 2, y: rowTop - 16.5 },
+        start: { x: titleX + fontBold.widthOfTextAtSize(fotoTitle, 9.8) + 8, y: rowTop - 9.5 },
+        end: { x: contentX + contentWidth - 2, y: rowTop - 9.5 },
         thickness: 0.8,
-        color: rgb(0.86, 0.89, 0.88),
+        color: rgb(0.82, 0.86, 0.85),
       });
 
-      const imgBoxY = rowTop - photoTitleSpace - imgBoxH;
       const drawnImg = drawImageContain(page, classificationImage, {
         x: imgX,
         y: imgBoxY,
         width: imgBoxW,
         height: imgBoxH,
       });
-      // Borda MUITO FINA, na imagem efetivamente desenhada (nao na caixa) — assim
-      // nao sobra espaco vazio dentro da moldura quando a foto nao for 3:4.
+      // Borda fina na imagem efetivamente desenhada (nao na caixa).
       page.drawRectangle({
         x: drawnImg.x,
         y: drawnImg.y,
         width: drawnImg.width,
         height: drawnImg.height,
-        borderWidth: 0.5,
+        borderWidth: 0.7,
         borderColor: docLine,
       });
     }
 
     // Dados de Classificacao: coluna DIREITA (ao lado da foto) ou largura cheia
     // (sem foto), SEM moldura e SEM titulo, alinhado e LIMITADO a altura da foto.
-    // Lista de campos com linha fina; valor que nao cabe quebra em 2 linhas.
+    // Lista de campos com separador pontilhado; valor que nao cabe quebra em 2 linhas.
     if (classificationRows.length > 0) {
       drawFieldList({
         x: classificationImage ? rightX : contentX,
@@ -810,7 +769,9 @@ export class SamplePdfReportService {
     queryService,
     commandService,
     uploadsBaseDir,
-    logoPath = path.resolve(process.cwd(), 'public/logo-safras-branco.png'),
+    // Cabecalho = imagem unica (public/laudo-header.png). iconPath = arvore verde
+    // do divisor do rodape.
+    headerImagePath = path.resolve(process.cwd(), 'public/laudo-header.png'),
     iconPath = path.resolve(process.cwd(), 'public/icon-safras.png'),
   }) {
     if (!queryService) {
@@ -828,9 +789,8 @@ export class SamplePdfReportService {
     this.queryService = queryService;
     this.commandService = commandService;
     this.uploadsBaseDir = uploadsBaseDir;
-    this.logoPath = logoPath;
+    this.headerImagePath = headerImagePath;
     this.iconPath = iconPath;
-    this.logoFallbackPath = path.resolve(process.cwd(), 'public/logo-laudo.png');
   }
 
   // Nucleo de geracao do laudo: resolve safra/campos, renderiza o PDF e calcula
@@ -929,9 +889,8 @@ export class SamplePdfReportService {
       classificationPhotoBytes,
       selectedFieldEntries,
       issuedAtIso,
-      logoPath: [this.logoPath, this.logoFallbackPath],
+      headerImagePath: this.headerImagePath,
       iconPath: this.iconPath,
-      destination,
       unclassified: !isClassified,
     });
 
