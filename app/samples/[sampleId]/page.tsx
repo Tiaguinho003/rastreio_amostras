@@ -1272,14 +1272,15 @@ export default function SampleDetailPage() {
     }
   }
 
-  // Intercepta o submit do envio: amostra liga (mais de uma safra) + CLASSIFIED
-  // exige escolher UMA safra pro laudo congelado antes de disparar os POSTs
-  // (mesmo constraint anti-vazamento do export). Edicao nunca regenera laudo.
+  // Intercepta o submit do envio: amostra liga (mais de uma safra) exige
+  // escolher UMA safra pro laudo antes de disparar os POSTs (anti-vazamento da
+  // liga). Vale para QUALQUER envio agora — a etiqueta sempre gera laudo com
+  // QR, classificada ou nao. Edicao nunca regenera laudo.
   async function handleConfirmPhysicalSend() {
     if (!detail || physicalSending) {
       return;
     }
-    if (!editingSendEventId && detail.sample.status === 'CLASSIFIED') {
+    if (!editingSendEventId) {
       const options = (detail.sample.declared?.harvest ?? '')
         .split(/\s*,\s*/)
         .map((value) => value.trim())
