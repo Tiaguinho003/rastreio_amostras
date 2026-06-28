@@ -851,6 +851,11 @@ model SaleContract {
   invoiceDate      DateTime? @map("invoice_date") @db.Date
   paymentDate      DateTime? @map("payment_date") @db.Date
 
+  // Datas reais dos marcos de status (faturamento/pagamento); podem diferir das
+  // planejadas acima. Preenchidas ao marcar FATURADO/PAGO; limpas ao desfazer.
+  invoicedAt DateTime? @map("invoiced_at") @db.Date
+  paidAt     DateTime? @map("paid_at") @db.Date
+
   // Textos / meta
   observations String?
   description  String?
