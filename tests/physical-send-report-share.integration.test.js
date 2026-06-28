@@ -544,6 +544,52 @@ if (!databaseUrl || !databaseReachable) {
     });
     assert.equal(after.status, 410);
   });
+
+  test('laudo ao vivo: safra gravada fora do cadastro atual nao quebra o QR (200)', async () => {
+    const sampleId = await classifySample(); // declared harvest = '25/26'
+    const sent = await sendPhysical(sampleId, { recipientClientId: null, sentDate: '2026-06-18' });
+    const token = sent.body.share.token;
+
+    // Simula a deriva pos-envio (ex.: liga cuja safra escolhida foi editada/
+    // removida depois): a safra gravada no share deixa de ser uma das safras
+    // atuais. No caminho estrito isso daria 422; o caminho ao vivo e leniente e
+    // preserva a escolha do envio, sem quebrar o QR.
+    await prisma.sampleReportShare.update({ where: { token }, data: { reportedHarvest: '99/00' } });
+
+    const res = await api.servePublicReportShare({
+      headers: {},
+      params: { token },
+      query: {},
+      body: {},
+    });
+    assert.equal(res.status, 200);
+    assert.ok(Buffer.isBuffer(res.body.buffer) && res.body.buffer.length > 0);
+  });
+
+  test('falha de geracao do laudo retorna 500 (nao 404 silencioso)', async () => {
+    const sampleId = await classifySample();
+    const sent = await sendPhysical(sampleId, { recipientClientId: null, sentDate: '2026-06-18' });
+    const token = sent.body.share.token;
+
+    // API com reportService que FALHA ao gerar (reusa o queryService real p/
+    // achar o share; a rota publica nao usa authService).
+    const failingApi = createBackendApiV1({
+      queryService,
+      reportService: {
+        renderReportPdfLive: async () => {
+          throw new Error('boom render');
+        },
+      },
+    });
+
+    const res = await failingApi.servePublicReportShare({
+      headers: {},
+      params: { token },
+      query: {},
+      body: {},
+    });
+    assert.equal(res.status, 500);
+  });
 }
 
 async function canReachDatabase(databaseUrlValue) {

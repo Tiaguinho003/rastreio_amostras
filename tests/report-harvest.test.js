@@ -7,6 +7,7 @@ import {
   SAMPLE_EXPORT_FIELDS_FOR_REPORT,
   buildSelectedExportFieldEntries,
   normalizeReportedHarvest,
+  resolveReportedHarvestLenient,
 } from '../src/reports/export-fields.js';
 
 const is422 = (error) => error instanceof HttpError && error.status === 422;
@@ -146,4 +147,30 @@ test('normalizeReportedHarvest: tolera virgula sem espaco', () => {
 
 test('normalizeReportedHarvest: sem safra declarada retorna null', () => {
   assert.equal(normalizeReportedHarvest(null, null), null);
+});
+
+// --- resolveReportedHarvestLenient (laudo AO VIVO): NUNCA lanca ---
+
+test('resolveReportedHarvestLenient: escolha presente nas opcoes retorna a escolha', () => {
+  assert.equal(resolveReportedHarvestLenient('25/26', '24/25, 25/26'), '25/26');
+});
+
+test('resolveReportedHarvestLenient: escolha FORA das opcoes retorna a escolha (preserva o envio, nao lanca)', () => {
+  // Caso #2: a amostra era liga e a safra escolhida foi editada/removida depois.
+  assert.equal(resolveReportedHarvestLenient('25/26', '24/25'), '25/26');
+  assert.equal(resolveReportedHarvestLenient('99/00', '24/25, 26/27'), '99/00');
+});
+
+test('resolveReportedHarvestLenient: sem escolha + safra unica retorna null (usa o declarado)', () => {
+  assert.equal(resolveReportedHarvestLenient(null, '24/25'), null);
+  assert.equal(resolveReportedHarvestLenient(undefined, '24/25'), null);
+});
+
+test('resolveReportedHarvestLenient: sem escolha + virou liga retorna a 1a safra (anti-vazamento, nao lanca)', () => {
+  assert.equal(resolveReportedHarvestLenient(null, '24/25, 25/26'), '24/25');
+});
+
+test('resolveReportedHarvestLenient: sem escolha + sem safra retorna null', () => {
+  assert.equal(resolveReportedHarvestLenient(null, null), null);
+  assert.equal(resolveReportedHarvestLenient(null, ''), null);
 });
