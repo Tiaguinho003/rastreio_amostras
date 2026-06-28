@@ -470,8 +470,9 @@ class PrismaEventStoreTx {
 
   // Cancelar a venda (decisao hibrida, D45/D58): contrato ainda `EM_ABERTO`
   // (nunca emitido) -> apaga (brokers antes, FK RESTRICT); ja emitido
-  // (`CONFERIR`/`CONFIRMADO`) -> `WASH_OUT` + motivo/data; demais (ou sem
-  // contrato) -> no-op.
+  // (`CONFERIR`/`CONFIRMADO`/`FATURADO`/`PAGO`) -> `WASH_OUT` + motivo/data;
+  // ja `WASH_OUT` (ou sem contrato) -> no-op. Tambem e o caminho da quebra
+  // MANUAL (P17): o `washoutSaleContract` cancela a venda, que cai aqui.
   async washoutOrDeleteSaleContractByMovement(movementId, { reason = null, at = null } = {}) {
     const existing = await this.tx.saleContract.findFirst({
       where: { movementId },
@@ -485,7 +486,14 @@ class PrismaEventStoreTx {
       await this.tx.saleContract.delete({ where: { id: existing.id } });
       return { id: existing.id, action: 'DELETED' };
     }
-    if (existing.status === 'CONFERIR' || existing.status === 'CONFIRMADO') {
+    if (
+      existing.status === 'CONFERIR' ||
+      existing.status === 'CONFIRMADO' ||
+      existing.status === 'FATURADO' ||
+      existing.status === 'PAGO'
+    ) {
+      // FATURADO/PAGO preservam invoicedAt/paidAt — registro do que ocorreu
+      // antes da quebra.
       await this.tx.saleContract.update({
         where: { id: existing.id },
         data: {
@@ -497,7 +505,7 @@ class PrismaEventStoreTx {
       });
       return { id: existing.id, action: 'WASH_OUT' };
     }
-    return null; // ja WASH_OUT/FATURADO/PAGO — nao mexe
+    return null; // ja WASH_OUT — nao mexe
   }
 
   async insertEvent(event) {

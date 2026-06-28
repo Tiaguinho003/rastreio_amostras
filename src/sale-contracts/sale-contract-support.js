@@ -407,6 +407,25 @@ export function normalizeActionDate(value, fieldName = 'date') {
   return requireDate(value, fieldName);
 }
 
+// Motivo da quebra manual (P17). Obrigatorio; espelha o limite do reasonText do
+// cancelamento da venda (normalizeRequiredText(..., 500)) ao qual ele e repassado.
+export function normalizeWashoutReason(value, fieldName = 'reason') {
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new HttpError(422, `${fieldName} is required`, {
+      code: 'VALIDATION_ERROR',
+      field: fieldName,
+    });
+  }
+  const trimmed = value.trim();
+  if (trimmed.length > 500) {
+    throw new HttpError(422, `${fieldName} must have at most 500 characters`, {
+      code: 'VALIDATION_ERROR',
+      field: fieldName,
+    });
+  }
+  return trimmed;
+}
+
 function optionalText(value, fieldName, maxLength) {
   if (value === undefined || value === null) {
     return null;
