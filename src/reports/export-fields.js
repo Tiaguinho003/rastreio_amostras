@@ -344,6 +344,27 @@ export function normalizeReportedHarvest(rawReported, declaredHarvest) {
   return reported && options.includes(reported) ? reported : null;
 }
 
+// Versao LENIENTE da resolucao de safra para o laudo AO VIVO (rota publica do
+// QR): NUNCA lanca, pra um laudo ja entregue ao comprador nunca quebrar quando o
+// cadastro da amostra muda depois do envio.
+// - escolha gravada no envio (rawReported) -> usa como esta, mesmo que nao seja
+//   mais uma das safras atuais (preserva o documento entregue);
+// - sem escolha gravada: safra unica/nenhuma -> null (laudo usa o declarado como
+//   esta); virou liga (multi) -> 1a safra (anti-vazamento: nunca a string
+//   concatenada).
+export function resolveReportedHarvestLenient(rawReported, declaredHarvest) {
+  const reported =
+    rawReported === undefined || rawReported === null ? null : String(rawReported).trim();
+  if (reported) {
+    return reported;
+  }
+  const options = (typeof declaredHarvest === 'string' ? declaredHarvest : '')
+    .split(/\s*,\s*/)
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+  return options.length > 1 ? options[0] : null;
+}
+
 export function buildSelectedExportFieldEntries(detail, selectedFields, options = {}) {
   const { excludeEmpty = false } = options;
   const values = buildFieldValueMap(detail);

@@ -11,6 +11,7 @@ import {
   SAMPLE_EXPORT_FIELDS_FOR_REPORT,
   buildSelectedExportFieldEntries,
   normalizeReportedHarvest,
+  resolveReportedHarvestLenient,
 } from './export-fields.js';
 
 const PDF_PAGE_WIDTH = 595.28;
@@ -788,6 +789,9 @@ export class SamplePdfReportService {
     }
 
     const allowUnclassified = input?.allowUnclassified === true;
+    // Caminho ao vivo (rota publica do QR): leniente na safra — nunca lanca, pra
+    // um laudo ja entregue nao quebrar quando o cadastro muda depois do envio.
+    const lenientHarvest = input?.lenientHarvest === true;
 
     const detail = await this.queryService.getSampleDetail(sampleId, { eventLimit: 1 });
     const isClassified = detail.sample.status === 'CLASSIFIED';
@@ -802,10 +806,12 @@ export class SamplePdfReportService {
     // Liga: resolve a safra que sai no laudo. Em amostra de safra multipla
     // (liga), exige a escolha de UMA safra — o laudo nunca imprime a string
     // concatenada (anti-vazamento). Em safra unica, fica null (usa o declarado).
-    const reportedHarvest = normalizeReportedHarvest(
-      input?.reportedHarvest,
-      detail.sample.declared?.harvest ?? null
-    );
+    // No caminho ao vivo, a resolucao e LENIENTE (preserva a escolha do envio,
+    // nunca lanca); no estrito (export autenticado), valida e lanca 422.
+    const declaredHarvest = detail.sample.declared?.harvest ?? null;
+    const reportedHarvest = lenientHarvest
+      ? resolveReportedHarvestLenient(input?.reportedHarvest, declaredHarvest)
+      : normalizeReportedHarvest(input?.reportedHarvest, declaredHarvest);
 
     // Foto de classificacao: obrigatoria no caminho estrito (CLASSIFIED). No
     // caminho ao vivo, ausente/ilegivel degrada para "sem foto" (renderiza assim
@@ -859,6 +865,10 @@ export class SamplePdfReportService {
       const harvestEntry = selectedFieldEntries.find((entry) => entry.id === 'harvest');
       if (harvestEntry) {
         harvestEntry.value = reportedHarvest;
+      } else if (lenientHarvest) {
+        // Caso extremo (safra removida do cadastro depois do envio): preserva a
+        // escolha do envio mesmo sem entry de safra no estado atual.
+        selectedFieldEntries.push({ id: 'harvest', label: 'Safra', value: reportedHarvest });
       }
     }
     const exportedFields = selectedFieldEntries.map((entry) => entry.id);
@@ -931,7 +941,11 @@ export class SamplePdfReportService {
   // classificar a amostra depois do envio passa a refletir no mesmo QR.
   // allowUnclassified aceita amostra ainda sem classificacao (variante com aviso).
   async renderReportPdfLive(input) {
-    const artifacts = await this._buildReportArtifacts({ ...input, allowUnclassified: true });
+    const artifacts = await this._buildReportArtifacts({
+      ...input,
+      allowUnclassified: true,
+      lenientHarvest: true,
+    });
     return { buffer: artifacts.pdfBuffer, fileName: artifacts.fileName };
   }
 }
