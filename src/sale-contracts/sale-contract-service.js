@@ -10,6 +10,7 @@ import {
   computeContractMoneyWithAgio,
   normalizeActionDate,
   normalizeEtapa2Input,
+  normalizeWashoutReason,
   resolveRevertTarget,
   SALE_CONTRACT_STATUSES,
   SALE_CONTRACT_TYPES,
@@ -415,6 +416,65 @@ export class SaleContractService {
         field: 'expectedVersion',
       });
     }
+
+    return this.getSaleContract(contractId, actorContext);
+  }
+
+  // Quebra MANUAL (P17): CONFERIR/CONFIRMADO/FATURADO/PAGO -> WASH_OUT, cancelando
+  // a venda subjacente (devolve as sacas ao lote) com motivo OBRIGATORIO. Delega
+  // ao cancelSampleMovement, que grava o SALE_CANCELLED e dispara o washout via
+  // washoutOrDeleteSaleContractByMovement na mesma tx. DEFINITIVA (event store
+  // append-only — retomar = nova venda/contrato).
+  async washoutSaleContract(contractId, input, actorContext) {
+    assertAuthenticatedActor(actorContext, 'washout sale contract');
+    assertRoleAllowed(actorContext.role, SALE_CONTRACT_MANAGE_ROLES, 'washout sale contract');
+    this._requireContractId(contractId);
+    const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
+    const reason = normalizeWashoutReason(input?.reason);
+
+    const contract = await this.prisma.saleContract.findUnique({
+      where: { id: contractId },
+      select: { id: true, status: true, version: true, sampleId: true, movementId: true },
+    });
+    if (!contract) {
+      throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
+    }
+    if (!['CONFERIR', 'CONFIRMADO', 'FATURADO', 'PAGO'].includes(contract.status)) {
+      throw new HttpError(409, `Sale contract is ${contract.status} and cannot be washed out`, {
+        code: 'SALE_CONTRACT_NOT_WASHOUTABLE',
+      });
+    }
+    // A vista: a quebra cancela a venda. Futuro (sem movimento) ainda nao tem
+    // backend (D50) -> recusa por ora.
+    if (!contract.movementId || !contract.sampleId) {
+      throw new HttpError(422, 'Sale contract has no linked sale to wash out', {
+        code: 'SALE_CONTRACT_NO_MOVEMENT',
+      });
+    }
+    if (contract.version !== expectedVersion) {
+      throw new HttpError(409, 'Sale contract was modified concurrently', {
+        code: 'SALE_CONTRACT_VERSION_CONFLICT',
+        field: 'expectedVersion',
+      });
+    }
+    if (!this.commandService || !this.queryService) {
+      throw new HttpError(501, 'Sale washout is not configured', {
+        code: 'SALE_WASHOUT_NOT_CONFIGURED',
+      });
+    }
+
+    // Cancela a venda na versao corrente do sample; o cancelamento restaura as
+    // sacas e marca o contrato WASH_OUT (com o motivo) na mesma transacao.
+    const sample = await this.queryService.requireSample(contract.sampleId);
+    await this.commandService.cancelSampleMovement(
+      {
+        sampleId: contract.sampleId,
+        movementId: contract.movementId,
+        reasonText: reason,
+        expectedVersion: sample.version,
+      },
+      actorContext
+    );
 
     return this.getSaleContract(contractId, actorContext);
   }

@@ -2869,6 +2869,23 @@ export function createBackendApiV1({
         return { status: 200, body: result };
       }),
 
+    // Quebra MANUAL (P17): cancela a venda subjacente e marca o contrato WASH_OUT
+    // (motivo obrigatorio). Delega ao cancelSampleMovement no servico.
+    washoutSaleContract: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractService) {
+          throw new HttpError(501, 'Sale contract service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const contractId = input?.params?.contractId;
+        if (typeof contractId !== 'string' || contractId.length === 0) {
+          throw new HttpError(422, 'contractId path param is required');
+        }
+        const body = readRequestBody(input);
+        const result = await saleContractService.washoutSaleContract(contractId, body, actor);
+        return { status: 200, body: result };
+      }),
+
     listContractLookups: (input) =>
       executeApiForInput(input, async () => {
         if (!saleContractService) {
