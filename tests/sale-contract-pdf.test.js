@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { PDFDocument } from 'pdf-lib';
+
 import { getContractIssuer } from '../src/sale-contracts/issuer-config.js';
 import {
   SaleContractPdfService,
@@ -114,6 +116,39 @@ test('formatDocument: CPF e CNPJ', () => {
   assert.equal(formatDocument('12345678901'), '123.456.789-01');
   assert.equal(formatDocument('12345678000199'), '12.345.678/0001-99');
   assert.equal(formatDocument(null), null);
+});
+
+test('renderContractPdf: o documento cabe em UMA página (com todos os campos + armazéns)', async () => {
+  const service = new SaleContractPdfService();
+  const { buffer } = await service.renderContractPdf(
+    fakeContract({
+      buyerWarehouseSnapshot: {
+        displayName: 'Armazém do Comprador S/A',
+        cnpj: '11222333000144',
+        registrationNumber: '111222333',
+        addressLine: 'Cais do Porto, Armazém 7',
+        district: 'Porto',
+        city: 'Santos',
+        state: 'SP',
+        postalCode: '11013000',
+      },
+      sellerWarehouseSnapshot: {
+        displayName: 'Armazém do Vendedor S/A',
+        cnpj: '55666777000122',
+        registrationNumber: '555666777',
+        addressLine: 'Rodovia BR-365, km 12',
+        district: 'Zona Rural',
+        city: 'Patrocínio',
+        state: 'MG',
+        postalCode: '38740000',
+      },
+      observations: 'Observação longa '.repeat(40),
+      description: 'Descrição longa '.repeat(40),
+    }),
+    { lotNumber: '20001', issuer: getContractIssuer() }
+  );
+  const doc = await PDFDocument.load(buffer);
+  assert.equal(doc.getPageCount(), 1);
 });
 
 test('formatCep: 8 dígitos -> #####-###', () => {

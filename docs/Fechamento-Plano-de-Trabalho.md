@@ -1031,3 +1031,26 @@ Três tabelas idênticas (molde lookup), iniciam com os valores: **`ContractPaym
   _(Conteúdo textual do PDF não é asserção viável — pdf-lib não extrai texto; validação visual com o Flávio.)_
   Gates verdes. Commits em `main`, **não pushados**. **Próximo**: próximas alterações de conteúdo do PDF
   (o Flávio trará) — ágio/total impressos (P21/P22), fidelidade ao print, etc.
+
+### 2026-06-28 — Sessão 52 (layout do PDF em 1 página + script de preview)
+
+- **Reformulação do corpo do PDF** + requisito duro de **PÁGINA ÚNICA**. Decisões do Flávio:
+  - **Título "Contrato de Compra e Venda de Café" no corpo** (centralizado), não mais no header verde.
+  - **Linha de identificação horizontal** (4 campos lado a lado): **Nº do contrato · Nº de compra · Nº do
+    lote · Mês/Ano** (sem "Data do contrato").
+  - **Comprador | Armazém do comprador** e **Vendedor | Armazém do vendedor** em **cards com borda**, cada
+    um ocupando **metade** da largura.
+  - **Título e número saíram do header verde** (header fica logo+emissor; **status** segue no topo-direito
+    por ora — redesign do header depois).
+  - **1 página garantida**: blocos de baixo compactados (Corretagem/Valores em faixas, Pagamento em 2
+    colunas) + Observações/Descrição **truncadas**.
+- **Implementação** (`sale-contract-pdf-service.js`, reescrita do layout): helpers `drawCard` (borda +
+  título + linhas, altura determinística), `statRow` (N células horizontais), `twoColFields`,
+  `truncatedParagraph`, `partyRows` (consolida Client+fazenda). **Sem paginação** (`y` só decresce);
+  `fitText` mantém cada campo em 1 linha → altura determinística.
+- **Preview**: `scripts/preview-contract.mjs` (molde do `preview-laudo.mjs`) gera `contrato-preview.pdf`
+  com exemplo rico (comprador PJ + vendedor PF c/ fazenda + 1 armazém + campos vazios). `.gitignore`
+  ganhou `/contrato-preview*.pdf`. Uso: `node scripts/preview-contract.mjs`.
+- **Guard automático**: teste `getPageCount() === 1` com contrato cheio + observações longas (trunca).
+  Validado visualmente (gs→PNG): layout limpo, 1 página. Unit **324**; gates verdes. Commits em `main`,
+  **não pushados**. **Próximo**: header verde (redesign) + próximas levas de layout/fidelidade do Flávio.
