@@ -190,6 +190,23 @@ if (!databaseUrl || !databaseReachable) {
     };
   }
 
+  // Emite + confirma -> contrato CONFIRMADO; devolve refs + a version atual.
+  async function setupConfirmedContract({ lotNumber }) {
+    const refs = await setupEmittableContract({ lotNumber });
+    const lookups = await fetchLookups();
+    const emitted = await saleContractService.emitSaleContract(
+      refs.contractId,
+      etapa2Payload({ bankAccountId: refs.bankAccountId, lookups }),
+      adminActor
+    );
+    const confirmed = await saleContractService.confirmSaleContract(
+      refs.contractId,
+      { expectedVersion: emitted.contract.version },
+      adminActor
+    );
+    return { ...refs, version: confirmed.contract.version };
+  }
+
   async function createClassifiedSample({ id, lotNumber, declaredSacks = 10 }) {
     await eventService.appendEvent(
       registrationConfirmedEvent(id, {
@@ -598,6 +615,178 @@ if (!databaseUrl || !databaseReachable) {
 
     assert.equal(buffer.subarray(0, 5).toString('latin1'), '%PDF-');
     assert.ok(buffer.length > 1500);
+  });
+
+  test('faturar: CONFIRMADO -> FATURADO grava invoicedAt', async () => {
+    const { contractId, version } = await setupConfirmedContract({ lotNumber: '22001' });
+    const r = await saleContractService.invoiceSaleContract(
+      contractId,
+      { expectedVersion: version, date: '2026-07-15' },
+      adminActor
+    );
+    assert.equal(r.contract.status, 'FATURADO');
+    assert.equal(r.contract.invoicedAt?.slice(0, 10), '2026-07-15');
+  });
+
+  test('pagar (apos faturar): FATURADO -> PAGO grava paidAt e preserva invoicedAt', async () => {
+    const { contractId, version } = await setupConfirmedContract({ lotNumber: '22002' });
+    const inv = await saleContractService.invoiceSaleContract(
+      contractId,
+      { expectedVersion: version, date: '2026-07-15' },
+      adminActor
+    );
+    const pay = await saleContractService.paySaleContract(
+      contractId,
+      { expectedVersion: inv.contract.version, date: '2026-07-25' },
+      adminActor
+    );
+    assert.equal(pay.contract.status, 'PAGO');
+    assert.equal(pay.contract.paidAt?.slice(0, 10), '2026-07-25');
+    assert.equal(pay.contract.invoicedAt?.slice(0, 10), '2026-07-15');
+  });
+
+  test('pagar direto (pular faturamento): CONFIRMADO -> PAGO com invoicedAt nulo', async () => {
+    const { contractId, version } = await setupConfirmedContract({ lotNumber: '22003' });
+    const pay = await saleContractService.paySaleContract(
+      contractId,
+      { expectedVersion: version, date: '2026-07-25' },
+      adminActor
+    );
+    assert.equal(pay.contract.status, 'PAGO');
+    assert.equal(pay.contract.paidAt?.slice(0, 10), '2026-07-25');
+    assert.equal(pay.contract.invoicedAt, null);
+  });
+
+  test('desfazer: FATURADO -> CONFIRMADO limpa invoicedAt', async () => {
+    const { contractId, version } = await setupConfirmedContract({ lotNumber: '22004' });
+    const inv = await saleContractService.invoiceSaleContract(
+      contractId,
+      { expectedVersion: version, date: '2026-07-15' },
+      adminActor
+    );
+    const rev = await saleContractService.revertSaleContractStatus(
+      contractId,
+      { expectedVersion: inv.contract.version },
+      adminActor
+    );
+    assert.equal(rev.contract.status, 'CONFIRMADO');
+    assert.equal(rev.contract.invoicedAt, null);
+  });
+
+  test('desfazer: PAGO (com faturamento) -> FATURADO limpa paidAt', async () => {
+    const { contractId, version } = await setupConfirmedContract({ lotNumber: '22005' });
+    const inv = await saleContractService.invoiceSaleContract(
+      contractId,
+      { expectedVersion: version, date: '2026-07-15' },
+      adminActor
+    );
+    const pay = await saleContractService.paySaleContract(
+      contractId,
+      { expectedVersion: inv.contract.version, date: '2026-07-25' },
+      adminActor
+    );
+    const rev = await saleContractService.revertSaleContractStatus(
+      contractId,
+      { expectedVersion: pay.contract.version },
+      adminActor
+    );
+    assert.equal(rev.contract.status, 'FATURADO');
+    assert.equal(rev.contract.paidAt, null);
+    assert.equal(rev.contract.invoicedAt?.slice(0, 10), '2026-07-15');
+  });
+
+  test('desfazer: PAGO (pulou faturamento) -> CONFIRMADO', async () => {
+    const { contractId, version } = await setupConfirmedContract({ lotNumber: '22006' });
+    const pay = await saleContractService.paySaleContract(
+      contractId,
+      { expectedVersion: version, date: '2026-07-25' },
+      adminActor
+    );
+    const rev = await saleContractService.revertSaleContractStatus(
+      contractId,
+      { expectedVersion: pay.contract.version },
+      adminActor
+    );
+    assert.equal(rev.contract.status, 'CONFIRMADO');
+    assert.equal(rev.contract.paidAt, null);
+  });
+
+  test('guards: faturar/pagar de CONFERIR -> 409; desfazer de CONFIRMADO -> 409', async () => {
+    const a = await setupEmittableContract({ lotNumber: '22007' });
+    const lookups = await fetchLookups();
+    const emitted = await saleContractService.emitSaleContract(
+      a.contractId,
+      etapa2Payload({ bankAccountId: a.bankAccountId, lookups }),
+      adminActor
+    );
+    await assert.rejects(
+      () =>
+        saleContractService.invoiceSaleContract(
+          a.contractId,
+          { expectedVersion: emitted.contract.version, date: '2026-07-15' },
+          adminActor
+        ),
+      (err) => err.status === 409
+    );
+    await assert.rejects(
+      () =>
+        saleContractService.paySaleContract(
+          a.contractId,
+          { expectedVersion: emitted.contract.version, date: '2026-07-15' },
+          adminActor
+        ),
+      (err) => err.status === 409
+    );
+
+    const b = await setupConfirmedContract({ lotNumber: '22008' });
+    await assert.rejects(
+      () =>
+        saleContractService.revertSaleContractStatus(
+          b.contractId,
+          { expectedVersion: b.version },
+          adminActor
+        ),
+      (err) => err.status === 409
+    );
+  });
+
+  test('faturar: expectedVersion stale -> 409', async () => {
+    const { contractId } = await setupConfirmedContract({ lotNumber: '22009' });
+    await assert.rejects(
+      () =>
+        saleContractService.invoiceSaleContract(
+          contractId,
+          { expectedVersion: 99, date: '2026-07-15' },
+          adminActor
+        ),
+      (err) => err.status === 409
+    );
+  });
+
+  test('faturar: data invalida -> 422', async () => {
+    const { contractId, version } = await setupConfirmedContract({ lotNumber: '22010' });
+    await assert.rejects(
+      () =>
+        saleContractService.invoiceSaleContract(
+          contractId,
+          { expectedVersion: version, date: 'xx' },
+          adminActor
+        ),
+      (err) => err.status === 422
+    );
+  });
+
+  test('faturar exige ADMIN/CADASTRO (COMMERCIAL 403)', async () => {
+    const { contractId, version } = await setupConfirmedContract({ lotNumber: '22011' });
+    await assert.rejects(
+      () =>
+        saleContractService.invoiceSaleContract(
+          contractId,
+          { expectedVersion: version, date: '2026-07-15' },
+          commercialActor
+        ),
+      (err) => err.status === 403
+    );
   });
 }
 

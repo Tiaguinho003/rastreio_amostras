@@ -11,6 +11,7 @@ import {
   normalizeBrokerIds,
   normalizeEtapa2Input,
   normalizeUnitPrice,
+  resolveRevertTarget,
   toSaleContractView,
 } from '../src/sale-contracts/sale-contract-support.js';
 
@@ -273,4 +274,21 @@ test('normalizeEtapa2Input: ágio exige valor > 0 e tipo válido', () => {
     () => normalizeEtapa2Input({ ...validEtapa2(), agioDesagioType: 'AGIO', agioDesagioValue: 0 }),
     /greater than zero/
   );
+});
+
+test('resolveRevertTarget: FATURADO sempre volta a CONFIRMADO', () => {
+  assert.equal(resolveRevertTarget('FATURADO', true), 'CONFIRMADO');
+  assert.equal(resolveRevertTarget('FATURADO', false), 'CONFIRMADO');
+});
+
+test('resolveRevertTarget: PAGO volta a FATURADO se houve faturamento, senao a CONFIRMADO', () => {
+  assert.equal(resolveRevertTarget('PAGO', true), 'FATURADO');
+  assert.equal(resolveRevertTarget('PAGO', false), 'CONFIRMADO');
+});
+
+test('resolveRevertTarget: status fora do ciclo retorna null', () => {
+  for (const status of ['EM_ABERTO', 'CONFERIR', 'CONFIRMADO', 'WASH_OUT']) {
+    assert.equal(resolveRevertTarget(status, true), null);
+    assert.equal(resolveRevertTarget(status, false), null);
+  }
 });
