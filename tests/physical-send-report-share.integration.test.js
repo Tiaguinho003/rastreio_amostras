@@ -18,16 +18,16 @@ import { SamplePdfReportService } from '../src/reports/sample-pdf-report-service
 import { LocalUploadService } from '../src/uploads/local-upload-service.js';
 import { generateValidCnpj } from './helpers/cnpj-generator.js';
 
-// Etiqueta de Envio — fase 3 (orquestracao do envio com laudo congelado).
+// Etiqueta de Envio — orquestracao do envio com laudo gerado AO VIVO.
 // Exercita o handler recordPhysicalSampleSent via createBackendApiV1 (com
-// reportService real), validando a bifurcacao por status:
-//   - CLASSIFIED  -> evento PHYSICAL_SAMPLE_SENT + SampleReportShare ATOMICOS
-//                    (token 32B, expiracao 30d) + PDF congelado em UPLOADS_DIR
-//                    + job ShippingPrintJob PENDING com qrUrl.
-//   - REGISTRATION_CONFIRMED -> so o evento + job sem qrUrl (sem share/PDF).
-// Tambem cobre multi-destinatario (1 share/PDF/job por envio) e a atomicidade
-// quando o laudo nao pode ser gerado (foto sumida do storage => 409, nada
-// gravado). appendEventBatch+beforeCommit e Postgres-only, entao e integracao.
+// reportService real). A etiqueta e UNIFICADA: TODO envio (classificado ou nao)
+// cria evento PHYSICAL_SAMPLE_SENT + SampleReportShare ATOMICOS (token 32B,
+// expiracao 30d) + job ShippingPrintJob PENDING COM qrUrl. O PDF NAO e congelado
+// (colunas de arquivo do share ficam nulas) — a rota publica /laudo/<token> o
+// gera ao vivo a cada acesso, refletindo o estado ATUAL da amostra (classificar
+// depois do envio aparece no mesmo QR). Cobre tambem multi-destinatario (1
+// share/job por envio). appendEventBatch+beforeCommit e Postgres-only, entao e
+// integracao.
 
 const databaseUrl = process.env.DATABASE_URL;
 const databaseReachable = await canReachDatabase(databaseUrl);
@@ -204,10 +204,9 @@ if (!databaseUrl || !databaseReachable) {
     return sampleId;
   }
 
-  // Cria amostra, anexa foto de classificacao e conclui a classificacao =>
-  // CLASSIFIED (pre-requisito do laudo). Le a version corrente p/ nao assumir.
-  async function classifySample() {
-    const sampleId = await createRegistrationConfirmedSample();
+  // Anexa foto de classificacao e conclui a classificacao de uma amostra que ja
+  // existe => CLASSIFIED. Le a version corrente p/ nao assumir.
+  async function classifyExistingSample(sampleId) {
     await commandService.addClassificationPhoto(
       {
         sampleId,
@@ -243,6 +242,12 @@ if (!databaseUrl || !databaseReachable) {
       },
       actor
     );
+  }
+
+  // Cria amostra + classifica => CLASSIFIED (pre-requisito do laudo completo).
+  async function classifySample() {
+    const sampleId = await createRegistrationConfirmedSample();
+    await classifyExistingSample(sampleId);
     return sampleId;
   }
 
@@ -255,7 +260,7 @@ if (!databaseUrl || !databaseReachable) {
     });
   }
 
-  test('envio de amostra CLASSIFIED gera share + PDF congelado + job com QR (atomico)', async () => {
+  test('envio de amostra CLASSIFIED gera share + job com QR (atomico, sem PDF congelado)', async () => {
     const sampleId = await classifySample();
     const buyer = await createSellerClient('Comprador Alpha LTDA');
 
@@ -286,11 +291,11 @@ if (!databaseUrl || !databaseReachable) {
     const ttlDays = (share.expiresAt.getTime() - share.issuedAt.getTime()) / (24 * 3600 * 1000);
     assert.ok(Math.abs(ttlDays - 30) < 0.01, `expiresAt = +30d (got ${ttlDays}d)`);
 
-    // PDF congelado no storage: tamanho e checksum batem.
-    const pdfBytes = await fs.readFile(path.join(uploadDir, share.storagePath));
-    assert.equal(pdfBytes.length, share.sizeBytes);
-    assert.equal(createHash('sha256').update(pdfBytes).digest('hex'), share.checksumSha256);
-    assert.ok(share.storagePath.startsWith(`samples/${sampleId}/report-shares/`));
+    // Laudo ao vivo: nada congelado em disco — colunas de arquivo nulas.
+    assert.equal(share.storagePath, null);
+    assert.equal(share.fileName, null);
+    assert.equal(share.checksumSha256, null);
+    assert.equal(share.sizeBytes, null);
 
     // 1 job de etiqueta PENDING, com QR.
     const jobs = await prisma.shippingPrintJob.findMany({ where: { status: 'PENDING' } });
@@ -301,21 +306,23 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(jobs[0].payload.recipientName, buyer.client.displayName);
   });
 
-  test('envio de amostra REGISTRATION_CONFIRMED registra so o evento + job sem QR', async () => {
+  test('envio de amostra SEM classificacao tambem gera share + job COM QR', async () => {
     const sampleId = await createRegistrationConfirmedSample();
 
     const res = await sendPhysical(sampleId, { recipientClientId: null, sentDate: '2026-06-18' });
 
     assert.equal(res.status, 201);
-    assert.equal(res.body.share, undefined, 'sem share quando nao classificada');
+    assert.ok(res.body.share, 'etiqueta unificada cria share mesmo sem classificacao');
+    assert.match(res.body.share.token, /^[A-Za-z0-9_-]{43}$/);
+    assert.ok(res.body.qrUrl.endsWith(`/laudo/${res.body.share.token}`));
 
     const shareCount = await prisma.sampleReportShare.count({ where: { sampleId } });
-    assert.equal(shareCount, 0);
+    assert.equal(shareCount, 1);
 
     const jobs = await prisma.shippingPrintJob.findMany({ where: { status: 'PENDING' } });
     assert.equal(jobs.length, 1);
-    assert.equal(jobs[0].payload.token, null, 'etiqueta sem QR');
-    assert.equal(jobs[0].payload.qrUrl, null);
+    assert.equal(jobs[0].payload.token, res.body.share.token, 'etiqueta COM QR');
+    assert.ok(jobs[0].payload.qrUrl.endsWith(`/laudo/${res.body.share.token}`));
     assert.equal(jobs[0].payload.sampleId, sampleId);
 
     const sent = await prisma.sampleEvent.count({
@@ -324,7 +331,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(sent, 1);
   });
 
-  test('envio CLASSIFIED para 2 destinatarios gera 2 shares/PDFs/jobs com tokens distintos', async () => {
+  test('envio CLASSIFIED para 2 destinatarios gera 2 shares/jobs com tokens distintos', async () => {
     const sampleId = await classifySample();
     const b1 = await createSellerClient('Comprador Um LTDA');
     const b2 = await createSellerClient('Comprador Dois LTDA');
@@ -347,16 +354,9 @@ if (!databaseUrl || !databaseReachable) {
 
     const jobs = await prisma.shippingPrintJob.count({ where: { status: 'PENDING' } });
     assert.equal(jobs, 2);
-
-    // 2 PDFs distintos no storage.
-    const paths = new Set(shares.map((s) => s.storagePath));
-    assert.equal(paths.size, 2);
-    for (const s of shares) {
-      await fs.access(path.join(uploadDir, s.storagePath));
-    }
   });
 
-  test('envio CLASSIFIED com foto sumida do storage falha 409 sem gravar nada (atomico)', async () => {
+  test('foto sumida do storage nao bloqueia o envio; a rota publica degrada para sem foto (200)', async () => {
     const sampleId = await classifySample();
 
     // Simula corrupcao de storage: remove o arquivo da foto de classificacao.
@@ -364,17 +364,21 @@ if (!databaseUrl || !databaseReachable) {
     const photo = detail.attachments.find((a) => a.kind === 'CLASSIFICATION_PHOTO');
     await fs.rm(path.join(uploadDir, photo.storagePath), { force: true });
 
+    // O envio nao depende mais da foto (laudo ao vivo): registra normalmente.
     const res = await sendPhysical(sampleId, { recipientClientId: null, sentDate: '2026-06-18' });
+    assert.equal(res.status, 201);
+    assert.ok(res.body.share);
 
-    assert.equal(res.status, 409, 'gera 409 quando o laudo nao pode ser gerado');
-
-    // Nada gravado: sem share, sem evento de envio, sem job.
-    assert.equal(await prisma.sampleReportShare.count({ where: { sampleId } }), 0);
-    assert.equal(
-      await prisma.sampleEvent.count({ where: { sampleId, eventType: 'PHYSICAL_SAMPLE_SENT' } }),
-      0
-    );
-    assert.equal(await prisma.shippingPrintJob.count({}), 0);
+    // A rota publica gera o laudo ao vivo e degrada para "sem foto" em vez de
+    // quebrar — a pagina publica nunca vaza erro interno.
+    const served = await api.servePublicReportShare({
+      headers: {},
+      params: { token: res.body.share.token },
+      query: {},
+      body: {},
+    });
+    assert.equal(served.status, 200);
+    assert.ok(Buffer.isBuffer(served.body.buffer) && served.body.buffer.length > 0);
   });
 
   // ── Rota pública /laudo/<token> (fase 4) ──
@@ -401,9 +405,12 @@ if (!databaseUrl || !databaseReachable) {
     assert.ok(Buffer.isBuffer(res.body.buffer) && res.body.buffer.length > 0);
 
     const share = await prisma.sampleReportShare.findUnique({ where: { token } });
-    assert.equal(res.body.fileName, share.fileName);
-    // O PDF servido é exatamente o congelado (checksum bate).
-    assert.equal(createHash('sha256').update(res.body.buffer).digest('hex'), share.checksumSha256);
+    // Laudo ao vivo: o share nao guarda arquivo; o fileName vem do render.
+    assert.equal(share.fileName, null);
+    assert.ok(
+      typeof res.body.fileName === 'string' && res.body.fileName.endsWith('.pdf'),
+      'fileName do laudo gerado ao vivo'
+    );
 
     // accessCount é incrementado best-effort (fire-and-forget) — aguarda propagar.
     let updated = share;
@@ -413,6 +420,39 @@ if (!databaseUrl || !databaseReachable) {
     }
     assert.equal(updated.accessCount, 1);
     assert.ok(updated.lastAccessedAt);
+  });
+
+  test('laudo ao vivo: envio sem classificacao serve o aviso e passa a refletir a classificacao feita depois', async () => {
+    const sampleId = await createRegistrationConfirmedSample();
+    const sent = await sendPhysical(sampleId, { recipientClientId: null, sentDate: '2026-06-18' });
+    const token = sent.body.share.token;
+
+    // Antes de classificar: o QR ja abre o laudo (variante "nao classificada").
+    const before = await api.servePublicReportShare({
+      headers: {},
+      params: { token },
+      query: {},
+      body: {},
+    });
+    assert.equal(before.status, 200);
+    assert.ok(Buffer.isBuffer(before.body.buffer) && before.body.buffer.length > 0);
+
+    // Classifica a MESMA amostra depois do envio.
+    await classifyExistingSample(sampleId);
+
+    // O mesmo token agora reflete o estado atual: o PDF mudou (laudo completo).
+    const after = await api.servePublicReportShare({
+      headers: {},
+      params: { token },
+      query: {},
+      body: {},
+    });
+    assert.equal(after.status, 200);
+    assert.notEqual(
+      createHash('sha256').update(after.body.buffer).digest('hex'),
+      createHash('sha256').update(before.body.buffer).digest('hex'),
+      'o laudo ao vivo muda quando a amostra e classificada'
+    );
   });
 
   test('rota pública: token inexistente ou malformado retorna 404', async () => {
