@@ -327,7 +327,7 @@ export async function renderSamplePdf({
   // Numero do lote ABAIXO da pilula "Lote Interno" da arte: a pilula nao tem
   // folga interna p/ o numero, mas ha faixa branca logo abaixo dela no cabecalho.
   // Verde, centralizado no eixo da pilula. Coordenadas calibradas no preview.
-  const pillCenterX = PDF_PAGE_WIDTH * 0.62; // centro do texto "Lote Interno" da arte
+  const pillCenterX = PDF_PAGE_WIDTH * 0.685; // centro da pilula "Lote Interno" (medido no render)
   const LOT_NUMBER_SIZE = 14;
   const lotNumberBaselineY = PDF_PAGE_HEIGHT - headerHeight * 0.92; // abaixo da pilula
   const lotW = fontBold.widthOfTextAtSize(lotNumber, LOT_NUMBER_SIZE);
