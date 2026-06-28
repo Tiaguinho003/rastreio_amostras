@@ -36,6 +36,9 @@ rootCA.pem
 # Fichas PDF geradas via `npm run generate:fichas` (nao versionado)
 /ficha-*.pdf
 
+# Preview do laudo (scripts/preview-laudo.mjs) — artefato local
+/laudo-preview*.pdf
+
 # Cache local de outras ferramentas
 .codex
 
