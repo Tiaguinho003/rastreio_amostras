@@ -388,6 +388,8 @@ export interface SaleContract {
   packagingText: string | null;
   invoiceDate: string | null;
   paymentDate: string | null;
+  invoicedAt: string | null;
+  paidAt: string | null;
   observations: string | null;
   description: string | null;
   version: number;

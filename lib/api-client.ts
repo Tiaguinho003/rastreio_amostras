@@ -848,6 +848,44 @@ export function confirmSaleContract(
   });
 }
 
+// Fechamento (Fase B): ciclo pos-CONFIRMADO. "Faturar" e "Pagar" gravam a data
+// real (YYYY-MM-DD); "Desfazer" (revert) volta um passo. Gestao = ADMIN+CADASTRO.
+export function invoiceSaleContract(
+  session: SessionData,
+  contractId: string,
+  data: { expectedVersion: number; date: string }
+) {
+  return request<SaleContractResponse>(`/sale-contracts/${contractId}/invoice`, {
+    method: 'POST',
+    session,
+    body: data,
+  });
+}
+
+export function paySaleContract(
+  session: SessionData,
+  contractId: string,
+  data: { expectedVersion: number; date: string }
+) {
+  return request<SaleContractResponse>(`/sale-contracts/${contractId}/pay`, {
+    method: 'POST',
+    session,
+    body: data,
+  });
+}
+
+export function revertSaleContractStatus(
+  session: SessionData,
+  contractId: string,
+  data: { expectedVersion: number }
+) {
+  return request<SaleContractResponse>(`/sale-contracts/${contractId}/revert-status`, {
+    method: 'POST',
+    session,
+    body: data,
+  });
+}
+
 export function listContractLookups(session: SessionData, options: { signal?: AbortSignal } = {}) {
   return request<ContractLookupsResponse>('/contract-lookups', {
     method: 'GET',

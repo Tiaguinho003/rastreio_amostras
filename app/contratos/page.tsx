@@ -8,6 +8,10 @@ import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { SaleContractCard } from '../../components/contracts/SaleContractCard';
 import { SaleContractConfirmDialog } from '../../components/contracts/SaleContractConfirmDialog';
 import { SaleContractEtapa2Modal } from '../../components/contracts/SaleContractEtapa2Modal';
+import {
+  SaleContractLifecycleDialog,
+  type LifecycleAction,
+} from '../../components/contracts/SaleContractLifecycleDialog';
 import { ApiError, downloadSaleContractPdf, listSaleContracts } from '../../lib/api-client';
 import { shareOrDownloadFile } from '../../lib/share-blob';
 import { useRequireAuth } from '../../lib/use-auth';
@@ -21,6 +25,8 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: 'EM_ABERTO', label: 'Em aberto' },
   { value: 'CONFERIR', label: 'Conferir' },
   { value: 'CONFIRMADO', label: 'Confirmado' },
+  { value: 'FATURADO', label: 'Faturado' },
+  { value: 'PAGO', label: 'Pago' },
   { value: 'WASH_OUT', label: 'Quebrado' },
 ];
 
@@ -40,6 +46,13 @@ export default function ContratosPage() {
     contractId: string;
     expectedVersion: number;
     contractNumber: string;
+  } | null>(null);
+  const [lifecycle, setLifecycle] = useState<{
+    contractId: string;
+    expectedVersion: number;
+    contractNumber: string;
+    action: LifecycleAction;
+    status: SaleContractStatus;
   } | null>(null);
 
   const refresh = useCallback(async () => {
@@ -186,24 +199,37 @@ export default function ContratosPage() {
               </div>
             ) : (
               <div className="ctr-list">
-                {visible.map((contract) => (
-                  <SaleContractCard
-                    key={contract.id}
-                    contract={contract}
-                    onGerar={() => setEtapa2({ contractId: contract.id, mode: 'emit' })}
-                    onEditar={() => setEtapa2({ contractId: contract.id, mode: 'emit' })}
-                    onRevisar={() => setEtapa2({ contractId: contract.id, mode: 'view' })}
-                    onVer={() => setEtapa2({ contractId: contract.id, mode: 'view' })}
-                    onBaixarPdf={() => void handleBaixarPdf(contract)}
-                    onConfirmar={() =>
-                      setConfirmTarget({
-                        contractId: contract.id,
-                        expectedVersion: contract.version,
-                        contractNumber: contract.contractNumber,
-                      })
-                    }
-                  />
-                ))}
+                {visible.map((contract) => {
+                  const openLifecycle = (action: LifecycleAction) =>
+                    setLifecycle({
+                      contractId: contract.id,
+                      expectedVersion: contract.version,
+                      contractNumber: contract.contractNumber,
+                      action,
+                      status: contract.status,
+                    });
+                  return (
+                    <SaleContractCard
+                      key={contract.id}
+                      contract={contract}
+                      onGerar={() => setEtapa2({ contractId: contract.id, mode: 'emit' })}
+                      onEditar={() => setEtapa2({ contractId: contract.id, mode: 'emit' })}
+                      onRevisar={() => setEtapa2({ contractId: contract.id, mode: 'view' })}
+                      onVer={() => setEtapa2({ contractId: contract.id, mode: 'view' })}
+                      onBaixarPdf={() => void handleBaixarPdf(contract)}
+                      onFaturar={() => openLifecycle('invoice')}
+                      onPagar={() => openLifecycle('pay')}
+                      onReverter={() => openLifecycle('revert')}
+                      onConfirmar={() =>
+                        setConfirmTarget({
+                          contractId: contract.id,
+                          expectedVersion: contract.version,
+                          contractNumber: contract.contractNumber,
+                        })
+                      }
+                    />
+                  );
+                })}
               </div>
             )}
           </div>
@@ -235,6 +261,32 @@ export default function ContratosPage() {
             setConfirmTarget(null);
             void refresh();
             toast.success({ title: 'Contrato confirmado' });
+          }}
+        />
+      ) : null}
+
+      {lifecycle ? (
+        <SaleContractLifecycleDialog
+          session={session}
+          contractId={lifecycle.contractId}
+          expectedVersion={lifecycle.expectedVersion}
+          contractNumber={lifecycle.contractNumber}
+          action={lifecycle.action}
+          currentStatus={lifecycle.status}
+          onClose={() => setLifecycle(null)}
+          onDone={() => {
+            const { action, status } = lifecycle;
+            setLifecycle(null);
+            void refresh();
+            const title =
+              action === 'invoice'
+                ? 'Contrato faturado'
+                : action === 'pay'
+                  ? 'Pagamento registrado'
+                  : status === 'PAGO'
+                    ? 'Pagamento desfeito'
+                    : 'Faturamento desfeito';
+            toast.success({ title });
           }}
         />
       ) : null}

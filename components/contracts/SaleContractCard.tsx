@@ -35,6 +35,9 @@ type SaleContractCardProps = {
   onRevisar: () => void;
   onEditar: () => void;
   onConfirmar: () => void;
+  onFaturar: () => void;
+  onPagar: () => void;
+  onReverter: () => void;
   onVer: () => void;
   onBaixarPdf: () => void;
 };
@@ -45,6 +48,9 @@ export function SaleContractCard({
   onRevisar,
   onEditar,
   onConfirmar,
+  onFaturar,
+  onPagar,
+  onReverter,
   onVer,
   onBaixarPdf,
 }: SaleContractCardProps) {
@@ -98,6 +104,31 @@ export function SaleContractCard({
               Confirmar
             </button>
           </>
+        ) : null}
+        {contract.status === 'CONFIRMADO' ? (
+          <>
+            <button type="button" className="ctr-btn ctr-btn-primary" onClick={onFaturar}>
+              Faturar
+            </button>
+            <button type="button" className="ctr-btn" onClick={onPagar}>
+              Pagar
+            </button>
+          </>
+        ) : null}
+        {contract.status === 'FATURADO' ? (
+          <>
+            <button type="button" className="ctr-btn ctr-btn-primary" onClick={onPagar}>
+              Pagar
+            </button>
+            <button type="button" className="ctr-btn" onClick={onReverter}>
+              Desfazer faturamento
+            </button>
+          </>
+        ) : null}
+        {contract.status === 'PAGO' ? (
+          <button type="button" className="ctr-btn" onClick={onReverter}>
+            Desfazer pagamento
+          </button>
         ) : null}
         {isTerminalView ? (
           <button type="button" className="ctr-btn" onClick={onVer}>
