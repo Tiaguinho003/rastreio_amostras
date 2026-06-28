@@ -11,6 +11,7 @@ import {
   normalizeBrokerIds,
   normalizeEtapa2Input,
   normalizeUnitPrice,
+  normalizeWashoutReason,
   resolveRevertTarget,
   toSaleContractView,
 } from '../src/sale-contracts/sale-contract-support.js';
@@ -291,4 +292,12 @@ test('resolveRevertTarget: status fora do ciclo retorna null', () => {
     assert.equal(resolveRevertTarget(status, true), null);
     assert.equal(resolveRevertTarget(status, false), null);
   }
+});
+
+test('normalizeWashoutReason: exige texto, faz trim e limita a 500', () => {
+  assert.equal(normalizeWashoutReason('  Comprador desistiu  '), 'Comprador desistiu');
+  assert.throws(() => normalizeWashoutReason(''), /required/);
+  assert.throws(() => normalizeWashoutReason('   '), /required/);
+  assert.throws(() => normalizeWashoutReason(undefined), /required/);
+  assert.throws(() => normalizeWashoutReason('x'.repeat(501)), /at most 500/);
 });

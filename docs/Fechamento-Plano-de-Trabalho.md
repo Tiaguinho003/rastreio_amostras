@@ -390,16 +390,16 @@ Três tabelas idênticas (molde lookup), iniciam com os valores: **`ContractPaym
 
 ## Pendências (restantes)
 
-| #   | Pendência                      | O que falta decidir                                                                                                                                                                 |
-| --- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| P2  | Comportamento por campo        | Origem (auto/manual), obrigatoriedade, validação de cada campo. Em revisão **campo a campo por fase do fluxo** (Etapa 1 ✅; Etapa 2 a fazer) — ver seção própria.                   |
-| P16 | Modelagem do Futuro (sem lote) | **✅ Resolvida pela D51** — Futuro = 100% no `SaleContract` (`sampleId`/`movementId` nulos + `type`); à vista vincula o movimento (1:1).                                            |
-| P17 | Acionamento do `WASH_OUT`      | Como/quando entra a quebra (manual? terminal? de qualquer status?) e relação com "cancelar a venda" (D45).                                                                          |
-| P21 | Botões de ágio/deságio no card | Como funcionam os **botões de ágio/deságio** no card (D18): % ou R$, em qual status, recalcular o total.                                                                            |
-| P20 | Editar etapa 1 no contrato     | Editar a etapa 1 **reflete na venda/lote** (D52, decidido). Falta o **mecanismo** de alterar o `SampleMovement` append-only (evento de correção? recalcular `soldSacks`?) — Fase B. |
-| P22 | Onde exibir o valor total      | O total é **calculado e salvo** (não no modal/PDF); **onde** será apresentado — a decidir (D18).                                                                                    |
+| #   | Pendência                      | O que falta decidir                                                                                                                                                                                                                                                                                        |
+| --- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P2  | Comportamento por campo        | Origem (auto/manual), obrigatoriedade, validação de cada campo. Em revisão **campo a campo por fase do fluxo** (Etapa 1 ✅; Etapa 2 a fazer) — ver seção própria.                                                                                                                                          |
+| P16 | Modelagem do Futuro (sem lote) | **✅ Resolvida pela D51** — Futuro = 100% no `SaleContract` (`sampleId`/`movementId` nulos + `type`); à vista vincula o movimento (1:1).                                                                                                                                                                   |
+| P17 | Acionamento do `WASH_OUT`      | **✅ Resolvida (S50)**: botão **"Quebrar"** na página de Contratos, de **CONFERIR/CONFIRMADO/FATURADO/PAGO** (não EM_ABERTO), **motivo obrigatório**, **definitiva**. A quebra **cancela a venda** (devolve as sacas ao lote) — delega ao `cancelSampleMovement`; o washout passou a cobrir FATURADO/PAGO. |
+| P21 | Botões de ágio/deságio no card | Como funcionam os **botões de ágio/deságio** no card (D18): % ou R$, em qual status, recalcular o total.                                                                                                                                                                                                   |
+| P20 | Editar etapa 1 no contrato     | Editar a etapa 1 **reflete na venda/lote** (D52, decidido). Falta o **mecanismo** de alterar o `SampleMovement` append-only (evento de correção? recalcular `soldSacks`?) — Fase B.                                                                                                                        |
+| P22 | Onde exibir o valor total      | O total é **calculado e salvo** (não no modal/PDF); **onde** será apresentado — a decidir (D18).                                                                                                                                                                                                           |
 
-**Resolvidas**: P1→D12/D13 · P3→D20 · P4→D17/18/19 · P5→D21 · P6→D29 · P7→D30 · P8→D31 · P9→D22/D23 · P12→D11 · P13→D14 · P14→D28 · P15→D26 · banco→D24 · P10→D32 · P11→D33 · P19→D47 · P16→D51. **Abertas**: P2 (campo a campo) · P17 (acionamento `WASH_OUT`) · P20 (mecanismo editar venda) · P21 (botões ágio/deságio) · P22 (exibir total). _(P18 resolvida: peso → etapa 2; ágio → P21.)_
+**Resolvidas**: P1→D12/D13 · P3→D20 · P4→D17/18/19 · P5→D21 · P6→D29 · P7→D30 · P8→D31 · P9→D22/D23 · P12→D11 · P13→D14 · P14→D28 · P15→D26 · banco→D24 · P10→D32 · P11→D33 · P19→D47 · P16→D51 · P17→S50 (quebra manual). **Abertas**: P2 (campo a campo) · P20 (mecanismo editar venda) · P21 (botões ágio/deságio) · P22 (exibir total). _(P18 resolvida: peso → etapa 2; ágio → P21.)_
 
 **Entrada pendente**: o **CNPJ** (e demais dados) da empresa emissora — Flavio fornece para a Fase A (D29).
 
@@ -978,3 +978,28 @@ Três tabelas idênticas (molde lookup), iniciam com os valores: **`ContractPaym
 - **Fora de escopo (Passo 2 / P17)**: cancelar a venda quando `FATURADO`/`PAGO` segue **no-op**
   (`washoutOrDeleteSaleContractByMovement` só age em `EM_ABERTO`/`CONFERIR`/`CONFIRMADO`); o PDF **não**
   imprime `invoicedAt`/`paidAt`. Commits em `main`, **não pushados**.
+
+### 2026-06-28 — Sessão 50 (quebra manual do contrato — P17)
+
+- **Passo 2: acionamento manual do `WASH_OUT`** (resolve **P17**). Decisões do Flavio: quebra a partir
+  de **CONFERIR/CONFIRMADO/FATURADO/PAGO** (não EM_ABERTO); **cancela a venda** (devolve as sacas ao
+  lote); **motivo obrigatório**; **definitiva** (o conflito "cancela a venda + reversível" foi resolvido:
+  `SALE_CANCELLED` é append-only → não dá pra desfazer; retomar = nova venda/contrato).
+- **Arquitetura**: a quebra **delega ao `cancelSampleMovement`** (já grava `SALE_CANCELLED`, restaura
+  `soldSacks`, trata liga/cascata e dispara o washout). **Sem migration** (reusa `washoutReason`/`washoutAt`).
+- **Mudança-chave (resolve a ponta solta do Passo 1)**: `washoutOrDeleteSaleContractByMovement` agora
+  marca **FATURADO/PAGO → WASH_OUT** (antes no-op) — vale para a quebra manual **e** para cancelar a
+  venda pelo lote. `invoicedAt`/`paidAt` são preservados no contrato quebrado.
+- **Backend**: `washoutSaleContract` no `SaleContractService` (gate ADMIN+CADASTRO; guards
+  status/movementId/version; resolve o sample e chama `cancelSampleMovement`); `normalizeWashoutReason`
+  (obrigatório, ≤500) no support; handler no `backend-api.js`; rota POST `/sale-contracts/[id]/washout`.
+- **Frontend**: `washoutSaleContract` no api-client; botão **"Quebrar"** (danger) no card (4 status);
+  ação `washout` no `SaleContractLifecycleDialog` (textarea de motivo + aviso "cancela a venda… ação
+  definitiva"); wiring na página + toast; `.ctr-btn-danger`/`.ctr-modal-danger` no globals.css.
+- **Testes**: integração +10 (quebra de CONFERIR/CONFIRMADO/FATURADO/PAGO; sacas restauradas + venda
+  CANCELLED; guardas EM_ABERTO→409, já-WASH_OUT→409, motivo vazio→422, stale→409, COMMERCIAL→403;
+  cancelar venda de PAGO pelo lote→WASH_OUT) = **36/36** no arquivo de contrato; unit
+  `normalizeWashoutReason` (unit **321**). Gates verdes.
+- **Fora de escopo**: contrato **Futuro** (sem movimento) — a quebra por cascata não se aplica (guard
+  exige `movementId`); quando o Futuro tiver backend (D50) precisará de um WASH_OUT direto próprio.
+  Commits em `main`, **não pushados**.

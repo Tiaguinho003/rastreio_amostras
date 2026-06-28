@@ -788,6 +788,171 @@ if (!databaseUrl || !databaseReachable) {
       (err) => err.status === 403
     );
   });
+
+  test('quebra manual: CONFIRMADO -> WASH_OUT, cancela a venda e restaura as sacas', async () => {
+    const { contractId, sampleId, version } = await setupConfirmedContract({ lotNumber: '23001' });
+    const before = await prisma.sample.findUnique({
+      where: { id: sampleId },
+      select: { soldSacks: true },
+    });
+    assert.equal(before.soldSacks, 10);
+
+    const r = await saleContractService.washoutSaleContract(
+      contractId,
+      { expectedVersion: version, reason: 'Comprador desistiu' },
+      adminActor
+    );
+    assert.equal(r.contract.status, 'WASH_OUT');
+    assert.equal(r.contract.washoutReason, 'Comprador desistiu');
+    assert.ok(r.contract.washoutAt);
+
+    const movement = await prisma.sampleMovement.findFirst({ where: { sampleId } });
+    assert.equal(movement.status, 'CANCELLED');
+    const after = await prisma.sample.findUnique({
+      where: { id: sampleId },
+      select: { soldSacks: true },
+    });
+    assert.equal(after.soldSacks, 0);
+  });
+
+  test('quebra manual: a partir de FATURADO -> WASH_OUT', async () => {
+    const { contractId, version } = await setupConfirmedContract({ lotNumber: '23002' });
+    const inv = await saleContractService.invoiceSaleContract(
+      contractId,
+      { expectedVersion: version, date: '2026-07-15' },
+      adminActor
+    );
+    const r = await saleContractService.washoutSaleContract(
+      contractId,
+      { expectedVersion: inv.contract.version, reason: 'Quebra apos faturar' },
+      adminActor
+    );
+    assert.equal(r.contract.status, 'WASH_OUT');
+  });
+
+  test('quebra manual: a partir de PAGO -> WASH_OUT', async () => {
+    const { contractId, version } = await setupConfirmedContract({ lotNumber: '23003' });
+    const pay = await saleContractService.paySaleContract(
+      contractId,
+      { expectedVersion: version, date: '2026-07-25' },
+      adminActor
+    );
+    const r = await saleContractService.washoutSaleContract(
+      contractId,
+      { expectedVersion: pay.contract.version, reason: 'Quebra apos pagar' },
+      adminActor
+    );
+    assert.equal(r.contract.status, 'WASH_OUT');
+  });
+
+  test('quebra manual: a partir de CONFERIR -> WASH_OUT', async () => {
+    const { contractId, bankAccountId } = await setupEmittableContract({ lotNumber: '23004' });
+    const lookups = await fetchLookups();
+    const emitted = await saleContractService.emitSaleContract(
+      contractId,
+      etapa2Payload({ bankAccountId, lookups }),
+      adminActor
+    );
+    const r = await saleContractService.washoutSaleContract(
+      contractId,
+      { expectedVersion: emitted.contract.version, reason: 'Quebra em conferencia' },
+      adminActor
+    );
+    assert.equal(r.contract.status, 'WASH_OUT');
+  });
+
+  test('quebra manual: EM_ABERTO -> 409 (usar cancelar a venda)', async () => {
+    const { contractId } = await setupEmittableContract({ lotNumber: '23005' });
+    await assert.rejects(
+      () =>
+        saleContractService.washoutSaleContract(
+          contractId,
+          { expectedVersion: 0, reason: 'qualquer' },
+          adminActor
+        ),
+      (err) => err.status === 409
+    );
+  });
+
+  test('quebra manual: contrato ja WASH_OUT -> 409', async () => {
+    const { contractId, version } = await setupConfirmedContract({ lotNumber: '23006' });
+    const r = await saleContractService.washoutSaleContract(
+      contractId,
+      { expectedVersion: version, reason: 'Primeira quebra' },
+      adminActor
+    );
+    await assert.rejects(
+      () =>
+        saleContractService.washoutSaleContract(
+          contractId,
+          { expectedVersion: r.contract.version, reason: 'De novo' },
+          adminActor
+        ),
+      (err) => err.status === 409
+    );
+  });
+
+  test('quebra manual: motivo vazio -> 422', async () => {
+    const { contractId, version } = await setupConfirmedContract({ lotNumber: '23007' });
+    await assert.rejects(
+      () =>
+        saleContractService.washoutSaleContract(
+          contractId,
+          { expectedVersion: version, reason: '   ' },
+          adminActor
+        ),
+      (err) => err.status === 422
+    );
+  });
+
+  test('quebra manual: expectedVersion stale -> 409', async () => {
+    const { contractId } = await setupConfirmedContract({ lotNumber: '23008' });
+    await assert.rejects(
+      () =>
+        saleContractService.washoutSaleContract(
+          contractId,
+          { expectedVersion: 99, reason: 'qualquer' },
+          adminActor
+        ),
+      (err) => err.status === 409
+    );
+  });
+
+  test('quebra manual exige ADMIN/CADASTRO (COMMERCIAL 403)', async () => {
+    const { contractId, version } = await setupConfirmedContract({ lotNumber: '23009' });
+    await assert.rejects(
+      () =>
+        saleContractService.washoutSaleContract(
+          contractId,
+          { expectedVersion: version, reason: 'qualquer' },
+          commercialActor
+        ),
+      (err) => err.status === 403
+    );
+  });
+
+  test('lote: cancelar a venda de contrato PAGO -> WASH_OUT (extensao)', async () => {
+    const { contractId, sampleId, version } = await setupConfirmedContract({ lotNumber: '23010' });
+    await saleContractService.paySaleContract(
+      contractId,
+      { expectedVersion: version, date: '2026-07-25' },
+      adminActor
+    );
+    const movement = await prisma.sampleMovement.findFirst({ where: { sampleId } });
+    const sample = await queryService.requireSample(sampleId);
+    await commandService.cancelSampleMovement(
+      {
+        sampleId,
+        movementId: movement.id,
+        reasonText: 'Cancelada pelo lote',
+        expectedVersion: sample.version,
+      },
+      commercialActor
+    );
+    const contract = await prisma.saleContract.findUnique({ where: { id: contractId } });
+    assert.equal(contract.status, 'WASH_OUT');
+    assert.equal(contract.washoutReason, 'Cancelada pelo lote');
+  });
 }
 
 async function canReachDatabase(databaseUrlValue) {
