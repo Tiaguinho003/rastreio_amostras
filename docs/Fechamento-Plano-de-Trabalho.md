@@ -224,7 +224,7 @@ cada campo é anotado conforme revisamos.
 
 - **Número do Contrato** — auto, sequencial `NNNN/AA`, gerado ao salvar, não editável (D15)
 - **Status do Contrato** — manual, default `EM_ABERTO`; `EM_ABERTO/CONFERIR/CONFIRMADO/FATURADO/PAGO` + **`WASH_OUT`** (quebra, D45); `EM_ABERTO` = incompleto → **Emitir** → `CONFERIR` → **Confirmar** → `CONFIRMADO` (D14/D46/D47)
-- **Tipo de contrato** — `Mercado à vista / Futuro` (CPR removido, S37), **enum fixo** (não cadastrável); escolhido ao criar e define o fluxo. **Ambos geram o Fechamento** (D42, substitui D37)
+- **Tipo de contrato** — `Mercado à vista / Futuro` (CPR removido, S37), **enum fixo** (não cadastrável); escolhido ao criar e define o fluxo. **Ambos geram o Fechamento** (D42, substitui D37). **NÃO é impresso no documento (S51)** — fica só na gestão/listagem.
 - **Data do Contrato** — default = data da venda (`movementDate`), **editável**
 - **Número de Compra** — manual, livre, **opcional** (D16)
 - **Número do Lote** — `internalLotNumber` da amostra (auto, não editável)
@@ -233,26 +233,29 @@ cada campo é anotado conforme revisamos.
 ### B2 — Comprador ✅ campos _(funcionalidades específicas depois)_
 
 - **Comprador** — Cliente da venda (D12), snapshot congelado.
-- **Campos exibidos no contrato**: Nome/Razão social · CPF/CNPJ · Inscrição Estadual · Endereço · Cidade/UF.
+- **Campos exibidos no contrato (S51)**, nesta ordem: **Nome · CNPJ · IE · Endereço · Bairro · Cidade/UF · Número · CEP**. **Sem rótulo "Filial".**
+- **Consolidação PJ×PF (S51)**: cada campo vem do `Client`; se vazio (caso **PF**), cai na **fazenda** (`ClientUnit`) escolhida. Em PF, **CNPJ + IE são os da fazenda** (não exibe o CPF da pessoa).
+- **"Número" (S51)**: não há campo próprio no cadastro — o número fica dentro de "Endereço"; a linha "Número" aparece **sempre presente, porém vazia (—)** até criarmos o campo.
+- **Campo sempre presente (S51)**: todos os campos aparecem **mesmo vazios** (— quando sem dado) — vale para o **documento inteiro**.
 - **Telefone e e-mail NÃO entram** no contrato (existem no snapshot, mas não são impressos).
 - _Comportamento específico (editável? etc.) — a definir depois._
 
 ### B3 — Armazém do comprador ✅ campos
 
 - **Armazém do comprador** — lookup **amplo** (todos os clientes); selecionar não-armazém **liga `isWarehouse`** (D26/D49), snapshot. **Opcional.**
-- **Campos exibidos = os mesmos do comprador**: Nome/Razão social · CPF/CNPJ · Inscrição Estadual · Endereço · Cidade/UF (sem telefone/e-mail).
+- **Campos exibidos = os mesmos do comprador (S51, ver B2)**: Nome · CNPJ · IE · Endereço · Bairro · Cidade/UF · Número(—) · CEP (sem telefone/e-mail). _(Armazém PF: endereço viria da fazenda, mas o snapshot do armazém é só do Client — limitação anotada, armazéns costumam ser PJ.)_
 - _Comportamento específico (obrigatório? editável?) — depois._
 
 ### B4 — Vendedor ✅ campos
 
 - **Vendedor** — `ownerClient` do lote (D12), snapshot.
-- **Campos exibidos = os mesmos do comprador**: Nome/Razão social · CPF/CNPJ · Inscrição Estadual · Endereço · Cidade/UF (sem telefone/e-mail).
+- **Campos exibidos = os mesmos do comprador (S51, ver B2)**: Nome · CNPJ · IE · Endereço · Bairro · Cidade/UF · Número(—) · CEP (sem telefone/e-mail). _(Armazém PF: endereço viria da fazenda, mas o snapshot do armazém é só do Client — limitação anotada, armazéns costumam ser PJ.)_
 - _Comportamento específico (editável conforme D12, etc.) — depois._
 
 ### B5 — Armazém do vendedor ✅ campos
 
 - **Armazém do vendedor** — lookup **amplo** (todos os clientes); selecionar não-armazém **liga `isWarehouse`** (D26/D49), snapshot. **Opcional.**
-- **Campos exibidos = os mesmos do comprador**: Nome/Razão social · CPF/CNPJ · Inscrição Estadual · Endereço · Cidade/UF (sem telefone/e-mail).
+- **Campos exibidos = os mesmos do comprador (S51, ver B2)**: Nome · CNPJ · IE · Endereço · Bairro · Cidade/UF · Número(—) · CEP (sem telefone/e-mail). _(Armazém PF: endereço viria da fazenda, mas o snapshot do armazém é só do Client — limitação anotada, armazéns costumam ser PJ.)_
 - _Comportamento específico — depois._
 
 ### B6 — Corretagem ✅ campos
@@ -1003,3 +1006,28 @@ Três tabelas idênticas (molde lookup), iniciam com os valores: **`ContractPaym
 - **Fora de escopo**: contrato **Futuro** (sem movimento) — a quebra por cascata não se aplica (guard
   exige `movementId`); quando o Futuro tiver backend (D50) precisará de um WASH_OUT direto próprio.
   Commits em `main`, **não pushados**.
+
+### 2026-06-28 — Sessão 51 (conteúdo do PDF: partes/armazéns + campos sempre presentes)
+
+- Início do refino do **conteúdo do PDF** do Mercado à vista (haverá mais). Decisões do Flávio:
+  - **Identificação**: **"Tipo" removido** do documento (fica só na gestão).
+  - **Comprador/Vendedor/Armazéns**: **sem rótulo "Filial"**; campos nesta ordem — **Nome · CNPJ · IE ·
+    Endereço · Bairro · Cidade/UF · Número · CEP**.
+  - **PF**: dados fiscais/endereço **consolidados da fazenda** (`ClientUnit`) — em PF, **CNPJ + IE da
+    fazenda** (sem CPF); PJ vem do `Client`. (Fallback `Client.X ?? unit.X`.)
+  - **"Número"**: **não** criar campo no cadastro agora — o número fica no `addressLine`; a linha
+    "Número" aparece sempre, porém **vazia (—)**.
+  - **Cidade/UF**: manter o UF.
+  - **Campo sempre presente**: **documento inteiro** — nenhum campo é ocultado por estar vazio (— quando
+    sem dado); `field()`/`paragraph()` passaram a renderizar sempre.
+- **Implementação**: `sale-contract-pdf-service.js` — `field()`/`paragraph()` sempre presentes; B1 sem
+  "Tipo"; `party()` reescrita (consolida Client+fazenda, 8 campos, sem "Filial") usada p/ partes **e**
+  armazéns; banco do vendedor sempre presente; helper `formatCep`; removidos `TYPE_LABELS`/`snapshotAddress`
+  órfãos. `sale-contract-support.js` — `buildWarehouseSnapshot` ganhou `registrationNumber` (IE).
+- **Sem migration/cadastro** (decisão do "Número"). Snapshots de partes já tinham todos os campos; o de
+  armazém só ganha IE ao re-emitir (congelado). **Limitação**: armazém **PF** ficaria sem endereço (snapshot
+  do armazém é só do Client) — armazéns costumam ser PJ; deferido.
+- **Testes**: unit do `formatCep` + render de parte **PF** (fallback da fazenda) → `%PDF`; unit **323**.
+  _(Conteúdo textual do PDF não é asserção viável — pdf-lib não extrai texto; validação visual com o Flávio.)_
+  Gates verdes. Commits em `main`, **não pushados**. **Próximo**: próximas alterações de conteúdo do PDF
+  (o Flávio trará) — ágio/total impressos (P21/P22), fidelidade ao print, etc.

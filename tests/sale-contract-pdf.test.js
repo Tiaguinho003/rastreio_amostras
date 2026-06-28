@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import { getContractIssuer } from '../src/sale-contracts/issuer-config.js';
 import {
   SaleContractPdfService,
+  formatCep,
   formatCurrencyBRL,
   formatDateBR,
   formatDocument,
@@ -113,4 +114,43 @@ test('formatDocument: CPF e CNPJ', () => {
   assert.equal(formatDocument('12345678901'), '123.456.789-01');
   assert.equal(formatDocument('12345678000199'), '12.345.678/0001-99');
   assert.equal(formatDocument(null), null);
+});
+
+test('formatCep: 8 dígitos -> #####-###', () => {
+  assert.equal(formatCep('37800000'), '37800-000');
+  assert.equal(formatCep('37800-000'), '37800-000');
+  assert.equal(formatCep(null), null);
+  assert.equal(formatCep(''), null);
+  assert.equal(formatCep('123'), '123');
+});
+
+test('renderContractPdf: parte PF consolida os dados da fazenda (unit fallback)', async () => {
+  const service = new SaleContractPdfService();
+  const { buffer } = await service.renderContractPdf(
+    fakeContract({
+      sellerSnapshot: {
+        displayName: 'João Produtor',
+        personType: 'PF',
+        cpf: '12345678901',
+        cnpj: null,
+        registrationNumber: null,
+        addressLine: null,
+        district: null,
+        city: null,
+        state: null,
+        postalCode: null,
+        unit: {
+          cnpj: '11222333000144',
+          registrationNumber: '987654',
+          addressLine: 'Fazenda Boa Vista, s/n',
+          district: 'Zona Rural',
+          city: 'Patrocínio',
+          state: 'MG',
+          postalCode: '38740000',
+        },
+      },
+    }),
+    { lotNumber: '20002', issuer: getContractIssuer() }
+  );
+  assert.equal(buffer.subarray(0, 5).toString('latin1'), '%PDF-');
 });
