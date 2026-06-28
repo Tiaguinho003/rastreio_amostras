@@ -39,6 +39,9 @@ rootCA.pem
 # Preview do laudo (scripts/preview-laudo.mjs) — artefato local
 /laudo-preview*.pdf
 
+# Preview do contrato (scripts/preview-contract.mjs) — artefato local
+/contrato-preview*.pdf
+
 # Cache local de outras ferramentas
 .codex
 
