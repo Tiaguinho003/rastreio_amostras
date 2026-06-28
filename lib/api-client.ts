@@ -886,6 +886,20 @@ export function revertSaleContractStatus(
   });
 }
 
+// Quebra manual (P17): cancela a venda subjacente e marca o contrato WASH_OUT.
+// Motivo obrigatório. Definitiva. Gestão = ADMIN+CADASTRO.
+export function washoutSaleContract(
+  session: SessionData,
+  contractId: string,
+  data: { expectedVersion: number; reason: string }
+) {
+  return request<SaleContractResponse>(`/sale-contracts/${contractId}/washout`, {
+    method: 'POST',
+    session,
+    body: data,
+  });
+}
+
 export function listContractLookups(session: SessionData, options: { signal?: AbortSignal } = {}) {
   return request<ContractLookupsResponse>('/contract-lookups', {
     method: 'GET',

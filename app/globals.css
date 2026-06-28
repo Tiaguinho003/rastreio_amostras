@@ -34506,12 +34506,26 @@ body.is-selection-mode .hero-search-filter-btn {
   border-color: var(--brand-green);
   color: #fff;
 }
+/* Acao destrutiva (Quebrar) — de-enfatizada no card: texto/borda vermelhos. */
+.ctr-btn-danger {
+  color: var(--color-danger);
+  border-color: rgba(var(--color-danger-rgb), 0.45);
+}
 
 .ctr-confirm-text {
   margin: 0;
   font-size: 0.92rem;
   color: var(--brand-green-ink);
   line-height: 1.5;
+}
+/* Aviso da quebra no diálogo + submit destrutivo proeminente. */
+.ctr-confirm-danger {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+.app-modal-submit.ctr-modal-danger {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
 }
 
 .ctr-bankacct {

@@ -220,6 +220,7 @@ export default function ContratosPage() {
                       onFaturar={() => openLifecycle('invoice')}
                       onPagar={() => openLifecycle('pay')}
                       onReverter={() => openLifecycle('revert')}
+                      onQuebrar={() => openLifecycle('washout')}
                       onConfirmar={() =>
                         setConfirmTarget({
                           contractId: contract.id,
@@ -283,9 +284,11 @@ export default function ContratosPage() {
                 ? 'Contrato faturado'
                 : action === 'pay'
                   ? 'Pagamento registrado'
-                  : status === 'PAGO'
-                    ? 'Pagamento desfeito'
-                    : 'Faturamento desfeito';
+                  : action === 'washout'
+                    ? 'Contrato quebrado'
+                    : status === 'PAGO'
+                      ? 'Pagamento desfeito'
+                      : 'Faturamento desfeito';
             toast.success({ title });
           }}
         />

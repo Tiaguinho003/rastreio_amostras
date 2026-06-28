@@ -38,6 +38,7 @@ type SaleContractCardProps = {
   onFaturar: () => void;
   onPagar: () => void;
   onReverter: () => void;
+  onQuebrar: () => void;
   onVer: () => void;
   onBaixarPdf: () => void;
 };
@@ -51,6 +52,7 @@ export function SaleContractCard({
   onFaturar,
   onPagar,
   onReverter,
+  onQuebrar,
   onVer,
   onBaixarPdf,
 }: SaleContractCardProps) {
@@ -138,6 +140,14 @@ export function SaleContractCard({
         {contract.status !== 'EM_ABERTO' ? (
           <button type="button" className="ctr-btn" onClick={onBaixarPdf}>
             Baixar PDF
+          </button>
+        ) : null}
+        {contract.status === 'CONFERIR' ||
+        contract.status === 'CONFIRMADO' ||
+        contract.status === 'FATURADO' ||
+        contract.status === 'PAGO' ? (
+          <button type="button" className="ctr-btn ctr-btn-danger" onClick={onQuebrar}>
+            Quebrar
           </button>
         ) : null}
       </div>

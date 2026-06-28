@@ -8,14 +8,16 @@ import {
   invoiceSaleContract,
   paySaleContract,
   revertSaleContractStatus,
+  washoutSaleContract,
 } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { SaleContractStatus, SessionData } from '../../lib/types';
 
-// Fechamento (Fase B): ciclo pos-CONFIRMADO. "Faturar"/"Pagar" gravam a data
-// real do marco; "Desfazer" volta um passo. Molde do SaleContractConfirmDialog.
+// Fechamento (Fase B): ações de status do contrato. "Faturar"/"Pagar" gravam a
+// data real do marco; "Desfazer" volta um passo; "Quebrar" (P17) cancela a venda
+// e marca WASH_OUT (motivo obrigatório, definitiva). Molde do ConfirmDialog.
 
-export type LifecycleAction = 'invoice' | 'pay' | 'revert';
+export type LifecycleAction = 'invoice' | 'pay' | 'revert' | 'washout';
 
 type SaleContractLifecycleDialogProps = {
   session: SessionData;
@@ -41,6 +43,8 @@ type Copy = {
   title: string;
   text: string;
   dateLabel: string | null;
+  reasonLabel: string | null;
+  danger: boolean;
   submit: string;
   submitting: string;
 };
@@ -55,6 +59,8 @@ function dialogCopy(
       title: 'Faturar contrato',
       text: `Registrar o faturamento do contrato ${contractNumber}.`,
       dateLabel: 'Data do faturamento',
+      reasonLabel: null,
+      danger: false,
       submit: 'Faturar',
       submitting: 'Faturando...',
     };
@@ -64,8 +70,21 @@ function dialogCopy(
       title: 'Registrar pagamento',
       text: `Registrar o pagamento do contrato ${contractNumber}.`,
       dateLabel: 'Data do pagamento',
+      reasonLabel: null,
+      danger: false,
       submit: 'Pagar',
       submitting: 'Registrando...',
+    };
+  }
+  if (action === 'washout') {
+    return {
+      title: 'Quebrar contrato',
+      text: `Quebrar o contrato ${contractNumber}? Isso cancela a venda e devolve as sacas ao lote. Ação definitiva.`,
+      dateLabel: null,
+      reasonLabel: 'Motivo da quebra',
+      danger: true,
+      submit: 'Quebrar contrato',
+      submitting: 'Quebrando...',
     };
   }
   // revert
@@ -76,6 +95,8 @@ function dialogCopy(
       ? `Desfazer o pagamento do contrato ${contractNumber}? A data registrada será removida.`
       : `Desfazer o faturamento do contrato ${contractNumber}? A data registrada será removida.`,
     dateLabel: null,
+    reasonLabel: null,
+    danger: false,
     submit: 'Desfazer',
     submitting: 'Desfazendo...',
   };
@@ -92,13 +113,18 @@ export function SaleContractLifecycleDialog({
   onDone,
 }: SaleContractLifecycleDialogProps) {
   const focusTrapRef = useFocusTrap(true);
-  const [date, setDate] = useState(action === 'revert' ? '' : todayInputValue());
+  const [date, setDate] = useState(
+    action === 'invoice' || action === 'pay' ? todayInputValue() : ''
+  );
+  const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const copy = dialogCopy(action, currentStatus, contractNumber);
   const needsDate = copy.dateLabel !== null;
-  const canSubmit = !saving && (!needsDate || date !== '');
+  const needsReason = copy.reasonLabel !== null;
+  const canSubmit =
+    !saving && (!needsDate || date !== '') && (!needsReason || reason.trim() !== '');
 
   async function handleSubmit() {
     setSaving(true);
@@ -108,6 +134,8 @@ export function SaleContractLifecycleDialog({
         await invoiceSaleContract(session, contractId, { expectedVersion, date });
       } else if (action === 'pay') {
         await paySaleContract(session, contractId, { expectedVersion, date });
+      } else if (action === 'washout') {
+        await washoutSaleContract(session, contractId, { expectedVersion, reason: reason.trim() });
       } else {
         await revertSaleContractStatus(session, contractId, { expectedVersion });
       }
@@ -153,7 +181,9 @@ export function SaleContractLifecycleDialog({
         {error ? <p className="sdv-modal-error">{error}</p> : null}
 
         <div className="app-modal-content">
-          <p className="ctr-confirm-text">{copy.text}</p>
+          <p className={`ctr-confirm-text${copy.danger ? ' ctr-confirm-danger' : ''}`}>
+            {copy.text}
+          </p>
           {needsDate ? (
             <label className="app-modal-field">
               <span className="app-modal-label">{copy.dateLabel}</span>
@@ -169,6 +199,22 @@ export function SaleContractLifecycleDialog({
               />
             </label>
           ) : null}
+          {needsReason ? (
+            <label className="app-modal-field">
+              <span className="app-modal-label">{copy.reasonLabel}</span>
+              <textarea
+                className="app-modal-input"
+                rows={3}
+                value={reason}
+                disabled={saving}
+                placeholder="Descreva o motivo da quebra"
+                onChange={(event) => {
+                  setReason(event.target.value);
+                  setError(null);
+                }}
+              />
+            </label>
+          ) : null}
         </div>
 
         <div className="app-modal-actions">
@@ -177,7 +223,7 @@ export function SaleContractLifecycleDialog({
           </button>
           <button
             type="button"
-            className="app-modal-submit"
+            className={`app-modal-submit${copy.danger ? ' ctr-modal-danger' : ''}`}
             onClick={handleSubmit}
             disabled={!canSubmit}
           >
