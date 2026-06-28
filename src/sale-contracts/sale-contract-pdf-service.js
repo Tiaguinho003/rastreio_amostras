@@ -43,11 +43,6 @@ const STATUS_LABELS = {
   WASH_OUT: 'Quebrado',
 };
 
-const TYPE_LABELS = {
-  MERCADO_A_VISTA: 'Mercado à vista',
-  FUTURO: 'Futuro',
-};
-
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
 function decimalToNumber(value) {
@@ -87,6 +82,15 @@ export function formatDocument(value) {
   }
   if (digits.length === 14) {
     return digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+  }
+  return String(value);
+}
+
+export function formatCep(value) {
+  if (!value) return null;
+  const digits = String(value).replace(/\D/g, '');
+  if (digits.length === 8) {
+    return digits.replace(/(\d{5})(\d{3})/, '$1-$2');
   }
   return String(value);
 }
@@ -153,13 +157,6 @@ function snapshotName(snap) {
   return snap.displayName ?? snap.legalName ?? snap.fullName ?? null;
 }
 
-function snapshotAddress(snap) {
-  if (!snap) return null;
-  const parts = [snap.addressLine, snap.district].filter(Boolean);
-  const line = parts.join(', ');
-  return line || null;
-}
-
 export class SaleContractPdfService {
   constructor({
     logoPath = [
@@ -203,13 +200,15 @@ export class SaleContractPdfService {
       });
       y -= 12;
     };
+    // Campo SEMPRE presente: rótulo + valor (ou "—" quando vazio). Decisão do
+    // Flávio — o documento mostra todos os campos mesmo sem dado preenchido.
     const field = (label, value) => {
-      if (value === null || value === undefined || value === '') return;
       ensureSpace(15);
       const labelText = `${label}: `;
       page.drawText(labelText, { x: MARGIN, y, size: 9, font: fontBold, color: MUTED });
       const labelW = fontBold.widthOfTextAtSize(labelText, 9);
-      page.drawText(fitText(String(value), font, 9, contentW - labelW), {
+      const display = value === null || value === undefined || value === '' ? '—' : String(value);
+      page.drawText(fitText(display, font, 9, contentW - labelW), {
         x: MARGIN + labelW,
         y,
         size: 9,
@@ -219,31 +218,33 @@ export class SaleContractPdfService {
       y -= 15;
     };
     const paragraph = (label, value) => {
-      if (!value) return;
       ensureSpace(26);
       page.drawText(`${label}:`, { x: MARGIN, y, size: 9, font: fontBold, color: MUTED });
       y -= 13;
-      for (const line of wrapText(value, font, 9, contentW)) {
+      const text = value && String(value).trim() ? value : '—';
+      for (const line of wrapText(text, font, 9, contentW)) {
         ensureSpace(12);
         page.drawText(line, { x: MARGIN, y, size: 9, font, color: INK });
         y -= 12;
       }
     };
-    const party = (title, snap, { withUnit = false } = {}) => {
-      if (!snap) return;
+    // Parte (comprador/vendedor/armazém). Consolida Client + filial (fazenda):
+    // PJ traz tudo no Client; PF tem os dados fiscais/endereço na fazenda (unit)
+    // -> fallback. SEM rótulo "Filial" (D: o documento não especifica filial).
+    const party = (title, snap) => {
       sectionTitle(title);
+      const unit = snap?.unit ?? {};
+      const pick = (key) => snap?.[key] ?? unit?.[key] ?? null;
+      const city = pick('city');
+      const state = pick('state');
       field('Nome', snapshotName(snap));
-      field('CPF/CNPJ', formatDocument(snap.cnpj ?? snap.cpf));
-      field('Inscrição Estadual', snap.registrationNumber);
-      field('Endereço', snapshotAddress(snap));
-      field(
-        'Cidade/UF',
-        snap.city ? `${snap.city}${snap.state ? `/${snap.state}` : ''}` : snap.state
-      );
-      if (withUnit && snap.unit) {
-        field('Filial', snap.unit.name);
-        field('Filial — endereço', snapshotAddress(snap.unit));
-      }
+      field('CNPJ', formatDocument(pick('cnpj')));
+      field('IE', pick('registrationNumber'));
+      field('Endereço', pick('addressLine'));
+      field('Bairro', pick('district'));
+      field('Cidade/UF', city ? `${city}${state ? `/${state}` : ''}` : state);
+      field('Número', null); // sem campo próprio por ora — o número fica no Endereço
+      field('CEP', formatCep(pick('postalCode')));
     };
 
     // ---------- Cabeçalho (faixa verde) ----------
@@ -315,20 +316,19 @@ export class SaleContractPdfService {
 
     y = PAGE_H - headerH - 6;
 
-    // ---------- B1 Identificação ----------
+    // ---------- B1 Identificação (sem "Tipo") ----------
     sectionTitle('Identificação');
-    field('Tipo', TYPE_LABELS[contract.type] ?? contract.type);
     field('Data do contrato', formatDateBR(contract.contractDate));
     field('Mês/Ano', formatMonthYearExtenso(contract.contractDate));
     field('Número de compra', contract.purchaseNumber);
     field('Número do lote', lotNumber);
 
     // ---------- B2/B3 Comprador + armazém ----------
-    party('Comprador', contract.buyerSnapshot, { withUnit: true });
+    party('Comprador', contract.buyerSnapshot);
     party('Armazém do comprador', contract.buyerWarehouseSnapshot);
 
     // ---------- B4/B5 Vendedor + armazém ----------
-    party('Vendedor', contract.sellerSnapshot, { withUnit: true });
+    party('Vendedor', contract.sellerSnapshot);
     party('Armazém do vendedor', contract.sellerWarehouseSnapshot);
 
     // ---------- B6 Corretagem (só %) ----------
@@ -351,23 +351,24 @@ export class SaleContractPdfService {
     field('Data de faturamento', formatDateBR(contract.invoiceDate));
     field('Data de pagamento', formatDateBR(contract.paymentDate));
     const bank = contract.sellerBankSnapshot;
-    if (bank) {
-      field(
-        'Banco do vendedor',
-        [bank.bankName, bank.compeCode ? `(${bank.compeCode})` : null].filter(Boolean).join(' ')
-      );
-      field('Agência / Conta', [bank.agency, bank.accountNumber].filter(Boolean).join(' / '));
-      field('Titular', bank.holderName);
-      field('CPF/CNPJ do titular', formatDocument(bank.holderTaxId));
-      field('Chave PIX', bank.pixKey);
-    }
+    field(
+      'Banco do vendedor',
+      bank
+        ? [bank.bankName, bank.compeCode ? `(${bank.compeCode})` : null].filter(Boolean).join(' ')
+        : null
+    );
+    field(
+      'Agência / Conta',
+      bank ? [bank.agency, bank.accountNumber].filter(Boolean).join(' / ') || null : null
+    );
+    field('Titular', bank?.holderName);
+    field('CPF/CNPJ do titular', formatDocument(bank?.holderTaxId));
+    field('Chave PIX', bank?.pixKey);
 
-    // ---------- B9 Textos ----------
-    if (contract.observations || contract.description) {
-      sectionTitle('Observações');
-      paragraph('Observações', contract.observations);
-      paragraph('Descrição', contract.description);
-    }
+    // ---------- B9 Textos (sempre presentes) ----------
+    sectionTitle('Observações');
+    paragraph('Observações', contract.observations);
+    paragraph('Descrição', contract.description);
 
     // ---------- B10 Assinaturas ----------
     const sigBlockH = 90;

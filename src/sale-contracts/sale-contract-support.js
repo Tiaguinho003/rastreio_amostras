@@ -585,6 +585,7 @@ export function buildWarehouseSnapshot(client) {
     displayName: clientDisplayName(client),
     cpf: client.cpf ?? null,
     cnpj: client.cnpj ?? null,
+    registrationNumber: client.registrationNumber ?? null,
     addressLine: client.addressLine ?? null,
     district: client.district ?? null,
     city: client.city ?? null,
