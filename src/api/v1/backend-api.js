@@ -8,6 +8,7 @@ import { USER_ROLES } from '../../auth/roles.js';
 import { executeApi, readPositiveInteger } from '../http-utils.js';
 import { IDEMPOTENCY_SCOPES, buildScopeKey, withIdempotency } from './idempotency-helper.js';
 import { getContractIssuer } from '../../sale-contracts/issuer-config.js';
+import { normalizeReportedHarvest } from '../../reports/export-fields.js';
 
 const loginRateLimiter = createRateLimiter({
   windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000,
@@ -235,9 +236,9 @@ export function createBackendApiV1({
     return base ? `${base}/laudo/${token}` : `/laudo/${token}`;
   }
 
-  // Etiqueta de Envio (fase 3): enfileira a impressao da etiqueta (best-effort,
-  // mesmo padrao desacoplado da CustomPrintJob). token/qrUrl so vem preenchidos
-  // quando a amostra estava CLASSIFIED (etiqueta com QR). Se o insert falhar, o
+  // Etiqueta de Envio: enfileira a impressao da etiqueta (best-effort, mesmo
+  // padrao desacoplado da CustomPrintJob). token/qrUrl sempre vem preenchidos
+  // agora (etiqueta unificada COM QR para qualquer status). Se o insert falhar, o
   // envio + share ja estao gravados — a etiqueta pode ser re-enfileirada depois.
   async function enqueueShippingLabel({
     sample,
@@ -793,74 +794,37 @@ export function createBackendApiV1({
           recipient = await clientService.resolveRecipientClient(body.recipientClientId);
         }
 
-        // Bifurcacao por status (D4). CLASSIFIED: gera o laudo congelado + o
-        // SampleReportShare (atomicos com o evento) e enfileira etiqueta COM QR.
-        // REGISTRATION_CONFIRMED: so registra o envio + etiqueta SEM QR.
-        if (sample.status === 'CLASSIFIED') {
-          if (!reportService) {
-            throw new HttpError(501, 'Sample report service is not configured');
-          }
+        // Etiqueta unificada (laudo ao vivo): TODO envio cria o
+        // SampleReportShare (token) e a etiqueta sai sempre COM QR — classificada
+        // ou nao. O PDF NAO e congelado; a rota publica /laudo/[token] o gera ao
+        // vivo a cada acesso, refletindo o estado atual da amostra. A safra do
+        // laudo (anti-vazamento de liga) e validada/normalizada aqui no envio
+        // (422 se faltar a escolha numa amostra de safra multipla).
+        const reportedHarvest = normalizeReportedHarvest(
+          body.reportedHarvest ?? null,
+          sample.declared?.harvest ?? null
+        );
 
-          // PDF gerado e gravado FORA de transacao (render lento). Se a foto
-          // sumiu do storage, lanca 409 e nada e gravado (envio atomico —
-          // preserva a invariante "CLASSIFIED => laudo").
-          const persisted = await reportService.persistSampleReportPdf({
-            sampleId,
-            destination: recipient?.displayName ?? null,
-            recipientClientId: body.recipientClientId ?? null,
-            reportedHarvest: body.reportedHarvest ?? null,
-          });
-
-          const result = await commandService.recordPhysicalSampleSentWithReport(
-            { sampleId, recipientClientId: body.recipientClientId, sentDate: body.sentDate },
-            {
-              storagePath: persisted.storagePath,
-              fileName: persisted.fileName,
-              checksumSha256: persisted.checksumSha256,
-              sizeBytes: persisted.sizeBytes,
-              reportedHarvest: persisted.reportedHarvest,
-              recipientSnapshot: recipient,
-            },
-            actor
-          );
-
-          const qrUrl = buildLaudoReportUrl(result.share.token);
-          await enqueueShippingLabel({
-            sample,
-            recipient,
-            sentDate: result.event.payload?.sentDate ?? body.sentDate ?? null,
-            reportedHarvest: persisted.reportedHarvest,
-            sendEventId: result.event.eventId,
-            token: result.share.token,
-            qrUrl,
-          });
-
-          return {
-            status: 201,
-            body: { event: result.event, share: result.share, qrUrl },
-          };
-        }
-
-        const result = await commandService.recordPhysicalSampleSent(
-          {
-            sampleId,
-            recipientClientId: body.recipientClientId,
-            sentDate: body.sentDate,
-          },
+        const result = await commandService.recordPhysicalSampleSentWithReport(
+          { sampleId, recipientClientId: body.recipientClientId, sentDate: body.sentDate },
+          { reportedHarvest, recipientSnapshot: recipient },
           actor
         );
 
+        const qrUrl = buildLaudoReportUrl(result.share.token);
         await enqueueShippingLabel({
           sample,
           recipient,
           sentDate: result.event.payload?.sentDate ?? body.sentDate ?? null,
-          reportedHarvest: null,
+          reportedHarvest,
           sendEventId: result.event.eventId,
+          token: result.share.token,
+          qrUrl,
         });
 
         return {
           status: 201,
-          body: { event: result.event },
+          body: { event: result.event, share: result.share, qrUrl },
         };
       }),
 
@@ -1308,10 +1272,10 @@ export function createBackendApiV1({
         return { status: 200, body: { ok: true, updated: result.count } };
       }),
 
-    // Etiqueta de Envio (fase 4): rota PUBLICA do laudo (sem login). Valida o
-    // token, checa revogacao (D8)/expiracao (D7), devolve os bytes do PDF
-    // congelado e registra o acesso (analytics, best-effort). Rate-limit leve
-    // por IP (P5). 404 = nao existe/arquivo sumido; 410 = revogado/expirado.
+    // Etiqueta de Envio: rota PUBLICA do laudo (sem login). Valida o token, checa
+    // revogacao (D8)/expiracao (D7), GERA o PDF do laudo ao vivo (estado atual da
+    // amostra) e registra o acesso (analytics, best-effort). Rate-limit leve por
+    // IP (P5). 404 = nao existe/falha ao gerar; 410 = revogado/expirado.
     servePublicReportShare: (input) =>
       executeApiForInput(input, async () => {
         if (!reportService) {
@@ -1337,11 +1301,19 @@ export function createBackendApiV1({
           throw new HttpError(410, 'Laudo expirado', { code: 'REPORT_EXPIRED' });
         }
 
-        let buffer;
+        // Laudo gerado ao vivo a partir do estado ATUAL da amostra: classificar
+        // depois do envio reflete no mesmo QR. O destino (cabecalho) e a safra
+        // (anti-vazamento de liga) vem congelados no share. Falha ao gerar =>
+        // 404 (a pagina publica nunca vaza erro interno).
+        let rendered;
         try {
-          buffer = await reportService.readPersistedReport(share.storagePath);
+          rendered = await reportService.renderReportPdfLive({
+            sampleId: share.sampleId,
+            destination: share.recipientSnapshot?.displayName ?? null,
+            reportedHarvest: share.reportedHarvest,
+          });
         } catch {
-          throw new HttpError(404, 'Laudo nao encontrado', { code: 'REPORT_FILE_MISSING' });
+          throw new HttpError(404, 'Laudo nao encontrado', { code: 'REPORT_RENDER_FAILED' });
         }
 
         // Analytics de leitura — best-effort, nao bloqueia a entrega do PDF.
@@ -1354,7 +1326,11 @@ export function createBackendApiV1({
 
         return {
           status: 200,
-          body: { buffer, contentType: 'application/pdf', fileName: share.fileName },
+          body: {
+            buffer: rendered.buffer,
+            contentType: 'application/pdf',
+            fileName: rendered.fileName,
+          },
         };
       }),
 

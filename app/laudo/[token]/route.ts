@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { getBackendApi } from '../../api/v1/_lib/backend-api';
 
-// Rota PUBLICA do laudo (Etiqueta de Envio, fase 4): o destinatario escaneia o
-// QR e abre /laudo/<token> sem login. Token valido => stream do PDF congelado
-// INLINE (D6: abre no navegador). Invalido (revogado/expirado/inexistente) =>
-// pagina HTML minima de indisponivel (D10). Sempre dinamica (valida o token + le
-// o arquivo a cada acesso) e nao indexavel.
+// Rota PUBLICA do laudo (Etiqueta de Envio): o destinatario escaneia o QR e abre
+// /laudo/<token> sem login. Token valido => PDF gerado AO VIVO (estado atual da
+// amostra) servido INLINE (D6: abre no navegador). Invalido (revogado/expirado/
+// inexistente) => pagina HTML minima de indisponivel (D10). Sempre dinamica
+// (valida o token + gera o laudo a cada acesso) e nao indexavel.
 export const dynamic = 'force-dynamic';
 
 type ReportBody = {

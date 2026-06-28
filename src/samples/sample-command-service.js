@@ -3823,68 +3823,23 @@ export class SampleCommandService {
     return this.eventService.appendEvent(event);
   }
 
-  async recordPhysicalSampleSent(input, actorContext) {
-    const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'record physical sample sent');
-
-    const sample = await this.queryService.requireSample(input.sampleId);
-    assertSampleStatus(sample, PHYSICAL_SEND_ALLOWED_STATUSES, 'record physical sample sent');
-
-    let recipientClientId = null;
-    let recipientClientSnapshot = null;
-
-    if (input.recipientClientId) {
-      const clientId = normalizeRequiredText(input.recipientClientId, 'recipientClientId');
-      if (!UUID_REGEX.test(clientId)) {
-        throw new HttpError(422, 'recipientClientId must be a valid UUID');
-      }
-      recipientClientSnapshot = await this.clientService.resolveRecipientClient(clientId);
-      recipientClientId = clientId;
-    }
-
-    const sentDate = input.sentDate
-      ? normalizeRequiredText(input.sentDate, 'sentDate')
-      : buildBusinessDateStamp();
-
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(sentDate)) {
-      throw new HttpError(422, 'sentDate must be in YYYY-MM-DD format');
-    }
-
-    const event = buildEventEnvelope({
-      eventType: 'PHYSICAL_SAMPLE_SENT',
-      sampleId: sample.id,
-      payload: {
-        recipientClientId,
-        recipientClientSnapshot,
-        sentDate,
-      },
-      fromStatus: null,
-      toStatus: null,
-      module: 'classification',
-      actorContext: actor,
-    });
-
-    return this.eventService.appendEvent(event);
-  }
-
-  // Etiqueta de Envio (fase 3): envio de amostra CLASSIFIED com laudo congelado.
-  // O PDF JA foi gerado e gravado em UPLOADS_DIR pelo caller (reportService),
-  // FORA de transacao (render e lento). Aqui o evento PHYSICAL_SAMPLE_SENT e o
-  // SampleReportShare nascem ATOMICOS (appendEventBatch + beforeCommit), com o
-  // share apontando pro sendEventId recem-criado. Token aleatorio de 32 bytes,
-  // expiracao em 30 dias (D7). Nao registra REPORT_EXPORTED (o share e a
-  // auditoria do laudo). `report.recipientSnapshot` ja vem resolvido pelo
-  // handler (que tambem usou o displayName como destino no PDF) — evita
-  // re-resolver o cliente. Ver docs/Etiqueta-de-Envio-Plano-de-Trabalho.md.
+  // Etiqueta de Envio (laudo ao vivo): registra o envio fisico e cria o
+  // SampleReportShare ATOMICOS (appendEventBatch + beforeCommit), com o share
+  // apontando pro sendEventId recem-criado. Vale para QUALQUER status permitido
+  // (classificada ou nao) — a etiqueta sempre sai com QR. O laudo NAO e
+  // congelado: a rota publica /laudo/[token] o gera ao vivo a cada acesso, entao
+  // classificar a amostra depois do envio reflete no mesmo QR; por isso as
+  // colunas de arquivo do share (storage_path/file_name/checksum/size) ficam
+  // nulas. Token base64url de 32 bytes, expiracao em 30 dias (D7). Nao registra
+  // REPORT_EXPORTED (o share e a auditoria do laudo). `report.recipientSnapshot`
+  // ja vem resolvido pelo handler (mesmo displayName usado como destino no PDF);
+  // `report.reportedHarvest` ja validado pelo handler (anti-vazamento de liga).
+  // Ver docs/Etiqueta-de-Envio-Plano-de-Trabalho.md.
   async recordPhysicalSampleSentWithReport(input, report, actorContext) {
     const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'record physical sample sent');
 
     const sample = await this.queryService.requireSample(input.sampleId);
     assertSampleStatus(sample, PHYSICAL_SEND_ALLOWED_STATUSES, 'record physical sample sent');
-    // Defesa em profundidade: o laudo congelado so existe para CLASSIFIED (o
-    // caller ja bifurcou por status; aqui garante a invariante).
-    if (sample.status !== 'CLASSIFIED') {
-      throw new HttpError(409, 'Sample must be CLASSIFIED to attach a report share');
-    }
 
     let recipientClientId = null;
     if (input.recipientClientId) {
@@ -3936,11 +3891,12 @@ export class SampleCommandService {
           sendEventId: results[0].event.eventId,
           recipientClientId,
           recipientSnapshot: recipientClientSnapshot,
-          storagePath: report.storagePath,
-          fileName: report.fileName,
-          checksumSha256: report.checksumSha256,
-          sizeBytes: report.sizeBytes,
-          reportedHarvest: report.reportedHarvest ?? null,
+          // Laudo ao vivo: nada congelado em disco (colunas de arquivo nulas).
+          storagePath: null,
+          fileName: null,
+          checksumSha256: null,
+          sizeBytes: null,
+          reportedHarvest: report?.reportedHarvest ?? null,
           issuedByUserId: actor.actorUserId,
           issuedAt,
           expiresAt,

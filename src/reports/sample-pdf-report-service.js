@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
@@ -221,13 +221,16 @@ async function makeColoredSilhouette(bytes, r, g, b) {
 
 export async function renderSamplePdf({
   sample,
-  classificationAttachment,
-  classificationPhotoBytes,
+  classificationAttachment = null,
+  classificationPhotoBytes = null,
   selectedFieldEntries,
   issuedAtIso,
   logoPath,
   iconPath,
   destination,
+  // Amostra sem classificacao (laudo ao vivo): no lugar da Foto + Dados, um
+  // aviso central. Resumo do Lote (Lote/Safra/Sacas) continua aparecendo.
+  unclassified = false,
 }) {
   const pdfDoc = await PDFDocument.create();
   const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -252,13 +255,15 @@ export async function renderSamplePdf({
       iconGreenImage = null;
     }
   }
-  const classificationImage = await embedImage(
-    pdfDoc,
-    classificationPhotoBytes,
-    classificationAttachment.mimeType
-  ).catch(() => {
-    throw new HttpError(422, 'CLASSIFICATION_PHOTO is unreadable for PDF generation');
-  });
+  // Foto opcional: ausente em amostra sem classificacao (laudo ao vivo) e
+  // tolerada ilegivel no caminho publico — degrada para "sem foto" em vez de
+  // quebrar a pagina. O caminho estrito (export autenticado) ja validou os bytes.
+  const classificationImage =
+    classificationPhotoBytes && classificationAttachment
+      ? await embedImage(pdfDoc, classificationPhotoBytes, classificationAttachment.mimeType).catch(
+          () => null
+        )
+      : null;
 
   const page = pdfDoc.addPage([PDF_PAGE_WIDTH, PDF_PAGE_HEIGHT]);
   drawPageBackground(page);
@@ -650,52 +655,83 @@ export async function renderSamplePdf({
   // Mesma altura; topGap acima (= gap header->Resumo). A foto e CONTIDA na caixa
   // fixa 3:4, sem corte. O espaco que sobra fica embaixo (rodape com ondas).
   const rowTop = resumoBandTop - resumoBandH - topGap;
-  const imgX = contentX + (leftW - imgBoxW) / 2;
 
-  page.drawText('Foto da Classificação', {
-    x: contentX + 2,
-    y: rowTop - 13,
-    size: 9.8,
-    font: fontBold,
-    color: docGreen,
-  });
-  page.drawLine({
-    start: { x: contentX + 2, y: rowTop - 16.5 },
-    end: { x: contentX + leftW - 2, y: rowTop - 16.5 },
-    thickness: 0.8,
-    color: rgb(0.86, 0.89, 0.88),
-  });
-
-  const imgBoxY = rowTop - photoTitleSpace - imgBoxH;
-  const drawnImg = drawImageContain(page, classificationImage, {
-    x: imgX,
-    y: imgBoxY,
-    width: imgBoxW,
-    height: imgBoxH,
-  });
-  // Borda MUITO FINA, na imagem efetivamente desenhada (nao na caixa) — assim nao
-  // sobra espaco vazio dentro da moldura quando a foto nao for exatamente 3:4.
-  page.drawRectangle({
-    x: drawnImg.x,
-    y: drawnImg.y,
-    width: drawnImg.width,
-    height: drawnImg.height,
-    borderWidth: 0.5,
-    borderColor: docLine,
-  });
-
-  // Dados de Classificacao: coluna DIREITA, SEM moldura e SEM titulo, alinhado e
-  // LIMITADO a altura da foto (mesmo topo e base da imagem). Lista de campos com
-  // linha fina entre eles; valor que nao cabe ao lado do label quebra em 2 linhas.
-  if (classificationRows.length > 0) {
-    drawFieldList({
-      x: rightX,
-      topY: rowTop - photoTitleSpace,
-      width: rightW,
-      height: imgBoxH,
-      rows: classificationRows,
-      labelRatio: 0.42,
+  if (unclassified) {
+    // Amostra sem classificacao: o QR/laudo abre so com a identificacao (Resumo
+    // do Lote acima) + este aviso central no lugar da Foto + Dados.
+    const noticeMidY = (rowTop + (footerLineY + 10)) / 2;
+    const centerX = docX + docWidth / 2;
+    const title = 'Amostra ainda não classificada';
+    const titleSize = 15;
+    const titleW = fontBold.widthOfTextAtSize(title, titleSize);
+    page.drawText(title, {
+      x: centerX - titleW / 2,
+      y: noticeMidY + 4,
+      size: titleSize,
+      font: fontBold,
+      color: docGreen,
     });
+    const subtitle = 'Este lote ainda não passou por classificação técnica.';
+    const subSize = 10.5;
+    const subW = fontRegular.widthOfTextAtSize(subtitle, subSize);
+    page.drawText(subtitle, {
+      x: centerX - subW / 2,
+      y: noticeMidY - 16,
+      size: subSize,
+      font: fontRegular,
+      color: docText,
+    });
+  } else {
+    const imgX = contentX + (leftW - imgBoxW) / 2;
+    // Foto so quando ha imagem (classificada com foto legivel). Sem foto, os
+    // Dados ocupam a largura cheia.
+    if (classificationImage) {
+      page.drawText('Foto da Classificação', {
+        x: contentX + 2,
+        y: rowTop - 13,
+        size: 9.8,
+        font: fontBold,
+        color: docGreen,
+      });
+      page.drawLine({
+        start: { x: contentX + 2, y: rowTop - 16.5 },
+        end: { x: contentX + leftW - 2, y: rowTop - 16.5 },
+        thickness: 0.8,
+        color: rgb(0.86, 0.89, 0.88),
+      });
+
+      const imgBoxY = rowTop - photoTitleSpace - imgBoxH;
+      const drawnImg = drawImageContain(page, classificationImage, {
+        x: imgX,
+        y: imgBoxY,
+        width: imgBoxW,
+        height: imgBoxH,
+      });
+      // Borda MUITO FINA, na imagem efetivamente desenhada (nao na caixa) — assim
+      // nao sobra espaco vazio dentro da moldura quando a foto nao for 3:4.
+      page.drawRectangle({
+        x: drawnImg.x,
+        y: drawnImg.y,
+        width: drawnImg.width,
+        height: drawnImg.height,
+        borderWidth: 0.5,
+        borderColor: docLine,
+      });
+    }
+
+    // Dados de Classificacao: coluna DIREITA (ao lado da foto) ou largura cheia
+    // (sem foto), SEM moldura e SEM titulo, alinhado e LIMITADO a altura da foto.
+    // Lista de campos com linha fina; valor que nao cabe quebra em 2 linhas.
+    if (classificationRows.length > 0) {
+      drawFieldList({
+        x: classificationImage ? rightX : contentX,
+        topY: rowTop - photoTitleSpace,
+        width: classificationImage ? rightW : contentWidth,
+        height: imgBoxH,
+        rows: classificationRows,
+        labelRatio: 0.42,
+      });
+    }
   }
 
   // ── Rodape: linha + textos (mais pra cima) + ONDAS VERDES na borda inferior ──
@@ -797,19 +833,23 @@ export class SamplePdfReportService {
     this.logoFallbackPath = path.resolve(process.cwd(), 'public/logo-laudo.png');
   }
 
-  // Nucleo de geracao do laudo: valida (CLASSIFIED + foto de classificacao),
-  // resolve safra/campos, renderiza o PDF e calcula o checksum. SEM efeitos
-  // colaterais (nao registra evento nem grava em disco) — cada consumidor
-  // decide o que fazer com o buffer: exportSamplePdf transmite + audita;
-  // persistSampleReportPdf congela os bytes em UPLOADS_DIR (Etiqueta de Envio).
+  // Nucleo de geracao do laudo: resolve safra/campos, renderiza o PDF e calcula
+  // o checksum. SEM efeitos colaterais (nao registra evento nem grava em disco)
+  // — cada consumidor decide o que fazer com o buffer: exportSamplePdf transmite
+  // + audita; renderReportPdfLive devolve o buffer pra rota publica do QR.
+  // `allowUnclassified` (laudo ao vivo) gera tambem sem classificacao (variante
+  // "Amostra ainda nao classificada"); o default estrito so aceita CLASSIFIED.
   async _buildReportArtifacts(input) {
     const sampleId = typeof input?.sampleId === 'string' ? input.sampleId : null;
     if (!sampleId) {
       throw new HttpError(422, 'sampleId is required for export');
     }
 
+    const allowUnclassified = input?.allowUnclassified === true;
+
     const detail = await this.queryService.getSampleDetail(sampleId, { eventLimit: 1 });
-    if (detail.sample.status !== 'CLASSIFIED') {
+    const isClassified = detail.sample.status === 'CLASSIFIED';
+    if (!isClassified && !allowUnclassified) {
       throw new HttpError(409, `Sample ${sampleId} must be CLASSIFIED to export report`);
     }
 
@@ -825,26 +865,48 @@ export class SamplePdfReportService {
       detail.sample.declared?.harvest ?? null
     );
 
-    const classificationAttachment = detail.attachments.find(
-      (attachment) => attachment.kind === 'CLASSIFICATION_PHOTO'
-    );
-    if (!classificationAttachment) {
-      throw new HttpError(409, 'CLASSIFIED sample requires CLASSIFICATION_PHOTO for report export');
-    }
-
-    const photoAbsolutePath = sanitizeAttachmentPath(
-      this.uploadsBaseDir,
-      classificationAttachment.storagePath
-    );
-    let classificationPhotoBytes;
-    try {
-      classificationPhotoBytes = await fs.readFile(photoAbsolutePath);
-    } catch {
-      throw new HttpError(409, 'CLASSIFICATION_PHOTO file is missing on storage');
-    }
-
-    if (!Buffer.isBuffer(classificationPhotoBytes) || classificationPhotoBytes.length === 0) {
-      throw new HttpError(409, 'CLASSIFICATION_PHOTO file is empty on storage');
+    // Foto de classificacao: obrigatoria no caminho estrito (CLASSIFIED). No
+    // caminho ao vivo, ausente/ilegivel degrada para "sem foto" (renderiza assim
+    // mesmo). Amostra sem classificacao nao tem foto — pula a busca.
+    let classificationAttachment = null;
+    let classificationPhotoBytes = null;
+    if (isClassified) {
+      classificationAttachment =
+        detail.attachments.find((attachment) => attachment.kind === 'CLASSIFICATION_PHOTO') ?? null;
+      if (!classificationAttachment) {
+        if (!allowUnclassified) {
+          throw new HttpError(
+            409,
+            'CLASSIFIED sample requires CLASSIFICATION_PHOTO for report export'
+          );
+        }
+      } else {
+        const photoAbsolutePath = sanitizeAttachmentPath(
+          this.uploadsBaseDir,
+          classificationAttachment.storagePath
+        );
+        try {
+          classificationPhotoBytes = await fs.readFile(photoAbsolutePath);
+        } catch {
+          if (!allowUnclassified) {
+            throw new HttpError(409, 'CLASSIFICATION_PHOTO file is missing on storage');
+          }
+          classificationPhotoBytes = null;
+        }
+        if (
+          classificationPhotoBytes &&
+          (!Buffer.isBuffer(classificationPhotoBytes) || classificationPhotoBytes.length === 0)
+        ) {
+          if (!allowUnclassified) {
+            throw new HttpError(409, 'CLASSIFICATION_PHOTO file is empty on storage');
+          }
+          classificationPhotoBytes = null;
+        }
+      }
+      // Foto e attachment andam juntos: se um faltou, renderiza sem foto.
+      if (!classificationPhotoBytes) {
+        classificationAttachment = null;
+      }
     }
 
     const selectedFieldEntries = buildSelectedExportFieldEntries(detail, selectedFields, {
@@ -870,6 +932,7 @@ export class SamplePdfReportService {
       logoPath: [this.logoPath, this.logoFallbackPath],
       iconPath: this.iconPath,
       destination,
+      unclassified: !isClassified,
     });
 
     const checksumSha256 = createHash('sha256').update(pdfBuffer).digest('hex');
@@ -881,7 +944,7 @@ export class SamplePdfReportService {
       checksumSha256,
       destination,
       reportedHarvest,
-      classificationPhotoId: classificationAttachment.id,
+      classificationPhotoId: classificationAttachment?.id ?? null,
       exportedFields,
     };
   }
@@ -921,45 +984,14 @@ export class SamplePdfReportService {
     };
   }
 
-  // Etiqueta de Envio: gera o laudo e CONGELA os bytes em UPLOADS_DIR (sob
-  // samples/<sampleId>/report-shares/<uuid>.pdf), devolvendo o storagePath
-  // relativo + metadados para criar o SampleReportShare. NAO registra evento
-  // nem stream — a orquestracao do envio (passo 3) cria o share e a etiqueta.
-  // O caller continua responsavel por escolher destination/reportedHarvest.
-  async persistSampleReportPdf(input) {
-    const artifacts = await this._buildReportArtifacts(input);
-
-    const relativeStoragePath = path.join(
-      'samples',
-      artifacts.sample.id,
-      'report-shares',
-      `${randomUUID()}.pdf`
-    );
-    const absolutePath = sanitizeAttachmentPath(this.uploadsBaseDir, relativeStoragePath);
-
-    await fs.mkdir(path.dirname(absolutePath), { recursive: true });
-    await fs.writeFile(absolutePath, artifacts.pdfBuffer);
-
-    return {
-      sampleId: artifacts.sample.id,
-      storagePath: relativeStoragePath,
-      fileName: artifacts.fileName,
-      contentType: 'application/pdf',
-      sizeBytes: artifacts.pdfBuffer.length,
-      checksumSha256: artifacts.checksumSha256,
-      destination: artifacts.destination,
-      reportedHarvest: artifacts.reportedHarvest,
-      classificationPhotoId: artifacts.classificationPhotoId,
-      selectedFields: artifacts.exportedFields,
-    };
-  }
-
-  // Etiqueta de Envio (fase 4): le os bytes de um laudo ja congelado em
-  // UPLOADS_DIR (servido pela rota publica /laudo/[token]). sanitizeAttachmentPath
-  // garante que o storagePath nao escapa do baseDir.
-  async readPersistedReport(storagePath) {
-    const absolutePath = sanitizeAttachmentPath(this.uploadsBaseDir, storagePath);
-    return fs.readFile(absolutePath);
+  // Etiqueta de Envio (laudo ao vivo): gera o PDF do laudo a partir do estado
+  // ATUAL da amostra e devolve { buffer, fileName }. Servido pela rota publica
+  // /laudo/[token] a cada escaneamento — nada e congelado em disco, entao
+  // classificar a amostra depois do envio passa a refletir no mesmo QR.
+  // allowUnclassified aceita amostra ainda sem classificacao (variante com aviso).
+  async renderReportPdfLive(input) {
+    const artifacts = await this._buildReportArtifacts({ ...input, allowUnclassified: true });
+    return { buffer: artifacts.pdfBuffer, fileName: artifacts.fileName };
   }
 }
 
