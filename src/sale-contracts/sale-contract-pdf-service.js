@@ -5,9 +5,10 @@ import path from 'node:path';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
 // Fechamento (Fase C): gera o PDF do "Contrato de Compra e Venda de Café" a
-// partir do SaleContract (+ snapshots), no estilo do app (cabeçalho verde +
-// seções). Puro pdf-lib (mesmo stack do laudo). Regenerável, sem armazenar
-// (D32) — cada "Baixar PDF" chama renderContractPdf de novo.
+// partir do SaleContract (+ snapshots), no estilo do app. Puro pdf-lib (mesmo
+// stack do laudo). Regenerável, sem armazenar (D32). LAYOUT EM PÁGINA ÚNICA
+// (S52): título no corpo, linha de identificação horizontal, partes/armazéns em
+// cards de 2 colunas, blocos de baixo compactados — nunca quebra em 2 páginas.
 
 const PAGE_W = 595.28;
 const PAGE_H = 841.89;
@@ -157,6 +158,10 @@ function snapshotName(snap) {
   return snap.displayName ?? snap.legalName ?? snap.fullName ?? null;
 }
 
+function emptyToDash(value) {
+  return value === null || value === undefined || value === '' ? '—' : String(value);
+}
+
 export class SaleContractPdfService {
   constructor({
     logoPath = [
@@ -168,7 +173,9 @@ export class SaleContractPdfService {
   }
 
   // contract = view de getSaleContract (snapshots como objetos, decimais como
-  // number, datas ISO, brokers[]). Devolve { buffer, checksumSha256 }.
+  // number, datas ISO, brokers[]). Devolve { buffer, checksumSha256 }. PÁGINA
+  // ÚNICA: o `y` só decresce, sem paginação; alturas determinísticas (fitText
+  // trunca cada campo em 1 linha; parágrafos truncados).
   async renderContractPdf(contract, { lotNumber = null, issuer }) {
     const pdfDoc = await PDFDocument.create();
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -177,218 +184,329 @@ export class SaleContractPdfService {
     const logo = logoBytes ? await pdfDoc.embedPng(logoBytes).catch(() => null) : null;
 
     const contentW = PAGE_W - 2 * MARGIN;
-    let page = pdfDoc.addPage([PAGE_W, PAGE_H]);
-    let y = PAGE_H;
+    const COL_GAP = 12;
+    const halfW = (contentW - COL_GAP) / 2;
+    const page = pdfDoc.addPage([PAGE_W, PAGE_H]);
 
-    const newPage = () => {
-      page = pdfDoc.addPage([PAGE_W, PAGE_H]);
-      y = PAGE_H - MARGIN;
-    };
-    const ensureSpace = (needed) => {
-      if (y - needed < MARGIN) newPage();
-    };
-    const sectionTitle = (title) => {
-      ensureSpace(30);
-      y -= 18;
-      page.drawText(title, { x: MARGIN, y, size: 10, font: fontBold, color: GREEN });
-      y -= 5;
+    // Título de seção compacto (rótulo + régua fina). Retorna a altura usada.
+    const miniSection = (title, top) => {
+      page.drawText(title, { x: MARGIN, y: top - 8, size: 9, font: fontBold, color: GREEN });
       page.drawLine({
-        start: { x: MARGIN, y },
-        end: { x: PAGE_W - MARGIN, y },
+        start: { x: MARGIN, y: top - 12 },
+        end: { x: PAGE_W - MARGIN, y: top - 12 },
         thickness: 0.6,
         color: LINE,
       });
-      y -= 12;
+      return 18;
     };
-    // Campo SEMPRE presente: rótulo + valor (ou "—" quando vazio). Decisão do
-    // Flávio — o documento mostra todos os campos mesmo sem dado preenchido.
-    const field = (label, value) => {
-      ensureSpace(15);
-      const labelText = `${label}: `;
-      page.drawText(labelText, { x: MARGIN, y, size: 9, font: fontBold, color: MUTED });
-      const labelW = fontBold.widthOfTextAtSize(labelText, 9);
-      const display = value === null || value === undefined || value === '' ? '—' : String(value);
-      page.drawText(fitText(display, font, 9, contentW - labelW), {
-        x: MARGIN + labelW,
-        y,
-        size: 9,
-        font,
-        color: INK,
+
+    // Card com borda: título + linhas [label, value] (sempre presentes; "—"
+    // quando vazio). Altura determinística. Retorna a altura.
+    const drawCard = ({ x, width, top, title, rows }) => {
+      const pad = 7;
+      const titleH = 12;
+      const lineH = 11;
+      const height = pad + titleH + rows.length * lineH + pad;
+      page.drawRectangle({
+        x,
+        y: top - height,
+        width,
+        height,
+        borderColor: LINE,
+        borderWidth: 0.8,
+        color: WHITE,
       });
-      y -= 15;
-    };
-    const paragraph = (label, value) => {
-      ensureSpace(26);
-      page.drawText(`${label}:`, { x: MARGIN, y, size: 9, font: fontBold, color: MUTED });
-      y -= 13;
-      const text = value && String(value).trim() ? value : '—';
-      for (const line of wrapText(text, font, 9, contentW)) {
-        ensureSpace(12);
-        page.drawText(line, { x: MARGIN, y, size: 9, font, color: INK });
-        y -= 12;
+      page.drawText(fitText(title, fontBold, 9, width - 2 * pad), {
+        x: x + pad,
+        y: top - pad - 8,
+        size: 9,
+        font: fontBold,
+        color: GREEN,
+      });
+      let cy = top - pad - titleH - 8;
+      for (const [label, value] of rows) {
+        const labelText = `${label}: `;
+        page.drawText(labelText, { x: x + pad, y: cy, size: 8, font: fontBold, color: MUTED });
+        const labelW = fontBold.widthOfTextAtSize(labelText, 8);
+        page.drawText(fitText(emptyToDash(value), font, 8, width - 2 * pad - labelW), {
+          x: x + pad + labelW,
+          y: cy,
+          size: 8,
+          font,
+          color: INK,
+        });
+        cy -= lineH;
       }
+      return height;
     };
-    // Parte (comprador/vendedor/armazém). Consolida Client + filial (fazenda):
-    // PJ traz tudo no Client; PF tem os dados fiscais/endereço na fazenda (unit)
-    // -> fallback. SEM rótulo "Filial" (D: o documento não especifica filial).
-    const party = (title, snap) => {
-      sectionTitle(title);
+
+    // Faixa horizontal de N células (label pequeno + valor). Identificação,
+    // corretagem e valores. Retorna a altura.
+    const statRow = ({ top, cells }) => {
+      const colW = contentW / cells.length;
+      cells.forEach((cell, i) => {
+        const cx = MARGIN + i * colW;
+        page.drawText(fitText(cell.label, font, 7, colW - 8), {
+          x: cx,
+          y: top - 7,
+          size: 7,
+          font,
+          color: MUTED,
+        });
+        page.drawText(fitText(emptyToDash(cell.value), fontBold, 9, colW - 8), {
+          x: cx,
+          y: top - 19,
+          size: 9,
+          font: fontBold,
+          color: INK,
+        });
+      });
+      return 24;
+    };
+
+    // Campos em 2 colunas (label: value, sempre presentes). Retorna a altura.
+    const twoColFields = ({ top, pairs }) => {
+      const lineH = 11;
+      const colW = (contentW - COL_GAP) / 2;
+      const rowsCount = Math.ceil(pairs.length / 2);
+      pairs.forEach(([label, value], i) => {
+        const cx = MARGIN + (i % 2) * (colW + COL_GAP);
+        const cy = top - 8 - Math.floor(i / 2) * lineH;
+        const labelText = `${label}: `;
+        page.drawText(labelText, { x: cx, y: cy, size: 8, font: fontBold, color: MUTED });
+        const labelW = fontBold.widthOfTextAtSize(labelText, 8);
+        page.drawText(fitText(emptyToDash(value), font, 8, colW - labelW), {
+          x: cx + labelW,
+          y: cy,
+          size: 8,
+          font,
+          color: INK,
+        });
+      });
+      return 8 + rowsCount * lineH;
+    };
+
+    // Parágrafo sempre presente, truncado a maxLines p/ caber em 1 página.
+    const truncatedParagraph = ({ top, label, value, maxLines = 2 }) => {
+      const lineH = 10;
+      page.drawText(`${label}:`, { x: MARGIN, y: top - 8, size: 8, font: fontBold, color: MUTED });
+      const text = value && String(value).trim() ? String(value) : '—';
+      let lines = wrapText(text, font, 8, contentW);
+      if (lines.length > maxLines) {
+        lines = lines.slice(0, maxLines);
+        lines[maxLines - 1] = `${lines[maxLines - 1].replace(/\s*\S*$/, '')}...`;
+      }
+      let cy = top - 18;
+      for (const line of lines) {
+        page.drawText(line, { x: MARGIN, y: cy, size: 8, font, color: INK });
+        cy -= lineH;
+      }
+      return 18 + lines.length * lineH;
+    };
+
+    // Linhas de uma parte (Comprador/Vendedor/Armazém). Consolida Client +
+    // fazenda (PF puxa os dados fiscais/endereço da unit); SEM rótulo "Filial".
+    const partyRows = (snap) => {
       const unit = snap?.unit ?? {};
       const pick = (key) => snap?.[key] ?? unit?.[key] ?? null;
       const city = pick('city');
       const state = pick('state');
-      field('Nome', snapshotName(snap));
-      field('CNPJ', formatDocument(pick('cnpj')));
-      field('IE', pick('registrationNumber'));
-      field('Endereço', pick('addressLine'));
-      field('Bairro', pick('district'));
-      field('Cidade/UF', city ? `${city}${state ? `/${state}` : ''}` : state);
-      field('Número', null); // sem campo próprio por ora — o número fica no Endereço
-      field('CEP', formatCep(pick('postalCode')));
+      return [
+        ['Nome', snapshotName(snap)],
+        ['CNPJ', formatDocument(pick('cnpj'))],
+        ['IE', pick('registrationNumber')],
+        ['Endereço', pick('addressLine')],
+        ['Bairro', pick('district')],
+        ['Cidade/UF', city ? `${city}${state ? `/${state}` : ''}` : state],
+        ['Número', null], // sem campo próprio por ora — o número fica no Endereço
+        ['CEP', formatCep(pick('postalCode'))],
+      ];
     };
 
-    // ---------- Cabeçalho (faixa verde) ----------
-    const headerH = 92;
-    page.drawRectangle({
-      x: 0,
-      y: PAGE_H - headerH,
-      width: PAGE_W,
-      height: headerH,
-      color: GREEN,
-    });
+    // ---------- Cabeçalho (faixa verde) — logo + emissor + status ----------
+    // (título e número saíram daqui p/ o corpo, S52; redesign do header depois)
+    const headerH = 74;
+    page.drawRectangle({ x: 0, y: PAGE_H - headerH, width: PAGE_W, height: headerH, color: GREEN });
     let headerTextX = MARGIN;
     if (logo) {
       const logoH = 40;
       const logoW = (logo.width / logo.height) * logoH;
-      page.drawImage(logo, { x: MARGIN, y: PAGE_H - 30 - logoH, width: logoW, height: logoH });
+      page.drawImage(logo, { x: MARGIN, y: PAGE_H - 28 - logoH, width: logoW, height: logoH });
       headerTextX = MARGIN + logoW + 16;
     }
     page.drawText(issuer.name, {
       x: headerTextX,
-      y: PAGE_H - 34,
+      y: PAGE_H - 32,
       size: 13,
       font: fontBold,
       color: WHITE,
     });
     page.drawText(
       fitText(`CNPJ ${issuer.cnpj} · ${issuer.cityUf}`, font, 8, PAGE_W - headerTextX - MARGIN),
-      {
-        x: headerTextX,
-        y: PAGE_H - 48,
-        size: 8,
-        font,
-        color: WHITE,
-      }
+      { x: headerTextX, y: PAGE_H - 46, size: 8, font, color: WHITE }
     );
     page.drawText(fitText(issuer.address, font, 8, PAGE_W - headerTextX - MARGIN), {
       x: headerTextX,
-      y: PAGE_H - 60,
+      y: PAGE_H - 58,
       size: 8,
       font,
-      color: WHITE,
-    });
-    page.drawText('CONTRATO DE COMPRA E VENDA DE CAFÉ', {
-      x: headerTextX,
-      y: PAGE_H - 80,
-      size: 10,
-      font: fontBold,
-      color: WHITE,
-    });
-    // Número + status à direita
-    const numText = contract.contractNumber;
-    const numW = fontBold.widthOfTextAtSize(numText, 16);
-    page.drawText(numText, {
-      x: PAGE_W - MARGIN - numW,
-      y: PAGE_H - 36,
-      size: 16,
-      font: fontBold,
       color: WHITE,
     });
     const statusText = STATUS_LABELS[contract.status] ?? contract.status;
     const statusW = font.widthOfTextAtSize(statusText, 9);
     page.drawText(statusText, {
       x: PAGE_W - MARGIN - statusW,
-      y: PAGE_H - 52,
+      y: PAGE_H - 32,
       size: 9,
       font,
       color: WHITE,
     });
 
-    y = PAGE_H - headerH - 6;
+    let y = PAGE_H - headerH - 18;
 
-    // ---------- B1 Identificação (sem "Tipo") ----------
-    sectionTitle('Identificação');
-    field('Data do contrato', formatDateBR(contract.contractDate));
-    field('Mês/Ano', formatMonthYearExtenso(contract.contractDate));
-    field('Número de compra', contract.purchaseNumber);
-    field('Número do lote', lotNumber);
+    // ---------- Título (no corpo) ----------
+    const titleText = 'Contrato de Compra e Venda de Café';
+    const titleSize = 14;
+    const titleW = fontBold.widthOfTextAtSize(titleText, titleSize);
+    page.drawText(titleText, {
+      x: (PAGE_W - titleW) / 2,
+      y: y - titleSize,
+      size: titleSize,
+      font: fontBold,
+      color: GREEN,
+    });
+    y -= titleSize + 12;
 
-    // ---------- B2/B3 Comprador + armazém ----------
-    party('Comprador', contract.buyerSnapshot);
-    party('Armazém do comprador', contract.buyerWarehouseSnapshot);
+    // ---------- Identificação (linha horizontal: 4 campos) ----------
+    y -= statRow({
+      top: y,
+      cells: [
+        { label: 'Número do contrato', value: contract.contractNumber },
+        { label: 'Número de compra', value: contract.purchaseNumber },
+        { label: 'Número do lote', value: lotNumber },
+        { label: 'Mês/Ano', value: formatMonthYearExtenso(contract.contractDate) },
+      ],
+    });
+    y -= 10;
 
-    // ---------- B4/B5 Vendedor + armazém ----------
-    party('Vendedor', contract.sellerSnapshot);
-    party('Armazém do vendedor', contract.sellerWarehouseSnapshot);
+    // ---------- Comprador | Armazém do comprador ----------
+    y -=
+      Math.max(
+        drawCard({
+          x: MARGIN,
+          width: halfW,
+          top: y,
+          title: 'Comprador',
+          rows: partyRows(contract.buyerSnapshot),
+        }),
+        drawCard({
+          x: MARGIN + halfW + COL_GAP,
+          width: halfW,
+          top: y,
+          title: 'Armazém do comprador',
+          rows: partyRows(contract.buyerWarehouseSnapshot),
+        })
+      ) + 8;
 
-    // ---------- B6 Corretagem (só %) ----------
-    sectionTitle('Corretagem');
-    field('Corretagem do vendedor', formatPercent(contract.sellerBrokeragePct));
-    field('Corretagem do comprador', formatPercent(contract.buyerBrokeragePct));
+    // ---------- Vendedor | Armazém do vendedor ----------
+    y -=
+      Math.max(
+        drawCard({
+          x: MARGIN,
+          width: halfW,
+          top: y,
+          title: 'Vendedor',
+          rows: partyRows(contract.sellerSnapshot),
+        }),
+        drawCard({
+          x: MARGIN + halfW + COL_GAP,
+          width: halfW,
+          top: y,
+          title: 'Armazém do vendedor',
+          rows: partyRows(contract.sellerWarehouseSnapshot),
+        })
+      ) + 10;
 
-    // ---------- B7 Quantidade & valores (sem ágio/total — P21/P22) ----------
-    sectionTitle('Quantidade e valores');
-    field('Sacas', contract.quantitySacks != null ? `${contract.quantitySacks} sc` : null);
-    field('Peso (Kg)', decimalToNumber(contract.weightKg));
-    field('Preço por saca', formatCurrencyBRL(contract.unitPrice));
+    // ---------- Corretagem (só %) ----------
+    y -= miniSection('Corretagem', y);
+    y -= statRow({
+      top: y,
+      cells: [
+        { label: 'Corretagem do vendedor', value: formatPercent(contract.sellerBrokeragePct) },
+        { label: 'Corretagem do comprador', value: formatPercent(contract.buyerBrokeragePct) },
+      ],
+    });
+    y -= 8;
 
-    // ---------- B8 Pagamento & logística ----------
-    sectionTitle('Pagamento e logística');
-    field('Condição de pagamento', contract.paymentCondition);
-    field('Forma de pagamento', contract.paymentFormText);
-    field('Modalidade', contract.modalityText);
-    field('Embalagem', contract.packagingText);
-    field('Data de faturamento', formatDateBR(contract.invoiceDate));
-    field('Data de pagamento', formatDateBR(contract.paymentDate));
+    // ---------- Quantidade e valores (sem ágio/total — P21/P22) ----------
+    y -= miniSection('Quantidade e valores', y);
+    y -= statRow({
+      top: y,
+      cells: [
+        {
+          label: 'Sacas',
+          value: contract.quantitySacks != null ? `${contract.quantitySacks} sc` : null,
+        },
+        { label: 'Peso (Kg)', value: decimalToNumber(contract.weightKg) },
+        { label: 'Preço por saca', value: formatCurrencyBRL(contract.unitPrice) },
+      ],
+    });
+    y -= 8;
+
+    // ---------- Pagamento e logística (2 colunas) ----------
     const bank = contract.sellerBankSnapshot;
-    field(
-      'Banco do vendedor',
-      bank
-        ? [bank.bankName, bank.compeCode ? `(${bank.compeCode})` : null].filter(Boolean).join(' ')
-        : null
-    );
-    field(
-      'Agência / Conta',
-      bank ? [bank.agency, bank.accountNumber].filter(Boolean).join(' / ') || null : null
-    );
-    field('Titular', bank?.holderName);
-    field('CPF/CNPJ do titular', formatDocument(bank?.holderTaxId));
-    field('Chave PIX', bank?.pixKey);
+    y -= miniSection('Pagamento e logística', y);
+    y -= twoColFields({
+      top: y,
+      pairs: [
+        ['Condição de pagamento', contract.paymentCondition],
+        ['Forma de pagamento', contract.paymentFormText],
+        ['Modalidade', contract.modalityText],
+        ['Embalagem', contract.packagingText],
+        ['Data de faturamento', formatDateBR(contract.invoiceDate)],
+        ['Data de pagamento', formatDateBR(contract.paymentDate)],
+        [
+          'Banco do vendedor',
+          bank
+            ? [bank.bankName, bank.compeCode ? `(${bank.compeCode})` : null]
+                .filter(Boolean)
+                .join(' ')
+            : null,
+        ],
+        [
+          'Agência / Conta',
+          bank ? [bank.agency, bank.accountNumber].filter(Boolean).join(' / ') || null : null,
+        ],
+        ['Titular', bank?.holderName],
+        ['CPF/CNPJ do titular', formatDocument(bank?.holderTaxId)],
+        ['Chave PIX', bank?.pixKey],
+      ],
+    });
+    y -= 10;
 
-    // ---------- B9 Textos (sempre presentes) ----------
-    sectionTitle('Observações');
-    paragraph('Observações', contract.observations);
-    paragraph('Descrição', contract.description);
+    // ---------- Observações (truncadas p/ caber) ----------
+    y -= miniSection('Observações', y);
+    y -= truncatedParagraph({ top: y, label: 'Observações', value: contract.observations });
+    y -= 4;
+    y -= truncatedParagraph({ top: y, label: 'Descrição', value: contract.description });
+    y -= 14;
 
-    // ---------- B10 Assinaturas ----------
-    const sigBlockH = 90;
-    ensureSpace(sigBlockH);
-    y -= 36;
-    const colW = (contentW - 24) / 2;
-    const sigLine = (label, x) => {
+    // ---------- Assinaturas ----------
+    const sigColW = (contentW - 24) / 2;
+    const sigLine = (label, x, sy) => {
       page.drawLine({
-        start: { x, y },
-        end: { x: x + colW, y },
+        start: { x, y: sy },
+        end: { x: x + sigColW, y: sy },
         thickness: 0.8,
         color: rgb(0.3, 0.34, 0.31),
       });
-      page.drawText(label, { x, y: y - 12, size: 8, font, color: MUTED });
+      page.drawText(label, { x, y: sy - 11, size: 8, font, color: MUTED });
     };
-    sigLine('Vendedor', MARGIN);
-    sigLine('Comprador', MARGIN + colW + 24);
-    y -= 44;
-    ensureSpace(30);
-    sigLine('Corretor / Empresa', MARGIN);
+    y -= 24;
+    sigLine('Vendedor', MARGIN, y);
+    sigLine('Comprador', MARGIN + sigColW + 24, y);
+    y -= 40;
+    sigLine('Corretor / Empresa', MARGIN, y);
 
     const bytes = await pdfDoc.save();
     const buffer = Buffer.from(bytes);
