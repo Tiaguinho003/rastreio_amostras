@@ -17,6 +17,23 @@ export const SALE_CONTRACT_STATUSES = Object.freeze([
   'WASH_OUT',
 ]);
 
+// Desfazer um passo no ciclo pos-CONFIRMADO. Como "Pagar" pode pular FATURADO
+// (CONFIRMADO -> PAGO direto), o destino de desfazer um PAGO depende do caminho
+// percorrido: a presenca de invoicedAt registra se houve faturamento.
+//   FATURADO            -> CONFIRMADO (limpa invoicedAt)
+//   PAGO (com faturado) -> FATURADO   (limpa paidAt)
+//   PAGO (pulou)        -> CONFIRMADO (limpa paidAt)
+// Retorna null para status fora do ciclo (chamador devolve 409).
+export function resolveRevertTarget(status, hasInvoicedAt) {
+  if (status === 'FATURADO') {
+    return 'CONFIRMADO';
+  }
+  if (status === 'PAGO') {
+    return hasInvoicedAt ? 'FATURADO' : 'CONFIRMADO';
+  }
+  return null;
+}
+
 // Decimal(12,2) cabe ate 9.999.999.999,99. Preco/saca e corretagem sao bem
 // menores, mas o teto evita estouro silencioso no banco.
 const DECIMAL_12_2_MAX = 9999999999.99;
@@ -277,6 +294,8 @@ export const SALE_CONTRACT_VIEW_SELECT = Object.freeze({
   packagingText: true,
   invoiceDate: true,
   paymentDate: true,
+  invoicedAt: true,
+  paidAt: true,
   observations: true,
   description: true,
   version: true,
@@ -328,6 +347,8 @@ export function toSaleContractView(row) {
     packagingText: row.packagingText ?? null,
     invoiceDate: toIsoString(row.invoiceDate),
     paymentDate: toIsoString(row.paymentDate),
+    invoicedAt: toIsoString(row.invoicedAt),
+    paidAt: toIsoString(row.paidAt),
     observations: row.observations ?? null,
     description: row.description ?? null,
     version: row.version,
@@ -378,6 +399,12 @@ function requireDate(value, fieldName) {
     });
   }
   return new Date(value.trim());
+}
+
+// Data REAL do marco (faturamento/pagamento) escolhida no dialogo. Obrigatoria;
+// mesmo formato YYYY-MM-DD das demais datas do contrato (@db.Date).
+export function normalizeActionDate(value, fieldName = 'date') {
+  return requireDate(value, fieldName);
 }
 
 function optionalText(value, fieldName, maxLength) {
