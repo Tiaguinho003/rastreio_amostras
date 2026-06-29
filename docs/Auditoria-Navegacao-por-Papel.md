@@ -231,7 +231,64 @@ no Classifier, Relatorios no Comercial); menu do avatar igual (Perfil, Sair).
 
 ## CADASTRO — "Cadastro"
 
-(A detalhar em sessao propria.)
+Papel de cadastro / back-office. E o mais amplo dos nao-ADMIN: alem de tudo que
+o Comercial alcanca (amostras, clientes, camera), tem a gestao do Fechamento
+(Cadastros + Contratos) e entra em "Relatorios" como VIEWER (supervisao +
+curadoria). So nao tem `/users` (exclusivo do ADMIN).
+
+### Onde navega (por superficie)
+
+| Destino    | Rota         | Desktop                       | Mobile                    |
+| ---------- | ------------ | ----------------------------- | ------------------------- |
+| Inicio     | `/dashboard` | Sidebar                       | Tabbar                    |
+| Lotes      | `/samples`   | Sidebar                       | Tabbar                    |
+| Clientes   | `/clients`   | Sidebar                       | Tabbar                    |
+| Relatorios | `/informe`   | Sidebar                       | Tabbar                    |
+| Camera     | `/camera`    | — (sem botao)                 | Tabbar (destaque, centro) |
+| Cadastros  | `/cadastros` | Sidebar                       | Menu do avatar            |
+| Contratos  | `/contratos` | Sidebar                       | Menu do avatar            |
+| Perfil     | `/profile`   | Menu do avatar ("Meu perfil") | Menu do avatar            |
+| Sair       | logout       | Menu do avatar                | Menu do avatar            |
+
+Contagem:
+
+- **Sidebar desktop: 6 itens** — Inicio, Lotes, Clientes, Relatorios, Cadastros,
+  Contratos.
+- **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, Clientes, Relatorios.
+  (Cadastros e Contratos nao cabem na tabbar — vao para o menu do avatar.)
+- **Menu do avatar:** assimetrico por plataforma. No **desktop** sao 2 itens (Meu
+  perfil, Sair) — a gestao esta na sidebar. No **mobile** sao 4 itens (Perfil,
+  Cadastros, Contratos, Sair) — sem sidebar, o menu carrega a gestao.
+
+### Rotas acessiveis sem botao de navegacao
+
+- `/samples/new`, `/samples/[id]`; `/clients/[id]` — a partir de Lotes/Clientes.
+- `/camera` **no desktop** — rota liberada, botao so na tabbar mobile (igual aos
+  demais nao-prospectores).
+
+### Rotas bloqueadas (redirecionam para `/dashboard`)
+
+- `/users` — exclusivo do ADMIN.
+
+### Particularidades de conteudo
+
+- **`/informe` (Relatorios)**: CADASTRO entra como **viewer**
+  (`RelatoriosViewer`) — ve TODOS os informes (`scope=all`) e **cura** o vinculo
+  informe -> cliente (`isVisitLinkCurator` = ADMIN/CADASTRO). **Nao cria**
+  informes: o FAB e so do ADMIN (`canCreate={isAdmin(role)}`).
+  (`app/informe/page.tsx`, `components/informe/RelatoriosViewer.tsx`.)
+- **`/cadastros`**: gestao de Bancos e Corretores (Fechamento Fase 0).
+- **`/contratos`**: gestao dos contratos de venda (Fechamento).
+- **`/dashboard`**: dashboard padrao (com `salesData`), igual aos demais
+  nao-prospectores.
+
+### Diferenca para o COMMERCIAL
+
+CADASTRO = Comercial **+ gestao**: ganha Cadastros e Contratos (sidebar no
+desktop / menu do avatar no mobile) e muda o papel no Relatorios — o Comercial
+ve so os PROPRIOS informes e CRIA (FAB); o CADASTRO ve TODOS e CURA vinculos,
+mas NAO cria. Resultado: sidebar 6 vs 4; tabbar 5 vs 5 (iguais); menu do avatar
+no mobile 4 vs 2.
 
 ## ADMIN — "Administracao"
 
@@ -251,8 +308,13 @@ Observacoes neutras do mapeamento, sem juizo de "certo/errado":
    botao `/informe` aparece igual, mas a pagina e adaptativa por papel (viewer /
    proprios / placeholder vazio).
 3. **Redirects silenciosos.** `/settings` -> `/profile` e `/resumo` -> `/informe`.
-4. **Menu do avatar e o mesmo nas duas plataformas** (dropdown no desktop,
-   bottom sheet no mobile), com os mesmos itens filtrados por papel.
+4. **O menu do avatar muda de conteudo por plataforma.** No DESKTOP (dropdown do
+   topbar, no `AppShell`) traz sempre so "Meu perfil" + "Sair" — a gestao
+   (Cadastros/Contratos/Usuarios) fica na SIDEBAR. No MOBILE (bottom sheet
+   `HeaderAvatarMenu`) nao ha sidebar, entao o menu do avatar TAMBEM carrega
+   Cadastros/Contratos (ADMIN/CADASTRO) e Usuarios (ADMIN) — por isso esses
+   papeis tem mais itens no menu do avatar no mobile que no desktop. (Para papeis
+   sem gestao, como Comercial e Classifier, o menu fica Perfil + Sair nos dois.)
 5. **CLASSIFIER e o unico nao-prospector sem Relatorios.** Dos cinco papeis de
    `NON_PROSPECTOR_ROLES`, so o CLASSIFIER esta fora de `INFORME_ROLES`; por isso
    tem a sidebar mais enxuta entre eles (3 itens).
