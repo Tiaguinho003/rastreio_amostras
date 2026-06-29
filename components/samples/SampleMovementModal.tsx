@@ -1,6 +1,6 @@
 'use client';
 
-import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { type CSSProperties, type FormEvent, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { ApiError, getBlendFeasibility } from '../../lib/api-client';
@@ -398,6 +398,125 @@ export function SampleMovementModal({
     });
   }
 
+  // Layout: pares lado a lado (Sacas+Preco, Corretagens) em grid 50/50 que casa
+  // o gap do .app-modal-content. Campos extraidos pra recompor sem duplicar.
+  const halfRowStyle: CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+    gap: '0.75rem',
+  };
+
+  const dataField = (
+    <label className="app-modal-field">
+      <span className="app-modal-label">Data</span>
+      <input
+        className="app-modal-input"
+        type="date"
+        value={movementDate}
+        disabled={saving}
+        onChange={(event) => setMovementDate(event.target.value)}
+      />
+    </label>
+  );
+
+  const sacasField = (
+    <div className="app-modal-field">
+      <span className="app-modal-label">
+        Sacas <span className="sdv-edit-label-hint">({effectiveLimit} disp.)</span>
+      </span>
+      <div className="sdv-mov-qty-inline">
+        <input
+          className={`app-modal-input${isQuantityOverLimit ? ' has-error' : ''}`}
+          value={quantitySacks}
+          inputMode="numeric"
+          disabled={saving}
+          onChange={(event) => {
+            setQuantitySacks(event.target.value.replace(/[^0-9]/g, ''));
+            setError(null);
+          }}
+        />
+        {effectiveLimit > 0 ? (
+          <button
+            type="button"
+            className="sdv-mov-all-btn"
+            disabled={saving}
+            onClick={() => setQuantitySacks(String(effectiveLimit))}
+          >
+            Todas
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+
+  const priceField = (
+    <label className="app-modal-field">
+      <span className="app-modal-label">Preço por saca (R$)</span>
+      <input
+        className={`app-modal-input${
+          unitPrice.trim() !== '' && !isUnitPriceValid ? ' has-error' : ''
+        }`}
+        inputMode="decimal"
+        value={unitPrice}
+        disabled={saving}
+        onChange={(event) => {
+          setUnitPrice(maskCurrencyInput(event.target.value));
+          setError(null);
+        }}
+        placeholder="0,00"
+      />
+    </label>
+  );
+
+  const sellerBrokerageField = (
+    <label className="app-modal-field">
+      <span className="app-modal-label">Corretagem do vendedor (%)</span>
+      <input
+        className={`app-modal-input${!isSellerPctValid ? ' has-error' : ''}`}
+        inputMode="decimal"
+        value={sellerBrokeragePct}
+        disabled={saving}
+        onChange={(event) => {
+          setSellerBrokeragePct(event.target.value.replace(/[^0-9.,]/g, ''));
+          setError(null);
+        }}
+        placeholder="0"
+      />
+    </label>
+  );
+
+  const buyerBrokerageField = (
+    <label className="app-modal-field">
+      <span className="app-modal-label">Corretagem do comprador (%)</span>
+      <input
+        className={`app-modal-input${!isBuyerPctValid ? ' has-error' : ''}`}
+        inputMode="decimal"
+        value={buyerBrokeragePct}
+        disabled={saving}
+        onChange={(event) => {
+          setBuyerBrokeragePct(event.target.value.replace(/[^0-9.,]/g, ''));
+          setError(null);
+        }}
+        placeholder="0"
+      />
+    </label>
+  );
+
+  const brokersField = (
+    <div className="app-modal-field">
+      <span className="app-modal-label">Corretores</span>
+      <BrokerMultiSelectField
+        session={session}
+        selectedIds={brokerIds}
+        disabled={saving}
+        onChange={(ids) => {
+          setBrokerIds(ids);
+          setError(null);
+        }}
+      />
+    </div>
+  );
+
   return createPortal(
     <div className="app-modal-backdrop">
       <section
@@ -544,10 +663,13 @@ export function SampleMovementModal({
             </label>
           )}
 
+          {/* Data — logo abaixo do Comprador/Motivo (layout) */}
+          {dataField}
+
+          {/* Liga (Fase 5): a venda/perda de uma liga e 100% — bloco de total +
+              pre-validacao da cascata, sem campo de quantidade. */}
           {isBlend ? (
             <>
-              {/* Liga (Fase 5): a venda/perda de uma liga e 100% — sem campo
-                  de quantidade. Mostra o total e a pre-validacao da cascata. */}
               <div className="sdv-blend-mov-total">
                 <span className="sdv-blend-mov-total-label">
                   {mode === 'edit'
@@ -586,118 +708,30 @@ export function SampleMovementModal({
                   </div>
                 </div>
               ) : null}
-
-              <label className="app-modal-field">
-                <span className="app-modal-label">Data</span>
-                <input
-                  className="app-modal-input"
-                  type="date"
-                  value={movementDate}
-                  disabled={saving}
-                  onChange={(event) => setMovementDate(event.target.value)}
-                />
-              </label>
             </>
-          ) : (
-            <>
-              <div className="app-modal-field">
-                <span className="app-modal-label">
-                  Sacas <span className="sdv-edit-label-hint">({effectiveLimit} disp.)</span>
-                </span>
-                <div className="sdv-mov-qty-inline">
-                  <input
-                    className={`app-modal-input${isQuantityOverLimit ? ' has-error' : ''}`}
-                    value={quantitySacks}
-                    inputMode="numeric"
-                    disabled={saving}
-                    onChange={(event) => {
-                      setQuantitySacks(event.target.value.replace(/[^0-9]/g, ''));
-                      setError(null);
-                    }}
-                  />
-                  {effectiveLimit > 0 ? (
-                    <button
-                      type="button"
-                      className="sdv-mov-all-btn"
-                      disabled={saving}
-                      onClick={() => setQuantitySacks(String(effectiveLimit))}
-                    >
-                      Todas
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-              <label className="app-modal-field">
-                <span className="app-modal-label">Data</span>
-                <input
-                  className="app-modal-input"
-                  type="date"
-                  value={movementDate}
-                  disabled={saving}
-                  onChange={(event) => setMovementDate(event.target.value)}
-                />
-              </label>
-            </>
-          )}
+          ) : null}
 
+          {/* Sacas + Preço lado a lado (venda a vista, nao-liga). LOSS: so Sacas.
+              Liga em venda: so Preço (a quantidade ja e 100%). */}
+          {!isBlend && needsContractTerms ? (
+            <div style={halfRowStyle}>
+              {sacasField}
+              {priceField}
+            </div>
+          ) : !isBlend ? (
+            sacasField
+          ) : needsContractTerms ? (
+            priceField
+          ) : null}
+
+          {/* Corretagens lado a lado (50/50) + Corretores */}
           {needsContractTerms ? (
             <>
-              <label className="app-modal-field">
-                <span className="app-modal-label">Preço por saca (R$)</span>
-                <input
-                  className={`app-modal-input${
-                    unitPrice.trim() !== '' && !isUnitPriceValid ? ' has-error' : ''
-                  }`}
-                  inputMode="decimal"
-                  value={unitPrice}
-                  disabled={saving}
-                  onChange={(event) => {
-                    setUnitPrice(maskCurrencyInput(event.target.value));
-                    setError(null);
-                  }}
-                  placeholder="0,00"
-                />
-              </label>
-              <label className="app-modal-field">
-                <span className="app-modal-label">Corretagem do vendedor (%)</span>
-                <input
-                  className={`app-modal-input${!isSellerPctValid ? ' has-error' : ''}`}
-                  inputMode="decimal"
-                  value={sellerBrokeragePct}
-                  disabled={saving}
-                  onChange={(event) => {
-                    setSellerBrokeragePct(event.target.value.replace(/[^0-9.,]/g, ''));
-                    setError(null);
-                  }}
-                  placeholder="0"
-                />
-              </label>
-              <label className="app-modal-field">
-                <span className="app-modal-label">Corretagem do comprador (%)</span>
-                <input
-                  className={`app-modal-input${!isBuyerPctValid ? ' has-error' : ''}`}
-                  inputMode="decimal"
-                  value={buyerBrokeragePct}
-                  disabled={saving}
-                  onChange={(event) => {
-                    setBuyerBrokeragePct(event.target.value.replace(/[^0-9.,]/g, ''));
-                    setError(null);
-                  }}
-                  placeholder="0"
-                />
-              </label>
-              <div className="app-modal-field">
-                <span className="app-modal-label">Corretores</span>
-                <BrokerMultiSelectField
-                  session={session}
-                  selectedIds={brokerIds}
-                  disabled={saving}
-                  onChange={(ids) => {
-                    setBrokerIds(ids);
-                    setError(null);
-                  }}
-                />
+              <div style={halfRowStyle}>
+                {sellerBrokerageField}
+                {buyerBrokerageField}
               </div>
+              {brokersField}
             </>
           ) : null}
 
