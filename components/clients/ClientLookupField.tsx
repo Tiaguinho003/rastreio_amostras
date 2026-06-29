@@ -191,7 +191,9 @@ export function ClientLookupField({
       return;
     }
 
-    if (normalizedSearch.length < 1) {
+    // O backend exige >= 2 caracteres (responde 422 abaixo disso). Espelhamos
+    // esse piso aqui pra nao disparar uma busca que sempre falharia com 1 char.
+    if (normalizedSearch.length < 2) {
       setItems([]);
       setMatchedUnitId(null);
       setLoading(false);
