@@ -247,6 +247,7 @@ export default function ContratosPage() {
                       isExpanded={expandedIds.has(contract.id)}
                       onToggle={() => toggleExpand(contract.id)}
                       onGerar={() => setEtapa2({ contractId: contract.id, mode: 'emit' })}
+                      onCancelar={() => openLifecycle('cancel')}
                       onEditar={() => setEtapa2({ contractId: contract.id, mode: 'emit' })}
                       onRevisar={() => setEtapa2({ contractId: contract.id, mode: 'view' })}
                       onVer={() => setEtapa2({ contractId: contract.id, mode: 'view' })}
@@ -325,9 +326,11 @@ export default function ContratosPage() {
                   ? 'Pagamento registrado'
                   : action === 'washout'
                     ? 'Contrato quebrado'
-                    : status === 'PAGO'
-                      ? 'Pagamento desfeito'
-                      : 'Faturamento desfeito';
+                    : action === 'cancel'
+                      ? 'Contrato cancelado'
+                      : status === 'PAGO'
+                        ? 'Pagamento desfeito'
+                        : 'Faturamento desfeito';
             toast.success({ title });
           }}
         />

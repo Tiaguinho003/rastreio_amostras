@@ -65,6 +65,7 @@ type SaleContractCardProps = {
   isExpanded: boolean;
   onToggle: () => void;
   onGerar: () => void;
+  onCancelar: () => void;
   onRevisar: () => void;
   onEditar: () => void;
   onConfirmar: () => void;
@@ -81,6 +82,7 @@ export function SaleContractCard({
   isExpanded,
   onToggle,
   onGerar,
+  onCancelar,
   onRevisar,
   onEditar,
   onConfirmar,
@@ -181,9 +183,14 @@ export function SaleContractCard({
 
           <div className="ctr-card-actions">
             {contract.status === 'EM_ABERTO' ? (
-              <button type="button" className="ctr-btn ctr-btn-primary" onClick={onGerar}>
-                Gerar documento
-              </button>
+              <>
+                <button type="button" className="ctr-btn ctr-btn-primary" onClick={onGerar}>
+                  Gerar documento
+                </button>
+                <button type="button" className="ctr-btn ctr-btn-danger" onClick={onCancelar}>
+                  Cancelar
+                </button>
+              </>
             ) : null}
             {contract.status === 'CONFERIR' ? (
               <>

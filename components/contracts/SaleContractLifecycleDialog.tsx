@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 
 import {
   ApiError,
+  cancelSaleContract,
   invoiceSaleContract,
   paySaleContract,
   revertSaleContractStatus,
@@ -15,9 +16,10 @@ import type { SaleContractStatus, SessionData } from '../../lib/types';
 
 // Fechamento (Fase B): ações de status do contrato. "Faturar"/"Pagar" gravam a
 // data real do marco; "Desfazer" volta um passo; "Quebrar" (P17) cancela a venda
-// e marca WASH_OUT (motivo obrigatório, definitiva). Molde do ConfirmDialog.
+// e marca WASH_OUT (motivo obrigatório, definitiva); "Cancelar" descarta um
+// contrato EM_ABERTO (sem documento) desfazendo a venda. Molde do ConfirmDialog.
 
-export type LifecycleAction = 'invoice' | 'pay' | 'revert' | 'washout';
+export type LifecycleAction = 'invoice' | 'pay' | 'revert' | 'washout' | 'cancel';
 
 type SaleContractLifecycleDialogProps = {
   session: SessionData;
@@ -87,6 +89,17 @@ function dialogCopy(
       submitting: 'Quebrando...',
     };
   }
+  if (action === 'cancel') {
+    return {
+      title: 'Cancelar contrato',
+      text: `Cancelar o contrato ${contractNumber}? A venda será desfeita e as sacas voltam ao lote. O contrato em aberto será descartado. Ação definitiva.`,
+      dateLabel: null,
+      reasonLabel: null,
+      danger: true,
+      submit: 'Cancelar contrato',
+      submitting: 'Cancelando...',
+    };
+  }
   // revert
   const isPaid = currentStatus === 'PAGO';
   return {
@@ -136,6 +149,8 @@ export function SaleContractLifecycleDialog({
         await paySaleContract(session, contractId, { expectedVersion, date });
       } else if (action === 'washout') {
         await washoutSaleContract(session, contractId, { expectedVersion, reason: reason.trim() });
+      } else if (action === 'cancel') {
+        await cancelSaleContract(session, contractId, { expectedVersion });
       } else {
         await revertSaleContractStatus(session, contractId, { expectedVersion });
       }
@@ -219,7 +234,7 @@ export function SaleContractLifecycleDialog({
 
         <div className="app-modal-actions">
           <button type="button" className="app-modal-secondary" onClick={onClose} disabled={saving}>
-            Cancelar
+            {action === 'cancel' ? 'Voltar' : 'Cancelar'}
           </button>
           <button
             type="button"

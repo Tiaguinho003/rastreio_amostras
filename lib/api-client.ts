@@ -900,6 +900,21 @@ export function washoutSaleContract(
   });
 }
 
+// Cancelar um contrato EM_ABERTO (venda registrada, sem documento): descarta o
+// contrato e desfaz a venda (devolve as sacas ao lote). O contrato deixa de
+// existir — por isso o retorno e so a confirmacao, nao o contrato.
+export function cancelSaleContract(
+  session: SessionData,
+  contractId: string,
+  data: { expectedVersion: number }
+) {
+  return request<{ deleted: boolean; contractId: string }>(`/sale-contracts/${contractId}/cancel`, {
+    method: 'POST',
+    session,
+    body: data,
+  });
+}
+
 export function listContractLookups(session: SessionData, options: { signal?: AbortSignal } = {}) {
   return request<ContractLookupsResponse>('/contract-lookups', {
     method: 'GET',
