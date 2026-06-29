@@ -1,6 +1,6 @@
 # Auditoria de Navegacao por Papel de Usuario
 
-Status: Em construcao (read-only — mapeamento do estado atual)
+Status: Ativo — referencia mantida para uso futuro (read-only; reflete o estado atual)
 Escopo: para cada papel de usuario, QUAIS paginas tem acesso e ONDE estao na
 navegacao, no desktop e no mobile.
 Natureza: levantamento factual. Nao propoe mudancas; decisoes de ajuste ficam
@@ -160,7 +160,12 @@ proprio:
 
 ## PROSPECTOR — "Prospeccao"
 
-(A detalhar em sessao propria.)
+App **restrito e distinto** dos demais: o middleware limita o PROSPECTOR a
+`/dashboard`, `/profile`, `/settings` e `/offline` (qualquer outra rota
+redireciona para `/dashboard`). Tem **dashboard dedicado** (`ProspectorDashboard`)
+com o formulario de visita no proprio sheet; a sidebar fica so com Inicio e a
+**tabbar e escondida** (`hideMobileTabbar`). Decisao 2026-06-28: mantido como
+esta — mapeamento detalhado adiado.
 
 ## CLASSIFIER — "Classificacao"
 
@@ -227,10 +232,12 @@ no Classifier, Relatorios no Comercial); menu do avatar igual (Perfil, Sair).
 
 ## REGISTRATION — "Impressao"
 
-Papel operacional de impressao/registro. A navegacao e **identica a do
-Comercial** (esta em `NON_PROSPECTOR_ROLES` e em `INFORME_ROLES`); a unica
-diferenca real e o **conteudo** de Relatorios — o REGISTRATION cai no placeholder
-vazio (nao e viewer nem tem formularios proprios).
+Papel ligado a impressao/registro. **Na pratica existe para o agente de
+impressao** (envio dos dados de etiqueta) — nao e um papel de uso humano no app,
+o que explica a ausencia de UI propria. A navegacao e **identica a do Comercial**
+(esta em `NON_PROSPECTOR_ROLES` e em `INFORME_ROLES`); a unica diferenca real e o
+**conteudo** de Relatorios, onde cai no placeholder vazio. Decisao 2026-06-28:
+mantido como esta por enquanto (mudancas futuras planejadas).
 
 ### Onde navega (por superficie)
 
@@ -347,7 +354,61 @@ Relatorios); menu do avatar no mobile 3 vs 2 (CADASTRO tem Cadastros a mais).
 
 ## ADMIN — "Administracao"
 
-(A detalhar em sessao propria.)
+Acesso total — superconjunto de todos os papeis. Unico que ve **Usuarios**
+(`/users`) e o unico viewer + curador + **criador** em Relatorios. Nenhuma rota
+bloqueada.
+
+### Onde navega (por superficie)
+
+| Destino    | Rota         | Desktop                       | Mobile                    |
+| ---------- | ------------ | ----------------------------- | ------------------------- |
+| Inicio     | `/dashboard` | Sidebar                       | Tabbar                    |
+| Lotes      | `/samples`   | Sidebar                       | Tabbar                    |
+| Clientes   | `/clients`   | Sidebar                       | Tabbar                    |
+| Relatorios | `/informe`   | Sidebar                       | Tabbar                    |
+| Camera     | `/camera`    | — (sem botao)                 | Tabbar (destaque, centro) |
+| Cadastros  | `/cadastros` | Sidebar                       | Menu do avatar            |
+| Contratos  | `/contratos` | Sidebar                       | Menu do avatar            |
+| Usuarios   | `/users`     | Sidebar                       | Menu do avatar            |
+| Perfil     | `/profile`   | Menu do avatar ("Meu perfil") | Menu do avatar            |
+| Sair       | logout       | Menu do avatar                | Menu do avatar            |
+
+Contagem:
+
+- **Sidebar desktop: 7 itens** — Inicio, Lotes, Clientes, Relatorios, Cadastros,
+  Contratos, Usuarios. (A sidebar mais cheia.)
+- **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, Clientes, Relatorios.
+  (Cadastros/Contratos/Usuarios nao cabem na tabbar — vao para o menu do avatar.)
+- **Menu do avatar:** assimetrico. No **desktop** sao 2 itens (Meu perfil, Sair) —
+  a gestao esta na sidebar. No **mobile** sao 5 itens (Perfil, Usuarios,
+  Cadastros, Contratos, Sair) — sem sidebar, o menu carrega toda a gestao.
+
+### Rotas acessiveis sem botao de navegacao
+
+- `/samples/new`, `/samples/[id]`; `/clients/[id]`; `/camera` no desktop.
+
+### Rotas bloqueadas
+
+- Nenhuma — ADMIN acessa tudo.
+
+### Particularidades de conteudo
+
+- **`/informe` (Relatorios)**: ADMIN e o **viewer** completo (RelatoriosViewer,
+  `scope=all`), **cura** vinculos (`isVisitLinkCurator`) e e o unico que **cria**
+  (FAB, `canCreate={isAdmin}`).
+- **`/users`**: gestao de usuarios — **exclusiva do ADMIN** (nenhum outro papel
+  acessa).
+- **`/cadastros` e `/contratos`**: gestao do Fechamento (Bancos/Corretores e
+  contratos de venda).
+- **Modo manutencao**: o middleware redireciona **nao-ADMIN** para
+  `/maintenance` — so o ADMIN usa o app durante a manutencao. (`middleware.ts`.)
+- **`/dashboard`**: dashboard padrao (com `salesData`).
+
+### Diferenca para o CADASTRO
+
+ADMIN = CADASTRO **+ Relatorios + Contratos + Usuarios** (e, no Relatorios, alem
+de ver/curar, tambem **cria**). Sidebar 7 vs 4; tabbar 5 vs 5 (ADMIN com
+Relatorios, CADASTRO com Perfil no 5o slot); menu do avatar no mobile 5 vs 3.
 
 ---
 
