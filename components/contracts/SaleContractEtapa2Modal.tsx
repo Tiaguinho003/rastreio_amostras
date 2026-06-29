@@ -10,10 +10,13 @@ import {
   createFutureSaleContract,
   createSampleMovement,
   emitSaleContract,
+  getBlendFeasibility,
   getClient,
+  getSampleDetail,
   getSaleContract,
   listContractLookups,
   updateClient,
+  updateRegistration,
 } from '../../lib/api-client';
 import {
   formatCurrencyValue,
@@ -41,29 +44,23 @@ import type {
 
 type SaleContractEtapa2ModalProps = {
   session: SessionData;
-  // Card "Editar": contrato existente. Wizard a vista: ausente (usa createContext).
+  // Card "Editar": contrato existente.
   contractId?: string;
   onClose: () => void;
   onSaved: () => void;
-  // Wizard a vista (modo CRIACAO): o contrato ainda NAO existe. O submit cria a
-  // venda+contrato (createSampleMovement) e em seguida emite (create->emit). O
-  // prefill vem do sample + dos dados da venda do passo 1. "Voltar" = onBack.
-  createContext?: {
+  // Modo CRIACAO À VISTA (1 modal): vem do picker de lote. Mostra o bloco "Venda"
+  // (sacas ≤ disponível; liga = 100% travado) + Vendedor pré-preenchido do dono do
+  // lote + Comprador manual; o submit cria a venda no lote (createSampleMovement,
+  // atribuindo o dono se a liga não tiver) e em seguida emite (-> CONFERIR).
+  spotCreate?: {
     sampleId: string;
     sampleVersion: number;
-    sellerClientId: string | null;
-    sale: {
-      buyerClientId: string | null;
-      buyerUnitId: string | null;
-      quantitySacks: number;
-      movementDate: string;
-      unitPrice: number | null;
-      sellerBrokeragePct: number | null;
-      buyerBrokeragePct: number | null;
-      brokerIds: string[];
-    };
+    internalLotNumber: string | null;
+    availableSacks: number;
+    isBlend: boolean;
+    ownerClientId: string | null;
+    nextNumber: string | null;
   };
-  onBack?: () => void;
   // Modo CRIACAO FUTURO (1 modal): sem lote/contrato. Mostra o bloco "Venda"
   // (vazio, sacas LIVRES) + Vendedor/Comprador manuais; o submit cria o contrato
   // FUTURO (createFutureSaleContract) e em seguida emite (-> CONFERIR).
@@ -79,23 +76,21 @@ function unitLabel(unit: ClientUnitSummary): string {
 }
 
 // Fechamento: modal da etapa 2 do contrato. 3 modos: "Editar" (contrato existente,
-// via contractId), wizard à vista (createContext) e criação FUTURO (futureCreate).
-// Pre-preenche via getSaleContract + listContractLookups + getClient. Submete via
-// createSampleMovement/createFutureSaleContract + emitSaleContract.
+// via contractId) e criação em 1 modal — À VISTA (spotCreate, vem do picker de lote)
+// ou FUTURO (futureCreate, sem lote). Pre-preenche via getSaleContract/getClient +
+// listContractLookups. Submete via createSampleMovement/createFutureSaleContract + emit.
 export function SaleContractEtapa2Modal({
   session,
   contractId,
   onClose,
   onSaved,
-  createContext,
-  onBack,
+  spotCreate,
   futureCreate = false,
 }: SaleContractEtapa2ModalProps) {
   const focusTrapRef = useFocusTrap(true);
-  // Modo CRIACAO (wizard à vista): nao ha contrato ainda; create->emit.
-  const isCreate = createContext != null;
-  // Criação "tipo create" (sem contrato carregado): wizard à vista OU Futuro.
-  const isCreateLike = isCreate || futureCreate;
+  // Modos de criação em 1 modal: à vista (spotCreate, do picker) ou Futuro.
+  const isSpotCreate = spotCreate != null;
+  const isCreateLike = isSpotCreate || futureCreate;
   // Guarda de falha parcial: se o create deu certo mas o emit falhou, guardamos
   // o id pra o retry NAO recriar (so re-emitir) e pra limpar ao voltar/fechar.
   const [createdId, setCreatedId] = useState<string | null>(null);
@@ -124,8 +119,8 @@ export function SaleContractEtapa2Modal({
   const [buyerCreateOpen, setBuyerCreateOpen] = useState(false);
   const [buyerCreateSeed, setBuyerCreateSeed] = useState('');
 
-  // Fase 1 (venda) — editavel so no "Editar" de um contrato existente (nao no
-  // wizard, onde a fase 1 fica no 1o modal). Sacas travam em liga (sampleIsBlend).
+  // Fase 1 (venda) — bloco "Venda" do modal (card-edit, à vista e Futuro). Sacas
+  // travam em liga (sampleIsBlend / spotCreate liga).
   const [saleSacks, setSaleSacks] = useState('');
   const [saleUnitPrice, setSaleUnitPrice] = useState('');
   const [saleSellerPct, setSaleSellerPct] = useState('');
@@ -133,6 +128,10 @@ export function SaleContractEtapa2Modal({
   const [saleDate, setSaleDate] = useState('');
   const [saleBrokerIds, setSaleBrokerIds] = useState<string[]>([]);
   const [sampleIsBlend, setSampleIsBlend] = useState(false);
+
+  // À vista (spotCreate) liga: viabilidade da cascata (bloqueia venda inviável).
+  const [blendInfeasible, setBlendInfeasible] = useState(false);
+  const [feasibilityError, setFeasibilityError] = useState<string | null>(null);
 
   // Campos simples
   const [purchaseNumber, setPurchaseNumber] = useState('');
@@ -161,30 +160,40 @@ export function SaleContractEtapa2Modal({
       setLoading(true);
       setLoadError(null);
       try {
-        // Modo CRIACAO (wizard): sem contrato; carrega lookups e pre-preenche
-        // vendedor (dono do lote) + comprador/filial (da venda do passo 1).
-        if (createContext) {
+        // Modo CRIACAO À VISTA (1 modal): vem do picker de lote. Carrega lookups,
+        // pré-preenche o vendedor (dono do lote, se houver), semeia o blend e — para
+        // liga — semeia sacas = 100% e checa a viabilidade da cascata.
+        if (spotCreate) {
           const lookupsRes = await listContractLookups(session);
           if (aborted) return;
           setLookups(lookupsRes);
           setContract(null);
-          setBuyerUnitId(createContext.sale.buyerUnitId ?? '');
-          const [sellerD, buyerD] = await Promise.all([
-            createContext.sellerClientId
-              ? getClient(session, createContext.sellerClientId).catch(() => null)
-              : null,
-            createContext.sale.buyerClientId
-              ? getClient(session, createContext.sale.buyerClientId).catch(() => null)
-              : null,
-          ]);
-          if (aborted) return;
-          if (sellerD) {
-            setSeller(sellerD.client);
-            setSellerUnits(sellerD.units);
+          setSampleIsBlend(spotCreate.isBlend);
+          if (spotCreate.isBlend) {
+            setSaleSacks(String(spotCreate.availableSacks));
           }
-          if (buyerD) {
-            setBuyer(buyerD.client);
-            setBuyerUnits(buyerD.units);
+          if (spotCreate.ownerClientId) {
+            const sellerD = await getClient(session, spotCreate.ownerClientId).catch(() => null);
+            if (aborted) return;
+            if (sellerD) {
+              setSeller(sellerD.client);
+              setSellerUnits(sellerD.units);
+            }
+          }
+          // Liga: viabilidade da venda (bloqueia se alguma origem não cobre a cascata).
+          if (spotCreate.isBlend) {
+            try {
+              const feas = await getBlendFeasibility(session, spotCreate.sampleId);
+              if (aborted) return;
+              setBlendInfeasible(!feas.feasible);
+            } catch (cause) {
+              if (aborted) return;
+              setFeasibilityError(
+                cause instanceof ApiError
+                  ? cause.message
+                  : 'Falha ao verificar a viabilidade da liga'
+              );
+            }
           }
           return;
         }
@@ -261,7 +270,7 @@ export function SaleContractEtapa2Modal({
     return () => {
       aborted = true;
     };
-  }, [session, contractId, createContext, futureCreate]);
+  }, [session, contractId, spotCreate, futureCreate]);
 
   const sellerIsPF = seller?.personType === 'PF';
   const buyerIsPF = buyer?.personType === 'PF';
@@ -356,8 +365,8 @@ export function SaleContractEtapa2Modal({
       setError('Selecione a filial do vendedor.');
       return;
     }
-    // Futuro: o comprador é obrigatório na criação (vai no createFutureSaleContract).
-    if (futureCreate && !buyer) {
+    // Criação (à vista/Futuro): o comprador é obrigatório (vai na venda/contrato).
+    if (isCreateLike && !buyer) {
       setError('Selecione o comprador.');
       return;
     }
@@ -394,47 +403,52 @@ export function SaleContractEtapa2Modal({
       return;
     }
 
-    // Fase 1 (venda) — validada/enviada SÓ no "Editar" de um contrato existente
-    // (no wizard a fase 1 vem do 1º modal, via createContext).
-    let saleFieldsPayload: SaleContractSaleFieldsInput | undefined;
-    if (!isCreate) {
-      const sacks = Number(saleSacks);
-      if (!saleSacks.trim() || !Number.isInteger(sacks) || sacks <= 0) {
-        setError('Informe a quantidade de sacas.');
-        return;
-      }
-      const price = parseCurrencyInput(saleUnitPrice);
-      if (!saleUnitPrice.trim() || price == null || price <= 0) {
-        setError('Informe o preço por saca.');
-        return;
-      }
-      const sellerPct = saleSellerPct.trim() === '' ? 0 : (parseDecimalBr(saleSellerPct) ?? NaN);
-      if (Number.isNaN(sellerPct) || sellerPct < 0 || sellerPct > 100) {
-        setError('Corretagem do vendedor inválida (0 a 100).');
-        return;
-      }
-      const buyerPct = saleBuyerPct.trim() === '' ? 0 : (parseDecimalBr(saleBuyerPct) ?? NaN);
-      if (Number.isNaN(buyerPct) || buyerPct < 0 || buyerPct > 100) {
-        setError('Corretagem do comprador inválida (0 a 100).');
-        return;
-      }
-      if (!saleDate) {
-        setError('Informe a data do contrato.');
-        return;
-      }
-      if (saleBrokerIds.length === 0) {
-        setError('Selecione ao menos um corretor.');
-        return;
-      }
-      saleFieldsPayload = {
-        quantitySacks: sacks,
-        unitPrice: price,
-        sellerBrokeragePct: sellerPct,
-        buyerBrokeragePct: buyerPct,
-        contractDate: saleDate,
-        brokerIds: saleBrokerIds,
-      };
+    // Fase 1 (venda) — todos os modos mostram o bloco "Venda". À vista: sacas ≤
+    // saldo do lote (liga já vem travada em 100%). Liga inviável (à vista) bloqueia.
+    if (isSpotCreate && blendInfeasible) {
+      setError(feasibilityError ?? 'Liga inviável para venda — alguma origem não cobre a cascata.');
+      return;
     }
+    const sacks = Number(saleSacks);
+    if (!saleSacks.trim() || !Number.isInteger(sacks) || sacks <= 0) {
+      setError('Informe a quantidade de sacas.');
+      return;
+    }
+    if (isSpotCreate && spotCreate && sacks > spotCreate.availableSacks) {
+      setError(`Máximo de ${spotCreate.availableSacks} sacas disponíveis no lote.`);
+      return;
+    }
+    const price = parseCurrencyInput(saleUnitPrice);
+    if (!saleUnitPrice.trim() || price == null || price <= 0) {
+      setError('Informe o preço por saca.');
+      return;
+    }
+    const sellerPct = saleSellerPct.trim() === '' ? 0 : (parseDecimalBr(saleSellerPct) ?? NaN);
+    if (Number.isNaN(sellerPct) || sellerPct < 0 || sellerPct > 100) {
+      setError('Corretagem do vendedor inválida (0 a 100).');
+      return;
+    }
+    const buyerPct = saleBuyerPct.trim() === '' ? 0 : (parseDecimalBr(saleBuyerPct) ?? NaN);
+    if (Number.isNaN(buyerPct) || buyerPct < 0 || buyerPct > 100) {
+      setError('Corretagem do comprador inválida (0 a 100).');
+      return;
+    }
+    if (!saleDate) {
+      setError('Informe a data do contrato.');
+      return;
+    }
+    if (saleBrokerIds.length === 0) {
+      setError('Selecione ao menos um corretor.');
+      return;
+    }
+    const saleFieldsPayload: SaleContractSaleFieldsInput = {
+      quantitySacks: sacks,
+      unitPrice: price,
+      sellerBrokeragePct: sellerPct,
+      buyerBrokeragePct: buyerPct,
+      contractDate: saleDate,
+      brokerIds: saleBrokerIds,
+    };
 
     setSaving(true);
     setError(null);
@@ -459,15 +473,15 @@ export function SaleContractEtapa2Modal({
       weightKg: weightKg.trim() ? parseDecimalBr(weightKg) : null,
       agioDesagioType: agioType || null,
       agioDesagioValue: agioType ? parseCurrencyInput(agioValue) : null,
-      // Futuro: a fase 1 vai no createFutureSaleContract, não no emit.
-      saleFields: futureCreate ? undefined : saleFieldsPayload,
+      // À vista/Futuro: a fase 1 vai na venda/contrato (não no emit).
+      saleFields: isCreateLike ? undefined : saleFieldsPayload,
     };
     try {
       if (futureCreate) {
         // Futuro (1 modal): cria o contrato FUTURO (fase 1 + comprador) e em
         // seguida emite (fase 2). Guarda de falha parcial via createdId.
-        if (!buyer || !saleFieldsPayload) {
-          setError('Preencha os dados da venda.');
+        if (!buyer) {
+          setError('Selecione o comprador.');
           return;
         }
         let cid = createdId;
@@ -485,23 +499,39 @@ export function SaleContractEtapa2Modal({
         }
         await emitSaleContract(session, cid, payload);
         onSaved();
-      } else if (isCreate && createContext) {
-        // Commit adiado do wizard: cria a venda+contrato e em seguida emite. Se o
-        // create ja foi feito num retry anterior (createdId), NAO recria.
+      } else if (isSpotCreate && spotCreate) {
+        // À vista (1 modal): cria a venda no lote + emite. Liga sem dono: o vendedor
+        // escolhido vira o dono (antes da venda). Guarda de falha parcial: createdId.
+        if (!buyer) {
+          setError('Selecione o comprador.');
+          return;
+        }
         let cid = createdId;
         if (!cid) {
-          const res = await createSampleMovement(session, createContext.sampleId, {
-            expectedVersion: createContext.sampleVersion,
+          let sampleVersion = spotCreate.sampleVersion;
+          if (spotCreate.isBlend && !spotCreate.ownerClientId) {
+            await updateRegistration(session, spotCreate.sampleId, {
+              expectedVersion: sampleVersion,
+              after: { ownerClientId: seller.id },
+              reasonCode: 'DATA_FIX',
+              reasonText: 'Atribuicao de dono a liga antes da venda (Fechamento)',
+            });
+            const detail = await getSampleDetail(session, spotCreate.sampleId);
+            sampleVersion = detail.sample.version;
+          }
+          const res = await createSampleMovement(session, spotCreate.sampleId, {
+            expectedVersion: sampleVersion,
             movementType: 'SALE',
-            buyerClientId: createContext.sale.buyerClientId,
-            buyerUnitId: createContext.sale.buyerUnitId,
-            quantitySacks: createContext.sale.quantitySacks,
-            movementDate: createContext.sale.movementDate,
-            unitPrice: createContext.sale.unitPrice ?? undefined,
-            sellerBrokeragePct: createContext.sale.sellerBrokeragePct ?? undefined,
-            buyerBrokeragePct: createContext.sale.buyerBrokeragePct ?? undefined,
-            brokerIds:
-              createContext.sale.brokerIds.length > 0 ? createContext.sale.brokerIds : undefined,
+            buyerClientId: buyer.id,
+            buyerUnitId: buyerIsPF ? buyerUnitId || null : null,
+            quantitySacks: spotCreate.isBlend
+              ? spotCreate.availableSacks
+              : saleFieldsPayload.quantitySacks,
+            movementDate: saleFieldsPayload.contractDate,
+            unitPrice: saleFieldsPayload.unitPrice,
+            sellerBrokeragePct: saleFieldsPayload.sellerBrokeragePct,
+            buyerBrokeragePct: saleFieldsPayload.buyerBrokeragePct,
+            brokerIds: saleFieldsPayload.brokerIds,
           });
           cid = res.saleContract?.id ?? null;
           setCreatedId(cid);
@@ -530,8 +560,9 @@ export function SaleContractEtapa2Modal({
     }
   }
 
-  // "Voltar"/fechar no wizard: limpa um EM_ABERTO orfao (se o create deu certo mas
-  // o emit falhou) antes de sair, pra nao deixar contrato solto nem duplicar.
+  // Cancelar/fechar na criação (à vista/Futuro): limpa um EM_ABERTO órfão (se o
+  // create deu certo mas o emit falhou) antes de sair, pra não deixar contrato
+  // solto nem duplicar. À vista (com movimento) restaura as sacas; Futuro apaga.
   async function cleanupPartialThen(next: () => void) {
     if (createdId) {
       try {
@@ -649,8 +680,8 @@ export function SaleContractEtapa2Modal({
             <h3 id="ctr-etapa2-title" className="app-modal-title">
               {futureCreate
                 ? 'Novo contrato — Futuro'
-                : isCreate
-                  ? 'Gerar rascunho'
+                : isSpotCreate
+                  ? 'Novo contrato — À vista'
                   : `Editar contrato${contract ? ` ${contract.contractNumber}` : ''}`}
             </h3>
           </div>
@@ -674,108 +705,118 @@ export function SaleContractEtapa2Modal({
           </div>
         ) : (
           <div className="app-modal-content ctr-etapa2-content">
-            {!isCreate ? (
-              <div className="ctr-block">
-                {/* Fase 1 (venda) — editavel só no "Editar". Sacas travadas em
-                    liga (F7.1): venda = 100% das sacas. */}
-                <p className="ctr-section-title">Venda</p>
+            <div className="ctr-block">
+              {/* Fase 1 (venda) — bloco em todos os modos. Sacas travadas em liga
+                  (F7.1 / à vista liga = 100%); à vista limita ao saldo do lote. */}
+              <p className="ctr-section-title">Venda</p>
 
-                <label className="app-modal-field">
-                  <span className="app-modal-label">Data do contrato</span>
+              {isSpotCreate && spotCreate ? (
+                <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--brand-muted)' }}>
+                  Lote {spotCreate.internalLotNumber ?? 'Sem número'} · Documento{' '}
+                  {spotCreate.nextNumber ?? '—'}
+                </p>
+              ) : null}
+
+              <label className="app-modal-field">
+                <span className="app-modal-label">Data do contrato</span>
+                <input
+                  className="app-modal-input"
+                  type="date"
+                  value={saleDate}
+                  disabled={disabled}
+                  onChange={(event) => {
+                    setSaleDate(event.target.value);
+                    setError(null);
+                  }}
+                />
+              </label>
+
+              <div style={halfRowStyle}>
+                <div className="app-modal-field">
+                  <span className="app-modal-label">
+                    Sacas
+                    {sampleIsBlend
+                      ? ' (liga: 100%)'
+                      : isSpotCreate && spotCreate
+                        ? ` (${spotCreate.availableSacks} disp.)`
+                        : ''}
+                  </span>
                   <input
                     className="app-modal-input"
-                    type="date"
-                    value={saleDate}
-                    disabled={disabled}
+                    inputMode="numeric"
+                    value={saleSacks}
+                    disabled={disabled || sampleIsBlend}
                     onChange={(event) => {
-                      setSaleDate(event.target.value);
+                      setSaleSacks(event.target.value.replace(/[^0-9]/g, ''));
                       setError(null);
                     }}
+                  />
+                </div>
+
+                <label className="app-modal-field">
+                  <span className="app-modal-label">Preço por saca (R$)</span>
+                  <input
+                    className="app-modal-input"
+                    inputMode="decimal"
+                    value={saleUnitPrice}
+                    disabled={disabled}
+                    onChange={(event) => {
+                      setSaleUnitPrice(maskCurrencyInput(event.target.value));
+                      setError(null);
+                    }}
+                    placeholder="0,00"
+                  />
+                </label>
+              </div>
+
+              <div style={halfRowStyle}>
+                <label className="app-modal-field">
+                  <span className="app-modal-label">Corretagem do vendedor (%)</span>
+                  <input
+                    className="app-modal-input"
+                    inputMode="decimal"
+                    value={saleSellerPct}
+                    disabled={disabled}
+                    onChange={(event) => {
+                      setSaleSellerPct(event.target.value.replace(/[^0-9.,]/g, ''));
+                      setError(null);
+                    }}
+                    placeholder="0"
                   />
                 </label>
 
-                <div style={halfRowStyle}>
-                  <div className="app-modal-field">
-                    <span className="app-modal-label">
-                      Sacas{sampleIsBlend ? ' (liga: 100%)' : ''}
-                    </span>
-                    <input
-                      className="app-modal-input"
-                      inputMode="numeric"
-                      value={saleSacks}
-                      disabled={disabled || sampleIsBlend}
-                      onChange={(event) => {
-                        setSaleSacks(event.target.value.replace(/[^0-9]/g, ''));
-                        setError(null);
-                      }}
-                    />
-                  </div>
-
-                  <label className="app-modal-field">
-                    <span className="app-modal-label">Preço por saca (R$)</span>
-                    <input
-                      className="app-modal-input"
-                      inputMode="decimal"
-                      value={saleUnitPrice}
-                      disabled={disabled}
-                      onChange={(event) => {
-                        setSaleUnitPrice(maskCurrencyInput(event.target.value));
-                        setError(null);
-                      }}
-                      placeholder="0,00"
-                    />
-                  </label>
-                </div>
-
-                <div style={halfRowStyle}>
-                  <label className="app-modal-field">
-                    <span className="app-modal-label">Corretagem do vendedor (%)</span>
-                    <input
-                      className="app-modal-input"
-                      inputMode="decimal"
-                      value={saleSellerPct}
-                      disabled={disabled}
-                      onChange={(event) => {
-                        setSaleSellerPct(event.target.value.replace(/[^0-9.,]/g, ''));
-                        setError(null);
-                      }}
-                      placeholder="0"
-                    />
-                  </label>
-
-                  <label className="app-modal-field">
-                    <span className="app-modal-label">Corretagem do comprador (%)</span>
-                    <input
-                      className="app-modal-input"
-                      inputMode="decimal"
-                      value={saleBuyerPct}
-                      disabled={disabled}
-                      onChange={(event) => {
-                        setSaleBuyerPct(event.target.value.replace(/[^0-9.,]/g, ''));
-                        setError(null);
-                      }}
-                      placeholder="0"
-                    />
-                  </label>
-                </div>
-
-                <div className="app-modal-field">
-                  <span className="app-modal-label">Corretores</span>
-                  <BrokerMultiSelectField
-                    session={session}
-                    selectedIds={saleBrokerIds}
+                <label className="app-modal-field">
+                  <span className="app-modal-label">Corretagem do comprador (%)</span>
+                  <input
+                    className="app-modal-input"
+                    inputMode="decimal"
+                    value={saleBuyerPct}
                     disabled={disabled}
-                    onChange={(ids) => {
-                      setSaleBrokerIds(ids);
+                    onChange={(event) => {
+                      setSaleBuyerPct(event.target.value.replace(/[^0-9.,]/g, ''));
                       setError(null);
                     }}
+                    placeholder="0"
                   />
-                </div>
+                </label>
               </div>
-            ) : null}
+
+              <div className="app-modal-field">
+                <span className="app-modal-label">Corretores</span>
+                <BrokerMultiSelectField
+                  session={session}
+                  selectedIds={saleBrokerIds}
+                  disabled={disabled}
+                  onChange={(ids) => {
+                    setSaleBrokerIds(ids);
+                    setError(null);
+                  }}
+                />
+              </div>
+            </div>
 
             <div className="ctr-block">
-              {/* Bloco Vendedor: tudo do vendedor junto */}
+              {/* Bloco Vendedor */}
               <p className="ctr-section-title">Vendedor</p>
 
               <div className="app-modal-field">
@@ -1049,16 +1090,10 @@ export function SaleContractEtapa2Modal({
           <button
             type="button"
             className="app-modal-secondary"
-            onClick={
-              isCreate
-                ? () => void cleanupPartialThen(onBack ?? onClose)
-                : futureCreate
-                  ? () => void cleanupPartialThen(onClose)
-                  : onClose
-            }
+            onClick={isCreateLike ? () => void cleanupPartialThen(onClose) : onClose}
             disabled={saving}
           >
-            {isCreate ? 'Voltar' : 'Cancelar'}
+            Cancelar
           </button>
           <button
             type="button"

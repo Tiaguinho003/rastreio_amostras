@@ -34313,39 +34313,6 @@ body.is-selection-mode .hero-search-filter-btn {
   padding: 0.75rem clamp(1rem, 3vw, 1.4rem) clamp(1rem, 3vw, 1.4rem);
   background: #ffffff;
 }
-/* Campos de visualizacao (Tipo | Lote) numa unica linha, so-leitura. */
-.smm-info-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
-  gap: 0.6rem;
-}
-.smm-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  min-width: 0;
-  padding: 0.45rem 0.7rem;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.02);
-}
-.smm-info-label {
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--brand-muted);
-}
-.smm-info-value {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--brand-green-ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 /* Fechamento (Fase B.2): seletor de corretores (BrokerMultiSelectField) no
    modal de venda. Chips DENTRO do control, numa unica linha de altura fixa. */
 .bms-field {
