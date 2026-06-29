@@ -4,6 +4,7 @@ import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { ApiError, getBlendFeasibility } from '../../lib/api-client';
+import { maskCurrencyInput, parseCurrencyInput, parseDecimalBr } from '../../lib/currency';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type {
   ActiveBlendDetail,
@@ -137,8 +138,8 @@ export function SampleMovementModal({
   const [reasonText, setReasonText] = useState('');
   // Fechamento (Fase B.2): termos do contrato exigidos na venda a vista (create).
   const [unitPrice, setUnitPrice] = useState('');
-  const [sellerBrokeragePct, setSellerBrokeragePct] = useState('0');
-  const [buyerBrokeragePct, setBuyerBrokeragePct] = useState('0');
+  const [sellerBrokeragePct, setSellerBrokeragePct] = useState('');
+  const [buyerBrokeragePct, setBuyerBrokeragePct] = useState('');
   const [brokerIds, setBrokerIds] = useState<string[]>([]);
   // Cadastro rapido de comprador a partir do dropdown do lookup (quando o
   // cliente ainda nao existe). Cria ja com a flag de comprador (initialIsBuyer).
@@ -197,8 +198,8 @@ export function SampleMovementModal({
     setLossReasonText(movement?.lossReasonText ?? '');
     setReasonText('');
     setUnitPrice('');
-    setSellerBrokeragePct('0');
-    setBuyerBrokeragePct('0');
+    setSellerBrokeragePct('');
+    setBuyerBrokeragePct('');
     setBrokerIds([]);
     setError(null);
     setOwnerDismissed(false);
@@ -263,15 +264,14 @@ export function SampleMovementModal({
   // do contrato. Na edicao o contrato ja existe (alteracao = Passo 2); na perda
   // (LOSS) nao ha contrato.
   const needsContractTerms = mode === 'create' && movementType === 'SALE';
-  const parsedUnitPrice = Number(unitPrice.replace(',', '.'));
-  const isUnitPriceValid =
-    unitPrice.trim() !== '' && Number.isFinite(parsedUnitPrice) && parsedUnitPrice > 0;
+  const parsedUnitPrice = parseCurrencyInput(unitPrice);
+  const isUnitPriceValid = parsedUnitPrice !== null && parsedUnitPrice > 0;
   const parsedSellerPct =
-    sellerBrokeragePct.trim() === '' ? 0 : Number(sellerBrokeragePct.replace(',', '.'));
+    sellerBrokeragePct.trim() === '' ? 0 : (parseDecimalBr(sellerBrokeragePct) ?? NaN);
   const isSellerPctValid =
     Number.isFinite(parsedSellerPct) && parsedSellerPct >= 0 && parsedSellerPct <= 100;
   const parsedBuyerPct =
-    buyerBrokeragePct.trim() === '' ? 0 : Number(buyerBrokeragePct.replace(',', '.'));
+    buyerBrokeragePct.trim() === '' ? 0 : (parseDecimalBr(buyerBrokeragePct) ?? NaN);
   const isBuyerPctValid =
     Number.isFinite(parsedBuyerPct) && parsedBuyerPct >= 0 && parsedBuyerPct <= 100;
   const isContractTermsValid =
@@ -652,7 +652,7 @@ export function SampleMovementModal({
                   value={unitPrice}
                   disabled={saving}
                   onChange={(event) => {
-                    setUnitPrice(event.target.value.replace(/[^0-9.,]/g, ''));
+                    setUnitPrice(maskCurrencyInput(event.target.value));
                     setError(null);
                   }}
                   placeholder="0,00"
