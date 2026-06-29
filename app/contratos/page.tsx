@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
+import { ContractCreateRadialFab } from '../../components/contracts/ContractCreateRadialFab';
 import { SaleContractCard } from '../../components/contracts/SaleContractCard';
 import { SaleContractConfirmDialog } from '../../components/contracts/SaleContractConfirmDialog';
 import { SaleContractEtapa2Modal } from '../../components/contracts/SaleContractEtapa2Modal';
@@ -124,7 +125,7 @@ export default function ContratosPage() {
 
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
-      <section className="clients-page-v2">
+      <section className="clients-page-v2 ctr-page">
         <header className="clients-v2-header">
           <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao dashboard">
             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
@@ -245,6 +246,11 @@ export default function ContratosPage() {
             )}
           </div>
         </section>
+
+        <ContractCreateRadialFab
+          onCreateSpot={() => toast.info({ title: 'Mercado à vista — em breve' })}
+          onCreateFuture={() => toast.info({ title: 'Contrato Futuro — em breve' })}
+        />
       </section>
 
       {etapa2 ? (
