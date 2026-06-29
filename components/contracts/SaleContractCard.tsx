@@ -26,6 +26,16 @@ const STATUS_BAR_COLOR: Record<SaleContractStatus, string> = {
   WASH_OUT: '#dc2626', // vermelho
 };
 
+// Fundo (tint claro) do selo de status — combina com a cor do texto/barra.
+const STATUS_TINT: Record<SaleContractStatus, string> = {
+  EM_ABERTO: '#dbeafe',
+  CONFERIR: '#fef9c3',
+  CONFIRMADO: '#dcfce7',
+  FATURADO: '#ccfbf1',
+  PAGO: '#dcfce7',
+  WASH_OUT: '#fee2e2',
+};
+
 const TYPE_LABEL: Record<SaleContractType, string> = {
   MERCADO_A_VISTA: 'À vista',
   FUTURO: 'Futuro',
@@ -104,8 +114,15 @@ export function SaleContractCard({
         <span className="ctr-card-head-main">
           <span className="ctr-card-top">
             <span className="ctr-card-number">{contract.contractNumber}</span>
-            <span className="ctr-card-type">{TYPE_LABEL[contract.type] ?? contract.type}</span>
-            <span className={`status-badge ${meta.variant}`}>{meta.label}</span>
+            <span
+              className="ctr-card-status"
+              style={{
+                color: STATUS_BAR_COLOR[contract.status],
+                background: STATUS_TINT[contract.status],
+              }}
+            >
+              {meta.label}
+            </span>
           </span>
           <span className="ctr-card-parties">
             <span className="ctr-card-party">{snapshotName(contract.sellerSnapshot)}</span>
@@ -114,19 +131,28 @@ export function SaleContractCard({
             </svg>
             <span className="ctr-card-party">{snapshotName(contract.buyerSnapshot)}</span>
           </span>
-          <span className="ctr-card-meta">
-            <span>{contract.quantitySacks} sc</span>
-            <span>{formatContractDate(contract.contractDate)}</span>
-          </span>
         </span>
-        <svg className="ctr-card-chevron" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="m6 9 6 6 6-6" />
-        </svg>
+        <span className="ctr-card-head-right">
+          <span className="ctr-card-type">{TYPE_LABEL[contract.type] ?? contract.type}</span>
+          <svg className="ctr-card-chevron" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </span>
       </button>
 
       <div className="ctr-card-expanded" aria-hidden={!isExpanded}>
         <div className="ctr-card-expanded-inner">
           <div className="ctr-card-essential">
+            <span className="ctr-card-stat">
+              <span className="ctr-card-stat-label">Sacas</span>
+              <span className="ctr-card-stat-value">{contract.quantitySacks} sc</span>
+            </span>
+            <span className="ctr-card-stat">
+              <span className="ctr-card-stat-label">Data</span>
+              <span className="ctr-card-stat-value">
+                {formatContractDate(contract.contractDate)}
+              </span>
+            </span>
             <span className="ctr-card-stat">
               <span className="ctr-card-stat-label">Total</span>
               <span className="ctr-card-stat-value">{money(contract.totalValue)}</span>
