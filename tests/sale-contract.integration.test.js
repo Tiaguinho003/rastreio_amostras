@@ -397,6 +397,50 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(exports.length, 1);
   });
 
+  test('emitir trocando o comprador: atualiza o contrato E a venda (P20)', async () => {
+    const { contractId, sampleId, buyerId, bankAccountId } = await setupEmittableContract({
+      lotNumber: '21020',
+    });
+    const lookups = await fetchLookups();
+
+    const newBuyerId = randomUUID();
+    await createBuyerClient(newBuyerId);
+    assert.notEqual(newBuyerId, buyerId);
+
+    const emitted = await saleContractService.emitSaleContract(
+      contractId,
+      etapa2Payload({ bankAccountId, lookups, overrides: { buyerClientId: newBuyerId } }),
+      adminActor
+    );
+
+    // o contrato passa a referenciar o novo comprador
+    assert.equal(emitted.contract.buyerClientId, newBuyerId);
+
+    // a venda (movimento) tambem mudou -> "pra quem foi vendido" no lote
+    const movement = await prisma.sampleMovement.findFirst({
+      where: { sampleId, movementType: 'SALE' },
+    });
+    assert.equal(movement.buyerClientId, newBuyerId);
+  });
+
+  test('emitir sem trocar o comprador: nao mexe na venda', async () => {
+    const { contractId, sampleId, buyerId, bankAccountId } = await setupEmittableContract({
+      lotNumber: '21021',
+    });
+    const lookups = await fetchLookups();
+
+    await saleContractService.emitSaleContract(
+      contractId,
+      etapa2Payload({ bankAccountId, lookups }),
+      adminActor
+    );
+
+    const movement = await prisma.sampleMovement.findFirst({
+      where: { sampleId, movementType: 'SALE' },
+    });
+    assert.equal(movement.buyerClientId, buyerId);
+  });
+
   test('emitir: faltando obrigatorio (banco) -> 422', async () => {
     const { contractId, bankAccountId } = await setupEmittableContract({ lotNumber: '21002' });
     const lookups = await fetchLookups();
