@@ -4,6 +4,7 @@ import { assertRoleAllowed, USER_ROLES } from '../auth/roles.js';
 import { HttpError } from '../contracts/errors.js';
 import { assertAuthenticatedActor, readLimitQuery } from '../users/user-support.js';
 import {
+  assertBrokersResolved,
   buildBankSnapshot,
   buildPartySnapshot,
   buildWarehouseSnapshot,
@@ -101,8 +102,23 @@ export class SaleContractService {
       select: { id: true, brokerId: true, brokerNameSnapshot: true },
     });
 
+    // Liga? — em liga as sacas sao travadas (F7.1: venda = 100%). O front usa isto
+    // pra deixar o campo de sacas so-leitura no "Editar". So consulta se ha sample.
+    let sampleIsBlend = null;
+    if (row.sampleId) {
+      const sample = await this.prisma.sample.findUnique({
+        where: { id: row.sampleId },
+        select: { isBlend: true },
+      });
+      sampleIsBlend = sample?.isBlend ?? null;
+    }
+
     return {
-      contract: { ...toSaleContractView(row), brokers: brokers.map(toSaleContractBrokerView) },
+      contract: {
+        ...toSaleContractView(row),
+        brokers: brokers.map(toSaleContractBrokerView),
+        sampleIsBlend,
+      },
     };
   }
 
@@ -180,11 +196,19 @@ export class SaleContractService {
       'packagingId'
     );
 
+    // Fase 1 (venda) editavel no "Editar" — usa os valores novos quando vierem
+    // (sf), senao mantem os do contrato. O comprador segue pela etapa 2 (acima).
+    const sf = etapa2.saleFields;
+    const effQuantitySacks = sf ? sf.quantitySacks : contract.quantitySacks;
+    const effUnitPrice = sf ? sf.unitPrice : Number(contract.unitPrice);
+    const effSellerPct = sf ? sf.sellerBrokeragePct : Number(contract.sellerBrokeragePct);
+    const effBuyerPct = sf ? sf.buyerBrokeragePct : Number(contract.buyerBrokeragePct);
+
     const money = computeContractMoneyWithAgio({
-      unitPrice: Number(contract.unitPrice),
-      quantitySacks: contract.quantitySacks,
-      sellerPct: Number(contract.sellerBrokeragePct),
-      buyerPct: Number(contract.buyerBrokeragePct),
+      unitPrice: effUnitPrice,
+      quantitySacks: effQuantitySacks,
+      sellerPct: effSellerPct,
+      buyerPct: effBuyerPct,
       agioType: etapa2.agioDesagioType,
       agioValue: etapa2.agioDesagioValue,
     });
@@ -196,14 +220,18 @@ export class SaleContractService {
       await this._syncSampleOwner(contract.sampleId, sellerClientId, actorContext);
     }
 
-    // Comprador editavel (P20): mantem a venda do lote coerente com o comprador
-    // do contrato, via SALE_UPDATED (append-only). Depois do sync do vendedor
-    // (que bumpa a versao do sample). So a vista (tem movementId).
-    if (contract.sampleId && contract.movementId && buyerClientId) {
-      await this._syncMovementBuyer(
+    // Venda do lote coerente com o contrato à vista, via SALE_UPDATED
+    // (append-only): comprador (P20) + sacas/data (Editar fase 1). Depois do sync
+    // do vendedor (que bumpa a versao do sample). So a vista (tem movementId).
+    if (contract.sampleId && contract.movementId) {
+      await this._syncMovementFromContract(
         contract.sampleId,
         contract.movementId,
-        buyerClientId,
+        {
+          buyerClientId: buyerClientId || undefined,
+          quantitySacks: sf ? sf.quantitySacks : undefined,
+          movementDate: sf ? sf.contractDate : undefined,
+        },
         actorContext
       );
     }
@@ -242,24 +270,58 @@ export class SaleContractService {
       description: etapa2.description,
     };
 
-    const result = await this.prisma.saleContract.updateMany({
-      where: { id: contractId, version: expectedVersion },
-      data: { ...data, version: { increment: 1 } },
-    });
-    if (result.count === 0) {
-      throw new HttpError(409, 'Sale contract was modified concurrently', {
-        code: 'SALE_CONTRACT_VERSION_CONFLICT',
-        field: 'expectedVersion',
-      });
+    // Editar fase 1: grava as colunas da venda no contrato (o movimento já foi
+    // sincronizado acima). No wizard create→emit (sf ausente) nada disso muda.
+    if (sf) {
+      data.quantitySacks = effQuantitySacks;
+      data.unitPrice = effUnitPrice.toFixed(2);
+      data.sellerBrokeragePct = effSellerPct.toFixed(2);
+      data.buyerBrokeragePct = effBuyerPct.toFixed(2);
+      data.contractDate = new Date(sf.contractDate);
     }
 
-    await this.prisma.saleContractExport.create({
-      data: {
+    // Corretores (Editar fase 1): resolve fora da tx (leitura) e troca dentro.
+    let brokerRows = null;
+    if (sf) {
+      const brokers = await this.prisma.broker.findMany({
+        where: { id: { in: sf.brokerIds } },
+        select: { id: true, name: true, status: true },
+      });
+      assertBrokersResolved(brokers, sf.brokerIds);
+      const nameById = new Map(brokers.map((broker) => [broker.id, broker.name]));
+      brokerRows = sf.brokerIds.map((brokerId) => ({
         id: randomUUID(),
         saleContractId: contractId,
-        contractType: contract.type,
-        generatedByUserId: actorContext.actorUserId ?? null,
-      },
+        brokerId,
+        brokerNameSnapshot: nameById.get(brokerId),
+      }));
+    }
+
+    // Update do contrato + troca de corretores + auditoria numa só transação
+    // (concorrência otimista por version mantida no updateMany).
+    await this.prisma.$transaction(async (tx) => {
+      const result = await tx.saleContract.updateMany({
+        where: { id: contractId, version: expectedVersion },
+        data: { ...data, version: { increment: 1 } },
+      });
+      if (result.count === 0) {
+        throw new HttpError(409, 'Sale contract was modified concurrently', {
+          code: 'SALE_CONTRACT_VERSION_CONFLICT',
+          field: 'expectedVersion',
+        });
+      }
+      if (brokerRows) {
+        await tx.saleContractBroker.deleteMany({ where: { saleContractId: contractId } });
+        await tx.saleContractBroker.createMany({ data: brokerRows });
+      }
+      await tx.saleContractExport.create({
+        data: {
+          id: randomUUID(),
+          saleContractId: contractId,
+          contractType: contract.type,
+          generatedByUserId: actorContext.actorUserId ?? null,
+        },
+      });
     });
 
     return this.getSaleContract(contractId, actorContext);
@@ -674,18 +736,39 @@ export class SaleContractService {
     );
   }
 
-  // Comprador editavel (P20): troca o comprador da VENDA (movimento) via
-  // updateSampleMovement -> evento SALE_UPDATED (append-only, preserva o
-  // historico). No-op se ja coerente. O updateSampleMovement valida isBuyer.
-  async _syncMovementBuyer(sampleId, movementId, newBuyerClientId, actorContext) {
+  // Sincroniza a VENDA do lote (movimento) com o contrato à vista via
+  // updateSampleMovement -> SALE_UPDATED (append-only, preserva o histórico e
+  // ajusta o saldo do lote). Monta o `after` SÓ com o que mudou (comprador P20 +
+  // sacas/data do "Editar" fase 1); no-op se nada mudou. `desired.*` ausente
+  // (undefined) = não mexe nesse campo. Sacas em liga são rejeitadas pela trava
+  // F7.1 do updateSampleMovement (a UI já deixa o campo só-leitura).
+  async _syncMovementFromContract(sampleId, movementId, desired, actorContext) {
     if (!this.commandService || !this.queryService) {
-      throw new HttpError(501, 'Movement buyer sync is not configured', {
+      throw new HttpError(501, 'Movement sync is not configured', {
         code: 'SAMPLE_SYNC_NOT_CONFIGURED',
       });
     }
     const movement = await this.queryService.requireSampleMovement(sampleId, movementId);
-    if ((movement.buyerClientId ?? null) === newBuyerClientId) {
-      return; // ja coerente — evita um evento desnecessario
+    const after = {};
+    if (
+      desired.buyerClientId !== undefined &&
+      (movement.buyerClientId ?? null) !== desired.buyerClientId
+    ) {
+      after.buyerClientId = desired.buyerClientId;
+    }
+    if (desired.quantitySacks !== undefined && movement.quantitySacks !== desired.quantitySacks) {
+      after.quantitySacks = desired.quantitySacks;
+    }
+    if (desired.movementDate !== undefined) {
+      const current = movement.movementDate
+        ? new Date(movement.movementDate).toISOString().slice(0, 10)
+        : null;
+      if (current !== desired.movementDate) {
+        after.movementDate = desired.movementDate;
+      }
+    }
+    if (Object.keys(after).length === 0) {
+      return; // nada mudou — evita um evento desnecessario
     }
     const sample = await this.queryService.requireSample(sampleId);
     await this.commandService.updateSampleMovement(
@@ -693,8 +776,8 @@ export class SaleContractService {
         sampleId,
         movementId,
         expectedVersion: sample.version,
-        after: { buyerClientId: newBuyerClientId },
-        reasonText: 'Comprador ajustado no contrato (Fechamento)',
+        after,
+        reasonText: 'Dados da venda ajustados no contrato (Fechamento)',
       },
       actorContext
     );

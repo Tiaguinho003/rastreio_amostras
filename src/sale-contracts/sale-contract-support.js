@@ -391,14 +391,39 @@ function optionalUuid(value, fieldName) {
   return requireUuid(value, fieldName);
 }
 
-function requireDate(value, fieldName) {
+// Valida e devolve a STRING YYYY-MM-DD (sem converter pra Date). Util quando a
+// mesma data alimenta uma coluna @db.Date (new Date) e o sync do movimento
+// (normalizeMovementDate, que quer a string).
+function requireDateString(value, fieldName) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
     throw new HttpError(422, `${fieldName} must be a date (YYYY-MM-DD)`, {
       code: 'VALIDATION_ERROR',
       field: fieldName,
     });
   }
-  return new Date(value.trim());
+  return value.trim();
+}
+
+function requireDate(value, fieldName) {
+  return new Date(requireDateString(value, fieldName));
+}
+
+// Sacas do contrato (Int > 0). O saldo do lote (não exceder o disponível) é
+// garantido pelo updateSampleMovement ao sincronizar a venda.
+function normalizeSacks(value, fieldName = 'quantitySacks') {
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new HttpError(422, `${fieldName} must be a positive integer`, {
+      code: 'VALIDATION_ERROR',
+      field: fieldName,
+    });
+  }
+  if (value > 100_000_000) {
+    throw new HttpError(422, `${fieldName} is too large`, {
+      code: 'VALIDATION_ERROR',
+      field: fieldName,
+    });
+  }
+  return value;
 }
 
 // Data REAL do marco (faturamento/pagamento) escolhida no dialogo. Obrigatoria;
@@ -487,9 +512,36 @@ function normalizeAgio(input, fieldName = 'agioDesagio') {
   return { agioDesagioType: type, agioDesagioValue: value };
 }
 
+// Fase 1 (venda) editavel no "Editar" do contrato emitido. OPCIONAL: presente so
+// quando o usuario edita os campos da venda; ausente no wizard create->emit (o
+// create ja os fixou). Quando vem, TODOS os campos sao exigidos (o form preenche
+// todos). brokerIds e resolvido no service (assertBrokersResolved). O comprador
+// NAO entra aqui — ele ja e editavel via buyerClientId/buyerUnitId da etapa 2.
+function normalizeSaleFields(raw) {
+  if (raw === undefined || raw === null) {
+    return null;
+  }
+  if (typeof raw !== 'object') {
+    throw new HttpError(422, 'saleFields must be an object', {
+      code: 'VALIDATION_ERROR',
+      field: 'saleFields',
+    });
+  }
+  return {
+    quantitySacks: normalizeSacks(raw.quantitySacks, 'saleFields.quantitySacks'),
+    unitPrice: normalizeUnitPrice(raw.unitPrice, 'saleFields.unitPrice'),
+    sellerBrokeragePct: normalizeBrokeragePct(raw.sellerBrokeragePct, 'saleFields.sellerBrokeragePct'),
+    buyerBrokeragePct: normalizeBrokeragePct(raw.buyerBrokeragePct, 'saleFields.buyerBrokeragePct'),
+    contractDate: requireDateString(raw.contractDate, 'saleFields.contractDate'),
+    brokerIds: normalizeBrokerIds(raw.brokerIds, 'saleFields.brokerIds'),
+  };
+}
+
 export function normalizeEtapa2Input(input) {
   const agio = normalizeAgio(input ?? {});
   return {
+    // fase 1 (venda) editavel — null quando nao se esta editando a venda
+    saleFields: normalizeSaleFields(input?.saleFields),
     // partes / banco / armazens (ids; resolucao + ownership no service)
     sellerClientId: optionalUuid(input?.sellerClientId, 'sellerClientId'),
     buyerClientId: optionalUuid(input?.buyerClientId, 'buyerClientId'),
