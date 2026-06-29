@@ -161,11 +161,64 @@ proprio:
 
 (A detalhar em sessao propria.)
 
-## REGISTRATION — "Impressao"
-
-(A detalhar em sessao propria.)
-
 ## CLASSIFIER — "Classificacao"
+
+Papel operacional de classificacao. E o unico papel nao-prospector fora de
+`INFORME_ROLES`: nao ve "Relatorios" em superficie nenhuma. Sem app restrito
+(acessa amostras/clientes/camera como os demais nao-prospectores) e sem acesso
+de gestao.
+
+### Onde navega (por superficie)
+
+| Destino | Rota | Desktop | Mobile |
+| --- | --- | --- | --- |
+| Inicio | `/dashboard` | Sidebar | Tabbar |
+| Lotes | `/samples` | Sidebar | Tabbar |
+| Clientes | `/clients` | Sidebar | Tabbar |
+| Camera | `/camera` | — (sem botao) | Tabbar (destaque, centro) |
+| Perfil | `/profile` | Menu do avatar | Menu do avatar |
+| Sair | logout | Menu do avatar | Menu do avatar |
+
+Contagem:
+- **Sidebar desktop: 3 itens** — Inicio, Lotes, Clientes. (Sem Relatorios — e o
+  unico nao-prospector que nao o ve.)
+- **Tabbar mobile: 4 itens** — Inicio, Lotes, Camera, Clientes. (Sem Relatorios.)
+- **Menu do avatar: 2 itens** — Perfil, Sair (igual no desktop e no mobile).
+
+### Rotas acessiveis sem botao de navegacao
+
+- `/samples/new`, `/samples/[id]` — criar/abrir lote (a partir de Lotes). E onde
+  o classificador faz a classificacao da amostra.
+- `/clients/[id]` — detalhe do cliente (a partir de Clientes).
+- `/camera` **no desktop** — rota liberada (`NON_PROSPECTOR_ROLES`), mas o botao
+  de Camera so existe na tabbar mobile.
+
+### Rotas bloqueadas (redirecionam para `/dashboard`)
+
+- `/informe` (Relatorios) — CLASSIFIER esta fora de `INFORME_ROLES`.
+- `/cadastros`, `/contratos` (exigem ADMIN/CADASTRO).
+- `/users` (exige ADMIN).
+
+### Particularidades de conteudo
+
+- **Sem pagina ou secao exclusiva.** Nao ha rota nem area de UI restrita ao
+  CLASSIFIER; classificar acontece dentro de `/samples` (criar/abrir lote ->
+  classificar), nas mesmas telas vistas pelos outros nao-prospectores.
+- **`/dashboard`**: dashboard padrao, igual aos demais nao-prospectores (com
+  `salesData`); apenas o PROSPECTOR tem dashboard dedicado.
+- No backend, usuarios CLASSIFIER sao os que podem ser registrados como
+  responsaveis de uma classificacao (validacao `CLASSIFIERS_*` em
+  `src/samples/sample-command-service.js`) — selecao de pessoas, nao acesso de
+  navegacao.
+
+### Diferenca para o COMMERCIAL
+
+Identico ao Comercial, **menos Relatorios** (`/informe`): o Comercial esta em
+`INFORME_ROLES` e ve Relatorios na sidebar e na tabbar (+ feed proprio); o
+Classifier nao ve em lugar nenhum e e redirecionado se tentar a URL. Resultado:
+sidebar 3 vs 4 itens, tabbar 4 vs 5; menu do avatar igual (Perfil, Sair).
+
+## REGISTRATION — "Impressao"
 
 (A detalhar em sessao propria.)
 
@@ -193,6 +246,9 @@ Observacoes neutras do mapeamento, sem juizo de "certo/errado":
 3. **Redirects silenciosos.** `/settings` -> `/profile` e `/resumo` -> `/informe`.
 4. **Menu do avatar e o mesmo nas duas plataformas** (dropdown no desktop,
    bottom sheet no mobile), com os mesmos itens filtrados por papel.
+5. **CLASSIFIER e o unico nao-prospector sem Relatorios.** Dos cinco papeis de
+   `NON_PROSPECTOR_ROLES`, so o CLASSIFIER esta fora de `INFORME_ROLES`; por isso
+   tem a sidebar mais enxuta entre eles (3 itens).
 
 ## Manutencao
 
