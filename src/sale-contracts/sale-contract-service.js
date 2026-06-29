@@ -8,6 +8,7 @@ import {
   buildPartySnapshot,
   buildWarehouseSnapshot,
   computeContractMoneyWithAgio,
+  formatContractNumber,
   normalizeActionDate,
   normalizeEtapa2Input,
   normalizeWashoutReason,
@@ -552,6 +553,20 @@ export class SaleContractService {
 
     // O contrato deixou de existir — nada a retornar alem da confirmacao.
     return { deleted: true, contractId };
+  }
+
+  // Preview (so-leitura) do PROXIMO numero NNNN/AA — pro modal de venda mostrar
+  // qual sera o numero ANTES de criar. So indicativo: sem lock, e o numero real
+  // e alocado de fato na criacao (allocateNextContractSeq). Corrida = 2 previews
+  // iguais e aceitavel (o unique constraint garante a unicidade na criacao).
+  async getNextContractNumber(actorContext) {
+    assertAuthenticatedActor(actorContext, 'get next contract number');
+    assertRoleAllowed(actorContext.role, SALE_CONTRACT_MANAGE_ROLES, 'get next contract number');
+    const rows = await this.prisma.$queryRaw`
+      SELECT COALESCE(MAX(contract_seq), 0) + 1 AS next FROM sale_contract
+    `;
+    const nextSeq = Number(rows?.[0]?.next ?? 1);
+    return { contractNumber: formatContractNumber(nextSeq, new Date().getFullYear()) };
   }
 
   _requireContractId(contractId) {

@@ -923,6 +923,19 @@ export function listContractLookups(session: SessionData, options: { signal?: Ab
   });
 }
 
+// Preview do proximo numero de contrato (NNNN/AA) — indicativo (o numero real e
+// alocado na criacao). Usado no modal de venda pra mostrar o numero futuro.
+export function getNextContractNumber(
+  session: SessionData,
+  options: { signal?: AbortSignal } = {}
+) {
+  return request<{ contractNumber: string }>('/sale-contracts/next-number', {
+    method: 'GET',
+    session,
+    signal: options.signal,
+  });
+}
+
 export function listClientBankAccounts(
   session: SessionData,
   clientId: string,

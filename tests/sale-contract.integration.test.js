@@ -707,6 +707,23 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
+  test('getNextContractNumber: preview NNNN/AA (max+1); exige ADMIN', async () => {
+    // Vazio -> 0001/AA.
+    const first = await saleContractService.getNextContractNumber(adminActor);
+    assert.equal(first.contractNumber, `0001/${currentYear2}`);
+
+    // Apos criar 1 contrato (via venda) -> 0002/AA.
+    await setupEmittableContract({ lotNumber: '21020' });
+    const second = await saleContractService.getNextContractNumber(adminActor);
+    assert.equal(second.contractNumber, `0002/${currentYear2}`);
+
+    // Gate ADMIN.
+    await assert.rejects(
+      () => saleContractService.getNextContractNumber(commercialActor),
+      (err) => err.status === 403
+    );
+  });
+
   test('listContractLookups retorna as 3 listas; emit exige ADMIN', async () => {
     const lk = await saleContractService.listContractLookups(commercialActor);
     assert.ok(lk.paymentForms.length >= 2);

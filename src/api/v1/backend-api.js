@@ -2936,6 +2936,18 @@ export function createBackendApiV1({
         return { status: 200, body: result };
       }),
 
+    // Preview do proximo numero de contrato (NNNN/AA), so-leitura — pro modal de
+    // venda mostrar o numero antes de criar.
+    getNextContractNumber: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractService) {
+          throw new HttpError(501, 'Sale contract service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const result = await saleContractService.getNextContractNumber(actor);
+        return { status: 200, body: result };
+      }),
+
     // Fechamento (Fase C): gera o PDF do contrato on-demand (regeneravel, sem
     // armazenar — D32). Gate via getSaleContract (ADMIN+CADASTRO); so para
     // contratos ja emitidos (status != EM_ABERTO). Devolve o buffer; a rota
