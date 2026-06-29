@@ -34288,23 +34288,104 @@ body.is-selection-mode .hero-search-filter-btn {
   stroke-linejoin: round;
 }
 
-/* Fechamento (Fase B.2): seletor de corretores (BrokerMultiSelectField) no
-   modal de venda. Busca + chips dos corretores selecionados. */
-.bms-field {
-  position: relative;
+/* Fechamento (venda a vista): modal "Registrar venda" — campos de visualizacao
+   no topo + botoes FIXOS (rodape sempre visivel; so os campos rolam). O form
+   (.sample-detail-movement-content) vira flex-column sem scroll; o .smm-scroll
+   rola; as acoes ficam fixas embaixo. */
+.app-modal.is-themed .app-modal-content.sample-detail-movement-content {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+.smm-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: clamp(0.7rem, 2vw, 0.95rem);
+  padding: clamp(1rem, 3vw, 1.4rem);
 }
-.bms-chips {
+.app-modal.is-themed
+  .sample-detail-movement-content
+  .app-modal-actions.sample-detail-movement-actions {
+  margin-top: 0;
+  padding: 0.75rem clamp(1rem, 3vw, 1.4rem) clamp(1rem, 3vw, 1.4rem);
+  background: #ffffff;
+}
+/* Campos de visualizacao (Tipo | Lote) numa unica linha, so-leitura. */
+.smm-info-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 0.6rem;
+}
+.smm-info {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.02);
+}
+.smm-info-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--brand-muted);
+}
+.smm-info-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--brand-green-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Fechamento (Fase B.2): seletor de corretores (BrokerMultiSelectField) no
+   modal de venda. Chips DENTRO do control, numa unica linha de altura fixa. */
+.bms-field {
+  position: relative;
+}
+.bms-control {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
   gap: 0.35rem;
+  width: 100%;
+  min-height: 3.05rem;
+  padding: 0.32rem 0.5rem;
+  border: 2px solid rgba(0, 0, 0, 0.16);
+  border-radius: 12px;
+  background: #ffffff;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+.bms-control:focus-within {
+  border-color: rgba(22, 91, 42, 0.5);
+  box-shadow: 0 0 0 3px rgba(22, 91, 42, 0.1);
+}
+.bms-input {
+  flex: 1 0 6rem;
+  min-width: 6rem;
+  border: 0;
+  outline: none;
+  background: transparent;
+  padding: 0.3rem 0.25rem;
+  font-size: 0.95rem;
+  color: #1a1a1a;
 }
 .bms-chip {
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
+  max-width: 11rem;
   font-size: 0.82rem;
   font-weight: 600;
   color: var(--brand-green-ink);
@@ -34312,6 +34393,11 @@ body.is-selection-mode .hero-search-filter-btn {
   border: 1px solid rgba(var(--brand-green-rgb), 0.25);
   border-radius: 999px;
   padding: 0.18rem 0.3rem 0.18rem 0.6rem;
+  white-space: nowrap;
+}
+.bms-chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .bms-chip-remove {
   display: inline-flex;
