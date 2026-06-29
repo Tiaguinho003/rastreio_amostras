@@ -34488,26 +34488,6 @@ body.is-selection-mode .hero-search-filter-btn {
   border-color: var(--color-danger);
 }
 
-.ctr-bankacct {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-.ctr-inline-add {
-  align-self: flex-start;
-  border: none;
-  background: transparent;
-  color: var(--brand-green-soft);
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 0.1rem 0;
-}
-.ctr-inline-add:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
 .ctr-etapa2-content {
   display: flex;
   flex-direction: column;
@@ -34526,6 +34506,17 @@ body.is-selection-mode .hero-search-filter-btn {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--brand-muted);
+}
+/* Bloco da Etapa 2 (Vendedor/Comprador/...): hairline cinza discreta em volta. */
+.ctr-block {
+  display: grid;
+  gap: 0.75rem;
+  padding: clamp(0.7rem, 2.5vw, 0.95rem);
+  border: 1px solid rgba(31, 42, 31, 0.2);
+  border-radius: 12px;
+}
+.ctr-block > .ctr-section-title {
+  margin-top: 0;
 }
 .ctr-textarea {
   resize: vertical;
