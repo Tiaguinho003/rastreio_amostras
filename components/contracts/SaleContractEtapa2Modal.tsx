@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { type CSSProperties, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import {
@@ -20,6 +20,7 @@ import {
 } from '../../lib/currency';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import { ClientLookupField } from '../clients/ClientLookupField';
+import { ClientQuickCreateModal } from '../clients/ClientQuickCreateModal';
 import { ClientUnitModal } from '../clients/ClientUnitModal';
 import { ClientBankAccountSelectField } from './ClientBankAccountSelectField';
 import type {
@@ -77,6 +78,12 @@ export function SaleContractEtapa2Modal({
   const [bankAccountId, setBankAccountId] = useState('');
   const [buyerWarehouse, setBuyerWarehouse] = useState<ClientSummary | null>(null);
   const [sellerWarehouse, setSellerWarehouse] = useState<ClientSummary | null>(null);
+
+  // Cadastro inline (vendedor / armazem) — espelha o comprador da Etapa 1.
+  const [sellerCreateOpen, setSellerCreateOpen] = useState(false);
+  const [sellerCreateSeed, setSellerCreateSeed] = useState('');
+  const [warehouseCreateFor, setWarehouseCreateFor] = useState<'buyer' | 'seller' | null>(null);
+  const [warehouseCreateSeed, setWarehouseCreateSeed] = useState('');
 
   // Campos simples
   const [purchaseNumber, setPurchaseNumber] = useState('');
@@ -226,22 +233,47 @@ export function SaleContractEtapa2Modal({
     }
   }
 
-  const missingRequired =
-    !seller ||
-    !bankAccountId ||
-    !paymentFormId ||
-    !modalityId ||
-    !packagingId ||
-    !invoiceDate ||
-    !paymentDate ||
-    (sellerIsPF && !sellerUnitId) ||
-    (buyerIsPF && !buyerUnitId) ||
-    (agioType !== '' && !agioValue.trim());
-
   async function handleSubmit() {
-    if (!contract || !seller) return;
-    if (missingRequired) {
-      setError('Preencha os campos obrigatórios da etapa 2.');
+    if (!contract) return;
+    // Erros por campo (molde da Etapa 1): mensagem especifica do 1o pendente.
+    if (!seller) {
+      setError('Selecione o vendedor.');
+      return;
+    }
+    if (sellerIsPF && !sellerUnitId) {
+      setError('Selecione a filial do vendedor.');
+      return;
+    }
+    if (buyerIsPF && !buyerUnitId) {
+      setError('Selecione a filial do comprador.');
+      return;
+    }
+    if (!bankAccountId) {
+      setError('Selecione o banco do vendedor.');
+      return;
+    }
+    if (!paymentFormId) {
+      setError('Selecione a forma de pagamento.');
+      return;
+    }
+    if (!modalityId) {
+      setError('Selecione a modalidade.');
+      return;
+    }
+    if (!packagingId) {
+      setError('Selecione a embalagem.');
+      return;
+    }
+    if (!invoiceDate) {
+      setError('Informe a data de faturamento.');
+      return;
+    }
+    if (!paymentDate) {
+      setError('Informe a data de pagamento.');
+      return;
+    }
+    if (agioType !== '' && !agioValue.trim()) {
+      setError('Informe o valor do ágio/deságio.');
       return;
     }
     setSaving(true);
@@ -282,6 +314,118 @@ export function SaleContractEtapa2Modal({
   }
 
   const disabled = readOnly || saving;
+
+  // Layout: pares lado a lado em grid 50/50 que casa o gap do .app-modal-content
+  // (molde da Etapa 1). Filiais e ágio extraídos pra compor em par sem duplicar.
+  const halfRowStyle: CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+    gap: '0.75rem',
+  };
+
+  const sellerUnitField = (
+    <label className="app-modal-field">
+      <span className="app-modal-label">Filial do vendedor</span>
+      <select
+        className="app-modal-input"
+        value={sellerUnitId}
+        disabled={disabled}
+        onChange={(event) => {
+          setSellerUnitId(event.target.value);
+          setError(null);
+        }}
+      >
+        <option value="">Selecione a filial</option>
+        {sellerUnits.map((unit) => (
+          <option key={unit.id} value={unit.id}>
+            {unitLabel(unit)}
+          </option>
+        ))}
+      </select>
+      {!readOnly ? (
+        <button
+          type="button"
+          className="ctr-inline-add"
+          onClick={() => {
+            setUnitError(null);
+            setUnitModalFor('seller');
+          }}
+        >
+          + cadastrar filial
+        </button>
+      ) : null}
+    </label>
+  );
+
+  const buyerUnitField = (
+    <label className="app-modal-field">
+      <span className="app-modal-label">Filial do comprador</span>
+      <select
+        className="app-modal-input"
+        value={buyerUnitId}
+        disabled={disabled}
+        onChange={(event) => {
+          setBuyerUnitId(event.target.value);
+          setError(null);
+        }}
+      >
+        <option value="">Selecione a filial</option>
+        {buyerUnits.map((unit) => (
+          <option key={unit.id} value={unit.id}>
+            {unitLabel(unit)}
+          </option>
+        ))}
+      </select>
+      {!readOnly ? (
+        <button
+          type="button"
+          className="ctr-inline-add"
+          onClick={() => {
+            setUnitError(null);
+            setUnitModalFor('buyer');
+          }}
+        >
+          + cadastrar filial
+        </button>
+      ) : null}
+    </label>
+  );
+
+  const agioTypeField = (
+    <label className="app-modal-field">
+      <span className="app-modal-label">Ágio/Deságio (opcional)</span>
+      <select
+        className="app-modal-input"
+        value={agioType}
+        disabled={disabled}
+        onChange={(event) => {
+          setAgioType(event.target.value as '' | 'AGIO' | 'DESAGIO');
+          setError(null);
+        }}
+      >
+        <option value="">Nenhum</option>
+        <option value="AGIO">Ágio</option>
+        <option value="DESAGIO">Deságio</option>
+      </select>
+    </label>
+  );
+
+  const agioValueField = (
+    <label className="app-modal-field">
+      <span className="app-modal-label">Valor (R$/saca)</span>
+      <input
+        className="app-modal-input"
+        inputMode="decimal"
+        value={agioValue}
+        disabled={disabled}
+        onChange={(event) => {
+          setAgioValue(maskCurrencyInput(event.target.value));
+          setError(null);
+        }}
+        placeholder="0,00"
+      />
+    </label>
+  );
 
   return createPortal(
     <div className="app-modal-backdrop">
@@ -334,41 +478,23 @@ export function SaleContractEtapa2Modal({
                 compact
                 onSelectClient={(client) => void handleSelectSeller(client)}
                 emptyMessage="Nenhum vendedor encontrado."
+                onRequestCreate={(searchTerm) => {
+                  setSellerCreateSeed(searchTerm);
+                  setSellerCreateOpen(true);
+                }}
+                createLabel="Cadastrar vendedor"
               />
             </div>
 
-            {sellerIsPF ? (
-              <label className="app-modal-field">
-                <span className="app-modal-label">Filial do vendedor</span>
-                <select
-                  className="app-modal-input"
-                  value={sellerUnitId}
-                  disabled={disabled}
-                  onChange={(event) => {
-                    setSellerUnitId(event.target.value);
-                    setError(null);
-                  }}
-                >
-                  <option value="">Selecione a filial</option>
-                  {sellerUnits.map((unit) => (
-                    <option key={unit.id} value={unit.id}>
-                      {unitLabel(unit)}
-                    </option>
-                  ))}
-                </select>
-                {!readOnly ? (
-                  <button
-                    type="button"
-                    className="ctr-inline-add"
-                    onClick={() => {
-                      setUnitError(null);
-                      setUnitModalFor('seller');
-                    }}
-                  >
-                    + cadastrar filial
-                  </button>
-                ) : null}
-              </label>
+            {sellerIsPF && buyerIsPF ? (
+              <div style={halfRowStyle}>
+                {sellerUnitField}
+                {buyerUnitField}
+              </div>
+            ) : sellerIsPF ? (
+              sellerUnitField
+            ) : buyerIsPF ? (
+              buyerUnitField
             ) : null}
 
             <div className="app-modal-field">
@@ -380,40 +506,6 @@ export function SaleContractEtapa2Modal({
                 readOnly
               />
             </div>
-
-            {buyerIsPF ? (
-              <label className="app-modal-field">
-                <span className="app-modal-label">Filial do comprador</span>
-                <select
-                  className="app-modal-input"
-                  value={buyerUnitId}
-                  disabled={disabled}
-                  onChange={(event) => {
-                    setBuyerUnitId(event.target.value);
-                    setError(null);
-                  }}
-                >
-                  <option value="">Selecione a filial</option>
-                  {buyerUnits.map((unit) => (
-                    <option key={unit.id} value={unit.id}>
-                      {unitLabel(unit)}
-                    </option>
-                  ))}
-                </select>
-                {!readOnly ? (
-                  <button
-                    type="button"
-                    className="ctr-inline-add"
-                    onClick={() => {
-                      setUnitError(null);
-                      setUnitModalFor('buyer');
-                    }}
-                  >
-                    + cadastrar filial
-                  </button>
-                ) : null}
-              </label>
-            ) : null}
 
             {/* Banco & armazéns */}
             <p className="ctr-section-title">Banco e armazéns</p>
@@ -434,76 +526,90 @@ export function SaleContractEtapa2Modal({
               />
             </div>
 
-            <div className="app-modal-field">
-              <span className="app-modal-label">Armazém do comprador (opcional)</span>
-              <ClientLookupField
-                session={session}
-                label="Armazém do comprador"
-                kind="any"
-                selectedClient={buyerWarehouse}
-                disabled={disabled}
-                compact
-                onSelectClient={(client) => void handleSelectWarehouse('buyer', client)}
-                emptyMessage="Nenhum cliente encontrado."
-              />
-            </div>
+            <div style={halfRowStyle}>
+              <div className="app-modal-field">
+                <span className="app-modal-label">Armazém do comprador (opcional)</span>
+                <ClientLookupField
+                  session={session}
+                  label="Armazém do comprador"
+                  kind="any"
+                  selectedClient={buyerWarehouse}
+                  disabled={disabled}
+                  compact
+                  onSelectClient={(client) => void handleSelectWarehouse('buyer', client)}
+                  emptyMessage="Nenhum cliente encontrado."
+                  onRequestCreate={(searchTerm) => {
+                    setWarehouseCreateSeed(searchTerm);
+                    setWarehouseCreateFor('buyer');
+                  }}
+                  createLabel="Cadastrar armazém"
+                />
+              </div>
 
-            <div className="app-modal-field">
-              <span className="app-modal-label">Armazém do vendedor (opcional)</span>
-              <ClientLookupField
-                session={session}
-                label="Armazém do vendedor"
-                kind="any"
-                selectedClient={sellerWarehouse}
-                disabled={disabled}
-                compact
-                onSelectClient={(client) => void handleSelectWarehouse('seller', client)}
-                emptyMessage="Nenhum cliente encontrado."
-              />
+              <div className="app-modal-field">
+                <span className="app-modal-label">Armazém do vendedor (opcional)</span>
+                <ClientLookupField
+                  session={session}
+                  label="Armazém do vendedor"
+                  kind="any"
+                  selectedClient={sellerWarehouse}
+                  disabled={disabled}
+                  compact
+                  onSelectClient={(client) => void handleSelectWarehouse('seller', client)}
+                  emptyMessage="Nenhum cliente encontrado."
+                  onRequestCreate={(searchTerm) => {
+                    setWarehouseCreateSeed(searchTerm);
+                    setWarehouseCreateFor('seller');
+                  }}
+                  createLabel="Cadastrar armazém"
+                />
+              </div>
             </div>
 
             {/* Pagamento & logística */}
             <p className="ctr-section-title">Pagamento e logística</p>
 
-            <label className="app-modal-field">
-              <span className="app-modal-label">Forma de pagamento</span>
-              <select
-                className="app-modal-input"
-                value={paymentFormId}
-                disabled={disabled}
-                onChange={(event) => {
-                  setPaymentFormId(event.target.value);
-                  setError(null);
-                }}
-              >
-                <option value="">Selecione</option>
-                {(lookups?.paymentForms ?? []).map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div style={halfRowStyle}>
+              <label className="app-modal-field">
+                <span className="app-modal-label">Forma de pagamento</span>
+                <select
+                  className="app-modal-input"
+                  value={paymentFormId}
+                  disabled={disabled}
+                  onChange={(event) => {
+                    setPaymentFormId(event.target.value);
+                    setError(null);
+                  }}
+                >
+                  <option value="">Selecione</option>
+                  {(lookups?.paymentForms ?? []).map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-            <label className="app-modal-field">
-              <span className="app-modal-label">Modalidade</span>
-              <select
-                className="app-modal-input"
-                value={modalityId}
-                disabled={disabled}
-                onChange={(event) => {
-                  setModalityId(event.target.value);
-                  setError(null);
-                }}
-              >
-                <option value="">Selecione</option>
-                {(lookups?.modalities ?? []).map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <label className="app-modal-field">
+                <span className="app-modal-label">Modalidade</span>
+                <select
+                  className="app-modal-input"
+                  value={modalityId}
+                  disabled={disabled}
+                  onChange={(event) => {
+                    setModalityId(event.target.value);
+                    setError(null);
+                  }}
+                >
+                  <option value="">Selecione</option>
+                  {(lookups?.modalities ?? []).map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
 
             <label className="app-modal-field">
               <span className="app-modal-label">Embalagem</span>
@@ -536,94 +642,72 @@ export function SaleContractEtapa2Modal({
               />
             </label>
 
-            <label className="app-modal-field">
-              <span className="app-modal-label">Data de faturamento</span>
-              <input
-                className="app-modal-input"
-                type="date"
-                value={invoiceDate}
-                disabled={disabled}
-                onChange={(event) => {
-                  setInvoiceDate(event.target.value);
-                  setError(null);
-                }}
-              />
-            </label>
+            <div style={halfRowStyle}>
+              <label className="app-modal-field">
+                <span className="app-modal-label">Data de faturamento</span>
+                <input
+                  className="app-modal-input"
+                  type="date"
+                  value={invoiceDate}
+                  disabled={disabled}
+                  onChange={(event) => {
+                    setInvoiceDate(event.target.value);
+                    setError(null);
+                  }}
+                />
+              </label>
 
-            <label className="app-modal-field">
-              <span className="app-modal-label">Data de pagamento</span>
-              <input
-                className="app-modal-input"
-                type="date"
-                value={paymentDate}
-                disabled={disabled}
-                onChange={(event) => {
-                  setPaymentDate(event.target.value);
-                  setError(null);
-                }}
-              />
-            </label>
+              <label className="app-modal-field">
+                <span className="app-modal-label">Data de pagamento</span>
+                <input
+                  className="app-modal-input"
+                  type="date"
+                  value={paymentDate}
+                  disabled={disabled}
+                  onChange={(event) => {
+                    setPaymentDate(event.target.value);
+                    setError(null);
+                  }}
+                />
+              </label>
+            </div>
 
             {/* Valores */}
             <p className="ctr-section-title">Valores</p>
 
-            <label className="app-modal-field">
-              <span className="app-modal-label">Número de compra (opcional)</span>
-              <input
-                className="app-modal-input"
-                value={purchaseNumber}
-                disabled={disabled}
-                onChange={(event) => setPurchaseNumber(event.target.value)}
-                placeholder="Referência externa"
-              />
-            </label>
-
-            <label className="app-modal-field">
-              <span className="app-modal-label">Peso (Kg) (opcional)</span>
-              <input
-                className="app-modal-input"
-                inputMode="decimal"
-                value={weightKg}
-                disabled={disabled}
-                onChange={(event) => setWeightKg(event.target.value.replace(/[^0-9.,]/g, ''))}
-                placeholder="0,00"
-              />
-            </label>
-
-            <div className="ctr-agio-row">
+            <div style={halfRowStyle}>
               <label className="app-modal-field">
-                <span className="app-modal-label">Ágio/Deságio (opcional)</span>
-                <select
+                <span className="app-modal-label">Número de compra (opcional)</span>
+                <input
                   className="app-modal-input"
-                  value={agioType}
+                  value={purchaseNumber}
                   disabled={disabled}
-                  onChange={(event) => {
-                    setAgioType(event.target.value as '' | 'AGIO' | 'DESAGIO');
-                    setError(null);
-                  }}
-                >
-                  <option value="">Nenhum</option>
-                  <option value="AGIO">Ágio</option>
-                  <option value="DESAGIO">Deságio</option>
-                </select>
+                  onChange={(event) => setPurchaseNumber(event.target.value)}
+                  placeholder="Referência externa"
+                />
               </label>
-              {agioType ? (
-                <label className="app-modal-field">
-                  <span className="app-modal-label">Valor (R$/saca)</span>
-                  <input
-                    className="app-modal-input"
-                    inputMode="decimal"
-                    value={agioValue}
-                    disabled={disabled}
-                    onChange={(event) => {
-                      setAgioValue(maskCurrencyInput(event.target.value));
-                      setError(null);
-                    }}
-                    placeholder="0,00"
-                  />
-                </label>
-              ) : null}
+
+              <label className="app-modal-field">
+                <span className="app-modal-label">Peso (Kg) (opcional)</span>
+                <input
+                  className="app-modal-input"
+                  inputMode="decimal"
+                  value={weightKg}
+                  disabled={disabled}
+                  onChange={(event) => setWeightKg(event.target.value.replace(/[^0-9.,]/g, ''))}
+                  placeholder="0,00"
+                />
+              </label>
             </div>
+
+            {agioType ? (
+              <div style={halfRowStyle}>
+                {agioTypeField}
+                {agioValueField}
+              </div>
+            ) : (
+              agioTypeField
+            )}
 
             {/* Textos */}
             <p className="ctr-section-title">Textos</p>
@@ -661,7 +745,7 @@ export function SaleContractEtapa2Modal({
               type="button"
               className="app-modal-submit"
               onClick={handleSubmit}
-              disabled={saving || loading || missingRequired}
+              disabled={saving || loading}
             >
               {saving ? 'Emitindo...' : 'Emitir'}
             </button>
@@ -680,6 +764,35 @@ export function SaleContractEtapa2Modal({
           onSubmit={handleCreateUnit}
         />
       ) : null}
+
+      <ClientQuickCreateModal
+        session={session}
+        open={sellerCreateOpen}
+        title="Novo vendedor"
+        initialSearch={sellerCreateSeed}
+        initialPersonType="PJ"
+        initialIsSeller
+        onClose={() => setSellerCreateOpen(false)}
+        onCreated={(client) => {
+          setSellerCreateOpen(false);
+          void handleSelectSeller(client);
+        }}
+      />
+
+      <ClientQuickCreateModal
+        session={session}
+        open={warehouseCreateFor !== null}
+        title="Novo armazém"
+        initialSearch={warehouseCreateSeed}
+        initialPersonType="PJ"
+        initialIsWarehouse
+        onClose={() => setWarehouseCreateFor(null)}
+        onCreated={(client) => {
+          const which = warehouseCreateFor;
+          setWarehouseCreateFor(null);
+          if (which) void handleSelectWarehouse(which, client);
+        }}
+      />
     </div>,
     document.body
   );
