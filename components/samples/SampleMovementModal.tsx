@@ -424,28 +424,16 @@ export function SampleMovementModal({
       <span className="app-modal-label">
         Sacas <span className="sdv-edit-label-hint">({effectiveLimit} disp.)</span>
       </span>
-      <div className="sdv-mov-qty-inline">
-        <input
-          className={`app-modal-input${isQuantityOverLimit ? ' has-error' : ''}`}
-          value={quantitySacks}
-          inputMode="numeric"
-          disabled={saving}
-          onChange={(event) => {
-            setQuantitySacks(event.target.value.replace(/[^0-9]/g, ''));
-            setError(null);
-          }}
-        />
-        {effectiveLimit > 0 ? (
-          <button
-            type="button"
-            className="sdv-mov-all-btn"
-            disabled={saving}
-            onClick={() => setQuantitySacks(String(effectiveLimit))}
-          >
-            Todas
-          </button>
-        ) : null}
-      </div>
+      <input
+        className={`app-modal-input${isQuantityOverLimit ? ' has-error' : ''}`}
+        value={quantitySacks}
+        inputMode="numeric"
+        disabled={saving}
+        onChange={(event) => {
+          setQuantitySacks(event.target.value.replace(/[^0-9]/g, ''));
+          setError(null);
+        }}
+      />
     </div>
   );
 
