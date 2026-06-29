@@ -574,6 +574,22 @@ export function normalizeEtapa2Input(input) {
   };
 }
 
+// Fase 1 da CRIACAO do contrato FUTURO (sem lote): termos comerciais +
+// comprador. O VENDEDOR nao entra aqui — vem no emit (junto do banco, filiais,
+// etc.), como no a vista. Mesmos normalizadores da venda a vista; sacas LIVRES
+// (so > 0, sem saldo de lote nem trava de liga).
+export function normalizeFutureSaleContractInput(input) {
+  return {
+    buyerClientId: requireUuid(input?.buyerClientId, 'buyerClientId'),
+    quantitySacks: normalizeSacks(input?.quantitySacks, 'quantitySacks'),
+    unitPrice: normalizeUnitPrice(input?.unitPrice, 'unitPrice'),
+    sellerBrokeragePct: normalizeBrokeragePct(input?.sellerBrokeragePct, 'sellerBrokeragePct'),
+    buyerBrokeragePct: normalizeBrokeragePct(input?.buyerBrokeragePct, 'buyerBrokeragePct'),
+    contractDate: requireDateString(input?.contractDate, 'contractDate'),
+    brokerIds: normalizeBrokerIds(input?.brokerIds, 'brokerIds'),
+  };
+}
+
 export function clientDisplayName(client) {
   if (!client) {
     return null;

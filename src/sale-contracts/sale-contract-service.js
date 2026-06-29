@@ -8,10 +8,12 @@ import {
   buildBankSnapshot,
   buildPartySnapshot,
   buildWarehouseSnapshot,
+  computeContractMoney,
   computeContractMoneyWithAgio,
   formatContractNumber,
   normalizeActionDate,
   normalizeEtapa2Input,
+  normalizeFutureSaleContractInput,
   normalizeWashoutReason,
   resolveRevertTarget,
   SALE_CONTRACT_STATUSES,
@@ -26,6 +28,11 @@ import {
 // CRIACAO do contrato NAO passa por aqui -- ela acontece junto da venda a vista
 // (SampleCommandService.createSampleMovement), na mesma transacao do evento.
 const SALE_CONTRACT_MANAGE_ROLES = [USER_ROLES.ADMIN];
+
+// Mesma chave do gerador do numero em src/events/prisma-event-store.js (NNNN
+// global, compartilhado a vista + Futuro). pg_advisory_xact_lock serializa a
+// alocacao do contract_seq na criacao do contrato Futuro (sem movimento).
+const SALE_CONTRACT_SEQ_LOCK_KEY = 831202606;
 
 const SALE_CONTRACT_LIST_LIMIT_DEFAULT = 200;
 const SALE_CONTRACT_LIST_LIMIT_MAX = 500;
@@ -120,6 +127,78 @@ export class SaleContractService {
         sampleIsBlend,
       },
     };
+  }
+
+  // Fechamento (Futuro): cria um contrato FUTURO direto no SaleContract — SEM
+  // lote (sampleId/movementId nulos, D51). Captura a fase 1 (comprador + termos
+  // comerciais + corretores); o VENDEDOR e o resto vem no emit (1 modal so). O
+  // numero NNNN/AA usa a MESMA sequencia global do a vista, sob advisory lock.
+  // Status nasce EM_ABERTO; o frontend chama emit em seguida (-> CONFERIR).
+  async createFutureSaleContract(input, actorContext) {
+    assertAuthenticatedActor(actorContext, 'create future sale contract');
+    assertRoleAllowed(actorContext.role, SALE_CONTRACT_MANAGE_ROLES, 'create future sale contract');
+
+    const data = normalizeFutureSaleContractInput(input ?? {});
+    const buyerClient = await this._requireClient(data.buyerClientId, 'buyerClientId');
+
+    // Corretores: resolve nomes + valida ativos (fora da tx — leitura).
+    const brokers = await this.prisma.broker.findMany({
+      where: { id: { in: data.brokerIds } },
+      select: { id: true, name: true, status: true },
+    });
+    assertBrokersResolved(brokers, data.brokerIds);
+    const nameById = new Map(brokers.map((broker) => [broker.id, broker.name]));
+
+    const money = computeContractMoney({
+      unitPrice: data.unitPrice,
+      quantitySacks: data.quantitySacks,
+      sellerPct: data.sellerBrokeragePct,
+      buyerPct: data.buyerBrokeragePct,
+    });
+
+    const contractId = randomUUID();
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${SALE_CONTRACT_SEQ_LOCK_KEY}::bigint)`;
+      const rows = await tx.$queryRaw`
+        SELECT COALESCE(MAX(contract_seq), 0) + 1 AS next FROM sale_contract`;
+      const seq = Number(rows?.[0]?.next ?? 1);
+      const contractNumber = formatContractNumber(seq, new Date().getFullYear());
+
+      await tx.saleContract.create({
+        data: {
+          id: contractId,
+          type: 'FUTURO',
+          status: 'EM_ABERTO',
+          contractSeq: seq,
+          contractNumber,
+          contractDate: new Date(data.contractDate),
+          sampleId: null,
+          movementId: null,
+          sellerClientId: null,
+          sellerSnapshot: null,
+          buyerClientId: buyerClient.id,
+          buyerSnapshot: buildPartySnapshot(buyerClient),
+          quantitySacks: data.quantitySacks,
+          unitPrice: data.unitPrice.toFixed(2),
+          totalValue: money.totalValue,
+          sellerBrokeragePct: data.sellerBrokeragePct.toFixed(2),
+          sellerBrokerageValue: money.sellerBrokerageValue,
+          buyerBrokeragePct: data.buyerBrokeragePct.toFixed(2),
+          buyerBrokerageValue: money.buyerBrokerageValue,
+          version: 0,
+        },
+      });
+      await tx.saleContractBroker.createMany({
+        data: data.brokerIds.map((brokerId) => ({
+          id: randomUUID(),
+          saleContractId: contractId,
+          brokerId,
+          brokerNameSnapshot: nameById.get(brokerId),
+        })),
+      });
+    });
+
+    return this.getSaleContract(contractId, actorContext);
   }
 
   // Fechamento (Fase B.2 Passo 2): "Emitir" — salva os campos da etapa 2,
@@ -522,27 +601,42 @@ export class SaleContractService {
         code: 'SALE_CONTRACT_NOT_WASHOUTABLE',
       });
     }
-    // A vista: a quebra cancela a venda. Futuro (sem movimento) ainda nao tem
-    // backend (D50) -> recusa por ora.
-    if (!contract.movementId || !contract.sampleId) {
-      throw new HttpError(422, 'Sale contract has no linked sale to wash out', {
-        code: 'SALE_CONTRACT_NO_MOVEMENT',
-      });
-    }
     if (contract.version !== expectedVersion) {
       throw new HttpError(409, 'Sale contract was modified concurrently', {
         code: 'SALE_CONTRACT_VERSION_CONFLICT',
         field: 'expectedVersion',
       });
     }
+
+    // Futuro (sem lote): nao ha venda a cancelar nem sacas a devolver — marca
+    // WASH_OUT + motivo/data direto no contrato.
+    if (!contract.movementId || !contract.sampleId) {
+      const result = await this.prisma.saleContract.updateMany({
+        where: { id: contractId, version: expectedVersion, status: contract.status },
+        data: {
+          status: 'WASH_OUT',
+          washoutReason: reason,
+          washoutAt: new Date(),
+          version: { increment: 1 },
+        },
+      });
+      if (result.count === 0) {
+        throw new HttpError(409, 'Sale contract was modified concurrently', {
+          code: 'SALE_CONTRACT_VERSION_CONFLICT',
+          field: 'expectedVersion',
+        });
+      }
+      return this.getSaleContract(contractId, actorContext);
+    }
+
     if (!this.commandService || !this.queryService) {
       throw new HttpError(501, 'Sale washout is not configured', {
         code: 'SALE_WASHOUT_NOT_CONFIGURED',
       });
     }
 
-    // Cancela a venda na versao corrente do sample; o cancelamento restaura as
-    // sacas e marca o contrato WASH_OUT (com o motivo) na mesma transacao.
+    // A vista: cancela a venda na versao corrente do sample; o cancelamento
+    // restaura as sacas e marca o contrato WASH_OUT (com o motivo) na mesma tx.
     const sample = await this.queryService.requireSample(contract.sampleId);
     await this.commandService.cancelSampleMovement(
       {
@@ -581,27 +675,39 @@ export class SaleContractService {
         code: 'SALE_CONTRACT_NOT_CANCELABLE',
       });
     }
-    // A vista: o cancelamento desfaz a venda. Futuro (sem movimento) ainda nao
-    // tem backend (D50) -> recusa por ora.
-    if (!contract.movementId || !contract.sampleId) {
-      throw new HttpError(422, 'Sale contract has no linked sale to cancel', {
-        code: 'SALE_CONTRACT_NO_MOVEMENT',
-      });
-    }
     if (contract.version !== expectedVersion) {
       throw new HttpError(409, 'Sale contract was modified concurrently', {
         code: 'SALE_CONTRACT_VERSION_CONFLICT',
         field: 'expectedVersion',
       });
     }
+
+    // Futuro (sem lote): nao ha venda a desfazer — apaga o contrato direto
+    // (corretores antes; FK RESTRICT). Guard por version/status na mesma tx.
+    if (!contract.movementId || !contract.sampleId) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.saleContractBroker.deleteMany({ where: { saleContractId: contractId } });
+        const del = await tx.saleContract.deleteMany({
+          where: { id: contractId, version: expectedVersion, status: 'EM_ABERTO' },
+        });
+        if (del.count === 0) {
+          throw new HttpError(409, 'Sale contract was modified concurrently', {
+            code: 'SALE_CONTRACT_VERSION_CONFLICT',
+            field: 'expectedVersion',
+          });
+        }
+      });
+      return { deleted: true, contractId };
+    }
+
     if (!this.commandService || !this.queryService) {
       throw new HttpError(501, 'Sale cancel is not configured', {
         code: 'SALE_CANCEL_NOT_CONFIGURED',
       });
     }
 
-    // Cancela a venda na versao corrente do sample; no EM_ABERTO o cancelamento
-    // restaura as sacas e DELETA o contrato (washoutOrDeleteSaleContractByMovement).
+    // A vista: cancela a venda na versao corrente do sample; no EM_ABERTO o
+    // cancelamento restaura as sacas e DELETA o contrato (washoutOrDeleteSaleContractByMovement).
     const sample = await this.queryService.requireSample(contract.sampleId);
     await this.commandService.cancelSampleMovement(
       {

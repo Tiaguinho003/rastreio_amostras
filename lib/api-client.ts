@@ -10,6 +10,7 @@ import type {
   BrokerListResponse,
   BrokerResponse,
   ContractLookupsResponse,
+  CreateFutureSaleContractInput,
   SaleContractEtapa2Input,
   SaleContractListResponse,
   SaleContractResponse,
@@ -822,8 +823,21 @@ export function getSaleContract(
   });
 }
 
+// Fechamento (Futuro): cria um contrato FUTURO direto (sem lote). O frontend
+// chama emit em seguida (1 modal so) -> CONFERIR. Gestao = ADMIN.
+export function createFutureSaleContract(
+  session: SessionData,
+  data: CreateFutureSaleContractInput
+) {
+  return request<SaleContractResponse>(`/sale-contracts`, {
+    method: 'POST',
+    session,
+    body: data as unknown as JsonValue,
+  });
+}
+
 // Fechamento (Fase B.2 Passo 2): "Emitir" (salva etapa 2 + EM_ABERTO/CONFERIR
-// -> CONFERIR) e "Confirmar" (CONFERIR -> CONFIRMADO). Gestao = ADMIN+CADASTRO.
+// -> CONFERIR) e "Confirmar" (CONFERIR -> CONFIRMADO). Gestao = ADMIN.
 export function emitSaleContract(
   session: SessionData,
   contractId: string,

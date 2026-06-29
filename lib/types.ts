@@ -415,6 +415,18 @@ export interface SaleContractSaleFieldsInput {
   brokerIds: string[];
 }
 
+// Fechamento (Futuro): criacao direta de um contrato FUTURO (sem lote). Fase 1
+// comercial + comprador; o vendedor e o resto vem depois no emit (1 modal so).
+export interface CreateFutureSaleContractInput {
+  buyerClientId: string;
+  quantitySacks: number;
+  unitPrice: number;
+  sellerBrokeragePct: number;
+  buyerBrokeragePct: number;
+  contractDate: string;
+  brokerIds: string[];
+}
+
 export interface SaleContractListResponse {
   items: SaleContract[];
 }

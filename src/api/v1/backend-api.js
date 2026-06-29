@@ -2814,6 +2814,19 @@ export function createBackendApiV1({
         return { status: 200, body: result };
       }),
 
+    // Fechamento (Futuro): cria um contrato FUTURO direto (sem lote). Sem path
+    // param — o corpo traz a fase 1 (comprador + termos comerciais + corretores).
+    createFutureSaleContract: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractService) {
+          throw new HttpError(501, 'Sale contract service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+        const result = await saleContractService.createFutureSaleContract(body, actor);
+        return { status: 201, body: result };
+      }),
+
     emitSaleContract: (input) =>
       executeApiForInput(input, async () => {
         if (!saleContractService) {
