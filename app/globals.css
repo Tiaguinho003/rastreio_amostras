@@ -34640,3 +34640,120 @@ body.is-selection-mode .hero-search-filter-btn {
   min-height: 2.5rem;
   font-family: inherit;
 }
+
+/* ---------------------------------------------------------------------------
+   Fechamento (criacao a vista pela pagina): modal de selecao de lote.
+   Header fixo + busca + lista rolavel (.app-modal.is-themed e flex-column com
+   altura limitada; a lista cresce e rola, o resto fica fixo).
+   --------------------------------------------------------------------------- */
+.lotpick-search {
+  flex-shrink: 0;
+  padding: clamp(0.85rem, 3vw, 1.1rem) clamp(1.1rem, 3.5vw, 1.4rem) 0.55rem;
+}
+.lotpick-error {
+  margin: 0 clamp(1.1rem, 3.5vw, 1.4rem) 0.5rem;
+}
+.lotpick-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0 clamp(1.1rem, 3.5vw, 1.4rem) clamp(1.1rem, 3.5vw, 1.4rem);
+  overscroll-behavior: contain;
+}
+.lotpick-status {
+  margin: 0;
+  padding: 1.6rem 0.5rem;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--brand-muted);
+}
+.lotpick-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.65rem 0.8rem;
+  background: #fff;
+  border: 1px solid var(--brand-cream-line);
+  border-radius: 12px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+.lotpick-row:hover:not(:disabled) {
+  border-color: rgba(var(--brand-green-rgb), 0.4);
+  background: rgba(var(--brand-green-rgb), 0.06);
+}
+.lotpick-row:disabled {
+  cursor: default;
+}
+.lotpick-row.is-loading {
+  opacity: 0.65;
+}
+.lotpick-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.lotpick-row-lot {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--brand-green-ink);
+}
+.lotpick-row-liga {
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.18rem 0.4rem;
+  border-radius: 999px;
+  color: var(--brand-green-ink);
+  background: rgba(var(--brand-green-rgb), 0.16);
+}
+.lotpick-row-owner {
+  font-size: 0.82rem;
+  color: var(--brand-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lotpick-row-meta {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
+}
+.lotpick-row-sacks {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--brand-green-ink);
+}
+.lotpick-row-harvest {
+  font-size: 0.78rem;
+  color: var(--brand-muted);
+}
+.lotpick-row-hint {
+  position: absolute;
+  right: 0.8rem;
+  bottom: 0.28rem;
+  font-size: 0.72rem;
+  color: var(--brand-muted);
+}
+.lotpick-sentinel {
+  flex-shrink: 0;
+  padding: 0.5rem;
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--brand-muted);
+}
