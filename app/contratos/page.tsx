@@ -40,6 +40,14 @@ export default function ContratosPage() {
   const [listLoading, setListLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const toggleExpand = (id: string) =>
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const [etapa2, setEtapa2] = useState<{ contractId: string; mode: 'emit' | 'view' } | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<{
@@ -212,6 +220,8 @@ export default function ContratosPage() {
                     <SaleContractCard
                       key={contract.id}
                       contract={contract}
+                      isExpanded={expandedIds.has(contract.id)}
+                      onToggle={() => toggleExpand(contract.id)}
                       onGerar={() => setEtapa2({ contractId: contract.id, mode: 'emit' })}
                       onEditar={() => setEtapa2({ contractId: contract.id, mode: 'emit' })}
                       onRevisar={() => setEtapa2({ contractId: contract.id, mode: 'view' })}
