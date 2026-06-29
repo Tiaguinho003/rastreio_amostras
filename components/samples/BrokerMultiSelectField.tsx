@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { ApiError, listBrokers } from '../../lib/api-client';
-import type { Broker, SessionData } from '../../lib/types';
+import { ApiError, createBroker, listBrokers, lookupUsersForReference } from '../../lib/api-client';
+import type { Broker, BrokerInput, SessionData, UserLookupItem } from '../../lib/types';
+import { BrokerFormModal } from '../cadastros/BrokerFormModal';
 
 type BrokerMultiSelectFieldProps = {
   session: SessionData;
@@ -13,8 +14,9 @@ type BrokerMultiSelectFieldProps = {
 };
 
 // Fechamento (Fase B.2): seletor de N corretores (>=1) pra venda a vista. Busca
-// + chips a partir do cadastro de corretores ativos (listBrokers). "Cadastrar
-// na hora" fica pro Passo 2/B.3 — aqui so seleciona os ja cadastrados.
+// + chips a partir do cadastro de corretores ativos (listBrokers). Permite
+// "Cadastrar corretor" na hora pelo dropdown (mesmo padrao do campo Comprador):
+// abre o BrokerFormModal canonico, cria e ja seleciona o novo corretor.
 export function BrokerMultiSelectField({
   session,
   selectedIds,
@@ -27,6 +29,15 @@ export function BrokerMultiSelectField({
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Cadastro inline de corretor (reusa o BrokerFormModal da pagina Cadastros).
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createSeed, setCreateSeed] = useState('');
+  const [users, setUsers] = useState<UserLookupItem[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [savingBroker, setSavingBroker] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const usersLoadedRef = useRef(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -50,6 +61,21 @@ export function BrokerMultiSelectField({
       });
     return () => controller.abort();
   }, [session]);
+
+  // Carrega usuarios (UserSelect do BrokerFormModal) so quando o cadastro abre.
+  useEffect(() => {
+    if (!createOpen || usersLoadedRef.current) {
+      return;
+    }
+    setLoadingUsers(true);
+    lookupUsersForReference(session, { limit: 200 })
+      .then((res) => {
+        setUsers(res.items);
+        usersLoadedRef.current = true;
+      })
+      .catch(() => {})
+      .finally(() => setLoadingUsers(false));
+  }, [createOpen, session]);
 
   useEffect(() => {
     if (!open) {
@@ -90,6 +116,34 @@ export function BrokerMultiSelectField({
 
   function removeBroker(id: string) {
     onChange(selectedIds.filter((current) => current !== id));
+  }
+
+  function openCreate() {
+    setCreateSeed(search.trim());
+    setCreateError(null);
+    setCreateOpen(true);
+    setOpen(false);
+  }
+
+  async function submitNewBroker(data: BrokerInput & { status?: 'ACTIVE' | 'INACTIVE' }) {
+    setSavingBroker(true);
+    setCreateError(null);
+    try {
+      const res = await createBroker(session, data);
+      const created = res.broker;
+      // Adiciona o novo corretor a lista local pra o chip renderizar o nome,
+      // e ja o seleciona na venda.
+      setBrokers((prev) => [...prev, created]);
+      if (!selectedIds.includes(created.id)) {
+        onChange([...selectedIds, created.id]);
+      }
+      setCreateOpen(false);
+      setSearch('');
+    } catch (cause) {
+      setCreateError(cause instanceof ApiError ? cause.message : 'Falha ao salvar corretor.');
+    } finally {
+      setSavingBroker(false);
+    }
   }
 
   return (
@@ -143,8 +197,27 @@ export function BrokerMultiSelectField({
               ))}
             </ul>
           ) : null}
+          {!loading && !error && !disabled ? (
+            <button type="button" className="bms-option" onClick={openCreate}>
+              + Cadastrar corretor
+            </button>
+          ) : null}
         </div>
       ) : null}
+
+      <BrokerFormModal
+        open={createOpen}
+        broker={null}
+        initialName={createSeed}
+        users={users}
+        loadingUsers={loadingUsers}
+        saving={savingBroker}
+        errorMessage={createError}
+        onClose={() => {
+          if (!savingBroker) setCreateOpen(false);
+        }}
+        onSubmit={submitNewBroker}
+      />
     </div>
   );
 }

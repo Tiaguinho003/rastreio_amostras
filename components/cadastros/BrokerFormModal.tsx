@@ -14,6 +14,8 @@ import type { Broker, BrokerInput, UserLookupItem } from '../../lib/types';
 type Props = {
   open: boolean;
   broker: Broker | null;
+  /** Pre-preenche o nome ao criar (ex.: termo digitado no seletor de corretor). */
+  initialName?: string;
   users: UserLookupItem[];
   loadingUsers: boolean;
   saving: boolean;
@@ -25,6 +27,7 @@ type Props = {
 export function BrokerFormModal({
   open,
   broker,
+  initialName = '',
   users,
   loadingUsers,
   saving,
@@ -44,14 +47,14 @@ export function BrokerFormModal({
 
   useEffect(() => {
     if (!open) return;
-    setName(broker?.name ?? '');
+    setName(broker?.name ?? initialName.toUpperCase());
     setUserId(broker?.userId ?? null);
     setCpf(broker?.cpf ? maskCpfInput(broker.cpf) : '');
     setPhone(broker?.phone ?? '');
     setEmail(broker?.email ?? '');
     setStatus(broker?.status ?? 'ACTIVE');
     setSubmitted(false);
-  }, [open, broker]);
+  }, [open, broker, initialName]);
 
   if (!open) return null;
 
