@@ -81,6 +81,7 @@ type SaleContractCardProps = {
   // selecao; inelegiveis (status != CONFIRMADO/FATURADO/PAGO) ficam esmaecidos.
   espelhoMode?: boolean;
   espelhoEligible?: boolean;
+  espelhoReason?: string;
   onSelectEspelho?: () => void;
 };
 
@@ -99,6 +100,7 @@ export function SaleContractCard({
   onVisualizar,
   espelhoMode = false,
   espelhoEligible = false,
+  espelhoReason,
   onSelectEspelho,
 }: SaleContractCardProps) {
   const meta = STATUS_META[contract.status];
@@ -160,7 +162,7 @@ export function SaleContractCard({
                 </svg>
               </span>
             ) : (
-              <span className="ctr-card-select-hint">Só confirmados</span>
+              <span className="ctr-card-select-hint">{espelhoReason ?? 'Indisponível'}</span>
             )}
           </span>
         </button>

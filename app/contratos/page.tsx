@@ -249,6 +249,17 @@ export default function ContratosPage() {
                       status: contract.status,
                       hasLot: contract.type === 'MERCADO_A_VISTA',
                     });
+                  // Espelho elegível = status congelado E ≥1 corretagem preenchida
+                  // (sem comissão não há o que espelhar). Motivo p/ o card esmaecido.
+                  const espelhoStatusOk = ESPELHO_ELIGIBLE.includes(contract.status);
+                  const espelhoHasBrokerage =
+                    (contract.sellerBrokeragePct ?? 0) > 0 || (contract.buyerBrokeragePct ?? 0) > 0;
+                  const espelhoEligible = espelhoStatusOk && espelhoHasBrokerage;
+                  const espelhoReason = !espelhoStatusOk
+                    ? 'Só confirmados'
+                    : !espelhoHasBrokerage
+                      ? 'Sem corretagem'
+                      : undefined;
                   return (
                     <SaleContractCard
                       key={contract.id}
@@ -276,7 +287,8 @@ export default function ContratosPage() {
                         })
                       }
                       espelhoMode={espelhoMode}
-                      espelhoEligible={ESPELHO_ELIGIBLE.includes(contract.status)}
+                      espelhoEligible={espelhoEligible}
+                      espelhoReason={espelhoReason}
                       onSelectEspelho={() => setEspelhoTarget(contract)}
                     />
                   );
