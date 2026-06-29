@@ -21,6 +21,7 @@ import {
   parseDecimalBr,
 } from '../../lib/currency';
 import { useFocusTrap } from '../../lib/use-focus-trap';
+import { BrokerMultiSelectField } from '../samples/BrokerMultiSelectField';
 import { ClientLookupField } from '../clients/ClientLookupField';
 import { ClientQuickCreateModal } from '../clients/ClientQuickCreateModal';
 import { ClientUnitModal } from '../clients/ClientUnitModal';
@@ -33,14 +34,14 @@ import type {
   ContractLookupsResponse,
   SaleContractDetail,
   SaleContractEtapa2Input,
+  SaleContractSaleFieldsInput,
   SessionData,
 } from '../../lib/types';
 
 type SaleContractEtapa2ModalProps = {
   session: SessionData;
-  // Card: contrato existente (emit/view). Wizard a vista: ausente (usa createContext).
+  // Card "Editar": contrato existente. Wizard a vista: ausente (usa createContext).
   contractId?: string;
-  mode: 'emit' | 'view';
   onClose: () => void;
   onSaved: () => void;
   // Wizard a vista (modo CRIACAO): o contrato ainda NAO existe. O submit cria a
@@ -79,14 +80,12 @@ function unitLabel(unit: ClientUnitSummary): string {
 export function SaleContractEtapa2Modal({
   session,
   contractId,
-  mode,
   onClose,
   onSaved,
   createContext,
   onBack,
 }: SaleContractEtapa2ModalProps) {
   const focusTrapRef = useFocusTrap(true);
-  const readOnly = mode === 'view';
   // Modo CRIACAO (wizard): nao ha contrato ainda; o submit faz create->emit.
   const isCreate = createContext != null;
   // Guarda de falha parcial: se o create deu certo mas o emit falhou, guardamos
@@ -116,6 +115,16 @@ export function SaleContractEtapa2Modal({
   const [warehouseCreateSeed, setWarehouseCreateSeed] = useState('');
   const [buyerCreateOpen, setBuyerCreateOpen] = useState(false);
   const [buyerCreateSeed, setBuyerCreateSeed] = useState('');
+
+  // Fase 1 (venda) — editavel so no "Editar" de um contrato existente (nao no
+  // wizard, onde a fase 1 fica no 1o modal). Sacas travam em liga (sampleIsBlend).
+  const [saleSacks, setSaleSacks] = useState('');
+  const [saleUnitPrice, setSaleUnitPrice] = useState('');
+  const [saleSellerPct, setSaleSellerPct] = useState('');
+  const [saleBuyerPct, setSaleBuyerPct] = useState('');
+  const [saleDate, setSaleDate] = useState('');
+  const [saleBrokerIds, setSaleBrokerIds] = useState<string[]>([]);
+  const [sampleIsBlend, setSampleIsBlend] = useState(false);
 
   // Campos simples
   const [purchaseNumber, setPurchaseNumber] = useState('');
@@ -194,6 +203,14 @@ export function SaleContractEtapa2Modal({
         setSellerUnitId(c.sellerUnitId ?? '');
         setBuyerUnitId(c.buyerUnitId ?? '');
         setBankAccountId(c.sellerBankAccountId ?? '');
+        // Fase 1 (venda) editavel
+        setSaleSacks(String(c.quantitySacks));
+        setSaleUnitPrice(formatCurrencyValue(c.unitPrice));
+        setSaleSellerPct(c.sellerBrokeragePct != null ? String(c.sellerBrokeragePct) : '');
+        setSaleBuyerPct(c.buyerBrokeragePct != null ? String(c.buyerBrokeragePct) : '');
+        setSaleDate(dateInputValue(c.contractDate));
+        setSaleBrokerIds(c.brokers.map((broker) => broker.brokerId));
+        setSampleIsBlend(Boolean(c.sampleIsBlend));
 
         const [sellerD, buyerD, bwD, swD] = await Promise.all([
           c.sellerClientId ? getClient(session, c.sellerClientId).catch(() => null) : null,
@@ -354,6 +371,49 @@ export function SaleContractEtapa2Modal({
       setError('Informe o valor do ágio/deságio.');
       return;
     }
+
+    // Fase 1 (venda) — validada/enviada SÓ no "Editar" de um contrato existente
+    // (no wizard a fase 1 vem do 1º modal, via createContext).
+    let saleFieldsPayload: SaleContractSaleFieldsInput | undefined;
+    if (!isCreate) {
+      const sacks = Number(saleSacks);
+      if (!saleSacks.trim() || !Number.isInteger(sacks) || sacks <= 0) {
+        setError('Informe a quantidade de sacas.');
+        return;
+      }
+      const price = parseCurrencyInput(saleUnitPrice);
+      if (!saleUnitPrice.trim() || price == null || price <= 0) {
+        setError('Informe o preço por saca.');
+        return;
+      }
+      const sellerPct = saleSellerPct.trim() === '' ? 0 : (parseDecimalBr(saleSellerPct) ?? NaN);
+      if (Number.isNaN(sellerPct) || sellerPct < 0 || sellerPct > 100) {
+        setError('Corretagem do vendedor inválida (0 a 100).');
+        return;
+      }
+      const buyerPct = saleBuyerPct.trim() === '' ? 0 : (parseDecimalBr(saleBuyerPct) ?? NaN);
+      if (Number.isNaN(buyerPct) || buyerPct < 0 || buyerPct > 100) {
+        setError('Corretagem do comprador inválida (0 a 100).');
+        return;
+      }
+      if (!saleDate) {
+        setError('Informe a data do contrato.');
+        return;
+      }
+      if (saleBrokerIds.length === 0) {
+        setError('Selecione ao menos um corretor.');
+        return;
+      }
+      saleFieldsPayload = {
+        quantitySacks: sacks,
+        unitPrice: price,
+        sellerBrokeragePct: sellerPct,
+        buyerBrokeragePct: buyerPct,
+        contractDate: saleDate,
+        brokerIds: saleBrokerIds,
+      };
+    }
+
     setSaving(true);
     setError(null);
     const payload: SaleContractEtapa2Input = {
@@ -377,6 +437,7 @@ export function SaleContractEtapa2Modal({
       weightKg: weightKg.trim() ? parseDecimalBr(weightKg) : null,
       agioDesagioType: agioType || null,
       agioDesagioValue: agioType ? parseCurrencyInput(agioValue) : null,
+      saleFields: saleFieldsPayload,
     };
     try {
       if (isCreate && createContext) {
@@ -438,7 +499,7 @@ export function SaleContractEtapa2Modal({
     next();
   }
 
-  const disabled = readOnly || saving;
+  const disabled = saving;
 
   // Layout: pares lado a lado em grid 50/50 que casa o gap do .app-modal-content
   // (molde da Etapa 1). Filiais e ágio extraídos pra compor em par sem duplicar.
@@ -461,14 +522,10 @@ export function SaleContractEtapa2Modal({
         disabled={disabled}
         placeholder="Selecione a filial"
         emptyMessage="Nenhuma filial cadastrada."
-        onRequestCreate={
-          readOnly
-            ? undefined
-            : () => {
-                setUnitError(null);
-                setUnitModalFor('seller');
-              }
-        }
+        onRequestCreate={() => {
+          setUnitError(null);
+          setUnitModalFor('seller');
+        }}
         createLabel="Cadastrar filial"
       />
     </div>
@@ -487,14 +544,10 @@ export function SaleContractEtapa2Modal({
         disabled={disabled}
         placeholder="Selecione a filial"
         emptyMessage="Nenhuma filial cadastrada."
-        onRequestCreate={
-          readOnly
-            ? undefined
-            : () => {
-                setUnitError(null);
-                setUnitModalFor('buyer');
-              }
-        }
+        onRequestCreate={() => {
+          setUnitError(null);
+          setUnitModalFor('buyer');
+        }}
         createLabel="Cadastrar filial"
       />
     </div>
@@ -549,9 +602,9 @@ export function SaleContractEtapa2Modal({
         <header className="app-modal-header">
           <div className="app-modal-title-wrap">
             <h3 id="ctr-etapa2-title" className="app-modal-title">
-              {readOnly
-                ? `Contrato${contract ? ` ${contract.contractNumber}` : ''}`
-                : 'Gerar rascunho'}
+              {isCreate
+                ? 'Gerar rascunho'
+                : `Editar contrato${contract ? ` ${contract.contractNumber}` : ''}`}
             </h3>
           </div>
           <button
@@ -574,6 +627,106 @@ export function SaleContractEtapa2Modal({
           </div>
         ) : (
           <div className="app-modal-content ctr-etapa2-content">
+            {!isCreate ? (
+              <div className="ctr-block">
+                {/* Fase 1 (venda) — editavel só no "Editar". Sacas travadas em
+                    liga (F7.1): venda = 100% das sacas. */}
+                <p className="ctr-section-title">Venda</p>
+
+                <label className="app-modal-field">
+                  <span className="app-modal-label">Data do contrato</span>
+                  <input
+                    className="app-modal-input"
+                    type="date"
+                    value={saleDate}
+                    disabled={disabled}
+                    onChange={(event) => {
+                      setSaleDate(event.target.value);
+                      setError(null);
+                    }}
+                  />
+                </label>
+
+                <div style={halfRowStyle}>
+                  <div className="app-modal-field">
+                    <span className="app-modal-label">
+                      Sacas{sampleIsBlend ? ' (liga: 100%)' : ''}
+                    </span>
+                    <input
+                      className="app-modal-input"
+                      inputMode="numeric"
+                      value={saleSacks}
+                      disabled={disabled || sampleIsBlend}
+                      onChange={(event) => {
+                        setSaleSacks(event.target.value.replace(/[^0-9]/g, ''));
+                        setError(null);
+                      }}
+                    />
+                  </div>
+
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">Preço por saca (R$)</span>
+                    <input
+                      className="app-modal-input"
+                      inputMode="decimal"
+                      value={saleUnitPrice}
+                      disabled={disabled}
+                      onChange={(event) => {
+                        setSaleUnitPrice(maskCurrencyInput(event.target.value));
+                        setError(null);
+                      }}
+                      placeholder="0,00"
+                    />
+                  </label>
+                </div>
+
+                <div style={halfRowStyle}>
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">Corretagem do vendedor (%)</span>
+                    <input
+                      className="app-modal-input"
+                      inputMode="decimal"
+                      value={saleSellerPct}
+                      disabled={disabled}
+                      onChange={(event) => {
+                        setSaleSellerPct(event.target.value.replace(/[^0-9.,]/g, ''));
+                        setError(null);
+                      }}
+                      placeholder="0"
+                    />
+                  </label>
+
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">Corretagem do comprador (%)</span>
+                    <input
+                      className="app-modal-input"
+                      inputMode="decimal"
+                      value={saleBuyerPct}
+                      disabled={disabled}
+                      onChange={(event) => {
+                        setSaleBuyerPct(event.target.value.replace(/[^0-9.,]/g, ''));
+                        setError(null);
+                      }}
+                      placeholder="0"
+                    />
+                  </label>
+                </div>
+
+                <div className="app-modal-field">
+                  <span className="app-modal-label">Corretores</span>
+                  <BrokerMultiSelectField
+                    session={session}
+                    selectedIds={saleBrokerIds}
+                    disabled={disabled}
+                    onChange={(ids) => {
+                      setSaleBrokerIds(ids);
+                      setError(null);
+                    }}
+                  />
+                </div>
+              </div>
+            ) : null}
+
             <div className="ctr-block">
               {/* Bloco Vendedor: tudo do vendedor junto */}
               <p className="ctr-section-title">Vendedor</p>
@@ -845,25 +998,23 @@ export function SaleContractEtapa2Modal({
           </div>
         )}
 
-        <div className={`app-modal-actions${!readOnly ? ' ctr-etapa2-actions' : ''}`}>
+        <div className="app-modal-actions ctr-etapa2-actions">
           <button
             type="button"
             className="app-modal-secondary"
             onClick={isCreate ? () => void cleanupPartialThen(onBack ?? onClose) : onClose}
             disabled={saving}
           >
-            {isCreate ? 'Voltar' : readOnly ? 'Fechar' : 'Cancelar'}
+            {isCreate ? 'Voltar' : 'Cancelar'}
           </button>
-          {!readOnly ? (
-            <button
-              type="button"
-              className="app-modal-submit"
-              onClick={handleSubmit}
-              disabled={saving || loading}
-            >
-              {saving ? 'Emitindo...' : 'Emitir'}
-            </button>
-          ) : null}
+          <button
+            type="button"
+            className="app-modal-submit"
+            onClick={handleSubmit}
+            disabled={saving || loading}
+          >
+            {saving ? 'Emitindo...' : 'Emitir'}
+          </button>
         </div>
       </section>
 

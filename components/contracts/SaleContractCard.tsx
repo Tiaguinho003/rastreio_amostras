@@ -66,15 +66,13 @@ type SaleContractCardProps = {
   onToggle: () => void;
   onGerar: () => void;
   onCancelar: () => void;
-  onRevisar: () => void;
   onEditar: () => void;
   onConfirmar: () => void;
   onFaturar: () => void;
   onPagar: () => void;
   onReverter: () => void;
-  onQuebrar: () => void;
-  onVer: () => void;
-  onBaixarPdf: () => void;
+  onWashout: () => void;
+  onVisualizar: () => void;
 };
 
 export function SaleContractCard({
@@ -83,22 +81,15 @@ export function SaleContractCard({
   onToggle,
   onGerar,
   onCancelar,
-  onRevisar,
   onEditar,
   onConfirmar,
   onFaturar,
   onPagar,
   onReverter,
-  onQuebrar,
-  onVer,
-  onBaixarPdf,
+  onWashout,
+  onVisualizar,
 }: SaleContractCardProps) {
   const meta = STATUS_META[contract.status];
-  const isTerminalView =
-    contract.status === 'CONFIRMADO' ||
-    contract.status === 'WASH_OUT' ||
-    contract.status === 'FATURADO' ||
-    contract.status === 'PAGO';
 
   return (
     <div className={`ctr-card${isExpanded ? ' is-expanded' : ''}`}>
@@ -194,8 +185,8 @@ export function SaleContractCard({
             ) : null}
             {contract.status === 'CONFERIR' ? (
               <>
-                <button type="button" className="ctr-btn" onClick={onRevisar}>
-                  Revisar
+                <button type="button" className="ctr-btn" onClick={onVisualizar}>
+                  Visualizar
                 </button>
                 <button type="button" className="ctr-btn" onClick={onEditar}>
                   Editar
@@ -208,44 +199,51 @@ export function SaleContractCard({
             {contract.status === 'CONFIRMADO' ? (
               <>
                 <button type="button" className="ctr-btn ctr-btn-primary" onClick={onFaturar}>
-                  Faturar
+                  Faturado
                 </button>
                 <button type="button" className="ctr-btn" onClick={onPagar}>
-                  Pagar
+                  Pago
+                </button>
+                <button type="button" className="ctr-btn" onClick={onVisualizar}>
+                  Visualizar
+                </button>
+                <button type="button" className="ctr-btn ctr-btn-danger" onClick={onWashout}>
+                  Washout
                 </button>
               </>
             ) : null}
             {contract.status === 'FATURADO' ? (
               <>
                 <button type="button" className="ctr-btn ctr-btn-primary" onClick={onPagar}>
-                  Pagar
+                  Pago
+                </button>
+                <button type="button" className="ctr-btn" onClick={onVisualizar}>
+                  Visualizar
                 </button>
                 <button type="button" className="ctr-btn" onClick={onReverter}>
-                  Desfazer faturamento
+                  Desfazer
+                </button>
+                <button type="button" className="ctr-btn ctr-btn-danger" onClick={onWashout}>
+                  Washout
                 </button>
               </>
             ) : null}
             {contract.status === 'PAGO' ? (
-              <button type="button" className="ctr-btn" onClick={onReverter}>
-                Desfazer pagamento
-              </button>
+              <>
+                <button type="button" className="ctr-btn" onClick={onVisualizar}>
+                  Visualizar
+                </button>
+                <button type="button" className="ctr-btn" onClick={onReverter}>
+                  Desfazer
+                </button>
+                <button type="button" className="ctr-btn ctr-btn-danger" onClick={onWashout}>
+                  Washout
+                </button>
+              </>
             ) : null}
-            {isTerminalView ? (
-              <button type="button" className="ctr-btn" onClick={onVer}>
-                Ver
-              </button>
-            ) : null}
-            {contract.status !== 'EM_ABERTO' ? (
-              <button type="button" className="ctr-btn" onClick={onBaixarPdf}>
-                Baixar PDF
-              </button>
-            ) : null}
-            {contract.status === 'CONFERIR' ||
-            contract.status === 'CONFIRMADO' ||
-            contract.status === 'FATURADO' ||
-            contract.status === 'PAGO' ? (
-              <button type="button" className="ctr-btn ctr-btn-danger" onClick={onQuebrar}>
-                Quebrar
+            {contract.status === 'WASH_OUT' ? (
+              <button type="button" className="ctr-btn" onClick={onVisualizar}>
+                Visualizar
               </button>
             ) : null}
           </div>

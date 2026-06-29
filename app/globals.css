@@ -34655,11 +34655,21 @@ body.is-selection-mode .hero-search-filter-btn {
   font-size: 0.82rem;
   color: var(--color-danger);
 }
+/* Acoes do card: 3-4 botoes SEMPRE numa linha (nao quebra). flex:1 distribui a
+   largura; rotulos curtos + ellipsis garantem o caber em telas estreitas. */
 .ctr-card-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.4rem;
-  justify-content: flex-end;
+}
+.ctr-card-actions > .ctr-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0.45rem 0.4rem;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ctr-btn {
   border: 1px solid var(--brand-cream-line);
@@ -34720,6 +34730,38 @@ body.is-selection-mode .hero-search-filter-btn {
   padding: 1rem 0;
   text-align: center;
   color: var(--brand-muted);
+}
+
+/* Modal "Visualizar" — previa do PDF (iframe) + Exportar/Baixar/Fechar. Um pouco
+   mais largo que o padrao p/ acomodar a folha A4. */
+.app-modal.is-themed.ctr-doc-modal {
+  width: min(46rem, calc(100vw - 1.5rem));
+  max-width: min(46rem, calc(100vw - 1.5rem));
+}
+.ctr-doc-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-height: 0;
+}
+.ctr-doc-frame {
+  width: 100%;
+  height: min(60dvh, 32rem);
+  border: 1px solid var(--brand-cream-line);
+  border-radius: 12px;
+  background: #fff;
+}
+.ctr-doc-hint {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--brand-muted);
+  text-align: center;
+}
+/* Fechar | Baixar | Exportar numa linha (Fechar so o necessario). */
+.app-modal.is-themed .app-modal-actions.ctr-doc-actions {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr;
+  gap: 0.6rem;
 }
 .ctr-section-title {
   margin: 0.4rem 0 0;

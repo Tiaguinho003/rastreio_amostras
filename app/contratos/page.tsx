@@ -8,6 +8,7 @@ import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { ContractCreateRadialFab } from '../../components/contracts/ContractCreateRadialFab';
 import { SaleContractCard } from '../../components/contracts/SaleContractCard';
 import { SaleContractConfirmDialog } from '../../components/contracts/SaleContractConfirmDialog';
+import { SaleContractDocumentModal } from '../../components/contracts/SaleContractDocumentModal';
 import { SaleContractEtapa2Modal } from '../../components/contracts/SaleContractEtapa2Modal';
 import {
   SaleContractLifecycleDialog,
@@ -19,14 +20,11 @@ import {
   type SampleMovementModalSubmitInput,
 } from '../../components/samples/SampleMovementModal';
 import {
-  ApiError,
-  downloadSaleContractPdf,
   getNextContractNumber,
   getSampleDetail,
   listSaleContracts,
   updateRegistration,
 } from '../../lib/api-client';
-import { shareOrDownloadFile } from '../../lib/share-blob';
 import { useRequireAuth } from '../../lib/use-auth';
 import { useToast } from '../../lib/toast/ToastProvider';
 import type {
@@ -67,7 +65,10 @@ export default function ContratosPage() {
       return next;
     });
 
-  const [etapa2, setEtapa2] = useState<{ contractId: string; mode: 'emit' | 'view' } | null>(null);
+  const [etapa2, setEtapa2] = useState<{ contractId: string } | null>(null);
+  const [docModal, setDocModal] = useState<{ contractId: string; contractNumber: string } | null>(
+    null
+  );
   const [confirmTarget, setConfirmTarget] = useState<{
     contractId: string;
     expectedVersion: number;
@@ -173,22 +174,6 @@ export default function ContratosPage() {
     return (first + last).toUpperCase() || '?';
   })();
 
-  async function handleBaixarPdf(contract: SaleContract) {
-    if (!session) return;
-    try {
-      const { blob, fileName } = await downloadSaleContractPdf(session, contract.id);
-      await shareOrDownloadFile(blob, fileName, {
-        mimeType: 'application/pdf',
-        shareTitle: `Contrato ${contract.contractNumber}`,
-      });
-    } catch (cause) {
-      toast.error({
-        title: 'Não foi possível gerar o PDF',
-        description: cause instanceof ApiError ? cause.message : undefined,
-      });
-    }
-  }
-
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
       <section className="clients-page-v2 ctr-page">
@@ -289,16 +274,19 @@ export default function ContratosPage() {
                       contract={contract}
                       isExpanded={expandedIds.has(contract.id)}
                       onToggle={() => toggleExpand(contract.id)}
-                      onGerar={() => setEtapa2({ contractId: contract.id, mode: 'emit' })}
+                      onGerar={() => setEtapa2({ contractId: contract.id })}
                       onCancelar={() => openLifecycle('cancel')}
-                      onEditar={() => setEtapa2({ contractId: contract.id, mode: 'emit' })}
-                      onRevisar={() => setEtapa2({ contractId: contract.id, mode: 'view' })}
-                      onVer={() => setEtapa2({ contractId: contract.id, mode: 'view' })}
-                      onBaixarPdf={() => void handleBaixarPdf(contract)}
+                      onEditar={() => setEtapa2({ contractId: contract.id })}
+                      onVisualizar={() =>
+                        setDocModal({
+                          contractId: contract.id,
+                          contractNumber: contract.contractNumber,
+                        })
+                      }
                       onFaturar={() => openLifecycle('invoice')}
                       onPagar={() => openLifecycle('pay')}
                       onReverter={() => openLifecycle('revert')}
-                      onQuebrar={() => openLifecycle('washout')}
+                      onWashout={() => openLifecycle('washout')}
                       onConfirmar={() =>
                         setConfirmTarget({
                           contractId: contract.id,
@@ -324,13 +312,21 @@ export default function ContratosPage() {
         <SaleContractEtapa2Modal
           session={session}
           contractId={etapa2.contractId}
-          mode={etapa2.mode}
           onClose={() => setEtapa2(null)}
           onSaved={() => {
             setEtapa2(null);
             void refresh();
             toast.success({ title: 'Documento emitido' });
           }}
+        />
+      ) : null}
+
+      {docModal ? (
+        <SaleContractDocumentModal
+          session={session}
+          contractId={docModal.contractId}
+          contractNumber={docModal.contractNumber}
+          onClose={() => setDocModal(null)}
         />
       ) : null}
 
@@ -447,7 +443,6 @@ export default function ContratosPage() {
       {spotWizard?.step === 2 && spotCreateContext ? (
         <SaleContractEtapa2Modal
           session={session}
-          mode="emit"
           createContext={spotCreateContext}
           onBack={() => setSpotWizard((prev) => (prev ? { ...prev, step: 1 } : prev))}
           onClose={() => setSpotWizard(null)}

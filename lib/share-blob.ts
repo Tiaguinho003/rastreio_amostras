@@ -36,6 +36,13 @@ export async function shareOrDownloadFile(
     }
   }
 
+  downloadFile(blob, filename);
+  return 'downloaded';
+}
+
+// Download direto (salvar no dispositivo), sem tentar compartilhar. Usado quando
+// o usuario escolhe "Baixar" explicitamente (vs "Exportar" = compartilhar).
+export function downloadFile(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   try {
     const link = document.createElement('a');
@@ -47,5 +54,4 @@ export async function shareOrDownloadFile(
   } finally {
     URL.revokeObjectURL(url);
   }
-  return 'downloaded';
 }

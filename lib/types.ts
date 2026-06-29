@@ -399,6 +399,20 @@ export interface SaleContract {
 
 export interface SaleContractDetail extends SaleContract {
   brokers: SaleContractBrokerView[];
+  // Liga? — quando o contrato a vista vem de uma liga (isBlend), as sacas sao
+  // travadas (F7.1). null quando nao ha amostra vinculada (ex.: Futuro).
+  sampleIsBlend: boolean | null;
+}
+
+// Fechamento ("Editar"): bloco da fase 1 (venda) editavel num contrato emitido.
+// Presente so no "Editar"; ausente no wizard create->emit (o create ja os fixou).
+export interface SaleContractSaleFieldsInput {
+  quantitySacks: number;
+  unitPrice: number;
+  sellerBrokeragePct: number;
+  buyerBrokeragePct: number;
+  contractDate: string;
+  brokerIds: string[];
 }
 
 export interface SaleContractListResponse {
@@ -442,6 +456,8 @@ export interface SaleContractEtapa2Input {
   weightKg?: number | null;
   agioDesagioType?: AgioDesagioType | null;
   agioDesagioValue?: number | null;
+  // "Editar": fase 1 (venda). Ausente no wizard create->emit.
+  saleFields?: SaleContractSaleFieldsInput;
 }
 
 export interface ClientBankAccountSummary {
