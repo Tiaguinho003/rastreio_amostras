@@ -190,6 +190,20 @@ if (!databaseUrl || !databaseReachable) {
     };
   }
 
+  // Bloco "fase 1" (venda) do "Editar" — espelha os valores da venda padrao do
+  // setupEmittableContract (10 sc, R$100, 2%/1%, 26/06, corretor de teste).
+  function saleFields(overrides = {}) {
+    return {
+      quantitySacks: 10,
+      unitPrice: 100,
+      sellerBrokeragePct: 2,
+      buyerBrokeragePct: 1,
+      contractDate: '2026-06-26',
+      brokerIds: [TEST_BROKER_ID],
+      ...overrides,
+    };
+  }
+
   // Emite + confirma -> contrato CONFIRMADO; devolve refs + a version atual.
   async function setupConfirmedContract({ lotNumber }) {
     const refs = await setupEmittableContract({ lotNumber });
@@ -439,6 +453,117 @@ if (!databaseUrl || !databaseReachable) {
       where: { sampleId, movementType: 'SALE' },
     });
     assert.equal(movement.buyerClientId, buyerId);
+  });
+
+  test('editar fase 1: reduzir sacas ajusta o saldo do lote e recomputa o total', async () => {
+    const { contractId, sampleId, bankAccountId } = await setupEmittableContract({
+      lotNumber: '21030',
+    });
+    const lookups = await fetchLookups();
+
+    const emitted = await saleContractService.emitSaleContract(
+      contractId,
+      etapa2Payload({ bankAccountId, lookups, overrides: { saleFields: saleFields({ quantitySacks: 6 }) } }),
+      adminActor
+    );
+
+    // contrato: sacas + money recomputado (6 x 100 = 600; 2% = 12; 1% = 6)
+    assert.equal(emitted.contract.quantitySacks, 6);
+    assert.equal(Number(emitted.contract.totalValue), 600);
+    assert.equal(Number(emitted.contract.sellerBrokerageValue), 12);
+    assert.equal(Number(emitted.contract.buyerBrokerageValue), 6);
+
+    // saldo do lote: vendido caiu de 10 -> 6 (4 voltaram a disponivel)
+    const sample = await prisma.sample.findUnique({ where: { id: sampleId } });
+    assert.equal(sample.soldSacks, 6);
+
+    // a venda (movimento, append-only) tambem caiu
+    const movement = await prisma.sampleMovement.findFirst({
+      where: { sampleId, movementType: 'SALE' },
+    });
+    assert.equal(movement.quantitySacks, 6);
+  });
+
+  test('editar fase 1: trocar preco e corretagens recomputa o total', async () => {
+    const { contractId, bankAccountId } = await setupEmittableContract({ lotNumber: '21031' });
+    const lookups = await fetchLookups();
+
+    const emitted = await saleContractService.emitSaleContract(
+      contractId,
+      etapa2Payload({
+        bankAccountId,
+        lookups,
+        overrides: {
+          saleFields: saleFields({ unitPrice: 200, sellerBrokeragePct: 3, buyerBrokeragePct: 0.5 }),
+        },
+      }),
+      adminActor
+    );
+
+    assert.equal(Number(emitted.contract.unitPrice), 200);
+    assert.equal(Number(emitted.contract.sellerBrokeragePct), 3);
+    assert.equal(Number(emitted.contract.buyerBrokeragePct), 0.5);
+    // 10 x 200 = 2000; 3% = 60; 0,5% = 10
+    assert.equal(Number(emitted.contract.totalValue), 2000);
+    assert.equal(Number(emitted.contract.sellerBrokerageValue), 60);
+    assert.equal(Number(emitted.contract.buyerBrokerageValue), 10);
+  });
+
+  test('editar fase 1: trocar os corretores substitui as linhas do contrato', async () => {
+    const { contractId, bankAccountId } = await setupEmittableContract({ lotNumber: '21032' });
+    const lookups = await fetchLookups();
+
+    const broker2 = randomUUID();
+    await prisma.broker.create({ data: { id: broker2, name: 'Corretor Dois', status: 'ACTIVE' } });
+
+    await saleContractService.emitSaleContract(
+      contractId,
+      etapa2Payload({ bankAccountId, lookups, overrides: { saleFields: saleFields({ brokerIds: [broker2] }) } }),
+      adminActor
+    );
+
+    const rows = await prisma.saleContractBroker.findMany({ where: { saleContractId: contractId } });
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].brokerId, broker2);
+    assert.equal(rows[0].brokerNameSnapshot, 'Corretor Dois');
+  });
+
+  test('editar fase 1: trocar a data sincroniza a venda do lote (movementDate)', async () => {
+    const { contractId, sampleId, bankAccountId } = await setupEmittableContract({
+      lotNumber: '21033',
+    });
+    const lookups = await fetchLookups();
+
+    const emitted = await saleContractService.emitSaleContract(
+      contractId,
+      etapa2Payload({ bankAccountId, lookups, overrides: { saleFields: saleFields({ contractDate: '2026-07-01' }) } }),
+      adminActor
+    );
+
+    assert.ok(emitted.contract.contractDate.startsWith('2026-07-01'));
+    const movement = await prisma.sampleMovement.findFirst({
+      where: { sampleId, movementType: 'SALE' },
+    });
+    assert.equal(new Date(movement.movementDate).toISOString().slice(0, 10), '2026-07-01');
+  });
+
+  test('editar sacas em liga -> 422 (trava F7.1)', async () => {
+    const { contractId, sampleId, bankAccountId } = await setupEmittableContract({
+      lotNumber: '21034',
+    });
+    const lookups = await fetchLookups();
+    // Exercita a trava F7.1 sem montar uma cascata real: marca o lote como liga.
+    await prisma.sample.update({ where: { id: sampleId }, data: { isBlend: true } });
+
+    await assert.rejects(
+      () =>
+        saleContractService.emitSaleContract(
+          contractId,
+          etapa2Payload({ bankAccountId, lookups, overrides: { saleFields: saleFields({ quantitySacks: 6 }) } }),
+          adminActor
+        ),
+      (err) => err.status === 422
+    );
   });
 
   test('emitir: faltando obrigatorio (banco) -> 422', async () => {
