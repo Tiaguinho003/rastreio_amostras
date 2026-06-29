@@ -494,6 +494,66 @@ export class SaleContractService {
     return this.getSaleContract(contractId, actorContext);
   }
 
+  // Cancelar um contrato EM_ABERTO (venda registrada, sem documento gerado):
+  // descarta o contrato e DESFAZ a venda subjacente (devolve as sacas ao lote).
+  // Delega ao cancelSampleMovement, que no EM_ABERTO DELETA o contrato via
+  // washoutOrDeleteSaleContractByMovement (na mesma tx). Motivo padrao interno —
+  // e o descarte de um rascunho, sem justificativa do usuario. DEFINITIVO.
+  async cancelSaleContract(contractId, input, actorContext) {
+    assertAuthenticatedActor(actorContext, 'cancel sale contract');
+    assertRoleAllowed(actorContext.role, SALE_CONTRACT_MANAGE_ROLES, 'cancel sale contract');
+    this._requireContractId(contractId);
+    const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
+
+    const contract = await this.prisma.saleContract.findUnique({
+      where: { id: contractId },
+      select: { id: true, status: true, version: true, sampleId: true, movementId: true },
+    });
+    if (!contract) {
+      throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
+    }
+    // So o EM_ABERTO e cancelavel (descartavel). CONFERIR+ usa "Quebrar" (washout).
+    if (contract.status !== 'EM_ABERTO') {
+      throw new HttpError(409, `Sale contract is ${contract.status} and cannot be cancelled`, {
+        code: 'SALE_CONTRACT_NOT_CANCELABLE',
+      });
+    }
+    // A vista: o cancelamento desfaz a venda. Futuro (sem movimento) ainda nao
+    // tem backend (D50) -> recusa por ora.
+    if (!contract.movementId || !contract.sampleId) {
+      throw new HttpError(422, 'Sale contract has no linked sale to cancel', {
+        code: 'SALE_CONTRACT_NO_MOVEMENT',
+      });
+    }
+    if (contract.version !== expectedVersion) {
+      throw new HttpError(409, 'Sale contract was modified concurrently', {
+        code: 'SALE_CONTRACT_VERSION_CONFLICT',
+        field: 'expectedVersion',
+      });
+    }
+    if (!this.commandService || !this.queryService) {
+      throw new HttpError(501, 'Sale cancel is not configured', {
+        code: 'SALE_CANCEL_NOT_CONFIGURED',
+      });
+    }
+
+    // Cancela a venda na versao corrente do sample; no EM_ABERTO o cancelamento
+    // restaura as sacas e DELETA o contrato (washoutOrDeleteSaleContractByMovement).
+    const sample = await this.queryService.requireSample(contract.sampleId);
+    await this.commandService.cancelSampleMovement(
+      {
+        sampleId: contract.sampleId,
+        movementId: contract.movementId,
+        reasonText: 'Contrato em aberto cancelado',
+        expectedVersion: sample.version,
+      },
+      actorContext
+    );
+
+    // O contrato deixou de existir — nada a retornar alem da confirmacao.
+    return { deleted: true, contractId };
+  }
+
   _requireContractId(contractId) {
     if (typeof contractId !== 'string' || contractId.length === 0) {
       throw new HttpError(422, 'contractId is required', {

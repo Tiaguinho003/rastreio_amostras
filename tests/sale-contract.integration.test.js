@@ -620,6 +620,93 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(contract.status, 'WASH_OUT');
   });
 
+  test('cancelar EM_ABERTO: remove o contrato, desfaz a venda e devolve as sacas', async () => {
+    const { contractId, sampleId } = await setupEmittableContract({ lotNumber: '21012' });
+
+    const before = await prisma.sample.findUnique({
+      where: { id: sampleId },
+      select: { commercialStatus: true, soldSacks: true },
+    });
+    assert.equal(before.commercialStatus, 'SOLD');
+    assert.equal(before.soldSacks, 10);
+
+    const c = await prisma.saleContract.findUnique({
+      where: { id: contractId },
+      select: { version: true },
+    });
+    const result = await saleContractService.cancelSaleContract(
+      contractId,
+      { expectedVersion: c.version },
+      adminActor
+    );
+    assert.deepEqual(result, { deleted: true, contractId });
+
+    // contrato (e corretor) sumiram
+    assert.equal((await prisma.saleContract.findMany()).length, 0);
+    assert.equal((await prisma.saleContractBroker.findMany()).length, 0);
+
+    // venda CANCELLED + sacas de volta ao lote (disponivel)
+    const movement = await prisma.sampleMovement.findFirst({ where: { sampleId } });
+    assert.equal(movement.status, 'CANCELLED');
+    const after = await prisma.sample.findUnique({
+      where: { id: sampleId },
+      select: { commercialStatus: true, soldSacks: true },
+    });
+    assert.equal(after.commercialStatus, 'OPEN');
+    assert.equal(after.soldSacks, 0);
+  });
+
+  test('cancelar: status CONFERIR -> 409 (nao-cancelavel; use Quebrar)', async () => {
+    const { contractId, bankAccountId } = await setupEmittableContract({ lotNumber: '21013' });
+    const lookups = await fetchLookups();
+    await saleContractService.emitSaleContract(
+      contractId,
+      etapa2Payload({ bankAccountId, lookups }),
+      adminActor
+    );
+    const c = await prisma.saleContract.findUnique({
+      where: { id: contractId },
+      select: { version: true },
+    });
+    await assert.rejects(
+      () =>
+        saleContractService.cancelSaleContract(
+          contractId,
+          { expectedVersion: c.version },
+          adminActor
+        ),
+      (err) => err.status === 409
+    );
+  });
+
+  test('cancelar: version estale -> 409; inexistente -> 404; COMMERCIAL -> 403', async () => {
+    const { contractId } = await setupEmittableContract({ lotNumber: '21014' });
+    const c = await prisma.saleContract.findUnique({
+      where: { id: contractId },
+      select: { version: true },
+    });
+
+    await assert.rejects(
+      () =>
+        saleContractService.cancelSaleContract(contractId, { expectedVersion: 999 }, adminActor),
+      (err) => err.status === 409
+    );
+    await assert.rejects(
+      () =>
+        saleContractService.cancelSaleContract(randomUUID(), { expectedVersion: 0 }, adminActor),
+      (err) => err.status === 404
+    );
+    await assert.rejects(
+      () =>
+        saleContractService.cancelSaleContract(
+          contractId,
+          { expectedVersion: c.version },
+          commercialActor
+        ),
+      (err) => err.status === 403
+    );
+  });
+
   test('listContractLookups retorna as 3 listas; emit exige ADMIN', async () => {
     const lk = await saleContractService.listContractLookups(commercialActor);
     assert.ok(lk.paymentForms.length >= 2);
