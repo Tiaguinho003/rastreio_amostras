@@ -35,15 +35,6 @@ const MONTHS = [
   'dezembro',
 ];
 
-const STATUS_LABELS = {
-  EM_ABERTO: 'Em aberto',
-  CONFERIR: 'A conferir',
-  CONFIRMADO: 'Confirmado',
-  FATURADO: 'Faturado',
-  PAGO: 'Pago',
-  WASH_OUT: 'Quebrado',
-};
-
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
 function decimalToNumber(value) {
@@ -323,8 +314,9 @@ export class SaleContractPdfService {
       ];
     };
 
-    // ---------- Cabeçalho (faixa verde) — logo + emissor + status ----------
-    // (título e número saíram daqui p/ o corpo, S52; redesign do header depois)
+    // ---------- Cabeçalho (faixa verde) — logo + emissor ----------
+    // (título e número saíram daqui p/ o corpo, S52; o status do fluxo NÃO entra
+    // no documento — é um contrato, não um rastreador. Redesign do header depois.)
     const headerH = 74;
     page.drawRectangle({ x: 0, y: PAGE_H - headerH, width: PAGE_W, height: headerH, color: GREEN });
     let headerTextX = MARGIN;
@@ -352,16 +344,6 @@ export class SaleContractPdfService {
       font,
       color: WHITE,
     });
-    const statusText = STATUS_LABELS[contract.status] ?? contract.status;
-    const statusW = font.widthOfTextAtSize(statusText, 9);
-    page.drawText(statusText, {
-      x: PAGE_W - MARGIN - statusW,
-      y: PAGE_H - 32,
-      size: 9,
-      font,
-      color: WHITE,
-    });
-
     let y = PAGE_H - headerH - 18;
 
     // ---------- Título (no corpo) ----------
