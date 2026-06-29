@@ -3,6 +3,7 @@ import { test } from 'node:test';
 
 import {
   assertBrokersResolved,
+  buildReceivableView,
   buildSaleContractDraftFromSale,
   computeContractMoney,
   computeContractMoneyWithAgio,
@@ -300,4 +301,68 @@ test('normalizeWashoutReason: exige texto, faz trim e limita a 500', () => {
   assert.throws(() => normalizeWashoutReason('   '), /required/);
   assert.throws(() => normalizeWashoutReason(undefined), /required/);
   assert.throws(() => normalizeWashoutReason('x'.repeat(501)), /at most 500/);
+});
+
+function receivableRow(overrides = {}) {
+  return {
+    id: 'c1',
+    contractNumber: '0007/26',
+    contractDate: new Date('2026-06-26T00:00:00.000Z'),
+    status: 'CONFIRMADO',
+    totalValue: 10000,
+    sellerBrokeragePct: 0.6,
+    sellerBrokerageValue: 60,
+    buyerBrokeragePct: 0.4,
+    buyerBrokerageValue: 40,
+    ...overrides,
+  };
+}
+
+test('buildReceivableView (ADMIN): commissionTotal + cota igual por corretor', () => {
+  const view = buildReceivableView(
+    receivableRow(),
+    [
+      { brokerId: 'b1', brokerNameSnapshot: 'Ana' },
+      { brokerId: 'b2', brokerNameSnapshot: 'Bia' },
+    ],
+    { isAdmin: true }
+  );
+  assert.equal(view.commissionTotal, 100); // 60 + 40
+  assert.equal(view.brokerCount, 2);
+  assert.equal(view.totalValue, 10000);
+  assert.deepEqual(
+    view.brokers.map((b) => [b.name, b.share]),
+    [
+      ['Ana', 50],
+      ['Bia', 50],
+    ]
+  );
+  assert.equal(view.myShare, undefined);
+});
+
+test('buildReceivableView (COMMERCIAL): so a propria cota, sem a lista de corretores', () => {
+  const view = buildReceivableView(
+    receivableRow({ status: 'PAGO', sellerBrokerageValue: 150, buyerBrokerageValue: 150 }),
+    [
+      { brokerId: 'b1', brokerNameSnapshot: 'Ana' },
+      { brokerId: 'b2', brokerNameSnapshot: 'Bia' },
+      { brokerId: 'b3', brokerNameSnapshot: 'Cau' },
+    ],
+    { isAdmin: false }
+  );
+  assert.equal(view.commissionTotal, 300);
+  assert.equal(view.brokerCount, 3);
+  assert.equal(view.myShare, 100); // 300 / 3
+  assert.equal(view.brokers, undefined);
+});
+
+test('buildReceivableView: 1 corretor recebe o total; soma com round2', () => {
+  const view = buildReceivableView(
+    receivableRow({ sellerBrokerageValue: 3.33, buyerBrokerageValue: 3.34 }),
+    [{ brokerId: 'b1', brokerNameSnapshot: 'Ana' }],
+    { isAdmin: true }
+  );
+  assert.equal(view.commissionTotal, 6.67); // 3.33 + 3.34
+  assert.equal(view.brokerCount, 1);
+  assert.equal(view.brokers[0].share, 6.67);
 });

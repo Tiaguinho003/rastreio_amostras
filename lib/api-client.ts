@@ -11,6 +11,7 @@ import type {
   BrokerResponse,
   ContractLookupsResponse,
   CreateFutureSaleContractInput,
+  FinanceiroListResponse,
   SaleContractEtapa2Input,
   SaleContractListResponse,
   SaleContractResponse,
@@ -805,6 +806,16 @@ export function listSaleContracts(
   if (query.type) params.set('type', query.type);
   const suffix = params.size ? `?${params.toString()}` : '';
   return request<SaleContractListResponse>(`/sale-contracts${suffix}`, {
+    method: 'GET',
+    session,
+    signal: options.signal,
+  });
+}
+
+// Financeiro (Fase F): corretagem a receber por fechamento (ADMIN + COMMERCIAL,
+// role-adaptive no backend). Relatorio derivado, on-demand.
+export function listFinanceiro(session: SessionData, options: { signal?: AbortSignal } = {}) {
+  return request<FinanceiroListResponse>(`/financeiro`, {
     method: 'GET',
     session,
     signal: options.signal,

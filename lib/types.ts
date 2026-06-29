@@ -435,6 +435,34 @@ export interface SaleContractResponse {
   contract: SaleContractDetail;
 }
 
+// Financeiro (Fase F): corretagem a receber por fechamento (relatório derivado).
+export interface FinanceiroBrokerShare {
+  brokerId: string;
+  name: string;
+  share: number;
+}
+
+export interface FinanceiroReceivable {
+  id: string;
+  contractNumber: string;
+  contractDate: string | null;
+  status: SaleContractStatus;
+  totalValue: number | null;
+  commissionTotal: number;
+  sellerBrokeragePct: number | null;
+  sellerBrokerageValue: number;
+  buyerBrokeragePct: number | null;
+  buyerBrokerageValue: number;
+  brokerCount: number;
+  // ADMIN: quebra por corretor (cota igual entre todos). COMMERCIAL: só a própria cota.
+  brokers?: FinanceiroBrokerShare[];
+  myShare?: number;
+}
+
+export interface FinanceiroListResponse {
+  items: FinanceiroReceivable[];
+}
+
 // Fechamento (Fase B.2 Passo 2): listas da etapa 2 + payload de "Emitir".
 export interface ContractLookupItem {
   id: string;

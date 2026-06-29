@@ -2800,6 +2800,17 @@ export function createBackendApiV1({
         return { status: 200, body: result };
       }),
 
+    // Financeiro (Fase F): corretagem a receber por fechamento (ADMIN + COMMERCIAL).
+    listBrokerReceivables: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractService) {
+          throw new HttpError(501, 'Sale contract service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const result = await saleContractService.listBrokerReceivables({}, actor);
+        return { status: 200, body: result };
+      }),
+
     getSaleContract: (input) =>
       executeApiForInput(input, async () => {
         if (!saleContractService) {

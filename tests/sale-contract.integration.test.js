@@ -930,6 +930,103 @@ if (!databaseUrl || !databaseReachable) {
     assert.notEqual(seller.checksumSha256, buyer.checksumSha256);
   });
 
+  // Como setupConfirmedContract, mas com um corretor especifico (p/ o escopo
+  // do COMMERCIAL no Financeiro).
+  async function setupConfirmedContractWithBroker({ lotNumber, brokerId }) {
+    const sellerId = randomUUID();
+    await createSellerClient(sellerId);
+    const bankAccountId = await createSellerBankAccount(sellerId);
+    const buyerId = randomUUID();
+    await createBuyerClient(buyerId);
+    const sampleId = randomUUID();
+    await createClassifiedSample({ id: sampleId, lotNumber, declaredSacks: 10 });
+    await prisma.sample.update({ where: { id: sampleId }, data: { ownerClientId: sellerId } });
+    const sample = await queryService.requireSample(sampleId);
+    const sale = await sell(sampleId, sample.version, buyerId, { brokerIds: [brokerId] });
+    const lookups = await fetchLookups();
+    const emitted = await saleContractService.emitSaleContract(
+      sale.saleContract.id,
+      etapa2Payload({ bankAccountId, lookups }),
+      adminActor
+    );
+    await saleContractService.confirmSaleContract(
+      sale.saleContract.id,
+      { expectedVersion: emitted.contract.version },
+      adminActor
+    );
+    return { contractId: sale.saleContract.id };
+  }
+
+  test('Financeiro: ADMIN vê os fechamentos elegíveis com corretores e cotas', async () => {
+    const { contractId } = await setupConfirmedContract({ lotNumber: '23010' });
+    // um EM_ABERTO (não confirmado) NÃO deve aparecer
+    await setupEmittableContract({ lotNumber: '23011' });
+
+    const res = await saleContractService.listBrokerReceivables({}, adminActor);
+    const item = res.items.find((i) => i.id === contractId);
+    assert.ok(item, 'contrato confirmado com corretagem deve aparecer');
+    assert.equal(item.totalValue, 1000); // 100 x 10 sacas
+    assert.equal(item.commissionTotal, 30); // 1000 x (2% + 1%)
+    assert.equal(item.brokerCount, 1);
+    assert.equal(item.brokers.length, 1);
+    assert.equal(item.brokers[0].name, 'Corretor Teste');
+    assert.equal(item.brokers[0].share, 30);
+    assert.equal(item.myShare, undefined);
+    // só status congelados entram
+    assert.ok(res.items.every((i) => ['CONFIRMADO', 'FATURADO', 'PAGO'].includes(i.status)));
+  });
+
+  test('Financeiro: COMMERCIAL vê só os seus fechamentos e só a própria cota', async () => {
+    const commercialUserId = '0000c0a0-0000-4000-8000-00000000c0a0';
+    const myBrokerId = '0000b0a0-0000-4000-8000-00000000b0a0';
+    await prisma.user.upsert({
+      where: { id: commercialUserId },
+      update: { role: 'COMMERCIAL' },
+      create: {
+        id: commercialUserId,
+        fullName: 'Comercial Teste',
+        username: 'com-teste',
+        usernameCanonical: 'com-teste',
+        email: 'com-teste@example.com',
+        emailCanonical: 'com-teste@example.com',
+        passwordHash: 'x',
+        role: 'COMMERCIAL',
+      },
+    });
+    await prisma.broker.upsert({
+      where: { id: myBrokerId },
+      update: { userId: commercialUserId, status: 'ACTIVE' },
+      create: { id: myBrokerId, name: 'Eu Corretor', status: 'ACTIVE', userId: commercialUserId },
+    });
+    const myActor = { ...commercialActor, actorUserId: commercialUserId };
+
+    const mine = await setupConfirmedContractWithBroker({
+      lotNumber: '23020',
+      brokerId: myBrokerId,
+    });
+    // contrato de OUTRO corretor (TEST_BROKER) — não deve aparecer p/ mim
+    await setupConfirmedContract({ lotNumber: '23021' });
+
+    const res = await saleContractService.listBrokerReceivables({}, myActor);
+    assert.equal(res.items.length, 1);
+    assert.equal(res.items[0].id, mine.contractId);
+    assert.equal(res.items[0].commissionTotal, 30);
+    assert.equal(res.items[0].myShare, 30);
+    assert.equal(res.items[0].brokers, undefined); // não vê a lista de corretores
+  });
+
+  test('Financeiro: COMMERCIAL sem Broker vinculado → vazio', async () => {
+    await setupConfirmedContract({ lotNumber: '23030' });
+    const noBroker = { ...commercialActor, actorUserId: randomUUID() };
+    const res = await saleContractService.listBrokerReceivables({}, noBroker);
+    assert.deepEqual(res.items, []);
+  });
+
+  test('Financeiro: papel sem acesso (REGISTRATION) → 403', async () => {
+    const reg = { ...commercialActor, role: 'REGISTRATION', actorUserId: randomUUID() };
+    await assert.rejects(() => saleContractService.listBrokerReceivables({}, reg), /not allowed/);
+  });
+
   test('faturar: CONFIRMADO -> FATURADO grava invoicedAt', async () => {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '22001' });
     const r = await saleContractService.invoiceSaleContract(

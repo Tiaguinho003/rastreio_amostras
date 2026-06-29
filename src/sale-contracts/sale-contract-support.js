@@ -365,6 +365,46 @@ export function toSaleContractBrokerView(row) {
   };
 }
 
+// Financeiro (Fase F): projecao de "corretagem a receber" de UM contrato. Soma a
+// corretagem das 2 pontas (commissionTotal) e divide IGUAL entre os corretores
+// (cota = total / N, D79; nao ha coluna de cota). Projeta por papel (D82/D86):
+// ADMIN ve a quebra por corretor (brokers + cota); COMMERCIAL ve so a propria
+// cota (myShare). `row` = projecao SALE_CONTRACT_VIEW_SELECT; `brokerRows` = os
+// SaleContractBroker do contrato (id/brokerId/brokerNameSnapshot).
+export function buildReceivableView(row, brokerRows, { isAdmin } = {}) {
+  const sellerValue = decimalToNumber(row.sellerBrokerageValue) ?? 0;
+  const buyerValue = decimalToNumber(row.buyerBrokerageValue) ?? 0;
+  const commissionTotal = round2(sellerValue + buyerValue);
+  const brokerCount = brokerRows.length || 1;
+  const share = round2(commissionTotal / brokerCount);
+
+  const base = {
+    id: row.id,
+    contractNumber: row.contractNumber,
+    contractDate: toIsoString(row.contractDate),
+    status: row.status,
+    totalValue: decimalToNumber(row.totalValue),
+    commissionTotal,
+    sellerBrokeragePct: decimalToNumber(row.sellerBrokeragePct),
+    sellerBrokerageValue: sellerValue,
+    buyerBrokeragePct: decimalToNumber(row.buyerBrokeragePct),
+    buyerBrokerageValue: buyerValue,
+    brokerCount,
+  };
+
+  if (isAdmin) {
+    return {
+      ...base,
+      brokers: brokerRows.map((b) => ({
+        brokerId: b.brokerId,
+        name: b.brokerNameSnapshot,
+        share,
+      })),
+    };
+  }
+  return { ...base, myShare: share };
+}
+
 // ===========================================================================
 // Etapa 2 (Fase B.2 Passo 2): validacao dos campos da "Gerar documento" +
 // snapshots das partes/banco/armazens. A RESOLUCAO no banco (entidades existem,
