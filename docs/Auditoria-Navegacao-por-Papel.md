@@ -227,7 +227,59 @@ no Classifier, Relatorios no Comercial); menu do avatar igual (Perfil, Sair).
 
 ## REGISTRATION — "Impressao"
 
-(A detalhar em sessao propria.)
+Papel operacional de impressao/registro. A navegacao e **identica a do
+Comercial** (esta em `NON_PROSPECTOR_ROLES` e em `INFORME_ROLES`); a unica
+diferenca real e o **conteudo** de Relatorios — o REGISTRATION cai no placeholder
+vazio (nao e viewer nem tem formularios proprios).
+
+### Onde navega (por superficie)
+
+| Destino    | Rota         | Desktop                       | Mobile                    |
+| ---------- | ------------ | ----------------------------- | ------------------------- |
+| Inicio     | `/dashboard` | Sidebar                       | Tabbar                    |
+| Lotes      | `/samples`   | Sidebar                       | Tabbar                    |
+| Clientes   | `/clients`   | Sidebar                       | Tabbar                    |
+| Relatorios | `/informe`   | Sidebar                       | Tabbar                    |
+| Camera     | `/camera`    | — (sem botao)                 | Tabbar (destaque, centro) |
+| Perfil     | `/profile`   | Menu do avatar ("Meu perfil") | Menu do avatar            |
+| Sair       | logout       | Menu do avatar                | Menu do avatar            |
+
+Contagem:
+
+- **Sidebar desktop: 4 itens** — Inicio, Lotes, Clientes, Relatorios.
+- **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, Clientes, Relatorios.
+- **Menu do avatar: 2 itens** — Perfil, Sair (igual no desktop e no mobile).
+
+### Rotas acessiveis sem botao de navegacao
+
+- `/samples/new`, `/samples/[id]`; `/clients/[id]` — a partir de Lotes/Clientes.
+- `/camera` **no desktop** — rota liberada, botao so na tabbar mobile.
+
+### Rotas bloqueadas (redirecionam para `/dashboard`)
+
+- `/cadastros`, `/contratos` (ADMIN/CADASTRO) e `/users` (ADMIN).
+
+### Particularidades de conteudo
+
+- **`/informe` (Relatorios)**: placeholder vazio ("Nenhum formulario
+  disponivel"). O REGISTRATION nao e viewer (so ADMIN) nem autor (so COMMERCIAL),
+  entao o botao Relatorios aparece mas a pagina nao traz feed nem FAB.
+  (`app/informe/page.tsx`.)
+- **Sem pagina ou secao exclusiva**: apesar do nome "Impressao", nao ha UI
+  restrita ao REGISTRATION. A impressao de etiquetas acontece no fluxo de
+  `/samples` (registro -> `REGISTRATION_CONFIRMED` -> classificacao/etiqueta),
+  disponivel a todos os nao-prospectores. (`REGISTRATION_CONFIRMED` e um status
+  de amostra, nao o papel.)
+- **`/dashboard`**: dashboard padrao (com `salesData`), igual aos demais
+  nao-prospectores.
+
+### Diferenca para o COMMERCIAL
+
+Navegacao exatamente igual (sidebar 4, tabbar 5, avatar 2). A unica diferenca e o
+conteudo de Relatorios: o Comercial ve os PROPRIOS informes (`scope=mine`) + FAB
+de criacao; o REGISTRATION ve o placeholder vazio. (Fora da navegacao: o Comercial
+pode ser responsavel comercial de cliente via `isCommercialRole`; o REGISTRATION
+nao.)
 
 ## CADASTRO — "Cadastro"
 
@@ -322,6 +374,10 @@ Observacoes neutras do mapeamento, sem juizo de "certo/errado":
    cinco papeis de `NON_PROSPECTOR_ROLES`, CLASSIFIER (nunca teve) e CADASTRO
    (removido em 2026-06-28) estao fora de `INFORME_ROLES`. No mobile, ambos
    recebem Perfil como 5o item da tabbar, no lugar de Relatorios.
+6. **COMMERCIAL e REGISTRATION tem a MESMA navegacao.** Ambos estao em
+   `NON_PROSPECTOR_ROLES` e `INFORME_ROLES` (sidebar 4, tabbar 5, avatar 2); a
+   unica diferenca e o conteudo de `/informe` — proprios + FAB (COMMERCIAL) vs
+   placeholder vazio (REGISTRATION).
 
 ## Manutencao
 
