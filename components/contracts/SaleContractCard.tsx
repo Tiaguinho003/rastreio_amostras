@@ -185,7 +185,7 @@ export function SaleContractCard({
             {contract.status === 'EM_ABERTO' ? (
               <>
                 <button type="button" className="ctr-btn ctr-btn-primary" onClick={onGerar}>
-                  Gerar documento
+                  Emitir
                 </button>
                 <button type="button" className="ctr-btn ctr-btn-danger" onClick={onCancelar}>
                   Cancelar
