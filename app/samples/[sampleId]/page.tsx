@@ -14,30 +14,23 @@ import { BlendBadge } from '../../../components/samples/BlendBadge';
 import { BlendHarvestPropagationModal } from '../../../components/samples/BlendHarvestPropagationModal';
 import { BlendRevertModal } from '../../../components/samples/BlendRevertModal';
 import { RelatedSampleRow } from '../../../components/samples/RelatedSampleRow';
-import { ReportHarvestSelectModal } from '../../../components/samples/ReportHarvestSelectModal';
 import { SampleInvalidateBlockedModal } from '../../../components/samples/SampleInvalidateBlockedModal';
 import { SampleMovementsPanel } from '../../../components/samples/SampleMovementsPanel';
-import { SendMethodChooserModal } from '../../../components/samples/SendMethodChooserModal';
+import { SampleSendFlow } from '../../../components/samples/SampleSendFlow';
 import {
   ApiError,
-  cancelPhysicalSampleSend,
   cancelSampleMovement,
-  exportSamplePdf,
   getBlendFeasibility,
-  getClient,
   getSampleDetail,
   invalidateSample,
   listSampleEvents,
   listSampleMovements,
   lookupUsersForReference,
-  recordPhysicalSampleSent,
   requestQrPrint,
   revertBlend,
   updateClassification,
-  updatePhysicalSampleSend,
   updateRegistration,
 } from '../../../lib/api-client';
-import { shareOrDownloadFile } from '../../../lib/share-blob';
 import {
   invalidateSampleSchema,
   registrationFormSchema,
@@ -67,7 +60,6 @@ import {
   type ClassificationFormState,
   CLASSIFICATION_TYPE_LABEL,
   EMPTY_CLASSIFICATION_FORM,
-  getTodayDateInput,
   validateClassificationForm,
   buildClassificationDataPayload,
   buildTechnicalFromClassificationData,
@@ -148,13 +140,6 @@ function toText(value: unknown): string {
   }
 
   return '';
-}
-
-// Rotulo curto do cliente dentro do campo de busca multi (chips): no maximo
-// 10 caracteres + reticencias, pra os chips ficarem pequenos e fluirem na
-// horizontal sem aumentar/estourar o campo. O nome completo fica no `title`.
-function truncateChipLabel(name: string, max = 10): string {
-  return name.length > max ? `${name.slice(0, max)}…` : name;
 }
 
 function toDateInput(value: unknown): string {
@@ -493,34 +478,13 @@ export default function SampleDetailPage() {
     null
   );
   const [printHighlighted, setPrintHighlighted] = useState(false);
-  const [exportingPdf, setExportingPdf] = useState(false);
-  const [exportConfirmationOpen, setExportConfirmationOpen] = useState(false);
-  const [exportPending, setExportPending] = useState(false);
-  // Efeito de check verde no modal de laudo (substitui a mensagem verde).
-  const [exportPdfSuccess, setExportPdfSuccess] = useState(false);
-  const [exportRecipientClients, setExportRecipientClients] = useState<ClientSummary[]>([]);
-  // Chooser do botao "Enviar": escolhe entre "Descricao" (laudo) e "Fisico"
-  // (envio fisico). Abre antes dos modais de cada fluxo.
-  const [sendChooserModalOpen, setSendChooserModalOpen] = useState(false);
-  // Liga: modal de selecao de safra do laudo (amostra com mais de uma safra).
-  const [harvestChoiceOpen, setHarvestChoiceOpen] = useState(false);
-  const [harvestOptions, setHarvestOptions] = useState<string[]>([]);
-
-  const [physicalSendModalOpen, setPhysicalSendModalOpen] = useState(false);
-  const [physicalSendClients, setPhysicalSendClients] = useState<ClientSummary[]>([]);
-  const [physicalSendDate, setPhysicalSendDate] = useState('');
-  const [physicalSending, setPhysicalSending] = useState(false);
-  const [editingSendEventId, setEditingSendEventId] = useState<string | null>(null);
-  const [physicalSendError, setPhysicalSendError] = useState<string | null>(null);
-  const [physicalSendSuccess, setPhysicalSendSuccess] = useState(false);
-  // Liga CLASSIFIED no envio: escolha de safra pro laudo (reusa o modal do
-  // export). A safra escolhida e passada por argumento ao disparar o envio
-  // (nao vira estado persistente).
-  const [physicalSendHarvestOpen, setPhysicalSendHarvestOpen] = useState(false);
-  const [physicalSendHarvestOptions, setPhysicalSendHarvestOptions] = useState<string[]>([]);
-  const [cancelConfirmSendEventId, setCancelConfirmSendEventId] = useState<string | null>(null);
-  const [cancellingSend, setCancellingSend] = useState(false);
-  const [cancelSendError, setCancelSendError] = useState<string | null>(null);
+  // Envio (extraido p/ SampleSendFlow): edicao/cancelamento de envios EXISTENTES,
+  // disparados pela timeline. O envio NOVO migrou p/ o card da lista (/samples).
+  const [editSendItem, setEditSendItem] = useState<Extract<
+    SendHistoryItem,
+    { kind: 'PHYSICAL' }
+  > | null>(null);
+  const [cancelSendId, setCancelSendId] = useState<string | null>(null);
 
   const [sendHistory, setSendHistory] = useState<SampleEvent[]>([]);
   const [, setLoadingSendHistory] = useState(false);
@@ -620,8 +584,6 @@ export default function SampleDetailPage() {
   const labelTrapRef = useFocusTrap(labelModalOpen);
   const registrationEditTrapRef = useFocusTrap(registrationEditMode);
   const classificationEditTrapRef = useFocusTrap(classificationEditReasonModalOpen);
-  const exportConfirmTrapRef = useFocusTrap(exportConfirmationOpen);
-  const physicalSendTrapRef = useFocusTrap(physicalSendModalOpen);
   const labelModalCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const labelModalPrimaryActionRef = useRef<HTMLButtonElement | null>(null);
   const lastQuickPrintButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -802,10 +764,6 @@ export default function SampleDetailPage() {
   }, [detail?.latestPrintJob?.status, refreshDetail]);
 
   useEffect(() => {
-    setSendChooserModalOpen(false);
-    setExportConfirmationOpen(false);
-    setExportPending(false);
-    setExportRecipientClients([]);
     setLabelModalOpen(false);
     setLabelModalSubmitting(false);
     setLabelModalError(null);
@@ -865,9 +823,6 @@ export default function SampleDetailPage() {
         canRequestReprintStatus(detail.sample.status)) &&
       detail.sample.commercialStatus !== 'LOST'
     : false;
-  const canQuickReport = Boolean(
-    detail && detail.sample.status === 'CLASSIFIED' && classificationAttachment
-  );
   const canPhysicalSend = detail ? PHYSICAL_SEND_ALLOWED_STATUSES.has(detail.sample.status) : false;
   const classificationServerPhotoUrl = classificationAttachment
     ? `/api/v1/samples/${sampleId}/photos/${classificationAttachment.id}`
@@ -912,18 +867,6 @@ export default function SampleDetailPage() {
     const timer = window.setTimeout(() => setLabelModalError(null), 5000);
     return () => window.clearTimeout(timer);
   }, [labelModalError]);
-
-  useEffect(() => {
-    if (!physicalSendError) return;
-    const timer = window.setTimeout(() => setPhysicalSendError(null), 5000);
-    return () => window.clearTimeout(timer);
-  }, [physicalSendError]);
-
-  useEffect(() => {
-    if (!cancelSendError) return;
-    const timer = window.setTimeout(() => setCancelSendError(null), 5000);
-    return () => window.clearTimeout(timer);
-  }, [cancelSendError]);
 
   useEffect(() => {
     if (!invalidateModalOpen) {
@@ -1071,272 +1014,6 @@ export default function SampleDetailPage() {
         <p className="error">sampleId invalido na rota.</p>
       </AppShell>
     );
-  }
-
-  function handleOpenExportConfirmation() {
-    if (!detail) {
-      return;
-    }
-
-    if (detail.sample.status !== 'CLASSIFIED') {
-      setGeneralNotice({
-        kind: 'error',
-        text: 'A exportacao de laudo so e permitida para amostras classificadas.',
-      });
-      return;
-    }
-
-    setGeneralNotice(null);
-    setExportPdfSuccess(false);
-    setExportPending(true);
-    setExportRecipientClients([]);
-    setExportConfirmationOpen(true);
-  }
-
-  function handleCloseExportConfirmation() {
-    if (exportingPdf) {
-      return;
-    }
-
-    setExportConfirmationOpen(false);
-    setExportPending(false);
-    setExportRecipientClients([]);
-  }
-
-  async function handleExportPdf(
-    recipientClients: ClientSummary[],
-    reportedHarvest?: string | null
-  ) {
-    if (!session || !detail) {
-      return;
-    }
-
-    if (detail.sample.status !== 'CLASSIFIED') {
-      setGeneralNotice({
-        kind: 'error',
-        text: 'A exportacao de laudo so e permitida para amostras classificadas.',
-      });
-      return;
-    }
-
-    setGeneralNotice(null);
-    setExportingPdf(true);
-
-    try {
-      // TODO(specs): multi-destinatario — por ora envia todos os nomes em
-      // `destination` e vincula o 1o como recipientClientId (a API aceita 1).
-      const destination =
-        recipientClients
-          .map((c) => c.displayName ?? '')
-          .filter(Boolean)
-          .join(', ') || null;
-      const exported = await exportSamplePdf(session, sampleId, {
-        destination,
-        recipientClientId: recipientClients[0]?.id ?? null,
-        reportedHarvest: reportedHarvest ?? null,
-      });
-
-      // Laudo unico ("Laudo Tecnico"): titulo de compartilhamento sempre
-      // "Laudo Tecnico (lote)". Nao ha mais tipos de laudo.
-      const lot = detail.sample.internalLotNumber?.trim();
-      const result = await shareOrDownloadFile(exported.blob, exported.fileName, {
-        mimeType: 'application/pdf',
-        shareTitle: lot ? `Laudo Técnico (${lot})` : 'Laudo Técnico',
-      });
-
-      fetchSendHistory();
-
-      if (result === 'cancelled') {
-        // Usuario fechou a folha de compartilhamento — fecha sem alarde.
-        setExportConfirmationOpen(false);
-        setHarvestChoiceOpen(false);
-        setExportPending(false);
-        setExportRecipientClients([]);
-      } else {
-        // Sucesso (compartilhado/baixado): efeito de check verde por ~900ms e
-        // fecha o modal — sem mensagem verde no conteiner.
-        setExportPdfSuccess(true);
-        window.setTimeout(() => {
-          setExportPdfSuccess(false);
-          setExportConfirmationOpen(false);
-          setHarvestChoiceOpen(false);
-          setExportPending(false);
-          setExportRecipientClients([]);
-        }, 900);
-      }
-    } catch (cause) {
-      if (cause instanceof ApiError) {
-        setGeneralNotice({ kind: 'error', text: cause.message });
-      } else {
-        setGeneralNotice({ kind: 'error', text: 'Falha ao exportar laudo PDF' });
-      }
-    } finally {
-      setExportingPdf(false);
-    }
-  }
-
-  async function handleConfirmExportFromModal() {
-    if (!exportPending || !detail) {
-      return;
-    }
-
-    // Liga: se a amostra tem mais de uma safra, o laudo nao pode imprimir a
-    // string concatenada — abre o modal de selecao de safra antes de gerar.
-    const harvest = detail.sample.declared?.harvest ?? '';
-    const options = harvest
-      .split(/\s*,\s*/)
-      .map((value) => value.trim())
-      .filter((value) => value.length > 0);
-    if (options.length > 1) {
-      setExportConfirmationOpen(false);
-      setHarvestOptions(options);
-      setHarvestChoiceOpen(true);
-      return;
-    }
-
-    await handleExportPdf(exportRecipientClients);
-  }
-
-  async function handlePhysicalSend(reportedHarvest: string | null = null) {
-    if (!session || !detail) {
-      return;
-    }
-
-    setPhysicalSending(true);
-    setPhysicalSendError(null);
-
-    const isEditing = Boolean(editingSendEventId);
-
-    try {
-      if (isEditing && editingSendEventId) {
-        await updatePhysicalSampleSend(session, sampleId, editingSendEventId, {
-          recipientClientId: physicalSendClients[0]?.id ?? null,
-          sentDate: physicalSendDate,
-        });
-      } else {
-        // Multi-destinatario: N destinatarios -> N registros (1 evento por
-        // destinatario). Sem destinatario -> 1 envio sem destinatario (preserva
-        // o comportamento anterior). Falha parcial: mantem nos chips so os que
-        // faltaram e reporta, pra um retry nao duplicar os que ja foram.
-        const recipients: (ClientSummary | null)[] =
-          physicalSendClients.length > 0 ? physicalSendClients : [null];
-        const failed: ClientSummary[] = [];
-        let firstError: unknown = null;
-        for (const client of recipients) {
-          try {
-            await recordPhysicalSampleSent(session, sampleId, {
-              recipientClientId: client?.id ?? null,
-              sentDate: physicalSendDate,
-              reportedHarvest,
-            });
-          } catch (cause) {
-            if (client) failed.push(client);
-            if (!firstError) firstError = cause;
-          }
-        }
-
-        if (failed.length > 0 || firstError) {
-          fetchSendHistory();
-          setPhysicalSendClients(failed);
-          const names = failed.map((c) => c.displayName ?? 'sem nome').join(', ');
-          const base = firstError instanceof ApiError ? firstError.message : 'Tente novamente.';
-          setPhysicalSendError(
-            names ? `Falha ao enviar para: ${names}. ${base}` : `Falha ao registrar envio. ${base}`
-          );
-          return;
-        }
-      }
-
-      fetchSendHistory();
-      // Sucesso: efeito de check verde por ~900ms e fecha o modal (sem mensagem).
-      setPhysicalSendSuccess(true);
-      window.setTimeout(() => {
-        setPhysicalSendSuccess(false);
-        setPhysicalSendModalOpen(false);
-        setPhysicalSendHarvestOpen(false);
-        setEditingSendEventId(null);
-        setPhysicalSendClients([]);
-      }, 900);
-    } catch (cause) {
-      if (cause instanceof ApiError) {
-        setPhysicalSendError(cause.message);
-      } else {
-        setPhysicalSendError(
-          isEditing
-            ? 'Falha ao atualizar envio. Tente novamente.'
-            : 'Falha ao registrar envio. Tente novamente.'
-        );
-      }
-    } finally {
-      setPhysicalSending(false);
-    }
-  }
-
-  // Intercepta o submit do envio: amostra liga (mais de uma safra) exige
-  // escolher UMA safra pro laudo antes de disparar os POSTs (anti-vazamento da
-  // liga). Vale para QUALQUER envio agora — a etiqueta sempre gera laudo com
-  // QR, classificada ou nao. Edicao nunca regenera laudo.
-  async function handleConfirmPhysicalSend() {
-    if (!detail || physicalSending) {
-      return;
-    }
-    if (!editingSendEventId) {
-      const options = (detail.sample.declared?.harvest ?? '')
-        .split(/\s*,\s*/)
-        .map((value) => value.trim())
-        .filter((value) => value.length > 0);
-      if (options.length > 1) {
-        setPhysicalSendModalOpen(false);
-        setPhysicalSendHarvestOptions(options);
-        setPhysicalSendHarvestOpen(true);
-        return;
-      }
-    }
-    await handlePhysicalSend();
-  }
-
-  async function handleOpenEditSend(item: Extract<SendHistoryItem, { kind: 'PHYSICAL' }>) {
-    setEditingSendEventId(item.sendEventId);
-    setPhysicalSendDate(item.sentDate);
-    setPhysicalSendError(null);
-    setGeneralNotice(null);
-
-    if (item.recipientClientId && session) {
-      try {
-        const response = await getClient(session, item.recipientClientId);
-        setPhysicalSendClients([response.client]);
-      } catch {
-        setPhysicalSendClients([]);
-      }
-    } else {
-      setPhysicalSendClients([]);
-    }
-
-    setPhysicalSendModalOpen(true);
-  }
-
-  async function handleConfirmCancelSend() {
-    if (!session || !cancelConfirmSendEventId) {
-      return;
-    }
-
-    setCancellingSend(true);
-    setCancelSendError(null);
-
-    try {
-      await cancelPhysicalSampleSend(session, sampleId, cancelConfirmSendEventId);
-      setGeneralNotice({ kind: 'success', text: 'Envio cancelado com sucesso.' });
-      setCancelConfirmSendEventId(null);
-      fetchSendHistory();
-    } catch (cause) {
-      if (cause instanceof ApiError) {
-        setCancelSendError(cause.message);
-      } else {
-        setCancelSendError('Falha ao cancelar envio. Tente novamente.');
-      }
-    } finally {
-      setCancellingSend(false);
-    }
   }
 
   function resetLabelModal() {
@@ -2282,22 +1959,6 @@ export default function SampleDetailPage() {
                         </span>
                         <span className="sdv-action-card-label">Imprimir</span>
                       </button>
-                      <button
-                        type="button"
-                        className="sdv-action-card is-send"
-                        onClick={() => setSendChooserModalOpen(true)}
-                        disabled={
-                          (!canPhysicalSend && !canQuickReport) || physicalSending || exportingPdf
-                        }
-                      >
-                        <span className="sdv-action-card-icon">
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="m22 2-7 20-4-9-9-4 20-7z" />
-                            <path d="M22 2 11 13" />
-                          </svg>
-                        </span>
-                        <span className="sdv-action-card-label">Enviar</span>
-                      </button>
                     </div>
 
                     <NoticeSlot notice={generalNotice} />
@@ -2784,8 +2445,8 @@ export default function SampleDetailPage() {
                     movements={detail.movements ?? []}
                     sendItems={sendHistoryItems}
                     canEditSend={canPhysicalSend}
-                    onEditSend={handleOpenEditSend}
-                    onCancelSend={(sendEventId) => setCancelConfirmSendEventId(sendEventId)}
+                    onEditSend={(item) => setEditSendItem(item)}
+                    onCancelSend={(sendEventId) => setCancelSendId(sendEventId)}
                   />
                 </section>
               </div>
@@ -4134,455 +3795,22 @@ export default function SampleDetailPage() {
         />
       ) : null}
 
-      <SendMethodChooserModal
-        open={sendChooserModalOpen}
-        canDescricao={canQuickReport}
-        canFisico={canPhysicalSend}
-        onClose={() => setSendChooserModalOpen(false)}
-        onChooseDescricao={() => {
-          setSendChooserModalOpen(false);
-          handleOpenExportConfirmation();
-        }}
-        onChooseFisico={() => {
-          setSendChooserModalOpen(false);
-          setEditingSendEventId(null);
-          setPhysicalSendClients([]);
-          setPhysicalSendDate(getTodayDateInput());
-          setPhysicalSendError(null);
-          setPhysicalSendModalOpen(true);
-        }}
-      />
-      {exportConfirmationOpen ? (
-        <div className="app-modal-backdrop" onClick={handleCloseExportConfirmation}>
-          <section
-            ref={exportConfirmTrapRef}
-            className="app-modal is-themed is-action sample-detail-compact-modal sample-detail-lookup-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="export-confirm-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            {exportPdfSuccess ? (
-              <div className="client-create-success-overlay" aria-live="polite">
-                <svg className="client-create-success-check" viewBox="0 0 52 52" aria-hidden="true">
-                  <circle cx="26" cy="26" r="24" fill="none" stroke="#2f8a3e" strokeWidth="2.5" />
-                  <path
-                    fill="none"
-                    stroke="#2f8a3e"
-                    strokeWidth="3.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M15 27l7 7 15-15"
-                  />
-                </svg>
-              </div>
-            ) : null}
-            <header className="app-modal-header is-centered-title">
-              <div className="sdv-send-head-left">
-                <button
-                  type="button"
-                  className="type-modal-back"
-                  onClick={() => {
-                    setExportConfirmationOpen(false);
-                    setSendChooserModalOpen(true);
-                  }}
-                  disabled={exportingPdf}
-                  aria-label="Voltar"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path
-                      d="M15 18l-6-6 6-6"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </button>
-                <div className="app-modal-title-wrap">
-                  <h3 id="export-confirm-title" className="app-modal-title">
-                    Gerar laudo
-                  </h3>
-                </div>
-              </div>
-              <button
-                type="button"
-                className="app-modal-close"
-                onClick={handleCloseExportConfirmation}
-                disabled={exportingPdf}
-                aria-label="Fechar"
-              >
-                <span aria-hidden="true">&times;</span>
-              </button>
-            </header>
-
-            <form
-              className="app-modal-content"
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (exportingPdf) return;
-                void handleConfirmExportFromModal();
-              }}
-            >
-              <div className="app-modal-field">
-                <span className="app-modal-label">Selecione os destinatários</span>
-                <div className="samples-filter-multi samples-filter-multi--lookup export-recipient-multi">
-                  {exportRecipientClients.map((client) => (
-                    <span key={client.id} className="samples-filter-token">
-                      <span
-                        className="samples-filter-token-label"
-                        title={client.displayName ?? 'Sem nome'}
-                      >
-                        {truncateChipLabel(client.displayName ?? 'Sem nome')}
-                      </span>
-                      <button
-                        type="button"
-                        className="samples-filter-token-remove"
-                        aria-label={`Remover destinatário: ${client.displayName ?? ''}`}
-                        disabled={exportingPdf}
-                        onClick={() =>
-                          setExportRecipientClients((prev) =>
-                            prev.filter((c) => c.id !== client.id)
-                          )
-                        }
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                  <ClientLookupField
-                    session={session!}
-                    label="Destinatários"
-                    kind="any"
-                    compact
-                    clearOnSelect
-                    maxResults={10}
-                    selectedClient={null}
-                    onSelectClient={(client) => {
-                      if (!client) return;
-                      setExportRecipientClients((prev) =>
-                        prev.some((c) => c.id === client.id) ? prev : [...prev, client]
-                      );
-                    }}
-                    disabled={exportingPdf}
-                    placeholder={
-                      exportRecipientClients.length > 0
-                        ? ''
-                        : 'Busque por nome, documento ou código'
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="app-modal-actions">
-                <button
-                  type="button"
-                  className="app-modal-secondary"
-                  onClick={handleCloseExportConfirmation}
-                  disabled={exportingPdf}
-                >
-                  Cancelar
-                </button>
-                <button type="submit" className="app-modal-submit" disabled={exportingPdf}>
-                  {exportingPdf ? 'Gerando...' : 'Gerar laudo'}
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
-      ) : null}
-
-      <ReportHarvestSelectModal
-        open={harvestChoiceOpen}
-        harvests={harvestOptions}
-        submitting={exportingPdf}
-        onConfirm={(selected) => {
-          if (exportPending) {
-            void handleExportPdf(exportRecipientClients, selected);
-          }
-        }}
-        onBack={() => {
-          setHarvestChoiceOpen(false);
-          setExportConfirmationOpen(true);
-        }}
-        onClose={() => {
-          setHarvestChoiceOpen(false);
-          setExportPending(false);
-          setExportRecipientClients([]);
-        }}
-      />
-
-      <ReportHarvestSelectModal
-        open={physicalSendHarvestOpen}
-        harvests={physicalSendHarvestOptions}
-        submitting={physicalSending}
-        onConfirm={(selected) => {
-          setPhysicalSendHarvestOpen(false);
-          void handlePhysicalSend(selected);
-        }}
-        onBack={() => {
-          setPhysicalSendHarvestOpen(false);
-          setPhysicalSendModalOpen(true);
-        }}
-        onClose={() => {
-          setPhysicalSendHarvestOpen(false);
-        }}
-      />
-
-      {physicalSendModalOpen ? (
-        <div
-          className="app-modal-backdrop"
-          onClick={() => {
-            if (!physicalSending) {
-              setPhysicalSendModalOpen(false);
-              setEditingSendEventId(null);
-              setPhysicalSendError(null);
-            }
+      {/* Envio: editar/cancelar envios EXISTENTES (disparados pela timeline). O
+          envio NOVO migrou p/ o card da lista (/samples). */}
+      {session && (editSendItem || cancelSendId) ? (
+        <SampleSendFlow
+          session={session}
+          sampleId={sampleId}
+          editItem={editSendItem}
+          cancelEventId={cancelSendId}
+          onChanged={fetchSendHistory}
+          onClose={() => {
+            setEditSendItem(null);
+            setCancelSendId(null);
           }}
-        >
-          <section
-            ref={physicalSendTrapRef}
-            className="app-modal is-themed is-action sample-detail-compact-modal sample-detail-lookup-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="physical-send-modal-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            {physicalSendSuccess ? (
-              <div className="client-create-success-overlay" aria-live="polite">
-                <svg className="client-create-success-check" viewBox="0 0 52 52" aria-hidden="true">
-                  <circle cx="26" cy="26" r="24" fill="none" stroke="#2f8a3e" strokeWidth="2.5" />
-                  <path
-                    fill="none"
-                    stroke="#2f8a3e"
-                    strokeWidth="3.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M15 27l7 7 15-15"
-                  />
-                </svg>
-              </div>
-            ) : null}
-            <header className={`app-modal-header${editingSendEventId ? '' : ' is-centered-title'}`}>
-              <div className="sdv-send-head-left">
-                {!editingSendEventId ? (
-                  <button
-                    type="button"
-                    className="type-modal-back"
-                    onClick={() => {
-                      setPhysicalSendModalOpen(false);
-                      setPhysicalSendError(null);
-                      setSendChooserModalOpen(true);
-                    }}
-                    disabled={physicalSending}
-                    aria-label="Voltar"
-                  >
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path
-                        d="M15 18l-6-6 6-6"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </button>
-                ) : null}
-                <div className="app-modal-title-wrap">
-                  <h3 id="physical-send-modal-title" className="app-modal-title">
-                    {editingSendEventId ? 'Editar envio' : 'Enviar amostra'}
-                  </h3>
-                </div>
-              </div>
-              <button
-                type="button"
-                className="app-modal-close"
-                onClick={() => {
-                  setPhysicalSendModalOpen(false);
-                  setEditingSendEventId(null);
-                  setPhysicalSendError(null);
-                }}
-                disabled={physicalSending}
-                aria-label="Fechar"
-              >
-                <span aria-hidden="true">&times;</span>
-              </button>
-            </header>
-
-            <form
-              className="app-modal-content"
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (physicalSending) return;
-                void handleConfirmPhysicalSend();
-              }}
-            >
-              {editingSendEventId ? (
-                <div className="app-modal-field">
-                  <ClientLookupField
-                    session={session!}
-                    label="Destinatário"
-                    kind="any"
-                    maxResults={10}
-                    selectedClient={physicalSendClients[0] ?? null}
-                    onSelectClient={(client) => setPhysicalSendClients(client ? [client] : [])}
-                    disabled={physicalSending}
-                    placeholder="Busque por nome, documento ou código"
-                    compact
-                  />
-                </div>
-              ) : (
-                <div className="app-modal-field">
-                  <span className="app-modal-label">Destinatários</span>
-                  <div className="samples-filter-multi samples-filter-multi--lookup send-recipient-multi">
-                    {physicalSendClients.map((client) => (
-                      <span key={client.id} className="samples-filter-token">
-                        <span
-                          className="samples-filter-token-label"
-                          title={client.displayName ?? 'Sem nome'}
-                        >
-                          {truncateChipLabel(client.displayName ?? 'Sem nome')}
-                        </span>
-                        <button
-                          type="button"
-                          className="samples-filter-token-remove"
-                          aria-label={`Remover destinatário: ${client.displayName ?? ''}`}
-                          disabled={physicalSending}
-                          onClick={() =>
-                            setPhysicalSendClients((prev) => prev.filter((c) => c.id !== client.id))
-                          }
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                    <ClientLookupField
-                      session={session!}
-                      label="Destinatários"
-                      kind="any"
-                      compact
-                      clearOnSelect
-                      maxResults={10}
-                      selectedClient={null}
-                      onSelectClient={(client) => {
-                        if (!client) return;
-                        setPhysicalSendClients((prev) =>
-                          prev.some((c) => c.id === client.id) ? prev : [...prev, client]
-                        );
-                      }}
-                      disabled={physicalSending}
-                      placeholder={
-                        physicalSendClients.length > 0 ? '' : 'Busque por nome, documento ou código'
-                      }
-                    />
-                  </div>
-                </div>
-              )}
-              <label className="app-modal-field">
-                <span className="app-modal-label">Data de envio</span>
-                <input
-                  type="date"
-                  className="app-modal-input"
-                  value={physicalSendDate}
-                  onChange={(event) => setPhysicalSendDate(event.target.value)}
-                  disabled={physicalSending}
-                />
-              </label>
-
-              {physicalSendError ? <p className="sdv-modal-error">{physicalSendError}</p> : null}
-
-              <div className="app-modal-actions">
-                <button
-                  type="button"
-                  className="app-modal-secondary"
-                  onClick={() => {
-                    setPhysicalSendModalOpen(false);
-                    setEditingSendEventId(null);
-                    setPhysicalSendError(null);
-                  }}
-                  disabled={physicalSending}
-                >
-                  Cancelar
-                </button>
-                <button type="submit" className="app-modal-submit" disabled={physicalSending}>
-                  {physicalSending
-                    ? editingSendEventId
-                      ? 'Salvando...'
-                      : 'Enviando...'
-                    : editingSendEventId
-                      ? 'Salvar'
-                      : 'Enviar'}
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
+        />
       ) : null}
 
-      {cancelConfirmSendEventId ? (
-        <div className="app-modal-backdrop">
-          <section
-            className="app-modal is-themed is-action sample-detail-compact-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="cancel-send-modal-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="app-modal-header">
-              <div className="app-modal-title-wrap">
-                <h3 id="cancel-send-modal-title" className="app-modal-title">
-                  Cancelar envio
-                </h3>
-              </div>
-              <button
-                type="button"
-                className="app-modal-close"
-                onClick={() => {
-                  setCancelConfirmSendEventId(null);
-                  setCancelSendError(null);
-                }}
-                disabled={cancellingSend}
-                aria-label="Fechar"
-              >
-                <span aria-hidden="true">&times;</span>
-              </button>
-            </header>
-            <div className="app-modal-content">
-              <p className="sdv-confirm-text">
-                Tem certeza que deseja cancelar este envio? Essa acao nao pode ser desfeita.
-              </p>
-              {cancelSendError ? (
-                <div className="sdv-modal-error" role="alert">
-                  {cancelSendError}
-                </div>
-              ) : null}
-              <div className="app-modal-actions">
-                <button
-                  type="button"
-                  className="app-modal-secondary"
-                  onClick={() => {
-                    setCancelConfirmSendEventId(null);
-                    setCancelSendError(null);
-                  }}
-                  disabled={cancellingSend}
-                >
-                  Voltar
-                </button>
-                <button
-                  type="button"
-                  className="app-modal-submit is-danger"
-                  onClick={handleConfirmCancelSend}
-                  disabled={cancellingSend}
-                >
-                  {cancellingSend ? 'Cancelando...' : 'Confirmar'}
-                </button>
-              </div>
-            </div>
-          </section>
-        </div>
-      ) : null}
       {/* Modal de confirmacao de reclassificacao — empilhado sobre o modal
           full-view de classificacao. Usa o padrao oficial .app-modal. */}
       {reclassifyModalOpen ? (
