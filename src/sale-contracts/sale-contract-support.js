@@ -492,6 +492,7 @@ export function normalizeEtapa2Input(input) {
   return {
     // partes / banco / armazens (ids; resolucao + ownership no service)
     sellerClientId: optionalUuid(input?.sellerClientId, 'sellerClientId'),
+    buyerClientId: optionalUuid(input?.buyerClientId, 'buyerClientId'),
     sellerUnitId: optionalUuid(input?.sellerUnitId, 'sellerUnitId'),
     buyerUnitId: optionalUuid(input?.buyerUnitId, 'buyerUnitId'),
     sellerBankAccountId: requireUuid(input?.sellerBankAccountId, 'sellerBankAccountId'),

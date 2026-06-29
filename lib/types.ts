@@ -424,6 +424,7 @@ export interface ContractLookupsResponse {
 export interface SaleContractEtapa2Input {
   expectedVersion: number;
   sellerClientId?: string | null;
+  buyerClientId?: string | null;
   sellerUnitId?: string | null;
   buyerUnitId?: string | null;
   sellerBankAccountId: string;

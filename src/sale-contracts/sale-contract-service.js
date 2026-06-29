@@ -148,8 +148,10 @@ export class SaleContractService {
       'sellerUnitId'
     );
 
-    const buyerClient = contract.buyerClientId
-      ? await this._requireClient(contract.buyerClientId, 'buyerClientId')
+    // Comprador: usa o editado (se veio) ou o atual do contrato (P20).
+    const buyerClientId = etapa2.buyerClientId ?? contract.buyerClientId;
+    const buyerClient = buyerClientId
+      ? await this._requireClient(buyerClientId, 'buyerClientId')
       : null;
     const buyerUnit = await this._resolvePartyUnit(buyerClient, etapa2.buyerUnitId, 'buyerUnitId');
 
@@ -193,11 +195,24 @@ export class SaleContractService {
       await this._syncSampleOwner(contract.sampleId, sellerClientId, actorContext);
     }
 
+    // Comprador editavel (P20): mantem a venda do lote coerente com o comprador
+    // do contrato, via SALE_UPDATED (append-only). Depois do sync do vendedor
+    // (que bumpa a versao do sample). So a vista (tem movementId).
+    if (contract.sampleId && contract.movementId && buyerClientId) {
+      await this._syncMovementBuyer(
+        contract.sampleId,
+        contract.movementId,
+        buyerClientId,
+        actorContext
+      );
+    }
+
     const data = {
       status: 'CONFERIR',
       sellerClientId,
       sellerUnitId: sellerUnit?.id ?? null,
       sellerSnapshot: buildPartySnapshot(sellerClient, sellerUnit),
+      buyerClientId,
       buyerUnitId: buyerUnit?.id ?? null,
       buyerSnapshot: buildPartySnapshot(buyerClient, buyerUnit),
       buyerWarehouseClientId: buyerWarehouse?.id ?? null,
@@ -579,6 +594,32 @@ export class SaleContractService {
         after: { ownerClientId: newOwnerClientId },
         reasonCode: 'DATA_FIX',
         reasonText: 'Vendedor ajustado no contrato (Fechamento)',
+      },
+      actorContext
+    );
+  }
+
+  // Comprador editavel (P20): troca o comprador da VENDA (movimento) via
+  // updateSampleMovement -> evento SALE_UPDATED (append-only, preserva o
+  // historico). No-op se ja coerente. O updateSampleMovement valida isBuyer.
+  async _syncMovementBuyer(sampleId, movementId, newBuyerClientId, actorContext) {
+    if (!this.commandService || !this.queryService) {
+      throw new HttpError(501, 'Movement buyer sync is not configured', {
+        code: 'SAMPLE_SYNC_NOT_CONFIGURED',
+      });
+    }
+    const movement = await this.queryService.requireSampleMovement(sampleId, movementId);
+    if ((movement.buyerClientId ?? null) === newBuyerClientId) {
+      return; // ja coerente — evita um evento desnecessario
+    }
+    const sample = await this.queryService.requireSample(sampleId);
+    await this.commandService.updateSampleMovement(
+      {
+        sampleId,
+        movementId,
+        expectedVersion: sample.version,
+        after: { buyerClientId: newBuyerClientId },
+        reasonText: 'Comprador ajustado no contrato (Fechamento)',
       },
       actorContext
     );
