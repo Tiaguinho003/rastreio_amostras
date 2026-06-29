@@ -237,23 +237,23 @@ export class SaleContractPdfService {
       let cy = top - pad - titleH - 8;
       for (const [label, value] of rows) {
         const labelText = `${label}: `;
-        page.drawText(labelText, { x: x + pad, y: cy, size: 8, font: fontBold, color: MUTED });
+        page.drawText(labelText, { x: x + pad, y: cy, size: 8, font: fontBold, color: BLACK });
         const labelW = fontBold.widthOfTextAtSize(labelText, 8);
         page.drawText(fitText(emptyToDash(value), font, 8, width - 2 * pad - labelW), {
           x: x + pad + labelW,
           y: cy,
           size: 8,
           font,
-          color: INK,
+          color: BLACK,
         });
         cy -= lineH;
       }
       return height;
     };
 
-    // Faixa de rótulo (cinza) full-width — ex.: "QUANTIDADES E VALORES". Altura 14.
+    // Faixa de rótulo (cinza) full-width — ex.: "QUANTIDADES E VALORES".
     const grayLabel = (title, top) => {
-      const h = 14;
+      const h = 16;
       page.drawRectangle({
         x: MARGIN,
         y: top - h,
@@ -264,8 +264,8 @@ export class SaleContractPdfService {
         borderWidth: 0.5,
       });
       page.drawText(fitText(title, fontBold, 8, contentW - 12), {
-        x: MARGIN + 6,
-        y: top - 10,
+        x: MARGIN + 7,
+        y: top - 11,
         size: 8,
         font: fontBold,
         color: BLACK,
@@ -292,11 +292,11 @@ export class SaleContractPdfService {
       return 16;
     };
 
-    // Fila de N caixas (rótulo cinza em cima + valor centralizado embaixo).
+    // Fila de N caixas (rótulo cinza CENTRALIZADO em cima + valor centralizado embaixo).
     const boxRow = (top, boxes) => {
       const colW = contentW / boxes.length;
-      const hdrH = 14;
-      const valH = 16;
+      const hdrH = 16;
+      const valH = 20;
       boxes.forEach(([label, value], i) => {
         const bx = MARGIN + i * colW;
         const w = colW - 3;
@@ -309,9 +309,11 @@ export class SaleContractPdfService {
           borderColor: LINE,
           borderWidth: 0.5,
         });
-        page.drawText(fitText(label.toUpperCase(), fontBold, 6.5, w - 6), {
-          x: bx + 3,
-          y: top - 10,
+        const lt = fitText(label.toUpperCase(), fontBold, 6.5, w - 6);
+        const ltw = fontBold.widthOfTextAtSize(lt, 6.5);
+        page.drawText(lt, {
+          x: bx + (w - ltw) / 2,
+          y: top - 11,
           size: 6.5,
           font: fontBold,
           color: BLACK,
@@ -329,7 +331,7 @@ export class SaleContractPdfService {
         const vw = font.widthOfTextAtSize(vt, 8);
         page.drawText(vt, {
           x: bx + (w - vw) / 2,
-          y: top - hdrH - 11,
+          y: top - hdrH - 13,
           size: 8,
           font,
           color: BLACK,
@@ -340,9 +342,9 @@ export class SaleContractPdfService {
 
     // Caixa com borda + campos inline "Label: value" (1+ linhas). Altura determinística.
     const inlineBox = (top, fieldRows) => {
-      const pad = 6;
-      const lineH = 12;
-      const height = pad + fieldRows.length * lineH + pad - 4;
+      const pad = 9;
+      const lineH = 15;
+      const height = pad + fieldRows.length * lineH + pad - 6;
       page.drawRectangle({
         x: MARGIN,
         y: top - height,
@@ -374,9 +376,9 @@ export class SaleContractPdfService {
 
     // Caixa com rótulo VERTICAL à esquerda (Observação/Descrição) + texto (wrap).
     const verticalLabelBox = (top, label, value) => {
-      const labelW = 16;
-      const pad = 6;
-      const lineH = 10;
+      const labelW = 18;
+      const pad = 9;
+      const lineH = 12;
       const innerW = contentW - labelW - 2 * pad;
       const text = value && String(value).trim() ? String(value) : '—';
       let lines = wrapText(text, font, 8, innerW);
@@ -386,7 +388,7 @@ export class SaleContractPdfService {
       }
       // Altura cabe o conteúdo E o rótulo vertical (que ocupa labelTextW na vertical).
       const labelTextW = fontBold.widthOfTextAtSize(label, 7);
-      const height = Math.max(labelTextW + 12, pad + lines.length * lineH + pad);
+      const height = Math.max(labelTextW + 16, 40, pad + lines.length * lineH + pad);
       page.drawRectangle({
         x: MARGIN,
         y: top - height,
@@ -480,7 +482,7 @@ export class SaleContractPdfService {
       font: fontBold,
       color: BLACK,
     });
-    y -= titleBarH + 6;
+    y -= titleBarH + 12;
 
     // ---------- Identificação (rótulos inline) ----------
     y -= idRow(y, [
@@ -490,7 +492,7 @@ export class SaleContractPdfService {
       ['Mês', formatMonthExtenso(contract.contractDate)],
       ['Ano', formatYear(contract.contractDate)],
     ]);
-    y -= 6;
+    y -= 14;
 
     // ---------- Comprador | Armazém do comprador (LAYOUT MANTIDO) ----------
     y -=
@@ -509,7 +511,7 @@ export class SaleContractPdfService {
           title: 'Armazém do comprador',
           rows: partyRows(contract.buyerWarehouseSnapshot),
         })
-      ) + 8;
+      ) + 14;
 
     // ---------- Vendedor | Armazém do vendedor (LAYOUT MANTIDO) ----------
     y -=
@@ -528,7 +530,7 @@ export class SaleContractPdfService {
           title: 'Armazém do vendedor',
           rows: partyRows(contract.sellerWarehouseSnapshot),
         })
-      ) + 8;
+      ) + 14;
 
     // ---------- Forma | Modalidade | Embalagem | Faturamento | Pagamento ----------
     y -= boxRow(y, [
@@ -538,7 +540,7 @@ export class SaleContractPdfService {
       ['Faturamento', formatDateBR(contract.invoiceDate)],
       ['Pagamento', formatDateBR(contract.paymentDate)],
     ]);
-    y -= 8;
+    y -= 16;
 
     // ---------- Quantidades e valores (corretagem impressa em %) ----------
     y -= grayLabel('QUANTIDADES E VALORES', y);
@@ -551,7 +553,7 @@ export class SaleContractPdfService {
         ['C. Comp.', formatPercent(contract.buyerBrokeragePct)],
       ],
     ]);
-    y -= 8;
+    y -= 16;
 
     // ---------- Banco do vendedor ----------
     const bank = contract.sellerBankSnapshot;
@@ -575,22 +577,24 @@ export class SaleContractPdfService {
         ['CNPJ/CPF', formatDocument(bank?.holderTaxId)],
       ],
     ]);
-    y -= 10;
+    y -= 16;
 
     // ---------- Observação / Descrição (rótulo vertical) ----------
     y -= verticalLabelBox(y, 'OBSERVAÇÃO', contract.observations);
-    y -= 6;
+    y -= 10;
     y -= verticalLabelBox(y, 'DESCRIÇÃO', contract.description);
 
-    // ---------- Local + data + assinaturas (empurrados p/ o rodapé) ----------
+    // ---------- Local + data + assinaturas (3 numa linha, empurrados p/ o rodapé) ----------
     // Sem cláusula (decisão do usuário). Empurra o bloco pro fundo quando sobra
     // espaço (como no legado); se o conteúdo descer demais, flui logo abaixo.
     const dateLine = `${issuer.city ?? ''}, ${formatDateExtenso(contract.contractDate) ?? ''}.`;
-    const footerDateY = Math.min(y - 14, 170);
+    const footerDateY = Math.min(y - 18, 150);
     page.drawText(dateLine, { x: MARGIN, y: footerDateY, size: 9, font, color: BLACK });
 
-    const sigColW = (contentW - 40) / 2;
-    const sigY = footerDateY - 48;
+    // 3 assinaturas na MESMA linha: Comprador · Vendedor · Corretor.
+    const sigGap = 22;
+    const sigColW = (contentW - 2 * sigGap) / 3;
+    const sigY = footerDateY - 52;
     const sigLine = (label, x, sy) => {
       page.drawLine({
         start: { x, y: sy },
@@ -602,7 +606,8 @@ export class SaleContractPdfService {
       page.drawText(label, { x: x + (sigColW - lw) / 2, y: sy - 11, size: 8, font, color: MUTED });
     };
     sigLine('Comprador', MARGIN, sigY);
-    sigLine('Corretor', MARGIN + sigColW + 40, sigY);
+    sigLine('Vendedor', MARGIN + sigColW + sigGap, sigY);
+    sigLine('Corretor', MARGIN + 2 * (sigColW + sigGap), sigY);
 
     const bytes = await pdfDoc.save();
     const buffer = Buffer.from(bytes);
