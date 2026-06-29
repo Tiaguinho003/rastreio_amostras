@@ -85,6 +85,8 @@ export function SaleContractEtapa2Modal({
   const [sellerCreateSeed, setSellerCreateSeed] = useState('');
   const [warehouseCreateFor, setWarehouseCreateFor] = useState<'buyer' | 'seller' | null>(null);
   const [warehouseCreateSeed, setWarehouseCreateSeed] = useState('');
+  const [buyerCreateOpen, setBuyerCreateOpen] = useState(false);
+  const [buyerCreateSeed, setBuyerCreateSeed] = useState('');
 
   // Campos simples
   const [purchaseNumber, setPurchaseNumber] = useState('');
@@ -193,6 +195,25 @@ export function SaleContractEtapa2Modal({
     }
   }
 
+  // Comprador editavel (P20): troca o comprador + zera/recarrega a filial dele
+  // (a anterior era do comprador antigo). Molde do handleSelectSeller.
+  async function handleSelectBuyer(client: ClientSummary | null) {
+    setBuyer(client);
+    setBuyerUnitId('');
+    setError(null);
+    if (!client) {
+      setBuyerUnits([]);
+      return;
+    }
+    try {
+      const detail = await getClient(session, client.id);
+      setBuyer(detail.client);
+      setBuyerUnits(detail.units);
+    } catch {
+      setBuyerUnits(client.units ?? []);
+    }
+  }
+
   async function handleSelectWarehouse(which: 'buyer' | 'seller', client: ClientSummary | null) {
     if (which === 'buyer') setBuyerWarehouse(client);
     else setSellerWarehouse(client);
@@ -282,6 +303,7 @@ export function SaleContractEtapa2Modal({
     const payload: SaleContractEtapa2Input = {
       expectedVersion: contract.version,
       sellerClientId: seller.id,
+      buyerClientId: buyer?.id ?? null,
       sellerUnitId: sellerIsPF ? sellerUnitId || null : null,
       buyerUnitId: buyerIsPF ? buyerUnitId || null : null,
       sellerBankAccountId: bankAccountId,
@@ -516,11 +538,20 @@ export function SaleContractEtapa2Modal({
 
               <div className="app-modal-field">
                 <span className="app-modal-label">Comprador</span>
-                <input
-                  className="app-modal-input"
-                  value={buyer?.displayName ?? '—'}
-                  disabled
-                  readOnly
+                <ClientLookupField
+                  session={session}
+                  label="Comprador"
+                  kind="buyer"
+                  selectedClient={buyer}
+                  disabled={disabled}
+                  compact
+                  onSelectClient={(client) => void handleSelectBuyer(client)}
+                  emptyMessage="Nenhum comprador encontrado."
+                  onRequestCreate={(searchTerm) => {
+                    setBuyerCreateSeed(searchTerm);
+                    setBuyerCreateOpen(true);
+                  }}
+                  createLabel="Cadastrar comprador"
                 />
               </div>
 
@@ -762,6 +793,20 @@ export function SaleContractEtapa2Modal({
         onCreated={(client) => {
           setSellerCreateOpen(false);
           void handleSelectSeller(client);
+        }}
+      />
+
+      <ClientQuickCreateModal
+        session={session}
+        open={buyerCreateOpen}
+        title="Novo comprador"
+        initialSearch={buyerCreateSeed}
+        initialPersonType="PJ"
+        initialIsBuyer
+        onClose={() => setBuyerCreateOpen(false)}
+        onCreated={(client) => {
+          setBuyerCreateOpen(false);
+          void handleSelectBuyer(client);
         }}
       />
 
