@@ -530,7 +530,10 @@ function normalizeSaleFields(raw) {
   return {
     quantitySacks: normalizeSacks(raw.quantitySacks, 'saleFields.quantitySacks'),
     unitPrice: normalizeUnitPrice(raw.unitPrice, 'saleFields.unitPrice'),
-    sellerBrokeragePct: normalizeBrokeragePct(raw.sellerBrokeragePct, 'saleFields.sellerBrokeragePct'),
+    sellerBrokeragePct: normalizeBrokeragePct(
+      raw.sellerBrokeragePct,
+      'saleFields.sellerBrokeragePct'
+    ),
     buyerBrokeragePct: normalizeBrokeragePct(raw.buyerBrokeragePct, 'saleFields.buyerBrokeragePct'),
     contractDate: requireDateString(raw.contractDate, 'saleFields.contractDate'),
     brokerIds: normalizeBrokerIds(raw.brokerIds, 'saleFields.brokerIds'),

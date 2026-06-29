@@ -463,7 +463,11 @@ if (!databaseUrl || !databaseReachable) {
 
     const emitted = await saleContractService.emitSaleContract(
       contractId,
-      etapa2Payload({ bankAccountId, lookups, overrides: { saleFields: saleFields({ quantitySacks: 6 }) } }),
+      etapa2Payload({
+        bankAccountId,
+        lookups,
+        overrides: { saleFields: saleFields({ quantitySacks: 6 }) },
+      }),
       adminActor
     );
 
@@ -518,11 +522,17 @@ if (!databaseUrl || !databaseReachable) {
 
     await saleContractService.emitSaleContract(
       contractId,
-      etapa2Payload({ bankAccountId, lookups, overrides: { saleFields: saleFields({ brokerIds: [broker2] }) } }),
+      etapa2Payload({
+        bankAccountId,
+        lookups,
+        overrides: { saleFields: saleFields({ brokerIds: [broker2] }) },
+      }),
       adminActor
     );
 
-    const rows = await prisma.saleContractBroker.findMany({ where: { saleContractId: contractId } });
+    const rows = await prisma.saleContractBroker.findMany({
+      where: { saleContractId: contractId },
+    });
     assert.equal(rows.length, 1);
     assert.equal(rows[0].brokerId, broker2);
     assert.equal(rows[0].brokerNameSnapshot, 'Corretor Dois');
@@ -536,7 +546,11 @@ if (!databaseUrl || !databaseReachable) {
 
     const emitted = await saleContractService.emitSaleContract(
       contractId,
-      etapa2Payload({ bankAccountId, lookups, overrides: { saleFields: saleFields({ contractDate: '2026-07-01' }) } }),
+      etapa2Payload({
+        bankAccountId,
+        lookups,
+        overrides: { saleFields: saleFields({ contractDate: '2026-07-01' }) },
+      }),
       adminActor
     );
 
@@ -559,7 +573,11 @@ if (!databaseUrl || !databaseReachable) {
       () =>
         saleContractService.emitSaleContract(
           contractId,
-          etapa2Payload({ bankAccountId, lookups, overrides: { saleFields: saleFields({ quantitySacks: 6 }) } }),
+          etapa2Payload({
+            bankAccountId,
+            lookups,
+            overrides: { saleFields: saleFields({ quantitySacks: 6 }) },
+          }),
           adminActor
         ),
       (err) => err.status === 422
