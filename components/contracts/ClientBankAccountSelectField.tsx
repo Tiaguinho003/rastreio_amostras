@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { ApiError, createClientBankAccount, listClientBankAccounts } from '../../lib/api-client';
 import { ClientBankAccountModal } from '../clients/ClientBankAccountModal';
+import { InlineSelectField } from './InlineSelectField';
 import type {
   ClientBankAccountInput,
   ClientBankAccountSummary,
@@ -79,41 +80,26 @@ export function ClientBankAccountSelectField({
     return `${bank} · Ag ${account.agency} · CC ${account.accountNumber}`;
   }
 
-  const emptyLabel = !clientId
-    ? 'Selecione o vendedor primeiro'
-    : loading
-      ? 'Carregando...'
-      : accounts.length
-        ? 'Selecione uma conta'
-        : 'Nenhuma conta cadastrada';
-
   return (
-    <div className="ctr-bankacct">
-      <select
-        className="app-modal-input"
+    <>
+      <InlineSelectField
+        options={accounts.map((account) => ({ id: account.id, label: describe(account) }))}
         value={value ?? ''}
-        disabled={disabled || !clientId || loading}
-        onChange={(event) => onChange(event.target.value || null)}
-      >
-        <option value="">{emptyLabel}</option>
-        {accounts.map((account) => (
-          <option key={account.id} value={account.id}>
-            {describe(account)}
-          </option>
-        ))}
-      </select>
-      {!disabled && clientId ? (
-        <button
-          type="button"
-          className="ctr-inline-add"
-          onClick={() => {
-            setModalError(null);
-            setModalOpen(true);
-          }}
-        >
-          + adicionar conta
-        </button>
-      ) : null}
+        onChange={(id) => onChange(id || null)}
+        disabled={disabled || !clientId}
+        loading={loading}
+        placeholder={clientId ? 'Selecione uma conta' : 'Selecione o vendedor primeiro'}
+        emptyMessage="Nenhuma conta cadastrada."
+        onRequestCreate={
+          clientId && !disabled
+            ? () => {
+                setModalError(null);
+                setModalOpen(true);
+              }
+            : undefined
+        }
+        createLabel="Adicionar conta"
+      />
 
       <ClientBankAccountModal
         open={modalOpen}
@@ -127,6 +113,6 @@ export function ClientBankAccountSelectField({
         }}
         onSubmit={handleCreate}
       />
-    </div>
+    </>
   );
 }
