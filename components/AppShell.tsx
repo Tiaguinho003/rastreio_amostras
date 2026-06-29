@@ -35,7 +35,8 @@ type NavIcon =
   | 'avatar'
   | 'informe'
   | 'cadastros'
-  | 'contratos';
+  | 'contratos'
+  | 'profile';
 type MobileRouteMeta = {
   title: string;
   subtitle: string;
@@ -111,6 +112,16 @@ const MOBILE_NAV_ITEMS = [
     icon: 'informe' as NavIcon,
     emphasis: 'default' as const,
   },
+  {
+    // 5o slot alternativo: papeis fora de INFORME_ROLES (CLASSIFIER) nao tem
+    // Relatorios; recebem Perfil aqui para manter a tabbar com 5 itens como
+    // os demais. A filtragem (mutuamente exclusiva com /informe) fica no
+    // render da MobileTabbar.
+    href: '/profile',
+    mobileLabel: 'Perfil',
+    icon: 'profile' as NavIcon,
+    emphasis: 'default' as const,
+  },
 ] as const;
 
 function isMainNavItemActive(pathname: string, href: string) {
@@ -132,6 +143,10 @@ function isMainNavItemActive(pathname: string, href: string) {
 
   if (href === '/informe') {
     return pathname === '/informe';
+  }
+
+  if (href === '/profile') {
+    return pathname === '/profile';
   }
 
   if (href === '/cadastros') {
@@ -218,6 +233,18 @@ function renderNavIcon(icon: NavIcon, user?: SessionData['user']) {
 
   if (icon === 'avatar' && user) {
     return <UserAvatar size="sm" user={user} />;
+  }
+
+  if (icon === 'profile') {
+    // Pessoa dentro de um circulo (convencao "conta/perfil"), em traco como
+    // os demais icones do nav — distinta da silhueta aberta de "Clientes".
+    return (
+      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+        <circle cx="12" cy="12" r="8.5" />
+        <circle cx="12" cy="9.7" r="2.5" />
+        <path d="M7 18.2a5 5 0 0 1 10 0" />
+      </svg>
+    );
   }
 
   // Fallback generico (icon 'users' ou avatar sem usuario disponivel)
@@ -825,11 +852,16 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
       {!hideMobileTabbar ? (
         <MobileTabbar
           items={MOBILE_NAV_ITEMS.filter((item) => {
-            // Relatorios (/informe) so pra quem acessa. CLASSIFIER (que antes via
-            // Metricas neste 5o slot, agora removida) nao tem o item — sua tabbar
-            // fica com 4 itens.
+            // 5o slot da tabbar (mutuamente exclusivo): Relatorios (/informe)
+            // para quem esta em INFORME_ROLES; Perfil (/profile) para quem nao
+            // esta — hoje so o CLASSIFIER, unico nao-prospector fora de
+            // INFORME_ROLES. Assim todo papel da tabbar fica com 5 itens.
+            // (PROSPECTOR nao chega aqui: tabbar escondida por hideMobileTabbar.)
             if (item.href === '/informe') {
               return isRoleAllowed(session.user.role, INFORME_ROLES);
+            }
+            if (item.href === '/profile') {
+              return !isRoleAllowed(session.user.role, INFORME_ROLES);
             }
             return true;
           }).map((item) => ({

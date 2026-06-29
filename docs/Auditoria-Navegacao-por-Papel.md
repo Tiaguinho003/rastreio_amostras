@@ -23,14 +23,14 @@ a localizacao de cada item na UI.
 Definidos em `enum UserRole` (`prisma/schema.prisma`). Labels pt-BR em
 `USER_ROLE_LABELS` (`lib/roles.ts`).
 
-| Papel (enum) | Label (pt-BR) |
-| --- | --- |
-| `ADMIN` | Administracao |
-| `CLASSIFIER` | Classificacao |
-| `REGISTRATION` | Impressao |
-| `COMMERCIAL` | Comercial |
-| `PROSPECTOR` | Prospeccao |
-| `CADASTRO` | Cadastro |
+| Papel (enum)   | Label (pt-BR) |
+| -------------- | ------------- |
+| `ADMIN`        | Administracao |
+| `CLASSIFIER`   | Classificacao |
+| `REGISTRATION` | Impressao     |
+| `COMMERCIAL`   | Comercial     |
+| `PROSPECTOR`   | Prospeccao    |
+| `CADASTRO`     | Cadastro      |
 
 Constantes/helpers de agrupamento (`lib/roles.ts`):
 
@@ -50,11 +50,11 @@ Constantes/helpers de agrupamento (`lib/roles.ts`):
 Centralizadas em `components/AppShell.tsx`. Breakpoint: **900px** (`<= 900` =
 mobile, `>= 901` = desktop).
 
-| Superficie | Onde | Plataforma | Componente |
-| --- | --- | --- | --- |
-| Sidebar vertical (verde) | lateral esquerda | Desktop | `AppShell.tsx` (`desktopNavItems`) |
-| Tabbar inferior | rodape | Mobile | `components/MobileTabbar.tsx` (`MOBILE_NAV_ITEMS`) |
-| Menu do avatar | dropdown (desktop) / bottom sheet (mobile) | Ambos | `AppShell.tsx` + `components/HeaderAvatarMenu.tsx` |
+| Superficie               | Onde                                       | Plataforma | Componente                                         |
+| ------------------------ | ------------------------------------------ | ---------- | -------------------------------------------------- |
+| Sidebar vertical (verde) | lateral esquerda                           | Desktop    | `AppShell.tsx` (`desktopNavItems`)                 |
+| Tabbar inferior          | rodape                                     | Mobile     | `components/MobileTabbar.tsx` (`MOBILE_NAV_ITEMS`) |
+| Menu do avatar           | dropdown (desktop) / bottom sheet (mobile) | Ambos      | `AppShell.tsx` + `components/HeaderAvatarMenu.tsx` |
 
 Itens definidos em `AppShell.tsx`: `DESKTOP_NAV_ITEMS` (Inicio/Lotes/Clientes),
 `INFORME_NAV_ITEM` (Relatorios), `CADASTROS_NAV_ITEM`, `CONTRATOS_NAV_ITEM`,
@@ -64,21 +64,21 @@ papel da sidebar fica em `desktopNavItems` (`AppShell.tsx`), a da tabbar no
 
 ## Referencia 3 — Universo de rotas
 
-| Rota | Pagina | Guard de acesso |
-| --- | --- | --- |
-| `/login`, `/forgot-password`, `/maintenance`, `/laudo/[token]` | publicas | sem auth |
-| `/dashboard` | Inicio | qualquer autenticado |
-| `/profile` | Perfil | qualquer autenticado |
-| `/settings` | — | redireciona para `/profile` |
-| `/offline` | offline PWA | qualquer autenticado |
-| `/samples`, `/samples/new`, `/samples/[id]` | Lotes | `NON_PROSPECTOR_ROLES` |
-| `/camera` | Camera | `NON_PROSPECTOR_ROLES` |
-| `/clients`, `/clients/[id]` | Clientes | `NON_PROSPECTOR_ROLES` |
-| `/informe` | Relatorios | `INFORME_ROLES` (conteudo adaptativo por papel) |
-| `/resumo` | — | redireciona para `/informe` |
-| `/cadastros` | Cadastros | ADMIN + CADASTRO |
-| `/contratos` | Contratos | ADMIN + CADASTRO |
-| `/users` | Usuarios | ADMIN |
+| Rota                                                           | Pagina      | Guard de acesso                                 |
+| -------------------------------------------------------------- | ----------- | ----------------------------------------------- |
+| `/login`, `/forgot-password`, `/maintenance`, `/laudo/[token]` | publicas    | sem auth                                        |
+| `/dashboard`                                                   | Inicio      | qualquer autenticado                            |
+| `/profile`                                                     | Perfil      | qualquer autenticado                            |
+| `/settings`                                                    | —           | redireciona para `/profile`                     |
+| `/offline`                                                     | offline PWA | qualquer autenticado                            |
+| `/samples`, `/samples/new`, `/samples/[id]`                    | Lotes       | `NON_PROSPECTOR_ROLES`                          |
+| `/camera`                                                      | Camera      | `NON_PROSPECTOR_ROLES`                          |
+| `/clients`, `/clients/[id]`                                    | Clientes    | `NON_PROSPECTOR_ROLES`                          |
+| `/informe`                                                     | Relatorios  | `INFORME_ROLES` (conteudo adaptativo por papel) |
+| `/resumo`                                                      | —           | redireciona para `/informe`                     |
+| `/cadastros`                                                   | Cadastros   | ADMIN + CADASTRO                                |
+| `/contratos`                                                   | Contratos   | ADMIN + CADASTRO                                |
+| `/users`                                                       | Usuarios    | ADMIN                                           |
 
 Middleware (`middleware.ts`): modo manutencao redireciona nao-ADMIN para
 `/maintenance`; PROSPECTOR fora do seu app (`/dashboard`, `/profile`,
@@ -89,17 +89,17 @@ Middleware (`middleware.ts`): modo manutencao redireciona nao-ADMIN para
 Acesso a rota (✅ acessa / ❌ redireciona para `/dashboard`). A localizacao na UI
 esta no detalhe de cada papel.
 
-| Rota | ADMIN | CLASSIFIER | REGISTRATION | COMMERCIAL | CADASTRO | PROSPECTOR |
-| --- | --- | --- | --- | --- | --- | --- |
-| `/dashboard` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ (dedicado) |
-| `/profile` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `/samples` (+sub) | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| `/camera` | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| `/clients` (+sub) | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| `/informe` | ✅ viewer | ❌ | ✅ vazio | ✅ proprios | ✅ viewer | ❌ |
-| `/cadastros` | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
-| `/contratos` | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
-| `/users` | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Rota              | ADMIN     | CLASSIFIER | REGISTRATION | COMMERCIAL  | CADASTRO  | PROSPECTOR    |
+| ----------------- | --------- | ---------- | ------------ | ----------- | --------- | ------------- |
+| `/dashboard`      | ✅        | ✅         | ✅           | ✅          | ✅        | ✅ (dedicado) |
+| `/profile`        | ✅        | ✅         | ✅           | ✅          | ✅        | ✅            |
+| `/samples` (+sub) | ✅        | ✅         | ✅           | ✅          | ✅        | ❌            |
+| `/camera`         | ✅        | ✅         | ✅           | ✅          | ✅        | ❌            |
+| `/clients` (+sub) | ✅        | ✅         | ✅           | ✅          | ✅        | ❌            |
+| `/informe`        | ✅ viewer | ❌         | ✅ vazio     | ✅ proprios | ✅ viewer | ❌            |
+| `/cadastros`      | ✅        | ❌         | ❌           | ❌          | ✅        | ❌            |
+| `/contratos`      | ✅        | ❌         | ❌           | ❌          | ✅        | ❌            |
+| `/users`          | ✅        | ❌         | ❌           | ❌          | ❌        | ❌            |
 
 `/informe` por papel: ADMIN/CADASTRO = viewer (todos os informes + curadoria;
 ADMIN cria); COMMERCIAL = proprios (scope=mine + FAB); REGISTRATION = placeholder
@@ -116,17 +116,18 @@ sem acesso de gestao (Cadastros/Contratos/Usuarios).
 
 ### Onde navega (por superficie)
 
-| Destino | Rota | Desktop | Mobile |
-| --- | --- | --- | --- |
-| Inicio | `/dashboard` | Sidebar | Tabbar |
-| Lotes | `/samples` | Sidebar | Tabbar |
-| Clientes | `/clients` | Sidebar | Tabbar |
-| Relatorios | `/informe` | Sidebar | Tabbar |
-| Camera | `/camera` | — (sem botao) | Tabbar (destaque, centro) |
-| Perfil | `/profile` | Menu do avatar | Menu do avatar |
-| Sair | logout | Menu do avatar | Menu do avatar |
+| Destino    | Rota         | Desktop        | Mobile                    |
+| ---------- | ------------ | -------------- | ------------------------- |
+| Inicio     | `/dashboard` | Sidebar        | Tabbar                    |
+| Lotes      | `/samples`   | Sidebar        | Tabbar                    |
+| Clientes   | `/clients`   | Sidebar        | Tabbar                    |
+| Relatorios | `/informe`   | Sidebar        | Tabbar                    |
+| Camera     | `/camera`    | — (sem botao)  | Tabbar (destaque, centro) |
+| Perfil     | `/profile`   | Menu do avatar | Menu do avatar            |
+| Sair       | logout       | Menu do avatar | Menu do avatar            |
 
 Contagem:
+
 - **Sidebar desktop: 4 itens** — Inicio, Lotes, Clientes, Relatorios.
 - **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, Clientes, Relatorios.
 - **Menu do avatar: 2 itens** — Perfil, Sair (igual no desktop e no mobile).
@@ -170,20 +171,24 @@ de gestao.
 
 ### Onde navega (por superficie)
 
-| Destino | Rota | Desktop | Mobile |
-| --- | --- | --- | --- |
-| Inicio | `/dashboard` | Sidebar | Tabbar |
-| Lotes | `/samples` | Sidebar | Tabbar |
-| Clientes | `/clients` | Sidebar | Tabbar |
-| Camera | `/camera` | — (sem botao) | Tabbar (destaque, centro) |
-| Perfil | `/profile` | Menu do avatar | Menu do avatar |
-| Sair | logout | Menu do avatar | Menu do avatar |
+| Destino  | Rota         | Desktop        | Mobile                            |
+| -------- | ------------ | -------------- | --------------------------------- |
+| Inicio   | `/dashboard` | Sidebar        | Tabbar                            |
+| Lotes    | `/samples`   | Sidebar        | Tabbar                            |
+| Clientes | `/clients`   | Sidebar        | Tabbar                            |
+| Camera   | `/camera`    | — (sem botao)  | Tabbar (destaque, centro)         |
+| Perfil   | `/profile`   | Menu do avatar | Tabbar (5o slot) + menu do avatar |
+| Sair     | logout       | Menu do avatar | Menu do avatar                    |
 
 Contagem:
+
 - **Sidebar desktop: 3 itens** — Inicio, Lotes, Clientes. (Sem Relatorios — e o
   unico nao-prospector que nao o ve.)
-- **Tabbar mobile: 4 itens** — Inicio, Lotes, Camera, Clientes. (Sem Relatorios.)
-- **Menu do avatar: 2 itens** — Perfil, Sair (igual no desktop e no mobile).
+- **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, Clientes, Perfil. O 5o
+  slot, que nos papeis de `INFORME_ROLES` e Relatorios, aqui e Perfil — para o
+  Classifier ter 5 abas como os demais (2026-06-28).
+- **Menu do avatar: 2 itens** — Perfil, Sair (igual no desktop e no mobile). No
+  mobile, Perfil tambem aparece na tabbar.
 
 ### Rotas acessiveis sem botao de navegacao
 
@@ -215,8 +220,10 @@ Contagem:
 
 Identico ao Comercial, **menos Relatorios** (`/informe`): o Comercial esta em
 `INFORME_ROLES` e ve Relatorios na sidebar e na tabbar (+ feed proprio); o
-Classifier nao ve em lugar nenhum e e redirecionado se tentar a URL. Resultado:
-sidebar 3 vs 4 itens, tabbar 4 vs 5; menu do avatar igual (Perfil, Sair).
+Classifier nao ve em lugar nenhum e e redirecionado se tentar a URL. Para o
+Classifier ter 5 abas no mobile, o 5o slot da sua tabbar e Perfil (no Comercial
+e Relatorios). Resultado: sidebar 3 vs 4 itens; tabbar 5 vs 5 (5o item: Perfil
+no Classifier, Relatorios no Comercial); menu do avatar igual (Perfil, Sair).
 
 ## REGISTRATION — "Impressao"
 
