@@ -54,8 +54,8 @@ if (!databaseUrl || !databaseReachable) {
           id: CURATOR_USER_ID,
           username: 'visit-curator',
           password: 'curator123',
-          role: 'CADASTRO',
-          displayName: 'Curadora Cadastro',
+          role: 'ADMIN',
+          displayName: 'Curador Admin',
         },
       ],
     });
@@ -103,13 +103,13 @@ if (!databaseUrl || !databaseReachable) {
     return prisma.user.create({
       data: {
         id: CURATOR_USER_ID,
-        fullName: 'Curadora Cadastro',
+        fullName: 'Curador Admin',
         username: 'visit-curator',
         usernameCanonical: 'visit-curator',
         email: 'visit-curator@example.com',
         emailCanonical: 'visit-curator@example.com',
         passwordHash: 'x',
-        role: 'CADASTRO',
+        role: 'ADMIN',
       },
     });
   }
@@ -345,6 +345,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test('listVisitReports: viewers veem tudo; PROSPECTOR ve so os PROPRIOS; 403 pros demais', async () => {
     await resetDatabase();
+    const admin = await seedUser('ADMIN');
     const commercial = await seedUser('COMMERCIAL');
     const cadastro = await seedUser('CADASTRO');
     const classifier = await seedUser('CLASSIFIER');
@@ -371,9 +372,9 @@ if (!databaseUrl || !databaseReachable) {
       actorFor(commercial)
     );
 
-    // Papeis com acesso ao /resumo (ADMIN + CADASTRO) veem tudo.
-    const allowedCadastro = await service.listVisitReports({}, actorFor(cadastro));
-    assert.equal(allowedCadastro.page.total, 4);
+    // Viewer (ADMIN) ve tudo.
+    const allowedAdmin = await service.listVisitReports({}, actorFor(admin));
+    assert.equal(allowedAdmin.page.total, 4);
 
     // PROSPECTOR ve APENAS os PROPRIOS informes: nem os do colega prospector
     // (isolamento por autor) nem os dos demais papeis.
@@ -383,7 +384,8 @@ if (!databaseUrl || !databaseReachable) {
     const mineAuthors = new Set(mine.items.map((item) => item.user.id));
     assert.deepEqual([...mineAuthors], [prospector.id]);
 
-    for (const denied of [classifier, registration, commercial]) {
+    // CADASTRO saiu dos viewers (2026-06-28): agora cai no 403, junto dos demais.
+    for (const denied of [classifier, registration, commercial, cadastro]) {
       await assert.rejects(
         service.listVisitReports({}, actorFor(denied)),
         (error) => error.status === 403
@@ -564,7 +566,7 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('linkVisitReportClient: ADMIN e CADASTRO vinculam com auditoria, preservando nome anotado e declaracao', async () => {
+  test('linkVisitReportClient: ADMIN vincula com auditoria preservando nome anotado e declaracao; CADASTRO 403', async () => {
     await resetDatabase();
     const prospector = await seedUser('PROSPECTOR');
     const cadastro = await seedUser('CADASTRO');
@@ -577,17 +579,26 @@ if (!databaseUrl || !databaseReachable) {
       actorFor(prospector)
     );
 
-    // CADASTRO vincula: clientId + auditoria; nome anotado e clientKind
+    // CADASTRO nao cura mais o vinculo (2026-06-28): 403.
+    await assert.rejects(
+      service.linkVisitReportClient(
+        { reportId: created.report.id, clientId: clientA.id },
+        actorFor(cadastro)
+      ),
+      (error) => error.status === 403
+    );
+
+    // ADMIN vincula: clientId + auditoria; nome anotado e clientKind
     // (declaracao do autor) ficam intactos.
     const linked = await service.linkVisitReportClient(
       { reportId: created.report.id, clientId: clientA.id },
-      actorFor(cadastro)
+      actorFor(admin)
     );
     assert.equal(linked.report.client.id, clientA.id);
     assert.equal(linked.report.client.displayName, 'Produtor A');
     assert.equal(linked.report.newClient.name, 'Anotado na Visita');
     assert.equal(linked.report.clientKind, 'NEW');
-    assert.equal(linked.report.linkedBy.id, cadastro.id);
+    assert.equal(linked.report.linkedBy.id, admin.id);
     assert.ok(linked.report.linkedAt);
 
     // ADMIN re-vincula para outro cliente: troca o vinculo e a auditoria.
@@ -695,7 +706,7 @@ if (!databaseUrl || !databaseReachable) {
     await resetDatabase();
     const prospector = await seedUser('PROSPECTOR');
     const commercial = await seedUser('COMMERCIAL');
-    const cadastro = await seedUser('CADASTRO');
+    const admin = await seedUser('ADMIN');
 
     // search_normalized e coluna GERADA pelo Postgres a partir do nome —
     // o banco materializa 'jose produtor' sozinho.
@@ -752,9 +763,9 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(none.page.total, 0);
     assert.equal(none.items.length, 0);
 
-    // Viewer (ADMIN/CADASTRO) busca cruzando autores — COMMERCIAL deixou de ser
-    // viewer de informes (commit 8b0f654).
-    const viewer = await service.listVisitReports({ search: 'boa' }, actorFor(cadastro));
+    // Viewer (ADMIN) busca cruzando autores — COMMERCIAL e CADASTRO nao sao
+    // viewers de informes.
+    const viewer = await service.listVisitReports({ search: 'boa' }, actorFor(admin));
     assert.equal(viewer.page.total, 2);
   });
 
@@ -914,7 +925,7 @@ if (!databaseUrl || !databaseReachable) {
     });
     assert.equal(missing.status, 422);
 
-    // Curador CADASTRO vincula com 200 e auditoria.
+    // Curador ADMIN vincula com 200 e auditoria.
     const linked = await api.linkVisitReportClient({
       headers: curatorHeaders,
       params: { reportId },

@@ -46,23 +46,24 @@ export const NON_PROSPECTOR_ROLES: UserRole[] = [
   'CADASTRO',
 ];
 
-// Quem ve a pagina /resumo (informes de visita): ADMIN + CADASTRO. Espelha
+// Quem ve a pagina "Relatorios" como viewer (todos os informes): ADMIN. Espelha
 // VISIT_REPORT_VIEWER_ROLES do backend (src/visits/visit-report-service.js).
-// COMMERCIAL saiu (2026-06-18): ja ve os PROPRIOS formularios no /informe
-// (scope=mine); o /resumo e supervisao do time (funcao de ADMIN/Cadastro).
+// COMMERCIAL ve os PROPRIOS formularios no /informe (scope=mine). CADASTRO saiu
+// (2026-06-28): nao acessa mais Relatorios.
 export function isVisitReportViewer(role: UserRole | null | undefined): boolean {
-  return role === 'ADMIN' || role === 'CADASTRO';
+  return role === 'ADMIN';
 }
 
-// Quem cura o vinculo informe -> cliente no /resumo (Vincular / Cadastrar e
+// Quem cura o vinculo informe -> cliente em "Relatorios" (Vincular / Cadastrar e
 // vincular / Remover vinculo). Espelha VISIT_REPORT_LINK_CURATOR_ROLES do
-// backend: subconjunto dos viewers — COMMERCIAL le, nao vincula.
+// backend. CADASTRO saiu (2026-06-28); restou o ADMIN.
 export function isVisitLinkCurator(role: UserRole | null | undefined): boolean {
-  return role === 'ADMIN' || role === 'CADASTRO';
+  return role === 'ADMIN';
 }
 
 // allowedRoles da pagina "Relatorios" (rota /informe, unificada com o antigo
-// /resumo): nao-prospector MENOS classificacao. ADMIN/CADASTRO entram como
-// VIEWERS (scope=all + curadoria, via isVisitReportViewer); COMMERCIAL ve os
-// proprios (scope=mine); REGISTRATION cai no placeholder vazio.
-export const INFORME_ROLES: UserRole[] = ['ADMIN', 'COMMERCIAL', 'REGISTRATION', 'CADASTRO'];
+// /resumo): ADMIN entra como VIEWER (scope=all + curadoria, via
+// isVisitReportViewer); COMMERCIAL ve os proprios (scope=mine); REGISTRATION cai
+// no placeholder vazio. CLASSIFIER e CADASTRO nao acessam (CADASTRO saiu em
+// 2026-06-28).
+export const INFORME_ROLES: UserRole[] = ['ADMIN', 'COMMERCIAL', 'REGISTRATION'];

@@ -27,22 +27,18 @@ export const VISIT_INTEREST_LEVELS = Object.freeze(['NONE', 'LOW', 'MEDIUM', 'HI
 export const VISIT_REPORT_LIST_LIMIT_DEFAULT = 20;
 export const VISIT_REPORT_LIST_LIMIT_MAX = 100;
 
-// Quem ve a pagina /resumo (espelhado no front em lib/roles.ts
-// isVisitReportViewer): Administracao + Cadastro — as notificacoes
-// situacionais de visita apontam pra la. COMMERCIAL saiu (2026-06-18): ja ve
-// os PROPRIOS formularios no /informe (scope=mine, COMMERCIAL_FORM_AUTHOR_ROLES);
-// o /resumo e supervisao do time. PROSPECTOR nao e viewer: lista apenas os
-// PROPRIOS informes (escopo forcado por userId).
-export const VISIT_REPORT_VIEWER_ROLES = Object.freeze([USER_ROLES.ADMIN, USER_ROLES.CADASTRO]);
+// Quem ve a pagina "Relatorios" como viewer (espelhado no front em lib/roles.ts
+// isVisitReportViewer): Administracao. COMMERCIAL ve os PROPRIOS formularios no
+// /informe (scope=mine, COMMERCIAL_FORM_AUTHOR_ROLES). CADASTRO saiu
+// (2026-06-28): nao acessa mais Relatorios. PROSPECTOR nao e viewer: lista
+// apenas os PROPRIOS informes (escopo forcado por userId).
+export const VISIT_REPORT_VIEWER_ROLES = Object.freeze([USER_ROLES.ADMIN]);
 
-// Quem cura o vinculo informe -> cliente no /resumo (Vincular / Cadastrar e
+// Quem cura o vinculo informe -> cliente em "Relatorios" (Vincular / Cadastrar e
 // vincular / Remover vinculo; espelhado no front em lib/roles.ts
-// isVisitLinkCurator). Desde 2026-06-18 IGUAL aos viewers (ADMIN + CADASTRO):
-// o COMMERCIAL saiu do /resumo, entao quem ve tambem cura.
-export const VISIT_REPORT_LINK_CURATOR_ROLES = Object.freeze([
-  USER_ROLES.ADMIN,
-  USER_ROLES.CADASTRO,
-]);
+// isVisitLinkCurator). IGUAL aos viewers: quem ve tambem cura. CADASTRO saiu
+// (2026-06-28), restou o ADMIN.
+export const VISIT_REPORT_LINK_CURATOR_ROLES = Object.freeze([USER_ROLES.ADMIN]);
 
 const NEW_CLIENT_NAME_MAX = 200;
 const NEW_CLIENT_CITY_MAX = 120;

@@ -123,7 +123,7 @@ export function HeaderAvatarMenu({ session, onLogout }: HeaderAvatarMenuProps) {
               </button>
             ) : null}
 
-            {isAdmin(session.user.role) || session.user.role === 'CADASTRO' ? (
+            {isAdmin(session.user.role) ? (
               <button
                 type="button"
                 className="header-avatar-menu-row"

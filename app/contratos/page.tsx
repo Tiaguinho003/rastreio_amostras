@@ -32,7 +32,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
 
 export default function ContratosPage() {
   const { session, loading, logout, setSession } = useRequireAuth({
-    allowedRoles: ['ADMIN', 'CADASTRO'],
+    allowedRoles: ['ADMIN'],
   });
   const toast = useToast();
 

@@ -74,7 +74,7 @@ const CADASTROS_NAV_ITEM = {
 } as const;
 
 // Item da sidebar: Contratos (Fechamento — gestao dos contratos de venda).
-// Restrito a ADMIN + CADASTRO (item tambem no avatar menu p/ mobile).
+// Restrito a ADMIN (item tambem no avatar menu p/ mobile).
 const CONTRATOS_NAV_ITEM = {
   href: '/contratos',
   label: 'Contratos',
@@ -381,18 +381,18 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
       : session.user.username;
   const profileFirstName = profileName.split(/\s+/)[0];
   // Barra lateral (desktop) montada por papel. Ordem (pedido do usuario):
-  // Inicio / Lotes / Clientes (base) -> Relatorios (INFORME_ROLES, ja inclui os
-  // viewers ADMIN/CADASTRO) -> Usuarios (ADMIN). Itens condicionais somem por
-  // papel mantendo essa ordem relativa.
+  // Inicio / Lotes / Clientes (base) -> Relatorios (INFORME_ROLES) -> Cadastros
+  // (ADMIN + CADASTRO) -> Contratos + Usuarios (ADMIN). Itens condicionais somem
+  // por papel mantendo essa ordem relativa.
   const desktopNavItems = prospector
     ? DESKTOP_NAV_ITEMS.filter((item) => item.href === '/dashboard')
     : [
         ...DESKTOP_NAV_ITEMS,
         ...(isRoleAllowed(session.user.role, INFORME_ROLES) ? [INFORME_NAV_ITEM] : []),
         ...(isAdmin(session.user.role) || session.user.role === 'CADASTRO'
-          ? [CADASTROS_NAV_ITEM, CONTRATOS_NAV_ITEM]
+          ? [CADASTROS_NAV_ITEM]
           : []),
-        ...(isAdmin(session.user.role) ? [ADMIN_NAV_ITEM] : []),
+        ...(isAdmin(session.user.role) ? [CONTRATOS_NAV_ITEM, ADMIN_NAV_ITEM] : []),
       ];
   const mobileRouteMeta = resolveMobileRouteMeta(pathname);
   const isCameraRoute = pathname === '/camera';

@@ -19,11 +19,11 @@ import {
   toSaleContractView,
 } from './sale-contract-support.js';
 
-// Gestao de Contratos (listar/detalhar; no Passo 2 entram completar/emitir/
-// confirmar). Decisao desta sessao: acesso restrito a ADMIN + CADASTRO. A
+// Gestao de Contratos (listar/detalhar/completar/emitir/confirmar/faturar/pagar/
+// reverter/quebrar). Acesso restrito a ADMIN (CADASTRO saiu em 2026-06-28). A
 // CRIACAO do contrato NAO passa por aqui -- ela acontece junto da venda a vista
 // (SampleCommandService.createSampleMovement), na mesma transacao do evento.
-const SALE_CONTRACT_MANAGE_ROLES = [USER_ROLES.ADMIN, USER_ROLES.CADASTRO];
+const SALE_CONTRACT_MANAGE_ROLES = [USER_ROLES.ADMIN];
 
 const SALE_CONTRACT_LIST_LIMIT_DEFAULT = 200;
 const SALE_CONTRACT_LIST_LIMIT_MAX = 500;

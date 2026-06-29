@@ -11,11 +11,12 @@ import { isAdmin, isVisitReportViewer, INFORME_ROLES } from '../../lib/roles';
 
 // Pagina "Relatorios" (rota /informe — unificada com o antigo /resumo),
 // adaptativa por papel:
-// - ADMIN/CADASTRO (viewers): RelatoriosViewer — feed de TODOS (scope=all) +
-//   curadoria de vinculo; ADMIN tambem cria (FAB).
+// - ADMIN (viewer): RelatoriosViewer — feed de TODOS (scope=all) + curadoria de
+//   vinculo; tambem cria (FAB).
 // - COMMERCIAL: InformeCommercialPage — feed dos PROPRIOS (scope=mine) + FAB.
 // - REGISTRATION: placeholder vazio (sem formularios proprios).
-// - CLASSIFIER: NAO acessa (guard -> /dashboard).
+// - CLASSIFIER e CADASTRO: NAO acessam (guard -> /dashboard). CADASTRO saiu em
+//   2026-06-28.
 // - PROSPECTOR: nao usa esta pagina (formulario no sheet do dashboard).
 
 export default function InformePage() {
@@ -29,8 +30,8 @@ export default function InformePage() {
 
   const role = session.user.role;
 
-  // ADMIN/CADASTRO: visao de supervisao (todos os formularios + curadoria).
-  // ADMIN tambem cria (canCreate).
+  // ADMIN: visao de supervisao (todos os formularios + curadoria) + criacao
+  // (canCreate).
   if (isVisitReportViewer(role)) {
     return (
       <AppShell session={session} onLogout={logout} onSessionChange={setSession}>

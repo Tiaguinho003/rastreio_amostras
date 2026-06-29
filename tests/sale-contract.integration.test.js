@@ -576,7 +576,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(contract.status, 'WASH_OUT');
   });
 
-  test('listContractLookups retorna as 3 listas; emit exige ADMIN/CADASTRO', async () => {
+  test('listContractLookups retorna as 3 listas; emit exige ADMIN', async () => {
     const lk = await saleContractService.listContractLookups(commercialActor);
     assert.ok(lk.paymentForms.length >= 2);
     assert.ok(lk.modalities.length >= 3);
@@ -776,7 +776,7 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('faturar exige ADMIN/CADASTRO (COMMERCIAL 403)', async () => {
+  test('faturar exige ADMIN (COMMERCIAL 403)', async () => {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '22011' });
     await assert.rejects(
       () =>
@@ -918,7 +918,7 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('quebra manual exige ADMIN/CADASTRO (COMMERCIAL 403)', async () => {
+  test('quebra manual exige ADMIN (COMMERCIAL 403)', async () => {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '23009' });
     await assert.rejects(
       () =>
