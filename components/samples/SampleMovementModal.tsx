@@ -14,6 +14,7 @@ import type {
   SessionData,
 } from '../../lib/types';
 import { ClientLookupField } from '../clients/ClientLookupField';
+import { ClientQuickCreateModal } from '../clients/ClientQuickCreateModal';
 import { BrokerMultiSelectField } from './BrokerMultiSelectField';
 
 type SampleMovementModalSubmitInput = {
@@ -139,6 +140,10 @@ export function SampleMovementModal({
   const [sellerBrokeragePct, setSellerBrokeragePct] = useState('0');
   const [buyerBrokeragePct, setBuyerBrokeragePct] = useState('0');
   const [brokerIds, setBrokerIds] = useState<string[]>([]);
+  // Cadastro rapido de comprador a partir do dropdown do lookup (quando o
+  // cliente ainda nao existe). Cria ja com a flag de comprador (initialIsBuyer).
+  const [buyerQuickCreateOpen, setBuyerQuickCreateOpen] = useState(false);
+  const [buyerQuickCreateSeed, setBuyerQuickCreateSeed] = useState('');
   const [error, setError] = useState<string | null>(null);
   // Liga B4 Fase 5: viabilidade da venda da liga (pre-validacao da cascata).
   const [feasibility, setFeasibility] = useState<BlendFeasibilityResponse | null>(null);
@@ -519,6 +524,11 @@ export function SampleMovementModal({
                   setError(null);
                 }}
                 emptyMessage="Nenhum comprador encontrado."
+                onRequestCreate={(searchTerm) => {
+                  setBuyerQuickCreateSeed(searchTerm);
+                  setBuyerQuickCreateOpen(true);
+                }}
+                createLabel="Cadastrar comprador"
               />
             </div>
           ) : (
@@ -831,6 +841,23 @@ export function SampleMovementModal({
               document.body
             )
           : null}
+
+        {showBuyerFields ? (
+          <ClientQuickCreateModal
+            session={session}
+            open={buyerQuickCreateOpen}
+            title="Novo comprador"
+            initialSearch={buyerQuickCreateSeed}
+            initialPersonType="PJ"
+            initialIsBuyer
+            onClose={() => setBuyerQuickCreateOpen(false)}
+            onCreated={(client) => {
+              setBuyerQuickCreateOpen(false);
+              setBuyerClient(client);
+              setError(null);
+            }}
+          />
+        ) : null}
 
         {stampType ? (
           <div
