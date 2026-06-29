@@ -845,7 +845,7 @@ export class ClientService {
 
   async lookupClients(input, actorContext) {
     assertAuthenticatedActor(actorContext, 'lookup clients');
-    const { search, kind, limit } = normalizeLookupClientsInput(input);
+    const { search, kind } = normalizeLookupClientsInput(input);
 
     // L5: smart resolve por CNPJ completo (14 digitos exatos).
     // PJ: cnpj vive em Client direto. PF: pode ter cnpj em ClientUnit (filial).
@@ -911,7 +911,6 @@ export class ClientService {
     const items = await this.prisma.client.findMany({
       where,
       orderBy: [{ code: 'asc' }, { id: 'asc' }],
-      take: limit,
       select: CLIENT_SUMMARY_SELECT,
     });
 

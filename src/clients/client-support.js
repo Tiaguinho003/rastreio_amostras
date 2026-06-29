@@ -58,7 +58,6 @@ export const CLIENT_LIST_LIMIT_DEFAULT = 10;
 export const CLIENT_LIST_LIMIT_MAX = 60;
 export const CLIENT_AUDIT_LIMIT_DEFAULT = 10;
 export const CLIENT_AUDIT_LIMIT_MAX = 20;
-export const CLIENT_LOOKUP_LIMIT = 8;
 
 const BRAZIL_UF = new Set([
   'AC',
@@ -854,10 +853,12 @@ export function normalizeLookupClientsInput(input) {
     });
   }
 
+  // Sem limite de resultados: o lookup retorna TODOS os clientes que casam o
+  // termo (>= 2 chars) e o dropdown rola (max-height + overflow). Decisao de
+  // produto — nao truncar silenciosamente compradores/vendedores/armazens.
   return {
     search,
     kind: normalizeLookupKind(input.kind),
-    limit: CLIENT_LOOKUP_LIMIT,
   };
 }
 

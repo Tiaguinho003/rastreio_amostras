@@ -500,7 +500,7 @@ test('Fase 0: DEFAULT_PF_UNIT_NAME tem valor "Fazenda 1"', () => {
   assert.equal(DEFAULT_PF_UNIT_NAME, 'Fazenda 1');
 });
 
-test('normalizeLookupClientsInput enforces minimum search length and fixed limit', () => {
+test('normalizeLookupClientsInput enforces minimum search length and returns no limit', () => {
   const normalized = normalizeLookupClientsInput({
     search: 'atl',
     kind: 'buyer',
@@ -509,7 +509,8 @@ test('normalizeLookupClientsInput enforces minimum search length and fixed limit
 
   assert.equal(normalized.search, 'atl');
   assert.equal(normalized.kind, 'buyer');
-  assert.equal(normalized.limit, 8);
+  // Sem limite: o lookup retorna todos os resultados que casam (dropdown rola).
+  assert.equal(normalized.limit, undefined);
 
   assert.throws(
     () =>
