@@ -34383,25 +34383,59 @@ body.is-selection-mode .hero-search-filter-btn {
   gap: 0.6rem;
 }
 .ctr-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
   background: #fff;
   border: 1px solid var(--brand-cream-line);
   border-radius: 14px;
-  padding: 0.85rem 1rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
 }
-.ctr-card-head {
+/* Cabecalho clicavel = toggle de expansao (sem button aninhado: as acoes
+   ficam no painel expandido). */
+.ctr-card-head-btn {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+.ctr-card-bar {
+  flex: 0 0 auto;
+  width: 4px;
+  height: clamp(42px, 12vw, 54px);
+  border-radius: 2px;
+  background: #999;
+}
+.ctr-card-head-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.ctr-card-top {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 .ctr-card-number {
   font-weight: 700;
   color: var(--brand-green-ink);
   font-size: 1rem;
+}
+.ctr-card-type {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--brand-muted);
+  background: var(--brand-cream-line);
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
 }
 .ctr-card-parties {
   display: flex;
@@ -34434,6 +34468,65 @@ body.is-selection-mode .hero-search-filter-btn {
   gap: 1rem;
   font-size: 0.82rem;
   color: var(--brand-muted);
+}
+.ctr-card-chevron {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--brand-muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ctr-card.is-expanded .ctr-card-chevron {
+  transform: rotate(180deg);
+}
+/* Painel expandido (acordeao via grid-template-rows 0fr->1fr, molde do .spv2). */
+.ctr-card-expanded {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ctr-card.is-expanded .ctr-card-expanded {
+  grid-template-rows: 1fr;
+}
+.ctr-card-expanded-inner {
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0 1rem;
+  opacity: 0;
+  transition: opacity 0.22s ease 0.05s;
+}
+.ctr-card.is-expanded .ctr-card-expanded-inner {
+  opacity: 1;
+  padding-bottom: 0.85rem;
+}
+.ctr-card-essential {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem 1rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--brand-cream-line);
+}
+.ctr-card-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.ctr-card-stat-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--brand-muted);
+}
+.ctr-card-stat-value {
+  font-size: 0.9rem;
+  color: var(--brand-green-ink);
 }
 .ctr-card-washout {
   margin: 0;
