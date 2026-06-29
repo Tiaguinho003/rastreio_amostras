@@ -1244,6 +1244,142 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(contract.status, 'WASH_OUT');
     assert.equal(contract.washoutReason, 'Cancelada pelo lote');
   });
+
+  // ---- Contrato FUTURO (sem lote) ----
+
+  function createFutureInput(buyerId, overrides = {}) {
+    return {
+      buyerClientId: buyerId,
+      quantitySacks: 50,
+      unitPrice: 100,
+      sellerBrokeragePct: 2,
+      buyerBrokeragePct: 1,
+      contractDate: '2026-09-01',
+      brokerIds: [TEST_BROKER_ID],
+      ...overrides,
+    };
+  }
+
+  test('futuro: cria FUTURO EM_ABERTO sem lote (sampleId/movementId nulos)', async () => {
+    const buyerId = randomUUID();
+    await createBuyerClient(buyerId);
+
+    const res = await saleContractService.createFutureSaleContract(
+      createFutureInput(buyerId),
+      adminActor
+    );
+    const c = res.contract;
+    assert.equal(c.type, 'FUTURO');
+    assert.equal(c.status, 'EM_ABERTO');
+    assert.equal(c.sampleId, null);
+    assert.equal(c.movementId, null);
+    assert.equal(c.quantitySacks, 50);
+    assert.equal(Number(c.totalValue), 5000); // 50 x 100
+    assert.equal(Number(c.sellerBrokerageValue), 100); // 5000 x 2%
+    assert.equal(Number(c.buyerBrokerageValue), 50); // 5000 x 1%
+    assert.equal(c.brokers.length, 1);
+    assert.equal(c.brokers[0].brokerId, TEST_BROKER_ID);
+
+    // nenhuma venda/movimento criado
+    assert.equal((await prisma.sampleMovement.findMany()).length, 0);
+  });
+
+  test('futuro: numero continua a sequencia global (a vista + futuro)', async () => {
+    await setupEmittableContract({ lotNumber: '24001' }); // 0001/AA (a vista)
+    const buyerId = randomUUID();
+    await createBuyerClient(buyerId);
+    const res = await saleContractService.createFutureSaleContract(
+      createFutureInput(buyerId),
+      adminActor
+    );
+    assert.equal(res.contract.contractNumber, `0002/${currentYear2}`);
+  });
+
+  test('futuro: emitir -> CONFERIR (vendedor/banco vem no emit)', async () => {
+    const buyerId = randomUUID();
+    await createBuyerClient(buyerId);
+    const sellerId = randomUUID();
+    await createSellerClient(sellerId);
+    const bankAccountId = await createSellerBankAccount(sellerId);
+    const lookups = await fetchLookups();
+
+    const created = await saleContractService.createFutureSaleContract(
+      createFutureInput(buyerId),
+      adminActor
+    );
+    const emitted = await saleContractService.emitSaleContract(
+      created.contract.id,
+      etapa2Payload({ bankAccountId, lookups, overrides: { sellerClientId: sellerId } }),
+      adminActor
+    );
+    assert.equal(emitted.contract.status, 'CONFERIR');
+    assert.equal(emitted.contract.type, 'FUTURO');
+    assert.equal(emitted.contract.sellerClientId, sellerId);
+    assert.ok(emitted.contract.sellerBankSnapshot);
+  });
+
+  test('futuro: washout marca WASH_OUT sem tocar em lote', async () => {
+    const buyerId = randomUUID();
+    await createBuyerClient(buyerId);
+    const sellerId = randomUUID();
+    await createSellerClient(sellerId);
+    const bankAccountId = await createSellerBankAccount(sellerId);
+    const lookups = await fetchLookups();
+
+    const created = await saleContractService.createFutureSaleContract(
+      createFutureInput(buyerId),
+      adminActor
+    );
+    const emitted = await saleContractService.emitSaleContract(
+      created.contract.id,
+      etapa2Payload({ bankAccountId, lookups, overrides: { sellerClientId: sellerId } }),
+      adminActor
+    );
+    const washed = await saleContractService.washoutSaleContract(
+      created.contract.id,
+      { expectedVersion: emitted.contract.version, reason: 'Negocio caiu' },
+      adminActor
+    );
+    assert.equal(washed.contract.status, 'WASH_OUT');
+    assert.equal(washed.contract.washoutReason, 'Negocio caiu');
+    assert.ok(washed.contract.washoutAt);
+    assert.equal((await prisma.sampleMovement.findMany()).length, 0);
+  });
+
+  test('futuro: cancelar EM_ABERTO apaga o contrato (e os corretores)', async () => {
+    const buyerId = randomUUID();
+    await createBuyerClient(buyerId);
+    const created = await saleContractService.createFutureSaleContract(
+      createFutureInput(buyerId),
+      adminActor
+    );
+
+    const res = await saleContractService.cancelSaleContract(
+      created.contract.id,
+      { expectedVersion: 0 },
+      adminActor
+    );
+    assert.equal(res.deleted, true);
+    assert.equal(
+      await prisma.saleContract.findUnique({ where: { id: created.contract.id } }),
+      null
+    );
+    assert.equal(
+      (await prisma.saleContractBroker.findMany({ where: { saleContractId: created.contract.id } }))
+        .length,
+      0
+    );
+  });
+
+  test('futuro: criar exige ADMIN (COMMERCIAL 403)', async () => {
+    const buyerId = randomUUID();
+    await createBuyerClient(buyerId);
+    await assert.rejects(
+      () =>
+        saleContractService.createFutureSaleContract(createFutureInput(buyerId), commercialActor),
+      (err) => err.status === 403
+    );
+  });
 }
 
 async function canReachDatabase(databaseUrlValue) {
