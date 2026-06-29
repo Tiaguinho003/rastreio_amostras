@@ -36,14 +36,14 @@ Constantes/helpers de agrupamento (`lib/roles.ts`):
 
 - `NON_PROSPECTOR_ROLES` = ADMIN, CLASSIFIER, REGISTRATION, COMMERCIAL, CADASTRO
   (todos menos PROSPECTOR) — guard das paginas de amostras, clientes e camera.
-- `INFORME_ROLES` = ADMIN, COMMERCIAL, REGISTRATION, CADASTRO — guard da pagina
-  "Relatorios" (`/informe`).
+- `INFORME_ROLES` = ADMIN, COMMERCIAL, REGISTRATION — guard da pagina
+  "Relatorios" (`/informe`). CADASTRO saiu em 2026-06-28.
 - `isAdmin(role)` = somente ADMIN.
 - `isCommercialRole(role)` = COMMERCIAL ou PROSPECTOR (quem pode ser responsavel
   comercial de cliente; nao confundir com acesso de navegacao).
 - `isProspector(role)` = somente PROSPECTOR (app restrito).
-- `isVisitReportViewer(role)` / `isVisitLinkCurator(role)` = ADMIN + CADASTRO
-  (visao de supervisao e curadoria em `/informe`).
+- `isVisitReportViewer(role)` / `isVisitLinkCurator(role)` = ADMIN (visao de
+  supervisao e curadoria em `/informe`; CADASTRO saiu em 2026-06-28).
 
 ## Referencia 2 — Superficies de navegacao
 
@@ -77,7 +77,7 @@ papel da sidebar fica em `desktopNavItems` (`AppShell.tsx`), a da tabbar no
 | `/informe`                                                     | Relatorios  | `INFORME_ROLES` (conteudo adaptativo por papel) |
 | `/resumo`                                                      | —           | redireciona para `/informe`                     |
 | `/cadastros`                                                   | Cadastros   | ADMIN + CADASTRO                                |
-| `/contratos`                                                   | Contratos   | ADMIN + CADASTRO                                |
+| `/contratos`                                                   | Contratos   | ADMIN                                           |
 | `/users`                                                       | Usuarios    | ADMIN                                           |
 
 Middleware (`middleware.ts`): modo manutencao redireciona nao-ADMIN para
@@ -89,21 +89,21 @@ Middleware (`middleware.ts`): modo manutencao redireciona nao-ADMIN para
 Acesso a rota (✅ acessa / ❌ redireciona para `/dashboard`). A localizacao na UI
 esta no detalhe de cada papel.
 
-| Rota              | ADMIN     | CLASSIFIER | REGISTRATION | COMMERCIAL  | CADASTRO  | PROSPECTOR    |
-| ----------------- | --------- | ---------- | ------------ | ----------- | --------- | ------------- |
-| `/dashboard`      | ✅        | ✅         | ✅           | ✅          | ✅        | ✅ (dedicado) |
-| `/profile`        | ✅        | ✅         | ✅           | ✅          | ✅        | ✅            |
-| `/samples` (+sub) | ✅        | ✅         | ✅           | ✅          | ✅        | ❌            |
-| `/camera`         | ✅        | ✅         | ✅           | ✅          | ✅        | ❌            |
-| `/clients` (+sub) | ✅        | ✅         | ✅           | ✅          | ✅        | ❌            |
-| `/informe`        | ✅ viewer | ❌         | ✅ vazio     | ✅ proprios | ✅ viewer | ❌            |
-| `/cadastros`      | ✅        | ❌         | ❌           | ❌          | ✅        | ❌            |
-| `/contratos`      | ✅        | ❌         | ❌           | ❌          | ✅        | ❌            |
-| `/users`          | ✅        | ❌         | ❌           | ❌          | ❌        | ❌            |
+| Rota              | ADMIN     | CLASSIFIER | REGISTRATION | COMMERCIAL  | CADASTRO | PROSPECTOR    |
+| ----------------- | --------- | ---------- | ------------ | ----------- | -------- | ------------- |
+| `/dashboard`      | ✅        | ✅         | ✅           | ✅          | ✅       | ✅ (dedicado) |
+| `/profile`        | ✅        | ✅         | ✅           | ✅          | ✅       | ✅            |
+| `/samples` (+sub) | ✅        | ✅         | ✅           | ✅          | ✅       | ❌            |
+| `/camera`         | ✅        | ✅         | ✅           | ✅          | ✅       | ❌            |
+| `/clients` (+sub) | ✅        | ✅         | ✅           | ✅          | ✅       | ❌            |
+| `/informe`        | ✅ viewer | ❌         | ✅ vazio     | ✅ proprios | ❌       | ❌            |
+| `/cadastros`      | ✅        | ❌         | ❌           | ❌          | ✅       | ❌            |
+| `/contratos`      | ✅        | ❌         | ❌           | ❌          | ❌       | ❌            |
+| `/users`          | ✅        | ❌         | ❌           | ❌          | ❌       | ❌            |
 
-`/informe` por papel: ADMIN/CADASTRO = viewer (todos os informes + curadoria;
-ADMIN cria); COMMERCIAL = proprios (scope=mine + FAB); REGISTRATION = placeholder
-vazio; CLASSIFIER/PROSPECTOR = sem acesso. (`app/informe/page.tsx`.)
+`/informe` por papel: ADMIN = viewer (todos os informes + curadoria + cria, FAB);
+COMMERCIAL = proprios (scope=mine + FAB); REGISTRATION = placeholder vazio;
+CLASSIFIER / CADASTRO / PROSPECTOR = sem acesso. (`app/informe/page.tsx`.)
 
 ---
 
@@ -231,34 +231,33 @@ no Classifier, Relatorios no Comercial); menu do avatar igual (Perfil, Sair).
 
 ## CADASTRO — "Cadastro"
 
-Papel de cadastro / back-office. E o mais amplo dos nao-ADMIN: alem de tudo que
-o Comercial alcanca (amostras, clientes, camera), tem a gestao do Fechamento
-(Cadastros + Contratos) e entra em "Relatorios" como VIEWER (supervisao +
-curadoria). So nao tem `/users` (exclusivo do ADMIN).
+Papel de cadastro / back-office. Acessa amostras, clientes e camera (como os
+demais nao-prospectores) e tem a pagina **Cadastros** (gestao de Bancos e
+Corretores). **Nao** acessa Relatorios nem Contratos (removidos em 2026-06-28;
+hoje so o ADMIN) nem `/users` (exclusivo do ADMIN).
 
 ### Onde navega (por superficie)
 
-| Destino    | Rota         | Desktop                       | Mobile                    |
-| ---------- | ------------ | ----------------------------- | ------------------------- |
-| Inicio     | `/dashboard` | Sidebar                       | Tabbar                    |
-| Lotes      | `/samples`   | Sidebar                       | Tabbar                    |
-| Clientes   | `/clients`   | Sidebar                       | Tabbar                    |
-| Relatorios | `/informe`   | Sidebar                       | Tabbar                    |
-| Camera     | `/camera`    | — (sem botao)                 | Tabbar (destaque, centro) |
-| Cadastros  | `/cadastros` | Sidebar                       | Menu do avatar            |
-| Contratos  | `/contratos` | Sidebar                       | Menu do avatar            |
-| Perfil     | `/profile`   | Menu do avatar ("Meu perfil") | Menu do avatar            |
-| Sair       | logout       | Menu do avatar                | Menu do avatar            |
+| Destino   | Rota         | Desktop                       | Mobile                            |
+| --------- | ------------ | ----------------------------- | --------------------------------- |
+| Inicio    | `/dashboard` | Sidebar                       | Tabbar                            |
+| Lotes     | `/samples`   | Sidebar                       | Tabbar                            |
+| Clientes  | `/clients`   | Sidebar                       | Tabbar                            |
+| Camera    | `/camera`    | — (sem botao)                 | Tabbar (destaque, centro)         |
+| Cadastros | `/cadastros` | Sidebar                       | Menu do avatar                    |
+| Perfil    | `/profile`   | Menu do avatar ("Meu perfil") | Tabbar (5o slot) + menu do avatar |
+| Sair      | logout       | Menu do avatar                | Menu do avatar                    |
 
 Contagem:
 
-- **Sidebar desktop: 6 itens** — Inicio, Lotes, Clientes, Relatorios, Cadastros,
-  Contratos.
-- **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, Clientes, Relatorios.
-  (Cadastros e Contratos nao cabem na tabbar — vao para o menu do avatar.)
+- **Sidebar desktop: 4 itens** — Inicio, Lotes, Clientes, Cadastros. (Perdeu
+  Relatorios e Contratos em 2026-06-28.)
+- **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, Clientes, Perfil. Sem
+  Relatorios; o 5o slot vira Perfil (mesma logica do Classifier, fora de
+  `INFORME_ROLES`). Cadastros nao cabe na tabbar — vai para o menu do avatar.
 - **Menu do avatar:** assimetrico por plataforma. No **desktop** sao 2 itens (Meu
-  perfil, Sair) — a gestao esta na sidebar. No **mobile** sao 4 itens (Perfil,
-  Cadastros, Contratos, Sair) — sem sidebar, o menu carrega a gestao.
+  perfil, Sair) — Cadastros esta na sidebar. No **mobile** sao 3 itens (Perfil,
+  Cadastros, Sair) — sem sidebar, o menu carrega Cadastros.
 
 ### Rotas acessiveis sem botao de navegacao
 
@@ -268,27 +267,30 @@ Contagem:
 
 ### Rotas bloqueadas (redirecionam para `/dashboard`)
 
+- `/informe` (Relatorios) e `/contratos` — removidos do CADASTRO em 2026-06-28
+  (so ADMIN). CADASTRO saiu de `INFORME_ROLES` e de `SALE_CONTRACT_MANAGE_ROLES`.
 - `/users` — exclusivo do ADMIN.
 
 ### Particularidades de conteudo
 
-- **`/informe` (Relatorios)**: CADASTRO entra como **viewer**
-  (`RelatoriosViewer`) — ve TODOS os informes (`scope=all`) e **cura** o vinculo
-  informe -> cliente (`isVisitLinkCurator` = ADMIN/CADASTRO). **Nao cria**
-  informes: o FAB e so do ADMIN (`canCreate={isAdmin(role)}`).
-  (`app/informe/page.tsx`, `components/informe/RelatoriosViewer.tsx`.)
-- **`/cadastros`**: gestao de Bancos e Corretores (Fechamento Fase 0).
-- **`/contratos`**: gestao dos contratos de venda (Fechamento).
+- **`/cadastros`**: gestao de Bancos e Corretores (Fechamento Fase 0). E a unica
+  pagina de "gestao" que sobra para o CADASTRO.
 - **`/dashboard`**: dashboard padrao (com `salesData`), igual aos demais
   nao-prospectores.
+- **Removido em 2026-06-28**: o CADASTRO era viewer + curador de Relatorios
+  (`/informe`) e gestor de Contratos (`/contratos`); o acesso foi retirado em
+  todas as camadas (nav, guards e autorizacao de API). Detalhe pendente: ainda
+  recebe as notificacoes push "Nova visita" que apontam para `/informe`
+  (audiencia hardcoded `['ADMIN','CADASTRO']` em `_notifyVisitReportCreated`,
+  fora desta mudanca).
 
 ### Diferenca para o COMMERCIAL
 
-CADASTRO = Comercial **+ gestao**: ganha Cadastros e Contratos (sidebar no
-desktop / menu do avatar no mobile) e muda o papel no Relatorios — o Comercial
-ve so os PROPRIOS informes e CRIA (FAB); o CADASTRO ve TODOS e CURA vinculos,
-mas NAO cria. Resultado: sidebar 6 vs 4; tabbar 5 vs 5 (iguais); menu do avatar
-no mobile 4 vs 2.
+CADASTRO e Comercial sao quase espelhos, trocando **Relatorios por Cadastros**: o
+Comercial tem Relatorios (proprios + FAB) e nenhuma gestao; o CADASTRO tem
+Cadastros (Bancos/Corretores) e nao tem Relatorios. Sidebar 4 vs 4 (Cadastros no
+lugar de Relatorios); tabbar 5 vs 5 (CADASTRO termina em Perfil, Comercial em
+Relatorios); menu do avatar no mobile 3 vs 2 (CADASTRO tem Cadastros a mais).
 
 ## ADMIN — "Administracao"
 
@@ -312,12 +314,13 @@ Observacoes neutras do mapeamento, sem juizo de "certo/errado":
    topbar, no `AppShell`) traz sempre so "Meu perfil" + "Sair" — a gestao
    (Cadastros/Contratos/Usuarios) fica na SIDEBAR. No MOBILE (bottom sheet
    `HeaderAvatarMenu`) nao ha sidebar, entao o menu do avatar TAMBEM carrega
-   Cadastros/Contratos (ADMIN/CADASTRO) e Usuarios (ADMIN) — por isso esses
+   Cadastros (ADMIN/CADASTRO) e Contratos + Usuarios (ADMIN) — por isso esses
    papeis tem mais itens no menu do avatar no mobile que no desktop. (Para papeis
    sem gestao, como Comercial e Classifier, o menu fica Perfil + Sair nos dois.)
-5. **CLASSIFIER e o unico nao-prospector sem Relatorios.** Dos cinco papeis de
-   `NON_PROSPECTOR_ROLES`, so o CLASSIFIER esta fora de `INFORME_ROLES`; por isso
-   tem a sidebar mais enxuta entre eles (3 itens).
+5. **Dois nao-prospectores ficam sem Relatorios: CLASSIFIER e CADASTRO.** Dos
+   cinco papeis de `NON_PROSPECTOR_ROLES`, CLASSIFIER (nunca teve) e CADASTRO
+   (removido em 2026-06-28) estao fora de `INFORME_ROLES`. No mobile, ambos
+   recebem Perfil como 5o item da tabbar, no lugar de Relatorios.
 
 ## Manutencao
 
