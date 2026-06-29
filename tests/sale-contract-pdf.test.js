@@ -39,9 +39,12 @@ function fakeContract(overrides = {}) {
     sellerWarehouseSnapshot: null,
     quantitySacks: 10,
     unitPrice: 1234.56,
+    totalValue: 12345.6,
     weightKg: null,
     sellerBrokeragePct: 2,
+    sellerBrokerageValue: 246.91,
     buyerBrokeragePct: 1.5,
+    buyerBrokerageValue: 185.18,
     agioDesagioType: null,
     agioDesagioValue: null,
     paymentCondition: '50% na retirada',
@@ -146,6 +149,41 @@ test('renderContractPdf: o documento cabe em UMA página (com todos os campos + 
       description: 'Descrição longa '.repeat(40),
     }),
     { lotNumber: '20001', issuer: getContractIssuer() }
+  );
+  const doc = await PDFDocument.load(buffer);
+  assert.equal(doc.getPageCount(), 1);
+});
+
+test('renderEspelhoPdf (vendedor): PDF válido (%PDF) e não-trivial', async () => {
+  const service = new SaleContractPdfService();
+  const { buffer, checksumSha256 } = await service.renderEspelhoPdf(fakeContract(), {
+    side: 'seller',
+    issuer: getContractIssuer(),
+  });
+  assert.ok(Buffer.isBuffer(buffer));
+  assert.equal(buffer.subarray(0, 5).toString('latin1'), '%PDF-');
+  assert.ok(buffer.length > 1200);
+  assert.match(checksumSha256, /^[0-9a-f]{64}$/);
+});
+
+test('renderEspelhoPdf: vendedor x comprador geram documentos diferentes (CLIENTE + comissão por lado)', async () => {
+  const service = new SaleContractPdfService();
+  const seller = await service.renderEspelhoPdf(fakeContract(), {
+    side: 'seller',
+    issuer: getContractIssuer(),
+  });
+  const buyer = await service.renderEspelhoPdf(fakeContract(), {
+    side: 'buyer',
+    issuer: getContractIssuer(),
+  });
+  assert.notEqual(seller.checksumSha256, buyer.checksumSha256);
+});
+
+test('renderEspelhoPdf: cabe em UMA página e lida com ágio/opcionais nulos', async () => {
+  const service = new SaleContractPdfService();
+  const { buffer } = await service.renderEspelhoPdf(
+    fakeContract({ agioDesagioType: null, agioDesagioValue: null, purchaseNumber: null }),
+    { side: 'buyer', issuer: getContractIssuer() }
   );
   const doc = await PDFDocument.load(buffer);
   assert.equal(doc.getPageCount(), 1);

@@ -614,4 +614,202 @@ export class SaleContractPdfService {
     const checksumSha256 = createHash('sha256').update(buffer).digest('hex');
     return { buffer, checksumSha256 };
   }
+
+  // Espelho de Corretagem (Fase E): demonstrativo de comissao DERIVADO de UM
+  // contrato (D70), on-demand. `side` = 'seller' | 'buyer' = a parte a quem o
+  // espelho e enderecado (D72): define o CLIENTE (topo) e a comissao impressa
+  // (sellerBrokerageValue/buyerBrokerageValue). Layout do legado: cabecalho do
+  // emissor + faixa-titulo + CLIENTE + tabela de 1 linha + TOTAL + dados
+  // bancarios da corretora (rodape, D74). Pagina unica. contract = view de
+  // getSaleContract (decimais como number, datas ISO, snapshots como objetos).
+  async renderEspelhoPdf(contract, { side, issuer }) {
+    const pdfDoc = await PDFDocument.create();
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const logoBytes = await tryReadPng(this.logoPath);
+    const logo = logoBytes ? await pdfDoc.embedPng(logoBytes).catch(() => null) : null;
+
+    const contentW = PAGE_W - 2 * MARGIN;
+    const page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+
+    const isSeller = side === 'seller';
+    const partySnap = isSeller ? contract.sellerSnapshot : contract.buyerSnapshot;
+    const clientName = snapshotName(partySnap) ?? '—';
+    const commission = isSeller ? contract.sellerBrokerageValue : contract.buyerBrokerageValue;
+    const agioLabel =
+      contract.agioDesagioType === 'AGIO'
+        ? 'Ágio'
+        : contract.agioDesagioType === 'DESAGIO'
+          ? 'Deságio'
+          : '';
+    // Numero BR com 2 casas, SEM "R$" (como no legado); null -> vazio.
+    const dec = (value) => {
+      const n = decimalToNumber(value);
+      return n === null ? '' : DEC2.format(n);
+    };
+
+    // ---------- Cabecalho (logo a esquerda + emissor a direita) — igual ao contrato ----------
+    if (logo) {
+      const logoH = 38;
+      const logoW = (logo.width / logo.height) * logoH;
+      page.drawImage(logo, { x: MARGIN, y: PAGE_H - 26 - logoH, width: logoW, height: logoH });
+    }
+    const rightX = PAGE_W - MARGIN;
+    const drawRight = (text, ty, size, bold) => {
+      const f = bold ? fontBold : font;
+      const t = fitText(text, f, size, contentW - 130);
+      const w = f.widthOfTextAtSize(t, size);
+      page.drawText(t, { x: rightX - w, y: ty, size, font: f, color: BLACK });
+    };
+    drawRight(issuer.name, PAGE_H - 30, 11, true);
+    drawRight(issuer.addressStreet ?? '', PAGE_H - 42, 8, false);
+    drawRight(issuer.cityUf ?? '', PAGE_H - 52, 8, false);
+    drawRight(`Bairro: ${issuer.district ?? ''}`, PAGE_H - 62, 8, false);
+    drawRight(`CNPJ: ${issuer.cnpj ?? ''}`, PAGE_H - 72, 8, false);
+    drawRight(`Telefone: ${issuer.phone ?? ''}`, PAGE_H - 82, 8, false);
+    let y = PAGE_H - 96;
+
+    // ---------- Titulo (faixa cinza) ----------
+    const titleBarH = 18;
+    page.drawRectangle({
+      x: MARGIN,
+      y: y - titleBarH,
+      width: contentW,
+      height: titleBarH,
+      color: LABEL_BG,
+      borderColor: LINE,
+      borderWidth: 0.5,
+    });
+    const titleText = 'ESPELHO DE CORRETAGEM';
+    const titleW = fontBold.widthOfTextAtSize(titleText, 11);
+    page.drawText(titleText, {
+      x: (PAGE_W - titleW) / 2,
+      y: y - 13,
+      size: 11,
+      font: fontBold,
+      color: BLACK,
+    });
+    y -= titleBarH + 16;
+
+    // ---------- CLIENTE ----------
+    const clienteLabel = 'CLIENTE: ';
+    page.drawText(clienteLabel, { x: MARGIN, y, size: 9, font: fontBold, color: BLACK });
+    const clw = fontBold.widthOfTextAtSize(clienteLabel, 9);
+    page.drawText(fitText(clientName, font, 9, contentW - clw), {
+      x: MARGIN + clw,
+      y,
+      size: 9,
+      font,
+      color: BLACK,
+    });
+    y -= 18;
+
+    // ---------- Tabela (cabecalho + 1 linha de dados) ----------
+    // 10 colunas finas (pesos -> larguras). Valores BR sem "R$" (como o legado).
+    const columns = [
+      { label: 'N.º Contrato', value: contract.contractNumber, weight: 8.5 },
+      { label: 'Data', value: formatDateBR(contract.contractDate), weight: 8 },
+      { label: 'Pagamento', value: formatDateBR(contract.paymentDate), weight: 8 },
+      { label: 'Preço', value: dec(contract.unitPrice), weight: 7.5 },
+      { label: 'Sacas', value: dec(contract.quantitySacks), weight: 7 },
+      { label: 'Ágio/Deságio', value: agioLabel, weight: 9 },
+      { label: 'Valor', value: dec(contract.agioDesagioValue ?? 0), weight: 6.5 },
+      { label: 'Valor Comissão', value: dec(commission), weight: 9.5 },
+      { label: 'Nº Compra', value: contract.purchaseNumber, weight: 7.5 },
+      { label: 'Comprador / Vendedor', value: clientName, weight: 19 },
+    ];
+    const totalWeight = columns.reduce((sum, c) => sum + c.weight, 0);
+    let cx = MARGIN;
+    const colX = columns.map((c) => {
+      const w = (c.weight / totalWeight) * contentW;
+      const x = cx;
+      cx += w;
+      return { x, w };
+    });
+    const hLine = (ly) =>
+      page.drawLine({
+        start: { x: MARGIN, y: ly },
+        end: { x: MARGIN + contentW, y: ly },
+        thickness: 0.6,
+        color: LINE,
+      });
+    const headerY = y;
+    hLine(headerY + 4);
+    columns.forEach((c, i) => {
+      const { x, w } = colX[i];
+      page.drawText(fitText(c.label, fontBold, 6.5, w - 4), {
+        x: x + 2,
+        y: headerY - 6,
+        size: 6.5,
+        font: fontBold,
+        color: BLACK,
+      });
+    });
+    hLine(headerY - 11);
+    const rowY = headerY - 14;
+    columns.forEach((c, i) => {
+      const { x, w } = colX[i];
+      page.drawText(fitText(c.value, font, 7, w - 4), {
+        x: x + 2,
+        y: rowY - 3,
+        size: 7,
+        font,
+        color: BLACK,
+      });
+    });
+    hLine(rowY - 9);
+    y = rowY - 9 - 18;
+
+    // ---------- TOTAL (alinhado a direita) ----------
+    const totalText = `TOTAL: ${formatCurrencyBRL(commission) ?? 'R$ 0,00'}`;
+    const totalW = fontBold.widthOfTextAtSize(totalText, 10);
+    page.drawText(totalText, {
+      x: MARGIN + contentW - totalW,
+      y,
+      size: 10,
+      font: fontBold,
+      color: BLACK,
+    });
+    y -= 36;
+
+    // ---------- Dados bancarios da corretora (centralizado, D74) ----------
+    const center = (text, ty, size, bold) => {
+      const f = bold ? fontBold : font;
+      const t = fitText(text, f, size, contentW);
+      const w = f.widthOfTextAtSize(t, size);
+      page.drawText(t, { x: (PAGE_W - w) / 2, y: ty, size, font: f, color: BLACK });
+      return w;
+    };
+    const centerPair = (label, value, ty, size) => {
+      const lt = `${label} `;
+      const lw = fontBold.widthOfTextAtSize(lt, size);
+      const vt = fitText(value ?? '', font, size, contentW - lw);
+      const vw = font.widthOfTextAtSize(vt, size);
+      const startX = (PAGE_W - (lw + vw)) / 2;
+      page.drawText(lt, { x: startX, y: ty, size, font: fontBold, color: BLACK });
+      page.drawText(vt, { x: startX + lw, y: ty, size, font, color: BLACK });
+    };
+    const headW = center('DADOS BANCÁRIOS PARA PAGAMENTO:', y, 9, true);
+    page.drawLine({
+      start: { x: (PAGE_W - headW) / 2, y: y - 2 },
+      end: { x: (PAGE_W + headW) / 2, y: y - 2 },
+      thickness: 0.6,
+      color: BLACK,
+    });
+    y -= 16;
+    center(issuer.name, y, 8, false);
+    y -= 12;
+    center(issuer.bankName ?? '', y, 8, true);
+    y -= 12;
+    centerPair('Agência:', issuer.bankAgency, y, 8);
+    y -= 12;
+    centerPair('Conta Corrente:', issuer.bankAccount, y, 8);
+    y -= 12;
+    centerPair('CNPJ:', issuer.cnpj, y, 8);
+
+    const bytes = await pdfDoc.save();
+    const buffer = Buffer.from(bytes);
+    const checksumSha256 = createHash('sha256').update(buffer).digest('hex');
+    return { buffer, checksumSha256 };
+  }
 }

@@ -11,10 +11,26 @@ const ISSUER = Object.freeze({
   phone: '(35) 3531-4046',
 });
 
+// Conta bancaria FIXA da corretora (D74) — usada no rodape do Espelho de
+// Corretagem ("DADOS BANCARIOS PARA PAGAMENTO"), onde o cliente paga a corretagem.
+// Defaults = a conta real (SICREDI), com override por env (mesmo padrao do CNPJ).
+const ISSUER_BANK = Object.freeze({
+  bankName: 'SICREDI',
+  bankAgency: '0361',
+  bankAccount: '83515-3',
+});
+
+function envOr(name, fallback) {
+  const value = (process.env[name] ?? '').trim();
+  return value || fallback;
+}
+
 export function getContractIssuer() {
-  const cnpj = (process.env.CONTRACT_ISSUER_CNPJ ?? '').trim();
   return {
     ...ISSUER,
-    cnpj: cnpj || '23.490.860/0001-56',
+    cnpj: envOr('CONTRACT_ISSUER_CNPJ', '23.490.860/0001-56'),
+    bankName: envOr('CONTRACT_ISSUER_BANK_NAME', ISSUER_BANK.bankName),
+    bankAgency: envOr('CONTRACT_ISSUER_BANK_AGENCY', ISSUER_BANK.bankAgency),
+    bankAccount: envOr('CONTRACT_ISSUER_BANK_ACCOUNT', ISSUER_BANK.bankAccount),
   };
 }

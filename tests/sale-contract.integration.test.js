@@ -908,6 +908,28 @@ if (!databaseUrl || !databaseReachable) {
     assert.ok(buffer.length > 1500);
   });
 
+  test('Espelho: contrato CONFIRMADO renderiza %PDF p/ os 2 lados, com a comissão de cada lado', async () => {
+    const { contractId } = await setupConfirmedContract({ lotNumber: '21099' });
+    const { contract } = await saleContractService.getSaleContract(contractId, adminActor);
+
+    // venda padrao: 10 sacas x R$100 = R$1000; corretagem vend 2% = 20, comp 1% = 10
+    assert.equal(contract.status, 'CONFIRMADO');
+    assert.equal(contract.sellerBrokerageValue, 20);
+    assert.equal(contract.buyerBrokerageValue, 10);
+
+    const seller = await saleContractPdfService.renderEspelhoPdf(contract, {
+      side: 'seller',
+      issuer: getContractIssuer(),
+    });
+    const buyer = await saleContractPdfService.renderEspelhoPdf(contract, {
+      side: 'buyer',
+      issuer: getContractIssuer(),
+    });
+    assert.equal(seller.buffer.subarray(0, 5).toString('latin1'), '%PDF-');
+    assert.equal(buyer.buffer.subarray(0, 5).toString('latin1'), '%PDF-');
+    assert.notEqual(seller.checksumSha256, buyer.checksumSha256);
+  });
+
   test('faturar: CONFIRMADO -> FATURADO grava invoicedAt', async () => {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '22001' });
     const r = await saleContractService.invoiceSaleContract(

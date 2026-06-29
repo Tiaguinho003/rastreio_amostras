@@ -3004,6 +3004,50 @@ export function createBackendApiV1({
         };
       }),
 
+    // Espelho de Corretagem (Fase E): PDF on-demand DERIVADO de UM contrato
+    // (D70-D76). Gate via getSaleContract (ADMIN); so para contratos CONGELADOS
+    // (CONFIRMADO/FATURADO/PAGO, D73). `side` (query) = seller|buyer (D72) define
+    // o CLIENTE (topo) e o lado da comissao impressa. Sem persistencia (D71).
+    exportEspelhoPdf: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractService || !saleContractPdfService) {
+          throw new HttpError(501, 'Sale contract PDF service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const contractId = input?.params?.contractId;
+        if (typeof contractId !== 'string' || contractId.length === 0) {
+          throw new HttpError(422, 'contractId path param is required');
+        }
+        const side = input?.query?.side;
+        if (side !== 'seller' && side !== 'buyer') {
+          throw new HttpError(422, "query param 'side' deve ser 'seller' ou 'buyer'", {
+            code: 'ESPELHO_INVALID_SIDE',
+          });
+        }
+        const { contract } = await saleContractService.getSaleContract(contractId, actor);
+        const ELIGIBLE_STATUSES = ['CONFIRMADO', 'FATURADO', 'PAGO'];
+        if (!ELIGIBLE_STATUSES.includes(contract.status)) {
+          throw new HttpError(
+            409,
+            'O Espelho de Corretagem só é gerado para contratos confirmados',
+            { code: 'ESPELHO_NOT_ELIGIBLE' }
+          );
+        }
+        const { buffer } = await saleContractPdfService.renderEspelhoPdf(contract, {
+          side,
+          issuer: getContractIssuer(),
+        });
+        const sideTag = side === 'seller' ? 'vendedor' : 'comprador';
+        return {
+          status: 200,
+          body: {
+            buffer,
+            fileName: `espelho-corretagem-${contract.contractNumber.replace('/', '-')}-${sideTag}.pdf`,
+            contentType: 'application/pdf',
+          },
+        };
+      }),
+
     // ============================================================
     // Contas bancarias de cliente (Fechamento Fase 0 -- D28)
     // ============================================================
