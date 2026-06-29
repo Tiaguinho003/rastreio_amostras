@@ -148,35 +148,38 @@ export function BrokerMultiSelectField({
 
   return (
     <div className="bms-field" ref={containerRef}>
-      {selectedBrokers.length > 0 ? (
-        <div className="bms-chips">
-          {selectedBrokers.map((broker) => (
-            <span key={broker.id} className="bms-chip">
+      {/* Control box (altura ESTATICA): chips selecionados + input numa UNICA
+          linha; se houver muitos, enfileiram e o box rola na horizontal — nunca
+          quebra linha nem muda de altura. */}
+      <div className="bms-control">
+        {selectedBrokers.map((broker) => (
+          <span key={broker.id} className="bms-chip">
+            <span className="bms-chip-label" title={broker.name}>
               {broker.name}
-              <button
-                type="button"
-                className="bms-chip-remove"
-                disabled={disabled}
-                aria-label={`Remover ${broker.name}`}
-                onClick={() => removeBroker(broker.id)}
-              >
-                <span aria-hidden="true">&times;</span>
-              </button>
             </span>
-          ))}
-        </div>
-      ) : null}
-      <input
-        className="app-modal-input"
-        value={search}
-        disabled={disabled}
-        placeholder={selectedBrokers.length ? 'Adicionar outro corretor' : 'Buscar corretor'}
-        onChange={(event) => {
-          setSearch(event.target.value);
-          setOpen(true);
-        }}
-        onFocus={() => setOpen(true)}
-      />
+            <button
+              type="button"
+              className="bms-chip-remove"
+              disabled={disabled}
+              aria-label={`Remover ${broker.name}`}
+              onClick={() => removeBroker(broker.id)}
+            >
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </span>
+        ))}
+        <input
+          className="bms-input"
+          value={search}
+          disabled={disabled}
+          placeholder={selectedBrokers.length ? 'Adicionar outro' : 'Buscar corretor'}
+          onChange={(event) => {
+            setSearch(event.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+        />
+      </div>
       {open ? (
         <div className="bms-dropdown">
           {loading ? <p className="bms-empty">Carregando corretores...</p> : null}

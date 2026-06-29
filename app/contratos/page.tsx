@@ -353,7 +353,11 @@ export default function ContratosPage() {
           open
           mode="create"
           saving={spotSaving}
-          title="Registrar venda à vista"
+          title="Registrar venda"
+          infoFields={[
+            { label: 'Tipo', value: 'À vista' },
+            { label: 'Lote', value: spotSale.sample.internalLotNumber ?? 'Sem número' },
+          ]}
           initialMovementType="SALE"
           availableSacks={spotSale.sample.availableSacks ?? 0}
           blend={

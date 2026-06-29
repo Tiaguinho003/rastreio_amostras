@@ -40,6 +40,9 @@ type SampleMovementModalProps = {
   mode: 'create' | 'edit';
   saving?: boolean;
   title: string;
+  // Campos de visualizacao (so-leitura) numa unica linha no topo do form —
+  // ex.: tipo de contrato + lote (venda a vista pela pagina Contratos).
+  infoFields?: { label: string; value: string }[];
   initialMovementType?: SampleMovementType;
   movement?: SampleMovement | null;
   availableSacks?: number;
@@ -114,6 +117,7 @@ export function SampleMovementModal({
   mode,
   saving = false,
   title,
+  infoFields,
   initialMovementType = 'SALE',
   movement = null,
   availableSacks = 0,
@@ -615,139 +619,138 @@ export function SampleMovementModal({
           </div>
         ) : null}
 
-        <form className="app-modal-content" onSubmit={handleSubmit}>
-          {showBuyerFields ? (
-            <div className="app-modal-field">
-              <span className="app-modal-label">Comprador</span>
-              <ClientLookupField
-                session={session}
-                label="Comprador"
-                kind="buyer"
-                selectedClient={buyerClient}
-                disabled={saving}
-                compact
-                onSelectClient={(client) => {
-                  setBuyerClient(client);
-                  setError(null);
-                }}
-                emptyMessage="Nenhum comprador encontrado."
-                onRequestCreate={(searchTerm) => {
-                  setBuyerQuickCreateSeed(searchTerm);
-                  setBuyerQuickCreateOpen(true);
-                }}
-                createLabel="Cadastrar comprador"
-              />
-            </div>
-          ) : (
-            <label className="app-modal-field">
-              <span className="app-modal-label">Motivo da perda</span>
-              <input
-                className="app-modal-input"
-                value={lossReasonText}
-                disabled={saving}
-                onChange={(event) => setLossReasonText(event.target.value.toUpperCase())}
-                placeholder="Descreva a origem da perda"
-              />
-            </label>
-          )}
-
-          {/* Data — logo abaixo do Comprador/Motivo (layout) */}
-          {dataField}
-
-          {/* Liga (Fase 5): a venda/perda de uma liga e 100% — bloco de total +
-              pre-validacao da cascata, sem campo de quantidade. */}
-          {isBlend ? (
-            <>
-              <div className="sdv-blend-mov-total">
-                <span className="sdv-blend-mov-total-label">
-                  {mode === 'edit'
-                    ? movementType === 'SALE'
-                      ? 'Venda da liga inteira'
-                      : 'Perda da liga inteira'
-                    : movementType === 'SALE'
-                      ? 'Vai vender a liga inteira'
-                      : 'Vai registrar a perda da liga inteira'}
-                </span>
-                <span className="sdv-blend-mov-total-value">{effectiveLimit} sc</span>
-              </div>
-
-              {feasibilityLoading ? (
-                <p className="sdv-modal-hint">Verificando as origens da liga...</p>
-              ) : null}
-              {feasibilityError ? <p className="sdv-modal-error">{feasibilityError}</p> : null}
-              {blendInfeasible && feasibility ? (
-                <div className="sdv-warn-box">
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
-                    <path d="M12 9v4" />
-                    <path d="M12 17h.01" />
-                  </svg>
-                  <div className="sdv-warn-text">
-                    <strong>Esta liga nao pode ser fechada agora</strong>
-                    Origem(ns) sem saldo suficiente pra cascata:
-                    <ul className="sdv-blend-mov-blockers">
-                      {feasibility.blockingOrigins.map((origin) => (
-                        <li key={origin.sampleId}>
-                          Lote {origin.lotNumber ?? origin.sampleId.slice(0, 8)} — precisa{' '}
-                          {origin.contributedSacks} sc, tem {origin.availableSacks} sc
-                        </li>
-                      ))}
-                    </ul>
+        <form className="app-modal-content sample-detail-movement-content" onSubmit={handleSubmit}>
+          <div className="smm-scroll">
+            {infoFields && infoFields.length > 0 ? (
+              <div className="smm-info-row">
+                {infoFields.map((field) => (
+                  <div key={field.label} className="smm-info">
+                    <span className="smm-info-label">{field.label}</span>
+                    <span className="smm-info-value">{field.value}</span>
                   </div>
-                </div>
-              ) : null}
-            </>
-          ) : null}
-
-          {/* Sacas + Preço lado a lado (venda a vista, nao-liga). LOSS: so Sacas.
-              Liga em venda: so Preço (a quantidade ja e 100%). */}
-          {!isBlend && needsContractTerms ? (
-            <div style={halfRowStyle}>
-              {sacasField}
-              {priceField}
-            </div>
-          ) : !isBlend ? (
-            sacasField
-          ) : needsContractTerms ? (
-            priceField
-          ) : null}
-
-          {/* Corretagens lado a lado (50/50) + Corretores */}
-          {needsContractTerms ? (
-            <>
-              <div style={halfRowStyle}>
-                {sellerBrokerageField}
-                {buyerBrokerageField}
+                ))}
               </div>
-              {brokersField}
-            </>
-          ) : null}
+            ) : null}
+            {showBuyerFields ? (
+              <div className="app-modal-field">
+                <span className="app-modal-label">Comprador</span>
+                <ClientLookupField
+                  session={session}
+                  label="Comprador"
+                  kind="buyer"
+                  selectedClient={buyerClient}
+                  disabled={saving}
+                  compact
+                  onSelectClient={(client) => {
+                    setBuyerClient(client);
+                    setError(null);
+                  }}
+                  emptyMessage="Nenhum comprador encontrado."
+                  onRequestCreate={(searchTerm) => {
+                    setBuyerQuickCreateSeed(searchTerm);
+                    setBuyerQuickCreateOpen(true);
+                  }}
+                  createLabel="Cadastrar comprador"
+                />
+              </div>
+            ) : (
+              <label className="app-modal-field">
+                <span className="app-modal-label">Motivo da perda</span>
+                <input
+                  className="app-modal-input"
+                  value={lossReasonText}
+                  disabled={saving}
+                  onChange={(event) => setLossReasonText(event.target.value.toUpperCase())}
+                  placeholder="Descreva a origem da perda"
+                />
+              </label>
+            )}
 
-          {showBuyerFields ? (
-            <label className="app-modal-field">
-              <span className="app-modal-label">Observacoes (opcional)</span>
-              <input
-                className="app-modal-input"
-                value={notes}
-                disabled={saving}
-                onChange={(event) => setNotes(event.target.value.toUpperCase())}
-                placeholder="Observacoes adicionais"
-              />
-            </label>
-          ) : null}
+            {/* Data — logo abaixo do Comprador/Motivo (layout) */}
+            {dataField}
 
-          {mode === 'edit' ? (
-            <label className="app-modal-field">
-              <span className="app-modal-label">Motivo da edicao</span>
-              <input
-                className="app-modal-input"
-                value={reasonText}
-                disabled={saving}
-                onChange={(event) => setReasonText(event.target.value.toUpperCase())}
-                placeholder="Obrigatorio"
-              />
-            </label>
-          ) : null}
+            {/* Liga (Fase 5): a venda/perda de uma liga e 100% — bloco de total +
+              pre-validacao da cascata, sem campo de quantidade. */}
+            {isBlend ? (
+              <>
+                <div className="sdv-blend-mov-total">
+                  <span className="sdv-blend-mov-total-label">
+                    {mode === 'edit'
+                      ? movementType === 'SALE'
+                        ? 'Venda da liga inteira'
+                        : 'Perda da liga inteira'
+                      : movementType === 'SALE'
+                        ? 'Vai vender a liga inteira'
+                        : 'Vai registrar a perda da liga inteira'}
+                  </span>
+                  <span className="sdv-blend-mov-total-value">{effectiveLimit} sc</span>
+                </div>
+
+                {feasibilityLoading ? (
+                  <p className="sdv-modal-hint">Verificando as origens da liga...</p>
+                ) : null}
+                {feasibilityError ? <p className="sdv-modal-error">{feasibilityError}</p> : null}
+                {blendInfeasible && feasibility ? (
+                  <div className="sdv-warn-box">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+                      <path d="M12 9v4" />
+                      <path d="M12 17h.01" />
+                    </svg>
+                    <div className="sdv-warn-text">
+                      <strong>Esta liga nao pode ser fechada agora</strong>
+                      Origem(ns) sem saldo suficiente pra cascata:
+                      <ul className="sdv-blend-mov-blockers">
+                        {feasibility.blockingOrigins.map((origin) => (
+                          <li key={origin.sampleId}>
+                            Lote {origin.lotNumber ?? origin.sampleId.slice(0, 8)} — precisa{' '}
+                            {origin.contributedSacks} sc, tem {origin.availableSacks} sc
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                ) : null}
+              </>
+            ) : null}
+
+            {/* Sacas + Preço lado a lado (venda a vista, nao-liga). LOSS: so Sacas.
+              Liga em venda: so Preço (a quantidade ja e 100%). */}
+            {!isBlend && needsContractTerms ? (
+              <div style={halfRowStyle}>
+                {sacasField}
+                {priceField}
+              </div>
+            ) : !isBlend ? (
+              sacasField
+            ) : needsContractTerms ? (
+              priceField
+            ) : null}
+
+            {/* Corretagens lado a lado (50/50) + Corretores */}
+            {needsContractTerms ? (
+              <>
+                <div style={halfRowStyle}>
+                  {sellerBrokerageField}
+                  {buyerBrokerageField}
+                </div>
+                {brokersField}
+              </>
+            ) : null}
+
+            {mode === 'edit' ? (
+              <label className="app-modal-field">
+                <span className="app-modal-label">Motivo da edicao</span>
+                <input
+                  className="app-modal-input"
+                  value={reasonText}
+                  disabled={saving}
+                  onChange={(event) => setReasonText(event.target.value.toUpperCase())}
+                  placeholder="Obrigatorio"
+                />
+              </label>
+            ) : null}
+          </div>
 
           <div className="app-modal-actions sample-detail-movement-actions">
             <button
