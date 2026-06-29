@@ -5388,6 +5388,20 @@ button:disabled {
   --fan-radius: calc(var(--fab-size) / 2 + var(--fan-gap) + var(--fan-opt-size) / 2);
 }
 
+/* FAB radial da pagina /contratos (ContractCreateRadialFab) — mesmas vars do
+   leque (.fab-fan-*), ancoradas no `.clients-page-v2.ctr-page` (pagina
+   nao-samples). Espelha o `.rsm-fab-anchor`. */
+.clients-page-v2.ctr-page {
+  --fab-right: clamp(24px, 7vw, 34px);
+  --fab-size: clamp(53px, 14.95vw, 60px);
+  --fab-bottom: calc(
+    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(6.3rem, 27vw, 6.8rem)
+  );
+  --fan-opt-size: clamp(44px, 12vw, 50px);
+  --fan-gap: clamp(40px, 12vw, 50px);
+  --fan-radius: calc(var(--fab-size) / 2 + var(--fan-gap) + var(--fan-opt-size) / 2);
+}
+
 /* Sheet E cards em BRANCO puro `#ffffff` (a pedido do usuario, 2026-06-16; vai
    alem do `#f4f6f5` do dashboard — UNICA excecao ao "nunca #fff puro", ver
    design-system §1). Cards sem o gradiente quente e com sombra reforcada pra
