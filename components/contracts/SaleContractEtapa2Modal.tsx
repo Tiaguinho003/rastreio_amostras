@@ -12,6 +12,12 @@ import {
   listContractLookups,
   updateClient,
 } from '../../lib/api-client';
+import {
+  formatCurrencyValue,
+  maskCurrencyInput,
+  parseCurrencyInput,
+  parseDecimalBr,
+} from '../../lib/currency';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import { ClientLookupField } from '../clients/ClientLookupField';
 import { ClientUnitModal } from '../clients/ClientUnitModal';
@@ -112,7 +118,7 @@ export function SaleContractEtapa2Modal({
         setWeightKg(c.weightKg != null ? String(c.weightKg) : '');
         setPaymentCondition(c.paymentCondition ?? '');
         setAgioType(c.agioDesagioType ?? '');
-        setAgioValue(c.agioDesagioValue != null ? String(c.agioDesagioValue) : '');
+        setAgioValue(formatCurrencyValue(c.agioDesagioValue));
         setPaymentFormId(c.paymentFormId ?? '');
         setModalityId(c.modalityId ?? '');
         setPackagingId(c.packagingId ?? '');
@@ -257,9 +263,9 @@ export function SaleContractEtapa2Modal({
       paymentCondition: paymentCondition.trim() || null,
       observations: observations.trim() || null,
       description: description.trim() || null,
-      weightKg: weightKg.trim() ? Number(weightKg.replace(',', '.')) : null,
+      weightKg: weightKg.trim() ? parseDecimalBr(weightKg) : null,
       agioDesagioType: agioType || null,
-      agioDesagioValue: agioType ? Number(agioValue.replace(',', '.')) : null,
+      agioDesagioValue: agioType ? parseCurrencyInput(agioValue) : null,
     };
     try {
       await emitSaleContract(session, contractId, payload);
@@ -610,7 +616,7 @@ export function SaleContractEtapa2Modal({
                     value={agioValue}
                     disabled={disabled}
                     onChange={(event) => {
-                      setAgioValue(event.target.value.replace(/[^0-9.,]/g, ''));
+                      setAgioValue(maskCurrencyInput(event.target.value));
                       setError(null);
                     }}
                     placeholder="0,00"
