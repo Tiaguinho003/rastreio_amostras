@@ -39,7 +39,21 @@ export function EspelhoCorretagemModal({
   onClose,
 }: EspelhoCorretagemModalProps) {
   const focusTrapRef = useFocusTrap(true);
-  const [side, setSide] = useState<EspelhoSide>('seller');
+  // O espelho é direcionado a quem paga corretagem: os lados disponíveis são os
+  // que têm corretagem PREENCHIDA (> 0). Só vendedor → só "Vendedor"; só
+  // comprador → só "Comprador"; ambos → os dois. Fallback (nenhum preenchido):
+  // oferece os dois, p/ não travar o modal.
+  const hasSeller = (contract.sellerBrokeragePct ?? 0) > 0;
+  const hasBuyer = (contract.buyerBrokeragePct ?? 0) > 0;
+  const availableSides: EspelhoSide[] =
+    hasSeller && hasBuyer
+      ? ['seller', 'buyer']
+      : hasSeller
+        ? ['seller']
+        : hasBuyer
+          ? ['buyer']
+          : ['seller', 'buyer'];
+  const [side, setSide] = useState<EspelhoSide>(() => availableSides[0] ?? 'seller');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -129,22 +143,17 @@ export function EspelhoCorretagemModal({
 
         <div className="app-modal-content ctr-doc-content">
           <div className="ctr-espelho-side" role="group" aria-label="Parte do espelho">
-            <button
-              type="button"
-              className={`ctr-espelho-side-btn${side === 'seller' ? ' is-active' : ''}`}
-              aria-pressed={side === 'seller'}
-              onClick={() => setSide('seller')}
-            >
-              Vendedor
-            </button>
-            <button
-              type="button"
-              className={`ctr-espelho-side-btn${side === 'buyer' ? ' is-active' : ''}`}
-              aria-pressed={side === 'buyer'}
-              onClick={() => setSide('buyer')}
-            >
-              Comprador
-            </button>
+            {availableSides.map((s) => (
+              <button
+                key={s}
+                type="button"
+                className={`ctr-espelho-side-btn${side === s ? ' is-active' : ''}`}
+                aria-pressed={side === s}
+                onClick={() => setSide(s)}
+              >
+                {s === 'seller' ? 'Vendedor' : 'Comprador'}
+              </button>
+            ))}
           </div>
 
           <div className="ctr-espelho-summary">
