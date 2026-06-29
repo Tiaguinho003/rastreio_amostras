@@ -1,9 +1,11 @@
 'use client';
 
 // FAB radial da página /contratos. Usa o MESMO leque (speed-dial) da página
-// /samples (.cv2-fab + .fab-fan-*): 2 opções circulares emergem do FAB em arco
-// — Mercado à vista ACIMA (posição is-lote) e Futuro À ESQUERDA (posição
-// is-aprovacao). Ao abrir, o FAB encolhe/fica circular, a página escurece
+// /samples (.cv2-fab + .fab-fan-*): 3 opções circulares emergem do FAB em arco
+// — Mercado à vista ACIMA (posição is-lote), Espelho de Corretagem na DIAGONAL
+// (posição is-liga) e Futuro À ESQUERDA (posição is-aprovacao). O Espelho NÃO
+// cria contrato: entra no modo de SELEÇÃO (Fase E, D76). Ao abrir, o FAB
+// encolhe/fica circular, a página escurece
 // (scrim) e a tabbar escurece (body.is-fab-fan-*). Usa o "+" (rotaciona 45° →
 // "×"), igual ao de Amostras — sem o crossfade lápis do /informe.
 //
@@ -16,11 +18,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-type MenuAction = 'spot' | 'future';
+type MenuAction = 'spot' | 'future' | 'espelho';
 
 interface ContractCreateRadialFabProps {
   onCreateSpot: () => void;
   onCreateFuture: () => void;
+  onCreateEspelho: () => void;
   disabled?: boolean;
 }
 
@@ -31,6 +34,7 @@ const CLOSE_ANIMATION_MS = 360;
 export function ContractCreateRadialFab({
   onCreateSpot,
   onCreateFuture,
+  onCreateEspelho,
   disabled,
 }: ContractCreateRadialFabProps) {
   const [mounted, setMounted] = useState(false);
@@ -113,8 +117,10 @@ export function ContractCreateRadialFab({
       closeMenu();
       if (action === 'spot') {
         onCreateSpot();
-      } else {
+      } else if (action === 'future') {
         onCreateFuture();
+      } else {
+        onCreateEspelho();
       }
       actionFiredRef.current = false;
     }, 130);
@@ -161,6 +167,33 @@ export function ContractCreateRadialFab({
                 {/* Cédula — pagamento à vista. */}
                 <rect x="3" y="7" width="18" height="10" rx="2" />
                 <circle cx="12" cy="12" r="2.4" />
+              </svg>
+            </span>
+          </button>
+
+          {/* Espelho de Corretagem — diagonal (posicao is-liga do arco). NAO cria
+              contrato: dispara o modo de selecao (Fase E). */}
+          <button
+            type="button"
+            className={`fab-fan-option is-liga${open ? ' is-open' : ''}${
+              pulsingOption === 'espelho' ? ' is-pulsing' : ''
+            }`}
+            aria-label="Espelho de Corretagem"
+            role="menuitem"
+            tabIndex={open ? 0 : -1}
+            onClick={() => handleOptionTap('espelho')}
+          >
+            <span className="fab-fan-option-label">Espelho</span>
+            <span className="fab-fan-option-circle">
+              <svg
+                className="fab-fan-option-icon"
+                viewBox="0 0 24 24"
+                focusable="false"
+                aria-hidden="true"
+              >
+                {/* Documento/demonstrativo de comissao. */}
+                <rect x="5" y="3" width="14" height="18" rx="2" />
+                <path d="M9 8h6M9 12h6M9 16h3" />
               </svg>
             </span>
           </button>

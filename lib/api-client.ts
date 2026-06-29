@@ -1524,6 +1524,37 @@ export async function downloadSaleContractPdf(session: SessionData, contractId: 
   return { blob, fileName };
 }
 
+// Espelho de Corretagem (Fase E): baixa/visualiza o PDF do espelho (regenerado
+// on-demand; só CONFIRMADO/FATURADO/PAGO). `side` = 'seller' | 'buyer' define a
+// parte (CLIENTE) e o lado da comissão. Cookie de sessão via credentials.
+export async function downloadEspelhoPdf(
+  session: SessionData,
+  contractId: string,
+  side: 'seller' | 'buyer'
+) {
+  void session;
+  const response = await fetch(
+    `${API_BASE}/sale-contracts/${contractId}/espelho/pdf?side=${side}`,
+    { method: 'GET', cache: 'no-store', credentials: 'same-origin' }
+  );
+
+  if (!response.ok) {
+    const payload = await parseJsonSafe(response);
+    const maybeError = payload.error as { message?: string; details?: unknown } | undefined;
+    throw new ApiError(
+      response.status,
+      maybeError?.message ?? 'Erro ao gerar o Espelho de Corretagem.',
+      maybeError?.details ?? null
+    );
+  }
+
+  const blob = await response.blob();
+  const fileName =
+    parseFileNameFromContentDisposition(response.headers.get('content-disposition')) ||
+    'espelho-corretagem.pdf';
+  return { blob, fileName };
+}
+
 export function recordPhysicalSampleSent(
   session: SessionData,
   sampleId: string,

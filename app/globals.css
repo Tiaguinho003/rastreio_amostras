@@ -34756,6 +34756,128 @@ body.is-selection-mode .hero-search-filter-btn {
 }
 
 /* ---------------------------------------------------------------------------
+   Espelho de Corretagem (Fase E): banner do modo de selecao (D76) + card
+   selecionavel (tap-to-open) + toggle de lado/resumo do modal de conferencia.
+   Reusa .ctr-card / .ctr-doc-* / .app-modal.
+   --------------------------------------------------------------------------- */
+.ctr-espelho-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0 clamp(0.5rem, 3vw, 1rem) 0.6rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.85rem;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+}
+.ctr-espelho-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ctr-espelho-banner-text strong {
+  font-size: 0.92rem;
+  color: #065f46;
+}
+.ctr-espelho-banner-text span {
+  font-size: 0.8rem;
+  color: #047857;
+}
+.ctr-espelho-banner-cancel {
+  flex-shrink: 0;
+  border: 1px solid #6ee7b7;
+  background: #fff;
+  color: #065f46;
+  border-radius: 0.7rem;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Card selecionavel (o card inteiro vira botao de selecao) */
+.ctr-card-selectable .ctr-card-head-btn {
+  cursor: pointer;
+}
+.ctr-card-selectable.is-ineligible {
+  opacity: 0.5;
+}
+.ctr-card-selectable.is-ineligible .ctr-card-head-btn {
+  cursor: not-allowed;
+}
+.ctr-card-select-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #047857;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.ctr-card-select-cta .ctr-card-arrow {
+  width: 1rem;
+  height: 1rem;
+}
+.ctr-card-select-hint {
+  font-size: 0.72rem;
+  color: var(--muted, #6b7280);
+}
+
+/* Modal de conferencia do espelho: subtitulo + toggle de lado + resumo */
+.app-modal-subtitle {
+  margin: 0.1rem 0 0;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+.ctr-espelho-side {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.7rem;
+}
+.ctr-espelho-side-btn {
+  flex: 1 1 0;
+  padding: 0.5rem 0.6rem;
+  border-radius: 0.7rem;
+  border: 1px solid var(--border, #d1d5db);
+  background: #fff;
+  color: var(--ink, #1f2937);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ctr-espelho-side-btn.is-active {
+  background: #065f46;
+  border-color: #065f46;
+  color: #fff;
+}
+.ctr-espelho-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1.2rem;
+  margin-bottom: 0.7rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.7rem;
+  background: var(--surface-muted, #f3f4f6);
+}
+.ctr-espelho-summary-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+.ctr-espelho-summary-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted, #6b7280);
+}
+.ctr-espelho-summary-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink, #1f2937);
+}
+
+/* ---------------------------------------------------------------------------
    Fechamento (criacao a vista pela pagina): modal de selecao de lote.
    Header fixo + busca + lista rolavel (.app-modal.is-themed e flex-column com
    altura limitada; a lista cresce e rola, o resto fica fixo).

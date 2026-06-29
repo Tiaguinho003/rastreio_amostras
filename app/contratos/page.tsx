@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppShell } from '../../components/AppShell';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { ContractCreateRadialFab } from '../../components/contracts/ContractCreateRadialFab';
+import { EspelhoCorretagemModal } from '../../components/contracts/EspelhoCorretagemModal';
 import { SaleContractCard } from '../../components/contracts/SaleContractCard';
 import { SaleContractConfirmDialog } from '../../components/contracts/SaleContractConfirmDialog';
 import { SaleContractDocumentModal } from '../../components/contracts/SaleContractDocumentModal';
@@ -31,6 +32,9 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: 'PAGO', label: 'Pago' },
   { value: 'WASH_OUT', label: 'Quebrado' },
 ];
+
+// Espelho de Corretagem (Fase E): só contratos congelados podem gerar o espelho (D73).
+const ESPELHO_ELIGIBLE: SaleContractStatus[] = ['CONFIRMADO', 'FATURADO', 'PAGO'];
 
 export default function ContratosPage() {
   const { session, loading, logout, setSession } = useRequireAuth({
@@ -83,6 +87,10 @@ export default function ContratosPage() {
     ownerClientId: string | null;
     nextNumber: string | null;
   } | null>(null);
+
+  // Espelho de Corretagem (Fase E): modo de seleção (D76) + alvo (abre o modal só-leitura).
+  const [espelhoMode, setEspelhoMode] = useState(false);
+  const [espelhoTarget, setEspelhoTarget] = useState<SaleContract | null>(null);
 
   const refresh = useCallback(async () => {
     if (!session) return;
@@ -144,6 +152,25 @@ export default function ContratosPage() {
             <span className="nsv2-avatar-initials">{avatarInitials}</span>
           </Link>
         </header>
+
+        {espelhoMode ? (
+          <div className="ctr-espelho-banner" role="status">
+            <div className="ctr-espelho-banner-text">
+              <strong>Espelho de Corretagem</strong>
+              <span>Selecione um contrato confirmado para gerar o documento.</span>
+            </div>
+            <button
+              type="button"
+              className="ctr-espelho-banner-cancel"
+              onClick={() => {
+                setEspelhoMode(false);
+                setEspelhoTarget(null);
+              }}
+            >
+              Cancelar
+            </button>
+          </div>
+        ) : null}
 
         <div className="hero-search-wrap">
           <form
@@ -248,6 +275,9 @@ export default function ContratosPage() {
                           contractNumber: contract.contractNumber,
                         })
                       }
+                      espelhoMode={espelhoMode}
+                      espelhoEligible={ESPELHO_ELIGIBLE.includes(contract.status)}
+                      onSelectEspelho={() => setEspelhoTarget(contract)}
                     />
                   );
                 })}
@@ -256,10 +286,13 @@ export default function ContratosPage() {
           </div>
         </section>
 
-        <ContractCreateRadialFab
-          onCreateSpot={() => setSpotPickerOpen(true)}
-          onCreateFuture={() => setFutureOpen(true)}
-        />
+        {!espelhoMode ? (
+          <ContractCreateRadialFab
+            onCreateSpot={() => setSpotPickerOpen(true)}
+            onCreateFuture={() => setFutureOpen(true)}
+            onCreateEspelho={() => setEspelhoMode(true)}
+          />
+        ) : null}
       </section>
 
       {etapa2 ? (
@@ -379,6 +412,15 @@ export default function ContratosPage() {
             void refresh();
             toast.success({ title: 'Contrato à vista gerado' });
           }}
+        />
+      ) : null}
+
+      {/* Espelho de Corretagem (Fase E): conferência só-leitura + Exportar/Baixar. */}
+      {espelhoTarget ? (
+        <EspelhoCorretagemModal
+          session={session}
+          contract={espelhoTarget}
+          onClose={() => setEspelhoTarget(null)}
         />
       ) : null}
     </AppShell>

@@ -6,6 +6,10 @@ import type { SaleContract, SaleContractStatus, SaleContractType } from '../../l
 // recolhida (basico) + expandida (dropdown estilo Lotes): barra colorida por
 // status na lateral + acoes e detalhes ao expandir. As acoes dependem do status
 // (maquina do Passo 2). Nomes das partes vem do snapshot.
+//
+// Modo de selecao do Espelho de Corretagem (Fase E, D76): quando `espelhoMode`,
+// o card vira um BOTAO de selecao (tap-to-open); inelegiveis (status nao
+// congelado) ficam esmaecidos e nao selecionaveis.
 
 const STATUS_META: Record<SaleContractStatus, { label: string; variant: string }> = {
   EM_ABERTO: { label: 'Em aberto', variant: 'status-badge-neutral' },
@@ -73,6 +77,11 @@ type SaleContractCardProps = {
   onReverter: () => void;
   onWashout: () => void;
   onVisualizar: () => void;
+  // Modo de selecao p/ o Espelho de Corretagem (Fase E): o card vira botao de
+  // selecao; inelegiveis (status != CONFIRMADO/FATURADO/PAGO) ficam esmaecidos.
+  espelhoMode?: boolean;
+  espelhoEligible?: boolean;
+  onSelectEspelho?: () => void;
 };
 
 export function SaleContractCard({
@@ -88,9 +97,78 @@ export function SaleContractCard({
   onReverter,
   onWashout,
   onVisualizar,
+  espelhoMode = false,
+  espelhoEligible = false,
+  onSelectEspelho,
 }: SaleContractCardProps) {
   const meta = STATUS_META[contract.status];
 
+  // Cabecalho (numero + status + partes) — compartilhado pelos dois modos.
+  const head = (
+    <>
+      <span
+        className="ctr-card-bar"
+        style={{ background: STATUS_BAR_COLOR[contract.status] }}
+        aria-hidden="true"
+      />
+      <span className="ctr-card-head-main">
+        <span className="ctr-card-top">
+          <span className="ctr-card-number">{contract.contractNumber}</span>
+          <span
+            className="ctr-card-status"
+            style={{
+              color: STATUS_BAR_COLOR[contract.status],
+              background: STATUS_TINT[contract.status],
+            }}
+          >
+            {meta.label}
+          </span>
+        </span>
+        <span className="ctr-card-parties">
+          <span className="ctr-card-party">{snapshotName(contract.sellerSnapshot)}</span>
+          <svg className="ctr-card-arrow" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 12h14M13 6l6 6-6 6" />
+          </svg>
+          <span className="ctr-card-party">{snapshotName(contract.buyerSnapshot)}</span>
+        </span>
+      </span>
+    </>
+  );
+
+  // ----- Modo de selecao do Espelho de Corretagem (tap-to-open, D76) -----
+  if (espelhoMode) {
+    return (
+      <div className={`ctr-card ctr-card-selectable${espelhoEligible ? '' : ' is-ineligible'}`}>
+        <button
+          type="button"
+          className="ctr-card-head-btn"
+          onClick={espelhoEligible ? onSelectEspelho : undefined}
+          disabled={!espelhoEligible}
+          aria-label={
+            espelhoEligible
+              ? `Gerar Espelho de Corretagem do contrato ${contract.contractNumber}`
+              : `Contrato ${contract.contractNumber} indisponível para espelho`
+          }
+        >
+          {head}
+          <span className="ctr-card-head-right">
+            {espelhoEligible ? (
+              <span className="ctr-card-select-cta">
+                Gerar
+                <svg className="ctr-card-arrow" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 12h14M13 6l6 6-6 6" />
+                </svg>
+              </span>
+            ) : (
+              <span className="ctr-card-select-hint">Só confirmados</span>
+            )}
+          </span>
+        </button>
+      </div>
+    );
+  }
+
+  // ----- Modo normal (gestao) -----
   return (
     <div className={`ctr-card${isExpanded ? ' is-expanded' : ''}`}>
       <button
@@ -99,32 +177,7 @@ export function SaleContractCard({
         onClick={onToggle}
         aria-expanded={isExpanded}
       >
-        <span
-          className="ctr-card-bar"
-          style={{ background: STATUS_BAR_COLOR[contract.status] }}
-          aria-hidden="true"
-        />
-        <span className="ctr-card-head-main">
-          <span className="ctr-card-top">
-            <span className="ctr-card-number">{contract.contractNumber}</span>
-            <span
-              className="ctr-card-status"
-              style={{
-                color: STATUS_BAR_COLOR[contract.status],
-                background: STATUS_TINT[contract.status],
-              }}
-            >
-              {meta.label}
-            </span>
-          </span>
-          <span className="ctr-card-parties">
-            <span className="ctr-card-party">{snapshotName(contract.sellerSnapshot)}</span>
-            <svg className="ctr-card-arrow" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M5 12h14M13 6l6 6-6 6" />
-            </svg>
-            <span className="ctr-card-party">{snapshotName(contract.buyerSnapshot)}</span>
-          </span>
-        </span>
+        {head}
         <span className="ctr-card-head-right">
           <span className="ctr-card-type">{TYPE_LABEL[contract.type] ?? contract.type}</span>
           <svg className="ctr-card-chevron" viewBox="0 0 24 24" aria-hidden="true">
