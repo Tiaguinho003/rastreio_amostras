@@ -240,7 +240,7 @@ export class VisitReportService {
     if (isPromising) {
       sends.push(
         this.pushService.sendToRoles(
-          ['ADMIN', 'CADASTRO'],
+          ['ADMIN'],
           {
             title: 'Nova visita promissora enviada',
             body: `${visitorName} visitou um cliente promissor. Confira!`,
@@ -257,7 +257,7 @@ export class VisitReportService {
     if (view.clientKind === 'NEW') {
       sends.push(
         this.pushService.sendToRoles(
-          ['ADMIN', 'CADASTRO'],
+          ['ADMIN'],
           {
             title: 'Novo cliente encontrado!',
             body: 'Clique para ver os dados e cadastrá-lo',

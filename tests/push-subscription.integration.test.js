@@ -338,31 +338,29 @@ if (!databaseUrl || !databaseReachable) {
     }
 
     // Situacao 2 isolada: cliente novo + tamanho pequeno -> so "Novo cliente
-    // encontrado!" pra ADMIN + CADASTRO.
+    // encontrado!" pra ADMIN. CADASTRO saiu da audiencia em 2026-06-28 (perdeu
+    // o acesso a Relatorios), entao seu aparelho NAO recebe.
     await sendVisit({});
     assert.deepEqual(fakeWebPush.sent.map((s) => s.payload.title).sort(), [
-      'Novo cliente encontrado!',
       'Novo cliente encontrado!',
     ]);
     assert.deepEqual(fakeWebPush.sent.map((s) => s.endpoint).sort(), [
       'https://push.example/trig-admin',
-      'https://push.example/trig-cadastro',
     ]);
     assert.equal(fakeWebPush.sent[0].payload.url, '/informe');
     fakeWebPush.sent.length = 0;
 
-    // Situacao 1 isolada: cliente EXISTENTE + Medio + Alto -> so a
-    // promissora, pra ADMIN + CADASTRO com o autor (COMMERCIAL) excluido.
+    // Situacao 1 isolada: cliente EXISTENTE + Medio + Alto -> so a promissora,
+    // pra ADMIN (CADASTRO fora da audiencia; autor COMMERCIAL excluido).
     await sendVisit({
       clientKind: 'EXISTING',
       clientId: existingClient.id,
       newClientName: null,
       farmSize: 'MEDIUM',
     });
-    assert.equal(fakeWebPush.sent.length, 2);
+    assert.equal(fakeWebPush.sent.length, 1);
     assert.deepEqual(fakeWebPush.sent.map((s) => s.endpoint).sort(), [
       'https://push.example/trig-admin',
-      'https://push.example/trig-cadastro',
     ]);
     assert.ok(fakeWebPush.sent.every((s) => s.payload.title === 'Nova visita promissora enviada'));
     assert.ok(fakeWebPush.sent[0].payload.body.includes('cliente promissor'));
@@ -388,16 +386,11 @@ if (!databaseUrl || !databaseReachable) {
     });
     assert.equal(fakeWebPush.sent.length, 0);
 
-    // As duas situacoes juntas: cliente NOVO + Grande + Alto -> promissora
-    // (ADMIN+CADASTRO, autor fora) E novo cliente (ADMIN+CADASTRO).
+    // As duas situacoes juntas: cliente NOVO + Grande + Alto -> promissora E
+    // novo cliente, ambas so pra ADMIN (autor fora, CADASTRO fora).
     await sendVisit({ farmSize: 'LARGE' });
     const titles = fakeWebPush.sent.map((s) => s.payload.title).sort();
-    assert.deepEqual(titles, [
-      'Nova visita promissora enviada',
-      'Nova visita promissora enviada',
-      'Novo cliente encontrado!',
-      'Novo cliente encontrado!',
-    ]);
+    assert.deepEqual(titles, ['Nova visita promissora enviada', 'Novo cliente encontrado!']);
   });
 }
 

@@ -279,10 +279,11 @@ Contagem:
   nao-prospectores.
 - **Removido em 2026-06-28**: o CADASTRO era viewer + curador de Relatorios
   (`/informe`) e gestor de Contratos (`/contratos`); o acesso foi retirado em
-  todas as camadas (nav, guards e autorizacao de API). Detalhe pendente: ainda
-  recebe as notificacoes push "Nova visita" que apontam para `/informe`
-  (audiencia hardcoded `['ADMIN','CADASTRO']` em `_notifyVisitReportCreated`,
-  fora desta mudanca).
+  todas as camadas (nav, guards e autorizacao de API). As 2 notificacoes push de
+  visita ("Nova visita promissora" / "Novo cliente encontrado") que apontam para
+  `/informe` tambem sairam do CADASTRO (audiencia em `_notifyVisitReportCreated`
+  agora `['ADMIN']`). O lembrete semanal do COMMERCIAL e o deep link
+  `/dashboard?informe=novo` do PROSPECTOR nao envolvem o CADASTRO.
 
 ### Diferenca para o COMMERCIAL
 

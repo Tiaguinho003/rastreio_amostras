@@ -253,7 +253,7 @@ autor** da ação do público.
 - Disparo:       Por evento — criação de informe de visita (createVisitReport)
 - Quando:        farmSize ∈ {MEDIUM, LARGE} E interestLevel = HIGH
                  (as duas condições juntas)
-- Público-alvo:  ADMIN, CADASTRO   (exclui: autor do informe)
+- Público-alvo:  ADMIN   (exclui: autor do informe; CADASTRO saiu 2026-06-28)
 - Título:        "Nova visita promissora enviada"
 - Corpo:         "{nome do visitante} visitou um cliente promissor. Confira!"
                  (fullName; fallback username; fallback "Alguém")
@@ -274,7 +274,7 @@ autor** da ação do público.
 - Canal:         Web Push
 - Disparo:       Por evento — criação de informe de visita (createVisitReport)
 - Quando:        clientKind = 'NEW' (independente das demais respostas)
-- Público-alvo:  ADMIN, CADASTRO   (exclui: autor do informe)
+- Público-alvo:  ADMIN   (exclui: autor do informe; CADASTRO saiu 2026-06-28)
 - Título:        "Novo cliente encontrado!"
 - Corpo:         "Clique para ver os dados e cadastrá-lo"
 - Deep link:     /informe   (página "Relatórios" unificada; /resumo redireciona)
