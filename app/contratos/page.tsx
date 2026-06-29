@@ -13,11 +13,25 @@ import {
   SaleContractLifecycleDialog,
   type LifecycleAction,
 } from '../../components/contracts/SaleContractLifecycleDialog';
-import { ApiError, downloadSaleContractPdf, listSaleContracts } from '../../lib/api-client';
+import { SaleContractLotPickerModal } from '../../components/contracts/SaleContractLotPickerModal';
+import { SampleMovementModal } from '../../components/samples/SampleMovementModal';
+import {
+  ApiError,
+  createSampleMovement,
+  downloadSaleContractPdf,
+  getSampleDetail,
+  listSaleContracts,
+  updateRegistration,
+} from '../../lib/api-client';
 import { shareOrDownloadFile } from '../../lib/share-blob';
 import { useRequireAuth } from '../../lib/use-auth';
 import { useToast } from '../../lib/toast/ToastProvider';
-import type { SaleContract, SaleContractStatus } from '../../lib/types';
+import type {
+  ActiveBlendDetail,
+  SaleContract,
+  SaleContractStatus,
+  SampleSnapshot,
+} from '../../lib/types';
 
 type StatusFilter = 'ALL' | SaleContractStatus;
 
@@ -63,6 +77,15 @@ export default function ContratosPage() {
     action: LifecycleAction;
     status: SaleContractStatus;
   } | null>(null);
+
+  // Criacao a vista pela pagina: picker de lote -> venda (cria o contrato
+  // EM_ABERTO) -> encadeia a Etapa 2 (Gerar documento) com o id recem-criado.
+  const [spotPickerOpen, setSpotPickerOpen] = useState(false);
+  const [spotSale, setSpotSale] = useState<{
+    sample: SampleSnapshot;
+    activeBlends: ActiveBlendDetail[];
+  } | null>(null);
+  const [spotSaving, setSpotSaving] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!session) return;
@@ -248,7 +271,7 @@ export default function ContratosPage() {
         </section>
 
         <ContractCreateRadialFab
-          onCreateSpot={() => toast.info({ title: 'Mercado à vista — em breve' })}
+          onCreateSpot={() => setSpotPickerOpen(true)}
           onCreateFuture={() => toast.info({ title: 'Contrato Futuro — em breve' })}
         />
       </section>
@@ -306,6 +329,86 @@ export default function ContratosPage() {
                       ? 'Pagamento desfeito'
                       : 'Faturamento desfeito';
             toast.success({ title });
+          }}
+        />
+      ) : null}
+
+      {spotPickerOpen ? (
+        <SaleContractLotPickerModal
+          session={session}
+          onClose={() => setSpotPickerOpen(false)}
+          onPicked={(sample, activeBlends) => {
+            setSpotPickerOpen(false);
+            setSpotSale({ sample, activeBlends });
+          }}
+        />
+      ) : null}
+
+      {spotSale ? (
+        <SampleMovementModal
+          session={session}
+          open
+          mode="create"
+          saving={spotSaving}
+          title="Registrar venda à vista"
+          initialMovementType="SALE"
+          availableSacks={spotSale.sample.availableSacks ?? 0}
+          blend={
+            spotSale.sample.isBlend
+              ? {
+                  sampleId: spotSale.sample.id,
+                  ownerClientId: spotSale.sample.ownerClientId ?? null,
+                }
+              : null
+          }
+          activeBlends={spotSale.sample.isBlend ? [] : spotSale.activeBlends}
+          onAssignOwner={async (ownerClientId) => {
+            // Liga sem dono: atribui e recarrega o detalhe (version/blend frescos).
+            await updateRegistration(session, spotSale.sample.id, {
+              expectedVersion: spotSale.sample.version,
+              after: { ownerClientId },
+              reasonCode: 'DATA_FIX',
+              reasonText: 'Atribuicao de dono a liga antes da movimentacao comercial',
+            });
+            const detail = await getSampleDetail(session, spotSale.sample.id);
+            setSpotSale({ sample: detail.sample, activeBlends: detail.activeBlends ?? [] });
+          }}
+          onClose={() => {
+            if (!spotSaving) setSpotSale(null);
+          }}
+          onSubmit={async (data) => {
+            setSpotSaving(true);
+            try {
+              const result = await createSampleMovement(session, spotSale.sample.id, {
+                expectedVersion: spotSale.sample.version,
+                movementType: data.movementType,
+                buyerClientId: data.buyerClientId,
+                buyerUnitId: data.buyerUnitId,
+                quantitySacks: data.quantitySacks,
+                movementDate: data.movementDate,
+                notes: data.notes,
+                lossReasonText: data.lossReasonText,
+                unitPrice: data.unitPrice ?? undefined,
+                sellerBrokeragePct: data.sellerBrokeragePct ?? undefined,
+                buyerBrokeragePct: data.buyerBrokeragePct ?? undefined,
+                brokerIds: data.brokerIds.length > 0 ? data.brokerIds : undefined,
+              });
+              setSpotSale(null);
+              void refresh();
+              // Encadeia a Etapa 2 (Gerar documento) com o contrato recem-criado.
+              if (result.saleContract) {
+                setEtapa2({ contractId: result.saleContract.id, mode: 'emit' });
+              } else {
+                toast.success({ title: 'Venda registrada' });
+              }
+            } catch (cause) {
+              toast.error({
+                title: 'Não foi possível registrar a venda',
+                description: cause instanceof ApiError ? cause.message : undefined,
+              });
+            } finally {
+              setSpotSaving(false);
+            }
           }}
         />
       ) : null}
