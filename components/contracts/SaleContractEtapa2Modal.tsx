@@ -5,7 +5,9 @@ import { createPortal } from 'react-dom';
 
 import {
   ApiError,
+  cancelSaleContract,
   createClientUnit,
+  createSampleMovement,
   emitSaleContract,
   getClient,
   getSaleContract,
@@ -36,10 +38,30 @@ import type {
 
 type SaleContractEtapa2ModalProps = {
   session: SessionData;
-  contractId: string;
+  // Card: contrato existente (emit/view). Wizard a vista: ausente (usa createContext).
+  contractId?: string;
   mode: 'emit' | 'view';
   onClose: () => void;
   onSaved: () => void;
+  // Wizard a vista (modo CRIACAO): o contrato ainda NAO existe. O submit cria a
+  // venda+contrato (createSampleMovement) e em seguida emite (create->emit). O
+  // prefill vem do sample + dos dados da venda do passo 1. "Voltar" = onBack.
+  createContext?: {
+    sampleId: string;
+    sampleVersion: number;
+    sellerClientId: string | null;
+    sale: {
+      buyerClientId: string | null;
+      buyerUnitId: string | null;
+      quantitySacks: number;
+      movementDate: string;
+      unitPrice: number | null;
+      sellerBrokeragePct: number | null;
+      buyerBrokeragePct: number | null;
+      brokerIds: string[];
+    };
+  };
+  onBack?: () => void;
 };
 
 function dateInputValue(iso: string | null): string {
@@ -60,9 +82,16 @@ export function SaleContractEtapa2Modal({
   mode,
   onClose,
   onSaved,
+  createContext,
+  onBack,
 }: SaleContractEtapa2ModalProps) {
   const focusTrapRef = useFocusTrap(true);
   const readOnly = mode === 'view';
+  // Modo CRIACAO (wizard): nao ha contrato ainda; o submit faz create->emit.
+  const isCreate = createContext != null;
+  // Guarda de falha parcial: se o create deu certo mas o emit falhou, guardamos
+  // o id pra o retry NAO recriar (so re-emitir) e pra limpar ao voltar/fechar.
+  const [createdId, setCreatedId] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -91,7 +120,6 @@ export function SaleContractEtapa2Modal({
   // Campos simples
   const [purchaseNumber, setPurchaseNumber] = useState('');
   const [weightKg, setWeightKg] = useState('');
-  const [paymentCondition, setPaymentCondition] = useState('');
   const [agioType, setAgioType] = useState<'' | 'AGIO' | 'DESAGIO'>('');
   const [agioValue, setAgioValue] = useState('');
   const [paymentFormId, setPaymentFormId] = useState('');
@@ -116,6 +144,34 @@ export function SaleContractEtapa2Modal({
       setLoading(true);
       setLoadError(null);
       try {
+        // Modo CRIACAO (wizard): sem contrato; carrega lookups e pre-preenche
+        // vendedor (dono do lote) + comprador/filial (da venda do passo 1).
+        if (createContext) {
+          const lookupsRes = await listContractLookups(session);
+          if (aborted) return;
+          setLookups(lookupsRes);
+          setContract(null);
+          setBuyerUnitId(createContext.sale.buyerUnitId ?? '');
+          const [sellerD, buyerD] = await Promise.all([
+            createContext.sellerClientId
+              ? getClient(session, createContext.sellerClientId).catch(() => null)
+              : null,
+            createContext.sale.buyerClientId
+              ? getClient(session, createContext.sale.buyerClientId).catch(() => null)
+              : null,
+          ]);
+          if (aborted) return;
+          if (sellerD) {
+            setSeller(sellerD.client);
+            setSellerUnits(sellerD.units);
+          }
+          if (buyerD) {
+            setBuyer(buyerD.client);
+            setBuyerUnits(buyerD.units);
+          }
+          return;
+        }
+        if (!contractId) return;
         const [contractRes, lookupsRes] = await Promise.all([
           getSaleContract(session, contractId),
           listContractLookups(session),
@@ -126,7 +182,6 @@ export function SaleContractEtapa2Modal({
         setLookups(lookupsRes);
         setPurchaseNumber(c.purchaseNumber ?? '');
         setWeightKg(c.weightKg != null ? String(c.weightKg) : '');
-        setPaymentCondition(c.paymentCondition ?? '');
         setAgioType(c.agioDesagioType ?? '');
         setAgioValue(formatCurrencyValue(c.agioDesagioValue));
         setPaymentFormId(c.paymentFormId ?? '');
@@ -172,7 +227,7 @@ export function SaleContractEtapa2Modal({
     return () => {
       aborted = true;
     };
-  }, [session, contractId]);
+  }, [session, contractId, createContext]);
 
   const sellerIsPF = seller?.personType === 'PF';
   const buyerIsPF = buyer?.personType === 'PF';
@@ -256,7 +311,8 @@ export function SaleContractEtapa2Modal({
   }
 
   async function handleSubmit() {
-    if (!contract) return;
+    // Card: exige o contrato carregado. Wizard (create): nao ha contrato ainda.
+    if (!isCreate && !contract) return;
     // Erros por campo (molde da Etapa 1): mensagem especifica do 1o pendente.
     if (!seller) {
       setError('Selecione o vendedor.');
@@ -301,7 +357,7 @@ export function SaleContractEtapa2Modal({
     setSaving(true);
     setError(null);
     const payload: SaleContractEtapa2Input = {
-      expectedVersion: contract.version,
+      expectedVersion: 0,
       sellerClientId: seller.id,
       buyerClientId: buyer?.id ?? null,
       sellerUnitId: sellerIsPF ? sellerUnitId || null : null,
@@ -315,7 +371,7 @@ export function SaleContractEtapa2Modal({
       invoiceDate,
       paymentDate,
       purchaseNumber: purchaseNumber.trim() || null,
-      paymentCondition: paymentCondition.trim() || null,
+      paymentCondition: null,
       observations: observations.trim() || null,
       description: description.trim() || null,
       weightKg: weightKg.trim() ? parseDecimalBr(weightKg) : null,
@@ -323,8 +379,40 @@ export function SaleContractEtapa2Modal({
       agioDesagioValue: agioType ? parseCurrencyInput(agioValue) : null,
     };
     try {
-      await emitSaleContract(session, contractId, payload);
-      onSaved();
+      if (isCreate && createContext) {
+        // Commit adiado do wizard: cria a venda+contrato e em seguida emite. Se o
+        // create ja foi feito num retry anterior (createdId), NAO recria.
+        let cid = createdId;
+        if (!cid) {
+          const res = await createSampleMovement(session, createContext.sampleId, {
+            expectedVersion: createContext.sampleVersion,
+            movementType: 'SALE',
+            buyerClientId: createContext.sale.buyerClientId,
+            buyerUnitId: createContext.sale.buyerUnitId,
+            quantitySacks: createContext.sale.quantitySacks,
+            movementDate: createContext.sale.movementDate,
+            unitPrice: createContext.sale.unitPrice ?? undefined,
+            sellerBrokeragePct: createContext.sale.sellerBrokeragePct ?? undefined,
+            buyerBrokeragePct: createContext.sale.buyerBrokeragePct ?? undefined,
+            brokerIds:
+              createContext.sale.brokerIds.length > 0 ? createContext.sale.brokerIds : undefined,
+          });
+          cid = res.saleContract?.id ?? null;
+          setCreatedId(cid);
+        }
+        if (!cid) {
+          setError('Falha ao registrar a venda.');
+          return;
+        }
+        await emitSaleContract(session, cid, payload);
+        onSaved();
+      } else if (contractId && contract) {
+        await emitSaleContract(session, contractId, {
+          ...payload,
+          expectedVersion: contract.version,
+        });
+        onSaved();
+      }
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 409) {
         setError('Este contrato foi modificado. Recarregue a página e tente de novo.');
@@ -334,6 +422,20 @@ export function SaleContractEtapa2Modal({
     } finally {
       setSaving(false);
     }
+  }
+
+  // "Voltar"/fechar no wizard: limpa um EM_ABERTO orfao (se o create deu certo mas
+  // o emit falhou) antes de sair, pra nao deixar contrato solto nem duplicar.
+  async function cleanupPartialThen(next: () => void) {
+    if (createdId) {
+      try {
+        await cancelSaleContract(session, createdId, { expectedVersion: 0 });
+      } catch {
+        /* best-effort: se falhar, o EM_ABERTO fica recuperavel pelo card */
+      }
+      setCreatedId(null);
+    }
+    next();
   }
 
   const disabled = readOnly || saving;
@@ -447,14 +549,15 @@ export function SaleContractEtapa2Modal({
         <header className="app-modal-header">
           <div className="app-modal-title-wrap">
             <h3 id="ctr-etapa2-title" className="app-modal-title">
-              {readOnly ? 'Contrato' : 'Gerar documento'}
-              {contract ? ` ${contract.contractNumber}` : ''}
+              {readOnly
+                ? `Contrato${contract ? ` ${contract.contractNumber}` : ''}`
+                : 'Gerar rascunho'}
             </h3>
           </div>
           <button
             type="button"
             className="app-modal-close"
-            onClick={onClose}
+            onClick={isCreate ? () => void cleanupPartialThen(onClose) : onClose}
             disabled={saving}
             aria-label="Fechar"
           >
@@ -643,17 +746,6 @@ export function SaleContractEtapa2Modal({
                 </select>
               </label>
 
-              <label className="app-modal-field">
-                <span className="app-modal-label">Condição de pagamento (opcional)</span>
-                <input
-                  className="app-modal-input"
-                  value={paymentCondition}
-                  disabled={disabled}
-                  onChange={(event) => setPaymentCondition(event.target.value)}
-                  placeholder="Ex.: 50% na retirada, 50% em 30 dias"
-                />
-              </label>
-
               <div style={halfRowStyle}>
                 <label className="app-modal-field">
                   <span className="app-modal-label">Data de faturamento</span>
@@ -753,9 +845,14 @@ export function SaleContractEtapa2Modal({
           </div>
         )}
 
-        <div className="app-modal-actions">
-          <button type="button" className="app-modal-secondary" onClick={onClose} disabled={saving}>
-            {readOnly ? 'Fechar' : 'Cancelar'}
+        <div className={`app-modal-actions${!readOnly ? ' ctr-etapa2-actions' : ''}`}>
+          <button
+            type="button"
+            className="app-modal-secondary"
+            onClick={isCreate ? () => void cleanupPartialThen(onBack ?? onClose) : onClose}
+            disabled={saving}
+          >
+            {isCreate ? 'Voltar' : readOnly ? 'Fechar' : 'Cancelar'}
           </button>
           {!readOnly ? (
             <button

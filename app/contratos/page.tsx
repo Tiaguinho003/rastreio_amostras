@@ -14,11 +14,14 @@ import {
   type LifecycleAction,
 } from '../../components/contracts/SaleContractLifecycleDialog';
 import { SaleContractLotPickerModal } from '../../components/contracts/SaleContractLotPickerModal';
-import { SampleMovementModal } from '../../components/samples/SampleMovementModal';
+import {
+  SampleMovementModal,
+  type SampleMovementModalSubmitInput,
+} from '../../components/samples/SampleMovementModal';
 import {
   ApiError,
-  createSampleMovement,
   downloadSaleContractPdf,
+  getNextContractNumber,
   getSampleDetail,
   listSaleContracts,
   updateRegistration,
@@ -81,11 +84,51 @@ export default function ContratosPage() {
   // Criacao a vista pela pagina: picker de lote -> venda (cria o contrato
   // EM_ABERTO) -> encadeia a Etapa 2 (Gerar documento) com o id recem-criado.
   const [spotPickerOpen, setSpotPickerOpen] = useState(false);
-  const [spotSale, setSpotSale] = useState<{
+  // Wizard à vista: passo 1 (Registrar venda) → passo 2 (Gerar rascunho). O
+  // contrato só é criado no fim (passo 2); saleData preserva ao "Voltar".
+  const [spotWizard, setSpotWizard] = useState<{
+    step: 1 | 2;
     sample: SampleSnapshot;
     activeBlends: ActiveBlendDetail[];
+    nextNumber: string | null;
+    saleData: SampleMovementModalSubmitInput | null;
   } | null>(null);
-  const [spotSaving, setSpotSaving] = useState(false);
+  // Contexto de criação pro 2º modal (estável p/ o effect dele) — só quando há
+  // dados da venda (passo 2). O create→emit roda dentro do Etapa2 (modo criação).
+  const spotCreateContext = useMemo(() => {
+    if (!spotWizard?.saleData) return undefined;
+    const sale = spotWizard.saleData;
+    return {
+      sampleId: spotWizard.sample.id,
+      sampleVersion: spotWizard.sample.version,
+      sellerClientId: spotWizard.sample.ownerClientId ?? null,
+      sale: {
+        buyerClientId: sale.buyerClientId,
+        buyerUnitId: sale.buyerUnitId,
+        quantitySacks: sale.quantitySacks,
+        movementDate: sale.movementDate,
+        unitPrice: sale.unitPrice,
+        sellerBrokeragePct: sale.sellerBrokeragePct,
+        buyerBrokeragePct: sale.buyerBrokeragePct,
+        brokerIds: sale.brokerIds,
+      },
+    };
+  }, [spotWizard]);
+  // initialSale do passo 1 (prefill ao voltar) — ESTÁVEL (dep só na saleData, não
+  // no sample) pra o reset do modal NÃO re-rodar a cada render / ao atribuir dono.
+  const spotSaleData = spotWizard?.saleData ?? null;
+  const spotInitialSale = useMemo(() => {
+    if (!spotSaleData) return undefined;
+    return {
+      buyerClient: spotSaleData.buyerClient,
+      quantitySacks: spotSaleData.quantitySacks,
+      unitPrice: spotSaleData.unitPrice,
+      sellerBrokeragePct: spotSaleData.sellerBrokeragePct,
+      buyerBrokeragePct: spotSaleData.buyerBrokeragePct,
+      brokerIds: spotSaleData.brokerIds,
+      movementDate: spotSaleData.movementDate,
+    };
+  }, [spotSaleData]);
 
   const refresh = useCallback(async () => {
     if (!session) return;
@@ -340,82 +383,78 @@ export default function ContratosPage() {
         <SaleContractLotPickerModal
           session={session}
           onClose={() => setSpotPickerOpen(false)}
-          onPicked={(sample, activeBlends) => {
+          onPicked={async (sample, activeBlends) => {
             setSpotPickerOpen(false);
-            setSpotSale({ sample, activeBlends });
+            let nextNumber: string | null = null;
+            try {
+              nextNumber = (await getNextContractNumber(session)).contractNumber;
+            } catch {
+              nextNumber = null;
+            }
+            setSpotWizard({ step: 1, sample, activeBlends, nextNumber, saleData: null });
           }}
         />
       ) : null}
 
-      {spotSale ? (
+      {/* Wizard à vista — PASSO 1: registrar a venda (só coleta; não commita). */}
+      {spotWizard?.step === 1 ? (
         <SampleMovementModal
           session={session}
           open
           mode="create"
-          saving={spotSaving}
+          saving={false}
           title="Registrar venda"
           infoFields={[
             { label: 'Tipo', value: 'À vista' },
-            { label: 'Lote', value: spotSale.sample.internalLotNumber ?? 'Sem número' },
+            { label: 'Lote', value: spotWizard.sample.internalLotNumber ?? 'Sem número' },
+            { label: 'Documento', value: spotWizard.nextNumber ?? '—' },
           ]}
           initialMovementType="SALE"
-          availableSacks={spotSale.sample.availableSacks ?? 0}
+          initialSale={spotInitialSale}
+          availableSacks={spotWizard.sample.availableSacks ?? 0}
           blend={
-            spotSale.sample.isBlend
+            spotWizard.sample.isBlend
               ? {
-                  sampleId: spotSale.sample.id,
-                  ownerClientId: spotSale.sample.ownerClientId ?? null,
+                  sampleId: spotWizard.sample.id,
+                  ownerClientId: spotWizard.sample.ownerClientId ?? null,
                 }
               : null
           }
-          activeBlends={spotSale.sample.isBlend ? [] : spotSale.activeBlends}
+          activeBlends={spotWizard.sample.isBlend ? [] : spotWizard.activeBlends}
           onAssignOwner={async (ownerClientId) => {
-            // Liga sem dono: atribui e recarrega o detalhe (version/blend frescos).
-            await updateRegistration(session, spotSale.sample.id, {
-              expectedVersion: spotSale.sample.version,
+            await updateRegistration(session, spotWizard.sample.id, {
+              expectedVersion: spotWizard.sample.version,
               after: { ownerClientId },
               reasonCode: 'DATA_FIX',
               reasonText: 'Atribuicao de dono a liga antes da movimentacao comercial',
             });
-            const detail = await getSampleDetail(session, spotSale.sample.id);
-            setSpotSale({ sample: detail.sample, activeBlends: detail.activeBlends ?? [] });
+            const detail = await getSampleDetail(session, spotWizard.sample.id);
+            setSpotWizard((prev) =>
+              prev
+                ? { ...prev, sample: detail.sample, activeBlends: detail.activeBlends ?? [] }
+                : prev
+            );
           }}
-          onClose={() => {
-            if (!spotSaving) setSpotSale(null);
+          onClose={() => setSpotWizard(null)}
+          onSubmit={(data) => {
+            // Passo 1 NÃO commita: guarda os dados e avança pro passo 2.
+            setSpotWizard((prev) => (prev ? { ...prev, step: 2, saleData: data } : prev));
           }}
-          onSubmit={async (data) => {
-            setSpotSaving(true);
-            try {
-              const result = await createSampleMovement(session, spotSale.sample.id, {
-                expectedVersion: spotSale.sample.version,
-                movementType: data.movementType,
-                buyerClientId: data.buyerClientId,
-                buyerUnitId: data.buyerUnitId,
-                quantitySacks: data.quantitySacks,
-                movementDate: data.movementDate,
-                notes: data.notes,
-                lossReasonText: data.lossReasonText,
-                unitPrice: data.unitPrice ?? undefined,
-                sellerBrokeragePct: data.sellerBrokeragePct ?? undefined,
-                buyerBrokeragePct: data.buyerBrokeragePct ?? undefined,
-                brokerIds: data.brokerIds.length > 0 ? data.brokerIds : undefined,
-              });
-              setSpotSale(null);
-              void refresh();
-              // Encadeia a Etapa 2 (Gerar documento) com o contrato recem-criado.
-              if (result.saleContract) {
-                setEtapa2({ contractId: result.saleContract.id, mode: 'emit' });
-              } else {
-                toast.success({ title: 'Venda registrada' });
-              }
-            } catch (cause) {
-              toast.error({
-                title: 'Não foi possível registrar a venda',
-                description: cause instanceof ApiError ? cause.message : undefined,
-              });
-            } finally {
-              setSpotSaving(false);
-            }
+        />
+      ) : null}
+
+      {/* Wizard à vista — PASSO 2: gerar rascunho (cria venda+contrato e emite). */}
+      {spotWizard?.step === 2 && spotCreateContext ? (
+        <SaleContractEtapa2Modal
+          session={session}
+          mode="emit"
+          createContext={spotCreateContext}
+          onBack={() => setSpotWizard((prev) => (prev ? { ...prev, step: 1 } : prev))}
+          onClose={() => setSpotWizard(null)}
+          onSaved={() => {
+            setSpotWizard(null);
+            void refresh();
+            toast.success({ title: 'Rascunho gerado' });
           }}
         />
       ) : null}

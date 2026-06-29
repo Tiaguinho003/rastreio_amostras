@@ -34708,6 +34708,13 @@ body.is-selection-mode .hero-search-filter-btn {
   flex-direction: column;
   gap: 0.7rem;
 }
+/* Acoes do 2o modal (Gerar rascunho): 50/50 ocupando a largura toda. As acoes ja
+   sao irmas do .app-modal-content (rodape sempre fixo). So no emit (2 botoes). */
+.app-modal.is-themed .app-modal-actions.ctr-etapa2-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
 .ctr-modal-loading {
   margin: 0;
   padding: 1rem 0;

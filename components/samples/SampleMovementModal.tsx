@@ -4,7 +4,12 @@ import { type CSSProperties, type FormEvent, useEffect, useMemo, useState } from
 import { createPortal } from 'react-dom';
 
 import { ApiError, getBlendFeasibility } from '../../lib/api-client';
-import { maskCurrencyInput, parseCurrencyInput, parseDecimalBr } from '../../lib/currency';
+import {
+  formatCurrencyValue,
+  maskCurrencyInput,
+  parseCurrencyInput,
+  parseDecimalBr,
+} from '../../lib/currency';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type {
   ActiveBlendDetail,
@@ -18,9 +23,12 @@ import { ClientLookupField } from '../clients/ClientLookupField';
 import { ClientQuickCreateModal } from '../clients/ClientQuickCreateModal';
 import { BrokerMultiSelectField } from './BrokerMultiSelectField';
 
-type SampleMovementModalSubmitInput = {
+export type SampleMovementModalSubmitInput = {
   movementType: SampleMovementType;
   buyerClientId: string | null;
+  // Objeto do comprador (alem do id) — o wizard a vista usa pra preservar a
+  // selecao ao voltar do 2o modal (re-seed do initialSale).
+  buyerClient: ClientSummary | null;
   buyerUnitId: string | null;
   quantitySacks: number;
   movementDate: string;
@@ -43,6 +51,17 @@ type SampleMovementModalProps = {
   // Campos de visualizacao (so-leitura) numa unica linha no topo do form —
   // ex.: tipo de contrato + lote (venda a vista pela pagina Contratos).
   infoFields?: { label: string; value: string }[];
+  // Wizard a vista: valores iniciais da venda (SALE) pra PRE-PREENCHER ao reabrir
+  // o passo 1 (apos "Voltar" no passo 2). Ausente = form vazio (uso normal/LOSS).
+  initialSale?: {
+    buyerClient: ClientSummary | null;
+    quantitySacks: number;
+    unitPrice: number | null;
+    sellerBrokeragePct: number | null;
+    buyerBrokeragePct: number | null;
+    brokerIds: string[];
+    movementDate: string;
+  };
   initialMovementType?: SampleMovementType;
   movement?: SampleMovement | null;
   availableSacks?: number;
@@ -118,6 +137,7 @@ export function SampleMovementModal({
   saving = false,
   title,
   infoFields,
+  initialSale,
   initialMovementType = 'SALE',
   movement = null,
   availableSacks = 0,
@@ -195,16 +215,32 @@ export function SampleMovementModal({
     }
 
     setMovementType(movement?.movementType ?? initialMovementType);
-    setBuyerClient(toClientSummary(movement?.buyerClient ?? null));
-    setQuantitySacks(movement?.quantitySacks ? String(movement.quantitySacks) : '');
-    setMovementDate(movement?.movementDate ?? todayAsInputDate());
+    // Wizard: pre-preenche os campos da venda a partir do initialSale (preserva
+    // a selecao ao voltar do 2o modal); senao, comportamento normal (vazio/edit).
+    setBuyerClient(
+      initialSale ? initialSale.buyerClient : toClientSummary(movement?.buyerClient ?? null)
+    );
+    setQuantitySacks(
+      initialSale
+        ? String(initialSale.quantitySacks)
+        : movement?.quantitySacks
+          ? String(movement.quantitySacks)
+          : ''
+    );
+    setMovementDate(
+      initialSale ? initialSale.movementDate : (movement?.movementDate ?? todayAsInputDate())
+    );
     setNotes(movement?.notes ?? '');
     setLossReasonText(movement?.lossReasonText ?? '');
     setReasonText('');
-    setUnitPrice('');
-    setSellerBrokeragePct('');
-    setBuyerBrokeragePct('');
-    setBrokerIds([]);
+    setUnitPrice(initialSale?.unitPrice != null ? formatCurrencyValue(initialSale.unitPrice) : '');
+    setSellerBrokeragePct(
+      initialSale?.sellerBrokeragePct != null ? String(initialSale.sellerBrokeragePct) : ''
+    );
+    setBuyerBrokeragePct(
+      initialSale?.buyerBrokeragePct != null ? String(initialSale.buyerBrokeragePct) : ''
+    );
+    setBrokerIds(initialSale ? initialSale.brokerIds : []);
     setError(null);
     setOwnerDismissed(false);
     setOwnerModalOpen(false);
@@ -213,7 +249,7 @@ export function SampleMovementModal({
     setOwnerError(null);
     setBlendWarningDismissed(false);
     setBlendWarningExpanded(false);
-  }, [initialMovementType, movement, open]);
+  }, [initialMovementType, initialSale, movement, open]);
 
   // Liga B4 Fase 5: ao abrir o modal de uma liga, busca a viabilidade da
   // venda — a arvore de descendentes e quais origens nao tem saldo pra
@@ -389,6 +425,7 @@ export function SampleMovementModal({
     await onSubmit({
       movementType,
       buyerClientId: showBuyerFields ? (buyerClient?.id ?? null) : null,
+      buyerClient: showBuyerFields ? buyerClient : null,
       buyerUnitId: null,
       quantitySacks: isBlend ? availableSacks : parsedQuantity,
       movementDate,
