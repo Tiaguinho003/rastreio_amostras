@@ -52,6 +52,8 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
    Uso: organizacao, analise, decisoes e execucao da feature de Fechamento (nota/contrato de venda gerado em PDF apos a venda). Status: Em construcao (planejamento).
 8. `docs/Revisao-Pagina-Lotes-Plano-de-Trabalho.md`
    Uso: plano faseado da revisao da pagina de Lotes (lista /samples) — catalogo dos 29 achados (bugs, gargalos, dados, a11y, codigo morto), decisoes, status por fase e protocolo de verificacao. Status: Fase 1 concluida (commit 57dc023), fases 2-6 pendentes.
+9. `docs/Auditoria-Navegacao-por-Papel.md`
+   Uso: mapeamento read-only de quais paginas cada papel de usuario acessa e onde estao na navegacao (sidebar desktop, tabbar mobile, menu do avatar). Status: Em construcao — papel COMMERCIAL detalhado; demais papeis pendentes.
 
 ## Relatorios da reorganizacao
 
