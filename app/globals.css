@@ -6049,48 +6049,72 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   }
 }
 
-/* CTA "Ver detalhes" — full-width pill brand. Compacto (padding y mais
-   apertado que os outros CTAs porque eh um sub-action dentro do card). */
-.spv2-card-detail-btn {
+/* Acoes do card expandido: 3 botoes numa UNICA linha (Enviar | Perda | Detalhes).
+   Colunas iguais (minmax(0,1fr) => nunca quebra em 2 linhas, nao aumenta o card);
+   labels curtos sem icone. box-sizing:border-box (global) mantem as 3 alturas
+   iguais mesmo com o outline de 1.5px do Enviar/Perda. */
+.spv2-card-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(6px, 2vw, 8px);
+}
+
+.spv2-card-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  width: 100%;
-  padding: clamp(8px, 2.4vw, 10px) clamp(14px, 4vw, 16px);
+  min-width: 0;
+  padding: clamp(8px, 2.4vw, 10px) clamp(6px, 2vw, 10px);
   border: 0;
   border-radius: clamp(9px, 2.6vw, 10px);
-  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
-  color: #ffffff;
+  background: transparent;
   font-family: inherit;
-  font-size: clamp(12.5px, 3.4vw, 13.5px);
+  font-size: clamp(12px, 3.2vw, 13px);
   font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   text-decoration: none;
   cursor: pointer;
-  box-shadow: 0 3px 10px rgba(31, 93, 67, 0.2);
   -webkit-tap-highlight-color: transparent;
   transition:
     transform 0.1s ease,
     box-shadow 0.15s ease;
 }
 
-.spv2-card-detail-btn:hover {
+/* skill button-press-effect: so profundidade (scale), sem mudar a cor no tap. */
+.spv2-card-action:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.spv2-card-action:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* Detalhes — primario verde (mantem o visual do antigo "Ver detalhes"). */
+.spv2-card-action.is-detail {
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
+  color: #ffffff;
+  box-shadow: 0 3px 10px rgba(31, 93, 67, 0.2);
+}
+.spv2-card-action.is-detail:hover {
   box-shadow: 0 5px 14px rgba(31, 93, 67, 0.28);
 }
 
-.spv2-card-detail-btn:active {
-  transform: scale(0.98);
-  box-shadow: 0 2px 6px rgba(31, 93, 67, 0.18);
+/* Enviar — outline azul. */
+.spv2-card-action.is-send {
+  background: #ffffff;
+  color: #2980b9;
+  border: 1.5px solid currentColor;
 }
 
-.spv2-card-detail-btn svg {
-  width: clamp(13px, 3.6vw, 14px);
-  height: clamp(13px, 3.6vw, 14px);
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+/* Perda — outline vermelho. */
+.spv2-card-action.is-loss {
+  background: #ffffff;
+  color: #c0392b;
+  border: 1.5px solid currentColor;
 }
 
 /* ── spv2: empty state ── */

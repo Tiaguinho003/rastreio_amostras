@@ -113,6 +113,10 @@ export interface SampleCardProps {
   isExpanded?: boolean;
   /** Modo idle: toggla expansao do card. */
   onToggleExpand?: (sampleId: string) => void;
+  /** Acao Enviar (card expandido): abre o fluxo de envio na propria lista. */
+  onSend?: (sample: SampleSnapshot) => void;
+  /** Acao Perda (card expandido): abre o modal de perda na propria lista. */
+  onLoss?: (sample: SampleSnapshot) => void;
 }
 
 function SampleCardComponent({
@@ -124,12 +128,20 @@ function SampleCardComponent({
   onShowIneligibleReason,
   isExpanded = false,
   onToggleExpand,
+  onSend,
+  onLoss,
 }: SampleCardProps) {
   const cardStatus = deriveCardStatus(sample);
   const availableSacks = sample.availableSacks;
   // Liga: no card so a safra mais nova; "+" sinaliza que ha outras (liga de
   // safras diferentes). Detalhe da amostra mostra todas.
   const harvestSummary = sample.declared.harvest ? summarizeHarvest(sample.declared.harvest) : null;
+  // Acoes do card expandido (idle): Enviar gated por status (canPhysicalSend);
+  // Perda por status + saldo. Espelha o gating do detalhe.
+  const commercialAllowed =
+    sample.status === 'REGISTRATION_CONFIRMED' || sample.status === 'CLASSIFIED';
+  const canSend = commercialAllowed;
+  const canLoss = commercialAllowed && (availableSacks ?? 0) > 0;
 
   // Liga B1.4: branching idle vs blend.
   if (selectionMode === 'blend') {
@@ -334,18 +346,36 @@ function SampleCardComponent({
             ))}
           </div>
 
-          <Link
-            href={`/samples/${sample.id}`}
-            className="spv2-card-detail-btn"
-            onClick={onClickCapture}
-            tabIndex={isExpanded ? 0 : -1}
-          >
-            <span>Ver detalhes</span>
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <path d="M5 12h14" />
-              <path d="m13 6 6 6-6 6" />
-            </svg>
-          </Link>
+          {/* Acoes na MESMA linha (3 colunas iguais): Enviar | Perda | Detalhes.
+              Enviar/Perda abrem o fluxo na propria lista; Detalhes navega. */}
+          <div className="spv2-card-actions">
+            <button
+              type="button"
+              className="spv2-card-action is-send"
+              disabled={!canSend}
+              tabIndex={isExpanded ? 0 : -1}
+              onClick={() => onSend?.(sample)}
+            >
+              Enviar
+            </button>
+            <button
+              type="button"
+              className="spv2-card-action is-loss"
+              disabled={!canLoss}
+              tabIndex={isExpanded ? 0 : -1}
+              onClick={() => onLoss?.(sample)}
+            >
+              Perda
+            </button>
+            <Link
+              href={`/samples/${sample.id}`}
+              className="spv2-card-action is-detail"
+              onClick={onClickCapture}
+              tabIndex={isExpanded ? 0 : -1}
+            >
+              Detalhes
+            </Link>
+          </div>
         </div>
       </div>
     </div>

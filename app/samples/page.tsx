@@ -22,6 +22,8 @@ import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { ClassificationFilterField } from '../../components/samples/ClassificationFilterField';
 import { SampleCard } from '../../components/samples/SampleCard';
 import { SampleCreateRadialFab } from '../../components/samples/SampleCreateRadialFab';
+import { SampleMovementModal } from '../../components/samples/SampleMovementModal';
+import { SampleSendFlow } from '../../components/samples/SampleSendFlow';
 import {
   BlendConfirmationSheet,
   type BlendContribution,
@@ -32,12 +34,26 @@ import {
   type SelectedSampleSummary,
 } from '../../components/samples/SelectedSamplesDropdown';
 import { SelectionModeHeader } from '../../components/samples/SelectionModeHeader';
-import { ApiError, createBlend, listClassificationValues, listSamples } from '../../lib/api-client';
+import {
+  ApiError,
+  createBlend,
+  createSampleMovement,
+  getSampleDetail,
+  listClassificationValues,
+  listSamples,
+  updateRegistration,
+} from '../../lib/api-client';
 import { mapEligibilityReasonToLabel } from '../../lib/samples/eligibility-labels';
 import { buildHarvestPresets } from '../../lib/sample-identification';
 import { useToast } from '../../lib/toast/ToastProvider';
 import { useFocusTrap } from '../../lib/use-focus-trap';
-import type { ClientSummary, SampleEligibilityReason, SampleSnapshot } from '../../lib/types';
+import type {
+  ActiveBlendDetail,
+  ClientSummary,
+  SampleDetailResponse,
+  SampleEligibilityReason,
+  SampleSnapshot,
+} from '../../lib/types';
 import { getRouteLeftBehind } from '../../lib/navigation/route-history';
 import { useRequireAuth } from '../../lib/use-auth';
 import { NON_PROSPECTOR_ROLES } from '../../lib/roles';
@@ -604,6 +620,14 @@ function SamplesPage() {
   // Incrementa apos criar amostra via FAB/botao pra forcar refetch da lista
   // (decisao 5.31 = a — refetch automatico).
   const [newSampleRefetchKey, setNewSampleRefetchKey] = useState(0);
+  // Acoes do card expandido (Enviar/Perda), hospedadas aqui. Ao clicar, hidrata o
+  // detalhe (getSampleDetail: version fresco + activeBlends) e abre o fluxo.
+  const [sendTarget, setSendTarget] = useState<SampleDetailResponse | null>(null);
+  const [lossTarget, setLossTarget] = useState<{
+    sample: SampleSnapshot;
+    activeBlends: ActiveBlendDetail[];
+  } | null>(null);
+  const [lossSaving, setLossSaving] = useState(false);
 
   // Liga B1.4 (F1.D): modo selecao pra criar liga. Disparado via FAB → Liga.
   // selectionMode controla render do header (SelectionModeHeader vs normal),
@@ -1383,6 +1407,40 @@ function SamplesPage() {
       return next;
     });
   }, []);
+
+  // Acoes do card: hidratam o detalhe (version fresco + activeBlends) e abrem o
+  // fluxo na propria lista. Estaveis (card memoizado).
+  const handleCardSend = useCallback(
+    async (sample: SampleSnapshot) => {
+      if (!session) return;
+      try {
+        const detail = await getSampleDetail(session, sample.id);
+        setSendTarget(detail);
+      } catch (cause) {
+        toast.error({
+          title: 'Não foi possível abrir o envio',
+          description: cause instanceof ApiError ? cause.message : undefined,
+        });
+      }
+    },
+    [session, toast]
+  );
+
+  const handleCardLoss = useCallback(
+    async (sample: SampleSnapshot) => {
+      if (!session) return;
+      try {
+        const detail = await getSampleDetail(session, sample.id);
+        setLossTarget({ sample: detail.sample, activeBlends: detail.activeBlends ?? [] });
+      } catch (cause) {
+        toast.error({
+          title: 'Não foi possível abrir a perda',
+          description: cause instanceof ApiError ? cause.message : undefined,
+        });
+      }
+    },
+    [session, toast]
+  );
 
   const showIneligibleReason = useCallback(
     (reason: SampleEligibilityReason) => {
@@ -2202,6 +2260,8 @@ function SamplesPage() {
                   onShowIneligibleReason={showIneligibleReason}
                   isExpanded={expandedSampleIds.has(sample.id)}
                   onToggleExpand={toggleCardExpand}
+                  onSend={handleCardSend}
+                  onLoss={handleCardLoss}
                 />
               ))}
 
@@ -2319,6 +2379,84 @@ function SamplesPage() {
         onClose={handleBlendSuccessClose}
         entity="blend"
       />
+
+      {/* Acoes do card expandido (lista): envio (fluxo extraido) + perda (modal
+          reusado), hidratados no clique. Refetch via newSampleRefetchKey. */}
+      {sendTarget ? (
+        <SampleSendFlow
+          session={session}
+          sampleId={sendTarget.sample.id}
+          chooserOpen
+          status={sendTarget.sample.status}
+          harvest={sendTarget.sample.declared.harvest}
+          internalLotNumber={sendTarget.sample.internalLotNumber}
+          canDescricao={
+            sendTarget.sample.status === 'CLASSIFIED' &&
+            sendTarget.attachments.some((a) => a.kind === 'CLASSIFICATION_PHOTO')
+          }
+          onChanged={() => setNewSampleRefetchKey((current) => current + 1)}
+          onClose={() => setSendTarget(null)}
+        />
+      ) : null}
+
+      {lossTarget ? (
+        <SampleMovementModal
+          session={session}
+          open
+          mode="create"
+          saving={lossSaving}
+          title="Registrar perda"
+          initialMovementType="LOSS"
+          availableSacks={lossTarget.sample.availableSacks ?? 0}
+          blend={
+            lossTarget.sample.isBlend
+              ? {
+                  sampleId: lossTarget.sample.id,
+                  ownerClientId: lossTarget.sample.ownerClientId ?? null,
+                }
+              : null
+          }
+          activeBlends={lossTarget.sample.isBlend ? [] : lossTarget.activeBlends}
+          onAssignOwner={async (ownerClientId) => {
+            await updateRegistration(session, lossTarget.sample.id, {
+              expectedVersion: lossTarget.sample.version,
+              after: { ownerClientId },
+              reasonCode: 'DATA_FIX',
+              reasonText: 'Atribuicao de dono a liga antes da movimentacao comercial',
+            });
+            const detail = await getSampleDetail(session, lossTarget.sample.id);
+            setLossTarget({ sample: detail.sample, activeBlends: detail.activeBlends ?? [] });
+          }}
+          onClose={() => {
+            if (!lossSaving) setLossTarget(null);
+          }}
+          onSubmit={async (data) => {
+            setLossSaving(true);
+            try {
+              await createSampleMovement(session, lossTarget.sample.id, {
+                expectedVersion: lossTarget.sample.version,
+                movementType: data.movementType,
+                buyerClientId: data.buyerClientId,
+                buyerUnitId: data.buyerUnitId,
+                quantitySacks: data.quantitySacks,
+                movementDate: data.movementDate,
+                notes: data.notes,
+                lossReasonText: data.lossReasonText,
+              });
+              setLossTarget(null);
+              setNewSampleRefetchKey((current) => current + 1);
+              toast.success({ title: 'Perda registrada' });
+            } catch (cause) {
+              toast.error({
+                title: 'Não foi possível registrar a perda',
+                description: cause instanceof ApiError ? cause.message : undefined,
+              });
+            } finally {
+              setLossSaving(false);
+            }
+          }}
+        />
+      ) : null}
     </AppShell>
   );
 }
