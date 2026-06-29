@@ -80,7 +80,10 @@ export default function ContratosPage() {
     contractNumber: string;
     action: LifecycleAction;
     status: SaleContractStatus;
+    hasLot: boolean;
   } | null>(null);
+  // Criação de contrato FUTURO (sem lote): 1 modal só (futureCreate).
+  const [futureOpen, setFutureOpen] = useState(false);
 
   // Criacao a vista pela pagina: picker de lote -> venda (cria o contrato
   // EM_ABERTO) -> encadeia a Etapa 2 (Gerar documento) com o id recem-criado.
@@ -267,6 +270,7 @@ export default function ContratosPage() {
                       contractNumber: contract.contractNumber,
                       action,
                       status: contract.status,
+                      hasLot: contract.type === 'MERCADO_A_VISTA',
                     });
                   return (
                     <SaleContractCard
@@ -304,7 +308,7 @@ export default function ContratosPage() {
 
         <ContractCreateRadialFab
           onCreateSpot={() => setSpotPickerOpen(true)}
-          onCreateFuture={() => toast.info({ title: 'Contrato Futuro — em breve' })}
+          onCreateFuture={() => setFutureOpen(true)}
         />
       </section>
 
@@ -327,6 +331,19 @@ export default function ContratosPage() {
           contractId={docModal.contractId}
           contractNumber={docModal.contractNumber}
           onClose={() => setDocModal(null)}
+        />
+      ) : null}
+
+      {futureOpen ? (
+        <SaleContractEtapa2Modal
+          session={session}
+          futureCreate
+          onClose={() => setFutureOpen(false)}
+          onSaved={() => {
+            setFutureOpen(false);
+            void refresh();
+            toast.success({ title: 'Contrato Futuro gerado' });
+          }}
         />
       ) : null}
 
@@ -353,6 +370,7 @@ export default function ContratosPage() {
           contractNumber={lifecycle.contractNumber}
           action={lifecycle.action}
           currentStatus={lifecycle.status}
+          hasLot={lifecycle.hasLot}
           onClose={() => setLifecycle(null)}
           onDone={() => {
             const { action, status } = lifecycle;
@@ -364,7 +382,7 @@ export default function ContratosPage() {
                 : action === 'pay'
                   ? 'Pagamento registrado'
                   : action === 'washout'
-                    ? 'Contrato quebrado'
+                    ? 'Washout realizado'
                     : action === 'cancel'
                       ? 'Contrato cancelado'
                       : status === 'PAGO'

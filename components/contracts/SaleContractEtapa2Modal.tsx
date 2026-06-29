@@ -7,6 +7,7 @@ import {
   ApiError,
   cancelSaleContract,
   createClientUnit,
+  createFutureSaleContract,
   createSampleMovement,
   emitSaleContract,
   getClient,
@@ -63,6 +64,10 @@ type SaleContractEtapa2ModalProps = {
     };
   };
   onBack?: () => void;
+  // Modo CRIACAO FUTURO (1 modal): sem lote/contrato. Mostra o bloco "Venda"
+  // (vazio, sacas LIVRES) + Vendedor/Comprador manuais; o submit cria o contrato
+  // FUTURO (createFutureSaleContract) e em seguida emite (-> CONFERIR).
+  futureCreate?: boolean;
 };
 
 function dateInputValue(iso: string | null): string {
@@ -73,10 +78,10 @@ function unitLabel(unit: ClientUnitSummary): string {
   return unit.name ?? `Filial ${unit.code}`;
 }
 
-// Fechamento (Fase B.3): modal da etapa 2 ("Gerar documento"/"Emitir"/"Editar"
-// e "Revisar"/"Ver" em modo read-only). Pre-preenche via getSaleContract +
-// listContractLookups + getClient (vendedor/comprador/armazens). Submete via
-// emitSaleContract. Inclui "+cadastrar na hora" (filial/conta) e D49 (armazem).
+// Fechamento: modal da etapa 2 do contrato. 3 modos: "Editar" (contrato existente,
+// via contractId), wizard à vista (createContext) e criação FUTURO (futureCreate).
+// Pre-preenche via getSaleContract + listContractLookups + getClient. Submete via
+// createSampleMovement/createFutureSaleContract + emitSaleContract.
 export function SaleContractEtapa2Modal({
   session,
   contractId,
@@ -84,10 +89,13 @@ export function SaleContractEtapa2Modal({
   onSaved,
   createContext,
   onBack,
+  futureCreate = false,
 }: SaleContractEtapa2ModalProps) {
   const focusTrapRef = useFocusTrap(true);
-  // Modo CRIACAO (wizard): nao ha contrato ainda; o submit faz create->emit.
+  // Modo CRIACAO (wizard à vista): nao ha contrato ainda; create->emit.
   const isCreate = createContext != null;
+  // Criação "tipo create" (sem contrato carregado): wizard à vista OU Futuro.
+  const isCreateLike = isCreate || futureCreate;
   // Guarda de falha parcial: se o create deu certo mas o emit falhou, guardamos
   // o id pra o retry NAO recriar (so re-emitir) e pra limpar ao voltar/fechar.
   const [createdId, setCreatedId] = useState<string | null>(null);
@@ -180,6 +188,15 @@ export function SaleContractEtapa2Modal({
           }
           return;
         }
+        // Modo CRIACAO FUTURO (1 modal): sem lote/contrato — só carrega as listas;
+        // Venda/Vendedor/Comprador começam vazios (sacas livres, sampleIsBlend false).
+        if (futureCreate) {
+          const lookupsRes = await listContractLookups(session);
+          if (aborted) return;
+          setLookups(lookupsRes);
+          setContract(null);
+          return;
+        }
         if (!contractId) return;
         const [contractRes, lookupsRes] = await Promise.all([
           getSaleContract(session, contractId),
@@ -244,7 +261,7 @@ export function SaleContractEtapa2Modal({
     return () => {
       aborted = true;
     };
-  }, [session, contractId, createContext]);
+  }, [session, contractId, createContext, futureCreate]);
 
   const sellerIsPF = seller?.personType === 'PF';
   const buyerIsPF = buyer?.personType === 'PF';
@@ -328,8 +345,8 @@ export function SaleContractEtapa2Modal({
   }
 
   async function handleSubmit() {
-    // Card: exige o contrato carregado. Wizard (create): nao ha contrato ainda.
-    if (!isCreate && !contract) return;
+    // Card: exige o contrato carregado. Criação (wizard/Futuro): não há contrato.
+    if (!isCreateLike && !contract) return;
     // Erros por campo (molde da Etapa 1): mensagem especifica do 1o pendente.
     if (!seller) {
       setError('Selecione o vendedor.');
@@ -337,6 +354,11 @@ export function SaleContractEtapa2Modal({
     }
     if (sellerIsPF && !sellerUnitId) {
       setError('Selecione a filial do vendedor.');
+      return;
+    }
+    // Futuro: o comprador é obrigatório na criação (vai no createFutureSaleContract).
+    if (futureCreate && !buyer) {
+      setError('Selecione o comprador.');
       return;
     }
     if (buyerIsPF && !buyerUnitId) {
@@ -437,10 +459,33 @@ export function SaleContractEtapa2Modal({
       weightKg: weightKg.trim() ? parseDecimalBr(weightKg) : null,
       agioDesagioType: agioType || null,
       agioDesagioValue: agioType ? parseCurrencyInput(agioValue) : null,
-      saleFields: saleFieldsPayload,
+      // Futuro: a fase 1 vai no createFutureSaleContract, não no emit.
+      saleFields: futureCreate ? undefined : saleFieldsPayload,
     };
     try {
-      if (isCreate && createContext) {
+      if (futureCreate) {
+        // Futuro (1 modal): cria o contrato FUTURO (fase 1 + comprador) e em
+        // seguida emite (fase 2). Guarda de falha parcial via createdId.
+        if (!buyer || !saleFieldsPayload) {
+          setError('Preencha os dados da venda.');
+          return;
+        }
+        let cid = createdId;
+        if (!cid) {
+          const res = await createFutureSaleContract(session, {
+            buyerClientId: buyer.id,
+            ...saleFieldsPayload,
+          });
+          cid = res.contract.id;
+          setCreatedId(cid);
+        }
+        if (!cid) {
+          setError('Falha ao criar o contrato.');
+          return;
+        }
+        await emitSaleContract(session, cid, payload);
+        onSaved();
+      } else if (isCreate && createContext) {
         // Commit adiado do wizard: cria a venda+contrato e em seguida emite. Se o
         // create ja foi feito num retry anterior (createdId), NAO recria.
         let cid = createdId;
@@ -602,15 +647,17 @@ export function SaleContractEtapa2Modal({
         <header className="app-modal-header">
           <div className="app-modal-title-wrap">
             <h3 id="ctr-etapa2-title" className="app-modal-title">
-              {isCreate
-                ? 'Gerar rascunho'
-                : `Editar contrato${contract ? ` ${contract.contractNumber}` : ''}`}
+              {futureCreate
+                ? 'Novo contrato — Futuro'
+                : isCreate
+                  ? 'Gerar rascunho'
+                  : `Editar contrato${contract ? ` ${contract.contractNumber}` : ''}`}
             </h3>
           </div>
           <button
             type="button"
             className="app-modal-close"
-            onClick={isCreate ? () => void cleanupPartialThen(onClose) : onClose}
+            onClick={isCreateLike ? () => void cleanupPartialThen(onClose) : onClose}
             disabled={saving}
             aria-label="Fechar"
           >
@@ -1002,7 +1049,13 @@ export function SaleContractEtapa2Modal({
           <button
             type="button"
             className="app-modal-secondary"
-            onClick={isCreate ? () => void cleanupPartialThen(onBack ?? onClose) : onClose}
+            onClick={
+              isCreate
+                ? () => void cleanupPartialThen(onBack ?? onClose)
+                : futureCreate
+                  ? () => void cleanupPartialThen(onClose)
+                  : onClose
+            }
             disabled={saving}
           >
             {isCreate ? 'Voltar' : 'Cancelar'}

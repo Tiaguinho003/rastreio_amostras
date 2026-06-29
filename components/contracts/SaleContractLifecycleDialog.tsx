@@ -15,9 +15,9 @@ import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { SaleContractStatus, SessionData } from '../../lib/types';
 
 // Fechamento (Fase B): ações de status do contrato. "Faturar"/"Pagar" gravam a
-// data real do marco; "Desfazer" volta um passo; "Quebrar" (P17) cancela a venda
-// e marca WASH_OUT (motivo obrigatório, definitiva); "Cancelar" descarta um
-// contrato EM_ABERTO (sem documento) desfazendo a venda. Molde do ConfirmDialog.
+// data real do marco; "Desfazer" volta um passo; "Washout" (P17) marca WASH_OUT
+// (motivo obrigatório, definitiva) — à vista cancela a venda + devolve as sacas,
+// Futuro não tem lote; "Cancelar" descarta um EM_ABERTO. Molde do ConfirmDialog.
 
 export type LifecycleAction = 'invoice' | 'pay' | 'revert' | 'washout' | 'cancel';
 
@@ -29,6 +29,8 @@ type SaleContractLifecycleDialogProps = {
   action: LifecycleAction;
   // Status atual — distingue "Desfazer faturamento" de "Desfazer pagamento".
   currentStatus: SaleContractStatus;
+  // À vista (tem lote): washout/cancelar devolvem as sacas ao lote. Futuro: não.
+  hasLot: boolean;
   onClose: () => void;
   onDone: () => void;
 };
@@ -54,7 +56,8 @@ type Copy = {
 function dialogCopy(
   action: LifecycleAction,
   currentStatus: SaleContractStatus,
-  contractNumber: string
+  contractNumber: string,
+  hasLot: boolean
 ): Copy {
   if (action === 'invoice') {
     return {
@@ -80,19 +83,23 @@ function dialogCopy(
   }
   if (action === 'washout') {
     return {
-      title: 'Quebrar contrato',
-      text: `Quebrar o contrato ${contractNumber}? Isso cancela a venda e devolve as sacas ao lote. Ação definitiva.`,
+      title: 'Washout',
+      text: hasLot
+        ? `Dar washout no contrato ${contractNumber}? Isso cancela a venda e devolve as sacas ao lote. Ação definitiva.`
+        : `Dar washout no contrato ${contractNumber}? Ação definitiva.`,
       dateLabel: null,
-      reasonLabel: 'Motivo da quebra',
+      reasonLabel: 'Motivo do washout',
       danger: true,
-      submit: 'Quebrar contrato',
-      submitting: 'Quebrando...',
+      submit: 'Confirmar washout',
+      submitting: 'Processando...',
     };
   }
   if (action === 'cancel') {
     return {
       title: 'Cancelar contrato',
-      text: `Cancelar o contrato ${contractNumber}? A venda será desfeita e as sacas voltam ao lote. O contrato em aberto será descartado. Ação definitiva.`,
+      text: hasLot
+        ? `Cancelar o contrato ${contractNumber}? A venda será desfeita e as sacas voltam ao lote. O contrato em aberto será descartado. Ação definitiva.`
+        : `Cancelar o contrato ${contractNumber}? O contrato em aberto será descartado. Ação definitiva.`,
       dateLabel: null,
       reasonLabel: null,
       danger: true,
@@ -122,6 +129,7 @@ export function SaleContractLifecycleDialog({
   contractNumber,
   action,
   currentStatus,
+  hasLot,
   onClose,
   onDone,
 }: SaleContractLifecycleDialogProps) {
@@ -133,7 +141,7 @@ export function SaleContractLifecycleDialog({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const copy = dialogCopy(action, currentStatus, contractNumber);
+  const copy = dialogCopy(action, currentStatus, contractNumber, hasLot);
   const needsDate = copy.dateLabel !== null;
   const needsReason = copy.reasonLabel !== null;
   const canSubmit =
@@ -222,7 +230,7 @@ export function SaleContractLifecycleDialog({
                 rows={3}
                 value={reason}
                 disabled={saving}
-                placeholder="Descreva o motivo da quebra"
+                placeholder="Descreva o motivo do washout"
                 onChange={(event) => {
                   setReason(event.target.value);
                   setError(null);
