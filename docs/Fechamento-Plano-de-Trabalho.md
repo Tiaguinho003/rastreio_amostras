@@ -1284,7 +1284,12 @@ das partes**):
 
 Continua em **1 página** (teste verde). Iterei via preview (`scripts/preview-contract.mjs` → `gs` → PNG):
 1ª rodada os rótulos verticais vazavam a caixa → corrigi a altura/centralização; empurrei as assinaturas pro
-rodapé. **Gates verdes** (format/lint/build; unit 337 incl. pdf + 1-página). **1 commit `main` NÃO pushado**:
-`35fe687`. **Resolve** os itens "header verde (redesign)" e "fidelidade ao print legado" da S54. **Falta**:
+rodapé. **2ª rodada (feedback do preview)**: **3 assinaturas na mesma linha** (Comprador·Vendedor·Corretor —
+faltava o vendedor); **rótulos das 5 caixas centralizados**; **mais folga** (gaps entre seções + altura das
+caixas ↑ → conteúdo preenche melhor a página, menos vazio); **TODOS os nomes de campo em negrito-preto** (os
+das partes eram cinza MUTED → BLACK). **Gates verdes** (format/lint/build; unit 337 incl. pdf + **1-página**).
+**3 commits `main` NÃO pushados**: `35fe687`(pdf+issuer) `5c5ae40`(doc) `d87a72a`(ajustes). **Resolve** "header
+verde (redesign)" e "fidelidade ao print legado" da S54. **Campos = dados reais** (emissor config; partes/banco/
+valores dos snapshots; "Número" é campo de formulário — o nº vai no Endereço, como o legado "S/N"). **Falta**:
 assinatura do dono como **imagem** (D35, hoje linha em branco); **partes** ainda em 2-col (o usuário pediu p/
 manter "por enquanto" — revisitar depois); P22.
