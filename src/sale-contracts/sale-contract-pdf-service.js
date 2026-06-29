@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, StandardFonts, degrees, rgb } from 'pdf-lib';
 
 // Fechamento (Fase C): gera o PDF do "Contrato de Compra e Venda de Café" a
 // partir do SaleContract (+ snapshots), no estilo do app. Puro pdf-lib (mesmo
@@ -16,8 +16,10 @@ const MARGIN = 42;
 
 const GREEN = rgb(0.122, 0.365, 0.263);
 const INK = rgb(0.14, 0.22, 0.18);
+const BLACK = rgb(0.13, 0.13, 0.13);
 const MUTED = rgb(0.4, 0.46, 0.42);
-const LINE = rgb(0.86, 0.84, 0.8);
+const LINE = rgb(0.7, 0.7, 0.7);
+const LABEL_BG = rgb(0.82, 0.82, 0.82);
 const WHITE = rgb(1, 1, 1);
 
 const MONTHS = [
@@ -36,6 +38,13 @@ const MONTHS = [
 ];
 
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+const DEC2 = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// Peso (Kg) com 2 casas no padrão BR: "19.200,00 Kg" (espelha o legado).
+function formatKg(value) {
+  const parsed = decimalToNumber(value);
+  return `${DEC2.format(parsed ?? 0)} Kg`;
+}
 
 function decimalToNumber(value) {
   if (value === null || value === undefined) return null;
@@ -64,6 +73,29 @@ export function formatMonthYearExtenso(iso) {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return null;
   return `${MONTHS[date.getUTCMonth()]} de ${date.getUTCFullYear()}`;
+}
+
+// "Mês" (só o nome) e "Ano" do contrato — a linha de identificação separa os dois.
+export function formatMonthExtenso(iso) {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return MONTHS[date.getUTCMonth()];
+}
+
+export function formatYear(iso) {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return String(date.getUTCFullYear());
+}
+
+// Data por extenso: "22 de maio de 2026" (local/data do contrato no rodapé).
+export function formatDateExtenso(iso) {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return `${date.getUTCDate()} de ${MONTHS[date.getUTCMonth()]} de ${date.getUTCFullYear()}`;
 }
 
 export function formatDocument(value) {
@@ -156,7 +188,7 @@ function emptyToDash(value) {
 export class SaleContractPdfService {
   constructor({
     logoPath = [
-      path.resolve(process.cwd(), 'public/logo-safras-branco.png'),
+      path.resolve(process.cwd(), 'public/logo-safras-color.png'),
       path.resolve(process.cwd(), 'public/logo-laudo.png'),
     ],
   } = {}) {
@@ -178,18 +210,6 @@ export class SaleContractPdfService {
     const COL_GAP = 12;
     const halfW = (contentW - COL_GAP) / 2;
     const page = pdfDoc.addPage([PAGE_W, PAGE_H]);
-
-    // Título de seção compacto (rótulo + régua fina). Retorna a altura usada.
-    const miniSection = (title, top) => {
-      page.drawText(title, { x: MARGIN, y: top - 8, size: 9, font: fontBold, color: GREEN });
-      page.drawLine({
-        start: { x: MARGIN, y: top - 12 },
-        end: { x: PAGE_W - MARGIN, y: top - 12 },
-        thickness: 0.6,
-        color: LINE,
-      });
-      return 18;
-    };
 
     // Card com borda: título + linhas [label, value] (sempre presentes; "—"
     // quando vazio). Altura determinística. Retorna a altura.
@@ -231,68 +251,172 @@ export class SaleContractPdfService {
       return height;
     };
 
-    // Faixa horizontal de N células (label pequeno + valor). Identificação,
-    // corretagem e valores. Retorna a altura.
-    const statRow = ({ top, cells }) => {
-      const colW = contentW / cells.length;
-      cells.forEach((cell, i) => {
-        const cx = MARGIN + i * colW;
-        page.drawText(fitText(cell.label, font, 7, colW - 8), {
-          x: cx,
-          y: top - 7,
-          size: 7,
-          font,
-          color: MUTED,
-        });
-        page.drawText(fitText(emptyToDash(cell.value), fontBold, 9, colW - 8), {
-          x: cx,
-          y: top - 19,
-          size: 9,
-          font: fontBold,
-          color: INK,
-        });
+    // Faixa de rótulo (cinza) full-width — ex.: "QUANTIDADES E VALORES". Altura 14.
+    const grayLabel = (title, top) => {
+      const h = 14;
+      page.drawRectangle({
+        x: MARGIN,
+        y: top - h,
+        width: contentW,
+        height: h,
+        color: LABEL_BG,
+        borderColor: LINE,
+        borderWidth: 0.5,
       });
-      return 24;
+      page.drawText(fitText(title, fontBold, 8, contentW - 12), {
+        x: MARGIN + 6,
+        y: top - 10,
+        size: 8,
+        font: fontBold,
+        color: BLACK,
+      });
+      return h;
     };
 
-    // Campos em 2 colunas (label: value, sempre presentes). Retorna a altura.
-    const twoColFields = ({ top, pairs }) => {
-      const lineH = 11;
-      const colW = (contentW - COL_GAP) / 2;
-      const rowsCount = Math.ceil(pairs.length / 2);
-      pairs.forEach(([label, value], i) => {
-        const cx = MARGIN + (i % 2) * (colW + COL_GAP);
-        const cy = top - 8 - Math.floor(i / 2) * lineH;
+    // Linha de identificação: rótulos inline "Label: value", distribuídos. Altura 16.
+    const idRow = (top, fields) => {
+      const colW = contentW / fields.length;
+      fields.forEach(([label, value], i) => {
+        const cx = MARGIN + i * colW;
         const labelText = `${label}: `;
-        page.drawText(labelText, { x: cx, y: cy, size: 8, font: fontBold, color: MUTED });
-        const labelW = fontBold.widthOfTextAtSize(labelText, 8);
-        page.drawText(fitText(emptyToDash(value), font, 8, colW - labelW), {
-          x: cx + labelW,
-          y: cy,
+        page.drawText(labelText, { x: cx, y: top - 9, size: 8, font: fontBold, color: BLACK });
+        const lw = fontBold.widthOfTextAtSize(labelText, 8);
+        page.drawText(fitText(emptyToDash(value), font, 8, colW - lw - 4), {
+          x: cx + lw,
+          y: top - 9,
           size: 8,
           font,
-          color: INK,
+          color: BLACK,
         });
       });
-      return 8 + rowsCount * lineH;
+      return 16;
     };
 
-    // Parágrafo sempre presente, truncado a maxLines p/ caber em 1 página.
-    const truncatedParagraph = ({ top, label, value, maxLines = 2 }) => {
+    // Fila de N caixas (rótulo cinza em cima + valor centralizado embaixo).
+    const boxRow = (top, boxes) => {
+      const colW = contentW / boxes.length;
+      const hdrH = 14;
+      const valH = 16;
+      boxes.forEach(([label, value], i) => {
+        const bx = MARGIN + i * colW;
+        const w = colW - 3;
+        page.drawRectangle({
+          x: bx,
+          y: top - hdrH,
+          width: w,
+          height: hdrH,
+          color: LABEL_BG,
+          borderColor: LINE,
+          borderWidth: 0.5,
+        });
+        page.drawText(fitText(label.toUpperCase(), fontBold, 6.5, w - 6), {
+          x: bx + 3,
+          y: top - 10,
+          size: 6.5,
+          font: fontBold,
+          color: BLACK,
+        });
+        page.drawRectangle({
+          x: bx,
+          y: top - hdrH - valH,
+          width: w,
+          height: valH,
+          borderColor: LINE,
+          borderWidth: 0.5,
+          color: WHITE,
+        });
+        const vt = fitText(emptyToDash(value), font, 8, w - 6);
+        const vw = font.widthOfTextAtSize(vt, 8);
+        page.drawText(vt, {
+          x: bx + (w - vw) / 2,
+          y: top - hdrH - 11,
+          size: 8,
+          font,
+          color: BLACK,
+        });
+      });
+      return hdrH + valH;
+    };
+
+    // Caixa com borda + campos inline "Label: value" (1+ linhas). Altura determinística.
+    const inlineBox = (top, fieldRows) => {
+      const pad = 6;
+      const lineH = 12;
+      const height = pad + fieldRows.length * lineH + pad - 4;
+      page.drawRectangle({
+        x: MARGIN,
+        y: top - height,
+        width: contentW,
+        height,
+        borderColor: LINE,
+        borderWidth: 0.5,
+        color: WHITE,
+      });
+      fieldRows.forEach((fields, r) => {
+        const colW = contentW / fields.length;
+        const cy = top - pad - 8 - r * lineH;
+        fields.forEach(([label, value], i) => {
+          const cx = MARGIN + pad + i * colW;
+          const labelText = `${label}: `;
+          page.drawText(labelText, { x: cx, y: cy, size: 8, font: fontBold, color: BLACK });
+          const lw = fontBold.widthOfTextAtSize(labelText, 8);
+          page.drawText(fitText(emptyToDash(value), font, 8, colW - lw - 8), {
+            x: cx + lw,
+            y: cy,
+            size: 8,
+            font,
+            color: BLACK,
+          });
+        });
+      });
+      return height;
+    };
+
+    // Caixa com rótulo VERTICAL à esquerda (Observação/Descrição) + texto (wrap).
+    const verticalLabelBox = (top, label, value) => {
+      const labelW = 16;
+      const pad = 6;
       const lineH = 10;
-      page.drawText(`${label}:`, { x: MARGIN, y: top - 8, size: 8, font: fontBold, color: MUTED });
+      const innerW = contentW - labelW - 2 * pad;
       const text = value && String(value).trim() ? String(value) : '—';
-      let lines = wrapText(text, font, 8, contentW);
-      if (lines.length > maxLines) {
-        lines = lines.slice(0, maxLines);
-        lines[maxLines - 1] = `${lines[maxLines - 1].replace(/\s*\S*$/, '')}...`;
+      let lines = wrapText(text, font, 8, innerW);
+      if (lines.length > 3) {
+        lines = lines.slice(0, 3);
+        lines[2] = `${lines[2].replace(/\s*\S*$/, '')}...`;
       }
-      let cy = top - 18;
+      // Altura cabe o conteúdo E o rótulo vertical (que ocupa labelTextW na vertical).
+      const labelTextW = fontBold.widthOfTextAtSize(label, 7);
+      const height = Math.max(labelTextW + 12, pad + lines.length * lineH + pad);
+      page.drawRectangle({
+        x: MARGIN,
+        y: top - height,
+        width: contentW,
+        height,
+        borderColor: LINE,
+        borderWidth: 0.5,
+        color: WHITE,
+      });
+      page.drawLine({
+        start: { x: MARGIN + labelW, y: top },
+        end: { x: MARGIN + labelW, y: top - height },
+        thickness: 0.5,
+        color: LINE,
+      });
+      // Rótulo girado 90° e CENTRALIZADO na vertical da caixa.
+      page.drawText(label, {
+        x: MARGIN + 11,
+        y: top - height + (height - labelTextW) / 2,
+        size: 7,
+        font: fontBold,
+        color: BLACK,
+        rotate: degrees(90),
+      });
+      let cy = top - pad - 8;
       for (const line of lines) {
-        page.drawText(line, { x: MARGIN, y: cy, size: 8, font, color: INK });
+        page.drawText(line, { x: MARGIN + labelW + pad, y: cy, size: 8, font, color: BLACK });
         cy -= lineH;
       }
-      return 18 + lines.length * lineH;
+      return height;
     };
 
     // Linhas de uma parte (Comprador/Vendedor/Armazém). Consolida Client +
@@ -314,64 +438,61 @@ export class SaleContractPdfService {
       ];
     };
 
-    // ---------- Cabeçalho (faixa verde) — logo + emissor ----------
-    // (título e número saíram daqui p/ o corpo, S52; o status do fluxo NÃO entra
-    // no documento — é um contrato, não um rastreador. Redesign do header depois.)
-    const headerH = 74;
-    page.drawRectangle({ x: 0, y: PAGE_H - headerH, width: PAGE_W, height: headerH, color: GREEN });
-    let headerTextX = MARGIN;
+    // ---------- Cabeçalho (branco) — logo à esquerda + emissor à direita ----------
+    // Espelha o contrato legado (S60): sem faixa verde; o status NÃO entra (D63).
     if (logo) {
-      const logoH = 40;
+      const logoH = 38;
       const logoW = (logo.width / logo.height) * logoH;
-      page.drawImage(logo, { x: MARGIN, y: PAGE_H - 28 - logoH, width: logoW, height: logoH });
-      headerTextX = MARGIN + logoW + 16;
+      page.drawImage(logo, { x: MARGIN, y: PAGE_H - 26 - logoH, width: logoW, height: logoH });
     }
-    page.drawText(issuer.name, {
-      x: headerTextX,
-      y: PAGE_H - 32,
-      size: 13,
-      font: fontBold,
-      color: WHITE,
-    });
-    page.drawText(
-      fitText(`CNPJ ${issuer.cnpj} · ${issuer.cityUf}`, font, 8, PAGE_W - headerTextX - MARGIN),
-      { x: headerTextX, y: PAGE_H - 46, size: 8, font, color: WHITE }
-    );
-    page.drawText(fitText(issuer.address, font, 8, PAGE_W - headerTextX - MARGIN), {
-      x: headerTextX,
-      y: PAGE_H - 58,
-      size: 8,
-      font,
-      color: WHITE,
-    });
-    let y = PAGE_H - headerH - 18;
+    const rightX = PAGE_W - MARGIN;
+    const drawRight = (text, ty, size, bold) => {
+      const f = bold ? fontBold : font;
+      const t = fitText(text, f, size, contentW - 130);
+      const w = f.widthOfTextAtSize(t, size);
+      page.drawText(t, { x: rightX - w, y: ty, size, font: f, color: BLACK });
+    };
+    drawRight(issuer.name, PAGE_H - 30, 11, true);
+    drawRight(issuer.addressStreet ?? '', PAGE_H - 42, 8, false);
+    drawRight(issuer.cityUf ?? '', PAGE_H - 52, 8, false);
+    drawRight(`Bairro: ${issuer.district ?? ''}`, PAGE_H - 62, 8, false);
+    drawRight(`CNPJ: ${issuer.cnpj ?? ''}`, PAGE_H - 72, 8, false);
+    drawRight(`Telefone: ${issuer.phone ?? ''}`, PAGE_H - 82, 8, false);
+    let y = PAGE_H - 96;
 
-    // ---------- Título (no corpo) ----------
-    const titleText = 'Contrato de Compra e Venda de Café';
-    const titleSize = 14;
-    const titleW = fontBold.widthOfTextAtSize(titleText, titleSize);
+    // ---------- Título (faixa cinza) ----------
+    const titleBarH = 18;
+    page.drawRectangle({
+      x: MARGIN,
+      y: y - titleBarH,
+      width: contentW,
+      height: titleBarH,
+      color: LABEL_BG,
+      borderColor: LINE,
+      borderWidth: 0.5,
+    });
+    const titleText = 'CONTRATO DE COMPRA E VENDA DE CAFÉ';
+    const titleW = fontBold.widthOfTextAtSize(titleText, 11);
     page.drawText(titleText, {
       x: (PAGE_W - titleW) / 2,
-      y: y - titleSize,
-      size: titleSize,
+      y: y - 13,
+      size: 11,
       font: fontBold,
-      color: GREEN,
+      color: BLACK,
     });
-    y -= titleSize + 12;
+    y -= titleBarH + 6;
 
-    // ---------- Identificação (linha horizontal: 4 campos) ----------
-    y -= statRow({
-      top: y,
-      cells: [
-        { label: 'Número do contrato', value: contract.contractNumber },
-        { label: 'Número de compra', value: contract.purchaseNumber },
-        { label: 'Número do lote', value: lotNumber },
-        { label: 'Mês/Ano', value: formatMonthYearExtenso(contract.contractDate) },
-      ],
-    });
-    y -= 10;
+    // ---------- Identificação (rótulos inline) ----------
+    y -= idRow(y, [
+      ['Nº. Contrato', contract.contractNumber],
+      ['Nº. Compra', contract.purchaseNumber],
+      ['Nº. Lote', lotNumber],
+      ['Mês', formatMonthExtenso(contract.contractDate)],
+      ['Ano', formatYear(contract.contractDate)],
+    ]);
+    y -= 6;
 
-    // ---------- Comprador | Armazém do comprador ----------
+    // ---------- Comprador | Armazém do comprador (LAYOUT MANTIDO) ----------
     y -=
       Math.max(
         drawCard({
@@ -390,7 +511,7 @@ export class SaleContractPdfService {
         })
       ) + 8;
 
-    // ---------- Vendedor | Armazém do vendedor ----------
+    // ---------- Vendedor | Armazém do vendedor (LAYOUT MANTIDO) ----------
     y -=
       Math.max(
         drawCard({
@@ -407,88 +528,81 @@ export class SaleContractPdfService {
           title: 'Armazém do vendedor',
           rows: partyRows(contract.sellerWarehouseSnapshot),
         })
-      ) + 10;
+      ) + 8;
 
-    // ---------- Corretagem (só %) ----------
-    y -= miniSection('Corretagem', y);
-    y -= statRow({
-      top: y,
-      cells: [
-        { label: 'Corretagem do vendedor', value: formatPercent(contract.sellerBrokeragePct) },
-        { label: 'Corretagem do comprador', value: formatPercent(contract.buyerBrokeragePct) },
-      ],
-    });
+    // ---------- Forma | Modalidade | Embalagem | Faturamento | Pagamento ----------
+    y -= boxRow(y, [
+      ['Forma de pagamento', contract.paymentFormText],
+      ['Modalidade', contract.modalityText],
+      ['Embalagem', contract.packagingText],
+      ['Faturamento', formatDateBR(contract.invoiceDate)],
+      ['Pagamento', formatDateBR(contract.paymentDate)],
+    ]);
     y -= 8;
 
-    // ---------- Quantidade e valores (sem ágio/total — P21/P22) ----------
-    y -= miniSection('Quantidade e valores', y);
-    y -= statRow({
-      top: y,
-      cells: [
-        {
-          label: 'Sacas',
-          value: contract.quantitySacks != null ? `${contract.quantitySacks} sc` : null,
-        },
-        { label: 'Peso (Kg)', value: decimalToNumber(contract.weightKg) },
-        { label: 'Preço por saca', value: formatCurrencyBRL(contract.unitPrice) },
+    // ---------- Quantidades e valores (corretagem impressa em %) ----------
+    y -= grayLabel('QUANTIDADES E VALORES', y);
+    y -= inlineBox(y, [
+      [
+        ['Qtd.', contract.quantitySacks != null ? `${contract.quantitySacks} sacas` : null],
+        ['Vlr. Saca', formatCurrencyBRL(contract.unitPrice)],
+        ['Peso', formatKg(contract.weightKg)],
+        ['C. Vend.', formatPercent(contract.sellerBrokeragePct)],
+        ['C. Comp.', formatPercent(contract.buyerBrokeragePct)],
       ],
-    });
+    ]);
     y -= 8;
 
-    // ---------- Pagamento e logística (2 colunas) ----------
+    // ---------- Banco do vendedor ----------
     const bank = contract.sellerBankSnapshot;
-    y -= miniSection('Pagamento e logística', y);
-    y -= twoColFields({
-      top: y,
-      pairs: [
-        ['Condição de pagamento', contract.paymentCondition],
-        ['Forma de pagamento', contract.paymentFormText],
-        ['Modalidade', contract.modalityText],
-        ['Embalagem', contract.packagingText],
-        ['Data de faturamento', formatDateBR(contract.invoiceDate)],
-        ['Data de pagamento', formatDateBR(contract.paymentDate)],
+    y -= grayLabel('BANCO DO VENDEDOR', y);
+    y -= inlineBox(y, [
+      [
         [
-          'Banco do vendedor',
+          'Banco',
           bank
             ? [bank.bankName, bank.compeCode ? `(${bank.compeCode})` : null]
                 .filter(Boolean)
                 .join(' ')
             : null,
         ],
-        [
-          'Agência / Conta',
-          bank ? [bank.agency, bank.accountNumber].filter(Boolean).join(' / ') || null : null,
-        ],
-        ['Titular', bank?.holderName],
-        ['CPF/CNPJ do titular', formatDocument(bank?.holderTaxId)],
+        ['Agência', bank?.agency],
+        ['Conta', bank?.accountNumber],
         ['Chave PIX', bank?.pixKey],
       ],
-    });
+      [
+        ['Titular', bank?.holderName],
+        ['CNPJ/CPF', formatDocument(bank?.holderTaxId)],
+      ],
+    ]);
     y -= 10;
 
-    // ---------- Observações (truncadas p/ caber) ----------
-    y -= miniSection('Observações', y);
-    y -= truncatedParagraph({ top: y, label: 'Observações', value: contract.observations });
-    y -= 4;
-    y -= truncatedParagraph({ top: y, label: 'Descrição', value: contract.description });
-    y -= 14;
+    // ---------- Observação / Descrição (rótulo vertical) ----------
+    y -= verticalLabelBox(y, 'OBSERVAÇÃO', contract.observations);
+    y -= 6;
+    y -= verticalLabelBox(y, 'DESCRIÇÃO', contract.description);
 
-    // ---------- Assinaturas ----------
-    const sigColW = (contentW - 24) / 2;
+    // ---------- Local + data + assinaturas (empurrados p/ o rodapé) ----------
+    // Sem cláusula (decisão do usuário). Empurra o bloco pro fundo quando sobra
+    // espaço (como no legado); se o conteúdo descer demais, flui logo abaixo.
+    const dateLine = `${issuer.city ?? ''}, ${formatDateExtenso(contract.contractDate) ?? ''}.`;
+    const footerDateY = Math.min(y - 14, 170);
+    page.drawText(dateLine, { x: MARGIN, y: footerDateY, size: 9, font, color: BLACK });
+
+    const sigColW = (contentW - 40) / 2;
+    const sigY = footerDateY - 48;
     const sigLine = (label, x, sy) => {
       page.drawLine({
         start: { x, y: sy },
         end: { x: x + sigColW, y: sy },
-        thickness: 0.8,
-        color: rgb(0.3, 0.34, 0.31),
+        thickness: 0.7,
+        color: rgb(0.3, 0.3, 0.3),
       });
-      page.drawText(label, { x, y: sy - 11, size: 8, font, color: MUTED });
+      const lw = font.widthOfTextAtSize(label, 8);
+      page.drawText(label, { x: x + (sigColW - lw) / 2, y: sy - 11, size: 8, font, color: MUTED });
     };
-    y -= 24;
-    sigLine('Vendedor', MARGIN, y);
-    sigLine('Comprador', MARGIN + sigColW + 24, y);
-    y -= 40;
-    sigLine('Corretor / Empresa', MARGIN, y);
+    sigLine('Comprador', MARGIN, sigY);
+    sigLine('Corretor', MARGIN + sigColW + 40, sigY);
 
     const bytes = await pdfDoc.save();
     const buffer = Buffer.from(bytes);
