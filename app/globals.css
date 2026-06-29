@@ -34347,18 +34347,6 @@ body.is-selection-mode .hero-search-filter-btn {
   background: var(--brand-green-soft);
 }
 
-/* Fechamento (Fase B.2): confirmacao do contrato criado na venda a vista. */
-.sdv-modal-notice {
-  margin: 0 0 0.6rem;
-  padding: 0.55rem 0.75rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--brand-green-ink);
-  background: var(--brand-green-soft);
-  border: 1px solid rgba(var(--brand-green-rgb), 0.25);
-  border-radius: 10px;
-}
-
 /* ===========================================================================
    Fechamento (Fase B.3): pagina "Contratos" — filtros, cards e modal etapa 2.
    =========================================================================== */

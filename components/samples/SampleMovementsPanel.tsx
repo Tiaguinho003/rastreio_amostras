@@ -1,52 +1,26 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useMemo } from 'react';
 
-import {
-  ApiError,
-  cancelSampleMovement,
-  createSampleMovement,
-  updateRegistration,
-} from '../../lib/api-client';
-import { useFocusTrap } from '../../lib/use-focus-trap';
-import type {
-  ActiveBlendDetail,
-  SampleMovement,
-  SampleMovementType,
-  SampleSnapshot,
-  SampleStatus,
-  SendHistoryItem,
-  SessionData,
-} from '../../lib/types';
+import type { SampleMovement, SampleSnapshot, SendHistoryItem } from '../../lib/types';
 
-// Mesmo conjunto do backend (src/samples/sample-command-service.js).
-// Q.print: QR_PENDING_PRINT/QR_PRINTED removidos como status (impressao
-// virou acao pura).
-const COMMERCIAL_ALLOWED_STATUSES: readonly SampleStatus[] = [
-  'REGISTRATION_CONFIRMED',
-  'CLASSIFIED',
-];
-import { SampleMovementModal } from './SampleMovementModal';
+// Painel comercial do detalhe da amostra: SO LEITURA. A venda passou a ser feita
+// exclusivamente pela pagina Contratos (criando o contrato a vista); a perda sera
+// realocada depois. Aqui ficam apenas os dados (Vendido/Perdido/Disponivel) e a
+// timeline de movimentacoes/envios/laudos como historico — sem acoes de venda/perda.
 
 type SampleMovementsPanelProps = {
-  session: SessionData;
-  sampleId: string;
   sample: SampleSnapshot;
   movements: SampleMovement[];
-  // Liga B4 Fase 8 (B3.8): ligas ativas onde este sample e origem — vazio
-  // pra liga ou pra amostra sem ligas. Repassado ao modal de venda/perda.
-  activeBlends: ActiveBlendDetail[];
   // Itens do historico de envios (laudo PDF + amostra fisica), projetados na
-  // detail page. A Movimentacoes unifica venda/perda + envio + laudo numa so
+  // detail page. A Movimentacoes unifica movimentos + envio + laudo numa so
   // timeline. Os modais de envio/cancelamento ficam na detail page, por isso
   // as acoes de editar/cancelar envio vem como callbacks.
   sendItems: SendHistoryItem[];
   canEditSend: boolean;
   onEditSend: (item: Extract<SendHistoryItem, { kind: 'PHYSICAL' }>) => void | Promise<void>;
   onCancelSend: (sendEventId: string) => void;
-  onRefresh: () => Promise<void>;
 };
 
 function formatMovementDate(value: string): string {
@@ -69,29 +43,13 @@ function getMovementBuyerLabel(movement: SampleMovement): string | null {
 }
 
 export function SampleMovementsPanel({
-  session,
-  sampleId,
   sample,
   movements,
-  activeBlends,
   sendItems,
   canEditSend,
   onEditSend,
   onCancelSend,
-  onRefresh,
 }: SampleMovementsPanelProps) {
-  const [createType, setCreateType] = useState<SampleMovementType>('SALE');
-  const [createOpen, setCreateOpen] = useState(false);
-  const [cancelMovement, setCancelMovement] = useState<SampleMovement | null>(null);
-  const cancelTrapRef = useFocusTrap(cancelMovement !== null);
-  const [cancelReasonText, setCancelReasonText] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  // Fechamento (Fase B.2): confirmacao do contrato criado na venda a vista.
-  const [notice, setNotice] = useState<string | null>(null);
-  const [stampType, setStampType] = useState<SampleMovementType | null>(null);
-  const stampTimeoutRef = useRef<number | null>(null);
-
   // Timeline unificada de Movimentacoes: registro/chegada (sortKey =
   // sample.createdAt) + venda/perda (sortKey = createdAt) + envio de amostra /
   // criacao de laudo (sortKey = occurredAt), ordenada por data — mais recente
@@ -121,21 +79,9 @@ export function SampleMovementsPanel({
 
   const hasTimeline = timeline.length > 0;
 
-  const finishStamp = useCallback(async () => {
-    setStampType(null);
-    setCreateOpen(false);
-    await onRefresh();
-  }, [onRefresh]);
-
-  function clearFeedback() {
-    setError(null);
-    setNotice(null);
-  }
-
   const sold = sample.soldSacks ?? 0;
   const lost = sample.lostSacks ?? 0;
   const available = sample.availableSacks ?? 0;
-  const commercialAllowed = COMMERCIAL_ALLOWED_STATUSES.includes(sample.status);
 
   const STATUS_LABEL: Record<string, string> = {
     OPEN: 'Disponivel',
@@ -201,46 +147,6 @@ export function SampleMovementsPanel({
             <span className="sdv-com-mini-value">{available}</span>
           </div>
         </div>
-        {/* Acoes Venda/Perda no rodape do Resumo, no mesmo padrao
-            .sdv-info-actions dos demais conteineres. */}
-        <div className="sdv-info-actions">
-          <button
-            type="button"
-            className="sdv-action-card is-loss"
-            disabled={!commercialAllowed || available <= 0}
-            onClick={() => {
-              setCreateType('LOSS');
-              setCreateOpen(true);
-              clearFeedback();
-            }}
-          >
-            <span className="sdv-action-card-icon">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 5v14" />
-                <path d="m5 12 7 7 7-7" />
-              </svg>
-            </span>
-            <span className="sdv-action-card-label">Perda</span>
-          </button>
-          <button
-            type="button"
-            className="sdv-action-card is-sale"
-            disabled={!commercialAllowed || available <= 0}
-            onClick={() => {
-              setCreateType('SALE');
-              setCreateOpen(true);
-              clearFeedback();
-            }}
-          >
-            <span className="sdv-action-card-icon">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 19V5" />
-                <path d="m5 12 7-7 7 7" />
-              </svg>
-            </span>
-            <span className="sdv-action-card-label">Venda</span>
-          </button>
-        </div>
       </div>
 
       {/* Card 2: Movimentações */}
@@ -249,9 +155,6 @@ export function SampleMovementsPanel({
           <span className="sdv-card-title">Movimentacoes</span>
           <span className="sdv-com-count">{timeline.length} registros</span>
         </div>
-
-        {error ? <p className="sdv-modal-error">{error}</p> : null}
-        {notice ? <p className="sdv-modal-notice">{notice}</p> : null}
 
         {hasTimeline ? (
           <div className="sdv-com-movements">
@@ -266,7 +169,6 @@ export function SampleMovementsPanel({
                 // Liga B3.6: movimento criado pela cascata de uma liga —
                 // read-only aqui (cancelar/editar so pela liga raiz).
                 const cascadedFrom = movement.cascadedFrom ?? null;
-                const isCascaded = cascadedFrom !== null;
                 return (
                   <div
                     key={movement.id}
@@ -323,26 +225,6 @@ export function SampleMovementsPanel({
                         ) : null}
                       </div>
                     </div>
-                    {!isCancelled && !isCascaded ? (
-                      <div className="sdv-com-mov-actions">
-                        <button
-                          type="button"
-                          className="sdv-com-mov-act is-danger"
-                          onClick={() => {
-                            setCancelMovement(movement);
-                            setCancelReasonText('');
-                            clearFeedback();
-                          }}
-                          disabled={saving}
-                        >
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M3 6h18" />
-                            <path d="M8 6V4h8v2" />
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-                          </svg>
-                        </button>
-                      </div>
-                    ) : null}
                   </div>
                 );
               }
@@ -472,203 +354,6 @@ export function SampleMovementsPanel({
           </div>
         )}
       </div>
-
-      <SampleMovementModal
-        session={session}
-        open={createOpen}
-        mode="create"
-        saving={saving}
-        title={createType === 'SALE' ? 'Registrar venda' : 'Registrar perda'}
-        initialMovementType={createType}
-        availableSacks={sample.availableSacks ?? 0}
-        blend={sample.isBlend ? { sampleId, ownerClientId: sample.ownerClientId ?? null } : null}
-        activeBlends={!sample.isBlend ? activeBlends : []}
-        onAssignOwner={async (ownerClientId) => {
-          // Liga B4 Fase 5b (F3.A): atribui o dono à liga sem dono e recarrega
-          // o detalhe — o modal continua aberto e reflete o dono preenchido.
-          await updateRegistration(session, sampleId, {
-            expectedVersion: sample.version,
-            after: { ownerClientId },
-            reasonCode: 'DATA_FIX',
-            reasonText: 'Atribuicao de dono a liga antes da movimentacao comercial',
-          });
-          await onRefresh();
-        }}
-        onClose={() => {
-          if (!saving) {
-            setCreateOpen(false);
-            clearFeedback();
-          }
-        }}
-        stampType={stampType}
-        onSubmit={async (data) => {
-          setSaving(true);
-          clearFeedback();
-
-          try {
-            const result = await createSampleMovement(session, sampleId, {
-              expectedVersion: sample.version,
-              movementType: data.movementType,
-              buyerClientId: data.buyerClientId,
-              buyerUnitId: data.buyerUnitId,
-              quantitySacks: data.quantitySacks,
-              movementDate: data.movementDate,
-              notes: data.notes,
-              lossReasonText: data.lossReasonText,
-              // Fechamento (Fase B.2): termos do contrato (venda a vista).
-              unitPrice: data.unitPrice ?? undefined,
-              sellerBrokeragePct: data.sellerBrokeragePct ?? undefined,
-              buyerBrokeragePct: data.buyerBrokeragePct ?? undefined,
-              brokerIds: data.brokerIds.length > 0 ? data.brokerIds : undefined,
-            });
-
-            if (result.saleContract) {
-              setNotice(`Contrato ${result.saleContract.contractNumber} criado.`);
-            }
-
-            setStampType(data.movementType);
-            if (stampTimeoutRef.current !== null) {
-              window.clearTimeout(stampTimeoutRef.current);
-            }
-            stampTimeoutRef.current = window.setTimeout(() => {
-              stampTimeoutRef.current = null;
-              void finishStamp();
-            }, 1500);
-          } catch (cause) {
-            // Liga B4 Fase 5: rede de segurança pro 409 BLEND_HAS_BLOCKED_DESCENDANTS
-            // (corrida — uma origem ficou sem saldo entre a pré-validação e o
-            // submit). Mensagem pt-BR em vez do texto técnico do backend.
-            if (
-              cause instanceof ApiError &&
-              cause.status === 409 &&
-              cause.details !== null &&
-              typeof cause.details === 'object' &&
-              (cause.details as { code?: string }).code === 'BLEND_HAS_BLOCKED_DESCENDANTS'
-            ) {
-              setError(
-                'Não foi possível concluir: uma origem desta liga foi vendida ou perdida e não tem mais saldo pra cascata. Recarregue a página e confira as origens.'
-              );
-            } else {
-              setError(
-                cause instanceof ApiError ? cause.message : 'Falha ao registrar movimentacao'
-              );
-            }
-          } finally {
-            setSaving(false);
-          }
-        }}
-      />
-
-      {cancelMovement
-        ? createPortal(
-            <div className="app-modal-backdrop">
-              <section
-                ref={cancelTrapRef}
-                className="app-modal is-themed is-action sample-detail-compact-modal"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="cancel-mov-title"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <header className="app-modal-header">
-                  <div className="app-modal-title-wrap">
-                    <h3 id="cancel-mov-title" className="app-modal-title">
-                      {sample.isBlend ? 'Cancelar movimentação da liga' : 'Cancelar movimentação'}
-                    </h3>
-                  </div>
-                  <button
-                    type="button"
-                    className="app-modal-close"
-                    onClick={() => setCancelMovement(null)}
-                    disabled={saving}
-                    aria-label="Fechar"
-                  >
-                    <span aria-hidden="true">&times;</span>
-                  </button>
-                </header>
-
-                <div className="app-modal-content">
-                  {error ? <p className="sdv-modal-error">{error}</p> : null}
-
-                  {sample.isBlend ? (
-                    <div className="sdv-warn-box">
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
-                        <path d="M12 9v4" />
-                        <path d="M12 17h.01" />
-                      </svg>
-                      <div className="sdv-warn-text">
-                        <strong>
-                          Isto cancela a{' '}
-                          {cancelMovement.movementType === 'SALE' ? 'venda' : 'perda'} da liga
-                          inteira
-                        </strong>
-                        A cascata é desfeita em todas as origens — elas voltam ao saldo anterior.
-                        Informe o motivo para manter a auditoria consistente.
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="sdv-modal-hint">
-                      Informe o motivo para manter a auditoria consistente.
-                    </p>
-                  )}
-
-                  <label className="app-modal-field">
-                    <span className="app-modal-label">Motivo do cancelamento</span>
-                    <input
-                      className="app-modal-input"
-                      value={cancelReasonText}
-                      disabled={saving}
-                      onChange={(event) => setCancelReasonText(event.target.value)}
-                      placeholder="Descreva o motivo"
-                    />
-                  </label>
-
-                  <div className="app-modal-actions">
-                    <button
-                      type="button"
-                      className="app-modal-secondary"
-                      onClick={() => setCancelMovement(null)}
-                      disabled={saving}
-                    >
-                      Voltar
-                    </button>
-                    <button
-                      type="button"
-                      className="app-modal-submit is-danger"
-                      disabled={saving || cancelReasonText.trim().length === 0}
-                      onClick={async () => {
-                        if (!cancelMovement) return;
-                        setSaving(true);
-                        clearFeedback();
-                        try {
-                          await cancelSampleMovement(session, sampleId, cancelMovement.id, {
-                            expectedVersion: sample.version,
-                            reasonText: cancelReasonText.trim(),
-                          });
-                          setCancelMovement(null);
-                          setCancelReasonText('');
-                          await onRefresh();
-                        } catch (cause) {
-                          setError(
-                            cause instanceof ApiError
-                              ? cause.message
-                              : 'Falha ao cancelar movimentacao'
-                          );
-                        } finally {
-                          setSaving(false);
-                        }
-                      }}
-                    >
-                      {saving ? 'Cancelando...' : 'Confirmar'}
-                    </button>
-                  </div>
-                </div>
-              </section>
-            </div>,
-            document.body
-          )
-        : null}
     </section>
   );
 }

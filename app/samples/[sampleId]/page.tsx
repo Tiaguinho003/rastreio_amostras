@@ -2780,18 +2780,12 @@ export default function SampleDetailPage() {
                     laudo (sendItems vem da projecao de eventos da detail page). */}
                 <section className="stack sample-detail-info-pane sample-detail-commercial-pane">
                   <SampleMovementsPanel
-                    session={session}
-                    sampleId={sampleId}
                     sample={detail.sample}
                     movements={detail.movements ?? []}
-                    activeBlends={detail.activeBlends ?? []}
                     sendItems={sendHistoryItems}
                     canEditSend={canPhysicalSend}
                     onEditSend={handleOpenEditSend}
                     onCancelSend={(sendEventId) => setCancelConfirmSendEventId(sendEventId)}
-                    onRefresh={async () => {
-                      await syncDetailState();
-                    }}
                   />
                 </section>
               </div>
