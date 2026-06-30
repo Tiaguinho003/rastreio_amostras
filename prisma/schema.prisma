@@ -896,6 +896,25 @@ model SaleContractExport {
   @@map("sale_contract_export")
 }
 
+// Auditoria de aplicacao de agio/desagio pos-CONFIRMADO (D90). Uma linha por
+// aplicacao via os botoes do card; registra o valor aplicado, o que substituiu
+// e o total antes->depois. Sem @relation (FK so no SQL, padrao do dominio).
+model SaleContractAgioLog {
+  id                 String           @id @db.Uuid
+  saleContractId     String           @map("sale_contract_id") @db.Uuid
+  agioDesagioType    AgioDesagioType  @map("agio_desagio_type")
+  agioDesagioValue   Decimal          @map("agio_desagio_value") @db.Decimal(12, 2)
+  previousAgioType   AgioDesagioType? @map("previous_agio_type")
+  previousAgioValue  Decimal?         @map("previous_agio_value") @db.Decimal(12, 2)
+  previousTotalValue Decimal          @map("previous_total_value") @db.Decimal(14, 2)
+  newTotalValue      Decimal          @map("new_total_value") @db.Decimal(14, 2)
+  appliedByUserId    String?          @map("applied_by_user_id") @db.Uuid
+  appliedAt          DateTime         @default(now()) @map("applied_at") @db.Timestamptz(6)
+
+  @@index([saleContractId, appliedAt], map: "idx_sale_contract_agio_log_contract_applied")
+  @@map("sale_contract_agio_log")
+}
+
 model SampleMovement {
   id                  String               @id @db.Uuid
   sampleId            String               @map("sample_id") @db.Uuid
