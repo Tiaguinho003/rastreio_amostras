@@ -13,7 +13,14 @@ import { changeCurrentUserPassword, recordInitialPasswordDecision } from '../lib
 import { changePasswordSchema } from '../lib/form-schemas';
 import { useVisitOutboxAutoSync } from '../lib/offline/use-visit-outbox-sync';
 import { VISIT_SYNC_COMPLETED_EVENT, type VisitSyncResult } from '../lib/offline/visit-sync';
-import { getRoleLabel, INFORME_ROLES, isAdmin, isProspector, isRoleAllowed } from '../lib/roles';
+import {
+  FINANCEIRO_ROLES,
+  getRoleLabel,
+  INFORME_ROLES,
+  isAdmin,
+  isProspector,
+  isRoleAllowed,
+} from '../lib/roles';
 import { useToast } from '../lib/toast/ToastProvider';
 import type { SessionData } from '../lib/types';
 import { mergeUserIntoSession } from '../lib/use-auth';
@@ -36,6 +43,7 @@ type NavIcon =
   | 'informe'
   | 'cadastros'
   | 'contratos'
+  | 'financeiro'
   | 'profile';
 type MobileRouteMeta = {
   title: string;
@@ -79,6 +87,14 @@ const CONTRATOS_NAV_ITEM = {
   href: '/contratos',
   label: 'Contratos',
   icon: 'contratos' as NavIcon,
+} as const;
+
+// Item da sidebar: Financeiro (Fase F — corretagem a receber por fechamento).
+// ADMIN + COMMERCIAL (item tambem no avatar menu p/ mobile).
+const FINANCEIRO_NAV_ITEM = {
+  href: '/financeiro',
+  label: 'Financeiro',
+  icon: 'financeiro' as NavIcon,
 } as const;
 
 const MOBILE_NAV_ITEMS = [
@@ -227,6 +243,16 @@ function renderNavIcon(icon: NavIcon, user?: SessionData['user']) {
         <path d="M14 3v5h5" />
         <path d="M9 13h6" />
         <path d="M9 17h5" />
+      </svg>
+    );
+  }
+
+  if (icon === 'financeiro') {
+    return (
+      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+        <rect x="3" y="6" width="18" height="12" rx="2" />
+        <circle cx="12" cy="12" r="2.5" />
+        <path d="M6.5 9.5h.01M17.5 14.5h.01" />
       </svg>
     );
   }
@@ -389,6 +415,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
     : [
         ...DESKTOP_NAV_ITEMS,
         ...(isRoleAllowed(session.user.role, INFORME_ROLES) ? [INFORME_NAV_ITEM] : []),
+        ...(isRoleAllowed(session.user.role, FINANCEIRO_ROLES) ? [FINANCEIRO_NAV_ITEM] : []),
         ...(isAdmin(session.user.role) || session.user.role === 'CADASTRO'
           ? [CADASTROS_NAV_ITEM]
           : []),

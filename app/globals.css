@@ -34993,3 +34993,198 @@ body.is-selection-mode .hero-search-filter-btn {
   font-size: 0.82rem;
   color: var(--brand-muted);
 }
+
+/* ---------------------------------------------------------------------------
+   Financeiro (Fase F): pagina "Financeiro" — corretagem a receber por
+   fechamento. Total geral + cards (recolhido + expandido, acordeao) espelhando
+   o .ctr-card; figuras, corretores e o detalhe da corretagem (vend/comp).
+   --------------------------------------------------------------------------- */
+.fin-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 clamp(0.5rem, 3vw, 1rem) 0.6rem;
+  padding: 0.75rem 1rem;
+  border-radius: 14px;
+  background: var(--brand-green-ink);
+  color: #fff;
+}
+.fin-total-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0.92;
+}
+.fin-total-value {
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+.fin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.fin-card {
+  background: #fff;
+  border: 1px solid var(--brand-cream-line);
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+.fin-card-head {
+  display: flex;
+  align-items: stretch;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+.fin-card-bar {
+  flex: 0 0 auto;
+  width: 4px;
+  border-radius: 2px;
+  background: #16a34a;
+}
+.fin-card-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.fin-card-top {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.fin-card-number {
+  font-weight: 700;
+  color: var(--brand-green-ink);
+  font-size: 1rem;
+}
+.fin-card-status {
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 0.12rem 0.5rem;
+  white-space: nowrap;
+}
+.fin-card-figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.4rem;
+}
+.fin-fig {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+.fin-fig-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--brand-muted);
+}
+.fin-fig-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--brand-green-ink);
+}
+.fin-fig-strong {
+  font-weight: 800;
+}
+.fin-card-brokers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.fin-broker {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  background: var(--brand-cream-line);
+  border-radius: 999px;
+  padding: 0.12rem 0.55rem;
+  font-size: 0.78rem;
+}
+.fin-broker-name {
+  color: var(--brand-green-ink);
+  font-weight: 600;
+}
+.fin-broker-share {
+  color: var(--brand-muted);
+}
+.fin-card-chevron {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--brand-muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.fin-card.is-expanded .fin-card-chevron {
+  transform: rotate(180deg);
+}
+.fin-card-expanded {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.fin-card.is-expanded .fin-card-expanded {
+  grid-template-rows: 1fr;
+}
+.fin-card-expanded-inner {
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0 1rem;
+  opacity: 0;
+  transition: opacity 0.22s ease 0.05s;
+}
+.fin-card.is-expanded .fin-card-expanded-inner {
+  opacity: 1;
+  padding-bottom: 0.85rem;
+}
+.fin-section-title {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--brand-muted);
+}
+.fin-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.fin-detail-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  background: var(--brand-cream-line);
+}
+.fin-detail-label {
+  font-size: 0.82rem;
+  color: var(--brand-muted);
+}
+.fin-detail-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--brand-green-ink);
+}

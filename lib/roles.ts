@@ -67,3 +67,8 @@ export function isVisitLinkCurator(role: UserRole | null | undefined): boolean {
 // no placeholder vazio. CLASSIFIER e CADASTRO nao acessam (CADASTRO saiu em
 // 2026-06-28).
 export const INFORME_ROLES: UserRole[] = ['ADMIN', 'COMMERCIAL', 'REGISTRATION'];
+
+// allowedRoles da pagina "Financeiro" (Fase F): corretagem a receber por
+// fechamento. ADMIN ve tudo (quebra por corretor); COMMERCIAL ve so os seus e
+// so a propria cota (via Broker.userId). Espelha o FINANCEIRO_ROLES do backend.
+export const FINANCEIRO_ROLES: UserRole[] = ['ADMIN', 'COMMERCIAL'];
