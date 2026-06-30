@@ -34680,6 +34680,33 @@ body.is-selection-mode .hero-search-filter-btn {
   border-color: var(--color-danger);
 }
 
+/* Previa do dialogo de agio/desagio (D87): label -> valor recalculado ao vivo. */
+.ctr-agio-preview {
+  margin: 0.85rem 0 0;
+  display: grid;
+  gap: 0.4rem;
+}
+.ctr-agio-preview-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  font-size: 0.9rem;
+}
+.ctr-agio-preview-row dt {
+  color: var(--brand-muted);
+}
+.ctr-agio-preview-row dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 600;
+  color: var(--brand-green-ink);
+}
+.ctr-agio-preview-base {
+  font-weight: 400;
+  color: var(--brand-muted);
+}
+
 .ctr-etapa2-content {
   display: flex;
   flex-direction: column;

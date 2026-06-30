@@ -1,6 +1,11 @@
 'use client';
 
-import type { SaleContract, SaleContractStatus, SaleContractType } from '../../lib/types';
+import type {
+  AgioDesagioType,
+  SaleContract,
+  SaleContractStatus,
+  SaleContractType,
+} from '../../lib/types';
 
 // Fechamento (Fase B.3): card de um contrato na pagina "Contratos". Versao
 // recolhida (basico) + expandida (dropdown estilo Lotes): barra colorida por
@@ -77,6 +82,8 @@ type SaleContractCardProps = {
   onReverter: () => void;
   onWashout: () => void;
   onVisualizar: () => void;
+  // Aplicar agio/desagio (D87): so em CONFIRMADO; abre o dialogo com o sinal.
+  onApplyAgio: (type: AgioDesagioType) => void;
   // Modo de selecao p/ o Espelho de Corretagem (Fase E): o card vira botao de
   // selecao; inelegiveis (status != CONFIRMADO/FATURADO/PAGO) ficam esmaecidos.
   espelhoMode?: boolean;
@@ -98,6 +105,7 @@ export function SaleContractCard({
   onReverter,
   onWashout,
   onVisualizar,
+  onApplyAgio,
   espelhoMode = false,
   espelhoEligible = false,
   espelhoReason,
@@ -209,6 +217,14 @@ export function SaleContractCard({
               <span className="ctr-card-stat-label">Preço/saca</span>
               <span className="ctr-card-stat-value">{money(contract.unitPrice)}</span>
             </span>
+            {contract.agioDesagioType ? (
+              <span className="ctr-card-stat">
+                <span className="ctr-card-stat-label">
+                  {contract.agioDesagioType === 'AGIO' ? 'Ágio' : 'Deságio'}
+                </span>
+                <span className="ctr-card-stat-value">{money(contract.agioDesagioValue)}/sc</span>
+              </span>
+            ) : null}
             <span className="ctr-card-stat">
               <span className="ctr-card-stat-label">Faturamento</span>
               <span className="ctr-card-stat-value">
@@ -261,6 +277,12 @@ export function SaleContractCard({
                 </button>
                 <button type="button" className="ctr-btn" onClick={onVisualizar}>
                   Visualizar
+                </button>
+                <button type="button" className="ctr-btn" onClick={() => onApplyAgio('AGIO')}>
+                  Ágio
+                </button>
+                <button type="button" className="ctr-btn" onClick={() => onApplyAgio('DESAGIO')}>
+                  Deságio
                 </button>
                 <button type="button" className="ctr-btn ctr-btn-danger" onClick={onWashout}>
                   Washout

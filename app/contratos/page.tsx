@@ -7,6 +7,7 @@ import { AppShell } from '../../components/AppShell';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { ContractCreateRadialFab } from '../../components/contracts/ContractCreateRadialFab';
 import { EspelhoCorretagemModal } from '../../components/contracts/EspelhoCorretagemModal';
+import { SaleContractAgioDialog } from '../../components/contracts/SaleContractAgioDialog';
 import { SaleContractCard } from '../../components/contracts/SaleContractCard';
 import { SaleContractConfirmDialog } from '../../components/contracts/SaleContractConfirmDialog';
 import { SaleContractDocumentModal } from '../../components/contracts/SaleContractDocumentModal';
@@ -19,7 +20,7 @@ import { SaleContractLotPickerModal } from '../../components/contracts/SaleContr
 import { getNextContractNumber, listSaleContracts } from '../../lib/api-client';
 import { useRequireAuth } from '../../lib/use-auth';
 import { useToast } from '../../lib/toast/ToastProvider';
-import type { SaleContract, SaleContractStatus } from '../../lib/types';
+import type { AgioDesagioType, SaleContract, SaleContractStatus } from '../../lib/types';
 
 type StatusFilter = 'ALL' | SaleContractStatus;
 
@@ -71,6 +72,11 @@ export default function ContratosPage() {
     action: LifecycleAction;
     status: SaleContractStatus;
     hasLot: boolean;
+  } | null>(null);
+  // Aplicar ágio/deságio (D87): alvo = contrato + sinal escolhido no card.
+  const [agioTarget, setAgioTarget] = useState<{
+    contract: SaleContract;
+    agioType: AgioDesagioType;
   } | null>(null);
   // Criação de contrato FUTURO (sem lote): 1 modal só (futureCreate).
   const [futureOpen, setFutureOpen] = useState(false);
@@ -275,6 +281,7 @@ export default function ContratosPage() {
                           contractNumber: contract.contractNumber,
                         })
                       }
+                      onApplyAgio={(type) => setAgioTarget({ contract, agioType: type })}
                       onFaturar={() => openLifecycle('invoice')}
                       onPagar={() => openLifecycle('pay')}
                       onReverter={() => openLifecycle('revert')}
@@ -384,6 +391,21 @@ export default function ContratosPage() {
                         ? 'Pagamento desfeito'
                         : 'Faturamento desfeito';
             toast.success({ title });
+          }}
+        />
+      ) : null}
+
+      {agioTarget ? (
+        <SaleContractAgioDialog
+          session={session}
+          contract={agioTarget.contract}
+          agioType={agioTarget.agioType}
+          onClose={() => setAgioTarget(null)}
+          onDone={() => {
+            const applied = agioTarget.agioType === 'AGIO' ? 'Ágio aplicado' : 'Deságio aplicado';
+            setAgioTarget(null);
+            void refresh();
+            toast.success({ title: applied });
           }}
         />
       ) : null}
