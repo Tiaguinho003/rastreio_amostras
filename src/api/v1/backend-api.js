@@ -2977,6 +2977,19 @@ export function createBackendApiV1({
         return { status: 200, body: result };
       }),
 
+    // "+ Adicionar" inline nas listas do contrato (D91): cria 1 valor (Forma/
+    // Modalidade/Embalagem). Qualquer autenticado (D59); so o modal ADMIN o expoe.
+    createContractLookup: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractService) {
+          throw new HttpError(501, 'Sale contract service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+        const result = await saleContractService.createContractLookup(body, actor);
+        return { status: 200, body: result };
+      }),
+
     // Preview do proximo numero de contrato (NNNN/AA), so-leitura — pro modal de
     // venda mostrar o numero antes de criar.
     getNextContractNumber: (input) =>

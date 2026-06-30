@@ -11,8 +11,10 @@ import {
   buildWarehouseSnapshot,
   computeContractMoney,
   computeContractMoneyWithAgio,
+  CONTRACT_LOOKUP_LISTS,
   formatContractNumber,
   normalizeActionDate,
+  normalizeContractLookupInput,
   normalizeEtapa2Input,
   normalizeFutureSaleContractInput,
   normalizeRequiredAgio,
@@ -1068,6 +1070,36 @@ export class SaleContractService {
     ]);
 
     return { paymentForms, modalities, packagings };
+  }
+
+  // "+ Adicionar" inline (D91): cria um valor numa das 3 listas (Forma/Modalidade/
+  // Embalagem) a partir do dropdown do modal. Qualquer autenticado (D59); append no
+  // fim (sortOrder = max+1); nome UNIQUE -> 409. Status sempre ACTIVE.
+  async createContractLookup(input, actorContext) {
+    assertAuthenticatedActor(actorContext, 'create contract lookup');
+    const { list, name } = normalizeContractLookupInput(input);
+    const model = this.prisma[CONTRACT_LOOKUP_LISTS[list]];
+
+    const max = await model.aggregate({ _max: { sortOrder: true } });
+    const sortOrder = (max?._max?.sortOrder ?? -1) + 1;
+
+    let item;
+    try {
+      item = await model.create({
+        data: { id: randomUUID(), name, sortOrder, status: 'ACTIVE' },
+        select: { id: true, name: true },
+      });
+    } catch (error) {
+      if (error?.code === 'P2002') {
+        throw new HttpError(409, 'A contract lookup with this name already exists', {
+          code: 'CONTRACT_LOOKUP_NAME_EXISTS',
+          field: 'name',
+        });
+      }
+      throw error;
+    }
+
+    return { list, item };
   }
 
   _normalizeStatusFilter(value) {

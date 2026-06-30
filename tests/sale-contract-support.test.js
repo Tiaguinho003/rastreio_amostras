@@ -10,6 +10,7 @@ import {
   formatContractNumber,
   normalizeBrokeragePct,
   normalizeBrokerIds,
+  normalizeContractLookupInput,
   normalizeEtapa2Input,
   normalizeRequiredAgio,
   normalizeUnitPrice,
@@ -288,6 +289,27 @@ test('normalizeRequiredAgio: aceita o par (case-insensitive) e EXIGE o tipo', ()
   assert.throws(
     () => normalizeRequiredAgio({ agioDesagioType: 'AGIO', agioDesagioValue: 0 }),
     /greater than zero/
+  );
+});
+
+test('normalizeContractLookupInput: valida a lista e exige o nome (trim)', () => {
+  assert.deepEqual(normalizeContractLookupInput({ list: 'paymentForm', name: '  À vista  ' }), {
+    list: 'paymentForm',
+    name: 'À vista',
+  });
+  // lista inválida / ausente
+  assert.throws(
+    () => normalizeContractLookupInput({ list: 'x', name: 'A' }),
+    /paymentForm, modality or packaging/
+  );
+  assert.throws(
+    () => normalizeContractLookupInput({ name: 'A' }),
+    /paymentForm, modality or packaging/
+  );
+  // nome vazio (só espaços)
+  assert.throws(
+    () => normalizeContractLookupInput({ list: 'modality', name: '   ' }),
+    /name is required/
   );
 });
 

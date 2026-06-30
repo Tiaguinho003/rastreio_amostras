@@ -9,7 +9,9 @@ import type {
   BrokerInput,
   BrokerListResponse,
   BrokerResponse,
+  ContractLookupListKey,
   ContractLookupsResponse,
+  CreateContractLookupResponse,
   CreateFutureSaleContractInput,
   FinanceiroListResponse,
   SaleContractEtapa2Input,
@@ -959,6 +961,19 @@ export function listContractLookups(session: SessionData, options: { signal?: Ab
     method: 'GET',
     session,
     signal: options.signal,
+  });
+}
+
+// "+ Adicionar" inline (D91): cria um valor numa das 3 listas e devolve o item novo
+// (já com id) pra selecionar no dropdown. Qualquer autenticado (D59).
+export function createContractLookup(
+  session: SessionData,
+  data: { list: ContractLookupListKey; name: string }
+) {
+  return request<CreateContractLookupResponse>('/contract-lookups', {
+    method: 'POST',
+    session,
+    body: data,
   });
 }
 

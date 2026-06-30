@@ -475,6 +475,15 @@ export interface ContractLookupsResponse {
   packagings: ContractLookupItem[];
 }
 
+// "+ Adicionar" inline (D91): chave lógica de cada uma das 3 listas + resposta da
+// criação (o item novo, já com id, pra selecionar no dropdown).
+export type ContractLookupListKey = 'paymentForm' | 'modality' | 'packaging';
+
+export interface CreateContractLookupResponse {
+  list: ContractLookupListKey;
+  item: ContractLookupItem;
+}
+
 export interface SaleContractEtapa2Input {
   expectedVersion: number;
   sellerClientId?: string | null;

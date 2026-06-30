@@ -566,6 +566,42 @@ export function normalizeRequiredAgio(input, fieldName = 'agioDesagio') {
   return normalized;
 }
 
+// Listas cadastraveis do contrato (Forma/Modalidade/Embalagem, D20/D53). Mapeia a
+// chave logica -> nome do modelo Prisma. Usado pelo "+ Adicionar" inline (D91).
+export const CONTRACT_LOOKUP_LISTS = {
+  paymentForm: 'contractPaymentForm',
+  modality: 'contractModality',
+  packaging: 'contractPackaging',
+};
+
+const CONTRACT_LOOKUP_NAME_MAX = 120;
+
+// Valida o input do "+ Adicionar" inline: list ∈ chaves + name nao-vazio (trim,
+// <= 120). Unicidade fica no UNIQUE do banco (-> 409 no service).
+export function normalizeContractLookupInput(input) {
+  const list = input?.list;
+  if (
+    typeof list !== 'string' ||
+    !Object.prototype.hasOwnProperty.call(CONTRACT_LOOKUP_LISTS, list)
+  ) {
+    throw new HttpError(422, 'list must be paymentForm, modality or packaging', {
+      code: 'VALIDATION_ERROR',
+      field: 'list',
+    });
+  }
+  const name = typeof input?.name === 'string' ? input.name.trim() : '';
+  if (name === '') {
+    throw new HttpError(422, 'name is required', { code: 'VALIDATION_ERROR', field: 'name' });
+  }
+  if (name.length > CONTRACT_LOOKUP_NAME_MAX) {
+    throw new HttpError(422, `name must be at most ${CONTRACT_LOOKUP_NAME_MAX} characters`, {
+      code: 'VALIDATION_ERROR',
+      field: 'name',
+    });
+  }
+  return { list, name };
+}
+
 // Fase 1 (venda) editavel no "Editar" do contrato emitido. OPCIONAL: presente so
 // quando o usuario edita os campos da venda; ausente no wizard create->emit (o
 // create ja os fixou). Quando vem, TODOS os campos sao exigidos (o form preenche
