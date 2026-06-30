@@ -11,6 +11,7 @@ import {
   normalizeBrokeragePct,
   normalizeBrokerIds,
   normalizeEtapa2Input,
+  normalizeRequiredAgio,
   normalizeUnitPrice,
   normalizeWashoutReason,
   resolveRevertTarget,
@@ -274,6 +275,18 @@ test('normalizeEtapa2Input: ágio exige valor > 0 e tipo válido', () => {
   );
   assert.throws(
     () => normalizeEtapa2Input({ ...validEtapa2(), agioDesagioType: 'AGIO', agioDesagioValue: 0 }),
+    /greater than zero/
+  );
+});
+
+test('normalizeRequiredAgio: aceita o par (case-insensitive) e EXIGE o tipo', () => {
+  const out = normalizeRequiredAgio({ agioDesagioType: 'desagio', agioDesagioValue: '2,5' });
+  assert.equal(out.agioDesagioType, 'DESAGIO');
+  assert.equal(out.agioDesagioValue, 2.5);
+  // par vazio (sem tipo) agora é erro — diferente do normalizeAgio (opcional).
+  assert.throws(() => normalizeRequiredAgio({}), /agioDesagioType is required/);
+  assert.throws(
+    () => normalizeRequiredAgio({ agioDesagioType: 'AGIO', agioDesagioValue: 0 }),
     /greater than zero/
   );
 });

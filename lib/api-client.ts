@@ -873,6 +873,20 @@ export function confirmSaleContract(
   });
 }
 
+// "Aplicar agio/desagio" no card de um contrato CONFIRMADO (D87): substitui o
+// agio vigente e recalcula total + corretagem no servidor. Gestao = ADMIN.
+export function applyAgioSaleContract(
+  session: SessionData,
+  contractId: string,
+  data: { expectedVersion: number; agioDesagioType: 'AGIO' | 'DESAGIO'; agioDesagioValue: number }
+) {
+  return request<SaleContractResponse>(`/sale-contracts/${contractId}/apply-agio`, {
+    method: 'POST',
+    session,
+    body: data,
+  });
+}
+
 // Fechamento (Fase B): ciclo pos-CONFIRMADO. "Faturar" e "Pagar" gravam a data
 // real (YYYY-MM-DD); "Desfazer" (revert) volta um passo. Gestao = ADMIN+CADASTRO.
 export function invoiceSaleContract(

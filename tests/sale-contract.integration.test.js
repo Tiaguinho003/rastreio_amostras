@@ -634,6 +634,156 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(confirmed.contract.status, 'CONFIRMADO');
   });
 
+  test('aplicar agio em CONFIRMADO: recalcula total + corretagem, registra no log, status mantido', async () => {
+    const refs = await setupConfirmedContract({ lotNumber: '21100' });
+    const result = await saleContractService.applyAgioSaleContract(
+      refs.contractId,
+      { expectedVersion: refs.version, agioDesagioType: 'AGIO', agioDesagioValue: 50 },
+      adminActor
+    );
+    const c = result.contract;
+    assert.equal(c.status, 'CONFIRMADO'); // status NAO muda
+    assert.equal(c.agioDesagioType, 'AGIO');
+    assert.equal(Number(c.agioDesagioValue), 50);
+    // base 10 sc x R$100 + agio R$50/saca => R$150/saca efetivo => total 1500
+    assert.equal(Number(c.totalValue), 1500);
+    assert.equal(Number(c.sellerBrokerageValue), 30); // 1500 x 2%
+    assert.equal(Number(c.buyerBrokerageValue), 15); // 1500 x 1%
+    assert.equal(c.version, refs.version + 1);
+
+    const logs = await prisma.saleContractAgioLog.findMany({
+      where: { saleContractId: refs.contractId },
+    });
+    assert.equal(logs.length, 1);
+    assert.equal(logs[0].agioDesagioType, 'AGIO');
+    assert.equal(Number(logs[0].agioDesagioValue), 50);
+    assert.equal(logs[0].previousAgioType, null);
+    assert.equal(Number(logs[0].previousTotalValue), 1000);
+    assert.equal(Number(logs[0].newTotalValue), 1500);
+    assert.equal(logs[0].appliedByUserId, adminActor.actorUserId);
+  });
+
+  test('aplicar agio: substitui (nao acumula) e o Financeiro reflete a nova corretagem', async () => {
+    const refs = await setupConfirmedContract({ lotNumber: '21101' });
+    const first = await saleContractService.applyAgioSaleContract(
+      refs.contractId,
+      { expectedVersion: refs.version, agioDesagioType: 'AGIO', agioDesagioValue: 50 },
+      adminActor
+    );
+    // Reaplica DESAGIO 20 sobre o preco CRU (100-20=80) => total 800; NAO 150-20.
+    const second = await saleContractService.applyAgioSaleContract(
+      refs.contractId,
+      { expectedVersion: first.contract.version, agioDesagioType: 'DESAGIO', agioDesagioValue: 20 },
+      adminActor
+    );
+    const c = second.contract;
+    assert.equal(c.agioDesagioType, 'DESAGIO');
+    assert.equal(Number(c.totalValue), 800); // 80 x 10 — substitui, nao acumula
+    assert.equal(Number(c.sellerBrokerageValue), 16); // 800 x 2%
+    assert.equal(Number(c.buyerBrokerageValue), 8); // 800 x 1%
+
+    const logs = await prisma.saleContractAgioLog.findMany({
+      where: { saleContractId: refs.contractId },
+    });
+    assert.equal(logs.length, 2);
+    const firstLog = logs.find((l) => l.previousAgioType === null);
+    const secondLog = logs.find((l) => l.previousAgioType === 'AGIO');
+    assert.ok(firstLog && secondLog);
+    assert.equal(Number(secondLog.previousAgioValue), 50);
+    assert.equal(Number(secondLog.previousTotalValue), 1500);
+    assert.equal(Number(secondLog.newTotalValue), 800);
+
+    // Financeiro le ao vivo: a cota reflete a corretagem recalculada (16 + 8).
+    const fin = await saleContractService.listBrokerReceivables({}, adminActor);
+    const item = fin.items.find((i) => i.id === refs.contractId);
+    assert.equal(item.commissionTotal, 24);
+    assert.equal(item.brokers[0].share, 24);
+  });
+
+  test('aplicar agio fora de CONFIRMADO -> 409 (CONFERIR e FATURADO)', async () => {
+    // CONFERIR (emitido, nao confirmado)
+    const { contractId, bankAccountId } = await setupEmittableContract({ lotNumber: '21102' });
+    const lookups = await fetchLookups();
+    const emitted = await saleContractService.emitSaleContract(
+      contractId,
+      etapa2Payload({ bankAccountId, lookups }),
+      adminActor
+    );
+    await assert.rejects(
+      () =>
+        saleContractService.applyAgioSaleContract(
+          contractId,
+          {
+            expectedVersion: emitted.contract.version,
+            agioDesagioType: 'AGIO',
+            agioDesagioValue: 10,
+          },
+          adminActor
+        ),
+      /cannot receive agio/
+    );
+
+    // FATURADO (confirmado + faturado)
+    const refs = await setupConfirmedContract({ lotNumber: '21103' });
+    const invoiced = await saleContractService.invoiceSaleContract(
+      refs.contractId,
+      { expectedVersion: refs.version, date: '2026-07-15' },
+      adminActor
+    );
+    await assert.rejects(
+      () =>
+        saleContractService.applyAgioSaleContract(
+          refs.contractId,
+          {
+            expectedVersion: invoiced.contract.version,
+            agioDesagioType: 'AGIO',
+            agioDesagioValue: 10,
+          },
+          adminActor
+        ),
+      /cannot receive agio/
+    );
+  });
+
+  test('aplicar agio: version stale -> 409; sem tipo -> 422; COMMERCIAL -> 403; nada muda', async () => {
+    const refs = await setupConfirmedContract({ lotNumber: '21104' });
+    await assert.rejects(
+      () =>
+        saleContractService.applyAgioSaleContract(
+          refs.contractId,
+          { expectedVersion: refs.version + 5, agioDesagioType: 'AGIO', agioDesagioValue: 10 },
+          adminActor
+        ),
+      /modified concurrently/
+    );
+    await assert.rejects(
+      () =>
+        saleContractService.applyAgioSaleContract(
+          refs.contractId,
+          { expectedVersion: refs.version },
+          adminActor
+        ),
+      /agioDesagioType is required/
+    );
+    await assert.rejects(
+      () =>
+        saleContractService.applyAgioSaleContract(
+          refs.contractId,
+          { expectedVersion: refs.version, agioDesagioType: 'AGIO', agioDesagioValue: 10 },
+          commercialActor
+        ),
+      /not allowed/
+    );
+    // nenhuma aplicacao passou: segue sem agio, total cru e sem log.
+    const after = await saleContractService.getSaleContract(refs.contractId, adminActor);
+    assert.equal(after.contract.agioDesagioType, null);
+    assert.equal(Number(after.contract.totalValue), 1000);
+    const logs = await prisma.saleContractAgioLog.findMany({
+      where: { saleContractId: refs.contractId },
+    });
+    assert.equal(logs.length, 0);
+  });
+
   test('guards: emitir CONFIRMADO -> 409; confirmar EM_ABERTO -> 409', async () => {
     const { contractId, bankAccountId } = await setupEmittableContract({ lotNumber: '21005' });
     const lookups = await fetchLookups();

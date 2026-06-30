@@ -552,6 +552,20 @@ function normalizeAgio(input, fieldName = 'agioDesagio') {
   return { agioDesagioType: type, agioDesagioValue: value };
 }
 
+// Como normalizeAgio, mas EXIGE o par (tipo + valor > 0). Usado na aplicacao de
+// agio/desagio pos-CONFIRMADO pelos botoes do card (D87): "nenhum" nao faz
+// sentido — o usuario escolheu Agio ou Desagio. Reaplicar substitui (D88).
+export function normalizeRequiredAgio(input, fieldName = 'agioDesagio') {
+  const normalized = normalizeAgio(input, fieldName);
+  if (normalized.agioDesagioType === null) {
+    throw new HttpError(422, `${fieldName}Type is required`, {
+      code: 'VALIDATION_ERROR',
+      field: `${fieldName}Type`,
+    });
+  }
+  return normalized;
+}
+
 // Fase 1 (venda) editavel no "Editar" do contrato emitido. OPCIONAL: presente so
 // quando o usuario edita os campos da venda; ausente no wizard create->emit (o
 // create ja os fixou). Quando vem, TODOS os campos sao exigidos (o form preenche

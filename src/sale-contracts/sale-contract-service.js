@@ -15,6 +15,7 @@ import {
   normalizeActionDate,
   normalizeEtapa2Input,
   normalizeFutureSaleContractInput,
+  normalizeRequiredAgio,
   normalizeWashoutReason,
   resolveRevertTarget,
   SALE_CONTRACT_STATUSES,
@@ -509,6 +510,95 @@ export class SaleContractService {
         field: 'expectedVersion',
       });
     }
+
+    return this.getSaleContract(contractId, actorContext);
+  }
+
+  // "Aplicar agio/desagio" — acao dedicada do card em CONFIRMADO (D87/D89).
+  // SUBSTITUI o agio vigente (sempre sobre o unitPrice cru, D88), recalcula o
+  // total + as duas corretagens (computeContractMoneyWithAgio — corretagem
+  // incide sobre o total ajustado) e registra a aplicacao em
+  // sale_contract_agio_log (D90, antes->depois). O status NAO muda; Financeiro
+  // e Espelho leem ao vivo. CRUD direto + concorrencia otimista por version.
+  async applyAgioSaleContract(contractId, input, actorContext) {
+    assertAuthenticatedActor(actorContext, 'apply agio to sale contract');
+    assertRoleAllowed(actorContext.role, SALE_CONTRACT_MANAGE_ROLES, 'apply agio to sale contract');
+    this._requireContractId(contractId);
+    const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
+    const { agioDesagioType, agioDesagioValue } = normalizeRequiredAgio(input);
+
+    const contract = await this.prisma.saleContract.findUnique({
+      where: { id: contractId },
+      select: {
+        id: true,
+        status: true,
+        version: true,
+        unitPrice: true,
+        quantitySacks: true,
+        sellerBrokeragePct: true,
+        buyerBrokeragePct: true,
+        agioDesagioType: true,
+        agioDesagioValue: true,
+        totalValue: true,
+      },
+    });
+    if (!contract) {
+      throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
+    }
+    if (contract.status !== 'CONFIRMADO') {
+      throw new HttpError(409, `Sale contract is ${contract.status} and cannot receive agio`, {
+        code: 'SALE_CONTRACT_NOT_ADJUSTABLE',
+      });
+    }
+    if (contract.version !== expectedVersion) {
+      throw new HttpError(409, 'Sale contract was modified concurrently', {
+        code: 'SALE_CONTRACT_VERSION_CONFLICT',
+        field: 'expectedVersion',
+      });
+    }
+
+    // Substitui (nao acumula): recalcula SEMPRE a partir do unitPrice cru.
+    const money = computeContractMoneyWithAgio({
+      unitPrice: Number(contract.unitPrice),
+      quantitySacks: contract.quantitySacks,
+      sellerPct: Number(contract.sellerBrokeragePct),
+      buyerPct: Number(contract.buyerBrokeragePct),
+      agioType: agioDesagioType,
+      agioValue: agioDesagioValue,
+    });
+
+    await this.prisma.$transaction(async (tx) => {
+      const result = await tx.saleContract.updateMany({
+        where: { id: contractId, version: expectedVersion, status: 'CONFIRMADO' },
+        data: {
+          agioDesagioType,
+          agioDesagioValue,
+          totalValue: money.totalValue,
+          sellerBrokerageValue: money.sellerBrokerageValue,
+          buyerBrokerageValue: money.buyerBrokerageValue,
+          version: { increment: 1 },
+        },
+      });
+      if (result.count === 0) {
+        throw new HttpError(409, 'Sale contract was modified concurrently', {
+          code: 'SALE_CONTRACT_VERSION_CONFLICT',
+          field: 'expectedVersion',
+        });
+      }
+      await tx.saleContractAgioLog.create({
+        data: {
+          id: randomUUID(),
+          saleContractId: contractId,
+          agioDesagioType,
+          agioDesagioValue,
+          previousAgioType: contract.agioDesagioType ?? null,
+          previousAgioValue: contract.agioDesagioValue ?? null,
+          previousTotalValue: contract.totalValue,
+          newTotalValue: money.totalValue,
+          appliedByUserId: actorContext.actorUserId ?? null,
+        },
+      });
+    });
 
     return this.getSaleContract(contractId, actorContext);
   }
