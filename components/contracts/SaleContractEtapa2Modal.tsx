@@ -7,6 +7,7 @@ import {
   ApiError,
   cancelSaleContract,
   createClientUnit,
+  createContractLookup,
   createFutureSaleContract,
   createSampleMovement,
   emitSaleContract,
@@ -928,63 +929,87 @@ export function SaleContractEtapa2Modal({
               <div style={halfRowStyle}>
                 <label className="app-modal-field">
                   <span className="app-modal-label">Forma de pagamento</span>
-                  <select
-                    className="app-modal-input"
+                  <InlineSelectField
+                    options={(lookups?.paymentForms ?? []).map((item) => ({
+                      id: item.id,
+                      label: item.name,
+                    }))}
                     value={paymentFormId}
-                    disabled={disabled}
-                    onChange={(event) => {
-                      setPaymentFormId(event.target.value);
+                    onChange={(id) => {
+                      setPaymentFormId(id);
                       setError(null);
                     }}
-                  >
-                    <option value="">Selecione</option>
-                    {(lookups?.paymentForms ?? []).map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                  </select>
+                    disabled={disabled}
+                    loading={!lookups}
+                    createLabel="Adicionar"
+                    onCreate={async (name) => {
+                      const { item } = await createContractLookup(session, {
+                        list: 'paymentForm',
+                        name,
+                      });
+                      setLookups((prev) =>
+                        prev ? { ...prev, paymentForms: [...prev.paymentForms, item] } : prev
+                      );
+                      return { id: item.id, label: item.name };
+                    }}
+                  />
                 </label>
 
                 <label className="app-modal-field">
                   <span className="app-modal-label">Modalidade</span>
-                  <select
-                    className="app-modal-input"
+                  <InlineSelectField
+                    options={(lookups?.modalities ?? []).map((item) => ({
+                      id: item.id,
+                      label: item.name,
+                    }))}
                     value={modalityId}
-                    disabled={disabled}
-                    onChange={(event) => {
-                      setModalityId(event.target.value);
+                    onChange={(id) => {
+                      setModalityId(id);
                       setError(null);
                     }}
-                  >
-                    <option value="">Selecione</option>
-                    {(lookups?.modalities ?? []).map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                  </select>
+                    disabled={disabled}
+                    loading={!lookups}
+                    createLabel="Adicionar"
+                    onCreate={async (name) => {
+                      const { item } = await createContractLookup(session, {
+                        list: 'modality',
+                        name,
+                      });
+                      setLookups((prev) =>
+                        prev ? { ...prev, modalities: [...prev.modalities, item] } : prev
+                      );
+                      return { id: item.id, label: item.name };
+                    }}
+                  />
                 </label>
               </div>
 
               <label className="app-modal-field">
                 <span className="app-modal-label">Embalagem</span>
-                <select
-                  className="app-modal-input"
+                <InlineSelectField
+                  options={(lookups?.packagings ?? []).map((item) => ({
+                    id: item.id,
+                    label: item.name,
+                  }))}
                   value={packagingId}
-                  disabled={disabled}
-                  onChange={(event) => {
-                    setPackagingId(event.target.value);
+                  onChange={(id) => {
+                    setPackagingId(id);
                     setError(null);
                   }}
-                >
-                  <option value="">Selecione</option>
-                  {(lookups?.packagings ?? []).map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
+                  disabled={disabled}
+                  loading={!lookups}
+                  createLabel="Adicionar"
+                  onCreate={async (name) => {
+                    const { item } = await createContractLookup(session, {
+                      list: 'packaging',
+                      name,
+                    });
+                    setLookups((prev) =>
+                      prev ? { ...prev, packagings: [...prev.packagings, item] } : prev
+                    );
+                    return { id: item.id, label: item.name };
+                  }}
+                />
               </label>
 
               <div style={halfRowStyle}>

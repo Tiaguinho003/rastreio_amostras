@@ -34423,6 +34423,51 @@ body.is-selection-mode .hero-search-filter-btn {
 .bms-option:hover {
   background: var(--brand-green-soft);
 }
+/* "+ Adicionar" inline nos selects de lista do contrato (D91): campinho no
+   dropdown (input + check/cancelar). */
+.bms-create-trigger {
+  color: var(--brand-green-ink);
+  font-weight: 600;
+}
+.bms-create {
+  padding: 0.25rem;
+}
+.bms-create-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.35rem;
+}
+.bms-create-input {
+  flex: 1;
+  min-width: 0;
+}
+.bms-create-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  border-radius: 8px;
+  border: 1px solid var(--brand-cream-line);
+  background: #fff;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.bms-create-ok {
+  color: var(--brand-green-ink);
+}
+.bms-create-cancel {
+  color: var(--brand-muted);
+}
+.bms-create-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.bms-create-error {
+  margin: 0.4rem 0 0.1rem;
+  font-size: 0.8rem;
+  color: var(--color-danger);
+}
 
 /* ===========================================================================
    Fechamento (Fase B.3): pagina "Contratos" — filtros, cards e modal etapa 2.
