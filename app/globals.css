@@ -10414,6 +10414,155 @@ body:has(.app-modal-backdrop) .prospector-fab {
   }
 }
 
+/* ══════════ Detalhe do CLIENTE — cards retrateis + rodape Inativar/Reativar ══════════
+   Marcador CLIENT-only = .sdv-client-side-col (so existe no detalhe do cliente).
+   Collapse: corpo em grid 0fr<->1fr (mesma mecanica do .rsm-card). Base = SEMPRE
+   EXPANDIDO; o mobile (<=900px) colapsa quando :not(.is-expanded); no desktop os
+   cards ficam sempre abertos (sem seta). */
+.sdv-card-collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.28s ease;
+}
+.sdv-card-collapse-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+/* Seta (chevron) so aparece no mobile-recolhido (regra no @media abaixo). */
+.sdv-card-chevron {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--brand-green-soft);
+}
+.sdv-card-chevron svg {
+  width: clamp(18px, 5vw, 20px);
+  height: clamp(18px, 5vw, 20px);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.sdv-card-header-toggle {
+  cursor: default;
+}
+
+/* Rodape Inativar/Reativar (rotulado, full-width) — espelha o .sdv-invalidate-btn
+   do detalhe do lote; inativar = danger outline, reativar = verde outline. */
+.sdv-client-status-footer {
+  display: flex;
+  justify-content: center;
+  padding: clamp(8px, 3vw, 12px) 0 clamp(4px, 2vw, 8px);
+}
+.sdv-client-status-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(6px, 2vw, 8px);
+  width: 100%;
+  padding: clamp(11px, 3vw, 14px) clamp(18px, 5vw, 28px);
+  border-radius: clamp(10px, 3vw, 12px);
+  border: 1.5px solid currentColor;
+  background: #ffffff;
+  font-size: clamp(13px, 3.6vw, 14.5px);
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.sdv-client-status-btn.is-inactivate {
+  color: var(--danger);
+}
+.sdv-client-status-btn.is-reactivate {
+  color: var(--brand-green);
+}
+.sdv-client-status-btn:active {
+  transform: scale(0.97);
+}
+.sdv-client-status-btn svg {
+  width: clamp(16px, 4.5vw, 18px);
+  height: clamp(16px, 4.5vw, 18px);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@media (max-width: 900px) {
+  /* Fundo BRANCO + sombra reforcada (espelha o detalhe do lote). */
+  .sdv-page:has(.sdv-client-side-col) .sdv-content {
+    background: #ffffff;
+  }
+  .sdv-page:has(.sdv-client-side-col) .sdv-card {
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.09),
+      0 8px 20px rgba(0, 0, 0, 0.15),
+      0 16px 36px rgba(0, 0, 0, 0.11),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  }
+
+  /* Reordenar (Resumo -> Info -> Endereco/Filiais -> Contas -> Anexos -> rodape):
+     o inner vira flex-column e cada card recebe `order`. Como .sdv-client-side-col
+     e display:contents no mobile, seus filhos viram itens flex do inner. */
+  .sdv-content-inner:has(> .sdv-client-side-col) {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(13px, 3.6vw, 16px);
+  }
+  .sdv-content-inner:has(> .sdv-client-side-col) .sdv-client-commercial-section {
+    order: 1;
+    margin-top: 0;
+  }
+  .sdv-content-inner:has(> .sdv-client-side-col) > .sdv-general {
+    order: 2;
+  }
+  .sdv-content-inner:has(> .sdv-client-side-col) .sdv-card-address,
+  .sdv-content-inner:has(> .sdv-client-side-col) .sdv-card-filiais {
+    order: 3;
+    margin-top: 0;
+  }
+  .sdv-content-inner:has(> .sdv-client-side-col) .sdv-card-bank-accounts {
+    order: 4;
+  }
+  .sdv-content-inner:has(> .sdv-client-side-col) .sdv-card-attachments {
+    order: 5;
+  }
+  .sdv-content-inner:has(> .sdv-client-side-col) > .sdv-client-status-footer {
+    order: 6;
+  }
+
+  /* Cards retrateis: recolhe quando :not(.is-expanded); troca seta<->editar. */
+  .sdv-card-header-toggle {
+    cursor: pointer;
+  }
+  .sdv-card-collapsible:not(.is-expanded) .sdv-card-collapse {
+    grid-template-rows: 0fr;
+  }
+  .sdv-card-collapsible:not(.is-expanded) .sdv-card-header-toggle {
+    margin-bottom: 0;
+  }
+  .sdv-card-collapsible:not(.is-expanded) .sdv-edit-btn {
+    display: none;
+  }
+  .sdv-card-collapsible:not(.is-expanded) .sdv-card-chevron {
+    display: inline-flex;
+  }
+}
+
+@media (min-width: 901px) {
+  /* Rodape Inativar/Reativar: span das 2 colunas no fim do grid do cliente. */
+  .sdv-content-inner:has(> .sdv-client-side-col) > .sdv-client-status-footer {
+    grid-column: 1 / -1;
+  }
+}
+
 .sdv-card-title {
   display: block;
   font-size: clamp(9px, 2.5vw, 10px);
