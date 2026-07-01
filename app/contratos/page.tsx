@@ -21,7 +21,6 @@ import {
 import { EspelhoCorretagemModal } from '../../components/contracts/EspelhoCorretagemModal';
 import { SaleContractAgioDialog } from '../../components/contracts/SaleContractAgioDialog';
 import { SaleContractCard } from '../../components/contracts/SaleContractCard';
-import { SaleContractConfirmDialog } from '../../components/contracts/SaleContractConfirmDialog';
 import { SaleContractDocumentModal } from '../../components/contracts/SaleContractDocumentModal';
 import { SaleContractEtapa2Modal } from '../../components/contracts/SaleContractEtapa2Modal';
 import {
@@ -44,7 +43,7 @@ import type {
 } from '../../lib/types';
 
 // Espelho de Corretagem (Fase E): só contratos congelados podem gerar o espelho (D73).
-const ESPELHO_ELIGIBLE: SaleContractStatus[] = ['CONFIRMADO', 'FATURADO', 'PAGO'];
+const ESPELHO_ELIGIBLE: SaleContractStatus[] = ['EMITIDO', 'FATURADO', 'PAGO'];
 
 const STATUS_OPTION_LABELS = STATUS_LABELS.map((s) => s.label);
 const TYPE_OPTION_LABELS = TYPE_LABELS.map((t) => t.label);
@@ -107,11 +106,6 @@ export default function ContratosPage() {
   const [docModal, setDocModal] = useState<{ contractId: string; contractNumber: string } | null>(
     null
   );
-  const [confirmTarget, setConfirmTarget] = useState<{
-    contractId: string;
-    expectedVersion: number;
-    contractNumber: string;
-  } | null>(null);
   const [lifecycle, setLifecycle] = useState<{
     contractId: string;
     expectedVersion: number;
@@ -544,13 +538,6 @@ export default function ContratosPage() {
                       onPagar={() => openLifecycle('pay')}
                       onReverter={() => openLifecycle('revert')}
                       onWashout={() => openLifecycle('washout')}
-                      onConfirmar={() =>
-                        setConfirmTarget({
-                          contractId: contract.id,
-                          expectedVersion: contract.version,
-                          contractNumber: contract.contractNumber,
-                        })
-                      }
                       espelhoMode={espelhoMode}
                       espelhoEligible={espelhoEligible}
                       espelhoReason={espelhoReason}
@@ -646,21 +633,6 @@ export default function ContratosPage() {
             setFutureOpen(false);
             void refresh();
             toast.success({ title: 'Contrato Futuro gerado' });
-          }}
-        />
-      ) : null}
-
-      {confirmTarget ? (
-        <SaleContractConfirmDialog
-          session={session}
-          contractId={confirmTarget.contractId}
-          expectedVersion={confirmTarget.expectedVersion}
-          contractNumber={confirmTarget.contractNumber}
-          onClose={() => setConfirmTarget(null)}
-          onConfirmed={() => {
-            setConfirmTarget(null);
-            void refresh();
-            toast.success({ title: 'Contrato confirmado' });
           }}
         />
       ) : null}

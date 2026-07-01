@@ -330,13 +330,7 @@ export interface BrokerResponse {
 // Fechamento (Fase B.2): contrato de venda "Mercado a vista". Os snapshots sao
 // JSON congelados de identidade/banco/armazens (preenchidos ao longo do fluxo).
 export type SaleContractType = 'MERCADO_A_VISTA' | 'FUTURO';
-export type SaleContractStatus =
-  | 'EM_ABERTO'
-  | 'CONFERIR'
-  | 'CONFIRMADO'
-  | 'FATURADO'
-  | 'PAGO'
-  | 'WASH_OUT';
+export type SaleContractStatus = 'EM_ABERTO' | 'EMITIDO' | 'FATURADO' | 'PAGO' | 'WASH_OUT';
 export type AgioDesagioType = 'AGIO' | 'DESAGIO';
 
 export interface SaleContractBrokerView {

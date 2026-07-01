@@ -102,8 +102,7 @@ enum SaleContractType {
 
 enum SaleContractStatus {
   EM_ABERTO
-  CONFERIR
-  CONFIRMADO
+  EMITIDO
   FATURADO
   PAGO
   WASH_OUT

@@ -204,7 +204,7 @@ if (!databaseUrl || !databaseReachable) {
     };
   }
 
-  // Emite + confirma -> contrato CONFIRMADO; devolve refs + a version atual.
+  // Emite -> contrato EMITIDO (nao ha mais "confirmar"); devolve refs + version.
   async function setupConfirmedContract({ lotNumber, saleOverrides = {} }) {
     const refs = await setupEmittableContract({ lotNumber, saleOverrides });
     const lookups = await fetchLookups();
@@ -213,12 +213,7 @@ if (!databaseUrl || !databaseReachable) {
       etapa2Payload({ bankAccountId: refs.bankAccountId, lookups }),
       adminActor
     );
-    const confirmed = await saleContractService.confirmSaleContract(
-      refs.contractId,
-      { expectedVersion: emitted.contract.version },
-      adminActor
-    );
-    return { ...refs, version: confirmed.contract.version };
+    return { ...refs, version: emitted.contract.version };
   }
 
   async function createClassifiedSample({ id, lotNumber, declaredSacks = 10 }) {
@@ -386,7 +381,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(detail.contract.brokers.length, 1);
   });
 
-  test('emitir: EM_ABERTO -> CONFERIR com campos, snapshots e auditoria', async () => {
+  test('emitir: EM_ABERTO -> EMITIDO com campos, snapshots e auditoria', async () => {
     const { contractId, bankAccountId } = await setupEmittableContract({ lotNumber: '21001' });
     const lookups = await fetchLookups();
 
@@ -396,7 +391,7 @@ if (!databaseUrl || !databaseReachable) {
       adminActor
     );
 
-    assert.equal(emitted.contract.status, 'CONFERIR');
+    assert.equal(emitted.contract.status, 'EMITIDO');
     assert.equal(emitted.contract.paymentFormText, lookups.paymentForm.name);
     assert.equal(emitted.contract.modalityText, lookups.modality.name);
     assert.equal(emitted.contract.packagingText, lookups.packaging.name);
@@ -598,7 +593,7 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('re-emitir (Editar): CONFERIR -> CONFERIR + nova auditoria', async () => {
+  test('re-emitir (Editar): EMITIDO -> EMITIDO + nova auditoria', async () => {
     const { contractId, bankAccountId } = await setupEmittableContract({ lotNumber: '21003' });
     const lookups = await fetchLookups();
     const first = await saleContractService.emitSaleContract(
@@ -611,30 +606,14 @@ if (!databaseUrl || !databaseReachable) {
       etapa2Payload({ bankAccountId, lookups, expectedVersion: first.contract.version }),
       adminActor
     );
-    assert.equal(second.contract.status, 'CONFERIR');
+    assert.equal(second.contract.status, 'EMITIDO');
     const exports = await prisma.saleContractExport.findMany({
       where: { saleContractId: contractId },
     });
     assert.equal(exports.length, 2);
   });
 
-  test('confirmar: CONFERIR -> CONFIRMADO', async () => {
-    const { contractId, bankAccountId } = await setupEmittableContract({ lotNumber: '21004' });
-    const lookups = await fetchLookups();
-    const emitted = await saleContractService.emitSaleContract(
-      contractId,
-      etapa2Payload({ bankAccountId, lookups }),
-      adminActor
-    );
-    const confirmed = await saleContractService.confirmSaleContract(
-      contractId,
-      { expectedVersion: emitted.contract.version },
-      adminActor
-    );
-    assert.equal(confirmed.contract.status, 'CONFIRMADO');
-  });
-
-  test('aplicar agio em CONFIRMADO: recalcula total + corretagem, registra no log, status mantido', async () => {
+  test('aplicar agio em EMITIDO: recalcula total + corretagem, registra no log, status mantido', async () => {
     const refs = await setupConfirmedContract({ lotNumber: '21100' });
     const result = await saleContractService.applyAgioSaleContract(
       refs.contractId,
@@ -642,7 +621,7 @@ if (!databaseUrl || !databaseReachable) {
       adminActor
     );
     const c = result.contract;
-    assert.equal(c.status, 'CONFIRMADO'); // status NAO muda
+    assert.equal(c.status, 'EMITIDO'); // status NAO muda
     assert.equal(c.agioDesagioType, 'AGIO');
     assert.equal(Number(c.agioDesagioValue), 50);
     // base 10 sc x R$100 + agio R$50/saca => R$150/saca efetivo => total 1500
@@ -700,30 +679,8 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(item.brokers[0].share, 24);
   });
 
-  test('aplicar agio fora de CONFIRMADO -> 409 (CONFERIR e FATURADO)', async () => {
-    // CONFERIR (emitido, nao confirmado)
-    const { contractId, bankAccountId } = await setupEmittableContract({ lotNumber: '21102' });
-    const lookups = await fetchLookups();
-    const emitted = await saleContractService.emitSaleContract(
-      contractId,
-      etapa2Payload({ bankAccountId, lookups }),
-      adminActor
-    );
-    await assert.rejects(
-      () =>
-        saleContractService.applyAgioSaleContract(
-          contractId,
-          {
-            expectedVersion: emitted.contract.version,
-            agioDesagioType: 'AGIO',
-            agioDesagioValue: 10,
-          },
-          adminActor
-        ),
-      /cannot receive agio/
-    );
-
-    // FATURADO (confirmado + faturado)
+  test('aplicar agio fora de EMITIDO -> 409 (FATURADO)', async () => {
+    // FATURADO (emitido + faturado): agio so vale em EMITIDO.
     const refs = await setupConfirmedContract({ lotNumber: '21103' });
     const invoiced = await saleContractService.invoiceSaleContract(
       refs.contractId,
@@ -784,35 +741,23 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(logs.length, 0);
   });
 
-  test('guards: emitir CONFIRMADO -> 409; confirmar EM_ABERTO -> 409', async () => {
-    const { contractId, bankAccountId } = await setupEmittableContract({ lotNumber: '21005' });
+  test('guards: emitir FATURADO -> 409 (so EM_ABERTO/EMITIDO emitem)', async () => {
+    const refs = await setupConfirmedContract({ lotNumber: '21005' });
     const lookups = await fetchLookups();
-    const emitted = await saleContractService.emitSaleContract(
-      contractId,
-      etapa2Payload({ bankAccountId, lookups }),
-      adminActor
-    );
-    await saleContractService.confirmSaleContract(
-      contractId,
-      { expectedVersion: emitted.contract.version },
+    const invoiced = await saleContractService.invoiceSaleContract(
+      refs.contractId,
+      { expectedVersion: refs.version, date: '2026-07-15' },
       adminActor
     );
     await assert.rejects(
       () =>
         saleContractService.emitSaleContract(
-          contractId,
-          etapa2Payload({ bankAccountId, lookups, expectedVersion: emitted.contract.version + 1 }),
-          adminActor
-        ),
-      (err) => err.status === 409
-    );
-
-    const other = await setupEmittableContract({ lotNumber: '21006' });
-    await assert.rejects(
-      () =>
-        saleContractService.confirmSaleContract(
-          other.contractId,
-          { expectedVersion: 0 },
+          refs.contractId,
+          etapa2Payload({
+            bankAccountId: refs.bankAccountId,
+            lookups,
+            expectedVersion: invoiced.contract.version,
+          }),
           adminActor
         ),
       (err) => err.status === 409
@@ -857,7 +802,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(sample.ownerClientId, newSellerId);
   });
 
-  test('WASH_OUT: cancelar a venda de contrato CONFERIR vira WASH_OUT', async () => {
+  test('WASH_OUT: cancelar a venda de contrato EMITIDO vira WASH_OUT', async () => {
     const { contractId, sampleId, bankAccountId } = await setupEmittableContract({
       lotNumber: '21009',
     });
@@ -884,33 +829,6 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(contract.status, 'WASH_OUT');
     assert.equal(contract.washoutReason, 'Venda cancelada');
     assert.ok(contract.washoutAt);
-  });
-
-  test('WASH_OUT: cancelar a venda de contrato CONFIRMADO vira WASH_OUT', async () => {
-    const { contractId, sampleId, bankAccountId } = await setupEmittableContract({
-      lotNumber: '21010',
-    });
-    const lookups = await fetchLookups();
-    const emitted = await saleContractService.emitSaleContract(
-      contractId,
-      etapa2Payload({ bankAccountId, lookups }),
-      adminActor
-    );
-    await saleContractService.confirmSaleContract(
-      contractId,
-      { expectedVersion: emitted.contract.version },
-      adminActor
-    );
-
-    const movement = await prisma.sampleMovement.findFirst({ where: { sampleId } });
-    const sample = await queryService.requireSample(sampleId);
-    await commandService.cancelSampleMovement(
-      { sampleId, movementId: movement.id, reasonText: 'Quebra', expectedVersion: sample.version },
-      commercialActor
-    );
-
-    const contract = await prisma.saleContract.findUnique({ where: { id: contractId } });
-    assert.equal(contract.status, 'WASH_OUT');
   });
 
   test('cancelar EM_ABERTO: remove o contrato, desfaz a venda e devolve as sacas', async () => {
@@ -949,7 +867,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(after.soldSacks, 0);
   });
 
-  test('cancelar: status CONFERIR -> 409 (nao-cancelavel; use Quebrar)', async () => {
+  test('cancelar: status EMITIDO -> 409 (nao-cancelavel; use Quebrar)', async () => {
     const { contractId, bankAccountId } = await setupEmittableContract({ lotNumber: '21013' });
     const lookups = await fetchLookups();
     await saleContractService.emitSaleContract(
@@ -1058,12 +976,12 @@ if (!databaseUrl || !databaseReachable) {
     assert.ok(buffer.length > 1500);
   });
 
-  test('Espelho: contrato CONFIRMADO renderiza %PDF p/ os 2 lados, com a comissão de cada lado', async () => {
+  test('Espelho: contrato EMITIDO renderiza %PDF p/ os 2 lados, com a comissão de cada lado', async () => {
     const { contractId } = await setupConfirmedContract({ lotNumber: '21099' });
     const { contract } = await saleContractService.getSaleContract(contractId, adminActor);
 
     // venda padrao: 10 sacas x R$100 = R$1000; corretagem vend 2% = 20, comp 1% = 10
-    assert.equal(contract.status, 'CONFIRMADO');
+    assert.equal(contract.status, 'EMITIDO');
     assert.equal(contract.sellerBrokerageValue, 20);
     assert.equal(contract.buyerBrokerageValue, 10);
 
@@ -1094,14 +1012,9 @@ if (!databaseUrl || !databaseReachable) {
     const sample = await queryService.requireSample(sampleId);
     const sale = await sell(sampleId, sample.version, buyerId, { brokerIds: [brokerId] });
     const lookups = await fetchLookups();
-    const emitted = await saleContractService.emitSaleContract(
+    await saleContractService.emitSaleContract(
       sale.saleContract.id,
       etapa2Payload({ bankAccountId, lookups }),
-      adminActor
-    );
-    await saleContractService.confirmSaleContract(
-      sale.saleContract.id,
-      { expectedVersion: emitted.contract.version },
       adminActor
     );
     return { contractId: sale.saleContract.id };
@@ -1123,7 +1036,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(item.brokers[0].share, 30);
     assert.equal(item.myShare, undefined);
     // só status congelados entram
-    assert.ok(res.items.every((i) => ['CONFIRMADO', 'FATURADO', 'PAGO'].includes(i.status)));
+    assert.ok(res.items.every((i) => ['EMITIDO', 'FATURADO', 'PAGO'].includes(i.status)));
   });
 
   test('Financeiro: COMMERCIAL vê só os seus fechamentos e só a própria cota', async () => {
@@ -1245,7 +1158,7 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('faturar: CONFIRMADO -> FATURADO grava invoicedAt', async () => {
+  test('faturar: EMITIDO -> FATURADO grava invoicedAt', async () => {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '22001' });
     const r = await saleContractService.invoiceSaleContract(
       contractId,
@@ -1273,7 +1186,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(pay.contract.invoicedAt?.slice(0, 10), '2026-07-15');
   });
 
-  test('pagar direto (pular faturamento): CONFIRMADO -> PAGO com invoicedAt nulo', async () => {
+  test('pagar direto (pular faturamento): EMITIDO -> PAGO com invoicedAt nulo', async () => {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '22003' });
     const pay = await saleContractService.paySaleContract(
       contractId,
@@ -1285,7 +1198,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(pay.contract.invoicedAt, null);
   });
 
-  test('desfazer: FATURADO -> CONFIRMADO limpa invoicedAt', async () => {
+  test('desfazer: FATURADO -> EMITIDO limpa invoicedAt', async () => {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '22004' });
     const inv = await saleContractService.invoiceSaleContract(
       contractId,
@@ -1297,7 +1210,7 @@ if (!databaseUrl || !databaseReachable) {
       { expectedVersion: inv.contract.version },
       adminActor
     );
-    assert.equal(rev.contract.status, 'CONFIRMADO');
+    assert.equal(rev.contract.status, 'EMITIDO');
     assert.equal(rev.contract.invoicedAt, null);
   });
 
@@ -1323,7 +1236,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(rev.contract.invoicedAt?.slice(0, 10), '2026-07-15');
   });
 
-  test('desfazer: PAGO (pulou faturamento) -> CONFIRMADO', async () => {
+  test('desfazer: PAGO (pulou faturamento) -> EMITIDO', async () => {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '22006' });
     const pay = await saleContractService.paySaleContract(
       contractId,
@@ -1335,23 +1248,21 @@ if (!databaseUrl || !databaseReachable) {
       { expectedVersion: pay.contract.version },
       adminActor
     );
-    assert.equal(rev.contract.status, 'CONFIRMADO');
+    assert.equal(rev.contract.status, 'EMITIDO');
     assert.equal(rev.contract.paidAt, null);
   });
 
-  test('guards: faturar/pagar de CONFERIR -> 409; desfazer de CONFIRMADO -> 409', async () => {
+  test('guards: faturar/pagar de EM_ABERTO -> 409; desfazer de EMITIDO -> 409', async () => {
     const a = await setupEmittableContract({ lotNumber: '22007' });
-    const lookups = await fetchLookups();
-    const emitted = await saleContractService.emitSaleContract(
-      a.contractId,
-      etapa2Payload({ bankAccountId: a.bankAccountId, lookups }),
-      adminActor
-    );
+    const ca = await prisma.saleContract.findUnique({
+      where: { id: a.contractId },
+      select: { version: true },
+    });
     await assert.rejects(
       () =>
         saleContractService.invoiceSaleContract(
           a.contractId,
-          { expectedVersion: emitted.contract.version, date: '2026-07-15' },
+          { expectedVersion: ca.version, date: '2026-07-15' },
           adminActor
         ),
       (err) => err.status === 409
@@ -1360,7 +1271,7 @@ if (!databaseUrl || !databaseReachable) {
       () =>
         saleContractService.paySaleContract(
           a.contractId,
-          { expectedVersion: emitted.contract.version, date: '2026-07-15' },
+          { expectedVersion: ca.version, date: '2026-07-15' },
           adminActor
         ),
       (err) => err.status === 409
@@ -1417,7 +1328,7 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('quebra manual: CONFIRMADO -> WASH_OUT, cancela a venda e restaura as sacas', async () => {
+  test('quebra manual: EMITIDO -> WASH_OUT, cancela a venda e restaura as sacas', async () => {
     const { contractId, sampleId, version } = await setupConfirmedContract({ lotNumber: '23001' });
     const before = await prisma.sample.findUnique({
       where: { id: sampleId },
@@ -1468,22 +1379,6 @@ if (!databaseUrl || !databaseReachable) {
     const r = await saleContractService.washoutSaleContract(
       contractId,
       { expectedVersion: pay.contract.version, reason: 'Quebra apos pagar' },
-      adminActor
-    );
-    assert.equal(r.contract.status, 'WASH_OUT');
-  });
-
-  test('quebra manual: a partir de CONFERIR -> WASH_OUT', async () => {
-    const { contractId, bankAccountId } = await setupEmittableContract({ lotNumber: '23004' });
-    const lookups = await fetchLookups();
-    const emitted = await saleContractService.emitSaleContract(
-      contractId,
-      etapa2Payload({ bankAccountId, lookups }),
-      adminActor
-    );
-    const r = await saleContractService.washoutSaleContract(
-      contractId,
-      { expectedVersion: emitted.contract.version, reason: 'Quebra em conferencia' },
       adminActor
     );
     assert.equal(r.contract.status, 'WASH_OUT');
@@ -1632,7 +1527,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(res.contract.contractNumber, `0002/${currentYear2}`);
   });
 
-  test('futuro: emitir -> CONFERIR (vendedor/banco vem no emit)', async () => {
+  test('futuro: emitir -> EMITIDO (vendedor/banco vem no emit)', async () => {
     const buyerId = randomUUID();
     await createBuyerClient(buyerId);
     const sellerId = randomUUID();
@@ -1649,7 +1544,7 @@ if (!databaseUrl || !databaseReachable) {
       etapa2Payload({ bankAccountId, lookups, overrides: { sellerClientId: sellerId } }),
       adminActor
     );
-    assert.equal(emitted.contract.status, 'CONFERIR');
+    assert.equal(emitted.contract.status, 'EMITIDO');
     assert.equal(emitted.contract.type, 'FUTURO');
     assert.equal(emitted.contract.sellerClientId, sellerId);
     assert.ok(emitted.contract.sellerBankSnapshot);

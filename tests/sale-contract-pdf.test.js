@@ -18,7 +18,7 @@ function fakeContract(overrides = {}) {
     id: 'c1',
     type: 'MERCADO_A_VISTA',
     contractNumber: '0001/26',
-    status: 'CONFERIR',
+    status: 'EMITIDO',
     contractDate: '2026-06-26T00:00:00.000Z',
     sellerSnapshot: {
       displayName: 'Vendedor X',

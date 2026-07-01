@@ -10,26 +10,25 @@ import { toIsoString } from '../users/user-support.js';
 export const SALE_CONTRACT_TYPES = Object.freeze(['MERCADO_A_VISTA', 'FUTURO']);
 export const SALE_CONTRACT_STATUSES = Object.freeze([
   'EM_ABERTO',
-  'CONFERIR',
-  'CONFIRMADO',
+  'EMITIDO',
   'FATURADO',
   'PAGO',
   'WASH_OUT',
 ]);
 
-// Desfazer um passo no ciclo pos-CONFIRMADO. Como "Pagar" pode pular FATURADO
-// (CONFIRMADO -> PAGO direto), o destino de desfazer um PAGO depende do caminho
+// Desfazer um passo no ciclo pos-EMITIDO. Como "Pagar" pode pular FATURADO
+// (EMITIDO -> PAGO direto), o destino de desfazer um PAGO depende do caminho
 // percorrido: a presenca de invoicedAt registra se houve faturamento.
-//   FATURADO            -> CONFIRMADO (limpa invoicedAt)
+//   FATURADO            -> EMITIDO (limpa invoicedAt)
 //   PAGO (com faturado) -> FATURADO   (limpa paidAt)
-//   PAGO (pulou)        -> CONFIRMADO (limpa paidAt)
+//   PAGO (pulou)        -> EMITIDO (limpa paidAt)
 // Retorna null para status fora do ciclo (chamador devolve 409).
 export function resolveRevertTarget(status, hasInvoicedAt) {
   if (status === 'FATURADO') {
-    return 'CONFIRMADO';
+    return 'EMITIDO';
   }
   if (status === 'PAGO') {
-    return hasInvoicedAt ? 'FATURADO' : 'CONFIRMADO';
+    return hasInvoicedAt ? 'FATURADO' : 'EMITIDO';
   }
   return null;
 }
@@ -188,7 +187,7 @@ export function formatContractNumber(seq, year) {
 
 // Snapshot MINIMO de identidade do vendedor no EM_ABERTO (a partir do
 // ownerClient ja mapeado da amostra). Etapa 2 enriquece (filial/endereco) e o
-// CONFIRMADO congela (D25). buyerSnapshot reusa o binding do comprador.
+// EMITIDO congela (D25). buyerSnapshot reusa o binding do comprador.
 export function buildSellerSnapshot(ownerClient) {
   if (!ownerClient) {
     return null;
@@ -553,7 +552,7 @@ function normalizeAgio(input, fieldName = 'agioDesagio') {
 }
 
 // Como normalizeAgio, mas EXIGE o par (tipo + valor > 0). Usado na aplicacao de
-// agio/desagio pos-CONFIRMADO pelos botoes do card (D87): "nenhum" nao faz
+// agio/desagio pos-EMITIDO pelos botoes do card (D87): "nenhum" nao faz
 // sentido — o usuario escolheu Agio ou Desagio. Reaplicar substitui (D88).
 export function normalizeRequiredAgio(input, fieldName = 'agioDesagio') {
   const normalized = normalizeAgio(input, fieldName);
@@ -710,7 +709,7 @@ export function buildUnitSnapshot(unit) {
 }
 
 // Snapshot de uma PARTE (vendedor/comprador) a partir do registro RAW do
-// cliente + filial opcional. Etapa 2 grava isto e o CONFIRMADO congela (D25).
+// cliente + filial opcional. Etapa 2 grava isto e o EMITIDO congela (D25).
 export function buildPartySnapshot(client, unit = null) {
   if (!client) {
     return null;

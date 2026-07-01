@@ -56,7 +56,7 @@ type SaleContractEtapa2ModalProps = {
   // Modo CRIACAO À VISTA (1 modal): vem do picker de lote. Mostra o bloco "Venda"
   // (sacas ≤ disponível; liga = 100% travado) + Vendedor pré-preenchido do dono do
   // lote + Comprador manual; o submit cria a venda no lote (createSampleMovement,
-  // atribuindo o dono se a liga não tiver) e em seguida emite (-> CONFERIR).
+  // atribuindo o dono se a liga não tiver) e em seguida emite (-> EMITIDO).
   spotCreate?: {
     sampleId: string;
     sampleVersion: number;
@@ -68,7 +68,7 @@ type SaleContractEtapa2ModalProps = {
   };
   // Modo CRIACAO FUTURO (1 modal): sem lote/contrato. Mostra o bloco "Venda"
   // (vazio, sacas LIVRES) + Vendedor/Comprador manuais; o submit cria o contrato
-  // FUTURO (createFutureSaleContract) e em seguida emite (-> CONFERIR).
+  // FUTURO (createFutureSaleContract) e em seguida emite (-> EMITIDO).
   futureCreate?: boolean;
 };
 

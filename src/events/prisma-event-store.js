@@ -470,7 +470,7 @@ class PrismaEventStoreTx {
 
   // Cancelar a venda (decisao hibrida, D45/D58): contrato ainda `EM_ABERTO`
   // (nunca emitido) -> apaga (brokers antes, FK RESTRICT); ja emitido
-  // (`CONFERIR`/`CONFIRMADO`/`FATURADO`/`PAGO`) -> `WASH_OUT` + motivo/data;
+  // (`EMITIDO`/`FATURADO`/`PAGO`) -> `WASH_OUT` + motivo/data;
   // ja `WASH_OUT` (ou sem contrato) -> no-op. Tambem e o caminho da quebra
   // MANUAL (P17): o `washoutSaleContract` cancela a venda, que cai aqui.
   async washoutOrDeleteSaleContractByMovement(movementId, { reason = null, at = null } = {}) {
@@ -487,8 +487,7 @@ class PrismaEventStoreTx {
       return { id: existing.id, action: 'DELETED' };
     }
     if (
-      existing.status === 'CONFERIR' ||
-      existing.status === 'CONFIRMADO' ||
+      existing.status === 'EMITIDO' ||
       existing.status === 'FATURADO' ||
       existing.status === 'PAGO'
     ) {

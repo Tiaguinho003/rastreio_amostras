@@ -32,7 +32,7 @@ function money(value: number | null): string {
 // Vendedor | Comprador (D72) define o CLIENTE + o lado da comissão; mostra um
 // resumo + a prévia do PDF (on-demand, regenerado por lado, D71) com Exportar /
 // Baixar. Espelha o SaleContractDocumentModal. O contrato deve estar congelado
-// (CONFIRMADO/FATURADO/PAGO) — a página só abre este modal p/ elegíveis.
+// (EMITIDO/FATURADO/PAGO) — a página só abre este modal p/ elegíveis.
 export function EspelhoCorretagemModal({
   session,
   contract,

@@ -9,17 +9,17 @@ import type { FinanceiroReceivable } from '../../lib/types';
 // espelham o `ctr-card` (controlado: isExpanded/onToggle no pai).
 
 const STATUS_LABEL: Record<string, string> = {
-  CONFIRMADO: 'Confirmado',
+  EMITIDO: 'Emitido',
   FATURADO: 'Faturado',
   PAGO: 'Pago',
 };
 const STATUS_COLOR: Record<string, string> = {
-  CONFIRMADO: '#16a34a',
+  EMITIDO: '#16a34a',
   FATURADO: '#0d9488',
   PAGO: '#15803d',
 };
 const STATUS_TINT: Record<string, string> = {
-  CONFIRMADO: '#dcfce7',
+  EMITIDO: '#dcfce7',
   FATURADO: '#ccfbf1',
   PAGO: '#dcfce7',
 };

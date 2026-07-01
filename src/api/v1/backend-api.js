@@ -2853,22 +2853,7 @@ export function createBackendApiV1({
         return { status: 200, body: result };
       }),
 
-    confirmSaleContract: (input) =>
-      executeApiForInput(input, async () => {
-        if (!saleContractService) {
-          throw new HttpError(501, 'Sale contract service is not configured');
-        }
-        const actor = await resolveActorContext(input, authService);
-        const contractId = input?.params?.contractId;
-        if (typeof contractId !== 'string' || contractId.length === 0) {
-          throw new HttpError(422, 'contractId path param is required');
-        }
-        const body = readRequestBody(input);
-        const result = await saleContractService.confirmSaleContract(contractId, body, actor);
-        return { status: 200, body: result };
-      }),
-
-    // "Aplicar agio/desagio" no card de um contrato CONFIRMADO (D87): recalcula
+    // "Aplicar agio/desagio" no card de um contrato EMITIDO (D87): recalcula
     // total + corretagem e registra a aplicacao. So ADMIN (gate no service).
     applyAgioSaleContract: (input) =>
       executeApiForInput(input, async () => {
@@ -2885,8 +2870,8 @@ export function createBackendApiV1({
         return { status: 200, body: result };
       }),
 
-    // Fechamento (Fase B): ciclo pos-CONFIRMADO. "Faturar" (CONFIRMADO->FATURADO)
-    // e "Pagar" (CONFIRMADO|FATURADO->PAGO; pode pular) gravam a data real;
+    // Fechamento (Fase B): ciclo pos-EMITIDO. "Faturar" (EMITIDO->FATURADO)
+    // e "Pagar" (EMITIDO|FATURADO->PAGO; pode pular) gravam a data real;
     // "Desfazer" (revertSaleContractStatus) volta um passo.
     invoiceSaleContract: (input) =>
       executeApiForInput(input, async () => {
@@ -3047,7 +3032,7 @@ export function createBackendApiV1({
 
     // Espelho de Corretagem (Fase E): PDF on-demand DERIVADO de UM contrato
     // (D70-D76). Gate via getSaleContract (ADMIN); so para contratos CONGELADOS
-    // (CONFIRMADO/FATURADO/PAGO, D73). `side` (query) = seller|buyer (D72) define
+    // (EMITIDO/FATURADO/PAGO, D73). `side` (query) = seller|buyer (D72) define
     // o CLIENTE (topo) e o lado da comissao impressa. Sem persistencia (D71).
     exportEspelhoPdf: (input) =>
       executeApiForInput(input, async () => {
@@ -3066,7 +3051,7 @@ export function createBackendApiV1({
           });
         }
         const { contract } = await saleContractService.getSaleContract(contractId, actor);
-        const ELIGIBLE_STATUSES = ['CONFIRMADO', 'FATURADO', 'PAGO'];
+        const ELIGIBLE_STATUSES = ['EMITIDO', 'FATURADO', 'PAGO'];
         if (!ELIGIBLE_STATUSES.includes(contract.status)) {
           throw new HttpError(
             409,

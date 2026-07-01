@@ -8,7 +8,7 @@ import { formatCurrencyValue, maskCurrencyInput, parseCurrencyInput } from '../.
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { AgioDesagioType, SaleContract, SessionData } from '../../lib/types';
 
-// Fechamento (D87): "Aplicar ágio/deságio" num contrato CONFIRMADO. Substitui o
+// Fechamento (D87): "Aplicar ágio/deságio" num contrato EMITIDO. Substitui o
 // ágio vigente (sempre sobre o preço cru, D88) e recalcula total + corretagem no
 // servidor; prévia ao vivo espelha computeContractMoneyWithAgio. Molde do shell
 // do SaleContractLifecycleDialog (.app-modal.is-themed.is-action).

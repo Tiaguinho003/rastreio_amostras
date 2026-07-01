@@ -92,7 +92,7 @@ export class SaleContractService {
   }
 
   // Financeiro (Fase F): lista a corretagem A RECEBER por fechamento. Relatorio
-  // DERIVADO (sem persistencia): TODOS os contratos congelados (CONFIRMADO/
+  // DERIVADO (sem persistencia): TODOS os contratos congelados (EMITIDO/
   // FATURADO/PAGO), inclusive os SEM corretagem (P24/D92 — e o unico lugar onde o
   // total do contrato aparece); a cota de cada corretor = total / N (divisao
   // igual, D79); sem corretagem => cota 0.
@@ -121,7 +121,7 @@ export class SaleContractService {
     // 1) contratos elegiveis: TODOS os congelados (inclusive sem corretagem — P24/D92).
     const rows = await this.prisma.saleContract.findMany({
       where: {
-        status: { in: ['CONFIRMADO', 'FATURADO', 'PAGO'] },
+        status: { in: ['EMITIDO', 'FATURADO', 'PAGO'] },
       },
       orderBy: [{ contractSeq: 'desc' }],
       select: SALE_CONTRACT_VIEW_SELECT,
@@ -209,7 +209,7 @@ export class SaleContractService {
   // lote (sampleId/movementId nulos, D51). Captura a fase 1 (comprador + termos
   // comerciais + corretores); o VENDEDOR e o resto vem no emit (1 modal so). O
   // numero NNNN/AA usa a MESMA sequencia global do a vista, sob advisory lock.
-  // Status nasce EM_ABERTO; o frontend chama emit em seguida (-> CONFERIR).
+  // Status nasce EM_ABERTO; o frontend chama emit em seguida (-> EMITIDO).
   async createFutureSaleContract(input, actorContext) {
     assertAuthenticatedActor(actorContext, 'create future sale contract');
     assertRoleAllowed(actorContext.role, SALE_CONTRACT_MANAGE_ROLES, 'create future sale contract');
@@ -279,7 +279,7 @@ export class SaleContractService {
 
   // Fechamento (Fase B.2 Passo 2): "Emitir" — salva os campos da etapa 2,
   // monta os snapshots, recalcula o total (com agio/desagio) e leva o status de
-  // EM_ABERTO|CONFERIR -> CONFERIR (regeneravel apos "Editar"). Grava 1 linha de
+  // EM_ABERTO|EMITIDO -> EMITIDO (regeneravel apos "Editar"). Grava 1 linha de
   // auditoria (SaleContractExport). O PDF real entra na Fase C neste mesmo ponto.
   async emitSaleContract(contractId, input, actorContext) {
     assertAuthenticatedActor(actorContext, 'emit sale contract');
@@ -293,7 +293,7 @@ export class SaleContractService {
     if (!contract) {
       throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
     }
-    if (contract.status !== 'EM_ABERTO' && contract.status !== 'CONFERIR') {
+    if (contract.status !== 'EM_ABERTO' && contract.status !== 'EMITIDO') {
       throw new HttpError(409, `Sale contract is ${contract.status} and cannot be emitted`, {
         code: 'SALE_CONTRACT_NOT_EMITTABLE',
       });
@@ -392,7 +392,7 @@ export class SaleContractService {
     }
 
     const data = {
-      status: 'CONFERIR',
+      status: 'EMITIDO',
       sellerClientId,
       sellerUnitId: sellerUnit?.id ?? null,
       sellerSnapshot: buildPartySnapshot(sellerClient, sellerUnit),
@@ -482,42 +482,7 @@ export class SaleContractService {
     return this.getSaleContract(contractId, actorContext);
   }
 
-  // "Confirmar" — CONFERIR -> CONFIRMADO. Congela (sem mais emit/edit). Sem PDF
-  // novo (D47). Snapshots ja foram gravados no ultimo "Emitir".
-  async confirmSaleContract(contractId, input, actorContext) {
-    assertAuthenticatedActor(actorContext, 'confirm sale contract');
-    assertRoleAllowed(actorContext.role, SALE_CONTRACT_MANAGE_ROLES, 'confirm sale contract');
-    this._requireContractId(contractId);
-    const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
-
-    const contract = await this.prisma.saleContract.findUnique({
-      where: { id: contractId },
-      select: { id: true, status: true, version: true },
-    });
-    if (!contract) {
-      throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
-    }
-    if (contract.status !== 'CONFERIR') {
-      throw new HttpError(409, `Sale contract is ${contract.status} and cannot be confirmed`, {
-        code: 'SALE_CONTRACT_NOT_CONFIRMABLE',
-      });
-    }
-
-    const result = await this.prisma.saleContract.updateMany({
-      where: { id: contractId, version: expectedVersion, status: 'CONFERIR' },
-      data: { status: 'CONFIRMADO', version: { increment: 1 } },
-    });
-    if (result.count === 0) {
-      throw new HttpError(409, 'Sale contract was modified concurrently', {
-        code: 'SALE_CONTRACT_VERSION_CONFLICT',
-        field: 'expectedVersion',
-      });
-    }
-
-    return this.getSaleContract(contractId, actorContext);
-  }
-
-  // "Aplicar agio/desagio" — acao dedicada do card em CONFIRMADO (D87/D89).
+  // "Aplicar agio/desagio" — acao dedicada do card em EMITIDO (D87/D89).
   // SUBSTITUI o agio vigente (sempre sobre o unitPrice cru, D88), recalcula o
   // total + as duas corretagens (computeContractMoneyWithAgio — corretagem
   // incide sobre o total ajustado) e registra a aplicacao em
@@ -548,7 +513,7 @@ export class SaleContractService {
     if (!contract) {
       throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
     }
-    if (contract.status !== 'CONFIRMADO') {
+    if (contract.status !== 'EMITIDO') {
       throw new HttpError(409, `Sale contract is ${contract.status} and cannot receive agio`, {
         code: 'SALE_CONTRACT_NOT_ADJUSTABLE',
       });
@@ -572,7 +537,7 @@ export class SaleContractService {
 
     await this.prisma.$transaction(async (tx) => {
       const result = await tx.saleContract.updateMany({
-        where: { id: contractId, version: expectedVersion, status: 'CONFIRMADO' },
+        where: { id: contractId, version: expectedVersion, status: 'EMITIDO' },
         data: {
           agioDesagioType,
           agioDesagioValue,
@@ -606,7 +571,7 @@ export class SaleContractService {
     return this.getSaleContract(contractId, actorContext);
   }
 
-  // "Faturar" — CONFIRMADO -> FATURADO. Grava a data REAL do faturamento
+  // "Faturar" — EMITIDO -> FATURADO. Grava a data REAL do faturamento
   // (invoicedAt; pode diferir da planejada invoiceDate). Reversivel via
   // revertSaleContractStatus. CRUD direto + concorrencia otimista por version.
   async invoiceSaleContract(contractId, input, actorContext) {
@@ -623,7 +588,7 @@ export class SaleContractService {
     if (!contract) {
       throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
     }
-    if (contract.status !== 'CONFIRMADO') {
+    if (contract.status !== 'EMITIDO') {
       throw new HttpError(409, `Sale contract is ${contract.status} and cannot be invoiced`, {
         code: 'SALE_CONTRACT_NOT_INVOICEABLE',
       });
@@ -636,7 +601,7 @@ export class SaleContractService {
     }
 
     const result = await this.prisma.saleContract.updateMany({
-      where: { id: contractId, version: expectedVersion, status: 'CONFIRMADO' },
+      where: { id: contractId, version: expectedVersion, status: 'EMITIDO' },
       data: { status: 'FATURADO', invoicedAt, version: { increment: 1 } },
     });
     if (result.count === 0) {
@@ -649,7 +614,7 @@ export class SaleContractService {
     return this.getSaleContract(contractId, actorContext);
   }
 
-  // "Pagar" — CONFIRMADO ou FATURADO -> PAGO (pode pular o faturamento). Grava a
+  // "Pagar" — EMITIDO ou FATURADO -> PAGO (pode pular o faturamento). Grava a
   // data REAL do pagamento (paidAt). Reversivel.
   async paySaleContract(contractId, input, actorContext) {
     assertAuthenticatedActor(actorContext, 'pay sale contract');
@@ -665,7 +630,7 @@ export class SaleContractService {
     if (!contract) {
       throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
     }
-    if (contract.status !== 'CONFIRMADO' && contract.status !== 'FATURADO') {
+    if (contract.status !== 'EMITIDO' && contract.status !== 'FATURADO') {
       throw new HttpError(409, `Sale contract is ${contract.status} and cannot be paid`, {
         code: 'SALE_CONTRACT_NOT_PAYABLE',
       });
@@ -681,7 +646,7 @@ export class SaleContractService {
       where: {
         id: contractId,
         version: expectedVersion,
-        status: { in: ['CONFIRMADO', 'FATURADO'] },
+        status: { in: ['EMITIDO', 'FATURADO'] },
       },
       data: { status: 'PAGO', paidAt, version: { increment: 1 } },
     });
@@ -695,8 +660,8 @@ export class SaleContractService {
     return this.getSaleContract(contractId, actorContext);
   }
 
-  // "Desfazer" — volta um passo no ciclo pos-CONFIRMADO (corrige erro de clique).
-  // FATURADO -> CONFIRMADO (limpa invoicedAt); PAGO -> FATURADO|CONFIRMADO
+  // "Desfazer" — volta um passo no ciclo pos-EMITIDO (corrige erro de clique).
+  // FATURADO -> EMITIDO (limpa invoicedAt); PAGO -> FATURADO|EMITIDO
   // conforme houve faturamento, limpando paidAt (ver resolveRevertTarget).
   async revertSaleContractStatus(contractId, input, actorContext) {
     assertAuthenticatedActor(actorContext, 'revert sale contract status');
@@ -742,7 +707,7 @@ export class SaleContractService {
     return this.getSaleContract(contractId, actorContext);
   }
 
-  // Quebra MANUAL (P17): CONFERIR/CONFIRMADO/FATURADO/PAGO -> WASH_OUT, cancelando
+  // Quebra MANUAL (P17): EMITIDO/FATURADO/PAGO -> WASH_OUT, cancelando
   // a venda subjacente (devolve as sacas ao lote) com motivo OBRIGATORIO. Delega
   // ao cancelSampleMovement, que grava o SALE_CANCELLED e dispara o washout via
   // washoutOrDeleteSaleContractByMovement na mesma tx. DEFINITIVA (event store
@@ -761,7 +726,7 @@ export class SaleContractService {
     if (!contract) {
       throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
     }
-    if (!['CONFERIR', 'CONFIRMADO', 'FATURADO', 'PAGO'].includes(contract.status)) {
+    if (!['EMITIDO', 'FATURADO', 'PAGO'].includes(contract.status)) {
       throw new HttpError(409, `Sale contract is ${contract.status} and cannot be washed out`, {
         code: 'SALE_CONTRACT_NOT_WASHOUTABLE',
       });
@@ -834,7 +799,7 @@ export class SaleContractService {
     if (!contract) {
       throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
     }
-    // So o EM_ABERTO e cancelavel (descartavel). CONFERIR+ usa "Quebrar" (washout).
+    // So o EM_ABERTO e cancelavel (descartavel). EMITIDO+ usa "Quebrar" (washout).
     if (contract.status !== 'EM_ABERTO') {
       throw new HttpError(409, `Sale contract is ${contract.status} and cannot be cancelled`, {
         code: 'SALE_CONTRACT_NOT_CANCELABLE',

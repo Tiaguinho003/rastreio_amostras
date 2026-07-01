@@ -837,7 +837,7 @@ export function getSaleContract(
 }
 
 // Fechamento (Futuro): cria um contrato FUTURO direto (sem lote). O frontend
-// chama emit em seguida (1 modal so) -> CONFERIR. Gestao = ADMIN.
+// chama emit em seguida (1 modal so) -> EMITIDO. Gestao = ADMIN.
 export function createFutureSaleContract(
   session: SessionData,
   data: CreateFutureSaleContractInput
@@ -849,8 +849,8 @@ export function createFutureSaleContract(
   });
 }
 
-// Fechamento (Fase B.2 Passo 2): "Emitir" (salva etapa 2 + EM_ABERTO/CONFERIR
-// -> CONFERIR) e "Confirmar" (CONFERIR -> CONFIRMADO). Gestao = ADMIN.
+// Fechamento (Fase B.2 Passo 2): "Emitir" salva a etapa 2 e leva EM_ABERTO/EMITIDO
+// -> EMITIDO (regeneravel ao "Editar" um EMITIDO). Gestao = ADMIN.
 export function emitSaleContract(
   session: SessionData,
   contractId: string,
@@ -863,19 +863,7 @@ export function emitSaleContract(
   });
 }
 
-export function confirmSaleContract(
-  session: SessionData,
-  contractId: string,
-  data: { expectedVersion: number }
-) {
-  return request<SaleContractResponse>(`/sale-contracts/${contractId}/confirm`, {
-    method: 'POST',
-    session,
-    body: data,
-  });
-}
-
-// "Aplicar agio/desagio" no card de um contrato CONFIRMADO (D87): substitui o
+// "Aplicar agio/desagio" no card de um contrato EMITIDO (D87): substitui o
 // agio vigente e recalcula total + corretagem no servidor. Gestao = ADMIN.
 export function applyAgioSaleContract(
   session: SessionData,
@@ -889,7 +877,7 @@ export function applyAgioSaleContract(
   });
 }
 
-// Fechamento (Fase B): ciclo pos-CONFIRMADO. "Faturar" e "Pagar" gravam a data
+// Fechamento (Fase B): ciclo pos-EMITIDO. "Faturar" e "Pagar" gravam a data
 // real (YYYY-MM-DD); "Desfazer" (revert) volta um passo. Gestao = ADMIN+CADASTRO.
 export function invoiceSaleContract(
   session: SessionData,
@@ -1565,7 +1553,7 @@ export async function downloadSaleContractPdf(session: SessionData, contractId: 
 }
 
 // Espelho de Corretagem (Fase E): baixa/visualiza o PDF do espelho (regenerado
-// on-demand; só CONFIRMADO/FATURADO/PAGO). `side` = 'seller' | 'buyer' define a
+// on-demand; só EMITIDO/FATURADO/PAGO). `side` = 'seller' | 'buyer' define a
 // parte (CLIENTE) e o lado da comissão. Cookie de sessão via credentials.
 export async function downloadEspelhoPdf(
   session: SessionData,

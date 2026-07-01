@@ -313,18 +313,18 @@ test('normalizeContractLookupInput: valida a lista e exige o nome (trim)', () =>
   );
 });
 
-test('resolveRevertTarget: FATURADO sempre volta a CONFIRMADO', () => {
-  assert.equal(resolveRevertTarget('FATURADO', true), 'CONFIRMADO');
-  assert.equal(resolveRevertTarget('FATURADO', false), 'CONFIRMADO');
+test('resolveRevertTarget: FATURADO sempre volta a EMITIDO', () => {
+  assert.equal(resolveRevertTarget('FATURADO', true), 'EMITIDO');
+  assert.equal(resolveRevertTarget('FATURADO', false), 'EMITIDO');
 });
 
-test('resolveRevertTarget: PAGO volta a FATURADO se houve faturamento, senao a CONFIRMADO', () => {
+test('resolveRevertTarget: PAGO volta a FATURADO se houve faturamento, senao a EMITIDO', () => {
   assert.equal(resolveRevertTarget('PAGO', true), 'FATURADO');
-  assert.equal(resolveRevertTarget('PAGO', false), 'CONFIRMADO');
+  assert.equal(resolveRevertTarget('PAGO', false), 'EMITIDO');
 });
 
 test('resolveRevertTarget: status fora do ciclo retorna null', () => {
-  for (const status of ['EM_ABERTO', 'CONFERIR', 'CONFIRMADO', 'WASH_OUT']) {
+  for (const status of ['EM_ABERTO', 'EMITIDO', 'WASH_OUT']) {
     assert.equal(resolveRevertTarget(status, true), null);
     assert.equal(resolveRevertTarget(status, false), null);
   }
@@ -343,7 +343,7 @@ function receivableRow(overrides = {}) {
     id: 'c1',
     contractNumber: '0007/26',
     contractDate: new Date('2026-06-26T00:00:00.000Z'),
-    status: 'CONFIRMADO',
+    status: 'EMITIDO',
     totalValue: 10000,
     sellerBrokeragePct: 0.6,
     sellerBrokerageValue: 60,

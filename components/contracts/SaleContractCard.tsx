@@ -18,8 +18,7 @@ import type {
 
 const STATUS_META: Record<SaleContractStatus, { label: string; variant: string }> = {
   EM_ABERTO: { label: 'Em aberto', variant: 'status-badge-neutral' },
-  CONFERIR: { label: 'Conferir', variant: 'status-badge-warning' },
-  CONFIRMADO: { label: 'Confirmado', variant: 'status-badge-success' },
+  EMITIDO: { label: 'Emitido', variant: 'status-badge-success' },
   FATURADO: { label: 'Faturado', variant: 'status-badge-muted' },
   PAGO: { label: 'Pago', variant: 'status-badge-muted' },
   WASH_OUT: { label: 'Washout', variant: 'status-badge-danger' },
@@ -28,8 +27,7 @@ const STATUS_META: Record<SaleContractStatus, { label: string; variant: string }
 // Cor da barra lateral por status (decisao: distintas por status).
 const STATUS_BAR_COLOR: Record<SaleContractStatus, string> = {
   EM_ABERTO: '#3b82f6', // azul
-  CONFERIR: '#eab308', // amarelo
-  CONFIRMADO: '#16a34a', // verde
+  EMITIDO: '#16a34a', // verde
   FATURADO: '#0d9488', // azul-petroleo (teal)
   PAGO: '#15803d', // verde-escuro
   WASH_OUT: '#dc2626', // vermelho
@@ -38,8 +36,7 @@ const STATUS_BAR_COLOR: Record<SaleContractStatus, string> = {
 // Fundo (tint claro) do selo de status — combina com a cor do texto/barra.
 const STATUS_TINT: Record<SaleContractStatus, string> = {
   EM_ABERTO: '#dbeafe',
-  CONFERIR: '#fef9c3',
-  CONFIRMADO: '#dcfce7',
+  EMITIDO: '#dcfce7',
   FATURADO: '#ccfbf1',
   PAGO: '#dcfce7',
   WASH_OUT: '#fee2e2',
@@ -76,16 +73,15 @@ type SaleContractCardProps = {
   onGerar: () => void;
   onCancelar: () => void;
   onEditar: () => void;
-  onConfirmar: () => void;
   onFaturar: () => void;
   onPagar: () => void;
   onReverter: () => void;
   onWashout: () => void;
   onVisualizar: () => void;
-  // Aplicar agio/desagio (D87): so em CONFIRMADO; abre o dialogo com o sinal.
+  // Aplicar agio/desagio (D87): so em EMITIDO; abre o dialogo com o sinal.
   onApplyAgio: (type: AgioDesagioType) => void;
   // Modo de selecao p/ o Espelho de Corretagem (Fase E): o card vira botao de
-  // selecao; inelegiveis (status != CONFIRMADO/FATURADO/PAGO) ficam esmaecidos.
+  // selecao; inelegiveis (status != EMITIDO/FATURADO/PAGO) ficam esmaecidos.
   espelhoMode?: boolean;
   espelhoEligible?: boolean;
   espelhoReason?: string;
@@ -99,7 +95,6 @@ export function SaleContractCard({
   onGerar,
   onCancelar,
   onEditar,
-  onConfirmar,
   onFaturar,
   onPagar,
   onReverter,
@@ -254,21 +249,11 @@ export function SaleContractCard({
                 </button>
               </>
             ) : null}
-            {contract.status === 'CONFERIR' ? (
+            {contract.status === 'EMITIDO' ? (
               <>
-                <button type="button" className="ctr-btn" onClick={onVisualizar}>
-                  Visualizar
-                </button>
                 <button type="button" className="ctr-btn" onClick={onEditar}>
                   Editar
                 </button>
-                <button type="button" className="ctr-btn ctr-btn-primary" onClick={onConfirmar}>
-                  Confirmar
-                </button>
-              </>
-            ) : null}
-            {contract.status === 'CONFIRMADO' ? (
-              <>
                 <button type="button" className="ctr-btn ctr-btn-primary" onClick={onFaturar}>
                   Faturado
                 </button>
