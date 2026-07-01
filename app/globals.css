@@ -8309,6 +8309,69 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   stroke: #ffffff;
 }
 
+/* Imprimir no header (migrou do rodape de Informacoes): fundo branco solido +
+   icone verde. Destaca-se positivamente sobre o header verde — contraste com o
+   antigo botao vermelho de invalidar que ocupava este mesmo lugar. */
+.sdv-identity-btn.is-print {
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+
+.sdv-identity-btn.is-print svg {
+  stroke: var(--brand-green);
+}
+
+/* Highlight (pulso) reutiliza os keyframes do action-card. */
+.sdv-identity-btn.is-highlight-pulse {
+  animation: sdv-print-pulse 1.2s ease-in-out infinite;
+}
+
+/* Botao "Invalidar" no rodape da pagina (migrou do header). Acao destrutiva
+   terminal, apresentada como botao rotulado outline vermelho, centralizado no
+   fim do conteudo. */
+.sdv-invalidate-footer {
+  display: flex;
+  justify-content: center;
+  padding: clamp(8px, 3vw, 12px) 0 clamp(4px, 2vw, 8px);
+}
+
+.sdv-invalidate-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(6px, 2vw, 8px);
+  width: 100%;
+  padding: clamp(11px, 3vw, 14px) clamp(18px, 5vw, 28px);
+  border-radius: clamp(10px, 3vw, 12px);
+  border: 1.5px solid var(--danger);
+  background: #ffffff;
+  color: var(--danger);
+  font-size: clamp(13px, 3.6vw, 14.5px);
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.sdv-invalidate-btn:active {
+  transform: scale(0.97);
+}
+
+.sdv-invalidate-btn svg {
+  width: clamp(16px, 4.5vw, 18px);
+  height: clamp(16px, 4.5vw, 18px);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 /* Actions Bar */
 .sdv-actions-bar {
   flex-shrink: 0;
@@ -10333,6 +10396,24 @@ body:has(.app-modal-backdrop) .prospector-fab {
   animation: sdv-fadeIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
+/* Detalhe da amostra (mobile): fundo BRANCO no lugar do bege padrao. Como os
+   cards ja sao brancos, reforca um pouco a sombra pra manterem separacao contra
+   o fundo branco. So no mobile (<=900px); no desktop o .sdv-content ja e
+   transparente sobre o body branco. */
+@media (max-width: 900px) {
+  .sdv-page--sample .sdv-content {
+    background: #ffffff;
+  }
+
+  .sdv-page--sample .sdv-card {
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.09),
+      0 8px 20px rgba(0, 0, 0, 0.15),
+      0 16px 36px rgba(0, 0, 0, 0.11),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  }
+}
+
 .sdv-card-title {
   display: block;
   font-size: clamp(9px, 2.5vw, 10px);
@@ -10630,7 +10711,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
 .sdv-info-compact .sdv-card-header,
 .sdv-cls-block .sdv-card-header,
 .sdv-com-summary .sdv-card-header,
-.sdv-com-movements-card .sdv-card-header,
 .sdv-blend-composition .sdv-card-header {
   margin: 0 calc(-1 * clamp(14px, 3.5vw, 16px)) clamp(11px, 2.8vw, 13px);
   padding: 0 clamp(14px, 3.5vw, 16px) clamp(10px, 2.6vw, 12px);
@@ -10658,7 +10738,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
 .sdv-info-compact .sdv-card-header .sdv-card-title,
 .sdv-cls-block .sdv-card-header .sdv-card-title,
 .sdv-com-summary .sdv-card-header .sdv-card-title,
-.sdv-com-movements-card .sdv-card-header .sdv-card-title,
 .sdv-blend-composition .sdv-card-header .sdv-card-title {
   font-size: clamp(9.5px, 2.6vw, 10.5px);
   color: #8a948c;
@@ -11590,9 +11669,15 @@ body:has(.app-modal-backdrop) .prospector-fab {
   min-width: 0;
 }
 
-/* Campos mais compactos dentro da classificacao pra as 2 linhas (Aspecto/
-   Catacao + Classificador) baterem com a altura da foto, sem desperdicar
-   espaco nem estourar a area. */
+/* Classificador sozinho na 1a linha (span das 2 colunas), alinhado a esquerda;
+   Aspecto/Catação dividem a linha de baixo. */
+.sdv-cls-block-fields .sdv-cls-fields-classifier {
+  grid-column: 1 / -1;
+}
+
+/* Campos mais compactos dentro da classificacao pra as 2 linhas (Classificador
+   + Aspecto/Catação) baterem com a altura da foto, sem desperdicar espaco nem
+   estourar a area. */
 .sdv-cls-block-fields .sdv-info-item {
   padding: clamp(3px, 1vw, 5px) 0;
 }
@@ -11747,10 +11832,14 @@ body:has(.app-modal-backdrop) .prospector-fab {
   color: #bbb;
 }
 
-/* Count label */
-.sdv-com-count {
-  font-size: clamp(10px, 2.8vw, 11px);
-  color: #999;
+/* Secao de Movimentacoes dentro do card unico "Resumo comercial": separada dos
+   minicards apenas por uma divisoria fina (sem subtitulo nem contador). No mobile
+   a propria lista (.sdv-com-movements) ja rola internamente (max-height abaixo);
+   no desktop esta secao vira flex:1 e rola (ver @media 901px). */
+.sdv-com-movements-section {
+  margin-top: clamp(12px, 3.2vw, 15px);
+  padding-top: clamp(12px, 3.2vw, 15px);
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 /* Movements list */
@@ -28100,6 +28189,14 @@ select.samples-filter-field-input {
     stroke: #ff8a80;
   }
 
+  /* Imprimir no header (desktop): mantem o branco no hover, so reforca a
+     sombra (nao pega o hover translucido generico). O icone verde vem da regra
+     base .sdv-identity-btn.is-print svg (maior especificidade). */
+  .sdv-identity-btn.is-print:hover {
+    background: #ffffff;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.26);
+  }
+
   /* Actions: maiores, coloridos, com hover */
   .sdv-actions-grid {
     gap: 1rem;
@@ -28490,13 +28587,12 @@ select.samples-filter-field-input {
   }
 
   /* ════════════════════════════════════════
-     Detalhe da AMOSTRA (desktop) — LINHA 1 = Informacoes | Movimentacoes.
-     As DUAS secoes viram 2 COLUNAS (50/50) do .sdv-content-inner: esquerda =
-     geral (Informacoes no topo, Classificacao/liga abaixo); direita = painel
-     comercial, REORDENADO pra Movimentacoes vir antes do Resumo comercial.
-     Substitui o modelo antigo de "altura travada + scroll interno do painel":
-     a pagina volta a rolar normalmente. Tudo escopado em .sdv-page--sample;
-     os outros detalhes (cliente/perfil) nao mudam. ════════ */
+     Detalhe da AMOSTRA (desktop) — 2 COLUNAS. ESQUERDA (estreita) = Informacoes
+     no topo + Resumo comercial embaixo; DIREITA (larga) = Classificacao (span das
+     linhas), com o card de liga embaixo dela quando existe. Substitui o modelo
+     antigo de "altura travada + scroll interno do painel": a pagina volta a rolar
+     normalmente. Tudo escopado em .sdv-page--sample; os outros detalhes
+     (cliente/perfil) nao mudam. ════════ */
   .sdv-page--sample:has(.sample-detail-commercial-pane) {
     height: auto;
     overflow: visible;
@@ -28509,26 +28605,25 @@ select.samples-filter-field-input {
     overflow-x: hidden;
   }
 
-  /* ── Layout 2 colunas (redesign 2026-06-23; mov<->resumo trocados 2026-06-24) ──
-     ESQUERDA: Informacoes -> Classificacao.  DIREITA: Resumo -> Movimentacoes
-     (-> Liga, quando existe). Movimentacoes fica ao LADO da Classificacao (col2
-     da mesma linha). Reposicionado SO via grid-template-areas: os cards vem do
-     DOM via display:contents e cada um declara seu grid-area
-     (info/resumo/classif/mov/liga) mais abaixo — trocar o mapa basta, sem mexer
-     no JSX nem na ordem do mobile (la o grid nao existe). */
+  /* ── Layout 2 colunas (redesign 2026-06-23; colunas trocadas 2026-07-01) ──
+     ESQUERDA (estreita): Informacoes -> Resumo comercial. DIREITA (larga):
+     Classificacao (-> Liga embaixo, quando existe). Reposicionado SO via
+     grid-template-areas: os cards vem do DOM via display:contents e cada um
+     declara seu grid-area (info/comercial/classif/liga) mais abaixo — trocar o
+     mapa basta, sem mexer no JSX nem na ordem do mobile (la o grid nao existe). */
   .sdv-page--sample .sdv-content > .sdv-content-inner {
     display: grid;
-    /* col1 (Informacoes/Classificacao) +15% e col2 (Resumo/Movimentacoes) -15%
-       a partir do 50/50 → 57,5% / 42,5% (1.15fr / 0.85fr). Como partiam iguais,
-       os 7,5% que saem da Movimentacoes entram exatos na Classificacao. minmax(0,…)
-       mantem o min-width:0 pra nada transbordar quando a col2 estreita. */
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    /* col2 (Classificacao) +15% e col1 (Informacoes/Resumo) -15% a partir do
+       50/50 → 42,5% / 57,5% (0.85fr / 1.15fr): a ficha da Classificacao ganha a
+       largura maior. minmax(0,…) mantem o min-width:0 pra nada transbordar na col
+       estreita. */
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
     grid-template-areas:
-      'info    resumo'
-      'classif mov';
-    /* Sem liga (base): 2 linhas. L1 fixa (Informacoes | Resumo, 22rem). L2 cresce
-       com a ficha da Classificacao (col1); Movimentacoes (col2) acompanha a
-       altura via o align-items:stretch do grid. */
+      'info      classif'
+      'comercial classif';
+    /* Sem liga (base): 2 linhas. L1 fixa (Informacoes | topo da Classificacao,
+       22rem). L2 = altura do Resumo comercial (col1); a Classificacao (col2) faz
+       span das 2 linhas e acompanha a altura via align-items:stretch. */
     grid-template-rows: var(--sdv-r1-h) minmax(var(--sdv-r1-h), auto);
     grid-auto-rows: auto;
     gap: 1rem;
@@ -28537,18 +28632,31 @@ select.samples-filter-field-input {
     min-height: 0;
   }
 
+  /* Rodape "Invalidar": ocupa a largura total (span das 2 colunas) numa linha
+     implicita ao final do grid, abaixo de todo o conteudo. */
+  .sdv-page--sample .sdv-content > .sdv-content-inner > .sdv-invalidate-footer {
+    grid-column: 1 / -1;
+    padding-top: 0.25rem;
+  }
+
+  .sdv-invalidate-btn:hover {
+    background: var(--danger);
+    color: #ffffff;
+    box-shadow: 0 6px 16px rgba(184, 50, 50, 0.32);
+  }
+
   /* Com Liga (composicao OU comprometida presente no DOM): cria a 3a linha pra a
-     Liga (col2/L3), abaixo de Movimentacoes. A Classificacao passa a fazer span
-     L2-L3 (col1) = Movimentacoes + Liga = 45rem, alinhando as duas colunas.
-     Linhas fixas pra a altura ser deterministica (a ficha em 3 colunas cabe;
-     rola dentro do card se exceder). */
+     Liga (col2/L3), abaixo da Classificacao. O Resumo comercial passa a fazer
+     span L2-L3 (col1) = 45rem; a Classificacao span L1-L2 (col2) = 45rem, com a
+     liga (22rem) embaixo — alinhando as duas colunas (68rem). Linhas fixas pra a
+     altura ser deterministica. */
   .sdv-page--sample
     .sdv-content
     > .sdv-content-inner:has(.sdv-blend-composition, .sdv-blend-compromised) {
     grid-template-areas:
-      'info    resumo'
-      'classif mov'
-      'classif liga';
+      'info      classif'
+      'comercial classif'
+      'comercial liga';
     grid-template-rows: var(--sdv-r1-h) var(--sdv-r1-h) var(--sdv-r1-h);
   }
 
@@ -28567,12 +28675,11 @@ select.samples-filter-field-input {
     grid-area: info;
   }
 
+  /* Card unico "Resumo comercial": ocupa a col2 inteira (span das 2 linhas via
+     a area "comercial"). Vira coluna flex (header + minis fixos no topo + secao
+     de Movimentacoes preenchendo o resto e rolando) — ver regras mais abaixo. */
   .sdv-page--sample .sdv-com-summary {
-    grid-area: resumo;
-  }
-
-  .sdv-page--sample #sdv-movimentacoes {
-    grid-area: mov;
+    grid-area: comercial;
   }
 
   /* Classificacao: area "classif" (col esquerda, abaixo de Informacoes).
@@ -28585,18 +28692,17 @@ select.samples-filter-field-input {
   }
 
   /* Card de liga (composicao XOR comprometida — mutuamente exclusivos) na area
-     "liga" (col2 / linha 3, ABAIXO de Movimentacoes). So existe quando ha liga —
-     a 3a linha so e criada pelo :has acima. MESMO tamanho de Movimentacoes:
-     1fr (50%) x 22rem (nao mais largura total). Card flex-column (header fixo +
-     lista rolando) pra a lista longa nao estourar os 22rem. Seletor
+     "liga" (col DIREITA / linha 3, ABAIXO da Classificacao). So existe quando ha
+     liga — a 3a linha so e criada pelo :has acima. Altura 22rem. Card flex-column
+     (header fixo + lista rolando) pra a lista longa nao estourar os 22rem. Seletor
      `.sdv-general > .sdv-card.X` (0,4,0) pra VENCER a regra legada
      `.sdv-general > .sdv-card:nth-child(n+3)` (0,3,0) que a jogava pra largura
      total. */
   .sdv-page--sample .sdv-general > .sdv-card.sdv-blend-composition,
   .sdv-page--sample .sdv-general > .sdv-card.sdv-blend-compromised {
     grid-area: liga;
-    /* Mesma altura (22rem) e largura (1fr = 50%) do card de Movimentacoes,
-       logo abaixo dele (col2/L3). Card flex-column: header fixo + lista rolando. */
+    /* Altura 22rem (L3 da col direita), logo abaixo da Classificacao. Card
+       flex-column: header fixo + lista rolando. */
     height: var(--sdv-r1-h);
     display: flex;
     flex-direction: column;
@@ -28639,14 +28745,15 @@ select.samples-filter-field-input {
 
   /* ── Card de Classificacao no desktop: BLOCOS nomeados (mockup 2026-06-24) ──
      .sdv-cls-block = coluna flex: header fixo + .sdv-cls-desktop preenchendo o
-     resto. Altura FIXA + overflow:hidden => o card NAO muda de tamanho; os blocos
-     (foto, stats, peneiras, fundos&defeitos, observacoes) se distribuem dentro
-     dele. Seletor `.sdv-general > .sdv-card.X` (0,4,0) pra VENCER a regra legada
-     `.sdv-general > .sdv-card:nth-child(2) { display:flex }` (0,3,0). */
+     resto. Sem altura fixa: como agora faz span da col direita (2 linhas), estica
+     via align-items:stretch pra preencher o span (~68rem sem liga / ~45rem com
+     liga); a ficha (.sdv-cls-desktop, flex:1, linhas fracionarias) acompanha.
+     overflow:hidden mantem os blocos contidos. Seletor `.sdv-general > .sdv-card.X`
+     (0,4,0) pra VENCER a regra legada `.sdv-general > .sdv-card:nth-child(2)
+     { display:flex }` (0,3,0). */
   .sdv-page--sample .sdv-general > .sdv-card.sdv-cls-block {
     display: flex;
     flex-direction: column;
-    height: calc(var(--sdv-r1-h) * 2 + 1rem);
     overflow: hidden;
   }
 
@@ -28830,20 +28937,6 @@ select.samples-filter-field-input {
     -webkit-box-orient: vertical;
     overflow: hidden;
     line-height: 1.35;
-  }
-
-  /* "Classificar" (rodape) escondido no desktop — as acoes ficam no header. */
-  .sdv-page--sample .sdv-cls-block .sdv-info-actions {
-    display: none;
-  }
-
-  /* Movimentacoes com altura limitada + scroll interno (a pagina rola; sem o
-     preenchimento do painel travado, que era max-height:none). */
-  .sdv-page--sample .sdv-content .sdv-commercial > .sdv-card:nth-child(2) .sdv-com-movements {
-    flex: none;
-    max-height: 22rem;
-    min-height: 0;
-    overflow-y: auto;
   }
 
   /* Botoes de acao: faixa verde lateral */
@@ -29662,14 +29755,13 @@ select.samples-filter-field-input {
      cascata + especificidade de id, o max-height:22rem da lista de
      movimentacoes definido no bloco anterior do detalhe. */
   .sdv-page--sample {
-    /* Altura comum da linha 1 (Informacoes | Movimentacoes): cabe o
-       cabecalho (titulo + hairline) + os 5 campos + a fileira de botoes
-       compactos INTEIRA dentro do card, sem cruzar a borda inferior.
-       20rem era curto demais — o NoticeSlot vazio somava um gap orfao de
-       flex e os botoes estouravam a borda; com o NoticeSlot vazio colapsado
-       (regra abaixo) e 22rem o conteudo cabe com folga. Ajustavel num so
-       lugar — Movimentacoes acompanha pela mesma variavel. */
-    --sdv-r1-h: 22rem;
+    /* Altura base da linha 1 do grid; TODAS as alturas do desktop derivam dela
+       (Informacoes = 1x, Resumo comercial = 2x+1rem, Classificacao = span,
+       liga = 1x). Reduzida de 22rem -> 21rem (2026-07-01) pra encolher
+       ligeiramente todos os cards. Cabe o cabecalho + os 5 campos de Informacoes
+       com folga (o botao Imprimir migrou pro header; o NoticeSlot vazio colapsa
+       pela regra abaixo). Ajustavel num so lugar. */
+    --sdv-r1-h: 21rem;
   }
 
   /* Informacoes: altura fixa. Sem overflow:hidden de proposito — em estados
@@ -29748,16 +29840,20 @@ select.samples-filter-field-input {
     display: none;
   }
 
-  /* Resumo comercial com a MESMA altura do card de Informacoes (--sdv-r1-h) e
-     conteudo distribuido: header no topo, os 3 minis preenchendo o meio
-     (centralizados na vertical), botoes Venda/Perda colados na base. */
+  /* Card unico "Resumo comercial": coluna flex que preenche a col2 inteira (faz
+     span das 2 linhas via a area "comercial" no grid). Header + minis fixos no
+     topo; a secao de Movimentacoes (#sdv-movimentacoes) preenche o resto e rola
+     por dentro. Altura fixa (45rem) definindo a L2 da col esquerda; a
+     Classificacao (col direita) faz span das 2 linhas e casa com Info + Resumo. */
   .sdv-page--sample .sdv-com-summary {
-    height: var(--sdv-r1-h);
-    flex: none;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: calc(var(--sdv-r1-h) * 2 + 1rem);
   }
 
   .sdv-page--sample .sdv-com-summary .sdv-com-minis {
-    flex: 1;
+    flex: 0 0 auto;
   }
 
   .sdv-page--sample .sdv-com-summary .sdv-com-mini {
@@ -29825,32 +29921,24 @@ select.samples-filter-field-input {
     color: var(--danger);
   }
 
-  /* Movimentacoes: MESMA altura do container de Informacoes. */
+  /* Secao de Movimentacoes: preenche o espaco restante do card (abaixo dos minis
+     + divisoria) e rola por dentro, mantendo a altura do card fixa (= altura da
+     Classificacao ao lado). */
   .sdv-page--sample #sdv-movimentacoes {
-    height: var(--sdv-r1-h);
-    flex: none;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
 
-  /* A lista preenche o card e rola quando passa da altura; com poucas
+  /* A lista preenche a secao e rola quando passa da altura; com poucas
      movimentacoes sobra espaco vazio (o card NAO encolhe). Sobrescreve o
-     max-height:22rem do bloco anterior (especificidade de id). */
+     max-height do bloco base (especificidade de id). */
   .sdv-page--sample #sdv-movimentacoes .sdv-com-movements {
     flex: 1;
     min-height: 0;
     max-height: none;
     overflow-y: auto;
-  }
-
-  /* Sem liga (grid de 2 linhas): o Resumo comercial NAO estica pra acompanhar a
-     Classificacao (fixa em 45rem ao lado). Mantem o tamanho padrao de 22rem
-     (= Informacoes/Movimentacoes) e fica alinhado ao TOPO da celula L2 — o espaco
-     extra abaixo (ate o fim da Classificacao) fica vazio. Com liga a 3a linha e a
-     da Liga, a celula do Resumo ja e 22rem e o align-self fica inocuo. */
-  .sdv-page--sample
-    .sdv-content-inner:not(:has(.sdv-blend-composition, .sdv-blend-compromised))
-    .sdv-com-summary {
-    height: var(--sdv-r1-h);
-    align-self: start;
   }
 }
 

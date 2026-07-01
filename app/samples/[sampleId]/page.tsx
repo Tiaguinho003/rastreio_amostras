@@ -1838,40 +1838,29 @@ export default function SampleDetailPage() {
                       </svg>
                     </button>
                   ) : null}
-                  {canInvalidateNormal ? (
-                    <button
-                      type="button"
-                      className="sdv-identity-btn is-danger"
-                      onClick={(event) => {
-                        lastInvalidateTriggerRef.current = event.currentTarget;
-                        setGeneralNotice(null);
-                        // Liga B3.5 proativo: a amostra já consta como origem
-                        // de liga(s) ativa(s) → abre o modal de bloqueio
-                        // direto, sem abrir o formulário de motivo.
-                        const active = detail.activeBlends ?? [];
-                        if (active.length > 0) {
-                          setBlockedBlends(active);
-                          setInvalidateBlockedOpen(true);
-                          return;
-                        }
-                        setInvalidateModalOpen(true);
-                        setInvalidateReasonCode('OTHER');
-                        setInvalidateReasonText('');
-                        setInvalidateModalNotice(null);
-                      }}
-                      aria-label="Invalidar"
-                    >
-                      {/* Lixeira identica a da pagina de detalhes do cliente
-                          (sdv-identity-btn): trash-2 com alca curva + 2 tracos. */}
-                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                        <path d="M3 6h18" />
-                        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                        <path d="M19 6 18 20a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                        <path d="M10 11v6" />
-                        <path d="M14 11v6" />
-                      </svg>
-                    </button>
-                  ) : null}
+                  {/* Imprimir (migrou do rodape de Informacoes): botao de acao
+                      do header, mesmo lugar onde ficava o antigo botao de
+                      invalidar. Preserva o gating/highlight/fluxo de etiqueta. */}
+                  <button
+                    type="button"
+                    className={`sdv-identity-btn is-print${printHighlighted ? ' is-highlight-pulse' : ''}`}
+                    disabled={
+                      !canQuickPrint ||
+                      labelModalSubmitting ||
+                      detail.latestPrintJob?.status === 'PENDING'
+                    }
+                    onClick={(event) => {
+                      setPrintHighlighted(false);
+                      openLabelReviewModal(event.currentTarget);
+                    }}
+                    aria-label="Imprimir"
+                  >
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                      <path d="M6 9V2h12v7" />
+                      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                      <rect x="6" y="14" width="12" height="8" rx="1" />
+                    </svg>
+                  </button>
                 </div>
               </div>
             </header>
@@ -1883,9 +1872,9 @@ export default function SampleDetailPage() {
               <div className="sdv-content-inner">
                 <section className="sdv-general">
                   {/* Container 1: Informacoes principais — cabecalho (titulo +
-                      Editar) separado dos campos por uma divisoria discreta, e a
-                      fileira de acoes (Laudo | Enviar) no rodape. Imprimir e o
-                      status da etiqueta vivem no container de Classificacao. */}
+                      Editar) separado dos campos por uma divisoria discreta. O
+                      Imprimir migrou para o header; este card fica so com as
+                      informacoes. */}
                   <div id="sdv-informacoes" className="sdv-card sdv-info-compact">
                     <div className="sdv-card-header">
                       <span className="sdv-card-title">Informações</span>
@@ -1936,40 +1925,16 @@ export default function SampleDetailPage() {
                         </span>
                       </div>
                     </div>
-                    <div className="sdv-info-actions">
-                      <button
-                        type="button"
-                        className={`sdv-action-card is-print${printHighlighted ? ' is-highlight-pulse' : ''}`}
-                        disabled={
-                          !canQuickPrint ||
-                          labelModalSubmitting ||
-                          detail.latestPrintJob?.status === 'PENDING'
-                        }
-                        onClick={(event) => {
-                          setPrintHighlighted(false);
-                          openLabelReviewModal(event.currentTarget);
-                        }}
-                      >
-                        <span className="sdv-action-card-icon">
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M6 9V2h12v7" />
-                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-                            <rect x="6" y="14" width="12" height="8" rx="1" />
-                          </svg>
-                        </span>
-                        <span className="sdv-action-card-label">Imprimir</span>
-                      </button>
-                    </div>
 
+                    {/* Imprimir migrou para o header (botao de acao ao lado do
+                        codigo do lote); este card fica so com as informacoes. */}
                     <NoticeSlot notice={generalNotice} />
                   </div>
 
                   {/* Container 2: Classificacao — mesmo padrao do container de
-                      Informacoes. Acoes no rodape: Imprimir (esq, veio do
-                      container de Informacoes junto com o status da etiqueta) e
-                      Classificar/Reclassificar (dir). A area de resumo (foto +
-                      campos) continua clicavel pra abrir a classificacao
-                      completa. */}
+                      Informacoes. Acao no rodape: Classificar/Reclassificar. A
+                      area de resumo (foto + campos) continua clicavel pra abrir
+                      a classificacao completa. */}
                   {(() => {
                     const classData = detail.sample.latestClassification?.data;
                     const classPhotoUrl = classificationAttachment
@@ -1978,7 +1943,6 @@ export default function SampleDetailPage() {
                     const cd = (classData ?? null) as Record<string, unknown> | null;
                     const aspecto = cd ? String(cd.aspecto ?? '—') : '—';
                     const catacao = cd ? String(cd.catacao ?? '—') : '—';
-                    const padrao = cd ? String(cd.padrao ?? '—') : '—';
                     // Classificadores: campo canonico `classificadores` (array de
                     // snapshots). Fallback para `conferidoPor` (eventos antigos) ou
                     // string legacy `classificador`.
@@ -2071,6 +2035,13 @@ export default function SampleDetailPage() {
                     );
                     const clsFieldsNode = (
                       <div className="sdv-cls-block-fields">
+                        {/* Classificador sozinho na 1a linha (alinhado a esquerda);
+                            Aspecto/Catação na linha de baixo. Padrão fica so no
+                            expandido, pra enxugar o resumo. */}
+                        <div className="sdv-info-item sdv-cls-fields-classifier">
+                          <span className="sdv-info-label">{classificadorLabel}</span>
+                          <span className="sdv-info-value">{classificador}</span>
+                        </div>
                         <div className="sdv-info-item">
                           <span className="sdv-info-label">Aspecto</span>
                           <span className="sdv-info-value">{aspecto}</span>
@@ -2078,14 +2049,6 @@ export default function SampleDetailPage() {
                         <div className="sdv-info-item">
                           <span className="sdv-info-label">Catacao</span>
                           <span className="sdv-info-value">{catacao}</span>
-                        </div>
-                        <div className="sdv-info-item">
-                          <span className="sdv-info-label">Padrão</span>
-                          <span className="sdv-info-value">{padrao}</span>
-                        </div>
-                        <div className="sdv-info-item">
-                          <span className="sdv-info-label">{classificadorLabel}</span>
-                          <span className="sdv-info-value">{classificador}</span>
                         </div>
                       </div>
                     );
@@ -2253,12 +2216,13 @@ export default function SampleDetailPage() {
                                 </button>
                               </div>
                             )
-                          ) : (
+                          ) : cd ? (
+                            // Mobile, classificado: "Expandir" abre a
+                            // classificacao completa.
                             <button
                               type="button"
                               className="sdv-edit-btn"
                               onClick={openClassificationDetail}
-                              disabled={!cd}
                               aria-label="Expandir classificacao"
                             >
                               <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -2268,6 +2232,23 @@ export default function SampleDetailPage() {
                                 <path d="M3 21l7-7" />
                               </svg>
                               <span>Expandir</span>
+                            </button>
+                          ) : (
+                            // Mobile, ainda nao classificado: "Classificar" ocupa
+                            // o lugar do "Expandir" — botao pequeno/discreto no
+                            // header (sem o action-card grande no rodape).
+                            <button
+                              type="button"
+                              className="sdv-edit-btn"
+                              onClick={() => router.push(`/camera?sampleId=${sampleId}`)}
+                              disabled={!canClassifyNow}
+                              aria-label="Classificar"
+                            >
+                              <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <circle cx="11" cy="11" r="8" />
+                                <path d="m21 21-4.35-4.35" />
+                              </svg>
+                              <span>Classificar</span>
                             </button>
                           )}
                         </div>
@@ -2296,25 +2277,9 @@ export default function SampleDetailPage() {
                             {clsFieldsNode}
                           </div>
                         )}
-
-                        {!isClassified ? (
-                          <div className="sdv-info-actions">
-                            <button
-                              type="button"
-                              className="sdv-action-card is-classify"
-                              disabled={!canClassifyNow}
-                              onClick={() => router.push(`/camera?sampleId=${sampleId}`)}
-                            >
-                              <span className="sdv-action-card-icon">
-                                <svg viewBox="0 0 24 24" aria-hidden="true">
-                                  <circle cx="11" cy="11" r="8" />
-                                  <path d="m21 21-4.35-4.35" />
-                                </svg>
-                              </span>
-                              <span className="sdv-action-card-label">Classificar</span>
-                            </button>
-                          </div>
-                        ) : null}
+                        {/* "Classificar" agora vive no header do card (mobile,
+                            no lugar do "Expandir"; desktop, ao lado do titulo) —
+                            sem mais o action-card grande no rodape. */}
                       </div>
                     );
                   })()}
@@ -2449,6 +2414,46 @@ export default function SampleDetailPage() {
                     onCancelSend={(sendEventId) => setCancelSendId(sendEventId)}
                   />
                 </section>
+
+                {/* Invalidar (migrou do header): acao terminal/destrutiva no fim
+                    da pagina, como botao rotulado. Mesmo fluxo de antes (checa
+                    ligas ativas antes de abrir o modal de motivo). */}
+                {canInvalidateNormal ? (
+                  <div className="sdv-invalidate-footer">
+                    <button
+                      type="button"
+                      className="sdv-invalidate-btn"
+                      onClick={(event) => {
+                        lastInvalidateTriggerRef.current = event.currentTarget;
+                        setGeneralNotice(null);
+                        // Liga B3.5 proativo: a amostra já consta como origem de
+                        // liga(s) ativa(s) → abre o modal de bloqueio direto, sem
+                        // abrir o formulário de motivo.
+                        const active = detail.activeBlends ?? [];
+                        if (active.length > 0) {
+                          setBlockedBlends(active);
+                          setInvalidateBlockedOpen(true);
+                          return;
+                        }
+                        setInvalidateModalOpen(true);
+                        setInvalidateReasonCode('OTHER');
+                        setInvalidateReasonText('');
+                        setInvalidateModalNotice(null);
+                      }}
+                    >
+                      {/* Lixeira identica a da pagina de detalhes do cliente:
+                          trash-2 com alca curva + 2 tracos. */}
+                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                        <path d="M3 6h18" />
+                        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        <path d="M19 6 18 20a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                        <path d="M10 11v6" />
+                        <path d="M14 11v6" />
+                      </svg>
+                      <span>Invalidar</span>
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </section>
           </>
