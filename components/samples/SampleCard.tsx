@@ -346,18 +346,9 @@ function SampleCardComponent({
             ))}
           </div>
 
-          {/* Acoes na MESMA linha (3 colunas iguais): Enviar | Perda | Detalhes.
-              Enviar/Perda abrem o fluxo na propria lista; Detalhes navega. */}
+          {/* Acoes na MESMA linha (3 colunas iguais): Perda | Enviar | Detalhes.
+              Perda/Enviar abrem o fluxo na propria lista; Detalhes navega. */}
           <div className="spv2-card-actions">
-            <button
-              type="button"
-              className="spv2-card-action is-send"
-              disabled={!canSend}
-              tabIndex={isExpanded ? 0 : -1}
-              onClick={() => onSend?.(sample)}
-            >
-              Enviar
-            </button>
             <button
               type="button"
               className="spv2-card-action is-loss"
@@ -366,6 +357,15 @@ function SampleCardComponent({
               onClick={() => onLoss?.(sample)}
             >
               Perda
+            </button>
+            <button
+              type="button"
+              className="spv2-card-action is-send"
+              disabled={!canSend}
+              tabIndex={isExpanded ? 0 : -1}
+              onClick={() => onSend?.(sample)}
+            >
+              Enviar
             </button>
             <Link
               href={`/samples/${sample.id}`}
