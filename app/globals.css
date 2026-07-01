@@ -5402,6 +5402,39 @@ button:disabled {
   --fan-radius: calc(var(--fab-size) / 2 + var(--fan-gap) + var(--fan-opt-size) / 2);
 }
 
+/* Hero verde no topo + sheet ocupando a tela toda (mobile) — replica EXATAMENTE
+   o mecanismo da /samples (verificado no CSS computado): o verde vem do
+   `.mobile-edge-shell::before` (atras de tudo); o `.app-shell-main` fica
+   TRANSPARENTE (deixa esse verde aparecer atras do header/busca) + vira coluna
+   flex SEM paddings lateral/inferior; o `.app-shell-page-content` estica como
+   flex-item mas continua BLOCK por dentro (senao o `height:100%` da section nao
+   resolve e o sheet colapsa no meio da tela). O `.clients-v2-sheet` (branco,
+   borda a borda) cobre o verde da busca pra baixo; a tabbar flutua sobre ele (o
+   clearance mora no `.spv2-list-scroll`). Escopado a /contratos via `:has(.ctr-page)`. */
+@media (max-width: 900px) {
+  .app-shell-root:has(.ctr-page) .app-shell-main {
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    padding-left: 0;
+    padding-right: 0;
+    padding-bottom: 0;
+  }
+  .app-shell-root:has(.ctr-page) .app-shell-page-content {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  /* O height:100% da section nao resolve aqui (a altura do page-content e
+     flex-derived, nao explicita), entao forcamos a section a esticar com flex:1
+     — assim o .clients-v2-sheet ocupa ate a borda inferior. */
+  .app-shell-root:has(.ctr-page) .clients-page-v2.ctr-page {
+    flex: 1;
+    min-height: 0;
+  }
+}
+
 /* Sheet E cards em BRANCO puro `#ffffff` (a pedido do usuario, 2026-06-16; vai
    alem do `#f4f6f5` do dashboard — UNICA excecao ao "nunca #fff puro", ver
    design-system §1). Cards sem o gradiente quente e com sombra reforcada pra
