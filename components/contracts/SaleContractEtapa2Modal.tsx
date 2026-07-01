@@ -12,6 +12,7 @@ import {
   emitSaleContract,
   getBlendFeasibility,
   getClient,
+  getNextContractNumber,
   getSampleDetail,
   getSaleContract,
   listContractLookups,
@@ -104,6 +105,9 @@ export function SaleContractEtapa2Modal({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [contract, setContract] = useState<SaleContractDetail | null>(null);
   const [lookups, setLookups] = useState<ContractLookupsResponse | null>(null);
+  // Preview do número do contrato no modo Futuro (gerado de fato no submit;
+  // sequência contínua com o à vista). À vista traz via spotCreate.nextNumber.
+  const [futureNumber, setFutureNumber] = useState<string | null>(null);
 
   // Partes / banco / armazens
   const [seller, setSeller] = useState<ClientSummary | null>(null);
@@ -209,6 +213,13 @@ export function SaleContractEtapa2Modal({
           if (aborted) return;
           setLookups(lookupsRes);
           setContract(null);
+          // Preview do número (opcional; o número real é gerado no submit).
+          try {
+            const { contractNumber } = await getNextContractNumber(session);
+            if (!aborted) setFutureNumber(contractNumber);
+          } catch {
+            /* sem preview → cai para "—" */
+          }
           return;
         }
         if (!contractId) return;
@@ -590,6 +601,14 @@ export function SaleContractEtapa2Modal({
     gap: '0.75rem',
   };
 
+  // Valor só-leitura dos campos de topo (número + tipo): fundo levemente cinza
+  // pra sinalizar "não editável"; texto escuro/negrito pra o valor se destacar.
+  const infoValueStyle: CSSProperties = {
+    background: '#f5f6f5',
+    color: '#1a1a1a',
+    fontWeight: 600,
+  };
+
   const sellerUnitField = (
     <div className="app-modal-field">
       <span className="app-modal-label">Filial do vendedor</span>
@@ -676,6 +695,14 @@ export function SaleContractEtapa2Modal({
       ? 'Novo contrato — À vista'
       : `Editar contrato${contract ? ` ${contract.contractNumber}` : ''}`;
 
+  // Topo do form (só leitura): número que será criado + tipo do contrato.
+  const displayContractNumber = contract
+    ? contract.contractNumber
+    : isSpotCreate
+      ? (spotCreate?.nextNumber ?? '—')
+      : (futureNumber ?? '—');
+  const displayContractType = futureCreate || contract?.type === 'FUTURO' ? 'Futuro' : 'À vista';
+
   // Fechar (X / backdrop / ESC / arraste) ENCERRA o fluxo e volta à página: à
   // vista/Futuro limpam a venda parcial (EM_ABERTO) antes de sair; editar fecha
   // direto. NÃO retorna ao passo anterior — isso é o "Voltar" (handleBack).
@@ -730,6 +757,23 @@ export function SaleContractEtapa2Modal({
           </div>
         ) : (
           <div className="app-modal-content ctr-etapa2-content">
+            {/* Topo (primeira info após o header): número que será criado + tipo,
+                ambos só-leitura. */}
+            <div style={halfRowStyle}>
+              <div className="app-modal-field">
+                <span className="app-modal-label">Número do contrato</span>
+                <div className="app-modal-input" style={infoValueStyle}>
+                  {displayContractNumber}
+                </div>
+              </div>
+              <div className="app-modal-field">
+                <span className="app-modal-label">Tipo</span>
+                <div className="app-modal-input" style={infoValueStyle}>
+                  {displayContractType}
+                </div>
+              </div>
+            </div>
+
             <div className="ctr-block">
               {/* Fase 1 (venda) — bloco em todos os modos. Sacas travadas em liga
                   (F7.1 / à vista liga = 100%); à vista limita ao saldo do lote. */}
@@ -737,8 +781,7 @@ export function SaleContractEtapa2Modal({
 
               {isSpotCreate && spotCreate ? (
                 <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--brand-muted)' }}>
-                  Lote {spotCreate.internalLotNumber ?? 'Sem número'} · Documento{' '}
-                  {spotCreate.nextNumber ?? '—'}
+                  Lote {spotCreate.internalLotNumber ?? 'Sem número'}
                 </p>
               ) : null}
 
@@ -869,6 +912,7 @@ export function SaleContractEtapa2Modal({
                 <span className="app-modal-label">Banco do vendedor</span>
                 <ClientBankAccountSelectField
                   session={session}
+                  stacked
                   clientId={seller?.id ?? null}
                   value={bankAccountId}
                   disabled={disabled}
@@ -1139,6 +1183,7 @@ export function SaleContractEtapa2Modal({
       {unitModalFor ? (
         <ClientUnitModal
           open
+          stacked
           saving={savingUnit}
           errorMessage={unitError}
           onClose={() => {

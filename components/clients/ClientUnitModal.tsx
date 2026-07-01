@@ -21,6 +21,10 @@ type ClientUnitModalProps = {
   saving: boolean;
   success?: boolean;
   errorMessage: string | null;
+  /** Eleva pro tier stacked (600/610) quando aberto SOBRE outro sheet/modal
+      (ex.: o sheet de criação de contrato). Default false (uso standalone,
+      ex.: detalhe do cliente). */
+  stacked?: boolean;
   onClose: () => void;
   onSubmit: (data: ClientUnitInput) => Promise<void> | void;
 };
@@ -77,6 +81,7 @@ export function ClientUnitModal({
   saving,
   success = false,
   errorMessage,
+  stacked = false,
   onClose,
   onSubmit,
 }: ClientUnitModalProps) {
@@ -125,10 +130,10 @@ export function ClientUnitModal({
   }
 
   return createPortal(
-    <div className="app-modal-backdrop">
+    <div className={`app-modal-backdrop${stacked ? ' is-stacked' : ''}`}>
       <section
         ref={focusTrapRef}
-        className="app-modal is-themed is-action client-unit-modal"
+        className={`app-modal is-themed is-action client-unit-modal${stacked ? ' is-stacked' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="client-unit-modal-title"

@@ -19,6 +19,9 @@ type Props = {
   errorMessage: string | null;
   defaultHolderName?: string | null;
   defaultHolderTaxId?: string | null;
+  /** Eleva pro tier stacked (600/610) quando aberto SOBRE outro sheet/modal
+      (ex.: o sheet de criação de contrato). Default false (uso standalone). */
+  stacked?: boolean;
   onClose: () => void;
   onSubmit: (data: ClientBankAccountInput) => Promise<void> | void;
 };
@@ -36,6 +39,7 @@ export function ClientBankAccountModal({
   errorMessage,
   defaultHolderName,
   defaultHolderTaxId,
+  stacked = false,
   onClose,
   onSubmit,
 }: Props) {
@@ -86,10 +90,10 @@ export function ClientBankAccountModal({
   }
 
   return createPortal(
-    <div className="app-modal-backdrop">
+    <div className={`app-modal-backdrop${stacked ? ' is-stacked' : ''}`}>
       <section
         ref={focusTrapRef}
-        className="app-modal is-themed is-action client-unit-modal"
+        className={`app-modal is-themed is-action client-unit-modal${stacked ? ' is-stacked' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="cba-modal-title"
