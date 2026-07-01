@@ -21,6 +21,10 @@ type SampleMovementsPanelProps = {
   canEditSend: boolean;
   onEditSend: (item: Extract<SendHistoryItem, { kind: 'PHYSICAL' }>) => void | Promise<void>;
   onCancelSend: (sendEventId: string) => void;
+  // Lote editavel: edicao da data de chegada pelo item "Registro" da timeline.
+  // O modal/salvamento vivem na detail page (como os de envio), por callback.
+  canEditRegistrationDate: boolean;
+  onEditRegistrationDate: () => void;
 };
 
 function formatMovementDate(value: string): string {
@@ -49,6 +53,8 @@ export function SampleMovementsPanel({
   canEditSend,
   onEditSend,
   onCancelSend,
+  canEditRegistrationDate,
+  onEditRegistrationDate,
 }: SampleMovementsPanelProps) {
   // Timeline unificada de Movimentacoes: registro/chegada (sortKey =
   // sample.createdAt) + venda/perda (sortKey = createdAt) + envio de amostra /
@@ -245,6 +251,21 @@ export function SampleMovementsPanel({
                           <span>{formatMovementDate(entry.sortKey)}</span>
                         </div>
                       </div>
+                      {canEditRegistrationDate ? (
+                        <div className="sdv-com-mov-actions">
+                          <button
+                            type="button"
+                            className="sdv-com-mov-act"
+                            onClick={onEditRegistrationDate}
+                            aria-label="Editar data de chegada"
+                          >
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M12 20h9" />
+                              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                            </svg>
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   );
                 }

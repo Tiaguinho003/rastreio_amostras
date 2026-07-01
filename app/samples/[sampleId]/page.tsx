@@ -486,6 +486,13 @@ export default function SampleDetailPage() {
   > | null>(null);
   const [cancelSendId, setCancelSendId] = useState<string | null>(null);
 
+  // Lote editavel: modal de edicao da data de chegada (createdAt do lote),
+  // acionado pelo item "Registro" da timeline de Movimentacoes.
+  const [dateEditOpen, setDateEditOpen] = useState(false);
+  const [dateEditValue, setDateEditValue] = useState('');
+  const [dateEditSaving, setDateEditSaving] = useState(false);
+  const [dateEditError, setDateEditError] = useState<string | null>(null);
+
   const [sendHistory, setSendHistory] = useState<SampleEvent[]>([]);
   const [, setLoadingSendHistory] = useState(false);
 
@@ -1480,6 +1487,56 @@ export default function SampleDetailPage() {
     }
   }
 
+  // Lote editavel: abre o modal de edicao da data de chegada com a data atual do
+  // lote (createdAt) pre-preenchida — usa os 10 primeiros chars do ISO pra bater
+  // com o que a timeline exibe via formatMovementDate.
+  function openDateEdit() {
+    if (!detail || !canEditRegistrationStatus(detail.sample.status)) {
+      return;
+    }
+    setDateEditValue((detail.sample.createdAt ?? '').slice(0, 10));
+    setDateEditError(null);
+    setDateEditOpen(true);
+  }
+
+  async function submitDateEdit() {
+    if (!session || !detail || dateEditSaving) {
+      return;
+    }
+    if (!dateEditValue) {
+      setDateEditError('Informe a data de chegada');
+      return;
+    }
+    setDateEditSaving(true);
+    setDateEditError(null);
+    try {
+      // Edicao rapida: motivo fixo DATA_FIX (nao exige justificativa do usuario).
+      await updateRegistration(session, sampleId, {
+        expectedVersion: detail.sample.version,
+        after: { receivedDate: dateEditValue },
+        reasonCode: 'DATA_FIX',
+        reasonText: 'Ajuste da data de chegada',
+      });
+      setDateEditOpen(false);
+      await syncDetailState();
+    } catch (cause) {
+      // 409 "No registration changes detected" = mesma data -> fecha silencioso.
+      if (
+        cause instanceof ApiError &&
+        cause.status === 409 &&
+        /no registration changes/i.test(cause.message)
+      ) {
+        setDateEditOpen(false);
+      } else if (cause instanceof ApiError) {
+        setDateEditError(cause.message);
+      } else {
+        setDateEditError('Falha ao salvar a data de chegada');
+      }
+    } finally {
+      setDateEditSaving(false);
+    }
+  }
+
   function readClassifiersFromDetail(data: unknown): ClassifierSnapshot[] {
     if (!data || typeof data !== 'object' || Array.isArray(data)) return [];
     const rec = data as Record<string, unknown>;
@@ -2412,6 +2469,8 @@ export default function SampleDetailPage() {
                     canEditSend={canPhysicalSend}
                     onEditSend={(item) => setEditSendItem(item)}
                     onCancelSend={(sendEventId) => setCancelSendId(sendEventId)}
+                    canEditRegistrationDate={canEditRegistrationStatus(detail.sample.status)}
+                    onEditRegistrationDate={openDateEdit}
                   />
                 </section>
 
@@ -2890,6 +2949,90 @@ export default function SampleDetailPage() {
           setOwner(client.displayName ?? '');
         }}
       />
+
+      {/* Lote editavel: modal de edicao rapida da data de chegada (createdAt),
+          acionado pelo botao no item "Registro" da timeline. Sem justificativa. */}
+      {dateEditOpen ? (
+        <div
+          className="app-modal-backdrop"
+          onClick={() => {
+            if (!dateEditSaving) setDateEditOpen(false);
+          }}
+        >
+          <section
+            className="app-modal is-themed is-action"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="date-edit-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="app-modal-header">
+              <div className="app-modal-title-wrap">
+                <h3 id="date-edit-modal-title" className="app-modal-title">
+                  Editar data de chegada
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="app-modal-close"
+                onClick={() => setDateEditOpen(false)}
+                disabled={dateEditSaving}
+                aria-label="Fechar"
+              >
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </header>
+
+            <form
+              className="app-modal-content"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void submitDateEdit();
+              }}
+            >
+              <label className="app-modal-field">
+                <span className="app-modal-label">Data de chegada</span>
+                <input
+                  type="date"
+                  className="app-modal-input"
+                  value={dateEditValue}
+                  max={new Date().toLocaleDateString('en-CA')}
+                  onChange={(event) => {
+                    setDateEditValue(event.target.value);
+                    setDateEditError(null);
+                  }}
+                  disabled={dateEditSaving}
+                  autoFocus
+                />
+              </label>
+
+              {/* NoticeSlot so quando ha erro: o slot vazio tem min-height 1.25rem
+                  + gaps, criando espaco morto entre a data e os botoes. */}
+              {dateEditError ? (
+                <NoticeSlot notice={{ kind: 'error', text: dateEditError }} />
+              ) : null}
+
+              <div className="app-modal-actions">
+                <button
+                  type="button"
+                  className="app-modal-secondary"
+                  onClick={() => setDateEditOpen(false)}
+                  disabled={dateEditSaving}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="app-modal-submit"
+                  disabled={dateEditSaving || !dateEditValue}
+                >
+                  {dateEditSaving ? 'Salvando...' : 'Salvar'}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
 
       {registrationEditMode ? (
         <div

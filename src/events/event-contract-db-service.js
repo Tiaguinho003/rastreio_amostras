@@ -344,6 +344,11 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
     if (hasOwn(after, 'soldSacks')) updateData.soldSacks = after.soldSacks;
     if (hasOwn(after, 'lostSacks')) updateData.lostSacks = after.lostSacks;
     if (hasOwn(after, 'commercialStatus')) updateData.commercialStatus = after.commercialStatus;
+
+    // Lote editavel: data de chegada. after.createdAt (instante ISO) sobrescreve
+    // o createdAt semeado pelo REGISTRATION_CONFIRMED. Como isto roda tambem no
+    // replay (eventos em ordem), o rebuild fica consistente com o estado live.
+    if (hasOwn(after, 'createdAt')) updateData.createdAt = new Date(after.createdAt);
   }
 
   if (event.eventType === 'CLASSIFICATION_COMPLETED') {

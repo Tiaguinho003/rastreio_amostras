@@ -562,6 +562,8 @@ function parseRegistrationUpdatePatch(after) {
     'declared',
     'ownerClientId',
     'ownerUnitId',
+    // Lote editavel: data de chegada (YYYY-MM-DD) -> vira o createdAt do lote.
+    'receivedDate',
   ]);
   assertNoUnknownKeys(after, allowedTopLevel, 'after');
 
@@ -595,10 +597,19 @@ function parseRegistrationUpdatePatch(after) {
     patch.ownerUnitId = normalizeNullableUuid(after.ownerUnitId, 'after.ownerUnitId');
   }
 
+  // Lote editavel: data de chegada. Resolve pra instante ISO (valida YYYY-MM-DD e
+  // rejeita data futura). O evento carrega isso em after.createdAt (ver
+  // buildRegistrationUpdatePayload) e a projecao o aplica no createdAt do lote.
+  if (hasOwn(after, 'receivedDate')) {
+    patch.hasReceivedDate = true;
+    patch.receivedAtInstant = resolveReceivedAtInstant(after.receivedDate, 'after.receivedDate');
+  }
+
   if (
     Object.keys(patch.declared).length === 0 &&
     patch.hasOwnerClientId !== true &&
-    patch.hasOwnerUnitId !== true
+    patch.hasOwnerUnitId !== true &&
+    patch.hasReceivedDate !== true
   ) {
     throw new HttpError(422, 'after must include at least one editable registration field');
   }
@@ -986,6 +997,20 @@ function buildRegistrationUpdatePayload(sample, parsedPatch) {
   if (Object.keys(afterDeclared).length > 0) {
     before.declared = beforeDeclared;
     after.declared = afterDeclared;
+  }
+
+  // Lote editavel: data de chegada (createdAt do lote). Compara por DIA em
+  // Sao_Paulo pra evitar churn quando o instante muda mas o dia nao (ex.: reeditar
+  // pro mesmo dia). Se mudou, emite after.createdAt (instante ISO ja resolvido) +
+  // before.createdAt (snapshot atual). A projecao aplica isso no live e no rebuild.
+  if (parsedPatch.hasReceivedDate) {
+    const currentIso = sample.createdAt ? new Date(sample.createdAt).toISOString() : null;
+    const currentDay = currentIso ? buildBusinessDateStamp(new Date(currentIso)) : null;
+    const nextDay = buildBusinessDateStamp(new Date(parsedPatch.receivedAtInstant));
+    if (currentDay !== nextDay) {
+      before.createdAt = currentIso;
+      after.createdAt = parsedPatch.receivedAtInstant;
+    }
   }
 
   if (Object.keys(after).length === 0) {
