@@ -1074,10 +1074,12 @@ export class SaleContractService {
   }
 
   // "+ Adicionar" inline (D91): cria um valor numa das 3 listas (Forma/Modalidade/
-  // Embalagem) a partir do dropdown do modal. Qualquer autenticado (D59); append no
-  // fim (sortOrder = max+1); nome UNIQUE -> 409. Status sempre ACTIVE.
+  // Embalagem) a partir do dropdown do modal. ADMIN-only (P26/D94 — alinhado ao
+  // gate da gestao de contratos); append no fim (sortOrder = max+1); nome
+  // UNIQUE -> 409. Status sempre ACTIVE.
   async createContractLookup(input, actorContext) {
     assertAuthenticatedActor(actorContext, 'create contract lookup');
+    assertRoleAllowed(actorContext.role, SALE_CONTRACT_MANAGE_ROLES, 'create contract lookup');
     const { list, name } = normalizeContractLookupInput(input);
     const model = this.prisma[CONTRACT_LOOKUP_LISTS[list]];
 

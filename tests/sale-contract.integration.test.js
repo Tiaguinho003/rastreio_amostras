@@ -1192,25 +1192,34 @@ if (!databaseUrl || !databaseReachable) {
   });
 
   test('criar lookup inline: cria ACTIVE, aparece na lista e fica no fim (append)', async () => {
+    // nome unico + cleanup: as tabelas de lookup nao sao truncadas entre runs
+    // (guardam os valores seedados), entao o teste nao pode usar um nome fixo.
+    const name = `À vista ${randomUUID().slice(0, 8)}`;
     const before = await saleContractService.listContractLookups(adminActor);
     const created = await saleContractService.createContractLookup(
-      { list: 'paymentForm', name: 'À vista (teste)' },
+      { list: 'paymentForm', name },
       adminActor
     );
     assert.equal(created.list, 'paymentForm');
     assert.ok(created.item.id);
-    assert.equal(created.item.name, 'À vista (teste)');
+    assert.equal(created.item.name, name);
 
     const after = await saleContractService.listContractLookups(adminActor);
     assert.equal(after.paymentForms.length, before.paymentForms.length + 1);
     // append (sortOrder = max+1) -> último na ordem (sortOrder asc, name asc)
     assert.equal(after.paymentForms[after.paymentForms.length - 1].id, created.item.id);
+
+    await prisma.contractPaymentForm.delete({ where: { id: created.item.id } });
   });
 
   test('criar lookup inline: nome duplicado -> 409; lista inválida/nome vazio -> 422', async () => {
-    await saleContractService.createContractLookup({ list: 'modality', name: 'Dup' }, adminActor);
+    const dup = `Dup ${randomUUID().slice(0, 8)}`;
+    const created = await saleContractService.createContractLookup(
+      { list: 'modality', name: dup },
+      adminActor
+    );
     await assert.rejects(
-      () => saleContractService.createContractLookup({ list: 'modality', name: 'Dup' }, adminActor),
+      () => saleContractService.createContractLookup({ list: 'modality', name: dup }, adminActor),
       /already exists/
     );
     await assert.rejects(
@@ -1221,16 +1230,19 @@ if (!databaseUrl || !databaseReachable) {
       () => saleContractService.createContractLookup({ list: 'packaging', name: '  ' }, adminActor),
       /name is required/
     );
+
+    await prisma.contractModality.delete({ where: { id: created.item.id } });
   });
 
-  test('criar lookup inline: qualquer autenticado pode (D59) — COMMERCIAL cria', async () => {
-    const created = await saleContractService.createContractLookup(
-      { list: 'packaging', name: 'Bag teste' },
-      commercialActor
+  test('criar lookup inline: exige ADMIN (P26/D94) — COMMERCIAL 403', async () => {
+    await assert.rejects(
+      () =>
+        saleContractService.createContractLookup(
+          { list: 'packaging', name: 'Bag teste' },
+          commercialActor
+        ),
+      (err) => err.status === 403
     );
-    assert.equal(created.item.name, 'Bag teste');
-    const after = await saleContractService.listContractLookups(commercialActor);
-    assert.ok(after.packagings.some((p) => p.id === created.item.id));
   });
 
   test('faturar: CONFIRMADO -> FATURADO grava invoicedAt', async () => {
