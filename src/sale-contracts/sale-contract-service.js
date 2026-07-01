@@ -92,8 +92,10 @@ export class SaleContractService {
   }
 
   // Financeiro (Fase F): lista a corretagem A RECEBER por fechamento. Relatorio
-  // DERIVADO (sem persistencia): contratos congelados (CONFIRMADO/FATURADO/PAGO)
-  // com corretagem > 0; a cota de cada corretor = total / N (divisao igual, D79).
+  // DERIVADO (sem persistencia): TODOS os contratos congelados (CONFIRMADO/
+  // FATURADO/PAGO), inclusive os SEM corretagem (P24/D92 — e o unico lugar onde o
+  // total do contrato aparece); a cota de cada corretor = total / N (divisao
+  // igual, D79); sem corretagem => cota 0.
   // ADMIN ve todos + quebra por corretor; COMMERCIAL ve so os fechamentos em que
   // e corretor (Broker.userId) e so a propria cota (D82/D86). Sem `@relation`
   // contrato<->broker: os corretores vem num batch separado (agrupado em JS).
@@ -116,11 +118,10 @@ export class SaleContractService {
       ownBrokerId = broker.id;
     }
 
-    // 1) contratos elegiveis: congelados + alguma corretagem > 0.
+    // 1) contratos elegiveis: TODOS os congelados (inclusive sem corretagem — P24/D92).
     const rows = await this.prisma.saleContract.findMany({
       where: {
         status: { in: ['CONFIRMADO', 'FATURADO', 'PAGO'] },
-        OR: [{ sellerBrokerageValue: { gt: 0 } }, { buyerBrokerageValue: { gt: 0 } }],
       },
       orderBy: [{ contractSeq: 'desc' }],
       select: SALE_CONTRACT_VIEW_SELECT,

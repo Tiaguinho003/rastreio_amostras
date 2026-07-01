@@ -161,7 +161,7 @@ if (!databaseUrl || !databaseReachable) {
   }
 
   // Cria amostra (com dono=vendedor) + registra a venda; devolve refs do contrato.
-  async function setupEmittableContract({ lotNumber }) {
+  async function setupEmittableContract({ lotNumber, saleOverrides = {} }) {
     const sellerId = randomUUID();
     await createSellerClient(sellerId);
     const bankAccountId = await createSellerBankAccount(sellerId);
@@ -171,7 +171,7 @@ if (!databaseUrl || !databaseReachable) {
     await createClassifiedSample({ id: sampleId, lotNumber, declaredSacks: 10 });
     await prisma.sample.update({ where: { id: sampleId }, data: { ownerClientId: sellerId } });
     const sample = await queryService.requireSample(sampleId);
-    const sale = await sell(sampleId, sample.version, buyerId);
+    const sale = await sell(sampleId, sample.version, buyerId, saleOverrides);
     return { contractId: sale.saleContract.id, sampleId, sellerId, buyerId, bankAccountId };
   }
 
@@ -205,8 +205,8 @@ if (!databaseUrl || !databaseReachable) {
   }
 
   // Emite + confirma -> contrato CONFIRMADO; devolve refs + a version atual.
-  async function setupConfirmedContract({ lotNumber }) {
-    const refs = await setupEmittableContract({ lotNumber });
+  async function setupConfirmedContract({ lotNumber, saleOverrides = {} }) {
+    const refs = await setupEmittableContract({ lotNumber, saleOverrides });
     const lookups = await fetchLookups();
     const emitted = await saleContractService.emitSaleContract(
       refs.contractId,
@@ -1175,6 +1175,20 @@ if (!databaseUrl || !databaseReachable) {
   test('Financeiro: papel sem acesso (REGISTRATION) → 403', async () => {
     const reg = { ...commercialActor, role: 'REGISTRATION', actorUserId: randomUUID() };
     await assert.rejects(() => saleContractService.listBrokerReceivables({}, reg), /not allowed/);
+  });
+
+  test('Financeiro: inclui fechamento SEM corretagem (P24/D92) com cota 0', async () => {
+    const { contractId } = await setupConfirmedContract({
+      lotNumber: '23040',
+      saleOverrides: { sellerBrokeragePct: 0, buyerBrokeragePct: 0 },
+    });
+    const res = await saleContractService.listBrokerReceivables({}, adminActor);
+    const item = res.items.find((i) => i.id === contractId);
+    assert.ok(item, 'contrato confirmado sem corretagem deve aparecer no Financeiro (P24)');
+    assert.equal(item.totalValue, 1000); // 100 x 10 sacas
+    assert.equal(item.commissionTotal, 0);
+    assert.equal(item.brokerCount, 1);
+    assert.equal(item.brokers[0].share, 0);
   });
 
   test('criar lookup inline: cria ACTIVE, aparece na lista e fica no fim (append)', async () => {
