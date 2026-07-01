@@ -4,7 +4,6 @@ import { type FormEvent, useEffect, useId, useMemo, useRef, useState } from 'rea
 
 import { ApiError, createClient, lookupUsersForReference } from '../../lib/api-client';
 import { maskDocumentInput, maskPhoneInput } from '../../lib/client-field-formatters';
-import { isCommercialRole } from '../../lib/roles';
 import type { ClientPersonType, ClientSummary, SessionData, UserLookupItem } from '../../lib/types';
 import { useToast } from '../../lib/toast/ToastProvider';
 import { BottomSheet } from '../BottomSheet';
@@ -19,7 +18,7 @@ const FIELD_LABELS: Record<string, string> = {
   fullName: 'Nome completo',
   phone: 'Telefone',
   email: 'E-mail',
-  commercialUserId: 'Responsavel comercial',
+  commercialUserId: 'Responsavel',
 };
 
 function translateCreateClientError(cause: unknown): string {
@@ -41,7 +40,7 @@ function translateCreateClientError(cause: unknown): string {
       : undefined;
   if (code === 'PJ_REQUIRES_CNPJ') return 'CNPJ e obrigatorio para Pessoa juridica.';
   if (code === 'COMMERCIAL_USER_NOT_FOUND' || code === 'COMMERCIAL_USER_INACTIVE') {
-    return 'Responsavel comercial invalido ou inativo.';
+    return 'Responsavel invalido ou inativo.';
   }
   const message = cause.message ?? '';
   if (message.includes('already exists') || cause.status === 409) {
@@ -212,10 +211,9 @@ export function ClientQuickCreateModal({
     lookupUsersForReference(session, { limit: 200 })
       .then((response) => {
         if (!cancelled) {
-          // So papeis comerciais (COMMERCIAL + PROSPECTOR) podem ser
-          // responsaveis comerciais — alinhado com o filtro de responsavel do
-          // ClientsFilterButton em /clients.
-          setUsers(response.items.filter((u) => isCommercialRole(u.role)));
+          // Responsavel opcional e QUALQUER usuario ativo pode ser responsavel
+          // (nao so papeis comerciais). O backend retorna comerciais primeiro.
+          setUsers(response.items);
         }
       })
       .catch(() => {
@@ -259,13 +257,13 @@ export function ClientQuickCreateModal({
     form.phone.replace(/\D/g, '').length === 0 ||
     [10, 11].includes(form.phone.replace(/\D/g, '').length);
 
-  const hasCommercialUser = form.commercialUserIds.length > 0;
   // Papel obrigatorio: o usuario deve escolher ao menos Vendedor, Comprador ou
   // Armazem (o campo vem VAZIO, sem default — pra forcar a escolha consciente).
   const hasRole = form.isSeller || form.isBuyer || form.isWarehouse;
+  // Responsavel e OPCIONAL — nao entra no canSubmit.
   const canSubmit = useMemo(() => {
-    return isNameFilled && isPhoneValid && isDocumentValid && hasCommercialUser && hasRole;
-  }, [isNameFilled, isPhoneValid, isDocumentValid, hasCommercialUser, hasRole]);
+    return isNameFilled && isPhoneValid && isDocumentValid && hasRole;
+  }, [isNameFilled, isPhoneValid, isDocumentValid, hasRole]);
 
   const documentLabel = form.personType === 'PF' ? 'CPF' : 'CNPJ';
   const documentValue = form.personType === 'PF' ? form.cpf : form.cnpj;
@@ -282,10 +280,6 @@ export function ClientQuickCreateModal({
   const hasRazaoError = hasNameError && form.personType === 'PJ';
   const hasPhoneError = showFieldErrors && !isPhoneValid;
   const phoneHint = !isPhoneValid ? 'Telefone deve ter 10 ou 11 digitos' : null;
-  // 14.7.C: erro do responsavel agora so aparece apos tentativa de
-  // submit (antes era permanente quando lista vazia, gerando aspecto
-  // vermelho mesmo sem o usuario interagir).
-  const hasCommercialUserError = submitted && !loadingUsers && !hasCommercialUser;
   const hasRoleError = submitted && !hasRole;
 
   // "dirty" = algo mudou em relacao ao seed inicial (gatilho do "Descartar?").
@@ -546,7 +540,6 @@ export function ClientQuickCreateModal({
               onChange={(next) => setForm((current) => ({ ...current, commercialUserIds: next }))}
               loading={loadingUsers}
               disabled={saving}
-              errorMessage={hasCommercialUserError ? 'Obrigatorio' : undefined}
             />
           </div>
 

@@ -35,7 +35,7 @@ import type {
   UserLookupItem,
 } from '../../lib/types';
 import { useRequireAuth } from '../../lib/use-auth';
-import { isCommercialRole, NON_PROSPECTOR_ROLES } from '../../lib/roles';
+import { NON_PROSPECTOR_ROLES } from '../../lib/roles';
 
 const CLIENT_PAGE_LIMIT = 60;
 // 14.6.C: shape do nextCursor mudou (createdAt -> displayName). Snapshots
@@ -499,11 +499,9 @@ function ClientsPage() {
     lookupUsersForReference(session, { limit: 200 })
       .then((response) => {
         if (!cancelled) {
-          // 14.6.F: filtro de responsavel comercial mostra papeis comerciais
-          // (COMMERCIAL + PROSPECTOR) — admin/classifier/registration nao
-          // costumam ser responsaveis comerciais de cliente.
-          const commercials = response.items.filter((u) => isCommercialRole(u.role));
-          setUsers(commercials);
+          // Responsavel opcional e QUALQUER usuario ativo pode ser responsavel —
+          // o filtro lista todos (o backend retorna comerciais primeiro).
+          setUsers(response.items);
         }
       })
       .catch(() => {
@@ -1384,7 +1382,7 @@ function ClientsPage() {
                   <div
                     className={`samples-filter-field${draftFilters.commercialUserId ? ' is-active' : ''}`}
                   >
-                    <span className="samples-filter-field-label">Responsável comercial</span>
+                    <span className="samples-filter-field-label">Responsável</span>
                     <span className="samples-filter-control">
                       <select
                         className={`samples-filter-field-input${draftFilters.commercialUserId ? ' is-active' : ''}`}

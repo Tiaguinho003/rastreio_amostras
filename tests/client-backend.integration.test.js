@@ -1796,6 +1796,62 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(result.body.items.length, 1);
     assert.equal(result.body.items[0].legalName, 'Santa Fe S/A');
   });
+
+  // ── Responsavel do cliente OPCIONAL + qualquer usuario + inativacao simples ──
+
+  test('Responsavel opcional: update de cliente ATIVO para ZERO responsaveis -> 200', async () => {
+    const user = await createTestUser('COMMERCIAL');
+    const pj = await createPjClient({ cnpj: nextValidCnpj(), commercialUserIds: [user.id] });
+    assert.equal(pj.status, 201);
+    assert.equal(pj.body.client.commercialUsers.length, 1);
+
+    const updated = await api.updateClient(
+      buildInput({ params: { clientId: pj.body.client.id }, body: { commercialUserIds: [] } })
+    );
+    assert.equal(updated.status, 200);
+    assert.equal(updated.body.client.commercialUsers.length, 0);
+  });
+
+  test('Responsavel opcional: remover o ULTIMO responsavel de cliente ATIVO -> 200', async () => {
+    const user = await createTestUser('COMMERCIAL');
+    const pj = await createPjClient({ cnpj: nextValidCnpj(), commercialUserIds: [user.id] });
+
+    const removed = await api.removeCommercialUserFromClient(
+      buildInput({ params: { clientId: pj.body.client.id, userId: user.id } })
+    );
+    assert.equal(removed.status, 200);
+    assert.equal(removed.body.client.commercialUsers.length, 0);
+  });
+
+  test('Responsavel pode ser QUALQUER usuario: atribuir um CLASSIFIER como responsavel -> 201', async () => {
+    const classifier = await createTestUser('CLASSIFIER');
+    const pj = await createPjClient({ cnpj: nextValidCnpj(), commercialUserIds: [classifier.id] });
+    assert.equal(pj.status, 201);
+    assert.equal(pj.body.client.commercialUsers.length, 1);
+    assert.equal(pj.body.client.commercialUsers[0].id, classifier.id);
+  });
+
+  test('Inativacao simplificada: bulkUnlinkCommercialUser desvincula o UNICO responsavel sem 409', async () => {
+    const user = await createTestUser('COMMERCIAL');
+    const pj = await createPjClient({ cnpj: nextValidCnpj(), commercialUserIds: [user.id] });
+
+    const result = await prisma.$transaction((tx) =>
+      clientService.bulkUnlinkCommercialUser(tx, user.id, actor, 'inativacao teste')
+    );
+    assert.equal(result.unlinkedCount, 1);
+
+    const links = await prisma.clientCommercialUser.count({
+      where: { clientId: pj.body.client.id },
+    });
+    assert.equal(links, 0);
+
+    // Cliente segue ATIVO, mas agora sem responsavel (permitido).
+    const client = await prisma.client.findUnique({
+      where: { id: pj.body.client.id },
+      select: { status: true },
+    });
+    assert.equal(client.status, 'ACTIVE');
+  });
 }
 
 async function canReachDatabase(databaseUrlValue) {

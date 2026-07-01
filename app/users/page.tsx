@@ -1245,13 +1245,9 @@ export default function UsersPage() {
           open
           user={modal.user}
           session={session}
-          onSuccess={(updated, reassignedCount) => {
+          onSuccess={(updated) => {
             setInactivateOpen(false);
-            const message =
-              reassignedCount > 0
-                ? `Usuario inativado. ${reassignedCount} cliente(s) reatribuido(s).`
-                : 'Usuario inativado.';
-            dispatchModal({ type: 'actionSuccess', user: updated, message });
+            dispatchModal({ type: 'actionSuccess', user: updated, message: 'Usuario inativado.' });
             refreshList();
           }}
           onCancel={() => setInactivateOpen(false)}

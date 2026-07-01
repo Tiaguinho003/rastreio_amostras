@@ -1126,8 +1126,8 @@ export class ClientService {
 
       // commercialUserIdsInput:
       //   undefined  -> nao mexer (mantem atual)
-      //   string[]   -> substitui a lista inteira; vazio em Client ACTIVE viola invariante
-      //                 (validamos em codigo para erro 409 amigavel; o trigger DB e a ultima linha)
+      //   string[]   -> substitui a lista inteira (vazio = sem responsavel, permitido:
+      //                 o responsavel do cliente e OPCIONAL)
       const previousIds = (current.commercialUsers ?? []).map((entry) => entry.userId);
       const nextIds = commercialUserIdsInput === undefined ? previousIds : commercialUserIdsInput;
 
@@ -1135,14 +1135,7 @@ export class ClientService {
       const nextSet = new Set(nextIds);
       const toAdd = nextIds.filter((id) => !previousSet.has(id));
       const toRemove = previousIds.filter((id) => !nextSet.has(id));
-      const commercialChanged = toAdd.length > 0 || toRemove.length > 0;
 
-      if (commercialChanged && nextIds.length === 0 && current.status === CLIENT_STATUSES.ACTIVE) {
-        throw new HttpError(409, 'Active client must keep at least one commercial user', {
-          code: 'COMMERCIAL_USER_REQUIRED_FOR_ACTIVE',
-          field: 'commercialUserIds',
-        });
-      }
       for (const userId of toAdd) {
         await this.assertCommercialUserAssignable(tx, userId);
       }
@@ -1685,40 +1678,10 @@ export class ClientService {
   }
 
   async bulkUnlinkCommercialUser(tx, commercialUserId, actorContext, reasonText) {
-    // R1.3: invariante "Client ACTIVE tem >=1 user na join" e garantida pelo
-    // trigger DEFERRABLE no banco. Antes de tentar desvincular, detectamos
-    // clients onde este user e o UNICO responsavel (sole custodian) e
-    // retornamos um 409 estruturado para a aplicacao chamadora reatribuir
-    // (a Fase 4 expoe a UI de reatribuicao em massa).
-    const linkedActiveClients = await tx.client.findMany({
-      where: {
-        status: CLIENT_STATUSES.ACTIVE,
-        commercialUsers: { some: { userId: commercialUserId } },
-      },
-      select: {
-        id: true,
-        code: true,
-        _count: { select: { commercialUsers: true } },
-      },
-    });
-
-    const soleCustodianOf = linkedActiveClients.filter(
-      (client) => client._count.commercialUsers === 1
-    );
-    if (soleCustodianOf.length > 0) {
-      throw new HttpError(
-        409,
-        'Cannot unlink commercial user: still the sole responsible for active clients',
-        {
-          code: 'COMMERCIAL_USER_HAS_SOLE_CUSTODIANS',
-          details: {
-            clientIds: soleCustodianOf.map((c) => c.id),
-            clientCodes: soleCustodianOf.map((c) => c.code),
-          },
-        }
-      );
-    }
-
+    // Responsavel do cliente e OPCIONAL: ao inativar um usuario, apenas o
+    // desvinculamos de todos os clientes. Os clientes onde ele era o unico
+    // responsavel simplesmente ficam sem responsavel (permitido) — sem
+    // reatribuicao forcada.
     const clients = await tx.client.findMany({
       where: { commercialUsers: { some: { userId: commercialUserId } } },
       select: CLIENT_SUMMARY_SELECT,
@@ -1820,15 +1783,8 @@ export class ClientService {
         });
       }
 
-      // Validacao aplicacional para erro amigavel; o trigger DEFERRABLE no DB
-      // e a ultima linha de defesa.
-      if (current.status === CLIENT_STATUSES.ACTIVE && current.commercialUsers.length === 1) {
-        throw new HttpError(409, 'Cannot remove the last commercial user of an active client', {
-          code: 'LAST_COMMERCIAL_USER',
-          field: 'userId',
-        });
-      }
-
+      // Responsavel do cliente e OPCIONAL: pode-se remover o ultimo (o cliente
+      // simplesmente fica sem responsavel).
       await tx.clientCommercialUser.delete({
         where: {
           clientId_userId: { clientId: current.id, userId: normalizedUserId },

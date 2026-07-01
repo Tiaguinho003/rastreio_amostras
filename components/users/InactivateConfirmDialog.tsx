@@ -8,9 +8,6 @@ import type { UserSummary } from '../../lib/types';
 type Props = {
   open: boolean;
   user: UserSummary;
-  reassignedCount: number;
-  coCustodianCount: number;
-  recipientCount: number;
   saving: boolean;
   errorMessage: string | null;
   onConfirm: (reasonText: string) => void;
@@ -22,9 +19,6 @@ const MIN_REASON_LENGTH = 5;
 export function InactivateConfirmDialog({
   open,
   user,
-  reassignedCount,
-  coCustodianCount,
-  recipientCount,
   saving,
   errorMessage,
   onConfirm,
@@ -71,23 +65,6 @@ export function InactivateConfirmDialog({
         </header>
 
         <div className="inactivate-confirm-dialog__body">
-          <ul className="inactivate-confirm-dialog__summary">
-            <li>
-              <strong>{reassignedCount}</strong> cliente(s) reatribuído(s)
-            </li>
-            {coCustodianCount > 0 ? (
-              <li>
-                <strong>{coCustodianCount}</strong> cliente(s) onde compartilha responsabilidade —
-                será removido automaticamente.
-              </li>
-            ) : null}
-            {recipientCount > 0 ? (
-              <li>
-                <strong>{recipientCount}</strong> usuário(s) serão notificado(s) por email.
-              </li>
-            ) : null}
-          </ul>
-
           <label className="inactivate-confirm-dialog__field">
             <span className="inactivate-confirm-dialog__label">
               Motivo da inativação (mínimo {MIN_REASON_LENGTH} caracteres)

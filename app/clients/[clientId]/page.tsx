@@ -56,7 +56,7 @@ import { useGlobalLoading } from '../../../lib/loading/loading-context';
 import { useToast } from '../../../lib/toast/ToastProvider';
 import { useFocusTrap } from '../../../lib/use-focus-trap';
 import { useRequireAuth } from '../../../lib/use-auth';
-import { isCommercialRole, NON_PROSPECTOR_ROLES } from '../../../lib/roles';
+import { NON_PROSPECTOR_ROLES } from '../../../lib/roles';
 import { UserMultiSelect } from '../../../components/users/UserMultiSelect';
 import { ChipMultiSelectField, type ChipOption } from '../../../components/ChipMultiSelectField';
 import type {
@@ -230,7 +230,7 @@ const CLIENT_FIELD_LABELS: Record<string, string> = {
   state: 'UF',
   postalCode: 'CEP',
   complement: 'Complemento',
-  commercialUserIds: 'Responsavel comercial',
+  commercialUserIds: 'Responsavel',
 };
 
 function translateClientUpdateError(cause: unknown): string {
@@ -255,9 +255,6 @@ function translateClientUpdateError(cause: unknown): string {
       ? (cause.details as { field?: string }).field
       : undefined;
   if (code === 'CLIENT_PERSON_TYPE_LOCKED') return cause.message;
-  if (code === 'COMMERCIAL_USER_REQUIRED_FOR_ACTIVE') {
-    return 'Cliente ativo deve manter ao menos um responsavel comercial.';
-  }
   if (code === 'PJ_REQUIRES_CNPJ') {
     return 'CNPJ e obrigatorio para Pessoa juridica.';
   }
@@ -578,10 +575,8 @@ export default function ClientDetailPage() {
     if (tab !== 'info' || !session) return;
     setLoadingUsers(true);
     lookupUsersForReference(session, { limit: 200 })
-      .then((response) =>
-        // So papeis comerciais (COMMERCIAL + PROSPECTOR) podem ser responsaveis.
-        setUsers(response.items.filter((u) => isCommercialRole(u.role)))
-      )
+      // Responsavel opcional e QUALQUER usuario ativo pode ser responsavel.
+      .then((response) => setUsers(response.items))
       .catch(() => setUsers([]))
       .finally(() => setLoadingUsers(false));
   }
@@ -1274,25 +1269,9 @@ export default function ClientDetailPage() {
                             />
                           </div>
                         </div>
-                        <div className="sdv-info-item is-full">
-                          <span className="sdv-info-label">
-                            Responsavel
-                            {client.commercialUsers.length > 0
-                              ? ` (${client.commercialUsers.length})`
-                              : ''}
-                          </span>
-                          <div className="sdv-commercial-users">
-                            {client.commercialUsers.length === 0 ? (
-                              <span className="sdv-info-value">{'\u2014'}</span>
-                            ) : (
-                              client.commercialUsers.map((u) => (
-                                <span key={u.id} className="sdv-commercial-user-chip">
-                                  {u.fullName}
-                                </span>
-                              ))
-                            )}
-                          </div>
-                        </div>
+                        {/* Responsavel do cliente NAO e mais exibido no detalhe
+                            (a relacao virou opcional; atribuicao so no modal de
+                            edicao). */}
                         <div className="sdv-info-item is-full">
                           <span className="sdv-info-label">Papéis</span>
                           <div className="sdv-commercial-users">
@@ -1844,16 +1823,7 @@ export default function ClientDetailPage() {
                       disabled={savingClient}
                       hideRoleInChips
                       firstNameOnly
-                      placeholder={
-                        editClientForm.commercialUserIds.length === 0 && client?.status === 'ACTIVE'
-                          ? 'Obrigatorio'
-                          : 'Selecione 1+ responsaveis comerciais'
-                      }
-                      errorMessage={
-                        editClientForm.commercialUserIds.length === 0 && client?.status === 'ACTIVE'
-                          ? 'required'
-                          : undefined
-                      }
+                      placeholder="Selecione (opcional)"
                     />
                   </>
                 ) : null}
