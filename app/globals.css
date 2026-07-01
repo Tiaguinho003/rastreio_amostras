@@ -34703,7 +34703,7 @@ body.is-selection-mode .hero-search-filter-btn {
   border-color: var(--brand-green);
   color: #fff;
 }
-/* Acao destrutiva (Quebrar) — de-enfatizada no card: texto/borda vermelhos. */
+/* Acao destrutiva (Washout) — de-enfatizada no card: texto/borda vermelhos. */
 .ctr-btn-danger {
   color: var(--color-danger);
   border-color: rgba(var(--color-danger-rgb), 0.45);

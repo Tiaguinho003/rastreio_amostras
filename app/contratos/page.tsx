@@ -31,7 +31,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: 'CONFIRMADO', label: 'Confirmado' },
   { value: 'FATURADO', label: 'Faturado' },
   { value: 'PAGO', label: 'Pago' },
-  { value: 'WASH_OUT', label: 'Quebrado' },
+  { value: 'WASH_OUT', label: 'Washout' },
 ];
 
 // Espelho de Corretagem (Fase E): só contratos congelados podem gerar o espelho (D73).

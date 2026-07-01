@@ -22,7 +22,7 @@ const STATUS_META: Record<SaleContractStatus, { label: string; variant: string }
   CONFIRMADO: { label: 'Confirmado', variant: 'status-badge-success' },
   FATURADO: { label: 'Faturado', variant: 'status-badge-muted' },
   PAGO: { label: 'Pago', variant: 'status-badge-muted' },
-  WASH_OUT: { label: 'Quebrado', variant: 'status-badge-danger' },
+  WASH_OUT: { label: 'Washout', variant: 'status-badge-danger' },
 };
 
 // Cor da barra lateral por status (decisao: distintas por status).
@@ -240,7 +240,7 @@ export function SaleContractCard({
           </div>
 
           {contract.status === 'WASH_OUT' && contract.washoutReason ? (
-            <p className="ctr-card-washout">Quebra: {contract.washoutReason}</p>
+            <p className="ctr-card-washout">Washout: {contract.washoutReason}</p>
           ) : null}
 
           <div className="ctr-card-actions">
