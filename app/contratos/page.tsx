@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
+import { ANIMATION_MS } from '../../components/BottomSheet';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { ClientLookupField } from '../../components/clients/ClientLookupField';
 import { ContractCreateRadialFab } from '../../components/contracts/ContractCreateRadialFab';
@@ -32,6 +33,7 @@ import { ClassificationFilterField } from '../../components/samples/Classificati
 import { SelectionModeHeader } from '../../components/samples/SelectionModeHeader';
 import { getNextContractNumber, listSaleContracts } from '../../lib/api-client';
 import { useRequireAuth } from '../../lib/use-auth';
+import { useDelayedValue } from '../../lib/use-delayed-value';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import { useToast } from '../../lib/toast/ToastProvider';
 import type {
@@ -142,6 +144,13 @@ export default function ContratosPage() {
   // Espelho de Corretagem (Fase E): modo de seleção (D76) + alvo (abre o modal só-leitura).
   const [espelhoMode, setEspelhoMode] = useState(false);
   const [espelhoTarget, setEspelhoTarget] = useState<SaleContract | null>(null);
+
+  // Os modais de criação/lote são bottom sheets: mantê-los montados durante o
+  // slide-down de saída (ANIMATION_MS) antes de desmontar. `open` = intenção ao vivo.
+  const spotPickerRendered = useDelayedValue(spotPickerOpen || null, ANIMATION_MS);
+  const spotCreateRendered = useDelayedValue(spotCreate, ANIMATION_MS);
+  const futureRendered = useDelayedValue(futureOpen || null, ANIMATION_MS);
+  const etapa2Rendered = useDelayedValue(etapa2, ANIMATION_MS);
 
   const refresh = useCallback(async () => {
     if (!session) return;
@@ -604,10 +613,11 @@ export default function ContratosPage() {
         </div>
       ) : null}
 
-      {etapa2 ? (
+      {etapa2Rendered ? (
         <SaleContractEtapa2Modal
           session={session}
-          contractId={etapa2.contractId}
+          open={etapa2 != null}
+          contractId={etapa2Rendered.contractId}
           onClose={() => setEtapa2(null)}
           onSaved={() => {
             setEtapa2(null);
@@ -626,9 +636,10 @@ export default function ContratosPage() {
         />
       ) : null}
 
-      {futureOpen ? (
+      {futureRendered ? (
         <SaleContractEtapa2Modal
           session={session}
+          open={futureOpen}
           futureCreate
           onClose={() => setFutureOpen(false)}
           onSaved={() => {
@@ -700,18 +711,22 @@ export default function ContratosPage() {
         />
       ) : null}
 
-      {spotPickerOpen ? (
+      {spotPickerRendered ? (
         <SaleContractLotPickerModal
           session={session}
+          open={spotPickerOpen}
+          dragDisabled={spotCreate != null}
           onClose={() => setSpotPickerOpen(false)}
           onPicked={async (sample) => {
-            setSpotPickerOpen(false);
+            // Swap sem sobreposição: o picker FECHA no mesmo batch em que o form
+            // abre (um desce enquanto o outro sobe). "Voltar" reabre o picker.
             let nextNumber: string | null = null;
             try {
               nextNumber = (await getNextContractNumber(session)).contractNumber;
             } catch {
               nextNumber = null;
             }
+            setSpotPickerOpen(false);
             setSpotCreate({
               sampleId: sample.id,
               sampleVersion: sample.version,
@@ -725,14 +740,27 @@ export default function ContratosPage() {
         />
       ) : null}
 
-      {/* Criação à vista — 1 modal só (cria a venda no lote + emite). */}
-      {spotCreate ? (
+      {/* Criação à vista — form que SUBSTITUI o picker (sem sobreposição). Voltar
+          reabre o picker; X/backdrop/ESC encerra o fluxo (volta à página);
+          onSaved fecha tudo. */}
+      {spotCreateRendered ? (
         <SaleContractEtapa2Modal
           session={session}
-          spotCreate={spotCreate}
-          onClose={() => setSpotCreate(null)}
+          open={spotCreate != null}
+          spotCreate={spotCreateRendered}
+          onBack={() => {
+            // "Voltar": fecha o form e reabre o picker de lote (swap).
+            setSpotCreate(null);
+            setSpotPickerOpen(true);
+          }}
+          onClose={() => {
+            // "X"/dismiss: encerra todo o fluxo à vista, volta à página.
+            setSpotCreate(null);
+            setSpotPickerOpen(false);
+          }}
           onSaved={() => {
             setSpotCreate(null);
+            setSpotPickerOpen(false);
             void refresh();
             toast.success({ title: 'Contrato à vista gerado' });
           }}

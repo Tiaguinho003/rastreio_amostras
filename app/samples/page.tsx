@@ -2042,7 +2042,9 @@ function SamplesPage() {
         {/* Liga B1.4: SelectionModeHeader substitui o header normal quando
             o usuario entra em modo selecao pra criar liga. CSS body class
             is-selection-mode tambem esconde o header normal por seguranca. */}
-        {selectionMode === 'blend' ? <SelectionModeHeader onExit={exitBlendMode} /> : null}
+        {selectionMode === 'blend' ? (
+          <SelectionModeHeader title="Selecione Lotes" onExit={exitBlendMode} />
+        ) : null}
         <header className="samples-page-v2-header">
           <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao dashboard">
             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">

@@ -12,16 +12,19 @@
 // (inclusive ligas, com o aviso de origem em ligas ativas).
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 
 import { ApiError, getSampleDetail, listSamples } from '../../lib/api-client';
-import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { ActiveBlendDetail, SampleSnapshot, SessionData } from '../../lib/types';
+import { BottomSheet } from '../BottomSheet';
+import { BlendBadge } from '../samples/BlendBadge';
 
 type SaleContractLotPickerModalProps = {
   session: SessionData;
+  open: boolean;
   onClose: () => void;
   onPicked: (sample: SampleSnapshot, activeBlends: ActiveBlendDetail[]) => void;
+  /** Pausa o arraste do sheet enquanto o form de criação está aberto por cima. */
+  dragDisabled?: boolean;
 };
 
 const PAGE_LIMIT = 30;
@@ -38,7 +41,7 @@ function ownerLabel(sample: SampleSnapshot): string {
 
 function lotLabel(sample: SampleSnapshot): string {
   const lot = (sample.internalLotNumber ?? '').trim();
-  return lot ? `Lote ${lot}` : 'Lote sem número';
+  return lot || 'Sem número';
 }
 
 function availableLabel(sample: SampleSnapshot): number {
@@ -48,10 +51,11 @@ function availableLabel(sample: SampleSnapshot): number {
 
 export function SaleContractLotPickerModal({
   session,
+  open,
   onClose,
   onPicked,
+  dragDisabled = false,
 }: SaleContractLotPickerModalProps) {
-  const focusTrapRef = useFocusTrap(true);
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [items, setItems] = useState<SampleSnapshot[]>([]);
@@ -61,15 +65,6 @@ export function SaleContractLotPickerModal({
   const [cursor, setCursor] = useState<{ lotInt: number | null; id: string } | null>(null);
   const [hydratingId, setHydratingId] = useState<string | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
-
-  // Esc fecha (a menos que esteja hidratando um lote escolhido).
-  useEffect(() => {
-    function onKeydown(event: KeyboardEvent) {
-      if (event.key === 'Escape' && !hydratingId) onClose();
-    }
-    document.addEventListener('keydown', onKeydown);
-    return () => document.removeEventListener('keydown', onKeydown);
-  }, [onClose, hydratingId]);
 
   // Debounce da busca -> appliedSearch (recarrega a lista do zero).
   useEffect(() => {
@@ -151,94 +146,91 @@ export function SaleContractLotPickerModal({
     }
   }
 
-  return createPortal(
-    <div className="app-modal-backdrop">
-      <section
-        ref={focusTrapRef}
-        className="app-modal is-themed is-action lotpick-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="lotpick-modal-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <header className="app-modal-header">
-          <div className="app-modal-title-wrap">
-            <h3 id="lotpick-modal-title" className="app-modal-title">
-              Selecionar lote
-            </h3>
-            <p className="app-modal-description">A venda à vista parte de um lote.</p>
-          </div>
-          <button
-            type="button"
-            className="app-modal-close"
-            onClick={onClose}
-            disabled={hydratingId !== null}
-            aria-label="Fechar"
-          >
-            <span aria-hidden="true">&times;</span>
-          </button>
-        </header>
+  return (
+    <BottomSheet
+      open={open}
+      onClose={onClose}
+      onDismissAttempt={() => hydratingId === null}
+      title="Selecionar lote"
+      ariaLabel="Selecionar lote"
+      dragDisabled={dragDisabled}
+      className="ctr-form-sheet ctr-lotpick-sheet is-fit-content"
+    >
+      <p className="lotpick-hint">A venda à vista parte de um lote.</p>
 
-        <div className="lotpick-search">
-          <input
-            className="app-modal-input"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar por nº do lote ou produtor..."
-            autoComplete="off"
-            spellCheck={false}
-            disabled={hydratingId !== null}
-          />
-        </div>
+      <div className="lotpick-search">
+        <input
+          className="app-modal-input"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Buscar por nº do lote ou produtor..."
+          autoComplete="off"
+          spellCheck={false}
+        />
+      </div>
 
-        {error ? <p className="sdv-modal-error lotpick-error">{error}</p> : null}
+      {error ? <p className="sdv-modal-error lotpick-error">{error}</p> : null}
 
-        <div className="lotpick-list">
-          {loading ? (
-            <p className="lotpick-status">Carregando lotes...</p>
-          ) : items.length === 0 ? (
-            <p className="lotpick-status">
-              {appliedSearch ? 'Nenhum lote encontrado.' : 'Nenhum lote disponível para venda.'}
-            </p>
-          ) : (
-            <>
-              {items.map((sample) => {
-                const isHydrating = hydratingId === sample.id;
-                return (
-                  <button
-                    key={sample.id}
-                    type="button"
-                    className={`lotpick-row${isHydrating ? ' is-loading' : ''}`}
-                    onClick={() => void handlePick(sample)}
-                    disabled={hydratingId !== null}
-                  >
-                    <span className="lotpick-row-main">
-                      <span className="lotpick-row-lot">
-                        {lotLabel(sample)}
-                        {sample.isBlend ? <span className="lotpick-row-liga">Liga</span> : null}
-                      </span>
-                      <span className="lotpick-row-owner">{ownerLabel(sample)}</span>
+      <div className="lotpick-list">
+        {loading ? (
+          <p className="lotpick-status">Carregando lotes...</p>
+        ) : items.length === 0 ? (
+          <p className="lotpick-status">
+            {appliedSearch ? 'Nenhum lote encontrado.' : 'Nenhum lote disponível para venda.'}
+          </p>
+        ) : (
+          <>
+            {items.map((sample) => (
+              <button
+                key={sample.id}
+                type="button"
+                className="spv2-card is-card-open lotpick-card"
+                onClick={() => void handlePick(sample)}
+              >
+                <span className="spv2-card-bar" aria-hidden="true" />
+                <span className="spv2-card-content">
+                  <span className="spv2-card-top">
+                    <span className="spv2-card-code">{lotLabel(sample)}</span>
+                    {sample.isBlend ? <BlendBadge size="sm" /> : null}
+                    <span className="spv2-card-badge">Em aberto</span>
+                  </span>
+                  <span className="spv2-card-bottom">
+                    <span className="spv2-card-owner">{ownerLabel(sample)}</span>
+                    <span className="spv2-card-sep" aria-hidden="true" />
+                    <span className="spv2-card-detail">
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <rect x="2" y="7" width="20" height="14" rx="2" />
+                        <path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" />
+                      </svg>
+                      {availableLabel(sample)} sacas
                     </span>
-                    <span className="lotpick-row-meta">
-                      <span className="lotpick-row-sacks">{availableLabel(sample)} sc disp.</span>
-                      {sample.declared.harvest ? (
-                        <span className="lotpick-row-harvest">{sample.declared.harvest}</span>
-                      ) : null}
-                    </span>
-                    {isHydrating ? <span className="lotpick-row-hint">Abrindo...</span> : null}
-                  </button>
-                );
-              })}
-              {cursor ? (
-                <div ref={sentinelRef} className="lotpick-sentinel">
-                  {loadingMore ? 'Carregando mais...' : ''}
-                </div>
-              ) : null}
-            </>
-          )}
-        </div>
-      </section>
-    </div>,
-    document.body
+                    {sample.declared.harvest ? (
+                      <>
+                        <span className="spv2-card-sep" aria-hidden="true" />
+                        <span className="spv2-card-detail">
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <rect x="3" y="4" width="18" height="18" rx="2" />
+                            <path d="M16 2v4M8 2v4M3 10h18" />
+                          </svg>
+                          {sample.declared.harvest}
+                        </span>
+                      </>
+                    ) : null}
+                  </span>
+                </span>
+                <svg className="spv2-card-chevron" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M9 6l6 6-6 6" />
+                </svg>
+              </button>
+            ))}
+            {cursor ? (
+              <div ref={sentinelRef} className="lotpick-sentinel">
+                {loadingMore ? 'Carregando mais...' : ''}
+              </div>
+            ) : null}
+          </>
+        )}
+      </div>
+    </BottomSheet>
   );
 }

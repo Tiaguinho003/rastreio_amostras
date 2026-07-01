@@ -1,7 +1,6 @@
 'use client';
 
 import { type CSSProperties, useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
 
 import {
   ApiError,
@@ -25,7 +24,7 @@ import {
   parseCurrencyInput,
   parseDecimalBr,
 } from '../../lib/currency';
-import { useFocusTrap } from '../../lib/use-focus-trap';
+import { BottomSheet } from '../BottomSheet';
 import { BrokerMultiSelectField } from '../samples/BrokerMultiSelectField';
 import { ClientLookupField } from '../clients/ClientLookupField';
 import { ClientQuickCreateModal } from '../clients/ClientQuickCreateModal';
@@ -47,8 +46,12 @@ type SaleContractEtapa2ModalProps = {
   session: SessionData;
   // Card "Editar": contrato existente.
   contractId?: string;
+  open: boolean;
   onClose: () => void;
   onSaved: () => void;
+  // À VISTA: "Voltar" no rodapé retorna à seleção de lote (fecha este sheet e
+  // reabre o picker). Ausente em Futuro/Editar, onde o rodapé mostra "Cancelar".
+  onBack?: () => void;
   // Modo CRIACAO À VISTA (1 modal): vem do picker de lote. Mostra o bloco "Venda"
   // (sacas ≤ disponível; liga = 100% travado) + Vendedor pré-preenchido do dono do
   // lote + Comprador manual; o submit cria a venda no lote (createSampleMovement,
@@ -82,13 +85,14 @@ function unitLabel(unit: ClientUnitSummary): string {
 // listContractLookups. Submete via createSampleMovement/createFutureSaleContract + emit.
 export function SaleContractEtapa2Modal({
   session,
+  open,
   contractId,
   onClose,
   onSaved,
+  onBack,
   spotCreate,
   futureCreate = false,
 }: SaleContractEtapa2ModalProps) {
-  const focusTrapRef = useFocusTrap(true);
   // Modos de criação em 1 modal: à vista (spotCreate, do picker) ou Futuro.
   const isSpotCreate = spotCreate != null;
   const isCreateLike = isSpotCreate || futureCreate;
@@ -666,37 +670,57 @@ export function SaleContractEtapa2Modal({
     </label>
   );
 
-  return createPortal(
-    <div className="app-modal-backdrop">
-      <section
-        ref={focusTrapRef}
-        className="app-modal is-themed is-action ctr-etapa2-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="ctr-etapa2-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <header className="app-modal-header">
-          <div className="app-modal-title-wrap">
-            <h3 id="ctr-etapa2-title" className="app-modal-title">
-              {futureCreate
-                ? 'Novo contrato — Futuro'
-                : isSpotCreate
-                  ? 'Novo contrato — À vista'
-                  : `Editar contrato${contract ? ` ${contract.contractNumber}` : ''}`}
-            </h3>
-          </div>
-          <button
-            type="button"
-            className="app-modal-close"
-            onClick={isCreateLike ? () => void cleanupPartialThen(onClose) : onClose}
-            disabled={saving}
-            aria-label="Fechar"
-          >
-            <span aria-hidden="true">&times;</span>
-          </button>
-        </header>
+  const sheetTitle = futureCreate
+    ? 'Novo contrato — Futuro'
+    : isSpotCreate
+      ? 'Novo contrato — À vista'
+      : `Editar contrato${contract ? ` ${contract.contractNumber}` : ''}`;
 
+  // Fechar (X / backdrop / ESC / arraste) ENCERRA o fluxo e volta à página: à
+  // vista/Futuro limpam a venda parcial (EM_ABERTO) antes de sair; editar fecha
+  // direto. NÃO retorna ao passo anterior — isso é o "Voltar" (handleBack).
+  const handleSheetClose = () => {
+    if (isCreateLike) void cleanupPartialThen(onClose);
+    else onClose();
+  };
+
+  // À vista: "Voltar" retorna à seleção de lote (limpa a venda parcial antes de
+  // reabrir o picker). Null em Futuro/Editar → o rodapé mostra "Cancelar".
+  const handleBack = onBack ? () => void cleanupPartialThen(onBack) : null;
+
+  const sheetFooter = (
+    <div className="app-modal-actions ctr-etapa2-actions">
+      <button
+        type="button"
+        className="app-modal-secondary"
+        onClick={handleBack ?? handleSheetClose}
+        disabled={saving}
+      >
+        {handleBack ? 'Voltar' : 'Cancelar'}
+      </button>
+      <button
+        type="button"
+        className="app-modal-submit"
+        onClick={handleSubmit}
+        disabled={saving || loading}
+      >
+        {saving ? 'Emitindo...' : 'Emitir'}
+      </button>
+    </div>
+  );
+
+  return (
+    <>
+      <BottomSheet
+        open={open}
+        onClose={handleSheetClose}
+        onDismissAttempt={() => !saving}
+        title={sheetTitle}
+        ariaLabel={sheetTitle}
+        footer={sheetFooter}
+        stacked={isSpotCreate}
+        className="ctr-form-sheet ctr-contract-sheet"
+      >
         {error ? <p className="sdv-modal-error">{error}</p> : null}
         {loadError ? <p className="sdv-modal-error">{loadError}</p> : null}
 
@@ -1110,26 +1134,7 @@ export function SaleContractEtapa2Modal({
             </div>
           </div>
         )}
-
-        <div className="app-modal-actions ctr-etapa2-actions">
-          <button
-            type="button"
-            className="app-modal-secondary"
-            onClick={isCreateLike ? () => void cleanupPartialThen(onClose) : onClose}
-            disabled={saving}
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            className="app-modal-submit"
-            onClick={handleSubmit}
-            disabled={saving || loading}
-          >
-            {saving ? 'Emitindo...' : 'Emitir'}
-          </button>
-        </div>
-      </section>
+      </BottomSheet>
 
       {unitModalFor ? (
         <ClientUnitModal
@@ -1185,7 +1190,6 @@ export function SaleContractEtapa2Modal({
           if (which) void handleSelectWarehouse(which, client);
         }}
       />
-    </div>,
-    document.body
+    </>
   );
 }

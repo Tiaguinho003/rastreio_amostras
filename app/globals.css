@@ -34928,12 +34928,73 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   flex-direction: column;
   gap: 0.7rem;
 }
-/* Acoes do 2o modal (Gerar rascunho): 50/50 ocupando a largura toda. As acoes ja
-   sao irmas do .app-modal-content (rodape sempre fixo). So no emit (2 botoes). */
-.app-modal.is-themed .app-modal-actions.ctr-etapa2-actions {
+/* ── Forms de contrato (Etapa2 + LotPicker) migrados pra BOTTOM SHEET no mobile
+   (central no desktop pelo CSS do .bottom-sheet). Dentro do sheet nao ha
+   ancestral .app-modal.is-themed, entao reaplicamos os overrides dos campos
+   .app-modal-* escopados a .ctr-form-sheet (o gap do form vem do
+   .ctr-etapa2-content; o scroll/padding do .bottom-sheet-body). ── */
+/* Fundo BRANCO (sai o creme padrao do .bottom-sheet) nos sheets de contrato —
+   inclui o footer sticky, que tem bg proprio. */
+.bottom-sheet.ctr-form-sheet,
+.bottom-sheet.ctr-form-sheet .bottom-sheet-footer {
+  background: #ffffff;
+}
+.bottom-sheet.ctr-form-sheet .app-modal-input {
+  border-width: 2px;
+  border-color: rgba(0, 0, 0, 0.16);
+  background: #ffffff;
+  color: #1a1a1a;
+}
+.bottom-sheet.ctr-form-sheet .app-modal-input:focus-visible {
+  border-color: rgba(22, 91, 42, 0.5);
+  box-shadow: 0 0 0 3px rgba(22, 91, 42, 0.1);
+}
+.bottom-sheet.ctr-form-sheet .app-modal-label {
+  color: rgba(0, 0, 0, 0.6);
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+}
+/* Fix do input date no WebKit (mesmo do modal central) — sem isso o campo
+   estoura a largura no iOS. */
+.bottom-sheet.ctr-form-sheet .app-modal-input[type='date'] {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235a6b5e' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><rect x='4.5' y='5.5' width='15' height='14' rx='2.2'/><path d='M7.5 3.8v3.2'/><path d='M16.5 3.8v3.2'/><path d='M4.5 9.5h15'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+  background-size: 1rem 1rem;
+  padding-right: 2.4rem;
+}
+.bottom-sheet.ctr-form-sheet .app-modal-input[type='date']::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  pointer-events: none;
+}
+.bottom-sheet.ctr-form-sheet .app-modal-input[type='date']::-webkit-date-and-time-value {
+  text-align: left;
+  min-width: 0;
+}
+/* Acoes no footer do sheet: 50/50 — Cancelar (esq) / Emitir (dir). */
+.bottom-sheet.ctr-contract-sheet .ctr-etapa2-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.6rem;
+}
+.bottom-sheet.ctr-contract-sheet .ctr-etapa2-actions > button {
+  width: 100%;
+  min-width: 0;
+}
+/* Picker de lote: o corpo do sheet vira coluna flex pra a lista (.lotpick-list,
+   flex:1 + overflow) esticar e rolar — hint/busca ficam fixos no topo e o
+   scroll infinito (root = .lotpick-list) segue funcionando. */
+.ctr-lotpick-sheet .bottom-sheet-body {
+  display: flex;
+  flex-direction: column;
+}
+.ctr-lotpick-sheet .lotpick-hint {
+  margin: 0 clamp(0.3rem, 1.2vw, 0.5rem) 0.2rem;
+  font-size: 0.82rem;
+  color: var(--brand-muted);
 }
 .ctr-modal-loading {
   margin: 0;
@@ -35092,20 +35153,29 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
    --------------------------------------------------------------------------- */
 .lotpick-search {
   flex-shrink: 0;
-  padding: clamp(0.85rem, 3vw, 1.1rem) clamp(1.1rem, 3.5vw, 1.4rem) 0.55rem;
+  padding: clamp(0.85rem, 3vw, 1.1rem) clamp(0.3rem, 1.2vw, 0.5rem) 0.55rem;
 }
 .lotpick-error {
   margin: 0 clamp(1.1rem, 3.5vw, 1.4rem) 0.5rem;
 }
 .lotpick-list {
-  flex: 1 1 auto;
+  /* flex:0 (nao cresce): a lista tem a altura do conteudo ate o max-height —
+     casa com o sheet is-fit-content (encolhe pro conteudo, sem vao em branco). */
+  flex: 0 1 auto;
   min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  padding: 0 clamp(1.1rem, 3.5vw, 1.4rem) clamp(1.1rem, 3.5vw, 1.4rem);
+  /* Gap um pouco maior pra as sombras dos .spv2-card respirarem. */
+  gap: 0.6rem;
+  /* Bordas laterais menores (o .bottom-sheet ja recua ~1rem): os cards e a
+     busca ganham largura. O pequeno recuo lateral preserva a sombra dos cards
+     (o .bottom-sheet-body tem overflow-x: hidden). */
+  padding: 0.15rem clamp(0.3rem, 1.2vw, 0.5rem) clamp(0.9rem, 3vw, 1.1rem);
   overscroll-behavior: contain;
+  /* Limite de ~3 lotes sem scroll (o 4º espia, sinalizando que ha mais); acima
+     disso a lista rola. Casa com a altura compacta do .lotpick-card (~62px). */
+  max-height: 14.5rem;
 }
 .lotpick-status {
   margin: 0;
@@ -35114,85 +35184,30 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   font-size: 0.9rem;
   color: var(--brand-muted);
 }
-.lotpick-row {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
+/* Cards dos lotes: reusam o design dos cards de /samples (.spv2-card +
+   .is-card-open) — mesmo padrao visual da pagina de Lotes. Markup em
+   components/contracts/SaleContractLotPickerModal.tsx.
+   Overrides (pedido do usuario): largura total na coluna do sheet, fundo BRANCO
+   puro (o .spv2-card base tem um leve creme no gradiente) e sombra reforcada
+   pra destacar no fundo branco do sheet. */
+.lotpick-card {
   width: 100%;
-  text-align: left;
-  padding: 0.65rem 0.8rem;
-  background: #fff;
-  border: 1px solid var(--brand-cream-line);
-  border-radius: 12px;
-  cursor: pointer;
-  transition:
-    border-color 0.15s ease,
-    background 0.15s ease;
+  /* Altura compacta (pedido do usuario): menos padding vertical que o
+     .spv2-card base, reduzindo o espaco em branco interno. Valor fixo (nao
+     clamp) pra a altura do card ser a mesma no mobile e no desktop — assim um
+     unico max-height na lista cai em ~3 cards nos dois. */
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
+  background: #ffffff;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.06),
+    0 6px 16px rgba(0, 0, 0, 0.12),
+    0 14px 34px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
-.lotpick-row:hover:not(:disabled) {
-  border-color: rgba(var(--brand-green-rgb), 0.4);
-  background: rgba(var(--brand-green-rgb), 0.06);
-}
-.lotpick-row:disabled {
-  cursor: default;
-}
-.lotpick-row.is-loading {
-  opacity: 0.65;
-}
-.lotpick-row-main {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  min-width: 0;
-}
-.lotpick-row-lot {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--brand-green-ink);
-}
-.lotpick-row-liga {
-  font-size: 0.7rem;
-  font-weight: 600;
-  line-height: 1;
-  padding: 0.18rem 0.4rem;
-  border-radius: 999px;
-  color: var(--brand-green-ink);
-  background: rgba(var(--brand-green-rgb), 0.16);
-}
-.lotpick-row-owner {
-  font-size: 0.82rem;
-  color: var(--brand-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.lotpick-row-meta {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.15rem;
-}
-.lotpick-row-sacks {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--brand-green-ink);
-}
-.lotpick-row-harvest {
-  font-size: 0.78rem;
-  color: var(--brand-muted);
-}
-.lotpick-row-hint {
-  position: absolute;
-  right: 0.8rem;
-  bottom: 0.28rem;
-  font-size: 0.72rem;
-  color: var(--brand-muted);
+/* Barra de status mais baixa, acompanhando a altura reduzida do card. */
+.lotpick-card .spv2-card-bar {
+  height: 2.5rem;
 }
 .lotpick-sentinel {
   flex-shrink: 0;
