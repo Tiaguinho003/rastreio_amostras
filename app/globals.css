@@ -32548,6 +32548,18 @@ body.is-selection-mode .hero-search-filter-btn {
   display: none;
 }
 
+/* /contratos: no modo selecao (gerar Espelho) escondemos o header normal + a
+   barra de busca inteira (busca/filtro/"+"), ja que selecionar 1 card abre o
+   modal direto — sem passo de "continuar". Escopado a .ctr-page pra nao vazar
+   p/ /clients (que tambem usa .clients-v2-header, mas nunca entra em selecao). */
+body.is-selection-mode .ctr-page .clients-v2-header {
+  display: none;
+}
+
+body.is-selection-mode .ctr-page .hero-search-wrap {
+  display: none;
+}
+
 /* (Antes havia override de padding-bottom em selection-mode aqui — agora
    redundante porque os mesmos valores foram aplicados na base do
    .samples-page-v2-sheet + .spv2-list-scroll. Pagina ja continua tanto
@@ -33935,6 +33947,73 @@ body.is-selection-mode .hero-search-filter-btn {
 }
 
 /* ============================================================
+   Pagina Contratos (/contratos) — leque do "+" no desktop (>=901px)
+   O scaffold .clients-page-v2 ja entrega titulo oculto, filtro verde, busca
+   com sombra e o FAB INLINE (basta o "+" estar dentro do .hero-search-wrap).
+   Falta so a GEOMETRIA do leque: as opcoes emergindo do FAB inline num quarto
+   de arco que DESCE e abre pra esquerda na area de cards. Valores identicos aos
+   de .samples-page-v2 (bloco acima): is-lote=À vista, is-liga=Espelho,
+   is-aprovacao=Futuro. Bloco isolado (nao agrupado com .samples-page-v2) de
+   proposito, pra reduzir conflito de merge no globals.css compartilhado.
+   ============================================================ */
+@media (min-width: 901px) {
+  .clients-page-v2.ctr-page .hero-search-wrap {
+    position: relative;
+    --fan-pivot-right: 28px;
+    --fan-pivot-top: 28px;
+    --fan-opt-size: 60px;
+    --fan-shift-right: 45px;
+  }
+
+  .clients-page-v2.ctr-page .fab-fan {
+    position: absolute;
+    inset: 0;
+  }
+
+  .clients-page-v2.ctr-page .fab-fan-option {
+    position: absolute;
+    left: auto;
+    bottom: auto;
+    right: calc(
+      var(--fan-pivot-right) + var(--ox) - var(--fan-opt-size) / 2 - var(--fan-shift-right)
+    );
+    top: calc(var(--fan-pivot-top) + var(--oy) - var(--fan-opt-size) / 2);
+    transform-origin: right top;
+  }
+
+  /* À vista (is-lote): ponta de baixo do arco. */
+  .clients-page-v2.ctr-page .fab-fan-option.is-lote {
+    --ox: 80px;
+    --oy: 268px;
+  }
+
+  /* Espelho (is-liga): meio do arco (diagonal baixo-esquerda). */
+  .clients-page-v2.ctr-page .fab-fan-option.is-liga {
+    --ox: 192px;
+    --oy: 204px;
+  }
+
+  /* Futuro (is-aprovacao): ponta do arco, ja abaixo da barra de busca. */
+  .clients-page-v2.ctr-page .fab-fan-option.is-aprovacao {
+    --ox: 263px;
+    --oy: 96px;
+  }
+
+  .clients-page-v2.ctr-page .fab-fan-option-label {
+    top: 50%;
+    left: auto;
+    right: calc(100% + 12px);
+    bottom: auto;
+    transform: translateY(-50%);
+    font-size: 16px;
+  }
+
+  body.is-fab-fan-open .clients-page-v2.ctr-page .hero-search-wrap {
+    z-index: calc(var(--z-modal, 500) + 1);
+  }
+}
+
+/* ============================================================
    Pagina Clientes (/clients) — ajustes desktop (>=901px)
    Espelha a composicao geral da /samples (ver bloco acima): titulo oculto,
    filtro verde + icone branco, busca com sombra simetrica reforcada. Os
@@ -34472,35 +34551,6 @@ body.is-selection-mode .hero-search-filter-btn {
 /* ===========================================================================
    Fechamento (Fase B.3): pagina "Contratos" — filtros, cards e modal etapa 2.
    =========================================================================== */
-.ctr-filter-row {
-  flex-shrink: 0;
-  display: flex;
-  gap: 0.4rem;
-  overflow-x: auto;
-  padding: 0 clamp(8px, 3vw, 14px) clamp(8px, 2vw, 12px);
-  scrollbar-width: none;
-}
-.ctr-filter-row::-webkit-scrollbar {
-  display: none;
-}
-.ctr-filter {
-  flex: 0 0 auto;
-  border: 1px solid var(--brand-cream-line);
-  background: #fff;
-  color: var(--brand-muted);
-  border-radius: 999px;
-  padding: 0.35rem 0.85rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.ctr-filter.is-active {
-  background: var(--brand-green);
-  border-color: var(--brand-green);
-  color: #fff;
-}
-
 .ctr-list {
   display: flex;
   flex-direction: column;
@@ -34828,46 +34878,11 @@ body.is-selection-mode .hero-search-filter-btn {
 }
 
 /* ---------------------------------------------------------------------------
-   Espelho de Corretagem (Fase E): banner do modo de selecao (D76) + card
-   selecionavel (tap-to-open) + toggle de lado/resumo do modal de conferencia.
+   Espelho de Corretagem (Fase E): card selecionavel (tap-to-open) + toggle de
+   lado/resumo do modal de conferencia. O modo de selecao agora usa o
+   SelectionModeHeader (paridade /samples), nao mais um banner proprio.
    Reusa .ctr-card / .ctr-doc-* / .app-modal.
    --------------------------------------------------------------------------- */
-.ctr-espelho-banner {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin: 0 clamp(0.5rem, 3vw, 1rem) 0.6rem;
-  padding: 0.7rem 0.9rem;
-  border-radius: 0.85rem;
-  background: #ecfdf5;
-  border: 1px solid #a7f3d0;
-}
-.ctr-espelho-banner-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  flex: 1 1 auto;
-  min-width: 0;
-}
-.ctr-espelho-banner-text strong {
-  font-size: 0.92rem;
-  color: #065f46;
-}
-.ctr-espelho-banner-text span {
-  font-size: 0.8rem;
-  color: #047857;
-}
-.ctr-espelho-banner-cancel {
-  flex-shrink: 0;
-  border: 1px solid #6ee7b7;
-  background: #fff;
-  color: #065f46;
-  border-radius: 0.7rem;
-  padding: 0.4rem 0.8rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-}
 
 /* Card selecionavel (o card inteiro vira botao de selecao) */
 .ctr-card-selectable .ctr-card-head-btn {

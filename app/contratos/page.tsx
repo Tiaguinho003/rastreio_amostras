@@ -1,11 +1,22 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
+import { ClientLookupField } from '../../components/clients/ClientLookupField';
 import { ContractCreateRadialFab } from '../../components/contracts/ContractCreateRadialFab';
+import {
+  type ContractFilters,
+  EMPTY_CONTRACT_FILTERS,
+  LABEL_TO_STATUS,
+  LABEL_TO_TYPE,
+  PERIOD_BASE_LABELS,
+  STATUS_LABELS,
+  TYPE_LABELS,
+  countActiveContractFilters,
+} from '../../components/contracts/ContractsFilterButton';
 import { EspelhoCorretagemModal } from '../../components/contracts/EspelhoCorretagemModal';
 import { SaleContractAgioDialog } from '../../components/contracts/SaleContractAgioDialog';
 import { SaleContractCard } from '../../components/contracts/SaleContractCard';
@@ -17,25 +28,24 @@ import {
   type LifecycleAction,
 } from '../../components/contracts/SaleContractLifecycleDialog';
 import { SaleContractLotPickerModal } from '../../components/contracts/SaleContractLotPickerModal';
+import { ClassificationFilterField } from '../../components/samples/ClassificationFilterField';
+import { SelectionModeHeader } from '../../components/samples/SelectionModeHeader';
 import { getNextContractNumber, listSaleContracts } from '../../lib/api-client';
 import { useRequireAuth } from '../../lib/use-auth';
+import { useFocusTrap } from '../../lib/use-focus-trap';
 import { useToast } from '../../lib/toast/ToastProvider';
-import type { AgioDesagioType, SaleContract, SaleContractStatus } from '../../lib/types';
-
-type StatusFilter = 'ALL' | SaleContractStatus;
-
-const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
-  { value: 'ALL', label: 'Todos' },
-  { value: 'EM_ABERTO', label: 'Em aberto' },
-  { value: 'CONFERIR', label: 'Conferir' },
-  { value: 'CONFIRMADO', label: 'Confirmado' },
-  { value: 'FATURADO', label: 'Faturado' },
-  { value: 'PAGO', label: 'Pago' },
-  { value: 'WASH_OUT', label: 'Washout' },
-];
+import type {
+  AgioDesagioType,
+  ClientSummary,
+  SaleContract,
+  SaleContractStatus,
+} from '../../lib/types';
 
 // Espelho de Corretagem (Fase E): só contratos congelados podem gerar o espelho (D73).
 const ESPELHO_ELIGIBLE: SaleContractStatus[] = ['CONFIRMADO', 'FATURADO', 'PAGO'];
+
+const STATUS_OPTION_LABELS = STATUS_LABELS.map((s) => s.label);
+const TYPE_OPTION_LABELS = TYPE_LABELS.map((t) => t.label);
 
 export default function ContratosPage() {
   const { session, loading, logout, setSession } = useRequireAuth({
@@ -46,8 +56,43 @@ export default function ContratosPage() {
   const [contracts, setContracts] = useState<SaleContract[]>([]);
   const [listLoading, setListLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  // Filtros avancados (modal) — estado local draft/applied (sem query params),
+  // molde de /samples e /clients. `applied` filtra a lista; `draft` e o que o
+  // modal edita; "Aplicar" copia draft->applied. `isDesktop` so reagrupa campos.
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [draftFilters, setDraftFilters] = useState<ContractFilters>(EMPTY_CONTRACT_FILTERS);
+  const [appliedFilters, setAppliedFilters] = useState<ContractFilters>(EMPTY_CONTRACT_FILTERS);
+  const [isDesktop, setIsDesktop] = useState(false);
+  const filtersTrapRef = useFocusTrap(filtersOpen);
+  const filterCloseButtonRef = useRef<HTMLButtonElement | null>(null);
+  const lastFilterTriggerRef = useRef<HTMLButtonElement | null>(null);
+
+  const activeFiltersCount = useMemo(
+    () => countActiveContractFilters(appliedFilters),
+    [appliedFilters]
+  );
+  const hasAnyFilter = activeFiltersCount > 0 || countActiveContractFilters(draftFilters) > 0;
+
+  const openFilters = (trigger: HTMLButtonElement) => {
+    lastFilterTriggerRef.current = trigger;
+    setDraftFilters(appliedFilters);
+    setFiltersOpen(true);
+  };
+  const closeFilters = () => {
+    setDraftFilters(appliedFilters);
+    setFiltersOpen(false);
+  };
+  const handleApplyFilters = (event: FormEvent) => {
+    event.preventDefault();
+    setAppliedFilters(draftFilters);
+    setFiltersOpen(false);
+  };
+  const handleClearFilters = () => {
+    setDraftFilters(EMPTY_CONTRACT_FILTERS);
+    setAppliedFilters(EMPTY_CONTRACT_FILTERS);
+  };
   const toggleExpand = (id: string) =>
     setExpandedIds((prev) => {
       const next = new Set(prev);
@@ -116,19 +161,86 @@ export default function ContratosPage() {
     void refresh();
   }, [session, refresh]);
 
+  // Desktop vs mobile — usado so p/ reagrupar os campos do modal de filtros
+  // (o resto do layout desktop e 100% CSS). Breakpoint canonico do projeto.
+  useEffect(() => {
+    const mql = window.matchMedia('(min-width: 901px)');
+    const apply = () => setIsDesktop(mql.matches);
+    apply();
+    mql.addEventListener('change', apply);
+    return () => mql.removeEventListener('change', apply);
+  }, []);
+
+  // Modal de filtros aberto: trava o scroll do body, ESC fecha, foca o "×" ao
+  // abrir e devolve o foco ao gatilho ao fechar (molde de /samples).
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeFilters();
+      }
+    };
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', onKeyDown);
+    const focusTimer = window.setTimeout(() => filterCloseButtonRef.current?.focus(), 0);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+      window.setTimeout(() => lastFilterTriggerRef.current?.focus(), 0);
+    };
+    // closeFilters e local nao-memoizado; disparar so quando filtersOpen muda
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtersOpen]);
+
+  // Modo de seleção do Espelho: marca o body para o CSS esconder o header
+  // normal + a barra de busca/filtro/"+" (paridade com o modo seleção de
+  // /samples). O SelectionModeHeader assume o topo enquanto ativo.
+  useEffect(() => {
+    if (!espelhoMode) return;
+    document.body.classList.add('is-selection-mode');
+    return () => document.body.classList.remove('is-selection-mode');
+  }, [espelhoMode]);
+
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return contracts
-      .filter((c) => (statusFilter === 'ALL' ? true : c.status === statusFilter))
-      .filter((c) => {
-        if (!q) return true;
+    const statusSet = new Set(appliedFilters.statusLabels.map((l) => LABEL_TO_STATUS[l]));
+    const typeSet = new Set(appliedFilters.typeLabels.map((l) => LABEL_TO_TYPE[l]));
+    const buyerId = appliedFilters.buyerClient?.id ?? null;
+    const sellerId = appliedFilters.sellerClient?.id ?? null;
+    const dateKey: 'invoiceDate' | 'paymentDate' | 'contractDate' =
+      appliedFilters.periodBase === 'invoice'
+        ? 'invoiceDate'
+        : appliedFilters.periodBase === 'payment'
+          ? 'paymentDate'
+          : 'contractDate';
+    const { periodFrom: from, periodTo: to } = appliedFilters;
+    return contracts.filter((c) => {
+      if (statusSet.size && !statusSet.has(c.status)) return false;
+      if (typeSet.size && !typeSet.has(c.type)) return false;
+      if (buyerId && c.buyerClientId !== buyerId) return false;
+      if (sellerId && c.sellerClientId !== sellerId) return false;
+      if (from || to) {
+        const iso = c[dateKey];
+        if (!iso) return false;
+        const day = iso.slice(0, 10); // ISO 'YYYY-MM-DD…' → compare lexicográfico
+        if (from && day < from) return false;
+        if (to && day > to) return false;
+      }
+      if (q) {
         const seller = String(c.sellerSnapshot?.displayName ?? '').toLowerCase();
         const buyer = String(c.buyerSnapshot?.displayName ?? '').toLowerCase();
-        return (
-          c.contractNumber.toLowerCase().includes(q) || seller.includes(q) || buyer.includes(q)
-        );
-      });
-  }, [contracts, search, statusFilter]);
+        if (
+          !(c.contractNumber.toLowerCase().includes(q) || seller.includes(q) || buyer.includes(q))
+        ) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [contracts, search, appliedFilters]);
 
   if (loading || !session) return null;
 
@@ -141,9 +253,135 @@ export default function ContratosPage() {
     return (first + last).toUpperCase() || '?';
   })();
 
+  const renderFilterFields = () => {
+    const buyerField = (
+      <div className="samples-filter-field">
+        <ClientLookupField
+          session={session}
+          label="Comprador"
+          kind="buyer"
+          selectedClient={draftFilters.buyerClient}
+          onSelectClient={(client: ClientSummary | null) =>
+            setDraftFilters((f) => ({ ...f, buyerClient: client }))
+          }
+          compact
+          placeholder="Qualquer comprador"
+        />
+      </div>
+    );
+    const sellerField = (
+      <div className="samples-filter-field">
+        <ClientLookupField
+          session={session}
+          label="Vendedor"
+          kind="owner"
+          selectedClient={draftFilters.sellerClient}
+          onSelectClient={(client: ClientSummary | null) =>
+            setDraftFilters((f) => ({ ...f, sellerClient: client }))
+          }
+          compact
+          placeholder="Qualquer vendedor"
+        />
+      </div>
+    );
+    const statusField = (
+      <ClassificationFilterField
+        label="Status"
+        placeholder="Qualquer status"
+        options={STATUS_OPTION_LABELS}
+        selected={draftFilters.statusLabels}
+        onChange={(next) => setDraftFilters((f) => ({ ...f, statusLabels: next }))}
+      />
+    );
+    const typeField = (
+      <ClassificationFilterField
+        label="Tipo"
+        placeholder="Qualquer tipo"
+        options={TYPE_OPTION_LABELS}
+        selected={draftFilters.typeLabels}
+        onChange={(next) => setDraftFilters((f) => ({ ...f, typeLabels: next }))}
+      />
+    );
+    const periodActive = draftFilters.periodFrom !== '' || draftFilters.periodTo !== '';
+    const periodField = (
+      <div className={`samples-filter-field${periodActive ? ' is-active' : ''}`}>
+        <span className="samples-filter-field-label">Período</span>
+        <select
+          className="samples-filter-field-input"
+          value={draftFilters.periodBase}
+          onChange={(event) =>
+            setDraftFilters((f) => ({
+              ...f,
+              periodBase: event.target.value as ContractFilters['periodBase'],
+            }))
+          }
+          aria-label="Base da data do período"
+        >
+          {PERIOD_BASE_LABELS.map((base) => (
+            <option key={base.value} value={base.value}>
+              {base.label}
+            </option>
+          ))}
+        </select>
+        <div className="samples-filter-split-grid">
+          <input
+            className={`samples-filter-field-input${draftFilters.periodFrom === '' ? ' is-placeholder' : ' is-active'}`}
+            type="date"
+            value={draftFilters.periodFrom}
+            onChange={(event) => setDraftFilters((f) => ({ ...f, periodFrom: event.target.value }))}
+            aria-label="Data inicial"
+          />
+          <input
+            className={`samples-filter-field-input${draftFilters.periodTo === '' ? ' is-placeholder' : ' is-active'}`}
+            type="date"
+            value={draftFilters.periodTo}
+            onChange={(event) => setDraftFilters((f) => ({ ...f, periodTo: event.target.value }))}
+            aria-label="Data final"
+          />
+        </div>
+      </div>
+    );
+
+    if (isDesktop) {
+      return (
+        <>
+          <div className="samples-filter-row">
+            {buyerField}
+            {sellerField}
+          </div>
+          <div className="samples-filter-row">
+            {statusField}
+            {typeField}
+          </div>
+          {periodField}
+        </>
+      );
+    }
+    return (
+      <>
+        {buyerField}
+        {sellerField}
+        <div className="samples-filter-row">
+          {statusField}
+          {typeField}
+        </div>
+        {periodField}
+      </>
+    );
+  };
+
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
       <section className="clients-page-v2 ctr-page">
+        {espelhoMode ? (
+          <SelectionModeHeader
+            title="Selecionar contrato"
+            onExit={() => {
+              setEspelhoMode(false);
+              setEspelhoTarget(null);
+            }}
+          />
+        ) : null}
         <header className="clients-v2-header">
           <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao dashboard">
             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
@@ -159,26 +397,7 @@ export default function ContratosPage() {
           </Link>
         </header>
 
-        {espelhoMode ? (
-          <div className="ctr-espelho-banner" role="status">
-            <div className="ctr-espelho-banner-text">
-              <strong>Espelho de Corretagem</strong>
-              <span>Selecione um contrato confirmado para gerar o documento.</span>
-            </div>
-            <button
-              type="button"
-              className="ctr-espelho-banner-cancel"
-              onClick={() => {
-                setEspelhoMode(false);
-                setEspelhoTarget(null);
-              }}
-            >
-              Cancelar
-            </button>
-          </div>
-        ) : null}
-
-        <div className="hero-search-wrap">
+        <div className={`hero-search-wrap${activeFiltersCount > 0 ? ' has-applied-filters' : ''}`}>
           <form
             className="hero-search-bar"
             role="search"
@@ -212,21 +431,51 @@ export default function ContratosPage() {
               </span>
             )}
           </form>
-        </div>
-
-        <div className="ctr-filter-row" role="tablist" aria-label="Filtrar por status">
-          {STATUS_FILTERS.map((filter) => (
+          {/* "X" de limpar filtros (aparece só com filtros aplicados) + botão de
+              filtros avançados (abre o modal). O FAB "+" entra aqui na Fase 2. */}
+          <span className="hero-search-clear-slot" aria-hidden={activeFiltersCount === 0}>
             <button
-              key={filter.value}
               type="button"
-              role="tab"
-              aria-selected={statusFilter === filter.value}
-              className={`ctr-filter${statusFilter === filter.value ? ' is-active' : ''}`}
-              onClick={() => setStatusFilter(filter.value)}
+              className="hero-search-clear-btn"
+              aria-label="Limpar filtros"
+              tabIndex={activeFiltersCount > 0 ? 0 : -1}
+              onClick={handleClearFilters}
             >
-              {filter.label}
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
             </button>
-          ))}
+          </span>
+          <button
+            type="button"
+            className={`hero-search-filter-btn${activeFiltersCount > 0 ? ' has-filters' : ''}`}
+            aria-label="Filtros avançados"
+            onClick={(event) => {
+              if (filtersOpen) {
+                closeFilters();
+                return;
+              }
+              openFilters(event.currentTarget);
+            }}
+          >
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M4 6h16" />
+              <path d="M7 12h10" />
+              <path d="M10 18h4" />
+            </svg>
+            {activeFiltersCount > 0 ? (
+              <span className="hero-search-filter-badge">{activeFiltersCount}</span>
+            ) : null}
+          </button>
+          {/* FAB "+" como último filho do wrap: inline no desktop (regra
+              .clients-page-v2 .hero-search-wrap .cv2-fab), flutuante no mobile. */}
+          {!espelhoMode ? (
+            <ContractCreateRadialFab
+              onCreateSpot={() => setSpotPickerOpen(true)}
+              onCreateFuture={() => setFutureOpen(true)}
+              onCreateEspelho={() => setEspelhoMode(true)}
+            />
+          ) : null}
         </div>
 
         <section className="clients-v2-sheet">
@@ -304,15 +553,56 @@ export default function ContratosPage() {
             )}
           </div>
         </section>
-
-        {!espelhoMode ? (
-          <ContractCreateRadialFab
-            onCreateSpot={() => setSpotPickerOpen(true)}
-            onCreateFuture={() => setFutureOpen(true)}
-            onCreateEspelho={() => setEspelhoMode(true)}
-          />
-        ) : null}
       </section>
+
+      {filtersOpen ? (
+        <div className="app-modal-backdrop samples-filter-modal-backdrop" onClick={closeFilters}>
+          <section
+            ref={filtersTrapRef}
+            id="contracts-filter-modal"
+            className="app-modal is-themed samples-filter-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="contracts-filter-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="app-modal-header samples-filter-modal-header">
+              <div className="app-modal-title-wrap">
+                <h3 id="contracts-filter-modal-title" className="app-modal-title">
+                  Filtros
+                </h3>
+              </div>
+              <button
+                ref={filterCloseButtonRef}
+                type="button"
+                className="app-modal-close"
+                onClick={closeFilters}
+                aria-label="Fechar filtros"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            </header>
+
+            <form className="samples-filter-modal-form" onSubmit={handleApplyFilters}>
+              <div className="samples-filter-modal-content">{renderFilterFields()}</div>
+
+              <div className="app-modal-actions samples-filter-modal-actions">
+                <button
+                  type="button"
+                  className="app-modal-secondary"
+                  onClick={handleClearFilters}
+                  disabled={!hasAnyFilter}
+                >
+                  Limpar
+                </button>
+                <button type="submit" className="app-modal-submit">
+                  Aplicar
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
 
       {etapa2 ? (
         <SaleContractEtapa2Modal
