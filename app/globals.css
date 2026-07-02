@@ -34832,6 +34832,16 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   flex-direction: column;
   gap: 0.6rem;
 }
+@media (min-width: 901px) {
+  /* No desktop o pai `.spv2-list-scroll` é um GRID de cards (herdado de /samples
+     e /clients); sem isto o `.ctr-list` cairia numa ÚNICA célula (~1/3 da
+     largura) e ficaria compactado à esquerda. `grid-column: 1 / -1` faz ele
+     ocupar TODAS as colunas do grid pai; o `.ctr-list` segue flex-column (base)
+     => 1 card por linha, cobrindo a largura inteira. (Sem grid pai, inócuo.) */
+  .ctr-list {
+    grid-column: 1 / -1;
+  }
+}
 .ctr-card {
   background: #fff;
   border: 1px solid var(--brand-cream-line);
