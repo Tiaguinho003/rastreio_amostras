@@ -10414,39 +10414,8 @@ body:has(.app-modal-backdrop) .prospector-fab {
   }
 }
 
-/* ══════════ Detalhe do CLIENTE — cards retrateis + rodape Inativar/Reativar ══════════
-   Marcador CLIENT-only = .sdv-client-side-col (so existe no detalhe do cliente).
-   Collapse: corpo em grid 0fr<->1fr (mesma mecanica do .rsm-card). Base = SEMPRE
-   EXPANDIDO; o mobile (<=900px) colapsa quando :not(.is-expanded); no desktop os
-   cards ficam sempre abertos (sem seta). */
-.sdv-card-collapse {
-  display: grid;
-  grid-template-rows: 1fr;
-  transition: grid-template-rows 0.28s ease;
-}
-.sdv-card-collapse-inner {
-  overflow: hidden;
-  min-height: 0;
-}
-/* Seta (chevron) so aparece no mobile-recolhido (regra no @media abaixo). */
-.sdv-card-chevron {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  color: var(--brand-green-soft);
-}
-.sdv-card-chevron svg {
-  width: clamp(18px, 5vw, 20px);
-  height: clamp(18px, 5vw, 20px);
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.sdv-card-header-toggle {
-  cursor: default;
-}
+/* ══════════ Detalhe do CLIENTE — rodape Inativar/Reativar + rebalanceamento ══════════
+   Marcador CLIENT-only = .sdv-client-side-col (so existe no detalhe do cliente). */
 
 /* Rodape Inativar/Reativar (rotulado, full-width) — espelha o .sdv-invalidate-btn
    do detalhe do lote; inativar = danger outline, reativar = verde outline. */
@@ -10495,14 +10464,44 @@ body:has(.app-modal-backdrop) .prospector-fab {
   stroke-linejoin: round;
 }
 
-/* Anexos: fora do layout em AMBOS os breakpoints — acessados pelo botao de folha
-   no header -> modal (desktop e mobile). O card continua no DOM apenas pra guardar
-   o input de upload (acionado por ref, mesmo com display:none). */
-.sdv-page:has(.sdv-client-side-col) .sdv-card-attachments {
+/* Anexos e Contas bancarias: fora do layout em AMBOS os breakpoints — acessados
+   pelo botao de folha no header -> modal "Documentos" (abas). Os cards continuam
+   no DOM (Anexos guarda o input de upload, acionado por ref mesmo com display:none;
+   Contas mantido por simetria e reuso do corpo). */
+.sdv-page:has(.sdv-client-side-col) .sdv-card-attachments,
+.sdv-page:has(.sdv-client-side-col) .sdv-card-bank-accounts {
   display: none;
 }
 
-/* Modal de Anexos: barra com o botao "Adicionar" acima da grade. */
+/* Modal "Documentos": abas (Anexos | Contas bancarias) — underline verde. */
+.docs-modal-tabs {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0 clamp(1rem, 3vw, 1.4rem);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+.docs-modal-tab {
+  flex: 1 1 0;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 0.6rem 0.4rem;
+  font-size: clamp(0.85rem, 3.4vw, 0.95rem);
+  font-weight: 600;
+  color: var(--brand-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+.docs-modal-tab.is-active {
+  color: var(--brand-green);
+  border-bottom-color: var(--brand-green);
+}
+
+/* Modal "Documentos": barra com o botao de acao ("Adicionar"/"Nova") acima da lista. */
 .client-attachments-modal-toolbar {
   display: flex;
   justify-content: flex-end;
@@ -10550,23 +10549,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   }
   .sdv-content-inner:has(> .sdv-client-side-col) > .sdv-client-status-footer {
     order: 6;
-  }
-
-  /* Cards retrateis: recolhe quando :not(.is-expanded); troca seta<->editar. */
-  .sdv-card-header-toggle {
-    cursor: pointer;
-  }
-  .sdv-card-collapsible:not(.is-expanded) .sdv-card-collapse {
-    grid-template-rows: 0fr;
-  }
-  .sdv-card-collapsible:not(.is-expanded) .sdv-card-header-toggle {
-    margin-bottom: 0;
-  }
-  .sdv-card-collapsible:not(.is-expanded) .sdv-edit-btn {
-    display: none;
-  }
-  .sdv-card-collapsible:not(.is-expanded) .sdv-card-chevron {
-    display: inline-flex;
   }
 }
 
@@ -28568,20 +28550,20 @@ select.samples-filter-field-input {
     border-radius: 999px;
   }
 
-  /* Detalhe do cliente (PF e PJ) — desktop (redesign 2026-07-02): grid 2x2 com o
-     Resumo comercial em PRIMEIRO (topo-esq) e os cards bem distribuidos. Os Anexos
-     saem do grid no desktop (viram botao de folha no header -> modal). Todos os
-     cards viram itens diretos do grid via display:contents nas secoes (.sdv-general
-     + .sdv-info-split-row + .sdv-client-side-col). Deteccao: .sdv-client-side-col
-     so existe no cliente.
-       resumo   | info
-       endereco | contas                                                   */
+  /* Detalhe do cliente (PF e PJ) — desktop (redesign 2026-07-02): Informacoes
+     (topo-esq) + Endereco/Filiais (topo-dir) e o Resumo comercial ocupando a
+     largura total embaixo. Anexos E Contas bancarias saem do layout (viram o modal
+     "Documentos" pelo botao de folha no header). Todos os cards viram itens diretos
+     do grid via display:contents nas secoes (.sdv-general + .sdv-info-split-row +
+     .sdv-client-side-col). Deteccao: .sdv-client-side-col so existe no cliente.
+       info   | endereco
+       resumo (largura total)                                              */
   .sdv-content-inner:has(> .sdv-client-side-col) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-areas:
-      'resumo   info'
-      'endereco contas';
+      'info   endereco'
+      'resumo resumo';
     column-gap: 1rem;
     row-gap: clamp(13px, 3.6vw, 16px);
     align-items: stretch;
@@ -28624,10 +28606,6 @@ select.samples-filter-field-input {
     width: 100%;
     max-width: none;
     margin: 0;
-    min-width: 0;
-  }
-  .sdv-content-inner:has(> .sdv-client-side-col) .sdv-card-bank-accounts {
-    grid-area: contas;
     min-width: 0;
   }
   /* Filiais na coluna: a lista flui (a pagina rola se passar). */
