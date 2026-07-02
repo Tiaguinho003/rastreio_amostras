@@ -395,6 +395,9 @@ export default function ClientDetailPage() {
   const [attachmentPreviewNotice, setAttachmentPreviewNotice] = useState<string | null>(null);
   const [deletingAttachment, setDeletingAttachment] = useState(false);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
+  // Desktop: os anexos saem do grid e viram um botao (icone de folha) no header
+  // que abre este modal. No mobile continua sendo o card retratil.
+  const [attachmentsModalOpen, setAttachmentsModalOpen] = useState(false);
 
   // Mobile: cards de lista/detalhe (Endereco fiscal/Filiais, Contas, Anexos) sao
   // retrateis e comecam RECOLHIDOS. No desktop o CSS forca expandido (sem seta).
@@ -1102,6 +1105,47 @@ export default function ClientDetailPage() {
     .join('')
     .toUpperCase();
 
+  // Corpo dos anexos (grade OU vazio + notice) reutilizado no card (mobile) e no
+  // modal (desktop). Os handlers/estado sao os mesmos.
+  const attachmentsBody = (
+    <>
+      {attachments.length === 0 ? (
+        <div className="spv2-empty client-detail-empty-compact">
+          <p className="spv2-empty-text">Nenhum anexo</p>
+        </div>
+      ) : (
+        <div className="sdv-attachment-grid">
+          {attachments.map((attachment) => {
+            const isImage = (attachment.mimeType ?? '').startsWith('image/');
+            return (
+              <button
+                key={attachment.id}
+                type="button"
+                className="sdv-attachment-thumb"
+                onClick={() => openAttachmentPreview(attachment)}
+                title={attachment.fileName ?? 'Anexo'}
+              >
+                {isImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={clientAttachmentDownloadUrl(clientId, attachment.id)}
+                    alt={attachment.fileName ?? 'Anexo'}
+                  />
+                ) : (
+                  <span className="sdv-attachment-thumb-pdf" aria-hidden="true">
+                    PDF
+                  </span>
+                )}
+                <span className="sdv-attachment-thumb-name">{attachment.fileName ?? 'Anexo'}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      <NoticeSlot notice={attachmentNotice} />
+    </>
+  );
+
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
       <section className="sdv-page">
@@ -1137,7 +1181,24 @@ export default function ClientDetailPage() {
                   </span>
                 </div>
                 {/* Inativar/Reativar saiu do header e virou botao rotulado no fim
-                    da pagina (ver o rodape apos os cards). */}
+                    da pagina (ver o rodape apos os cards). No lugar antigo fica o
+                    botao de Anexos (icone de folha) que abre o modal — em desktop
+                    E mobile (o card de Anexos fica escondido; so guarda o input). */}
+                <div className="sdv-identity-actions sdv-identity-actions-client">
+                  <button
+                    type="button"
+                    className="sdv-identity-btn"
+                    onClick={() => setAttachmentsModalOpen(true)}
+                    aria-label="Anexos"
+                  >
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+                      <path d="M14 3v5h5" />
+                      <path d="M9 13h6" />
+                      <path d="M9 17h6" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </header>
 
@@ -1663,44 +1724,7 @@ export default function ClientDetailPage() {
                       />
                     </div>
                     <div className="sdv-card-collapse">
-                      <div className="sdv-card-collapse-inner">
-                        {attachments.length === 0 ? (
-                          <div className="spv2-empty client-detail-empty-compact">
-                            <p className="spv2-empty-text">Nenhum anexo</p>
-                          </div>
-                        ) : (
-                          <div className="sdv-attachment-grid">
-                            {attachments.map((attachment) => {
-                              const isImage = (attachment.mimeType ?? '').startsWith('image/');
-                              return (
-                                <button
-                                  key={attachment.id}
-                                  type="button"
-                                  className="sdv-attachment-thumb"
-                                  onClick={() => openAttachmentPreview(attachment)}
-                                  title={attachment.fileName ?? 'Anexo'}
-                                >
-                                  {isImage ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img
-                                      src={clientAttachmentDownloadUrl(clientId, attachment.id)}
-                                      alt={attachment.fileName ?? 'Anexo'}
-                                    />
-                                  ) : (
-                                    <span className="sdv-attachment-thumb-pdf" aria-hidden="true">
-                                      PDF
-                                    </span>
-                                  )}
-                                  <span className="sdv-attachment-thumb-name">
-                                    {attachment.fileName ?? 'Anexo'}
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                        <NoticeSlot notice={attachmentNotice} />
-                      </div>
+                      <div className="sdv-card-collapse-inner">{attachmentsBody}</div>
                     </div>
                   </div>
                 </div>
@@ -2175,6 +2199,55 @@ export default function ClientDetailPage() {
         onInactivate={() => handleBankAccountStatusChange('INACTIVE')}
         onReactivate={() => handleBankAccountStatusChange('ACTIVE')}
       />
+
+      {/* ========== MODAL: Anexos (desktop — abre pelo botao de folha no header) ==========
+          Reusa o mesmo corpo/handlers do card; o input de upload vive no card
+          (escondido no desktop) e e acionado por ref via .click(). */}
+      {attachmentsModalOpen ? (
+        <div className="app-modal-backdrop" onClick={() => setAttachmentsModalOpen(false)}>
+          <section
+            className="app-modal is-themed is-action client-attachments-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="client-attachments-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="app-modal-header">
+              <div className="app-modal-title-wrap">
+                <h3 id="client-attachments-modal-title" className="app-modal-title">
+                  Anexos
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="app-modal-close"
+                onClick={() => setAttachmentsModalOpen(false)}
+                aria-label="Fechar"
+              >
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </header>
+            <div className="app-modal-content">
+              <div className="client-attachments-modal-toolbar">
+                <button
+                  type="button"
+                  className="sdv-edit-btn"
+                  onClick={() => attachmentInputRef.current?.click()}
+                  disabled={uploadingAttachment}
+                  aria-label="Adicionar anexo"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 5v14" />
+                    <path d="M5 12h14" />
+                  </svg>
+                  <span>{uploadingAttachment ? 'Enviando…' : 'Adicionar'}</span>
+                </button>
+              </div>
+              {attachmentsBody}
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       {/* ========== Fechamento Fase 0: Preview de anexo ========== */}
       <ClientAttachmentPreviewModal

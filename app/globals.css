@@ -10495,6 +10495,20 @@ body:has(.app-modal-backdrop) .prospector-fab {
   stroke-linejoin: round;
 }
 
+/* Anexos: fora do layout em AMBOS os breakpoints — acessados pelo botao de folha
+   no header -> modal (desktop e mobile). O card continua no DOM apenas pra guardar
+   o input de upload (acionado por ref, mesmo com display:none). */
+.sdv-page:has(.sdv-client-side-col) .sdv-card-attachments {
+  display: none;
+}
+
+/* Modal de Anexos: barra com o botao "Adicionar" acima da grade. */
+.client-attachments-modal-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.25rem;
+}
+
 @media (max-width: 900px) {
   /* Fundo BRANCO + sombra reforcada (espelha o detalhe do lote). */
   .sdv-page:has(.sdv-client-side-col) .sdv-content {
@@ -28554,15 +28568,22 @@ select.samples-filter-field-input {
     border-radius: 999px;
   }
 
-  /* Detalhe do cliente (PF e PJ): 2 colunas 50/50 (largura da pagina, cap
-     1600px, centrado). Col 1 = Informacoes (card alto, a referencia de
-     altura). Col 2 = .sdv-client-side-col com Filiais/Endereco EM CIMA +
-     Resumo comercial EMBAIXO, que JUNTOS somam a altura do Informacoes.
-     Deteccao: a .sdv-client-side-col so existe no detalhe do cliente. */
+  /* Detalhe do cliente (PF e PJ) — desktop (redesign 2026-07-02): grid 2x2 com o
+     Resumo comercial em PRIMEIRO (topo-esq) e os cards bem distribuidos. Os Anexos
+     saem do grid no desktop (viram botao de folha no header -> modal). Todos os
+     cards viram itens diretos do grid via display:contents nas secoes (.sdv-general
+     + .sdv-info-split-row + .sdv-client-side-col). Deteccao: .sdv-client-side-col
+     so existe no cliente.
+       resumo   | info
+       endereco | contas                                                   */
   .sdv-content-inner:has(> .sdv-client-side-col) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      'resumo   info'
+      'endereco contas';
     column-gap: 1rem;
+    row-gap: clamp(13px, 3.6vw, 16px);
     align-items: stretch;
     max-width: 1600px;
     margin-left: auto;
@@ -28570,47 +28591,17 @@ select.samples-filter-field-input {
     width: 100%;
   }
 
-  /* Col 1: Informacoes. .sdv-general so segura o card (anula o grid 5fr/3fr
-     da base desktop) e preenche a coluna; altura natural do conteudo. */
-  .sdv-content-inner:has(> .sdv-client-side-col) > .sdv-general {
-    display: block;
-    max-width: none;
-    margin: 0;
-    min-width: 0;
-    grid-column: 1;
+  /* Secoes transparentes: os cards sao os itens do grid. */
+  .sdv-content-inner:has(> .sdv-client-side-col) > .sdv-general,
+  .sdv-content-inner:has(> .sdv-client-side-col) > .sdv-general > .sdv-info-split-row,
+  .sdv-content-inner:has(> .sdv-client-side-col) > .sdv-client-side-col {
+    display: contents;
   }
 
-  .sdv-content-inner:has(> .sdv-client-side-col) > .sdv-general .sdv-info-split-row {
-    height: auto;
-  }
-
-  /* Col 2: coluna lateral em flex column; estica pra altura da row (= altura
-     do card Informacoes via align-items: stretch). */
-  .sdv-client-side-col {
-    grid-column: 2;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: clamp(13px, 3.6vw, 16px);
-  }
-
-  /* Filiais (PF) / Endereco (PJ) EM CIMA (altura natural). No DOM o Resumo vem
-     antes, entao invertemos a ordem visual via `order`. */
-  .sdv-client-side-col > .sdv-card-address,
-  .sdv-client-side-col > .sdv-card-filiais {
-    order: 1;
-    width: 100%;
-    max-width: none;
-    margin: 0;
-  }
-
-  /* Resumo comercial EMBAIXO, absorvendo o espaco restante (flex: 1) pra
-     fechar a altura do card Informacoes ao lado. Anula o cap 34rem +
-     centragem + margin-top do mobile da .sdv-client-commercial-section. */
-  .sdv-client-side-col > .sdv-client-commercial-section {
-    order: 2;
-    flex: 1;
-    min-height: 0;
+  /* Atribuicao das areas (o `> *` da desktop base nao se aplica: aqui os cards
+     sao netos via display:contents). */
+  .sdv-content-inner:has(> .sdv-client-side-col) .sdv-client-commercial-section {
+    grid-area: resumo;
     max-width: none;
     margin: 0;
     width: 100%;
@@ -28618,11 +28609,27 @@ select.samples-filter-field-input {
     display: flex;
     flex-direction: column;
   }
-
-  .sdv-client-side-col > .sdv-client-commercial-section .client-commercial-card {
+  .sdv-content-inner:has(> .sdv-client-side-col)
+    .sdv-client-commercial-section
+    .client-commercial-card {
     height: 100%;
   }
-
+  .sdv-content-inner:has(> .sdv-client-side-col) .sdv-card-info {
+    grid-area: info;
+    min-width: 0;
+  }
+  .sdv-content-inner:has(> .sdv-client-side-col) .sdv-card-address,
+  .sdv-content-inner:has(> .sdv-client-side-col) .sdv-card-filiais {
+    grid-area: endereco;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    min-width: 0;
+  }
+  .sdv-content-inner:has(> .sdv-client-side-col) .sdv-card-bank-accounts {
+    grid-area: contas;
+    min-width: 0;
+  }
   /* Filiais na coluna: a lista flui (a pagina rola se passar). */
   .sdv-client-side-col > .sdv-card-filiais .sdv-unit-list {
     overflow: visible;
