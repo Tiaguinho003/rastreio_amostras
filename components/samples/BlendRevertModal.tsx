@@ -105,7 +105,7 @@ export function BlendRevertModal({
               Reverter liga {lotNumber}?
             </h3>
             <p id="blend-revert-modal-description" className="app-modal-description">
-              A liga será invalidada. As amostras de origem não são afetadas.
+              A liga será removida. As amostras de origem não são afetadas.
             </p>
           </div>
         </header>

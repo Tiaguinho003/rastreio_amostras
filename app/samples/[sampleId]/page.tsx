@@ -615,7 +615,14 @@ export default function SampleDetailPage() {
     !hasActiveMovements
   );
   const canInvalidateNormal = Boolean(
-    detail && canInvalidateSample && !isBlendSample && detail.sample.status !== 'INVALIDATED'
+    detail &&
+    canInvalidateSample &&
+    !isBlendSample &&
+    detail.sample.status !== 'INVALIDATED' &&
+    // "Deletar lote": lote vendido tem contrato (EMITIDO) e NAO e deletavel —
+    // desfaca a venda pelo Washout do contrato (/contratos). Perdas ainda podem
+    // ser canceladas e o lote deletado por este modal.
+    (detail.sample.soldSacks ?? 0) === 0
   );
 
   const fetchDetail = useCallback(
@@ -1107,7 +1114,7 @@ export default function SampleDetailPage() {
     if (!canInvalidateSample) {
       setInvalidateModalNotice({
         kind: 'error',
-        text: 'Sua sessao atual nao permite invalidar esta amostra.',
+        text: 'Sua sessao atual nao permite deletar este lote.',
       });
       return;
     }
@@ -1120,7 +1127,7 @@ export default function SampleDetailPage() {
     if (!parsed.success) {
       setInvalidateModalNotice({
         kind: 'error',
-        text: parsed.error.issues[0]?.message ?? 'Dados de invalidacao invalidos',
+        text: parsed.error.issues[0]?.message ?? 'Dados de exclusao invalidos',
       });
       return;
     }
@@ -1138,7 +1145,7 @@ export default function SampleDetailPage() {
       setInvalidateReasonCode('OTHER');
       setInvalidateReasonText('');
       // Efeito de X (sem mensagem verde) e volta pra lista de amostras.
-      showXEffect('Amostra invalidada', true);
+      showXEffect('Lote deletado', true);
     } catch (cause) {
       // Liga B3.5 (rede de segurança): 409 SAMPLE_HAS_ACTIVE_BLENDS → fecha
       // o modal de invalidação e abre o modal de bloqueio com as ligas.
@@ -1150,7 +1157,7 @@ export default function SampleDetailPage() {
       } else if (cause instanceof ApiError) {
         setInvalidateModalNotice({ kind: 'error', text: cause.message });
       } else {
-        setInvalidateModalNotice({ kind: 'error', text: 'Falha ao invalidar amostra' });
+        setInvalidateModalNotice({ kind: 'error', text: 'Falha ao deletar lote' });
       }
     } finally {
       setInvalidating(false);
@@ -1266,7 +1273,7 @@ export default function SampleDetailPage() {
     if (!parsed.success) {
       setInvalidateModalNotice({
         kind: 'error',
-        text: parsed.error.issues[0]?.message ?? 'Dados de invalidacao invalidos',
+        text: parsed.error.issues[0]?.message ?? 'Dados de exclusao invalidos',
       });
       return;
     }
@@ -1298,7 +1305,7 @@ export default function SampleDetailPage() {
       setInvalidateReasonCode('OTHER');
       setInvalidateReasonText('');
       // Invalidou — efeito de X + volta pra lista de amostras.
-      showXEffect('Amostra invalidada', true);
+      showXEffect('Lote deletado', true);
     } catch (cause) {
       // Liga B3.5 (rede de segurança): 409 SAMPLE_HAS_ACTIVE_BLENDS → fecha
       // o modal de invalidação e abre o modal de bloqueio com as ligas.
@@ -1315,7 +1322,7 @@ export default function SampleDetailPage() {
               ? cause.message
               : cause instanceof Error
                 ? cause.message
-                : 'Falha ao cancelar movimentacoes e invalidar amostra',
+                : 'Falha ao cancelar movimentacoes e deletar lote',
         });
         await refetchActiveMovements();
       }
@@ -2446,12 +2453,10 @@ export default function SampleDetailPage() {
 
                   {detail.sample.status === 'INVALIDATED' ? (
                     <div className="sdv-card sdv-card-invalidated">
-                      <span className="sdv-card-title sdv-card-title-danger">
-                        Amostra invalidada
-                      </span>
+                      <span className="sdv-card-title sdv-card-title-danger">Lote deletado</span>
                       <p className="sdv-empty-text">
-                        Esta amostra foi retirada do fluxo operacional e permanece apenas para
-                        consulta.
+                        Este lote foi deletado e nao aparece mais nas listagens. O numero foi
+                        liberado para reuso.
                       </p>
                     </div>
                   ) : null}
@@ -2509,7 +2514,7 @@ export default function SampleDetailPage() {
                         <path d="M10 11v6" />
                         <path d="M14 11v6" />
                       </svg>
-                      <span>Invalidar</span>
+                      <span>Deletar</span>
                     </button>
                   </div>
                 ) : null}
@@ -2588,7 +2593,7 @@ export default function SampleDetailPage() {
             <header className="app-modal-header">
               <div className="app-modal-title-wrap">
                 <h3 id="sample-detail-invalidate-modal-title" className="app-modal-title">
-                  Invalidar amostra
+                  Deletar lote
                 </h3>
                 <p className="app-modal-description">
                   Use apenas quando a operação realmente exigir.
@@ -2631,13 +2636,13 @@ export default function SampleDetailPage() {
                     </svg>
                     <div className="sdv-warn-text">
                       <strong>
-                        Esta amostra possui{' '}
+                        Este lote possui{' '}
                         {activeMovements && activeMovements.length > 0
                           ? `${activeMovements.length} movimentacao${activeMovements.length > 1 ? 'oes' : ''} ativa${activeMovements.length > 1 ? 's' : ''}`
                           : 'movimentacoes ativas'}
                       </strong>
-                      Para invalidar, todas as vendas e perdas serão canceladas. Você também pode só
-                      cancelar as movimentações.
+                      Para deletar o lote, as perdas serão canceladas. Você também pode só cancelar
+                      as movimentações.
                     </div>
                   </div>
 
@@ -2715,7 +2720,7 @@ export default function SampleDetailPage() {
               ) : null}
 
               <label className="app-modal-field">
-                <span className="app-modal-label">Motivo da invalidacao</span>
+                <span className="app-modal-label">Motivo da exclusao</span>
                 <select
                   className="app-modal-input"
                   value={invalidateReasonCode}
@@ -2773,7 +2778,7 @@ export default function SampleDetailPage() {
                       activeMovements.length === 0
                     }
                   >
-                    {invalidating ? 'Invalidando...' : 'Invalidar'}
+                    {invalidating ? 'Deletando...' : 'Deletar'}
                   </button>
                 </div>
               ) : (
@@ -2795,7 +2800,7 @@ export default function SampleDetailPage() {
                     className="app-modal-submit is-danger sample-detail-invalidate-submit"
                     disabled={invalidating}
                   >
-                    {invalidating ? 'Invalidando...' : 'Invalidar'}
+                    {invalidating ? 'Deletando...' : 'Deletar'}
                   </button>
                 </div>
               )}

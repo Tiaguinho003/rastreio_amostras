@@ -26,7 +26,9 @@ interface CardStatus {
 
 function deriveCardStatus(sample: SampleSnapshot): CardStatus {
   if (sample.status === 'INVALIDATED') {
-    return { kind: 'invalidated', label: 'Invalidada', className: 'is-card-invalid' };
+    // "Deletar lote": deletados somem das listas; label mantida p/ contextos
+    // residuais (ex.: detalhe por URL). Status interno segue INVALIDATED.
+    return { kind: 'invalidated', label: 'Deletado', className: 'is-card-invalid' };
   }
   if (sample.commercialStatus === 'SOLD') {
     return { kind: 'sold', label: 'Vendido', className: 'is-card-sold' };

@@ -7,7 +7,8 @@ import type { SampleStatus } from '../lib/types';
 const STATUS_LABEL: Record<SampleStatus, string> = {
   REGISTRATION_CONFIRMED: 'Aguardando classificacao',
   CLASSIFIED: 'Classificada',
-  INVALIDATED: 'Invalidada',
+  // INVALIDATED = lote deletado (feature "Deletar lote"); status interno mantido.
+  INVALIDATED: 'Deletada',
 };
 
 const STATUS_STYLE: Record<SampleStatus, string> = {

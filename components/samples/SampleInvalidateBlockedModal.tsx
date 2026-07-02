@@ -56,8 +56,8 @@ export function SampleInvalidateBlockedModal({
   const count = activeBlends.length;
   const description =
     count === 1
-      ? 'Esta amostra é origem de uma liga ativa. Reverta a liga na própria página dela antes de invalidar a amostra.'
-      : `Esta amostra é origem de ${count} ligas ativas. Reverta cada liga na própria página dela antes de invalidar a amostra.`;
+      ? 'Este lote é origem de uma liga ativa. Reverta a liga na própria página dela antes de deletar o lote.'
+      : `Este lote é origem de ${count} ligas ativas. Reverta cada liga na própria página dela antes de deletar o lote.`;
 
   return createPortal(
     <div className="app-modal-backdrop" onClick={onClose}>
@@ -73,7 +73,7 @@ export function SampleInvalidateBlockedModal({
         <header className="app-modal-header">
           <div className="app-modal-title-wrap">
             <h3 id="sample-invalidate-blocked-title" className="app-modal-title">
-              Não foi possível invalidar
+              Não foi possível deletar
             </h3>
             <p id="sample-invalidate-blocked-desc" className="app-modal-description">
               {description}

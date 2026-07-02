@@ -62,11 +62,11 @@ const SAMPLE_PAGE_LIMIT = 20;
 // Mesma fonte do registro (NewSampleModal) — desliza com o ano e cobre todas
 // as safras selecionaveis ao cadastrar. Ver buildHarvestPresets.
 const HARVEST_OPTIONS = buildHarvestPresets();
+// "Deletar lote": lotes deletados somem da UI — sem opcao de filtro pra eles.
 const DISPLAY_STATUS_FILTER_OPTIONS = [
   { value: 'OPEN', label: 'Em aberto' },
   { value: 'SOLD', label: 'Vendido' },
   { value: 'LOST', label: 'Perdido' },
-  { value: 'INVALIDATED', label: 'Invalidada' },
 ] as const;
 type DisplayStatusFilter = '' | (typeof DISPLAY_STATUS_FILTER_OPTIONS)[number]['value'];
 type FilterSectionId =
