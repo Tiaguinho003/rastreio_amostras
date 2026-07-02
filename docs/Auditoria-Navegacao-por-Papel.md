@@ -6,6 +6,9 @@ navegacao, no desktop e no mobile.
 Natureza: levantamento factual. Nao propoe mudancas; decisoes de ajuste ficam
 para depois.
 Inicio: 2026-06-28
+Atualizado: 2026-07-02 — split Clientes (operacao) x Cadastros (gestao): "Clientes"
+avulso saiu da nav de ADMIN/CADASTRO, que passam a acessar clientes pela aba
+"Clientes" do hub `/cadastros` (agora com 3 abas). Guards de rota inalterados.
 
 ## Como ler este documento
 
@@ -62,6 +65,12 @@ Itens definidos em `AppShell.tsx`: `DESKTOP_NAV_ITEMS` (Inicio/Lotes/Clientes),
 papel da sidebar fica em `desktopNavItems` (`AppShell.tsx`), a da tabbar no
 `<MobileTabbar items={...} />`, e a do menu do avatar no `HeaderAvatarMenu.tsx`.
 
+Split Clientes x Cadastros (2026-07-02): para **ADMIN e CADASTRO**, `desktopNavItems`
+filtra o item "Clientes" fora da sidebar (eles acessam clientes pela aba "Clientes"
+do hub `/cadastros`); e no mobile o 4o slot fixo da tabbar (`/clients`) e trocado
+por "Cadastros". Os demais nao-prospectores (COMMERCIAL/CLASSIFIER/REGISTRATION)
+mantem "Clientes" na sidebar e na tabbar e nao veem Cadastros.
+
 ## Referencia 3 — Universo de rotas
 
 | Rota                                                           | Pagina      | Guard de acesso                                 |
@@ -104,6 +113,13 @@ esta no detalhe de cada papel.
 `/informe` por papel: ADMIN = viewer (todos os informes + curadoria + cria, FAB);
 COMMERCIAL = proprios (scope=mine + FAB); REGISTRATION = placeholder vazio;
 CLASSIFIER / CADASTRO / PROSPECTOR = sem acesso. (`app/informe/page.tsx`.)
+
+**Acesso (guard) x visibilidade na nav (2026-07-02):** a matriz acima e o _guard de
+rota_, que NAO mudou. Para `/clients`, o guard segue `NON_PROSPECTOR_ROLES` (todos
+os 5 ✅ e a rota continua acessivel por URL), mas o _item de nav_ "Clientes" nao
+aparece mais para ADMIN/CADASTRO — eles chegam aos clientes pela aba "Clientes" do
+`/cadastros`. E `/cadastros` deixou de ser so Bancos/Corretores: agora hospeda 3
+abas (Clientes | Bancos | Corretores), Clientes como default.
 
 ---
 
@@ -290,9 +306,12 @@ nao.)
 
 ## CADASTRO — "Cadastro"
 
-Papel de cadastro / back-office. Acessa amostras, clientes e camera (como os
-demais nao-prospectores) e tem a pagina **Cadastros** (gestao de Bancos e
-Corretores). **Nao** acessa Relatorios nem Contratos (removidos em 2026-06-28;
+Papel de cadastro / back-office. Acessa amostras e camera (como os demais
+nao-prospectores) e tem o hub **Cadastros** — que desde 2026-07-02 concentra 3
+abas: **Clientes** (default, gestao de clientes/armazens), **Bancos** e
+**Corretores**. Por isso o item "Clientes" avulso saiu da nav do CADASTRO: ele
+acessa os clientes pela aba Clientes do `/cadastros` (a rota `/clients` continua
+liberada por URL). **Nao** acessa Relatorios nem Contratos (removidos em 2026-06-28;
 hoje so o ADMIN) nem `/users` (exclusivo do ADMIN).
 
 ### Onde navega (por superficie)
@@ -301,25 +320,30 @@ hoje so o ADMIN) nem `/users` (exclusivo do ADMIN).
 | --------- | ------------ | ----------------------------- | --------------------------------- |
 | Inicio    | `/dashboard` | Sidebar                       | Tabbar                            |
 | Lotes     | `/samples`   | Sidebar                       | Tabbar                            |
-| Clientes  | `/clients`   | Sidebar                       | Tabbar                            |
 | Camera    | `/camera`    | — (sem botao)                 | Tabbar (destaque, centro)         |
-| Cadastros | `/cadastros` | Sidebar                       | Menu do avatar                    |
+| Cadastros | `/cadastros` | Sidebar                       | Tabbar (4o slot) + menu do avatar |
 | Perfil    | `/profile`   | Menu do avatar ("Meu perfil") | Tabbar (5o slot) + menu do avatar |
 | Sair      | logout       | Menu do avatar                | Menu do avatar                    |
 
+Clientes (`/clients`) nao e mais item de nav proprio — e a **aba default do
+`/cadastros`** (e segue acessivel por URL). Ver "Particularidades de conteudo".
+
 Contagem:
 
-- **Sidebar desktop: 4 itens** — Inicio, Lotes, Clientes, Cadastros. (Perdeu
-  Relatorios e Contratos em 2026-06-28.)
-- **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, Clientes, Perfil. Sem
-  Relatorios; o 5o slot vira Perfil (mesma logica do Classifier, fora de
-  `INFORME_ROLES`). Cadastros nao cabe na tabbar — vai para o menu do avatar.
+- **Sidebar desktop: 3 itens** — Inicio, Lotes, Cadastros. (Perdeu Clientes em
+  2026-07-02; ja tinha perdido Relatorios e Contratos em 2026-06-28.)
+- **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, **Cadastros**, Perfil. O 4o
+  slot fixo (que era Clientes) vira Cadastros para o CADASTRO (2026-07-02); o 5o
+  slot e Perfil (fora de `INFORME_ROLES`, mesma logica do Classifier).
 - **Menu do avatar:** assimetrico por plataforma. No **desktop** sao 2 itens (Meu
   perfil, Sair) — Cadastros esta na sidebar. No **mobile** sao 3 itens (Perfil,
-  Cadastros, Sair) — sem sidebar, o menu carrega Cadastros.
+  Cadastros, Sair) — `HeaderAvatarMenu` nao mudou, entao Cadastros aparece TANTO no
+  4o slot da tabbar QUANTO no menu do avatar (redundancia introduzida em 2026-07-02).
 
 ### Rotas acessiveis sem botao de navegacao
 
+- `/clients` — a lista de clientes, agora alcancada pela **aba Clientes do
+  `/cadastros`** (ou por URL direta; guard `NON_PROSPECTOR_ROLES` inalterado).
 - `/samples/new`, `/samples/[id]`; `/clients/[id]` — a partir de Lotes/Clientes.
 - `/camera` **no desktop** — rota liberada, botao so na tabbar mobile (igual aos
   demais nao-prospectores).
@@ -332,8 +356,12 @@ Contagem:
 
 ### Particularidades de conteudo
 
-- **`/cadastros`**: gestao de Bancos e Corretores (Fechamento Fase 0). E a unica
-  pagina de "gestao" que sobra para o CADASTRO.
+- **`/cadastros`**: hub com **3 abas** (2026-07-02) — **Clientes** (default; reusa
+  o `<ClientsBrowser>`, a mesma experiencia da pagina /clients: busca, filtro,
+  scroll infinito, detalhe, criar), **Bancos** e **Corretores** (gestao do
+  Fechamento Fase 0). O FAB "+" e contextual a aba (cria cliente/banco/corretor).
+  E a unica pagina de "gestao" que sobra para o CADASTRO, e agora tambem o ponto
+  de acesso a clientes. (`app/cadastros/page.tsx`.)
 - **`/dashboard`**: dashboard padrao (com `salesData`), igual aos demais
   nao-prospectores.
 - **Removido em 2026-06-28**: o CADASTRO era viewer + curador de Relatorios
@@ -346,11 +374,14 @@ Contagem:
 
 ### Diferenca para o COMMERCIAL
 
-CADASTRO e Comercial sao quase espelhos, trocando **Relatorios por Cadastros**: o
-Comercial tem Relatorios (proprios + FAB) e nenhuma gestao; o CADASTRO tem
-Cadastros (Bancos/Corretores) e nao tem Relatorios. Sidebar 4 vs 4 (Cadastros no
-lugar de Relatorios); tabbar 5 vs 5 (CADASTRO termina em Perfil, Comercial em
-Relatorios); menu do avatar no mobile 3 vs 2 (CADASTRO tem Cadastros a mais).
+Ate 2026-07-01 eram quase espelhos (trocando Relatorios por Cadastros). Com o
+split de 2026-07-02 divergiram mais: o Comercial ve "Clientes" avulso na nav e nao
+ve Cadastros; o CADASTRO nao tem "Clientes" avulso (acessa pela aba Clientes do
+Cadastros) e tem o hub Cadastros no lugar de Relatorios. **Sidebar 3 (CADASTRO:
+Inicio/Lotes/Cadastros) vs 4 (Comercial: Inicio/Lotes/Clientes/Relatorios)**;
+tabbar 5 vs 5 mas com 4o e 5o slots diferentes (CADASTRO: Cadastros/Perfil;
+Comercial: Clientes/Relatorios); menu do avatar no mobile 3 vs 2 (CADASTRO tem
+Cadastros a mais — que no mobile tambem esta na tabbar).
 
 ## ADMIN — "Administracao"
 
@@ -360,31 +391,38 @@ bloqueada.
 
 ### Onde navega (por superficie)
 
-| Destino    | Rota         | Desktop                       | Mobile                    |
-| ---------- | ------------ | ----------------------------- | ------------------------- |
-| Inicio     | `/dashboard` | Sidebar                       | Tabbar                    |
-| Lotes      | `/samples`   | Sidebar                       | Tabbar                    |
-| Clientes   | `/clients`   | Sidebar                       | Tabbar                    |
-| Relatorios | `/informe`   | Sidebar                       | Tabbar                    |
-| Camera     | `/camera`    | — (sem botao)                 | Tabbar (destaque, centro) |
-| Cadastros  | `/cadastros` | Sidebar                       | Menu do avatar            |
-| Contratos  | `/contratos` | Sidebar                       | Menu do avatar            |
-| Usuarios   | `/users`     | Sidebar                       | Menu do avatar            |
-| Perfil     | `/profile`   | Menu do avatar ("Meu perfil") | Menu do avatar            |
-| Sair       | logout       | Menu do avatar                | Menu do avatar            |
+| Destino    | Rota         | Desktop                       | Mobile                            |
+| ---------- | ------------ | ----------------------------- | --------------------------------- |
+| Inicio     | `/dashboard` | Sidebar                       | Tabbar                            |
+| Lotes      | `/samples`   | Sidebar                       | Tabbar                            |
+| Relatorios | `/informe`   | Sidebar                       | Tabbar                            |
+| Camera     | `/camera`    | — (sem botao)                 | Tabbar (destaque, centro)         |
+| Cadastros  | `/cadastros` | Sidebar                       | Tabbar (4o slot) + menu do avatar |
+| Contratos  | `/contratos` | Sidebar                       | Menu do avatar                    |
+| Usuarios   | `/users`     | Sidebar                       | Menu do avatar                    |
+| Perfil     | `/profile`   | Menu do avatar ("Meu perfil") | Menu do avatar                    |
+| Sair       | logout       | Menu do avatar                | Menu do avatar                    |
+
+Clientes (`/clients`) nao e mais item de nav proprio do ADMIN — e a **aba default
+do `/cadastros`** (e segue acessivel por URL). Ver "Particularidades de conteudo".
 
 Contagem:
 
-- **Sidebar desktop: 7 itens** — Inicio, Lotes, Clientes, Relatorios, Cadastros,
-  Contratos, Usuarios. (A sidebar mais cheia.)
-- **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, Clientes, Relatorios.
-  (Cadastros/Contratos/Usuarios nao cabem na tabbar — vao para o menu do avatar.)
+- **Sidebar desktop: 6 itens** — Inicio, Lotes, Relatorios, Cadastros, Contratos,
+  Usuarios. (Perdeu Clientes avulso em 2026-07-02; segue a sidebar mais cheia.)
+- **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, **Cadastros**, Relatorios. O
+  4o slot fixo (que era Clientes) vira Cadastros para o ADMIN (2026-07-02);
+  Contratos/Usuarios continuam so no menu do avatar.
 - **Menu do avatar:** assimetrico. No **desktop** sao 2 itens (Meu perfil, Sair) —
   a gestao esta na sidebar. No **mobile** sao 5 itens (Perfil, Usuarios,
-  Cadastros, Contratos, Sair) — sem sidebar, o menu carrega toda a gestao.
+  Cadastros, Contratos, Sair) — sem sidebar, o menu carrega toda a gestao;
+  `HeaderAvatarMenu` nao mudou, entao Cadastros aparece TANTO no 4o slot da tabbar
+  QUANTO no menu do avatar (redundancia introduzida em 2026-07-02).
 
 ### Rotas acessiveis sem botao de navegacao
 
+- `/clients` — a lista de clientes, agora alcancada pela **aba Clientes do
+  `/cadastros`** (ou por URL direta; guard `NON_PROSPECTOR_ROLES` inalterado).
 - `/samples/new`, `/samples/[id]`; `/clients/[id]`; `/camera` no desktop.
 
 ### Rotas bloqueadas
@@ -398,8 +436,9 @@ Contagem:
   (FAB, `canCreate={isAdmin}`).
 - **`/users`**: gestao de usuarios — **exclusiva do ADMIN** (nenhum outro papel
   acessa).
-- **`/cadastros` e `/contratos`**: gestao do Fechamento (Bancos/Corretores e
-  contratos de venda).
+- **`/cadastros`**: hub com 3 abas (2026-07-02) — Clientes (default; gestao de
+  clientes/armazens, mesma experiencia da pagina /clients via `<ClientsBrowser>`),
+  Bancos e Corretores. **`/contratos`**: gestao dos contratos de venda (Fechamento).
 - **Modo manutencao**: o middleware redireciona **nao-ADMIN** para
   `/maintenance` — so o ADMIN usa o app durante a manutencao. (`middleware.ts`.)
 - **`/dashboard`**: dashboard padrao (com `salesData`).
@@ -407,8 +446,10 @@ Contagem:
 ### Diferenca para o CADASTRO
 
 ADMIN = CADASTRO **+ Relatorios + Contratos + Usuarios** (e, no Relatorios, alem
-de ver/curar, tambem **cria**). Sidebar 7 vs 4; tabbar 5 vs 5 (ADMIN com
-Relatorios, CADASTRO com Perfil no 5o slot); menu do avatar no mobile 5 vs 3.
+de ver/curar, tambem **cria**). Ambos perderam "Clientes" avulso e acessam clientes
+pela aba Clientes do Cadastros. Sidebar 6 vs 3; tabbar 5 vs 5 — 4o slot igual
+(Cadastros nos dois), 5o slot diferente (ADMIN Relatorios, CADASTRO Perfil); menu
+do avatar no mobile 5 vs 3.
 
 ---
 
@@ -431,6 +472,9 @@ Observacoes neutras do mapeamento, sem juizo de "certo/errado":
    Cadastros (ADMIN/CADASTRO) e Contratos + Usuarios (ADMIN) — por isso esses
    papeis tem mais itens no menu do avatar no mobile que no desktop. (Para papeis
    sem gestao, como Comercial e Classifier, o menu fica Perfil + Sair nos dois.)
+   Desde 2026-07-02, no mobile Cadastros tambem esta no 4o slot da tabbar
+   (ADMIN/CADASTRO), entao aparece em DOIS lugares (tabbar + menu do avatar) —
+   `HeaderAvatarMenu` nao foi alterado no split.
 5. **Dois nao-prospectores ficam sem Relatorios: CLASSIFIER e CADASTRO.** Dos
    cinco papeis de `NON_PROSPECTOR_ROLES`, CLASSIFIER (nunca teve) e CADASTRO
    (removido em 2026-06-28) estao fora de `INFORME_ROLES`. No mobile, ambos
@@ -439,6 +483,17 @@ Observacoes neutras do mapeamento, sem juizo de "certo/errado":
    `NON_PROSPECTOR_ROLES` e `INFORME_ROLES` (sidebar 4, tabbar 5, avatar 2); a
    unica diferenca e o conteudo de `/informe` — proprios + FAB (COMMERCIAL) vs
    placeholder vazio (REGISTRATION).
+7. **Split Clientes (operacao) x Cadastros (gestao) — 2026-07-02.** A capacidade de
+   gerir clientes e a mesma para todos, mas o ponto de entrada muda por papel:
+   COMMERCIAL/CLASSIFIER/REGISTRATION usam "Clientes" (`/clients`) direto na nav;
+   ADMIN/CADASTRO acessam pela aba "Clientes" (default) do hub `/cadastros` (que
+   ganhou 3 abas: Clientes | Bancos | Corretores). Implementacao: a lista de
+   clientes virou o componente compartilhado `components/clients/ClientsBrowser.tsx`
+   (mesma UI nas duas telas; snapshots isolados por `storageKey`). Guards de rota
+   inalterados — `/clients` (`NON_PROSPECTOR_ROLES`) segue acessivel por URL a
+   todos os nao-prospectores; `/cadastros` segue ADMIN+CADASTRO. Sem backend nem
+   migration. So mudou a UI de navegacao (`AppShell.tsx`) e a composicao das duas
+   paginas.
 
 ## Manutencao
 
