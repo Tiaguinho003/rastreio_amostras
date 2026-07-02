@@ -413,7 +413,13 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   const desktopNavItems = prospector
     ? DESKTOP_NAV_ITEMS.filter((item) => item.href === '/dashboard')
     : [
-        ...DESKTOP_NAV_ITEMS,
+        // ADMIN/CADASTRO acessam clientes pelo hub Cadastros (aba Clientes) —
+        // por isso "Clientes" avulso sai da sidebar deles (os demais mantem).
+        ...DESKTOP_NAV_ITEMS.filter(
+          (item) =>
+            item.href !== '/clients' ||
+            !(isAdmin(session.user.role) || session.user.role === 'CADASTRO')
+        ),
         ...(isRoleAllowed(session.user.role, INFORME_ROLES) ? [INFORME_NAV_ITEM] : []),
         ...(isRoleAllowed(session.user.role, FINANCEIRO_ROLES) ? [FINANCEIRO_NAV_ITEM] : []),
         ...(isAdmin(session.user.role) || session.user.role === 'CADASTRO'
@@ -891,12 +897,27 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
               return !isRoleAllowed(session.user.role, INFORME_ROLES);
             }
             return true;
-          }).map((item) => ({
-            href: item.href,
-            mobileLabel: item.mobileLabel,
-            icon: renderNavIcon(item.icon, session.user),
-            emphasis: item.emphasis,
-          }))}
+          }).map((item) => {
+            // ADMIN/CADASTRO nao tem "Clientes" avulso — o 4o slot fixo vira
+            // "Cadastros" (hub com abas), unica entrada mobile pro conjunto.
+            const swap =
+              item.href === '/clients' &&
+              (isAdmin(session.user.role) || session.user.role === 'CADASTRO');
+            const resolved = swap
+              ? {
+                  href: '/cadastros',
+                  mobileLabel: 'Cadastros',
+                  icon: 'cadastros' as NavIcon,
+                  emphasis: item.emphasis,
+                }
+              : item;
+            return {
+              href: resolved.href,
+              mobileLabel: resolved.mobileLabel,
+              icon: renderNavIcon(resolved.icon, session.user),
+              emphasis: resolved.emphasis,
+            };
+          })}
           isActive={(href) => isMainNavItemActive(pathname, href)}
         />
       ) : null}
