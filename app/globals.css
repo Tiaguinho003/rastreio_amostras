@@ -25319,6 +25319,95 @@ select.samples-filter-field-input {
   padding-left: clamp(0.5rem, 2.5vw, 2rem);
 }
 
+/* ── Resumo comercial do CLIENTE: indicativos de status como MINICARDS ──
+   (nome em cima, numero abaixo). Escopado a .client-commercial-card pra NAO afetar
+   os cards do dashboard (que seguem com a legenda em lista). Base = mobile: donut
+   em cima (centralizado) e os minicards embaixo (2 por linha). */
+.client-commercial-card .sales-card-body {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: clamp(0.85rem, 3vw, 1.15rem);
+  padding-inline-start: 0;
+}
+.client-commercial-card .sales-chart-donut {
+  align-self: center;
+}
+.client-commercial-card .ccs-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: clamp(0.5rem, 1.6vw, 0.7rem);
+  min-width: 0;
+  width: 100%;
+}
+.ccs-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+  padding: clamp(0.6rem, 1.6vw, 0.85rem) clamp(0.6rem, 1.6vw, 0.85rem);
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcfb 100%);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: 12px;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.05),
+    0 4px 10px rgba(0, 0, 0, 0.04);
+}
+.ccs-stat-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.ccs-stat-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.ccs-stat-label {
+  font-size: clamp(0.66rem, 2vw, 0.76rem);
+  font-weight: 600;
+  color: #6b7d72;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ccs-stat-count {
+  font-size: clamp(1.35rem, 4.5vw, 1.7rem);
+  font-weight: 700;
+  color: #14251a;
+  line-height: 1;
+}
+
+/* Desktop: o card fica em LARGURA TOTAL (grid do detalhe do cliente) — donut
+   MAIOR a esquerda + os minicards numa linha a direita, aproveitando o espaco. */
+@media (min-width: 901px) {
+  .client-commercial-card .sales-card-body {
+    flex-direction: row;
+    align-items: center;
+    gap: clamp(1.4rem, 3vw, 2.4rem);
+  }
+  .client-commercial-card .sales-chart-donut {
+    width: clamp(200px, 15vw, 244px);
+    height: clamp(200px, 15vw, 244px);
+    align-self: center;
+    flex-shrink: 0;
+  }
+  .client-commercial-card .ccs-stats {
+    flex: 1;
+    gap: clamp(0.7rem, 1.4vw, 1rem);
+  }
+  .client-commercial-card .ccs-stat {
+    padding: clamp(0.85rem, 1.4vw, 1.1rem) clamp(0.8rem, 1.4vw, 1.05rem);
+  }
+  .client-commercial-card .ccs-stat-count {
+    font-size: clamp(1.7rem, 2.4vw, 2.1rem);
+  }
+}
+
 /* Botao "Ver disponíveis" full-width no rodape do card (mockup):
    pill verde-escura, label centrada e chevron ancorado na borda
    direita. */
