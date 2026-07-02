@@ -1464,7 +1464,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.notEqual(result.body.items[0].status, 'INVALIDATED');
   });
 
-  test('GET /samples displayStatus=INVALIDATED returns only INVALIDATED regardless of commercialStatus', async () => {
+  test('GET /samples exclui lotes deletados (INVALIDATED) de toda listagem', async () => {
     // Amostra INVALIDATED (sem movimentos, commercialStatus=OPEN)
     const invalidatedSampleId = randomUUID();
     await moveSampleToClassified(invalidatedSampleId);
@@ -1506,18 +1506,21 @@ if (!databaseUrl || !databaseReachable) {
       actorClassifier
     );
 
-    const result = await api.listSamples(
-      buildInput({
-        query: {
-          displayStatus: 'INVALIDATED',
-        },
-      })
-    );
+    // "Deletar lote": o deletado (INVALIDATED) NAO aparece na listagem default;
+    // os ativos (OPEN/SOLD) sim.
+    const result = await api.listSamples(buildInput({ query: {} }));
 
     assert.equal(result.status, 200);
-    assert.equal(result.body.page.total, 1);
-    assert.equal(result.body.items[0].id, invalidatedSampleId);
-    assert.equal(result.body.items[0].status, 'INVALIDATED');
+    const ids = result.body.items.map((s) => s.id);
+    assert.ok(!ids.includes(invalidatedSampleId), 'lote deletado nao aparece');
+    assert.ok(ids.includes(openSampleId), 'lote OPEN aparece');
+    assert.ok(ids.includes(soldSampleId), 'lote SOLD aparece');
+
+    // 'INVALIDATED' deixou de ser um displayStatus valido (deletados somem).
+    const invFilter = await api.listSamples(
+      buildInput({ query: { displayStatus: 'INVALIDATED' } })
+    );
+    assert.equal(invFilter.status, 422);
   });
 
   test('GET /samples rejects invalid displayStatus value', async () => {
@@ -1530,10 +1533,7 @@ if (!databaseUrl || !databaseReachable) {
     );
 
     assert.equal(bogus.status, 422);
-    assert.equal(
-      bogus.body.error.message,
-      'displayStatus must be one of: OPEN, SOLD, LOST, INVALIDATED'
-    );
+    assert.equal(bogus.body.error.message, 'displayStatus must be one of: OPEN, SOLD, LOST');
   });
 
   test('GET /samples validates period parameters and page', async () => {
