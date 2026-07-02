@@ -25319,27 +25319,18 @@ select.samples-filter-field-input {
   padding-left: clamp(0.5rem, 2.5vw, 2rem);
 }
 
-/* ── Resumo comercial do CLIENTE: indicativos de status como MINICARDS ──
-   (nome em cima, numero abaixo). Escopado a .client-commercial-card pra NAO afetar
-   os cards do dashboard (que seguem com a legenda em lista). Base = mobile: donut
-   em cima (centralizado) e os minicards embaixo (2 por linha). */
-.client-commercial-card .sales-card-body {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: clamp(0.85rem, 3vw, 1.15rem);
-  padding-inline-start: 0;
-}
-.client-commercial-card .sales-chart-donut {
-  align-self: center;
-}
+/* ── Resumo comercial do CLIENTE: status como LEGENDA em lista no MOBILE
+   (design original, igual ao "Lotes disponiveis" do dashboard) e como MINICARDS
+   no DESKTOP (nome em cima, numero abaixo). Escopado a .client-commercial-card
+   pra NAO afetar os cards do dashboard. */
+
+/* MOBILE (base): o card mantem o layout original — donut a esquerda + legenda a
+   direita (via .sales-card-body base grid). Os minicards ficam ocultos. */
 .client-commercial-card .ccs-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
-  gap: clamp(0.5rem, 1.6vw, 0.7rem);
-  min-width: 0;
-  width: 100%;
+  display: none;
 }
+
+/* Estilos dos minicards (so aparecem no desktop; inertes enquanto ocultos). */
 .ccs-stat {
   display: flex;
   flex-direction: column;
@@ -25386,9 +25377,11 @@ select.samples-filter-field-input {
    MAIOR a esquerda + os minicards numa linha a direita, aproveitando o espaco. */
 @media (min-width: 901px) {
   .client-commercial-card .sales-card-body {
+    display: flex;
     flex-direction: row;
     align-items: center;
     gap: clamp(1.4rem, 3vw, 2.4rem);
+    padding-inline-start: 0;
   }
   .client-commercial-card .sales-chart-donut {
     width: clamp(200px, 15vw, 244px);
@@ -25396,9 +25389,16 @@ select.samples-filter-field-input {
     align-self: center;
     flex-shrink: 0;
   }
+  /* No desktop a legenda-lista (mobile) some e os minicards assumem. */
+  .client-commercial-card .sales-chart-legend {
+    display: none;
+  }
   .client-commercial-card .ccs-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
     flex: 1;
     gap: clamp(0.7rem, 1.4vw, 1rem);
+    min-width: 0;
   }
   .client-commercial-card .ccs-stat {
     padding: clamp(0.85rem, 1.4vw, 1.1rem) clamp(0.8rem, 1.4vw, 1.05rem);

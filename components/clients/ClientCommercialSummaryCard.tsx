@@ -3,10 +3,11 @@
 import type { ClientCommercialSummaryResponse } from '../../lib/types';
 
 // Card de APRESENTACAO (sem botoes/filtros) do resumo comercial do cliente:
-// donut SVG manual + os status como MINICARDS (nome em cima, numero abaixo),
-// escopados a .client-commercial-card (o dashboard segue com a legenda em lista).
-// As contagens (lotes) vem de getClientCommercialSummary. "Comprado" so entra
-// quando o cliente e comprador.
+// donut SVG manual + os status. No MOBILE os status saem como LEGENDA em lista
+// (design original, igual ao dashboard); no DESKTOP saem como MINICARDS (nome em
+// cima, numero abaixo). A alternancia e por media query, escopada a
+// .client-commercial-card (o dashboard usa outro card). As contagens (lotes) vem
+// de getClientCommercialSummary. "Comprado" so entra quando o cliente e comprador.
 
 type StatusKey = 'open' | 'sold' | 'lost' | 'bought';
 
@@ -150,8 +151,24 @@ export function ClientCommercialSummaryCard({
       <div className="sales-card-body">
         <CommercialDonut segments={segments} total={total} />
 
-        {/* Indicativos de status como MINICARDS (nome em cima, numero abaixo) —
-            aproveitam melhor a largura do card (visual institucional). */}
+        {/* MOBILE: legenda em lista (design original, igual ao "Lotes disponiveis"
+            do dashboard). Escondida no desktop via media query. */}
+        <ul className="sales-chart-legend">
+          {segments.map((s) => (
+            <li key={s.key} className="sales-chart-legend-item">
+              <span
+                className="sales-chart-legend-dot"
+                style={{ background: s.color }}
+                aria-hidden="true"
+              />
+              <span className="sales-chart-legend-label">{s.label}</span>
+              <span className="sales-chart-legend-count">{s.value}</span>
+            </li>
+          ))}
+        </ul>
+
+        {/* DESKTOP: indicativos de status como MINICARDS (nome em cima, numero
+            abaixo) — aproveitam a largura do card. Escondidos no mobile. */}
         <div className="ccs-stats">
           {segments.map((s) => (
             <div key={s.key} className="ccs-stat">
