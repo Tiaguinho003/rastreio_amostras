@@ -7,6 +7,7 @@ import { AppShell } from '../../components/AppShell';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { BankFormModal } from '../../components/cadastros/BankFormModal';
 import { BrokerFormModal } from '../../components/cadastros/BrokerFormModal';
+import { ClientsBrowser } from '../../components/clients/ClientsBrowser';
 import {
   ApiError,
   createBank,
@@ -21,7 +22,10 @@ import { useRequireAuth } from '../../lib/use-auth';
 import { useToast } from '../../lib/toast/ToastProvider';
 import type { Bank, Broker, BrokerInput, UserLookupItem } from '../../lib/types';
 
-type Tab = 'bancos' | 'corretores';
+// Cadastros = hub ADMIN/CADASTRO com 3 abas. "Clientes" (default) reusa a
+// experiencia COMPLETA da pagina /clients via <ClientsBrowser>; Bancos/Corretores
+// mantem a UI local. O FAB "+" e contextual a aba ativa.
+type Tab = 'clientes' | 'bancos' | 'corretores';
 
 export default function CadastrosPage() {
   const { session, loading, logout, setSession } = useRequireAuth({
@@ -29,7 +33,7 @@ export default function CadastrosPage() {
   });
   const toast = useToast();
 
-  const [tab, setTab] = useState<Tab>('bancos');
+  const [tab, setTab] = useState<Tab>('clientes');
 
   // Bancos
   const [banks, setBanks] = useState<Bank[]>([]);
@@ -224,8 +228,17 @@ export default function CadastrosPage() {
           <button
             type="button"
             role="tab"
-            aria-selected={isBanks}
-            className={`cad-tab${isBanks ? ' is-active' : ''}`}
+            aria-selected={tab === 'clientes'}
+            className={`cad-tab${tab === 'clientes' ? ' is-active' : ''}`}
+            onClick={() => setTab('clientes')}
+          >
+            Clientes
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'bancos'}
+            className={`cad-tab${tab === 'bancos' ? ' is-active' : ''}`}
             onClick={() => setTab('bancos')}
           >
             Bancos
@@ -233,131 +246,137 @@ export default function CadastrosPage() {
           <button
             type="button"
             role="tab"
-            aria-selected={!isBanks}
-            className={`cad-tab${!isBanks ? ' is-active' : ''}`}
+            aria-selected={tab === 'corretores'}
+            className={`cad-tab${tab === 'corretores' ? ' is-active' : ''}`}
             onClick={() => setTab('corretores')}
           >
             Corretores
           </button>
         </div>
 
-        <div className="hero-search-wrap">
-          <form
-            className="hero-search-bar"
-            role="search"
-            onSubmit={(event) => event.preventDefault()}
-          >
-            <input
-              className="hero-search-input"
-              value={searchValue}
-              onChange={(event) => setSearchValue(event.target.value)}
-              placeholder={isBanks ? 'Buscar banco ou código...' : 'Buscar corretor...'}
-              autoComplete="off"
-              spellCheck={false}
-            />
-            {searchValue ? (
+        {tab === 'clientes' ? (
+          <ClientsBrowser session={session} storageKey="clients-list-snapshot-cad-v3" />
+        ) : (
+          <>
+            <div className="hero-search-wrap">
+              <form
+                className="hero-search-bar"
+                role="search"
+                onSubmit={(event) => event.preventDefault()}
+              >
+                <input
+                  className="hero-search-input"
+                  value={searchValue}
+                  onChange={(event) => setSearchValue(event.target.value)}
+                  placeholder={isBanks ? 'Buscar banco ou código...' : 'Buscar corretor...'}
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                {searchValue ? (
+                  <button
+                    type="button"
+                    className="hero-search-clear-input"
+                    aria-label="Limpar busca"
+                    onClick={() => setSearchValue('')}
+                  >
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                      <path d="M6 6l12 12M18 6L6 18" />
+                    </svg>
+                  </button>
+                ) : (
+                  <span className="hero-search-submit" aria-hidden="true">
+                    <svg className="hero-search-icon-search" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle cx="11" cy="11" r="7" />
+                      <path d="m16.2 16.2 4.1 4.1" />
+                    </svg>
+                  </span>
+                )}
+              </form>
               <button
                 type="button"
-                className="hero-search-clear-input"
-                aria-label="Limpar busca"
-                onClick={() => setSearchValue('')}
+                className="cv2-fab"
+                aria-label={isBanks ? 'Novo banco' : 'Novo corretor'}
+                onClick={isBanks ? openCreateBank : openCreateBroker}
               >
                 <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <path d="M6 6l12 12M18 6L6 18" />
+                  <path d="M12 5v14" />
+                  <path d="M5 12h14" />
                 </svg>
               </button>
-            ) : (
-              <span className="hero-search-submit" aria-hidden="true">
-                <svg className="hero-search-icon-search" viewBox="0 0 24 24" aria-hidden="true">
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="m16.2 16.2 4.1 4.1" />
-                </svg>
-              </span>
-            )}
-          </form>
-          <button
-            type="button"
-            className="cv2-fab"
-            aria-label={isBanks ? 'Novo banco' : 'Novo corretor'}
-            onClick={isBanks ? openCreateBank : openCreateBroker}
-          >
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <path d="M12 5v14" />
-              <path d="M5 12h14" />
-            </svg>
-          </button>
-        </div>
+            </div>
 
-        <section className="clients-v2-sheet">
-          <div className="spv2-list-meta">
-            <span className="spv2-list-count">
-              {count} {isBanks ? 'banco(s)' : 'corretor(es)'}
-            </span>
-            {inactiveCount > 0 ? (
-              <button type="button" className="sdv-edit-btn-small" onClick={toggleInactive}>
-                {showInactive ? 'Esconder inativos' : `Mostrar ${inactiveCount} inativo(s)`}
-              </button>
-            ) : null}
-          </div>
+            <section className="clients-v2-sheet">
+              <div className="spv2-list-meta">
+                <span className="spv2-list-count">
+                  {count} {isBanks ? 'banco(s)' : 'corretor(es)'}
+                </span>
+                {inactiveCount > 0 ? (
+                  <button type="button" className="sdv-edit-btn-small" onClick={toggleInactive}>
+                    {showInactive ? 'Esconder inativos' : `Mostrar ${inactiveCount} inativo(s)`}
+                  </button>
+                ) : null}
+              </div>
 
-          <div className="spv2-list-scroll">
-            {count === 0 ? (
-              <div className="spv2-empty">
-                <p className="spv2-empty-text">
-                  {isBanks ? 'Nenhum banco para mostrar' : 'Nenhum corretor para mostrar'}
-                </p>
+              <div className="spv2-list-scroll">
+                {count === 0 ? (
+                  <div className="spv2-empty">
+                    <p className="spv2-empty-text">
+                      {isBanks ? 'Nenhum banco para mostrar' : 'Nenhum corretor para mostrar'}
+                    </p>
+                  </div>
+                ) : isBanks ? (
+                  <div className="cad-list">
+                    {visibleBanks.map((bank) => (
+                      <button
+                        key={bank.id}
+                        type="button"
+                        className={`cad-row${bank.status === 'INACTIVE' ? ' is-inactive' : ''}`}
+                        onClick={() => openEditBank(bank)}
+                      >
+                        <div className="cad-row-main">
+                          <span className="cad-row-name">{bank.name}</span>
+                          <span className="cad-row-sub">COMPE {bank.compeCode}</span>
+                        </div>
+                        {bank.status === 'INACTIVE' ? (
+                          <span className="cad-row-badge">Inativo</span>
+                        ) : null}
+                        <svg className="cad-row-arrow" viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="m9 6 6 6-6 6" />
+                        </svg>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="cad-list">
+                    {visibleBrokers.map((broker) => (
+                      <button
+                        key={broker.id}
+                        type="button"
+                        className={`cad-row${broker.status === 'INACTIVE' ? ' is-inactive' : ''}`}
+                        onClick={() => openEditBroker(broker)}
+                      >
+                        <div className="cad-row-main">
+                          <span className="cad-row-name">{broker.name}</span>
+                          <span className="cad-row-sub">
+                            {broker.user
+                              ? `Usuário: ${broker.user.fullName}`
+                              : broker.email || broker.phone || 'Sem vínculo'}
+                          </span>
+                        </div>
+                        {broker.status === 'INACTIVE' ? (
+                          <span className="cad-row-badge">Inativo</span>
+                        ) : null}
+                        <svg className="cad-row-arrow" viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="m9 6 6 6-6 6" />
+                        </svg>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            ) : isBanks ? (
-              <div className="cad-list">
-                {visibleBanks.map((bank) => (
-                  <button
-                    key={bank.id}
-                    type="button"
-                    className={`cad-row${bank.status === 'INACTIVE' ? ' is-inactive' : ''}`}
-                    onClick={() => openEditBank(bank)}
-                  >
-                    <div className="cad-row-main">
-                      <span className="cad-row-name">{bank.name}</span>
-                      <span className="cad-row-sub">COMPE {bank.compeCode}</span>
-                    </div>
-                    {bank.status === 'INACTIVE' ? (
-                      <span className="cad-row-badge">Inativo</span>
-                    ) : null}
-                    <svg className="cad-row-arrow" viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="m9 6 6 6-6 6" />
-                    </svg>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="cad-list">
-                {visibleBrokers.map((broker) => (
-                  <button
-                    key={broker.id}
-                    type="button"
-                    className={`cad-row${broker.status === 'INACTIVE' ? ' is-inactive' : ''}`}
-                    onClick={() => openEditBroker(broker)}
-                  >
-                    <div className="cad-row-main">
-                      <span className="cad-row-name">{broker.name}</span>
-                      <span className="cad-row-sub">
-                        {broker.user
-                          ? `Usuário: ${broker.user.fullName}`
-                          : broker.email || broker.phone || 'Sem vínculo'}
-                      </span>
-                    </div>
-                    {broker.status === 'INACTIVE' ? (
-                      <span className="cad-row-badge">Inativo</span>
-                    ) : null}
-                    <svg className="cad-row-arrow" viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="m9 6 6 6-6 6" />
-                    </svg>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
+            </section>
+          </>
+        )}
       </section>
 
       <BankFormModal
