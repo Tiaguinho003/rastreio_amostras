@@ -53,7 +53,8 @@ const UUID_PATTERN =
 // samples antigos em local; producao foi wipada no L3.2.
 const INTERNAL_LOT_PATTERN = '(?:A-)?\\d+';
 const COMMERCIAL_STATUSES = ['OPEN', 'PARTIALLY_SOLD', 'SOLD', 'LOST'];
-const DISPLAY_STATUSES = ['OPEN', 'SOLD', 'LOST', 'INVALIDATED'];
+// "Deletar lote": INVALIDATED (deletado) saiu dos filtros — deletados somem da UI.
+const DISPLAY_STATUSES = ['OPEN', 'SOLD', 'LOST'];
 
 const RECENT_ACTIVITY_LIMIT = 25;
 
@@ -507,21 +508,18 @@ function resolveDisplayStatusFilter(displayStatus) {
 
   const upper = normalized.toUpperCase();
   if (!DISPLAY_STATUSES.includes(upper)) {
-    throw new HttpError(422, 'displayStatus must be one of: OPEN, SOLD, LOST, INVALIDATED');
+    throw new HttpError(422, 'displayStatus must be one of: OPEN, SOLD, LOST');
   }
 
+  // status != INVALIDATED ja e garantido pela exclusao base em listSamples
+  // (deletados somem); aqui so refina pelo eixo comercial.
   switch (upper) {
     case 'OPEN':
-      return {
-        status: { not: 'INVALIDATED' },
-        commercialStatus: { in: ['OPEN', 'PARTIALLY_SOLD'] },
-      };
+      return { commercialStatus: { in: ['OPEN', 'PARTIALLY_SOLD'] } };
     case 'SOLD':
-      return { status: { not: 'INVALIDATED' }, commercialStatus: 'SOLD' };
+      return { commercialStatus: 'SOLD' };
     case 'LOST':
-      return { status: { not: 'INVALIDATED' }, commercialStatus: 'LOST' };
-    case 'INVALIDATED':
-      return { status: 'INVALIDATED' };
+      return { commercialStatus: 'LOST' };
     default:
       return null;
   }
@@ -1211,6 +1209,10 @@ export class SampleQueryService {
     });
 
     const conditions = [];
+    // Feature "Deletar lote": lotes deletados (status INVALIDATED) somem de TODAS
+    // as listagens — o delete e definitivo na UI (a auditoria fica no event
+    // store). Exclusao base aplicada a contagem e as linhas.
+    conditions.push({ status: { not: 'INVALIDATED' } });
     const normalizedSearch = normalizeOptionalText(search);
     if (normalizedSearch) {
       // Busca da pagina de Lotes: por PREFIXO ("comeca com"), case-insensitive.

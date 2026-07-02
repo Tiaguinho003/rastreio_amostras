@@ -4097,6 +4097,24 @@ export class SampleCommandService {
       );
     }
 
+    // Feature "Deletar lote": deletar LIBERA o número interno pro reuso. Um lote
+    // que teve contrato (venda) NUNCA e deletavel — o contrato (inclusive em
+    // WASH_OUT) aparece no Financeiro/Espelho e imprime o nº do lote AO VIVO;
+    // liberar/reusar o número corromperia esse documento. O Washout do contrato
+    // ja e o mecanismo pra desfazer a venda (o nº fica registrado). Bloqueia se
+    // existir QUALQUER SaleContract vinculado por sampleId.
+    const linkedContract = await this.queryService.prisma.saleContract.findFirst({
+      where: { sampleId: sample.id },
+      select: { id: true },
+    });
+    if (linkedContract) {
+      throw new HttpError(
+        409,
+        'Nao e possivel deletar um lote que tem contrato (venda/washout). Desfaca pelo Washout do contrato.',
+        { code: 'SAMPLE_HAS_CONTRACT' }
+      );
+    }
+
     const event = buildEventEnvelope({
       eventType: 'SAMPLE_INVALIDATED',
       sampleId: sample.id,

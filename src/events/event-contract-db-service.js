@@ -303,6 +303,17 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
     updateData.version = { increment: 1 };
   }
 
+  // Feature "Deletar lote": o delete (SAMPLE_INVALIDATED) LIBERA o número interno
+  // pro reuso — nula na projecao. A trigger fn_guard_sample_update permite nular
+  // internal_lot_number quando o status vira INVALIDATED (migration
+  // 20260702140000); o UNIQUE trata NULLs como distintos, entao o numero volta a
+  // ficar disponivel. O numero original continua auditavel no evento
+  // REGISTRATION_CONFIRMED (append-only, payload.sampleLotNumber).
+  if (event.eventType === 'SAMPLE_INVALIDATED') {
+    updateData.internalLotNumber = null;
+    updateData.internalLotNumberInt = null;
+  }
+
   if (event.eventType === 'REGISTRATION_CONFIRMED') {
     updateData.internalLotNumber = event.payload.sampleLotNumber;
     updateData.internalLotNumberInt = /^[0-9]{1,7}$/.test(event.payload.sampleLotNumber ?? '')
