@@ -913,6 +913,38 @@ model SaleContractAgioLog {
   @@map("sale_contract_agio_log")
 }
 
+// Auditoria dos MARCOS DE STATUS do contrato (Fase J, D123): 1 linha por
+// transicao Faturar/Pagar/Washout, com ator + quando (+ motivo no washout).
+// Marcos ANTERIORES a tabela aparecem no timeline so com a data gravada no
+// proprio contrato (invoicedAt/paidAt/washoutAt), sem autor. O Desfazer foi
+// REMOVIDO na mesma fase (D122) — nao existe transicao reversa a auditar.
+// Sem @relation (FKs so no SQL, padrao do dominio).
+model SaleContractStatusLog {
+  id             String             @id @db.Uuid
+  saleContractId String             @map("sale_contract_id") @db.Uuid
+  toStatus       SaleContractStatus @map("to_status")
+  reason         String?
+  actorUserId    String?            @map("actor_user_id") @db.Uuid
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([saleContractId, createdAt], map: "idx_sale_contract_status_log_contract_created")
+  @@map("sale_contract_status_log")
+}
+
+// Auditoria da geracao do Espelho de Corretagem (Fase J, D124 — resolve a
+// D71): 1 linha por PDF de espelho gerado, com o lado (comprador/vendedor),
+// o ator e quando. Sem @relation (FKs so no SQL).
+model SaleContractEspelhoLog {
+  id             String   @id @db.Uuid
+  saleContractId String   @map("sale_contract_id") @db.Uuid
+  side           String
+  actorUserId    String?  @map("actor_user_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([saleContractId, createdAt], map: "idx_sale_contract_espelho_log_contract_created")
+  @@map("sale_contract_espelho_log")
+}
+
 // Auditoria da Etiqueta de Aprovacao (Fase I, D107/D112-D119): 1 linha por
 // ENVIO (1:N por contrato). saleContractId NULO = etiqueta avulsa (caminho
 // "Manual" do seletor) — sem coluna booleana, derivavel do vinculo (D114).
