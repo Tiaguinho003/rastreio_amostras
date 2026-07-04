@@ -163,6 +163,36 @@ function wrapText(text, font, size, maxWidth) {
   return lines;
 }
 
+// Quebra `text` em até `maxLines` linhas por LARGURA, no nível de CARACTERE —
+// serve p/ valores sem espaços (chave PIX/UUID/e-mail), que o wrapText (por
+// palavra) não quebraria. Cada posição de `widths` é a largura útil da linha; se
+// ainda sobrar texto na última linha, ela é truncada com "...".
+function breakToWidth(text, font, size, widths, maxLines = widths.length) {
+  const s = String(text ?? '');
+  const lines = [];
+  let i = 0;
+  for (let line = 0; line < maxLines && i < s.length; line++) {
+    const w = widths[Math.min(line, widths.length - 1)];
+    let count = 0;
+    while (i + count < s.length && font.widthOfTextAtSize(s.slice(i, i + count + 1), size) <= w) {
+      count++;
+    }
+    if (count === 0) count = 1; // garante progresso mesmo em coluna muito estreita
+    if (line === maxLines - 1 && i + count < s.length) {
+      let sub = s.slice(i, i + count);
+      while (sub.length > 1 && font.widthOfTextAtSize(`${sub}...`, size) > w) {
+        sub = sub.slice(0, -1);
+      }
+      lines.push(`${sub}...`);
+      i = s.length;
+    } else {
+      lines.push(s.slice(i, i + count));
+      i += count;
+    }
+  }
+  return lines;
+}
+
 async function tryReadPng(candidate) {
   const paths = Array.isArray(candidate) ? candidate : [candidate];
   for (const filePath of paths) {
@@ -183,6 +213,12 @@ function snapshotName(snap) {
 
 function emptyToDash(value) {
   return value === null || value === undefined || value === '' ? '—' : String(value);
+}
+
+// Valor de campo em CAIXA ALTA (S74): os VALORES do contrato não têm minúsculas
+// (rótulos/títulos dos campos permanecem como definidos). "—" quando vazio.
+function dashUpper(value) {
+  return emptyToDash(value).toUpperCase();
 }
 
 export class SaleContractPdfService {
@@ -211,13 +247,16 @@ export class SaleContractPdfService {
     const halfW = (contentW - COL_GAP) / 2;
     const page = pdfDoc.addPage([PAGE_W, PAGE_H]);
 
-    // Card com borda: título + linhas [label, value] (sempre presentes; "—"
-    // quando vazio). Altura determinística. Retorna a altura.
+    // Card com borda: cabeçalho CINZA (título CENTRALIZADO, escuro, maiúsculas —
+    // mesmo formato das caixas Forma/Modalidade e das faixas de seção, S74) +
+    // linhas [label, value] (sempre presentes; "—" quando vazio). Altura
+    // determinística. Retorna a altura.
     const drawCard = ({ x, width, top, title, rows }) => {
       const pad = 7;
-      const titleH = 12;
+      const headerH = 16;
       const lineH = 11;
-      const height = pad + titleH + rows.length * lineH + pad;
+      const height = headerH + pad + rows.length * lineH + pad;
+      // corpo branco (card inteiro)
       page.drawRectangle({
         x,
         y: top - height,
@@ -227,19 +266,32 @@ export class SaleContractPdfService {
         borderWidth: 0.8,
         color: WHITE,
       });
-      page.drawText(fitText(title, fontBold, 9, width - 2 * pad), {
-        x: x + pad,
-        y: top - pad - 8,
-        size: 9,
-        font: fontBold,
-        color: GREEN,
+      // cabeçalho cinza no topo do card
+      page.drawRectangle({
+        x,
+        y: top - headerH,
+        width,
+        height: headerH,
+        color: LABEL_BG,
+        borderColor: LINE,
+        borderWidth: 0.5,
       });
-      let cy = top - pad - titleH - 8;
+      // título centralizado
+      const titleText = fitText(title.toUpperCase(), fontBold, 8, width - 10);
+      const titleW = fontBold.widthOfTextAtSize(titleText, 8);
+      page.drawText(titleText, {
+        x: x + (width - titleW) / 2,
+        y: top - 11,
+        size: 8,
+        font: fontBold,
+        color: BLACK,
+      });
+      let cy = top - headerH - pad - 6;
       for (const [label, value] of rows) {
         const labelText = `${label}: `;
         page.drawText(labelText, { x: x + pad, y: cy, size: 8, font: fontBold, color: BLACK });
         const labelW = fontBold.widthOfTextAtSize(labelText, 8);
-        page.drawText(fitText(emptyToDash(value), font, 8, width - 2 * pad - labelW), {
+        page.drawText(fitText(dashUpper(value), font, 8, width - 2 * pad - labelW), {
           x: x + pad + labelW,
           y: cy,
           size: 8,
@@ -273,22 +325,45 @@ export class SaleContractPdfService {
       return h;
     };
 
-    // Linha de identificação: rótulos inline "Label: value", distribuídos. Altura 16.
+    // Linha de identificação (S74). O 1º campo (Nº Contrato, formato fixo) cola à
+    // esquerda; o 2º (Nº Compra) vem logo em seguida, PRÓXIMO, e recebe o MIOLO da
+    // linha como área de valor (o Nº de Compra pode ser grande); os demais
+    // (Lote/Mês/Ano) ficam agrupados à direita, o último na margem direita.
+    // Altura 16.
+    const GAP_CC = 12; // Nº Contrato -> Nº Compra (aproximar)
+    const GAP_R = 16; // gaps do grupo da direita (e antes dele)
     const idRow = (top, fields) => {
-      const colW = contentW / fields.length;
-      fields.forEach(([label, value], i) => {
-        const cx = MARGIN + i * colW;
+      const ty = top - 9;
+      const measure = ([label, value], valueCap) => {
         const labelText = `${label}: `;
-        page.drawText(labelText, { x: cx, y: top - 9, size: 8, font: fontBold, color: BLACK });
         const lw = fontBold.widthOfTextAtSize(labelText, 8);
-        page.drawText(fitText(emptyToDash(value), font, 8, colW - lw - 4), {
-          x: cx + lw,
-          y: top - 9,
-          size: 8,
-          font,
-          color: BLACK,
-        });
-      });
+        const valueText = fitText(dashUpper(value), font, 8, Math.max(20, valueCap));
+        const vw = font.widthOfTextAtSize(valueText, 8);
+        return { labelText, lw, valueText, width: lw + vw };
+      };
+      const draw = (m, x) => {
+        page.drawText(m.labelText, { x, y: ty, size: 8, font: fontBold, color: BLACK });
+        page.drawText(m.valueText, { x: x + m.lw, y: ty, size: 8, font, color: BLACK });
+      };
+
+      const [contrato, compra, ...right] = fields;
+      // Grupo da direita (Lote/Mês/Ano): larguras naturais, colado à direita.
+      const rightM = right.map((f) => measure(f, contentW * 0.22));
+      const rightW = rightM.reduce((acc, m) => acc + m.width, 0) + GAP_R * (rightM.length - 1);
+      const rightStartX = MARGIN + contentW - rightW;
+
+      const contratoM = measure(contrato, contentW * 0.25);
+      draw(contratoM, MARGIN);
+      // Compra logo após o Contrato, ocupando o miolo até o grupo da direita.
+      const compraX = MARGIN + contratoM.width + GAP_CC;
+      const compraM = measure(compra, rightStartX - GAP_R - compraX);
+      draw(compraM, compraX);
+
+      let rx = rightStartX;
+      for (const m of rightM) {
+        draw(m, rx);
+        rx += m.width + GAP_R;
+      }
       return 16;
     };
 
@@ -327,7 +402,7 @@ export class SaleContractPdfService {
           borderWidth: 0.5,
           color: WHITE,
         });
-        const vt = fitText(emptyToDash(value), font, 8, w - 6);
+        const vt = fitText(dashUpper(value), font, 8, w - 6);
         const vw = font.widthOfTextAtSize(vt, 8);
         page.drawText(vt, {
           x: bx + (w - vw) / 2,
@@ -340,8 +415,12 @@ export class SaleContractPdfService {
       return hdrH + valH;
     };
 
-    // Caixa com borda + campos inline "Label: value" (1+ linhas). Altura determinística.
-    const inlineBox = (top, fieldRows) => {
+    // Caixa com borda + campos inline "Label: value" (1+ linhas). Altura
+    // determinística. Uma célula `null` fica em branco mas PRESERVA a coluna —
+    // permite grids com célula final vazia mantendo o alinhamento vertical.
+    // `colWeights` (opcional) = pesos das colunas (mesmos p/ todas as linhas →
+    // colunas alinhadas); sem pesos, colunas iguais.
+    const inlineBox = (top, fieldRows, colWeights = null) => {
       const pad = 9;
       const lineH = 15;
       const height = pad + fieldRows.length * lineH + pad - 6;
@@ -355,40 +434,84 @@ export class SaleContractPdfService {
         color: WHITE,
       });
       fieldRows.forEach((fields, r) => {
-        const colW = contentW / fields.length;
+        const weights = colWeights ?? fields.map(() => 1);
+        const totalWeight = weights.reduce((acc, w) => acc + w, 0);
+        // x inicial + largura de cada coluna (somam contentW).
+        let acc = 0;
+        const cols = weights.map((w) => {
+          const col = {
+            x: MARGIN + pad + (acc / totalWeight) * contentW,
+            w: (w / totalWeight) * contentW,
+          };
+          acc += w;
+          return col;
+        });
         const cy = top - pad - 8 - r * lineH;
-        fields.forEach(([label, value], i) => {
-          const cx = MARGIN + pad + i * colW;
+        fields.forEach((field, i) => {
+          if (!field) return; // célula vazia — mantém a coluna alinhada, sem desenhar
+          const [label, value, opts] = field;
+          const { x: cx, w: colW } = cols[i];
           const labelText = `${label}: `;
           page.drawText(labelText, { x: cx, y: cy, size: 8, font: fontBold, color: BLACK });
           const lw = fontBold.widthOfTextAtSize(labelText, 8);
-          page.drawText(fitText(emptyToDash(value), font, 8, colW - lw - 8), {
-            x: cx + lw,
-            y: cy,
-            size: 8,
-            font,
-            color: BLACK,
-          });
+          const availW = colW - lw - 8;
+          // valor em CAIXA ALTA, EXCETO com keepCase (ex.: chave PIX, cujas
+          // letras podem ser sensíveis a maiúsculas/minúsculas — S74).
+          const valueText = opts?.keepCase ? emptyToDash(value) : dashUpper(value);
+          const wrapDown = opts?.wrapDown ?? 1;
+          if (wrapDown > 1) {
+            // valor longo (ex.: chave PIX) quebra por caractere em até `wrapDown`
+            // linhas, descendo pela coluna — ocupa a(s) célula(s) vazia(s) abaixo.
+            const parts = breakToWidth(valueText, font, 8, Array(wrapDown).fill(availW));
+            parts.forEach((part, k) => {
+              page.drawText(part, { x: cx + lw, y: cy - k * lineH, size: 8, font, color: BLACK });
+            });
+          } else {
+            page.drawText(fitText(valueText, font, 8, availW), {
+              x: cx + lw,
+              y: cy,
+              size: 8,
+              font,
+              color: BLACK,
+            });
+          }
         });
       });
       return height;
     };
 
-    // Caixa com rótulo VERTICAL à esquerda (Observação/Descrição) + texto (wrap).
+    // Caixa com rótulo VERTICAL à esquerda (Observação/Descrição) + texto em
+    // CAIXA ALTA (S74). Altura FIXA (comporta o rótulo vertical + ~3 linhas no
+    // tamanho padrão 8). O texto SE ADAPTA: mantém 8 quando cabe e ENCOLHE a
+    // fonte (até um mínimo) pra caber todo o conteúdo sem truncar (S74).
     const verticalLabelBox = (top, label, value) => {
       const labelW = 18;
       const pad = 9;
-      const lineH = 12;
+      const DEFAULT_SIZE = 8;
+      const MIN_SIZE = 5.5;
+      const LH = 1.5; // entrelinha proporcional (8 -> 12, como antes)
       const innerW = contentW - labelW - 2 * pad;
-      const text = value && String(value).trim() ? String(value) : '—';
-      let lines = wrapText(text, font, 8, innerW);
-      if (lines.length > 3) {
-        lines = lines.slice(0, 3);
-        lines[2] = `${lines[2].replace(/\s*\S*$/, '')}...`;
-      }
-      // Altura cabe o conteúdo E o rótulo vertical (que ocupa labelTextW na vertical).
       const labelTextW = fontBold.widthOfTextAtSize(label, 7);
-      const height = Math.max(labelTextW + 16, 40, pad + lines.length * lineH + pad);
+      // Altura fixa: rótulo vertical vs. ~3 linhas no tamanho padrão.
+      const height = Math.max(labelTextW + 16, pad + 3 * (DEFAULT_SIZE * LH) + pad);
+      const innerH = height - 2 * pad;
+
+      const text = value && String(value).trim() ? String(value).toUpperCase() : '—';
+
+      // Maior tamanho (<= padrão) cujo texto quebrado caiba em innerH.
+      let size = DEFAULT_SIZE;
+      let lines = wrapText(text, font, size, innerW);
+      while (size > MIN_SIZE && lines.length * (size * LH) > innerH) {
+        size = Math.max(MIN_SIZE, size - 0.5);
+        lines = wrapText(text, font, size, innerW);
+      }
+      // Rede de segurança: se nem no mínimo couber, trunca o excedente.
+      const maxLines = Math.max(1, Math.floor(innerH / (size * LH)));
+      if (lines.length > maxLines) {
+        lines = lines.slice(0, maxLines);
+        lines[maxLines - 1] = `${lines[maxLines - 1].replace(/\s*\S*$/, '')}...`;
+      }
+
       page.drawRectangle({
         x: MARGIN,
         y: top - height,
@@ -413,10 +536,10 @@ export class SaleContractPdfService {
         color: BLACK,
         rotate: degrees(90),
       });
-      let cy = top - pad - 8;
+      let cy = top - pad - size;
       for (const line of lines) {
-        page.drawText(line, { x: MARGIN + labelW + pad, y: cy, size: 8, font, color: BLACK });
-        cy -= lineH;
+        page.drawText(line, { x: MARGIN + labelW + pad, y: cy, size, font, color: BLACK });
+        cy -= size * LH;
       }
       return height;
     };
@@ -442,10 +565,13 @@ export class SaleContractPdfService {
 
     // ---------- Cabeçalho (branco) — logo à esquerda + emissor à direita ----------
     // Espelha o contrato legado (S60): sem faixa verde; o status NÃO entra (D63).
+    // Logo à MESMA ALTURA do bloco de emissor à direita (S74): topo alinhado ao
+    // topo do nome (PAGE_H-22) e base alinhada à baseline da última linha
+    // (Telefone, PAGE_H-84) → 62pt de altura.
     if (logo) {
-      const logoH = 38;
+      const logoH = 62;
       const logoW = (logo.width / logo.height) * logoH;
-      page.drawImage(logo, { x: MARGIN, y: PAGE_H - 26 - logoH, width: logoW, height: logoH });
+      page.drawImage(logo, { x: MARGIN, y: PAGE_H - 22 - logoH, width: logoW, height: logoH });
     }
     const rightX = PAGE_W - MARGIN;
     const drawRight = (text, ty, size, bold) => {
@@ -556,27 +682,33 @@ export class SaleContractPdfService {
     y -= 16;
 
     // ---------- Banco do vendedor ----------
+    // Sem "Titular" (S74). Grid 3 colunas × 2 linhas: [Banco | Agência | Chave
+    // PIX] / [CNPJ-CPF | Conta | —]. Colunas: Banco+CNPJ, Agência+Conta, Chave
+    // PIX. Pesos 2/1/2: Banco e Chave PIX (longos) ganham largura. A Chave PIX
+    // longa (ex.: UUID) quebra em 2 linhas ocupando a célula vazia abaixo dela
+    // (wrapDown), em vez de truncar (S74). Valores em CAIXA ALTA, MENOS a chave
+    // PIX (keepCase — pode ter letras sensíveis a maiúsc/minúsc).
     const bank = contract.sellerBankSnapshot;
     y -= grayLabel('BANCO DO VENDEDOR', y);
-    y -= inlineBox(y, [
+    y -= inlineBox(
+      y,
       [
         [
-          'Banco',
-          bank
-            ? [bank.bankName, bank.compeCode ? `(${bank.compeCode})` : null]
-                .filter(Boolean)
-                .join(' ')
-            : null,
+          [
+            'Banco',
+            bank
+              ? [bank.bankName, bank.compeCode ? `(${bank.compeCode})` : null]
+                  .filter(Boolean)
+                  .join(' ')
+              : null,
+          ],
+          ['Agência', bank?.agency],
+          ['Chave PIX', bank?.pixKey, { wrapDown: 2, keepCase: true }],
         ],
-        ['Agência', bank?.agency],
-        ['Conta', bank?.accountNumber],
-        ['Chave PIX', bank?.pixKey],
+        [['CNPJ/CPF', formatDocument(bank?.holderTaxId)], ['Conta', bank?.accountNumber], null],
       ],
-      [
-        ['Titular', bank?.holderName],
-        ['CNPJ/CPF', formatDocument(bank?.holderTaxId)],
-      ],
-    ]);
+      [2, 1, 2]
+    );
     y -= 16;
 
     // ---------- Observação / Descrição (rótulo vertical) ----------
