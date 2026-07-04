@@ -8,6 +8,11 @@ import { USER_ROLES } from '../../auth/roles.js';
 import { executeApi, readPositiveInteger } from '../http-utils.js';
 import { IDEMPOTENCY_SCOPES, buildScopeKey, withIdempotency } from './idempotency-helper.js';
 import { getContractIssuer } from '../../sale-contracts/issuer-config.js';
+import {
+  APPROVAL_ELIGIBLE_STATUSES,
+  buildApprovalPrefill,
+  toApprovalContractOption,
+} from '../../sale-contracts/sale-contract-support.js';
 import { normalizeReportedHarvest } from '../../reports/export-fields.js';
 
 const loginRateLimiter = createRateLimiter({
@@ -211,6 +216,11 @@ function normalizeCustomLabelLines(rawLines) {
     };
   });
 }
+
+// Guard barato de UUID pros handlers approval-labels: id malformado em coluna
+// @db.Uuid derruba o Prisma com P2023 (500) — aqui vira 404 limpo, ja que
+// esses endpoints sao chamados por QUALQUER papel nao-PROSPECTOR.
+const APPROVAL_UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function executeApiForInput(input, handler) {
   const requestId = readHeader(input?.headers ?? {}, 'x-request-id') ?? null;
@@ -1231,6 +1241,159 @@ export function createBackendApiV1({
         });
 
         return { status: 200, body: { ok: true, updated: result.count } };
+      }),
+
+    // ============================================================
+    // Aprovacao do contrato (Fase I — D112-D119): a Etiqueta de Aprovacao
+    // vira marco AUDITADO. Seletor reduzido + prefill + envio auditado.
+    // Gate = qualquer autenticado nao-PROSPECTOR (metodos fora da allowlist
+    // do prospector); SEM posse por contrato — excecao deliberada da
+    // D110/D113: COMMERCIAL etiqueta contrato de terceiros por aqui, e
+    // CLASSIFIER/REGISTRATION/CADASTRO usam o seletor sem acesso a /contratos.
+    // NUNCA reusar a view completa do contrato nesses handlers (vaza
+    // financeiro + PII dos snapshots) — so os selects minimos abaixo.
+    // ============================================================
+
+    listApprovalContractOptions: (input) =>
+      executeApiForInput(input, async () => {
+        await resolveActorContext(input, authService);
+        // Cap fixo 500 (= teto do listSaleContracts). A busca por comprador e
+        // client-side (buyerSnapshot e JSON) — acima de 500 elegiveis os mais
+        // antigos saem da lista (a ordenacao ja e mais-recente-primeiro).
+        const rows = await queryService.prisma.saleContract.findMany({
+          where: { status: { in: [...APPROVAL_ELIGIBLE_STATUSES] } },
+          orderBy: [{ contractSeq: 'desc' }],
+          take: 500,
+          select: {
+            id: true,
+            contractNumber: true,
+            contractDate: true,
+            quantitySacks: true,
+            status: true,
+            buyerSnapshot: true,
+          },
+        });
+        return { status: 200, body: { items: rows.map(toApprovalContractOption) } };
+      }),
+
+    getApprovalLabelPrefill: (input) =>
+      executeApiForInput(input, async () => {
+        await resolveActorContext(input, authService);
+        const contractId =
+          typeof input?.params?.contractId === 'string' ? input.params.contractId.trim() : '';
+        if (contractId.length === 0) {
+          throw new HttpError(422, 'contractId e obrigatorio');
+        }
+        if (!APPROVAL_UUID_REGEX.test(contractId)) {
+          // Malformado = inexistente (404 limpo em vez de P2023/500).
+          throw new HttpError(404, 'Contrato nao encontrado');
+        }
+        const contract = await queryService.prisma.saleContract.findUnique({
+          where: { id: contractId },
+          select: {
+            id: true,
+            status: true,
+            purchaseNumber: true,
+            contractNumber: true,
+            sellerSnapshot: true,
+            sellerWarehouseSnapshot: true,
+            quantitySacks: true,
+            sampleId: true,
+          },
+        });
+        if (!contract) {
+          throw new HttpError(404, 'Contrato nao encontrado');
+        }
+        if (!APPROVAL_ELIGIBLE_STATUSES.includes(contract.status)) {
+          throw new HttpError(409, 'Contrato nao esta elegivel para aprovacao', {
+            code: 'APPROVAL_CONTRACT_NOT_ELIGIBLE',
+          });
+        }
+        // Lotes: a vista le o "Lote de origem" da amostra vinculada; Futuro
+        // (sem amostra) e liga (declaredOriginLot intencionalmente nulo)
+        // resultam em lotes vazios (D116).
+        let originLotText = null;
+        if (contract.sampleId) {
+          const sample = await queryService.prisma.sample.findUnique({
+            where: { id: contract.sampleId },
+            select: { declaredOriginLot: true },
+          });
+          originLotText = sample?.declaredOriginLot ?? null;
+        }
+        return { status: 200, body: buildApprovalPrefill({ ...contract, originLotText }) };
+      }),
+
+    sendApprovalLabel: (input) =>
+      executeApiForInput(input, async () => {
+        // CAPTURA o ator (a diferenca central pro enqueue antigo, que
+        // descartava o retorno): a auditoria exige o actorUserId.
+        const actor = await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+        const lines = normalizeCustomLabelLines(body.lines);
+        if (lines.every((line) => line.value.length === 0)) {
+          // Regra ">=1 campo" (D118) agora tambem no backend (era so no modal).
+          throw new HttpError(422, 'Preencha ao menos um campo para imprimir.', {
+            code: 'APPROVAL_LABEL_EMPTY',
+          });
+        }
+
+        const rawContractId =
+          typeof body.saleContractId === 'string' ? body.saleContractId.trim() : '';
+        const saleContractId = rawContractId.length > 0 ? rawContractId : null;
+        if (saleContractId) {
+          if (!APPROVAL_UUID_REGEX.test(saleContractId)) {
+            throw new HttpError(404, 'Contrato nao encontrado');
+          }
+          const contract = await queryService.prisma.saleContract.findUnique({
+            where: { id: saleContractId },
+            select: { status: true },
+          });
+          if (!contract) {
+            throw new HttpError(404, 'Contrato nao encontrado');
+          }
+          if (!APPROVAL_ELIGIBLE_STATUSES.includes(contract.status)) {
+            throw new HttpError(409, 'Contrato nao esta elegivel para aprovacao', {
+              code: 'APPROVAL_CONTRACT_NOT_ELIGIBLE',
+            });
+          }
+        }
+
+        // Job + auditoria na MESMA tx (D114): falha em qualquer um desfaz os
+        // dois — nunca imprime sem registrar, nem registra sem enfileirar.
+        // saleContractId NULO = etiqueta avulsa (caminho "Manual" do seletor).
+        const result = await queryService.prisma.$transaction(async (tx) => {
+          const job = await tx.customPrintJob.create({
+            data: {
+              status: 'PENDING',
+              // copies sempre 1 (o layout/impressao crava 1) — igual ao fluxo
+              // do enqueue antigo.
+              payload: { lines },
+            },
+            select: { id: true, createdAt: true },
+          });
+          const log = await tx.approvalLabelLog.create({
+            data: {
+              id: randomUUID(),
+              saleContractId,
+              actorUserId: actor.actorUserId ?? null,
+              customPrintJobId: job.id,
+              // As MESMAS linhas normalizadas que foram pro job: audita-se o
+              // ENVIO (o desfecho DONE/FAILED fica no proprio job).
+              payload: { lines },
+            },
+            select: { id: true },
+          });
+          return { job, log };
+        });
+
+        return {
+          status: 201,
+          body: {
+            id: result.log.id,
+            customPrintJobId: result.job.id,
+            createdAt: result.job.createdAt.toISOString(),
+          },
+        };
       }),
 
     // Etiqueta de Envio (fase 3): fila lida pelo print agent na fase 5. Mesma

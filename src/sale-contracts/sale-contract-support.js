@@ -768,3 +768,80 @@ export function buildBankSnapshot(account) {
     pixKey: account.pixKey ?? null,
   };
 }
+
+// ============================================================
+// Aprovacao do contrato (Fase I — D112-D119). Funcoes PURAS dos handlers
+// approval-labels do backend-api (seletor reduzido + prefill). Vivem aqui
+// por serem a "regra unica pras 2 portas" (D115): card do contrato e
+// seletor do /samples passam pelo mesmo prefill/quebra.
+// ============================================================
+
+// Limites FISICOS da etiqueta (espelham os maxChars do ApprovalLabelModal e a
+// grade de lotes do print agent). Nao confundir com os caps genericos do
+// normalizeCustomLabelLines (label 40 / value 80), que valem por cima.
+const APPROVAL_COMPRA_MAX_CHARS = 26;
+const APPROVAL_NAME_MAX_CHARS = 52;
+const APPROVAL_LOT_MAX_CHARS = 16;
+const APPROVAL_MAX_LOTS = 16;
+
+// Status que aceitam ENVIO de aprovacao (D112). WASH_OUT fica FORA — negocio
+// quebrado nao manda amostra de aprovacao (difere do Espelho, que inclui
+// WASH_OUT por conta da D105; NAO copiar a lista de la).
+export const APPROVAL_ELIGIBLE_STATUSES = Object.freeze(['EMITIDO', 'FATURADO', 'PAGO']);
+
+// Quebra do "Lote de origem" (Sample.declaredOriginLot, texto livre <=100)
+// nos campos discretos da etiqueta (D116): separadores = traco, espaco,
+// virgula e ponto-e-virgula (sequencias colapsam; pedacos vazios caem);
+// barra "/" NAO separa (pode ser composicao do lote). Pedaco >16 chars corta
+// em 16; maximo 16 pedacos (teto fisico da etiqueta).
+export function splitOriginLotForLabel(text) {
+  return String(text ?? '')
+    .split(/[-\s,;]+/)
+    .filter(Boolean)
+    .map((piece) => piece.slice(0, APPROVAL_LOT_MAX_CHARS))
+    .slice(0, APPROVAL_MAX_LOTS);
+}
+
+// Prefill da etiqueta a partir do contrato (D115): 5 campos + lotes, todos
+// EDITAVEIS no modal, cortados nos limites fisicos. Armazem = SEMPRE o do
+// VENDEDOR (decisao S76); snapshot ausente -> campo vazio. originLotText =
+// o texto original do lote de origem, exibido como referencia read-only da
+// quebra (null quando nao ha — Futuro sem amostra, liga, campo vazio).
+export function buildApprovalPrefill({
+  purchaseNumber,
+  contractNumber,
+  sellerSnapshot,
+  sellerWarehouseSnapshot,
+  quantitySacks,
+  originLotText,
+}) {
+  const originText =
+    typeof originLotText === 'string' && originLotText.trim().length > 0
+      ? originLotText.trim()
+      : null;
+  return {
+    fields: {
+      compra: String(purchaseNumber ?? '').slice(0, APPROVAL_COMPRA_MAX_CHARS),
+      fechamento: String(contractNumber ?? ''),
+      produtor: String(sellerSnapshot?.displayName ?? '').slice(0, APPROVAL_NAME_MAX_CHARS),
+      armazem: String(sellerWarehouseSnapshot?.displayName ?? '').slice(0, APPROVAL_NAME_MAX_CHARS),
+      sacas: quantitySacks === null || quantitySacks === undefined ? '' : String(quantitySacks),
+    },
+    lots: splitOriginLotForLabel(originText),
+    originLotText: originText,
+  };
+}
+
+// Item REDUZIDO do seletor de contratos (D113): allowlist EXPLICITA — nunca
+// valores financeiros (preco/total/corretagem/agio) nem snapshots crus (PII).
+// buyerName = so o displayName extraido do snapshot do comprador.
+export function toApprovalContractOption(row) {
+  return {
+    id: row.id,
+    contractNumber: row.contractNumber,
+    contractDate: toIsoString(row.contractDate),
+    quantitySacks: row.quantitySacks,
+    status: row.status,
+    buyerName: row.buyerSnapshot?.displayName ?? null,
+  };
+}

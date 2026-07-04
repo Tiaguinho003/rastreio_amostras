@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import {
+  APPROVAL_ELIGIBLE_STATUSES,
   assertBrokersResolved,
+  buildApprovalPrefill,
   buildReceivableView,
   buildSaleContractDraftFromSale,
   computeContractMoney,
@@ -16,6 +18,8 @@ import {
   normalizeUnitPrice,
   normalizeWashoutReason,
   resolveRevertTarget,
+  splitOriginLotForLabel,
+  toApprovalContractOption,
   toSaleContractView,
 } from '../src/sale-contracts/sale-contract-support.js';
 
@@ -394,4 +398,105 @@ test('buildReceivableView: 1 corretor recebe o total; soma com round2', () => {
   assert.equal(view.commissionTotal, 6.67); // 3.33 + 3.34
   assert.equal(view.brokerCount, 1);
   assert.equal(view.brokers[0].share, 6.67);
+});
+
+// ---------------------------------------------------------------------------
+// Aprovacao do contrato (Fase I, D112-D119): quebra do lote de origem (D116),
+// prefill da etiqueta (D115) e item reduzido do seletor (D113).
+
+test('splitOriginLotForLabel separa por traco, espaco, virgula e ponto-e-virgula (colapsa sequencias)', () => {
+  assert.deepEqual(splitOriginLotForLabel('111- 222,333 ; 444'), ['111', '222', '333', '444']);
+});
+
+test('splitOriginLotForLabel NAO separa por barra (composicao do lote)', () => {
+  assert.deepEqual(splitOriginLotForLabel('AB 12/3-CD'), ['AB', '12/3', 'CD']);
+});
+
+test('splitOriginLotForLabel corta pedaco em 16 chars e limita a 16 pedacos', () => {
+  assert.deepEqual(splitOriginLotForLabel('A'.repeat(20)), ['A'.repeat(16)]);
+
+  const many = Array.from({ length: 20 }, (_, i) => `L${i + 1}`).join(' ');
+  const result = splitOriginLotForLabel(many);
+  assert.equal(result.length, 16);
+  assert.equal(result[0], 'L1');
+  assert.equal(result[15], 'L16');
+});
+
+test('splitOriginLotForLabel: null/vazio/so separadores viram []', () => {
+  assert.deepEqual(splitOriginLotForLabel(null), []);
+  assert.deepEqual(splitOriginLotForLabel(''), []);
+  assert.deepEqual(splitOriginLotForLabel(' -,; - '), []);
+});
+
+test('buildApprovalPrefill corta compra em 26 e produtor/armazem em 52', () => {
+  const prefill = buildApprovalPrefill({
+    purchaseNumber: 'C'.repeat(40),
+    contractNumber: '0001/26',
+    sellerSnapshot: { displayName: 'P'.repeat(60) },
+    sellerWarehouseSnapshot: { displayName: 'W'.repeat(60) },
+    quantitySacks: 150,
+    originLotText: '111 222',
+  });
+  assert.equal(prefill.fields.compra, 'C'.repeat(26));
+  assert.equal(prefill.fields.fechamento, '0001/26');
+  assert.equal(prefill.fields.produtor, 'P'.repeat(52));
+  assert.equal(prefill.fields.armazem, 'W'.repeat(52));
+  assert.equal(prefill.fields.sacas, '150');
+  assert.deepEqual(prefill.lots, ['111', '222']);
+  assert.equal(prefill.originLotText, '111 222');
+});
+
+test('buildApprovalPrefill: compra/armazem ausentes viram vazio; sem originLot lots [] e texto null', () => {
+  const prefill = buildApprovalPrefill({
+    purchaseNumber: null,
+    contractNumber: '0002/26',
+    sellerSnapshot: { displayName: 'Vendedor' },
+    sellerWarehouseSnapshot: null,
+    quantitySacks: 10,
+    originLotText: null,
+  });
+  assert.equal(prefill.fields.compra, '');
+  assert.equal(prefill.fields.armazem, '');
+  assert.equal(prefill.fields.produtor, 'Vendedor');
+  assert.deepEqual(prefill.lots, []);
+  assert.equal(prefill.originLotText, null);
+});
+
+test('toApprovalContractOption expoe SO os campos do allowlist (trava anti-vazamento)', () => {
+  const option = toApprovalContractOption({
+    id: 'id-1',
+    contractNumber: '0003/26',
+    contractDate: new Date('2026-07-01T00:00:00Z'),
+    quantitySacks: 200,
+    status: 'EMITIDO',
+    buyerSnapshot: { displayName: 'Comprador X', cnpj: 'nunca-sair' },
+    unitPrice: '2500.00',
+    totalValue: '500000.00',
+    sellerSnapshot: { displayName: 'nunca-sair' },
+  });
+  assert.deepEqual(Object.keys(option).sort(), [
+    'buyerName',
+    'contractDate',
+    'contractNumber',
+    'id',
+    'quantitySacks',
+    'status',
+  ]);
+  assert.equal(option.buyerName, 'Comprador X');
+});
+
+test('toApprovalContractOption: buyerSnapshot nulo vira buyerName null', () => {
+  const option = toApprovalContractOption({
+    id: 'id-2',
+    contractNumber: '0004/26',
+    contractDate: new Date('2026-07-02T00:00:00Z'),
+    quantitySacks: 50,
+    status: 'PAGO',
+    buyerSnapshot: null,
+  });
+  assert.equal(option.buyerName, null);
+});
+
+test('APPROVAL_ELIGIBLE_STATUSES = EMITIDO/FATURADO/PAGO (WASH_OUT fora)', () => {
+  assert.deepEqual([...APPROVAL_ELIGIBLE_STATUSES], ['EMITIDO', 'FATURADO', 'PAGO']);
 });
