@@ -425,7 +425,10 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
         ...(isAdmin(session.user.role) || session.user.role === 'CADASTRO'
           ? [CADASTROS_NAV_ITEM]
           : []),
-        ...(isAdmin(session.user.role) ? [CONTRATOS_NAV_ITEM, ADMIN_NAV_ITEM] : []),
+        // S74: Contratos agora ADMIN + COMMERCIAL (mesmo conjunto do Financeiro);
+        // Usuários (ADMIN_NAV_ITEM) segue ADMIN-only.
+        ...(isRoleAllowed(session.user.role, FINANCEIRO_ROLES) ? [CONTRATOS_NAV_ITEM] : []),
+        ...(isAdmin(session.user.role) ? [ADMIN_NAV_ITEM] : []),
       ];
   const mobileRouteMeta = resolveMobileRouteMeta(pathname);
   const isCameraRoute = pathname === '/camera';

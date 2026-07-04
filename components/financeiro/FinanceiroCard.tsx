@@ -12,16 +12,27 @@ const STATUS_LABEL: Record<string, string> = {
   EMITIDO: 'Emitido',
   FATURADO: 'Faturado',
   PAGO: 'Pago',
+  WASH_OUT: 'Washout',
 };
 const STATUS_COLOR: Record<string, string> = {
-  EMITIDO: '#16a34a',
+  EMITIDO: '#eab308', // amarelo
   FATURADO: '#0d9488',
   PAGO: '#15803d',
+  WASH_OUT: '#dc2626', // vermelho (D105: aparece no Financeiro, corretagem mantida)
+};
+// Texto do selo: igual à barra, exceto o Emitido (amarelo vivo sumiria no fundo
+// claro → usa um amarelo escuro legível).
+const STATUS_TEXT_COLOR: Record<string, string> = {
+  EMITIDO: '#a16207',
+  FATURADO: '#0d9488',
+  PAGO: '#15803d',
+  WASH_OUT: '#dc2626',
 };
 const STATUS_TINT: Record<string, string> = {
-  EMITIDO: '#dcfce7',
+  EMITIDO: '#fef9c3', // amarelo claro
   FATURADO: '#ccfbf1',
   PAGO: '#dcfce7',
+  WASH_OUT: '#fee2e2',
 };
 
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -44,6 +55,7 @@ type FinanceiroCardProps = {
 export function FinanceiroCard({ item, mode, isExpanded, onToggle }: FinanceiroCardProps) {
   const isAdmin = mode === 'admin';
   const color = STATUS_COLOR[item.status] ?? '#16a34a';
+  const textColor = STATUS_TEXT_COLOR[item.status] ?? color;
   const tint = STATUS_TINT[item.status] ?? '#dcfce7';
   const label = STATUS_LABEL[item.status] ?? item.status;
   const corretagem = isAdmin ? item.commissionTotal : (item.myShare ?? 0);
@@ -55,7 +67,7 @@ export function FinanceiroCard({ item, mode, isExpanded, onToggle }: FinanceiroC
         <span className="fin-card-main">
           <span className="fin-card-top">
             <span className="fin-card-number">{item.contractNumber}</span>
-            <span className="fin-card-status" style={{ color, background: tint }}>
+            <span className="fin-card-status" style={{ color: textColor, background: tint }}>
               {label}
             </span>
           </span>

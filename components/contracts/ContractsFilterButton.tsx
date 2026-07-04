@@ -34,7 +34,6 @@ export const EMPTY_CONTRACT_FILTERS: ContractFilters = {
 
 // Status: rotulo PT <-> codigo. A ordem define a ordem dos chips no modal.
 export const STATUS_LABELS: { label: string; value: SaleContractStatus }[] = [
-  { label: 'Em aberto', value: 'EM_ABERTO' },
   { label: 'Emitido', value: 'EMITIDO' },
   { label: 'Faturado', value: 'FATURADO' },
   { label: 'Pago', value: 'PAGO' },

@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import { ApiError, downloadEspelhoPdf } from '../../lib/api-client';
+import { ApiError, downloadEspelhoPdf, getSaleContract } from '../../lib/api-client';
 import { downloadFile, shareOrDownloadFile } from '../../lib/share-blob';
 import { useFocusTrap } from '../../lib/use-focus-trap';
-import type { SaleContract, SessionData } from '../../lib/types';
+import type { SaleContract, SaleContractDetail, SessionData } from '../../lib/types';
 
 type EspelhoSide = 'seller' | 'buyer';
 
@@ -39,12 +39,18 @@ export function EspelhoCorretagemModal({
   onClose,
 }: EspelhoCorretagemModalProps) {
   const focusTrapRef = useFocusTrap(true);
+  // Re-busca o contrato FRESCO ao abrir: o resumo (Cliente/Comissão) usava o
+  // objeto da lista (cache), que pode estar defasado (ex.: ágio aplicado por
+  // outro ADMIN após a lista carregar) — divergindo do PDF, gerado no servidor.
+  // Com a re-busca o resumo casa com o PDF; fallback = o prop `contract` (S74).
+  const [detail, setDetail] = useState<SaleContractDetail | null>(null);
+  const view: SaleContract = detail ?? contract;
   // O espelho é direcionado a quem paga corretagem: os lados disponíveis são os
   // que têm corretagem PREENCHIDA (> 0). Só vendedor → só "Vendedor"; só
   // comprador → só "Comprador"; ambos → os dois. Fallback (nenhum preenchido):
   // oferece os dois, p/ não travar o modal.
-  const hasSeller = (contract.sellerBrokeragePct ?? 0) > 0;
-  const hasBuyer = (contract.buyerBrokeragePct ?? 0) > 0;
+  const hasSeller = (view.sellerBrokeragePct ?? 0) > 0;
+  const hasBuyer = (view.buyerBrokeragePct ?? 0) > 0;
   const availableSides: EspelhoSide[] =
     hasSeller && hasBuyer
       ? ['seller', 'buyer']
@@ -60,11 +66,24 @@ export function EspelhoCorretagemModal({
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<{ blob: Blob; fileName: string } | null>(null);
 
-  const clientName = snapshotName(
-    side === 'seller' ? contract.sellerSnapshot : contract.buyerSnapshot
-  );
-  const commission =
-    side === 'seller' ? contract.sellerBrokerageValue : contract.buyerBrokerageValue;
+  const clientName = snapshotName(side === 'seller' ? view.sellerSnapshot : view.buyerSnapshot);
+  const commission = side === 'seller' ? view.sellerBrokerageValue : view.buyerBrokerageValue;
+
+  // Re-busca o contrato fresco ao abrir (mantém o resumo alinhado ao PDF, S74).
+  useEffect(() => {
+    let aborted = false;
+    (async () => {
+      try {
+        const { contract: fresh } = await getSaleContract(session, contract.id);
+        if (!aborted) setDetail(fresh);
+      } catch {
+        /* mantém o resumo do prop como fallback */
+      }
+    })();
+    return () => {
+      aborted = true;
+    };
+  }, [session, contract.id]);
 
   // Busca o PDF do lado atual; re-busca ao trocar de lado (regeneração on-demand).
   useEffect(() => {

@@ -43,15 +43,21 @@ import type {
 } from '../../lib/types';
 
 // Espelho de Corretagem (Fase E): só contratos congelados podem gerar o espelho (D73).
-const ESPELHO_ELIGIBLE: SaleContractStatus[] = ['EMITIDO', 'FATURADO', 'PAGO'];
+// D105: WASH_OUT também é elegível (o corretor recebe a comissão mesmo com washout).
+const ESPELHO_ELIGIBLE: SaleContractStatus[] = ['EMITIDO', 'FATURADO', 'PAGO', 'WASH_OUT'];
 
 const STATUS_OPTION_LABELS = STATUS_LABELS.map((s) => s.label);
 const TYPE_OPTION_LABELS = TYPE_LABELS.map((t) => t.label);
 
 export default function ContratosPage() {
   const { session, loading, logout, setSession } = useRequireAuth({
-    allowedRoles: ['ADMIN'],
+    // S74: COMMERCIAL acessa /contratos (filtrada aos contratos dele pelo backend).
+    // Fase 1 = só-leitura + Espelho; gestão (criar/editar/faturar/...) segue ADMIN.
+    allowedRoles: ['ADMIN', 'COMMERCIAL'],
   });
+  // Fase 2 (D110): ADMIN e COMMERCIAL gerenciam (a página guarda só esses dois; o
+  // backend filtra/autoriza aos contratos do corretor). Todos aqui podem gerenciar.
+  const canManage = Boolean(session);
   const toast = useToast();
 
   const [contracts, setContracts] = useState<SaleContract[]>([]);
@@ -474,6 +480,7 @@ export default function ContratosPage() {
               .clients-page-v2 .hero-search-wrap .cv2-fab), flutuante no mobile. */}
           {!espelhoMode ? (
             <ContractCreateRadialFab
+              canCreate={canManage}
               onCreateSpot={() => setSpotPickerOpen(true)}
               onCreateFuture={() => setFutureOpen(true)}
               onCreateEspelho={() => setEspelhoMode(true)}
@@ -524,8 +531,6 @@ export default function ContratosPage() {
                       contract={contract}
                       isExpanded={expandedIds.has(contract.id)}
                       onToggle={() => toggleExpand(contract.id)}
-                      onGerar={() => setEtapa2({ contractId: contract.id })}
-                      onCancelar={() => openLifecycle('cancel')}
                       onEditar={() => setEtapa2({ contractId: contract.id })}
                       onVisualizar={() =>
                         setDocModal({
@@ -534,6 +539,7 @@ export default function ContratosPage() {
                         })
                       }
                       onApplyAgio={(type) => setAgioTarget({ contract, agioType: type })}
+                      canManage={canManage}
                       onFaturar={() => openLifecycle('invoice')}
                       onPagar={() => openLifecycle('pay')}
                       onReverter={() => openLifecycle('revert')}
@@ -658,11 +664,9 @@ export default function ContratosPage() {
                   ? 'Pagamento registrado'
                   : action === 'washout'
                     ? 'Washout realizado'
-                    : action === 'cancel'
-                      ? 'Contrato cancelado'
-                      : status === 'PAGO'
-                        ? 'Pagamento desfeito'
-                        : 'Faturamento desfeito';
+                    : status === 'PAGO'
+                      ? 'Pagamento desfeito'
+                      : 'Faturamento desfeito';
             toast.success({ title });
           }}
         />

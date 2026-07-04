@@ -25,6 +25,9 @@ interface ContractCreateRadialFabProps {
   onCreateFuture: () => void;
   onCreateEspelho: () => void;
   disabled?: boolean;
+  // Fase 1 (S74): o COMMERCIAL não cria contrato — o FAB vira um gatilho DIRETO
+  // do Espelho (sem o leque de criação). Default true (ADMIN: leque completo).
+  canCreate?: boolean;
 }
 
 // Duração do fechamento — bate com a transition de transform do
@@ -36,6 +39,7 @@ export function ContractCreateRadialFab({
   onCreateFuture,
   onCreateEspelho,
   disabled,
+  canCreate = true,
 }: ContractCreateRadialFabProps) {
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
@@ -104,6 +108,12 @@ export function ContractCreateRadialFab({
 
   const handleMainTap = () => {
     if (disabled) return;
+    // COMMERCIAL (Fase 1): sem criar contrato — o FAB dispara direto o modo de
+    // seleção do Espelho, sem abrir o leque.
+    if (!canCreate) {
+      onCreateEspelho();
+      return;
+    }
     if (open) closeMenu();
     else openMenu();
   };
@@ -229,7 +239,13 @@ export function ContractCreateRadialFab({
       <button
         type="button"
         className={`cv2-fab${fabIsExpanded ? ' is-expanded' : ''}`}
-        aria-label={open ? 'Fechar opções de contrato' : 'Novo contrato'}
+        aria-label={
+          !canCreate
+            ? 'Gerar Espelho de Corretagem'
+            : open
+              ? 'Fechar opções de contrato'
+              : 'Novo contrato'
+        }
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={handleMainTap}

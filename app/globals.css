@@ -35223,6 +35223,53 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   width: 100%;
   min-width: 0;
 }
+
+/* ── Emissão do contrato — DESKTOP: modal MAIOR e centralizado na ÁREA DE
+   CONTEÚDO (S74). Escopado a .ctr-contract-sheet (exclusivo deste modal) — NÃO
+   afeta os outros sheets/modais. Os wrappers .ctr-etapa2-cols/-col e .ctr-pair
+   são `display: contents` no mobile (layout idêntico ao atual, coluna única) e
+   viram 2 colunas de seções + pares de campos só no desktop, pra caber sem
+   scroll (scroll fica só como fallback em telas baixas). ── */
+.ctr-etapa2-cols,
+.ctr-etapa2-col,
+.ctr-pair {
+  display: contents;
+}
+@media (min-width: 901px) {
+  .bottom-sheet.ctr-contract-sheet {
+    /* grande com respiro: ~80% da área de conteúdo (viewport − sidebar 220px) */
+    width: min(1180px, calc((100vw - var(--app-sidebar-w, 220px)) * 0.8));
+    max-width: min(1180px, calc((100vw - var(--app-sidebar-w, 220px)) * 0.8));
+    /* centraliza na área de conteúdo, à direita da sidebar (desloca metade dela);
+       o transform translate(-50%,-50%) da regra base segue centralizando no eixo Y */
+    left: calc(50% + var(--app-sidebar-w, 220px) / 2);
+    /* mais alto: sem o teto de 44rem. Scroll (body) só se exceder 88dvh */
+    max-height: 88dvh;
+  }
+  /* Seções em 2 colunas: Venda/Vendedor/Comprador · Pagamento/Valores/Textos */
+  .ctr-etapa2-content .ctr-etapa2-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(0.9rem, 1.4vw, 1.4rem);
+    align-items: start;
+  }
+  .ctr-etapa2-content .ctr-etapa2-col {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(0.8rem, 1.2vw, 1rem);
+  }
+  /* Pares de campos lado a lado; com 1 campo (ex.: filial ausente em PJ) ele
+     ocupa a linha inteira (flex: 1). */
+  .ctr-etapa2-content .ctr-pair {
+    display: flex;
+    gap: 0.6rem;
+    align-items: flex-start;
+  }
+  .ctr-etapa2-content .ctr-pair > * {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
 /* Picker de lote: o corpo do sheet vira coluna flex pra a lista (.lotpick-list,
    flex:1 + overflow) esticar e rolar — hint/busca ficam fixos no topo e o
    scroll infinito (root = .lotpick-list) segue funcionando. */

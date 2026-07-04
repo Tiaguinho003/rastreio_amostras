@@ -17,7 +17,6 @@ import type {
 // congelado) ficam esmaecidos e nao selecionaveis.
 
 const STATUS_META: Record<SaleContractStatus, { label: string; variant: string }> = {
-  EM_ABERTO: { label: 'Em aberto', variant: 'status-badge-neutral' },
   EMITIDO: { label: 'Emitido', variant: 'status-badge-success' },
   FATURADO: { label: 'Faturado', variant: 'status-badge-muted' },
   PAGO: { label: 'Pago', variant: 'status-badge-muted' },
@@ -26,8 +25,7 @@ const STATUS_META: Record<SaleContractStatus, { label: string; variant: string }
 
 // Cor da barra lateral por status (decisao: distintas por status).
 const STATUS_BAR_COLOR: Record<SaleContractStatus, string> = {
-  EM_ABERTO: '#3b82f6', // azul
-  EMITIDO: '#16a34a', // verde
+  EMITIDO: '#eab308', // amarelo
   FATURADO: '#0d9488', // azul-petroleo (teal)
   PAGO: '#15803d', // verde-escuro
   WASH_OUT: '#dc2626', // vermelho
@@ -35,11 +33,20 @@ const STATUS_BAR_COLOR: Record<SaleContractStatus, string> = {
 
 // Fundo (tint claro) do selo de status — combina com a cor do texto/barra.
 const STATUS_TINT: Record<SaleContractStatus, string> = {
-  EM_ABERTO: '#dbeafe',
-  EMITIDO: '#dcfce7',
+  EMITIDO: '#fef9c3', // amarelo claro
   FATURADO: '#ccfbf1',
   PAGO: '#dcfce7',
   WASH_OUT: '#fee2e2',
+};
+
+// Cor do TEXTO do selo. Igual à barra, EXCETO o Emitido: a barra é amarelo vivo
+// (#eab308), que sumiria como texto no fundo claro — então o selo usa um amarelo
+// escuro legível.
+const STATUS_TEXT_COLOR: Record<SaleContractStatus, string> = {
+  EMITIDO: '#a16207', // amarelo-escuro (legível no selo)
+  FATURADO: '#0d9488',
+  PAGO: '#15803d',
+  WASH_OUT: '#dc2626',
 };
 
 const TYPE_LABEL: Record<SaleContractType, string> = {
@@ -70,8 +77,6 @@ type SaleContractCardProps = {
   contract: SaleContract;
   isExpanded: boolean;
   onToggle: () => void;
-  onGerar: () => void;
-  onCancelar: () => void;
   onEditar: () => void;
   onFaturar: () => void;
   onPagar: () => void;
@@ -80,6 +85,10 @@ type SaleContractCardProps = {
   onVisualizar: () => void;
   // Aplicar agio/desagio (D87): so em EMITIDO; abre o dialogo com o sinal.
   onApplyAgio: (type: AgioDesagioType) => void;
+  // S74: gestao dos contratos (Editar/Faturar/Pagar/Desfazer/Washout/Agio) so
+  // pra quem pode gerenciar (ADMIN; COMMERCIAL na Fase 2). COMMERCIAL na Fase 1
+  // ve so "Visualizar". Default true.
+  canManage?: boolean;
   // Modo de selecao p/ o Espelho de Corretagem (Fase E): o card vira botao de
   // selecao; inelegiveis (status != EMITIDO/FATURADO/PAGO) ficam esmaecidos.
   espelhoMode?: boolean;
@@ -92,8 +101,6 @@ export function SaleContractCard({
   contract,
   isExpanded,
   onToggle,
-  onGerar,
-  onCancelar,
   onEditar,
   onFaturar,
   onPagar,
@@ -101,6 +108,7 @@ export function SaleContractCard({
   onWashout,
   onVisualizar,
   onApplyAgio,
+  canManage = true,
   espelhoMode = false,
   espelhoEligible = false,
   espelhoReason,
@@ -122,7 +130,7 @@ export function SaleContractCard({
           <span
             className="ctr-card-status"
             style={{
-              color: STATUS_BAR_COLOR[contract.status],
+              color: STATUS_TEXT_COLOR[contract.status],
               background: STATUS_TINT[contract.status],
             }}
           >
@@ -239,55 +247,60 @@ export function SaleContractCard({
           ) : null}
 
           <div className="ctr-card-actions">
-            {contract.status === 'EM_ABERTO' ? (
-              <>
-                <button type="button" className="ctr-btn ctr-btn-primary" onClick={onGerar}>
-                  Emitir
-                </button>
-                <button type="button" className="ctr-btn ctr-btn-danger" onClick={onCancelar}>
-                  Cancelar
-                </button>
-              </>
-            ) : null}
             {contract.status === 'EMITIDO' ? (
               <>
-                <button type="button" className="ctr-btn" onClick={onEditar}>
-                  Editar
-                </button>
-                <button type="button" className="ctr-btn ctr-btn-primary" onClick={onFaturar}>
-                  Faturado
-                </button>
-                <button type="button" className="ctr-btn" onClick={onPagar}>
-                  Pago
-                </button>
+                {canManage ? (
+                  <>
+                    <button type="button" className="ctr-btn" onClick={onEditar}>
+                      Editar
+                    </button>
+                    <button type="button" className="ctr-btn ctr-btn-primary" onClick={onFaturar}>
+                      Faturado
+                    </button>
+                  </>
+                ) : null}
                 <button type="button" className="ctr-btn" onClick={onVisualizar}>
                   Visualizar
                 </button>
-                <button type="button" className="ctr-btn" onClick={() => onApplyAgio('AGIO')}>
-                  Ágio
-                </button>
-                <button type="button" className="ctr-btn" onClick={() => onApplyAgio('DESAGIO')}>
-                  Deságio
-                </button>
-                <button type="button" className="ctr-btn ctr-btn-danger" onClick={onWashout}>
-                  Washout
-                </button>
+                {canManage ? (
+                  <>
+                    <button type="button" className="ctr-btn" onClick={() => onApplyAgio('AGIO')}>
+                      Ágio
+                    </button>
+                    <button
+                      type="button"
+                      className="ctr-btn"
+                      onClick={() => onApplyAgio('DESAGIO')}
+                    >
+                      Deságio
+                    </button>
+                    <button type="button" className="ctr-btn ctr-btn-danger" onClick={onWashout}>
+                      Washout
+                    </button>
+                  </>
+                ) : null}
               </>
             ) : null}
             {contract.status === 'FATURADO' ? (
               <>
-                <button type="button" className="ctr-btn ctr-btn-primary" onClick={onPagar}>
-                  Pago
-                </button>
+                {canManage ? (
+                  <button type="button" className="ctr-btn ctr-btn-primary" onClick={onPagar}>
+                    Pago
+                  </button>
+                ) : null}
                 <button type="button" className="ctr-btn" onClick={onVisualizar}>
                   Visualizar
                 </button>
-                <button type="button" className="ctr-btn" onClick={onReverter}>
-                  Desfazer
-                </button>
-                <button type="button" className="ctr-btn ctr-btn-danger" onClick={onWashout}>
-                  Washout
-                </button>
+                {canManage ? (
+                  <>
+                    <button type="button" className="ctr-btn" onClick={onReverter}>
+                      Desfazer
+                    </button>
+                    <button type="button" className="ctr-btn ctr-btn-danger" onClick={onWashout}>
+                      Washout
+                    </button>
+                  </>
+                ) : null}
               </>
             ) : null}
             {contract.status === 'PAGO' ? (
@@ -295,12 +308,16 @@ export function SaleContractCard({
                 <button type="button" className="ctr-btn" onClick={onVisualizar}>
                   Visualizar
                 </button>
-                <button type="button" className="ctr-btn" onClick={onReverter}>
-                  Desfazer
-                </button>
-                <button type="button" className="ctr-btn ctr-btn-danger" onClick={onWashout}>
-                  Washout
-                </button>
+                {canManage ? (
+                  <>
+                    <button type="button" className="ctr-btn" onClick={onReverter}>
+                      Desfazer
+                    </button>
+                    <button type="button" className="ctr-btn ctr-btn-danger" onClick={onWashout}>
+                      Washout
+                    </button>
+                  </>
+                ) : null}
               </>
             ) : null}
             {contract.status === 'WASH_OUT' ? (
