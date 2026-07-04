@@ -913,6 +913,25 @@ model SaleContractAgioLog {
   @@map("sale_contract_agio_log")
 }
 
+// Auditoria da Etiqueta de Aprovacao (Fase I, D107/D112-D119): 1 linha por
+// ENVIO (1:N por contrato). saleContractId NULO = etiqueta avulsa (caminho
+// "Manual" do seletor) — sem coluna booleana, derivavel do vinculo (D114).
+// payload = { lines } exatamente como enfileiradas no custom_print_job
+// (pos-edicao do usuario); o desfecho DONE/FAILED fica no job — audita-se o
+// ENVIO. Write-only na Fase I (timeline do modal de Detalhes vem depois).
+// Sem @relation (FKs so no SQL, padrao do dominio).
+model ApprovalLabelLog {
+  id               String   @id @db.Uuid
+  saleContractId   String?  @map("sale_contract_id") @db.Uuid
+  actorUserId      String?  @map("actor_user_id") @db.Uuid
+  customPrintJobId String   @map("custom_print_job_id") @db.Uuid
+  payload          Json
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([saleContractId, createdAt], map: "idx_approval_label_log_contract_created")
+  @@map("approval_label_log")
+}
+
 model SampleMovement {
   id                  String               @id @db.Uuid
   sampleId            String               @map("sample_id") @db.Uuid
