@@ -3306,6 +3306,8 @@ export class SampleCommandService {
             await tx.washoutSaleContractByMovement(rootMovement.id, {
               reason: normalizedReason,
               at: new Date(),
+              // Fase J (D123): marco WASH_OUT auditado com o ator do cancel.
+              actorUserId: actor?.actorUserId ?? null,
             });
           }
         : null;
@@ -3754,6 +3756,8 @@ export class SampleCommandService {
           await tx.washoutSaleContractByMovement(movement.id, {
             reason: normalizeRequiredText(input.reasonText, 'reasonText', 500),
             at: new Date(),
+            // Fase J (D123): marco WASH_OUT auditado com o ator do cancel.
+            actorUserId: actor?.actorUserId ?? null,
           });
         }
       );

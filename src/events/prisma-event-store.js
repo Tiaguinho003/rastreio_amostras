@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { Prisma } from '@prisma/client';
 
 // Fechamento (Fase B.2): chave fixa do advisory lock transacional que serializa
@@ -477,7 +479,10 @@ class PrismaEventStoreTx {
   // invoicedAt/paidAt — registro do que ocorreu antes da quebra). Ja WASH_OUT
   // (ou sem contrato) -> no-op. O contrato NUNCA e apagado (o "Excluir" saiu na
   // S72); o corretor mantem a comissao (aparece no Financeiro/Espelho).
-  async washoutSaleContractByMovement(movementId, { reason = null, at = null } = {}) {
+  async washoutSaleContractByMovement(
+    movementId,
+    { reason = null, at = null, actorUserId = null } = {}
+  ) {
     const existing = await this.tx.saleContract.findFirst({
       where: { movementId },
       select: { id: true, status: true },
@@ -492,6 +497,17 @@ class PrismaEventStoreTx {
         washoutReason: reason,
         washoutAt: at ?? new Date(),
         version: { increment: 1 },
+      },
+    });
+    // Fase J (D123): marco WASH_OUT auditado (quem + quando + motivo) na MESMA
+    // tx da quebra — cobre o caminho da venda a vista (cancel do movimento).
+    await this.tx.saleContractStatusLog.create({
+      data: {
+        id: randomUUID(),
+        saleContractId: existing.id,
+        toStatus: 'WASH_OUT',
+        reason,
+        actorUserId,
       },
     });
     return { id: existing.id, action: 'WASH_OUT' };

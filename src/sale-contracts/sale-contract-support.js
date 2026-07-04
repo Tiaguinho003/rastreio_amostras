@@ -845,3 +845,139 @@ export function toApprovalContractOption(row) {
     buyerName: row.buyerSnapshot?.displayName ?? null,
   };
 }
+
+// ============================================================
+// Timeline do modal de Detalhes (Fase J — D125). Agrega as auditorias do
+// contrato numa lista unica em ordem DECRESCENTE. Funcao PURA
+// (unit-testavel); o service busca as linhas e resolve os nomes dos atores
+// (as satelites nao tem @relation com User — join manual via app_user).
+// ============================================================
+
+function timelineActorName(usersById, actorUserId) {
+  if (!actorUserId) return null;
+  const user = usersById?.[actorUserId] ?? null;
+  return user?.fullName ?? user?.username ?? null;
+}
+
+export function buildContractTimeline({
+  contract,
+  exports: exportRows = [],
+  agioLogs = [],
+  approvalLogs = [],
+  statusLogs = [],
+  espelhoLogs = [],
+  usersById = {},
+}) {
+  const items = [];
+
+  // Criacao + edicoes: SaleContractExport (1 linha por (re)emissao). A mais
+  // ANTIGA e a criacao; as demais sao edicoes ("Editar" re-emite — D66/D97).
+  const orderedExports = [...exportRows].sort(
+    (a, b) => new Date(a.generatedAt) - new Date(b.generatedAt)
+  );
+  orderedExports.forEach((row, index) => {
+    items.push({
+      id: `export-${row.id}`,
+      kind: index === 0 ? 'CRIACAO' : 'EDICAO',
+      at: toIsoString(row.generatedAt),
+      actorUserId: row.generatedByUserId ?? null,
+      actorName: timelineActorName(usersById, row.generatedByUserId),
+    });
+  });
+
+  for (const row of agioLogs) {
+    items.push({
+      id: `agio-${row.id}`,
+      kind: 'AGIO',
+      at: toIsoString(row.appliedAt),
+      actorUserId: row.appliedByUserId ?? null,
+      actorName: timelineActorName(usersById, row.appliedByUserId),
+      agioDesagioType: row.agioDesagioType,
+      agioDesagioValue: decimalToNumber(row.agioDesagioValue),
+    });
+  }
+
+  // Aprovacoes: linha D118/D119 — "ha X tempo" + quem + "Aprovacao enviada"
+  // (sem payload/drill-down; avulsas ficam de fora pelo filtro por contrato).
+  for (const row of approvalLogs) {
+    items.push({
+      id: `aprovacao-${row.id}`,
+      kind: 'APROVACAO',
+      at: toIsoString(row.createdAt),
+      actorUserId: row.actorUserId ?? null,
+      actorName: timelineActorName(usersById, row.actorUserId),
+    });
+  }
+
+  for (const row of statusLogs) {
+    items.push({
+      id: `status-${row.id}`,
+      kind: 'STATUS',
+      at: toIsoString(row.createdAt),
+      actorUserId: row.actorUserId ?? null,
+      actorName: timelineActorName(usersById, row.actorUserId),
+      toStatus: row.toStatus,
+      reason: row.reason ?? null,
+      legacy: false,
+    });
+  }
+
+  for (const row of espelhoLogs) {
+    items.push({
+      id: `espelho-${row.id}`,
+      kind: 'ESPELHO',
+      at: toIsoString(row.createdAt),
+      actorUserId: row.actorUserId ?? null,
+      actorName: timelineActorName(usersById, row.actorUserId),
+      side: row.side,
+    });
+  }
+
+  // Marcos LEGADOS (anteriores a sale_contract_status_log — D123): o contrato
+  // tem a data mas nenhuma linha auditada correspondente -> entra uma linha
+  // so-com-data (sem autor).
+  const hasStatusLog = (status) => statusLogs.some((row) => row.toStatus === status);
+  if (contract?.invoicedAt && !hasStatusLog('FATURADO')) {
+    items.push({
+      id: 'legacy-faturado',
+      kind: 'STATUS',
+      at: toIsoString(contract.invoicedAt),
+      actorUserId: null,
+      actorName: null,
+      toStatus: 'FATURADO',
+      reason: null,
+      legacy: true,
+    });
+  }
+  if (contract?.paidAt && !hasStatusLog('PAGO')) {
+    items.push({
+      id: 'legacy-pago',
+      kind: 'STATUS',
+      at: toIsoString(contract.paidAt),
+      actorUserId: null,
+      actorName: null,
+      toStatus: 'PAGO',
+      reason: null,
+      legacy: true,
+    });
+  }
+  if (contract?.washoutAt && !hasStatusLog('WASH_OUT')) {
+    items.push({
+      id: 'legacy-washout',
+      kind: 'STATUS',
+      at: toIsoString(contract.washoutAt),
+      actorUserId: null,
+      actorName: null,
+      toStatus: 'WASH_OUT',
+      reason: contract.washoutReason ?? null,
+      legacy: true,
+    });
+  }
+
+  // Mais recente primeiro; empate desempata por id (estavel entre chamadas).
+  return items.sort((a, b) => {
+    const diff = new Date(b.at) - new Date(a.at);
+    if (diff !== 0) return diff;
+    return a.id < b.id ? 1 : -1;
+  });
+}

@@ -5,6 +5,7 @@ import {
   APPROVAL_ELIGIBLE_STATUSES,
   assertBrokersResolved,
   buildApprovalPrefill,
+  buildContractTimeline,
   buildReceivableView,
   buildSaleContractDraftFromSale,
   computeContractMoney,
@@ -499,4 +500,104 @@ test('toApprovalContractOption: buyerSnapshot nulo vira buyerName null', () => {
 
 test('APPROVAL_ELIGIBLE_STATUSES = EMITIDO/FATURADO/PAGO (WASH_OUT fora)', () => {
   assert.deepEqual([...APPROVAL_ELIGIBLE_STATUSES], ['EMITIDO', 'FATURADO', 'PAGO']);
+});
+
+// ---------------------------------------------------------------------------
+// Fase J (D125): buildContractTimeline — agregacao pura do timeline do modal
+// de Detalhes (criacao/edicoes, agio, aprovacoes, marcos, espelhos + legados).
+
+test('buildContractTimeline: ordena DESC e separa criacao (export mais antigo) de edicoes', () => {
+  const items = buildContractTimeline({
+    contract: {},
+    exports: [
+      { id: 'e2', generatedAt: '2026-07-02T10:00:00Z', generatedByUserId: 'u1' },
+      { id: 'e1', generatedAt: '2026-07-01T10:00:00Z', generatedByUserId: 'u1' },
+    ],
+    usersById: { u1: { id: 'u1', fullName: 'Flavio O', username: 'flavio' } },
+  });
+  assert.deepEqual(
+    items.map((item) => item.kind),
+    ['EDICAO', 'CRIACAO']
+  );
+  assert.equal(items[1].id, 'export-e1');
+  assert.equal(items[0].actorName, 'Flavio O');
+});
+
+test('buildContractTimeline: marcos legados entram SO quando nao ha StatusLog correspondente', () => {
+  const contract = {
+    invoicedAt: '2026-07-10T00:00:00Z',
+    paidAt: '2026-07-20T00:00:00Z',
+    washoutAt: null,
+    washoutReason: null,
+  };
+  const semLog = buildContractTimeline({ contract });
+  assert.deepEqual(
+    semLog.map((item) => [item.kind, item.toStatus, item.legacy, item.actorName]),
+    [
+      ['STATUS', 'PAGO', true, null],
+      ['STATUS', 'FATURADO', true, null],
+    ]
+  );
+
+  const comLog = buildContractTimeline({
+    contract,
+    statusLogs: [
+      {
+        id: 's1',
+        toStatus: 'FATURADO',
+        reason: null,
+        actorUserId: 'u1',
+        createdAt: '2026-07-10T12:00:00Z',
+      },
+      {
+        id: 's2',
+        toStatus: 'PAGO',
+        reason: null,
+        actorUserId: 'u1',
+        createdAt: '2026-07-20T12:00:00Z',
+      },
+    ],
+    usersById: { u1: { id: 'u1', fullName: null, username: 'italo' } },
+  });
+  // Nada duplica: 2 marcos auditados, zero legados; nome cai pro username.
+  assert.equal(comLog.length, 2);
+  assert.ok(comLog.every((item) => item.legacy === false));
+  assert.ok(comLog.every((item) => item.actorName === 'italo'));
+});
+
+test('buildContractTimeline: agio/aprovacao/espelho mapeiam campos e washout legado carrega o motivo', () => {
+  const items = buildContractTimeline({
+    contract: { washoutAt: '2026-07-30T00:00:00Z', washoutReason: 'Negocio desfeito' },
+    agioLogs: [
+      {
+        id: 'a1',
+        appliedAt: '2026-07-05T10:00:00Z',
+        appliedByUserId: 'u1',
+        agioDesagioType: 'AGIO',
+        agioDesagioValue: { toNumber: () => 5 },
+      },
+    ],
+    approvalLogs: [{ id: 'p1', createdAt: '2026-07-06T10:00:00Z', actorUserId: 'u2' }],
+    espelhoLogs: [
+      { id: 'x1', createdAt: '2026-07-07T10:00:00Z', actorUserId: 'u9', side: 'seller' },
+    ],
+    usersById: { u1: { fullName: 'Flavio' }, u2: { fullName: 'Italo' } },
+  });
+
+  const agio = items.find((item) => item.kind === 'AGIO');
+  assert.equal(agio.agioDesagioType, 'AGIO');
+  assert.equal(agio.agioDesagioValue, 5);
+  assert.equal(agio.actorName, 'Flavio');
+
+  const aprovacao = items.find((item) => item.kind === 'APROVACAO');
+  assert.equal(aprovacao.actorName, 'Italo');
+
+  const espelho = items.find((item) => item.kind === 'ESPELHO');
+  assert.equal(espelho.side, 'seller');
+  assert.equal(espelho.actorName, null); // u9 nao resolvido -> null
+
+  const washout = items.find((item) => item.kind === 'STATUS');
+  assert.equal(washout.toStatus, 'WASH_OUT');
+  assert.equal(washout.legacy, true);
+  assert.equal(washout.reason, 'Negocio desfeito');
 });

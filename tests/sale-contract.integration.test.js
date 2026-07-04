@@ -74,7 +74,7 @@ if (!databaseUrl || !databaseReachable) {
     // CASCADE de `sample` NAO limpa os contratos, entao truncamos as tabelas do
     // contrato explicitamente pra cada teste comecar sem contratos residuais.
     await prisma.$executeRawUnsafe(
-      'TRUNCATE TABLE sale_contract_agio_log, sale_contract_export, sale_contract_broker, sale_contract, client_audit_event, sample_movement, sample_blend_component, client_unit, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
+      'TRUNCATE TABLE sale_contract_status_log, sale_contract_espelho_log, approval_label_log, custom_print_job, sale_contract_agio_log, sale_contract_export, sale_contract_broker, sale_contract, client_audit_event, sample_movement, sample_blend_component, client_unit, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
     );
   }
 
@@ -150,6 +150,27 @@ if (!databaseUrl || !databaseReachable) {
         emailCanonical: `admin-${suffix}@example.com`,
         passwordHash: 'x',
         role: 'ADMIN',
+      },
+    });
+  }
+
+  // Fase J (D123): o washout via cancel grava SaleContractStatusLog com o
+  // ator do cancel (FK -> app_user), entao o usuario COMMERCIAL das vendas
+  // tambem precisa existir (mesmo molde do seedAdminUser).
+  async function seedCommercialUser() {
+    const suffix = commercialActor.actorUserId.slice(0, 8);
+    await prisma.user.upsert({
+      where: { id: commercialActor.actorUserId },
+      update: {},
+      create: {
+        id: commercialActor.actorUserId,
+        fullName: `Comercial ${suffix}`,
+        username: `comercial-${suffix}`,
+        usernameCanonical: `comercial-${suffix}`,
+        email: `comercial-${suffix}@example.com`,
+        emailCanonical: `comercial-${suffix}@example.com`,
+        passwordHash: 'x',
+        role: 'COMMERCIAL',
       },
     });
   }
@@ -284,6 +305,7 @@ if (!databaseUrl || !databaseReachable) {
     await resetDatabase();
     await seedTestBroker(prisma);
     await seedAdminUser();
+    await seedCommercialUser();
   });
 
   test('venda a vista cria 1 contrato EMITIDO com numero, total, corretagens e corretor', async () => {
@@ -1268,6 +1290,136 @@ if (!databaseUrl || !databaseReachable) {
           adminActor
         ),
       (err) => err.status === 409
+    );
+  });
+
+  // ── Fase J (D123–D125): auditoria de marcos + espelho + timeline ──
+
+  test('Fase J: faturar e pagar gravam SaleContractStatusLog com ator', async () => {
+    const { contractId, version } = await setupConfirmedContract({ lotNumber: '24101' });
+    const inv = await saleContractService.invoiceSaleContract(
+      contractId,
+      { expectedVersion: version, date: '2026-07-15' },
+      adminActor
+    );
+    await saleContractService.paySaleContract(
+      contractId,
+      { expectedVersion: inv.contract.version, date: '2026-07-25' },
+      adminActor
+    );
+
+    const logs = await prisma.saleContractStatusLog.findMany({
+      where: { saleContractId: contractId },
+      orderBy: { createdAt: 'asc' },
+    });
+    assert.equal(logs.length, 2);
+    assert.equal(logs[0].toStatus, 'FATURADO');
+    assert.equal(logs[0].actorUserId, adminActor.actorUserId);
+    assert.equal(logs[1].toStatus, 'PAGO');
+    assert.equal(logs[1].actorUserId, adminActor.actorUserId);
+  });
+
+  test('Fase J: washout manual (a vista, via cancel da venda) grava StatusLog com ator e motivo', async () => {
+    const { contractId, version } = await setupConfirmedContract({ lotNumber: '24102' });
+    await saleContractService.washoutSaleContract(
+      contractId,
+      { expectedVersion: version, reason: 'Quebra fase J' },
+      adminActor
+    );
+
+    const log = await prisma.saleContractStatusLog.findFirst({
+      where: { saleContractId: contractId, toStatus: 'WASH_OUT' },
+    });
+    assert.ok(log);
+    assert.equal(log.reason, 'Quebra fase J');
+    assert.equal(log.actorUserId, adminActor.actorUserId);
+  });
+
+  test('Fase J: washout de FUTURO grava StatusLog com ator e motivo', async () => {
+    const buyerId = randomUUID();
+    await createBuyerClient(buyerId);
+    const created = await saleContractService.createFutureSaleContract(
+      await createFutureInput(buyerId),
+      adminActor
+    );
+    await saleContractService.washoutSaleContract(
+      created.contract.id,
+      { expectedVersion: created.contract.version, reason: 'Quebra futuro fase J' },
+      adminActor
+    );
+
+    const log = await prisma.saleContractStatusLog.findFirst({
+      where: { saleContractId: created.contract.id, toStatus: 'WASH_OUT' },
+    });
+    assert.ok(log);
+    assert.equal(log.reason, 'Quebra futuro fase J');
+    assert.equal(log.actorUserId, adminActor.actorUserId);
+  });
+
+  test('Fase J: logEspelhoGenerated grava EspelhoLog com lado e ator', async () => {
+    const { contractId } = await setupConfirmedContract({ lotNumber: '24103' });
+    await saleContractService.logEspelhoGenerated(contractId, 'seller', adminActor);
+
+    const log = await prisma.saleContractEspelhoLog.findFirst({
+      where: { saleContractId: contractId },
+    });
+    assert.ok(log);
+    assert.equal(log.side, 'seller');
+    assert.equal(log.actorUserId, adminActor.actorUserId);
+  });
+
+  test('Fase J: timeline agrega criacao/marco/espelho/aprovacao com nomes; legado sem log fica sem autor', async () => {
+    const { contractId, version } = await setupConfirmedContract({ lotNumber: '24104' });
+    await saleContractService.invoiceSaleContract(
+      contractId,
+      { expectedVersion: version, date: '2026-07-15' },
+      adminActor
+    );
+    await saleContractService.logEspelhoGenerated(contractId, 'buyer', adminActor);
+    const job = await prisma.customPrintJob.create({
+      data: { status: 'PENDING', payload: { lines: [] } },
+      select: { id: true },
+    });
+    await prisma.approvalLabelLog.create({
+      data: {
+        id: randomUUID(),
+        saleContractId: contractId,
+        actorUserId: adminActor.actorUserId,
+        customPrintJobId: job.id,
+        payload: { lines: [] },
+      },
+    });
+
+    const timeline = await saleContractService.getSaleContractTimeline(contractId, adminActor);
+    const kinds = timeline.items.map((item) => item.kind);
+    assert.ok(kinds.includes('CRIACAO'));
+    assert.ok(kinds.includes('STATUS'));
+    assert.ok(kinds.includes('ESPELHO'));
+    assert.ok(kinds.includes('APROVACAO'));
+    // Ordem DESC: a criacao e a linha mais antiga (ultima).
+    assert.equal(kinds[kinds.length - 1], 'CRIACAO');
+
+    const mark = timeline.items.find((item) => item.kind === 'STATUS');
+    assert.equal(mark.toStatus, 'FATURADO');
+    assert.equal(mark.legacy, false);
+    assert.equal(mark.actorName, `Admin ${adminActor.actorUserId.slice(0, 8)}`);
+    assert.equal(timeline.items.find((item) => item.kind === 'ESPELHO').side, 'buyer');
+
+    // LEGADO (D123): sem a linha auditada, o marco cai pro fallback so-com-data.
+    await prisma.saleContractStatusLog.deleteMany({ where: { saleContractId: contractId } });
+    const legacy = await saleContractService.getSaleContractTimeline(contractId, adminActor);
+    const legacyMark = legacy.items.find((item) => item.kind === 'STATUS');
+    assert.equal(legacyMark.legacy, true);
+    assert.equal(legacyMark.toStatus, 'FATURADO');
+    assert.equal(legacyMark.actorName, null);
+  });
+
+  test('Fase J: timeline exige posse (COMMERCIAL sem vinculo -> 403)', async () => {
+    const { contractId } = await setupConfirmedContract({ lotNumber: '24105' });
+    const stranger = { ...commercialActor, actorUserId: randomUUID() };
+    await assert.rejects(
+      () => saleContractService.getSaleContractTimeline(contractId, stranger),
+      (err) => err.status === 403
     );
   });
 

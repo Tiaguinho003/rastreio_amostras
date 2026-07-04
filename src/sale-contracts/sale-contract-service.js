@@ -6,6 +6,7 @@ import { assertAuthenticatedActor, readLimitQuery } from '../users/user-support.
 import {
   assertBrokersResolved,
   buildBankSnapshot,
+  buildContractTimeline,
   buildPartySnapshot,
   buildReceivableView,
   buildWarehouseSnapshot,
@@ -735,9 +736,18 @@ export class SaleContractService {
       });
     }
 
-    const result = await this.prisma.saleContract.updateMany({
-      where: { id: contractId, version: expectedVersion, status: 'EMITIDO' },
-      data: { status: 'FATURADO', invoicedAt, version: { increment: 1 } },
+    const result = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.saleContract.updateMany({
+        where: { id: contractId, version: expectedVersion, status: 'EMITIDO' },
+        data: { status: 'FATURADO', invoicedAt, version: { increment: 1 } },
+      });
+      if (updated.count > 0) {
+        // Fase J (D123): marco auditado (quem + quando) na MESMA tx.
+        await tx.saleContractStatusLog.create({
+          data: this._statusLogData(contractId, 'FATURADO', actor),
+        });
+      }
+      return updated;
     });
     if (result.count === 0) {
       throw new HttpError(409, 'Sale contract was modified concurrently', {
@@ -780,13 +790,22 @@ export class SaleContractService {
       });
     }
 
-    const result = await this.prisma.saleContract.updateMany({
-      where: {
-        id: contractId,
-        version: expectedVersion,
-        status: 'FATURADO',
-      },
-      data: { status: 'PAGO', paidAt, version: { increment: 1 } },
+    const result = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.saleContract.updateMany({
+        where: {
+          id: contractId,
+          version: expectedVersion,
+          status: 'FATURADO',
+        },
+        data: { status: 'PAGO', paidAt, version: { increment: 1 } },
+      });
+      if (updated.count > 0) {
+        // Fase J (D123): marco auditado (quem + quando) na MESMA tx.
+        await tx.saleContractStatusLog.create({
+          data: this._statusLogData(contractId, 'PAGO', actor),
+        });
+      }
+      return updated;
     });
     if (result.count === 0) {
       throw new HttpError(409, 'Sale contract was modified concurrently', {
@@ -884,14 +903,24 @@ export class SaleContractService {
     // Futuro (sem lote): nao ha venda a cancelar nem sacas a devolver — marca
     // WASH_OUT + motivo/data direto no contrato.
     if (!contract.movementId || !contract.sampleId) {
-      const result = await this.prisma.saleContract.updateMany({
-        where: { id: contractId, version: expectedVersion, status: contract.status },
-        data: {
-          status: 'WASH_OUT',
-          washoutReason: reason,
-          washoutAt: new Date(),
-          version: { increment: 1 },
-        },
+      const result = await this.prisma.$transaction(async (tx) => {
+        const updated = await tx.saleContract.updateMany({
+          where: { id: contractId, version: expectedVersion, status: contract.status },
+          data: {
+            status: 'WASH_OUT',
+            washoutReason: reason,
+            washoutAt: new Date(),
+            version: { increment: 1 },
+          },
+        });
+        if (updated.count > 0) {
+          // Fase J (D123): marco auditado (quem + quando + MOTIVO) na MESMA tx
+          // — cobre o buraco do washout de Futuro, que nao tinha ator.
+          await tx.saleContractStatusLog.create({
+            data: this._statusLogData(contractId, 'WASH_OUT', actor, reason),
+          });
+        }
+        return updated;
       });
       if (result.count === 0) {
         throw new HttpError(409, 'Sale contract was modified concurrently', {
@@ -922,6 +951,95 @@ export class SaleContractService {
     );
 
     return this.getSaleContract(contractId, actorContext);
+  }
+
+  // Fase J (D123): payload da linha de auditoria de marco de status. Reason so
+  // no washout. actorUserId nullable (convencao dos satelites), sempre
+  // preenchido em sessao autenticada.
+  _statusLogData(saleContractId, toStatus, actorContext, reason = null) {
+    return {
+      id: randomUUID(),
+      saleContractId,
+      toStatus,
+      reason,
+      actorUserId: actorContext?.actorUserId ?? null,
+    };
+  }
+
+  // Fase J (D124, resolve a D71): auditoria da geracao do Espelho de
+  // Corretagem. Chamada pelo handler exportEspelhoPdf APOS o render — posse,
+  // elegibilidade e side ja foram validados la (getSaleContract + guards).
+  async logEspelhoGenerated(contractId, side, actorContext) {
+    await this.prisma.saleContractEspelhoLog.create({
+      data: {
+        id: randomUUID(),
+        saleContractId: contractId,
+        side,
+        actorUserId: actorContext?.actorUserId ?? null,
+      },
+    });
+  }
+
+  // Timeline do modal de Detalhes (Fase J — D125): agrega criacao/edicoes
+  // (Export), agio (AgioLog), aprovacoes (ApprovalLabelLog), marcos de status
+  // (StatusLog + legados so-com-data) e espelhos (EspelhoLog), com os nomes dos
+  // atores resolvidos via app_user (join manual — as satelites nao tem
+  // @relation). Mesmo gate/posse do getSaleContract (o timeline vive no modal
+  // de Detalhes do /contratos).
+  async getSaleContractTimeline(contractId, actorContext) {
+    const actor = assertAuthenticatedActor(actorContext, 'get sale contract timeline');
+    assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'get sale contract timeline');
+    this._requireContractId(contractId);
+    // COMMERCIAL (D110): só acessa os contratos em que é corretor.
+    await this._assertActorMayAccessContract(actor, contractId);
+
+    const contract = await this.prisma.saleContract.findUnique({
+      where: { id: contractId },
+      select: { id: true, invoicedAt: true, paidAt: true, washoutAt: true, washoutReason: true },
+    });
+    if (!contract) {
+      throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
+    }
+
+    const where = { saleContractId: contractId };
+    const [exportRows, agioLogs, approvalLogs, statusLogs, espelhoLogs] = await Promise.all([
+      this.prisma.saleContractExport.findMany({ where, orderBy: { generatedAt: 'asc' } }),
+      this.prisma.saleContractAgioLog.findMany({ where, orderBy: { appliedAt: 'asc' } }),
+      this.prisma.approvalLabelLog.findMany({ where, orderBy: { createdAt: 'asc' } }),
+      this.prisma.saleContractStatusLog.findMany({ where, orderBy: { createdAt: 'asc' } }),
+      this.prisma.saleContractEspelhoLog.findMany({ where, orderBy: { createdAt: 'asc' } }),
+    ]);
+
+    const actorIds = [
+      ...new Set(
+        [
+          ...exportRows.map((row) => row.generatedByUserId),
+          ...agioLogs.map((row) => row.appliedByUserId),
+          ...approvalLogs.map((row) => row.actorUserId),
+          ...statusLogs.map((row) => row.actorUserId),
+          ...espelhoLogs.map((row) => row.actorUserId),
+        ].filter(Boolean)
+      ),
+    ];
+    const users = actorIds.length
+      ? await this.prisma.user.findMany({
+          where: { id: { in: actorIds } },
+          select: { id: true, fullName: true, username: true },
+        })
+      : [];
+    const usersById = Object.fromEntries(users.map((user) => [user.id, user]));
+
+    return {
+      items: buildContractTimeline({
+        contract,
+        exports: exportRows,
+        agioLogs,
+        approvalLogs,
+        statusLogs,
+        espelhoLogs,
+        usersById,
+      }),
+    };
   }
 
   // Preview (so-leitura) do PROXIMO numero NNNN/AA — pro modal de venda mostrar

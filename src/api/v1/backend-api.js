@@ -3045,6 +3045,23 @@ export function createBackendApiV1({
         return { status: 200, body: result };
       }),
 
+    // Timeline do modal de Detalhes (Fase J — D125): auditorias agregadas do
+    // contrato (criacao/edicoes, agio, aprovacoes, marcos, espelhos). Mesmo
+    // gate/posse do getSaleContract (via service).
+    getSaleContractTimeline: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractService) {
+          throw new HttpError(501, 'Sale contract service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const contractId = input?.params?.contractId;
+        if (typeof contractId !== 'string' || contractId.length === 0) {
+          throw new HttpError(422, 'contractId path param is required');
+        }
+        const result = await saleContractService.getSaleContractTimeline(contractId, actor);
+        return { status: 200, body: result };
+      }),
+
     revertSaleContractStatus: (input) =>
       executeApiForInput(input, async () => {
         if (!saleContractService) {
@@ -3197,6 +3214,9 @@ export function createBackendApiV1({
           side,
           issuer: getContractIssuer(),
         });
+        // Fase J (D124, resolve a D71): audita a geracao do espelho (lado +
+        // ator + quando) — alimenta o timeline do modal de Detalhes.
+        await saleContractService.logEspelhoGenerated(contract.id, side, actor);
         const sideTag = side === 'seller' ? 'vendedor' : 'comprador';
         return {
           status: 200,
