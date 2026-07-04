@@ -1,11 +1,6 @@
 'use client';
 
-import type {
-  AgioDesagioType,
-  SaleContract,
-  SaleContractStatus,
-  SaleContractType,
-} from '../../lib/types';
+import type { SaleContract, SaleContractStatus, SaleContractType } from '../../lib/types';
 
 // Fechamento (Fase B.3): card de um contrato na pagina "Contratos". Versao
 // recolhida (basico) + expandida (dropdown estilo Lotes): barra colorida por
@@ -79,19 +74,18 @@ type SaleContractCardProps = {
   contract: SaleContract;
   isExpanded: boolean;
   onToggle: () => void;
-  onEditar: () => void;
+  // Card ENXUTO (Fase J, D121): so o dia a dia — avancar status (canManage) +
+  // Aprovacao + Detalhes. Editar/Visualizar/Agio/Desagio/Washout migraram pro
+  // modal de Detalhes (e o Desfazer foi removido, D122).
   onFaturar: () => void;
   onPagar: () => void;
-  onWashout: () => void;
-  onVisualizar: () => void;
   // Aprovacao (Fase I, D112/D117): abre a etiqueta pre-preenchida. Disponivel
   // em EMITIDO/FATURADO/PAGO e FORA do canManage (todo papel da pagina envia).
   onAprovacao: () => void;
-  // Aplicar agio/desagio (D87): so em EMITIDO; abre o dialogo com o sinal.
-  onApplyAgio: (type: AgioDesagioType) => void;
-  // S74: gestao dos contratos (Editar/Faturar/Pagar/Washout/Agio) so
-  // pra quem pode gerenciar (ADMIN; COMMERCIAL na Fase 2). COMMERCIAL na Fase 1
-  // ve so "Visualizar". Default true.
+  // Detalhes (D120): modal grande com o documento + infos + historico. Em
+  // TODOS os status, fora do canManage (COMMERCIAL ve tudo nos dele).
+  onDetalhes: () => void;
+  // Avancar status (Faturado/Pago) so pra quem pode gerenciar (D110).
   canManage?: boolean;
   // Modo de selecao p/ o Espelho de Corretagem (Fase E): o card vira botao de
   // selecao; inelegiveis (status != EMITIDO/FATURADO/PAGO) ficam esmaecidos.
@@ -105,13 +99,10 @@ export function SaleContractCard({
   contract,
   isExpanded,
   onToggle,
-  onEditar,
   onFaturar,
   onPagar,
-  onWashout,
-  onVisualizar,
   onAprovacao,
-  onApplyAgio,
+  onDetalhes,
   canManage = true,
   espelhoMode = false,
   espelhoEligible = false,
@@ -250,84 +241,27 @@ export function SaleContractCard({
             <p className="ctr-card-washout">Washout: {contract.washoutReason}</p>
           ) : null}
 
+          {/* Card ENXUTO (D121): avancar status + Aprovacao + Detalhes. O resto
+              (Editar/Visualizar/Agio/Desagio/Washout) vive no modal de Detalhes. */}
           <div className="ctr-card-actions">
-            {contract.status === 'EMITIDO' ? (
-              <>
-                {canManage ? (
-                  <>
-                    <button type="button" className="ctr-btn" onClick={onEditar}>
-                      Editar
-                    </button>
-                    <button type="button" className="ctr-btn ctr-btn-primary" onClick={onFaturar}>
-                      Faturado
-                    </button>
-                  </>
-                ) : null}
-                <button type="button" className="ctr-btn" onClick={onVisualizar}>
-                  Visualizar
-                </button>
-                <button type="button" className="ctr-btn" onClick={onAprovacao}>
-                  Aprovação
-                </button>
-                {canManage ? (
-                  <>
-                    <button type="button" className="ctr-btn" onClick={() => onApplyAgio('AGIO')}>
-                      Ágio
-                    </button>
-                    <button
-                      type="button"
-                      className="ctr-btn"
-                      onClick={() => onApplyAgio('DESAGIO')}
-                    >
-                      Deságio
-                    </button>
-                    <button type="button" className="ctr-btn ctr-btn-danger" onClick={onWashout}>
-                      Washout
-                    </button>
-                  </>
-                ) : null}
-              </>
-            ) : null}
-            {contract.status === 'FATURADO' ? (
-              <>
-                {canManage ? (
-                  <button type="button" className="ctr-btn ctr-btn-primary" onClick={onPagar}>
-                    Pago
-                  </button>
-                ) : null}
-                <button type="button" className="ctr-btn" onClick={onVisualizar}>
-                  Visualizar
-                </button>
-                <button type="button" className="ctr-btn" onClick={onAprovacao}>
-                  Aprovação
-                </button>
-                {canManage ? (
-                  <button type="button" className="ctr-btn ctr-btn-danger" onClick={onWashout}>
-                    Washout
-                  </button>
-                ) : null}
-              </>
-            ) : null}
-            {contract.status === 'PAGO' ? (
-              <>
-                <button type="button" className="ctr-btn" onClick={onVisualizar}>
-                  Visualizar
-                </button>
-                <button type="button" className="ctr-btn" onClick={onAprovacao}>
-                  Aprovação
-                </button>
-                {canManage ? (
-                  <button type="button" className="ctr-btn ctr-btn-danger" onClick={onWashout}>
-                    Washout
-                  </button>
-                ) : null}
-              </>
-            ) : null}
-            {contract.status === 'WASH_OUT' ? (
-              <button type="button" className="ctr-btn" onClick={onVisualizar}>
-                Visualizar
+            {contract.status === 'EMITIDO' && canManage ? (
+              <button type="button" className="ctr-btn ctr-btn-primary" onClick={onFaturar}>
+                Faturado
               </button>
             ) : null}
+            {contract.status === 'FATURADO' && canManage ? (
+              <button type="button" className="ctr-btn ctr-btn-primary" onClick={onPagar}>
+                Pago
+              </button>
+            ) : null}
+            {contract.status !== 'WASH_OUT' ? (
+              <button type="button" className="ctr-btn" onClick={onAprovacao}>
+                Aprovação
+              </button>
+            ) : null}
+            <button type="button" className="ctr-btn" onClick={onDetalhes}>
+              Detalhes
+            </button>
           </div>
         </div>
       </div>

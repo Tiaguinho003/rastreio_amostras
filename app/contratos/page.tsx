@@ -22,7 +22,7 @@ import {
 import { EspelhoCorretagemModal } from '../../components/contracts/EspelhoCorretagemModal';
 import { SaleContractAgioDialog } from '../../components/contracts/SaleContractAgioDialog';
 import { SaleContractCard } from '../../components/contracts/SaleContractCard';
-import { SaleContractDocumentModal } from '../../components/contracts/SaleContractDocumentModal';
+import { SaleContractDetailsModal } from '../../components/contracts/SaleContractDetailsModal';
 import { SaleContractEtapa2Modal } from '../../components/contracts/SaleContractEtapa2Modal';
 import {
   SaleContractLifecycleDialog,
@@ -116,9 +116,9 @@ export default function ContratosPage() {
     });
 
   const [etapa2, setEtapa2] = useState<{ contractId: string } | null>(null);
-  const [docModal, setDocModal] = useState<{ contractId: string; contractNumber: string } | null>(
-    null
-  );
+  // Detalhes (Fase J, D120-D126): modal grande com o documento embutido +
+  // infos read-only + historico; absorveu o antigo "Visualizar" (docModal).
+  const [detailsTarget, setDetailsTarget] = useState<SaleContract | null>(null);
   const [lifecycle, setLifecycle] = useState<{
     contractId: string;
     expectedVersion: number;
@@ -167,6 +167,7 @@ export default function ContratosPage() {
   const futureRendered = useDelayedValue(futureOpen || null, ANIMATION_MS);
   const etapa2Rendered = useDelayedValue(etapa2, ANIMATION_MS);
   const approvalFormRendered = useDelayedValue(approvalForm, ANIMATION_MS);
+  const detailsRendered = useDelayedValue(detailsTarget, ANIMATION_MS);
 
   // Abre a etiqueta de Aprovação do card: busca o prefill (guard de duplo
   // clique) e monta o formulário já preenchido. Sem refresh no sucesso —
@@ -574,19 +575,11 @@ export default function ContratosPage() {
                       contract={contract}
                       isExpanded={expandedIds.has(contract.id)}
                       onToggle={() => toggleExpand(contract.id)}
-                      onEditar={() => setEtapa2({ contractId: contract.id })}
-                      onVisualizar={() =>
-                        setDocModal({
-                          contractId: contract.id,
-                          contractNumber: contract.contractNumber,
-                        })
-                      }
                       onAprovacao={() => void openApproval(contract)}
-                      onApplyAgio={(type) => setAgioTarget({ contract, agioType: type })}
+                      onDetalhes={() => setDetailsTarget(contract)}
                       canManage={canManage}
                       onFaturar={() => openLifecycle('invoice')}
                       onPagar={() => openLifecycle('pay')}
-                      onWashout={() => openLifecycle('washout')}
                       espelhoMode={espelhoMode}
                       espelhoEligible={espelhoEligible}
                       espelhoReason={espelhoReason}
@@ -663,12 +656,38 @@ export default function ContratosPage() {
         />
       ) : null}
 
-      {docModal ? (
-        <SaleContractDocumentModal
+      {/* Detalhes (Fase J): documento embutido + infos + historico. As acoes
+          do rodape (Editar/Agio/Desagio/Washout) FECHAM o Detalhes e abrem o
+          fluxo correspondente (um modal por vez, sem sobreposicao). */}
+      {detailsRendered ? (
+        <SaleContractDetailsModal
           session={session}
-          contractId={docModal.contractId}
-          contractNumber={docModal.contractNumber}
-          onClose={() => setDocModal(null)}
+          open={detailsTarget != null}
+          contract={detailsRendered}
+          canManage={canManage}
+          onClose={() => setDetailsTarget(null)}
+          onEditar={() => {
+            const target = detailsRendered;
+            setDetailsTarget(null);
+            setEtapa2({ contractId: target.id });
+          }}
+          onApplyAgio={(type) => {
+            const target = detailsRendered;
+            setDetailsTarget(null);
+            setAgioTarget({ contract: target, agioType: type });
+          }}
+          onWashout={() => {
+            const target = detailsRendered;
+            setDetailsTarget(null);
+            setLifecycle({
+              contractId: target.id,
+              expectedVersion: target.version,
+              contractNumber: target.contractNumber,
+              action: 'washout',
+              status: target.status,
+              hasLot: target.type === 'MERCADO_A_VISTA',
+            });
+          }}
         />
       ) : null}
 

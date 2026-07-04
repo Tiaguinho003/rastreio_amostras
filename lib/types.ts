@@ -480,6 +480,28 @@ export interface SaleContractResponse {
   contract: SaleContractDetail;
 }
 
+// Fase J (D125): item do timeline do modal de Detalhes — auditorias agregadas
+// (criação/edições, ágio, aprovações, marcos de status, espelhos) em ordem
+// decrescente. `legacy` = marco anterior à sale_contract_status_log (só data,
+// sem autor).
+export interface SaleContractTimelineItem {
+  id: string;
+  kind: 'CRIACAO' | 'EDICAO' | 'AGIO' | 'APROVACAO' | 'STATUS' | 'ESPELHO';
+  at: string;
+  actorUserId: string | null;
+  actorName: string | null;
+  agioDesagioType?: AgioDesagioType;
+  agioDesagioValue?: number | null;
+  toStatus?: SaleContractStatus;
+  reason?: string | null;
+  legacy?: boolean;
+  side?: string;
+}
+
+export interface SaleContractTimelineResponse {
+  items: SaleContractTimelineItem[];
+}
+
 // Financeiro (Fase F): corretagem a receber por fechamento (relatório derivado).
 export interface FinanceiroBrokerShare {
   brokerId: string;

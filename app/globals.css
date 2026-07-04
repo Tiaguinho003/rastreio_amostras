@@ -35351,6 +35351,177 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ── Detalhes do contrato (Fase J, D120–D126): frame grande compartilhado com
+   o modal de emissão (.ctr-contract-sheet). Mobile = coluna única (documento
+   primeiro); desktop ≥901px = PDF na coluna ESQUERDA + seções na DIREITA.
+   Histórico (timeline) fecha em largura total. ── */
+.ctr-details-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 0.5rem;
+}
+
+.ctr-details-type {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--brand-muted);
+}
+
+.ctr-details-cols {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ctr-details-doc,
+.ctr-details-info {
+  min-width: 0;
+}
+
+.ctr-details-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+}
+
+.ctr-details-doc-frame {
+  width: 100%;
+  height: clamp(300px, 48vh, 560px);
+  border: 1px solid var(--brand-cream-line);
+  border-radius: 12px;
+  background: #f6f6f4;
+}
+
+.ctr-details-doc-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.ctr-details-doc-actions > .ctr-btn {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.ctr-details-rows {
+  margin: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.ctr-details-row {
+  display: grid;
+  grid-template-columns: minmax(7.5rem, auto) 1fr;
+  gap: 0.6rem;
+  align-items: baseline;
+}
+
+.ctr-details-row dt {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: #9a9a94;
+}
+
+.ctr-details-row dd {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--brand-green-ink);
+  overflow-wrap: anywhere;
+}
+
+.ctr-details-empty {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--brand-muted);
+}
+
+.ctr-details-text {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  color: var(--brand-green-ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ctr-details-history {
+  margin-top: 1.1rem;
+}
+
+.ctr-tl {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.ctr-tl-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.6rem;
+  align-items: baseline;
+  padding: 0.45rem 0.6rem;
+  background: #faf9f6;
+  border: 1px solid var(--brand-cream-line);
+  border-radius: 10px;
+}
+
+.ctr-tl-rel {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--brand-muted);
+  white-space: nowrap;
+}
+
+.ctr-tl-main {
+  font-size: 0.85rem;
+  color: var(--brand-green-ink);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ctr-tl-exact {
+  font-size: 0.72rem;
+  color: #9a9a94;
+  white-space: nowrap;
+}
+
+/* Em telas muito estreitas a data exata desce pra 2ª linha (nao espreme). */
+@media (max-width: 380px) {
+  .ctr-tl-item {
+    grid-template-columns: auto 1fr;
+  }
+  .ctr-tl-exact {
+    grid-column: 1 / -1;
+  }
+}
+
+.ctr-details-actions {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.ctr-details-actions > .ctr-btn {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+@media (min-width: 901px) {
+  .bottom-sheet.ctr-details-sheet .ctr-details-cols {
+    display: grid;
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+    gap: clamp(1rem, 1.6vw, 1.6rem);
+    align-items: start;
+  }
+  .bottom-sheet.ctr-details-sheet .ctr-details-doc-frame {
+    height: clamp(420px, 58vh, 680px);
+  }
+}
 .ctr-modal-loading {
   margin: 0;
   padding: 1rem 0;

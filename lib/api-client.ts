@@ -19,6 +19,7 @@ import type {
   SaleContractEtapa2Input,
   SaleContractListResponse,
   SaleContractResponse,
+  SaleContractTimelineResponse,
   SaleContractStatus,
   SaleContractType,
   ClientBankAccountInput,
@@ -835,6 +836,15 @@ export function getSaleContract(
     method: 'GET',
     session,
     signal: options.signal,
+  });
+}
+
+// Fase J (D125): timeline do modal de Detalhes — auditorias agregadas do
+// contrato (criacao/edicoes, agio, aprovacoes, marcos, espelhos), ordem desc.
+export function getSaleContractTimeline(session: SessionData, contractId: string) {
+  return request<SaleContractTimelineResponse>(`/sale-contracts/${contractId}/timeline`, {
+    method: 'GET',
+    session,
   });
 }
 

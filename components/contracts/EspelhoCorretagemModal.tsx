@@ -31,7 +31,8 @@ function money(value: number | null): string {
 // Espelho de Corretagem (Fase E): modal de CONFERÊNCIA só-leitura (D75). Toggle
 // Vendedor | Comprador (D72) define o CLIENTE + o lado da comissão; mostra um
 // resumo + a prévia do PDF (on-demand, regenerado por lado, D71) com Exportar /
-// Baixar. Espelha o SaleContractDocumentModal. O contrato deve estar congelado
+// Baixar. Espelha o padrao do antigo "Visualizar" (SaleContractDocumentModal,
+// aposentado na Fase J — absorvido pelo Detalhes). O contrato deve estar congelado
 // (EMITIDO/FATURADO/PAGO) — a página só abre este modal p/ elegíveis.
 export function EspelhoCorretagemModal({
   session,
