@@ -101,7 +101,6 @@ enum SaleContractType {
 }
 
 enum SaleContractStatus {
-  EM_ABERTO
   EMITIDO
   FATURADO
   PAGO
@@ -806,7 +805,7 @@ model SaleContract {
   type           SaleContractType
   contractSeq    Int                @unique(map: "uq_sale_contract_seq") @map("contract_seq")
   contractNumber String             @unique(map: "uq_sale_contract_number") @map("contract_number")
-  status         SaleContractStatus @default(EM_ABERTO)
+  status         SaleContractStatus @default(EMITIDO)
   washoutReason  String?            @map("washout_reason")
   washoutAt      DateTime?          @map("washout_at") @db.Timestamptz(6)
   contractDate   DateTime           @map("contract_date") @db.Date
