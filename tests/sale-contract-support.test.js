@@ -18,7 +18,6 @@ import {
   normalizeRequiredAgio,
   normalizeUnitPrice,
   normalizeWashoutReason,
-  resolveRevertTarget,
   splitOriginLotForLabel,
   toApprovalContractOption,
   toSaleContractView,
@@ -316,17 +315,6 @@ test('normalizeContractLookupInput: valida a lista e exige o nome (trim)', () =>
     () => normalizeContractLookupInput({ list: 'modality', name: '   ' }),
     /name is required/
   );
-});
-
-test('resolveRevertTarget: ciclo linear (D106) — FATURADO->EMITIDO, PAGO->FATURADO', () => {
-  assert.equal(resolveRevertTarget('FATURADO'), 'EMITIDO');
-  assert.equal(resolveRevertTarget('PAGO'), 'FATURADO');
-});
-
-test('resolveRevertTarget: status fora do ciclo retorna null', () => {
-  for (const status of ['EMITIDO', 'WASH_OUT']) {
-    assert.equal(resolveRevertTarget(status), null);
-  }
 });
 
 test('normalizeWashoutReason: exige texto, faz trim e limita a 500', () => {

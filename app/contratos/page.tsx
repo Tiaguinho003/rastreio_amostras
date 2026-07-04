@@ -586,7 +586,6 @@ export default function ContratosPage() {
                       canManage={canManage}
                       onFaturar={() => openLifecycle('invoice')}
                       onPagar={() => openLifecycle('pay')}
-                      onReverter={() => openLifecycle('revert')}
                       onWashout={() => openLifecycle('washout')}
                       espelhoMode={espelhoMode}
                       espelhoEligible={espelhoEligible}
@@ -694,11 +693,10 @@ export default function ContratosPage() {
           expectedVersion={lifecycle.expectedVersion}
           contractNumber={lifecycle.contractNumber}
           action={lifecycle.action}
-          currentStatus={lifecycle.status}
           hasLot={lifecycle.hasLot}
           onClose={() => setLifecycle(null)}
           onDone={() => {
-            const { action, status } = lifecycle;
+            const { action } = lifecycle;
             setLifecycle(null);
             void refresh();
             const title =
@@ -706,11 +704,7 @@ export default function ContratosPage() {
                 ? 'Contrato faturado'
                 : action === 'pay'
                   ? 'Pagamento registrado'
-                  : action === 'washout'
-                    ? 'Washout realizado'
-                    : status === 'PAGO'
-                      ? 'Pagamento desfeito'
-                      : 'Faturamento desfeito';
+                  : 'Washout realizado';
             toast.success({ title });
           }}
         />

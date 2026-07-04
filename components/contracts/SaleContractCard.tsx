@@ -82,7 +82,6 @@ type SaleContractCardProps = {
   onEditar: () => void;
   onFaturar: () => void;
   onPagar: () => void;
-  onReverter: () => void;
   onWashout: () => void;
   onVisualizar: () => void;
   // Aprovacao (Fase I, D112/D117): abre a etiqueta pre-preenchida. Disponivel
@@ -90,7 +89,7 @@ type SaleContractCardProps = {
   onAprovacao: () => void;
   // Aplicar agio/desagio (D87): so em EMITIDO; abre o dialogo com o sinal.
   onApplyAgio: (type: AgioDesagioType) => void;
-  // S74: gestao dos contratos (Editar/Faturar/Pagar/Desfazer/Washout/Agio) so
+  // S74: gestao dos contratos (Editar/Faturar/Pagar/Washout/Agio) so
   // pra quem pode gerenciar (ADMIN; COMMERCIAL na Fase 2). COMMERCIAL na Fase 1
   // ve so "Visualizar". Default true.
   canManage?: boolean;
@@ -109,7 +108,6 @@ export function SaleContractCard({
   onEditar,
   onFaturar,
   onPagar,
-  onReverter,
   onWashout,
   onVisualizar,
   onAprovacao,
@@ -304,14 +302,9 @@ export function SaleContractCard({
                   Aprovação
                 </button>
                 {canManage ? (
-                  <>
-                    <button type="button" className="ctr-btn" onClick={onReverter}>
-                      Desfazer
-                    </button>
-                    <button type="button" className="ctr-btn ctr-btn-danger" onClick={onWashout}>
-                      Washout
-                    </button>
-                  </>
+                  <button type="button" className="ctr-btn ctr-btn-danger" onClick={onWashout}>
+                    Washout
+                  </button>
                 ) : null}
               </>
             ) : null}
@@ -324,14 +317,9 @@ export function SaleContractCard({
                   Aprovação
                 </button>
                 {canManage ? (
-                  <>
-                    <button type="button" className="ctr-btn" onClick={onReverter}>
-                      Desfazer
-                    </button>
-                    <button type="button" className="ctr-btn ctr-btn-danger" onClick={onWashout}>
-                      Washout
-                    </button>
-                  </>
+                  <button type="button" className="ctr-btn ctr-btn-danger" onClick={onWashout}>
+                    Washout
+                  </button>
                 ) : null}
               </>
             ) : null}

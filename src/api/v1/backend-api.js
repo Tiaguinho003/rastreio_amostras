@@ -3012,9 +3012,10 @@ export function createBackendApiV1({
         return { status: 200, body: result };
       }),
 
-    // Fechamento (Fase B): ciclo LINEAR pos-EMITIDO (D106). "Faturar"
-    // (EMITIDO->FATURADO) e "Pagar" (FATURADO->PAGO, só após faturar) gravam a
-    // data real; "Desfazer" (revertSaleContractStatus) volta um passo.
+    // Fechamento (Fase B): ciclo LINEAR pos-EMITIDO (D106), SO PRA FRENTE
+    // (o "Desfazer" foi removido na Fase J, D122). "Faturar" (EMITIDO->FATURADO)
+    // e "Pagar" (FATURADO->PAGO, só após faturar) gravam a data real + o marco
+    // auditado (D123).
     invoiceSaleContract: (input) =>
       executeApiForInput(input, async () => {
         if (!saleContractService) {
@@ -3059,21 +3060,6 @@ export function createBackendApiV1({
           throw new HttpError(422, 'contractId path param is required');
         }
         const result = await saleContractService.getSaleContractTimeline(contractId, actor);
-        return { status: 200, body: result };
-      }),
-
-    revertSaleContractStatus: (input) =>
-      executeApiForInput(input, async () => {
-        if (!saleContractService) {
-          throw new HttpError(501, 'Sale contract service is not configured');
-        }
-        const actor = await resolveActorContext(input, authService);
-        const contractId = input?.params?.contractId;
-        if (typeof contractId !== 'string' || contractId.length === 0) {
-          throw new HttpError(422, 'contractId path param is required');
-        }
-        const body = readRequestBody(input);
-        const result = await saleContractService.revertSaleContractStatus(contractId, body, actor);
         return { status: 200, body: result };
       }),
 

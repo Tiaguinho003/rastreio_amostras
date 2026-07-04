@@ -7,19 +7,19 @@ import {
   ApiError,
   invoiceSaleContract,
   paySaleContract,
-  revertSaleContractStatus,
   washoutSaleContract,
 } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
-import type { SaleContractStatus, SessionData } from '../../lib/types';
+import type { SessionData } from '../../lib/types';
 
 // Fechamento (Fase B): ações de status do contrato. "Faturar"/"Pagar" gravam a
-// data real do marco; "Desfazer" volta um passo; "Washout" (P17) marca WASH_OUT
-// (motivo obrigatório, definitiva) — à vista cancela a venda + devolve as sacas,
-// Futuro não tem lote. O contrato NUNCA é apagado (o "Excluir" saiu na S72, D104).
-// Molde do ConfirmDialog.
+// data real do marco; "Washout" (P17) marca WASH_OUT (motivo obrigatório,
+// definitiva) — à vista cancela a venda + devolve as sacas, Futuro não tem
+// lote. O contrato NUNCA é apagado (o "Excluir" saiu na S72, D104) e o
+// "Desfazer" foi REMOVIDO na Fase J (D122 — ciclo só pra frente). Molde do
+// ConfirmDialog.
 
-export type LifecycleAction = 'invoice' | 'pay' | 'revert' | 'washout';
+export type LifecycleAction = 'invoice' | 'pay' | 'washout';
 
 type SaleContractLifecycleDialogProps = {
   session: SessionData;
@@ -27,8 +27,6 @@ type SaleContractLifecycleDialogProps = {
   expectedVersion: number;
   contractNumber: string;
   action: LifecycleAction;
-  // Status atual — distingue "Desfazer faturamento" de "Desfazer pagamento".
-  currentStatus: SaleContractStatus;
   // À vista (tem lote): washout/cancelar devolvem as sacas ao lote. Futuro: não.
   hasLot: boolean;
   onClose: () => void;
@@ -53,12 +51,7 @@ type Copy = {
   submitting: string;
 };
 
-function dialogCopy(
-  action: LifecycleAction,
-  currentStatus: SaleContractStatus,
-  contractNumber: string,
-  hasLot: boolean
-): Copy {
+function dialogCopy(action: LifecycleAction, contractNumber: string, hasLot: boolean): Copy {
   if (action === 'invoice') {
     return {
       title: 'Faturar contrato',
@@ -81,31 +74,17 @@ function dialogCopy(
       submitting: 'Registrando...',
     };
   }
-  if (action === 'washout') {
-    return {
-      title: 'Washout',
-      text: hasLot
-        ? `Dar washout no contrato ${contractNumber}? Isso cancela a venda e devolve as sacas ao lote. Ação definitiva.`
-        : `Dar washout no contrato ${contractNumber}? Ação definitiva.`,
-      dateLabel: null,
-      reasonLabel: 'Motivo do washout',
-      danger: true,
-      submit: 'Confirmar washout',
-      submitting: 'Processando...',
-    };
-  }
-  // revert
-  const isPaid = currentStatus === 'PAGO';
+  // washout
   return {
-    title: isPaid ? 'Desfazer pagamento' : 'Desfazer faturamento',
-    text: isPaid
-      ? `Desfazer o pagamento do contrato ${contractNumber}? A data registrada será removida.`
-      : `Desfazer o faturamento do contrato ${contractNumber}? A data registrada será removida.`,
+    title: 'Washout',
+    text: hasLot
+      ? `Dar washout no contrato ${contractNumber}? Isso cancela a venda e devolve as sacas ao lote. Ação definitiva.`
+      : `Dar washout no contrato ${contractNumber}? Ação definitiva.`,
     dateLabel: null,
-    reasonLabel: null,
-    danger: false,
-    submit: 'Desfazer',
-    submitting: 'Desfazendo...',
+    reasonLabel: 'Motivo do washout',
+    danger: true,
+    submit: 'Confirmar washout',
+    submitting: 'Processando...',
   };
 }
 
@@ -115,7 +94,6 @@ export function SaleContractLifecycleDialog({
   expectedVersion,
   contractNumber,
   action,
-  currentStatus,
   hasLot,
   onClose,
   onDone,
@@ -128,7 +106,7 @@ export function SaleContractLifecycleDialog({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const copy = dialogCopy(action, currentStatus, contractNumber, hasLot);
+  const copy = dialogCopy(action, contractNumber, hasLot);
   const needsDate = copy.dateLabel !== null;
   const needsReason = copy.reasonLabel !== null;
   const canSubmit =
@@ -142,10 +120,8 @@ export function SaleContractLifecycleDialog({
         await invoiceSaleContract(session, contractId, { expectedVersion, date });
       } else if (action === 'pay') {
         await paySaleContract(session, contractId, { expectedVersion, date });
-      } else if (action === 'washout') {
-        await washoutSaleContract(session, contractId, { expectedVersion, reason: reason.trim() });
       } else {
-        await revertSaleContractStatus(session, contractId, { expectedVersion });
+        await washoutSaleContract(session, contractId, { expectedVersion, reason: reason.trim() });
       }
       onDone();
     } catch (cause) {

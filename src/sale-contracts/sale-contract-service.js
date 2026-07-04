@@ -19,7 +19,6 @@ import {
   normalizeFutureSaleContractInput,
   normalizeRequiredAgio,
   normalizeWashoutReason,
-  resolveRevertTarget,
   SALE_CONTRACT_STATUSES,
   SALE_CONTRACT_TYPES,
   SALE_CONTRACT_VIEW_SELECT,
@@ -706,8 +705,9 @@ export class SaleContractService {
   }
 
   // "Faturar" — EMITIDO -> FATURADO. Grava a data REAL do faturamento
-  // (invoicedAt; pode diferir da planejada invoiceDate). Reversivel via
-  // revertSaleContractStatus. CRUD direto + concorrencia otimista por version.
+  // (invoicedAt; pode diferir da planejada invoiceDate) + o marco auditado
+  // (D123). SEM volta (o "Desfazer" foi removido na Fase J, D122); engano ->
+  // Washout. CRUD direto + concorrencia otimista por version.
   async invoiceSaleContract(contractId, input, actorContext) {
     const actor = assertAuthenticatedActor(actorContext, 'invoice sale contract');
     assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'invoice sale contract');
@@ -761,7 +761,7 @@ export class SaleContractService {
 
   // "Pagar" — FATURADO -> PAGO (SÓ depois do faturamento — D106; na
   // comercializacao o pagamento vem sempre depois de faturar). Grava a data REAL
-  // do pagamento (paidAt). Reversivel.
+  // do pagamento (paidAt) + o marco auditado (D123). Sem volta (D122).
   async paySaleContract(contractId, input, actorContext) {
     const actor = assertAuthenticatedActor(actorContext, 'pay sale contract');
     assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'pay sale contract');
@@ -806,55 +806,6 @@ export class SaleContractService {
         });
       }
       return updated;
-    });
-    if (result.count === 0) {
-      throw new HttpError(409, 'Sale contract was modified concurrently', {
-        code: 'SALE_CONTRACT_VERSION_CONFLICT',
-        field: 'expectedVersion',
-      });
-    }
-
-    return this.getSaleContract(contractId, actorContext);
-  }
-
-  // "Desfazer" — volta um passo no ciclo linear EMITIDO -> FATURADO -> PAGO
-  // (corrige erro de clique). FATURADO -> EMITIDO (limpa invoicedAt); PAGO ->
-  // FATURADO (limpa paidAt, preserva invoicedAt). Ver resolveRevertTarget.
-  async revertSaleContractStatus(contractId, input, actorContext) {
-    const actor = assertAuthenticatedActor(actorContext, 'revert sale contract status');
-    assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'revert sale contract status');
-    this._requireContractId(contractId);
-    // COMMERCIAL (D110): só gerencia os contratos em que é corretor.
-    await this._assertActorMayAccessContract(actor, contractId);
-    const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
-
-    const contract = await this.prisma.saleContract.findUnique({
-      where: { id: contractId },
-      select: { id: true, status: true, version: true },
-    });
-    if (!contract) {
-      throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
-    }
-    const target = resolveRevertTarget(contract.status);
-    if (!target) {
-      throw new HttpError(409, `Sale contract is ${contract.status} and cannot be reverted`, {
-        code: 'SALE_CONTRACT_NOT_REVERTABLE',
-      });
-    }
-    if (contract.version !== expectedVersion) {
-      throw new HttpError(409, 'Sale contract was modified concurrently', {
-        code: 'SALE_CONTRACT_VERSION_CONFLICT',
-        field: 'expectedVersion',
-      });
-    }
-
-    // Limpa a data do marco desfeito: saindo de FATURADO zera invoicedAt; de
-    // PAGO zera paidAt (preservando invoicedAt quando volta a FATURADO).
-    const clearedDate = contract.status === 'FATURADO' ? { invoicedAt: null } : { paidAt: null };
-
-    const result = await this.prisma.saleContract.updateMany({
-      where: { id: contractId, version: expectedVersion, status: contract.status },
-      data: { status: target, ...clearedDate, version: { increment: 1 } },
     });
     if (result.count === 0) {
       throw new HttpError(409, 'Sale contract was modified concurrently', {

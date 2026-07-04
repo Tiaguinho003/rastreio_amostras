@@ -887,8 +887,8 @@ export function applyAgioSaleContract(
   });
 }
 
-// Fechamento (Fase B): ciclo pos-EMITIDO. "Faturar" e "Pagar" gravam a data
-// real (YYYY-MM-DD); "Desfazer" (revert) volta um passo. Gestao = ADMIN+CADASTRO.
+// Fechamento (Fase B): ciclo pos-EMITIDO, SO PRA FRENTE (o "Desfazer" foi
+// removido na Fase J, D122). "Faturar" e "Pagar" gravam a data real (YYYY-MM-DD).
 export function invoiceSaleContract(
   session: SessionData,
   contractId: string,
@@ -907,18 +907,6 @@ export function paySaleContract(
   data: { expectedVersion: number; date: string }
 ) {
   return request<SaleContractResponse>(`/sale-contracts/${contractId}/pay`, {
-    method: 'POST',
-    session,
-    body: data,
-  });
-}
-
-export function revertSaleContractStatus(
-  session: SessionData,
-  contractId: string,
-  data: { expectedVersion: number }
-) {
-  return request<SaleContractResponse>(`/sale-contracts/${contractId}/revert-status`, {
     method: 'POST',
     session,
     body: data,

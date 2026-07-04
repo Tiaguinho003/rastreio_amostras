@@ -1423,59 +1423,6 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('desfazer: FATURADO -> EMITIDO limpa invoicedAt', async () => {
-    const { contractId, version } = await setupConfirmedContract({ lotNumber: '22004' });
-    const inv = await saleContractService.invoiceSaleContract(
-      contractId,
-      { expectedVersion: version, date: '2026-07-15' },
-      adminActor
-    );
-    const rev = await saleContractService.revertSaleContractStatus(
-      contractId,
-      { expectedVersion: inv.contract.version },
-      adminActor
-    );
-    assert.equal(rev.contract.status, 'EMITIDO');
-    assert.equal(rev.contract.invoicedAt, null);
-  });
-
-  test('desfazer: PAGO (com faturamento) -> FATURADO limpa paidAt', async () => {
-    const { contractId, version } = await setupConfirmedContract({ lotNumber: '22005' });
-    const inv = await saleContractService.invoiceSaleContract(
-      contractId,
-      { expectedVersion: version, date: '2026-07-15' },
-      adminActor
-    );
-    const pay = await saleContractService.paySaleContract(
-      contractId,
-      { expectedVersion: inv.contract.version, date: '2026-07-25' },
-      adminActor
-    );
-    const rev = await saleContractService.revertSaleContractStatus(
-      contractId,
-      { expectedVersion: pay.contract.version },
-      adminActor
-    );
-    assert.equal(rev.contract.status, 'FATURADO');
-    assert.equal(rev.contract.paidAt, null);
-    assert.equal(rev.contract.invoicedAt?.slice(0, 10), '2026-07-15');
-  });
-
-  test('guards: desfazer (revert) de EMITIDO -> 409', async () => {
-    // O passo faturar/pagar-de-EM_ABERTO deixou de existir (contrato nasce
-    // EMITIDO, D97). Desfazer um EMITIDO segue invalido (nao ha marco anterior).
-    const b = await setupConfirmedContract({ lotNumber: '22008' });
-    await assert.rejects(
-      () =>
-        saleContractService.revertSaleContractStatus(
-          b.contractId,
-          { expectedVersion: b.version },
-          adminActor
-        ),
-      (err) => err.status === 409
-    );
-  });
-
   test('faturar: expectedVersion stale -> 409', async () => {
     const { contractId } = await setupConfirmedContract({ lotNumber: '22009' });
     await assert.rejects(

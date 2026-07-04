@@ -10,22 +10,6 @@ import { toIsoString } from '../users/user-support.js';
 export const SALE_CONTRACT_TYPES = Object.freeze(['MERCADO_A_VISTA', 'FUTURO']);
 export const SALE_CONTRACT_STATUSES = Object.freeze(['EMITIDO', 'FATURADO', 'PAGO', 'WASH_OUT']);
 
-// Desfazer um passo no ciclo LINEAR EMITIDO -> FATURADO -> PAGO (corrige erro de
-// clique). Como o pagamento só ocorre APÓS o faturamento (D106), o ciclo é linear
-// e o destino é determinístico:
-//   FATURADO -> EMITIDO  (limpa invoicedAt)
-//   PAGO     -> FATURADO (limpa paidAt; invoicedAt preservado)
-// Retorna null para status fora do ciclo (chamador devolve 409).
-export function resolveRevertTarget(status) {
-  if (status === 'FATURADO') {
-    return 'EMITIDO';
-  }
-  if (status === 'PAGO') {
-    return 'FATURADO';
-  }
-  return null;
-}
-
 // Decimal(12,2) cabe ate 9.999.999.999,99. Preco/saca e corretagem sao bem
 // menores, mas o teto evita estouro silencioso no banco.
 const DECIMAL_12_2_MAX = 9999999999.99;
