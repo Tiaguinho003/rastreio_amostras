@@ -9,7 +9,6 @@ import {
   buildPartySnapshot,
   buildReceivableView,
   buildWarehouseSnapshot,
-  computeContractMoney,
   computeContractMoneyWithAgio,
   CONTRACT_LOOKUP_LISTS,
   formatContractNumber,
@@ -27,16 +26,24 @@ import {
   toSaleContractView,
 } from './sale-contract-support.js';
 
-// Gestao de Contratos (listar/detalhar/completar/emitir/confirmar/faturar/pagar/
-// reverter/quebrar). Acesso restrito a ADMIN (CADASTRO saiu em 2026-06-28). A
-// CRIACAO do contrato NAO passa por aqui -- ela acontece junto da venda a vista
-// (SampleCommandService.createSampleMovement), na mesma transacao do evento.
+// Gestao de Contratos (criar a vista/Futuro, listar/detalhar, editar/emitir,
+// faturar/pagar/reverter, quebrar/washout). Acesso restrito a ADMIN (CADASTRO
+// saiu em 2026-06-28). A CRIACAO nasce EMITIDO numa so operacao (D97): a vista
+// via createSpotSaleContract (delega ao createSampleMovement na tx do evento);
+// Futuro via createFutureSaleContract (CRUD direto).
 const SALE_CONTRACT_MANAGE_ROLES = [USER_ROLES.ADMIN];
 
 // Financeiro (Fase F): a pagina de recebiveis e acessivel a ADMIN + COMMERCIAL
 // (gate proprio — o SALE_CONTRACT_MANAGE_ROLES e ADMIN-only). ADMIN ve tudo;
 // COMMERCIAL ve so os fechamentos em que e corretor (Broker.userId) e so a cota.
 const FINANCEIRO_ROLES = [USER_ROLES.ADMIN, USER_ROLES.COMMERCIAL];
+
+// Acesso/gestao dos contratos por ADMIN + COMMERCIAL (S74): revoga o
+// "Gestao de Contratos = ADMIN-only". ADMIN ve/gerencia TUDO; COMMERCIAL so os
+// contratos EM QUE E CORRETOR (SaleContractBroker -> Broker.userId, mesmo modelo
+// do Financeiro). A autorizacao por contrato vem dos helpers _resolveOwnBrokerId
+// + _assertActorMayAccessContract; a listagem filtra aos contratos do corretor.
+const SALE_CONTRACT_ACCESS_ROLES = [USER_ROLES.ADMIN, USER_ROLES.COMMERCIAL];
 
 // Mesma chave do gerador do numero em src/events/prisma-event-store.js (NNNN
 // global, compartilhado a vista + Futuro). pg_advisory_xact_lock serializa a
@@ -55,9 +62,76 @@ export class SaleContractService {
     this.queryService = queryService;
   }
 
+  // Autorizacao COMMERCIAL (S74): resolve o Broker do usuario (Broker.userId
+  // @unique). COMMERCIAL sem Broker vinculado -> null (nao possui contrato).
+  async _resolveOwnBrokerId(actor) {
+    const broker = await this.prisma.broker.findUnique({
+      where: { userId: actor.actorUserId },
+      select: { id: true },
+    });
+    return broker?.id ?? null;
+  }
+
+  // Autoriza o ator num contrato ESPECIFICO. ADMIN: sempre. COMMERCIAL: precisa
+  // ser corretor do contrato (SaleContractBroker). Roda ANTES do findUnique nos
+  // chamadores, entao "nao existe" e "nao e meu" viram ambos 403 (nao vaza
+  // existencia ao COMMERCIAL); ADMIN segue vendo o 404 de contrato inexistente.
+  async _assertActorMayAccessContract(actor, contractId) {
+    if (actor.role === USER_ROLES.ADMIN) {
+      return;
+    }
+    const ownBrokerId = await this._resolveOwnBrokerId(actor);
+    if (ownBrokerId) {
+      const link = await this.prisma.saleContractBroker.findFirst({
+        where: { saleContractId: contractId, brokerId: ownBrokerId },
+        select: { id: true },
+      });
+      if (link) {
+        return;
+      }
+    }
+    throw new HttpError(403, 'Você não tem acesso a este contrato', {
+      code: 'SALE_CONTRACT_FORBIDDEN',
+    });
+  }
+
+  // COMMERCIAL cria contrato (D110): precisa estar ENTRE os corretores — senão o
+  // contrato não seria "dele" e ele o perderia de vista na hora (a lista filtra
+  // por posse). ADMIN pode qualquer combinação de corretores.
+  async _assertActorAmongBrokersOnCreate(actor, brokerIds) {
+    if (actor.role === USER_ROLES.ADMIN) {
+      return;
+    }
+    const ownBrokerId = await this._resolveOwnBrokerId(actor);
+    if (!ownBrokerId || !brokerIds.includes(ownBrokerId)) {
+      throw new HttpError(422, 'Inclua você mesmo como corretor do contrato', {
+        code: 'SALE_CONTRACT_MUST_INCLUDE_OWN_BROKER',
+        field: 'brokerIds',
+      });
+    }
+  }
+
   async listSaleContracts(input, actorContext) {
-    assertAuthenticatedActor(actorContext, 'list sale contracts');
-    assertRoleAllowed(actorContext.role, SALE_CONTRACT_MANAGE_ROLES, 'list sale contracts');
+    const actor = assertAuthenticatedActor(actorContext, 'list sale contracts');
+    assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'list sale contracts');
+
+    // COMMERCIAL (S74): so os contratos em que e corretor (Broker.userId). Sem
+    // Broker vinculado ou sem contratos -> lista vazia. ADMIN ve todos.
+    let ownContractIds = null;
+    if (actor.role !== USER_ROLES.ADMIN) {
+      const ownBrokerId = await this._resolveOwnBrokerId(actor);
+      if (!ownBrokerId) {
+        return { items: [] };
+      }
+      const links = await this.prisma.saleContractBroker.findMany({
+        where: { brokerId: ownBrokerId },
+        select: { saleContractId: true },
+      });
+      ownContractIds = links.map((l) => l.saleContractId);
+      if (ownContractIds.length === 0) {
+        return { items: [] };
+      }
+    }
 
     const search = typeof input?.search === 'string' ? input.search.trim() : '';
     const status = input?.status ? this._normalizeStatusFilter(input.status) : null;
@@ -68,6 +142,9 @@ export class SaleContractService {
     });
 
     const where = {};
+    if (ownContractIds) {
+      where.id = { in: ownContractIds };
+    }
     if (status) {
       where.status = status;
     }
@@ -118,10 +195,12 @@ export class SaleContractService {
       ownBrokerId = broker.id;
     }
 
-    // 1) contratos elegiveis: TODOS os congelados (inclusive sem corretagem — P24/D92).
+    // 1) contratos elegiveis: TODOS — inclusive sem corretagem (P24/D92) E os em
+    // WASH_OUT (D105: o corretor recebe a comissao mesmo com washout, pois fez a
+    // negociacao).
     const rows = await this.prisma.saleContract.findMany({
       where: {
-        status: { in: ['EMITIDO', 'FATURADO', 'PAGO'] },
+        status: { in: ['EMITIDO', 'FATURADO', 'PAGO', 'WASH_OUT'] },
       },
       orderBy: [{ contractSeq: 'desc' }],
       select: SALE_CONTRACT_VIEW_SELECT,
@@ -159,8 +238,8 @@ export class SaleContractService {
   }
 
   async getSaleContract(contractId, actorContext) {
-    assertAuthenticatedActor(actorContext, 'get sale contract');
-    assertRoleAllowed(actorContext.role, SALE_CONTRACT_MANAGE_ROLES, 'get sale contract');
+    const actor = assertAuthenticatedActor(actorContext, 'get sale contract');
+    assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'get sale contract');
 
     if (typeof contractId !== 'string' || contractId.length === 0) {
       throw new HttpError(422, 'contractId is required', {
@@ -168,6 +247,10 @@ export class SaleContractService {
         field: 'contractId',
       });
     }
+
+    // COMMERCIAL (S74): so pode ler os contratos em que e corretor (403 antes do
+    // findUnique -> nao vaza existencia). ADMIN passa direto.
+    await this._assertActorMayAccessContract(actor, contractId);
 
     const row = await this.prisma.saleContract.findUnique({
       where: { id: contractId },
@@ -206,30 +289,44 @@ export class SaleContractService {
   }
 
   // Fechamento (Futuro): cria um contrato FUTURO direto no SaleContract — SEM
-  // lote (sampleId/movementId nulos, D51). Captura a fase 1 (comprador + termos
-  // comerciais + corretores); o VENDEDOR e o resto vem no emit (1 modal so). O
-  // numero NNNN/AA usa a MESMA sequencia global do a vista, sob advisory lock.
-  // Status nasce EM_ABERTO; o frontend chama emit em seguida (-> EMITIDO).
+  // lote (sampleId/movementId nulos, D51). Coleta a fase 1 (comprador + termos +
+  // corretores) E a etapa 2 (vendedor, banco, filiais, armazens, listas, datas,
+  // textos) NUM MODAL SO -> nasce EMITIDO (D97). O numero NNNN/AA usa a MESMA
+  // sequencia global do a vista, sob advisory lock. Grava a auditoria (Export).
   async createFutureSaleContract(input, actorContext) {
-    assertAuthenticatedActor(actorContext, 'create future sale contract');
-    assertRoleAllowed(actorContext.role, SALE_CONTRACT_MANAGE_ROLES, 'create future sale contract');
+    const actor = assertAuthenticatedActor(actorContext, 'create future sale contract');
+    assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'create future sale contract');
 
-    const data = normalizeFutureSaleContractInput(input ?? {});
-    const buyerClient = await this._requireClient(data.buyerClientId, 'buyerClientId');
+    const fase1 = normalizeFutureSaleContractInput(input ?? {});
+    // COMMERCIAL (D110): precisa estar entre os corretores do contrato que cria.
+    await this._assertActorAmongBrokersOnCreate(actor, fase1.brokerIds);
+    const etapa2 = normalizeEtapa2Input(input ?? {});
+    // O vendedor do Futuro vem da etapa 2 (nao ha lote/dono).
+    if (!etapa2.sellerClientId) {
+      throw new HttpError(422, 'sellerClientId is required to create a future contract', {
+        code: 'VALIDATION_ERROR',
+        field: 'sellerClientId',
+      });
+    }
 
     // Corretores: resolve nomes + valida ativos (fora da tx — leitura).
     const brokers = await this.prisma.broker.findMany({
-      where: { id: { in: data.brokerIds } },
+      where: { id: { in: fase1.brokerIds } },
       select: { id: true, name: true, status: true },
     });
-    assertBrokersResolved(brokers, data.brokerIds);
+    assertBrokersResolved(brokers, fase1.brokerIds);
     const nameById = new Map(brokers.map((broker) => [broker.id, broker.name]));
 
-    const money = computeContractMoney({
-      unitPrice: data.unitPrice,
-      quantitySacks: data.quantitySacks,
-      sellerPct: data.sellerBrokeragePct,
-      buyerPct: data.buyerBrokeragePct,
+    // Resolve a etapa 2 + monta o `data` EMITIDO (partes/banco/armazens/listas +
+    // snapshots + totais com agio). So leitura, fora da tx.
+    const { data: emitData } = await this._resolveEmitData({
+      sellerClientId: etapa2.sellerClientId,
+      buyerClientId: fase1.buyerClientId,
+      quantitySacks: fase1.quantitySacks,
+      unitPrice: fase1.unitPrice,
+      sellerBrokeragePct: fase1.sellerBrokeragePct,
+      buyerBrokeragePct: fase1.buyerBrokeragePct,
+      etapa2,
     });
 
     const contractId = randomUUID();
@@ -244,47 +341,145 @@ export class SaleContractService {
         data: {
           id: contractId,
           type: 'FUTURO',
-          status: 'EM_ABERTO',
           contractSeq: seq,
           contractNumber,
-          contractDate: new Date(data.contractDate),
+          contractDate: new Date(fase1.contractDate),
           sampleId: null,
           movementId: null,
-          sellerClientId: null,
-          sellerSnapshot: null,
-          buyerClientId: buyerClient.id,
-          buyerSnapshot: buildPartySnapshot(buyerClient),
-          quantitySacks: data.quantitySacks,
-          unitPrice: data.unitPrice.toFixed(2),
-          totalValue: money.totalValue,
-          sellerBrokeragePct: data.sellerBrokeragePct.toFixed(2),
-          sellerBrokerageValue: money.sellerBrokerageValue,
-          buyerBrokeragePct: data.buyerBrokeragePct.toFixed(2),
-          buyerBrokerageValue: money.buyerBrokerageValue,
+          quantitySacks: fase1.quantitySacks,
+          unitPrice: fase1.unitPrice.toFixed(2),
+          sellerBrokeragePct: fase1.sellerBrokeragePct.toFixed(2),
+          buyerBrokeragePct: fase1.buyerBrokeragePct.toFixed(2),
           version: 0,
+          // etapa 2 (status EMITIDO + snapshots + banco/armazens/listas + totais)
+          ...emitData,
         },
       });
       await tx.saleContractBroker.createMany({
-        data: data.brokerIds.map((brokerId) => ({
+        data: fase1.brokerIds.map((brokerId) => ({
           id: randomUUID(),
           saleContractId: contractId,
           brokerId,
           brokerNameSnapshot: nameById.get(brokerId),
         })),
       });
+      await tx.saleContractExport.create({
+        data: {
+          id: randomUUID(),
+          saleContractId: contractId,
+          contractType: 'FUTURO',
+          generatedByUserId: actorContext.actorUserId ?? null,
+        },
+      });
     });
 
     return this.getSaleContract(contractId, actorContext);
   }
 
-  // Fechamento (Fase B.2 Passo 2): "Emitir" — salva os campos da etapa 2,
-  // monta os snapshots, recalcula o total (com agio/desagio) e leva o status de
-  // EM_ABERTO|EMITIDO -> EMITIDO (regeneravel apos "Editar"). Grava 1 linha de
-  // auditoria (SaleContractExport). O PDF real entra na Fase C neste mesmo ponto.
+  // Fechamento (Mercado a vista): cria a venda no lote + o contrato EMITIDO numa
+  // SO operacao (D97). Orquestra: (1) resolve a etapa 2 fora da tx (partes/banco/
+  // armazens/listas + snapshots + totais); (2) se o vendedor escolhido difere do
+  // dono do lote, sincroniza o dono ANTES da venda (D48); (3) delega a
+  // commandService.createSampleMovement (SALE), que grava o SALE_CREATED + o
+  // contrato EMITIDO (com o emitData) + a auditoria, tudo na MESMA tx. O contrato
+  // nunca passa por EM_ABERTO.
+  async createSpotSaleContract(input, actorContext) {
+    const actor = assertAuthenticatedActor(actorContext, 'create spot sale contract');
+    assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'create spot sale contract');
+    if (!this.commandService || !this.queryService) {
+      throw new HttpError(501, 'Spot sale contract creation is not configured', {
+        code: 'SALE_CONTRACT_CREATE_NOT_CONFIGURED',
+      });
+    }
+
+    const sampleId = input?.sampleId;
+    if (typeof sampleId !== 'string' || sampleId.length === 0) {
+      throw new HttpError(422, 'sampleId is required', {
+        code: 'VALIDATION_ERROR',
+        field: 'sampleId',
+      });
+    }
+    const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
+    const etapa2 = normalizeEtapa2Input(input ?? {});
+
+    // Fase 1 da venda a vista (mesmos normalizadores do createSampleMovement).
+    const fase1 = normalizeFutureSaleContractInput(input ?? {});
+    // COMMERCIAL (D110): precisa estar entre os corretores do contrato que cria.
+    await this._assertActorAmongBrokersOnCreate(actor, fase1.brokerIds);
+
+    const sample = await this.queryService.requireSample(sampleId);
+    // Concorrencia otimista: rejeita se o lote mudou desde que a tela carregou.
+    if (sample.version !== expectedVersion) {
+      throw new HttpError(409, 'Sample was modified concurrently', {
+        code: 'SAMPLE_VERSION_CONFLICT',
+        field: 'expectedVersion',
+      });
+    }
+    // Vendedor: escolhido na etapa 2 (D48) ou o dono atual do lote.
+    const sellerClientId = etapa2.sellerClientId ?? sample.ownerClientId;
+    if (!sellerClientId) {
+      throw new HttpError(422, 'sellerClientId is required to create the contract', {
+        code: 'VALIDATION_ERROR',
+        field: 'sellerClientId',
+      });
+    }
+
+    // Resolve a etapa 2 + monta o `data` EMITIDO (fora da tx — leitura).
+    const { data: emitData } = await this._resolveEmitData({
+      sellerClientId,
+      buyerClientId: fase1.buyerClientId,
+      quantitySacks: fase1.quantitySacks,
+      unitPrice: fase1.unitPrice,
+      sellerBrokeragePct: fase1.sellerBrokeragePct,
+      buyerBrokeragePct: fase1.buyerBrokeragePct,
+      etapa2,
+    });
+
+    // D48: o dono do lote passa a ser o vendedor ANTES da venda (bumpa a versao;
+    // no-op se ja coerente). Assim o SALE_CREATED e o snapshot base ja nascem com
+    // o vendedor certo, sem precisar de owner-sync depois.
+    await this._syncSampleOwner(sampleId, sellerClientId, actorContext);
+    const refreshed = await this.queryService.requireSample(sampleId);
+
+    const result = await this.commandService.createSampleMovement(
+      {
+        sampleId,
+        expectedVersion: refreshed.version,
+        movementType: 'SALE',
+        buyerClientId: fase1.buyerClientId,
+        buyerUnitId: etapa2.buyerUnitId ?? null,
+        quantitySacks: fase1.quantitySacks,
+        movementDate: fase1.contractDate,
+        unitPrice: fase1.unitPrice,
+        sellerBrokeragePct: fase1.sellerBrokeragePct,
+        buyerBrokeragePct: fase1.buyerBrokeragePct,
+        brokerIds: fase1.brokerIds,
+        // etapa 2 ja resolvida: o contrato nasce EMITIDO na tx do SALE_CREATED.
+        saleContractEmitData: emitData,
+      },
+      actorContext
+    );
+
+    const contractId = result?.saleContract?.id;
+    if (!contractId) {
+      throw new HttpError(500, 'Sale contract was not created', {
+        code: 'SALE_CONTRACT_NOT_CREATED',
+      });
+    }
+    return this.getSaleContract(contractId, actorContext);
+  }
+
+  // Fechamento: "Editar" um contrato EMITIDO — re-salva os campos da etapa 2,
+  // remonta os snapshots e recalcula o total (com agio/desagio), mantendo o
+  // status EMITIDO. Grava 1 linha de auditoria (SaleContractExport). A CRIACAO
+  // nao passa mais por aqui (nasce EMITIDO em createSpot/createFuture, D97);
+  // este metodo cobre so a re-emissao (regeneravel).
   async emitSaleContract(contractId, input, actorContext) {
-    assertAuthenticatedActor(actorContext, 'emit sale contract');
-    assertRoleAllowed(actorContext.role, SALE_CONTRACT_MANAGE_ROLES, 'emit sale contract');
+    const actor = assertAuthenticatedActor(actorContext, 'emit sale contract');
+    assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'emit sale contract');
     this._requireContractId(contractId);
+    // COMMERCIAL (D110): só gerencia os contratos em que é corretor.
+    await this._assertActorMayAccessContract(actor, contractId);
 
     const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
     const etapa2 = normalizeEtapa2Input(input ?? {});
@@ -293,8 +488,10 @@ export class SaleContractService {
     if (!contract) {
       throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
     }
-    if (contract.status !== 'EM_ABERTO' && contract.status !== 'EMITIDO') {
-      throw new HttpError(409, `Sale contract is ${contract.status} and cannot be emitted`, {
+    // Editar so age sobre um EMITIDO (a criacao ja nasce EMITIDO — D97). O passo
+    // EM_ABERTO nao existe mais.
+    if (contract.status !== 'EMITIDO') {
+      throw new HttpError(409, `Sale contract is ${contract.status} and cannot be edited`, {
         code: 'SALE_CONTRACT_NOT_EMITTABLE',
       });
     }
@@ -313,43 +510,8 @@ export class SaleContractService {
         field: 'sellerClientId',
       });
     }
-    const sellerClient = await this._requireClient(sellerClientId, 'sellerClientId');
-    const sellerUnit = await this._resolvePartyUnit(
-      sellerClient,
-      etapa2.sellerUnitId,
-      'sellerUnitId'
-    );
-
     // Comprador: usa o editado (se veio) ou o atual do contrato (P20).
     const buyerClientId = etapa2.buyerClientId ?? contract.buyerClientId;
-    const buyerClient = buyerClientId
-      ? await this._requireClient(buyerClientId, 'buyerClientId')
-      : null;
-    const buyerUnit = await this._resolvePartyUnit(buyerClient, etapa2.buyerUnitId, 'buyerUnitId');
-
-    const bankAccount = await this._requireSellerBankAccount(
-      etapa2.sellerBankAccountId,
-      sellerClientId
-    );
-
-    const buyerWarehouse = etapa2.buyerWarehouseClientId
-      ? await this._requireClient(etapa2.buyerWarehouseClientId, 'buyerWarehouseClientId')
-      : null;
-    const sellerWarehouse = etapa2.sellerWarehouseClientId
-      ? await this._requireClient(etapa2.sellerWarehouseClientId, 'sellerWarehouseClientId')
-      : null;
-
-    const paymentForm = await this._requireLookup(
-      'contractPaymentForm',
-      etapa2.paymentFormId,
-      'paymentFormId'
-    );
-    const modality = await this._requireLookup('contractModality', etapa2.modalityId, 'modalityId');
-    const packaging = await this._requireLookup(
-      'contractPackaging',
-      etapa2.packagingId,
-      'packagingId'
-    );
 
     // Fase 1 (venda) editavel no "Editar" — usa os valores novos quando vierem
     // (sf), senao mantem os do contrato. O comprador segue pela etapa 2 (acima).
@@ -359,13 +521,16 @@ export class SaleContractService {
     const effSellerPct = sf ? sf.sellerBrokeragePct : Number(contract.sellerBrokeragePct);
     const effBuyerPct = sf ? sf.buyerBrokeragePct : Number(contract.buyerBrokeragePct);
 
-    const money = computeContractMoneyWithAgio({
-      unitPrice: effUnitPrice,
+    // Resolve a etapa 2 (partes/banco/armazens/listas) + monta o `data` do
+    // estado EMITIDO (mesma logica reusada pela criacao atomica).
+    const { data } = await this._resolveEmitData({
+      sellerClientId,
+      buyerClientId,
       quantitySacks: effQuantitySacks,
-      sellerPct: effSellerPct,
-      buyerPct: effBuyerPct,
-      agioType: etapa2.agioDesagioType,
-      agioValue: etapa2.agioDesagioValue,
+      unitPrice: effUnitPrice,
+      sellerBrokeragePct: effSellerPct,
+      buyerBrokeragePct: effBuyerPct,
+      etapa2,
     });
 
     // D48: contrato a vista (tem sampleId) -> mantem o dono da amostra coerente
@@ -390,40 +555,6 @@ export class SaleContractService {
         actorContext
       );
     }
-
-    const data = {
-      status: 'EMITIDO',
-      sellerClientId,
-      sellerUnitId: sellerUnit?.id ?? null,
-      sellerSnapshot: buildPartySnapshot(sellerClient, sellerUnit),
-      buyerClientId,
-      buyerUnitId: buyerUnit?.id ?? null,
-      buyerSnapshot: buildPartySnapshot(buyerClient, buyerUnit),
-      buyerWarehouseClientId: buyerWarehouse?.id ?? null,
-      buyerWarehouseSnapshot: buildWarehouseSnapshot(buyerWarehouse),
-      sellerWarehouseClientId: sellerWarehouse?.id ?? null,
-      sellerWarehouseSnapshot: buildWarehouseSnapshot(sellerWarehouse),
-      sellerBankAccountId: bankAccount.id,
-      sellerBankSnapshot: buildBankSnapshot(bankAccount),
-      agioDesagioType: etapa2.agioDesagioType,
-      agioDesagioValue: etapa2.agioDesagioValue,
-      totalValue: money.totalValue,
-      sellerBrokerageValue: money.sellerBrokerageValue,
-      buyerBrokerageValue: money.buyerBrokerageValue,
-      weightKg: etapa2.weightKg,
-      purchaseNumber: etapa2.purchaseNumber,
-      paymentCondition: etapa2.paymentCondition,
-      paymentFormId: paymentForm.id,
-      paymentFormText: paymentForm.name,
-      modalityId: modality.id,
-      modalityText: modality.name,
-      packagingId: packaging.id,
-      packagingText: packaging.name,
-      invoiceDate: etapa2.invoiceDate,
-      paymentDate: etapa2.paymentDate,
-      observations: etapa2.observations,
-      description: etapa2.description,
-    };
 
     // Editar fase 1: grava as colunas da venda no contrato (o movimento já foi
     // sincronizado acima). No wizard create→emit (sf ausente) nada disso muda.
@@ -489,9 +620,11 @@ export class SaleContractService {
   // sale_contract_agio_log (D90, antes->depois). O status NAO muda; Financeiro
   // e Espelho leem ao vivo. CRUD direto + concorrencia otimista por version.
   async applyAgioSaleContract(contractId, input, actorContext) {
-    assertAuthenticatedActor(actorContext, 'apply agio to sale contract');
-    assertRoleAllowed(actorContext.role, SALE_CONTRACT_MANAGE_ROLES, 'apply agio to sale contract');
+    const actor = assertAuthenticatedActor(actorContext, 'apply agio to sale contract');
+    assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'apply agio to sale contract');
     this._requireContractId(contractId);
+    // COMMERCIAL (D110): só gerencia os contratos em que é corretor.
+    await this._assertActorMayAccessContract(actor, contractId);
     const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
     const { agioDesagioType, agioDesagioValue } = normalizeRequiredAgio(input);
 
@@ -575,9 +708,11 @@ export class SaleContractService {
   // (invoicedAt; pode diferir da planejada invoiceDate). Reversivel via
   // revertSaleContractStatus. CRUD direto + concorrencia otimista por version.
   async invoiceSaleContract(contractId, input, actorContext) {
-    assertAuthenticatedActor(actorContext, 'invoice sale contract');
-    assertRoleAllowed(actorContext.role, SALE_CONTRACT_MANAGE_ROLES, 'invoice sale contract');
+    const actor = assertAuthenticatedActor(actorContext, 'invoice sale contract');
+    assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'invoice sale contract');
     this._requireContractId(contractId);
+    // COMMERCIAL (D110): só gerencia os contratos em que é corretor.
+    await this._assertActorMayAccessContract(actor, contractId);
     const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
     const invoicedAt = normalizeActionDate(input?.date, 'date');
 
@@ -614,12 +749,15 @@ export class SaleContractService {
     return this.getSaleContract(contractId, actorContext);
   }
 
-  // "Pagar" — EMITIDO ou FATURADO -> PAGO (pode pular o faturamento). Grava a
-  // data REAL do pagamento (paidAt). Reversivel.
+  // "Pagar" — FATURADO -> PAGO (SÓ depois do faturamento — D106; na
+  // comercializacao o pagamento vem sempre depois de faturar). Grava a data REAL
+  // do pagamento (paidAt). Reversivel.
   async paySaleContract(contractId, input, actorContext) {
-    assertAuthenticatedActor(actorContext, 'pay sale contract');
-    assertRoleAllowed(actorContext.role, SALE_CONTRACT_MANAGE_ROLES, 'pay sale contract');
+    const actor = assertAuthenticatedActor(actorContext, 'pay sale contract');
+    assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'pay sale contract');
     this._requireContractId(contractId);
+    // COMMERCIAL (D110): só gerencia os contratos em que é corretor.
+    await this._assertActorMayAccessContract(actor, contractId);
     const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
     const paidAt = normalizeActionDate(input?.date, 'date');
 
@@ -630,7 +768,7 @@ export class SaleContractService {
     if (!contract) {
       throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
     }
-    if (contract.status !== 'EMITIDO' && contract.status !== 'FATURADO') {
+    if (contract.status !== 'FATURADO') {
       throw new HttpError(409, `Sale contract is ${contract.status} and cannot be paid`, {
         code: 'SALE_CONTRACT_NOT_PAYABLE',
       });
@@ -646,7 +784,7 @@ export class SaleContractService {
       where: {
         id: contractId,
         version: expectedVersion,
-        status: { in: ['EMITIDO', 'FATURADO'] },
+        status: 'FATURADO',
       },
       data: { status: 'PAGO', paidAt, version: { increment: 1 } },
     });
@@ -660,23 +798,25 @@ export class SaleContractService {
     return this.getSaleContract(contractId, actorContext);
   }
 
-  // "Desfazer" — volta um passo no ciclo pos-EMITIDO (corrige erro de clique).
-  // FATURADO -> EMITIDO (limpa invoicedAt); PAGO -> FATURADO|EMITIDO
-  // conforme houve faturamento, limpando paidAt (ver resolveRevertTarget).
+  // "Desfazer" — volta um passo no ciclo linear EMITIDO -> FATURADO -> PAGO
+  // (corrige erro de clique). FATURADO -> EMITIDO (limpa invoicedAt); PAGO ->
+  // FATURADO (limpa paidAt, preserva invoicedAt). Ver resolveRevertTarget.
   async revertSaleContractStatus(contractId, input, actorContext) {
-    assertAuthenticatedActor(actorContext, 'revert sale contract status');
-    assertRoleAllowed(actorContext.role, SALE_CONTRACT_MANAGE_ROLES, 'revert sale contract status');
+    const actor = assertAuthenticatedActor(actorContext, 'revert sale contract status');
+    assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'revert sale contract status');
     this._requireContractId(contractId);
+    // COMMERCIAL (D110): só gerencia os contratos em que é corretor.
+    await this._assertActorMayAccessContract(actor, contractId);
     const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
 
     const contract = await this.prisma.saleContract.findUnique({
       where: { id: contractId },
-      select: { id: true, status: true, version: true, invoicedAt: true },
+      select: { id: true, status: true, version: true },
     });
     if (!contract) {
       throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
     }
-    const target = resolveRevertTarget(contract.status, contract.invoicedAt != null);
+    const target = resolveRevertTarget(contract.status);
     if (!target) {
       throw new HttpError(409, `Sale contract is ${contract.status} and cannot be reverted`, {
         code: 'SALE_CONTRACT_NOT_REVERTABLE',
@@ -710,12 +850,15 @@ export class SaleContractService {
   // Quebra MANUAL (P17): EMITIDO/FATURADO/PAGO -> WASH_OUT, cancelando
   // a venda subjacente (devolve as sacas ao lote) com motivo OBRIGATORIO. Delega
   // ao cancelSampleMovement, que grava o SALE_CANCELLED e dispara o washout via
-  // washoutOrDeleteSaleContractByMovement na mesma tx. DEFINITIVA (event store
-  // append-only — retomar = nova venda/contrato).
+  // washoutSaleContractByMovement na mesma tx. DEFINITIVA (event store
+  // append-only — retomar = nova venda/contrato). O contrato NUNCA e apagado
+  // (D104) e o corretor mantem a comissao (Financeiro/Espelho — D105).
   async washoutSaleContract(contractId, input, actorContext) {
-    assertAuthenticatedActor(actorContext, 'washout sale contract');
-    assertRoleAllowed(actorContext.role, SALE_CONTRACT_MANAGE_ROLES, 'washout sale contract');
+    const actor = assertAuthenticatedActor(actorContext, 'washout sale contract');
+    assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'washout sale contract');
     this._requireContractId(contractId);
+    // COMMERCIAL (D110): só gerencia os contratos em que é corretor.
+    await this._assertActorMayAccessContract(actor, contractId);
     const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
     const reason = normalizeWashoutReason(input?.reason);
 
@@ -781,85 +924,13 @@ export class SaleContractService {
     return this.getSaleContract(contractId, actorContext);
   }
 
-  // Cancelar um contrato EM_ABERTO (venda registrada, sem documento gerado):
-  // descarta o contrato e DESFAZ a venda subjacente (devolve as sacas ao lote).
-  // Delega ao cancelSampleMovement, que no EM_ABERTO DELETA o contrato via
-  // washoutOrDeleteSaleContractByMovement (na mesma tx). Motivo padrao interno —
-  // e o descarte de um rascunho, sem justificativa do usuario. DEFINITIVO.
-  async cancelSaleContract(contractId, input, actorContext) {
-    assertAuthenticatedActor(actorContext, 'cancel sale contract');
-    assertRoleAllowed(actorContext.role, SALE_CONTRACT_MANAGE_ROLES, 'cancel sale contract');
-    this._requireContractId(contractId);
-    const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
-
-    const contract = await this.prisma.saleContract.findUnique({
-      where: { id: contractId },
-      select: { id: true, status: true, version: true, sampleId: true, movementId: true },
-    });
-    if (!contract) {
-      throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
-    }
-    // So o EM_ABERTO e cancelavel (descartavel). EMITIDO+ usa "Quebrar" (washout).
-    if (contract.status !== 'EM_ABERTO') {
-      throw new HttpError(409, `Sale contract is ${contract.status} and cannot be cancelled`, {
-        code: 'SALE_CONTRACT_NOT_CANCELABLE',
-      });
-    }
-    if (contract.version !== expectedVersion) {
-      throw new HttpError(409, 'Sale contract was modified concurrently', {
-        code: 'SALE_CONTRACT_VERSION_CONFLICT',
-        field: 'expectedVersion',
-      });
-    }
-
-    // Futuro (sem lote): nao ha venda a desfazer — apaga o contrato direto
-    // (corretores antes; FK RESTRICT). Guard por version/status na mesma tx.
-    if (!contract.movementId || !contract.sampleId) {
-      await this.prisma.$transaction(async (tx) => {
-        await tx.saleContractBroker.deleteMany({ where: { saleContractId: contractId } });
-        const del = await tx.saleContract.deleteMany({
-          where: { id: contractId, version: expectedVersion, status: 'EM_ABERTO' },
-        });
-        if (del.count === 0) {
-          throw new HttpError(409, 'Sale contract was modified concurrently', {
-            code: 'SALE_CONTRACT_VERSION_CONFLICT',
-            field: 'expectedVersion',
-          });
-        }
-      });
-      return { deleted: true, contractId };
-    }
-
-    if (!this.commandService || !this.queryService) {
-      throw new HttpError(501, 'Sale cancel is not configured', {
-        code: 'SALE_CANCEL_NOT_CONFIGURED',
-      });
-    }
-
-    // A vista: cancela a venda na versao corrente do sample; no EM_ABERTO o
-    // cancelamento restaura as sacas e DELETA o contrato (washoutOrDeleteSaleContractByMovement).
-    const sample = await this.queryService.requireSample(contract.sampleId);
-    await this.commandService.cancelSampleMovement(
-      {
-        sampleId: contract.sampleId,
-        movementId: contract.movementId,
-        reasonText: 'Contrato em aberto cancelado',
-        expectedVersion: sample.version,
-      },
-      actorContext
-    );
-
-    // O contrato deixou de existir — nada a retornar alem da confirmacao.
-    return { deleted: true, contractId };
-  }
-
   // Preview (so-leitura) do PROXIMO numero NNNN/AA — pro modal de venda mostrar
   // qual sera o numero ANTES de criar. So indicativo: sem lock, e o numero real
   // e alocado de fato na criacao (allocateNextContractSeq). Corrida = 2 previews
   // iguais e aceitavel (o unique constraint garante a unicidade na criacao).
   async getNextContractNumber(actorContext) {
     assertAuthenticatedActor(actorContext, 'get next contract number');
-    assertRoleAllowed(actorContext.role, SALE_CONTRACT_MANAGE_ROLES, 'get next contract number');
+    assertRoleAllowed(actorContext.role, SALE_CONTRACT_ACCESS_ROLES, 'get next contract number');
     const rows = await this.prisma.$queryRaw`
       SELECT COALESCE(MAX(contract_seq), 0) + 1 AS next FROM sale_contract
     `;
@@ -948,6 +1019,105 @@ export class SaleContractService {
       });
     }
     return row;
+  }
+
+  // Resolve/valida as entidades da etapa 2 (partes/filiais/banco/armazens/listas)
+  // e monta o objeto `data` do estado EMITIDO (snapshots + ids/textos + agio +
+  // totais com agio). SO LEITURA — roda FORA da transacao. Reusado pelos 3
+  // caminhos: "Editar" (emitSaleContract), criacao a vista (createSpotSaleContract
+  // -> createSaleContractInTx) e Futuro (createFutureSaleContract). NAO faz
+  // owner-sync/movement-sync nem grava — isso e responsabilidade de quem chama.
+  // Recebe os valores da fase 1 (partes/sacas/preco/pct) porque os totais
+  // dependem deles + do agio.
+  async _resolveEmitData({
+    sellerClientId,
+    buyerClientId,
+    quantitySacks,
+    unitPrice,
+    sellerBrokeragePct,
+    buyerBrokeragePct,
+    etapa2,
+  }) {
+    const sellerClient = await this._requireClient(sellerClientId, 'sellerClientId');
+    const sellerUnit = await this._resolvePartyUnit(
+      sellerClient,
+      etapa2.sellerUnitId,
+      'sellerUnitId'
+    );
+
+    const buyerClient = buyerClientId
+      ? await this._requireClient(buyerClientId, 'buyerClientId')
+      : null;
+    const buyerUnit = await this._resolvePartyUnit(buyerClient, etapa2.buyerUnitId, 'buyerUnitId');
+
+    const bankAccount = await this._requireSellerBankAccount(
+      etapa2.sellerBankAccountId,
+      sellerClientId
+    );
+
+    const buyerWarehouse = etapa2.buyerWarehouseClientId
+      ? await this._requireClient(etapa2.buyerWarehouseClientId, 'buyerWarehouseClientId')
+      : null;
+    const sellerWarehouse = etapa2.sellerWarehouseClientId
+      ? await this._requireClient(etapa2.sellerWarehouseClientId, 'sellerWarehouseClientId')
+      : null;
+
+    const paymentForm = await this._requireLookup(
+      'contractPaymentForm',
+      etapa2.paymentFormId,
+      'paymentFormId'
+    );
+    const modality = await this._requireLookup('contractModality', etapa2.modalityId, 'modalityId');
+    const packaging = await this._requireLookup(
+      'contractPackaging',
+      etapa2.packagingId,
+      'packagingId'
+    );
+
+    const money = computeContractMoneyWithAgio({
+      unitPrice,
+      quantitySacks,
+      sellerPct: sellerBrokeragePct,
+      buyerPct: buyerBrokeragePct,
+      agioType: etapa2.agioDesagioType,
+      agioValue: etapa2.agioDesagioValue,
+    });
+
+    const data = {
+      status: 'EMITIDO',
+      sellerClientId,
+      sellerUnitId: sellerUnit?.id ?? null,
+      sellerSnapshot: buildPartySnapshot(sellerClient, sellerUnit),
+      buyerClientId: buyerClientId ?? null,
+      buyerUnitId: buyerUnit?.id ?? null,
+      buyerSnapshot: buildPartySnapshot(buyerClient, buyerUnit),
+      buyerWarehouseClientId: buyerWarehouse?.id ?? null,
+      buyerWarehouseSnapshot: buildWarehouseSnapshot(buyerWarehouse),
+      sellerWarehouseClientId: sellerWarehouse?.id ?? null,
+      sellerWarehouseSnapshot: buildWarehouseSnapshot(sellerWarehouse),
+      sellerBankAccountId: bankAccount.id,
+      sellerBankSnapshot: buildBankSnapshot(bankAccount),
+      agioDesagioType: etapa2.agioDesagioType,
+      agioDesagioValue: etapa2.agioDesagioValue,
+      totalValue: money.totalValue,
+      sellerBrokerageValue: money.sellerBrokerageValue,
+      buyerBrokerageValue: money.buyerBrokerageValue,
+      weightKg: etapa2.weightKg,
+      purchaseNumber: etapa2.purchaseNumber,
+      paymentCondition: etapa2.paymentCondition,
+      paymentFormId: paymentForm.id,
+      paymentFormText: paymentForm.name,
+      modalityId: modality.id,
+      modalityText: modality.name,
+      packagingId: packaging.id,
+      packagingText: packaging.name,
+      invoiceDate: etapa2.invoiceDate,
+      paymentDate: etapa2.paymentDate,
+      observations: etapa2.observations,
+      description: etapa2.description,
+    };
+
+    return { data };
   }
 
   async _syncSampleOwner(sampleId, newOwnerClientId, actorContext) {

@@ -330,7 +330,7 @@ export interface BrokerResponse {
 // Fechamento (Fase B.2): contrato de venda "Mercado a vista". Os snapshots sao
 // JSON congelados de identidade/banco/armazens (preenchidos ao longo do fluxo).
 export type SaleContractType = 'MERCADO_A_VISTA' | 'FUTURO';
-export type SaleContractStatus = 'EM_ABERTO' | 'EMITIDO' | 'FATURADO' | 'PAGO' | 'WASH_OUT';
+export type SaleContractStatus = 'EMITIDO' | 'FATURADO' | 'PAGO' | 'WASH_OUT';
 export type AgioDesagioType = 'AGIO' | 'DESAGIO';
 
 export interface SaleContractBrokerView {
@@ -409,9 +409,16 @@ export interface SaleContractSaleFieldsInput {
   brokerIds: string[];
 }
 
-// Fechamento (Futuro): criacao direta de um contrato FUTURO (sem lote). Fase 1
-// comercial + comprador; o vendedor e o resto vem depois no emit (1 modal so).
-export interface CreateFutureSaleContractInput {
+// Fechamento (D97): criacao de um contrato num passo so — nasce EMITIDO. Combina
+// a fase 1 (comercial + comprador) com a etapa 2 completa (vendedor, banco,
+// filiais, armazens, listas, datas, textos). A vista (MERCADO_A_VISTA) traz
+// sampleId + expectedVersion (registra a venda no lote); Futuro (FUTURO) nao tem
+// lote.
+export interface CreateSaleContractInput {
+  type: SaleContractType;
+  sampleId?: string;
+  expectedVersion?: number;
+  // fase 1 (comercial + comprador)
   buyerClientId: string;
   quantitySacks: number;
   unitPrice: number;
@@ -419,6 +426,25 @@ export interface CreateFutureSaleContractInput {
   buyerBrokeragePct: number;
   contractDate: string;
   brokerIds: string[];
+  // etapa 2
+  sellerClientId: string;
+  sellerUnitId?: string | null;
+  buyerUnitId?: string | null;
+  sellerBankAccountId: string;
+  buyerWarehouseClientId?: string | null;
+  sellerWarehouseClientId?: string | null;
+  paymentFormId: string;
+  modalityId: string;
+  packagingId: string;
+  invoiceDate: string;
+  paymentDate: string;
+  purchaseNumber?: string | null;
+  paymentCondition?: string | null;
+  observations?: string | null;
+  description?: string | null;
+  weightKg?: number | null;
+  agioDesagioType?: AgioDesagioType | null;
+  agioDesagioValue?: number | null;
 }
 
 export interface SaleContractListResponse {

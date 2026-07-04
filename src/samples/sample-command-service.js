@@ -7,6 +7,7 @@ import { HttpError } from '../contracts/errors.js';
 import {
   assertBrokersResolved,
   buildSaleContractDraftFromSale,
+  computeContractMoneyWithAgio,
   formatContractNumber,
   normalizeBrokeragePct,
   normalizeBrokerIds,
@@ -339,11 +340,17 @@ function buildBuyerSnapshot(binding) {
   };
 }
 
-// Fechamento (Fase B.2): cria o contrato de venda a vista DENTRO da transacao
-// da venda (chamado pelo beforeCommit do appendEventBatch). Resolve/valida os
-// corretores, aloca o numero NNNN/AA sob advisory lock e grava contrato +
-// corretores. Devolve { id, contractNumber } pra ecoar no retorno do comando.
-async function createSaleContractInTx(tx, { contractDraft, brokerIds, movementId }) {
+// Fechamento (D97): cria o contrato de venda a vista JA EMITIDO dentro da
+// transacao da venda (chamado pelo beforeCommit do appendEventBatch). Resolve/
+// valida os corretores, aloca o numero NNNN/AA sob advisory lock e grava
+// contrato + corretores + auditoria. O contrato nasce da BASE da venda
+// (contractDraft) mesclada com a etapa 2 ja resolvida (emitData: status EMITIDO
+// + snapshots + banco/armazens/listas + totais com agio). Devolve
+// { id, contractNumber } pra ecoar no retorno do comando.
+async function createSaleContractInTx(
+  tx,
+  { contractDraft, emitData, brokerIds, movementId, auditActorUserId = null }
+) {
   const brokers = await tx.loadBrokersByIds(brokerIds);
   assertBrokersResolved(brokers, brokerIds);
 
@@ -352,13 +359,30 @@ async function createSaleContractInTx(tx, { contractDraft, brokerIds, movementId
   const contractNumber = formatContractNumber(seq, new Date().getFullYear());
   const contractId = randomUUID();
 
-  await tx.createSaleContract({
+  // Base da venda (contractDraft, com as sacas REAIS do movimento) + etapa 2 ja
+  // resolvida (emitData). Recalcula os totais a partir das sacas do movimento +
+  // o agio da etapa 2, pra total/corretagem baterem SEMPRE com a quantidade
+  // registrada — inclusive em liga (sacas = 100% do saldo, pode diferir do input).
+  const row = {
     id: contractId,
     contractSeq: seq,
     contractNumber,
     movementId,
     ...contractDraft,
+    ...emitData,
+  };
+  const money = computeContractMoneyWithAgio({
+    unitPrice: Number(row.unitPrice),
+    quantitySacks: row.quantitySacks,
+    sellerPct: Number(row.sellerBrokeragePct),
+    buyerPct: Number(row.buyerBrokeragePct),
+    agioType: row.agioDesagioType ?? null,
+    agioValue: row.agioDesagioValue ?? null,
   });
+  row.totalValue = money.totalValue;
+  row.sellerBrokerageValue = money.sellerBrokerageValue;
+  row.buyerBrokerageValue = money.buyerBrokerageValue;
+  await tx.createSaleContract(row);
   await tx.createSaleContractBrokers(
     brokerIds.map((brokerId) => ({
       id: randomUUID(),
@@ -367,6 +391,13 @@ async function createSaleContractInTx(tx, { contractDraft, brokerIds, movementId
       brokerNameSnapshot: brokerNameById.get(brokerId),
     }))
   );
+  // Auditoria (SaleContractExport): 1 linha por emissao — aqui, a criacao.
+  await tx.createSaleContractExport({
+    id: randomUUID(),
+    saleContractId: contractId,
+    contractType: contractDraft.type,
+    generatedByUserId: auditActorUserId,
+  });
 
   return { id: contractId, contractNumber };
 }
@@ -2856,6 +2887,7 @@ export class SampleCommandService {
         rootExpectedVersion: input.expectedVersion,
         rootIdempotencyKey: input.idempotencyKey ?? randomUUID(),
         saleContractInput,
+        saleContractEmitData: input.saleContractEmitData,
       });
       // Notifica so a RAIZ da cascata (result.event e o evento da liga).
       await this._notifyMovementCreated(cascadeResult, sample, actor);
@@ -2896,9 +2928,12 @@ export class SampleCommandService {
       actorContext: actor,
     });
 
-    // Venda a vista (D43): o contrato nasce na MESMA tx do SALE_CREATED, via
-    // beforeCommit. Perda (LOSS) segue sem contrato, no append simples.
-    if (movementType === MOVEMENT_TYPES.SALE) {
+    // Venda a vista (D43/D97): quando a etapa 2 ja veio resolvida
+    // (saleContractEmitData, via createSpotSaleContract), o contrato nasce
+    // EMITIDO na MESMA tx do SALE_CREATED, via beforeCommit. Sem emitData (venda
+    // por um caminho de baixo nivel — ex. testes de mecanica de movimento) so
+    // grava o movimento, sem contrato. Perda (LOSS) tambem segue sem contrato.
+    if (movementType === MOVEMENT_TYPES.SALE && input.saleContractEmitData) {
       const contractDraft = buildSaleContractDraftFromSale({
         sample,
         buyerBinding,
@@ -2915,8 +2950,10 @@ export class SampleCommandService {
         async (tx) => {
           saleContract = await createSaleContractInTx(tx, {
             contractDraft,
+            emitData: input.saleContractEmitData,
             brokerIds: saleContractInput.brokerIds,
             movementId,
+            auditActorUserId: actor.actorUserId ?? null,
           });
         }
       );
@@ -2994,6 +3031,7 @@ export class SampleCommandService {
     rootExpectedVersion,
     rootIdempotencyKey,
     saleContractInput = null,
+    saleContractEmitData = null,
   }) {
     const tree = await this.queryService.loadBlendTree(rootSample.id);
 
@@ -3120,7 +3158,7 @@ export class SampleCommandService {
     const rootDraft = drafts[0];
     let saleContract = null;
     const beforeCommit =
-      movementType === MOVEMENT_TYPES.SALE && saleContractInput
+      movementType === MOVEMENT_TYPES.SALE && saleContractInput && saleContractEmitData
         ? async (tx) => {
             const contractDraft = buildSaleContractDraftFromSale({
               sample: rootSample,
@@ -3133,8 +3171,10 @@ export class SampleCommandService {
             });
             saleContract = await createSaleContractInTx(tx, {
               contractDraft,
+              emitData: saleContractEmitData,
               brokerIds: saleContractInput.brokerIds,
               movementId: rootDraft.payload.movementId,
+              auditActorUserId: actor.actorUserId ?? null,
             });
           }
         : null;
@@ -3257,12 +3297,13 @@ export class SampleCommandService {
       });
     }
 
-    // Cancelar a venda de liga remove o contrato EM_ABERTO ligado ao movimento
-    // RAIZ (so SALE; LOSS nao tem contrato), na mesma tx da cascata reversa.
+    // Cancelar a venda de liga QUEBRA o contrato ligado ao movimento RAIZ (so
+    // SALE; LOSS nao tem contrato) -> WASH_OUT, na mesma tx da cascata reversa
+    // (D104; o contrato nunca e apagado, o corretor mantem a comissao).
     const beforeCommit =
       rootMovement.movementType === MOVEMENT_TYPES.SALE
         ? async (tx) => {
-            await tx.washoutOrDeleteSaleContractByMovement(rootMovement.id, {
+            await tx.washoutSaleContractByMovement(rootMovement.id, {
               reason: normalizedReason,
               at: new Date(),
             });
@@ -3703,15 +3744,14 @@ export class SampleCommandService {
       actorContext: actor,
     });
 
-    // Cancelar a venda remove o contrato ainda EM_ABERTO ligado a ela (decisao
-    // hibrida desta sessao), na mesma tx do SALE_CANCELLED. LOSS nao tem
-    // contrato -> append simples.
+    // Cancelar a venda QUEBRA o contrato ligado a ela (-> WASH_OUT) na mesma tx
+    // do SALE_CANCELLED (D104; nunca apaga). LOSS nao tem contrato -> append simples.
     if (movement.movementType === MOVEMENT_TYPES.SALE) {
       const [result] = await this.eventService.appendEventBatch(
         [event],
         [{ expectedVersion: input.expectedVersion }],
         async (tx) => {
-          await tx.washoutOrDeleteSaleContractByMovement(movement.id, {
+          await tx.washoutSaleContractByMovement(movement.id, {
             reason: normalizeRequiredText(input.reasonText, 'reasonText', 500),
             at: new Date(),
           });

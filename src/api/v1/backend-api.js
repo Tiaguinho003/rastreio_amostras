@@ -2825,16 +2825,21 @@ export function createBackendApiV1({
         return { status: 200, body: result };
       }),
 
-    // Fechamento (Futuro): cria um contrato FUTURO direto (sem lote). Sem path
-    // param — o corpo traz a fase 1 (comprador + termos comerciais + corretores).
-    createFutureSaleContract: (input) =>
+    // Fechamento (D97): cria um contrato JA EMITIDO num passo so. Discrimina pelo
+    // `type` do corpo: MERCADO_A_VISTA -> createSpot (registra a venda no lote +
+    // contrato na mesma tx); FUTURO -> createFuture (CRUD direto, sem lote). Em
+    // ambos o corpo traz a fase 1 + a etapa 2 completa.
+    createSaleContract: (input) =>
       executeApiForInput(input, async () => {
         if (!saleContractService) {
           throw new HttpError(501, 'Sale contract service is not configured');
         }
         const actor = await resolveActorContext(input, authService);
         const body = readRequestBody(input);
-        const result = await saleContractService.createFutureSaleContract(body, actor);
+        const result =
+          body?.type === 'MERCADO_A_VISTA'
+            ? await saleContractService.createSpotSaleContract(body, actor)
+            : await saleContractService.createFutureSaleContract(body, actor);
         return { status: 201, body: result };
       }),
 
@@ -2870,9 +2875,9 @@ export function createBackendApiV1({
         return { status: 200, body: result };
       }),
 
-    // Fechamento (Fase B): ciclo pos-EMITIDO. "Faturar" (EMITIDO->FATURADO)
-    // e "Pagar" (EMITIDO|FATURADO->PAGO; pode pular) gravam a data real;
-    // "Desfazer" (revertSaleContractStatus) volta um passo.
+    // Fechamento (Fase B): ciclo LINEAR pos-EMITIDO (D106). "Faturar"
+    // (EMITIDO->FATURADO) e "Pagar" (FATURADO->PAGO, só após faturar) gravam a
+    // data real; "Desfazer" (revertSaleContractStatus) volta um passo.
     invoiceSaleContract: (input) =>
       executeApiForInput(input, async () => {
         if (!saleContractService) {
@@ -2935,23 +2940,6 @@ export function createBackendApiV1({
         return { status: 200, body: result };
       }),
 
-    // Cancelar um contrato EM_ABERTO: descarta o contrato e desfaz a venda
-    // (devolve as sacas). Delega ao cancelSampleMovement no servico.
-    cancelSaleContract: (input) =>
-      executeApiForInput(input, async () => {
-        if (!saleContractService) {
-          throw new HttpError(501, 'Sale contract service is not configured');
-        }
-        const actor = await resolveActorContext(input, authService);
-        const contractId = input?.params?.contractId;
-        if (typeof contractId !== 'string' || contractId.length === 0) {
-          throw new HttpError(422, 'contractId path param is required');
-        }
-        const body = readRequestBody(input);
-        const result = await saleContractService.cancelSaleContract(contractId, body, actor);
-        return { status: 200, body: result };
-      }),
-
     listContractLookups: (input) =>
       executeApiForInput(input, async () => {
         if (!saleContractService) {
@@ -2988,9 +2976,9 @@ export function createBackendApiV1({
       }),
 
     // Fechamento (Fase C): gera o PDF do contrato on-demand (regeneravel, sem
-    // armazenar — D32). Gate via getSaleContract (ADMIN+CADASTRO); so para
-    // contratos ja emitidos (status != EM_ABERTO). Devolve o buffer; a rota
-    // serve como application/pdf binario.
+    // armazenar — D32). Gate via getSaleContract (ADMIN + COMMERCIAL dono, S74).
+    // Todo contrato nasce EMITIDO (D97), entao nao ha mais gate de status aqui.
+    // Devolve o buffer; a rota serve como application/pdf binario.
     exportSaleContractPdf: (input) =>
       executeApiForInput(input, async () => {
         if (!saleContractService || !saleContractPdfService) {
@@ -3002,11 +2990,6 @@ export function createBackendApiV1({
           throw new HttpError(422, 'contractId path param is required');
         }
         const { contract } = await saleContractService.getSaleContract(contractId, actor);
-        if (contract.status === 'EM_ABERTO') {
-          throw new HttpError(409, 'Gere o documento (Emitir) antes de baixar o PDF', {
-            code: 'SALE_CONTRACT_NOT_EMITTED',
-          });
-        }
         let lotNumber = null;
         if (contract.sampleId) {
           try {
@@ -3031,9 +3014,12 @@ export function createBackendApiV1({
       }),
 
     // Espelho de Corretagem (Fase E): PDF on-demand DERIVADO de UM contrato
-    // (D70-D76). Gate via getSaleContract (ADMIN); so para contratos CONGELADOS
-    // (EMITIDO/FATURADO/PAGO, D73). `side` (query) = seller|buyer (D72) define
-    // o CLIENTE (topo) e o lado da comissao impressa. Sem persistencia (D71).
+    // (D70-D76). Gate via getSaleContract (ADMIN + COMMERCIAL dono, S74);
+    // elegiveis = EMITIDO/FATURADO/
+    // PAGO/WASH_OUT (D105 inclui washout). `side` (query) = seller|buyer (D72)
+    // define o CLIENTE (topo) e o lado da comissao impressa. O espelho e um
+    // documento de CORRETAGEM: EXIGE comissao no lado pedido (S74). Sem
+    // persistencia (D71).
     exportEspelhoPdf: (input) =>
       executeApiForInput(input, async () => {
         if (!saleContractService || !saleContractPdfService) {
@@ -3051,12 +3037,23 @@ export function createBackendApiV1({
           });
         }
         const { contract } = await saleContractService.getSaleContract(contractId, actor);
-        const ELIGIBLE_STATUSES = ['EMITIDO', 'FATURADO', 'PAGO'];
+        // D105: inclui WASH_OUT (o corretor recebe a comissao mesmo com washout).
+        const ELIGIBLE_STATUSES = ['EMITIDO', 'FATURADO', 'PAGO', 'WASH_OUT'];
         if (!ELIGIBLE_STATUSES.includes(contract.status)) {
+          throw new HttpError(409, 'O Espelho de Corretagem não é elegível para este contrato', {
+            code: 'ESPELHO_NOT_ELIGIBLE',
+          });
+        }
+        // O Espelho é um documento de CORRETAGEM: exige comissão no lado pedido
+        // (S74). Espelha o gate do front (que esmaece "Sem corretagem") e defende
+        // a chamada direta ao endpoint — sem isso o PDF sairia com TOTAL R$ 0,00.
+        const sidePct =
+          side === 'seller' ? contract.sellerBrokeragePct : contract.buyerBrokeragePct;
+        if (!(Number(sidePct) > 0)) {
           throw new HttpError(
             409,
-            'O Espelho de Corretagem só é gerado para contratos confirmados',
-            { code: 'ESPELHO_NOT_ELIGIBLE' }
+            'O Espelho de Corretagem exige corretagem neste lado do contrato',
+            { code: 'ESPELHO_NO_BROKERAGE' }
           );
         }
         const { buffer } = await saleContractPdfService.renderEspelhoPdf(contract, {

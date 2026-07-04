@@ -6,8 +6,9 @@ export async function GET(request: NextRequest) {
   return executeBackend('listSaleContracts', request);
 }
 
-// Fechamento (Futuro): cria um contrato FUTURO direto (sem lote).
+// Fechamento (D97): cria um contrato JA EMITIDO num passo so — à vista
+// (type=MERCADO_A_VISTA, registra a venda no lote) ou Futuro (type=FUTURO).
 export async function POST(request: NextRequest) {
   const body = await readJsonBody(request);
-  return executeBackend('createFutureSaleContract', request, { body });
+  return executeBackend('createSaleContract', request, { body });
 }

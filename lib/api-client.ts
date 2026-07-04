@@ -12,7 +12,7 @@ import type {
   ContractLookupListKey,
   ContractLookupsResponse,
   CreateContractLookupResponse,
-  CreateFutureSaleContractInput,
+  CreateSaleContractInput,
   FinanceiroListResponse,
   SaleContractEtapa2Input,
   SaleContractListResponse,
@@ -836,12 +836,9 @@ export function getSaleContract(
   });
 }
 
-// Fechamento (Futuro): cria um contrato FUTURO direto (sem lote). O frontend
-// chama emit em seguida (1 modal so) -> EMITIDO. Gestao = ADMIN.
-export function createFutureSaleContract(
-  session: SessionData,
-  data: CreateFutureSaleContractInput
-) {
+// Fechamento (Futuro, D97): cria um contrato FUTURO direto (sem lote) JA EMITIDO
+// num passo so (fase 1 + etapa 2 no mesmo corpo). Gestao = ADMIN.
+export function createFutureSaleContract(session: SessionData, data: CreateSaleContractInput) {
   return request<SaleContractResponse>(`/sale-contracts`, {
     method: 'POST',
     session,
@@ -849,8 +846,19 @@ export function createFutureSaleContract(
   });
 }
 
-// Fechamento (Fase B.2 Passo 2): "Emitir" salva a etapa 2 e leva EM_ABERTO/EMITIDO
-// -> EMITIDO (regeneravel ao "Editar" um EMITIDO). Gestao = ADMIN.
+// Fechamento (Mercado a vista, D97): registra a venda no lote + cria o contrato
+// JA EMITIDO num passo so (mesma tx). O corpo traz type=MERCADO_A_VISTA, o
+// sampleId + expectedVersion do lote e a fase 1 + etapa 2. Gestao = ADMIN.
+export function createSpotSaleContract(session: SessionData, data: CreateSaleContractInput) {
+  return request<SaleContractResponse>(`/sale-contracts`, {
+    method: 'POST',
+    session,
+    body: data as unknown as JsonValue,
+  });
+}
+
+// Fechamento (D97): "Editar" um contrato EMITIDO re-salva a etapa 2 e regenera,
+// mantendo EMITIDO. A criacao nasce EMITIDO em createSpot/createFuture. ADMIN.
 export function emitSaleContract(
   session: SessionData,
   contractId: string,
@@ -923,21 +931,6 @@ export function washoutSaleContract(
   data: { expectedVersion: number; reason: string }
 ) {
   return request<SaleContractResponse>(`/sale-contracts/${contractId}/washout`, {
-    method: 'POST',
-    session,
-    body: data,
-  });
-}
-
-// Cancelar um contrato EM_ABERTO (venda registrada, sem documento): descarta o
-// contrato e desfaz a venda (devolve as sacas ao lote). O contrato deixa de
-// existir — por isso o retorno e so a confirmacao, nao o contrato.
-export function cancelSaleContract(
-  session: SessionData,
-  contractId: string,
-  data: { expectedVersion: number }
-) {
-  return request<{ deleted: boolean; contractId: string }>(`/sale-contracts/${contractId}/cancel`, {
     method: 'POST',
     session,
     body: data,

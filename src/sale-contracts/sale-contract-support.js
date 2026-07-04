@@ -8,27 +8,20 @@ import { toIsoString } from '../users/user-support.js';
 // numero NNNN/AA, snapshots de identidade e o mapeamento de saida (view).
 
 export const SALE_CONTRACT_TYPES = Object.freeze(['MERCADO_A_VISTA', 'FUTURO']);
-export const SALE_CONTRACT_STATUSES = Object.freeze([
-  'EM_ABERTO',
-  'EMITIDO',
-  'FATURADO',
-  'PAGO',
-  'WASH_OUT',
-]);
+export const SALE_CONTRACT_STATUSES = Object.freeze(['EMITIDO', 'FATURADO', 'PAGO', 'WASH_OUT']);
 
-// Desfazer um passo no ciclo pos-EMITIDO. Como "Pagar" pode pular FATURADO
-// (EMITIDO -> PAGO direto), o destino de desfazer um PAGO depende do caminho
-// percorrido: a presenca de invoicedAt registra se houve faturamento.
-//   FATURADO            -> EMITIDO (limpa invoicedAt)
-//   PAGO (com faturado) -> FATURADO   (limpa paidAt)
-//   PAGO (pulou)        -> EMITIDO (limpa paidAt)
+// Desfazer um passo no ciclo LINEAR EMITIDO -> FATURADO -> PAGO (corrige erro de
+// clique). Como o pagamento só ocorre APÓS o faturamento (D106), o ciclo é linear
+// e o destino é determinístico:
+//   FATURADO -> EMITIDO  (limpa invoicedAt)
+//   PAGO     -> FATURADO (limpa paidAt; invoicedAt preservado)
 // Retorna null para status fora do ciclo (chamador devolve 409).
-export function resolveRevertTarget(status, hasInvoicedAt) {
+export function resolveRevertTarget(status) {
   if (status === 'FATURADO') {
     return 'EMITIDO';
   }
   if (status === 'PAGO') {
-    return hasInvoicedAt ? 'FATURADO' : 'EMITIDO';
+    return 'FATURADO';
   }
   return null;
 }
@@ -185,9 +178,9 @@ export function formatContractNumber(seq, year) {
   return `${String(seq).padStart(4, '0')}/${yy}`;
 }
 
-// Snapshot MINIMO de identidade do vendedor no EM_ABERTO (a partir do
-// ownerClient ja mapeado da amostra). Etapa 2 enriquece (filial/endereco) e o
-// EMITIDO congela (D25). buyerSnapshot reusa o binding do comprador.
+// Snapshot MINIMO de identidade do vendedor (a partir do ownerClient ja mapeado
+// da amostra). Na criacao atomica o emitData sobrescreve com o snapshot completo
+// (filial/endereco) e o EMITIDO congela (D25). buyerSnapshot reusa o binding.
 export function buildSellerSnapshot(ownerClient) {
   if (!ownerClient) {
     return null;
@@ -204,8 +197,11 @@ export function buildSellerSnapshot(ownerClient) {
   };
 }
 
-// Monta o "rascunho" do contrato pronto pra create -- EXCETO id/contractSeq/
-// contractNumber/movementId, que dependem da transacao (gerador + evento).
+// Monta a BASE do contrato à vista (fase 1) -- EXCETO id/contractSeq/
+// contractNumber/movementId (dependem da transacao) e EXCETO os campos da
+// etapa 2, que vem do `emitData` mesclado em createSaleContractInTx (o contrato
+// nasce EMITIDO numa so operacao — D97). Os totais aqui sao SEM agio; o emitData
+// os sobrescreve com os totais finais.
 export function buildSaleContractDraftFromSale({
   sample,
   buyerBinding,
@@ -218,7 +214,7 @@ export function buildSaleContractDraftFromSale({
   const money = computeContractMoney({ unitPrice, quantitySacks, sellerPct, buyerPct });
   return {
     type: 'MERCADO_A_VISTA',
-    status: 'EM_ABERTO',
+    status: 'EMITIDO',
     contractDate: new Date(contractDate),
     sampleId: sample.id,
     sellerClientId: sample.ownerClientId ?? null,

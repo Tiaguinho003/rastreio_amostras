@@ -451,6 +451,10 @@ class PrismaEventStoreTx {
     return this.tx.saleContract.create({ data: row });
   }
 
+  async createSaleContractExport(row) {
+    return this.tx.saleContractExport.create({ data: row });
+  }
+
   async createSaleContractBrokers(rows) {
     if (!rows || rows.length === 0) {
       return { count: 0 };
@@ -468,43 +472,29 @@ class PrismaEventStoreTx {
     });
   }
 
-  // Cancelar a venda (decisao hibrida, D45/D58): contrato ainda `EM_ABERTO`
-  // (nunca emitido) -> apaga (brokers antes, FK RESTRICT); ja emitido
-  // (`EMITIDO`/`FATURADO`/`PAGO`) -> `WASH_OUT` + motivo/data;
-  // ja `WASH_OUT` (ou sem contrato) -> no-op. Tambem e o caminho da quebra
-  // MANUAL (P17): o `washoutSaleContract` cancela a venda, que cai aqui.
-  async washoutOrDeleteSaleContractByMovement(movementId, { reason = null, at = null } = {}) {
+  // Cancelar a venda -> QUEBRA o contrato ligado ao movimento (D104):
+  // EMITIDO/FATURADO/PAGO -> WASH_OUT + motivo/data (FATURADO/PAGO preservam
+  // invoicedAt/paidAt — registro do que ocorreu antes da quebra). Ja WASH_OUT
+  // (ou sem contrato) -> no-op. O contrato NUNCA e apagado (o "Excluir" saiu na
+  // S72); o corretor mantem a comissao (aparece no Financeiro/Espelho).
+  async washoutSaleContractByMovement(movementId, { reason = null, at = null } = {}) {
     const existing = await this.tx.saleContract.findFirst({
       where: { movementId },
       select: { id: true, status: true },
     });
-    if (!existing) {
+    if (!existing || existing.status === 'WASH_OUT') {
       return null;
     }
-    if (existing.status === 'EM_ABERTO') {
-      await this.tx.saleContractBroker.deleteMany({ where: { saleContractId: existing.id } });
-      await this.tx.saleContract.delete({ where: { id: existing.id } });
-      return { id: existing.id, action: 'DELETED' };
-    }
-    if (
-      existing.status === 'EMITIDO' ||
-      existing.status === 'FATURADO' ||
-      existing.status === 'PAGO'
-    ) {
-      // FATURADO/PAGO preservam invoicedAt/paidAt — registro do que ocorreu
-      // antes da quebra.
-      await this.tx.saleContract.update({
-        where: { id: existing.id },
-        data: {
-          status: 'WASH_OUT',
-          washoutReason: reason,
-          washoutAt: at ?? new Date(),
-          version: { increment: 1 },
-        },
-      });
-      return { id: existing.id, action: 'WASH_OUT' };
-    }
-    return null; // ja WASH_OUT — nao mexe
+    await this.tx.saleContract.update({
+      where: { id: existing.id },
+      data: {
+        status: 'WASH_OUT',
+        washoutReason: reason,
+        washoutAt: at ?? new Date(),
+        version: { increment: 1 },
+      },
+    });
+    return { id: existing.id, action: 'WASH_OUT' };
   }
 
   async insertEvent(event) {
