@@ -4,17 +4,21 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { ANIMATION_MS, BottomSheet } from './BottomSheet';
-import { ApiError, requestCustomPrint } from '../lib/api-client';
+import { ApiError, sendApprovalLabel } from '../lib/api-client';
 import { useToast } from '../lib/toast/ToastProvider';
-import type { SessionData } from '../lib/types';
+import type { ApprovalLabelPrefill, SessionData } from '../lib/types';
 
-// Modal da Etiqueta de Aprovação (ex-"avulsa"). Mesmo padrão do NewSampleModal:
-// bottom-sheet saindo de baixo + efeito de sucesso (check animado) que
-// auto-fecha. Aberto pela opção "Aprovação" do leque do "+" em /samples.
-// Imprime na MESMA impressora das amostras (via print agent), sem QR, 1 cópia
-// por envio. Pipeline intacto: requestCustomPrint → fila custom_print_job.
-// Acesso garantido pelo gate da página (/samples = NON_PROSPECTOR_ROLES) + gate
-// central do PROSPECTOR no backend.
+// Modal da Etiqueta de Aprovação (Fase I, D112–D119). Mesmo padrão do
+// NewSampleModal: bottom-sheet saindo de baixo (central no desktop via CSS)
+// + efeito de sucesso (check animado) que auto-fecha. Duas portas:
+// /samples (seletor de contratos → pré-preenchido, ou "Manual" → em branco;
+// `onBack` volta ao seletor) e /contratos (botão "Aprovação" do card → direto,
+// sem Voltar). Com `prefill`, os campos abrem preenchidos do contrato e o
+// texto ORIGINAL do Lote de origem aparece como referência da quebra (D116) —
+// tudo editável; "Limpar" zera tudo (decisão S80). Imprime na MESMA impressora
+// (print agent), sem QR, 1 cópia por envio. Envio AUDITADO: sendApprovalLabel
+// grava o custom_print_job + a linha da approval_label_log na mesma transação
+// (saleContractId nulo = avulsa). Gate central não-PROSPECTOR no backend.
 
 interface FieldConfig {
   key: string;
@@ -127,9 +131,41 @@ interface ApprovalLabelModalProps {
   open: boolean;
   onClose: () => void;
   session: SessionData;
+  // Prefill do contrato (D115) — null/ausente = etiqueta em branco (Manual).
+  prefill?: ApprovalLabelPrefill | null;
+  // Vínculo da auditoria: nulo/ausente = avulsa (D114).
+  saleContractId?: string | null;
+  // Presente = veio do seletor de contratos ("Voltar" retorna a ele; descarta
+  // as edições — D117/S80). Ausente = porta /contratos (sem Voltar).
+  onBack?: (() => void) | null;
 }
 
-export function ApprovalLabelModal({ open, onClose, session }: ApprovalLabelModalProps) {
+// Semeia os campos de valor único a partir do prefill (chaves = FIELDS.key).
+function valuesFromPrefill(prefill: ApprovalLabelPrefill): Record<string, string> {
+  return {
+    compra: prefill.fields.compra,
+    fechamento: prefill.fields.fechamento,
+    produtor: prefill.fields.produtor,
+    armazem: prefill.fields.armazem,
+    sacas: prefill.fields.sacas,
+  };
+}
+
+// Lotes já quebrados pelo backend (D116); vazio → 1 campo em branco (o grupo
+// dinâmico precisa de ao menos um input).
+function lotsFromPrefill(prefill: ApprovalLabelPrefill): Lot[] {
+  if (prefill.lots.length === 0) return freshLots();
+  return prefill.lots.map((value) => ({ id: nextLotId(), value }));
+}
+
+export function ApprovalLabelModal({
+  open,
+  onClose,
+  session,
+  prefill = null,
+  saleContractId = null,
+  onBack = null,
+}: ApprovalLabelModalProps) {
   const toast = useToast();
   const [values, setValues] = useState<Record<string, string>>(emptyValues);
   const [lots, setLots] = useState<Lot[]>(freshLots);
@@ -207,13 +243,19 @@ export function ApprovalLabelModal({ open, onClose, session }: ApprovalLabelModa
 
     setSubmitting(true);
     try {
-      await requestCustomPrint(session, lines);
+      // Envio AUDITADO (D114): job de impressão + linha da approval_label_log
+      // na mesma transação; saleContractId nulo = etiqueta avulsa.
+      await sendApprovalLabel(session, { saleContractId, lines });
       // Sucesso: desce o sheet (phase='success') e o check central aparece
       // logo após (ver effect abaixo), auto-fechando em seguida.
       setPhase('success');
     } catch (err) {
       const message =
-        err instanceof ApiError ? err.message : 'Não foi possível enviar para impressão.';
+        err instanceof ApiError && err.status === 409
+          ? 'Este contrato não está mais elegível para aprovação.'
+          : err instanceof ApiError
+            ? err.message
+            : 'Não foi possível enviar para impressão.';
       toast.error({ title: 'Falha ao imprimir', description: message });
     } finally {
       setSubmitting(false);
@@ -245,6 +287,17 @@ export function ApprovalLabelModal({ open, onClose, session }: ApprovalLabelModa
     setSubmitting(false);
   }, [open]);
 
+  // Semeia o formulário com o prefill do contrato QUANDO o modal abre (a página
+  // só monta o modal DEPOIS do fetch do prefill — sem corrida com o reset
+  // acima). Reabrir o MESMO contrato re-preenche do contrato de novo ("Voltar"
+  // descarta edições — D117/S80).
+  useEffect(() => {
+    if (!open || !prefill) return;
+    setValues(valuesFromPrefill(prefill));
+    setLots(lotsFromPrefill(prefill));
+    setFormError(null);
+  }, [open, prefill]);
+
   // Após o sucesso, espera o slide-down do sheet (ANIMATION_MS) e mostra o
   // check central — mesmo timing do NewSampleModal.
   useEffect(() => {
@@ -262,7 +315,12 @@ export function ApprovalLabelModal({ open, onClose, session }: ApprovalLabelModa
   }, [successVisible, onClose]);
 
   const formFooter = (
-    <div className="nsv2-submit-wrap">
+    <div className={`nsv2-submit-wrap${onBack ? ' alm-footer-3' : ''}`}>
+      {onBack ? (
+        <button type="button" className="nsv2-clear-btn" disabled={submitting} onClick={onBack}>
+          <span>Voltar</span>
+        </button>
+      ) : null}
       <button
         type="button"
         className="nsv2-clear-btn"
@@ -334,6 +392,15 @@ export function ApprovalLabelModal({ open, onClose, session }: ApprovalLabelModa
                 })}
               </div>
             ))}
+
+            {/* Referência read-only do Lote de origem (D116): o texto ORIGINAL
+                da amostra, pro usuário conferir/corrigir a quebra automática. */}
+            {prefill?.originLotText ? (
+              <p className="alm-origin-ref">
+                <span className="alm-origin-ref-label">Lote de origem:</span>{' '}
+                {prefill.originLotText}
+              </p>
+            ) : null}
 
             {/* Grupo de Lotes (campos dinâmicos). "+" cria mais um ao lado (máx.
                 3 + botão por linha; o 4º quebra). "×" remove (some quando só 1). */}

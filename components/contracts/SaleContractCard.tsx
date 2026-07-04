@@ -16,7 +16,9 @@ import type {
 // o card vira um BOTAO de selecao (tap-to-open); inelegiveis (status nao
 // congelado) ficam esmaecidos e nao selecionaveis.
 
-const STATUS_META: Record<SaleContractStatus, { label: string; variant: string }> = {
+// Exportados: o seletor de contratos da Aprovação (ApprovalContractPickerModal)
+// reusa rótulo/cores do selo de status (D118).
+export const STATUS_META: Record<SaleContractStatus, { label: string; variant: string }> = {
   EMITIDO: { label: 'Emitido', variant: 'status-badge-success' },
   FATURADO: { label: 'Faturado', variant: 'status-badge-muted' },
   PAGO: { label: 'Pago', variant: 'status-badge-muted' },
@@ -32,7 +34,7 @@ const STATUS_BAR_COLOR: Record<SaleContractStatus, string> = {
 };
 
 // Fundo (tint claro) do selo de status — combina com a cor do texto/barra.
-const STATUS_TINT: Record<SaleContractStatus, string> = {
+export const STATUS_TINT: Record<SaleContractStatus, string> = {
   EMITIDO: '#fef9c3', // amarelo claro
   FATURADO: '#ccfbf1',
   PAGO: '#dcfce7',
@@ -42,7 +44,7 @@ const STATUS_TINT: Record<SaleContractStatus, string> = {
 // Cor do TEXTO do selo. Igual à barra, EXCETO o Emitido: a barra é amarelo vivo
 // (#eab308), que sumiria como texto no fundo claro — então o selo usa um amarelo
 // escuro legível.
-const STATUS_TEXT_COLOR: Record<SaleContractStatus, string> = {
+export const STATUS_TEXT_COLOR: Record<SaleContractStatus, string> = {
   EMITIDO: '#a16207', // amarelo-escuro (legível no selo)
   FATURADO: '#0d9488',
   PAGO: '#15803d',
@@ -83,6 +85,9 @@ type SaleContractCardProps = {
   onReverter: () => void;
   onWashout: () => void;
   onVisualizar: () => void;
+  // Aprovacao (Fase I, D112/D117): abre a etiqueta pre-preenchida. Disponivel
+  // em EMITIDO/FATURADO/PAGO e FORA do canManage (todo papel da pagina envia).
+  onAprovacao: () => void;
   // Aplicar agio/desagio (D87): so em EMITIDO; abre o dialogo com o sinal.
   onApplyAgio: (type: AgioDesagioType) => void;
   // S74: gestao dos contratos (Editar/Faturar/Pagar/Desfazer/Washout/Agio) so
@@ -107,6 +112,7 @@ export function SaleContractCard({
   onReverter,
   onWashout,
   onVisualizar,
+  onAprovacao,
   onApplyAgio,
   canManage = true,
   espelhoMode = false,
@@ -262,6 +268,9 @@ export function SaleContractCard({
                 <button type="button" className="ctr-btn" onClick={onVisualizar}>
                   Visualizar
                 </button>
+                <button type="button" className="ctr-btn" onClick={onAprovacao}>
+                  Aprovação
+                </button>
                 {canManage ? (
                   <>
                     <button type="button" className="ctr-btn" onClick={() => onApplyAgio('AGIO')}>
@@ -291,6 +300,9 @@ export function SaleContractCard({
                 <button type="button" className="ctr-btn" onClick={onVisualizar}>
                   Visualizar
                 </button>
+                <button type="button" className="ctr-btn" onClick={onAprovacao}>
+                  Aprovação
+                </button>
                 {canManage ? (
                   <>
                     <button type="button" className="ctr-btn" onClick={onReverter}>
@@ -307,6 +319,9 @@ export function SaleContractCard({
               <>
                 <button type="button" className="ctr-btn" onClick={onVisualizar}>
                   Visualizar
+                </button>
+                <button type="button" className="ctr-btn" onClick={onAprovacao}>
+                  Aprovação
                 </button>
                 {canManage ? (
                   <>

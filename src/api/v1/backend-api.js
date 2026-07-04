@@ -1154,37 +1154,11 @@ export function createBackendApiV1({
       }),
 
     // ============================================================
-    // Etiqueta de Aprovacao (modal "Aprovacao" do leque "+" em /samples).
-    // Fila propria (custom_print_job) — endpoint separado de proposito
-    // pra nao tocar no fluxo de impressao das amostras. O print agent
-    // poll este /pending alem do /print-queue/pending de sempre.
+    // Fila da Etiqueta de Aprovacao (custom_print_job): consumo pelo print
+    // agent (poll /pending + report /result), separada do fluxo das amostras.
+    // O ENFILEIRAMENTO migrou pro sendApprovalLabel (Fase I, D112-D119) —
+    // auditado, com ator + vinculo opcional ao contrato na mesma transacao.
     // ============================================================
-
-    enqueueCustomPrintJob: (input) =>
-      executeApiForInput(input, async () => {
-        // Qualquer sessao autenticada nao-PROSPECTOR pode enfileirar: o gate
-        // central do PROSPECTOR (allowlist em src/auth/prospector-access.js)
-        // ja barra prospector; os demais papeis acessam o modal em /samples.
-        await resolveActorContext(input, authService);
-
-        const body = readRequestBody(input);
-        const lines = normalizeCustomLabelLines(body.lines);
-
-        const job = await queryService.prisma.customPrintJob.create({
-          data: {
-            status: 'PENDING',
-            // copies sempre 1 (o layout/impressao crava 1); nao gravamos o campo
-            // pra nao sugerir uma configurabilidade que nao existe.
-            payload: { lines },
-          },
-          select: { id: true, status: true, createdAt: true },
-        });
-
-        return {
-          status: 201,
-          body: { id: job.id, status: job.status, createdAt: job.createdAt.toISOString() },
-        };
-      }),
 
     getPendingCustomPrintJobs: (input) =>
       executeApiForInput(input, async () => {

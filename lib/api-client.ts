@@ -1,4 +1,6 @@
 import type {
+  ApprovalContractOption,
+  ApprovalLabelPrefill,
   BlendFeasibilityResponse,
   ClassificationType,
   ClientAuditListResponse,
@@ -1786,16 +1788,33 @@ export function requestQrPrint(
   });
 }
 
-// Enfileira uma Etiqueta de Aprovacao (modal do leque "+" em /samples).
-// lines = [{ label, value }] na ordem de impressao. Sem vinculo com Sample.
-export function requestCustomPrint(
+// Aprovacao do contrato (Fase I, D112-D119) — endpoints da etiqueta AUDITADA.
+// O seletor lista os contratos elegiveis em view REDUZIDA (sem valores
+// financeiros); o prefill vem montado do backend; o envio grava o
+// custom_print_job + a auditoria (approval_label_log) na MESMA transacao.
+export function listApprovalContracts(session: SessionData, options?: { signal?: AbortSignal }) {
+  return request<{ items: ApprovalContractOption[] }>('/approval-labels/contracts', {
+    session,
+    signal: options?.signal,
+  });
+}
+
+export function getApprovalLabelPrefill(session: SessionData, contractId: string) {
+  return request<ApprovalLabelPrefill>(`/approval-labels/contracts/${contractId}/prefill`, {
+    session,
+  });
+}
+
+// lines = [{ label, value }] na ordem de impressao (mesmo shape do modal).
+// saleContractId nulo/ausente = etiqueta AVULSA (caminho "Manual" do seletor).
+export function sendApprovalLabel(
   session: SessionData,
-  lines: Array<{ label: string; value: string }>
+  data: { saleContractId?: string | null; lines: Array<{ label: string; value: string }> }
 ) {
-  return request<{ id: string; status: string; createdAt: string }>('/custom-print/request', {
+  return request<{ id: string; customPrintJobId: string; createdAt: string }>('/approval-labels', {
     method: 'POST',
     session,
-    body: { lines },
+    body: { saleContractId: data.saleContractId ?? null, lines: data.lines },
   });
 }
 
