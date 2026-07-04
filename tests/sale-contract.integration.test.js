@@ -70,8 +70,11 @@ if (!databaseUrl || !databaseReachable) {
   const adminActor = { ...commercialActor, role: 'ADMIN', actorUserId: randomUUID() };
 
   async function resetDatabase() {
+    // sale_contract nao tem FK para sample (refs sao colunas escalares) — o
+    // CASCADE de `sample` NAO limpa os contratos, entao truncamos as tabelas do
+    // contrato explicitamente pra cada teste comecar sem contratos residuais.
     await prisma.$executeRawUnsafe(
-      'TRUNCATE TABLE client_audit_event, sample_movement, sample_blend_component, client_unit, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
+      'TRUNCATE TABLE sale_contract_agio_log, sale_contract_export, sale_contract_broker, sale_contract, client_audit_event, sample_movement, sample_blend_component, client_unit, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
     );
   }
 
@@ -172,7 +175,14 @@ if (!databaseUrl || !databaseReachable) {
     await prisma.sample.update({ where: { id: sampleId }, data: { ownerClientId: sellerId } });
     const sample = await queryService.requireSample(sampleId);
     const sale = await sell(sampleId, sample.version, buyerId, saleOverrides);
-    return { contractId: sale.saleContract.id, sampleId, sellerId, buyerId, bankAccountId };
+    return {
+      contractId: sale.contract.id,
+      version: sale.contract.version,
+      sampleId,
+      sellerId,
+      buyerId,
+      bankAccountId,
+    };
   }
 
   function etapa2Payload({ bankAccountId, lookups, expectedVersion = 0, overrides = {} }) {
@@ -204,16 +214,10 @@ if (!databaseUrl || !databaseReachable) {
     };
   }
 
-  // Emite -> contrato EMITIDO (nao ha mais "confirmar"); devolve refs + version.
-  async function setupConfirmedContract({ lotNumber, saleOverrides = {} }) {
-    const refs = await setupEmittableContract({ lotNumber, saleOverrides });
-    const lookups = await fetchLookups();
-    const emitted = await saleContractService.emitSaleContract(
-      refs.contractId,
-      etapa2Payload({ bankAccountId: refs.bankAccountId, lookups }),
-      adminActor
-    );
-    return { ...refs, version: emitted.contract.version };
+  // O contrato ja nasce EMITIDO (D97) — nao ha mais passo "confirmar"/"emitir"
+  // separado. setupEmittableContract ja devolve refs + version do EMITIDO.
+  async function setupConfirmedContract(args) {
+    return setupEmittableContract(args);
   }
 
   async function createClassifiedSample({ id, lotNumber, declaredSacks = 10 }) {
@@ -228,22 +232,45 @@ if (!databaseUrl || !databaseReachable) {
     await prisma.sample.update({ where: { id }, data: { status: 'CLASSIFIED' } });
   }
 
-  async function sell(sampleId, version, buyerId, overrides = {}) {
-    return commandService.createSampleMovement(
+  // Registra a venda a vista GERANDO o contrato EMITIDO num passo so (D97,
+  // createSpotSaleContract). Garante dono=vendedor (cria se faltar) + conta
+  // bancaria + listas ativas. Devolve { contract } (getSaleContract).
+  async function sell(sampleId, _version, buyerId, overrides = {}) {
+    let sample = await queryService.requireSample(sampleId);
+    let sellerId = sample.ownerClientId;
+    if (!sellerId) {
+      sellerId = randomUUID();
+      await createSellerClient(sellerId);
+      await prisma.sample.update({ where: { id: sampleId }, data: { ownerClientId: sellerId } });
+    }
+    let bank = await prisma.clientBankAccount.findFirst({ where: { clientId: sellerId } });
+    if (!bank) {
+      bank = { id: await createSellerBankAccount(sellerId) };
+    }
+    const lookups = await fetchLookups();
+    sample = await queryService.requireSample(sampleId);
+    return saleContractService.createSpotSaleContract(
       {
+        type: 'MERCADO_A_VISTA',
         sampleId,
-        movementType: 'SALE',
-        quantitySacks: 10,
-        movementDate: '2026-06-26',
+        expectedVersion: sample.version,
         buyerClientId: buyerId,
-        expectedVersion: version,
+        quantitySacks: 10,
         unitPrice: 100,
         sellerBrokeragePct: 2,
         buyerBrokeragePct: 1,
+        contractDate: '2026-06-26',
         brokerIds: [TEST_BROKER_ID],
+        sellerClientId: sellerId,
+        sellerBankAccountId: bank.id,
+        paymentFormId: lookups.paymentForm.id,
+        modalityId: lookups.modality.id,
+        packagingId: lookups.packaging.id,
+        invoiceDate: '2026-07-10',
+        paymentDate: '2026-07-20',
         ...overrides,
       },
-      commercialActor
+      adminActor
     );
   }
 
@@ -259,7 +286,7 @@ if (!databaseUrl || !databaseReachable) {
     await seedAdminUser();
   });
 
-  test('venda a vista cria 1 contrato EM_ABERTO com numero, total, corretagens e corretor', async () => {
+  test('venda a vista cria 1 contrato EMITIDO com numero, total, corretagens e corretor', async () => {
     const sampleId = randomUUID();
     const buyerId = randomUUID();
     await createClassifiedSample({ id: sampleId, lotNumber: '20001', declaredSacks: 10 });
@@ -268,12 +295,12 @@ if (!databaseUrl || !databaseReachable) {
 
     const result = await sell(sampleId, sample.version, buyerId);
 
-    assert.equal(result.saleContract.contractNumber, `0001/${currentYear2}`);
+    assert.equal(result.contract.contractNumber, `0001/${currentYear2}`);
 
     const contracts = await prisma.saleContract.findMany();
     assert.equal(contracts.length, 1);
     const contract = contracts[0];
-    assert.equal(contract.status, 'EM_ABERTO');
+    assert.equal(contract.status, 'EMITIDO');
     assert.equal(contract.type, 'MERCADO_A_VISTA');
     assert.equal(contract.contractSeq, 1);
     assert.equal(contract.sampleId, sampleId);
@@ -309,8 +336,8 @@ if (!databaseUrl || !databaseReachable) {
     const sample2 = await queryService.requireSample(s2);
     const r2 = await sell(s2, sample2.version, buyerId);
 
-    assert.equal(r1.saleContract.contractNumber, `0001/${currentYear2}`);
-    assert.equal(r2.saleContract.contractNumber, `0002/${currentYear2}`);
+    assert.equal(r1.contract.contractNumber, `0001/${currentYear2}`);
+    assert.equal(r2.contract.contractNumber, `0002/${currentYear2}`);
   });
 
   test('perda (LOSS) nao cria contrato', async () => {
@@ -334,7 +361,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(contracts.length, 0);
   });
 
-  test('cancelar a venda remove o contrato EM_ABERTO (e o corretor)', async () => {
+  test('cancelar a venda (movimento) faz WASHOUT do contrato', async () => {
     const sampleId = randomUUID();
     const buyerId = randomUUID();
     await createClassifiedSample({ id: sampleId, lotNumber: '20005', declaredSacks: 10 });
@@ -356,32 +383,149 @@ if (!databaseUrl || !databaseReachable) {
       commercialActor
     );
 
-    assert.equal((await prisma.saleContract.findMany()).length, 0);
-    assert.equal((await prisma.saleContractBroker.findMany()).length, 0);
+    // D97: cancelar a venda NAO apaga o contrato — ele vira WASH_OUT (registro
+    // mantido, com motivo); os corretores tambem sao preservados.
+    const contracts = await prisma.saleContract.findMany();
+    assert.equal(contracts.length, 1);
+    assert.equal(contracts[0].status, 'WASH_OUT');
+    assert.equal(contracts[0].washoutReason, 'Venda cancelada no teste');
+    assert.equal((await prisma.saleContractBroker.findMany()).length, 1);
   });
 
-  test('gestao de contratos: COMMERCIAL 403, ADMIN lista e detalha', async () => {
+  test('gestao de contratos: COMMERCIAL sem Broker → vazio/403; REGISTRATION 403; ADMIN vê tudo (S74)', async () => {
     const sampleId = randomUUID();
     const buyerId = randomUUID();
     await createClassifiedSample({ id: sampleId, lotNumber: '20006', declaredSacks: 10 });
     await createBuyerClient(buyerId);
     const sample = await queryService.requireSample(sampleId);
-    const result = await sell(sampleId, sample.version, buyerId);
+    const result = await sell(sampleId, sample.version, buyerId); // corretor = TEST_BROKER
 
+    // COMMERCIAL sem Broker vinculado: lista VAZIA (não 403), e get -> 403 (S74).
+    const noBroker = { ...commercialActor, actorUserId: randomUUID() };
+    assert.deepEqual((await saleContractService.listSaleContracts({}, noBroker)).items, []);
     await assert.rejects(
-      () => saleContractService.listSaleContracts({}, commercialActor),
+      () => saleContractService.getSaleContract(result.contract.id, noBroker),
       (err) => err.status === 403
     );
 
+    // Papel sem acesso (REGISTRATION) continua barrado.
+    const reg = { ...commercialActor, role: 'REGISTRATION', actorUserId: randomUUID() };
+    await assert.rejects(
+      () => saleContractService.listSaleContracts({}, reg),
+      (err) => err.status === 403
+    );
+
+    // ADMIN vê tudo.
     const list = await saleContractService.listSaleContracts({}, adminActor);
     assert.equal(list.items.length, 1);
-
-    const detail = await saleContractService.getSaleContract(result.saleContract.id, adminActor);
+    const detail = await saleContractService.getSaleContract(result.contract.id, adminActor);
     assert.equal(detail.contract.contractNumber, `0001/${currentYear2}`);
     assert.equal(detail.contract.brokers.length, 1);
   });
 
-  test('emitir: EM_ABERTO -> EMITIDO com campos, snapshots e auditoria', async () => {
+  test('gestao de contratos: COMMERCIAL vê/detalha só os contratos dele (S74)', async () => {
+    const commercialUserId = randomUUID();
+    const myBrokerId = randomUUID();
+    const suffix = commercialUserId.slice(0, 8);
+    await prisma.user.create({
+      data: {
+        id: commercialUserId,
+        fullName: 'Corretor Contratos',
+        username: `cc-${suffix}`,
+        usernameCanonical: `cc-${suffix}`,
+        email: `cc-${suffix}@example.com`,
+        emailCanonical: `cc-${suffix}@example.com`,
+        passwordHash: 'x',
+        role: 'COMMERCIAL',
+      },
+    });
+    await prisma.broker.upsert({
+      where: { id: myBrokerId },
+      update: { userId: commercialUserId, status: 'ACTIVE' },
+      create: {
+        id: myBrokerId,
+        name: 'Corretor Contratos',
+        status: 'ACTIVE',
+        userId: commercialUserId,
+      },
+    });
+    const myActor = { ...commercialActor, actorUserId: commercialUserId };
+
+    const mine = await setupConfirmedContractWithBroker({
+      lotNumber: '20010',
+      brokerId: myBrokerId,
+    });
+    const other = await setupConfirmedContract({ lotNumber: '20011' }); // corretor = TEST_BROKER
+
+    // Lista: só o contrato dele.
+    const list = await saleContractService.listSaleContracts({}, myActor);
+    assert.equal(list.items.length, 1);
+    assert.equal(list.items[0].id, mine.contractId);
+
+    // Get: o dele ok; o de outro corretor -> 403.
+    const detail = await saleContractService.getSaleContract(mine.contractId, myActor);
+    assert.equal(detail.contract.id, mine.contractId);
+    await assert.rejects(
+      () => saleContractService.getSaleContract(other.contractId, myActor),
+      (err) => err.status === 403
+    );
+  });
+
+  test('gestao de contratos: COMMERCIAL-corretor GERENCIA + cria o próprio (Fase 2, D110)', async () => {
+    const commercialUserId = randomUUID();
+    const myBrokerId = randomUUID();
+    const suffix = commercialUserId.slice(0, 8);
+    await prisma.user.create({
+      data: {
+        id: commercialUserId,
+        fullName: 'Corretor Gestor',
+        username: `cg-${suffix}`,
+        usernameCanonical: `cg-${suffix}`,
+        email: `cg-${suffix}@example.com`,
+        emailCanonical: `cg-${suffix}@example.com`,
+        passwordHash: 'x',
+        role: 'COMMERCIAL',
+      },
+    });
+    await prisma.broker.upsert({
+      where: { id: myBrokerId },
+      update: { userId: commercialUserId, status: 'ACTIVE' },
+      create: {
+        id: myBrokerId,
+        name: 'Corretor Gestor',
+        status: 'ACTIVE',
+        userId: commercialUserId,
+      },
+    });
+    const myActor = { ...commercialActor, actorUserId: commercialUserId };
+
+    // Fatura o PRÓPRIO contrato (é corretor dele) -> ok.
+    const mine = await setupConfirmedContractWithBroker({
+      lotNumber: '20020',
+      brokerId: myBrokerId,
+    });
+    const cur = await prisma.saleContract.findUnique({
+      where: { id: mine.contractId },
+      select: { version: true },
+    });
+    const invoiced = await saleContractService.invoiceSaleContract(
+      mine.contractId,
+      { expectedVersion: cur.version, date: '2026-07-15' },
+      myActor
+    );
+    assert.equal(invoiced.contract.status, 'FATURADO');
+
+    // Cria futuro incluindo a si mesmo como corretor -> ok.
+    const buyerId = randomUUID();
+    await createBuyerClient(buyerId);
+    const created = await saleContractService.createFutureSaleContract(
+      await createFutureInput(buyerId, { brokerIds: [myBrokerId] }),
+      myActor
+    );
+    assert.ok(created.contract.id);
+  });
+
+  test('editar (re-emitir) um EMITIDO: mantem EMITIDO com campos, snapshots e auditoria', async () => {
     const { contractId, bankAccountId } = await setupEmittableContract({ lotNumber: '21001' });
     const lookups = await fetchLookups();
 
@@ -398,12 +542,14 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(emitted.contract.purchaseNumber, 'NF-123');
     assert.ok(emitted.contract.sellerBankSnapshot);
     assert.equal(emitted.contract.sellerBankSnapshot.accountId, bankAccountId);
+    // nasce EMITIDO v0 (D97); a edicao/re-emissao leva a v1.
     assert.equal(emitted.contract.version, 1);
 
+    // 1 auditoria da CRIACAO + 1 desta re-emissao = 2.
     const exports = await prisma.saleContractExport.findMany({
       where: { saleContractId: contractId },
     });
-    assert.equal(exports.length, 1);
+    assert.equal(exports.length, 2);
   });
 
   test('emitir trocando o comprador: atualiza o contrato E a venda (P20)', async () => {
@@ -607,10 +753,11 @@ if (!databaseUrl || !databaseReachable) {
       adminActor
     );
     assert.equal(second.contract.status, 'EMITIDO');
+    // 1 auditoria da CRIACAO + 2 re-emissoes = 3.
     const exports = await prisma.saleContractExport.findMany({
       where: { saleContractId: contractId },
     });
-    assert.equal(exports.length, 2);
+    assert.equal(exports.length, 3);
   });
 
   test('aplicar agio em EMITIDO: recalcula total + corretagem, registra no log, status mantido', async () => {
@@ -729,7 +876,7 @@ if (!databaseUrl || !databaseReachable) {
           { expectedVersion: refs.version, agioDesagioType: 'AGIO', agioDesagioValue: 10 },
           commercialActor
         ),
-      /not allowed/
+      (err) => err.status === 403
     );
     // nenhuma aplicacao passou: segue sem agio, total cru e sem log.
     const after = await saleContractService.getSaleContract(refs.contractId, adminActor);
@@ -741,7 +888,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(logs.length, 0);
   });
 
-  test('guards: emitir FATURADO -> 409 (so EM_ABERTO/EMITIDO emitem)', async () => {
+  test('guards: editar FATURADO -> 409 (so EMITIDO edita)', async () => {
     const refs = await setupConfirmedContract({ lotNumber: '21005' });
     const lookups = await fetchLookups();
     const invoiced = await saleContractService.invoiceSaleContract(
@@ -803,15 +950,10 @@ if (!databaseUrl || !databaseReachable) {
   });
 
   test('WASH_OUT: cancelar a venda de contrato EMITIDO vira WASH_OUT', async () => {
-    const { contractId, sampleId, bankAccountId } = await setupEmittableContract({
+    // O contrato ja nasce EMITIDO (D97) — nao precisa de emit separado.
+    const { contractId, sampleId } = await setupEmittableContract({
       lotNumber: '21009',
     });
-    const lookups = await fetchLookups();
-    await saleContractService.emitSaleContract(
-      contractId,
-      etapa2Payload({ bankAccountId, lookups }),
-      adminActor
-    );
 
     const movement = await prisma.sampleMovement.findFirst({ where: { sampleId } });
     const sample = await queryService.requireSample(sampleId);
@@ -831,94 +973,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.ok(contract.washoutAt);
   });
 
-  test('cancelar EM_ABERTO: remove o contrato, desfaz a venda e devolve as sacas', async () => {
-    const { contractId, sampleId } = await setupEmittableContract({ lotNumber: '21012' });
-
-    const before = await prisma.sample.findUnique({
-      where: { id: sampleId },
-      select: { commercialStatus: true, soldSacks: true },
-    });
-    assert.equal(before.commercialStatus, 'SOLD');
-    assert.equal(before.soldSacks, 10);
-
-    const c = await prisma.saleContract.findUnique({
-      where: { id: contractId },
-      select: { version: true },
-    });
-    const result = await saleContractService.cancelSaleContract(
-      contractId,
-      { expectedVersion: c.version },
-      adminActor
-    );
-    assert.deepEqual(result, { deleted: true, contractId });
-
-    // contrato (e corretor) sumiram
-    assert.equal((await prisma.saleContract.findMany()).length, 0);
-    assert.equal((await prisma.saleContractBroker.findMany()).length, 0);
-
-    // venda CANCELLED + sacas de volta ao lote (disponivel)
-    const movement = await prisma.sampleMovement.findFirst({ where: { sampleId } });
-    assert.equal(movement.status, 'CANCELLED');
-    const after = await prisma.sample.findUnique({
-      where: { id: sampleId },
-      select: { commercialStatus: true, soldSacks: true },
-    });
-    assert.equal(after.commercialStatus, 'OPEN');
-    assert.equal(after.soldSacks, 0);
-  });
-
-  test('cancelar: status EMITIDO -> 409 (nao-cancelavel; use Quebrar)', async () => {
-    const { contractId, bankAccountId } = await setupEmittableContract({ lotNumber: '21013' });
-    const lookups = await fetchLookups();
-    await saleContractService.emitSaleContract(
-      contractId,
-      etapa2Payload({ bankAccountId, lookups }),
-      adminActor
-    );
-    const c = await prisma.saleContract.findUnique({
-      where: { id: contractId },
-      select: { version: true },
-    });
-    await assert.rejects(
-      () =>
-        saleContractService.cancelSaleContract(
-          contractId,
-          { expectedVersion: c.version },
-          adminActor
-        ),
-      (err) => err.status === 409
-    );
-  });
-
-  test('cancelar: version estale -> 409; inexistente -> 404; COMMERCIAL -> 403', async () => {
-    const { contractId } = await setupEmittableContract({ lotNumber: '21014' });
-    const c = await prisma.saleContract.findUnique({
-      where: { id: contractId },
-      select: { version: true },
-    });
-
-    await assert.rejects(
-      () =>
-        saleContractService.cancelSaleContract(contractId, { expectedVersion: 999 }, adminActor),
-      (err) => err.status === 409
-    );
-    await assert.rejects(
-      () =>
-        saleContractService.cancelSaleContract(randomUUID(), { expectedVersion: 0 }, adminActor),
-      (err) => err.status === 404
-    );
-    await assert.rejects(
-      () =>
-        saleContractService.cancelSaleContract(
-          contractId,
-          { expectedVersion: c.version },
-          commercialActor
-        ),
-      (err) => err.status === 403
-    );
-  });
-
-  test('getNextContractNumber: preview NNNN/AA (max+1); exige ADMIN', async () => {
+  test('getNextContractNumber: preview NNNN/AA (max+1); ADMIN + COMMERCIAL (D110)', async () => {
     // Vazio -> 0001/AA.
     const first = await saleContractService.getNextContractNumber(adminActor);
     assert.equal(first.contractNumber, `0001/${currentYear2}`);
@@ -928,9 +983,13 @@ if (!databaseUrl || !databaseReachable) {
     const second = await saleContractService.getNextContractNumber(adminActor);
     assert.equal(second.contractNumber, `0002/${currentYear2}`);
 
-    // Gate ADMIN.
+    // Gate ADMIN + COMMERCIAL (D110): COMMERCIAL pode prever o número (cria contratos);
+    // papel sem acesso (REGISTRATION) é barrado.
+    const commercialPreview = await saleContractService.getNextContractNumber(commercialActor);
+    assert.equal(commercialPreview.contractNumber, `0002/${currentYear2}`);
+    const reg = { ...commercialActor, role: 'REGISTRATION', actorUserId: randomUUID() };
     await assert.rejects(
-      () => saleContractService.getNextContractNumber(commercialActor),
+      () => saleContractService.getNextContractNumber(reg),
       (err) => err.status === 403
     );
   });
@@ -999,11 +1058,11 @@ if (!databaseUrl || !databaseReachable) {
   });
 
   // Como setupConfirmedContract, mas com um corretor especifico (p/ o escopo
-  // do COMMERCIAL no Financeiro).
+  // do COMMERCIAL no Financeiro). Nasce EMITIDO (D97).
   async function setupConfirmedContractWithBroker({ lotNumber, brokerId }) {
     const sellerId = randomUUID();
     await createSellerClient(sellerId);
-    const bankAccountId = await createSellerBankAccount(sellerId);
+    await createSellerBankAccount(sellerId);
     const buyerId = randomUUID();
     await createBuyerClient(buyerId);
     const sampleId = randomUUID();
@@ -1011,19 +1070,11 @@ if (!databaseUrl || !databaseReachable) {
     await prisma.sample.update({ where: { id: sampleId }, data: { ownerClientId: sellerId } });
     const sample = await queryService.requireSample(sampleId);
     const sale = await sell(sampleId, sample.version, buyerId, { brokerIds: [brokerId] });
-    const lookups = await fetchLookups();
-    await saleContractService.emitSaleContract(
-      sale.saleContract.id,
-      etapa2Payload({ bankAccountId, lookups }),
-      adminActor
-    );
-    return { contractId: sale.saleContract.id };
+    return { contractId: sale.contract.id };
   }
 
   test('Financeiro: ADMIN vê os fechamentos elegíveis com corretores e cotas', async () => {
     const { contractId } = await setupConfirmedContract({ lotNumber: '23010' });
-    // um EM_ABERTO (não confirmado) NÃO deve aparecer
-    await setupEmittableContract({ lotNumber: '23011' });
 
     const res = await saleContractService.listBrokerReceivables({}, adminActor);
     const item = res.items.find((i) => i.id === contractId);
@@ -1102,6 +1153,27 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(item.commissionTotal, 0);
     assert.equal(item.brokerCount, 1);
     assert.equal(item.brokers[0].share, 0);
+  });
+
+  test('Financeiro: contrato em WASH_OUT ainda aparece (corretagem mantida, D105)', async () => {
+    const { contractId, version } = await setupEmittableContract({ lotNumber: '23050' });
+    await saleContractService.washoutSaleContract(
+      contractId,
+      { expectedVersion: version, reason: 'Negocio caiu' },
+      adminActor
+    );
+    const washed = await prisma.saleContract.findUnique({
+      where: { id: contractId },
+      select: { status: true },
+    });
+    assert.equal(washed.status, 'WASH_OUT');
+
+    // D105: o corretor recebe a comissão mesmo com washout → o fechamento segue
+    // no Financeiro, com a corretagem intacta.
+    const res = await saleContractService.listBrokerReceivables({}, adminActor);
+    const item = res.items.find((i) => i.id === contractId);
+    assert.ok(item, 'contrato em WASH_OUT deve aparecer no Financeiro');
+    assert.equal(item.commissionTotal, 30); // 2% + 1% de 1000
   });
 
   test('criar lookup inline: cria ACTIVE, aparece na lista e fica no fim (append)', async () => {
@@ -1186,16 +1258,17 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(pay.contract.invoicedAt?.slice(0, 10), '2026-07-15');
   });
 
-  test('pagar direto (pular faturamento): EMITIDO -> PAGO com invoicedAt nulo', async () => {
+  test('pagar de EMITIDO -> 409 (precisa faturar antes, D106)', async () => {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '22003' });
-    const pay = await saleContractService.paySaleContract(
-      contractId,
-      { expectedVersion: version, date: '2026-07-25' },
-      adminActor
+    await assert.rejects(
+      () =>
+        saleContractService.paySaleContract(
+          contractId,
+          { expectedVersion: version, date: '2026-07-25' },
+          adminActor
+        ),
+      (err) => err.status === 409
     );
-    assert.equal(pay.contract.status, 'PAGO');
-    assert.equal(pay.contract.paidAt?.slice(0, 10), '2026-07-25');
-    assert.equal(pay.contract.invoicedAt, null);
   });
 
   test('desfazer: FATURADO -> EMITIDO limpa invoicedAt', async () => {
@@ -1236,47 +1309,9 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(rev.contract.invoicedAt?.slice(0, 10), '2026-07-15');
   });
 
-  test('desfazer: PAGO (pulou faturamento) -> EMITIDO', async () => {
-    const { contractId, version } = await setupConfirmedContract({ lotNumber: '22006' });
-    const pay = await saleContractService.paySaleContract(
-      contractId,
-      { expectedVersion: version, date: '2026-07-25' },
-      adminActor
-    );
-    const rev = await saleContractService.revertSaleContractStatus(
-      contractId,
-      { expectedVersion: pay.contract.version },
-      adminActor
-    );
-    assert.equal(rev.contract.status, 'EMITIDO');
-    assert.equal(rev.contract.paidAt, null);
-  });
-
-  test('guards: faturar/pagar de EM_ABERTO -> 409; desfazer de EMITIDO -> 409', async () => {
-    const a = await setupEmittableContract({ lotNumber: '22007' });
-    const ca = await prisma.saleContract.findUnique({
-      where: { id: a.contractId },
-      select: { version: true },
-    });
-    await assert.rejects(
-      () =>
-        saleContractService.invoiceSaleContract(
-          a.contractId,
-          { expectedVersion: ca.version, date: '2026-07-15' },
-          adminActor
-        ),
-      (err) => err.status === 409
-    );
-    await assert.rejects(
-      () =>
-        saleContractService.paySaleContract(
-          a.contractId,
-          { expectedVersion: ca.version, date: '2026-07-15' },
-          adminActor
-        ),
-      (err) => err.status === 409
-    );
-
+  test('guards: desfazer (revert) de EMITIDO -> 409', async () => {
+    // O passo faturar/pagar-de-EM_ABERTO deixou de existir (contrato nasce
+    // EMITIDO, D97). Desfazer um EMITIDO segue invalido (nao ha marco anterior).
     const b = await setupConfirmedContract({ lotNumber: '22008' });
     await assert.rejects(
       () =>
@@ -1371,9 +1406,14 @@ if (!databaseUrl || !databaseReachable) {
 
   test('quebra manual: a partir de PAGO -> WASH_OUT', async () => {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '23003' });
+    const inv = await saleContractService.invoiceSaleContract(
+      contractId,
+      { expectedVersion: version, date: '2026-07-15' },
+      adminActor
+    );
     const pay = await saleContractService.paySaleContract(
       contractId,
-      { expectedVersion: version, date: '2026-07-25' },
+      { expectedVersion: inv.contract.version, date: '2026-07-25' },
       adminActor
     );
     const r = await saleContractService.washoutSaleContract(
@@ -1382,19 +1422,6 @@ if (!databaseUrl || !databaseReachable) {
       adminActor
     );
     assert.equal(r.contract.status, 'WASH_OUT');
-  });
-
-  test('quebra manual: EM_ABERTO -> 409 (usar cancelar a venda)', async () => {
-    const { contractId } = await setupEmittableContract({ lotNumber: '23005' });
-    await assert.rejects(
-      () =>
-        saleContractService.washoutSaleContract(
-          contractId,
-          { expectedVersion: 0, reason: 'qualquer' },
-          adminActor
-        ),
-      (err) => err.status === 409
-    );
   });
 
   test('quebra manual: contrato ja WASH_OUT -> 409', async () => {
@@ -1456,9 +1483,14 @@ if (!databaseUrl || !databaseReachable) {
 
   test('lote: cancelar a venda de contrato PAGO -> WASH_OUT (extensao)', async () => {
     const { contractId, sampleId, version } = await setupConfirmedContract({ lotNumber: '23010' });
+    const inv = await saleContractService.invoiceSaleContract(
+      contractId,
+      { expectedVersion: version, date: '2026-07-15' },
+      adminActor
+    );
     await saleContractService.paySaleContract(
       contractId,
-      { expectedVersion: version, date: '2026-07-25' },
+      { expectedVersion: inv.contract.version, date: '2026-07-25' },
       adminActor
     );
     const movement = await prisma.sampleMovement.findFirst({ where: { sampleId } });
@@ -1479,7 +1511,13 @@ if (!databaseUrl || !databaseReachable) {
 
   // ---- Contrato FUTURO (sem lote) ----
 
-  function createFutureInput(buyerId, overrides = {}) {
+  // Fase 1 + etapa 2 do Futuro num body so (nasce EMITIDO, D97): cria um vendedor
+  // PJ + conta bancaria e resolve as 3 listas ativas p/ preencher a etapa 2.
+  async function createFutureInput(buyerId, overrides = {}) {
+    const sellerId = randomUUID();
+    await createSellerClient(sellerId);
+    const sellerBankAccountId = await createSellerBankAccount(sellerId);
+    const lookups = await fetchLookups();
     return {
       buyerClientId: buyerId,
       quantitySacks: 50,
@@ -1488,21 +1526,29 @@ if (!databaseUrl || !databaseReachable) {
       buyerBrokeragePct: 1,
       contractDate: '2026-09-01',
       brokerIds: [TEST_BROKER_ID],
+      // etapa 2 (contrato Futuro nasce EMITIDO num passo so)
+      sellerClientId: sellerId,
+      sellerBankAccountId,
+      paymentFormId: lookups.paymentForm.id,
+      modalityId: lookups.modality.id,
+      packagingId: lookups.packaging.id,
+      invoiceDate: '2026-07-10',
+      paymentDate: '2026-07-20',
       ...overrides,
     };
   }
 
-  test('futuro: cria FUTURO EM_ABERTO sem lote (sampleId/movementId nulos)', async () => {
+  test('futuro: cria FUTURO EMITIDO sem lote (sampleId/movementId nulos)', async () => {
     const buyerId = randomUUID();
     await createBuyerClient(buyerId);
 
     const res = await saleContractService.createFutureSaleContract(
-      createFutureInput(buyerId),
+      await createFutureInput(buyerId),
       adminActor
     );
     const c = res.contract;
     assert.equal(c.type, 'FUTURO');
-    assert.equal(c.status, 'EM_ABERTO');
+    assert.equal(c.status, 'EMITIDO');
     assert.equal(c.sampleId, null);
     assert.equal(c.movementId, null);
     assert.equal(c.quantitySacks, 50);
@@ -1521,55 +1567,35 @@ if (!databaseUrl || !databaseReachable) {
     const buyerId = randomUUID();
     await createBuyerClient(buyerId);
     const res = await saleContractService.createFutureSaleContract(
-      createFutureInput(buyerId),
+      await createFutureInput(buyerId),
       adminActor
     );
     assert.equal(res.contract.contractNumber, `0002/${currentYear2}`);
   });
 
-  test('futuro: emitir -> EMITIDO (vendedor/banco vem no emit)', async () => {
+  test('futuro: nasce EMITIDO com vendedor e banco (etapa 2 no mesmo passo)', async () => {
     const buyerId = randomUUID();
     await createBuyerClient(buyerId);
-    const sellerId = randomUUID();
-    await createSellerClient(sellerId);
-    const bankAccountId = await createSellerBankAccount(sellerId);
-    const lookups = await fetchLookups();
+    const input = await createFutureInput(buyerId);
 
-    const created = await saleContractService.createFutureSaleContract(
-      createFutureInput(buyerId),
-      adminActor
-    );
-    const emitted = await saleContractService.emitSaleContract(
-      created.contract.id,
-      etapa2Payload({ bankAccountId, lookups, overrides: { sellerClientId: sellerId } }),
-      adminActor
-    );
-    assert.equal(emitted.contract.status, 'EMITIDO');
-    assert.equal(emitted.contract.type, 'FUTURO');
-    assert.equal(emitted.contract.sellerClientId, sellerId);
-    assert.ok(emitted.contract.sellerBankSnapshot);
+    const created = await saleContractService.createFutureSaleContract(input, adminActor);
+    assert.equal(created.contract.status, 'EMITIDO');
+    assert.equal(created.contract.type, 'FUTURO');
+    assert.equal(created.contract.sellerClientId, input.sellerClientId);
+    assert.ok(created.contract.sellerBankSnapshot);
   });
 
   test('futuro: washout marca WASH_OUT sem tocar em lote', async () => {
     const buyerId = randomUUID();
     await createBuyerClient(buyerId);
-    const sellerId = randomUUID();
-    await createSellerClient(sellerId);
-    const bankAccountId = await createSellerBankAccount(sellerId);
-    const lookups = await fetchLookups();
 
     const created = await saleContractService.createFutureSaleContract(
-      createFutureInput(buyerId),
-      adminActor
-    );
-    const emitted = await saleContractService.emitSaleContract(
-      created.contract.id,
-      etapa2Payload({ bankAccountId, lookups, overrides: { sellerClientId: sellerId } }),
+      await createFutureInput(buyerId),
       adminActor
     );
     const washed = await saleContractService.washoutSaleContract(
       created.contract.id,
-      { expectedVersion: emitted.contract.version, reason: 'Negocio caiu' },
+      { expectedVersion: created.contract.version, reason: 'Negocio caiu' },
       adminActor
     );
     assert.equal(washed.contract.status, 'WASH_OUT');
@@ -1578,38 +1604,14 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal((await prisma.sampleMovement.findMany()).length, 0);
   });
 
-  test('futuro: cancelar EM_ABERTO apaga o contrato (e os corretores)', async () => {
+  test('futuro: COMMERCIAL só cria se estiver entre os corretores (D110)', async () => {
     const buyerId = randomUUID();
     await createBuyerClient(buyerId);
-    const created = await saleContractService.createFutureSaleContract(
-      createFutureInput(buyerId),
-      adminActor
-    );
-
-    const res = await saleContractService.cancelSaleContract(
-      created.contract.id,
-      { expectedVersion: 0 },
-      adminActor
-    );
-    assert.equal(res.deleted, true);
-    assert.equal(
-      await prisma.saleContract.findUnique({ where: { id: created.contract.id } }),
-      null
-    );
-    assert.equal(
-      (await prisma.saleContractBroker.findMany({ where: { saleContractId: created.contract.id } }))
-        .length,
-      0
-    );
-  });
-
-  test('futuro: criar exige ADMIN (COMMERCIAL 403)', async () => {
-    const buyerId = randomUUID();
-    await createBuyerClient(buyerId);
+    const input = await createFutureInput(buyerId); // corretores = [TEST_BROKER], não o commercialActor
+    // COMMERCIAL que não é corretor do contrato -> 422 (deve incluir a si mesmo).
     await assert.rejects(
-      () =>
-        saleContractService.createFutureSaleContract(createFutureInput(buyerId), commercialActor),
-      (err) => err.status === 403
+      () => saleContractService.createFutureSaleContract(input, commercialActor),
+      (err) => err.status === 422
     );
   });
 }

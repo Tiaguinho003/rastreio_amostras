@@ -124,7 +124,7 @@ test('assertBrokersResolved: 422 quando falta ou inativo', () => {
   );
 });
 
-test('buildSaleContractDraftFromSale: monta o rascunho EM_ABERTO', () => {
+test('buildSaleContractDraftFromSale: monta o rascunho EMITIDO', () => {
   const sample = {
     id: 'sample-1',
     ownerClientId: 'seller-1',
@@ -149,7 +149,7 @@ test('buildSaleContractDraftFromSale: monta o rascunho EM_ABERTO', () => {
     contractDate: '2026-06-26',
   });
   assert.equal(draft.type, 'MERCADO_A_VISTA');
-  assert.equal(draft.status, 'EM_ABERTO');
+  assert.equal(draft.status, 'EMITIDO');
   assert.equal(draft.sampleId, 'sample-1');
   assert.equal(draft.sellerClientId, 'seller-1');
   assert.equal(draft.buyerClientId, 'buyer-1');
@@ -171,7 +171,7 @@ test('toSaleContractView: Decimals viram number, datas viram ISO', () => {
     type: 'MERCADO_A_VISTA',
     contractSeq: 1,
     contractNumber: '0001/26',
-    status: 'EM_ABERTO',
+    status: 'EMITIDO',
     contractDate: new Date('2026-06-26T00:00:00.000Z'),
     quantitySacks: 10,
     unitPrice: { toNumber: () => 100 },
@@ -313,20 +313,14 @@ test('normalizeContractLookupInput: valida a lista e exige o nome (trim)', () =>
   );
 });
 
-test('resolveRevertTarget: FATURADO sempre volta a EMITIDO', () => {
-  assert.equal(resolveRevertTarget('FATURADO', true), 'EMITIDO');
-  assert.equal(resolveRevertTarget('FATURADO', false), 'EMITIDO');
-});
-
-test('resolveRevertTarget: PAGO volta a FATURADO se houve faturamento, senao a EMITIDO', () => {
-  assert.equal(resolveRevertTarget('PAGO', true), 'FATURADO');
-  assert.equal(resolveRevertTarget('PAGO', false), 'EMITIDO');
+test('resolveRevertTarget: ciclo linear (D106) — FATURADO->EMITIDO, PAGO->FATURADO', () => {
+  assert.equal(resolveRevertTarget('FATURADO'), 'EMITIDO');
+  assert.equal(resolveRevertTarget('PAGO'), 'FATURADO');
 });
 
 test('resolveRevertTarget: status fora do ciclo retorna null', () => {
-  for (const status of ['EM_ABERTO', 'EMITIDO', 'WASH_OUT']) {
-    assert.equal(resolveRevertTarget(status, true), null);
-    assert.equal(resolveRevertTarget(status, false), null);
+  for (const status of ['EMITIDO', 'WASH_OUT']) {
+    assert.equal(resolveRevertTarget(status), null);
   }
 });
 
