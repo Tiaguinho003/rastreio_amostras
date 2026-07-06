@@ -1067,7 +1067,9 @@ sheet de coluna única):
   (`ec620ec` migrations · `aafc145` backend logs+timeline · `50cfd59` remoção do Desfazer · `7002f22`
   `SaleContractDetailsModal` + card enxuto + aposentadoria do Visualizar); **verificada no app real**
   (desktop central + mobile sheet; timeline com marco auditado e aprovação). **Resta: validar no
-  device.**
+  device + "Visualizar" no MOBILE** _(nota pós-S83 do Flavio: o Visualizar SERÁ disponível no mobile;
+  layout/funcionalidades do mobile serão discutidos em sessão futura — revisita a aposentadoria do
+  `SaleContractDocumentModal` no contexto mobile)._
 
 > **Fases 0/A/B/C/D ✅ implementadas — Mercado à vista E Futuro** (ver "Status da implementação" acima). O **contrato Futuro** (sem lote, D42/D51/D67/D68) foi implementado na S58. **Falta** (ambos os tipos): CNPJ real + assinatura do dono (imagem) + fidelidade ao print legado · gestão das 3 listas (**adicionar ✅ S66**; renomear/inativar adiado) · validar no device.
 
@@ -2475,3 +2477,6 @@ pelo git se o Flavio discordar).
   **"agora · Flavio · Aprovação enviada"**; mobile 390px = sheet no rodapé, coluna única com o
   **documento primeiro**. Gates verdes (unit 354 / integração 383 / build/lint/typecheck/format).
   **Validar no device.**
+- **Nota pós-S83 (Flavio)**: o **"Visualizar" SERÁ disponível no MOBILE** — a aposentadoria do
+  `SaleContractDocumentModal` (default adotado na S83) será revisitada no contexto mobile; **layout e
+  funcionalidades do mobile serão discutidos em sessão futura** (pendência aberta da Fase J).
