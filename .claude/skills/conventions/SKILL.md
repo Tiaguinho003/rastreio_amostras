@@ -66,6 +66,11 @@ Todos devem passar antes de qualquer push:
 7. `npm run test:unit` — verde
 8. `npm run test:integration:db` — verde (requer PostgreSQL local via Docker)
 
+Apoio (nao-gate): `npx knip` — deteccao de codigo morto (config em `knip.json`;
+falso-positivos conhecidos em `ignoreDependencies`). Todo achado exige
+verificacao manual antes de remover. Processo canonico da revisao geral:
+`docs/Revisao-Geral-Plano-de-Trabalho.md`.
+
 ## Padroes de seguranca
 
 - Nunca hardcodar secrets em codigo. Usar env vars + Secret Manager.
