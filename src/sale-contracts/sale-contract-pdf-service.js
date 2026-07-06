@@ -844,8 +844,9 @@ export class SaleContractPdfService {
       { label: 'Pagamento', value: formatDateBR(contract.paymentDate), weight: 8 },
       { label: 'Preço', value: dec(contract.unitPrice), weight: 7.5 },
       { label: 'Sacas', value: dec(contract.quantitySacks), weight: 7 },
+      // Sem ágio → as DUAS células saem vazias (D130); dec(null) = ''.
       { label: 'Ágio/Deságio', value: agioLabel, weight: 9 },
-      { label: 'Valor', value: dec(contract.agioDesagioValue ?? 0), weight: 6.5 },
+      { label: 'Valor', value: dec(contract.agioDesagioValue), weight: 6.5 },
       { label: 'Valor Comissão', value: dec(commission), weight: 9.5 },
       { label: 'Nº Compra', value: contract.purchaseNumber, weight: 7.5 },
       { label: 'Comprador / Vendedor', value: clientName, weight: 19 },
