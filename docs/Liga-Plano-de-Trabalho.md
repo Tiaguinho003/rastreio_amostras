@@ -755,7 +755,7 @@ Sub-fases numeradas, na ordem de execução recomendada:
 **B3.1 — `<BlendBadge>` nas listagens** ✅ _(implementada 2026-05-19)_
 
 - Componente `<BlendBadge />` em `components/samples/`: pill lilás com ícone de merge + texto "Liga".
-- Renderizado em: `/samples` (SampleCard), dashboard (RecentActivityList), detalhe da amostra, `/clients/[id]` (lista de amostras do cliente).
+- Renderizado em: `/samples` (SampleCard), dashboard (RecentActivityList — _card removido em 2026-07-06_), detalhe da amostra, `/clients/[id]` (lista de amostras do cliente).
 
 **B3.2 — Seção "Composição da liga" no detalhe** ✅ _(implementada 2026-05-19)_
 
