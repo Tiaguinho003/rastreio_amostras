@@ -856,13 +856,16 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
     transform 0.15s ease;
 }
 
-.login-modal-close:hover:not(:disabled) {
-  background: rgba(0, 0, 0, 0.1);
+/* Hover só em dispositivos com ponteiro — evita hover grudado no touch.
+   O :active NÃO muda cor (button-press-effect): feedback é só profundidade. */
+@media (hover: hover) {
+  .login-modal-close:hover:not(:disabled) {
+    background: rgba(0, 0, 0, 0.1);
+  }
 }
 
 .login-modal-close:active:not(:disabled) {
   transform: scale(0.9);
-  background: rgba(0, 0, 0, 0.12);
 }
 
 .login-modal-close:disabled {
@@ -1058,6 +1061,23 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
 
 .login-modal-submit-placeholder {
   min-height: clamp(48px, 13vw, 54px);
+}
+
+/* Movimento reduzido: desliga TODAS as animações do login (entrances do
+   logo/card/campos/CTA, os 8 grãos em queda infinita e o modal). Os demais
+   blocos de prefers-reduced-motion do app não cobriam o login. */
+@media (prefers-reduced-motion: reduce) {
+  .login-header-logo,
+  .login-form-section,
+  .login-form-heading,
+  .login-form-fields .login-field,
+  .login-form-forgot,
+  .login-submit-btn,
+  .login-bean,
+  .login-modal-backdrop,
+  .login-modal {
+    animation: none;
+  }
 }
 
 .app-modal-backdrop {
@@ -29134,8 +29154,18 @@ select.samples-filter-field-input {
     animation-fill-mode: backwards;
   }
 
-  /* 5.1.2: hover real no CTA */
-  .login-submit-btn:hover:not(:disabled),
+  /* 5.1.2: hover real no CTA — só com ponteiro de verdade (hover: hover),
+     senão o efeito gruda pós-tap em telas touch largas (tablet/desktop touch).
+     O :focus-visible fica fora do gate: teclado funciona em qualquer device. */
+  @media (hover: hover) {
+    .login-submit-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow:
+        0 10px 32px rgba(27, 94, 32, 0.42),
+        0 4px 12px rgba(27, 94, 32, 0.22);
+    }
+  }
+
   .login-submit-btn:focus-visible:not(:disabled) {
     transform: translateY(-2px);
     box-shadow:
@@ -29148,14 +29178,20 @@ select.samples-filter-field-input {
     box-shadow: 0 2px 10px rgba(27, 94, 32, 0.18);
   }
 
-  /* 5.1.3: hover no link "Esqueceu a senha?" */
+  /* 5.1.3: hover no link "Esqueceu a senha?" (mesmo gate de hover) */
   .login-forgot-link {
     transition:
       color 0.2s ease,
       opacity 0.2s ease;
   }
 
-  .login-forgot-link:hover,
+  @media (hover: hover) {
+    .login-forgot-link:hover {
+      color: var(--brand-green);
+      opacity: 1;
+    }
+  }
+
   .login-forgot-link:focus-visible {
     color: var(--brand-green);
     opacity: 1;
