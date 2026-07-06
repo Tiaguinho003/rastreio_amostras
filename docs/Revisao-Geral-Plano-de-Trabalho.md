@@ -44,23 +44,23 @@
 Legenda: ⬜ pendente · 🔎 em análise · 🛠 em implementação · 📱 aguardando
 validação no device · ✅ concluída.
 
-| #   | Código | Página             | Rota                                                                          | Status | Sessões | Resumo |
-| --- | ------ | ------------------ | ----------------------------------------------------------------------------- | ------ | ------- | ------ |
-| 1   | LOG    | Login              | `/login` (+ `/forgot-password`)                                               | ⬜     | —       | —      |
-| 2   | DSH    | Dashboard          | `/dashboard` (twins mobile/desktop + dashboard do PROSPECTOR)                 | ⬜     | —       | —      |
-| 3   | LOT    | Lotes (lista)      | `/samples`                                                                    | ⬜     | —       | —      |
-| 4   | LNW    | Novo lote          | `/samples/new`                                                                | ⬜     | —       | —      |
-| 5   | LDT    | Detalhe do lote    | `/samples/[sampleId]`                                                         | ⬜     | —       | —      |
-| 6   | CAM    | Câmera / Scanner   | `/camera`                                                                     | ⬜     | —       | —      |
-| 7   | CLI    | Clientes (lista)   | `/clients`                                                                    | ⬜     | —       | —      |
-| 8   | CDT    | Detalhe do cliente | `/clients/[clientId]`                                                         | ⬜     | —       | —      |
-| 9   | CTR    | Contratos          | `/contratos`                                                                  | ⬜     | —       | —      |
-| 10  | FIN    | Financeiro         | `/financeiro`                                                                 | ⬜     | —       | —      |
-| 11  | CAD    | Cadastros          | `/cadastros`                                                                  | ⬜     | —       | —      |
-| 12  | REL    | Relatórios         | `/informe` (+ redirect `/resumo`)                                             | ⬜     | —       | —      |
-| 13  | USR    | Usuários           | `/users`                                                                      | ⬜     | —       | —      |
-| 14  | PRF    | Perfil             | `/profile` (+ redirect `/settings`)                                           | ⬜     | —       | —      |
-| 15  | AUX    | Auxiliares         | `/laudo/[token]` (público), `/offline`, `/maintenance`, redirects `/` e afins | ⬜     | —       | —      |
+| #   | Código | Página             | Rota                                                                          | Status | Sessões | Resumo                                                                                                                                   |
+| --- | ------ | ------------------ | ----------------------------------------------------------------------------- | ------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | LOG    | Login              | `/login` (+ `/forgot-password`)                                               | 📱     | S3      | 16 achados corrigidos (incl. 3 bugs de persistência no auth), endurecimento do reset, 3 suítes de teste novas, teia de docs sincronizada |
+| 2   | DSH    | Dashboard          | `/dashboard` (twins mobile/desktop + dashboard do PROSPECTOR)                 | ⬜     | —       | —                                                                                                                                        |
+| 3   | LOT    | Lotes (lista)      | `/samples`                                                                    | ⬜     | —       | —                                                                                                                                        |
+| 4   | LNW    | Novo lote          | `/samples/new`                                                                | ⬜     | —       | —                                                                                                                                        |
+| 5   | LDT    | Detalhe do lote    | `/samples/[sampleId]`                                                         | ⬜     | —       | —                                                                                                                                        |
+| 6   | CAM    | Câmera / Scanner   | `/camera`                                                                     | ⬜     | —       | —                                                                                                                                        |
+| 7   | CLI    | Clientes (lista)   | `/clients`                                                                    | ⬜     | —       | —                                                                                                                                        |
+| 8   | CDT    | Detalhe do cliente | `/clients/[clientId]`                                                         | ⬜     | —       | —                                                                                                                                        |
+| 9   | CTR    | Contratos          | `/contratos`                                                                  | ⬜     | —       | —                                                                                                                                        |
+| 10  | FIN    | Financeiro         | `/financeiro`                                                                 | ⬜     | —       | —                                                                                                                                        |
+| 11  | CAD    | Cadastros          | `/cadastros`                                                                  | ⬜     | —       | —                                                                                                                                        |
+| 12  | REL    | Relatórios         | `/informe` (+ redirect `/resumo`)                                             | ⬜     | —       | —                                                                                                                                        |
+| 13  | USR    | Usuários           | `/users`                                                                      | ⬜     | —       | —                                                                                                                                        |
+| 14  | PRF    | Perfil             | `/profile` (+ redirect `/settings`)                                           | ⬜     | —       | —                                                                                                                                        |
+| 15  | AUX    | Auxiliares         | `/laudo/[token]` (público), `/offline`, `/maintenance`, redirects `/` e afins | ⬜     | —       | —                                                                                                                                        |
 
 A ordem segue o **fluxo operacional** de uso do app (D2). A revisão de cada
 página cobre também a **cadeia de backend** que ela consome (D6) e os **6
@@ -211,7 +211,94 @@ template). Até lá, fica só o stub.
 **Pendências:** <CÓDIGO>-Pn deixadas para depois
 ```
 
-### Login (LOG) — ⬜ não iniciada
+### Login (LOG) — 📱 aguardando validação no device (S3, 2026-07-06)
+
+**Mapa (R1):** `app/login/page.tsx` (+ `/forgot-password` = redirect →
+`/login?modal=forgot-password`) · `components/ForgotPasswordModal.tsx` (3
+passos: request → verify-code → reset; focus-trap) · `lib/api-client.ts`
+(login/logout/getCurrentSession + 3 funções do reset) → rotas
+`app/api/v1/auth/*` → `src/api/v1/backend-api.js` →
+`DatabaseAuthService`/`UserService` · cookie `rastreio_session` = o próprio JWT
+HS256, TTL 30d, httpOnly/SameSite=Lax/secure auto · rate limit 10/60s por IP
+(login + 3 rotas do reset) · lockout 8 tentativas/5min · código de reset 6
+dígitos sha256, TTL 15min, 5 tentativas · PWA: a casca abre offline, o POST de
+login não (SW ignora `/api`) · CSS `login-*`/`login-modal-*` ~900 linhas, sem
+classes órfãs.
+
+**Matriz por papel (R2):** página neutra por papel — os 6 papéis veem o mesmo
+formulário e caem em `/dashboard`; o papel só vale nos gates seguintes
+(middleware P1 do PROSPECTOR, guards de página, allowlist de API). Modo
+manutenção: login liberado; não-ADMIN cai em `/maintenance` depois. O fluxo de
+senha inicial (manter/trocar) vive no AppShell pós-login → entra no ciclo DSH.
+
+**Decisões:**
+
+- **LOG-D1** — erro de credenciais **limpa o campo senha** (a mensagem aparece
+  no placeholder; padrão erro-no-campo preservado).
+- **LOG-D2** — `?reason=session-expired|session-ended` vira **aviso
+  informativo** acima do formulário; param removido da URL após lido.
+- **LOG-D3** — cadeia da rota órfã `POST /auth/session/expired` **removida por
+  inteiro** (o registro server-side `markSessionExpiredIfNeeded` fica).
+- **LOG-D4** — **rate limit HTTP** por IP nas 3 rotas de forgot-password +
+  **resposta unificada anti-enumeração** no verify/reset.
+
+**Achados (todos ✅ corrigidos):**
+
+- **LOG-B1** — mensagem de erro invisível com campos preenchidos (vivia só no
+  placeholder) → senha esvaziada no erro (`5c50b90`).
+- **LOG-B2** — `?reason=` produzido por 3 call sites e ignorado pela página →
+  aviso implementado (`5c50b90`).
+- **LOG-B3** — revogação + audit de sessão expirada eram **revertidos** pelo
+  rollback do throw dentro da transação (`8a0aa56`).
+- **LOG-B4** — **lockout de login nunca armava**: incremento de
+  `failedLoginAttempts` + audit `LOGIN_FAILED` revertidos pelo mesmo padrão de
+  rollback (`8a0aa56`). Descoberto pelos testes novos.
+- **LOG-B5** — limite de 5 tentativas do código de reset idem (`8a0aa56`).
+- **LOG-I1** — anti-enumeração assimétrica (verify/reset revelavam o e-mail) →
+  422 `INVALID_CODE` unificado (`4709560`).
+- **LOG-M1** — rota `POST /auth/session/expired` órfã → cadeia removida
+  (`e7b26e7`).
+- **LOG-M2** — `normalizeUserStatus` órfão → removido (`e7b26e7`).
+- **LOG-M3** — PNGs órfãos (`login-coffee-beans`, `dashboard-coffee-cup`) +
+  entradas stale no middleware → removidos; over-exports de auth viram
+  privados (`e7b26e7`).
+- **LOG-A1** — erro sem `aria-live`/`aria-invalid` → região polite +
+  `aria-invalid` (`5c50b90`).
+- **LOG-A2** — `prefers-reduced-motion` não cobria o login (grãos em loop
+  infinito etc.) → bloco novo (`5dcc10d`).
+- **LOG-L1** — `.login-modal-close` mudava **cor** no `:active` + hover sem
+  gate → corrigido (`5dcc10d`).
+- **LOG-L2** — hovers desktop fora de `(hover: hover)` → gated,
+  `:focus-visible` preservado (`5dcc10d`).
+- **LOG-T1/T2** — zero testes no reset e no `DatabaseAuthService` → 2 suítes
+  de integração + 1 unit de wiring (`1e7f39a`).
+- **LOG-DOC1–6** — TTL "7d"→30d (SECURITY-audit), 4→6 roles
+  (threat-model + SECURITY), `verify-code` documentado, `session/expired`
+  removido do doc, `/forgot-password`=redirect→modal, skill responsive
+  (`.login-card-submit`→`.login-submit-btn`) (`d0fc4da`).
+- ❌ **Falso-positivos** (não reinvestigar): exports de auth apontados pelo
+  knip estavam vivos (uso interno; viraram privados); CSS do login sem classes
+  órfãs; `PasswordReset*Response` são usados no api-client.
+
+**Resumo:** 7 commits — `5c50b90` (UX/a11y), `5dcc10d` (CSS interação/motion),
+`e7b26e7` (código morto), `4709560` (endurecimento reset), `8a0aa56` (bugs de
+persistência), `1e7f39a` (testes), `d0fc4da` (docs). Gates verdes (unit 357 /
+integração 392 / build / typecheck / lint / format).
+
+**Pendências:**
+
+- **LOG-P1** — testes de UI da página/modal (gate "já logado", `?modal`, OTP
+  paste/backspace).
+- **LOG-P2** — testes do middleware (M1 manutenção, P1 PROSPECTOR).
+- **LOG-P3** — teste e2e do rate limit do login na rota HTTP.
+- **LOG-P4** — CSRF: sem token; mitigação atual = SameSite=Lax + httpOnly +
+  same-origin (aceito; revisar se surgirem POSTs cross-site).
+- **LOG-P5** — over-exports de `lib/types.ts` aceitos (dicionário de tipos).
+
+**Validação no device (Flavio):** login com senha errada (mensagem aparece no
+campo senha, que esvazia) · expirar/encerrar sessão → aviso no login · fluxo
+completo do esqueci-a-senha (código por e-mail, erro de código, redefinir e
+relogar) · visual mobile + desktop intactos.
 
 ### Dashboard (DSH) — ⬜ não iniciada
 
@@ -296,3 +383,10 @@ template). Até lá, fica só o stub.
   Removidos 5 arquivos órfãos e a devDependency `typescript-eslint`; P2 criada
   com o restante do relatório (80 exports + 38 tipos). Gates verdes (typecheck,
   lint, format, unit 354, build).
+- **S3 (2026-07-06)** — F1/LOG executada ponta a ponta (R1–R8): 2 agentes de
+  levantamento + 4 decisões LOG-D1–D4 + 16 achados corrigidos em 7 commits.
+  Destaque: os testes de integração novos revelaram 3 bugs de persistência
+  (lockout de login, limite do código de reset e revogação de sessão expirada
+  eram revertidos pelo rollback do throw dentro de transações Prisma) —
+  corrigidos com o padrão "commit primeiro, throw depois". Página em 📱
+  aguardando validação do Flavio no device.
