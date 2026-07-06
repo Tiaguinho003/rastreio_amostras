@@ -176,18 +176,23 @@ preciso, rodando o app):
 
 ## Fases globais
 
-| Fase    | Tema                                                                                                                | Status                                 |
-| ------- | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| **F0**  | Fundação: este documento + índice no README + instalar **knip** (devDependency) + varredura-baseline repo-wide      | 🛠 doc criado; knip/baseline pendentes |
-| F1–F15  | Páginas na ordem do Status geral (cada uma = R1–R8)                                                                 | ⬜                                     |
-| **FF1** | Varredura final repo-wide: knip completo, `scripts/`, assets, dependências não usadas, docs órfãos                  | ⬜                                     |
-| **FF2** | Organização de pastas/arquivos: análise + proposta (inclui a decisão do split do `globals.css`, hoje ~35,4k linhas) | ⬜                                     |
-| **FF3** | Consolidação da documentação: README, skills e a teia completa revisada                                             | ⬜                                     |
+| Fase    | Tema                                                                                                                | Status            |
+| ------- | ------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| **F0**  | Fundação: este documento + índice no README + instalar **knip** (devDependency) + varredura-baseline repo-wide      | ✅ concluída (S2) |
+| F1–F15  | Páginas na ordem do Status geral (cada uma = R1–R8)                                                                 | ⬜                |
+| **FF1** | Varredura final repo-wide: knip completo, `scripts/`, assets, dependências não usadas, docs órfãos                  | ⬜                |
+| **FF2** | Organização de pastas/arquivos: análise + proposta (inclui a decisão do split do `globals.css`, hoje ~35,4k linhas) | ⬜                |
+| **FF3** | Consolidação da documentação: README, skills e a teia completa revisada                                             | ⬜                |
 
-**F0 — baseline:** rodar o knip no repo inteiro uma vez, remover apenas o que
-for **óbvio e seguro** (verificado manualmente), e registrar o resto como
-pendências `Pn` — evita revisar páginas com lixo em volta. A varredura fina por
-página acontece no R4 de cada uma.
+**F0 — baseline (executada na S2):** knip instalado (config em `knip.json`;
+rodar com `npx knip`). Removidos após verificação manual: 4 componentes órfãos
+(`ClientCompleteChecklist`, `ClientUnitSelect`, `StatusBadge`,
+`UserAvatarStack`), o barrel morto `src/reports/index.js` e a devDependency
+`typescript-eslint` (sem nenhuma referência). Falsos-positivos documentados em
+`ignoreDependencies` do `knip.json`: `c8` (coverage manual, skill `tests`) e
+`eslint-config-next` (usado via string `compat.extends('next/core-web-vitals')`
+no `eslint.config.mjs`). O restante do relatório (exports/tipos sem uso) virou
+a pendência P2. A varredura fina por página acontece no R4 de cada uma.
 
 ## Registro por página
 
@@ -273,10 +278,21 @@ template). Até lá, fica só o stub.
 
 ## Pendências globais
 
-- **P1** — Instalar o knip e rodar a varredura-baseline (F0).
+- **P1** — ✅ resolvida (S2): knip instalado e varredura-baseline executada.
+- **P2** — O baseline do knip apontou **80 exports e 38 tipos exportados sem
+  uso** (lista viva: `npx knip` — o relatório muda conforme o código). Não
+  removidos no baseline de propósito: cada um será tratado no **R4 da página/
+  domínio dono**, com verificação manual (há candidatos a falso-positivo, ex.:
+  código chamado por string e exports "de API" mantidos por intenção, como os
+  checksums de CPF/CNPJ em `src/clients/client-support.js`, mantidos por
+  decisão do usuário).
 
 ## Histórico de sessões
 
 - **S1 (2026-07-06)** — Criação deste documento. Estrutura definida com o
   usuário em 2 rodadas de perguntas (decisões D1–D8). Contexto da mesma data:
   remoção completa do card "Últimas atividades" do dashboard (pré-revisão).
+- **S2 (2026-07-06)** — F0 concluída: knip instalado + `knip.json` + baseline.
+  Removidos 5 arquivos órfãos e a devDependency `typescript-eslint`; P2 criada
+  com o restante do relatório (80 exports + 38 tipos). Gates verdes (typecheck,
+  lint, format, unit 354, build).
