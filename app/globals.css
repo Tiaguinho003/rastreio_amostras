@@ -35792,6 +35792,15 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   flex-direction: column;
   gap: 0.6rem;
 }
+/* Sentinel do scroll infinito (S86): dispara o load-more ao entrar na viewport. */
+.fin-load-more {
+  min-height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  color: var(--brand-muted);
+}
 .fin-card {
   background: #fff;
   border: 1px solid var(--brand-cream-line);

@@ -53,6 +53,10 @@ const SALE_CONTRACT_SEQ_LOCK_KEY = 831202606;
 const SALE_CONTRACT_LIST_LIMIT_DEFAULT = 200;
 const SALE_CONTRACT_LIST_LIMIT_MAX = 500;
 
+// Financeiro (S86): pagina por cursor (contractSeq) com scroll infinito no front.
+const FINANCEIRO_LIST_LIMIT_DEFAULT = 30;
+const FINANCEIRO_LIST_LIMIT_MAX = 60;
+
 export class SaleContractService {
   // commandService + queryService sao opcionais (usados so no D48 — sincronizar
   // o vendedor do contrato com o Sample.ownerClientId via updateRegistration).
@@ -181,21 +185,67 @@ export class SaleContractService {
     const actor = assertAuthenticatedActor(actorContext, 'list broker receivables');
     assertRoleAllowed(actor.role, FINANCEIRO_ROLES, 'list broker receivables');
 
-    const rows = await this.prisma.saleContract.findMany({
-      where: {
-        status: { in: ['EMITIDO', 'FATURADO', 'PAGO', 'WASH_OUT'] },
-      },
-      orderBy: [{ contractSeq: 'desc' }],
-      select: RECEIVABLE_VIEW_SELECT,
+    const limit = readLimitQuery(input?.limit, {
+      fallback: FINANCEIRO_LIST_LIMIT_DEFAULT,
+      max: FINANCEIRO_LIST_LIMIT_MAX,
     });
-    if (rows.length === 0) {
-      return { items: [] };
+    // Cursor de campo unico: contractSeq (global, unico, monotonico) do ultimo
+    // item da pagina anterior. String da query -> numero; NaN/invalido = 1a pagina.
+    const cursorSeq = Number(input?.cursor);
+    const cursor = Number.isInteger(cursorSeq) && cursorSeq > 0 ? cursorSeq : null;
+    const search = typeof input?.search === 'string' ? input.search.trim() : '';
+
+    // filterWhere = status congelados + busca (nº do contrato OU nome do
+    // corretor). A busca por corretor vem de um pre-batch dos SaleContractBroker
+    // (sem @relation), preservando a busca por corretor que era client-side.
+    const filterWhere = { status: { in: ['EMITIDO', 'FATURADO', 'PAGO', 'WASH_OUT'] } };
+    if (search.length >= 1) {
+      const brokerMatches = await this.prisma.saleContractBroker.findMany({
+        where: { brokerNameSnapshot: { contains: search, mode: 'insensitive' } },
+        select: { saleContractId: true },
+      });
+      const brokerMatchIds = [...new Set(brokerMatches.map((b) => b.saleContractId))];
+      filterWhere.OR = [
+        { contractNumber: { contains: search, mode: 'insensitive' } },
+        { id: { in: brokerMatchIds } },
+      ];
     }
+    const pageWhere = cursor
+      ? { AND: [filterWhere, { contractSeq: { lt: cursor } }] }
+      : filterWhere;
+
+    // Total AGREGADO respeita a busca (filterWhere) e ignora o cursor — o "Total
+    // a receber" da pagina reflete o conjunto inteiro, nao so a pagina carregada.
+    const [rows, sums] = await Promise.all([
+      this.prisma.saleContract.findMany({
+        where: pageWhere,
+        orderBy: [{ contractSeq: 'desc' }],
+        take: limit + 1,
+        select: RECEIVABLE_VIEW_SELECT,
+      }),
+      this.prisma.saleContract.aggregate({
+        where: filterWhere,
+        _sum: { sellerBrokerageValue: true, buyerBrokerageValue: true },
+      }),
+    ]);
+    const sellerSum = Number(sums._sum.sellerBrokerageValue ?? 0);
+    const buyerSum = Number(sums._sum.buyerBrokerageValue ?? 0);
+    const totalCommission = Math.round((sellerSum + buyerSum) * 100) / 100;
+
+    // take: limit + 1 detecta a proxima pagina; nextCursor = contractSeq do
+    // ultimo item realmente retornado (ou null na ultima pagina).
+    const hasMore = rows.length > limit;
+    const pageRows = hasMore ? rows.slice(0, limit) : rows;
+    if (pageRows.length === 0) {
+      return { items: [], nextCursor: null, totalCommission };
+    }
+    const lastRow = pageRows[pageRows.length - 1];
+    const nextCursor = hasMore && lastRow ? lastRow.contractSeq : null;
 
     // Corretores num batch (sem @relation): agrupa por saleContractId; a ordem
     // createdAt asc e a mesma do rateio (o 1º absorve o resto, D129).
     const brokerRows = await this.prisma.saleContractBroker.findMany({
-      where: { saleContractId: { in: rows.map((r) => r.id) } },
+      where: { saleContractId: { in: pageRows.map((r) => r.id) } },
       orderBy: [{ createdAt: 'asc' }],
       select: { saleContractId: true, brokerId: true, brokerNameSnapshot: true },
     });
@@ -210,7 +260,9 @@ export class SaleContractService {
     }
 
     return {
-      items: rows.map((row) => buildReceivableView(row, brokersByContract.get(row.id) ?? [])),
+      items: pageRows.map((row) => buildReceivableView(row, brokersByContract.get(row.id) ?? [])),
+      nextCursor,
+      totalCommission,
     };
   }
 

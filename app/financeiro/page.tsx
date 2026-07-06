@@ -1,30 +1,93 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { FinanceiroCard } from '../../components/financeiro/FinanceiroCard';
-import { listFinanceiro } from '../../lib/api-client';
+import { ApiError, listFinanceiro } from '../../lib/api-client';
 import { FINANCEIRO_ROLES } from '../../lib/roles';
 import { useRequireAuth } from '../../lib/use-auth';
 import type { FinanceiroReceivable } from '../../lib/types';
 
-// Financeiro (Fase F, D128): corretagem a receber por fechamento — ADMIN-only
-// (o COMMERCIAL perdeu o acesso; a visao role-adaptive/myShare saiu junto).
-// Relatorio derivado (sem persistencia), com a quebra por corretor.
+// Financeiro (Fase F, D128): corretagem a receber por fechamento — ADMIN-only.
+// Relatorio derivado (sem persistencia). S86: paginado por cursor (scroll
+// infinito, molde /users); a busca e o "Total a receber" sao server-side —
+// com paginacao, somar/filtrar no cliente cobriria so as paginas carregadas.
 
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+const FIN_PAGE_LIMIT = 30;
+const FIN_LOAD_MORE_ROOT_MARGIN = '0px';
+
+type FinListStatus = 'loading-initial' | 'loading-more' | 'idle' | 'error';
+
+interface FinListState {
+  items: FinanceiroReceivable[];
+  nextCursor: number | null;
+  totalCommission: number;
+  status: FinListStatus;
+  error: string | null;
+}
+
+type FinListAction =
+  | { type: 'fetch-initial' }
+  | { type: 'fetch-more' }
+  | {
+      type: 'success-initial';
+      items: FinanceiroReceivable[];
+      nextCursor: number | null;
+      totalCommission: number;
+    }
+  | { type: 'success-more'; items: FinanceiroReceivable[]; nextCursor: number | null }
+  | { type: 'error'; message: string };
+
+const FIN_INITIAL: FinListState = {
+  items: [],
+  nextCursor: null,
+  totalCommission: 0,
+  status: 'loading-initial',
+  error: null,
+};
+
+function finListReducer(state: FinListState, action: FinListAction): FinListState {
+  switch (action.type) {
+    case 'fetch-initial':
+      return { ...FIN_INITIAL, status: 'loading-initial' };
+    case 'fetch-more':
+      return { ...state, status: 'loading-more', error: null };
+    case 'success-initial':
+      return {
+        ...state,
+        items: action.items,
+        nextCursor: action.nextCursor,
+        totalCommission: action.totalCommission,
+        status: 'idle',
+        error: null,
+      };
+    case 'success-more':
+      return {
+        ...state,
+        items: [...state.items, ...action.items],
+        nextCursor: action.nextCursor,
+        status: 'idle',
+        error: null,
+      };
+    case 'error':
+      return { ...state, status: 'error', error: action.message };
+    default:
+      return state;
+  }
+}
 
 export default function FinanceiroPage() {
   const { session, loading, logout, setSession } = useRequireAuth({
     allowedRoles: FINANCEIRO_ROLES,
   });
 
-  const [items, setItems] = useState<FinanceiroReceivable[]>([]);
-  const [listLoading, setListLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [listState, dispatchList] = useReducer(finListReducer, FIN_INITIAL);
+  const [searchInput, setSearchInput] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const toggleExpand = (id: string) =>
     setExpandedIds((prev) => {
@@ -34,37 +97,137 @@ export default function FinanceiroPage() {
       return next;
     });
 
-  const refresh = useCallback(async () => {
-    if (!session) return;
-    setListLoading(true);
-    try {
-      const res = await listFinanceiro(session);
-      setItems(res.items);
-    } catch {
-      /* lista vazia em falha */
-    } finally {
-      setListLoading(false);
-    }
-  }, [session]);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const searchDebounceRef = useRef<number | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const loadMoreStateRef = useRef<{
+    inFlight: boolean;
+    token: number;
+    abort: AbortController | null;
+  }>({ inFlight: false, token: 0, abort: null });
 
+  // Debounce da busca: aplica só com >=2 chars; <2 desfiltra. Espelha /users.
+  useEffect(() => {
+    if (searchDebounceRef.current !== null) {
+      window.clearTimeout(searchDebounceRef.current);
+    }
+    const trimmed = searchInput.trim();
+    const next = trimmed.length >= 2 ? trimmed : '';
+    if (next === appliedSearch) return;
+    searchDebounceRef.current = window.setTimeout(() => {
+      searchDebounceRef.current = null;
+      setAppliedSearch(next);
+    }, 400);
+    return () => {
+      if (searchDebounceRef.current !== null) {
+        window.clearTimeout(searchDebounceRef.current);
+        searchDebounceRef.current = null;
+      }
+    };
+  }, [searchInput, appliedSearch]);
+
+  // Fetch inicial: dispara ao mudar a busca ou a sessão. Reseta o cursor.
   useEffect(() => {
     if (!session) return;
-    void refresh();
-  }, [session, refresh]);
+    const abortController = new AbortController();
+    let active = true;
+    dispatchList({ type: 'fetch-initial' });
+    loadMoreStateRef.current.token += 1;
+    loadMoreStateRef.current.inFlight = false;
+    loadMoreStateRef.current.abort?.abort();
+    loadMoreStateRef.current.abort = null;
 
-  const visible = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((it) => {
-      if (it.contractNumber.toLowerCase().includes(q)) return true;
-      return it.brokers.some((b) => b.name.toLowerCase().includes(q));
-    });
-  }, [items, search]);
+    listFinanceiro(
+      session,
+      { search: appliedSearch || undefined, limit: FIN_PAGE_LIMIT },
+      { signal: abortController.signal }
+    )
+      .then((response) => {
+        if (!active) return;
+        dispatchList({
+          type: 'success-initial',
+          items: response.items,
+          nextCursor: response.nextCursor,
+          totalCommission: response.totalCommission,
+        });
+      })
+      .catch((cause) => {
+        if (!active) return;
+        if (cause instanceof DOMException && cause.name === 'AbortError') return;
+        dispatchList({
+          type: 'error',
+          message: cause instanceof ApiError ? cause.message : 'Falha ao carregar o financeiro.',
+        });
+      });
 
-  const totalGeral = useMemo(
-    () => visible.reduce((sum, it) => sum + it.commissionTotal, 0),
-    [visible]
+    return () => {
+      active = false;
+      abortController.abort();
+    };
+  }, [appliedSearch, session]);
+
+  // Load-more pelo cursor. inFlight + token protegem contra race em scrolls
+  // rápidos (mesmo padrão de /users).
+  const runLoadMore = useCallback(
+    (cursor: number) => {
+      const state = loadMoreStateRef.current;
+      if (state.inFlight || !session) return;
+      state.inFlight = true;
+      state.token += 1;
+      const myToken = state.token;
+      state.abort?.abort();
+      const controller = new AbortController();
+      state.abort = controller;
+      dispatchList({ type: 'fetch-more' });
+
+      listFinanceiro(
+        session,
+        { search: appliedSearch || undefined, limit: FIN_PAGE_LIMIT, cursor },
+        { signal: controller.signal }
+      )
+        .then((response) => {
+          if (loadMoreStateRef.current.token !== myToken) return;
+          dispatchList({
+            type: 'success-more',
+            items: response.items,
+            nextCursor: response.nextCursor,
+          });
+        })
+        .catch((cause) => {
+          if (loadMoreStateRef.current.token !== myToken) return;
+          if (cause instanceof DOMException && cause.name === 'AbortError') return;
+          dispatchList({
+            type: 'error',
+            message: cause instanceof ApiError ? cause.message : 'Falha ao carregar mais.',
+          });
+        })
+        .finally(() => {
+          if (loadMoreStateRef.current.token === myToken) {
+            loadMoreStateRef.current.inFlight = false;
+            loadMoreStateRef.current.abort = null;
+          }
+        });
+    },
+    [session, appliedSearch]
   );
+
+  // IntersectionObserver no sentinel: dispara load-more quando entra na viewport.
+  useEffect(() => {
+    if (!session) return;
+    if (listState.status !== 'idle') return;
+    if (listState.nextCursor === null) return;
+    const sentinel = loadMoreRef.current;
+    if (!sentinel) return;
+    const cursor = listState.nextCursor;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) runLoadMore(cursor);
+      },
+      { root: scrollRef.current, rootMargin: FIN_LOAD_MORE_ROOT_MARGIN }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [runLoadMore, listState.nextCursor, listState.status, session]);
 
   if (loading || !session) return null;
 
@@ -76,6 +239,9 @@ export default function FinanceiroPage() {
     const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? '') : '';
     return (first + last).toUpperCase() || '?';
   })();
+
+  const { items, status, error, nextCursor, totalCommission } = listState;
+  const isInitialLoading = status === 'loading-initial';
 
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
@@ -97,7 +263,7 @@ export default function FinanceiroPage() {
 
         <div className="fin-total" role="status">
           <span className="fin-total-label">Total a receber</span>
-          <span className="fin-total-value">{BRL.format(totalGeral)}</span>
+          <span className="fin-total-value">{BRL.format(totalCommission)}</span>
         </div>
 
         <div className="hero-search-wrap">
@@ -108,18 +274,18 @@ export default function FinanceiroPage() {
           >
             <input
               className="hero-search-input"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
               placeholder="Buscar nº ou corretor..."
               autoComplete="off"
               spellCheck={false}
             />
-            {search ? (
+            {searchInput ? (
               <button
                 type="button"
                 className="hero-search-clear-input"
                 aria-label="Limpar busca"
-                onClick={() => setSearch('')}
+                onClick={() => setSearchInput('')}
               >
                 <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                   <path d="M6 6l12 12M18 6L6 18" />
@@ -138,21 +304,25 @@ export default function FinanceiroPage() {
 
         <section className="clients-v2-sheet">
           <div className="spv2-list-meta">
-            <span className="spv2-list-count">{visible.length} fechamento(s)</span>
+            <span className="spv2-list-count">{items.length} fechamento(s)</span>
           </div>
 
-          <div className="spv2-list-scroll">
-            {listLoading ? (
+          <div className="spv2-list-scroll" ref={scrollRef}>
+            {isInitialLoading ? (
               <div className="spv2-empty">
                 <p className="spv2-empty-text">Carregando...</p>
               </div>
-            ) : visible.length === 0 ? (
+            ) : status === 'error' && items.length === 0 ? (
+              <div className="spv2-empty">
+                <p className="spv2-empty-text">{error ?? 'Não foi possível carregar.'}</p>
+              </div>
+            ) : items.length === 0 ? (
               <div className="spv2-empty">
                 <p className="spv2-empty-text">Nenhuma corretagem a receber</p>
               </div>
             ) : (
               <div className="fin-list">
-                {visible.map((it) => (
+                {items.map((it) => (
                   <FinanceiroCard
                     key={it.id}
                     item={it}
@@ -160,6 +330,11 @@ export default function FinanceiroPage() {
                     onToggle={() => toggleExpand(it.id)}
                   />
                 ))}
+                {nextCursor !== null ? (
+                  <div ref={loadMoreRef} className="fin-load-more" aria-hidden="true">
+                    {status === 'loading-more' ? 'Carregando mais...' : ''}
+                  </div>
+                ) : null}
               </div>
             )}
           </div>

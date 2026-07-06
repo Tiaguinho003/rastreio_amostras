@@ -2944,7 +2944,14 @@ export function createBackendApiV1({
           throw new HttpError(501, 'Sale contract service is not configured');
         }
         const actor = await resolveActorContext(input, authService);
-        const result = await saleContractService.listBrokerReceivables({}, actor);
+        const result = await saleContractService.listBrokerReceivables(
+          {
+            search: input?.query?.search,
+            limit: input?.query?.limit,
+            cursor: input?.query?.cursor,
+          },
+          actor
+        );
         return { status: 200, body: result };
       }),
 

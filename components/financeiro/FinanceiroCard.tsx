@@ -41,6 +41,14 @@ function money(value: number | null | undefined): string {
   return value != null ? BRL.format(value) : '—';
 }
 
+// Data curta pt-BR a partir do ISO (UTC, como as colunas @db.Date do contrato).
+function dateBR(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+}
+
 function percent(value: number | null | undefined): string {
   return value != null ? `${value.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%` : '—';
 }
@@ -76,6 +84,10 @@ export function FinanceiroCard({ item, isExpanded, onToggle }: FinanceiroCardPro
             <span className="fin-fig">
               <span className="fin-fig-label">Corretagem</span>
               <span className="fin-fig-value fin-fig-strong">{money(item.commissionTotal)}</span>
+            </span>
+            <span className="fin-fig">
+              <span className="fin-fig-label">Pagamento</span>
+              <span className="fin-fig-value">{dateBR(item.paymentDate)}</span>
             </span>
           </span>
           {item.brokers.length > 0 ? (

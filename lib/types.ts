@@ -513,6 +513,7 @@ export interface FinanceiroReceivable {
   id: string;
   contractNumber: string;
   contractDate: string | null;
+  paymentDate: string | null;
   status: SaleContractStatus;
   totalValue: number | null;
   commissionTotal: number;
@@ -528,6 +529,10 @@ export interface FinanceiroReceivable {
 
 export interface FinanceiroListResponse {
   items: FinanceiroReceivable[];
+  // Cursor de scroll infinito (contractSeq do último item; null = última página).
+  nextCursor: number | null;
+  // Total de corretagem a receber do conjunto que casa com a busca (server-side).
+  totalCommission: number;
 }
 
 // Fechamento (Fase B.2 Passo 2): listas da etapa 2 + payload de "Emitir".

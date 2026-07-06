@@ -818,9 +818,18 @@ export function listSaleContracts(
 }
 
 // Financeiro (Fase F, D128): corretagem a receber por fechamento (ADMIN-only).
-// Relatorio derivado, on-demand.
-export function listFinanceiro(session: SessionData, options: { signal?: AbortSignal } = {}) {
-  return request<FinanceiroListResponse>(`/financeiro`, {
+// Relatorio derivado, on-demand, paginado por cursor (S86: search/limit/cursor).
+export function listFinanceiro(
+  session: SessionData,
+  query: { search?: string; limit?: number; cursor?: number } = {},
+  options: { signal?: AbortSignal } = {}
+) {
+  const params = new URLSearchParams();
+  if (query.search) params.set('search', query.search);
+  if (typeof query.limit === 'number') params.set('limit', String(query.limit));
+  if (typeof query.cursor === 'number') params.set('cursor', String(query.cursor));
+  const suffix = params.size ? `?${params.toString()}` : '';
+  return request<FinanceiroListResponse>(`/financeiro${suffix}`, {
     method: 'GET',
     session,
     signal: options.signal,
