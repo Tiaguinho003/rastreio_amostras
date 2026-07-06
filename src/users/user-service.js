@@ -1600,16 +1600,29 @@ export class UserService {
     const code = normalizePasswordResetCode(input.code);
     const now = nowUtc();
 
-    return this.prisma.$transaction(async (tx) => {
-      const { request } = await this.loadPasswordResetContext(tx, input.email, now);
-      await this.assertPasswordResetCode(tx, request, code, now);
+    // Erro capturado dentro da transacao e lancado DEPOIS do commit — um
+    // throw direto reverteria o incremento de failedAttempts feito por
+    // assertPasswordResetCode (o limite de 5 tentativas nunca armava).
+    const outcome = await this.prisma.$transaction(async (tx) => {
+      try {
+        const { request } = await this.loadPasswordResetContext(tx, input.email, now);
+        await this.assertPasswordResetCode(tx, request, code, now);
+      } catch (error) {
+        return { error };
+      }
 
-      return {
-        verification: {
-          verified: true,
-        },
-      };
+      return {};
     });
+
+    if (outcome.error) {
+      throw outcome.error;
+    }
+
+    return {
+      verification: {
+        verified: true,
+      },
+    };
   }
 
   async resetPasswordWithCode(input, actorContext) {
@@ -1618,9 +1631,17 @@ export class UserService {
     const passwordHash = await hashPassword(password);
     const now = nowUtc();
 
-    return this.prisma.$transaction(async (tx) => {
-      const { user, request } = await this.loadPasswordResetContext(tx, input.email, now);
-      await this.assertPasswordResetCode(tx, request, code, now);
+    // Mesmo padrao do verifyPasswordResetCode: o erro de validacao do codigo
+    // e lancado apos o commit pra nao reverter o incremento de tentativas.
+    const outcome = await this.prisma.$transaction(async (tx) => {
+      let user;
+      let request;
+      try {
+        ({ user, request } = await this.loadPasswordResetContext(tx, input.email, now));
+        await this.assertPasswordResetCode(tx, request, code, now);
+      } catch (error) {
+        return { error };
+      }
 
       const updated = await tx.user.update({
         where: { id: user.id },
@@ -1649,10 +1670,18 @@ export class UserService {
       });
 
       return {
-        user: toUserSummary(updated),
-        sessionRevoked: true,
+        result: {
+          user: toUserSummary(updated),
+          sessionRevoked: true,
+        },
       };
     });
+
+    if (outcome.error) {
+      throw outcome.error;
+    }
+
+    return outcome.result;
   }
 
   async listAuditEvents(input, actorContext) {
@@ -1723,7 +1752,11 @@ export class UserService {
     const normalizedUsername = normalizeCanonical(username);
     const now = nowUtc();
 
-    return this.prisma.$transaction(async (tx) => {
+    // O HttpError e RETORNADO pela transacao e lancado so DEPOIS do commit:
+    // um throw dentro do callback faria o Prisma reverter exatamente o que
+    // este metodo existe pra gravar (incremento de failedLoginAttempts,
+    // lockedUntil e o audit LOGIN_FAILED) — o lockout nunca armava.
+    const failure = await this.prisma.$transaction(async (tx) => {
       const user = await tx.user.findFirst({
         where: {
           usernameCanonical: normalizedUsername,
@@ -1742,7 +1775,7 @@ export class UserService {
           },
         });
 
-        throw new HttpError(401, 'Usuario ou senha invalidos', {
+        return new HttpError(401, 'Usuario ou senha invalidos', {
           code: 'INVALID_CREDENTIALS',
         });
       }
@@ -1758,7 +1791,7 @@ export class UserService {
           },
         });
 
-        throw new HttpError(403, 'Conta inativa. Fale com o administrador.', {
+        return new HttpError(403, 'Conta inativa. Fale com o administrador.', {
           code: 'ACCOUNT_INACTIVE',
         });
       }
@@ -1774,7 +1807,7 @@ export class UserService {
           },
         });
 
-        throw new HttpError(423, 'Conta temporariamente bloqueada. Aguarde 5 minutos.', {
+        return new HttpError(423, 'Conta temporariamente bloqueada. Aguarde 5 minutos.', {
           code: 'ACCOUNT_LOCKED',
           lockedUntil: toIsoString(user.lockedUntil),
         });
@@ -1806,16 +1839,18 @@ export class UserService {
       });
 
       if (data.lockedUntil) {
-        throw new HttpError(423, 'Conta temporariamente bloqueada. Aguarde 5 minutos.', {
+        return new HttpError(423, 'Conta temporariamente bloqueada. Aguarde 5 minutos.', {
           code: 'ACCOUNT_LOCKED',
           lockedUntil: toIsoString(data.lockedUntil),
         });
       }
 
-      throw new HttpError(401, 'Usuario ou senha invalidos', {
+      return new HttpError(401, 'Usuario ou senha invalidos', {
         code: 'INVALID_CREDENTIALS',
       });
     });
+
+    throw failure;
   }
 
   async resetLoginFailures(tx, userId) {

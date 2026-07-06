@@ -82,7 +82,10 @@ export class DatabaseAuthService {
       });
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    // O 401 SESSION_EXPIRED e capturado e relancado DEPOIS do commit: um
+    // throw dentro do callback faria o Prisma reverter a revogacao + audit
+    // que markSessionExpiredIfNeeded acabou de gravar.
+    const outcome = await this.prisma.$transaction(async (tx) => {
       const currentSession = await tx.userSession.findUnique({
         where: { id: session.id },
         include: {
@@ -103,7 +106,11 @@ export class DatabaseAuthService {
       }
 
       if (claims.expired || new Date(currentSession.expiresAt).getTime() <= Date.now()) {
-        await this.userService.markSessionExpiredIfNeeded(tx, currentSession, actorContext);
+        try {
+          await this.userService.markSessionExpiredIfNeeded(tx, currentSession, actorContext);
+        } catch (error) {
+          return { error };
+        }
       }
 
       await tx.userSession.update({
@@ -114,15 +121,23 @@ export class DatabaseAuthService {
       });
 
       return {
-        actorType: 'USER',
-        actorUserId: currentSession.user.id,
-        role: currentSession.user.role,
-        username: currentSession.user.username,
-        sessionId: currentSession.id,
-        sessionExpiresAt: toIsoString(currentSession.expiresAt),
-        initialPasswordDecision: currentSession.user.initialPasswordDecision,
+        actor: {
+          actorType: 'USER',
+          actorUserId: currentSession.user.id,
+          role: currentSession.user.role,
+          username: currentSession.user.username,
+          sessionId: currentSession.id,
+          sessionExpiresAt: toIsoString(currentSession.expiresAt),
+          initialPasswordDecision: currentSession.user.initialPasswordDecision,
+        },
       };
     });
+
+    if (outcome.error) {
+      throw outcome.error;
+    }
+
+    return outcome.actor;
   }
 
   async logout(actorContext) {
