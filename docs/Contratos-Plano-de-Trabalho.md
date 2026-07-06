@@ -532,6 +532,8 @@ congelados (**EMITIDO/FATURADO/PAGO/WASH_OUT**) são elegíveis (D73 renomeada p
 
 > **Desenho (Sessões 62–63) + IMPLEMENTAÇÃO na Sessão 64 (2026-06-29).** **Fase F ✅** (`611b8e9` backend +
 > `33226c1` frontend). Decisões **D77–D86**. **Relatório derivado, sem schema novo.** Validar no device.
+> **S84 (D128): ADMIN-only** (COMMERCIAL saiu; `myShare` removido). **S86: paginação server-side por
+> cursor (scroll infinito) + busca/total no backend + data de pagamento no card.**
 
 Nova página **"Financeiro"** (acesso **ADMIN + COMMERCIAL**) que apresenta a **corretagem a receber por
 fechamento** e, dentro de cada um, **quanto cada corretor recebe**. É um **relatório calculado** a partir de
@@ -2543,3 +2545,30 @@ campo a campo do que o PDF puxa (3 correções). 6 decisões via perguntas; 2 co
 - Seção "Espelho de Corretagem" atualizada (mapeamento campo→origem + fluxo + notas: auditoria
   resolvida D124/D127, coluna da parte removida, TOTAL 0 impossível pós-D109).
 - Gates verdes (unit 354 / integração 379 / build / lint / typecheck / format). **Validar no device.**
+
+### 2026-07-06 — Sessão 86 (Página Financeiro — data de pagamento + paginação server-side)
+
+Revisão da página Financeiro (análise → 4 perguntas → implementação). O Flavio pediu a **data de
+pagamento** nos dados do fechamento; a análise reforçou o gargalo (carregava **todos** os contratos
+congelados de uma vez). Decisões: data de pagamento no card **recolhido junto aos valores**; **paginar
+agora** com **scroll infinito**; **Total a receber dinâmico** (segue a busca); **sem** filtro por status.
+
+- **Consequência técnica:** com scroll infinito, somar o total e buscar por corretor no cliente cobriria
+  só as páginas carregadas → **busca + total foram para o backend**. `listBrokerReceivables` ganhou
+  `search`/`limit`/`cursor` (cursor de campo único = `contractSeq`, único e monotônico; `orderBy desc`,
+  `take limit+1`), busca server-side por **nº do contrato OU nome do corretor** (pré-batch dos
+  `SaleContractBroker` por `brokerNameSnapshot`) e **total agregado** (`aggregate _sum` de seller+buyer
+  brokerage sobre o filtro, **ignora o cursor** → reflete o conjunto inteiro que casa com a busca).
+  Resposta: `{ items, nextCursor, totalCommission }`.
+- **Data de pagamento:** `RECEIVABLE_VIEW_SELECT` + `buildReceivableView` ganharam `paymentDate` (e
+  `contractSeq` p/ o cursor); card mostra 3ª figura "Pagamento" no recolhido (`.fin-card-figures` já é
+  flex-wrap).
+- **Frontend:** `/financeiro` reescrita com reducer + `IntersectionObserver` (sentinel `.fin-load-more`)
+  - busca **debounced** server-side (molde `/users`); "Total a receber" = `totalCommission` da resposta;
+    estado de **erro** distinto de vazio. `listFinanceiro` (api-client) aceita `search/limit/cursor`.
+- **Testes:** unit (`paymentDate` na projeção) + **+4 integração** (paymentDate + totalCommission na
+  resposta; total respeita a busca; paginação por cursor sem sobreposição; busca por nº e por corretor).
+- Verificado com dados reais (3 contratos-demo): total 34.120, cada item com `paymentDate`, paginação
+  `limit=2`→`nextCursor`→página 2 sem sobreposição (total agregado preservado), busca por corretor.
+- Gates verdes (unit 354 / integração 383 / build / lint / typecheck / format). **Validar no device.**
+  Nota: o comentário da rota `financeiro/route.ts` (ainda dizia "ADMIN + COMMERCIAL") foi corrigido.
