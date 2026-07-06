@@ -52,7 +52,7 @@ export function mergeUserIntoSession(
   };
 }
 
-export function useAuthState() {
+function useAuthState() {
   const [session, setSession] = useState<SessionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [failureReason, setFailureReason] = useState<'session-expired' | 'session-ended' | null>(

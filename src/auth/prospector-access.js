@@ -6,7 +6,7 @@
 // createBackendApiV1) tambem nega.
 //
 // Metodos publicos (health, login, requestPasswordReset,
-// verifyPasswordResetCode, resetPasswordWithCode, recordSessionExpired)
+// verifyPasswordResetCode, resetPasswordWithCode)
 // nao resolvem ator e nao passam pelo gate — nao precisam constar aqui.
 export const PROSPECTOR_ALLOWED_API_METHODS = new Set([
   // Sessao e conta (perfil, senha, troca de e-mail)

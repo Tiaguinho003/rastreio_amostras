@@ -8,7 +8,7 @@ function decodeCookieValue(value) {
   }
 }
 
-export function parseCookieHeader(headerValue) {
+function parseCookieHeader(headerValue) {
   if (typeof headerValue !== 'string' || headerValue.trim().length === 0) {
     return {};
   }

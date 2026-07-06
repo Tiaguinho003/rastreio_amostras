@@ -133,10 +133,6 @@ export class DatabaseAuthService {
     return this.userService.recordLogout(actorContext.sessionId, actorContext);
   }
 
-  async recordSessionExpired(input, actorContext) {
-    return this.userService.markSessionExpired(input, actorContext);
-  }
-
   async recordAnonymousAudit(eventType, payload, actorContext = {}) {
     return this.prisma.userAuditEvent.create({
       data: {

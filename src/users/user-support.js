@@ -48,10 +48,10 @@ export const USER_AUDIT_EVENT_TYPES = {
 
 // Timeout absoluto da sessao no banco (a partir do login). Manter
 // sincronizado com DEFAULT_TTL_SECONDS em src/auth/token-service.js.
-export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const LOGIN_MAX_ATTEMPTS = 8;
 export const LOGIN_LOCKOUT_MS = 5 * 60 * 1000;
-export const REQUEST_CODE_TTL_MS = 15 * 60 * 1000;
+const REQUEST_CODE_TTL_MS = 15 * 60 * 1000;
 export const REQUEST_CODE_RESEND_MS = 60 * 1000;
 export const REQUEST_MAX_ATTEMPTS = 5;
 export const REQUEST_RETRY_MS = 5 * 60 * 1000;
@@ -173,25 +173,6 @@ export function normalizeRole(value, fieldName = 'role') {
 
   const normalized = value.trim().toUpperCase();
   if (!Object.values(USER_ROLES).includes(normalized)) {
-    throw new HttpError(422, `${fieldName} is invalid`, {
-      code: 'VALIDATION_ERROR',
-      field: fieldName,
-    });
-  }
-
-  return normalized;
-}
-
-export function normalizeUserStatus(value, fieldName = 'status') {
-  if (typeof value !== 'string') {
-    throw new HttpError(422, `${fieldName} is required`, {
-      code: 'VALIDATION_ERROR',
-      field: fieldName,
-    });
-  }
-
-  const normalized = value.trim().toUpperCase();
-  if (!Object.values(USER_STATUSES).includes(normalized)) {
     throw new HttpError(422, `${fieldName} is invalid`, {
       code: 'VALIDATION_ERROR',
       field: fieldName,

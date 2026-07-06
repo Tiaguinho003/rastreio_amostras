@@ -2040,25 +2040,6 @@ export function createBackendApiV1({
         };
       }),
 
-    recordSessionExpired: (input) =>
-      executeApiForInput(input, async () => {
-        if (!authService) {
-          throw new HttpError(501, 'Auth service is not configured');
-        }
-
-        const body = readRequestBody(input);
-        const result = await authService.recordSessionExpired(
-          {
-            sessionId: body.sessionId,
-          },
-          buildRequestContext(input)
-        );
-        return {
-          status: 200,
-          body: result,
-        };
-      }),
-
     getCurrentUser: (input) =>
       executeApiForInput(input, async () => {
         if (!userService) {

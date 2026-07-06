@@ -40,8 +40,6 @@ const PUBLIC_PATH_PREFIXES = [
   '/sw.js',
   '/workbox-',
   '/logo-',
-  '/dashboard-coffee-cup',
-  '/login-coffee-beans',
   // Etiqueta de Envio: laudo publico via QR, sem login. Path: /laudo/<token>.
   '/laudo',
 ];

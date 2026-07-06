@@ -135,7 +135,7 @@ function createOutboxService() {
   return new LocalOutboxEmailService({ from, outboxDir });
 }
 
-export function createEmailServiceFromEnv() {
+function createEmailServiceFromEnv() {
   const transport = buildTransport();
   if (transport === 'smtp') {
     return createSmtpService();
@@ -152,7 +152,7 @@ function buildGreeting(fullName) {
   return `Ola${fullName ? `, ${fullName}` : ''}.`;
 }
 
-export class AppEmailService {
+class AppEmailService {
   constructor(delegate) {
     this.delegate = delegate;
   }

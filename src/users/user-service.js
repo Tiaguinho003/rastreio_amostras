@@ -1949,52 +1949,6 @@ export class UserService {
     });
   }
 
-  async markSessionExpired(input, actorContext) {
-    const sessionId = normalizeRequiredText(input.sessionId, 'sessionId', 64);
-    const now = nowUtc();
-
-    return this.prisma.$transaction(async (tx) => {
-      const session = await tx.userSession.findUnique({
-        where: { id: sessionId },
-        include: {
-          user: {
-            select: USER_SELECT,
-          },
-        },
-      });
-
-      if (!session) {
-        return { ok: true };
-      }
-
-      if (session.revokedAt) {
-        return { ok: true };
-      }
-
-      if (new Date(session.expiresAt).getTime() > now.getTime()) {
-        return { ok: true };
-      }
-
-      await tx.userSession.update({
-        where: { id: session.id },
-        data: {
-          revokedAt: now,
-          endReason: USER_SESSION_END_REASONS.EXPIRED,
-        },
-      });
-
-      await this.recordAuditEvent(tx, {
-        targetUserId: session.userId,
-        actorContext,
-        actorUserId: session.userId,
-        eventType: USER_AUDIT_EVENT_TYPES.SESSION_EXPIRED,
-        payload: {},
-      });
-
-      return { ok: true };
-    });
-  }
-
   async hydrateSession(sessionId) {
     const session = await this.prisma.userSession.findUnique({
       where: { id: sessionId },
