@@ -521,9 +521,9 @@ export interface FinanceiroReceivable {
   buyerBrokeragePct: number | null;
   buyerBrokerageValue: number;
   brokerCount: number;
-  // ADMIN: quebra por corretor (cota igual entre todos). COMMERCIAL: só a própria cota.
-  brokers?: FinanceiroBrokerShare[];
-  myShare?: number;
+  // Quebra por corretor (cota igual; o 1º absorve o resto de centavos — D129).
+  // Página ADMIN-only (D128): a projeção COMMERCIAL/myShare saiu.
+  brokers: FinanceiroBrokerShare[];
 }
 
 export interface FinanceiroListResponse {

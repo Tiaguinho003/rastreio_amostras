@@ -230,6 +230,22 @@ function decimalToNumber(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+// Financeiro (D128): select ENXUTO do listBrokerReceivables — so o que o
+// buildReceivableView projeta. O SALE_CONTRACT_VIEW_SELECT completo carrega 5
+// snapshots JSON por linha que o Financeiro nao usa (a lista cresce sem limite;
+// os snapshots dominariam o payload do banco).
+export const RECEIVABLE_VIEW_SELECT = Object.freeze({
+  id: true,
+  contractNumber: true,
+  contractDate: true,
+  status: true,
+  totalValue: true,
+  sellerBrokeragePct: true,
+  sellerBrokerageValue: true,
+  buyerBrokeragePct: true,
+  buyerBrokerageValue: true,
+});
+
 export const SALE_CONTRACT_VIEW_SELECT = Object.freeze({
   id: true,
   type: true,
@@ -346,18 +362,21 @@ export function toSaleContractBrokerView(row) {
 
 // Financeiro (Fase F): projecao de "corretagem a receber" de UM contrato. Soma a
 // corretagem das 2 pontas (commissionTotal) e divide IGUAL entre os corretores
-// (cota = total / N, D79; nao ha coluna de cota). Projeta por papel (D82/D86):
-// ADMIN ve a quebra por corretor (brokers + cota); COMMERCIAL ve so a propria
-// cota (myShare). `row` = projecao SALE_CONTRACT_VIEW_SELECT; `brokerRows` = os
-// SaleContractBroker do contrato (id/brokerId/brokerNameSnapshot).
-export function buildReceivableView(row, brokerRows, { isAdmin } = {}) {
+// (cota = total / N, D79; nao ha coluna de cota) — o RESTO de centavos do
+// arredondamento vai pro 1º corretor (D129: a soma das cotas SEMPRE bate com o
+// total; ordem estavel por createdAt asc). Pagina ADMIN-only (D128 — revisa
+// D82/D86; a projecao COMMERCIAL/myShare saiu). `row` = projecao
+// RECEIVABLE_VIEW_SELECT; `brokerRows` = os SaleContractBroker do contrato
+// (brokerId/brokerNameSnapshot).
+export function buildReceivableView(row, brokerRows) {
   const sellerValue = decimalToNumber(row.sellerBrokerageValue) ?? 0;
   const buyerValue = decimalToNumber(row.buyerBrokerageValue) ?? 0;
   const commissionTotal = round2(sellerValue + buyerValue);
   const brokerCount = brokerRows.length || 1;
-  const share = round2(commissionTotal / brokerCount);
+  const baseShare = round2(commissionTotal / brokerCount);
+  const firstShare = round2(commissionTotal - baseShare * (brokerCount - 1));
 
-  const base = {
+  return {
     id: row.id,
     contractNumber: row.contractNumber,
     contractDate: toIsoString(row.contractDate),
@@ -369,19 +388,12 @@ export function buildReceivableView(row, brokerRows, { isAdmin } = {}) {
     buyerBrokeragePct: decimalToNumber(row.buyerBrokeragePct),
     buyerBrokerageValue: buyerValue,
     brokerCount,
+    brokers: brokerRows.map((b, index) => ({
+      brokerId: b.brokerId,
+      name: b.brokerNameSnapshot,
+      share: index === 0 ? firstShare : baseShare,
+    })),
   };
-
-  if (isAdmin) {
-    return {
-      ...base,
-      brokers: brokerRows.map((b) => ({
-        brokerId: b.brokerId,
-        name: b.brokerNameSnapshot,
-        share,
-      })),
-    };
-  }
-  return { ...base, myShare: share };
 }
 
 // ===========================================================================

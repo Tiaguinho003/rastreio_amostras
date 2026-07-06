@@ -19,6 +19,7 @@ import {
   normalizeFutureSaleContractInput,
   normalizeRequiredAgio,
   normalizeWashoutReason,
+  RECEIVABLE_VIEW_SELECT,
   SALE_CONTRACT_STATUSES,
   SALE_CONTRACT_TYPES,
   SALE_CONTRACT_VIEW_SELECT,
@@ -33,10 +34,9 @@ import {
 // Futuro via createFutureSaleContract (CRUD direto).
 const SALE_CONTRACT_MANAGE_ROLES = [USER_ROLES.ADMIN];
 
-// Financeiro (Fase F): a pagina de recebiveis e acessivel a ADMIN + COMMERCIAL
-// (gate proprio — o SALE_CONTRACT_MANAGE_ROLES e ADMIN-only). ADMIN ve tudo;
-// COMMERCIAL ve so os fechamentos em que e corretor (Broker.userId) e so a cota.
-const FINANCEIRO_ROLES = [USER_ROLES.ADMIN, USER_ROLES.COMMERCIAL];
+// Financeiro (Fase F, D128): a pagina de recebiveis e ADMIN-only — o COMMERCIAL
+// perdeu o acesso (revisa D77/D82/D83/D86; a projecao myShare saiu junto).
+const FINANCEIRO_ROLES = [USER_ROLES.ADMIN];
 
 // Acesso/gestao dos contratos por ADMIN + COMMERCIAL (S74): revoga o
 // "Gestao de Contratos = ADMIN-only". ADMIN ve/gerencia TUDO; COMMERCIAL so os
@@ -168,48 +168,32 @@ export class SaleContractService {
     return { items: rows.map(toSaleContractView) };
   }
 
-  // Financeiro (Fase F): lista a corretagem A RECEBER por fechamento. Relatorio
-  // DERIVADO (sem persistencia): TODOS os contratos congelados (EMITIDO/
-  // FATURADO/PAGO), inclusive os SEM corretagem (P24/D92 — e o unico lugar onde o
-  // total do contrato aparece); a cota de cada corretor = total / N (divisao
-  // igual, D79); sem corretagem => cota 0.
-  // ADMIN ve todos + quebra por corretor; COMMERCIAL ve so os fechamentos em que
-  // e corretor (Broker.userId) e so a propria cota (D82/D86). Sem `@relation`
-  // contrato<->broker: os corretores vem num batch separado (agrupado em JS).
+  // Financeiro (Fase F, D128 = ADMIN-only): lista a corretagem A RECEBER por
+  // fechamento. Relatorio DERIVADO (sem persistencia): TODOS os contratos
+  // congelados (EMITIDO/FATURADO/PAGO), inclusive os SEM corretagem (P24/D92 —
+  // e o unico lugar onde o total do contrato aparece) E os em WASH_OUT (D105:
+  // o corretor recebe a comissao mesmo com washout, pois fez a negociacao); a
+  // cota de cada corretor = total / N (divisao igual, D79; resto de centavos no
+  // 1º — D129); sem corretagem => cota 0. Select enxuto (RECEIVABLE_VIEW_SELECT,
+  // sem snapshots). Sem `@relation` contrato<->broker: os corretores vem num
+  // batch separado (agrupado em JS).
   async listBrokerReceivables(input, actorContext) {
     const actor = assertAuthenticatedActor(actorContext, 'list broker receivables');
     assertRoleAllowed(actor.role, FINANCEIRO_ROLES, 'list broker receivables');
-    const isAdmin = actor.role === USER_ROLES.ADMIN;
 
-    // COMMERCIAL: resolve o proprio Broker (Broker.userId @unique). Sem vinculo
-    // -> nada a mostrar.
-    let ownBrokerId = null;
-    if (!isAdmin) {
-      const broker = await this.prisma.broker.findUnique({
-        where: { userId: actor.actorUserId },
-        select: { id: true },
-      });
-      if (!broker) {
-        return { items: [] };
-      }
-      ownBrokerId = broker.id;
-    }
-
-    // 1) contratos elegiveis: TODOS — inclusive sem corretagem (P24/D92) E os em
-    // WASH_OUT (D105: o corretor recebe a comissao mesmo com washout, pois fez a
-    // negociacao).
     const rows = await this.prisma.saleContract.findMany({
       where: {
         status: { in: ['EMITIDO', 'FATURADO', 'PAGO', 'WASH_OUT'] },
       },
       orderBy: [{ contractSeq: 'desc' }],
-      select: SALE_CONTRACT_VIEW_SELECT,
+      select: RECEIVABLE_VIEW_SELECT,
     });
     if (rows.length === 0) {
       return { items: [] };
     }
 
-    // 2) corretores num batch (sem @relation): agrupa por saleContractId.
+    // Corretores num batch (sem @relation): agrupa por saleContractId; a ordem
+    // createdAt asc e a mesma do rateio (o 1º absorve o resto, D129).
     const brokerRows = await this.prisma.saleContractBroker.findMany({
       where: { saleContractId: { in: rows.map((r) => r.id) } },
       orderBy: [{ createdAt: 'asc' }],
@@ -225,16 +209,9 @@ export class SaleContractService {
       }
     }
 
-    // 3) projeta por papel; COMMERCIAL filtra aos contratos em que e corretor.
-    const items = [];
-    for (const row of rows) {
-      const brokers = brokersByContract.get(row.id) ?? [];
-      if (!isAdmin && !brokers.some((b) => b.brokerId === ownBrokerId)) {
-        continue;
-      }
-      items.push(buildReceivableView(row, brokers, { isAdmin }));
-    }
-    return { items };
+    return {
+      items: rows.map((row) => buildReceivableView(row, brokersByContract.get(row.id) ?? [])),
+    };
   }
 
   async getSaleContract(contractId, actorContext) {

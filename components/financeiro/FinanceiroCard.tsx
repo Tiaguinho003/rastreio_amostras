@@ -2,11 +2,11 @@
 
 import type { FinanceiroReceivable } from '../../lib/types';
 
-// Financeiro (Fase F): card de um fechamento na pagina "Financeiro". Recolhido =
-// nº + valor total + corretagem (ADMIN: total; COMMERCIAL: a propria cota) +
-// (ADMIN) os corretores com a cota de cada um (D84/D86). Expandido = detalhe da
-// corretagem: reparticao vendedor/comprador (% + R$) (D85). Esqueleto/animacao
-// espelham o `ctr-card` (controlado: isExpanded/onToggle no pai).
+// Financeiro (Fase F, D128 = ADMIN-only): card de um fechamento na pagina
+// "Financeiro". Recolhido = nº + valor total + corretagem total + os corretores
+// com a cota de cada um (D84; rateio com resto no 1º — D129). Expandido =
+// detalhe da corretagem: reparticao vendedor/comprador (% + R$) (D85).
+// Esqueleto/animacao espelham o `ctr-card` (controlado: isExpanded/onToggle no pai).
 
 const STATUS_LABEL: Record<string, string> = {
   EMITIDO: 'Emitido',
@@ -47,18 +47,15 @@ function percent(value: number | null | undefined): string {
 
 type FinanceiroCardProps = {
   item: FinanceiroReceivable;
-  mode: 'admin' | 'commercial';
   isExpanded: boolean;
   onToggle: () => void;
 };
 
-export function FinanceiroCard({ item, mode, isExpanded, onToggle }: FinanceiroCardProps) {
-  const isAdmin = mode === 'admin';
+export function FinanceiroCard({ item, isExpanded, onToggle }: FinanceiroCardProps) {
   const color = STATUS_COLOR[item.status] ?? '#16a34a';
   const textColor = STATUS_TEXT_COLOR[item.status] ?? color;
   const tint = STATUS_TINT[item.status] ?? '#dcfce7';
   const label = STATUS_LABEL[item.status] ?? item.status;
-  const corretagem = isAdmin ? item.commissionTotal : (item.myShare ?? 0);
 
   return (
     <div className={`fin-card${isExpanded ? ' is-expanded' : ''}`}>
@@ -77,11 +74,11 @@ export function FinanceiroCard({ item, mode, isExpanded, onToggle }: FinanceiroC
               <span className="fin-fig-value">{money(item.totalValue)}</span>
             </span>
             <span className="fin-fig">
-              <span className="fin-fig-label">{isAdmin ? 'Corretagem' : 'Sua cota'}</span>
-              <span className="fin-fig-value fin-fig-strong">{money(corretagem)}</span>
+              <span className="fin-fig-label">Corretagem</span>
+              <span className="fin-fig-value fin-fig-strong">{money(item.commissionTotal)}</span>
             </span>
           </span>
-          {isAdmin && item.brokers && item.brokers.length > 0 ? (
+          {item.brokers.length > 0 ? (
             <span className="fin-card-brokers">
               {item.brokers.map((b) => (
                 <span key={b.brokerId} className="fin-broker">

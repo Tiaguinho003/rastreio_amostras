@@ -817,8 +817,8 @@ export function listSaleContracts(
   });
 }
 
-// Financeiro (Fase F): corretagem a receber por fechamento (ADMIN + COMMERCIAL,
-// role-adaptive no backend). Relatorio derivado, on-demand.
+// Financeiro (Fase F, D128): corretagem a receber por fechamento (ADMIN-only).
+// Relatorio derivado, on-demand.
 export function listFinanceiro(session: SessionData, options: { signal?: AbortSignal } = {}) {
   return request<FinanceiroListResponse>(`/financeiro`, {
     method: 'GET',

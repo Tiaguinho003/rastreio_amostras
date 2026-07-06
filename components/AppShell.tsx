@@ -14,6 +14,7 @@ import { changePasswordSchema } from '../lib/form-schemas';
 import { useVisitOutboxAutoSync } from '../lib/offline/use-visit-outbox-sync';
 import { VISIT_SYNC_COMPLETED_EVENT, type VisitSyncResult } from '../lib/offline/visit-sync';
 import {
+  CONTRATOS_ROLES,
   FINANCEIRO_ROLES,
   getRoleLabel,
   INFORME_ROLES,
@@ -90,7 +91,7 @@ const CONTRATOS_NAV_ITEM = {
 } as const;
 
 // Item da sidebar: Financeiro (Fase F — corretagem a receber por fechamento).
-// ADMIN + COMMERCIAL (item tambem no avatar menu p/ mobile).
+// ADMIN-only (D128; item tambem no avatar menu p/ mobile).
 const FINANCEIRO_NAV_ITEM = {
   href: '/financeiro',
   label: 'Financeiro',
@@ -425,9 +426,9 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
         ...(isAdmin(session.user.role) || session.user.role === 'CADASTRO'
           ? [CADASTROS_NAV_ITEM]
           : []),
-        // S74: Contratos agora ADMIN + COMMERCIAL (mesmo conjunto do Financeiro);
-        // Usuários (ADMIN_NAV_ITEM) segue ADMIN-only.
-        ...(isRoleAllowed(session.user.role, FINANCEIRO_ROLES) ? [CONTRATOS_NAV_ITEM] : []),
+        // S74: Contratos = ADMIN + COMMERCIAL (CONTRATOS_ROLES — o Financeiro
+        // virou ADMIN-only na D128); Usuários (ADMIN_NAV_ITEM) segue ADMIN-only.
+        ...(isRoleAllowed(session.user.role, CONTRATOS_ROLES) ? [CONTRATOS_NAV_ITEM] : []),
         ...(isAdmin(session.user.role) ? [ADMIN_NAV_ITEM] : []),
       ];
   const mobileRouteMeta = resolveMobileRouteMeta(pathname);

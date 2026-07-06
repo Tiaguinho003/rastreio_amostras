@@ -340,15 +340,11 @@ function receivableRow(overrides = {}) {
   };
 }
 
-test('buildReceivableView (ADMIN): commissionTotal + cota igual por corretor', () => {
-  const view = buildReceivableView(
-    receivableRow(),
-    [
-      { brokerId: 'b1', brokerNameSnapshot: 'Ana' },
-      { brokerId: 'b2', brokerNameSnapshot: 'Bia' },
-    ],
-    { isAdmin: true }
-  );
+test('buildReceivableView: commissionTotal + cota igual por corretor (divisao exata)', () => {
+  const view = buildReceivableView(receivableRow(), [
+    { brokerId: 'b1', brokerNameSnapshot: 'Ana' },
+    { brokerId: 'b2', brokerNameSnapshot: 'Bia' },
+  ]);
   assert.equal(view.commissionTotal, 100); // 60 + 40
   assert.equal(view.brokerCount, 2);
   assert.equal(view.totalValue, 10000);
@@ -359,30 +355,32 @@ test('buildReceivableView (ADMIN): commissionTotal + cota igual por corretor', (
       ['Bia', 50],
     ]
   );
-  assert.equal(view.myShare, undefined);
 });
 
-test('buildReceivableView (COMMERCIAL): so a propria cota, sem a lista de corretores', () => {
+test('buildReceivableView (D129): resto de centavos no 1º corretor — a soma bate com o total', () => {
   const view = buildReceivableView(
-    receivableRow({ status: 'PAGO', sellerBrokerageValue: 150, buyerBrokerageValue: 150 }),
+    receivableRow({ status: 'PAGO', sellerBrokerageValue: 60, buyerBrokerageValue: 40 }),
     [
       { brokerId: 'b1', brokerNameSnapshot: 'Ana' },
       { brokerId: 'b2', brokerNameSnapshot: 'Bia' },
       { brokerId: 'b3', brokerNameSnapshot: 'Cau' },
-    ],
-    { isAdmin: false }
+    ]
   );
-  assert.equal(view.commissionTotal, 300);
+  assert.equal(view.commissionTotal, 100);
   assert.equal(view.brokerCount, 3);
-  assert.equal(view.myShare, 100); // 300 / 3
-  assert.equal(view.brokers, undefined);
+  // 100 / 3 = 33,33... → base 33,33; o 1º absorve o resto (33,34).
+  assert.deepEqual(
+    view.brokers.map((b) => b.share),
+    [33.34, 33.33, 33.33]
+  );
+  const soma = view.brokers.reduce((sum, b) => sum + b.share, 0);
+  assert.equal(Math.round(soma * 100) / 100, view.commissionTotal);
 });
 
 test('buildReceivableView: 1 corretor recebe o total; soma com round2', () => {
   const view = buildReceivableView(
     receivableRow({ sellerBrokerageValue: 3.33, buyerBrokerageValue: 3.34 }),
-    [{ brokerId: 'b1', brokerNameSnapshot: 'Ana' }],
-    { isAdmin: true }
+    [{ brokerId: 'b1', brokerNameSnapshot: 'Ana' }]
   );
   assert.equal(view.commissionTotal, 6.67); // 3.33 + 3.34
   assert.equal(view.brokerCount, 1);

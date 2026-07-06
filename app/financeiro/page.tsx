@@ -7,13 +7,13 @@ import { AppShell } from '../../components/AppShell';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { FinanceiroCard } from '../../components/financeiro/FinanceiroCard';
 import { listFinanceiro } from '../../lib/api-client';
-import { FINANCEIRO_ROLES, isAdmin } from '../../lib/roles';
+import { FINANCEIRO_ROLES } from '../../lib/roles';
 import { useRequireAuth } from '../../lib/use-auth';
 import type { FinanceiroReceivable } from '../../lib/types';
 
-// Financeiro (Fase F): corretagem a receber por fechamento (ADMIN + COMMERCIAL).
-// Relatorio derivado (sem persistencia). ADMIN ve todos + quebra por corretor;
-// COMMERCIAL ve so os seus e so a propria cota — o backend ja projeta por papel.
+// Financeiro (Fase F, D128): corretagem a receber por fechamento — ADMIN-only
+// (o COMMERCIAL perdeu o acesso; a visao role-adaptive/myShare saiu junto).
+// Relatorio derivado (sem persistencia), com a quebra por corretor.
 
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -52,26 +52,18 @@ export default function FinanceiroPage() {
     void refresh();
   }, [session, refresh]);
 
-  const mode: 'admin' | 'commercial' =
-    session && isAdmin(session.user.role) ? 'admin' : 'commercial';
-
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return items;
     return items.filter((it) => {
       if (it.contractNumber.toLowerCase().includes(q)) return true;
-      if (it.brokers) return it.brokers.some((b) => b.name.toLowerCase().includes(q));
-      return false;
+      return it.brokers.some((b) => b.name.toLowerCase().includes(q));
     });
   }, [items, search]);
 
   const totalGeral = useMemo(
-    () =>
-      visible.reduce(
-        (sum, it) => sum + (mode === 'admin' ? it.commissionTotal : (it.myShare ?? 0)),
-        0
-      ),
-    [visible, mode]
+    () => visible.reduce((sum, it) => sum + it.commissionTotal, 0),
+    [visible]
   );
 
   if (loading || !session) return null;
@@ -104,9 +96,7 @@ export default function FinanceiroPage() {
         </header>
 
         <div className="fin-total" role="status">
-          <span className="fin-total-label">
-            {mode === 'admin' ? 'Total a receber' : 'Seu total a receber'}
-          </span>
+          <span className="fin-total-label">Total a receber</span>
           <span className="fin-total-value">{BRL.format(totalGeral)}</span>
         </div>
 
@@ -120,7 +110,7 @@ export default function FinanceiroPage() {
               className="hero-search-input"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder={mode === 'admin' ? 'Buscar nº ou corretor...' : 'Buscar nº...'}
+              placeholder="Buscar nº ou corretor..."
               autoComplete="off"
               spellCheck={false}
             />
@@ -166,7 +156,6 @@ export default function FinanceiroPage() {
                   <FinanceiroCard
                     key={it.id}
                     item={it}
-                    mode={mode}
                     isExpanded={expandedIds.has(it.id)}
                     onToggle={() => toggleExpand(it.id)}
                   />
