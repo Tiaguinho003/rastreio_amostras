@@ -917,9 +917,10 @@ export class SaleContractService {
     };
   }
 
-  // Fase J (D124, resolve a D71): auditoria da geracao do Espelho de
-  // Corretagem. Chamada pelo handler exportEspelhoPdf APOS o render — posse,
-  // elegibilidade e side ja foram validados la (getSaleContract + guards).
+  // Fase J (D124, revisada pela D127): auditoria da EXPORTACAO do Espelho de
+  // Corretagem. Chamada pelo handler logEspelhoExport (clique em Exportar/
+  // Baixar no modal) e pelo exportEspelhoPdf sem ?preview=1 (acesso direto a
+  // URL) — posse, elegibilidade e side ja foram validados la.
   async logEspelhoGenerated(contractId, side, actorContext) {
     await this.prisma.saleContractEspelhoLog.create({
       data: {

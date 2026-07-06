@@ -3200,9 +3200,18 @@ export function createBackendApiV1({
           side,
           issuer: getContractIssuer(),
         });
-        // Fase J (D124, resolve a D71): audita a geracao do espelho (lado +
-        // ator + quando) — alimenta o timeline do modal de Detalhes.
-        await saleContractService.logEspelhoGenerated(contract.id, side, actor);
+        // D127 (revisa a D124): a PRÉVIA do modal passa ?preview=1 e NÃO conta
+        // como auditoria — o registro de exportação vem do POST /espelho/log
+        // (Exportar/Baixar). Sem o param (acesso direto à URL) loga aqui,
+        // best-effort: um log falho não invalida um PDF já renderizado.
+        const isPreview = input?.query?.preview === '1' || input?.query?.preview === 'true';
+        if (!isPreview) {
+          try {
+            await saleContractService.logEspelhoGenerated(contract.id, side, actor);
+          } catch (cause) {
+            console.error('espelho: falha ao gravar o log de exportacao', cause);
+          }
+        }
         const sideTag = side === 'seller' ? 'vendedor' : 'comprador';
         return {
           status: 200,
@@ -3212,6 +3221,32 @@ export function createBackendApiV1({
             contentType: 'application/pdf',
           },
         };
+      }),
+
+    // D127: registra a EXPORTAÇÃO do espelho (clique em Exportar/Baixar no
+    // modal — a prévia não audita). Mesmo gate/posse do getSaleContract; sem
+    // gate de status (o modal só abre p/ elegíveis e isto é auditoria, não
+    // emissão). Alimenta o timeline do modal de Detalhes (D125).
+    logEspelhoExport: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractService) {
+          throw new HttpError(501, 'Sale contract service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const contractId = input?.params?.contractId;
+        if (typeof contractId !== 'string' || contractId.length === 0) {
+          throw new HttpError(422, 'contractId path param is required');
+        }
+        const body = readRequestBody(input);
+        const side = body?.side;
+        if (side !== 'seller' && side !== 'buyer') {
+          throw new HttpError(422, "body param 'side' deve ser 'seller' ou 'buyer'", {
+            code: 'ESPELHO_INVALID_SIDE',
+          });
+        }
+        const { contract } = await saleContractService.getSaleContract(contractId, actor);
+        await saleContractService.logEspelhoGenerated(contract.id, side, actor);
+        return { status: 200, body: { logged: true } };
       }),
 
     // ============================================================

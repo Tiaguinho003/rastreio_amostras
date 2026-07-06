@@ -1546,16 +1546,20 @@ export async function downloadSaleContractPdf(session: SessionData, contractId: 
 }
 
 // Espelho de Corretagem (Fase E): baixa/visualiza o PDF do espelho (regenerado
-// on-demand; só EMITIDO/FATURADO/PAGO). `side` = 'seller' | 'buyer' define a
-// parte (CLIENTE) e o lado da comissão. Cookie de sessão via credentials.
+// on-demand; elegíveis EMITIDO/FATURADO/PAGO/WASH_OUT — D105). `side` =
+// 'seller' | 'buyer' define a parte (CLIENTE) e o lado da comissão. Cookie de
+// sessão via credentials. `preview` (D127): a prévia do modal NÃO conta como
+// auditoria — a exportação real loga via logEspelhoExport.
 export async function downloadEspelhoPdf(
   session: SessionData,
   contractId: string,
-  side: 'seller' | 'buyer'
+  side: 'seller' | 'buyer',
+  options: { preview?: boolean } = {}
 ) {
   void session;
+  const previewParam = options.preview ? '&preview=1' : '';
   const response = await fetch(
-    `${API_BASE}/sale-contracts/${contractId}/espelho/pdf?side=${side}`,
+    `${API_BASE}/sale-contracts/${contractId}/espelho/pdf?side=${side}${previewParam}`,
     { method: 'GET', cache: 'no-store', credentials: 'same-origin' }
   );
 
@@ -1574,6 +1578,20 @@ export async function downloadEspelhoPdf(
     parseFileNameFromContentDisposition(response.headers.get('content-disposition')) ||
     'espelho-corretagem.pdf';
   return { blob, fileName };
+}
+
+// D127: registra a EXPORTAÇÃO do espelho (clique em Exportar/Baixar) — a
+// prévia não audita. Fire-and-forget no modal (não bloqueia o download).
+export function logEspelhoExport(
+  session: SessionData,
+  contractId: string,
+  side: 'seller' | 'buyer'
+) {
+  return request<{ logged: boolean }>(`/sale-contracts/${contractId}/espelho/log`, {
+    method: 'POST',
+    session,
+    body: { side },
+  });
 }
 
 export function recordPhysicalSampleSent(

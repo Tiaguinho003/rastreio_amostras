@@ -91,7 +91,8 @@ function timelineLabel(item: SaleContractTimelineItem): string {
         : `Ágio aplicado ${valor}`.trim();
     }
     case 'ESPELHO':
-      return `Espelho gerado — ${item.side === 'seller' ? 'Vendedor' : 'Comprador'}`;
+      // D127: o log é gravado na EXPORTAÇÃO (Exportar/Baixar) — a prévia não audita.
+      return `Espelho exportado — ${item.side === 'seller' ? 'Vendedor' : 'Comprador'}`;
     case 'STATUS': {
       const base =
         item.toStatus === 'FATURADO' ? 'Faturado' : item.toStatus === 'PAGO' ? 'Pago' : 'Washout';

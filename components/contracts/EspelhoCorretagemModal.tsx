@@ -3,7 +3,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import { ApiError, downloadEspelhoPdf, getSaleContract } from '../../lib/api-client';
+import {
+  ApiError,
+  downloadEspelhoPdf,
+  getSaleContract,
+  logEspelhoExport,
+} from '../../lib/api-client';
 import { downloadFile, shareOrDownloadFile } from '../../lib/share-blob';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { SaleContract, SaleContractDetail, SessionData } from '../../lib/types';
@@ -31,9 +36,11 @@ function money(value: number | null): string {
 // Espelho de Corretagem (Fase E): modal de CONFERÊNCIA só-leitura (D75). Toggle
 // Vendedor | Comprador (D72) define o CLIENTE + o lado da comissão; mostra um
 // resumo + a prévia do PDF (on-demand, regenerado por lado, D71) com Exportar /
-// Baixar. Espelha o padrao do antigo "Visualizar" (SaleContractDocumentModal,
-// aposentado na Fase J — absorvido pelo Detalhes). O contrato deve estar congelado
-// (EMITIDO/FATURADO/PAGO) — a página só abre este modal p/ elegíveis.
+// Baixar. A prévia NÃO conta como auditoria — o log de exportação é gravado no
+// clique em Exportar/Baixar (D127). Espelha o padrao do antigo "Visualizar"
+// (SaleContractDocumentModal, aposentado na Fase J — absorvido pelo Detalhes).
+// O contrato deve estar congelado (EMITIDO/FATURADO/PAGO/WASH_OUT, D105) — a
+// página só abre este modal p/ elegíveis.
 export function EspelhoCorretagemModal({
   session,
   contract,
@@ -86,6 +93,18 @@ export function EspelhoCorretagemModal({
     };
   }, [session, contract.id]);
 
+  // Reconcilia o lado com o contrato FRESCO: o `side` inicial vem do prop (a
+  // lista, que pode estar defasada). Se o lado corrente perdeu a corretagem
+  // entre a lista e a abertura, salta pro primeiro lado disponível — sem isto o
+  // toggle mostraria um lado e o request pediria outro (409 ESPELHO_NO_BROKERAGE).
+  useEffect(() => {
+    if (!availableSides.includes(side)) {
+      setSide(availableSides[0] ?? 'seller');
+    }
+    // availableSides é derivado de `view` — basta reagir à chegada do detail.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detail]);
+
   // Busca o PDF do lado atual; re-busca ao trocar de lado (regeneração on-demand).
   useEffect(() => {
     let aborted = false;
@@ -96,7 +115,10 @@ export function EspelhoCorretagemModal({
       setPdfUrl(null);
       fileRef.current = null;
       try {
-        const { blob, fileName } = await downloadEspelhoPdf(session, contract.id, side);
+        // preview: a prévia não conta como auditoria (D127).
+        const { blob, fileName } = await downloadEspelhoPdf(session, contract.id, side, {
+          preview: true,
+        });
         if (aborted) return;
         fileRef.current = { blob, fileName };
         objectUrl = URL.createObjectURL(blob);
@@ -115,9 +137,16 @@ export function EspelhoCorretagemModal({
     };
   }, [session, contract.id, side]);
 
+  // D127: o clique em Exportar/Baixar é o que audita ("Espelho exportado" no
+  // timeline). Fire-and-forget — um log falho não bloqueia o compartilhamento.
+  function logExport() {
+    void logEspelhoExport(session, contract.id, side).catch(() => {});
+  }
+
   async function handleExport() {
     if (!fileRef.current || busy) return;
     setBusy(true);
+    logExport();
     try {
       await shareOrDownloadFile(fileRef.current.blob, fileRef.current.fileName, {
         mimeType: 'application/pdf',
@@ -132,6 +161,7 @@ export function EspelhoCorretagemModal({
 
   function handleDownload() {
     if (!fileRef.current) return;
+    logExport();
     downloadFile(fileRef.current.blob, fileRef.current.fileName);
   }
 
