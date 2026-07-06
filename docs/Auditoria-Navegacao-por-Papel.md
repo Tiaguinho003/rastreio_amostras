@@ -73,21 +73,21 @@ mantem "Clientes" na sidebar e na tabbar e nao veem Cadastros.
 
 ## Referencia 3 — Universo de rotas
 
-| Rota                                                           | Pagina      | Guard de acesso                                 |
-| -------------------------------------------------------------- | ----------- | ----------------------------------------------- |
-| `/login`, `/forgot-password`, `/maintenance`, `/laudo/[token]` | publicas    | sem auth                                        |
-| `/dashboard`                                                   | Inicio      | qualquer autenticado                            |
-| `/profile`                                                     | Perfil      | qualquer autenticado                            |
-| `/settings`                                                    | —           | redireciona para `/profile`                     |
-| `/offline`                                                     | offline PWA | qualquer autenticado                            |
-| `/samples`, `/samples/new`, `/samples/[id]`                    | Lotes       | `NON_PROSPECTOR_ROLES`                          |
-| `/camera`                                                      | Camera      | `NON_PROSPECTOR_ROLES`                          |
-| `/clients`, `/clients/[id]`                                    | Clientes    | `NON_PROSPECTOR_ROLES`                          |
-| `/informe`                                                     | Relatorios  | `INFORME_ROLES` (conteudo adaptativo por papel) |
-| `/resumo`                                                      | —           | redireciona para `/informe`                     |
-| `/cadastros`                                                   | Cadastros   | ADMIN + CADASTRO                                |
-| `/contratos`                                                   | Contratos   | ADMIN                                           |
-| `/users`                                                       | Usuarios    | ADMIN                                           |
+| Rota                                                                                          | Pagina      | Guard de acesso                                 |
+| --------------------------------------------------------------------------------------------- | ----------- | ----------------------------------------------- |
+| `/login`, `/forgot-password` (redirect → modal no `/login`), `/maintenance`, `/laudo/[token]` | publicas    | sem auth                                        |
+| `/dashboard`                                                                                  | Inicio      | qualquer autenticado                            |
+| `/profile`                                                                                    | Perfil      | qualquer autenticado                            |
+| `/settings`                                                                                   | —           | redireciona para `/profile`                     |
+| `/offline`                                                                                    | offline PWA | qualquer autenticado                            |
+| `/samples`, `/samples/new`, `/samples/[id]`                                                   | Lotes       | `NON_PROSPECTOR_ROLES`                          |
+| `/camera`                                                                                     | Camera      | `NON_PROSPECTOR_ROLES`                          |
+| `/clients`, `/clients/[id]`                                                                   | Clientes    | `NON_PROSPECTOR_ROLES`                          |
+| `/informe`                                                                                    | Relatorios  | `INFORME_ROLES` (conteudo adaptativo por papel) |
+| `/resumo`                                                                                     | —           | redireciona para `/informe`                     |
+| `/cadastros`                                                                                  | Cadastros   | ADMIN + CADASTRO                                |
+| `/contratos`                                                                                  | Contratos   | ADMIN                                           |
+| `/users`                                                                                      | Usuarios    | ADMIN                                           |
 
 Middleware (`middleware.ts`): modo manutencao redireciona nao-ADMIN para
 `/maintenance`; PROSPECTOR fora do seu app (`/dashboard`, `/profile`,

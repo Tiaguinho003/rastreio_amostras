@@ -18,11 +18,18 @@ A API `v1` e interna ao sistema e atende o frontend web do proprio projeto. As r
 3. `GET /api/v1/auth/session`
    Retorna sessao atual e dados do usuario autenticado.
 4. `POST /api/v1/auth/forgot-password/request`
-   Solicita codigo de recuperacao por email.
-5. `POST /api/v1/auth/forgot-password/reset`
-   Redefine senha com codigo valido.
-6. `POST /api/v1/auth/session/expired`
-   Registra expiracao de sessao quando necessario.
+   Solicita codigo de recuperacao por email (resposta generica — nao revela se o email existe).
+5. `POST /api/v1/auth/forgot-password/verify-code`
+   Valida o codigo de 6 digitos sem consumi-lo (passo intermediario do modal; 5 erros invalidam o pedido).
+6. `POST /api/v1/auth/forgot-password/reset`
+   Redefine senha com codigo valido, consome o pedido e revoga todas as sessoes do usuario.
+
+Notas das rotas publicas de auth:
+
+1. Rate limit por IP (10 req/60s, mesma primitiva) no `login` e nas 3 rotas de `forgot-password`; 429 com `retryAfter`.
+2. `verify-code`/`reset` respondem de forma unificada (422 `INVALID_CODE`) para email inexistente, conta inativa/bloqueada e pedido invalido — anti-enumeracao.
+3. A pagina `/login` aceita `?reason=session-expired|session-ended` (produzido pelos gates ao expulsar a sessao) e mostra aviso informativo; o param sai da URL apos lido.
+4. `POST /api/v1/auth/session/expired` foi removido em 2026-07-06 (rota orfa; a expiracao e registrada server-side ao autenticar).
 
 Regra consolidada:
 

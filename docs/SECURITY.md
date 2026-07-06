@@ -29,13 +29,13 @@ Sistema interno B2B em estagio inicial (11 eventos em prod), operado pela Measy.
 3. No frontend web, o token e encapsulado em cookie HTTP-only (`app/api/v1/_lib/session-cookie.ts`).
 4. Sessoes podem ser revogadas por: logout, mudanca de papel, inativacao, reset de senha e expiracao.
 5. Lockout: 8 tentativas falhadas de login bloqueiam o user por 5 min (`LOGIN_MAX_ATTEMPTS`, `LOGIN_LOCKOUT_MS` em `src/users/user-support.js`).
-6. Rate limit por IP: 10 requests/min por IP no endpoint de login (`src/auth/rate-limiter.js`). Retorna 429 com `retryAfter`.
-7. Password reset: codigo de 6 digitos, hash SHA256, TTL 15 min, max 5 tentativas com lockout 5 min.
+6. Rate limit por IP: 10 requests/min por IP no login e nas 3 rotas de forgot-password (`src/auth/rate-limiter.js`). Retorna 429 com `retryAfter`.
+7. Password reset: codigo de 6 digitos, hash SHA256, TTL 15 min, max 5 tentativas com lockout 5 min. Verify/reset respondem unificado (422 INVALID_CODE) para email inexistente, conta inativa/bloqueada e pedido invalido — anti-enumeracao.
 8. Primeiro login: se `initialPasswordDecision === 'PENDING'`, backend retorna 403 com code `PASSWORD_CHANGE_REQUIRED`. Frontend mostra modal de troca forcada. Endpoints exemptados: getSession, logout, getCurrentUser, changeCurrentUserPassword, recordInitialPasswordDecision.
 
 ## Autorizacao
 
-1. 4 roles: ADMIN, CLASSIFIER, REGISTRATION, COMMERCIAL (`src/auth/roles.js`).
+1. 6 roles: ADMIN, CLASSIFIER, REGISTRATION, COMMERCIAL, PROSPECTOR, CADASTRO (`src/auth/roles.js`). PROSPECTOR tem app restrito com allowlist central de API (`src/auth/prospector-access.js`).
 2. User management: restrito a ADMIN via `assertAdminActor` em todas as 10 operacoes (`src/users/user-service.js`).
 3. Amostras: qualquer usuario autenticado pode operar (single-tenant by design). Roles funcionam como marcacao organizacional, nao barreira tecnica por modulo.
 4. Self-service: operacoes de perfil/senha verificam `actorUserId === targetUserId`.

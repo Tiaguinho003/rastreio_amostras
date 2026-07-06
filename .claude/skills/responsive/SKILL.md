@@ -123,7 +123,7 @@ Sempre usar as variaveis ja definidas:
 - NENHUM botao do app deve ficar verde ao ser clicado, focado ou selecionado — sem excecao
 - O estilo global de `button` usa `background: transparent` — nunca alterar para `var(--accent)` ou qualquer verde
 - Remover `outline` verde em `:focus-visible` — usar cores neutras (`rgba(0,0,0,0.15)`) se necessario
-- Botoes que precisam de fundo (formularios, acoes) devem usar classes especificas (`.login-card-submit`, `button.danger`, etc), nunca depender do estilo global
+- Botoes que precisam de fundo (formularios, acoes) devem usar classes especificas (`.login-submit-btn`, `button.danger`, etc), nunca depender do estilo global
 
 ## Checklist rapido
 

@@ -15,7 +15,7 @@ Documentos relacionados: `docs/SECURITY.md`, `docs/SECURITY-audit.md`
 
 ## Atores
 
-1. **Usuarios autenticados** — 4 roles (ADMIN, CLASSIFIER, REGISTRATION, COMMERCIAL). Todos operam amostras (single-tenant).
+1. **Usuarios autenticados** — 6 roles (ADMIN, CLASSIFIER, REGISTRATION, COMMERCIAL, PROSPECTOR, CADASTRO). Nao-PROSPECTOR operam amostras (single-tenant); PROSPECTOR tem app restrito (dashboard de informes + perfil, allowlist central em `src/auth/prospector-access.js`).
 2. **Administradores** — ADMIN role. Gestao exclusiva de usuarios, sessoes, auditoria.
 3. **Atacantes externos** — sem autenticacao. Acesso ao endpoint de login e password reset.
 
@@ -23,13 +23,13 @@ Documentos relacionados: `docs/SECURITY.md`, `docs/SECURITY-audit.md`
 
 ### 1. Autenticacao
 
-| Ameaca                            | Mitigacao                                                                 | Status                | Risco residual                                               |
-| --------------------------------- | ------------------------------------------------------------------------- | --------------------- | ------------------------------------------------------------ |
-| Brute-force no login              | Lockout por user (8 tentativas, 5 min) + rate limit por IP (10 req/min)   | Mitigado              | Atacante com pool de IPs pode contornar rate limit in-memory |
-| Roubo de token JWT                | HttpOnly cookie impede acesso via JS; SameSite=Lax bloqueia CSRF via POST | Mitigado              | Token valido por 30 dias; sessao pode ser revogada           |
-| Senha fraca                       | Bcrypt 10 rounds; sem politica de complexidade                            | Parcialmente mitigado | Sem requisito minimo de complexidade alem do min 8 chars     |
-| Password reset brute-force        | Codigo 6 digitos, SHA256 hash, TTL 15 min, 5 tentativas                   | Mitigado              | 1 em 200k por janela de lockout                              |
-| Primeiro login sem troca de senha | 403 PASSWORD_CHANGE_REQUIRED bloqueia endpoints; frontend mostra modal    | Mitigado              | -                                                            |
+| Ameaca                            | Mitigacao                                                                                                                                          | Status                | Risco residual                                                 |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- | -------------------------------------------------------------- |
+| Brute-force no login              | Lockout por user (8 tentativas, 5 min) + rate limit por IP (10 req/min)                                                                            | Mitigado              | Atacante com pool de IPs pode contornar rate limit in-memory   |
+| Roubo de token JWT                | HttpOnly cookie impede acesso via JS; SameSite=Lax bloqueia CSRF via POST                                                                          | Mitigado              | Token valido por 30 dias; sessao pode ser revogada             |
+| Senha fraca                       | Bcrypt 10 rounds; sem politica de complexidade                                                                                                     | Parcialmente mitigado | Sem requisito minimo de complexidade alem do min 8 chars       |
+| Password reset brute-force        | Codigo 6 digitos, SHA256 hash, TTL 15 min, 5 tentativas + rate limit 10/min por IP nas 3 rotas + resposta generica anti-enumeracao no verify/reset | Mitigado              | 1 em 200k por janela de lockout; XFF do rate limit e spoofavel |
+| Primeiro login sem troca de senha | 403 PASSWORD_CHANGE_REQUIRED bloqueia endpoints; frontend mostra modal                                                                             | Mitigado              | -                                                              |
 
 ### 2. Autorizacao
 

@@ -21,12 +21,12 @@ no 7B+7C), 1 OUT_OF_SCOPE (LGPD, debito documentado).
 ### 1. Autenticacao
 
 - Hashing: OK (bcrypt 10 rounds)
-- JWT: OK (HS256, AUTH_SECRET via env, min 16 chars, TTL 7d)
+- JWT: OK (HS256, AUTH_SECRET via env, min 16 chars, TTL 30 dias — igual ao `UserSession.expiresAt`)
 - Cookie: OK (HttpOnly, Secure auto, SameSite=lax)
 - Bootstrap admin: CORRIGIDO 7B+7C (enforcement de troca de senha — backend retorna 403 PASSWORD_CHANGE_REQUIRED enquanto PENDING, 5 endpoints exemptados)
 - Brute-force (por user): OK (lockout 8 tentativas, 5 min)
 - Brute-force (por IP): CORRIGIDO 7B+7C (rate limiting 10 req/min por IP, 429 com retryAfter)
-- Password reset: OK (6 digitos, SHA256, TTL 15 min, 5 tentativas)
+- Password reset: OK (6 digitos, SHA256, TTL 15 min, 5 tentativas; desde 2026-07-06 tambem rate limit HTTP 10 req/min por IP nas 3 rotas e resposta unificada anti-enumeracao no verify/reset — email inexistente, conta inativa/bloqueada e pedido invalido respondem o mesmo 422 INVALID_CODE)
 
 ### 2. Autorizacao
 
