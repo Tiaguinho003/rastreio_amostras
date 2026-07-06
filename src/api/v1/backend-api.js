@@ -20,6 +20,15 @@ const loginRateLimiter = createRateLimiter({
   maxRequests: Number(process.env.RATE_LIMIT_MAX_REQUESTS) || 10,
 });
 
+// Rate-limit HTTP das 3 rotas publicas de esqueci-a-senha (request/verify/
+// reset), POR IP — mesma primitiva e mesmos envs/defaults do login. Best-
+// effort (XFF spoofavel); o freio por-usuario continua sendo o throttle da
+// tabela passwordResetRequest (resend 60s, retry 5min, 5 tentativas).
+const passwordResetRateLimiter = createRateLimiter({
+  windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000,
+  maxRequests: Number(process.env.RATE_LIMIT_MAX_REQUESTS) || 10,
+});
+
 // Rate-limit da rota publica do laudo POR IP — BEST-EFFORT: o `x-forwarded-for`
 // vem do request e e SPOOFAVEL (um atacante forja o header e troca de chave a
 // cada request). Pega cliente normal/bot ingenuo, mas NAO um atacante que forja
@@ -2176,6 +2185,8 @@ export function createBackendApiV1({
           throw new HttpError(501, 'User service is not configured');
         }
 
+        passwordResetRateLimiter.check(readHeader(input?.headers ?? {}, 'x-forwarded-for') ?? null);
+
         const body = readRequestBody(input);
         const result = await userService.requestPasswordReset(
           {
@@ -2194,6 +2205,8 @@ export function createBackendApiV1({
         if (!userService) {
           throw new HttpError(501, 'User service is not configured');
         }
+
+        passwordResetRateLimiter.check(readHeader(input?.headers ?? {}, 'x-forwarded-for') ?? null);
 
         const body = readRequestBody(input);
         const result = await userService.verifyPasswordResetCode(
@@ -2214,6 +2227,8 @@ export function createBackendApiV1({
         if (!userService) {
           throw new HttpError(501, 'User service is not configured');
         }
+
+        passwordResetRateLimiter.check(readHeader(input?.headers ?? {}, 'x-forwarded-for') ?? null);
 
         const body = readRequestBody(input);
         const result = await userService.resetPasswordWithCode(

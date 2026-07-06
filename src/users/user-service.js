@@ -188,23 +188,28 @@ export class UserService {
       select: USER_SELECT,
     });
 
-    if (!user) {
-      throw new HttpError(404, 'Email nao encontrado. Revise o email informado.', {
-        code: 'EMAIL_NOT_FOUND',
+    // Anti-enumeracao: verify/reset respondem IGUAL para email inexistente,
+    // conta inativa/bloqueada e pedido ausente/expirado — a resposta nao pode
+    // revelar se o email existe (o request ja e generico). Nada muda de
+    // comportamento (quem nao podia resetar continua nao podendo); so a
+    // resposta externa e unificada. Usuario inativo/bloqueado nunca recebe
+    // codigo (o request nao envia email nesses casos), entao nao chega aqui
+    // num fluxo legitimo.
+    const genericInvalid = () =>
+      new HttpError(422, 'Codigo invalido ou expirado. Solicite um novo codigo.', {
+        code: 'INVALID_CODE',
       });
+
+    if (!user) {
+      throw genericInvalid();
     }
 
     if (user.status === USER_STATUSES.INACTIVE) {
-      throw new HttpError(403, 'Conta inativa. Fale com o administrador.', {
-        code: 'ACCOUNT_INACTIVE',
-      });
+      throw genericInvalid();
     }
 
     if (isLocked(user, now)) {
-      throw new HttpError(423, 'Conta temporariamente bloqueada. Aguarde 5 minutos.', {
-        code: 'ACCOUNT_LOCKED',
-        lockedUntil: toIsoString(user.lockedUntil),
-      });
+      throw genericInvalid();
     }
 
     const request = await tx.passwordResetRequest.findFirst({
@@ -222,9 +227,7 @@ export class UserService {
     });
 
     if (!request) {
-      throw new HttpError(404, 'Nao existe pedido valido de recuperacao para esse email', {
-        code: 'PASSWORD_RESET_REQUEST_INVALID',
-      });
+      throw genericInvalid();
     }
 
     return {
