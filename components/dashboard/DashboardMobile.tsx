@@ -2,19 +2,15 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
 
 import { HeaderAvatarMenu } from '../HeaderAvatarMenu';
 import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
-import { getDashboardRecentActivity } from '../../lib/api-client';
 import { getRoleLabel } from '../../lib/roles';
 import { getGreeting, getInitials } from './greeting';
 import { useOperationModal } from './useOperationModal';
 import { OperationModal } from './OperationModal';
-import { RecentActivityListMobile } from './RecentActivityListMobile';
 import type {
   DashboardPendingResponse,
-  DashboardRecentActivityItem,
   DashboardSalesAvailabilityResponse,
   SessionData,
 } from '../../lib/types';
@@ -48,58 +44,6 @@ export function DashboardMobile({
   const firstName = fullName.split(' ')[0];
   const roleLabel = getRoleLabel(session.user.role);
   const initials = getInitials(fullName);
-
-  // Recent activity: pattern espelhado do DashboardDesktop. Throttle de
-  // 30s alinha com o Cache-Control private/max-age=30 do endpoint —
-  // Alt+Tab/troca de app rapida nao gera N requests.
-  const [recentActivity, setRecentActivity] = useState<DashboardRecentActivityItem[] | null>(null);
-  const lastRecentFetchRef = useRef<number>(0);
-
-  useEffect(() => {
-    // So o mobile (<=900px) busca; no desktop o twin fica montado mas inerte
-    // (evita request + timer fantasma). `active` evita setState apos unmount;
-    // o listener de 'change' re-busca ao ENTRAR no mobile num resize.
-    const mq = window.matchMedia('(max-width: 900px)');
-    let active = true;
-    const REFETCH_THROTTLE_MS = 30_000;
-
-    function refetchRecent() {
-      if (!active || !mq.matches) return;
-      lastRecentFetchRef.current = Date.now();
-      getDashboardRecentActivity(session)
-        .then((response) => {
-          if (active) setRecentActivity(response.items);
-        })
-        .catch(() => {});
-    }
-
-    function refetchRecentThrottled() {
-      if (Date.now() - lastRecentFetchRef.current < REFETCH_THROTTLE_MS) return;
-      refetchRecent();
-    }
-
-    refetchRecent();
-
-    function handleBreakpointChange() {
-      if (mq.matches) refetchRecent();
-    }
-
-    function handleVisibilityChange() {
-      if (document.visibilityState === 'visible') {
-        refetchRecentThrottled();
-      }
-    }
-
-    mq.addEventListener('change', handleBreakpointChange);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', refetchRecentThrottled);
-    return () => {
-      active = false;
-      mq.removeEventListener('change', handleBreakpointChange);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', refetchRecentThrottled);
-    };
-  }, [session]);
 
   return (
     <div className="dashboard-mobile">
@@ -229,10 +173,6 @@ export function DashboardMobile({
               ) : (
                 <div className="sales-card sales-card-skeleton" aria-hidden="true" />
               )}
-            </section>
-
-            <section className="dashboard-sheet-section dashboard-sheet-content is-slot-activities">
-              <RecentActivityListMobile items={recentActivity} />
             </section>
           </section>
         </div>

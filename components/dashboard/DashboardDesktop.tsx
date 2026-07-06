@@ -3,17 +3,15 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
-import { getDashboardCommercialTimeseries, getDashboardRecentActivity } from '../../lib/api-client';
+import { getDashboardCommercialTimeseries } from '../../lib/api-client';
 import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
 import { CommercialTrendCard } from './CommercialTrendCard';
 import { useOperationModal } from './useOperationModal';
 import { OperationModal } from './OperationModal';
-import { RecentActivityList } from './RecentActivityList';
 import { StatCard, formatDelta } from './StatCard';
 import type {
   DashboardCommercialTimeseriesResponse,
   DashboardPendingResponse,
-  DashboardRecentActivityItem,
   DashboardSalesAvailabilityResponse,
   SessionData,
 } from '../../lib/types';
@@ -36,11 +34,10 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
     operationModalData,
   } = useOperationModal(data);
 
-  const [recentActivity, setRecentActivity] = useState<DashboardRecentActivityItem[] | null>(null);
   const [commercialSeries, setCommercialSeries] =
     useState<DashboardCommercialTimeseriesResponse | null>(null);
   // Throttle pro refetch on focus/visibilitychange: evita N requests
-  // em Alt+Tab rapido. 30s alinha com o Cache-Control do endpoint.
+  // em Alt+Tab rapido.
   const lastFetchRef = useRef<number>(0);
 
   useEffect(() => {
@@ -57,11 +54,6 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
     function refetchAll() {
       if (!active || !mq.matches) return;
       lastFetchRef.current = Date.now();
-      getDashboardRecentActivity(session)
-        .then((response) => {
-          if (active) setRecentActivity(response.items);
-        })
-        .catch(() => {});
       getDashboardCommercialTimeseries(session)
         .then((response) => {
           if (active) setCommercialSeries(response);
@@ -176,10 +168,8 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
           ) : (
             <div className="sales-card sales-card-skeleton" aria-hidden="true" />
           )}
-          {/* Card comercial (Vendas e perdas), embaixo do "Lotes disponíveis". */}
+          {/* Card comercial (Vendas e perdas), ao lado do "Lotes disponíveis". */}
           <CommercialTrendCard data={commercialSeries} />
-          {/* Últimas atividades: coluna direita, ocupando as duas linhas. */}
-          <RecentActivityList items={recentActivity} />
         </div>
       </section>
 

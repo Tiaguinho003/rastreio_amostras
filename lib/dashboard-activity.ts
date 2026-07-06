@@ -1,110 +1,11 @@
 /**
- * Config visual dos itens de "Ultimas atividades" do dashboard
- * (desktop + mobile). Centralizado pra que ambas as plataformas
- * compartilhem labels/cores e pra que a adicao de um novo tipo de
- * evento seja um unico ponto de mudanca no client.
- *
- * NAO movemos pro server pq:
- *  - os tipos sao estaticos hoje (mudam raro; ver DashboardRecentActivityType)
- *  - label/cor sao puramente apresentacao (i18n cabe aqui)
- *  - evita round-trip de metadata constante
- */
-
-import type { DashboardRecentActivityType } from './types';
-
-export interface DashboardActivityConfig {
-  label: string;
-  /** Cor do texto e tom dominante (badge / icone). */
-  color: string;
-  /** Background da badge (tom claro do mesmo matiz). */
-  bg: string;
-}
-
-// Cor PADRAO de cada acao (canonica): consumida tanto pelo icone do
-// mobile (`RecentActivityListMobile`, glifo + circulo do mesmo tom) quanto
-// pelo rotulo do desktop (`RecentActivityList`, pill `.dd-activity-event`).
-// Verde/ambar/vermelho sao os MESMOS tons semanticos do grafico de "Lotes
-// disponiveis" (`SalesAvailabilityCard`) — coerencia no dashboard:
-// venda=verde, envio=ambar, perda=vermelho; registro=azul (informativo);
-// cancelamentos=cinza (neutro).
-export const EVENT_CONFIG: Record<DashboardRecentActivityType, DashboardActivityConfig> = {
-  REGISTRATION_CONFIRMED: {
-    label: 'Registrada',
-    color: '#3a6ea3',
-    bg: 'rgba(58, 110, 163, 0.12)',
-  },
-  SALE_CREATED: {
-    label: 'Vendida',
-    color: '#27ae60',
-    bg: 'rgba(39, 174, 96, 0.14)',
-  },
-  LOSS_RECORDED: {
-    label: 'Perda',
-    color: '#c0392b',
-    bg: 'rgba(192, 57, 43, 0.12)',
-  },
-  SALE_CANCELLED: {
-    label: 'Venda cancelada',
-    color: '#6b7280',
-    bg: 'rgba(107, 114, 128, 0.14)',
-  },
-  LOSS_CANCELLED: {
-    label: 'Perda cancelada',
-    color: '#6b7280',
-    bg: 'rgba(107, 114, 128, 0.14)',
-  },
-  PHYSICAL_SAMPLE_SENT: {
-    label: 'Enviada',
-    color: '#e5a100',
-    bg: 'rgba(229, 161, 0, 0.15)',
-  },
-};
-
-/** Config neutra usada quando o backend devolve um type que o client ainda nao conhece. */
-const FALLBACK_CONFIG: DashboardActivityConfig = {
-  label: 'Atividade',
-  color: '#6b7280',
-  bg: 'rgba(107, 114, 128, 0.12)',
-};
-
-/**
- * Resolve config visual pra um event type. Retorna fallback neutro
- * cinza pra types desconhecidos — preserva a UI quando o backend
- * adiciona tipo novo antes do client conhecer.
- */
-export function getEventConfig(type: DashboardRecentActivityType): DashboardActivityConfig {
-  return EVENT_CONFIG[type] ?? FALLBACK_CONFIG;
-}
-
-/**
- * Container do detalhe da amostra pra onde o card de atividade leva (via
- * `?focus=`): movimentacoes (vendas/perdas/cancelamentos/envios — todos na
- * timeline de Movimentacoes) ou informacoes (registro).
- */
-export function getActivityFocus(
-  type: DashboardRecentActivityType
-): 'movimentacoes' | 'informacoes' {
-  return type === 'REGISTRATION_CONFIRMED' ? 'informacoes' : 'movimentacoes';
-}
-
-/**
- * `true` para eventos que sao o CANCELAMENTO de uma movimentacao (venda/perda)
- * — rotulos longos ("Venda cancelada"/"Perda cancelada") que pedem card mais
- * alto + pill com quebra, e o mesmo esmaecimento dos envios cancelados. O
- * cancelamento de ENVIO nao entra aqui: ele nao e um type proprio, apenas
- * esmaece o card "Enviada" via o campo `cancelled`.
- */
-export function isCancellationType(type: DashboardRecentActivityType): boolean {
-  return type === 'SALE_CANCELLED' || type === 'LOSS_CANCELLED';
-}
-
-/**
  * Formata o intervalo entre `iso` e `now` (ms epoch) num label
  * relativo em pt-BR ("agora", "há N min", "há N h", "há N dia(s)",
  * "há N sem", "há N mês(es)"). Recebe `now` explicito pra que o
  * componente possa atualizar timestamps via setInterval sem
- * acoplar a `Date.now()`. Acentos corrigidos na Fase J (D125) —
- * tambem usado pelo timeline do modal de Detalhes do contrato.
+ * acoplar a `Date.now()`. Acentos corrigidos na Fase J (D125).
+ * Nasceu no card "Últimas atividades" do dashboard (removido);
+ * hoje serve o timeline do modal de Detalhes do contrato.
  */
 export function formatRelativeTime(iso: string, now: number): string {
   const ms = now - new Date(iso).getTime();

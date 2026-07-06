@@ -20441,243 +20441,6 @@ select.samples-filter-field-input {
     z-index: 2;
   }
 
-  /* ── Recent activity (mobile) ──
-     Card unico full-width com lista vertical de atividades. Visual do
-     mockup (redesign 2026-06): itens NEUTROS — glifo escuro em circulo
-     claro igual pra todo tipo de evento, subtitulo cinza — e header so
-     com o titulo escuro. Mesmos helpers de `lib/dashboard-activity.ts`
-     que o desktop (so o label e usado aqui; cor/bg por evento ficam pro
-     desktop). */
-
-  .recent-activity-mobile {
-    /* Altura fixa pra mostrar ~6 items visiveis sem scroll. Cabem ate
-       20 items na lista interna (scroll vertical) — os 14 alem dos 6
-       acessiveis via scroll dentro do card. */
-    height: 400px;
-    display: flex;
-    flex-direction: column;
-    padding: 0;
-    background: #ffffff;
-    border-radius: 20px;
-    border: 0;
-    overflow: hidden;
-    box-shadow:
-      0 2px 8px rgba(0, 0, 0, 0.05),
-      0 8px 20px rgba(0, 0, 0, 0.06);
-  }
-
-  /* Header: titulo escuro, sem icone (decisao do usuario). Linha sutil
-     divisora entre o header e o primeiro item. */
-  .recent-activity-mobile-header {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 0.6rem;
-    padding: 1rem 1.1rem 0.9rem;
-    background: #ffffff;
-    flex-shrink: 0;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  }
-
-  .recent-activity-mobile-title {
-    margin: 0;
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: #1a1a1a;
-    letter-spacing: -0.01em;
-  }
-
-  .recent-activity-mobile-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    /* Scroll interno: cabem ~6 visiveis sem scroll, ate 20 com scroll
-       vertical. overscroll-behavior: contain evita pull-to-refresh do
-       iOS PWA. -webkit-overflow-scrolling: touch ativa momentum iOS. */
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-    background: #ffffff;
-  }
-
-  .recent-activity-mobile-item {
-    display: block;
-  }
-
-  /* Divider sutil entre items — full-width, evitado no ultimo. */
-  .recent-activity-mobile-item:not(:last-child) .recent-activity-mobile-link {
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  }
-
-  /* Layout achatado: icon-circle | content (lot + type) | meta (time + arrow).
-     Sem sombra individual, sem border-radius (cantos arredondados ficam
-     so no container externo). */
-  .recent-activity-mobile-link {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 0.85rem;
-    padding: 0.85rem 1rem;
-    background: #ffffff;
-    text-decoration: none;
-    color: inherit;
-    -webkit-tap-highlight-color: transparent;
-    transition: background-color 0.15s ease;
-    /* touch-action: pan-y permite scroll vertical iniciar SOBRE o link
-       sem ser interceptado pelo tap/click. */
-    touch-action: pan-y;
-  }
-
-  .recent-activity-mobile-link:active {
-    background: rgba(0, 0, 0, 0.025);
-  }
-
-  /* Caminho A: envio cancelado — item esmaecido (segue clicavel). */
-  .recent-activity-mobile-item.is-cancelled .recent-activity-mobile-link {
-    opacity: 0.55;
-  }
-
-  /* Circulo do icone colorido por ACAO: glifo na cor da acao
-     (`EVENT_CONFIG[type].color`) sobre circulo no mesmo tom clarinho
-     (`.bg`) — ambos vem inline do componente (ver RecentActivityListMobile).
-     Os valores abaixo (background/color) sao so fallback neutro caso o
-     inline nao chegue. */
-  .recent-activity-mobile-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.4rem;
-    height: 2.4rem;
-    min-width: 2.4rem;
-    border-radius: 50%;
-    background: #f1f4f2;
-    color: #44544b;
-    flex-shrink: 0;
-  }
-
-  .recent-activity-mobile-icon svg {
-    width: 1.2rem;
-    height: 1.2rem;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  /* Stack lot + type, ocupa o espaco intermediario do item. */
-  .recent-activity-mobile-content {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.18rem;
-  }
-
-  /* Container do lote: flex row pra ficar com a Liga badge ao lado.
-     `min-width: 0` permite que o filho .lot-number encolha quando o
-     espaco eh limitado — sem isso, o nome estoura o container.
-     A Liga (BlendBadge) mantem largura intrinseca. */
-  .recent-activity-mobile-lot {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    min-width: 0;
-    line-height: 1.15;
-  }
-
-  /* Numero do lote — truncado com ellipsis quando o lote eh longo
-     E tem Liga badge, evitando overflow em viewports <=360px. */
-  .recent-activity-mobile-lot-number {
-    font-size: 0.98rem;
-    font-weight: 700;
-    color: #1a1a1a;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    min-width: 0;
-  }
-
-  /* Selo "Cancelado" ao lado do lote em envios cancelados (mobile). O
-     numero do lote trunca antes (min-width:0); o selo nao encolhe. */
-  .recent-activity-mobile-cancelled-tag {
-    flex-shrink: 0;
-    font-size: 0.64rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    color: #6b7280;
-    background: rgba(107, 114, 128, 0.16);
-    padding: 1px 7px;
-    border-radius: 999px;
-    line-height: 1.4;
-    white-space: nowrap;
-  }
-
-  .recent-activity-mobile-type {
-    font-size: 0.78rem;
-    font-weight: 400;
-    color: #8a8f8c;
-    line-height: 1.15;
-  }
-
-  /* Bloco a direita: tempo + chevron, vertical-center. */
-  .recent-activity-mobile-meta {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-shrink: 0;
-  }
-
-  .recent-activity-mobile-time {
-    font-size: 0.78rem;
-    font-weight: 400;
-    color: #8a9690;
-    line-height: 1.15;
-    white-space: nowrap;
-  }
-
-  .recent-activity-mobile-arrow {
-    width: 0.95rem;
-    height: 0.95rem;
-    fill: none;
-    stroke: #a8b3ac;
-    stroke-width: 2.2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    flex-shrink: 0;
-  }
-
-  .recent-activity-mobile-empty {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1rem;
-    text-align: center;
-    color: #6b7280;
-    font-size: 0.9rem;
-  }
-
-  /* Skeleton: bloco com altura proxima da do item real (icon-circle
-     2.4rem + padding vertical) pra evitar layout shift quando os
-     dados chegam. */
-  .recent-activity-mobile-item-skeleton {
-    min-height: 68px;
-    background: rgba(208, 214, 210, 0.35);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  }
-
-  .recent-activity-mobile-item-skeleton:last-child {
-    border-bottom: 0;
-  }
-
   .dashboard-operations-grid .dashboard-operation-card:nth-child(1) {
     animation: dashboard-card-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both;
   }
@@ -20688,10 +20451,6 @@ select.samples-filter-field-input {
 
   .sales-card {
     animation: dashboard-card-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both;
-  }
-
-  .recent-activity-mobile {
-    animation: dashboard-card-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.26s both;
   }
 
   .dashboard-sheet-section {
@@ -26934,32 +26693,18 @@ select.samples-filter-field-input {
     animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.26s backwards;
   }
 
-  /* Linhas 2-3: coluna esquerda (Lotes disponiveis + placeholder, mesma
-     altura) + coluna direita (Ultimas atividades, ocupa as 2 linhas). A
-     largura da esquerda (1.5 de 4) alinha ~com o meio do 2o card da 1a linha. */
+  /* Linha 2: "Lotes disponiveis" + "Vendas e perdas" lado a lado, 50/50.
+     Layout provisorio: o antigo card de "Ultimas atividades" (coluna direita,
+     2 linhas) foi removido e a informacao que entrara no lugar ainda sera
+     definida. */
   .dd-content-grid {
-    /* Altura de 1 linha da lista de atividades + gap entre linhas. Usados no
-       calc da altura da lista (8 linhas) e no min-height de cada card. Linhas
-       baixas (48px) p/ encolher os cards das linhas 2-3 e abrir espaco pra
-       faixa branca maior (saudacao + nome grandes em 3 linhas). */
-    --dd-act-row-h: 48px;
-    --dd-act-row-gap: 0.5rem;
-    /* Padding horizontal de cada card da lista — compartilhado com o recuo do
-       cabecalho de colunas (fora da lista) pra as colunas alinharem. */
-    --dd-act-card-pad-x: clamp(0.8rem, 1.1vw, 1.1rem);
     display: grid;
-    /* Coluna direita (Ultimas atividades) ligeiramente mais larga e a esquerda
-       (Lotes disponiveis + Vendas e perdas) mais estreita na mesma proporcao —
-       abre espaco pra coluna "Lote" caber o badge de Liga sem cortar. */
-    grid-template-columns: 1.4fr 2.6fr;
-    grid-template-rows: 1fr 1fr;
+    grid-template-columns: 1fr 1fr;
     gap: clamp(0.75rem, 1.4vw, 1.25rem);
-    /* NAO estica mais pra preencher a viewport: a altura vem do conteudo —
-       a lista de "Ultimas atividades" e fixada em 8 linhas (abaixo) e dita a
-       altura do grid; "Lotes disponiveis" + card vazio (coluna esquerda,
-       linhas 1fr/1fr) encolhem na mesma proporcao. O espaco que sobra ate o
-       fim da viewport vira folga inferior (a faixa branca maior ja consumiu
-       parte do topo). */
+    /* NAO estica pra preencher a viewport: a altura vem do conteudo dos dois
+       cards (o mais alto dita a linha; o outro estica junto). O espaco que
+       sobra ate o fim da viewport vira folga inferior (a faixa branca maior
+       ja consumiu parte do topo). */
     flex: 0 0 auto;
     min-height: 0;
     animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.3s backwards;
@@ -26967,27 +26712,19 @@ select.samples-filter-field-input {
 
   .dd-content-grid > .sales-card {
     grid-column: 1;
-    grid-row: 1;
     min-height: 0;
     box-shadow: var(--dd-card-shadow);
   }
 
   .dd-content-grid > .dd-trend-card {
-    grid-column: 1;
-    grid-row: 2;
-    min-height: 0;
-  }
-
-  .dd-content-grid > .dd-activity-container {
     grid-column: 2;
-    grid-row: 1 / 3;
     min-height: 0;
   }
 
   /* "Lotes disponiveis" compacto: legenda ao lado do donut + botao "Ver
-     disponiveis" FULL-WIDTH no rodape do card. O card e grid-stretched (altura
-     fixa da celula), entao o donut e reduzido pra body + botao caberem sem
-     crescer o card. */
+     disponiveis" FULL-WIDTH no rodape do card. O card e grid-stretched (mesma
+     altura do card ao lado), entao o donut e reduzido pra body + botao
+     caberem sem crescer o card. */
   .dd-content-grid .sales-card.is-compact {
     gap: clamp(0.4rem, 0.8vw, 0.6rem);
     padding: clamp(0.8rem, 1.1vw, 1.1rem) clamp(0.95rem, 1.3vw, 1.3rem);
@@ -27027,262 +26764,6 @@ select.samples-filter-field-input {
     padding: clamp(0.5rem, 0.7vw, 0.62rem) 2rem;
     font-size: clamp(0.82rem, 0.9vw, 0.92rem);
     box-shadow: 0 4px 12px rgba(15, 64, 41, 0.22);
-  }
-
-  /* ── Dashboard Desktop: recent activity list ── */
-
-  .dd-activity-container {
-    /* Grid das colunas — card, cabecalho e skeleton compartilham a mesma var.
-       Larguras reduzidas pra caber na coluna direita (2.5fr); as flexiveis
-       (produtor/destinatario) truncam com "…". */
-    /* Col "Lote" alargada (era clamp(54px,5.5vw,76px)) pra caber numero +
-       badge de Liga (icone + "Liga", ~50px) sem o overflow:hidden do
-       .dd-activity-lot cortar. O espaco extra vem da coluna direita maior. */
-    --dd-activity-cols: clamp(70px, 6.5vw, 102px) minmax(64px, 1.5fr) clamp(86px, 9vw, 112px)
-      clamp(42px, 4vw, 56px) minmax(56px, 1fr) clamp(52px, 5.5vw, 72px);
-    --dd-activity-gap: clamp(0.4rem, 0.7vw, 0.7rem);
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-    background: #ffffff;
-    border: 1px solid rgba(112, 130, 103, 0.22);
-    border-radius: 18px;
-    box-shadow: var(--dd-card-shadow);
-    padding: clamp(0.8rem, 1vw, 1rem) clamp(0.9rem, 1.2vw, 1.2rem) clamp(0.6rem, 0.8vw, 0.8rem);
-    animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.32s backwards;
-  }
-
-  /* Cabecalho de colunas — FORA da lista rolavel, no chrome fixo do card
-     (logo abaixo do titulo). Como nada rola por cima dele, nenhum dado de
-     atividade vaza acima dos nomes de coluna. Recuo casa com o grid dos cards:
-     recuo da lista (0.2rem) + padding horizontal do card; +0.45rem so a direita
-     pra compensar a barra de rolagem que estreita os cards. */
-  .dd-activity-colnames {
-    display: grid;
-    grid-template-columns: var(--dd-activity-cols);
-    gap: var(--dd-activity-gap);
-    align-items: center;
-    padding: 0.1rem calc(0.2rem + var(--dd-act-card-pad-x) + 0.45rem) 0.5rem
-      calc(0.2rem + var(--dd-act-card-pad-x));
-    border-bottom: 1px solid rgba(112, 130, 103, 0.16);
-  }
-
-  .dd-activity-colnames > span {
-    overflow: hidden;
-    font-size: clamp(0.62rem, 0.7vw, 0.7rem);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #9aa39a;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-
-  .dd-activity-colnames > span:nth-child(3),
-  .dd-activity-colnames > span:nth-child(4) {
-    text-align: center;
-  }
-
-  .dd-activity-colnames > span:nth-child(6) {
-    text-align: right;
-  }
-
-  .dd-activity-header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    padding: 0 0.2rem 0.5rem;
-  }
-
-  .dd-activity-title {
-    margin: 0;
-    font-size: clamp(0.88rem, 0.95vw, 0.95rem);
-    font-weight: 700;
-    color: #1a2e1f;
-    letter-spacing: 0.01em;
-  }
-
-  .dd-activity-count {
-    font-size: clamp(0.72rem, 0.78vw, 0.78rem);
-    font-weight: 600;
-    color: #8a9285;
-  }
-
-  .dd-activity-list {
-    /* Mostra exatamente 8 cards; os demais rolam. O cabecalho de colunas saiu
-       da lista (foi pro chrome fixo do card), entao aqui ficam so os 8 cards:
-       7 gaps entre eles + o padding vertical da lista. */
-    flex: none;
-    height: calc((8 * var(--dd-act-row-h)) + (7 * var(--dd-act-row-gap)) + 0.6rem);
-    min-height: 0;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    display: flex;
-    flex-direction: column;
-    gap: var(--dd-act-row-gap);
-    padding: 0.4rem 0.2rem 0.2rem;
-  }
-
-  .dd-activity-list::-webkit-scrollbar {
-    width: 0.45rem;
-  }
-
-  .dd-activity-list::-webkit-scrollbar-thumb {
-    background: #d6d0c1;
-    border-radius: 999px;
-  }
-
-  .dd-activity-list::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .dd-activity-card {
-    display: grid;
-    grid-template-columns: var(--dd-activity-cols);
-    align-items: center;
-    gap: var(--dd-activity-gap);
-    padding: clamp(0.45rem, 0.7vw, 0.62rem) var(--dd-act-card-pad-x);
-    background: #fffefb;
-    border: 1px solid rgba(112, 130, 103, 0.18);
-    border-radius: 12px;
-    color: inherit;
-    text-decoration: none;
-    min-height: var(--dd-act-row-h);
-    transition:
-      transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
-      box-shadow 0.18s ease;
-  }
-
-  /* Hover desktop: SO eleva + cresce a sombra. Sem aquecer o fundo nem
-     escurecer a borda (decisao do usuario — nenhuma mudanca de cor no hover
-     de elemento clicavel; padrao a ser propagado pelo app). */
-  .dd-activity-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 18px rgba(19, 35, 24, 0.12);
-  }
-
-  .dd-activity-card:active {
-    transform: translateY(0) scale(0.997);
-  }
-
-  /* Card esmaecido (segue clicavel). Cobre o envio cancelado (caminho A, card
-     "Enviada" com `cancelled`) E venda/perda canceladas (types proprios) — em
-     todos a opacidade le como inativo/cancelado. Hover leve pra continuar
-     legivel ao passar o mouse. */
-  .dd-activity-card.is-cancelled {
-    opacity: 0.55;
-  }
-
-  .dd-activity-card.is-cancelled:hover {
-    opacity: 0.72;
-  }
-
-  /* Venda/perda cancelada: rotulo longo ("Venda cancelada"/"Perda cancelada").
-     Card mais ALTO e pill que QUEBRA dentro da coluna "Evento" — sem estourar
-     as bordas do mini-card nem invadir as colunas vizinhas. */
-  .dd-activity-card.is-cancellation {
-    min-height: calc(var(--dd-act-row-h) + 16px);
-  }
-
-  .dd-activity-card.is-cancellation .dd-activity-event {
-    white-space: normal;
-    line-height: 1.12;
-    padding-block: 0.3rem;
-  }
-
-  .dd-activity-lot {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: clamp(0.84rem, 0.92vw, 0.92rem);
-    font-weight: 700;
-    color: #243a28;
-    letter-spacing: 0.01em;
-    overflow: hidden;
-    white-space: nowrap;
-  }
-
-  /* Selo "Cancelado" ao lado do lote em envios cancelados. Tom cinza
-     neutro (mesma familia de SALE_CANCELLED/LOSS_CANCELLED) reforca o
-     card esmaecido com um rotulo explicito, evitando depender so da
-     opacidade pra comunicar o cancelamento. */
-  .dd-activity-cancelled-tag {
-    flex-shrink: 0;
-    font-size: 0.66rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: #6b7280;
-    background: rgba(107, 114, 128, 0.16);
-    padding: 1px 7px;
-    border-radius: 999px;
-    line-height: 1.5;
-  }
-
-  .dd-activity-producer {
-    font-size: clamp(0.8rem, 0.88vw, 0.88rem);
-    font-weight: 500;
-    color: #4d5c52;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .dd-activity-sacks {
-    font-size: clamp(0.78rem, 0.85vw, 0.85rem);
-    font-weight: 600;
-    color: #72766f;
-    text-align: center;
-  }
-
-  .dd-activity-recipient {
-    font-size: clamp(0.8rem, 0.88vw, 0.88rem);
-    font-weight: 500;
-    color: #4d5c52;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .dd-activity-event {
-    font-size: clamp(0.7rem, 0.78vw, 0.78rem);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    padding: 0.38rem clamp(0.55rem, 0.7vw, 0.8rem);
-    border-radius: 999px;
-    text-align: center;
-    justify-self: center;
-    /* Nunca estoura a coluna "Evento": rotulos longos (cancelamentos) quebram
-       em vez de invadir as colunas vizinhas. */
-    max-width: 100%;
-    overflow-wrap: break-word;
-  }
-
-  .dd-activity-time {
-    font-size: clamp(0.72rem, 0.78vw, 0.78rem);
-    font-weight: 500;
-    color: #8a9285;
-    text-align: right;
-  }
-
-  .dd-activity-empty {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem;
-    color: #8a9285;
-    font-size: clamp(0.88rem, 0.95vw, 0.95rem);
-  }
-
-  .dd-activity-skeleton {
-    pointer-events: none;
-    display: grid;
-    grid-template-columns: var(--dd-activity-cols);
-    align-items: center;
-    gap: var(--dd-activity-gap);
   }
 
   .dashboard-sheet {
@@ -27409,7 +26890,7 @@ select.samples-filter-field-input {
     flex-shrink: 0;
   }
 
-  /* Sheet: container unico rounded (padrao dd-activity-container) */
+  /* Sheet: container unico rounded (mesmo padrao dos containers do dashboard) */
   .samples-page-v2-sheet {
     margin: 0;
     padding: 1rem 1.2rem 0.8rem;
@@ -27451,7 +26932,7 @@ select.samples-filter-field-input {
     background: transparent;
   }
 
-  /* Cards: linha horizontal (padrao dd-activity-card) */
+  /* Cards: linha horizontal */
   .samples-page-v2 .spv2-card {
     display: flex;
     flex-direction: row;
@@ -27905,7 +27386,7 @@ select.samples-filter-field-input {
     flex-shrink: 0;
   }
 
-  /* Sheet: container unico rounded (padrao dd-activity-container).
+  /* Sheet: container unico rounded (mesmo padrao dos containers do dashboard).
      Padding lateral enxuto + borda mais suave (0.22 -> 0.12) pra a borda
      nao "pesar" ao lado dos cards; o respiro horizontal dos cards (e da
      sua sombra) mora na .spv2-list-scroll abaixo. */
@@ -28142,7 +27623,7 @@ select.samples-filter-field-input {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   }
 
-  /* Meta: header do container (padrao dd-activity-header) */
+  /* Meta: header do container */
   .clients-page-v2 .spv2-list-meta {
     display: flex;
     align-items: baseline;

@@ -10,8 +10,8 @@ import type { SessionData, VisitReportStatsResponse, VisitReportSummary } from '
 // dos PROPRIOS informes (o backend forca o escopo por userId). `search`
 // (ja debounced/validado pelo dashboard; '' = sem filtro) filtra por nome
 // do cliente no servidor — o total acompanha o filtro. Refresh automatico
-// em tres momentos: volta ao primeiro plano (com throttle, padrao do
-// recent-activity), envio online pelo sheet (refresh() chamado pelo
+// em tres momentos: volta ao primeiro plano (com throttle, padrao dos
+// cards do dashboard admin), envio online pelo sheet (refresh() chamado pelo
 // dashboard) e conclusao do sync da fila offline (evento global
 // VISIT_SYNC_COMPLETED_EVENT com sent > 0).
 
@@ -112,7 +112,7 @@ export function useProspectorDashboardData(session: SessionData, search: string)
   }, [refresh]);
 
   // Volta ao primeiro plano: refetch com throttle (alt+tab/troca de app
-  // rapida nao gera N requests — mesmo criterio do recent-activity).
+  // rapida nao gera N requests — mesmo criterio dos cards do dashboard admin).
   useEffect(() => {
     function refreshThrottled() {
       if (Date.now() - lastFetchRef.current < REFETCH_THROTTLE_MS) {

@@ -43,7 +43,6 @@ import type {
   DetectFormResponse,
   DashboardSalesAvailabilityResponse,
   DashboardCommercialTimeseriesResponse,
-  DashboardRecentActivityResponse,
   InvalidateReasonCode,
   PendingPrintQueueResponse,
   ListSamplesResponse,
@@ -1174,16 +1173,6 @@ export function getDashboardCommercialTimeseries(session: SessionData) {
     method: 'GET',
     session,
     // Respeita o Cache-Control private/max-age=60 do endpoint.
-    cachePolicy: 'default',
-  });
-}
-
-export function getDashboardRecentActivity(session: SessionData) {
-  return request<DashboardRecentActivityResponse>('/dashboard/recent-activity', {
-    method: 'GET',
-    session,
-    // Respeita o Cache-Control private/max-age=30 do endpoint —
-    // refetches dentro da janela vem do disk cache do browser.
     cachePolicy: 'default',
   });
 }
