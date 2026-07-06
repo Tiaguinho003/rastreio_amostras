@@ -1161,6 +1161,80 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(item.commissionTotal, 30); // 2% + 1% de 1000
   });
 
+  test('Financeiro (S86): item traz paymentDate e a resposta traz totalCommission', async () => {
+    const { contractId } = await setupConfirmedContract({ lotNumber: '24010' });
+    const res = await saleContractService.listBrokerReceivables({}, adminActor);
+    const item = res.items.find((i) => i.id === contractId);
+    assert.ok(item);
+    assert.equal(item.paymentDate, '2026-07-20T00:00:00.000Z'); // paymentDate default do sell()
+    assert.equal(res.totalCommission, 30); // único contrato: 2% + 1% de 1000
+    assert.equal(res.nextCursor, null); // uma página só
+  });
+
+  test('Financeiro (S86): totalCommission respeita a busca', async () => {
+    const a = await setupConfirmedContract({ lotNumber: '24020' });
+    await setupConfirmedContract({ lotNumber: '24021' });
+    const all = await saleContractService.listBrokerReceivables({}, adminActor);
+    assert.equal(all.totalCommission, 60); // 2 contratos x 30
+
+    const numA = (await saleContractService.getSaleContract(a.contractId, adminActor)).contract
+      .contractNumber;
+    const filtered = await saleContractService.listBrokerReceivables({ search: numA }, adminActor);
+    assert.equal(filtered.items.length, 1);
+    assert.equal(filtered.items[0].id, a.contractId);
+    assert.equal(filtered.totalCommission, 30); // total segue a busca
+  });
+
+  test('Financeiro (S86): pagina por cursor (limit + cursor, sem sobreposição)', async () => {
+    const c1 = await setupConfirmedContract({ lotNumber: '24030' });
+    const c2 = await setupConfirmedContract({ lotNumber: '24031' });
+    const c3 = await setupConfirmedContract({ lotNumber: '24032' });
+
+    const page1 = await saleContractService.listBrokerReceivables({ limit: 2 }, adminActor);
+    assert.equal(page1.items.length, 2);
+    assert.notEqual(page1.nextCursor, null);
+    assert.equal(page1.totalCommission, 90); // agregado do conjunto inteiro (3 x 30)
+
+    const page2 = await saleContractService.listBrokerReceivables(
+      { limit: 2, cursor: page1.nextCursor },
+      adminActor
+    );
+    assert.equal(page2.items.length, 1);
+    assert.equal(page2.nextCursor, null);
+
+    const ids1 = new Set(page1.items.map((i) => i.id));
+    assert.ok(!page2.items.some((i) => ids1.has(i.id)), 'sem sobreposição entre páginas');
+    const allIds = new Set([...page1.items, ...page2.items].map((i) => i.id));
+    assert.deepEqual([...allIds].sort(), [c1.contractId, c2.contractId, c3.contractId].sort());
+  });
+
+  test('Financeiro (S86): busca por nº e por nome de corretor (server-side)', async () => {
+    const a = await setupConfirmedContract({ lotNumber: '24040' });
+    const otherBrokerId = randomUUID();
+    await prisma.broker.create({
+      data: { id: otherBrokerId, name: 'Mariana Corretora', status: 'ACTIVE' },
+    });
+    const b = await setupConfirmedContractWithBroker({
+      lotNumber: '24041',
+      brokerId: otherBrokerId,
+    });
+
+    // por nome de corretor (case-insensitive) → só o contrato B
+    const byBroker = await saleContractService.listBrokerReceivables(
+      { search: 'mariana' },
+      adminActor
+    );
+    assert.equal(byBroker.items.length, 1);
+    assert.equal(byBroker.items[0].id, b.contractId);
+
+    // pelo nº do contrato → só o A
+    const numA = (await saleContractService.getSaleContract(a.contractId, adminActor)).contract
+      .contractNumber;
+    const byNumber = await saleContractService.listBrokerReceivables({ search: numA }, adminActor);
+    assert.equal(byNumber.items.length, 1);
+    assert.equal(byNumber.items[0].id, a.contractId);
+  });
+
   test('criar lookup inline: cria ACTIVE, aparece na lista e fica no fim (append)', async () => {
     // nome unico + cleanup: as tabelas de lookup nao sao truncadas entre runs
     // (guardam os valores seedados), entao o teste nao pode usar um nome fixo.

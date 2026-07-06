@@ -330,6 +330,7 @@ function receivableRow(overrides = {}) {
     id: 'c1',
     contractNumber: '0007/26',
     contractDate: new Date('2026-06-26T00:00:00.000Z'),
+    paymentDate: new Date('2026-07-25T00:00:00.000Z'),
     status: 'EMITIDO',
     totalValue: 10000,
     sellerBrokeragePct: 0.6,
@@ -348,6 +349,7 @@ test('buildReceivableView: commissionTotal + cota igual por corretor (divisao ex
   assert.equal(view.commissionTotal, 100); // 60 + 40
   assert.equal(view.brokerCount, 2);
   assert.equal(view.totalValue, 10000);
+  assert.equal(view.paymentDate, '2026-07-25T00:00:00.000Z'); // S86: data de pagamento na projecao
   assert.deepEqual(
     view.brokers.map((b) => [b.name, b.share]),
     [
