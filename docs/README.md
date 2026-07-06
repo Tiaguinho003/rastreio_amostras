@@ -54,6 +54,8 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
    Uso: plano faseado da revisao da pagina de Lotes (lista /samples) — catalogo dos 29 achados (bugs, gargalos, dados, a11y, codigo morto), decisoes, status por fase e protocolo de verificacao. Status: Fase 1 concluida (commit 57dc023), fases 2-6 pendentes.
 9. `docs/Auditoria-Navegacao-por-Papel.md`
    Uso: mapeamento read-only de quais paginas cada papel de usuario acessa e onde estao na navegacao (sidebar desktop, tabbar mobile, menu do avatar). Status: Ativo (referencia mantida para uso futuro). COMMERCIAL/CLASSIFIER/REGISTRATION/CADASTRO/ADMIN detalhados; PROSPECTOR resumido (app distinto, mapeamento detalhado adiado).
+10. `docs/Revisao-Geral-Plano-de-Trabalho.md`
+    Uso: documento-mae da revisao geral do app, pagina por pagina e por papel — roteiro padrao (R1-R8) que orienta toda sessao de revisao, status por pagina, convencoes de achados/decisoes/pendencias e fases globais (varredura de codigo morto + organizacao de pastas). Status: Em andamento (F0).
 
 ## Relatorios da reorganizacao
 
