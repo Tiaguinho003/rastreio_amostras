@@ -35671,6 +35671,25 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   font-weight: 600;
   color: var(--ink, #1f2937);
 }
+/* Fase de conferência do Espelho (D134): grade 2-col dos campos que sairão
+   impressos (reusa summary-row/label/value). Cliente ocupa a linha inteira. */
+.ctr-espelho-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem 1rem;
+  margin-bottom: 0.7rem;
+  padding: 0.65rem 0.7rem;
+  border-radius: 0.7rem;
+  background: var(--surface-muted, #f3f4f6);
+}
+.ctr-espelho-summary-row.is-full {
+  grid-column: 1 / -1;
+}
+.ctr-espelho-conf-hint {
+  margin: 0 0 0.2rem;
+  font-size: 0.78rem;
+  color: var(--muted, #6b7280);
+}
 
 /* ---------------------------------------------------------------------------
    Fechamento (criacao a vista pela pagina): modal de selecao de lote.

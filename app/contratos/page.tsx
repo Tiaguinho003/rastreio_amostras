@@ -19,6 +19,10 @@ import {
   TYPE_LABELS,
   countActiveContractFilters,
 } from '../../components/contracts/ContractsFilterButton';
+import {
+  EspelhoConferenciaModal,
+  type EspelhoSide,
+} from '../../components/contracts/EspelhoConferenciaModal';
 import { EspelhoCorretagemModal } from '../../components/contracts/EspelhoCorretagemModal';
 import { SaleContractAgioDialog } from '../../components/contracts/SaleContractAgioDialog';
 import { SaleContractCard } from '../../components/contracts/SaleContractCard';
@@ -148,9 +152,18 @@ export default function ContratosPage() {
     nextNumber: string | null;
   } | null>(null);
 
-  // Espelho de Corretagem (Fase E): modo de seleção (D76) + alvo (abre o modal só-leitura).
+  // Espelho de Corretagem (Fase E): modo de seleção (D76) + alvo. O alvo abre a
+  // fase de CONFERÊNCIA (D134); "Gerar espelho" avança pra prévia (espelhoPreview).
   const [espelhoMode, setEspelhoMode] = useState(false);
   const [espelhoTarget, setEspelhoTarget] = useState<SaleContract | null>(null);
+  const [espelhoPreview, setEspelhoPreview] = useState<{
+    contract: SaleContract;
+    side: EspelhoSide;
+  } | null>(null);
+  // Vai-e-volta com o Detalhes (D134): "Ver detalhes" na conferência guarda o
+  // alvo aqui; ao FECHAR o Detalhes a conferência reabre (dados re-buscados).
+  // Os swaps do Detalhes (Editar/Ágio/Washout) LIMPAM o retorno (fluxo encerra).
+  const espelhoReturnRef = useRef<SaleContract | null>(null);
 
   // Aprovação (Fase I, D112/D117): botão do card (EMITIDO/FATURADO/PAGO) busca
   // o prefill e abre o formulário da etiqueta DIRETO (sem seletor, sem Voltar).
@@ -432,6 +445,8 @@ export default function ContratosPage() {
             onExit={() => {
               setEspelhoMode(false);
               setEspelhoTarget(null);
+              setEspelhoPreview(null);
+              espelhoReturnRef.current = null;
             }}
           />
         ) : null}
@@ -665,19 +680,31 @@ export default function ContratosPage() {
           open={detailsTarget != null}
           contract={detailsRendered}
           canManage={canManage}
-          onClose={() => setDetailsTarget(null)}
+          onClose={() => {
+            setDetailsTarget(null);
+            // Vai-e-volta do espelho (D134): se o Detalhes foi aberto pela
+            // conferência, reabre-a (o modal re-busca o contrato fresco).
+            const back = espelhoReturnRef.current;
+            if (back) {
+              espelhoReturnRef.current = null;
+              setEspelhoTarget(back);
+            }
+          }}
           onEditar={() => {
             const target = detailsRendered;
+            espelhoReturnRef.current = null;
             setDetailsTarget(null);
             setEtapa2({ contractId: target.id });
           }}
           onApplyAgio={(type) => {
             const target = detailsRendered;
+            espelhoReturnRef.current = null;
             setDetailsTarget(null);
             setAgioTarget({ contract: target, agioType: type });
           }}
           onWashout={() => {
             const target = detailsRendered;
+            espelhoReturnRef.current = null;
             setDetailsTarget(null);
             setLifecycle({
               contractId: target.id,
@@ -800,12 +827,33 @@ export default function ContratosPage() {
         />
       ) : null}
 
-      {/* Espelho de Corretagem (Fase E): conferência só-leitura + Exportar/Baixar. */}
+      {/* Espelho de Corretagem (Fase E + D134): 1ª etapa = CONFERÊNCIA dos campos
+          (toggle de lado + Ver detalhes vai-e-volta) → 2ª etapa = prévia do PDF
+          com Exportar/Baixar. */}
       {espelhoTarget ? (
-        <EspelhoCorretagemModal
+        <EspelhoConferenciaModal
           session={session}
           contract={espelhoTarget}
           onClose={() => setEspelhoTarget(null)}
+          onConfirm={(side) => {
+            const target = espelhoTarget;
+            setEspelhoTarget(null);
+            setEspelhoPreview({ contract: target, side });
+          }}
+          onOpenDetails={() => {
+            const target = espelhoTarget;
+            setEspelhoTarget(null);
+            espelhoReturnRef.current = target;
+            setDetailsTarget(target);
+          }}
+        />
+      ) : null}
+      {espelhoPreview ? (
+        <EspelhoCorretagemModal
+          session={session}
+          contract={espelhoPreview.contract}
+          side={espelhoPreview.side}
+          onClose={() => setEspelhoPreview(null)}
         />
       ) : null}
 

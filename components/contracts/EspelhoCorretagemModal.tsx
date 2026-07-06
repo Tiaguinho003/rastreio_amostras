@@ -3,109 +3,42 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import {
-  ApiError,
-  downloadEspelhoPdf,
-  getSaleContract,
-  logEspelhoExport,
-} from '../../lib/api-client';
+import { ApiError, downloadEspelhoPdf, logEspelhoExport } from '../../lib/api-client';
 import { downloadFile, shareOrDownloadFile } from '../../lib/share-blob';
 import { useFocusTrap } from '../../lib/use-focus-trap';
-import type { SaleContract, SaleContractDetail, SessionData } from '../../lib/types';
+import type { SaleContract, SessionData } from '../../lib/types';
 
-type EspelhoSide = 'seller' | 'buyer';
+import type { EspelhoSide } from './EspelhoConferenciaModal';
 
 type EspelhoCorretagemModalProps = {
   session: SessionData;
   contract: SaleContract;
+  // Lado escolhido na fase de CONFERÊNCIA (EspelhoConferenciaModal, D134) — o
+  // toggle vive lá; a prévia só herda.
+  side: EspelhoSide;
   onClose: () => void;
 };
 
-const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-
-function snapshotName(snap: Record<string, unknown> | null): string {
-  if (!snap) return '—';
-  const value = (snap.displayName ?? snap.legalName ?? snap.fullName) as string | undefined;
-  return value && value.trim() ? value : '—';
-}
-
-function money(value: number | null): string {
-  return value != null ? BRL.format(value) : '—';
-}
-
-// Espelho de Corretagem (Fase E): modal de CONFERÊNCIA só-leitura (D75). Toggle
-// Vendedor | Comprador (D72) define o CLIENTE + o lado da comissão; mostra um
-// resumo + a prévia do PDF (on-demand, regenerado por lado, D71) com Exportar /
-// Baixar. A prévia NÃO conta como auditoria — o log de exportação é gravado no
-// clique em Exportar/Baixar (D127). Espelha o padrao do antigo "Visualizar"
-// (SaleContractDocumentModal, aposentado na Fase J — absorvido pelo Detalhes).
-// O contrato deve estar congelado (EMITIDO/FATURADO/PAGO/WASH_OUT, D105) — a
-// página só abre este modal p/ elegíveis.
+// Espelho de Corretagem (Fase E): PRÉVIA do PDF (on-demand, D71) com Exportar/
+// Baixar. É a 2ª etapa do fluxo (D134): os campos já foram conferidos no
+// EspelhoConferenciaModal, que define o lado. A prévia NÃO conta como auditoria
+// — o log de exportação é gravado no clique em Exportar/Baixar (D127). O
+// contrato deve estar congelado (EMITIDO/FATURADO/PAGO/WASH_OUT, D105) — a
+// página só abre este fluxo p/ elegíveis.
 export function EspelhoCorretagemModal({
   session,
   contract,
+  side,
   onClose,
 }: EspelhoCorretagemModalProps) {
   const focusTrapRef = useFocusTrap(true);
-  // Re-busca o contrato FRESCO ao abrir: o resumo (Cliente/Comissão) usava o
-  // objeto da lista (cache), que pode estar defasado (ex.: ágio aplicado por
-  // outro ADMIN após a lista carregar) — divergindo do PDF, gerado no servidor.
-  // Com a re-busca o resumo casa com o PDF; fallback = o prop `contract` (S74).
-  const [detail, setDetail] = useState<SaleContractDetail | null>(null);
-  const view: SaleContract = detail ?? contract;
-  // O espelho é direcionado a quem paga corretagem: os lados disponíveis são os
-  // que têm corretagem PREENCHIDA (> 0). Só vendedor → só "Vendedor"; só
-  // comprador → só "Comprador"; ambos → os dois. Fallback (nenhum preenchido):
-  // oferece os dois, p/ não travar o modal.
-  const hasSeller = (view.sellerBrokeragePct ?? 0) > 0;
-  const hasBuyer = (view.buyerBrokeragePct ?? 0) > 0;
-  const availableSides: EspelhoSide[] =
-    hasSeller && hasBuyer
-      ? ['seller', 'buyer']
-      : hasSeller
-        ? ['seller']
-        : hasBuyer
-          ? ['buyer']
-          : ['seller', 'buyer'];
-  const [side, setSide] = useState<EspelhoSide>(() => availableSides[0] ?? 'seller');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<{ blob: Blob; fileName: string } | null>(null);
 
-  const clientName = snapshotName(side === 'seller' ? view.sellerSnapshot : view.buyerSnapshot);
-  const commission = side === 'seller' ? view.sellerBrokerageValue : view.buyerBrokerageValue;
-
-  // Re-busca o contrato fresco ao abrir (mantém o resumo alinhado ao PDF, S74).
-  useEffect(() => {
-    let aborted = false;
-    (async () => {
-      try {
-        const { contract: fresh } = await getSaleContract(session, contract.id);
-        if (!aborted) setDetail(fresh);
-      } catch {
-        /* mantém o resumo do prop como fallback */
-      }
-    })();
-    return () => {
-      aborted = true;
-    };
-  }, [session, contract.id]);
-
-  // Reconcilia o lado com o contrato FRESCO: o `side` inicial vem do prop (a
-  // lista, que pode estar defasada). Se o lado corrente perdeu a corretagem
-  // entre a lista e a abertura, salta pro primeiro lado disponível — sem isto o
-  // toggle mostraria um lado e o request pediria outro (409 ESPELHO_NO_BROKERAGE).
-  useEffect(() => {
-    if (!availableSides.includes(side)) {
-      setSide(availableSides[0] ?? 'seller');
-    }
-    // availableSides é derivado de `view` — basta reagir à chegada do detail.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detail]);
-
-  // Busca o PDF do lado atual; re-busca ao trocar de lado (regeneração on-demand).
+  // Busca o PDF do lado escolhido (regeneração on-demand).
   useEffect(() => {
     let aborted = false;
     let objectUrl: string | null = null;
@@ -182,7 +115,9 @@ export function EspelhoCorretagemModal({
             <h3 id="ctr-espelho-title" className="app-modal-title">
               Espelho de Corretagem
             </h3>
-            <p className="app-modal-subtitle">Contrato {contract.contractNumber}</p>
+            <p className="app-modal-subtitle">
+              Contrato {contract.contractNumber} · {side === 'seller' ? 'Vendedor' : 'Comprador'}
+            </p>
           </div>
           <button type="button" className="app-modal-close" onClick={onClose} aria-label="Fechar">
             <span aria-hidden="true">&times;</span>
@@ -192,31 +127,6 @@ export function EspelhoCorretagemModal({
         {error ? <p className="sdv-modal-error">{error}</p> : null}
 
         <div className="app-modal-content ctr-doc-content">
-          <div className="ctr-espelho-side" role="group" aria-label="Parte do espelho">
-            {availableSides.map((s) => (
-              <button
-                key={s}
-                type="button"
-                className={`ctr-espelho-side-btn${side === s ? ' is-active' : ''}`}
-                aria-pressed={side === s}
-                onClick={() => setSide(s)}
-              >
-                {s === 'seller' ? 'Vendedor' : 'Comprador'}
-              </button>
-            ))}
-          </div>
-
-          <div className="ctr-espelho-summary">
-            <span className="ctr-espelho-summary-row">
-              <span className="ctr-espelho-summary-label">Cliente</span>
-              <span className="ctr-espelho-summary-value">{clientName}</span>
-            </span>
-            <span className="ctr-espelho-summary-row">
-              <span className="ctr-espelho-summary-label">Comissão</span>
-              <span className="ctr-espelho-summary-value">{money(commission)}</span>
-            </span>
-          </div>
-
           {loading ? (
             <p className="ctr-modal-loading">Gerando o espelho...</p>
           ) : ready ? (
