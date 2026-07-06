@@ -512,6 +512,22 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
   animation: login-field-fade-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.5s both;
 }
 
+/* Aviso de sessão (?reason=session-expired|session-ended): linha informativa
+   neutra acima do formulário — não é erro do usuário, então não usa o
+   vermelho de erro; tom verde suave da paleta. */
+.login-session-notice {
+  width: 100%;
+  margin: 0 0 clamp(14px, 4vw, 18px);
+  padding: clamp(9px, 2.6vw, 11px) clamp(12px, 3.4vw, 14px);
+  border-radius: clamp(10px, 3vw, 12px);
+  background: rgba(46, 125, 50, 0.08);
+  border: 1px solid rgba(46, 125, 50, 0.18);
+  color: #2e5c46;
+  font-size: clamp(0.82rem, 3vw, 0.9rem);
+  line-height: 1.4;
+  text-align: center;
+}
+
 .login-form-title {
   margin: 0;
   font-size: clamp(18px, 5vw, 20px);

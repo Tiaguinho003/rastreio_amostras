@@ -17,6 +17,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const [forgotPasswordRequestedByQuery, setForgotPasswordRequestedByQuery] = useState(false);
+  const [sessionNotice, setSessionNotice] = useState<string | null>(null);
   const forgotPasswordTriggerRef = useRef<HTMLButtonElement | null>(null);
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -68,14 +69,30 @@ export default function LoginPage() {
       return;
     }
 
-    const requestedByQuery =
-      new URLSearchParams(window.location.search).get('modal') === 'forgot-password';
+    const params = new URLSearchParams(window.location.search);
+
+    const requestedByQuery = params.get('modal') === 'forgot-password';
     setForgotPasswordRequestedByQuery(requestedByQuery);
 
     if (requestedByQuery) {
       setForgotPasswordOpen(true);
     }
-  }, []);
+
+    // ?reason= (session-expired | session-ended): produzido pelo useRequireAuth
+    // e pelo AppShell/perfil ao expulsar a sessão — vira aviso informativo
+    // acima do formulário e sai da URL depois de lido.
+    const reason = params.get('reason');
+    if (reason === 'session-expired') {
+      setSessionNotice('Sua sessão expirou. Entre novamente.');
+    } else if (reason === 'session-ended') {
+      setSessionNotice('Sua sessão foi encerrada. Entre novamente.');
+    }
+    if (reason !== null) {
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.delete('reason');
+      router.replace(`${nextUrl.pathname}${nextUrl.search}`, { scroll: false });
+    }
+  }, [router]);
 
   useEffect(() => {
     if (errorTimerRef.current) {
@@ -125,6 +142,9 @@ export default function LoginPage() {
       } else {
         setError('Falha inesperada ao autenticar');
       }
+      // Com os campos preenchidos o placeholder (onde a mensagem vive) fica
+      // invisível — esvaziar a senha faz o erro aparecer no campo dela.
+      setPassword('');
     } finally {
       setLoading(false);
     }
@@ -182,7 +202,16 @@ export default function LoginPage() {
           <p className="login-form-subtitle">Entre para continuar</p>
         </div>
 
+        {sessionNotice ? (
+          <p className="login-session-notice" role="status">
+            {sessionNotice}
+          </p>
+        ) : null}
+
         <form className="login-form" onSubmit={handleSubmit}>
+          <span className="login-visually-hidden" aria-live="polite">
+            {error ?? ''}
+          </span>
           <div className="login-form-fields">
             <label className={`login-field ${error && !username.trim() ? 'has-error' : ''}`}>
               <span className="login-field-icon" aria-hidden="true">
@@ -198,6 +227,7 @@ export default function LoginPage() {
                 autoCapitalize="none"
                 spellCheck={false}
                 placeholder={error && !username.trim() ? error : 'Usuario'}
+                aria-invalid={Boolean(error && !username.trim())}
                 className="login-field-input"
               />
               <span className="login-visually-hidden">Usuario</span>
@@ -217,6 +247,7 @@ export default function LoginPage() {
                 autoComplete="current-password"
                 autoCapitalize="none"
                 placeholder={error && username.trim() ? error : 'Senha'}
+                aria-invalid={Boolean(error && username.trim())}
                 className="login-field-input"
               />
               <button
