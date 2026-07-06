@@ -837,19 +837,36 @@ export class SaleContractPdfService {
     y -= 18;
 
     // ---------- Tabela (cabecalho + 1 linha de dados) ----------
-    // 10 colunas finas (pesos -> larguras). Valores BR sem "R$" (como o legado).
+    // 9 colunas finas (pesos -> larguras). Valores BR sem "R$" (como o legado).
+    // Data = data de GERACAO do espelho (D131, fuso do negocio); Pagamento =
+    // paymentDate do contrato; a coluna "Comprador/Vendedor" saiu (D132 — era
+    // o mesmo nome do CLIENTE do topo).
+    const generatedDate = new Date().toLocaleDateString('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+    });
+    // Preco EFETIVO (D133): cru ± agio/desagio POR SACA — a base real da
+    // comissao (mesma conta do computeContractMoneyWithAgio).
+    const unitRaw = decimalToNumber(contract.unitPrice);
+    const agioPerSack = decimalToNumber(contract.agioDesagioValue);
+    let effectiveUnitPrice = unitRaw;
+    if (unitRaw != null && agioPerSack) {
+      if (contract.agioDesagioType === 'AGIO') {
+        effectiveUnitPrice = Math.round((unitRaw + agioPerSack) * 100) / 100;
+      } else if (contract.agioDesagioType === 'DESAGIO') {
+        effectiveUnitPrice = Math.round((unitRaw - agioPerSack) * 100) / 100;
+      }
+    }
     const columns = [
       { label: 'N.º Contrato', value: contract.contractNumber, weight: 8.5 },
-      { label: 'Data', value: formatDateBR(contract.contractDate), weight: 8 },
+      { label: 'Data', value: generatedDate, weight: 8 },
       { label: 'Pagamento', value: formatDateBR(contract.paymentDate), weight: 8 },
-      { label: 'Preço', value: dec(contract.unitPrice), weight: 7.5 },
+      { label: 'Preço', value: dec(effectiveUnitPrice), weight: 7.5 },
       { label: 'Sacas', value: dec(contract.quantitySacks), weight: 7 },
       // Sem ágio → as DUAS células saem vazias (D130); dec(null) = ''.
       { label: 'Ágio/Deságio', value: agioLabel, weight: 9 },
       { label: 'Valor', value: dec(contract.agioDesagioValue), weight: 6.5 },
       { label: 'Valor Comissão', value: dec(commission), weight: 9.5 },
       { label: 'Nº Compra', value: contract.purchaseNumber, weight: 7.5 },
-      { label: 'Comprador / Vendedor', value: clientName, weight: 19 },
     ];
     const totalWeight = columns.reduce((sum, c) => sum + c.weight, 0);
     let cx = MARGIN;
