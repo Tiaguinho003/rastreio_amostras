@@ -56,54 +56,6 @@ const COMMERCIAL_STATUSES = ['OPEN', 'PARTIALLY_SOLD', 'SOLD', 'LOST'];
 // "Deletar lote": INVALIDATED (deletado) saiu dos filtros — deletados somem da UI.
 const DISPLAY_STATUSES = ['OPEN', 'SOLD', 'LOST'];
 
-const RECENT_ACTIVITY_LIMIT = 25;
-
-function mapRecentActivityRow(row) {
-  const payload = row.payload && typeof row.payload === 'object' ? row.payload : {};
-  const eventType = row.eventType;
-
-  let sacks = null;
-  if (eventType === 'REGISTRATION_CONFIRMED' || eventType === 'PHYSICAL_SAMPLE_SENT') {
-    sacks = typeof row.declaredSacks === 'number' ? row.declaredSacks : null;
-  } else if (eventType === 'SALE_CREATED' || eventType === 'LOSS_RECORDED') {
-    if (typeof payload.quantitySacks === 'number') {
-      sacks = payload.quantitySacks;
-    }
-  }
-
-  let recipient = null;
-  if (eventType === 'PHYSICAL_SAMPLE_SENT') {
-    const snapshot = payload.recipientClientSnapshot;
-    if (snapshot && typeof snapshot === 'object' && typeof snapshot.displayName === 'string') {
-      recipient = snapshot.displayName;
-    }
-  }
-
-  return {
-    // Feed por-evento: chave unica por evento (um sample pode aparecer varias
-    // vezes, ex: venda + cancelamento).
-    id: `${row.sampleId}:${row.sequenceNumber}`,
-    sampleId: row.sampleId,
-    internalLotNumber: row.internalLotNumber ?? null,
-    producer: row.declaredOwner ?? null,
-    sacks,
-    recipient,
-    // Liga B3.1: flag pra renderizar <BlendBadge> ao lado do lote no
-    // dashboard recent activity.
-    isBlend: Boolean(row.isBlend),
-    // Caminho A: true so pra PHYSICAL_SAMPLE_SENT cujo envio foi cancelado
-    // (SEND_CANCELLED) — frontend esmaece o card. Demais tipos sempre false.
-    cancelled: Boolean(row.cancelled),
-    activity: {
-      type: eventType,
-      at:
-        row.occurredAt instanceof Date
-          ? row.occurredAt.toISOString()
-          : new Date(row.occurredAt).toISOString(),
-    },
-  };
-}
-
 const CLIENT_INCLUDE_SELECT = {
   id: true,
   code: true,
@@ -1113,8 +1065,8 @@ export class SampleQueryService {
   // `clientIds`. Envio = evento PHYSICAL_SAMPLE_SENT; destinatario atual =
   // ultimo PHYSICAL_SAMPLE_SEND_UPDATED (por sequence_number) ou o do SENT;
   // ativo = sem PHYSICAL_SAMPLE_SEND_CANCELLED pra aquele envio. Espelha
-  // projectPhysicalSendState (command service) em SQL — mesmo padrao raw do
-  // getDashboardRecentActivity. So roda quando o filtro esta ativo.
+  // projectPhysicalSendState (command service) em SQL puro ($queryRaw).
+  // So roda quando o filtro esta ativo.
   async resolveSampleIdsSentToClients(clientIds) {
     const list = Array.isArray(clientIds)
       ? clientIds.filter((id) => typeof id === 'string' && id.length > 0)
@@ -2002,70 +1954,6 @@ export class SampleQueryService {
         salesSacks: byDate.get(date).salesSacks,
         lossSacks: byDate.get(date).lossSacks,
       })),
-    };
-  }
-
-  // Performance — Fase 2 do port mobile (2026-05-26): EXPLAIN ANALYZE
-  // confirmou que a query atual e eficiente com PostgreSQL 15+ via
-  // "Run Condition" no WindowAgg (corta ROW_NUMBER() cedo). Indices
-  // existentes em sample_event ((event_type, occurred_at) +
-  // (sample_id, occurred_at)) sao suficientes.
-  //
-  // Revisitar (criar indice composto + considerar reescrita com
-  // DISTINCT ON ou pre-LIMIT) APENAS se:
-  //   - SELECT count(*) FROM sample_event WHERE event_type IN (...)
-  //     ultrapassar ~100k rows, OU
-  //   - Slow query log do Cloud SQL mostrar este metodo consistentemente
-  //     acima de 200ms P95, OU
-  //   - Latencia do endpoint /api/v1/dashboard/recent-activity > 500ms.
-  async getDashboardRecentActivity() {
-    // Feed por-evento (nao mais "ultimo evento por sample"): cada acao vira um
-    // card. Inclui os cancelamentos de movimentacao (SALE_CANCELLED /
-    // LOSS_CANCELLED) — assim "vendeu e depois cancelou" aparece como 2
-    // atividades. Amostras invalidadas saem do feed por inteiro.
-    const rows = await this.prisma.$queryRaw`
-      SELECT
-        se.sample_id AS "sampleId",
-        se.event_type::text AS "eventType",
-        se.payload AS "payload",
-        se.occurred_at AS "occurredAt",
-        se.sequence_number AS "sequenceNumber",
-        s.internal_lot_number AS "internalLotNumber",
-        s.declared_owner AS "declaredOwner",
-        s.declared_sacks AS "declaredSacks",
-        s.is_blend AS "isBlend",
-        -- Caminho A do envio cancelado: marca o card PHYSICAL_SAMPLE_SENT como
-        -- cancelado (o frontend esmaece) quando existe um SEND_CANCELLED
-        -- apontando pra ESTE envio via payload.sendEventId = se.event_id. Mesmo
-        -- pareamento (forma negada) de resolveSampleIdsSentToClients. Cada
-        -- reenvio e independente; demais tipos de evento = false.
-        (
-          se.event_type = 'PHYSICAL_SAMPLE_SENT'
-          AND EXISTS (
-            SELECT 1
-            FROM "sample_event" canc
-            WHERE canc.sample_id = se.sample_id
-              AND canc.event_type = 'PHYSICAL_SAMPLE_SEND_CANCELLED'
-              AND canc.payload->>'sendEventId' = se.event_id::text
-          )
-        ) AS "cancelled"
-      FROM "sample_event" se
-      JOIN "sample" s ON s.id = se.sample_id
-      WHERE se.event_type IN (
-        'REGISTRATION_CONFIRMED',
-        'SALE_CREATED',
-        'LOSS_RECORDED',
-        'SALE_CANCELLED',
-        'LOSS_CANCELLED',
-        'PHYSICAL_SAMPLE_SENT'
-      )
-        AND s.status != 'INVALIDATED'
-      ORDER BY se.occurred_at DESC, se.sequence_number DESC
-      LIMIT ${RECENT_ACTIVITY_LIMIT}
-    `;
-
-    return {
-      items: rows.map(mapRecentActivityRow),
     };
   }
 
