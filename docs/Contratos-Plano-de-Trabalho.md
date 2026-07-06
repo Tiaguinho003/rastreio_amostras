@@ -471,21 +471,23 @@ legado em `espelho corretagem.pdf` (Sessão 61).
 
 `side ∈ {seller, buyer}` = a parte escolhida na geração (D72).
 
-| Campo no Espelho     | Origem                                                          |
-| -------------------- | --------------------------------------------------------------- |
-| **CLIENTE** (topo)   | `side === seller ? sellerSnapshot.name : buyerSnapshot.name`    |
-| N.º Contrato         | `contractNumber`                                                |
-| Data                 | `contractDate`                                                  |
-| Pagamento            | `paymentDate`                                                   |
-| Preço                | `unitPrice`                                                     |
-| Sacas                | `quantitySacks`                                                 |
-| Ágio/Deságio         | `agioDesagioType` (rótulo; vazio se nulo)                       |
-| Valor                | `agioDesagioValue` (R$; vazio/0 se nulo)                        |
-| **Valor Comissão**   | `side === seller ? sellerBrokerageValue : buyerBrokerageValue`  |
-| Número Compra        | `purchaseNumber` (opcional)                                     |
-| Comprador / Vendedor | mesmo nome do CLIENTE (= a parte escolhida; bate com o exemplo) |
-| **TOTAL: R$**        | = a própria Valor Comissão (1 linha)                            |
-| Rodapé bancário      | conta fixa do emissor no `issuer-config` (D74)                  |
+| Campo no Espelho   | Origem                                                               |
+| ------------------ | -------------------------------------------------------------------- |
+| **CLIENTE** (topo) | `side === seller ? sellerSnapshot.name : buyerSnapshot.name`         |
+| N.º Contrato       | `contractNumber`                                                     |
+| Data               | **data de GERAÇÃO do espelho** (hoje, fuso America/Sao_Paulo — D131) |
+| Pagamento          | `paymentDate`                                                        |
+| Preço              | **EFETIVO** = `unitPrice` ± `agioDesagioValue`/saca (D133)           |
+| Sacas              | `quantitySacks`                                                      |
+| Ágio/Deságio       | `agioDesagioType` (rótulo; vazio se nulo)                            |
+| Valor              | `agioDesagioValue` (R$/saca; **vazio** se nulo — D130)               |
+| **Valor Comissão** | `side === seller ? sellerBrokerageValue : buyerBrokerageValue`       |
+| Número Compra      | `purchaseNumber` (opcional)                                          |
+| **TOTAL: R$**      | = a própria Valor Comissão (1 linha)                                 |
+| Rodapé bancário    | conta fixa do emissor no `issuer-config` (D74)                       |
+
+_(A coluna "Comprador / Vendedor" — que imprimia o mesmo nome do CLIENTE — **saiu na D132**; ficam
+9 colunas.)_
 
 Os valores de corretagem em R$ já são calculados no `emit` (`computeContractMoneyWithAgio`,
 `src/sale-contracts/sale-contract-support.js`) e **congelam ao emitir** — por isso os contratos
@@ -507,19 +509,22 @@ congelados (**EMITIDO/FATURADO/PAGO/WASH_OUT**) são elegíveis (D73 renomeada p
 1. O FAB da página `/contratos` ganha a 3ª opção **"Espelho de corretagem"** (ao lado de À vista/Futuro).
 2. Tocar → `/contratos` entra em **modo de seleção** (header substituto + chrome oculto, como a liga em
    `/samples`); contratos **inelegíveis** (status não congelado **ou sem corretagem** — D73) ficam esmaecidos com o motivo.
-3. **Tocar 1 contrato elegível** abre o **modal** (seleção única → sem contador/seta).
-4. Modal de conferência **só-leitura** (D75): toggle **Vendedor | Comprador** (só os lados com **corretagem preenchida**, D72; default = o 1º disponível) que
-   atualiza CLIENTE + Valor Comissão; exibe os campos espelhados + TOTAL + banco.
-5. **Exportar/Baixar** gera o PDF on-demand (reusa `shareOrDownloadFile`).
+3. **Tocar 1 contrato elegível** abre a fase de **CONFERÊNCIA** (`EspelhoConferenciaModal`, D134):
+   campos que sairão impressos (contrato **fresco** re-buscado; Data = hoje e Preço efetivo espelhando o
+   PDF) + toggle **Vendedor | Comprador** (só os lados com **corretagem preenchida**, D72; default = o 1º
+   disponível) + ações **Cancelar · Ver detalhes · Gerar espelho**.
+4. **"Ver detalhes"** = vai-e-volta com o `SaleContractDetailsModal`: ao fechar o Detalhes a conferência
+   REABRE (dados re-buscados); se de dentro do Detalhes o usuário entrar em Editar/Ágio/Washout, o fluxo
+   do espelho encerra (swap padrão da página).
+5. **"Gerar espelho"** abre a **prévia** (`EspelhoCorretagemModal`, D75) — só o PDF (herda o lado; sem
+   toggle) + **Exportar/Baixar** (que gravam a auditoria — D127; a prévia não conta).
 
 ### Notas / pendências menores
 
-- **Coluna "Comprador / Vendedor"** = nome da própria parte escolhida (conforme o exemplo legado, em que
-  o CLIENTE e a coluna coincidem). Se quisermos a **contraparte**, é troca trivial (dados nos snapshots).
-- **Auditoria** do espelho (quem gerou/quando) — **adiada** (on-demand, D71). Pode virar uma tabela
-  leve depois, se precisarem rastrear emissões.
-- Se o **lado escolhido tiver comissão 0** (aquele lado não paga corretagem), o espelho sai com 0/TOTAL
-  0 — válido; o usuário escolhe o lado que paga.
+- **Auditoria** (D124/D127): `SaleContractEspelhoLog` grava a **exportação** (Exportar/Baixar ou URL
+  direta sem `?preview=1`) — lado + ator + quando; alimenta o timeline do Detalhes.
+- O gate de elegibilidade (front + 409 `ESPELHO_NO_BROKERAGE` no back) exige corretagem `> 0` no lado
+  pedido — não existe mais espelho com TOTAL 0.
 
 ---
 
@@ -2512,3 +2517,29 @@ e gargalos; decisões colhidas via perguntas e implementadas em 3 commits + doc.
   outro ponto de entrada, ex. pelo Detalhes).
 - Gates verdes (unit 354 / integração 379 / build / lint / typecheck / format / schemas / contracts).
   **Validar no device** (Flavio fará as conferências).
+
+### 2026-07-06 — Sessão 85 (Espelho — conferência campo a campo + fase de CONFERÊNCIA no fluxo, D131–D134)
+
+Pedido do Flavio: uma **fase a mais** antes da geração do Espelho — modal que apresenta os campos
+puxados do contrato pra confirmar, com botão pros Detalhes (editar se preciso). Antes, conferência
+campo a campo do que o PDF puxa (3 correções). 6 decisões via perguntas; 2 commits + doc.
+**Próxima etapa combinada: layout/design do documento do Espelho** (sessão futura).
+
+- **D131** — coluna **"Data" = data de GERAÇÃO do espelho** (imprimia `contractDate`; fuso
+  `America/Sao_Paulo`, precedente do `sample-command-service`); **"Pagamento" mantém `paymentDate`**.
+- **D132** — coluna **"Comprador / Vendedor" REMOVIDA** (imprimia o mesmo nome do CLIENTE do topo;
+  fecha o aberto da S61/D109 — ficam **9 colunas**).
+- **D133** — coluna **"Preço" = preço EFETIVO**/saca (cru ± ágio/deságio — a base real da comissão;
+  mesma conta do `computeContractMoneyWithAgio`); Ágio/Deságio + Valor ficam informativas.
+  **`c06f9a7`** (as 3); conferido no render real (gs→PNG) com e sem ágio (1.620→1.640 com ágio 20/sc).
+- **D134** — **fase de CONFERÊNCIA** no fluxo (**`5fe8b89`**): novo **`EspelhoConferenciaModal`**
+  entre a seleção do card e a prévia — campos que sairão impressos (contrato **fresco** re-buscado;
+  Data/Preço espelhando o PDF), **toggle Vendedor|Comprador MIGROU pra cá** (a prévia herda via prop
+  `side`, sem toggle nem resumo), ações **Cancelar · Ver detalhes · Gerar espelho**. **"Ver detalhes"
+  = vai-e-volta** com o `SaleContractDetailsModal` (`espelhoReturnRef` na página: fechar o Detalhes
+  reabre a conferência; os swaps Editar/Ágio/Washout limpam o retorno — fluxo encerra). Auditoria
+  D127 inalterada (prévia `preview=1`; Exportar/Baixar logam). CSS: grade `ctr-espelho-fields`
+  reusando `ctr-espelho-summary-*`.
+- Seção "Espelho de Corretagem" atualizada (mapeamento campo→origem + fluxo + notas: auditoria
+  resolvida D124/D127, coluna da parte removida, TOTAL 0 impossível pós-D109).
+- Gates verdes (unit 354 / integração 379 / build / lint / typecheck / format). **Validar no device.**
