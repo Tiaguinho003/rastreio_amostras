@@ -1,0 +1,14 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["public/sw.js", "scripts/**/*.{js,mjs}", "tests/**/*.test.{js,ts}"],
+  "project": [
+    "app/**/*.{ts,tsx,js}",
+    "components/**/*.{ts,tsx}",
+    "lib/**/*.{ts,tsx}",
+    "src/**/*.js",
+    "scripts/**/*.{js,mjs}",
+    "tests/**/*.{js,ts}",
+    "prisma/**/*.js"
+  ],
+  "ignoreDependencies": ["c8", "eslint-config-next"]
+}
