@@ -2480,3 +2480,35 @@ pelo git se o Flavio discordar).
 - **Nota pós-S83 (Flavio)**: o **"Visualizar" SERÁ disponível no MOBILE** — a aposentadoria do
   `SaleContractDocumentModal` (default adotado na S83) será revisitada no contexto mobile; **layout e
   funcionalidades do mobile serão discutidos em sessão futura** (pendência aberta da Fase J).
+
+### 2026-07-06 — Sessão 84 (Espelho + Financeiro — correções pós-análise, D127–D130)
+
+Análise do fluxo do Espelho (pedida pelo Flavio antes de mexer no Financeiro) encontrou inconsistências
+e gargalos; decisões colhidas via perguntas e implementadas em 3 commits + doc.
+
+- **D127** (revisa a semântica da D124) — a auditoria do Espelho registra **só a EXPORTAÇÃO**
+  (Exportar/Baixar), não a prévia: antes cada render logava ("Espelho gerado" a cada abertura/troca de
+  lado do modal → ruído no timeline). **`78e838f`**: GET `.../espelho/pdf` aceita `?preview=1` (prévia do
+  modal, sem log; sem o param — acesso direto à URL — loga, agora **best-effort**: log falho não invalida
+  um PDF já renderizado) + novo POST `.../espelho/log` (`logEspelhoExport`: side no body, posse via
+  getSaleContract) disparado fire-and-forget no clique de Exportar/Baixar; label do timeline vira
+  **"Espelho exportado"**. Bônus: o `side` do toggle é reconciliado com o contrato FRESCO re-buscado ao
+  abrir (lado que perdeu a corretagem não fica selecionado → evita 409 `ESPELHO_NO_BROKERAGE`).
+- **D128** (revisa D77/D82/D83/D86) — **Financeiro vira ADMIN-only**: o COMMERCIAL perde a página (e a
+  projeção `myShare` sai do backend/página/card). **`c42ed1f`**: `FINANCEIRO_ROLES=[ADMIN]` nos 2 lados;
+  ⚠️ o gate de nav de **Contratos** reusava `FINANCEIRO_ROLES` → nova constante **`CONTRATOS_ROLES`**
+  (ADMIN+COMMERCIAL) preserva a sidebar do COMMERCIAL. Aproveita o gargalo mapeado na análise:
+  `listBrokerReceivables` troca o `SALE_CONTRACT_VIEW_SELECT` completo (5 snapshots JSON por linha que o
+  Financeiro não usa) pelo **`RECEIVABLE_VIEW_SELECT`** enxuto; paginação fica pra revisão da página.
+- **D129** (refina a D79) — rateio: o **resto de centavos vai pro 1º corretor** (ordem `createdAt asc`):
+  100,00÷3 → 33,34/33,33/33,33 — a soma das cotas SEMPRE bate com o `commissionTotal` exibido (antes
+  divergia: 3×33,33=99,99). Mesmo commit `c42ed1f`; unit do resto + integração COMMERCIAL→403.
+- **D130** — PDF do Espelho sem ágio: a coluna Ágio/Deságio sai com as **DUAS células vazias**
+  (antes "Valor" imprimia "0,00" com rótulo vazio — o `?? 0` anulava o null→vazio do helper `dec`).
+  **`61e0a09`**; conferido no render real (gs→PNG).
+- Achados da análise **deixados de fora de propósito**: cache por lado da prévia no modal (micro),
+  paginação do Financeiro (junto da revisão da página), fallback dos-dois-lados do modal quando nenhum
+  lado tem corretagem (inalcançável hoje — a página só abre p/ elegíveis; atenção se o Espelho ganhar
+  outro ponto de entrada, ex. pelo Detalhes).
+- Gates verdes (unit 354 / integração 379 / build / lint / typecheck / format / schemas / contracts).
+  **Validar no device** (Flavio fará as conferências).
