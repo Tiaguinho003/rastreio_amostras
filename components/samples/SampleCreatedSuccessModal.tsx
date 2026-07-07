@@ -24,10 +24,10 @@ const COPY_BY_ENTITY: Record<
   { title: string; label: string; primary: string; secondary: string }
 > = {
   sample: {
-    title: 'Amostra criada',
-    label: 'Lote da amostra',
+    title: 'Lote criado',
+    label: 'Número do lote',
     primary: 'Ver detalhes',
-    secondary: 'Criar outra',
+    secondary: 'Criar outro',
   },
   blend: {
     title: 'Liga criada',

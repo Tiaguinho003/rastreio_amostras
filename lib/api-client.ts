@@ -1323,7 +1323,6 @@ export function createSample(
     harvest: string;
     originLot?: string | null;
     location?: string | null;
-    receivedChannel?: 'in_person' | 'courier' | 'driver' | 'other';
     notes?: string | null;
     // Lote editavel: numero informado manualmente (so quando lotNumberManual)
     // e data de chegada (YYYY-MM-DD).
@@ -1343,7 +1342,8 @@ export function createSample(
       harvest: data.harvest,
       originLot: data.originLot ?? null,
       location: data.location ?? null,
-      receivedChannel: data.receivedChannel ?? 'in_person',
+      // receivedChannel nao vai mais (LNW-D3) — o backend aplica o default
+      // 'in_person'.
       notes: data.notes ?? null,
       // Numero so vai quando manual (auto e gerado no servidor no submit);
       // receivedDate vira o occurredAt do registro (e a data do lote).

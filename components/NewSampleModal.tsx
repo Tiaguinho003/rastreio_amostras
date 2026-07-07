@@ -459,7 +459,7 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
         dispatch({ type: 'SET_FIELD_ERRORS', errors: schemaFieldErrors });
         focusFirstInvalidField(schemaFieldErrors);
       } else {
-        setError(parsed.error.issues[0]?.message ?? 'Dados invalidos para criar amostra');
+        setError(parsed.error.issues[0]?.message ?? 'Dados inválidos para criar o lote');
       }
       return;
     }
@@ -484,7 +484,6 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
         harvest: parsed.data.harvest,
         originLot: parsed.data.originLot ?? null,
         location: parsed.data.location ?? null,
-        receivedChannel: parsed.data.receivedChannel,
         notes: parsed.data.notes ?? null,
         lotNumber: trimmedLot || null,
         lotNumberManual,
@@ -517,7 +516,7 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
           ? cause.message
           : cause instanceof Error
             ? cause.message
-            : 'Falha ao criar amostra';
+            : 'Não foi possível criar o lote.';
       dispatch({ type: 'SUBMIT_ERROR', message });
     }
   }
@@ -550,12 +549,12 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
         <div className="nsv2-grid-full">
           <ClientLookupField
             session={session}
-            label="Proprietario"
+            label="Proprietário"
             kind="owner"
             required
             inputRef={ownerInputRef}
             invalid={Boolean(fieldErrors.owner)}
-            invalidText={fieldErrors.owner ?? 'Obrigatorio'}
+            invalidText={fieldErrors.owner ?? 'Obrigatório'}
             selectedClient={selectedOwnerClient}
             onSelectClient={(client) => {
               markDirty();
@@ -575,7 +574,7 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
 
         <div className="nsv2-grid-half">
           <label className="nsv2-field">
-            <span className="nsv2-field-label">Numero do lote</span>
+            <span className="nsv2-field-label">Número do lote</span>
             <div className="nsv2-field-input-wrap">
               <span className="nsv2-field-input-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" focusable="false">
@@ -749,7 +748,7 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
                   markDirty();
                   setOriginLot(event.target.value.toUpperCase());
                 }}
-                placeholder="Codigo do lote"
+                placeholder="Código do lote"
               />
             </div>
           </label>
@@ -781,7 +780,7 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
 
         <div className="nsv2-grid-full">
           <label className="nsv2-field">
-            <span className="nsv2-field-label">Observacoes</span>
+            <span className="nsv2-field-label">Observações</span>
             <div className="nsv2-field-input-wrap">
               <input
                 value={notes}
@@ -811,7 +810,7 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
             <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" />
             <line x1="12" y1="20" x2="12.01" y2="20" />
           </svg>
-          <span>Sem conexao</span>
+          <span>Sem conexão</span>
         </div>
       ) : null}
     </>
@@ -836,7 +835,7 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
           void handleConfirmDraft();
         }}
       >
-        <span>{submitting ? 'Criando...' : 'Criar amostra'}</span>
+        <span>{submitting ? 'Criando...' : 'Criar lote'}</span>
       </button>
     </div>
   );
@@ -869,9 +868,9 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
         open={open && state.step === 'form'}
         onClose={onClose}
         onDismissAttempt={handleDismissAttempt}
-        title="Nova amostra"
+        title="Novo lote"
         footer={formFooter}
-        ariaLabel="Nova amostra"
+        ariaLabel="Novo lote"
         className="is-fit-content"
         dragToDismiss
         dragDisabled={quickCreateOpen}
@@ -890,7 +889,7 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
       <ClientQuickCreateModal
         session={session}
         open={quickCreateOpen}
-        title="Novo proprietario"
+        title="Novo proprietário"
         initialSearch={quickCreateSeed}
         initialPersonType="PJ"
         initialIsBuyer={false}
@@ -901,7 +900,7 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
           setSelectedOwnerClient(client);
           setOwner(client.displayName ?? '');
           clearFieldError('owner');
-          setMessage('Cliente criado e selecionado para a amostra.');
+          setMessage('Cliente criado e selecionado para o lote.');
         }}
       />
 
@@ -933,7 +932,7 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
                     </svg>
                   </div>
                   <h3 id="discard-sample-title" className="app-confirm-modal-title">
-                    Descartar amostra?
+                    Descartar lote?
                   </h3>
                   <p id="discard-sample-description" className="app-confirm-modal-message">
                     Os dados preenchidos serão perdidos. Esta ação não pode ser desfeita.

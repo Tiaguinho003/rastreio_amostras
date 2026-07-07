@@ -45,25 +45,27 @@ export const registrationFormSchema = z.object({
 });
 
 export const createSampleDraftSchema = z.object({
-  owner: z.string().trim().min(1, 'Proprietario e obrigatorio'),
+  owner: z.string().trim().min(1, 'Proprietário é obrigatório'),
   // O lote se vincula apenas ao proprietario (ownerClient); nao ha mais
   // selecao de fazenda/unit.
   ownerClientId: z.string().uuid().optional().nullable(),
   sacks: z.coerce.number().int().min(1, 'Sacas deve ser >= 1'),
-  harvest: z.string().trim().min(1, 'Safra e obrigatoria'),
+  harvest: z.string().trim().min(1, 'Safra é obrigatória'),
   originLot: z
     .string()
     .trim()
-    .max(100, 'Lote de origem deve ter no maximo 100 caracteres')
+    .max(100, 'Lote de origem deve ter no máximo 100 caracteres')
     .optional()
     .nullable(),
   location: z
     .string()
     .trim()
-    .max(30, 'Local deve ter no maximo 30 caracteres')
+    .max(30, 'Local deve ter no máximo 30 caracteres')
     .optional()
     .nullable(),
-  receivedChannel: z.enum(['in_person', 'courier', 'driver', 'other']).default('in_person'),
+  // receivedChannel saiu do form (LNW-D3): sem UI, todo lote nascia
+  // 'in_person' — o backend segue aplicando esse default e aceitando o enum
+  // completo pra um futuro seletor.
   notes: z.string().trim().max(500).optional().nullable(),
 });
 

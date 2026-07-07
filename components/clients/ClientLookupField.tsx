@@ -118,9 +118,9 @@ export function ClientLookupField({
   onSelectUnit,
   inputRef,
   invalid = false,
-  invalidText = 'Obrigatorio',
+  invalidText = 'Obrigatório',
   disabled = false,
-  placeholder = 'Busque por nome, documento ou codigo',
+  placeholder = 'Busque por nome, documento ou código',
   emptyMessage = 'Nenhum cliente encontrado.',
   onRequestCreate,
   createLabel = 'Cadastrar cliente',
@@ -325,7 +325,7 @@ export function ClientLookupField({
             type="button"
             className="client-lookup-inline-clear"
             disabled={disabled}
-            aria-label="Remover proprietario"
+            aria-label="Remover proprietário"
             onClick={() => {
               lastSelectedIdRef.current = null;
               setSearch('');
@@ -453,7 +453,7 @@ export function ClientLookupField({
                           ) : null}
                         </span>
                         <span className="client-lookup-option-meta">
-                          Codigo {row.client.code} · {row.client.personType}
+                          Código {row.client.code} · {row.client.personType}
                           {row.unit?.cnpj
                             ? ` · ${formatClientDocument(row.unit.cnpj, 'PJ')}`
                             : getClientDocument(row.client)

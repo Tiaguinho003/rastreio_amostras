@@ -13,12 +13,12 @@ import { ChipMultiSelectField } from '../ChipMultiSelectField';
 const FIELD_LABELS: Record<string, string> = {
   cpf: 'CPF',
   cnpj: 'CNPJ',
-  legalName: 'Razao social',
+  legalName: 'Razão social',
   tradeName: 'Nome fantasia',
   fullName: 'Nome completo',
   phone: 'Telefone',
   email: 'E-mail',
-  commercialUserId: 'Responsavel',
+  commercialUserId: 'Responsável',
 };
 
 function translateCreateClientError(cause: unknown): string {
@@ -26,10 +26,10 @@ function translateCreateClientError(cause: unknown): string {
     return 'Falha ao criar cliente. Tente novamente.';
   }
   if (cause.status === 0) {
-    return 'Sem conexao com o servidor. Verifique sua internet e tente novamente.';
+    return 'Sem conexão com o servidor. Verifique sua internet e tente novamente.';
   }
-  if (cause.status === 401) return 'Sessao expirada. Faca login novamente.';
-  if (cause.status === 403) return 'Sem permissao para esta acao.';
+  if (cause.status === 401) return 'Sessão expirada. Faça login novamente.';
+  if (cause.status === 403) return 'Sem permissão para esta ação.';
   const code =
     cause.details && typeof cause.details === 'object'
       ? (cause.details as { code?: string }).code
@@ -38,17 +38,17 @@ function translateCreateClientError(cause: unknown): string {
     cause.details && typeof cause.details === 'object'
       ? (cause.details as { field?: string }).field
       : undefined;
-  if (code === 'PJ_REQUIRES_CNPJ') return 'CNPJ e obrigatorio para Pessoa juridica.';
+  if (code === 'PJ_REQUIRES_CNPJ') return 'CNPJ é obrigatório para Pessoa jurídica.';
   if (code === 'COMMERCIAL_USER_NOT_FOUND' || code === 'COMMERCIAL_USER_INACTIVE') {
-    return 'Responsavel invalido ou inativo.';
+    return 'Responsável inválido ou inativo.';
   }
   const message = cause.message ?? '';
   if (message.includes('already exists') || cause.status === 409) {
-    if (field && FIELD_LABELS[field]) return `${FIELD_LABELS[field]} ja cadastrado no sistema.`;
+    if (field && FIELD_LABELS[field]) return `${FIELD_LABELS[field]} já cadastrado no sistema.`;
     return 'Registro ja existe no sistema.';
   }
   if (cause.status === 422 && field && FIELD_LABELS[field]) {
-    return `${FIELD_LABELS[field]} invalido.`;
+    return `${FIELD_LABELS[field]} inválido.`;
   }
   return cause.message || 'Falha ao criar cliente. Tente novamente.';
 }
@@ -242,17 +242,17 @@ export function ClientQuickCreateModal({
   const isDocumentFilled = documentDigitCount > 0;
   const isDocumentComplete = documentDigitCount === expectedDocumentDigits;
   // Decisao 2026-06-19: valida APENAS comprimento (sem digito verificador da
-  // Receita). Aceita qualquer documento com a contagem certa de digitos.
+  // Receita). Aceita qualquer documento com a contagem certa de dígitos.
   const isDocumentValid = !isDocumentFilled || isDocumentComplete;
 
   // Nome OBRIGATORIO (validacao): PF→fullName (campo do topo), PJ→legalName (razao).
   const requiredNameValue = form.personType === 'PF' ? form.fullName : form.legalName;
   const isNameFilled = requiredNameValue.trim().length > 0;
   // Campo de nome do TOPO (exibicao/edicao): PF→Nome completo (fullName) /
-  // PJ→Nome fantasia (tradeName). A Razao social (legalName) e a linha de baixo.
+  // PJ→Nome fantasia (tradeName). A Razão social (legalName) e a linha de baixo.
   const topNameValue = form.personType === 'PF' ? form.fullName : form.tradeName;
   const topNameLabel = form.personType === 'PF' ? 'Nome completo' : 'Nome fantasia';
-  // Telefone e opcional. Se preenchido, exige formato (10 ou 11 digitos).
+  // Telefone e opcional. Se preenchido, exige formato (10 ou 11 dígitos).
   const isPhoneValid =
     form.phone.replace(/\D/g, '').length === 0 ||
     [10, 11].includes(form.phone.replace(/\D/g, '').length);
@@ -272,14 +272,14 @@ export function ClientQuickCreateModal({
   const isDocumentInvalid = isDocumentFilled && !isDocumentComplete;
   const hasDocumentError = showFieldErrors && isDocumentInvalid;
   const documentHint = isDocumentInvalid
-    ? `${documentLabel} deve ter ${expectedDocumentDigits} digitos (tem ${documentDigitCount})`
+    ? `${documentLabel} deve ter ${expectedDocumentDigits} dígitos (tem ${documentDigitCount})`
     : null;
   const hasNameError = showFieldErrors && !isNameFilled;
   // O obrigatorio fica no TOPO no PF (fullName) e na RAZAO no PJ (legalName).
   const hasTopNameError = hasNameError && form.personType === 'PF';
   const hasRazaoError = hasNameError && form.personType === 'PJ';
   const hasPhoneError = showFieldErrors && !isPhoneValid;
-  const phoneHint = !isPhoneValid ? 'Telefone deve ter 10 ou 11 digitos' : null;
+  const phoneHint = !isPhoneValid ? 'Telefone deve ter 10 ou 11 dígitos' : null;
   const hasRoleError = submitted && !hasRole;
 
   // "dirty" = algo mudou em relacao ao seed inicial (gatilho do "Descartar?").
@@ -335,9 +335,9 @@ export function ClientQuickCreateModal({
       // que faltou algo, sem entender que o numero digitado e que esta invalido
       // (a dica do campo fica no placeholder, que some quando ha valor).
       const title = isDocumentInvalid
-        ? (documentHint ?? `${documentLabel} invalido.`)
+        ? (documentHint ?? `${documentLabel} inválido.`)
         : !isPhoneValid
-          ? (phoneHint ?? 'Telefone invalido.')
+          ? (phoneHint ?? 'Telefone inválido.')
           : 'Preencha os campos obrigatórios destacados.';
       toast.error({ title });
       return;
@@ -431,8 +431,8 @@ export function ClientQuickCreateModal({
                   setSubmitted(false);
                 }}
               >
-                <option value="PJ">Pessoa juridica</option>
-                <option value="PF">Pessoa fisica</option>
+                <option value="PJ">Pessoa jurídica</option>
+                <option value="PF">Pessoa física</option>
               </select>
             </label>
 
@@ -483,12 +483,12 @@ export function ClientQuickCreateModal({
                     tradeName: current.personType === 'PJ' ? value : current.tradeName,
                   }));
                 }}
-                placeholder={hasTopNameError ? 'Obrigatorio' : ''}
+                placeholder={hasTopNameError ? 'Obrigatório' : ''}
               />
             </label>
           </div>
 
-          {/* Linha 3: Razao social (legalName). Ativa no PJ; no PF DESBOTA +
+          {/* Linha 3: Razão social (legalName). Ativa no PJ; no PF DESBOTA +
               desabilita (is-dimmed) mas PERMANECE renderizada — assim a altura do
               modal nao pula ao alternar o tipo. */}
           <div className="client-quick-create-grid client-quick-create-grid-single">
@@ -497,7 +497,7 @@ export function ClientQuickCreateModal({
                 form.personType === 'PF' ? ' is-dimmed' : ''
               }`}
             >
-              Razao social
+              Razão social
               <input
                 value={form.legalName}
                 disabled={saving || form.personType === 'PF'}
@@ -508,7 +508,7 @@ export function ClientQuickCreateModal({
                     legalName: event.target.value.toUpperCase(),
                   }))
                 }
-                placeholder={hasRazaoError ? 'Obrigatorio' : ''}
+                placeholder={hasRazaoError ? 'Obrigatório' : ''}
               />
             </label>
           </div>
@@ -527,7 +527,7 @@ export function ClientQuickCreateModal({
                     phone: maskPhoneInput(event.target.value),
                   }))
                 }
-                placeholder={hasPhoneError ? (phoneHint ?? 'Obrigatorio') : ''}
+                placeholder={hasPhoneError ? (phoneHint ?? 'Obrigatório') : ''}
               />
             </label>
 
@@ -571,7 +571,7 @@ export function ClientQuickCreateModal({
                 }))
               }
               disabled={saving}
-              errorMessage={hasRoleError ? 'Obrigatorio' : undefined}
+              errorMessage={hasRoleError ? 'Obrigatório' : undefined}
             />
           </div>
         </div>
