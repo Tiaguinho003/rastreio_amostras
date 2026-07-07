@@ -26143,149 +26143,6 @@ select.samples-filter-field-input {
   /* ── 2a linha: card "Lotes disponiveis" (SalesAvailabilityCard) +
      card comercial "Vendas e perdas", cada um na metade da largura ── */
 
-  /* Card comercial "Vendas e perdas": grafico de linha (vendas verde / perdas
-     vermelho) em SACAS nos ultimos 7 dias uteis. Shell consistente com o card
-     "Lotes disponiveis" acima. */
-  .dd-trend-card {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    gap: clamp(0.45rem, 0.9vw, 0.7rem);
-    background: #ffffff;
-    border: 1px solid rgba(112, 130, 103, 0.22);
-    border-radius: 20px;
-    box-shadow: var(--dd-card-shadow);
-    padding: clamp(0.8rem, 1.1vw, 1.1rem) clamp(0.95rem, 1.3vw, 1.3rem);
-  }
-
-  .dd-trend-card.is-skeleton {
-    pointer-events: none;
-  }
-
-  .dd-trend-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-  }
-
-  .dd-trend-title {
-    margin: 0;
-    font-size: clamp(0.9rem, 0.98vw, 1rem);
-    font-weight: 700;
-    letter-spacing: 0.01em;
-    color: #1a2e1f;
-  }
-
-  .dd-trend-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: none;
-    width: clamp(28px, 2.4vw, 34px);
-    height: clamp(28px, 2.4vw, 34px);
-    border-radius: 10px;
-    background: rgba(31, 93, 67, 0.1);
-  }
-
-  .dd-trend-icon svg {
-    width: 58%;
-    height: 58%;
-    fill: none;
-    stroke: var(--brand-green, #1f5d43);
-    stroke-width: 1.8;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  .dd-trend-chart-wrap {
-    flex: 1;
-    min-height: clamp(64px, 8vw, 110px);
-    display: flex;
-  }
-
-  /* preserveAspectRatio="none": o SVG preenche a area; o stroke fica constante
-     via vector-effect (no markup) e os rotulos do eixo vivem fora do SVG. */
-  .dd-trend-chart {
-    width: 100%;
-    height: 100%;
-    display: block;
-  }
-
-  .dd-trend-line {
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  .dd-trend-chart-wrap.is-empty {
-    align-items: center;
-    justify-content: center;
-  }
-
-  .dd-trend-empty {
-    margin: 0;
-    padding: 0 1rem;
-    text-align: center;
-    font-size: clamp(0.78rem, 0.88vw, 0.88rem);
-    /* Tom AA (4.5:1 no branco) do antigo #8a9285. */
-    color: #71786d;
-  }
-
-  /* Rotulos do eixo X (dia da semana + dia) — grid de 7 colunas iguais, casa
-     com os pontos centrados nas 7 colunas do grafico. */
-  .dd-trend-axis {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    align-items: start;
-  }
-
-  .dd-trend-axis-tick {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1px;
-    line-height: 1.05;
-  }
-
-  .dd-trend-axis-wd {
-    font-size: clamp(0.56rem, 0.62vw, 0.64rem);
-    font-weight: 500;
-    /* Tom AA (4.5:1 no branco) do antigo #9aa39a (2.6:1). */
-    color: #707770;
-  }
-
-  .dd-trend-axis-day {
-    font-size: clamp(0.64rem, 0.72vw, 0.74rem);
-    font-weight: 700;
-    color: #4d5c52;
-  }
-
-  /* Legenda horizontal (sobrescreve a base vertical do .sales-chart-legend). */
-  .dd-trend-legend {
-    flex-direction: row;
-    justify-content: center;
-    gap: clamp(1rem, 2.2vw, 1.8rem);
-    padding-top: clamp(0.2rem, 0.5vw, 0.4rem);
-    border-top: 1px solid rgba(112, 130, 103, 0.14);
-  }
-
-  .dd-trend-legend .sales-chart-legend-item {
-    grid-template-columns: auto auto auto;
-    gap: 0.4rem;
-    padding: 0;
-    border-bottom: none;
-  }
-
-  /* ── Skeleton (placeholder das linhas da lista de atividades) ── */
-
-  .dd-card-label-placeholder {
-    width: clamp(64px, 6vw, 80px);
-    height: 12px;
-    border-radius: 6px;
-    background: #e8e3d5;
-  }
-
   /* ── Entry animations ── */
 
   .dd-summary-row > .dd-stat-card:nth-child(1) {
@@ -26304,18 +26161,17 @@ select.samples-filter-field-input {
     animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.26s backwards;
   }
 
-  /* Linha 2: "Lotes disponiveis" + "Vendas e perdas" lado a lado, 50/50.
-     Layout provisorio: o antigo card de "Ultimas atividades" (coluna direita,
-     2 linhas) foi removido e a informacao que entrara no lugar ainda sera
-     definida. */
+  /* Linha 2: so "Lotes disponiveis" na coluna esquerda (mesma largura de
+     antes). Layout provisorio: "Ultimas atividades" saiu em 2026-07-06 e
+     "Vendas e perdas" em 2026-07-07 (DSH-D3); a informacao que ocupara a
+     coluna direita ainda sera definida. */
   .dd-content-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: clamp(0.75rem, 1.4vw, 1.25rem);
-    /* NAO estica pra preencher a viewport: a altura vem do conteudo dos dois
-       cards (o mais alto dita a linha; o outro estica junto). O espaco que
-       sobra ate o fim da viewport vira folga inferior (a faixa branca maior
-       ja consumiu parte do topo). */
+    /* NAO estica pra preencher a viewport: a altura vem do conteudo do card
+       (o espaco que sobra ate o fim da viewport vira folga inferior — a
+       faixa branca maior ja consumiu parte do topo). */
     flex: 0 0 auto;
     min-height: 0;
     animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.3s backwards;
@@ -26325,11 +26181,6 @@ select.samples-filter-field-input {
     grid-column: 1;
     min-height: 0;
     box-shadow: var(--dd-card-shadow);
-  }
-
-  .dd-content-grid > .dd-trend-card {
-    grid-column: 2;
-    min-height: 0;
   }
 
   /* "Lotes disponiveis" compacto: legenda ao lado do donut + botao "Ver

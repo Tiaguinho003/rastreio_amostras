@@ -46,7 +46,7 @@ function DashboardPage() {
             error={error}
             onLogout={logout}
           />
-          <DashboardDesktop session={session} data={data} salesData={salesData} error={error} />
+          <DashboardDesktop data={data} salesData={salesData} error={error} />
         </>
       )}
     </AppShell>

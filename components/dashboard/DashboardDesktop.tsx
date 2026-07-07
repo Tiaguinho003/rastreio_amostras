@@ -1,29 +1,20 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
 
-import { getDashboardCommercialTimeseries } from '../../lib/api-client';
 import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
-import { CommercialTrendCard } from './CommercialTrendCard';
 import { useOperationModal } from './useOperationModal';
 import { OperationModal } from './OperationModal';
 import { StatCard, formatDelta } from './StatCard';
-import type {
-  DashboardCommercialTimeseriesResponse,
-  DashboardPendingResponse,
-  DashboardSalesAvailabilityResponse,
-  SessionData,
-} from '../../lib/types';
+import type { DashboardPendingResponse, DashboardSalesAvailabilityResponse } from '../../lib/types';
 
 interface DashboardDesktopProps {
-  session: SessionData;
   data: DashboardPendingResponse | null;
   salesData: DashboardSalesAvailabilityResponse | null;
   error: string | null;
 }
 
-export function DashboardDesktop({ session, data, salesData, error }: DashboardDesktopProps) {
+export function DashboardDesktop({ data, salesData, error }: DashboardDesktopProps) {
   const router = useRouter();
   const {
     activeOperationPanel,
@@ -33,61 +24,6 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
     classifySample,
     operationModalData,
   } = useOperationModal(data);
-
-  const [commercialSeries, setCommercialSeries] =
-    useState<DashboardCommercialTimeseriesResponse | null>(null);
-  // Throttle pro refetch on focus/visibilitychange: evita N requests
-  // em Alt+Tab rapido.
-  const lastFetchRef = useRef<number>(0);
-
-  useEffect(() => {
-    if (!session) return undefined;
-
-    // So o breakpoint ATIVO busca (o twin mobile fica montado mas inerte via
-    // CSS). `active` evita setState apos unmount; o listener de 'change' do
-    // matchMedia re-busca ao ENTRAR no desktop num resize (senao os cards
-    // ficavam travados no skeleton — nada disparava o fetch).
-    const mq = window.matchMedia('(min-width: 901px)');
-    let active = true;
-    const REFETCH_THROTTLE_MS = 30_000;
-
-    function refetchAll() {
-      if (!active || !mq.matches) return;
-      lastFetchRef.current = Date.now();
-      getDashboardCommercialTimeseries(session)
-        .then((response) => {
-          if (active) setCommercialSeries(response);
-        })
-        .catch(() => {});
-    }
-
-    function refetchAllThrottled() {
-      if (Date.now() - lastFetchRef.current < REFETCH_THROTTLE_MS) return;
-      refetchAll();
-    }
-
-    refetchAll();
-
-    function handleBreakpointChange() {
-      if (mq.matches) refetchAll();
-    }
-
-    function handleVisibilityChange() {
-      if (document.visibilityState === 'visible') {
-        refetchAllThrottled();
-      }
-    }
-
-    mq.addEventListener('change', handleBreakpointChange);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', refetchAllThrottled);
-    return () => {
-      active = false;
-      mq.removeEventListener('change', handleBreakpointChange);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', refetchAllThrottled);
-    };
-  }, [session]);
 
   // Q.print: card "Impressao pendente" cortado definitivamente (decisao
   // Q.1.c #20). PrintJob agora vive como informacao auxiliar dentro do
@@ -166,14 +102,15 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
           )}
         </div>
 
+        {/* Card "Vendas e perdas" removido em 2026-07-07 (decisao DSH-D3);
+            o grid segue provisorio com so o "Lotes disponiveis" ate definirmos
+            a proxima informacao do dashboard. */}
         <div className="dd-content-grid">
           {salesData ? (
             <SalesAvailabilityCard data={salesData} compact />
           ) : (
             <div className="sales-card sales-card-skeleton" aria-hidden="true" />
           )}
-          {/* Card comercial (Vendas e perdas), ao lado do "Lotes disponíveis". */}
-          <CommercialTrendCard data={commercialSeries} />
         </div>
       </section>
 
