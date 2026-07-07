@@ -57,6 +57,7 @@ import {
   toggleSelection,
   type BlendSelection,
 } from '../../lib/samples/blend-selection';
+import { useListRevalidation } from '../../lib/use-list-revalidation';
 import { buildHarvestPresets } from '../../lib/sample-identification';
 import { useToast } from '../../lib/toast/ToastProvider';
 import { useFocusTrap } from '../../lib/use-focus-trap';
@@ -347,7 +348,11 @@ function getInitialFilterSection(filters: HiddenFilters): FilterSectionId {
    expandidos ao sair da pagina). Salvo CONTINUAMENTE (debounce) enquanto o user
    esta na Lotes — cobre QUALQUER saida, nao so o card. Na volta: vir do DETALHE
    da amostra restaura sempre (permanente); vir de outra rota restaura so dentro
-   da janela do TTL (contada desde que saiu da Lotes). ── */
+   da janela do TTL (contada desde que saiu da Lotes).
+   Desde 2026-07-07 o snapshot e SO a primeira pintura (stale-while-revalidate):
+   um refetch silencioso roda por baixo no mount restaurado, no retorno do app
+   ao primeiro plano e a cada 60s (useListRevalidation) — a lista nao fica mais
+   congelada em dados velhos. ── */
 
 const SAMPLES_SNAPSHOT_KEY = 'samples-list-snapshot-v3';
 // Janela de validade SO pra retorno que NAO veio do detalhe da amostra.
@@ -589,6 +594,9 @@ function SamplesPage() {
   // Incrementa apos criar amostra via FAB/botao pra forcar refetch da lista
   // (decisao 5.31 = a — refetch automatico).
   const [newSampleRefetchKey, setNewSampleRefetchKey] = useState(0);
+  // Revalidacao silenciosa (2026-07-07): incrementa pra refazer o fetch SEM
+  // skeleton/scroll-reset (retorno ao app + polling — useListRevalidation).
+  const [refreshTick, setRefreshTick] = useState(0);
   // Acoes do card expandido (Enviar/Perda), hospedadas aqui. Ao clicar, hidrata o
   // detalhe (getSampleDetail: version fresco + activeBlends) e abre o fluxo.
   const [sendTarget, setSendTarget] = useState<SampleDetailResponse | null>(null);
@@ -642,6 +650,8 @@ function SamplesPage() {
   const [activeFilterSection, setActiveFilterSection] = useState<FilterSectionId | null>(() =>
     initialSnapshot ? getInitialFilterSection(initialSnapshot.appliedHiddenFilters) : 'owner'
   );
+  // Mount restaurado do snapshot: o fetch de mount roda SILENCIOSO (stale-
+  // while-revalidate) em vez de skeleton — ver o effect unificado.
   const skipNextFetchRef = useRef(initialSnapshot !== null);
   const pendingScrollRestoreRef = useRef<number | null>(
     initialSnapshot ? initialSnapshot.scrollTop : null
@@ -677,6 +687,7 @@ function SamplesPage() {
     appliedSearch,
     newSampleRefetchKey,
     selectionMode,
+    refreshTick,
   });
   const hasDraftHiddenFilters = useMemo(
     () => hasAnyHiddenFilter(draftHiddenFilters),
@@ -1033,17 +1044,25 @@ function SamplesPage() {
       prev.appliedSearch !== appliedSearch ||
       prev.newSampleRefetchKey !== newSampleRefetchKey;
     const isModeToggleOnly = !filtersChanged && prev.selectionMode !== selectionMode;
+    // Revalidacao silenciosa: so o tick mudou → refetch em background mantendo
+    // a lista atual na tela (sem skeleton, sem scroll pro topo, erro engolido).
+    const isTickOnly =
+      !filtersChanged && prev.selectionMode === selectionMode && prev.refreshTick !== refreshTick;
     prevFetchInputsRef.current = {
       appliedHiddenFilters,
       appliedSearch,
       newSampleRefetchKey,
       selectionMode,
+      refreshTick,
     };
 
-    if (skipNextFetchRef.current) {
-      skipNextFetchRef.current = false;
-      return;
-    }
+    // Mount restaurado do snapshot: antes o fetch era PULADO de vez e a lista
+    // ficava congelada nos dados do snapshot ate mexer em filtro/busca (outro
+    // usuario criava lotes e ninguem via). Agora o snapshot e so a primeira
+    // pintura: o fetch roda silencioso por baixo (stale-while-revalidate).
+    const restoredMount = skipNextFetchRef.current;
+    skipNextFetchRef.current = false;
+    const isSilentBackground = isTickOnly || restoredMount;
 
     // Invalida qualquer load-more em andamento (inclusive ao entrar/sair do modo
     // Liga): a proxima resposta obsoleta sera descartada ao comparar com o token.
@@ -1053,9 +1072,10 @@ function SamplesPage() {
     const abortController = new AbortController();
     let active = true;
 
-    // Filtro/busca mudaram = recarrega do zero (loading + topo). So trocar de modo
-    // (Liga on/off) = otimista: mantem a lista atual visivel ate o refetch chegar.
-    if (!isModeToggleOnly) {
+    // Filtro/busca mudaram = recarrega do zero (loading + topo). Trocar de modo
+    // (Liga on/off) ou revalidar em background = otimista: mantem a lista atual
+    // visivel ate o refetch chegar.
+    if (!isModeToggleOnly && !isSilentBackground) {
       dispatchSamples({ type: 'fetch-initial' });
       samplesScrollRef.current?.scrollTo({ top: 0 });
     }
@@ -1124,6 +1144,13 @@ function SamplesPage() {
           return;
         }
 
+        // Revalidacao em background falhou: mantem o que esta na tela — nao
+        // derruba o modo Liga nem pinta erro por causa de um poll com rede
+        // instavel (o proximo tick/retorno tenta de novo).
+        if (isSilentBackground) {
+          return;
+        }
+
         if (blend) {
           // Falha ao carregar a lista enriquecida pra liga: sai do modo + avisa
           // (a saida re-dispara este effect em idle, recarregando a lista normal).
@@ -1148,9 +1175,36 @@ function SamplesPage() {
       abortController.abort();
     };
     // Deps curadas de proposito: o fetch deve rodar apenas quando filtros/busca/
-    // sessao/refetchKey/modo mudam (toast/setters/dispatch sao estaveis).
+    // sessao/refetchKey/modo/tick mudam (toast/setters/dispatch sao estaveis).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appliedHiddenFilters, appliedSearch, session, newSampleRefetchKey, selectionMode]);
+  }, [
+    appliedHiddenFilters,
+    appliedSearch,
+    session,
+    newSampleRefetchKey,
+    selectionMode,
+    refreshTick,
+  ]);
+
+  // Revalidacao silenciosa (mesmo padrao do dashboard): refetch ao voltar o app
+  // pro primeiro plano (throttle 30s) + polling 60s com a pagina visivel.
+  // Guards: nao atropela carregamento/paginacao em andamento; o POLLING pausa
+  // no modo Liga (trocar a lista no meio da montagem atrapalha), mas o retorno
+  // ao app segue revalidando — a selecao guarda snapshots e sobrevive.
+  const samplesStatusRef = useRef(samplesState.status);
+  samplesStatusRef.current = samplesState.status;
+  const requestSilentRefetch = useCallback((source: 'foreground' | 'poll') => {
+    if (source === 'poll' && selectionModeRef.current === 'blend') return;
+    const status = samplesStatusRef.current;
+    if (status === 'loading-initial' || status === 'loading-more') return;
+    if (loadMoreStateRef.current.inFlight) return;
+    setRefreshTick((tick) => tick + 1);
+  }, []);
+
+  useListRevalidation({
+    enabled: Boolean(session),
+    onRevalidate: requestSilentRefetch,
+  });
 
   // Liga B2.1 — quando todas as amostras forem removidas via X dentro do
   // sheet, a selecao zera e o sheet fecha automaticamente. Modo selecao
