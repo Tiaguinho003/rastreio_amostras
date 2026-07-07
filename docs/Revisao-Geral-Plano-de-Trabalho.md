@@ -360,6 +360,16 @@ conferida: código 100% limpo, resíduos só em docs.
   **cancelado esmaecido** com tag. Endpoint novo
   `GET /dashboard/recent-sends` (Cache-Control 30s; só autenticação,
   DSH-D2).
+- **DSH-D6** (2026-07-07) — a coluna direita da linha 2 será um **card único
+  de Eventos em formato de CALENDÁRIO** (altura total da coluna): visão de
+  duas semanas em quadrados, navegação ◀ ▶ de 2 em 2 semanas + botão
+  "Hoje", dia clicado abre **painel fixo** dentro do card com as atividades,
+  dots coloridos por tipo, hoje destacado/selecionado, só visualização,
+  desktop-only, todos os papéis veem. O card **nascerá vazio antes** das
+  features que geram eventos (embarque/entrega/aprovação — ideias, nada
+  travado). Decisões E1–E11 e pendências no doc canônico novo:
+  `docs/Eventos-Dashboard-Plano-de-Trabalho.md`. **Implementação não
+  iniciada** (fase F0 do doc da feature).
 
 **Achados:**
 
@@ -436,9 +446,10 @@ schemas / build / unit 357 / contracts 20 / integração 401 + re-seed).
 
 **Pendências:**
 
-- **DSH-P2** — a **coluna direita da linha 2 do desktop está vazia**
-  (saíram "Últimas atividades" e "Vendas e perdas"); as próximas informações
-  do dashboard serão definidas com o Flavio (conversa marcada na S4).
+- **DSH-P2** — a coluna direita da linha 2 tem conteúdo **DEFINIDO**
+  (DSH-D6: card de Eventos em calendário, decisões E1–E11 em
+  `Eventos-Dashboard-Plano-de-Trabalho.md`) mas **não implementado** — segue
+  vazia até a fase F0 do doc da feature.
 - **DSH-P3** — payload de até 500 itens no `getDashboardPending` a cada
   refresh (avaliar lazy-load se pesar).
 - **DSH-P4** — `client.count(completeness)` sem índice dedicado (revisar se
@@ -566,3 +577,11 @@ de erro (opcional: modo avião e reabrir o app).
   `REPORT_EXPORTED` é o export/envio do PDF) — decisão: listar os dois.
   Suíte nova de 7 testes (surfou o trigger que bloqueia eventos em amostra
   INVALIDATED). Gates verdes (unit 357 / integração 401). Segue 📱.
+- **S6 (2026-07-07)** — Sessão de DECISÕES (sem código): card de **Eventos**
+  da coluna direita desenhado com o Flavio em 3 rodadas de perguntas (12
+  respostas) → decisão **DSH-D6** + doc canônico novo
+  `docs/Eventos-Dashboard-Plano-de-Trabalho.md` (E1–E11, propostas de
+  design, fases F0/F1+, pendências EVD-P1–P4). Destaques: calendário de 2
+  semanas com painel fixo (formato escolhido em preview), card nascerá
+  vazio antes das features de evento, catálogo de tipos 100% em aberto.
+  DSH-P2 atualizada (conteúdo definido; falta implementar).

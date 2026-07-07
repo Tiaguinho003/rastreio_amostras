@@ -56,6 +56,8 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
    Uso: mapeamento read-only de quais paginas cada papel de usuario acessa e onde estao na navegacao (sidebar desktop, tabbar mobile, menu do avatar). Status: Ativo (referencia mantida para uso futuro). COMMERCIAL/CLASSIFIER/REGISTRATION/CADASTRO/ADMIN detalhados; PROSPECTOR resumido (app distinto, mapeamento detalhado adiado).
 10. `docs/Revisao-Geral-Plano-de-Trabalho.md`
     Uso: documento-mae da revisao geral do app, pagina por pagina e por papel — roteiro padrao (R1-R8) que orienta toda sessao de revisao, status por pagina, convencoes de achados/decisoes/pendencias e fases globais (varredura de codigo morto + organizacao de pastas). Status: Em andamento (F0).
+11. `docs/Eventos-Dashboard-Plano-de-Trabalho.md`
+    Uso: fonte canonica do card de Eventos (calendario) da coluna direita do dashboard desktop — decisoes E1-E11, propostas de design, fases (F0 = card shell vazio; F1+ = features que geram eventos) e pendencias EVD-P1-P4. Status: decisoes travadas, implementacao nao iniciada.
 
 ## Relatorios da reorganizacao
 
