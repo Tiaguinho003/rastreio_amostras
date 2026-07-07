@@ -13,6 +13,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 
 import { AppShell } from '../../components/AppShell';
 import { ApprovalLabelModal } from '../../components/ApprovalLabelModal';
@@ -570,6 +571,12 @@ function SamplesPage() {
     () => initialFilters
   );
   const [filtersOpen, setFiltersOpen] = useState(false);
+  // Guarda de SSR pro createPortal do modal de filtros (LOT-L2; padrao do
+  // MobileTabbar/modal de senha do AppShell).
+  const [portalReady, setPortalReady] = useState(false);
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
   // Campos de cliente RETRÁTEIS (Proprietário/Comprador/Enviado para): só um
   // expande por vez; ao expandir, mostra o typeahead; colapsado mostra só os
   // chips. Fecha ao clicar fora.
@@ -2328,54 +2335,63 @@ function SamplesPage() {
         </section>
       </section>
 
-      {filtersOpen ? (
-        <div className="app-modal-backdrop samples-filter-modal-backdrop" onClick={closeFilters}>
-          <section
-            ref={filtersTrapRef}
-            id="samples-filter-modal"
-            className="app-modal is-themed samples-filter-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="samples-filter-modal-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="app-modal-header samples-filter-modal-header">
-              <div className="app-modal-title-wrap">
-                <h3 id="samples-filter-modal-title" className="app-modal-title">
-                  Filtros
-                </h3>
-              </div>
-              <button
-                ref={filterCloseButtonRef}
-                type="button"
-                className="app-modal-close"
-                onClick={closeFilters}
-                aria-label="Fechar filtros"
+      {/* LOT-L2: modal central SEMPRE via createPortal (regra da skill
+          modals) — inline sob o PageTransition, o transform capturava o
+          position:fixed do backdrop. */}
+      {filtersOpen && portalReady
+        ? createPortal(
+            <div
+              className="app-modal-backdrop samples-filter-modal-backdrop"
+              onClick={closeFilters}
+            >
+              <section
+                ref={filtersTrapRef}
+                id="samples-filter-modal"
+                className="app-modal is-themed samples-filter-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="samples-filter-modal-title"
+                onClick={(event) => event.stopPropagation()}
               >
-                <span aria-hidden="true">×</span>
-              </button>
-            </header>
+                <header className="app-modal-header samples-filter-modal-header">
+                  <div className="app-modal-title-wrap">
+                    <h3 id="samples-filter-modal-title" className="app-modal-title">
+                      Filtros
+                    </h3>
+                  </div>
+                  <button
+                    ref={filterCloseButtonRef}
+                    type="button"
+                    className="app-modal-close"
+                    onClick={closeFilters}
+                    aria-label="Fechar filtros"
+                  >
+                    <span aria-hidden="true">×</span>
+                  </button>
+                </header>
 
-            <form className="samples-filter-modal-form" onSubmit={handleApplyFilters}>
-              <div className="samples-filter-modal-content">{renderFilterFields()}</div>
+                <form className="samples-filter-modal-form" onSubmit={handleApplyFilters}>
+                  <div className="samples-filter-modal-content">{renderFilterFields()}</div>
 
-              <div className="app-modal-actions samples-filter-modal-actions">
-                <button
-                  type="button"
-                  className="app-modal-secondary"
-                  onClick={handleClearFiltersOnly}
-                  disabled={!hasDraftHiddenFilters && !hasAppliedHiddenFilters}
-                >
-                  Limpar
-                </button>
-                <button type="submit" className="app-modal-submit">
-                  Aplicar
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
-      ) : null}
+                  <div className="app-modal-actions samples-filter-modal-actions">
+                    <button
+                      type="button"
+                      className="app-modal-secondary"
+                      onClick={handleClearFiltersOnly}
+                      disabled={!hasDraftHiddenFilters && !hasAppliedHiddenFilters}
+                    >
+                      Limpar
+                    </button>
+                    <button type="submit" className="app-modal-submit">
+                      Aplicar
+                    </button>
+                  </div>
+                </form>
+              </section>
+            </div>,
+            document.body
+          )
+        : null}
 
       {newSampleModalMounted ? (
         <NewSampleModal

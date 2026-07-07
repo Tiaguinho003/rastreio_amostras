@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { useFocusTrap } from '../../lib/use-focus-trap';
 
@@ -33,6 +34,12 @@ export function SendMethodChooserModal({
   onChooseFisico,
 }: SendMethodChooserModalProps) {
   const focusTrapRef = useFocusTrap(open);
+  // Guarda de SSR pro createPortal (LOT-L2; regra da skill modals: modal
+  // central sempre portalado pra escapar do transform do PageTransition).
+  const [portalReady, setPortalReady] = useState(false);
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -46,9 +53,9 @@ export function SendMethodChooserModal({
     return () => document.removeEventListener('keydown', handleKey);
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || !portalReady) return null;
 
-  return (
+  return createPortal(
     <div className="app-modal-backdrop" onClick={onClose}>
       <section
         ref={focusTrapRef}
@@ -90,6 +97,7 @@ export function SendMethodChooserModal({
           </div>
         </div>
       </section>
-    </div>
+    </div>,
+    document.body
   );
 }
