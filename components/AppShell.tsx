@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { MobileTabbar } from './MobileTabbar';
 import { SampleSearchField } from './SampleSearchField';
@@ -353,6 +354,11 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   const showPasswordDecisionModal =
     session.user.initialPasswordDecision === 'PENDING' || passwordModalStep === 'change';
   const passwordModalTrapRef = useFocusTrap(showPasswordDecisionModal);
+  // Guarda de SSR pro createPortal do modal de senha (padrao do MobileTabbar).
+  const [portalReady, setPortalReady] = useState(false);
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const profileTriggerRef = useRef<HTMLButtonElement | null>(null);
   const toast = useToast();
@@ -926,158 +932,166 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
         />
       ) : null}
 
-      {showPasswordDecisionModal ? (
-        <div className="app-modal-backdrop app-modal-backdrop-no-dismiss">
-          <section
-            ref={passwordModalTrapRef}
-            className="app-modal app-modal-password-decision"
-            role="dialog"
-            aria-modal="true"
-          >
-            {passwordModalStep === 'decision' ? (
-              <>
-                <header className="app-modal-header">
-                  <div className="app-modal-title-wrap">
-                    <h3 className="app-modal-title">Senha inicial</h3>
-                    <p className="app-modal-description">
-                      Sua conta esta usando a senha definida pelo administrador. Voce pode mante-la
-                      ou escolher uma nova senha agora.
-                    </p>
-                  </div>
-                </header>
-                {decisionError ? <p className="app-modal-error">{decisionError}</p> : null}
-                <div className="app-modal-actions">
-                  <button
-                    type="button"
-                    className="app-modal-secondary"
-                    onClick={handleKeepPassword}
-                    disabled={decisionLoading}
-                  >
-                    {decisionLoading ? 'Salvando...' : 'Manter senha'}
-                  </button>
-                  <button
-                    type="button"
-                    className="app-modal-submit"
-                    onClick={handleChooseChangePassword}
-                    disabled={decisionLoading}
-                  >
-                    Alterar senha
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <header className="app-modal-header">
-                  <div className="app-modal-title-wrap">
-                    <h3 className="app-modal-title">Nova senha</h3>
-                  </div>
-                </header>
-                <div className="app-modal-content">
-                  <form
-                    className="app-modal-password-form"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      void handleSubmitNewPassword();
-                    }}
-                  >
-                    <div className="app-modal-password-field">
-                      <span className="app-modal-password-label">Nova senha</span>
-                      <div className="app-modal-password-input-wrap">
-                        <input
-                          className="app-modal-password-input"
-                          type={showNewPassword ? 'text' : 'password'}
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          autoComplete="new-password"
-                          placeholder="Minimo de 8 caracteres"
-                        />
-                        <button
-                          type="button"
-                          className="app-modal-password-toggle"
-                          onClick={() => setShowNewPassword((v) => !v)}
-                          tabIndex={-1}
-                          aria-label={showNewPassword ? 'Ocultar senha' : 'Mostrar senha'}
-                        >
-                          <svg
-                            viewBox="0 0 24 24"
-                            className="app-shell-password-eye"
-                            aria-hidden="true"
-                          >
-                            {showNewPassword ? (
-                              <>
-                                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-                                <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-                                <line x1="1" y1="1" x2="23" y2="23" />
-                              </>
-                            ) : (
-                              <>
-                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                                <circle cx="12" cy="12" r="3" />
-                              </>
-                            )}
-                          </svg>
-                        </button>
+      {showPasswordDecisionModal && portalReady
+        ? createPortal(
+            <div className="app-modal-backdrop app-modal-backdrop-no-dismiss">
+              <section
+                ref={passwordModalTrapRef}
+                className="app-modal app-modal-password-decision"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="app-shell-password-modal-title"
+              >
+                {passwordModalStep === 'decision' ? (
+                  <>
+                    <header className="app-modal-header">
+                      <div className="app-modal-title-wrap">
+                        <h3 className="app-modal-title" id="app-shell-password-modal-title">
+                          Senha inicial
+                        </h3>
+                        <p className="app-modal-description">
+                          Sua conta esta usando a senha definida pelo administrador. Voce pode
+                          mante-la ou escolher uma nova senha agora.
+                        </p>
                       </div>
+                    </header>
+                    {decisionError ? <p className="app-modal-error">{decisionError}</p> : null}
+                    <div className="app-modal-actions">
+                      <button
+                        type="button"
+                        className="app-modal-secondary"
+                        onClick={handleKeepPassword}
+                        disabled={decisionLoading}
+                      >
+                        {decisionLoading ? 'Salvando...' : 'Manter senha'}
+                      </button>
+                      <button
+                        type="button"
+                        className="app-modal-submit"
+                        onClick={handleChooseChangePassword}
+                        disabled={decisionLoading}
+                      >
+                        Alterar senha
+                      </button>
                     </div>
-                    <div className="app-modal-password-field">
-                      <span className="app-modal-password-label">Confirmar nova senha</span>
-                      <div className="app-modal-password-input-wrap">
-                        <input
-                          className="app-modal-password-input"
-                          type={showConfirmPassword ? 'text' : 'password'}
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          autoComplete="new-password"
-                          placeholder="Repita a nova senha"
-                        />
-                        <button
-                          type="button"
-                          className="app-modal-password-toggle"
-                          onClick={() => setShowConfirmPassword((v) => !v)}
-                          tabIndex={-1}
-                          aria-label={showConfirmPassword ? 'Ocultar senha' : 'Mostrar senha'}
-                        >
-                          <svg
-                            viewBox="0 0 24 24"
-                            className="app-shell-password-eye"
-                            aria-hidden="true"
-                          >
-                            {showConfirmPassword ? (
-                              <>
-                                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-                                <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-                                <line x1="1" y1="1" x2="23" y2="23" />
-                              </>
-                            ) : (
-                              <>
-                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                                <circle cx="12" cy="12" r="3" />
-                              </>
-                            )}
-                          </svg>
-                        </button>
+                  </>
+                ) : (
+                  <>
+                    <header className="app-modal-header">
+                      <div className="app-modal-title-wrap">
+                        <h3 className="app-modal-title" id="app-shell-password-modal-title">
+                          Nova senha
+                        </h3>
                       </div>
+                    </header>
+                    <div className="app-modal-content">
+                      <form
+                        className="app-modal-password-form"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          void handleSubmitNewPassword();
+                        }}
+                      >
+                        <div className="app-modal-password-field">
+                          <span className="app-modal-password-label">Nova senha</span>
+                          <div className="app-modal-password-input-wrap">
+                            <input
+                              className="app-modal-password-input"
+                              type={showNewPassword ? 'text' : 'password'}
+                              value={newPassword}
+                              onChange={(e) => setNewPassword(e.target.value)}
+                              autoComplete="new-password"
+                              placeholder="Minimo de 8 caracteres"
+                            />
+                            <button
+                              type="button"
+                              className="app-modal-password-toggle"
+                              onClick={() => setShowNewPassword((v) => !v)}
+                              tabIndex={-1}
+                              aria-label={showNewPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                            >
+                              <svg
+                                viewBox="0 0 24 24"
+                                className="app-shell-password-eye"
+                                aria-hidden="true"
+                              >
+                                {showNewPassword ? (
+                                  <>
+                                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                                    <line x1="1" y1="1" x2="23" y2="23" />
+                                  </>
+                                ) : (
+                                  <>
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                    <circle cx="12" cy="12" r="3" />
+                                  </>
+                                )}
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                        <div className="app-modal-password-field">
+                          <span className="app-modal-password-label">Confirmar nova senha</span>
+                          <div className="app-modal-password-input-wrap">
+                            <input
+                              className="app-modal-password-input"
+                              type={showConfirmPassword ? 'text' : 'password'}
+                              value={confirmPassword}
+                              onChange={(e) => setConfirmPassword(e.target.value)}
+                              autoComplete="new-password"
+                              placeholder="Repita a nova senha"
+                            />
+                            <button
+                              type="button"
+                              className="app-modal-password-toggle"
+                              onClick={() => setShowConfirmPassword((v) => !v)}
+                              tabIndex={-1}
+                              aria-label={showConfirmPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                            >
+                              <svg
+                                viewBox="0 0 24 24"
+                                className="app-shell-password-eye"
+                                aria-hidden="true"
+                              >
+                                {showConfirmPassword ? (
+                                  <>
+                                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                                    <line x1="1" y1="1" x2="23" y2="23" />
+                                  </>
+                                ) : (
+                                  <>
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                    <circle cx="12" cy="12" r="3" />
+                                  </>
+                                )}
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                        {passwordChangeError ? (
+                          <p className="app-modal-error">{passwordChangeError}</p>
+                        ) : null}
+                      </form>
                     </div>
-                    {passwordChangeError ? (
-                      <p className="app-modal-error">{passwordChangeError}</p>
-                    ) : null}
-                  </form>
-                </div>
-                <div className="app-modal-actions app-modal-password-form-actions">
-                  <button
-                    type="button"
-                    className="app-modal-submit"
-                    onClick={() => void handleSubmitNewPassword()}
-                    disabled={passwordChangeLoading || newPassword.length < 8}
-                  >
-                    {passwordChangeLoading ? 'Salvando...' : 'Salvar'}
-                  </button>
-                </div>
-              </>
-            )}
-          </section>
-        </div>
-      ) : null}
+                    <div className="app-modal-actions app-modal-password-form-actions">
+                      <button
+                        type="button"
+                        className="app-modal-submit"
+                        onClick={() => void handleSubmitNewPassword()}
+                        disabled={passwordChangeLoading || newPassword.length < 8}
+                      >
+                        {passwordChangeLoading ? 'Salvando...' : 'Salvar'}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </section>
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 }
