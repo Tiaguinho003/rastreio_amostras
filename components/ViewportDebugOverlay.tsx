@@ -99,8 +99,6 @@ function captureSnapshot(label: string, startTime: number): ViewportSnapshot {
     '.sample-classification-step-body',
     '.samples-page-v2-sheet',
     '.clients-v2-sheet',
-    '.nsv2-body',
-    '.nsv2-body-form',
   ];
   const containerScrolls: Record<string, number> = {};
   for (const sel of scrollableSelectors) {

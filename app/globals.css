@@ -24299,25 +24299,7 @@ select.samples-filter-field-input {
   }
 }
 
-.nsv2-page {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-}
-
 /* ── Header ── */
-
-.nsv2-header {
-  display: flex;
-  align-items: flex-end;
-  padding: calc(env(safe-area-inset-top) + clamp(44px, 12vw, 60px)) clamp(12px, 4vw, 16px)
-    clamp(14px, 3.5vw, 18px);
-  background: transparent;
-  flex-shrink: 0;
-  gap: clamp(8px, 2.5vw, 12px);
-  animation: nsv2-header-in 0.5s ease-out both;
-}
 
 .nsv2-back {
   display: inline-grid;
@@ -24386,46 +24368,12 @@ select.samples-filter-field-input {
   }
 }
 
-.nsv2-header-center {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: clamp(6px, 1.8vw, 8px);
-}
-
 .nsv2-title {
   margin: 0;
   font-size: clamp(18px, 5vw, 21px);
   font-weight: 700;
   color: #ffffff;
   line-height: 1.2;
-}
-
-.nsv2-step-dots {
-  display: flex;
-  gap: clamp(4px, 1.2vw, 5px);
-  align-items: center;
-}
-
-.nsv2-dot {
-  display: block;
-  height: clamp(5px, 1.5vw, 6px);
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.25);
-  width: clamp(5px, 1.5vw, 6px);
-  border: 0;
-  padding: 0;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition:
-    width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-    background 0.4s;
-}
-
-.nsv2-dot.is-active {
-  width: clamp(16px, 4.5vw, 18px);
-  background: #ffffff;
 }
 
 .nsv2-avatar {
@@ -24456,23 +24404,6 @@ select.samples-filter-field-input {
 
 /* ── Body (shared) ── */
 
-.nsv2-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 0;
-  padding: clamp(16px, 4.5vw, 24px) clamp(16px, 5vw, 24px);
-  padding-bottom: calc(
-    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + var(--mobile-tabbar-clearance) +
-      clamp(8px, 2vw, 12px)
-  );
-  background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
-  border-radius: 20px 20px 0 0;
-  overflow: hidden;
-}
-
 /* ── Step 1: Redesigned Capture ── */
 
 @keyframes nsv2-fadeUp {
@@ -24484,15 +24415,6 @@ select.samples-filter-field-input {
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-.nsv2-file-input {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
-  width: 100%;
-  height: 100%;
 }
 
 .nsv2-inline-error {
@@ -24511,47 +24433,11 @@ select.samples-filter-field-input {
 
 /* ── Step 1.5: Photo Preview ── */
 
-.nsv2-body-photo {
-  padding: 0;
-  position: relative;
-  background: #000000;
-}
-
 /* ── Step 2: Form body ── */
-
-.nsv2-body-form {
-  position: relative;
-  padding: 0;
-  padding-bottom: calc(
-    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + var(--mobile-tabbar-clearance) - 4px
-  );
-  align-items: stretch;
-  justify-content: flex-start;
-  background: #f4f0e7;
-  border-radius: clamp(18px, 5.5vw, 22px) clamp(18px, 5.5vw, 22px) 0 0;
-  animation: nsv2-form-card-in 0.5s ease-out 0.1s backwards;
-}
 
 /* ── Camera Check Overlay on Form ── */
 
-.nsv2-form-check-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 10;
-  display: grid;
-  place-items: center;
-  background: rgba(253, 249, 236, 0.85);
-  animation: nsv2-fadeUp 0.3s ease both;
-  pointer-events: none;
-}
-
 /* ── Form Scroll & Submit ── */
-
-.nsv2-form-scroll {
-  flex: 0 1 auto;
-  overflow: visible;
-  padding: clamp(22px, 6vw, 28px) clamp(16px, 4.5vw, 20px) clamp(8px, 2vw, 10px);
-}
 
 .nsv2-submit-wrap {
   flex-shrink: 0;
@@ -24941,31 +24827,6 @@ select.samples-filter-field-input {
   color: #c45c5c;
 }
 
-.nsv2-body-form .client-lookup-field > label,
-.nsv2-body-form .client-registration-select > span {
-  display: inline;
-  font-size: clamp(9px, 2.5vw, 9.5px);
-  font-weight: 700;
-  color: #aaa;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-}
-
-.nsv2-body-form .client-lookup-shell input,
-.nsv2-body-form .client-registration-select select {
-  border: 1.5px solid rgba(0, 0, 0, 0.1);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-}
-
-.nsv2-body-form .client-lookup-shell input::placeholder,
-.nsv2-body-form .client-registration-select select option[value=''] {
-  color: rgba(0, 0, 0, 0.18);
-}
-
-.nsv2-body-form .client-registration-select select:has(option[value='']:checked) {
-  color: rgba(0, 0, 0, 0.18);
-}
-
 /* ── Submit Button ── */
 
 .nsv2-submit-btn {
@@ -25042,93 +24903,6 @@ select.samples-filter-field-input {
 /* ── Photo Fullscreen ── */
 
 /* ── Print Status in Modal ── */
-
-.nsv2-print-status {
-  text-align: center;
-  font-size: clamp(12px, 3.2vw, 13px);
-  font-weight: 500;
-  color: #999;
-  margin: clamp(8px, 2.5vw, 12px) 0;
-}
-
-.nsv2-print-success {
-  color: #27ae60;
-  font-weight: 600;
-}
-
-.nsv2-print-failed {
-  color: #c0392b;
-  font-weight: 600;
-}
-
-.nsv2-modal-completed-actions {
-  display: flex;
-  justify-content: center;
-  gap: clamp(10px, 3vw, 14px);
-}
-
-.nsv2-exit-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.45);
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
-  border-radius: inherit;
-  animation: nsv2-fadeUp 0.2s ease both;
-}
-
-.nsv2-exit-dialog {
-  width: min(280px, calc(100% - 32px));
-  background: #ffffff;
-  border-radius: clamp(14px, 4vw, 16px);
-  padding: clamp(20px, 5.5vw, 24px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  text-align: center;
-}
-
-.nsv2-exit-dialog-text {
-  margin: 0 0 clamp(16px, 4.5vw, 20px);
-  font-size: clamp(13px, 3.5vw, 14px);
-  font-weight: 600;
-  color: #1a1a1a;
-  line-height: 1.4;
-}
-
-.nsv2-exit-dialog-actions {
-  display: flex;
-  gap: clamp(8px, 2.5vw, 10px);
-}
-
-.nsv2-exit-dialog-btn {
-  flex: 1;
-  padding: clamp(10px, 3vw, 12px);
-  border: 0;
-  border-radius: clamp(10px, 3vw, 12px);
-  font-size: clamp(13px, 3.5vw, 14px);
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.15s;
-}
-
-.nsv2-exit-dialog-btn:active {
-  transform: scale(0.96);
-}
-
-.nsv2-exit-dialog-btn.is-cancel {
-  background: #e8e3d5;
-  color: #1a1a1a;
-}
-
-.nsv2-exit-dialog-btn.is-confirm {
-  background: #c45c5c;
-  color: #ffffff;
-}
 
 /* ── Offline Banner ── */
 
@@ -28159,23 +27933,12 @@ select.samples-filter-field-input {
      NEW SAMPLE (nsv2-page)
      ══════════════════════════════════════════ */
 
-  .nsv2-page {
-    max-width: none;
-    margin: 0;
-    height: auto;
-    overflow: visible;
-  }
-
   /* Header: alinha o padrao de localizacao do titulo com /samples e
      /clients — `1.5rem 0 1.5rem` deixa o titulo visualmente centralizado
      entre o topo da pagina e o conteudo abaixo (mesmo comentario que
      vive em .samples-page-v2-header e .clients-v2-header). Antes era
      `1rem 300px 0.75rem` (assimetrico + 300px lateral), o que
      desalinhava do resto do app. */
-  .nsv2-header {
-    padding: 1.5rem 0 1.5rem;
-    background: transparent;
-  }
 
   .nsv2-title {
     color: var(--ink);
@@ -28184,7 +27947,6 @@ select.samples-filter-field-input {
 
   /* Esconder: avatar, step dots, back button */
   .nsv2-avatar,
-  .nsv2-step-dots,
   .nsv2-back {
     display: none;
   }
@@ -28213,35 +27975,12 @@ select.samples-filter-field-input {
   }
 
   /* Body: fundo suave */
-  .nsv2-body {
-    padding: 0.5rem 300px 1rem;
-    border-radius: 0;
-    background: linear-gradient(180deg, #f4f0e7 0%, var(--bg) 100%);
-  }
 
   /* Body do form: alinhado com .topbar-inner (mesma formula
      `min(1120px, 100% - 2rem)`). Borda direita do card coincide com
      a borda direita do conteudo do topbar (onde fica o profile button). */
-  .nsv2-body-form {
-    width: min(1120px, 100% - 2rem);
-    align-self: center;
-    margin: 0;
-    padding: 0;
-    padding-bottom: 0;
-    border-radius: 24px;
-    box-shadow:
-      0 4px 12px rgba(0, 0, 0, 0.06),
-      0 12px 36px rgba(0, 0, 0, 0.08);
-    border: 1px solid rgba(0, 0, 0, 0.04);
-    background: #ffffff;
-    overflow: visible;
-  }
 
   /* Form scroll: espaco interno generoso */
-  .nsv2-form-scroll {
-    padding: 0.9rem 3rem 0.4rem;
-    overflow: visible;
-  }
 
   /* Grid do form: gap grande */
   .nsv2-form-grid {
@@ -28258,16 +27997,10 @@ select.samples-filter-field-input {
   /* Label do ClientLookupField (Proprietario): alinhar com .nsv2-field-label
      no desktop pra manter o padrao visual com os outros campos. Sem essa
      regra, fica preso no clamp(9px,2.5vw,9.5px) cinza claro do mobile. */
-  .nsv2-body-form .client-lookup-field > label {
-    font-size: 0.78rem;
-    color: #444;
-    letter-spacing: 0.8px;
-  }
 
   /* Campos: design alinhado com modal de novo cliente — bordas 2px e mais
      escuras (rgba 0.3, antes era 1.5px com 0.14 — quase invisivel). */
-  .nsv2-field-input,
-  .nsv2-field-select {
+  .nsv2-field-input {
     padding: 1rem 1.15rem;
     font-size: 1rem;
     border: 2px solid rgba(0, 0, 0, 0.3);
@@ -28282,16 +28015,14 @@ select.samples-filter-field-input {
       transform 0.15s ease;
   }
 
-  .nsv2-field-input:hover,
-  .nsv2-field-select:hover {
+  .nsv2-field-input:hover {
     border-color: rgba(0, 0, 0, 0.45);
     box-shadow:
       0 3px 6px rgba(0, 0, 0, 0.08),
       0 6px 16px rgba(0, 0, 0, 0.08);
   }
 
-  .nsv2-field-input:focus,
-  .nsv2-field-select:focus {
+  .nsv2-field-input:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px rgba(47, 107, 74, 0.12);
     transform: scale(1.005);
@@ -28304,31 +28035,6 @@ select.samples-filter-field-input {
   }
 
   /* Client/Warehouse lookup fields — mesmo padrao dos demais (2px, 0.3) */
-  .nsv2-page .client-lookup-field input {
-    padding: 1rem 1.15rem;
-    font-size: 1rem;
-    border: 2px solid rgba(0, 0, 0, 0.3);
-    border-radius: 14px;
-    background: #ffffff;
-    box-shadow:
-      0 2px 4px rgba(0, 0, 0, 0.05),
-      0 4px 12px rgba(0, 0, 0, 0.06);
-    transition:
-      border-color 0.2s ease,
-      box-shadow 0.2s ease;
-  }
-
-  .nsv2-page .client-lookup-field input:hover {
-    border-color: rgba(0, 0, 0, 0.45);
-    box-shadow:
-      0 3px 6px rgba(0, 0, 0, 0.08),
-      0 6px 16px rgba(0, 0, 0, 0.08);
-  }
-
-  .nsv2-page .client-lookup-field input:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(47, 107, 74, 0.12);
-  }
 
   /* Botao submit: grande, com efeitos */
   /* Area dos botoes mais COMPACTA no desktop (menos padding vertical no wrap +
@@ -29077,9 +28783,6 @@ select.samples-filter-field-input {
      ══════════════════════════════════════════ */
 
   /* 4.1.1: new sample form card edge-to-edge dentro das margens de 300px */
-  .nsv2-body-form {
-    max-width: none;
-  }
 
   /* 4.1.2: grid permanece 2-col (4 grid-half nao balanceiam em 3-col) */
   .nsv2-form-grid {
@@ -29087,14 +28790,8 @@ select.samples-filter-field-input {
     gap: 1.5rem 2rem;
   }
 
-  .nsv2-form-scroll {
-    padding: 1.5rem 3.5rem 0.75rem;
-  }
-
   /* 4.1.3-bis: padding mais generoso nos campos no wide */
-  .nsv2-field-input,
-  .nsv2-field-select,
-  .nsv2-page .client-lookup-field input {
+  .nsv2-field-input {
     padding: 1.2rem 1.4rem;
   }
 

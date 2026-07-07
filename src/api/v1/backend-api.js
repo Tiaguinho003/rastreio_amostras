@@ -379,7 +379,8 @@ export function createBackendApiV1({
             clientDraftId: body.clientDraftId,
             owner: body.owner,
             ownerClientId: body.ownerClientId,
-            ownerUnitId: body.ownerUnitId,
+            // ownerUnitId nao e mais repassado (LNW-I1): o binding do dono
+            // descarta a unidade desde a era "lote sem fazenda".
             sacks: body.sacks,
             harvest: body.harvest,
             originLot: body.originLot,

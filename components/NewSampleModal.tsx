@@ -12,7 +12,7 @@ import { ApiError, createSample, getNextLotNumber } from '../lib/api-client';
 import { useRegisterDirtyState } from '../lib/dirty-state/DirtyStateProvider';
 import { createSampleDraftSchema } from '../lib/form-schemas';
 import { buildHarvestPresets } from '../lib/sample-identification';
-import type { ClientSummary, CreateSampleResponse, SessionData } from '../lib/types';
+import type { ClientSummary, SessionData } from '../lib/types';
 
 // ════════════════════════════════════════════════════════════════
 // Constantes e helpers (escopo de modulo)
@@ -966,4 +966,3 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
 }
 
 export type { NewSampleModalProps };
-export type { CreateSampleResponse };
