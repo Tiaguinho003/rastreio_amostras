@@ -293,7 +293,7 @@ function hasFilterSectionValue(sectionId: FilterSectionId, filters: HiddenFilter
 
 function getFilterSectionSummary(sectionId: FilterSectionId, filters: HiddenFilters) {
   if (sectionId === 'owner') {
-    return getClientsFilterSummary(filters.ownerClients, 'Qualquer proprietario', 'proprietarios');
+    return getClientsFilterSummary(filters.ownerClients, 'Qualquer proprietário', 'proprietários');
   }
 
   if (sectionId === 'buyer') {
@@ -1750,10 +1750,10 @@ function SamplesPage() {
     const ownerFilter = renderClientMultiFilter(
       'owner',
       'owner',
-      'Proprietario',
-      'Buscar proprietario',
-      'Nenhum proprietario encontrado',
-      'Remover proprietario',
+      'Proprietário',
+      'Buscar proprietário',
+      'Nenhum proprietário encontrado',
+      'Remover proprietário',
       draftHiddenFilters.ownerClients,
       (client) =>
         setDraftHiddenFilters((c) =>
@@ -2107,7 +2107,8 @@ function SamplesPage() {
               className="hero-search-input"
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Buscar por lote ou proprietario"
+              placeholder="Buscar por lote ou proprietário"
+              aria-label="Buscar por lote ou proprietário"
               autoComplete="off"
               spellCheck={false}
             />
@@ -2157,7 +2158,7 @@ function SamplesPage() {
             <button
               type="button"
               className={`hero-search-filter-btn${activeHiddenFiltersCount > 0 ? ' has-filters' : ''}`}
-              aria-label="Filtros avancados"
+              aria-label="Filtros avançados"
               onClick={(event) => {
                 if (filtersOpen) {
                   closeFilters();

@@ -5638,7 +5638,9 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   align-items: center;
   gap: 3px;
   font-size: clamp(11px, 3vw, 12px);
-  color: #aaa;
+  /* Tom AA 4.6:1 no branco (LOT-A2; era #aaa ≈2.3:1) — mesmo tom do
+     override desktop. */
+  color: #72766f;
   white-space: nowrap;
   /* Sacas/safra mantem o tamanho — quem cede na linha unica e o nome. */
   flex-shrink: 0;
@@ -5974,8 +5976,10 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   color: #ffffff;
   box-shadow: 0 3px 10px rgba(31, 93, 67, 0.2);
 }
-.spv2-card-action.is-detail:hover {
-  box-shadow: 0 5px 14px rgba(31, 93, 67, 0.28);
+@media (hover: hover) {
+  .spv2-card-action.is-detail:hover {
+    box-shadow: 0 5px 14px rgba(31, 93, 67, 0.28);
+  }
 }
 
 /* Enviar — outline azul. */
@@ -31773,11 +31777,11 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
 }
 
 .samples-selection-header {
-  /* Grid simetrico 36px | 1fr | 36px: o spacer invisivel à direita tem
+  /* Grid simetrico [X] | 1fr | spacer: o spacer invisivel à direita tem
      a mesma largura do botao [X] pra manter o titulo opticamente
-     centralizado na linha. */
+     centralizado na linha. 44px = alvo minimo de toque (LOT-R1). */
   display: grid;
-  grid-template-columns: 36px 1fr 36px;
+  grid-template-columns: 44px 1fr 44px;
   align-items: center;
   gap: 1rem;
   padding: calc(var(--app-safe-area-top, env(safe-area-inset-top)) + 0.85rem) 1.1rem 0.85rem;
@@ -31790,12 +31794,12 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
 }
 
 .samples-selection-header__exit {
-  /* Botao 36x36 com SVG centralizado via grid place-items. SVG 18px
-     (mantem ~9px de respiro em cada lado) pra peso visual confortavel. */
+  /* Botao 44x44 (alvo minimo de toque, LOT-R1) com SVG 18px centralizado
+     via grid place-items — o peso visual continua leve. */
   display: inline-grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border-radius: 10px;
   border: 0;
@@ -31803,12 +31807,16 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   color: #ffffff;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition:
-    transform 0.15s,
-    background 0.15s;
+  /* So transform na transition (LOT-L1, skill button-press-effect §5). */
+  transition: transform 0.15s;
 }
 
-.samples-selection-header__exit:hover,
+@media (hover: hover) {
+  .samples-selection-header__exit:hover {
+    background: rgba(255, 255, 255, 0.24);
+  }
+}
+
 .samples-selection-header__exit:focus-visible {
   background: rgba(255, 255, 255, 0.24);
   outline: none;
@@ -31888,12 +31896,19 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   line-height: 1;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition:
-    background 0.15s,
-    transform 0.15s;
+  /* Transicao so em transform (skill button-press-effect §5 — background
+     na transition gera flash perceptivel no tap). */
+  transition: transform 0.15s;
 }
 
-.spv2-selection-counter:hover,
+/* Hover gated (LOT-L1): fora de (hover:hover) o background "grudava"
+   pos-tap no mobile. :focus-visible continua valendo em qualquer input. */
+@media (hover: hover) {
+  .spv2-selection-counter:hover {
+    background: var(--brand-green-soft, #2c7a5a);
+  }
+}
+
 .spv2-selection-counter:focus-visible {
   background: var(--brand-green-soft, #2c7a5a);
   outline: none;
@@ -34793,5 +34808,32 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   .dd-events-grid.is-slide-right,
   .rsm-skeleton-card {
     animation: none;
+  }
+}
+
+/* Movimento reduzido: desliga as animações da página de LOTES /samples
+   (entrances do header/busca/sheet/cards, header do modo seleção) e as
+   transições de expand/chevron do card — o bloco do fab-fan já cobria só
+   o leque (LOT-A1 da revisão geral). Os keyframes samples-*-in e
+   spv2-cardIn são REUSADOS pelo /clients (.clients-page-v2/.cv2-card) —
+   os seletores genéricos aqui beneficiam as duas páginas. */
+@media (prefers-reduced-motion: reduce) {
+  .samples-page-v2-header,
+  .samples-page-v2 .hero-search-wrap,
+  .samples-page-v2-sheet,
+  .clients-page-v2 .clients-v2-header,
+  .clients-page-v2 .hero-search-wrap,
+  .clients-page-v2 .clients-v2-sheet,
+  .spv2-card,
+  .spv2-card-wrap,
+  .cv2-card,
+  .samples-page-v2 .spv2-card.is-blend-selectable,
+  .samples-selection-header {
+    animation: none;
+  }
+
+  .spv2-card-chevron,
+  .spv2-card-expanded {
+    transition: none;
   }
 }
