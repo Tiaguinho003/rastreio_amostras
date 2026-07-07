@@ -96,10 +96,8 @@ Validacoes criticas nessas rotas:
    Resume filas operacionais do dashboard: `classificationPending` (counts + até 500 itens em RC), `clientsIncomplete.total` e o pulso do dia `dailyRegistered`/`dailySent` (hoje/ontem BRT por evento).
 6. `GET /api/v1/dashboard/sales-availability`
    Donut "Lotes disponíveis": bandas de aging por `created_at` (`over30`/`from15to30`/`under15`), contando `commercial_status IN (OPEN, PARTIALLY_SOLD)` e excluindo `INVALIDATED`.
-7. `GET /api/v1/dashboard/commercial-timeseries`
-   Card "Vendas e perdas" (desktop): 7 pontos (dias úteis seg–sex, BRT) com `salesSacks`/`lossSacks` somados de `sample_movement` ATIVO por `movement_date`. Responde com `Cache-Control: private, max-age=60, must-revalidate`.
 
-> Autorização dos 3 endpoints de dashboard: apenas autenticação (PROSPECTOR é negado pela allowlist central). **Não há gate positivo de papel** — CLASSIFIER/REGISTRATION/CADASTRO também leem os dados comerciais; decisão pendente na revisão geral (DSH-P1 em `Revisao-Geral-Plano-de-Trabalho.md`).
+> Autorização dos endpoints de dashboard: apenas autenticação (PROSPECTOR é negado pela allowlist central). **Sem gate positivo de papel por decisão** (DSH-D2, 2026-07-07): o dashboard é único para os 5 papéis não-PROSPECTOR, incluindo os dados comerciais do donut. A rota `dashboard/commercial-timeseries` (card "Vendas e perdas") foi removida em 2026-07-07 (DSH-D3).
 
 ## Rotas de clientes (L5)
 
