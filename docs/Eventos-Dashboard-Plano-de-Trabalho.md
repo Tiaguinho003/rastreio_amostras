@@ -81,6 +81,12 @@ rodada.
   menor "As programações (embarques, entregas, aprovações...) chegam nas
   próximas atualizações." — a nota é temporária da F0 e sai quando as
   features de evento chegarem.
+- **E20 (revisa a altura da E1, validação no device 2026-07-07)** — o card
+  ocupa a coluna direita **INTEIRA do dashboard**: do topo (altura da linha
+  de pendências) até a base, e não só a altura da pilha da linha 2. As
+  pendências passaram a viver dentro da coluna esquerda (`.dd-left-col`),
+  com a largura dos StatCards preservada; o espaço extra do card vai todo
+  pro painel do dia (E14). Commit `49f4fb7`.
 
 ## Propostas de design (NÃO travadas — defaults da implementação, sujeitos à validação visual)
 
@@ -133,3 +139,5 @@ rodada.
   endpoint; o seam da F1 é a prop `events`
   (`Record<'YYYY-MM-DD', DashboardCalendarEventStub[]>`, tipo local do
   componente). Gates verdes; aguardando validação no device.
+- **2026-07-07 (validação)** — Flavio pediu o card mais alto → **E20**: a
+  coluna direita inteira, incluindo a altura das pendências (`49f4fb7`).
