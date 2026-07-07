@@ -127,8 +127,9 @@ rodada.
   (sessão S6 do doc da revisão). Nenhuma implementação iniciada.
 - **2026-07-07 (cont.)** — Decisões E12–E19 travadas (2 rodadas, 8
   respostas) e **F0 implementada** (commit `9a66cd8`): helpers
-  `lib/dashboard-calendar.ts` + `components/dashboard/EventsCalendarCard.tsx`
-  - CSS `dd-events-*` + wiring no `DashboardDesktop` (coluna direita da
-    linha 2). 100% front — sem endpoint; o seam da F1 é a prop `events`
-    (`Record<'YYYY-MM-DD', DashboardCalendarEventStub[]>`, tipo local do
-    componente). Gates verdes; aguardando validação no device.
+  `lib/dashboard-calendar.ts`, componente
+  `components/dashboard/EventsCalendarCard.tsx`, CSS `dd-events-*` e wiring
+  no `DashboardDesktop` (coluna direita da linha 2). 100% front — sem
+  endpoint; o seam da F1 é a prop `events`
+  (`Record<'YYYY-MM-DD', DashboardCalendarEventStub[]>`, tipo local do
+  componente). Gates verdes; aguardando validação no device.
