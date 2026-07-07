@@ -26053,10 +26053,15 @@ select.samples-filter-field-input {
 
   /* ── Dashboard Desktop: summary cards row ── */
 
+  /* A linha das pendencias vive DENTRO da coluna esquerda (E20: o card de
+     Eventos ocupa a coluna direita inteira, incluindo esta altura). 2
+     colunas na metade esquerda = mesma largura de card do antigo grid de 4
+     colunas na pagina inteira (DSH-D4 preservada). */
   .dd-summary-row {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: clamp(0.75rem, 1.4vw, 1.25rem);
+    flex: none;
   }
 
   /* ── Stat cards da 1a linha (pendencias + pulso do dia) — visual da
@@ -26154,26 +26159,35 @@ select.samples-filter-field-input {
     animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.14s backwards;
   }
 
-  /* Linha 2 (DSH-D5/D6): pilha na coluna ESQUERDA — "Lotes disponiveis" em
-     cima e "Ultimos envios" embaixo, MESMO tamanho (rows 1fr/1fr dividem a
-     altura que sobra da viewport; o shell-lock de 100vh continua, as listas
-     rolam por dentro) — e o card de EVENTOS (calendario, F0) na coluna
-     DIREITA inteira, esticado na mesma altura da pilha. */
+  /* Grid principal do dashboard (DSH-D4/D5/D6 + E20): coluna ESQUERDA =
+     pendencias (dd-summary-row) + pilha "Lotes disponiveis"/"Ultimos
+     envios"; coluna DIREITA inteira = card de EVENTOS, do topo a base
+     (mesma altura das pendencias + pilha). O shell-lock de 100vh continua;
+     as listas rolam por dentro. */
   .dd-content-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: clamp(0.75rem, 1.4vw, 1.25rem);
     flex: 1 1 auto;
     min-height: 0;
-    animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.3s backwards;
+  }
+
+  .dd-left-col {
+    grid-column: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    /* Mesmo respiro que o .dashboard-page dava entre as linhas 1 e 2. */
+    gap: clamp(1rem, 1.6vw, 1.5rem);
   }
 
   .dd-left-stack {
-    grid-column: 1;
+    flex: 1;
     min-height: 0;
     display: grid;
     grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
     gap: clamp(0.75rem, 1.4vw, 1.25rem);
+    animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.2s backwards;
   }
 
   .dd-left-stack > .sales-card {
@@ -26325,6 +26339,7 @@ select.samples-filter-field-input {
     border-radius: 20px;
     box-shadow: var(--dd-card-shadow);
     padding: clamp(0.8rem, 1.1vw, 1.1rem) clamp(0.95rem, 1.3vw, 1.3rem);
+    animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.3s backwards;
   }
 
   .dd-events-header {
@@ -35344,7 +35359,8 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   .dashboard-operations-grid .dashboard-operation-card:nth-child(n),
   .sales-card,
   .dd-summary-row > .dd-stat-card:nth-child(n),
-  .dd-content-grid,
+  .dd-left-stack,
+  .dd-events-card,
   .dashboard-operation-badge,
   .dashboard-mobile .dashboard-operation-card.is-wide .dashboard-operation-badge,
   .dashboard-skeleton-line,
