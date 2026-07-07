@@ -79,7 +79,11 @@ export function DashboardMobile({
 
           <section className="dashboard-sheet">
             <section className="dashboard-sheet-section is-slot-operations">
-              {error ? <p className="error">{error}</p> : null}
+              {error ? (
+                <p className="dashboard-error-banner" role="status">
+                  {error}
+                </p>
+              ) : null}
               {data ? (
                 <div className="dashboard-operations-grid">
                   {/* Q.print: card "Impressão" cortado definitivamente (decisao

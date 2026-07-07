@@ -240,7 +240,11 @@ export function ProspectorDashboard({ session, onLogout }: ProspectorDashboardPr
             <div className="dashboard-section-heading">
               <h2 className="dashboard-section-title">Prospecção</h2>
             </div>
-            {error && !stats ? <p className="error">{error}</p> : null}
+            {error && !stats ? (
+              <p className="dashboard-error-banner" role="status">
+                {error}
+              </p>
+            ) : null}
             {stats ? (
               <div className="dashboard-operations-grid">
                 <div className="dashboard-operation-card is-wide is-static">

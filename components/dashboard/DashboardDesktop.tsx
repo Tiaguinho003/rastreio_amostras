@@ -97,7 +97,11 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
   return (
     <div className="dashboard-desktop">
       <section className="dashboard-page">
-        {error ? <p className="error">{error}</p> : null}
+        {error ? (
+          <p className="dashboard-error-banner" role="status">
+            {error}
+          </p>
+        ) : null}
 
         <div className="dd-summary-row">
           {data ? (

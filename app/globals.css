@@ -4096,6 +4096,23 @@ button:disabled {
   gap: 1.95rem;
 }
 
+/* Banner de erro de carregamento (skill feedback-messages: estado
+   persistente da página → banner, tom suave da semântica, role="status").
+   Usado pelos twins mobile/desktop e pelo dashboard do prospector. */
+.dashboard-error-banner {
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: clamp(10px, 3vw, 12px);
+  padding: clamp(10px, 3vw, 12px) clamp(12px, 3.5vw, 14px);
+  background: rgba(196, 92, 92, 0.08);
+  border: 1px solid rgba(196, 92, 92, 0.25);
+  border-radius: clamp(10px, 3vw, 12px);
+  color: #c45c5c;
+  font-size: clamp(0.8rem, 2.6vw, 0.88rem);
+  font-weight: 500;
+}
+
 .dashboard-section-heading {
   display: flex;
   align-items: center;

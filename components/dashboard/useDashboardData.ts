@@ -40,7 +40,7 @@ export function useDashboardData(session: SessionData | null) {
           if (cause instanceof ApiError) {
             setError(cause.message);
           } else {
-            setError('Falha ao carregar dashboard');
+            setError('Não foi possível carregar o painel.');
           }
         }
       });
