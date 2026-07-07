@@ -42,6 +42,7 @@ import type {
   DashboardPendingResponse,
   DetectFormResponse,
   DashboardSalesAvailabilityResponse,
+  DashboardRecentSendsResponse,
   InvalidateReasonCode,
   PendingPrintQueueResponse,
   ListSamplesResponse,
@@ -1164,6 +1165,15 @@ export function getDashboardSalesAvailability(session: SessionData) {
   return request<DashboardSalesAvailabilityResponse>('/dashboard/sales-availability', {
     method: 'GET',
     session,
+  });
+}
+
+export function getDashboardRecentSends(session: SessionData) {
+  return request<DashboardRecentSendsResponse>('/dashboard/recent-sends', {
+    method: 'GET',
+    session,
+    // Respeita o Cache-Control private/max-age=30 do endpoint.
+    cachePolicy: 'default',
   });
 }
 

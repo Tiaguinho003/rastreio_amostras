@@ -56,6 +56,53 @@ const COMMERCIAL_STATUSES = ['OPEN', 'PARTIALLY_SOLD', 'SOLD', 'LOST'];
 // "Deletar lote": INVALIDATED (deletado) saiu dos filtros — deletados somem da UI.
 const DISPLAY_STATUSES = ['OPEN', 'SOLD', 'LOST'];
 
+// Card "Ultimos envios" do dashboard desktop (DSH-D5): feed por-evento dos
+// envios de amostra fisica + laudos exportados, do mais recente pro mais
+// antigo, sem janela de tempo.
+const DASHBOARD_RECENT_SENDS_LIMIT = 40;
+
+function mapRecentSendRow(row) {
+  const payload = row.payload && typeof row.payload === 'object' ? row.payload : {};
+  const isPhysical = row.eventType === 'PHYSICAL_SAMPLE_SENT';
+
+  // Destinatario ATUAL (DSH-D5): pro envio fisico, a ultima edicao
+  // (SEND_UPDATED pareada por sendEventId) vence o payload original. Pro
+  // laudo (REPORT_EXPORTED), snapshot do cliente quando houver; senao o
+  // texto livre `destination`.
+  let recipient = null;
+  const updatedPayload =
+    isPhysical && row.updatedPayload && typeof row.updatedPayload === 'object'
+      ? row.updatedPayload
+      : null;
+  const snapshot = updatedPayload?.recipientClientSnapshot ?? payload.recipientClientSnapshot;
+  if (snapshot && typeof snapshot === 'object' && typeof snapshot.displayName === 'string') {
+    recipient = snapshot.displayName;
+  } else if (
+    !isPhysical &&
+    typeof payload.destination === 'string' &&
+    payload.destination.trim() !== ''
+  ) {
+    recipient = payload.destination;
+  }
+
+  return {
+    // event_id e unico por evento (o mesmo lote pode aparecer varias vezes).
+    id: row.eventId,
+    sampleId: row.sampleId,
+    internalLotNumber: row.internalLotNumber ?? null,
+    isBlend: Boolean(row.isBlend),
+    kind: isPhysical ? 'PHYSICAL_SAMPLE' : 'REPORT',
+    recipient,
+    // true so pra PHYSICAL_SAMPLE_SENT com SEND_CANCELLED pareado — o
+    // frontend esmaece o minicard (mesmo Caminho A do antigo feed).
+    cancelled: Boolean(row.cancelled),
+    at:
+      row.occurredAt instanceof Date
+        ? row.occurredAt.toISOString()
+        : new Date(row.occurredAt).toISOString(),
+  };
+}
+
 const CLIENT_INCLUDE_SELECT = {
   id: true,
   code: true,
@@ -1887,6 +1934,62 @@ export class SampleQueryService {
         from15to30: toIntegerOrZero(row.from15to30),
         under15: toIntegerOrZero(row.under15),
       },
+    };
+  }
+
+  // Card "Ultimos envios" (dashboard desktop, DSH-D5): ultimos N eventos de
+  // envio — amostra fisica (PHYSICAL_SAMPLE_SENT; o laudo publico/QR da
+  // etiqueta nasce desse mesmo evento) + laudo exportado (REPORT_EXPORTED).
+  // Feed por-evento como o antigo recent-activity: cada envio vira um card;
+  // amostras invalidadas saem por inteiro. O indice
+  // idx_sample_event_type_occurred cobre o WHERE + ORDER BY.
+  async getDashboardRecentSends() {
+    const rows = await this.prisma.$queryRaw`
+      SELECT
+        se.event_id AS "eventId",
+        se.sample_id AS "sampleId",
+        se.event_type::text AS "eventType",
+        se.payload AS "payload",
+        se.occurred_at AS "occurredAt",
+        s.internal_lot_number AS "internalLotNumber",
+        s.is_blend AS "isBlend",
+        -- Envio cancelado: SEND_CANCELLED apontando pra ESTE envio via
+        -- payload.sendEventId = se.event_id (mesmo pareamento de
+        -- resolveSampleIdsSentToClients e do antigo recent-activity).
+        (
+          se.event_type = 'PHYSICAL_SAMPLE_SENT'
+          AND EXISTS (
+            SELECT 1
+            FROM "sample_event" canc
+            WHERE canc.sample_id = se.sample_id
+              AND canc.event_type = 'PHYSICAL_SAMPLE_SEND_CANCELLED'
+              AND canc.payload->>'sendEventId' = se.event_id::text
+          )
+        ) AS "cancelled",
+        -- Ultima edicao do envio (destinatario ATUAL): payload do
+        -- SEND_UPDATED mais recente pareado por sendEventId; NULL quando
+        -- nunca editado (ou REPORT_EXPORTED).
+        CASE
+          WHEN se.event_type = 'PHYSICAL_SAMPLE_SENT' THEN (
+            SELECT upd.payload
+            FROM "sample_event" upd
+            WHERE upd.sample_id = se.sample_id
+              AND upd.event_type = 'PHYSICAL_SAMPLE_SEND_UPDATED'
+              AND upd.payload->>'sendEventId' = se.event_id::text
+            ORDER BY upd.sequence_number DESC
+            LIMIT 1
+          )
+        END AS "updatedPayload"
+      FROM "sample_event" se
+      JOIN "sample" s ON s.id = se.sample_id
+      WHERE se.event_type IN ('PHYSICAL_SAMPLE_SENT', 'REPORT_EXPORTED')
+        AND s.status != 'INVALIDATED'
+      ORDER BY se.occurred_at DESC, se.sequence_number DESC
+      LIMIT ${DASHBOARD_RECENT_SENDS_LIMIT}
+    `;
+
+    return {
+      items: rows.map(mapRecentSendRow),
     };
   }
 

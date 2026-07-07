@@ -1128,6 +1128,19 @@ export function createBackendApiV1({
         };
       }),
 
+    // Card "Ultimos envios" (dashboard desktop, DSH-D5). So autenticacao,
+    // sem gate positivo de papel (DSH-D2); PROSPECTOR cai no 403 da
+    // allowlist central.
+    getDashboardRecentSends: (input) =>
+      executeApiForInput(input, async () => {
+        await resolveActorContext(input, authService);
+        const result = await queryService.getDashboardRecentSends();
+        return {
+          status: 200,
+          body: result,
+        };
+      }),
+
     getPendingPrintJobs: (input) =>
       executeApiForInput(input, async () => {
         await resolveActorContext(input, authService);

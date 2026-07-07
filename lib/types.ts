@@ -1079,6 +1079,24 @@ export interface DashboardSalesAvailabilityResponse {
   };
 }
 
+// Card "Últimos envios" do dashboard desktop (DSH-D5): feed por-evento dos
+// envios — amostra física (PHYSICAL_SAMPLE_SENT) e laudo exportado
+// (REPORT_EXPORTED) —, do mais recente pro mais antigo.
+export interface DashboardRecentSendItem {
+  id: string; // event_id (único por evento; o mesmo lote pode repetir)
+  sampleId: string;
+  internalLotNumber: string | null;
+  isBlend: boolean;
+  kind: 'PHYSICAL_SAMPLE' | 'REPORT';
+  recipient: string | null; // destinatário ATUAL (pós-edição) ou destination do laudo
+  cancelled: boolean; // envio físico cancelado — UI esmaece
+  at: string; // ISO do occurred_at
+}
+
+export interface DashboardRecentSendsResponse {
+  items: DashboardRecentSendItem[];
+}
+
 export interface ResolveSampleByQrResponse {
   query: string;
   sample: {
