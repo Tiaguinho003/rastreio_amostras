@@ -3638,8 +3638,10 @@ button:disabled {
     background 140ms ease;
 }
 
-.topbar-profile-trigger:hover {
-  background: rgba(255, 255, 255, 0.2);
+@media (hover: hover) {
+  .topbar-profile-trigger:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
 }
 
 .topbar-profile-trigger:active {
@@ -20007,7 +20009,8 @@ select.samples-filter-field-input {
   }
 
   .dashboard-mobile .dashboard-operation-card.is-wide .dashboard-operation-subtitle {
-    color: #8a8f8c;
+    /* Tom AA (4.5:1 no branco) do antigo #8a8f8c. */
+    color: #737774;
     font-size: clamp(0.74rem, 2.8vw, 0.85rem);
   }
 
@@ -24523,7 +24526,7 @@ select.samples-filter-field-input {
   border-radius: 12px;
   background: #eef5f1;
   border: 1px solid rgba(31, 93, 67, 0.22);
-  color: #1f5d43;
+  color: var(--brand-green, #1f5d43);
   flex-shrink: 0;
 }
 
@@ -24582,7 +24585,8 @@ select.samples-filter-field-input {
 .sales-chart-donut-label {
   font-size: 11px;
   font-weight: 400;
-  fill: #6b7d72;
+  /* Tom AA (4.5:1 no branco) do antigo #6b7d72 (4.0:1). */
+  fill: #68796f;
   font-family: inherit;
 }
 
@@ -24762,11 +24766,19 @@ select.samples-filter-field-input {
   line-height: 1;
   box-shadow: 0 6px 16px rgba(15, 64, 41, 0.28);
   text-decoration: none;
+  /* E um <a> (Link) — a regra global de button nao o cobre. */
+  -webkit-tap-highlight-color: transparent;
   transition: transform 0.12s ease;
 }
 
 .sales-card-detail-button:active {
   transform: scale(0.97);
+}
+
+/* Mesmo anel do `button:focus-visible` global (o <a> nao herda). */
+.sales-card-detail-button:focus-visible {
+  outline: 2px solid rgba(0, 0, 0, 0.15);
+  outline-offset: 2px;
 }
 
 .sales-card-detail-label {
@@ -26032,9 +26044,11 @@ select.samples-filter-field-input {
     cursor: pointer;
   }
 
-  button.dd-stat-card:hover {
-    transform: translateY(-3px);
-    box-shadow: var(--dd-card-shadow-hover);
+  @media (hover: hover) {
+    button.dd-stat-card:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--dd-card-shadow-hover);
+    }
   }
 
   button.dd-stat-card:active {
@@ -26055,7 +26069,7 @@ select.samples-filter-field-input {
   .dd-stat-icon svg {
     width: clamp(20px, 1.9vw, 24px);
     height: clamp(20px, 1.9vw, 24px);
-    stroke: #1f5d43;
+    stroke: var(--brand-green, #1f5d43);
     stroke-width: 1.7;
     stroke-linecap: round;
     stroke-linejoin: round;
@@ -26098,9 +26112,10 @@ select.samples-filter-field-input {
     color: #c0392b;
   }
 
-  /* 0% / igual a ontem: neutro cinza (nunca verde — ver formatDelta). */
+  /* 0% / igual a ontem: neutro cinza (nunca verde — ver formatDelta).
+     #71786d = tom AA (4.5:1 no branco) do antigo #8a9285. */
   .dd-stat-delta.is-flat {
-    color: #8a9285;
+    color: #71786d;
   }
 
   .dd-stat-card.is-skeleton {
@@ -26160,7 +26175,7 @@ select.samples-filter-field-input {
     width: 58%;
     height: 58%;
     fill: none;
-    stroke: #1f5d43;
+    stroke: var(--brand-green, #1f5d43);
     stroke-width: 1.8;
     stroke-linecap: round;
     stroke-linejoin: round;
@@ -26196,7 +26211,8 @@ select.samples-filter-field-input {
     padding: 0 1rem;
     text-align: center;
     font-size: clamp(0.78rem, 0.88vw, 0.88rem);
-    color: #8a9285;
+    /* Tom AA (4.5:1 no branco) do antigo #8a9285. */
+    color: #71786d;
   }
 
   /* Rotulos do eixo X (dia da semana + dia) — grid de 7 colunas iguais, casa
@@ -26218,7 +26234,8 @@ select.samples-filter-field-input {
   .dd-trend-axis-wd {
     font-size: clamp(0.56rem, 0.62vw, 0.64rem);
     font-weight: 500;
-    color: #9aa39a;
+    /* Tom AA (4.5:1 no branco) do antigo #9aa39a (2.6:1). */
+    color: #707770;
   }
 
   .dd-trend-axis-day {
@@ -26407,11 +26424,13 @@ select.samples-filter-field-input {
     cursor: pointer;
   }
 
-  .dashboard-operation-card:hover {
-    transform: translateY(-4px);
-    box-shadow:
-      0 8px 20px rgba(0, 0, 0, 0.1),
-      0 16px 40px rgba(0, 0, 0, 0.06);
+  @media (hover: hover) {
+    .dashboard-operation-card:hover {
+      transform: translateY(-4px);
+      box-shadow:
+        0 8px 20px rgba(0, 0, 0, 0.1),
+        0 16px 40px rgba(0, 0, 0, 0.06);
+    }
   }
 
   .dashboard-operation-card:active {
@@ -26432,9 +26451,11 @@ select.samples-filter-field-input {
       box-shadow 0.2s ease;
   }
 
-  .topbar-profile-trigger:hover {
-    transform: scale(1.08);
-    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2);
+  @media (hover: hover) {
+    .topbar-profile-trigger:hover {
+      transform: scale(1.08);
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2);
+    }
   }
 
   .topbar-profile-trigger:active {
@@ -35034,4 +35055,26 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--brand-green-ink);
+}
+
+/* Movimento reduzido: desliga as animações do DASHBOARD (entrances do
+   hero/sheet/cards, pulse infinito dos badges e shimmer dos skeletons —
+   nenhum bloco de prefers-reduced-motion cobria a página; DSH-A1 da
+   revisão geral). `:nth-child(n)` espelha a especificidade das regras de
+   entrada escalonada; `.rsm-skeleton-card` também serve o /informe. */
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-hero,
+  .dashboard-mobile .dashboard-hero-search,
+  .dashboard-sheet,
+  .dashboard-mobile .dashboard-sheet,
+  .dashboard-operations-grid .dashboard-operation-card:nth-child(n),
+  .sales-card,
+  .dd-summary-row > .dd-stat-card:nth-child(n),
+  .dd-content-grid,
+  .dashboard-operation-badge,
+  .dashboard-mobile .dashboard-operation-card.is-wide .dashboard-operation-badge,
+  .dashboard-skeleton-line,
+  .rsm-skeleton-card {
+    animation: none;
+  }
 }
