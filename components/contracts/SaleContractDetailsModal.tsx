@@ -22,7 +22,7 @@ import {
   getSaleContract,
   getSaleContractTimeline,
 } from '../../lib/api-client';
-import { formatRelativeTime } from '../../lib/dashboard-activity';
+import { formatRelativeTime } from '../../lib/relative-time';
 import { downloadFile, shareOrDownloadFile } from '../../lib/share-blob';
 import type {
   AgioDesagioType,

@@ -1029,7 +1029,9 @@ export interface ListSamplesResponse {
 // Q.print: dashboard simplificou — printPending sumiu (card "Aguardando
 // impressao" cortado), pendingCounts/oldestPending/classificationInProgress
 // ficaram obsoletos. Resta apenas classificationPending (samples em RC).
-export interface DashboardDailyCount {
+// Interface local (nao exportada): so os campos dailyRegistered/dailySent
+// de DashboardPendingResponse a referenciam.
+interface DashboardDailyCount {
   today: number;
   yesterday: number;
 }
@@ -1079,7 +1081,8 @@ export interface DashboardSalesAvailabilityResponse {
 
 // Card comercial do dashboard (desktop): volume em sacas de vendas/perdas por
 // dia, nos ultimos 7 dias uteis (seg-sex), antigo->recente.
-export interface DashboardCommercialTimeseriesPoint {
+// Interface local (nao exportada): so DashboardCommercialTimeseriesResponse a usa.
+interface DashboardCommercialTimeseriesPoint {
   date: string; // 'YYYY-MM-DD' (dia util BRT)
   salesSacks: number;
   lossSacks: number;

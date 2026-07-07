@@ -4,8 +4,7 @@
  * "há N sem", "há N mês(es)"). Recebe `now` explicito pra que o
  * componente possa atualizar timestamps via setInterval sem
  * acoplar a `Date.now()`. Acentos corrigidos na Fase J (D125).
- * Nasceu no card "Últimas atividades" do dashboard (removido);
- * hoje serve o timeline do modal de Detalhes do contrato.
+ * Usado pelo timeline do modal de Detalhes do contrato.
  */
 export function formatRelativeTime(iso: string, now: number): string {
   const ms = now - new Date(iso).getTime();
