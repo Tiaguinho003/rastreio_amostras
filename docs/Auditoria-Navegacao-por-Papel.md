@@ -93,6 +93,13 @@ Middleware (`middleware.ts`): modo manutencao redireciona nao-ADMIN para
 `/maintenance`; PROSPECTOR fora do seu app (`/dashboard`, `/profile`,
 `/settings`, `/offline`) e redirecionado para `/dashboard`.
 
+> **Nota (revisao DSH, 2026-07-07):** os 3 endpoints do dashboard
+> (`dashboard/pending`, `sales-availability`, `commercial-timeseries`) exigem
+> apenas autenticacao no backend (PROSPECTOR negado pela allowlist central) —
+> **sem gate positivo de papel**. Na pratica CLASSIFIER/REGISTRATION/CADASTRO
+> tambem leem os dados comerciais do dashboard unico. Restringir ou nao e
+> decisao pendente (DSH-P1 em `Revisao-Geral-Plano-de-Trabalho.md`).
+
 ## Matriz de acesso por papel
 
 Acesso a rota (✅ acessa / ❌ redireciona para `/dashboard`). A localizacao na UI

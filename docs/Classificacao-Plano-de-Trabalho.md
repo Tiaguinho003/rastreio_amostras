@@ -114,7 +114,7 @@ Síntese pra ancorar as decisões. Detalhes em `app/camera/page.tsx`, `component
 
 2. **Caminho 2 — Foto direta (existente, Flow A, sem contexto)**. Tap "Câmera" na tabbar (`components/AppShell.tsx:60`) → `/camera` sem `sampleId`. Operador **ignora o QR scanner** e fotografa diretamente a ficha física. `extract-and-prepare` (IA) lê o campo "Lote" da ficha (`app/camera/page.tsx:737` — `handleExtractionResult` quando `hasContext === false`) → `editableLot` é pré-preenchido com o lote extraído → `ClassificationReviewModal` abre. Ao confirmar o review, `resolveSampleByLot` (`page.tsx:915`) busca a amostra no backend. Se achou: segue fluxo normal (divergências/salvar). Se não achou: `ClassificationNotFoundModal` ("Cadastrar nova" / "Sair"). **Validação tardia** — a amostra só é validada depois da chamada da IA (15–30 s + custo OpenAI gastos antes de saber se o lote existe).
 
-3. **Caminho 3 — Modal "Aguardando classificação" do dashboard (botão "Classificar" no card)**. Modal `components/dashboard/OperationModal.tsx`, disparado pelo card "Classificações aguardando" em `components/dashboard/DashboardMobile.tsx:86-94`. Cada card é um `<a href="/samples/[id]">` com botão dedicado "Classificar" (`onItemAction` → `router.push('/camera?sampleId=X')` em Flow B). Botão substitui o chevron à direita. Tap na "área comum" do card mantém o comportamento atual (vai pra detalhe).
+3. **Caminho 3 — Modal "Lotes pendentes" do dashboard (seta de classificar no card)**. Modal `components/dashboard/OperationModal.tsx` (BottomSheet `.is-operations`), disparado pelo card de pendências em `components/dashboard/DashboardMobile.tsx` (botão `.dashboard-op-classification`) e pelo StatCard "Classificação pendente" no desktop — grep pelos símbolos, as linhas deslocam. Como implementado: o corpo do card é **inerte**; a única ação é a seta `.spv2-card-classify-arrow` (`onItemAction` → `router.push('/camera?sampleId=X')` em Flow B).
 
 **Fases sequenciais (happy path)**:
 
@@ -327,9 +327,9 @@ Decisões "antes do fluxo" — valem em qualquer interface. Cada decisão aqui m
 
 ### Caminho 3 — Modal "Aguardando classificação" do dashboard (NOVO)
 
-**Estado atual**: modal `components/dashboard/OperationModal.tsx`, disparado pelo card "Classificações aguardando" em `components/dashboard/DashboardMobile.tsx:88-94`. Itens carregados via `GET /api/v1/dashboard/pending` (campo `classificationPending.items[]`). Cada item renderizado como `<Link href="/samples/[id]">` simples (`OperationModal.tsx:67-85`) mostrando lote, dono e data de criação. Tap leva sempre ao detalhe da amostra.
+**Estado pré-implementação (histórico)**: modal `components/dashboard/OperationModal.tsx`, disparado pelo card de pendências do `DashboardMobile.tsx`. Itens carregados via `GET /api/v1/dashboard/pending` (campo `classificationPending.items[]`); cada item era um `<Link href="/samples/[id]">` simples e o tap levava ao detalhe.
 
-**A adicionar**: botão dedicado "Classificar" em cada card, que vai direto pra `/camera?sampleId=X` (Flow B, mesma rota do Caminho 1), pulando o detalhe. Tap na "área comum" do card mantém o comportamento atual (vai pra detalhe).
+**Como ficou (implementado — Bloco F1)**: cada card ganhou o botão-seta `.spv2-card-classify-arrow` (`onItemAction` → `/camera?sampleId=X`, Flow B, mesma rota do Caminho 1) e o corpo do card virou **inerte** (`.spv2-card.is-static` — não navega mais pro detalhe). Título atual do sheet: "Lotes pendentes". _Anchors por linha desta seção trocados por símbolos em 2026-07-07 (revisão DSH)._
 
 #### F1.4 — Posição do botão "Classificar" dentro do card
 

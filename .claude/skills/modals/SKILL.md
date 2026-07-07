@@ -531,7 +531,7 @@ UPPERCASE em campos de nome/dados cadastrais (`event.target.value.toUpperCase()`
 
 #### Dashboard
 
-> O **OperationModal** ("Amostras pendentes") **deixou de ser modal central** — migrou pra **BottomSheet** (`components/dashboard/OperationModal.tsx` renderiza `<BottomSheet className="is-operations">`). Sai de baixo no mobile e vira modal central no desktop (CSS responsivo >901px do `.bottom-sheet`). Ver `design-system` §8 "Bottom Sheet" (variante `.is-operations`). A classe `.app-modal-dashboard` e seus overrides foram removidos; os cards internos seguem usando `.app-modal-card*`.
+> O **OperationModal** ("Lotes pendentes") **deixou de ser modal central** — migrou pra **BottomSheet** (`components/dashboard/OperationModal.tsx` renderiza `<BottomSheet className="is-operations">`). Sai de baixo no mobile e vira modal central no desktop (CSS responsivo >901px do `.bottom-sheet`). Ver `design-system` §8 "Bottom Sheet" (variante `.is-operations`). A classe `.app-modal-dashboard` e seus overrides foram removidos; os cards internos seguem usando `.app-modal-card*`.
 
 #### Formularios de informe (prospector + comercial)
 

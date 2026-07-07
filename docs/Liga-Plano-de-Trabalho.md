@@ -1611,15 +1611,15 @@ Primeira sub-fase da Wave B3 entregue. Pill lilás (`linear-gradient #7c3aed →
 
 - **`components/samples/BlendBadge.tsx`** (novo) — componente reusável, props `size?: 'sm' | 'md'` + `className?` + `style?`. `role="img"` + `aria-label="Liga"`. Sem hover (não-clicável).
 - **`components/samples/SampleCard.tsx`** — badge `sm` ao lado de `internalLotNumber` em ambos os modos (idle Link e blend button).
-- **`components/dashboard/RecentActivityList.tsx`** — badge `sm` no lote das atividades recentes.
+- **`components/dashboard/RecentActivityList.tsx`** — badge `sm` no lote das atividades recentes. _(Arquivo removido em 2026-07-06 junto com o card "Últimas atividades".)_
 - **`app/samples/[sampleId]/page.tsx`** — badge `md` no header do detalhe (mais visível na página de foco).
 - **`app/clients/[clientId]/page.tsx`** — badge `sm` na lista `commercialSamples` do cliente.
 
 **Mudanças backend (mínimas)**:
 
-- `src/samples/sample-query-service.js:getDashboardRecentActivity` — raw query adiciona `s.is_blend`, mapper retorna `isBlend: Boolean(row.isBlend)`.
+- `src/samples/sample-query-service.js:getDashboardRecentActivity` — raw query adiciona `s.is_blend`, mapper retorna `isBlend: Boolean(row.isBlend)`. _(Método removido em 2026-07-06 com o card.)_
 - `src/clients/client-service.js:listClientSamples` — `select` ganha `isBlend: true`, return inclui `isBlend: Boolean(it.isBlend)`.
-- `lib/types.ts` — `isBlend: boolean` adicionado em `DashboardRecentActivityItem` e `ClientSampleListItem`.
+- `lib/types.ts` — `isBlend: boolean` adicionado em `DashboardRecentActivityItem` _(tipo removido em 2026-07-06 com o card)_ e `ClientSampleListItem`.
 
 **CSS**:
 
