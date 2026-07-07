@@ -593,6 +593,24 @@ seleção), contraste um tom mais escuro (sacas/safra do card e vazio),
 botão sair do modo Liga maior, modais de filtros/envio portalados, tap no
 contador de seleção sem hover grudado.
 
+**Achados PÓS-ciclo (S10, 2026-07-07 — relatados pelo Flavio em uso real):**
+
+- **LOT-B2** ✅ [ALTA] — lista congelada em dados velhos: o snapshot de
+  sessão restaurava e PULAVA o fetch de mount sem revalidação; voltar do
+  detalhe ignorava o TTL pra sempre; sem listener de retorno do
+  background — lote criado por outro usuário só aparecia num cold start.
+  → snapshot virou só a primeira pintura (stale-while-revalidate): refetch
+  SILENCIOSO no mount restaurado + `lib/use-list-revalidation.ts` (padrão
+  do dashboard: visibilitychange/focus com throttle 30s + polling 60s
+  visível), com guards de load em andamento e polling pausado no modo
+  Liga (`a811f85`); mesmo fix no ClientsBrowser + logout limpa os 3
+  snapshots de lista (`ee8d5ef`).
+- **LOT-B3** ✅ [ALTA] — liga criada só com os selecionados VISÍVEIS na
+  busca atual (seleção guardava só ids; sheet/dropdown/payload filtravam a
+  lista visível; o contador mostrava o total) → seleção guarda o snapshot
+  do lote (`lib/samples/blend-selection.ts`, Map + `reconcileSelection`) e
+  todos os consumidores derivam dela; 5 testes unit (`5876b08`).
+
 ### Novo lote (LNW) — 📱 aguardando validação no device (S9, 2026-07-07)
 
 > Escopo real: o fluxo de criação vive no **modal** `NewSampleModal`
@@ -847,3 +865,15 @@ reduced-motion (sheets sem slide, check completo), sucesso → detalhe /
   idempotência, número manual). Pendências globais P3 (press do confirm
   compartilhado) e P4 (token de placeholder) catalogadas. 8 commits; gates
   verdes (unit 367 / contracts 20 / integração + re-seed). Página em 📱.
+- **S10 (2026-07-07)** — Fix duplo em /samples relatado pelo Flavio em uso
+  real (achados LOT-B2/B3, pós-ciclo): (1) lista congelada em dados velhos
+  — o snapshot de sessão pulava o fetch de mount sem revalidação e não
+  havia refetch no retorno do background → snapshot virou só a primeira
+  pintura, com refetch silencioso no mount restaurado + hook novo
+  `use-list-revalidation` (foreground throttle 30s + polling 60s; decisões
+  do Flavio: silenciosa, 60s, /clients junto) + logout limpando snapshots;
+  (2) liga criada só com os selecionados visíveis na busca atual → seleção
+  guarda o snapshot do lote (Map + `reconcileSelection` em
+  `blend-selection.ts`, 5 testes unit). 4 commits (`5876b08`, `a811f85`,
+  `ee8d5ef`, docs). 📱 validar: staleness com 2 usuários, liga com busca
+  no meio da seleção.

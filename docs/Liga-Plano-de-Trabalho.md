@@ -209,6 +209,8 @@ Decisões "antes do fluxo" — valem em qualquer interface. Cada decisão aqui m
 - **Selecionados ficam preservados** entre buscas/filtros (F1.1 original mantido).
 - **Implicação**: novo estado em `/samples/page.tsx` (`selectionMode: 'idle' | 'blend'`); cards reagem ao modo; header re-render com a barra de modo seleção; tabbar e gestos default (abrir detalhe) ficam desabilitados temporariamente. Componente novo: `<SelectionModeHeader />` (X + título + contador) e ajustes em `<SampleCard />` pra renderizar a bolinha.
 
+> **Bug corrigido (2026-07-07)**: "selecionados preservados entre buscas" valia só pro CONTADOR — a seleção guardava apenas ids (`Set<string>`) e o sheet de confirmação/dropdown/payload do `createBlend` filtravam a lista visível, então selecionar → buscar → selecionar mais criava a liga SÓ com os visíveis na busca atual. A seleção agora guarda o snapshot do lote (`Map` em `lib/samples/blend-selection.ts`; `reconcileSelection` atualiza dados no refetch, remove inelegível com o toast acima e preserva quem está fora dos filtros). A falha de refetch em REVALIDAÇÃO de background (retorno ao app) não derruba mais o modo seleção — só a falha do refetch de entrada/filtro continua saindo do modo.
+
 **F1.2 — Sem restrição de role: todos podem criar liga.**
 
 - Não há permissão diferenciada. Qualquer usuário autenticado consegue iniciar fluxo de criação de liga. Mesma regra do "Nova amostra" hoje.
