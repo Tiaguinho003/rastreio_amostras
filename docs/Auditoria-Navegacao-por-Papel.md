@@ -236,8 +236,9 @@ Contagem:
 ### Particularidades de conteudo
 
 - **Sem pagina ou secao exclusiva.** Nao ha rota nem area de UI restrita ao
-  CLASSIFIER; classificar acontece dentro de `/samples` (criar/abrir lote ->
-  classificar), nas mesmas telas vistas pelos outros nao-prospectores.
+  CLASSIFIER; o fluxo de classificar PARTE de `/samples` (criar/abrir lote →
+  botao "Classificar"), mas RODA em **`/camera?sampleId=`** (nota da revisao
+  LOT, 2026-07-07) — nas mesmas telas vistas pelos outros nao-prospectores.
 - **`/dashboard`**: dashboard padrao, igual aos demais nao-prospectores (com
   `salesData`); apenas o PROSPECTOR tem dashboard dedicado.
 - No backend, usuarios CLASSIFIER sao os que podem ser registrados como

@@ -51,7 +51,7 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
 7. `docs/Contratos-Plano-de-Trabalho.md`
    Uso: organizacao, analise, decisoes e execucao da feature de Contratos (pagina "Contratos" + o "Fechamento" = contrato de compra e venda de cafe gerado em PDF apos a venda, alem do Espelho de Corretagem e da pagina Financeiro). Status: Em construcao.
 8. `docs/Revisao-Pagina-Lotes-Plano-de-Trabalho.md`
-   Uso: plano faseado da revisao da pagina de Lotes (lista /samples) — catalogo dos 29 achados (bugs, gargalos, dados, a11y, codigo morto), decisoes, status por fase e protocolo de verificacao. Status: Fase 1 concluida (commit 57dc023), fases 2-6 pendentes.
+   Uso: plano faseado da revisao da pagina de Lotes (lista /samples) — catalogo dos 29 achados (bugs, gargalos, dados, a11y, codigo morto), decisoes, status por fase e protocolo de verificacao. Status: fases 1-6 concluidas e EM PROD; deferidos (CSS legado M1 + testes de regressao #7) resolvidos no ciclo LOT da Revisao Geral (2026-07-07); falta validacao no device.
 9. `docs/Auditoria-Navegacao-por-Papel.md`
    Uso: mapeamento read-only de quais paginas cada papel de usuario acessa e onde estao na navegacao (sidebar desktop, tabbar mobile, menu do avatar). Status: Ativo (referencia mantida para uso futuro). COMMERCIAL/CLASSIFIER/REGISTRATION/CADASTRO/ADMIN detalhados; PROSPECTOR resumido (app distinto, mapeamento detalhado adiado).
 10. `docs/Revisao-Geral-Plano-de-Trabalho.md`

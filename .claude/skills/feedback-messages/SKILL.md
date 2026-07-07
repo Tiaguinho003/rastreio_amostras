@@ -122,12 +122,13 @@ Banner é uma faixa horizontal informando uma condição que **permanece enquant
 
 ### Padrões existentes
 
-| Classe                              | Quando                                      | Exemplo                                                 |
-| ----------------------------------- | ------------------------------------------- | ------------------------------------------------------- |
-| `.nsv2-offline-banner`              | Conexão offline em `NewSampleModal`         | "Sem conexão"                                           |
-| `.inf-offline-banner`               | Conexão offline no formulário `/informe`    | "Sem conexão" + envio salvo no aparelho                 |
-| `.nsv2-inline-error` (topo de form) | Erro de submit no topo do form (não-campo)  | "Este cliente PF não tem fazenda ativa"                 |
-| `.dashboard-error-banner`           | Erro de carregamento do dashboard (3 twins) | "Não foi possível carregar o painel." + `role="status"` |
+| Classe                              | Quando                                                         | Exemplo                                                 |
+| ----------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------- |
+| `.nsv2-offline-banner`              | Conexão offline em `NewSampleModal`                            | "Sem conexão"                                           |
+| `.inf-offline-banner`               | Conexão offline no formulário `/informe`                       | "Sem conexão" + envio salvo no aparelho                 |
+| `.nsv2-inline-error` (topo de form) | Erro de submit no topo do form (não-campo)                     | "Este cliente PF não tem fazenda ativa"                 |
+| `.dashboard-error-banner`           | Erro de carregamento do dashboard (3 twins)                    | "Não foi possível carregar o painel." + `role="status"` |
+| `.spv2-error-banner`                | Erro de carregamento da lista `/samples` (inicial e load-more) | "Não foi possível carregar os lotes." + `role="status"` |
 
 ### Estrutura
 
@@ -209,6 +210,13 @@ Quando presente, descreva **causa** ou **próximo passo** em uma frase curta:
 | comprador             | buyer          |
 | armazém               | warehouse      |
 | safra                 | harvest        |
+
+> **Exceção por página (LOT-D3, 2026-07-07):** na página de **Lotes**
+> (`/samples`) a copy usa **"lote"** no lugar de "amostra" ("Nenhum lote
+> encontrado", "N lotes", "Lote X removido da seleção") — alinhada ao título
+> da página e ao dashboard ("Lotes pendentes"/"Lotes disponíveis"/"Últimos
+> envios"). O vocabulário canônico "amostra" segue valendo nas demais telas
+> até decisão em contrário nos seus ciclos de revisão.
 
 ### Exemplos do `SIM`/`NÃO`
 

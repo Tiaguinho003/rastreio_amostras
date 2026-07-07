@@ -14,11 +14,11 @@
 | ---- | ------------------------------------------------------------------ | ----------------------------------------------------------------- |
 | 1    | Bugs do Modo Liga (unificar o fetch) — B1–B5                       | ✅ **Código pronto + commit `57dc023`** — falta validar no device |
 | 2    | Gargalos de render — G1, G2, G4 (G5 descartado)                    | ✅ **Código pronto** — falta validar no device                    |
-| 3    | Camada de dados (backend) — D1, D2, D3                             | ✅ **Código pronto** (247 unit + 290 integração) — falta deploy   |
+| 3    | Camada de dados (backend) — D1, D2, D3                             | ✅ **EM PROD** (migration D3 aplicada no deploy da rev 00374)     |
 | 4    | Render da lista longa — G3 (content-visibility, não react-virtual) | ✅ **Código pronto** — validar em device (iOS PWA)                |
 | 5    | Inconsistências / acessibilidade — I2, I3, I4, I5, lacuna #6       | ✅ **Código pronto** — validar no device (visual + teclado/SR)    |
-| 6    | Código morto (CSS) + docs — M1–M6, S1                              | ✅ **Código pronto** (M1 legado grande DEFERIDO — interleaved)    |
-| —    | Testes de regressão (lacuna #7)                                    | ⏳ pendente (junto das fases de lógica/dados)                     |
+| 6    | Código morto (CSS) + docs — M1–M6, S1                              | ✅ concluída (M1 deferido RESOLVIDO no ciclo LOT, `6080815`)      |
+| —    | Testes de regressão (lacuna #7)                                    | ✅ resolvida no ciclo LOT (`2917953`/`0fa7d38`)                   |
 
 > ⚠️ As referências `arquivo:linha` abaixo são **âncoras por símbolo** — os
 > números deslocam conforme os arquivos mudam (a Fase 1 já deslocou o
@@ -33,7 +33,9 @@
    remendar bug a bug).
 3. **`PARTIALLY_SOLD`:** **manter "Em aberto"** no card (consistente com o
    detalhe) → o achado I1 **não entra** no plano.
-4. **Lista:** **virtualizar agora** (`@tanstack/react-virtual`).
+4. **Lista:** **virtualizar agora** (`@tanstack/react-virtual`). _(SUPERADA
+   na execução da Fase 4: implementou-se `content-visibility` no lugar —
+   ver a linha da Fase 4 na tabela de status.)_
 
 ---
 
@@ -363,20 +365,29 @@ o effect só re-dispara quando o conteúdo muda. `BlendConfirmationSheet` intact
 filtros reais (busca/displayStatus/harvests/clientIds/classificação/sacas/
 período/isBlend, `eligibleForBlend` opcional) + nota do `total: null` no load-more.
 
-**⚠️ DEFERIDO — bloco legado grande `.samples-page-*` (não-v2):** ~83 regras
-(toolbar/filtros/chips/search-bar/list) em `app/globals.css` (~`:14105–14762`),
-confirmadas mortas (0 JSX), MAS **intercaladas com `.records-client-*` VIVAS**
-(usadas pelo /clients, ~`:14498–14616`, sanduichadas entre dois trechos de
-`.samples-page-*`). Remover 83 regras intercaladas à mão, preservando as vivas,
-num arquivo compartilhado de 34k linhas, é arriscado demais pro valor (é higiene,
-0 impacto no usuário). Fica pra um passe dedicado de limpeza de CSS — de
-preferência com tooling que valide, e idealmente junto da revisão do /clients
-(dono das `.records-*`). Os satélites `.clients-page-v2 .spv2-footer/chip`
-(também mortos) também ficam pro passe do /clients.
+**✅ RESOLVIDO (ciclo LOT da Revisão Geral, 2026-07-07, commit `6080815`) —
+bloco legado `.samples-page-*` (não-v2):** os 84 blocos foram removidos por
+parser de seletor (bloco a bloco, nunca por faixa), com verificação prévia
+token a token (0 usos, incluindo concatenação/template) e contagem
+pós-remoção das famílias vizinhas intactas (`.records-client-*` 27,
+`.records-mode-switch` 6, `.samples-filter-modal` 41, `.spv2-*` 239).
+−594 linhas. **Nota pro ciclo CLI:** `.records-client-*` e
+`.records-mode-switch` também aparentam 0 usos no código (o /clients foi
+refatorado desde a análise original) — conferir e limpar lá, junto dos
+satélites `.clients-page-v2 .spv2-footer/chip` (esses seguem deferidos).
 
 ---
 
-## Testes (lacuna #7 — a página não tem cobertura hoje)
+## Testes (lacuna #7 — ✅ resolvida no ciclo LOT da Revisão Geral, 2026-07-07)
+
+> **Resolvido:** reducer extraído pra `lib/samples/samples-list-reducer.ts`
+>
+> - 6 testes unit (`tests/samples-list-reducer.test.ts`, no `test:unit` via
+>   `--experimental-strip-types`, commit `2917953`); filtros de classificação
+> - `listClassificationValues` + `isBlend` + `eligibleForBlend` cobertos em
+>   `tests/sample-classification-filter.integration.test.js` (`0fa7d38`). O
+>   fetch unificado do Modo Liga segue validado no device (sem harness de
+>   componente — inalterado). Texto original abaixo, como histórico:
 
 Stack de teste do repo: **`node:test`** (`node --test`, JS puro). **Não há**
 harness de teste de componente React. O runner lista cada arquivo
