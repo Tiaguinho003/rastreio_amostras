@@ -6766,9 +6766,8 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   font-size: clamp(13px, 3.6vw, 14px);
   font-weight: 600;
   color: var(--brand-green, #1f5d43);
-  transition:
-    background 0.18s ease,
-    transform 0.12s ease;
+  /* So transform (LNW-L2). */
+  transition: transform 0.12s ease;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -6815,13 +6814,22 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
     opacity 0.18s ease;
 }
 
-.lookup-create-cta:hover,
+@media (hover: hover) {
+  .lookup-create-cta:hover {
+    background: linear-gradient(180deg, #e6f3ec 0%, #d8ecde 100%);
+  }
+
+  .lookup-create-cta:hover .lookup-create-cta-chevron {
+    opacity: 1;
+    transform: translateX(2px);
+  }
+}
+
 .lookup-create-cta:focus-visible {
   background: linear-gradient(180deg, #e6f3ec 0%, #d8ecde 100%);
   outline: 0;
 }
 
-.lookup-create-cta:hover .lookup-create-cta-chevron,
 .lookup-create-cta:focus-visible .lookup-create-cta-chevron {
   opacity: 1;
   transform: translateX(2px);
@@ -6829,7 +6837,6 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
 
 .lookup-create-cta:active {
   transform: scale(0.985);
-  background: linear-gradient(180deg, #d8ecde 0%, #c5dfcd 100%);
 }
 
 .owner-unit-field__empty {
@@ -16480,6 +16487,12 @@ select.samples-filter-field-input {
   box-shadow: 0 4px 16px rgba(31, 42, 31, 0.1);
 }
 
+/* LNW-L3: abre pra cima quando nao ha espaco abaixo no body do sheet. */
+.new-sample-harvest-options.is-drop-up {
+  top: auto;
+  bottom: calc(100% + 0.25rem);
+}
+
 .new-sample-harvest-option {
   border: 1px solid rgba(195, 205, 190, 0.8);
   border-radius: 999px;
@@ -16489,14 +16502,21 @@ select.samples-filter-field-input {
   font-size: 0.8rem;
   font-weight: 600;
   box-shadow: none;
-  transition:
-    background 120ms ease,
-    border-color 120ms ease;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  /* So transform na transition (LNW-L2, skill button-press-effect §5). */
+  transition: transform 120ms ease;
 }
 
-.new-sample-harvest-option:hover {
-  background: #eef3ea;
-  border-color: rgba(170, 185, 165, 0.9);
+.new-sample-harvest-option:active {
+  transform: scale(0.96);
+}
+
+@media (hover: hover) {
+  .new-sample-harvest-option:hover {
+    background: #eef3ea;
+    border-color: rgba(170, 185, 165, 0.9);
+  }
 }
 
 .new-sample-harvest-option.is-active {
@@ -17055,14 +17075,18 @@ select.samples-filter-field-input {
      com text-overflow:ellipsis — o line-clamp do title abaixo eh a
      defesa primaria, isso eh backup). */
   overflow: hidden;
-  transition:
-    background 0.16s ease,
-    border-color 0.16s ease,
-    transform 0.1s ease;
+  /* So transform (LNW-L2). */
+  transition: transform 0.1s ease;
   -webkit-tap-highlight-color: transparent;
 }
 
-.client-lookup-option:hover,
+@media (hover: hover) {
+  .client-lookup-option:hover {
+    background: rgba(31, 93, 67, 0.07);
+    border-color: rgba(31, 93, 67, 0.22);
+  }
+}
+
 .client-lookup-option:focus-visible {
   background: rgba(31, 93, 67, 0.07);
   border-color: rgba(31, 93, 67, 0.22);
@@ -17071,7 +17095,6 @@ select.samples-filter-field-input {
 
 .client-lookup-option:active {
   transform: scale(0.985);
-  background: rgba(31, 93, 67, 0.11);
 }
 
 .client-lookup-option.is-matched {
@@ -20036,9 +20059,17 @@ select.samples-filter-field-input {
     overflow: hidden;
   }
 
+  /* LNW-L3 (mobile): idem base — pra cima quando falta espaco abaixo. */
+  .new-sample-harvest-options.is-drop-up {
+    top: auto;
+    bottom: 100%;
+  }
+
   .new-sample-harvest-option {
     width: 100%;
     padding: 0.55rem 0.7rem;
+    /* Alvo minimo de toque (LNW-A3). */
+    min-height: 44px;
     border: none;
     background: #fff;
     color: #1a3a28;
@@ -20047,7 +20078,13 @@ select.samples-filter-field-input {
     cursor: pointer;
   }
 
-  .new-sample-harvest-option:hover,
+  @media (hover: hover) {
+    .new-sample-harvest-option:hover {
+      background: #e8f5e9;
+      color: #1d762c;
+    }
+  }
+
   .new-sample-harvest-option.is-active {
     background: #e8f5e9;
     color: #1d762c;
@@ -24267,26 +24304,9 @@ select.samples-filter-field-input {
    New Sample v2 (nsv2)
    ================================================================ */
 
-@keyframes nsv2-header-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
 /* Entrada do form card de Nova Amostra: SO translateY, SEM opacity — opaco
    desde o 1o frame pra nao aparecer "pagina vazia -> preenche" no load (mesmo
    racional do dashboard-sheet-rise / samples-sheet-in). */
-@keyframes nsv2-form-card-in {
-  from {
-    transform: translateY(20px);
-  }
-  to {
-    transform: translateY(0);
-  }
-}
 
 @keyframes nsv2-field-cascade {
   from {
@@ -24701,7 +24721,8 @@ select.samples-filter-field-input {
 .nsv2-field-label {
   font-size: clamp(9px, 2.5vw, 9.5px);
   font-weight: 700;
-  color: #aaa;
+  /* Tom AA 5.0:1 no branco (LNW-A2; era #aaa ~2.3:1 em label minuscula). */
+  color: #6f6f6f;
   text-transform: uppercase;
   letter-spacing: 0.6px;
   /* nowrap evita que o " *" (required-star) caia em uma segunda linha
@@ -24885,14 +24906,13 @@ select.samples-filter-field-input {
   font-family: inherit;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition:
-    transform 0.15s,
-    background 0.15s;
+  /* So transform (LNW-L2): background no :active/transition e o
+     anti-pattern do tap-flash. */
+  transition: transform 0.15s;
 }
 
 .nsv2-clear-btn:active:not(:disabled) {
   transform: scale(0.97);
-  background: rgba(0, 0, 0, 0.03);
 }
 
 .nsv2-clear-btn:disabled {
@@ -34517,6 +34537,32 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
 
   .spv2-card-chevron,
   .spv2-card-expanded {
+    transition: none;
+  }
+}
+
+/* Movimento reduzido: desliga as animações do fluxo de NOVO LOTE
+   (cascade dos campos do form, banner offline, check desenhado do modal de
+   sucesso e o pop do ícone do confirm compartilhado) e faz o BottomSheet
+   abrir/fechar SEM deslize (transition do transform) — o slide do sheet é
+   global e beneficia todos os sheets do app (LNW-A1 da revisão geral). */
+@media (prefers-reduced-motion: reduce) {
+  .nsv2-form-grid > *,
+  .nsv2-offline-banner,
+  .sample-created-check circle,
+  .sample-created-check path,
+  .app-confirm-modal-icon {
+    animation: none;
+  }
+
+  /* O check precisa aparecer completo sem o draw. */
+  .sample-created-check circle,
+  .sample-created-check path {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+
+  .bottom-sheet {
     transition: none;
   }
 }

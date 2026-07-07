@@ -224,6 +224,8 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
   const [location, setLocation] = useState('');
   const [notes, setNotes] = useState('');
   const [harvestOptionsOpen, setHarvestOptionsOpen] = useState(false);
+  // LNW-L3: abre pra cima quando o espaco abaixo (no body rolavel) nao basta.
+  const [harvestDropUp, setHarvestDropUp] = useState(false);
   // Lote editavel: numero (pre-preenchido com a sugestao da sequencia) + data
   // de chegada (default hoje). Manual vs automatico e decidido por
   // lotEditedRef (LNW-B2/D4): editou e nao esta vazio = manual.
@@ -690,7 +692,23 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
                 className={`nsv2-field-input has-icon-left ${fieldErrors.harvest ? 'has-error' : ''}`}
                 aria-invalid={Boolean(fieldErrors.harvest)}
                 value={harvest}
-                onFocus={() => setHarvestOptionsOpen(true)}
+                onFocus={() => {
+                  // LNW-L3: o dropdown abre PRA CIMA quando nao ha espaco
+                  // abaixo dentro do body rolavel do sheet (senao era
+                  // recortado/virava scroll no fim do form).
+                  const input = harvestInputRef.current;
+                  const scroller = input?.closest('.bottom-sheet-body');
+                  if (input && scroller) {
+                    const inputRect = input.getBoundingClientRect();
+                    const scrollerRect = scroller.getBoundingClientRect();
+                    const spaceBelow = scrollerRect.bottom - inputRect.bottom;
+                    const spaceAbove = inputRect.top - scrollerRect.top;
+                    setHarvestDropUp(spaceBelow < 210 && spaceAbove > spaceBelow);
+                  } else {
+                    setHarvestDropUp(false);
+                  }
+                  setHarvestOptionsOpen(true);
+                }}
                 onChange={(event) => {
                   markDirty();
                   setHarvest(event.target.value.toUpperCase());
@@ -705,7 +723,7 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
             </div>
           </label>
           {harvestOptionsOpen ? (
-            <div className="new-sample-harvest-options">
+            <div className={`new-sample-harvest-options${harvestDropUp ? ' is-drop-up' : ''}`}>
               {HARVEST_PRESET_OPTIONS.map((option) => (
                 <button
                   key={option}
