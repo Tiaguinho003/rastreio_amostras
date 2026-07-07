@@ -44,23 +44,23 @@
 Legenda: ⬜ pendente · 🔎 em análise · 🛠 em implementação · 📱 aguardando
 validação no device · ✅ concluída.
 
-| #   | Código | Página             | Rota                                                                          | Status | Sessões | Resumo                                                                                                                                   |
-| --- | ------ | ------------------ | ----------------------------------------------------------------------------- | ------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | LOG    | Login              | `/login` (+ `/forgot-password`)                                               | ✅     | S3      | 16 achados corrigidos (incl. 3 bugs de persistência no auth), endurecimento do reset, 3 suítes de teste novas, teia de docs sincronizada; validada no device 2026-07-07 |
-| 2   | DSH    | Dashboard          | `/dashboard` (twins mobile/desktop + dashboard do PROSPECTOR)                 | ⬜     | —       | —                                                                                                                                        |
-| 3   | LOT    | Lotes (lista)      | `/samples`                                                                    | ⬜     | —       | —                                                                                                                                        |
-| 4   | LNW    | Novo lote          | `/samples/new`                                                                | ⬜     | —       | —                                                                                                                                        |
-| 5   | LDT    | Detalhe do lote    | `/samples/[sampleId]`                                                         | ⬜     | —       | —                                                                                                                                        |
-| 6   | CAM    | Câmera / Scanner   | `/camera`                                                                     | ⬜     | —       | —                                                                                                                                        |
-| 7   | CLI    | Clientes (lista)   | `/clients`                                                                    | ⬜     | —       | —                                                                                                                                        |
-| 8   | CDT    | Detalhe do cliente | `/clients/[clientId]`                                                         | ⬜     | —       | —                                                                                                                                        |
-| 9   | CTR    | Contratos          | `/contratos`                                                                  | ⬜     | —       | —                                                                                                                                        |
-| 10  | FIN    | Financeiro         | `/financeiro`                                                                 | ⬜     | —       | —                                                                                                                                        |
-| 11  | CAD    | Cadastros          | `/cadastros`                                                                  | ⬜     | —       | —                                                                                                                                        |
-| 12  | REL    | Relatórios         | `/informe` (+ redirect `/resumo`)                                             | ⬜     | —       | —                                                                                                                                        |
-| 13  | USR    | Usuários           | `/users`                                                                      | ⬜     | —       | —                                                                                                                                        |
-| 14  | PRF    | Perfil             | `/profile` (+ redirect `/settings`)                                           | ⬜     | —       | —                                                                                                                                        |
-| 15  | AUX    | Auxiliares         | `/laudo/[token]` (público), `/offline`, `/maintenance`, redirects `/` e afins | ⬜     | —       | —                                                                                                                                        |
+| #   | Código | Página             | Rota                                                                          | Status | Sessões | Resumo                                                                                                                                                                                                             |
+| --- | ------ | ------------------ | ----------------------------------------------------------------------------- | ------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | LOG    | Login              | `/login` (+ `/forgot-password`)                                               | ✅     | S3      | 16 achados corrigidos (incl. 3 bugs de persistência no auth), endurecimento do reset, 3 suítes de teste novas, teia de docs sincronizada; validada no device 2026-07-07                                            |
+| 2   | DSH    | Dashboard          | `/dashboard` (twins mobile/desktop + dashboard do PROSPECTOR)                 | 📱     | S4      | 19 achados (15 corrigidos em 7 commits, 4 catalogados): throttle no refetch, ~460 linhas de CSS órfão, portal+aria no modal de senha, reduced-motion, contraste AA, banner de erro, teste do pending, teia de docs |
+| 3   | LOT    | Lotes (lista)      | `/samples`                                                                    | ⬜     | —       | —                                                                                                                                                                                                                  |
+| 4   | LNW    | Novo lote          | `/samples/new`                                                                | ⬜     | —       | —                                                                                                                                                                                                                  |
+| 5   | LDT    | Detalhe do lote    | `/samples/[sampleId]`                                                         | ⬜     | —       | —                                                                                                                                                                                                                  |
+| 6   | CAM    | Câmera / Scanner   | `/camera`                                                                     | ⬜     | —       | —                                                                                                                                                                                                                  |
+| 7   | CLI    | Clientes (lista)   | `/clients`                                                                    | ⬜     | —       | —                                                                                                                                                                                                                  |
+| 8   | CDT    | Detalhe do cliente | `/clients/[clientId]`                                                         | ⬜     | —       | —                                                                                                                                                                                                                  |
+| 9   | CTR    | Contratos          | `/contratos`                                                                  | ⬜     | —       | —                                                                                                                                                                                                                  |
+| 10  | FIN    | Financeiro         | `/financeiro`                                                                 | ⬜     | —       | —                                                                                                                                                                                                                  |
+| 11  | CAD    | Cadastros          | `/cadastros`                                                                  | ⬜     | —       | —                                                                                                                                                                                                                  |
+| 12  | REL    | Relatórios         | `/informe` (+ redirect `/resumo`)                                             | ⬜     | —       | —                                                                                                                                                                                                                  |
+| 13  | USR    | Usuários           | `/users`                                                                      | ⬜     | —       | —                                                                                                                                                                                                                  |
+| 14  | PRF    | Perfil             | `/profile` (+ redirect `/settings`)                                           | ⬜     | —       | —                                                                                                                                                                                                                  |
+| 15  | AUX    | Auxiliares         | `/laudo/[token]` (público), `/offline`, `/maintenance`, redirects `/` e afins | ⬜     | —       | —                                                                                                                                                                                                                  |
 
 A ordem segue o **fluxo operacional** de uso do app (D2). A revisão de cada
 página cobre também a **cadeia de backend** que ela consome (D6) e os **6
@@ -299,11 +299,134 @@ integração 392 / build / typecheck / lint / format).
 errada (mensagem no campo senha, que esvazia) · expirar/encerrar sessão →
 aviso no login · fluxo completo do esqueci-a-senha · visual mobile + desktop.
 
-### Dashboard (DSH) — ⬜ não iniciada
+### Dashboard (DSH) — 📱 aguardando validação no device (S4, 2026-07-07)
 
 > Contexto prévio: o card "Últimas atividades" foi removido por completo em
 > 2026-07-06 (commits `61a72e2`/`2b43faf`/`56a1290`); o grid desktop está
 > provisório (50/50) até definirmos a informação que entra no lugar.
+
+**Mapa (R1):** `app/dashboard/page.tsx` monta `DashboardMobile` **e**
+`DashboardDesktop` sempre (troca por CSS no breakpoint 901px,
+`display: contents/none`); PROSPECTOR ganha `ProspectorDashboard` (branch
+`isProspector`) · dados: `useDashboardData` → `getDashboardPending` +
+`getDashboardSalesAvailability` (refetch em visibilitychange, agora com
+throttle 30s); desktop tem fetch próprio `getDashboardCommercialTimeseries`
+(throttle 30s + gate matchMedia); prospector: `getMyVisitReportStats` +
+`listVisitReports` · backend: 3 métodos em
+`src/samples/sample-query-service.js` (`getDashboardPending`,
+`getDashboardSalesAvailability`, `getDashboardCommercialTimeseries`) — sem
+parâmetros, janelas BRT no servidor · gates: middleware (páginas do
+PROSPECTOR), `useRequireAuth()` **sem** `allowedRoles`, backend só
+`resolveActorContext` (401 + allowlist do PROSPECTOR + senha pendente) —
+**sem gate positivo de papel** · fluxo de senha inicial no `AppShell`
+(`initialPasswordDecision === 'PENDING'` → `recordInitialPasswordDecision` /
+`changeOwnPassword`, ambos `allowPending:true`) · docs/skills relacionados:
+Auditoria-Navegacao, API-e-Contratos, Produto-e-Fluxos, Notificacoes,
+Classificacao/Liga/Contratos-Plano, skills design-system/modals/
+button-press-effect/feedback-messages/responsive · CSS: `dashboard-*`,
+`dd-*`, `sales-card/chart`, `prospector-*`, `app-modal-password*`.
+
+**Matriz por papel (R2):** ADMIN/COMMERCIAL/CLASSIFIER/REGISTRATION/CADASTRO
+veem o **mesmo** dashboard (2 op-cards + donut no mobile; 4 StatCards + donut
+
+- gráfico no desktop); PROSPECTOR vê dashboard dedicado (visitas) e recebe
+  403 nos 3 endpoints padrão (allowlist central). A remoção de "Últimas
+  atividades" foi conferida: código 100% limpo, resíduos só em docs.
+
+**Decisões:**
+
+- **DSH-D1** — StatCards "Lotes registrados hoje" e "Envios concluídos hoje"
+  **ficam inertes** (indicadores puros do dia; sem destino natural).
+
+**Achados:**
+
+- **DSH-G1** ✅ — `useDashboardData` refazia os 2 fetches em todo
+  `visibilitychange` sem throttle → throttle 30s, padrão do desktop
+  (`4149590`).
+- **DSH-G2** ⏳ — `getDashboardPending` devolve até 500 itens a cada refresh
+  (lista só é usada no OperationModal) → catalogado como DSH-P3.
+- **DSH-G3** ⏳ — `client.count(completeness)` tende a seq scan → DSH-P4.
+- **DSH-M1** ✅ — cluster de CSS órfão do dashboard antigo (~460 linhas):
+  `mobile-hero*`, `mobile-welcome*`, `secondary-grid/panel*`,
+  `section-column*/-link/-subtitle`, `search-section`, `operations-panel`,
+  `op-print*`, `op-progress*`, skeleton `-md/-lg/-full/-xs`+`circle`/
+  `content`, `empty-state`, `muted-text`, `total-today*`, `view-all-link`,
+  `action-link*/-icon/-label`, `sales-total-number` — removidos **classe a
+  classe com grep prévio**; vivas do prospector intactas (`5e6b3d7`).
+- **DSH-M2** ✅ — `DashboardDailyCount`/`DashboardCommercialTimeseriesPoint`
+  eram unused exports do knip → viraram interfaces locais (`5e6b3d7`).
+- **DSH-I1** ✅ — `lib/dashboard-activity.ts` (nome herdado do card removido)
+  → `lib/relative-time.ts` + import no `SaleContractDetailsModal` (`5e6b3d7`).
+- **DSH-L1** ✅ — "Ver disponíveis" (`<a>`) sem tap-highlight reset nem
+  `:focus-visible` → corrigido (`54bc6aa`).
+- **DSH-L2** ✅ — 4 hovers com box-shadow/background fora de
+  `@media (hover:hover)` (dd-stat-card, operation-card, profile-trigger base
+  e desktop) → gated (`54bc6aa`).
+- **DSH-L3** ✅ — modal de senha inline sob `PageTransition` →
+  `createPortal(document.body)` com guarda SSR (`4b106e0`).
+- **DSH-L4** ✅ — erro de carregamento era `<p class="error">` cru →
+  `.dashboard-error-banner` (`role="status"` — a skill feedback-messages
+  reserva `alert` pra crítico) nos 3 twins + copy "Não foi possível carregar
+  o painel." (`feb9b72`).
+- **DSH-L5** ✅ (parcial) — verde de marca hardcoded → `var(--brand-green)`
+  onde idêntico (dd-stat-icon, dd-trend-icon, sales-card-chart-icon); greys
+  fora da paleta ficaram como dívida DSH-P5 (`54bc6aa`).
+- **DSH-A1** ✅ — `prefers-reduced-motion` não cobria NENHUMA animação do
+  dashboard (badge-pulse infinito, shimmer, entrances) → bloco novo cobrindo
+  hero/sheet/cards/badges/skeletons (`54bc6aa`).
+- **DSH-A2** ✅ — modal de senha sem `aria-labelledby` → id no título dos 2
+  passos (`4b106e0`).
+- **DSH-A3** ✅ — contraste AA 4.5:1 nos textos secundários pequenos:
+  `#9aa39a`→`#707770` (axis), `#8a8f8c`→`#737774` (subtitle),
+  `#8a9285`→`#71786d` (is-flat/trend-empty), `#6b7d72`→`#68796f`
+  (donut-label); escurecimento mínimo calculado, mesma família (`54bc6aa`) —
+  **validar no device**.
+- **DSH-T1** ✅ — `getDashboardPending` sem asserção para `clientsIncomplete`
+  e pulso diário → `tests/dashboard-pending.integration.test.js` (6 testes:
+  completude PJ/PF/ACTIVE, janelas BRT hoje/ontem/anteontem, COUNT DISTINCT
+  por lote) (`575a3ae`).
+- **DSH-T2** ⏳ — `Cache-Control` do commercial-timeseries sem teste (camada
+  HTTP-route não é testada no projeto).
+- **DSH-T3** ⏳ — teste de gate positivo de papel depende da decisão DSH-P1.
+- **DSH-DOC1–7** ✅ — Liga-Plano (3 símbolos deletados anotados), modals
+  SKILL ("Lotes pendentes"), API-e-Contratos (+2 rotas + nota de
+  autorização), Classificação-Plano (Caminho 3 no estado implementado),
+  Contratos-Plano (menções históricas anotadas), Auditoria-Navegação (nota
+  DSH-P1), button-press-effect (scale 0.97), design-system (cluster LIMPO +
+  rename), feedback-messages (banner novo) (`6b3ecd9`).
+- ❌ **Falso-positivos** (não reinvestigar): os 2 types do knip eram usados
+  (dentro de `lib/types.ts` — viraram locais); nenhum componente/hook do
+  dashboard está órfão (knip limpo pós-remoção do card); OperationModal,
+  tap-feedback geral, SVGs de dados (donut/linha com `role="img"`+label),
+  skeletons `aria-hidden` e estados vazios estão CONFORMES às skills.
+
+**Resumo:** 7 commits — `4149590` (throttle), `5e6b3d7` (código morto),
+`54bc6aa` (CSS interação/a11y), `4b106e0` (modal de senha), `feb9b72`
+(banner de erro), `575a3ae` (teste), `6b3ecd9` (docs). Gates verdes (lint /
+format / typecheck / schemas / build / unit 357 / contracts 20 / integração
+398 + re-seed).
+
+**Pendências:**
+
+- **DSH-P1** — visibilidade dos dados comerciais (donut/gráfico/endpoints)
+  por papel: decisão adiada pelo usuário (S4); hoje todos os 5 papéis veem e
+  o backend não tem gate positivo. Inclui DSH-T3.
+- **DSH-P2** — grid desktop segue **provisório 50/50**; substituto do card
+  "Últimas atividades" a definir (feature futura).
+- **DSH-P3** — payload de até 500 itens no `getDashboardPending` a cada
+  refresh (avaliar lazy-load se pesar).
+- **DSH-P4** — `client.count(completeness)` sem índice dedicado (revisar se
+  o dashboard pesar).
+- **DSH-P5** — greys fora da paleta nos cards `dd-*` (`#72766f`, `#1a2e1f`,
+  `#4d5c52`, verde-up `#1f8540` etc.) — dívida de token; trocar = mudança
+  visual.
+
+**Validação no device (Flavio):** dashboard mobile + desktop de um papel
+não-PROSPECTor (visual geral; textos secundários pequenos ficaram um tom
+mais escuros — DSH-A3) · StatCards a 901–1100px (aperta?) · donut a 320px ·
+modal de senha inicial (agora via portal — manter e trocar senha) ·
+dashboard do PROSPECTOR intacto · banner de erro (opcional: modo avião e
+reabrir o app).
 
 ### Lotes — lista (LOT) — ⬜ não iniciada
 
@@ -389,3 +512,11 @@ aviso no login · fluxo completo do esqueci-a-senha · visual mobile + desktop.
   eram revertidos pelo rollback do throw dentro de transações Prisma) —
   corrigidos com o padrão "commit primeiro, throw depois". Página em 📱
   aguardando validação do Flavio no device.
+- **S4 (2026-07-07)** — LOG validada no device pelo Flavio → ✅ (`520545f`).
+  F2/DSH executada ponta a ponta (R1–R8): 4 agentes (frontend, backend+gates,
+  docs/skills/knip, auditoria design/a11y R5), 3 perguntas R2 respondidas
+  (DSH-D1 + pendências P1/P2), 19 achados — 15 corrigidos em 7 commits e 4
+  catalogados (P3/P4/P5/T2). Destaques: remoção do card "Últimas atividades"
+  confirmada limpa no código (resíduos só em docs); ~460 linhas de CSS órfão
+  removidas classe a classe; suíte nova cobre a metade não-testada do
+  `getDashboardPending`. Página em 📱 aguardando validação no device.
