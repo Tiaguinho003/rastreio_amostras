@@ -39,7 +39,7 @@ type ClientLookupFieldProps = {
    * 'secondary' (default) — botao discreto alinhado a esquerda (compat
    *                          com SampleMovementModal e demais usos).
    * 'inline-cta'           — CTA verde full-width (visual unificado com
-   *                          o botao "Nova filial" no /samples/new).
+   *                          o fluxo de novo lote — NewSampleModal).
    */
   createButtonStyle?: 'secondary' | 'inline-cta';
   compact?: boolean;

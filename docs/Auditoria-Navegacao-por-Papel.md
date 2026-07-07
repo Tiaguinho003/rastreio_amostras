@@ -80,7 +80,7 @@ mantem "Clientes" na sidebar e na tabbar e nao veem Cadastros.
 | `/profile`                                                                                    | Perfil      | qualquer autenticado                            |
 | `/settings`                                                                                   | —           | redireciona para `/profile`                     |
 | `/offline`                                                                                    | offline PWA | qualquer autenticado                            |
-| `/samples`, `/samples/new`, `/samples/[id]`                                                   | Lotes       | `NON_PROSPECTOR_ROLES`                          |
+| `/samples`, `/samples/[id]`                                                                   | Lotes       | `NON_PROSPECTOR_ROLES`                          |
 | `/camera`                                                                                     | Camera      | `NON_PROSPECTOR_ROLES`                          |
 | `/clients`, `/clients/[id]`                                                                   | Clientes    | `NON_PROSPECTOR_ROLES`                          |
 | `/informe`                                                                                    | Relatorios  | `INFORME_ROLES` (conteudo adaptativo por papel) |
@@ -161,7 +161,7 @@ Contagem:
 Alcancadas por fluxo interno ou URL direta (guard permite), mas sem item de menu
 proprio:
 
-- `/samples/new`, `/samples/[id]` — criar/abrir lote (a partir de Lotes).
+- `/samples/[id]` — criar (modal do leque "+" em Lotes)/abrir lote.
 - `/clients/[id]` — detalhe do cliente (a partir de Clientes).
 - `/camera` **no desktop** — a rota e liberada (`NON_PROSPECTOR_ROLES`), mas o
   unico botao de Camera esta na tabbar mobile; a sidebar nao tem essa entrada.
@@ -221,7 +221,7 @@ Contagem:
 
 ### Rotas acessiveis sem botao de navegacao
 
-- `/samples/new`, `/samples/[id]` — criar/abrir lote (a partir de Lotes). E onde
+- `/samples/[id]` — criar (modal do leque "+" em Lotes)/abrir lote. E onde
   o classificador faz a classificacao da amostra.
 - `/clients/[id]` — detalhe do cliente (a partir de Clientes).
 - `/camera` **no desktop** — rota liberada (`NON_PROSPECTOR_ROLES`), mas o botao
@@ -284,7 +284,7 @@ Contagem:
 
 ### Rotas acessiveis sem botao de navegacao
 
-- `/samples/new`, `/samples/[id]`; `/clients/[id]` — a partir de Lotes/Clientes.
+- `/samples/[id]`; `/clients/[id]` — a partir de Lotes/Clientes (criação de lote = modal do leque "+").
 - `/camera` **no desktop** — rota liberada, botao so na tabbar mobile.
 
 ### Rotas bloqueadas (redirecionam para `/dashboard`)
@@ -353,7 +353,7 @@ Contagem:
 
 - `/clients` — a lista de clientes, agora alcancada pela **aba Clientes do
   `/cadastros`** (ou por URL direta; guard `NON_PROSPECTOR_ROLES` inalterado).
-- `/samples/new`, `/samples/[id]`; `/clients/[id]` — a partir de Lotes/Clientes.
+- `/samples/[id]`; `/clients/[id]` — a partir de Lotes/Clientes (criação de lote = modal do leque "+").
 - `/camera` **no desktop** — rota liberada, botao so na tabbar mobile (igual aos
   demais nao-prospectores).
 
@@ -432,7 +432,7 @@ Contagem:
 
 - `/clients` — a lista de clientes, agora alcancada pela **aba Clientes do
   `/cadastros`** (ou por URL direta; guard `NON_PROSPECTOR_ROLES` inalterado).
-- `/samples/new`, `/samples/[id]`; `/clients/[id]`; `/camera` no desktop.
+- `/samples/[id]`; `/clients/[id]`; `/camera` no desktop (criação de lote = modal do leque "+").
 
 ### Rotas bloqueadas
 

@@ -353,7 +353,7 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
   }, []);
 
   // ── DirtyState global (router Link / back interception)
-  useRegisterDirtyState('samples/new', state.dirty, 'Nova amostra em preenchimento');
+  useRegisterDirtyState('novo-lote', state.dirty, 'Novo lote em preenchimento');
 
   function markDirty() {
     if (!state.dirty) dispatch({ type: 'MARK_DIRTY' });
@@ -854,8 +854,9 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
 
   function handleSuccessClose() {
     // Mesmo destino do botao primario: o user fechou o modal apos criar com
-    // sucesso. Em /samples/new -> navega pra detail; em /samples (FAB) ->
-    // override fecha + refetch (Decisao 5.29 = b).
+    // sucesso. Default (sem override) navega pro detail; o caller de
+    // /samples (FAB) passa onSuccessNavigate que fecha + refetch
+    // (Decisao 5.29 = b). A rota /samples/new foi removida (LNW-D1).
     if (state.createdSampleId) {
       navigateToSample(state.createdSampleId);
     }

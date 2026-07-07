@@ -314,17 +314,15 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   const router = useRouter();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const isDashboard = pathname === '/dashboard';
-  const isNewSample = pathname === '/samples/new';
   const isSamplesList = pathname === '/samples';
   const isClientsList = pathname === '/clients';
-  const isSampleDetail = pathname.startsWith('/samples/') && pathname !== '/samples/new';
+  const isSampleDetail = pathname.startsWith('/samples/');
   const isClientDetail = pathname.startsWith('/clients/') && pathname !== '/clients';
   const isUsersPage = pathname === '/users';
   const isProfilePage = pathname === '/profile';
   const isInformePage = pathname === '/informe';
   const isLayeredRoute =
     isDashboard ||
-    isNewSample ||
     isSamplesList ||
     isClientsList ||
     isSampleDetail ||
@@ -869,7 +867,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
       </header>
 
       <main
-        className={`app-shell-main${isCameraRoute ? ' is-camera-route' : ''}${isLayeredRoute ? ' is-dashboard-route' : ''}${isNewSample ? ' is-new-sample-route' : ''}`}
+        className={`app-shell-main${isCameraRoute ? ' is-camera-route' : ''}${isLayeredRoute ? ' is-dashboard-route' : ''}`}
       >
         {mobileRouteMeta && !isCameraRoute ? (
           <section className="app-shell-mobile-route-header">

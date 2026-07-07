@@ -477,10 +477,9 @@ function SamplesPage() {
     // Dois regimes: voltar do DETALHE da amostra (/samples/:id) restaura sempre
     // (permanente); voltar de qualquer outra rota restaura so dentro do TTL,
     // contado desde que saiu da Lotes. `getRouteLeftBehind()` lido aqui no render
-    // devolve a rota de origem (ver lib/navigation/route-history). `/samples/new`
-    // NAO conta como detalhe.
+    // devolve a rota de origem (ver lib/navigation/route-history).
     const prev = getRouteLeftBehind();
-    const cameFromDetail = !!prev && /^\/samples\/[^/]+$/.test(prev) && prev !== '/samples/new';
+    const cameFromDetail = !!prev && /^\/samples\/[^/]+$/.test(prev);
     if (!cameFromDetail && Date.now() - snap.savedAt > SAMPLES_SNAPSHOT_TTL_MS) {
       clearSamplesSnapshot();
       return null;

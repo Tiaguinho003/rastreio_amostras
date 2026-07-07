@@ -19231,20 +19231,6 @@ select.samples-filter-field-input {
     display: none;
   }
 
-  .app-shell-root:has(.is-new-sample-route) .topbar.topbar--dashboard-only .topbar-profile-trigger {
-    width: 2rem;
-    min-width: 2rem;
-    height: 2rem;
-    background: rgba(255, 255, 255, 0.14);
-    border-color: rgba(255, 255, 255, 0.16);
-    box-shadow: none;
-  }
-
-  .app-shell-root:has(.is-new-sample-route) .topbar.topbar--dashboard-only .topbar-profile-icon {
-    width: 1.1rem;
-    height: 1.1rem;
-  }
-
   .dashboard-page {
     display: flex;
     flex-direction: column;
