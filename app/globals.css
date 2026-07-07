@@ -26140,9 +26140,6 @@ select.samples-filter-field-input {
     cursor: default;
   }
 
-  /* ── 2a linha: card "Lotes disponiveis" (SalesAvailabilityCard) +
-     card comercial "Vendas e perdas", cada um na metade da largura ── */
-
   /* ── Entry animations ── */
 
   .dd-summary-row > .dd-stat-card:nth-child(1) {
@@ -26153,34 +26150,161 @@ select.samples-filter-field-input {
     animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.14s backwards;
   }
 
-  .dd-summary-row > .dd-stat-card:nth-child(3) {
-    animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.2s backwards;
-  }
-
-  .dd-summary-row > .dd-stat-card:nth-child(4) {
-    animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.26s backwards;
-  }
-
-  /* Linha 2: so "Lotes disponiveis" na coluna esquerda (mesma largura de
-     antes). Layout provisorio: "Ultimas atividades" saiu em 2026-07-06 e
-     "Vendas e perdas" em 2026-07-07 (DSH-D3); a informacao que ocupara a
-     coluna direita ainda sera definida. */
+  /* Linha 2 (DSH-D5): pilha na coluna ESQUERDA — "Lotes disponiveis" em cima
+     e "Ultimos envios" embaixo, MESMO tamanho (rows 1fr/1fr dividem a altura
+     que sobra da viewport; o shell-lock de 100vh continua, a lista de envios
+     rola por dentro). A coluna direita segue vazia ("Ultimas atividades"
+     saiu em 2026-07-06 e "Vendas e perdas" em 2026-07-07/DSH-D3; a proxima
+     informacao sera definida). */
   .dd-content-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: clamp(0.75rem, 1.4vw, 1.25rem);
-    /* NAO estica pra preencher a viewport: a altura vem do conteudo do card
-       (o espaco que sobra ate o fim da viewport vira folga inferior — a
-       faixa branca maior ja consumiu parte do topo). */
-    flex: 0 0 auto;
+    flex: 1 1 auto;
     min-height: 0;
     animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.3s backwards;
   }
 
-  .dd-content-grid > .sales-card {
+  .dd-left-stack {
     grid-column: 1;
     min-height: 0;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    gap: clamp(0.75rem, 1.4vw, 1.25rem);
+  }
+
+  .dd-left-stack > .sales-card {
+    min-height: 0;
     box-shadow: var(--dd-card-shadow);
+  }
+
+  /* ── Card "Ultimos envios" (DSH-D5) — shell no padrao dos cards da linha 2;
+     minicards reusam o visual .spv2-card do modal de Lotes pendentes ── */
+
+  .dd-sends-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    gap: clamp(0.45rem, 0.9vw, 0.7rem);
+    background: #ffffff;
+    border: 1px solid rgba(112, 130, 103, 0.22);
+    border-radius: 20px;
+    box-shadow: var(--dd-card-shadow);
+    padding: clamp(0.8rem, 1.1vw, 1.1rem) clamp(0.95rem, 1.3vw, 1.3rem);
+  }
+
+  .dd-sends-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex: none;
+  }
+
+  .dd-sends-title {
+    margin: 0;
+    font-size: clamp(0.9rem, 0.98vw, 1rem);
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: #1a2e1f;
+  }
+
+  .dd-sends-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: clamp(28px, 2.4vw, 34px);
+    height: clamp(28px, 2.4vw, 34px);
+    border-radius: 10px;
+    background: rgba(31, 93, 67, 0.1);
+  }
+
+  .dd-sends-icon svg {
+    width: 58%;
+    height: 58%;
+    fill: none;
+    stroke: var(--brand-green, #1f5d43);
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* Lista com scroll INTERNO (o shell do dashboard nao rola). */
+  .dd-sends-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: grid;
+    gap: clamp(0.4rem, 0.7vw, 0.55rem);
+    align-content: start;
+    padding-right: 0.25rem;
+  }
+
+  /* Minicards inertes: sem cursor de clique nem o afundar do :active
+     (mesmo tratamento do .is-operations no modal de Lotes pendentes). */
+  .dd-sends-list .spv2-card.is-static {
+    cursor: default;
+  }
+
+  .dd-sends-list .spv2-card.is-static:active {
+    transform: none;
+  }
+
+  /* Envio cancelado: esmaece o minicard (padrao do antigo feed). */
+  .dd-sends-list .spv2-card.is-cancelled {
+    opacity: 0.55;
+    filter: saturate(0.6);
+  }
+
+  .dd-send-kind {
+    margin-left: auto;
+    flex: none;
+    padding: 0.14rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+
+  .dd-send-kind.is-physical {
+    background: rgba(31, 93, 67, 0.1);
+    color: var(--brand-green, #1f5d43);
+  }
+
+  .dd-send-kind.is-report {
+    background: rgba(41, 128, 185, 0.12);
+    color: #21618c;
+  }
+
+  .dd-send-cancelled-tag {
+    flex: none;
+    padding: 0.14rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    background: rgba(196, 92, 92, 0.12);
+    color: #a34848;
+    white-space: nowrap;
+  }
+
+  .dd-sends-empty {
+    margin: auto 0;
+    padding: 0 1rem;
+    text-align: center;
+    font-size: clamp(0.78rem, 0.88vw, 0.88rem);
+    /* Mesmo tom AA dos vazios do dashboard. */
+    color: #71786d;
+  }
+
+  .dd-sends-list.is-skeleton {
+    overflow: hidden;
+  }
+
+  .dd-sends-list.is-skeleton .dashboard-skeleton-line {
+    height: clamp(44px, 4vw, 55px);
+    border-radius: clamp(14px, 1vw, 16px);
   }
 
   /* "Lotes disponiveis" compacto: legenda ao lado do donut + botao "Ver
@@ -34942,6 +35066,7 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   .dashboard-operation-badge,
   .dashboard-mobile .dashboard-operation-card.is-wide .dashboard-operation-badge,
   .dashboard-skeleton-line,
+  .dd-sends-list .spv2-card,
   .rsm-skeleton-card {
     animation: none;
   }

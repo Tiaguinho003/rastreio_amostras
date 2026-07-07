@@ -1,20 +1,29 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 
+import { getDashboardRecentSends } from '../../lib/api-client';
 import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
+import { RecentSendsCard } from './RecentSendsCard';
 import { useOperationModal } from './useOperationModal';
 import { OperationModal } from './OperationModal';
-import { StatCard, formatDelta } from './StatCard';
-import type { DashboardPendingResponse, DashboardSalesAvailabilityResponse } from '../../lib/types';
+import { StatCard } from './StatCard';
+import type {
+  DashboardPendingResponse,
+  DashboardRecentSendsResponse,
+  DashboardSalesAvailabilityResponse,
+  SessionData,
+} from '../../lib/types';
 
 interface DashboardDesktopProps {
+  session: SessionData;
   data: DashboardPendingResponse | null;
   salesData: DashboardSalesAvailabilityResponse | null;
   error: string | null;
 }
 
-export function DashboardDesktop({ data, salesData, error }: DashboardDesktopProps) {
+export function DashboardDesktop({ session, data, salesData, error }: DashboardDesktopProps) {
   const router = useRouter();
   const {
     activeOperationPanel,
@@ -24,6 +33,60 @@ export function DashboardDesktop({ data, salesData, error }: DashboardDesktopPro
     classifySample,
     operationModalData,
   } = useOperationModal(data);
+
+  const [recentSends, setRecentSends] = useState<DashboardRecentSendsResponse | null>(null);
+  // Throttle pro refetch on focus/visibilitychange: evita N requests
+  // em Alt+Tab rapido.
+  const lastFetchRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (!session) return undefined;
+
+    // So o breakpoint ATIVO busca (o twin mobile fica montado mas inerte via
+    // CSS). `active` evita setState apos unmount; o listener de 'change' do
+    // matchMedia re-busca ao ENTRAR no desktop num resize (senao o card
+    // ficava travado no skeleton — nada disparava o fetch).
+    const mq = window.matchMedia('(min-width: 901px)');
+    let active = true;
+    const REFETCH_THROTTLE_MS = 30_000;
+
+    function refetchAll() {
+      if (!active || !mq.matches) return;
+      lastFetchRef.current = Date.now();
+      getDashboardRecentSends(session)
+        .then((response) => {
+          if (active) setRecentSends(response);
+        })
+        .catch(() => {});
+    }
+
+    function refetchAllThrottled() {
+      if (Date.now() - lastFetchRef.current < REFETCH_THROTTLE_MS) return;
+      refetchAll();
+    }
+
+    refetchAll();
+
+    function handleBreakpointChange() {
+      if (mq.matches) refetchAll();
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        refetchAllThrottled();
+      }
+    }
+
+    mq.addEventListener('change', handleBreakpointChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', refetchAllThrottled);
+    return () => {
+      active = false;
+      mq.removeEventListener('change', handleBreakpointChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', refetchAllThrottled);
+    };
+  }, [session]);
 
   // Q.print: card "Impressao pendente" cortado definitivamente (decisao
   // Q.1.c #20). PrintJob agora vive como informacao auxiliar dentro do
@@ -39,6 +102,9 @@ export function DashboardDesktop({ data, salesData, error }: DashboardDesktopPro
           </p>
         ) : null}
 
+        {/* DSH-D4: os StatCards de pulso ("Lotes registrados hoje" e "Envios
+            concluidos hoje") sairam; o grid segue com 4 colunas e os 2 cards
+            restantes no tamanho atual (decisao do usuario). */}
         <div className="dd-summary-row">
           {data ? (
             <>
@@ -71,46 +137,26 @@ export function DashboardDesktop({ data, salesData, error }: DashboardDesktopPro
                   </svg>
                 }
               />
-              <StatCard
-                title="Lotes registrados hoje"
-                value={data.dailyRegistered.today}
-                delta={formatDelta(data.dailyRegistered.today, data.dailyRegistered.yesterday)}
-                icon={
-                  <svg viewBox="0 0 24 24" focusable="false">
-                    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
-                    <path d="M14 3v5h5" />
-                    <path d="m9.5 15 2 2 3.5-3.8" />
-                  </svg>
-                }
-              />
-              <StatCard
-                title="Envios concluídos hoje"
-                value={data.dailySent.today}
-                delta={formatDelta(data.dailySent.today, data.dailySent.yesterday)}
-                icon={
-                  <svg viewBox="0 0 24 24" focusable="false">
-                    <path d="M22 2 11 13" />
-                    <path d="M22 2 15 22l-4-9-9-4 20-7z" />
-                  </svg>
-                }
-              />
             </>
           ) : (
-            Array.from({ length: 4 }).map((_, i) => (
+            Array.from({ length: 2 }).map((_, i) => (
               <div key={i} className="dd-stat-card is-skeleton" aria-hidden="true" />
             ))
           )}
         </div>
 
-        {/* Card "Vendas e perdas" removido em 2026-07-07 (decisao DSH-D3);
-            o grid segue provisorio com so o "Lotes disponiveis" ate definirmos
-            a proxima informacao do dashboard. */}
+        {/* Linha 2 (DSH-D5): pilha na coluna esquerda — "Lotes disponiveis"
+            em cima e "Ultimos envios" embaixo, mesmo tamanho. A coluna
+            direita segue vazia ate definirmos a proxima informacao. */}
         <div className="dd-content-grid">
-          {salesData ? (
-            <SalesAvailabilityCard data={salesData} compact />
-          ) : (
-            <div className="sales-card sales-card-skeleton" aria-hidden="true" />
-          )}
+          <div className="dd-left-stack">
+            {salesData ? (
+              <SalesAvailabilityCard data={salesData} compact />
+            ) : (
+              <div className="sales-card sales-card-skeleton" aria-hidden="true" />
+            )}
+            <RecentSendsCard items={recentSends ? recentSends.items : null} />
+          </div>
         </div>
       </section>
 
