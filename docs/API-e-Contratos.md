@@ -93,9 +93,11 @@ Validacoes criticas nessas rotas:
 4. `GET /api/v1/samples/resolve`
    Resolve QR bruto para UUID ou lote interno.
 5. `GET /api/v1/dashboard/pending`
-   Resume filas operacionais do dashboard: `classificationPending` (counts + até 500 itens em RC), `clientsIncomplete.total` e o pulso do dia `dailyRegistered`/`dailySent` (hoje/ontem BRT por evento).
+   Resume filas operacionais do dashboard: `classificationPending` (counts + até 500 itens em RC) e `clientsIncomplete.total`. (O pulso do dia `dailyRegistered`/`dailySent` saiu em 2026-07-07 com os StatCards de pulso — DSH-D4.)
 6. `GET /api/v1/dashboard/sales-availability`
    Donut "Lotes disponíveis": bandas de aging por `created_at` (`over30`/`from15to30`/`under15`), contando `commercial_status IN (OPEN, PARTIALLY_SOLD)` e excluindo `INVALIDATED`.
+7. `GET /api/v1/dashboard/recent-sends`
+   Card "Últimos envios" (desktop, DSH-D5): últimos 40 eventos de envio — `PHYSICAL_SAMPLE_SENT` + `REPORT_EXPORTED` — do mais recente pro mais antigo, com lote/`isBlend`, `kind`, destinatário ATUAL (última `SEND_UPDATED` vence; laudo cai pro snapshot ou `destination`) e flag `cancelled` (pareamento por `payload.sendEventId`). Exclui amostras `INVALIDATED`. `Cache-Control: private, max-age=30, must-revalidate`.
 
 > Autorização dos endpoints de dashboard: apenas autenticação (PROSPECTOR é negado pela allowlist central). **Sem gate positivo de papel por decisão** (DSH-D2, 2026-07-07): o dashboard é único para os 5 papéis não-PROSPECTOR, incluindo os dados comerciais do donut. A rota `dashboard/commercial-timeseries` (card "Vendas e perdas") foi removida em 2026-07-07 (DSH-D3).
 

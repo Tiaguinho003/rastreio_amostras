@@ -44,23 +44,23 @@
 Legenda: ⬜ pendente · 🔎 em análise · 🛠 em implementação · 📱 aguardando
 validação no device · ✅ concluída.
 
-| #   | Código | Página             | Rota                                                                          | Status | Sessões | Resumo                                                                                                                                                                                                            |
-| --- | ------ | ------------------ | ----------------------------------------------------------------------------- | ------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | LOG    | Login              | `/login` (+ `/forgot-password`)                                               | ✅     | S3      | 16 achados corrigidos (incl. 3 bugs de persistência no auth), endurecimento do reset, 3 suítes de teste novas, teia de docs sincronizada; validada no device 2026-07-07                                           |
-| 2   | DSH    | Dashboard          | `/dashboard` (twins mobile/desktop + dashboard do PROSPECTOR)                 | 📱     | S4      | 19 achados (15 corrigidos, 4 catalogados) + decisões D2 (dashboard único, sem gate por papel) e D3 (card "Vendas e perdas" removido por inteiro); 11 commits; próxima conversa: o que entra na linha 2 do desktop |
-| 3   | LOT    | Lotes (lista)      | `/samples`                                                                    | ⬜     | —       | —                                                                                                                                                                                                                 |
-| 4   | LNW    | Novo lote          | `/samples/new`                                                                | ⬜     | —       | —                                                                                                                                                                                                                 |
-| 5   | LDT    | Detalhe do lote    | `/samples/[sampleId]`                                                         | ⬜     | —       | —                                                                                                                                                                                                                 |
-| 6   | CAM    | Câmera / Scanner   | `/camera`                                                                     | ⬜     | —       | —                                                                                                                                                                                                                 |
-| 7   | CLI    | Clientes (lista)   | `/clients`                                                                    | ⬜     | —       | —                                                                                                                                                                                                                 |
-| 8   | CDT    | Detalhe do cliente | `/clients/[clientId]`                                                         | ⬜     | —       | —                                                                                                                                                                                                                 |
-| 9   | CTR    | Contratos          | `/contratos`                                                                  | ⬜     | —       | —                                                                                                                                                                                                                 |
-| 10  | FIN    | Financeiro         | `/financeiro`                                                                 | ⬜     | —       | —                                                                                                                                                                                                                 |
-| 11  | CAD    | Cadastros          | `/cadastros`                                                                  | ⬜     | —       | —                                                                                                                                                                                                                 |
-| 12  | REL    | Relatórios         | `/informe` (+ redirect `/resumo`)                                             | ⬜     | —       | —                                                                                                                                                                                                                 |
-| 13  | USR    | Usuários           | `/users`                                                                      | ⬜     | —       | —                                                                                                                                                                                                                 |
-| 14  | PRF    | Perfil             | `/profile` (+ redirect `/settings`)                                           | ⬜     | —       | —                                                                                                                                                                                                                 |
-| 15  | AUX    | Auxiliares         | `/laudo/[token]` (público), `/offline`, `/maintenance`, redirects `/` e afins | ⬜     | —       | —                                                                                                                                                                                                                 |
+| #   | Código | Página             | Rota                                                                          | Status | Sessões | Resumo                                                                                                                                                                                                                    |
+| --- | ------ | ------------------ | ----------------------------------------------------------------------------- | ------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | LOG    | Login              | `/login` (+ `/forgot-password`)                                               | ✅     | S3      | 16 achados corrigidos (incl. 3 bugs de persistência no auth), endurecimento do reset, 3 suítes de teste novas, teia de docs sincronizada; validada no device 2026-07-07                                                   |
+| 2   | DSH    | Dashboard          | `/dashboard` (twins mobile/desktop + dashboard do PROSPECTOR)                 | 📱     | S4–S5   | 19 achados + decisões D2–D5: dashboard único, "Vendas e perdas" e StatCards de pulso removidos, card novo "Últimos envios" (40 envios, endpoint recent-sends); 16 commits; coluna direita da linha 2 segue a definir (P2) |
+| 3   | LOT    | Lotes (lista)      | `/samples`                                                                    | ⬜     | —       | —                                                                                                                                                                                                                         |
+| 4   | LNW    | Novo lote          | `/samples/new`                                                                | ⬜     | —       | —                                                                                                                                                                                                                         |
+| 5   | LDT    | Detalhe do lote    | `/samples/[sampleId]`                                                         | ⬜     | —       | —                                                                                                                                                                                                                         |
+| 6   | CAM    | Câmera / Scanner   | `/camera`                                                                     | ⬜     | —       | —                                                                                                                                                                                                                         |
+| 7   | CLI    | Clientes (lista)   | `/clients`                                                                    | ⬜     | —       | —                                                                                                                                                                                                                         |
+| 8   | CDT    | Detalhe do cliente | `/clients/[clientId]`                                                         | ⬜     | —       | —                                                                                                                                                                                                                         |
+| 9   | CTR    | Contratos          | `/contratos`                                                                  | ⬜     | —       | —                                                                                                                                                                                                                         |
+| 10  | FIN    | Financeiro         | `/financeiro`                                                                 | ⬜     | —       | —                                                                                                                                                                                                                         |
+| 11  | CAD    | Cadastros          | `/cadastros`                                                                  | ⬜     | —       | —                                                                                                                                                                                                                         |
+| 12  | REL    | Relatórios         | `/informe` (+ redirect `/resumo`)                                             | ⬜     | —       | —                                                                                                                                                                                                                         |
+| 13  | USR    | Usuários           | `/users`                                                                      | ⬜     | —       | —                                                                                                                                                                                                                         |
+| 14  | PRF    | Perfil             | `/profile` (+ redirect `/settings`)                                           | ⬜     | —       | —                                                                                                                                                                                                                         |
+| 15  | AUX    | Auxiliares         | `/laudo/[token]` (público), `/offline`, `/maintenance`, redirects `/` e afins | ⬜     | —       | —                                                                                                                                                                                                                         |
 
 A ordem segue o **fluxo operacional** de uso do app (D2). A revisão de cada
 página cobre também a **cadeia de backend** que ela consome (D6) e os **6
@@ -345,6 +345,21 @@ conferida: código 100% limpo, resíduos só em docs.
   types, CSS `dd-trend-*` e teste de integração). A linha 2 do desktop fica
   com o donut na coluna esquerda e a direita vazia até definirmos as
   próximas informações do dashboard (conversa marcada — ver DSH-P2).
+- **DSH-D4** (2026-07-07) — os StatCards de pulso **"Lotes registrados
+  hoje" e "Envios concluídos hoje" saíram** do desktop; a 1ª linha fica com
+  2 StatCards no tamanho atual (grid de 4 colunas, colunas 3-4 vazias). O
+  payload `dailyRegistered`/`dailySent` do `dashboard/pending`, o
+  `formatDelta`/`.dd-stat-delta` e os casos de teste do pulso saíram junto.
+- **DSH-D5** (2026-07-07) — card novo **"Últimos envios"** no desktop:
+  pilha na coluna esquerda da linha 2 (donut em cima, envios embaixo,
+  MESMO tamanho — rows 1fr/1fr preenchendo a viewport; lista com scroll
+  interno). Lista os **últimos 40 envios** (`PHYSICAL_SAMPLE_SENT` +
+  `REPORT_EXPORTED`, sem janela de tempo), minicards **inertes** no visual
+  `.spv2-card` com lote+BlendBadge, pill do tipo (Amostra física/Laudo),
+  **destinatário ATUAL** (última edição vence) e tempo relativo;
+  **cancelado esmaecido** com tag. Endpoint novo
+  `GET /dashboard/recent-sends` (Cache-Control 30s; só autenticação,
+  DSH-D2).
 
 **Achados:**
 
@@ -409,13 +424,15 @@ conferida: código 100% limpo, resíduos só em docs.
   tap-feedback geral, SVGs de dados (donut/linha com `role="img"`+label),
   skeletons `aria-hidden` e estados vazios estão CONFORMES às skills.
 
-**Resumo:** 11 commits — `4149590` (throttle), `5e6b3d7` (código morto),
-`54bc6aa` (CSS interação/a11y), `4b106e0` (modal de senha), `feb9b72`
-(banner de erro), `575a3ae` (teste), `6b3ecd9`+`866acf9` (docs/skills) e a
-remoção do "Vendas e perdas" `6688c9d`+`7a970f5` (frontend+CSS) +
-`0315f6a` (backend) + docs. Gates verdes (lint / format / typecheck /
-schemas / build / unit 357 / contracts 20 / integração 398 + re-seed;
-re-rodados após a remoção do card).
+**Resumo:** 16 commits — ciclo R1–R8: `4149590` (throttle), `5e6b3d7`
+(código morto), `54bc6aa` (CSS interação/a11y), `4b106e0` (modal de senha),
+`feb9b72` (banner de erro), `575a3ae` (teste), `6b3ecd9`+`866acf9`
+(docs/skills); remoção do "Vendas e perdas" (D3): `6688c9d`+`7a970f5`
+(frontend+CSS) + `0315f6a` (backend) + `2a053c7` (docs); redesenho D4/D5:
+`1af8b25` (endpoint recent-sends), `4ed9636` (card Últimos Envios + saída
+dos StatCards de pulso), `f6b0f1e` (limpeza do pulso/delta), `804f3a3`
+(suíte recent-sends) + docs. Gates verdes (lint / format / typecheck /
+schemas / build / unit 357 / contracts 20 / integração 401 + re-seed).
 
 **Pendências:**
 
@@ -433,11 +450,14 @@ re-rodados após a remoção do card).
 
 **Validação no device (Flavio):** dashboard mobile + desktop de um papel
 não-PROSPECTOR (visual geral; textos secundários pequenos ficaram um tom
-mais escuros — DSH-A3) · desktop **sem o card "Vendas e perdas"** (donut na
-coluna esquerda, direita vazia — provisório) · StatCards a 901–1100px
-(aperta?) · donut a 320px · modal de senha inicial (agora via portal —
-manter e trocar senha) · dashboard do PROSPECTOR intacto · banner de erro
-(opcional: modo avião e reabrir o app).
+mais escuros — DSH-A3) · desktop novo (D4/D5): **1ª linha com 2 StatCards**
+no tamanho atual · pilha **donut + "Últimos envios" do MESMO tamanho**
+preenchendo a altura, lista rolando POR DENTRO (a página não rola) ·
+minicards (lote, pill Amostra física/Laudo, destinatário, tempo relativo) ·
+envio cancelado esmaecido com tag · **viewport baixa** (~768px de altura —
+estoura?) · donut a 320px (mobile) · modal de senha inicial (agora via
+portal — manter e trocar senha) · dashboard do PROSPECTOR intacto · banner
+de erro (opcional: modo avião e reabrir o app).
 
 ### Lotes — lista (LOT) — ⬜ não iniciada
 
@@ -533,6 +553,16 @@ manter e trocar senha) · dashboard do PROSPECTOR intacto · banner de erro
   `getDashboardPending`. Na sequência, Flavio travou **DSH-D2** (dashboard
   único pros papéis não-PROSPECTOR — resolve a ex-P1) e **DSH-D3** (remoção
   completa do card "Vendas e perdas": componente + rota + service +
-  api-client + types + CSS `dd-trend-*` + teste; T2/T3 morreram). Próximo
-  passo combinado: definir as informações que entram na linha 2 do desktop
-  (DSH-P2). Página em 📱 aguardando validação no device.
+  api-client + types + CSS `dd-trend-*` + teste; T2/T3 morreram). Página em
+  📱 aguardando validação no device.
+- **S5 (2026-07-07)** — Redesenho do desktop (DSH-D4/D5, plan mode com 7
+  perguntas respondidas): saem os StatCards de pulso ("Lotes registrados
+  hoje" + "Envios concluídos hoje" e todo o pulso diário do backend) e
+  entra o card **"Últimos envios"** — endpoint novo
+  `GET /dashboard/recent-sends` (40 envios, física+laudo, cancelado
+  esmaecido, destinatário atual), pilha 1fr/1fr com o donut na coluna
+  esquerda. Levantamento revelou que "envio de laudo" não tem evento
+  próprio (a Etiqueta de Envio grava `PHYSICAL_SAMPLE_SENT`; o
+  `REPORT_EXPORTED` é o export/envio do PDF) — decisão: listar os dois.
+  Suíte nova de 7 testes (surfou o trigger que bloqueia eventos em amostra
+  INVALIDATED). Gates verdes (unit 357 / integração 401). Segue 📱.
