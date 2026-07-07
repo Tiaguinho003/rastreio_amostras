@@ -16,13 +16,16 @@ import {
 import { deriveBlendHarvest, deriveBlendOwner } from './blend-harvest.js';
 import { buildEventEnvelope, normalizeActorContext } from './sample-event-factory.js';
 
+// LOT-D2 (revisao geral, 2026-07-07): PROSPECTOR fora por decisao — segunda
+// barreira de papel ALEM da allowlist central (prospector-access.js). Antes
+// ele "espelhava o COMMERCIAL" aqui e o gate efetivo era so a allowlist; se
+// um metodo de sample entrasse la por engano, o service deixava passar. Se um
+// dia o PROSPECTOR precisar agir em lotes, a inclusao volta explicitamente.
 const USER_ACTION_ROLES = [
   USER_ROLES.ADMIN,
   USER_ROLES.CLASSIFIER,
   USER_ROLES.REGISTRATION,
   USER_ROLES.COMMERCIAL,
-  // PROSPECTOR espelha integralmente o COMMERCIAL por enquanto.
-  USER_ROLES.PROSPECTOR,
   // CADASTRO espelha o REGISTRATION (operacao geral).
   USER_ROLES.CADASTRO,
 ];
