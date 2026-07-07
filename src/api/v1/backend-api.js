@@ -387,9 +387,14 @@ export function createBackendApiV1({
             location: body.location,
             receivedChannel: body.receivedChannel,
             notes: body.notes ?? null,
-            // Lote editavel: numero manual + data de chegada informados no modal.
-            sampleLotNumber: body.sampleLotNumber,
-            lotNumberManual: body.lotNumberManual,
+            // Lote editavel: numero manual + data de chegada informados no
+            // modal. LNW-B1: o numero fixo SO passa com a flag manual=true —
+            // sem ela, um sampleLotNumber cru pularia a validacao
+            // (normalizeManualLotNumber) e uma colisao viraria 500. O caminho
+            // direto do service segue aceitando numero fixo sem flag
+            // (testes/imports).
+            sampleLotNumber: body.lotNumberManual === true ? body.sampleLotNumber : null,
+            lotNumberManual: body.lotNumberManual === true,
             receivedDate: body.receivedDate,
           },
           actor

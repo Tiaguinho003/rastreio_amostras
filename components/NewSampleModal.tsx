@@ -225,10 +225,9 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
   const [notes, setNotes] = useState('');
   const [harvestOptionsOpen, setHarvestOptionsOpen] = useState(false);
   // Lote editavel: numero (pre-preenchido com a sugestao da sequencia) + data
-  // de chegada (default hoje). lotSuggestion guarda a sugestao pra detectar se o
-  // usuario editou (manual) vs aceitou (auto, regenerado no servidor).
+  // de chegada (default hoje). Manual vs automatico e decidido por
+  // lotEditedRef (LNW-B2/D4): editou e nao esta vazio = manual.
   const [lotNumber, setLotNumber] = useState('');
-  const [lotSuggestion, setLotSuggestion] = useState('');
   const [lotLoading, setLotLoading] = useState(false);
   const [receivedDate, setReceivedDate] = useState(() => todayAsInputDate());
 
@@ -265,12 +264,11 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
     setLotLoading(true);
     try {
       const res = await getNextLotNumber(session);
-      setLotSuggestion(res.nextLotNumber);
       // So pre-preenche/atualiza se o usuario nao editou manualmente — assim,
       // reabrir o modal mostra sempre a sugestao fresca da sequencia.
       if (!lotEditedRef.current) setLotNumber(res.nextLotNumber);
     } catch {
-      setLotSuggestion('');
+      // Falha silenciosa: sem sugestao, o backend gera o numero no submit.
     } finally {
       setLotLoading(false);
     }
@@ -469,10 +467,13 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
     dispatch({ type: 'SET_FIELD_ERRORS', errors: EMPTY_REQUIRED_FIELD_ERRORS });
     dispatch({ type: 'SUBMIT_START' });
 
-    // Lote editavel: manual = usuario digitou um numero diferente da sugestao.
-    // Quando manual, mandamos o numero; senao, o servidor gera automaticamente.
+    // Lote editavel (LNW-B2/D4): manual = o usuario EDITOU o campo (rastreado
+    // por lotEditedRef) e ele nao esta vazio. Antes comparava com a sugestao:
+    // digitar um numero IGUAL a ela era tratado como automatico e o servidor
+    // podia gerar OUTRO numero se um lote nascesse no intervalo. Digitou =
+    // fixa o numero; campo intocado/esvaziado = automatico.
     const trimmedLot = lotNumber.trim();
-    const lotNumberManual = trimmedLot !== '' && trimmedLot !== lotSuggestion;
+    const lotNumberManual = lotEditedRef.current && trimmedLot !== '';
 
     try {
       const result = await createSample(session, {
