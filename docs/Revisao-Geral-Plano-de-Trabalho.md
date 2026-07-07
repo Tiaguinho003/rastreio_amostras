@@ -49,7 +49,7 @@ validação no device · ✅ concluída.
 | 1   | LOG    | Login              | `/login` (+ `/forgot-password`)                                               | ✅     | S3      | 16 achados corrigidos (incl. 3 bugs de persistência no auth), endurecimento do reset, 3 suítes de teste novas, teia de docs sincronizada; validada no device 2026-07-07                                                                  |
 | 2   | DSH    | Dashboard          | `/dashboard` (twins mobile/desktop + dashboard do PROSPECTOR)                 | 📱     | S4–S7   | 19 achados + decisões D2–D6: dashboard único; "Vendas e perdas" e pulso removidos; cards novos "Últimos envios" (endpoint recent-sends) e "Eventos" (calendário F0, coluna direita inteira — INCOMPLETO, ver P6); validar tudo no device |
 | 3   | LOT    | Lotes (lista)      | `/samples`                                                                    | 📱     | S8      | Deferidos resolvidos (CSS legado −594 linhas, testes do reducer+filtros) + decisões D1–D4 (uniforme, PROSPECTOR fora do service, copy "lote", vazio único) + erro de carregamento visível, portais, a11y; 10 commits                     |
-| 4   | LNW    | Novo lote          | `/samples/new`                                                                | ⬜     | —       | —                                                                                                                                                                                                                                        |
+| 4   | LNW    | Novo lote          | modal do leque "+" (rota `/samples/new` removida — LNW-D1)                    | 📱     | S9      | Rota wrapper removida + decisões D1–D4 (copy "lote", receivedChannel fora do front, editou = manual) + hardening da API do número fixo, CSS nsv2 órfão −299, press/reduced-motion/contraste/44px, drop-up da safra, 17 testes; 8 commits |
 | 5   | LDT    | Detalhe do lote    | `/samples/[sampleId]`                                                         | ⬜     | —       | —                                                                                                                                                                                                                                        |
 | 6   | CAM    | Câmera / Scanner   | `/camera`                                                                     | ⬜     | —       | —                                                                                                                                                                                                                                        |
 | 7   | CLI    | Clientes (lista)   | `/clients`                                                                    | ⬜     | —       | —                                                                                                                                                                                                                                        |
@@ -593,7 +593,108 @@ seleção), contraste um tom mais escuro (sacas/safra do card e vazio),
 botão sair do modo Liga maior, modais de filtros/envio portalados, tap no
 contador de seleção sem hover grudado.
 
-### Novo lote (LNW) — ⬜ não iniciada
+### Novo lote (LNW) — 📱 aguardando validação no device (S9, 2026-07-07)
+
+> Escopo real: o fluxo de criação vive no **modal** `NewSampleModal`
+> (BottomSheet do leque "+" de `/samples`) + `SampleCreatedSuccessModal` +
+> `ClientQuickCreateModal` (stacked) + cadeia `createSample`. A rota
+> `/samples/new` era só um wrapper sem entrypoint — removida neste ciclo.
+
+**Mapa (R1):** `components/NewSampleModal.tsx` (form owner/sacks/safra/
+número editável/data de chegada/origem/local/notas) · stacked:
+`ClientQuickCreateModal` via `ClientLookupField` · sucesso:
+`SampleCreatedSuccessModal` (central portalado, decisão 5.29: sem X) ·
+backend: `POST /samples/create` (evento único `REGISTRATION_CONFIRMED`,
+idempotência por `clientDraftId`→`sampleId` determinístico) +
+`GET /samples/next-lot-number` · mecânica de modais CONFORME (sheet de
+ação, stacked tier, confirms nas duas pontas da pegadinha §3, validação
+inline canônica, fix do input date iOS).
+
+**Decisões:**
+
+- **LNW-D1** — rota `/samples/new` **removida** (criação só pelo leque).
+- **LNW-D2** — vocabulário do fluxo padronizado pra **"lote"** ("Novo
+  lote", "Criar lote", "Descartar lote?", "Lote criado", "Número do lote",
+  "Criar outro") — estende LOT-D3.
+- **LNW-D3** — conceito `receivedChannel` **removido do front** (schema +
+  payload); backend mantém default `in_person` e o enum completo.
+- **LNW-D4** — número manual: **qualquer edição no campo = manual**
+  (`lotEditedRef`); digitar o número igual à sugestão agora FIXA o número
+  (corrige a regeneração surpresa); vazio segue automático.
+
+**Achados:**
+
+- **LNW-M1** ✅ (D1) — wrapper `app/samples/new/page.tsx` + `isNewSample`
+  do AppShell + exclusão no route-history + seletores stale do
+  ViewportDebugOverlay removidos; dirty key renomeada pra `'novo-lote'`
+  (`9602547`+`e4ed351`).
+- **LNW-M2** ✅ — 19 classes `nsv2-*` órfãs (resíduo da página full-screen)
+  removidas por parser de seletor com split de vírgulas preservando as
+  vivas (−299 linhas); keyframes órfãs `nsv2-header-in`/`nsv2-form-card-in`
+  saíram no commit 5 (`35e8ebe`).
+- **LNW-M3** ✅ — re-export morto `CreateSampleResponse` removido (knip
+  true-positive) (`35e8ebe`).
+- **LNW-I1** ✅ — API parou de repassar `ownerUnitId` (o binding descarta
+  desde a era "lote sem fazenda") (`35e8ebe`).
+- **LNW-B1** ✅ [ALTA] — API aceitava `sampleLotNumber` cru SEM a flag,
+  pulando `normalizeManualLotNumber` (colisão viraria 500) → só repassa
+  com `lotNumberManual === true`; caminho direto do service preservado
+  pra testes/imports (`74903ea`).
+- **LNW-B2** ✅ (D4) — `lotNumberManual` por comparação de valor → por
+  edição (`lotEditedRef` + campo não-vazio) (`74903ea`).
+- **LNW-L1** ✅ (D2/D3) — copy "lote" nas ~10 strings + acentos sistêmicos
+  no fluxo (NewSampleModal, ClientQuickCreateModal, ClientLookupField,
+  success modal) + `receivedChannel` fora do form-schema/api-client
+  (`2b6745d`).
+- **LNW-L2** ✅ — press-effects: chips de safra, `nsv2-clear-btn`,
+  `lookup-create-cta`, `client-lookup-option` (tap-highlight transparent,
+  :active transform-only, hover gated) (`3a25e7f`).
+- **LNW-A1** ✅ — bloco `prefers-reduced-motion` do fluxo: cascade dos
+  campos, banner offline, check do sucesso (aparece completo via
+  `stroke-dashoffset: 0`), pop do confirm e o **slide do `.bottom-sheet`
+  (global — todos os sheets do app)** (`3a25e7f`).
+- **LNW-A2** ✅ — contraste `.nsv2-field-label` `#aaa` (~2.3:1) → `#6f6f6f`
+  (5.0:1) — **validar no device** (`3a25e7f`).
+- **LNW-A3** ✅ — chips de safra com alvo de toque ≥44px no mobile
+  (`3a25e7f`).
+- **LNW-L3** ✅ — dropdown de safra clipava no fim do body rolável → mede o
+  espaço no focus e abre PRA CIMA (`.is-drop-up`) quando não cabe
+  (`3a25e7f`).
+- **LNW-T1** ✅ — suíte nova `sample-create-validation.integration.test.js`
+  (17 testes): limites 422, binding do dono (ausente/NOT_FOUND/INACTIVE/
+  NOT_SELLER), idempotência (retry → 200 idempotent; INVALIDATED → 409),
+  número manual (0/não-dígito/>7 → 422 no campo; colisão 409) e o
+  hardening B1 na camada da API (`f2c571d`).
+- **LNW-DOC1–4** ✅ — API-e-Contratos (POST create reescrito +
+  next-lot-number), Produto-e-Fluxos §1 (sem foto de chegada, número
+  editável, rota removida), Liga-Plano (notas: leque 3 opções, success
+  headerless), Auditoria (rota fora das tabelas, no commit 1) + skills
+  feedback-messages/modals/design-system (`ab9a822`).
+- ❌ **Não-achado** (não reinvestigar): success modal sem X é a decisão
+  5.29 documentada.
+
+**Resumo:** 8 commits — `9602547`+`e4ed351` (rota), `35e8ebe` (código
+morto), `74903ea` (manual/hardening), `2b6745d` (copy), `3a25e7f`
+(interação/a11y), `f2c571d` (testes), `ab9a822` (docs). Gates verdes
+(lint / format / typecheck / schemas / build / unit 367 / contracts 20 /
+integração + re-seed).
+
+**Pendências:**
+
+- **LNW-P1** — banner offline `position: fixed` pode sobrepor o rodapé do
+  sheet (só offline; conviveu até aqui).
+- **LNW-P2** — tokens verdes fora da paleta no fluxo (`#5a8a54`, `#1d762c`,
+  `#2E7D32`, `#1B5E20`) — dívida de token (irmã da LOT-P1).
+- **LNW-P3** — dropdown de safra sem semântica combobox/listbox (é lista de
+  botões; funcional, mas leitor de tela não anuncia como autocomplete).
+
+**Validação no device (Flavio):** criar lote pelo leque (automático,
+manual, e manual = sugestão — agora FIXA o número), copy nova ("Novo
+lote"/"Criar lote"/"Descartar lote?"/"Lote criado"), acentos, quick-create
+de proprietário no meio do fluxo, chips de safra (toque 44px + dropdown
+perto do fim do form abrindo pra cima), rótulos um tom mais escuros,
+reduced-motion (sheets sem slide, check completo), sucesso → detalhe /
+"Criar outro".
 
 ### Detalhe do lote (LDT) — ⬜ não iniciada
 
@@ -652,6 +753,13 @@ contador de seleção sem hover grudado.
   código chamado por string e exports "de API" mantidos por intenção, como os
   checksums de CPF/CNPJ em `src/clients/client-support.js`, mantidos por
   decisão do usuário).
+- **P3** (S9) — `.app-confirm-modal .app-modal-actions > button` (confirm
+  compartilhado app-wide) tem `background` na transition e hover sem gate
+  `(hover: hover)` — corrigir muda TODOS os confirms de uma vez; tratar num
+  passe dedicado, não no ciclo de uma página.
+- **P4** (S9) — token global de placeholder `rgba(0, 0, 0, 0.18)` é sub-AA
+  em todo formulário do app; trocar mexe no app inteiro → passe dedicado
+  com validação visual do Flavio.
 
 ## Histórico de sessões
 
@@ -725,3 +833,17 @@ contador de seleção sem hover grudado.
   contraste AA, alvo de toque 44px, aria da busca. 10 commits; gates verdes
   (unit 367 / integração 406). Página em 📱 — o roteiro de validação inclui
   os itens herdados das fases 1/2/4/5 da revisão faseada.
+- **S9 (2026-07-07)** — F4/LNW executada ponta a ponta (R1–R8): 3 agentes de
+  levantamento; 4 decisões LNW-D1–D4 (**rota `/samples/new` removida**,
+  copy "lote" estendida ao fluxo, `receivedChannel` fora do front,
+  **editou = manual** no número do lote — digitar a própria sugestão agora
+  FIXA o número). Achado ALTO corrigido: a API aceitava `sampleLotNumber`
+  cru sem a flag manual, pulando a validação (colisão viraria 500) →
+  hardening + teste na camada da API. Limpeza nsv2 (−299 linhas por parser
+  com split de vírgulas), press-effects, bloco reduced-motion (incl. slide
+  do `.bottom-sheet` GLOBAL), contraste dos rótulos, 44px nos chips de
+  safra, drop-up do dropdown de safra no fim do form. Suíte nova de 17
+  testes de integração do `createSample` (validações, binding do dono,
+  idempotência, número manual). Pendências globais P3 (press do confirm
+  compartilhado) e P4 (token de placeholder) catalogadas. 8 commits; gates
+  verdes (unit 367 / contracts 20 / integração + re-seed). Página em 📱.
