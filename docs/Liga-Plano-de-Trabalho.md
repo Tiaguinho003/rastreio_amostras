@@ -178,6 +178,9 @@ Decisões "antes do fluxo" — valem em qualquer interface. Cada decisão aqui m
 - O FAB "+" existente na página de Amostras (`.cv2-fab`) deixa de navegar direto pra "Nova amostra". Ao clicar, ele se **expande** em 2 opções dispostas ao redor (efeito "speed dial" / menu radial):
   - **Unidade** — abre o fluxo atual de Nova Amostra (BottomSheet "Nova amostra").
   - **Liga** — entra em **modo seleção** na própria página `/samples` (ver F1.1 + F1.C pra transição e refetch).
+
+> **Nota (Revisão Geral, 2026-07-07)**: o leque hoje tem **3 opções** (a Etiqueta de Aprovação entrou depois) e a opção "Unidade" virou **"Lote"** com o sheet "Novo lote" (vocabulário LNW-D2). A rota `/samples/new` foi removida (LNW-D1).
+
 - Distância visual: as 2 opções aparecem em arco ao redor do "+" (a definir ângulos/posição exatos no momento da implementação).
 - **Animação** (F1.C resolvida): tap no "+" dispara animação slide+fade dos 2 satélites em arco, ~150-200ms. Tap em um satélite faz ele pulsar rápido + FAB anima fechando + ação dispara. Tap fora dos satélites (backdrop) fecha o FAB sem disparar ação.
 - **Implicação**: o FAB hoje é `<SampleQuickCreateFab onClick={() => setNewSampleModalOpen(true)}>`. Vai precisar virar um componente novo com estado interno aberto/fechado e renderizar 2 botões satélite quando aberto. Outras páginas (ex: `/clients`) continuam com FAB simples (criação de cliente único — comportamento de hoje).
@@ -359,6 +362,9 @@ Decisões "antes do fluxo" — valem em qualquer interface. Cada decisão aqui m
 
 - Mesmo modal central da "Nova Amostra": header verde, check animado, número do lote em destaque, 2 botões.
 - Label do header: "Liga criada" (pra Sample normal continua "Amostra criada"). Botões: "Ir para liga" + "Criar outra liga".
+
+> **Nota (Revisão Geral, 2026-07-07)**: o modal implementado é **headerless** (check animado + título no corpo; sem "header verde") e, pro Sample normal, o vocabulário virou "Lote criado" / "Número do lote" / "Criar outro" (LNW-D2). A variante `entity='blend'` segue como descrito.
+
 - **Implicação**: o componente `SampleCreatedSuccessModal.tsx` ganha 1 prop opcional `entity?: 'sample' | 'blend'` (default `'sample'`) que troca os textos. Mesmo CSS, mesmo behavior.
 
 **F5.2 — Sem auto-impressão de etiqueta após criação.**

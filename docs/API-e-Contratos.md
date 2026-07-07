@@ -44,7 +44,7 @@ Regra consolidada:
 1. `POST /api/v1/samples/receive`
    Cria evento de recebimento simples.
 2. `POST /api/v1/samples/create`
-   Fluxo completo de criacao, confirmacao de registro e preparacao da primeira impressao.
+   Cria o lote emitindo um unico evento `REGISTRATION_CONFIRMED`. Body: `clientDraftId` (obrigatorio — ancora da idempotencia), `ownerClientId` (obrigatorio; `resolveOwnerBinding` exige cliente existente, ativo e vendedor), `sacks` (inteiro >= 1), `harvest` (obrigatorio), `originLot` (opcional, <= 100), `location` (opcional, <= 30), `notes` (opcional, <= 500), `sampleLotNumber` + `lotNumberManual` (numero manual do lote — a API so repassa o numero quando `lotNumberManual === true`, hardening LNW-B1; `normalizeManualLotNumber` valida digitos/faixa e colisao responde 409 com `field: lotNumber`) e `receivedDate` (data de chegada `YYYY-MM-DD`; dia passado vira meio-dia SP, futuro 422). `receivedChannel` nao vem mais do frontend (LNW-D3): o backend aplica o default `in_person` e segue aceitando o enum completo. Idempotencia: `sampleId` deterministico (hash de `actorUserId` + `clientDraftId`) — retry do mesmo draft responde `200 { idempotent: true }` sem evento novo; draft de amostra INVALIDATED responde 409. Cobertura em `tests/sample-create-validation.integration.test.js`.
 3. `POST /api/v1/samples/:sampleId/registration/start`
 4. `POST /api/v1/samples/:sampleId/photos`
 5. `POST /api/v1/samples/:sampleId/registration/confirm`
@@ -92,11 +92,13 @@ Validacoes criticas nessas rotas:
    Retorna timeline de eventos.
 4. `GET /api/v1/samples/resolve`
    Resolve QR bruto para UUID ou lote interno.
-5. `GET /api/v1/dashboard/pending`
+5. `GET /api/v1/samples/next-lot-number`
+   Sugestao do proximo numero da sequencia (`{ nextLotNumber }`) pra pre-preencher o campo editavel no modal de criacao. E so sugestao: o numero real e gerado server-side no submit (com retry de colisao no modo automatico).
+6. `GET /api/v1/dashboard/pending`
    Resume filas operacionais do dashboard: `classificationPending` (counts + até 500 itens em RC) e `clientsIncomplete.total`. (O pulso do dia `dailyRegistered`/`dailySent` saiu em 2026-07-07 com os StatCards de pulso — DSH-D4.)
-6. `GET /api/v1/dashboard/sales-availability`
+7. `GET /api/v1/dashboard/sales-availability`
    Donut "Lotes disponíveis": bandas de aging por `created_at` (`over30`/`from15to30`/`under15`), contando `commercial_status IN (OPEN, PARTIALLY_SOLD)` e excluindo `INVALIDATED`.
-7. `GET /api/v1/dashboard/recent-sends`
+8. `GET /api/v1/dashboard/recent-sends`
    Card "Últimos envios" (desktop, DSH-D5): últimos 40 eventos de envio — `PHYSICAL_SAMPLE_SENT` + `REPORT_EXPORTED` — do mais recente pro mais antigo, com lote/`isBlend`, `kind`, destinatário ATUAL (última `SEND_UPDATED` vence; laudo cai pro snapshot ou `destination`) e flag `cancelled` (pareamento por `payload.sendEventId`). Exclui amostras `INVALIDATED`. `Cache-Control: private, max-age=30, must-revalidate`.
 
 > Autorização dos endpoints de dashboard: apenas autenticação (PROSPECTOR é negado pela allowlist central). **Sem gate positivo de papel por decisão** (DSH-D2, 2026-07-07): o dashboard é único para os 5 papéis não-PROSPECTOR, incluindo os dados comerciais do donut. A rota `dashboard/commercial-timeseries` (card "Vendas e perdas") foi removida em 2026-07-07 (DSH-D3).

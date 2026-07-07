@@ -91,11 +91,10 @@ Regra oficial:
 
 ### 1. Recebimento e registro
 
-1. A amostra pode nascer por `receive` simples ou pelo fluxo completo de criacao da tela `Nova amostra`.
-2. O registro confirmado exige os campos manuais:
-   `owner`, `sacks`, `harvest`, `originLot`.
-3. A foto de chegada e opcional.
-4. Ao confirmar o registro, o sistema gera automaticamente um lote interno numerico (sequencial global, ex: 5641, 5642).
+1. O lote nasce pelo modal `Novo lote` (leque "+" de `/samples`) via `POST /samples/create`. A rota dedicada `/samples/new` foi removida (LNW-D1, 2026-07-07); o `receive` simples segue existindo na API.
+2. O registro confirmado exige `owner` (via `ownerClientId` de cliente vendedor ativo), `sacks` e `harvest`; `originLot`, `location` e `notes` sao opcionais.
+3. NAO ha foto de chegada no fluxo — foto entra so na classificacao.
+4. O lote interno numerico e gerado automaticamente (sequencial global, ex: 5641), mas o numero e EDITAVEL no modal: qualquer edicao no campo fixa o numero como manual (LNW-D4); vazio volta pro automatico. A data de chegada tambem pode ser informada (vira o `createdAt` do lote).
 5. O fluxo de registro e inteiramente manual.
 
 ### 2. Impressao de QR
