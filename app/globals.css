@@ -26115,26 +26115,6 @@ select.samples-filter-field-input {
     letter-spacing: -0.02em;
   }
 
-  .dd-stat-delta {
-    font-size: clamp(0.72rem, 0.78vw, 0.8rem);
-    font-weight: 600;
-    margin-top: 0.05rem;
-  }
-
-  .dd-stat-delta.is-up {
-    color: #1f8540;
-  }
-
-  .dd-stat-delta.is-down {
-    color: #c0392b;
-  }
-
-  /* 0% / igual a ontem: neutro cinza (nunca verde — ver formatDelta).
-     #71786d = tom AA (4.5:1 no branco) do antigo #8a9285. */
-  .dd-stat-delta.is-flat {
-    color: #71786d;
-  }
-
   .dd-stat-card.is-skeleton {
     pointer-events: none;
     cursor: default;

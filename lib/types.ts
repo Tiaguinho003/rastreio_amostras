@@ -1029,13 +1029,6 @@ export interface ListSamplesResponse {
 // Q.print: dashboard simplificou — printPending sumiu (card "Aguardando
 // impressao" cortado), pendingCounts/oldestPending/classificationInProgress
 // ficaram obsoletos. Resta apenas classificationPending (samples em RC).
-// Interface local (nao exportada): so os campos dailyRegistered/dailySent
-// de DashboardPendingResponse a referenciam.
-interface DashboardDailyCount {
-  today: number;
-  yesterday: number;
-}
-
 // Projecao PARCIAL de sample devolvida em classificationPending.items pelo
 // getDashboardPending — NAO e o SampleSnapshot completo, apenas estes campos
 // (ver mapDashboardSample em src/samples/sample-query-service.js).
@@ -1065,10 +1058,6 @@ export interface DashboardPendingResponse {
   clientsIncomplete: {
     total: number;
   };
-  // Pulso do dia (cards "Lotes registrados hoje" / "Envios concluidos hoje"
-  // do dashboard desktop) — contagem de lotes por evento, hoje e ontem (BRT).
-  dailyRegistered: DashboardDailyCount;
-  dailySent: DashboardDailyCount;
 }
 
 export interface DashboardSalesAvailabilityResponse {

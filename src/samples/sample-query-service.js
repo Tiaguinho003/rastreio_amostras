@@ -1800,8 +1800,11 @@ export class SampleQueryService {
   // card "Aguardando impressao" cortado definitivamente). `oldestPending`
   // tambem deletado (cobria QR_PENDING_PRINT que nao existe mais como
   // status). Resta apenas `classificationPending` (samples em RC).
+  // DSH-D4 (2026-07-07): o "pulso do dia" (dailyRegistered/dailySent, que
+  // alimentava os StatCards "Lotes registrados hoje"/"Envios concluidos
+  // hoje") saiu do payload junto com os cards.
   async getDashboardPending() {
-    const [allStatusCounts, classificationPendingRows, clientsIncompleteTotal, dailyCountsRows] =
+    const [allStatusCounts, classificationPendingRows, clientsIncompleteTotal] =
       await this.prisma.$transaction([
         this.prisma.sample.groupBy({
           by: ['status'],
@@ -1826,43 +1829,6 @@ export class SampleQueryService {
             ...buildCompletenessWhere('incomplete'),
           },
         }),
-        // Pulso do dia (cards "Lotes registrados hoje" / "Envios concluidos
-        // hoje" do dashboard desktop): contagem de lotes por evento em hoje e
-        // ontem (dia BRT completo 00h-24h), para o delta "vs ontem".
-        (() => {
-          const nowUtc = new Date();
-          const nowSp = new Date(nowUtc.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
-          const y = nowSp.getUTCFullYear();
-          const m = nowSp.getUTCMonth();
-          const d = nowSp.getUTCDate();
-          const todayStart = new Date(Date.UTC(y, m, d, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
-          const todayEnd = new Date(Date.UTC(y, m, d + 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
-          const yesterdayStart = new Date(
-            Date.UTC(y, m, d - 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0)
-          );
-          return this.prisma.$queryRaw`
-            SELECT
-              COUNT(DISTINCT sample_id) FILTER (
-                WHERE event_type = 'REGISTRATION_CONFIRMED'
-                  AND occurred_at >= ${todayStart} AND occurred_at < ${todayEnd}
-              )::INTEGER AS "registeredToday",
-              COUNT(DISTINCT sample_id) FILTER (
-                WHERE event_type = 'REGISTRATION_CONFIRMED'
-                  AND occurred_at >= ${yesterdayStart} AND occurred_at < ${todayStart}
-              )::INTEGER AS "registeredYesterday",
-              COUNT(DISTINCT sample_id) FILTER (
-                WHERE event_type = 'PHYSICAL_SAMPLE_SENT'
-                  AND occurred_at >= ${todayStart} AND occurred_at < ${todayEnd}
-              )::INTEGER AS "sentToday",
-              COUNT(DISTINCT sample_id) FILTER (
-                WHERE event_type = 'PHYSICAL_SAMPLE_SENT'
-                  AND occurred_at >= ${yesterdayStart} AND occurred_at < ${todayStart}
-              )::INTEGER AS "sentYesterday"
-            FROM "sample_event"
-            WHERE event_type IN ('REGISTRATION_CONFIRMED', 'PHYSICAL_SAMPLE_SENT')
-              AND occurred_at >= ${yesterdayStart} AND occurred_at < ${todayEnd}
-          `;
-        })(),
       ]);
 
     const countByStatus = {};
@@ -1878,8 +1844,6 @@ export class SampleQueryService {
       classificationPendingTotal += count;
     }
 
-    const dailyRow = dailyCountsRows?.[0] ?? {};
-
     return {
       classificationPending: {
         counts: classificationPendingCounts,
@@ -1888,14 +1852,6 @@ export class SampleQueryService {
       },
       clientsIncomplete: {
         total: clientsIncompleteTotal,
-      },
-      dailyRegistered: {
-        today: toIntegerOrZero(dailyRow.registeredToday),
-        yesterday: toIntegerOrZero(dailyRow.registeredYesterday),
-      },
-      dailySent: {
-        today: toIntegerOrZero(dailyRow.sentToday),
-        yesterday: toIntegerOrZero(dailyRow.sentYesterday),
       },
     };
   }

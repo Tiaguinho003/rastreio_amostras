@@ -8,8 +8,9 @@ import { SampleQueryService } from '../src/samples/sample-query-service.js';
 
 // DSH-T1 (revisão geral): getDashboardPending tinha asserção só para
 // classificationPending (sample-backend-sprint1). Aqui cobrimos o resto do
-// payload: clientsIncomplete (WHERE canônico de completude) e o pulso do dia
-// (dailyRegistered/dailySent — janelas de dia BRT sobre sample_event).
+// payload: clientsIncomplete (WHERE canônico de completude).
+// O "pulso do dia" (dailyRegistered/dailySent) saiu do payload junto com os
+// StatCards de pulso (DSH-D4, 2026-07-07) — os casos que o cobriam saíram.
 
 const databaseUrl = process.env.DATABASE_URL;
 const databaseReachable = await canReachDatabase(databaseUrl);
@@ -19,8 +20,6 @@ if (!databaseUrl || !databaseReachable) {
 } else {
   const prisma = new PrismaClient();
   const queryService = new SampleQueryService({ prisma });
-
-  const HOUR_MS = 3_600_000;
 
   async function resetDatabase() {
     await prisma.$executeRawUnsafe(
@@ -102,47 +101,6 @@ if (!databaseUrl || !databaseReachable) {
     return id;
   }
 
-  let eventSequenceBySample = new Map();
-
-  async function insertSampleEvent({ sampleId, eventType, occurredAt }) {
-    const sequenceNumber = (eventSequenceBySample.get(sampleId) ?? 0) + 1;
-    eventSequenceBySample.set(sampleId, sequenceNumber);
-    await prisma.sampleEvent.create({
-      data: {
-        eventId: randomUUID(),
-        sampleId,
-        sequenceNumber,
-        eventType,
-        schemaVersion: 1,
-        occurredAt,
-        actorType: 'USER',
-        actorUserId: randomUUID(),
-        source: 'WEB',
-        payload: {},
-        requestId: `req-${sampleId.slice(0, 8)}-${sequenceNumber}`,
-        metadataModule: 'REGISTRATION',
-      },
-    });
-  }
-
-  async function createSampleWithEvent(eventType, occurredAt) {
-    const sampleId = randomUUID();
-    // Status CLASSIFIED pra não poluir classificationPending (que conta RC).
-    await prisma.sample.create({ data: { id: sampleId, status: 'CLASSIFIED' } });
-    // Trigger do event store: o 1º evento do lote DEVE ser
-    // REGISTRATION_CONFIRMED. Pra eventos de outro tipo, bootstrap com um
-    // RC 10 dias atrás — fora das janelas hoje/ontem, não polui o pulso.
-    if (eventType !== 'REGISTRATION_CONFIRMED') {
-      await insertSampleEvent({
-        sampleId,
-        eventType: 'REGISTRATION_CONFIRMED',
-        occurredAt: new Date(occurredAt.getTime() - 240 * HOUR_MS),
-      });
-    }
-    await insertSampleEvent({ sampleId, eventType, occurredAt });
-    return sampleId;
-  }
-
   test.before(async () => {
     await prisma.$connect();
   });
@@ -152,17 +110,14 @@ if (!databaseUrl || !databaseReachable) {
   });
 
   test.beforeEach(async () => {
-    eventSequenceBySample = new Map();
     await resetDatabase();
   });
 
-  test('banco vazio: clientsIncomplete e pulso do dia zerados', async () => {
+  test('banco vazio: classificationPending e clientsIncomplete zerados', async () => {
     const result = await queryService.getDashboardPending();
 
     assert.strictEqual(result.classificationPending.total, 0);
     assert.strictEqual(result.clientsIncomplete.total, 0);
-    assert.deepStrictEqual(result.dailyRegistered, { today: 0, yesterday: 0 });
-    assert.deepStrictEqual(result.dailySent, { today: 0, yesterday: 0 });
   });
 
   test('clientsIncomplete conta PJ com campo recomendado faltando e ignora completo', async () => {
@@ -192,41 +147,6 @@ if (!databaseUrl || !databaseReachable) {
     const result = await queryService.getDashboardPending();
 
     assert.strictEqual(result.clientsIncomplete.total, 0);
-  });
-
-  test('pulso do dia: separa hoje e ontem por evento e ignora anteontem', async () => {
-    const now = new Date();
-    // now-24h cai sempre dentro do dia BRT de ontem (a janela é [início do
-    // dia BRT de hoje - 24h, início de hoje)); now-48h cai em anteontem.
-    const yesterday = new Date(now.getTime() - 24 * HOUR_MS);
-    const beforeYesterday = new Date(now.getTime() - 48 * HOUR_MS);
-
-    await createSampleWithEvent('REGISTRATION_CONFIRMED', now);
-    await createSampleWithEvent('REGISTRATION_CONFIRMED', yesterday);
-    await createSampleWithEvent('REGISTRATION_CONFIRMED', beforeYesterday);
-    await createSampleWithEvent('PHYSICAL_SAMPLE_SENT', now);
-    await createSampleWithEvent('PHYSICAL_SAMPLE_SENT', now);
-    await createSampleWithEvent('PHYSICAL_SAMPLE_SENT', yesterday);
-
-    const result = await queryService.getDashboardPending();
-
-    assert.deepStrictEqual(result.dailyRegistered, { today: 1, yesterday: 1 });
-    assert.deepStrictEqual(result.dailySent, { today: 2, yesterday: 1 });
-  });
-
-  test('pulso do dia conta lotes distintos, não eventos (COUNT DISTINCT sample_id)', async () => {
-    const now = new Date();
-    const sampleId = await createSampleWithEvent('PHYSICAL_SAMPLE_SENT', now);
-    // 2º envio do MESMO lote no mesmo dia: não pode contar 2.
-    await insertSampleEvent({
-      sampleId,
-      eventType: 'PHYSICAL_SAMPLE_SENT',
-      occurredAt: new Date(now.getTime() + 1000),
-    });
-
-    const result = await queryService.getDashboardPending();
-
-    assert.deepStrictEqual(result.dailySent, { today: 1, yesterday: 0 });
   });
 }
 
