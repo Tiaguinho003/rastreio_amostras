@@ -446,10 +446,10 @@ schemas / build / unit 357 / contracts 20 / integração 401 + re-seed).
 
 **Pendências:**
 
-- **DSH-P2** — a coluna direita da linha 2 tem conteúdo **DEFINIDO**
-  (DSH-D6: card de Eventos em calendário, decisões E1–E11 em
-  `Eventos-Dashboard-Plano-de-Trabalho.md`) mas **não implementado** — segue
-  vazia até a fase F0 do doc da feature.
+- **DSH-P2** — ✅ resolvida (S7): a coluna direita ganhou o card de Eventos
+  (DSH-D6, F0 implementada em `9a66cd8`). A evolução da feature (tipos de
+  evento, backend, F1+) segue no doc próprio
+  (`Eventos-Dashboard-Plano-de-Trabalho.md`).
 - **DSH-P3** — payload de até 500 itens no `getDashboardPending` a cada
   refresh (avaliar lazy-load se pesar).
 - **DSH-P4** — `client.count(completeness)` sem índice dedicado (revisar se
@@ -465,10 +465,14 @@ mais escuros — DSH-A3) · desktop novo (D4/D5): **1ª linha com 2 StatCards**
 no tamanho atual · pilha **donut + "Últimos envios" do MESMO tamanho**
 preenchendo a altura, lista rolando POR DENTRO (a página não rola) ·
 minicards (lote, pill Amostra física/Laudo, destinatário, tempo relativo) ·
-envio cancelado esmaecido com tag · **viewport baixa** (~768px de altura —
-estoura?) · donut a 320px (mobile) · modal de senha inicial (agora via
-portal — manter e trocar senha) · dashboard do PROSPECTOR intacto · banner
-de erro (opcional: modo avião e reabrir o app).
+envio cancelado esmaecido com tag · **card de Eventos** na coluna direita
+(F0): grade domingo-first com fins de semana apagados, hoje com anel e já
+selecionado, navegação ◀ Hoje ▶ com deslize (sem animação com redução de
+movimento), painel com o vazio + nota de futuro, setas do teclado entre os
+dias · **viewport baixa** (~768px de altura — estoura?) · donut a 320px
+(mobile) · modal de senha inicial (agora via portal — manter e trocar
+senha) · dashboard do PROSPECTOR intacto · banner de erro (opcional: modo
+avião e reabrir o app).
 
 ### Lotes — lista (LOT) — ⬜ não iniciada
 
@@ -585,3 +589,12 @@ de erro (opcional: modo avião e reabrir o app).
   semanas com painel fixo (formato escolhido em preview), card nascerá
   vazio antes das features de evento, catálogo de tipos 100% em aberto.
   DSH-P2 atualizada (conteúdo definido; falta implementar).
+- **S7 (2026-07-07)** — **F0 do card de Eventos implementada** (`9a66cd8`):
+  2 rodadas de perguntas fecharam E12–E19 (domingo-first, número+dots,
+  painel ~60%, rótulo em intervalo, fds apagados, passado igual, deslize
+  horizontal, copy do vazio com nota de futuro) e o card entrou na coluna
+  direita da linha 2 — 100% front (helpers `lib/dashboard-calendar.ts` +
+  `EventsCalendarCard` + CSS `dd-events-*`; sem endpoint, seam da F1 na
+  prop `events`). DSH-P2 resolvida; lacuna EVD-T1 catalogada no doc da
+  feature. Gates verdes (typecheck / lint / format / build / unit 357 /
+  contracts 20). Dashboard segue 📱 com o roteiro de validação ampliado.

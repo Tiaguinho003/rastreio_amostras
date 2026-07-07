@@ -1,9 +1,10 @@
 # Card de Eventos do Dashboard — Plano de Trabalho
 
-> **Status:** decisões do card travadas (E1–E11, 2026-07-07); **implementação
-> NÃO iniciada**. Fonte canônica da feature — o resumo vive na decisão
-> **DSH-D6** de `Revisao-Geral-Plano-de-Trabalho.md`.
-> **Escopo desta 1ª rodada:** só o card (layout, design e funcionamento
+> **Status:** decisões E1–E19 travadas (2026-07-07); **F0 implementada**
+> (commit `9a66cd8`), aguardando validação no device. Fonte canônica da
+> feature — o resumo vive na decisão **DSH-D6** de
+> `Revisao-Geral-Plano-de-Trabalho.md`.
+> **Escopo da 1ª rodada:** só o card (layout, design e funcionamento
 > geral). As features que GERAM eventos são atualizações grandes e virão
 > depois, cada uma com rodada própria de decisões.
 
@@ -56,30 +57,55 @@ rodada.
   está travado — nem os exemplos do contexto. O catálogo será construído
   feature a feature (EVD-P1).
 
+## Decisões da rodada da F0 (E12–E19, 2026-07-07)
+
+- **E12 — Semana começa no DOMINGO** (D S T Q Q S S), calendário
+  tradicional. A matemática de quinzena é própria (domingo-based, BRT,
+  `lib/dashboard-calendar.ts`) — **não unificar** com o
+  `computeClientWeekReference` do relatório semanal, que é segunda-based
+  por regra daquele domínio.
+- **E13 — Quadrado do dia: número + dots** (até 3 + `+N`); todo o detalhe
+  fica no painel.
+- **E14 — Painel do dia é o protagonista (~60%)**; grade compacta (~40%).
+- **E15 — Rótulo do período em intervalo**: "7 – 20 de julho"; cruzando mês
+  "28 de jul – 10 de ago"; ano acrescentado quando o período sai do ano
+  corrente.
+- **E16 — Sábados e domingos APAGADOS** (esmaecidos no cabeçalho e nos
+  quadrados).
+- **E17 — Dias passados iguais aos demais** (sem distinção visual —
+  substitui a proposta antiga de esmaecer o passado; a navegação livre E3
+  já dá acesso ao histórico).
+- **E18 — Deslize horizontal** (~200ms na direção da seta) na troca de
+  quinzena; `prefers-reduced-motion` vira troca seca.
+- **E19 — Copy do vazio na F0**: "Nenhum evento para este dia." + nota
+  menor "As programações (embarques, entregas, aprovações...) chegam nas
+  próximas atualizações." — a nota é temporária da F0 e sai quando as
+  features de evento chegarem.
+
 ## Propostas de design (NÃO travadas — defaults da implementação, sujeitos à validação visual)
 
 - Shell no padrão dos cards da linha 2: branco, radius 20, borda
-  `rgba(112,130,103,0.22)`, sombra `var(--dd-card-shadow)`, header com
-  título "Eventos" + tile de ícone verde (mesmo molde do "Últimos envios").
-- Cabeçalho de dias da semana em pt-BR (D S T Q Q S S) acima da grade;
-  rótulo do período visível (ex.: "7–20 de julho").
+  `rgba(112,130,103,0.22)`, sombra `var(--dd-card-shadow)`. Header: título
+  "Eventos" + rótulo do período embaixo (E15); à direita o grupo de
+  navegação ◀ `Hoje` ▶ (no lugar do tile de ícone dos outros cards).
 - Quadrados de dia são `<button>` reais: press-effect canônico (scale, sem
-  mudança de cor — skill button-press-effect), `aria-pressed`/seleção
-  anunciada, `aria-current="date"` em hoje, navegáveis por teclado.
-- Dia fora do "par" em navegação e dias passados: tom apagado; hoje com anel
-  verde da marca.
-- Painel do dia com scroll interno se a lista passar da altura; itens de
-  evento seguirão o molde de minicard do dashboard (a definir com o
-  catálogo).
-- Skeleton + `prefers-reduced-motion` cobertos como nos demais cards do
+  mudança de cor — skill button-press-effect), `aria-pressed` na seleção,
+  `aria-current="date"` em hoje, roving tabindex com setas (±1 dia
+  horizontal, ±7 vertical).
+- Hoje: anel verde da marca (`inset box-shadow var(--brand-green)`);
+  selecionado: preenchimento `#e8f1ec`; virada de mês: "1 ago" no quadrado.
+- Painel do dia com scroll interno; itens de evento seguirão o molde de
+  minicard do dashboard (a definir com o catálogo EVD-P1).
+- Sem skeleton na F0 (nada carrega); estados de loading nascem com o fetch
+  da F1. Deslize E18 coberto no bloco `prefers-reduced-motion` do
   dashboard.
 
 ## Fases
 
-| Fase   | Tema                                                                                                                                                 | Status |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| **F0** | Card shell no dashboard desktop: grade 2 semanas + navegação + painel do dia + estados (vazio/skeleton), SEM backend de eventos (lista sempre vazia) | ⬜     |
-| F1+    | Features de evento (a definir; cada tipo = rodada própria de decisões + backend + fluxo de criação + entrada no catálogo E11/EVD-P1)                 | ⬜     |
+| Fase   | Tema                                                                                                                                  | Status                                         |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| **F0** | Card shell no dashboard desktop: grade 2 semanas + navegação + painel do dia + vazio E19, SEM backend de eventos (lista sempre vazia) | 📱 implementada (`9a66cd8`); validar no device |
+| F1+    | Features de evento (a definir; cada tipo = rodada própria de decisões + backend + fluxo de criação + entrada no catálogo E11/EVD-P1)  | ⬜                                             |
 
 ## Pendências
 
@@ -89,9 +115,20 @@ rodada.
   de outras features? endpoint do dashboard).
 - **EVD-P3** — Versão mobile do calendário (E9: desktop-only por ora).
 - **EVD-P4** — Criação manual de evento pelo card (E6: fora desta fase).
+- **EVD-T1** — Helpers de `lib/dashboard-calendar.ts` (quinzena, dayKey,
+  rótulos) sem unit test: o `node --test` do projeto não roda TS. Cobrir
+  quando houver infra de teste front (ou na F1, se a matemática migrar pro
+  backend do endpoint).
 
 ## Histórico
 
 - **2026-07-07** — Doc criado. Decisões E1–E11 travadas com o Flavio em 3
   rodadas de perguntas (12 respostas) durante o ciclo DSH da Revisão Geral
   (sessão S6 do doc da revisão). Nenhuma implementação iniciada.
+- **2026-07-07 (cont.)** — Decisões E12–E19 travadas (2 rodadas, 8
+  respostas) e **F0 implementada** (commit `9a66cd8`): helpers
+  `lib/dashboard-calendar.ts` + `components/dashboard/EventsCalendarCard.tsx`
+  - CSS `dd-events-*` + wiring no `DashboardDesktop` (coluna direita da
+    linha 2). 100% front — sem endpoint; o seam da F1 é a prop `events`
+    (`Record<'YYYY-MM-DD', DashboardCalendarEventStub[]>`, tipo local do
+    componente). Gates verdes; aguardando validação no device.
