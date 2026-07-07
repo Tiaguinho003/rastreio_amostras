@@ -6,6 +6,9 @@
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
+    // Testes .ts rodam via node --experimental-strip-types, que EXIGE a
+    // extensao .ts nos imports; legal com noEmit (LOT-T1).
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",

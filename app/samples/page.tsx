@@ -46,6 +46,12 @@ import {
   updateRegistration,
 } from '../../lib/api-client';
 import { mapEligibilityReasonToLabel } from '../../lib/samples/eligibility-labels';
+import {
+  SAMPLES_INITIAL,
+  samplesListReducer,
+  type SampleCursor,
+  type SamplesListState,
+} from '../../lib/samples/samples-list-reducer';
 import { buildHarvestPresets } from '../../lib/sample-identification';
 import { useToast } from '../../lib/toast/ToastProvider';
 import { useFocusTrap } from '../../lib/use-focus-trap';
@@ -433,71 +439,9 @@ function applyListScrollTop(container: HTMLElement | null, top: number): void {
   if (typeof window !== 'undefined') window.scrollTo({ top });
 }
 
-/* ── Samples list reducer (scroll infinito com cursor) ── */
-
-type SampleCursor = { lotInt: number | null; id: string };
-type SamplesListStatus = 'loading-initial' | 'loading-more' | 'idle' | 'error';
-
-interface SamplesListState {
-  items: SampleSnapshot[];
-  total: number;
-  nextCursor: SampleCursor | null;
-  status: SamplesListStatus;
-  error: string | null;
-}
-
-type SamplesListAction =
-  | { type: 'fetch-initial' }
-  | { type: 'fetch-more' }
-  | {
-      type: 'success-initial';
-      items: SampleSnapshot[];
-      total: number;
-      nextCursor: SampleCursor | null;
-    }
-  | {
-      type: 'success-more';
-      items: SampleSnapshot[];
-      nextCursor: SampleCursor | null;
-    }
-  | { type: 'error'; message: string };
-
-const SAMPLES_INITIAL: SamplesListState = {
-  items: [],
-  total: 0,
-  nextCursor: null,
-  status: 'loading-initial',
-  error: null,
-};
-
-function samplesListReducer(state: SamplesListState, action: SamplesListAction): SamplesListState {
-  switch (action.type) {
-    case 'fetch-initial':
-      return { ...SAMPLES_INITIAL, status: 'loading-initial' };
-    case 'fetch-more':
-      return { ...state, status: 'loading-more', error: null };
-    case 'success-initial':
-      return {
-        items: action.items,
-        total: action.total,
-        nextCursor: action.nextCursor,
-        status: 'idle',
-        error: null,
-      };
-    case 'success-more':
-      return {
-        ...state,
-        items: [...state.items, ...action.items],
-        nextCursor: action.nextCursor,
-        status: 'idle',
-        error: null,
-      };
-    case 'error':
-      return { ...state, status: 'error', error: action.message };
-    default:
-      return state;
-  }
-}
+/* ── Samples list reducer (scroll infinito com cursor) ──
+   Extraído pra lib/samples/samples-list-reducer.ts (LOT-T1, revisão geral)
+   pra ganhar cobertura de regressão — import no topo do arquivo. */
 
 export default function SamplesPageWrapper() {
   return (
