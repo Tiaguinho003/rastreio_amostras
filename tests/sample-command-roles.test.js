@@ -39,9 +39,7 @@ test('PROSPECTOR é rejeitado no service: createBlend', async () => {
 });
 
 test('PROSPECTOR é rejeitado no service: invalidateSample', async () => {
-  await assertForbidden(
-    service.invalidateSample({ expectedVersion: 1 }, buildActor('PROSPECTOR'))
-  );
+  await assertForbidden(service.invalidateSample({ expectedVersion: 1 }, buildActor('PROSPECTOR')));
 });
 
 test('papéis operacionais seguem passando pelo gate (falham DEPOIS, por dependência/validação)', async () => {
