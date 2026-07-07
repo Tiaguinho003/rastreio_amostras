@@ -1049,7 +1049,8 @@ function SamplesPage() {
         if (cause instanceof DOMException && cause.name === 'AbortError') return;
         dispatchSamples({
           type: 'error',
-          message: cause instanceof ApiError ? cause.message : 'Não foi possível carregar mais lotes.',
+          message:
+            cause instanceof ApiError ? cause.message : 'Não foi possível carregar mais lotes.',
         });
       });
   }, []);
@@ -1185,7 +1186,8 @@ function SamplesPage() {
 
         dispatchSamples({
           type: 'error',
-          message: cause instanceof ApiError ? cause.message : 'Não foi possível carregar os lotes.',
+          message:
+            cause instanceof ApiError ? cause.message : 'Não foi possível carregar os lotes.',
         });
       });
 
