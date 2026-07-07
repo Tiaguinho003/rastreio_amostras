@@ -1128,16 +1128,6 @@ export function createBackendApiV1({
         };
       }),
 
-    getDashboardCommercialTimeseries: (input) =>
-      executeApiForInput(input, async () => {
-        await resolveActorContext(input, authService);
-        const result = await queryService.getDashboardCommercialTimeseries();
-        return {
-          status: 200,
-          body: result,
-        };
-      }),
-
     getPendingPrintJobs: (input) =>
       executeApiForInput(input, async () => {
         await resolveActorContext(input, authService);
