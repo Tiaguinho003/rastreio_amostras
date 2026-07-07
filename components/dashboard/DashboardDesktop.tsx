@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { getDashboardRecentSends } from '../../lib/api-client';
 import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
+import { EventsCalendarCard } from './EventsCalendarCard';
 import { RecentSendsCard } from './RecentSendsCard';
 import { useOperationModal } from './useOperationModal';
 import { OperationModal } from './OperationModal';
@@ -145,9 +146,9 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
           )}
         </div>
 
-        {/* Linha 2 (DSH-D5): pilha na coluna esquerda — "Lotes disponiveis"
-            em cima e "Ultimos envios" embaixo, mesmo tamanho. A coluna
-            direita segue vazia ate definirmos a proxima informacao. */}
+        {/* Linha 2 (DSH-D5/D6): pilha na coluna esquerda — "Lotes disponiveis"
+            em cima e "Ultimos envios" embaixo, mesmo tamanho — e o card de
+            Eventos (calendario, F0) ocupando a coluna direita inteira. */}
         <div className="dd-content-grid">
           <div className="dd-left-stack">
             {salesData ? (
@@ -157,6 +158,7 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
             )}
             <RecentSendsCard items={recentSends ? recentSends.items : null} />
           </div>
+          <EventsCalendarCard />
         </div>
       </section>
 
