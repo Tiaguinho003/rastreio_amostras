@@ -19,6 +19,11 @@ description: Use this skill when writing, running, or debugging tests. Covers te
 
 - `tests/` na raiz do projeto (flat, nao nested)
 - Nomes: `<nome>.test.js` (unit/contract) ou `<nome>.integration.test.js` (integracao)
+- Unit tests tambem podem ser `.test.ts`: o `test:unit` roda com
+  `--experimental-strip-types` e o tsconfig tem `allowImportingTsExtensions`
+  (imports de `.ts` precisam da extensao explicita — ex.
+  `tests/samples-list-reducer.test.ts`, que importa
+  `lib/samples/samples-list-reducer.ts`)
 - Helpers em `tests/helpers/`
 
 ## Como adicionar um teste novo
