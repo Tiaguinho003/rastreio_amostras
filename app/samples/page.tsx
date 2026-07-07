@@ -1049,7 +1049,7 @@ function SamplesPage() {
         if (cause instanceof DOMException && cause.name === 'AbortError') return;
         dispatchSamples({
           type: 'error',
-          message: cause instanceof ApiError ? cause.message : 'Falha ao carregar mais registros',
+          message: cause instanceof ApiError ? cause.message : 'Não foi possível carregar mais lotes.',
         });
       });
   }, []);
@@ -1153,7 +1153,7 @@ function SamplesPage() {
                 didChange = true;
                 const reasonLabel = mapEligibilityReasonToLabel(item.eligibility.reason);
                 toast.info({
-                  title: `Amostra ${item.internalLotNumber ?? '—'} removida da seleção`,
+                  title: `Lote ${item.internalLotNumber ?? '—'} removido da seleção`,
                   description: reasonLabel ?? undefined,
                 });
               }
@@ -1175,7 +1175,7 @@ function SamplesPage() {
           // Falha ao carregar a lista enriquecida pra liga: sai do modo + avisa
           // (a saida re-dispara este effect em idle, recarregando a lista normal).
           toast.error({
-            title: 'Não foi possível carregar amostras pra liga',
+            title: 'Não foi possível carregar os lotes pra liga',
             description: 'Tente novamente.',
           });
           setSelectionMode('idle');
@@ -1185,7 +1185,7 @@ function SamplesPage() {
 
         dispatchSamples({
           type: 'error',
-          message: cause instanceof ApiError ? cause.message : 'Falha ao carregar registros',
+          message: cause instanceof ApiError ? cause.message : 'Não foi possível carregar os lotes.',
         });
       });
 
@@ -1471,7 +1471,7 @@ function SamplesPage() {
     (reason: SampleEligibilityReason) => {
       const label = mapEligibilityReasonToLabel(reason);
       toast.info({
-        title: 'Amostra indisponível pra liga',
+        title: 'Lote indisponível pra liga',
         description: label ?? undefined,
       });
     },
@@ -1525,7 +1525,7 @@ function SamplesPage() {
     if (components.length < 2) {
       toast.error({
         title: 'Não foi possível criar liga',
-        description: 'Selecione pelo menos 2 amostras antes de continuar.',
+        description: 'Selecione pelo menos 2 lotes antes de continuar.',
       });
       return;
     }
@@ -2193,13 +2193,13 @@ function SamplesPage() {
         <section className="samples-page-v2-sheet">
           {/* Section 2: Count + filter btn (ou contador de selecionadas em modo blend) */}
           <div className="spv2-list-meta">
-            <span className="spv2-list-count">{samplesState.total} registros</span>
+            <span className="spv2-list-count">{samplesState.total} lotes</span>
             {selectionMode === 'blend' ? (
               <div className="spv2-selection-counter-wrap">
                 <button
                   type="button"
                   className="spv2-selection-counter"
-                  aria-label={`${selectedIds.size} amostras selecionadas — abrir revisão`}
+                  aria-label={`${selectedIds.size} lotes selecionados — abrir revisão`}
                   aria-expanded={selectionDropdownOpen}
                   aria-haspopup="menu"
                   onClick={() => setSelectionDropdownOpen((open) => !open)}
@@ -2207,7 +2207,7 @@ function SamplesPage() {
                 >
                   <span className="spv2-selection-counter__num">{selectedIds.size}</span>
                   <span className="spv2-selection-counter__label">
-                    {selectedIds.size === 1 ? 'selecionada' : 'selecionadas'}
+                    {selectedIds.size === 1 ? 'selecionado' : 'selecionados'}
                   </span>
                   <svg
                     className="spv2-selection-counter__chevron"
@@ -2239,15 +2239,24 @@ function SamplesPage() {
               tela — sem isso, na rolagem infinita o conteudo novo entra em
               silencio. Sempre no DOM (so o texto muda) pra o aria-live disparar. */}
           <div role="status" aria-live="polite" className="login-visually-hidden">
-            {isLoadingMore ? 'Carregando mais amostras' : ''}
+            {isLoadingMore ? 'Carregando mais lotes' : ''}
           </div>
 
           {/* Section 3: Card list */}
           {isLoadingInitial ? (
+            /* LOT-L4: skeleton em vez de texto "Carregando..." (design-system §3). */
             <div className="spv2-list-scroll">
-              <div className="spv2-empty">
-                <p className="spv2-empty-text">Carregando...</p>
-              </div>
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={`skel-initial-${i}`} className="spv2-skeleton-card" aria-hidden />
+              ))}
+            </div>
+          ) : samplesState.status === 'error' && samplesState.items.length === 0 ? (
+            /* LOT-B1: falha de carregamento deixa de ser silenciosa — antes o
+               erro caia no vazio "Nenhum lote encontrado" (mensagem enganosa). */
+            <div className="spv2-list-scroll">
+              <p className="spv2-error-banner" role="status">
+                {samplesState.error ?? 'Não foi possível carregar os lotes.'}
+              </p>
             </div>
           ) : samplesState.items.length === 0 ? (
             <div className="spv2-list-scroll">
@@ -2264,8 +2273,8 @@ function SamplesPage() {
                 </svg>
                 <p className="spv2-empty-text">
                   {selectionMode === 'blend'
-                    ? 'Nenhuma amostra disponível para liga'
-                    : 'Nenhuma amostra encontrada'}
+                    ? 'Nenhum lote disponível para liga'
+                    : 'Nenhum lote encontrado'}
                 </p>
                 <p className="spv2-empty-sub">
                   {selectionMode === 'blend'
@@ -2297,6 +2306,14 @@ function SamplesPage() {
                     <div key={`skel-${i}`} className="spv2-skeleton-card" aria-hidden />
                   ))
                 : null}
+
+              {/* LOT-B1: erro do load-more aparece onde o usuário está (fim
+                  da lista), em vez de sumir no estado. */}
+              {samplesState.status === 'error' && samplesState.items.length > 0 ? (
+                <p className="spv2-error-banner" role="status">
+                  {samplesState.error ?? 'Não foi possível carregar mais lotes.'}
+                </p>
+              ) : null}
 
               {samplesState.nextCursor ? (
                 <div ref={loadMoreRef} className="spv2-load-sentinel" aria-hidden />

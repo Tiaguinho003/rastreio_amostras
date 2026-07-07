@@ -5994,32 +5994,50 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
 
 /* ── spv2: empty state ── */
 
+/* LOT-L3: px fixo → clamp (responsive §1); LOT-A2: tons AA 4.5:1 no branco
+   (eram #bbb ≈1.9:1 e #ccc ≈1.6:1 — texto informativo ilegível). */
 .spv2-empty {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 40px 20px;
+  gap: clamp(6px, 2vw, 8px);
+  padding: clamp(28px, 9vw, 40px) clamp(14px, 5vw, 20px);
 }
 
 .spv2-empty-icon {
-  width: 32px;
+  width: clamp(26px, 8vw, 32px);
   height: auto;
 }
 
 .spv2-empty-text {
-  font-size: 14px;
-  color: #bbb;
+  font-size: clamp(13px, 3.6vw, 14px);
+  color: #6e6e6e;
   font-weight: 500;
   margin: 0;
 }
 
 .spv2-empty-sub {
-  font-size: 12px;
-  color: #ccc;
+  font-size: clamp(11px, 3.2vw, 12px);
+  color: #767676;
   margin: 0;
+}
+
+/* Banner de erro de carregamento da lista (LOT-B1; skill feedback-messages:
+   estado persistente → banner; molde do .dashboard-error-banner). */
+.spv2-error-banner {
+  margin: clamp(10px, 3vw, 14px) 0 0;
+  display: flex;
+  align-items: flex-start;
+  gap: clamp(10px, 3vw, 12px);
+  padding: clamp(10px, 3vw, 12px) clamp(12px, 3.5vw, 14px);
+  background: rgba(196, 92, 92, 0.08);
+  border: 1px solid rgba(196, 92, 92, 0.25);
+  border-radius: clamp(10px, 3vw, 12px);
+  color: #c45c5c;
+  font-size: clamp(0.8rem, 2.6vw, 0.88rem);
+  font-weight: 500;
 }
 
 /* ── spv2: scroll infinito ── */
