@@ -107,8 +107,9 @@ export interface SampleCardProps {
   selectionMode?: SampleCardSelectionMode;
   /** Liga B1.4 — selecionado no modo blend. */
   isSelected?: boolean;
-  /** Liga B1.4 — tap em card elegivel no modo blend. */
-  onToggleSelect?: (sampleId: string) => void;
+  /** Liga B1.4 — tap em card elegivel no modo blend. Recebe o snapshot inteiro:
+   *  a selecao da liga guarda o item (nao so o id) pra sobreviver a busca. */
+  onToggleSelect?: (sample: SampleSnapshot) => void;
   /** Liga B1.4 — tap em card inelegivel no modo blend (mostra tooltip/toast com motivo). */
   onShowIneligibleReason?: (reason: SampleEligibilityReason) => void;
   /** Modo idle: card expandido (mostra painel com infos principais). */
@@ -154,7 +155,7 @@ function SampleCardComponent({
         onShowIneligibleReason?.(eligibility?.reason ?? null);
         return;
       }
-      onToggleSelect?.(sample.id);
+      onToggleSelect?.(sample);
     };
 
     const cardClassName = [

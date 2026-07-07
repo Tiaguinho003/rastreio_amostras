@@ -52,6 +52,11 @@ import {
   type SampleCursor,
   type SamplesListState,
 } from '../../lib/samples/samples-list-reducer';
+import {
+  reconcileSelection,
+  toggleSelection,
+  type BlendSelection,
+} from '../../lib/samples/blend-selection';
 import { buildHarvestPresets } from '../../lib/sample-identification';
 import { useToast } from '../../lib/toast/ToastProvider';
 import { useFocusTrap } from '../../lib/use-focus-trap';
@@ -596,17 +601,22 @@ function SamplesPage() {
   // Liga B1.4 (F1.D): modo selecao pra criar liga. Disparado via FAB → Liga.
   // selectionMode controla render do header (SelectionModeHeader vs normal),
   // navbar (body class is-selection-mode), e shape dos cards (com bolinha).
-  // selectedIds persiste entre buscas/filtros — contador SEMPRE de .size.
+  // A selecao guarda o SNAPSHOT do lote (Map id→SampleSnapshot, ordem de
+  // selecao) e persiste entre buscas/filtros — antes era Set<string> e todo
+  // consumo filtrava a lista visivel, entao lote selecionado fora da busca
+  // atual sumia silenciosamente da liga criada (bug corrigido 2026-07-07).
+  // reconcileSelection (lib/samples/blend-selection.ts) re-sincroniza os
+  // snapshots a cada refetch e remove os que viraram inelegiveis.
   const [selectionMode, setSelectionMode] = useState<'idle' | 'blend'>('idle');
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
-  // Lista de samples selecionadas pro BlendConfirmationSheet, memoizada: sem isso
-  // o `.filter()` inline gerava um array novo a cada render e o effect de
-  // SYNC_SAMPLES do sheet re-disparava à toa (M6). Recalcula quando os itens
-  // (ex.: refetch que atualiza availableSacks) ou a seleção mudam — então a
-  // re-sincronização de availableSacks no sheet continua valendo.
+  const [selectedSamples, setSelectedSamples] = useState<BlendSelection>(() => new Map());
+  // Lista pro BlendConfirmationSheet, memoizada: um array novo a cada render
+  // re-disparava o effect de SYNC_SAMPLES do sheet a toa (M6). Vem direto do
+  // Map da selecao — inclui selecionados fora da lista atual; os snapshots
+  // sao atualizados pela reconciliacao, entao a re-sincronizacao de
+  // availableSacks no sheet continua valendo.
   const selectedSamplesForSheet = useMemo(
-    () => samplesState.items.filter((s) => selectedIds.has(s.id)),
-    [samplesState.items, selectedIds]
+    () => Array.from(selectedSamples.values()),
+    [selectedSamples]
   );
   // Liga B1.5: popover de revisao das selecionadas (lista + X individual).
   // Abre via tap no contador, fecha via click fora / Escape / remocao da
@@ -1088,28 +1098,20 @@ function SamplesPage() {
           nextCursor: response.page.nextCursor,
         });
 
-        // Modo Liga: reconcilia selecoes — pra cada selectedId visivel que virou
-        // inelegivel, deseleciona + toast.
+        // Modo Liga: reconcilia a selecao — snapshots atualizados pra quem
+        // veio na resposta, inelegivel deseleciona + toast, fora dos filtros
+        // atuais permanece (blend-selection.ts).
         if (blend) {
-          setSelectedIds((prevSel) => {
-            if (prevSel.size === 0) return prevSel;
-            const itemsById = new Map(response.items.map((s) => [s.id, s]));
-            const next = new Set(prevSel);
-            let didChange = false;
-            for (const id of prevSel) {
-              const item = itemsById.get(id);
-              if (!item) continue; // fora dos filtros atuais — mantem
-              if (item.eligibility && !item.eligibility.eligible) {
-                next.delete(id);
-                didChange = true;
-                const reasonLabel = mapEligibilityReasonToLabel(item.eligibility.reason);
-                toast.info({
-                  title: `Lote ${item.internalLotNumber ?? '—'} removido da seleção`,
-                  description: reasonLabel ?? undefined,
-                });
-              }
+          setSelectedSamples((prevSel) => {
+            const { selection, removed } = reconcileSelection(prevSel, response.items);
+            for (const removal of removed) {
+              const reasonLabel = mapEligibilityReasonToLabel(removal.reason);
+              toast.info({
+                title: `Lote ${removal.lot} removido da seleção`,
+                description: reasonLabel ?? undefined,
+              });
             }
-            return didChange ? next : prevSel;
+            return selection;
           });
         }
       })
@@ -1130,7 +1132,7 @@ function SamplesPage() {
             description: 'Tente novamente.',
           });
           setSelectionMode('idle');
-          setSelectedIds(new Set());
+          setSelectedSamples(new Map());
           return;
         }
 
@@ -1151,13 +1153,13 @@ function SamplesPage() {
   }, [appliedHiddenFilters, appliedSearch, session, newSampleRefetchKey, selectionMode]);
 
   // Liga B2.1 — quando todas as amostras forem removidas via X dentro do
-  // sheet, selectedIds zera e o sheet fecha automaticamente. Modo selecao
+  // sheet, a selecao zera e o sheet fecha automaticamente. Modo selecao
   // permanece ativo (decisao UX confirmada).
   useEffect(() => {
-    if (confirmationSheetOpen && selectedIds.size === 0) {
+    if (confirmationSheetOpen && selectedSamples.size === 0) {
       setConfirmationSheetOpen(false);
     }
-  }, [confirmationSheetOpen, selectedIds]);
+  }, [confirmationSheetOpen, selectedSamples]);
 
   // Liga B1.4 — body class pra esconder navbar/header normal no modo selecao.
   useEffect(() => {
@@ -1352,12 +1354,12 @@ function SamplesPage() {
   // Liga B1.4 — handlers de modo selecao.
   function enterBlendMode() {
     setSelectionMode('blend');
-    setSelectedIds(new Set());
+    setSelectedSamples(new Map());
   }
 
   function exitBlendMode() {
     setSelectionMode('idle');
-    setSelectedIds(new Set());
+    setSelectedSamples(new Map());
     setSelectionDropdownOpen(false);
     setConfirmationSheetOpen(false);
     setCreatingBlend(false);
@@ -1365,14 +1367,10 @@ function SamplesPage() {
   }
 
   // Handlers passados ao SampleCard memoizado: estaveis via useCallback pra nao
-  // quebrar o memo. Usam updater funcional do setState -> deps vazias.
-  const toggleSampleSelection = useCallback((sampleId: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(sampleId)) next.delete(sampleId);
-      else next.add(sampleId);
-      return next;
-    });
+  // quebrar o memo. Usam updater funcional do setState -> deps vazias. Recebe o
+  // SampleSnapshot inteiro: a selecao guarda o snapshot, nao so o id.
+  const toggleSampleSelection = useCallback((sample: SampleSnapshot) => {
+    setSelectedSamples((prev) => toggleSelection(prev, sample));
   }, []);
 
   // Toggle do card expandido. Multiplos podem ficar abertos.
@@ -1434,9 +1432,9 @@ function SamplesPage() {
   // fecha o popover automaticamente mas mantem o modo selecao ativo
   // (decisao UX confirmada: nao sai do modo).
   function handleRemoveFromSelection(sampleId: string) {
-    setSelectedIds((prev) => {
+    setSelectedSamples((prev) => {
       if (!prev.has(sampleId)) return prev;
-      const next = new Set(prev);
+      const next = new Map(prev);
       next.delete(sampleId);
       if (next.size === 0) setSelectionDropdownOpen(false);
       return next;
@@ -1446,14 +1444,14 @@ function SamplesPage() {
   // Liga B2.1: abre o bottom-sheet de confirmacao. Disparado pelo FAB-seta
   // -> em /samples quando ha >=2 amostras selecionadas.
   function openConfirmation() {
-    if (selectedIds.size < 2) return; // safety; seta ja vem disabled
+    if (selectedSamples.size < 2) return; // safety; seta ja vem disabled
     // Fecha o popover de revisao se estiver aberto (mutuamente exclusivos).
     setSelectionDropdownOpen(false);
     setConfirmationSheetOpen(true);
   }
 
   // "Voltar" no sheet ou fechamento via backdrop / ESC. Mantem modo
-  // selecao + selectedIds preservados.
+  // selecao + selecao preservados.
   function closeConfirmation() {
     setConfirmationSheetOpen(false);
   }
@@ -1500,7 +1498,7 @@ function SamplesPage() {
       setCreatedBlend({ sampleId, lotNumber });
       setConfirmationSheetOpen(false);
       setSelectionMode('idle');
-      setSelectedIds(new Set());
+      setSelectedSamples(new Map());
       setSelectionDropdownOpen(false);
       setNewSampleRefetchKey((current) => current + 1);
     } catch (cause) {
@@ -2130,7 +2128,7 @@ function SamplesPage() {
           {selectionMode === 'blend' ? (
             <SampleCreateRadialFab
               mode="blendArrow"
-              selectedCount={selectedIds.size}
+              selectedCount={selectedSamples.size}
               onContinue={openConfirmation}
             />
           ) : (
@@ -2152,15 +2150,15 @@ function SamplesPage() {
                 <button
                   type="button"
                   className="spv2-selection-counter"
-                  aria-label={`${selectedIds.size} lotes selecionados — abrir revisão`}
+                  aria-label={`${selectedSamples.size} lotes selecionados — abrir revisão`}
                   aria-expanded={selectionDropdownOpen}
                   aria-haspopup="menu"
                   onClick={() => setSelectionDropdownOpen((open) => !open)}
-                  disabled={selectedIds.size === 0}
+                  disabled={selectedSamples.size === 0}
                 >
-                  <span className="spv2-selection-counter__num">{selectedIds.size}</span>
+                  <span className="spv2-selection-counter__num">{selectedSamples.size}</span>
                   <span className="spv2-selection-counter__label">
-                    {selectedIds.size === 1 ? 'selecionado' : 'selecionados'}
+                    {selectedSamples.size === 1 ? 'selecionado' : 'selecionados'}
                   </span>
                   <svg
                     className="spv2-selection-counter__chevron"
@@ -2171,15 +2169,13 @@ function SamplesPage() {
                     <path d="M6 9l6 6 6-6" />
                   </svg>
                 </button>
-                {selectionDropdownOpen && selectedIds.size > 0 ? (
+                {selectionDropdownOpen && selectedSamples.size > 0 ? (
                   <SelectedSamplesDropdown
-                    samples={samplesState.items
-                      .filter((s) => selectedIds.has(s.id))
-                      .map<SelectedSampleSummary>((s) => ({
-                        id: s.id,
-                        lot: s.internalLotNumber ?? s.id.slice(0, 8),
-                        availableSacks: s.availableSacks ?? null,
-                      }))}
+                    samples={selectedSamplesForSheet.map<SelectedSampleSummary>((s) => ({
+                      id: s.id,
+                      lot: s.internalLotNumber ?? s.id.slice(0, 8),
+                      availableSacks: s.availableSacks ?? null,
+                    }))}
                     onRemove={handleRemoveFromSelection}
                     onClose={() => setSelectionDropdownOpen(false)}
                   />
@@ -2244,7 +2240,7 @@ function SamplesPage() {
                   sample={sample}
                   onClickCapture={saveSnapshotBeforeLeave}
                   selectionMode={selectionMode === 'blend' ? 'blend' : 'idle'}
-                  isSelected={selectedIds.has(sample.id)}
+                  isSelected={selectedSamples.has(sample.id)}
                   onToggleSelect={toggleSampleSelection}
                   onShowIneligibleReason={showIneligibleReason}
                   isExpanded={expandedSampleIds.has(sample.id)}
