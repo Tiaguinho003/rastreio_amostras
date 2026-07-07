@@ -46,7 +46,7 @@ validação no device · ✅ concluída.
 
 | #   | Código | Página             | Rota                                                                          | Status | Sessões | Resumo                                                                                                                                   |
 | --- | ------ | ------------------ | ----------------------------------------------------------------------------- | ------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | LOG    | Login              | `/login` (+ `/forgot-password`)                                               | 📱     | S3      | 16 achados corrigidos (incl. 3 bugs de persistência no auth), endurecimento do reset, 3 suítes de teste novas, teia de docs sincronizada |
+| 1   | LOG    | Login              | `/login` (+ `/forgot-password`)                                               | ✅     | S3      | 16 achados corrigidos (incl. 3 bugs de persistência no auth), endurecimento do reset, 3 suítes de teste novas, teia de docs sincronizada; validada no device 2026-07-07 |
 | 2   | DSH    | Dashboard          | `/dashboard` (twins mobile/desktop + dashboard do PROSPECTOR)                 | ⬜     | —       | —                                                                                                                                        |
 | 3   | LOT    | Lotes (lista)      | `/samples`                                                                    | ⬜     | —       | —                                                                                                                                        |
 | 4   | LNW    | Novo lote          | `/samples/new`                                                                | ⬜     | —       | —                                                                                                                                        |
@@ -211,7 +211,7 @@ template). Até lá, fica só o stub.
 **Pendências:** <CÓDIGO>-Pn deixadas para depois
 ```
 
-### Login (LOG) — 📱 aguardando validação no device (S3, 2026-07-06)
+### Login (LOG) — ✅ concluída (S3, 2026-07-06; validada no device 2026-07-07)
 
 **Mapa (R1):** `app/login/page.tsx` (+ `/forgot-password` = redirect →
 `/login?modal=forgot-password`) · `components/ForgotPasswordModal.tsx` (3
@@ -295,10 +295,9 @@ integração 392 / build / typecheck / lint / format).
   same-origin (aceito; revisar se surgirem POSTs cross-site).
 - **LOG-P5** — over-exports de `lib/types.ts` aceitos (dicionário de tipos).
 
-**Validação no device (Flavio):** login com senha errada (mensagem aparece no
-campo senha, que esvazia) · expirar/encerrar sessão → aviso no login · fluxo
-completo do esqueci-a-senha (código por e-mail, erro de código, redefinir e
-relogar) · visual mobile + desktop intactos.
+**Validação no device (Flavio):** ✅ validada em 2026-07-07 — login com senha
+errada (mensagem no campo senha, que esvazia) · expirar/encerrar sessão →
+aviso no login · fluxo completo do esqueci-a-senha · visual mobile + desktop.
 
 ### Dashboard (DSH) — ⬜ não iniciada
 
