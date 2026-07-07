@@ -21,6 +21,7 @@ import { IncompleteIcon } from './IncompleteIcon';
 import { isClientComplete } from '../../lib/clients/client-completeness';
 import { ApiError, getClient, listClients, lookupUsersForReference } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
+import { useListRevalidation } from '../../lib/use-list-revalidation';
 import { useToast } from '../../lib/toast/ToastProvider';
 import { formatClientDocument, formatPhone } from '../../lib/client-field-formatters';
 import type {
@@ -356,7 +357,12 @@ export function ClientsBrowser({
   const initialSnapshot = initialSnapshotRef.current;
   // Deep-link ?incomplete=true forca refetch (completeness e server-side agora):
   // pular o fetch mostraria os items restaurados sem o filtro aplicado.
+  // Mount restaurado do snapshot roda o fetch SILENCIOSO (stale-while-
+  // revalidate) — ver o effect do fetch inicial.
   const skipInitialFetchRef = useRef<boolean>(initialSnapshot !== null && !incompleteFromUrl);
+  // Revalidacao silenciosa (2026-07-07): tick refaz o fetch sem skeleton
+  // (retorno ao app + polling — useListRevalidation).
+  const [refreshTick, setRefreshTick] = useState(0);
   const pendingScrollRestoreRef = useRef<number | null>(
     initialSnapshot ? initialSnapshot.scrollTop : null
   );
@@ -420,6 +426,9 @@ export function ClientsBrowser({
     token: 0,
     abort: null,
   });
+  // Entradas do ultimo fetch inicial — distingue "so o tick de revalidacao
+  // mudou" (refetch SILENCIOSO) de "busca/filtro mudou" (loading normal).
+  const prevClientsFetchRef = useRef({ appliedClientSearch, appliedFilters, refreshTick });
 
   // 14.4.C: contagem de incompletos vem do backend (clientsState.incompleteTotal),
   // total real respeitando filtros server-side. Removido o useMemo client-side
@@ -509,17 +518,26 @@ export function ClientsBrowser({
       return;
     }
 
-    // 14.7.K: snapshot restaurou state — pula o primeiro fetch. Ref e
-    // consumido aqui (so vale 1 vez); proximas mudancas em filtro/sessao
-    // refazem fetch normal.
-    if (skipInitialFetchRef.current) {
-      skipInitialFetchRef.current = false;
-      return;
-    }
+    // Revalidacao silenciosa (2026-07-07, espelha /samples): so o tick mudou →
+    // refetch em background mantendo a lista atual na tela.
+    const prev = prevClientsFetchRef.current;
+    const filtersChanged =
+      prev.appliedClientSearch !== appliedClientSearch || prev.appliedFilters !== appliedFilters;
+    const isTickOnly = !filtersChanged && prev.refreshTick !== refreshTick;
+    prevClientsFetchRef.current = { appliedClientSearch, appliedFilters, refreshTick };
+
+    // 14.7.K: snapshot restaurou state — antes o primeiro fetch era PULADO de
+    // vez (lista congelada nos dados do snapshot ate mexer em filtro/busca).
+    // Agora o snapshot e so a primeira pintura: o fetch roda silencioso.
+    const restoredMount = skipInitialFetchRef.current;
+    skipInitialFetchRef.current = false;
+    const isSilentBackground = isTickOnly || restoredMount;
 
     const abortController = new AbortController();
     let active = true;
-    dispatchClients({ type: 'fetch-initial' });
+    if (!isSilentBackground) {
+      dispatchClients({ type: 'fetch-initial' });
+    }
     loadMoreStateRef.current.token += 1;
     loadMoreStateRef.current.inFlight = false;
     // Cancela load-more pendente do filtro/busca anteriores.
@@ -548,6 +566,9 @@ export function ClientsBrowser({
       .catch((cause) => {
         if (!active) return;
         if (cause instanceof DOMException && cause.name === 'AbortError') return;
+        // Revalidacao em background falhou: mantem o que esta na tela (o
+        // proximo tick/retorno tenta de novo).
+        if (isSilentBackground) return;
         dispatchClients({
           type: 'error',
           message: cause instanceof ApiError ? cause.message : 'Falha ao carregar clientes',
@@ -558,7 +579,24 @@ export function ClientsBrowser({
       active = false;
       abortController.abort();
     };
-  }, [appliedClientSearch, appliedFilters, session]);
+  }, [appliedClientSearch, appliedFilters, session, refreshTick]);
+
+  // Revalidacao silenciosa (mesmo padrao do dashboard e de /samples): refetch
+  // ao voltar o app pro primeiro plano (throttle 30s) + polling 60s com a
+  // pagina visivel. Guards: nao atropela carregamento/paginacao em andamento.
+  const clientsStatusRef = useRef(clientsState.status);
+  clientsStatusRef.current = clientsState.status;
+  const requestSilentRefetch = useCallback(() => {
+    const status = clientsStatusRef.current;
+    if (status === 'loading-initial' || status === 'loading-more') return;
+    if (loadMoreStateRef.current.inFlight) return;
+    setRefreshTick((tick) => tick + 1);
+  }, []);
+
+  useListRevalidation({
+    enabled: Boolean(session),
+    onRevalidate: requestSilentRefetch,
+  });
 
   // 14.4.A: load-more pelo cursor. inFlight + token protegem contra race
   // condition em scrolls rápidos (mesmo padrão de /samples).

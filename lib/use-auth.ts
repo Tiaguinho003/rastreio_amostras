@@ -195,6 +195,17 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
       // local cleanup still wins
     }
 
+    // Snapshots de lista (primeira pintura de /samples e /clients) sao do
+    // usuario da sessao — num PWA que sobrevive ao logout, sem esta limpeza o
+    // proximo login poderia restaurar a lista de outro usuario.
+    try {
+      window.sessionStorage.removeItem('samples-list-snapshot-v3');
+      window.sessionStorage.removeItem('clients-list-snapshot-v3');
+      window.sessionStorage.removeItem('clients-list-snapshot-cad-v3');
+    } catch {
+      // sessionStorage indisponivel — nada a limpar
+    }
+
     replaceSession(null);
     router.replace('/login');
   }, [replaceSession, router, session]);
