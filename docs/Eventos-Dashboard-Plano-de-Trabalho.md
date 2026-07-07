@@ -1,7 +1,12 @@
 # Card de Eventos do Dashboard — Plano de Trabalho
 
-> **Status:** decisões E1–E19 travadas (2026-07-07); **F0 implementada**
-> (commit `9a66cd8`), aguardando validação no device. Fonte canônica da
+> **Status: CARD INCOMPLETO (registrado em 2026-07-07, decisão do Flavio de
+> pausar aqui e seguir pra próxima página da revisão).** Decisões E1–E20
+> travadas; **F0 implementada** (commits `9a66cd8` + `49f4fb7`/E20) — o card
+> existe, funciona e está no dashboard, mas: (a) o **refino de layout ficou
+> adiado** (EVD-P5 — proporções grade/painel e altura dos quadrados com o
+> card em altura total); (b) **não existe nenhum evento** até as features da
+> F1+ nascerem (painel sempre vazio, por design E7). Fonte canônica da
 > feature — o resumo vive na decisão **DSH-D6** de
 > `Revisao-Geral-Plano-de-Trabalho.md`.
 > **Escopo da 1ª rodada:** só o card (layout, design e funcionamento
@@ -125,6 +130,10 @@ rodada.
   rótulos) sem unit test: o `node --test` do projeto não roda TS. Cobrir
   quando houver infra de teste front (ou na F1, se a matemática migrar pro
   backend do endpoint).
+- **EVD-P5** — **Refino de layout do card ADIADO** (Flavio, 2026-07-07,
+  após o E20 deixar o card em altura total): proporção grade × painel,
+  altura dos quadrados e demais ajustes visuais serão retomados depois —
+  "layout faremos depois". Retomar junto com a validação no device.
 
 ## Histórico
 
@@ -141,3 +150,7 @@ rodada.
   componente). Gates verdes; aguardando validação no device.
 - **2026-07-07 (validação)** — Flavio pediu o card mais alto → **E20**: a
   coluna direita inteira, incluindo a altura das pendências (`49f4fb7`).
+- **2026-07-07 (pausa)** — Flavio decidiu **pausar o card aqui** e seguir
+  pra próxima página da Revisão Geral: status marcado como **INCOMPLETO**
+  (refino de layout adiado = EVD-P5; eventos só na F1+). Espelhado na
+  pendência DSH-P6 do doc da revisão.

@@ -47,7 +47,7 @@ validação no device · ✅ concluída.
 | #   | Código | Página             | Rota                                                                          | Status | Sessões | Resumo                                                                                                                                                                                                                    |
 | --- | ------ | ------------------ | ----------------------------------------------------------------------------- | ------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | LOG    | Login              | `/login` (+ `/forgot-password`)                                               | ✅     | S3      | 16 achados corrigidos (incl. 3 bugs de persistência no auth), endurecimento do reset, 3 suítes de teste novas, teia de docs sincronizada; validada no device 2026-07-07                                                   |
-| 2   | DSH    | Dashboard          | `/dashboard` (twins mobile/desktop + dashboard do PROSPECTOR)                 | 📱     | S4–S5   | 19 achados + decisões D2–D5: dashboard único, "Vendas e perdas" e StatCards de pulso removidos, card novo "Últimos envios" (40 envios, endpoint recent-sends); 16 commits; coluna direita da linha 2 segue a definir (P2) |
+| 2   | DSH    | Dashboard          | `/dashboard` (twins mobile/desktop + dashboard do PROSPECTOR)                 | 📱     | S4–S7   | 19 achados + decisões D2–D6: dashboard único; "Vendas e perdas" e pulso removidos; cards novos "Últimos envios" (endpoint recent-sends) e "Eventos" (calendário F0, coluna direita inteira — INCOMPLETO, ver P6); validar tudo no device |
 | 3   | LOT    | Lotes (lista)      | `/samples`                                                                    | ⬜     | —       | —                                                                                                                                                                                                                         |
 | 4   | LNW    | Novo lote          | `/samples/new`                                                                | ⬜     | —       | —                                                                                                                                                                                                                         |
 | 5   | LDT    | Detalhe do lote    | `/samples/[sampleId]`                                                         | ⬜     | —       | —                                                                                                                                                                                                                         |
@@ -457,6 +457,11 @@ schemas / build / unit 357 / contracts 20 / integração 401 + re-seed).
 - **DSH-P5** — greys fora da paleta nos cards `dd-*` (reduzida pela remoção
   do trend card; sobram `#72766f`, `#1a2e1f` e o verde-up `#1f8540` dos
   StatCards) — dívida de token; trocar = mudança visual.
+- **DSH-P6** — **card de Eventos INCOMPLETO** (decisão do Flavio de pausar
+  e seguir pra próxima página, 2026-07-07): F0 no ar (shell vazio, E1–E20),
+  mas o refino de layout ficou adiado (EVD-P5) e os eventos só existirão
+  com as features F1+ — tudo rastreado em
+  `Eventos-Dashboard-Plano-de-Trabalho.md`.
 - _(DSH-P1 virou a decisão DSH-D2; DSH-T2/T3 morreram com D2/D3.)_
 
 **Validação no device (Flavio):** dashboard mobile + desktop de um papel
@@ -598,3 +603,7 @@ avião e reabrir o app).
   prop `events`). DSH-P2 resolvida; lacuna EVD-T1 catalogada no doc da
   feature. Gates verdes (typecheck / lint / format / build / unit 357 /
   contracts 20). Dashboard segue 📱 com o roteiro de validação ampliado.
+  Na validação o Flavio pediu o card em altura total → **E20** (`49f4fb7`:
+  coluna direita inteira, pendências dentro da `.dd-left-col`). Em seguida
+  decidiu **pausar o card aqui** (registrado como DSH-P6 + EVD-P5: refino
+  de layout adiado; eventos só na F1+) pra seguir pra próxima página.
