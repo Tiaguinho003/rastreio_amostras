@@ -48,7 +48,7 @@ validação no device · ✅ concluída.
 | --- | ------ | ------------------ | ----------------------------------------------------------------------------- | ------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | LOG    | Login              | `/login` (+ `/forgot-password`)                                               | ✅     | S3      | 16 achados corrigidos (incl. 3 bugs de persistência no auth), endurecimento do reset, 3 suítes de teste novas, teia de docs sincronizada; validada no device 2026-07-07                                                                  |
 | 2   | DSH    | Dashboard          | `/dashboard` (twins mobile/desktop + dashboard do PROSPECTOR)                 | 📱     | S4–S7   | 19 achados + decisões D2–D6: dashboard único; "Vendas e perdas" e pulso removidos; cards novos "Últimos envios" (endpoint recent-sends) e "Eventos" (calendário F0, coluna direita inteira — INCOMPLETO, ver P6); validar tudo no device |
-| 3   | LOT    | Lotes (lista)      | `/samples`                                                                    | ⬜     | —       | —                                                                                                                                                                                                                                        |
+| 3   | LOT    | Lotes (lista)      | `/samples`                                                                    | 📱     | S8      | Deferidos resolvidos (CSS legado −594 linhas, testes do reducer+filtros) + decisões D1–D4 (uniforme, PROSPECTOR fora do service, copy "lote", vazio único) + erro de carregamento visível, portais, a11y; 10 commits                     |
 | 4   | LNW    | Novo lote          | `/samples/new`                                                                | ⬜     | —       | —                                                                                                                                                                                                                                        |
 | 5   | LDT    | Detalhe do lote    | `/samples/[sampleId]`                                                         | ⬜     | —       | —                                                                                                                                                                                                                                        |
 | 6   | CAM    | Câmera / Scanner   | `/camera`                                                                     | ⬜     | —       | —                                                                                                                                                                                                                                        |
@@ -479,13 +479,119 @@ dias · **viewport baixa** (~768px de altura — estoura?) · donut a 320px
 senha) · dashboard do PROSPECTOR intacto · banner de erro (opcional: modo
 avião e reabrir o app).
 
-### Lotes — lista (LOT) — ⬜ não iniciada
+### Lotes — lista (LOT) — 📱 aguardando validação no device (S8, 2026-07-07)
 
 > Contexto prévio: a lista já passou por revisão faseada própria em
 > `docs/Revisao-Pagina-Lotes-Plano-de-Trabalho.md` (29 achados, fases 1–6
-> implementadas). O ciclo aqui **não repete** o que foi coberto lá: começa
-> conferindo o que ficou deferido (CSS legado `.samples-page-*`, testes de
-> regressão) e foca papéis + docs + design.
+> implementadas e EM PROD). Este ciclo **não repetiu** aquilo: resolveu os
+> deferidos (CSS legado, testes) e cobriu papéis + design/a11y + docs.
+
+**Mapa (R1):** `app/samples/page.tsx` (~2.5k linhas; um render responsivo —
+desktop muda scroll container/filtros via `isDesktop`+CSS) · componentes:
+`SampleCard`, `SampleCreateRadialFab` (leque + com Lote/Liga/Aprovação),
+`SelectionModeHeader`/`SelectedSamplesDropdown` (modo Liga),
+`ClassificationFilterField`, `ClientLookupField`, modais
+(NewSample/Movement/SendFlow/BlendConfirmation/ApprovalLabel) · dados:
+`listSamples` (cursor keyset `internalLotNumberInt DESC NULLS LAST, id ASC`,
+LIMIT 30, D1 sem COUNT no load-more) + `listClassificationValues`; deep link
+`?displayStatus=OPEN|SOLD|LOST`; snapshot em sessionStorage (TTL 30min) ·
+gates: `useRequireAuth({allowedRoles: NON_PROSPECTOR_ROLES})` + middleware +
+backend (`resolveActorContext` + `USER_ACTION_ROLES` nos commands) · CSS
+vivo: `spv2-*` (227), `samples-filter-*` (138), `samples-page-v2` (116),
+`hero-search*` (93), `fab-fan*` (41, compartilhado).
+
+**Matriz por papel (R2):** os 5 papéis não-PROSPECTOR veem a mesma lista e
+fazem as mesmas ações; PROSPECTOR bloqueado nas 3 camadas.
+
+**Decisões:**
+
+- **LOT-D1** — página uniforme confirmada: os 5 papéis fazem TODAS as ações
+  (criar lote/liga/aprovação, enviar, perda). UI e backend simétricos.
+- **LOT-D2** — endurecimento: **PROSPECTOR removido de `USER_ACTION_ROLES`**
+  (segunda barreira no service, além da allowlist central; neutro hoje).
+- **LOT-D3** — vocabulário da página padronizado pra **"lote"** (exceção por
+  página registrada na skill feedback-messages; o restante do app segue
+  "amostra" até os seus ciclos).
+- **LOT-D4** — estado vazio segue com **mensagem única** (não distinguir
+  "sem dados" × "busca sem resultado").
+
+**Achados:**
+
+- **LOT-M1** ✅ — bloco legado `.samples-page-*` (deferido da revisão
+  faseada): 84 blocos 100% órfãos removidos por parser de seletor, famílias
+  vizinhas intactas por contagem; −594 linhas (`6080815`). `.records-*`
+  aparentam 0 usos → nota pro ciclo CLI.
+- **LOT-B1** ✅ [ALTA] — falha de carregamento era silenciosa (error nunca
+  renderizava; vazio enganoso "Nenhuma amostra encontrada") → banner
+  `.spv2-error-banner` no vazio-com-erro e no fim da lista no load-more
+  (`3b45102`).
+- **LOT-L4** ✅ — "Carregando..." → 3 skeleton cards no load inicial
+  (`3b45102`).
+- **LOT-L3** ✅ (parcial) — vazio px→clamp + tons AA; distinção de vazios
+  descartada por decisão D4 (`3b45102`).
+- **LOT-L1** ✅ — hovers de background/box-shadow fora de `(hover:hover)` +
+  background na transition (selection-counter, selection-header\_\_exit,
+  card-action.is-detail) → gated (`4b3100b`).
+- **LOT-L2** ✅ — modal de filtros e `SendMethodChooserModal` sem portal
+  (pendência legacy da skill modals) → `createPortal` + guarda SSR
+  (`87d0dd1`). Instância do /clients fica pro ciclo CLI.
+- **LOT-A1** ✅ — `prefers-reduced-motion` não cobria as animações da página
+  → bloco novo (entrances + expand/chevron; beneficia /clients, que reusa os
+  keyframes) (`4b3100b`).
+- **LOT-A2** ✅ — contraste sub-AA (`#aaa`≈2.3:1 no card-detail; `#bbb`/
+  `#ccc` no vazio) → `#72766f`/`#6e6e6e`/`#767676` (`3b45102`/`4b3100b`) —
+  **validar no device**.
+- **LOT-A3** ✅ — busca sem nome acessível + acentos faltando → `aria-label`
+  - "proprietário"/"Filtros avançados" (`4b3100b`).
+- **LOT-R1** ✅ — header de seleção com botão sair 36px → alvo de toque 44px
+  (`4b3100b`) — **validar no device**.
+- **LOT-I1** ✅ — `USER_ACTION_ROLES` incluía PROSPECTOR (gate efetivo era
+  só a allowlist — ponto único) → removido (D2) + suíte unit
+  `sample-command-roles` (403 no service p/ create/blend/invalidate;
+  operacionais passam) (`a505812`).
+- **LOT-T1** ✅ — reducer extraído pra `lib/samples/samples-list-reducer.ts`
+  - 6 testes unit (reset/success-initial/success-more/fetch-more/error/ação
+    desconhecida); `allowImportingTsExtensions` no tsconfig pro
+    strip-types (`2917953`).
+- **LOT-T2/T3** ✅ — filtros de classificação (com canonização de entrada
+  suja), `listClassificationValues` (422 em campo inválido), `isBlend` e
+  `eligibleForBlend`/`committedSacks` cobertos em integração (`0fa7d38`).
+- **LOT-L5** ⏳ — paleta de status do card em hex fora da paleta + 2 azuis
+  próximos ("Em aberto" `#60a5fa` × "Enviar" `#2980b9`) → LOT-P1 (dívida de
+  token; trocar = mudança visual).
+- **LOT-DOC1–3** ✅ — README (status da revisão faseada), doc da revisão
+  faseada (fase 3 EM PROD, M1/#7 resolvidos, decisão #4 superada anotada),
+  Auditoria-Navegação (classificar roda em /camera) + skills modals/
+  feedback-messages (`3685452`).
+- ❌ **Falso-positivos herdados** (não reinvestigar): os 7 refutados + I1
+  (PARTIALLY_SOLD = "Em aberto") da revisão faseada; API-e-Contratos do
+  listSamples já estava atualizado; knip limpo pra página.
+
+**Resumo:** 10 commits — `6080815` (CSS órfão), `3b45102`+`ace071c` (erro
+visível/skeleton/copy/clamp), `4b3100b` (interação/a11y), `87d0dd1`
+(portais), `a505812`+`4c655e8` (endurecimento de papel), `2917953`
+(reducer+testes), `0fa7d38` (testes de filtros), `3685452` (docs/skills).
+Gates verdes (lint / format / typecheck / schemas / build / unit 367 /
+contracts 20 / integração 406 + re-seed).
+
+**Pendências:**
+
+- **LOT-P1** — paleta de status do card (hex fora da paleta, 2 azuis) —
+  dívida de token.
+- **LOT-P2** — satélites `.clients-page-v2 .spv2-footer/chip` +
+  `.records-client-*`/`.records-mode-switch` (0 usos aparentes) + instância
+  do modal de filtros do /clients sem portal → **ciclo CLI**.
+- **LOT-P3** — fetch unificado do modo Liga sem teste automatizado (sem
+  harness de componente; validado no device — herdado da revisão faseada).
+
+**Validação no device (Flavio):** inclui os itens PENDENTES da revisão
+faseada (fases 1/2/4/5: cenários do modo Liga, digitar na busca sem
+re-render dos cards, scroll longo iOS PWA + restauração ao voltar do
+detalhe, skeleton/teclado/leitor) + os novos: banner de erro (modo avião),
+skeleton no load inicial, copy "lote" (vazios, contador "N lotes",
+seleção), contraste um tom mais escuro (sacas/safra do card e vazio),
+botão sair do modo Liga maior, modais de filtros/envio portalados, tap no
+contador de seleção sem hover grudado.
 
 ### Novo lote (LNW) — ⬜ não iniciada
 
@@ -607,3 +713,15 @@ avião e reabrir o app).
   coluna direita inteira, pendências dentro da `.dd-left-col`). Em seguida
   decidiu **pausar o card aqui** (registrado como DSH-P6 + EVD-P5: refino
   de layout adiado; eventos só na F1+) pra seguir pra próxima página.
+- **S8 (2026-07-07)** — F3/LOT executada ponta a ponta (R1–R8): 3 agentes de
+  levantamento + auditoria R5; 4 decisões LOT-D1–D4 (uniforme pros 5 papéis,
+  **PROSPECTOR removido de USER_ACTION_ROLES**, copy "lote", vazio único);
+  deferidos da revisão faseada RESOLVIDOS — CSS legado `.samples-page-*`
+  (84 blocos, −594 linhas, por parser de seletor) e lacuna de testes #7
+  (reducer extraído + 6 unit; filtros de classificação/isBlend/
+  eligibleForBlend + listClassificationValues em integração). Achado ALTO
+  novo corrigido: falha de carregamento era silenciosa (vazio enganoso) →
+  banner. Portais nos modais de filtros/envio, reduced-motion da página,
+  contraste AA, alvo de toque 44px, aria da busca. 10 commits; gates verdes
+  (unit 367 / integração 406). Página em 📱 — o roteiro de validação inclui
+  os itens herdados das fases 1/2/4/5 da revisão faseada.
