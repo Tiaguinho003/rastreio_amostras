@@ -68,10 +68,11 @@ export function isVisitLinkCurator(role: UserRole | null | undefined): boolean {
 // 2026-06-28).
 export const INFORME_ROLES: UserRole[] = ['ADMIN', 'COMMERCIAL', 'REGISTRATION'];
 
-// allowedRoles da pagina "Financeiro" (Fase F, D128): corretagem a receber por
-// fechamento — ADMIN-only (COMMERCIAL perdeu o acesso em 2026-07-06). Espelha o
-// FINANCEIRO_ROLES do backend (sale-contract-service.js).
-export const FINANCEIRO_ROLES: UserRole[] = ['ADMIN'];
+// allowedRoles da pagina "Financeiro" (Fase F, D135): corretagem a receber por
+// fechamento — ADMIN + COMMERCIAL (D135 reabre ao COMMERCIAL, revisa a D128
+// ADMIN-only). O COMMERCIAL so ve os contratos dele — o backend escopa por
+// Broker.userId. Espelha o FINANCEIRO_ROLES do backend (sale-contract-service.js).
+export const FINANCEIRO_ROLES: UserRole[] = ['ADMIN', 'COMMERCIAL'];
 
 // allowedRoles da pagina "Contratos" (S74/D110): ADMIN ve/gerencia tudo;
 // COMMERCIAL so os contratos em que e corretor (o backend filtra). Espelha o

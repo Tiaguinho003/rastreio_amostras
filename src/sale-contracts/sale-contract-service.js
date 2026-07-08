@@ -34,9 +34,11 @@ import {
 // Futuro via createFutureSaleContract (CRUD direto).
 const SALE_CONTRACT_MANAGE_ROLES = [USER_ROLES.ADMIN];
 
-// Financeiro (Fase F, D128): a pagina de recebiveis e ADMIN-only — o COMMERCIAL
-// perdeu o acesso (revisa D77/D82/D83/D86; a projecao myShare saiu junto).
-const FINANCEIRO_ROLES = [USER_ROLES.ADMIN];
+// Financeiro (Fase F): a pagina de recebiveis e ADMIN + COMMERCIAL (D135 reabre;
+// revisa a D128 que a deixou ADMIN-only). ADMIN ve TODOS os fechamentos; COMMERCIAL
+// so os EM QUE E CORRETOR (Broker.userId, mesmo escopo do /contratos), com os
+// co-corretores VISIVEIS (revisa D86) e o total = a COTA dele.
+const FINANCEIRO_ROLES = [USER_ROLES.ADMIN, USER_ROLES.COMMERCIAL];
 
 // Acesso/gestao dos contratos por ADMIN + COMMERCIAL (S74): revoga o
 // "Gestao de Contratos = ADMIN-only". ADMIN ve/gerencia TUDO; COMMERCIAL so os
@@ -172,18 +174,33 @@ export class SaleContractService {
     return { items: rows.map(toSaleContractView) };
   }
 
-  // Financeiro (Fase F, D128 = ADMIN-only): lista a corretagem A RECEBER por
-  // fechamento. Relatorio DERIVADO (sem persistencia): TODOS os contratos
-  // congelados (EMITIDO/FATURADO/PAGO), inclusive os SEM corretagem (P24/D92 —
-  // e o unico lugar onde o total do contrato aparece) E os em WASH_OUT (D105:
-  // o corretor recebe a comissao mesmo com washout, pois fez a negociacao); a
-  // cota de cada corretor = total / N (divisao igual, D79; resto de centavos no
-  // 1º — D129); sem corretagem => cota 0. Select enxuto (RECEIVABLE_VIEW_SELECT,
-  // sem snapshots). Sem `@relation` contrato<->broker: os corretores vem num
-  // batch separado (agrupado em JS).
+  // Financeiro (Fase F): lista a corretagem A RECEBER por fechamento. Relatorio
+  // DERIVADO (sem persistencia): TODOS os contratos congelados (EMITIDO/FATURADO/
+  // PAGO), inclusive os SEM corretagem (P24/D92 — e o unico lugar onde o total do
+  // contrato aparece) E os em WASH_OUT (D105: o corretor recebe a comissao mesmo
+  // com washout, pois fez a negociacao); a cota de cada corretor = total / N
+  // (divisao igual, D79; resto de centavos no 1º — D129); sem corretagem => cota 0.
+  // ACESSO (D135): ADMIN ve todos; COMMERCIAL so os contratos DELE (Broker.userId),
+  // com os co-corretores visiveis e o total = a cota dele. Select enxuto
+  // (RECEIVABLE_VIEW_SELECT, sem snapshots). Sem `@relation` contrato<->broker: os
+  // corretores vem num batch separado (agrupado em JS).
   async listBrokerReceivables(input, actorContext) {
     const actor = assertAuthenticatedActor(actorContext, 'list broker receivables');
     assertRoleAllowed(actor.role, FINANCEIRO_ROLES, 'list broker receivables');
+
+    const isAdmin = actor.role === USER_ROLES.ADMIN;
+
+    // COMMERCIAL (D135): so os fechamentos em que e corretor (Broker.userId, mesmo
+    // escopo do /contratos). Sem Broker vinculado -> vazio. O escopo entra no
+    // filterWhere (SQL), nao em pos-filtro JS, pra casar com a paginacao por cursor
+    // E com o total agregado.
+    let ownBrokerId = null;
+    if (!isAdmin) {
+      ownBrokerId = await this._resolveOwnBrokerId(actor);
+      if (!ownBrokerId) {
+        return { items: [], nextCursor: null, totalCommission: 0 };
+      }
+    }
 
     const limit = readLimitQuery(input?.limit, {
       fallback: FINANCEIRO_LIST_LIMIT_DEFAULT,
@@ -195,10 +212,23 @@ export class SaleContractService {
     const cursor = Number.isInteger(cursorSeq) && cursorSeq > 0 ? cursorSeq : null;
     const search = typeof input?.search === 'string' ? input.search.trim() : '';
 
-    // filterWhere = status congelados + busca (nº do contrato OU nome do
-    // corretor). A busca por corretor vem de um pre-batch dos SaleContractBroker
-    // (sem @relation), preservando a busca por corretor que era client-side.
+    // filterWhere = status congelados + (COMMERCIAL) escopo own-only + busca (nº do
+    // contrato OU nome do corretor). A busca por corretor vem de um pre-batch dos
+    // SaleContractBroker (sem @relation), preservando a busca que era client-side.
     const filterWhere = { status: { in: ['EMITIDO', 'FATURADO', 'PAGO', 'WASH_OUT'] } };
+    if (ownBrokerId) {
+      const ownLinks = await this.prisma.saleContractBroker.findMany({
+        where: { brokerId: ownBrokerId },
+        select: { saleContractId: true },
+      });
+      const ownContractIds = [...new Set(ownLinks.map((l) => l.saleContractId))];
+      if (ownContractIds.length === 0) {
+        return { items: [], nextCursor: null, totalCommission: 0 };
+      }
+      // AND (Prisma ANDa os campos de topo) -> intersecta com a busca abaixo, entao
+      // a busca por nome de corretor NAO vaza contratos alheios ao COMMERCIAL.
+      filterWhere.AND = [{ id: { in: ownContractIds } }];
+    }
     if (search.length >= 1) {
       const brokerMatches = await this.prisma.saleContractBroker.findMany({
         where: { brokerNameSnapshot: { contains: search, mode: 'insensitive' } },
@@ -214,23 +244,30 @@ export class SaleContractService {
       ? { AND: [filterWhere, { contractSeq: { lt: cursor } }] }
       : filterWhere;
 
-    // Total AGREGADO respeita a busca (filterWhere) e ignora o cursor — o "Total
-    // a receber" da pagina reflete o conjunto inteiro, nao so a pagina carregada.
-    const [rows, sums] = await Promise.all([
+    // Total do topo (respeita a busca via filterWhere, ignora o cursor -> reflete o
+    // conjunto inteiro, nao so a pagina). ADMIN: corretagem cheia (2 lados) via
+    // _sum. COMMERCIAL: "Seu total a receber" = soma da COTA dele (rateio D79/D129),
+    // que o _sum do SQL nao expressa -> computa via _sumOwnBrokerReceivable.
+    const [rows, totalCommission] = await Promise.all([
       this.prisma.saleContract.findMany({
         where: pageWhere,
         orderBy: [{ contractSeq: 'desc' }],
         take: limit + 1,
         select: RECEIVABLE_VIEW_SELECT,
       }),
-      this.prisma.saleContract.aggregate({
-        where: filterWhere,
-        _sum: { sellerBrokerageValue: true, buyerBrokerageValue: true },
-      }),
+      isAdmin
+        ? this.prisma.saleContract
+            .aggregate({
+              where: filterWhere,
+              _sum: { sellerBrokerageValue: true, buyerBrokerageValue: true },
+            })
+            .then((sums) => {
+              const sellerSum = Number(sums._sum.sellerBrokerageValue ?? 0);
+              const buyerSum = Number(sums._sum.buyerBrokerageValue ?? 0);
+              return Math.round((sellerSum + buyerSum) * 100) / 100;
+            })
+        : this._sumOwnBrokerReceivable(filterWhere, ownBrokerId),
     ]);
-    const sellerSum = Number(sums._sum.sellerBrokerageValue ?? 0);
-    const buyerSum = Number(sums._sum.buyerBrokerageValue ?? 0);
-    const totalCommission = Math.round((sellerSum + buyerSum) * 100) / 100;
 
     // take: limit + 1 detecta a proxima pagina; nextCursor = contractSeq do
     // ultimo item realmente retornado (ou null na ultima pagina).
@@ -264,6 +301,43 @@ export class SaleContractService {
       nextCursor,
       totalCommission,
     };
+  }
+
+  // Total do COMMERCIAL (D135): soma a COTA do proprio corretor sobre a carteira
+  // dele (scopedWhere ja escopado). O _sum do SQL da a corretagem cheia, nao a cota
+  // ÷N, entao reusa buildReceivableView (mesmo rateio D79/D129 do card) por
+  // contrato. Conjunto = carteira de UM corretor -> custo limitado.
+  async _sumOwnBrokerReceivable(scopedWhere, ownBrokerId) {
+    const rows = await this.prisma.saleContract.findMany({
+      where: scopedWhere,
+      select: RECEIVABLE_VIEW_SELECT,
+    });
+    if (rows.length === 0) {
+      return 0;
+    }
+    const brokerRows = await this.prisma.saleContractBroker.findMany({
+      where: { saleContractId: { in: rows.map((r) => r.id) } },
+      orderBy: [{ createdAt: 'asc' }],
+      select: { saleContractId: true, brokerId: true, brokerNameSnapshot: true },
+    });
+    const byContract = new Map();
+    for (const b of brokerRows) {
+      const list = byContract.get(b.saleContractId);
+      if (list) {
+        list.push(b);
+      } else {
+        byContract.set(b.saleContractId, [b]);
+      }
+    }
+    let total = 0;
+    for (const row of rows) {
+      const view = buildReceivableView(row, byContract.get(row.id) ?? []);
+      const own = view.brokers.find((b) => b.brokerId === ownBrokerId);
+      if (own) {
+        total += own.share;
+      }
+    }
+    return Math.round(total * 100) / 100;
   }
 
   async getSaleContract(contractId, actorContext) {

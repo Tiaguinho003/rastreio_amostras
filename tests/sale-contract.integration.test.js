@@ -1081,7 +1081,7 @@ if (!databaseUrl || !databaseReachable) {
 
   // Como setupConfirmedContract, mas com um corretor especifico (p/ o escopo
   // do COMMERCIAL no Financeiro). Nasce EMITIDO (D97).
-  async function setupConfirmedContractWithBroker({ lotNumber, brokerId }) {
+  async function setupContractWithBrokers({ lotNumber, brokerIds }) {
     const sellerId = randomUUID();
     await createSellerClient(sellerId);
     await createSellerBankAccount(sellerId);
@@ -1091,8 +1091,38 @@ if (!databaseUrl || !databaseReachable) {
     await createClassifiedSample({ id: sampleId, lotNumber, declaredSacks: 10 });
     await prisma.sample.update({ where: { id: sampleId }, data: { ownerClientId: sellerId } });
     const sample = await queryService.requireSample(sampleId);
-    const sale = await sell(sampleId, sample.version, buyerId, { brokerIds: [brokerId] });
+    const sale = await sell(sampleId, sample.version, buyerId, { brokerIds });
     return { contractId: sale.contract.id };
+  }
+
+  async function setupConfirmedContractWithBroker({ lotNumber, brokerId }) {
+    return setupContractWithBrokers({ lotNumber, brokerIds: [brokerId] });
+  }
+
+  // COMMERCIAL vinculado a um Broker (Broker.userId), pro escopo own-only do
+  // Financeiro (D135) e do /contratos (D110).
+  async function createCommercialBrokerUser(name) {
+    const userId = randomUUID();
+    const brokerId = randomUUID();
+    const suffix = userId.slice(0, 8);
+    await prisma.user.create({
+      data: {
+        id: userId,
+        fullName: name,
+        username: `fin-${suffix}`,
+        usernameCanonical: `fin-${suffix}`,
+        email: `fin-${suffix}@example.com`,
+        emailCanonical: `fin-${suffix}@example.com`,
+        passwordHash: 'x',
+        role: 'COMMERCIAL',
+      },
+    });
+    await prisma.broker.upsert({
+      where: { id: brokerId },
+      update: { userId, status: 'ACTIVE' },
+      create: { id: brokerId, name, status: 'ACTIVE', userId },
+    });
+    return { actor: { ...commercialActor, actorUserId: userId }, brokerId };
   }
 
   test('Financeiro: ADMIN vê os fechamentos elegíveis com corretores e cotas', async () => {
@@ -1113,12 +1143,75 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('Financeiro: COMMERCIAL não acessa mais (D128) → 403', async () => {
-    await setupConfirmedContract({ lotNumber: '23020' });
-    await assert.rejects(
-      () => saleContractService.listBrokerReceivables({}, commercialActor),
-      /not allowed/
+  test('Financeiro (D135): COMMERCIAL vê só os contratos dele, com co-corretores visíveis', async () => {
+    const { actor: myActor, brokerId: myBrokerId } =
+      await createCommercialBrokerUser('Corretor Fin');
+    const mine = await setupConfirmedContractWithBroker({
+      lotNumber: '23021',
+      brokerId: myBrokerId,
+    });
+    const other = await setupConfirmedContract({ lotNumber: '23022' }); // corretor = TEST_BROKER
+
+    const res = await saleContractService.listBrokerReceivables({}, myActor);
+    assert.equal(res.items.length, 1);
+    assert.equal(res.items[0].id, mine.contractId);
+    assert.ok(
+      !res.items.some((i) => i.id === other.contractId),
+      'não vê contrato de outro corretor'
     );
+    // co-corretores visíveis (D135 revisa D86) + total = a cota dele (sozinho → 30)
+    assert.equal(res.items[0].brokers[0].brokerId, myBrokerId);
+    assert.equal(res.totalCommission, 30);
+  });
+
+  test('Financeiro (D135): COMMERCIAL sem Broker vinculado → vazio (items [], total 0)', async () => {
+    await setupConfirmedContract({ lotNumber: '23023' });
+    const orphan = { ...commercialActor, actorUserId: randomUUID() };
+    const res = await saleContractService.listBrokerReceivables({}, orphan);
+    assert.deepEqual(res.items, []);
+    assert.equal(res.totalCommission, 0);
+    assert.equal(res.nextCursor, null);
+  });
+
+  test('Financeiro (D135): total do COMMERCIAL = a cota dele (÷N), não a corretagem cheia', async () => {
+    const { actor: myActor, brokerId: myBrokerId } =
+      await createCommercialBrokerUser('Corretor Rateio');
+    // contrato dividido entre ele e o TEST_BROKER: corretagem 30, 2 corretores → cota 15
+    const shared = await setupContractWithBrokers({
+      lotNumber: '23024',
+      brokerIds: [myBrokerId, TEST_BROKER_ID],
+    });
+    const res = await saleContractService.listBrokerReceivables({}, myActor);
+    const item = res.items.find((i) => i.id === shared.contractId);
+    assert.ok(item);
+    assert.equal(item.commissionTotal, 30); // corretagem cheia do contrato (2 lados)
+    assert.equal(item.brokerCount, 2); // co-corretor visível
+    assert.equal(res.totalCommission, 15); // "Seu total a receber" = a cota DELE (30 ÷ 2)
+  });
+
+  test('Financeiro (D135): busca por nome de corretor não vaza contratos alheios ao COMMERCIAL', async () => {
+    const { actor: myActor, brokerId: myBrokerId } =
+      await createCommercialBrokerUser('Corretor Busca');
+    await setupConfirmedContractWithBroker({ lotNumber: '23025', brokerId: myBrokerId });
+    // contrato de OUTRO corretor (Mariana), em que ele NÃO está
+    const marianaId = randomUUID();
+    await prisma.broker.create({
+      data: { id: marianaId, name: 'Mariana Corretora', status: 'ACTIVE' },
+    });
+    const alheio = await setupConfirmedContractWithBroker({
+      lotNumber: '23026',
+      brokerId: marianaId,
+    });
+
+    // COMMERCIAL busca "mariana" → NADA (não vaza o contrato alheio)
+    const mine = await saleContractService.listBrokerReceivables({ search: 'mariana' }, myActor);
+    assert.equal(mine.items.length, 0);
+    // sanity: ADMIN acha o contrato da Mariana
+    const asAdmin = await saleContractService.listBrokerReceivables(
+      { search: 'mariana' },
+      adminActor
+    );
+    assert.ok(asAdmin.items.some((i) => i.id === alheio.contractId));
   });
 
   test('Financeiro: papel sem acesso (REGISTRATION) → 403', async () => {

@@ -529,6 +529,8 @@ congelados (**EMITIDO/FATURADO/PAGO/WASH_OUT**) são elegíveis (D73 renomeada p
 > `33226c1` frontend). Decisões **D77–D86**. **Relatório derivado, sem schema novo.** Validar no device.
 > **S84 (D128): ADMIN-only** (COMMERCIAL saiu; `myShare` removido). **S86: paginação server-side por
 > cursor (scroll infinito) + busca/total no backend + data de pagamento no card.**
+> **S87 (D135): REABERTO ao COMMERCIAL** — escopado aos contratos dele (own-only, como `/contratos`);
+> co-corretores **VISÍVEIS** (revisa D86); "Seu total a receber" = a **cota dele**.
 
 Nova página **"Financeiro"** (acesso **ADMIN + COMMERCIAL**) que apresenta a **corretagem a receber por
 fechamento** e, dentro de cada um, **quanto cada corretor recebe**. É um **relatório calculado** a partir de
@@ -547,10 +549,14 @@ migration**.
 - **ADMIN** — vê **todos** os fechamentos elegíveis, com a **quebra por corretor** (nome + cota). Total
   geral = soma dos valores a receber.
 - **COMMERCIAL** — vê **só os fechamentos em que é corretor** (resolve `Broker.userId` = o usuário logado;
-  lista os contratos em que esse broker está no `SaleContractBroker`). **Refino S63 (D86):** vê o **valor
-  total** + a **corretagem total** (no expandido, repartição vend/comp) + a **própria cota**; o que
-  permanece **oculto** são os **demais corretores** e as cotas deles. Total = soma das próprias cotas. Sem
-  `Broker` vinculado → página vazia.
+  lista os contratos em que esse broker está no `SaleContractBroker`; o escopo entra no `filterWhere` do
+  **SQL**, casando com a paginação por cursor e a busca — a busca por nome de corretor **não vaza** contratos
+  alheios). **S87/D135 (revisa D82/D86):** vê o **valor total** + a **corretagem total** + **todos os
+  corretores e cotas** do contrato (co-corretores **VISÍVEIS** — coerente com o que já vê em
+  `/contratos → Detalhes`, D120; **revoga o "ocultar demais" da D86**). O **"Seu total a receber"** do topo =
+  **soma da própria cota** (÷N, D79/D129), não a corretagem cheia da empresa. Sem `Broker` vinculado →
+  página vazia (`items: []`, total 0). **ADMIN** e **COMMERCIAL** veem o **mesmo card**; muda só o **escopo
+  da lista** e o **rótulo/valor do total do topo**.
 
 ### Elegíveis (D80) e natureza (D81)
 
@@ -573,14 +579,16 @@ A página é uma **lista de cards, um por fechamento** (estado `expandedIds` + `
   (cota = corretagem total ÷ nº de corretores).
 - **Expandido (D85):** **só o detalhe da corretagem** — repartição do **vendedor** (% + R$) e do
   **comprador** (% + R$). Sem dados do negócio (partes/sacas/datas/preço).
-- **Recolhido — COMMERCIAL (D86):** nº · **valor total** · **só a cota dele** (não lista os outros
-  corretores). **Expandido:** repartição vend/comp (% + R$ = corretagem total). Vê o negócio (valor total) +
-  a corretagem total; oculta apenas os **demais corretores**.
+- **Recolhido — COMMERCIAL (S87/D135, revisa D86):** **igual ao card do ADMIN**, para os contratos dele —
+  nº · **valor total** · **corretagem total** · **todos os corretores com a cota de cada um** (co-corretores
+  **visíveis**). **Expandido:** repartição vend/comp (% + R$). A diferença é só o topo: **"Seu total a
+  receber"** = a **cota dele** (não o total da empresa).
 
 ### Pendências (a refinar / Fase F)
 
 - Ordenação default (ex.: data desc) e formato do total geral.
-- Empty-state do COMMERCIAL sem `Broker` vinculado.
+- Empty-state do COMMERCIAL sem `Broker` vinculado — **resolvido** (retorna vazio; UI = "Nenhuma corretagem
+  a receber").
 - Não-usuários na quebra do ADMIN (aparecem com nome, sem `userId`) — confirmar.
 - **Controle de pagamento ao corretor** — futuro (era a opção 2 descartada por ora).
 
@@ -2493,3 +2501,34 @@ agora** com **scroll infinito**; **Total a receber dinâmico** (segue a busca); 
   `limit=2`→`nextCursor`→página 2 sem sobreposição (total agregado preservado), busca por corretor.
 - Gates verdes (unit 354 / integração 383 / build / lint / typecheck / format). **Validar no device.**
   Nota: o comentário da rota `financeiro/route.ts` (ainda dizia "ADMIN + COMMERCIAL") foi corrigido.
+
+### 2026-07-08 — Sessão 87 (Financeiro reaberto ao COMMERCIAL — D135, revisa D128/D86)
+
+O Flavio pediu **dar acesso à página Financeiro ao COMMERCIAL** (revertendo a D128, que a deixara
+ADMIN-only). Análise multiagente (3 agentes: estado atual + o que a D128 removeu + modelo de posse/
+sensibilidade) + plan mode com 3 perguntas. Decisões dele → **D135**: escopo **own-only** (só os
+contratos dele, via `Broker.userId`); **co-corretores VISÍVEIS** (revisa a D86 — coerente com o que ele
+já vê em `/contratos → Detalhes`, D120); **"Seu total a receber"** = a **cota dele** (÷N).
+
+- **Achado da análise:** `listBrokerReceivables` **não tinha nenhum escopo** por corretor → um flip
+  ingênuo do gate exporia o livro de corretagem da empresa inteira. Como os co-corretores ficam
+  visíveis, **não** foi preciso reintroduzir a projeção `myShare` que a D128 removeu — o **card e o
+  `buildReceivableView` ficaram inalterados**. Mudam só o **escopo da lista** e o **total do topo**.
+- **Backend** (`sale-contract-service.js`): `FINANCEIRO_ROLES = [ADMIN, COMMERCIAL]`; em
+  `listBrokerReceivables`, para o COMMERCIAL resolve `ownBrokerId` (reusa `_resolveOwnBrokerId`, D110) e
+  **ANDa `id in ownContractIds` no `filterWhere`** (SQL) — a paginação por cursor, a busca e o total
+  passam todos a respeitar o escopo (a busca por nome de corretor **não vaza** contratos alheios). Sem
+  `Broker` vinculado → `{ items: [], nextCursor: null, totalCommission: 0 }`. O total do COMMERCIAL usa o
+  novo helper **`_sumOwnBrokerReceivable`** (soma a cota dele sobre a carteira, reusando
+  `buildReceivableView` p/ bater com a cota do card, rateio D79/D129 — o `_sum` do SQL só dá a corretagem
+  cheia). ADMIN inalterado (segue no `_sum`).
+- **Frontend**: `lib/roles.ts` `FINANCEIRO_ROLES = ['ADMIN','COMMERCIAL']` (restaura nav do
+  `AppShell`/`HeaderAvatarMenu` + guard de rota automaticamente); `app/financeiro/page.tsx` só troca o
+  rótulo do total → **"Seu total a receber"** para não-ADMIN. Card inalterado. PROSPECTOR segue fora
+  (role exata + allowlist). Comentário defasado do handler `backend-api.js` corrigido.
+- **Testes**: removido o "COMMERCIAL → 403" (D128); +4 integração (own-only + co-corretores; sem-broker →
+  vazio/total 0; total = cota ÷N ≠ corretagem cheia; busca por corretor não vaza) — helpers
+  `setupContractWithBrokers`/`createCommercialBrokerUser`.
+- Gates verdes: **typecheck / lint / format / build / validate:schemas (51) / test:contracts (20) /
+  unit 372 / integração 431** (sale-contract 69, com os 4 D135). **Validar no device.** Commit próprio
+  (outro agente em paralelo). _(Plano em `~/.claude/plans/memoized-wiggling-quasar.md`.)_

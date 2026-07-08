@@ -2957,7 +2957,8 @@ export function createBackendApiV1({
         return { status: 200, body: result };
       }),
 
-    // Financeiro (Fase F): corretagem a receber por fechamento (ADMIN + COMMERCIAL).
+    // Financeiro (Fase F, D135): corretagem a receber por fechamento — ADMIN ve
+    // todos; COMMERCIAL so os contratos dele (o service escopa por Broker.userId).
     listBrokerReceivables: (input) =>
       executeApiForInput(input, async () => {
         if (!saleContractService) {

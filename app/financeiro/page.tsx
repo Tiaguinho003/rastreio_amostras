@@ -7,14 +7,14 @@ import { AppShell } from '../../components/AppShell';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { FinanceiroCard } from '../../components/financeiro/FinanceiroCard';
 import { ApiError, listFinanceiro } from '../../lib/api-client';
-import { FINANCEIRO_ROLES } from '../../lib/roles';
+import { FINANCEIRO_ROLES, isAdmin } from '../../lib/roles';
 import { useRequireAuth } from '../../lib/use-auth';
 import type { FinanceiroReceivable } from '../../lib/types';
 
-// Financeiro (Fase F, D128): corretagem a receber por fechamento — ADMIN-only.
-// Relatorio derivado (sem persistencia). S86: paginado por cursor (scroll
-// infinito, molde /users); a busca e o "Total a receber" sao server-side —
-// com paginacao, somar/filtrar no cliente cobriria so as paginas carregadas.
+// Financeiro (Fase F, D135): corretagem a receber por fechamento — ADMIN +
+// COMMERCIAL (D135 reabre ao COMMERCIAL, escopado aos contratos dele; o total do
+// COMMERCIAL e a cota dele). Relatorio derivado (sem persistencia). S86: paginado
+// por cursor (scroll infinito, molde /users); a busca e o total sao server-side.
 
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const FIN_PAGE_LIMIT = 30;
@@ -262,7 +262,9 @@ export default function FinanceiroPage() {
         </header>
 
         <div className="fin-total" role="status">
-          <span className="fin-total-label">Total a receber</span>
+          <span className="fin-total-label">
+            {isAdmin(session.user.role) ? 'Total a receber' : 'Seu total a receber'}
+          </span>
           <span className="fin-total-value">{BRL.format(totalCommission)}</span>
         </div>
 
