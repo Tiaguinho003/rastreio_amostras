@@ -1132,6 +1132,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.ok(item, 'contrato confirmado com corretagem deve aparecer');
     assert.equal(item.totalValue, 1000); // 100 x 10 sacas
     assert.equal(item.commissionTotal, 30); // 1000 x (2% + 1%)
+    assert.equal(typeof item.version, 'number'); // D137: item traz version (p/ o Pago)
     assert.equal(item.brokers.length, 1);
     assert.equal(item.brokers[0].name, 'Corretor Teste');
     assert.equal(item.brokers[0].share, undefined); // D136: sem cota por corretor

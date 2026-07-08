@@ -236,6 +236,7 @@ function decimalToNumber(value) {
 // os snapshots dominariam o payload do banco).
 export const RECEIVABLE_VIEW_SELECT = Object.freeze({
   id: true,
+  version: true,
   contractSeq: true,
   contractNumber: true,
   contractDate: true,
@@ -375,6 +376,7 @@ export function buildReceivableView(row, brokerRows) {
 
   return {
     id: row.id,
+    version: row.version,
     contractNumber: row.contractNumber,
     contractDate: toIsoString(row.contractDate),
     paymentDate: toIsoString(row.paymentDate),

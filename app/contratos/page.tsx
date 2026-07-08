@@ -594,7 +594,6 @@ export default function ContratosPage() {
                       onDetalhes={() => setDetailsTarget(contract)}
                       canManage={canManage}
                       onFaturar={() => openLifecycle('invoice')}
-                      onPagar={() => openLifecycle('pay')}
                       espelhoMode={espelhoMode}
                       espelhoEligible={espelhoEligible}
                       espelhoReason={espelhoReason}

@@ -328,6 +328,7 @@ test('normalizeWashoutReason: exige texto, faz trim e limita a 500', () => {
 function receivableRow(overrides = {}) {
   return {
     id: 'c1',
+    version: 3,
     contractNumber: '0007/26',
     contractDate: new Date('2026-06-26T00:00:00.000Z'),
     paymentDate: new Date('2026-07-25T00:00:00.000Z'),
@@ -348,6 +349,7 @@ test('buildReceivableView (D136): commissionTotal + corretores (só nomes, SEM c
   ]);
   assert.equal(view.commissionTotal, 100); // 60 + 40
   assert.equal(view.totalValue, 10000);
+  assert.equal(view.version, 3); // D137: version na projeção (p/ o Pago no Financeiro)
   assert.equal(view.paymentDate, '2026-07-25T00:00:00.000Z'); // S86: data de pagamento na projecao
   // D136: corretores = atribuicao (id + nome), SEM valor por corretor; sem brokerCount.
   assert.deepEqual(view.brokers, [

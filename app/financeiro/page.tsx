@@ -5,11 +5,13 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
+import { SaleContractLifecycleDialog } from '../../components/contracts/SaleContractLifecycleDialog';
 import { FinanceiroCard } from '../../components/financeiro/FinanceiroCard';
 import { ApiError, listFinanceiro } from '../../lib/api-client';
 import { FINANCEIRO_ROLES, isAdmin } from '../../lib/roles';
+import { useToast } from '../../lib/toast/ToastProvider';
 import { useRequireAuth } from '../../lib/use-auth';
-import type { FinanceiroReceivable } from '../../lib/types';
+import type { FinanceiroReceivable, SaleContractStatus } from '../../lib/types';
 
 // Financeiro (Fase F, D135): corretagem a receber por fechamento — ADMIN +
 // COMMERCIAL (D135 reabre ao COMMERCIAL, escopado aos contratos dele; o total do
@@ -40,6 +42,7 @@ type FinListAction =
       totalCommission: number;
     }
   | { type: 'success-more'; items: FinanceiroReceivable[]; nextCursor: number | null }
+  | { type: 'patch-status'; id: string; status: SaleContractStatus }
   | { type: 'error'; message: string };
 
 const FIN_INITIAL: FinListState = {
@@ -73,6 +76,15 @@ function finListReducer(state: FinListState, action: FinListAction): FinListStat
         status: 'idle',
         error: null,
       };
+    case 'patch-status':
+      // D137: pagar (FATURADO→PAGO) não muda corretagem/total → patch otimista do
+      // item, sem refetch (evita reset da paginação por cursor).
+      return {
+        ...state,
+        items: state.items.map((it) =>
+          it.id === action.id ? { ...it, status: action.status } : it
+        ),
+      };
     case 'error':
       return { ...state, status: 'error', error: action.message };
     default:
@@ -85,10 +97,17 @@ export default function FinanceiroPage() {
     allowedRoles: FINANCEIRO_ROLES,
   });
 
+  const toast = useToast();
   const [listState, dispatchList] = useReducer(finListReducer, FIN_INITIAL);
   const [searchInput, setSearchInput] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  // D137: registro do pagamento (FATURADO → PAGO) mora aqui; reusa o dialog do /contratos.
+  const [lifecycle, setLifecycle] = useState<{
+    contractId: string;
+    expectedVersion: number;
+    contractNumber: string;
+  } | null>(null);
   const toggleExpand = (id: string) =>
     setExpandedIds((prev) => {
       const next = new Set(prev);
@@ -231,6 +250,10 @@ export default function FinanceiroPage() {
 
   if (loading || !session) return null;
 
+  // D137: qualquer sessão permitida pode registrar o pagamento; o backend re-checa a
+  // posse (COMMERCIAL só vê/paga os contratos dele — D135).
+  const canManage = Boolean(session);
+
   const avatarInitials = (() => {
     const base = (session.user.fullName ?? session.user.username ?? '').trim();
     if (!base) return '?';
@@ -330,6 +353,14 @@ export default function FinanceiroPage() {
                     item={it}
                     isExpanded={expandedIds.has(it.id)}
                     onToggle={() => toggleExpand(it.id)}
+                    canManage={canManage}
+                    onPagar={() =>
+                      setLifecycle({
+                        contractId: it.id,
+                        expectedVersion: it.version,
+                        contractNumber: it.contractNumber,
+                      })
+                    }
                   />
                 ))}
                 {nextCursor !== null ? (
@@ -342,6 +373,24 @@ export default function FinanceiroPage() {
           </div>
         </section>
       </section>
+
+      {lifecycle ? (
+        <SaleContractLifecycleDialog
+          session={session}
+          contractId={lifecycle.contractId}
+          expectedVersion={lifecycle.expectedVersion}
+          contractNumber={lifecycle.contractNumber}
+          action="pay"
+          hasLot={false}
+          onClose={() => setLifecycle(null)}
+          onDone={() => {
+            const id = lifecycle.contractId;
+            setLifecycle(null);
+            dispatchList({ type: 'patch-status', id, status: 'PAGO' });
+            toast.success({ title: 'Pagamento registrado' });
+          }}
+        />
+      ) : null}
     </AppShell>
   );
 }

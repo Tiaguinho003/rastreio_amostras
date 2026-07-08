@@ -510,6 +510,7 @@ export interface FinanceiroBroker {
 
 export interface FinanceiroReceivable {
   id: string;
+  version: number;
   contractNumber: string;
   contractDate: string | null;
   paymentDate: string | null;

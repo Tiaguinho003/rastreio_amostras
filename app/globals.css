@@ -33089,9 +33089,6 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   color: var(--brand-green-ink);
   font-weight: 600;
 }
-.fin-broker-share {
-  color: var(--brand-muted);
-}
 .fin-card-chevron {
   flex: 0 0 auto;
   align-self: center;
@@ -33106,6 +33103,32 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
 }
 .fin-card.is-expanded .fin-card-chevron {
   transform: rotate(180deg);
+}
+/* D137: registro do "Pago" (FATURADO → PAGO) no card do Financeiro. */
+.fin-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 0.85rem 0.75rem;
+}
+.fin-btn {
+  border: 1px solid var(--brand-cream-line);
+  background: #fff;
+  color: var(--brand-green-ink);
+  border-radius: 10px;
+  padding: 0.45rem 1.1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s;
+}
+.fin-btn:active {
+  transform: scale(0.97);
+}
+.fin-btn-primary {
+  background: var(--brand-green);
+  border-color: var(--brand-green);
+  color: #fff;
 }
 .fin-card-expanded {
   display: grid;

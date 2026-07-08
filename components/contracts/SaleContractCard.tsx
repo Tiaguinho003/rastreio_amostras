@@ -74,11 +74,10 @@ type SaleContractCardProps = {
   contract: SaleContract;
   isExpanded: boolean;
   onToggle: () => void;
-  // Card ENXUTO (Fase J, D121): so o dia a dia — avancar status (canManage) +
-  // Aprovacao + Detalhes. Editar/Visualizar/Agio/Desagio/Washout migraram pro
-  // modal de Detalhes (e o Desfazer foi removido, D122).
+  // Card ENXUTO (Fase J, D121; D137): so o dia a dia — Faturar (canManage) +
+  // Aprovacao + Detalhes. O "Pago" MIGROU pro Financeiro (D137). Editar/Visualizar/
+  // Agio/Desagio/Washout vivem no modal de Detalhes (Desfazer removido, D122).
   onFaturar: () => void;
-  onPagar: () => void;
   // Aprovacao (Fase I, D112/D117): abre a etiqueta pre-preenchida. Disponivel
   // em EMITIDO/FATURADO/PAGO e FORA do canManage (todo papel da pagina envia).
   onAprovacao: () => void;
@@ -100,7 +99,6 @@ export function SaleContractCard({
   isExpanded,
   onToggle,
   onFaturar,
-  onPagar,
   onAprovacao,
   onDetalhes,
   canManage = true,
@@ -247,11 +245,6 @@ export function SaleContractCard({
             {contract.status === 'EMITIDO' && canManage ? (
               <button type="button" className="ctr-btn ctr-btn-primary" onClick={onFaturar}>
                 Faturado
-              </button>
-            ) : null}
-            {contract.status === 'FATURADO' && canManage ? (
-              <button type="button" className="ctr-btn ctr-btn-primary" onClick={onPagar}>
-                Pago
               </button>
             ) : null}
             {contract.status !== 'WASH_OUT' ? (

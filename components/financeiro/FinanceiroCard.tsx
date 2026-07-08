@@ -57,9 +57,18 @@ type FinanceiroCardProps = {
   item: FinanceiroReceivable;
   isExpanded: boolean;
   onToggle: () => void;
+  // D137: o registro do pagamento (FATURADO → PAGO) mora aqui no Financeiro.
+  canManage?: boolean;
+  onPagar?: () => void;
 };
 
-export function FinanceiroCard({ item, isExpanded, onToggle }: FinanceiroCardProps) {
+export function FinanceiroCard({
+  item,
+  isExpanded,
+  onToggle,
+  canManage = false,
+  onPagar,
+}: FinanceiroCardProps) {
   const color = STATUS_COLOR[item.status] ?? '#16a34a';
   const textColor = STATUS_TEXT_COLOR[item.status] ?? color;
   const tint = STATUS_TINT[item.status] ?? '#dcfce7';
@@ -104,6 +113,14 @@ export function FinanceiroCard({ item, isExpanded, onToggle }: FinanceiroCardPro
           <path d="m6 9 6 6 6-6" />
         </svg>
       </button>
+
+      {item.status === 'FATURADO' && canManage && onPagar ? (
+        <div className="fin-card-actions">
+          <button type="button" className="fin-btn fin-btn-primary" onClick={onPagar}>
+            Pago
+          </button>
+        </div>
+      ) : null}
 
       <div className="fin-card-expanded" aria-hidden={!isExpanded}>
         <div className="fin-card-expanded-inner">
