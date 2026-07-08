@@ -37,6 +37,7 @@ import {
   updateReasonSchema,
 } from '../../../lib/form-schemas';
 import { useFocusTrap } from '../../../lib/use-focus-trap';
+import { useListRevalidation } from '../../../lib/use-list-revalidation';
 import { useGlobalLoading } from '../../../lib/loading/loading-context';
 import { useRequireAuth } from '../../../lib/use-auth';
 import { NON_PROSPECTOR_ROLES } from '../../../lib/roles';
@@ -710,6 +711,41 @@ export default function SampleDetailPage() {
     },
     [refreshDetail]
   );
+
+  // Revalidacao silenciosa (LDT-D3, mesmo padrao da lista): o detalhe rebusca ao
+  // trazer o app de volta ao primeiro plano (throttle 30s) e a cada 60s com a
+  // pagina visivel — cobre o caso "deixei o detalhe aberto e outro usuario
+  // classificou/vendeu/enviou". Pula enquanto o usuario esta no meio de uma acao
+  // (modal aberto / mutacao submetendo) pra nao trocar os dados sob os pes dele,
+  // e nao roda em lote deletado (INVALIDATED e terminal).
+  const detailBusy =
+    invalidateModalOpen ||
+    labelModalOpen ||
+    dateEditOpen ||
+    reclassifyModalOpen ||
+    classificationDetailOpen ||
+    revertModalOpen ||
+    registrationEditMode ||
+    ownerQuickCreateOpen ||
+    invalidateBlockedOpen ||
+    classificationImageModalOpen ||
+    editSendItem !== null ||
+    cancelSendId !== null;
+  const detailBusyRef = useRef(detailBusy);
+  detailBusyRef.current = detailBusy;
+  const revalidateDetail = useCallback(() => {
+    if (detailBusyRef.current) return;
+    void refreshDetail();
+  }, [refreshDetail]);
+  const detailStatus = detail?.sample.status;
+  useListRevalidation({
+    enabled:
+      Boolean(session) &&
+      Boolean(sampleId) &&
+      detailStatus !== undefined &&
+      detailStatus !== 'INVALIDATED',
+    onRevalidate: revalidateDetail,
+  });
 
   useEffect(() => {
     if (!sampleId) {
