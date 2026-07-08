@@ -249,6 +249,20 @@ export const RECEIVABLE_VIEW_SELECT = Object.freeze({
   buyerBrokerageValue: true,
 });
 
+// F1 (E24/D138): select ENXUTO do feed de "pagamentos de contrato" do card de
+// Eventos — id/version/status (p/ o atalho "Pago"), numero, as 2 datas de pagamento
+// e os snapshots das partes (comprador/vendedor, p/ os nomes no acordeao E25).
+export const PAYMENT_EVENT_SELECT = Object.freeze({
+  id: true,
+  version: true,
+  status: true,
+  contractNumber: true,
+  paymentDate: true,
+  paidAt: true,
+  buyerSnapshot: true,
+  sellerSnapshot: true,
+});
+
 export const SALE_CONTRACT_VIEW_SELECT = Object.freeze({
   id: true,
   type: true,
@@ -392,6 +406,49 @@ export function buildReceivableView(row, brokerRows) {
       name: b.brokerNameSnapshot,
     })),
   };
+}
+
+// F1 (E21-E27/D138): projeta 1 contrato num evento de pagamento do card de Eventos.
+// kind 'due' = agendado (no paymentDate); 'paid' = realizado (no paidAt). O dayKey
+// vem da data @db.Date via `.slice(0,10)` (sem conversao de fuso — casa com o
+// toDayKey/BRT do dashboard-calendar). `label` = o rotulo recolhido "nº · comprador".
+export function buildPaymentEvent(row, kind) {
+  const iso = toIsoString(kind === 'paid' ? row.paidAt : row.paymentDate);
+  const dayKey = iso ? iso.slice(0, 10) : null;
+  const buyerName = row.buyerSnapshot?.displayName ?? null;
+  const sellerName = row.sellerSnapshot?.displayName ?? null;
+  return {
+    dayKey,
+    event: {
+      id: row.id,
+      contractId: row.id,
+      typeKey: kind === 'paid' ? 'contract_payment_paid' : 'contract_payment_due',
+      label: buyerName ? `${row.contractNumber} · ${buyerName}` : row.contractNumber,
+      contractNumber: row.contractNumber,
+      buyerName,
+      sellerName,
+      status: row.status,
+      version: row.version,
+    },
+  };
+}
+
+// Agrupa os eventos de pagamento por dayKey ('YYYY-MM-DD') -> Record<dayKey,
+// evento[]> (o formato que a prop `events` do EventsCalendarCard consome). Linhas
+// sem data valida sao descartadas (defensivo — no filtro as datas sao NOT NULL).
+export function bucketPaymentEvents(dueRows, paidRows) {
+  const byDay = {};
+  const add = (rows, kind) => {
+    for (const row of rows) {
+      const { dayKey, event } = buildPaymentEvent(row, kind);
+      if (!dayKey) continue;
+      if (byDay[dayKey]) byDay[dayKey].push(event);
+      else byDay[dayKey] = [event];
+    }
+  };
+  add(dueRows, 'due');
+  add(paidRows, 'paid');
+  return byDay;
 }
 
 // ===========================================================================

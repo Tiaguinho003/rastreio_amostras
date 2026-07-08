@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { type FormEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ApprovalLabelModal } from '../../components/ApprovalLabelModal';
 import { AppShell } from '../../components/AppShell';
@@ -60,7 +61,7 @@ const ESPELHO_ELIGIBLE: SaleContractStatus[] = ['EMITIDO', 'FATURADO', 'PAGO', '
 const STATUS_OPTION_LABELS = STATUS_LABELS.map((s) => s.label);
 const TYPE_OPTION_LABELS = TYPE_LABELS.map((t) => t.label);
 
-export default function ContratosPage() {
+function ContratosPageInner() {
   const { session, loading, logout, setSession } = useRequireAuth({
     // S74: COMMERCIAL acessa /contratos (filtrada aos contratos dele pelo backend).
     // Fase 1 = só-leitura + Espelho; gestão (criar/editar/faturar/...) segue ADMIN.
@@ -209,6 +210,11 @@ export default function ContratosPage() {
     [session, approvalLoadingId, toast]
   );
 
+  // F1 (E27/D138): deep-link "Ver contrato" do card de Eventos — ?details=<id>.
+  const searchParams = useSearchParams();
+  const detailsParam = searchParams.get('details');
+  const consumedDetailsRef = useRef<string | null>(null);
+
   const refresh = useCallback(async () => {
     if (!session) return;
     setListLoading(true);
@@ -226,6 +232,17 @@ export default function ContratosPage() {
     if (!session) return;
     void refresh();
   }, [session, refresh]);
+
+  // F1 (E27/D138): abre o Detalhes UMA vez quando a lista carrega e há ?details=<id>
+  // (o ref evita reabrir se o usuário fechar; o modal re-busca por id, role-scoped).
+  useEffect(() => {
+    if (!detailsParam || consumedDetailsRef.current === detailsParam) return;
+    const found = contracts.find((c) => c.id === detailsParam);
+    if (found) {
+      consumedDetailsRef.current = detailsParam;
+      setDetailsTarget(found);
+    }
+  }, [detailsParam, contracts]);
 
   // Desktop vs mobile — usado so p/ reagrupar os campos do modal de filtros
   // (o resto do layout desktop e 100% CSS). Breakpoint canonico do projeto.
@@ -868,5 +885,14 @@ export default function ContratosPage() {
         />
       ) : null}
     </AppShell>
+  );
+}
+
+// useSearchParams (deep-link ?details, F1/E27) exige Suspense — molde /samples e /dashboard.
+export default function ContratosPage() {
+  return (
+    <Suspense fallback={null}>
+      <ContratosPageInner />
+    </Suspense>
   );
 }

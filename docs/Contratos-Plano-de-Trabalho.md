@@ -2617,3 +2617,34 @@ futura). Análise 2 agentes (o card + a plumbing do dashboard) + plan mode (3 pe
   reusa o `SaleContractLifecycleDialog` da D137 → **2º ponto de entrada do pagamento, além do Financeiro**;
   ao pagar, re-busca o feed) + um **"Ver contrato"** (→ `/contratos` Detalhes). Escopo = E22 (ADMIN +
   COMMERCIAL-dono). _(A menção "sem deep link na v1" acima fica SUPERSEDED — o "Ver contrato" entra na v1.)_
+
+### 2026-07-08 — Sessão 91 (D138 IMPLEMENTADA — pagamentos no card de Eventos, F1)
+
+Implementação ponta a ponta da D138/E21–E27 (plan mode aprovado). Doc canônico do card:
+`docs/Eventos-Dashboard-Plano-de-Trabalho.md` (F1 marcada implementada). **Sem push** (bateladas ainda
+não deployadas).
+
+- **Backend.** Migration `20260708120000_dashboard_payment_events_index` — índices `[status, payment_date]`
+  e `[status, paid_at]` em `sale_contract` (+ `@@index` no schema). Novo
+  `SaleContractService.getDashboardPaymentEvents({from,to}, actor)`: gate `FINANCEIRO_ROLES` (403 pros
+  demais); ADMIN todos × COMMERCIAL só os dele (reusa `_resolveOwnBrokerId` + `SaleContractBroker` →
+  `ownContractIds`); **2 queries** ANDadas com o escopo — agendado (`status in [EMITIDO,FATURADO]`,
+  `paymentDate` na janela) e realizado (`status=PAGO`, `paidAt` na janela); `WASH_OUT` fora. Helpers
+  **puros** `buildPaymentEvent`/`bucketPaymentEvents` (`sale-contract-support.js`, `dayKey =
+(paymentDate|paidAt).slice(0,10)` → `Record<dayKey, evento[]>`). Handler em `backend-api.js` (passa o
+  actor) + rota `GET /api/v1/dashboard/payment-events` (Cache-Control curto). `api-client` + `lib/types.ts`
+  (`DashboardCalendarEvent` promovido: +`contractId/contractNumber/buyerName/sellerName/status/version`).
+- **Front.** `EventsCalendarCard`: prop **`onWindowChange(from,to)`** (emite a quinzena visível → o
+  dashboard busca **só** a janela, sem carregar todos os contratos — honra a navegação livre E3); cada
+  evento do painel virou **acordeão** (`nº · comprador · vendedor · status`) com **"Pago"** (só
+  `status==='FATURADO'` && `canManage`, reusa `SaleContractLifecycleDialog`/D137) + **"Ver contrato"**
+  (`<Link href="/contratos?details={id}">`); dots âmbar (`contract_payment_due`) / verde
+  (`contract_payment_paid`). `DashboardDesktop`: fetch gateado por `canPay` (isRoleAllowed) + desktop
+  (matchMedia) + focus/visibility; após "Pago" re-busca a janela (o evento migra agendado→realizado, pode
+  mudar de dia) + toast. `/contratos` ganhou **`?details=<id>`** (`useSearchParams` + `<Suspense>`,
+  precedente `samples`/`clients`) → abre o Detalhes do contrato do deep link.
+- **Verificação.** typecheck / lint / format:check / build / validate:schemas / test:contracts verdes;
+  **unit** (`buildPaymentEvent`/`bucketPaymentEvents`) + **integração** (ADMIN agendado no `paymentDate`,
+  janela filtra, `WASH_OUT` fora; `PAGO` realizado no `paidAt`; COMMERCIAL own-only + papel sem acesso →
+  403). 📱 **falta validação no device** (cores dos dots, acordeão, fluxo "Pago", "Ver contrato";
+  ADMIN×COMMERCIAL).

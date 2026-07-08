@@ -9,6 +9,7 @@ import {
   buildContractTimeline,
   buildPartySnapshot,
   buildReceivableView,
+  bucketPaymentEvents,
   buildWarehouseSnapshot,
   computeContractMoneyWithAgio,
   CONTRACT_LOOKUP_LISTS,
@@ -19,6 +20,7 @@ import {
   normalizeFutureSaleContractInput,
   normalizeRequiredAgio,
   normalizeWashoutReason,
+  PAYMENT_EVENT_SELECT,
   RECEIVABLE_VIEW_SELECT,
   SALE_CONTRACT_STATUSES,
   SALE_CONTRACT_TYPES,
@@ -296,6 +298,61 @@ export class SaleContractService {
       nextCursor,
       totalCommission,
     };
+  }
+
+  // F1 (E21-E27/D138): eventos de "pagamento de contrato" do card de Eventos do
+  // dashboard. Agendado = NAO pagos (EMITIDO/FATURADO) no paymentDate; realizado =
+  // PAGO no paidAt; WASH_OUT fora. Escopo E22: ADMIN todos; COMMERCIAL so os dele
+  // (Broker.userId); demais papeis nem chegam (gate FINANCEIRO_ROLES). Janela
+  // [from, to] = 'YYYY-MM-DD' (a quinzena visivel do card). Retorna
+  // Record<'YYYY-MM-DD', evento[]> (o formato da prop `events` do card).
+  async getDashboardPaymentEvents(input, actorContext) {
+    const actor = assertAuthenticatedActor(actorContext, 'list dashboard payment events');
+    assertRoleAllowed(actor.role, FINANCEIRO_ROLES, 'list dashboard payment events');
+
+    const dayKeyRe = /^\d{4}-\d{2}-\d{2}$/;
+    const from = typeof input?.from === 'string' && dayKeyRe.test(input.from) ? input.from : null;
+    const to = typeof input?.to === 'string' && dayKeyRe.test(input.to) ? input.to : null;
+    if (!from || !to) {
+      return {};
+    }
+
+    // Escopo own-only do COMMERCIAL (mesmo do Financeiro): resolve o Broker e
+    // restringe aos contratos dele. Sem Broker vinculado -> vazio.
+    const scope = {};
+    if (actor.role !== USER_ROLES.ADMIN) {
+      const ownBrokerId = await this._resolveOwnBrokerId(actor);
+      if (!ownBrokerId) {
+        return {};
+      }
+      const ownLinks = await this.prisma.saleContractBroker.findMany({
+        where: { brokerId: ownBrokerId },
+        select: { saleContractId: true },
+      });
+      const ownContractIds = [...new Set(ownLinks.map((l) => l.saleContractId))];
+      if (ownContractIds.length === 0) {
+        return {};
+      }
+      scope.id = { in: ownContractIds };
+    }
+
+    // paymentDate/paidAt sao @db.Date (midnight UTC); a janela 'YYYY-MM-DD' vira
+    // Date UTC — inclui os dois extremos.
+    const gte = new Date(`${from}T00:00:00.000Z`);
+    const lte = new Date(`${to}T00:00:00.000Z`);
+
+    const [dueRows, paidRows] = await Promise.all([
+      this.prisma.saleContract.findMany({
+        where: { ...scope, status: { in: ['EMITIDO', 'FATURADO'] }, paymentDate: { gte, lte } },
+        select: PAYMENT_EVENT_SELECT,
+      }),
+      this.prisma.saleContract.findMany({
+        where: { ...scope, status: 'PAGO', paidAt: { gte, lte } },
+        select: PAYMENT_EVENT_SELECT,
+      }),
+    ]);
+
+    return bucketPaymentEvents(dueRows, paidRows);
   }
 
   async getSaleContract(contractId, actorContext) {

@@ -1,9 +1,12 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { getDashboardRecentSends } from '../../lib/api-client';
+import { getDashboardPaymentEvents, getDashboardRecentSends } from '../../lib/api-client';
+import { FINANCEIRO_ROLES, isRoleAllowed } from '../../lib/roles';
+import { useToast } from '../../lib/toast/ToastProvider';
+import { SaleContractLifecycleDialog } from '../contracts/SaleContractLifecycleDialog';
 import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
 import { EventsCalendarCard } from './EventsCalendarCard';
 import { RecentSendsCard } from './RecentSendsCard';
@@ -11,6 +14,7 @@ import { useOperationModal } from './useOperationModal';
 import { OperationModal } from './OperationModal';
 import { StatCard } from './StatCard';
 import type {
+  DashboardCalendarEvent,
   DashboardPendingResponse,
   DashboardRecentSendsResponse,
   DashboardSalesAvailabilityResponse,
@@ -39,6 +43,21 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
   // Throttle pro refetch on focus/visibilitychange: evita N requests
   // em Alt+Tab rapido.
   const lastFetchRef = useRef<number>(0);
+
+  // F1 (E24/E26): eventos de pagamento do card de Eventos — só ADMIN/COMMERCIAL
+  // (E22). `paymentWindow` = a quinzena visível que o card emite via onWindowChange.
+  const toast = useToast();
+  const canPay = isRoleAllowed(session.user.role, FINANCEIRO_ROLES);
+  const [paymentEvents, setPaymentEvents] = useState<Record<string, DashboardCalendarEvent[]>>({});
+  const [paymentWindow, setPaymentWindow] = useState<{ from: string; to: string } | null>(null);
+  const [lifecycle, setLifecycle] = useState<{
+    contractId: string;
+    expectedVersion: number;
+    contractNumber: string;
+  } | null>(null);
+  const handleWindowChange = useCallback((from: string, to: string) => {
+    setPaymentWindow({ from, to });
+  }, []);
 
   useEffect(() => {
     if (!session) return undefined;
@@ -88,6 +107,29 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
       window.removeEventListener('focus', refetchAllThrottled);
     };
   }, [session]);
+
+  // F1 (E24): busca os eventos de pagamento da JANELA visível (emitida pelo card).
+  // Só desktop + só ADMIN/COMMERCIAL (canPay); demais não chamam → card vazio.
+  // Re-busca em focus/visibility. Serve tb pra recarregar após "Pago" (o evento
+  // migra agendado→realizado, podendo mudar de dia).
+  const fetchPaymentEvents = useCallback(() => {
+    if (!canPay || !paymentWindow) return;
+    if (!window.matchMedia('(min-width: 901px)').matches) return;
+    getDashboardPaymentEvents(session, paymentWindow)
+      .then((res) => setPaymentEvents(res.events))
+      .catch(() => {});
+  }, [session, canPay, paymentWindow]);
+
+  useEffect(() => {
+    fetchPaymentEvents();
+    const onFocusOrVisible = () => fetchPaymentEvents();
+    window.addEventListener('focus', onFocusOrVisible);
+    document.addEventListener('visibilitychange', onFocusOrVisible);
+    return () => {
+      window.removeEventListener('focus', onFocusOrVisible);
+      document.removeEventListener('visibilitychange', onFocusOrVisible);
+    };
+  }, [fetchPaymentEvents]);
 
   // Q.print: card "Impressao pendente" cortado definitivamente (decisao
   // Q.1.c #20). PrintJob agora vive como informacao auxiliar dentro do
@@ -157,7 +199,19 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
               <RecentSendsCard items={recentSends ? recentSends.items : null} />
             </div>
           </div>
-          <EventsCalendarCard />
+          <EventsCalendarCard
+            events={paymentEvents}
+            canManage={canPay}
+            onWindowChange={handleWindowChange}
+            onPagar={(evt) => {
+              if (evt.contractId == null || evt.version == null) return;
+              setLifecycle({
+                contractId: evt.contractId,
+                expectedVersion: evt.version,
+                contractNumber: evt.contractNumber ?? '',
+              });
+            }}
+          />
         </div>
       </section>
 
@@ -167,6 +221,23 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
         onClose={closeOperationModal}
         onItemAction={classifySample}
       />
+
+      {lifecycle ? (
+        <SaleContractLifecycleDialog
+          session={session}
+          contractId={lifecycle.contractId}
+          expectedVersion={lifecycle.expectedVersion}
+          contractNumber={lifecycle.contractNumber}
+          action="pay"
+          hasLot={false}
+          onClose={() => setLifecycle(null)}
+          onDone={() => {
+            setLifecycle(null);
+            fetchPaymentEvents();
+            toast.success({ title: 'Pagamento registrado' });
+          }}
+        />
+      ) : null}
     </div>
   );
 }

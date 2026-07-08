@@ -1410,6 +1410,97 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(pay.contract.invoicedAt?.slice(0, 10), '2026-07-15');
   });
 
+  // F1 (E21-E27/D138): getDashboardPaymentEvents — feed do card de Eventos.
+  test('Eventos (D138): ADMIN vê agendado no paymentDate; janela filtra; WASH_OUT fora', async () => {
+    const emitido = await setupConfirmedContract({ lotNumber: '25010' }); // paymentDate 2026-07-20
+    const washed = await setupEmittableContract({ lotNumber: '25011' });
+    await saleContractService.washoutSaleContract(
+      washed.contractId,
+      { expectedVersion: washed.version, reason: 'Caiu' },
+      adminActor
+    );
+
+    // janela cobrindo 2026-07-20 → o EMITIDO aparece como agendado; o WASH_OUT não.
+    const inWindow = await saleContractService.getDashboardPaymentEvents(
+      { from: '2026-07-13', to: '2026-07-26' },
+      adminActor
+    );
+    const day = inWindow['2026-07-20'] ?? [];
+    const ev = day.find((e) => e.contractId === emitido.contractId);
+    assert.ok(ev, 'contrato EMITIDO deve aparecer como agendado no paymentDate');
+    assert.equal(ev.typeKey, 'contract_payment_due');
+    assert.equal(ev.status, 'EMITIDO');
+    assert.equal(typeof ev.version, 'number');
+    assert.ok(!day.some((e) => e.contractId === washed.contractId), 'WASH_OUT fora do feed');
+
+    // janela em agosto → o contrato de 2026-07-20 não aparece (filtro de data).
+    const outWindow = await saleContractService.getDashboardPaymentEvents(
+      { from: '2026-08-01', to: '2026-08-14' },
+      adminActor
+    );
+    assert.ok(
+      !(outWindow['2026-07-20'] ?? []).some((e) => e.contractId === emitido.contractId),
+      'fora da janela não aparece'
+    );
+  });
+
+  test('Eventos (D138): contrato PAGO aparece como realizado no paidAt (não no paymentDate)', async () => {
+    const { contractId, version } = await setupConfirmedContract({ lotNumber: '25020' }); // paymentDate 2026-07-20
+    const inv = await saleContractService.invoiceSaleContract(
+      contractId,
+      { expectedVersion: version, date: '2026-07-18' },
+      adminActor
+    );
+    await saleContractService.paySaleContract(
+      contractId,
+      { expectedVersion: inv.contract.version, date: '2026-07-24' },
+      adminActor
+    );
+
+    const res = await saleContractService.getDashboardPaymentEvents(
+      { from: '2026-07-13', to: '2026-07-26' },
+      adminActor
+    );
+    // realizado no paidAt (2026-07-24), NÃO no paymentDate (2026-07-20).
+    const ev = (res['2026-07-24'] ?? []).find((e) => e.contractId === contractId);
+    assert.ok(ev, 'PAGO deve aparecer no paidAt');
+    assert.equal(ev.typeKey, 'contract_payment_paid');
+    assert.equal(ev.status, 'PAGO');
+    assert.ok(
+      !(res['2026-07-20'] ?? []).some((e) => e.contractId === contractId),
+      'PAGO não aparece no paymentDate'
+    );
+  });
+
+  test('Eventos (D138): COMMERCIAL vê só os contratos dele; papel sem acesso → 403', async () => {
+    const { actor: myActor, brokerId: myBrokerId } =
+      await createCommercialBrokerUser('Corretor Eventos');
+    const mine = await setupContractWithBrokers({ lotNumber: '25030', brokerIds: [myBrokerId] });
+    const other = await setupConfirmedContract({ lotNumber: '25031' }); // corretor = TEST_BROKER
+
+    const res = await saleContractService.getDashboardPaymentEvents(
+      { from: '2026-07-13', to: '2026-07-26' },
+      myActor
+    );
+    const day = res['2026-07-20'] ?? [];
+    assert.ok(
+      day.some((e) => e.contractId === mine.contractId),
+      'vê o contrato dele'
+    );
+    assert.ok(!day.some((e) => e.contractId === other.contractId), 'não vê o de outro corretor');
+
+    // papel sem acesso a contratos → 403 (gate FINANCEIRO_ROLES).
+    const reg = { ...commercialActor, role: 'REGISTRATION', actorUserId: randomUUID() };
+    await assert.rejects(
+      () =>
+        saleContractService.getDashboardPaymentEvents(
+          { from: '2026-07-13', to: '2026-07-26' },
+          reg
+        ),
+      /not allowed/
+    );
+  });
+
   test('pagar de EMITIDO -> 409 (precisa faturar antes, D106)', async () => {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '22003' });
     await assert.rejects(

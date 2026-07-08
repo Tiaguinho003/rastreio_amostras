@@ -6,7 +6,9 @@ import {
   assertBrokersResolved,
   buildApprovalPrefill,
   buildContractTimeline,
+  buildPaymentEvent,
   buildReceivableView,
+  bucketPaymentEvents,
   buildSaleContractDraftFromSale,
   computeContractMoney,
   computeContractMoneyWithAgio,
@@ -568,4 +570,93 @@ test('buildContractTimeline: agio/aprovacao/espelho mapeiam campos e washout leg
   assert.equal(washout.toStatus, 'WASH_OUT');
   assert.equal(washout.legacy, true);
   assert.equal(washout.reason, 'Negocio desfeito');
+});
+
+// F1 (E21-E27/D138): eventos de pagamento do card de Eventos.
+test('buildPaymentEvent (D138): agendado usa paymentDate; realizado usa paidAt; dayKey sem fuso', () => {
+  const row = {
+    id: 'c1',
+    version: 2,
+    status: 'FATURADO',
+    contractNumber: '0007/26',
+    paymentDate: new Date('2026-07-10T00:00:00.000Z'),
+    paidAt: null,
+    buyerSnapshot: { displayName: 'Comprador X' },
+    sellerSnapshot: { displayName: 'Vendedor Y' },
+  };
+  const due = buildPaymentEvent(row, 'due');
+  assert.equal(due.dayKey, '2026-07-10'); // do paymentDate, sem conversao de fuso
+  assert.equal(due.event.typeKey, 'contract_payment_due');
+  assert.equal(due.event.id, 'c1');
+  assert.equal(due.event.contractId, 'c1');
+  assert.equal(due.event.version, 2);
+  assert.equal(due.event.status, 'FATURADO');
+  assert.equal(due.event.buyerName, 'Comprador X');
+  assert.equal(due.event.sellerName, 'Vendedor Y');
+  assert.equal(due.event.label, '0007/26 · Comprador X'); // recolhido: nº · comprador
+
+  const paidRow = { ...row, status: 'PAGO', paidAt: new Date('2026-07-15T00:00:00.000Z') };
+  const paid = buildPaymentEvent(paidRow, 'paid');
+  assert.equal(paid.dayKey, '2026-07-15'); // do paidAt (nao do paymentDate)
+  assert.equal(paid.event.typeKey, 'contract_payment_paid');
+});
+
+test('buildPaymentEvent (D138): sem comprador -> label = so o numero', () => {
+  const row = {
+    id: 'c2',
+    version: 1,
+    status: 'EMITIDO',
+    contractNumber: '0008/26',
+    paymentDate: new Date('2026-07-12T00:00:00.000Z'),
+    paidAt: null,
+    buyerSnapshot: null,
+    sellerSnapshot: null,
+  };
+  const { event } = buildPaymentEvent(row, 'due');
+  assert.equal(event.label, '0008/26');
+  assert.equal(event.buyerName, null);
+  assert.equal(event.sellerName, null);
+});
+
+test('bucketPaymentEvents (D138): agrupa por dayKey (agendado no paymentDate + realizado no paidAt)', () => {
+  const due = [
+    {
+      id: 'a',
+      version: 1,
+      status: 'EMITIDO',
+      contractNumber: '1/26',
+      paymentDate: new Date('2026-07-10T00:00:00.000Z'),
+      paidAt: null,
+      buyerSnapshot: { displayName: 'A' },
+      sellerSnapshot: null,
+    },
+    {
+      id: 'b',
+      version: 1,
+      status: 'FATURADO',
+      contractNumber: '2/26',
+      paymentDate: new Date('2026-07-10T00:00:00.000Z'),
+      paidAt: null,
+      buyerSnapshot: null,
+      sellerSnapshot: null,
+    },
+  ];
+  const paid = [
+    {
+      id: 'c',
+      version: 1,
+      status: 'PAGO',
+      contractNumber: '3/26',
+      paymentDate: new Date('2026-07-05T00:00:00.000Z'), // ignorado no realizado
+      paidAt: new Date('2026-07-11T00:00:00.000Z'),
+      buyerSnapshot: { displayName: 'C' },
+      sellerSnapshot: null,
+    },
+  ];
+  const map = bucketPaymentEvents(due, paid);
+  assert.equal(map['2026-07-10'].length, 2);
+  assert.equal(map['2026-07-11'].length, 1);
+  assert.equal(map['2026-07-10'][0].id, 'a');
+  assert.equal(map['2026-07-10'][1].label, '2/26'); // sem comprador -> so o numero
+  assert.equal(map['2026-07-11'][0].typeKey, 'contract_payment_paid'); // realizado no paidAt
 });

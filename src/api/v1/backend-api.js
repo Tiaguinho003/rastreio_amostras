@@ -2976,6 +2976,22 @@ export function createBackendApiV1({
         return { status: 200, body: result };
       }),
 
+    // Card de Eventos (dashboard desktop, E24/D138): feed de pagamentos de contrato
+    // por janela de data. Gate no service (FINANCEIRO_ROLES = ADMIN+COMMERCIAL);
+    // COMMERCIAL escopado aos contratos dele. Janela ?from&to = 'YYYY-MM-DD'.
+    getDashboardPaymentEvents: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractService) {
+          throw new HttpError(501, 'Sale contract service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const events = await saleContractService.getDashboardPaymentEvents(
+          { from: input?.query?.from, to: input?.query?.to },
+          actor
+        );
+        return { status: 200, body: { events } };
+      }),
+
     getSaleContract: (input) =>
       executeApiForInput(input, async () => {
         if (!saleContractService) {

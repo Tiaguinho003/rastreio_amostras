@@ -18,6 +18,12 @@
 > (sessão futura). Ver **D138** em `Contratos-Plano-de-Trabalho.md`.
 > **2026-07-08 (cont.) — E25–E27:** o evento vira **expansível (acordeão)** com info +
 > **atalho "Pago"** (só `FATURADO`) + **"Ver contrato"** (resolve EVD-P6). Revisa E6/E23.
+> **2026-07-08 (F1 IMPLEMENTADA):** o card recebeu seu **1º tipo de evento** — pagamentos de
+> contrato — **ponta a ponta**: endpoint escopado `GET /api/v1/dashboard/payment-events` (janela
+> de data), feed no card, dots âmbar/verde, **acordeão** (nº·comprador·vendedor·status) com **"Pago"**
+> (só `FATURADO`) + **"Ver contrato"** (`/contratos?details=`). 100% dos gates verdes + unit +
+> integração. 📱 **validar no device** (cores dos dots, acordeão, fluxo "Pago", deep link; ADMIN vê
+> todos × COMMERCIAL só os dele). **EVD-P5** (refino de layout) segue adiado.
 
 ## Contexto e objetivo
 
@@ -179,11 +185,11 @@ como pago** e um **link para o contrato**. Só decisão — implementação = F1
 
 ## Fases
 
-| Fase   | Tema                                                                                                                                                                                                           | Status                                         |
-| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| **F0** | Card shell no dashboard desktop: grade 2 semanas + navegação + painel do dia + vazio E19, SEM backend de eventos (lista sempre vazia)                                                                          | 📱 implementada (`9a66cd8`); validar no device |
-| **F1** | **Pagamentos de contrato** (E21–E27, 2026-07-08): endpoint escopado + feed + dots + **evento expansível** (nº·comprador·vendedor·status) com atalho **"Pago"** (só FATURADO) + **"Ver contrato"**; impl futura | 🧩 decidida (sem código)                       |
-| F2+    | Outros tipos de evento (embarques, entregas, aprovações… — a definir; cada um = rodada própria de decisões + backend + catálogo)                                                                               | ⬜                                             |
+| Fase   | Tema                                                                                                                                                                                              | Status                                          |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| **F0** | Card shell no dashboard desktop: grade 2 semanas + navegação + painel do dia + vazio E19, SEM backend de eventos (lista sempre vazia)                                                             | 📱 implementada (`9a66cd8`); validar no device  |
+| **F1** | **Pagamentos de contrato** (E21–E27, 2026-07-08): endpoint escopado + feed + dots + **evento expansível** (nº·comprador·vendedor·status) com atalho **"Pago"** (só FATURADO) + **"Ver contrato"** | 📱 implementada (2026-07-08); validar no device |
+| F2+    | Outros tipos de evento (embarques, entregas, aprovações… — a definir; cada um = rodada própria de decisões + backend + catálogo)                                                                  | ⬜                                              |
 
 ## Pendências
 
@@ -205,7 +211,7 @@ como pago** e um **link para o contrato**. Só decisão — implementação = F1
   "layout faremos depois". Retomar junto com a validação no device.
 - **EVD-P6** — Deep link do evento. **✅ RESOLVIDA (E27, 2026-07-08 cont.):** o card expandido ganha um
   **"Ver contrato"** → `/contratos` Detalhes (via `contractId` no stub, já carregado pro "Pago").
-  _(Implementação na F1.)_
+  _(✅ **implementado na F1**, 2026-07-08: `/contratos?details=<id>` + `<Suspense>`.)_
 
 ## Histórico
 
@@ -236,3 +242,15 @@ como pago** e um **link para o contrato**. Só decisão — implementação = F1
   `SaleContractLifecycleDialog`/D137, escopo E22, re-busca após pagar) e um **"Ver contrato"** (→
   `/contratos` Detalhes — **resolve a EVD-P6**). Revisa E6 (o card ganha ação; segue sem criar eventos) e
   E23 (interação/deep link entram na v1). Só decisão — implementação = F1.
+- **2026-07-08 (F1 implementada)** — Pagamentos de contrato no card, ponta a ponta. **Backend:** migration
+  `20260708120000` (índices `[status, payment_date]` + `[status, paid_at]`),
+  `SaleContractService.getDashboardPaymentEvents({from,to}, actor)` (gate `FINANCEIRO_ROLES`; ADMIN todos ×
+  COMMERCIAL só os seus via `_resolveOwnBrokerId`; 2 queries — agendado `EMITIDO/FATURADO` no `paymentDate`,
+  realizado `PAGO` no `paidAt`; `WASH_OUT` fora), helpers puros `buildPaymentEvent`/`bucketPaymentEvents`
+  em `sale-contract-support.js`, handler + rota `GET /api/v1/dashboard/payment-events`. **Front:**
+  `EventsCalendarCard` ganhou `onWindowChange` (busca só a quinzena visível — sem carregar todos os
+  contratos) + **acordeão** por evento com "Pago" (reusa `SaleContractLifecycleDialog`/D137) e "Ver
+  contrato"; `DashboardDesktop` faz o fetch (gate `canPay` + desktop) e reabre o feed após pagar (evento
+  migra agendado→realizado); `/contratos` ganhou `?details=<id>` + `<Suspense>`. Dots âmbar/verde.
+  Gates verdes + unit (`buildPaymentEvent`/`bucketPaymentEvents`) + integração (escopo/janela/WASH_OUT/
+  dayKey). 📱 falta validação no device. Ver **D138** no doc de Contratos.

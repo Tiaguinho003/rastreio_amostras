@@ -1085,6 +1085,29 @@ export interface DashboardRecentSendsResponse {
   items: DashboardRecentSendItem[];
 }
 
+// Card de Eventos do dashboard (F1, E21-E27/D138): feed de "pagamentos de contrato".
+// Cada evento = 1 contrato no dia da sua data de pagamento — agendado
+// (contract_payment_due, no paymentDate) ou realizado (contract_payment_paid, no
+// paidAt). Escopado por papel (ADMIN todos / COMMERCIAL só os dele).
+export interface DashboardCalendarEvent {
+  id: string; // = contractId (1 evento por contrato)
+  typeKey: string;
+  label: string; // recolhido: "nº · comprador"
+  // Campos do tipo "pagamento de contrato" (presentes quando typeKey ∈
+  // {contract_payment_due, contract_payment_paid}).
+  contractId?: string;
+  contractNumber?: string;
+  buyerName?: string | null;
+  sellerName?: string | null;
+  status?: SaleContractStatus;
+  version?: number;
+}
+
+export interface DashboardPaymentEventsResponse {
+  // Mapa 'YYYY-MM-DD' → eventos do dia (formato da prop `events` do card).
+  events: Record<string, DashboardCalendarEvent[]>;
+}
+
 export interface ResolveSampleByQrResponse {
   query: string;
   sample: {

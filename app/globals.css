@@ -24734,6 +24734,14 @@ select.samples-filter-field-input {
     border-radius: 50%;
     background: var(--brand-green, #1f5d43);
   }
+  /* F1 (E21/EVD-P1): cores dos dots por tipo — agendado âmbar (= Emitido),
+     realizado verde (= Pago); coerente com os selos de status do contrato. */
+  .dd-events-dot[data-type='contract_payment_due'] {
+    background: #eab308;
+  }
+  .dd-events-dot[data-type='contract_payment_paid'] {
+    background: #15803d;
+  }
 
   .dd-events-dot-more {
     font-size: 0.6rem;
@@ -24771,6 +24779,111 @@ select.samples-filter-field-input {
     display: grid;
     gap: clamp(0.35rem, 0.6vw, 0.5rem);
     align-content: start;
+  }
+
+  /* F1 (E25): item do painel = acordeão (header clicável → info + ações Pago/Ver contrato). */
+  .dd-events-panel-item {
+    border: 1px solid rgba(112, 130, 103, 0.18);
+    border-radius: 10px;
+    background: #fff;
+    overflow: hidden;
+  }
+  .dd-events-item-head {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: clamp(0.4rem, 0.7vw, 0.55rem) clamp(0.55rem, 0.9vw, 0.7rem);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.15s;
+  }
+  .dd-events-item-head:active {
+    transform: scale(0.99);
+  }
+  .dd-events-item-label {
+    font-size: clamp(0.78rem, 0.86vw, 0.86rem);
+    font-weight: 600;
+    color: #1a2e1f;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .dd-events-item-chevron {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: #71786d;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform 0.2s;
+  }
+  .dd-events-item-head[aria-expanded='true'] .dd-events-item-chevron {
+    transform: rotate(180deg);
+  }
+  .dd-events-item-detail {
+    padding: 0 clamp(0.55rem, 0.9vw, 0.7rem) clamp(0.5rem, 0.8vw, 0.6rem);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(0.4rem, 0.7vw, 0.55rem);
+    border-top: 1px solid rgba(112, 130, 103, 0.12);
+  }
+  .dd-events-item-fields {
+    margin: 0;
+    padding-top: clamp(0.4rem, 0.7vw, 0.55rem);
+    display: grid;
+    gap: 0.2rem;
+    font-size: clamp(0.74rem, 0.82vw, 0.82rem);
+  }
+  .dd-events-item-fields > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.6rem;
+  }
+  .dd-events-item-fields dt {
+    color: #71786d;
+  }
+  .dd-events-item-fields dd {
+    margin: 0;
+    color: #1a2e1f;
+    font-weight: 600;
+    text-align: right;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .dd-events-item-actions {
+    display: flex;
+    gap: 0.45rem;
+    justify-content: flex-end;
+  }
+  .dd-events-item-btn {
+    border: 1px solid var(--brand-cream-line);
+    background: #fff;
+    color: var(--brand-green-ink);
+    border-radius: 9px;
+    padding: 0.35rem 0.8rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.15s;
+  }
+  .dd-events-item-btn:active {
+    transform: scale(0.97);
+  }
+  .dd-events-item-btn-primary {
+    background: var(--brand-green);
+    border-color: var(--brand-green);
+    color: #fff;
   }
 
   /* Vazio da F0 (E19): mensagem + nota de futuro. */

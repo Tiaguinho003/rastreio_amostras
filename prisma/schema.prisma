@@ -868,6 +868,10 @@ model SaleContract {
   @@index([sellerClientId, status], map: "idx_sale_contract_seller_status")
   @@index([buyerClientId, status], map: "idx_sale_contract_buyer_status")
   @@index([sampleId], map: "idx_sale_contract_sample")
+  // F1 (E24/D138): feed de pagamentos do card de Eventos — janela por payment_date
+  // (agendado) / paid_at (realizado), compostos com o status.
+  @@index([status, paymentDate], map: "idx_sale_contract_status_payment_date")
+  @@index([status, paidAt], map: "idx_sale_contract_status_paid_at")
   @@map("sale_contract")
 }
 

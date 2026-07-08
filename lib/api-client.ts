@@ -43,6 +43,7 @@ import type {
   DetectFormResponse,
   DashboardSalesAvailabilityResponse,
   DashboardRecentSendsResponse,
+  DashboardPaymentEventsResponse,
   InvalidateReasonCode,
   PendingPrintQueueResponse,
   ListSamplesResponse,
@@ -1173,6 +1174,20 @@ export function getDashboardRecentSends(session: SessionData) {
     method: 'GET',
     session,
     // Respeita o Cache-Control private/max-age=30 do endpoint.
+    cachePolicy: 'default',
+  });
+}
+
+// F1 (E24/D138): feed de pagamentos do card de Eventos, por janela de data
+// ('YYYY-MM-DD'). Só ADMIN+COMMERCIAL (o caller gateia; o endpoint escopa).
+export function getDashboardPaymentEvents(
+  session: SessionData,
+  window: { from: string; to: string }
+) {
+  const params = new URLSearchParams({ from: window.from, to: window.to });
+  return request<DashboardPaymentEventsResponse>(`/dashboard/payment-events?${params.toString()}`, {
+    method: 'GET',
+    session,
     cachePolicy: 'default',
   });
 }

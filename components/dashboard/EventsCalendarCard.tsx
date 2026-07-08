@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   CALENDAR_FORTNIGHT_DAYS,
@@ -16,22 +17,32 @@ import {
   isWeekend,
   toDayKey,
 } from '../../lib/dashboard-calendar';
+import type { DashboardCalendarEvent } from '../../lib/types';
 
-// Seam da F1 (docs/Eventos-Dashboard-Plano-de-Trabalho.md, EVD-P1/P2): o
-// catálogo de tipos e a fonte dos eventos ainda não existem — o tipo fica
-// LOCAL e mínimo de propósito (não entra em lib/types.ts até haver endpoint).
-export interface DashboardCalendarEventStub {
-  id: string;
-  typeKey: string;
-  label: string;
-}
+// F1 (E21-E27/D138): o tipo do evento foi promovido pro lib/types.ts
+// (DashboardCalendarEvent) quando o 1º feed real nasceu — pagamentos de contrato.
+type CalendarEvent = DashboardCalendarEvent;
 
 interface EventsCalendarCardProps {
-  /** Mapa 'YYYY-MM-DD' → eventos do dia. F0 nasce sempre vazio (E7). */
-  events?: Record<string, DashboardCalendarEventStub[]>;
+  /** Mapa 'YYYY-MM-DD' → eventos do dia (F1: pagamentos de contrato; vazio antes). */
+  events?: Record<string, CalendarEvent[]>;
+  /** Quem pode registrar pagamento (E26); default false. */
+  canManage?: boolean;
+  /** Abre a dialog "Pago" no pai (E26); só em eventos FATURADO. */
+  onPagar?: (event: CalendarEvent) => void;
+  /** Emite a quinzena visível (from..to 'YYYY-MM-DD') pro pai buscar o feed (E24). */
+  onWindowChange?: (from: string, to: string) => void;
 }
 
 const MAX_DOTS = 3;
+
+// Rótulo do status no acordeão (E25). WASH_OUT fica FORA do feed, mas mapeado por segurança.
+const STATUS_LABEL: Record<string, string> = {
+  EMITIDO: 'Emitido',
+  FATURADO: 'Faturado',
+  PAGO: 'Pago',
+  WASH_OUT: 'Washout',
+};
 
 // Card "Eventos" (dashboard desktop, DSH-D6 / F0): calendário de DUAS
 // semanas domingo-first (E2/E12) com navegação livre de 14 em 14 dias +
@@ -39,11 +50,18 @@ const MAX_DOTS = 3;
 // E14) e dots por tipo nos quadrados (E5/E13 — estrutura pronta; a F0 não
 // tem eventos). Só visualização (E6); desktop-only (E9); hoje destacado e
 // selecionado por default (E10).
-export function EventsCalendarCard({ events = {} }: EventsCalendarCardProps) {
+export function EventsCalendarCard({
+  events = {},
+  canManage = false,
+  onPagar,
+  onWindowChange,
+}: EventsCalendarCardProps) {
   const today = useMemo(() => getBrtToday(), []);
   const todayKey = toDayKey(today);
   const [fortnightStart, setFortnightStart] = useState(() => computeFortnightStart(today));
   const [selectedDate, setSelectedDate] = useState(today);
+  // Acordeão do painel (E25): 1 evento aberto por vez.
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   // Direção do deslize (E18) + contador pra re-disparar a animação a cada
   // navegação (muda a key do wrapper da grade).
   const [slide, setSlide] = useState<{ direction: 'left' | 'right' | null; tick: number }>({
@@ -55,6 +73,18 @@ export function EventsCalendarCard({ events = {} }: EventsCalendarCardProps) {
   const days = useMemo(() => buildFortnight(fortnightStart), [fortnightStart]);
   const selectedKey = toDayKey(selectedDate);
   const selectedEvents = events[selectedKey] ?? [];
+
+  // E24: emite a quinzena visível pro pai buscar o feed daquela janela (o card
+  // navega internamente; o pai não saberia sem isso). Dispara na montagem + a cada
+  // navegação. O pai deve memoizar `onWindowChange` (useCallback) p/ não re-buscar
+  // a cada render.
+  useEffect(() => {
+    if (!onWindowChange) return;
+    onWindowChange(
+      toDayKey(fortnightStart),
+      toDayKey(addDays(fortnightStart, CALENDAR_FORTNIGHT_DAYS - 1))
+    );
+  }, [fortnightStart, onWindowChange]);
 
   function navigate(direction: 'left' | 'right') {
     const delta = direction === 'left' ? -CALENDAR_FORTNIGHT_DAYS : CALENDAR_FORTNIGHT_DAYS;
@@ -160,7 +190,10 @@ export function EventsCalendarCard({ events = {} }: EventsCalendarCardProps) {
               className={`dd-events-day${isToday ? ' is-today' : ''}${
                 isSelected ? ' is-selected' : ''
               }${isWeekend(day) ? ' is-weekend' : ''}`}
-              onClick={() => setSelectedDate(day)}
+              onClick={() => {
+                setSelectedDate(day);
+                setExpandedId(null);
+              }}
               aria-pressed={isSelected}
               aria-current={isToday ? 'date' : undefined}
               aria-label={`${formatDayAriaLabel(day)}${
@@ -195,18 +228,71 @@ export function EventsCalendarCard({ events = {} }: EventsCalendarCardProps) {
         {selectedEvents.length === 0 ? (
           <div className="dd-events-empty">
             <p className="dd-events-empty-main">Nenhum evento para este dia.</p>
-            {/* Nota da F0 (E19): sai quando as features de evento chegarem. */}
-            <p className="dd-events-empty-note">
-              As programações (embarques, entregas, aprovações...) chegam nas próximas atualizações.
-            </p>
           </div>
         ) : (
           <ul className="dd-events-panel-list">
-            {selectedEvents.map((event) => (
-              <li key={event.id} className="dd-events-panel-item" data-type={event.typeKey}>
-                {event.label}
-              </li>
-            ))}
+            {selectedEvents.map((event) => {
+              const isOpen = expandedId === event.id;
+              const canPay = event.status === 'FATURADO' && canManage && Boolean(onPagar);
+              return (
+                <li key={event.id} className="dd-events-panel-item" data-type={event.typeKey}>
+                  <button
+                    type="button"
+                    className="dd-events-item-head"
+                    onClick={() => setExpandedId((cur) => (cur === event.id ? null : event.id))}
+                    aria-expanded={isOpen}
+                  >
+                    <span className="dd-events-item-label">{event.label}</span>
+                    <svg className="dd-events-item-chevron" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                  </button>
+                  {isOpen ? (
+                    <div className="dd-events-item-detail">
+                      <dl className="dd-events-item-fields">
+                        <div>
+                          <dt>Contrato</dt>
+                          <dd>{event.contractNumber ?? '—'}</dd>
+                        </div>
+                        <div>
+                          <dt>Comprador</dt>
+                          <dd>{event.buyerName ?? '—'}</dd>
+                        </div>
+                        <div>
+                          <dt>Vendedor</dt>
+                          <dd>{event.sellerName ?? '—'}</dd>
+                        </div>
+                        <div>
+                          <dt>Status</dt>
+                          <dd>
+                            {event.status ? (STATUS_LABEL[event.status] ?? event.status) : '—'}
+                          </dd>
+                        </div>
+                      </dl>
+                      <div className="dd-events-item-actions">
+                        {canPay ? (
+                          <button
+                            type="button"
+                            className="dd-events-item-btn dd-events-item-btn-primary"
+                            onClick={() => onPagar?.(event)}
+                          >
+                            Pago
+                          </button>
+                        ) : null}
+                        {event.contractId ? (
+                          <Link
+                            href={`/contratos?details=${event.contractId}`}
+                            className="dd-events-item-btn"
+                          >
+                            Ver contrato
+                          </Link>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
