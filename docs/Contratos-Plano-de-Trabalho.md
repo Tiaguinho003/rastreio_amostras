@@ -2596,3 +2596,19 @@ visível** no card do Financeiro, só nos itens `FATURADO`.
 - **Testes:** `version` na projeção (unit + integração). Gates verdes: **typecheck / lint / format / build
   / validate:schemas / test:contracts / unit 371 / integração 431**. **Validar no device.** Commit próprio.
   _(Plano em `~/.claude/plans/memoized-wiggling-quasar.md`.)_
+
+### 2026-07-08 — Sessão 90 (Pagamento do contrato → card de Eventos do dashboard — D138, só decisão)
+
+A pedido do Flavio, o **fluxo de pagamento do contrato** passa a **alimentar o card de Eventos** (calendário
+do dashboard desktop). **Só decisão/registro — sem código** (implementação = fase F1 do card, sessão
+futura). Análise 2 agentes (o card + a plumbing do dashboard) + plan mode (3 perguntas).
+
+- **D138 — pagamento do contrato como evento do dashboard.** Cada contrato vira **1 evento** no dia da sua
+  data de pagamento, em **2 sub-tipos**: **agendado** (não pago, `EMITIDO`/`FATURADO`, no `paymentDate`) e
+  **realizado** (`PAGO`, no `paidAt`); `WASH_OUT` fora (ao pagar, o agendado vira realizado). **Escopado
+  como o Financeiro** (ADMIN todos / COMMERCIAL só os dele via `Broker.userId` / CLASSIFIER-REGISTRATION-
+  CADASTRO nenhum). **Sem deep link na v1.** Fonte = endpoint do dashboard **com actor** (molde
+  `recent-sends`) consultando `SaleContract` por `paymentDate`/`paidAt` na janela; datas `@db.Date` casam
+  com o `toDayKey` sem conversão de fuso; índice novo em `payment_date` na implementação. **Decisões
+  detalhadas (E21–E24) no doc canônico do card:** `docs/Eventos-Dashboard-Plano-de-Trabalho.md` (revisa a
+  E8 do card — este tipo de evento é escopado por papel).
