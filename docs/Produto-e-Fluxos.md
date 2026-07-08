@@ -162,7 +162,7 @@ Pos Q.print: impressao virou **acao pura**. Nao muda mais o status do Sample.
 3. Em amostra com mais de uma safra (liga de safras diferentes), ao gerar o laudo
    o operador escolhe qual safra sai nele (`reportedHarvest`, registrado no evento):
    o laudo nunca imprime a safra concatenada, pra nao revelar que e uma liga.
-4. O detalhe da amostra expoe historico, anexos, QR, dados principais, classificacao e status comercial.
+4. O detalhe do lote (`/samples/[sampleId]`) expoe historico, anexos, QR, dados principais, classificacao e status comercial. A UI usa o vocabulario "lote" (LDT-D2, 2026-07-08) e o painel comercial do detalhe e **so leitura** — venda, perda e novo envio fisico sao disparados pelo card da **lista** `/samples`, nao pelo detalhe.
 
 ## Regras de ajuste e auditoria
 
@@ -171,8 +171,8 @@ Pos Q.print: impressao virou **acao pura**. Nao muda mais o status do Sample.
 3. Edicao de classificacao nunca sobrescreve silenciosamente: gera `CLASSIFICATION_UPDATED`.
 4. Toda edicao exige `reasonCode` e `reasonText`.
 5. `reasonText` de edicao e limitado a 10 palavras no backend atual.
-6. O detalhe da amostra permite reverter a ultima edicao reversivel com novo motivo auditado.
-7. A invalidacao encerra a amostra em status terminal e nao existe reabertura implementada.
+6. O detalhe do lote permite reverter a ultima edicao reversivel com novo motivo auditado.
+7. A acao terminal do lote e rotulada **"Deletar"** na UI (endpoint segue `/invalidate`): encerra o lote em status terminal (`INVALIDATED`), sem reabertura; bloqueada por 409 se houver contrato vinculado (`SAMPLE_HAS_CONTRACT`) — nesse caso o desfazer e o Washout do contrato em `/contratos`.
 
 ## Fluxos de usuario e acesso
 

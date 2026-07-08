@@ -62,6 +62,12 @@ Regra consolidada:
 17. `POST /api/v1/samples/:sampleId/physical-send`
 18. `POST /api/v1/samples/:sampleId/export/pdf`
 19. `POST /api/v1/samples/:sampleId/invalidate`
+    Encerra o lote em `INVALIDATED` (soft-delete que libera o numero). A UI do detalhe rotula essa acao como **"Deletar"** (LDT-D2) — o endpoint continua `/invalidate`. 409 `SAMPLE_HAS_CONTRACT` se houver contrato vinculado.
+
+### Leitura de anexo (foto)
+
+- `GET /api/v1/samples/:sampleId/photos/:attachmentId`
+  Serve o binario da foto da classificacao. **Exige sessao valida** (LDT-D4, 2026-07-08): a autorizacao passa por `getSampleAttachmentDescriptor` (`resolveActorContext` → 401 sem sessao, 403 PROSPECTOR pela allowlist), e so entao a rota le o arquivo do disco (com guard de path-traversal). `Cache-Control: private, max-age=3600, immutable`. O `<img>` same-origin ja envia o cookie httpOnly, entao o carregamento normal nao muda.
 
 ### Classificacao por camera e IA
 

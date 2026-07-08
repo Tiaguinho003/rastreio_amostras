@@ -218,8 +218,11 @@ Quando presente, descreva **causa** ou **próximo passo** em uma frase curta:
 > envios"). **Estendida ao fluxo de criação (LNW-D2, 2026-07-07):** o sheet do
 > leque "+" é "Novo lote" ("Criar lote", "Descartar lote?", "Lote criado",
 > "Número do lote", "Criar outro" — `NewSampleModal` +
-> `SampleCreatedSuccessModal`). O vocabulário canônico "amostra" segue valendo
-> nas demais telas até decisão em contrário nos seus ciclos de revisão.
+> `SampleCreatedSuccessModal`). **Estendida ao detalhe (LDT-D2, 2026-07-08):**
+> `/samples/[sampleId]` usa "lote" ("Reclassificar lote", "Chegada do lote",
+> "Lote físico", "Deletar"/"Deletado" no lugar de "Invalidar"/"Invalidada").
+> O vocabulário canônico "amostra" segue valendo nas demais telas até decisão
+> em contrário nos seus ciclos de revisão.
 
 ### Exemplos do `SIM`/`NÃO`
 

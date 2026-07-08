@@ -161,7 +161,7 @@ Contagem:
 Alcancadas por fluxo interno ou URL direta (guard permite), mas sem item de menu
 proprio:
 
-- `/samples/[id]` — criar (modal do leque "+" em Lotes)/abrir lote.
+- `/samples/[id]` — criar (modal do leque "+" em Lotes)/abrir lote. **Detalhe uniforme (LDT-D1, 2026-07-08):** os 5 papeis nao-PROSPECTOR veem e fazem exatamente o mesmo no detalhe (nenhuma granularidade por papel); PROSPECTOR e barrado nas 3 camadas (guard, middleware, e API 403 via allowlist — inclusive a leitura `getSampleDetail` e a foto `getSampleAttachmentDescriptor`, LDT-D4).
 - `/clients/[id]` — detalhe do cliente (a partir de Clientes).
 - `/camera` **no desktop** — a rota e liberada (`NON_PROSPECTOR_ROLES`), mas o
   unico botao de Camera esta na tabbar mobile; a sidebar nao tem essa entrada.
