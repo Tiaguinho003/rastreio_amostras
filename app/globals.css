@@ -8243,108 +8243,6 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   stroke-linejoin: round;
 }
 
-/* Actions Bar */
-.sdv-actions-bar {
-  flex-shrink: 0;
-  display: flex;
-  gap: clamp(6px, 2vw, 8px);
-  padding: clamp(8px, 2.5vw, 10px) clamp(14px, 4vw, 20px);
-  background: linear-gradient(180deg, #fdf9ec 0%, #f5f0e8 100%);
-  animation: sdv-element-in 0.4s ease-out backwards;
-}
-
-.sdv-action-card {
-  flex: 1;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(5px, 1.8vw, 7px);
-  padding: clamp(8px, 2.5vw, 10px) clamp(6px, 2vw, 8px);
-  color: #ffffff;
-  border: 0;
-  border-radius: clamp(10px, 3vw, 12px);
-  font-size: clamp(11px, 3vw, 12.5px);
-  font-weight: 600;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition:
-    transform 0.12s ease,
-    box-shadow 0.15s ease,
-    filter 0.15s ease;
-}
-
-.sdv-action-card:active:not(:disabled) {
-  transform: scale(0.94);
-  filter: brightness(0.94);
-}
-
-.sdv-action-card:disabled {
-  opacity: 0.45;
-  cursor: default;
-  filter: saturate(0.6);
-}
-
-.sdv-action-card.is-print {
-  background: linear-gradient(135deg, var(--brand-green-soft), var(--brand-green));
-  box-shadow:
-    0 2px 6px rgba(27, 94, 32, 0.28),
-    0 6px 14px rgba(27, 94, 32, 0.14);
-}
-
-.sdv-action-card.is-report {
-  background: linear-gradient(135deg, #3a8fd0, var(--color-info, #1e5f8f));
-  box-shadow:
-    0 2px 6px rgba(30, 95, 143, 0.28),
-    0 6px 14px rgba(30, 95, 143, 0.14);
-}
-
-.sdv-action-card.is-send {
-  background: linear-gradient(135deg, #3a8fd0, var(--color-info, #1e5f8f));
-  box-shadow:
-    0 2px 6px rgba(30, 95, 143, 0.28),
-    0 6px 14px rgba(30, 95, 143, 0.14);
-}
-
-/* Acao "Classificar" — reaproveita a identidade dourada do antigo FAB
-   (sdv-fab-classify). Fundo claro pede texto/icone escuros (override do
-   color:#fff base). */
-.sdv-action-card.is-classify {
-  /* Mesmo padrao dos demais action cards: gradiente colorido + texto branco
-     (o dourado claro com texto escuro destoava). Ambar escurecido pra o branco
-     ter contraste. */
-  background: linear-gradient(135deg, #cf9a1a, #a6760f);
-  box-shadow:
-    0 2px 6px rgba(166, 118, 15, 0.28),
-    0 6px 14px rgba(166, 118, 15, 0.14);
-}
-
-/* Acoes Venda/Perda no rodape do Resumo comercial: botao OUTLINE — fundo BRANCO,
-   BORDA + texto + icone na cor semantica (verde venda / vermelho perda) via
-   currentColor. MESMO padrao no mobile e no desktop (o desktop so reforca a
-   sombra/borda no bloco @media). */
-.sdv-action-card.is-sale {
-  background: #ffffff;
-  color: var(--brand-green);
-  border: 1.5px solid currentColor;
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.08),
-    0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-.sdv-action-card.is-loss {
-  background: #ffffff;
-  color: var(--danger);
-  border: 1.5px solid currentColor;
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.08),
-    0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-.sdv-action-card.is-highlight-pulse {
-  animation: sdv-print-pulse 1.2s ease-in-out infinite;
-}
-
 @keyframes sdv-print-pulse {
   0% {
     box-shadow:
@@ -8364,52 +8262,6 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
       0 2px 6px rgba(27, 94, 32, 0.28),
       0 6px 14px rgba(27, 94, 32, 0.14);
   }
-}
-
-.sdv-action-card-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: clamp(18px, 5vw, 20px);
-  height: clamp(18px, 5vw, 20px);
-  flex-shrink: 0;
-}
-
-.sdv-action-card-icon svg {
-  width: 100%;
-  height: 100%;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.sdv-action-card-label {
-  font-size: clamp(11px, 3vw, 12.5px);
-  font-weight: 600;
-  color: currentColor;
-  line-height: 1.2;
-}
-
-/* Reserva sempre a largura do texto mais longo ("Reclassificar"), via um sizer
-   invisivel (::after) sobreposto na MESMA celula de grid que o texto visivel.
-   Assim o botao (e o conteudo) nao mudam de tamanho/posicao ao alternar
-   Classificar <-> Reclassificar. */
-.sdv-classify-label {
-  display: inline-grid;
-  justify-items: center;
-}
-
-.sdv-classify-label > span,
-.sdv-classify-label::after {
-  grid-area: 1 / 1;
-}
-
-.sdv-classify-label::after {
-  content: 'Reclassificar';
-  visibility: hidden;
-  pointer-events: none;
 }
 
 /* Content */
@@ -10137,123 +9989,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   }
 }
 
-/* Q.print P3: secao Etiqueta — substitui o antigo sdv-print-failed-card.
-   Mostra status do PrintJob + botao Imprimir/Imprimir novamente. As
-   variantes is-pending/success/failed/expired/idle vem do
-   `latestPrintJob.status` (idle = job inexistente). */
-.sdv-print-section {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(8px, 2vw, 10px);
-  border-left: 3px solid #b3a78d;
-}
-
-.sdv-print-section.is-pending {
-  border-left-color: var(--brand-green);
-}
-
-.sdv-print-section.is-success {
-  border-left-color: #2e7d32;
-}
-
-.sdv-print-section.is-failed,
-.sdv-print-section.is-expired {
-  border-left-color: #c0392b;
-}
-
-.sdv-print-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: clamp(8px, 2vw, 10px);
-}
-
-.sdv-print-section-title {
-  margin: 0;
-  font-size: clamp(13px, 3.5vw, 14px);
-  font-weight: 700;
-  color: #2c2c2c;
-}
-
-.sdv-print-section-status {
-  font-size: clamp(11px, 3vw, 12px);
-  font-weight: 600;
-  padding: 2px clamp(8px, 2vw, 10px);
-  border-radius: 999px;
-  background: #f4eeda;
-  color: #5b4b2d;
-}
-
-.sdv-print-section.is-pending .sdv-print-section-status {
-  background: rgba(46, 125, 50, 0.12);
-  color: var(--brand-green);
-}
-
-.sdv-print-section.is-success .sdv-print-section-status {
-  background: rgba(46, 125, 50, 0.16);
-  color: #2e7d32;
-}
-
-.sdv-print-section.is-failed .sdv-print-section-status,
-.sdv-print-section.is-expired .sdv-print-section-status {
-  background: #fde7e3;
-  color: #c0392b;
-}
-
-.sdv-print-section-body {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.sdv-print-section-attempt {
-  font-size: clamp(12px, 3.2vw, 13px);
-  color: #6b6b6b;
-}
-
-.sdv-print-section-error {
-  font-size: clamp(11px, 3vw, 12px);
-  color: #c0392b;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sdv-print-section-action {
-  align-self: stretch;
-  padding: clamp(10px, 2.8vw, 12px);
-  border: none;
-  border-radius: clamp(10px, 3vw, 12px);
-  background: linear-gradient(135deg, var(--brand-green-soft), var(--brand-green));
-  color: #fff;
-  font-size: clamp(13px, 3.5vw, 14px);
-  font-weight: 700;
-  cursor: pointer;
-  transition:
-    transform 0.12s ease,
-    opacity 0.12s ease;
-  -webkit-tap-highlight-color: transparent;
-  box-shadow:
-    0 2px 6px rgba(27, 94, 32, 0.28),
-    0 6px 14px rgba(27, 94, 32, 0.14);
-}
-
-.sdv-print-section-action:active:not(:disabled) {
-  transform: scale(0.97);
-  filter: brightness(0.94);
-}
-
-.sdv-print-section-action:disabled {
-  opacity: 0.5;
-  cursor: default;
-  filter: saturate(0.6);
-}
-
-.sdv-print-section-action.is-highlight-pulse {
-  animation: sdv-print-pulse 1.2s ease-in-out infinite;
-}
-
 .sdv-card {
   background: linear-gradient(180deg, #ffffff 0%, #faf8f4 100%);
   border-radius: clamp(14px, 4vw, 16px);
@@ -10440,89 +10175,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   margin-bottom: clamp(10px, 3vw, 12px);
 }
 
-/* QR Card */
-.sdv-qr-row {
-  display: flex;
-  align-items: center;
-  gap: clamp(12px, 3.5vw, 16px);
-}
-
-.sdv-qr-box {
-  flex-shrink: 0;
-  padding: 6px;
-  border-radius: 10px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  background: #fafafa;
-  display: inline-grid;
-  place-items: center;
-}
-
-.sdv-qr-actions {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: clamp(6px, 2vw, 8px);
-}
-
-.sdv-qr-label {
-  font-size: clamp(10px, 2.8vw, 11px);
-  color: #999;
-  font-weight: 500;
-  margin-bottom: 2px;
-}
-
-.sdv-qr-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(5px, 1.5vw, 6px);
-  width: 100%;
-  padding: clamp(8px, 2.5vw, 10px);
-  border-radius: 10px;
-  font-size: clamp(11px, 3vw, 12px);
-  font-weight: 600;
-  border: 0;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.15s;
-}
-
-.sdv-qr-btn:active {
-  transform: scale(0.96);
-}
-
-.sdv-qr-btn:disabled {
-  opacity: 0.45;
-}
-
-.sdv-qr-btn svg {
-  width: clamp(12px, 3.5vw, 14px);
-  height: clamp(12px, 3.5vw, 14px);
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  flex-shrink: 0;
-}
-
-.sdv-qr-btn.is-primary {
-  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
-  color: #ffffff;
-  box-shadow: 0 2px 10px rgba(27, 94, 32, 0.25);
-}
-
-.sdv-qr-btn.is-secondary {
-  background: #ffffff;
-  color: var(--brand-green-soft);
-  border: 1.5px solid rgba(46, 125, 50, 0.15);
-}
-
-/* Info Card */
-.sdv-info-card {
-  padding-bottom: clamp(6px, 1.5vw, 8px);
-}
-
 .sdv-info-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -10577,19 +10229,8 @@ body:has(.app-modal-backdrop) .prospector-fab {
 /* 14.7.G: indicador inline minimalista de campo recomendado faltante.
    Substitui o banner grande "Cadastro incompleto" no topo da pagina.
    Label fica em amber, icone pequeno pulsante ao lado. */
-.sdv-info-label.is-missing,
-.sdv-unit-label.is-missing {
+.sdv-info-label.is-missing {
   color: #b54708;
-}
-
-.sdv-info-label-warning {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  margin-left: 5px;
-  vertical-align: middle;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.12));
-  animation: cv2-incomplete-pulse 1.5s ease-in-out infinite;
 }
 
 .sdv-info-value {
@@ -10645,50 +10286,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-
-/* Photo Card */
-.sdv-photo-wrap {
-  display: block;
-  width: 100%;
-  position: relative;
-  border: 0;
-  padding: 0;
-  background: transparent;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.sdv-photo-img {
-  width: 100%;
-  height: clamp(100px, 28vw, 120px);
-  object-fit: cover;
-  display: block;
-  border-radius: 12px;
-}
-
-.sdv-photo-hint {
-  position: absolute;
-  bottom: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: clamp(10px, 2.8vw, 11px);
-  color: rgba(255, 255, 255, 0.5);
-  white-space: nowrap;
-  pointer-events: none;
-}
-
-.sdv-photo-empty {
-  width: 100%;
-  height: clamp(100px, 28vw, 120px);
-  background: #f0ede8;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  color: #ccc;
-  font-size: clamp(12px, 3.2vw, 13px);
 }
 
 /* Info card compact (no title) */
@@ -10845,23 +10442,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   min-width: 0;
 }
 
-/* Fileira de acoes principais no rodape do container 1: Imprimir | Laudo |
-   Enviar. Reaproveita os .sdv-action-card (is-print/is-report/is-send) que
-   antes ficavam na barra do topo (sdv-actions-bar, removida). */
-.sdv-info-actions {
-  display: flex;
-  gap: clamp(6px, 2vw, 8px);
-  margin-top: clamp(10px, 2.8vw, 12px);
-}
-
-.sdv-info-actions .sdv-action-card {
-  min-width: 0;
-}
-
-.sdv-info-actions .sdv-action-card-label {
-  white-space: nowrap;
-}
-
 /* Header de modal com seta de voltar (←) + titulo AGRUPADOS a esquerda — usado
    nos modais alcancados pelo chooser "Enviar" (laudo/fisico). O .app-modal-header
    e flex space-between; agrupar os dois evita o titulo "flutuar" no centro
@@ -10892,21 +10472,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   pointer-events: none;
 }
 
-.sdv-edit-btn-inline {
-  margin-top: clamp(6px, 1.5vw, 8px);
-  padding: clamp(6px, 1.5vw, 8px) 0;
-  justify-content: center;
-  border-top: 1px solid rgba(0, 0, 0, 0.04);
-  border-radius: 0;
-  width: 100%;
-}
-
-.sdv-edit-btn-corner {
-  position: absolute;
-  bottom: clamp(8px, 2vw, 10px);
-  right: clamp(10px, 2.5vw, 12px);
-}
-
 /* Card header with edit button */
 .sdv-card-header {
   display: flex;
@@ -10926,20 +10491,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   align-items: center;
   gap: clamp(6px, 2vw, 8px);
   min-width: 0;
-}
-
-/* Badge de status da classificacao (Pendente / Classificada / Invalidada) —
-   mesmas cores do badge do cabecalho da pagina (via style inline do sdvStatus).
-   Espelha o visual do .sdv-identity-badge. */
-.sdv-cls-status-badge {
-  font-size: clamp(9px, 2.5vw, 10px);
-  font-weight: 700;
-  padding: 2px clamp(8px, 2.5vw, 10px);
-  border-radius: 6px;
-  border: 1px solid;
-  white-space: nowrap;
-  flex-shrink: 0;
-  line-height: 1.4;
 }
 
 .sdv-edit-btn {
@@ -11112,123 +10663,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   stroke-linejoin: round;
 }
 
-.sdv-unit-card {
-  position: relative;
-  background: linear-gradient(180deg, #fdfbf6 0%, #f6f2e9 100%);
-  border: 1px solid rgba(112, 130, 103, 0.18);
-  border-radius: clamp(12px, 3.2vw, 14px);
-  padding: clamp(12px, 3vw, 14px) clamp(13px, 3.4vw, 16px);
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.04),
-    0 4px 10px rgba(19, 35, 24, 0.06);
-  display: flex;
-  flex-direction: column;
-  gap: clamp(8px, 2.2vw, 10px);
-  overflow: hidden;
-}
-
-.sdv-unit-card::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 18%;
-  bottom: 18%;
-  width: 3px;
-  border-radius: 0 3px 3px 0;
-  background: linear-gradient(180deg, var(--brand-green-soft), var(--brand-green));
-}
-
-.sdv-unit-card.is-inactive {
-  background: #f5f3ee;
-  border-color: rgba(0, 0, 0, 0.08);
-  opacity: 0.78;
-}
-
-.sdv-unit-card.is-inactive::before {
-  background: rgba(0, 0, 0, 0.18);
-}
-
-.sdv-unit-card-header {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: clamp(6px, 1.8vw, 8px);
-}
-
-.sdv-unit-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: clamp(9.5px, 2.6vw, 10.5px);
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  padding: clamp(3px, 0.8vw, 4px) clamp(8px, 2.2vw, 10px);
-  border-radius: 999px;
-  border: 1px solid;
-  white-space: nowrap;
-  text-transform: uppercase;
-}
-
-.sdv-unit-badge.is-filial {
-  color: var(--brand-green-soft);
-  background: rgba(47, 107, 74, 0.08);
-  border-color: rgba(47, 107, 74, 0.22);
-}
-
-.sdv-unit-badge.is-inactive {
-  color: #c45c5c;
-  background: rgba(196, 92, 92, 0.08);
-  border-color: rgba(196, 92, 92, 0.22);
-}
-
-.sdv-unit-name {
-  flex: 1;
-  min-width: 0;
-  font-size: clamp(13px, 3.5vw, 14px);
-  font-weight: 700;
-  color: #1a1a1a;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sdv-unit-card.is-inactive .sdv-unit-name {
-  color: #777;
-}
-
-.sdv-unit-card-body {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(4px, 1.2vw, 6px);
-  font-size: clamp(11.5px, 3vw, 12.5px);
-  color: #555;
-  font-weight: 500;
-}
-
-.sdv-unit-card-body > div {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  word-break: break-word;
-}
-
-.sdv-unit-label {
-  font-size: clamp(9px, 2.5vw, 10px);
-  font-weight: 700;
-  color: #999;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  flex-shrink: 0;
-}
-
-.sdv-unit-card-actions {
-  display: flex;
-  gap: clamp(6px, 1.8vw, 8px);
-  flex-wrap: wrap;
-  margin-top: clamp(2px, 0.6vw, 4px);
-  padding-top: clamp(8px, 2.2vw, 10px);
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
-}
-
 .sdv-edit-btn-small {
   flex: 1 1 0;
   min-width: 0;
@@ -11338,217 +10772,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   display: flex;
   flex-direction: column;
   gap: clamp(6px, 1.8vw, 8px);
-}
-
-/* Classification tab v2 */
-.sdv-classification {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(10px, 3vw, 12px);
-  animation: sdv-fadeIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) backwards;
-}
-
-.sdv-cls-pending {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: clamp(8px, 2.2vw, 10px);
-  padding: clamp(30px, 8vw, 40px) clamp(16px, 4vw, 20px);
-}
-
-.sdv-cls-pending-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  display: grid;
-  place-items: center;
-}
-
-.sdv-cls-pending-icon svg {
-  width: 24px;
-  height: 24px;
-  fill: none;
-  stroke: #c0392b;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.sdv-cls-pending-title {
-  margin: 0;
-  font-size: clamp(14px, 3.8vw, 15px);
-  font-weight: 700;
-  color: #1a1a1a;
-}
-
-.sdv-cls-pending-sub {
-  margin: 0;
-  font-size: clamp(11px, 3vw, 12px);
-  color: #999;
-}
-
-/* Classification fields grid */
-.sdv-cls-fields {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: clamp(8px, 2.2vw, 10px);
-}
-
-.sdv-cls-fields-3col {
-  grid-template-columns: 1fr 1fr 1fr;
-}
-
-.sdv-cls-field-full {
-  grid-column: 1 / -1;
-}
-
-.sdv-cls-sieve-label {
-  font-size: clamp(8.5px, 2.3vw, 9px);
-  font-weight: 700;
-  color: #ccc;
-  text-transform: uppercase;
-  padding-top: clamp(6px, 1.5vw, 8px);
-  border-top: 1px solid rgba(0, 0, 0, 0.04);
-  margin: clamp(6px, 1.5vw, 8px) 0;
-}
-
-.sdv-cls-sieve-fund-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: clamp(8px, 2vw, 12px);
-  margin-bottom: clamp(4px, 1vw, 6px);
-}
-
-/* Photo empty state */
-.sdv-cls-photo-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(4px, 1.2vw, 6px);
-  height: clamp(110px, 30vw, 130px);
-  border: 2px dashed rgba(46, 125, 50, 0.2);
-  border-radius: 12px;
-  background: rgba(46, 125, 50, 0.02);
-  cursor: pointer;
-  width: 100%;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.sdv-cls-photo-empty:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.sdv-cls-photo-empty-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: rgba(46, 125, 50, 0.07);
-  display: grid;
-  place-items: center;
-}
-
-.sdv-cls-photo-empty-icon svg {
-  width: 20px;
-  height: 20px;
-  fill: none;
-  stroke: var(--brand-green-soft);
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.sdv-cls-photo-empty-title {
-  font-size: clamp(12px, 3.2vw, 13px);
-  font-weight: 600;
-  color: var(--brand-green-soft);
-}
-
-.sdv-cls-photo-empty-sub {
-  font-size: clamp(10px, 2.8vw, 11px);
-  color: #999;
-}
-
-/* Photo change button */
-.sdv-photo-change-btn {
-  position: absolute;
-  bottom: 8px;
-  right: 8px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  border-radius: 8px;
-  border: 0;
-  background: rgba(0, 0, 0, 0.5);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  color: #ffffff;
-  font-size: clamp(10px, 2.8vw, 11px);
-  font-weight: 600;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.sdv-photo-change-btn svg {
-  width: 13px;
-  height: 13px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-/* Photo confirm bar */
-.sdv-photo-confirm-bar {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  gap: clamp(6px, 1.8vw, 8px);
-  padding: clamp(8px, 2.2vw, 10px);
-  background: rgba(0, 0, 0, 0.6);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  border-radius: 0 0 12px 12px;
-}
-
-.sdv-photo-confirm-btn {
-  flex: 1;
-  padding: clamp(8px, 2.2vw, 10px);
-  border-radius: 8px;
-  border: 0;
-  font-size: clamp(11px, 3vw, 12px);
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.sdv-photo-confirm-btn.is-cancel {
-  background: rgba(255, 255, 255, 0.15);
-  color: #ffffff;
-}
-
-.sdv-photo-confirm-btn.is-save {
-  background: var(--brand-green-soft);
-  color: #ffffff;
-}
-
-.sdv-photo-confirm-btn:disabled {
-  opacity: 0.5;
-}
-
-/* Action buttons */
-.sdv-cls-actions {
-  display: flex;
-  gap: clamp(8px, 2.2vw, 10px);
-  padding-top: clamp(4px, 1vw, 6px);
 }
 
 .sdv-cls-action-save {
@@ -11718,52 +10941,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   color: #c4c4c4;
 }
 
-/* Floating classify button */
-.sdv-fab-classify {
-  position: fixed;
-  /* Custom property atualizada via JS contorna cache do iOS standalone. */
-  bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(84px, 22vw, 96px));
-  right: clamp(14px, 4vw, 18px);
-  display: flex;
-  align-items: center;
-  gap: clamp(5px, 1.5vw, 7px);
-  padding: clamp(10px, 2.8vw, 12px) clamp(16px, 4.5vw, 20px);
-  border: 0;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #f5c518 0%, #d4a017 100%);
-  color: #1a1a1a;
-  font-size: clamp(13px, 3.5vw, 14px);
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  box-shadow:
-    0 4px 16px rgba(212, 160, 23, 0.35),
-    0 1px 3px rgba(0, 0, 0, 0.12);
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.15s;
-  z-index: 10;
-  animation: sdv-fab-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) 0.5s backwards;
-  /* GPU layer (sem translate3d permanente porque conflitaria com
-     :active scale + animation sdv-fab-in). will-change: transform
-     basta pra criar layer compositado em browsers modernos. */
-  will-change: transform;
-}
-
-.sdv-fab-classify:active {
-  transform: scale(0.93);
-  background: linear-gradient(135deg, #e0b215 0%, #c49515 100%);
-}
-
-.sdv-fab-classify svg {
-  width: clamp(16px, 4.3vw, 18px);
-  height: clamp(16px, 4.3vw, 18px);
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
 .sdv-com-status {
   font-size: clamp(9px, 2.5vw, 10px);
   font-weight: 600;
@@ -11840,12 +11017,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
 }
 .sdv-com-mini.is-avail .sdv-com-mini-value {
   color: #3f6d8c;
-}
-
-.sdv-com-mini-total {
-  display: block;
-  font-size: clamp(8px, 2.2vw, 9px);
-  color: #bbb;
 }
 
 /* Secao de Movimentacoes dentro do card unico "Resumo comercial": separada dos
@@ -12104,15 +11275,7 @@ body:has(.app-modal-backdrop) .prospector-fab {
   font-weight: 500;
 }
 
-/* Action buttons */
-.sdv-com-actions {
-  display: flex;
-  gap: clamp(8px, 2.2vw, 10px);
-  margin-top: 4px;
-}
-
-.sdv-com-action-loss,
-.sdv-com-action-sale {
+.sdv-com-action-loss {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -12127,13 +11290,11 @@ body:has(.app-modal-backdrop) .prospector-fab {
   transition: transform 0.15s;
 }
 
-.sdv-com-action-loss:active,
-.sdv-com-action-sale:active {
+.sdv-com-action-loss:active {
   transform: scale(0.96);
 }
 
-.sdv-com-action-loss:disabled,
-.sdv-com-action-sale:disabled {
+.sdv-com-action-loss:disabled {
   opacity: 0.45;
 }
 
@@ -12144,16 +11305,7 @@ body:has(.app-modal-backdrop) .prospector-fab {
   color: #c0392b;
 }
 
-.sdv-com-action-sale {
-  flex: 1.3;
-  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
-  border: 0;
-  color: #ffffff;
-  box-shadow: 0 4px 20px rgba(27, 94, 32, 0.3);
-}
-
-.sdv-com-action-loss svg,
-.sdv-com-action-sale svg {
+.sdv-com-action-loss svg {
   width: clamp(14px, 3.8vw, 16px);
   height: clamp(14px, 3.8vw, 16px);
   fill: none;
@@ -12900,181 +12052,11 @@ body:has(.app-modal-backdrop) .prospector-fab {
   text-decoration: underline;
 }
 
-/* Send history (PDF + amostra fisica) */
-
-.sdv-send-history {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(8px, 2.5vw, 10px);
-  margin-top: clamp(8px, 2.5vw, 10px);
-}
-
-.sdv-send-item {
-  display: flex;
-  align-items: center;
-  gap: clamp(10px, 3vw, 12px);
-  padding: clamp(12px, 3.5vw, 14px);
-  background: #f8fafc;
-  border-radius: clamp(10px, 3vw, 12px);
-  font-size: clamp(13px, 3.5vw, 14px);
-}
-
-.sdv-send-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: clamp(36px, 10vw, 42px);
-  height: clamp(36px, 10vw, 42px);
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.sdv-send-item.is-physical .sdv-send-icon {
-  background: #e8f5e9;
-}
-
-.sdv-send-item.is-pdf .sdv-send-icon {
-  background: #e3f2fd;
-}
-
-.sdv-send-icon svg {
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.sdv-send-item.is-physical .sdv-send-icon svg {
-  stroke: var(--brand-green-soft);
-}
-
-.sdv-send-item.is-pdf .sdv-send-icon svg {
-  stroke: #1565c0;
-}
-
-.sdv-send-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.sdv-send-label {
-  font-weight: 600;
-  color: #1a1a1a;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sdv-send-date {
-  color: #999;
-  font-size: clamp(11px, 3vw, 12px);
-  margin-top: 2px;
-}
-
-.sdv-send-item.is-cancelled {
-  opacity: 0.55;
-}
-
-.sdv-send-item.is-cancelled .sdv-send-label {
-  text-decoration: line-through;
-}
-
-.sdv-send-menu {
-  position: relative;
-  flex-shrink: 0;
-}
-
-.sdv-send-menu-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 48px;
-  min-height: 48px;
-  padding: 0;
-  border: 1px solid rgba(var(--brand-green-rgb), 0.28);
-  background: rgba(var(--brand-green-rgb), 0.1);
-  border-radius: 12px;
-  color: var(--brand-green);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition:
-    background 0.15s,
-    border-color 0.15s,
-    transform 0.15s;
-}
-
-.sdv-send-menu-btn:hover {
-  background: rgba(var(--brand-green-rgb), 0.18);
-  border-color: rgba(var(--brand-green-rgb), 0.45);
-}
-
-.sdv-send-menu-btn:active {
-  transform: scale(0.94);
-}
-
-.sdv-send-menu-btn svg {
-  width: 22px;
-  height: 22px;
-  fill: currentColor;
-  stroke: none;
-}
-
-.sdv-send-menu-popover {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  background: #fff;
-  border: 1px solid var(--color-line);
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-  display: flex;
-  flex-direction: column;
-  min-width: 180px;
-  overflow: hidden;
-  z-index: 10;
-}
-
-.sdv-send-menu-item {
-  padding: 10px 14px;
-  text-align: left;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-ink);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s;
-}
-
-.sdv-send-menu-item:hover {
-  background: rgba(var(--brand-green-rgb), 0.06);
-}
-
-.sdv-send-menu-item.is-danger {
-  color: #c0392b;
-}
-
-.sdv-send-menu-item.is-danger:hover {
-  background: rgba(192, 57, 43, 0.08);
-}
-
 .sdv-confirm-text {
   margin: 0;
   font-size: clamp(13px, 3.5vw, 14px);
   color: var(--color-ink);
   line-height: 1.5;
-}
-
-.sdv-edit-actions-split {
-  display: flex;
-  gap: 8px;
-}
-
-.sdv-edit-actions-split .cdm-manage-link {
-  flex: 1;
 }
 
 /* Empty/hint text */
@@ -27040,52 +26022,6 @@ select.samples-filter-field-input {
     box-shadow: 0 8px 22px rgba(0, 0, 0, 0.26);
   }
 
-  /* Actions: maiores, coloridos, com hover */
-  .sdv-actions-grid {
-    gap: 1rem;
-  }
-
-  .sdv-action-card {
-    padding: 1.4rem 0.75rem;
-    border-radius: 16px;
-    gap: 0.7rem;
-    border: 1px solid rgba(46, 125, 50, 0.1);
-    transition:
-      transform 0.2s ease,
-      box-shadow 0.2s ease,
-      border-color 0.2s ease;
-  }
-
-  .sdv-action-card:hover:not(:disabled) {
-    transform: translateY(-4px);
-    box-shadow:
-      0 8px 20px rgba(0, 0, 0, 0.1),
-      0 16px 40px rgba(0, 0, 0, 0.06);
-    border-color: rgba(46, 125, 50, 0.25);
-  }
-
-  .sdv-action-card:active:not(:disabled) {
-    transform: translateY(-1px) scale(0.97);
-  }
-
-  .sdv-action-card-icon {
-    width: 52px;
-    height: 52px;
-    border-radius: 16px;
-    background: linear-gradient(135deg, rgba(46, 125, 50, 0.14), rgba(46, 125, 50, 0.06));
-    border: 1.5px solid rgba(46, 125, 50, 0.18);
-  }
-
-  .sdv-action-card-icon svg {
-    width: 26px;
-    height: 26px;
-  }
-
-  .sdv-action-card-label {
-    font-size: 0.95rem;
-    color: #333;
-  }
-
   /* Content: fundo transparente (body beige) — sem verde feio */
   .sdv-content {
     overflow-y: auto;
@@ -27335,24 +26271,6 @@ select.samples-filter-field-input {
     align-self: stretch;
     display: flex;
     flex-direction: column;
-  }
-
-  .sdv-photo-empty {
-    flex: 1;
-    height: auto;
-    min-height: 120px;
-    border-radius: 14px;
-  }
-
-  .sdv-photo-wrap {
-    flex: 1;
-  }
-
-  .sdv-photo-img {
-    height: 100% !important;
-    min-height: 160px;
-    object-fit: cover;
-    border-radius: 14px;
   }
 
   /* Cards seguintes (historico, invalidada): largura total */
@@ -27771,24 +26689,6 @@ select.samples-filter-field-input {
     line-height: 1.35;
   }
 
-  /* Botoes de acao: faixa verde lateral */
-  .sdv-action-card {
-    position: relative;
-    padding-left: 1.25rem;
-    overflow: hidden;
-  }
-
-  .sdv-action-card::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 12%;
-    bottom: 12%;
-    width: 4px;
-    border-radius: 0 3px 3px 0;
-    background: linear-gradient(180deg, var(--brand-green-soft), var(--brand-green));
-  }
-
   /* ── Comercial: modais e info maiores ── */
 
   .sdv-com-minis {
@@ -27811,10 +26711,6 @@ select.samples-filter-field-input {
 
   .sdv-com-mini-value {
     font-size: 1.55rem;
-  }
-
-  .sdv-com-mini-total {
-    font-size: 0.65rem;
   }
 
   /* Movimentos: maiores */
@@ -27855,14 +26751,7 @@ select.samples-filter-field-input {
     font-size: 0.8rem;
   }
 
-  /* Botoes venda/perda: padronizados, texto branco, sombra marcante */
-  .sdv-com-actions {
-    gap: 0.9rem;
-    margin-top: 0.75rem;
-  }
-
-  .sdv-com-action-loss,
-  .sdv-com-action-sale {
+  .sdv-com-action-loss {
     padding: 1rem 1.25rem;
     border-radius: 14px;
     font-size: 1rem;
@@ -27876,26 +26765,11 @@ select.samples-filter-field-input {
       filter 0.2s ease;
   }
 
-  .sdv-com-action-sale {
-    background: linear-gradient(135deg, #1f5d43 0%, #2f6b4a 100%);
-    box-shadow:
-      0 4px 10px rgba(27, 94, 32, 0.28),
-      0 10px 24px rgba(27, 94, 32, 0.18);
-  }
-
   .sdv-com-action-loss {
     background: linear-gradient(135deg, #9a3434 0%, #c0392b 100%);
     box-shadow:
       0 4px 10px rgba(192, 57, 43, 0.24),
       0 10px 24px rgba(192, 57, 43, 0.16);
-  }
-
-  .sdv-com-action-sale:hover:not(:disabled) {
-    transform: translateY(-3px);
-    filter: brightness(1.05);
-    box-shadow:
-      0 6px 14px rgba(27, 94, 32, 0.35),
-      0 14px 32px rgba(27, 94, 32, 0.25);
   }
 
   .sdv-com-action-loss:hover:not(:disabled) {
@@ -27906,13 +26780,11 @@ select.samples-filter-field-input {
       0 14px 32px rgba(192, 57, 43, 0.22);
   }
 
-  .sdv-com-action-loss:active:not(:disabled),
-  .sdv-com-action-sale:active:not(:disabled) {
+  .sdv-com-action-loss:active:not(:disabled) {
     transform: translateY(-1px) scale(0.98);
   }
 
-  .sdv-com-action-loss:disabled,
-  .sdv-com-action-sale:disabled {
+  .sdv-com-action-loss:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
@@ -28408,24 +27280,6 @@ select.samples-filter-field-input {
     border-radius: 24px;
   }
 
-  /* 14.4.B/C fix: removido o override antigo que ancorava o FAB no topo
-     com texto. Mantemos apenas o estilo de @901px+ (quadrado fixed
-     bottom-right 60px). Em wide desktop nao precisa mais nenhum override. */
-
-  /* ══════════════════════════════════════════
-     FASE 2 — DETALHES DESKTOP (sample + client)
-     ══════════════════════════════════════════ */
-
-  /* T1: hover refinado nas sdv-action-card */
-  .sdv-action-card:hover:not(:disabled) {
-    transform: translateY(-2px);
-    filter: brightness(1.05);
-    box-shadow:
-      0 6px 16px rgba(0, 0, 0, 0.08),
-      0 12px 32px rgba(0, 0, 0, 0.05);
-    border-color: rgba(46, 125, 50, 0.2);
-  }
-
   /* T2: .sdv-card — gap interno no desktop */
   .sdv-card {
     gap: 1.2rem;
@@ -28507,15 +27361,13 @@ select.samples-filter-field-input {
   }
 
   /* Acoes comerciais (loss/sale) */
-  .sdv-com-action-loss,
-  .sdv-com-action-sale {
+  .sdv-com-action-loss {
     transition:
       transform 0.15s ease,
       filter 0.15s ease;
   }
 
-  .sdv-com-action-loss:hover:not(:disabled),
-  .sdv-com-action-sale:hover:not(:disabled) {
+  .sdv-com-action-loss:hover:not(:disabled) {
     transform: translateY(-1px);
     filter: brightness(1.04);
   }
@@ -28556,11 +27408,6 @@ select.samples-filter-field-input {
     padding-bottom: 0.85rem;
   }
 
-  /* Campos no topo; a fileira de acoes desce pro rodape do card. */
-  .sdv-page--sample #sdv-informacoes .sdv-info-actions {
-    margin-top: auto;
-  }
-
   /* NoticeSlot vazio (sem <p> dentro = :empty) sai do fluxo: senao ele soma
      um gap orfao de 1.2rem (gap do flex-column do card) ABAIXO dos botoes,
      descolando-os da base e empurrando o conteudo pra fora da altura fixa.
@@ -28575,49 +27422,6 @@ select.samples-filter-field-input {
      (o container ja e fixo; isto estabiliza a propria grade). */
   .sdv-page--sample #sdv-informacoes .sdv-info-value:empty::after {
     content: '\00a0';
-  }
-
-  /* Botoes de acao compactos (bem mais baixos que o card padrao do desktop).
-     Mesmo padrao em Informacoes (Imprimir/Enviar) e Resumo comercial
-     (Venda/Perda) — mesma estrutura .sdv-info-actions > .sdv-action-card. */
-  .sdv-page--sample #sdv-informacoes .sdv-info-actions .sdv-action-card,
-  .sdv-page--sample .sdv-com-summary .sdv-info-actions .sdv-action-card {
-    padding: 0.55rem 0.9rem 0.55rem 1rem;
-    gap: 0.5rem;
-  }
-
-  .sdv-page--sample #sdv-informacoes .sdv-info-actions .sdv-action-card-icon,
-  .sdv-page--sample .sdv-com-summary .sdv-info-actions .sdv-action-card-icon {
-    width: 28px;
-    height: 28px;
-    border-radius: 9px;
-  }
-
-  .sdv-page--sample #sdv-informacoes .sdv-info-actions .sdv-action-card-icon svg,
-  .sdv-page--sample .sdv-com-summary .sdv-info-actions .sdv-action-card-icon svg {
-    width: 16px;
-    height: 16px;
-  }
-
-  /* Tamanho do label igual nos dois cards (Informacoes e Resumo). */
-  .sdv-page--sample #sdv-informacoes .sdv-info-actions .sdv-action-card-label,
-  .sdv-page--sample .sdv-com-summary .sdv-info-actions .sdv-action-card-label {
-    font-size: 0.85rem;
-  }
-
-  /* Imprimir/Enviar (Informacoes): label branco sobre o gradiente cheio
-     (verde is-print / azul is-send) — o desktop pintava de #333, contraste
-     ruim. Venda/Perda usam cor semantica (ver bloco do Resumo abaixo). */
-  .sdv-page--sample #sdv-informacoes .sdv-info-actions .sdv-action-card-label {
-    color: #ffffff;
-  }
-
-  /* Remove a faixa verde lateral (.sdv-action-card::before do desktop) dos 4
-     botoes de acao do detalhe: Imprimir/Enviar (Informacoes) e Venda/Perda
-     (Resumo comercial). */
-  .sdv-page--sample #sdv-informacoes .sdv-info-actions .sdv-action-card::before,
-  .sdv-page--sample .sdv-com-summary .sdv-info-actions .sdv-action-card::before {
-    display: none;
   }
 
   /* Card unico "Resumo comercial": coluna flex que preenche a col2 inteira (faz
@@ -28642,10 +27446,6 @@ select.samples-filter-field-input {
     justify-content: center;
   }
 
-  .sdv-page--sample .sdv-com-summary .sdv-info-actions {
-    flex-shrink: 0;
-  }
-
   /* Minis (Vendidas/Perdidas/Disponiveis): BRANCOS (eram bege var(--surface))
      com sombra suave pra destacar do card branco. Mantem o acento de cor
      semantica no icone e no numero (verde/vermelho/azul). */
@@ -28655,50 +27455,6 @@ select.samples-filter-field-input {
     box-shadow:
       0 1px 3px rgba(0, 0, 0, 0.06),
       0 4px 10px rgba(0, 0, 0, 0.05);
-  }
-
-  /* Venda/Perda: card BRANCO + BORDA na cor semantica (currentColor, = verde
-     venda / vermelho perda) + icone e label na mesma cor. O icone perde a
-     caixinha tintada (so o traco colorido, via currentColor herdado do card). */
-  .sdv-page--sample .sdv-com-summary .sdv-info-actions .sdv-action-card.is-sale,
-  .sdv-page--sample .sdv-com-summary .sdv-info-actions .sdv-action-card.is-loss {
-    background: #ffffff;
-    border: 1.5px solid currentColor;
-    box-shadow:
-      0 1px 3px rgba(0, 0, 0, 0.08),
-      0 4px 12px rgba(0, 0, 0, 0.08);
-  }
-
-  .sdv-page--sample
-    .sdv-com-summary
-    .sdv-info-actions
-    .sdv-action-card.is-sale
-    .sdv-action-card-icon,
-  .sdv-page--sample
-    .sdv-com-summary
-    .sdv-info-actions
-    .sdv-action-card.is-loss
-    .sdv-action-card-icon {
-    background: none;
-    border: 0;
-  }
-
-  .sdv-page--sample .sdv-com-summary .sdv-info-actions .sdv-action-card.is-sale,
-  .sdv-page--sample
-    .sdv-com-summary
-    .sdv-info-actions
-    .sdv-action-card.is-sale
-    .sdv-action-card-label {
-    color: var(--brand-green);
-  }
-
-  .sdv-page--sample .sdv-com-summary .sdv-info-actions .sdv-action-card.is-loss,
-  .sdv-page--sample
-    .sdv-com-summary
-    .sdv-info-actions
-    .sdv-action-card.is-loss
-    .sdv-action-card-label {
-    color: var(--danger);
   }
 
   /* Secao de Movimentacoes: preenche o espaco restante do card (abaixo dos minis
@@ -30041,88 +28797,6 @@ select.samples-filter-field-input {
   font-size: 12px;
 }
 
-.sdv-completeness-checklist {
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  background: rgba(245, 158, 11, 0.08);
-  border-left: 4px solid #f59e0b;
-  border-radius: 8px;
-  padding: 14px 16px;
-  margin-bottom: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.sdv-completeness-checklist__header {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.sdv-completeness-checklist__icon {
-  font-size: 18px;
-  line-height: 1.2;
-}
-
-.sdv-completeness-checklist__heading {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.sdv-completeness-checklist__heading strong {
-  color: #92400e;
-  font-size: 14px;
-}
-
-.sdv-completeness-checklist__subtitle {
-  font-size: 12px;
-  color: #78350f;
-}
-
-.sdv-completeness-checklist__group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.sdv-completeness-checklist__group-title {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #92400e;
-  font-weight: 600;
-}
-
-.sdv-completeness-checklist__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.sdv-completeness-checklist__item {
-  background: white;
-  border: 1px solid rgba(245, 158, 11, 0.4);
-  color: #92400e;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.sdv-completeness-checklist__item:hover:not(:disabled) {
-  background: rgba(245, 158, 11, 0.15);
-}
-
-.sdv-completeness-checklist__item:disabled {
-  cursor: default;
-  opacity: 0.85;
-}
-
 /* Linha de status do card de cliente — MESMO padrao dos cards de Lotes
    (.spv2-card-bar): barra CURTA arredondada e centralizada na esquerda (antes
    era uma faixa de ALTURA CHEIA que contornava a lateral). VERDE = cadastro
@@ -30159,19 +28833,6 @@ select.samples-filter-field-input {
 
 .clients-page-v2 .cv2-card.is-inactive::before {
   background: #9ca3af;
-}
-
-/* Faixa lateral de ALTURA CHEIA do `.sdv-client-card` (outro contexto) — mantida. */
-.sdv-client-card.is-incomplete::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: clamp(6px, 0.7vw, 8px);
-  background: linear-gradient(180deg, #f59e0b, #d97706);
-  z-index: 1;
-  pointer-events: none;
 }
 
 /* #6/Q-05: modal de cascade inactivate — banner + lista de samples afetadas. */
