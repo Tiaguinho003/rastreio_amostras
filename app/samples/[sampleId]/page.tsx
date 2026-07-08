@@ -459,7 +459,6 @@ export default function SampleDetailPage() {
   const [pageNotice, setPageNotice] = useState<Notice>(null);
   const [generalNotice, setGeneralNotice] = useState<Notice>(null);
   const [registrationModalNotice, setRegistrationModalNotice] = useState<Notice>(null);
-  const [classificationModalNotice, setClassificationModalNotice] = useState<Notice>(null);
   const [invalidateModalNotice, setInvalidateModalNotice] = useState<Notice>(null);
 
   const [classificationImageModalOpen, setClassificationImageModalOpen] = useState(false);
@@ -474,10 +473,6 @@ export default function SampleDetailPage() {
     mq.addEventListener('change', update);
     return () => mq.removeEventListener('change', update);
   }, []);
-  const [classificationSelectedPhoto, setClassificationSelectedPhoto] = useState<File | null>(null);
-  const [classificationSavedPhotoFile, setClassificationSavedPhotoFile] = useState<File | null>(
-    null
-  );
   const [printHighlighted, setPrintHighlighted] = useState(false);
   // Envio (extraido p/ SampleSendFlow): edicao/cancelamento de envios EXISTENTES,
   // disparados pela timeline. O envio NOVO migrou p/ o card da lista (/samples).
@@ -528,11 +523,6 @@ export default function SampleDetailPage() {
   const [activeMovements, setActiveMovements] = useState<SampleMovement[] | null>(null);
   const [activeMovementsError, setActiveMovementsError] = useState<string | null>(null);
 
-  const [classificationForm, setClassificationForm] =
-    useState<ClassificationFormState>(EMPTY_CLASSIFICATION_FORM);
-  const [classificationStep, setClassificationStep] = useState<'PHOTO' | 'GENERAL' | 'MEASURES'>(
-    'PHOTO'
-  );
   const [registrationEditMode, setRegistrationEditMode] = useState(false);
   const registrationEditModeRef = useRef(false);
   const [registrationUpdating, setRegistrationUpdating] = useState(false);
@@ -581,24 +571,14 @@ export default function SampleDetailPage() {
   const classificationDetailTrapRef = useFocusTrap(classificationDetailOpen);
   const classificationSaveConfirmTrapRef = useFocusTrap(classificationSaveConfirmOpen);
   const classificationPhotoSectionRef = useRef<HTMLDivElement | null>(null);
-  const [, setClassificationEditMode] = useState(false);
-  const classificationEditModeRef = useRef(false);
-  const [classificationEditReasonCode, setClassificationEditReasonCode] =
-    useState<UpdateReasonCode>('OTHER');
-  const [classificationEditReasonText, setClassificationEditReasonText] = useState('');
-  const [classificationEditReasonModalOpen, setClassificationEditReasonModalOpen] = useState(false);
-  const [classificationUpdating, setClassificationUpdating] = useState(false);
   const invalidateTrapRef = useFocusTrap(invalidateModalOpen);
   const labelTrapRef = useFocusTrap(labelModalOpen);
   const registrationEditTrapRef = useFocusTrap(registrationEditMode);
-  const classificationEditTrapRef = useFocusTrap(classificationEditReasonModalOpen);
   const labelModalCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const labelModalPrimaryActionRef = useRef<HTMLButtonElement | null>(null);
   const lastQuickPrintButtonRef = useRef<HTMLButtonElement | null>(null);
   const invalidateModalCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const lastInvalidateTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const classificationPhotoInputRef = useRef<HTMLInputElement | null>(null);
-  const classificationStepBodyRef = useRef<HTMLDivElement | null>(null);
   const fetchAbortRef = useRef<AbortController | null>(null);
   const canInvalidateSample = Boolean(session);
   const hasActiveMovements = Boolean(
@@ -663,10 +643,6 @@ export default function SampleDetailPage() {
           setHarvest(response.sample.declared.harvest ?? '');
           setOriginLot(response.sample.declared.originLot ?? '');
           setLocation(response.sample.declared.location ?? '');
-        }
-
-        if (!classificationEditModeRef.current) {
-          setClassificationForm(buildClassificationFormState(response));
         }
 
         return response;
@@ -822,12 +798,6 @@ export default function SampleDetailPage() {
     setRegistrationEditMode(false);
     setRegistrationEditReasonCode('OTHER');
     setRegistrationEditReasonText('');
-    setClassificationStep('PHOTO');
-    classificationEditModeRef.current = false;
-    setClassificationEditMode(false);
-    setClassificationEditReasonCode('OTHER');
-    setClassificationEditReasonText('');
-    setClassificationEditReasonModalOpen(false);
     setInvalidateModalOpen(false);
     setInvalidateReasonCode('OTHER');
     setInvalidateReasonText('');
@@ -836,28 +806,7 @@ export default function SampleDetailPage() {
     setSelectedOwnerClient(null);
     setOwnerQuickCreateOpen(false);
     setOwnerQuickCreateSeed('');
-    setClassificationSelectedPhoto(null);
-    setClassificationSavedPhotoFile(null);
-    if (classificationPhotoInputRef.current) {
-      classificationPhotoInputRef.current.value = '';
-    }
   }, [sampleId]);
-
-  const classificationSelectedPhotoPreviewUrl = useMemo(() => {
-    if (!classificationSelectedPhoto) {
-      return null;
-    }
-
-    return URL.createObjectURL(classificationSelectedPhoto);
-  }, [classificationSelectedPhoto]);
-
-  const classificationSavedPhotoPreviewUrl = useMemo(() => {
-    if (!classificationSavedPhotoFile) {
-      return null;
-    }
-
-    return URL.createObjectURL(classificationSavedPhotoFile);
-  }, [classificationSavedPhotoFile]);
 
   const classificationAttachment = useMemo(
     () =>
@@ -877,8 +826,6 @@ export default function SampleDetailPage() {
   const classificationServerPhotoUrl = classificationAttachment
     ? `/api/v1/samples/${sampleId}/photos/${classificationAttachment.id}`
     : null;
-  const classificationCanAccessDataSteps =
-    Boolean(classificationAttachment) || detail?.sample.status === 'CLASSIFIED';
 
   useEffect(() => {
     if (!labelModalOpen) {
@@ -989,36 +936,6 @@ export default function SampleDetailPage() {
     const timer = setTimeout(() => setPrintHighlighted(false), 10000);
     return () => clearTimeout(timer);
   }, [highlightPrint, detail]);
-
-  useEffect(() => {
-    if (!classificationCanAccessDataSteps && classificationStep !== 'PHOTO') {
-      setClassificationStep('PHOTO');
-    }
-  }, [classificationCanAccessDataSteps, classificationStep]);
-
-  useEffect(() => {
-    if (!classificationSelectedPhotoPreviewUrl) {
-      return;
-    }
-
-    return () => {
-      URL.revokeObjectURL(classificationSelectedPhotoPreviewUrl);
-    };
-  }, [classificationSelectedPhotoPreviewUrl]);
-
-  useEffect(() => {
-    if (!classificationSavedPhotoPreviewUrl) {
-      return;
-    }
-
-    return () => {
-      URL.revokeObjectURL(classificationSavedPhotoPreviewUrl);
-    };
-  }, [classificationSavedPhotoPreviewUrl]);
-
-  useEffect(() => {
-    classificationStepBodyRef.current?.scrollTo({ top: 0 });
-  }, [classificationStep]);
 
   const fetchSendHistory = useCallback(async () => {
     if (!session || !sampleId) return;
@@ -1769,79 +1686,6 @@ export default function SampleDetailPage() {
     } finally {
       setClassificationDetailSaving(false);
     }
-  }
-
-  async function handleConfirmClassificationUpdate() {
-    if (!session || !detail || detail.sample.status === 'INVALIDATED') {
-      return;
-    }
-
-    const validationError = validateClassificationForm(classificationForm);
-    if (validationError) {
-      setClassificationModalNotice({ kind: 'error', text: validationError });
-      return;
-    }
-
-    const parsedReason = updateReasonSchema.safeParse({
-      reasonCode: classificationEditReasonCode,
-      reasonText: classificationEditReasonText,
-    });
-    if (!parsedReason.success) {
-      setClassificationModalNotice({
-        kind: 'error',
-        text: parsedReason.error.issues[0]?.message ?? 'Justificativa invalida',
-      });
-      return;
-    }
-
-    const classificationData = buildClassificationDataPayload(classificationForm);
-    const technical = buildTechnicalFromClassificationData(classificationData);
-
-    setClassificationUpdating(true);
-    setClassificationModalNotice(null);
-
-    try {
-      await updateClassification(session, sampleId, {
-        expectedVersion: detail.sample.version,
-        after: {
-          classificationData,
-          ...(technical ? { technical } : {}),
-        },
-        reasonCode: parsedReason.data.reasonCode,
-        reasonText: parsedReason.data.reasonText,
-      });
-
-      setClassificationEditReasonModalOpen(false);
-      classificationEditModeRef.current = false;
-      setClassificationEditMode(false);
-      setClassificationEditReasonCode('OTHER');
-      setClassificationEditReasonText('');
-      setGeneralNotice({
-        kind: 'success',
-        text: 'Edicao de classificacao salva com sucesso.',
-      });
-      await syncDetailState({ refreshHistory: true });
-    } catch (cause) {
-      if (cause instanceof ApiError) {
-        setClassificationModalNotice({ kind: 'error', text: cause.message });
-      } else {
-        setClassificationModalNotice({
-          kind: 'error',
-          text: 'Falha ao salvar edicao de classificacao',
-        });
-      }
-    } finally {
-      setClassificationUpdating(false);
-    }
-  }
-
-  function closeClassificationEditReasonModal() {
-    if (classificationUpdating) {
-      return;
-    }
-
-    setClassificationEditReasonModalOpen(false);
-    setClassificationModalNotice(null);
   }
 
   const userFullName = session.user.fullName ?? session.user.username;
@@ -3870,104 +3714,6 @@ export default function SampleDetailPage() {
                   disabled={classificationDetailSaving}
                 >
                   Confirmar
-                </button>
-              </div>
-            </div>
-          </section>
-        </div>
-      ) : null}
-
-      {classificationEditReasonModalOpen ? (
-        <div className="app-modal-backdrop">
-          <section
-            ref={classificationEditTrapRef}
-            className="app-modal is-themed is-action"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="classification-edit-reason-modal-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="app-modal-header">
-              <div className="app-modal-title-wrap">
-                <h3 id="classification-edit-reason-modal-title" className="app-modal-title">
-                  Confirmar motivo da edicao
-                </h3>
-                <p className="app-modal-description">
-                  Informe o motivo da alteracao para registrar a edicao auditada da classificacao.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="app-modal-close"
-                onClick={closeClassificationEditReasonModal}
-                disabled={classificationUpdating}
-                aria-label="Fechar"
-              >
-                <span aria-hidden="true">×</span>
-              </button>
-            </header>
-
-            <div className="app-modal-content">
-              <label className="app-modal-field">
-                <span className="app-modal-label">Motivo da edicao</span>
-                <select
-                  className="app-modal-input"
-                  value={classificationEditReasonCode}
-                  onChange={(event) =>
-                    setClassificationEditReasonCode(event.target.value as UpdateReasonCode)
-                  }
-                  disabled={classificationUpdating}
-                >
-                  {UPDATE_REASON_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="app-modal-field">
-                <span className="app-modal-label">
-                  Justificativa
-                  {classificationEditReasonCode === 'OTHER'
-                    ? ' (obrigatoria, maximo 10 palavras)'
-                    : ' (opcional, maximo 10 palavras)'}
-                </span>
-                <input
-                  className="app-modal-input"
-                  value={classificationEditReasonText}
-                  onChange={(event) =>
-                    setClassificationEditReasonText(event.target.value.toUpperCase())
-                  }
-                  placeholder={
-                    classificationEditReasonCode === 'OTHER' ? 'Explique a alteracao' : 'Opcional'
-                  }
-                  disabled={classificationUpdating}
-                />
-              </label>
-
-              <NoticeSlot notice={classificationModalNotice} />
-
-              <div className="app-modal-actions">
-                <button
-                  type="button"
-                  className="app-modal-submit"
-                  onClick={handleConfirmClassificationUpdate}
-                  disabled={
-                    classificationUpdating ||
-                    (classificationEditReasonCode === 'OTHER' &&
-                      classificationEditReasonText.trim().length === 0)
-                  }
-                >
-                  {classificationUpdating ? 'Salvando edicao...' : 'Salvar edicao'}
-                </button>
-                <button
-                  className="app-modal-secondary"
-                  type="button"
-                  onClick={closeClassificationEditReasonModal}
-                  disabled={classificationUpdating}
-                >
-                  Cancelar
                 </button>
               </div>
             </div>
