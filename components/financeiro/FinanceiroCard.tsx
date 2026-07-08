@@ -95,7 +95,6 @@ export function FinanceiroCard({ item, isExpanded, onToggle }: FinanceiroCardPro
               {item.brokers.map((b) => (
                 <span key={b.brokerId} className="fin-broker">
                   <span className="fin-broker-name">{b.name}</span>
-                  <span className="fin-broker-share">{money(b.share)}</span>
                 </span>
               ))}
             </span>

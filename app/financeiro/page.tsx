@@ -263,7 +263,7 @@ export default function FinanceiroPage() {
 
         <div className="fin-total" role="status">
           <span className="fin-total-label">
-            {isAdmin(session.user.role) ? 'Total a receber' : 'Seu total a receber'}
+            {isAdmin(session.user.role) ? 'Total a receber' : 'Corretagem dos meus fechamentos'}
           </span>
           <span className="fin-total-value">{BRL.format(totalCommission)}</span>
         </div>

@@ -841,11 +841,10 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(Number(secondLog.previousTotalValue), 1500);
     assert.equal(Number(secondLog.newTotalValue), 800);
 
-    // Financeiro le ao vivo: a cota reflete a corretagem recalculada (16 + 8).
+    // Financeiro le ao vivo: o commissionTotal reflete a corretagem recalculada (16 + 8).
     const fin = await saleContractService.listBrokerReceivables({}, adminActor);
     const item = fin.items.find((i) => i.id === refs.contractId);
     assert.equal(item.commissionTotal, 24);
-    assert.equal(item.brokers[0].share, 24);
   });
 
   test('aplicar agio fora de EMITIDO -> 409 (FATURADO)', async () => {
@@ -1125,7 +1124,7 @@ if (!databaseUrl || !databaseReachable) {
     return { actor: { ...commercialActor, actorUserId: userId }, brokerId };
   }
 
-  test('Financeiro: ADMIN vê os fechamentos elegíveis com corretores e cotas', async () => {
+  test('Financeiro: ADMIN vê os fechamentos elegíveis com a corretagem total + corretores (D136)', async () => {
     const { contractId } = await setupConfirmedContract({ lotNumber: '23010' });
 
     const res = await saleContractService.listBrokerReceivables({}, adminActor);
@@ -1133,10 +1132,10 @@ if (!databaseUrl || !databaseReachable) {
     assert.ok(item, 'contrato confirmado com corretagem deve aparecer');
     assert.equal(item.totalValue, 1000); // 100 x 10 sacas
     assert.equal(item.commissionTotal, 30); // 1000 x (2% + 1%)
-    assert.equal(item.brokerCount, 1);
     assert.equal(item.brokers.length, 1);
     assert.equal(item.brokers[0].name, 'Corretor Teste');
-    assert.equal(item.brokers[0].share, 30);
+    assert.equal(item.brokers[0].share, undefined); // D136: sem cota por corretor
+    assert.equal(item.brokerCount, undefined); // D136: sem contagem/rateio
     // só status congelados entram
     assert.ok(
       res.items.every((i) => ['EMITIDO', 'FATURADO', 'PAGO', 'WASH_OUT'].includes(i.status))
@@ -1159,7 +1158,7 @@ if (!databaseUrl || !databaseReachable) {
       !res.items.some((i) => i.id === other.contractId),
       'não vê contrato de outro corretor'
     );
-    // co-corretores visíveis (D135 revisa D86) + total = a cota dele (sozinho → 30)
+    // co-corretores visíveis (D135 revisa D86) + total = corretagem dos fechamentos dele
     assert.equal(res.items[0].brokers[0].brokerId, myBrokerId);
     assert.equal(res.totalCommission, 30);
   });
@@ -1173,10 +1172,10 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(res.nextCursor, null);
   });
 
-  test('Financeiro (D135): total do COMMERCIAL = a cota dele (÷N), não a corretagem cheia', async () => {
+  test('Financeiro (D136): total do COMMERCIAL = corretagem total dos fechamentos dele (sem rateio)', async () => {
     const { actor: myActor, brokerId: myBrokerId } =
       await createCommercialBrokerUser('Corretor Rateio');
-    // contrato dividido entre ele e o TEST_BROKER: corretagem 30, 2 corretores → cota 15
+    // contrato dividido entre ele e o TEST_BROKER: corretagem 30, 2 corretores (sem ÷N)
     const shared = await setupContractWithBrokers({
       lotNumber: '23024',
       brokerIds: [myBrokerId, TEST_BROKER_ID],
@@ -1185,8 +1184,9 @@ if (!databaseUrl || !databaseReachable) {
     const item = res.items.find((i) => i.id === shared.contractId);
     assert.ok(item);
     assert.equal(item.commissionTotal, 30); // corretagem cheia do contrato (2 lados)
-    assert.equal(item.brokerCount, 2); // co-corretor visível
-    assert.equal(res.totalCommission, 15); // "Seu total a receber" = a cota DELE (30 ÷ 2)
+    assert.equal(item.brokers.length, 2); // co-corretores visíveis (só nomes)
+    assert.equal(item.brokers[0].share, undefined); // D136: sem valor por corretor
+    assert.equal(res.totalCommission, 30); // corretagem TOTAL dos fechamentos dele (NÃO ÷N)
   });
 
   test('Financeiro (D135): busca por nome de corretor não vaza contratos alheios ao COMMERCIAL', async () => {
@@ -1219,7 +1219,7 @@ if (!databaseUrl || !databaseReachable) {
     await assert.rejects(() => saleContractService.listBrokerReceivables({}, reg), /not allowed/);
   });
 
-  test('Financeiro: inclui fechamento SEM corretagem (P24/D92) com cota 0', async () => {
+  test('Financeiro: inclui fechamento SEM corretagem (P24/D92) com commissionTotal 0', async () => {
     const { contractId } = await setupConfirmedContract({
       lotNumber: '23040',
       saleOverrides: { sellerBrokeragePct: 0, buyerBrokeragePct: 0 },
@@ -1229,8 +1229,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.ok(item, 'contrato confirmado sem corretagem deve aparecer no Financeiro (P24)');
     assert.equal(item.totalValue, 1000); // 100 x 10 sacas
     assert.equal(item.commissionTotal, 0);
-    assert.equal(item.brokerCount, 1);
-    assert.equal(item.brokers[0].share, 0);
+    assert.equal(item.brokers.length, 1); // o corretor aparece; sem valor por corretor (D136)
   });
 
   test('Financeiro: contrato em WASH_OUT ainda aparece (corretagem mantida, D105)', async () => {

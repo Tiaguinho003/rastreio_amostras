@@ -363,20 +363,15 @@ export function toSaleContractBrokerView(row) {
 }
 
 // Financeiro (Fase F): projecao de "corretagem a receber" de UM contrato. Soma a
-// corretagem das 2 pontas (commissionTotal) e divide IGUAL entre os corretores
-// (cota = total / N, D79; nao ha coluna de cota) — o RESTO de centavos do
-// arredondamento vai pro 1º corretor (D129: a soma das cotas SEMPRE bate com o
-// total; ordem estavel por createdAt asc). Pagina ADMIN-only (D128 — revisa
-// D82/D86; a projecao COMMERCIAL/myShare saiu). `row` = projecao
-// RECEIVABLE_VIEW_SELECT; `brokerRows` = os SaleContractBroker do contrato
-// (brokerId/brokerNameSnapshot).
+// corretagem das 2 pontas (commissionTotal). Os corretores sao ATRIBUICAO/metrica
+// (D34): lista de nomes, SEM valor por corretor — o sistema NAO divide a corretagem
+// entre eles (D136 removeu o rateio ÷N das D79/D129, uma divisao igual ficticia que
+// arriscava os registros; a divisao real, quando ha, e externa). `row` = projecao
+// RECEIVABLE_VIEW_SELECT; `brokerRows` = os SaleContractBroker (brokerId/nome).
 export function buildReceivableView(row, brokerRows) {
   const sellerValue = decimalToNumber(row.sellerBrokerageValue) ?? 0;
   const buyerValue = decimalToNumber(row.buyerBrokerageValue) ?? 0;
   const commissionTotal = round2(sellerValue + buyerValue);
-  const brokerCount = brokerRows.length || 1;
-  const baseShare = round2(commissionTotal / brokerCount);
-  const firstShare = round2(commissionTotal - baseShare * (brokerCount - 1));
 
   return {
     id: row.id,
@@ -390,11 +385,9 @@ export function buildReceivableView(row, brokerRows) {
     sellerBrokerageValue: sellerValue,
     buyerBrokeragePct: decimalToNumber(row.buyerBrokeragePct),
     buyerBrokerageValue: buyerValue,
-    brokerCount,
-    brokers: brokerRows.map((b, index) => ({
+    brokers: brokerRows.map((b) => ({
       brokerId: b.brokerId,
       name: b.brokerNameSnapshot,
-      share: index === 0 ? firstShare : baseShare,
     })),
   };
 }

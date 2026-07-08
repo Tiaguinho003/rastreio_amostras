@@ -503,10 +503,9 @@ export interface SaleContractTimelineResponse {
 }
 
 // Financeiro (Fase F): corretagem a receber por fechamento (relatório derivado).
-export interface FinanceiroBrokerShare {
+export interface FinanceiroBroker {
   brokerId: string;
   name: string;
-  share: number;
 }
 
 export interface FinanceiroReceivable {
@@ -521,10 +520,9 @@ export interface FinanceiroReceivable {
   sellerBrokerageValue: number;
   buyerBrokeragePct: number | null;
   buyerBrokerageValue: number;
-  brokerCount: number;
-  // Quebra por corretor (cota igual; o 1º absorve o resto de centavos — D129).
-  // Página ADMIN-only (D128): a projeção COMMERCIAL/myShare saiu.
-  brokers: FinanceiroBrokerShare[];
+  // Corretores = atribuição/métrica (D34): só nomes, SEM valor por corretor.
+  // D136 removeu o rateio ÷N (a divisão real, quando há, é externa).
+  brokers: FinanceiroBroker[];
 }
 
 export interface FinanceiroListResponse {

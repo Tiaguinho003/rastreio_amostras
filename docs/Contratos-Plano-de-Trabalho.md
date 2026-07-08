@@ -531,32 +531,37 @@ congelados (**EMITIDO/FATURADO/PAGO/WASH_OUT**) são elegíveis (D73 renomeada p
 > cursor (scroll infinito) + busca/total no backend + data de pagamento no card.**
 > **S87 (D135): REABERTO ao COMMERCIAL** — escopado aos contratos dele (own-only, como `/contratos`);
 > co-corretores **VISÍVEIS** (revisa D86); "Seu total a receber" = a **cota dele**.
+> **S88 (D136): rateio ÷N REMOVIDO** (revisa D78/D79/D129) — corretores = atribuição (só nomes, sem valor
+> por corretor); o total do COMMERCIAL vira **"Corretagem dos meus fechamentos"**.
 
 Nova página **"Financeiro"** (acesso **ADMIN + COMMERCIAL**) que apresenta a **corretagem a receber por
-fechamento** e, dentro de cada um, **quanto cada corretor recebe**. É um **relatório calculado** a partir de
-dados que já existem (`SaleContract` + `SaleContractBroker` + `Broker`) — **sem persistência nova, sem
-migration**.
+fechamento** e, dentro de cada um, os **corretores** envolvidos (atribuição — o sistema **não** divide o
+valor entre eles, D136). É um **relatório calculado** a partir de dados que já existem (`SaleContract` +
+`SaleContractBroker` + `Broker`) — **sem persistência nova, sem migration**.
 
 ### Cálculo
 
-- **Valor a receber por fechamento** = `sellerBrokerageValue + buyerBrokerageValue` (corretagem das duas
-  pontas, D78).
-- **Cota por corretor** = valor a receber **÷ nº de corretores** do contrato (divisão **igual**, D79 —
-  resolve o rateio adiado na D34). `SaleContractBroker` **não** ganha coluna de cota.
+- **Corretagem por fechamento** = `sellerBrokerageValue + buyerBrokerageValue` (corretagem das duas
+  pontas, D78) — é o valor exibido no card.
+- **Sem rateio entre corretores (D136, revisa D79/D129):** o sistema **não** divide o valor entre os
+  corretores — a divisão igual (÷N) era uma **ficção de leitura** que arriscava os registros. Os
+  corretores são **atribuição/métrica** (D34): o card lista os **nomes**, sem valor por corretor; a
+  divisão real (quando há) é **externa**. `SaleContractBroker` segue **sem coluna de cota**.
 
 ### Escopo por papel (D82)
 
-- **ADMIN** — vê **todos** os fechamentos elegíveis, com a **quebra por corretor** (nome + cota). Total
-  geral = soma dos valores a receber.
+- **ADMIN** — vê **todos** os fechamentos elegíveis, com a **corretagem total** de cada um + os **nomes**
+  dos corretores (sem cota, D136). Total geral = soma das corretagens.
 - **COMMERCIAL** — vê **só os fechamentos em que é corretor** (resolve `Broker.userId` = o usuário logado;
   lista os contratos em que esse broker está no `SaleContractBroker`; o escopo entra no `filterWhere` do
   **SQL**, casando com a paginação por cursor e a busca — a busca por nome de corretor **não vaza** contratos
   alheios). **S87/D135 (revisa D82/D86):** vê o **valor total** + a **corretagem total** + **todos os
-  corretores e cotas** do contrato (co-corretores **VISÍVEIS** — coerente com o que já vê em
-  `/contratos → Detalhes`, D120; **revoga o "ocultar demais" da D86**). O **"Seu total a receber"** do topo =
-  **soma da própria cota** (÷N, D79/D129), não a corretagem cheia da empresa. Sem `Broker` vinculado →
-  página vazia (`items: []`, total 0). **ADMIN** e **COMMERCIAL** veem o **mesmo card**; muda só o **escopo
-  da lista** e o **rótulo/valor do total do topo**.
+  corretores** do contrato (co-corretores **VISÍVEIS** — coerente com `/contratos → Detalhes`, D120;
+  **revoga o "ocultar demais" da D86**). **S88/D136:** o topo do COMMERCIAL vira **"Corretagem dos meus
+  fechamentos"** = **soma da corretagem total (2 lados) dos contratos dele** (mesmo `_sum` do ADMIN,
+  escopado) — pipeline, **não** "o que ele embolsa" (o rateio ÷N saiu). Sem `Broker` vinculado → página
+  vazia (`items: []`, total 0). **ADMIN** e **COMMERCIAL** veem o **mesmo card**; muda só o **escopo da
+  lista** e o **rótulo do total do topo**.
 
 ### Elegíveis (D80) e natureza (D81)
 
@@ -571,25 +576,25 @@ migration**.
 
 A página é uma **lista de cards, um por fechamento** (estado `expandedIds` + `toggleExpand`, molde do
 `/contratos`; esqueleto visual = `ctr-card` clonado sob prefixo **`fin-*`**, com a animação de expansão
-`grid-rows 0fr→1fr`). **Total geral** no topo (soma do escopo) + **busca** (nº/partes; corretor no ADMIN).
-**Sem agregado por corretor** e **sem filtro de período** (todos os recebíveis correntes) — pode evoluir.
+`grid-rows 0fr→1fr`). **Total** no topo (soma do escopo) + **busca** (nº do contrato ou nome de corretor).
+**Sem filtro de período** (todos os recebíveis correntes) — pode evoluir.
 
-- **Recolhido — ADMIN (D84):** nº do fechamento · **valor total** do negócio (`totalValue`) · **corretagem
-  total** a receber (`sellerBrokerageValue + buyerBrokerageValue`) · **corretores com a cota de cada um**
-  (cota = corretagem total ÷ nº de corretores).
+- **Recolhido — ADMIN (D84, revisa D136):** nº do fechamento · **valor total** do negócio (`totalValue`) ·
+  **corretagem total** (`sellerBrokerageValue + buyerBrokerageValue`) · **nomes dos corretores** (sem cota).
 - **Expandido (D85):** **só o detalhe da corretagem** — repartição do **vendedor** (% + R$) e do
   **comprador** (% + R$). Sem dados do negócio (partes/sacas/datas/preço).
-- **Recolhido — COMMERCIAL (S87/D135, revisa D86):** **igual ao card do ADMIN**, para os contratos dele —
-  nº · **valor total** · **corretagem total** · **todos os corretores com a cota de cada um** (co-corretores
-  **visíveis**). **Expandido:** repartição vend/comp (% + R$). A diferença é só o topo: **"Seu total a
-  receber"** = a **cota dele** (não o total da empresa).
+- **Recolhido — COMMERCIAL (S87/D135 + S88/D136, revisa D86):** **igual ao card do ADMIN**, para os
+  contratos dele — nº · **valor total** · **corretagem total** · **nomes dos corretores** (sem cota).
+  **Expandido:** repartição vend/comp (% + R$). A diferença é só o topo: **"Corretagem dos meus
+  fechamentos"** = a corretagem total dos contratos dele (não o total da empresa).
 
 ### Pendências (a refinar / Fase F)
 
 - Ordenação default (ex.: data desc) e formato do total geral.
 - Empty-state do COMMERCIAL sem `Broker` vinculado — **resolvido** (retorna vazio; UI = "Nenhuma corretagem
   a receber").
-- Não-usuários na quebra do ADMIN (aparecem com nome, sem `userId`) — confirmar.
+- **Divisão da corretagem entre corretores** = **externa** ao sistema (D136 — sem rateio ÷N). Se um dia
+  precisar registrar o valor por corretor: coluna nova em `SaleContractBroker` + input por corretor no modal.
 - **Controle de pagamento ao corretor** — futuro (era a opção 2 descartada por ora).
 
 ---
@@ -2532,3 +2537,29 @@ já vê em `/contratos → Detalhes`, D120); **"Seu total a receber"** = a **cot
 - Gates verdes: **typecheck / lint / format / build / validate:schemas (51) / test:contracts (20) /
   unit 372 / integração 431** (sale-contract 69, com os 4 D135). **Validar no device.** Commit próprio
   (outro agente em paralelo). _(Plano em `~/.claude/plans/memoized-wiggling-quasar.md`.)_
+
+### 2026-07-08 — Sessão 88 (Corretagem: rateio ÷N removido — D136, revisa D78/D79/D129/D135)
+
+O Flavio apontou que dividir a corretagem igualmente entre os corretores (÷N) — sobretudo com corretagem
+só de um lado — é uma **ficção que arrisca os registros**; pediu pra \*\*registrar só o valor da corretagem
+
+- os corretores**, sem o sistema dividir. Análise multiagente (modelo de dados + consumidores do split) +
+  plan mode (3 perguntas). Decisões → **D136**: card = corretagem total + **nomes** dos corretores (sem
+  valor por corretor); total do COMMERCIAL vira **"Corretagem dos meus fechamentos"** (corretagem total dos
+  2 lados dos contratos dele); corretagem **por lado** (vendedor/comprador %) **mantida\*\*.
+
+* **Achado (2 agentes):** o ÷N era projeção de leitura num único lugar (`buildReceivableView`), consumida
+  **só pelo Financeiro**; **nunca persistido** (sem migração). Espelho (per-lado/cliente), PDF do contrato
+  (só %), timeline e persistência **não** usavam o split. Sem controle de pagamento a corretor (D81).
+* **Backend**: `buildReceivableView` — removido o rateio (`baseShare`/`firstShare`); `brokers` vira
+  `{brokerId, name}` (sem `share`); sem `brokerCount`. `listBrokerReceivables` — o total do topo
+  **colapsou**: ADMIN e COMMERCIAL usam o mesmo `aggregate _sum` sobre o `filterWhere` (já escopado pela
+  D135); **helper `_sumOwnBrokerReceivable` da D135 deletado**. Escopo own-only da lista intacto.
+* **Frontend**: `FinanceiroCard` mostra só os nomes; `page.tsx` rótulo do COMMERCIAL → "Corretagem dos
+  meus fechamentos". Types: `FinanceiroBroker` (sem `share`); `FinanceiroReceivable` sem `brokerCount`.
+* **Testes**: unit de `buildReceivableView` reescritos (sem cota; removido o caso do resto D129); testes
+  do Financeiro atualizados (o teste D135 "total = cota ÷N" **inverteu** — o total do COMMERCIAL agora = a
+  corretagem cheia dos contratos dele).
+* Gates verdes: **typecheck / lint / format / build / validate:schemas (51) / test:contracts (20) /
+  unit 371 / integração 431**. **Validar no device.** Commit próprio (outro agente em paralelo). _(Plano em
+  `~/.claude/plans/memoized-wiggling-quasar.md`.)_
