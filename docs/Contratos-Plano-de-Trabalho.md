@@ -2610,5 +2610,10 @@ futura). Análise 2 agentes (o card + a plumbing do dashboard) + plan mode (3 pe
   CADASTRO nenhum). **Sem deep link na v1.** Fonte = endpoint do dashboard **com actor** (molde
   `recent-sends`) consultando `SaleContract` por `paymentDate`/`paidAt` na janela; datas `@db.Date` casam
   com o `toDayKey` sem conversão de fuso; índice novo em `payment_date` na implementação. **Decisões
-  detalhadas (E21–E24) no doc canônico do card:** `docs/Eventos-Dashboard-Plano-de-Trabalho.md` (revisa a
+  detalhadas (E21–E27) no doc canônico do card:** `docs/Eventos-Dashboard-Plano-de-Trabalho.md` (revisa a
   E8 do card — este tipo de evento é escopado por papel).
+- **2ª rodada (E25–E27, 2026-07-08 cont.):** o evento de pagamento no dashboard vira **expansível**
+  (acordeão) — mostra `nº · comprador · vendedor · status` — e ganha um **atalho "Pago"** (só `FATURADO`,
+  reusa o `SaleContractLifecycleDialog` da D137 → **2º ponto de entrada do pagamento, além do Financeiro**;
+  ao pagar, re-busca o feed) + um **"Ver contrato"** (→ `/contratos` Detalhes). Escopo = E22 (ADMIN +
+  COMMERCIAL-dono). _(A menção "sem deep link na v1" acima fica SUPERSEDED — o "Ver contrato" entra na v1.)_
