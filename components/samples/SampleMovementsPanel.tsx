@@ -159,7 +159,7 @@ export function SampleMovementsPanel({
             O id ancora o deep-link ?focus=movimentacoes (scrollIntoView na page). */}
         <div id="sdv-movimentacoes" className="sdv-com-movements-section">
           {hasTimeline ? (
-            <div className="sdv-com-movements">
+            <div className="sdv-com-movements" role="list" aria-label="Histórico do lote">
               {timeline.map((entry, i) => {
                 const animationDelay = `${i * 0.05}s`;
 
@@ -174,6 +174,7 @@ export function SampleMovementsPanel({
                   return (
                     <div
                       key={movement.id}
+                      role="listitem"
                       className={`sdv-com-mov${isCancelled ? ' is-cancelled' : ''}`}
                       style={{ animationDelay }}
                     >
@@ -235,7 +236,12 @@ export function SampleMovementsPanel({
                 // timeline (evento mais antigo).
                 if (entry.type === 'registration') {
                   return (
-                    <div key="registration" className="sdv-com-mov" style={{ animationDelay }}>
+                    <div
+                      key="registration"
+                      role="listitem"
+                      className="sdv-com-mov"
+                      style={{ animationDelay }}
+                    >
                       <div className="sdv-com-mov-icon is-registration">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                           <path d="M4 22V4" />
@@ -279,6 +285,7 @@ export function SampleMovementsPanel({
                   return (
                     <div
                       key={item.key}
+                      role="listitem"
                       className={`sdv-com-mov${cancelled ? ' is-cancelled' : ''}`}
                       style={{ animationDelay }}
                     >
@@ -335,7 +342,12 @@ export function SampleMovementsPanel({
 
                 // Criacao de laudo PDF (REPORT) — somente leitura.
                 return (
-                  <div key={item.key} className="sdv-com-mov" style={{ animationDelay }}>
+                  <div
+                    key={item.key}
+                    role="listitem"
+                    className="sdv-com-mov"
+                    style={{ animationDelay }}
+                  >
                     <div className="sdv-com-mov-icon is-report">
                       <svg viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M7 4.8h7l3 3V19.2H7z" />

@@ -574,6 +574,9 @@ export default function SampleDetailPage() {
   const invalidateTrapRef = useFocusTrap(invalidateModalOpen);
   const labelTrapRef = useFocusTrap(labelModalOpen);
   const registrationEditTrapRef = useFocusTrap(registrationEditMode);
+  // LDT-A4: os 2 modais que estavam sem foco preso (edicao de data + reclassificar).
+  const dateEditTrapRef = useFocusTrap(dateEditOpen);
+  const reclassifyTrapRef = useFocusTrap(reclassifyModalOpen);
   const labelModalCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const labelModalPrimaryActionRef = useRef<HTMLButtonElement | null>(null);
   const lastQuickPrintButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -1743,9 +1746,9 @@ export default function SampleDetailPage() {
               <div className="sdv-identity-card">
                 <div className="sdv-identity-left">
                   <div className="sdv-identity-code-row">
-                    <span className="sdv-identity-code">
+                    <h1 className="sdv-identity-code">
                       {detail.sample.internalLotNumber ?? detail.sample.id}
-                    </span>
+                    </h1>
                     {detail.sample.isBlend ? <BlendBadge size="md" /> : null}
                     {sdvCommercialStatus ? (
                       <span
@@ -2845,6 +2848,7 @@ export default function SampleDetailPage() {
           }}
         >
           <section
+            ref={dateEditTrapRef}
             className="app-modal is-themed is-action"
             role="dialog"
             aria-modal="true"
@@ -3751,6 +3755,7 @@ export default function SampleDetailPage() {
       {reclassifyModalOpen ? (
         <div className="app-modal-backdrop sample-detail-reclassify-backdrop">
           <section
+            ref={reclassifyTrapRef}
             className="app-modal is-themed is-action sample-detail-reclassify-modal"
             role="dialog"
             aria-modal="true"

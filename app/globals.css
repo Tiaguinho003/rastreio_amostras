@@ -8087,6 +8087,8 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
 }
 
 .sdv-identity-code {
+  /* LDT-A4: h1 acessivel do detalhe — reset da margem default do heading. */
+  margin: 0;
   font-size: clamp(18px, 5.5vw, 22px);
   font-weight: 700;
   color: #ffffff;
@@ -8137,8 +8139,9 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
 .sdv-identity-btn {
   display: inline-grid;
   place-items: center;
-  width: clamp(40px, 11vw, 46px);
-  height: clamp(40px, 11vw, 46px);
+  /* LDT-A3: piso do alvo de toque sobe de 40px pra 44px em telas pequenas. */
+  width: clamp(44px, 11vw, 46px);
+  height: clamp(44px, 11vw, 46px);
   border-radius: clamp(10px, 3vw, 12px);
   border: 0;
   background: rgba(255, 255, 255, 0.1);
@@ -10169,7 +10172,7 @@ body:has(.app-modal-backdrop) .prospector-fab {
   display: block;
   font-size: clamp(9px, 2.5vw, 10px);
   font-weight: 700;
-  color: #bbb;
+  color: #6e6e6e;
   text-transform: uppercase;
   letter-spacing: 1px;
   margin-bottom: clamp(10px, 3vw, 12px);
@@ -10220,7 +10223,7 @@ body:has(.app-modal-backdrop) .prospector-fab {
   display: block;
   font-size: clamp(8.5px, 2.3vw, 9.5px);
   font-weight: 700;
-  color: #bbb;
+  color: #6e6e6e;
   text-transform: uppercase;
   letter-spacing: 0.8px;
   margin-bottom: 4px;
@@ -10500,6 +10503,8 @@ body:has(.app-modal-backdrop) .prospector-fab {
   border: 0;
   background: transparent;
   padding: clamp(4px, 1vw, 5px) clamp(8px, 2vw, 10px);
+  /* LDT-A3: alvo de toque >=44px (era ~24-30px de altura). */
+  min-height: 44px;
   border-radius: 8px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -10893,7 +10898,7 @@ body:has(.app-modal-backdrop) .prospector-fab {
   padding: 4px;
   border: 1px dashed rgba(0, 0, 0, 0.16);
   background: rgba(0, 0, 0, 0.02);
-  color: #b8b8b8;
+  color: #6e6e6e;
   font-size: clamp(9px, 2.4vw, 10px);
   font-weight: 600;
   letter-spacing: 0.3px;
@@ -11202,7 +11207,7 @@ body:has(.app-modal-backdrop) .prospector-fab {
   align-items: center;
   gap: clamp(4px, 1.2vw, 6px);
   font-size: clamp(10px, 2.8vw, 11px);
-  color: #aaa;
+  color: #6f6f6f;
   flex-wrap: wrap;
 }
 
@@ -12008,7 +12013,7 @@ body:has(.app-modal-backdrop) .prospector-fab {
 .sdv-modal-hint {
   margin: 0;
   font-size: clamp(11px, 3vw, 12px);
-  color: #999;
+  color: #6f6f6f;
 }
 
 .sdv-edit-label-hint {
@@ -12064,7 +12069,7 @@ body:has(.app-modal-backdrop) .prospector-fab {
 .sdv-empty-text {
   margin: 0;
   font-size: clamp(12px, 3.2vw, 13px);
-  color: #999;
+  color: #6f6f6f;
 }
 
 /* Card de invalidacao */
@@ -25989,9 +25994,12 @@ select.samples-filter-field-input {
       box-shadow 0.2s ease;
   }
 
-  .sdv-identity-btn:hover {
-    background: rgba(255, 255, 255, 0.22);
-    transform: scale(1.08);
+  /* Hover gated (LDT-L2): sem (hover:hover) o fundo grudava em touch >=901px. */
+  @media (hover: hover) {
+    .sdv-identity-btn:hover {
+      background: rgba(255, 255, 255, 0.22);
+      transform: scale(1.08);
+    }
   }
 
   .sdv-identity-btn svg {
@@ -26120,7 +26128,7 @@ select.samples-filter-field-input {
 
   .sdv-card-title {
     font-size: 0.78rem;
-    color: #999;
+    color: #6e6e6e;
   }
 
   /* Card de dados: ocupa primeira coluna */
@@ -26260,8 +26268,10 @@ select.samples-filter-field-input {
     transition: transform 0.15s ease;
   }
 
-  .sdv-edit-btn:hover {
-    transform: scale(1.05);
+  @media (hover: hover) {
+    .sdv-edit-btn:hover {
+      transform: scale(1.05);
+    }
   }
 
   /* Card de foto: segunda coluna, mesma linha */
@@ -26389,10 +26399,12 @@ select.samples-filter-field-input {
     padding-top: 0.25rem;
   }
 
-  .sdv-invalidate-btn:hover {
-    background: var(--danger);
-    color: #ffffff;
-    box-shadow: 0 6px 16px rgba(184, 50, 50, 0.32);
+  @media (hover: hover) {
+    .sdv-invalidate-btn:hover {
+      background: var(--danger);
+      color: #ffffff;
+      box-shadow: 0 6px 16px rgba(184, 50, 50, 0.32);
+    }
   }
 
   /* Com Liga (composicao OU comprometida presente no DOM): cria a 3a linha pra a
@@ -33225,5 +33237,26 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
 
   .bottom-sheet {
     transition: none;
+  }
+}
+
+/* LDT-A1 (Revisao Geral): prefers-reduced-motion pro detalhe do lote. Zera as
+   entradas encenadas dos cards e — o mais importante — o pulse INFINITO do
+   botao de imprimir em destaque (.sdv-identity-btn.is-highlight-pulse) e o pop
+   do X de exclusao. Respeita quem pediu menos movimento. */
+@media (prefers-reduced-motion: reduce) {
+  .sdv-header,
+  .sdv-identity-card,
+  .sdv-content,
+  .sdv-content-inner,
+  .sdv-card,
+  .rsm-card,
+  .cld-saved-overlay,
+  .sdv-x-effect-mark {
+    animation: none;
+  }
+
+  .sdv-identity-btn.is-highlight-pulse {
+    animation: none;
   }
 }
