@@ -72,16 +72,16 @@ const REGISTRATION_EDITABLE_STATUSES: SampleStatus[] = ['REGISTRATION_CONFIRMED'
 
 const INVALIDATE_REASON_OPTIONS: Array<{ value: InvalidateReasonCode; label: string }> = [
   { value: 'DUPLICATE', label: 'Duplicada' },
-  { value: 'WRONG_SAMPLE', label: 'Amostra incorreta' },
+  { value: 'WRONG_SAMPLE', label: 'Lote incorreto' },
   { value: 'DAMAGED', label: 'Danificada' },
   { value: 'CANCELLED', label: 'Cancelada' },
   { value: 'OTHER', label: 'Outro motivo' },
 ];
 
 const UPDATE_REASON_OPTIONS: Array<{ value: UpdateReasonCode; label: string }> = [
-  { value: 'DATA_FIX', label: 'Correcao de dados' },
-  { value: 'TYPO', label: 'Erro de digitacao' },
-  { value: 'MISSING_INFO', label: 'Informacao faltante' },
+  { value: 'DATA_FIX', label: 'Correção de dados' },
+  { value: 'TYPO', label: 'Erro de digitação' },
+  { value: 'MISSING_INFO', label: 'Informação faltante' },
   { value: 'OTHER', label: 'Outro motivo' },
 ];
 
@@ -654,7 +654,7 @@ export default function SampleDetailPage() {
         if (cause instanceof ApiError) {
           setPageNotice({ kind: 'error', text: cause.message });
         } else {
-          setPageNotice({ kind: 'error', text: 'Falha ao carregar amostra' });
+          setPageNotice({ kind: 'error', text: 'Falha ao carregar lote' });
         }
         return undefined;
       } finally {
@@ -914,7 +914,7 @@ export default function SampleDetailPage() {
       } catch (cause) {
         if (!cancelled) {
           setActiveMovementsError(
-            cause instanceof ApiError ? cause.message : 'Falha ao carregar movimentacoes'
+            cause instanceof ApiError ? cause.message : 'Falha ao carregar movimentações'
           );
           setActiveMovements([]);
         }
@@ -1080,7 +1080,7 @@ export default function SampleDetailPage() {
     if (!parsed.success) {
       setInvalidateModalNotice({
         kind: 'error',
-        text: parsed.error.issues[0]?.message ?? 'Dados de exclusao invalidos',
+        text: parsed.error.issues[0]?.message ?? 'Dados de exclusão inválidos',
       });
       return;
     }
@@ -1169,7 +1169,7 @@ export default function SampleDetailPage() {
     if (trimmedReason.length === 0) {
       setInvalidateModalNotice({
         kind: 'error',
-        text: 'Informe o motivo para cancelar as movimentacoes.',
+        text: 'Informe o motivo para cancelar as movimentações.',
       });
       return;
     }
@@ -1186,7 +1186,7 @@ export default function SampleDetailPage() {
         });
         const refreshed = await refreshDetail();
         if (!refreshed) {
-          throw new Error('Falha ao recarregar amostra apos cancelar movimentacao');
+          throw new Error('Falha ao recarregar o lote após cancelar a movimentação');
         }
         currentVersion = refreshed.sample.version;
       }
@@ -1205,7 +1205,7 @@ export default function SampleDetailPage() {
             ? cause.message
             : cause instanceof Error
               ? cause.message
-              : 'Falha ao cancelar movimentacoes',
+              : 'Falha ao cancelar movimentações',
       });
       await refetchActiveMovements();
     } finally {
@@ -1226,7 +1226,7 @@ export default function SampleDetailPage() {
     if (!parsed.success) {
       setInvalidateModalNotice({
         kind: 'error',
-        text: parsed.error.issues[0]?.message ?? 'Dados de exclusao invalidos',
+        text: parsed.error.issues[0]?.message ?? 'Dados de exclusão inválidos',
       });
       return;
     }
@@ -1243,7 +1243,7 @@ export default function SampleDetailPage() {
         });
         const refreshed = await refreshDetail();
         if (!refreshed) {
-          throw new Error('Falha ao recarregar amostra apos cancelar movimentacao');
+          throw new Error('Falha ao recarregar o lote após cancelar a movimentação');
         }
         currentVersion = refreshed.sample.version;
       }
@@ -1275,7 +1275,7 @@ export default function SampleDetailPage() {
               ? cause.message
               : cause instanceof Error
                 ? cause.message
-                : 'Falha ao cancelar movimentacoes e deletar lote',
+                : 'Falha ao cancelar movimentações e deletar lote',
         });
         await refetchActiveMovements();
       }
@@ -1702,7 +1702,7 @@ export default function SampleDetailPage() {
   // (.is-card-*). PARTIALLY_SOLD cai em "Em aberto" (igual ao SampleCard).
   function getSdvCommercialStatus(sample: { status: string; commercialStatus: string | null }) {
     if (sample.status === 'INVALIDATED') {
-      return { color: '#6b7280', bg: '#f3f4f6', border: '#e5e7eb', label: 'Invalidada' };
+      return { color: '#6b7280', bg: '#f3f4f6', border: '#e5e7eb', label: 'Deletado' };
     }
     if (sample.commercialStatus === 'SOLD') {
       return { color: '#2a6539', bg: '#e4f3e8', border: '#bcdcc6', label: 'Vendido' };
@@ -1941,7 +1941,7 @@ export default function SampleDetailPage() {
                         className="sdv-cls-block-thumb"
                         role={isDesktop ? 'button' : undefined}
                         tabIndex={isDesktop ? 0 : undefined}
-                        aria-label={isDesktop ? 'Ampliar foto da classificacao' : undefined}
+                        aria-label={isDesktop ? 'Ampliar foto da classificação' : undefined}
                         onClick={
                           isDesktop
                             ? (event) => {
@@ -1965,7 +1965,7 @@ export default function SampleDetailPage() {
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={classPhotoUrl}
-                          alt="Foto da classificacao"
+                          alt="Foto da classificação"
                           className="sdv-cls-block-thumb-img"
                         />
                       </div>
@@ -2134,7 +2134,7 @@ export default function SampleDetailPage() {
                                   type="button"
                                   className="sdv-edit-btn"
                                   onClick={openClassificationEdit}
-                                  aria-label="Editar classificacao"
+                                  aria-label="Editar classificação"
                                 >
                                   <svg viewBox="0 0 24 24" aria-hidden="true">
                                     <path d="M12 20h9" />
@@ -2167,7 +2167,7 @@ export default function SampleDetailPage() {
                               type="button"
                               className="sdv-edit-btn"
                               onClick={openClassificationDetail}
-                              aria-label="Expandir classificacao"
+                              aria-label="Expandir classificação"
                             >
                               <svg viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M15 3h6v6" />
@@ -2210,7 +2210,7 @@ export default function SampleDetailPage() {
                                 openClassificationDetail();
                               }
                             }}
-                            aria-label="Ver classificacao completa"
+                            aria-label="Ver classificação completa"
                           >
                             {clsPhotoNode}
                             {clsFieldsNode}
@@ -2488,7 +2488,7 @@ export default function SampleDetailPage() {
                     setInvalidateModalOpen(false);
                   }
                 }}
-                aria-label="Fechar modal de invalidacao"
+                aria-label="Fechar modal de exclusão"
                 disabled={invalidating}
               >
                 <span aria-hidden="true">×</span>
@@ -2518,8 +2518,8 @@ export default function SampleDetailPage() {
                       <strong>
                         Este lote possui{' '}
                         {activeMovements && activeMovements.length > 0
-                          ? `${activeMovements.length} movimentacao${activeMovements.length > 1 ? 'oes' : ''} ativa${activeMovements.length > 1 ? 's' : ''}`
-                          : 'movimentacoes ativas'}
+                          ? `${activeMovements.length} ${activeMovements.length > 1 ? 'movimentações ativas' : 'movimentação ativa'}`
+                          : 'movimentações ativas'}
                       </strong>
                       Para deletar o lote, as perdas serão canceladas. Você também pode só cancelar
                       as movimentações.
@@ -2529,13 +2529,13 @@ export default function SampleDetailPage() {
                   <div className="sample-detail-invalidate-movements">
                     {activeMovements === null ? (
                       <p className="sample-detail-invalidate-movements-hint">
-                        Carregando movimentacoes...
+                        Carregando movimentações...
                       </p>
                     ) : activeMovementsError ? (
                       <p className="sdv-modal-error">{activeMovementsError}</p>
                     ) : activeMovements.length === 0 ? (
                       <p className="sample-detail-invalidate-movements-hint">
-                        Nenhuma movimentacao ativa encontrada.
+                        Nenhuma movimentação ativa encontrada.
                       </p>
                     ) : (
                       <div className="sdv-com-movements">
@@ -2600,7 +2600,7 @@ export default function SampleDetailPage() {
               ) : null}
 
               <label className="app-modal-field">
-                <span className="app-modal-label">Motivo da exclusao</span>
+                <span className="app-modal-label">Motivo da exclusão</span>
                 <select
                   className="app-modal-input"
                   value={invalidateReasonCode}
@@ -3293,7 +3293,7 @@ export default function SampleDetailPage() {
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
                                 src={classificationServerPhotoUrl}
-                                alt="Foto da classificacao"
+                                alt="Foto da classificação"
                                 className="cld-photo"
                               />
                             </button>
@@ -3724,7 +3724,7 @@ export default function SampleDetailPage() {
       {classificationImageModalOpen && classificationServerPhotoUrl ? (
         <PhotoZoomViewer
           src={classificationServerPhotoUrl}
-          alt="Foto da classificacao"
+          alt="Foto da classificação"
           exportFilename={buildClassificationPhotoFilename(detail)}
           onClose={() => setClassificationImageModalOpen(false)}
         />
@@ -3760,7 +3760,7 @@ export default function SampleDetailPage() {
             <header className="app-modal-header">
               <div className="app-modal-title-wrap">
                 <h3 id="sample-detail-reclassify-modal-title" className="app-modal-title">
-                  Reclassificar amostra
+                  Reclassificar lote
                 </h3>
                 <p className="app-modal-description">A nova classificação substitui a atual.</p>
               </div>
@@ -3768,7 +3768,7 @@ export default function SampleDetailPage() {
                 type="button"
                 className="app-modal-close"
                 onClick={() => setReclassifyModalOpen(false)}
-                aria-label="Fechar modal de reclassificacao"
+                aria-label="Fechar modal de reclassificação"
               >
                 <span aria-hidden="true">×</span>
               </button>

@@ -90,7 +90,7 @@ export function SampleMovementsPanel({
   const available = sample.availableSacks ?? 0;
 
   const STATUS_LABEL: Record<string, string> = {
-    OPEN: 'Disponivel',
+    OPEN: 'Disponível',
     PARTIALLY_SOLD: 'Parcial',
     SOLD: 'Vendido',
     LOST: 'Perdido',
@@ -101,7 +101,7 @@ export function SampleMovementsPanel({
     SOLD: { color: '#27AE60', bg: '#F0FDF4', border: '#BBF7D0' },
     LOST: { color: '#C0392B', bg: '#FEF2F2', border: '#FECACA' },
   };
-  const commercialLabel = STATUS_LABEL[sample.commercialStatus] ?? 'Disponivel';
+  const commercialLabel = STATUS_LABEL[sample.commercialStatus] ?? 'Disponível';
   const commercialStyle = STATUS_STYLE[sample.commercialStatus] ?? STATUS_STYLE.OPEN;
 
   return (
@@ -149,7 +149,7 @@ export function SampleMovementsPanel({
                 <rect x="2" y="7" width="20" height="14" rx="2" />
                 <path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" />
               </svg>
-              <span>Disponiveis</span>
+              <span>Disponíveis</span>
             </div>
             <span className="sdv-com-mini-value">{available}</span>
           </div>
@@ -245,7 +245,7 @@ export function SampleMovementsPanel({
                       <div className="sdv-com-mov-content">
                         <div className="sdv-com-mov-top">
                           <span className="sdv-com-mov-badge is-registration">Registro</span>
-                          <span className="sdv-com-mov-name">Chegada da amostra</span>
+                          <span className="sdv-com-mov-name">Chegada do lote</span>
                         </div>
                         <div className="sdv-com-mov-bottom">
                           <span>{formatMovementDate(entry.sortKey)}</span>
@@ -297,7 +297,7 @@ export function SampleMovementsPanel({
                           ) : null}
                         </div>
                         <div className="sdv-com-mov-bottom">
-                          <span>Amostra fisica</span>
+                          <span>Lote físico</span>
                           <span className="sdv-com-mov-sep" />
                           <span>{formatMovementDate(item.sentDate)}</span>
                         </div>
@@ -367,7 +367,7 @@ export function SampleMovementsPanel({
                 <rect x="2" y="7" width="20" height="14" rx="2" />
                 <path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" />
               </svg>
-              <span>Nenhuma movimentacao registrada</span>
+              <span>Nenhuma movimentação registrada</span>
             </div>
           )}
         </div>
