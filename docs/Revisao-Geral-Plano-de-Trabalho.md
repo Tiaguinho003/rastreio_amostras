@@ -44,23 +44,23 @@
 Legenda: ⬜ pendente · 🔎 em análise · 🛠 em implementação · 📱 aguardando
 validação no device · ✅ concluída.
 
-| #   | Código | Página             | Rota                                                                          | Status | Sessões | Resumo                                                                                                                                                                                                                                   |
-| --- | ------ | ------------------ | ----------------------------------------------------------------------------- | ------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | LOG    | Login              | `/login` (+ `/forgot-password`)                                               | ✅     | S3      | 16 achados corrigidos (incl. 3 bugs de persistência no auth), endurecimento do reset, 3 suítes de teste novas, teia de docs sincronizada; validada no device 2026-07-07                                                                  |
-| 2   | DSH    | Dashboard          | `/dashboard` (twins mobile/desktop + dashboard do PROSPECTOR)                 | 📱     | S4–S7   | 19 achados + decisões D2–D6: dashboard único; "Vendas e perdas" e pulso removidos; cards novos "Últimos envios" (endpoint recent-sends) e "Eventos" (calendário F0, coluna direita inteira — INCOMPLETO, ver P6); validar tudo no device |
-| 3   | LOT    | Lotes (lista)      | `/samples`                                                                    | 📱     | S8      | Deferidos resolvidos (CSS legado −594 linhas, testes do reducer+filtros) + decisões D1–D4 (uniforme, PROSPECTOR fora do service, copy "lote", vazio único) + erro de carregamento visível, portais, a11y; 10 commits                     |
-| 4   | LNW    | Novo lote          | modal do leque "+" (rota `/samples/new` removida — LNW-D1)                    | 📱     | S9      | Rota wrapper removida + decisões D1–D4 (copy "lote", receivedChannel fora do front, editou = manual) + hardening da API do número fixo, CSS nsv2 órfão −299, press/reduced-motion/contraste/44px, drop-up da safra, 17 testes; 8 commits |
-| 5   | LDT    | Detalhe do lote    | `/samples/[sampleId]`                                                         | ⬜     | —       | —                                                                                                                                                                                                                                        |
-| 6   | CAM    | Câmera / Scanner   | `/camera`                                                                     | ⬜     | —       | —                                                                                                                                                                                                                                        |
-| 7   | CLI    | Clientes (lista)   | `/clients`                                                                    | ⬜     | —       | —                                                                                                                                                                                                                                        |
-| 8   | CDT    | Detalhe do cliente | `/clients/[clientId]`                                                         | ⬜     | —       | —                                                                                                                                                                                                                                        |
-| 9   | CTR    | Contratos          | `/contratos`                                                                  | ⬜     | —       | —                                                                                                                                                                                                                                        |
-| 10  | FIN    | Financeiro         | `/financeiro`                                                                 | ⬜     | —       | —                                                                                                                                                                                                                                        |
-| 11  | CAD    | Cadastros          | `/cadastros`                                                                  | ⬜     | —       | —                                                                                                                                                                                                                                        |
-| 12  | REL    | Relatórios         | `/informe` (+ redirect `/resumo`)                                             | ⬜     | —       | —                                                                                                                                                                                                                                        |
-| 13  | USR    | Usuários           | `/users`                                                                      | ⬜     | —       | —                                                                                                                                                                                                                                        |
-| 14  | PRF    | Perfil             | `/profile` (+ redirect `/settings`)                                           | ⬜     | —       | —                                                                                                                                                                                                                                        |
-| 15  | AUX    | Auxiliares         | `/laudo/[token]` (público), `/offline`, `/maintenance`, redirects `/` e afins | ⬜     | —       | —                                                                                                                                                                                                                                        |
+| #   | Código | Página             | Rota                                                                          | Status | Sessões | Resumo                                                                                                                                                                                                                                                                               |
+| --- | ------ | ------------------ | ----------------------------------------------------------------------------- | ------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | LOG    | Login              | `/login` (+ `/forgot-password`)                                               | ✅     | S3      | 16 achados corrigidos (incl. 3 bugs de persistência no auth), endurecimento do reset, 3 suítes de teste novas, teia de docs sincronizada; validada no device 2026-07-07                                                                                                              |
+| 2   | DSH    | Dashboard          | `/dashboard` (twins mobile/desktop + dashboard do PROSPECTOR)                 | 📱     | S4–S7   | 19 achados + decisões D2–D6: dashboard único; "Vendas e perdas" e pulso removidos; cards novos "Últimos envios" (endpoint recent-sends) e "Eventos" (calendário F0, coluna direita inteira — INCOMPLETO, ver P6); validar tudo no device                                             |
+| 3   | LOT    | Lotes (lista)      | `/samples`                                                                    | 📱     | S8      | Deferidos resolvidos (CSS legado −594 linhas, testes do reducer+filtros) + decisões D1–D4 (uniforme, PROSPECTOR fora do service, copy "lote", vazio único) + erro de carregamento visível, portais, a11y; 10 commits                                                                 |
+| 4   | LNW    | Novo lote          | modal do leque "+" (rota `/samples/new` removida — LNW-D1)                    | 📱     | S9      | Rota wrapper removida + decisões D1–D4 (copy "lote", receivedChannel fora do front, editou = manual) + hardening da API do número fixo, CSS nsv2 órfão −299, press/reduced-motion/contraste/44px, drop-up da safra, 17 testes; 8 commits                                             |
+| 5   | LDT    | Detalhe do lote    | `/samples/[sampleId]`                                                         | 📱     | S11     | Uniforme pros 5 papéis (D1) + decisões D2–D4 (copy "lote"/"Deletar", revalidação, endurecer foto); **endurece endpoint de foto (auth)** + revalidação silenciosa + código morto −254 + CSS sdv-\* órfão −1435 + acentos/plural + press/reduced-motion/contraste/44px/a11y; 8 commits |
+| 6   | CAM    | Câmera / Scanner   | `/camera`                                                                     | ⬜     | —       | —                                                                                                                                                                                                                                                                                    |
+| 7   | CLI    | Clientes (lista)   | `/clients`                                                                    | ⬜     | —       | —                                                                                                                                                                                                                                                                                    |
+| 8   | CDT    | Detalhe do cliente | `/clients/[clientId]`                                                         | ⬜     | —       | —                                                                                                                                                                                                                                                                                    |
+| 9   | CTR    | Contratos          | `/contratos`                                                                  | ⬜     | —       | —                                                                                                                                                                                                                                                                                    |
+| 10  | FIN    | Financeiro         | `/financeiro`                                                                 | ⬜     | —       | —                                                                                                                                                                                                                                                                                    |
+| 11  | CAD    | Cadastros          | `/cadastros`                                                                  | ⬜     | —       | —                                                                                                                                                                                                                                                                                    |
+| 12  | REL    | Relatórios         | `/informe` (+ redirect `/resumo`)                                             | ⬜     | —       | —                                                                                                                                                                                                                                                                                    |
+| 13  | USR    | Usuários           | `/users`                                                                      | ⬜     | —       | —                                                                                                                                                                                                                                                                                    |
+| 14  | PRF    | Perfil             | `/profile` (+ redirect `/settings`)                                           | ⬜     | —       | —                                                                                                                                                                                                                                                                                    |
+| 15  | AUX    | Auxiliares         | `/laudo/[token]` (público), `/offline`, `/maintenance`, redirects `/` e afins | ⬜     | —       | —                                                                                                                                                                                                                                                                                    |
 
 A ordem segue o **fluxo operacional** de uso do app (D2). A revisão de cada
 página cobre também a **cadeia de backend** que ela consome (D6) e os **6
@@ -714,7 +714,99 @@ perto do fim do form abrindo pra cima), rótulos um tom mais escuros,
 reduced-motion (sheets sem slide, check completo), sucesso → detalhe /
 "Criar outro".
 
-### Detalhe do lote (LDT) — ⬜ não iniciada
+### Detalhe do lote (LDT) — 📱 aguardando validação no device (S11, 2026-07-08)
+
+**Mapa (R1):** `app/samples/[sampleId]/page.tsx` (componente único, era 4022
+linhas) · satélites: `SampleMovementsPanel` (painel comercial **só leitura**),
+`SampleSendFlow`, `BlendRevertModal`/`BlendHarvestPropagationModal`/
+`SampleInvalidateBlockedModal`, `ClientLookupField`/`ClientQuickCreateModal`
+(stacked), `PhotoZoomViewer`, `BlendBadge`/`RelatedSampleRow` · dados:
+`getSampleDetail` (sample + attachments + events[preview] + movements +
+components + activeBlends; timeline de envios por `listSampleEvents` separado)
+
+- `getBlendFeasibility` · ações: editar registro/data, classificar/reclassificar/
+  editar classificação (via `/camera` + cld-modal), imprimir QR, **Deletar**
+  lote, cancelar movimentações, reverter liga, editar/cancelar envio · gates:
+  `useRequireAuth({allowedRoles: NON_PROSPECTOR_ROLES})` + middleware +
+  `resolveActorContext`/allowlist no backend · CSS `sdv-*`.
+
+**Matriz por papel (R2):** os 5 papéis não-PROSPECTOR veem e fazem exatamente
+o mesmo no detalhe; PROSPECTOR barrado nas 3 camadas (guard, middleware, API
+403 via allowlist — inclusive `getSampleDetail` e a foto).
+
+**Decisões:**
+
+- **LDT-D1** — detalhe **uniforme** pros 5 papéis (confirmado; já era o estado,
+  nenhum trabalho de papel).
+- **LDT-D2** — vocabulário padronizado pra **"lote"** + conclui **"Deletar"**
+  (era "Invalidar") + acentos (estende LOT-D3/LNW-D2).
+- **LDT-D3** — **revalidação silenciosa** do detalhe (foreground + polling 60s).
+- **LDT-D4** — **endurecer** o endpoint de foto (auth + Prisma compartilhado).
+
+**Achados:**
+
+- **LDT-B2** ✅ [ALTA] (D4) — `GET /photos/[attachmentId]` servia o binário SEM
+  auth (só validava UUID) e abria um `PrismaClient` por request → método novo
+  `getSampleAttachmentDescriptor` (resolveActorContext: 401/403 PROSPECTOR) +
+  Prisma compartilhado; a rota mantém o guard de traversal (`382e69c`).
+- **LDT-B3** ✅ (D3) — o detalhe não revalidava ao voltar do background →
+  `useListRevalidation` (foreground throttle 30s + polling 60s), guards de
+  modal aberto / status terminal (`0da6b5b`).
+- **LDT-B1** ✅ — bug de plural "movimentacaooes" (concatenava
+  "movimentacao"+"oes") → ternário pt-BR correto (`490fda8`).
+- **LDT-M1** ✅ — fluxo de classificação legado órfão removido: modal
+  "confirmar motivo da edição" **inatingível** + handler + fluxo de foto inline
+  morto + ~10 símbolos de estado; −254 linhas (`af1e822`).
+- **LDT-M2** ✅ — 71 classes `sdv-*` órfãs (layout pré-redesign: action-bar/QR/
+  send/print/checklist/foto antigos) removidas por parser que ignora
+  comentários/strings e trata a regra como morta se QUALQUER classe sdv exigida
+  em profundidade-0 for órfã; invariante verificada (nenhuma classe VIVA perdeu
+  regra-chave; `sdv-com-action-loss` reusada no /users preservada); −1435
+  linhas (`0f88ff9`).
+- **LDT-L1** ✅ (D2) — copy "lote" + "Deletar"/"Deletado" + acentos sistêmicos
+  (page.tsx + SampleMovementsPanel), incluindo aria-labels e alts (`490fda8`).
+- **LDT-L2** ✅ — `:hover` dos botões de ação (identity/edit/invalidate-btn)
+  fora de `(hover:hover)`, 2 com background/color no hover → gated (`e05a34e`).
+- **LDT-A1** ✅ — bloco `prefers-reduced-motion` do detalhe (entradas dos cards
+  - o **pulse INFINITO** do imprimir-em-destaque + pop do X) (`e05a34e`).
+- **LDT-A2** ✅ — contraste sub-AA → tons AA (#bbb/#b8b8b8→#6e6e6e; #aaa/#999→
+  #6f6f6f) — **validar no device** (`e05a34e`).
+- **LDT-A3** ✅ — alvo de toque: `.sdv-edit-btn` min-height 44px (era ~24-30px)
+  e piso do `.sdv-identity-btn` 40→44px (`e05a34e`).
+- **LDT-A4** ✅ — número do lote vira `<h1>` (heading real); focus trap nos 2
+  modais que faltavam (edição de data, reclassificar); timeline com
+  `role="list"`/`listitem` (`e05a34e`).
+- **LDT-T1** ✅ — suíte de integração do endpoint de foto endurecido (401/403/
+  200/404 + não-vazamento entre lotes) (`382e69c`).
+- **LDT-DOC1–3** ✅ — Produto-e-Fluxos (detalhe "lote"/só leitura/"Deletar"),
+  API-e-Contratos (foto exige sessão), Auditoria (LDT-D1) + skills
+  feedback-messages/modals (`f551983`).
+- ❌ **Não-achado** (não reinvestigar): o detalhe não mostra log de auditoria
+  de edições — exibir é **feature nova**, fora da revisão.
+
+**Resumo:** 8 commits — `382e69c` (endurece foto+teste), `0da6b5b`
+(revalidação), `af1e822` (código morto −254), `0f88ff9` (CSS órfão −1435),
+`490fda8` (copy/acentos/plural), `e05a34e` (press/reduced-motion/contraste/
+toque/a11y), `f551983` (docs+skills), + registro. Gates verdes (lint / format /
+typecheck / build / schemas / unit 372 / contracts 20 / integração + re-seed).
+
+**Pendências:**
+
+- **LDT-P1** — os ~8 modais do detalhe renderizam inline (sem `createPortal`);
+  divergem do canônico mas sem bug ativo → passe dedicado.
+- **LDT-P2** — arquivo grande (helpers/IIFEs candidatos a extração:
+  `projectSendHistoryItems`, card de Classificação, cld-modal) → FF2.
+- **LDT-P3** — GOTCHA do `nth-child`: as regras legadas
+  `.sdv-general>.sdv-card:nth-child(2)/(n+3)` (feitas pro detalhe do CLIENTE)
+  vazam pro detalhe do lote; ele se defende com overrides `.sdv-page--sample`.
+  Corrigir na raiz toca o detalhe do cliente → **ciclo CDT**.
+
+**Validação no device (Flavio):** abrir o detalhe (mobile+desktop); a foto da
+classificação ainda carrega (endurecimento não quebra o `<img>`); copy "lote"/
+"Deletar"/acentos; botões de ação com alvo maior e sem hover grudado;
+reduced-motion (sem pulse infinito no imprimir); staleness (deixar o app no
+detalhe → outro usuário classifica/vende/envia → voltar ao app atualiza;
+parado atualiza em ≤60s); os 2 modais (data, reclassificar) com foco preso.
 
 ### Câmera / Scanner (CAM) — ⬜ não iniciada
 
@@ -877,3 +969,20 @@ reduced-motion (sheets sem slide, check completo), sucesso → detalhe /
   `blend-selection.ts`, 5 testes unit). 4 commits (`5876b08`, `a811f85`,
   `ee8d5ef`, docs). 📱 validar: staleness com 2 usuários, liga com busca
   no meio da seleção.
+- **S11 (2026-07-08)** — F5/LDT executada ponta a ponta (R1–R8): 3 agentes de
+  levantamento + verificação própria dos achados de maior impacto; 4 decisões
+  LDT-D1–D4 (uniforme pros 5 papéis, copy "lote"/"Deletar", revalidação
+  silenciosa, endurecer a foto). Achado ALTO de segurança: o endpoint de foto
+  servia o binário sem autenticação (só validava UUID) e abria um Prisma por
+  request → método `getSampleAttachmentDescriptor` (auth central + Prisma
+  compartilhado) + suíte de integração. Revalidação do detalhe reusando o hook
+  da S10 (foreground + 60s). Limpeza grande: código morto do fluxo de
+  classificação legado (−254, incluindo um modal inatingível) e CSS `sdv-*`
+  órfão (71 classes, −1435 linhas) removido por parser robusto (ignora
+  comentários/strings; invariante de classe-chave garantindo que nenhuma viva
+  perdeu regra). Copy/acentos (bug de plural "movimentacaooes"), press-effects
+  gated, `prefers-reduced-motion` (mata o pulse infinito), contraste AA, alvo
+  de toque 44px e a11y (h1, focus trap em 2 modais, timeline como lista).
+  Pendências: LDT-P1 (modais inline sem portal), P2 (extração → FF2), P3
+  (nth-child legado → ciclo CDT). 8 commits; gates verdes (unit 372 /
+  contracts 20 / integração + re-seed). Página em 📱.
