@@ -759,6 +759,31 @@ export function createBackendApiV1({
         };
       }),
 
+    // Autorizacao da foto do anexo: a rota binaria de foto (que serve os bytes
+    // direto do disco) NAO passa pelo executeBackend (resposta binaria), entao
+    // delega a auth aqui. resolveActorContext garante sessao + barra PROSPECTOR
+    // pela allowlist (metodo fora dela => 403). Devolve so o descritor
+    // (storagePath + mimeType); a leitura do arquivo fica na rota.
+    getSampleAttachmentDescriptor: (input) =>
+      executeApiForInput(input, async () => {
+        await resolveActorContext(input, authService);
+        const sampleId = requireSampleId(input?.params);
+        const attachmentId = input?.params?.attachmentId;
+        if (typeof attachmentId !== 'string' || attachmentId.length === 0) {
+          throw new HttpError(422, 'attachmentId path param is required');
+        }
+
+        const descriptor = await queryService.findAttachmentForSample(sampleId, attachmentId);
+        if (!descriptor) {
+          throw new HttpError(404, 'Attachment not found', { code: 'ATTACHMENT_NOT_FOUND' });
+        }
+
+        return {
+          status: 200,
+          body: descriptor,
+        };
+      }),
+
     // Liga B4 Fase 2: viabilidade da venda de uma liga (árvore de
     // descendentes + saldos + origens que bloqueiam a cascata F7.6).
     getBlendFeasibility: (input) =>

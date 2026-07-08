@@ -1089,6 +1089,25 @@ export class SampleQueryService {
     };
   }
 
+  // Descritor de um anexo especifico (sampleId + attachmentId) pra servir o
+  // arquivo com autorizacao — a rota binaria de foto passou a exigir sessao.
+  // Retorna null (=> 404) se o anexo nao existe ou nao pertence ao lote.
+  async findAttachmentForSample(sampleId, attachmentId) {
+    const attachment = await this.prisma.sampleAttachment.findFirst({
+      where: { id: attachmentId, sampleId },
+      select: { storagePath: true, mimeType: true },
+    });
+
+    if (!attachment || !attachment.storagePath) {
+      return null;
+    }
+
+    return {
+      storagePath: attachment.storagePath,
+      mimeType: attachment.mimeType ?? 'image/jpeg',
+    };
+  }
+
   async listAttachments(sampleId) {
     const attachments = await this.prisma.sampleAttachment.findMany({
       where: { sampleId },
