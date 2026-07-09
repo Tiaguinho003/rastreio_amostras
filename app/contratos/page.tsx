@@ -8,6 +8,7 @@ import { AppShell } from '../../components/AppShell';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { ContratosPanel } from '../../components/contracts/ContratosPanel';
 import { HubTabPlaceholder } from '../../components/contracts/HubTabPlaceholder';
+import { FinanceiroPanel } from '../../components/financeiro/FinanceiroPanel';
 import { CONTRATOS_ROLES } from '../../lib/roles';
 import { useRequireAuth } from '../../lib/use-auth';
 
@@ -92,7 +93,7 @@ function ContratosHubInner() {
         </div>
 
         {tab === 'contratos' ? <ContratosPanel session={session} /> : null}
-        {tab === 'financeiro' ? <HubTabPlaceholder /> : null}
+        {tab === 'financeiro' ? <FinanceiroPanel session={session} /> : null}
         {tab === 'aprovacoes' ? <HubTabPlaceholder /> : null}
         {tab === 'embarque' ? <HubTabPlaceholder /> : null}
       </section>
