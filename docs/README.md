@@ -57,7 +57,13 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
 10. `docs/Revisao-Geral-Plano-de-Trabalho.md`
     Uso: documento-mae da revisao geral do app, pagina por pagina e por papel — roteiro padrao (R1-R8) que orienta toda sessao de revisao, status por pagina, convencoes de achados/decisoes/pendencias e fases globais (varredura de codigo morto + organizacao de pastas). Status: Em andamento (F0).
 11. `docs/Eventos-Dashboard-Plano-de-Trabalho.md`
-    Uso: fonte canonica do card de Eventos (calendario) da coluna direita do dashboard desktop — decisoes E1-E11, propostas de design, fases (F0 = card shell vazio; F1+ = features que geram eventos) e pendencias EVD-P1-P4. Status: decisoes travadas, implementacao nao iniciada.
+    Uso: fonte canonica do card de Eventos (calendario) da coluna direita do dashboard desktop — decisoes E1-E27, propostas de design, fases e pendencias. Status: F0 + F1 (pagamentos de contrato) implementadas (2026-07-08, validar no device); F2+ (outros tipos de evento, ex. aprovacoes) em aberto.
+12. `docs/Aprovacoes-Plano-de-Trabalho.md`
+    Uso: reformulacao da feature de Aprovacao (etiqueta impressa auditada -> fluxo com papeis: quem cria o contrato sinaliza se precisa de aprovacao -> pendencia pro aprovador -> executa -> evento no dashboard F2). Estado atual da aprovacao = D107-D126 em Contratos-Plano-de-Trabalho.md. Status: Em decisao — Bloco 1 (o sinal) travado (AP1-AP5); Bloco 2 (apresentacao) pausado (Flavio repensando o funcionamento).
+13. `docs/Embarque-Plano-de-Trabalho.md`
+    Uso: novo tipo de evento para o card de Eventos do dashboard — o embarque (cafe carregado no caminhao), mesmo dia do faturamento mas distinto, gated pela modalidade (nao ocorre em "Disponivel"). Espelha a Aprovacao (booleano requiresShipment + shipmentDate), com ciclo proprio (pendente -> finalizado) independente do pagamento. Status: Em decisao — Bloco 1 (a logica) registrado (EMB1-EMB6); Bloco 2 (apresentacao no calendario) a fazer.
+14. `docs/Central-de-Contratos-Plano-de-Trabalho.md`
+    Uso: unificacao das 4 superficies ligadas ao contrato de venda (Contratos, Financeiro, Aprovacoes, Embarque) numa unica pagina com sub-abas. Autoridade da "casca" (pagina, abas, esquema de URL, matriz de acesso por papel aba a aba, navegacao). F1 = fundir Contratos + Financeiro (ja sao paginas) e criar Aprovacoes + Embarque como abas vazias. Prefixo de decisao CC. Status: Em decisao — blocos 0-7 abertos, sem implementacao.
 
 ## Relatorios da reorganizacao
 
