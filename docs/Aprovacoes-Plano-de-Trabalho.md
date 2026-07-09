@@ -31,11 +31,10 @@
 > (**AP15**): dot **laranja `#f97316`**, rótulo **"a enviar"**, e a leitura "provável
 > recusa" é **externa** (métricas/BI) — o app só registra os envios (AP-P1 dispensada).
 > **DESENHO PONTA A PONTA FECHADO (AP1–AP15).** Implementação **em 3 fases**, cada
-> uma em plan mode com análise. **▶️ FASE 1 ("o sinal") IMPLEMENTADA (2026-07-09)** —
-> campos `requiresApproval` + `approvalReminderLeadDays` no contrato (criação/edição),
-> gates verdes, **não commitado — validar no device** (ver Histórico). Faltam **Fase 2**
-> (lembrete no card + geração pelo dashboard) e **Fase 3** (remover porta /contratos +
-> "Manual").
+> uma em plan mode com análise. **▶️ FASE 1 ("o sinal") + FASE 2 (lembrete no card +
+> geração pelo dashboard) IMPLEMENTADAS (2026-07-09)** — gates verdes, **validar no
+> device** (ver Histórico). **Falta só a Fase 3** (remover a porta /contratos — AP11 — e
+> o "Manual", exigindo `saleContractId` — AP12).
 
 ## Contexto e objetivo
 
@@ -372,3 +371,22 @@ washout) — e eles eram, no fundo, a **mesma** discussão.
   (novos testes do normalizer) + integração (round-trip Sim/Não/Editar) verdes. Plano
   `~/.claude/plans/scalable-riding-wirth.md`. **NÃO commitado/pushado — validar no
   device.** Próximo: **Fase 2** (lembrete no card + geração pelo dashboard).
+- **2026-07-09 (FASE 2 IMPLEMENTADA — lembrete no card + geração pelo dashboard)** — 2ª das
+  3 fases, plan mode com análise (3 Explore + síntese). Realiza AP6/AP7/AP10/AP14/AP15.
+  **Backend:** endpoint SEPARADO do de pagamentos (visibilidade diferente) —
+  `SaleContractService.getDashboardApprovalEvents({from,to}, actor)` (só `assertAuthenticatedActor`,
+  **sem gate de papel** — AP10; pendente = `requiresApproval` + `EMITIDO` + anti-join `groupBy`
+  "sem etiqueta" no `approval_label_log`, cuidado com o NULL das avulsas); helpers puros
+  `buildApprovalReminderEvent` (id **namespaced** `reminder:` — evita colisão de key com o
+  pagamento do mesmo contrato/dia) + `bucketApprovalReminders` (**fan-out 1→N**: o dot aparece
+  em cada dia de `[max(hoje, invoiceDate−lead), to]` — **só de hoje pra frente**, decisão
+  2026-07-09); rota `GET /api/v1/dashboard/approval-events`; migration `20260709130000` (índice
+  `[requiresApproval, status, invoiceDate]`). **Front:** dot laranja `#f97316`
+  (`contract_approval_due`) no CSS; `EventsCalendarCard` ganhou `onGerarAprovacao` + botão
+  **"Gerar aprovação"** no acordeão; `DashboardDesktop` busca o feed (mesma janela, **sem
+  `canPay`**), **merge client-side** com pagamentos, abre o `ApprovalLabelModal` pré-preenchido
+  (molde do `openApproval` do /contratos) e re-busca ao fechar (o lembrete some quando gera).
+  Rótulo "a enviar · nº · comprador". **Gates:** typecheck/lint/format/build + unit
+  (`buildApprovalReminderEvent`/`bucketApprovalReminders`) + integração (pendente/anti-join/
+  visibilidade por papel) verdes. **NÃO commitado/pushado — validar no device.** Próximo:
+  **Fase 3** (remover porta /contratos — AP11 — + "Manual"/exigir `saleContractId` — AP12).

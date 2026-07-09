@@ -878,6 +878,9 @@ model SaleContract {
   // (agendado) / paid_at (realizado), compostos com o status.
   @@index([status, paymentDate], map: "idx_sale_contract_status_payment_date")
   @@index([status, paidAt], map: "idx_sale_contract_status_paid_at")
+  // F2 (reforma AP6/AP14): feed do lembrete de aprovacao — pendentes = requiresApproval
+  // + status EMITIDO, janela por invoice_date (o lembrete conta X dias antes).
+  @@index([requiresApproval, status, invoiceDate], map: "idx_sale_contract_requires_approval_status_invoice")
   @@map("sale_contract")
 }
 

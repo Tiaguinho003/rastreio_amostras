@@ -44,6 +44,7 @@ import type {
   DashboardSalesAvailabilityResponse,
   DashboardRecentSendsResponse,
   DashboardPaymentEventsResponse,
+  DashboardApprovalEventsResponse,
   InvalidateReasonCode,
   PendingPrintQueueResponse,
   ListSamplesResponse,
@@ -1190,6 +1191,24 @@ export function getDashboardPaymentEvents(
     session,
     cachePolicy: 'default',
   });
+}
+
+// F2 (reforma AP6/AP7): feed do "lembrete de aprovação" do card de Eventos, por janela
+// de data ('YYYY-MM-DD'). Visível a todos os não-PROSPECTOR (o card só monta no
+// desktop, já gated); o endpoint não escopa por papel.
+export function getDashboardApprovalEvents(
+  session: SessionData,
+  window: { from: string; to: string }
+) {
+  const params = new URLSearchParams({ from: window.from, to: window.to });
+  return request<DashboardApprovalEventsResponse>(
+    `/dashboard/approval-events?${params.toString()}`,
+    {
+      method: 'GET',
+      session,
+      cachePolicy: 'default',
+    }
+  );
 }
 
 export function getPendingPrintJobs(

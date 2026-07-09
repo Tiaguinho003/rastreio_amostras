@@ -4,11 +4,13 @@ import { assertRoleAllowed, USER_ROLES } from '../auth/roles.js';
 import { HttpError } from '../contracts/errors.js';
 import { assertAuthenticatedActor, readLimitQuery } from '../users/user-support.js';
 import {
+  APPROVAL_REMINDER_SELECT,
   assertBrokersResolved,
   buildBankSnapshot,
   buildContractTimeline,
   buildPartySnapshot,
   buildReceivableView,
+  bucketApprovalReminders,
   bucketPaymentEvents,
   buildWarehouseSnapshot,
   computeContractMoneyWithAgio,
@@ -353,6 +355,47 @@ export class SaleContractService {
     ]);
 
     return bucketPaymentEvents(dueRows, paidRows);
+  }
+
+  // F2 (reforma AP6/AP7/AP10/AP14): "lembrete de aprovacao" do card de Eventos.
+  // Pendente = requiresApproval + EMITIDO + SEM etiqueta (approval_label_log). O
+  // lembrete aparece TODOS os dias de max(hoje, invoiceDate−lead) ate o fim da janela
+  // (so de hoje pra frente). Visibilidade: TODOS os nao-PROSPECTOR (AP10 — sem gate de
+  // papel, sem escopo por corretor; PROSPECTOR e barrado no allowlist central). Janela
+  // [from, to] = 'YYYY-MM-DD'. Retorna Record<'YYYY-MM-DD', evento[]>.
+  async getDashboardApprovalEvents(input, actorContext) {
+    assertAuthenticatedActor(actorContext, 'list dashboard approval events');
+
+    const dayKeyRe = /^\d{4}-\d{2}-\d{2}$/;
+    const from = typeof input?.from === 'string' && dayKeyRe.test(input.from) ? input.from : null;
+    const to = typeof input?.to === 'string' && dayKeyRe.test(input.to) ? input.to : null;
+    if (!from || !to) {
+      return {};
+    }
+
+    // Hoje-BRT (offset -3h, molde do getBrtToday do front): o lembrete NAO pinta dias
+    // passados — o piso do fan-out e max(from, hoje).
+    const todayKey = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+    const [pending, withLabel] = await Promise.all([
+      // Pendentes: precisa de aprovacao + EMITIDO + com data de faturamento (ancora do
+      // lembrete). O filtro "sem etiqueta" vem do anti-join abaixo.
+      this.prisma.saleContract.findMany({
+        where: { requiresApproval: true, status: 'EMITIDO', invoiceDate: { not: null } },
+        select: APPROVAL_REMINDER_SELECT,
+      }),
+      // Contratos que JA tem etiqueta (>=1 linha em approval_label_log). saleContractId
+      // e nullable (avulsas = NULL) -> filtra not null (NUNCA NOT IN com NULL).
+      this.prisma.approvalLabelLog.groupBy({
+        by: ['saleContractId'],
+        where: { saleContractId: { not: null } },
+      }),
+    ]);
+
+    const labeledIds = new Set(withLabel.map((r) => r.saleContractId));
+    const rows = pending.filter((row) => !labeledIds.has(row.id));
+
+    return bucketApprovalReminders(rows, { fromKey: from, toKey: to, todayKey });
   }
 
   async getSaleContract(contractId, actorContext) {

@@ -2992,6 +2992,22 @@ export function createBackendApiV1({
         return { status: 200, body: { events } };
       }),
 
+    // Card de Eventos (F2 reforma AP6/AP7/AP10): feed do "lembrete de aprovacao" por
+    // janela de data. SEM gate de papel (todos os nao-PROSPECTOR veem tudo — o gate e
+    // so o allowlist central do PROSPECTOR). Janela ?from&to = 'YYYY-MM-DD'.
+    getDashboardApprovalEvents: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractService) {
+          throw new HttpError(501, 'Sale contract service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const events = await saleContractService.getDashboardApprovalEvents(
+          { from: input?.query?.from, to: input?.query?.to },
+          actor
+        );
+        return { status: 200, body: { events } };
+      }),
+
     getSaleContract: (input) =>
       executeApiForInput(input, async () => {
         if (!saleContractService) {

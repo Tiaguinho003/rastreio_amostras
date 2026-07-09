@@ -1920,6 +1920,69 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(edit.contract.approvalReminderLeadDays, 10);
   });
 
+  test('aprovação (F2): lembrete pros pendentes EMITIDO sem etiqueta; visível a todos os papéis', async () => {
+    const buyerId = randomUUID();
+    await createBuyerClient(buyerId);
+
+    // Datas relativas ao hoje-BRT (mesma conta do serviço): invoiceDate futuro + lead 30
+    // → reminderStart no passado → o lembrete pinta de HOJE em diante.
+    const todayKey = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const plusDays = (n) => {
+      const d = new Date(`${todayKey}T00:00:00.000Z`);
+      d.setUTCDate(d.getUTCDate() + n);
+      return d.toISOString().slice(0, 10);
+    };
+
+    // Pendente: precisa de aprovação, EMITIDO, sem etiqueta.
+    const pend = await saleContractService.createFutureSaleContract(
+      await createFutureInput(buyerId, {
+        requiresApproval: true,
+        approvalReminderLeadDays: 30,
+        invoiceDate: plusDays(5),
+      }),
+      adminActor
+    );
+    const pendId = pend.contract.id;
+
+    // Com etiqueta: idem, mas grava 1 linha em approval_label_log → NÃO deve aparecer.
+    const done = await saleContractService.createFutureSaleContract(
+      await createFutureInput(buyerId, {
+        requiresApproval: true,
+        approvalReminderLeadDays: 30,
+        invoiceDate: plusDays(5),
+      }),
+      adminActor
+    );
+    const job = await prisma.customPrintJob.create({ data: { payload: {} } });
+    await prisma.approvalLabelLog.create({
+      data: {
+        id: randomUUID(),
+        saleContractId: done.contract.id,
+        customPrintJobId: job.id,
+        payload: {},
+      },
+    });
+
+    const win = { from: todayKey, to: plusDays(13) };
+    const events = await saleContractService.getDashboardApprovalEvents(win, adminActor);
+
+    // O pendente aparece HOJE, com id namespaced + contractId separado.
+    const ev = (events[todayKey] ?? []).find((e) => e.contractId === pendId);
+    assert.ok(ev, 'lembrete do pendente deve aparecer hoje');
+    assert.equal(ev.id, `reminder:${pendId}`);
+    assert.equal(ev.typeKey, 'contract_approval_due');
+    // O contrato COM etiqueta não aparece em nenhum dia (anti-join).
+    const anyDone = Object.values(events).some((evs) =>
+      evs.some((e) => e.contractId === done.contract.id)
+    );
+    assert.equal(anyDone, false);
+
+    // Visibilidade (AP10): um papel não-FINANCEIRO (REGISTRATION) TAMBÉM vê os lembretes.
+    const reg = { ...commercialActor, role: 'REGISTRATION', actorUserId: randomUUID() };
+    const regEvents = await saleContractService.getDashboardApprovalEvents(win, reg);
+    assert.ok((regEvents[todayKey] ?? []).some((e) => e.contractId === pendId));
+  });
+
   test('futuro: numero continua a sequencia global (a vista + futuro)', async () => {
     await setupEmittableContract({ lotNumber: '24001' }); // 0001/AA (a vista)
     const buyerId = randomUUID();

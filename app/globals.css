@@ -24798,6 +24798,11 @@ select.samples-filter-field-input {
   .dd-events-dot[data-type='contract_payment_paid'] {
     background: #15803d;
   }
+  /* F2 (reforma AP15/EVD-P1): lembrete de aprovacao — laranja (distinto do amarelo
+     do pagamento agendado; laranja != vermelho -> sem falso "atrasado"). */
+  .dd-events-dot[data-type='contract_approval_due'] {
+    background: #f97316;
+  }
 
   .dd-events-dot-more {
     font-size: 0.6rem;

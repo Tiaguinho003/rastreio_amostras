@@ -1,11 +1,17 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { getDashboardPaymentEvents, getDashboardRecentSends } from '../../lib/api-client';
+import {
+  getApprovalLabelPrefill,
+  getDashboardApprovalEvents,
+  getDashboardPaymentEvents,
+  getDashboardRecentSends,
+} from '../../lib/api-client';
 import { FINANCEIRO_ROLES, isRoleAllowed } from '../../lib/roles';
 import { useToast } from '../../lib/toast/ToastProvider';
+import { ApprovalLabelModal } from '../ApprovalLabelModal';
 import { SaleContractLifecycleDialog } from '../contracts/SaleContractLifecycleDialog';
 import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
 import { EventsCalendarCard } from './EventsCalendarCard';
@@ -14,6 +20,7 @@ import { useOperationModal } from './useOperationModal';
 import { OperationModal } from './OperationModal';
 import { StatCard } from './StatCard';
 import type {
+  ApprovalLabelPrefill,
   DashboardCalendarEvent,
   DashboardPendingResponse,
   DashboardRecentSendsResponse,
@@ -58,6 +65,25 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
   const handleWindowChange = useCallback((from: string, to: string) => {
     setPaymentWindow({ from, to });
   }, []);
+
+  // F2 (reforma AP6/AP7): lembrete de aprovação — feed SEPARADO (visibilidade diferente
+  // dos pagamentos: todos os não-PROSPECTOR), na MESMA janela. Merge client-side no
+  // `events` do card (id namespaced 'reminder:' evita colisão de key com pagamentos).
+  const [approvalEvents, setApprovalEvents] = useState<Record<string, DashboardCalendarEvent[]>>(
+    {}
+  );
+  const [approvalForm, setApprovalForm] = useState<{
+    contractId: string;
+    prefill: ApprovalLabelPrefill;
+  } | null>(null);
+  const calendarEvents = useMemo(() => {
+    const merged: Record<string, DashboardCalendarEvent[]> = {};
+    for (const [day, evs] of Object.entries(paymentEvents)) merged[day] = [...evs];
+    for (const [day, evs] of Object.entries(approvalEvents)) {
+      merged[day] = merged[day] ? [...merged[day], ...evs] : [...evs];
+    }
+    return merged;
+  }, [paymentEvents, approvalEvents]);
 
   useEffect(() => {
     if (!session) return undefined;
@@ -120,16 +146,31 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
       .catch(() => {});
   }, [session, canPay, paymentWindow]);
 
+  // F2 (AP10): SEM gate de papel — o card só monta no desktop (já não-PROSPECTOR).
+  // Mesma janela dos pagamentos. Re-busca em focus/visibility e após "Gerar aprovação"
+  // (aí o lembrete some, pois o contrato passa a ter linha no approval_label_log).
+  const fetchApprovalEvents = useCallback(() => {
+    if (!paymentWindow) return;
+    if (!window.matchMedia('(min-width: 901px)').matches) return;
+    getDashboardApprovalEvents(session, paymentWindow)
+      .then((res) => setApprovalEvents(res.events))
+      .catch(() => {});
+  }, [session, paymentWindow]);
+
   useEffect(() => {
     fetchPaymentEvents();
-    const onFocusOrVisible = () => fetchPaymentEvents();
+    fetchApprovalEvents();
+    const onFocusOrVisible = () => {
+      fetchPaymentEvents();
+      fetchApprovalEvents();
+    };
     window.addEventListener('focus', onFocusOrVisible);
     document.addEventListener('visibilitychange', onFocusOrVisible);
     return () => {
       window.removeEventListener('focus', onFocusOrVisible);
       document.removeEventListener('visibilitychange', onFocusOrVisible);
     };
-  }, [fetchPaymentEvents]);
+  }, [fetchPaymentEvents, fetchApprovalEvents]);
 
   // Q.print: card "Impressao pendente" cortado definitivamente (decisao
   // Q.1.c #20). PrintJob agora vive como informacao auxiliar dentro do
@@ -200,7 +241,7 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
             </div>
           </div>
           <EventsCalendarCard
-            events={paymentEvents}
+            events={calendarEvents}
             canManage={canPay}
             onWindowChange={handleWindowChange}
             onPagar={(evt) => {
@@ -210,6 +251,13 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
                 expectedVersion: evt.version,
                 contractNumber: evt.contractNumber ?? '',
               });
+            }}
+            onGerarAprovacao={(evt) => {
+              if (evt.contractId == null) return;
+              const contractId = evt.contractId;
+              getApprovalLabelPrefill(session, contractId)
+                .then((prefill) => setApprovalForm({ contractId, prefill }))
+                .catch(() => {});
             }}
           />
         </div>
@@ -235,6 +283,20 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
             setLifecycle(null);
             fetchPaymentEvents();
             toast.success({ title: 'Pagamento registrado' });
+          }}
+        />
+      ) : null}
+
+      {approvalForm ? (
+        <ApprovalLabelModal
+          open
+          session={session}
+          prefill={approvalForm.prefill}
+          saleContractId={approvalForm.contractId}
+          onBack={null}
+          onClose={() => {
+            setApprovalForm(null);
+            fetchApprovalEvents();
           }}
         />
       ) : null}

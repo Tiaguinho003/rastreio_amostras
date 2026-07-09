@@ -30,6 +30,8 @@ interface EventsCalendarCardProps {
   canManage?: boolean;
   /** Abre a dialog "Pago" no pai (E26); só em eventos FATURADO. */
   onPagar?: (event: CalendarEvent) => void;
+  /** Abre o modal "Gerar aprovação" no pai (F2/AP7); só em eventos contract_approval_due. */
+  onGerarAprovacao?: (event: CalendarEvent) => void;
   /** Emite a quinzena visível (from..to 'YYYY-MM-DD') pro pai buscar o feed (E24). */
   onWindowChange?: (from: string, to: string) => void;
 }
@@ -54,6 +56,7 @@ export function EventsCalendarCard({
   events = {},
   canManage = false,
   onPagar,
+  onGerarAprovacao,
   onWindowChange,
 }: EventsCalendarCardProps) {
   const today = useMemo(() => getBrtToday(), []);
@@ -234,6 +237,8 @@ export function EventsCalendarCard({
             {selectedEvents.map((event) => {
               const isOpen = expandedId === event.id;
               const canPay = event.status === 'FATURADO' && canManage && Boolean(onPagar);
+              const canGerar =
+                event.typeKey === 'contract_approval_due' && Boolean(onGerarAprovacao);
               return (
                 <li key={event.id} className="dd-events-panel-item" data-type={event.typeKey}>
                   <button
@@ -277,6 +282,15 @@ export function EventsCalendarCard({
                             onClick={() => onPagar?.(event)}
                           >
                             Pago
+                          </button>
+                        ) : null}
+                        {canGerar ? (
+                          <button
+                            type="button"
+                            className="dd-events-item-btn dd-events-item-btn-primary"
+                            onClick={() => onGerarAprovacao?.(event)}
+                          >
+                            Gerar aprovação
                           </button>
                         ) : null}
                         {event.contractId ? (

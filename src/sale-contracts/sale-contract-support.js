@@ -455,6 +455,76 @@ export function bucketPaymentEvents(dueRows, paidRows) {
   return byDay;
 }
 
+// F2 (reforma AP6/AP14): select do feed do "lembrete de aprovacao" — pendentes que
+// precisam de aprovacao (requiresApproval + EMITIDO, sem etiqueta). Alem dos nomes das
+// partes (acordeao), carrega invoiceDate + o lead pra calcular o inicio do lembrete.
+export const APPROVAL_REMINDER_SELECT = Object.freeze({
+  id: true,
+  contractNumber: true,
+  invoiceDate: true,
+  approvalReminderLeadDays: true,
+  buyerSnapshot: true,
+  sellerSnapshot: true,
+});
+
+// Aritmetica de dia em UTC (date-only, sem DST) — espelho do addDays do
+// lib/dashboard-calendar.ts (frontend), que o backend nao tem. Usado no fan-out.
+function addDaysUtc(date, days) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
+}
+
+function dayKeyFromDate(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+// F2 (AP6/AP7/AP15): projeta 1 contrato pendente num evento de "lembrete de aprovacao".
+// id NAMESPACED ('reminder:'+contractId) pra NAO colidir com o contract_payment_due do
+// MESMO contrato/dia (o card usa key={event.id}). label recolhido = "a enviar · nº ·
+// comprador" (AP15). contractId separado alimenta "Gerar aprovacao" / "Ver contrato".
+export function buildApprovalReminderEvent(row) {
+  const buyerName = row.buyerSnapshot?.displayName ?? null;
+  const sellerName = row.sellerSnapshot?.displayName ?? null;
+  const label = buyerName
+    ? `a enviar · ${row.contractNumber} · ${buyerName}`
+    : `a enviar · ${row.contractNumber}`;
+  return {
+    id: `reminder:${row.id}`,
+    contractId: row.id,
+    typeKey: 'contract_approval_due',
+    label,
+    contractNumber: row.contractNumber,
+    buyerName,
+    sellerName,
+    status: 'EMITIDO',
+  };
+}
+
+// F2 (AP6): fan-out 1→N (o bucketPaymentEvents e 1→1, nao serve). O lembrete aparece em
+// CADA dia de [max(from, hoje, invoiceDate−lead), to] — "so de hoje pra frente" (nao
+// pinta passado; navegar pra tras nao mostra nada) + so a partir de invoiceDate−lead.
+// dayKeys 'YYYY-MM-DD' comparam como string (= cronologico). Retorna Record<dayKey, ev[]>.
+export function bucketApprovalReminders(rows, { fromKey, toKey, todayKey }) {
+  const byDay = {};
+  const lowerFloor = fromKey > todayKey ? fromKey : todayKey; // max(from, hoje)
+  for (const row of rows) {
+    if (!row.invoiceDate) continue;
+    const lead = row.approvalReminderLeadDays ?? 0;
+    const reminderStartKey = dayKeyFromDate(addDaysUtc(new Date(row.invoiceDate), -lead));
+    const lowerKey = lowerFloor > reminderStartKey ? lowerFloor : reminderStartKey;
+    if (lowerKey > toKey) continue; // lembrete comeca depois da janela visivel / no passado
+    const event = buildApprovalReminderEvent(row);
+    let cursor = new Date(`${lowerKey}T00:00:00.000Z`);
+    const end = new Date(`${toKey}T00:00:00.000Z`);
+    while (cursor.getTime() <= end.getTime()) {
+      const key = dayKeyFromDate(cursor);
+      if (byDay[key]) byDay[key].push(event);
+      else byDay[key] = [event];
+      cursor = addDaysUtc(cursor, 1);
+    }
+  }
+  return byDay;
+}
+
 // ===========================================================================
 // Etapa 2 (Fase B.2 Passo 2): validacao dos campos da "Gerar documento" +
 // snapshots das partes/banco/armazens. A RESOLUCAO no banco (entidades existem,

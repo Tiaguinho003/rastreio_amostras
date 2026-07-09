@@ -189,7 +189,7 @@ como pago** e um **link para o contrato**. Só decisão — implementação = F1
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
 | **F0** | Card shell no dashboard desktop: grade 2 semanas + navegação + painel do dia + vazio E19, SEM backend de eventos (lista sempre vazia)                                                                                                                                                                         | 📱 implementada (`9a66cd8`); validar no device  |
 | **F1** | **Pagamentos de contrato** (E21–E27, 2026-07-08): endpoint escopado + feed + dots + **evento expansível** (nº·comprador·vendedor·status) com atalho **"Pago"** (só FATURADO) + **"Ver contrato"**                                                                                                             | 📱 implementada (2026-07-08); validar no device |
-| **F2** | **Aprovação** (lembrete de envio): decisões em `Aprovacoes-Plano-de-Trabalho.md` (**AP6** lembrete lead-time → evento diário até gerar, some ao faturar; **AP7** atalho "Gerar aprovação" no expandido; **AP10** todos os não-PROSPECTOR veem; dot **laranja `#f97316`**). Só decisão, desenho lógico fechado | 🟡 decidido (2026-07-09); implementar           |
+| **F2** | **Aprovação** (lembrete de envio): endpoint `GET /api/v1/dashboard/approval-events` (fan-out por intervalo, de hoje pra frente); dot **laranja `#f97316`** `contract_approval_due`, rótulo "a enviar · nº · comprador"; expandido com **"Gerar aprovação"** (reusa `ApprovalLabelModal`); **todos os não-PROSPECTOR veem** (AP10). Some ao gerar/faturar | 📱 implementada (2026-07-09); validar no device |
 | F3+    | Outros tipos de evento (embarques, entregas… — a definir; cada um = rodada própria de decisões + backend + catálogo)                                                                                                                                                                                          | ⬜                                              |
 
 ## Pendências
@@ -199,9 +199,9 @@ como pago** e um **link para o contrato**. Só decisão — implementação = F1
   **2ª entrada (F2, 2026-07-09):** **lembrete de aprovação** (um só sub-tipo, "a enviar") —
   dot **laranja `#f97316`** (decidido; distinto do amarelo `#eab308` do pagamento agendado, regra E5 =
   1 cor por tipo; laranja ≠ vermelho → sem falso "atrasado", coerente com AP6). `typeKey`
-  `contract_approval_due` (proposto, a confirmar no visual). **Rótulo do item recolhido =
-  "a enviar"** (AP15; nº/comprador/vendedor no expandido — AP7). Decisões em
-  `Aprovacoes-Plano-de-Trabalho.md` (AP6/AP7/AP15). **Demais tipos seguem em aberto** (E11).
+  `contract_approval_due` (**implementado na F2, 2026-07-09**). **Rótulo do item recolhido =
+  "a enviar · nº · comprador"** (AP15 + distinção; nº/comprador/vendedor completos no expandido — AP7).
+  Decisões em `Aprovacoes-Plano-de-Trabalho.md` (AP6/AP7/AP15). **Demais tipos seguem em aberto** (E11).
 - **EVD-P2** — Modelo de dados / fonte dos eventos. **✅ RESOLVIDA (E24)** para o tipo pagamento: **endpoint
   do dashboard escopado** consultando o `SaleContract` (sem tabela nova). _(Tipos futuros podem ter fonte
   própria — reabrir por tipo.)_
@@ -260,3 +260,19 @@ como pago** e um **link para o contrato**. Só decisão — implementação = F1
   migra agendado→realizado); `/contratos` ganhou `?details=<id>` + `<Suspense>`. Dots âmbar/verde.
   Gates verdes + unit (`buildPaymentEvent`/`bucketPaymentEvents`) + integração (escopo/janela/WASH_OUT/
   dayKey). 📱 falta validação no device. Ver **D138** no doc de Contratos.
+- **2026-07-09 (F2 implementada) — 2º tipo de evento: lembrete de aprovação.** Plan mode com análise (3
+  Explore + design). **Backend:** endpoint SEPARADO do de pagamentos (visibilidade diferente) —
+  `SaleContractService.getDashboardApprovalEvents({from,to}, actor)` (só `assertAuthenticatedActor`, **SEM
+  gate de papel** — todos os não-PROSPECTOR; pendente = `requiresApproval` + `EMITIDO` + anti-join `groupBy`
+  em `approval_label_log` "sem etiqueta"); helpers puros `buildApprovalReminderEvent` (id **namespaced**
+  `reminder:` — evita colisão de key com o pagamento do mesmo dia) + `bucketApprovalReminders` (**fan-out
+  1→N**: pinta o dot em cada dia de `[max(hoje, invoiceDate−lead), to]` — **só de hoje pra frente**);
+  handler + rota `GET /api/v1/dashboard/approval-events`; migration `20260709130000` (índice
+  `[requiresApproval, status, invoiceDate]`). **Front:** `EventsCalendarCard` ganhou a prop
+  `onGerarAprovacao` + o botão **"Gerar aprovação"** no acordeão (só `contract_approval_due`); dot laranja
+  `#f97316` (CSS); `DashboardDesktop` busca o feed de aprovação (mesma janela, **sem `canPay`**), **merge
+  client-side** com os pagamentos, e abre o `ApprovalLabelModal` pré-preenchido (molde do `openApproval` do
+  /contratos) — ao gerar, o lembrete some (passa a ter linha no log). Rótulo "a enviar · nº · comprador".
+  Gates verdes + unit (`buildApprovalReminderEvent`/`bucketApprovalReminders`) + integração
+  (pendente/anti-join/visibilidade por papel). 📱 falta validação no device. Ver F2/AP6-AP15 no doc de
+  Aprovações.
