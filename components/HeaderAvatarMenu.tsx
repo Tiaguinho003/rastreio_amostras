@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { FINANCEIRO_ROLES, getRoleLabel, isAdmin, isRoleAllowed } from '../lib/roles';
+import { CONTRATOS_ROLES, getRoleLabel, isAdmin, isRoleAllowed } from '../lib/roles';
 import type { SessionData } from '../lib/types';
 import { BottomSheet } from './BottomSheet';
 import { UserAvatar } from './UserAvatar';
@@ -123,7 +123,7 @@ export function HeaderAvatarMenu({ session, onLogout }: HeaderAvatarMenuProps) {
               </button>
             ) : null}
 
-            {isAdmin(session.user.role) ? (
+            {isRoleAllowed(session.user.role, CONTRATOS_ROLES) ? (
               <button
                 type="button"
                 className="header-avatar-menu-row"
@@ -136,21 +136,6 @@ export function HeaderAvatarMenu({ session, onLogout }: HeaderAvatarMenuProps) {
                   <path d="M9 17h5" />
                 </svg>
                 <span className="header-avatar-menu-row-label">Contratos</span>
-              </button>
-            ) : null}
-
-            {isRoleAllowed(session.user.role, FINANCEIRO_ROLES) ? (
-              <button
-                type="button"
-                className="header-avatar-menu-row"
-                onClick={() => go('/financeiro')}
-              >
-                <svg className="header-avatar-menu-row-icon" viewBox="0 0 24 24" aria-hidden="true">
-                  <rect x="3" y="6" width="18" height="12" rx="2" />
-                  <circle cx="12" cy="12" r="2.5" />
-                  <path d="M6.5 9.5h.01M17.5 14.5h.01" />
-                </svg>
-                <span className="header-avatar-menu-row-label">Financeiro</span>
               </button>
             ) : null}
 
