@@ -39,6 +39,7 @@ function validEtapa2() {
     packagingId: UUID_4,
     invoiceDate: '2026-07-10',
     paymentDate: '2026-07-20',
+    requiresApproval: false,
   };
 }
 
@@ -247,6 +248,8 @@ test('normalizeEtapa2Input: válido passa, datas viram Date, opcionais null', ()
   assert.equal(out.weightKg, null);
   assert.equal(out.agioDesagioType, null);
   assert.equal(out.agioDesagioValue, null);
+  assert.equal(out.requiresApproval, false);
+  assert.equal(out.approvalReminderLeadDays, null);
 });
 
 test('normalizeEtapa2Input: obrigatórios faltando lançam 422', () => {
@@ -283,6 +286,52 @@ test('normalizeEtapa2Input: ágio exige valor > 0 e tipo válido', () => {
   assert.throws(
     () => normalizeEtapa2Input({ ...validEtapa2(), agioDesagioType: 'AGIO', agioDesagioValue: 0 }),
     /greater than zero/
+  );
+});
+
+test('normalizeEtapa2Input: aprovação obrigatória + lembrete 1..365 (default 30)', () => {
+  // AP3: escolher é obrigatório (booleano).
+  assert.throws(
+    () => normalizeEtapa2Input({ ...validEtapa2(), requiresApproval: undefined }),
+    /requiresApproval/
+  );
+  // "Não": o lembrete é ignorado e gravado null (mesmo que venha valor).
+  const nao = normalizeEtapa2Input({
+    ...validEtapa2(),
+    requiresApproval: false,
+    approvalReminderLeadDays: 45,
+  });
+  assert.equal(nao.requiresApproval, false);
+  assert.equal(nao.approvalReminderLeadDays, null);
+  // "Sim" sem valor: default 30.
+  const simDefault = normalizeEtapa2Input({ ...validEtapa2(), requiresApproval: true });
+  assert.equal(simDefault.requiresApproval, true);
+  assert.equal(simDefault.approvalReminderLeadDays, 30);
+  // "Sim" com valor válido no intervalo.
+  const sim = normalizeEtapa2Input({
+    ...validEtapa2(),
+    requiresApproval: true,
+    approvalReminderLeadDays: 45,
+  });
+  assert.equal(sim.approvalReminderLeadDays, 45);
+  // Fora de 1..365 → 422.
+  assert.throws(
+    () =>
+      normalizeEtapa2Input({
+        ...validEtapa2(),
+        requiresApproval: true,
+        approvalReminderLeadDays: 0,
+      }),
+    /between 1 and 365/
+  );
+  assert.throws(
+    () =>
+      normalizeEtapa2Input({
+        ...validEtapa2(),
+        requiresApproval: true,
+        approvalReminderLeadDays: 366,
+      }),
+    /between 1 and 365/
   );
 });
 

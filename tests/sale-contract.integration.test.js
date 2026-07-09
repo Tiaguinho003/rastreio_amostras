@@ -217,6 +217,7 @@ if (!databaseUrl || !databaseReachable) {
       paymentDate: '2026-07-20',
       purchaseNumber: 'NF-123',
       observations: 'OBS',
+      requiresApproval: false,
       ...overrides,
     };
   }
@@ -289,6 +290,7 @@ if (!databaseUrl || !databaseReachable) {
         packagingId: lookups.packaging.id,
         invoiceDate: '2026-07-10',
         paymentDate: '2026-07-20',
+        requiresApproval: false,
         ...overrides,
       },
       adminActor
@@ -1854,6 +1856,7 @@ if (!databaseUrl || !databaseReachable) {
       packagingId: lookups.packaging.id,
       invoiceDate: '2026-07-10',
       paymentDate: '2026-07-20',
+      requiresApproval: false,
       ...overrides,
     };
   }
@@ -1880,6 +1883,41 @@ if (!databaseUrl || !databaseReachable) {
 
     // nenhuma venda/movimento criado
     assert.equal((await prisma.sampleMovement.findMany()).length, 0);
+  });
+
+  test('futuro: aprovação (AP1/AP6) grava/lê sinal + lembrete; "Não" zera; Editar alterna', async () => {
+    const buyerId = randomUUID();
+    await createBuyerClient(buyerId);
+
+    // "Sim" + lembrete 45 → persiste e volta na leitura.
+    const sim = await saleContractService.createFutureSaleContract(
+      await createFutureInput(buyerId, { requiresApproval: true, approvalReminderLeadDays: 45 }),
+      adminActor
+    );
+    assert.equal(sim.contract.requiresApproval, true);
+    assert.equal(sim.contract.approvalReminderLeadDays, 45);
+
+    // "Não" ignora o valor enviado → grava null.
+    const nao = await saleContractService.createFutureSaleContract(
+      await createFutureInput(buyerId, { requiresApproval: false, approvalReminderLeadDays: 45 }),
+      adminActor
+    );
+    assert.equal(nao.contract.requiresApproval, false);
+    assert.equal(nao.contract.approvalReminderLeadDays, null);
+
+    // Editar (emit) liga a aprovação com lembrete 10.
+    const edit = await saleContractService.emitSaleContract(
+      nao.contract.id,
+      etapa2Payload({
+        bankAccountId: nao.contract.sellerBankAccountId,
+        lookups: await fetchLookups(),
+        expectedVersion: nao.contract.version,
+        overrides: { requiresApproval: true, approvalReminderLeadDays: 10 },
+      }),
+      adminActor
+    );
+    assert.equal(edit.contract.requiresApproval, true);
+    assert.equal(edit.contract.approvalReminderLeadDays, 10);
   });
 
   test('futuro: numero continua a sequencia global (a vista + futuro)', async () => {

@@ -185,17 +185,23 @@ como pago** e um **link para o contrato**. Só decisão — implementação = F1
 
 ## Fases
 
-| Fase   | Tema                                                                                                                                                                                              | Status                                          |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| **F0** | Card shell no dashboard desktop: grade 2 semanas + navegação + painel do dia + vazio E19, SEM backend de eventos (lista sempre vazia)                                                             | 📱 implementada (`9a66cd8`); validar no device  |
-| **F1** | **Pagamentos de contrato** (E21–E27, 2026-07-08): endpoint escopado + feed + dots + **evento expansível** (nº·comprador·vendedor·status) com atalho **"Pago"** (só FATURADO) + **"Ver contrato"** | 📱 implementada (2026-07-08); validar no device |
-| F2+    | Outros tipos de evento (embarques, entregas, aprovações… — a definir; cada um = rodada própria de decisões + backend + catálogo)                                                                  | ⬜                                              |
+| Fase   | Tema                                                                                                                                                                                                                                                                                                          | Status                                          |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| **F0** | Card shell no dashboard desktop: grade 2 semanas + navegação + painel do dia + vazio E19, SEM backend de eventos (lista sempre vazia)                                                                                                                                                                         | 📱 implementada (`9a66cd8`); validar no device  |
+| **F1** | **Pagamentos de contrato** (E21–E27, 2026-07-08): endpoint escopado + feed + dots + **evento expansível** (nº·comprador·vendedor·status) com atalho **"Pago"** (só FATURADO) + **"Ver contrato"**                                                                                                             | 📱 implementada (2026-07-08); validar no device |
+| **F2** | **Aprovação** (lembrete de envio): decisões em `Aprovacoes-Plano-de-Trabalho.md` (**AP6** lembrete lead-time → evento diário até gerar, some ao faturar; **AP7** atalho "Gerar aprovação" no expandido; **AP10** todos os não-PROSPECTOR veem; dot **laranja `#f97316`**). Só decisão, desenho lógico fechado | 🟡 decidido (2026-07-09); implementar           |
+| F3+    | Outros tipos de evento (embarques, entregas… — a definir; cada um = rodada própria de decisões + backend + catálogo)                                                                                                                                                                                          | ⬜                                              |
 
 ## Pendências
 
-- **EVD-P1** — Catálogo de tipos de evento + cores dos dots. **1ª entrada iniciada (E21):** pagamentos de
-  contrato (`contract_payment_due` âmbar / `contract_payment_paid` verde); **demais tipos seguem em aberto**
-  (E11).
+- **EVD-P1** — Catálogo de tipos de evento + cores dos dots. **1ª entrada (E21):** pagamentos de
+  contrato (`contract_payment_due` amarelo `#eab308` / `contract_payment_paid` verde `#15803d`).
+  **2ª entrada (F2, 2026-07-09):** **lembrete de aprovação** (um só sub-tipo, "a enviar") —
+  dot **laranja `#f97316`** (decidido; distinto do amarelo `#eab308` do pagamento agendado, regra E5 =
+  1 cor por tipo; laranja ≠ vermelho → sem falso "atrasado", coerente com AP6). `typeKey`
+  `contract_approval_due` (proposto, a confirmar no visual). **Rótulo do item recolhido =
+  "a enviar"** (AP15; nº/comprador/vendedor no expandido — AP7). Decisões em
+  `Aprovacoes-Plano-de-Trabalho.md` (AP6/AP7/AP15). **Demais tipos seguem em aberto** (E11).
 - **EVD-P2** — Modelo de dados / fonte dos eventos. **✅ RESOLVIDA (E24)** para o tipo pagamento: **endpoint
   do dashboard escopado** consultando o `SaleContract` (sem tabela nova). _(Tipos futuros podem ter fonte
   própria — reabrir por tipo.)_

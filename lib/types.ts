@@ -411,6 +411,9 @@ export interface SaleContract {
   paidAt: string | null;
   observations: string | null;
   description: string | null;
+  // Aprovacao (reforma AP1/AP6): sinal + lembrete (dias antes do faturamento).
+  requiresApproval: boolean;
+  approvalReminderLeadDays: number | null;
   version: number;
   createdAt: string | null;
   updatedAt: string | null;
@@ -470,6 +473,9 @@ export interface CreateSaleContractInput {
   weightKg?: number | null;
   agioDesagioType?: AgioDesagioType | null;
   agioDesagioValue?: number | null;
+  // Aprovacao (reforma AP1/AP6): sinal obrigatorio + lembrete (opcional; so quando Sim).
+  requiresApproval: boolean;
+  approvalReminderLeadDays?: number | null;
 }
 
 export interface SaleContractListResponse {
@@ -576,6 +582,9 @@ export interface SaleContractEtapa2Input {
   weightKg?: number | null;
   agioDesagioType?: AgioDesagioType | null;
   agioDesagioValue?: number | null;
+  // Aprovacao (reforma AP1/AP6): sinal obrigatorio + lembrete (opcional; so quando Sim).
+  requiresApproval: boolean;
+  approvalReminderLeadDays?: number | null;
   // "Editar": fase 1 (venda). Ausente no wizard create->emit.
   saleFields?: SaleContractSaleFieldsInput;
 }

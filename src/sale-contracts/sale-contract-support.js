@@ -310,6 +310,8 @@ export const SALE_CONTRACT_VIEW_SELECT = Object.freeze({
   paidAt: true,
   observations: true,
   description: true,
+  requiresApproval: true,
+  approvalReminderLeadDays: true,
   version: true,
   createdAt: true,
   updatedAt: true,
@@ -363,6 +365,8 @@ export function toSaleContractView(row) {
     paidAt: toIsoString(row.paidAt),
     observations: row.observations ?? null,
     description: row.description ?? null,
+    requiresApproval: row.requiresApproval,
+    approvalReminderLeadDays: row.approvalReminderLeadDays ?? null,
     version: row.version,
     createdAt: toIsoString(row.createdAt),
     updatedAt: toIsoString(row.updatedAt),
@@ -508,6 +512,48 @@ function normalizeSacks(value, fieldName = 'quantitySacks') {
       code: 'VALIDATION_ERROR',
       field: fieldName,
     });
+  }
+  return value;
+}
+
+// Sinal de aprovacao (reforma AP1/AP3): obrigatorio escolher na criacao/edicao.
+function normalizeRequiredBoolean(value, fieldName) {
+  if (typeof value !== 'boolean') {
+    throw new HttpError(422, `${fieldName} must be a boolean`, {
+      code: 'VALIDATION_ERROR',
+      field: fieldName,
+    });
+  }
+  return value;
+}
+
+// Lembrete de aprovacao (AP6): so vale quando requiresApproval. Inteiro de 1 a 365
+// dias (default 30 quando ausente). Quando nao precisa, ignora o valor e grava null.
+const APPROVAL_REMINDER_LEAD_DAYS_DEFAULT = 30;
+const APPROVAL_REMINDER_LEAD_DAYS_MIN = 1;
+const APPROVAL_REMINDER_LEAD_DAYS_MAX = 365;
+
+function normalizeApprovalReminderLeadDays(
+  value,
+  requiresApproval,
+  fieldName = 'approvalReminderLeadDays'
+) {
+  if (!requiresApproval) {
+    return null;
+  }
+  if (value === undefined || value === null) {
+    return APPROVAL_REMINDER_LEAD_DAYS_DEFAULT;
+  }
+  if (
+    !Number.isInteger(value) ||
+    value < APPROVAL_REMINDER_LEAD_DAYS_MIN ||
+    value > APPROVAL_REMINDER_LEAD_DAYS_MAX
+  ) {
+    throw new HttpError(
+      422,
+      `${fieldName} must be an integer between ${APPROVAL_REMINDER_LEAD_DAYS_MIN} and ${APPROVAL_REMINDER_LEAD_DAYS_MAX}`,
+      { code: 'VALIDATION_ERROR', field: fieldName }
+    );
   }
   return value;
 }
@@ -678,6 +724,7 @@ function normalizeSaleFields(raw) {
 
 export function normalizeEtapa2Input(input) {
   const agio = normalizeAgio(input ?? {});
+  const requiresApproval = normalizeRequiredBoolean(input?.requiresApproval, 'requiresApproval');
   return {
     // fase 1 (venda) editavel — null quando nao se esta editando a venda
     saleFields: normalizeSaleFields(input?.saleFields),
@@ -707,6 +754,12 @@ export function normalizeEtapa2Input(input) {
     weightKg: optionalWeight(input?.weightKg),
     agioDesagioType: agio.agioDesagioType,
     agioDesagioValue: agio.agioDesagioValue,
+    // Aprovacao (reforma AP1/AP6): sinal obrigatorio + lembrete (null quando "Nao").
+    requiresApproval,
+    approvalReminderLeadDays: normalizeApprovalReminderLeadDays(
+      input?.approvalReminderLeadDays,
+      requiresApproval
+    ),
   };
 }
 

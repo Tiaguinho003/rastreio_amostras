@@ -1303,6 +1303,11 @@ export class SaleContractService {
       paymentDate: etapa2.paymentDate,
       observations: etapa2.observations,
       description: etapa2.description,
+      // Aprovacao (reforma AP1/AP6): sinal + lembrete ja resolvidos no
+      // normalizeEtapa2Input (null quando "Nao"). Cobre criar-futuro, criar-a-vista
+      // e editar de uma vez (todos derivam o data daqui).
+      requiresApproval: etapa2.requiresApproval,
+      approvalReminderLeadDays: etapa2.approvalReminderLeadDays,
     };
 
     return { data };

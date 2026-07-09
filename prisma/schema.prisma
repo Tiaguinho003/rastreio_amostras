@@ -857,6 +857,12 @@ model SaleContract {
   invoicedAt DateTime? @map("invoiced_at") @db.Date
   paidAt     DateTime? @map("paid_at") @db.Date
 
+  // Aprovacao (reforma AP1/AP6): sinaliza se o contrato precisa de aprovacao e,
+  // quando sim, quantos dias antes do invoiceDate lembrar de enviar. Lidos so na
+  // Fase 2 (lembrete no card de Eventos). Existentes = false via default.
+  requiresApproval         Boolean @default(false) @map("requires_approval")
+  approvalReminderLeadDays Int?    @map("approval_reminder_lead_days")
+
   // Textos / meta
   observations String?
   description  String?

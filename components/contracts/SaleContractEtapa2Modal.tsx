@@ -149,6 +149,10 @@ export function SaleContractEtapa2Modal({
   const [paymentDate, setPaymentDate] = useState('');
   const [observations, setObservations] = useState('');
   const [description, setDescription] = useState('');
+  // Aprovacao (reforma AP1/AP6): sinal obrigatorio (null = nao escolhido, trava a
+  // conclusao) + lembrete em dias (string, molde weightKg; so vale quando "Sim").
+  const [requiresApproval, setRequiresApproval] = useState<boolean | null>(null);
+  const [approvalReminderLeadDays, setApprovalReminderLeadDays] = useState('30');
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -237,6 +241,10 @@ export function SaleContractEtapa2Modal({
         setPaymentDate(dateInputValue(c.paymentDate));
         setObservations(c.observations ?? '');
         setDescription(c.description ?? '');
+        setRequiresApproval(c.requiresApproval);
+        setApprovalReminderLeadDays(
+          c.approvalReminderLeadDays != null ? String(c.approvalReminderLeadDays) : '30'
+        );
         setSellerUnitId(c.sellerUnitId ?? '');
         setBuyerUnitId(c.buyerUnitId ?? '');
         setBankAccountId(c.sellerBankAccountId ?? '');
@@ -409,6 +417,18 @@ export function SaleContractEtapa2Modal({
       setError('Informe a data de pagamento.');
       return;
     }
+    // Aprovacao (AP3): escolha obrigatoria. Quando "Sim", o lembrete e 1..365 dias.
+    if (requiresApproval == null) {
+      setError('Escolha se o contrato precisa de aprovação.');
+      return;
+    }
+    if (requiresApproval) {
+      const lead = Number(approvalReminderLeadDays);
+      if (!approvalReminderLeadDays.trim() || !Number.isInteger(lead) || lead < 1 || lead > 365) {
+        setError('Informe o lembrete entre 1 e 365 dias.');
+        return;
+      }
+    }
     if (agioType !== '' && !agioValue.trim()) {
       setError('Informe o valor do ágio/deságio.');
       return;
@@ -461,6 +481,8 @@ export function SaleContractEtapa2Modal({
       brokerIds: saleBrokerIds,
     };
 
+    // Lembrete (AP6): dias só quando precisa de aprovação; null quando "Não".
+    const leadDaysPayload = requiresApproval ? Number(approvalReminderLeadDays) : null;
     setSaving(true);
     setError(null);
     const payload: SaleContractEtapa2Input = {
@@ -484,6 +506,8 @@ export function SaleContractEtapa2Modal({
       weightKg: weightKg.trim() ? parseDecimalBr(weightKg) : null,
       agioDesagioType: agioType || null,
       agioDesagioValue: agioType ? parseCurrencyInput(agioValue) : null,
+      requiresApproval,
+      approvalReminderLeadDays: leadDaysPayload,
       // À vista/Futuro: a fase 1 vai na venda/contrato (não no emit).
       saleFields: isCreateLike ? undefined : saleFieldsPayload,
     };
@@ -525,6 +549,8 @@ export function SaleContractEtapa2Modal({
           weightKg: weightKg.trim() ? parseDecimalBr(weightKg) : null,
           agioDesagioType: agioType || null,
           agioDesagioValue: agioType ? parseCurrencyInput(agioValue) : null,
+          requiresApproval,
+          approvalReminderLeadDays: leadDaysPayload,
         };
         if (futureCreate) {
           await createFutureSaleContract(session, { type: 'FUTURO', ...createBody });
@@ -1080,6 +1106,64 @@ export function SaleContractEtapa2Modal({
                       />
                     </label>
                   </div>
+                </div>
+
+                <div className="ctr-block">
+                  {/* Aprovação (reforma AP1/AP6) */}
+                  <p className="ctr-section-title">Aprovação</p>
+
+                  <div className="app-modal-field">
+                    <span className="app-modal-label">Este contrato precisa de aprovação?</span>
+                    <div
+                      className="ctr-approval-choice"
+                      role="group"
+                      aria-label="Precisa de aprovação?"
+                    >
+                      <button
+                        type="button"
+                        className={`ctr-approval-btn${requiresApproval === true ? ' is-selected' : ''}`}
+                        aria-pressed={requiresApproval === true}
+                        disabled={disabled}
+                        onClick={() => {
+                          setRequiresApproval(true);
+                          setError(null);
+                        }}
+                      >
+                        Sim
+                      </button>
+                      <button
+                        type="button"
+                        className={`ctr-approval-btn${requiresApproval === false ? ' is-selected' : ''}`}
+                        aria-pressed={requiresApproval === false}
+                        disabled={disabled}
+                        onClick={() => {
+                          setRequiresApproval(false);
+                          setError(null);
+                        }}
+                      >
+                        Não
+                      </button>
+                    </div>
+                  </div>
+
+                  {requiresApproval === true ? (
+                    <label className="app-modal-field">
+                      <span className="app-modal-label">
+                        Lembrar quantos dias antes do faturamento?
+                      </span>
+                      <input
+                        className="app-modal-input"
+                        inputMode="numeric"
+                        value={approvalReminderLeadDays}
+                        disabled={disabled}
+                        onChange={(event) => {
+                          setApprovalReminderLeadDays(event.target.value.replace(/[^0-9]/g, ''));
+                          setError(null);
+                        }}
+                        placeholder="30"
+                      />
+                    </label>
+                  ) : null}
                 </div>
 
                 <div className="ctr-block">
