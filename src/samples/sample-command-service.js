@@ -1495,7 +1495,6 @@ export class SampleCommandService {
     extractionService = null,
     formDetectionService = null,
     userService = null,
-    pushService = null,
   }) {
     this.eventService = eventService;
     this.queryService = queryService;
@@ -1504,7 +1503,6 @@ export class SampleCommandService {
     this.extractionService = extractionService;
     this.formDetectionService = formDetectionService;
     this.userService = userService;
-    this.pushService = pushService;
   }
 
   // Valida e monta snapshots dos classificadores server-side. Recebe lista
@@ -2892,8 +2890,6 @@ export class SampleCommandService {
         saleContractInput,
         saleContractEmitData: input.saleContractEmitData,
       });
-      // Notifica so a RAIZ da cascata (result.event e o evento da liga).
-      await this._notifyMovementCreated(cascadeResult, sample, actor);
       return cascadeResult;
     }
 
@@ -2960,48 +2956,13 @@ export class SampleCommandService {
           });
         }
       );
-      await this._notifyMovementCreated(result, sample, actor);
       return { ...result, saleContract };
     }
 
     const result = await this.eventService.appendEvent(event, {
       expectedVersion: input.expectedVersion,
     });
-    await this._notifyMovementCreated(result, sample, actor);
     return result;
-  }
-
-  // Side-effect fire-and-forget (padrao Q.auto): notifica Administracao +
-  // Comercial sobre a venda/perda registrada. Guard de replay: appendEvent
-  // devolve idempotent=true quando a idempotencyKey ja existia — replay nao
-  // re-notifica. Le os dados do result.event.payload (uniforme entre o
-  // caminho normal e a raiz da cascata de liga). Nunca quebra o request.
-  async _notifyMovementCreated(result, sample, actor) {
-    if (!this.pushService || !result?.event || result.idempotent) {
-      return;
-    }
-
-    try {
-      const payload = result.event.payload ?? {};
-      const isSale = payload.movementType === MOVEMENT_TYPES.SALE;
-      const lot = sample.internalLotNumber ?? 'sem lote';
-
-      await this.pushService.sendToRoles(
-        ['ADMIN', 'COMMERCIAL'],
-        {
-          title: isSale ? 'Venda confirmada!' : 'Café perdido!',
-          body: isSale ? `Lote ${lot} vendido` : `Lote ${lot} indisponível`,
-          url: `/samples/${sample.id}`,
-          tag: `movement-${payload.movementId ?? result.event.eventId ?? 'new'}`,
-        },
-        { excludeUserId: actor?.actorUserId ?? null }
-      );
-    } catch (cause) {
-      console.error('[push] falha ao notificar movimentacao', {
-        sampleId: sample.id,
-        message: cause?.message ?? 'unknown',
-      });
-    }
   }
 
   // Liga A2.4 (Liga F7.1 + F7.4 + F7.5 recursivo + F7.6 + F7.7 + T0.D):

@@ -212,77 +212,8 @@ export function toVisitReportView(row) {
 }
 
 export class VisitReportService {
-  constructor({ prisma, pushService = null }) {
+  constructor({ prisma }) {
     this.prisma = prisma;
-    this.pushService = pushService;
-  }
-
-  // Side-effects fire-and-forget (padrao Q.auto): notificacoes SITUACIONAIS
-  // do informe — um formulario pode disparar 0, 1 ou 2 (as condicoes sao
-  // independentes; sem match = sem notificacao, o informe segue no /resumo).
-  // Nunca quebram o request — falha so loga. O replay idempotente da rota
-  // (withIdempotency) e curto-circuitado ANTES do service, entao este hook
-  // nao roda duas vezes pra mesma Idempotency-Key. Tags por informe: varias
-  // notificacoes nao lidas empilham na central em vez de se substituirem.
-  async _notifyVisitReportCreated(view, actorContext) {
-    if (!this.pushService) {
-      return;
-    }
-
-    const exclude = { excludeUserId: actorContext?.actorUserId ?? null };
-    const visitorName = view.user?.fullName ?? view.user?.username ?? 'Alguém';
-    const sends = [];
-
-    // Situacao 1 — visita promissora: tamanho (Medio OU Grande) E interesse
-    // Alto, as DUAS condicoes juntas.
-    const isPromising =
-      (view.farmSize === 'MEDIUM' || view.farmSize === 'LARGE') && view.interestLevel === 'HIGH';
-    if (isPromising) {
-      sends.push(
-        this.pushService.sendToRoles(
-          ['ADMIN'],
-          {
-            title: 'Nova visita promissora enviada',
-            body: `${visitorName} visitou um cliente promissor. Confira!`,
-            // Pagina "Relatorios" unificada (rota /informe; /resumo redireciona).
-            url: '/informe',
-            tag: `visit-promising-${view.id}`,
-          },
-          exclude
-        )
-      );
-    }
-
-    // Situacao 2 — cliente novo: independente das demais respostas.
-    if (view.clientKind === 'NEW') {
-      sends.push(
-        this.pushService.sendToRoles(
-          ['ADMIN'],
-          {
-            title: 'Novo cliente encontrado!',
-            body: 'Clique para ver os dados e cadastrá-lo',
-            // Pagina "Relatorios" unificada (rota /informe; /resumo redireciona).
-            url: '/informe',
-            tag: `visit-new-client-${view.id}`,
-          },
-          exclude
-        )
-      );
-    }
-
-    if (sends.length === 0) {
-      return;
-    }
-
-    const results = await Promise.allSettled(sends);
-    for (const result of results) {
-      if (result.status === 'rejected') {
-        console.error('[push] falha ao notificar informe de visita', {
-          reportId: view.id,
-          message: result.reason?.message ?? 'unknown',
-        });
-      }
-    }
   }
 
   // Cliente referenciavel por vinculo: precisa existir e estar ACTIVE
@@ -404,10 +335,7 @@ export class VisitReportService {
       },
     });
 
-    const view = toVisitReportView(created);
-    await this._notifyVisitReportCreated(view, actorContext);
-
-    return { report: view };
+    return { report: toVisitReportView(created) };
   }
 
   // Exclusao: APENAS o autor exclui o proprio informe (lixeira do dashboard

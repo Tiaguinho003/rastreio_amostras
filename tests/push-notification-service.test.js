@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { PushNotificationService } from '../src/push/push-notification-service.js';
-import { SampleCommandService } from '../src/samples/sample-command-service.js';
 
-// Unidade do PushNotificationService (prisma + webPushClient fakes) e do
-// guard de replay do hook de movimentacao.
+// Unidade do PushNotificationService (prisma + webPushClient fakes): o canal
+// de entrega e a inscricao do aparelho. Nenhuma notificacao concreta e
+// exercitada aqui — o catalogo esta vazio (ver docs/Notificacoes.md).
 
 const ACTOR = { actorUserId: '00000000-0000-0000-0000-000000000001', role: 'COMMERCIAL' };
 
@@ -172,67 +172,6 @@ test('removeSubscription: delete escopado ao ator', async () => {
   });
 });
 
-// Guard de replay do hook de movimentacao: idempotent=true (replay) NAO
-// notifica; resultado novo notifica com payload do evento (raiz da cascata).
-test('_notifyMovementCreated: notifica so resultado novo, nunca replay', async () => {
-  const notifications = [];
-  const fakePush = {
-    async sendToRoles(roles, message, options) {
-      notifications.push({ roles, message, options });
-      return { sent: 1, failed: 0, pruned: 0 };
-    },
-  };
-  const commandService = new SampleCommandService({
-    eventService: {},
-    queryService: {},
-    pushService: fakePush,
-  });
-
-  const sample = { id: 'sample-1', internalLotNumber: '5641' };
-  const freshResult = {
-    statusCode: 201,
-    idempotent: false,
-    event: {
-      eventId: 'evt-1',
-      payload: {
-        movementId: 'mov-1',
-        movementType: 'SALE',
-        quantitySacks: 25,
-        buyerClientSnapshot: { displayName: 'Atlantica' },
-      },
-    },
-  };
-
-  await commandService._notifyMovementCreated(freshResult, sample, ACTOR);
-  assert.equal(notifications.length, 1);
-  assert.deepEqual(notifications[0].roles, ['ADMIN', 'COMMERCIAL']);
-  assert.equal(notifications[0].message.title, 'Venda confirmada!');
-  assert.equal(notifications[0].message.body, 'Lote 5641 vendido');
-  assert.equal(notifications[0].message.url, '/samples/sample-1');
-  assert.equal(notifications[0].options.excludeUserId, ACTOR.actorUserId);
-
-  // Replay idempotente: nada novo.
-  await commandService._notifyMovementCreated({ ...freshResult, idempotent: true }, sample, ACTOR);
-  assert.equal(notifications.length, 1);
-
-  // LOSS sem comprador.
-  await commandService._notifyMovementCreated(
-    {
-      statusCode: 201,
-      idempotent: false,
-      event: {
-        eventId: 'evt-2',
-        payload: { movementId: 'mov-2', movementType: 'LOSS', quantitySacks: 3 },
-      },
-    },
-    sample,
-    ACTOR
-  );
-  assert.equal(notifications.length, 2);
-  assert.equal(notifications[1].message.title, 'Café perdido!');
-  assert.equal(notifications[1].message.body, 'Lote 5641 indisponível');
-});
-
 test('sendPersonalizedToRoles: mensagem montada por usuario (saudacao com nome)', async () => {
   const prisma = buildFakePrisma({
     subscriptions: [
@@ -269,28 +208,4 @@ test('sendPersonalizedToRoles: mensagem montada por usuario (saudacao com nome)'
   assert.deepEqual(titles, ['Bom dia Maria!', 'Bom dia Pedro!']);
   assert.equal(webPushClient.sent[0].options.topic, 'prospect-reminder');
   assert.deepEqual(prisma.calls.findMany[0].where.user.role, { in: ['PROSPECTOR'] });
-});
-
-test('_notifyMovementCreated: falha do push nao propaga (fire-and-forget)', async () => {
-  const fakePush = {
-    async sendToRoles() {
-      throw new Error('push service down');
-    },
-  };
-  const commandService = new SampleCommandService({
-    eventService: {},
-    queryService: {},
-    pushService: fakePush,
-  });
-
-  await assert.doesNotReject(
-    commandService._notifyMovementCreated(
-      {
-        idempotent: false,
-        event: { payload: { movementId: 'm', movementType: 'SALE', quantitySacks: 1 } },
-      },
-      { id: 's', internalLotNumber: '1' },
-      ACTOR
-    )
-  );
 });

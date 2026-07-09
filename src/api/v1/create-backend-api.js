@@ -65,7 +65,7 @@ export function createBackendApiV1FromEnv() {
   if (!pushService) {
     console.warn('[push] PUSH_VAPID_* not configured — push notifications disabled');
   }
-  const visitReportService = new VisitReportService({ prisma, pushService });
+  const visitReportService = new VisitReportService({ prisma });
   const commercialFormsService = new CommercialFormsService({ prisma });
   const openaiApiKey = (process.env.OPENAI_API_KEY ?? '').trim() || null;
   const extractionService = openaiApiKey
@@ -83,7 +83,6 @@ export function createBackendApiV1FromEnv() {
     extractionService,
     formDetectionService,
     userService,
-    pushService,
   });
   // Fechamento (Fase B.2 Passo 2): instanciado APOS o commandService — usa-o
   // (+ queryService) no D48 (sincronizar o vendedor do contrato com a amostra).
