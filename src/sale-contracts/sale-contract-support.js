@@ -525,6 +525,25 @@ export function bucketApprovalReminders(rows, { fromKey, toKey, todayKey }) {
   return byDay;
 }
 
+// AP16: projeta 1 linha do approval_label_log num item do feed "Ultimos envios" do
+// dashboard (kind 'APPROVAL'). id NAMESPACED ('approval:'+id) pra nao colidir com os
+// event_id dos envios de amostra. Campos de amostra nulos (aprovacao nao tem lote);
+// nº + comprador vem do contrato (join manual pelo saleContractId).
+export function buildRecentApprovalSendItem(log, contract) {
+  return {
+    id: `approval:${log.id}`,
+    sampleId: null,
+    internalLotNumber: null,
+    isBlend: false,
+    kind: 'APPROVAL',
+    recipient: null,
+    cancelled: false,
+    at: toIsoString(log.createdAt),
+    contractNumber: contract?.contractNumber ?? null,
+    buyer: contract?.buyerSnapshot?.displayName ?? null,
+  };
+}
+
 // ===========================================================================
 // Etapa 2 (Fase B.2 Passo 2): validacao dos campos da "Gerar documento" +
 // snapshots das partes/banco/armazens. A RESOLUCAO no banco (entidades existem,

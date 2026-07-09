@@ -24545,6 +24545,12 @@ select.samples-filter-field-input {
     background: rgba(41, 128, 185, 0.12);
     color: #21618c;
   }
+  /* AP16: envio de aprovacao — laranja (mesma identidade do dot #f97316 do card de
+     Eventos), distinto do verde (fisica) e do azul (laudo). */
+  .dd-send-kind.is-approval {
+    background: rgba(249, 115, 22, 0.12);
+    color: #c2410c;
+  }
 
   .dd-send-cancelled-tag {
     flex: none;

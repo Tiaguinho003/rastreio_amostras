@@ -1983,6 +1983,56 @@ if (!databaseUrl || !databaseReachable) {
     assert.ok((regEvents[todayKey] ?? []).some((e) => e.contractId === pendId));
   });
 
+  test('aprovação (AP16): getRecentApprovalSends devolve nº+comprador, exclui avulsas, ordena desc', async () => {
+    const buyerId = randomUUID();
+    await createBuyerClient(buyerId);
+    const c1 = (
+      await saleContractService.createFutureSaleContract(
+        await createFutureInput(buyerId),
+        adminActor
+      )
+    ).contract;
+    const c2 = (
+      await saleContractService.createFutureSaleContract(
+        await createFutureInput(buyerId),
+        adminActor
+      )
+    ).contract;
+
+    const newJobId = async () => (await prisma.customPrintJob.create({ data: { payload: {} } })).id;
+    const logRow = async (saleContractId, createdAt) => ({
+      id: randomUUID(),
+      saleContractId,
+      customPrintJobId: await newJobId(),
+      payload: {},
+      createdAt,
+    });
+    // c1 @ 08h, c2 @ 10h, e uma avulsa histórica (saleContractId null) @ 11h.
+    await prisma.approvalLabelLog.create({
+      data: await logRow(c1.id, new Date('2026-07-09T08:00:00.000Z')),
+    });
+    await prisma.approvalLabelLog.create({
+      data: await logRow(c2.id, new Date('2026-07-09T10:00:00.000Z')),
+    });
+    await prisma.approvalLabelLog.create({
+      data: await logRow(null, new Date('2026-07-09T11:00:00.000Z')),
+    });
+
+    const items = await saleContractService.getRecentApprovalSends();
+    // Só os vinculados; ordenados por createdAt desc (c2 10h antes de c1 8h).
+    const mine = items.filter(
+      (i) => i.contractNumber === c1.contractNumber || i.contractNumber === c2.contractNumber
+    );
+    assert.equal(mine.length, 2);
+    assert.equal(mine[0].contractNumber, c2.contractNumber);
+    assert.equal(mine[1].contractNumber, c1.contractNumber);
+    assert.equal(mine[0].kind, 'APPROVAL');
+    assert.ok(mine[0].id.startsWith('approval:'));
+    assert.ok(mine[0].buyer); // comprador do snapshot do contrato
+    // A avulsa (saleContractId null) NÃO aparece — todos os itens têm contrato.
+    assert.ok(items.every((i) => i.contractNumber != null));
+  });
+
   test('futuro: numero continua a sequencia global (a vista + futuro)', async () => {
     await setupEmittableContract({ lotNumber: '24001' }); // 0001/AA (a vista)
     const buyerId = randomUUID();

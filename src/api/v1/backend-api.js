@@ -1165,10 +1165,20 @@ export function createBackendApiV1({
     getDashboardRecentSends: (input) =>
       executeApiForInput(input, async () => {
         await resolveActorContext(input, authService);
-        const result = await queryService.getDashboardRecentSends();
+        // AP16: mescla os envios de AMOSTRA (fisica+laudo, samples query-service) com
+        // os de APROVACAO (contract service). Cada fonte devolve seu top-40; ordena por
+        // `at` desc (ISO ordena cronologicamente) e corta em 40 = o top-40 global. Se o
+        // contract service nao estiver configurado, degrada pro feed so de amostra.
+        const [sampleRes, approvalItems] = await Promise.all([
+          queryService.getDashboardRecentSends(),
+          saleContractService ? saleContractService.getRecentApprovalSends() : [],
+        ]);
+        const items = [...sampleRes.items, ...approvalItems]
+          .sort((a, b) => b.at.localeCompare(a.at))
+          .slice(0, 40);
         return {
           status: 200,
-          body: result,
+          body: { items },
         };
       }),
 

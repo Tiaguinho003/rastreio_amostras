@@ -35,6 +35,9 @@
 > geração pelo dashboard) + **Fase 3** (removeu a porta /contratos — AP11 — e o "Manual",
 > exigindo `saleContractId` — AP12). Gates verdes nas três; **validar no device** (ver
 > Histórico). Portas finais de geração = **/samples + dashboard**, ambas ligadas a contrato.
+> **Adição pós-reforma (AP16, 2026-07-09):** os **envios de aprovação** passam a aparecer
+> no card **"Últimos envios"** do dashboard (nº do contrato + comprador, pill laranja,
+> inerte) — ver seção AP16 + Histórico.
 
 ## Contexto e objetivo
 
@@ -269,6 +272,26 @@ washout) — e eles eram, no fundo, a **mesma** discussão.
     AP12 garante que todo envio é ligado a contrato). O **nº de envios** fica como dado
     bruto pra quem monta as métricas externas. **Nada novo a construir no app.**
 
+## AP16 — Envios de aprovação no card "Últimos envios" (pós-reforma, 2026-07-09)
+
+Decisão **nova**, fora do escopo AP1–AP15 (a reforma tratou o lembrete/geração; a AP-P1
+do "nº de envios" foi dispensada como BI externo — a superfície in-app do **envio feito**
+não existia). O Flavio pediu que o card **"Últimos envios"** do dashboard (hoje envios de
+lote — física + laudo, DSH-D5) **também comporte os envios de aprovação**.
+
+- **Cada linha do `approval_label_log` ligada a contrato = 1 item** no feed (avulsas
+  históricas com `sale_contract_id` nulo ficam de fora). Um 3º `kind` = `APPROVAL`.
+- **Exibição:** texto principal = **nº do contrato**; linha de baixo = **comprador**
+  (espelha o slot do destinatário dos envios de lote). **Sem "quem enviou".** Pill
+  **"Aprovação"** laranja (`#f97316`, identidade da aprovação). **Inerte** (sem clique,
+  como os demais minicards — DSH-D5).
+- **Arquitetura:** fonte SEPARADA no contract-domain (`getRecentApprovalSends`, join manual
+  nº+comprador; a query de amostra do samples service NÃO muda) — o handler
+  `getDashboardRecentSends` **mescla** as duas (top-40 de cada → ordena por data → 40).
+  Índice novo `[created_at]` no `approval_label_log`. Visibilidade = todos os
+  não-PROSPECTOR (mesma do recent-sends). Ver DSH-D5 (adendo) + endpoint #8 do
+  `docs/API-e-Contratos.md`.
+
 ## Pendências / próximos blocos
 
 - **Bloco 2 — Papéis: ✅ RESOLVIDO (AP9–AP10).** Quem decide = ADMIN+COMMERCIAL
@@ -406,3 +429,16 @@ washout) — e eles eram, no fundo, a **mesma** discussão.
   teste de papel não-COMMERCIAL enviando COM contrato (preserva a cobertura do gate). **Gates:**
   typecheck/lint/format/build + unit + integração verdes. **NÃO commitado/pushado — validar
   no device.** **Reforma AP1–AP15 completa;** portas finais = **/samples + dashboard**.
+- **2026-07-09 (AP16 — envios de aprovação no "Últimos envios"; pós-reforma)** — feature
+  nova (não parte da reforma), plan mode com análise (3 Explore). O card "Últimos envios"
+  do dashboard (envios de lote — física+laudo) passa a comportar os **envios de aprovação**.
+  **Backend:** `SaleContractService.getRecentApprovalSends()` (query `approval_label_log`
+  ligado a contrato, ordena `createdAt desc`, join manual nº+comprador) + helper puro
+  `buildRecentApprovalSendItem` (id namespaced `approval:`, `kind:'APPROVAL'`, campos de
+  amostra nulos); o handler `getDashboardRecentSends` **mescla** as duas fontes (top-40 de
+  cada → ordena por `at` → 40; a query de amostra do samples service não muda); migration
+  `20260709140000` (índice `[created_at]`). **Front:** `DashboardRecentSendItem` ganhou o
+  `kind` APPROVAL + `contractNumber`/`buyer` (`sampleId` nullable); `RecentSendsCard` mostra
+  nº+comprador com pill laranja `is-approval`, inerte. **Decisões:** nº do contrato + comprador
+  (sem "quem enviou"), inerte (sem deep link). Gates verdes + unit + integração. **NÃO
+  commitado/pushado — validar no device.** Ver seção AP16 + DSH-D5 (adendo) + `API-e-Contratos.md`.

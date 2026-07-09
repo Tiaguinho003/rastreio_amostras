@@ -1076,18 +1076,21 @@ export interface DashboardSalesAvailabilityResponse {
   };
 }
 
-// Card "Últimos envios" do dashboard desktop (DSH-D5): feed por-evento dos
-// envios — amostra física (PHYSICAL_SAMPLE_SENT) e laudo exportado
-// (REPORT_EXPORTED) —, do mais recente pro mais antigo.
+// Card "Últimos envios" do dashboard desktop (DSH-D5): feed dos envios — amostra
+// física (PHYSICAL_SAMPLE_SENT), laudo (REPORT_EXPORTED) e, pós-AP16, a etiqueta de
+// APROVAÇÃO (approval_label_log) —, do mais recente pro mais antigo.
 export interface DashboardRecentSendItem {
-  id: string; // event_id (único por evento; o mesmo lote pode repetir)
-  sampleId: string;
+  id: string; // event_id (amostra) ou 'approval:<id>' (aprovação); único por linha
+  sampleId: string | null; // null na aprovação (não tem amostra)
   internalLotNumber: string | null;
   isBlend: boolean;
-  kind: 'PHYSICAL_SAMPLE' | 'REPORT';
+  kind: 'PHYSICAL_SAMPLE' | 'REPORT' | 'APPROVAL';
   recipient: string | null; // destinatário ATUAL (pós-edição) ou destination do laudo
   cancelled: boolean; // envio físico cancelado — UI esmaece
-  at: string; // ISO do occurred_at
+  at: string; // ISO do occurred_at (amostra) / createdAt (aprovação)
+  // Aprovação (AP16): nº do contrato + comprador (o feed mostra em vez do lote).
+  contractNumber?: string | null;
+  buyer?: string | null;
 }
 
 export interface DashboardRecentSendsResponse {

@@ -17,6 +17,13 @@ const RELATIVE_TIME_REFRESH_MS = 60_000;
 const KIND_LABEL: Record<DashboardRecentSendItem['kind'], string> = {
   PHYSICAL_SAMPLE: 'Amostra física',
   REPORT: 'Laudo',
+  APPROVAL: 'Aprovação',
+};
+
+const KIND_BADGE_CLASS: Record<DashboardRecentSendItem['kind'], string> = {
+  PHYSICAL_SAMPLE: 'is-physical',
+  REPORT: 'is-report',
+  APPROVAL: 'is-approval',
 };
 
 function formatExactDate(iso: string): string {
@@ -58,26 +65,30 @@ export function RecentSendsCard({ items }: RecentSendsCardProps) {
       ) : (
         <div className="dd-sends-list">
           {items.map((item) => {
-            const lotLabel = item.internalLotNumber ?? item.sampleId.slice(0, 8);
+            const isApproval = item.kind === 'APPROVAL';
+            // Aprovação (AP16): mostra nº do contrato + comprador em vez de lote + destinatário.
+            const mainText = isApproval
+              ? (item.contractNumber ?? '—')
+              : (item.internalLotNumber ?? item.sampleId?.slice(0, 8) ?? '—');
             return (
               <div key={item.id} className="spv2-card-wrap is-card-pending">
                 <div className={`spv2-card is-static${item.cancelled ? ' is-cancelled' : ''}`}>
                   <span className="spv2-card-bar" />
                   <div className="spv2-card-content">
                     <div className="spv2-card-top">
-                      <span className="spv2-card-code">{lotLabel}</span>
+                      <span className="spv2-card-code">{mainText}</span>
                       {item.isBlend ? <BlendBadge size="sm" /> : null}
                       {item.cancelled ? (
                         <span className="dd-send-cancelled-tag">Cancelado</span>
                       ) : null}
-                      <span
-                        className={`dd-send-kind ${item.kind === 'REPORT' ? 'is-report' : 'is-physical'}`}
-                      >
+                      <span className={`dd-send-kind ${KIND_BADGE_CLASS[item.kind]}`}>
                         {KIND_LABEL[item.kind]}
                       </span>
                     </div>
                     <div className="spv2-card-bottom">
-                      <span className="spv2-card-owner">{item.recipient ?? '—'}</span>
+                      <span className="spv2-card-owner">
+                        {isApproval ? (item.buyer ?? '—') : (item.recipient ?? '—')}
+                      </span>
                       <span className="spv2-card-sep" />
                       <span className="spv2-card-detail" title={formatExactDate(item.at)}>
                         <svg viewBox="0 0 24 24" aria-hidden="true">

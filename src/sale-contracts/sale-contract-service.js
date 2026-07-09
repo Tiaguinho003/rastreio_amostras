@@ -10,6 +10,7 @@ import {
   buildContractTimeline,
   buildPartySnapshot,
   buildReceivableView,
+  buildRecentApprovalSendItem,
   bucketApprovalReminders,
   bucketPaymentEvents,
   buildWarehouseSnapshot,
@@ -58,6 +59,10 @@ const SALE_CONTRACT_SEQ_LOCK_KEY = 831202606;
 
 const SALE_CONTRACT_LIST_LIMIT_DEFAULT = 200;
 const SALE_CONTRACT_LIST_LIMIT_MAX = 500;
+
+// AP16: teto dos envios de aprovacao recentes no feed "Ultimos envios" (mesmo 40 do
+// DASHBOARD_RECENT_SENDS_LIMIT do samples query-service; o handler mescla e corta em 40).
+const RECENT_APPROVAL_SENDS_LIMIT = 40;
 
 // Financeiro (S86): pagina por cursor (contractSeq) com scroll infinito no front.
 const FINANCEIRO_LIST_LIMIT_DEFAULT = 30;
@@ -396,6 +401,31 @@ export class SaleContractService {
     const rows = pending.filter((row) => !labeledIds.has(row.id));
 
     return bucketApprovalReminders(rows, { fromKey: from, toKey: to, todayKey });
+  }
+
+  // AP16: envios de aprovacao recentes p/ o card "Ultimos envios" do dashboard (o
+  // handler mescla com os envios de amostra do samples query-service). Ordena por
+  // createdAt desc; exclui avulsas historicas (saleContractId NULL). Join manual do
+  // contrato (nº + comprador) — SaleContract nao tem @relation.
+  async getRecentApprovalSends() {
+    const logs = await this.prisma.approvalLabelLog.findMany({
+      where: { saleContractId: { not: null } },
+      orderBy: { createdAt: 'desc' },
+      take: RECENT_APPROVAL_SENDS_LIMIT,
+      select: { id: true, saleContractId: true, createdAt: true },
+    });
+    if (logs.length === 0) {
+      return [];
+    }
+    const contractIds = [...new Set(logs.map((l) => l.saleContractId))];
+    const contracts = await this.prisma.saleContract.findMany({
+      where: { id: { in: contractIds } },
+      select: { id: true, contractNumber: true, buyerSnapshot: true },
+    });
+    const byId = new Map(contracts.map((c) => [c.id, c]));
+    return logs.map((log) =>
+      buildRecentApprovalSendItem(log, byId.get(log.saleContractId) ?? null)
+    );
   }
 
   async getSaleContract(contractId, actorContext) {

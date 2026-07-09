@@ -7,6 +7,7 @@ import {
   buildApprovalPrefill,
   buildApprovalReminderEvent,
   buildContractTimeline,
+  buildRecentApprovalSendItem,
   buildPaymentEvent,
   buildReceivableView,
   bucketApprovalReminders,
@@ -775,4 +776,27 @@ test('bucketApprovalReminders (F2): janela no passado (hoje > to) nao pinta nada
     { fromKey: '2026-06-01', toKey: '2026-06-14', todayKey: '2026-07-09' }
   );
   assert.deepEqual(byDay, {});
+});
+
+test('buildRecentApprovalSendItem (AP16): id namespaced, kind APPROVAL, nº+comprador, amostra nula', () => {
+  const item = buildRecentApprovalSendItem(
+    { id: 'log-1', saleContractId: 'c1', createdAt: new Date('2026-07-09T10:00:00.000Z') },
+    { id: 'c1', contractNumber: '0007/26', buyerSnapshot: { displayName: 'Comprador X' } }
+  );
+  assert.equal(item.id, 'approval:log-1'); // namespaced -> nao colide com event_id de amostra
+  assert.equal(item.kind, 'APPROVAL');
+  assert.equal(item.contractNumber, '0007/26');
+  assert.equal(item.buyer, 'Comprador X');
+  assert.equal(item.at, '2026-07-09T10:00:00.000Z');
+  assert.equal(item.sampleId, null);
+  assert.equal(item.internalLotNumber, null);
+  assert.equal(item.isBlend, false);
+  assert.equal(item.cancelled, false);
+  // Contrato nao resolvido (defensivo) -> nº/comprador null.
+  const semContrato = buildRecentApprovalSendItem(
+    { id: 'log-2', saleContractId: 'c2', createdAt: new Date('2026-07-09T09:00:00.000Z') },
+    null
+  );
+  assert.equal(semContrato.contractNumber, null);
+  assert.equal(semContrato.buyer, null);
 });

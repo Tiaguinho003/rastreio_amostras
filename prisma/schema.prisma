@@ -974,6 +974,9 @@ model ApprovalLabelLog {
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([saleContractId, createdAt], map: "idx_approval_label_log_contract_created")
+  // Feed "Ultimos envios" (AP16): os envios de aprovacao recentes ordenam por
+  // created_at desc (global) — o indice composto acima nao cobre esse sort.
+  @@index([createdAt], map: "idx_approval_label_log_created")
   @@map("approval_label_log")
 }
 

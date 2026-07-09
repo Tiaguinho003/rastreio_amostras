@@ -360,6 +360,11 @@ conferida: código 100% limpo, resíduos só em docs.
   **cancelado esmaecido** com tag. Endpoint novo
   `GET /dashboard/recent-sends` (Cache-Control 30s; só autenticação,
   DSH-D2).
+  - **Adendo (2026-07-09, AP16 do doc de Aprovações):** o card passou a comportar
+    também os **envios de aprovação** (etiquetas do `approval_label_log`, ligadas a
+    contrato) — um 3º `kind` (`APPROVAL`, pill **laranja**) com nº do contrato +
+    comprador, **inerte** como os demais. Fonte separada (contract-domain) mesclada
+    no handler com os envios de amostra (top-40 de cada → merge por data → 40).
 - **DSH-D6** (2026-07-07) — a coluna direita da linha 2 será um **card único
   de Eventos em formato de CALENDÁRIO** (altura total da coluna): visão de
   duas semanas em quadrados, navegação ◀ ▶ de 2 em 2 semanas + botão
