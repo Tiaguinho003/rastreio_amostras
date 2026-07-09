@@ -1,8 +1,8 @@
 # Notificações (Web Push)
 
-Status: Ativo
+Status: Ativo — catálogo vazio
 Escopo: catálogo e processo de registro das notificações Web Push do sistema
-Última revisão: 2026-06-19
+Última revisão: 2026-07-09
 Documentos relacionados: `docs/README.md`, `docs/Operacao-e-Runtime.md`, `docs/Deploy-e-Cloud-Build.md`
 
 > Este é o documento canônico de notificações. Toda notificação Web Push —
@@ -10,6 +10,14 @@ Documentos relacionados: `docs/README.md`, `docs/Operacao-e-Runtime.md`, `docs/D
 > com o código é obrigatório (mesma regra das skills): mudou conteúdo,
 > público, trigger ou deep link de uma notificação? Atualize a ficha no mesmo
 > commit ou no commit seguinte.
+
+> **Catálogo zerado em 2026-07-09.** As 7 notificações que existiam (4
+> agendadas + 3 por evento) foram removidas do código, junto com o job
+> `push-digest` e seus agendamentos, para que o conjunto seja redesenhado do
+> zero. O **canal continua de pé** — inscrição do aparelho, toggle no Perfil,
+> service worker, rotas `/api/v1/push/*` e os métodos de envio do
+> `PushNotificationService`. Hoje **nenhuma notificação é enviada**. As fichas
+> antigas ficam no histórico do git (commits `7a8545a` e `aa28962`).
 
 ---
 
@@ -65,8 +73,8 @@ Tudo passa pelo serviço central `src/push/push-notification-service.js`
 Regras transversais:
 
 - **Só usuários `ACTIVE` recebem.** Inativos nunca são alvo.
-- **`excludeUserId`** opcional remove o autor da ação do público (usado nas
-  notificações por evento — quem fez não é notificado).
+- **`excludeUserId`** opcional remove o autor da ação do público — útil nas
+  notificações por evento, em que quem fez não precisa ser avisado.
 - Envio é **fire-and-forget**: nunca quebra o request. Falha individual é
   agregada (`{ sent, failed, pruned }`), não lançada.
 - **Poda automática:** inscrição que responde `404/410` (expirada) é apagada.
@@ -87,28 +95,33 @@ Payload entregue ao aparelho: `{ title, body, url, tag }`.
 - **Defaults:** `url` ausente → `/dashboard`; `tag` ausente → `rastreio`.
 - **`tag`** controla o agrupamento/dedup **visual** no aparelho: uma nova
   notificação com a mesma `tag` **substitui** a anterior na central. Por isso
-  notificações que devem empilhar usam `tag` única por item (ex:
-  `visit-promising-<id>`), e lembretes repetíveis usam `tag` fixa.
+  notificações que devem empilhar usam `tag` única por item (sufixada com o id
+  da entidade), e lembretes repetíveis usam `tag` fixa.
 - **Entrega (`opts`):** `ttl` (segundos) e `urgency`. Default do serviço:
-  **TTL 24h**, **urgency `high`** (`PUSH_DEFAULT_TTL_SECONDS`). As agendadas
-  sobrescrevem para TTL curto + `urgency normal` (lembrete de ontem não chega
-  hoje). **Sem header `Topic`** — a Apple respondeu 400 a ele (2026-06-11); o
-  anti-acúmulo visível já é garantido pela `tag`.
+  **TTL 24h**, **urgency `high`** (`PUSH_DEFAULT_TTL_SECONDS`). Notificações
+  agendadas convêm sobrescrever para TTL curto + `urgency normal` (lembrete de
+  ontem não deve chegar hoje). **Sem header `Topic`** — a Apple respondeu 400
+  a ele (2026-06-11); o anti-acúmulo visível já é garantido pela `tag`.
 
 ### 3.4 Infra (referências de código)
 
-| Peça                             | Onde                                                                                                                                                                                            |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Serviço de envio                 | `src/push/push-notification-service.js`                                                                                                                                                         |
-| Factory + VAPID (env)            | `src/push/create-push-service.js` (`PUSH_VAPID_PUBLIC_KEY` / `PUSH_VAPID_PRIVATE_KEY` / `PUSH_VAPID_SUBJECT`)                                                                                   |
-| Service worker (recebe + clique) | `public/sw.js` (handlers `push`, `notificationclick`, `pushsubscriptionchange`)                                                                                                                 |
-| Modelo de inscrição              | `model PushSubscription` em `prisma/schema.prisma` (1 row por aparelho; `endpoint` único)                                                                                                       |
-| Endpoints                        | `POST`/`DELETE` `/api/v1/push/subscriptions`, `GET` `/api/v1/push/config`                                                                                                                       |
-| Frontend (permissão + toggle)    | `lib/push/use-push-notifications.ts`, `app/profile/page.tsx`                                                                                                                                    |
-| Agendamento (cron)               | Cloud Scheduler → job Cloud Run `push-digest` (`--kind`), setup em `scripts/gcp/setup-push-digest-scheduler.sh`; executor em `scripts/jobs/send-daily-push-digest.js`; fuso `America/Sao_Paulo` |
+| Peça                             | Onde                                                                                                          |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Serviço de envio                 | `src/push/push-notification-service.js`                                                                       |
+| Factory + VAPID (env)            | `src/push/create-push-service.js` (`PUSH_VAPID_PUBLIC_KEY` / `PUSH_VAPID_PRIVATE_KEY` / `PUSH_VAPID_SUBJECT`) |
+| Service worker (recebe + clique) | `public/sw.js` (handlers `push`, `notificationclick`, `pushsubscriptionchange`)                               |
+| Modelo de inscrição              | `model PushSubscription` em `prisma/schema.prisma` (1 row por aparelho; `endpoint` único)                     |
+| Endpoints                        | `POST`/`DELETE` `/api/v1/push/subscriptions`, `GET` `/api/v1/push/config`                                     |
+| Frontend (permissão + toggle)    | `lib/push/use-push-notifications.ts`, `app/profile/page.tsx`                                                  |
 
 Sem `PUSH_VAPID_*` configurado, o push fica **desabilitado** (rotas 501,
 gatilhos no-op) — nada quebra.
+
+**Não existe mais infraestrutura de agendamento.** O job Cloud Run
+`push-digest` e os Cloud Scheduler jobs foram removidos junto com o catálogo
+antigo. A primeira notificação agendada que for registrada aqui vai precisar
+recriá-la (o histórico do git tem o formato anterior: um job parametrizado por
+`--kind`, disparado por um scheduler por notificação, fuso `America/Sao_Paulo`).
 
 ---
 
@@ -139,176 +152,19 @@ Copie ao registrar uma nova notificação:
 
 ## 5. Catálogo — Notificações agendadas (cron)
 
-As quatro rodam no mesmo job Cloud Run `push-digest`, parametrizado por
-`--kind`, agendado pelo Cloud Scheduler (fuso `America/Sao_Paulo`). Setup dos
-crons em `scripts/gcp/setup-push-digest-scheduler.sh`.
+Disparadas por um agendador, fora de qualquer ação do usuário. Nenhuma
+existe hoje — não há job de cron no projeto (ver §3.4).
 
-### classification-digest
-
-```
-- Nome:          Classificação pendente
-- Status:        Validada
-- Canal:         Web Push
-- Disparo:       Agendada (cron) — 0 8 * * * · America/Sao_Paulo
-- Quando:        Todo dia 08:00, SOMENTE se classificationPending.total > 0
-- Público-alvo:  ADMIN, CLASSIFIER
-- Título:        "Amostras aguardando classificação"
-- Corpo:         "{N} amostra pendente de classificação." (N=1)
-                 "{N} amostras pendentes de classificação." (N>1)
-- Deep link:     /dashboard
-- Tag:           daily-classification
-- Entrega:       TTL 12h · urgency normal
-- Dedup:         tag fixa substitui no aparelho; não envia quando total = 0
-- Origem:        scripts/jobs/send-daily-push-digest.js:77
-- Notas:         —
-- Histórico:     em produção desde 2026-06-11 (datas a confirmar)
-```
-
-### registrations-digest
-
-```
-- Nome:          Revise os cadastros
-- Status:        Validada
-- Canal:         Web Push
-- Disparo:       Agendada (cron) — 0 8 * * 1-5 · America/Sao_Paulo
-- Quando:        Seg–sex 08:00, SOMENTE se clientsIncomplete.total > 0
-- Público-alvo:  ADMIN, CADASTRO
-- Título:        "Revise os Cadastros!"
-- Corpo:         "Temos {N} pendentes"
-- Deep link:     /clients?incomplete=true
-- Tag:           daily-clients
-- Entrega:       TTL 12h · urgency normal
-- Dedup:         tag fixa substitui no aparelho; não envia quando total = 0
-- Origem:        scripts/jobs/send-daily-push-digest.js:98
-- Notas:         —
-- Histórico:     em produção desde 2026-06-11 (datas a confirmar)
-```
-
-### prospect-reminder
-
-```
-- Nome:          Bom dia, prospector
-- Status:        Validada
-- Canal:         Web Push
-- Disparo:       Agendada (cron) — 0 11 * * 2-4 · America/Sao_Paulo
-- Quando:        Ter, qua e qui às 11:00. SEM condição — dispara para todos os
-                 PROSPECTOR ativos.
-- Público-alvo:  PROSPECTOR
-- Título:        "Bom dia {primeiro nome}!"   (primeira palavra do fullName;
-                 fallback username; fallback "time")
-- Corpo:         "Vamos prospectar! Lembre-se dos formulários de visita."
-- Deep link:     /dashboard?informe=novo   (abre o sheet do formulário de
-                 visita já aberto; o /informe não serve o PROSPECTOR)
-- Tag:           prospect-reminder
-- Entrega:       TTL 6h · urgency normal
-- Dedup:         personalizada por usuário (sendPersonalizedToRoles); tag fixa
-- Origem:        scripts/jobs/send-daily-push-digest.js:111
-- Notas:         única agendada sem condição de pendência
-- Histórico:     em produção desde 2026-06-11 (datas a confirmar)
-```
-
-### weekly-report-reminder
-
-```
-- Nome:          Lembrete do relatório semanal
-- Status:        Validada
-- Canal:         Web Push
-- Disparo:       Agendada (cron) — 0 8-20 * * * · America/Sao_Paulo
-                 (de hora em hora, 08–20h, todos os dias)
-- Quando:        COMMERCIAL ativo SEM o relatório da semana corrente e SEM
-                 lembrete já emitido nesta semana, quando vale R1 OU R2:
-                   R1 — último relatório (qualquer semana) tem mais de
-                        6 dias e 12 horas (exige ≥ 1 relatório anterior);
-                   R2 — é sexta-feira ≥ 17:00 BRT (cobre quem nunca enviou).
-- Público-alvo:  COMMERCIAL
-- Título:        "Lembre-se do seu relatório."
-- Corpo:         ""   (vazio, por decisão de produto — SW renderiza só o título)
-- Deep link:     /informe
-- Tag:           weekly-report-reminder
-- Entrega:       TTL 6h · urgency normal
-- Dedup:         tabela weekly_report_reminder, UNIQUE (userId, weekStart),
-                 marcada ANTES do envio (race-safe) → no máx. 1 por usuário por
-                 semana; execuções horárias extras são no-op
-- Origem:        src/visits/commercial-forms-service.js:604
-                 (envio em :673; job em scripts/jobs/send-daily-push-digest.js:129)
-- Notas:         a janela 08–20h cobre a sexta 17:00 e evita lembrete de
-                 madrugada
-- Histórico:     em produção (datas a confirmar)
-```
+_(vazio)_
 
 ---
 
 ## 6. Catálogo — Notificações por evento
 
-Disparadas em reação a uma ação no app, fire-and-forget, fora de cron. Todas
-usam a entrega **default** do serviço (TTL 24h · urgency high) e **excluem o
-autor** da ação do público.
+Disparadas em reação a uma ação no app, fire-and-forget, dentro do request.
+Nenhuma existe hoje.
 
-### visit-promising
-
-```
-- Nome:          Visita promissora
-- Status:        Validada
-- Canal:         Web Push
-- Disparo:       Por evento — criação de informe de visita (createVisitReport)
-- Quando:        farmSize ∈ {MEDIUM, LARGE} E interestLevel = HIGH
-                 (as duas condições juntas)
-- Público-alvo:  ADMIN   (exclui: autor do informe; CADASTRO saiu 2026-06-28)
-- Título:        "Nova visita promissora enviada"
-- Corpo:         "{nome do visitante} visitou um cliente promissor. Confira!"
-                 (fullName; fallback username; fallback "Alguém")
-- Deep link:     /informe   (página "Relatórios" unificada; /resumo redireciona)
-- Tag:           visit-promising-{id do informe}   (única — empilha, não substitui)
-- Entrega:       TTL 24h · urgency high (default)
-- Dedup:         hook curto-circuitado antes do service por Idempotency-Key
-- Origem:        src/visits/visit-report-service.js:244
-- Notas:         —
-- Histórico:     em produção (datas a confirmar)
-```
-
-### visit-new-client
-
-```
-- Nome:          Novo cliente encontrado
-- Status:        Validada
-- Canal:         Web Push
-- Disparo:       Por evento — criação de informe de visita (createVisitReport)
-- Quando:        clientKind = 'NEW' (independente das demais respostas)
-- Público-alvo:  ADMIN   (exclui: autor do informe; CADASTRO saiu 2026-06-28)
-- Título:        "Novo cliente encontrado!"
-- Corpo:         "Clique para ver os dados e cadastrá-lo"
-- Deep link:     /informe   (página "Relatórios" unificada; /resumo redireciona)
-- Tag:           visit-new-client-{id do informe}   (única — empilha)
-- Entrega:       TTL 24h · urgency high (default)
-- Dedup:         hook curto-circuitado antes do service por Idempotency-Key
-- Origem:        src/visits/visit-report-service.js:260
-- Notas:         pode disparar junto com visit-promising (informe da mesma visita)
-- Histórico:     em produção (datas a confirmar)
-```
-
-### movement-sale-loss
-
-```
-- Nome:          Venda confirmada / Café perdido
-- Status:        Validada
-- Canal:         Web Push
-- Disparo:       Por evento — venda ou perda registrada num lote
-                 (SALE_CREATED / LOSS_RECORDED no event store)
-- Quando:        ao registrar o movimento (replay idempotente NÃO re-notifica)
-- Público-alvo:  ADMIN, COMMERCIAL   (exclui: quem registrou o movimento)
-- Título:        venda → "Venda confirmada!"
-                 perda → "Café perdido!"
-- Corpo:         venda → "Lote {N} vendido"
-                 perda → "Lote {N} indisponível"
-                 ({N} = internalLotNumber; fallback "sem lote")
-- Deep link:     /samples/{id da amostra}
-- Tag:           movement-{movementId}   (única por movimento)
-- Entrega:       TTL 24h · urgency high (default)
-- Dedup:         guard result.idempotent — replay do appendEvent não re-notifica
-- Origem:        src/samples/sample-command-service.js:2811 (envio em :2821)
-- Notas:         uma ficha, dois conteúdos (venda/perda) — mesmo trigger e público
-- Histórico:     em produção (datas a confirmar)
-```
+_(vazio)_
 
 ---
 

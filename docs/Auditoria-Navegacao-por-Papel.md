@@ -377,9 +377,11 @@ Contagem:
   (`/informe`) e gestor de Contratos (`/contratos`); o acesso foi retirado em
   todas as camadas (nav, guards e autorizacao de API). As 2 notificacoes push de
   visita ("Nova visita promissora" / "Novo cliente encontrado") que apontam para
-  `/informe` tambem sairam do CADASTRO (audiencia em `_notifyVisitReportCreated`
-  agora `['ADMIN']`). O lembrete semanal do COMMERCIAL e o deep link
-  `/dashboard?informe=novo` do PROSPECTOR nao envolvem o CADASTRO.
+  `/informe` tambem sairam do CADASTRO. O lembrete semanal do COMMERCIAL e o deep
+  link `/dashboard?informe=novo` do PROSPECTOR nao envolviam o CADASTRO.
+- **Nota (2026-07-09)**: essas notificacoes push nao existem mais — o catalogo
+  inteiro foi zerado (ver `docs/Notificacoes.md`). O paragrafo acima fica como
+  registro historico da mudanca de audiencia; nenhuma notificacao e enviada hoje.
 
 ### Diferenca para o COMMERCIAL
 

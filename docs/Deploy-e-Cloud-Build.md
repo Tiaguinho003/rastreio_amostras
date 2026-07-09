@@ -323,7 +323,12 @@ Templates em `env/examples/cloud-production{,.ops}.env.example`.
 
 ### Web Push (notificacoes nativas)
 
-Setup one-time (par VAPID + secret + scheduler do digest diario):
+O canal esta configurado, mas **nenhuma notificacao e enviada hoje**: o
+catalogo foi zerado em 2026-07-09 e o job de cron `push-digest` (mais seus
+Cloud Scheduler jobs) foi removido. Fonte de verdade das notificacoes:
+`docs/Notificacoes.md`.
+
+Setup one-time do canal (par VAPID + secret):
 
 ```bash
 # 1. Gerar o par de PRODUCAO (a privada nao passa por arquivo versionado)
@@ -338,20 +343,14 @@ printf '%s' "<PRIVATE_KEY>" | gcloud secrets create rastreio-prod-push-vapid-pri
 #    PUSH_VAPID_SUBJECT=mailto:<email-do-responsavel>
 #    E no .env.cloud-production.ops:
 #    GCLOUD_SECRET_PUSH_VAPID_PRIVATE_KEY=rastreio-prod-push-vapid-private-key
-#    GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB=rastreio-prod-push-digest
 
-# 4. Deploy normal (cria/atualiza o job rastreio-prod-push-digest junto)
-# 5. Agendar os lembretes (idempotente; re-rodar atualiza). Cria 4 schedulers
-#    no MESMO job com override de --kind:
-#      *-classification  todos os dias 08:00       (pendencias de classificacao)
-#      *-registrations   seg-sex 08:00             (cadastros pendentes)
-#      *-prospect        ter-qui 11:00             (lembrete da Prospeccao)
-#      *-weekly          hora em hora 08:00-20:00  (relatorio semanal do comercial)
-scripts/gcp/setup-push-digest-scheduler.sh cloud-production
-
-# Execucao manual (teste); sem --kind roda todos:
-scripts/gcp/execute-job.sh push-digest cloud-production [--kind=classification|registrations|prospect-reminder|weekly-reminder]
+# 4. Deploy normal — o canal sobe junto com o service (rotas de inscricao +
+#    toggle no Perfil). Nao ha job nem scheduler a criar.
 ```
+
+Quando a primeira notificacao **agendada** for reimplementada, sera preciso
+recriar o job Cloud Run e o Cloud Scheduler (o historico do git tem o formato
+anterior: um job parametrizado por `--kind`, um scheduler por notificacao).
 
 Notas operacionais:
 

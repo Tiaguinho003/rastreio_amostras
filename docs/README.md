@@ -47,7 +47,7 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
 5. `docs/archive/Reorganizacao-2026Q2-Decisions.md`
    Uso: historico de decisoes da reorganizacao Q2 2026 (14 ADRs). Referencia para entender escolhas arquiteturais.
 6. `docs/Notificacoes.md`
-   Uso: catalogo e processo de registro das notificacoes Web Push — fichas das notificacoes existentes (agendadas e por evento), template para novas ideias e ciclo Ideia -> Construida -> Validada.
+   Uso: catalogo e processo de registro das notificacoes Web Push — convencoes do canal, template de ficha e ciclo Ideia -> Construida -> Validada. Status: catalogo ZERADO em 2026-07-09 (nenhuma notificacao e enviada hoje); o canal segue de pe, aguardando o novo conjunto ser registrado aqui.
 7. `docs/Contratos-Plano-de-Trabalho.md`
    Uso: organizacao, analise, decisoes e execucao da feature de Contratos (pagina "Contratos" + o "Fechamento" = contrato de compra e venda de cafe gerado em PDF apos a venda, alem do Espelho de Corretagem e da pagina Financeiro). Status: Em construcao.
 8. `docs/Revisao-Pagina-Lotes-Plano-de-Trabalho.md`

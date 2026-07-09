@@ -56,8 +56,7 @@ gcloud run services update-traffic rastreio-prod-app \
 
 - `scripts/gcp/build-image.sh cloud-production` — build com tag=git SHA e guard de tree limpo
 - `scripts/gcp/deploy-cloud.sh cloud-production [--canary]` — deploy service + jobs
-- `scripts/gcp/execute-job.sh <migrate|seed|backfill-liga|push-digest> cloud-production [--dry-run]` — executa jobs
-- `scripts/gcp/setup-push-digest-scheduler.sh cloud-production` — agenda os lembretes de push no Cloud Scheduler (idempotente; 4 schedulers no mesmo job com override de `--kind`: classification todos os dias 08:00, registrations seg-sex 08:00, prospect ter-qui 11:00, weekly-reminder de hora em hora 08-20 todos os dias — America/Sao_Paulo. O weekly-reminder avalia por usuario as regras do relatorio semanal do comercial; o marcador `weekly_report_reminder` garante max 1 push/usuario/semana e as execucoes extras sao no-op)
+- `scripts/gcp/execute-job.sh <migrate|seed|backfill-liga> cloud-production [--dry-run]` — executa jobs
 - `scripts/gcp/preflight.sh cloud-production` — valida auth e recursos
 - `scripts/gcp/smoke.sh cloud-production` — smoke test HTTP
 
@@ -82,10 +81,14 @@ scripts/gcp/execute-job.sh backfill-liga cloud-production            # aplica
 Config por env (padrao OPENAI: faltou var -> feature desabilitada, app sobe normal):
 `PUSH_VAPID_PUBLIC_KEY` + `PUSH_VAPID_SUBJECT` (env vars normais, `.env.cloud-production`)
 e `PUSH_VAPID_PRIVATE_KEY` via secret `rastreio-prod-push-vapid-private-key`
-(`GCLOUD_SECRET_PUSH_VAPID_PRIVATE_KEY` no ops env). Job `push-digest`
-(`GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB`) e deployado junto com os demais e disparado
-1x/dia pelo Cloud Scheduler (`setup-push-digest-scheduler.sh`, one-time). Setup
-completo passo a passo em `docs/Deploy-e-Cloud-Build.md` secao "Web Push".
+(`GCLOUD_SECRET_PUSH_VAPID_PRIVATE_KEY` no ops env). Setup completo passo a passo
+em `docs/Deploy-e-Cloud-Build.md` secao "Web Push".
+
+**Nenhuma notificacao e enviada hoje** — o catalogo foi zerado em 2026-07-09 e o
+job de cron `push-digest` (mais seus Cloud Scheduler jobs) saiu do repo. Nao ha
+job nem scheduler a deployar; reimplementar uma notificacao agendada exige
+recriar os dois. Catalogo canonico: `docs/Notificacoes.md`.
+
 Atencao: inscricao de push e POR ORIGEM — o canary valida rotas/card, mas a
 notificacao real so se valida no host de producao pos-promote; rotacionar a chave
 VAPID invalida todas as inscricoes existentes.
