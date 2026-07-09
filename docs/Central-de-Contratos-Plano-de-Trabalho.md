@@ -1,8 +1,10 @@
 # Central de Contratos — Plano de Trabalho
 
-Status: **Decisões da F1 fechadas** (CC1–CC15; CC7 adiada de propósito).
-Implementação **não iniciada** — nesta fase é só análise, decisão e registro; o
-código da F1 fica para quando tudo estiver alinhado.
+Status: **F1 implementada** (C1–C4, 2026-07-09) — hub `/contratos` com 4 sub-abas;
+Contratos e Financeiro migrados; Aprovações/Embarque como placeholder; `/financeiro`
+redireciona; nav unificada (item único, corrige o gate do avatar). Decisões CC1–CC15
+(CC7 adiada). Gates verdes; **validar no device**. F2+ (conteúdo de Aprovações e
+Embarque + acesso por papel) em aberto.
 Escopo: unificar as 4 superfícies ligadas ao contrato de venda (**Contratos**,
 **Financeiro**, **Aprovações**, **Embarque**) numa **única página com sub-abas**.
 Nesta primeira fase: fundir Contratos + Financeiro (que já são páginas) e criar
@@ -386,14 +388,16 @@ aprovacoes|embarque`), coexistindo com `?details=`; (c) segmentos de rota
 ## 6. Pendências
 
 - ✅ Decisões da F1 tomadas e registradas (CC1–CC15; CC7 adiada de propósito).
-- ⬜ **Implementar a F1** (futuro, quando alinhado): casca com 4 abas + migrar
-  Contratos e Financeiro para painéis + redirect do `/financeiro` + placeholders de
-  Aprovações/Embarque + item de nav único + alinhar os docs de casca (Contratos nav,
-  Auditoria, README) no mesmo ciclo. **Sem backend.** Ver gargalos (5.1).
+- ✅ **F1 implementada** (2026-07-09, commits `f420e01`/`d07526a`/`2829dd6` + docs):
+  C1 casca do hub + `ContratosPanel` + placeholders; C2 `FinanceiroPanel` + redirect
+  do `/financeiro`; C3 nav unificada (remove o item Financeiro, corrige o gate do
+  avatar `isAdmin`→`CONTRATOS_ROLES`); C4 alinhamento dos docs. **Sem backend.**
+  Gates typecheck/eslint/prettier/build verdes.
+- ⬜ **Validar no device** (nada é ✅ sem validação) — em especial a barra de abas
+  sobre o hero verde no mobile e o hero verde herdado pela aba Financeiro.
 - ⬜ **F2+** (futuro): conteúdo das abas Aprovações e Embarque + abertura de acesso a
   papéis operacionais (CC6/CC15) + rótulo por papel (CC2/CC15) + portas redundantes
   (CC7).
-- Validar no device (padrão do projeto; nada é ✅ sem validação).
 
 ## 7. Manutenção
 

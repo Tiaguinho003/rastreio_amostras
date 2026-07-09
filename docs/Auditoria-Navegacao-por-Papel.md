@@ -9,6 +9,15 @@ Inicio: 2026-06-28
 Atualizado: 2026-07-02 — split Clientes (operacao) x Cadastros (gestao): "Clientes"
 avulso saiu da nav de ADMIN/CADASTRO, que passam a acessar clientes pela aba
 "Clientes" do hub `/cadastros` (agora com 3 abas). Guards de rota inalterados.
+Atualizado: 2026-07-09 — **Central de Contratos (F1)**: `/contratos` virou um **hub
+com 4 sub-abas** (Contratos · Financeiro · Aprovações · Embarque); a rota
+`/financeiro` **redireciona** para `/contratos?tab=financeiro`; a navegação passou a
+ter **um item único "Contratos"** (sidebar + menu do avatar), gated **ADMIN +
+COMMERCIAL** (`CONTRATOS_ROLES`) — o COMMERCIAL passa a ver "Contratos" também no
+**menu do avatar** mobile (corrige o antigo gate `isAdmin`). A tabela de rotas e a
+matriz abaixo já refletem isso; as **seções por papel** (contagens de itens) ainda
+descrevem o estado pré-D110/Financeiro e serão reconciliadas num passe próprio —
+para Contratos/Financeiro, vale esta nota.
 
 ## Como ler este documento
 
@@ -73,21 +82,22 @@ mantem "Clientes" na sidebar e na tabbar e nao veem Cadastros.
 
 ## Referencia 3 — Universo de rotas
 
-| Rota                                                                                          | Pagina      | Guard de acesso                                 |
-| --------------------------------------------------------------------------------------------- | ----------- | ----------------------------------------------- |
-| `/login`, `/forgot-password` (redirect → modal no `/login`), `/maintenance`, `/laudo/[token]` | publicas    | sem auth                                        |
-| `/dashboard`                                                                                  | Inicio      | qualquer autenticado                            |
-| `/profile`                                                                                    | Perfil      | qualquer autenticado                            |
-| `/settings`                                                                                   | —           | redireciona para `/profile`                     |
-| `/offline`                                                                                    | offline PWA | qualquer autenticado                            |
-| `/samples`, `/samples/[id]`                                                                   | Lotes       | `NON_PROSPECTOR_ROLES`                          |
-| `/camera`                                                                                     | Camera      | `NON_PROSPECTOR_ROLES`                          |
-| `/clients`, `/clients/[id]`                                                                   | Clientes    | `NON_PROSPECTOR_ROLES`                          |
-| `/informe`                                                                                    | Relatorios  | `INFORME_ROLES` (conteudo adaptativo por papel) |
-| `/resumo`                                                                                     | —           | redireciona para `/informe`                     |
-| `/cadastros`                                                                                  | Cadastros   | ADMIN + CADASTRO                                |
-| `/contratos`                                                                                  | Contratos   | ADMIN                                           |
-| `/users`                                                                                      | Usuarios    | ADMIN                                           |
+| Rota                                                                                          | Pagina                                                              | Guard de acesso                                 |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------- |
+| `/login`, `/forgot-password` (redirect → modal no `/login`), `/maintenance`, `/laudo/[token]` | publicas                                                            | sem auth                                        |
+| `/dashboard`                                                                                  | Inicio                                                              | qualquer autenticado                            |
+| `/profile`                                                                                    | Perfil                                                              | qualquer autenticado                            |
+| `/settings`                                                                                   | —                                                                   | redireciona para `/profile`                     |
+| `/offline`                                                                                    | offline PWA                                                         | qualquer autenticado                            |
+| `/samples`, `/samples/[id]`                                                                   | Lotes                                                               | `NON_PROSPECTOR_ROLES`                          |
+| `/camera`                                                                                     | Camera                                                              | `NON_PROSPECTOR_ROLES`                          |
+| `/clients`, `/clients/[id]`                                                                   | Clientes                                                            | `NON_PROSPECTOR_ROLES`                          |
+| `/informe`                                                                                    | Relatorios                                                          | `INFORME_ROLES` (conteudo adaptativo por papel) |
+| `/resumo`                                                                                     | —                                                                   | redireciona para `/informe`                     |
+| `/cadastros`                                                                                  | Cadastros                                                           | ADMIN + CADASTRO                                |
+| `/contratos`                                                                                  | Contratos (hub — sub-abas Contratos·Financeiro·Aprovações·Embarque) | ADMIN + COMMERCIAL                              |
+| `/financeiro`                                                                                 | → redirect para `/contratos?tab=financeiro`                         | (redirect server-side)                          |
+| `/users`                                                                                      | Usuarios                                                            | ADMIN                                           |
 
 Middleware (`middleware.ts`): modo manutencao redireciona nao-ADMIN para
 `/maintenance`; PROSPECTOR fora do seu app (`/dashboard`, `/profile`,
@@ -115,7 +125,7 @@ esta no detalhe de cada papel.
 | `/clients` (+sub) | ✅        | ✅         | ✅           | ✅          | ✅       | ❌            |
 | `/informe`        | ✅ viewer | ❌         | ✅ vazio     | ✅ proprios | ❌       | ❌            |
 | `/cadastros`      | ✅        | ❌         | ❌           | ❌          | ✅       | ❌            |
-| `/contratos`      | ✅        | ❌         | ❌           | ❌          | ❌       | ❌            |
+| `/contratos`      | ✅        | ❌         | ❌           | ✅          | ❌       | ❌            |
 | `/users`          | ✅        | ❌         | ❌           | ❌          | ❌       | ❌            |
 
 `/informe` por papel: ADMIN = viewer (todos os informes + curadoria + cria, FAB);
@@ -168,7 +178,9 @@ proprio:
 
 ### Rotas bloqueadas (redirecionam para `/dashboard`)
 
-- `/cadastros`, `/contratos` (exigem ADMIN/CADASTRO).
+- `/cadastros` (exige ADMIN/CADASTRO). **(2026-07-09: `/contratos` saiu daqui — o
+  COMMERCIAL acessa o hub de Contratos via `CONTRATOS_ROLES`, sidebar + menu do
+  avatar.)**
 - `/users` (exige ADMIN).
 
 ### Particularidades de conteudo

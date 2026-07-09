@@ -63,7 +63,7 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
 13. `docs/Embarque-Plano-de-Trabalho.md`
     Uso: novo tipo de evento para o card de Eventos do dashboard — o embarque (cafe carregado no caminhao), mesmo dia do faturamento mas distinto, gated pela modalidade (nao ocorre em "Disponivel"). Espelha a Aprovacao (booleano requiresShipment + shipmentDate), com ciclo proprio (pendente -> finalizado) independente do pagamento. Status: Em decisao — Bloco 1 (a logica) registrado (EMB1-EMB6); Bloco 2 (apresentacao no calendario) a fazer.
 14. `docs/Central-de-Contratos-Plano-de-Trabalho.md`
-    Uso: unificacao das 4 superficies ligadas ao contrato de venda (Contratos, Financeiro, Aprovacoes, Embarque) numa unica pagina com sub-abas. Autoridade da "casca" (pagina, abas, esquema de URL, matriz de acesso por papel aba a aba, navegacao). F1 = fundir Contratos + Financeiro (ja sao paginas) e criar Aprovacoes + Embarque como abas vazias. Prefixo de decisao CC. Status: Em decisao — blocos 0-7 abertos, sem implementacao.
+    Uso: unificacao das 4 superficies ligadas ao contrato de venda (Contratos, Financeiro, Aprovacoes, Embarque) numa unica pagina com sub-abas. Autoridade da "casca" (pagina, abas, esquema de URL, matriz de acesso por papel aba a aba, navegacao). F1 = fundir Contratos + Financeiro (ja sao paginas) e criar Aprovacoes + Embarque como abas vazias. Prefixo de decisao CC. Status: F1 IMPLEMENTADA (C1-C4, 2026-07-09; hub /contratos com sub-abas + redirect /financeiro + nav unificada) — validar no device; F2+ (conteudo de Aprovacoes/Embarque) em aberto.
 
 ## Relatorios da reorganizacao
 
