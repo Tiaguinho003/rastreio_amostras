@@ -32683,42 +32683,17 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   color: var(--brand-muted);
 }
 
-/* Seletor de contratos da Aprovacao (Fase I, D113): hint a esquerda + botao
-   "Manual" no canto superior direito (etiqueta em branco/avulsa). */
+/* Seletor de contratos da Aprovacao (Fase I, D113): so o hint (o botao "Manual"
+   foi removido na reforma AP12 — nao ha aprovacao sem contrato). */
 .apick-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: clamp(0.5rem, 2vw, 0.75rem);
 }
 
 .apick-toolbar .lotpick-hint {
   flex: 1 1 auto;
   min-width: 0;
-}
-
-.apick-manual-btn {
-  flex: 0 0 auto;
-  border: 1px solid var(--brand-cream-line);
-  background: #fff;
-  color: var(--brand-green-ink);
-  border-radius: 10px;
-  padding: 0.4rem 0.9rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.12s ease;
-}
-
-.apick-manual-btn:active {
-  transform: scale(0.96);
-}
-
-.apick-manual-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 /* ── Detalhes do contrato (Fase J, D120–D126): frame grande compartilhado com

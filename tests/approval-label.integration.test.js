@@ -201,14 +201,29 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(job.payload.lines.length, 6);
   });
 
-  test('sendApprovalLabel avulsa (sem saleContractId) grava sale_contract_id NULL', async () => {
+  test('sendApprovalLabel: sem contrato agora e rejeitada (AP12) — 422 APPROVAL_CONTRACT_REQUIRED, nada gravado', async () => {
     const response = await api.sendApprovalLabel(
       buildInput({ headers: classifierHeaders, body: { lines: buildLines() } })
     );
 
+    assert.equal(response.status, 422);
+    assert.equal(response.body.error.details.code, 'APPROVAL_CONTRACT_REQUIRED');
+    assert.deepEqual(await auditCounts(), { logs: 0, jobs: 0 });
+  });
+
+  test('sendApprovalLabel: um papel nao-COMMERCIAL (CLASSIFIER) envia COM contrato (201, log vinculado)', async () => {
+    const contractId = await createContract({ status: 'EMITIDO' });
+
+    const response = await api.sendApprovalLabel(
+      buildInput({
+        headers: classifierHeaders,
+        body: { saleContractId: contractId, lines: buildLines() },
+      })
+    );
+
     assert.equal(response.status, 201);
     const log = await prisma.approvalLabelLog.findUnique({ where: { id: response.body.id } });
-    assert.equal(log.saleContractId, null);
+    assert.equal(log.saleContractId, contractId);
     assert.equal(log.actorUserId, classifierId);
   });
 
@@ -248,7 +263,12 @@ if (!databaseUrl || !databaseReachable) {
       lotes: '',
     });
 
-    const response = await api.sendApprovalLabel(buildInput({ body: { lines: emptyLines } }));
+    // Com contrato VÁLIDO + linhas vazias: prova que o guard de linhas-vazias vem
+    // ANTES do de contrato (AP12) — o código é APPROVAL_LABEL_EMPTY, não _REQUIRED.
+    const contractId = await createContract({ status: 'EMITIDO' });
+    const response = await api.sendApprovalLabel(
+      buildInput({ body: { saleContractId: contractId, lines: emptyLines } })
+    );
 
     assert.equal(response.status, 422);
     assert.equal(response.body.error.details.code, 'APPROVAL_LABEL_EMPTY');

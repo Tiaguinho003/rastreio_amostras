@@ -1347,27 +1347,33 @@ export function createBackendApiV1({
         const rawContractId =
           typeof body.saleContractId === 'string' ? body.saleContractId.trim() : '';
         const saleContractId = rawContractId.length > 0 ? rawContractId : null;
-        if (saleContractId) {
-          if (!APPROVAL_UUID_REGEX.test(saleContractId)) {
-            throw new HttpError(404, 'Contrato nao encontrado');
-          }
-          const contract = await queryService.prisma.saleContract.findUnique({
-            where: { id: saleContractId },
-            select: { status: true },
+        // Reforma AP12: NAO ha aprovacao sem contrato (o "Manual"/avulsa foi removido).
+        // Vem DEPOIS do guard de linhas-vazias, pra preservar o APPROVAL_LABEL_EMPTY.
+        if (!saleContractId) {
+          throw new HttpError(422, 'Selecione um contrato para a etiqueta.', {
+            code: 'APPROVAL_CONTRACT_REQUIRED',
           });
-          if (!contract) {
-            throw new HttpError(404, 'Contrato nao encontrado');
-          }
-          if (!APPROVAL_ELIGIBLE_STATUSES.includes(contract.status)) {
-            throw new HttpError(409, 'Contrato nao esta elegivel para aprovacao', {
-              code: 'APPROVAL_CONTRACT_NOT_ELIGIBLE',
-            });
-          }
+        }
+        if (!APPROVAL_UUID_REGEX.test(saleContractId)) {
+          throw new HttpError(404, 'Contrato nao encontrado');
+        }
+        const contract = await queryService.prisma.saleContract.findUnique({
+          where: { id: saleContractId },
+          select: { status: true },
+        });
+        if (!contract) {
+          throw new HttpError(404, 'Contrato nao encontrado');
+        }
+        if (!APPROVAL_ELIGIBLE_STATUSES.includes(contract.status)) {
+          throw new HttpError(409, 'Contrato nao esta elegivel para aprovacao', {
+            code: 'APPROVAL_CONTRACT_NOT_ELIGIBLE',
+          });
         }
 
         // Job + auditoria na MESMA tx (D114): falha em qualquer um desfaz os
         // dois — nunca imprime sem registrar, nem registra sem enfileirar.
-        // saleContractId NULO = etiqueta avulsa (caminho "Manual" do seletor).
+        // saleContractId sempre presente (AP12: nao ha mais avulsa). Avulsas
+        // historicas (sale_contract_id NULL) permanecem no banco.
         const result = await queryService.prisma.$transaction(async (tx) => {
           const job = await tx.customPrintJob.create({
             data: {

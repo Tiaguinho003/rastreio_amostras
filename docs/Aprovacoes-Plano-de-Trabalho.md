@@ -30,11 +30,11 @@
 > **AP14** pendente só em `EMITIDO`, "feita" → "enviada"). E **fechou o visual**
 > (**AP15**): dot **laranja `#f97316`**, rótulo **"a enviar"**, e a leitura "provável
 > recusa" é **externa** (métricas/BI) — o app só registra os envios (AP-P1 dispensada).
-> **DESENHO PONTA A PONTA FECHADO (AP1–AP15).** Implementação **em 3 fases**, cada
-> uma em plan mode com análise. **▶️ FASE 1 ("o sinal") + FASE 2 (lembrete no card +
-> geração pelo dashboard) IMPLEMENTADAS (2026-07-09)** — gates verdes, **validar no
-> device** (ver Histórico). **Falta só a Fase 3** (remover a porta /contratos — AP11 — e
-> o "Manual", exigindo `saleContractId` — AP12).
+> **✅ REFORMA COMPLETA (AP1–AP15, implementada em 3 fases 2026-07-09, cada uma em plan
+> mode com análise):** **Fase 1** (o sinal no contrato) + **Fase 2** (lembrete no card +
+> geração pelo dashboard) + **Fase 3** (removeu a porta /contratos — AP11 — e o "Manual",
+> exigindo `saleContractId` — AP12). Gates verdes nas três; **validar no device** (ver
+> Histórico). Portas finais de geração = **/samples + dashboard**, ambas ligadas a contrato.
 
 ## Contexto e objetivo
 
@@ -390,3 +390,19 @@ washout) — e eles eram, no fundo, a **mesma** discussão.
   (`buildApprovalReminderEvent`/`bucketApprovalReminders`) + integração (pendente/anti-join/
   visibilidade por papel) verdes. **NÃO commitado/pushado — validar no device.** Próximo:
   **Fase 3** (remover porta /contratos — AP11 — + "Manual"/exigir `saleContractId` — AP12).
+- **2026-07-09 (FASE 3 IMPLEMENTADA — enxugar as portas; REFORMA COMPLETA)** — 3ª e última
+  fase, plan mode com análise (2 Explore). Subtrativa. **AP11:** removida a geração de
+  etiqueta do /contratos — o botão "Aprovação" do `SaleContractCard` sai + todo o fluxo
+  órfão em `app/contratos/page.tsx` (imports `ApprovalLabelModal`/`getApprovalLabelPrefill`/
+  `ApiError`/`ApprovalLabelPrefill`, estados `approvalForm`/`approvalLoadingId`, o handler
+  `openApproval`, a prop e o JSX do modal). **A timeline "Aprovação enviada" do Detalhes
+  FICA** (exibição de auditoria, não geração). **AP12:** removido o "Manual" — botão +
+  `onManual` no `ApprovalContractPickerModal` + o CSS `.apick-manual-btn` + o handler
+  `onManual` do `app/samples/page.tsx` (a **única fonte de `saleContractId: null`**); o
+  backend (`sendApprovalLabel`) passa a **exigir contrato** — 422 `APPROVAL_CONTRACT_REQUIRED`
+  (guard DEPOIS do de linhas-vazias, pra preservar `APPROVAL_LABEL_EMPTY`; o bloco de
+  validação UUID/existe/elegível vira incondicional). Coluna `sale_contract_id` **fica
+  nullable** (avulsas históricas). Testes: a avulsa (201/null) virou **422**; adicionado um
+  teste de papel não-COMMERCIAL enviando COM contrato (preserva a cobertura do gate). **Gates:**
+  typecheck/lint/format/build + unit + integração verdes. **NÃO commitado/pushado — validar
+  no device.** **Reforma AP1–AP15 completa;** portas finais = **/samples + dashboard**.

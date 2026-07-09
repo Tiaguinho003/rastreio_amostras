@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { type FormEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { ApprovalLabelModal } from '../../components/ApprovalLabelModal';
 import { AppShell } from '../../components/AppShell';
 import { ANIMATION_MS } from '../../components/BottomSheet';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
@@ -36,19 +35,13 @@ import {
 import { SaleContractLotPickerModal } from '../../components/contracts/SaleContractLotPickerModal';
 import { ClassificationFilterField } from '../../components/samples/ClassificationFilterField';
 import { SelectionModeHeader } from '../../components/samples/SelectionModeHeader';
-import {
-  ApiError,
-  getApprovalLabelPrefill,
-  getNextContractNumber,
-  listSaleContracts,
-} from '../../lib/api-client';
+import { getNextContractNumber, listSaleContracts } from '../../lib/api-client';
 import { useRequireAuth } from '../../lib/use-auth';
 import { useDelayedValue } from '../../lib/use-delayed-value';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import { useToast } from '../../lib/toast/ToastProvider';
 import type {
   AgioDesagioType,
-  ApprovalLabelPrefill,
   ClientSummary,
   SaleContract,
   SaleContractStatus,
@@ -166,49 +159,13 @@ function ContratosPageInner() {
   // Os swaps do Detalhes (Editar/Ágio/Washout) LIMPAM o retorno (fluxo encerra).
   const espelhoReturnRef = useRef<SaleContract | null>(null);
 
-  // Aprovação (Fase I, D112/D117): botão do card (EMITIDO/FATURADO/PAGO) busca
-  // o prefill e abre o formulário da etiqueta DIRETO (sem seletor, sem Voltar).
-  const [approvalForm, setApprovalForm] = useState<{
-    saleContractId: string;
-    prefill: ApprovalLabelPrefill;
-  } | null>(null);
-  const [approvalLoadingId, setApprovalLoadingId] = useState<string | null>(null);
-
   // Os modais de criação/lote são bottom sheets: mantê-los montados durante o
   // slide-down de saída (ANIMATION_MS) antes de desmontar. `open` = intenção ao vivo.
   const spotPickerRendered = useDelayedValue(spotPickerOpen || null, ANIMATION_MS);
   const spotCreateRendered = useDelayedValue(spotCreate, ANIMATION_MS);
   const futureRendered = useDelayedValue(futureOpen || null, ANIMATION_MS);
   const etapa2Rendered = useDelayedValue(etapa2, ANIMATION_MS);
-  const approvalFormRendered = useDelayedValue(approvalForm, ANIMATION_MS);
   const detailsRendered = useDelayedValue(detailsTarget, ANIMATION_MS);
-
-  // Abre a etiqueta de Aprovação do card: busca o prefill (guard de duplo
-  // clique) e monta o formulário já preenchido. Sem refresh no sucesso —
-  // o envio não muda nada no contrato (é ortogonal ao status, D107).
-  const openApproval = useCallback(
-    async (contract: SaleContract) => {
-      if (!session || approvalLoadingId) return;
-      setApprovalLoadingId(contract.id);
-      try {
-        const prefill = await getApprovalLabelPrefill(session, contract.id);
-        setApprovalForm({ saleContractId: contract.id, prefill });
-      } catch (cause) {
-        toast.error({
-          title: 'Falha ao abrir a aprovação',
-          description:
-            cause instanceof ApiError && cause.status === 409
-              ? 'Este contrato não está mais elegível para aprovação.'
-              : cause instanceof ApiError
-                ? cause.message
-                : 'Tente novamente.',
-        });
-      } finally {
-        setApprovalLoadingId(null);
-      }
-    },
-    [session, approvalLoadingId, toast]
-  );
 
   // F1 (E27/D138): deep-link "Ver contrato" do card de Eventos — ?details=<id>.
   const searchParams = useSearchParams();
@@ -607,7 +564,6 @@ function ContratosPageInner() {
                       contract={contract}
                       isExpanded={expandedIds.has(contract.id)}
                       onToggle={() => toggleExpand(contract.id)}
-                      onAprovacao={() => void openApproval(contract)}
                       onDetalhes={() => setDetailsTarget(contract)}
                       canManage={canManage}
                       onFaturar={() => openLifecycle('invoice')}
@@ -870,18 +826,6 @@ function ContratosPageInner() {
           contract={espelhoPreview.contract}
           side={espelhoPreview.side}
           onClose={() => setEspelhoPreview(null)}
-        />
-      ) : null}
-
-      {/* Aprovação (Fase I): formulário da etiqueta pré-preenchido, direto do
-          card (sem seletor, sem Voltar — D117). Sucesso auto-fecha. */}
-      {approvalFormRendered ? (
-        <ApprovalLabelModal
-          session={session}
-          open={approvalForm != null}
-          prefill={approvalFormRendered.prefill}
-          saleContractId={approvalFormRendered.saleContractId}
-          onClose={() => setApprovalForm(null)}
         />
       ) : null}
     </AppShell>

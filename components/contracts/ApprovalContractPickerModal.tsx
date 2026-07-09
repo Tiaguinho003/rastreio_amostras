@@ -5,8 +5,8 @@
 // em view REDUZIDA (nº + comprador + data + sacas + selo de status — sem
 // valores financeiros), do mais recente pro mais antigo, com busca CLIENT-SIDE
 // (nº/comprador — o comprador vive no snapshot JSON, então o filtro é no
-// front; 1 carga por abertura, cap 500 no backend) e o botão "Manual" no topo
-// direito (etiqueta 100% manual, avulsa — auditada sem vínculo, D114).
+// front; 1 carga por abertura, cap 500 no backend). O "Manual" (etiqueta avulsa
+// sem contrato) foi REMOVIDO na reforma AP12 — não há aprovação sem contrato.
 // Molde = SaleContractLotPickerModal, sem o scroll infinito por cursor.
 //
 // Ao escolher, busca o PREFILL no picker (guard hydratingId + onDismissAttempt,
@@ -26,8 +26,6 @@ type ApprovalContractPickerModalProps = {
   onClose: () => void;
   /** Contrato escolhido: devolve o prefill já buscado (hidratação no picker). */
   onPicked: (option: ApprovalContractOption, prefill: ApprovalLabelPrefill) => void;
-  /** Botão "Manual" (topo direito): etiqueta em branco, sem contrato. */
-  onManual: () => void;
   /** Pausa o arraste do sheet enquanto o formulário está aberto por cima. */
   dragDisabled?: boolean;
 };
@@ -44,7 +42,6 @@ export function ApprovalContractPickerModal({
   open,
   onClose,
   onPicked,
-  onManual,
   dragDisabled = false,
 }: ApprovalContractPickerModalProps) {
   const [search, setSearch] = useState('');
@@ -126,14 +123,6 @@ export function ApprovalContractPickerModal({
     >
       <div className="apick-toolbar">
         <p className="lotpick-hint">A etiqueta parte de um contrato emitido.</p>
-        <button
-          type="button"
-          className="apick-manual-btn"
-          onClick={onManual}
-          disabled={hydratingId != null}
-        >
-          Manual
-        </button>
       </div>
 
       <div className="lotpick-search">
@@ -154,9 +143,7 @@ export function ApprovalContractPickerModal({
           <p className="lotpick-status">Carregando contratos...</p>
         ) : filtered.length === 0 ? (
           <p className="lotpick-status">
-            {appliedSearch
-              ? 'Nenhum contrato encontrado.'
-              : 'Nenhum contrato elegível. Use "Manual" para uma etiqueta avulsa.'}
+            {appliedSearch ? 'Nenhum contrato encontrado.' : 'Nenhum contrato elegível.'}
           </p>
         ) : (
           filtered.map((option) => {

@@ -577,9 +577,9 @@ function SamplesPage() {
   const [newSampleModalMounted, setNewSampleModalMounted] = useState(false);
   // Aprovação do contrato (Fase I, D113/D117): o leque "Aprovação" abre o
   // SELETOR de contratos → tocar um contrato busca o prefill e abre o
-  // formulário PRÉ-PREENCHIDO; "Manual" abre em branco (avulsa). "Voltar" no
-  // formulário reabre o seletor (descarta edições). Mesmo padrão de delayed
-  // unmount do NewSampleModal (slide-down do sheet).
+  // formulário PRÉ-PREENCHIDO. "Voltar" no formulário reabre o seletor (descarta
+  // edições). Mesmo padrão de delayed unmount do NewSampleModal (slide-down do
+  // sheet). (O "Manual"/avulsa foi removido na reforma AP12 — exige contrato.)
   const [approvalPickerOpen, setApprovalPickerOpen] = useState(false);
   const [approvalPickerMounted, setApprovalPickerMounted] = useState(false);
   const [approvalForm, setApprovalForm] = useState<{
@@ -2407,12 +2407,6 @@ function SamplesPage() {
           open={approvalPickerOpen}
           dragDisabled={approvalForm != null}
           onClose={() => setApprovalPickerOpen(false)}
-          onManual={() => {
-            // Swap sem sobreposição: o seletor desce enquanto o formulário em
-            // branco sobe (etiqueta 100% manual = avulsa, auditada sem vínculo).
-            setApprovalPickerOpen(false);
-            setApprovalForm({ saleContractId: null, prefill: null });
-          }}
           onPicked={(option, prefill) => {
             setApprovalPickerOpen(false);
             setApprovalForm({ saleContractId: option.id, prefill });

@@ -75,12 +75,10 @@ type SaleContractCardProps = {
   isExpanded: boolean;
   onToggle: () => void;
   // Card ENXUTO (Fase J, D121; D137): so o dia a dia — Faturar (canManage) +
-  // Aprovacao + Detalhes. O "Pago" MIGROU pro Financeiro (D137). Editar/Visualizar/
+  // Detalhes. O "Pago" MIGROU pro Financeiro (D137). Editar/Visualizar/
   // Agio/Desagio/Washout vivem no modal de Detalhes (Desfazer removido, D122).
+  // A geracao de Aprovacao SAIU do /contratos (reforma AP11): so no dashboard + /samples.
   onFaturar: () => void;
-  // Aprovacao (Fase I, D112/D117): abre a etiqueta pre-preenchida. Disponivel
-  // em EMITIDO/FATURADO/PAGO e FORA do canManage (todo papel da pagina envia).
-  onAprovacao: () => void;
   // Detalhes (D120): modal grande com o documento + infos + historico. Em
   // TODOS os status, fora do canManage (COMMERCIAL ve tudo nos dele).
   onDetalhes: () => void;
@@ -99,7 +97,6 @@ export function SaleContractCard({
   isExpanded,
   onToggle,
   onFaturar,
-  onAprovacao,
   onDetalhes,
   canManage = true,
   espelhoMode = false,
@@ -239,17 +236,13 @@ export function SaleContractCard({
             <p className="ctr-card-washout">Washout: {contract.washoutReason}</p>
           ) : null}
 
-          {/* Card ENXUTO (D121): avancar status + Aprovacao + Detalhes. O resto
-              (Editar/Visualizar/Agio/Desagio/Washout) vive no modal de Detalhes. */}
+          {/* Card ENXUTO (D121): avancar status + Detalhes. O resto (Editar/Visualizar/
+              Agio/Desagio/Washout) vive no modal de Detalhes. A geracao de Aprovacao
+              saiu daqui (reforma AP11) — agora so no dashboard + /samples. */}
           <div className="ctr-card-actions">
             {contract.status === 'EMITIDO' && canManage ? (
               <button type="button" className="ctr-btn ctr-btn-primary" onClick={onFaturar}>
                 Faturado
-              </button>
-            ) : null}
-            {contract.status !== 'WASH_OUT' ? (
-              <button type="button" className="ctr-btn" onClick={onAprovacao}>
-                Aprovação
               </button>
             ) : null}
             <button type="button" className="ctr-btn" onClick={onDetalhes}>
