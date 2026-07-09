@@ -32058,6 +32058,30 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   color: var(--brand-green);
   border-bottom-color: var(--brand-green);
 }
+
+/* Central de Contratos — hub de abas (F1). Reusa .cad-tabs/.cad-tab; .cc-tabs
+   ajusta a cor pro hero verde do mobile (no desktop o fundo e claro e as cores
+   default do .cad-tab servem). Ver docs/Central-de-Contratos-Plano-de-Trabalho.md. */
+@media (max-width: 900px) {
+  .cc-tabs .cad-tab {
+    color: rgba(255, 255, 255, 0.72);
+  }
+  .cc-tabs .cad-tab.is-active {
+    color: #ffffff;
+    border-bottom-color: #ffffff;
+  }
+}
+/* Modo Espelho (selecao de contrato): esconde as abas junto do header/busca. */
+body.is-selection-mode .ctr-page .cc-tabs {
+  display: none;
+}
+/* Subtitulo do placeholder das abas ainda sem conteudo. */
+.cc-placeholder-hint {
+  margin-top: 0.35rem;
+  color: var(--brand-muted);
+  font-size: 0.9rem;
+}
+
 .cad-list {
   display: flex;
   flex-direction: column;
