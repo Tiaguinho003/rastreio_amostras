@@ -44,9 +44,10 @@ em que ela aparece — o **push** (notificação nativa do SO, via VAPID) e o
 
 ## 2. Como as notificações funcionam
 
-Esta seção descreve o **modelo**: o que uma notificação é, como nasce e onde
-ela aparece. É desenho aprovado, ainda sem implementação. As decisões estão
-marcadas `N1`–`N4` para poderem ser citadas em commits e discussões.
+Esta seção descreve o **modelo**: o que uma notificação é, como nasce, onde
+ela aparece e como isso se traduz em banco e endpoint. É desenho fechado,
+ainda **sem uma linha de código**. As decisões estão marcadas `N1`–`N9` para
+poderem ser citadas em commits e discussões.
 
 ### 2.1 Uma notificação é um registro, não um push
 
@@ -58,7 +59,7 @@ como reencontrá-la.
 
 **`N1` — a notificação passa a ser um registro no banco, com destinatários
 próprios.** No momento do disparo, o sistema resolve **quem** deve recebê-la
-e grava um registro por destinatário. O push deixa de ser a notificação e
+e grava um vínculo por destinatário. O push deixa de ser a notificação e
 vira **um canal de entrega** dela; o sino lê o registro.
 
 Consequências que valem a pena enunciar:
@@ -69,9 +70,9 @@ Consequências que valem a pena enunciar:
   continua vendo o que recebeu enquanto era CLASSIFIER, e não passa a ver
   retroativamente o que foi mandado para COMMERCIAL.
 
-Isso exige estrutura nova no banco — provavelmente duas tabelas: a
-notificação (conteúdo, tipo, deep link, quando) e o vínculo com cada
-destinatário. O desenho fino do schema é pendência (§2.6).
+Na prática isso inverte a dependência: os gatilhos deixam de chamar o
+`PushNotificationService` direto e passam a chamar um **serviço de
+notificações**, que persiste e só então delega o envio ao push.
 
 ### 2.2 O disparo e o fan-out
 
@@ -97,6 +98,18 @@ Disparada, ela segue sempre a mesma sequência:
 O passo 2 é o que garante o sino. Se o passo 3 falhar inteiro, a notificação
 continua existindo — só não fez barulho.
 
+**`N5` — o texto é único, igual para todos os destinatários.** Um disparo
+produz **um** registro e N vínculos. Não existe notificação com conteúdo
+variável por pessoa: a saudação com o primeiro nome (o antigo "Bom dia,
+Maria!") sai do repertório. Era charme, não função, e custava um registro por
+destinatário.
+
+**`N9` — o sino acumula, não colapsa.** Cada disparo vira uma entrada, mesmo
+para lembretes repetitivos de `tag` fixa. No aparelho a `tag` faz a nova
+notificação substituir a anterior (§4.3); **no sino não há substituição**. Um
+lembrete semanal deixa quatro linhas por mês, e o teto de 30 dias (`N4`)
+limita o acúmulo naturalmente.
+
 ### 2.3 Superfície 1 — o push (o aviso)
 
 A notificação nativa do sistema operacional. É **efêmera por natureza**:
@@ -113,51 +126,167 @@ notificações daquele usuário, da mais recente para a mais antiga. É a respos
 ao problema real: o push some, e sem ele o usuário não tem como saber o que
 perdeu.
 
-**`N2` — no mobile, o sino vive na topbar, que passa a renderizar em todas as
-rotas.** Hoje a topbar mobile é condicional: ela aparece em algumas rotas
-(dashboard, lotes, clientes, usuários, perfil, informe) e some em outras
-(contratos, financeiro, cadastros). Para o sino cumprir o "todas as páginas",
-a topbar passa a renderizar sempre, enxuta — sino + avatar. No desktop a
-topbar já é permanente, então o sino entra direto. Isso implica revisar o
-`padding-top` das telas que hoje assumem topbar ausente (§2.6).
+**`N2` — o sino entra ao lado do avatar, no header de cada página.**
+
+> Correção de rota. A primeira versão desta decisão dizia que a topbar do
+> `AppShell` renderiza em algumas rotas mobile e some em outras, e que ela
+> passaria a renderizar em todas. **A premissa era falsa.** No mobile a topbar
+> é invisível em **toda** rota: ela sempre recebe `topbar--hidden`
+> (`display:none`) ou `topbar--dashboard-only`, que a deixa transparente, sem
+> eventos de ponteiro e com o conteúdo escondido (`app/globals.css`). Ela só
+> existe visualmente no desktop. Torná-la visível empilharia dois headers em
+> 11 páginas, com dois avatares na tela.
+
+O que existe em todas as páginas — as 12 rotas autenticadas, incluindo detalhe
+de lote, detalhe de cliente e o dashboard do PROSPECTOR, que não têm tabbar —
+é o `components/HeaderAvatarMenu.tsx`, à direita do header de cada uma. **O
+sino entra imediatamente antes dele.** Não por acaso: o próprio componente
+declara, em `HeaderAvatarMenu.tsx:11` e em `app/globals.css`, que "substitui o
+antigo sino". O lugar já estava marcado.
+
+No desktop, o sino entra em `.topbar-tools`, antes de `.topbar-profile` —
+onde há espaço sobrando. Nenhum `padding-top` ou `safe-area` precisa ser
+revisado.
 
 **`N3` — o sino não tem estado de lido/não lido.** Sem badge, sem contador,
 sem marcação por item. O painel é um **histórico cronológico**, e o usuário
 olha quando quiser. É a versão mais simples que resolve o problema declarado
-(reencontrar o que o push mostrou e sumiu). Contador de não lidas é uma
-adição possível no futuro, e não é barata: exige coluna de estado por
-destinatário, endpoint de marcação e uma regra de quando zerar.
+(reencontrar o que o push mostrou e sumiu). Contador de não lidas é uma adição
+possível no futuro, e não é barata: exige coluna de estado por destinatário,
+endpoint de marcação e uma regra de quando zerar.
+
+**`N7` — o PROSPECTOR vê o sino**, como todo mundo. O que ele lê é decidido
+pela **audiência de cada notificação**, não por um gate de página: hoje, com o
+catálogo vazio, o painel dele é vazio — e isso é correto, não um bug. Na
+prática, o endpoint do sino entra na allowlist de `src/auth/prospector-access.js`.
 
 Cada item do painel leva o mesmo **deep link** do push — clicar abre a tela
 onde a coisa aconteceu.
 
-### 2.5 Retenção
+### 2.5 Retenção e limpeza
 
-**`N4` — uma notificação vive 30 dias no sino.** Depois disso é apagada por
-uma rotina de limpeza. O painel carrega as mais recentes, paginado.
+**`N4` — uma notificação vive 30 dias no sino.** Depois disso é apagada. O
+painel carrega as mais recentes, paginado.
 
 Notificação velha não serve para nada: ninguém precisa saber, em setembro, de
 uma venda registrada em junho — para isso existem as telas de dados. Trinta
 dias mantêm a tabela pequena e o histórico útil.
 
-**Tensão a resolver:** a infraestrutura de cron do projeto foi removida junto
-com o catálogo antigo. Não há hoje onde pendurar essa limpeza (§2.6).
+**`N6` — a limpeza é oportunista, no disparo.** Ao gravar uma notificação
+nova, o serviço apaga de passagem o que passou de 30 dias. Não há cron no
+projeto (§4.4) e recriar a infraestrutura só para isso não se paga.
 
-### 2.6 O que ainda não está decidido
+Isso não é gambiarra: é o padrão que o projeto já usa em três lugares. O TTL
+do `idempotency_record` é verificado na leitura, sem coletor. O `print_job`
+expira na leitura. A inscrição de push morta é podada durante o envio. A
+limpeza é **fire-and-forget** — falhar não pode quebrar o disparo.
 
-Pendências abertas, a resolver antes ou durante a implementação. Nenhuma
-bloqueia o registro das notificações no catálogo.
+### 2.6 O schema
 
-| ID     | Pendência                                                                                                                                                                                                                                     |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `N-P1` | **Schema.** Duas tabelas (notificação + destinatário) e seus índices. O vínculo por destinatário existe para a audiência, não para estado de lida (`N3`).                                                                                     |
-| `N-P2` | **Notificações personalizadas.** Conteúdo que varia por usuário (uma saudação com o primeiro nome, por exemplo) não cabe num único registro compartilhado. Ou vira um registro por destinatário, ou o conteúdo mora no vínculo. Decidir qual. |
-| `N-P3` | **Endpoints do sino.** Listagem paginada escopada ao usuário. Definir contrato, limite de página e ordenação.                                                                                                                                 |
-| `N-P4` | **A limpeza dos 30 dias.** Sem cron no projeto, ou se recria um job agendado, ou a limpeza roda de forma oportunista (na escrita, na leitura). Recriar cron por causa disso é caro; decidir com calma.                                        |
-| `N-P5` | **Topbar em todas as rotas (mobile).** Mexe no `AppShell` e no `padding-top` de várias telas. Precisa de varredura visual — é mudança de shell, não de página.                                                                                |
-| `N-P6` | **PROSPECTOR.** Ele tem app restrito, sem tabbar. Confirmar se ele vê o sino e o que entra nele.                                                                                                                                              |
+Segue as convenções do projeto: `id` UUID gerado na aplicação com
+`randomUUID()` (sem `@default`), `@@map` snake*case, índices `idx*\*`,
+timestamps `@db.Timestamptz(6)`, e **sem `updatedAt`\*\* — as duas tabelas são
+append-only.
 
----
+**`N8` — o tipo da notificação é um slug de texto, não um enum do Prisma.**
+Registrar uma notificação nova passa a exigir só código, não uma migration. O
+banco não valida o valor; quem valida é uma constante no código, espelhando os
+slugs das fichas deste documento.
+
+```prisma
+model Notification {
+  id        String   @id @db.Uuid
+  type      String   @db.VarChar(60)    // slug da ficha (ex: "venda-confirmada")
+  title     String   @db.VarChar(80)    // TITLE_MAX do push
+  body      String   @db.VarChar(160)   // BODY_MAX do push
+  url       String   @db.VarChar(300)   // deep link
+  tag       String   @db.VarChar(120)   // agrupamento no APARELHO, não no sino
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  recipients NotificationRecipient[]
+
+  @@index([createdAt], map: "idx_notification_created")
+  @@map("notification")
+}
+
+model NotificationRecipient {
+  notificationId String   @map("notification_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  createdAt      DateTime @map("created_at") @db.Timestamptz(6)
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@id([notificationId, userId])
+  @@index([userId, createdAt, notificationId], map: "idx_notification_recipient_user_created")
+  @@map("notification_recipient")
+}
+```
+
+Três escolhas que merecem justificativa:
+
+- **`createdAt` é copiado no vínculo**, não é um `now()` próprio. É o mesmo
+  instante da notificação-mãe, gravado no mesmo insert. Existe para que o
+  índice `(user_id, created_at, notification_id)` sirva sozinho ao cursor do
+  feed, sem join na ordenação. Fan-out na escrita, leitura barata.
+- **`onDelete: Cascade` no vínculo com `Notification`** — a limpeza dos 30
+  dias apaga a notificação e os vínculos vão junto. É a única exceção à regra
+  do projeto (`Restrict` em tudo), e vale só para o pai `notification`. O
+  vínculo com `app_user` segue `Restrict`, como manda a skill `prisma`.
+- **PK composta `(notificationId, userId)`**, sem coluna `id` própria — molde
+  de `ClientCommercialUser`. Sem estado de lida (`N3`), o vínculo não tem
+  nada além da chave.
+
+Migration manual, aditiva e idempotente, com cabeçalho comentado. Molde:
+`prisma/migrations/20260610200000_add_push_subscription/`.
+
+### 2.7 O endpoint do sino
+
+Feed cronológico com "carregar mais" → **cursor keyset**, não offset. O molde é
+`listClients` (`src/clients/client-service.js`), não o `listInformeFeed`, que
+usa offset por combinar três tabelas.
+
+```
+GET /api/v1/notifications?limit=&cursorCreatedAt=&cursorId=
+
+→ { items: [{ id, type, title, body, url, createdAt }],
+    page:  { limit, nextCursor: { createdAt, id } | null } }
+```
+
+- **Ordenação:** `createdAt DESC, notificationId DESC`. O cursor keyset é
+  `(createdAt < c.createdAt) OR (createdAt = c.createdAt AND notificationId < c.id)`.
+- **Escopo:** sempre o ator autenticado. Não existe ler o sino de outro.
+- **Limite:** default **20**, máximo **50** (constantes no support do domínio,
+  molde de `USER_LIST_LIMIT` / `CLIENT_LIST_LIMIT`).
+- **Sem `total`.** Contar o feed inteiro não serve para nada sem badge (`N3`).
+- **Gate:** `listNotifications` entra na allowlist do PROSPECTOR (`N7`). Não há
+  gate por papel no service — a audiência já é o gate.
+
+Sem JSON Schema: `docs/schemas/` guarda só os schemas do event store, e a
+notificação não é um evento de amostra. O contrato vive em `lib/types.ts` e a
+validação de query, em código (`readLimitQuery`), como no resto do projeto.
+
+### 2.8 O que ainda não está decidido
+
+As pendências `N-P1`–`N-P6` da versão anterior deste documento estão todas
+resolvidas:
+
+| Pendência | Resolvida por                                                  |
+| --------- | -------------------------------------------------------------- |
+| `N-P1`    | §2.6 (schema) e `N8` (slug em vez de enum)                     |
+| `N-P2`    | `N5` — texto único, sem personalização                         |
+| `N-P3`    | §2.7 (endpoint, cursor keyset, limites)                        |
+| `N-P4`    | `N6` — limpeza oportunista no disparo                          |
+| `N-P5`    | `N2` revisado — o sino não mexe no shell, nem em `padding-top` |
+| `N-P6`    | `N7` — o PROSPECTOR vê o sino                                  |
+
+Ficam abertas, e são de desenho visual, não de arquitetura:
+
+| ID     | Pendência                                                                                                                                                                  |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `N-P7` | **A cara do painel.** Bottom sheet no mobile (molde do `HeaderAvatarMenu`) e dropdown no desktop (molde do `.topbar-profile-menu`)? Ver skills `modals` e `design-system`. |
+| `N-P8` | **Estado vazio.** O que o painel diz quando não há nenhuma notificação — situação do dia 1 e, para o PROSPECTOR, provavelmente permanente. Ver skill `feedback-messages`.  |
+| `N-P9` | **Ícone e afordância do sino.** Desenho do ícone (stroke, como os demais), e o que acontece ao tocar quando o painel já está aberto.                                       |
 
 ## 3. Processo de registro (Ideia → Construída → Validada)
 
