@@ -100,24 +100,15 @@ if [[ "${CANARY}" == "true" && -n "${SERVICE_URL}" ]]; then
 fi
 
 # Jobs deployados junto com o service (mesma imagem/env/secrets/SQL).
-# push-digest e opcional: so entra quando GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB
-# estiver definido no ops env (o agendamento e do Cloud Scheduler — ver
-# setup-push-digest-scheduler.sh).
 JOB_NAMES=("${GCLOUD_CLOUD_RUN_MIGRATE_JOB}" "${GCLOUD_CLOUD_RUN_SEED_JOB}")
-if [[ -n "${GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB:-}" ]]; then
-  JOB_NAMES+=("${GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB}")
-fi
 
 for job_name in "${JOB_NAMES[@]}"; do
   if [[ "${job_name}" == "${GCLOUD_CLOUD_RUN_MIGRATE_JOB}" ]]; then
     JOB_COMMAND="npm"
     JOB_ARGS="run,prisma:migrate:deploy"
-  elif [[ "${job_name}" == "${GCLOUD_CLOUD_RUN_SEED_JOB}" ]]; then
-    JOB_COMMAND="npm"
-    JOB_ARGS="run,db:seed"
   else
     JOB_COMMAND="npm"
-    JOB_ARGS="run,push:digest"
+    JOB_ARGS="run,db:seed"
   fi
 
   echo "[gcp] deploying job ${job_name}"

@@ -31,7 +31,6 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "backfill:liga": "node scripts/migrations/backfill-liga-harvest-owner.js",
-    "push:digest": "node scripts/jobs/send-daily-push-digest.js",
     "db:up": "docker compose -f compose/development.yml up -d db",
     "db:down": "docker compose -f compose/development.yml down",
     "db:logs": "docker compose -f compose/development.yml logs -f db",

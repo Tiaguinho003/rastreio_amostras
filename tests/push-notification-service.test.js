@@ -172,7 +172,9 @@ test('removeSubscription: delete escopado ao ator', async () => {
   });
 });
 
-test('sendPersonalizedToRoles: mensagem montada por usuario (saudacao com nome)', async () => {
+// Mecanismo da personalizacao: buildMessage(user) roda por inscricao. As
+// fixtures sao genericas de proposito — nenhuma notificacao real existe.
+test('sendPersonalizedToRoles: mensagem montada por usuario', async () => {
   const prisma = buildFakePrisma({
     subscriptions: [
       {
@@ -195,17 +197,17 @@ test('sendPersonalizedToRoles: mensagem montada por usuario (saudacao com nome)'
   const result = await service.sendPersonalizedToRoles(
     ['PROSPECTOR'],
     (user) => ({
-      title: `Bom dia ${user.fullName.split(' ')[0]}!`,
-      body: 'Vamos prospectar!',
-      url: '/informe',
-      tag: 'prospect-reminder',
+      title: `Olá ${user.fullName.split(' ')[0]}!`,
+      body: 'Corpo de teste.',
+      url: '/dashboard',
+      tag: 'test-personalized',
     }),
-    { ttl: 21600, urgency: 'normal', topic: 'prospect-reminder' }
+    { ttl: 21600, urgency: 'normal', topic: 'test-personalized' }
   );
 
   assert.deepEqual(result, { sent: 2, failed: 0, pruned: 0 });
   const titles = webPushClient.sent.map((s) => s.payload.title).sort();
-  assert.deepEqual(titles, ['Bom dia Maria!', 'Bom dia Pedro!']);
-  assert.equal(webPushClient.sent[0].options.topic, 'prospect-reminder');
+  assert.deepEqual(titles, ['Olá Maria!', 'Olá Pedro!']);
+  assert.equal(webPushClient.sent[0].options.topic, 'test-personalized');
   assert.deepEqual(prisma.calls.findMany[0].where.user.role, { in: ['PROSPECTOR'] });
 });
