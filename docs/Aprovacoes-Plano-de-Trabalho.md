@@ -38,6 +38,14 @@
 > **Adição pós-reforma (AP16, 2026-07-09):** os **envios de aprovação** passam a aparecer
 > no card **"Últimos envios"** do dashboard (nº do contrato + comprador, pill laranja,
 > inerte) — ver seção AP16 + Histórico.
+>
+> **🔴 REFORMULAÇÃO DESENHADA — 5 FASES (design, 2026-07-09) — "o portão":** desenhar a
+> **sub-aba de Aprovação** (F2 da Central de Contratos) expôs que o sinal mole (AP8) gera
+> inconsistências. Decisão do Flavio: **apertar** — geração exige o sinal (**AP17**,
+> reverte AP8) e **faturar exige a aprovação enviada** (**AP18**, portão novo no ciclo,
+> cruza pro Contratos). Fluxo redesenhado ponta a ponta em **5 fases (AP17–AP24 +
+> AP-P2)**. **⚠️ DESIGN, ainda NÃO implementado** (o código segue na AP8). Próximo:
+> desenho da própria página. Ver seção "Reformulação — o portão" + Histórico.
 
 ## Contexto e objetivo
 
@@ -292,6 +300,254 @@ lote — física + laudo, DSH-D5) **também comporte os envios de aprovação**.
   não-PROSPECTOR (mesma do recent-sends). Ver DSH-D5 (adendo) + endpoint #8 do
   `docs/API-e-Contratos.md`.
 
+## Reformulação — "o portão" (2026-07-09, DESIGN — não implementado)
+
+> **Gatilho:** ao iniciar o desenho da **sub-aba de Aprovação** (F2 da Central de
+> Contratos), a análise do fluxo em **5 fases** (marcação → lembrete → geração →
+> registro → encerramento) expôs que o **sinal proativo** (AP8) produz
+> inconsistências que a página exporia: marcado **"Não"** com etiqueta enviada e
+> marcado **"Sim"** nunca enviado → "marcados" ≠ "aprovação real" (gargalos
+> 1.1/1.2); e o **buraco G1** — marcado **faturado sem envio**, sem estado. Decisão
+> do Flavio: **deixar as ações menos livres e forçar o caminho certo**,
+> transformando a aprovação num **portão duro do ciclo do contrato**. **⚠️ DESIGN —
+> ainda NÃO implementado; diverge do código atual, que segue na AP8.** Revê **AP8** e
+> o terminal da **AP6**.
+
+Contexto de negócio (respostas do Flavio, 2026-07-09):
+
+1. "Precisa de aprovação" é decisão **caso a caso** (não é propriedade fixa do
+   comprador ou do tipo de café).
+2. A aprovação é **sempre antes do faturamento** — não existe faturar antes de aprovar.
+3. Medo real = usuários **esquecerem** de registrar o envio. A etiqueta obrigatória
+   força o registro; mas gente esquece.
+4. Gerar em contrato não-marcado acontece (aprovação de última hora) — foi o motivo da
+   AP8; o Flavio aceita apertar isso em nome da correção.
+
+**AP17 — Gerar aprovação exige o sinal (contrato marcado "Sim"). [reverte AP8]**
+Só se gera etiqueta de contrato com `requiresApproval = true`. Precisou de última hora
+num contrato "Não"? **Edita-se o contrato para "Sim" primeiro**, aí gera. Fecha a
+divergência 1.1/1.2 — deixa de existir "Não" com envio. Consequência: as portas de
+geração (seletor do /samples, atalho do dashboard) passam a **listar só marcados**.
+
+**AP18 — Faturar exige a aprovação enviada. [portão novo no ciclo; revê terminal da AP6]**
+Um contrato marcado "Sim" **não passa de `EMITIDO` para `FATURADO`** sem **≥1 etiqueta
+gerada** (`approval_label_log`). Como aprovar é sempre pré-faturamento (contexto 2), o
+portão fica na transição `EMITIDO → FATURADO`. Fecha o **buraco G1** — "faturado sem
+envio" vira **impossível**. **É o verdadeiro remédio do medo de esquecerem (contexto
+3):** esquecer não vira dado ruim silencioso — vira **contrato travado no faturar**,
+visível em "a enviar" e recuperável. ⚠️ **Encosta em `invoiceSaleContract`** (a máquina
+de estados que Contratos e Financeiro usam pra faturar) → **mudança cross-feature**, não
+só da aprovação.
+
+**AP19 — Washout isento do portão. [E1]**
+Um contrato marcado, ainda `EMITIDO` e sem envio, **pode ser cancelado (`WASH_OUT`)**
+normalmente — washout é a morte do negócio, independe de aprovação. Sai da fila
+"a enviar" e vira "cancelado".
+
+**AP20 — Desmarcar (Sim→Não) restrito. [E2]**
+Desmarcar só é permitido em **`EMITIDO` e sem nenhum envio** (conserta marcação errada).
+**Após o 1º envio, o sinal trava em "Sim"** (já foi aprovado; não dá pra fingir que não
+precisava). Desmarcar-antes-de-enviar segue sendo saída consciente do criador
+(ADMIN+COMMERCIAL) — aceita; não se apertou além disso (ex.: exigir papel ou razão) por
+ora.
+
+**AP21 — Mecânica do portão. [E3/E4/E5]**
+
+- **E3** O portão é **no faturar**; **pagar herda** (não fatura sem enviar ⇒ não paga
+  sem enviar). Sem dupla checagem.
+- **E4** Portas de geração **listam só marcados** (decorre da AP17); **a elegibilidade
+  de geração aperta para só `EMITIDO`** (reenvio pós-faturado perde propósito — o proxy
+  de recusa da AP13 é reenvio **antes** de faturar). _Revê `APPROVAL_ELIGIBLE_STATUSES =
+[EMITIDO, FATURADO, PAGO]` → só `EMITIDO`._
+- **E5** O sistema não vê a amostra física — o **proxy de "amostra enviada" é "etiqueta
+  gerada"** (a linha no `approval_label_log`). Coerente com o contexto 3.
+
+**Matriz de caminhos sob o portão** (as linhas de gargalo deixam de existir):
+
+| marca | status        | tem envio? | possível? | situação                                  |
+| ----- | ------------- | ---------- | --------- | ----------------------------------------- |
+| Sim   | EMITIDO       | não        | ✅        | **a enviar** (trava o faturar)            |
+| Sim   | EMITIDO       | sim        | ✅        | **enviada** (liberou faturar)             |
+| Sim   | FATURADO/PAGO | não        | ❌ AP18   | ~~faturou sem enviar~~ — G1 morto         |
+| Sim   | FATURADO/PAGO | sim        | ✅        | enviada + faturada                        |
+| Sim   | WASH_OUT      | —          | ✅        | cancelado (AP19)                          |
+| Não   | qualquer      | não        | ✅        | não se aplica                             |
+| Não   | qualquer      | sim        | ❌ AP17   | ~~enviou sem marcar~~ — divergência morta |
+
+**Impacto documental (a formalizar quando implementar):**
+
+- Revê **AP8** (portas listam marcados, não "todos") e o **terminal da AP6** ("some ao
+  faturar sem enviar" fica impossível — o lembrete só sai por **envio** ou **washout**).
+- Revê `APPROVAL_ELIGIBLE_STATUSES` (→ só `EMITIDO`).
+- Novo portão em `invoiceSaleContract` → **cruza para `Contratos-Plano-de-Trabalho.md`**
+  (lógica de faturamento); anotar lá ao formalizar.
+- **Divergência código × decisão:** AP1–AP16 estão **implementados**; **AP17–AP21 são
+  design, não implementados** — o código atual segue livre (AP8). Sinalizar na
+  implementação.
+
+### Fase 2 — o lembrete, sob o portão (2026-07-09)
+
+**AP22 — O lembrete segue só "a enviar" (pendente); sem estado "atrasado" por ora.**
+Com o portão, o lembrete deixa de ser rede de segurança (a AP18 é) e vira conveniência.
+Fica como a AP6/AP15 já definiram — dot laranja **"a enviar"**, de `invoiceDate − lead`
+em diante, **todos os dias**, até enviar. **Não** ganha escalonamento de atraso agora. O
+**terminal simplifica** (consequência da AP18): o lembrete só sai por **envio** ou
+**washout** — "some ao faturar sem enviar" ficou impossível.
+
+**AP-P2 — "Atrasado" como feature futura (aprovação + embarque).** O Flavio quer o
+estado de atraso, mas ele depende de "que data conta como limite":
+
+- **Embarque:** **fácil** — tem data exata (`shipmentDate`); depois dela, é atraso. Será
+  adicionado **quando trabalharmos o embarque**.
+- **Aprovação:** **delicado** — não há data-limite exata (a âncora `invoiceDate` é
+  planejada/movível, e a regra é só "antes de faturar"). Precisa de **mais contexto do
+  negócio** pra definir o que é "atrasado". **Adiado** — por ora, só "pendente".
+
+**Carregado pra frente (Q2.2, dose do lembrete):** manter o dot **diário** (AP6) ou
+enxugar é questão que se resolve junto do **CC7** (relação aba de Aprovação × lembrete do
+dashboard × /samples), na Fase 3/4.
+
+### Fase 3 — a geração, sob o portão (2026-07-09)
+
+Sob o portão, a geração já herda: portas listam **só marcados** (AP17) e elegibilidade
+**só `EMITIDO`** (AP21/E4). Restava a fricção do "editar pra Sim antes de gerar" (o que
+motivou a AP8) e a tensão de papéis dela.
+
+**3.1 — Resolvido: o portão se sustenta sem afrouxar pro operador.** Quem decide uma
+aprovação de última hora é **~100% ADM/COMMERCIAL** (fato do negócio, Flavio) — e eles
+**podem marcar** (AP9). O operador (CLASSIFIER/REGISTRATION/CADASTRO) só gera de
+já-marcados, o que está **certo** (executa, não decide). Não se relaxa a AP17 pra
+operador.
+
+**AP23 — "Botão rápido" de Sim/Não no contrato (substitui a ideia descartada de "marcar e
+gerar").** Em vez de gerar-que-marca-implícito, um **toggle rápido** do `requiresApproval`
+no contrato — sem abrir o "Editar" inteiro. Regras:
+
+- **Quem:** só **ADM/COMMERCIAL** (AP9; COMMERCIAL nos dele).
+- **Travas (AP20):** `Não → Sim` livre em `EMITIDO`; `Sim → Não` só em `EMITIDO` **e sem
+  envio**; após o 1º envio **trava em Sim**; depois de `EMITIDO` (faturado+), encerrado —
+  sem toggle.
+- **Lead:** o toggle grava o lead **padrão (30)**; lead custom continua no "Editar".
+- **Geração permanece uniforme:** o seletor lista **só marcados, igual pra todos** — sem
+  picker por papel, sem marcação implícita. Aprovar de última hora = **toggle → Sim →
+  gera** (dois passos explícitos, alinhado ao "forçar o certo").
+- _Descartada a "marcar e gerar" (gerar auto-marcava, com seletor role-conditional): mais
+  complexa e com efeito colateral escondido. O botão rápido entrega a mesma conveniência
+  (sem viagem ao form) de forma explícita._
+- **Onde mora (UI, a finalizar no passo de layout):** inclinação = dentro do **Detalhes**
+  (card enxuto, AP11/D121), não no card.
+
+**3.3 — Elegibilidade `EMITIDO`-only:** já coberta pela **AP21/E4** (confirmada no
+"Concordo" do portão). Reenvio (proxy de recusa, AP13) e reimpressão legítima acontecem
+ainda em `EMITIDO`, antes de faturar.
+
+**Adiado de propósito — 3.2 / CC7 (aba × dashboard × /samples):** se a aba de Aprovação é
+porta **a mais** ou **substitui** as outras depende do que ela vai **mostrar**. Fica pro
+passo de desenho da página, depois das 5 fases.
+
+### Fase 4 — o registro, sob o portão (2026-07-09)
+
+Cada envio grava uma linha no `approval_label_log` (append-only, já existe); o status
+deriva pra **enviada** e libera o faturamento (AP18). As superfícies de leitura já
+existentes ficam: **timeline "Aprovação enviada"** no Detalhes (envio a envio) + card
+**"Últimos envios"** (AP16).
+
+**AP24 — A página mostra o nº de envios (revisita parcial da AP-P1).** O nº de envios é o
+proxy de recusa provável (AP13 — reenviar antes de faturar ≈ recusa no meio). A AP-P1
+dispensou a superfície in-app disso; mas a **página** é o lar natural do dado. Decisão:
+
+- **Mostra o fato (neutro):** **"enviada"** quando foi 1 envio; **"enviada · N×"** quando
+  foi mais de um (destaca só o caso interessante = possível recusa, sem poluir o comum).
+- **Não rotula a interpretação:** o app **não** escreve "provável recusa" — essa leitura
+  segue **externa** (BI), honrando o espírito da AP-P1. A página mostra o número; quem
+  interpreta é quem monta a métrica.
+- **Fonte:** derivado do `approval_label_log` (count por contrato); a timeline do Detalhes
+  segue listando envio a envio (o dado bruto).
+
+### Fase 5 — o encerramento, sob o portão (2026-07-09)
+
+Confirmação: o portão fechou a matriz de estados **sem buracos**. Todo contrato marcado
+cai em um de três estados visíveis; "faturado sem enviar" (AP18) e "enviou sem marcar"
+(AP17) são impossíveis.
+
+| estado do contrato                 | aprovação     | rótulo na página         |
+| ---------------------------------- | ------------- | ------------------------ |
+| EMITIDO · marcado · sem envio      | pendente      | **a enviar**             |
+| marcado · ≥1 envio                 | concluída     | **enviada** (· N× se >1) |
+| WASH_OUT · marcado (com/sem envio) | cancelada     | **cancelado**            |
+| não marcado                        | não se aplica | (fora da página)         |
+
+- **"Enviada" é terminal no sistema;** o desfecho real fica fora (AP13), com o nº de
+  envios (AP24) como pista.
+- **Washout vence:** contrato cancelado aparece "cancelado" tendo enviado ou não (o
+  histórico de envio, se houve, fica na timeline do Detalhes).
+- **Em aberto (pertence ao desenho da página, não ao fluxo):** o **alcance da lista** — só
+  os ativos ("a enviar") ou o livro-razão inteiro (a enviar + enviada + cancelado). Vai
+  junto de colunas/filtros/layout.
+
+**✅ Reformulação "o portão" desenhada ponta a ponta (5 fases, AP17–AP24 + AP-P2).**
+Próximo passo: **desenho da página** (a sub-aba de Aprovação) — com o fluxo já consertado —
+e depois o plano de implementação. **Nada implementado; diverge do código (AP8).**
+
+## A sub-aba de Aprovação (a página) — desenho (2026-07-09)
+
+> Desenho do **conteúdo** da aba (a "casca"/acesso fica no `Central-de-Contratos`,
+> CC6/CC15). Assenta sobre o modelo já reformado (o portão, AP17–AP24). Prefixo **AP**, a
+> partir da AP25. **DESIGN — não implementado.**
+
+**AP25 — Alcance da lista: híbrido (P-1).** A página lista **todos os contratos marcados**,
+em todos os estados (**a enviar · enviada · cancelado**), com **filtro por status** e
+**abrindo na fila de "a enviar"** (o acionável em cima). Honra o "todos os selecionados +
+status" da ideia original e prioriza o que precisa de ação. Molde do Financeiro (lista +
+estado + filtro).
+
+**AP26 — O que cada linha mostra (P-2).** Status (**dot + rótulo**, com a contagem `·N×` na
+enviada — AP24), **nº do contrato**, **comprador**, uma **data** (a enviar → faturamento
+planejado, marcado com `~`; enviada → data do último envio) e **sacas**. Só **campos
+não-sensíveis** — sem valor/financeiro (respeita o select mínimo da AP10, que mantém a aba
+segura pros papéis operacionais).
+
+**AP27 — Ações por linha (P-3).**
+
+- **[Gerar]** — só em contrato **marcado + `EMITIDO`** (a enviar; ou enviada ainda em
+  `EMITIDO` = reenvio). Faturado/pago/cancelado **sem botão** (elegibilidade EMITIDO-only,
+  AP21).
+- **Ver contrato** (abre o Detalhes) — **só ADM/COMMERCIAL** (o contrato carrega
+  financeiro; operador não acessa). Pro operador a linha é **inerte** (só a info de
+  aprovação + Gerar).
+- O **botão rápido** de Sim/Não (AP23) mora no **Detalhes do contrato**, não na aba — a aba
+  é sobre **gerar/acompanhar**, não sobre marcar.
+
+**AP28 — Filtro / busca / ordem (P-4).** Filtro por status (**A enviar · Enviadas ·
+Canceladas · Todas**, default **A enviar**), busca por **nº ou comprador**, ordem default
+na fila = **faturamento planejado** (o mais próximo em cima). Paginação molde Financeiro.
+
+**AP29 — Geração mora só na sub-aba (P-5; resolve o CC7 do Central).** Com a aba pronta, a
+geração da etiqueta passa a viver **só nela**. As outras superfícies perdem a geração:
+
+- **Dashboard: vira caminho, não gera.** O lembrete "a enviar" no card de Eventos **fica**
+  (AP6, o empurrão temporal), mas **perde o botão "Gerar aprovação"** (**reverte AP7**) —
+  clicar no evento **leva à sub-aba** (idealmente destacando o contrato), onde se gera. O
+  card **"Últimos envios"** (AP16, feed inerte) **fica** — não é porta de geração.
+- **/samples (Lotes): sai.** O seletor "+" de aprovação **some** da página de Lotes — com a
+  aba, não faz mais sentido ali.
+- **Portas finais de geração:** de "/samples + dashboard" (AP11/AP12) para **só a sub-aba**.
+- **Divergência de código:** reverte a **AP7** (implementada na Fase 2, commit `06e7785`) e
+  remove a porta /samples — a implementação da página tira os dois. **Design; não
+  implementado.**
+
+**AP30 — Acesso do tab: segue o Central; lista não-escopada (P-6).** O tab de Aprovação
+segue **CC6-A** (visível a todos os não-PROSPECTOR) e **CC15** (rótulo de nav por papel —
+ADM/COMMERCIAL "Contratos"/4 abas; operadores "Embarques"/2 abas). **Posse:** a lista é
+**não-escopada** — **todos veem todos** os marcados (AP10; igual ao lembrete do dashboard),
+com só nº/comprador/status (campos não-sensíveis, AP26). O **"Ver contrato"** segue
+escopado (ADM/COMMERCIAL + só os dele — D110/AP27). _Descartado escopar a lista por
+COMMERCIAL (quebraria o "todos geram" da AP10 e deixaria o operador vendo mais que o
+comercial)._
+
+**✅ Página desenhada (P-1–P-6 = AP25–AP30).** Falta só o **P-7 (layout/visual)** — passo de
+UI, na implementação. **DESIGN; não implementado.**
+
 ## Pendências / próximos blocos
 
 - **Bloco 2 — Papéis: ✅ RESOLVIDO (AP9–AP10).** Quem decide = ADMIN+COMMERCIAL
@@ -442,3 +698,52 @@ lote — física + laudo, DSH-D5) **também comporte os envios de aprovação**.
   nº+comprador com pill laranja `is-approval`, inerte. **Decisões:** nº do contrato + comprador
   (sem "quem enviou"), inerte (sem deep link). Gates verdes + unit + integração. **NÃO
   commitado/pushado — validar no device.** Ver seção AP16 + DSH-D5 (adendo) + `API-e-Contratos.md`.
+- **2026-07-09 (reformulação "o portão" — a página aperta a lógica; DESIGN)** — ao iniciar
+  o desenho da **sub-aba de Aprovação** (F2 da Central de Contratos), a análise do fluxo em
+  **5 fases** (marcação → lembrete → geração → registro → encerramento) expôs que o **sinal
+  proativo** (AP8) produz divergência (marcado-"Não"-com-envio / marcado-"Sim"-nunca-enviado)
+  e o **buraco G1** (faturado sem envio, sem estado). Respostas do Flavio: aprovação é **caso
+  a caso** e **sempre pré-faturamento**; medo real = esquecerem de registrar. Decisão:
+  transformar a aprovação num **portão duro** — **AP17** (gerar exige contrato marcado "Sim";
+  reverte AP8), **AP18** (faturar exige ≥1 envio; portão novo em `invoiceSaleContract`,
+  cross-feature; revê terminal da AP6), **AP19** (washout isento), **AP20** (desmarcar só em
+  `EMITIDO` sem envio, trava em "Sim" após envio), **AP21** (portão no faturar/pago herda;
+  portas listam só marcados; elegibilidade → só `EMITIDO`; etiqueta = proxy da amostra). Fecha
+  os gargalos 1.1/1.2 + G1 **estruturalmente**. **DESIGN — não implementado** (diverge do
+  código, ainda na AP8). Próximo: **Fase 2** (o lembrete, que simplifica com o portão). Só
+  registro — sem código.
+- **2026-07-09 (Fase 2 do redesenho — o lembrete)** — sob o portão, o lembrete vira
+  conveniência (a AP18 é a rede de segurança); segue **"a enviar"** diário (AP6/AP15),
+  terminal simplificado (só envio/washout). **AP22** confirma "só pendente, sem atraso
+  agora"; **AP-P2** adia o estado **"atrasado"** como feature futura — fácil no embarque
+  (data exata `shipmentDate`), delicado na aprovação (sem data-limite exata; precisa de
+  mais contexto do negócio). Q2.2 (dose) carregada pro CC7. Só registro — sem código.
+- **2026-07-09 (Fase 3 do redesenho — a geração)** — sob o portão, portas listam só
+  marcados (AP17) + elegibilidade só `EMITIDO` (AP21/E4). **3.1 resolvido:** decisão de
+  aprovação de última hora é ~100% ADM/COMMERCIAL (que podem marcar) → o portão se
+  sustenta sem afrouxar pro operador. **AP23** troca a ideia descartada de "marcar e
+  gerar" por um **botão rápido** de Sim/Não no contrato (ADM/COMMERCIAL, travas da AP20,
+  lead default; geração segue uniforme = só marcados pra todos, toggle→Sim→gera). CC7
+  (aba como porta) adiado pro desenho da página. Só registro — sem código.
+- **2026-07-09 (Fase 4 do redesenho — o registro)** — cada envio grava no
+  `approval_label_log` (já existe); status deriva pra **enviada** (libera faturar, AP18).
+  **AP24:** a **página** passa a mostrar o **nº de envios** — "enviada" (1×) / "enviada ·
+  N×" (>1) — o dado neutro (revisita parcial da AP-P1, que fica só pra "provável recusa" =
+  BI externo). Timeline do Detalhes + card "Últimos envios" (AP16) inalterados. Só registro
+  — sem código.
+- **2026-07-09 (Fase 5 do redesenho — o encerramento; REFORMULAÇÃO FECHADA)** — confirmada
+  a matriz de estados sem buracos (a enviar · enviada · cancelado · não se aplica);
+  "faturado sem enviar" e "enviou sem marcar" impossíveis (AP18/AP17). "Enviada" terminal
+  no sistema (desfecho fora, AP13). **5 fases da reformulação "o portão" desenhadas ponta a
+  ponta (AP17–AP24 + AP-P2)** — próximo: desenho da página (a sub-aba) + plano de
+  implementação. **Nada implementado; diverge do código (AP8).** Só registro — sem código.
+- **2026-07-09 (desenho da página — a sub-aba de Aprovação)** — com o fluxo reformado, a
+  própria página: **AP25** alcance híbrido (todos os marcados, filtro por status, abre em
+  "a enviar"); **AP26** linha = status+contagem·N×/nº/comprador/data/sacas (campos
+  não-sensíveis, AP10); **AP27** ações = [Gerar] só marcado+EMITIDO + "Ver contrato" só
+  ADM/COMMERCIAL (botão rápido AP23 fica no Detalhes); **AP28** filtro/busca/ordem;
+  **AP29 geração mora SÓ na sub-aba** (dashboard vira caminho, perde "Gerar aprovação"
+  [reverte AP7]; /samples sai; portas finais = só a aba); **AP30** acesso segue CC6/CC15,
+  lista não-escopada (AP10), "Ver contrato" escopado (D110). **Aprovação desenhada completa
+  (fluxo + página); DESIGN, não implementado.** P-7 (layout) fica pra implementação; CC7
+  resolvido no Central. Só registro — sem código.

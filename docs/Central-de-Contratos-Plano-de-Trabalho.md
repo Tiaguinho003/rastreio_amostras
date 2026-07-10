@@ -258,7 +258,11 @@ aprovacoes|embarque`), coexistindo com `?details=`; (c) segmentos de rota
 - **Proposta:** **não decidir agora**; é fase futura. Registrar como questão a
   resolver no ciclo de conteúdo de cada aba (docs de Aprovações/Embarque): a aba é
   porta **adicional** ou **substitui** as portas de dashboard/`/samples`?
-- DECISÃO: 🟡 em aberto (adiada de propósito).
+- DECISÃO: 🟡 **Aprovações RESOLVIDO** (2026-07-09; `Aprovacoes-Plano-de-Trabalho.md`,
+  AP29): a **sub-aba é a única porta de geração** — o dashboard vira **caminho** (perde o
+  "Gerar aprovação", reverte AP7) e o **`/samples` sai**. Portas finais de geração da
+  aprovação = **só a sub-aba**. **Embarque:** segue em aberto (resolve no ciclo de conteúdo
+  do Embarque).
 
 ### Bloco 3 — Ordem e aba default
 
