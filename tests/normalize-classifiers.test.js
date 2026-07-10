@@ -27,12 +27,28 @@ const UID_A = '11111111-1111-4111-8111-111111111111';
 const UID_B = '22222222-2222-4222-8222-222222222222';
 const UID_C = '33333333-3333-4333-8333-333333333333';
 const UID_ACTOR = '99999999-9999-4999-8999-999999999999';
+// Nao usar 4444... — o teste de CLASSIFIER_NOT_FOUND usa esse uuid literal
+// como usuario inexistente.
+const UID_PROSPECTOR = '55555555-5555-4555-8555-555555555555';
 
 const users = [
-  { id: UID_A, fullName: 'Alice Silva', username: 'alice', status: 'ACTIVE' },
-  { id: UID_B, fullName: 'Bruno Souza', username: 'bruno', status: 'ACTIVE' },
-  { id: UID_C, fullName: 'Carla Inativa', username: 'carla', status: 'INACTIVE' },
-  { id: UID_ACTOR, fullName: 'Actor User', username: 'actor', status: 'ACTIVE' },
+  { id: UID_A, fullName: 'Alice Silva', username: 'alice', status: 'ACTIVE', role: 'CLASSIFIER' },
+  { id: UID_B, fullName: 'Bruno Souza', username: 'bruno', status: 'ACTIVE', role: 'ADMIN' },
+  {
+    id: UID_C,
+    fullName: 'Carla Inativa',
+    username: 'carla',
+    status: 'INACTIVE',
+    role: 'CLASSIFIER',
+  },
+  { id: UID_ACTOR, fullName: 'Actor User', username: 'actor', status: 'ACTIVE', role: 'ADMIN' },
+  {
+    id: UID_PROSPECTOR,
+    fullName: 'Aroldo Campo',
+    username: 'aroldo',
+    status: 'ACTIVE',
+    role: 'PROSPECTOR',
+  },
 ];
 
 test('normalizeClassifiers rejects null (classifiers e obrigatorio)', async () => {
@@ -124,6 +140,26 @@ test('normalizeClassifiers rejects inactive user (422 INACTIVE_CLASSIFIER)', asy
       error instanceof HttpError &&
       error.status === 422 &&
       error.details?.code === 'INACTIVE_CLASSIFIER'
+  );
+});
+
+test('normalizeClassifiers rejects PROSPECTOR (422 PROSPECTOR_NOT_ASSIGNABLE)', async () => {
+  const svc = buildService(users);
+  await assert.rejects(
+    () => svc.normalizeClassifiers([{ userId: UID_PROSPECTOR }]),
+    (error) =>
+      error instanceof HttpError &&
+      error.status === 422 &&
+      error.details?.code === 'PROSPECTOR_NOT_ASSIGNABLE' &&
+      error.details?.userId === UID_PROSPECTOR
+  );
+});
+
+test('normalizeClassifiers rejects a PROSPECTOR mixed with valid classifiers', async () => {
+  const svc = buildService(users);
+  await assert.rejects(
+    () => svc.normalizeClassifiers([{ userId: UID_A }, { userId: UID_PROSPECTOR }]),
+    (error) => error.status === 422 && error.details?.code === 'PROSPECTOR_NOT_ASSIGNABLE'
   );
 });
 

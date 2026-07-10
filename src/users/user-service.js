@@ -670,6 +670,9 @@ export class UserService {
         fullName: true,
         username: true,
         status: true,
+        // role: usado pelo gate de papel do normalizeClassifiers. NAO entra no
+        // snapshot gravado no evento — so na validacao.
+        role: true,
       },
     });
     return new Map(users.map((user) => [user.id, user]));

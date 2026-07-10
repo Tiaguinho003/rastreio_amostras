@@ -2,7 +2,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { assertRoleAllowed, USER_ROLES } from '../auth/roles.js';
+import { assertRoleAllowed, isAssignableUserRole, USER_ROLES } from '../auth/roles.js';
 import { HttpError } from '../contracts/errors.js';
 import {
   assertBrokersResolved,
@@ -1578,6 +1578,17 @@ export class SampleCommandService {
       if (user.status !== 'ACTIVE') {
         throw new HttpError(422, `Classificador inativo: ${userId}`, {
           code: 'INACTIVE_CLASSIFIER',
+          userId,
+        });
+      }
+      // O PROSPECTOR sumiu do seletor de classificadores (lookupUsersForReference
+      // nao o devolve), mas o gate de verdade e este. Vale tambem na EDICAO da
+      // classificacao: nao ha lote com prospector no snapshot (confirmado com o
+      // Flavio). Se um dia aparecer, o sintoma sera 422 ao editar aquele lote — e
+      // a saida e poupar os ids ja presentes no snapshot anterior.
+      if (!isAssignableUserRole(user.role)) {
+        throw new HttpError(422, `Classificador com papel nao atribuivel: ${userId}`, {
+          code: 'PROSPECTOR_NOT_ASSIGNABLE',
           userId,
         });
       }
