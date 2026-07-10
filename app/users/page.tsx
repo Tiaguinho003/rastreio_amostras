@@ -19,18 +19,29 @@ import {
 import { maskPhoneInput } from '../../lib/client-field-formatters';
 import { useToast } from '../../lib/toast/ToastProvider';
 import { useFocusTrap } from '../../lib/use-focus-trap';
-import { getRoleLabel } from '../../lib/roles';
+import { getRoleLabel, isAssignableUserRole } from '../../lib/roles';
 import { useRequireAuth } from '../../lib/use-auth';
 import type { UserRole, UserStatus, UserSummary } from '../../lib/types';
 
-const ROLE_OPTIONS: UserRole[] = [
+// Papeis oferecidos ao CRIAR um usuario. O PROSPECTOR ficou de fora: o papel
+// continua existindo (enum, login, app de campo), mas ninguem cria mais.
+const CREATE_ROLE_OPTIONS: UserRole[] = [
   'ADMIN',
   'CLASSIFIER',
   'REGISTRATION',
   'CADASTRO',
   'COMMERCIAL',
-  'PROSPECTOR',
 ];
+
+// Ao EDITAR, o select precisa conter o papel atual — senao um PROSPECTOR
+// existente abriria o formulario com o campo em branco e o primeiro
+// salvamento trocaria o papel dele em silencio. Nao ha promocao a
+// PROSPECTOR: o papel so aparece para quem ja o tem.
+function editRoleOptions(currentRole: UserRole): UserRole[] {
+  return isAssignableUserRole(currentRole)
+    ? CREATE_ROLE_OPTIONS
+    : [...CREATE_ROLE_OPTIONS, currentRole];
+}
 // Scroll infinito: cada fetch traz ate 30 (cap backend 60). Espelha /clients.
 const USER_PAGE_LIMIT = 30;
 // rootMargin '0px': sentinel so dispara o load-more quando ja esta visivel
@@ -1101,7 +1112,10 @@ export default function UsersPage() {
                             setEditForm((c) => ({ ...c, role: e.target.value as UserRole }))
                           }
                         >
-                          {ROLE_OPTIONS.map((role) => (
+                          {/* Baseado no papel PERSISTIDO (modal.user), nao no
+                              editForm: senao a opcao sumiria assim que o
+                              usuario trocasse o select, impedindo desfazer. */}
+                          {editRoleOptions(modal.user.role).map((role) => (
                             <option key={role} value={role}>
                               {getRoleLabel(role)}
                             </option>
@@ -1203,7 +1217,7 @@ export default function UsersPage() {
                       setCreateForm((c) => ({ ...c, role: e.target.value as UserRole }))
                     }
                   >
-                    {ROLE_OPTIONS.map((role) => (
+                    {CREATE_ROLE_OPTIONS.map((role) => (
                       <option key={role} value={role}>
                         {getRoleLabel(role)}
                       </option>

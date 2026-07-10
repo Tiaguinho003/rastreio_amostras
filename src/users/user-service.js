@@ -1,7 +1,12 @@
 import { randomUUID } from 'node:crypto';
 
 import { HttpError } from '../contracts/errors.js';
-import { NON_ASSIGNABLE_ROLES, USER_ROLES, isCommercialRole } from '../auth/roles.js';
+import {
+  NON_ASSIGNABLE_ROLES,
+  USER_ROLES,
+  isAssignableUserRole,
+  isCommercialRole,
+} from '../auth/roles.js';
 import {
   INITIAL_PASSWORD_DECISIONS,
   LOGIN_MAX_ATTEMPTS,
@@ -690,6 +695,15 @@ export class UserService {
     const phone = normalizePhone(input.phone);
     const password = normalizePassword(input.password);
     const role = normalizeRole(input.role);
+    // Nao se cria mais um PROSPECTOR. O papel continua no enum e os usuarios
+    // existentes seguem editaveis — por isso o gate esta so aqui, e nao no
+    // updateUser (que travaria a edicao de quem ja tem o papel).
+    if (!isAssignableUserRole(role)) {
+      throw new HttpError(422, `role ${role} is no longer available for new users`, {
+        code: 'PROSPECTOR_NOT_ASSIGNABLE',
+        field: 'role',
+      });
+    }
     const passwordHash = await hashPassword(password);
     const now = nowUtc();
 
