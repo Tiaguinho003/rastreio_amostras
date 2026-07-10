@@ -1049,6 +1049,21 @@ export function uploadClientAttachment(
   });
 }
 
+// Vincula o anexo a uma filial do cliente. Definitivo: o backend responde 409
+// CLIENT_ATTACHMENT_ALREADY_LINKED se o anexo ja tiver filial.
+export function linkClientAttachmentUnit(
+  session: SessionData,
+  clientId: string,
+  attachmentId: string,
+  unitId: string
+) {
+  return request<ClientAttachmentResponse>(`/clients/${clientId}/attachments/${attachmentId}`, {
+    method: 'PATCH',
+    session,
+    body: { unitId } as unknown as JsonValue,
+  });
+}
+
 export function deleteClientAttachment(
   session: SessionData,
   clientId: string,

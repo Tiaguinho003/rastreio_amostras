@@ -4,28 +4,39 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { useFocusTrap } from '../../lib/use-focus-trap';
-import type { ClientAttachmentSummary } from '../../lib/types';
+import type { ClientAttachmentSummary, ClientUnitSummary } from '../../lib/types';
 
 // Preview de anexo do cliente (Fechamento Fase 0 — D27): imagem inline,
 // PDF embutido em <iframe>; baixar + excluir (com confirmação).
+//
+// Vínculo com a filial: o select só aparece enquanto o anexo não tem filial.
+// Escolher grava na hora (sem confirmação) e o vínculo é definitivo — depois
+// disso o campo vira texto. `units` deve trazer só as filiais ATIVAS; vazio
+// (PJ, ou PF sem filial ativa) esconde o campo por completo.
 type Props = {
   open: boolean;
   attachment: ClientAttachmentSummary | null;
   downloadUrl: string | null;
+  units: ClientUnitSummary[];
   deleting: boolean;
+  linking: boolean;
   errorMessage: string | null;
   onClose: () => void;
   onDelete: () => void;
+  onLink: (unitId: string) => void;
 };
 
 export function ClientAttachmentPreviewModal({
   open,
   attachment,
   downloadUrl,
+  units,
   deleting,
+  linking,
   errorMessage,
   onClose,
   onDelete,
+  onLink,
 }: Props) {
   const focusTrapRef = useFocusTrap(open);
   const [confirming, setConfirming] = useState(false);
@@ -38,6 +49,7 @@ export function ClientAttachmentPreviewModal({
 
   const isImage = (attachment.mimeType ?? '').startsWith('image/');
   const isPdf = attachment.mimeType === 'application/pdf';
+  const linkedUnit = attachment.unit;
 
   return createPortal(
     <div className="app-modal-backdrop" onClick={onClose}>
@@ -87,6 +99,37 @@ export function ClientAttachmentPreviewModal({
               <p>Pré-visualização indisponível para este tipo de arquivo.</p>
             </div>
           )}
+          {linkedUnit ? (
+            <div className="app-modal-field cap-unit-field">
+              <span className="app-modal-label">Filial</span>
+              <span
+                className={`cap-unit-locked${
+                  linkedUnit.status === 'INACTIVE' ? ' is-inactive' : ''
+                }`}
+              >
+                {linkedUnit.name ?? 'Sem nome'}
+              </span>
+            </div>
+          ) : units.length > 0 ? (
+            <label className="app-modal-field cap-unit-field">
+              <span className="app-modal-label">Filial</span>
+              <select
+                className="app-modal-input"
+                value=""
+                disabled={linking}
+                onChange={(event) => {
+                  if (event.target.value) onLink(event.target.value);
+                }}
+              >
+                <option value="">{linking ? 'Vinculando...' : 'Selecione a filial'}</option>
+                {units.map((unit) => (
+                  <option key={unit.id} value={unit.id}>
+                    {unit.name ?? `Filial ${unit.code}`}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           {attachment.description ? (
             <p className="cap-description">{attachment.description}</p>
           ) : null}

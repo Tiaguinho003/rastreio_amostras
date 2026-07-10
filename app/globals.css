@@ -31973,6 +31973,24 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Selo da filial dona do anexo. Ausente = anexo do proprio cliente. */
+.sdv-attachment-thumb-chip {
+  max-width: 100%;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: rgba(var(--brand-green-rgb), 0.1);
+  color: var(--brand-green);
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sdv-attachment-thumb-chip.is-inactive {
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.45);
+}
 
 /* Preview de anexo (ClientAttachmentPreviewModal) */
 .cap-modal {
@@ -32002,6 +32020,20 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   padding: 2rem 1rem;
   text-align: center;
   color: var(--brand-muted);
+}
+/* Vinculo com a filial: select enquanto livre, texto apos vincular (definitivo). */
+.cap-unit-field {
+  margin-top: 0.75rem;
+}
+.cap-unit-locked {
+  padding-left: 0.15rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--brand-green-ink);
+}
+.cap-unit-locked.is-inactive {
+  color: rgba(0, 0, 0, 0.45);
+  font-weight: 500;
 }
 .cap-description {
   margin-top: 0.6rem;

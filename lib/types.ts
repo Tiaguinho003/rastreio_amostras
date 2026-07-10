@@ -624,12 +624,15 @@ export interface ClientBankAccountResponse {
 export interface ClientAttachmentSummary {
   id: string;
   clientId: string;
+  /** Filial/fazenda dona do anexo. null = anexo do proprio cliente. */
+  unitId: string | null;
   fileName: string | null;
   mimeType: string | null;
   sizeBytes: number | null;
   description: string | null;
   uploadedByUserId: string | null;
   uploadedBy: { id: string; fullName: string } | null;
+  unit: { id: string; name: string | null; status: ClientUnitStatus } | null;
   createdAt: string | null;
 }
 

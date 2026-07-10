@@ -37,6 +37,7 @@ import {
   listClientAttachments,
   uploadClientAttachment,
   deleteClientAttachment,
+  linkClientAttachmentUnit,
   clientAttachmentDownloadUrl,
 } from '../../../lib/api-client';
 import {
@@ -394,6 +395,7 @@ export default function ClientDetailPage() {
   const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState(false);
   const [attachmentPreviewNotice, setAttachmentPreviewNotice] = useState<string | null>(null);
   const [deletingAttachment, setDeletingAttachment] = useState(false);
+  const [linkingAttachment, setLinkingAttachment] = useState(false);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   // Anexos + Contas bancarias saem do layout e viram um botao (icone de folha) no
   // header que abre o modal "Documentos" (abas). Vale pra desktop E mobile.
@@ -891,8 +893,34 @@ export default function ClientDetailPage() {
   }
 
   function closeAttachmentPreview() {
-    if (deletingAttachment) return;
+    if (deletingAttachment || linkingAttachment) return;
     setAttachmentPreviewOpen(false);
+  }
+
+  // Vinculo definitivo do anexo a uma filial. O modal segue ABERTO, entao nao
+  // basta o fetchData(): o attachmentPreview e uma copia congelada do estado.
+  // Atualiza o preview e a lista com a view que o PATCH devolve (ja traz unit).
+  async function handleAttachmentLink(unitId: string) {
+    if (!session || !clientId || !attachmentPreview) return;
+    setLinkingAttachment(true);
+    setAttachmentPreviewNotice(null);
+    try {
+      const { attachment } = await linkClientAttachmentUnit(
+        session,
+        clientId,
+        attachmentPreview.id,
+        unitId
+      );
+      setAttachmentPreview(attachment);
+      setAttachments((prev) => prev.map((it) => (it.id === attachment.id ? attachment : it)));
+      setAttachmentNotice({ kind: 'success', text: 'Anexo vinculado à filial.' });
+    } catch (cause) {
+      setAttachmentPreviewNotice(
+        cause instanceof ApiError ? cause.message : 'Falha ao vincular o anexo à filial.'
+      );
+    } finally {
+      setLinkingAttachment(false);
+    }
   }
 
   async function handleAttachmentDelete() {
@@ -1126,6 +1154,16 @@ export default function ClientDetailPage() {
                     PDF
                   </span>
                 )}
+                {/* Sem chip = anexo do proprio cliente. Filial inativa = chip esmaecido. */}
+                {attachment.unit ? (
+                  <span
+                    className={`sdv-attachment-thumb-chip${
+                      attachment.unit.status === 'INACTIVE' ? ' is-inactive' : ''
+                    }`}
+                  >
+                    {attachment.unit.name ?? 'Filial'}
+                  </span>
+                ) : null}
                 <span className="sdv-attachment-thumb-name">{attachment.fileName ?? 'Anexo'}</span>
               </button>
             );
@@ -2176,10 +2214,13 @@ export default function ClientDetailPage() {
         downloadUrl={
           attachmentPreview ? clientAttachmentDownloadUrl(clientId, attachmentPreview.id) : null
         }
+        units={activeUnitsList}
         deleting={deletingAttachment}
+        linking={linkingAttachment}
         errorMessage={attachmentPreviewNotice}
         onClose={closeAttachmentPreview}
         onDelete={handleAttachmentDelete}
+        onLink={handleAttachmentLink}
       />
 
       {/* ========== MODAL 2.5: Cascade Inactivate (#6/Q-05) ========== */}
