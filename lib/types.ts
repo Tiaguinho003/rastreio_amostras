@@ -414,6 +414,9 @@ export interface SaleContract {
   // Aprovacao (reforma AP1/AP6): sinal + lembrete (dias antes do faturamento).
   requiresApproval: boolean;
   approvalReminderLeadDays: number | null;
+  // Embarque (EMB21/EMB22): sinal herdado da modalidade + data real do embarque.
+  requiresShipment: boolean;
+  shippedAt: string | null;
   version: number;
   createdAt: string | null;
   updatedAt: string | null;

@@ -316,6 +316,9 @@ export const SALE_CONTRACT_VIEW_SELECT = Object.freeze({
   description: true,
   requiresApproval: true,
   approvalReminderLeadDays: true,
+  // Embarque (EMB21/EMB22): sinal herdado da modalidade + data real do embarque.
+  requiresShipment: true,
+  shippedAt: true,
   version: true,
   createdAt: true,
   updatedAt: true,
@@ -371,6 +374,8 @@ export function toSaleContractView(row) {
     description: row.description ?? null,
     requiresApproval: row.requiresApproval,
     approvalReminderLeadDays: row.approvalReminderLeadDays ?? null,
+    requiresShipment: row.requiresShipment,
+    shippedAt: toIsoString(row.shippedAt),
     version: row.version,
     createdAt: toIsoString(row.createdAt),
     updatedAt: toIsoString(row.updatedAt),

@@ -783,12 +783,15 @@ model ContractPaymentForm {
 }
 
 model ContractModality {
-  id        String       @id @db.Uuid
-  name      String       @unique(map: "uq_contract_modality_name")
-  sortOrder Int          @default(0) @map("sort_order")
-  status    LookupStatus @default(ACTIVE)
-  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id               String       @id @db.Uuid
+  name             String       @unique(map: "uq_contract_modality_name")
+  sortOrder        Int          @default(0) @map("sort_order")
+  status           LookupStatus @default(ACTIVE)
+  // Embarque (EMB21): "esta modalidade embarca?" — semeado Retirar/Posto=true,
+  // Disponivel=false. O contrato herda por snapshot no emit (SaleContract.requiresShipment).
+  requiresShipment Boolean      @default(false) @map("requires_shipment")
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@index([status, sortOrder], map: "idx_contract_modality_status_order")
   @@map("contract_modality")
@@ -862,12 +865,19 @@ model SaleContract {
   // planejadas acima. Preenchidas ao marcar FATURADO/PAGO; limpas ao desfazer.
   invoicedAt DateTime? @map("invoiced_at") @db.Date
   paidAt     DateTime? @map("paid_at") @db.Date
+  // Embarque (EMB22/EMB27): data REAL do embarque (par de invoicedAt/paidAt); nulo
+  // = ainda nao embarcado. Preenchida na confirmacao (shippedAt <= hoje BRT).
+  shippedAt  DateTime? @map("shipped_at") @db.Date
 
   // Aprovacao (reforma AP1/AP6): sinaliza se o contrato precisa de aprovacao e,
   // quando sim, quantos dias antes do invoiceDate lembrar de enviar. Lidos so na
   // Fase 2 (lembrete no card de Eventos). Existentes = false via default.
   requiresApproval         Boolean @default(false) @map("requires_approval")
   approvalReminderLeadDays Int?    @map("approval_reminder_lead_days")
+
+  // Embarque (EMB21): herda "embarca?" da ContractModality por snapshot no emit.
+  // Existentes = false via default; imutavel apos emitido (nao segue a modalidade).
+  requiresShipment Boolean @default(false) @map("requires_shipment")
 
   // Textos / meta
   observations String?
@@ -887,6 +897,10 @@ model SaleContract {
   // F2 (reforma AP6/AP14): feed do lembrete de aprovacao — pendentes = requiresApproval
   // + status EMITIDO, janela por invoice_date (o lembrete conta X dias antes).
   @@index([requiresApproval, status, invoiceDate], map: "idx_sale_contract_requires_approval_status_invoice")
+  // Embarque (EMB23/EMB24): worklist/feed — pendentes = requiresShipment + EMITIDO/
+  // FATURADO, janela por invoice_date (dia previsto); realizados por shipped_at.
+  @@index([requiresShipment, status, invoiceDate], map: "idx_sale_contract_requires_shipment_status_invoice")
+  @@index([requiresShipment, shippedAt], map: "idx_sale_contract_requires_shipment_shipped_at")
   @@map("sale_contract")
 }
 

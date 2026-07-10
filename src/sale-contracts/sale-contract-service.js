@@ -1381,10 +1381,10 @@ export class SaleContractService {
     return account;
   }
 
-  async _requireLookup(model, id, field) {
+  async _requireLookup(model, id, field, extraSelect = {}) {
     const row = await this.prisma[model].findUnique({
       where: { id },
-      select: { id: true, name: true, status: true },
+      select: { id: true, name: true, status: true, ...extraSelect },
     });
     if (!row || row.status !== 'ACTIVE') {
       throw new HttpError(422, `${field} does not reference an active option`, {
@@ -1441,7 +1441,16 @@ export class SaleContractService {
       etapa2.paymentFormId,
       'paymentFormId'
     );
-    const modality = await this._requireLookup('contractModality', etapa2.modalityId, 'modalityId');
+    // Embarque (EMB21): a modalidade carrega a flag "embarca?" — o contrato herda
+    // por snapshot (extraSelect so aqui; os outros 2 lookups nao tem a coluna).
+    const modality = await this._requireLookup(
+      'contractModality',
+      etapa2.modalityId,
+      'modalityId',
+      {
+        requiresShipment: true,
+      }
+    );
     const packaging = await this._requireLookup(
       'contractPackaging',
       etapa2.packagingId,
@@ -1494,6 +1503,11 @@ export class SaleContractService {
       // e editar de uma vez (todos derivam o data daqui).
       requiresApproval: etapa2.requiresApproval,
       approvalReminderLeadDays: etapa2.approvalReminderLeadDays,
+      // Embarque (EMB21/EMB22): o sinal NAO e escolha do usuario — herda da
+      // modalidade (flag semeada: Retirar/Posto=true, Disponivel=false) e CONGELA
+      // por snapshot aqui. Editar a modalidade depois nao altera contratos antigos.
+      // shippedAt nasce nulo (preenchido so na confirmacao do embarque, EMB27).
+      requiresShipment: modality.requiresShipment ?? false,
     };
 
     return { data };

@@ -346,6 +346,36 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(contract.movementId, movement.id);
   });
 
+  // Embarque F1 (EMB21/EMB22): o contrato herda "embarca?" da MODALIDADE por
+  // snapshot no emit — Retirar/Posto=sim, Disponivel=nao — e shippedAt nasce nulo.
+  test('emit congela requiresShipment da modalidade e shippedAt nasce nulo', async () => {
+    const modalities = await prisma.contractModality.findMany({
+      where: { name: { in: ['Retirar', 'Disponível'] } },
+    });
+    const retirar = modalities.find((m) => m.name === 'Retirar');
+    const disponivel = modalities.find((m) => m.name === 'Disponível');
+    assert.ok(retirar && disponivel, 'modalidades Retirar/Disponível semeadas');
+    // A flag mora na modalidade (semeada pela migration).
+    assert.equal(retirar.requiresShipment, true);
+    assert.equal(disponivel.requiresShipment, false);
+
+    const buyerId = randomUUID();
+    await createBuyerClient(buyerId);
+
+    const s1 = randomUUID();
+    await createClassifiedSample({ id: s1, lotNumber: '25100', declaredSacks: 10 });
+    const sample1 = await queryService.requireSample(s1);
+    const withShipment = await sell(s1, sample1.version, buyerId, { modalityId: retirar.id });
+    assert.equal(withShipment.contract.requiresShipment, true);
+    assert.equal(withShipment.contract.shippedAt, null);
+
+    const s2 = randomUUID();
+    await createClassifiedSample({ id: s2, lotNumber: '25101', declaredSacks: 10 });
+    const sample2 = await queryService.requireSample(s2);
+    const noShipment = await sell(s2, sample2.version, buyerId, { modalityId: disponivel.id });
+    assert.equal(noShipment.contract.requiresShipment, false);
+  });
+
   test('numeracao continua: 2 vendas => 0001 e 0002', async () => {
     const buyerId = randomUUID();
     await createBuyerClient(buyerId);
