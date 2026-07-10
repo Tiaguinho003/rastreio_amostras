@@ -9,7 +9,7 @@ import {
   getDashboardPaymentEvents,
   getDashboardRecentSends,
 } from '../../lib/api-client';
-import { FINANCEIRO_ROLES, isRoleAllowed } from '../../lib/roles';
+import { canManageClients, FINANCEIRO_ROLES, isRoleAllowed } from '../../lib/roles';
 import { useToast } from '../../lib/toast/ToastProvider';
 import { ApprovalLabelModal } from '../ApprovalLabelModal';
 import { SaleContractLifecycleDialog } from '../contracts/SaleContractLifecycleDialog';
@@ -55,6 +55,7 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
   // (E22). `paymentWindow` = a quinzena visível que o card emite via onWindowChange.
   const toast = useToast();
   const canPay = isRoleAllowed(session.user.role, FINANCEIRO_ROLES);
+  const canManageCadastro = canManageClients(session.user.role);
   const [paymentEvents, setPaymentEvents] = useState<Record<string, DashboardCalendarEvent[]>>({});
   const [paymentWindow, setPaymentWindow] = useState<{ from: string; to: string } | null>(null);
   const [lifecycle, setLifecycle] = useState<{
@@ -192,7 +193,7 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
             pendencias) ate a base. */}
         <div className="dd-content-grid">
           <div className="dd-left-col">
-            <div className="dd-summary-row">
+            <div className={`dd-summary-row${canManageCadastro ? '' : ' is-single'}`}>
               {data ? (
                 <>
                   <StatCard
@@ -210,23 +211,28 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
                       </svg>
                     }
                   />
-                  <StatCard
-                    title="Cadastros pendentes"
-                    value={data.clientsIncomplete.total}
-                    onClick={() => router.push('/clients?incomplete=true')}
-                    ariaLabel={`Cadastros pendentes (${data.clientsIncomplete.total})`}
-                    icon={
-                      <svg viewBox="0 0 24 24" focusable="false">
-                        <path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
-                        <path d="M17 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
-                        <path d="M2 21v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2" />
-                        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                      </svg>
-                    }
-                  />
+                  {/* So quem gerencia cadastro (ADMIN + CADASTRO) ve — os demais
+                      nao abrem o detalhe do cliente, entao o card nao levaria a
+                      acao nenhuma. Leva ao hub, nao a /clients. */}
+                  {canManageCadastro ? (
+                    <StatCard
+                      title="Cadastros pendentes"
+                      value={data.clientsIncomplete.total}
+                      onClick={() => router.push('/cadastros?incomplete=true')}
+                      ariaLabel={`Cadastros pendentes (${data.clientsIncomplete.total})`}
+                      icon={
+                        <svg viewBox="0 0 24 24" focusable="false">
+                          <path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
+                          <path d="M17 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+                          <path d="M2 21v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2" />
+                          <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                        </svg>
+                      }
+                    />
+                  ) : null}
                 </>
               ) : (
-                Array.from({ length: 2 }).map((_, i) => (
+                Array.from({ length: canManageCadastro ? 2 : 1 }).map((_, i) => (
                   <div key={i} className="dd-stat-card is-skeleton" aria-hidden="true" />
                 ))
               )}

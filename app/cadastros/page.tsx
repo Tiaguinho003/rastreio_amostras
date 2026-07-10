@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
@@ -28,11 +29,25 @@ import type { Bank, Broker, BrokerInput, UserLookupItem } from '../../lib/types'
 // mantem a UI local. O FAB "+" e contextual a aba ativa.
 type Tab = 'clientes' | 'bancos' | 'corretores';
 
-export default function CadastrosPage() {
+// useSearchParams exige Suspense no App Router (mesmo padrao de /clients).
+export default function CadastrosPageWrapper() {
+  return (
+    <Suspense>
+      <CadastrosPage />
+    </Suspense>
+  );
+}
+
+function CadastrosPage() {
   const { session, loading, logout, setSession } = useRequireAuth({
     allowedRoles: CLIENT_MANAGEMENT_ROLES,
   });
   const toast = useToast();
+  const searchParams = useSearchParams();
+
+  // URL ?incomplete=true (card "Cadastros pendentes" do dashboard). So a pagina
+  // le a URL; o ClientsBrowser recebe por prop (ele nao usa useSearchParams).
+  const incompleteFromUrl = searchParams.get('incomplete') === 'true';
 
   const [tab, setTab] = useState<Tab>('clientes');
 
@@ -256,7 +271,11 @@ export default function CadastrosPage() {
         </div>
 
         {tab === 'clientes' ? (
-          <ClientsBrowser session={session} storageKey="clients-list-snapshot-cad-v3" />
+          <ClientsBrowser
+            session={session}
+            storageKey="clients-list-snapshot-cad-v3"
+            initialIncomplete={incompleteFromUrl}
+          />
         ) : (
           <>
             <div className="hero-search-wrap">

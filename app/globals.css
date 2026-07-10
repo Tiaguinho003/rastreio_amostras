@@ -4152,6 +4152,11 @@ button:disabled {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px;
 }
+/* Quem nao gerencia cadastro nao ve o card "Clientes": o unico card restante
+   ocupa a linha inteira em vez de deixar metade vazia. */
+.dashboard-operations-grid.is-single {
+  grid-template-columns: minmax(0, 1fr);
+}
 
 .dashboard-operation-card {
   position: relative;
@@ -24313,6 +24318,12 @@ select.samples-filter-field-input {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: clamp(0.75rem, 1.4vw, 1.25rem);
     flex: none;
+  }
+
+  /* Quem nao gerencia cadastro nao ve o card "Cadastros pendentes": o unico
+     card restante ocupa a linha inteira em vez de deixar metade vazia. */
+  .dd-summary-row.is-single {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   /* ── Stat cards da 1a linha (pendencias + pulso do dia) — visual da

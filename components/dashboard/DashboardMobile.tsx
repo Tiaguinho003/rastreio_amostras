@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 
 import { HeaderAvatarMenu } from '../HeaderAvatarMenu';
 import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
-import { getRoleLabel } from '../../lib/roles';
+import { canManageClients, getRoleLabel } from '../../lib/roles';
 import { getGreeting, getInitials } from './greeting';
 import { useOperationModal } from './useOperationModal';
 import { OperationModal } from './OperationModal';
@@ -43,6 +43,7 @@ export function DashboardMobile({
   const fullName = session.user.fullName ?? session.user.username;
   const firstName = fullName.split(' ')[0];
   const roleLabel = getRoleLabel(session.user.role);
+  const canManageCadastro = canManageClients(session.user.role);
   const initials = getInitials(fullName);
 
   return (
@@ -85,7 +86,9 @@ export function DashboardMobile({
                 </p>
               ) : null}
               {data ? (
-                <div className="dashboard-operations-grid">
+                <div
+                  className={`dashboard-operations-grid${canManageCadastro ? '' : ' is-single'}`}
+                >
                   {/* Q.print: card "Impressão" cortado definitivamente (decisao
                     Q.1.c #20). PrintJob vive no detalhe da amostra, nao aqui. */}
                   <button
@@ -128,31 +131,38 @@ export function DashboardMobile({
                     ) : null}
                   </button>
 
-                  <button
-                    type="button"
-                    className="dashboard-operation-card dashboard-op-clients is-wide"
-                    onClick={() => router.push('/clients?incomplete=true')}
-                    aria-label={`Clientes pendentes (${data.clientsIncomplete.total})`}
-                  >
-                    <span className="dashboard-operation-icon-wrap" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                        <circle cx="12" cy="7.5" r="4" />
-                        <path d="M4.5 20.5v-1.5c0-3.3 3.36-5.7 7.5-5.7s7.5 2.4 7.5 5.7v1.5z" />
-                      </svg>
-                    </span>
-                    <span className="dashboard-operation-content">
-                      <span className="dashboard-operation-title">Clientes</span>
-                      <span className="dashboard-operation-subtitle">Pendentes</span>
-                    </span>
-                    {data.clientsIncomplete.total > 0 ? (
-                      <span className="dashboard-operation-badge">
-                        {data.clientsIncomplete.total}
+                  {/* So quem gerencia cadastro (ADMIN + CADASTRO) ve — os demais
+                      nao abrem o detalhe do cliente, entao o card nao levaria a
+                      acao nenhuma. Leva ao hub, nao a /clients. */}
+                  {canManageCadastro ? (
+                    <button
+                      type="button"
+                      className="dashboard-operation-card dashboard-op-clients is-wide"
+                      onClick={() => router.push('/cadastros?incomplete=true')}
+                      aria-label={`Clientes pendentes (${data.clientsIncomplete.total})`}
+                    >
+                      <span className="dashboard-operation-icon-wrap" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                          <circle cx="12" cy="7.5" r="4" />
+                          <path d="M4.5 20.5v-1.5c0-3.3 3.36-5.7 7.5-5.7s7.5 2.4 7.5 5.7v1.5z" />
+                        </svg>
                       </span>
-                    ) : null}
-                  </button>
+                      <span className="dashboard-operation-content">
+                        <span className="dashboard-operation-title">Clientes</span>
+                        <span className="dashboard-operation-subtitle">Pendentes</span>
+                      </span>
+                      {data.clientsIncomplete.total > 0 ? (
+                        <span className="dashboard-operation-badge">
+                          {data.clientsIncomplete.total}
+                        </span>
+                      ) : null}
+                    </button>
+                  ) : null}
                 </div>
               ) : (
-                <div className="dashboard-operations-grid">
+                <div
+                  className={`dashboard-operations-grid${canManageCadastro ? '' : ' is-single'}`}
+                >
                   <div
                     className="dashboard-operation-card dashboard-skeleton-card is-wide"
                     aria-hidden="true"
@@ -160,13 +170,15 @@ export function DashboardMobile({
                     <span className="dashboard-skeleton-icon-wrap" />
                     <span className="dashboard-skeleton-line dashboard-skeleton-line-sm" />
                   </div>
-                  <div
-                    className="dashboard-operation-card dashboard-skeleton-card is-wide"
-                    aria-hidden="true"
-                  >
-                    <span className="dashboard-skeleton-icon-wrap" />
-                    <span className="dashboard-skeleton-line dashboard-skeleton-line-sm" />
-                  </div>
+                  {canManageCadastro ? (
+                    <div
+                      className="dashboard-operation-card dashboard-skeleton-card is-wide"
+                      aria-hidden="true"
+                    >
+                      <span className="dashboard-skeleton-icon-wrap" />
+                      <span className="dashboard-skeleton-line dashboard-skeleton-line-sm" />
+                    </div>
+                  ) : null}
                 </div>
               )}
             </section>
