@@ -15,12 +15,15 @@
 // (com corretores) + getSaleContractTimeline.
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import {
   ApiError,
   downloadSaleContractPdf,
   getSaleContract,
   getSaleContractTimeline,
+  listShipmentPhotos,
+  shipmentPhotoDownloadUrl,
 } from '../../lib/api-client';
 import { formatRelativeTime } from '../../lib/relative-time';
 import { downloadFile, shareOrDownloadFile } from '../../lib/share-blob';
@@ -30,6 +33,7 @@ import type {
   SaleContractBrokerView,
   SaleContractTimelineItem,
   SessionData,
+  ShipmentPhoto,
 } from '../../lib/types';
 import { BottomSheet } from '../BottomSheet';
 import { STATUS_META, STATUS_TEXT_COLOR, STATUS_TINT } from './SaleContractCard';
@@ -199,6 +203,10 @@ export function SaleContractDetailsModal({
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<{ blob: Blob; fileName: string } | null>(null);
   const [now] = useState(() => Date.now());
+  // EMB18: seção "Embarque" read-only — data real + galeria (ver ≠ confirmar; a
+  // confirmação mora na sub-aba/portão). Só busca quando o contrato exige embarque.
+  const [shipmentPhotos, setShipmentPhotos] = useState<ShipmentPhoto[] | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<ShipmentPhoto | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -226,6 +234,23 @@ export function SaleContractDetailsModal({
       aborted = true;
     };
   }, [open, session, contract.id]);
+
+  // EMB18: fotos do embarque (só quando o contrato exige — requiresShipment é imutável
+  // desde a emissão, então o snapshot da lista basta para gatear).
+  useEffect(() => {
+    if (!open || !contract.requiresShipment) return;
+    let aborted = false;
+    listShipmentPhotos(session, contract.id)
+      .then((res) => {
+        if (!aborted) setShipmentPhotos(res.items);
+      })
+      .catch(() => {
+        if (!aborted) setShipmentPhotos([]);
+      });
+    return () => {
+      aborted = true;
+    };
+  }, [open, session, contract.id, contract.requiresShipment]);
 
   useEffect(() => {
     if (!open) return;
@@ -358,140 +383,201 @@ export function SaleContractDetailsModal({
     ...warehouseRows('Do vendedor', view.sellerWarehouseSnapshot as Snapshot),
   ];
 
+  const shipmentRows: Array<[string, string]> = [];
+  if (view.requiresShipment) {
+    shipmentRows.push(['Situação', view.shippedAt ? 'Embarcado' : 'Aguardando embarque']);
+    if (view.shippedAt) shipmentRows.push(['Embarcado em', dateOnly(view.shippedAt)]);
+  }
+
   return (
-    <BottomSheet
-      open={open}
-      onClose={onClose}
-      title={`Contrato ${view.contractNumber}`}
-      ariaLabel={`Detalhes do contrato ${view.contractNumber}`}
-      className="ctr-form-sheet ctr-contract-sheet ctr-details-sheet"
-      footer={footer}
-    >
-      <div className="ctr-details-head">
-        <span
-          className="spv2-card-badge"
-          style={{ background: STATUS_TINT[view.status], color: STATUS_TEXT_COLOR[view.status] }}
-        >
-          {meta.label}
-        </span>
-        <span className="ctr-details-type">{TYPE_LABEL[view.type] ?? view.type}</span>
-      </div>
-
-      {loadError ? <p className="sdv-modal-error">{loadError}</p> : null}
-
-      <div className="ctr-details-cols">
-        {/* Documento (D126): coluna esquerda no desktop, primeira seção no
-            mobile. Exportar/Baixar acompanham o preview em todos os status. */}
-        <section className="ctr-details-doc">
-          <h4 className="ctr-section-title">Contrato (PDF)</h4>
-          {pdfError ? <p className="sdv-modal-error">{pdfError}</p> : null}
-          {pdfUrl ? (
-            <iframe
-              className="ctr-details-doc-frame"
-              src={pdfUrl}
-              title={`Documento do contrato ${view.contractNumber}`}
-            />
-          ) : !pdfError ? (
-            <p className="ctr-modal-loading">Gerando o documento...</p>
-          ) : null}
-          <div className="ctr-details-doc-actions">
-            <button
-              type="button"
-              className="ctr-btn"
-              onClick={() =>
-                fileRef.current && downloadFile(fileRef.current.blob, fileRef.current.fileName)
-              }
-              disabled={!pdfUrl}
-            >
-              Baixar
-            </button>
-            <button
-              type="button"
-              className="ctr-btn"
-              onClick={() => void handleExport()}
-              disabled={!pdfUrl || busy}
-            >
-              {busy ? 'Exportando...' : 'Exportar'}
-            </button>
-          </div>
-        </section>
-
-        <div className="ctr-details-info">
-          <section>
-            <h4 className="ctr-section-title">Identificação</h4>
-            <FieldRows rows={identRows} />
-          </section>
-          <section>
-            <h4 className="ctr-section-title">Vendedor</h4>
-            <FieldRows rows={partyRows(view.sellerSnapshot as Snapshot)} />
-          </section>
-          <section>
-            <h4 className="ctr-section-title">Comprador</h4>
-            <FieldRows rows={partyRows(view.buyerSnapshot as Snapshot)} />
-          </section>
-          <section>
-            <h4 className="ctr-section-title">Banco do vendedor</h4>
-            <FieldRows rows={bankRows(view.sellerBankSnapshot as Snapshot)} />
-          </section>
-          {armazemRows.length > 0 ? (
-            <section>
-              <h4 className="ctr-section-title">Armazéns</h4>
-              <FieldRows rows={armazemRows} />
-            </section>
-          ) : null}
-          {paymentRows.length > 0 ? (
-            <section>
-              <h4 className="ctr-section-title">Pagamento e logística</h4>
-              <FieldRows rows={paymentRows} />
-            </section>
-          ) : null}
-          <section>
-            <h4 className="ctr-section-title">Valores e corretagem</h4>
-            <FieldRows rows={valueRows} />
-          </section>
-          {view.observations || view.description ? (
-            <section>
-              <h4 className="ctr-section-title">Textos</h4>
-              {view.observations ? (
-                <p className="ctr-details-text">
-                  <strong>Observações:</strong> {view.observations}
-                </p>
-              ) : null}
-              {view.description ? (
-                <p className="ctr-details-text">
-                  <strong>Descrição:</strong> {view.description}
-                </p>
-              ) : null}
-            </section>
-          ) : null}
+    <>
+      <BottomSheet
+        open={open}
+        onClose={onClose}
+        title={`Contrato ${view.contractNumber}`}
+        ariaLabel={`Detalhes do contrato ${view.contractNumber}`}
+        className="ctr-form-sheet ctr-contract-sheet ctr-details-sheet"
+        footer={footer}
+      >
+        <div className="ctr-details-head">
+          <span
+            className="spv2-card-badge"
+            style={{ background: STATUS_TINT[view.status], color: STATUS_TEXT_COLOR[view.status] }}
+          >
+            {meta.label}
+          </span>
+          <span className="ctr-details-type">{TYPE_LABEL[view.type] ?? view.type}</span>
         </div>
-      </div>
 
-      {/* Histórico (D125): largura total, ordem decrescente. Linha D118/D119 =
+        {loadError ? <p className="sdv-modal-error">{loadError}</p> : null}
+
+        <div className="ctr-details-cols">
+          {/* Documento (D126): coluna esquerda no desktop, primeira seção no
+            mobile. Exportar/Baixar acompanham o preview em todos os status. */}
+          <section className="ctr-details-doc">
+            <h4 className="ctr-section-title">Contrato (PDF)</h4>
+            {pdfError ? <p className="sdv-modal-error">{pdfError}</p> : null}
+            {pdfUrl ? (
+              <iframe
+                className="ctr-details-doc-frame"
+                src={pdfUrl}
+                title={`Documento do contrato ${view.contractNumber}`}
+              />
+            ) : !pdfError ? (
+              <p className="ctr-modal-loading">Gerando o documento...</p>
+            ) : null}
+            <div className="ctr-details-doc-actions">
+              <button
+                type="button"
+                className="ctr-btn"
+                onClick={() =>
+                  fileRef.current && downloadFile(fileRef.current.blob, fileRef.current.fileName)
+                }
+                disabled={!pdfUrl}
+              >
+                Baixar
+              </button>
+              <button
+                type="button"
+                className="ctr-btn"
+                onClick={() => void handleExport()}
+                disabled={!pdfUrl || busy}
+              >
+                {busy ? 'Exportando...' : 'Exportar'}
+              </button>
+            </div>
+          </section>
+
+          <div className="ctr-details-info">
+            <section>
+              <h4 className="ctr-section-title">Identificação</h4>
+              <FieldRows rows={identRows} />
+            </section>
+            <section>
+              <h4 className="ctr-section-title">Vendedor</h4>
+              <FieldRows rows={partyRows(view.sellerSnapshot as Snapshot)} />
+            </section>
+            <section>
+              <h4 className="ctr-section-title">Comprador</h4>
+              <FieldRows rows={partyRows(view.buyerSnapshot as Snapshot)} />
+            </section>
+            <section>
+              <h4 className="ctr-section-title">Banco do vendedor</h4>
+              <FieldRows rows={bankRows(view.sellerBankSnapshot as Snapshot)} />
+            </section>
+            {armazemRows.length > 0 ? (
+              <section>
+                <h4 className="ctr-section-title">Armazéns</h4>
+                <FieldRows rows={armazemRows} />
+              </section>
+            ) : null}
+            {paymentRows.length > 0 ? (
+              <section>
+                <h4 className="ctr-section-title">Pagamento e logística</h4>
+                <FieldRows rows={paymentRows} />
+              </section>
+            ) : null}
+            <section>
+              <h4 className="ctr-section-title">Valores e corretagem</h4>
+              <FieldRows rows={valueRows} />
+            </section>
+            {view.requiresShipment ? (
+              <section>
+                <h4 className="ctr-section-title">Embarque</h4>
+                <FieldRows rows={shipmentRows} />
+                {shipmentPhotos === null ? (
+                  <p className="ctr-modal-loading">Carregando as fotos...</p>
+                ) : shipmentPhotos.length === 0 ? (
+                  <p className="ctr-details-empty">Sem fotos do embarque.</p>
+                ) : (
+                  <div className="emb-gallery">
+                    {shipmentPhotos.map((photo) => (
+                      <button
+                        key={photo.id}
+                        type="button"
+                        className="emb-gallery-thumb"
+                        onClick={() => setPhotoPreview(photo)}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={shipmentPhotoDownloadUrl(view.id, photo.id)}
+                          alt="Foto do embarque"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </section>
+            ) : null}
+            {view.observations || view.description ? (
+              <section>
+                <h4 className="ctr-section-title">Textos</h4>
+                {view.observations ? (
+                  <p className="ctr-details-text">
+                    <strong>Observações:</strong> {view.observations}
+                  </p>
+                ) : null}
+                {view.description ? (
+                  <p className="ctr-details-text">
+                    <strong>Descrição:</strong> {view.description}
+                  </p>
+                ) : null}
+              </section>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Histórico (D125): largura total, ordem decrescente. Linha D118/D119 =
           "há X tempo" + quem + o quê, com a data exata de apoio; marcos
           legados (pré-D123) saem só com a data, sem autor. */}
-      <section className="ctr-details-history">
-        <h4 className="ctr-section-title">Histórico</h4>
-        {timeline === null ? (
-          <p className="ctr-modal-loading">Carregando o histórico...</p>
-        ) : timeline.length === 0 ? (
-          <p className="ctr-details-empty">Sem eventos registrados.</p>
-        ) : (
-          <ul className="ctr-tl">
-            {timeline.map((item) => (
-              <li key={item.id} className="ctr-tl-item">
-                <span className="ctr-tl-rel">{formatRelativeTime(item.at, now)}</span>
-                <span className="ctr-tl-main">
-                  {item.actorName ? <strong>{item.actorName}</strong> : null}
-                  {item.actorName ? ' · ' : ''}
-                  {timelineLabel(item)}
-                </span>
-                <span className="ctr-tl-exact">{exactStamp(item)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </BottomSheet>
+        <section className="ctr-details-history">
+          <h4 className="ctr-section-title">Histórico</h4>
+          {timeline === null ? (
+            <p className="ctr-modal-loading">Carregando o histórico...</p>
+          ) : timeline.length === 0 ? (
+            <p className="ctr-details-empty">Sem eventos registrados.</p>
+          ) : (
+            <ul className="ctr-tl">
+              {timeline.map((item) => (
+                <li key={item.id} className="ctr-tl-item">
+                  <span className="ctr-tl-rel">{formatRelativeTime(item.at, now)}</span>
+                  <span className="ctr-tl-main">
+                    {item.actorName ? <strong>{item.actorName}</strong> : null}
+                    {item.actorName ? ' · ' : ''}
+                    {timelineLabel(item)}
+                  </span>
+                  <span className="ctr-tl-exact">{exactStamp(item)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </BottomSheet>
+      {photoPreview
+        ? createPortal(
+            <div
+              className="emb-lightbox"
+              role="dialog"
+              aria-modal="true"
+              onClick={() => setPhotoPreview(null)}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={shipmentPhotoDownloadUrl(view.id, photoPreview.id)}
+                alt="Foto do embarque"
+              />
+              <button
+                type="button"
+                className="emb-lightbox-close"
+                onClick={() => setPhotoPreview(null)}
+                aria-label="Fechar"
+              >
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>,
+            document.body
+          )
+        : null}
+    </>
   );
 }
