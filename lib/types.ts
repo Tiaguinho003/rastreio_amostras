@@ -514,12 +514,23 @@ export interface FinanceiroBroker {
   name: string;
 }
 
+// Revisão do Pagamento (FN1): estado de pagamento derivado — a lente do Financeiro.
+export type FinanceiroPaymentState = 'a_vencer' | 'vencido' | 'pago' | 'cancelado';
+
+// Revisão do Pagamento (FN5): filtro do Financeiro (default 'todos').
+export type FinanceiroFilter = 'todos' | 'a_vencer' | 'vencido' | 'pago' | 'cancelado';
+
 export interface FinanceiroReceivable {
   id: string;
   version: number;
   contractNumber: string;
   contractDate: string | null;
   paymentDate: string | null;
+  // Revisão do Pagamento (FN3): data real do pagamento ("pago em") + estado derivado
+  // (chip) + nome do comprador. paymentState vem do servidor (fonte única de "hoje").
+  paidAt: string | null;
+  paymentState: FinanceiroPaymentState;
+  buyerName: string | null;
   status: SaleContractStatus;
   totalValue: number | null;
   commissionTotal: number;
@@ -534,10 +545,15 @@ export interface FinanceiroReceivable {
 
 export interface FinanceiroListResponse {
   items: FinanceiroReceivable[];
-  // Cursor de scroll infinito (contractSeq do último item; null = última página).
-  nextCursor: number | null;
+  // Revisão do Pagamento (FN4): cursor keyset OPACO (base64url {g,pd,seq}); null =
+  // última página. O front trata como string opaca (só ecoa de volta).
+  nextCursor: string | null;
   // Total de corretagem a receber do conjunto que casa com a busca (server-side).
   totalCommission: number;
+  // Revisão do Pagamento (FN6): "N vencidos · R$ X" — contagem + corretagem dos
+  // vencidos (não pagos + paymentDate < hoje), no mesmo escopo/busca.
+  overdueCount: number;
+  overdueCommission: number;
 }
 
 // Fechamento (Fase B.2 Passo 2): listas da etapa 2 + payload de "Emitir".

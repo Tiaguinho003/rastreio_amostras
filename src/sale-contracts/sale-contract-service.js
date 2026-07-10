@@ -10,6 +10,10 @@ import {
   buildContractTimeline,
   buildPartySnapshot,
   buildReceivableView,
+  decodeReceivableCursor,
+  encodeReceivableCursor,
+  normalizeReceivableFilter,
+  receivableKeysetWhere,
   buildRecentApprovalSendItem,
   bucketApprovalReminders,
   brtTodayDateOnly,
@@ -200,95 +204,169 @@ export class SaleContractService {
     assertRoleAllowed(actor.role, FINANCEIRO_ROLES, 'list broker receivables');
 
     const isAdmin = actor.role === USER_ROLES.ADMIN;
+    const todayKey = brtTodayKey();
+    const brtToday = brtTodayDateOnly();
+    const empty = {
+      items: [],
+      nextCursor: null,
+      totalCommission: 0,
+      overdueCount: 0,
+      overdueCommission: 0,
+    };
 
     // COMMERCIAL (D135): so os fechamentos em que e corretor (Broker.userId, mesmo
     // escopo do /contratos). Sem Broker vinculado -> vazio. O escopo entra no
-    // filterWhere (SQL), nao em pos-filtro JS, pra casar com a paginacao por cursor
-    // E com o total agregado.
-    let ownBrokerId = null;
+    // filterWhere (SQL), pra casar com a paginacao por cursor E os agregados.
+    let ownContractIds = null;
     if (!isAdmin) {
-      ownBrokerId = await this._resolveOwnBrokerId(actor);
-      if (!ownBrokerId) {
-        return { items: [], nextCursor: null, totalCommission: 0 };
-      }
+      const ownBrokerId = await this._resolveOwnBrokerId(actor);
+      if (!ownBrokerId) return empty;
+      const ownLinks = await this.prisma.saleContractBroker.findMany({
+        where: { brokerId: ownBrokerId },
+        select: { saleContractId: true },
+      });
+      ownContractIds = [...new Set(ownLinks.map((l) => l.saleContractId))];
+      if (ownContractIds.length === 0) return empty;
     }
 
     const limit = readLimitQuery(input?.limit, {
       fallback: FINANCEIRO_LIST_LIMIT_DEFAULT,
       max: FINANCEIRO_LIST_LIMIT_MAX,
     });
-    // Cursor de campo unico: contractSeq (global, unico, monotonico) do ultimo
-    // item da pagina anterior. String da query -> numero; NaN/invalido = 1a pagina.
-    const cursorSeq = Number(input?.cursor);
-    const cursor = Number.isInteger(cursorSeq) && cursorSeq > 0 ? cursorSeq : null;
+    const cursor = decodeReceivableCursor(input?.cursor);
     const search = typeof input?.search === 'string' ? input.search.trim() : '';
+    const filter = normalizeReceivableFilter(input?.filter);
 
-    // filterWhere = status congelados + (COMMERCIAL) escopo own-only + busca (nº do
-    // contrato OU nome do corretor). A busca por corretor vem de um pre-batch dos
-    // SaleContractBroker (sem @relation), preservando a busca que era client-side.
-    const filterWhere = { status: { in: ['EMITIDO', 'FATURADO', 'PAGO', 'WASH_OUT'] } };
-    if (ownBrokerId) {
-      const ownLinks = await this.prisma.saleContractBroker.findMany({
-        where: { brokerId: ownBrokerId },
-        select: { saleContractId: true },
-      });
-      const ownContractIds = [...new Set(ownLinks.map((l) => l.saleContractId))];
-      if (ownContractIds.length === 0) {
-        return { items: [], nextCursor: null, totalCommission: 0 };
-      }
-      // AND (Prisma ANDa os campos de topo) -> intersecta com a busca abaixo, entao
-      // a busca por nome de corretor NAO vaza contratos alheios ao COMMERCIAL.
-      filterWhere.AND = [{ id: { in: ownContractIds } }];
+    // Revisao do Pagamento (FN5): filterWhere = escopo (COMMERCIAL) + busca, SEM
+    // status — cada grupo poe o proprio status. Busca = nº do contrato OU corretor OU
+    // comprador; corretor e comprador vem de pre-batch de ids (o comprador via ILIKE
+    // no buyer_snapshot, case-insensitive como os demais). O AND intersecta a busca
+    // com o escopo, entao nada vaza contratos alheios ao COMMERCIAL.
+    const andClauses = [];
+    if (ownContractIds) {
+      andClauses.push({ id: { in: ownContractIds } });
     }
     if (search.length >= 1) {
-      const brokerMatches = await this.prisma.saleContractBroker.findMany({
-        where: { brokerNameSnapshot: { contains: search, mode: 'insensitive' } },
-        select: { saleContractId: true },
-      });
+      const [brokerMatches, buyerMatchIds] = await Promise.all([
+        this.prisma.saleContractBroker.findMany({
+          where: { brokerNameSnapshot: { contains: search, mode: 'insensitive' } },
+          select: { saleContractId: true },
+        }),
+        this._searchBuyerContractIds(search),
+      ]);
       const brokerMatchIds = [...new Set(brokerMatches.map((b) => b.saleContractId))];
-      filterWhere.OR = [
-        { contractNumber: { contains: search, mode: 'insensitive' } },
-        { id: { in: brokerMatchIds } },
+      andClauses.push({
+        OR: [
+          { contractNumber: { contains: search, mode: 'insensitive' } },
+          { id: { in: brokerMatchIds } },
+          { id: { in: buyerMatchIds } },
+        ],
+      });
+    }
+    const filterWhere = andClauses.length ? { AND: andClauses } : {};
+
+    // FN4 (fila de trabalho): G0 nao-pago por vencimento (asc, nulos ao fim -> vencido
+    // no topo -> a vencer -> sem data); G1 pago e G2 cancelado no arquivo (seq desc). O
+    // filtro FN5 escolhe quais grupos e refina o G0 (vencido = < hoje; a vencer = >=
+    // hoje ou sem data). O corte vencido/a-vencer cai da ordenacao por paymentDate.
+    const G0_ORDER = [{ paymentDate: { sort: 'asc', nulls: 'last' } }, { contractSeq: 'asc' }];
+    const ARCHIVE_ORDER = [{ contractSeq: 'desc' }];
+    const UNPAID = { status: { in: ['EMITIDO', 'FATURADO'] } };
+    let groups;
+    if (filter === 'vencido') {
+      groups = [
+        { g: 0, where: { AND: [UNPAID, { paymentDate: { lt: brtToday } }] }, orderBy: G0_ORDER },
+      ];
+    } else if (filter === 'a_vencer') {
+      groups = [
+        {
+          g: 0,
+          where: {
+            AND: [UNPAID, { OR: [{ paymentDate: { gte: brtToday } }, { paymentDate: null }] }],
+          },
+          orderBy: G0_ORDER,
+        },
+      ];
+    } else if (filter === 'pago') {
+      groups = [{ g: 1, where: { status: 'PAGO' }, orderBy: ARCHIVE_ORDER }];
+    } else if (filter === 'cancelado') {
+      groups = [{ g: 2, where: { status: 'WASH_OUT' }, orderBy: ARCHIVE_ORDER }];
+    } else {
+      groups = [
+        { g: 0, where: UNPAID, orderBy: G0_ORDER },
+        { g: 1, where: { status: 'PAGO' }, orderBy: ARCHIVE_ORDER },
+        { g: 2, where: { status: 'WASH_OUT' }, orderBy: ARCHIVE_ORDER },
       ];
     }
-    const pageWhere = cursor
-      ? { AND: [filterWhere, { contractSeq: { lt: cursor } }] }
-      : filterWhere;
 
-    // Total do topo = corretagem cheia (2 lados) do conjunto que casa com a busca
-    // (filterWhere; ignora o cursor -> reflete o conjunto inteiro, nao so a pagina).
-    // ADMIN: da empresa. COMMERCIAL: o filterWhere ja vem escopado aos contratos dele
-    // (D135), entao e a corretagem total dos fechamentos DELE (D136 — sem rateio ÷N).
-    const [rows, sums] = await Promise.all([
-      this.prisma.saleContract.findMany({
-        where: pageWhere,
-        orderBy: [{ contractSeq: 'desc' }],
-        take: limit + 1,
+    // O cursor so vale se o grupo dele esta ativo (troca de filtro reseta o cursor no
+    // front; guarda defensiva contra cursor de outro filtro).
+    const effectiveCursor = cursor && groups.some((gr) => gr.g === cursor.g) ? cursor : null;
+    const startG = effectiveCursor ? effectiveCursor.g : groups[0].g;
+
+    // Spill: varre os grupos a partir do grupo do cursor; so o grupo retomado aplica o
+    // keyset (os seguintes comecam do zero — tudo neles vem depois). take=limit+1
+    // detecta a proxima pagina. Em geral 1 query; ate 3 no "Todos".
+    const pageEntries = [];
+    for (const group of groups) {
+      if (group.g < startG) continue;
+      const need = limit + 1 - pageEntries.length;
+      if (need <= 0) break;
+      const afterWhere =
+        group.g === startG && effectiveCursor ? [receivableKeysetWhere(effectiveCursor)] : [];
+      const rows = await this.prisma.saleContract.findMany({
+        where: { AND: [filterWhere, group.where, ...afterWhere] },
+        orderBy: group.orderBy,
+        take: need,
         select: RECEIVABLE_VIEW_SELECT,
+      });
+      for (const row of rows) pageEntries.push({ row, g: group.g });
+      if (rows.length === need) break;
+    }
+
+    // Cabecalho (FN6): corretagem total ("Total a receber") + vencidos ("N vencidos ·
+    // R$ X"). Ambos por filterWhere (escopo+busca), INDEPENDENTES do filtro FN5 ativo e
+    // do cursor — o cabecalho e um resumo estavel do escopo (D135/D136 — sem rateio ÷N).
+    const [sums, overdue] = await Promise.all([
+      this.prisma.saleContract.aggregate({
+        where: {
+          AND: [filterWhere, { status: { in: ['EMITIDO', 'FATURADO', 'PAGO', 'WASH_OUT'] } }],
+        },
+        _sum: { sellerBrokerageValue: true, buyerBrokerageValue: true },
       }),
       this.prisma.saleContract.aggregate({
-        where: filterWhere,
+        where: { AND: [filterWhere, UNPAID, { paymentDate: { lt: brtToday } }] },
+        _count: { _all: true },
         _sum: { sellerBrokerageValue: true, buyerBrokerageValue: true },
       }),
     ]);
-    const sellerSum = Number(sums._sum.sellerBrokerageValue ?? 0);
-    const buyerSum = Number(sums._sum.buyerBrokerageValue ?? 0);
-    const totalCommission = Math.round((sellerSum + buyerSum) * 100) / 100;
+    const round2 = (n) => Math.round(n * 100) / 100;
+    const totalCommission = round2(
+      Number(sums._sum.sellerBrokerageValue ?? 0) + Number(sums._sum.buyerBrokerageValue ?? 0)
+    );
+    const overdueCount = overdue._count._all;
+    const overdueCommission = round2(
+      Number(overdue._sum.sellerBrokerageValue ?? 0) + Number(overdue._sum.buyerBrokerageValue ?? 0)
+    );
 
-    // take: limit + 1 detecta a proxima pagina; nextCursor = contractSeq do
-    // ultimo item realmente retornado (ou null na ultima pagina).
-    const hasMore = rows.length > limit;
-    const pageRows = hasMore ? rows.slice(0, limit) : rows;
-    if (pageRows.length === 0) {
-      return { items: [], nextCursor: null, totalCommission };
+    const hasMore = pageEntries.length > limit;
+    const page = hasMore ? pageEntries.slice(0, limit) : pageEntries;
+    if (page.length === 0) {
+      return { items: [], nextCursor: null, totalCommission, overdueCount, overdueCommission };
     }
-    const lastRow = pageRows[pageRows.length - 1];
-    const nextCursor = hasMore && lastRow ? lastRow.contractSeq : null;
+    const last = page[page.length - 1];
+    const nextCursor = hasMore
+      ? encodeReceivableCursor({
+          g: last.g,
+          pd: last.row.paymentDate ? last.row.paymentDate.toISOString().slice(0, 10) : null,
+          seq: last.row.contractSeq,
+        })
+      : null;
 
     // Corretores num batch (sem @relation): agrupa por saleContractId; ordem
     // createdAt asc (estavel) — atribuicao/metrica, sem valor por corretor (D136).
     const brokerRows = await this.prisma.saleContractBroker.findMany({
-      where: { saleContractId: { in: pageRows.map((r) => r.id) } },
+      where: { saleContractId: { in: page.map((e) => e.row.id) } },
       orderBy: [{ createdAt: 'asc' }],
       select: { saleContractId: true, brokerId: true, brokerNameSnapshot: true },
     });
@@ -303,10 +381,28 @@ export class SaleContractService {
     }
 
     return {
-      items: pageRows.map((row) => buildReceivableView(row, brokersByContract.get(row.id) ?? [])),
+      items: page.map((e) =>
+        buildReceivableView(e.row, brokersByContract.get(e.row.id) ?? [], todayKey)
+      ),
       nextCursor,
       totalCommission,
+      overdueCount,
+      overdueCommission,
     };
+  }
+
+  // Revisao do Pagamento (FN5): ids dos contratos cujo COMPRADOR casa com a busca.
+  // buyer_snapshot e JSON -> ILIKE no ->>'displayName' (case-insensitive como as
+  // buscas de nº/corretor; o filtro JSON tipado do Prisma seria case-sensitive).
+  // Escapa % _ \ pra tratar como literais e faz bind por template tag (sem injecao).
+  // Pre-batch id-only, molde do pre-batch de corretor.
+  async _searchBuyerContractIds(search) {
+    const esc = search.replace(/[\\%_]/g, (c) => `\\${c}`);
+    const like = `%${esc}%`;
+    const rows = await this.prisma.$queryRaw`
+      SELECT id FROM sale_contract WHERE buyer_snapshot->>'displayName' ILIKE ${like}
+    `;
+    return [...new Set(rows.map((r) => r.id))];
   }
 
   // F1 (E21-E27/D138): eventos de "pagamento de contrato" do card de Eventos do
@@ -964,15 +1060,6 @@ export class SaleContractService {
     await this._assertActorMayAccessContract(actor, contractId);
     const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
     const paidAt = normalizeActionDate(input?.date, 'date');
-    // E30 (Revisao do Pagamento): nao se paga no futuro — a data do pagamento nao
-    // passa de hoje (BRT). paidAt e @db.Date (meia-noite UTC); comparar contra o
-    // ancora BRT deixa "pagar hoje" passar (igual) e barra so datas futuras.
-    if (paidAt.getTime() > brtTodayDateOnly().getTime()) {
-      throw new HttpError(422, 'Payment date must not be in the future', {
-        code: 'VALIDATION_ERROR',
-        field: 'date',
-      });
-    }
 
     const contract = await this.prisma.saleContract.findUnique({
       where: { id: contractId },
@@ -994,6 +1081,16 @@ export class SaleContractService {
       throw new HttpError(409, 'Sale contract was modified concurrently', {
         code: 'SALE_CONTRACT_VERSION_CONFLICT',
         field: 'expectedVersion',
+      });
+    }
+    // E30 (Revisao do Pagamento): nao se paga no futuro — a data do pagamento nao passa
+    // de hoje (BRT). Regra de negocio DEPOIS dos guards de status/versao, pra um
+    // contrato invalido dar o erro de estado (nao o de data). paidAt e @db.Date
+    // (meia-noite UTC); comparar contra o ancora BRT deixa "pagar hoje" passar (igual).
+    if (paidAt.getTime() > brtTodayDateOnly().getTime()) {
+      throw new HttpError(422, 'Payment date must not be in the future', {
+        code: 'VALIDATION_ERROR',
+        field: 'date',
       });
     }
 

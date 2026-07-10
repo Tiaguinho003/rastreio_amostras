@@ -6,24 +6,37 @@ import { SaleContractLifecycleDialog } from '../contracts/SaleContractLifecycleD
 import { ApiError, listFinanceiro } from '../../lib/api-client';
 import { isAdmin } from '../../lib/roles';
 import { useToast } from '../../lib/toast/ToastProvider';
-import type { FinanceiroReceivable, SaleContractStatus, SessionData } from '../../lib/types';
+import type { FinanceiroFilter, FinanceiroReceivable, SessionData } from '../../lib/types';
 import { FinanceiroCard } from './FinanceiroCard';
 
-// Financeiro (Fase F, D135): corretagem a receber por fechamento — ADMIN +
-// COMMERCIAL (D135 reabre ao COMMERCIAL, escopado aos contratos dele; o total do
-// COMMERCIAL e a cota dele). Relatorio derivado (sem persistencia). S86: paginado
-// por cursor (scroll infinito, molde /users); a busca e o total sao server-side.
+// Financeiro — a CASA DO PAGAMENTO (Revisao do Pagamento, FN1-FN7): hospeda todos os
+// contratos no escopo do papel (ADMIN todos / COMMERCIAL os dele), com a lente de
+// status de pagamento (chips a vencer/vencido/pago/cancelado), fila por vencimento
+// (FN4), filtros (FN5), busca por nº/comprador/corretor e o cabecalho "Total a
+// receber" + "N vencidos" (FN6). O "Pago" (FATURADO → PAGO) mora aqui (FN7). A casca
+// (guard/AppShell/abas) vive em app/contratos/page.tsx. Paginado por cursor keyset
+// opaco (scroll infinito).
 
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const FIN_PAGE_LIMIT = 30;
 const FIN_LOAD_MORE_ROOT_MARGIN = '0px';
 
+const FILTERS: { key: FinanceiroFilter; label: string }[] = [
+  { key: 'todos', label: 'Todos' },
+  { key: 'a_vencer', label: 'A vencer' },
+  { key: 'vencido', label: 'Vencido' },
+  { key: 'pago', label: 'Pago' },
+  { key: 'cancelado', label: 'Cancelado' },
+];
+
 type FinListStatus = 'loading-initial' | 'loading-more' | 'idle' | 'error';
 
 interface FinListState {
   items: FinanceiroReceivable[];
-  nextCursor: number | null;
+  nextCursor: string | null;
   totalCommission: number;
+  overdueCount: number;
+  overdueCommission: number;
   status: FinListStatus;
   error: string | null;
 }
@@ -34,17 +47,20 @@ type FinListAction =
   | {
       type: 'success-initial';
       items: FinanceiroReceivable[];
-      nextCursor: number | null;
+      nextCursor: string | null;
       totalCommission: number;
+      overdueCount: number;
+      overdueCommission: number;
     }
-  | { type: 'success-more'; items: FinanceiroReceivable[]; nextCursor: number | null }
-  | { type: 'patch-status'; id: string; status: SaleContractStatus }
+  | { type: 'success-more'; items: FinanceiroReceivable[]; nextCursor: string | null }
   | { type: 'error'; message: string };
 
 const FIN_INITIAL: FinListState = {
   items: [],
   nextCursor: null,
   totalCommission: 0,
+  overdueCount: 0,
+  overdueCommission: 0,
   status: 'loading-initial',
   error: null,
 };
@@ -61,6 +77,8 @@ function finListReducer(state: FinListState, action: FinListAction): FinListStat
         items: action.items,
         nextCursor: action.nextCursor,
         totalCommission: action.totalCommission,
+        overdueCount: action.overdueCount,
+        overdueCommission: action.overdueCommission,
         status: 'idle',
         error: null,
       };
@@ -72,15 +90,6 @@ function finListReducer(state: FinListState, action: FinListAction): FinListStat
         status: 'idle',
         error: null,
       };
-    case 'patch-status':
-      // D137: pagar (FATURADO→PAGO) não muda corretagem/total → patch otimista do
-      // item, sem refetch (evita reset da paginação por cursor).
-      return {
-        ...state,
-        items: state.items.map((it) =>
-          it.id === action.id ? { ...it, status: action.status } : it
-        ),
-      };
     case 'error':
       return { ...state, status: 'error', error: action.message };
     default:
@@ -89,15 +98,15 @@ function finListReducer(state: FinListState, action: FinListAction): FinListStat
 }
 
 export function FinanceiroPanel({ session }: { session: SessionData }) {
-  // Painel da aba "Financeiro" do hub (Central de Contratos). A casca — guard,
-  // AppShell, header e as abas — vive em app/contratos/page.tsx; aqui fica só o
-  // conteúdo. Guard do hub = CONTRATOS_ROLES (= FINANCEIRO_ROLES em F1).
   const toast = useToast();
   const [listState, dispatchList] = useReducer(finListReducer, FIN_INITIAL);
   const [searchInput, setSearchInput] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
+  const [filter, setFilter] = useState<FinanceiroFilter>('todos');
+  // Bump para forcar refetch da 1a pagina apos pagar (FN4: o pago sai da fila).
+  const [reloadNonce, setReloadNonce] = useState(0);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  // D137: registro do pagamento (FATURADO → PAGO) mora aqui; reusa o dialog do /contratos.
+  // FN7: registro do pagamento (FATURADO → PAGO); reusa o dialog do /contratos.
   const [lifecycle, setLifecycle] = useState<{
     contractId: string;
     expectedVersion: number;
@@ -140,7 +149,8 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
     };
   }, [searchInput, appliedSearch]);
 
-  // Fetch inicial: dispara ao mudar a busca ou a sessão. Reseta o cursor.
+  // Fetch inicial: dispara ao mudar busca/filtro/sessão ou após pagar (reloadNonce).
+  // Reseta o cursor (a paginação é keyset por página).
   useEffect(() => {
     if (!session) return;
     const abortController = new AbortController();
@@ -153,7 +163,7 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
 
     listFinanceiro(
       session,
-      { search: appliedSearch || undefined, limit: FIN_PAGE_LIMIT },
+      { search: appliedSearch || undefined, filter, limit: FIN_PAGE_LIMIT },
       { signal: abortController.signal }
     )
       .then((response) => {
@@ -163,6 +173,8 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
           items: response.items,
           nextCursor: response.nextCursor,
           totalCommission: response.totalCommission,
+          overdueCount: response.overdueCount,
+          overdueCommission: response.overdueCommission,
         });
       })
       .catch((cause) => {
@@ -178,12 +190,11 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
       active = false;
       abortController.abort();
     };
-  }, [appliedSearch, session]);
+  }, [appliedSearch, filter, reloadNonce, session]);
 
-  // Load-more pelo cursor. inFlight + token protegem contra race em scrolls
-  // rápidos (mesmo padrão de /users).
+  // Load-more pelo cursor. inFlight + token protegem contra race em scrolls rápidos.
   const runLoadMore = useCallback(
-    (cursor: number) => {
+    (cursor: string) => {
       const state = loadMoreStateRef.current;
       if (state.inFlight || !session) return;
       state.inFlight = true;
@@ -196,7 +207,7 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
 
       listFinanceiro(
         session,
-        { search: appliedSearch || undefined, limit: FIN_PAGE_LIMIT, cursor },
+        { search: appliedSearch || undefined, filter, limit: FIN_PAGE_LIMIT, cursor },
         { signal: controller.signal }
       )
         .then((response) => {
@@ -222,7 +233,7 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
           }
         });
     },
-    [session, appliedSearch]
+    [session, appliedSearch, filter]
   );
 
   // IntersectionObserver no sentinel: dispara load-more quando entra na viewport.
@@ -243,11 +254,12 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
     return () => observer.disconnect();
   }, [runLoadMore, listState.nextCursor, listState.status, session]);
 
-  // D137: qualquer sessão permitida pode registrar o pagamento; o backend re-checa a
+  // FN7: qualquer sessão permitida pode registrar o pagamento; o backend re-checa a
   // posse (COMMERCIAL só vê/paga os contratos dele — D135).
   const canManage = true;
 
-  const { items, status, error, nextCursor, totalCommission } = listState;
+  const { items, status, error, nextCursor, totalCommission, overdueCount, overdueCommission } =
+    listState;
   const isInitialLoading = status === 'loading-initial';
 
   return (
@@ -259,6 +271,15 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
         <span className="fin-total-value">{BRL.format(totalCommission)}</span>
       </div>
 
+      {overdueCount > 0 ? (
+        <div className="fin-overdue" role="status">
+          <span className="fin-overdue-count">
+            {overdueCount} {overdueCount === 1 ? 'vencido' : 'vencidos'}
+          </span>
+          <span className="fin-overdue-value">{BRL.format(overdueCommission)}</span>
+        </div>
+      ) : null}
+
       <div className="hero-search-wrap">
         <form
           className="hero-search-bar"
@@ -269,7 +290,7 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
             className="hero-search-input"
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
-            placeholder="Buscar nº ou corretor..."
+            placeholder="Buscar nº, comprador ou corretor..."
             autoComplete="off"
             spellCheck={false}
           />
@@ -295,9 +316,23 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
         </form>
       </div>
 
+      <div className="fin-filters" role="group" aria-label="Filtrar por estado de pagamento">
+        {FILTERS.map((f) => (
+          <button
+            key={f.key}
+            type="button"
+            className={`fin-filter-chip${filter === f.key ? ' is-active' : ''}`}
+            aria-pressed={filter === f.key}
+            onClick={() => setFilter(f.key)}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
       <section className="clients-v2-sheet">
         <div className="spv2-list-meta">
-          <span className="spv2-list-count">{items.length} fechamento(s)</span>
+          <span className="spv2-list-count">{items.length} contrato(s)</span>
         </div>
 
         <div className="spv2-list-scroll" ref={scrollRef}>
@@ -311,7 +346,7 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
             </div>
           ) : items.length === 0 ? (
             <div className="spv2-empty">
-              <p className="spv2-empty-text">Nenhuma corretagem a receber</p>
+              <p className="spv2-empty-text">Nenhum contrato</p>
             </div>
           ) : (
             <div className="fin-list">
@@ -351,9 +386,11 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
           hasLot={false}
           onClose={() => setLifecycle(null)}
           onDone={() => {
-            const id = lifecycle.contractId;
             setLifecycle(null);
-            dispatchList({ type: 'patch-status', id, status: 'PAGO' });
+            // FN4/E28: o pago sai da fila (some do filtro Vencido/A vencer; vai pro fim
+            // no Todos) → refetch da 1ª página (mantém filtro+busca). Substitui o patch
+            // otimista, que sob a nova ordem deixaria um chip verde no meio da fila.
+            setReloadNonce((n) => n + 1);
             toast.success({ title: 'Pagamento registrado' });
           }}
         />

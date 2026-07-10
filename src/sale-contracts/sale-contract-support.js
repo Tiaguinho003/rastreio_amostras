@@ -233,7 +233,9 @@ function decimalToNumber(value) {
 // Financeiro (D128): select ENXUTO do listBrokerReceivables — so o que o
 // buildReceivableView projeta. O SALE_CONTRACT_VIEW_SELECT completo carrega 5
 // snapshots JSON por linha que o Financeiro nao usa (a lista cresce sem limite;
-// os snapshots dominariam o payload do banco).
+// os snapshots dominariam o payload do banco). Revisao do Pagamento (FN3): traz
+// UM dos 5 snapshots (buyerSnapshot) so pra derivar o nome do comprador na view
+// (o snapshot cru NAO vai no payload de saida) + paidAt (exibir "pago em").
 export const RECEIVABLE_VIEW_SELECT = Object.freeze({
   id: true,
   version: true,
@@ -241,7 +243,9 @@ export const RECEIVABLE_VIEW_SELECT = Object.freeze({
   contractNumber: true,
   contractDate: true,
   paymentDate: true,
+  paidAt: true,
   status: true,
+  buyerSnapshot: true,
   totalValue: true,
   sellerBrokeragePct: true,
   sellerBrokerageValue: true,
@@ -381,13 +385,29 @@ export function toSaleContractBrokerView(row) {
   };
 }
 
+// Revisao do Pagamento (FN1): estado de pagamento derivado (sem enum) — a LENTE do
+// Financeiro. Chip: cancelado (WASH_OUT) · pago (PAGO) · vencido (nao pago +
+// paymentDate < hoje BRT) · a_vencer (nao pago, no prazo ou SEM data). `paymentDate`
+// = Date @db.Date (ou null); `todayKey` = 'YYYY-MM-DD' BRT (brtTodayKey). Sem data
+// nunca vira vencido. String-compare de 2 'YYYY-MM-DD' == compare cronologico.
+export function deriveReceivablePaymentState(status, paymentDate, todayKey) {
+  if (status === 'WASH_OUT') return 'cancelado';
+  if (status === 'PAGO') return 'pago';
+  const iso = toIsoString(paymentDate);
+  const dayKey = iso ? iso.slice(0, 10) : null;
+  if (dayKey && todayKey && dayKey < todayKey) return 'vencido';
+  return 'a_vencer';
+}
+
 // Financeiro (Fase F): projecao de "corretagem a receber" de UM contrato. Soma a
 // corretagem das 2 pontas (commissionTotal). Os corretores sao ATRIBUICAO/metrica
 // (D34): lista de nomes, SEM valor por corretor — o sistema NAO divide a corretagem
 // entre eles (D136 removeu o rateio ÷N das D79/D129, uma divisao igual ficticia que
 // arriscava os registros; a divisao real, quando ha, e externa). `row` = projecao
 // RECEIVABLE_VIEW_SELECT; `brokerRows` = os SaleContractBroker (brokerId/nome).
-export function buildReceivableView(row, brokerRows) {
+// Revisao do Pagamento (FN1/FN3): + buyerName (do buyerSnapshot), paidAt e
+// paymentState (derivado com o dia BRT injetado, fonte unica de "hoje").
+export function buildReceivableView(row, brokerRows, todayKey) {
   const sellerValue = decimalToNumber(row.sellerBrokerageValue) ?? 0;
   const buyerValue = decimalToNumber(row.buyerBrokerageValue) ?? 0;
   const commissionTotal = round2(sellerValue + buyerValue);
@@ -398,7 +418,10 @@ export function buildReceivableView(row, brokerRows) {
     contractNumber: row.contractNumber,
     contractDate: toIsoString(row.contractDate),
     paymentDate: toIsoString(row.paymentDate),
+    paidAt: toIsoString(row.paidAt),
     status: row.status,
+    paymentState: deriveReceivablePaymentState(row.status, row.paymentDate, todayKey),
+    buyerName: row.buyerSnapshot?.displayName ?? null,
     totalValue: decimalToNumber(row.totalValue),
     commissionTotal,
     sellerBrokeragePct: decimalToNumber(row.sellerBrokeragePct),
@@ -410,6 +433,63 @@ export function buildReceivableView(row, brokerRows) {
       name: b.brokerNameSnapshot,
     })),
   };
+}
+
+// Revisao do Pagamento (FN4/FN5): filtro do Financeiro. Default 'todos'.
+export const RECEIVABLE_FILTERS = Object.freeze([
+  'todos',
+  'a_vencer',
+  'vencido',
+  'pago',
+  'cancelado',
+]);
+
+export function normalizeReceivableFilter(raw) {
+  return typeof raw === 'string' && RECEIVABLE_FILTERS.includes(raw) ? raw : 'todos';
+}
+
+// Revisao do Pagamento (FN4): cursor keyset opaco do Financeiro. {g, pd, seq}:
+// g = grupo (0 nao-pago / 1 pago / 2 cancelado); pd = 'YYYY-MM-DD'|null (so importa
+// em G0, ordenado por paymentDate asc nulls-last); seq = contractSeq (tiebreak unico
+// e monotonico). base64url pra viajar como string opaca na querystring.
+export function encodeReceivableCursor(cursor) {
+  return Buffer.from(JSON.stringify(cursor), 'utf8').toString('base64url');
+}
+
+export function decodeReceivableCursor(raw) {
+  if (typeof raw !== 'string' || raw === '') return null;
+  try {
+    const p = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
+    const okPd = p?.pd === null || (typeof p?.pd === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(p.pd));
+    if (p && Number.isInteger(p.g) && p.g >= 0 && p.g <= 2 && Number.isInteger(p.seq) && okPd) {
+      return { g: p.g, pd: p.pd, seq: p.seq };
+    }
+  } catch {
+    // cursor malformado -> trata como 1a pagina
+  }
+  return null;
+}
+
+// Fragmento Prisma "estritamente DEPOIS do cursor, DENTRO do grupo cursor.g".
+// G0 (nao-pago), ordem (paymentDate asc nulls-last, contractSeq asc): avanca pela
+// data e, na cauda dos nulos, so por seq. G1/G2 (arquivo), ordem contractSeq desc:
+// "depois" = seq menor.
+export function receivableKeysetWhere(cursor) {
+  if (cursor.g === 0) {
+    const seqGt = { contractSeq: { gt: cursor.seq } };
+    if (cursor.pd === null) {
+      return { AND: [{ paymentDate: null }, seqGt] };
+    }
+    const pdDate = new Date(`${cursor.pd}T00:00:00.000Z`);
+    return {
+      OR: [
+        { paymentDate: { gt: pdDate } },
+        { paymentDate: null },
+        { AND: [{ paymentDate: pdDate }, seqGt] },
+      ],
+    };
+  }
+  return { contractSeq: { lt: cursor.seq } };
 }
 
 // "Hoje" no fuso BRT (America/Sao_Paulo — sem DST desde 2019, offset fixo −3h),

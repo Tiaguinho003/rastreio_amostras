@@ -2986,6 +2986,7 @@ export function createBackendApiV1({
             search: input?.query?.search,
             limit: input?.query?.limit,
             cursor: input?.query?.cursor,
+            filter: input?.query?.filter,
           },
           actor
         );

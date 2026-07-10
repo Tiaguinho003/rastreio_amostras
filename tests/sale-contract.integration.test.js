@@ -1330,6 +1330,167 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(byNumber.items[0].id, a.contractId);
   });
 
+  // ── Revisão do Pagamento (FN1–FN6): casa do pagamento ──
+
+  test('Financeiro (FN1/FN4/FN6): ordem vencido→a_vencer→pago→cancelado + chips + N vencidos', async () => {
+    const venc = await setupConfirmedContract({ lotNumber: '26010' });
+    const aVenc = await setupConfirmedContract({ lotNumber: '26011' });
+    const pago = await setupConfirmedContract({ lotNumber: '26012' });
+    const canc = await setupConfirmedContract({ lotNumber: '26013' });
+    // Estados/datas controlados (setupConfirmedContract nasce EMITIDO).
+    await prisma.saleContract.update({
+      where: { id: venc.contractId },
+      data: { paymentDate: new Date('2000-01-01T00:00:00.000Z') }, // vencido (passado)
+    });
+    await prisma.saleContract.update({
+      where: { id: aVenc.contractId },
+      data: { paymentDate: new Date('2100-01-01T00:00:00.000Z') }, // a vencer (futuro)
+    });
+    await prisma.saleContract.update({
+      where: { id: pago.contractId },
+      data: { status: 'PAGO', paidAt: new Date('2026-07-05T00:00:00.000Z') },
+    });
+    await prisma.saleContract.update({
+      where: { id: canc.contractId },
+      data: { status: 'WASH_OUT' },
+    });
+
+    const res = await saleContractService.listBrokerReceivables({}, adminActor);
+    assert.deepEqual(
+      res.items.map((i) => i.id),
+      [venc.contractId, aVenc.contractId, pago.contractId, canc.contractId]
+    );
+    const byId = Object.fromEntries(res.items.map((i) => [i.id, i]));
+    assert.equal(byId[venc.contractId].paymentState, 'vencido');
+    assert.equal(byId[aVenc.contractId].paymentState, 'a_vencer');
+    assert.equal(byId[pago.contractId].paymentState, 'pago');
+    assert.equal(byId[canc.contractId].paymentState, 'cancelado');
+    // FN6: 1 vencido, corretagem 30 (2% + 1% de 1000)
+    assert.equal(res.overdueCount, 1);
+    assert.equal(res.overdueCommission, 30);
+  });
+
+  test('Financeiro (FN5): filtros por estado, independentes do cabeçalho', async () => {
+    const venc = await setupConfirmedContract({ lotNumber: '26020' });
+    const aVenc = await setupConfirmedContract({ lotNumber: '26021' });
+    const pago = await setupConfirmedContract({ lotNumber: '26022' });
+    await prisma.saleContract.update({
+      where: { id: venc.contractId },
+      data: { paymentDate: new Date('2000-01-01T00:00:00.000Z') },
+    });
+    await prisma.saleContract.update({
+      where: { id: aVenc.contractId },
+      data: { paymentDate: new Date('2100-01-01T00:00:00.000Z') },
+    });
+    await prisma.saleContract.update({
+      where: { id: pago.contractId },
+      data: { status: 'PAGO', paidAt: new Date('2026-07-05T00:00:00.000Z') },
+    });
+
+    const vencidos = await saleContractService.listBrokerReceivables(
+      { filter: 'vencido' },
+      adminActor
+    );
+    assert.deepEqual(
+      vencidos.items.map((i) => i.id),
+      [venc.contractId]
+    );
+    const aVencer = await saleContractService.listBrokerReceivables(
+      { filter: 'a_vencer' },
+      adminActor
+    );
+    assert.deepEqual(
+      aVencer.items.map((i) => i.id),
+      [aVenc.contractId]
+    );
+    const pagos = await saleContractService.listBrokerReceivables({ filter: 'pago' }, adminActor);
+    assert.deepEqual(
+      pagos.items.map((i) => i.id),
+      [pago.contractId]
+    );
+    // o cabeçalho (total + vencidos) independe do filtro FN5 ativo
+    assert.equal(vencidos.totalCommission, 90); // 3 x 30
+    assert.equal(vencidos.overdueCount, 1);
+  });
+
+  test('Financeiro (FN5): busca por comprador (case-insensitive, sem vazar)', async () => {
+    const a = await setupConfirmedContract({ lotNumber: '26030' });
+    const b = await setupConfirmedContract({ lotNumber: '26031' });
+    await prisma.saleContract.update({
+      where: { id: a.contractId },
+      data: { buyerSnapshot: { displayName: 'Fazenda Aurora' } },
+    });
+    await prisma.saleContract.update({
+      where: { id: b.contractId },
+      data: { buyerSnapshot: { displayName: 'Sítio Bela Vista' } },
+    });
+    const res = await saleContractService.listBrokerReceivables({ search: 'AURORA' }, adminActor);
+    assert.deepEqual(
+      res.items.map((i) => i.id),
+      [a.contractId]
+    );
+    assert.equal(res.items[0].buyerName, 'Fazenda Aurora');
+  });
+
+  test('Financeiro (FN4): paginação keyset atravessa os grupos (não-pago → pago)', async () => {
+    const u1 = await setupConfirmedContract({ lotNumber: '26040' });
+    const u2 = await setupConfirmedContract({ lotNumber: '26041' });
+    const p1 = await setupConfirmedContract({ lotNumber: '26042' });
+    await prisma.saleContract.update({
+      where: { id: u1.contractId },
+      data: { paymentDate: new Date('2100-01-01T00:00:00.000Z') },
+    });
+    await prisma.saleContract.update({
+      where: { id: u2.contractId },
+      data: { paymentDate: new Date('2100-01-02T00:00:00.000Z') },
+    });
+    await prisma.saleContract.update({
+      where: { id: p1.contractId },
+      data: { status: 'PAGO', paidAt: new Date('2026-07-05T00:00:00.000Z') },
+    });
+    const page1 = await saleContractService.listBrokerReceivables({ limit: 2 }, adminActor);
+    assert.deepEqual(
+      page1.items.map((i) => i.id),
+      [u1.contractId, u2.contractId]
+    );
+    assert.equal(typeof page1.nextCursor, 'string');
+    const page2 = await saleContractService.listBrokerReceivables(
+      { limit: 2, cursor: page1.nextCursor },
+      adminActor
+    );
+    assert.deepEqual(
+      page2.items.map((i) => i.id),
+      [p1.contractId]
+    );
+    assert.equal(page2.nextCursor, null);
+  });
+
+  test('Pagar (E30): rejeita data futura (após faturar); hoje passa', async () => {
+    const { contractId, version } = await setupConfirmedContract({ lotNumber: '26050' });
+    const inv = await saleContractService.invoiceSaleContract(
+      contractId,
+      { expectedVersion: version, date: '2026-07-05' },
+      adminActor
+    );
+    await assert.rejects(
+      () =>
+        saleContractService.paySaleContract(
+          contractId,
+          { expectedVersion: inv.contract.version, date: '2999-12-31' },
+          adminActor
+        ),
+      (err) => err.status === 422
+    );
+    // hoje (BRT) passa (mesma conta do serviço)
+    const todayKey = new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
+    const paid = await saleContractService.paySaleContract(
+      contractId,
+      { expectedVersion: inv.contract.version, date: todayKey },
+      adminActor
+    );
+    assert.equal(paid.contract.status, 'PAGO');
+  });
+
   test('criar lookup inline: cria ACTIVE, aparece na lista e fica no fim (append)', async () => {
     // nome unico + cleanup: as tabelas de lookup nao sao truncadas entre runs
     // (guardam os valores seedados), entao o teste nao pode usar um nome fixo.
@@ -1404,11 +1565,11 @@ if (!databaseUrl || !databaseReachable) {
     );
     const pay = await saleContractService.paySaleContract(
       contractId,
-      { expectedVersion: inv.contract.version, date: '2026-07-25' },
+      { expectedVersion: inv.contract.version, date: '2026-07-08' }, // E30: máx hoje (BRT)
       adminActor
     );
     assert.equal(pay.contract.status, 'PAGO');
-    assert.equal(pay.contract.paidAt?.slice(0, 10), '2026-07-25');
+    assert.equal(pay.contract.paidAt?.slice(0, 10), '2026-07-08');
     assert.equal(pay.contract.invoicedAt?.slice(0, 10), '2026-07-15');
   });
 
@@ -1450,21 +1611,21 @@ if (!databaseUrl || !databaseReachable) {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '25020' }); // paymentDate 2026-07-20
     const inv = await saleContractService.invoiceSaleContract(
       contractId,
-      { expectedVersion: version, date: '2026-07-18' },
+      { expectedVersion: version, date: '2026-07-05' },
       adminActor
     );
     await saleContractService.paySaleContract(
       contractId,
-      { expectedVersion: inv.contract.version, date: '2026-07-24' },
+      { expectedVersion: inv.contract.version, date: '2026-07-08' }, // E30: máx hoje (BRT)
       adminActor
     );
 
     const res = await saleContractService.getDashboardPaymentEvents(
-      { from: '2026-07-13', to: '2026-07-26' },
+      { from: '2026-07-01', to: '2026-07-26' },
       adminActor
     );
-    // realizado no paidAt (2026-07-24), NÃO no paymentDate (2026-07-20).
-    const ev = (res['2026-07-24'] ?? []).find((e) => e.contractId === contractId);
+    // realizado no paidAt (2026-07-08), NÃO no paymentDate (2026-07-20).
+    const ev = (res['2026-07-08'] ?? []).find((e) => e.contractId === contractId);
     assert.ok(ev, 'PAGO deve aparecer no paidAt');
     assert.equal(ev.typeKey, 'contract_payment_paid');
     assert.equal(ev.status, 'PAGO');
@@ -1527,7 +1688,7 @@ if (!databaseUrl || !databaseReachable) {
     );
     await saleContractService.paySaleContract(
       contractId,
-      { expectedVersion: inv.contract.version, date: '2026-07-25' },
+      { expectedVersion: inv.contract.version, date: '2026-07-08' }, // E30: máx hoje (BRT)
       adminActor
     );
 
@@ -1735,7 +1896,7 @@ if (!databaseUrl || !databaseReachable) {
     );
     const pay = await saleContractService.paySaleContract(
       contractId,
-      { expectedVersion: inv.contract.version, date: '2026-07-25' },
+      { expectedVersion: inv.contract.version, date: '2026-07-08' }, // E30: máx hoje (BRT)
       adminActor
     );
     const r = await saleContractService.washoutSaleContract(
@@ -1812,7 +1973,7 @@ if (!databaseUrl || !databaseReachable) {
     );
     await saleContractService.paySaleContract(
       contractId,
-      { expectedVersion: inv.contract.version, date: '2026-07-25' },
+      { expectedVersion: inv.contract.version, date: '2026-07-08' }, // E30: máx hoje (BRT)
       adminActor
     );
     const movement = await prisma.sampleMovement.findFirst({ where: { sampleId } });

@@ -24,12 +24,8 @@ import type { DashboardCalendarEvent } from '../../lib/types';
 type CalendarEvent = DashboardCalendarEvent;
 
 interface EventsCalendarCardProps {
-  /** Mapa 'YYYY-MM-DD' → eventos do dia (F1: pagamentos de contrato; vazio antes). */
+  /** Mapa 'YYYY-MM-DD' → eventos do dia (pagamento + lembrete de aprovação). */
   events?: Record<string, CalendarEvent[]>;
-  /** Quem pode registrar pagamento (E26); default false. */
-  canManage?: boolean;
-  /** Abre a dialog "Pago" no pai (E26); só em eventos FATURADO. */
-  onPagar?: (event: CalendarEvent) => void;
   /** Abre o modal "Gerar aprovação" no pai (F2/AP7); só em eventos contract_approval_due. */
   onGerarAprovacao?: (event: CalendarEvent) => void;
   /** Emite a quinzena visível (from..to 'YYYY-MM-DD') pro pai buscar o feed (E24). */
@@ -54,8 +50,6 @@ const STATUS_LABEL: Record<string, string> = {
 // selecionado por default (E10).
 export function EventsCalendarCard({
   events = {},
-  canManage = false,
-  onPagar,
   onGerarAprovacao,
   onWindowChange,
 }: EventsCalendarCardProps) {
@@ -235,8 +229,27 @@ export function EventsCalendarCard({
         ) : (
           <ul className="dd-events-panel-list">
             {selectedEvents.map((event) => {
+              // E28: pagamento vira navegação PURA → Financeiro (sem acordeão/ações no
+              // card; o "Pago" e o portão moram no Financeiro). Aprovação (F2) mantém o
+              // acordeão + "Gerar aprovação" até a reforma dela (AP17-30).
+              if (event.typeKey.startsWith('contract_payment_')) {
+                return (
+                  <li key={event.id} className="dd-events-panel-item" data-type={event.typeKey}>
+                    <Link
+                      href={`/contratos?tab=financeiro${
+                        event.contractId ? `&highlight=${event.contractId}` : ''
+                      }`}
+                      className="dd-events-item-link"
+                    >
+                      <span className="dd-events-item-label">{event.label}</span>
+                      <svg className="dd-events-item-go" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="m9 6 6 6-6 6" />
+                      </svg>
+                    </Link>
+                  </li>
+                );
+              }
               const isOpen = expandedId === event.id;
-              const canPay = event.status === 'FATURADO' && canManage && Boolean(onPagar);
               const canGerar =
                 event.typeKey === 'contract_approval_due' && Boolean(onGerarAprovacao);
               return (
@@ -275,15 +288,6 @@ export function EventsCalendarCard({
                         </div>
                       </dl>
                       <div className="dd-events-item-actions">
-                        {canPay ? (
-                          <button
-                            type="button"
-                            className="dd-events-item-btn dd-events-item-btn-primary"
-                            onClick={() => onPagar?.(event)}
-                          >
-                            Pago
-                          </button>
-                        ) : null}
                         {canGerar ? (
                           <button
                             type="button"

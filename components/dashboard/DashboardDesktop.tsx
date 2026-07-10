@@ -10,9 +10,7 @@ import {
   getDashboardRecentSends,
 } from '../../lib/api-client';
 import { canManageClients, FINANCEIRO_ROLES, isRoleAllowed } from '../../lib/roles';
-import { useToast } from '../../lib/toast/ToastProvider';
 import { ApprovalLabelModal } from '../ApprovalLabelModal';
-import { SaleContractLifecycleDialog } from '../contracts/SaleContractLifecycleDialog';
 import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
 import { EventsCalendarCard } from './EventsCalendarCard';
 import { RecentSendsCard } from './RecentSendsCard';
@@ -51,18 +49,13 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
   // em Alt+Tab rapido.
   const lastFetchRef = useRef<number>(0);
 
-  // F1 (E24/E26): eventos de pagamento do card de Eventos — só ADMIN/COMMERCIAL
+  // F1 (E24/E28): eventos de pagamento do card de Eventos — só ADMIN/COMMERCIAL
   // (E22). `paymentWindow` = a quinzena visível que o card emite via onWindowChange.
-  const toast = useToast();
+  // E28: o evento é navegação pura (→ Financeiro); o "Pago" saiu do dashboard.
   const canPay = isRoleAllowed(session.user.role, FINANCEIRO_ROLES);
   const canManageCadastro = canManageClients(session.user.role);
   const [paymentEvents, setPaymentEvents] = useState<Record<string, DashboardCalendarEvent[]>>({});
   const [paymentWindow, setPaymentWindow] = useState<{ from: string; to: string } | null>(null);
-  const [lifecycle, setLifecycle] = useState<{
-    contractId: string;
-    expectedVersion: number;
-    contractNumber: string;
-  } | null>(null);
   const handleWindowChange = useCallback((from: string, to: string) => {
     setPaymentWindow({ from, to });
   }, []);
@@ -248,16 +241,7 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
           </div>
           <EventsCalendarCard
             events={calendarEvents}
-            canManage={canPay}
             onWindowChange={handleWindowChange}
-            onPagar={(evt) => {
-              if (evt.contractId == null || evt.version == null) return;
-              setLifecycle({
-                contractId: evt.contractId,
-                expectedVersion: evt.version,
-                contractNumber: evt.contractNumber ?? '',
-              });
-            }}
             onGerarAprovacao={(evt) => {
               if (evt.contractId == null) return;
               const contractId = evt.contractId;
@@ -275,23 +259,6 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
         onClose={closeOperationModal}
         onItemAction={classifySample}
       />
-
-      {lifecycle ? (
-        <SaleContractLifecycleDialog
-          session={session}
-          contractId={lifecycle.contractId}
-          expectedVersion={lifecycle.expectedVersion}
-          contractNumber={lifecycle.contractNumber}
-          action="pay"
-          hasLot={false}
-          onClose={() => setLifecycle(null)}
-          onDone={() => {
-            setLifecycle(null);
-            fetchPaymentEvents();
-            toast.success({ title: 'Pagamento registrado' });
-          }}
-        />
-      ) : null}
 
       {approvalForm ? (
         <ApprovalLabelModal

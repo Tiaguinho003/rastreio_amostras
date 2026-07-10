@@ -15,6 +15,7 @@ import type {
   ContractLookupsResponse,
   CreateContractLookupResponse,
   CreateSaleContractInput,
+  FinanceiroFilter,
   FinanceiroListResponse,
   SaleContractEtapa2Input,
   SaleContractListResponse,
@@ -822,13 +823,14 @@ export function listSaleContracts(
 // Relatorio derivado, on-demand, paginado por cursor (S86: search/limit/cursor).
 export function listFinanceiro(
   session: SessionData,
-  query: { search?: string; limit?: number; cursor?: number } = {},
+  query: { search?: string; limit?: number; cursor?: string; filter?: FinanceiroFilter } = {},
   options: { signal?: AbortSignal } = {}
 ) {
   const params = new URLSearchParams();
   if (query.search) params.set('search', query.search);
   if (typeof query.limit === 'number') params.set('limit', String(query.limit));
-  if (typeof query.cursor === 'number') params.set('cursor', String(query.cursor));
+  if (query.cursor) params.set('cursor', query.cursor);
+  if (query.filter && query.filter !== 'todos') params.set('filter', query.filter);
   const suffix = params.size ? `?${params.toString()}` : '';
   return request<FinanceiroListResponse>(`/financeiro${suffix}`, {
     method: 'GET',

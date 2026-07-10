@@ -1,38 +1,40 @@
 'use client';
 
-import type { FinanceiroReceivable } from '../../lib/types';
+import Link from 'next/link';
 
-// Financeiro (Fase F, D128 = ADMIN-only): card de um fechamento na pagina
-// "Financeiro". Recolhido = nº + valor total + corretagem total + os corretores
-// com a cota de cada um (D84; rateio com resto no 1º — D129). Expandido =
-// detalhe da corretagem: reparticao vendedor/comprador (% + R$) (D85).
-// Esqueleto/animacao espelham o `ctr-card` (controlado: isExpanded/onToggle no pai).
+import type { FinanceiroPaymentState, FinanceiroReceivable } from '../../lib/types';
 
-const STATUS_LABEL: Record<string, string> = {
-  EMITIDO: 'Emitido',
-  FATURADO: 'Faturado',
-  PAGO: 'Pago',
-  WASH_OUT: 'Washout',
+// Financeiro (Revisao do Pagamento, FN1/FN3): card de um contrato na CASA DO
+// PAGAMENTO. Recolhido = chip de estado (a vencer/vencido/pago/cancelado) + nº +
+// comprador + vencimento (ou "pago em") + valor total + corretagem + corretores.
+// Acoes: [Pago] so em FATURADO (FN7) + [Ver contrato] sempre. Expandido = detalhe da
+// corretagem (vendedor/comprador, % + R$). Controlado (isExpanded/onToggle no pai).
+
+const STATE_LABEL: Record<FinanceiroPaymentState, string> = {
+  a_vencer: 'A vencer',
+  vencido: 'Vencido',
+  pago: 'Pago',
+  cancelado: 'Cancelado',
 };
-const STATUS_COLOR: Record<string, string> = {
-  EMITIDO: '#eab308', // amarelo
-  FATURADO: '#0d9488',
-  PAGO: '#15803d',
-  WASH_OUT: '#dc2626', // vermelho (D105: aparece no Financeiro, corretagem mantida)
+// Cores = as dos dots do calendario (coerencia evento↔pagina). O texto do "a vencer"
+// usa ambar escuro (o vivo sumiria no fundo claro do selo).
+const STATE_COLOR: Record<FinanceiroPaymentState, string> = {
+  a_vencer: '#eab308',
+  vencido: '#dc2626',
+  pago: '#15803d',
+  cancelado: '#9ca3af',
 };
-// Texto do selo: igual à barra, exceto o Emitido (amarelo vivo sumiria no fundo
-// claro → usa um amarelo escuro legível).
-const STATUS_TEXT_COLOR: Record<string, string> = {
-  EMITIDO: '#a16207',
-  FATURADO: '#0d9488',
-  PAGO: '#15803d',
-  WASH_OUT: '#dc2626',
+const STATE_TEXT_COLOR: Record<FinanceiroPaymentState, string> = {
+  a_vencer: '#a16207',
+  vencido: '#dc2626',
+  pago: '#15803d',
+  cancelado: '#6b7280',
 };
-const STATUS_TINT: Record<string, string> = {
-  EMITIDO: '#fef9c3', // amarelo claro
-  FATURADO: '#ccfbf1',
-  PAGO: '#dcfce7',
-  WASH_OUT: '#fee2e2',
+const STATE_TINT: Record<FinanceiroPaymentState, string> = {
+  a_vencer: '#fef9c3',
+  vencido: '#fee2e2',
+  pago: '#dcfce7',
+  cancelado: '#f3f4f6',
 };
 
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -57,7 +59,7 @@ type FinanceiroCardProps = {
   item: FinanceiroReceivable;
   isExpanded: boolean;
   onToggle: () => void;
-  // D137: o registro do pagamento (FATURADO → PAGO) mora aqui no Financeiro.
+  // FN7: o registro do pagamento (FATURADO → PAGO) mora aqui no Financeiro.
   canManage?: boolean;
   onPagar?: () => void;
 };
@@ -69,10 +71,12 @@ export function FinanceiroCard({
   canManage = false,
   onPagar,
 }: FinanceiroCardProps) {
-  const color = STATUS_COLOR[item.status] ?? '#16a34a';
-  const textColor = STATUS_TEXT_COLOR[item.status] ?? color;
-  const tint = STATUS_TINT[item.status] ?? '#dcfce7';
-  const label = STATUS_LABEL[item.status] ?? item.status;
+  const color = STATE_COLOR[item.paymentState];
+  const textColor = STATE_TEXT_COLOR[item.paymentState];
+  const tint = STATE_TINT[item.paymentState];
+  const label = STATE_LABEL[item.paymentState];
+  const isPaid = item.paymentState === 'pago';
+  const canPay = item.status === 'FATURADO' && canManage && Boolean(onPagar);
 
   return (
     <div className={`fin-card${isExpanded ? ' is-expanded' : ''}`}>
@@ -85,6 +89,7 @@ export function FinanceiroCard({
               {label}
             </span>
           </span>
+          <span className="fin-card-buyer">{item.buyerName ?? '—'}</span>
           <span className="fin-card-figures">
             <span className="fin-fig">
               <span className="fin-fig-label">Valor total</span>
@@ -95,8 +100,10 @@ export function FinanceiroCard({
               <span className="fin-fig-value fin-fig-strong">{money(item.commissionTotal)}</span>
             </span>
             <span className="fin-fig">
-              <span className="fin-fig-label">Pagamento</span>
-              <span className="fin-fig-value">{dateBR(item.paymentDate)}</span>
+              <span className="fin-fig-label">{isPaid ? 'Pago em' : 'Vencimento'}</span>
+              <span className="fin-fig-value">
+                {dateBR(isPaid ? item.paidAt : item.paymentDate)}
+              </span>
             </span>
           </span>
           {item.brokers.length > 0 ? (
@@ -114,13 +121,16 @@ export function FinanceiroCard({
         </svg>
       </button>
 
-      {item.status === 'FATURADO' && canManage && onPagar ? (
-        <div className="fin-card-actions">
+      <div className="fin-card-actions">
+        <Link href={`/contratos?details=${item.id}`} className="fin-btn">
+          Ver contrato
+        </Link>
+        {canPay ? (
           <button type="button" className="fin-btn fin-btn-primary" onClick={onPagar}>
             Pago
           </button>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
 
       <div className="fin-card-expanded" aria-hidden={!isExpanded}>
         <div className="fin-card-expanded-inner">

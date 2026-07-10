@@ -25060,6 +25060,32 @@ select.samples-filter-field-input {
   .dd-events-item-head[aria-expanded='true'] .dd-events-item-chevron {
     transform: rotate(180deg);
   }
+  /* E28: item de pagamento = navegação pura (Link) → Financeiro. Mesmo layout do
+     head, sem acordeão; seta ">" no lugar do chevron. */
+  .dd-events-item-link {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: clamp(0.4rem, 0.7vw, 0.55rem) clamp(0.55rem, 0.9vw, 0.7rem);
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.15s;
+  }
+  .dd-events-item-link:active {
+    transform: scale(0.99);
+  }
+  .dd-events-item-go {
+    flex: 0 0 auto;
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: #71786d;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
   .dd-events-item-detail {
     padding: 0 clamp(0.55rem, 0.9vw, 0.7rem) clamp(0.5rem, 0.8vw, 0.6rem);
     display: flex;
@@ -33359,6 +33385,54 @@ body.is-selection-mode .ctr-page .cc-tabs {
   font-size: 1.25rem;
   font-weight: 800;
 }
+/* FN6: indicador de vencidos ("N vencidos · R$ X") — vermelho, some quando 0. */
+.fin-overdue {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 clamp(0.5rem, 3vw, 1rem) 0.6rem;
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+.fin-overdue-count {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.fin-overdue-value {
+  font-size: 1rem;
+  font-weight: 800;
+}
+/* FN5: filtros por estado de pagamento (fileira segmentada de chips). */
+.fin-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 clamp(0.5rem, 3vw, 1rem) 0.6rem;
+}
+.fin-filter-chip {
+  border: 1px solid var(--brand-cream-line);
+  background: #fff;
+  color: var(--brand-green-ink);
+  border-radius: 999px;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s;
+}
+.fin-filter-chip:active {
+  transform: scale(0.96);
+}
+.fin-filter-chip.is-active {
+  background: var(--brand-green);
+  border-color: var(--brand-green);
+  color: #fff;
+}
 .fin-list {
   display: flex;
   flex-direction: column;
@@ -33416,6 +33490,15 @@ body.is-selection-mode .ctr-page .cc-tabs {
   font-weight: 700;
   color: var(--brand-green-ink);
   font-size: 1rem;
+}
+/* FN3: nome do comprador (lente do pagamento) — logo abaixo do nº. */
+.fin-card-buyer {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--brand-green-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .fin-card-status {
   font-size: 0.72rem;
@@ -33481,13 +33564,16 @@ body.is-selection-mode .ctr-page .cc-tabs {
 .fin-card.is-expanded .fin-card-chevron {
   transform: rotate(180deg);
 }
-/* D137: registro do "Pago" (FATURADO → PAGO) no card do Financeiro. */
+/* FN3/FN7: acoes do card — [Ver contrato] sempre + [Pago] so em FATURADO. */
 .fin-card-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 0.5rem;
   padding: 0 0.85rem 0.75rem;
 }
 .fin-btn {
+  display: inline-flex;
+  align-items: center;
   border: 1px solid var(--brand-cream-line);
   background: #fff;
   color: var(--brand-green-ink);
@@ -33495,6 +33581,7 @@ body.is-selection-mode .ctr-page .cc-tabs {
   padding: 0.45rem 1.1rem;
   font-size: 0.85rem;
   font-weight: 600;
+  text-decoration: none;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.15s;
