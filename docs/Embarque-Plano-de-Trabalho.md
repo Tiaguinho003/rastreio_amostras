@@ -1,17 +1,17 @@
 # Embarque — Plano de Trabalho
 
-> **Status: DESIGN COMPLETO — pronto para implementação (2026-07-09).** Novo tipo de evento para o card
-> de Eventos do dashboard (F3+ de `Eventos-Dashboard-Plano-de-Trabalho.md`): o
-> **embarque** = o café **carregado no caminhão**. Acontece **no mesmo dia do
-> faturamento** por padrão, mas é um evento **distinto** (faturamento = emissão
-> da NF, externo ao app; embarque = a carga física). Espelha a mecânica da
-> **Aprovação** (um **sinal booleano** no contrato + uma **data**), mas com
-> **ciclo próprio** (pendente → finalizado), independente do ciclo de pagamento.
-> **Ordem combinada:** primeiro **a lógica** (campos, gate, auto-preenchimento,
-> edição) — este bloco; **depois a apresentação** no calendário (Bloco 2).
-> **Design completo (EMB1–EMB19):** Bloco 1 (lógica), Bloco 2 (apresentação) e
-> Bloco 3 (Embarque finalizado) fechados. Resta a **implementação** (fases em plan
-> mode; EMB-P3 endpoints, EMB-P4 gate). Só decisão/registro — **sem código**.
+> **Status: REFORMULADO — sub-aba de Embarque + "Modelo X" (DESIGN, 2026-07-10).**
+> Novo tipo de evento para o card de Eventos do dashboard **e** a 4ª sub-aba do hub
+> `/contratos`: o **embarque** = o café **carregado no caminhão**. Acontece **no mesmo
+> dia do faturamento** por padrão, mas é um evento **distinto** (faturamento = emissão
+> da NF, externo ao app; embarque = a carga física). O design original (**EMB1–EMB19**,
+> 2026-07-09) foi **reconciliado** com duas coisas que vieram depois: a **sub-aba real**
+> no hub e a decisão de **incluir o atraso**. A reformulação (**EMB20–EMB29**, 2026-07-10,
+> mesma sessão da reforma da Aprovação) move a **casa** do embarque pra sub-aba (worklist
+> `a embarcar` / `atrasado` / `embarcado`), rebaixa o dashboard a **companheiro**
+> (navegação pura) e **colapsa a data de embarque na data de faturamento** ("Modelo X" —
+> sem campo próprio). Desenhado **ponta a ponta**; resta a **implementação** (fases em
+> plan mode). Só decisão/registro — **sem código**.
 
 ## Contexto e objetivo
 
@@ -251,7 +251,139 @@ Tamanho máx. atual = **12 MiB** por arquivo; leitura via **rota-proxy autentica
   trava a edição da `shipmentDate`** — fecha a janela do EMB5: a data só é editável
   enquanto **`EMITIDO`/`FATURADO` E embarque não finalizado**.
 
+## Reformulação — a sub-aba de Embarque + o "Modelo X" (2026-07-10, DESIGN)
+
+> **Gatilho.** O design EMB1–EMB19 (2026-07-09) fechou **antes** de duas coisas: (a) a
+> **sub-aba de Embarque** no hub `/contratos` virou superfície real a desenhar, e (b) o
+> Flavio decidiu **incluir o atraso** (adiado na Aprovação por falta de data, mas fácil no
+> embarque porque a data existe). Esta reformulação — mesma sessão da reforma da Aprovação
+> (`Aprovacoes-Plano-de-Trabalho.md`) — reconcilia o embarque com as duas: a **sub-aba
+> vira a casa** (worklist), o **dashboard vira companheiro** e a data de embarque **colapsa
+> na data de faturamento** (o "Modelo X"). Espelha a arquitetura da sub-aba de Aprovação
+> (AP25–AP30). Só decisão/registro — **sem código**.
+
+### Moldura
+
+- **EMB20 — A casa do embarque é a sub-aba; o dashboard é companheiro; o atraso entra
+  agora.** Como na Aprovação (AP29), a **sub-aba de Embarque** (`/contratos?tab=embarque`)
+  é a **worklist** dos contratos com embarque — estados `a embarcar` / `atrasado` /
+  `embarcado` e a **ação de confirmar** ali. O **dashboard** (card de Eventos) é só
+  **aviso/atalho**. E o **atraso** — adiado na Aprovação por falta de data — **entra**,
+  porque a data de embarque existe (é a de faturamento, EMB22).
+
+### Fase 1 — Marcação (o sinal "terá embarque")
+
+- **EMB21 — O sinal migra do contrato pra MODALIDADE (revisa EMB3; resolve EMB-P4).** Em
+  vez de um Sim/Não por contrato, cada **`ContractModality`** ganha uma flag "embarca?". O
+  contrato **herda** da modalidade na emissão e **congela** o valor (snapshot na coluna
+  `requiresShipment`) — editar a flag de uma modalidade depois **não** altera contratos
+  antigos, só os novos. **Some o Sim/Não** do modal de emissão. Defaults semeados:
+  **Retirar = sim · Posto = sim · Disponível = não**. Resolve o **EMB-P4** (o gate deixa de
+  ser hardcode `≠ Disponível` e vira dado da modalidade — robusto pra modalidades novas).
+
+### Fase 2 — Planejamento (o "Modelo X": sem data própria)
+
+- **EMB22 — Não há data de embarque própria; o "dia previsto" É a data de faturamento
+  (revisa EMB4; derruba EMB5 e EMB-P3; dispensa a regra de acompanhamento).** A pedido do
+  Flavio, **não existe campo de data de embarque** (nem na criação, nem depois). O dia
+  previsto do embarque = **`invoiceDate`** (a data de faturamento planejada, já obrigatória
+  na Etapa 2). Consequências: **EMB4** (campo auto-preenchido) **cai**; **EMB5 + EMB-P3**
+  (editar a data em FATURADO por endpoint dedicado) **caem** — pra mover o dia previsto,
+  move-se o **faturamento** (já editável em EMITIDO); e como não há dois campos, a regra de
+  sincronia que se cogitou fica **dispensada**. O **atrasado = passou da `invoiceDate` e não
+  embarcou** — atraso **de verdade** (era pra ter saído no dia). Justificativa: o embarque
+  fora do dia do faturamento é **exceção/imprevisto**, não plano (decisão do Flavio) — então
+  tratá-lo como atraso está certo, e a data real (divergente) é capturada na confirmação
+  (`shippedAt`, EMB27). Sobram no contrato só **`requiresShipment`** (EMB21) e **`shippedAt`**
+  (EMB27). _(Contrato marcado ainda sem `invoiceDate` não tem "dia previsto" — não aparece na
+  fila/calendário até ter, como o lembrete de aprovação já faz. Sem furo.)_
+
+### Fase 3 — Acompanhamento (a fila + o atraso)
+
+- **EMB23 — Estados derivados + gatilho do atraso.** Sem enum novo (como na Aprovação):
+  `a embarcar` (marcado · EMITIDO/FATURADO · sem `shippedAt` · hoje ≤ `invoiceDate`),
+  **`atrasado`** (idem, `hoje > invoiceDate`), `embarcado` (`shippedAt` preenchido),
+  `cancelado` (WASH_OUT); Disponível/`requiresShipment=false` **não entra**. O atraso **só
+  acende a partir do dia seguinte** à `invoiceDate` (o próprio dia ainda é "a embarcar") e
+  vale em **EMITIDO + FATURADO** (passou o dia e não saiu = atrasado, seja "não faturou" ou
+  "faturou e não carregou").
+- **EMB24 — Apresentação do atraso: fila na sub-aba + reflexo no calendário; cor vermelho
+  `#dc2626`.** O atraso é um **estado que dura dias** — a **fila durável** (inclusive os que
+  já saíram da janela de 2 semanas) vive **só na sub-aba** (com contador tipo "N atrasados").
+  No **calendário** (companheiro), o embarque aparece **azul** no dia previsto e, se o dia
+  passar sem confirmar, o dot **vira vermelho `#dc2626`** enquanto estiver na janela visível.
+  Cor nova, quebra a família azul de propósito (é alarme; amarelo/laranja já são
+  pagamento/aprovação, verde é pago).
+- **EMB25 — A linha da fila + ordem + filtros.** Cada item mostra **chip de status · nº ·
+  comprador · data (prevista = `invoiceDate` / embarcado = `shippedAt`) · sacas · armazém do
+  vendedor** (EMB29). Só **dado não-sensível** (nada de preço/valor/corretagem — a aba é
+  visível a todos os não-PROSPECTOR, mesma regra da Aprovação AP10). **Ordem cronológica
+  crescente** (data mais antiga primeiro — joga os atrasados pro topo sem agrupar). Filtros:
+  **Todos · A embarcar · Atrasado · Embarcado · Cancelado**; busca por **nº ou comprador**
+  (molde AP28).
+- **EMB26 — Papéis na página + o dashboard vira navegação pura (revisa EMB11/EMB12; mantém
+  EMB16).** Na sub-aba: **[Confirmar embarque]** (itens `a embarcar`/`atrasado`) = **todos
+  os não-PROSPECTOR** (mantém EMB16); **"Ver contrato"** (→ `/contratos?details=`) = só
+  **ADM/COMMERCIAL** (escopo D110). O **dashboard** perde acordeão, modal, "ver contrato" e
+  confirmar: o evento de embarque é **navegação pura** — mostra o dot + rótulo
+  (`embarque · nº · comprador`) e, ao tocar, **leva pra sub-aba de Embarque**. Igual pra
+  **todos** (todo não-PROSPECTOR vê o mesmo evento e o mesmo comportamento); as
+  funcionalidades por papel vivem **só na página**.
+
+### Fase 4 — Confirmação (o "embarque finalizado")
+
+- **EMB27 — Fotos OPCIONAIS + data por SELETOR (revisa EMB13/EMB14/EMB15; mantém EMB19).** A
+  confirmação **não exige fotos** — quem confirma pode não ter estado no armazém (só
+  registra que embarcou); aceita **0 a 10** fotos (JPEG/PNG/WebP, 12 MiB) — **revisa o EMB13
+  (fotos obrigatórias) e o EMB14 (mín. 1 → mín. 0)**; some a "regra nova de mínimo". A **data
+  real `shippedAt`** passa a ser um **seletor** (default **hoje**, editável, **no máximo
+  hoje**) — **revisa o EMB15 (hoje fixo)** —, porque no modelo de fila se confirma **depois
+  do fato** (o motorista reporta), então a carga pode ter sido ontem; assim o "realizado"
+  (EMB17) cai no **dia real**. O **modal de confirmação**: resumo (nº · comprador · armazém
+  do vendedor · sacas · prevista) + seletor de data + upload opcional + **aviso de
+  irreversibilidade**; **terminal, sem undo** (mantém EMB19 — o aviso é a trava, já que agora
+  dá pra confirmar sem evidência). **Duas portas** pro mesmo modal: a fila (EMB26) e o portão
+  do pagamento (EMB28).
+
+### Fase 5 — Encerramento (o portão)
+
+- **EMB28 — Portão híbrido no PAGO: não paga sem embarcar, mas resolve na hora.** Ao tentar
+  marcar **PAGO** um contrato que **exige embarque e ainda não embarcou** (`requiresShipment`
+  && sem `shippedAt`; já FATURADO, pré-requisito do PAGO), abre um **modal de aviso sem botão
+  de pagar** — a única ação é **[Confirmar embarque]** (→ modal da EMB27). Confirmado o
+  embarque, o fluxo **segue direto pro pagamento**. É a **dureza da 1** (não paga sem
+  embarcar) com o **atalho da 2** (resolve na hora, apontando pra ação certa). Fecha o buraco
+  **"pago sem registro de embarque"** (que a opção "nada" deixaria, pois o atraso some no
+  PAGO — EMB9). _Tradeoff registrado: crava que **não há pagamento antes do embarque**; se um
+  dia houver adiantamento legítimo, revisitar._
+- **EMB29 — Local do embarque = armazém do vendedor (`sellerWarehouseSnapshot`), sempre.**
+  Posto ou Retirar, o café é carregado no **armazém do vendedor** — então é ele o "local do
+  embarque", exibido nas infos do embarque (linha da fila EMB25 + seção "Embarque" do
+  Detalhes EMB18). Campo dedicado já existe no contrato (`sellerWarehouseSnapshot` +
+  `sellerWarehouseClientId`), separado do do comprador.
+
+### Mantidas × revisadas
+
+- **Mantidas do design original:** EMB1 (embarque ≠ faturamento), EMB2 (gate por
+  modalidade — agora via flag, EMB21), EMB7 (visibilidade = todos não-PROSPECTOR), EMB16
+  (confirma = todos não-PROSPECTOR), EMB17 (realizado azul-escuro `#1e40af` no `shippedAt`),
+  EMB18 (fotos + data no Detalhes), EMB19 (terminal, sem undo).
+- **Revisadas/derrubadas:** EMB3 → EMB21 (sinal na modalidade); EMB4 → EMB22 (sem campo; dia
+  previsto = `invoiceDate`); EMB5 + EMB-P3 → **caem** (EMB22); EMB8/EMB9 (janela/status) →
+  seguem, ancoradas na `invoiceDate` (não numa `shipmentDate`), e o "só no dia" do EMB8 ganha
+  o reflexo vermelho pós-prazo na janela (EMB24); EMB11/EMB12 → EMB26 (dashboard vira
+  navegação pura); EMB13/EMB14 → EMB27 (fotos opcionais); EMB15 → EMB27 (seletor de data);
+  EMB-P4 → **resolvida** (EMB21).
+
 ## Propostas (não travadas — a confirmar / detalhar na implementação)
+
+> ⚠️ **Parcialmente superada pela Reformulação (2026-07-10).** Não há `shipmentDate` nem
+> endpoint dedicado (Modelo X, EMB22): o schema do embarque = **`requiresShipment`** (flag
+> na `ContractModality` + snapshot no contrato, EMB21) + **`shippedAt`** (EMB27). O sinal
+> **não** vive mais no `SaleContractEtapa2Modal` (migrou pra modalidade). O restante abaixo
+> — modelo novo de fotos, `LocalUploadService.saveContractPhoto`, leitura por rota-proxy, os
+> 2 `typeKey` do calendário — **segue válido**, com a ressalva de que as fotos são **0–10**
+> (opcionais), não 1–10.
 
 - **Nomes dos campos:** `requiresShipment` + `shipmentDate` — **confirmados**
   (EMB-P5, 2026-07-09); padrão inglês do schema (como `requiresApproval` /
@@ -292,14 +424,12 @@ Tamanho máx. atual = **12 MiB** por arquivo; leitura via **rota-proxy autentica
   EMB8 janela · EMB9 status · EMB10 dot azul (agendado) · EMB11 rótulo · EMB12
   expandido + "Ver contrato" · **EMB17 realizado (azul-escuro `#1e40af`)**. Será o
   **F3+** do `Eventos-Dashboard-Plano-de-Trabalho.md`.
-- **EMB-P3 — Mecanismo da edição pós-faturamento (EMB5).** Endpoint dedicado
-  (molde `invoiceSaleContract`/`paySaleContract`) vs outra abordagem — decidir na
-  fase de implementação (plan mode). Precisa **permitir `EMITIDO` + `FATURADO`** e
-  **barrar `PAGO`** (terminal — EMB-P6) e `WASH_OUT` (e, quando existir, o
-  "finalizado").
-- **EMB-P4 — Gate por valor "Disponível" (EMB2).** Hardcode do valor do lookup vs
-  flag na tabela `ContractModality`. Simplicidade agora (hardcode) × robustez se as
-  modalidades crescerem. Decidir na implementação.
+- **EMB-P3 — ✅ RESOLVIDA / DERRUBADA (2026-07-10, EMB22).** O Modelo X removeu a data de
+  embarque própria → **não há edição pós-faturamento** a fazer: o "dia previsto" é a
+  `invoiceDate` (movida pelo próprio "Editar" em EMITIDO). Sem endpoint dedicado.
+- **EMB-P4 — ✅ RESOLVIDA (2026-07-10, EMB21).** Vira **flag na `ContractModality`** (não
+  hardcode `≠ Disponível`): cada modalidade carrega "embarca?", o contrato herda por
+  snapshot. Robusto pra modalidades novas.
 - **EMB-P5 — ✅ RESOLVIDA (2026-07-09).** Nomes confirmados:
   `requiresShipment` + `shipmentDate`.
 - **EMB-P6 — ✅ RESOLVIDA (2026-07-09).** `PAGO` **trava** a edição — é o estado
@@ -376,3 +506,21 @@ Tamanho máx. atual = **12 MiB** por arquivo; leitura via **rota-proxy autentica
   **pode precisar re-validação** depois dessa mudança; a **lógica (Bloco 1)** e o
   **finalizado (Bloco 3)** independem das páginas. Retomar direto na implementação
   (F1–F3, plan mode). Doc + memória sincronizados; working tree **sem commit**.
+- **2026-07-10 (Reformulação — sub-aba + Modelo X; EMB20–EMB29).** Mesma sessão da reforma
+  da Aprovação. O design EMB1–EMB19 foi reconciliado com a **sub-aba real** do hub
+  `/contratos` e com a **inclusão do atraso**. **Moldura (EMB20):** sub-aba = casa (worklist
+  `a embarcar`/`atrasado`/`embarcado`), dashboard = companheiro, atraso entra. **Fase 1
+  (EMB21):** o sinal migra do contrato pra **flag na modalidade** (snapshot; Retirar/Posto =
+  sim, Disponível = não) — revisa EMB3, resolve EMB-P4. **Fase 2 / Modelo X (EMB22):** **sem
+  data de embarque própria** — o dia previsto **é** a `invoiceDate`; caem EMB4, EMB5 e
+  EMB-P3; atrasado = passou o faturamento sem embarcar (exceção, não plano). **Fase 3
+  (EMB23–EMB26):** estados derivados + atraso do dia seguinte em EMITIDO+FATURADO; fila
+  durável na sub-aba + reflexo vermelho `#dc2626` no calendário; linha (chip · nº ·
+  comprador · data · sacas · armazém do vendedor, não-sensível), ordem cronológica
+  crescente, filtros; confirmar = todos não-PROSPECTOR, "ver contrato" = ADM/COMMERCIAL,
+  **dashboard = navegação pura** (revisa EMB11/EMB12). **Fase 4 (EMB27):** **fotos
+  opcionais** 0–10 (revisa EMB13/EMB14) + **seletor** de `shippedAt` (default hoje, máx hoje;
+  revisa EMB15); modal terminal com aviso (mantém EMB19). **Fase 5 (EMB28/EMB29):** **portão
+  híbrido** no PAGO (bloqueia pagar sem embarcar; modal só com [Confirmar embarque] → segue
+  pro pagamento) + local = **armazém do vendedor** (`sellerWarehouseSnapshot`). **Desenhado
+  ponta a ponta (EMB1–EMB29).** Só decisão/registro — **sem código**.
