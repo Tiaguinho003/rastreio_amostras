@@ -78,10 +78,13 @@ export function isVisitLinkCurator(role: UserRole | null | undefined): boolean {
 
 // allowedRoles da pagina "Relatorios" (rota /informe, unificada com o antigo
 // /resumo): ADMIN entra como VIEWER (scope=all + curadoria, via
-// isVisitReportViewer); COMMERCIAL ve os proprios (scope=mine); REGISTRATION cai
-// no placeholder vazio. CLASSIFIER e CADASTRO nao acessam (CADASTRO saiu em
-// 2026-06-28).
-export const INFORME_ROLES: UserRole[] = ['ADMIN', 'COMMERCIAL', 'REGISTRATION'];
+// isVisitReportViewer); COMMERCIAL ve os proprios (scope=mine). Espelha os dois
+// gates do backend (VISIT_REPORT_VIEWER_ROLES + COMMERCIAL_FORM_AUTHOR_ROLES em
+// src/visits/): nenhum outro papel passa deles.
+// CADASTRO saiu em 2026-06-28; REGISTRATION em 2026-07-10 (so via placeholder
+// vazio: nao tem formulario proprio, nunca teve o que ver aqui). CLASSIFIER
+// nunca acessou.
+export const INFORME_ROLES: UserRole[] = ['ADMIN', 'COMMERCIAL'];
 
 // allowedRoles da pagina "Financeiro" (Fase F, D135): corretagem a receber por
 // fechamento — ADMIN + COMMERCIAL (D135 reabre ao COMMERCIAL, revisa a D128

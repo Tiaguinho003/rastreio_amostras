@@ -125,10 +125,10 @@ const MOBILE_NAV_ITEMS = [
     emphasis: 'default' as const,
   },
   {
-    // 5o slot alternativo: papeis fora de INFORME_ROLES (CLASSIFIER) nao tem
-    // Relatorios; recebem Perfil aqui para manter a tabbar com 5 itens como
-    // os demais. A filtragem (mutuamente exclusiva com /informe) fica no
-    // render da MobileTabbar.
+    // 5o slot alternativo: papeis fora de INFORME_ROLES (CLASSIFIER, CADASTRO
+    // e REGISTRATION) nao tem Relatorios; recebem Perfil aqui para manter a
+    // tabbar com 5 itens como os demais. A filtragem (mutuamente exclusiva com
+    // /informe) fica no render da MobileTabbar.
     href: '/profile',
     mobileLabel: 'Perfil',
     icon: 'profile' as NavIcon,

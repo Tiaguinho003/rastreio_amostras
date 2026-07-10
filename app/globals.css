@@ -10049,12 +10049,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   background: #ffffff;
 }
 
-/* Placeholder da pagina /informe (formularios por papel em construcao). */
-.informe-placeholder {
-  width: min(100%, 30rem);
-  margin-top: clamp(2.5rem, 14vw, 5rem);
-}
-
 /* ── Pagina /informe do COMERCIAL ──
    Shell da /samples sem a barra de busca: a faixa verde vira so um respiro
    entre o header e o sheet (o FAB e position: fixed, nao ocupa fluxo). */
