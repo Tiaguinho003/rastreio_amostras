@@ -71,7 +71,9 @@ test('toBrokerView: inclui user resumido quando vinculado', () => {
 function fakePrisma(overrides = {}) {
   return {
     user: {
-      findUnique: overrides.userFindUnique ?? (async () => ({ id: 'u9' })),
+      // role vem no select porque _assertUserExists barra papeis nao
+      // atribuiveis (PROSPECTOR).
+      findUnique: overrides.userFindUnique ?? (async () => ({ id: 'u9', role: 'COMMERCIAL' })),
     },
     broker: {
       create:
@@ -134,6 +136,41 @@ test('createBroker: userId inexistente vira 422', async () => {
     () => svc.createBroker({ name: 'X', userId: 'ghost' }, adminActor),
     (e) => e.status === 422 && e.details?.code === 'BROKER_USER_NOT_FOUND'
   );
+});
+
+test('createBroker: userId de um PROSPECTOR vira 422 PROSPECTOR_NOT_ASSIGNABLE', async () => {
+  const svc = new BrokerService({
+    prisma: fakePrisma({ userFindUnique: async () => ({ id: 'u9', role: 'PROSPECTOR' }) }),
+  });
+  await assert.rejects(
+    () => svc.createBroker({ name: 'X', userId: 'u9' }, adminActor),
+    (e) =>
+      e.status === 422 &&
+      e.details?.code === 'PROSPECTOR_NOT_ASSIGNABLE' &&
+      e.details?.field === 'userId'
+  );
+});
+
+test('updateBroker: vincular um PROSPECTOR tambem vira 422', async () => {
+  const svc = new BrokerService({
+    prisma: fakePrisma({ userFindUnique: async () => ({ id: 'u9', role: 'PROSPECTOR' }) }),
+  });
+  await assert.rejects(
+    () => svc.updateBroker('b1', { userId: 'u9' }, adminActor),
+    (e) => e.status === 422 && e.details?.code === 'PROSPECTOR_NOT_ASSIGNABLE'
+  );
+});
+
+test('createBroker: corretor sem userId nao passa pelo gate de papel', async () => {
+  const svc = new BrokerService({
+    prisma: fakePrisma({
+      userFindUnique: async () => {
+        throw new Error('nao deveria consultar usuario quando userId e null');
+      },
+    }),
+  });
+  const { broker } = await svc.createBroker({ name: 'Externo' }, adminActor);
+  assert.equal(broker.userId, null);
 });
 
 test('createBroker: userId duplicado vira 409 (BROKER_USER_ALREADY_LINKED)', async () => {

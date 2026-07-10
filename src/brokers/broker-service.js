@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import { isAssignableUserRole } from '../auth/roles.js';
 import { HttpError } from '../contracts/errors.js';
 import { assertAuthenticatedActor, readLimitQuery } from '../users/user-support.js';
 import {
@@ -47,11 +48,19 @@ export class BrokerService {
     if (!userId) return;
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true },
+      select: { id: true, role: true },
     });
     if (!user) {
       throw new HttpError(422, 'userId does not reference an existing user', {
         code: 'BROKER_USER_NOT_FOUND',
+        field: 'userId',
+      });
+    }
+    // O PROSPECTOR sumiu do UserSelect do cadastro de corretor, mas o gate de
+    // verdade e este — sem ele a API aceitaria o vinculo direto.
+    if (!isAssignableUserRole(user.role)) {
+      throw new HttpError(422, `userId must not reference a ${user.role} user`, {
+        code: 'PROSPECTOR_NOT_ASSIGNABLE',
         field: 'userId',
       });
     }
