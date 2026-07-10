@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { HttpError } from '../contracts/errors.js';
-import { USER_ROLES, isCommercialRole } from '../auth/roles.js';
+import { NON_ASSIGNABLE_ROLES, USER_ROLES, isCommercialRole } from '../auth/roles.js';
 import {
   INITIAL_PASSWORD_DECISIONS,
   LOGIN_MAX_ATTEMPTS,
@@ -590,6 +590,11 @@ export class UserService {
   // Listagem minima de usuarios ativos para uso em pickers (ex: conferencia
   // de classificacao). Aberta a qualquer usuario autenticado, retorna so o
   // suficiente para identificar visualmente (id, fullName, username).
+  //
+  // Endpoint unico por tras de TODOS os seletores de usuario do app
+  // (responsavel comercial de cliente, classificador de amostra, usuario de
+  // corretor), por isso o filtro de NON_ASSIGNABLE_ROLES vive aqui: fecha as
+  // tres portas de uma vez.
   async lookupUsersForReference(input, actorContext) {
     assertAuthenticatedActor(actorContext, 'lookup users');
     const search = normalizeOptionalText(input?.search, 'search', 200);
@@ -599,6 +604,7 @@ export class UserService {
 
     const where = {
       status: USER_STATUSES.ACTIVE,
+      role: { notIn: [...NON_ASSIGNABLE_ROLES] },
       ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
       ...(search
         ? {
@@ -610,10 +616,9 @@ export class UserService {
         : {}),
     };
 
-    // Buscamos com fullName ASC e ordenamos papeis comerciais (COMMERCIAL +
-    // PROSPECTOR) primeiro em memoria. Como o limit maximo e 500, o custo e
-    // negligivel; e o Prisma + Postgres nao tem suporte direto a "ORDER BY
-    // CASE" sem raw SQL.
+    // Buscamos com fullName ASC e ordenamos papeis comerciais primeiro em
+    // memoria. Como o limit maximo e 500, o custo e negligivel; e o Prisma +
+    // Postgres nao tem suporte direto a "ORDER BY CASE" sem raw SQL.
     const items = await this.prisma.user.findMany({
       where,
       orderBy: [{ fullName: 'asc' }, { id: 'asc' }],

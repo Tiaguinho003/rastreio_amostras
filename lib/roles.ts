@@ -23,7 +23,22 @@ export function isAdmin(role: UserRole): boolean {
 
 // Papeis "comerciais": podem ser responsavel comercial de cliente.
 export function isCommercialRole(role: UserRole | null | undefined): boolean {
-  return role === 'COMMERCIAL' || role === 'PROSPECTOR';
+  return role === 'COMMERCIAL';
+}
+
+// Papeis que NAO podem ser referenciados em vinculo nenhum (responsavel
+// comercial de cliente, classificador de amostra, usuario de um corretor).
+// Espelha NON_ASSIGNABLE_ROLES do backend (src/auth/roles.js), onde mora o
+// enforcement de verdade: lookupUsersForReference nao devolve estes papeis e
+// os pontos de escrita respondem 422 PROSPECTOR_NOT_ASSIGNABLE.
+//
+// No front serve so ao formulario de /users: nao se cria mais um PROSPECTOR,
+// mas os que ja existem continuam editaveis (o select de edicao acrescenta o
+// papel atual quando ele nao e atribuivel).
+export const NON_ASSIGNABLE_ROLES: UserRole[] = ['PROSPECTOR'];
+
+export function isAssignableUserRole(role: UserRole | null | undefined): boolean {
+  return !!role && !NON_ASSIGNABLE_ROLES.includes(role);
 }
 
 // PROSPECTOR tem um app restrito: dashboard dedicado (cards + lista dos
