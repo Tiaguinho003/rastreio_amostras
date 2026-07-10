@@ -6,6 +6,7 @@ import { SaleContractLifecycleDialog } from '../contracts/SaleContractLifecycleD
 import { ApiError, listFinanceiro } from '../../lib/api-client';
 import { isAdmin } from '../../lib/roles';
 import { useToast } from '../../lib/toast/ToastProvider';
+import { useContractHighlight } from '../../lib/use-contract-highlight';
 import type { FinanceiroFilter, FinanceiroReceivable, SessionData } from '../../lib/types';
 import { FinanceiroCard } from './FinanceiroCard';
 
@@ -261,6 +262,8 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
   const { items, status, error, nextCursor, totalCommission, overdueCount, overdueCommission } =
     listState;
   const isInitialLoading = status === 'loading-initial';
+  // Piscada no contrato tocado no evento de pagamento do dashboard (?highlight=<id>).
+  const highlightId = useContractHighlight(items, scrollRef);
 
   return (
     <>
@@ -357,6 +360,7 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
                   isExpanded={expandedIds.has(it.id)}
                   onToggle={() => toggleExpand(it.id)}
                   canManage={canManage}
+                  isHighlighted={highlightId === it.id}
                   onPagar={() =>
                     setLifecycle({
                       contractId: it.id,

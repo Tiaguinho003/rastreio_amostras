@@ -62,6 +62,8 @@ type FinanceiroCardProps = {
   // FN7: o registro do pagamento (FATURADO → PAGO) mora aqui no Financeiro.
   canManage?: boolean;
   onPagar?: () => void;
+  // Piscada ao chegar do evento do dashboard (?highlight=<id>).
+  isHighlighted?: boolean;
 };
 
 export function FinanceiroCard({
@@ -70,6 +72,7 @@ export function FinanceiroCard({
   onToggle,
   canManage = false,
   onPagar,
+  isHighlighted = false,
 }: FinanceiroCardProps) {
   const color = STATE_COLOR[item.paymentState];
   const textColor = STATE_TEXT_COLOR[item.paymentState];
@@ -79,7 +82,10 @@ export function FinanceiroCard({
   const canPay = item.status === 'FATURADO' && canManage && Boolean(onPagar);
 
   return (
-    <div className={`fin-card${isExpanded ? ' is-expanded' : ''}`}>
+    <div
+      className={`fin-card${isExpanded ? ' is-expanded' : ''}${isHighlighted ? ' is-highlighted' : ''}`}
+      data-contract-id={item.id}
+    >
       <button type="button" className="fin-card-head" onClick={onToggle} aria-expanded={isExpanded}>
         <span className="fin-card-bar" style={{ background: color }} aria-hidden="true" />
         <span className="fin-card-main">

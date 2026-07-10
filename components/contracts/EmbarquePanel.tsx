@@ -5,6 +5,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { ApiError, listShipments } from '../../lib/api-client';
 import { isRoleAllowed, CONTRATOS_ROLES } from '../../lib/roles';
 import { useToast } from '../../lib/toast/ToastProvider';
+import { useContractHighlight } from '../../lib/use-contract-highlight';
 import type { ShipmentFilter, ShipmentReceivable, SessionData } from '../../lib/types';
 import { EmbarqueCard } from './EmbarqueCard';
 import { ShipmentConfirmationModal } from './ShipmentConfirmationModal';
@@ -233,6 +234,8 @@ export function EmbarquePanel({ session }: { session: SessionData }) {
 
   const { items, status, error, nextCursor, overdueCount } = listState;
   const isInitialLoading = status === 'loading-initial';
+  // Piscada no contrato tocado no evento do dashboard (?highlight=<id>).
+  const highlightId = useContractHighlight(items, scrollRef);
 
   return (
     <>
@@ -320,6 +323,7 @@ export function EmbarquePanel({ session }: { session: SessionData }) {
                   item={it}
                   canViewContract={canViewContract}
                   onConfirm={() => setConfirmTarget(it.id)}
+                  isHighlighted={highlightId === it.id}
                 />
               ))}
               {nextCursor !== null ? (

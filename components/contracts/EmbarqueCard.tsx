@@ -48,15 +48,22 @@ type EmbarqueCardProps = {
   item: ShipmentReceivable;
   onConfirm?: () => void;
   canViewContract?: boolean;
+  // Piscada ao chegar do evento do dashboard (?highlight=<id>).
+  isHighlighted?: boolean;
 };
 
-export function EmbarqueCard({ item, onConfirm, canViewContract = false }: EmbarqueCardProps) {
+export function EmbarqueCard({
+  item,
+  onConfirm,
+  canViewContract = false,
+  isHighlighted = false,
+}: EmbarqueCardProps) {
   const isShipped = item.state === 'embarcado';
   const canConfirm =
     (item.state === 'a_embarcar' || item.state === 'atrasado') && Boolean(onConfirm);
 
   return (
-    <div className="emb-card">
+    <div className={`emb-card${isHighlighted ? ' is-highlighted' : ''}`} data-contract-id={item.id}>
       <div className="emb-card-head">
         <span
           className="emb-card-bar"

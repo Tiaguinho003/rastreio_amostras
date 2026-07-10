@@ -254,7 +254,12 @@ export function EventsCalendarCard({
               if (event.typeKey.startsWith('contract_shipment')) {
                 return (
                   <li key={event.id} className="dd-events-panel-item" data-type={event.typeKey}>
-                    <Link href="/contratos?tab=embarque" className="dd-events-item-link">
+                    <Link
+                      href={`/contratos?tab=embarque${
+                        event.contractId ? `&highlight=${event.contractId}` : ''
+                      }`}
+                      className="dd-events-item-link"
+                    >
                       <span className="dd-events-item-label">{event.label}</span>
                       <svg className="dd-events-item-go" viewBox="0 0 24 24" aria-hidden="true">
                         <path d="m9 6 6 6-6 6" />
