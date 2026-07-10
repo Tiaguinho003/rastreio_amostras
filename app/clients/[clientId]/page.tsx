@@ -57,7 +57,7 @@ import { useGlobalLoading } from '../../../lib/loading/loading-context';
 import { useToast } from '../../../lib/toast/ToastProvider';
 import { useFocusTrap } from '../../../lib/use-focus-trap';
 import { useRequireAuth } from '../../../lib/use-auth';
-import { NON_PROSPECTOR_ROLES } from '../../../lib/roles';
+import { CLIENT_MANAGEMENT_ROLES } from '../../../lib/roles';
 import { UserMultiSelect } from '../../../components/users/UserMultiSelect';
 import { ChipMultiSelectField, type ChipOption } from '../../../components/ChipMultiSelectField';
 import type {
@@ -281,8 +281,12 @@ function translateClientUpdateError(cause: unknown): string {
 
 export default function ClientDetailPage() {
   /* ---- auth & params ---- */
+  // So quem GERENCIA cadastro entra aqui (ADMIN + CADASTRO). CLASSIFIER,
+  // COMMERCIAL e REGISTRATION ficam com a lista /clients + o modal de consulta
+  // do card; por URL direta caem de volta na lista, nao no dashboard.
   const { session, loading, logout, setSession } = useRequireAuth({
-    allowedRoles: NON_PROSPECTOR_ROLES,
+    allowedRoles: CLIENT_MANAGEMENT_ROLES,
+    unauthorizedRedirectTo: '/clients',
   });
   const params = useParams<{ clientId: string }>();
   const clientId = typeof params.clientId === 'string' ? params.clientId : '';
@@ -1232,7 +1236,9 @@ export default function ClientDetailPage() {
             {/* Header verde */}
             <header className="sdv-header">
               <div className="sdv-header-top">
-                <Link href="/clients" className="nsv2-back" aria-label="Voltar">
+                {/* Volta pro hub /cadastros (aba Clientes e a default): e a
+                    unica porta de navegacao de quem chega aqui. */}
+                <Link href="/cadastros" className="nsv2-back" aria-label="Voltar">
                   <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                     <path d="M15 18l-6-6 6-6" />
                   </svg>

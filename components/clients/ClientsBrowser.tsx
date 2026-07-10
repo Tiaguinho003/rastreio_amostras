@@ -24,6 +24,7 @@ import { useFocusTrap } from '../../lib/use-focus-trap';
 import { useListRevalidation } from '../../lib/use-list-revalidation';
 import { useToast } from '../../lib/toast/ToastProvider';
 import { formatClientDocument, formatPhone } from '../../lib/client-field-formatters';
+import { canManageClients } from '../../lib/roles';
 import type {
   ClientUnitSummary,
   ClientStatus,
@@ -1325,13 +1326,17 @@ export function ClientsBrowser({
                   </div>
                 </div>
 
-                <Link href={`/clients/${clientsState.detail.id}`} className="cdm-manage-link">
-                  Gerenciar cliente
-                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                    <path d="M5 12h14" />
-                    <path d="m12 5 7 7-7 7" />
-                  </svg>
-                </Link>
+                {/* Unica porta pro detalhe do cliente. So quem gerencia cadastro
+                    (ADMIN + CADASTRO) a ve; os demais ficam com este modal. */}
+                {canManageClients(session.user.role) ? (
+                  <Link href={`/clients/${clientsState.detail.id}`} className="cdm-manage-link">
+                    Gerenciar cliente
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                      <path d="M5 12h14" />
+                      <path d="m12 5 7 7-7 7" />
+                    </svg>
+                  </Link>
+                ) : null}
               </>
             ) : null}
           </section>
