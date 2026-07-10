@@ -143,6 +143,21 @@ PJ rejeita TODAS as rotas abaixo com 422 `CLIENT_PJ_HAS_NO_UNITS`.
 3. `POST /api/v1/clients/:clientId/units/:unitId/inactivate`
 4. `POST /api/v1/clients/:clientId/units/:unitId/reactivate`
 
+### Anexos do cliente (Contratos Fase 0 — D27/D139)
+
+Acesso = qualquer usuario autenticado (D59). PROSPECTOR e negado pela allowlist central.
+
+1. `GET /api/v1/clients/:clientId/attachments`
+   Lista `{ items }` ordenada por `createdAt desc`. A view NAO expoe `storagePath`/`checksumSha256`; inclui `uploadedBy` e `unit` (a filial dona, so `{id,name,status}`) — `unit: null` = anexo do proprio cliente.
+2. `POST /api/v1/clients/:clientId/attachments`
+   `multipart/form-data` com `file` (+ `originalFileName`/`description` opcionais). Valida magic bytes (JPEG/PNG/WebP + PDF → 415) e tamanho (413 acima de `MAX_UPLOAD_SIZE_BYTES`). Nasce **sem filial** (`unitId: null`). Responde 201.
+3. `GET /api/v1/clients/:clientId/attachments/:attachmentId`
+   Download/preview inline direto do disco. Escopo por UUID do cliente + do anexo, com guard de path-traversal. Nao passa pelo backend-api.
+4. `PATCH /api/v1/clients/:clientId/attachments/:attachmentId`
+   **Vincula o anexo a uma filial** (D139). Body `{ unitId }`. O vinculo e **definitivo** e **nao move o arquivo** (`storagePath` intacto). Erros: 409 `CLIENT_ATTACHMENT_ALREADY_LINKED` (ja vinculado), 404 `CLIENT_ATTACHMENT_NOT_FOUND` (anexo de outro cliente), 404 `CLIENT_UNIT_NOT_FOUND` (filial de outro cliente; cobre PJ, que nao tem filial), 422 `CLIENT_UNIT_INACTIVE`.
+5. `DELETE /api/v1/clients/:clientId/attachments/:attachmentId`
+   Remove a linha e depois o arquivo (best-effort; a linha e a fonte da verdade). Funciona mesmo com a filial inativa.
+
 ### Joins comerciais
 
 1. `POST /api/v1/clients/:clientId/users`
