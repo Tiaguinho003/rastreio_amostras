@@ -1,16 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import {
   ApiError,
+  getApprovalLabelPrefill,
   invoiceSaleContract,
   paySaleContract,
   washoutSaleContract,
 } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
-import type { SessionData } from '../../lib/types';
+import type { ApprovalLabelPrefill, SessionData } from '../../lib/types';
+import { ApprovalLabelModal } from '../ApprovalLabelModal';
 import { ShipmentConfirmationModal } from './ShipmentConfirmationModal';
 
 // Lê o `code` de um erro do backend (mora em ApiError.details.code, não no topo).
@@ -118,6 +120,12 @@ export function SaleContractLifecycleDialog({
   // EMB28: portão do embarque — pagar exige embarque; se faltar, abre o modal de
   // confirmação (única ação) e, ao confirmar, segue direto pro pagamento.
   const [needsShipment, setNeedsShipment] = useState(false);
+  // AP18: portão do faturamento — faturar exige aprovação enviada; se faltar, abre o
+  // modal da etiqueta (pré-preenchido) e, ao enviar, refatura. Molde do portão de embarque.
+  const [needsApproval, setNeedsApproval] = useState(false);
+  const [approvalPrefill, setApprovalPrefill] = useState<ApprovalLabelPrefill | null>(null);
+  // Distingue "enviou a etiqueta" (refatura no onClose) de "cancelou" (não refatura).
+  const approvalSentRef = useRef(false);
 
   const copy = dialogCopy(action, contractNumber, hasLot);
   const needsDate = copy.dateLabel !== null;
@@ -145,10 +153,20 @@ export function SaleContractLifecycleDialog({
       }
       onDone();
     } catch (cause) {
-      // EMB28: pagar um contrato que exige embarque e ainda não embarcou → abre o modal
-      // de confirmação; ao confirmar, o handleSubmit é re-chamado e o pagamento passa (a
-      // version não muda no confirm, então a mesma expectedVersion segue válida).
-      if (action === 'pay' && errorCode(cause) === 'CONTRACT_SHIPMENT_REQUIRED') {
+      // AP18: faturar um contrato marcado que ainda não enviou a aprovação → busca o
+      // prefill e abre o modal da etiqueta aqui mesmo; ao enviar, refatura no onClose
+      // (a version não muda no envio, então a mesma expectedVersion segue válida).
+      if (action === 'invoice' && errorCode(cause) === 'CONTRACT_APPROVAL_REQUIRED') {
+        try {
+          const prefill = await getApprovalLabelPrefill(session, contractId);
+          setApprovalPrefill(prefill);
+          setNeedsApproval(true);
+        } catch {
+          setError('Este contrato precisa da aprovação enviada antes de faturar.');
+        }
+      } else if (action === 'pay' && errorCode(cause) === 'CONTRACT_SHIPMENT_REQUIRED') {
+        // EMB28: pagar um contrato que exige embarque e ainda não embarcou → abre o
+        // modal de confirmação; ao confirmar, o handleSubmit é re-chamado e paga.
         setNeedsShipment(true);
       } else if (cause instanceof ApiError && cause.status === 409) {
         setError('Este contrato foi modificado. Recarregue a página e tente de novo.');
@@ -264,6 +282,27 @@ export function SaleContractLifecycleDialog({
           onDone={() => {
             setNeedsShipment(false);
             void handleSubmit();
+          }}
+        />
+      ) : null}
+      {needsApproval ? (
+        <ApprovalLabelModal
+          open
+          session={session}
+          prefill={approvalPrefill}
+          saleContractId={contractId}
+          onBack={null}
+          onSent={() => {
+            // Marca só o sucesso; a refatura acontece no onClose (após o check da
+            // etiqueta), pra não cortar a animação de sucesso do envio.
+            approvalSentRef.current = true;
+          }}
+          onClose={() => {
+            setNeedsApproval(false);
+            if (approvalSentRef.current) {
+              approvalSentRef.current = false;
+              void handleSubmit();
+            }
           }}
         />
       ) : null}

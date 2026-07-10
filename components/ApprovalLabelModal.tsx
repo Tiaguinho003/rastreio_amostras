@@ -138,6 +138,10 @@ interface ApprovalLabelModalProps {
   // Presente = veio do seletor de contratos ("Voltar" retorna a ele; descarta
   // as edições — D117/S80). Ausente = porta /contratos (sem Voltar).
   onBack?: (() => void) | null;
+  // Disparado APÓS o envio gravar (só no sucesso). Molde do onDone do embarque: o
+  // pai usa pra refaturar (portão AP18) ou refetchar a worklist da sub-aba. Distinto
+  // do onClose (que fecha em cancelamento OU no auto-close do sucesso).
+  onSent?: (() => void) | null;
 }
 
 // Semeia os campos de valor único a partir do prefill (chaves = FIELDS.key).
@@ -165,6 +169,7 @@ export function ApprovalLabelModal({
   prefill = null,
   saleContractId = null,
   onBack = null,
+  onSent = null,
 }: ApprovalLabelModalProps) {
   const toast = useToast();
   const [values, setValues] = useState<Record<string, string>>(emptyValues);
@@ -249,6 +254,9 @@ export function ApprovalLabelModal({
       // Sucesso: desce o sheet (phase='success') e o check central aparece
       // logo após (ver effect abaixo), auto-fechando em seguida.
       setPhase('success');
+      // Avisa o pai que o envio foi gravado (portão AP18 refatura / a sub-aba
+      // refetcha). Só no sucesso — distingue de um cancelamento (onClose).
+      onSent?.();
     } catch (err) {
       const message =
         err instanceof ApiError && err.status === 409

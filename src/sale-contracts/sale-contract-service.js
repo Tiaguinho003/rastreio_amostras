@@ -1183,7 +1183,7 @@ export class SaleContractService {
 
     const contract = await this.prisma.saleContract.findUnique({
       where: { id: contractId },
-      select: { id: true, status: true, version: true },
+      select: { id: true, status: true, version: true, requiresApproval: true },
     });
     if (!contract) {
       throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
@@ -1192,6 +1192,21 @@ export class SaleContractService {
       throw new HttpError(409, `Sale contract is ${contract.status} and cannot be invoiced`, {
         code: 'SALE_CONTRACT_NOT_INVOICEABLE',
       });
+    }
+    // Portão AP18: um contrato marcado "Sim" não passa de EMITIDO -> FATURADO sem
+    // >=1 aprovação enviada (approval_label_log). É o remédio do "esquecer de enviar"
+    // — vira contrato travado no faturar (visível em "a enviar", recuperável), não
+    // dado ruim silencioso. Pagar HERDA (E3: não fatura sem enviar => não paga sem
+    // enviar). Count fora da tx é seguro — o log é append-only (sem race nociva).
+    if (contract.requiresApproval) {
+      const labelCount = await this.prisma.approvalLabelLog.count({
+        where: { saleContractId: contractId },
+      });
+      if (labelCount === 0) {
+        throw new HttpError(422, 'Approval must be sent before invoicing', {
+          code: 'CONTRACT_APPROVAL_REQUIRED',
+        });
+      }
     }
     if (contract.version !== expectedVersion) {
       throw new HttpError(409, 'Sale contract was modified concurrently', {

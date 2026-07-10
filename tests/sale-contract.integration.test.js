@@ -675,6 +675,51 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(paid.contract.status, 'PAGO');
   });
 
+  // AP18 (F2 do portão): faturar exige a aprovação enviada. Contrato marcado sem
+  // etiqueta trava no faturar (422); após enviar 1 etiqueta, libera (a version não
+  // muda no envio, então o retry do modal segue com a mesma expectedVersion). Pagar
+  // HERDA (E3) — não precisa de gate próprio.
+  test('invoiceSaleContract: portão da aprovação (marcado sem etiqueta 422 → envia → fatura)', async () => {
+    const { contractId, version } = await setupEmittableContract({ lotNumber: '25610' });
+    // Marca "precisa de aprovação" (o setup nasce não-marcado). Não bumpa version.
+    await prisma.saleContract.update({
+      where: { id: contractId },
+      data: { requiresApproval: true },
+    });
+
+    await assert.rejects(
+      () =>
+        saleContractService.invoiceSaleContract(
+          contractId,
+          { expectedVersion: version, date: '2026-07-15' },
+          adminActor
+        ),
+      (err) => err.status === 422 && err.details?.code === 'CONTRACT_APPROVAL_REQUIRED'
+    );
+
+    // Grava 1 aprovação enviada (approval_label_log) → libera o faturamento.
+    const job = await prisma.customPrintJob.create({
+      data: { status: 'PENDING', payload: { lines: [] } },
+      select: { id: true },
+    });
+    await prisma.approvalLabelLog.create({
+      data: {
+        id: randomUUID(),
+        saleContractId: contractId,
+        actorUserId: adminActor.actorUserId,
+        customPrintJobId: job.id,
+        payload: { lines: [] },
+      },
+    });
+
+    const invoiced = await saleContractService.invoiceSaleContract(
+      contractId,
+      { expectedVersion: version, date: '2026-07-15' },
+      adminActor
+    );
+    assert.equal(invoiced.contract.status, 'FATURADO');
+  });
+
   test('numeracao continua: 2 vendas => 0001 e 0002', async () => {
     const buyerId = randomUUID();
     await createBuyerClient(buyerId);
