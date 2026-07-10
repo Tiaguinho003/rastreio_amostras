@@ -11,8 +11,8 @@ import type { SaleContract, SaleContractStatus, SaleContractType } from '../../l
 // o card vira um BOTAO de selecao (tap-to-open); inelegiveis (status nao
 // congelado) ficam esmaecidos e nao selecionaveis.
 
-// Exportados: o seletor de contratos da Aprovação (ApprovalContractPickerModal)
-// reusa rótulo/cores do selo de status (D118).
+// Exportado: rótulo/cores do selo de status, reusados por outros componentes de
+// contrato (ex.: o modal de Detalhes). (O seletor da Aprovação do /samples saiu na AP29.)
 export const STATUS_META: Record<SaleContractStatus, { label: string; variant: string }> = {
   EMITIDO: { label: 'Emitido', variant: 'status-badge-success' },
   FATURADO: { label: 'Faturado', variant: 'status-badge-muted' },

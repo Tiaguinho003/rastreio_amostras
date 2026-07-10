@@ -26,21 +26,22 @@ type CalendarEvent = DashboardCalendarEvent;
 interface EventsCalendarCardProps {
   /** Mapa 'YYYY-MM-DD' → eventos do dia (pagamento + lembrete de aprovação). */
   events?: Record<string, CalendarEvent[]>;
-  /** Abre o modal "Gerar aprovação" no pai (F2/AP7); só em eventos contract_approval_due. */
-  onGerarAprovacao?: (event: CalendarEvent) => void;
   /** Emite a quinzena visível (from..to 'YYYY-MM-DD') pro pai buscar o feed (E24). */
   onWindowChange?: (from: string, to: string) => void;
 }
 
 const MAX_DOTS = 3;
 
-// Rótulo do status no acordeão (E25). WASH_OUT fica FORA do feed, mas mapeado por segurança.
-const STATUS_LABEL: Record<string, string> = {
-  EMITIDO: 'Emitido',
-  FATURADO: 'Faturado',
-  PAGO: 'Pago',
-  WASH_OUT: 'Washout',
-};
+// AP29/EMB26/E28: TODO evento do feed é NAVEGAÇÃO PURA → a sub-aba dona (pagamento →
+// Financeiro, embarque → Embarque, aprovação → Aprovações). O card não gera/registra
+// nada — a ação (pagar/confirmar/gerar) mora na casa de cada um. null = tipo
+// desconhecido (fallback só-rótulo).
+function navTabForEvent(typeKey: string): string | null {
+  if (typeKey.startsWith('contract_payment_')) return 'financeiro';
+  if (typeKey.startsWith('contract_shipment')) return 'embarque';
+  if (typeKey === 'contract_approval_due') return 'aprovacoes';
+  return null;
+}
 
 // Card "Eventos" (dashboard desktop, DSH-D6 / F0): calendário de DUAS
 // semanas domingo-first (E2/E12) com navegação livre de 14 em 14 dias +
@@ -48,17 +49,11 @@ const STATUS_LABEL: Record<string, string> = {
 // E14) e dots por tipo nos quadrados (E5/E13 — estrutura pronta; a F0 não
 // tem eventos). Só visualização (E6); desktop-only (E9); hoje destacado e
 // selecionado por default (E10).
-export function EventsCalendarCard({
-  events = {},
-  onGerarAprovacao,
-  onWindowChange,
-}: EventsCalendarCardProps) {
+export function EventsCalendarCard({ events = {}, onWindowChange }: EventsCalendarCardProps) {
   const today = useMemo(() => getBrtToday(), []);
   const todayKey = toDayKey(today);
   const [fortnightStart, setFortnightStart] = useState(() => computeFortnightStart(today));
   const [selectedDate, setSelectedDate] = useState(today);
-  // Acordeão do painel (E25): 1 evento aberto por vez.
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   // Direção do deslize (E18) + contador pra re-disparar a animação a cada
   // navegação (muda a key do wrapper da grade).
   const [slide, setSlide] = useState<{ direction: 'left' | 'right' | null; tick: number }>({
@@ -187,10 +182,7 @@ export function EventsCalendarCard({
               className={`dd-events-day${isToday ? ' is-today' : ''}${
                 isSelected ? ' is-selected' : ''
               }${isWeekend(day) ? ' is-weekend' : ''}`}
-              onClick={() => {
-                setSelectedDate(day);
-                setExpandedId(null);
-              }}
+              onClick={() => setSelectedDate(day)}
               aria-pressed={isSelected}
               aria-current={isToday ? 'date' : undefined}
               aria-label={`${formatDayAriaLabel(day)}${
@@ -229,104 +221,24 @@ export function EventsCalendarCard({
         ) : (
           <ul className="dd-events-panel-list">
             {selectedEvents.map((event) => {
-              // E28: pagamento vira navegação PURA → Financeiro (sem acordeão/ações no
-              // card; o "Pago" e o portão moram no Financeiro). Aprovação (F2) mantém o
-              // acordeão + "Gerar aprovação" até a reforma dela (AP17-30).
-              if (event.typeKey.startsWith('contract_payment_')) {
-                return (
-                  <li key={event.id} className="dd-events-panel-item" data-type={event.typeKey}>
-                    <Link
-                      href={`/contratos?tab=financeiro${
-                        event.contractId ? `&highlight=${event.contractId}` : ''
-                      }`}
-                      className="dd-events-item-link"
-                    >
-                      <span className="dd-events-item-label">{event.label}</span>
-                      <svg className="dd-events-item-go" viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="m9 6 6 6-6 6" />
-                      </svg>
-                    </Link>
-                  </li>
-                );
-              }
-              // EMB26: embarque também é navegação PURA → sub-aba Embarque (a "casa"; a
-              // worklist + o [Confirmar embarque] moram lá). Igual pra todos.
-              if (event.typeKey.startsWith('contract_shipment')) {
-                return (
-                  <li key={event.id} className="dd-events-panel-item" data-type={event.typeKey}>
-                    <Link
-                      href={`/contratos?tab=embarque${
-                        event.contractId ? `&highlight=${event.contractId}` : ''
-                      }`}
-                      className="dd-events-item-link"
-                    >
-                      <span className="dd-events-item-label">{event.label}</span>
-                      <svg className="dd-events-item-go" viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="m9 6 6 6-6 6" />
-                      </svg>
-                    </Link>
-                  </li>
-                );
-              }
-              const isOpen = expandedId === event.id;
-              const canGerar =
-                event.typeKey === 'contract_approval_due' && Boolean(onGerarAprovacao);
+              // AP29/EMB26/E28: navegação PURA → a sub-aba dona do evento (a ação mora
+              // lá). Fallback defensivo: tipo desconhecido vira só o rótulo (sem link).
+              const tab = navTabForEvent(event.typeKey);
+              const href = tab
+                ? `/contratos?tab=${tab}${event.contractId ? `&highlight=${event.contractId}` : ''}`
+                : null;
               return (
                 <li key={event.id} className="dd-events-panel-item" data-type={event.typeKey}>
-                  <button
-                    type="button"
-                    className="dd-events-item-head"
-                    onClick={() => setExpandedId((cur) => (cur === event.id ? null : event.id))}
-                    aria-expanded={isOpen}
-                  >
+                  {href ? (
+                    <Link href={href} className="dd-events-item-link">
+                      <span className="dd-events-item-label">{event.label}</span>
+                      <svg className="dd-events-item-go" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="m9 6 6 6-6 6" />
+                      </svg>
+                    </Link>
+                  ) : (
                     <span className="dd-events-item-label">{event.label}</span>
-                    <svg className="dd-events-item-chevron" viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="m6 9 6 6 6-6" />
-                    </svg>
-                  </button>
-                  {isOpen ? (
-                    <div className="dd-events-item-detail">
-                      <dl className="dd-events-item-fields">
-                        <div>
-                          <dt>Contrato</dt>
-                          <dd>{event.contractNumber ?? '—'}</dd>
-                        </div>
-                        <div>
-                          <dt>Comprador</dt>
-                          <dd>{event.buyerName ?? '—'}</dd>
-                        </div>
-                        <div>
-                          <dt>Vendedor</dt>
-                          <dd>{event.sellerName ?? '—'}</dd>
-                        </div>
-                        <div>
-                          <dt>Status</dt>
-                          <dd>
-                            {event.status ? (STATUS_LABEL[event.status] ?? event.status) : '—'}
-                          </dd>
-                        </div>
-                      </dl>
-                      <div className="dd-events-item-actions">
-                        {canGerar ? (
-                          <button
-                            type="button"
-                            className="dd-events-item-btn dd-events-item-btn-primary"
-                            onClick={() => onGerarAprovacao?.(event)}
-                          >
-                            Gerar aprovação
-                          </button>
-                        ) : null}
-                        {event.contractId ? (
-                          <Link
-                            href={`/contratos?details=${event.contractId}`}
-                            className="dd-events-item-btn"
-                          >
-                            Ver contrato
-                          </Link>
-                        ) : null}
-                      </div>
-                    </div>
-                  ) : null}
+                  )}
                 </li>
               );
             })}

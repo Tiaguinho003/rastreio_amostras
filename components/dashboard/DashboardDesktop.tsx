@@ -4,14 +4,12 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
-  getApprovalLabelPrefill,
   getDashboardApprovalEvents,
   getDashboardPaymentEvents,
   getDashboardRecentSends,
   getDashboardShipmentEvents,
 } from '../../lib/api-client';
 import { canManageClients, FINANCEIRO_ROLES, isRoleAllowed } from '../../lib/roles';
-import { ApprovalLabelModal } from '../ApprovalLabelModal';
 import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
 import { EventsCalendarCard } from './EventsCalendarCard';
 import { RecentSendsCard } from './RecentSendsCard';
@@ -19,7 +17,6 @@ import { useOperationModal } from './useOperationModal';
 import { OperationModal } from './OperationModal';
 import { StatCard } from './StatCard';
 import type {
-  ApprovalLabelPrefill,
   DashboardCalendarEvent,
   DashboardPendingResponse,
   DashboardRecentSendsResponse,
@@ -73,10 +70,6 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
   const [shipmentEvents, setShipmentEvents] = useState<Record<string, DashboardCalendarEvent[]>>(
     {}
   );
-  const [approvalForm, setApprovalForm] = useState<{
-    contractId: string;
-    prefill: ApprovalLabelPrefill;
-  } | null>(null);
   const calendarEvents = useMemo(() => {
     const merged: Record<string, DashboardCalendarEvent[]> = {};
     for (const [day, evs] of Object.entries(paymentEvents)) merged[day] = [...evs];
@@ -262,17 +255,7 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
               <RecentSendsCard items={recentSends ? recentSends.items : null} />
             </div>
           </div>
-          <EventsCalendarCard
-            events={calendarEvents}
-            onWindowChange={handleWindowChange}
-            onGerarAprovacao={(evt) => {
-              if (evt.contractId == null) return;
-              const contractId = evt.contractId;
-              getApprovalLabelPrefill(session, contractId)
-                .then((prefill) => setApprovalForm({ contractId, prefill }))
-                .catch(() => {});
-            }}
-          />
+          <EventsCalendarCard events={calendarEvents} onWindowChange={handleWindowChange} />
         </div>
       </section>
 
@@ -282,20 +265,6 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
         onClose={closeOperationModal}
         onItemAction={classifySample}
       />
-
-      {approvalForm ? (
-        <ApprovalLabelModal
-          open
-          session={session}
-          prefill={approvalForm.prefill}
-          saleContractId={approvalForm.contractId}
-          onBack={null}
-          onClose={() => {
-            setApprovalForm(null);
-            fetchApprovalEvents();
-          }}
-        />
-      ) : null}
     </div>
   );
 }

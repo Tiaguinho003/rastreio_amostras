@@ -16,8 +16,6 @@ import {
 import { createPortal } from 'react-dom';
 
 import { AppShell } from '../../components/AppShell';
-import { ApprovalLabelModal } from '../../components/ApprovalLabelModal';
-import { ApprovalContractPickerModal } from '../../components/contracts/ApprovalContractPickerModal';
 import { NewSampleModal } from '../../components/NewSampleModal';
 import { ClientLookupField } from '../../components/clients/ClientLookupField';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
@@ -63,7 +61,6 @@ import { useToast } from '../../lib/toast/ToastProvider';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type {
   ActiveBlendDetail,
-  ApprovalLabelPrefill,
   ClientSummary,
   SampleDetailResponse,
   SampleEligibilityReason,
@@ -575,22 +572,6 @@ function SamplesPage() {
   );
   const [newSampleModalOpen, setNewSampleModalOpen] = useState(false);
   const [newSampleModalMounted, setNewSampleModalMounted] = useState(false);
-  // Aprovação do contrato (Fase I, D113/D117): o leque "Aprovação" abre o
-  // SELETOR de contratos → tocar um contrato busca o prefill e abre o
-  // formulário PRÉ-PREENCHIDO. "Voltar" no formulário reabre o seletor (descarta
-  // edições). Mesmo padrão de delayed unmount do NewSampleModal (slide-down do
-  // sheet). (O "Manual"/avulsa foi removido na reforma AP12 — exige contrato.)
-  const [approvalPickerOpen, setApprovalPickerOpen] = useState(false);
-  const [approvalPickerMounted, setApprovalPickerMounted] = useState(false);
-  const [approvalForm, setApprovalForm] = useState<{
-    saleContractId: string | null;
-    prefill: ApprovalLabelPrefill | null;
-  } | null>(null);
-  // Último alvo do formulário, mantido montado durante o slide-down.
-  const [approvalFormRendered, setApprovalFormRendered] = useState<{
-    saleContractId: string | null;
-    prefill: ApprovalLabelPrefill | null;
-  } | null>(null);
   // Incrementa apos criar amostra via FAB/botao pra forcar refetch da lista
   // (decisao 5.31 = a — refetch automatico).
   const [newSampleRefetchKey, setNewSampleRefetchKey] = useState(0);
@@ -947,27 +928,6 @@ function SamplesPage() {
     const t = window.setTimeout(() => setNewSampleModalMounted(false), 400);
     return () => window.clearTimeout(t);
   }, [newSampleModalOpen]);
-
-  // Delayed unmount do seletor de contratos da Aprovação (mesma lógica).
-  useEffect(() => {
-    if (approvalPickerOpen) {
-      setApprovalPickerMounted(true);
-      return;
-    }
-    const t = window.setTimeout(() => setApprovalPickerMounted(false), 400);
-    return () => window.clearTimeout(t);
-  }, [approvalPickerOpen]);
-
-  // Delayed unmount do formulário da etiqueta: guarda o ÚLTIMO alvo pro
-  // slide-down (approvalForm=null fecha; o rendered segura o conteúdo).
-  useEffect(() => {
-    if (approvalForm) {
-      setApprovalFormRendered(approvalForm);
-      return;
-    }
-    const t = window.setTimeout(() => setApprovalFormRendered(null), 400);
-    return () => window.clearTimeout(t);
-  }, [approvalForm]);
 
   const runLoadMore = useCallback((cursor: SampleCursor) => {
     const state = loadMoreStateRef.current;
@@ -2190,7 +2150,6 @@ function SamplesPage() {
               mode="idle"
               onCreateUnit={() => setNewSampleModalOpen(true)}
               onStartBlendSelection={enterBlendMode}
-              onCreateApproval={() => setApprovalPickerOpen(true)}
             />
           )}
         </div>
@@ -2397,38 +2356,6 @@ function SamplesPage() {
             // criada aparece no topo da lista atualizada.
             setNewSampleModalOpen(false);
             setNewSampleRefetchKey((current) => current + 1);
-          }}
-        />
-      ) : null}
-
-      {approvalPickerMounted ? (
-        <ApprovalContractPickerModal
-          session={session}
-          open={approvalPickerOpen}
-          dragDisabled={approvalForm != null}
-          onClose={() => setApprovalPickerOpen(false)}
-          onPicked={(option, prefill) => {
-            setApprovalPickerOpen(false);
-            setApprovalForm({ saleContractId: option.id, prefill });
-          }}
-        />
-      ) : null}
-
-      {approvalFormRendered ? (
-        <ApprovalLabelModal
-          open={approvalForm != null}
-          session={session}
-          prefill={approvalFormRendered.prefill}
-          saleContractId={approvalFormRendered.saleContractId}
-          onBack={() => {
-            // "Voltar" (D117): descarta as edições e reabre o seletor.
-            setApprovalForm(null);
-            setApprovalPickerOpen(true);
-          }}
-          onClose={() => {
-            // X/backdrop/sucesso: encerra o fluxo inteiro.
-            setApprovalForm(null);
-            setApprovalPickerOpen(false);
           }}
         />
       ) : null}
