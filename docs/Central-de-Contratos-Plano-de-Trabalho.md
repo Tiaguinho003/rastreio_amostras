@@ -1,10 +1,16 @@
 # Central de Contratos — Plano de Trabalho
 
-Status: **F1 implementada** (C1–C4, 2026-07-09) — hub `/contratos` com 4 sub-abas;
-Contratos e Financeiro migrados; Aprovações/Embarque como placeholder; `/financeiro`
-redireciona; nav unificada (item único, corrige o gate do avatar). Decisões CC1–CC15
-(CC7 adiada). Gates verdes; **validar no device**. F2+ (conteúdo de Aprovações e
-Embarque + acesso por papel) em aberto.
+Status: **F1 implementada** (C1–C4, 2026-07-09) + **F2 PARCIAL implementada 2026-07-10**
+(junto com o Embarque). F1: hub `/contratos` com 4 sub-abas; Contratos e Financeiro
+migrados; Aprovações/Embarque placeholder; `/financeiro` redireciona; nav unificada.
+**F2 (CC15 opção 1', commit `b42aa22`, NÃO pushado):** o hub abriu a **todos os
+não-PROSPECTOR** (guard → `NON_PROSPECTOR_ROLES`); abas **filtradas por papel**
+(`contractsHubTabs` em `lib/roles.ts` — ADMIN/COMMERCIAL 4 abas; operacionais **só
+Embarque**, Aprovações segue **oculta** até a reforma dela); **rótulo do item de nav por
+papel** ("Contratos"/"Embarques" via `contractsHubNavLabel`, em `AppShell` +
+`HeaderAvatarMenu`); a aba Embarque ganhou conteúdo (worklist — ver `Embarque-Plano-de-
+Trabalho.md`). Falta do alvo CC6: aba Aprovações aos operacionais + revisão do rótulo (CC2).
+Decisões CC1–CC15 (CC7 adiada). Gates verdes; **validar no device**.
 Escopo: unificar as 4 superfícies ligadas ao contrato de venda (**Contratos**,
 **Financeiro**, **Aprovações**, **Embarque**) numa **única página com sub-abas**.
 Nesta primeira fase: fundir Contratos + Financeiro (que já são páginas) e criar

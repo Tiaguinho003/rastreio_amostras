@@ -39,6 +39,16 @@
 > "N vencidos", refetch pós-pagar), diálogo com `max` de hoje. **Aprovação intocada.**
 > **Portão do embarque (FN7/EMB28) ADIADO** (depende de `requiresShipment`/`shippedAt`, campos
 > do Embarque). Gates verdes + unit + integração. 📱 **validar no device.**
+> **2026-07-10 (IMPLEMENTADO — 3º tipo de evento: EMBARQUE, F4/F5 da feature Embarque):** o
+> card ganhou o evento de **embarque** — **navegação pura → sub-aba Embarque**
+> (`/contratos?tab=embarque`), dots `contract_shipment` **azul** (agendado no `invoiceDate`) /
+> `contract_shipment_done` **azul-escuro** (realizado no `shippedAt`) / `contract_shipment_overdue`
+> **vermelho** (dia previsto passou sem embarcar). Feed `GET /api/v1/dashboard/shipment-events`
+> (auth-only, todos os não-PROSPECTOR), 3º feed no `DashboardDesktop`; **desktop-only** (o
+> `DashboardMobile` não renderiza o card). **O portão FN7/EMB28 saiu do ADIADO e foi feito**
+> (guard no `paySaleContract` + confirmação in-loco no diálogo de pagamento). Ver
+> `Embarque-Plano-de-Trabalho.md`. Gates verdes; 📱 validar. Os 3 eventos agora alinhados
+> (pagamento nav-pura → Financeiro · aprovação acordeão · embarque nav-pura → sub-aba).
 
 ## Contexto e objetivo
 

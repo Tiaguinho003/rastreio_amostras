@@ -1,6 +1,16 @@
 # Embarque — Plano de Trabalho
 
-> **Status: REFORMULADO — sub-aba de Embarque + "Modelo X" (DESIGN, 2026-07-10).**
+> **Status: IMPLEMENTADO PONTA A PONTA — F1–F6 (EMB1–EMB29), 2026-07-10.** Seis commits
+> em `main` (NÃO pushados; 📱 validar no device): `67ed909` (F1 sinal/schema) · `4554531`
+> (F2 confirmação + fotos) · `b42aa22` (F3 worklist + acesso CC F2) · `91e219b` (F4 evento
+> dashboard) · `6fdcd5b` (F5 portão do pagamento) · `119985b` (F6 seção no Detalhes). Gates
+> verdes (406 unit, 92 integração, lint, format, typecheck; **build pendente** — o next dev
+> está ativo). Decisões de escopo do Flavio: **acesso "abrir agora, só Embarque"** (hub a
+> todos os não-PROSPECTOR; operacionais veem só a aba Embarque; Aprovações oculta) +
+> **fotos construídas agora**. Desvios do plano registrados no Histórico. O bloco de DESIGN
+> abaixo permanece como a especificação canônica.
+>
+> **Status anterior: REFORMULADO — sub-aba de Embarque + "Modelo X" (DESIGN, 2026-07-10).**
 > Novo tipo de evento para o card de Eventos do dashboard **e** a 4ª sub-aba do hub
 > `/contratos`: o **embarque** = o café **carregado no caminhão**. Acontece **no mesmo
 > dia do faturamento** por padrão, mas é um evento **distinto** (faturamento = emissão
@@ -524,3 +534,27 @@ Tamanho máx. atual = **12 MiB** por arquivo; leitura via **rota-proxy autentica
   híbrido** no PAGO (bloqueia pagar sem embarcar; modal só com [Confirmar embarque] → segue
   pro pagamento) + local = **armazém do vendedor** (`sellerWarehouseSnapshot`). **Desenhado
   ponta a ponta (EMB1–EMB29).** Só decisão/registro — **sem código**.
+- **2026-07-10 (IMPLEMENTAÇÃO ponta a ponta — F1–F6).** A feature saiu do papel em 6 commits
+  temáticos (main, não pushados). **F1 (`67ed909`):** flag `requires_shipment` na
+  `ContractModality` (semeada Retirar/Posto=true, Disponível=false) → snapshot no emit em
+  `SaleContract.requiresShipment` + `shippedAt @db.Date`; 2 índices; migration
+  `20260710120000`. **F2 (`4554531`):** modelo `SaleContractShipmentPhoto` (migration
+  `20260710130000`) + `saveContractShipmentPhoto` + `SaleContractShipmentService` (confirm/
+  list/descriptor/context, auth-only) + 4 rotas (multipart + lista + proxy autenticado +
+  contexto). **F3 (`b42aa22`):** `listShipmentContracts` (keyset particionado, molde do
+  Financeiro) + `EmbarquePanel`/`EmbarqueCard` + `ShipmentConfirmationModal` + **acesso CC
+  F2** (hub a todos os não-PROSPECTOR, abas por papel, nav "Contratos"/"Embarques"). **F4
+  (`91e219b`):** `getDashboardShipmentEvents` + branch nav-pura no `EventsCalendarCard` + 3º
+  feed no `DashboardDesktop`; dots azul/azul-escuro/vermelho. **F5 (`6fdcd5b`):** guard
+  `CONTRACT_SHIPMENT_REQUIRED` no `paySaleContract` + fiação no `SaleContractLifecycleDialog`.
+  **F6 (`119985b`):** seção "Embarque" read-only + galeria no `SaleContractDetailsModal`.
+  - **Desvios do plano (confirmados/testados/registrados):** (a) `_requireLookup` ganhou um
+    param `extraSelect` — **não** dá pra pôr `requiresShipment` no `select` compartilhado
+    (quebraria os lookups de paymentForm/packaging, que não têm a coluna). (b) **`confirmShipment`
+    NÃO bumpa `version`**: `shippedAt` é eixo próprio (EMB22) e a trava de corrida é o
+    `shippedAt:null` no `where` — manter a version estável faz o **retry do portão** (EMB28)
+    pagar com a MESMA `expectedVersion`, sem 409 espúrio. (c) evento **desktop-only** (o
+    `DashboardMobile` não renderiza o card; no mobile chega-se ao Embarque pela nav → sub-aba).
+    (d) a flag da modalidade é **seed-only** (não há UI de admin; muda por migration). (e)
+    confirmação **sem `expectedVersion`** (idempotência pelo `shippedAt:null`). Gates verdes
+    (406 unit / 92 integração); **build pendente** (`next dev` ativo). 📱 validar no device.
