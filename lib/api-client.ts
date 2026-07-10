@@ -29,6 +29,8 @@ import type {
   ClientAttachmentListResponse,
   ClientAttachmentResponse,
   ShipmentContextResponse,
+  ShipmentFilter,
+  ShipmentListResponse,
   ShipmentPhotoListResponse,
   ClientLookupKind,
   ClientLookupResponse,
@@ -1131,6 +1133,25 @@ export function confirmShipment(
 // URL da rota-proxy de uma foto de embarque (serve inline; cookies same-origin).
 export function shipmentPhotoDownloadUrl(contractId: string, photoId: string): string {
   return `${API_BASE}/sale-contracts/${contractId}/shipment-photos/${photoId}`;
+}
+
+// Embarque (EMB23-EMB25): worklist da sub-aba (paginada por cursor keyset).
+export function listShipments(
+  session: SessionData,
+  query: { search?: string; limit?: number; cursor?: string; filter?: ShipmentFilter } = {},
+  options: { signal?: AbortSignal } = {}
+) {
+  const params = new URLSearchParams();
+  if (query.search) params.set('search', query.search);
+  if (typeof query.limit === 'number') params.set('limit', String(query.limit));
+  if (query.cursor) params.set('cursor', query.cursor);
+  if (query.filter && query.filter !== 'todos') params.set('filter', query.filter);
+  const suffix = params.size ? `?${params.toString()}` : '';
+  return request<ShipmentListResponse>(`/sale-contracts/shipments${suffix}`, {
+    method: 'GET',
+    session,
+    signal: options.signal,
+  });
 }
 
 export function getUser(session: SessionData, userId: string) {

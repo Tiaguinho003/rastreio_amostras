@@ -7,17 +7,19 @@ import { Suspense } from 'react';
 import { AppShell } from '../../components/AppShell';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { ContratosPanel } from '../../components/contracts/ContratosPanel';
+import { EmbarquePanel } from '../../components/contracts/EmbarquePanel';
 import { HubTabPlaceholder } from '../../components/contracts/HubTabPlaceholder';
 import { FinanceiroPanel } from '../../components/financeiro/FinanceiroPanel';
-import { CONTRATOS_ROLES } from '../../lib/roles';
+import { contractsHubNavLabel, contractsHubTabs, NON_PROSPECTOR_ROLES } from '../../lib/roles';
 import { useRequireAuth } from '../../lib/use-auth';
 
 // Central de Contratos (F1): hub com 4 sub-abas sobre a mesma entidade
 // (SaleContract). A casca — guard, AppShell, header e a barra de abas — vive
 // aqui; o conteúdo de cada aba é um painel montado sob demanda (só a aba ativa
-// fica montada). F1 = Contratos migrado; Financeiro/Aprovações/Embarque entram
-// como placeholder. Acesso = ADMIN+COMMERCIAL (CONTRATOS_ROLES; = FINANCEIRO_ROLES,
-// a união das abas visíveis em F1). Ver docs/Central-de-Contratos-Plano-de-Trabalho.md.
+// fica montada). CC F2 (Embarque) abriu o hub a TODOS os não-PROSPECTOR:
+// ADMIN/COMMERCIAL veem as 4 abas; operacionais só a de Embarque (contractsHubTabs).
+// Contratos/Financeiro funcionais; Aprovações = placeholder; Embarque = worklist.
+// Ver docs/Central-de-Contratos-Plano-de-Trabalho.md.
 const HUB_TABS = [
   { key: 'contratos', label: 'Contratos' },
   { key: 'financeiro', label: 'Financeiro' },
@@ -25,23 +27,30 @@ const HUB_TABS = [
   { key: 'embarque', label: 'Embarque' },
 ] as const;
 type HubTab = (typeof HUB_TABS)[number]['key'];
-const HUB_TAB_KEYS: readonly string[] = HUB_TABS.map((t) => t.key);
 
-// `?tab=` é a fonte de verdade da aba ativa; valor ausente/inválido cai em
-// Contratos (que é também o alvo implícito do deep-link `?details=<id>`).
-function parseTab(raw: string | null): HubTab {
-  return raw != null && HUB_TAB_KEYS.includes(raw) ? (raw as HubTab) : 'contratos';
+// `?tab=` é a fonte de verdade da aba ativa; ausente/inválido/oculto-ao-papel cai
+// na 1ª aba VISÍVEL ao papel (assim o operacional aterrissa em Embarque e nunca
+// monta um painel comercial, que dispararia 403).
+function parseTab(raw: string | null, visible: readonly string[]): HubTab {
+  if (raw != null && visible.includes(raw)) return raw as HubTab;
+  return (visible[0] ?? 'contratos') as HubTab;
 }
 
 function ContratosHubInner() {
   const { session, loading, logout, setSession } = useRequireAuth({
-    allowedRoles: CONTRATOS_ROLES,
+    allowedRoles: NON_PROSPECTOR_ROLES,
   });
   const router = useRouter();
   const searchParams = useSearchParams();
-  const tab = parseTab(searchParams.get('tab'));
 
   if (loading || !session) return null;
+
+  // CC F2: abas visíveis por papel + rótulo do hub por papel. `?tab` inválido/oculto
+  // cai na 1ª aba visível (contratos p/ comercial, embarque p/ operacional).
+  const visibleKeys = contractsHubTabs(session.user.role);
+  const tab = parseTab(searchParams.get('tab'), visibleKeys);
+  const hubLabel = contractsHubNavLabel(session.user.role);
+  const visibleTabs = HUB_TABS.filter((t) => visibleKeys.includes(t.key));
 
   const avatarInitials = (() => {
     const base = (session.user.fullName ?? session.user.username ?? '').trim();
@@ -69,7 +78,7 @@ function ContratosHubInner() {
             </svg>
           </Link>
           <div className="clients-v2-header-center">
-            <h2 className="nsv2-title">Contratos</h2>
+            <h2 className="nsv2-title">{hubLabel}</h2>
           </div>
           <HeaderAvatarMenu session={session} onLogout={logout} />
           <Link href="/profile" className="nsv2-avatar" aria-label="Ir para perfil">
@@ -78,7 +87,7 @@ function ContratosHubInner() {
         </header>
 
         <div className="cad-tabs cc-tabs" role="tablist" aria-label="Seções do contrato">
-          {HUB_TABS.map((t) => (
+          {visibleTabs.map((t) => (
             <button
               key={t.key}
               type="button"
@@ -95,7 +104,7 @@ function ContratosHubInner() {
         {tab === 'contratos' ? <ContratosPanel session={session} /> : null}
         {tab === 'financeiro' ? <FinanceiroPanel session={session} /> : null}
         {tab === 'aprovacoes' ? <HubTabPlaceholder /> : null}
-        {tab === 'embarque' ? <HubTabPlaceholder /> : null}
+        {tab === 'embarque' ? <EmbarquePanel session={session} /> : null}
       </section>
     </AppShell>
   );

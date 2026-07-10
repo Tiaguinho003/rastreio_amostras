@@ -444,6 +444,113 @@ export function buildShipmentContext(row) {
   };
 }
 
+// ------------------------------------------------------------
+// Worklist do Embarque (EMB23-EMB25) — a "casa" na sub-aba
+// ------------------------------------------------------------
+
+// Select ENXUTO da worklist (so nao-sensivel — EMB25): sem preco/corretagem. Traz
+// contractSeq (tiebreak do cursor) + os 2 snapshots (nome do comprador + armazem).
+export const SHIPMENT_VIEW_SELECT = Object.freeze({
+  id: true,
+  contractSeq: true,
+  contractNumber: true,
+  status: true,
+  invoiceDate: true,
+  shippedAt: true,
+  quantitySacks: true,
+  buyerSnapshot: true,
+  sellerWarehouseSnapshot: true,
+});
+
+// Estado derivado (sem enum, EMB23): cancelado (WASH_OUT) · embarcado (shippedAt) ·
+// atrasado (nao embarcado + invoiceDate < hoje BRT) · a_embarcar (senao). O atraso
+// so acende a partir do dia SEGUINTE a invoiceDate (o proprio dia ainda e a_embarcar).
+export function deriveShipmentState(status, invoiceDate, shippedAt, todayKey) {
+  if (status === 'WASH_OUT') return 'cancelado';
+  if (shippedAt) return 'embarcado';
+  const iso = toIsoString(invoiceDate);
+  const dayKey = iso ? iso.slice(0, 10) : null;
+  if (dayKey && todayKey && dayKey < todayKey) return 'atrasado';
+  return 'a_embarcar';
+}
+
+// Linha da worklist (EMB25): chip · nº · comprador · data · sacas · armazem do
+// vendedor. So dado NAO-sensivel (a aba e visivel a todos os nao-PROSPECTOR).
+export function buildShipmentView(row, todayKey) {
+  return {
+    id: row.id,
+    contractNumber: row.contractNumber,
+    state: deriveShipmentState(row.status, row.invoiceDate, row.shippedAt, todayKey),
+    status: row.status,
+    buyerName: row.buyerSnapshot?.displayName ?? null,
+    sellerWarehouse: row.sellerWarehouseSnapshot?.displayName ?? null,
+    quantitySacks: row.quantitySacks,
+    invoiceDate: toIsoString(row.invoiceDate),
+    shippedAt: toIsoString(row.shippedAt),
+  };
+}
+
+// Filtros da worklist (EMB25). Default 'todos'.
+export const SHIPMENT_FILTERS = Object.freeze([
+  'todos',
+  'a_embarcar',
+  'atrasado',
+  'embarcado',
+  'cancelado',
+]);
+
+export function normalizeShipmentFilter(raw) {
+  return typeof raw === 'string' && SHIPMENT_FILTERS.includes(raw) ? raw : 'todos';
+}
+
+// Cursor keyset opaco da worklist. {g, key, seq}: g = grupo (0 nao-embarcado /
+// 1 embarcado / 2 cancelado); key = 'YYYY-MM-DD'|null (invoiceDate em G0 / shippedAt
+// em G1; null em G2); seq = contractSeq (tiebreak unico). base64url.
+export function encodeShipmentCursor(cursor) {
+  return Buffer.from(JSON.stringify(cursor), 'utf8').toString('base64url');
+}
+
+export function decodeShipmentCursor(raw) {
+  if (typeof raw !== 'string' || raw === '') return null;
+  try {
+    const p = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
+    const okKey =
+      p?.key === null || (typeof p?.key === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(p.key));
+    if (p && Number.isInteger(p.g) && p.g >= 0 && p.g <= 2 && Number.isInteger(p.seq) && okKey) {
+      return { g: p.g, key: p.key, seq: p.seq };
+    }
+  } catch {
+    // cursor malformado -> trata como 1a pagina
+  }
+  return null;
+}
+
+// Fragmento Prisma "estritamente DEPOIS do cursor, DENTRO do grupo cursor.g".
+// G0 (nao-embarcado), ordem (invoiceDate asc nulls-last, contractSeq asc). G1
+// (embarcado), ordem (shippedAt desc, contractSeq desc). G2 (cancelado), seq desc.
+export function shipmentKeysetWhere(cursor) {
+  if (cursor.g === 0) {
+    const seqGt = { contractSeq: { gt: cursor.seq } };
+    if (cursor.key === null) {
+      return { AND: [{ invoiceDate: null }, seqGt] };
+    }
+    const d = new Date(`${cursor.key}T00:00:00.000Z`);
+    return {
+      OR: [{ invoiceDate: { gt: d } }, { invoiceDate: null }, { AND: [{ invoiceDate: d }, seqGt] }],
+    };
+  }
+  if (cursor.g === 1) {
+    const d = new Date(`${cursor.key}T00:00:00.000Z`);
+    return {
+      OR: [
+        { shippedAt: { lt: d } },
+        { AND: [{ shippedAt: d }, { contractSeq: { lt: cursor.seq } }] },
+      ],
+    };
+  }
+  return { contractSeq: { lt: cursor.seq } };
+}
+
 // Revisao do Pagamento (FN1): estado de pagamento derivado (sem enum) — a LENTE do
 // Financeiro. Chip: cancelado (WASH_OUT) · pago (PAGO) · vencido (nao pago +
 // paymentDate < hoje BRT) · a_vencer (nao pago, no prazo ou SEM data). `paymentDate`

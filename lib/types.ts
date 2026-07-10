@@ -592,6 +592,35 @@ export interface FinanceiroListResponse {
   overdueCommission: number;
 }
 
+// Embarque (EMB23): estado derivado da worklist (chip). Sem enum no banco.
+export type ShipmentState = 'a_embarcar' | 'atrasado' | 'embarcado' | 'cancelado';
+
+// Filtro da worklist (EMB25, default 'todos').
+export type ShipmentFilter = 'todos' | 'a_embarcar' | 'atrasado' | 'embarcado' | 'cancelado';
+
+// Linha da worklist (EMB25): só dado NÃO-sensível (a aba é visível a todos os
+// não-PROSPECTOR) — sem preço/corretagem.
+export interface ShipmentReceivable {
+  id: string;
+  contractNumber: string;
+  state: ShipmentState;
+  status: SaleContractStatus;
+  buyerName: string | null;
+  sellerWarehouse: string | null;
+  quantitySacks: number;
+  invoiceDate: string | null;
+  shippedAt: string | null;
+}
+
+export interface ShipmentListResponse {
+  items: ShipmentReceivable[];
+  // Cursor keyset OPACO (base64url {g,key,seq}); null = última página.
+  nextCursor: string | null;
+  // "N atrasados" (EMB24): contagem estável dos não-embarcados vencidos (independe
+  // do filtro/cursor ativo).
+  overdueCount: number;
+}
+
 // Fechamento (Fase B.2 Passo 2): listas da etapa 2 + payload de "Emitir".
 export interface ContractLookupItem {
   id: string;

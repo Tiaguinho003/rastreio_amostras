@@ -97,6 +97,23 @@ export const FINANCEIRO_ROLES: UserRole[] = ['ADMIN', 'COMMERCIAL'];
 // SALE_CONTRACT_ACCESS_ROLES do backend.
 export const CONTRATOS_ROLES: UserRole[] = ['ADMIN', 'COMMERCIAL'];
 
+// Central de Contratos (CC F2 — Embarque): o hub /contratos abre a TODOS os
+// nao-PROSPECTOR. ADMIN/COMMERCIAL veem as 4 abas (gestao + operacao); os
+// operacionais (CLASSIFIER/REGISTRATION/CADASTRO) veem SO a aba Embarque — a
+// superficie de operacao aberta (EMB7/EMB16/EMB26; Aprovacoes segue oculta ate a
+// reforma dela). O rotulo do item de nav muda por papel (CC15).
+export type ContractsHubTab = 'contratos' | 'financeiro' | 'aprovacoes' | 'embarque';
+
+export function contractsHubTabs(role: UserRole): ContractsHubTab[] {
+  return isRoleAllowed(role, CONTRATOS_ROLES)
+    ? ['contratos', 'financeiro', 'aprovacoes', 'embarque']
+    : ['embarque'];
+}
+
+export function contractsHubNavLabel(role: UserRole): string {
+  return isRoleAllowed(role, CONTRATOS_ROLES) ? 'Contratos' : 'Embarques';
+}
+
 // Quem GERENCIA cadastro de cliente: hub /cadastros (abas Clientes/Bancos/
 // Corretores), detalhe do cliente (/clients/[id]) e o card "Cadastros
 // pendentes" do dashboard. Os demais papeis nao-PROSPECTOR (CLASSIFIER,

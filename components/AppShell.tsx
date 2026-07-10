@@ -16,12 +16,13 @@ import { useVisitOutboxAutoSync } from '../lib/offline/use-visit-outbox-sync';
 import { VISIT_SYNC_COMPLETED_EVENT, type VisitSyncResult } from '../lib/offline/visit-sync';
 import {
   canManageClients,
-  CONTRATOS_ROLES,
+  contractsHubNavLabel,
   getRoleLabel,
   INFORME_ROLES,
   isAdmin,
   isProspector,
   isRoleAllowed,
+  NON_PROSPECTOR_ROLES,
 } from '../lib/roles';
 import { useToast } from '../lib/toast/ToastProvider';
 import type { SessionData } from '../lib/types';
@@ -83,10 +84,10 @@ const CADASTROS_NAV_ITEM = {
   icon: 'cadastros' as NavIcon,
 } as const;
 
-// Item da sidebar: Contratos = hub da Central de Contratos (rota /contratos com
-// sub-abas Contratos/Financeiro/Aprovacoes/Embarque). ADMIN + COMMERCIAL
-// (CONTRATOS_ROLES); item tambem no avatar menu p/ mobile. O antigo item avulso
-// "Financeiro" saiu daqui — virou a aba Financeiro do hub (F1/CC10).
+// Item da sidebar: hub da Central de Contratos (rota /contratos com sub-abas). CC F2
+// (Embarque) abriu a TODOS os não-PROSPECTOR; o `label` é sobrescrito por papel na
+// montagem (contractsHubNavLabel: "Contratos" × "Embarques"). Item também no avatar
+// menu p/ mobile. O antigo item avulso "Financeiro" virou a aba Financeiro (F1/CC10).
 const CONTRATOS_NAV_ITEM = {
   href: '/contratos',
   label: 'Contratos',
@@ -419,10 +420,12 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
         ),
         ...(isRoleAllowed(session.user.role, INFORME_ROLES) ? [INFORME_NAV_ITEM] : []),
         ...(canManageClients(session.user.role) ? [CADASTROS_NAV_ITEM] : []),
-        // Contratos = hub da Central de Contratos (Financeiro agora e sub-aba, por
-        // isso nao ha mais item avulso). ADMIN + COMMERCIAL (CONTRATOS_ROLES);
-        // Usuários (ADMIN_NAV_ITEM) segue ADMIN-only.
-        ...(isRoleAllowed(session.user.role, CONTRATOS_ROLES) ? [CONTRATOS_NAV_ITEM] : []),
+        // Hub da Central de Contratos. CC F2 (Embarque) abriu a TODOS os não-PROSPECTOR;
+        // o rótulo muda por papel (CC15): "Contratos" p/ ADMIN/COMMERCIAL (4 abas),
+        // "Embarques" p/ operacionais (só a aba Embarque). Usuários segue ADMIN-only.
+        ...(isRoleAllowed(session.user.role, NON_PROSPECTOR_ROLES)
+          ? [{ ...CONTRATOS_NAV_ITEM, label: contractsHubNavLabel(session.user.role) }]
+          : []),
         ...(isAdmin(session.user.role) ? [ADMIN_NAV_ITEM] : []),
       ];
   const mobileRouteMeta = resolveMobileRouteMeta(pathname);

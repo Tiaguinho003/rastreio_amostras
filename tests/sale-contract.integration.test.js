@@ -514,6 +514,102 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(photos.items[0].storagePath, undefined);
   });
 
+  // ============================================================
+  // Embarque F3 (EMB23-EMB25): worklist — estados, ordem, contador, filtros, busca
+  // ============================================================
+  test('listShipmentContracts: estados/ordem/contador/filtros', async () => {
+    const atrasado = await setupShipmentContract({ lotNumber: '25300' });
+    await prisma.saleContract.update({
+      where: { id: atrasado.id },
+      data: { invoiceDate: new Date('2000-01-01T00:00:00Z') },
+    });
+    const aEmbarcar = await setupShipmentContract({ lotNumber: '25301' });
+    await prisma.saleContract.update({
+      where: { id: aEmbarcar.id },
+      data: { invoiceDate: new Date('2100-01-01T00:00:00Z') },
+    });
+    const embarcado = await setupShipmentContract({ lotNumber: '25302' });
+    await shipmentService.confirmShipment(
+      embarcado.id,
+      { shippedAt: '2026-07-08', files: [] },
+      adminActor
+    );
+    const cancelado = await setupShipmentContract({ lotNumber: '25303' });
+    await prisma.saleContract.update({
+      where: { id: cancelado.id },
+      data: { status: 'WASH_OUT' },
+    });
+
+    const all = await saleContractService.listShipmentContracts({}, adminActor);
+    const byId = new Map(all.items.map((it) => [it.id, it]));
+    assert.equal(byId.get(atrasado.id)?.state, 'atrasado');
+    assert.equal(byId.get(aEmbarcar.id)?.state, 'a_embarcar');
+    assert.equal(byId.get(embarcado.id)?.state, 'embarcado');
+    assert.equal(byId.get(cancelado.id)?.state, 'cancelado');
+    // Contador estável (EMB24): 1 atrasado.
+    assert.equal(all.overdueCount, 1);
+    // Ordem: G0 por invoiceDate ASC (atrasado 2000 antes de a_embarcar 2100), depois
+    // embarcado (G1), depois cancelado (G2).
+    const order = all.items.map((it) => it.id);
+    assert.ok(order.indexOf(atrasado.id) < order.indexOf(aEmbarcar.id));
+    assert.ok(order.indexOf(aEmbarcar.id) < order.indexOf(embarcado.id));
+    assert.ok(order.indexOf(embarcado.id) < order.indexOf(cancelado.id));
+
+    const fAtrasado = await saleContractService.listShipmentContracts(
+      { filter: 'atrasado' },
+      adminActor
+    );
+    assert.deepEqual(
+      fAtrasado.items.map((i) => i.id),
+      [atrasado.id]
+    );
+    const fEmbarcado = await saleContractService.listShipmentContracts(
+      { filter: 'embarcado' },
+      adminActor
+    );
+    assert.deepEqual(
+      fEmbarcado.items.map((i) => i.id),
+      [embarcado.id]
+    );
+    // Só dado não-sensível (EMB25): a linha não carrega preço/corretagem.
+    assert.equal(fAtrasado.items[0].totalValue, undefined);
+    assert.ok('sellerWarehouse' in fAtrasado.items[0]);
+  });
+
+  test('listShipmentContracts: busca por nº + paginação keyset cruzando grupos', async () => {
+    const c1 = await setupShipmentContract({ lotNumber: '25310' });
+    await prisma.saleContract.update({
+      where: { id: c1.id },
+      data: { invoiceDate: new Date('2001-01-01T00:00:00Z') },
+    });
+    const c2 = await setupShipmentContract({ lotNumber: '25311' });
+    await shipmentService.confirmShipment(
+      c2.id,
+      { shippedAt: '2026-07-08', files: [] },
+      adminActor
+    );
+
+    const found = await saleContractService.listShipmentContracts(
+      { search: c1.contractNumber },
+      adminActor
+    );
+    assert.deepEqual(
+      found.items.map((i) => i.id),
+      [c1.id]
+    );
+
+    // limit=1: 1ª página = c1 (G0 não-embarcado), cursor → 2ª página = c2 (G1 embarcado).
+    const p1 = await saleContractService.listShipmentContracts({ limit: 1 }, adminActor);
+    assert.equal(p1.items.length, 1);
+    assert.equal(p1.items[0].id, c1.id);
+    assert.ok(p1.nextCursor);
+    const p2 = await saleContractService.listShipmentContracts(
+      { limit: 1, cursor: p1.nextCursor },
+      adminActor
+    );
+    assert.equal(p2.items[0].id, c2.id);
+  });
+
   test('numeracao continua: 2 vendas => 0001 e 0002', async () => {
     const buyerId = randomUUID();
     await createBuyerClient(buyerId);

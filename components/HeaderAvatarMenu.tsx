@@ -4,11 +4,12 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import {
-  CONTRATOS_ROLES,
   canManageClients,
+  contractsHubNavLabel,
   getRoleLabel,
   isAdmin,
   isRoleAllowed,
+  NON_PROSPECTOR_ROLES,
 } from '../lib/roles';
 import type { SessionData } from '../lib/types';
 import { BottomSheet } from './BottomSheet';
@@ -129,7 +130,7 @@ export function HeaderAvatarMenu({ session, onLogout }: HeaderAvatarMenuProps) {
               </button>
             ) : null}
 
-            {isRoleAllowed(session.user.role, CONTRATOS_ROLES) ? (
+            {isRoleAllowed(session.user.role, NON_PROSPECTOR_ROLES) ? (
               <button
                 type="button"
                 className="header-avatar-menu-row"
@@ -141,7 +142,9 @@ export function HeaderAvatarMenu({ session, onLogout }: HeaderAvatarMenuProps) {
                   <path d="M9 13h6" />
                   <path d="M9 17h5" />
                 </svg>
-                <span className="header-avatar-menu-row-label">Contratos</span>
+                <span className="header-avatar-menu-row-label">
+                  {contractsHubNavLabel(session.user.role)}
+                </span>
               </button>
             ) : null}
 

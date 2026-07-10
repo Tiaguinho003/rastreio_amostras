@@ -14,6 +14,12 @@ import {
   encodeReceivableCursor,
   normalizeReceivableFilter,
   receivableKeysetWhere,
+  buildShipmentView,
+  decodeShipmentCursor,
+  encodeShipmentCursor,
+  normalizeShipmentFilter,
+  shipmentKeysetWhere,
+  SHIPMENT_VIEW_SELECT,
   buildRecentApprovalSendItem,
   bucketApprovalReminders,
   brtTodayDateOnly,
@@ -403,6 +409,130 @@ export class SaleContractService {
       SELECT id FROM sale_contract WHERE buyer_snapshot->>'displayName' ILIKE ${like}
     `;
     return [...new Set(rows.map((r) => r.id))];
+  }
+
+  // Embarque (EMB23-EMB25): a worklist da sub-aba. Auth-only (todos nao-PROSPECTOR,
+  // EMB7/EMB16 — SEM escopo por corretor, SEM dado sensivel). Keyset particionado por
+  // grupo (molde do listBrokerReceivables): G0 nao-embarcado por invoiceDate ASC (mais
+  // antigo/atrasado no topo, EMB25), G1 embarcado por shippedAt DESC, G2 cancelado por
+  // contractSeq DESC. Filtros escolhem/refinam grupos; contador "N atrasados" (EMB24)
+  // e estavel (independe de filtro/cursor). So contratos requiresShipment.
+  async listShipmentContracts(input, actorContext) {
+    assertAuthenticatedActor(actorContext, 'list shipment contracts');
+
+    const todayKey = brtTodayKey();
+    const brtToday = brtTodayDateOnly();
+
+    const limit = readLimitQuery(input?.limit, {
+      fallback: FINANCEIRO_LIST_LIMIT_DEFAULT,
+      max: FINANCEIRO_LIST_LIMIT_MAX,
+    });
+    const cursor = decodeShipmentCursor(input?.cursor);
+    const search = typeof input?.search === 'string' ? input.search.trim() : '';
+    const filter = normalizeShipmentFilter(input?.filter);
+
+    // Base = so contratos que embarcam. Busca = nº OU comprador (sem corretor — a
+    // aba nao expoe dado sensivel). O comprador via ILIKE no buyer_snapshot.
+    const andClauses = [{ requiresShipment: true }];
+    if (search.length >= 1) {
+      const buyerMatchIds = await this._searchBuyerContractIds(search);
+      andClauses.push({
+        OR: [
+          { contractNumber: { contains: search, mode: 'insensitive' } },
+          { id: { in: buyerMatchIds } },
+        ],
+      });
+    }
+    const filterWhere = { AND: andClauses };
+
+    const G0_ORDER = [{ invoiceDate: { sort: 'asc', nulls: 'last' } }, { contractSeq: 'asc' }];
+    const SHIPPED_ORDER = [{ shippedAt: 'desc' }, { contractSeq: 'desc' }];
+    const CANCELLED_ORDER = [{ contractSeq: 'desc' }];
+    // G0 = nao embarcado + tem dia previsto (sem invoiceDate nao entra na fila, EMB22).
+    const UNSHIPPED = {
+      status: { in: ['EMITIDO', 'FATURADO'] },
+      shippedAt: null,
+      invoiceDate: { not: null },
+    };
+    const SHIPPED = { shippedAt: { not: null }, status: { in: ['EMITIDO', 'FATURADO', 'PAGO'] } };
+    const CANCELLED = { status: 'WASH_OUT' };
+
+    let groups;
+    if (filter === 'atrasado') {
+      groups = [
+        { g: 0, where: { AND: [UNSHIPPED, { invoiceDate: { lt: brtToday } }] }, orderBy: G0_ORDER },
+      ];
+    } else if (filter === 'a_embarcar') {
+      groups = [
+        {
+          g: 0,
+          where: { AND: [UNSHIPPED, { invoiceDate: { gte: brtToday } }] },
+          orderBy: G0_ORDER,
+        },
+      ];
+    } else if (filter === 'embarcado') {
+      groups = [{ g: 1, where: SHIPPED, orderBy: SHIPPED_ORDER }];
+    } else if (filter === 'cancelado') {
+      groups = [{ g: 2, where: CANCELLED, orderBy: CANCELLED_ORDER }];
+    } else {
+      groups = [
+        { g: 0, where: UNSHIPPED, orderBy: G0_ORDER },
+        { g: 1, where: SHIPPED, orderBy: SHIPPED_ORDER },
+        { g: 2, where: CANCELLED, orderBy: CANCELLED_ORDER },
+      ];
+    }
+
+    const effectiveCursor = cursor && groups.some((gr) => gr.g === cursor.g) ? cursor : null;
+    const startG = effectiveCursor ? effectiveCursor.g : groups[0].g;
+
+    const pageEntries = [];
+    for (const group of groups) {
+      if (group.g < startG) continue;
+      const need = limit + 1 - pageEntries.length;
+      if (need <= 0) break;
+      const afterWhere =
+        group.g === startG && effectiveCursor ? [shipmentKeysetWhere(effectiveCursor)] : [];
+      const rows = await this.prisma.saleContract.findMany({
+        where: { AND: [filterWhere, group.where, ...afterWhere] },
+        orderBy: group.orderBy,
+        take: need,
+        select: SHIPMENT_VIEW_SELECT,
+      });
+      for (const row of rows) pageEntries.push({ row, g: group.g });
+      if (rows.length === need) break;
+    }
+
+    // Contador "N atrasados" (EMB24): estavel, independe de filtro/cursor.
+    const overdue = await this.prisma.saleContract.aggregate({
+      where: { AND: [filterWhere, UNSHIPPED, { invoiceDate: { lt: brtToday } }] },
+      _count: { _all: true },
+    });
+    const overdueCount = overdue._count._all;
+
+    const hasMore = pageEntries.length > limit;
+    const page = hasMore ? pageEntries.slice(0, limit) : pageEntries;
+    if (page.length === 0) {
+      return { items: [], nextCursor: null, overdueCount };
+    }
+    const last = page[page.length - 1];
+    const cursorKey = (g, row) => {
+      if (g === 0) return row.invoiceDate ? row.invoiceDate.toISOString().slice(0, 10) : null;
+      if (g === 1) return row.shippedAt ? row.shippedAt.toISOString().slice(0, 10) : null;
+      return null;
+    };
+    const nextCursor = hasMore
+      ? encodeShipmentCursor({
+          g: last.g,
+          key: cursorKey(last.g, last.row),
+          seq: last.row.contractSeq,
+        })
+      : null;
+
+    return {
+      items: page.map((e) => buildShipmentView(e.row, todayKey)),
+      nextCursor,
+      overdueCount,
+    };
   }
 
   // F1 (E21-E27/D138): eventos de "pagamento de contrato" do card de Eventos do
