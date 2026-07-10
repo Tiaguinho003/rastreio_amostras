@@ -42,6 +42,12 @@ function translateCreateClientError(cause: unknown): string {
   if (code === 'COMMERCIAL_USER_NOT_FOUND' || code === 'COMMERCIAL_USER_INACTIVE') {
     return 'Responsável inválido ou inativo.';
   }
+  // Inalcancavel pela UI (o seletor nao lista papeis nao atribuiveis), mas o
+  // backend responde este 422 a chamadas diretas — sem o mapa, vazaria a
+  // mensagem crua em ingles.
+  if (code === 'PROSPECTOR_NOT_ASSIGNABLE') {
+    return 'Este usuário não pode ser responsável por clientes.';
+  }
   const message = cause.message ?? '';
   if (message.includes('already exists') || cause.status === 409) {
     if (field && FIELD_LABELS[field]) return `${FIELD_LABELS[field]} já cadastrado no sistema.`;

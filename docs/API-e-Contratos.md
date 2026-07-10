@@ -124,7 +124,7 @@ Validacoes criticas nessas rotas:
    param **`?onlyActive=true`** (Q-01) que filtra unidades inativas do
    payload retornado. Default `false` (retrocompativel).
 5. `PATCH /api/v1/clients/:clientId`
-   Atualiza fields. **Aceita payload partial** — backend usa `Object.hasOwn` para detectar campos presentes (em `normalizeUpdateClientInput`); o front divide a edicao em duas tabs (`info` e `address`) e envia apenas os campos da tab atual + `reasonText`. PJ pode editar `cnpj` (UNIQUE), `addressLine`, `city`, `state`, `registrationNumber`, `email` direto. Bloqueia troca de `personType` com 422 `CLIENT_PERSON_TYPE_LOCKED`. Outros codigos de erro mapeados no front (em pt-BR): `COMMERCIAL_USER_REQUIRED_FOR_ACTIVE`, `COMMERCIAL_USER_NOT_FOUND`, `COMMERCIAL_USER_INACTIVE`, `PJ_REQUIRES_CNPJ`. `email` e opcional em ambos PF e PJ. Exige `reasonText`.
+   Atualiza fields. **Aceita payload partial** — backend usa `Object.hasOwn` para detectar campos presentes (em `normalizeUpdateClientInput`); o front divide a edicao em duas tabs (`info` e `address`) e envia apenas os campos da tab atual + `reasonText`. PJ pode editar `cnpj` (UNIQUE), `addressLine`, `city`, `state`, `registrationNumber`, `email` direto. Bloqueia troca de `personType` com 422 `CLIENT_PERSON_TYPE_LOCKED`. Outros codigos de erro mapeados no front (em pt-BR): `COMMERCIAL_USER_REQUIRED_FOR_ACTIVE`, `COMMERCIAL_USER_NOT_FOUND`, `COMMERCIAL_USER_INACTIVE`, `PROSPECTOR_NOT_ASSIGNABLE` (422; papel nao atribuivel como responsavel — vale tambem em `createClient`, `addCommercialUserToClient` e `bulkAddCommercialUser`), `PJ_REQUIRES_CNPJ`. `email` e opcional em ambos PF e PJ. Exige `reasonText`.
 6. `POST /api/v1/clients/:clientId/inactivate`
    Inativa cliente. **#6/Q-05 (E1): rejeita 409 `CLIENT_HAS_ACTIVE_SAMPLES`** se o cliente tem amostras ATIVAS (`status NOT IN ('INVALIDATED')`). Body `{ reasonText: string }` (obrigatorio). Resposta 409 inclui `details.code = 'CLIENT_HAS_ACTIVE_SAMPLES'` + `details.details.activeSampleIds`/`activeSamples` para o front abrir o modal de cascata.
 7. `POST /api/v1/clients/:clientId/inactivate-with-cascade`
@@ -199,7 +199,9 @@ Endpoints somente-leitura usados pela pagina de detalhe do cliente (4 cards-filt
 8. `POST /api/v1/users/:userId/password/reset`
 9. `GET /api/v1/users/audit`
 10. `GET /api/v1/users/lookup`
-    Lista reduzida (`id`, `fullName`, `username`) de usuarios ativos para picker de conferencia da classificacao. Aberta a qualquer usuario autenticado (nao restrita a `ADMIN`).
+    Lista reduzida (`id`, `fullName`, `username`) de usuarios ativos. Endpoint unico por tras de TODOS os seletores de usuario do app: responsavel comercial de cliente, classificador de amostra (`/camera`) e usuario vinculado a um corretor. Aberta a qualquer usuario autenticado (nao restrita a `ADMIN`).
+
+    **Nao devolve papeis de `NON_ASSIGNABLE_ROLES`** (hoje: `PROSPECTOR`) — 2026-07-09. Os `COMMERCIAL` vem primeiro na ordenacao.
 
 ### Conta propria
 

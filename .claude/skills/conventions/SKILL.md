@@ -78,3 +78,4 @@ verificacao manual antes de remover. Processo canonico da revisao geral:
 - SQL: sempre Prisma parameterized ou tagged templates (`$queryRaw`). Nunca string concat.
 - Headers HTTP: configurados em `next.config.mjs`. Nao remover sem justificativa.
 - Rate limiting: `src/auth/rate-limiter.js` (10 req/min por IP).
+- Papeis nao atribuiveis: `NON_ASSIGNABLE_ROLES` / `isAssignableUserRole` (`src/auth/roles.js`). Nao podem ser referenciados em vinculo nenhum. `lookupUsersForReference` os omite do seletor, mas o gate de verdade sao os 422 `PROSPECTOR_NOT_ASSIGNABLE` nos pontos de escrita (`assertCommercialUserAssignable`, `normalizeClassifiers`, `_assertUserExists` do broker, `createUser`). Esconder da UI sem barrar na API e alivio visual, nao fronteira.

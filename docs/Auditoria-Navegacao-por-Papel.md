@@ -62,8 +62,14 @@ Constantes/helpers de agrupamento (`lib/roles.ts`):
 - `INFORME_ROLES` = ADMIN, COMMERCIAL, REGISTRATION — guard da pagina
   "Relatorios" (`/informe`). CADASTRO saiu em 2026-06-28.
 - `isAdmin(role)` = somente ADMIN.
-- `isCommercialRole(role)` = COMMERCIAL ou PROSPECTOR (quem pode ser responsavel
-  comercial de cliente; nao confundir com acesso de navegacao).
+- `isCommercialRole(role)` = somente COMMERCIAL (prioridade na ordenacao do
+  picker de usuarios; nao confundir com acesso de navegacao). O PROSPECTOR saiu
+  em 2026-07-09 — ver `NON_ASSIGNABLE_ROLES` abaixo.
+- `NON_ASSIGNABLE_ROLES` = PROSPECTOR (helper `isAssignableUserRole`) — papeis
+  que nao podem ser referenciados em vinculo nenhum. Espelha o backend
+  (`src/auth/roles.js`), onde mora o enforcement. No front serve so ao
+  formulario de `/users`: nao se cria mais um PROSPECTOR, mas os que ja existem
+  seguem editaveis.
 - `isProspector(role)` = somente PROSPECTOR (app restrito).
 - `isVisitReportViewer(role)` / `isVisitLinkCurator(role)` = ADMIN (visao de
   supervisao e curadoria em `/informe`; CADASTRO saiu em 2026-06-28).
@@ -122,6 +128,33 @@ Middleware (`middleware.ts`): modo manutencao redireciona nao-ADMIN para
 > nao-PROSPECTOR, incluindo os dados comerciais do donut. O endpoint
 > `commercial-timeseries` (card "Vendas e perdas") foi removido em 2026-07-07
 > (DSH-D3).
+
+## PROSPECTOR nao e um papel atribuivel (2026-07-09)
+
+O papel continua existindo — enum, login, app de campo, informe de visita. O que
+mudou: **ele nao pode ser referenciado em vinculo nenhum**.
+
+Havia tres portas, todas alimentadas pelo mesmo endpoint `GET /users/lookup`
+(`lookupUsersForReference`), que devolvia todos os usuarios ativos sem filtro de
+papel: responsavel comercial de cliente (detalhe do cliente, criacao rapida e
+filtro da lista), classificador de amostra (`/camera`) e usuario vinculado a um
+corretor. O filtro de `NON_ASSIGNABLE_ROLES` vive no endpoint e fecha as tres de
+uma vez.
+
+Ao contrario de `CLIENT_MANAGEMENT_ROLES`, **este nao e alivio de UI**: os
+pontos de escrita respondem **422 `PROSPECTOR_NOT_ASSIGNABLE`**.
+
+| Vinculo                  | Gate no backend                                                    |
+| ------------------------ | ------------------------------------------------------------------ |
+| Responsavel comercial    | `assertCommercialUserAssignable` (`src/clients/client-service.js`) |
+| Classificador de amostra | `normalizeClassifiers` (`src/samples/sample-command-service.js`)   |
+| Usuario de corretor      | `_assertUserExists` (`src/brokers/broker-service.js`)              |
+| Criacao de usuario       | `createUser` (`src/users/user-service.js`)                         |
+
+Excecoes deliberadas: `removeCommercialUserFromClient` nao valida (remover um
+vinculo legado tem de continuar possivel) e `updateUser` tambem nao (senao os
+PROSPECTOR existentes ficariam ineditaveis). No formulario de `/users`, o select
+de criacao nao oferece o papel; o de edicao o inclui apenas para quem ja o tem.
 
 ## Matriz de acesso por papel
 
