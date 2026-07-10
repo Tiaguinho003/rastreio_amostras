@@ -927,6 +927,25 @@ model SaleContractExport {
   @@map("sale_contract_export")
 }
 
+// Fotos OPCIONAIS da confirmacao do embarque (EMB27): N por contrato (0..10),
+// molde ClientAttachment menos unit_id. O arquivo (JPEG/PNG/WebP) e gravado pelo
+// uploadService (magic bytes) em contracts/<id>/shipment/...; a linha guarda so
+// metadados. Leitura por rota-proxy autenticada. Sem @relation (FKs so no SQL).
+model SaleContractShipmentPhoto {
+  id               String   @id @db.Uuid
+  saleContractId   String   @map("sale_contract_id") @db.Uuid
+  storagePath      String   @map("storage_path")
+  fileName         String?  @map("file_name")
+  mimeType         String?  @map("mime_type")
+  sizeBytes        Int?     @map("size_bytes")
+  checksumSha256   String?  @map("checksum_sha256")
+  uploadedByUserId String?  @map("uploaded_by_user_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([saleContractId, createdAt], map: "idx_sale_contract_shipment_photo_contract_created")
+  @@map("sale_contract_shipment_photo")
+}
+
 // Auditoria de aplicacao de agio/desagio pos-CONFIRMADO (D90). Uma linha por
 // aplicacao via os botoes do card; registra o valor aplicado, o que substituiu
 // e o total antes->depois. Sem @relation (FK so no SQL, padrao do dominio).

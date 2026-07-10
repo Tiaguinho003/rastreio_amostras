@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import os from 'node:os';
+import path from 'node:path';
 import { PrismaClient } from '@prisma/client';
 
 import { EventContractDbService } from '../src/events/event-contract-db-service.js';
@@ -8,7 +10,9 @@ import { PrismaEventStore } from '../src/events/prisma-event-store.js';
 import { SampleQueryService } from '../src/samples/sample-query-service.js';
 import { SampleCommandService } from '../src/samples/sample-command-service.js';
 import { SaleContractService } from '../src/sale-contracts/sale-contract-service.js';
+import { SaleContractShipmentService } from '../src/sale-contracts/sale-contract-shipment-service.js';
 import { SaleContractPdfService } from '../src/sale-contracts/sale-contract-pdf-service.js';
+import { LocalUploadService } from '../src/uploads/local-upload-service.js';
 import { getContractIssuer } from '../src/sale-contracts/issuer-config.js';
 import { registrationConfirmedEvent } from './helpers/event-builders.js';
 import { TEST_BROKER_ID, seedTestBroker } from './helpers/sale-contract-fixtures.js';
@@ -59,6 +63,14 @@ if (!databaseUrl || !databaseReachable) {
   });
   const saleContractService = new SaleContractService({ prisma, commandService, queryService });
   const saleContractPdfService = new SaleContractPdfService();
+  // Embarque (EMB27): serviço de confirmação com upload local num dir temporário.
+  const shipmentUploadsDir = path.join(os.tmpdir(), `sale-contract-shipment-it-${randomUUID()}`);
+  const shipmentService = new SaleContractShipmentService({
+    prisma,
+    uploadService: new LocalUploadService({ baseDir: shipmentUploadsDir }),
+  });
+  // PNG mínimo (assinatura + início do IHDR) — magic bytes que o file-type aceita.
+  const TINY_PNG = Buffer.from('89504e470d0a1a0a0000000d494844520000000100000001', 'hex');
 
   const commercialActor = {
     actorType: 'USER',
@@ -374,6 +386,132 @@ if (!databaseUrl || !databaseReachable) {
     const sample2 = await queryService.requireSample(s2);
     const noShipment = await sell(s2, sample2.version, buyerId, { modalityId: disponivel.id });
     assert.equal(noShipment.contract.requiresShipment, false);
+  });
+
+  // ============================================================
+  // Embarque F2 (EMB27): confirmação (shippedAt + fotos 0..10) + guards
+  // ============================================================
+  async function setupShipmentContract({ lotNumber, modalityName = 'Retirar' }) {
+    const modality = await prisma.contractModality.findFirst({ where: { name: modalityName } });
+    const buyerId = randomUUID();
+    await createBuyerClient(buyerId);
+    const sampleId = randomUUID();
+    await createClassifiedSample({ id: sampleId, lotNumber, declaredSacks: 10 });
+    const sample = await queryService.requireSample(sampleId);
+    const sale = await sell(sampleId, sample.version, buyerId, { modalityId: modality.id });
+    return sale.contract; // getSaleContract view (requiresShipment, shippedAt, status EMITIDO)
+  }
+
+  test('confirmShipment grava shippedAt (0 fotos) e vira embarcado', async () => {
+    const contract = await setupShipmentContract({ lotNumber: '25200' });
+    assert.equal(contract.requiresShipment, true);
+    const res = await shipmentService.confirmShipment(
+      contract.id,
+      { shippedAt: '2026-07-08', files: [] },
+      adminActor
+    );
+    // shippedAt volta como ISO (@db.Date → meia-noite UTC), igual invoiceDate/paidAt.
+    assert.equal(res.context.shippedAt?.slice(0, 10), '2026-07-08');
+    const row = await prisma.saleContract.findUnique({
+      where: { id: contract.id },
+      select: { shippedAt: true },
+    });
+    assert.ok(row.shippedAt);
+    const photos = await shipmentService.listShipmentPhotos(contract.id, adminActor);
+    assert.equal(photos.items.length, 0);
+  });
+
+  test('confirmShipment rejeita data futura (máx hoje BRT)', async () => {
+    const contract = await setupShipmentContract({ lotNumber: '25201' });
+    await assert.rejects(
+      () =>
+        shipmentService.confirmShipment(
+          contract.id,
+          { shippedAt: '2999-01-01', files: [] },
+          adminActor
+        ),
+      (err) => err.status === 422 && err.details?.code === 'VALIDATION_ERROR'
+    );
+  });
+
+  test('confirmShipment 422 se o contrato não exige embarque (Disponível)', async () => {
+    const contract = await setupShipmentContract({
+      lotNumber: '25202',
+      modalityName: 'Disponível',
+    });
+    assert.equal(contract.requiresShipment, false);
+    await assert.rejects(
+      () =>
+        shipmentService.confirmShipment(
+          contract.id,
+          { shippedAt: '2026-07-08', files: [] },
+          adminActor
+        ),
+      (err) => err.status === 422 && err.details?.code === 'CONTRACT_SHIPMENT_NOT_REQUIRED'
+    );
+  });
+
+  test('confirmShipment 409 se já embarcado (terminal, sem undo)', async () => {
+    const contract = await setupShipmentContract({ lotNumber: '25203' });
+    await shipmentService.confirmShipment(
+      contract.id,
+      { shippedAt: '2026-07-08', files: [] },
+      adminActor
+    );
+    await assert.rejects(
+      () =>
+        shipmentService.confirmShipment(
+          contract.id,
+          { shippedAt: '2026-07-08', files: [] },
+          adminActor
+        ),
+      (err) => err.status === 409 && err.details?.code === 'CONTRACT_ALREADY_SHIPPED'
+    );
+  });
+
+  test('confirmShipment 409 se o contrato não está EMITIDO/FATURADO', async () => {
+    const contract = await setupShipmentContract({ lotNumber: '25204' });
+    await prisma.saleContract.update({ where: { id: contract.id }, data: { status: 'WASH_OUT' } });
+    await assert.rejects(
+      () =>
+        shipmentService.confirmShipment(
+          contract.id,
+          { shippedAt: '2026-07-08', files: [] },
+          adminActor
+        ),
+      (err) => err.status === 409 && err.details?.code === 'CONTRACT_NOT_SHIPPABLE'
+    );
+  });
+
+  test('confirmShipment 422 se mais de 10 fotos', async () => {
+    const contract = await setupShipmentContract({ lotNumber: '25205' });
+    const files = Array.from({ length: 11 }, () => ({
+      fileBuffer: TINY_PNG,
+      originalFileName: 'p.png',
+    }));
+    await assert.rejects(
+      () =>
+        shipmentService.confirmShipment(
+          contract.id,
+          { shippedAt: '2026-07-08', files },
+          adminActor
+        ),
+      (err) => err.status === 422 && err.details?.code === 'SHIPMENT_TOO_MANY_PHOTOS'
+    );
+  });
+
+  test('confirmShipment grava fotos; listShipmentPhotos devolve sem storagePath', async () => {
+    const contract = await setupShipmentContract({ lotNumber: '25206' });
+    await shipmentService.confirmShipment(
+      contract.id,
+      { shippedAt: '2026-07-08', files: [{ fileBuffer: TINY_PNG, originalFileName: 'carga.png' }] },
+      adminActor
+    );
+    const photos = await shipmentService.listShipmentPhotos(contract.id, adminActor);
+    assert.equal(photos.items.length, 1);
+    assert.equal(photos.items[0].mimeType, 'image/png');
+    // A view não vaza o caminho interno do arquivo.
+    assert.equal(photos.items[0].storagePath, undefined);
   });
 
   test('numeracao continua: 2 vendas => 0001 e 0002', async () => {

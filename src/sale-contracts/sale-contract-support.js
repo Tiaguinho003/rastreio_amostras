@@ -390,6 +390,60 @@ export function toSaleContractBrokerView(row) {
   };
 }
 
+// ============================================================
+// Embarque (EMB25/EMB27) — fotos da confirmacao + contexto
+// ============================================================
+
+// A view NAO expoe storagePath/checksum (internos); o download e por rota-proxy
+// autenticada via id (molde do anexo de cliente).
+export const SHIPMENT_PHOTO_VIEW_SELECT = Object.freeze({
+  id: true,
+  saleContractId: true,
+  fileName: true,
+  mimeType: true,
+  sizeBytes: true,
+  createdAt: true,
+});
+
+export function toShipmentPhotoView(photo) {
+  return {
+    id: photo.id,
+    contractId: photo.saleContractId,
+    fileName: photo.fileName ?? null,
+    mimeType: photo.mimeType ?? null,
+    sizeBytes: photo.sizeBytes ?? null,
+    createdAt: toIsoString(photo.createdAt),
+  };
+}
+
+// Colunas do resumo do embarque (modal de confirmacao + secao "Embarque" do
+// Detalhes). So dado NAO-sensivel (EMB25): sem preco/corretagem.
+export const SHIPMENT_CONTEXT_SELECT = Object.freeze({
+  id: true,
+  contractNumber: true,
+  status: true,
+  quantitySacks: true,
+  invoiceDate: true,
+  requiresShipment: true,
+  shippedAt: true,
+  buyerSnapshot: true,
+  sellerWarehouseSnapshot: true,
+});
+
+export function buildShipmentContext(row) {
+  return {
+    contractId: row.id,
+    contractNumber: row.contractNumber,
+    status: row.status,
+    quantitySacks: row.quantitySacks,
+    invoiceDate: toIsoString(row.invoiceDate),
+    requiresShipment: row.requiresShipment,
+    shippedAt: toIsoString(row.shippedAt),
+    buyerName: row.buyerSnapshot?.displayName ?? null,
+    sellerWarehouse: row.sellerWarehouseSnapshot?.displayName ?? null,
+  };
+}
+
 // Revisao do Pagamento (FN1): estado de pagamento derivado (sem enum) — a LENTE do
 // Financeiro. Chip: cancelado (WASH_OUT) · pago (PAGO) · vencido (nao pago +
 // paymentDate < hoje BRT) · a_vencer (nao pago, no prazo ou SEM data). `paymentDate`

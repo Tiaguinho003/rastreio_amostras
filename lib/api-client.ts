@@ -28,6 +28,8 @@ import type {
   ClientBankAccountResponse,
   ClientAttachmentListResponse,
   ClientAttachmentResponse,
+  ShipmentContextResponse,
+  ShipmentPhotoListResponse,
   ClientLookupKind,
   ClientLookupResponse,
   ClientPurchasesListResponse,
@@ -1081,6 +1083,54 @@ export function deleteClientAttachment(
 // <a href>, <img src> ou <iframe src>; cookies same-origin acompanham.
 export function clientAttachmentDownloadUrl(clientId: string, attachmentId: string): string {
   return `${API_BASE}/clients/${clientId}/attachments/${attachmentId}`;
+}
+
+// Embarque (EMB27) — resumo, fotos e confirmacao. Auth-only (todos nao-PROSPECTOR).
+export function getShipmentContext(
+  session: SessionData,
+  contractId: string,
+  options: { signal?: AbortSignal } = {}
+) {
+  return request<ShipmentContextResponse>(`/sale-contracts/${contractId}/shipment-context`, {
+    method: 'GET',
+    session,
+    signal: options.signal,
+  });
+}
+
+export function listShipmentPhotos(
+  session: SessionData,
+  contractId: string,
+  options: { signal?: AbortSignal } = {}
+) {
+  return request<ShipmentPhotoListResponse>(`/sale-contracts/${contractId}/shipment-photos`, {
+    method: 'GET',
+    session,
+    signal: options.signal,
+  });
+}
+
+// Confirma o embarque: multipart com a data (shippedAt) + 0..10 fotos opcionais.
+export function confirmShipment(
+  session: SessionData,
+  contractId: string,
+  input: { shippedAt: string; files: File[] }
+) {
+  const formData = new FormData();
+  formData.append('shippedAt', input.shippedAt);
+  for (const file of input.files) {
+    formData.append('file', file);
+  }
+  return request<ShipmentContextResponse>(`/sale-contracts/${contractId}/shipment-confirmation`, {
+    method: 'POST',
+    session,
+    formData,
+  });
+}
+
+// URL da rota-proxy de uma foto de embarque (serve inline; cookies same-origin).
+export function shipmentPhotoDownloadUrl(contractId: string, photoId: string): string {
+  return `${API_BASE}/sale-contracts/${contractId}/shipment-photos/${photoId}`;
 }
 
 export function getUser(session: SessionData, userId: string) {

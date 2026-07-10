@@ -245,6 +245,7 @@ export function createBackendApiV1({
   clientBankAccountService = null,
   clientAttachmentService = null,
   saleContractService = null,
+  saleContractShipmentService = null,
   saleContractPdfService = null,
   visitReportService = null,
   commercialFormsService = null,
@@ -3459,6 +3460,71 @@ export function createBackendApiV1({
           actor
         );
         return { status: 200, body: result };
+      }),
+
+    // ============================================================
+    // Embarque — confirmacao + fotos (EMB27). Auth-only (todos os
+    // nao-PROSPECTOR); PROSPECTOR barrado no allowlist central.
+    // ============================================================
+    getSaleContractShipmentContext: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractShipmentService) {
+          throw new HttpError(501, 'Sale contract shipment service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const result = await saleContractShipmentService.getShipmentContext(
+          input?.params?.contractId,
+          actor
+        );
+        return { status: 200, body: result };
+      }),
+
+    listSaleContractShipmentPhotos: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractShipmentService) {
+          throw new HttpError(501, 'Sale contract shipment service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const result = await saleContractShipmentService.listShipmentPhotos(
+          input?.params?.contractId,
+          actor
+        );
+        return { status: 200, body: result };
+      }),
+
+    confirmSaleContractShipment: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractShipmentService) {
+          throw new HttpError(501, 'Sale contract shipment service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+        const result = await saleContractShipmentService.confirmShipment(
+          input?.params?.contractId,
+          {
+            shippedAt: body.shippedAt ?? null,
+            files: Array.isArray(body.files) ? body.files : [],
+          },
+          actor
+        );
+        return { status: 201, body: result };
+      }),
+
+    // Descritor da foto de embarque: a rota binaria (que serve os bytes do disco)
+    // NAO passa pelo executeBackend, entao delega a auth aqui (molde da foto de
+    // amostra). resolveActorContext garante sessao + barra PROSPECTOR.
+    getSaleContractShipmentPhotoDescriptor: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractShipmentService) {
+          throw new HttpError(501, 'Sale contract shipment service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const descriptor = await saleContractShipmentService.getShipmentPhotoDescriptor(
+          input?.params?.contractId,
+          input?.params?.photoId,
+          actor
+        );
+        return { status: 200, body: descriptor };
       }),
 
     // ============================================================

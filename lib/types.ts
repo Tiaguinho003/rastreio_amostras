@@ -429,6 +429,39 @@ export interface SaleContractDetail extends SaleContract {
   sampleIsBlend: boolean | null;
 }
 
+// Embarque (EMB27) — fotos da confirmacao. A view nao expoe storagePath/checksum;
+// o download e por rota-proxy autenticada (shipmentPhotoDownloadUrl).
+export interface ShipmentPhoto {
+  id: string;
+  contractId: string;
+  fileName: string | null;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  createdAt: string | null;
+}
+
+export interface ShipmentPhotoListResponse {
+  items: ShipmentPhoto[];
+}
+
+// Resumo NAO-sensivel do embarque (sem preco/corretagem): modal de confirmacao
+// (worklist + portao do pagamento) e secao "Embarque" do Detalhes.
+export interface ShipmentContext {
+  contractId: string;
+  contractNumber: string;
+  status: SaleContractStatus;
+  quantitySacks: number;
+  invoiceDate: string | null;
+  requiresShipment: boolean;
+  shippedAt: string | null;
+  buyerName: string | null;
+  sellerWarehouse: string | null;
+}
+
+export interface ShipmentContextResponse {
+  context: ShipmentContext;
+}
+
 // Fechamento ("Editar"): bloco da fase 1 (venda) editavel num contrato emitido.
 // Presente so no "Editar"; ausente no wizard create->emit (o create ja os fixou).
 export interface SaleContractSaleFieldsInput {

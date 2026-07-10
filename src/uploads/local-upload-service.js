@@ -138,6 +138,56 @@ export class LocalUploadService {
     };
   }
 
+  // Fotos da confirmacao de embarque (EMB27): so imagem (JPEG/PNG/WebP, sem PDF),
+  // storage contracts/<id>/shipment/. O count 0..10 e checado no service (aqui e
+  // por arquivo). Molde do saveSamplePhoto.
+  async saveContractShipmentPhoto({ contractId, buffer, originalFileName = null }) {
+    if (!contractId || typeof contractId !== 'string') {
+      throw new HttpError(422, 'contractId is required for shipment photo upload');
+    }
+
+    if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
+      throw new HttpError(422, 'file buffer is required');
+    }
+
+    assertAcceptedUploadSize(buffer.length, {
+      limitBytes: this.maxUploadSizeBytes,
+      fieldLabel: 'Uploaded image',
+    });
+
+    const detected = await fileTypeFromBuffer(buffer);
+    if (!detected || !ALLOWED_IMAGE_TYPES.has(detected.mime)) {
+      throw new HttpError(
+        415,
+        'Unsupported file type. Only JPEG, PNG and WebP images are accepted'
+      );
+    }
+
+    const attachmentId = randomUUID();
+    const safeName = sanitizeFileName(originalFileName);
+    const relativePath = path.join(
+      'contracts',
+      contractId,
+      'shipment',
+      `${attachmentId}-${safeName}`
+    );
+    const absolutePath = path.join(this.baseDir, relativePath);
+
+    await fs.mkdir(path.dirname(absolutePath), { recursive: true });
+    await fs.writeFile(absolutePath, buffer);
+
+    const checksumSha256 = createHash('sha256').update(buffer).digest('hex');
+
+    return {
+      attachmentId,
+      storagePath: relativePath,
+      fileName: safeName,
+      mimeType: detected.mime,
+      sizeBytes: buffer.length,
+      checksumSha256,
+    };
+  }
+
   async deleteByStoragePath(storagePath) {
     if (!storagePath) {
       return;
