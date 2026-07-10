@@ -3181,6 +3181,27 @@ export function createBackendApiV1({
         return { status: 200, body: result };
       }),
 
+    // AP23: toggle rapido Sim/Nao do requiresApproval (Detalhes). So ADMIN/COMMERCIAL
+    // (gate no service); travas AP20 (so EMITIDO; Sim->Nao so sem etiqueta).
+    setSaleContractApprovalFlag: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractService) {
+          throw new HttpError(501, 'Sale contract service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const contractId = input?.params?.contractId;
+        if (typeof contractId !== 'string' || contractId.length === 0) {
+          throw new HttpError(422, 'contractId path param is required');
+        }
+        const body = readRequestBody(input);
+        const result = await saleContractService.setSaleContractApprovalFlag(
+          contractId,
+          body,
+          actor
+        );
+        return { status: 200, body: result };
+      }),
+
     paySaleContract: (input) =>
       executeApiForInput(input, async () => {
         if (!saleContractService) {

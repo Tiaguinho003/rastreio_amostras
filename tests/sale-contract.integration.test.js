@@ -2679,6 +2679,59 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
+  // ---- Aprovacao: toggle rapido do sinal no Detalhes (AP23 + travas AP20, F5) -----
+  const verOf = async (id) =>
+    (await prisma.saleContract.findUnique({ where: { id }, select: { version: true } })).version;
+
+  test('setSaleContractApprovalFlag: liga (lead 30) / desliga (lead null) em EMITIDO sem envio (AP23)', async () => {
+    const c = await mkApprovalContract({ requiresApproval: false });
+
+    const on = await saleContractService.setSaleContractApprovalFlag(
+      c,
+      { requiresApproval: true, expectedVersion: await verOf(c) },
+      adminActor
+    );
+    assert.equal(on.contract.requiresApproval, true);
+    assert.equal(on.contract.approvalReminderLeadDays, 30); // lead PADRAO ao ligar
+
+    const off = await saleContractService.setSaleContractApprovalFlag(
+      c,
+      { requiresApproval: false, expectedVersion: await verOf(c) },
+      adminActor
+    );
+    assert.equal(off.contract.requiresApproval, false);
+    assert.equal(off.contract.approvalReminderLeadDays, null); // null ao desligar
+  });
+
+  test('setSaleContractApprovalFlag: Sim→Não trava apos o 1o envio (409 APPROVAL_FLAG_LOCKED)', async () => {
+    const c = await mkApprovalContract({ requiresApproval: true });
+    await mkApprovalLabel(c);
+    const v = await verOf(c);
+    await assert.rejects(
+      () =>
+        saleContractService.setSaleContractApprovalFlag(
+          c,
+          { requiresApproval: false, expectedVersion: v },
+          adminActor
+        ),
+      (err) => err.status === 409 && err.details?.code === 'APPROVAL_FLAG_LOCKED'
+    );
+  });
+
+  test('setSaleContractApprovalFlag: faturado congela o sinal (409 APPROVAL_FLAG_NOT_EDITABLE)', async () => {
+    const c = await mkApprovalContract({ requiresApproval: true, status: 'FATURADO' });
+    const v = await verOf(c);
+    await assert.rejects(
+      () =>
+        saleContractService.setSaleContractApprovalFlag(
+          c,
+          { requiresApproval: false, expectedVersion: v },
+          adminActor
+        ),
+      (err) => err.status === 409 && err.details?.code === 'APPROVAL_FLAG_NOT_EDITABLE'
+    );
+  });
+
   test('aprovação (AP16): getRecentApprovalSends devolve nº+comprador, exclui avulsas, ordena desc', async () => {
     const buyerId = randomUUID();
     await createBuyerClient(buyerId);

@@ -930,6 +930,20 @@ export function invoiceSaleContract(
   });
 }
 
+// AP23: toggle rápido Sim/Não do requiresApproval, do modal de Detalhes (sem abrir o
+// "Editar" inteiro). Só ADMIN/COMMERCIAL; travas AP20 no backend.
+export function setSaleContractApprovalFlag(
+  session: SessionData,
+  contractId: string,
+  data: { requiresApproval: boolean; expectedVersion: number }
+) {
+  return request<SaleContractResponse>(`/sale-contracts/${contractId}/approval-flag`, {
+    method: 'POST',
+    session,
+    body: data,
+  });
+}
+
 export function paySaleContract(
   session: SessionData,
   contractId: string,

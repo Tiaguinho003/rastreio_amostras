@@ -1009,7 +1009,8 @@ function normalizeSacks(value, fieldName = 'quantitySacks') {
 }
 
 // Sinal de aprovacao (reforma AP1/AP3): obrigatorio escolher na criacao/edicao.
-function normalizeRequiredBoolean(value, fieldName) {
+// Exportado tambem pro toggle rapido do Detalhes (AP23).
+export function normalizeRequiredBoolean(value, fieldName) {
   if (typeof value !== 'boolean') {
     throw new HttpError(422, `${fieldName} must be a boolean`, {
       code: 'VALIDATION_ERROR',
@@ -1025,7 +1026,7 @@ const APPROVAL_REMINDER_LEAD_DAYS_DEFAULT = 30;
 const APPROVAL_REMINDER_LEAD_DAYS_MIN = 1;
 const APPROVAL_REMINDER_LEAD_DAYS_MAX = 365;
 
-function normalizeApprovalReminderLeadDays(
+export function normalizeApprovalReminderLeadDays(
   value,
   requiresApproval,
   fieldName = 'approvalReminderLeadDays'

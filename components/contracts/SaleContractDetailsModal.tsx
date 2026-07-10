@@ -23,6 +23,7 @@ import {
   getSaleContract,
   getSaleContractTimeline,
   listShipmentPhotos,
+  setSaleContractApprovalFlag,
   shipmentPhotoDownloadUrl,
 } from '../../lib/api-client';
 import { formatRelativeTime } from '../../lib/relative-time';
@@ -207,6 +208,9 @@ export function SaleContractDetailsModal({
   // confirmação mora na sub-aba/portão). Só busca quando o contrato exige embarque.
   const [shipmentPhotos, setShipmentPhotos] = useState<ShipmentPhoto[] | null>(null);
   const [photoPreview, setPhotoPreview] = useState<ShipmentPhoto | null>(null);
+  // AP23: estado do toggle Sim/Não da aprovação (mutação inline no Detalhes).
+  const [approvalBusy, setApprovalBusy] = useState(false);
+  const [approvalError, setApprovalError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -296,6 +300,29 @@ export function SaleContractDetailsModal({
 
   const view = fresh ?? contract;
   const meta = STATUS_META[view.status];
+
+  // AP23/AP20: o toggle Sim/Não só muda em EMITIDO (faturado+/washout congelam); o
+  // "Não" trava após o 1º envio (a timeline já traz os envios como itens APROVACAO).
+  const canToggleApproval = canManage && view.status === 'EMITIDO';
+  const approvalLocked = (timeline ?? []).some((item) => item.kind === 'APROVACAO');
+  async function handleToggleApproval(next: boolean) {
+    if (approvalBusy || next === view.requiresApproval) return;
+    setApprovalBusy(true);
+    setApprovalError(null);
+    try {
+      const res = await setSaleContractApprovalFlag(session, contract.id, {
+        requiresApproval: next,
+        expectedVersion: view.version,
+      });
+      setFresh(res.contract);
+    } catch (cause) {
+      setApprovalError(
+        cause instanceof ApiError ? cause.message : 'Não foi possível atualizar a aprovação.'
+      );
+    } finally {
+      setApprovalBusy(false);
+    }
+  }
 
   // Rodapé por status (D121/D122). WASH_OUT (ou sem gestão) = sem rodapé —
   // Exportar/Baixar já vivem na seção do documento.
@@ -481,6 +508,50 @@ export function SaleContractDetailsModal({
               <h4 className="ctr-section-title">Valores e corretagem</h4>
               <FieldRows rows={valueRows} />
             </section>
+            {canToggleApproval || view.requiresApproval ? (
+              <section>
+                <h4 className="ctr-section-title">Aprovação</h4>
+                {approvalError ? <p className="sdv-modal-error">{approvalError}</p> : null}
+                {canToggleApproval ? (
+                  <div className="app-modal-field">
+                    <span className="app-modal-label">Este contrato precisa de aprovação?</span>
+                    <div
+                      className="ctr-approval-choice"
+                      role="group"
+                      aria-label="Precisa de aprovação?"
+                    >
+                      <button
+                        type="button"
+                        className={`ctr-approval-btn${view.requiresApproval ? ' is-selected' : ''}`}
+                        aria-pressed={view.requiresApproval}
+                        disabled={approvalBusy}
+                        onClick={() => void handleToggleApproval(true)}
+                      >
+                        Sim
+                      </button>
+                      <button
+                        type="button"
+                        className={`ctr-approval-btn${!view.requiresApproval ? ' is-selected' : ''}`}
+                        aria-pressed={!view.requiresApproval}
+                        disabled={approvalBusy || approvalLocked}
+                        onClick={() => void handleToggleApproval(false)}
+                      >
+                        Não
+                      </button>
+                    </div>
+                    {approvalLocked ? (
+                      <p className="ctr-approval-note">
+                        Aprovação já enviada — não dá mais para desmarcar.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : (
+                  <FieldRows
+                    rows={[['Precisa de aprovação', view.requiresApproval ? 'Sim' : 'Não']]}
+                  />
+                )}
+              </section>
+            ) : null}
             {view.requiresShipment ? (
               <section>
                 <h4 className="ctr-section-title">Embarque</h4>

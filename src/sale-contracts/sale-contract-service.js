@@ -38,10 +38,12 @@ import {
   CONTRACT_LOOKUP_LISTS,
   formatContractNumber,
   normalizeActionDate,
+  normalizeApprovalReminderLeadDays,
   normalizeContractLookupInput,
   normalizeEtapa2Input,
   normalizeFutureSaleContractInput,
   normalizeRequiredAgio,
+  normalizeRequiredBoolean,
   normalizeWashoutReason,
   PAYMENT_EVENT_SELECT,
   RECEIVABLE_VIEW_SELECT,
@@ -1407,6 +1409,67 @@ export class SaleContractService {
       return updated;
     });
     if (result.count === 0) {
+      throw new HttpError(409, 'Sale contract was modified concurrently', {
+        code: 'SALE_CONTRACT_VERSION_CONFLICT',
+        field: 'expectedVersion',
+      });
+    }
+
+    return this.getSaleContract(contractId, actorContext);
+  }
+
+  // AP23: toggle rapido Sim/Nao do requiresApproval no Detalhes (sem abrir o "Editar"
+  // inteiro). So ADMIN/COMMERCIAL (AP9; COMMERCIAL nos dele). Travas AP20: so muda em
+  // EMITIDO (faturado+/washout congelam — 409 NOT_EDITABLE); Sim->Nao so ANTES do 1o
+  // envio (apos enviar trava em "Sim" — 409 LOCKED). Grava o lead PADRAO (30) ao ligar
+  // / null ao desligar (lead custom fica no "Editar"). Bumpa version (muda o contrato).
+  async setSaleContractApprovalFlag(contractId, input, actorContext) {
+    const actor = assertAuthenticatedActor(actorContext, 'set approval flag');
+    assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'set approval flag');
+    this._requireContractId(contractId);
+    // COMMERCIAL (D110): so os contratos em que e corretor.
+    await this._assertActorMayAccessContract(actor, contractId);
+    const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
+    const requiresApproval = normalizeRequiredBoolean(input?.requiresApproval, 'requiresApproval');
+
+    const contract = await this.prisma.saleContract.findUnique({
+      where: { id: contractId },
+      select: { id: true, status: true, version: true },
+    });
+    if (!contract) {
+      throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
+    }
+    // AP20: o sinal so muda enquanto EMITIDO; faturado/pago/washout congelam a decisao.
+    if (contract.status !== 'EMITIDO') {
+      throw new HttpError(409, `Sale contract is ${contract.status}; approval flag is frozen`, {
+        code: 'APPROVAL_FLAG_NOT_EDITABLE',
+      });
+    }
+    if (contract.version !== expectedVersion) {
+      throw new HttpError(409, 'Sale contract was modified concurrently', {
+        code: 'SALE_CONTRACT_VERSION_CONFLICT',
+        field: 'expectedVersion',
+      });
+    }
+    // AP20: desmarcar (Sim->Nao) so ANTES do 1o envio — depois trava em "Sim" (ja foi
+    // aprovado, nao da pra fingir que nao precisava). Marcar (->Sim) e sempre livre.
+    if (!requiresApproval) {
+      const labelCount = await this.prisma.approvalLabelLog.count({
+        where: { saleContractId: contractId },
+      });
+      if (labelCount > 0) {
+        throw new HttpError(409, 'Approval already sent; flag is locked to "Sim"', {
+          code: 'APPROVAL_FLAG_LOCKED',
+        });
+      }
+    }
+
+    const approvalReminderLeadDays = normalizeApprovalReminderLeadDays(undefined, requiresApproval);
+    const updated = await this.prisma.saleContract.updateMany({
+      where: { id: contractId, version: expectedVersion, status: 'EMITIDO' },
+      data: { requiresApproval, approvalReminderLeadDays, version: { increment: 1 } },
+    });
+    if (updated.count === 0) {
       throw new HttpError(409, 'Sale contract was modified concurrently', {
         code: 'SALE_CONTRACT_VERSION_CONFLICT',
         field: 'expectedVersion',

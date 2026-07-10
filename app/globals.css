@@ -8742,6 +8742,13 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   transform: none;
 }
 
+/* AP23: nota do toggle no Detalhes (ex.: "já enviada — não dá para desmarcar"). */
+.ctr-approval-note {
+  margin: 0.4rem 0 0;
+  font-size: 0.8rem;
+  color: var(--brand-muted);
+}
+
 /* Erro de grupo de opcoes (nao ha input pra abrigar o placeholder). */
 .inf-card-error {
   margin: 0;
