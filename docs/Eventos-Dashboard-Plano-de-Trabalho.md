@@ -24,6 +24,11 @@
 > (só `FATURADO`) + **"Ver contrato"** (`/contratos?details=`). 100% dos gates verdes + unit +
 > integração. 📱 **validar no device** (cores dos dots, acordeão, fluxo "Pago", deep link; ADMIN vê
 > todos × COMMERCIAL só os dele). **EVD-P5** (refino de layout) segue adiado.
+> **2026-07-10 — REVISÃO DO PAGAMENTO (E28–E30 + FN1–FN7), pra alinhar os 3 eventos:** o
+> evento vira **navegação pura → Financeiro** (revê E25–E27 — saem acordeão/"Pago"/"Ver
+> contrato" do card), ganha **"atrasado"** (vermelho `#dc2626`), e o **Financeiro** vira a
+> **casa do pagamento** (todos os contratos, chips a vencer/vencido/pago, fila por
+> vencimento). **DESIGN — reverte código já implementado (E25–E27); implementação depois.**
 
 ## Contexto e objetivo
 
@@ -165,6 +170,72 @@ como pago** e um **link para o contrato**. Só decisão — implementação = F1
   Vale pra **todos** os eventos de pagamento (agendado e realizado). Como o feed é escopado (E22), o link
   sempre aponta pra um contrato que o usuário acessa. Fecha o deep link adiado pela E23.
 
+## Revisão do Pagamento — alinhamento com Embarque/Aprovação (E28–E30 + FN1–FN7, 2026-07-10)
+
+> **Gatilho.** Depois de desenhar a Aprovação (sub-aba = casa, dashboard = caminho) e o
+> Embarque (navegação pura + atraso + portão), o Flavio pediu para **revisar o Pagamento** — o
+> 1º e **único evento já implementado** (F1) — para que os **três eventos do dashboard fiquem
+> alinhados**. Diferente dos outros dois, aqui a revisão é **do código real contra o padrão
+> firmado**. O Pagamento não ganha página nova: a casa dele é o **Financeiro** (existente, no
+> hub `/contratos`). **DESIGN — reverte parte do que está implementado (E25–E27); implementação
+> depois.**
+
+**Já estava alinhado (mantém):** o "Pago" já abre **seletor de data** (default hoje, editável)
+= padrão do `shippedAt` (EMB27); o **realizado** (verde) fica no histórico do calendário; o
+**escopo por papel** (E22 — ADMIN todos / COMMERCIAL os seus; operacionais não veem pagamento)
+é **diferença proposital** (dado financeiro) e **fica**.
+
+### Decisões do evento (dashboard)
+
+- **E28 — O evento de pagamento vira NAVEGAÇÃO PURA → Financeiro (revê E25/E26/E27).** Como o
+  Embarque (EMB26), o evento no card deixa de ter **acordeão**, **"Pago"** e **"Ver contrato"**:
+  fica **dot + rótulo** e, ao tocar, **leva pro Financeiro** (`/contratos?tab=financeiro` — abre
+  a aba; destacar o contrato tocado se der). O **"Pago" passa a existir só no Financeiro**
+  (deixa de ser 2ª porta). Motivo reforçado: o **portão do embarque (EMB28)** faz "marcar PAGO
+  sem embarcar" abrir um **modal** — que no dashboard violaria a regra "sem modal no card"
+  (Embarque); com o "Pago" só no Financeiro, o portão mora num lugar só. _(Reverte E25/E26/E27,
+  que estão implementados na F1.)_
+- **E29 — O pagamento ganha o "atrasado" (espelha o Embarque).** Um pagamento **vencido**
+  (passou o `paymentDate` sem pagar, EMITIDO/FATURADO) deixa de pintar âmbar igual a um a
+  vencer: vira **vermelho `#dc2626`** a partir do **dia seguinte** ao vencimento. É o **3º
+  sub-tipo** do calendário (`typeKey` proposto **`contract_payment_overdue`**). **Vermelho =
+  convenção "atrasado" cross-type** (pagamento + embarque; o rótulo e o escopo distinguem). A
+  **fila durável de vencidos** vive no **Financeiro** (FN). _(Hoje o CSS reserva o vermelho de
+  propósito — passa a ser usado.)_
+- **E30 — Nit: o seletor do "Pago" trava em `máx hoje`.** Hoje aceita data futura; alinha com o
+  `shippedAt` do embarque (EMB27) — não se paga no futuro.
+
+### A casa do pagamento — desenho do Financeiro (FN1–FN7)
+
+O Financeiro (sub-aba de `/contratos`, restrita a `FINANCEIRO_ROLES`) deixa de ser só
+"corretagem a receber" e vira **a casa do pagamento**: hospeda **todos os contratos** (no
+escopo do papel — ADMIN todos / COMMERCIAL os dele), com **lente primária = status de
+pagamento** (a corretagem continua exibida).
+
+- **FN1 — Estados (chip derivado, sem enum):** **a vencer** (não pago, `paymentDate` ≥ hoje —
+  âmbar `#eab308`) · **vencido** (não pago, `paymentDate` < hoje — vermelho `#dc2626`) · **pago**
+  (PAGO — verde `#15803d`). Cores = **as mesmas dos dots do calendário** (coerência
+  evento↔página). _Edge:_ contrato sem `paymentDate` = "a vencer" sem data (nunca vira vencido).
+- **FN2 — Washout = 4º chip "cancelado" (cinza), não some** (o Flavio quis "todos os
+  contratos").
+- **FN3 — O card:** chip · nº · comprador · **vencimento** (`paymentDate`; "pago em `paidAt`"
+  quando pago) · **total + corretagem** · ação. Dados financeiros **aparecem** (aba restrita).
+  Ação = **[Pago]** só em FATURADO (a vencer/vencido) + **[Ver contrato]** sempre.
+- **FN4 — Ordem: por vencimento crescente** (vencidos no topo → a vencer mais próximo); pagos e
+  cancelados ao fim. Fila de trabalho, como o Embarque.
+- **FN5 — Filtros:** **Todos · A vencer · Vencido · Pago · Cancelado** + busca por **nº,
+  comprador ou corretor**.
+- **FN6 — Cabeçalho:** mantém o **"Total a receber"** (corretagem) e acrescenta um indicador de
+  **vencidos** ("N vencidos · R$ X").
+- **FN7 — "Pago" + portão + nit:** **[Pago]** (FATURADO) abre o seletor (default hoje, **máx
+  hoje** — E30) com o **portão EMB28** (exige embarque e não embarcou → modal só com **[Confirmar
+  embarque]** → segue direto pro pagamento). O "Pago" do dashboard sai (E28).
+
+**Revisadas:** E25/E26/E27 → **revertidas** pelo E28 (o dashboard não age mais no pagamento);
+E23 (deep link) volta a "toca → Financeiro"; o catálogo (EVD-P1) ganha a 3ª cor
+(`contract_payment_overdue`, vermelho). **Escopo E22 mantido.** Tudo **DESIGN** — diverge do
+código atual (F1 implementada com acordeão/"Pago"/sem atraso).
+
 ## Propostas de design (NÃO travadas — defaults da implementação, sujeitos à validação visual)
 
 - Shell no padrão dos cards da linha 2: branco, radius 20, borda
@@ -276,3 +347,14 @@ como pago** e um **link para o contrato**. Só decisão — implementação = F1
   Gates verdes + unit (`buildApprovalReminderEvent`/`bucketApprovalReminders`) + integração
   (pendente/anti-join/visibilidade por papel). 📱 falta validação no device. Ver F2/AP6-AP15 no doc de
   Aprovações.
+- **2026-07-10 (Revisão do Pagamento — alinhamento; E28–E30 + FN1–FN7).** Depois da Aprovação e
+  do Embarque, o Flavio pediu pra alinhar o Pagamento (1º e único evento já implementado) aos
+  outros dois. **E28:** o evento vira **navegação pura → Financeiro** (revê E25–E27 — saem
+  acordeão/"Pago"/"Ver contrato" do card; "Pago" só no Financeiro; o portão EMB28 mora só lá,
+  sem modal no card). **E29:** ganha **"atrasado"** (vermelho `#dc2626`, dia seguinte ao
+  `paymentDate`, EMITIDO+FATURADO; `typeKey` `contract_payment_overdue`; vermelho = convenção
+  cross-type com o embarque). **E30:** o seletor do "Pago" trava em máx hoje. **Financeiro =
+  casa do pagamento (FN1–FN7):** todos os contratos no escopo, chips **a vencer/vencido/pago**
+  (+ cancelado), card com vencimento + total + corretagem, ordem por vencimento crescente,
+  filtros, cabeçalho com "N vencidos", "Pago" (FATURADO) + portão. Escopo E22 mantido. **DESIGN —
+  reverte código implementado (E25–E27); implementação depois.** Só decisão/registro — sem código.
