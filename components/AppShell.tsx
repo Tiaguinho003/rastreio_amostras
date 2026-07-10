@@ -15,6 +15,7 @@ import { changePasswordSchema } from '../lib/form-schemas';
 import { useVisitOutboxAutoSync } from '../lib/offline/use-visit-outbox-sync';
 import { VISIT_SYNC_COMPLETED_EVENT, type VisitSyncResult } from '../lib/offline/visit-sync';
 import {
+  canManageClients,
   CONTRATOS_ROLES,
   getRoleLabel,
   INFORME_ROLES,
@@ -414,14 +415,10 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
         // ADMIN/CADASTRO acessam clientes pelo hub Cadastros (aba Clientes) —
         // por isso "Clientes" avulso sai da sidebar deles (os demais mantem).
         ...DESKTOP_NAV_ITEMS.filter(
-          (item) =>
-            item.href !== '/clients' ||
-            !(isAdmin(session.user.role) || session.user.role === 'CADASTRO')
+          (item) => item.href !== '/clients' || !canManageClients(session.user.role)
         ),
         ...(isRoleAllowed(session.user.role, INFORME_ROLES) ? [INFORME_NAV_ITEM] : []),
-        ...(isAdmin(session.user.role) || session.user.role === 'CADASTRO'
-          ? [CADASTROS_NAV_ITEM]
-          : []),
+        ...(canManageClients(session.user.role) ? [CADASTROS_NAV_ITEM] : []),
         // Contratos = hub da Central de Contratos (Financeiro agora e sub-aba, por
         // isso nao ha mais item avulso). ADMIN + COMMERCIAL (CONTRATOS_ROLES);
         // Usuários (ADMIN_NAV_ITEM) segue ADMIN-only.
@@ -901,9 +898,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
           }).map((item) => {
             // ADMIN/CADASTRO nao tem "Clientes" avulso — o 4o slot fixo vira
             // "Cadastros" (hub com abas), unica entrada mobile pro conjunto.
-            const swap =
-              item.href === '/clients' &&
-              (isAdmin(session.user.role) || session.user.role === 'CADASTRO');
+            const swap = item.href === '/clients' && canManageClients(session.user.role);
             const resolved = swap
               ? {
                   href: '/cadastros',

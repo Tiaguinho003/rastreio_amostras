@@ -3,7 +3,13 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { CONTRATOS_ROLES, getRoleLabel, isAdmin, isRoleAllowed } from '../lib/roles';
+import {
+  CONTRATOS_ROLES,
+  canManageClients,
+  getRoleLabel,
+  isAdmin,
+  isRoleAllowed,
+} from '../lib/roles';
 import type { SessionData } from '../lib/types';
 import { BottomSheet } from './BottomSheet';
 import { UserAvatar } from './UserAvatar';
@@ -108,7 +114,7 @@ export function HeaderAvatarMenu({ session, onLogout }: HeaderAvatarMenuProps) {
               </button>
             ) : null}
 
-            {isAdmin(session.user.role) || session.user.role === 'CADASTRO' ? (
+            {canManageClients(session.user.role) ? (
               <button
                 type="button"
                 className="header-avatar-menu-row"

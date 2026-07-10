@@ -18,6 +18,7 @@ import {
   updateBank,
   updateBroker,
 } from '../../lib/api-client';
+import { CLIENT_MANAGEMENT_ROLES } from '../../lib/roles';
 import { useRequireAuth } from '../../lib/use-auth';
 import { useToast } from '../../lib/toast/ToastProvider';
 import type { Bank, Broker, BrokerInput, UserLookupItem } from '../../lib/types';
@@ -29,7 +30,7 @@ type Tab = 'clientes' | 'bancos' | 'corretores';
 
 export default function CadastrosPage() {
   const { session, loading, logout, setSession } = useRequireAuth({
-    allowedRoles: ['ADMIN', 'CADASTRO'],
+    allowedRoles: CLIENT_MANAGEMENT_ROLES,
   });
   const toast = useToast();
 

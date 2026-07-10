@@ -78,3 +78,16 @@ export const FINANCEIRO_ROLES: UserRole[] = ['ADMIN', 'COMMERCIAL'];
 // COMMERCIAL so os contratos em que e corretor (o backend filtra). Espelha o
 // SALE_CONTRACT_ACCESS_ROLES do backend.
 export const CONTRATOS_ROLES: UserRole[] = ['ADMIN', 'COMMERCIAL'];
+
+// Quem GERENCIA cadastro de cliente: hub /cadastros (abas Clientes/Bancos/
+// Corretores), detalhe do cliente (/clients/[id]) e o card "Cadastros
+// pendentes" do dashboard. Os demais papeis nao-PROSPECTOR (CLASSIFIER,
+// COMMERCIAL, REGISTRATION) ficam so com a lista /clients e o modal de
+// consulta do card. NAO ha gate equivalente no backend: os endpoints de
+// cliente exigem so autenticacao — isto e alivio de UI, nao fronteira de
+// seguranca (varios deles sao compartilhados com Contratos e envio de amostra).
+export const CLIENT_MANAGEMENT_ROLES: UserRole[] = ['ADMIN', 'CADASTRO'];
+
+export function canManageClients(role: UserRole | null | undefined): boolean {
+  return !!role && CLIENT_MANAGEMENT_ROLES.includes(role);
+}
