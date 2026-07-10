@@ -29,6 +29,16 @@
 > contrato" do card), ganha **"atrasado"** (vermelho `#dc2626`), e o **Financeiro** vira a
 > **casa do pagamento** (todos os contratos, chips a vencer/vencido/pago, fila por
 > vencimento). **DESIGN — reverte código já implementado (E25–E27); implementação depois.**
+> **2026-07-10 (IMPLEMENTADO — E28–E30 + FN1–FN7):** alinhamento ponta a ponta.
+> **Backend:** helper BRT compartilhado + `contract_payment_overdue` (dot vermelho) no
+> feed; `listBrokerReceivables` reescrito (`paymentState` derivado, ordem FN4 via **keyset
+> particionado por grupo** — sem SQL cru, só a busca por comprador é `$queryRaw` id-only,
+> filtros FN5, "N vencidos" FN6); guard máx-hoje no `paySaleContract` (posto como **regra
+> de negócio**, após status/versão). **Front:** evento → **navegação pura** (Financeiro),
+> Financeiro = casa do pagamento (chip de estado, comprador, vencimento/pago-em, filtros,
+> "N vencidos", refetch pós-pagar), diálogo com `max` de hoje. **Aprovação intocada.**
+> **Portão do embarque (FN7/EMB28) ADIADO** (depende de `requiresShipment`/`shippedAt`, campos
+> do Embarque). Gates verdes + unit + integração. 📱 **validar no device.**
 
 ## Contexto e objetivo
 
@@ -256,12 +266,13 @@ código atual (F1 implementada com acordeão/"Pago"/sem atraso).
 
 ## Fases
 
-| Fase   | Tema                                                                                                                                                                                                                                                                                                                                                     | Status                                          |
-| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| **F0** | Card shell no dashboard desktop: grade 2 semanas + navegação + painel do dia + vazio E19, SEM backend de eventos (lista sempre vazia)                                                                                                                                                                                                                    | 📱 implementada (`9a66cd8`); validar no device  |
-| **F1** | **Pagamentos de contrato** (E21–E27, 2026-07-08): endpoint escopado + feed + dots + **evento expansível** (nº·comprador·vendedor·status) com atalho **"Pago"** (só FATURADO) + **"Ver contrato"**                                                                                                                                                        | 📱 implementada (2026-07-08); validar no device |
-| **F2** | **Aprovação** (lembrete de envio): endpoint `GET /api/v1/dashboard/approval-events` (fan-out por intervalo, de hoje pra frente); dot **laranja `#f97316`** `contract_approval_due`, rótulo "a enviar · nº · comprador"; expandido com **"Gerar aprovação"** (reusa `ApprovalLabelModal`); **todos os não-PROSPECTOR veem** (AP10). Some ao gerar/faturar | 📱 implementada (2026-07-09); validar no device |
-| F3+    | Outros tipos de evento (embarques, entregas… — a definir; cada um = rodada própria de decisões + backend + catálogo)                                                                                                                                                                                                                                     | ⬜                                              |
+| Fase       | Tema                                                                                                                                                                                                                                                                                                                                                     | Status                                          |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| **F0**     | Card shell no dashboard desktop: grade 2 semanas + navegação + painel do dia + vazio E19, SEM backend de eventos (lista sempre vazia)                                                                                                                                                                                                                    | 📱 implementada (`9a66cd8`); validar no device  |
+| **F1**     | **Pagamentos de contrato** (E21–E27, 2026-07-08): endpoint escopado + feed + dots + **evento expansível** (nº·comprador·vendedor·status) com atalho **"Pago"** (só FATURADO) + **"Ver contrato"**                                                                                                                                                        | 📱 implementada (2026-07-08); validar no device |
+| **F2**     | **Aprovação** (lembrete de envio): endpoint `GET /api/v1/dashboard/approval-events` (fan-out por intervalo, de hoje pra frente); dot **laranja `#f97316`** `contract_approval_due`, rótulo "a enviar · nº · comprador"; expandido com **"Gerar aprovação"** (reusa `ApprovalLabelModal`); **todos os não-PROSPECTOR veem** (AP10). Some ao gerar/faturar | 📱 implementada (2026-07-09); validar no device |
+| **F1-rev** | **Revisão do Pagamento — alinhamento (E28–E30 + FN1–FN7, 2026-07-10):** evento vira navegação pura (→ Financeiro); Financeiro = casa do pagamento (chips a vencer/vencido/pago/cancelado, ordem por vencimento, filtros, "N vencidos"); `contract_payment_overdue` vermelho no feed; guard máx-hoje. Portão do embarque (EMB28) adiado                   | 📱 implementada (2026-07-10); validar no device |
+| F3+        | Outros tipos de evento (embarques, entregas… — a definir; cada um = rodada própria de decisões + backend + catálogo)                                                                                                                                                                                                                                     | ⬜                                              |
 
 ## Pendências
 
@@ -358,3 +369,22 @@ código atual (F1 implementada com acordeão/"Pago"/sem atraso).
   (+ cancelado), card com vencimento + total + corretagem, ordem por vencimento crescente,
   filtros, cabeçalho com "N vencidos", "Pago" (FATURADO) + portão. Escopo E22 mantido. **DESIGN —
   reverte código implementado (E25–E27); implementação depois.** Só decisão/registro — sem código.
+- **2026-07-10 (IMPLEMENTADO — E28–E30 + FN1–FN7).** Alinhamento do Pagamento ponta a ponta, em
+  commits temáticos (não pushados). **Backend:** helper BRT puro `brtTodayDateOnly`/`brtTodayKey`
+  (`sale-contract-support.js`, molde `−3h`, injetável); `buildPaymentEvent`/`getDashboardPaymentEvents`
+  emitem `contract_payment_overdue` quando o agendado passou do dia (E29); `listBrokerReceivables`
+  reescrito — `paymentState` derivado no servidor (FN1), ordem FN4 via **keyset particionado por
+  grupo** (3 `findMany` tipados concatenados: G0 não-pago por `paymentDate` asc nulls-last, G1 pago,
+  G2 cancelado por `contractSeq` desc — sem `CASE`/SQL cru na ordenação), **cursor keyset opaco**
+  (`{g,pd,seq}` base64url), filtros FN5, busca por comprador via `$queryRaw` ILIKE id-only
+  (`buyer_snapshot->>'displayName'`, escape de `% _ \`), agregados FN6 (`overdueCount`/
+  `overdueCommission`, independentes do filtro/cursor); `paySaleContract` trava data futura (E30, 422) **como regra de negócio** — posta após os guards de status/versão (desvio do plano, que a
+  punha antes do `findUnique`: assim um contrato inválido dá o erro de estado, não o de data; e
+  preserva os testes de erro). **Front:** evento de pagamento vira **navegação pura** →
+  `/contratos?tab=financeiro&highlight=<id>` (só `contract_payment_*`; aprovação segue com acordeão);
+  `DashboardDesktop` perde o "Pago"/diálogo; `FinanceiroCard` com chip de estado + comprador +
+  vencimento/"pago em" + [Ver contrato]; `FinanceiroPanel` com filtros + "N vencidos" + refetch
+  pós-pagar (cursor `number→string`); diálogo com `max` de hoje. Dot vermelho no CSS. **Portão do
+  embarque (FN7/EMB28) ADIADO** (campos `requiresShipment`/`shippedAt` nascem com o Embarque; marca
+  o ponto de encaixe no `paySaleContract`). Gates verdes + unit (BRT/overdue/paymentState/cursor) +
+  integração (ordem FN4/filtros/busca comprador/keyset/E30). 📱 falta validação no device.
