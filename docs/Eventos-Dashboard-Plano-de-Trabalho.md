@@ -47,8 +47,12 @@
 > (auth-only, todos os não-PROSPECTOR), 3º feed no `DashboardDesktop`; **desktop-only** (o
 > `DashboardMobile` não renderiza o card). **O portão FN7/EMB28 saiu do ADIADO e foi feito**
 > (guard no `paySaleContract` + confirmação in-loco no diálogo de pagamento). Ver
-> `Embarque-Plano-de-Trabalho.md`. Gates verdes; 📱 validar. Os 3 eventos agora alinhados
-> (pagamento nav-pura → Financeiro · aprovação acordeão · embarque nav-pura → sub-aba).
+> `Embarque-Plano-de-Trabalho.md`. Gates verdes; 📱 validar. **2026-07-10 (reforma da
+> Aprovação, AP29):** a aprovação também virou **navegação pura → sub-aba Aprovações**
+> (reverte AP7/E26 — sai o acordeão "Gerar aprovação"; o dot laranja + o lembrete ficam). Os
+> 3 eventos agora **alinhados em navegação pura** → a casa de cada um (pagamento →
+> Financeiro · aprovação → Aprovações · embarque → Embarque). O branch dos 3 tipos foi
+> unificado no `EventsCalendarCard` (`navTabForEvent`); o acordeão morto saiu.
 
 ## Contexto e objetivo
 

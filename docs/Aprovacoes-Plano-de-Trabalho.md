@@ -44,8 +44,15 @@
 > inconsistências. Decisão do Flavio: **apertar** — geração exige o sinal (**AP17**,
 > reverte AP8) e **faturar exige a aprovação enviada** (**AP18**, portão novo no ciclo,
 > cruza pro Contratos). Fluxo redesenhado ponta a ponta em **5 fases (AP17–AP24 +
-> AP-P2)**. **⚠️ DESIGN, ainda NÃO implementado** (o código segue na AP8). Próximo:
-> desenho da própria página. Ver seção "Reformulação — o portão" + Histórico.
+> AP-P2)** + a sub-aba (AP25–AP30). **✅ IMPLEMENTADO PONTA A PONTA 2026-07-10 (F1–F5;
+> commits `4402f9b`→`7e30675`, NÃO pushados; gates verdes + unit + 469 integ):** portão
+> do gerar (AP17/AP21) + do faturar (AP18) + a sub-aba worklist (AP25–30; acesso
+> operacional AP30) + a geração concentrada (AP29) + o toggle no Detalhes (AP23).
+> **Desvio consciente da AP29 (decisão do Flavio, 2026-07-10):** o portão do faturar
+> mantém uma **geração INLINE reativa** (intercepta o 422 → modal da etiqueta →
+> refatura, estilo Embarque EMB28) — a AP29 vale pra geração **PROATIVA** (só a
+> sub-aba); o gate é recuperação, não porta browseável. 📱 validar no device. Ver
+> seção "Reformulação — o portão" + Histórico.
 
 ## Contexto e objetivo
 
@@ -747,3 +754,43 @@ UI, na implementação. **DESIGN; não implementado.**
   lista não-escopada (AP10), "Ver contrato" escopado (D110). **Aprovação desenhada completa
   (fluxo + página); DESIGN, não implementado.** P-7 (layout) fica pra implementação; CC7
   resolvido no Central. Só registro — sem código.
+- **2026-07-10 (REFORMA "O PORTÃO" IMPLEMENTADA — AP17–AP30, 5 fases)** — a 2ª metade da
+  reforma (que seguia DESIGN sobre o código da AP8) foi implementada ponta a ponta, em plan
+  mode com análise (2 Explore + design próprio). Commits `4402f9b`→`7e30675`, NÃO pushados;
+  gates verdes; unit + **469 integração** verdes. **1 decisão de UX do Flavio nesta sessão:**
+  no portão do faturar (AP18), recuperação **INLINE** (estilo Embarque) em vez de
+  bloqueio-e-vai-pra-sub-aba — **refina a AP29** (geração proativa só na sub-aba; o gate
+  mantém uma geração reativa de recuperação).
+  - **F1 (`4402f9b`) — aperta a geração (AP17/AP21):** `APPROVAL_ELIGIBLE_STATUSES` de
+    `[EMITIDO,FATURADO,PAGO]` → **só `[EMITIDO]`** (AP21); `getApprovalLabelPrefill` +
+    `sendApprovalLabel` ganham guard **409 `APPROVAL_CONTRACT_NOT_MARKED`** (exige
+    `requiresApproval`, AP17 — antes da elegibilidade). Reverte a AP8.
+  - **F2 (`3f333c4`) — portão do faturar (AP18):** `invoiceSaleContract` ganha o gate
+    **422 `CONTRACT_APPROVAL_REQUIRED`** (marcado + count no `approval_label_log` = 0);
+    count fora da tx (append-only). **Pagar herda** (E3 — não toca `paySaleContract`). Front:
+    `SaleContractLifecycleDialog` intercepta o 422 e abre o `ApprovalLabelModal` (novo prop
+    `onSent`); ao enviar, refatura no `onClose` (a version não muda no envio → mesma
+    `expectedVersion`). Molde do portão de embarque, já no arquivo.
+  - **F3 (`86f6fe7`) — a sub-aba worklist (AP25–28, AP30, AP24):** `listApprovalContracts`
+    (auth-only). Estado depende de **agregado** (contagem no log), então **`$queryRaw`**
+    particionado (≠ Embarque, que é typed): G0 a_enviar (anti-join `NOT EXISTS`) por
+    `invoiceDate` ASC; G1 enviada (JOIN + `count` = `·N×` AP24, `max(created_at)`) DESC; G2
+    cancelado (WASH_OUT). Cursor `{g,key,seq}` (key do G1 leva HORA). `AprovacoesPanel` +
+    `AprovacaoCard` (molde Embarque; reusa `.emb-card`). Acesso AP30: operacional ganha 2
+    abas (Embarque + Aprovações); `HubTabPlaceholder` (removido) → `AprovacoesPanel`.
+  - **F4 (`dae70ed`) — geração concentrada (AP29):** dashboard reverte AP7 (evento vira
+    **navegação pura** → `?tab=aprovacoes&highlight=`, sem "Gerar aprovação"; os 3 tipos de
+    evento unificados num só branch nav-pura, acordeão morto removido). /samples: sai a opção
+    "Aprovação" do leque + o `ApprovalContractPickerModal` (removido) + CSS. **Pendência:** o
+    backend `listApprovalContractOptions` (+ `toApprovalContractOption` + tipo + rota + testes)
+    ficou **DORMENTE** (sem consumidor após a AP29) — candidato a remoção futura.
+  - **F5 (`7e30675`) — toggle rápido no Detalhes (AP23 + travas AP20):**
+    `setSaleContractApprovalFlag` (ADMIN/COMMERCIAL). Travas: só EMITIDO (409
+    `APPROVAL_FLAG_NOT_EDITABLE`); Sim→Não só sem envio (409 `APPROVAL_FLAG_LOCKED`). Lead
+    padrão 30 ao ligar / null ao desligar. Segmentado Sim/Não na seção "Aprovação" do Detalhes
+    (molde `ctr-approval-btn`; "Não" desabilitado quando a timeline já tem APROVACAO).
+  - **Impacto documental formalizado:** AP8 revista (portas listam marcados — na verdade a
+    porta proativa virou a sub-aba); terminal da AP6 simplificado; `APPROVAL_ELIGIBLE_STATUSES`
+    → `[EMITIDO]`; portão novo em `invoiceSaleContract` (cross-feature — a formalizar no
+    `Contratos-Plano-de-Trabalho.md`; documentado aqui + na skill `prisma`). 📱 **validar no device** (portão inline, sub-aba,
+    operacional com 2 abas, toggle, dot laranja nav-pura).
