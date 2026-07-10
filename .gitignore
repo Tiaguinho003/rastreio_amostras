@@ -50,6 +50,11 @@ CSS_ANALYSIS.md
 analyze_css.py
 extract_css.py
 
+# Seed de dados de demonstracao (base de testes local). Nao versionar nem subir
+# pra imagem de prod — sem .gcloudignore, o build usa este .gitignore como
+# fallback do contexto do `gcloud builds submit`.
+seed-demo-data.mjs
+
 # Anotacoes pessoais (nao versionar)
 Opções para pausar.txt
 notes-*.md

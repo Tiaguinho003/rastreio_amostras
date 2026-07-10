@@ -112,6 +112,15 @@ runtime_env_vars_csv() {
     csv="${csv},REPORT_PUBLIC_BASE_URL=${REPORT_PUBLIC_BASE_URL}"
   fi
 
+  # Modo manutencao (M1, middleware.ts): quando "true", o gate redireciona todo
+  # nao-ADMIN para /maintenance. Precisa entrar no CSV porque o deploy usa
+  # --set-env-vars (SUBSTITUI o conjunto inteiro) — senao a revisao nova subiria
+  # SEM a flag e o promote despausaria o app. Off por padrao: o bloco so entra
+  # quando MAINTENANCE_MODE esta setado no .env.cloud-production (ops).
+  if [[ -n "${MAINTENANCE_MODE:-}" ]]; then
+    csv="${csv},MAINTENANCE_MODE=${MAINTENANCE_MODE}"
+  fi
+
   printf '%s' "${csv}"
 }
 

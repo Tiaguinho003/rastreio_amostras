@@ -83,6 +83,33 @@ gcloud run services update-traffic rastreio-prod-app \
   --region=southamerica-east1
 ```
 
+## Modo manutencao — pausar nao-ADM (M1)
+
+Gate `M1` no `middleware.ts` (em prod desde 04/2026): com `MAINTENANCE_MODE=true`
+no env, **todo nao-ADMIN e redirecionado pra `/maintenance`** em qualquer rota —
+inclusive as APIs. Ficam livres so `/login`, `/api/v1/auth`, health e assets (o
+ADMIN loga e usa o app normal). Pagina em `app/maintenance/page.tsx`. Serve pra
+janela de reformulacao/deploy: pausa os usuarios, o ADMIN confere sozinho.
+
+- **Pausar agora (imagem atual, sem rebuild):**
+  ```bash
+  gcloud run services update rastreio-prod-app --region=southamerica-east1 \
+    --update-env-vars MAINTENANCE_MODE=true
+  ```
+  `--update-env-vars` faz MERGE (nova revisao, mesma imagem; preserva as outras vars).
+- **Sobreviver a um deploy:** o deploy usa `--set-env-vars` (substitui o conjunto
+  inteiro), entao a flag SO entra na revisao nova se estiver no `runtime_env_vars_csv`
+  (`_lib.sh`) — que a inclui quando `MAINTENANCE_MODE` esta setado no `.env.cloud-production`
+  (ops). Setar la ANTES do build => canary + promote carregam a pausa (senao o promote
+  despausa). Off por padrao.
+- **Despausar (go-live):**
+  ```bash
+  gcloud run services update rastreio-prod-app --region=southamerica-east1 \
+    --remove-env-vars MAINTENANCE_MODE
+  ```
+  Instantaneo (mesma imagem). **Depois:** limpar `MAINTENANCE_MODE` do `.env.cloud-production`
+  pra um deploy futuro nao repausar sem querer.
+
 ## Scripts GCP
 
 - `scripts/gcp/build-image.sh cloud-production` — build com tag=git SHA e guard de tree limpo
