@@ -630,6 +630,7 @@ model ClientUnit {
   ownedSamples        Sample[]           @relation("SampleOwnerUnit")
   buyerMovements      SampleMovement[]   @relation("SampleMovementBuyerUnit")
   auditEventsAsTarget ClientAuditEvent[] @relation("ClientAuditTargetUnit")
+  attachments         ClientAttachment[]
 
   @@unique([clientId, code], map: "uq_client_unit_client_code")
   @@unique([cnpj], map: "uq_client_unit_cnpj")
@@ -740,6 +741,9 @@ model ClientBankAccount {
 model ClientAttachment {
   id               String   @id @db.Uuid
   clientId         String   @map("client_id") @db.Uuid
+  // Filial/fazenda dona do anexo. NULL = anexo do proprio cliente. O vinculo e
+  // definitivo (so pode ser feito uma vez) e nao altera o storagePath.
+  unitId           String?  @map("unit_id") @db.Uuid
   storagePath      String   @map("storage_path")
   fileName         String?  @map("file_name")
   mimeType         String?  @map("mime_type")
@@ -749,10 +753,12 @@ model ClientAttachment {
   uploadedByUserId String?  @map("uploaded_by_user_id") @db.Uuid
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  client     Client @relation(fields: [clientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  uploadedBy User?  @relation("ClientAttachmentUploader", fields: [uploadedByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  client     Client      @relation(fields: [clientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  unit       ClientUnit? @relation(fields: [unitId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  uploadedBy User?       @relation("ClientAttachmentUploader", fields: [uploadedByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([clientId, createdAt], map: "idx_client_attachment_client_created")
+  @@index([unitId], map: "idx_client_attachment_unit")
   @@map("client_attachment")
 }
 
