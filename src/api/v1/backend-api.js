@@ -3430,6 +3430,22 @@ export function createBackendApiV1({
         return { status: 201, body: result };
       }),
 
+    linkClientAttachmentUnit: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientAttachmentService) {
+          throw new HttpError(501, 'Client attachment service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+        const result = await clientAttachmentService.linkClientAttachmentUnit(
+          input?.params?.clientId,
+          input?.params?.attachmentId,
+          { unitId: body.unitId ?? null },
+          actor
+        );
+        return { status: 200, body: result };
+      }),
+
     deleteClientAttachment: (input) =>
       executeApiForInput(input, async () => {
         if (!clientAttachmentService) {

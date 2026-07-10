@@ -11,9 +11,12 @@ export function normalizeAttachmentDescription(value) {
   return normalizeOptionalText(value, 'description', CLIENT_ATTACHMENT_DESCRIPTION_MAX);
 }
 
+// A filial entra por select aninhado (nunca `include`) -- so id/nome/status.
+// O resto do ClientUnit (CNPJ, endereco, inscricao estadual) nao vaza pra view.
 export const CLIENT_ATTACHMENT_VIEW_SELECT = Object.freeze({
   id: true,
   clientId: true,
+  unitId: true,
   fileName: true,
   mimeType: true,
   sizeBytes: true,
@@ -21,12 +24,14 @@ export const CLIENT_ATTACHMENT_VIEW_SELECT = Object.freeze({
   uploadedByUserId: true,
   createdAt: true,
   uploadedBy: { select: { id: true, fullName: true } },
+  unit: { select: { id: true, name: true, status: true } },
 });
 
 export function toClientAttachmentView(att) {
   return {
     id: att.id,
     clientId: att.clientId,
+    unitId: att.unitId ?? null,
     fileName: att.fileName ?? null,
     mimeType: att.mimeType ?? null,
     sizeBytes: att.sizeBytes ?? null,
@@ -35,6 +40,7 @@ export function toClientAttachmentView(att) {
     uploadedBy: att.uploadedBy
       ? { id: att.uploadedBy.id, fullName: att.uploadedBy.fullName }
       : null,
+    unit: att.unit ? { id: att.unit.id, name: att.unit.name, status: att.unit.status } : null,
     createdAt: toIsoString(att.createdAt),
   };
 }
