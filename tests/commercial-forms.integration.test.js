@@ -81,12 +81,17 @@ if (!databaseUrl || !databaseReachable) {
     await prisma.$disconnect();
   });
 
-  test('createCommercialVisit NEW: carimba usuario/data e zera clientId', async () => {
+  // O "cliente novo" tambem nasce VINCULADO: o comercial cadastra o Client no
+  // proprio formulario (ClientQuickCreateModal) e manda o clientId junto. Os
+  // campos new_* sobrevivem ao lado do vinculo, como anotacao de campo.
+  test('createCommercialVisit NEW: vincula o cliente cadastrado e guarda a anotacao', async () => {
     await resetDatabase();
     const commercial = await seedUser('COMMERCIAL');
+    const client = await seedClient({ fullName: 'Comprador Novo' });
 
     const result = await service.createCommercialVisit(
       baseVisitInput({
+        clientId: client.id,
         newClientCity: 'Varginha/MG',
         reasonNotes: 'indicacao de um parceiro',
         outcomeNotes: 'volta semana que vem',
@@ -97,8 +102,9 @@ if (!databaseUrl || !databaseReachable) {
 
     assert.equal(result.visit.type, 'COMMERCIAL_VISIT');
     assert.equal(result.visit.clientKind, 'NEW');
-    assert.equal(result.visit.client, null);
+    assert.equal(result.visit.client.id, client.id);
     assert.equal(result.visit.newClient.name, 'Comprador Novo');
+    assert.equal(result.visit.newClient.city, 'Varginha/MG');
     assert.equal(result.visit.reason, 'NEGOTIATION');
     assert.equal(result.visit.reasonNotes, 'indicacao de um parceiro');
     assert.equal(result.visit.outcome, 'PROPOSAL_IN_PROGRESS');
@@ -107,7 +113,10 @@ if (!databaseUrl || !databaseReachable) {
 
     const row = await prisma.commercialVisit.findUnique({ where: { id: result.visit.id } });
     assert.equal(row.userId, commercial.id);
-    assert.equal(row.clientId, null);
+    assert.equal(row.clientId, client.id);
+    // Born-linked pelo formulario: o trio de curadoria fica vazio.
+    assert.equal(row.linkedByUserId, null);
+    assert.equal(row.linkedAt, null);
   });
 
   test('createCommercialVisit EXISTING: vincula cliente ativo e zera campos new_*', async () => {
@@ -137,15 +146,17 @@ if (!databaseUrl || !databaseReachable) {
     await resetDatabase();
     const commercial = await seedUser('COMMERCIAL');
     const admin = await seedUser('ADMIN');
+    const client = await seedClient();
     const inactive = await seedClient({ status: 'INACTIVE', fullName: 'Inativo' });
     const actor = actorFor(commercial);
+    const withClient = (overrides = {}) => baseVisitInput({ clientId: client.id, ...overrides });
 
     await assert.rejects(
-      service.createCommercialVisit(baseVisitInput({ reason: 'OTHER' }), actor),
+      service.createCommercialVisit(withClient({ reason: 'OTHER' }), actor),
       (error) => error.status === 422 && error.details?.field === 'reason'
     );
     await assert.rejects(
-      service.createCommercialVisit(baseVisitInput({ outcome: 'MAYBE' }), actor),
+      service.createCommercialVisit(withClient({ outcome: 'MAYBE' }), actor),
       (error) => error.status === 422 && error.details?.field === 'outcome'
     );
     await assert.rejects(
@@ -155,6 +166,15 @@ if (!databaseUrl || !databaseReachable) {
       ),
       (error) => error.status === 422 && error.details?.field === 'clientId'
     );
+    // NEW tambem exige clientId: nao ha mais visita sem cliente do cadastro.
+    await assert.rejects(
+      service.createCommercialVisit(baseVisitInput({ clientId: null }), actor),
+      (error) => error.status === 422 && error.details?.field === 'clientId'
+    );
+    await assert.rejects(
+      service.createCommercialVisit(baseVisitInput({ clientId: inactive.id }), actor),
+      (error) => error.status === 422 && error.details?.code === 'VISIT_CLIENT_INACTIVE'
+    );
     await assert.rejects(
       service.createCommercialVisit(
         baseVisitInput({ clientKind: 'EXISTING', clientId: inactive.id }),
@@ -163,18 +183,18 @@ if (!databaseUrl || !databaseReachable) {
       (error) => error.status === 422 && error.details?.code === 'VISIT_CLIENT_INACTIVE'
     );
     await assert.rejects(
-      service.createCommercialVisit(baseVisitInput({ newClientName: '  ' }), actor),
+      service.createCommercialVisit(withClient({ newClientName: '  ' }), actor),
       (error) => error.status === 422 && error.details?.field === 'newClientName'
     );
 
     // ADMIN tambem cria; demais papeis 403.
-    const byAdmin = await service.createCommercialVisit(baseVisitInput(), actorFor(admin));
+    const byAdmin = await service.createCommercialVisit(withClient(), actorFor(admin));
     assert.equal(byAdmin.visit.user.id, admin.id);
 
     for (const role of ['CLASSIFIER', 'REGISTRATION', 'CADASTRO', 'PROSPECTOR']) {
       const denied = await seedUser(role);
       await assert.rejects(
-        service.createCommercialVisit(baseVisitInput(), actorFor(denied)),
+        service.createCommercialVisit(withClient(), actorFor(denied)),
         (error) => error.status === 403
       );
     }
@@ -346,8 +366,12 @@ if (!databaseUrl || !databaseReachable) {
     const admin = await seedUser('ADMIN');
     const commercial = await seedUser('COMMERCIAL');
     const colleague = await seedUser('COMMERCIAL');
+    const client = await seedClient();
 
-    const visit = await service.createCommercialVisit(baseVisitInput(), actorFor(commercial));
+    const visit = await service.createCommercialVisit(
+      baseVisitInput({ clientId: client.id }),
+      actorFor(commercial)
+    );
     const report = await service.createWeeklyReport(baseReportInput(), actorFor(commercial), {
       now: new Date('2026-06-10T17:00:00.000Z'),
     });
@@ -415,13 +439,20 @@ if (!databaseUrl || !databaseReachable) {
   });
 
   // Curadoria do vinculo da VISITA COMERCIAL (linkCommercialVisitClient) — so
-  // clientKind=NEW; EXISTING (born-linked pelo lookup) e barrado.
-  test('linkCommercialVisitClient NEW: vincula e carimba linkedBy/linkedAt', async () => {
+  // clientKind=NEW; EXISTING e barrado. Como a visita ja nasce vinculada, a
+  // curadoria virou caminho de CORRECAO (trocar o cliente errado), nao de
+  // completude.
+  test('linkCommercialVisitClient NEW: troca o cliente e carimba linkedBy/linkedAt', async () => {
     await resetDatabase();
     const commercial = await seedUser('COMMERCIAL');
     const admin = await seedUser('ADMIN');
+    const wrong = await seedClient({ fullName: 'Cadastrado Errado' });
     const client = await seedClient();
-    const created = await service.createCommercialVisit(baseVisitInput(), actorFor(commercial));
+    const created = await service.createCommercialVisit(
+      baseVisitInput({ clientId: wrong.id }),
+      actorFor(commercial)
+    );
+    assert.equal(created.visit.client.id, wrong.id);
 
     const result = await service.linkCommercialVisitClient(
       { visitId: created.visit.id, clientId: client.id },
@@ -438,15 +469,16 @@ if (!databaseUrl || !databaseReachable) {
     assert.ok(row.linkedAt);
   });
 
+  // Desvincular continua possivel pelo ADMIN — e a unica porta que ainda produz
+  // uma visita comercial sem cliente (a criacao nao produz mais).
   test('linkCommercialVisitClient NEW: desvincular (clientId null) zera o trio', async () => {
     await resetDatabase();
     const commercial = await seedUser('COMMERCIAL');
     const admin = await seedUser('ADMIN');
     const client = await seedClient();
-    const created = await service.createCommercialVisit(baseVisitInput(), actorFor(commercial));
-    await service.linkCommercialVisitClient(
-      { visitId: created.visit.id, clientId: client.id },
-      actorFor(admin)
+    const created = await service.createCommercialVisit(
+      baseVisitInput({ clientId: client.id }),
+      actorFor(commercial)
     );
 
     const result = await service.linkCommercialVisitClient(
@@ -484,7 +516,10 @@ if (!databaseUrl || !databaseReachable) {
     const commercial = await seedUser('COMMERCIAL');
     const cadastro = await seedUser('CADASTRO');
     const client = await seedClient();
-    const created = await service.createCommercialVisit(baseVisitInput(), actorFor(commercial));
+    const created = await service.createCommercialVisit(
+      baseVisitInput({ clientId: client.id }),
+      actorFor(commercial)
+    );
 
     // COMMERCIAL nunca curou; CADASTRO saiu dos curadores em 2026-06-28.
     for (const denied of [commercial, cadastro]) {

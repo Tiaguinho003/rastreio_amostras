@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { ClientLookupField } from '../clients/ClientLookupField';
+import { ClientQuickCreateModal } from '../clients/ClientQuickCreateModal';
 import { ApiError, createCommercialVisit } from '../../lib/api-client';
 import { maskPhoneInput } from '../../lib/client-field-formatters';
 import {
@@ -23,10 +24,18 @@ import type {
 // Formulario de VISITA do comercial — renderizado no BottomSheet da pagina
 // /informe do papel COMMERCIAL (CommercialVisitFormSheet). SEM fila
 // offline: o envio exige internet (erro claro quando nao ha conexao).
-// DIVERGENCIA DELIBERADA do VisitReportForm do prospector: o comercial
-// MANTEM o lookup de cliente cadastrado (EXISTING via ClientLookupField) —
-// ele visita majoritariamente clientes da carteira, online. O formulario
-// do prospector virou declaracao sem lookup (vinculo curado no /resumo).
+//
+// TODA visita sai com um Client do cadastro, nos dois caminhos:
+//   EXISTING — o comercial acha o cliente no ClientLookupField.
+//   NEW      — o comercial cadastra na hora (ClientQuickCreateModal) e o
+//              cliente criado vira o vinculo; nome/cidade/telefone digitados
+//              ficam como a anotacao de campo, ao lado do vinculo.
+// O clientKind e a DECLARACAO ("ja e cliente" / "cliente novo"), nao a
+// presenca do vinculo. Nao ha mais visita comercial "aguardando vinculo".
+//
+// DIVERGENCIA DELIBERADA do VisitReportForm do prospector, que segue sendo
+// declaracao em texto puro (sem lookup, sem cadastro) e depende da curadoria
+// do ADMIN em Relatorios. Nao sincronizar os dois.
 
 type FieldName = 'clientKind' | 'client' | 'newClientName' | 'reason' | 'outcome';
 type FieldErrors = Partial<Record<FieldName, string>>;
@@ -58,6 +67,7 @@ export function CommercialVisitForm({
   const [generalNotes, setGeneralNotes] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
 
   const formRef = useRef<HTMLFormElement | null>(null);
 
@@ -101,8 +111,15 @@ export function CommercialVisitForm({
       errors.clientKind = 'Selecione uma opção';
     } else if (clientKind === 'EXISTING' && !selectedClient) {
       errors.client = 'Obrigatório';
-    } else if (clientKind === 'NEW' && !newClientName.trim()) {
-      errors.newClientName = 'Obrigatório';
+    } else if (clientKind === 'NEW') {
+      if (!newClientName.trim()) {
+        errors.newClientName = 'Obrigatório';
+      }
+      // O cadastro e obrigatorio: sem Client, a visita nao sai (o backend
+      // tambem recusa — 422 em clientId).
+      if (!selectedClient) {
+        errors.client = 'Cadastre o cliente para registrar a visita';
+      }
     }
     if (!reason) {
       errors.reason = 'Selecione uma opção';
@@ -132,11 +149,11 @@ export function CommercialVisitForm({
 
     setSubmitting(true);
     try {
-      const clientName =
-        clientKind === 'EXISTING' ? selectedClient?.displayName : newClientName.trim();
+      const clientName = selectedClient?.displayName ?? newClientName.trim();
       await createCommercialVisit(session, {
         clientKind: clientKind as VisitClientKind,
-        clientId: clientKind === 'EXISTING' ? (selectedClient?.id ?? null) : null,
+        // Os dois caminhos mandam um Client real; no NEW ele acabou de ser criado.
+        clientId: selectedClient?.id ?? null,
         newClientName: clientKind === 'NEW' ? newClientName.trim() : null,
         newClientCity: clientKind === 'NEW' ? newClientCity.trim() || null : null,
         newClientPhone: clientKind === 'NEW' ? newClientPhone.trim() || null : null,
@@ -172,269 +189,364 @@ export function CommercialVisitForm({
   }
 
   return (
-    <form className="inf-form" onSubmit={handleSubmit} noValidate ref={formRef}>
-      {!isOnline ? (
-        <div className="inf-offline-banner" role="status">
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M2 9c5.5-5.3 14.5-5.3 20 0" />
-            <path d="M5.5 12.5c3.6-3.4 9.4-3.4 13 0" />
-            <path d="M9 16c1.7-1.6 4.3-1.6 6 0" />
-            <path d="M12 19.4h.01" />
-            <path d="M4 4l16 16" />
-          </svg>
-          <div className="inf-offline-banner-text">
-            <p className="inf-offline-banner-title">Sem conexão</p>
-            <p className="inf-offline-banner-sub">
-              Não é possível enviar formulários agora. Conecte-se à internet e tente novamente.
-            </p>
+    <>
+      <form className="inf-form" onSubmit={handleSubmit} noValidate ref={formRef}>
+        {!isOnline ? (
+          <div className="inf-offline-banner" role="status">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M2 9c5.5-5.3 14.5-5.3 20 0" />
+              <path d="M5.5 12.5c3.6-3.4 9.4-3.4 13 0" />
+              <path d="M9 16c1.7-1.6 4.3-1.6 6 0" />
+              <path d="M12 19.4h.01" />
+              <path d="M4 4l16 16" />
+            </svg>
+            <div className="inf-offline-banner-text">
+              <p className="inf-offline-banner-title">Sem conexão</p>
+              <p className="inf-offline-banner-sub">
+                Não é possível enviar formulários agora. Conecte-se à internet e tente novamente.
+              </p>
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      {/* P1 — Identificação do cliente */}
-      <section
-        className="inf-card"
-        data-invalid={
-          fieldErrors.clientKind || fieldErrors.client || fieldErrors.newClientName
-            ? 'true'
-            : undefined
-        }
-      >
-        <header className="inf-card-head">
-          <span className="inf-card-num" aria-hidden="true">
-            1
-          </span>
-          <div className="inf-card-head-text">
-            <h3 className="inf-card-title">
-              Identificação do cliente<span className="nsv2-required-star"> *</span>
-            </h3>
-            <p className="inf-card-sub">Quem você visitou?</p>
-          </div>
-        </header>
+        {/* P1 — Identificação do cliente */}
+        <section
+          className="inf-card"
+          data-invalid={
+            fieldErrors.clientKind || fieldErrors.client || fieldErrors.newClientName
+              ? 'true'
+              : undefined
+          }
+        >
+          <header className="inf-card-head">
+            <span className="inf-card-num" aria-hidden="true">
+              1
+            </span>
+            <div className="inf-card-head-text">
+              <h3 className="inf-card-title">
+                Identificação do cliente<span className="nsv2-required-star"> *</span>
+              </h3>
+              <p className="inf-card-sub">Quem você visitou?</p>
+            </div>
+          </header>
 
-        <div className="inf-choice-grid" role="group" aria-label="Tipo de cliente">
-          <button
-            type="button"
-            className={`inf-pill${clientKind === 'EXISTING' ? ' is-selected' : ''}`}
-            aria-pressed={clientKind === 'EXISTING'}
-            onClick={() => {
-              setClientKind('EXISTING');
-              clearFieldError('clientKind');
-              clearFieldError('newClientName');
-            }}
-          >
-            Já cadastrado
-          </button>
-          <button
-            type="button"
-            className={`inf-pill${clientKind === 'NEW' ? ' is-selected' : ''}`}
-            aria-pressed={clientKind === 'NEW'}
-            onClick={() => {
-              setClientKind('NEW');
-              clearFieldError('clientKind');
-              clearFieldError('client');
-            }}
-          >
-            Cliente novo
-          </button>
-        </div>
-        {fieldErrors.clientKind ? <p className="inf-card-error">{fieldErrors.clientKind}</p> : null}
-
-        {clientKind === 'EXISTING' ? (
-          <ClientLookupField
-            session={session}
-            label="Cliente"
-            kind="any"
-            required
-            selectedClient={selectedClient}
-            onSelectClient={(client) => {
-              setSelectedClient(client);
-              if (client) {
+          {/* Trocar de opcao SEMPRE solta o cliente: os dois lados escrevem no
+            mesmo selectedClient, e um vinculo herdado do outro caminho seria
+            enviado em silencio. */}
+          <div className="inf-choice-grid" role="group" aria-label="Tipo de cliente">
+            <button
+              type="button"
+              className={`inf-pill${clientKind === 'EXISTING' ? ' is-selected' : ''}`}
+              aria-pressed={clientKind === 'EXISTING'}
+              onClick={() => {
+                setClientKind('EXISTING');
+                setSelectedClient(null);
+                clearFieldError('clientKind');
                 clearFieldError('client');
-              }
-            }}
-            invalid={Boolean(fieldErrors.client)}
-            invalidText={fieldErrors.client ?? 'Obrigatório'}
-            placeholder="Busque por nome, documento ou código"
-          />
-        ) : null}
+                clearFieldError('newClientName');
+              }}
+            >
+              Já cadastrado
+            </button>
+            <button
+              type="button"
+              className={`inf-pill${clientKind === 'NEW' ? ' is-selected' : ''}`}
+              aria-pressed={clientKind === 'NEW'}
+              onClick={() => {
+                setClientKind('NEW');
+                setSelectedClient(null);
+                clearFieldError('clientKind');
+                clearFieldError('client');
+              }}
+            >
+              Cliente novo
+            </button>
+          </div>
+          {fieldErrors.clientKind ? (
+            <p className="inf-card-error">{fieldErrors.clientKind}</p>
+          ) : null}
 
-        {clientKind === 'NEW' ? (
-          <div className="inf-newclient">
-            <label className="inf-field">
-              <span className="inf-field-label">
-                Nome do cliente<span className="nsv2-required-star"> *</span>
-              </span>
-              <input
-                className={`inf-input${fieldErrors.newClientName ? ' has-error' : ''}`}
-                value={newClientName}
-                placeholder={fieldErrors.newClientName ?? 'Nome do produtor ou da empresa'}
-                autoComplete="off"
-                aria-invalid={Boolean(fieldErrors.newClientName)}
-                maxLength={200}
-                onChange={(event) => {
-                  setNewClientName(event.target.value);
-                  clearFieldError('newClientName');
+          {clientKind === 'EXISTING' ? (
+            <ClientLookupField
+              session={session}
+              label="Cliente"
+              kind="any"
+              required
+              selectedClient={selectedClient}
+              onSelectClient={(client) => {
+                setSelectedClient(client);
+                if (client) {
+                  clearFieldError('client');
+                }
+              }}
+              invalid={Boolean(fieldErrors.client)}
+              invalidText={fieldErrors.client ?? 'Obrigatório'}
+              placeholder="Busque por nome, documento ou código"
+            />
+          ) : null}
+
+          {clientKind === 'NEW' ? (
+            <div className="inf-newclient">
+              <label className="inf-field">
+                <span className="inf-field-label">
+                  Nome do cliente<span className="nsv2-required-star"> *</span>
+                </span>
+                <input
+                  className={`inf-input${fieldErrors.newClientName ? ' has-error' : ''}`}
+                  value={newClientName}
+                  placeholder={fieldErrors.newClientName ?? 'Nome do produtor ou da empresa'}
+                  autoComplete="off"
+                  aria-invalid={Boolean(fieldErrors.newClientName)}
+                  maxLength={200}
+                  onChange={(event) => {
+                    setNewClientName(event.target.value);
+                    clearFieldError('newClientName');
+                  }}
+                />
+              </label>
+              <label className="inf-field">
+                <span className="inf-field-label">
+                  Cidade ou região <span className="inf-field-optional">(opcional)</span>
+                </span>
+                <input
+                  className="inf-input"
+                  value={newClientCity}
+                  placeholder="Ex.: Três Pontas/MG"
+                  autoComplete="off"
+                  maxLength={120}
+                  onChange={(event) => setNewClientCity(event.target.value)}
+                />
+              </label>
+              <label className="inf-field">
+                <span className="inf-field-label">
+                  Telefone <span className="inf-field-optional">(opcional)</span>
+                </span>
+                <input
+                  className="inf-input"
+                  type="tel"
+                  inputMode="tel"
+                  value={newClientPhone}
+                  placeholder="Ex.: (35) 99999-9999"
+                  autoComplete="off"
+                  maxLength={40}
+                  onChange={(event) => setNewClientPhone(maskPhoneInput(event.target.value))}
+                />
+              </label>
+
+              {/* Cadastro obrigatorio. Antes de cadastrar: CTA. Depois: o cliente
+                criado vira um chip inerte (trocar = "Remover" e cadastrar de
+                novo — nao ha edicao de cliente por aqui). */}
+              {selectedClient ? (
+                <div className="inf-newclient-linked">
+                  <span className="inf-newclient-linked-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                      <path d="M20 6 9 17l-5-5" />
+                    </svg>
+                  </span>
+                  <span className="inf-newclient-linked-text">
+                    <span className="inf-newclient-linked-name">
+                      {selectedClient.displayName ?? 'Sem nome'}
+                    </span>
+                    <span className="inf-newclient-linked-meta">
+                      Cadastrado · Código {selectedClient.code}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    className="inf-newclient-linked-clear"
+                    aria-label="Remover cliente cadastrado"
+                    onClick={() => setSelectedClient(null)}
+                  >
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                      <path d="M18 6 6 18" />
+                      <path d="m6 6 12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className={`inf-newclient-cta${fieldErrors.client ? ' has-error' : ''}`}
+                  onClick={() => {
+                    clearFieldError('client');
+                    setQuickCreateOpen(true);
+                  }}
+                >
+                  <span className="inf-newclient-cta-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                      <path d="M12 5v14" />
+                      <path d="M5 12h14" />
+                    </svg>
+                  </span>
+                  <span className="inf-newclient-cta-label">Cadastrar cliente</span>
+                  <svg
+                    className="inf-newclient-cta-chevron"
+                    viewBox="0 0 24 24"
+                    focusable="false"
+                    aria-hidden="true"
+                  >
+                    <path d="m9 6 6 6-6 6" />
+                  </svg>
+                </button>
+              )}
+              {!selectedClient && fieldErrors.client ? (
+                <p className="inf-card-error">{fieldErrors.client}</p>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
+
+        {/* P2 — Motivo da visita */}
+        <section className="inf-card" data-invalid={fieldErrors.reason ? 'true' : undefined}>
+          <header className="inf-card-head">
+            <span className="inf-card-num" aria-hidden="true">
+              2
+            </span>
+            <div className="inf-card-head-text">
+              <h3 className="inf-card-title">
+                Motivo da visita<span className="nsv2-required-star"> *</span>
+              </h3>
+              <p className="inf-card-sub">O que levou você até o cliente?</p>
+            </div>
+          </header>
+
+          <div className="inf-choices" role="group" aria-label="Motivo da visita">
+            {COMMERCIAL_VISIT_REASON_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`inf-choice${reason === option.value ? ' is-selected' : ''}`}
+                aria-pressed={reason === option.value}
+                onClick={() => {
+                  setReason(option.value);
+                  clearFieldError('reason');
                 }}
-              />
-            </label>
-            <label className="inf-field">
-              <span className="inf-field-label">
-                Cidade ou região <span className="inf-field-optional">(opcional)</span>
-              </span>
-              <input
-                className="inf-input"
-                value={newClientCity}
-                placeholder="Ex.: Três Pontas/MG"
-                autoComplete="off"
-                maxLength={120}
-                onChange={(event) => setNewClientCity(event.target.value)}
-              />
-            </label>
-            <label className="inf-field">
-              <span className="inf-field-label">
-                Telefone <span className="inf-field-optional">(opcional)</span>
-              </span>
-              <input
-                className="inf-input"
-                type="tel"
-                inputMode="tel"
-                value={newClientPhone}
-                placeholder="Ex.: (35) 99999-9999"
-                autoComplete="off"
-                maxLength={40}
-                onChange={(event) => setNewClientPhone(maskPhoneInput(event.target.value))}
-              />
-            </label>
+              >
+                <span className="inf-choice-radio" aria-hidden="true" />
+                <span className="inf-choice-text">
+                  <span className="inf-choice-label">{option.label}</span>
+                </span>
+              </button>
+            ))}
           </div>
-        ) : null}
-      </section>
+          {fieldErrors.reason ? <p className="inf-card-error">{fieldErrors.reason}</p> : null}
 
-      {/* P2 — Motivo da visita */}
-      <section className="inf-card" data-invalid={fieldErrors.reason ? 'true' : undefined}>
-        <header className="inf-card-head">
-          <span className="inf-card-num" aria-hidden="true">
-            2
-          </span>
-          <div className="inf-card-head-text">
-            <h3 className="inf-card-title">
-              Motivo da visita<span className="nsv2-required-star"> *</span>
-            </h3>
-            <p className="inf-card-sub">O que levou você até o cliente?</p>
+          <label className="inf-field">
+            <span className="inf-field-label">
+              Observações <span className="inf-field-optional">(opcional)</span>
+            </span>
+            <textarea
+              className="inf-textarea"
+              rows={2}
+              value={reasonNotes}
+              placeholder="Ex.: cliente pediu para retornar após a colheita"
+              maxLength={1000}
+              onChange={(event) => setReasonNotes(event.target.value)}
+            />
+          </label>
+        </section>
+
+        {/* P3 — Resultado da negociação */}
+        <section className="inf-card" data-invalid={fieldErrors.outcome ? 'true' : undefined}>
+          <header className="inf-card-head">
+            <span className="inf-card-num" aria-hidden="true">
+              3
+            </span>
+            <div className="inf-card-head-text">
+              <h3 className="inf-card-title">
+                Resultado da negociação<span className="nsv2-required-star"> *</span>
+              </h3>
+              <p className="inf-card-sub">Como a visita terminou?</p>
+            </div>
+          </header>
+
+          <div className="inf-choices" role="group" aria-label="Resultado da negociação">
+            {COMMERCIAL_VISIT_OUTCOME_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`inf-choice${outcome === option.value ? ' is-selected' : ''}`}
+                aria-pressed={outcome === option.value}
+                onClick={() => {
+                  setOutcome(option.value);
+                  clearFieldError('outcome');
+                }}
+              >
+                <span className="inf-choice-radio" aria-hidden="true" />
+                <span className="inf-choice-text">
+                  <span className="inf-choice-label">{option.label}</span>
+                </span>
+              </button>
+            ))}
           </div>
-        </header>
+          {fieldErrors.outcome ? <p className="inf-card-error">{fieldErrors.outcome}</p> : null}
 
-        <div className="inf-choices" role="group" aria-label="Motivo da visita">
-          {COMMERCIAL_VISIT_REASON_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              className={`inf-choice${reason === option.value ? ' is-selected' : ''}`}
-              aria-pressed={reason === option.value}
-              onClick={() => {
-                setReason(option.value);
-                clearFieldError('reason');
-              }}
-            >
-              <span className="inf-choice-radio" aria-hidden="true" />
-              <span className="inf-choice-text">
-                <span className="inf-choice-label">{option.label}</span>
-              </span>
-            </button>
-          ))}
-        </div>
-        {fieldErrors.reason ? <p className="inf-card-error">{fieldErrors.reason}</p> : null}
+          <label className="inf-field">
+            <span className="inf-field-label">
+              Observações <span className="inf-field-optional">(opcional)</span>
+            </span>
+            <textarea
+              className="inf-textarea"
+              rows={2}
+              value={outcomeNotes}
+              placeholder="Ex.: proposta de 200 sacas, aguardando resposta"
+              maxLength={1000}
+              onChange={(event) => setOutcomeNotes(event.target.value)}
+            />
+          </label>
+        </section>
 
-        <label className="inf-field">
-          <span className="inf-field-label">
-            Observações <span className="inf-field-optional">(opcional)</span>
-          </span>
+        {/* P4 — Observações gerais */}
+        <section className="inf-card">
+          <header className="inf-card-head">
+            <span className="inf-card-num" aria-hidden="true">
+              4
+            </span>
+            <div className="inf-card-head-text">
+              <h3 className="inf-card-title">Observações gerais</h3>
+              <p className="inf-card-sub">Algo mais sobre a visita? (opcional)</p>
+            </div>
+          </header>
+
           <textarea
             className="inf-textarea"
-            rows={2}
-            value={reasonNotes}
-            placeholder="Ex.: cliente pediu para retornar após a colheita"
+            rows={3}
+            value={generalNotes}
+            placeholder="Escreva aqui qualquer observação extra"
             maxLength={1000}
-            onChange={(event) => setReasonNotes(event.target.value)}
+            onChange={(event) => setGeneralNotes(event.target.value)}
           />
-        </label>
-      </section>
+        </section>
 
-      {/* P3 — Resultado da negociação */}
-      <section className="inf-card" data-invalid={fieldErrors.outcome ? 'true' : undefined}>
-        <header className="inf-card-head">
-          <span className="inf-card-num" aria-hidden="true">
-            3
-          </span>
-          <div className="inf-card-head-text">
-            <h3 className="inf-card-title">
-              Resultado da negociação<span className="nsv2-required-star"> *</span>
-            </h3>
-            <p className="inf-card-sub">Como a visita terminou?</p>
-          </div>
-        </header>
+        <button type="submit" className="inf-submit" disabled={submitting}>
+          {submitting ? 'Enviando…' : 'Enviar'}
+        </button>
+      </form>
 
-        <div className="inf-choices" role="group" aria-label="Resultado da negociação">
-          {COMMERCIAL_VISIT_OUTCOME_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              className={`inf-choice${outcome === option.value ? ' is-selected' : ''}`}
-              aria-pressed={outcome === option.value}
-              onClick={() => {
-                setOutcome(option.value);
-                clearFieldError('outcome');
-              }}
-            >
-              <span className="inf-choice-radio" aria-hidden="true" />
-              <span className="inf-choice-text">
-                <span className="inf-choice-label">{option.label}</span>
-              </span>
-            </button>
-          ))}
-        </div>
-        {fieldErrors.outcome ? <p className="inf-card-error">{fieldErrors.outcome}</p> : null}
-
-        <label className="inf-field">
-          <span className="inf-field-label">
-            Observações <span className="inf-field-optional">(opcional)</span>
-          </span>
-          <textarea
-            className="inf-textarea"
-            rows={2}
-            value={outcomeNotes}
-            placeholder="Ex.: proposta de 200 sacas, aguardando resposta"
-            maxLength={1000}
-            onChange={(event) => setOutcomeNotes(event.target.value)}
-          />
-        </label>
-      </section>
-
-      {/* P4 — Observações gerais */}
-      <section className="inf-card">
-        <header className="inf-card-head">
-          <span className="inf-card-num" aria-hidden="true">
-            4
-          </span>
-          <div className="inf-card-head-text">
-            <h3 className="inf-card-title">Observações gerais</h3>
-            <p className="inf-card-sub">Algo mais sobre a visita? (opcional)</p>
-          </div>
-        </header>
-
-        <textarea
-          className="inf-textarea"
-          rows={3}
-          value={generalNotes}
-          placeholder="Escreva aqui qualquer observação extra"
-          maxLength={1000}
-          onChange={(event) => setGeneralNotes(event.target.value)}
+      {/* FORA do <form>: o BottomSheet usa portal, mas eventos de portal sobem
+          pela arvore React — o submit do modal chegaria ao onSubmit da visita.
+          Mesmo arranjo do NewSampleModal. Prefill com o que ja foi digitado;
+          PF por padrao (o comercial visita produtor). O Papel entra vazio de
+          proposito — escolha consciente, ver ClientQuickCreateModal. */}
+      {quickCreateOpen ? (
+        <ClientQuickCreateModal
+          session={session}
+          open
+          title="Cadastrar cliente"
+          initialSearch={newClientName.trim()}
+          initialPersonType="PF"
+          initialPhone={newClientPhone.trim() || undefined}
+          onClose={() => setQuickCreateOpen(false)}
+          onCreated={(client) => {
+            setSelectedClient(client);
+            setQuickCreateOpen(false);
+            clearFieldError('client');
+            if (!newClientName.trim() && client.displayName) {
+              setNewClientName(client.displayName);
+            }
+          }}
         />
-      </section>
-
-      <button type="submit" className="inf-submit" disabled={submitting}>
-        {submitting ? 'Enviando…' : 'Enviar'}
-      </button>
-    </form>
+      ) : null}
+    </>
   );
 }

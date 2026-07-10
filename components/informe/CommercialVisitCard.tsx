@@ -11,9 +11,11 @@ import type { VisitLinkAction } from '../visits/VisitReportCard';
 // Card accordion da VISITA do comercial — twin do VisitReportCard (manter
 // estrutura/classes rsm-* em sincronia). Badge "Visita" no cabecalho; detalhes:
 // cidade/telefone (cliente novo) + motivo, resultado e observacoes.
-// CURADORIA do vinculo (so /resumo, via showLinkStatus/canLinkClient): IGUAL ao
-// prospector, POReM restrita a clientKind=NEW — EXISTING e born-linked pelo
-// lookup do form comercial e NAO e curavel (so mostra "Codigo X").
+// CURADORIA do vinculo (so Relatorios, via showLinkStatus/canLinkClient): IGUAL
+// ao prospector, POReM restrita a clientKind=NEW — EXISTING nao e curavel (so
+// mostra "Codigo X"). Como as duas opcoes do formulario ja nascem vinculadas,
+// isto virou caminho de CORRECAO: "Aguardando vinculo" so aparece em visita
+// legada ou desvinculada pelo ADMIN.
 
 function formatVisitDateTime(value: string): string {
   const date = new Date(value);
@@ -53,10 +55,10 @@ export function CommercialVisitCard({
 }: CommercialVisitCardProps) {
   const isNewClient = visit.clientKind === 'NEW';
   const isLinked = visit.client !== null;
-  // Vinculado mostra o nome canonico do cadastro; cliente novo o anotado.
-  const clientName = isNewClient
-    ? (visit.newClient?.name ?? '—')
-    : (visit.client?.displayName ?? '—');
+  // Havendo vinculo, o nome canonico do cadastro manda — inclusive no cliente
+  // NOVO, que hoje nasce vinculado (o comercial cadastra no formulario). O nome
+  // anotado so aparece nas visitas sem vinculo: legado e desvinculadas pelo ADMIN.
+  const clientName = visit.client?.displayName ?? visit.newClient?.name ?? '—';
 
   return (
     <article

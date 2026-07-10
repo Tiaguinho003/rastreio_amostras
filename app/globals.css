@@ -8813,6 +8813,153 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   gap: clamp(10px, 3vw, 12px);
 }
 
+/* CTA de cadastro do cliente novo (obrigatorio antes de enviar a visita).
+   Irmao visual do .lookup-create-cta do dropdown, porem solto no card: cantos
+   arredondados e borda inteira no lugar da borda-de-topo. */
+.inf-newclient-cta {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 3vw, 12px);
+  width: 100%;
+  padding: clamp(10px, 3vw, 12px) clamp(12px, 3.6vw, 14px);
+  background: linear-gradient(180deg, #f4faf6 0%, #ecf5ef 100%);
+  border: 1px solid rgba(31, 93, 67, 0.18);
+  border-radius: clamp(10px, 3vw, 12px);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  font-size: clamp(13px, 3.6vw, 14px);
+  font-weight: 600;
+  color: var(--brand-green, #1f5d43);
+  /* So transform (LNW-L2). */
+  transition: transform 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.inf-newclient-cta:active {
+  transform: scale(0.985);
+}
+
+.inf-newclient-cta.has-error {
+  border-color: #c45c5c;
+}
+
+.inf-newclient-cta-icon {
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  width: clamp(28px, 7.8vw, 32px);
+  height: clamp(28px, 7.8vw, 32px);
+  background: rgba(31, 93, 67, 0.14);
+  border-radius: clamp(7px, 2vw, 9px);
+  color: var(--brand-green, #1f5d43);
+}
+
+.inf-newclient-cta-icon svg,
+.inf-newclient-cta-chevron {
+  width: clamp(15px, 4vw, 17px);
+  height: clamp(15px, 4vw, 17px);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.inf-newclient-cta-label {
+  flex: 1;
+}
+
+.inf-newclient-cta-chevron {
+  flex-shrink: 0;
+  opacity: 0.55;
+}
+
+/* Cliente ja cadastrado pelo modal: chip inerte com o nome canonico + codigo. */
+.inf-newclient-linked {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 3vw, 12px);
+  padding: clamp(10px, 3vw, 12px) clamp(12px, 3.6vw, 14px);
+  background: #f4faf6;
+  border: 1px solid rgba(31, 93, 67, 0.18);
+  border-radius: clamp(10px, 3vw, 12px);
+}
+
+.inf-newclient-linked-icon {
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  width: clamp(28px, 7.8vw, 32px);
+  height: clamp(28px, 7.8vw, 32px);
+  background: var(--brand-green, #1f5d43);
+  border-radius: 50%;
+  color: #ffffff;
+}
+
+.inf-newclient-linked-icon svg {
+  width: clamp(15px, 4vw, 17px);
+  height: clamp(15px, 4vw, 17px);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.inf-newclient-linked-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.inf-newclient-linked-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(13px, 3.6vw, 14px);
+  font-weight: 600;
+  color: #2b2b2b;
+}
+
+.inf-newclient-linked-meta {
+  font-size: clamp(10px, 2.9vw, 11px);
+  font-weight: 500;
+  color: var(--brand-green, #1f5d43);
+}
+
+.inf-newclient-linked-clear {
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  width: clamp(26px, 7vw, 30px);
+  height: clamp(26px, 7vw, 30px);
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  color: #8a8a8a;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.inf-newclient-linked-clear:active {
+  transform: scale(0.92);
+}
+
+.inf-newclient-linked-clear svg {
+  width: clamp(15px, 4vw, 17px);
+  height: clamp(15px, 4vw, 17px);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 /* ClientLookupField dentro do card branco: label minusculo uppercase +
    input com os mesmos tokens dos .inf-input. */
 .inf-card .client-lookup-field > label {

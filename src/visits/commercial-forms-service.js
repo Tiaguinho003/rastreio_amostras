@@ -206,35 +206,24 @@ export class CommercialFormsService {
     this.prisma = prisma;
   }
 
-  // Identificacao do cliente identica ao visit_report do prospector
-  // (comentario cruzado: resolveClientIdentification em
-  // visit-report-service.js — manter regras em sincronia):
-  //   EXISTING — clientId obrigatorio, existente e ACTIVE; campos new_* zeram.
-  //   NEW      — newClientName obrigatorio; cidade/telefone opcionais.
+  // Identificacao do cliente. Os DOIS tipos exigem um Client ativo — o
+  // clientKind e a DECLARACAO do autor, nao a presenca do vinculo:
+  //   EXISTING — o comercial achou o cliente no lookup; campos new_* zeram.
+  //   NEW      — o comercial cadastrou o cliente ali mesmo (ClientQuickCreateModal
+  //              no formulario); newClientName/cidade/telefone ficam como a
+  //              ANOTACAO de campo, ao lado do vinculo.
+  //
+  // DIVERGE de propósito do visit_report do prospector (resolveClientIdentification
+  // em visit-report-service.js), que segue aceitando declaracao sem clientId e
+  // depende da curadoria do /informe. Nao sincronizar os dois: a visita comercial
+  // nasce SEMPRE vinculada, o informe de prospeccao nao.
   async resolveClientIdentification(input) {
     const clientKind = normalizeEnumChoice(input.clientKind, VISIT_CLIENT_KINDS, 'clientKind');
+    const client = await this._assertActiveClient(
+      normalizeRequiredText(input.clientId, 'clientId', 100)
+    );
 
     if (clientKind === 'EXISTING') {
-      const clientId = normalizeRequiredText(input.clientId, 'clientId', 100);
-      const client = await this.prisma.client.findUnique({
-        where: { id: clientId },
-        select: FORM_CLIENT_SELECT,
-      });
-
-      if (!client) {
-        throw new HttpError(422, 'clientId does not reference an existing client', {
-          code: 'VISIT_CLIENT_NOT_FOUND',
-          field: 'clientId',
-        });
-      }
-
-      if (client.status !== 'ACTIVE') {
-        throw new HttpError(422, 'clientId must reference an active client', {
-          code: 'VISIT_CLIENT_INACTIVE',
-          field: 'clientId',
-        });
-      }
-
       return {
         clientKind,
         clientId: client.id,
@@ -246,7 +235,7 @@ export class CommercialFormsService {
 
     return {
       clientKind,
-      clientId: null,
+      clientId: client.id,
       newClientName: normalizeRequiredText(
         input.newClientName,
         'newClientName',
@@ -382,11 +371,15 @@ export class CommercialFormsService {
     return { removed: true };
   }
 
-  // Curadoria do vinculo da VISITA COMERCIAL (pagina /resumo): ADM/CADASTRO
-  // setam/trocam/removem o cliente vinculado — MAS so quando clientKind=NEW
-  // (cliente novo, sem vinculo). EXISTING e born-linked pelo lookup do form e
-  // NAO e curavel. Espelha linkVisitReportClient; clientId null desvincula
-  // (volta o trio a NULL); clientId === undefined responde 422.
+  // Curadoria do vinculo da VISITA COMERCIAL (pagina Relatorios): o ADMIN
+  // troca/remove o cliente vinculado — MAS so quando clientKind=NEW. EXISTING
+  // nao se mexe (decisao do usuario). Espelha linkVisitReportClient; clientId
+  // null desvincula (volta o trio a NULL); clientId === undefined responde 422.
+  //
+  // Desde que o formulario passou a exigir cadastro no "Cliente novo", toda
+  // visita NASCE vinculada: isto virou caminho de CORRECAO (o comercial
+  // cadastrou/escolheu errado), nao de COMPLETUDE. Quem ainda chega aqui sem
+  // vinculo e o informe do prospector, por linkVisitReportClient.
   async linkCommercialVisitClient(input, actorContext) {
     const actor = assertAuthenticatedActor(actorContext, 'link commercial visit client');
     assertRoleAllowed(actor.role, VISIT_REPORT_LINK_CURATOR_ROLES, 'link commercial visit client');
