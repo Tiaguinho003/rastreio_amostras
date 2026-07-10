@@ -522,8 +522,8 @@ test('toApprovalContractOption: buyerSnapshot nulo vira buyerName null', () => {
   assert.equal(option.buyerName, null);
 });
 
-test('APPROVAL_ELIGIBLE_STATUSES = EMITIDO/FATURADO/PAGO (WASH_OUT fora)', () => {
-  assert.deepEqual([...APPROVAL_ELIGIBLE_STATUSES], ['EMITIDO', 'FATURADO', 'PAGO']);
+test('APPROVAL_ELIGIBLE_STATUSES = so EMITIDO (portao AP21)', () => {
+  assert.deepEqual([...APPROVAL_ELIGIBLE_STATUSES], ['EMITIDO']);
 });
 
 // ---------------------------------------------------------------------------

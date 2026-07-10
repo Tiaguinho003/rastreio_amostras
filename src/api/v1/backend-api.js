@@ -1311,6 +1311,7 @@ export function createBackendApiV1({
           select: {
             id: true,
             status: true,
+            requiresApproval: true,
             purchaseNumber: true,
             contractNumber: true,
             sellerSnapshot: true,
@@ -1321,6 +1322,14 @@ export function createBackendApiV1({
         });
         if (!contract) {
           throw new HttpError(404, 'Contrato nao encontrado');
+        }
+        // Portao AP17: so se gera etiqueta de contrato MARCADO ("Sim"). Defesa no
+        // backend — as portas (sub-aba, portao do faturar) so alcancam marcados,
+        // mas o gate fecha o caminho (ex.: contrato desmarcado depois).
+        if (!contract.requiresApproval) {
+          throw new HttpError(409, 'Contrato nao esta marcado para aprovacao', {
+            code: 'APPROVAL_CONTRACT_NOT_MARKED',
+          });
         }
         if (!APPROVAL_ELIGIBLE_STATUSES.includes(contract.status)) {
           throw new HttpError(409, 'Contrato nao esta elegivel para aprovacao', {
@@ -1370,10 +1379,18 @@ export function createBackendApiV1({
         }
         const contract = await queryService.prisma.saleContract.findUnique({
           where: { id: saleContractId },
-          select: { status: true },
+          select: { status: true, requiresApproval: true },
         });
         if (!contract) {
           throw new HttpError(404, 'Contrato nao encontrado');
+        }
+        // Portao AP17: so se gera etiqueta de contrato MARCADO ("Sim"). Fecha a
+        // divergencia "enviou sem marcar" (a AP8 permitia) — vem antes da
+        // elegibilidade pra dar o motivo certo (nao-marcado != nao-elegivel).
+        if (!contract.requiresApproval) {
+          throw new HttpError(409, 'Contrato nao esta marcado para aprovacao', {
+            code: 'APPROVAL_CONTRACT_NOT_MARKED',
+          });
         }
         if (!APPROVAL_ELIGIBLE_STATUSES.includes(contract.status)) {
           throw new HttpError(409, 'Contrato nao esta elegivel para aprovacao', {

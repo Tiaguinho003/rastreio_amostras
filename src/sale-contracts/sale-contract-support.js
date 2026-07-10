@@ -1315,10 +1315,11 @@ const APPROVAL_NAME_MAX_CHARS = 52;
 const APPROVAL_LOT_MAX_CHARS = 16;
 const APPROVAL_MAX_LOTS = 16;
 
-// Status que aceitam ENVIO de aprovacao (D112). WASH_OUT fica FORA — negocio
-// quebrado nao manda amostra de aprovacao (difere do Espelho, que inclui
-// WASH_OUT por conta da D105; NAO copiar a lista de la).
-export const APPROVAL_ELIGIBLE_STATUSES = Object.freeze(['EMITIDO', 'FATURADO', 'PAGO']);
+// Status que aceitam ENVIO de aprovacao. Reforma "o portao" (AP21/E4): so
+// EMITIDO — a aprovacao e sempre pre-faturamento, e reenvio (proxy de recusa,
+// AP13) acontece antes de faturar. FATURADO/PAGO/WASH_OUT ficam FORA (antes da
+// reforma a lista era EMITIDO/FATURADO/PAGO — a AP21 apertou pra so EMITIDO).
+export const APPROVAL_ELIGIBLE_STATUSES = Object.freeze(['EMITIDO']);
 
 // Quebra do "Lote de origem" (Sample.declaredOriginLot, texto livre <=100)
 // nos campos discretos da etiqueta (D116): separadores = traco, espaco,

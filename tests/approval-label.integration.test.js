@@ -8,10 +8,11 @@ import { createBackendApiV1 } from '../src/api/v1/backend-api.js';
 import { LocalAuthService } from '../src/auth/local-auth-service.js';
 import { SampleQueryService } from '../src/samples/sample-query-service.js';
 
-// Integracao da Aprovacao do contrato (Fase I — D112-D119): seletor reduzido,
-// prefill e envio auditado (approval_label_log + custom_print_job na MESMA tx).
-// Monta a API real (createBackendApiV1) com LocalAuthService em memoria — o
-// gate "qualquer papel exceto PROSPECTOR" e o central do methodName/allowlist,
+// Integracao da Aprovacao do contrato: seletor reduzido, prefill e envio auditado
+// (approval_label_log + custom_print_job na MESMA tx). Reforma "o portao" (AP17/
+// AP21): gerar exige o contrato MARCADO (requiresApproval) e elegibilidade so
+// EMITIDO. Monta a API real (createBackendApiV1) com LocalAuthService em memoria —
+// o gate "qualquer papel exceto PROSPECTOR" e o central do methodName/allowlist,
 // entao os testes exercitam a autorizacao de verdade (CLASSIFIER passa,
 // PROSPECTOR 403), nao um actor fake.
 
@@ -110,7 +111,12 @@ if (!databaseUrl || !databaseReachable) {
   // Contratos sinteticos direto no Prisma (SaleContract e CRUD sem trigger):
   // mais leve que a venda real e independente do dominio de amostras.
   let contractSeq = 900000;
-  async function createContract({ status = 'EMITIDO', sampleId = null, ...overrides } = {}) {
+  async function createContract({
+    status = 'EMITIDO',
+    sampleId = null,
+    requiresApproval = true,
+    ...overrides
+  } = {}) {
     contractSeq += 1;
     const id = randomUUID();
     await prisma.saleContract.create({
@@ -120,6 +126,10 @@ if (!databaseUrl || !databaseReachable) {
         contractSeq,
         contractNumber: `${contractSeq}/99`,
         status,
+        // Reforma "o portao": a geracao exige o contrato MARCADO (AP17). O helper
+        // nasce marcado por padrao (a maioria dos testes exercita o happy-path da
+        // geracao); os testes do gate AP17 passam requiresApproval: false.
+        requiresApproval,
         contractDate: new Date('2026-07-01T00:00:00.000Z'),
         purchaseNumber: overrides.purchaseNumber ?? null,
         sampleId,
@@ -239,6 +249,30 @@ if (!databaseUrl || !databaseReachable) {
     assert.deepEqual(await auditCounts(), { logs: 0, jobs: 0 });
   });
 
+  test('sendApprovalLabel: 409 APPROVAL_CONTRACT_NOT_MARKED para contrato NAO marcado (AP17)', async () => {
+    const contractId = await createContract({ status: 'EMITIDO', requiresApproval: false });
+
+    const response = await api.sendApprovalLabel(
+      buildInput({ body: { saleContractId: contractId, lines: buildLines() } })
+    );
+
+    assert.equal(response.status, 409);
+    assert.equal(response.body.error.details.code, 'APPROVAL_CONTRACT_NOT_MARKED');
+    assert.deepEqual(await auditCounts(), { logs: 0, jobs: 0 });
+  });
+
+  test('sendApprovalLabel: 409 APPROVAL_CONTRACT_NOT_ELIGIBLE para marcado FATURADO (AP21 apertou p/ so EMITIDO)', async () => {
+    const contractId = await createContract({ status: 'FATURADO' });
+
+    const response = await api.sendApprovalLabel(
+      buildInput({ body: { saleContractId: contractId, lines: buildLines() } })
+    );
+
+    assert.equal(response.status, 409);
+    assert.equal(response.body.error.details.code, 'APPROVAL_CONTRACT_NOT_ELIGIBLE');
+    assert.deepEqual(await auditCounts(), { logs: 0, jobs: 0 });
+  });
+
   test('sendApprovalLabel: 404 para contrato inexistente ou id malformado, nada gravado', async () => {
     const missing = await api.sendApprovalLabel(
       buildInput({ body: { saleContractId: randomUUID(), lines: buildLines() } })
@@ -292,10 +326,11 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(send.status, 403);
   });
 
-  test('listApprovalContractOptions: so EMITIDO/FATURADO/PAGO, mais recente primeiro, itens sem financeiro (CLASSIFIER ve)', async () => {
-    const emitido = await createContract({ status: 'EMITIDO' });
-    const faturado = await createContract({ status: 'FATURADO' });
-    const pago = await createContract({ status: 'PAGO' });
+  test('listApprovalContractOptions: so EMITIDO (portao AP21), mais recente primeiro, itens sem financeiro (CLASSIFIER ve)', async () => {
+    const older = await createContract({ status: 'EMITIDO' });
+    const newer = await createContract({ status: 'EMITIDO' });
+    await createContract({ status: 'FATURADO' }); // AP21 tirou FATURADO/PAGO da lista
+    await createContract({ status: 'PAGO' });
     await createContract({ status: 'WASH_OUT' });
 
     const response = await api.listApprovalContractOptions(
@@ -304,11 +339,11 @@ if (!databaseUrl || !databaseReachable) {
 
     assert.equal(response.status, 200);
     const items = response.body.items;
-    assert.equal(items.length, 3);
-    // contractSeq desc = mais recente primeiro (pago > faturado > emitido).
+    assert.equal(items.length, 2);
+    // contractSeq desc = mais recente primeiro; so os EMITIDO aparecem.
     assert.deepEqual(
       items.map((item) => item.id),
-      [pago, faturado, emitido]
+      [newer, older]
     );
     for (const item of items) {
       assert.deepEqual(Object.keys(item).sort(), [
@@ -326,7 +361,7 @@ if (!databaseUrl || !databaseReachable) {
   test('getApprovalLabelPrefill: campo a campo com cortes 26/52, lotes quebrados e texto original', async () => {
     const sampleId = await createSample({ declaredOriginLot: '1234-5678 91011, 121/3; 999' });
     const contractId = await createContract({
-      status: 'FATURADO',
+      status: 'EMITIDO', // AP21: prefill so em EMITIDO (a quebra de campos independe do status)
       sampleId,
       purchaseNumber: 'C'.repeat(40),
       sellerSnapshot: { displayName: 'P'.repeat(60) },
@@ -382,6 +417,15 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({ params: { contractId: 'nao-e-uuid' } })
     );
     assert.equal(malformed.status, 404);
+  });
+
+  test('getApprovalLabelPrefill: 409 APPROVAL_CONTRACT_NOT_MARKED para contrato NAO marcado (AP17)', async () => {
+    const contractId = await createContract({ status: 'EMITIDO', requiresApproval: false });
+
+    const response = await api.getApprovalLabelPrefill(buildInput({ params: { contractId } }));
+
+    assert.equal(response.status, 409);
+    assert.equal(response.body.error.details.code, 'APPROVAL_CONTRACT_NOT_MARKED');
   });
 }
 
