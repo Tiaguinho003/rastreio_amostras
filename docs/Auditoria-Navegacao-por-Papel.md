@@ -59,8 +59,9 @@ Constantes/helpers de agrupamento (`lib/roles.ts`):
   GERENCIA cadastro de cliente: guard do hub `/cadastros` e do **detalhe**
   `/clients/[id]`, mais o botao "Gerenciar cliente" e o card "Cadastros pendentes"
   do dashboard. Sem equivalente no backend (ver a nota da matriz).
-- `INFORME_ROLES` = ADMIN, COMMERCIAL, REGISTRATION — guard da pagina
-  "Relatorios" (`/informe`). CADASTRO saiu em 2026-06-28.
+- `INFORME_ROLES` = ADMIN, COMMERCIAL — guard da pagina "Relatorios"
+  (`/informe`). CADASTRO saiu em 2026-06-28; REGISTRATION em 2026-07-10. Cobre
+  exatamente os dois ramos da pagina: nao ha papel com acesso e sem conteudo.
 - `isAdmin(role)` = somente ADMIN.
 - `isCommercialRole(role)` = somente COMMERCIAL (prioridade na ordenacao do
   picker de usuarios; nao confundir com acesso de navegacao). O PROSPECTOR saiu
@@ -169,14 +170,16 @@ esta no detalhe de cada papel.
 | `/camera`          | ✅        | ✅         | ✅           | ✅          | ✅       | ❌            |
 | `/clients` (lista) | ✅        | ✅         | ✅           | ✅          | ✅       | ❌            |
 | `/clients/[id]`    | ✅        | ❌         | ❌           | ❌          | ✅       | ❌            |
-| `/informe`         | ✅ viewer | ❌         | ✅ vazio     | ✅ proprios | ❌       | ❌            |
+| `/informe`         | ✅ viewer | ❌         | ❌           | ✅ proprios | ❌       | ❌            |
 | `/cadastros`       | ✅        | ❌         | ❌           | ❌          | ✅       | ❌            |
 | `/contratos`       | ✅        | ❌         | ❌           | ✅          | ❌       | ❌            |
 | `/users`           | ✅        | ❌         | ❌           | ❌          | ❌       | ❌            |
 
 `/informe` por papel: ADMIN = viewer (todos os informes + curadoria + cria, FAB);
-COMMERCIAL = proprios (scope=mine + FAB); REGISTRATION = placeholder vazio;
-CLASSIFIER / CADASTRO / PROSPECTOR = sem acesso. (`app/informe/page.tsx`.)
+COMMERCIAL = proprios (scope=mine + FAB); CLASSIFIER / REGISTRATION / CADASTRO /
+PROSPECTOR = sem acesso. (`app/informe/page.tsx`.) O REGISTRATION saiu em
+2026-07-10: tinha acesso a um placeholder vazio, e os dois gates do backend ja o
+recusavam.
 
 **Acesso (guard) x visibilidade na nav (2026-07-02):** para a **lista** `/clients` o
 guard segue `NON_PROSPECTOR_ROLES` (todos os 5 ✅ e a rota continua acessivel por
@@ -258,7 +261,7 @@ proprio:
 
 - **`/informe` (Relatorios)**: para o Comercial renderiza `InformeCommercialPage`
   — feed dos PROPRIOS informes (`scope=mine`) + FAB de criacao. (Nao e a visao de
-  supervisao dos viewers ADMIN/CADASTRO.) O antigo `/resumo` redireciona para ca;
+  supervisao do viewer, hoje so o ADMIN.) O antigo `/resumo` redireciona para ca;
   o Comercial saiu dos viewers em 2026-06-18.
 - **`/dashboard`**: usa o dashboard padrao (com dados de disponibilidade de
   venda), nao um dashboard dedicado como o do PROSPECTOR.
@@ -294,8 +297,8 @@ de gestao.
 
 Contagem:
 
-- **Sidebar desktop: 3 itens** — Inicio, Lotes, Clientes. (Sem Relatorios — e o
-  unico nao-prospector que nao o ve.)
+- **Sidebar desktop: 3 itens** — Inicio, Lotes, Clientes. (Sem Relatorios, como
+  o CADASTRO e o REGISTRATION.)
 - **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, Clientes, Perfil. O 5o
   slot, que nos papeis de `INFORME_ROLES` e Relatorios, aqui e Perfil — para o
   Classifier ter 5 abas como os demais (2026-06-28).
@@ -341,27 +344,31 @@ no Classifier, Relatorios no Comercial); menu do avatar igual (Perfil, Sair).
 
 Papel ligado a impressao/registro. **Na pratica existe para o agente de
 impressao** (envio dos dados de etiqueta) — nao e um papel de uso humano no app,
-o que explica a ausencia de UI propria. A navegacao e **identica a do Comercial**
-(esta em `NON_PROSPECTOR_ROLES` e em `INFORME_ROLES`); a unica diferenca real e o
-**conteudo** de Relatorios, onde cai no placeholder vazio. Decisao 2026-06-28:
-mantido como esta por enquanto (mudancas futuras planejadas).
+o que explica a ausencia de UI propria. A navegacao e **identica a do
+Classifier**: `NON_PROSPECTOR_ROLES` sem `INFORME_ROLES`.
+
+**Saiu de `INFORME_ROLES` em 2026-07-10.** Ate entao tinha acesso a Relatorios e
+caia num placeholder vazio: nao e viewer (so ADMIN) nem autor (so COMMERCIAL), e
+os dois gates do backend ja o recusavam. O acesso nao lhe dava nada alem da
+propria moldura, e ocupava um slot da tabbar.
 
 ### Onde navega (por superficie)
 
-| Destino    | Rota         | Desktop                       | Mobile                    |
-| ---------- | ------------ | ----------------------------- | ------------------------- |
-| Inicio     | `/dashboard` | Sidebar                       | Tabbar                    |
-| Lotes      | `/samples`   | Sidebar                       | Tabbar                    |
-| Clientes   | `/clients`   | Sidebar                       | Tabbar                    |
-| Relatorios | `/informe`   | Sidebar                       | Tabbar                    |
-| Camera     | `/camera`    | — (sem botao)                 | Tabbar (destaque, centro) |
-| Perfil     | `/profile`   | Menu do avatar ("Meu perfil") | Menu do avatar            |
-| Sair       | logout       | Menu do avatar                | Menu do avatar            |
+| Destino  | Rota         | Desktop                       | Mobile                    |
+| -------- | ------------ | ----------------------------- | ------------------------- |
+| Inicio   | `/dashboard` | Sidebar                       | Tabbar                    |
+| Lotes    | `/samples`   | Sidebar                       | Tabbar                    |
+| Clientes | `/clients`   | Sidebar                       | Tabbar                    |
+| Camera   | `/camera`    | — (sem botao)                 | Tabbar (destaque, centro) |
+| Perfil   | `/profile`   | Menu do avatar ("Meu perfil") | Tabbar + menu do avatar   |
+| Sair     | logout       | Menu do avatar                | Menu do avatar            |
 
 Contagem:
 
-- **Sidebar desktop: 4 itens** — Inicio, Lotes, Clientes, Relatorios.
-- **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, Clientes, Relatorios.
+- **Sidebar desktop: 3 itens** — Inicio, Lotes, Clientes.
+- **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, Clientes, Perfil. O 5o
+  slot, que nos papeis de `INFORME_ROLES` e Relatorios, aqui e Perfil — mesmo
+  arranjo do Classifier.
 - **Menu do avatar: 2 itens** — Perfil, Sair (igual no desktop e no mobile).
 
 ### Rotas acessiveis sem botao de navegacao
@@ -371,14 +378,11 @@ Contagem:
 
 ### Rotas bloqueadas (redirecionam para `/dashboard`)
 
+- `/informe` (Relatorios) — fora de `INFORME_ROLES` desde 2026-07-10.
 - `/cadastros`, `/contratos` (ADMIN/CADASTRO) e `/users` (ADMIN).
 
 ### Particularidades de conteudo
 
-- **`/informe` (Relatorios)**: placeholder vazio ("Nenhum formulario
-  disponivel"). O REGISTRATION nao e viewer (so ADMIN) nem autor (so COMMERCIAL),
-  entao o botao Relatorios aparece mas a pagina nao traz feed nem FAB.
-  (`app/informe/page.tsx`.)
 - **Sem pagina ou secao exclusiva**: apesar do nome "Impressao", nao ha UI
   restrita ao REGISTRATION. A impressao de etiquetas acontece no fluxo de
   `/samples` (registro -> `REGISTRATION_CONFIRMED` -> classificacao/etiqueta),
@@ -389,11 +393,12 @@ Contagem:
 
 ### Diferenca para o COMMERCIAL
 
-Navegacao exatamente igual (sidebar 4, tabbar 5, avatar 2). A unica diferenca e o
-conteudo de Relatorios: o Comercial ve os PROPRIOS informes (`scope=mine`) + FAB
-de criacao; o REGISTRATION ve o placeholder vazio. (Fora da navegacao: o Comercial
-pode ser responsavel comercial de cliente via `isCommercialRole`; o REGISTRATION
-nao.)
+O Comercial esta em `INFORME_ROLES` e ve Relatorios na sidebar e na tabbar (feed
+dos PROPRIOS informes, `scope=mine`, + FAB de criacao); o REGISTRATION nao ve em
+lugar nenhum desde 2026-07-10 e e redirecionado se tentar a URL. Sidebar 4 vs 3
+itens; tabbar 5 vs 5 (5o item: Relatorios no Comercial, Perfil no REGISTRATION);
+menu do avatar igual. (Fora da navegacao: o Comercial pode ser responsavel
+comercial de cliente via `isCommercialRole`; o REGISTRATION nao.)
 
 ## CADASTRO — "Cadastro"
 
@@ -558,9 +563,9 @@ Observacoes neutras do mapeamento, sem juizo de "certo/errado":
    `NON_PROSPECTOR_ROLES`, mas a unica entrada de navegacao esta na tabbar; a
    sidebar desktop nao lista Camera. No desktop, esses papeis nao alcancam a
    camera pela navegacao.
-2. **"Relatorios" rotula o mesmo item para todos, com conteudo diferente.** O
-   botao `/informe` aparece igual, mas a pagina e adaptativa por papel (viewer /
-   proprios / placeholder vazio).
+2. **"Relatorios" rotula o mesmo item para os dois papeis que o veem, com
+   conteudo diferente.** O botao `/informe` aparece igual, mas a pagina e
+   adaptativa por papel: viewer (ADMIN) ou proprios (COMMERCIAL).
 3. **Redirects silenciosos.** `/settings` -> `/profile` e `/resumo` -> `/informe`.
 4. **O menu do avatar muda de conteudo por plataforma.** No DESKTOP (dropdown do
    topbar, no `AppShell`) traz sempre so "Meu perfil" + "Sair" — a gestao
@@ -576,10 +581,10 @@ Observacoes neutras do mapeamento, sem juizo de "certo/errado":
    cinco papeis de `NON_PROSPECTOR_ROLES`, CLASSIFIER (nunca teve) e CADASTRO
    (removido em 2026-06-28) estao fora de `INFORME_ROLES`. No mobile, ambos
    recebem Perfil como 5o item da tabbar, no lugar de Relatorios.
-6. **COMMERCIAL e REGISTRATION tem a MESMA navegacao.** Ambos estao em
-   `NON_PROSPECTOR_ROLES` e `INFORME_ROLES` (sidebar 4, tabbar 5, avatar 2); a
-   unica diferenca e o conteudo de `/informe` — proprios + FAB (COMMERCIAL) vs
-   placeholder vazio (REGISTRATION).
+6. **CLASSIFIER e REGISTRATION tem a MESMA navegacao.** Ambos estao em
+   `NON_PROSPECTOR_ROLES` e fora de `INFORME_ROLES` (sidebar 3, tabbar 5 com
+   Perfil no 5o slot, avatar 2). Ate 2026-07-10 o REGISTRATION acompanhava o
+   COMMERCIAL, mas so pela moldura: caia num placeholder vazio em `/informe`.
 7. **Split Clientes (operacao) x Cadastros (gestao) — 2026-07-02.** A capacidade de
    gerir clientes e a mesma para todos, mas o ponto de entrada muda por papel:
    COMMERCIAL/CLASSIFIER/REGISTRATION usam "Clientes" (`/clients`) direto na nav;

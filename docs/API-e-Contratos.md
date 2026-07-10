@@ -218,7 +218,7 @@ Endpoints somente-leitura usados pela pagina de detalhe do cliente (4 cards-filt
 1. `POST /api/v1/visit-reports`
    Qualquer usuario autenticado. `userId` e `createdAt` carimbados no servidor; `capturedAt` opcional (hora local da fila offline). Idempotente via `Idempotency-Key` (replay da fila nao duplica).
 2. `GET /api/v1/visit-reports`
-   Paginada (`page`, `limit` max 100), mais recentes primeiro. Viewers (`ADMIN`, `COMMERCIAL`, `CADASTRO`) veem tudo (pagina "Relatorios", `/informe`); `PROSPECTOR` recebe os informes de todos os autores com papel `PROSPECTOR` (comparacao da equipe; escopo forcado no service). Demais papeis: 403. `search` (opcional, max 120) filtra por nome do cliente — acento-insensitive nos dois caminhos via colunas geradas: cliente novo (`visit_report.new_client_name_normalized`) e cliente cadastrado (`client.search_normalized`); `page.total` reflete o filtro.
+   Paginada (`page`, `limit` max 100), mais recentes primeiro. Viewer (`ADMIN`, unico em `VISIT_REPORT_VIEWER_ROLES`) ve tudo (pagina "Relatorios", `/informe`); `PROSPECTOR` recebe os informes de todos os autores com papel `PROSPECTOR` (comparacao da equipe; escopo forcado no service). Demais papeis: 403. `search` (opcional, max 120) filtra por nome do cliente — acento-insensitive nos dois caminhos via colunas geradas: cliente novo (`visit_report.new_client_name_normalized`) e cliente cadastrado (`client.search_normalized`); `page.total` reflete o filtro.
 3. `GET /api/v1/visit-reports/stats`
    Contadores do dashboard do prospector, sempre do proprio usuario: `{ todayCount, todayNewClientsCount }` (visitas de hoje e, dentre elas, as com "Cliente novo"). Janela do dia no fuso de Brasilia (UTC-3 fixo), base temporal `COALESCE(captured_at, created_at)`.
 4. `DELETE /api/v1/visit-reports/:reportId`
@@ -227,7 +227,12 @@ Endpoints somente-leitura usados pela pagina de detalhe do cliente (4 cards-filt
 ### Formularios do comercial
 
 5. `POST /api/v1/commercial-visits`
-   Visita do comercial (papeis `COMMERCIAL` e `ADMIN`). Body: `clientKind` (EXISTING/NEW + campos de cliente, mesma regra do informe do prospector), `reason` (NEGOTIATION / SAMPLE_DELIVERY_OR_PICKUP / COLLECTION / RELATIONSHIP), `outcome` (DEAL_CLOSED / PROPOSAL_IN_PROGRESS / NO_PROGRESS / NO_INTEREST), `outcomeNotes`/`generalNotes` opcionais. Sem fila offline (sem Idempotency-Key).
+   Visita do comercial (papeis `COMMERCIAL` e `ADMIN`). Body: `clientKind` (EXISTING/NEW), `clientId` (**obrigatorio nos DOIS kinds**), `reason` (NEGOTIATION / SAMPLE_DELIVERY_OR_PICKUP / COLLECTION / RELATIONSHIP), `outcome` (DEAL_CLOSED / PROPOSAL_IN_PROGRESS / NO_PROGRESS / NO_INTEREST), `outcomeNotes`/`generalNotes` opcionais. Sem fila offline (sem Idempotency-Key).
+
+   O `clientKind` e a DECLARACAO do autor ("ja e cliente" / "cliente novo"), nao a presenca do vinculo: toda visita comercial nasce ligada a um `Client` ativo. Em `NEW`, `newClientName` continua obrigatorio e `newClientCity`/`newClientPhone` opcionais — sao a ANOTACAO de campo, guardada ao lado do vinculo; o proprio formulario cadastra o cliente (`ClientQuickCreateModal`) antes de enviar. `clientId` ausente, inexistente ou inativo: `422` (`VALIDATION_ERROR` / `VISIT_CLIENT_NOT_FOUND` / `VISIT_CLIENT_INACTIVE`).
+
+   **Nao e a mesma regra do informe do prospector** (`POST /visit-reports`), que segue aceitando declaracao em texto puro, sem `clientId`, e depende da curadoria do `ADMIN`.
+
 6. `DELETE /api/v1/commercial-visits/:visitId`
    Autor exclui o proprio; `ADMIN` exclui qualquer (alheio = 404).
 7. `POST /api/v1/weekly-reports`
