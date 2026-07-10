@@ -18,6 +18,12 @@ COMMERCIAL** (`CONTRATOS_ROLES`) — o COMMERCIAL passa a ver "Contratos" també
 matriz abaixo já refletem isso; as **seções por papel** (contagens de itens) ainda
 descrevem o estado pré-D110/Financeiro e serão reconciliadas num passe próprio —
 para Contratos/Financeiro, vale esta nota.
+Atualizado: 2026-07-09 — **detalhe do cliente restrito**: `/clients/[id]` saiu de
+`NON_PROSPECTOR_ROLES` e passou a `CLIENT_MANAGEMENT_ROLES` (ADMIN + CADASTRO).
+CLASSIFIER/COMMERCIAL/REGISTRATION ficam com a lista `/clients` + o modal de
+consulta do card; o botão "Gerenciar cliente" some para eles. O card "Cadastros
+pendentes" do dashboard virou ADMIN+CADASTRO e passou a levar a
+`/cadastros?incomplete=true`. Ver a nota abaixo da matriz.
 
 ## Como ler este documento
 
@@ -47,7 +53,12 @@ Definidos em `enum UserRole` (`prisma/schema.prisma`). Labels pt-BR em
 Constantes/helpers de agrupamento (`lib/roles.ts`):
 
 - `NON_PROSPECTOR_ROLES` = ADMIN, CLASSIFIER, REGISTRATION, COMMERCIAL, CADASTRO
-  (todos menos PROSPECTOR) — guard das paginas de amostras, clientes e camera.
+  (todos menos PROSPECTOR) — guard das paginas de amostras, camera e da **lista**
+  de clientes (`/clients`).
+- `CLIENT_MANAGEMENT_ROLES` = ADMIN, CADASTRO (helper `canManageClients`) — quem
+  GERENCIA cadastro de cliente: guard do hub `/cadastros` e do **detalhe**
+  `/clients/[id]`, mais o botao "Gerenciar cliente" e o card "Cadastros pendentes"
+  do dashboard. Sem equivalente no backend (ver a nota da matriz).
 - `INFORME_ROLES` = ADMIN, COMMERCIAL, REGISTRATION — guard da pagina
   "Relatorios" (`/informe`). CADASTRO saiu em 2026-06-28.
 - `isAdmin(role)` = somente ADMIN.
@@ -91,10 +102,11 @@ mantem "Clientes" na sidebar e na tabbar e nao veem Cadastros.
 | `/offline`                                                                                    | offline PWA                                                         | qualquer autenticado                            |
 | `/samples`, `/samples/[id]`                                                                   | Lotes                                                               | `NON_PROSPECTOR_ROLES`                          |
 | `/camera`                                                                                     | Camera                                                              | `NON_PROSPECTOR_ROLES`                          |
-| `/clients`, `/clients/[id]`                                                                   | Clientes                                                            | `NON_PROSPECTOR_ROLES`                          |
+| `/clients`                                                                                    | Clientes (lista)                                                    | `NON_PROSPECTOR_ROLES`                          |
+| `/clients/[id]`                                                                               | Detalhe do cliente                                                  | `CLIENT_MANAGEMENT_ROLES` (ADMIN + CADASTRO)    |
 | `/informe`                                                                                    | Relatorios                                                          | `INFORME_ROLES` (conteudo adaptativo por papel) |
 | `/resumo`                                                                                     | —                                                                   | redireciona para `/informe`                     |
-| `/cadastros`                                                                                  | Cadastros                                                           | ADMIN + CADASTRO                                |
+| `/cadastros`                                                                                  | Cadastros                                                           | `CLIENT_MANAGEMENT_ROLES` (ADMIN + CADASTRO)    |
 | `/contratos`                                                                                  | Contratos (hub — sub-abas Contratos·Financeiro·Aprovações·Embarque) | ADMIN + COMMERCIAL                              |
 | `/financeiro`                                                                                 | → redirect para `/contratos?tab=financeiro`                         | (redirect server-side)                          |
 | `/users`                                                                                      | Usuarios                                                            | ADMIN                                           |
@@ -116,28 +128,55 @@ Middleware (`middleware.ts`): modo manutencao redireciona nao-ADMIN para
 Acesso a rota (✅ acessa / ❌ redireciona para `/dashboard`). A localizacao na UI
 esta no detalhe de cada papel.
 
-| Rota              | ADMIN     | CLASSIFIER | REGISTRATION | COMMERCIAL  | CADASTRO | PROSPECTOR    |
-| ----------------- | --------- | ---------- | ------------ | ----------- | -------- | ------------- |
-| `/dashboard`      | ✅        | ✅         | ✅           | ✅          | ✅       | ✅ (dedicado) |
-| `/profile`        | ✅        | ✅         | ✅           | ✅          | ✅       | ✅            |
-| `/samples` (+sub) | ✅        | ✅         | ✅           | ✅          | ✅       | ❌            |
-| `/camera`         | ✅        | ✅         | ✅           | ✅          | ✅       | ❌            |
-| `/clients` (+sub) | ✅        | ✅         | ✅           | ✅          | ✅       | ❌            |
-| `/informe`        | ✅ viewer | ❌         | ✅ vazio     | ✅ proprios | ❌       | ❌            |
-| `/cadastros`      | ✅        | ❌         | ❌           | ❌          | ✅       | ❌            |
-| `/contratos`      | ✅        | ❌         | ❌           | ✅          | ❌       | ❌            |
-| `/users`          | ✅        | ❌         | ❌           | ❌          | ❌       | ❌            |
+| Rota               | ADMIN     | CLASSIFIER | REGISTRATION | COMMERCIAL  | CADASTRO | PROSPECTOR    |
+| ------------------ | --------- | ---------- | ------------ | ----------- | -------- | ------------- |
+| `/dashboard`       | ✅        | ✅         | ✅           | ✅          | ✅       | ✅ (dedicado) |
+| `/profile`         | ✅        | ✅         | ✅           | ✅          | ✅       | ✅            |
+| `/samples` (+sub)  | ✅        | ✅         | ✅           | ✅          | ✅       | ❌            |
+| `/camera`          | ✅        | ✅         | ✅           | ✅          | ✅       | ❌            |
+| `/clients` (lista) | ✅        | ✅         | ✅           | ✅          | ✅       | ❌            |
+| `/clients/[id]`    | ✅        | ❌         | ❌           | ❌          | ✅       | ❌            |
+| `/informe`         | ✅ viewer | ❌         | ✅ vazio     | ✅ proprios | ❌       | ❌            |
+| `/cadastros`       | ✅        | ❌         | ❌           | ❌          | ✅       | ❌            |
+| `/contratos`       | ✅        | ❌         | ❌           | ✅          | ❌       | ❌            |
+| `/users`           | ✅        | ❌         | ❌           | ❌          | ❌       | ❌            |
 
 `/informe` por papel: ADMIN = viewer (todos os informes + curadoria + cria, FAB);
 COMMERCIAL = proprios (scope=mine + FAB); REGISTRATION = placeholder vazio;
 CLASSIFIER / CADASTRO / PROSPECTOR = sem acesso. (`app/informe/page.tsx`.)
 
-**Acesso (guard) x visibilidade na nav (2026-07-02):** a matriz acima e o _guard de
-rota_, que NAO mudou. Para `/clients`, o guard segue `NON_PROSPECTOR_ROLES` (todos
-os 5 ✅ e a rota continua acessivel por URL), mas o _item de nav_ "Clientes" nao
-aparece mais para ADMIN/CADASTRO — eles chegam aos clientes pela aba "Clientes" do
-`/cadastros`. E `/cadastros` deixou de ser so Bancos/Corretores: agora hospeda 3
-abas (Clientes | Bancos | Corretores), Clientes como default.
+**Acesso (guard) x visibilidade na nav (2026-07-02):** para a **lista** `/clients` o
+guard segue `NON_PROSPECTOR_ROLES` (todos os 5 ✅ e a rota continua acessivel por
+URL), mas o _item de nav_ "Clientes" nao aparece mais para ADMIN/CADASTRO — eles
+chegam aos clientes pela aba "Clientes" do `/cadastros`. E `/cadastros` deixou de
+ser so Bancos/Corretores: agora hospeda 3 abas (Clientes | Bancos | Corretores),
+Clientes como default.
+
+**Detalhe do cliente restrito (2026-07-09):** `/clients/[id]` saiu de
+`NON_PROSPECTOR_ROLES` e passou a `CLIENT_MANAGEMENT_ROLES` (ADMIN + CADASTRO,
+`lib/roles.ts`) — e uma tela de GESTAO de cadastro (edicao, filiais, contas
+bancarias, anexos, inativacao em cascata). CLASSIFIER, COMMERCIAL e REGISTRATION
+ficam com a lista `/clients` + o modal de consulta que abre ao tocar no card
+(Documento/Telefone/Lotes em aberto/Papel); o botao **"Gerenciar cliente"** desse
+modal — **unica porta de navegacao pro detalhe em todo o app**
+(`components/clients/ClientsBrowser.tsx`) — some pra eles. Por URL direta o guard
+manda de volta pra `/clients` (`unauthorizedRedirectTo`), nao pro `/dashboard`.
+O "Voltar" do detalhe aponta pro hub `/cadastros`.
+
+Consequencias: o card **"Cadastros pendentes"** do dashboard passou a aparecer so
+pra ADMIN + CADASTRO (pros demais listava incompletos sem dar como corrigir) e
+leva a `/cadastros?incomplete=true` em vez de `/clients?incomplete=true`. O FAB de
+**criar** cliente continua pra todos: criar e operacao, completar o cadastro e
+gestao. O selo/filtro de "cadastro incompleto" na lista tambem continua pra todos.
+
+> ⚠️ Isto e **alivio de UI, nao fronteira de seguranca**. Nenhum endpoint
+> `/clients/:id/*` tem gate de papel — todos exigem apenas autenticacao (o unico
+> gate por papel no backend e a allowlist central do PROSPECTOR). Um usuario de
+> classificacao ainda consegue ler auditoria, contas bancarias e anexos chamando a
+> API direto. Um gate ingenuo por papel nesses metodos quebraria outras telas:
+> `getClient`, `updateClient`, `createClientUnit` e `GET/POST /clients/:id/bank-accounts`
+> sao compartilhados com Contratos (`SaleContractEtapa2Modal`,
+> `ClientBankAccountSelectField`) e com o envio de amostra (`SampleSendFlow`).
 
 ---
 
@@ -172,7 +211,6 @@ Alcancadas por fluxo interno ou URL direta (guard permite), mas sem item de menu
 proprio:
 
 - `/samples/[id]` — criar (modal do leque "+" em Lotes)/abrir lote. **Detalhe uniforme (LDT-D1, 2026-07-08):** os 5 papeis nao-PROSPECTOR veem e fazem exatamente o mesmo no detalhe (nenhuma granularidade por papel); PROSPECTOR e barrado nas 3 camadas (guard, middleware, e API 403 via allowlist — inclusive a leitura `getSampleDetail` e a foto `getSampleAttachmentDescriptor`, LDT-D4).
-- `/clients/[id]` — detalhe do cliente (a partir de Clientes).
 - `/camera` **no desktop** — a rota e liberada (`NON_PROSPECTOR_ROLES`), mas o
   unico botao de Camera esta na tabbar mobile; a sidebar nao tem essa entrada.
 
@@ -235,7 +273,6 @@ Contagem:
 
 - `/samples/[id]` — criar (modal do leque "+" em Lotes)/abrir lote. E onde
   o classificador faz a classificacao da amostra.
-- `/clients/[id]` — detalhe do cliente (a partir de Clientes).
 - `/camera` **no desktop** — rota liberada (`NON_PROSPECTOR_ROLES`), mas o botao
   de Camera so existe na tabbar mobile.
 
@@ -296,7 +333,7 @@ Contagem:
 
 ### Rotas acessiveis sem botao de navegacao
 
-- `/samples/[id]`; `/clients/[id]` — a partir de Lotes/Clientes (criação de lote = modal do leque "+").
+- `/samples/[id]` — a partir de Lotes (criação de lote = modal do leque "+").
 - `/camera` **no desktop** — rota liberada, botao so na tabbar mobile.
 
 ### Rotas bloqueadas (redirecionam para `/dashboard`)
@@ -365,7 +402,9 @@ Contagem:
 
 - `/clients` — a lista de clientes, agora alcancada pela **aba Clientes do
   `/cadastros`** (ou por URL direta; guard `NON_PROSPECTOR_ROLES` inalterado).
-- `/samples/[id]`; `/clients/[id]` — a partir de Lotes/Clientes (criação de lote = modal do leque "+").
+- `/samples/[id]` — a partir de Lotes (criação de lote = modal do leque "+").
+- `/clients/[id]` — detalhe do cliente, pelo "Gerenciar cliente" do modal do card
+  (aba Clientes do `/cadastros`). Restrito a ADMIN + CADASTRO.
 - `/camera` **no desktop** — rota liberada, botao so na tabbar mobile (igual aos
   demais nao-prospectores).
 
@@ -446,7 +485,9 @@ Contagem:
 
 - `/clients` — a lista de clientes, agora alcancada pela **aba Clientes do
   `/cadastros`** (ou por URL direta; guard `NON_PROSPECTOR_ROLES` inalterado).
-- `/samples/[id]`; `/clients/[id]`; `/camera` no desktop (criação de lote = modal do leque "+").
+- `/samples/[id]`; `/camera` no desktop (criação de lote = modal do leque "+").
+- `/clients/[id]` — detalhe do cliente, pelo "Gerenciar cliente" do modal do card
+  (aba Clientes do `/cadastros`). Restrito a ADMIN + CADASTRO.
 
 ### Rotas bloqueadas
 

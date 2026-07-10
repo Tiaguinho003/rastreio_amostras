@@ -225,6 +225,10 @@ Audit: o enum `ClientAuditEventType` foi reduzido a 8 valores (`CLIENT_CREATED|U
 
 ### Detalhe do cliente (#14.7.N)
 
+0. **Acesso (2026-07-09)**: `/clients/[id]` e restrito a `CLIENT_MANAGEMENT_ROLES` (ADMIN + CADASTRO) — e uma tela de GESTAO de cadastro.
+   CLASSIFIER, COMMERCIAL e REGISTRATION ficam com a lista `/clients` e o modal de consulta que abre ao tocar no card; o botao
+   "Gerenciar cliente" (unica porta pro detalhe) some pra eles. **Nao ha gate equivalente no backend** — os endpoints de cliente exigem
+   so autenticacao. Ver `docs/Auditoria-Navegacao-por-Papel.md`.
 1. A pagina de detalhe do cliente exibe identidade (avatar + nome + status + papel) e dois cards principais:
    `Informacoes` (PF/PJ — nome, documento, email, telefone, responsaveis comerciais; PJ inclui `Nome fantasia` recomendado);
    `Endereco fiscal` (PJ) ou `Filiais` (PF — fazendas).
