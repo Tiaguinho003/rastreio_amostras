@@ -249,6 +249,20 @@ export function EventsCalendarCard({
                   </li>
                 );
               }
+              // EMB26: embarque também é navegação PURA → sub-aba Embarque (a "casa"; a
+              // worklist + o [Confirmar embarque] moram lá). Igual pra todos.
+              if (event.typeKey.startsWith('contract_shipment')) {
+                return (
+                  <li key={event.id} className="dd-events-panel-item" data-type={event.typeKey}>
+                    <Link href="/contratos?tab=embarque" className="dd-events-item-link">
+                      <span className="dd-events-item-label">{event.label}</span>
+                      <svg className="dd-events-item-go" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="m9 6 6 6-6 6" />
+                      </svg>
+                    </Link>
+                  </li>
+                );
+              }
               const isOpen = expandedId === event.id;
               const canGerar =
                 event.typeKey === 'contract_approval_due' && Boolean(onGerarAprovacao);

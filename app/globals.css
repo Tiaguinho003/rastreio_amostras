@@ -24975,6 +24975,17 @@ select.samples-filter-field-input {
   .dd-events-dot[data-type='contract_approval_due'] {
     background: #f97316;
   }
+  /* F4 (EMB10/EMB17/EMB24): embarque — azul agendado, azul-escuro realizado, vermelho
+     se o dia previsto passar sem embarcar (mesma convencao "atrasado" do pagamento). */
+  .dd-events-dot[data-type='contract_shipment'] {
+    background: #2563eb;
+  }
+  .dd-events-dot[data-type='contract_shipment_done'] {
+    background: #1e40af;
+  }
+  .dd-events-dot[data-type='contract_shipment_overdue'] {
+    background: #dc2626;
+  }
 
   .dd-events-dot-more {
     font-size: 0.6rem;

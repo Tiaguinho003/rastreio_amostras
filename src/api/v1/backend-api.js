@@ -3045,6 +3045,21 @@ export function createBackendApiV1({
         return { status: 200, body: { events } };
       }),
 
+    // Embarque (EMB7/EMB26): feed de eventos de embarque do card de Eventos. Auth-only
+    // (todos os nao-PROSPECTOR); navegacao pura no front (→ aba Embarque).
+    getDashboardShipmentEvents: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractService) {
+          throw new HttpError(501, 'Sale contract service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const events = await saleContractService.getDashboardShipmentEvents(
+          { from: input?.query?.from, to: input?.query?.to },
+          actor
+        );
+        return { status: 200, body: { events } };
+      }),
+
     getSaleContract: (input) =>
       executeApiForInput(input, async () => {
         if (!saleContractService) {

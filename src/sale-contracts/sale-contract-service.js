@@ -15,10 +15,12 @@ import {
   normalizeReceivableFilter,
   receivableKeysetWhere,
   buildShipmentView,
+  bucketShipmentEvents,
   decodeShipmentCursor,
   encodeShipmentCursor,
   normalizeShipmentFilter,
   shipmentKeysetWhere,
+  SHIPMENT_EVENT_SELECT,
   SHIPMENT_VIEW_SELECT,
   buildRecentApprovalSendItem,
   bucketApprovalReminders,
@@ -630,6 +632,48 @@ export class SaleContractService {
     const rows = pending.filter((row) => !labeledIds.has(row.id));
 
     return bucketApprovalReminders(rows, { fromKey: from, toKey: to, todayKey });
+  }
+
+  // Embarque (EMB8/EMB9/EMB24): evento do card de Eventos — companheiro da worklist.
+  // Agendado = requiresShipment + EMITIDO/FATURADO + NAO embarcado, no dia previsto
+  // (invoiceDate; vira vermelho se o dia passar, EMB24); realizado = embarcado
+  // (shippedAt), no dia real (azul-escuro, EMB17). Visibilidade: TODOS os nao-PROSPECTOR
+  // (EMB7 — auth-only, sem escopo por corretor; PROSPECTOR barrado no allowlist central).
+  // Janela [from, to] = 'YYYY-MM-DD'. Retorna Record<'YYYY-MM-DD', evento[]>.
+  async getDashboardShipmentEvents(input, actorContext) {
+    assertAuthenticatedActor(actorContext, 'list dashboard shipment events');
+
+    const dayKeyRe = /^\d{4}-\d{2}-\d{2}$/;
+    const from = typeof input?.from === 'string' && dayKeyRe.test(input.from) ? input.from : null;
+    const to = typeof input?.to === 'string' && dayKeyRe.test(input.to) ? input.to : null;
+    if (!from || !to) {
+      return {};
+    }
+
+    const gte = new Date(`${from}T00:00:00.000Z`);
+    const lte = new Date(`${to}T00:00:00.000Z`);
+
+    const [scheduledRows, doneRows] = await Promise.all([
+      this.prisma.saleContract.findMany({
+        where: {
+          requiresShipment: true,
+          status: { in: ['EMITIDO', 'FATURADO'] },
+          shippedAt: null,
+          invoiceDate: { gte, lte },
+        },
+        select: SHIPMENT_EVENT_SELECT,
+      }),
+      this.prisma.saleContract.findMany({
+        where: {
+          requiresShipment: true,
+          status: { in: ['EMITIDO', 'FATURADO', 'PAGO'] },
+          shippedAt: { gte, lte },
+        },
+        select: SHIPMENT_EVENT_SELECT,
+      }),
+    ]);
+
+    return bucketShipmentEvents(scheduledRows, doneRows, brtTodayKey());
   }
 
   // AP16: envios de aprovacao recentes p/ o card "Ultimos envios" do dashboard (o

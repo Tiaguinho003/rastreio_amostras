@@ -50,6 +50,7 @@ import type {
   DashboardRecentSendsResponse,
   DashboardPaymentEventsResponse,
   DashboardApprovalEventsResponse,
+  DashboardShipmentEventsResponse,
   InvalidateReasonCode,
   PendingPrintQueueResponse,
   ListSamplesResponse,
@@ -1291,6 +1292,24 @@ export function getDashboardApprovalEvents(
   const params = new URLSearchParams({ from: window.from, to: window.to });
   return request<DashboardApprovalEventsResponse>(
     `/dashboard/approval-events?${params.toString()}`,
+    {
+      method: 'GET',
+      session,
+      cachePolicy: 'default',
+    }
+  );
+}
+
+// Embarque (EMB7/EMB26): feed de eventos de embarque do card de Eventos, por janela de
+// data. Visível a todos os não-PROSPECTOR (o card só monta no desktop); navegação pura
+// no front (→ /contratos?tab=embarque).
+export function getDashboardShipmentEvents(
+  session: SessionData,
+  window: { from: string; to: string }
+) {
+  const params = new URLSearchParams({ from: window.from, to: window.to });
+  return request<DashboardShipmentEventsResponse>(
+    `/dashboard/shipment-events?${params.toString()}`,
     {
       method: 'GET',
       session,

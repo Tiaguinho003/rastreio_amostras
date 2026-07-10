@@ -610,6 +610,38 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(p2.items[0].id, c2.id);
   });
 
+  // Embarque F4 (EMB10/EMB17/EMB24): evento do dashboard — agendado/atrasado/realizado.
+  test('getDashboardShipmentEvents: typeKeys agendado/atrasado/realizado', async () => {
+    const future = await setupShipmentContract({ lotNumber: '25400' });
+    await prisma.saleContract.update({
+      where: { id: future.id },
+      data: { invoiceDate: new Date('2026-07-15T00:00:00Z') },
+    });
+    const past = await setupShipmentContract({ lotNumber: '25401' });
+    await prisma.saleContract.update({
+      where: { id: past.id },
+      data: { invoiceDate: new Date('2026-07-05T00:00:00Z') },
+    });
+    const done = await setupShipmentContract({ lotNumber: '25402' });
+    await shipmentService.confirmShipment(
+      done.id,
+      { shippedAt: '2026-07-08', files: [] },
+      adminActor
+    );
+
+    const events = await saleContractService.getDashboardShipmentEvents(
+      { from: '2026-07-01', to: '2026-07-31' },
+      adminActor
+    );
+    // Agendado futuro (15) = azul; passado (05) = vermelho (atrasado); realizado (08) = azul-escuro.
+    assert.equal(events['2026-07-15']?.[0]?.typeKey, 'contract_shipment');
+    assert.equal(events['2026-07-05']?.[0]?.typeKey, 'contract_shipment_overdue');
+    assert.equal(events['2026-07-08']?.[0]?.typeKey, 'contract_shipment_done');
+    // Label recolhido + id namespaced (não colide com pagamento/aprovação do mesmo dia).
+    assert.ok(events['2026-07-15'][0].label.startsWith('embarque · '));
+    assert.ok(events['2026-07-15'][0].id.startsWith('shipment:'));
+  });
+
   test('numeracao continua: 2 vendas => 0001 e 0002', async () => {
     const buyerId = randomUUID();
     await createBuyerClient(buyerId);

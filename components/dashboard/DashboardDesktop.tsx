@@ -8,6 +8,7 @@ import {
   getDashboardApprovalEvents,
   getDashboardPaymentEvents,
   getDashboardRecentSends,
+  getDashboardShipmentEvents,
 } from '../../lib/api-client';
 import { canManageClients, FINANCEIRO_ROLES, isRoleAllowed } from '../../lib/roles';
 import { ApprovalLabelModal } from '../ApprovalLabelModal';
@@ -66,6 +67,12 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
   const [approvalEvents, setApprovalEvents] = useState<Record<string, DashboardCalendarEvent[]>>(
     {}
   );
+  // F4 (EMB7/EMB26): eventos de embarque — feed SEPARADO (mesma visibilidade da
+  // aprovação: todos os não-PROSPECTOR, auth-only), na MESMA janela. Merge client-side
+  // no `events` do card (id namespaced 'shipment:' evita colisão de key).
+  const [shipmentEvents, setShipmentEvents] = useState<Record<string, DashboardCalendarEvent[]>>(
+    {}
+  );
   const [approvalForm, setApprovalForm] = useState<{
     contractId: string;
     prefill: ApprovalLabelPrefill;
@@ -76,8 +83,11 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
     for (const [day, evs] of Object.entries(approvalEvents)) {
       merged[day] = merged[day] ? [...merged[day], ...evs] : [...evs];
     }
+    for (const [day, evs] of Object.entries(shipmentEvents)) {
+      merged[day] = merged[day] ? [...merged[day], ...evs] : [...evs];
+    }
     return merged;
-  }, [paymentEvents, approvalEvents]);
+  }, [paymentEvents, approvalEvents, shipmentEvents]);
 
   useEffect(() => {
     if (!session) return undefined;
@@ -151,12 +161,25 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
       .catch(() => {});
   }, [session, paymentWindow]);
 
+  // F4 (EMB7): SEM gate de papel (o card só monta no desktop, já não-PROSPECTOR).
+  // Mesma janela. Re-busca em focus/visibility e após confirmar (o evento migra
+  // agendado→realizado, podendo mudar de dia).
+  const fetchShipmentEvents = useCallback(() => {
+    if (!paymentWindow) return;
+    if (!window.matchMedia('(min-width: 901px)').matches) return;
+    getDashboardShipmentEvents(session, paymentWindow)
+      .then((res) => setShipmentEvents(res.events))
+      .catch(() => {});
+  }, [session, paymentWindow]);
+
   useEffect(() => {
     fetchPaymentEvents();
     fetchApprovalEvents();
+    fetchShipmentEvents();
     const onFocusOrVisible = () => {
       fetchPaymentEvents();
       fetchApprovalEvents();
+      fetchShipmentEvents();
     };
     window.addEventListener('focus', onFocusOrVisible);
     document.addEventListener('visibilitychange', onFocusOrVisible);
@@ -164,7 +187,7 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
       window.removeEventListener('focus', onFocusOrVisible);
       document.removeEventListener('visibilitychange', onFocusOrVisible);
     };
-  }, [fetchPaymentEvents, fetchApprovalEvents]);
+  }, [fetchPaymentEvents, fetchApprovalEvents, fetchShipmentEvents]);
 
   // Q.print: card "Impressao pendente" cortado definitivamente (decisao
   // Q.1.c #20). PrintJob agora vive como informacao auxiliar dentro do

@@ -729,6 +729,70 @@ export function bucketPaymentEvents(dueRows, paidRows, todayKey) {
   return byDay;
 }
 
+// ------------------------------------------------------------
+// Evento de Embarque no dashboard (EMB10/EMB17/EMB24) — companheiro
+// ------------------------------------------------------------
+
+export const SHIPMENT_EVENT_SELECT = Object.freeze({
+  id: true,
+  contractNumber: true,
+  status: true,
+  invoiceDate: true,
+  shippedAt: true,
+  buyerSnapshot: true,
+});
+
+// Projeta 1 contrato num evento de embarque do calendario (1→1, molde do pagamento).
+// kind 'scheduled' -> dia previsto = invoiceDate; typeKey contract_shipment (azul) ou
+// contract_shipment_overdue (vermelho) se o dia ja passou (dayKey < todayKey, EMB24).
+// kind 'done' -> dia real = shippedAt; typeKey contract_shipment_done (azul-escuro,
+// EMB17). label recolhido = "embarque · nº · comprador" (EMB11/EMB26). id NAMESPACED
+// ('shipment:') pra nao colidir com pagamento/aprovacao do mesmo dia (card usa key=id).
+export function buildShipmentEvent(row, kind, todayKey) {
+  const iso = toIsoString(kind === 'done' ? row.shippedAt : row.invoiceDate);
+  const dayKey = iso ? iso.slice(0, 10) : null;
+  const buyerName = row.buyerSnapshot?.displayName ?? null;
+  let typeKey;
+  if (kind === 'done') {
+    typeKey = 'contract_shipment_done';
+  } else if (todayKey && dayKey && dayKey < todayKey) {
+    typeKey = 'contract_shipment_overdue';
+  } else {
+    typeKey = 'contract_shipment';
+  }
+  const label = buyerName
+    ? `embarque · ${row.contractNumber} · ${buyerName}`
+    : `embarque · ${row.contractNumber}`;
+  return {
+    dayKey,
+    event: {
+      id: `shipment:${row.id}`,
+      contractId: row.id,
+      typeKey,
+      label,
+      contractNumber: row.contractNumber,
+      buyerName,
+      status: row.status,
+    },
+  };
+}
+
+// Agrupa por dayKey -> Record<dayKey, evento[]> (1→1, molde do bucketPaymentEvents).
+export function bucketShipmentEvents(scheduledRows, doneRows, todayKey) {
+  const byDay = {};
+  const add = (rows, kind) => {
+    for (const row of rows) {
+      const { dayKey, event } = buildShipmentEvent(row, kind, todayKey);
+      if (!dayKey) continue;
+      if (byDay[dayKey]) byDay[dayKey].push(event);
+      else byDay[dayKey] = [event];
+    }
+  };
+  add(scheduledRows, 'scheduled');
+  add(doneRows, 'done');
+  return byDay;
+}
+
 // F2 (reforma AP6/AP14): select do feed do "lembrete de aprovacao" — pendentes que
 // precisam de aprovacao (requiresApproval + EMITIDO, sem etiqueta). Alem dos nomes das
 // partes (acordeao), carrega invoiceDate + o lead pra calcular o inicio do lembrete.
