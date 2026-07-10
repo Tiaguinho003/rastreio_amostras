@@ -188,10 +188,23 @@ if (!databaseUrl || !databaseReachable) {
   }
 
   async function fetchLookups() {
+    // Determinismo: `findFirst` sem `orderBy` devolve linha arbitraria (a ordem
+    // fisica varia entre ambientes — local x CI). Para a modalidade isso e
+    // critico: se cair numa que exige embarque (Retirar/Posto, requiresShipment),
+    // TODO teste que paga bate no portao EMB28 ("Shipment must be confirmed
+    // before payment"). Estes lookups sao o caso GERAL (sem embarque) — os testes
+    // de embarque escolhem a modalidade por nome a parte. Fixa requiresShipment:false
+    // + orderBy pra reprodutibilidade.
     const [paymentForm, modality, packaging] = await Promise.all([
-      prisma.contractPaymentForm.findFirst({ where: { status: 'ACTIVE' } }),
-      prisma.contractModality.findFirst({ where: { status: 'ACTIVE' } }),
-      prisma.contractPackaging.findFirst({ where: { status: 'ACTIVE' } }),
+      prisma.contractPaymentForm.findFirst({
+        where: { status: 'ACTIVE' },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.contractModality.findFirst({
+        where: { status: 'ACTIVE', requiresShipment: false },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.contractPackaging.findFirst({ where: { status: 'ACTIVE' }, orderBy: { name: 'asc' } }),
     ]);
     return { paymentForm, modality, packaging };
   }
