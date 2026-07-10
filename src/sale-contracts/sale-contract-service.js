@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
+import { Prisma } from '@prisma/client';
+
 import { assertRoleAllowed, USER_ROLES } from '../auth/roles.js';
 import { HttpError } from '../contracts/errors.js';
 import { assertAuthenticatedActor, readLimitQuery } from '../users/user-support.js';
@@ -22,6 +24,10 @@ import {
   shipmentKeysetWhere,
   SHIPMENT_EVENT_SELECT,
   SHIPMENT_VIEW_SELECT,
+  buildApprovalWorklistView,
+  decodeApprovalWlCursor,
+  encodeApprovalWlCursor,
+  normalizeApprovalWlFilter,
   buildRecentApprovalSendItem,
   bucketApprovalReminders,
   brtTodayDateOnly,
@@ -534,6 +540,178 @@ export class SaleContractService {
       items: page.map((e) => buildShipmentView(e.row, todayKey)),
       nextCursor,
       overdueCount,
+    };
+  }
+
+  // Aprovacao (AP25-AP28): a worklist da sub-aba. Auth-only (todos nao-PROSPECTOR,
+  // AP10/AP30 — SEM escopo por corretor, SEM dado sensivel). O estado depende de um
+  // AGREGADO (contagem no approval_label_log), entao — ao contrario do embarque (typed
+  // findMany) — usa $queryRaw: G0 a_enviar (marcado+EMITIDO+SEM etiqueta, anti-join
+  // NOT EXISTS) por invoiceDate ASC (fila, AP28); G1 enviada (>=1 etiqueta, nao washout)
+  // por ultimo envio DESC, com count => "·N×" (AP24); G2 cancelado (WASH_OUT) por
+  // contractSeq DESC. Cursor {g,key,seq} (o key do G1 leva HORA). So requiresApproval.
+  async listApprovalContracts(input, actorContext) {
+    assertAuthenticatedActor(actorContext, 'list approval contracts');
+
+    const todayKey = brtTodayKey();
+    const limit = readLimitQuery(input?.limit, {
+      fallback: FINANCEIRO_LIST_LIMIT_DEFAULT,
+      max: FINANCEIRO_LIST_LIMIT_MAX,
+    });
+    const cursor = decodeApprovalWlCursor(input?.cursor);
+    const search = typeof input?.search === 'string' ? input.search.trim() : '';
+    const filter = normalizeApprovalWlFilter(input?.filter);
+
+    // Busca = nº OU comprador (sem corretor — a aba nao expoe dado sensivel), ILIKE
+    // no contract_number e no buyer_snapshot. Reusada em todos os grupos + no contador.
+    const esc = search.replace(/[\\%_]/g, (c) => `\\${c}`);
+    const like = `%${esc}%`;
+    const searchFrag =
+      search.length >= 1
+        ? Prisma.sql`AND (sc.contract_number ILIKE ${like} OR sc.buyer_snapshot->>'displayName' ILIKE ${like})`
+        : Prisma.empty;
+
+    // Grupos ativos por filtro (default 'a_enviar' = so G0). 'todos' = G0+G1+G2.
+    let groups;
+    if (filter === 'a_enviar') groups = [0];
+    else if (filter === 'enviada') groups = [1];
+    else if (filter === 'cancelado') groups = [2];
+    else groups = [0, 1, 2];
+
+    const effectiveCursor = cursor && groups.includes(cursor.g) ? cursor : null;
+    const startG = effectiveCursor ? effectiveCursor.g : groups[0];
+
+    // Fragmento "estritamente DEPOIS do cursor" no grupo cursor.g (mesma ordem do
+    // ORDER BY). Passa 'YYYY-MM-DD'::date / ISO::timestamptz (string + cast) pra
+    // evitar ambiguidade de fuso Date<->coluna.
+    const cursorFragFor = (g) => {
+      if (!effectiveCursor || effectiveCursor.g !== g) return Prisma.empty;
+      const { key, seq } = effectiveCursor;
+      if (g === 0) {
+        if (key === null) {
+          return Prisma.sql`AND sc.invoice_date IS NULL AND sc.contract_seq > ${seq}`;
+        }
+        return Prisma.sql`AND (sc.invoice_date > ${key}::date OR sc.invoice_date IS NULL OR (sc.invoice_date = ${key}::date AND sc.contract_seq > ${seq}))`;
+      }
+      if (g === 1) {
+        return Prisma.sql`AND (agg.last_send_at < ${key}::timestamptz OR (agg.last_send_at = ${key}::timestamptz AND sc.contract_seq < ${seq}))`;
+      }
+      return Prisma.sql`AND sc.contract_seq < ${seq}`;
+    };
+
+    const queryFor = (g, need) => {
+      if (g === 0) {
+        return this.prisma.$queryRaw`
+          SELECT sc.id,
+                 sc.contract_number AS "contractNumber",
+                 sc.buyer_snapshot->>'displayName' AS "buyerName",
+                 sc.invoice_date AS "invoiceDate",
+                 sc.quantity_sacks AS "quantitySacks",
+                 sc.status,
+                 sc.contract_seq AS "contractSeq",
+                 0::int AS "labelCount",
+                 NULL::timestamptz AS "lastSendAt"
+          FROM sale_contract sc
+          WHERE sc.requires_approval = true
+            AND sc.status = 'EMITIDO'
+            AND NOT EXISTS (SELECT 1 FROM approval_label_log a WHERE a.sale_contract_id = sc.id)
+            ${searchFrag}
+            ${cursorFragFor(0)}
+          ORDER BY sc.invoice_date ASC NULLS LAST, sc.contract_seq ASC
+          LIMIT ${need}
+        `;
+      }
+      if (g === 1) {
+        return this.prisma.$queryRaw`
+          SELECT sc.id,
+                 sc.contract_number AS "contractNumber",
+                 sc.buyer_snapshot->>'displayName' AS "buyerName",
+                 sc.invoice_date AS "invoiceDate",
+                 sc.quantity_sacks AS "quantitySacks",
+                 sc.status,
+                 sc.contract_seq AS "contractSeq",
+                 agg.label_count::int AS "labelCount",
+                 agg.last_send_at AS "lastSendAt"
+          FROM sale_contract sc
+          JOIN (
+            SELECT sale_contract_id, count(*) AS label_count, max(created_at) AS last_send_at
+            FROM approval_label_log
+            WHERE sale_contract_id IS NOT NULL
+            GROUP BY sale_contract_id
+          ) agg ON agg.sale_contract_id = sc.id
+          WHERE sc.requires_approval = true
+            AND sc.status <> 'WASH_OUT'
+            ${searchFrag}
+            ${cursorFragFor(1)}
+          ORDER BY agg.last_send_at DESC, sc.contract_seq DESC
+          LIMIT ${need}
+        `;
+      }
+      return this.prisma.$queryRaw`
+        SELECT sc.id,
+               sc.contract_number AS "contractNumber",
+               sc.buyer_snapshot->>'displayName' AS "buyerName",
+               sc.invoice_date AS "invoiceDate",
+               sc.quantity_sacks AS "quantitySacks",
+               sc.status,
+               sc.contract_seq AS "contractSeq",
+               0::int AS "labelCount",
+               NULL::timestamptz AS "lastSendAt"
+        FROM sale_contract sc
+        WHERE sc.requires_approval = true
+          AND sc.status = 'WASH_OUT'
+          ${searchFrag}
+          ${cursorFragFor(2)}
+        ORDER BY sc.contract_seq DESC
+        LIMIT ${need}
+      `;
+    };
+
+    const pageEntries = [];
+    for (const g of groups) {
+      if (g < startG) continue;
+      const need = limit + 1 - pageEntries.length;
+      if (need <= 0) break;
+      const rows = await queryFor(g, need);
+      for (const row of rows) pageEntries.push({ row, g });
+      if (rows.length === need) break;
+    }
+
+    // Contador "N a enviar" (estavel; independe de filtro/cursor, so da busca — igual
+    // ao "N atrasados" do embarque).
+    const pendingRows = await this.prisma.$queryRaw`
+      SELECT count(*)::int AS n
+      FROM sale_contract sc
+      WHERE sc.requires_approval = true
+        AND sc.status = 'EMITIDO'
+        AND NOT EXISTS (SELECT 1 FROM approval_label_log a WHERE a.sale_contract_id = sc.id)
+        ${searchFrag}
+    `;
+    const pendingCount = Number(pendingRows[0]?.n ?? 0);
+
+    const hasMore = pageEntries.length > limit;
+    const page = hasMore ? pageEntries.slice(0, limit) : pageEntries;
+    if (page.length === 0) {
+      return { items: [], nextCursor: null, pendingCount };
+    }
+    const last = page[page.length - 1];
+    const cursorKey = (g, row) => {
+      if (g === 0) return row.invoiceDate ? row.invoiceDate.toISOString().slice(0, 10) : null;
+      if (g === 1) return row.lastSendAt ? row.lastSendAt.toISOString() : null;
+      return null;
+    };
+    const nextCursor = hasMore
+      ? encodeApprovalWlCursor({
+          g: last.g,
+          key: cursorKey(last.g, last.row),
+          seq: Number(last.row.contractSeq),
+        })
+      : null;
+
+    return {
+      items: page.map((e) => buildApprovalWorklistView(e.row, todayKey)),
+      nextCursor,
+      pendingCount,
     };
   }
 

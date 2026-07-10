@@ -2518,6 +2518,167 @@ if (!databaseUrl || !databaseReachable) {
     assert.ok((regEvents[todayKey] ?? []).some((e) => e.contractId === pendId));
   });
 
+  // ---- Aprovacao: worklist da sub-aba (AP25-AP28, F3) ---------------------------
+  // Contrato marcado direto no Prisma: controle fino de status/invoiceDate/seq pro
+  // keyset (mais leve que o fluxo de venda real). O estado da worklist deriva de um
+  // AGREGADO (contagem no approval_label_log), entao a query e $queryRaw.
+  let aprSeq = 970000;
+  async function mkApprovalContract({
+    status = 'EMITIDO',
+    requiresApproval = true,
+    invoiceDate = null,
+    buyerName = 'Comprador Worklist',
+    sacks = 100,
+  } = {}) {
+    aprSeq += 1;
+    const id = randomUUID();
+    await prisma.saleContract.create({
+      data: {
+        id,
+        type: 'MERCADO_A_VISTA',
+        contractSeq: aprSeq,
+        contractNumber: `${aprSeq}/99`,
+        status,
+        requiresApproval,
+        contractDate: new Date('2026-07-01T00:00:00.000Z'),
+        invoiceDate: invoiceDate ? new Date(`${invoiceDate}T00:00:00.000Z`) : null,
+        sellerSnapshot: { displayName: 'Vendedor' },
+        buyerSnapshot: { displayName: buyerName },
+        quantitySacks: sacks,
+        unitPrice: '2500.00',
+        totalValue: '250000.00',
+      },
+    });
+    return id;
+  }
+
+  async function mkApprovalLabel(contractId, createdAt) {
+    const job = await prisma.customPrintJob.create({
+      data: { status: 'PENDING', payload: { lines: [] } },
+      select: { id: true },
+    });
+    await prisma.approvalLabelLog.create({
+      data: {
+        id: randomUUID(),
+        saleContractId: contractId,
+        customPrintJobId: job.id,
+        payload: { lines: [] },
+        ...(createdAt ? { createdAt: new Date(createdAt) } : {}),
+      },
+    });
+  }
+
+  test('listApprovalContracts: estados/ordem/filtros/·N×/pendingCount', async () => {
+    const c1 = await mkApprovalContract({ invoiceDate: '2026-07-10' }); // a_enviar
+    const c2 = await mkApprovalContract({ invoiceDate: '2026-07-05' }); // a_enviar (mais cedo)
+    const c3 = await mkApprovalContract({ invoiceDate: '2026-07-08' }); // enviada ·2×
+    await mkApprovalLabel(c3, '2026-07-02T10:00:00.000Z');
+    await mkApprovalLabel(c3, '2026-07-03T10:00:00.000Z');
+    const c4 = await mkApprovalContract({ status: 'WASH_OUT' }); // cancelado
+    await mkApprovalContract({ requiresApproval: false }); // nao-marcado -> fora da lista
+
+    // Default 'a_enviar': so os pendentes, fila por invoiceDate ASC (c2 antes de c1).
+    const aEnviar = await saleContractService.listApprovalContracts({}, adminActor);
+    assert.deepEqual(
+      aEnviar.items.map((i) => i.id),
+      [c2, c1]
+    );
+    assert.ok(aEnviar.items.every((i) => i.state === 'a_enviar'));
+    assert.equal(aEnviar.pendingCount, 2);
+
+    // Enviadas: c3, state enviada, sendCount 2 (o "·N×", AP24).
+    const enviadas = await saleContractService.listApprovalContracts(
+      { filter: 'enviada' },
+      adminActor
+    );
+    assert.deepEqual(
+      enviadas.items.map((i) => i.id),
+      [c3]
+    );
+    assert.equal(enviadas.items[0].state, 'enviada');
+    assert.equal(enviadas.items[0].sendCount, 2);
+
+    // Canceladas: c4 (WASH_OUT vence, mesmo sem/­com envio).
+    const canceladas = await saleContractService.listApprovalContracts(
+      { filter: 'cancelado' },
+      adminActor
+    );
+    assert.deepEqual(
+      canceladas.items.map((i) => i.id),
+      [c4]
+    );
+    assert.equal(canceladas.items[0].state, 'cancelado');
+
+    // Todas: os 4 marcados (nao o nao-marcado). pendingCount estavel = 2.
+    const todas = await saleContractService.listApprovalContracts({ filter: 'todos' }, adminActor);
+    assert.equal(todas.items.length, 4);
+    assert.equal(todas.pendingCount, 2);
+  });
+
+  test('listApprovalContracts: busca por nº e por comprador (nao-sensivel)', async () => {
+    const alpha = await mkApprovalContract({ invoiceDate: '2026-07-10', buyerName: 'Alpha Cafe' });
+    await mkApprovalContract({ invoiceDate: '2026-07-11', buyerName: 'Beta Cafe' });
+
+    const byBuyer = await saleContractService.listApprovalContracts(
+      { search: 'alpha' },
+      adminActor
+    );
+    assert.deepEqual(
+      byBuyer.items.map((i) => i.id),
+      [alpha]
+    );
+
+    const row = await prisma.saleContract.findUnique({
+      where: { id: alpha },
+      select: { contractNumber: true },
+    });
+    const byNum = await saleContractService.listApprovalContracts(
+      { search: row.contractNumber },
+      adminActor
+    );
+    assert.deepEqual(
+      byNum.items.map((i) => i.id),
+      [alpha]
+    );
+  });
+
+  test('listApprovalContracts: paginacao keyset (limit 2) na fila a_enviar', async () => {
+    const ids = [];
+    for (let i = 0; i < 3; i++) {
+      ids.push(await mkApprovalContract({ invoiceDate: `2026-07-0${i + 1}` }));
+    }
+    // Fila ASC por invoiceDate: 07-01/07-02/07-03 = ids[0]/ids[1]/ids[2].
+    const page1 = await saleContractService.listApprovalContracts(
+      { filter: 'a_enviar', limit: 2 },
+      adminActor
+    );
+    assert.deepEqual(
+      page1.items.map((i) => i.id),
+      [ids[0], ids[1]]
+    );
+    assert.ok(page1.nextCursor);
+
+    const page2 = await saleContractService.listApprovalContracts(
+      { filter: 'a_enviar', limit: 2, cursor: page1.nextCursor },
+      adminActor
+    );
+    assert.deepEqual(
+      page2.items.map((i) => i.id),
+      [ids[2]]
+    );
+    assert.equal(page2.nextCursor, null);
+  });
+
+  test('listApprovalContracts: papel operacional (REGISTRATION) tambem lista (AP10/AP30)', async () => {
+    const c = await mkApprovalContract({ invoiceDate: '2026-07-10' });
+    const reg = { ...commercialActor, role: 'REGISTRATION', actorUserId: randomUUID() };
+    const res = await saleContractService.listApprovalContracts({}, reg);
+    assert.deepEqual(
+      res.items.map((i) => i.id),
+      [c]
+    );
+  });
+
   test('aprovação (AP16): getRecentApprovalSends devolve nº+comprador, exclui avulsas, ordena desc', async () => {
     const buyerId = randomUUID();
     await createBuyerClient(buyerId);

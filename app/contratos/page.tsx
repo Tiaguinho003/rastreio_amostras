@@ -6,9 +6,9 @@ import { Suspense } from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
+import { AprovacoesPanel } from '../../components/contracts/AprovacoesPanel';
 import { ContratosPanel } from '../../components/contracts/ContratosPanel';
 import { EmbarquePanel } from '../../components/contracts/EmbarquePanel';
-import { HubTabPlaceholder } from '../../components/contracts/HubTabPlaceholder';
 import { FinanceiroPanel } from '../../components/financeiro/FinanceiroPanel';
 import { contractsHubNavLabel, contractsHubTabs, NON_PROSPECTOR_ROLES } from '../../lib/roles';
 import { useRequireAuth } from '../../lib/use-auth';
@@ -17,8 +17,8 @@ import { useRequireAuth } from '../../lib/use-auth';
 // (SaleContract). A casca — guard, AppShell, header e a barra de abas — vive
 // aqui; o conteúdo de cada aba é um painel montado sob demanda (só a aba ativa
 // fica montada). CC F2 (Embarque) abriu o hub a TODOS os não-PROSPECTOR:
-// ADMIN/COMMERCIAL veem as 4 abas; operacionais só a de Embarque (contractsHubTabs).
-// Contratos/Financeiro funcionais; Aprovações = placeholder; Embarque = worklist.
+// ADMIN/COMMERCIAL veem as 4 abas; operacionais veem Embarque + Aprovações
+// (contractsHubTabs, AP30). Todas as abas são painéis/worklists funcionais.
 // Ver docs/Central-de-Contratos-Plano-de-Trabalho.md.
 const HUB_TABS = [
   { key: 'contratos', label: 'Contratos' },
@@ -103,7 +103,7 @@ function ContratosHubInner() {
 
         {tab === 'contratos' ? <ContratosPanel session={session} /> : null}
         {tab === 'financeiro' ? <FinanceiroPanel session={session} /> : null}
-        {tab === 'aprovacoes' ? <HubTabPlaceholder /> : null}
+        {tab === 'aprovacoes' ? <AprovacoesPanel session={session} /> : null}
         {tab === 'embarque' ? <EmbarquePanel session={session} /> : null}
       </section>
     </AppShell>

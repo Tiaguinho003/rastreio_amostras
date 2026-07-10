@@ -3030,6 +3030,27 @@ export function createBackendApiV1({
         return { status: 200, body: result };
       }),
 
+    // Aprovacao (AP25-AP28): worklist da sub-aba. Auth-only (todos os nao-PROSPECTOR,
+    // AP10/AP30 — SEM escopo por corretor). Paginada por cursor keyset
+    // (?search/?limit/?cursor/?filter). PROSPECTOR barrado pelo allowlist central.
+    listSaleContractApprovals: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractService) {
+          throw new HttpError(501, 'Sale contract service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const result = await saleContractService.listApprovalContracts(
+          {
+            search: input?.query?.search,
+            limit: input?.query?.limit,
+            cursor: input?.query?.cursor,
+            filter: input?.query?.filter,
+          },
+          actor
+        );
+        return { status: 200, body: result };
+      }),
+
     // Card de Eventos (dashboard desktop, E24/D138): feed de pagamentos de contrato
     // por janela de data. Gate no service (FINANCEIRO_ROLES = ADMIN+COMMERCIAL);
     // COMMERCIAL escopado aos contratos dele. Janela ?from&to = 'YYYY-MM-DD'.

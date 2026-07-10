@@ -97,17 +97,18 @@ export const FINANCEIRO_ROLES: UserRole[] = ['ADMIN', 'COMMERCIAL'];
 // SALE_CONTRACT_ACCESS_ROLES do backend.
 export const CONTRATOS_ROLES: UserRole[] = ['ADMIN', 'COMMERCIAL'];
 
-// Central de Contratos (CC F2 — Embarque): o hub /contratos abre a TODOS os
-// nao-PROSPECTOR. ADMIN/COMMERCIAL veem as 4 abas (gestao + operacao); os
-// operacionais (CLASSIFIER/REGISTRATION/CADASTRO) veem SO a aba Embarque — a
-// superficie de operacao aberta (EMB7/EMB16/EMB26; Aprovacoes segue oculta ate a
-// reforma dela). O rotulo do item de nav muda por papel (CC15).
+// Central de Contratos (CC F2): o hub /contratos abre a TODOS os nao-PROSPECTOR.
+// ADMIN/COMMERCIAL veem as 4 abas (gestao + operacao); os operacionais
+// (CLASSIFIER/REGISTRATION/CADASTRO) veem as 2 abas de OPERACAO — Embarque +
+// Aprovacoes (AP30) — sem gestao (Contratos/Financeiro). A lista da Aprovacao e
+// nao-escopada (todos veem todos, so nao-sensivel); o "Ver contrato" segue
+// escopado (D110). O rotulo do item de nav muda por papel (CC15).
 export type ContractsHubTab = 'contratos' | 'financeiro' | 'aprovacoes' | 'embarque';
 
 export function contractsHubTabs(role: UserRole): ContractsHubTab[] {
   return isRoleAllowed(role, CONTRATOS_ROLES)
     ? ['contratos', 'financeiro', 'aprovacoes', 'embarque']
-    : ['embarque'];
+    : ['embarque', 'aprovacoes'];
 }
 
 export function contractsHubNavLabel(role: UserRole): string {
