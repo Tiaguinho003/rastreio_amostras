@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import { isAssignableUserRole } from '../auth/roles.js';
 import { HttpError } from '../contracts/errors.js';
 import {
   CLIENT_AUDIT_EVENT_TYPES,
@@ -600,7 +601,7 @@ export class ClientService {
 
     const user = await tx.user.findUnique({
       where: { id: commercialUserId },
-      select: { id: true, status: true },
+      select: { id: true, status: true, role: true },
     });
 
     if (!user) {
@@ -613,6 +614,18 @@ export class ClientService {
     if (user.status !== 'ACTIVE') {
       throw new HttpError(422, 'commercialUserId must reference an active user', {
         code: 'COMMERCIAL_USER_INACTIVE',
+        field: 'commercialUserId',
+      });
+    }
+
+    // O PROSPECTOR sumiu do lookupUsersForReference, entao nem aparece no
+    // seletor — mas o gate de verdade e este: sem ele, uma chamada direta a
+    // API criaria o vinculo do mesmo jeito. Vale para os quatro caminhos de
+    // escrita (create, update, add, bulk add). Remover um vinculo legado
+    // continua permitido: removeCommercialUserFromClient nao passa por aqui.
+    if (!isAssignableUserRole(user.role)) {
+      throw new HttpError(422, `commercialUserId must not reference a ${user.role} user`, {
+        code: 'PROSPECTOR_NOT_ASSIGNABLE',
         field: 'commercialUserId',
       });
     }
