@@ -642,6 +642,39 @@ if (!databaseUrl || !databaseReachable) {
     assert.ok(events['2026-07-15'][0].id.startsWith('shipment:'));
   });
 
+  // Embarque F5 (EMB28): portão do pagamento — não paga sem embarcar; após confirmar,
+  // segue direto pro pagamento (a version não muda no confirm).
+  test('paySaleContract: portão do embarque (422 → confirma → paga)', async () => {
+    const contract = await setupShipmentContract({ lotNumber: '25500' });
+    await saleContractService.invoiceSaleContract(
+      contract.id,
+      { expectedVersion: contract.version, date: '2026-07-05' },
+      adminActor
+    );
+    const faturado = await saleContractService.getSaleContract(contract.id, adminActor);
+    await assert.rejects(
+      () =>
+        saleContractService.paySaleContract(
+          contract.id,
+          { expectedVersion: faturado.contract.version, date: '2026-07-08' },
+          adminActor
+        ),
+      (err) => err.status === 422 && err.details?.code === 'CONTRACT_SHIPMENT_REQUIRED'
+    );
+    // Confirma o embarque (não bumpa version) → pagar passa com a MESMA expectedVersion.
+    await shipmentService.confirmShipment(
+      contract.id,
+      { shippedAt: '2026-07-08', files: [] },
+      adminActor
+    );
+    const paid = await saleContractService.paySaleContract(
+      contract.id,
+      { expectedVersion: faturado.contract.version, date: '2026-07-08' },
+      adminActor
+    );
+    assert.equal(paid.contract.status, 'PAGO');
+  });
+
   test('numeracao continua: 2 vendas => 0001 e 0002', async () => {
     const buyerId = randomUUID();
     await createBuyerClient(buyerId);

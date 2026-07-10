@@ -11,6 +11,16 @@ import {
 } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { SessionData } from '../../lib/types';
+import { ShipmentConfirmationModal } from './ShipmentConfirmationModal';
+
+// Lê o `code` de um erro do backend (mora em ApiError.details.code, não no topo).
+function errorCode(cause: unknown): string | null {
+  if (cause instanceof ApiError && cause.details && typeof cause.details === 'object') {
+    const code = (cause.details as { code?: unknown }).code;
+    return typeof code === 'string' ? code : null;
+  }
+  return null;
+}
 
 // Fechamento (Fase B): ações de status do contrato. "Faturar"/"Pagar" gravam a
 // data real do marco; "Washout" (P17) marca WASH_OUT (motivo obrigatório,
@@ -105,6 +115,9 @@ export function SaleContractLifecycleDialog({
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // EMB28: portão do embarque — pagar exige embarque; se faltar, abre o modal de
+  // confirmação (única ação) e, ao confirmar, segue direto pro pagamento.
+  const [needsShipment, setNeedsShipment] = useState(false);
 
   const copy = dialogCopy(action, contractNumber, hasLot);
   const needsDate = copy.dateLabel !== null;
@@ -132,7 +145,12 @@ export function SaleContractLifecycleDialog({
       }
       onDone();
     } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 409) {
+      // EMB28: pagar um contrato que exige embarque e ainda não embarcou → abre o modal
+      // de confirmação; ao confirmar, o handleSubmit é re-chamado e o pagamento passa (a
+      // version não muda no confirm, então a mesma expectedVersion segue válida).
+      if (action === 'pay' && errorCode(cause) === 'CONTRACT_SHIPMENT_REQUIRED') {
+        setNeedsShipment(true);
+      } else if (cause instanceof ApiError && cause.status === 409) {
         setError('Este contrato foi modificado. Recarregue a página e tente de novo.');
       } else {
         setError(cause instanceof ApiError ? cause.message : 'Falha ao atualizar o contrato.');
@@ -142,93 +160,113 @@ export function SaleContractLifecycleDialog({
     }
   }
 
-  return createPortal(
-    <div className="app-modal-backdrop">
-      <section
-        ref={focusTrapRef}
-        className="app-modal is-themed is-action sample-detail-compact-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="ctr-lifecycle-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <header className="app-modal-header">
-          <div className="app-modal-title-wrap">
-            <h3 id="ctr-lifecycle-title" className="app-modal-title">
-              {copy.title}
-            </h3>
-          </div>
-          <button
-            type="button"
-            className="app-modal-close"
-            onClick={onClose}
-            disabled={saving}
-            aria-label="Fechar"
+  return (
+    <>
+      {createPortal(
+        <div className="app-modal-backdrop">
+          <section
+            ref={focusTrapRef}
+            className="app-modal is-themed is-action sample-detail-compact-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ctr-lifecycle-title"
+            onClick={(event) => event.stopPropagation()}
           >
-            <span aria-hidden="true">&times;</span>
-          </button>
-        </header>
-
-        {error ? <p className="sdv-modal-error">{error}</p> : null}
-
-        <div className="app-modal-content">
-          <p className={`ctr-confirm-text${copy.danger ? ' ctr-confirm-danger' : ''}`}>
-            {copy.text}
-          </p>
-          {needsDate ? (
-            <label className="app-modal-field">
-              <span className="app-modal-label">{copy.dateLabel}</span>
-              <input
-                className="app-modal-input"
-                type="date"
-                value={date}
-                max={maxDate}
+            <header className="app-modal-header">
+              <div className="app-modal-title-wrap">
+                <h3 id="ctr-lifecycle-title" className="app-modal-title">
+                  {copy.title}
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="app-modal-close"
+                onClick={onClose}
                 disabled={saving}
-                onChange={(event) => {
-                  setDate(event.target.value);
-                  setError(null);
-                }}
-              />
-              {dateInFuture ? (
-                <span className="app-modal-field-error">
-                  A data do pagamento não pode ser futura.
-                </span>
+                aria-label="Fechar"
+              >
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </header>
+
+            {error ? <p className="sdv-modal-error">{error}</p> : null}
+
+            <div className="app-modal-content">
+              <p className={`ctr-confirm-text${copy.danger ? ' ctr-confirm-danger' : ''}`}>
+                {copy.text}
+              </p>
+              {needsDate ? (
+                <label className="app-modal-field">
+                  <span className="app-modal-label">{copy.dateLabel}</span>
+                  <input
+                    className="app-modal-input"
+                    type="date"
+                    value={date}
+                    max={maxDate}
+                    disabled={saving}
+                    onChange={(event) => {
+                      setDate(event.target.value);
+                      setError(null);
+                    }}
+                  />
+                  {dateInFuture ? (
+                    <span className="app-modal-field-error">
+                      A data do pagamento não pode ser futura.
+                    </span>
+                  ) : null}
+                </label>
               ) : null}
-            </label>
-          ) : null}
-          {needsReason ? (
-            <label className="app-modal-field">
-              <span className="app-modal-label">{copy.reasonLabel}</span>
-              <textarea
-                className="app-modal-input"
-                rows={3}
-                value={reason}
-                disabled={saving}
-                placeholder="Descreva o motivo do washout"
-                onChange={(event) => {
-                  setReason(event.target.value);
-                  setError(null);
-                }}
-              />
-            </label>
-          ) : null}
-        </div>
+              {needsReason ? (
+                <label className="app-modal-field">
+                  <span className="app-modal-label">{copy.reasonLabel}</span>
+                  <textarea
+                    className="app-modal-input"
+                    rows={3}
+                    value={reason}
+                    disabled={saving}
+                    placeholder="Descreva o motivo do washout"
+                    onChange={(event) => {
+                      setReason(event.target.value);
+                      setError(null);
+                    }}
+                  />
+                </label>
+              ) : null}
+            </div>
 
-        <div className="app-modal-actions">
-          <button type="button" className="app-modal-secondary" onClick={onClose} disabled={saving}>
-            Cancelar
-          </button>
-          <button
-            type="button"
-            className={`app-modal-submit${copy.danger ? ' ctr-modal-danger' : ''}`}
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-          >
-            {saving ? copy.submitting : copy.submit}
-          </button>
-        </div>
-      </section>
-    </div>,
-    document.body
+            <div className="app-modal-actions">
+              <button
+                type="button"
+                className="app-modal-secondary"
+                onClick={onClose}
+                disabled={saving}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className={`app-modal-submit${copy.danger ? ' ctr-modal-danger' : ''}`}
+                onClick={handleSubmit}
+                disabled={!canSubmit}
+              >
+                {saving ? copy.submitting : copy.submit}
+              </button>
+            </div>
+          </section>
+        </div>,
+        document.body
+      )}
+      {needsShipment ? (
+        <ShipmentConfirmationModal
+          session={session}
+          contractId={contractId}
+          onClose={() => setNeedsShipment(false)}
+          onDone={() => {
+            setNeedsShipment(false);
+            void handleSubmit();
+          }}
+        />
+      ) : null}
+    </>
   );
 }

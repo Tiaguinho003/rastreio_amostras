@@ -1237,7 +1237,7 @@ export class SaleContractService {
 
     const contract = await this.prisma.saleContract.findUnique({
       where: { id: contractId },
-      select: { id: true, status: true, version: true },
+      select: { id: true, status: true, version: true, requiresShipment: true, shippedAt: true },
     });
     if (!contract) {
       throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
@@ -1247,10 +1247,15 @@ export class SaleContractService {
         code: 'SALE_CONTRACT_NOT_PAYABLE',
       });
     }
-    // Portao do embarque (EMB28 — ADIADO): quando a feature de Embarque existir, aqui
-    // (junto dos guards de status) entra o bloqueio "nao paga sem embarcar" —
-    // `if (contract.requiresShipment && !contract.shippedAt) -> 409/short-circuit pro
-    // fluxo de embarque`. Campos ainda inexistentes no schema; nao implementar agora.
+    // Portao do embarque (EMB28): nao se paga sem embarcar. Junto dos guards de status
+    // (contrato ja FATURADO), se exige embarque e ainda nao embarcou, 422 — o front abre
+    // o modal de confirmacao (unica acao), confirma e segue direto pro pagamento. Fecha o
+    // buraco "pago sem registro de embarque" (o atraso some no PAGO — EMB9).
+    if (contract.requiresShipment && !contract.shippedAt) {
+      throw new HttpError(422, 'Shipment must be confirmed before payment', {
+        code: 'CONTRACT_SHIPMENT_REQUIRED',
+      });
+    }
     if (contract.version !== expectedVersion) {
       throw new HttpError(409, 'Sale contract was modified concurrently', {
         code: 'SALE_CONTRACT_VERSION_CONFLICT',

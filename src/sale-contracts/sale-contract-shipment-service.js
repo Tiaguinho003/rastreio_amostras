@@ -136,6 +136,10 @@ export class SaleContractShipmentService {
 
     try {
       await this.prisma.$transaction(async (tx) => {
+        // shippedAt e um EIXO PROPRIO (EMB22): NAO bumpa version. A trava de corrida e
+        // o shippedAt:null no where (o 2o confirm bate 0 linhas → 409). Manter a version
+        // estavel deixa o portao do pagamento (EMB28) seguir direto pro pagamento com a
+        // mesma expectedVersion, sem 409 espurio apos confirmar o embarque.
         const updated = await tx.saleContract.updateMany({
           where: {
             id: contractId,
@@ -143,7 +147,7 @@ export class SaleContractShipmentService {
             shippedAt: null,
             status: { in: SHIPPABLE_STATUSES },
           },
-          data: { shippedAt, version: { increment: 1 } },
+          data: { shippedAt },
         });
         if (updated.count === 0) {
           // Corrida: alguem confirmou/mudou o status entre o guard e a tx.
