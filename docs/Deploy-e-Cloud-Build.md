@@ -133,7 +133,12 @@ scripts/gcp/execute-job.sh migrate cloud-production
 
 Rodar migrate **antes** de promover trafego. Migrations devem ser backward-
 compatible — a revisao anterior (ainda servindo trafego) precisa continuar
-funcionando com o novo schema.
+funcionando com o novo schema. E o que torna o rollback gratuito: voltar o
+trafego nao desfaz migration.
+
+Tabela de operacoes SQL seguras x destrutivas, e o procedimento de dois deploys
+(expand/contract) para as destrutivas: skill `deploy`, secao "Compatibilidade de
+migration". Conferir **antes** do build.
 
 ### Promover trafego
 

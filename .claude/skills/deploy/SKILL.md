@@ -37,6 +37,37 @@ gcloud run services update-traffic rastreio-prod-app \
 
 **Migrate em prod NAO e automatico.** Executar conscientemente via `execute-job.sh`.
 
+## Compatibilidade de migration — o que sustenta a ordem acima
+
+O passo 4 roda **enquanto a revisao antiga serve 100% do trafego**. Logo, toda
+migration pendente tem de ser **backward-compatible**: o codigo velho precisa
+continuar funcionando contra o schema novo. E o que torna o rollback do passo 6
+gratuito — voltar o trafego NAO desfaz migration.
+
+**Antes do passo 2**, ler o SQL de cada migration pendente (as que estao em
+`prisma/migrations/` e nao em `_prisma_migrations` do banco) e classificar:
+
+| Seguro (afrouxa ou cria)                          | Forca DOIS deploys (aperta ou remove)                     |
+| ------------------------------------------------- | --------------------------------------------------------- |
+| `CREATE TABLE` / `CREATE INDEX`                   | `DROP COLUMN`, `DROP TABLE`                               |
+| `ADD COLUMN` **nullable** (ou com DEFAULT)        | `ADD COLUMN NOT NULL` sem default                         |
+| `ALTER COLUMN ... DROP NOT NULL`                  | `ALTER COLUMN ... SET NOT NULL`                           |
+| `DROP CONSTRAINT` / `DROP TRIGGER`                | `ADD CONSTRAINT` / `CHECK` mais restrito                  |
+| `ALTER TYPE ... ADD VALUE`                        | remover valor de enum (recriar o tipo)                    |
+| `CREATE OR REPLACE FUNCTION` que **permite mais** | `RENAME COLUMN/TABLE`; `UNIQUE` novo sobre dado existente |
+
+Tabela que **nao existe em prod ainda** e sempre segura: o codigo velho nao a
+conhece. So importa o que toca tabela ja aplicada.
+
+**Se houver qualquer item da coluna direita**, a mudanca vira dois deploys
+(expand/contract):
+
+1. Deploy A — migration que **adiciona** o novo formato; codigo escreve nos dois.
+2. Deploy B (depois de A promovido) — migration que **remove** o formato antigo.
+
+Nunca juntar os dois: entre o passo 4 e o 6 o codigo velho quebraria, e o
+rollback deixaria de existir.
+
 ## Rollback
 
 **Antes de promover:** nao faca o passo 6. Trafego continua na revisao anterior automaticamente (rollback implicito, custo zero).
@@ -115,6 +146,7 @@ que laudo revogado (D8) nao saia do cache do CDN.
 2. **NUNCA** editar `GCLOUD_IMAGE_TAG` em `.env.cloud-production.ops` (tag e dinamica do git SHA)
 3. **NUNCA** promover trafego pra nova revisao sem smoke test no canary primeiro
 4. **NUNCA** `gcloud run services update-traffic --to-revisions=...` sem desfazer depois (trafego fica pinned)
+5. **NUNCA** aplicar migration destrutiva (coluna direita da tabela acima) no mesmo deploy que sobe o codigo que a exige — ver "Compatibilidade de migration"
 
 ## Validacao pos-deploy
 

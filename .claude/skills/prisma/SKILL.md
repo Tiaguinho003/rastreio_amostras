@@ -62,6 +62,16 @@ Convencao do projeto = **migration MANUAL aditiva** (ver migrations recentes com
 5. `npm run prisma:generate` — regenera o client.
 6. `npm run typecheck` (+ `npm run build` SE nao tiver `next dev` rodando) — verificar que nada quebrou.
 7. Commitar migration + schema juntos. **NUNCA editar migrations ja existentes em `prisma/migrations/`**.
+8. **Conferir que a migration e backward-compatible** — o codigo VELHO tem de rodar contra o schema novo. Nao e a mesma coisa que os passos 2-3.
+
+> **"Aditiva" tem DOIS donos, e so um deles esta acima.** Os passos 2-3 sao sobre
+> o drift: escrever o SQL a mao em vez de deixar o `migrate dev` gerar DROPs
+> espurios. O passo 8 e sobre o **deploy**: no canary, o `execute-job.sh migrate`
+> roda com a revisao ANTIGA servindo 100% do trafego. Uma migration pode ser
+> manual e idempotente (passos 2-3 OK) e ainda derrubar producao — basta um
+> `ALTER COLUMN ... SET NOT NULL` numa coluna que o codigo velho as vezes deixa
+> nula. Tabela de operacoes seguras x destrutivas e o procedimento de dois
+> deploys (expand/contract): skill `deploy`, secao "Compatibilidade de migration".
 
 ## Drift check
 
