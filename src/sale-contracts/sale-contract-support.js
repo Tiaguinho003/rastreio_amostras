@@ -412,21 +412,49 @@ export function buildReceivableView(row, brokerRows) {
   };
 }
 
+// "Hoje" no fuso BRT (America/Sao_Paulo — sem DST desde 2019, offset fixo −3h),
+// ancorado como Date meia-noite-UTC do dia-CALENDARIO BRT. As datas do contrato sao
+// @db.Date (meia-noite UTC); comparar contra este ancora mantem o corte de
+// "vencido"/"pago no futuro" alinhado ao dia BRT, sem off-by-one entre 21h–24h BRT
+// (quando o UTC ja virou o dia seguinte). Molde do getBrtToday do
+// lib/dashboard-calendar.ts (frontend), que o backend nao importa. `now` injetavel
+// (teste). Reusado pelo feed de pagamento, pelo Financeiro e pelo guard do "Pagar".
+export function brtTodayDateOnly(now = new Date()) {
+  const brt = new Date(now.getTime() - 3 * 3600_000);
+  return new Date(Date.UTC(brt.getUTCFullYear(), brt.getUTCMonth(), brt.getUTCDate()));
+}
+
+export function brtTodayKey(now = new Date()) {
+  return brtTodayDateOnly(now).toISOString().slice(0, 10);
+}
+
 // F1 (E21-E27/D138): projeta 1 contrato num evento de pagamento do card de Eventos.
 // kind 'due' = agendado (no paymentDate); 'paid' = realizado (no paidAt). O dayKey
 // vem da data @db.Date via `.slice(0,10)` (sem conversao de fuso — casa com o
 // toDayKey/BRT do dashboard-calendar). `label` = o rotulo recolhido "nº · comprador".
-export function buildPaymentEvent(row, kind) {
+// E29 (Revisao do Pagamento): um agendado cujo dia ja passou (dayKey < todayKey, dia
+// BRT) vira "atrasado" (dot vermelho) a partir do dia SEGUINTE ao vencimento (vence-
+// hoje ainda e 'due'); o realizado nunca fica atrasado. `todayKey` opcional: sem ele,
+// nao classifica atraso (mantem 'due') — retrocompat com chamadas antigas.
+export function buildPaymentEvent(row, kind, todayKey) {
   const iso = toIsoString(kind === 'paid' ? row.paidAt : row.paymentDate);
   const dayKey = iso ? iso.slice(0, 10) : null;
   const buyerName = row.buyerSnapshot?.displayName ?? null;
   const sellerName = row.sellerSnapshot?.displayName ?? null;
+  let typeKey;
+  if (kind === 'paid') {
+    typeKey = 'contract_payment_paid';
+  } else if (todayKey && dayKey && dayKey < todayKey) {
+    typeKey = 'contract_payment_overdue';
+  } else {
+    typeKey = 'contract_payment_due';
+  }
   return {
     dayKey,
     event: {
       id: row.id,
       contractId: row.id,
-      typeKey: kind === 'paid' ? 'contract_payment_paid' : 'contract_payment_due',
+      typeKey,
       label: buyerName ? `${row.contractNumber} · ${buyerName}` : row.contractNumber,
       contractNumber: row.contractNumber,
       buyerName,
@@ -440,11 +468,11 @@ export function buildPaymentEvent(row, kind) {
 // Agrupa os eventos de pagamento por dayKey ('YYYY-MM-DD') -> Record<dayKey,
 // evento[]> (o formato que a prop `events` do EventsCalendarCard consome). Linhas
 // sem data valida sao descartadas (defensivo — no filtro as datas sao NOT NULL).
-export function bucketPaymentEvents(dueRows, paidRows) {
+export function bucketPaymentEvents(dueRows, paidRows, todayKey) {
   const byDay = {};
   const add = (rows, kind) => {
     for (const row of rows) {
-      const { dayKey, event } = buildPaymentEvent(row, kind);
+      const { dayKey, event } = buildPaymentEvent(row, kind, todayKey);
       if (!dayKey) continue;
       if (byDay[dayKey]) byDay[dayKey].push(event);
       else byDay[dayKey] = [event];

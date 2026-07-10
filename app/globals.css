@@ -1596,6 +1596,15 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
   letter-spacing: 0.01em;
 }
 
+/* E30: mensagem de validacao inline do campo (ex.: data de pagamento futura). Segue
+   a preferencia de erro DENTRO do campo, vermelho suave, some ao corrigir. */
+.app-modal-field-error {
+  padding-left: 0.15rem;
+  color: #b3261e;
+  font-size: 0.74rem;
+  font-weight: 500;
+}
+
 .app-modal-input {
   width: 100%;
   /* Item de grid/flex: min-width:auto (padrao) deixaria o conteudo empurrar a
@@ -24955,6 +24964,11 @@ select.samples-filter-field-input {
   }
   .dd-events-dot[data-type='contract_payment_paid'] {
     background: #15803d;
+  }
+  /* Revisao do Pagamento (E29/EVD-P1): pagamento VENCIDO — vermelho (convencao
+     "atrasado" cross-type com o embarque; passou do paymentDate sem pagar). */
+  .dd-events-dot[data-type='contract_payment_overdue'] {
+    background: #dc2626;
   }
   /* F2 (reforma AP15/EVD-P1): lembrete de aprovacao — laranja (distinto do amarelo
      do pagamento agendado; laranja != vermelho -> sem falso "atrasado"). */

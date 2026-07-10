@@ -5,6 +5,8 @@ import {
   APPROVAL_ELIGIBLE_STATUSES,
   assertBrokersResolved,
   buildApprovalPrefill,
+  brtTodayDateOnly,
+  brtTodayKey,
   buildApprovalReminderEvent,
   buildContractTimeline,
   buildRecentApprovalSendItem,
@@ -636,7 +638,7 @@ test('buildPaymentEvent (D138): agendado usa paymentDate; realizado usa paidAt; 
     buyerSnapshot: { displayName: 'Comprador X' },
     sellerSnapshot: { displayName: 'Vendedor Y' },
   };
-  const due = buildPaymentEvent(row, 'due');
+  const due = buildPaymentEvent(row, 'due', '2026-07-10'); // vence hoje -> ainda "a vencer"
   assert.equal(due.dayKey, '2026-07-10'); // do paymentDate, sem conversao de fuso
   assert.equal(due.event.typeKey, 'contract_payment_due');
   assert.equal(due.event.id, 'c1');
@@ -648,9 +650,56 @@ test('buildPaymentEvent (D138): agendado usa paymentDate; realizado usa paidAt; 
   assert.equal(due.event.label, '0007/26 · Comprador X'); // recolhido: nº · comprador
 
   const paidRow = { ...row, status: 'PAGO', paidAt: new Date('2026-07-15T00:00:00.000Z') };
-  const paid = buildPaymentEvent(paidRow, 'paid');
+  const paid = buildPaymentEvent(paidRow, 'paid', '2026-07-20');
   assert.equal(paid.dayKey, '2026-07-15'); // do paidAt (nao do paymentDate)
-  assert.equal(paid.event.typeKey, 'contract_payment_paid');
+  assert.equal(paid.event.typeKey, 'contract_payment_paid'); // realizado nunca fica atrasado
+});
+
+// E29 (Revisao do Pagamento): agendado vencido -> "atrasado" (dot vermelho) a partir
+// do dia SEGUINTE ao vencimento.
+test('buildPaymentEvent (E29): vencido vira overdue no dia seguinte; vence-hoje segue due', () => {
+  const row = {
+    id: 'c9',
+    version: 1,
+    status: 'FATURADO',
+    contractNumber: '0009/26',
+    paymentDate: new Date('2026-07-10T00:00:00.000Z'),
+    paidAt: null,
+    buyerSnapshot: { displayName: 'Z' },
+    sellerSnapshot: null,
+  };
+  // dia do vencimento: ainda due
+  assert.equal(buildPaymentEvent(row, 'due', '2026-07-10').event.typeKey, 'contract_payment_due');
+  // dia seguinte: overdue
+  assert.equal(
+    buildPaymentEvent(row, 'due', '2026-07-11').event.typeKey,
+    'contract_payment_overdue'
+  );
+  // dias depois: segue overdue
+  assert.equal(
+    buildPaymentEvent(row, 'due', '2026-08-01').event.typeKey,
+    'contract_payment_overdue'
+  );
+  // sem todayKey (retrocompat): nao classifica atraso
+  assert.equal(buildPaymentEvent(row, 'due').event.typeKey, 'contract_payment_due');
+  // realizado nunca fica overdue, mesmo com paidAt no passado
+  const paidRow = { ...row, status: 'PAGO', paidAt: new Date('2026-07-01T00:00:00.000Z') };
+  assert.equal(
+    buildPaymentEvent(paidRow, 'paid', '2026-08-01').event.typeKey,
+    'contract_payment_paid'
+  );
+});
+
+// Helper BRT: "hoje" ancorado no dia-calendario BRT (offset fixo -3h), nao no UTC.
+test('brtTodayKey/brtTodayDateOnly: ancora no dia BRT (borda 21h-24h BRT)', () => {
+  // 2026-07-10T02:00:00Z = 2026-07-09 23:00 BRT -> o dia BRT ainda e 09 (UTC ja e 10).
+  const lateNight = new Date('2026-07-10T02:00:00.000Z');
+  assert.equal(brtTodayKey(lateNight), '2026-07-09');
+  assert.equal(brtTodayDateOnly(lateNight).toISOString(), '2026-07-09T00:00:00.000Z');
+  // 2026-07-10T12:00:00Z = 2026-07-10 09:00 BRT -> dia BRT = 10.
+  const midday = new Date('2026-07-10T12:00:00.000Z');
+  assert.equal(brtTodayKey(midday), '2026-07-10');
+  assert.equal(brtTodayDateOnly(midday).getTime(), new Date('2026-07-10T00:00:00.000Z').getTime());
 });
 
 test('buildPaymentEvent (D138): sem comprador -> label = so o numero', () => {
@@ -705,10 +754,11 @@ test('bucketPaymentEvents (D138): agrupa por dayKey (agendado no paymentDate + r
       sellerSnapshot: null,
     },
   ];
-  const map = bucketPaymentEvents(due, paid);
+  const map = bucketPaymentEvents(due, paid, '2026-07-10'); // vence-hoje -> a,b seguem "due"
   assert.equal(map['2026-07-10'].length, 2);
   assert.equal(map['2026-07-11'].length, 1);
   assert.equal(map['2026-07-10'][0].id, 'a');
+  assert.equal(map['2026-07-10'][0].typeKey, 'contract_payment_due');
   assert.equal(map['2026-07-10'][1].label, '2/26'); // sem comprador -> so o numero
   assert.equal(map['2026-07-11'][0].typeKey, 'contract_payment_paid'); // realizado no paidAt
 });

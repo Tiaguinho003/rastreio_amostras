@@ -109,8 +109,15 @@ export function SaleContractLifecycleDialog({
   const copy = dialogCopy(action, contractNumber, hasLot);
   const needsDate = copy.dateLabel !== null;
   const needsReason = copy.reasonLabel !== null;
+  // E30: o pagamento não pode ser no futuro — trava o seletor em hoje (max) e bloqueia
+  // o submit se digitarem uma data futura. O backend é a trava autoritativa.
+  const maxDate = action === 'pay' ? todayInputValue() : undefined;
+  const dateInFuture = maxDate !== undefined && date !== '' && date > maxDate;
   const canSubmit =
-    !saving && (!needsDate || date !== '') && (!needsReason || reason.trim() !== '');
+    !saving &&
+    (!needsDate || date !== '') &&
+    (!needsReason || reason.trim() !== '') &&
+    !dateInFuture;
 
   async function handleSubmit() {
     setSaving(true);
@@ -175,12 +182,18 @@ export function SaleContractLifecycleDialog({
                 className="app-modal-input"
                 type="date"
                 value={date}
+                max={maxDate}
                 disabled={saving}
                 onChange={(event) => {
                   setDate(event.target.value);
                   setError(null);
                 }}
               />
+              {dateInFuture ? (
+                <span className="app-modal-field-error">
+                  A data do pagamento não pode ser futura.
+                </span>
+              ) : null}
             </label>
           ) : null}
           {needsReason ? (

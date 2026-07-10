@@ -12,6 +12,8 @@ import {
   buildReceivableView,
   buildRecentApprovalSendItem,
   bucketApprovalReminders,
+  brtTodayDateOnly,
+  brtTodayKey,
   bucketPaymentEvents,
   buildWarehouseSnapshot,
   computeContractMoneyWithAgio,
@@ -359,7 +361,8 @@ export class SaleContractService {
       }),
     ]);
 
-    return bucketPaymentEvents(dueRows, paidRows);
+    // E29: "hoje" BRT reclassifica os agendados vencidos (dot vermelho).
+    return bucketPaymentEvents(dueRows, paidRows, brtTodayKey());
   }
 
   // F2 (reforma AP6/AP7/AP10/AP14): "lembrete de aprovacao" do card de Eventos.
@@ -961,6 +964,15 @@ export class SaleContractService {
     await this._assertActorMayAccessContract(actor, contractId);
     const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
     const paidAt = normalizeActionDate(input?.date, 'date');
+    // E30 (Revisao do Pagamento): nao se paga no futuro — a data do pagamento nao
+    // passa de hoje (BRT). paidAt e @db.Date (meia-noite UTC); comparar contra o
+    // ancora BRT deixa "pagar hoje" passar (igual) e barra so datas futuras.
+    if (paidAt.getTime() > brtTodayDateOnly().getTime()) {
+      throw new HttpError(422, 'Payment date must not be in the future', {
+        code: 'VALIDATION_ERROR',
+        field: 'date',
+      });
+    }
 
     const contract = await this.prisma.saleContract.findUnique({
       where: { id: contractId },
@@ -974,6 +986,10 @@ export class SaleContractService {
         code: 'SALE_CONTRACT_NOT_PAYABLE',
       });
     }
+    // Portao do embarque (EMB28 — ADIADO): quando a feature de Embarque existir, aqui
+    // (junto dos guards de status) entra o bloqueio "nao paga sem embarcar" —
+    // `if (contract.requiresShipment && !contract.shippedAt) -> 409/short-circuit pro
+    // fluxo de embarque`. Campos ainda inexistentes no schema; nao implementar agora.
     if (contract.version !== expectedVersion) {
       throw new HttpError(409, 'Sale contract was modified concurrently', {
         code: 'SALE_CONTRACT_VERSION_CONFLICT',
