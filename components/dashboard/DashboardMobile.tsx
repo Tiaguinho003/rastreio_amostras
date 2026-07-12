@@ -1,49 +1,24 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 
 import { HeaderAvatarMenu } from '../HeaderAvatarMenu';
 import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
-import { canManageClients, getRoleLabel } from '../../lib/roles';
+import { getRoleLabel } from '../../lib/roles';
 import { getGreeting, getInitials } from './greeting';
-import { useOperationModal } from './useOperationModal';
-import { OperationModal } from './OperationModal';
-import type {
-  DashboardPendingResponse,
-  DashboardSalesAvailabilityResponse,
-  SessionData,
-} from '../../lib/types';
+import type { DashboardSalesAvailabilityResponse, SessionData } from '../../lib/types';
 
 interface DashboardMobileProps {
   session: SessionData;
-  data: DashboardPendingResponse | null;
   salesData: DashboardSalesAvailabilityResponse | null;
   error: string | null;
   onLogout: () => void | Promise<void>;
 }
 
-export function DashboardMobile({
-  session,
-  data,
-  salesData,
-  error,
-  onLogout,
-}: DashboardMobileProps) {
-  const router = useRouter();
-  const {
-    activeOperationPanel,
-    open: operationModalOpen,
-    openOperationPanel,
-    closeOperationModal,
-    classifySample,
-    operationModalData,
-  } = useOperationModal(data);
-
+export function DashboardMobile({ session, salesData, error, onLogout }: DashboardMobileProps) {
   const fullName = session.user.fullName ?? session.user.username;
   const firstName = fullName.split(' ')[0];
   const roleLabel = getRoleLabel(session.user.role);
-  const canManageCadastro = canManageClients(session.user.role);
   const initials = getInitials(fullName);
 
   return (
@@ -79,109 +54,11 @@ export function DashboardMobile({
           </section>
 
           <section className="dashboard-sheet">
-            <section className="dashboard-sheet-section is-slot-operations">
-              {error ? (
-                <p className="dashboard-error-banner" role="status">
-                  {error}
-                </p>
-              ) : null}
-              {data ? (
-                <div
-                  className={`dashboard-operations-grid${canManageCadastro ? '' : ' is-single'}`}
-                >
-                  {/* Q.print: card "Impressão" cortado definitivamente (decisao
-                    Q.1.c #20). PrintJob vive no detalhe da amostra, nao aqui. */}
-                  <button
-                    type="button"
-                    className="dashboard-operation-card dashboard-op-classification is-wide"
-                    onClick={(event) =>
-                      openOperationPanel('classification_pending', event.currentTarget)
-                    }
-                    aria-expanded={activeOperationPanel === 'classification_pending'}
-                    aria-haspopup="dialog"
-                  >
-                    <span className="dashboard-operation-icon-wrap" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                        {/* Corpo do grao: elipse vertical (rx:ry ~ 1:1.45). */}
-                        <ellipse cx="12" cy="12" rx="6.2" ry="9" />
-                        {/* Fenda central — clara (cor do icon-wrap) pra
-                          contrastar com o corpo verde-escuro do grao no
-                          design do mockup (glifo solido verde sobre
-                          container verde-claro). */}
-                        <path
-                          d="M12 4.6 Q 13 8.5 12 12 Q 11 15.5 12 19.4"
-                          style={{
-                            fill: 'none',
-                            stroke: '#e8f1ec',
-                            strokeWidth: 1.7,
-                            strokeLinecap: 'round',
-                            strokeLinejoin: 'round',
-                          }}
-                        />
-                      </svg>
-                    </span>
-                    <span className="dashboard-operation-content">
-                      <span className="dashboard-operation-title">Lotes</span>
-                      <span className="dashboard-operation-subtitle">Pendentes</span>
-                    </span>
-                    {data.classificationPending.total > 0 ? (
-                      <span className="dashboard-operation-badge">
-                        {data.classificationPending.total}
-                      </span>
-                    ) : null}
-                  </button>
-
-                  {/* So quem gerencia cadastro (ADMIN + CADASTRO) ve — os demais
-                      nao abrem o detalhe do cliente, entao o card nao levaria a
-                      acao nenhuma. Leva ao hub, nao a /clients. */}
-                  {canManageCadastro ? (
-                    <button
-                      type="button"
-                      className="dashboard-operation-card dashboard-op-clients is-wide"
-                      onClick={() => router.push('/cadastros?incomplete=true')}
-                      aria-label={`Clientes pendentes (${data.clientsIncomplete.total})`}
-                    >
-                      <span className="dashboard-operation-icon-wrap" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                          <circle cx="12" cy="7.5" r="4" />
-                          <path d="M4.5 20.5v-1.5c0-3.3 3.36-5.7 7.5-5.7s7.5 2.4 7.5 5.7v1.5z" />
-                        </svg>
-                      </span>
-                      <span className="dashboard-operation-content">
-                        <span className="dashboard-operation-title">Clientes</span>
-                        <span className="dashboard-operation-subtitle">Pendentes</span>
-                      </span>
-                      {data.clientsIncomplete.total > 0 ? (
-                        <span className="dashboard-operation-badge">
-                          {data.clientsIncomplete.total}
-                        </span>
-                      ) : null}
-                    </button>
-                  ) : null}
-                </div>
-              ) : (
-                <div
-                  className={`dashboard-operations-grid${canManageCadastro ? '' : ' is-single'}`}
-                >
-                  <div
-                    className="dashboard-operation-card dashboard-skeleton-card is-wide"
-                    aria-hidden="true"
-                  >
-                    <span className="dashboard-skeleton-icon-wrap" />
-                    <span className="dashboard-skeleton-line dashboard-skeleton-line-sm" />
-                  </div>
-                  {canManageCadastro ? (
-                    <div
-                      className="dashboard-operation-card dashboard-skeleton-card is-wide"
-                      aria-hidden="true"
-                    >
-                      <span className="dashboard-skeleton-icon-wrap" />
-                      <span className="dashboard-skeleton-line dashboard-skeleton-line-sm" />
-                    </div>
-                  ) : null}
-                </div>
-              )}
-            </section>
+            {error ? (
+              <p className="dashboard-error-banner" role="status">
+                {error}
+              </p>
+            ) : null}
 
             <section className="dashboard-sheet-section dashboard-sheet-content is-slot-sales">
               {salesData ? (
@@ -193,13 +70,6 @@ export function DashboardMobile({
           </section>
         </div>
       </section>
-
-      <OperationModal
-        open={operationModalOpen}
-        data={operationModalData}
-        onClose={closeOperationModal}
-        onItemAction={classifySample}
-      />
     </div>
   );
 }

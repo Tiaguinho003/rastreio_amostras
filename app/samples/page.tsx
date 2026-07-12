@@ -28,6 +28,7 @@ import {
   BlendConfirmationSheet,
   type BlendContribution,
 } from '../../components/samples/BlendConfirmationSheet';
+import { ClassificationPendingCard } from '../../components/samples/ClassificationPendingCard';
 import { SampleCreatedSuccessModal } from '../../components/samples/SampleCreatedSuccessModal';
 import {
   SelectedSamplesDropdown,
@@ -2155,6 +2156,9 @@ function SamplesPage() {
         </div>
 
         <section className="samples-page-v2-sheet">
+          {/* Card so-visualizacao "Classificacao pendente" (migrado do dashboard,
+              DSB-D2): conta amostras em REGISTRATION_CONFIRMED, inerte por ora. */}
+          <ClassificationPendingCard session={session} />
           {/* Section 2: Count + filter btn (ou contador de selecionadas em modo blend) */}
           <div className="spv2-list-meta">
             <span className="spv2-list-count">{samplesState.total} lotes</span>

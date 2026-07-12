@@ -101,7 +101,7 @@ Validacoes criticas nessas rotas:
 5. `GET /api/v1/samples/next-lot-number`
    Sugestao do proximo numero da sequencia (`{ nextLotNumber }`) pra pre-preencher o campo editavel no modal de criacao. E so sugestao: o numero real e gerado server-side no submit (com retry de colisao no modo automatico).
 6. `GET /api/v1/dashboard/pending`
-   Resume filas operacionais do dashboard: `classificationPending` (counts + até 500 itens em RC) e `clientsIncomplete.total`. (O pulso do dia `dailyRegistered`/`dailySent` saiu em 2026-07-07 com os StatCards de pulso — DSH-D4.)
+   Retorna `classificationPending` (counts + até 500 itens em RC) e `clientsIncomplete.total`. **Desde 2026-07-12 (DSB-D2) não é mais consumido pelo dashboard:** `classificationPending.total` alimenta o card só-visualização "Classificação pendente" da página de Lotes (`/samples`); `clientsIncomplete` ficou sem consumidor de UI (o card "Cadastros pendentes" foi removido). Endpoint mantido intacto; o nome "dashboard" é dívida até a revisão de Lotes/Clientes. (O pulso do dia `dailyRegistered`/`dailySent` saiu em 2026-07-07 — DSH-D4.)
 7. `GET /api/v1/dashboard/sales-availability`
    Donut "Lotes disponíveis": bandas de aging por `created_at` (`over30`/`from15to30`/`under15`), contando `commercial_status IN (OPEN, PARTIALLY_SOLD)` e excluindo `INVALIDATED`.
 8. `GET /api/v1/dashboard/recent-sends`

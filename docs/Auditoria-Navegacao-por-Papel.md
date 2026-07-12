@@ -57,8 +57,9 @@ Constantes/helpers de agrupamento (`lib/roles.ts`):
   de clientes (`/clients`).
 - `CLIENT_MANAGEMENT_ROLES` = ADMIN, CADASTRO (helper `canManageClients`) — quem
   GERENCIA cadastro de cliente: guard do hub `/cadastros` e do **detalhe**
-  `/clients/[id]`, mais o botao "Gerenciar cliente" e o card "Cadastros pendentes"
-  do dashboard. Sem equivalente no backend (ver a nota da matriz).
+  `/clients/[id]`, mais o botao "Gerenciar cliente". Sem equivalente no backend
+  (ver a nota da matriz). _(O card "Cadastros pendentes" do dashboard, antes gated
+  por este helper, foi REMOVIDO em 2026-07-12 — DSB-D2.)_
 - `INFORME_ROLES` = ADMIN, COMMERCIAL — guard da pagina "Relatorios"
   (`/informe`). CADASTRO saiu em 2026-06-28; REGISTRATION em 2026-07-10. Cobre
   exatamente os dois ramos da pagina: nao ha papel com acesso e sem conteudo.
@@ -199,11 +200,12 @@ modal — **unica porta de navegacao pro detalhe em todo o app**
 manda de volta pra `/clients` (`unauthorizedRedirectTo`), nao pro `/dashboard`.
 O "Voltar" do detalhe aponta pro hub `/cadastros`.
 
-Consequencias: o card **"Cadastros pendentes"** do dashboard passou a aparecer so
-pra ADMIN + CADASTRO (pros demais listava incompletos sem dar como corrigir) e
-leva a `/cadastros?incomplete=true` em vez de `/clients?incomplete=true`. O FAB de
-**criar** cliente continua pra todos: criar e operacao, completar o cadastro e
-gestao. O selo/filtro de "cadastro incompleto" na lista tambem continua pra todos.
+Consequencias: o FAB de **criar** cliente continua pra todos: criar e operacao,
+completar o cadastro e gestao. O selo/filtro de "cadastro incompleto" na lista
+tambem continua pra todos. _(O card **"Cadastros pendentes"** do dashboard — que
+era gated por ADMIN + CADASTRO e levava a `/cadastros?incomplete=true` — foi
+REMOVIDO em 2026-07-12, DSB-D2. O deep-link `?incomplete=true` segue tratado pelas
+paginas de clientes por navegacao direta.)_
 
 > ⚠️ Isto e **alivio de UI, nao fronteira de seguranca**. Nenhum endpoint
 > `/clients/:id/*` tem gate de papel — todos exigem apenas autenticacao (o unico

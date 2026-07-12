@@ -2,21 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { ApiError, getDashboardPending, getDashboardSalesAvailability } from '../../lib/api-client';
-import type {
-  DashboardPendingResponse,
-  DashboardSalesAvailabilityResponse,
-  SessionData,
-} from '../../lib/types';
+import { ApiError, getDashboardSalesAvailability } from '../../lib/api-client';
+import type { DashboardSalesAvailabilityResponse, SessionData } from '../../lib/types';
 
 const REFETCH_THROTTLE_MS = 30_000;
 
 export function useDashboardData(session: SessionData | null) {
-  const [data, setData] = useState<DashboardPendingResponse | null>(null);
   const [salesData, setSalesData] = useState<DashboardSalesAvailabilityResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Throttle pro refetch em visibilitychange: evita N requests (pending traz
-  // ate 500 itens) em Alt+Tab rapido — mesmo padrao do DashboardDesktop.
+  // Throttle pro refetch em visibilitychange: evita N requests em Alt+Tab
+  // rapido — mesmo padrao do DashboardDesktop.
   const lastFetchRef = useRef<number>(0);
 
   const refreshDashboard = useCallback(() => {
@@ -28,10 +23,9 @@ export function useDashboardData(session: SessionData | null) {
     lastFetchRef.current = Date.now();
     setError(null);
 
-    Promise.all([getDashboardPending(session), getDashboardSalesAvailability(session)])
-      .then(([pendingResponse, salesResponse]) => {
+    getDashboardSalesAvailability(session)
+      .then((salesResponse) => {
         if (active) {
-          setData(pendingResponse);
           setSalesData(salesResponse);
         }
       })
@@ -75,5 +69,5 @@ export function useDashboardData(session: SessionData | null) {
     };
   }, [session, refreshDashboard]);
 
-  return { data, salesData, error };
+  return { salesData, error };
 }

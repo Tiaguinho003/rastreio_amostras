@@ -533,7 +533,7 @@ UPPERCASE em campos de nome/dados cadastrais (`event.target.value.toUpperCase()`
 
 #### Dashboard
 
-> O **OperationModal** ("Lotes pendentes") **deixou de ser modal central** — migrou pra **BottomSheet** (`components/dashboard/OperationModal.tsx` renderiza `<BottomSheet className="is-operations">`). Sai de baixo no mobile e vira modal central no desktop (CSS responsivo >901px do `.bottom-sheet`). Ver `design-system` §8 "Bottom Sheet" (variante `.is-operations`). A classe `.app-modal-dashboard` e seus overrides foram removidos; os cards internos seguem usando `.app-modal-card*`.
+> O **OperationModal** ("Lotes pendentes") do dashboard foi **REMOVIDO em 2026-07-12 (DSB-D2)** junto com os cards de pendencia. Ele era um BottomSheet (`.is-operations`); o CSS (`.bottom-sheet.is-operations`, `.spv2-card-classify-arrow`) foi **mantido** para o rebuild do fluxo de classificar-a-partir-da-fila na pagina de Lotes. A classe `.app-modal-dashboard` ja havia sido removida antes. Ver `docs/Dashboard-Plano-de-Trabalho.md` (DSB-D2).
 
 #### Formularios de informe (prospector + comercial)
 

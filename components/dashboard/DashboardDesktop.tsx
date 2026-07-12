@@ -1,6 +1,5 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
@@ -9,16 +8,12 @@ import {
   getDashboardRecentSends,
   getDashboardShipmentEvents,
 } from '../../lib/api-client';
-import { canManageClients, FINANCEIRO_ROLES, isRoleAllowed } from '../../lib/roles';
+import { FINANCEIRO_ROLES, isRoleAllowed } from '../../lib/roles';
 import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
 import { EventsCalendarCard } from './EventsCalendarCard';
 import { RecentSendsCard } from './RecentSendsCard';
-import { useOperationModal } from './useOperationModal';
-import { OperationModal } from './OperationModal';
-import { StatCard } from './StatCard';
 import type {
   DashboardCalendarEvent,
-  DashboardPendingResponse,
   DashboardRecentSendsResponse,
   DashboardSalesAvailabilityResponse,
   SessionData,
@@ -26,22 +21,11 @@ import type {
 
 interface DashboardDesktopProps {
   session: SessionData;
-  data: DashboardPendingResponse | null;
   salesData: DashboardSalesAvailabilityResponse | null;
   error: string | null;
 }
 
-export function DashboardDesktop({ session, data, salesData, error }: DashboardDesktopProps) {
-  const router = useRouter();
-  const {
-    activeOperationPanel,
-    open: operationModalOpen,
-    openOperationPanel,
-    closeOperationModal,
-    classifySample,
-    operationModalData,
-  } = useOperationModal(data);
-
+export function DashboardDesktop({ session, salesData, error }: DashboardDesktopProps) {
   const [recentSends, setRecentSends] = useState<DashboardRecentSendsResponse | null>(null);
   // Throttle pro refetch on focus/visibilitychange: evita N requests
   // em Alt+Tab rapido.
@@ -51,7 +35,6 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
   // (E22). `paymentWindow` = a quinzena visível que o card emite via onWindowChange.
   // E28: o evento é navegação pura (→ Financeiro); o "Pago" saiu do dashboard.
   const canPay = isRoleAllowed(session.user.role, FINANCEIRO_ROLES);
-  const canManageCadastro = canManageClients(session.user.role);
   const [paymentEvents, setPaymentEvents] = useState<Record<string, DashboardCalendarEvent[]>>({});
   const [paymentWindow, setPaymentWindow] = useState<{ from: string; to: string } | null>(null);
   const handleWindowChange = useCallback((from: string, to: string) => {
@@ -182,11 +165,6 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
     };
   }, [fetchPaymentEvents, fetchApprovalEvents, fetchShipmentEvents]);
 
-  // Q.print: card "Impressao pendente" cortado definitivamente (decisao
-  // Q.1.c #20). PrintJob agora vive como informacao auxiliar dentro do
-  // detalhe da amostra, nao no dashboard.
-  const classificationTotal = data?.classificationPending.total ?? 0;
-
   return (
     <div className="dashboard-desktop">
       <section className="dashboard-page">
@@ -196,56 +174,10 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
           </p>
         ) : null}
 
-        {/* Layout DSH-D4/D5/D6 + E20: coluna ESQUERDA = pendencias (2
-            StatCards, tamanho preservado) + pilha donut/Ultimos envios;
-            coluna DIREITA inteira = card de Eventos, do topo (linha das
-            pendencias) ate a base. */}
+        {/* Layout: coluna ESQUERDA = pilha donut/Ultimos envios; coluna
+            DIREITA inteira = card de Eventos, do topo ate a base. */}
         <div className="dd-content-grid">
           <div className="dd-left-col">
-            <div className={`dd-summary-row${canManageCadastro ? '' : ' is-single'}`}>
-              {data ? (
-                <>
-                  <StatCard
-                    title="Classificação pendente"
-                    value={classificationTotal}
-                    onClick={(event) =>
-                      openOperationPanel('classification_pending', event.currentTarget)
-                    }
-                    ariaExpanded={activeOperationPanel === 'classification_pending'}
-                    ariaHasPopup="dialog"
-                    icon={
-                      <svg viewBox="0 0 24 24" focusable="false">
-                        <ellipse cx="12" cy="12" rx="6.2" ry="9" />
-                        <path d="M12 4.6 Q 13 8.5 12 12 Q 11 15.5 12 19.4" />
-                      </svg>
-                    }
-                  />
-                  {/* So quem gerencia cadastro (ADMIN + CADASTRO) ve — os demais
-                      nao abrem o detalhe do cliente, entao o card nao levaria a
-                      acao nenhuma. Leva ao hub, nao a /clients. */}
-                  {canManageCadastro ? (
-                    <StatCard
-                      title="Cadastros pendentes"
-                      value={data.clientsIncomplete.total}
-                      onClick={() => router.push('/cadastros?incomplete=true')}
-                      ariaLabel={`Cadastros pendentes (${data.clientsIncomplete.total})`}
-                      icon={
-                        <svg viewBox="0 0 24 24" focusable="false">
-                          <path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
-                          <path d="M17 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
-                          <path d="M2 21v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2" />
-                          <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                        </svg>
-                      }
-                    />
-                  ) : null}
-                </>
-              ) : (
-                Array.from({ length: canManageCadastro ? 2 : 1 }).map((_, i) => (
-                  <div key={i} className="dd-stat-card is-skeleton" aria-hidden="true" />
-                ))
-              )}
-            </div>
             <div className="dd-left-stack">
               {salesData ? (
                 <SalesAvailabilityCard data={salesData} compact />
@@ -258,13 +190,6 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
           <EventsCalendarCard events={calendarEvents} onWindowChange={handleWindowChange} />
         </div>
       </section>
-
-      <OperationModal
-        open={operationModalOpen}
-        data={operationModalData}
-        onClose={closeOperationModal}
-        onItemAction={classifySample}
-      />
     </div>
   );
 }

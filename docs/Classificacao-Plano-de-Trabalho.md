@@ -331,6 +331,8 @@ Decisões "antes do fluxo" — valem em qualquer interface. Cada decisão aqui m
 
 **Como ficou (implementado — Bloco F1)**: cada card ganhou o botão-seta `.spv2-card-classify-arrow` (`onItemAction` → `/camera?sampleId=X`, Flow B, mesma rota do Caminho 1) e o corpo do card virou **inerte** (`.spv2-card.is-static` — não navega mais pro detalhe). Título atual do sheet: "Lotes pendentes". _Anchors por linha desta seção trocados por símbolos em 2026-07-07 (revisão DSH)._
 
+> **⚠️ Atualização (2026-07-12, DSB-D2):** o `OperationModal` (Caminho 3, modal "Lotes pendentes" do dashboard) foi **REMOVIDO** junto com os cards de pendência do dashboard. O card "Classificação pendente" migrou para a página de Lotes (`/samples`) como **só-visualização** (sem o modal). O fluxo de **classificar a partir da fila** (a seta → `/camera`) será **reconstruído** na revisão da página de Lotes — o CSS (`.is-operations`, `.spv2-card-classify-arrow`) foi mantido para isso. Ver `docs/Dashboard-Plano-de-Trabalho.md`.
+
 #### F1.4 — Posição do botão "Classificar" dentro do card
 
 **Análise**: o card hoje tem `body` (lote + dono + data) à esquerda e um pequeno `app-modal-card-indicator` à direita (provavelmente uma seta/chevron de navegação). Adicionar um botão dedicado afeta o layout. Opções:

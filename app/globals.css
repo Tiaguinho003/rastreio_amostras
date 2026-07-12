@@ -5438,6 +5438,66 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   line-height: 1.4;
 }
 
+/* ── spv2: card "Classificacao pendente" (migrado do dashboard, DSB-D2) ──
+   Card so-visualizacao no topo do sheet. Estilo proprio da pagina de Lotes
+   (nao reusa o .dd-stat-* do dashboard, que era desktop-only). Responsivo. */
+
+.spv2-pending-stat {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: clamp(0.6rem, 2.5vw, 0.9rem);
+  margin: clamp(8px, 2vw, 12px) clamp(14px, 4vw, 20px) 0;
+  padding: clamp(0.7rem, 2.5vw, 0.95rem) clamp(0.85rem, 3vw, 1.15rem);
+  background: #ffffff;
+  border: 1px solid rgba(112, 130, 103, 0.22);
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+}
+
+.spv2-pending-stat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: clamp(40px, 11vw, 48px);
+  height: clamp(40px, 11vw, 48px);
+  border-radius: 13px;
+  background: rgba(31, 93, 67, 0.1);
+}
+
+.spv2-pending-stat-icon svg {
+  width: clamp(20px, 5.5vw, 24px);
+  height: clamp(20px, 5.5vw, 24px);
+  stroke: var(--brand-green, #1f5d43);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+.spv2-pending-stat-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.spv2-pending-stat-title {
+  font-size: clamp(0.78rem, 3.5vw, 0.84rem);
+  font-weight: 500;
+  color: #72766f;
+  letter-spacing: 0.01em;
+}
+
+.spv2-pending-stat-value {
+  font-size: clamp(1.5rem, 6vw, 1.9rem);
+  font-weight: 800;
+  line-height: 1.1;
+  color: #1a2e1f;
+  letter-spacing: -0.02em;
+}
+
 /* ── spv2: list meta ── */
 
 .spv2-list-meta {
@@ -24466,123 +24526,12 @@ select.samples-filter-field-input {
 
   /* ── Dashboard Desktop: summary cards row ── */
 
-  /* A linha das pendencias vive DENTRO da coluna esquerda (E20: o card de
-     Eventos ocupa a coluna direita inteira, incluindo esta altura). 2
-     colunas na metade esquerda = mesma largura de card do antigo grid de 4
-     colunas na pagina inteira (DSH-D4 preservada). */
-  .dd-summary-row {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: clamp(0.75rem, 1.4vw, 1.25rem);
-    flex: none;
-  }
-
-  /* Quem nao gerencia cadastro nao ve o card "Cadastros pendentes": o unico
-     card restante ocupa a linha inteira em vez de deixar metade vazia. */
-  .dd-summary-row.is-single {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  /* ── Stat cards da 1a linha (pendencias + pulso do dia) — visual da
-     imagem: horizontal, icone verde em tile claro, baixo. ── */
-  .dd-stat-card {
-    display: flex;
-    align-items: center;
-    gap: clamp(0.6rem, 1vw, 0.9rem);
-    /* Altura fixa que ja comporta a metrica "vs ontem" — todos os 4 cards
-       da linha ficam iguais, com ou sem delta (nao "pulam" quando aparece). */
-    min-height: clamp(88px, 7vw, 100px);
-    padding: clamp(0.7rem, 1vw, 0.95rem) clamp(0.85rem, 1.2vw, 1.15rem);
-    background: #ffffff;
-    border: 1px solid rgba(112, 130, 103, 0.22);
-    border-radius: 16px;
-    box-shadow: var(--dd-card-shadow);
-    text-align: left;
-    font-family: inherit;
-    -webkit-tap-highlight-color: transparent;
-    transition:
-      transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
-      box-shadow 0.22s ease;
-  }
-
-  button.dd-stat-card {
-    cursor: pointer;
-  }
-
-  @media (hover: hover) {
-    button.dd-stat-card:hover {
-      transform: translateY(-3px);
-      box-shadow: var(--dd-card-shadow-hover);
-    }
-  }
-
-  button.dd-stat-card:active {
-    transform: translateY(-1px) scale(0.98);
-  }
-
-  .dd-stat-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: none;
-    width: clamp(40px, 3.6vw, 48px);
-    height: clamp(40px, 3.6vw, 48px);
-    border-radius: 13px;
-    background: rgba(31, 93, 67, 0.1);
-  }
-
-  .dd-stat-icon svg {
-    width: clamp(20px, 1.9vw, 24px);
-    height: clamp(20px, 1.9vw, 24px);
-    stroke: var(--brand-green, #1f5d43);
-    stroke-width: 1.7;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    fill: none;
-  }
-
-  .dd-stat-body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.12rem;
-    min-width: 0;
-  }
-
-  .dd-stat-title {
-    font-size: clamp(0.74rem, 0.82vw, 0.84rem);
-    font-weight: 500;
-    color: #72766f;
-    letter-spacing: 0.01em;
-  }
-
-  .dd-stat-value {
-    font-size: clamp(1.5rem, 2vw, 2rem);
-    font-weight: 800;
-    line-height: 1.1;
-    color: #1a2e1f;
-    letter-spacing: -0.02em;
-  }
-
-  .dd-stat-card.is-skeleton {
-    pointer-events: none;
-    cursor: default;
-  }
-
-  /* ── Entry animations ── */
-
-  .dd-summary-row > .dd-stat-card:nth-child(1) {
-    animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.08s backwards;
-  }
-
-  .dd-summary-row > .dd-stat-card:nth-child(2) {
-    animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.14s backwards;
-  }
-
-  /* Grid principal do dashboard (DSH-D4/D5/D6 + E20): coluna ESQUERDA =
-     pendencias (dd-summary-row) + pilha "Lotes disponiveis"/"Ultimos
-     envios"; coluna DIREITA inteira = card de EVENTOS, do topo a base
-     (mesma altura das pendencias + pilha). O shell-lock de 100vh continua;
-     as listas rolam por dentro. */
+  /* Grid principal do dashboard (DSH-D5/D6 + E20): coluna ESQUERDA = pilha
+     "Lotes disponiveis"/"Ultimos envios"; coluna DIREITA inteira = card de
+     EVENTOS, do topo a base. Os StatCards de pendencia sairam do dashboard em
+     2026-07-12 (DSB-D2 — "Classificacao pendente" migrou pra /samples,
+     "Cadastros pendentes" foi removido). O shell-lock de 100vh continua; as
+     listas rolam por dentro. */
   .dd-content-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -33840,7 +33789,6 @@ body.is-selection-mode .ctr-page .cc-tabs {
   .dashboard-mobile .dashboard-sheet,
   .dashboard-operations-grid .dashboard-operation-card:nth-child(n),
   .sales-card,
-  .dd-summary-row > .dd-stat-card:nth-child(n),
   .dd-left-stack,
   .dd-events-card,
   .dashboard-operation-badge,

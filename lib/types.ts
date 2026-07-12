@@ -1152,7 +1152,9 @@ export interface ListSamplesResponse {
 // Projecao PARCIAL de sample devolvida em classificationPending.items pelo
 // getDashboardPending — NAO e o SampleSnapshot completo, apenas estes campos
 // (ver mapDashboardSample em src/samples/sample-query-service.js).
-export interface DashboardPendingSample {
+// Nao-exportado (DSB-D2): so referenciado por DashboardPendingResponse.items;
+// o consumidor de UI (card de /samples) usa apenas classificationPending.total.
+interface DashboardPendingSample {
   id: string;
   internalLotNumber: string | null;
   status: SampleStatus;
