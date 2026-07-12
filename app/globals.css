@@ -31222,8 +31222,19 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   display: none;
 }
 
-.topbar-profile-chevron,
-.topbar-greeting {
+/* DSB-D6: a nav da top bar e o logo colorido são desktop-only (papéis
+   não-PROSPECTOR). No mobile a navegação vive na MobileTabbar e o logo da
+   barra verde é o branco — então ambos ficam ocultos por padrão (mobile-first)
+   e são reativados no bloco @media (min-width: 901px). */
+.topbar-nav {
+  display: none;
+}
+
+.topbar-logo-image.is-color {
+  display: none;
+}
+
+.topbar-profile-chevron {
   display: none;
 }
 
@@ -31241,14 +31252,20 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
 }
 
 @media (min-width: 901px) {
-  /* Duas colunas: [sidebar] [faixa branca + conteudo]. Scroll fica
-     na janela (sticky, sem position:fixed — a transicao de pagina
-     aplica transform no ancestral e quebraria fixed, mesmo motivo
-     do portal da MobileTabbar). */
+  /* DSB-D6: a nav migrou pra top bar (5 papeis nao-PROSPECTOR) -> shell de
+     COLUNA UNICA (faixa branca no topo + conteudo abaixo, largura toda). O
+     PROSPECTOR mantem a sidebar vertical -> :has(.app-sidebar) reativa o grid
+     de 2 colunas [sidebar][conteudo]. Scroll fica na janela (sticky, sem
+     position:fixed — a transicao de pagina aplica transform no ancestral e
+     quebraria fixed, mesmo motivo do portal da MobileTabbar). */
   .app-shell-root {
     display: grid;
-    grid-template-columns: var(--app-sidebar-w, 220px) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto 1fr;
+  }
+
+  .app-shell-root:has(.app-sidebar) {
+    grid-template-columns: var(--app-sidebar-w, 220px) minmax(0, 1fr);
   }
 
   .app-sidebar {
@@ -31407,10 +31424,11 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
     stroke-linejoin: round;
   }
 
-  /* .topbar vira a FAIXA BRANCA: so os tools (busca + perfil) a
-     direita, sobre fundo branco. */
+  /* .topbar = FAIXA BRANCA no topo. DSB-D6: passou a hospedar a NAVEGACAO
+     (logo colorido + nav de nomes + perfil). Ocupa a largura toda (col 1);
+     so recua pra col 2 quando ha sidebar (PROSPECTOR). */
   .topbar {
-    grid-column: 2;
+    grid-column: 1;
     grid-row: 1;
     position: sticky;
     top: 0;
@@ -31420,6 +31438,10 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
     border-bottom: 0;
     box-shadow: none;
     color: var(--ink);
+  }
+
+  .app-shell-root:has(.app-sidebar) .topbar {
+    grid-column: 2;
   }
 
   .topbar-inner {
@@ -31433,8 +31455,85 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
     padding: 0.6rem clamp(1rem, 2.5vw, 2rem);
   }
 
+  /* Top bar com navegacao (DSB-D6, nao-PROSPECTOR): 3 blocos —
+     logo (esquerda) | nav (centralizada) | perfil (direita). */
+  .topbar-inner:has(.topbar-nav) {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    justify-content: initial;
+  }
+
+  .topbar-inner:has(.topbar-nav) .topbar-mobile-spacer {
+    display: none;
+  }
+
   .topbar-logo-slot {
     display: none;
+  }
+
+  /* Logo colorido aparece na top bar branca (desktop com nav). */
+  .topbar-inner:has(.topbar-nav) .topbar-logo-slot {
+    display: flex;
+    justify-self: start;
+    align-items: center;
+  }
+
+  /* Alterna os dois logos: branco so na barra verde (mobile), colorido so
+     na faixa branca (desktop com nav). O .is-color ja e escondido na base
+     (mobile-first); aqui e reativado quando ha nav. */
+  .topbar-inner:has(.topbar-nav) .topbar-logo-image.is-white {
+    display: none;
+  }
+
+  .topbar-inner:has(.topbar-nav) .topbar-logo-image.is-color {
+    display: block;
+    height: 40px;
+    width: auto;
+    max-width: 100%;
+    object-fit: contain;
+  }
+
+  /* Navegacao horizontal (so nomes, sem icones): centralizada na faixa. */
+  .topbar-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(0.4rem, 1.4vw, 1.4rem);
+    flex-wrap: wrap;
+  }
+
+  .topbar-nav-link {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.35rem 0.5rem;
+    color: var(--muted);
+    font-size: 0.95rem;
+    font-weight: 600;
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+      color 140ms ease,
+      border-color 140ms ease;
+  }
+
+  .topbar-nav-link:hover {
+    color: var(--ink);
+  }
+
+  /* Item ativo: sublinhado verde de marca + texto forte. */
+  .topbar-nav-link.is-active {
+    color: var(--brand-green, #1f5d43);
+    border-bottom-color: var(--brand-green, #1f5d43);
+  }
+
+  .topbar-nav-link:active {
+    transform: scale(0.97);
+  }
+
+  /* Perfil ancorado na direita da faixa (col 3 do grid). */
+  .topbar-inner:has(.topbar-nav) .topbar-tools {
+    justify-self: end;
   }
 
   /* Busca de lote sai da faixa branca no desktop: some sobre o branco (fica
@@ -31444,74 +31543,9 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
     display: none;
   }
 
-  /* Saudacao na faixa branca (so dashboard): rotulo + nome + tipo de usuario.
-     margin-right:auto empurra a busca + perfil pro canto direito. Como o bloco
-     tem 2 linhas, a faixa branca cresce em altura — abrindo espaco que faz os
-     cards do dashboard encolherem (ver .dd-content-grid). */
-  .topbar-greeting {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 0.15rem;
-    margin-right: auto;
-    min-width: 0;
-    padding-block: 0.2rem;
-  }
-
-  /* Faixa do topbar mais ALTA so no dashboard — a pedido do usuario (acompanha
-     o nome maior). Escopado pela saudacao (`.topbar-greeting`, que so existe no
-     dashboard); as demais paginas mantem o padding-block base (0.78rem). */
-  .topbar-inner:has(.topbar-greeting) {
-    padding-block: 1.1rem;
-  }
-
-  /* Saudacao empilhada: rotulo ("Bom dia,") em cima, NOME embaixo e maior. */
-  .topbar-greeting-line {
-    display: flex;
-    flex-direction: column;
-    gap: 0.02rem;
-    min-width: 0;
-  }
-
-  .topbar-greeting-label {
-    font-size: 1.05rem;
-    font-weight: 500;
-    color: var(--muted);
-    white-space: nowrap;
-  }
-
-  .topbar-greeting-name {
-    /* Nome maior (era 2.1rem) — a pedido do usuario, junto com a faixa do
-       topbar mais alta (ver .topbar-inner:has(.topbar-greeting)). */
-    font-size: 2.5rem;
-    font-weight: 800;
-    line-height: 1.08;
-    letter-spacing: -0.02em;
-    color: var(--ink);
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-
-  .topbar-greeting-role {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.32rem;
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: #1f5d43;
-  }
-
-  .topbar-greeting-role-icon {
-    width: 0.95rem;
-    height: 0.95rem;
-    flex: none;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.8;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
+  /* (DSB-D6) A saudacao + nome na faixa branca do dashboard desktop foi
+     REMOVIDA — a faixa agora hospeda a navegacao. O hero mobile mantem a
+     saudacao. */
 
   /* Perfil: SO o avatar (MAIOR) + chevron — sem nome e sem borda (pedido do
      usuario). Mesma posicao (canto direito da faixa branca). Hover sem mudar
@@ -31547,11 +31581,16 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
     stroke-linejoin: round;
   }
 
-  /* Conteudo da pagina, coluna 2, abaixo da faixa branca */
+  /* Conteudo da pagina abaixo da faixa branca. DSB-D6: largura toda (col 1);
+     recua pra col 2 so quando ha sidebar (PROSPECTOR). */
   .app-shell-main {
-    grid-column: 2;
+    grid-column: 1;
     grid-row: 2;
     min-width: 0;
+  }
+
+  .app-shell-root:has(.app-sidebar) .app-shell-main {
+    grid-column: 2;
   }
 }
 
@@ -32661,12 +32700,11 @@ body.is-selection-mode .ctr-page .cc-tabs {
 }
 @media (min-width: 901px) {
   .bottom-sheet.ctr-contract-sheet {
-    /* grande com respiro: ~80% da área de conteúdo (viewport − sidebar 220px) */
-    width: min(1180px, calc((100vw - var(--app-sidebar-w, 220px)) * 0.8));
-    max-width: min(1180px, calc((100vw - var(--app-sidebar-w, 220px)) * 0.8));
-    /* centraliza na área de conteúdo, à direita da sidebar (desloca metade dela);
-       o transform translate(-50%,-50%) da regra base segue centralizando no eixo Y */
-    left: calc(50% + var(--app-sidebar-w, 220px) / 2);
+    /* grande com respiro: ~80% da largura. DSB-D6: os papéis que emitem contrato
+       (ADMIN/COMMERCIAL) não têm mais sidebar, então centraliza normal (50%). */
+    width: min(1180px, 80vw);
+    max-width: min(1180px, 80vw);
+    left: 50%;
     /* mais alto: sem o teto de 44rem. Scroll (body) só se exceder 88dvh */
     max-height: 88dvh;
   }

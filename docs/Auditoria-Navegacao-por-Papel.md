@@ -12,7 +12,7 @@ avulso saiu da nav de ADMIN/CADASTRO, que passam a acessar clientes pela aba
 Atualizado: 2026-07-09 — **Central de Contratos (F1)**: `/contratos` virou um **hub
 com 4 sub-abas** (Contratos · Financeiro · Aprovações · Embarque); a rota
 `/financeiro` **redireciona** para `/contratos?tab=financeiro`; a navegação passou a
-ter **um item único "Contratos"** (sidebar + menu do avatar), gated **ADMIN +
+ter **um item único "Contratos"** (top bar desktop + menu do avatar), gated **ADMIN +
 COMMERCIAL** (`CONTRATOS_ROLES`) — o COMMERCIAL passa a ver "Contratos" também no
 **menu do avatar** mobile (corrige o antigo gate `isAdmin`). A tabela de rotas e a
 matriz abaixo já refletem isso; as **seções por papel** (contagens de itens) ainda
@@ -81,17 +81,26 @@ Constantes/helpers de agrupamento (`lib/roles.ts`):
 Centralizadas em `components/AppShell.tsx`. Breakpoint: **900px** (`<= 900` =
 mobile, `>= 901` = desktop).
 
-| Superficie               | Onde                                       | Plataforma | Componente                                         |
-| ------------------------ | ------------------------------------------ | ---------- | -------------------------------------------------- |
-| Sidebar vertical (verde) | lateral esquerda                           | Desktop    | `AppShell.tsx` (`desktopNavItems`)                 |
-| Tabbar inferior          | rodape                                     | Mobile     | `components/MobileTabbar.tsx` (`MOBILE_NAV_ITEMS`) |
-| Menu do avatar           | dropdown (desktop) / bottom sheet (mobile) | Ambos      | `AppShell.tsx` + `components/HeaderAvatarMenu.tsx` |
+| Superficie                  | Onde                                       | Plataforma | Componente                                         |
+| --------------------------- | ------------------------------------------ | ---------- | -------------------------------------------------- |
+| Top bar horizontal (branca) | topo (logo + nomes + perfil)               | Desktop    | `AppShell.tsx` `.topbar-nav` (`desktopNavItems`)   |
+| Tabbar inferior             | rodape                                     | Mobile     | `components/MobileTabbar.tsx` (`MOBILE_NAV_ITEMS`) |
+| Menu do avatar              | dropdown (desktop) / bottom sheet (mobile) | Ambos      | `AppShell.tsx` + `components/HeaderAvatarMenu.tsx` |
+
+> **DSB-D6 (2026-07-12):** no desktop, a navegacao dos **5 papeis nao-PROSPECTOR**
+> saiu da **sidebar vertical verde** (esquerda) e foi para uma **top bar horizontal
+> branca** no topo: logo colorido a esquerda, **os itens so com NOME (sem icones)**
+> centralizados, avatar de perfil a direita. O **botao "Sair" saiu da navegacao** —
+> agora so pelo **menu do avatar** (dropdown do perfil). A **saudacao + nome** do
+> dashboard desktop tambem foi removida. O **PROSPECTOR** mantem a **sidebar vertical**
+> de antes (app restrito, so "Inicio" + "Sair"). Mobile inalterado (tabbar + hero).
 
 Itens definidos em `AppShell.tsx`: `DESKTOP_NAV_ITEMS` (Inicio/Lotes/Clientes),
 `INFORME_NAV_ITEM` (Relatorios), `CADASTROS_NAV_ITEM`, `CONTRATOS_NAV_ITEM`,
 `ADMIN_NAV_ITEM` (Usuarios), `MOBILE_NAV_ITEMS` (inclui Camera). A filtragem por
-papel da sidebar fica em `desktopNavItems` (`AppShell.tsx`), a da tabbar no
+papel da top bar (desktop) fica em `desktopNavItems` (`AppShell.tsx`), a da tabbar no
 `<MobileTabbar items={...} />`, e a do menu do avatar no `HeaderAvatarMenu.tsx`.
+Os icones (`renderNavIcon`) seguem so na tabbar mobile — a top bar desktop e so texto.
 
 Split Clientes x Cadastros (2026-07-02): para **ADMIN e CADASTRO**, `desktopNavItems`
 filtra o item "Clientes" fora da sidebar (eles acessam clientes pela aba "Clientes"
@@ -229,17 +238,17 @@ sem acesso de gestao (Cadastros/Contratos/Usuarios).
 
 | Destino    | Rota         | Desktop        | Mobile                    |
 | ---------- | ------------ | -------------- | ------------------------- |
-| Inicio     | `/dashboard` | Sidebar        | Tabbar                    |
-| Lotes      | `/samples`   | Sidebar        | Tabbar                    |
-| Clientes   | `/clients`   | Sidebar        | Tabbar                    |
-| Relatorios | `/informe`   | Sidebar        | Tabbar                    |
+| Inicio     | `/dashboard` | Top bar        | Tabbar                    |
+| Lotes      | `/samples`   | Top bar        | Tabbar                    |
+| Clientes   | `/clients`   | Top bar        | Tabbar                    |
+| Relatorios | `/informe`   | Top bar        | Tabbar                    |
 | Camera     | `/camera`    | — (sem botao)  | Tabbar (destaque, centro) |
 | Perfil     | `/profile`   | Menu do avatar | Menu do avatar            |
 | Sair       | logout       | Menu do avatar | Menu do avatar            |
 
 Contagem:
 
-- **Sidebar desktop: 4 itens** — Inicio, Lotes, Clientes, Relatorios.
+- **Top bar desktop: 4 itens** — Inicio, Lotes, Clientes, Relatorios.
 - **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, Clientes, Relatorios.
 - **Menu do avatar: 2 itens** — Perfil, Sair (igual no desktop e no mobile).
 
@@ -290,16 +299,16 @@ de gestao.
 
 | Destino  | Rota         | Desktop        | Mobile                            |
 | -------- | ------------ | -------------- | --------------------------------- |
-| Inicio   | `/dashboard` | Sidebar        | Tabbar                            |
-| Lotes    | `/samples`   | Sidebar        | Tabbar                            |
-| Clientes | `/clients`   | Sidebar        | Tabbar                            |
+| Inicio   | `/dashboard` | Top bar        | Tabbar                            |
+| Lotes    | `/samples`   | Top bar        | Tabbar                            |
+| Clientes | `/clients`   | Top bar        | Tabbar                            |
 | Camera   | `/camera`    | — (sem botao)  | Tabbar (destaque, centro)         |
 | Perfil   | `/profile`   | Menu do avatar | Tabbar (5o slot) + menu do avatar |
 | Sair     | logout       | Menu do avatar | Menu do avatar                    |
 
 Contagem:
 
-- **Sidebar desktop: 3 itens** — Inicio, Lotes, Clientes. (Sem Relatorios, como
+- **Top bar desktop: 3 itens** — Inicio, Lotes, Clientes. (Sem Relatorios, como
   o CADASTRO e o REGISTRATION.)
 - **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, Clientes, Perfil. O 5o
   slot, que nos papeis de `INFORME_ROLES` e Relatorios, aqui e Perfil — para o
@@ -358,16 +367,16 @@ propria moldura, e ocupava um slot da tabbar.
 
 | Destino  | Rota         | Desktop                       | Mobile                    |
 | -------- | ------------ | ----------------------------- | ------------------------- |
-| Inicio   | `/dashboard` | Sidebar                       | Tabbar                    |
-| Lotes    | `/samples`   | Sidebar                       | Tabbar                    |
-| Clientes | `/clients`   | Sidebar                       | Tabbar                    |
+| Inicio   | `/dashboard` | Top bar                       | Tabbar                    |
+| Lotes    | `/samples`   | Top bar                       | Tabbar                    |
+| Clientes | `/clients`   | Top bar                       | Tabbar                    |
 | Camera   | `/camera`    | — (sem botao)                 | Tabbar (destaque, centro) |
 | Perfil   | `/profile`   | Menu do avatar ("Meu perfil") | Tabbar + menu do avatar   |
 | Sair     | logout       | Menu do avatar                | Menu do avatar            |
 
 Contagem:
 
-- **Sidebar desktop: 3 itens** — Inicio, Lotes, Clientes.
+- **Top bar desktop: 3 itens** — Inicio, Lotes, Clientes.
 - **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, Clientes, Perfil. O 5o
   slot, que nos papeis de `INFORME_ROLES` e Relatorios, aqui e Perfil — mesmo
   arranjo do Classifier.
@@ -397,7 +406,7 @@ Contagem:
 
 O Comercial esta em `INFORME_ROLES` e ve Relatorios na sidebar e na tabbar (feed
 dos PROPRIOS informes, `scope=mine`, + FAB de criacao); o REGISTRATION nao ve em
-lugar nenhum desde 2026-07-10 e e redirecionado se tentar a URL. Sidebar 4 vs 3
+lugar nenhum desde 2026-07-10 e e redirecionado se tentar a URL. Top bar 4 vs 3
 itens; tabbar 5 vs 5 (5o item: Relatorios no Comercial, Perfil no REGISTRATION);
 menu do avatar igual. (Fora da navegacao: o Comercial pode ser responsavel
 comercial de cliente via `isCommercialRole`; o REGISTRATION nao.)
@@ -416,10 +425,10 @@ hoje so o ADMIN) nem `/users` (exclusivo do ADMIN).
 
 | Destino   | Rota         | Desktop                       | Mobile                            |
 | --------- | ------------ | ----------------------------- | --------------------------------- |
-| Inicio    | `/dashboard` | Sidebar                       | Tabbar                            |
-| Lotes     | `/samples`   | Sidebar                       | Tabbar                            |
+| Inicio    | `/dashboard` | Top bar                       | Tabbar                            |
+| Lotes     | `/samples`   | Top bar                       | Tabbar                            |
 | Camera    | `/camera`    | — (sem botao)                 | Tabbar (destaque, centro)         |
-| Cadastros | `/cadastros` | Sidebar                       | Tabbar (4o slot) + menu do avatar |
+| Cadastros | `/cadastros` | Top bar                       | Tabbar (4o slot) + menu do avatar |
 | Perfil    | `/profile`   | Menu do avatar ("Meu perfil") | Tabbar (5o slot) + menu do avatar |
 | Sair      | logout       | Menu do avatar                | Menu do avatar                    |
 
@@ -428,7 +437,7 @@ Clientes (`/clients`) nao e mais item de nav proprio — e a **aba default do
 
 Contagem:
 
-- **Sidebar desktop: 3 itens** — Inicio, Lotes, Cadastros. (Perdeu Clientes em
+- **Top bar desktop: 3 itens** — Inicio, Lotes, Cadastros. (Perdeu Clientes em
   2026-07-02; ja tinha perdido Relatorios e Contratos em 2026-06-28.)
 - **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, **Cadastros**, Perfil. O 4o
   slot fixo (que era Clientes) vira Cadastros para o CADASTRO (2026-07-02); o 5o
@@ -479,7 +488,7 @@ Contagem:
 Ate 2026-07-01 eram quase espelhos (trocando Relatorios por Cadastros). Com o
 split de 2026-07-02 divergiram mais: o Comercial ve "Clientes" avulso na nav e nao
 ve Cadastros; o CADASTRO nao tem "Clientes" avulso (acessa pela aba Clientes do
-Cadastros) e tem o hub Cadastros no lugar de Relatorios. **Sidebar 3 (CADASTRO:
+Cadastros) e tem o hub Cadastros no lugar de Relatorios. **Top bar 3 (CADASTRO:
 Inicio/Lotes/Cadastros) vs 4 (Comercial: Inicio/Lotes/Clientes/Relatorios)**;
 tabbar 5 vs 5 mas com 4o e 5o slots diferentes (CADASTRO: Cadastros/Perfil;
 Comercial: Clientes/Relatorios); menu do avatar no mobile 3 vs 2 (CADASTRO tem
@@ -495,13 +504,13 @@ bloqueada.
 
 | Destino    | Rota         | Desktop                       | Mobile                            |
 | ---------- | ------------ | ----------------------------- | --------------------------------- |
-| Inicio     | `/dashboard` | Sidebar                       | Tabbar                            |
-| Lotes      | `/samples`   | Sidebar                       | Tabbar                            |
-| Relatorios | `/informe`   | Sidebar                       | Tabbar                            |
+| Inicio     | `/dashboard` | Top bar                       | Tabbar                            |
+| Lotes      | `/samples`   | Top bar                       | Tabbar                            |
+| Relatorios | `/informe`   | Top bar                       | Tabbar                            |
 | Camera     | `/camera`    | — (sem botao)                 | Tabbar (destaque, centro)         |
-| Cadastros  | `/cadastros` | Sidebar                       | Tabbar (4o slot) + menu do avatar |
-| Contratos  | `/contratos` | Sidebar                       | Menu do avatar                    |
-| Usuarios   | `/users`     | Sidebar                       | Menu do avatar                    |
+| Cadastros  | `/cadastros` | Top bar                       | Tabbar (4o slot) + menu do avatar |
+| Contratos  | `/contratos` | Top bar                       | Menu do avatar                    |
+| Usuarios   | `/users`     | Top bar                       | Menu do avatar                    |
 | Perfil     | `/profile`   | Menu do avatar ("Meu perfil") | Menu do avatar                    |
 | Sair       | logout       | Menu do avatar                | Menu do avatar                    |
 
@@ -510,7 +519,7 @@ do `/cadastros`** (e segue acessivel por URL). Ver "Particularidades de conteudo
 
 Contagem:
 
-- **Sidebar desktop: 6 itens** — Inicio, Lotes, Relatorios, Cadastros, Contratos,
+- **Top bar desktop: 6 itens** — Inicio, Lotes, Relatorios, Cadastros, Contratos,
   Usuarios. (Perdeu Clientes avulso em 2026-07-02; segue a sidebar mais cheia.)
 - **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, **Cadastros**, Relatorios. O
   4o slot fixo (que era Clientes) vira Cadastros para o ADMIN (2026-07-02);
@@ -551,7 +560,7 @@ Contagem:
 
 ADMIN = CADASTRO **+ Relatorios + Contratos + Usuarios** (e, no Relatorios, alem
 de ver/curar, tambem **cria**). Ambos perderam "Clientes" avulso e acessam clientes
-pela aba Clientes do Cadastros. Sidebar 6 vs 3; tabbar 5 vs 5 — 4o slot igual
+pela aba Clientes do Cadastros. Top bar 6 vs 3; tabbar 5 vs 5 — 4o slot igual
 (Cadastros nos dois), 5o slot diferente (ADMIN Relatorios, CADASTRO Perfil); menu
 do avatar no mobile 5 vs 3.
 

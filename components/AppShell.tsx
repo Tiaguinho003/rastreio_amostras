@@ -9,7 +9,6 @@ import { createPortal } from 'react-dom';
 import { MobileTabbar } from './MobileTabbar';
 import { SampleSearchField } from './SampleSearchField';
 import { UserAvatar } from './UserAvatar';
-import { getGreeting } from './dashboard/greeting';
 import { changeCurrentUserPassword, recordInitialPasswordDecision } from '../lib/api-client';
 import { changePasswordSchema } from '../lib/form-schemas';
 import { useVisitOutboxAutoSync } from '../lib/offline/use-visit-outbox-sync';
@@ -405,8 +404,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
     typeof session.user.fullName === 'string' && session.user.fullName.trim().length > 0
       ? session.user.fullName.trim()
       : session.user.username;
-  const profileFirstName = profileName.split(/\s+/)[0];
-  // Barra lateral (desktop) montada por papel. Ordem (pedido do usuario):
+  // Navegacao principal (desktop) montada por papel. Ordem (pedido do usuario):
   // Inicio / Lotes / Clientes (base) -> Relatorios (INFORME_ROLES) -> Cadastros
   // (ADMIN + CADASTRO) -> Contratos + Usuarios (ADMIN). Itens condicionais somem
   // por papel mantendo essa ordem relativa.
@@ -687,86 +685,98 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
     <div
       className={`app-shell-root mobile-edge-shell mobile-edge-shell-auth${hideMobileTabbar ? ' is-tabbar-hidden' : ''}`}
     >
-      <aside className="app-sidebar" aria-label="Navegacao principal">
-        <Link href="/dashboard" className="app-sidebar-logo" aria-label="Pagina inicial">
-          <Image
-            src="/logo-safras-branco.png"
-            alt="Safras e Negocios"
-            width={1024}
-            height={299}
-            priority
-            className="app-sidebar-logo-image"
-          />
-        </Link>
-
-        <nav className="app-sidebar-nav" aria-label="Paginas principais">
-          {desktopNavItems.map((item) => {
-            const active = isMainNavItemActive(pathname, item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`app-sidebar-link${active ? ' is-active' : ''}`}
-                aria-current={active ? 'page' : undefined}
-              >
-                <span className="app-sidebar-link-icon" aria-hidden="true">
-                  {renderNavIcon(item.icon)}
-                </span>
-                <span className="app-sidebar-link-label">{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-
-        <button type="button" className="app-sidebar-logout" onClick={() => onLogout()}>
-          <span className="app-sidebar-logout-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" focusable="false">
-              <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" />
-              <path d="M10 16l-4-4 4-4" />
-              <path d="M6 12h11" />
-            </svg>
-          </span>
-          Sair
-        </button>
-      </aside>
-
-      <header className={`topbar ${headerMobileClass}`}>
-        <div className="topbar-inner">
-          <div className="topbar-mobile-spacer" aria-hidden="true" />
-
-          <Link href="/dashboard" className="topbar-logo-slot" aria-label="Pagina inicial">
+      {/* Sidebar vertical: mantida SÓ pro PROSPECTOR (app restrito — o
+          desktop dos demais papéis migrou pra top bar, DSB-D6). O grid do
+          shell alterna via :has(.app-sidebar) no CSS. */}
+      {prospector ? (
+        <aside className="app-sidebar" aria-label="Navegacao principal">
+          <Link href="/dashboard" className="app-sidebar-logo" aria-label="Pagina inicial">
             <Image
               src="/logo-safras-branco.png"
               alt="Safras e Negocios"
               width={1024}
               height={299}
               priority
-              className="topbar-logo-image"
+              className="app-sidebar-logo-image"
             />
           </Link>
 
-          {/* Saudacao na faixa branca — so no dashboard desktop (>=901px;
-              escondida via CSS no mobile, onde o hero ja a exibe). Empurra a
-              busca + perfil pra direita (margin-right:auto no CSS). */}
-          {isDashboard && !prospector ? (
-            <div className="topbar-greeting">
-              <span className="topbar-greeting-line">
-                <span className="topbar-greeting-label">{getGreeting()}</span>
-                <span className="topbar-greeting-name">{profileFirstName}</span>
-              </span>
-              <span className="topbar-greeting-role">
-                <svg
-                  className="topbar-greeting-role-icon"
-                  viewBox="0 0 24 24"
-                  focusable="false"
-                  aria-hidden="true"
+          <nav className="app-sidebar-nav" aria-label="Paginas principais">
+            {desktopNavItems.map((item) => {
+              const active = isMainNavItemActive(pathname, item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`app-sidebar-link${active ? ' is-active' : ''}`}
+                  aria-current={active ? 'page' : undefined}
                 >
-                  <path d="M12 3 5 5.5v6c0 4.5 3 8.3 7 9.5 4-1.2 7-5 7-9.5v-6L12 3z" />
-                  <path d="m9 12 2 2 4-4.5" />
-                </svg>
-                {getRoleLabel(session.user.role)}
-              </span>
-            </div>
+                  <span className="app-sidebar-link-icon" aria-hidden="true">
+                    {renderNavIcon(item.icon)}
+                  </span>
+                  <span className="app-sidebar-link-label">{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+
+          <button type="button" className="app-sidebar-logout" onClick={() => onLogout()}>
+            <span className="app-sidebar-logout-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" />
+                <path d="M10 16l-4-4 4-4" />
+                <path d="M6 12h11" />
+              </svg>
+            </span>
+            Sair
+          </button>
+        </aside>
+      ) : null}
+
+      <header className={`topbar ${headerMobileClass}`}>
+        <div className="topbar-inner">
+          <div className="topbar-mobile-spacer" aria-hidden="true" />
+
+          <Link href="/dashboard" className="topbar-logo-slot" aria-label="Pagina inicial">
+            {/* Logo branco na barra verde (mobile); logo colorido na top bar
+                branca (desktop, DSB-D6). O CSS alterna por breakpoint. */}
+            <Image
+              src="/logo-safras-branco.png"
+              alt="Safras e Negocios"
+              width={1024}
+              height={299}
+              priority
+              className="topbar-logo-image is-white"
+            />
+            <Image
+              src="/logo-safras-color.png"
+              alt="Safras e Negocios"
+              width={1024}
+              height={299}
+              priority
+              className="topbar-logo-image is-color"
+            />
+          </Link>
+
+          {/* Navegacao principal na top bar (desktop, DSB-D6): só os NOMES,
+              sem ícones, centralizada. Só pros não-PROSPECTOR (o prospector
+              mantém a sidebar). Escondida no mobile via CSS (usa a tabbar). */}
+          {!prospector ? (
+            <nav className="topbar-nav" aria-label="Paginas principais">
+              {desktopNavItems.map((item) => {
+                const active = isMainNavItemActive(pathname, item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`topbar-nav-link${active ? ' is-active' : ''}`}
+                    aria-current={active ? 'page' : undefined}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </nav>
           ) : null}
 
           <div className="topbar-tools">

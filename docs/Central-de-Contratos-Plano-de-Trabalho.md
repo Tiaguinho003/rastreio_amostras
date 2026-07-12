@@ -81,7 +81,12 @@ seu fluxo operacional. Ver Bloco 2.
 
 Config central: `components/AppShell.tsx`. Breakpoint 900px.
 
-- **Sidebar desktop**: dois itens separados — `CONTRATOS_NAV_ITEM` (gate
+> **DSB-D6 (2026-07-12):** no **desktop** a navegação dos papéis não-PROSPECTOR
+> saiu da sidebar e virou uma **top bar horizontal** (só nomes). Onde este bloco
+> diz "sidebar desktop", leia **"top bar desktop"**. Fonte canônica atualizada:
+> `docs/Auditoria-Navegacao-por-Papel.md`.
+
+- **Top bar desktop** (era sidebar): dois itens separados — `CONTRATOS_NAV_ITEM` (gate
   `CONTRATOS_ROLES`, `:435`) e `FINANCEIRO_NAV_ITEM` (gate `FINANCEIRO_ROLES`,
   `:429`).
 - **Tabbar mobile** (`MOBILE_NAV_ITEMS`): **não** inclui Contratos nem Financeiro.

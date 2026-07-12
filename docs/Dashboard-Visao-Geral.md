@@ -120,7 +120,7 @@ Página que rola inteira (`.dashboard-scroll`), sem nada fixo:
   is-slot-sales  → Donut "Lotes disponíveis" (SalesAvailabilityCard, tamanho cheio)
 ```
 
-- **Diferenças vs. desktop:** o mobile **não** tem os cards "Últimos envios" nem "Eventos" (ambos **desktop-only**). Tem o hero com saudação, que o desktop não tem.
+- **Diferenças vs. desktop:** o mobile **não** tem os cards de envio ("Amostras enviadas"/"Aprovações enviadas") nem "Eventos" (todos **desktop-only**). Tem o hero com **saudação**, que o desktop **não** tem — desde **DSB-D6 (2026-07-12)** a saudação também saiu da faixa branca do desktop (que virou a top bar de navegação; ver `Auditoria-Navegacao-por-Papel.md`).
 - Desde 2026-07-12 (DSB-D2) o mobile **não tem mais** os op-cards de pendências (`is-slot-operations`): sobrou hero + donut.
 
 ---

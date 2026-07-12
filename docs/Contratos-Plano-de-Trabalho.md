@@ -2180,9 +2180,10 @@ Várias frentes da **Fase G** (P27 — design/layout) + refino do Espelho:
   sem truncar); **valores em CAIXA ALTA EXCETO a Chave PIX** (preserva o caso — chaves são copiadas);
   **Observação/Descrição com fonte adaptativa** (8 pt padrão, encolhe pra caber). **Página única** mantida;
   on-demand (D32). Conferido no `scripts/preview-contract.mjs`.
-- **Modal de emissão (desktop) — IMPLEMENTADO**: layout **maior e centralizado na área de conteúdo** (à
-  direita da sidebar, `left: calc(50% + var(--app-sidebar-w)/2)`; ~80% da largura útil, teto 1180px;
-  `max-height: 88dvh`) + campos em **2 colunas de seções** (Venda/Vendedor/Comprador · Pagamento/Valores/Textos)
+- **Modal de emissão (desktop) — IMPLEMENTADO**: layout **maior e centralizado** (`left: 50%`,
+  `width: min(1180px, 80vw)`, `max-height: 88dvh`). _(Até DSB-D6 recuava à direita da sidebar via
+  `left: calc(50% + var(--app-sidebar-w)/2)`; com a nav na top bar os papéis que emitem contrato não
+  têm mais sidebar, então centraliza normal.)_ + campos em **2 colunas de seções** (Venda/Vendedor/Comprador · Pagamento/Valores/Textos)
   com pares por seção, pra caber **sem scroll** (scroll só como fallback em telas baixas). **Só desktop**
   (`@media ≥901px`), escopado a `.ctr-contract-sheet`; **mobile intocado** (wrappers `.ctr-etapa2-cols/-col`
   e `.ctr-pair` são `display: contents` abaixo de 901px → layout idêntico ao atual). Gates verdes
