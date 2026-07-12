@@ -35,9 +35,10 @@
 > geração pelo dashboard) + **Fase 3** (removeu a porta /contratos — AP11 — e o "Manual",
 > exigindo `saleContractId` — AP12). Gates verdes nas três; **validar no device** (ver
 > Histórico). Portas finais de geração = **/samples + dashboard**, ambas ligadas a contrato.
-> **Adição pós-reforma (AP16, 2026-07-09):** os **envios de aprovação** passam a aparecer
-> no card **"Últimos envios"** do dashboard (nº do contrato + comprador, pill laranja,
-> inerte) — ver seção AP16 + Histórico.
+> **Adição pós-reforma (AP16, 2026-07-09):** os **envios de aprovação** aparecem no
+> dashboard (nº do contrato + comprador, inerte) — desde **DSB-D5 (2026-07-12)** num card
+> dedicado **"Aprovações enviadas"** (antes eram uma pill laranja no card único "Últimos
+> envios") — ver seção AP16 + Histórico.
 >
 > **🔴 REFORMULAÇÃO DESENHADA — 5 FASES (design, 2026-07-09) — "o portão":** desenhar a
 > **sub-aba de Aprovação** (F2 da Central de Contratos) expôs que o sinal mole (AP8) gera
@@ -288,6 +289,8 @@ washout) — e eles eram, no fundo, a **mesma** discussão.
     bruto pra quem monta as métricas externas. **Nada novo a construir no app.**
 
 ## AP16 — Envios de aprovação no card "Últimos envios" (pós-reforma, 2026-07-09)
+
+> **Atualização (DSB-D5, 2026-07-12):** o card único "Últimos envios" foi **dividido em dois** — "Amostras enviadas" (física+laudo) e **"Aprovações enviadas"** (os envios de aprovação desta AP16). O handler deixou de **mesclar** e passou a devolver `{ sampleItems, approvalItems }` (duas listas independentes, top-40 cada). A descrição abaixo é o registro histórico da AP16; o estado atual está em `docs/Dashboard-Visao-Geral.md` §7.2.
 
 Decisão **nova**, fora do escopo AP1–AP15 (a reforma tratou o lembrete/geração; a AP-P1
 do "nº de envios" foi dispensada como BI externo — a superfície in-app do **envio feito**

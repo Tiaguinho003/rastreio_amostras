@@ -174,9 +174,9 @@ export function DashboardDesktop({ session, salesData, error }: DashboardDesktop
           </p>
         ) : null}
 
-        {/* Layout (DSB-D3): TOP ROW = "Lotes disponiveis" (donut) + "Ultimos
-            envios" lado a lado; EMBAIXO = card de Eventos HORIZONTAL ocupando
-            a largura toda. */}
+        {/* Layout (DSB-D3 + DSB-D5): TOP ROW = "Lotes disponiveis" (donut, mais
+            estreito) + "Amostras enviadas" + "Aprovacoes enviadas" lado a lado;
+            EMBAIXO = card de Eventos HORIZONTAL ocupando a largura toda. */}
         <div className="dd-content-grid">
           <div className="dd-top-row">
             {salesData ? (
@@ -184,7 +184,16 @@ export function DashboardDesktop({ session, salesData, error }: DashboardDesktop
             ) : (
               <div className="sales-card sales-card-skeleton" aria-hidden="true" />
             )}
-            <RecentSendsCard items={recentSends ? recentSends.items : null} />
+            <RecentSendsCard
+              title="Amostras enviadas"
+              emptyLabel="Nenhuma amostra enviada."
+              items={recentSends ? recentSends.sampleItems : null}
+            />
+            <RecentSendsCard
+              title="Aprovações enviadas"
+              emptyLabel="Nenhuma aprovação enviada."
+              items={recentSends ? recentSends.approvalItems : null}
+            />
           </div>
           <EventsCalendarCard events={calendarEvents} onWindowChange={handleWindowChange} />
         </div>

@@ -1190,9 +1190,10 @@ export interface DashboardSalesAvailabilityResponse {
   };
 }
 
-// Card "Últimos envios" do dashboard desktop (DSH-D5): feed dos envios — amostra
-// física (PHYSICAL_SAMPLE_SENT), laudo (REPORT_EXPORTED) e, pós-AP16, a etiqueta de
-// APROVAÇÃO (approval_label_log) —, do mais recente pro mais antigo.
+// Envios do dashboard desktop (DSH-D5). DSB-D5: viraram DOIS cards —
+// "Amostras enviadas" (amostra física PHYSICAL_SAMPLE_SENT + laudo REPORT_EXPORTED,
+// com selo de tipo) e "Aprovações enviadas" (etiqueta de APROVAÇÃO, approval_label_log,
+// pós-AP16). Cada linha é um envio, do mais recente pro mais antigo.
 export interface DashboardRecentSendItem {
   id: string; // event_id (amostra) ou 'approval:<id>' (aprovação); único por linha
   sampleId: string | null; // null na aprovação (não tem amostra)
@@ -1208,7 +1209,9 @@ export interface DashboardRecentSendItem {
 }
 
 export interface DashboardRecentSendsResponse {
-  items: DashboardRecentSendItem[];
+  // DSB-D5: duas listas independentes (cada card com seu próprio top-40).
+  sampleItems: DashboardRecentSendItem[]; // "Amostras enviadas" — física + laudo
+  approvalItems: DashboardRecentSendItem[]; // "Aprovações enviadas" — aprovações
 }
 
 // Card de Eventos do dashboard (F1, E21-E27/D138): feed de "pagamentos de contrato".

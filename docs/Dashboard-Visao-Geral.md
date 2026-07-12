@@ -67,7 +67,8 @@ Rótulos de papel (`lib/roles.ts` → `USER_ROLE_LABELS`):
 | ---------------------------------------- | :---: | :-------------: | :--------: | :----------: | :------: | :--------: |
 | Dashboard padrão (mobile+desktop)        |  ✅   |       ✅        |     ✅     |      ✅      |    ✅    |     —      |
 | Donut **Lotes disponíveis**              |  ✅   |       ✅        |     ✅     |      ✅      |    ✅    |     —      |
-| Card **Últimos envios** (desktop)        |  ✅   |       ✅        |     ✅     |      ✅      |    ✅    |     —      |
+| Card **Amostras enviadas** (desktop)     |  ✅   |       ✅        |     ✅     |      ✅      |    ✅    |     —      |
+| Card **Aprovações enviadas** (desktop)   |  ✅   |       ✅        |     ✅     |      ✅      |    ✅    |     —      |
 | Card **Eventos** — feed de **pagamento** |  ✅   | ✅ (só os dele) |     —      |      —       |    —     |     —      |
 | Card **Eventos** — feed de **aprovação** |  ✅   |       ✅        |     ✅     |      ✅      |    ✅    |     —      |
 | Card **Eventos** — feed de **embarque**  |  ✅   |       ✅        |     ✅     |      ✅      |    ✅    |     —      |
@@ -86,23 +87,25 @@ Regras que geram a matriz:
 
 ## 4. Layout desktop (`components/dashboard/DashboardDesktop.tsx`)
 
-Grid de duas **linhas** (`.dd-content-grid`) desde 2026-07-12 (DSB-D3):
+Grid de duas **linhas** (`.dd-content-grid`) desde 2026-07-12 (DSB-D3; top row com 3 cards desde DSB-D5):
 
 ```
-┌─ .dd-top-row (2 colunas) ─────────────────────────────────────────┐
-│   ┌──────────────────────────┐   ┌──────────────────────────────┐  │
-│   │ Donut "Lotes disponíveis" │   │ "Últimos envios" (scroll int.) │ │
-│   └──────────────────────────┘   └──────────────────────────────┘  │
+┌─ .dd-top-row (3 colunas) ─────────────────────────────────────────┐
+│  ┌─────────────────┐ ┌──────────────────┐ ┌───────────────────┐   │
+│  │ Donut "Lotes    │ │ "Amostras         │ │ "Aprovações        │  │
+│  │  disponíveis"   │ │  enviadas" (scroll)│ │  enviadas" (scroll)│  │
+│  │  (mais estreito)│ │  física + laudo    │ │  só aprovações     │  │
+│  └─────────────────┘ └──────────────────┘ └───────────────────┘   │
 ├───────────────────────────────────────────────────────────────────┤
 │           EVENTOS (horizontal, largura total, mais alto)           │
 │           semana atual (7 dias) com eventos dentro das células     │
 └───────────────────────────────────────────────────────────────────┘
 ```
 
-- **Top row (`.dd-top-row`, 2 colunas):** "Lotes disponíveis" (donut) e "Últimos envios" **lado a lado** (a lista de envios rola por dentro — o shell do dashboard não rola).
+- **Top row (`.dd-top-row`, 3 colunas):** "Lotes disponíveis" (donut, mais estreito), "Amostras enviadas" e "Aprovações enviadas" **lado a lado** (as listas de envio rolam por dentro — o shell do dashboard não rola). Proporção ~`0.8fr / 1.1fr / 1.1fr` (donut estreito, feeds mais largos).
 - **Embaixo:** o card **Eventos** ocupa a **largura toda** (horizontal), com altura maior que a top row.
 - Banner de erro (`.dashboard-error-banner`, `role="status"`) no topo quando o fetch do donut falha.
-- Histórico: a linha de StatCards de pendências (`.dd-summary-row`) saiu em DSB-D2 (2026-07-12); o arranjo em duas colunas (donut empilhado sobre envios + Eventos vertical à direita) foi trocado por este em DSB-D3.
+- Histórico: a linha de StatCards de pendências (`.dd-summary-row`) saiu em DSB-D2 (2026-07-12); o arranjo em duas colunas (donut empilhado sobre envios + Eventos vertical à direita) virou top row + Eventos horizontal em DSB-D3; em DSB-D5 o card único "Últimos envios" foi dividido em "Amostras enviadas" + "Aprovações enviadas" (top row passou a ter 3 cards).
 
 ---
 
@@ -148,12 +151,14 @@ App restrito (tabbar só com Início + Perfil). Reusa as classes visuais do dash
 - **Regra-chave:** conta por **`created_at`** (data de registro/chegada do lote) e **inclui não classificados** (qualquer amostra com status comercial OPEN/PARTIALLY_SOLD que não foi invalidada).
 - Renderizado `compact` no desktop, tamanho cheio no mobile.
 
-### 7.2 Últimos envios (`RecentSendsCard`) — desktop-only
+### 7.2 Amostras enviadas + Aprovações enviadas (`RecentSendsCard`) — desktop-only
 
-- **Mostra:** os **últimos 40 envios** como minicards **inertes** (`.spv2-card`), com scroll interno. Cancelados aparecem esmaecidos com a tag "Cancelado".
-- **3 tipos (`kind`):** `PHYSICAL_SAMPLE` (Amostra física), `REPORT` (Laudo), `APPROVAL` (Aprovação — pill laranja). Amostra/laudo mostram lote + destinatário atual; aprovação mostra nº do contrato + comprador.
-- **Dado:** estado local `recentSends`, buscado no próprio `DashboardDesktop` via `getDashboardRecentSends` (refetch em foco/visibilidade com throttle 30s + ao entrar no breakpoint desktop).
-- **Backend:** o handler mescla duas fontes — `sample-query-service.getDashboardRecentSends()` (eventos `PHYSICAL_SAMPLE_SENT` + `REPORT_EXPORTED`, top-40, com detecção de cancelamento e destinatário pós-edição) + `sale-contract-service.getRecentApprovalSends()` (etiquetas de aprovação com contrato, top-40) — ordena por `at` desc e corta em 40 (top-40 global). Degrada para só-amostra se o contract service não estiver configurado.
+Desde **DSB-D5** (2026-07-12) são **dois cards** que reusam o mesmo componente (`RecentSendsCard`, parametrizado por `title`/`emptyLabel`). Cada um recebe seu **próprio feed independente** (top-40 cada, sem corte global). Minicards **inertes** (`.spv2-card`) com scroll interno; envios cancelados aparecem esmaecidos com a tag "Cancelado".
+
+- **"Amostras enviadas":** dois tipos (`kind`) — `PHYSICAL_SAMPLE` (Amostra física) e `REPORT` (Laudo), **com selo de tipo** para distinguir. Mostra lote + destinatário atual (pós-edição).
+- **"Aprovações enviadas":** só `APPROVAL`. Mostra nº do contrato + comprador; **sem selo** (redundante — o card já é só de aprovações).
+- **Dado:** estado local `recentSends` (`{ sampleItems, approvalItems }`), buscado no próprio `DashboardDesktop` via `getDashboardRecentSends` (refetch em foco/visibilidade com throttle 30s + ao entrar no breakpoint desktop). Uma única chamada alimenta os dois cards.
+- **Backend:** o handler devolve as **duas sub-listas separadas** — `sample-query-service.getDashboardRecentSends()` (eventos `PHYSICAL_SAMPLE_SENT` + `REPORT_EXPORTED`, top-40, com detecção de cancelamento e destinatário pós-edição) → `sampleItems`; `sale-contract-service.getRecentApprovalSends()` (etiquetas de aprovação com contrato, top-40) → `approvalItems`. Sem merge/corte global (que podia zerar as aprovações). `approvalItems` degrada para `[]` se o contract service não estiver configurado.
 
 ### 7.3 Eventos (`EventsCalendarCard`) — desktop-only
 
@@ -179,7 +184,7 @@ Todas são `GET`, delegam ao backend via `executeBackend('<methodName>', …)` e
 | ------------------------------- | ------------------------------- | -------------------------- | ----------------------- | --------------------- | ----------------------------------------------------------------------------- |
 | `/dashboard/pending`            | `getDashboardPending`           | Auth                       | —                       | —                     | `{ classificationPending: {counts,total,items}, clientsIncomplete: {total} }` |
 | `/dashboard/sales-availability` | `getDashboardSalesAvailability` | Auth                       | —                       | —                     | `{ bands: {over30, from15to30, under15} }`                                    |
-| `/dashboard/recent-sends`       | `getDashboardRecentSends`       | Auth                       | —                       | `private, max-age=30` | `{ items: [...] }` (top-40)                                                   |
+| `/dashboard/recent-sends`       | `getDashboardRecentSends`       | Auth                       | —                       | `private, max-age=30` | `{ sampleItems: [...], approvalItems: [...] }` (top-40 cada — DSB-D5)         |
 | `/dashboard/payment-events`     | `getDashboardPaymentEvents`     | ADMIN+COMMERCIAL (service) | `?from&to` (YYYY-MM-DD) | `private, max-age=30` | `{ events: Record<dayKey, evento[]> }`                                        |
 | `/dashboard/approval-events`    | `getDashboardApprovalEvents`    | Auth (não-PROSPECTOR)      | `?from&to`              | `private, max-age=30` | `{ events: Record<dayKey, evento[]> }`                                        |
 | `/dashboard/shipment-events`    | `getDashboardShipmentEvents`    | Auth (não-PROSPECTOR)      | `?from&to`              | `private, max-age=30` | `{ events: Record<dayKey, evento[]> }`                                        |
@@ -215,7 +220,7 @@ Definições dos handlers: `src/api/v1/backend-api.js`. Implementações: `src/s
 - `components/dashboard/DashboardMobile.tsx` — layout mobile (hero + donut)
 - `components/dashboard/useDashboardData.ts` — fetch do donut (`sales-availability`)
 - `components/dashboard/EventsCalendarCard.tsx` — card de Eventos (calendário)
-- `components/dashboard/RecentSendsCard.tsx` — card Últimos envios
+- `components/dashboard/RecentSendsCard.tsx` — card de envios reutilizável (renderiza "Amostras enviadas" e "Aprovações enviadas" — DSB-D5)
 - `components/dashboard/greeting.ts` — saudação + iniciais
 - `components/dashboard/prospector/ProspectorDashboard.tsx` + `useProspectorDashboardData.ts` — dashboard do PROSPECTOR
 - `components/SalesAvailabilityCard.tsx` — donut (compartilhado)
@@ -243,4 +248,4 @@ Definições dos handlers: `src/api/v1/backend-api.js`. Implementações: `src/s
 
 ## 11. Estado de validação
 
-O dashboard atual (donut + Últimos envios + card de Eventos; feeds de pagamento/aprovação/embarque) e a remoção dos cards de pendências (DSB-D2) foram implementados mas **aguardam validação no device** (ver `Dashboard-Plano-de-Trabalho.md`). Este documento descreve o comportamento **do código**; divergências observadas no device viram achados no plano de trabalho.
+O dashboard atual (donut + "Amostras enviadas" + "Aprovações enviadas" + card de Eventos; feeds de pagamento/aprovação/embarque), a remoção dos cards de pendências (DSB-D2), o rearranjo do layout + Eventos semanal (DSB-D3/D4) e a divisão do card de envios (DSB-D5) foram implementados mas **aguardam validação no device** (ver `Dashboard-Plano-de-Trabalho.md`). Este documento descreve o comportamento **do código**; divergências observadas no device viram achados no plano de trabalho.

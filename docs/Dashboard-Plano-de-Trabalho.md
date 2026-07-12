@@ -26,9 +26,9 @@ Prefixo de decisão deste ciclo: **`DSB`** (Dashboard check-up). Achados: **`DSB
 
 O funcionamento atual está inteiramente descrito em **`Dashboard-Visao-Geral.md`**. Resumo do que existe hoje:
 
-- Dashboard padrão (5 papéis não-PROSPECTOR): desktop = top row (donut + Últimos envios lado a lado) + Eventos horizontal embaixo (**DSB-D3**); mobile = hero + donut. (Os cards de pendências saíram em **DSB-D2**.)
+- Dashboard padrão (5 papéis não-PROSPECTOR): desktop = top row com **3 cards** (donut "Lotes disponíveis" estreito + "Amostras enviadas" + "Aprovações enviadas" — **DSB-D5**) + Eventos horizontal embaixo (**DSB-D3**); mobile = hero + donut. (Os cards de pendências saíram em **DSB-D2**.)
 - Dashboard do PROSPECTOR: dedicado (visitas/informes).
-- 6 rotas de API; card de Eventos com 3 feeds (pagamento/aprovação/embarque), agora em **1 semana com eventos na célula** (**DSB-D4**).
+- 6 rotas de API; `/dashboard/recent-sends` devolve **duas listas** (`sampleItems`/`approvalItems`, **DSB-D5**); card de Eventos com 3 feeds (pagamento/aprovação/embarque), em **1 semana com eventos na célula** (**DSB-D4**).
 - Página de Lotes (`/samples`): ganhou o card só-visualização "Classificação pendente" (**DSB-D2**).
 
 **Tudo isso está implementado mas ainda aguarda validação no device** — ver §4.
@@ -70,7 +70,8 @@ Itens que estavam abertos no `Eventos-Dashboard-Plano-de-Trabalho.md` (removido)
 
 O redesenho e os feeds foram implementados mas nunca foram confirmados no aparelho real. Antes (ou durante) as mudanças deste check-up, validar:
 
-- **Desktop:** (sem os StatCards de pendências, DSB-D2) pilha donut + "Últimos envios" preenchendo a altura, lista rolando por dentro; minicards (lote/pill/destinatário/tempo); envio cancelado esmaecido; card de Eventos (grade domingo-first, hoje com anel/selecionado, navegação ◀ Hoje ▶ com deslize, painel do dia, setas do teclado); os 3 feeds de eventos (pagamento/aprovação/embarque) com os deep links para `/contratos`.
+- **Desktop (DSB-D3/D4/D5):** top row com **3 cards** — donut "Lotes disponíveis" (mais estreito) + "Amostras enviadas" (física+laudo, com selo, cancelado esmaecido, destinatário/tempo) + "Aprovações enviadas" (nº contrato + comprador, sem selo); as listas rolam por dentro. Card de Eventos **horizontal** embaixo (semana domingo-first, hoje com anel, navegação ◀ Hoje ▶ com deslize, eventos como chips **dentro da célula** com scroll interno); os 3 feeds (pagamento/aprovação/embarque) com deep links para `/contratos`.
+- **Larguras 901-1200px (DSB-D5):** os 3 cards da top row continuam legíveis? Minicards estouram? Proporção donut/feeds boa?
 - **Viewport baixa** (~768px de altura): o card de Eventos estoura?
 - **Mobile:** (sem os op-cards de pendências, DSB-D2) hero + donut a 320px; dashboard do PROSPECTOR intacto; banner de erro (modo avião).
 - **Página de Lotes (`/samples`, desktop + mobile):** card "Classificação pendente" no topo do sheet com o total correto, **inerte** (não abre modal, não navega).
@@ -94,7 +95,15 @@ O redesenho e os feeds foram implementados mas nunca foram confirmados no aparel
 
 - **DSB-D4 (2026-07-12)** — **Redesenho do card de Eventos:** de 2 semanas → **1 semana (7 dias)**; cada dia virou um **quadrado alto** que mostra os **eventos dentro da própria célula** (chips coloridos por tipo, clicáveis → `/contratos`), **sem painel** de dia selecionado. Dias cheios **rolam por dentro** da célula (decisão do Flavio). Navegação ◀ Hoje ▶ **de 7 em 7** (mantida). "Hoje" com anel; **fins de semana deixam de ser apagados**. `lib/dashboard-calendar.ts`: quinzena→semana (`buildWeek`/`computeWeekStart`/`CALENDAR_WEEK_DAYS`); removidos `formatSelectedDayLabel`/`isWeekend` (órfãos). CSS `.dd-events-*` reescrito (grid 7×1, célula = container, `.dd-events-day-list` rolável, `.dd-events-chip`); painel/dots removidos. Backend e os 3 feeds **intactos** (só muda a janela: 7 dias). Gates verdes. 📱 validar.
 
-_(Próximas decisões a partir de DSB-D5.)_
+- **DSB-D5 (2026-07-12)** — **Divisão do card "Últimos envios" em dois:** "Amostras enviadas" (física + laudo, com selo de tipo) e "Aprovações enviadas" (só aprovações, sem selo). Os dois entram na **mesma linha** do donut → **top row com 3 cards** (donut **mais estreito**, ~`0.8fr / 1.1fr / 1.1fr`). Decisões do Flavio: física+laudo juntos; **backend devolve duas listas independentes** (`{ sampleItems, approvalItems }`, cada uma com seu top-40 — corrige o risco de o corte global de 40 zerar as aprovações); donut mais estreito.
+  - **Backend:** só o handler `getDashboardRecentSends` (`backend-api.js`) mudou — deixou de mesclar/cortar e passou a devolver as duas sub-listas (o query-service e o `getRecentApprovalSends` seguem intactos, cap 40 cada).
+  - **Tipos:** `DashboardRecentSendsResponse` → `{ sampleItems, approvalItems }` (`DashboardRecentSendItem` inalterado). `lib/api-client.ts` não mudou (tipo inferido).
+  - **Frontend:** `RecentSendsCard` parametrizado (`title`/`emptyLabel`; selo omitido quando `kind === 'APPROVAL'`); `DashboardDesktop` renderiza os dois cards na top row.
+  - **CSS:** `.dd-top-row` de 2 → 3 colunas (donut estreito). Nenhuma classe nova (os dois feeds reusam `.dd-sends-card`).
+  - **Não tocado:** rota, limites 40/40, teste `dashboard-recent-sends.integration.test.js` (exercita o query-service, cuja forma `{ items }` não mudou).
+  - Gates verdes. 📱 **validar no device** (larguras 901-1200px — 3 cards legíveis? minicards estouram? proporção boa?).
+
+_(Próximas decisões a partir de DSB-D6.)_
 
 ---
 
@@ -109,3 +118,4 @@ _A definir com o Flavio ao iniciar as mudanças. Ordem-base: **desktop → mobil
 - **2026-07-12** — Início do check-up geral (Flavio). Documentação do dashboard consolidada nos dois arquivos (DSB-D1). Visão Geral reconstruída a partir do código real; backlog herdado absorvido dos docs antigos.
 - **2026-07-12** — **DSB-D2 implementada:** removidos os cards de pendências do dashboard (desktop + mobile); "Classificação pendente" migrou para `/samples` (só-visualização); "Cadastros pendentes" removido; `OperationModal`/`useOperationModal`/`StatCard` deletados; backend intacto. Docs (Visão Geral, API-e-Contratos, Auditoria-Navegação, Classificação-Plano, Liga-Plano) e skills (design-system, modals, feedback-messages) atualizados no mesmo ciclo. 📱 aguardando validação no device.
 - **2026-07-12** — **DSB-D3 + DSB-D4 implementadas:** rearranjo do layout desktop (donut + Últimos envios lado a lado; Eventos horizontal embaixo) e redesenho do card de Eventos (1 semana, eventos dentro da célula com scroll, sem painel, navegação semanal). `lib/dashboard-calendar.ts` de quinzena→semana; CSS `.dd-events-*` reescrito. Docs (Visão Geral §4/§7.3) e skill `design-system` atualizados; DSB-H1 endereçado. Backend intacto. 📱 aguardando validação no device.
+- **2026-07-12** — **DSB-D5 implementada:** card "Últimos envios" dividido em "Amostras enviadas" (física+laudo, com selo) e "Aprovações enviadas" (só aprovações, sem selo); top row passou a ter **3 cards** (donut estreito). Backend `getDashboardRecentSends` devolve `{ sampleItems, approvalItems }` (duas listas independentes, top-40 cada); `RecentSendsCard` parametrizado; `.dd-top-row` 2→3 colunas. Docs (Visão Geral §3/§4/§7.2/§8/§10) e skill `design-system` atualizados. Query-service, rota, limites e teste intactos. 📱 aguardando validação no device.

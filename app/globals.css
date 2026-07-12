@@ -24532,9 +24532,10 @@ select.samples-filter-field-input {
      2026-07-12 (DSB-D2 — "Classificacao pendente" migrou pra /samples,
      "Cadastros pendentes" foi removido). O shell-lock de 100vh continua; as
      listas rolam por dentro. */
-  /* Grid principal (DSB-D3): duas LINHAS — top row (donut + Ultimos envios
-     lado a lado) em cima, card de Eventos HORIZONTAL ocupando a largura toda
-     embaixo. O shell-lock de 100vh continua; as listas rolam por dentro. */
+  /* Grid principal (DSB-D3 + DSB-D5): duas LINHAS — top row (donut + os dois
+     cards de envio lado a lado) em cima, card de Eventos HORIZONTAL ocupando a
+     largura toda embaixo. O shell-lock de 100vh continua; as listas rolam por
+     dentro. */
   .dd-content-grid {
     display: grid;
     grid-template-rows: minmax(0, 0.85fr) minmax(0, 1.15fr);
@@ -24543,10 +24544,13 @@ select.samples-filter-field-input {
     min-height: 0;
   }
 
+  /* Top row (DSB-D5): 3 colunas — donut "Lotes disponiveis" (mais estreito) +
+     "Amostras enviadas" + "Aprovacoes enviadas" (mais largos, p/ os minicards
+     respirarem). minmax(0, …) deixa cada celula encolher e as listas rolarem. */
   .dd-top-row {
     min-height: 0;
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.1fr) minmax(0, 1.1fr);
     gap: clamp(0.75rem, 1.4vw, 1.25rem);
     animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.2s backwards;
   }

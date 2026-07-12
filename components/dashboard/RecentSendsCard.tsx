@@ -7,6 +7,11 @@ import { formatRelativeTime } from '../../lib/relative-time';
 import type { DashboardRecentSendItem } from '../../lib/types';
 
 interface RecentSendsCardProps {
+  // DSB-D5: o mesmo card serve "Amostras enviadas" (física+laudo, com selo) e
+  // "Aprovações enviadas" (só aprovações, sem selo). O título e o texto de vazio
+  // vêm por prop; o selo é omitido nas linhas de aprovação (kind === 'APPROVAL').
+  title: string;
+  emptyLabel: string;
   items: DashboardRecentSendItem[] | null;
 }
 
@@ -30,12 +35,14 @@ function formatExactDate(iso: string): string {
   return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 }
 
-// Card "Últimos envios" (dashboard desktop, DSH-D5): feed dos últimos 40
-// envios — amostra física + laudo exportado. Minicards INERTES (decisão do
-// usuário) no visual .spv2-card do modal de Lotes pendentes; cancelados
-// aparecem esmaecidos com a tag "Cancelado"; destinatário é o ATUAL
-// (pós-edição). A lista rola por dentro (o shell do dashboard não rola).
-export function RecentSendsCard({ items }: RecentSendsCardProps) {
+// Card de envios (dashboard desktop, DSH-D5). DSB-D5: virou reutilizável —
+// "Amostras enviadas" (amostra física + laudo, com selo de tipo) e "Aprovações
+// enviadas" (só aprovações, sem selo). Cada card recebe seu próprio feed (top-40
+// independente). Minicards INERTES (decisão do usuário) no visual .spv2-card do
+// modal de Lotes pendentes; envios cancelados aparecem esmaecidos com a tag
+// "Cancelado"; destinatário é o ATUAL (pós-edição). A lista rola por dentro
+// (o shell do dashboard não rola).
+export function RecentSendsCard({ title, emptyLabel, items }: RecentSendsCardProps) {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -44,9 +51,9 @@ export function RecentSendsCard({ items }: RecentSendsCardProps) {
   }, []);
 
   return (
-    <section className="dd-sends-card" aria-label="Últimos envios">
+    <section className="dd-sends-card" aria-label={title}>
       <header className="dd-sends-header">
-        <h3 className="dd-sends-title">Últimos envios</h3>
+        <h3 className="dd-sends-title">{title}</h3>
         <span className="dd-sends-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" focusable="false">
             <path d="M22 2 11 13" />
@@ -61,7 +68,7 @@ export function RecentSendsCard({ items }: RecentSendsCardProps) {
           ))}
         </div>
       ) : items.length === 0 ? (
-        <p className="dd-sends-empty">Nenhum envio registrado.</p>
+        <p className="dd-sends-empty">{emptyLabel}</p>
       ) : (
         <div className="dd-sends-list">
           {items.map((item) => {
@@ -81,9 +88,13 @@ export function RecentSendsCard({ items }: RecentSendsCardProps) {
                       {item.cancelled ? (
                         <span className="dd-send-cancelled-tag">Cancelado</span>
                       ) : null}
-                      <span className={`dd-send-kind ${KIND_BADGE_CLASS[item.kind]}`}>
-                        {KIND_LABEL[item.kind]}
-                      </span>
+                      {/* Selo de tipo só no card de "Amostras enviadas" (distingue
+                          física de laudo); no de aprovações é redundante (DSB-D5). */}
+                      {isApproval ? null : (
+                        <span className={`dd-send-kind ${KIND_BADGE_CLASS[item.kind]}`}>
+                          {KIND_LABEL[item.kind]}
+                        </span>
+                      )}
                     </div>
                     <div className="spv2-card-bottom">
                       <span className="spv2-card-owner">
