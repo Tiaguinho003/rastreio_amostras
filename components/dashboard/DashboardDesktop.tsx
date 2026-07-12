@@ -187,11 +187,13 @@ export function DashboardDesktop({ session, salesData, error }: DashboardDesktop
             <RecentSendsCard
               title="Amostras enviadas"
               emptyLabel="Nenhuma amostra enviada."
+              variant="samples"
               items={recentSends ? recentSends.sampleItems : null}
             />
             <RecentSendsCard
               title="Aprovações enviadas"
               emptyLabel="Nenhuma aprovação enviada."
+              variant="approvals"
               items={recentSends ? recentSends.approvalItems : null}
             />
           </div>

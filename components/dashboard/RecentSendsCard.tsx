@@ -6,49 +6,68 @@ import { BlendBadge } from '../samples/BlendBadge';
 import { formatRelativeTime } from '../../lib/relative-time';
 import type { DashboardRecentSendItem } from '../../lib/types';
 
+type RecentSendsVariant = 'samples' | 'approvals';
+
 interface RecentSendsCardProps {
-  // DSB-D5: o mesmo card serve "Amostras enviadas" (física+laudo, com selo) e
-  // "Aprovações enviadas" (só aprovações, sem selo). O título e o texto de vazio
-  // vêm por prop; o selo é omitido nas linhas de aprovação (kind === 'APPROVAL').
+  // DSB-D5/DSB-D8: o mesmo card serve "Amostras enviadas" (variant="samples":
+  // colunas Lote · Destinatário · Tipo · Tempo) e "Aprovações enviadas"
+  // (variant="approvals": Contrato · Comprador · Tempo, sem tipo — já no título).
   title: string;
   emptyLabel: string;
   items: DashboardRecentSendItem[] | null;
+  variant: RecentSendsVariant;
 }
 
-// Atualiza os rotulos relativos ("ha N min") sem refetch — mesmo padrao do
-// antigo RecentActivityList.
+// Atualiza os rotulos relativos ("ha N min") sem refetch.
 const RELATIVE_TIME_REFRESH_MS = 60_000;
 
-const KIND_LABEL: Record<DashboardRecentSendItem['kind'], string> = {
-  PHYSICAL_SAMPLE: 'Amostra física',
-  REPORT: 'Laudo',
-  APPROVAL: 'Aprovação',
+// DSB-D8: tipo do envio de amostra em UMA palavra na coluna "Tipo". "Descrição"
+// (laudo) é uma divergência consciente do termo "Laudo" usado no resto do app —
+// decisão do usuário, escopada só a este card. Aprovação não usa (sem coluna Tipo).
+const TYPE_LABEL: Partial<Record<DashboardRecentSendItem['kind'], string>> = {
+  PHYSICAL_SAMPLE: 'Físico',
+  REPORT: 'Descrição',
 };
 
-const KIND_BADGE_CLASS: Record<DashboardRecentSendItem['kind'], string> = {
-  PHYSICAL_SAMPLE: 'is-physical',
-  REPORT: 'is-report',
-  APPROVAL: 'is-approval',
+// Cabecalhos de coluna por variante (a ordem casa com as celulas do render).
+const COLUMNS: Record<RecentSendsVariant, string[]> = {
+  samples: ['Lote', 'Destinatário', 'Tipo', 'Tempo'],
+  approvals: ['Contrato', 'Comprador', 'Tempo'],
 };
 
 function formatExactDate(iso: string): string {
   return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 }
 
-// Card de envios (dashboard desktop, DSH-D5). DSB-D5: virou reutilizável —
-// "Amostras enviadas" (amostra física + laudo, com selo de tipo) e "Aprovações
-// enviadas" (só aprovações, sem selo). Cada card recebe seu próprio feed (top-40
-// independente). Minicards INERTES (decisão do usuário) no visual .spv2-card do
-// modal de Lotes pendentes; envios cancelados aparecem esmaecidos com a tag
-// "Cancelado"; destinatário é o ATUAL (pós-edição). A lista rola por dentro
-// (o shell do dashboard não rola).
-export function RecentSendsCard({ title, emptyLabel, items }: RecentSendsCardProps) {
+// Linha de cabecalho. `semantic` liga os roles de tabela (só no estado com dados —
+// role=columnheader exige ancestral role=table; no skeleton/vazio fica só visual).
+function SendsHead({ columns, semantic }: { columns: string[]; semantic: boolean }) {
+  return (
+    <div className="dd-send-row dd-send-head" role={semantic ? 'row' : undefined}>
+      {columns.map((col) => (
+        <span key={col} className="dd-send-col" role={semantic ? 'columnheader' : undefined}>
+          {col}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// Card de envios (dashboard desktop). DSB-D8: virou uma TABELA horizontal compacta —
+// cabecalho de colunas (sticky) + uma linha por envio, desacoplada do visual
+// .spv2-card. Cards INERTES (sem clique). Envio cancelado: linha esmaecida + numero
+// riscado. Destinatario/comprador longos truncam com reticencias (+ title no hover).
+// A lista rola por dentro (o shell do dashboard nao rola).
+export function RecentSendsCard({ title, emptyLabel, items, variant }: RecentSendsCardProps) {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), RELATIVE_TIME_REFRESH_MS);
     return () => window.clearInterval(timer);
   }, []);
+
+  const isApprovals = variant === 'approvals';
+  const columns = COLUMNS[variant];
 
   return (
     <section className="dd-sends-card" aria-label={title}>
@@ -62,55 +81,51 @@ export function RecentSendsCard({ title, emptyLabel, items }: RecentSendsCardPro
         </span>
       </header>
       {items === null ? (
-        <div className="dd-sends-list is-skeleton" aria-hidden="true">
+        <div className={`dd-sends-list is-${variant} is-skeleton`} aria-hidden="true">
+          <SendsHead columns={columns} semantic={false} />
           {Array.from({ length: 5 }).map((_, i) => (
             <span key={i} className="dashboard-skeleton-line" />
           ))}
         </div>
       ) : items.length === 0 ? (
-        <p className="dd-sends-empty">{emptyLabel}</p>
+        <div className={`dd-sends-list is-${variant}`}>
+          <SendsHead columns={columns} semantic={false} />
+          <p className="dd-sends-empty">{emptyLabel}</p>
+        </div>
       ) : (
-        <div className="dd-sends-list">
+        <div className={`dd-sends-list is-${variant}`} role="table" aria-label={title}>
+          <SendsHead columns={columns} semantic />
           {items.map((item) => {
-            const isApproval = item.kind === 'APPROVAL';
-            // Aprovação (AP16): mostra nº do contrato + comprador em vez de lote + destinatário.
-            const mainText = isApproval
+            // Aprovacao (AP16): nº do contrato + comprador; amostra: lote + destinatario.
+            const code = isApprovals
               ? (item.contractNumber ?? '—')
               : (item.internalLotNumber ?? item.sampleId?.slice(0, 8) ?? '—');
+            const party = isApprovals ? (item.buyer ?? '—') : (item.recipient ?? '—');
             return (
-              <div key={item.id} className="spv2-card-wrap is-card-pending">
-                <div className={`spv2-card is-static${item.cancelled ? ' is-cancelled' : ''}`}>
-                  <span className="spv2-card-bar" />
-                  <div className="spv2-card-content">
-                    <div className="spv2-card-top">
-                      <span className="spv2-card-code">{mainText}</span>
-                      {item.isBlend ? <BlendBadge size="sm" /> : null}
-                      {item.cancelled ? (
-                        <span className="dd-send-cancelled-tag">Cancelado</span>
-                      ) : null}
-                      {/* Selo de tipo só no card de "Amostras enviadas" (distingue
-                          física de laudo); no de aprovações é redundante (DSB-D5). */}
-                      {isApproval ? null : (
-                        <span className={`dd-send-kind ${KIND_BADGE_CLASS[item.kind]}`}>
-                          {KIND_LABEL[item.kind]}
-                        </span>
-                      )}
-                    </div>
-                    <div className="spv2-card-bottom">
-                      <span className="spv2-card-owner">
-                        {isApproval ? (item.buyer ?? '—') : (item.recipient ?? '—')}
-                      </span>
-                      <span className="spv2-card-sep" />
-                      <span className="spv2-card-detail" title={formatExactDate(item.at)}>
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                          <circle cx="12" cy="12" r="9" />
-                          <path d="M12 7v5l3 2" />
-                        </svg>
-                        {formatRelativeTime(item.at, now)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+              <div
+                key={item.id}
+                className={`dd-send-row${item.cancelled ? ' is-cancelled' : ''}`}
+                role="row"
+              >
+                <span className="dd-send-cell dd-send-code" role="cell">
+                  <span className="dd-send-code-text">{code}</span>
+                  {item.isBlend ? <BlendBadge size="sm" /> : null}
+                </span>
+                <span className="dd-send-cell dd-send-party" role="cell" title={party}>
+                  {party}
+                </span>
+                {isApprovals ? null : (
+                  <span className="dd-send-cell dd-send-type" role="cell">
+                    {TYPE_LABEL[item.kind] ?? '—'}
+                  </span>
+                )}
+                <span
+                  className="dd-send-cell dd-send-time"
+                  role="cell"
+                  title={formatExactDate(item.at)}
+                >
+                  {formatRelativeTime(item.at, now)}
+                </span>
               </div>
             );
           })}

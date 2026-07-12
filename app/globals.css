@@ -24560,8 +24560,8 @@ select.samples-filter-field-input {
     box-shadow: var(--dd-card-shadow);
   }
 
-  /* ── Card "Ultimos envios" (DSH-D5) — shell no padrao dos cards da linha 2;
-     minicards reusam o visual .spv2-card do modal de Lotes pendentes ── */
+  /* ── Cards de envios (DSH-D5/DSB-D5 "Amostras" + "Aprovacoes"; DSB-D8 = tabela
+     horizontal compacta) — shell no padrao dos cards da linha 2 ── */
 
   .dd-sends-card {
     display: flex;
@@ -24612,69 +24612,110 @@ select.samples-filter-field-input {
     stroke-linejoin: round;
   }
 
-  /* Lista com scroll INTERNO (o shell do dashboard nao rola). */
+  /* Lista com scroll INTERNO (o shell do dashboard nao rola). DSB-D8: virou uma
+     TABELA horizontal compacta (cabecalho sticky + 1 linha por envio), desacoplada
+     do visual .spv2-card. Sem gap: as linhas se separam por divisoria (border). */
   .dd-sends-list {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
     display: grid;
-    gap: clamp(0.4rem, 0.7vw, 0.55rem);
+    gap: 0;
     align-content: start;
     padding-right: 0.25rem;
   }
 
-  /* Minicards inertes: sem cursor de clique nem o afundar do :active
-     (mesmo tratamento do .is-operations no modal de Lotes pendentes). */
-  .dd-sends-list .spv2-card.is-static {
-    cursor: default;
+  /* Linha (cabecalho + envios): grid horizontal; o template de colunas vem da
+     variante (.is-samples = 4 colunas, .is-approvals = 3). */
+  .dd-send-row {
+    display: grid;
+    align-items: center;
+    gap: clamp(0.4rem, 0.9vw, 0.7rem);
+    padding: clamp(0.28rem, 0.55vw, 0.4rem) 0.1rem;
+    font-size: clamp(0.72rem, 0.82vw, 0.8rem);
+    border-bottom: 1px solid rgba(112, 130, 103, 0.14);
   }
 
-  .dd-sends-list .spv2-card.is-static:active {
-    transform: none;
+  .dd-send-row:last-child {
+    border-bottom: none;
   }
 
-  /* Envio cancelado: esmaece o minicard (padrao do antigo feed). */
-  .dd-sends-list .spv2-card.is-cancelled {
+  .dd-sends-list.is-samples .dd-send-row {
+    grid-template-columns:
+      minmax(2.6rem, max-content) minmax(0, 1fr)
+      minmax(3rem, max-content) minmax(2.8rem, max-content);
+  }
+
+  .dd-sends-list.is-approvals .dd-send-row {
+    grid-template-columns: minmax(3rem, max-content) minmax(0, 1fr) minmax(2.8rem, max-content);
+  }
+
+  /* Cabecalho de colunas: fixo no topo do scroll. */
+  .dd-send-head {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #ffffff;
+    border-bottom: 1px solid rgba(112, 130, 103, 0.28);
+  }
+
+  .dd-send-col {
+    font-size: clamp(0.62rem, 0.72vw, 0.7rem);
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: #71786d;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* "Tempo" (ultima coluna) alinhado a direita — cabecalho e celula. */
+  .dd-send-col:last-child,
+  .dd-send-time {
+    justify-self: end;
+    text-align: right;
+  }
+
+  .dd-send-cell {
+    min-width: 0;
+    color: #1a2e1f;
+  }
+
+  .dd-send-code {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .dd-send-party {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #3a4a3f;
+  }
+
+  /* Tipo do envio (só amostras): texto cinza neutro, uma palavra. */
+  .dd-send-type {
+    white-space: nowrap;
+    color: #71786d;
+  }
+
+  .dd-send-time {
+    white-space: nowrap;
+    color: #71786d;
+  }
+
+  /* Envio cancelado: esmaece a linha + risca o numero (DSB-D8). */
+  .dd-send-row.is-cancelled {
     opacity: 0.55;
     filter: saturate(0.6);
   }
 
-  .dd-send-kind {
-    margin-left: auto;
-    flex: none;
-    padding: 0.14rem 0.5rem;
-    border-radius: 999px;
-    font-size: 0.68rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    white-space: nowrap;
-  }
-
-  .dd-send-kind.is-physical {
-    background: rgba(31, 93, 67, 0.1);
-    color: var(--brand-green, #1f5d43);
-  }
-
-  .dd-send-kind.is-report {
-    background: rgba(41, 128, 185, 0.12);
-    color: #21618c;
-  }
-  /* AP16: envio de aprovacao — laranja (mesma identidade do dot #f97316 do card de
-     Eventos), distinto do verde (fisica) e do azul (laudo). */
-  .dd-send-kind.is-approval {
-    background: rgba(249, 115, 22, 0.12);
-    color: #c2410c;
-  }
-
-  .dd-send-cancelled-tag {
-    flex: none;
-    padding: 0.14rem 0.5rem;
-    border-radius: 999px;
-    font-size: 0.68rem;
-    font-weight: 700;
-    background: rgba(196, 92, 92, 0.12);
-    color: #a34848;
-    white-space: nowrap;
+  .dd-send-row.is-cancelled .dd-send-code-text {
+    text-decoration: line-through;
   }
 
   .dd-sends-empty {
@@ -24688,11 +24729,12 @@ select.samples-filter-field-input {
 
   .dd-sends-list.is-skeleton {
     overflow: hidden;
+    gap: clamp(0.3rem, 0.6vw, 0.45rem);
   }
 
   .dd-sends-list.is-skeleton .dashboard-skeleton-line {
-    height: clamp(44px, 4vw, 55px);
-    border-radius: clamp(14px, 1vw, 16px);
+    height: clamp(24px, 2.2vw, 30px);
+    border-radius: clamp(8px, 0.8vw, 10px);
   }
 
   /* ── Card "Eventos" (DSH-D6 / F0) — calendario de 2 semanas na coluna
