@@ -80,3 +80,8 @@ print-agent/.printed-jobs.json
 
 # Cache local do Firebase CLI (deploy do Hosting do laudo) — nao versionar
 .firebase/
+
+# Relatorio de custo (scripts/cost-report/build-cost-report.mjs) — artefato local
+# regeneravel. Fonte de verdade = o script + docs/Custo-Operacional-Analise.md.
+docs/assets/Custo-Operacional-Analise.html
+docs/assets/Custo-Operacional-Analise.pdf

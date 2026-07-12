@@ -64,6 +64,8 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
     Uso: novo tipo de evento para o card de Eventos do dashboard — o embarque (cafe carregado no caminhao), mesmo dia do faturamento mas distinto, gated pela modalidade (nao ocorre em "Disponivel"). Espelha a Aprovacao (booleano requiresShipment + shipmentDate), com ciclo proprio (pendente -> finalizado) independente do pagamento. Status: Em decisao — Bloco 1 (a logica) registrado (EMB1-EMB6); Bloco 2 (apresentacao no calendario) a fazer.
 14. `docs/Central-de-Contratos-Plano-de-Trabalho.md`
     Uso: unificacao das 4 superficies ligadas ao contrato de venda (Contratos, Financeiro, Aprovacoes, Embarque) numa unica pagina com sub-abas. Autoridade da "casca" (pagina, abas, esquema de URL, matriz de acesso por papel aba a aba, navegacao). F1 = fundir Contratos + Financeiro (ja sao paginas) e criar Aprovacoes + Embarque como abas vazias. Prefixo de decisao CC. Status: F1 IMPLEMENTADA (C1-C4, 2026-07-09; hub /contratos com sub-abas + redirect /financeiro + nav unificada) — validar no device; F2+ (conteudo de Aprovacoes/Embarque) em aberto.
+15. `docs/Custo-Operacional-Analise.md`
+    Uso: **documento MESTRE de custo** (detalhado) — nuvem (GCP + OpenAI, ~R$ 193/mes) + materiais de impressao (impressora/etiqueta/ribbon, ~R$ 38/mes) = **TCO ~R$ 231/mes**; config real da producao (gcloud read-only), modelo de crescimento, projecao de 3 anos, recomendacoes e registro de atualizacoes. Padrao: atualizar ESTE md primeiro a cada evolucao, depois regenerar o **PDF enxuto para o cliente** (`docs/assets/Custo-Operacional-Analise.pdf`, 1 pagina) via `scripts/cost-report/build-cost-report.mjs`. Status: atualizado 2026-07-12.
 
 ## Relatorios da reorganizacao
 
