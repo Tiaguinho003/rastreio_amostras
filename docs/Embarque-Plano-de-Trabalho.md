@@ -347,7 +347,8 @@ Tamanho máx. atual = **12 MiB** por arquivo; leitura via **rota-proxy autentica
   registra que embarcou); aceita **0 a 10** fotos (JPEG/PNG/WebP, 12 MiB) — **revisa o EMB13
   (fotos obrigatórias) e o EMB14 (mín. 1 → mín. 0)**; some a "regra nova de mínimo". A **data
   real `shippedAt`** passa a ser um **seletor** (default **hoje**, editável, **no máximo
-  hoje**) — **revisa o EMB15 (hoje fixo)** —, porque no modelo de fila se confirma **depois
+  hoje**, e **DSB-D7** — recusa **fim de semana**, erro no campo + `422 WEEKEND_DATE`) —
+  **revisa o EMB15 (hoje fixo)** —, porque no modelo de fila se confirma **depois
   do fato** (o motorista reporta), então a carga pode ter sido ontem; assim o "realizado"
   (EMB17) cai no **dia real**. O **modal de confirmação**: resumo (nº · comprador · armazém
   do vendedor · sacas · prevista) + seletor de data + upload opcional + **aviso de

@@ -162,7 +162,8 @@ Desde **DSB-D5** (2026-07-12) são **dois cards** que reusam o mesmo componente 
 
 ### 7.3 Eventos (`EventsCalendarCard`) — desktop-only
 
-- **Layout (DSB-D4):** card **horizontal**; calendário de **1 semana (7 dias) domingo-first**, navegação ◀ ▶ de 7 em 7 dias + botão "Hoje". Cada dia é um **quadrado alto** que mostra os **eventos dentro da própria célula** (chips coloridos por tipo, rótulo truncado); dias com muitos eventos **rolam por dentro** da célula. **Não há painel** de dia selecionado — os eventos ficam à vista sem clicar. "Hoje" destacado com anel; fins de semana legíveis (sem apagar). Datas em BRT (helpers em `lib/dashboard-calendar.ts`).
+- **Layout (DSB-D4 + DSB-D7):** card **horizontal**; calendário de **1 semana de DIAS ÚTEIS (seg–sex, 5 células)**, navegação ◀ ▶ de 7 em 7 dias + botão "Hoje". Cada dia é um **quadrado alto** que mostra os **eventos dentro da própria célula** (chips coloridos por tipo, rótulo truncado); dias com muitos eventos **rolam por dentro** da célula. **Não há painel** de dia selecionado. "Hoje" destacado com anel. Datas em BRT (helpers em `lib/dashboard-calendar.ts`).
+- **Sem fins de semana (DSB-D7):** sábado e domingo **não aparecem** (o negócio não agenda faturamento/embarque/pagamento neles — ver §8 e a regra de contrato em `API-e-Contratos.md`). A **janela buscada** continua **dom–sáb (7 dias)** de propósito: o backend **rola** os eventos de fim de semana (legado no banco, ou datas reais de borda) pro **dia útil vizinho** (sáb→sex, dom→seg) via `rollWeekendToWeekday`, então nada some do calendário. `buildBusinessDays(weekStart)` filtra os 5 dias renderizados.
 - **3 feeds mesclados client-side** no `DashboardDesktop` (a janela visível é emitida pelo card via `onWindowChange` → o pai busca a **semana**):
 
   | Feed      | typeKey                                                                       | Visibilidade                  | Fonte                        |
@@ -198,12 +199,13 @@ Definições dos handlers: `src/api/v1/backend-api.js`. Implementações: `src/s
 - **Pagamento:** agendado = `EMITIDO`/`FATURADO` com `paymentDate` na janela; realizado = `PAGO` com `paidAt` na janela; `WASH_OUT` fora. COMMERCIAL escopado ao próprio `Broker` (sem broker → vazio). Vencidos reclassificados por "hoje BRT" (dot vermelho).
 - **Aprovação:** pendente = `requiresApproval` + `EMITIDO` + `invoiceDate` não-nulo + **sem** linha em `approval_label_log`. Lembrete pintado todo dia de `max(from, hoje)` até `to`.
 - **Embarque:** agendado = `requiresShipment` + `EMITIDO`/`FATURADO` + não embarcado, no `invoiceDate` (vermelho se o dia passar); realizado = embarcado (`shippedAt` na janela).
+- **Roll de fim de semana (DSB-D7):** pagamento e embarque **rolam** o evento pro dia útil vizinho na montagem (`bucketPaymentEvents`/`bucketShipmentEvents`, sáb→sex/dom→seg) — o `typeKey` de atraso é computado sobre a data REAL, antes do roll. Aprovação **não** rola (o fan-out já cobre os dias úteis). Datas novas já não caem em fim de semana (validação do contrato); o roll cobre legado/borda.
 
 ---
 
 ## 9. Regras de negócio e detalhes técnicos
 
-- **Datas em BRT:** todos os cálculos de dia usam offset São Paulo −3h (donut, feeds de eventos, calendário). O calendário é **domingo-first** por decisão (não unificar com a matemática segunda-based do relatório semanal).
+- **Datas em BRT:** todos os cálculos de dia usam offset São Paulo −3h (donut, feeds de eventos, calendário). A **janela** do calendário segue ancorada no **domingo** (`computeWeekStart`/`buildWeek`, 7 dias), mas o card **renderiza só os dias úteis** (seg–sex, `buildBusinessDays`) — DSB-D7. O dia da semana de uma data de contrato (`@db.Date`) é lido em **UTC** (`getUTCDay`), sem deslocar −3h.
 - **Throttle de refetch:** `useDashboardData` (agora só o donut) e o `recent-sends` refazem em `visibilitychange`/`focus` com throttle de **30s** (evita N requests em Alt+Tab). Os 3 feeds de eventos refazem em foco/visibilidade **sem** throttle (mas só quando há janela e no breakpoint desktop). O card de `/samples` faz um fetch simples na montagem.
 - **Twin inativo não busca:** cada `useEffect` checa `matchMedia('(min-width: 901px)')` antes de disparar fetch; um listener de `change` re-busca ao **entrar** no desktop (senão o card ficava travado no skeleton após um resize).
 - **Saudação por hora:** `getGreeting()` — "Bom dia" (<12h), "Boa tarde" (<18h), "Boa noite".

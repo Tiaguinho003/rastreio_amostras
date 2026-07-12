@@ -260,6 +260,7 @@ Alem dos guards de navegacao, um gate central em `resolveActorContext` (`src/api
 4. `resolve` aceita QR bruto, URL, UUID e lote interno embutido em texto.
 5. A API retorna erros de negocio com `4xx` e mensagens explicitas do backend.
 6. Uploads de imagem sao limitados por `MAX_UPLOAD_SIZE_BYTES`, com padrao de `12 MiB` por arquivo.
+7. **Datas de acao do contrato recusam fim de semana (DSB-D7).** As datas de faturamento (`invoiceDate`), pagamento (`paymentDate`) e as reais dos marcos (`invoicedAt`/`paidAt`/`shippedAt`) nao podem cair em sabado/domingo → `422 { code: 'WEEKEND_DATE', field }`. A **data do contrato** (`contractDate`, assinatura) e **isenta**. Enforcement em `assertBusinessDate` (`sale-contract-support.js`), via `normalizeActionDate` (invoice/pay/ship) e `normalizeEtapa2Input` (invoice/payment). O front bloqueia antes (erro no campo). Reflexo no dashboard: os feeds `/dashboard/{payment,shipment}-events` **rolam** um evento de fim de semana pro dia util vizinho (sab→sex, dom→seg) — so-exibicao — e o card de Eventos mostra so seg–sex.
 
 ## Contrato de eventos
 

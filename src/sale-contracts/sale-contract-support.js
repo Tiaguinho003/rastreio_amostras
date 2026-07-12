@@ -785,8 +785,12 @@ export function bucketPaymentEvents(dueRows, paidRows, todayKey) {
     for (const row of rows) {
       const { dayKey, event } = buildPaymentEvent(row, kind, todayKey);
       if (!dayKey) continue;
-      if (byDay[dayKey]) byDay[dayKey].push(event);
-      else byDay[dayKey] = [event];
+      // DSB-D7: o card mostra so seg-sex; um evento de fim de semana (legado ou
+      // data real de borda) rola pro dia util vizinho pra nao sumir. O typeKey de
+      // atraso ja foi computado sobre a data REAL dentro de buildPaymentEvent.
+      const key = rollWeekendToWeekday(dayKey);
+      if (byDay[key]) byDay[key].push(event);
+      else byDay[key] = [event];
     }
   };
   add(dueRows, 'due');
@@ -849,8 +853,10 @@ export function bucketShipmentEvents(scheduledRows, doneRows, todayKey) {
     for (const row of rows) {
       const { dayKey, event } = buildShipmentEvent(row, kind, todayKey);
       if (!dayKey) continue;
-      if (byDay[dayKey]) byDay[dayKey].push(event);
-      else byDay[dayKey] = [event];
+      // DSB-D7: roll de fim de semana pro dia util vizinho (ver bucketPaymentEvents).
+      const key = rollWeekendToWeekday(dayKey);
+      if (byDay[key]) byDay[key].push(event);
+      else byDay[key] = [event];
     }
   };
   add(scheduledRows, 'scheduled');
@@ -990,6 +996,44 @@ function requireDate(value, fieldName) {
   return new Date(requireDateString(value, fieldName));
 }
 
+// Datas de ACAO do contrato (faturamento/pagamento/embarque, planejadas ou reais)
+// nao podem cair em fim de semana (DSB-D7) — o negocio nao agenda nesses dias e o
+// card de Eventos mostra so seg-sex. A data e @db.Date (meia-noite UTC), entao o dia
+// da semana e getUTCDay (0=domingo, 6=sabado), SEM deslocar -3h. NAO vale pra
+// contractDate (assinatura), que segue livre. Espelha o formato das guardas de
+// data-futura (paySaleContract/confirmShipment).
+export function assertBusinessDate(dateObj, fieldName) {
+  const dow = dateObj.getUTCDay();
+  if (dow === 0 || dow === 6) {
+    throw new HttpError(422, `${fieldName} must be a business day (no weekends)`, {
+      code: 'WEEKEND_DATE',
+      field: fieldName,
+    });
+  }
+  return dateObj;
+}
+
+// Rola uma chave de dia 'YYYY-MM-DD' que caia em fim de semana pro dia util vizinho:
+// sabado -> sexta (-1), domingo -> segunda (+1). Dia util fica igual. So-EXIBICAO
+// (DSB-D7): usado na montagem dos feeds de eventos pra um evento de fim de semana
+// (legado no banco, ou data real de borda) nao sumir do calendario seg-sex. O dado
+// no contrato nao muda; o typeKey de atraso e computado sobre a data REAL antes do roll.
+export function rollWeekendToWeekday(dayKey) {
+  if (typeof dayKey !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) {
+    return dayKey;
+  }
+  const date = new Date(`${dayKey}T00:00:00Z`);
+  const dow = date.getUTCDay();
+  if (dow === 6) {
+    date.setUTCDate(date.getUTCDate() - 1);
+  } else if (dow === 0) {
+    date.setUTCDate(date.getUTCDate() + 1);
+  } else {
+    return dayKey;
+  }
+  return date.toISOString().slice(0, 10);
+}
+
 // Sacas do contrato (Int > 0). O saldo do lote (não exceder o disponível) é
 // garantido pelo updateSampleMovement ao sincronizar a venda.
 function normalizeSacks(value, fieldName = 'quantitySacks') {
@@ -1051,10 +1095,11 @@ export function normalizeApprovalReminderLeadDays(
   return value;
 }
 
-// Data REAL do marco (faturamento/pagamento) escolhida no dialogo. Obrigatoria;
-// mesmo formato YYYY-MM-DD das demais datas do contrato (@db.Date).
+// Data REAL do marco (faturamento/pagamento/embarque) escolhida no dialogo.
+// Obrigatoria; mesmo formato YYYY-MM-DD das demais datas do contrato (@db.Date).
+// DSB-D7: recusa fim de semana (as 3 acoes — invoice/pay/ship — passam por aqui).
 export function normalizeActionDate(value, fieldName = 'date') {
-  return requireDate(value, fieldName);
+  return assertBusinessDate(requireDate(value, fieldName), fieldName);
 }
 
 // Motivo da quebra manual (P17). Obrigatorio; espelha o limite do reasonText do
@@ -1236,9 +1281,9 @@ export function normalizeEtapa2Input(input) {
     paymentFormId: requireUuid(input?.paymentFormId, 'paymentFormId'),
     modalityId: requireUuid(input?.modalityId, 'modalityId'),
     packagingId: requireUuid(input?.packagingId, 'packagingId'),
-    // datas (obrigatorias)
-    invoiceDate: requireDate(input?.invoiceDate, 'invoiceDate'),
-    paymentDate: requireDate(input?.paymentDate, 'paymentDate'),
+    // datas (obrigatorias) — DSB-D7: faturamento/pagamento recusam fim de semana
+    invoiceDate: assertBusinessDate(requireDate(input?.invoiceDate, 'invoiceDate'), 'invoiceDate'),
+    paymentDate: assertBusinessDate(requireDate(input?.paymentDate, 'paymentDate'), 'paymentDate'),
     // opcionais
     purchaseNumber: optionalText(input?.purchaseNumber, 'purchaseNumber', 120),
     paymentCondition: optionalText(input?.paymentCondition, 'paymentCondition', 2000),

@@ -22,6 +22,7 @@ import {
   parseCurrencyInput,
   parseDecimalBr,
 } from '../../lib/currency';
+import { isWeekendIso, WEEKEND_DATE_MESSAGE } from '../../lib/business-days';
 import { BottomSheet } from '../BottomSheet';
 import { BrokerMultiSelectField } from '../samples/BrokerMultiSelectField';
 import { ClientLookupField } from '../clients/ClientLookupField';
@@ -413,8 +414,17 @@ export function SaleContractEtapa2Modal({
       setError('Informe a data de faturamento.');
       return;
     }
+    // DSB-D7: faturamento/pagamento não podem cair em fim de semana.
+    if (isWeekendIso(invoiceDate)) {
+      setError('A data de faturamento cai em fim de semana. Escolha um dia útil.');
+      return;
+    }
     if (!paymentDate) {
       setError('Informe a data de pagamento.');
+      return;
+    }
+    if (isWeekendIso(paymentDate)) {
+      setError('A data de pagamento cai em fim de semana. Escolha um dia útil.');
       return;
     }
     // Aprovacao (AP3): escolha obrigatoria. Quando "Sim", o lembrete e 1..365 dias.
@@ -1090,6 +1100,9 @@ export function SaleContractEtapa2Modal({
                           setError(null);
                         }}
                       />
+                      {isWeekendIso(invoiceDate) ? (
+                        <span className="app-modal-field-error">{WEEKEND_DATE_MESSAGE}</span>
+                      ) : null}
                     </label>
 
                     <label className="app-modal-field">
@@ -1104,6 +1117,9 @@ export function SaleContractEtapa2Modal({
                           setError(null);
                         }}
                       />
+                      {isWeekendIso(paymentDate) ? (
+                        <span className="app-modal-field-error">{WEEKEND_DATE_MESSAGE}</span>
+                      ) : null}
                     </label>
                   </div>
                 </div>

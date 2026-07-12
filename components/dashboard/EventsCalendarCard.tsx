@@ -7,7 +7,7 @@ import {
   CALENDAR_WEEK_DAYS,
   CALENDAR_WEEKDAY_INITIALS,
   addDays,
-  buildWeek,
+  buildBusinessDays,
   computeWeekStart,
   formatDayAriaLabel,
   formatMonthShort,
@@ -45,12 +45,13 @@ function eventHref(event: CalendarEvent): string | null {
   return `/contratos?tab=${tab}${event.contractId ? `&highlight=${event.contractId}` : ''}`;
 }
 
-// Card "Eventos" (dashboard desktop, DSB-D4): SEMANA ÚNICA (7 dias domingo-first,
-// E12) com navegação livre ◀ Hoje ▶ de 7 em 7 dias. Cada dia é um quadrado alto que
-// mostra os eventos DENTRO da célula — chips coloridos por tipo, clicáveis (navegação
-// pura → /contratos); dias com muitos eventos rolam POR DENTRO da própria célula.
-// Sem painel de dia selecionado (não precisa clicar pra ver). "Hoje" com anel;
-// fins de semana legíveis (sem apagar). Desktop-only (o DashboardMobile não o monta).
+// Card "Eventos" (dashboard desktop, DSB-D4 + DSB-D7): SEMANA DE DIAS ÚTEIS (seg–sex,
+// 5 células) com navegação livre ◀ Hoje ▶ de 7 em 7 dias. A janela BUSCADA continua
+// dom–sáb (7 dias) — o backend rola os eventos de fim de semana pro dia útil vizinho
+// (sáb→sex, dom→seg) pra nada sumir. Cada dia é um quadrado alto que mostra os eventos
+// DENTRO da célula — chips coloridos por tipo, clicáveis (navegação pura → /contratos);
+// dias cheios rolam POR DENTRO da própria célula. Sem painel de dia selecionado.
+// "Hoje" com anel. Desktop-only (o DashboardMobile não o monta).
 export function EventsCalendarCard({ events = {}, onWindowChange }: EventsCalendarCardProps) {
   const today = useMemo(() => getBrtToday(), []);
   const todayKey = toDayKey(today);
@@ -62,10 +63,12 @@ export function EventsCalendarCard({ events = {}, onWindowChange }: EventsCalend
     tick: 0,
   });
 
-  const days = useMemo(() => buildWeek(weekStart), [weekStart]);
+  // Renderiza só os 5 dias úteis (DSB-D7); os fins de semana da janela ficam de fora.
+  const days = useMemo(() => buildBusinessDays(weekStart), [weekStart]);
 
-  // E24: emite a semana visível pro pai buscar o feed daquela janela. Dispara na
-  // montagem + a cada navegação. O pai deve memoizar `onWindowChange` (useCallback).
+  // E24: emite a JANELA dom–sáb (7 dias) pro pai buscar o feed — inclui o fim de
+  // semana de propósito, pra o backend poder rolar esses eventos pros dias úteis
+  // exibidos. Dispara na montagem + a cada navegação. O pai memoiza `onWindowChange`.
   useEffect(() => {
     if (!onWindowChange) return;
     onWindowChange(toDayKey(weekStart), toDayKey(addDays(weekStart, CALENDAR_WEEK_DAYS - 1)));

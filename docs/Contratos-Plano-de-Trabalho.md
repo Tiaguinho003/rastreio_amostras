@@ -1309,7 +1309,7 @@ sheet de coluna única):
 - **Condição de Pagamento** — manual, **opcional**, texto livre (D20).
 - **Forma de Pagamento** {Faturado, Livre} · **Modalidade** {Retirar, Posto, Disponível} · **Embalagem**
   {Sacas, Bags, A granel} — listas cadastráveis, **obrigatórias**, **começam sem seleção** (força escolha) (D20).
-- **Data de Faturamento** · **Data de Pagamento** — **obrigatórias**, sem default "hoje" (B8).
+- **Data de Faturamento** · **Data de Pagamento** — **obrigatórias**, sem default "hoje" (B8). **DSB-D7:** recusam **fim de semana** (erro no campo + `422 WEEKEND_DATE`; a data do contrato/assinatura segue livre). Mesma regra nas datas reais ao faturar/pagar/embarcar. Reflexo no card de Eventos: só seg–sex, com roll de fim de semana pro dia útil vizinho.
 - **Próximo**: grupo 2e (textos livres) — fecha a Etapa 2. **Doc (D38–D49) NÃO commitado.**
 
 ### 2026-06-26 — Sessão 34 (conferência Etapa 2 — textos livres; Etapa 2 fechada)

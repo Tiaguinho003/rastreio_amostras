@@ -24803,7 +24803,7 @@ select.samples-filter-field-input {
   /* Cabecalho D S T Q Q S S (domingo-first, E12). */
   .dd-events-weekdays {
     display: grid;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: clamp(0.25rem, 0.45vw, 0.4rem);
     flex: none;
   }
@@ -24816,11 +24816,11 @@ select.samples-filter-field-input {
     color: #4d5c52;
   }
 
-  /* DSB-D4: uma SEMANA (7 células numa linha), altas, preenchendo a altura do
-     card (Eventos agora é horizontal). */
+  /* DSB-D4/D7: uma SEMANA de DIAS ÚTEIS (5 células numa linha), altas,
+     preenchendo a altura do card (Eventos horizontal). */
   .dd-events-grid {
     display: grid;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     grid-template-rows: 1fr;
     gap: clamp(0.3rem, 0.5vw, 0.5rem);
     flex: 1;

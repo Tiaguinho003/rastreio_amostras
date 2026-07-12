@@ -139,7 +139,10 @@ write-only.
   data — se o `invoiceDate` mudar, o lembrete se **reposiciona sozinho**), com
   **default 30** (a 1ª ideia dos "30 dias fixos" vira o **padrão editável**, não a
   regra), ajustável na criação e no **Editar** (AP2). **Âncora = `invoiceDate`
-  planejado** (campo já obrigatório na etapa 2 → o gatilho sempre existe).
+  planejado** (campo já obrigatório na etapa 2 → o gatilho sempre existe). **DSB-D7:**
+  o `invoiceDate` recusa **fim de semana**, então o lembrete de aprovação também
+  ancora sempre num dia útil; o card de Eventos mostra só seg–sex (a aprovação faz
+  fan-out nos dias úteis, sem roll).
   - **Vira evento no card de Eventos** (é um **tipo novo**, distinto dos pagamentos
     da F1 — ver Dashboard-Visao-Geral.md, F2/EVD-P1): aparece de
     **`invoiceDate − X` em diante, TODOS os dias** enquanto o contrato seguir

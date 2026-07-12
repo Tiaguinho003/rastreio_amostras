@@ -10,6 +10,7 @@ import {
   paySaleContract,
   washoutSaleContract,
 } from '../../lib/api-client';
+import { isWeekendIso, WEEKEND_DATE_MESSAGE } from '../../lib/business-days';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { ApprovalLabelPrefill, SessionData } from '../../lib/types';
 import { ApprovalLabelModal } from '../ApprovalLabelModal';
@@ -134,11 +135,14 @@ export function SaleContractLifecycleDialog({
   // o submit se digitarem uma data futura. O backend é a trava autoritativa.
   const maxDate = action === 'pay' ? todayInputValue() : undefined;
   const dateInFuture = maxDate !== undefined && date !== '' && date > maxDate;
+  // DSB-D7: faturamento/pagamento (datas de ação) não podem cair em fim de semana.
+  const dateIsWeekend = needsDate && date !== '' && isWeekendIso(date);
   const canSubmit =
     !saving &&
     (!needsDate || date !== '') &&
     (!needsReason || reason.trim() !== '') &&
-    !dateInFuture;
+    !dateInFuture &&
+    !dateIsWeekend;
 
   async function handleSubmit() {
     setSaving(true);
@@ -168,6 +172,9 @@ export function SaleContractLifecycleDialog({
         // EMB28: pagar um contrato que exige embarque e ainda não embarcou → abre o
         // modal de confirmação; ao confirmar, o handleSubmit é re-chamado e paga.
         setNeedsShipment(true);
+      } else if (errorCode(cause) === 'WEEKEND_DATE') {
+        // DSB-D7: defesa — o front já bloqueia, mas se algo furar, mostra o aviso.
+        setError(WEEKEND_DATE_MESSAGE);
       } else if (cause instanceof ApiError && cause.status === 409) {
         setError('Este contrato foi modificado. Recarregue a página e tente de novo.');
       } else {
@@ -231,6 +238,8 @@ export function SaleContractLifecycleDialog({
                     <span className="app-modal-field-error">
                       A data do pagamento não pode ser futura.
                     </span>
+                  ) : dateIsWeekend ? (
+                    <span className="app-modal-field-error">{WEEKEND_DATE_MESSAGE}</span>
                   ) : null}
                 </label>
               ) : null}

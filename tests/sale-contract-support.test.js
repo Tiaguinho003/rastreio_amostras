@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import {
   APPROVAL_ELIGIBLE_STATUSES,
   assertBrokersResolved,
+  assertBusinessDate,
   buildApprovalPrefill,
   brtTodayDateOnly,
   brtTodayKey,
@@ -14,6 +15,7 @@ import {
   buildReceivableView,
   bucketApprovalReminders,
   bucketPaymentEvents,
+  bucketShipmentEvents,
   buildSaleContractDraftFromSale,
   computeContractMoney,
   computeContractMoneyWithAgio,
@@ -25,6 +27,7 @@ import {
   normalizeRequiredAgio,
   normalizeUnitPrice,
   normalizeWashoutReason,
+  rollWeekendToWeekday,
   splitOriginLotForLabel,
   toApprovalContractOption,
   toSaleContractView,
@@ -748,19 +751,19 @@ test('bucketPaymentEvents (D138): agrupa por dayKey (agendado no paymentDate + r
       version: 1,
       status: 'PAGO',
       contractNumber: '3/26',
-      paymentDate: new Date('2026-07-05T00:00:00.000Z'), // ignorado no realizado
-      paidAt: new Date('2026-07-11T00:00:00.000Z'),
+      paymentDate: new Date('2026-07-06T00:00:00.000Z'), // ignorado no realizado
+      paidAt: new Date('2026-07-13T00:00:00.000Z'), // segunda (dia útil, não rola — DSB-D7)
       buyerSnapshot: { displayName: 'C' },
       sellerSnapshot: null,
     },
   ];
   const map = bucketPaymentEvents(due, paid, '2026-07-10'); // vence-hoje -> a,b seguem "due"
   assert.equal(map['2026-07-10'].length, 2);
-  assert.equal(map['2026-07-11'].length, 1);
+  assert.equal(map['2026-07-13'].length, 1);
   assert.equal(map['2026-07-10'][0].id, 'a');
   assert.equal(map['2026-07-10'][0].typeKey, 'contract_payment_due');
   assert.equal(map['2026-07-10'][1].label, '2/26'); // sem comprador -> so o numero
-  assert.equal(map['2026-07-11'][0].typeKey, 'contract_payment_paid'); // realizado no paidAt
+  assert.equal(map['2026-07-13'][0].typeKey, 'contract_payment_paid'); // realizado no paidAt
 });
 
 test('buildApprovalReminderEvent (F2): id namespaced + label "a enviar · nº · comprador"', () => {
@@ -849,4 +852,77 @@ test('buildRecentApprovalSendItem (AP16): id namespaced, kind APPROVAL, nº+comp
   );
   assert.equal(semContrato.contractNumber, null);
   assert.equal(semContrato.buyer, null);
+});
+
+// ── DSB-D7: datas de ação recusam fim de semana + roll no calendário ──
+
+test('assertBusinessDate: rejeita sábado/domingo (422 WEEKEND_DATE), passa em dia útil', () => {
+  // 2026-07-11 = sábado, 2026-07-12 = domingo, 2026-07-10 = sexta.
+  for (const weekend of ['2026-07-11', '2026-07-12']) {
+    assert.throws(
+      () => assertBusinessDate(new Date(`${weekend}T00:00:00.000Z`), 'invoiceDate'),
+      (err) => err.status === 422 && err.details?.code === 'WEEKEND_DATE'
+    );
+  }
+  // Dia útil passa e devolve a própria Date.
+  const friday = new Date('2026-07-10T00:00:00.000Z');
+  assert.equal(assertBusinessDate(friday, 'invoiceDate'), friday);
+});
+
+test('normalizeEtapa2Input: faturamento/pagamento em fim de semana são rejeitados', () => {
+  assert.throws(
+    () => normalizeEtapa2Input({ ...validEtapa2(), invoiceDate: '2026-07-11' }),
+    (err) => err.details?.code === 'WEEKEND_DATE' && err.details?.field === 'invoiceDate'
+  );
+  assert.throws(
+    () => normalizeEtapa2Input({ ...validEtapa2(), paymentDate: '2026-07-12' }),
+    (err) => err.details?.code === 'WEEKEND_DATE' && err.details?.field === 'paymentDate'
+  );
+  // Dia útil não lança.
+  assert.doesNotThrow(() => normalizeEtapa2Input(validEtapa2()));
+});
+
+test('rollWeekendToWeekday: sábado→sexta, domingo→segunda, dia útil inalterado', () => {
+  assert.equal(rollWeekendToWeekday('2026-07-11'), '2026-07-10'); // sábado → sexta
+  assert.equal(rollWeekendToWeekday('2026-07-12'), '2026-07-13'); // domingo → segunda
+  assert.equal(rollWeekendToWeekday('2026-07-10'), '2026-07-10'); // sexta fica
+  assert.equal(rollWeekendToWeekday('2026-07-08'), '2026-07-08'); // quarta fica
+});
+
+test('bucketPaymentEvents: evento de fim de semana rola pro dia útil vizinho', () => {
+  const sat = [
+    {
+      id: 'x',
+      version: 1,
+      status: 'EMITIDO',
+      contractNumber: '9/26',
+      paymentDate: new Date('2026-07-11T00:00:00.000Z'), // sábado
+      paidAt: null,
+      buyerSnapshot: { displayName: 'X' },
+      sellerSnapshot: null,
+    },
+  ];
+  const map = bucketPaymentEvents(sat, [], '2026-07-01');
+  // Rolado pra sexta (10); não some no dia do sábado (11).
+  assert.equal(map['2026-07-11'], undefined);
+  assert.equal(map['2026-07-10'].length, 1);
+  // typeKey de atraso computado sobre a data REAL (11 < 01? não) → segue "due".
+  assert.equal(map['2026-07-10'][0].typeKey, 'contract_payment_due');
+});
+
+test('bucketShipmentEvents: embarque em fim de semana rola pro dia útil vizinho', () => {
+  const sun = [
+    {
+      id: 'y',
+      status: 'EMITIDO',
+      contractNumber: '10/26',
+      invoiceDate: new Date('2026-07-12T00:00:00.000Z'), // domingo (agendado)
+      shippedAt: null,
+      buyerSnapshot: { displayName: 'Y' },
+    },
+  ];
+  const map = bucketShipmentEvents(sun, [], '2026-07-01');
+  assert.equal(map['2026-07-12'], undefined);
+  assert.equal(map['2026-07-13'].length, 1); // domingo → segunda
+  assert.ok(map['2026-07-13'][0].id.startsWith('shipment:'));
 });

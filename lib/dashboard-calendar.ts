@@ -2,9 +2,14 @@
 // docs/Dashboard-Visao-Geral.md).
 //
 // Matemática date-only em BRT no estilo de lib/weekly-report.ts (âncora
-// meia-noite UTC), mas com a semana começando no DOMINGO (decisão E12 do
-// calendário) — NÃO unificar com computeClientWeekReference, que é
-// segunda-based por regra do relatório semanal do comercial.
+// meia-noite UTC). DSB-D7: o card renderiza só DIAS ÚTEIS (seg–sex), mas a
+// JANELA de busca continua ancorada no domingo (dom–sáb, 7 dias) — assim os
+// eventos de fim de semana (legado/borda) são buscados e o backend os "rola" pro
+// dia útil vizinho (ver rollWeekendToWeekday em sale-contracts). Por isso
+// computeWeekStart/buildWeek/CALENDAR_WEEK_DAYS seguem de 7 dias domingo-first;
+// buildBusinessDays filtra pro que é exibido.
+
+import { isWeekendDate } from './business-days';
 
 const SAO_PAULO_UTC_OFFSET_HOURS = 3;
 
@@ -48,9 +53,10 @@ const WEEKDAY_LONG = [
   'sábado',
 ];
 
-/** Cabeçalho da grade, domingo-first (E12). */
-export const CALENDAR_WEEKDAY_INITIALS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+/** Cabeçalho da grade — só dias úteis, seg–sex (DSB-D7). */
+export const CALENDAR_WEEKDAY_INITIALS = ['S', 'T', 'Q', 'Q', 'S'];
 
+/** Dias da JANELA de busca (dom–sáb). O card renderiza só os 5 úteis. */
 export const CALENDAR_WEEK_DAYS = 7;
 
 /** Dia BRT de "agora" como date-only (meia-noite UTC). */
@@ -76,39 +82,47 @@ export function toDayKey(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-/** Os 7 dias exibidos a partir do domingo inicial (1 semana). */
+/** Os 7 dias da janela a partir do domingo inicial (dom–sáb). */
 export function buildWeek(start: Date): Date[] {
   return Array.from({ length: CALENDAR_WEEK_DAYS }, (_, i) => addDays(start, i));
 }
 
+/** Os 5 dias ÚTEIS (seg–sex) exibidos no card — os fins de semana da janela
+ *  ficam de fora do render (DSB-D7); seus eventos são rolados pelo backend. */
+export function buildBusinessDays(start: Date): Date[] {
+  return buildWeek(start).filter((day) => !isWeekendDate(day));
+}
+
 /**
- * Rótulo do período (E15): "6 – 12 de julho" no mesmo mês;
- * "28 de jun – 4 de jul" cruzando mês; ano acrescentado quando o período
- * não é do ano corrente (ou cruza a virada).
+ * Rótulo do período (E15), agora sobre os DIAS ÚTEIS (DSB-D7): "7 – 11 de julho"
+ * no mesmo mês; "30 de jun – 4 de jul" cruzando mês; ano acrescentado quando o
+ * período não é do ano corrente (ou cruza a virada). `start` é o domingo da
+ * janela; o rótulo cobre segunda (start+1) até sexta (start+5).
  */
 export function formatPeriodLabel(start: Date, now: Date = new Date()): string {
-  const end = addDays(start, CALENDAR_WEEK_DAYS - 1);
+  const first = addDays(start, 1); // segunda
+  const last = addDays(start, CALENDAR_WEEK_DAYS - 2); // sexta (start + 5)
   const currentYear = getBrtToday(now).getUTCFullYear();
   const sameYearAsNow =
-    start.getUTCFullYear() === currentYear && end.getUTCFullYear() === currentYear;
+    first.getUTCFullYear() === currentYear && last.getUTCFullYear() === currentYear;
 
   if (
-    start.getUTCMonth() === end.getUTCMonth() &&
-    start.getUTCFullYear() === end.getUTCFullYear()
+    first.getUTCMonth() === last.getUTCMonth() &&
+    first.getUTCFullYear() === last.getUTCFullYear()
   ) {
-    const base = `${start.getUTCDate()} – ${end.getUTCDate()} de ${MONTH_LONG[start.getUTCMonth()]}`;
-    return sameYearAsNow ? base : `${base} de ${start.getUTCFullYear()}`;
+    const base = `${first.getUTCDate()} – ${last.getUTCDate()} de ${MONTH_LONG[first.getUTCMonth()]}`;
+    return sameYearAsNow ? base : `${base} de ${first.getUTCFullYear()}`;
   }
 
-  const startLabel = `${start.getUTCDate()} de ${MONTH_SHORT[start.getUTCMonth()]}`;
-  const endLabel = `${end.getUTCDate()} de ${MONTH_SHORT[end.getUTCMonth()]}`;
+  const startLabel = `${first.getUTCDate()} de ${MONTH_SHORT[first.getUTCMonth()]}`;
+  const endLabel = `${last.getUTCDate()} de ${MONTH_SHORT[last.getUTCMonth()]}`;
   if (sameYearAsNow) {
     return `${startLabel} – ${endLabel}`;
   }
-  if (start.getUTCFullYear() === end.getUTCFullYear()) {
-    return `${startLabel} – ${endLabel} de ${start.getUTCFullYear()}`;
+  if (first.getUTCFullYear() === last.getUTCFullYear()) {
+    return `${startLabel} – ${endLabel} de ${first.getUTCFullYear()}`;
   }
-  return `${startLabel} de ${start.getUTCFullYear()} – ${endLabel} de ${end.getUTCFullYear()}`;
+  return `${startLabel} de ${first.getUTCFullYear()} – ${endLabel} de ${last.getUTCFullYear()}`;
 }
 
 /** aria-label do quadrado: "9 de julho, quinta-feira". */

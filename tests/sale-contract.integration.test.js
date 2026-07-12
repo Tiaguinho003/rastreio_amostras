@@ -633,7 +633,8 @@ if (!databaseUrl || !databaseReachable) {
     const past = await setupShipmentContract({ lotNumber: '25401' });
     await prisma.saleContract.update({
       where: { id: past.id },
-      data: { invoiceDate: new Date('2026-07-05T00:00:00Z') },
+      // DSB-D7: dia útil (07 = terça) — o feed rolaria uma data de fim de semana.
+      data: { invoiceDate: new Date('2026-07-07T00:00:00Z') },
     });
     const done = await setupShipmentContract({ lotNumber: '25402' });
     await shipmentService.confirmShipment(
@@ -646,9 +647,9 @@ if (!databaseUrl || !databaseReachable) {
       { from: '2026-07-01', to: '2026-07-31' },
       adminActor
     );
-    // Agendado futuro (15) = azul; passado (05) = vermelho (atrasado); realizado (08) = azul-escuro.
+    // Agendado futuro (15) = azul; passado (07) = vermelho (atrasado); realizado (08) = azul-escuro.
     assert.equal(events['2026-07-15']?.[0]?.typeKey, 'contract_shipment');
-    assert.equal(events['2026-07-05']?.[0]?.typeKey, 'contract_shipment_overdue');
+    assert.equal(events['2026-07-07']?.[0]?.typeKey, 'contract_shipment_overdue');
     assert.equal(events['2026-07-08']?.[0]?.typeKey, 'contract_shipment_done');
     // Label recolhido + id namespaced (não colide com pagamento/aprovação do mesmo dia).
     assert.ok(events['2026-07-15'][0].label.startsWith('embarque · '));
@@ -661,7 +662,7 @@ if (!databaseUrl || !databaseReachable) {
     const contract = await setupShipmentContract({ lotNumber: '25500' });
     await saleContractService.invoiceSaleContract(
       contract.id,
-      { expectedVersion: contract.version, date: '2026-07-05' },
+      { expectedVersion: contract.version, date: '2026-07-06' },
       adminActor
     );
     const faturado = await saleContractService.getSaleContract(contract.id, adminActor);
@@ -1856,7 +1857,7 @@ if (!databaseUrl || !databaseReachable) {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '26050' });
     const inv = await saleContractService.invoiceSaleContract(
       contractId,
-      { expectedVersion: version, date: '2026-07-05' },
+      { expectedVersion: version, date: '2026-07-06' },
       adminActor
     );
     await assert.rejects(
@@ -1868,11 +1869,17 @@ if (!databaseUrl || !databaseReachable) {
         ),
       (err) => err.status === 422
     );
-    // hoje (BRT) passa (mesma conta do serviço)
-    const todayKey = new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
+    // DSB-D7: um dia útil não-futuro passa (pagar recusa fim de semana + futuro).
+    // Recua "hoje BRT" pro dia útil mais recente (≤ hoje) — robusto em qualquer dia.
+    const payDate = (() => {
+      const d = new Date(Date.now() - 3 * 3600_000);
+      d.setUTCHours(0, 0, 0, 0);
+      while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() - 1);
+      return d.toISOString().slice(0, 10);
+    })();
     const paid = await saleContractService.paySaleContract(
       contractId,
-      { expectedVersion: inv.contract.version, date: todayKey },
+      { expectedVersion: inv.contract.version, date: payDate },
       adminActor
     );
     assert.equal(paid.contract.status, 'PAGO');
@@ -1998,7 +2005,7 @@ if (!databaseUrl || !databaseReachable) {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '25020' }); // paymentDate 2026-07-20
     const inv = await saleContractService.invoiceSaleContract(
       contractId,
-      { expectedVersion: version, date: '2026-07-05' },
+      { expectedVersion: version, date: '2026-07-06' },
       adminActor
     );
     await saleContractService.paySaleContract(
@@ -2057,7 +2064,7 @@ if (!databaseUrl || !databaseReachable) {
       () =>
         saleContractService.paySaleContract(
           contractId,
-          { expectedVersion: version, date: '2026-07-25' },
+          { expectedVersion: version, date: '2026-07-24' }, // dia útil (sexta) — DSB-D7
           adminActor
         ),
       (err) => err.status === 409
@@ -2480,13 +2487,20 @@ if (!databaseUrl || !databaseReachable) {
       d.setUTCDate(d.getUTCDate() + n);
       return d.toISOString().slice(0, 10);
     };
+    // DSB-D7: invoiceDate (via emit) recusa fim de semana; rola a data relativa a hoje
+    // pro próximo dia útil, mantendo reminderStart (invoiceDate−30) no passado → pinta hoje.
+    const bizDay = (key) => {
+      const d = new Date(`${key}T00:00:00.000Z`);
+      while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);
+      return d.toISOString().slice(0, 10);
+    };
 
     // Pendente: precisa de aprovação, EMITIDO, sem etiqueta.
     const pend = await saleContractService.createFutureSaleContract(
       await createFutureInput(buyerId, {
         requiresApproval: true,
         approvalReminderLeadDays: 30,
-        invoiceDate: plusDays(5),
+        invoiceDate: bizDay(plusDays(5)),
       }),
       adminActor
     );
@@ -2497,7 +2511,7 @@ if (!databaseUrl || !databaseReachable) {
       await createFutureInput(buyerId, {
         requiresApproval: true,
         approvalReminderLeadDays: 30,
-        invoiceDate: plusDays(5),
+        invoiceDate: bizDay(plusDays(5)),
       }),
       adminActor
     );

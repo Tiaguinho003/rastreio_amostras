@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { ApiError, confirmShipment, getShipmentContext } from '../../lib/api-client';
+import { isWeekendIso, WEEKEND_DATE_MESSAGE } from '../../lib/business-days';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { SessionData, ShipmentContext } from '../../lib/types';
 
@@ -62,7 +63,9 @@ export function ShipmentConfirmationModal({ session, contractId, onClose, onDone
   }, [session, contractId]);
 
   const dateInFuture = date !== '' && date > today;
-  const canSubmit = !saving && date !== '' && !dateInFuture && context !== null;
+  // DSB-D7: a data do embarque (data de ação) não pode cair em fim de semana.
+  const dateIsWeekend = date !== '' && isWeekendIso(date);
+  const canSubmit = !saving && date !== '' && !dateInFuture && !dateIsWeekend && context !== null;
 
   function onFilesSelected(event: React.ChangeEvent<HTMLInputElement>) {
     const picked = event.target.files ? Array.from(event.target.files) : [];
@@ -83,7 +86,13 @@ export function ShipmentConfirmationModal({ session, contractId, onClose, onDone
       const res = await confirmShipment(session, contractId, { shippedAt: date, files });
       onDone(res.context);
     } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 409) {
+      const code =
+        cause instanceof ApiError && cause.details && typeof cause.details === 'object'
+          ? (cause.details as { code?: unknown }).code
+          : null;
+      if (code === 'WEEKEND_DATE') {
+        setError(WEEKEND_DATE_MESSAGE);
+      } else if (cause instanceof ApiError && cause.status === 409) {
         setError(
           'Este embarque já foi confirmado ou o contrato mudou. Recarregue a página e tente de novo.'
         );
@@ -168,6 +177,8 @@ export function ShipmentConfirmationModal({ session, contractId, onClose, onDone
             />
             {dateInFuture ? (
               <span className="app-modal-field-error">A data do embarque não pode ser futura.</span>
+            ) : dateIsWeekend ? (
+              <span className="app-modal-field-error">{WEEKEND_DATE_MESSAGE}</span>
             ) : null}
           </label>
 
