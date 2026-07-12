@@ -299,190 +299,16 @@ integração 392 / build / typecheck / lint / format).
 errada (mensagem no campo senha, que esvazia) · expirar/encerrar sessão →
 aviso no login · fluxo completo do esqueci-a-senha · visual mobile + desktop.
 
-### Dashboard (DSH) — 📱 aguardando validação no device (S4, 2026-07-07)
+### Dashboard (DSH) — consolidado em docs próprios (2026-07-12)
 
-> Contexto prévio: o card "Últimas atividades" foi removido por completo em
-> 2026-07-06 (commits `61a72e2`/`2b43faf`/`56a1290`); o grid desktop está
-> provisório (50/50) até definirmos a informação que entra no lugar.
-
-**Mapa (R1):** `app/dashboard/page.tsx` monta `DashboardMobile` **e**
-`DashboardDesktop` sempre (troca por CSS no breakpoint 901px,
-`display: contents/none`); PROSPECTOR ganha `ProspectorDashboard` (branch
-`isProspector`) · dados: `useDashboardData` → `getDashboardPending` +
-`getDashboardSalesAvailability` (refetch em visibilitychange, agora com
-throttle 30s); prospector: `getMyVisitReportStats` + `listVisitReports` ·
-backend: 2 métodos em `src/samples/sample-query-service.js`
-(`getDashboardPending`, `getDashboardSalesAvailability`) — sem parâmetros,
-janelas BRT no servidor _(o 3º método/rota, `commercial-timeseries`, foi
-removido com o card "Vendas e perdas" — DSH-D3)_ · gates: middleware
-(páginas do PROSPECTOR), `useRequireAuth()` **sem** `allowedRoles`, backend
-só `resolveActorContext` (401 + allowlist do PROSPECTOR + senha pendente) —
-**sem gate positivo de papel** (decisão DSH-D2) · fluxo de senha inicial no
-`AppShell` (`initialPasswordDecision === 'PENDING'` →
-`recordInitialPasswordDecision` / `changeOwnPassword`, ambos
-`allowPending:true`) · docs/skills relacionados: Auditoria-Navegacao,
-API-e-Contratos, Produto-e-Fluxos, Notificacoes,
-Classificacao/Liga/Contratos-Plano, skills design-system/modals/
-button-press-effect/feedback-messages/responsive · CSS: `dashboard-*`,
-`dd-*`, `sales-card/chart`, `prospector-*`, `app-modal-password*`.
-
-**Matriz por papel (R2):** ADMIN/COMMERCIAL/CLASSIFIER/REGISTRATION/CADASTRO
-veem o **mesmo** dashboard (2 op-cards + donut no mobile; 4 StatCards + donut
-no desktop); PROSPECTOR vê dashboard dedicado (visitas) e recebe 403 nos
-endpoints padrão (allowlist central). A remoção de "Últimas atividades" foi
-conferida: código 100% limpo, resíduos só em docs.
-
-**Decisões:**
-
-- **DSH-D1** — StatCards "Lotes registrados hoje" e "Envios concluídos hoje"
-  **ficam inertes** (indicadores puros do dia; sem destino natural).
-- **DSH-D2** (2026-07-07, resolve a ex-P1) — **dashboard único** para os 5
-  papéis não-PROSPECTOR, incluindo os dados comerciais do donut; backend
-  segue exigindo só autenticação (sem gate positivo de papel, por decisão).
-- **DSH-D3** (2026-07-07) — o card **"Vendas e perdas" foi REMOVIDO por
-  completo** (componente, fetch dedicado do desktop, rota
-  `dashboard/commercial-timeseries`, método no query-service, api-client,
-  types, CSS `dd-trend-*` e teste de integração). A linha 2 do desktop fica
-  com o donut na coluna esquerda e a direita vazia até definirmos as
-  próximas informações do dashboard (conversa marcada — ver DSH-P2).
-- **DSH-D4** (2026-07-07) — os StatCards de pulso **"Lotes registrados
-  hoje" e "Envios concluídos hoje" saíram** do desktop; a 1ª linha fica com
-  2 StatCards no tamanho atual (grid de 4 colunas, colunas 3-4 vazias). O
-  payload `dailyRegistered`/`dailySent` do `dashboard/pending`, o
-  `formatDelta`/`.dd-stat-delta` e os casos de teste do pulso saíram junto.
-- **DSH-D5** (2026-07-07) — card novo **"Últimos envios"** no desktop:
-  pilha na coluna esquerda da linha 2 (donut em cima, envios embaixo,
-  MESMO tamanho — rows 1fr/1fr preenchendo a viewport; lista com scroll
-  interno). Lista os **últimos 40 envios** (`PHYSICAL_SAMPLE_SENT` +
-  `REPORT_EXPORTED`, sem janela de tempo), minicards **inertes** no visual
-  `.spv2-card` com lote+BlendBadge, pill do tipo (Amostra física/Laudo),
-  **destinatário ATUAL** (última edição vence) e tempo relativo;
-  **cancelado esmaecido** com tag. Endpoint novo
-  `GET /dashboard/recent-sends` (Cache-Control 30s; só autenticação,
-  DSH-D2).
-  - **Adendo (2026-07-09, AP16 do doc de Aprovações):** o card passou a comportar
-    também os **envios de aprovação** (etiquetas do `approval_label_log`, ligadas a
-    contrato) — um 3º `kind` (`APPROVAL`, pill **laranja**) com nº do contrato +
-    comprador, **inerte** como os demais. Fonte separada (contract-domain) mesclada
-    no handler com os envios de amostra (top-40 de cada → merge por data → 40).
-- **DSH-D6** (2026-07-07) — a coluna direita da linha 2 será um **card único
-  de Eventos em formato de CALENDÁRIO** (altura total da coluna): visão de
-  duas semanas em quadrados, navegação ◀ ▶ de 2 em 2 semanas + botão
-  "Hoje", dia clicado abre **painel fixo** dentro do card com as atividades,
-  dots coloridos por tipo, hoje destacado/selecionado, só visualização,
-  desktop-only, todos os papéis veem. O card **nascerá vazio antes** das
-  features que geram eventos (embarque/entrega/aprovação — ideias, nada
-  travado). Decisões E1–E11 e pendências no doc canônico novo:
-  `docs/Eventos-Dashboard-Plano-de-Trabalho.md`. **Implementação não
-  iniciada** (fase F0 do doc da feature).
-
-**Achados:**
-
-- **DSH-G1** ✅ — `useDashboardData` refazia os 2 fetches em todo
-  `visibilitychange` sem throttle → throttle 30s, padrão do desktop
-  (`4149590`).
-- **DSH-G2** ⏳ — `getDashboardPending` devolve até 500 itens a cada refresh
-  (lista só é usada no OperationModal) → catalogado como DSH-P3.
-- **DSH-G3** ⏳ — `client.count(completeness)` tende a seq scan → DSH-P4.
-- **DSH-M1** ✅ — cluster de CSS órfão do dashboard antigo (~460 linhas):
-  `mobile-hero*`, `mobile-welcome*`, `secondary-grid/panel*`,
-  `section-column*/-link/-subtitle`, `search-section`, `operations-panel`,
-  `op-print*`, `op-progress*`, skeleton `-md/-lg/-full/-xs`+`circle`/
-  `content`, `empty-state`, `muted-text`, `total-today*`, `view-all-link`,
-  `action-link*/-icon/-label`, `sales-total-number` — removidos **classe a
-  classe com grep prévio**; vivas do prospector intactas (`5e6b3d7`).
-- **DSH-M2** ✅ — `DashboardDailyCount`/`DashboardCommercialTimeseriesPoint`
-  eram unused exports do knip → viraram interfaces locais (`5e6b3d7`).
-- **DSH-I1** ✅ — `lib/dashboard-activity.ts` (nome herdado do card removido)
-  → `lib/relative-time.ts` + import no `SaleContractDetailsModal` (`5e6b3d7`).
-- **DSH-L1** ✅ — "Ver disponíveis" (`<a>`) sem tap-highlight reset nem
-  `:focus-visible` → corrigido (`54bc6aa`).
-- **DSH-L2** ✅ — 4 hovers com box-shadow/background fora de
-  `@media (hover:hover)` (dd-stat-card, operation-card, profile-trigger base
-  e desktop) → gated (`54bc6aa`).
-- **DSH-L3** ✅ — modal de senha inline sob `PageTransition` →
-  `createPortal(document.body)` com guarda SSR (`4b106e0`).
-- **DSH-L4** ✅ — erro de carregamento era `<p class="error">` cru →
-  `.dashboard-error-banner` (`role="status"` — a skill feedback-messages
-  reserva `alert` pra crítico) nos 3 twins + copy "Não foi possível carregar
-  o painel." (`feb9b72`).
-- **DSH-L5** ✅ (parcial) — verde de marca hardcoded → `var(--brand-green)`
-  onde idêntico (dd-stat-icon, dd-trend-icon, sales-card-chart-icon); greys
-  fora da paleta ficaram como dívida DSH-P5 (`54bc6aa`).
-- **DSH-A1** ✅ — `prefers-reduced-motion` não cobria NENHUMA animação do
-  dashboard (badge-pulse infinito, shimmer, entrances) → bloco novo cobrindo
-  hero/sheet/cards/badges/skeletons (`54bc6aa`).
-- **DSH-A2** ✅ — modal de senha sem `aria-labelledby` → id no título dos 2
-  passos (`4b106e0`).
-- **DSH-A3** ✅ — contraste AA 4.5:1 nos textos secundários pequenos:
-  `#9aa39a`→`#707770` (axis), `#8a8f8c`→`#737774` (subtitle),
-  `#8a9285`→`#71786d` (is-flat/trend-empty), `#6b7d72`→`#68796f`
-  (donut-label); escurecimento mínimo calculado, mesma família (`54bc6aa`) —
-  **validar no device**.
-- **DSH-T1** ✅ — `getDashboardPending` sem asserção para `clientsIncomplete`
-  e pulso diário → `tests/dashboard-pending.integration.test.js` (6 testes:
-  completude PJ/PF/ACTIVE, janelas BRT hoje/ontem/anteontem, COUNT DISTINCT
-  por lote) (`575a3ae`).
-- **DSH-T2** ✖ — morreu com a remoção do endpoint commercial-timeseries
-  (DSH-D3).
-- **DSH-T3** ✖ — morreu com a decisão DSH-D2 (sem gate positivo por decisão;
-  o 403 do PROSPECTOR segue coberto por `prospector-access.test.js`).
-- **DSH-DOC1–7** ✅ — Liga-Plano (3 símbolos deletados anotados), modals
-  SKILL ("Lotes pendentes"), API-e-Contratos (+2 rotas + nota de
-  autorização), Classificação-Plano (Caminho 3 no estado implementado),
-  Contratos-Plano (menções históricas anotadas), Auditoria-Navegação (nota
-  DSH-P1), button-press-effect (scale 0.97), design-system (cluster LIMPO +
-  rename), feedback-messages (banner novo) (`6b3ecd9`).
-- ❌ **Falso-positivos** (não reinvestigar): os 2 types do knip eram usados
-  (dentro de `lib/types.ts` — viraram locais); nenhum componente/hook do
-  dashboard está órfão (knip limpo pós-remoção do card); OperationModal,
-  tap-feedback geral, SVGs de dados (donut/linha com `role="img"`+label),
-  skeletons `aria-hidden` e estados vazios estão CONFORMES às skills.
-
-**Resumo:** 16 commits — ciclo R1–R8: `4149590` (throttle), `5e6b3d7`
-(código morto), `54bc6aa` (CSS interação/a11y), `4b106e0` (modal de senha),
-`feb9b72` (banner de erro), `575a3ae` (teste), `6b3ecd9`+`866acf9`
-(docs/skills); remoção do "Vendas e perdas" (D3): `6688c9d`+`7a970f5`
-(frontend+CSS) + `0315f6a` (backend) + `2a053c7` (docs); redesenho D4/D5:
-`1af8b25` (endpoint recent-sends), `4ed9636` (card Últimos Envios + saída
-dos StatCards de pulso), `f6b0f1e` (limpeza do pulso/delta), `804f3a3`
-(suíte recent-sends) + docs. Gates verdes (lint / format / typecheck /
-schemas / build / unit 357 / contracts 20 / integração 401 + re-seed).
-
-**Pendências:**
-
-- **DSH-P2** — ✅ resolvida (S7): a coluna direita ganhou o card de Eventos
-  (DSH-D6, F0 implementada em `9a66cd8`). A evolução da feature (tipos de
-  evento, backend, F1+) segue no doc próprio
-  (`Eventos-Dashboard-Plano-de-Trabalho.md`).
-- **DSH-P3** — payload de até 500 itens no `getDashboardPending` a cada
-  refresh (avaliar lazy-load se pesar).
-- **DSH-P4** — `client.count(completeness)` sem índice dedicado (revisar se
-  o dashboard pesar).
-- **DSH-P5** — greys fora da paleta nos cards `dd-*` (reduzida pela remoção
-  do trend card; sobram `#72766f`, `#1a2e1f` e o verde-up `#1f8540` dos
-  StatCards) — dívida de token; trocar = mudança visual.
-- **DSH-P6** — **card de Eventos INCOMPLETO** (decisão do Flavio de pausar
-  e seguir pra próxima página, 2026-07-07): F0 no ar (shell vazio, E1–E20),
-  mas o refino de layout ficou adiado (EVD-P5) e os eventos só existirão
-  com as features F1+ — tudo rastreado em
-  `Eventos-Dashboard-Plano-de-Trabalho.md`.
-- _(DSH-P1 virou a decisão DSH-D2; DSH-T2/T3 morreram com D2/D3.)_
-
-**Validação no device (Flavio):** dashboard mobile + desktop de um papel
-não-PROSPECTOR (visual geral; textos secundários pequenos ficaram um tom
-mais escuros — DSH-A3) · desktop novo (D4/D5): **1ª linha com 2 StatCards**
-no tamanho atual · pilha **donut + "Últimos envios" do MESMO tamanho**
-preenchendo a altura, lista rolando POR DENTRO (a página não rola) ·
-minicards (lote, pill Amostra física/Laudo, destinatário, tempo relativo) ·
-envio cancelado esmaecido com tag · **card de Eventos** na coluna direita
-(F0): grade domingo-first com fins de semana apagados, hoje com anel e já
-selecionado, navegação ◀ Hoje ▶ com deslize (sem animação com redução de
-movimento), painel com o vazio + nota de futuro, setas do teclado entre os
-dias · **viewport baixa** (~768px de altura — estoura?) · donut a 320px
-(mobile) · modal de senha inicial (agora via portal — manter e trocar
-senha) · dashboard do PROSPECTOR intacto · banner de erro (opcional: modo
-avião e reabrir o app).
+> O ciclo DSH desta revisão foi **consolidado em dois documentos canônicos**:
+> **`docs/Dashboard-Visao-Geral.md`** (funcionamento atual — fluxo, layout
+> desktop/mobile, disponibilidade por papel, rotas de API e regras) e
+> **`docs/Dashboard-Plano-de-Trabalho.md`** (backlog e próximas mudanças do
+> check-up do dashboard). As decisões DSH-D1–D6, achados e pendências deste
+> ciclo foram absorvidos por esses docs; o histórico completo permanece no Git
+> (bloco enxugado em 2026-07-12, decisão DSB-D1). Para tudo do dashboard,
+> consulte os dois documentos acima.
 
 ### Lotes — lista (LOT) — 📱 aguardando validação no device (S8, 2026-07-07)
 
@@ -917,9 +743,10 @@ parado atualiza em ≤60s); os 2 modais (data, reclassificar) com foco preso.
   INVALIDATED). Gates verdes (unit 357 / integração 401). Segue 📱.
 - **S6 (2026-07-07)** — Sessão de DECISÕES (sem código): card de **Eventos**
   da coluna direita desenhado com o Flavio em 3 rodadas de perguntas (12
-  respostas) → decisão **DSH-D6** + doc canônico novo
-  `docs/Eventos-Dashboard-Plano-de-Trabalho.md` (E1–E11, propostas de
-  design, fases F0/F1+, pendências EVD-P1–P4). Destaques: calendário de 2
+  respostas) → decisão **DSH-D6** + doc canônico novo (à época
+  `Eventos-Dashboard-Plano-de-Trabalho.md`, consolidado em 2026-07-12 nos
+  atuais `docs/Dashboard-Visao-Geral.md` + `docs/Dashboard-Plano-de-Trabalho.md`;
+  E1–E11, propostas de design, fases F0/F1+, pendências EVD-P1–P4). Destaques: calendário de 2
   semanas com painel fixo (formato escolhido em preview), card nascerá
   vazio antes das features de evento, catálogo de tipos 100% em aberto.
   DSH-P2 atualizada (conteúdo definido; falta implementar).

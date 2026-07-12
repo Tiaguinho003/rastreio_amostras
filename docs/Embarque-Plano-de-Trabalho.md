@@ -155,7 +155,7 @@ embarque se encaixa:
 ## Decisões travadas — Bloco 2: a apresentação no card (2026-07-09)
 
 Início do Bloco 2 (o embarque como evento no card de Eventos — será o **F3+** do
-`Eventos-Dashboard-Plano-de-Trabalho.md`). Primeiras decisões:
+`Dashboard-Visao-Geral.md`). Primeiras decisões:
 
 - **EMB7 — Visibilidade: todos os não-PROSPECTOR (como a aprovação, AP10).** O
   embarque é **tarefa operacional** — todos os papéis não-PROSPECTOR veem o evento,
@@ -433,7 +433,7 @@ Tamanho máx. atual = **12 MiB** por arquivo; leitura via **rota-proxy autentica
 - **EMB-P2 — ✅ RESOLVIDA (apresentação no card completa).** EMB7 visibilidade ·
   EMB8 janela · EMB9 status · EMB10 dot azul (agendado) · EMB11 rótulo · EMB12
   expandido + "Ver contrato" · **EMB17 realizado (azul-escuro `#1e40af`)**. Será o
-  **F3+** do `Eventos-Dashboard-Plano-de-Trabalho.md`.
+  **F3+** do `Dashboard-Visao-Geral.md`.
 - **EMB-P3 — ✅ RESOLVIDA / DERRUBADA (2026-07-10, EMB22).** O Modelo X removeu a data de
   embarque própria → **não há edição pós-faturamento** a fazer: o "dia previsto" é a
   `invoiceDate` (movida pelo próprio "Editar" em EMITIDO). Sem endpoint dedicado.

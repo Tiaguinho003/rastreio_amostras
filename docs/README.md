@@ -56,8 +56,8 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
    Uso: mapeamento read-only de quais paginas cada papel de usuario acessa e onde estao na navegacao (sidebar desktop, tabbar mobile, menu do avatar). Status: Ativo (referencia mantida para uso futuro). COMMERCIAL/CLASSIFIER/REGISTRATION/CADASTRO/ADMIN detalhados; PROSPECTOR resumido (app distinto, mapeamento detalhado adiado).
 10. `docs/Revisao-Geral-Plano-de-Trabalho.md`
     Uso: documento-mae da revisao geral do app, pagina por pagina e por papel — roteiro padrao (R1-R8) que orienta toda sessao de revisao, status por pagina, convencoes de achados/decisoes/pendencias e fases globais (varredura de codigo morto + organizacao de pastas). Status: Em andamento (F0).
-11. `docs/Eventos-Dashboard-Plano-de-Trabalho.md`
-    Uso: fonte canonica do card de Eventos (calendario) da coluna direita do dashboard desktop — decisoes E1-E27, propostas de design, fases e pendencias. Status: F0 + F1 (pagamentos de contrato) implementadas (2026-07-08, validar no device); F2+ (outros tipos de evento, ex. aprovacoes) em aberto.
+11. `docs/Dashboard-Visao-Geral.md` + `docs/Dashboard-Plano-de-Trabalho.md`
+    Uso: documentacao canonica do dashboard (par mae + plano). `Dashboard-Visao-Geral.md` = documento-mae do funcionamento atual (fluxo, layout desktop/mobile, disponibilidade por papel, cards, rotas de API, projecoes e regras). `Dashboard-Plano-de-Trabalho.md` = backlog, decisoes e execucao do check-up do dashboard. Substituem o antigo `Eventos-Dashboard-Plano-de-Trabalho.md` (absorvido e removido em 2026-07-12, decisao DSB-D1; historico no Git). Status: Visao Geral Ativo; Plano em andamento.
 12. `docs/Aprovacoes-Plano-de-Trabalho.md`
     Uso: reformulacao da feature de Aprovacao (etiqueta impressa auditada -> fluxo com papeis: quem cria o contrato sinaliza se precisa de aprovacao -> pendencia pro aprovador -> executa -> evento no dashboard F2). Estado atual da aprovacao = D107-D126 em Contratos-Plano-de-Trabalho.md. Status: Em decisao — Bloco 1 (o sinal) travado (AP1-AP5); Bloco 2 (apresentacao) pausado (Flavio repensando o funcionamento).
 13. `docs/Embarque-Plano-de-Trabalho.md`

@@ -5,7 +5,7 @@
 > **D107–D126** em `Contratos-Plano-de-Trabalho.md`) para um **fluxo com papéis**:
 > quem CRIA o contrato **sinaliza** se precisa de aprovação → vira **pendência**
 > para quem APROVA → **executa** (gera a etiqueta) → alimenta o **card de Eventos**
-> do dashboard (F2 de `Eventos-Dashboard-Plano-de-Trabalho.md`). **Bloco 1 (o
+> do dashboard (F2 de `Dashboard-Visao-Geral.md`). **Bloco 1 (o
 > sinal) travado (AP1–AP5)**; Blocos 2+ em aberto. Só decisão/registro — **sem
 > código**. **Revisa a D118/D119** (que deixaram a aprovação sem estado, de
 > propósito).
@@ -140,7 +140,7 @@ write-only.
   regra), ajustável na criação e no **Editar** (AP2). **Âncora = `invoiceDate`
   planejado** (campo já obrigatório na etapa 2 → o gatilho sempre existe).
   - **Vira evento no card de Eventos** (é um **tipo novo**, distinto dos pagamentos
-    da F1 — ver Eventos-Dashboard-Plano-de-Trabalho.md, F2/EVD-P1): aparece de
+    da F1 — ver Dashboard-Visao-Geral.md, F2/EVD-P1): aparece de
     **`invoiceDate − X` em diante, TODOS os dias** enquanto o contrato seguir
     `EMITIDO` **e** `requiresApproval` **e** **sem aprovação gerada**. **Dot = laranja
     `#f97316`** (2026-07-09; distinto do amarelo `#eab308` do pagamento agendado, E5;

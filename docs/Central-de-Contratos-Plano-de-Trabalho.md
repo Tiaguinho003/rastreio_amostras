@@ -21,7 +21,7 @@ Início: 2026-07-09
 Prefixo de decisão: **CC** (Central de Contratos).
 Documentos relacionados (que esta unificação toca):
 `Contratos-Plano-de-Trabalho.md`, `Aprovacoes-Plano-de-Trabalho.md`,
-`Embarque-Plano-de-Trabalho.md`, `Eventos-Dashboard-Plano-de-Trabalho.md`,
+`Embarque-Plano-de-Trabalho.md`, `Dashboard-Visao-Geral.md`,
 `Auditoria-Navegacao-por-Papel.md`, `README.md`.
 
 ---
@@ -337,7 +337,7 @@ aprovacoes|embarque`), coexistindo com `?details=`; (c) segmentos de rota
     donos da lógica; anotar que ganharão uma **aba** no hub (conteúdo TBD, F2+); o
     aviso do doc de Embarque sobre "revalidar após a mudança nas páginas" aponta
     para cá.
-  - `Eventos-Dashboard-Plano-de-Trabalho.md` = card de Eventos segue como está;
+  - `Dashboard-Visao-Geral.md` = card de Eventos segue como está;
     anotar a relação hub × card (a decidir em CC7).
   - `Auditoria-Navegacao-por-Papel.md` = **atualizar** (rota `/contratos` = hub;
     `/financeiro` redireciona; corrigir o ADMIN-only stale; refletir o item de nav

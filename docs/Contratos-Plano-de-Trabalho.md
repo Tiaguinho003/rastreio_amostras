@@ -2614,7 +2614,7 @@ futura). Análise 2 agentes (o card + a plumbing do dashboard) + plan mode (3 pe
   CADASTRO nenhum). **Sem deep link na v1.** Fonte = endpoint do dashboard **com actor** (molde
   `recent-sends`) consultando `SaleContract` por `paymentDate`/`paidAt` na janela; datas `@db.Date` casam
   com o `toDayKey` sem conversão de fuso; índice novo em `payment_date` na implementação. **Decisões
-  detalhadas (E21–E27) no doc canônico do card:** `docs/Eventos-Dashboard-Plano-de-Trabalho.md` (revisa a
+  detalhadas (E21–E27) no doc canônico do card:** `docs/Dashboard-Visao-Geral.md` (revisa a
   E8 do card — este tipo de evento é escopado por papel).
 - **2ª rodada (E25–E27, 2026-07-08 cont.):** o evento de pagamento no dashboard vira **expansível**
   (acordeão) — mostra `nº · comprador · vendedor · status` — e ganha um **atalho "Pago"** (só `FATURADO`,
@@ -2625,7 +2625,7 @@ futura). Análise 2 agentes (o card + a plumbing do dashboard) + plan mode (3 pe
 ### 2026-07-08 — Sessão 91 (D138 IMPLEMENTADA — pagamentos no card de Eventos, F1)
 
 Implementação ponta a ponta da D138/E21–E27 (plan mode aprovado). Doc canônico do card:
-`docs/Eventos-Dashboard-Plano-de-Trabalho.md` (F1 marcada implementada). **Sem push** (bateladas ainda
+`docs/Dashboard-Visao-Geral.md` (F1 marcada implementada). **Sem push** (bateladas ainda
 não deployadas).
 
 - **Backend.** Migration `20260708120000_dashboard_payment_events_index` — índices `[status, payment_date]`
