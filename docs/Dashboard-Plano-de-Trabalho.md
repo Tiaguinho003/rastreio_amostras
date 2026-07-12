@@ -26,9 +26,9 @@ Prefixo de decisão deste ciclo: **`DSB`** (Dashboard check-up). Achados: **`DSB
 
 O funcionamento atual está inteiramente descrito em **`Dashboard-Visao-Geral.md`**. Resumo do que existe hoje:
 
-- Dashboard padrão (5 papéis não-PROSPECTOR): desktop = donut + Últimos envios + card de Eventos; mobile = hero + donut. (Os cards de pendências saíram em **DSB-D2**.)
+- Dashboard padrão (5 papéis não-PROSPECTOR): desktop = top row (donut + Últimos envios lado a lado) + Eventos horizontal embaixo (**DSB-D3**); mobile = hero + donut. (Os cards de pendências saíram em **DSB-D2**.)
 - Dashboard do PROSPECTOR: dedicado (visitas/informes).
-- 6 rotas de API; card de Eventos com 3 feeds (pagamento/aprovação/embarque).
+- 6 rotas de API; card de Eventos com 3 feeds (pagamento/aprovação/embarque), agora em **1 semana com eventos na célula** (**DSB-D4**).
 - Página de Lotes (`/samples`): ganhou o card só-visualização "Classificação pendente" (**DSB-D2**).
 
 **Tudo isso está implementado mas ainda aguarda validação no device** — ver §4.
@@ -41,7 +41,7 @@ Itens que estavam abertos no `Eventos-Dashboard-Plano-de-Trabalho.md` (removido)
 
 ### Layout / design
 
-- **DSB-H1 (era DSH-P6 / EVD-P5)** — **Refino de layout do card de Eventos ADIADO.** Proporção grade × painel, altura dos quadrados e demais ajustes visuais ficaram para depois ("layout faremos depois"). → **Entra direto no escopo do check-up desktop.**
+- **DSB-H1 (era DSH-P6 / EVD-P5)** — ✅ **endereçado por DSB-D4:** o card de Eventos foi redesenhado (1 semana, células altas com os eventos dentro). O painel some, então a "proporção grade × painel" deixou de existir. Ajuste fino de altura/largura das células fica para a validação no device (achados DSB-L).
 - **DSB-H2 (era DSH-P5)** — Greys fora da paleta nos cards `dd-*` (`#72766f`, `#1a2e1f`, verde-up `#1f8540`). Dívida de token; trocar = mudança visual.
 - **DSB-H3** — ✅ **resolvido por DSB-D2**: a linha de StatCards de pendências saiu do dashboard; a coluna esquerda ficou só com a pilha donut + Últimos envios. Validar no device se o donut, agora com mais altura disponível, ficou bem.
 
@@ -90,7 +90,11 @@ O redesenho e os feeds foram implementados mas nunca foram confirmados no aparel
   - **Desvio consciente vs. plano:** o card de `/samples` é **page-native** (classe `.spv2-pending-stat`) em vez de reusar o `StatCard` do dashboard — evita acoplar `/samples` ao CSS desktop-only do dashboard e permitiu deletar o `StatCard`. Mesmo resultado visual.
   - Gates locais verdes (lint/format/typecheck/build/unit). 📱 **validar no device**.
 
-_(Próximas decisões a partir de DSB-D3.)_
+- **DSB-D3 (2026-07-12)** — **Rearranjo do layout do dashboard desktop:** "Lotes disponíveis" (donut) e "Últimos envios" passaram a ficar **lado a lado** numa top row; o card de **Eventos** desceu para **baixo dos dois**, ocupando a **largura toda** (virou horizontal). `.dd-content-grid` passou de 2 colunas para 2 linhas; `.dd-left-col`/`.dd-left-stack` → `.dd-top-row`. Só CSS + a árvore do `DashboardDesktop`.
+
+- **DSB-D4 (2026-07-12)** — **Redesenho do card de Eventos:** de 2 semanas → **1 semana (7 dias)**; cada dia virou um **quadrado alto** que mostra os **eventos dentro da própria célula** (chips coloridos por tipo, clicáveis → `/contratos`), **sem painel** de dia selecionado. Dias cheios **rolam por dentro** da célula (decisão do Flavio). Navegação ◀ Hoje ▶ **de 7 em 7** (mantida). "Hoje" com anel; **fins de semana deixam de ser apagados**. `lib/dashboard-calendar.ts`: quinzena→semana (`buildWeek`/`computeWeekStart`/`CALENDAR_WEEK_DAYS`); removidos `formatSelectedDayLabel`/`isWeekend` (órfãos). CSS `.dd-events-*` reescrito (grid 7×1, célula = container, `.dd-events-day-list` rolável, `.dd-events-chip`); painel/dots removidos. Backend e os 3 feeds **intactos** (só muda a janela: 7 dias). Gates verdes. 📱 validar.
+
+_(Próximas decisões a partir de DSB-D5.)_
 
 ---
 
@@ -104,3 +108,4 @@ _A definir com o Flavio ao iniciar as mudanças. Ordem-base: **desktop → mobil
 
 - **2026-07-12** — Início do check-up geral (Flavio). Documentação do dashboard consolidada nos dois arquivos (DSB-D1). Visão Geral reconstruída a partir do código real; backlog herdado absorvido dos docs antigos.
 - **2026-07-12** — **DSB-D2 implementada:** removidos os cards de pendências do dashboard (desktop + mobile); "Classificação pendente" migrou para `/samples` (só-visualização); "Cadastros pendentes" removido; `OperationModal`/`useOperationModal`/`StatCard` deletados; backend intacto. Docs (Visão Geral, API-e-Contratos, Auditoria-Navegação, Classificação-Plano, Liga-Plano) e skills (design-system, modals, feedback-messages) atualizados no mesmo ciclo. 📱 aguardando validação no device.
+- **2026-07-12** — **DSB-D3 + DSB-D4 implementadas:** rearranjo do layout desktop (donut + Últimos envios lado a lado; Eventos horizontal embaixo) e redesenho do card de Eventos (1 semana, eventos dentro da célula com scroll, sem painel, navegação semanal). `lib/dashboard-calendar.ts` de quinzena→semana; CSS `.dd-events-*` reescrito. Docs (Visão Geral §4/§7.3) e skill `design-system` atualizados; DSB-H1 endereçado. Backend intacto. 📱 aguardando validação no device.

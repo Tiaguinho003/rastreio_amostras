@@ -86,24 +86,23 @@ Regras que geram a matriz:
 
 ## 4. Layout desktop (`components/dashboard/DashboardDesktop.tsx`)
 
-Grid de duas colunas (`.dd-content-grid`):
+Grid de duas **linhas** (`.dd-content-grid`) desde 2026-07-12 (DSB-D3):
 
 ```
-┌─ .dd-left-col / .dd-left-stack ───────┬─ coluna direita ──────────┐
-│   ┌───────────────────────────────┐   │   ┌───────────────────┐   │
-│   │  Donut "Lotes disponíveis"    │   │   │                   │   │
-│   └───────────────────────────────┘   │   │     EVENTOS       │   │
-│   ┌───────────────────────────────┐   │   │   (calendário     │   │
-│   │  "Últimos envios" (scroll      │   │   │    de 2 semanas)  │   │
-│   │   interno)                    │   │   │   altura total    │   │
-│   └───────────────────────────────┘   │   └───────────────────┘   │
-└───────────────────────────────────────┴───────────────────────────┘
+┌─ .dd-top-row (2 colunas) ─────────────────────────────────────────┐
+│   ┌──────────────────────────┐   ┌──────────────────────────────┐  │
+│   │ Donut "Lotes disponíveis" │   │ "Últimos envios" (scroll int.) │ │
+│   └──────────────────────────┘   └──────────────────────────────┘  │
+├───────────────────────────────────────────────────────────────────┤
+│           EVENTOS (horizontal, largura total, mais alto)           │
+│           semana atual (7 dias) com eventos dentro das células     │
+└───────────────────────────────────────────────────────────────────┘
 ```
 
-- **Coluna esquerda (`.dd-left-col` → `.dd-left-stack`):** pilha donut/Últimos envios (rows 1fr/1fr preenchendo a viewport; a lista de envios rola por dentro — o shell do dashboard não rola).
-- **Coluna direita:** o card **Eventos** ocupa a altura inteira da coluna.
+- **Top row (`.dd-top-row`, 2 colunas):** "Lotes disponíveis" (donut) e "Últimos envios" **lado a lado** (a lista de envios rola por dentro — o shell do dashboard não rola).
+- **Embaixo:** o card **Eventos** ocupa a **largura toda** (horizontal), com altura maior que a top row.
 - Banner de erro (`.dashboard-error-banner`, `role="status"`) no topo quando o fetch do donut falha.
-- Desde 2026-07-12 (DSB-D2) a linha de StatCards de pendências (`.dd-summary-row`) **não existe mais** aqui.
+- Histórico: a linha de StatCards de pendências (`.dd-summary-row`) saiu em DSB-D2 (2026-07-12); o arranjo em duas colunas (donut empilhado sobre envios + Eventos vertical à direita) foi trocado por este em DSB-D3.
 
 ---
 
@@ -158,8 +157,8 @@ App restrito (tabbar só com Início + Perfil). Reusa as classes visuais do dash
 
 ### 7.3 Eventos (`EventsCalendarCard`) — desktop-only
 
-- **Layout:** calendário de **2 semanas domingo-first**, navegação ◀ ▶ de 14 em 14 dias + botão "Hoje", quadrados com número + até 3 dots coloridos por tipo (`+N` acima disso), painel fixo embaixo com os eventos do dia selecionado. Hoje destacado e selecionado por default. Só visualização. Navegação por teclado (roving tabindex, setas). Datas em BRT (helpers em `lib/dashboard-calendar.ts`).
-- **3 feeds mesclados client-side** no `DashboardDesktop` (a janela visível é emitida pelo card via `onWindowChange` → o pai busca a quinzena):
+- **Layout (DSB-D4):** card **horizontal**; calendário de **1 semana (7 dias) domingo-first**, navegação ◀ ▶ de 7 em 7 dias + botão "Hoje". Cada dia é um **quadrado alto** que mostra os **eventos dentro da própria célula** (chips coloridos por tipo, rótulo truncado); dias com muitos eventos **rolam por dentro** da célula. **Não há painel** de dia selecionado — os eventos ficam à vista sem clicar. "Hoje" destacado com anel; fins de semana legíveis (sem apagar). Datas em BRT (helpers em `lib/dashboard-calendar.ts`).
+- **3 feeds mesclados client-side** no `DashboardDesktop` (a janela visível é emitida pelo card via `onWindowChange` → o pai busca a **semana**):
 
   | Feed      | typeKey                                                                       | Visibilidade                  | Fonte                        |
   | --------- | ----------------------------------------------------------------------------- | ----------------------------- | ---------------------------- |
@@ -167,7 +166,7 @@ App restrito (tabbar só com Início + Perfil). Reusa as classes visuais do dash
   | Aprovação | `contract_approval_due`                                                       | Todos os não-PROSPECTOR       | `getDashboardApprovalEvents` |
   | Embarque  | `contract_shipment` / `contract_shipment_done` / `contract_shipment_overdue`  | Todos os não-PROSPECTOR       | `getDashboardShipmentEvents` |
 
-- **Navegação pura (sem ação no card):** todo evento é um link para a sub-aba dona em `/contratos` — pagamento → `?tab=financeiro`, embarque → `?tab=embarque`, aprovação → `?tab=aprovacoes` (com `&highlight=<contractId>` quando há contrato). A **ação** (pagar/confirmar/gerar) mora na casa de cada um, não no dashboard.
+- **Navegação pura (sem ação no card):** cada **chip** de evento (dentro da célula do dia) é um link para a sub-aba dona em `/contratos` — pagamento → `?tab=financeiro`, embarque → `?tab=embarque`, aprovação → `?tab=aprovacoes` (com `&highlight=<contractId>` quando há contrato). A **ação** (pagar/confirmar/gerar) mora na casa de cada um, não no dashboard.
 - **Refetch dos 3 feeds:** em foco/visibilidade (sem throttle) e quando a janela do card muda.
 
 ---

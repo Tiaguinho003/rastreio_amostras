@@ -24532,33 +24532,26 @@ select.samples-filter-field-input {
      2026-07-12 (DSB-D2 — "Classificacao pendente" migrou pra /samples,
      "Cadastros pendentes" foi removido). O shell-lock de 100vh continua; as
      listas rolam por dentro. */
+  /* Grid principal (DSB-D3): duas LINHAS — top row (donut + Ultimos envios
+     lado a lado) em cima, card de Eventos HORIZONTAL ocupando a largura toda
+     embaixo. O shell-lock de 100vh continua; as listas rolam por dentro. */
   .dd-content-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: clamp(0.75rem, 1.4vw, 1.25rem);
+    grid-template-rows: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    gap: clamp(1rem, 1.6vw, 1.5rem);
     flex: 1 1 auto;
     min-height: 0;
   }
 
-  .dd-left-col {
-    grid-column: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    /* Mesmo respiro que o .dashboard-page dava entre as linhas 1 e 2. */
-    gap: clamp(1rem, 1.6vw, 1.5rem);
-  }
-
-  .dd-left-stack {
-    flex: 1;
+  .dd-top-row {
     min-height: 0;
     display: grid;
-    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: 1fr 1fr;
     gap: clamp(0.75rem, 1.4vw, 1.25rem);
     animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.2s backwards;
   }
 
-  .dd-left-stack > .sales-card {
+  .dd-top-row > .sales-card {
     min-height: 0;
     box-shadow: var(--dd-card-shadow);
   }
@@ -24703,7 +24696,6 @@ select.samples-filter-field-input {
      (~60%, E14). Shell no molde dos cards da linha 2. ── */
 
   .dd-events-card {
-    grid-column: 2;
     min-height: 0;
     display: flex;
     flex-direction: column;
@@ -24820,17 +24812,15 @@ select.samples-filter-field-input {
     color: #4d5c52;
   }
 
-  /* Fins de semana APAGADOS (E16) — cabecalho e quadrados. */
-  .dd-events-weekdays span.is-weekend {
-    opacity: 0.45;
-  }
-
+  /* DSB-D4: uma SEMANA (7 células numa linha), altas, preenchendo a altura do
+     card (Eventos agora é horizontal). */
   .dd-events-grid {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
-    grid-template-rows: repeat(2, minmax(clamp(46px, 4.2vw, 60px), 1fr));
-    gap: clamp(0.25rem, 0.45vw, 0.4rem);
-    flex: none;
+    grid-template-rows: 1fr;
+    gap: clamp(0.3rem, 0.5vw, 0.5rem);
+    flex: 1;
+    min-height: 0;
   }
 
   /* Deslize horizontal na navegacao (E18); reduced-motion desliga (bloco
@@ -24843,47 +24833,28 @@ select.samples-filter-field-input {
     animation: dd-events-slide-left 0.2s ease-out;
   }
 
+  /* DSB-D4: célula = CONTAINER (não mais botão selecionável) — número no topo
+     + lista de eventos rolável embaixo. */
   .dd-events-day {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    justify-content: space-between;
     min-height: 0;
-    padding: clamp(0.3rem, 0.55vw, 0.45rem) clamp(0.35rem, 0.6vw, 0.5rem);
+    gap: clamp(0.25rem, 0.5vw, 0.4rem);
+    padding: clamp(0.35rem, 0.6vw, 0.55rem);
     border: 1px solid rgba(112, 130, 103, 0.18);
     border-radius: clamp(10px, 0.85vw, 12px);
     background: #fbfcfb;
     color: #1a2e1f;
-    -webkit-tap-highlight-color: transparent;
-    transition: transform 140ms ease;
-    cursor: pointer;
   }
 
-  .dd-events-day:active {
-    transform: scale(0.96);
-  }
-
-  @media (hover: hover) {
-    .dd-events-day:hover {
-      transform: translateY(-1px);
-    }
-  }
-
-  .dd-events-day.is-weekend {
-    opacity: 0.45;
-  }
-
-  /* HOJE: anel verde da marca (E10) — some sob o preenchido de selecao. */
+  /* HOJE: anel verde da marca (E10). */
   .dd-events-day.is-today {
     box-shadow: inset 0 0 0 2px var(--brand-green, #1f5d43);
-  }
-
-  .dd-events-day.is-selected {
-    background: #e8f1ec;
-    border-color: rgba(31, 93, 67, 0.35);
+    background: #f2f8f4;
   }
 
   .dd-events-day-number {
+    flex: none;
     display: inline-flex;
     align-items: baseline;
     gap: 0.25rem;
@@ -24899,153 +24870,71 @@ select.samples-filter-field-input {
     color: #71786d;
   }
 
-  /* Dots por tipo (E5/E13) — cor por tipo entra com o catalogo (EVD-P1);
-     na F0 nao ha eventos, o fallback e o verde da marca. */
-  .dd-events-day-dots {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-  }
-
-  .dd-events-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--brand-green, #1f5d43);
-  }
-  /* F1 (E21/EVD-P1): cores dos dots por tipo — agendado âmbar (= Emitido),
-     realizado verde (= Pago); coerente com os selos de status do contrato. */
-  .dd-events-dot[data-type='contract_payment_due'] {
-    background: #eab308;
-  }
-  .dd-events-dot[data-type='contract_payment_paid'] {
-    background: #15803d;
-  }
-  /* Revisao do Pagamento (E29/EVD-P1): pagamento VENCIDO — vermelho (convencao
-     "atrasado" cross-type com o embarque; passou do paymentDate sem pagar). */
-  .dd-events-dot[data-type='contract_payment_overdue'] {
-    background: #dc2626;
-  }
-  /* F2 (reforma AP15/EVD-P1): lembrete de aprovacao — laranja (distinto do amarelo
-     do pagamento agendado; laranja != vermelho -> sem falso "atrasado"). */
-  .dd-events-dot[data-type='contract_approval_due'] {
-    background: #f97316;
-  }
-  /* F4 (EMB10/EMB17/EMB24): embarque — azul agendado, azul-escuro realizado, vermelho
-     se o dia previsto passar sem embarcar (mesma convencao "atrasado" do pagamento). */
-  .dd-events-dot[data-type='contract_shipment'] {
-    background: #2563eb;
-  }
-  .dd-events-dot[data-type='contract_shipment_done'] {
-    background: #1e40af;
-  }
-  .dd-events-dot[data-type='contract_shipment_overdue'] {
-    background: #dc2626;
-  }
-
-  .dd-events-dot-more {
-    font-size: 0.6rem;
-    font-weight: 700;
-    color: #71786d;
-    line-height: 1;
-  }
-
-  /* Painel do dia (E4/E14) — protagonista, scroll interno. */
-  .dd-events-panel {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    gap: clamp(0.4rem, 0.7vw, 0.55rem);
-    border-top: 1px solid rgba(112, 130, 103, 0.14);
-    padding-top: clamp(0.5rem, 0.8vw, 0.65rem);
-  }
-
-  .dd-events-panel-title {
-    margin: 0;
-    flex: none;
-    font-size: clamp(0.8rem, 0.88vw, 0.9rem);
-    font-weight: 700;
-    color: #1a2e1f;
-  }
-
-  .dd-events-panel-list {
-    margin: 0;
-    padding: 0;
-    list-style: none;
+  /* Lista de eventos DENTRO da célula (DSB-D4) — rola POR DENTRO quando o dia
+     tem mais eventos do que cabem na altura da célula. */
+  .dd-events-day-list {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    display: grid;
-    gap: clamp(0.35rem, 0.6vw, 0.5rem);
-    align-content: start;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(0.2rem, 0.4vw, 0.3rem);
   }
 
-  /* AP29/E28: item do painel = navegação pura (Link → a sub-aba dona do evento). */
-  .dd-events-panel-item {
-    border: 1px solid rgba(112, 130, 103, 0.18);
-    border-radius: 10px;
-    background: #fff;
-    overflow: hidden;
-  }
-  .dd-events-item-label {
-    font-size: clamp(0.78rem, 0.86vw, 0.86rem);
+  /* Chip de evento: cor por tipo (borda-esquerda) + rótulo truncado. É um Link
+     (navegação pura → /contratos) ou span (tipo desconhecido). */
+  .dd-events-chip {
+    display: block;
+    padding: clamp(0.2rem, 0.4vw, 0.32rem) clamp(0.3rem, 0.55vw, 0.45rem);
+    border-radius: 7px;
+    border-left: 3px solid var(--chip-color, var(--brand-green, #1f5d43));
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+    font-size: clamp(0.66rem, 0.74vw, 0.74rem);
     font-weight: 600;
+    line-height: 1.2;
     color: #1a2e1f;
+    text-decoration: none;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-  /* O item é um Link (nav pura); a seta ">" (.dd-events-item-go) fica à direita. */
-  .dd-events-item-link {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    padding: clamp(0.4rem, 0.7vw, 0.55rem) clamp(0.55rem, 0.9vw, 0.7rem);
-    text-decoration: none;
     -webkit-tap-highlight-color: transparent;
-    transition: transform 0.15s;
-  }
-  .dd-events-item-link:active {
-    transform: scale(0.99);
-  }
-  .dd-events-item-go {
-    flex: 0 0 auto;
-    width: 15px;
-    height: 15px;
-    fill: none;
-    stroke: #71786d;
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
+    transition: transform 0.15s ease;
   }
 
-  /* Vazio da F0 (E19): mensagem + nota de futuro. */
-  .dd-events-empty {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.35rem;
-    padding: 0 clamp(0.8rem, 1.4vw, 1.2rem);
-    text-align: center;
+  a.dd-events-chip:active {
+    transform: scale(0.98);
   }
 
-  .dd-events-empty-main {
-    margin: 0;
-    font-size: clamp(0.8rem, 0.9vw, 0.9rem);
-    font-weight: 600;
-    color: #71786d;
+  @media (hover: hover) {
+    a.dd-events-chip:hover {
+      background: #f5f8f6;
+    }
   }
 
-  .dd-events-empty-note {
-    margin: 0;
-    font-size: clamp(0.72rem, 0.8vw, 0.8rem);
-    color: #71786d;
+  /* Cores por tipo (mesmo catálogo dos antigos dots): pagamento agendado âmbar /
+     pago verde / vencido vermelho; aprovação laranja; embarque azul / azul-escuro
+     / atrasado vermelho. */
+  .dd-events-chip[data-type='contract_payment_due'] {
+    --chip-color: #eab308;
+  }
+  .dd-events-chip[data-type='contract_payment_paid'] {
+    --chip-color: #15803d;
+  }
+  .dd-events-chip[data-type='contract_payment_overdue'] {
+    --chip-color: #dc2626;
+  }
+  .dd-events-chip[data-type='contract_approval_due'] {
+    --chip-color: #f97316;
+  }
+  .dd-events-chip[data-type='contract_shipment'] {
+    --chip-color: #2563eb;
+  }
+  .dd-events-chip[data-type='contract_shipment_done'] {
+    --chip-color: #1e40af;
+  }
+  .dd-events-chip[data-type='contract_shipment_overdue'] {
+    --chip-color: #dc2626;
   }
 
   /* "Lotes disponiveis" compacto: legenda ao lado do donut + botao "Ver
@@ -33789,7 +33678,7 @@ body.is-selection-mode .ctr-page .cc-tabs {
   .dashboard-mobile .dashboard-sheet,
   .dashboard-operations-grid .dashboard-operation-card:nth-child(n),
   .sales-card,
-  .dd-left-stack,
+  .dd-top-row,
   .dd-events-card,
   .dashboard-operation-badge,
   .dashboard-mobile .dashboard-operation-card.is-wide .dashboard-operation-badge,

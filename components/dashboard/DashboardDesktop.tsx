@@ -174,18 +174,17 @@ export function DashboardDesktop({ session, salesData, error }: DashboardDesktop
           </p>
         ) : null}
 
-        {/* Layout: coluna ESQUERDA = pilha donut/Ultimos envios; coluna
-            DIREITA inteira = card de Eventos, do topo ate a base. */}
+        {/* Layout (DSB-D3): TOP ROW = "Lotes disponiveis" (donut) + "Ultimos
+            envios" lado a lado; EMBAIXO = card de Eventos HORIZONTAL ocupando
+            a largura toda. */}
         <div className="dd-content-grid">
-          <div className="dd-left-col">
-            <div className="dd-left-stack">
-              {salesData ? (
-                <SalesAvailabilityCard data={salesData} compact />
-              ) : (
-                <div className="sales-card sales-card-skeleton" aria-hidden="true" />
-              )}
-              <RecentSendsCard items={recentSends ? recentSends.items : null} />
-            </div>
+          <div className="dd-top-row">
+            {salesData ? (
+              <SalesAvailabilityCard data={salesData} compact />
+            ) : (
+              <div className="sales-card sales-card-skeleton" aria-hidden="true" />
+            )}
+            <RecentSendsCard items={recentSends ? recentSends.items : null} />
           </div>
           <EventsCalendarCard events={calendarEvents} onWindowChange={handleWindowChange} />
         </div>

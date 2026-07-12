@@ -1,5 +1,5 @@
-// Helpers do card de Eventos do dashboard desktop (calendário de 2 semanas —
-// docs/Eventos-Dashboard-Plano-de-Trabalho.md).
+// Helpers do card de Eventos do dashboard desktop (calendário de 1 semana —
+// docs/Dashboard-Visao-Geral.md).
 //
 // Matemática date-only em BRT no estilo de lib/weekly-report.ts (âncora
 // meia-noite UTC), mas com a semana começando no DOMINGO (decisão E12 do
@@ -51,7 +51,7 @@ const WEEKDAY_LONG = [
 /** Cabeçalho da grade, domingo-first (E12). */
 export const CALENDAR_WEEKDAY_INITIALS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 
-export const CALENDAR_FORTNIGHT_DAYS = 14;
+export const CALENDAR_WEEK_DAYS = 7;
 
 /** Dia BRT de "agora" como date-only (meia-noite UTC). */
 export function getBrtToday(now: Date = new Date()): Date {
@@ -59,8 +59,8 @@ export function getBrtToday(now: Date = new Date()): Date {
   return new Date(Date.UTC(brtNow.getUTCFullYear(), brtNow.getUTCMonth(), brtNow.getUTCDate()));
 }
 
-/** Domingo da semana do dia dado (date-only) — início do "par" atual (E2/E12). */
-export function computeFortnightStart(day: Date): Date {
+/** Domingo da semana do dia dado (date-only) — início da semana exibida (E12). */
+export function computeWeekStart(day: Date): Date {
   return addDays(day, -day.getUTCDay());
 }
 
@@ -76,18 +76,18 @@ export function toDayKey(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-/** Os 14 dias exibidos a partir do domingo inicial (2 semanas, E2). */
-export function buildFortnight(start: Date): Date[] {
-  return Array.from({ length: CALENDAR_FORTNIGHT_DAYS }, (_, i) => addDays(start, i));
+/** Os 7 dias exibidos a partir do domingo inicial (1 semana). */
+export function buildWeek(start: Date): Date[] {
+  return Array.from({ length: CALENDAR_WEEK_DAYS }, (_, i) => addDays(start, i));
 }
 
 /**
- * Rótulo do período (E15): "7 – 20 de julho" no mesmo mês;
- * "28 de jul – 10 de ago" cruzando mês; ano acrescentado quando o período
+ * Rótulo do período (E15): "6 – 12 de julho" no mesmo mês;
+ * "28 de jun – 4 de jul" cruzando mês; ano acrescentado quando o período
  * não é do ano corrente (ou cruza a virada).
  */
 export function formatPeriodLabel(start: Date, now: Date = new Date()): string {
-  const end = addDays(start, CALENDAR_FORTNIGHT_DAYS - 1);
+  const end = addDays(start, CALENDAR_WEEK_DAYS - 1);
   const currentYear = getBrtToday(now).getUTCFullYear();
   const sameYearAsNow =
     start.getUTCFullYear() === currentYear && end.getUTCFullYear() === currentYear;
@@ -111,11 +111,6 @@ export function formatPeriodLabel(start: Date, now: Date = new Date()): string {
   return `${startLabel} de ${start.getUTCFullYear()} – ${endLabel} de ${end.getUTCFullYear()}`;
 }
 
-/** Header do painel do dia: "9 de julho — quinta-feira". */
-export function formatSelectedDayLabel(date: Date): string {
-  return `${date.getUTCDate()} de ${MONTH_LONG[date.getUTCMonth()]} — ${WEEKDAY_LONG[date.getUTCDay()]}`;
-}
-
 /** aria-label do quadrado: "9 de julho, quinta-feira". */
 export function formatDayAriaLabel(date: Date): string {
   return `${date.getUTCDate()} de ${MONTH_LONG[date.getUTCMonth()]}, ${WEEKDAY_LONG[date.getUTCDay()]}`;
@@ -124,9 +119,4 @@ export function formatDayAriaLabel(date: Date): string {
 /** Rótulo curto do mês pro 1º dia do mês na grade ("1 ago"). */
 export function formatMonthShort(date: Date): string {
   return MONTH_SHORT[date.getUTCMonth()];
-}
-
-export function isWeekend(date: Date): boolean {
-  const weekday = date.getUTCDay();
-  return weekday === 0 || weekday === 6;
 }
