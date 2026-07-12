@@ -28,14 +28,13 @@ interface EventsCalendarCardProps {
   onWindowChange?: (from: string, to: string) => void;
 }
 
-// AP29/EMB26/E28: TODO evento do feed é NAVEGAÇÃO PURA → a sub-aba dona (pagamento →
-// Financeiro, embarque → Embarque, aprovação → Aprovações). O card não gera/registra
-// nada — a ação (pagar/confirmar/gerar) mora na casa de cada um. null = tipo
-// desconhecido (fallback só-rótulo, sem link).
+// EMB26/E28: TODO evento do feed é NAVEGAÇÃO PURA → a sub-aba dona (pagamento →
+// Financeiro, embarque → Embarque). O card não gera/registra nada — a ação
+// (pagar/confirmar) mora na casa de cada um. null = tipo desconhecido (fallback
+// só-rótulo, sem link).
 function navTabForEvent(typeKey: string): string | null {
   if (typeKey.startsWith('contract_payment_')) return 'financeiro';
   if (typeKey.startsWith('contract_shipment')) return 'embarque';
-  if (typeKey === 'contract_approval_due') return 'aprovacoes';
   return null;
 }
 

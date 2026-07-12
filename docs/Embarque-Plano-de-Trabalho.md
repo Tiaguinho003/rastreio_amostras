@@ -28,7 +28,10 @@
 O café vendido num contrato precisa, em muitos casos, ser **embarcado** (carregado
 no caminhão) para sair. O Flavio quer transformar esse embarque num **evento
 rastreável**, apresentado no card de Eventos do dashboard — a exemplo dos
-pagamentos (F1) e do lembrete de aprovação (F2).
+pagamentos (F1) e do lembrete de aprovação (F2). _(Nota: o **lembrete de aprovação
+foi removido** do card de Eventos em **DSB-D9, 2026-07-12** — data imprecisa; as
+comparações "vs. aprovação" abaixo ficam como registro histórico. Embarque e pagamento
+seguem no calendário.)_
 
 O ponto de partida (fala do Flavio, 2026-07-09):
 

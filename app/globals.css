@@ -24970,9 +24970,6 @@ select.samples-filter-field-input {
   .dd-events-chip[data-type='contract_payment_overdue'] {
     --chip-color: #dc2626;
   }
-  .dd-events-chip[data-type='contract_approval_due'] {
-    --chip-color: #f97316;
-  }
   .dd-events-chip[data-type='contract_shipment'] {
     --chip-color: #2563eb;
   }

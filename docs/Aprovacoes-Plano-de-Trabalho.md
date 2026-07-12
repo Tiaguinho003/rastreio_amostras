@@ -1,5 +1,17 @@
 # Aprovações — Plano de Trabalho (reformulação)
 
+> **⚠️ ATUALIZAÇÃO (DSB-D9, 2026-07-12) — o lembrete de aprovação foi REMOVIDO do
+> dashboard.** A **Fase 2** descrita abaixo (o lembrete "a enviar" no card de Eventos,
+> `getDashboardApprovalEvents`/`bucketApprovalReminders`, `typeKey contract_approval_due`,
+> fan-out por intervalo, AP6/AP7/AP10/AP15) foi **desfeita ponta a ponta**: a data em
+> que a aprovação deve ser enviada **não é exata**, e o fan-out repetia o mesmo contrato
+> em vários dias — informação imprecisa. **O que PERMANECE:** o **sinal** no contrato
+> (`requiresApproval` + `approvalReminderLeadDays`, Fase 1/AP1–AP5) — a **worklist da aba
+> Aprovações** (o "portão", AP17–AP30) usa `requiresApproval`; e o card **"Aprovações
+> enviadas"** (AP16). Só o **lembrete no calendário** saiu. `approvalReminderLeadDays`
+> segue no schema mas **sem consumidor** (não alimenta mais nenhum lembrete). As seções
+> de Fase 2 abaixo ficam como registro histórico do que existiu.
+>
 > **Status: EM DECISÃO (iniciado 2026-07-08).** Reformulação da feature de
 > Aprovação: sair de _"etiqueta impressa auditada, ad-hoc, sem estado"_ (Fase I,
 > **D107–D126** em `Contratos-Plano-de-Trabalho.md`) para um **fluxo com papéis**:

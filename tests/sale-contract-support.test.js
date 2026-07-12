@@ -8,12 +8,10 @@ import {
   buildApprovalPrefill,
   brtTodayDateOnly,
   brtTodayKey,
-  buildApprovalReminderEvent,
   buildContractTimeline,
   buildRecentApprovalSendItem,
   buildPaymentEvent,
   buildReceivableView,
-  bucketApprovalReminders,
   bucketPaymentEvents,
   bucketShipmentEvents,
   buildSaleContractDraftFromSale,
@@ -764,71 +762,6 @@ test('bucketPaymentEvents (D138): agrupa por dayKey (agendado no paymentDate + r
   assert.equal(map['2026-07-10'][0].typeKey, 'contract_payment_due');
   assert.equal(map['2026-07-10'][1].label, '2/26'); // sem comprador -> so o numero
   assert.equal(map['2026-07-13'][0].typeKey, 'contract_payment_paid'); // realizado no paidAt
-});
-
-test('buildApprovalReminderEvent (F2): id namespaced + label "a enviar · nº · comprador"', () => {
-  const ev = buildApprovalReminderEvent({
-    id: 'c1',
-    contractNumber: '0007/26',
-    buyerSnapshot: { displayName: 'Comprador X' },
-    sellerSnapshot: { displayName: 'Vendedor Y' },
-  });
-  assert.equal(ev.id, 'reminder:c1'); // namespaced -> nao colide com o pagamento (id=contractId)
-  assert.equal(ev.contractId, 'c1');
-  assert.equal(ev.typeKey, 'contract_approval_due');
-  assert.equal(ev.label, 'a enviar · 0007/26 · Comprador X');
-  assert.equal(ev.sellerName, 'Vendedor Y');
-  assert.equal(ev.status, 'EMITIDO');
-  const semComprador = buildApprovalReminderEvent({
-    id: 'c2',
-    contractNumber: '0008/26',
-    buyerSnapshot: null,
-    sellerSnapshot: null,
-  });
-  assert.equal(semComprador.label, 'a enviar · 0008/26');
-});
-
-test('bucketApprovalReminders (F2): fan-out de hoje pra frente, a partir de invoiceDate−lead', () => {
-  const row = (id, invoiceDate, lead) => ({
-    id,
-    contractNumber: id,
-    invoiceDate: new Date(`${invoiceDate}T00:00:00.000Z`),
-    approvalReminderLeadDays: lead,
-    buyerSnapshot: { displayName: 'B' },
-    sellerSnapshot: null,
-  });
-  const byDay = bucketApprovalReminders(
-    [
-      row('A', '2026-08-01', 30), // reminderStart 2026-07-02 (passado) -> clampa em hoje
-      row('B', '2026-07-25', 5), // reminderStart 2026-07-20 -> depois da janela -> some
-    ],
-    { fromKey: '2026-07-05', toKey: '2026-07-18', todayKey: '2026-07-09' }
-  );
-  assert.equal(byDay['2026-07-08'], undefined); // nao pinta antes de hoje
-  assert.equal(byDay['2026-07-09'][0].id, 'reminder:A'); // comeca em hoje
-  assert.equal(byDay['2026-07-18'][0].id, 'reminder:A'); // ate o fim da janela
-  assert.equal(byDay['2026-07-19'], undefined);
-  const diasA = Object.values(byDay).filter((evs) => evs.some((e) => e.id === 'reminder:A')).length;
-  assert.equal(diasA, 10); // 09..18 inclusive
-  const temB = Object.values(byDay).some((evs) => evs.some((e) => e.id === 'reminder:B'));
-  assert.equal(temB, false); // lembrete de B ainda nao comecou nesta janela
-});
-
-test('bucketApprovalReminders (F2): janela no passado (hoje > to) nao pinta nada', () => {
-  const byDay = bucketApprovalReminders(
-    [
-      {
-        id: 'A',
-        contractNumber: 'A',
-        invoiceDate: new Date('2026-06-20T00:00:00.000Z'),
-        approvalReminderLeadDays: 30,
-        buyerSnapshot: null,
-        sellerSnapshot: null,
-      },
-    ],
-    { fromKey: '2026-06-01', toKey: '2026-06-14', todayKey: '2026-07-09' }
-  );
-  assert.deepEqual(byDay, {});
 });
 
 test('buildRecentApprovalSendItem (AP16): id namespaced, kind APPROVAL, nº+comprador, amostra nula', () => {

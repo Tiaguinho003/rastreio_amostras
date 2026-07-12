@@ -1237,14 +1237,6 @@ export interface DashboardPaymentEventsResponse {
   events: Record<string, DashboardCalendarEvent[]>;
 }
 
-// F2 (reforma AP6/AP7): feed do "lembrete de aprovação" do card de Eventos. Mesmo
-// formato do de pagamentos (o `DashboardCalendarEvent` é genérico por `typeKey`); o
-// evento de lembrete usa `typeKey='contract_approval_due'` e `id` namespaced
-// ('reminder:'+contractId), com `contractId` separado para o atalho "Gerar aprovação".
-export interface DashboardApprovalEventsResponse {
-  events: Record<string, DashboardCalendarEvent[]>;
-}
-
 // Embarque (EMB10/EMB17/EMB26): feed de eventos de embarque do card de Eventos. Mesmo
 // formato (o `DashboardCalendarEvent` é genérico por `typeKey`); usa `contract_shipment`
 // (azul), `contract_shipment_overdue` (vermelho) e `contract_shipment_done` (azul-escuro),
