@@ -37,7 +37,7 @@
     "test": "npm run validate:schemas && npm run test:contracts && npm run test:unit"
   },
   "dependencies": {
-    "@prisma/client": "^6.19.3",
+    "@prisma/client": "^7.8.0",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "bcryptjs": "^3.0.3",
