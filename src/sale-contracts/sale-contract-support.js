@@ -253,18 +253,17 @@ export const RECEIVABLE_VIEW_SELECT = Object.freeze({
   buyerBrokerageValue: true,
 });
 
-// F1 (E24/D138): select ENXUTO do feed de "pagamentos de contrato" do card de
-// Eventos — id/version/status (p/ o atalho "Pago"), numero, as 2 datas de pagamento
-// e os snapshots das partes (comprador/vendedor, p/ os nomes no acordeao E25).
+// F1 (E24/D138): select ENXUTO do feed de "pagamentos de contrato" do card de Eventos
+// — id/status, numero, as 2 datas (paymentDate/paidAt) e o snapshot do COMPRADOR (nome
+// no chip). O `version` e o `sellerSnapshot` (blob JSON) alimentavam o atalho "Pago"/
+// acordeao E25, removidos por E28 (navegação pura) → saíram do select (check-up).
 export const PAYMENT_EVENT_SELECT = Object.freeze({
   id: true,
-  version: true,
   status: true,
   contractNumber: true,
   paymentDate: true,
   paidAt: true,
   buyerSnapshot: true,
-  sellerSnapshot: true,
 });
 
 export const SALE_CONTRACT_VIEW_SELECT = Object.freeze({
@@ -752,7 +751,6 @@ export function buildPaymentEvent(row, kind, todayKey) {
   const iso = toIsoString(kind === 'paid' ? row.paidAt : row.paymentDate);
   const dayKey = iso ? iso.slice(0, 10) : null;
   const buyerName = row.buyerSnapshot?.displayName ?? null;
-  const sellerName = row.sellerSnapshot?.displayName ?? null;
   let typeKey;
   let state;
   if (kind === 'paid') {
@@ -780,9 +778,7 @@ export function buildPaymentEvent(row, kind, todayKey) {
         : `pagamento · ${row.contractNumber}`,
       contractNumber: row.contractNumber,
       buyerName,
-      sellerName,
       status: row.status,
-      version: row.version,
     },
   };
 }

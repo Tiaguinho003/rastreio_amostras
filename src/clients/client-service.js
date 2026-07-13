@@ -267,7 +267,9 @@ function fieldNullOrEmpty(field) {
   return { OR: [{ [field]: null }, { [field]: '' }] };
 }
 
-export function buildCompletenessWhere(mode) {
+// Interno ao client-service (filtro/count de completude de /clients). Deixou de ser
+// exportado quando getDashboardPending (único importador externo) foi enxugado.
+function buildCompletenessWhere(mode) {
   // mode: 'incomplete' | 'complete'
   const pjMissingAny = { OR: PJ_RECOMMENDED_FIELDS.map(fieldNullOrEmpty) };
   const pfClientMissingAny = { OR: PF_CLIENT_RECOMMENDED_FIELDS.map(fieldNullOrEmpty) };

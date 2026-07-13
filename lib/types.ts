@@ -1146,38 +1146,12 @@ export interface ListSamplesResponse {
   };
 }
 
-// Q.print: dashboard simplificou — printPending sumiu (card "Aguardando
-// impressao" cortado), pendingCounts/oldestPending/classificationInProgress
-// ficaram obsoletos. Resta apenas classificationPending (samples em RC).
-// Projecao PARCIAL de sample devolvida em classificationPending.items pelo
-// getDashboardPending — NAO e o SampleSnapshot completo, apenas estes campos
-// (ver mapDashboardSample em src/samples/sample-query-service.js).
-// Nao-exportado (DSB-D2): so referenciado por DashboardPendingResponse.items;
-// o consumidor de UI (card de /samples) usa apenas classificationPending.total.
-interface DashboardPendingSample {
-  id: string;
-  internalLotNumber: string | null;
-  status: SampleStatus;
-  commercialStatus: CommercialStatus;
-  declared: {
-    owner: string | null;
-    sacks: number | null;
-    harvest: string | null;
-    location: string | null;
-  };
-  createdAt: string;
-  isBlend: boolean;
-}
-
+// getDashboardPending enxugado pra COUNT-ONLY (DSB-H4/H5, check-up do dashboard): o
+// único consumidor (card de /samples, ClassificationPendingCard) usa só `.total`. Os
+// antigos `counts`/`items` (projeção parcial de sample) e `clientsIncomplete` eram
+// payload morto — removidos.
 export interface DashboardPendingResponse {
   classificationPending: {
-    counts: {
-      REGISTRATION_CONFIRMED: number;
-    };
-    total: number;
-    items: DashboardPendingSample[];
-  };
-  clientsIncomplete: {
     total: number;
   };
 }
@@ -1226,14 +1200,13 @@ export interface DashboardCalendarEvent {
   // vermelho atrasado / verde realizado), não por tipo; o NOME DO TIPO no `label`
   // é que diferencia os eventos. Derivado do typeKey nos builders (support).
   state?: 'previsto' | 'atrasado' | 'realizado';
-  // Campos do tipo "pagamento de contrato" (presentes quando typeKey ∈
-  // {contract_payment_due, contract_payment_paid}).
+  // Metadados do contrato (os 3 feeds setam contractId/contractNumber/buyerName/status).
+  // `version` e `sellerName` saíram no check-up: eram do atalho "Pago"/acordeão E25,
+  // removidos por E28 (navegação pura) — nenhum componente os lia.
   contractId?: string;
   contractNumber?: string;
   buyerName?: string | null;
-  sellerName?: string | null;
   status?: SaleContractStatus;
-  version?: number;
 }
 
 export interface DashboardPaymentEventsResponse {

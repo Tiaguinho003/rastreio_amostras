@@ -646,10 +646,9 @@ test('buildPaymentEvent (D138): agendado usa paymentDate; realizado usa paidAt; 
   assert.equal(due.event.typeKey, 'contract_payment_due');
   assert.equal(due.event.id, 'c1');
   assert.equal(due.event.contractId, 'c1');
-  assert.equal(due.event.version, 2);
   assert.equal(due.event.status, 'FATURADO');
   assert.equal(due.event.buyerName, 'Comprador X');
-  assert.equal(due.event.sellerName, 'Vendedor Y');
+  // check-up: version/sellerName saíram do evento (só sellerSnapshot do blob importava).
   // DSB-D10: rótulo com prefixo do tipo + `state` (cor do chip = estado).
   assert.equal(due.event.label, 'pagamento · 0007/26 · Comprador X');
   assert.equal(due.event.state, 'previsto');
@@ -725,7 +724,6 @@ test('buildPaymentEvent (D138): sem comprador -> label = so o numero', () => {
   assert.equal(event.label, 'pagamento · 0008/26');
   assert.equal(event.state, 'previsto');
   assert.equal(event.buyerName, null);
-  assert.equal(event.sellerName, null);
 });
 
 test('bucketPaymentEvents (D138): agrupa por dayKey (agendado no paymentDate + realizado no paidAt)', () => {

@@ -1,6 +1,5 @@
 import { Prisma } from '@prisma/client';
 
-import { buildCompletenessWhere } from '../clients/client-service.js';
 import { HttpError } from '../contracts/errors.js';
 import {
   canonicalizeAspecto,
@@ -37,11 +36,6 @@ const SAMPLE_STATUS_FILTER_GROUPS = {
   CLASSIFICATION_PENDING: CLASSIFICATION_PENDING_STATUSES,
   CLASSIFIED: ['CLASSIFIED'],
 };
-// Fila de classificacao pendente: a lista mostra TODOS os pendentes. A contagem
-// do card vem de um groupBy separado, entao truncar a lista criava inconsistencia
-// (total != itens — ex: 41 pendentes, modal mostrava 20). 500 e salvaguarda de
-// payload, muito acima da fila real (dezenas/baixas centenas); sem paginacao.
-const DASHBOARD_LIST_LIMIT = 500;
 const SAMPLES_LIST_DEFAULT_LIMIT = 30;
 const SAMPLES_LIST_MAX_LIMIT = 30;
 const SAO_PAULO_UTC_OFFSET_HOURS = 3;
@@ -677,39 +671,6 @@ function mapSampleMovement(row) {
     updatedAt: row.updatedAt.toISOString(),
     buyerClient: mapOwnerClient(row.buyerClient),
     buyerUnit: mapOwnerUnit(row.buyerUnit),
-  };
-}
-
-const DASHBOARD_SAMPLE_SELECT = {
-  id: true,
-  internalLotNumber: true,
-  status: true,
-  commercialStatus: true,
-  declaredOwner: true,
-  declaredSacks: true,
-  declaredHarvest: true,
-  createdAt: true,
-  isBlend: true,
-};
-
-function mapDashboardSample(row) {
-  if (!row) {
-    return null;
-  }
-
-  return {
-    id: row.id,
-    internalLotNumber: row.internalLotNumber,
-    status: row.status,
-    commercialStatus: row.commercialStatus,
-    declared: {
-      owner: row.declaredOwner,
-      sacks: row.declaredSacks,
-      harvest: row.declaredHarvest,
-      location: row.declaredLocation ?? null,
-    },
-    createdAt: row.createdAt.toISOString(),
-    isBlend: Boolean(row.isBlend),
   };
 }
 
@@ -1815,64 +1776,16 @@ export class SampleQueryService {
     }));
   }
 
-  // Q.print: getDashboardPending sem `printPending` (decisao Q.1.c #20 —
-  // card "Aguardando impressao" cortado definitivamente). `oldestPending`
-  // tambem deletado (cobria QR_PENDING_PRINT que nao existe mais como
-  // status). Resta apenas `classificationPending` (samples em RC).
-  // DSH-D4 (2026-07-07): o "pulso do dia" (dailyRegistered/dailySent, que
-  // alimentava os StatCards "Lotes registrados hoje"/"Envios concluidos
-  // hoje") saiu do payload junto com os cards.
+  // getDashboardPending — só a CONTAGEM de pendentes de classificação (samples em RC).
+  // Enxugado pra count-only no check-up do dashboard (DSB-H4/H5): o único consumidor
+  // (card de /samples, ClassificationPendingCard) usa apenas `.total`. Os antigos
+  // `items` (findMany 500 mapeado e descartado), `clientsIncomplete` (client.count com
+  // near-full scan) e `counts` por status (groupBy) eram payload MORTO — removidos.
   async getDashboardPending() {
-    const [allStatusCounts, classificationPendingRows, clientsIncompleteTotal] =
-      await this.prisma.$transaction([
-        this.prisma.sample.groupBy({
-          by: ['status'],
-          where: {
-            status: { in: CLASSIFICATION_PENDING_STATUSES },
-          },
-          _count: { status: true },
-        }),
-        this.prisma.sample.findMany({
-          where: {
-            status: { in: CLASSIFICATION_PENDING_STATUSES },
-          },
-          orderBy: [{ updatedAt: 'asc' }, { internalLotNumber: 'asc' }, { id: 'asc' }],
-          take: DASHBOARD_LIST_LIMIT,
-          select: DASHBOARD_SAMPLE_SELECT,
-        }),
-        // Contagem de clientes com cadastro incompleto. Reusa o WHERE clause
-        // canonico de client-service (mesma regra do chip filtro em /clients).
-        this.prisma.client.count({
-          where: {
-            status: 'ACTIVE',
-            ...buildCompletenessWhere('incomplete'),
-          },
-        }),
-      ]);
-
-    const countByStatus = {};
-    for (const row of allStatusCounts) {
-      countByStatus[row.status] = row._count.status;
-    }
-
-    const classificationPendingCounts = {};
-    let classificationPendingTotal = 0;
-    for (const s of CLASSIFICATION_PENDING_STATUSES) {
-      const count = countByStatus[s] ?? 0;
-      classificationPendingCounts[s] = count;
-      classificationPendingTotal += count;
-    }
-
-    return {
-      classificationPending: {
-        counts: classificationPendingCounts,
-        total: classificationPendingTotal,
-        items: classificationPendingRows.map(mapDashboardSample),
-      },
-      clientsIncomplete: {
-        total: clientsIncompleteTotal,
-      },
-    };
+    const total = await this.prisma.sample.count({
+      where: { status: { in: CLASSIFICATION_PENDING_STATUSES } },
+    });
+    return { classificationPending: { total } };
   }
 
   async getDashboardSalesAvailability() {
