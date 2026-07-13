@@ -64,6 +64,7 @@ import {
   validateClassificationForm,
   buildClassificationDataPayload,
 } from '../../../lib/classification-form';
+import { formatPercentDisplay } from '../../../lib/classification-format';
 
 // Q.print: QR_PENDING_PRINT/QR_PRINTED removidos — sample fica em
 // REGISTRATION_CONFIRMED ate ser classificada.
@@ -1917,7 +1918,8 @@ export default function SampleDetailPage() {
                       : null;
                     const cd = (classData ?? null) as Record<string, unknown> | null;
                     const aspecto = cd ? String(cd.aspecto ?? '—') : '—';
-                    const catacao = cd ? String(cd.catacao ?? '—') : '—';
+                    // Catação é percentual: sufixa "%" igual ao laudo (CL19).
+                    const catacao = cd ? (formatPercentDisplay(cd.catacao) ?? '—') : '—';
                     // Classificadores: campo canonico `classificadores` (array de
                     // snapshots). Fallback para `conferidoPor` (eventos antigos) ou
                     // string legacy `classificador`.
@@ -2022,7 +2024,7 @@ export default function SampleDetailPage() {
                           <span className="sdv-info-value">{aspecto}</span>
                         </div>
                         <div className="sdv-info-item">
-                          <span className="sdv-info-label">Catacao</span>
+                          <span className="sdv-info-label">Catação</span>
                           <span className="sdv-info-value">{catacao}</span>
                         </div>
                       </div>
@@ -2063,11 +2065,12 @@ export default function SampleDetailPage() {
                         </div>
                       );
                     };
+                    // Separador "=" unificado com o modal e o laudo (CL20).
                     const fundoText = (fundo: Record<string, unknown>) => {
                       const pen = toText(fundo.peneira);
                       const pct = toText(fundo.percentual);
                       if (!pen && !pct) return '';
-                      return `${pen || '—'}${pct ? ` · ${pct}%` : ''}`;
+                      return `${pen || '—'}${pct ? ` = ${pct}%` : ''}`;
                     };
                     const observacoes = cd ? toText(cd.observacoes) : '';
                     // Layout DESKTOP em blocos (mockup 2026-06-24): foto + bloco de
@@ -2092,11 +2095,11 @@ export default function SampleDetailPage() {
                           <div className="sdv-cls-statbox sdv-cls-statbox--main">
                             <div className="sdv-cls-statbox-row sdv-cls-statbox-row--3">
                               {clsField('Aspecto', cd ? toText(cd.aspecto) : '')}
-                              {clsField('Catação', cd ? toText(cd.catacao) : '')}
+                              {clsField('Catação', cd ? formatPercentDisplay(cd.catacao) : '')}
                               {clsField('Padrão', cd ? toText(cd.padrao) : '')}
                             </div>
                             <div className="sdv-cls-statbox-row sdv-cls-statbox-row--2">
-                              {clsField('Certificação', cd ? toText(cd.certif) : '')}
+                              {clsField('Certificado', cd ? toText(cd.certif) : '')}
                               {clsField('Bebida', cd ? toText(cd.bebida) : '')}
                             </div>
                           </div>
@@ -2104,16 +2107,16 @@ export default function SampleDetailPage() {
                         <div className="sdv-cls-blk sdv-cls-blk--peneiras">
                           <span className="sdv-cls-blk-title">Peneiras</span>
                           <div className="sdv-cls-blk-grid">
-                            {clsField('P18', toText(peneiras.p18))}
-                            {clsField('P17', toText(peneiras.p17))}
-                            {clsField('P16', toText(peneiras.p16))}
-                            {clsField('P15', toText(peneiras.p15))}
-                            {clsField('P14', toText(peneiras.p14))}
-                            {clsField('P13', toText(peneiras.p13))}
-                            {clsField('P12', toText(peneiras.p12))}
-                            {clsField('P11', toText(peneiras.p11))}
-                            {clsField('P10', toText(peneiras.p10))}
-                            {clsField('Mk', toText(peneiras.mk))}
+                            {clsField('P18', formatPercentDisplay(peneiras.p18))}
+                            {clsField('P17', formatPercentDisplay(peneiras.p17))}
+                            {clsField('P16', formatPercentDisplay(peneiras.p16))}
+                            {clsField('P15', formatPercentDisplay(peneiras.p15))}
+                            {clsField('P14', formatPercentDisplay(peneiras.p14))}
+                            {clsField('P13', formatPercentDisplay(peneiras.p13))}
+                            {clsField('P12', formatPercentDisplay(peneiras.p12))}
+                            {clsField('P11', formatPercentDisplay(peneiras.p11))}
+                            {clsField('P10', formatPercentDisplay(peneiras.p10))}
+                            {clsField('MK', formatPercentDisplay(peneiras.mk))}
                             {clsField('Fundo', fundoText(fundoA), 'fundo1')}
                             {clsField('Fundo', fundoText(fundoB), 'fundo2')}
                           </div>
@@ -2121,11 +2124,11 @@ export default function SampleDetailPage() {
                         <div className="sdv-cls-blk sdv-cls-blk--defeitos">
                           <span className="sdv-cls-blk-title">Defeitos</span>
                           <div className="sdv-cls-blk-grid">
-                            {clsField('Impureza', toText(defeitos.imp))}
-                            {clsField('PVA', toText(defeitos.pva))}
-                            {clsField('Broca', toText(defeitos.broca))}
-                            {clsField('GPI', toText(defeitos.gpi))}
-                            {clsField('AP', toText(defeitos.ap))}
+                            {clsField('Impureza', formatPercentDisplay(defeitos.imp))}
+                            {clsField('PVA', formatPercentDisplay(defeitos.pva))}
+                            {clsField('Broca', formatPercentDisplay(defeitos.broca))}
+                            {clsField('GPI', formatPercentDisplay(defeitos.gpi))}
+                            {clsField('AP', formatPercentDisplay(defeitos.ap))}
                             {clsField('Defeito', toText(defeitos.defeito))}
                           </div>
                         </div>

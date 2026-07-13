@@ -12,6 +12,7 @@
 import Link from 'next/link';
 import { memo } from 'react';
 
+import { formatPercentDisplay } from '../../lib/classification-format';
 import { summarizeHarvest } from '../../lib/sample-identification';
 import type { SampleEligibilityReason, SampleSnapshot } from '../../lib/types';
 import { BlendBadge } from './BlendBadge';
@@ -92,9 +93,8 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function peneiraValueText(raw: unknown): string | null {
-  if (raw === null || raw === undefined) return null;
-  const text = String(raw).trim();
-  return text === '' ? null : text;
+  // Peneiras são percentuais: mesmo sufixo "%" do laudo/detalhe (CL19).
+  return formatPercentDisplay(raw);
 }
 
 export type SampleCardSelectionMode = 'idle' | 'blend';
@@ -242,7 +242,11 @@ function SampleCardComponent({
   const localStat = formatExpandedStat(declared.location, EXPANDED_STAT_LIMIT.location);
   const padraoStat = formatExpandedStat(classData?.padrao, EXPANDED_STAT_LIMIT.padrao);
   const aspectoStat = formatExpandedStat(classData?.aspecto, EXPANDED_STAT_LIMIT.aspecto);
-  const catacaoStat = formatExpandedStat(classData?.catacao, EXPANDED_STAT_LIMIT.catacao);
+  // Catação é percentual: sufixa "%" antes do truncamento (CL19).
+  const catacaoStat = formatExpandedStat(
+    formatPercentDisplay(classData?.catacao),
+    EXPANDED_STAT_LIMIT.catacao
+  );
 
   // Peneiras preenchidas da ultima classificacao (so as que tem valor; pode ser
   // 0..10). Exibidas no card expandido SO no desktop (CSS), numa unica linha.

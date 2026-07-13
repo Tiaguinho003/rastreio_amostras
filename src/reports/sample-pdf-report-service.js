@@ -370,7 +370,7 @@ export async function renderSamplePdf({
     ['bebida', 'Bebida'],
     ['broca', 'Broca'],
     ['pva', 'PVA'],
-    ['imp', 'IMP'],
+    ['imp', 'Impureza'],
     ['ap', 'AP'],
     ['gpi', 'GPI'],
     ['defeito', 'Defeito'],
