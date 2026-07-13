@@ -24588,7 +24588,7 @@ select.samples-filter-field-input {
     font-size: clamp(0.9rem, 0.98vw, 1rem);
     font-weight: 700;
     letter-spacing: 0.01em;
-    color: #1a2e1f;
+    color: var(--ink);
   }
 
   .dd-sends-icon {
@@ -24664,7 +24664,7 @@ select.samples-filter-field-input {
     font-weight: 700;
     letter-spacing: 0.03em;
     text-transform: uppercase;
-    color: #71786d;
+    color: var(--muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -24679,7 +24679,7 @@ select.samples-filter-field-input {
 
   .dd-send-cell {
     min-width: 0;
-    color: #1a2e1f;
+    color: var(--ink);
   }
 
   .dd-send-code {
@@ -24694,18 +24694,18 @@ select.samples-filter-field-input {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: #3a4a3f;
+    color: var(--ink);
   }
 
   /* Tipo do envio (só amostras): texto cinza neutro, uma palavra. */
   .dd-send-type {
     white-space: nowrap;
-    color: #71786d;
+    color: var(--muted);
   }
 
   .dd-send-time {
     white-space: nowrap;
-    color: #71786d;
+    color: var(--muted);
   }
 
   /* Envio cancelado: esmaece a linha + risca o numero (DSB-D8). */
@@ -24724,7 +24724,7 @@ select.samples-filter-field-input {
     text-align: center;
     font-size: clamp(0.78rem, 0.88vw, 0.88rem);
     /* Mesmo tom AA dos vazios do dashboard. */
-    color: #71786d;
+    color: var(--muted);
   }
 
   .dd-sends-list.is-skeleton {
@@ -24778,7 +24778,7 @@ select.samples-filter-field-input {
     font-size: clamp(0.9rem, 0.98vw, 1rem);
     font-weight: 700;
     letter-spacing: 0.01em;
-    color: #1a2e1f;
+    color: var(--ink);
   }
 
   /* Rotulo do periodo exibido (E15): "7 – 20 de julho". */
@@ -24786,7 +24786,7 @@ select.samples-filter-field-input {
     font-size: clamp(0.72rem, 0.8vw, 0.8rem);
     font-weight: 600;
     /* Tom AA (4.5:1 no branco), mesmo dos vazios do dashboard. */
-    color: #71786d;
+    color: var(--muted);
     white-space: nowrap;
   }
 
@@ -24860,7 +24860,7 @@ select.samples-filter-field-input {
     font-size: clamp(0.62rem, 0.7vw, 0.7rem);
     font-weight: 700;
     letter-spacing: 0.04em;
-    color: #4d5c52;
+    color: var(--muted);
   }
 
   /* DSB-D4/D7: uma SEMANA de DIAS ÚTEIS (5 células numa linha), altas,
@@ -24895,7 +24895,7 @@ select.samples-filter-field-input {
     border: 1px solid rgba(112, 130, 103, 0.18);
     border-radius: clamp(10px, 0.85vw, 12px);
     background: #fbfcfb;
-    color: #1a2e1f;
+    color: var(--ink);
   }
 
   /* HOJE: anel verde da marca (E10). */
@@ -24918,7 +24918,7 @@ select.samples-filter-field-input {
   .dd-events-day-month {
     font-size: clamp(0.58rem, 0.66vw, 0.66rem);
     font-weight: 600;
-    color: #71786d;
+    color: var(--muted);
   }
 
   /* Lista de eventos DENTRO da célula (DSB-D4) — rola POR DENTRO quando o dia
@@ -24944,7 +24944,7 @@ select.samples-filter-field-input {
     font-size: clamp(0.66rem, 0.74vw, 0.74rem);
     font-weight: 600;
     line-height: 1.2;
-    color: #1a2e1f;
+    color: var(--ink);
     text-decoration: none;
     white-space: nowrap;
     overflow: hidden;
@@ -24992,7 +24992,7 @@ select.samples-filter-field-input {
     gap: 0.34rem;
     font-size: clamp(0.62rem, 0.7vw, 0.7rem);
     font-weight: 600;
-    color: #5c6b5a;
+    color: var(--muted);
     white-space: nowrap;
   }
   .dd-events-legend-item::before {
