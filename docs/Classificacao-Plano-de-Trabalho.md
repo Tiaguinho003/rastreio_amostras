@@ -44,6 +44,10 @@ Auditoria read-only completa do domínio (pré-requisito do Playground): 41 acha
 
 Detalhe completo com file:line no consolidado da sessão (scratchpad `auditoria-classificacao-2026-07-13.md`) e nas mensagens de commit.
 
+## Backlog
+
+- **CLS-B1** (2026-07-13, origem: DEP-1 do Playground) — Transformar `aspecto` e `padrao` em campos de **valores fechados** (lista esperada) em vez de texto livre, ponta a ponta: form manual, extração IA, canonização e filtros. É pré-requisito para esses dois campos entrarem no motor de estimativa do Playground (PG12 em `docs/Playground-Plano-de-Trabalho.md`). Formato/lista ainda sem decisão — abrir bloco próprio quando for priorizado.
+
 ---
 
 ## Padrão de implementação
