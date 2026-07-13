@@ -63,16 +63,15 @@ import {
 const SALE_CONTRACT_MANAGE_ROLES = [USER_ROLES.ADMIN];
 
 // Financeiro (Fase F): a pagina de recebiveis e ADMIN + COMMERCIAL (D135 reabre;
-// revisa a D128 que a deixou ADMIN-only). ADMIN ve TODOS os fechamentos; COMMERCIAL
-// so os EM QUE E CORRETOR (Broker.userId, mesmo escopo do /contratos), com os
-// co-corretores VISIVEIS (revisa D86) e o total = a COTA dele.
+// revisa a D128 que a deixou ADMIN-only). ESCOPO ABERTO (2026-07-13, own-only
+// revogado — D110/D135 superadas): ADMIN e COMMERCIAL veem TODOS os fechamentos,
+// com os co-corretores visiveis e o total = a corretagem total (sem rateio ÷N, D136).
 const FINANCEIRO_ROLES = [USER_ROLES.ADMIN, USER_ROLES.COMMERCIAL];
 
-// Acesso/gestao dos contratos por ADMIN + COMMERCIAL (S74): revoga o
-// "Gestao de Contratos = ADMIN-only". ADMIN ve/gerencia TUDO; COMMERCIAL so os
-// contratos EM QUE E CORRETOR (SaleContractBroker -> Broker.userId, mesmo modelo
-// do Financeiro). A autorizacao por contrato vem dos helpers _resolveOwnBrokerId
-// + _assertActorMayAccessContract; a listagem filtra aos contratos do corretor.
+// Acesso/gestao dos contratos por ADMIN + COMMERCIAL. ESCOPO ABERTO (2026-07-13,
+// own-only revogado — D110/D135 superadas): ADMIN e COMMERCIAL veem e GERENCIAM
+// TODOS os contratos (a posse por Broker deixou de restringir). O gate de papel
+// (assertRoleAllowed) no topo de cada metodo e a unica autorizacao.
 const SALE_CONTRACT_ACCESS_ROLES = [USER_ROLES.ADMIN, USER_ROLES.COMMERCIAL];
 
 // Mesma chave do gerador do numero em src/events/prisma-event-store.js (NNNN
@@ -101,76 +100,9 @@ export class SaleContractService {
     this.queryService = queryService;
   }
 
-  // Autorizacao COMMERCIAL (S74): resolve o Broker do usuario (Broker.userId
-  // @unique). COMMERCIAL sem Broker vinculado -> null (nao possui contrato).
-  async _resolveOwnBrokerId(actor) {
-    const broker = await this.prisma.broker.findUnique({
-      where: { userId: actor.actorUserId },
-      select: { id: true },
-    });
-    return broker?.id ?? null;
-  }
-
-  // Autoriza o ator num contrato ESPECIFICO. ADMIN: sempre. COMMERCIAL: precisa
-  // ser corretor do contrato (SaleContractBroker). Roda ANTES do findUnique nos
-  // chamadores, entao "nao existe" e "nao e meu" viram ambos 403 (nao vaza
-  // existencia ao COMMERCIAL); ADMIN segue vendo o 404 de contrato inexistente.
-  async _assertActorMayAccessContract(actor, contractId) {
-    if (actor.role === USER_ROLES.ADMIN) {
-      return;
-    }
-    const ownBrokerId = await this._resolveOwnBrokerId(actor);
-    if (ownBrokerId) {
-      const link = await this.prisma.saleContractBroker.findFirst({
-        where: { saleContractId: contractId, brokerId: ownBrokerId },
-        select: { id: true },
-      });
-      if (link) {
-        return;
-      }
-    }
-    throw new HttpError(403, 'Você não tem acesso a este contrato', {
-      code: 'SALE_CONTRACT_FORBIDDEN',
-    });
-  }
-
-  // COMMERCIAL cria contrato (D110): precisa estar ENTRE os corretores — senão o
-  // contrato não seria "dele" e ele o perderia de vista na hora (a lista filtra
-  // por posse). ADMIN pode qualquer combinação de corretores.
-  async _assertActorAmongBrokersOnCreate(actor, brokerIds) {
-    if (actor.role === USER_ROLES.ADMIN) {
-      return;
-    }
-    const ownBrokerId = await this._resolveOwnBrokerId(actor);
-    if (!ownBrokerId || !brokerIds.includes(ownBrokerId)) {
-      throw new HttpError(422, 'Inclua você mesmo como corretor do contrato', {
-        code: 'SALE_CONTRACT_MUST_INCLUDE_OWN_BROKER',
-        field: 'brokerIds',
-      });
-    }
-  }
-
   async listSaleContracts(input, actorContext) {
     const actor = assertAuthenticatedActor(actorContext, 'list sale contracts');
     assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'list sale contracts');
-
-    // COMMERCIAL (S74): so os contratos em que e corretor (Broker.userId). Sem
-    // Broker vinculado ou sem contratos -> lista vazia. ADMIN ve todos.
-    let ownContractIds = null;
-    if (actor.role !== USER_ROLES.ADMIN) {
-      const ownBrokerId = await this._resolveOwnBrokerId(actor);
-      if (!ownBrokerId) {
-        return { items: [] };
-      }
-      const links = await this.prisma.saleContractBroker.findMany({
-        where: { brokerId: ownBrokerId },
-        select: { saleContractId: true },
-      });
-      ownContractIds = links.map((l) => l.saleContractId);
-      if (ownContractIds.length === 0) {
-        return { items: [] };
-      }
-    }
 
     const search = typeof input?.search === 'string' ? input.search.trim() : '';
     const status = input?.status ? this._normalizeStatusFilter(input.status) : null;
@@ -181,9 +113,6 @@ export class SaleContractService {
     });
 
     const where = {};
-    if (ownContractIds) {
-      where.id = { in: ownContractIds };
-    }
     if (status) {
       where.status = status;
     }
@@ -213,40 +142,17 @@ export class SaleContractService {
   // contrato aparece) E os em WASH_OUT (D105: o corretor recebe a comissao mesmo
   // com washout, pois fez a negociacao). SEM rateio ÷N (D136 removeu a "cota por
   // corretor"): o valor por fechamento = a corretagem TOTAL (vendedor + comprador);
-  // os co-corretores sao listados so como atribuicao. ACESSO (D135): ADMIN ve todos;
-  // COMMERCIAL so os contratos DELE (Broker.userId), com os co-corretores visiveis
-  // e o total = "corretagem dos meus fechamentos". Select enxuto
+  // os co-corretores sao listados so como atribuicao. ACESSO (escopo aberto
+  // 2026-07-13, own-only revogado): ADMIN e COMMERCIAL veem TODOS os fechamentos, com
+  // os co-corretores visiveis e o total = a corretagem total. Select enxuto
   // (RECEIVABLE_VIEW_SELECT, sem snapshots). Sem `@relation` contrato<->broker: os
   // corretores vem num batch separado (agrupado em JS).
   async listBrokerReceivables(input, actorContext) {
     const actor = assertAuthenticatedActor(actorContext, 'list broker receivables');
     assertRoleAllowed(actor.role, FINANCEIRO_ROLES, 'list broker receivables');
 
-    const isAdmin = actor.role === USER_ROLES.ADMIN;
     const todayKey = brtTodayKey();
     const brtToday = brtTodayDateOnly();
-    const empty = {
-      items: [],
-      nextCursor: null,
-      totalCommission: 0,
-      overdueCount: 0,
-      overdueCommission: 0,
-    };
-
-    // COMMERCIAL (D135): so os fechamentos em que e corretor (Broker.userId, mesmo
-    // escopo do /contratos). Sem Broker vinculado -> vazio. O escopo entra no
-    // filterWhere (SQL), pra casar com a paginacao por cursor E os agregados.
-    let ownContractIds = null;
-    if (!isAdmin) {
-      const ownBrokerId = await this._resolveOwnBrokerId(actor);
-      if (!ownBrokerId) return empty;
-      const ownLinks = await this.prisma.saleContractBroker.findMany({
-        where: { brokerId: ownBrokerId },
-        select: { saleContractId: true },
-      });
-      ownContractIds = [...new Set(ownLinks.map((l) => l.saleContractId))];
-      if (ownContractIds.length === 0) return empty;
-    }
 
     const limit = readLimitQuery(input?.limit, {
       fallback: FINANCEIRO_LIST_LIMIT_DEFAULT,
@@ -256,15 +162,11 @@ export class SaleContractService {
     const search = typeof input?.search === 'string' ? input.search.trim() : '';
     const filter = normalizeReceivableFilter(input?.filter);
 
-    // Revisao do Pagamento (FN5): filterWhere = escopo (COMMERCIAL) + busca, SEM
-    // status — cada grupo poe o proprio status. Busca = nº do contrato OU corretor OU
-    // comprador; corretor e comprador vem de pre-batch de ids (o comprador via ILIKE
-    // no buyer_snapshot, case-insensitive como os demais). O AND intersecta a busca
-    // com o escopo, entao nada vaza contratos alheios ao COMMERCIAL.
+    // Revisao do Pagamento (FN5): filterWhere = busca (escopo por corretor removido —
+    // own-only revogado), SEM status — cada grupo poe o proprio status. Busca = nº do
+    // contrato OU corretor OU comprador; corretor e comprador vem de pre-batch de ids
+    // (o comprador via ILIKE no buyer_snapshot, case-insensitive como os demais).
     const andClauses = [];
-    if (ownContractIds) {
-      andClauses.push({ id: { in: ownContractIds } });
-    }
     if (search.length >= 1) {
       const [brokerMatches, buyerMatchIds] = await Promise.all([
         this.prisma.saleContractBroker.findMany({
@@ -344,8 +246,8 @@ export class SaleContractService {
     }
 
     // Cabecalho (FN6): corretagem total ("Total a receber") + vencidos ("N vencidos ·
-    // R$ X"). Ambos por filterWhere (escopo+busca), INDEPENDENTES do filtro FN5 ativo e
-    // do cursor — o cabecalho e um resumo estavel do escopo (D135/D136 — sem rateio ÷N).
+    // R$ X"). Ambos por filterWhere (busca), INDEPENDENTES do filtro FN5 ativo e do
+    // cursor — o cabecalho e um resumo estavel de todos os fechamentos (D136 — sem rateio ÷N).
     const [sums, overdue] = await Promise.all([
       this.prisma.saleContract.aggregate({
         where: {
@@ -722,8 +624,8 @@ export class SaleContractService {
 
   // F1 (E21-E27/D138): eventos de "pagamento de contrato" do card de Eventos do
   // dashboard. Agendado = NAO pagos (EMITIDO/FATURADO) no paymentDate; realizado =
-  // PAGO no paidAt; WASH_OUT fora. Escopo E22: ADMIN todos; COMMERCIAL so os dele
-  // (Broker.userId); demais papeis nem chegam (gate FINANCEIRO_ROLES). Janela
+  // PAGO no paidAt; WASH_OUT fora. Escopo aberto (own-only revogado): ADMIN e
+  // COMMERCIAL veem todos; demais papeis nem chegam (gate FINANCEIRO_ROLES). Janela
   // [from, to] = 'YYYY-MM-DD' (a quinzena visivel do card). Retorna
   // Record<'YYYY-MM-DD', evento[]> (o formato da prop `events` do card).
   async getDashboardPaymentEvents(input, actorContext) {
@@ -737,24 +639,9 @@ export class SaleContractService {
       return {};
     }
 
-    // Escopo own-only do COMMERCIAL (mesmo do Financeiro): resolve o Broker e
-    // restringe aos contratos dele. Sem Broker vinculado -> vazio.
+    // Escopo aberto (2026-07-13, own-only revogado): ADMIN e COMMERCIAL veem os
+    // eventos de pagamento de TODOS os contratos (o feed nao filtra por corretor).
     const scope = {};
-    if (actor.role !== USER_ROLES.ADMIN) {
-      const ownBrokerId = await this._resolveOwnBrokerId(actor);
-      if (!ownBrokerId) {
-        return {};
-      }
-      const ownLinks = await this.prisma.saleContractBroker.findMany({
-        where: { brokerId: ownBrokerId },
-        select: { saleContractId: true },
-      });
-      const ownContractIds = [...new Set(ownLinks.map((l) => l.saleContractId))];
-      if (ownContractIds.length === 0) {
-        return {};
-      }
-      scope.id = { in: ownContractIds };
-    }
 
     // paymentDate/paidAt sao @db.Date (midnight UTC); a janela 'YYYY-MM-DD' vira
     // Date UTC — inclui os dois extremos.
@@ -886,10 +773,6 @@ export class SaleContractService {
       });
     }
 
-    // COMMERCIAL (S74): so pode ler os contratos em que e corretor (403 antes do
-    // findUnique -> nao vaza existencia). ADMIN passa direto.
-    await this._assertActorMayAccessContract(actor, contractId);
-
     const row = await this.prisma.saleContract.findUnique({
       where: { id: contractId },
       select: SALE_CONTRACT_VIEW_SELECT,
@@ -936,8 +819,6 @@ export class SaleContractService {
     assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'create future sale contract');
 
     const fase1 = normalizeFutureSaleContractInput(input ?? {});
-    // COMMERCIAL (D110): precisa estar entre os corretores do contrato que cria.
-    await this._assertActorAmongBrokersOnCreate(actor, fase1.brokerIds);
     const etapa2 = normalizeEtapa2Input(input ?? {});
     // O vendedor do Futuro vem da etapa 2 (nao ha lote/dono).
     if (!etapa2.sellerClientId) {
@@ -1042,8 +923,6 @@ export class SaleContractService {
 
     // Fase 1 da venda a vista (mesmos normalizadores do createSampleMovement).
     const fase1 = normalizeFutureSaleContractInput(input ?? {});
-    // COMMERCIAL (D110): precisa estar entre os corretores do contrato que cria.
-    await this._assertActorAmongBrokersOnCreate(actor, fase1.brokerIds);
 
     const sample = await this.queryService.requireSample(sampleId);
     // Concorrencia otimista: rejeita se o lote mudou desde que a tela carregou.
@@ -1116,8 +995,6 @@ export class SaleContractService {
     const actor = assertAuthenticatedActor(actorContext, 'emit sale contract');
     assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'emit sale contract');
     this._requireContractId(contractId);
-    // COMMERCIAL (D110): só gerencia os contratos em que é corretor.
-    await this._assertActorMayAccessContract(actor, contractId);
 
     const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
     const etapa2 = normalizeEtapa2Input(input ?? {});
@@ -1261,8 +1138,6 @@ export class SaleContractService {
     const actor = assertAuthenticatedActor(actorContext, 'apply agio to sale contract');
     assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'apply agio to sale contract');
     this._requireContractId(contractId);
-    // COMMERCIAL (D110): só gerencia os contratos em que é corretor.
-    await this._assertActorMayAccessContract(actor, contractId);
     const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
     const { agioDesagioType, agioDesagioValue } = normalizeRequiredAgio(input);
 
@@ -1353,8 +1228,6 @@ export class SaleContractService {
     const actor = assertAuthenticatedActor(actorContext, 'invoice sale contract');
     assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'invoice sale contract');
     this._requireContractId(contractId);
-    // COMMERCIAL (D110): só gerencia os contratos em que é corretor.
-    await this._assertActorMayAccessContract(actor, contractId);
     const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
     const invoicedAt = normalizeActionDate(input?.date, 'date');
 
@@ -1432,8 +1305,6 @@ export class SaleContractService {
     const actor = assertAuthenticatedActor(actorContext, 'set approval flag');
     assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'set approval flag');
     this._requireContractId(contractId);
-    // COMMERCIAL (D110): so os contratos em que e corretor.
-    await this._assertActorMayAccessContract(actor, contractId);
     const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
     const requiresApproval = normalizeRequiredBoolean(input?.requiresApproval, 'requiresApproval');
 
@@ -1491,8 +1362,6 @@ export class SaleContractService {
     const actor = assertAuthenticatedActor(actorContext, 'pay sale contract');
     assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'pay sale contract');
     this._requireContractId(contractId);
-    // COMMERCIAL (D110): só gerencia os contratos em que é corretor.
-    await this._assertActorMayAccessContract(actor, contractId);
     const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
     const paidAt = normalizeActionDate(input?.date, 'date');
 
@@ -1571,8 +1440,6 @@ export class SaleContractService {
     const actor = assertAuthenticatedActor(actorContext, 'washout sale contract');
     assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'washout sale contract');
     this._requireContractId(contractId);
-    // COMMERCIAL (D110): só gerencia os contratos em que é corretor.
-    await this._assertActorMayAccessContract(actor, contractId);
     const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
     const reason = normalizeWashoutReason(input?.reason);
 
@@ -1664,7 +1531,7 @@ export class SaleContractService {
   // Fase J (D124, revisada pela D127): auditoria da EXPORTACAO do Espelho de
   // Corretagem. Chamada pelo handler logEspelhoExport (clique em Exportar/
   // Baixar no modal) e pelo exportEspelhoPdf sem ?preview=1 (acesso direto a
-  // URL) — posse, elegibilidade e side ja foram validados la.
+  // URL) — papel, elegibilidade e side ja foram validados la.
   async logEspelhoGenerated(contractId, side, actorContext) {
     await this.prisma.saleContractEspelhoLog.create({
       data: {
@@ -1680,14 +1547,12 @@ export class SaleContractService {
   // (Export), agio (AgioLog), aprovacoes (ApprovalLabelLog), marcos de status
   // (StatusLog + legados so-com-data) e espelhos (EspelhoLog), com os nomes dos
   // atores resolvidos via app_user (join manual — as satelites nao tem
-  // @relation). Mesmo gate/posse do getSaleContract (o timeline vive no modal
+  // @relation). Mesmo gate de papel do getSaleContract (o timeline vive no modal
   // de Detalhes do /contratos).
   async getSaleContractTimeline(contractId, actorContext) {
     const actor = assertAuthenticatedActor(actorContext, 'get sale contract timeline');
     assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'get sale contract timeline');
     this._requireContractId(contractId);
-    // COMMERCIAL (D110): só acessa os contratos em que é corretor.
-    await this._assertActorMayAccessContract(actor, contractId);
 
     const contract = await this.prisma.saleContract.findUnique({
       where: { id: contractId },

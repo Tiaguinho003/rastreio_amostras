@@ -808,7 +808,8 @@ export function updateBroker(
   });
 }
 
-// Fechamento (Fase B.2): gestao de contratos (ADMIN+COMMERCIAL no backend, D110).
+// Fechamento (Fase B.2): gestao de contratos (ADMIN+COMMERCIAL, escopo aberto — ambos
+// veem/gerenciam TODOS os contratos; own-only revogado 2026-07-13, D110 superada).
 export function listSaleContracts(
   session: SessionData,
   query: { search?: string; status?: SaleContractStatus; type?: SaleContractType } = {},
@@ -826,7 +827,8 @@ export function listSaleContracts(
   });
 }
 
-// Financeiro (Fase F): corretagem a receber por fechamento (ADMIN+COMMERCIAL, D135).
+// Financeiro (Fase F): corretagem a receber por fechamento (ADMIN+COMMERCIAL, escopo
+// aberto — ambos veem TODOS os fechamentos; own-only revogado 2026-07-13, D135 superada).
 // Relatorio derivado, on-demand, paginado por cursor (S86: search/limit/cursor).
 export function listFinanceiro(
   session: SessionData,

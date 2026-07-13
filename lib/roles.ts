@@ -86,23 +86,23 @@ export function isVisitLinkCurator(role: UserRole | null | undefined): boolean {
 // nunca acessou.
 export const INFORME_ROLES: UserRole[] = ['ADMIN', 'COMMERCIAL'];
 
-// allowedRoles da pagina "Financeiro" (Fase F, D135): corretagem a receber por
-// fechamento — ADMIN + COMMERCIAL (D135 reabre ao COMMERCIAL, revisa a D128
-// ADMIN-only). O COMMERCIAL so ve os contratos dele — o backend escopa por
-// Broker.userId. Espelha o FINANCEIRO_ROLES do backend (sale-contract-service.js).
+// allowedRoles da pagina "Financeiro" (Fase F): corretagem a receber por
+// fechamento — ADMIN + COMMERCIAL. ESCOPO ABERTO (2026-07-13, own-only revogado —
+// D135 superada): ambos veem TODOS os fechamentos (o backend nao filtra por
+// Broker.userId). Espelha o FINANCEIRO_ROLES do backend (sale-contract-service.js).
 export const FINANCEIRO_ROLES: UserRole[] = ['ADMIN', 'COMMERCIAL'];
 
-// allowedRoles da pagina "Contratos" (S74/D110): ADMIN ve/gerencia tudo;
-// COMMERCIAL so os contratos em que e corretor (o backend filtra). Espelha o
-// SALE_CONTRACT_ACCESS_ROLES do backend.
+// allowedRoles da pagina "Contratos": ADMIN + COMMERCIAL veem e gerenciam TUDO.
+// ESCOPO ABERTO (2026-07-13, own-only revogado — D110 superada): a posse por Broker
+// deixou de restringir. Espelha o SALE_CONTRACT_ACCESS_ROLES do backend.
 export const CONTRATOS_ROLES: UserRole[] = ['ADMIN', 'COMMERCIAL'];
 
 // Central de Contratos (CC F2): o hub /contratos abre a TODOS os nao-PROSPECTOR.
 // ADMIN/COMMERCIAL veem as 4 abas (gestao + operacao); os operacionais
 // (CLASSIFIER/REGISTRATION/CADASTRO) veem as 2 abas de OPERACAO — Embarque +
 // Aprovacoes (AP30) — sem gestao (Contratos/Financeiro). A lista da Aprovacao e
-// nao-escopada (todos veem todos, so nao-sensivel); o "Ver contrato" segue
-// escopado (D110). SPLIT 2026-07-13: virou 2 paginas — /contratos (Contratos +
+// nao-escopada (todos veem todos, so nao-sensivel); o "Ver contrato" abre a
+// ADMIN+COMMERCIAL a qualquer contrato (escopo aberto). SPLIT 2026-07-13: virou 2 paginas — /contratos (Contratos +
 // Financeiro, gated CONTRATOS_ROLES) e /embarques (Embarque + Aprovacoes, gated
 // NON_PROSPECTOR). contractsHubTabs = abas navegaveis por papel (card de Eventos).
 export type ContractsHubTab = 'contratos' | 'financeiro' | 'aprovacoes' | 'embarque';

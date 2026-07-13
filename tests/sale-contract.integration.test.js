@@ -878,7 +878,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal((await prisma.saleContractBroker.findMany()).length, 1);
   });
 
-  test('gestao de contratos: COMMERCIAL sem Broker → vazio/403; REGISTRATION 403; ADMIN vê tudo (S74)', async () => {
+  test('gestao de contratos: COMMERCIAL vê tudo (escopo aberto); REGISTRATION 403; ADMIN vê tudo', async () => {
     const sampleId = randomUUID();
     const buyerId = randomUUID();
     await createClassifiedSample({ id: sampleId, lotNumber: '20006', declaredSacks: 10 });
@@ -886,13 +886,11 @@ if (!databaseUrl || !databaseReachable) {
     const sample = await queryService.requireSample(sampleId);
     const result = await sell(sampleId, sample.version, buyerId); // corretor = TEST_BROKER
 
-    // COMMERCIAL sem Broker vinculado: lista VAZIA (não 403), e get -> 403 (S74).
+    // Escopo aberto: COMMERCIAL sem Broker vinculado vê o contrato e detalha qualquer um.
     const noBroker = { ...commercialActor, actorUserId: randomUUID() };
-    assert.deepEqual((await saleContractService.listSaleContracts({}, noBroker)).items, []);
-    await assert.rejects(
-      () => saleContractService.getSaleContract(result.contract.id, noBroker),
-      (err) => err.status === 403
-    );
+    assert.equal((await saleContractService.listSaleContracts({}, noBroker)).items.length, 1);
+    const noBrokerDetail = await saleContractService.getSaleContract(result.contract.id, noBroker);
+    assert.equal(noBrokerDetail.contract.id, result.contract.id);
 
     // Papel sem acesso (REGISTRATION) continua barrado.
     const reg = { ...commercialActor, role: 'REGISTRATION', actorUserId: randomUUID() };
@@ -909,7 +907,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(detail.contract.brokers.length, 1);
   });
 
-  test('gestao de contratos: COMMERCIAL vê/detalha só os contratos dele (S74)', async () => {
+  test('gestao de contratos: COMMERCIAL vê/detalha TODOS os contratos (escopo aberto)', async () => {
     const commercialUserId = randomUUID();
     const myBrokerId = randomUUID();
     const suffix = commercialUserId.slice(0, 8);
@@ -943,18 +941,17 @@ if (!databaseUrl || !databaseReachable) {
     });
     const other = await setupConfirmedContract({ lotNumber: '20011' }); // corretor = TEST_BROKER
 
-    // Lista: só o contrato dele.
+    // Lista: vê os DOIS (o dele e o de outro corretor).
     const list = await saleContractService.listSaleContracts({}, myActor);
-    assert.equal(list.items.length, 1);
-    assert.equal(list.items[0].id, mine.contractId);
+    assert.equal(list.items.length, 2);
+    assert.ok(list.items.some((i) => i.id === mine.contractId));
+    assert.ok(list.items.some((i) => i.id === other.contractId));
 
-    // Get: o dele ok; o de outro corretor -> 403.
-    const detail = await saleContractService.getSaleContract(mine.contractId, myActor);
-    assert.equal(detail.contract.id, mine.contractId);
-    await assert.rejects(
-      () => saleContractService.getSaleContract(other.contractId, myActor),
-      (err) => err.status === 403
-    );
+    // Get: detalha qualquer um, inclusive o de outro corretor.
+    const detailMine = await saleContractService.getSaleContract(mine.contractId, myActor);
+    assert.equal(detailMine.contract.id, mine.contractId);
+    const detailOther = await saleContractService.getSaleContract(other.contractId, myActor);
+    assert.equal(detailOther.contract.id, other.contractId);
   });
 
   test('gestao de contratos: COMMERCIAL-corretor GERENCIA + cria o próprio (Fase 2, D110)', async () => {
@@ -1334,7 +1331,7 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('aplicar agio: version stale -> 409; sem tipo -> 422; COMMERCIAL -> 403; nada muda', async () => {
+  test('aplicar agio: version stale -> 409; sem tipo -> 422; nada muda', async () => {
     const refs = await setupConfirmedContract({ lotNumber: '21104' });
     await assert.rejects(
       () =>
@@ -1353,15 +1350,6 @@ if (!databaseUrl || !databaseReachable) {
           adminActor
         ),
       /agioDesagioType is required/
-    );
-    await assert.rejects(
-      () =>
-        saleContractService.applyAgioSaleContract(
-          refs.contractId,
-          { expectedVersion: refs.version, agioDesagioType: 'AGIO', agioDesagioValue: 10 },
-          commercialActor
-        ),
-      (err) => err.status === 403
     );
     // nenhuma aplicacao passou: segue sem agio, total cru e sem log.
     const after = await saleContractService.getSaleContract(refs.contractId, adminActor);
@@ -1479,23 +1467,23 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('listContractLookups retorna as 3 listas; emit exige ADMIN', async () => {
+  test('listContractLookups retorna as 3 listas; COMMERCIAL edita (escopo aberto)', async () => {
     const lk = await saleContractService.listContractLookups(commercialActor);
     assert.ok(lk.paymentForms.length >= 2);
     assert.ok(lk.modalities.length >= 3);
     assert.ok(lk.packagings.length >= 3);
 
-    const { contractId, bankAccountId } = await setupEmittableContract({ lotNumber: '21011' });
+    const { contractId, bankAccountId, version } = await setupEmittableContract({
+      lotNumber: '21011',
+    });
     const lookups = await fetchLookups();
-    await assert.rejects(
-      () =>
-        saleContractService.emitSaleContract(
-          contractId,
-          etapa2Payload({ bankAccountId, lookups }),
-          commercialActor
-        ),
-      (err) => err.status === 403
+    // Escopo aberto: COMMERCIAL (sem ser corretor do contrato) re-emite/edita.
+    const res = await saleContractService.emitSaleContract(
+      contractId,
+      etapa2Payload({ bankAccountId, lookups, expectedVersion: version }),
+      commercialActor
     );
+    assert.equal(res.contract.status, 'EMITIDO');
   });
 
   test('PDF: contrato emitido gera um %PDF a partir dos snapshots reais', async () => {
@@ -1607,7 +1595,7 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('Financeiro (D135): COMMERCIAL vê só os contratos dele, com co-corretores visíveis', async () => {
+  test('Financeiro (escopo aberto): COMMERCIAL vê TODOS os fechamentos, co-corretores visíveis', async () => {
     const { actor: myActor, brokerId: myBrokerId } =
       await createCommercialBrokerUser('Corretor Fin');
     const mine = await setupConfirmedContractWithBroker({
@@ -1617,24 +1605,25 @@ if (!databaseUrl || !databaseReachable) {
     const other = await setupConfirmedContract({ lotNumber: '23022' }); // corretor = TEST_BROKER
 
     const res = await saleContractService.listBrokerReceivables({}, myActor);
-    assert.equal(res.items.length, 1);
-    assert.equal(res.items[0].id, mine.contractId);
+    assert.equal(res.items.length, 2);
+    assert.ok(res.items.some((i) => i.id === mine.contractId));
     assert.ok(
-      !res.items.some((i) => i.id === other.contractId),
-      'não vê contrato de outro corretor'
+      res.items.some((i) => i.id === other.contractId),
+      'vê contrato de outro corretor'
     );
-    // co-corretores visíveis (D135 revisa D86) + total = corretagem dos fechamentos dele
-    assert.equal(res.items[0].brokers[0].brokerId, myBrokerId);
-    assert.equal(res.totalCommission, 30);
+    // co-corretores visíveis + total = corretagem total de TODOS os fechamentos (2 × 30)
+    const mineItem = res.items.find((i) => i.id === mine.contractId);
+    assert.equal(mineItem.brokers[0].brokerId, myBrokerId);
+    assert.equal(res.totalCommission, 60);
   });
 
-  test('Financeiro (D135): COMMERCIAL sem Broker vinculado → vazio (items [], total 0)', async () => {
-    await setupConfirmedContract({ lotNumber: '23023' });
+  test('Financeiro (escopo aberto): COMMERCIAL sem Broker vinculado vê TODOS os fechamentos', async () => {
+    const { contractId } = await setupConfirmedContract({ lotNumber: '23023' });
     const orphan = { ...commercialActor, actorUserId: randomUUID() };
     const res = await saleContractService.listBrokerReceivables({}, orphan);
-    assert.deepEqual(res.items, []);
-    assert.equal(res.totalCommission, 0);
-    assert.equal(res.nextCursor, null);
+    assert.equal(res.items.length, 1);
+    assert.equal(res.items[0].id, contractId);
+    assert.equal(res.totalCommission, 30);
   });
 
   test('Financeiro (D136): total do COMMERCIAL = corretagem total dos fechamentos dele (sem rateio)', async () => {
@@ -1654,7 +1643,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(res.totalCommission, 30); // corretagem TOTAL dos fechamentos dele (NÃO ÷N)
   });
 
-  test('Financeiro (D135): busca por nome de corretor não vaza contratos alheios ao COMMERCIAL', async () => {
+  test('Financeiro (escopo aberto): COMMERCIAL busca por corretor acha contratos de todos', async () => {
     const { actor: myActor, brokerId: myBrokerId } =
       await createCommercialBrokerUser('Corretor Busca');
     await setupConfirmedContractWithBroker({ lotNumber: '23025', brokerId: myBrokerId });
@@ -1668,15 +1657,9 @@ if (!databaseUrl || !databaseReachable) {
       brokerId: marianaId,
     });
 
-    // COMMERCIAL busca "mariana" → NADA (não vaza o contrato alheio)
-    const mine = await saleContractService.listBrokerReceivables({ search: 'mariana' }, myActor);
-    assert.equal(mine.items.length, 0);
-    // sanity: ADMIN acha o contrato da Mariana
-    const asAdmin = await saleContractService.listBrokerReceivables(
-      { search: 'mariana' },
-      adminActor
-    );
-    assert.ok(asAdmin.items.some((i) => i.id === alheio.contractId));
+    // Escopo aberto: COMMERCIAL busca "mariana" → acha o contrato dela.
+    const res = await saleContractService.listBrokerReceivables({ search: 'mariana' }, myActor);
+    assert.ok(res.items.some((i) => i.id === alheio.contractId));
   });
 
   test('Financeiro: papel sem acesso (REGISTRATION) → 403', async () => {
@@ -2103,7 +2086,7 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('Eventos (D138): COMMERCIAL vê só os contratos dele; papel sem acesso → 403', async () => {
+  test('Eventos (escopo aberto): COMMERCIAL vê eventos de todos; papel sem acesso → 403', async () => {
     const { actor: myActor, brokerId: myBrokerId } =
       await createCommercialBrokerUser('Corretor Eventos');
     const mine = await setupContractWithBrokers({ lotNumber: '25030', brokerIds: [myBrokerId] });
@@ -2118,7 +2101,10 @@ if (!databaseUrl || !databaseReachable) {
       day.some((e) => e.contractId === mine.contractId),
       'vê o contrato dele'
     );
-    assert.ok(!day.some((e) => e.contractId === other.contractId), 'não vê o de outro corretor');
+    assert.ok(
+      day.some((e) => e.contractId === other.contractId),
+      'vê o de outro corretor'
+    );
 
     // papel sem acesso a contratos → 403 (gate FINANCEIRO_ROLES).
     const reg = { ...commercialActor, role: 'REGISTRATION', actorUserId: randomUUID() };
@@ -2266,13 +2252,11 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(legacyMark.actorName, null);
   });
 
-  test('Fase J: timeline exige posse (COMMERCIAL sem vinculo -> 403)', async () => {
+  test('Fase J: timeline acessível ao COMMERCIAL sem vínculo (escopo aberto)', async () => {
     const { contractId } = await setupConfirmedContract({ lotNumber: '24105' });
     const stranger = { ...commercialActor, actorUserId: randomUUID() };
-    await assert.rejects(
-      () => saleContractService.getSaleContractTimeline(contractId, stranger),
-      (err) => err.status === 403
-    );
+    const timeline = await saleContractService.getSaleContractTimeline(contractId, stranger);
+    assert.ok(Array.isArray(timeline.items), 'COMMERCIAL sem vínculo acessa o timeline');
   });
 
   test('faturar: expectedVersion stale -> 409', async () => {
@@ -2301,17 +2285,14 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('faturar exige ADMIN (COMMERCIAL 403)', async () => {
+  test('faturar: COMMERCIAL fatura qualquer contrato (escopo aberto)', async () => {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '22011' });
-    await assert.rejects(
-      () =>
-        saleContractService.invoiceSaleContract(
-          contractId,
-          { expectedVersion: version, date: '2026-07-15' },
-          commercialActor
-        ),
-      (err) => err.status === 403
+    const res = await saleContractService.invoiceSaleContract(
+      contractId,
+      { expectedVersion: version, date: '2026-07-15' },
+      commercialActor
     );
+    assert.equal(res.contract.status, 'FATURADO');
   });
 
   test('quebra manual: EMITIDO -> WASH_OUT, cancela a venda e restaura as sacas', async () => {
@@ -2419,17 +2400,14 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('quebra manual exige ADMIN (COMMERCIAL 403)', async () => {
+  test('quebra manual: COMMERCIAL dá washout em qualquer contrato (escopo aberto)', async () => {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '23009' });
-    await assert.rejects(
-      () =>
-        saleContractService.washoutSaleContract(
-          contractId,
-          { expectedVersion: version, reason: 'qualquer' },
-          commercialActor
-        ),
-      (err) => err.status === 403
+    const r = await saleContractService.washoutSaleContract(
+      contractId,
+      { expectedVersion: version, reason: 'qualquer' },
+      commercialActor
     );
+    assert.equal(r.contract.status, 'WASH_OUT');
   });
 
   test('lote: cancelar a venda de contrato PAGO -> WASH_OUT (extensao)', async () => {
@@ -2855,15 +2833,13 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal((await prisma.sampleMovement.findMany()).length, 0);
   });
 
-  test('futuro: COMMERCIAL só cria se estiver entre os corretores (D110)', async () => {
+  test('futuro: COMMERCIAL cria para outros corretores sem se incluir (escopo aberto)', async () => {
     const buyerId = randomUUID();
     await createBuyerClient(buyerId);
     const input = await createFutureInput(buyerId); // corretores = [TEST_BROKER], não o commercialActor
-    // COMMERCIAL que não é corretor do contrato -> 422 (deve incluir a si mesmo).
-    await assert.rejects(
-      () => saleContractService.createFutureSaleContract(input, commercialActor),
-      (err) => err.status === 422
-    );
+    // Escopo aberto: o COMMERCIAL não precisa mais se incluir como corretor.
+    const created = await saleContractService.createFutureSaleContract(input, commercialActor);
+    assert.ok(created.contract.id);
   });
 }
 

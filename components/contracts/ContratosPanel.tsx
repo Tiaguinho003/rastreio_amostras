@@ -49,8 +49,8 @@ const TYPE_OPTION_LABELS = TYPE_LABELS.map((t) => t.label);
 export function ContratosPanel({ session }: { session: SessionData }) {
   // Painel da aba "Contratos" do hub (Central de Contratos). A casca — guard,
   // AppShell, header e as abas — vive em app/contratos/page.tsx; aqui fica só o
-  // conteúdo. D110: ADMIN e COMMERCIAL gerenciam (o backend filtra/autoriza aos
-  // contratos do corretor); quem chega aqui pode gerenciar.
+  // conteúdo. Escopo aberto (own-only revogado): ADMIN e COMMERCIAL veem e
+  // gerenciam TODOS os contratos; quem chega aqui pode gerenciar.
   const canManage = true;
   const toast = useToast();
 

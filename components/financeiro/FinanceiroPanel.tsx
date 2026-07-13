@@ -4,14 +4,13 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
 import { SaleContractLifecycleDialog } from '../contracts/SaleContractLifecycleDialog';
 import { ApiError, listFinanceiro } from '../../lib/api-client';
-import { isAdmin } from '../../lib/roles';
 import { useToast } from '../../lib/toast/ToastProvider';
 import { useContractHighlight } from '../../lib/use-contract-highlight';
 import type { FinanceiroFilter, FinanceiroReceivable, SessionData } from '../../lib/types';
 import { FinanceiroCard } from './FinanceiroCard';
 
 // Financeiro — a CASA DO PAGAMENTO (Revisao do Pagamento, FN1-FN7): hospeda todos os
-// contratos no escopo do papel (ADMIN todos / COMMERCIAL os dele), com a lente de
+// contratos (ADMIN e COMMERCIAL veem todos — escopo aberto 2026-07-13), com a lente de
 // status de pagamento (chips a vencer/vencido/pago/cancelado), fila por vencimento
 // (FN4), filtros (FN5), busca por nº/comprador/corretor e o cabecalho "Total a
 // receber" + "N vencidos" (FN6). O "Pago" (FATURADO → PAGO) mora aqui (FN7). A casca
@@ -255,8 +254,8 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
     return () => observer.disconnect();
   }, [runLoadMore, listState.nextCursor, listState.status, session]);
 
-  // FN7: qualquer sessão permitida pode registrar o pagamento; o backend re-checa a
-  // posse (COMMERCIAL só vê/paga os contratos dele — D135).
+  // FN7: qualquer sessão permitida (ADMIN + COMMERCIAL) registra o pagamento — escopo
+  // aberto (own-only revogado): ambos veem e pagam qualquer contrato.
   const canManage = true;
 
   const { items, status, error, nextCursor, totalCommission, overdueCount, overdueCommission } =
@@ -268,9 +267,7 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
   return (
     <>
       <div className="fin-total" role="status">
-        <span className="fin-total-label">
-          {isAdmin(session.user.role) ? 'Corretagem total' : 'Corretagem dos meus fechamentos'}
-        </span>
+        <span className="fin-total-label">Corretagem total</span>
         <span className="fin-total-value">{BRL.format(totalCommission)}</span>
       </div>
 
