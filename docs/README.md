@@ -72,6 +72,8 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
     Uso: feature de Liga (blend de amostras) — composicao, cascata recursiva de movimentos, safra/proprietario reativos, viabilidade quantitativa da venda. Status: Em andamento.
 18. `docs/Etiqueta-de-Envio-Plano-de-Trabalho.md`
     Uso: etiqueta de envio com QR que abre o laudo publico (Firebase Hosting), com revogacao ao cancelar. Status: Em andamento.
+19. `docs/Design-Language.md`
+    Uso: **canonico dos design tokens** (cor/tipografia/espaco/raio/sombra/motion/z-index/breakpoints) — espelho legivel do `:root` de `app/globals.css`. Fonte-de-verdade dos tokens; a skill `design-system` e o guia APLICADO. Ponto de partida da reforma de design. Status: Ativo.
 
 ## Relatorios da reorganizacao
 

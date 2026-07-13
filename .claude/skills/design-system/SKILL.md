@@ -80,6 +80,11 @@ Pill flutuante (`.mobile-tabbar-inner`) renderizada via Portal no `body` (`compo
 
 ## 2. Paleta de Cores
 
+> **Fonte-da-verdade dos TOKENS = `docs/Design-Language.md`** (espelho do `:root` de
+> `app/globals.css`: cor/tipografia/espaco/raio/sombra/motion/z-index/breakpoints). Esta skill é o
+> guia **aplicado** — como usar os tokens em cards/componentes + acabamento. As tabelas abaixo são um
+> resumo; o inventário completo e canônico está no Design-Language.
+
 ### Marca (verdes — paleta Safras)
 
 Todos os verdes do app vivem na paleta Safras, expostos como tokens CSS no `:root` de `app/globals.css`. **Sempre preferir o token** ao hex literal.
