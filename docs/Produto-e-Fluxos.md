@@ -123,20 +123,18 @@ Pos Q.print: impressao virou **acao pura**. Nao muda mais o status do Sample.
 1. A classificacao parte de `REGISTRATION_CONFIRMED` (Q.cls.1 cortou
    `CLASSIFICATION_IN_PROGRESS` e o evento `CLASSIFICATION_STARTED`).
 2. O fluxo principal e via `Camera inteligente`, com sequencia de modais:
-   foto da ficha → extracao IA (1 prompt unico, type-agnostic) → modal de revisao
-   da ficha unificada → modal de tipo de cafe (`BICA`, `PREPARADO`, `BAIXO`,
-   `ESCOLHA`) → modal de classificadores → save direto (Q.auto dispara print).
-3. A foto da classificacao e obrigatoria para concluir, seja pelo fluxo de camera ou pelo fluxo manual legado.
-4. A data de classificacao e registrada automaticamente na timezone `America/Sao_Paulo`.
-5. O tipo de cafe define quais campos aparecem no formulario; os principais grupos hoje expostos sao:
-   `padrao`, `catacao`, `aspecto`, `bebida`, `classificador`, `loteOrigem`, `aspectoCor`, `certif`;
-   `broca`, `pva`, `imp`, `defeito`, `umidade`, `observacoes`;
-   granulometria por peneiras `18`, `17`, `16`, `MK`, `15`, `14`, `13`, `10` e `Fundo`.
-6. Reclassificar uma amostra ja `CLASSIFIED` e feito a partir do modal de detalhe — aciona o mesmo fluxo de camera e emite `CLASSIFICATION_UPDATED` com motivo automatico.
+   foto da ficha → extracao IA (1 prompt unico, type-agnostic) → ficha de revisao
+   unificada (`ClassificationReviewSheetBody`) → modal de tipo de cafe (`BICA`,
+   `PREPARADO`, `BAIXO`, `ESCOLHA`, `CONILON`) → modal de classificadores →
+   save direto (Q.auto dispara print).
+3. A foto da classificacao e obrigatoria para concluir, seja pelo fluxo de camera ou pelo modo manual (mesma ficha, sem extracao).
+4. A data de classificacao e SEMPRE carimbada pelo servidor no fuso de negocio (`buildBusinessDateStamp`); o cliente nao envia data.
+5. O tipo de cafe NAO define campos — e metadata pos-extracao; todos os campos valem pra qualquer tipo (ficha unificada Q.cls.2.7). O contrato campo a campo (6 flat fields + peneiras p18..p10+MK + 2 fundos + 6 defeitos + observacoes) esta em `docs/Classificacao-Visao-Geral.md` §3.
+6. Reclassificar uma amostra ja `CLASSIFIED` pela camera exige motivo (`reasonCode`) e e **substituicao total consciente**: a ficha parte vazia e campos nao preenchidos apagam os anteriores (aviso explicito no portao). A edicao pelo modal de detalhe, ao contrario, pre-preenche e emite `CLASSIFICATION_UPDATED` com diff before/after.
 
 #### Extracao por IA
 
-1. O sistema usa GPT-4o para extrair os campos manuscritos da ficha de classificacao a partir da foto, com prompts especializados por tipo de cafe.
+1. O sistema usa GPT-4o (pinado `gpt-4o-2024-11-20`) para extrair os campos manuscritos da ficha a partir da foto, com 1 prompt unico type-agnostic + few-shot visual (detalhes em `docs/Classificacao-Visao-Geral.md` §8).
 2. O pipeline tem tres etapas: `detect-form` tenta auto-detectar e recortar a ficha; `extract-and-prepare` envia a foto (ou o recorte) para o modelo e retorna os campos extraidos; `confirm` persiste a classificacao apos revisao manual do usuario.
 3. Os campos extraidos sao pre-preenchidos no formulario, **mas o usuario sempre revisa e confirma antes de salvar**. A extracao nunca e aceita automaticamente.
 4. Cada tentativa gera `CLASSIFICATION_EXTRACTION_COMPLETED` (sucesso) ou `CLASSIFICATION_EXTRACTION_FAILED` (erro), anexados ao historico da amostra.
@@ -147,8 +145,8 @@ Pos Q.print: impressao virou **acao pura**. Nao muda mais o status do Sample.
 
 1. Entre a escolha do tipo e a foto, o modal pergunta obrigatoriamente se a classificacao foi conferida por outros classificadores.
 2. Se sim, o usuario seleciona um ou mais usuarios ativos do sistema via picker com busca client-side.
-3. O backend valida a lista em `normalizeConferredBy`: rejeita auto-conferral (ator nao pode estar na lista), rejeita usuarios inativos ou inexistentes, faz dedup silencioso, limita a 50 entradas.
-4. O conjunto final e persistido como `conferredBy` no payload de `CLASSIFICATION_COMPLETED` (snapshot com `{id, fullName, username}`), editavel pos-classificacao via `CLASSIFICATION_UPDATED`.
+3. O backend valida a lista em `normalizeClassifiers`: rejeita usuarios inativos, inexistentes ou PROSPECTOR, faz dedup silencioso, exige minimo 1, limita a 50 entradas.
+4. O conjunto final e persistido como `classifiers` no payload de `CLASSIFICATION_COMPLETED` (snapshot com `{id, fullName, username}`; o legado `conferredBy` saiu do schema no Q.cls.2.7), editavel pos-classificacao via `CLASSIFICATION_UPDATED`.
 5. A conferencia aparece no card resumo da classificacao e no modal full-view (com os nomes dos classificadores). No laudo PDF **nao** aparece — quem classificou e dado interno, nao enviado ao comprador.
 
 ### 4. Laudo e consulta

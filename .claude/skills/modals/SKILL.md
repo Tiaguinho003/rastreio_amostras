@@ -557,7 +557,6 @@ Todos seguem `.app-modal.is-themed`. Ordem do fluxo: `idle → preview → handl
 
 | Modal                              | Arquivo                                                     | Sub-caminho                         | Variantes                   |
 | ---------------------------------- | ----------------------------------------------------------- | ----------------------------------- | --------------------------- |
-| ClassificationReviewModal          | `components/samples/ClassificationReviewModal.tsx`          | Q.cls.2.3 (revisão pós-extração)    | `is-themed is-wide`         |
 | ClassificationTypeModal            | `components/samples/ClassificationTypeModal.tsx`            | Q.cls.2.8 (seleção de tipo)         | `is-themed`                 |
 | ClassificationClassifierModal      | `components/samples/ClassificationClassifierModal.tsx`      | Q.cls.2.9 (seleção classificadores) | `is-themed`                 |
 | ClassificationExtractionErrorModal | `components/samples/ClassificationExtractionErrorModal.tsx` | Sub-caminhos 3a + 3b                | `is-themed`                 |

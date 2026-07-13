@@ -53,15 +53,13 @@ Regra consolidada:
 8. `POST /api/v1/samples/:sampleId/qr/reprint/request`
 9. `POST /api/v1/samples/:sampleId/qr/print/failed`
 10. `POST /api/v1/samples/:sampleId/qr/printed`
-11. `POST /api/v1/samples/:sampleId/classification/start`
-12. `POST /api/v1/samples/:sampleId/classification/partial`
-13. `POST /api/v1/samples/:sampleId/classification/complete`
-14. `POST /api/v1/samples/:sampleId/classification/update`
-15. `POST /api/v1/samples/:sampleId/edits/revert`
-16. `POST /api/v1/samples/:sampleId/commercial-status`
-17. `POST /api/v1/samples/:sampleId/physical-send`
-18. `POST /api/v1/samples/:sampleId/export/pdf`
-19. `POST /api/v1/samples/:sampleId/invalidate`
+11. `POST /api/v1/samples/:sampleId/classification/update`
+    (Nao existem `classification/start` nem `/partial` — cortados no Q.cls.1; `classification/complete` era DEPRECATED e foi REMOVIDA em 2026-07-13, CL13 — classificacao nova e exclusiva de `POST /api/v1/classification/confirm`.)
+12. `POST /api/v1/samples/:sampleId/edits/revert`
+13. `POST /api/v1/samples/:sampleId/commercial-status`
+14. `POST /api/v1/samples/:sampleId/physical-send`
+15. `POST /api/v1/samples/:sampleId/export/pdf`
+16. `POST /api/v1/samples/:sampleId/invalidate`
     Encerra o lote em `INVALIDATED` (soft-delete que libera o numero). A UI do detalhe rotula essa acao como **"Deletar"** (LDT-D2) — o endpoint continua `/invalidate`. 409 `SAMPLE_HAS_CONTRACT` se houver contrato vinculado.
 
 ### Leitura de anexo (foto)
@@ -76,7 +74,7 @@ Rotas top-level usadas pelo fluxo de `Camera inteligente` (o `sampleId` chega no
 1. `POST /api/v1/classification/detect-form`
    Recebe a foto (`multipart/form-data`), salva em area temporaria e tenta auto-cropar a ficha. Retorna `photoToken` e flag `detected`.
 2. `POST /api/v1/classification/extract-and-prepare`
-   Aceita `multipart/form-data` (upload direto) ou `application/json` com `photoToken`. Envia a imagem ao modelo de extracao (GPT-4o) e retorna os campos extraidos. `classificationType` e obrigatorio e define qual prompt e normalizador sao aplicados.
+   Aceita `multipart/form-data` (upload direto) ou `application/json` com `photoToken`. Envia a imagem ao modelo de extracao (GPT-4o pinado) e retorna os campos extraidos. A extracao e type-agnostic (1 prompt unico da ficha unificada) — o tipo e escolhido depois pelo operador e nao influencia a IA.
 3. `POST /api/v1/classification/confirm`
    Persiste a classificacao apos revisao do usuario, recebendo `sampleId`, `classificationData`, `photoToken`, `classificationType` e `classifiers` (obrigatorio, min 1 — frontend compoe `[actor, ...co-classificadores]`; backend valida existencia/ativo dos usuarios). Roteia entre `completeClassification` ou `updateClassification` conforme o status atual da amostra.
 4. `POST /api/v1/classification/resolve-lot`
@@ -85,8 +83,8 @@ Rotas top-level usadas pelo fluxo de `Camera inteligente` (o `sampleId` chega no
 Validacoes criticas nessas rotas:
 
 1. `detect-form` e o modo `multipart` de `extract-and-prepare` rejeitam com `415` se o `Content-Type` nao comecar com `multipart/form-data`;
-2. `extract-and-prepare` retorna `422` se `classificationType` nao for um dos suportados (`BICA`, `PREPARADO`, `BAIXO`, `ESCOLHA`); pos Q.types, `LOW_CAFF` foi renomeado pra `BAIXO` e `ESCOLHA` adicionado;
-3. a extracao por IA depende de `OPENAI_API_KEY` configurada — caso contrario o endpoint retorna `503` e o frontend cai em preenchimento manual.
+2. o enum `ClassificationType` e `BICA / PREPARADO / BAIXO / ESCOLHA / CONILON` (pos Q.types + CONILON em 2026-06-01) e e validado no SAVE (`confirm`/`update`), nao no `extract-and-prepare` (que ignora tipo);
+3. a extracao por IA depende de `OPENAI_API_KEY` configurada — caso contrario o fluxo degrada pra preenchimento manual (sem extracao).
 
 ### Leitura
 

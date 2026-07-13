@@ -141,7 +141,7 @@ Proposta inicial, com peso = proporção de sacas de cada componente:
 - Liga real = `Sample` com `isBlend=true`; composição em `SampleBlendComponent` (`sampleId`, `originSampleId`, `contributedSacks Int` — sacas inteiras; proporção é implícita). `prisma/schema.prisma:293,329-349`.
 - Criação real: `SampleCommandService.createBlend()` (`src/samples/sample-command-service.js:1751-1990`) — consome saldo, valida `contributedSacks ≤ availableSacks`, deriva safra (união, `blend-harvest.js:26-39`) e dono (unanimidade, `blend-harvest.js:52-63`), emite eventos. **O Playground não toca em nada disso.**
 - Saldo: `availableSacks = max(0, declaredSacks − soldSacks − lostSacks)` (`sample-query-service.js:736-739`).
-- Classificação: JSON `latestClassificationData` + espelhos `latest*` no `Sample`; estrutura canônica em `lib/classification-form.ts` (peneiras p18…p10+mk, fundos, defeitos, bebida, aspecto, padrão, catação, certif). Enum `ClassificationType` = BICA/PREPARADO/BAIXO/ESCOLHA/CONILON.
+- Classificação: **fonte única** = JSON `latestClassificationData` + `classificationType` no `Sample` (os espelhos técnicos `latest_type/screen/defects_count/density/color_aspect/notes` foram DROPADOS em 2026-07-13 na auditoria CL — ver `docs/Classificacao-Visao-Geral.md`); estrutura canônica em `lib/classification-form.ts` (peneiras p18…p10+mk, fundos, defeitos, bebida, aspecto, padrão, catação, certif). Enum `ClassificationType` = BICA/PREPARADO/BAIXO/ESCOLHA/CONILON.
 - Liga real **não** deriva classificação dos componentes — nasce `REGISTRATION_CONFIRMED` e é classificada do zero.
 
 ### 7.2 Direções propostas **[PROPOSTA]**

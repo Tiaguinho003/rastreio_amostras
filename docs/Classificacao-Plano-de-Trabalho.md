@@ -1,9 +1,48 @@
 # Classificação — Plano de Trabalho
 
-**Status**: Em construção (iniciado em 2026-05-25, revisão completa do fluxo).
-**Escopo**: documento único de organização, análise, decisões e execução da **revisão do fluxo de classificação de amostra de café** — desde o tap "Classificar" no detalhe da amostra até o salvamento do evento `CLASSIFICATION_COMPLETED`. Foco em experiência mobile (PWA), eficiência operacional e identificação de gargalos.
+**Status**: Backlog + ledger (par do documento-mãe).
+**Par**: o funcionamento ATUAL da classificação é documentado em **`docs/Classificacao-Visao-Geral.md`** (criado 2026-07-13) — afirmações sobre fluxo/contrato/canonização/exibição vivem lá; este doc concentra decisões, pendências, o ledger da auditoria CL e o histórico.
+**Escopo**: organização, análise, decisões e execução da revisão do fluxo de classificação — do tap "Classificar" ao evento `CLASSIFICATION_COMPLETED`.
 
-**Como ler este doc**: a seção **Decisões** é o que está fechado; **Pendências** é o que ainda não foi decidido; **Log de sessões** é o histórico de avanços por data.
+**Como ler este doc**: a seção **Decisões** é o que está fechado; **Pendências** é o que ainda não foi decidido; **Log de sessões** é o histórico de avanços por data. Trechos "estado atual" antigos são snapshots da época — em divergência, vale a Visão-Geral.
+
+---
+
+## Auditoria CL (2026-07-13) — ledger
+
+Auditoria read-only completa do domínio (pré-requisito do Playground): 41 achados **CL1–CL41** em 6 categorias, corrigidos nas fases F1–F5 da sessão de 2026-07-13 (commits `6495d2a`…). Decisões do Flavio na mesma data: espelhos técnicos DROPADOS; reclassificação por câmera = substituição total consciente (aviso); Tipo só no modal; docs = par mãe+plano; sem validação de soma de peneiras; % sufixado em toda superfície.
+
+| CL        | Achado                                                                                                                                        | Resolução                                                                                                                      |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| CL1       | `CLASSIFICATION_EXTRACTION_COMPLETED` nunca persistia (detail fantasma `data`/`extracted:undefined` reprovava no AJV → rebaixado a `_FAILED`) | ✅ corrigido + regressão com crossValidate real                                                                                |
+| CL2       | `latestDefectsCount` sem populador (ramo flat `defeito` extinto)                                                                              | ✅ resolvido pelo drop dos espelhos                                                                                            |
+| CL3       | Modal de edição engolia erro de validação (return silencioso)                                                                                 | ✅ valida antes do confirm + erro inline                                                                                       |
+| CL4       | Catação no modal destruía decimais (inputMode numeric + strip)                                                                                | ✅ decimal, paridade com a câmera                                                                                              |
+| CL5       | UPDATE sem faixa 0-100 no servidor                                                                                                            | ✅ min/max nos parsers + testes 422                                                                                            |
+| CL6       | `bebida` canonizada só na IA (manual gravava cru)                                                                                             | ✅ no projetor + backfill (rodar em prod no deploy)                                                                            |
+| CL7       | `catacao` não canonizada na extração                                                                                                          | ✅ canonicalizeCatacao no normalizer                                                                                           |
+| CL8       | Reclassificação por câmera apaga campos não recapturados                                                                                      | ✅ decisão: substituição total consciente + aviso no portão                                                                    |
+| CL9–CL12  | 6 espelhos técnicos mortos (latest_type/screen/defects_count/density/color_aspect/notes) + moisture fantasma                                  | ✅ dropados (migration 20260713120000); JSON = fonte única                                                                     |
+| CL13      | Rota DEPRECATED `/classification/complete` + api-client legado (mk9/10/11, umidade, pau)                                                      | ✅ removidos (método do service fica como harness)                                                                             |
+| CL14      | Export `classificationOriginLot` sem produtor                                                                                                 | ✅ removido                                                                                                                    |
+| CL15      | Labels de export nunca renderizados no laudo                                                                                                  | ✅ mantidos (SÃO referenciados por `entry.label`); só campos vestigiais removidos                                              |
+| CL16      | Few-shot `responseText` computado e nunca usado                                                                                               | ✅ removido                                                                                                                    |
+| CL17      | `classifiedAt`/`latestClassificationVersion` sem consumidor de app                                                                            | ✅ mantidos e documentados na Visão-Geral                                                                                      |
+| CL18–CL22 | Labels/%/null/separador divergentes por superfície                                                                                            | ✅ padronizados (formatPercentDisplay, Catação/Certificado/Impureza/MK, fundos `=`); null: `—` na UI, laudo omite (deliberado) |
+| CL23      | Tipo só no modal                                                                                                                              | ✅ decisão: manter (laudo sem Tipo é deliberado)                                                                               |
+| CL24      | Inputs de defeitos divergentes entre telas                                                                                                    | ✅ decimal nas duas                                                                                                            |
+| CL25      | Schema não exige `classifiers` (comando exige)                                                                                                | ✅ documentado (histórico append-only; sem mudança)                                                                            |
+| CL26      | Sem invariante de soma de peneiras                                                                                                            | ✅ decisão: sem validação                                                                                                      |
+| CL27      | Invalidação preserva classificação; sem evento de anulação                                                                                    | ✅ estacionamento (documentado)                                                                                                |
+| CL28      | Peneiras string na extração vs number no evento                                                                                               | ✅ by design (recall-first) — documentado                                                                                      |
+| CL29      | `dataClassificacao` do cliente sempre descartada                                                                                              | ✅ cliente não gera mais; servidor carimba                                                                                     |
+| CL30      | `parseNumberInput` troca só a 1ª vírgula                                                                                                      | ✅ mantido (barrado pelo validador) — documentado                                                                              |
+| CL31      | Comentário "22 campos" desatualizado                                                                                                          | ✅ corrigido (26 + dataClassificacao)                                                                                          |
+| CL32      | `observacoes` duplicado via `technical.notes`                                                                                                 | ✅ bloco technical não é mais enviado                                                                                          |
+| CL33–CL36 | Docs/skill desatualizados (este doc, Produto-e-Fluxos, API-e-Contratos, skill modals)                                                         | ✅ corrigidos 2026-07-13                                                                                                       |
+| CL37–CL41 | Lacunas de teste (form↔payload, canonicalizeCatacao, canonização na projeção, 422 do update, espelhos)                                        | ✅ cobertos (espelhos: N/A pós-drop)                                                                                           |
+
+Detalhe completo com file:line no consolidado da sessão (scratchpad `auditoria-classificacao-2026-07-13.md`) e nas mensagens de commit.
 
 ---
 
@@ -112,24 +151,24 @@ Síntese pra ancorar as decisões. Detalhes em `app/camera/page.tsx`, `component
 
 1. **Caminho 1 — Detalhe da amostra (existente, com contexto)**. FAB "Classificar" em `app/samples/[sampleId]/page.tsx:3975`. Tap → `router.push('/camera?sampleId=${sampleId}')` (Flow B). Aparece quando `status ∈ { REGISTRATION_CONFIRMED, CLASSIFIED }`. Vai direto pra câmera no fluxo de classificação com `sampleId` na URL.
 
-2. **Caminho 2 — Foto direta (existente, Flow A, sem contexto)**. Tap "Câmera" na tabbar (`components/AppShell.tsx:60`) → `/camera` sem `sampleId`. Operador **ignora o QR scanner** e fotografa diretamente a ficha física. `extract-and-prepare` (IA) lê o campo "Lote" da ficha (`app/camera/page.tsx:737` — `handleExtractionResult` quando `hasContext === false`) → `editableLot` é pré-preenchido com o lote extraído → `ClassificationReviewModal` abre. Ao confirmar o review, `resolveSampleByLot` (`page.tsx:915`) busca a amostra no backend. Se achou: segue fluxo normal (divergências/salvar). Se não achou: `ClassificationNotFoundModal` ("Cadastrar nova" / "Sair"). **Validação tardia** — a amostra só é validada depois da chamada da IA (15–30 s + custo OpenAI gastos antes de saber se o lote existe).
+2. **Caminho 2 — Foto direta (existente, Flow A, sem contexto)**. Tap "Câmera" na tabbar (`components/AppShell.tsx:60`) → `/camera` sem `sampleId`. Operador **ignora o QR scanner** e fotografa diretamente a ficha física. `extract-and-prepare` (IA) lê o campo "Lote" da ficha (`app/camera/page.tsx:737` — `handleExtractionResult` quando `hasContext === false`) → `editableLot` é pré-preenchido com o lote extraído → `ClassificationReviewSheetBody` abre. Ao confirmar o review, `resolveSampleByLot` (`page.tsx:915`) busca a amostra no backend. Se achou: segue fluxo normal (divergências/salvar). Se não achou: `ClassificationNotFoundModal` ("Cadastrar nova" / "Sair"). **Validação tardia** — a amostra só é validada depois da chamada da IA (15–30 s + custo OpenAI gastos antes de saber se o lote existe).
 
 3. **Caminho 3 — Modal "Lotes pendentes" do dashboard (seta de classificar no card)**. Modal `components/dashboard/OperationModal.tsx` (BottomSheet `.is-operations`), disparado pelo card de pendências em `components/dashboard/DashboardMobile.tsx` (botão `.dashboard-op-classification`) e pelo StatCard "Classificação pendente" no desktop — grep pelos símbolos, as linhas deslocam. Como implementado: o corpo do card é **inerte**; a única ação é a seta `.spv2-card-classify-arrow` (`onItemAction` → `router.push('/camera?sampleId=X')` em Flow B).
 
 **Fases sequenciais (happy path)**:
 
-| #   | Fase              | Onde                                                                   | Decisão do operador                       |
-| --- | ----------------- | ---------------------------------------------------------------------- | ----------------------------------------- |
-| 1   | Captura           | `app/camera/page.tsx` (vídeo + galeria, câmera traseira)               | Foto da câmera ou galeria                 |
-| 2   | Preview           | mesma tela (`flowState = 'preview'`)                                   | "Próximo" ou refazer                      |
-| 3   | Detecção de forma | `POST /api/v1/classification/detect-form` (sem UI explícita)           | —                                         |
-| 4   | Extração IA       | `POST /api/v1/classification/extract-and-prepare` + spinner            | aguardar (15–30 s)                        |
-| 5   | Revisão           | `ClassificationReviewModal` (22 campos + foto zoomável)                | Corrigir/confirmar campos                 |
-| 6   | Reconciliação     | `ClassificationDataMismatchModal` (se sacas/safra divergem)            | Ficha vs Cadastro, campo a campo          |
-| 7   | Reclassificar     | `ClassificationReclassifyModal` (se `status = CLASSIFIED`)             | Reason code obrigatório + texto se OTHER  |
-| 8   | Tipo              | `ClassificationTypeModal`                                              | BICA / PREPARADO / BAIXO / ESCOLHA        |
-| 9   | Classificadores   | `ClassificationClassifierModal`                                        | Usuário fixo + co-classificadores (min 1) |
-| 10  | Salvar            | `POST .../classification/complete` → `confirmClassificationFromCamera` | "Confirmar e salvar"                      |
+| #   | Fase              | Onde                                                                      | Decisão do operador                          |
+| --- | ----------------- | ------------------------------------------------------------------------- | -------------------------------------------- |
+| 1   | Captura           | `app/camera/page.tsx` (vídeo + galeria, câmera traseira)                  | Foto da câmera ou galeria                    |
+| 2   | Preview           | mesma tela (`flowState = 'preview'`)                                      | "Próximo" ou refazer                         |
+| 3   | Detecção de forma | `POST /api/v1/classification/detect-form` (sem UI explícita)              | —                                            |
+| 4   | Extração IA       | `POST /api/v1/classification/extract-and-prepare` + spinner               | aguardar (15–30 s)                           |
+| 5   | Revisão           | `ClassificationReviewSheetBody` (22 campos + foto zoomável)               | Corrigir/confirmar campos                    |
+| 6   | Reconciliação     | `ClassificationDataMismatchModal` (se sacas/safra divergem)               | Ficha vs Cadastro, campo a campo             |
+| 7   | Reclassificar     | `ClassificationReclassifyModal` (se `status = CLASSIFIED`)                | Reason code obrigatório + texto se OTHER     |
+| 8   | Tipo              | `ClassificationTypeModal`                                                 | BICA / PREPARADO / BAIXO / ESCOLHA / CONILON |
+| 9   | Classificadores   | `ClassificationClassifierModal`                                           | Usuário fixo + co-classificadores (min 1)    |
+| 10  | Salvar            | `POST /api/v1/classification/confirm` → `confirmClassificationFromCamera` | "Confirmar e salvar"                         |
 
 **Bifurcações de exceção**:
 
@@ -141,9 +180,9 @@ Síntese pra ancorar as decisões. Detalhes em `app/camera/page.tsx`, `component
 **Backend**:
 
 - Eventos: `CLASSIFICATION_COMPLETED`, `CLASSIFICATION_UPDATED`, `CLASSIFICATION_EXTRACTION_COMPLETED`, `CLASSIFICATION_EXTRACTION_FAILED` (enum `SampleEventType` em `prisma/schema.prisma`).
-- **Foto é obrigatória** via constraint pra completar classificação (`sample-command-service.js:2150-2151`, HttpError 409 se ausente).
+- **Foto é obrigatória** via constraint pra completar classificação (HttpError 409 se ausente — ver `completeClassification` em `sample-command-service.js`; line-refs deslocam, buscar pelo nome).
 - Idempotência: `idempotencyScope: 'CLASSIFICATION_COMPLETE'` + key UUID.
-- **Auto-print** de etiqueta dispara após `CLASSIFICATION_COMPLETED` (best-effort, não bloqueia o salvamento) — `sample-command-service.js:1898`.
+- **Auto-print** de etiqueta dispara após `CLASSIFICATION_COMPLETED` (best-effort, não bloqueia o salvamento).
 - IA: OpenAI GPT-4o (Vision), prompt estruturado com schema JSON, retorna ficha unificada (`identificacao` + `classificacao`).
 
 **Mobile-first**:
@@ -156,7 +195,7 @@ Síntese pra ancorar as decisões. Detalhes em `app/camera/page.tsx`, `component
 
 **Componentes de UI envolvidos** (em `components/samples/`):
 
-`ClassificationReviewModal.tsx`, `ClassificationTypeModal.tsx`, `ClassificationClassifierModal.tsx`, `ClassificationExtractionErrorModal.tsx`, `ClassificationManualConfirmModal.tsx`, `ClassificationDataMismatchModal.tsx`, `ClassificationReclassifyModal.tsx`, `ClassificationLotMismatchModal.tsx`, `ClassificationNotFoundModal.tsx`.
+`ClassificationReviewSheetBody.tsx`, `ClassificationTypeModal.tsx`, `ClassificationClassifierModal.tsx`, `ClassificationExtractionErrorModal.tsx`, `ClassificationManualConfirmModal.tsx`, `ClassificationDataMismatchModal.tsx`, `ClassificationReclassifyModal.tsx`, `ClassificationLotMismatchModal.tsx`, `ClassificationNotFoundModal.tsx`.
 
 ---
 
@@ -207,7 +246,7 @@ Decisões "antes do fluxo" — valem em qualquer interface. Cada decisão aqui m
 
 ### Q0.5 — Ficha física unificada (Q.cls.2.7) é fundação ou pode mudar?
 
-**Análise**: A ficha física foi unificada em 2026-05-14 — era 3 tipos (PREPARADO/LOW_CAFF/BICA), virou uma única em HTML imprimível (`print-templates/classification-form/index.html`). O enum `ClassificationType` continua no banco (BICA/PREPARADO/BAIXO/ESCOLHA), mas o operador escolhe o tipo **depois** da extração, sem relação com layout da ficha. Toda a UX de revisão (22 campos no `ClassificationReviewModal`) é casada com esse layout único.
+**Análise**: A ficha física foi unificada em 2026-05-14 — era 3 tipos (PREPARADO/LOW_CAFF/BICA), virou uma única em HTML imprimível (`print-templates/classification-form/index.html`). O enum `ClassificationType` continua no banco (BICA/PREPARADO/BAIXO/ESCOLHA + CONILON, adicionado na Sessão 5), mas o operador escolhe o tipo **depois** da extração, sem relação com layout da ficha. Toda a UX de revisão (26 campos no `ClassificationReviewSheetBody`) é casada com esse layout único.
 
 - **(A) Ficha unificada é fundação imutável** (assumido como status quo). Esta revisão NÃO toca no layout da ficha física nem no enum. UX se ajusta ao que existe.
 - **(B) Ficha pode evoluir nesta revisão** — se identificarmos campos que nunca são preenchidos, ordem que confunde, ou nomes ambíguos, podemos mexer no HTML imprimível e no extractor. Adiciona escopo grande.
@@ -251,7 +290,7 @@ Decisões "antes do fluxo" — valem em qualquer interface. Cada decisão aqui m
 
 ### Caminho 2 — Foto direta (existente, Flow A, sem contexto)
 
-**Estado atual**: tap na navbar "Câmera" → `/camera` (sem `sampleId`). Câmera abre com QR scanner ativo, **mas o operador pode ignorá-lo e fotografar a ficha física diretamente**. Após captura → `detect-form` + `extract-and-prepare` (IA) rodam normal. A IA lê o campo "Lote" da ficha (`identification.lote`) e `handleExtractionResult` (`app/camera/page.tsx:737`) detecta `hasContext === false` → preenche `editableLot` com o lote extraído → abre `ClassificationReviewModal` (`flowState='confirming'`). Quando o operador confirma o review, `handleConfirm` (`page.tsx:904`) chama `resolveSampleByLot(session, lot)` (`page.tsx:915`):
+**Estado atual**: tap na navbar "Câmera" → `/camera` (sem `sampleId`). Câmera abre com QR scanner ativo, **mas o operador pode ignorá-lo e fotografar a ficha física diretamente**. Após captura → `detect-form` + `extract-and-prepare` (IA) rodam normal. A IA lê o campo "Lote" da ficha (`identification.lote`) e `handleExtractionResult` (`app/camera/page.tsx:737`) detecta `hasContext === false` → preenche `editableLot` com o lote extraído → abre `ClassificationReviewSheetBody` (`flowState='confirming'`). Quando o operador confirma o review, `handleConfirm` (`page.tsx:904`) chama `resolveSampleByLot(session, lot)` (`page.tsx:915`):
 
 - **Achou amostra com lote `REGISTRATION_CONFIRMED`/`CLASSIFIED`** → segue para divergências (se houver) ou salva direto.
 - **Não achou** → `flowState='not-found'` → `ClassificationNotFoundModal` com **"Cadastrar nova" / "Sair"**.
@@ -975,15 +1014,14 @@ A análise abriu 5 mini-decisões pra fechar **antes do plan mode**. São pequen
 - O serviço de detecção e auto-crop continua ativo em `src/samples/form-detection-service.js`. Sem instrumentação adicional nesta rodada.
 - **Implicação**: zero mudança em `detect-form`. F3.11 vai eventualmente trazer logs que permitem reavaliar.
 
-**F3.3 — Modelo IA mantido: `gpt-4o` sem pin de versão (status quo).**
+**F3.3 — Modelo IA: PINADO em `gpt-4o-2024-11-20`.** ⚠️ REVISADA (a decisão original era "sem pin"; o código foi depois pinado — o alias `gpt-4o` recebe rollout silencioso e mascararia A/B).
 
-- Continua `model: 'gpt-4o'` em `src/samples/classification-extraction-service.js:452`.
-- Sem fixar versão, sem trocar pra Claude, sem multi-provider.
-- **Implicação**: zero mudança no modelo. Mudanças no prompt (F3.4 + F3.5) e schema (F3.6) podem cobrir o problema sem precisar trocar de modelo.
+- Hoje: `EXTRACTION_MODEL = OPENAI_EXTRACTION_MODEL ?? 'gpt-4o-2024-11-20'`, `temperature: 0.2` (ver `classification-extraction-service.js` e Visão-Geral §8).
+- Sem trocar pra Claude, sem multi-provider.
 
 **F3.8 — Sem destaque visual de campos vazios vindos da IA (status quo).**
 
-- O `ClassificationReviewModal` continua sem indicar quais campos vieram null da IA vs vazios.
+- O `ClassificationReviewSheetBody` continua sem indicar quais campos vieram null da IA vs vazios.
 - **Implicação**: zero mudança no JSX/CSS do Review.
 
 **F3.10 — Modo manual expandido: novo caminho em `illegible` + preservação contextual.** ⚠️ EXPANDIDA em 2026-05-25.
@@ -1095,7 +1133,7 @@ A implementação do Bloco F3 é dividida em **2 ondas independentes** pra avan�
 
 1. **`detect-form`** — pré-processamento que detecta a forma da ficha e recorta (com fallback "continuar assim").
 2. **`extract-and-prepare`** — chamada IA (OpenAI gpt-4o) que extrai todos os campos.
-3. **Frontend pós-extração** — mapeamento da resposta → form, exibição no `ClassificationReviewModal`, tratamento de erros (illegible vs technical).
+3. **Frontend pós-extração** — mapeamento da resposta → form, exibição no `ClassificationReviewSheetBody`, tratamento de erros (illegible vs technical).
 
 **Fora do escopo**: Bloco F4 (revisão dos campos já preenchidos — UX do form em si), F5 (reconciliação de divergências sacas/safra/lote).
 
@@ -1112,7 +1150,8 @@ A implementação do Bloco F3 é dividida em **2 ondas independentes** pra avan�
 
 #### Etapa 2 — `extract-and-prepare` (`src/samples/classification-extraction-service.js`)
 
-- Modelo: **`gpt-4o`** (linha 452, sem pin de versão — segue defaults da OpenAI), `temperature: 0`, `max_tokens: 1500`, `detail: 'high'` na imagem, `response_format: { type: 'json_schema', strict: true }`.
+- _(Snapshot de 2026-05; hoje: modelo PINADO `gpt-4o-2024-11-20`, `temperature: 0.2`, retry 1x em 429/5xx — ver Visão-Geral §8.)_
+- Modelo: `gpt-4o`, `temperature: 0`, `max_tokens: 1500`, `detail: 'high'` na imagem, `response_format: { type: 'json_schema', strict: true }`.
 - Timeout: **25 s** via `AbortController`. **Sem retry** em 429/500/timeout.
 - Imagem como base64 data URI (não URL).
 - Prompts (texto puro, sem few-shot visual):
@@ -1130,12 +1169,12 @@ A implementação do Bloco F3 é dividida em **2 ondas independentes** pra avan�
 - **Sem logs** — `processingTimeMs` calculado mas só retornado no payload; tokens consumidos não rastreados.
 - 9 testes em `tests/classification-extraction-service.test.js` cobrindo mocks JSON, normalização, casos de erro — **zero testes com imagem real**.
 
-#### Etapa 3 — Frontend (`app/camera/page.tsx` + `lib/classification-form.ts` + `ClassificationReviewModal.tsx`)
+#### Etapa 3 — Frontend (`app/camera/page.tsx` + `lib/classification-form.ts` + `ClassificationReviewSheetBody.tsx`)
 
 - Estados de fluxo: `'detecting' → 'detected' → 'extracting' → 'confirming' (Review)` no happy path; `'extraction-error-illegible'` (lote = null + hasContext) ou `'extraction-error-technical'` (catch).
 - Sem timeout client-side; sem cancelamento; sem deduplicação de cliques rápidos.
 - `mapExtractionToForm` (`lib/classification-form.ts:303-314`): mapeia campos extraídos achatados (`p18..p10, mk, fundo1_peneira, fundo1_percentual, fundo2_peneira, fundo2_percentual`) → keys do `ClassificationFormState`. **Null da IA → campo ausente do spread → vazio no form** (sem destaque visual).
-- `ClassificationReviewModal` renderiza peneiras em grid 5×2 e fundos em layout `peneira = %`. **Nenhuma indicação visual** de quais vieram da IA vs vazios.
+- `ClassificationReviewSheetBody` renderiza peneiras em grid 5×2 e fundos em layout `peneira = %`. **Nenhuma indicação visual** de quais vieram da IA vs vazios.
 - Validação genérica de submit: **"pelo menos 1 dos 22 campos preenchido"** — permite salvar com peneiras/fundos totalmente vazios sem aviso.
 - Modo manual (após erro técnico): reseta `classificationForm` pra `EMPTY_CLASSIFICATION_FORM` — operador preenche tudo do zero, sem indicação de quais campos a IA deveria ter preenchido.
 - `compareIdentification` (divergências) só compara lote/sacas/safra — **nunca compara peneiras/fundos**.
@@ -1526,7 +1565,7 @@ Fase 8 (Tipo, `flowState === 'selecting-type'`). Duas frentes; rito seguido (3 a
 
 Ajustes de apresentação no modal de revisão dos dados extraídos (`flowState === 'confirming'`, `components/samples/ClassificationReviewSheetBody.tsx` dentro do BottomSheet `camera-preview-sheet`). Pedidos do usuário, escopo **só de UI — nada na extração/IA**. Rito seguido: análise via agente `Plan` + plan mode aprovado (plano em `/home/flavio003/.claude/plans/`); decisões de escopo confirmadas com o usuário antes do código.
 
-**Análise (descoberta-chave)**: o `PhotoZoomViewer` é **compartilhado** por 3 telas (review sheet, detalhe da amostra `app/samples/[sampleId]/page.tsx:3673`, e o `ClassificationReviewModal` legado, não-montado). Por isso o export virou prop opcional e o fix do corte foi feito no componente (melhoria global sem regressão).
+**Análise (descoberta-chave)**: o `PhotoZoomViewer` é **compartilhado** por 3 telas (review sheet, detalhe da amostra `app/samples/[sampleId]/page.tsx:3673`, e o `ClassificationReviewSheetBody` legado, não-montado). Por isso o export virou prop opcional e o fix do corte foi feito no componente (melhoria global sem regressão).
 
 **Commit 1 (`275a9d2`) — campo Bebida + respiro da foto**: campo "Bebida" sai da seção própria (largura cheia) e passa pra dentro de "Catação e defeitos", ao lado de "Def." numa grade 50/50 (nova classe utilitária `.review-grid-2`); rótulo agora "Bebida" (nome completo). Respiro entre a foto e o card "Identificação" via `margin-bottom` em `.review-photo` (= gap interno do form) — a borda superior do card deixava de aparecer colada na foto. Validação/payload inalterados (campos keyed por nome; `'bebida'` segue em `CLASSIFICATION_FIELD_KEYS`).
 
@@ -1575,17 +1614,17 @@ Bug de transição relatado em teste no **Caminho 3** (dashboard, lote pré-sele
 Sequência do spinner integrado — agora o review dos campos extraídos vira o **terceiro estágio do mesmo BottomSheet** (preview cheio → processing reduzido → review cheio novamente). Continuidade visual total.
 
 - **`5ee7164` — `feat(camera): review dos campos extraidos dentro do mesmo bottom sheet`**
-  - **Antes**: ao terminar a extração, o sheet de processing fechava (slide-down) e o `ClassificationReviewModal` central abria. Ruptura entre estágios.
+  - **Antes**: ao terminar a extração, o sheet de processing fechava (slide-down) e o `ClassificationReviewSheetBody` central abria. Ruptura entre estágios.
   - **Agora**: `flowState === 'confirming'` entra na lista de `open` do BottomSheet. Nova classe `.is-review` faz o sheet **expandir de volta** à altura cheia (max-height padrão 98 dvh) — simétrico ao encolhimento do `is-processing`, mesma transition cubic-bezier (0.22, 1, 0.36, 1 / 0.45s). Fundo bege `#fdf9ec` substitui o escuro do processing pra priorizar legibilidade dos campos.
-  - **Novo componente**: `components/samples/ClassificationReviewSheetBody.tsx`. Extraído do body do `ClassificationReviewModal` (foto + form de 7 seções + warning overlay + zoom viewer). Estado interno (`zoomOpen`, `warningOpen`) permanece local — não vaza pro pai.
+  - **Novo componente**: `components/samples/ClassificationReviewSheetBody.tsx`. Extraído do body do `ClassificationReviewSheetBody` (foto + form de 7 seções + warning overlay + zoom viewer). Estado interno (`zoomOpen`, `warningOpen`) permanece local — não vaza pro pai.
   - **Footer dinâmico** do sheet: ganha "Cancelar" (outline verde) + "Avançar" (primário verde). O botão "Avançar" vive **fora** do `<form>` mas dispara o submit via attr HTML5 `form="classification-review-form"` — limpo, sem state handler externo.
-  - **`ClassificationReviewModal` central** não é mais renderizado. O arquivo do componente permanece em `components/samples/` (legado sem callers) — pendência de limpeza pra próxima sessão.
+  - **`ClassificationReviewSheetBody` central** não é mais renderizado. O arquivo do componente permanece em `components/samples/` (legado sem callers) — pendência de limpeza pra próxima sessão.
   - **Padrões reusados**: `BottomSheet` com `className`, `PhotoZoomViewer`, classes `.review-section/-grid/-field/-photo/-warning-*`, `validateClassificationForm`.
   - **Convivência com modais que abrem por cima**: `lot-mismatch`, `data-mismatch`, `extraction-error` continuam funcionando — todos têm z-index >= sheet e renderização posterior no JSX.
 
 **Quality gates**: lint ✅ · format:check ✅ · typecheck ✅ · build ✅.
 
-**Pendência mantida**: `components/samples/ClassificationReviewModal.tsx` órfão. Mantido por hora pra evitar reescrever uma decisão; remover quando ficar claro que ninguém referencia.
+**Pendência mantida**: `components/samples/ClassificationReviewSheetBody.tsx` órfão. Mantido por hora pra evitar reescrever uma decisão; remover quando ficar claro que ninguém referencia.
 
 ### 2026-05-28 — Sessão 2 (spinner integrado no bottom sheet + limpeza) ✅
 
