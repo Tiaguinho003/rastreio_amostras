@@ -415,18 +415,9 @@ export async function renderSamplePdf({
     }
   }
 
-  // Dados tecnicos autorizados (a area dedicada foi removida): entram aqui se
-  // tiverem valor.
-  for (const [id, label] of [
-    ['technicalType', 'Tipo técnico'],
-    ['technicalScreen', 'Peneira técnica'],
-    ['technicalDensity', 'Densidade técnica'],
-  ]) {
-    const entry = entryById.get(id);
-    if (entry) {
-      classificationRows.push({ label, value: asValue(entry) });
-    }
-  }
+  // CL11 (auditoria 2026-07-13): os "dados tecnicos" (technicalType/Screen/
+  // Density) foram removidos do export — nunca tiveram produtor na ficha
+  // unificada e nunca apareciam no laudo.
 
   // Observações por último.
   const observacoesEntry = entryById.get('observacoes');

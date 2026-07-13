@@ -374,13 +374,13 @@ const FIXTURES_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fi
 function loadFewShotExample() {
   try {
     const imageBuffer = fs.readFileSync(path.join(FIXTURES_DIR, 'extraction-example.jpg'));
-    const responseJson = fs.readFileSync(
-      path.join(FIXTURES_DIR, 'extraction-example.json'),
-      'utf8'
-    );
+    // CL16 (auditoria 2026-07-13): so a IMAGEM da fixture e usada nas
+    // mensagens; os valores-resposta do exemplo vivem hardcoded no texto do
+    // prompt (a assistant-message com o JSON foi removida no diagnostico de
+    // template binding). O extraction-example.json permanece no repo como
+    // referencia humana do que o prompt descreve.
     return {
       imageDataUri: `data:image/jpeg;base64,${imageBuffer.toString('base64')}`,
-      responseText: JSON.stringify(JSON.parse(responseJson)),
     };
   } catch (err) {
     process.stderr.write(

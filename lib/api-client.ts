@@ -2046,87 +2046,10 @@ export function recordQrPrinted(
   });
 }
 
-export function completeClassification(
-  session: SessionData,
-  sampleId: string,
-  data: {
-    expectedVersion: number;
-    technical?: {
-      type?: string;
-      screen?: string;
-      defectsCount?: number;
-      moisture?: number;
-      density?: number | null;
-      colorAspect?: string | null;
-      notes?: string | null;
-    };
-    classificationData?: {
-      dataClassificacao?: string | null;
-      padrao?: string | null;
-      catacao?: string | null;
-      aspecto?: string | null;
-      bebida?: string | null;
-      broca?: string | null;
-      pva?: string | null;
-      imp?: string | null;
-      pau?: string | null;
-      peneirasPercentuais?: {
-        p18?: number | null;
-        p17?: number | null;
-        p16?: number | null;
-        p15?: number | null;
-        p14?: number | null;
-        p13?: number | null;
-        p12?: number | null;
-        p10?: number | null;
-        mk9?: number | null;
-        mk10?: number | null;
-        mk11?: number | null;
-        fundos?: Array<{ peneira: string; percentual: number }> | null;
-      } | null;
-      defeito?: string | null;
-      umidade?: number | null;
-      observacoes?: string | null;
-      loteOrigem?: string | null;
-    };
-    consumptionGrams?: number | null;
-    classificationVersion?: number;
-    classifiers: Array<{ userId: string }>;
-    idempotencyKey?: string;
-  }
-) {
-  const body: { [key: string]: JsonValue } = {
-    expectedVersion: data.expectedVersion,
-  };
-
-  if (data.technical) {
-    body.technical = data.technical;
-  }
-
-  if (data.classificationData) {
-    body.classificationData = data.classificationData;
-  }
-
-  if (data.consumptionGrams !== undefined) {
-    body.consumptionGrams = data.consumptionGrams;
-  }
-
-  if (typeof data.classificationVersion === 'number') {
-    body.classificationVersion = data.classificationVersion;
-  }
-
-  body.classifiers = data.classifiers;
-
-  if (typeof data.idempotencyKey === 'string' && data.idempotencyKey.length > 0) {
-    body.idempotencyKey = data.idempotencyKey;
-  }
-
-  return request<CommandResponse>(`/samples/${sampleId}/classification/complete`, {
-    method: 'POST',
-    session,
-    body,
-  });
-}
+// CL13 (auditoria 2026-07-13): a antiga completeClassification (front) foi
+// removida — funcao morta com o contrato PRE-ficha-unificada (mk9/10/11,
+// umidade, pau, peneirasPercentuais). Classificacao acontece exclusivamente
+// via confirmClassificationFromCamera + updateClassification.
 
 export function updateRegistration(
   session: SessionData,

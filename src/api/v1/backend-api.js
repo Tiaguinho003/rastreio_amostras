@@ -541,28 +541,9 @@ export function createBackendApiV1({
         return { status: result.statusCode, body: result };
       }),
 
-    completeClassification: (input) =>
-      executeApiForInput(input, async () => {
-        const actor = await resolveActorContext(input, authService);
-        const sampleId = requireSampleId(input?.params);
-        const body = readRequestBody(input);
-
-        const result = await commandService.completeClassification(
-          {
-            sampleId,
-            expectedVersion: body.expectedVersion,
-            classificationVersion: body.classificationVersion,
-            technical: body.technical,
-            classificationData: body.classificationData,
-            consumptionGrams: body.consumptionGrams ?? null,
-            classifiers: body.classifiers,
-            idempotencyKey: body.idempotencyKey,
-          },
-          actor
-        );
-
-        return { status: result.statusCode, body: result };
-      }),
+    // CL13 (auditoria 2026-07-13): dispatch completeClassification removido
+    // junto com a rota DEPRECATED /classification/complete. O metodo do
+    // command service continua existindo (harness dos testes de integracao).
 
     updateRegistration: (input) =>
       executeApiForInput(input, async () => {

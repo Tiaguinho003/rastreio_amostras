@@ -22,11 +22,7 @@ export const SAMPLE_EXPORT_FIELDS = [
   'conferredBy',
   'classifiers',
   'observacoes',
-  'classificationOriginLot',
   'peneirasPercentuais',
-  'technicalType',
-  'technicalScreen',
-  'technicalDensity',
 ];
 
 export const SAMPLE_EXPORT_FIELD_LABELS = {
@@ -51,12 +47,12 @@ export const SAMPLE_EXPORT_FIELD_LABELS = {
   conferredBy: 'Conferido por',
   classifiers: 'Classificadores',
   observacoes: 'Observacoes',
-  classificationOriginLot: 'Lote de origem (classificacao)',
   peneirasPercentuais: 'Peneiras percentuais',
-  technicalType: 'Tipo tecnico',
-  technicalScreen: 'Peneira tecnica',
-  technicalDensity: 'Densidade tecnica',
 };
+// CL11/CL14 (auditoria 2026-07-13): technicalType/Screen/Density e
+// classificationOriginLot removidos do export — nunca tiveram produtor na
+// ficha unificada (os espelhos tecnicos foram dropados; `loteOrigem` nao
+// existe no schema do evento) e saiam sempre vazios.
 
 const SAMPLE_EXPORT_FIELD_SET = new Set(SAMPLE_EXPORT_FIELDS);
 // Mesma ordem canonica do projetor (event-contract-db-service.js): peneiras
@@ -70,7 +66,6 @@ const PENEIRA_KEYS = ['p18', 'p17', 'p16', 'p15', 'p14', 'p13', 'p12', 'p11', 'p
 const SAMPLE_EXPORT_FIELDS_EXCLUDED_FROM_REPORT = new Set([
   'owner',
   'originLot',
-  'classificationOriginLot',
   'classificationDate',
   'classificador',
   'conferredBy',
@@ -217,9 +212,6 @@ function buildFieldValueMap(detail) {
   const classificationData = isRecord(sample.latestClassification?.data)
     ? sample.latestClassification.data
     : {};
-  const technical = isRecord(sample.latestClassification?.technical)
-    ? sample.latestClassification.technical
-    : {};
 
   const classifiersList = resolveClassifiersList(classificationData);
   const classifiersFormatted = formatClassifiersArray(classifiersList);
@@ -254,11 +246,7 @@ function buildFieldValueMap(detail) {
     conferredBy: classifiersFormatted,
     classifiers: classifiersFormatted,
     observacoes: classificationData.observacoes,
-    classificationOriginLot: classificationData.loteOrigem,
     peneirasPercentuais: formatSieve(classificationData.peneiras, classificationData.fundos),
-    technicalType: technical.type,
-    technicalScreen: technical.screen,
-    technicalDensity: technical.density,
   };
 }
 
