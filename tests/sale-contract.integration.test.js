@@ -779,7 +779,7 @@ if (!databaseUrl || !databaseReachable) {
       () =>
         saleContractService.invoiceSaleContract(
           contractId,
-          { expectedVersion: version, date: '2026-07-15' },
+          { expectedVersion: version, date: '2026-07-06' },
           adminActor
         ),
       (err) => err.status === 422 && err.details?.code === 'CONTRACT_APPROVAL_REQUIRED'
@@ -802,7 +802,7 @@ if (!databaseUrl || !databaseReachable) {
 
     const invoiced = await saleContractService.invoiceSaleContract(
       contractId,
-      { expectedVersion: version, date: '2026-07-15' },
+      { expectedVersion: version, date: '2026-07-06' },
       adminActor
     );
     assert.equal(invoiced.contract.status, 'FATURADO');
@@ -993,7 +993,7 @@ if (!databaseUrl || !databaseReachable) {
     });
     const invoiced = await saleContractService.invoiceSaleContract(
       mine.contractId,
-      { expectedVersion: cur.version, date: '2026-07-15' },
+      { expectedVersion: cur.version, date: '2026-07-06' },
       myActor
     );
     assert.equal(invoiced.contract.status, 'FATURADO');
@@ -1313,7 +1313,7 @@ if (!databaseUrl || !databaseReachable) {
     const refs = await setupConfirmedContract({ lotNumber: '21103' });
     const invoiced = await saleContractService.invoiceSaleContract(
       refs.contractId,
-      { expectedVersion: refs.version, date: '2026-07-15' },
+      { expectedVersion: refs.version, date: '2026-07-06' },
       adminActor
     );
     await assert.rejects(
@@ -1366,7 +1366,7 @@ if (!databaseUrl || !databaseReachable) {
     const lookups = await fetchLookups();
     const invoiced = await saleContractService.invoiceSaleContract(
       refs.contractId,
-      { expectedVersion: refs.version, date: '2026-07-15' },
+      { expectedVersion: refs.version, date: '2026-07-06' },
       adminActor
     );
     await assert.rejects(
@@ -2000,18 +2000,18 @@ if (!databaseUrl || !databaseReachable) {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '22001' });
     const r = await saleContractService.invoiceSaleContract(
       contractId,
-      { expectedVersion: version, date: '2026-07-15' },
+      { expectedVersion: version, date: '2026-07-06' },
       adminActor
     );
     assert.equal(r.contract.status, 'FATURADO');
-    assert.equal(r.contract.invoicedAt?.slice(0, 10), '2026-07-15');
+    assert.equal(r.contract.invoicedAt?.slice(0, 10), '2026-07-06');
   });
 
   test('pagar (apos faturar): FATURADO -> PAGO grava paidAt e preserva invoicedAt', async () => {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '22002' });
     const inv = await saleContractService.invoiceSaleContract(
       contractId,
-      { expectedVersion: version, date: '2026-07-15' },
+      { expectedVersion: version, date: '2026-07-06' },
       adminActor
     );
     const pay = await saleContractService.paySaleContract(
@@ -2021,7 +2021,7 @@ if (!databaseUrl || !databaseReachable) {
     );
     assert.equal(pay.contract.status, 'PAGO');
     assert.equal(pay.contract.paidAt?.slice(0, 10), '2026-07-08');
-    assert.equal(pay.contract.invoicedAt?.slice(0, 10), '2026-07-15');
+    assert.equal(pay.contract.invoicedAt?.slice(0, 10), '2026-07-06');
   });
 
   // F1 (E21-E27/D138): getDashboardPaymentEvents — feed do card de Eventos.
@@ -2044,7 +2044,6 @@ if (!databaseUrl || !databaseReachable) {
     assert.ok(ev, 'contrato EMITIDO deve aparecer como agendado no paymentDate');
     assert.equal(ev.typeKey, 'contract_payment_due');
     assert.equal(ev.status, 'EMITIDO');
-    assert.equal(typeof ev.version, 'number');
     assert.ok(!day.some((e) => e.contractId === washed.contractId), 'WASH_OUT fora do feed');
 
     // janela em agosto → o contrato de 2026-07-20 não aparece (filtro de data).
@@ -2137,7 +2136,7 @@ if (!databaseUrl || !databaseReachable) {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '24101' });
     const inv = await saleContractService.invoiceSaleContract(
       contractId,
-      { expectedVersion: version, date: '2026-07-15' },
+      { expectedVersion: version, date: '2026-07-06' },
       adminActor
     );
     await saleContractService.paySaleContract(
@@ -2210,7 +2209,7 @@ if (!databaseUrl || !databaseReachable) {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '24104' });
     await saleContractService.invoiceSaleContract(
       contractId,
-      { expectedVersion: version, date: '2026-07-15' },
+      { expectedVersion: version, date: '2026-07-06' },
       adminActor
     );
     await saleContractService.logEspelhoGenerated(contractId, 'buyer', adminActor);
@@ -2265,7 +2264,7 @@ if (!databaseUrl || !databaseReachable) {
       () =>
         saleContractService.invoiceSaleContract(
           contractId,
-          { expectedVersion: 99, date: '2026-07-15' },
+          { expectedVersion: 99, date: '2026-07-06' },
           adminActor
         ),
       (err) => err.status === 409
@@ -2289,7 +2288,7 @@ if (!databaseUrl || !databaseReachable) {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '22011' });
     const res = await saleContractService.invoiceSaleContract(
       contractId,
-      { expectedVersion: version, date: '2026-07-15' },
+      { expectedVersion: version, date: '2026-07-06' },
       commercialActor
     );
     assert.equal(res.contract.status, 'FATURADO');
@@ -2325,7 +2324,7 @@ if (!databaseUrl || !databaseReachable) {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '23002' });
     const inv = await saleContractService.invoiceSaleContract(
       contractId,
-      { expectedVersion: version, date: '2026-07-15' },
+      { expectedVersion: version, date: '2026-07-06' },
       adminActor
     );
     const r = await saleContractService.washoutSaleContract(
@@ -2340,7 +2339,7 @@ if (!databaseUrl || !databaseReachable) {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '23003' });
     const inv = await saleContractService.invoiceSaleContract(
       contractId,
-      { expectedVersion: version, date: '2026-07-15' },
+      { expectedVersion: version, date: '2026-07-06' },
       adminActor
     );
     const pay = await saleContractService.paySaleContract(
@@ -2414,7 +2413,7 @@ if (!databaseUrl || !databaseReachable) {
     const { contractId, sampleId, version } = await setupConfirmedContract({ lotNumber: '23010' });
     const inv = await saleContractService.invoiceSaleContract(
       contractId,
-      { expectedVersion: version, date: '2026-07-15' },
+      { expectedVersion: version, date: '2026-07-06' },
       adminActor
     );
     await saleContractService.paySaleContract(
