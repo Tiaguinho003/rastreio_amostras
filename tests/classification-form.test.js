@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { mapExtractionToForm } from '../lib/classification-form.ts';
+import {
+  EMPTY_CLASSIFICATION_FORM,
+  buildClassificationDataPayload,
+  mapExtractionToForm,
+  validateClassificationForm,
+} from '../lib/classification-form.ts';
 
 // Shape ANINHADO real que a extracao da IA retorna (espelha
 // src/samples/fixtures/extraction-example.json e raw.classificacao).
@@ -83,4 +88,74 @@ test('mapExtractionToForm: grupos ausentes/null nao quebram', () => {
   assert.equal('peneiraP17' in m, false);
   assert.equal('imp' in m, false);
   assert.equal('fundo1Peneira' in m, false);
+});
+
+// CL37 (auditoria 2026-07-13): buildClassificationDataPayload e
+// validateClassificationForm nao tinham NENHUM teste — o contrato
+// form -> payload (coercao numerica, agrupamento null) e a validacao
+// 0-100 ficavam descobertos.
+
+test('buildClassificationDataPayload: form vazio gera payload todo null', () => {
+  const p = buildClassificationDataPayload(EMPTY_CLASSIFICATION_FORM);
+  assert.equal(p.padrao, null);
+  assert.equal(p.bebida, null);
+  assert.equal(p.peneiras, null);
+  assert.equal(p.fundos, null);
+  assert.equal(p.defeitos, null);
+  // dataClassificacao NAO e gerada no cliente (CL29) — backend carimba.
+  assert.equal('dataClassificacao' in p, false);
+});
+
+test('buildClassificationDataPayload: coercao numerica (virgula -> ponto) e trim', () => {
+  const p = buildClassificationDataPayload({
+    ...EMPTY_CLASSIFICATION_FORM,
+    padrao: '  L4-P3  ',
+    catacao: '0,5',
+    peneiraP17: '38,5',
+    peneiraMk: '8',
+    fundo1Peneira: '13',
+    fundo1Percent: '3',
+    imp: ' 0,1 ',
+  });
+  assert.equal(p.padrao, 'L4-P3');
+  // catacao e texto no payload (string|null) — vai cru trimado.
+  assert.equal(p.catacao, '0,5');
+  assert.equal(p.peneiras?.p17, 38.5);
+  assert.equal(p.peneiras?.mk, 8);
+  // peneiras nao preenchidas ficam null dentro do grupo.
+  assert.equal(p.peneiras?.p18, null);
+  // fundos: sempre tupla de 2 quando algum campo preenchido.
+  assert.equal(p.fundos?.length, 2);
+  assert.deepEqual(p.fundos?.[0], { peneira: '13', percentual: 3 });
+  assert.deepEqual(p.fundos?.[1], { peneira: null, percentual: null });
+  assert.equal(p.defeitos?.imp, '0,1');
+  assert.equal(p.defeitos?.defeito, null);
+});
+
+test('validateClassificationForm: aceita vazio, decimais com virgula e limites 0/100', () => {
+  assert.equal(validateClassificationForm(EMPTY_CLASSIFICATION_FORM), null);
+  assert.equal(
+    validateClassificationForm({
+      ...EMPTY_CLASSIFICATION_FORM,
+      peneiraP17: '38,5',
+      fundo1Percent: '0',
+      fundo2Percent: '100',
+    }),
+    null
+  );
+});
+
+test('validateClassificationForm: barra nao-numerico e fora da faixa 0-100 nos campos numericos', () => {
+  assert.notEqual(
+    validateClassificationForm({ ...EMPTY_CLASSIFICATION_FORM, peneiraP17: 'abc' }),
+    null
+  );
+  assert.notEqual(
+    validateClassificationForm({ ...EMPTY_CLASSIFICATION_FORM, peneiraP17: '250' }),
+    null
+  );
+  assert.notEqual(
+    validateClassificationForm({ ...EMPTY_CLASSIFICATION_FORM, fundo1Percent: '-1' }),
+    null
+  );
 });

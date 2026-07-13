@@ -1633,9 +1633,11 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(detail.sample.latestClassification.data?.peneiras?.p17, 25);
   });
 
-  // CL6 (auditoria 2026-07-13): bebida agora e canonizada na projecao como
-  // padrao/aspecto/catacao/certif (edicao manual gravava valor cru).
-  test('CL6: bebida e canonizada na projecao do CLASSIFICATION_COMPLETED', async () => {
+  // CL6/CL39 (auditoria 2026-07-13): a canonizacao NA PROJECAO nunca era
+  // asserida com valores nao-invariantes (os testes usavam valores ja
+  // canonicos). Cobre os 5 canonizadores do projetor, incluindo bebida
+  // (nova no CLASSIFICATION_FIELD_CANONICALIZERS — antes gravava cru).
+  test('CL6/CL39: projecao canoniza padrao/aspecto/catacao/certif/bebida', async () => {
     const sampleId = randomUUID();
     await moveSampleToRegistrationConfirmed(sampleId);
     await commandService.addClassificationPhoto(
@@ -1651,7 +1653,13 @@ if (!databaseUrl || !databaseReachable) {
       {
         sampleId,
         expectedVersion: 1,
-        classificationData: { bebida: 'dura  pra  mole' },
+        classificationData: {
+          padrao: 'l4 p3',
+          aspecto: 'g.c.',
+          catacao: '0.5',
+          certif: 'r.a.',
+          bebida: 'dura  pra  mole',
+        },
         classifiers: classifiersOf(actorClassifier),
         idempotencyKey: randomUUID(),
       },
@@ -1659,8 +1667,12 @@ if (!databaseUrl || !databaseReachable) {
     );
 
     const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
-    // canonicalizeBebida: uppercase + colapso de espacos.
-    assert.equal(detail.sample.latestClassification.data?.bebida, 'DURA PRA MOLE');
+    const data = detail.sample.latestClassification.data ?? {};
+    assert.equal(data.padrao, 'L4-P3'); // canonicalizePadrao: par L/P com hifen
+    assert.equal(data.aspecto, 'GC'); // canonicalizeAspecto: sem pontos, uppercase
+    assert.equal(data.catacao, '0,5'); // canonicalizeCatacao: separador -> virgula
+    assert.equal(data.certif, 'RA'); // canonicalizeCertif: sem pontos, uppercase
+    assert.equal(data.bebida, 'DURA PRA MOLE'); // canonicalizeBebida: colapso de espacos
   });
 }
 

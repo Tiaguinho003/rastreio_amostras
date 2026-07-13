@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   canonicalizeAspecto,
   canonicalizeBebida,
+  canonicalizeCatacao,
   canonicalizeCertif,
   canonicalizeHarvest,
   canonicalizePadrao,
@@ -81,4 +82,27 @@ test('canonicalizeHarvest normaliza formatos de safra', () => {
   assert.equal(canonicalizeHarvest('8-9'), '8-9');
   assert.equal(canonicalizeHarvest(null), null);
   assert.equal(canonicalizeHarvest(''), null);
+});
+
+// CL38 (auditoria 2026-07-13): canonicalizeCatacao era o unico canonizador
+// sem unit test, embora usado na projecao, nos filtros e (CL7) na extracao.
+test('canonicalizeCatacao padroniza separador decimal pra virgula', () => {
+  assert.equal(canonicalizeCatacao('0.5'), '0,5');
+  assert.equal(canonicalizeCatacao('0,5'), '0,5');
+  assert.equal(canonicalizeCatacao(' 0 , 5 '), '0,5');
+  assert.equal(canonicalizeCatacao('33'), '33');
+  assert.equal(canonicalizeCatacao(12), '12');
+});
+
+test('canonicalizeCatacao preserva texto livre (uppercase + colapso de espacos)', () => {
+  assert.equal(canonicalizeCatacao('<1'), '<1');
+  assert.equal(canonicalizeCatacao('a  maquina'), 'A MAQUINA');
+  assert.equal(canonicalizeCatacao('tr'), 'TR');
+});
+
+test('canonicalizeCatacao devolve null pra vazio', () => {
+  assert.equal(canonicalizeCatacao(null), null);
+  assert.equal(canonicalizeCatacao(undefined), null);
+  assert.equal(canonicalizeCatacao(''), null);
+  assert.equal(canonicalizeCatacao('   '), null);
 });
