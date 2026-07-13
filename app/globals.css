@@ -24329,6 +24329,10 @@ select.samples-filter-field-input {
     max-width: 46rem;
     margin-inline: auto;
     padding-top: 1.2rem;
+    /* Mantem o shell-lock do prospector (a base .dashboard-page agora rola). */
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .prospector-dashboard .dashboard-hero {
@@ -24503,16 +24507,35 @@ select.samples-filter-field-input {
      Fluido de 901px ate 2600px (--content-max-wide).
      ══════════════════════════════════════════ */
 
-  /* Shell-lock: pagina ocupa 100vh, scroll fica dentro do activity card */
-  .app-shell-root:has(.dashboard-page) {
+  /* Reforma de design: o dashboard PADRAO (twins mobile/desktop) ROLA na janela
+     quando o conteudo passa da viewport — antes travava em 100vh + overflow:hidden.
+     A cadeia flex PREENCHE a viewport quando o conteudo e curto e CRESCE (rola)
+     quando fica alto (ex.: cards maiores). A topbar e sticky (regra base), entao
+     permanece no topo ao rolar. Escopo por .dashboard-desktop = so o dashboard
+     padrao; o do PROSPECTOR (regras logo abaixo) mantem o shell-lock proprio. */
+  .app-shell-root:has(.dashboard-desktop) .app-shell-main {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .app-shell-root:has(.dashboard-desktop) .app-shell-page-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Dashboard do PROSPECTOR: mantem o shell-lock antigo (100vh; o .dashboard-sheet
+     rola por dentro, sem scroll de pagina). */
+  .app-shell-root:has(.prospector-dashboard) {
     height: 100vh;
     overflow: hidden;
   }
 
-  .app-shell-root:has(.dashboard-page) .app-shell-main {
-    /* Altura vem do grid do shell (row 2 = 1fr = 100vh - faixa branca). Sem
-       height fixo: a faixa branca tem altura variavel, nao os 4.5rem da
-       topbar antiga. */
+  .app-shell-root:has(.prospector-dashboard) .app-shell-main {
     min-height: 0;
     width: 100%;
     max-width: none;
@@ -24523,7 +24546,7 @@ select.samples-filter-field-input {
     flex-direction: column;
   }
 
-  .app-shell-root:has(.dashboard-page) .app-shell-page-content {
+  .app-shell-root:has(.prospector-dashboard) .app-shell-page-content {
     flex: 1;
     min-height: 0;
     overflow: hidden;
@@ -24549,14 +24572,81 @@ select.samples-filter-field-input {
     --dd-card-shadow-hover: 0 6px 14px rgba(0, 0, 0, 0.08), 0 22px 46px rgba(19, 35, 24, 0.18);
     max-width: var(--content-max-wide);
     margin: 0 auto;
-    padding: clamp(1rem, 2vw, 2rem) clamp(0.85rem, 3vw, 4rem) clamp(1.5rem, 2vw, 2.5rem);
+    /* Reforma: mais respiro entre o topbar e o conteudo (padding-top maior). */
+    padding: clamp(1.75rem, 3vw, 3rem) clamp(0.85rem, 3vw, 4rem) clamp(1.5rem, 2vw, 2.5rem);
     gap: clamp(1rem, 1.6vw, 1.5rem);
     display: flex;
     flex-direction: column;
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
+    /* Reforma: preenche a viewport quando o conteudo e curto e CRESCE (a pagina
+       rola) quando fica alto — sem overflow:hidden/min-height:0 que travavam. */
+    flex: 1 0 auto;
     width: 100%;
+  }
+
+  /* ── Cabeçalho da página (reforma de design): título "Visão geral" + saudação
+     com o nome do usuário. Altura natural (flex:none) acima do grid; o grid
+     preenche o resto do 100vh. Fundo branco da página → texto em tinta/muted. ── */
+  .dd-page-header {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.1s backwards;
+  }
+
+  /* Reforma: "Visão geral" virou um ROTULO fino e verde acima da saudacao. */
+  .dd-page-title {
+    margin: 0 0 0.15rem;
+    font-size: clamp(0.92rem, 1.05vw, 1.05rem);
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+    color: var(--brand-green, #1f5d43);
+  }
+
+  /* Reforma: saudacao + nome sao o elemento PRINCIPAL (maior). */
+  .dd-page-greeting {
+    margin: 0;
+    font-size: clamp(1.5rem, 2.4vw, 2.05rem);
+    font-weight: 400;
+    line-height: 1.12;
+    color: var(--ink);
+  }
+
+  .dd-page-greeting-name {
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  /* Tipo de usuario: verde, com escudo (mesmo icone do hero mobile). */
+  .dd-page-role {
+    margin-top: 0.4rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: clamp(0.85rem, 0.95vw, 0.95rem);
+    font-weight: 500;
+    line-height: 1.25;
+    color: var(--brand-green, #1f5d43);
+  }
+
+  .dd-page-role-icon {
+    width: clamp(0.95rem, 1.05vw, 1.05rem);
+    height: clamp(0.95rem, 1.05vw, 1.05rem);
+    flex-shrink: 0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* Data de hoje por extenso, logo abaixo do tipo de usuario. */
+  .dd-page-date {
+    margin-top: 0.1rem;
+    font-size: clamp(0.8rem, 0.9vw, 0.9rem);
+    font-weight: 400;
+    line-height: 1.3;
+    color: var(--muted);
   }
 
   /* ── Dashboard Desktop: summary cards row ── */
@@ -24573,19 +24663,22 @@ select.samples-filter-field-input {
      dentro. */
   .dd-content-grid {
     display: grid;
-    grid-template-rows: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    /* Reforma: linhas com PISO em px — os cards nunca somem; quando a viewport
+       nao comporta, a pagina rola (as listas seguem rolando por dentro dos pisos).
+       Pisos tunaveis: serao revistos quando ajustarmos o tamanho dos cards. */
+    grid-template-rows: minmax(230px, 0.85fr) minmax(300px, 1.15fr);
     gap: clamp(1rem, 1.6vw, 1.5rem);
-    flex: 1 1 auto;
-    min-height: 0;
+    /* grow p/ preencher quando ha espaco; shrink 0 p/ nao encolher abaixo dos pisos. */
+    flex: 1 0 auto;
   }
 
-  /* Top row (DSB-D5): 3 colunas — donut "Lotes disponiveis" (mais estreito) +
-     "Amostras enviadas" + "Aprovacoes enviadas" (mais largos, p/ os minicards
-     respirarem). minmax(0, …) deixa cada celula encolher e as listas rolarem. */
+  /* Top row (DSB-D5; reforma de design: 3 colunas IGUAIS — donut "Lotes
+     disponiveis" + "Amostras enviadas" + "Aprovacoes enviadas" com a mesma
+     largura). minmax(0, …) deixa cada celula encolher e as listas rolarem. */
   .dd-top-row {
     min-height: 0;
     display: grid;
-    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.1fr) minmax(0, 1.1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: clamp(0.75rem, 1.4vw, 1.25rem);
     animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.2s backwards;
   }
@@ -24607,7 +24700,9 @@ select.samples-filter-field-input {
     border: 1px solid rgba(112, 130, 103, 0.22);
     border-radius: 20px;
     box-shadow: var(--dd-card-shadow);
-    padding: clamp(0.8rem, 1.1vw, 1.1rem) clamp(0.95rem, 1.3vw, 1.3rem);
+    /* Reforma: cards da linha iguais → o de envios ficou um pouco mais estreito;
+       recuo lateral levemente menor p/ as colunas caberem confortaveis. */
+    padding: clamp(0.8rem, 1.1vw, 1.1rem) clamp(0.85rem, 1.15vw, 1.2rem);
   }
 
   .dd-sends-header {
@@ -24665,7 +24760,9 @@ select.samples-filter-field-input {
   .dd-send-row {
     display: grid;
     align-items: center;
-    gap: clamp(0.4rem, 0.9vw, 0.7rem);
+    /* Reforma: gap entre colunas um pouco menor → mais espaco p/ a coluna do
+       destinatario/comprador (a que trunca) na largura igualada dos cards. */
+    gap: clamp(0.35rem, 0.7vw, 0.6rem);
     padding: clamp(0.28rem, 0.55vw, 0.4rem) 0.1rem;
     font-size: clamp(0.72rem, 0.82vw, 0.8rem);
     border-bottom: 1px solid rgba(112, 130, 103, 0.14);
@@ -33819,6 +33916,7 @@ body.is-selection-mode .ctr-page .cc-tabs {
   .dashboard-mobile .dashboard-sheet,
   .dashboard-operations-grid .dashboard-operation-card:nth-child(n),
   .sales-card,
+  .dd-page-header,
   .dd-top-row,
   .dd-events-card,
   .dashboard-operation-badge,

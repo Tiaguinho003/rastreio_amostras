@@ -8,10 +8,11 @@ import {
   getDashboardRecentSends,
   getDashboardShipmentEvents,
 } from '../../lib/api-client';
-import { contractsHubTabs, FINANCEIRO_ROLES, isRoleAllowed } from '../../lib/roles';
+import { contractsHubTabs, FINANCEIRO_ROLES, getRoleLabel, isRoleAllowed } from '../../lib/roles';
 import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
 import { DashboardLoadError } from './DashboardLoadError';
 import { EventsCalendarCard } from './EventsCalendarCard';
+import { getGreeting, getTodayLong } from './greeting';
 import { RecentSendsCard } from './RecentSendsCard';
 import type {
   DashboardCalendarEvent,
@@ -32,6 +33,11 @@ interface DashboardDesktopProps {
 }
 
 export function DashboardDesktop({ session, salesData, error, onRetry }: DashboardDesktopProps) {
+  // Saudação do cabeçalho da página (mesmo primeiro nome do hero mobile).
+  const fullName = session.user.fullName ?? session.user.username;
+  const firstName = fullName.split(' ')[0];
+  const roleLabel = getRoleLabel(session.user.role);
+
   // Guarda de montagem: evita setState após unmount em qualquer fetch (o retry pode
   // disparar fora do ciclo do effect que criava o `active` por-chamada).
   const mountedRef = useRef(true);
@@ -198,6 +204,29 @@ export function DashboardDesktop({ session, salesData, error, onRetry }: Dashboa
   return (
     <div className="dashboard-desktop">
       <section className="dashboard-page">
+        {/* Cabeçalho da página (desktop): rótulo "Visão geral" + saudação/nome
+            (protagonista), tipo de usuário com escudo e a data de hoje por
+            extenso. As informações (cards) começam logo abaixo. */}
+        <header className="dd-page-header">
+          <h1 className="dd-page-title">Visão geral</h1>
+          <p className="dd-page-greeting">
+            {getGreeting()} <strong className="dd-page-greeting-name">{firstName}</strong>
+          </p>
+          <span className="dd-page-role">
+            <svg
+              className="dd-page-role-icon"
+              viewBox="0 0 24 24"
+              focusable="false"
+              aria-hidden="true"
+            >
+              <path d="M12 3 5 5.5v6c0 4.5 3 8.3 7 9.5 4-1.2 7-5 7-9.5v-6L12 3z" />
+              <path d="m9 12 2 2 4-4.5" />
+            </svg>
+            {roleLabel}
+          </span>
+          <span className="dd-page-date">{getTodayLong()}</span>
+        </header>
+
         {error ? <DashboardLoadError message={error} onRetry={onRetry} /> : null}
 
         {/* Layout (DSB-D3 + DSB-D5): TOP ROW = "Lotes disponiveis" (donut, mais
