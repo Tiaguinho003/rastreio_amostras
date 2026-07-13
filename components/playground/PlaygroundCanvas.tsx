@@ -14,19 +14,25 @@ import {
   type Node,
   type NodeTypes,
 } from '@xyflow/react';
-import { useCallback, useRef, useState, type DragEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 
 import '@xyflow/react/dist/style.css';
 
+import { stubEngine } from '../../lib/playground/engine';
 import {
   validateConnection,
   type ConnectionRejectionReason,
   type ConnectionVerdict,
 } from '../../lib/playground/graph';
+import { mockLotIndex } from '../../lib/playground/mock-lots';
+import { runSimulation } from '../../lib/playground/simulation';
 import type { PgGraphEdge, PgGraphNode, PgNodeType } from '../../lib/playground/types';
 import { useToast } from '../../lib/toast/ToastProvider';
 import { ConnectMenu, type ConnectMenuState } from './ConnectMenu';
+import { ExecutePill } from './ExecutePill';
 import { NodePalette } from './NodePalette';
+import { ResultDrawer } from './ResultDrawer';
+import { PlaygroundResultsContext, type PlaygroundResults } from './results-context';
 import { AlvoNode } from './nodes/AlvoNode';
 import { CombinacoesNode } from './nodes/CombinacoesNode';
 import { LoteNode } from './nodes/LoteNode';
@@ -101,6 +107,50 @@ export function PlaygroundCanvas() {
   // Último veredito negativo do isValidConnection — o React Flow só devolve
   // boolean; o motivo (pra toast do PG32) fica guardado aqui.
   const lastRejectionRef = useRef<ConnectionVerdict | null>(null);
+
+  // Execução (PG14): a 1ª é manual (pill); depois qualquer edição recalcula
+  // automaticamente via o próprio useMemo — resultado é DERIVADO, nunca
+  // sincronizado à mão.
+  const [hasExecuted, setHasExecuted] = useState(false);
+  const [drawerResultId, setDrawerResultId] = useState<string | null>(null);
+  const outcomes = useMemo(() => {
+    if (!hasExecuted) return null;
+    const graph = toGraph(nodes, edges);
+    return runSimulation(graph.nodes, graph.edges, mockLotIndex, stubEngine);
+  }, [nodes, edges, hasExecuted]);
+  const resultsValue = useMemo<PlaygroundResults>(
+    () => ({ outcomes, openDrawer: setDrawerResultId }),
+    [outcomes]
+  );
+
+  // Live region: anuncia o recálculo automático a leitores de tela.
+  const [announcement, setAnnouncement] = useState('');
+  const announceCountRef = useRef(0);
+  useEffect(() => {
+    if (!outcomes) return;
+    announceCountRef.current += 1;
+    setAnnouncement(`Estimativa atualizada (${announceCountRef.current})`);
+  }, [outcomes]);
+
+  // Fecha o drawer se o node Resultado dele sumir do canvas.
+  useEffect(() => {
+    if (drawerResultId && !nodes.some((node) => node.id === drawerResultId)) {
+      setDrawerResultId(null);
+    }
+  }, [drawerResultId, nodes]);
+
+  const onExecute = useCallback(() => {
+    if (!nodes.some((node) => node.type === 'resultado')) {
+      toast.info({ title: 'Adicione um node Resultado para ver a estimativa' });
+    }
+    if (nodes.some((node) => node.type === 'combinacoes')) {
+      toast.info({
+        title: 'Busca de combinações em breve',
+        description: 'O fluxo inverso chega na F4.',
+      });
+    }
+    setHasExecuted(true);
+  }, [nodes, toast]);
 
   const createNode = useCallback(
     (type: PgNodeType, position: { x: number; y: number }): Node => ({
@@ -225,35 +275,47 @@ export function PlaygroundCanvas() {
   );
 
   return (
-    <div className="pg-canvas-wrap" ref={hostRef} onDragOver={onDragOver} onDrop={onDrop}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onConnectEnd={onConnectEnd}
-        isValidConnection={isValidConnection}
-        onPaneClick={() => setConnectMenu(null)}
-        deleteKeyCode={['Backspace', 'Delete']}
-        minZoom={0.3}
-        maxZoom={2}
-      >
-        <Background variant={BackgroundVariant.Dots} gap={22} size={1.5} color="#d3cec2" />
-        <Controls showInteractive={false} />
-      </ReactFlow>
-      <NodePalette onAdd={addNodeAtCenter} />
-      {nodes.length === 0 ? (
-        <p className="pg-empty-hint">Arraste um Lote da paleta para começar</p>
-      ) : null}
-      {connectMenu ? (
-        <ConnectMenu
-          state={connectMenu}
-          onPick={onPickFromConnectMenu}
-          onClose={() => setConnectMenu(null)}
-        />
-      ) : null}
-    </div>
+    <PlaygroundResultsContext.Provider value={resultsValue}>
+      <div className="pg-canvas-wrap" ref={hostRef} onDragOver={onDragOver} onDrop={onDrop}>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          onConnectEnd={onConnectEnd}
+          isValidConnection={isValidConnection}
+          onPaneClick={() => setConnectMenu(null)}
+          deleteKeyCode={['Backspace', 'Delete']}
+          minZoom={0.3}
+          maxZoom={2}
+        >
+          <Background variant={BackgroundVariant.Dots} gap={22} size={1.5} color="#d3cec2" />
+          <Controls showInteractive={false} />
+          <ExecutePill onExecute={onExecute} disabled={nodes.length === 0} />
+        </ReactFlow>
+        <NodePalette onAdd={addNodeAtCenter} />
+        {nodes.length === 0 ? (
+          <p className="pg-empty-hint">Arraste um Lote da paleta para começar</p>
+        ) : null}
+        {connectMenu ? (
+          <ConnectMenu
+            state={connectMenu}
+            onPick={onPickFromConnectMenu}
+            onClose={() => setConnectMenu(null)}
+          />
+        ) : null}
+        {drawerResultId ? (
+          <ResultDrawer
+            outcome={outcomes?.get(drawerResultId) ?? null}
+            onClose={() => setDrawerResultId(null)}
+          />
+        ) : null}
+        <p className="pg-live-region" role="status" aria-live="polite">
+          {announcement}
+        </p>
+      </div>
+    </PlaygroundResultsContext.Provider>
   );
 }
