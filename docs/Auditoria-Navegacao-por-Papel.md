@@ -29,7 +29,7 @@ Atualizado: 2026-07-12 — **Central de Contratos F2 (Embarque) reconciliada**: 
 não só ADMIN + COMMERCIAL. ADMIN/COMMERCIAL veem as **4 sub-abas**
 (Contratos · Financeiro · Aprovações · Embarque) sob o item de nav **"Contratos"**;
 CLASSIFIER/REGISTRATION/CADASTRO veem **2 sub-abas** (Embarque · Aprovações) sob o
-item **"Embarques"** (`contractsHubTabs` / `contractsHubNavLabel` em `lib/roles.ts`).
+item **"Embarques"** (`contractsHubTabs` / `contractTabRoute` em `lib/roles.ts`).
 O item aparece na **top bar desktop** e no **menu do avatar mobile** para os cinco
 papéis. Resolve o débito anotado na nota F1 de 2026-07-09 (as seções por papel abaixo
 descreviam o estado pré-CC F2). Sem mudança de guard no backend: a lista da Aprovação
@@ -40,6 +40,10 @@ Financeiro, gated `CONTRATOS_ROLES`) e `/embarques` (Embarque + Aprovações, ga
 ("Contratos" + "Embarques"); operacionais só "Embarques" (perdem o acesso a
 `/contratos`). Deep-links antigos `/contratos?tab=embarque|aprovacoes` redirecionam.
 A tabela de rotas e a matriz abaixo já refletem. Detalhe em `Contratos-Visao-Geral.md` §2.
+⚠️ **As seções "Detalhe por papel" dos OPERACIONAIS** (CLASSIFIER/REGISTRATION/CADASTRO)
+mais abaixo foram escritas **pré-split** e ainda citam `/contratos` (rotuladas "Embarques"):
+leia **`/embarques`** — e note que **`/contratos` agora é bloqueado** a eles (a tabela de
+rotas e a matriz acima são a referência autoritativa).
 
 ## Como ler este documento
 

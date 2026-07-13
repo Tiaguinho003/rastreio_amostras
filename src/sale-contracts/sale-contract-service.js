@@ -211,10 +211,11 @@ export class SaleContractService {
   // DERIVADO (sem persistencia): TODOS os contratos congelados (EMITIDO/FATURADO/
   // PAGO), inclusive os SEM corretagem (P24/D92 — e o unico lugar onde o total do
   // contrato aparece) E os em WASH_OUT (D105: o corretor recebe a comissao mesmo
-  // com washout, pois fez a negociacao); a cota de cada corretor = total / N
-  // (divisao igual, D79; resto de centavos no 1º — D129); sem corretagem => cota 0.
-  // ACESSO (D135): ADMIN ve todos; COMMERCIAL so os contratos DELE (Broker.userId),
-  // com os co-corretores visiveis e o total = a cota dele. Select enxuto
+  // com washout, pois fez a negociacao). SEM rateio ÷N (D136 removeu a "cota por
+  // corretor"): o valor por fechamento = a corretagem TOTAL (vendedor + comprador);
+  // os co-corretores sao listados so como atribuicao. ACESSO (D135): ADMIN ve todos;
+  // COMMERCIAL so os contratos DELE (Broker.userId), com os co-corretores visiveis
+  // e o total = "corretagem dos meus fechamentos". Select enxuto
   // (RECEIVABLE_VIEW_SELECT, sem snapshots). Sem `@relation` contrato<->broker: os
   // corretores vem num batch separado (agrupado em JS).
   async listBrokerReceivables(input, actorContext) {

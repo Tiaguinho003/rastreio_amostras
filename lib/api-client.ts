@@ -808,7 +808,7 @@ export function updateBroker(
   });
 }
 
-// Fechamento (Fase B.2): gestao de contratos (ADMIN+CADASTRO no backend).
+// Fechamento (Fase B.2): gestao de contratos (ADMIN+COMMERCIAL no backend, D110).
 export function listSaleContracts(
   session: SessionData,
   query: { search?: string; status?: SaleContractStatus; type?: SaleContractType } = {},
@@ -826,7 +826,7 @@ export function listSaleContracts(
   });
 }
 
-// Financeiro (Fase F, D128): corretagem a receber por fechamento (ADMIN-only).
+// Financeiro (Fase F): corretagem a receber por fechamento (ADMIN+COMMERCIAL, D135).
 // Relatorio derivado, on-demand, paginado por cursor (S86: search/limit/cursor).
 export function listFinanceiro(
   session: SessionData,
@@ -957,7 +957,7 @@ export function paySaleContract(
 }
 
 // Quebra manual (P17): cancela a venda subjacente e marca o contrato WASH_OUT.
-// Motivo obrigatório. Definitiva. Gestão = ADMIN+CADASTRO.
+// Motivo obrigatório. Definitiva. Gestão = ADMIN+COMMERCIAL (D110).
 export function washoutSaleContract(
   session: SessionData,
   contractId: string,

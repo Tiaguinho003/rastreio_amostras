@@ -83,7 +83,7 @@ O contrato tem **4 status** (`SaleContract.status`):
 | qualquer data de ação | **Dia útil** (DSB-D7)    | `invoiceDate` / `paymentDate` / `shippedAt` **rejeitam fim de semana**                                                  | `422 WEEKEND_DATE`               |
 | pagar                 | **Data máx. hoje** (E30) | data de pagamento não pode ser futura                                                                                   | —                                |
 
-Pagar **herda** o portão de aprovação (só se chega a FATURADO passando por ele). Os flags `requiresApproval`/`requiresShipment` são definidos na emissão (ver §7 e §8).
+Pagar **herda** o portão de aprovação (só se chega a FATURADO passando por ele). **Faturar e pagar** rejeitam data futura — a data real (`invoicedAt`/`paidAt`) não passa de hoje (BRT), erro `422 VALIDATION_ERROR` (a linha "Data máx. hoje" acima vale para os dois). Os flags `requiresApproval`/`requiresShipment` são definidos na emissão (ver §7 e §8).
 
 ---
 
@@ -166,7 +166,7 @@ Pagar **herda** o portão de aprovação (só se chega a FATURADO passando por e
 - **`SaleContractBroker`** (corretagem por lado) · **`SaleContractExport`** (dados de exportação).
 - **Lookups:** `ContractModality` (com o flag de embarque) · `PaymentForm` · `Packaging`.
 - **Cadastro que o contrato exige (Fase 0):** `Bank` · `ClientBankAccount` · `ClientAttachment` (anexos, JPEG/PNG/WebP+PDF) · `Broker` · `birthDate` no cliente.
-- **Logs/filas:** `SaleContractStatusLog` (marcos de status) · `SaleContractEspelhoLog` (espelho) · `approval_label_log`/`ApprovalLabelLog` (envios de aprovação) · `SaleContractShipmentPhoto` (fotos de embarque) · `CustomPrintJob` (fila da etiqueta de aprovação).
+- **Logs/filas:** `SaleContractStatusLog` (marcos de status) · `SaleContractAgioLog` (cada aplicação de ágio/deságio) · `SaleContractEspelhoLog` (espelho) · `approval_label_log`/`ApprovalLabelLog` (envios de aprovação) · `SaleContractShipmentPhoto` (fotos de embarque) · `CustomPrintJob` (fila da etiqueta de aprovação).
 - **Enums:** status (`EMITIDO`/`FATURADO`/`PAGO`/`WASH_OUT`) e os demais do domínio.
 
 _(Nota: o `Arquitetura-Tecnica.md` ainda não documenta o domínio `SaleContract` na seção "Modelo de dados" — dívida pré-existente, fora do escopo desta consolidação.)_
@@ -202,7 +202,7 @@ _(Nota: o `Arquitetura-Tecnica.md` ainda não documenta o domínio `SaleContract
 - `app/contratos/page.tsx` — página de **gestão** (abas Contratos + Financeiro, `?tab=`, guard `CONTRATOS_ROLES`, redirect de compat → /embarques)
 - `app/embarques/page.tsx` — página de **operação** (abas Embarque + Aprovações, guard `NON_PROSPECTOR_ROLES`, abre em Embarque)
 - `app/financeiro/page.tsx` — redirect → `/contratos?tab=financeiro`
-- `components/contracts/*` — `ContratosPanel`, `FinanceiroPanel`, `AprovacoesPanel`, `EmbarquePanel` + os cards (`SaleContractCard`, `FinanceiroCard`, `AprovacaoCard`, `EmbarqueCard`)
+- `components/contracts/*` — `ContratosPanel`, `AprovacoesPanel`, `EmbarquePanel` + os cards (`SaleContractCard`, `AprovacaoCard`, `EmbarqueCard`); `components/financeiro/*` — `FinanceiroPanel`, `FinanceiroCard`
 - Modais: `SaleContractEtapa2Modal`, `SaleContractDetailsModal`, `SaleContractLifecycleDialog`, `EspelhoCorretagemModal`, `EspelhoConferenciaModal`, `ApprovalLabelModal`, `ShipmentConfirmationModal`
 - `components/AppShell.tsx` / `components/HeaderAvatarMenu.tsx` — os 2 itens de nav (Contratos + Embarques)
 - `lib/roles.ts` — `NON_PROSPECTOR_ROLES`, `CONTRATOS_ROLES`, `FINANCEIRO_ROLES`, `contractsHubTabs`, `contractTabRoute`
