@@ -15,7 +15,7 @@ import { useVisitOutboxAutoSync } from '../lib/offline/use-visit-outbox-sync';
 import { VISIT_SYNC_COMPLETED_EVENT, type VisitSyncResult } from '../lib/offline/visit-sync';
 import {
   canManageClients,
-  contractsHubNavLabel,
+  CONTRATOS_ROLES,
   getRoleLabel,
   INFORME_ROLES,
   isAdmin,
@@ -45,6 +45,7 @@ type NavIcon =
   | 'informe'
   | 'cadastros'
   | 'contratos'
+  | 'embarques'
   | 'financeiro'
   | 'profile';
 type MobileRouteMeta = {
@@ -83,14 +84,20 @@ const CADASTROS_NAV_ITEM = {
   icon: 'cadastros' as NavIcon,
 } as const;
 
-// Item da sidebar: hub da Central de Contratos (rota /contratos com sub-abas). CC F2
-// (Embarque) abriu a TODOS os não-PROSPECTOR; o `label` é sobrescrito por papel na
-// montagem (contractsHubNavLabel: "Contratos" × "Embarques"). Item também no avatar
-// menu p/ mobile. O antigo item avulso "Financeiro" virou a aba Financeiro (F1/CC10).
+// Itens de nav das 2 páginas de contrato (SPLIT 2026-07-13): "Contratos" (rota
+// /contratos = Contratos + Financeiro, gated CONTRATOS_ROLES) e "Embarques" (rota
+// /embarques = Embarque + Aprovações, gated NON_PROSPECTOR). Ambos também no avatar
+// menu p/ mobile (HeaderAvatarMenu). Ver docs/Contratos-Visao-Geral.md §2.
 const CONTRATOS_NAV_ITEM = {
   href: '/contratos',
   label: 'Contratos',
   icon: 'contratos' as NavIcon,
+} as const;
+
+const EMBARQUES_NAV_ITEM = {
+  href: '/embarques',
+  label: 'Embarques',
+  icon: 'embarques' as NavIcon,
 } as const;
 
 const MOBILE_NAV_ITEMS = [
@@ -239,6 +246,17 @@ function renderNavIcon(icon: NavIcon, user?: SessionData['user']) {
         <path d="M14 3v5h5" />
         <path d="M9 13h6" />
         <path d="M9 17h5" />
+      </svg>
+    );
+  }
+
+  if (icon === 'embarques') {
+    return (
+      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+        <path d="M3 6h11v9H3z" />
+        <path d="M14 9h4l3 3v3h-7z" />
+        <circle cx="7" cy="18" r="1.6" />
+        <circle cx="17.5" cy="18" r="1.6" />
       </svg>
     );
   }
@@ -418,12 +436,11 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
         ),
         ...(isRoleAllowed(session.user.role, INFORME_ROLES) ? [INFORME_NAV_ITEM] : []),
         ...(canManageClients(session.user.role) ? [CADASTROS_NAV_ITEM] : []),
-        // Hub da Central de Contratos. CC F2 (Embarque) abriu a TODOS os não-PROSPECTOR;
-        // o rótulo muda por papel (CC15): "Contratos" p/ ADMIN/COMMERCIAL (4 abas),
-        // "Embarques" p/ operacionais (só a aba Embarque). Usuários segue ADMIN-only.
-        ...(isRoleAllowed(session.user.role, NON_PROSPECTOR_ROLES)
-          ? [{ ...CONTRATOS_NAV_ITEM, label: contractsHubNavLabel(session.user.role) }]
-          : []),
+        // 2 páginas de contrato (SPLIT 2026-07-13): "Contratos" (Contratos+Financeiro)
+        // p/ ADMIN/COMMERCIAL; "Embarques" (Embarque+Aprovações) p/ todos os
+        // não-PROSPECTOR. Usuários segue ADMIN-only.
+        ...(isRoleAllowed(session.user.role, CONTRATOS_ROLES) ? [CONTRATOS_NAV_ITEM] : []),
+        ...(isRoleAllowed(session.user.role, NON_PROSPECTOR_ROLES) ? [EMBARQUES_NAV_ITEM] : []),
         ...(isAdmin(session.user.role) ? [ADMIN_NAV_ITEM] : []),
       ];
   const mobileRouteMeta = resolveMobileRouteMeta(pathname);

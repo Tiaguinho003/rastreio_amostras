@@ -13,6 +13,8 @@ Documentos relacionados: `Contratos-Visao-Geral.md` (documento-mãe / estado atu
 
 Contrato à vista + futuro, o hub com 4 sub-abas (Central F1/F2), a reforma de Aprovações ("o portão", AP1–AP30) e o Embarque (EMB1–EMB29) estão **implementados ponta a ponta** — gates verdes (lint/format/typecheck/unit/integração) — em `main`, **não pushados**, **aguardando validação no device**.
 
+> **Split 2026-07-13:** o hub `/contratos` virou **2 páginas** — `/contratos` (Contratos + Financeiro, gestão, ADMIN+COMMERCIAL) e `/embarques` (Embarque + Aprovações, operação, todos os não-PROSPECTOR). Casca atual em `Contratos-Visao-Geral.md` §2; a **P27** (design das páginas) segue aberta.
+
 ## 2. Pendências abertas
 
 - **P27 — Layout e design das páginas de Contrato** (Fase G, em andamento): `/contratos` e os modais (Etapa 2, Detalhes, Espelho, ágio) — consistência com o design-system, responsividade e hierarquia. _(É o próximo grande tema de design da página, análogo à reforma do dashboard.)_

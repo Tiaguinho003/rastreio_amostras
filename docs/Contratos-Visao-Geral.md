@@ -11,50 +11,48 @@ Documentos relacionados: `Contratos-Plano-de-Trabalho.md` (backlog, decisões e 
 
 ## 1. Propósito e quem usa
 
-`/contratos` é o **hub do contrato de compra e venda de café**: depois que uma venda é fechada, é aqui que o contrato nasce, vira PDF, é aprovado (quando exige), faturado, embarcado e pago. É uma **página única com 4 sub-abas** que reúne quatro superfícies que antes eram páginas/fluxos separados:
+O contrato de compra e venda de café é operado em **2 páginas** (split 2026-07-13), ao longo do eixo **gestão × operação** — cada uma com 2 sub-abas:
 
-- **Contratos** — o contrato em si (geração do PDF, ágio, ciclo de vida) + o **Espelho de Corretagem**.
-- **Financeiro** — o acompanhamento da corretagem a receber / pagamento por fechamento.
-- **Aprovações** — o "portão" de aprovação (quando o contrato exige um aval antes de faturar).
-- **Embarque** — a confirmação de que o café foi carregado no caminhão.
+- **`/contratos`** — a **gestão** (ADMIN + COMMERCIAL): aba **Contratos** (o contrato nasce, vira PDF, ágio, ciclo de vida + o **Espelho de Corretagem**) + aba **Financeiro** (corretagem a receber / pagamento por fechamento).
+- **`/embarques`** — a **operação** (todos os não-PROSPECTOR): aba **Embarque** (confirmação do café no caminhão) + aba **Aprovações** (o "portão" de aval antes de faturar).
 
-Em resumo (matriz completa em §2.2): **ADMIN e COMMERCIAL** operam o contrato ponta a ponta (as 4 abas); os papéis **operacionais** (Classificação/Impressão/Cadastro) entram só para **Embarque e Aprovações**.
+Um contrato passa pelas duas páginas no ciclo: nasce e é gerido em `/contratos`; é aprovado e embarcado em `/embarques`; faturado/pago de volta em `/contratos` (Financeiro). **ADMIN/COMMERCIAL** abrem as 2 páginas; os **operacionais** (Classificação/Impressão/Cadastro) só a de **Embarques**.
 
 ---
 
 ## 2. A casca — hub, sub-abas e acesso
 
-> Autoridade da casca. Código: `app/contratos/page.tsx`, `app/financeiro/page.tsx` (redirect), `lib/roles.ts`, `components/AppShell.tsx`, `components/HeaderAvatarMenu.tsx`.
+> Autoridade da casca (2 páginas irmãs). Código: `app/contratos/page.tsx`, `app/embarques/page.tsx`, `app/financeiro/page.tsx` (redirect), `lib/roles.ts`, `components/AppShell.tsx`, `components/HeaderAvatarMenu.tsx`.
 
-### 2.1 Rota e esquema de URL
+### 2.1 Rotas e esquema de URL
 
-- **Rota única `/contratos`**; a antiga `/financeiro` **redireciona** para `/contratos?tab=financeiro`.
-- Aba selecionada pelo query param **`?tab=`** ∈ `contratos | financeiro | aprovacoes | embarque` (default **`contratos`**; para os papéis operacionais o default efetivo é a 1ª aba visível, **`embarque`**).
-- Coexiste com **`?details=<id>`** (abre o modal de detalhes do contrato) e **`?highlight=<id>`** (pisca/rola até o contrato — usado pelos chips do card de Eventos do dashboard, via `useContractHighlight`).
-- Mecânica de abas reusa o padrão `role="tablist"` do `/cadastros`; cada superfície antiga virou um **painel** (`ContratosPanel`, `FinanceiroPanel`, `AprovacoesPanel`, `EmbarquePanel`).
-- **Nav:** um único item na navegação (desktop top bar + menu do avatar no mobile); `FINANCEIRO_NAV_ITEM` foi removido.
+- **`/contratos`** (Contratos + Financeiro) e **`/embarques`** (Embarque + Aprovações) — 2 páginas irmãs com a mesma casca. A antiga **`/financeiro`** redireciona para `/contratos?tab=financeiro`.
+- Aba ativa pelo query **`?tab=`**: `/contratos` ∈ `contratos | financeiro` (default **`contratos`**); `/embarques` ∈ `embarque | aprovacoes` (default **`embarque`**).
+- **Compat:** os deep-links antigos `/contratos?tab=embarque|aprovacoes` **redirecionam** para `/embarques?tab=…` (preservando `&highlight=`).
+- Coexiste com **`?details=<id>`** (modal de detalhes do contrato, na aba Contratos) e **`?highlight=<id>`** (pisca/rola até o contrato — chips do card de Eventos, via `useContractHighlight`).
+- Mecânica de abas reusa o `role="tablist"` do `/cadastros`; cada aba é um **painel** (`ContratosPanel`/`FinanceiroPanel` em /contratos; `EmbarquePanel`/`AprovacoesPanel` em /embarques).
+- **Nav:** **2 itens** — "Contratos" (`/contratos`) e "Embarques" (`/embarques`) — no top bar desktop + menu do avatar mobile.
 
 ### 2.2 Acesso por papel
 
-Fonte da verdade: `lib/roles.ts` (`NON_PROSPECTOR_ROLES`, `CONTRATOS_ROLES`, `contractsHubTabs`, `contractsHubNavLabel`), espelhando `SALE_CONTRACT_ACCESS_ROLES`/`FINANCEIRO_ROLES` do backend.
+Fonte da verdade: `lib/roles.ts` (`NON_PROSPECTOR_ROLES`, `CONTRATOS_ROLES`, `contractsHubTabs`, `contractTabRoute`), espelhando `SALE_CONTRACT_ACCESS_ROLES`/`FINANCEIRO_ROLES` do backend.
 
-| Papel        | Abre `/contratos` |    Contratos    |   Financeiro    | Aprovações | Embarque | Rótulo na nav |
-| ------------ | :---------------: | :-------------: | :-------------: | :--------: | :------: | ------------- |
-| ADMIN        |        ✅         |       ✅        |       ✅        |     ✅     |    ✅    | "Contratos"   |
-| COMMERCIAL   |        ✅         | ✅ (só os dele) | ✅ (só os dele) |     ✅     |    ✅    | "Contratos"   |
-| CLASSIFIER   |        ✅         |        —        |        —        |     ✅     |    ✅    | "Embarques"   |
-| REGISTRATION |        ✅         |        —        |        —        |     ✅     |    ✅    | "Embarques"   |
-| CADASTRO     |        ✅         |        —        |        —        |     ✅     |    ✅    | "Embarques"   |
-| PROSPECTOR   |         —         |        —        |        —        |     —      |    —     | (sem item)    |
+| Papel        | `/contratos` (Contratos·Financeiro) | `/embarques` (Embarque·Aprovações) | Itens de nav          |
+| ------------ | :---------------------------------: | :--------------------------------: | --------------------- |
+| ADMIN        |                 ✅                  |                 ✅                 | Contratos + Embarques |
+| COMMERCIAL   |           ✅ (só os dele)           |                 ✅                 | Contratos + Embarques |
+| CLASSIFIER   |                  —                  |                 ✅                 | Embarques             |
+| REGISTRATION |                  —                  |                 ✅                 | Embarques             |
+| CADASTRO     |                  —                  |                 ✅                 | Embarques             |
+| PROSPECTOR   |                  —                  |                 —                  | (nenhum)              |
 
-Regras que geram a matriz (CC F2):
+Regras que geram a matriz (split 2026-07-13):
 
-- **Hub visível a todos os `NON_PROSPECTOR_ROLES`.** O PROSPECTOR é barrado (allowlist central de API + guard de rota).
-- **`CONTRATOS_ROLES` = ADMIN + COMMERCIAL** veem as **4 abas** (gestão + operação); os **operacionais** (CLASSIFIER/REGISTRATION/CADASTRO) veem só as **2 abas de operação** — `['embarque', 'aprovacoes']`.
-- **COMMERCIAL é escopado ao próprio corretor** nas abas Contratos e Financeiro (o backend filtra por `Broker.userId`). Na aba **Aprovações** a **lista é não-escopada** (todos veem todos — só colunas não-sensíveis), mas o botão **"Ver contrato" segue escopado** (D110).
-- **Rótulo do item de nav por papel:** "Contratos" (ADMIN/COMMERCIAL) vs "Embarques" (operacionais).
+- **`/contratos` = `CONTRATOS_ROLES` (ADMIN + COMMERCIAL)** — a gestão. Operacionais são redirecionados pelo guard (→ /dashboard).
+- **`/embarques` = `NON_PROSPECTOR_ROLES`** — a operação, a todos menos o PROSPECTOR (barrado pelo allowlist + guard).
+- **COMMERCIAL é escopado ao próprio corretor** em Contratos e Financeiro (backend por `Broker.userId`). Na aba **Aprovações** a **lista é não-escopada** (todos veem todos — só colunas não-sensíveis), mas **"Ver contrato"** (que abre o detalhe em `/contratos`) segue **escopado e só ADMIN/COMMERCIAL** (D110).
 
-> ⚠️ **Alívio de UI vs. segurança:** o escopo do COMMERCIAL (Broker) é reforçado no backend nas queries de Contratos/Financeiro/pagamento. As abas de operação (Embarque/Aprovações) são **auth-only** — qualquer não-PROSPECTOR autenticado enxerga a worklist (info não-sensível). A fronteira de papel real é o allowlist do PROSPECTOR.
+> ⚠️ **Alívio de UI vs. segurança:** o escopo do COMMERCIAL (Broker) é reforçado no backend nas queries de Contratos/Financeiro/pagamento. A página de operação (`/embarques`) é **auth-only** — qualquer não-PROSPECTOR autenticado enxerga as worklists (info não-sensível). A fronteira de papel real é o allowlist do PROSPECTOR.
 
 ---
 
@@ -190,7 +188,7 @@ _(Nota: o `Arquitetura-Tecnica.md` ainda não documenta o domínio `SaleContract
 
 ## 11. Fronteiras — o que vive fora deste doc
 
-- **Dashboard** (`Dashboard-Visao-Geral.md`): o card **"Aprovações enviadas"** (§7.2), o card de **Eventos** e seus chips que deep-linkam `/contratos?tab=…&highlight=…` (§7.3), e os feeds `payment/shipment/invoice-events` (§8). Qualquer mudança em nome de aba, valores de `?tab=` ou no enum de status **obriga a atualizar lá**.
+- **Dashboard** (`Dashboard-Visao-Geral.md`): o card **"Aprovações enviadas"** (§7.2), o card de **Eventos** e seus chips que deep-linkam `/contratos?tab=…` (pagamento/faturamento) e `/embarques?tab=embarque` (embarque), com `&highlight=` (§7.3), e os feeds `payment/shipment/invoice-events` (§8). Qualquer mudança em rota, nome de aba, valores de `?tab=` ou no enum de status **obriga a atualizar lá** (`contractTabRoute` mapeia aba→rota).
 - **Navegação por papel** (`Auditoria-Navegacao-por-Papel.md`): o mapa read-only de quem acessa o hub — **aponta para este doc** como dono da matriz de acesso.
 - **API** (`API-e-Contratos.md`): a referência canônica de rotas/contratos de request-response.
 - **Cadastro de cliente** (`Clientes-e-Movimentacoes-Especificacao.md`): banco/anexos que o contrato consome.
@@ -201,11 +199,13 @@ _(Nota: o `Arquitetura-Tecnica.md` ainda não documenta o domínio `SaleContract
 
 **Frontend**
 
-- `app/contratos/page.tsx` — o hub (abas, `?tab=`, acesso por papel)
+- `app/contratos/page.tsx` — página de **gestão** (abas Contratos + Financeiro, `?tab=`, guard `CONTRATOS_ROLES`, redirect de compat → /embarques)
+- `app/embarques/page.tsx` — página de **operação** (abas Embarque + Aprovações, guard `NON_PROSPECTOR_ROLES`, abre em Embarque)
 - `app/financeiro/page.tsx` — redirect → `/contratos?tab=financeiro`
 - `components/contracts/*` — `ContratosPanel`, `FinanceiroPanel`, `AprovacoesPanel`, `EmbarquePanel` + os cards (`SaleContractCard`, `FinanceiroCard`, `AprovacaoCard`, `EmbarqueCard`)
 - Modais: `SaleContractEtapa2Modal`, `SaleContractDetailsModal`, `SaleContractLifecycleDialog`, `EspelhoCorretagemModal`, `EspelhoConferenciaModal`, `ApprovalLabelModal`, `ShipmentConfirmationModal`
-- `lib/roles.ts` — `NON_PROSPECTOR_ROLES`, `CONTRATOS_ROLES`, `FINANCEIRO_ROLES`, `contractsHubTabs`, `contractsHubNavLabel`
+- `components/AppShell.tsx` / `components/HeaderAvatarMenu.tsx` — os 2 itens de nav (Contratos + Embarques)
+- `lib/roles.ts` — `NON_PROSPECTOR_ROLES`, `CONTRATOS_ROLES`, `FINANCEIRO_ROLES`, `contractsHubTabs`, `contractTabRoute`
 - `lib/currency.ts`, `lib/types.ts`
 
 **Backend**
@@ -220,4 +220,4 @@ _(Nota: o `Arquitetura-Tecnica.md` ainda não documenta o domínio `SaleContract
 
 ## 13. Estado de validação
 
-Contrato à vista + futuro, o hub com 4 sub-abas (Central F1/F2), a reforma de Aprovações ("o portão", AP1–AP30) e o Embarque (EMB1–EMB29) foram **implementados ponta a ponta**, com gates verdes (lint/format/typecheck/unit/integração) — mas **em `main`, não pushados**, e **aguardando validação no device** (ver `Contratos-Plano-de-Trabalho.md`). Este documento descreve o comportamento **do código**; divergências observadas no device viram achados no plano de trabalho.
+Contrato à vista + futuro, as **2 páginas** (`/contratos` gestão + `/embarques` operação — split 2026-07-13), a reforma de Aprovações ("o portão", AP1–AP30) e o Embarque (EMB1–EMB29) foram **implementados ponta a ponta**, com gates verdes (lint/format/typecheck/unit/build) — mas **em `main`, não pushados**, e **aguardando validação no device** (ver `Contratos-Plano-de-Trabalho.md`). Este documento descreve o comportamento **do código**; divergências observadas no device viram achados no plano de trabalho.

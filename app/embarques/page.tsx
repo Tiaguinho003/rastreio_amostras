@@ -2,55 +2,42 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect } from 'react';
+import { Suspense } from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
-import { ContratosPanel } from '../../components/contracts/ContratosPanel';
-import { FinanceiroPanel } from '../../components/financeiro/FinanceiroPanel';
-import { CONTRATOS_ROLES } from '../../lib/roles';
+import { AprovacoesPanel } from '../../components/contracts/AprovacoesPanel';
+import { EmbarquePanel } from '../../components/contracts/EmbarquePanel';
+import { NON_PROSPECTOR_ROLES } from '../../lib/roles';
 import { useRequireAuth } from '../../lib/use-auth';
 
-// SPLIT 2026-07-13: página de GESTÃO do contrato — Contratos + Financeiro — restrita
-// a ADMIN+COMMERCIAL (CONTRATOS_ROLES). A OPERAÇÃO (Embarque/Aprovações) foi pra
-// /embarques (todos os não-PROSPECTOR). A casca — guard, AppShell, header e a barra
-// de abas — vive aqui; cada aba é um painel montado sob demanda (só a ativa monta).
-// Ver docs/Contratos-Visao-Geral.md (§2 — a casca).
+// SPLIT 2026-07-13: página de OPERAÇÃO do contrato — Embarque + Aprovações — aberta
+// a todos os não-PROSPECTOR. Espelha a casca do /contratos (mesma `.ctr-page`); a
+// GESTÃO (Contratos/Financeiro) vive em /contratos (ADMIN+COMMERCIAL). Abre em
+// Embarque. Ver docs/Contratos-Visao-Geral.md (§2 — a casca).
 const HUB_TABS = [
-  { key: 'contratos', label: 'Contratos' },
-  { key: 'financeiro', label: 'Financeiro' },
+  { key: 'embarque', label: 'Embarque' },
+  { key: 'aprovacoes', label: 'Aprovações' },
 ] as const;
 type HubTab = (typeof HUB_TABS)[number]['key'];
 const HUB_TAB_KEYS = HUB_TABS.map((t) => t.key);
 
-// `?tab=` é a fonte de verdade da aba ativa; ausente/inválido cai em Contratos.
+// `?tab=` é a fonte de verdade da aba ativa; ausente/inválido cai em Embarque.
 function parseTab(raw: string | null): HubTab {
   if (raw != null && HUB_TAB_KEYS.includes(raw as HubTab)) return raw as HubTab;
-  return 'contratos';
+  return 'embarque';
 }
 
-function ContratosHubInner() {
+function EmbarquesHubInner() {
   const { session, loading, logout, setSession } = useRequireAuth({
-    allowedRoles: CONTRATOS_ROLES,
+    allowedRoles: NON_PROSPECTOR_ROLES,
   });
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Compat: os deep-links antigos de embarque/aprovações vivem agora em /embarques
-  // (o hub virou 2 páginas). Redireciona antes de renderizar a aba Contratos.
-  const rawTab = searchParams.get('tab');
-  useEffect(() => {
-    if (rawTab === 'embarque' || rawTab === 'aprovacoes') {
-      const highlight = searchParams.get('highlight');
-      router.replace(`/embarques?tab=${rawTab}${highlight ? `&highlight=${highlight}` : ''}`);
-    }
-  }, [rawTab, router, searchParams]);
-
   if (loading || !session) return null;
-  // Enquanto o compat-redirect acima não navega, não pisca a aba Contratos.
-  if (rawTab === 'embarque' || rawTab === 'aprovacoes') return null;
 
-  const tab = parseTab(rawTab);
+  const tab = parseTab(searchParams.get('tab'));
 
   const avatarInitials = (() => {
     const base = (session.user.fullName ?? session.user.username ?? '').trim();
@@ -63,9 +50,8 @@ function ContratosHubInner() {
 
   const selectTab = (next: HubTab) => {
     if (next === tab) return;
-    // Troca via replace (sem poluir o histórico) e solta `?details=` (deep-link
-    // específico da aba Contratos). A aba inativa desmonta → carregamento lazy.
-    router.replace(`/contratos?tab=${next}`);
+    // Troca via replace (sem poluir o histórico); solta `?highlight=` da aba anterior.
+    router.replace(`/embarques?tab=${next}`);
   };
 
   return (
@@ -78,7 +64,7 @@ function ContratosHubInner() {
             </svg>
           </Link>
           <div className="clients-v2-header-center">
-            <h2 className="nsv2-title">Contratos</h2>
+            <h2 className="nsv2-title">Embarques</h2>
           </div>
           <HeaderAvatarMenu session={session} onLogout={logout} />
           <Link href="/profile" className="nsv2-avatar" aria-label="Ir para perfil">
@@ -86,7 +72,7 @@ function ContratosHubInner() {
           </Link>
         </header>
 
-        <div className="cad-tabs cc-tabs" role="tablist" aria-label="Seções do contrato">
+        <div className="cad-tabs cc-tabs" role="tablist" aria-label="Seções de embarque">
           {HUB_TABS.map((t) => (
             <button
               key={t.key}
@@ -101,18 +87,18 @@ function ContratosHubInner() {
           ))}
         </div>
 
-        {tab === 'contratos' ? <ContratosPanel session={session} /> : null}
-        {tab === 'financeiro' ? <FinanceiroPanel session={session} /> : null}
+        {tab === 'embarque' ? <EmbarquePanel session={session} /> : null}
+        {tab === 'aprovacoes' ? <AprovacoesPanel session={session} /> : null}
       </section>
     </AppShell>
   );
 }
 
-// useSearchParams (?tab / deep-link ?details) exige Suspense — molde /samples e /dashboard.
-export default function ContratosPage() {
+// useSearchParams (?tab / deep-link ?highlight) exige Suspense — molde /contratos.
+export default function EmbarquesPage() {
   return (
     <Suspense fallback={null}>
-      <ContratosHubInner />
+      <EmbarquesHubInner />
     </Suspense>
   );
 }

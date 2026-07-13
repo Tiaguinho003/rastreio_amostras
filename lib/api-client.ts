@@ -1320,7 +1320,7 @@ export function getDashboardPaymentEvents(
 
 // Embarque (EMB7/EMB26): feed de eventos de embarque do card de Eventos, por janela de
 // data. Visível a todos os não-PROSPECTOR (o card só monta no desktop); navegação pura
-// no front (→ /contratos?tab=embarque).
+// no front (→ /embarques?tab=embarque — SPLIT 2026-07-13).
 export function getDashboardShipmentEvents(
   session: SessionData,
   window: { from: string; to: string }

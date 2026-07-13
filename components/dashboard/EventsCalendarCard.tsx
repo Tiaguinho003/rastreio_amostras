@@ -15,6 +15,7 @@ import {
   getBrtToday,
   toDayKey,
 } from '../../lib/dashboard-calendar';
+import { contractTabRoute, type ContractsHubTab } from '../../lib/roles';
 import { DashboardLoadError } from './DashboardLoadError';
 import type { DashboardCalendarEvent } from '../../lib/types';
 
@@ -38,14 +39,14 @@ interface EventsCalendarCardProps {
 // Financeiro, embarque → Embarque, faturamento → Contratos; DSB-D11). O card não
 // gera/registra nada — a ação (pagar/faturar/confirmar) mora na casa de cada um.
 // null = tipo desconhecido (fallback só-rótulo, sem link).
-function navTabForEvent(typeKey: string): string | null {
+function navTabForEvent(typeKey: string): ContractsHubTab | null {
   if (typeKey.startsWith('contract_payment_')) return 'financeiro';
   if (typeKey.startsWith('contract_shipment')) return 'embarque';
   if (typeKey.startsWith('contract_invoice')) return 'contratos';
   return null;
 }
 
-// Abas do hub /contratos (fallback quando o pai não passa navigableTabs).
+// Abas de contrato navegáveis (fallback quando o pai não passa navigableTabs).
 const ALL_CONTRACT_TABS = ['contratos', 'financeiro', 'aprovacoes', 'embarque'];
 
 // DSB-D11: `navigableTabs` = abas de /contratos que o papel abre. Se a aba dona do
@@ -54,7 +55,8 @@ const ALL_CONTRACT_TABS = ['contratos', 'financeiro', 'aprovacoes', 'embarque'];
 function eventHref(event: CalendarEvent, navigableTabs: readonly string[]): string | null {
   const tab = navTabForEvent(event.typeKey);
   if (!tab || !navigableTabs.includes(tab)) return null;
-  return `/contratos?tab=${tab}${event.contractId ? `&highlight=${event.contractId}` : ''}`;
+  // SPLIT 2026-07-13: embarque/aprovações → /embarques; contratos/financeiro → /contratos.
+  return `${contractTabRoute(tab)}?tab=${tab}${event.contractId ? `&highlight=${event.contractId}` : ''}`;
 }
 
 // DSB-D10: a COR do chip carrega o estado (previsto/atrasado/realizado); pra não

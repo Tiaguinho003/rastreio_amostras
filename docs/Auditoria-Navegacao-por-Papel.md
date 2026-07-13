@@ -34,6 +34,12 @@ O item aparece na **top bar desktop** e no **menu do avatar mobile** para os cin
 papéis. Resolve o débito anotado na nota F1 de 2026-07-09 (as seções por papel abaixo
 descreviam o estado pré-CC F2). Sem mudança de guard no backend: a lista da Aprovação
 é não-escopada (todos veem todos, só não-sensível); "Ver contrato" segue escopado (D110).
+Atualizado: 2026-07-13 — **SPLIT do hub em 2 páginas**: `/contratos` (Contratos +
+Financeiro, gated `CONTRATOS_ROLES`) e `/embarques` (Embarque + Aprovações, gated
+`NON_PROSPECTOR_ROLES`, abre em Embarque). ADMIN/COMMERCIAL ganham 2 itens de nav
+("Contratos" + "Embarques"); operacionais só "Embarques" (perdem o acesso a
+`/contratos`). Deep-links antigos `/contratos?tab=embarque|aprovacoes` redirecionam.
+A tabela de rotas e a matriz abaixo já refletem. Detalhe em `Contratos-Visao-Geral.md` §2.
 
 ## Como ler este documento
 
@@ -120,23 +126,24 @@ mantem "Clientes" na top bar e na tabbar e nao veem Cadastros.
 
 ## Referencia 3 — Universo de rotas
 
-| Rota                                                                                          | Pagina                                                              | Guard de acesso                                                                                                                                       |
-| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/login`, `/forgot-password` (redirect → modal no `/login`), `/maintenance`, `/laudo/[token]` | publicas                                                            | sem auth                                                                                                                                              |
-| `/dashboard`                                                                                  | Inicio                                                              | qualquer autenticado                                                                                                                                  |
-| `/profile`                                                                                    | Perfil                                                              | qualquer autenticado                                                                                                                                  |
-| `/settings`                                                                                   | —                                                                   | redireciona para `/profile`                                                                                                                           |
-| `/offline`                                                                                    | offline PWA                                                         | qualquer autenticado                                                                                                                                  |
-| `/samples`, `/samples/[id]`                                                                   | Lotes                                                               | `NON_PROSPECTOR_ROLES`                                                                                                                                |
-| `/camera`                                                                                     | Camera                                                              | `NON_PROSPECTOR_ROLES`                                                                                                                                |
-| `/clients`                                                                                    | Clientes (lista)                                                    | `NON_PROSPECTOR_ROLES`                                                                                                                                |
-| `/clients/[id]`                                                                               | Detalhe do cliente                                                  | `CLIENT_MANAGEMENT_ROLES` (ADMIN + CADASTRO)                                                                                                          |
-| `/informe`                                                                                    | Relatorios                                                          | `INFORME_ROLES` (conteudo adaptativo por papel)                                                                                                       |
-| `/resumo`                                                                                     | —                                                                   | redireciona para `/informe`                                                                                                                           |
-| `/cadastros`                                                                                  | Cadastros                                                           | `CLIENT_MANAGEMENT_ROLES` (ADMIN + CADASTRO)                                                                                                          |
-| `/contratos`                                                                                  | Contratos (hub — sub-abas Contratos·Financeiro·Aprovações·Embarque) | `NON_PROSPECTOR_ROLES` (ADMIN/COMMERCIAL = 4 abas + nav "Contratos"; CLASSIFIER/REGISTRATION/CADASTRO = 2 abas Embarque·Aprovações + nav "Embarques") |
-| `/financeiro`                                                                                 | → redirect para `/contratos?tab=financeiro`                         | (redirect server-side)                                                                                                                                |
-| `/users`                                                                                      | Usuarios                                                            | ADMIN                                                                                                                                                 |
+| Rota                                                                                          | Pagina                                              | Guard de acesso                                                                     |
+| --------------------------------------------------------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `/login`, `/forgot-password` (redirect → modal no `/login`), `/maintenance`, `/laudo/[token]` | publicas                                            | sem auth                                                                            |
+| `/dashboard`                                                                                  | Inicio                                              | qualquer autenticado                                                                |
+| `/profile`                                                                                    | Perfil                                              | qualquer autenticado                                                                |
+| `/settings`                                                                                   | —                                                   | redireciona para `/profile`                                                         |
+| `/offline`                                                                                    | offline PWA                                         | qualquer autenticado                                                                |
+| `/samples`, `/samples/[id]`                                                                   | Lotes                                               | `NON_PROSPECTOR_ROLES`                                                              |
+| `/camera`                                                                                     | Camera                                              | `NON_PROSPECTOR_ROLES`                                                              |
+| `/clients`                                                                                    | Clientes (lista)                                    | `NON_PROSPECTOR_ROLES`                                                              |
+| `/clients/[id]`                                                                               | Detalhe do cliente                                  | `CLIENT_MANAGEMENT_ROLES` (ADMIN + CADASTRO)                                        |
+| `/informe`                                                                                    | Relatorios                                          | `INFORME_ROLES` (conteudo adaptativo por papel)                                     |
+| `/resumo`                                                                                     | —                                                   | redireciona para `/informe`                                                         |
+| `/cadastros`                                                                                  | Cadastros                                           | `CLIENT_MANAGEMENT_ROLES` (ADMIN + CADASTRO)                                        |
+| `/contratos`                                                                                  | Contratos (gestão — sub-abas Contratos·Financeiro)  | `CONTRATOS_ROLES` (ADMIN + COMMERCIAL; operacionais → /dashboard). Nav "Contratos". |
+| `/embarques`                                                                                  | Embarques (operação — sub-abas Embarque·Aprovações) | `NON_PROSPECTOR_ROLES` (todos menos PROSPECTOR). Nav "Embarques". Abre em Embarque. |
+| `/financeiro`                                                                                 | → redirect para `/contratos?tab=financeiro`         | (redirect server-side)                                                              |
+| `/users`                                                                                      | Usuarios                                            | ADMIN                                                                               |
 
 Middleware (`middleware.ts`): modo manutencao redireciona nao-ADMIN para
 `/maintenance`; PROSPECTOR fora do seu app (`/dashboard`, `/profile`,
@@ -182,18 +189,19 @@ de criacao nao oferece o papel; o de edicao o inclui apenas para quem ja o tem.
 Acesso a rota (✅ acessa / ❌ redireciona para `/dashboard`). A localizacao na UI
 esta no detalhe de cada papel.
 
-| Rota               | ADMIN     | CLASSIFIER   | REGISTRATION | COMMERCIAL  | CADASTRO     | PROSPECTOR    |
-| ------------------ | --------- | ------------ | ------------ | ----------- | ------------ | ------------- |
-| `/dashboard`       | ✅        | ✅           | ✅           | ✅          | ✅           | ✅ (dedicado) |
-| `/profile`         | ✅        | ✅           | ✅           | ✅          | ✅           | ✅            |
-| `/samples` (+sub)  | ✅        | ✅           | ✅           | ✅          | ✅           | ❌            |
-| `/camera`          | ✅        | ✅           | ✅           | ✅          | ✅           | ❌            |
-| `/clients` (lista) | ✅        | ✅           | ✅           | ✅          | ✅           | ❌            |
-| `/clients/[id]`    | ✅        | ❌           | ❌           | ❌          | ✅           | ❌            |
-| `/informe`         | ✅ viewer | ❌           | ❌           | ✅ proprios | ❌           | ❌            |
-| `/cadastros`       | ✅        | ❌           | ❌           | ❌          | ✅           | ❌            |
-| `/contratos`       | ✅ 4 abas | ✅ Embarques | ✅ Embarques | ✅ 4 abas   | ✅ Embarques | ❌            |
-| `/users`           | ✅        | ❌           | ❌           | ❌          | ❌           | ❌            |
+| Rota               | ADMIN     | CLASSIFIER | REGISTRATION | COMMERCIAL  | CADASTRO | PROSPECTOR    |
+| ------------------ | --------- | ---------- | ------------ | ----------- | -------- | ------------- |
+| `/dashboard`       | ✅        | ✅         | ✅           | ✅          | ✅       | ✅ (dedicado) |
+| `/profile`         | ✅        | ✅         | ✅           | ✅          | ✅       | ✅            |
+| `/samples` (+sub)  | ✅        | ✅         | ✅           | ✅          | ✅       | ❌            |
+| `/camera`          | ✅        | ✅         | ✅           | ✅          | ✅       | ❌            |
+| `/clients` (lista) | ✅        | ✅         | ✅           | ✅          | ✅       | ❌            |
+| `/clients/[id]`    | ✅        | ❌         | ❌           | ❌          | ✅       | ❌            |
+| `/informe`         | ✅ viewer | ❌         | ❌           | ✅ proprios | ❌       | ❌            |
+| `/cadastros`       | ✅        | ❌         | ❌           | ❌          | ✅       | ❌            |
+| `/contratos`       | ✅        | ❌         | ❌           | ✅          | ❌       | ❌            |
+| `/embarques`       | ✅        | ✅         | ✅           | ✅          | ✅       | ❌            |
+| `/users`           | ✅        | ❌         | ❌           | ❌          | ❌       | ❌            |
 
 `/informe` por papel: ADMIN = viewer (todos os informes + curadoria + cria, FAB);
 COMMERCIAL = proprios (scope=mine + FAB); CLASSIFIER / REGISTRATION / CADASTRO /
@@ -201,15 +209,16 @@ PROSPECTOR = sem acesso. (`app/informe/page.tsx`.) O REGISTRATION saiu em
 2026-07-10: tinha acesso a um placeholder vazio, e os dois gates do backend ja o
 recusavam.
 
-`/contratos` por papel (CC F2, 2026-07-12): o guard e `NON_PROSPECTOR_ROLES` — os
-cinco papeis nao-PROSPECTOR ACESSAM o hub; o que muda e o CONTEUDO. ADMIN e
-COMMERCIAL (`CONTRATOS_ROLES`) veem as **4 sub-abas** (Contratos · Financeiro ·
-Aprovacoes · Embarque) e o item de nav se chama **"Contratos"**; CLASSIFIER,
-REGISTRATION e CADASTRO veem so as **2 sub-abas de operacao** (Embarque ·
-Aprovacoes) e o item se chama **"Embarques"** (`contractsHubTabs` /
-`contractsHubNavLabel`, `lib/roles.ts`). A lista da Aprovacao nao e escopada por
-corretor (todos veem todos, so nao-sensivel); "Ver contrato" segue escopado (D110).
-O detalhe do hub e da matriz de acesso vive em `Contratos-Visao-Geral.md` §2.
+`/contratos` + `/embarques` por papel (SPLIT 2026-07-13): o antigo hub `/contratos`
+virou **2 paginas** no eixo gestao × operacao. **`/contratos`** (sub-abas Contratos ·
+Financeiro) = gestao, guard **`CONTRATOS_ROLES`** (ADMIN + COMMERCIAL; operacionais
+caem no redirect → /dashboard), nav **"Contratos"**. **`/embarques`** (sub-abas
+Embarque · Aprovacoes) = operacao, guard **`NON_PROSPECTOR_ROLES`** (todos menos
+PROSPECTOR), nav **"Embarques"**, abre em Embarque. ADMIN/COMMERCIAL tem os **2 itens
+de nav**; operacionais so **"Embarques"** (`contractsHubTabs` / `contractTabRoute`,
+`lib/roles.ts`). A lista da Aprovacao nao e escopada por corretor (todos veem todos, so
+nao-sensivel); "Ver contrato" abre o detalhe em `/contratos` e segue escopado a
+ADMIN/COMMERCIAL (D110). Detalhe da casca em `Contratos-Visao-Geral.md` §2.
 
 **Acesso (guard) x visibilidade na nav (2026-07-02):** para a **lista** `/clients` o
 guard segue `NON_PROSPECTOR_ROLES` (todos os 5 ✅ e a rota continua acessivel por

@@ -5,7 +5,7 @@ import { useState } from 'react';
 
 import {
   canManageClients,
-  contractsHubNavLabel,
+  CONTRATOS_ROLES,
   getRoleLabel,
   isAdmin,
   isRoleAllowed,
@@ -130,7 +130,7 @@ export function HeaderAvatarMenu({ session, onLogout }: HeaderAvatarMenuProps) {
               </button>
             ) : null}
 
-            {isRoleAllowed(session.user.role, NON_PROSPECTOR_ROLES) ? (
+            {isRoleAllowed(session.user.role, CONTRATOS_ROLES) ? (
               <button
                 type="button"
                 className="header-avatar-menu-row"
@@ -142,9 +142,23 @@ export function HeaderAvatarMenu({ session, onLogout }: HeaderAvatarMenuProps) {
                   <path d="M9 13h6" />
                   <path d="M9 17h5" />
                 </svg>
-                <span className="header-avatar-menu-row-label">
-                  {contractsHubNavLabel(session.user.role)}
-                </span>
+                <span className="header-avatar-menu-row-label">Contratos</span>
+              </button>
+            ) : null}
+
+            {isRoleAllowed(session.user.role, NON_PROSPECTOR_ROLES) ? (
+              <button
+                type="button"
+                className="header-avatar-menu-row"
+                onClick={() => go('/embarques')}
+              >
+                <svg className="header-avatar-menu-row-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3 6h11v9H3z" />
+                  <path d="M14 9h4l3 3v3h-7z" />
+                  <circle cx="7" cy="18" r="1.6" />
+                  <circle cx="17.5" cy="18" r="1.6" />
+                </svg>
+                <span className="header-avatar-menu-row-label">Embarques</span>
               </button>
             ) : null}
 

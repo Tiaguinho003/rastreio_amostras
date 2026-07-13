@@ -102,7 +102,9 @@ export const CONTRATOS_ROLES: UserRole[] = ['ADMIN', 'COMMERCIAL'];
 // (CLASSIFIER/REGISTRATION/CADASTRO) veem as 2 abas de OPERACAO — Embarque +
 // Aprovacoes (AP30) — sem gestao (Contratos/Financeiro). A lista da Aprovacao e
 // nao-escopada (todos veem todos, so nao-sensivel); o "Ver contrato" segue
-// escopado (D110). O rotulo do item de nav muda por papel (CC15).
+// escopado (D110). SPLIT 2026-07-13: virou 2 paginas — /contratos (Contratos +
+// Financeiro, gated CONTRATOS_ROLES) e /embarques (Embarque + Aprovacoes, gated
+// NON_PROSPECTOR). contractsHubTabs = abas navegaveis por papel (card de Eventos).
 export type ContractsHubTab = 'contratos' | 'financeiro' | 'aprovacoes' | 'embarque';
 
 export function contractsHubTabs(role: UserRole): ContractsHubTab[] {
@@ -111,8 +113,9 @@ export function contractsHubTabs(role: UserRole): ContractsHubTab[] {
     : ['embarque', 'aprovacoes'];
 }
 
-export function contractsHubNavLabel(role: UserRole): string {
-  return isRoleAllowed(role, CONTRATOS_ROLES) ? 'Contratos' : 'Embarques';
+// A rota (pagina) dona de cada aba, pro deep-link dos chips do card de Eventos.
+export function contractTabRoute(tab: ContractsHubTab): '/contratos' | '/embarques' {
+  return tab === 'embarque' || tab === 'aprovacoes' ? '/embarques' : '/contratos';
 }
 
 // Quem GERENCIA cadastro de cliente: hub /cadastros (abas Clientes/Bancos/
