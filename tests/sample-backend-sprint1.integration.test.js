@@ -484,7 +484,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(classificationPhotos[0].id, second.photo.attachmentId);
   });
 
-  test('returns dedicated dashboard list for samples pending classification', async () => {
+  test('returns dedicated dashboard count for samples pending classification', async () => {
     // Q.print: amostras em RC formam a unica fila pendente (impressao virou
     // acao pura, nao move o sample por estados intermediarios). O card
     // "Aguardando impressao" foi removido do dashboard.
@@ -495,21 +495,14 @@ if (!databaseUrl || !databaseReachable) {
     await moveSampleToRegistrationConfirmed(sampleB);
 
     const dashboard = await queryService.getDashboardPending();
-    assert.equal(dashboard.classificationPending.counts.REGISTRATION_CONFIRMED, 2);
+    // DSB C2 (00fd26b): getDashboardPending virou count-only — `counts`/`items`
+    // eram payload morto e foram removidos. Sobra a contagem total de pendentes.
     assert.equal(dashboard.classificationPending.total, 2);
-    // Q.print: removi `totalPending` do dashboard (propriedade obsoleta).
-
-    const statusBySampleId = new Map(
-      dashboard.classificationPending.items.map((sample) => [sample.id, sample.status])
-    );
-    assert.equal(statusBySampleId.get(sampleA), 'REGISTRATION_CONFIRMED');
-    assert.equal(statusBySampleId.get(sampleB), 'REGISTRATION_CONFIRMED');
   });
 
-  test('dashboard list nao trunca a fila de pendentes em 20', async () => {
-    // Regressao: a contagem (groupBy) batia, mas a lista usava take:20 — entao
-    // com >20 pendentes o modal mostrava menos do que o total. Agora a lista
-    // retorna todos (ate a salvaguarda alta).
+  test('dashboard count nao trunca a fila de pendentes em 20', async () => {
+    // Regressao historica: a lista usava take:20. DSB C2 (00fd26b) removeu a lista
+    // (payload morto) — sobra a contagem, que conta TODOS (sem teto de 20).
     const total = 25;
     for (let i = 0; i < total; i += 1) {
       await moveSampleToRegistrationConfirmed(randomUUID());
@@ -517,7 +510,6 @@ if (!databaseUrl || !databaseReachable) {
 
     const dashboard = await queryService.getDashboardPending();
     assert.equal(dashboard.classificationPending.total, total);
-    assert.equal(dashboard.classificationPending.items.length, total);
   });
 
   test('resolves sample from QR content for classification access', async () => {
