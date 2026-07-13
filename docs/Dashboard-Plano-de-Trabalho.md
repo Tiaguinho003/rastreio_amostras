@@ -61,7 +61,7 @@ Itens que estavam abertos no `Eventos-Dashboard-Plano-de-Trabalho.md` (removido)
 
 ### Features futuras (ideias, nada travado)
 
-- **DSB-H9 (era E11 / EVD-P1)** — Catálogo de tipos de evento está aberto: hoje só pagamento, aprovação e embarque. Novos tipos entram feature a feature.
+- **DSB-H9 (era E11 / EVD-P1)** — Catálogo de tipos de evento está aberto: hoje **pagamento, embarque e faturamento** (aprovação saiu no DSB-D9; faturamento entrou no DSB-D11). Novos tipos entram feature a feature.
 - **DSB-H10 (era EVD-P4)** — Criação manual de evento pelo card (fora de escopo até aqui).
 
 ---
