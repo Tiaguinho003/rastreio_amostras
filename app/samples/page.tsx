@@ -35,6 +35,7 @@ import {
   type SelectedSampleSummary,
 } from '../../components/samples/SelectedSamplesDropdown';
 import { SelectionModeHeader } from '../../components/samples/SelectionModeHeader';
+import { PlaygroundMobileNotice } from '../../components/playground/PlaygroundMobileNotice';
 import {
   ApiError,
   createBlend,
@@ -70,6 +71,18 @@ import type {
 import { getRouteLeftBehind } from '../../lib/navigation/route-history';
 import { useRequireAuth } from '../../lib/use-auth';
 import { NON_PROSPECTOR_ROLES } from '../../lib/roles';
+
+// Sub-abas de /samples (PG1/PG23): "Lotes" (lista atual, default) + "Simulador"
+// (Playground). Molde do ?tab= copiado de app/contratos/page.tsx.
+const SAMPLES_TABS = [
+  { key: 'lotes', label: 'Lotes' },
+  { key: 'simulador', label: 'Simulador' },
+] as const;
+type SamplesTab = (typeof SAMPLES_TABS)[number]['key'];
+
+function parseSamplesTab(raw: string | null): SamplesTab {
+  return SAMPLES_TABS.some((tabDef) => tabDef.key === raw) ? (raw as SamplesTab) : 'lotes';
+}
 
 const SAMPLE_PAGE_LIMIT = 20;
 // Mesma fonte do registro (NewSampleModal) — desliza com o ano e cobre todas
@@ -474,6 +487,11 @@ function SamplesPage() {
       ? (displayStatusParam as DisplayStatusFilter)
       : '';
 
+  // Aba ativa via ?tab= (fonte de verdade, molde contratos). O deep-link
+  // ?displayStatus= e consumido UMA vez na inicializacao (vira estado), entao
+  // solta-lo da URL ao trocar de aba nao afeta os filtros ja aplicados.
+  const tab = parseSamplesTab(searchParams.get('tab'));
+
   const [initialSnapshot] = useState<SamplesSnapshot | null>(() => {
     const snap = readSamplesSnapshot();
     if (!snap) return null;
@@ -652,6 +670,26 @@ function SamplesPage() {
     token: 0,
   });
   const mountedRef = useRef(true);
+
+  // Troca de sub-aba (PG1/PG23). O scroll da lista e capturado AQUI, antes do
+  // re-render esconder a sheet (display:none zera o scrollTop), e restaurado
+  // pelo effect abaixo ao voltar pra aba Lotes.
+  const lotesScrollBackupRef = useRef(0);
+  const selectTab = useCallback(
+    (next: SamplesTab) => {
+      if (next === tab) return;
+      if (next === 'simulador') {
+        lotesScrollBackupRef.current = readListScrollTop(samplesScrollRef.current);
+      }
+      router.replace(next === 'lotes' ? '/samples' : '/samples?tab=simulador');
+    },
+    [router, tab]
+  );
+  useEffect(() => {
+    if (tab !== 'lotes' || lotesScrollBackupRef.current <= 0) return;
+    applyListScrollTop(samplesScrollRef.current, lotesScrollBackupRef.current);
+    lotesScrollBackupRef.current = 0;
+  }, [tab]);
 
   // Refs mutaveis para capturar filtros/sessao atuais dentro do callback estavel
   // de load-more, sem precisar incluir os valores nas deps do useCallback (o que
@@ -2028,7 +2066,7 @@ function SamplesPage() {
 
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
-      <section className="samples-page-v2">
+      <section className={`samples-page-v2${tab === 'simulador' ? ' is-tab-simulador' : ''}`}>
         {/* Liga B1.4: SelectionModeHeader substitui o header normal quando
             o usuario entra em modo selecao pra criar liga. CSS body class
             is-selection-mode tambem esconde o header normal por seguranca. */}
@@ -2049,6 +2087,23 @@ function SamplesPage() {
             <span className="nsv2-avatar-initials">{avatarInitials}</span>
           </Link>
         </header>
+
+        {/* Sub-abas (PG1/PG23): Lotes (default) + Simulador. No modo selecao
+            de liga somem via CSS (body.is-selection-mode), molde contratos. */}
+        <div className="cad-tabs pg-tabs" role="tablist" aria-label="Seções de lotes">
+          {SAMPLES_TABS.map((tabDef) => (
+            <button
+              key={tabDef.key}
+              type="button"
+              role="tab"
+              aria-selected={tab === tabDef.key}
+              className={`cad-tab${tab === tabDef.key ? ' is-active' : ''}`}
+              onClick={() => selectTab(tabDef.key)}
+            >
+              {tabDef.label}
+            </button>
+          ))}
+        </div>
 
         {/* Search bar — in green area, dashboard style. Filtro fica
             FORA do form, alinhado a direita (mesmo padrao do "+" em /clients).
@@ -2289,6 +2344,19 @@ function SamplesPage() {
             </div>
           )}
         </section>
+
+        {/* Aba Simulador (Playground, PG7/PG35): a lista de Lotes permanece
+            MONTADA (escondida via .is-tab-simulador) pra preservar reducer/
+            cursor/selecao. Desktop recebe o canvas; mobile mostra o aviso. */}
+        {tab === 'simulador' ? (
+          isDesktop ? (
+            <div className="pg-host">
+              <p className="pg-placeholder-hint">Canvas do Simulador — em construção.</p>
+            </div>
+          ) : (
+            <PlaygroundMobileNotice onVerLotes={() => selectTab('lotes')} />
+          )
+        ) : null}
       </section>
 
       {/* LOT-L2: modal central SEMPRE via createPortal (regra da skill

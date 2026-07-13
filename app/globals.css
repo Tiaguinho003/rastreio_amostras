@@ -34002,3 +34002,101 @@ body.is-selection-mode .ctr-page .cc-tabs {
     animation: none;
   }
 }
+
+/* ════════════════════════════════════════════════════════════════
+   Playground (Simulador) — sub-aba de /samples (PG1–PG36)
+   Prefixo .pg- · canvas desktop-only; mobile = aviso (PG7/PG35)
+   ════════════════════════════════════════════════════════════════ */
+
+/* Sub-abas no hero verde do mobile (mesmo ajuste do .cc-tabs de contratos;
+   no desktop o fundo e claro e as cores default do .cad-tab servem). */
+@media (max-width: 900px) {
+  .pg-tabs .cad-tab {
+    color: rgba(255, 255, 255, 0.72);
+  }
+  .pg-tabs .cad-tab.is-active {
+    color: #ffffff;
+    border-bottom-color: #ffffff;
+  }
+}
+/* Modo selecao de liga: esconde as abas junto do header/busca (precedente
+   body.is-selection-mode .ctr-page .cc-tabs). */
+body.is-selection-mode .samples-page-v2 .pg-tabs {
+  display: none;
+}
+
+/* Aba Simulador ativa: a lista de Lotes permanece MONTADA (estado do reducer/
+   cursor/selecao preservado) e some via display:none — busca+FAB e a sheet. */
+.samples-page-v2.is-tab-simulador .hero-search-wrap,
+.samples-page-v2.is-tab-simulador .samples-page-v2-sheet {
+  display: none;
+}
+
+/* Host do canvas (o React Flow monta aqui a partir do C2). Altura explicita
+   exigida pela lib; drawer/pill/paleta ancoram como position:absolute NESTE
+   contexto — nunca position:fixed (PageTransition tem will-change: transform,
+   precedente documentado no MobileTabbar). */
+.pg-host {
+  position: relative;
+  flex: 1;
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pg-placeholder-hint {
+  color: var(--brand-muted);
+  font-size: 0.9rem;
+}
+
+/* Aviso mobile (PG35): estado vazio elegante + CTA de volta pra lista. */
+.pg-mobile-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.5rem;
+  padding: clamp(2.5rem, 12vw, 4rem) 1.5rem;
+  margin: 0.75rem clamp(0.9rem, 4vw, 1.5rem) 1.5rem;
+  background: #ffffff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.pg-mobile-notice svg {
+  width: 44px;
+  height: 44px;
+  fill: none;
+  stroke: var(--brand-green-soft);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  margin-bottom: 0.35rem;
+}
+.pg-mobile-notice h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+.pg-mobile-notice p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--brand-muted);
+  max-width: 28ch;
+}
+.pg-mobile-notice button {
+  margin-top: 0.85rem;
+  border: 0;
+  border-radius: var(--radius-pill);
+  padding: 0.65rem 1.6rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+.pg-mobile-notice button:active {
+  transform: scale(0.96);
+}
