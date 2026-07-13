@@ -1216,8 +1216,9 @@ export interface DashboardPaymentEventsResponse {
 
 // Embarque (EMB10/EMB17/EMB26): feed de eventos de embarque do card de Eventos. Mesmo
 // formato (o `DashboardCalendarEvent` é genérico por `typeKey`); usa `contract_shipment`
-// (azul), `contract_shipment_overdue` (vermelho) e `contract_shipment_done` (azul-escuro),
-// `id` namespaced ('shipment:'). Navegação pura no front (→ /contratos?tab=embarque).
+// (previsto), `contract_shipment_overdue` (atrasado) e `contract_shipment_done` (realizado)
+// — cor por ESTADO desde DSB-D10 (azul/vermelho/verde). `id` namespaced ('shipment:').
+// Navegação pura no front (→ /contratos?tab=embarque).
 export interface DashboardShipmentEventsResponse {
   events: Record<string, DashboardCalendarEvent[]>;
 }

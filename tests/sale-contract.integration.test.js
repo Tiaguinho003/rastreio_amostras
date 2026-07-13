@@ -647,7 +647,7 @@ if (!databaseUrl || !databaseReachable) {
       { from: '2026-07-01', to: '2026-07-31' },
       adminActor
     );
-    // Agendado futuro (15) = azul; passado (07) = vermelho (atrasado); realizado (08) = azul-escuro.
+    // Previsto (15) = azul; atrasado (07) = vermelho; realizado (08) = verde (cor por estado, DSB-D10).
     assert.equal(events['2026-07-15']?.[0]?.typeKey, 'contract_shipment');
     assert.equal(events['2026-07-07']?.[0]?.typeKey, 'contract_shipment_overdue');
     assert.equal(events['2026-07-08']?.[0]?.typeKey, 'contract_shipment_done');

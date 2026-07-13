@@ -47,8 +47,8 @@ Itens que estavam abertos no `Eventos-Dashboard-Plano-de-Trabalho.md` (removido)
 
 ### Gargalos / performance
 
-- **DSB-H4 (era DSH-P3)** — `getDashboardPending` devolve **até 500 itens** + `clientsIncomplete` a cada chamada. Com DSB-D2 o `OperationModal` saiu, mas o endpoint foi **mantido** como fonte da contagem do card de `/samples` (que usa só `classificationPending.total`) — os `items` e o `clientsIncomplete` viraram payload sem consumidor. Limpar na revisão de Lotes/Clientes: separar/renomear num endpoint de contagem enxuto.
-- **DSB-H5 (era DSH-P4)** — `client.count(completeness)` tende a seq scan (sem índice dedicado). Revisar se o dashboard pesar.
+- **DSB-H4 (era DSH-P3)** — ✅ **resolvido no check-up (C2):** `getDashboardPending` virou **count-only** (`sample.count`) — saíram o `findMany` (até 500 `items`, mapeado e descartado) e o `clientsIncomplete`, que eram payload morto. Resta só a dívida do **nome** "dashboard" (o endpoint hoje serve só `/samples`), pra revisão de Lotes/Clientes.
+- **DSB-H5 (era DSH-P4)** — ✅ **resolvido no check-up (C2):** o `client.count(completeness)` (near-full scan) foi **removido** do `getDashboardPending` (era o payload morto `clientsIncomplete`). A completude de cliente segue no filtro de `/clients`, inalterada.
 
 ### Cobertura mobile
 
@@ -57,7 +57,7 @@ Itens que estavam abertos no `Eventos-Dashboard-Plano-de-Trabalho.md` (removido)
 
 ### Testes
 
-- **DSB-H8 (era EVD-T1)** — Helpers de `lib/dashboard-calendar.ts` (quinzena, dayKey, rótulos) sem unit test (o `node --test` do projeto não roda TS). Cobrir quando houver infra de teste front, ou migrar a matemática para o backend.
+- **DSB-H8 (era EVD-T1)** — ✅ **resolvido no check-up (C3):** `tests/dashboard-calendar.test.ts` cobre a matemática (semana/dayKey/BRT/rótulos, `now` injetável). O `test:unit` já roda `.test.ts` via `--experimental-strip-types`; o módulo deixou de importar `isWeekendDate` (inlinou o check de fim de semana) pra carregar sob strip-types.
 
 ### Features futuras (ideias, nada travado)
 
@@ -70,7 +70,7 @@ Itens que estavam abertos no `Eventos-Dashboard-Plano-de-Trabalho.md` (removido)
 
 O redesenho e os feeds foram implementados mas nunca foram confirmados no aparelho real. Antes (ou durante) as mudanças deste check-up, validar:
 
-- **Desktop (DSB-D3/D4/D5):** top row com **3 cards** — donut "Lotes disponíveis" (mais estreito) + "Amostras enviadas" (física+laudo, com selo, cancelado esmaecido, destinatário/tempo) + "Aprovações enviadas" (nº contrato + comprador, sem selo); as listas rolam por dentro. Card de Eventos **horizontal** embaixo (semana domingo-first, hoje com anel, navegação ◀ Hoje ▶ com deslize, eventos como chips **dentro da célula** com scroll interno); os 3 feeds (pagamento/aprovação/embarque) com deep links para `/contratos`.
+- **Desktop (DSB-D3/D4/D5):** top row com **3 cards** — donut "Lotes disponíveis" (mais estreito) + "Amostras enviadas" (física+laudo, com selo, cancelado esmaecido, destinatário/tempo) + "Aprovações enviadas" (nº contrato + comprador, sem selo); as listas rolam por dentro. Card de Eventos **horizontal** embaixo (semana **seg–sex**, hoje com anel, navegação ◀ Hoje ▶ com deslize, eventos como chips **dentro da célula** com scroll interno, coloridos por **estado**); os 3 feeds (**pagamento/embarque/faturamento**) com deep links para `/contratos`.
 - **Larguras 901-1200px (DSB-D5):** os 3 cards da top row continuam legíveis? Minicards estouram? Proporção donut/feeds boa?
 - **Viewport baixa** (~768px de altura): o card de Eventos estoura?
 - **Mobile:** (sem os op-cards de pendências, DSB-D2) hero + donut a 320px; dashboard do PROSPECTOR intacto; banner de erro (modo avião).

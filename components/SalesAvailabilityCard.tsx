@@ -56,7 +56,7 @@ function AgingDonut({
       className="sales-chart-donut"
       viewBox="0 0 100 100"
       role="img"
-      aria-label={`Distribuicao por tempo: ${bands.over30} mais de 30 dias, ${bands.from15to30} entre 15 e 30 dias, ${bands.under15} menos de 15 dias`}
+      aria-label={`Distribuição por tempo: ${bands.over30} mais de 30 dias, ${bands.from15to30} entre 15 e 30 dias, ${bands.under15} menos de 15 dias`}
     >
       <circle cx="50" cy="50" r={radius} fill="none" stroke="#edf0ee" strokeWidth={strokeWidth} />
       {total > 0

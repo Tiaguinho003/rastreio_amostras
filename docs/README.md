@@ -2,7 +2,7 @@
 
 Status: Ativo  
 Escopo: indice oficial, ordem de leitura e fronteira de autoridade da documentacao  
-Ultima revisao: 2026-04-10  
+Ultima revisao: 2026-07-12  
 Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
 
 ## Leitura recomendada
@@ -66,6 +66,12 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
     Uso: unificacao das 4 superficies ligadas ao contrato de venda (Contratos, Financeiro, Aprovacoes, Embarque) numa unica pagina com sub-abas. Autoridade da "casca" (pagina, abas, esquema de URL, matriz de acesso por papel aba a aba, navegacao). F1 = fundir Contratos + Financeiro (ja sao paginas) e criar Aprovacoes + Embarque como abas vazias. Prefixo de decisao CC. Status: F1 IMPLEMENTADA (C1-C4, 2026-07-09; hub /contratos com sub-abas + redirect /financeiro + nav unificada) — validar no device; F2+ (conteudo de Aprovacoes/Embarque) em aberto.
 15. `docs/Custo-Operacional-Analise.md`
     Uso: **documento MESTRE de custo** (detalhado) — nuvem (GCP + OpenAI, ~R$ 193/mes) + materiais de impressao (impressora/etiqueta/ribbon, ~R$ 38/mes) = **TCO ~R$ 231/mes**; config real da producao (gcloud read-only), modelo de crescimento, projecao de 3 anos, recomendacoes e registro de atualizacoes. Padrao: atualizar ESTE md primeiro a cada evolucao, depois regenerar o **PDF enxuto para o cliente** (`docs/assets/Custo-Operacional-Analise.pdf`, 1 pagina) via `scripts/cost-report/build-cost-report.mjs`. Status: atualizado 2026-07-12.
+16. `docs/Classificacao-Plano-de-Trabalho.md`
+    Uso: pipeline da extracao de classificacao via IA (gpt-4o, few-shot, canonizacao dos valores, telemetria, retry). Status: Em andamento.
+17. `docs/Liga-Plano-de-Trabalho.md`
+    Uso: feature de Liga (blend de amostras) — composicao, cascata recursiva de movimentos, safra/proprietario reativos, viabilidade quantitativa da venda. Status: Em andamento.
+18. `docs/Etiqueta-de-Envio-Plano-de-Trabalho.md`
+    Uso: etiqueta de envio com QR que abre o laudo publico (Firebase Hosting), com revogacao ao cancelar. Status: Em andamento.
 
 ## Relatorios da reorganizacao
 

@@ -4560,7 +4560,7 @@ button:disabled {
   }
 }
 
-/* Deslize da grade do card de Eventos (E18): a quinzena nova entra na
+/* Deslize da grade do card de Eventos (E18): a semana nova entra na
    direcao da seta. */
 @keyframes dd-events-slide-right {
   from {
@@ -24816,7 +24816,7 @@ select.samples-filter-field-input {
     color: var(--ink);
   }
 
-  /* Rotulo do periodo exibido (E15): "7 – 20 de julho". */
+  /* Rotulo do periodo exibido (E15/DSB-D7): "7 – 11 de julho" (seg–sex). */
   .dd-events-period {
     font-size: clamp(0.72rem, 0.8vw, 0.8rem);
     font-weight: 600;
@@ -24882,7 +24882,7 @@ select.samples-filter-field-input {
     }
   }
 
-  /* Cabecalho D S T Q Q S S (domingo-first, E12). */
+  /* Cabecalho S T Q Q S (seg–sex, DSB-D7). */
   .dd-events-weekdays {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -24949,7 +24949,7 @@ select.samples-filter-field-input {
     line-height: 1;
   }
 
-  /* "1 ago" na virada de mes dentro da quinzena. */
+  /* "1 ago" na virada de mes dentro da semana. */
   .dd-events-day-month {
     font-size: clamp(0.58rem, 0.66vw, 0.66rem);
     font-weight: 600;

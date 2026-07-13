@@ -83,7 +83,8 @@ const SALE_CONTRACT_LIST_LIMIT_DEFAULT = 200;
 const SALE_CONTRACT_LIST_LIMIT_MAX = 500;
 
 // AP16: teto dos envios de aprovacao recentes no feed "Ultimos envios" (mesmo 40 do
-// DASHBOARD_RECENT_SENDS_LIMIT do samples query-service; o handler mescla e corta em 40).
+// DASHBOARD_RECENT_SENDS_LIMIT do samples query-service). DSB-D5: cada lista tem seu
+// proprio top-40 — o handler NAO mescla nem corta, devolve { sampleItems, approvalItems }.
 const RECENT_APPROVAL_SENDS_LIMIT = 40;
 
 // Financeiro (S86): pagina por cursor (contractSeq) com scroll infinito no front.
@@ -776,7 +777,7 @@ export class SaleContractService {
   // Embarque (EMB8/EMB9/EMB24): evento do card de Eventos — companheiro da worklist.
   // Agendado = requiresShipment + EMITIDO/FATURADO + NAO embarcado, no dia previsto
   // (invoiceDate; vira vermelho se o dia passar, EMB24); realizado = embarcado
-  // (shippedAt), no dia real (azul-escuro, EMB17). Visibilidade: TODOS os nao-PROSPECTOR
+  // (shippedAt), no dia real (verde/realizado — cor por ESTADO, DSB-D10). Visibilidade: TODOS os nao-PROSPECTOR
   // (EMB7 — auth-only, sem escopo por corretor; PROSPECTOR barrado no allowlist central).
   // Janela [from, to] = 'YYYY-MM-DD'. Retorna Record<'YYYY-MM-DD', evento[]>.
   async getDashboardShipmentEvents(input, actorContext) {

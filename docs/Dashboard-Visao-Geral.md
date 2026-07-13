@@ -188,20 +188,20 @@ Desde **DSB-D5** (2026-07-12) são **dois cards** que reusam o mesmo componente 
 
 Todas são `GET`, delegam ao backend via `executeBackend('<methodName>', …)` e estão **fora** do `PROSPECTOR_ALLOWED_API_METHODS` → o PROSPECTOR recebe **403** (allowlist central em `src/auth/prospector-access.js`, enforcement em `resolveActorContext`).
 
-| Rota                            | methodName                      | Gate                       | Parâmetros              | Cache                 | Resposta                                                                      |
-| ------------------------------- | ------------------------------- | -------------------------- | ----------------------- | --------------------- | ----------------------------------------------------------------------------- |
-| `/dashboard/pending`            | `getDashboardPending`           | Auth                       | —                       | —                     | `{ classificationPending: {counts,total,items}, clientsIncomplete: {total} }` |
-| `/dashboard/sales-availability` | `getDashboardSalesAvailability` | Auth                       | —                       | —                     | `{ bands: {over30, from15to30, under15} }`                                    |
-| `/dashboard/recent-sends`       | `getDashboardRecentSends`       | Auth                       | —                       | `private, max-age=30` | `{ sampleItems: [...], approvalItems: [...] }` (top-40 cada — DSB-D5)         |
-| `/dashboard/payment-events`     | `getDashboardPaymentEvents`     | ADMIN+COMMERCIAL (service) | `?from&to` (YYYY-MM-DD) | `private, max-age=30` | `{ events: Record<dayKey, evento[]> }`                                        |
-| `/dashboard/shipment-events`    | `getDashboardShipmentEvents`    | Auth (não-PROSPECTOR)      | `?from&to`              | `private, max-age=30` | `{ events: Record<dayKey, evento[]> }`                                        |
-| `/dashboard/invoice-events`     | `getDashboardInvoiceEvents`     | Auth (não-PROSPECTOR)      | `?from&to`              | `private, max-age=30` | `{ events: Record<dayKey, evento[]> }`                                        |
+| Rota                            | methodName                      | Gate                       | Parâmetros              | Cache                                  | Resposta                                                              |
+| ------------------------------- | ------------------------------- | -------------------------- | ----------------------- | -------------------------------------- | --------------------------------------------------------------------- |
+| `/dashboard/pending`            | `getDashboardPending`           | Auth                       | —                       | —                                      | `{ classificationPending: { total } }` (count-only — DSB-H4/H5)       |
+| `/dashboard/sales-availability` | `getDashboardSalesAvailability` | Auth                       | —                       | —                                      | `{ bands: {over30, from15to30, under15} }`                            |
+| `/dashboard/recent-sends`       | `getDashboardRecentSends`       | Auth                       | —                       | `private, max-age=30, must-revalidate` | `{ sampleItems: [...], approvalItems: [...] }` (top-40 cada — DSB-D5) |
+| `/dashboard/payment-events`     | `getDashboardPaymentEvents`     | ADMIN+COMMERCIAL (service) | `?from&to` (YYYY-MM-DD) | `private, max-age=30, must-revalidate` | `{ events: Record<dayKey, evento[]> }`                                |
+| `/dashboard/shipment-events`    | `getDashboardShipmentEvents`    | Auth (não-PROSPECTOR)      | `?from&to`              | `private, max-age=30, must-revalidate` | `{ events: Record<dayKey, evento[]> }`                                |
+| `/dashboard/invoice-events`     | `getDashboardInvoiceEvents`     | Auth (não-PROSPECTOR)      | `?from&to`              | `private, max-age=30, must-revalidate` | `{ events: Record<dayKey, evento[]> }`                                |
 
 _(`/dashboard/approval-events` foi **removido** em 2026-07-12, DSB-D9 — ver §7.3.)_
 
 Definições dos handlers: `src/api/v1/backend-api.js`. Implementações: `src/samples/sample-query-service.js` (pending, sales, recent-sends) e `src/sale-contracts/sale-contract-service.js` (payment, shipment, invoice, recent-approval-sends).
 
-> **`/dashboard/pending` não é mais consumido pelo dashboard** (2026-07-12, DSB-D2). `classificationPending.total` agora alimenta o card só-visualização de `/samples` (`ClassificationPendingCard`); `clientsIncomplete` ficou **sem consumidor de UI** (limpeza adiada — ver `Dashboard-Plano-de-Trabalho.md`, DSB-H4). O endpoint segue **intacto** por decisão. O nome "dashboard" é dívida consciente até a revisão de Lotes/Clientes.
+> **`/dashboard/pending` não é mais consumido pelo dashboard** (2026-07-12, DSB-D2) — só o card só-visualização de `/samples` (`ClassificationPendingCard`) o usa, lendo apenas `.total`. **Enxugado pra count-only no check-up (DSB-H4/H5):** saíram os `items` (findMany até 500, mapeado e descartado) e o `clientsIncomplete` (`client.count` com near-full scan), que eram payload morto; agora é um `sample.count`. O nome "dashboard" é dívida consciente até a revisão de Lotes/Clientes.
 
 **Regras dos feeds de eventos (backend):**
 
@@ -209,6 +209,7 @@ Definições dos handlers: `src/api/v1/backend-api.js`. Implementações: `src/s
 - **Embarque:** agendado = `requiresShipment` + `EMITIDO`/`FATURADO` + não embarcado, no `invoiceDate` (vermelho se o dia passar); realizado = embarcado (`shippedAt` na janela).
 - **Faturamento (DSB-D11):** agendado = `EMITIDO` no `invoiceDate` (vermelho se o dia passar); realizado = `FATURADO`/`PAGO` no `invoicedAt` (dia REAL do faturamento, não no `invoiceDate`). Auth-only (todos os não-PROSPECTOR, sem escopo por corretor — como o embarque). `id` namespaced (`invoice:`). Índices `idx_sale_contract_status_invoice_date` / `_status_invoiced_at`.
 - **Roll de fim de semana (DSB-D7):** pagamento, embarque e faturamento **rolam** o evento pro dia útil vizinho na montagem (`bucketPaymentEvents`/`bucketShipmentEvents`/`bucketInvoiceEvents`, sáb→sex/dom→seg) — o `typeKey` de atraso é computado sobre a data REAL, antes do roll. Datas novas já não caem em fim de semana (validação do contrato); o roll cobre legado/borda.
+- **Escopo por papel dos feeds:** só o **pagamento** é escopado ao próprio corretor (COMMERCIAL, via `Broker.userId`). **Embarque e faturamento são auth-only** — o COMMERCIAL vê contratos de **outros** corretores (nº + comprador + datas), consistente com as worklists não-escopadas de Embarque/Aprovações; info **não-sensível** (os selects não trazem preço/corretagem). Decisão do check-up: **manter**.
 - _(O feed de **aprovação** — lembrete "a enviar" com fan-out por intervalo — foi **removido** em DSB-D9; ver §7.3.)_
 
 ---
@@ -216,8 +217,9 @@ Definições dos handlers: `src/api/v1/backend-api.js`. Implementações: `src/s
 ## 9. Regras de negócio e detalhes técnicos
 
 - **Datas em BRT:** todos os cálculos de dia usam offset São Paulo −3h (donut, feeds de eventos, calendário). A **janela** do calendário segue ancorada no **domingo** (`computeWeekStart`/`buildWeek`, 7 dias), mas o card **renderiza só os dias úteis** (seg–sex, `buildBusinessDays`) — DSB-D7. O dia da semana de uma data de contrato (`@db.Date`) é lido em **UTC** (`getUTCDay`), sem deslocar −3h.
-- **Throttle de refetch:** `useDashboardData` (agora só o donut) e o `recent-sends` refazem em `visibilitychange`/`focus` com throttle de **30s** (evita N requests em Alt+Tab). Os 3 feeds de eventos refazem em foco/visibilidade **sem** throttle (mas só quando há janela e no breakpoint desktop). O card de `/samples` faz um fetch simples na montagem.
-- **Twin inativo não busca:** cada `useEffect` checa `matchMedia('(min-width: 901px)')` antes de disparar fetch; um listener de `change` re-busca ao **entrar** no desktop (senão o card ficava travado no skeleton após um resize).
+- **Throttle de refetch (C1, 2026-07-12):** o **donut** (`useDashboardData`) refaz só em `visibilitychange` (gate `visibilityState==='visible'` + throttle **30s**); o **recent-sends** e os **3 feeds de eventos** refazem em `focus` **e** `visibilitychange`, ambos com o mesmo gate + throttle 30s (antes os eventos disparavam sem gate/throttle → tempestade de requests no Alt+Tab). Todos só no breakpoint desktop; os eventos só com janela emitida. O card de `/samples` faz um fetch simples na montagem.
+- **Twin inativo não busca:** os fetches **twin-específicos** (recent-sends + os 3 feeds de eventos) checam `matchMedia('(min-width: 901px)')` antes de disparar, e um listener de `change` re-busca ao **entrar** no desktop (senão o card ficava travado no skeleton após um resize — C1 estendeu isso aos eventos). O **donut** é buscado uma vez no nível da página (`useDashboardData` em `page.tsx`) e renderiza nos dois twins — não checa `matchMedia`.
+- **Erro + retry (C1):** falha de fetch de donut/recent-sends/eventos mostra **erro + "Tentar novamente"** (componente `DashboardLoadError`, reusa `.dashboard-error-banner`) no lugar de skeleton/vazio eterno.
 - **Saudação por hora:** `getGreeting()` — "Bom dia" (<12h), "Boa tarde" (<18h), "Boa noite".
 - **Cards removidos (histórico):** "Últimas atividades", "Vendas e perdas" (endpoint `commercial-timeseries`), StatCards de pulso ("Lotes registrados hoje"/"Envios concluídos hoje") e "Impressão pendente" foram todos removidos. Em **2026-07-12 (DSB-D2)** saíram os StatCards de pendências: **"Classificação pendente"** (migrou para `/samples`) e **"Cadastros pendentes"** (removido), junto com o `OperationModal`. Nenhum deve reaparecer sem decisão explícita.
 
@@ -230,9 +232,10 @@ Definições dos handlers: `src/api/v1/backend-api.js`. Implementações: `src/s
 - `app/dashboard/page.tsx` — orquestração (branch por papel, twins)
 - `components/dashboard/DashboardDesktop.tsx` — layout desktop + fetch dos 3 feeds de eventos (pagamento + embarque + faturamento) e recent-sends
 - `components/dashboard/DashboardMobile.tsx` — layout mobile (hero + donut)
-- `components/dashboard/useDashboardData.ts` — fetch do donut (`sales-availability`)
+- `components/dashboard/useDashboardData.ts` — fetch do donut (`sales-availability`) + `retry` (C1)
 - `components/dashboard/EventsCalendarCard.tsx` — card de Eventos (calendário)
 - `components/dashboard/RecentSendsCard.tsx` — card de envios reutilizável (renderiza "Amostras enviadas" e "Aprovações enviadas" — DSB-D5)
+- `components/dashboard/DashboardLoadError.tsx` — erro de carregamento + "Tentar novamente" (compartilhado donut/envios/eventos — C1)
 - `components/dashboard/greeting.ts` — saudação + iniciais
 - `components/dashboard/prospector/ProspectorDashboard.tsx` + `useProspectorDashboardData.ts` — dashboard do PROSPECTOR
 - `components/SalesAvailabilityCard.tsx` — donut (compartilhado)
@@ -254,7 +257,9 @@ Definições dos handlers: `src/api/v1/backend-api.js`. Implementações: `src/s
 
 **Testes**
 
-- `tests/dashboard-pending.integration.test.js`
+- Integração: `tests/dashboard-pending.integration.test.js` (count-only), `tests/dashboard-recent-sends.integration.test.js`, `tests/dashboard-sales-availability.integration.test.js`
+- Unit: `tests/dashboard-calendar.test.ts` — matemática do calendário/BRT (DSB-H8)
+- Feeds de evento (payment/shipment/invoice) + builders/buckets: `tests/sale-contract.integration.test.js` e `tests/sale-contract-support.test.js`
 
 ---
 

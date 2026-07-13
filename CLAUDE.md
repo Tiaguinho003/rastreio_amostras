@@ -19,6 +19,7 @@ O projeto possui skills em `.claude/skills/` que o Claude Code carrega automatic
 - `modals` — padrao canonico `.app-modal.is-themed` para modais centrais (estrutura JSX, variantes, UX, auditoria dos modais existentes)
 - `responsive` — responsividade mobile-first (clamp, safe areas, checklist de validacao)
 - `feedback-messages` — padrao canonico de toasts, inline errors, banners e modais de erro/info. Decision tree (toast/inline/banner/modal), copywriting pt-BR, acessibilidade, anti-patterns
+- `button-press-effect` — padrao canonico de feedback de toque/clique: SEM mudanca de cor, so profundidade (scale/afundar). Elimina o tap-flash escuro do iOS Safari e o hover sticky em touch
 
 ### Processo
 
