@@ -9,8 +9,9 @@
 // Mensagem canônica de erro (pt-BR) reusada nos modais do contrato.
 export const WEEKEND_DATE_MESSAGE = 'Data indisponível: escolha um dia útil.';
 
-// true se a Date (interpretada em UTC) cai em sábado ou domingo.
-export function isWeekendDate(date: Date): boolean {
+// true se a Date (interpretada em UTC) cai em sábado ou domingo. Interno agora
+// (só isWeekendIso o usa) — o card de Eventos passou a inlinar o mesmo check.
+function isWeekendDate(date: Date): boolean {
   const dow = date.getUTCDay();
   return dow === 0 || dow === 6;
 }

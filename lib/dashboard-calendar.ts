@@ -9,8 +9,6 @@
 // computeWeekStart/buildWeek/CALENDAR_WEEK_DAYS seguem de 7 dias domingo-first;
 // buildBusinessDays filtra pro que é exibido.
 
-import { isWeekendDate } from './business-days';
-
 const SAO_PAULO_UTC_OFFSET_HOURS = 3;
 
 const MONTH_LONG = [
@@ -88,9 +86,15 @@ export function buildWeek(start: Date): Date[] {
 }
 
 /** Os 5 dias ÚTEIS (seg–sex) exibidos no card — os fins de semana da janela
- *  ficam de fora do render (DSB-D7); seus eventos são rolados pelo backend. */
+ *  ficam de fora do render (DSB-D7); seus eventos são rolados pelo backend.
+ *  Fim de semana (getUTCDay 0=dom/6=sáb) é inlinado — em vez de importar
+ *  isWeekendDate de ./business-days — pra este módulo não ter import RELATIVO de
+ *  runtime e assim rodar no test:unit via --experimental-strip-types (DSB-H8). */
 export function buildBusinessDays(start: Date): Date[] {
-  return buildWeek(start).filter((day) => !isWeekendDate(day));
+  return buildWeek(start).filter((day) => {
+    const dow = day.getUTCDay();
+    return dow !== 0 && dow !== 6;
+  });
 }
 
 /**

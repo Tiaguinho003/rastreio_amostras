@@ -13,6 +13,7 @@ import {
   buildPaymentEvent,
   buildInvoiceEvent,
   buildReceivableView,
+  buildShipmentEvent,
   bucketPaymentEvents,
   bucketShipmentEvents,
   bucketInvoiceEvents,
@@ -939,4 +940,60 @@ test('bucketInvoiceEvents (DSB-D11): agrupa por dayKey (agendado no invoiceDate 
   assert.equal(map['2026-07-13'].length, 2); // agendado (rolado) + realizado no mesmo dia util
   assert.ok(map['2026-07-13'].every((e) => e.id.startsWith('invoice:')));
   assert.deepEqual(map['2026-07-13'].map((e) => e.state).sort(), ['previsto', 'realizado']);
+});
+
+// Embarque (EMB): buildShipmentEvent — agendado = invoiceDate; realizado = shippedAt.
+test('buildShipmentEvent (EMB): agendado usa invoiceDate; realizado usa shippedAt; overdue; state; id namespaced', () => {
+  const row = {
+    id: 's1',
+    status: 'EMITIDO',
+    contractNumber: '0020/26',
+    invoiceDate: new Date('2026-07-10T00:00:00.000Z'),
+    shippedAt: null,
+    buyerSnapshot: { displayName: 'Comprador S' },
+  };
+  // agendado, dia previsto = hoje -> ainda previsto
+  const sched = buildShipmentEvent(row, 'scheduled', '2026-07-10');
+  assert.equal(sched.dayKey, '2026-07-10'); // do invoiceDate
+  assert.equal(sched.event.typeKey, 'contract_shipment');
+  assert.equal(sched.event.state, 'previsto');
+  assert.equal(sched.event.id, 'shipment:s1'); // namespaced (nao colide com pagamento/faturamento)
+  assert.equal(sched.event.contractId, 's1');
+  assert.equal(sched.event.label, 'embarque · 0020/26 · Comprador S');
+
+  // agendado com o dia ja passado -> atrasado
+  const overdue = buildShipmentEvent(row, 'scheduled', '2026-07-11');
+  assert.equal(overdue.event.typeKey, 'contract_shipment_overdue');
+  assert.equal(overdue.event.state, 'atrasado');
+
+  // realizado -> usa shippedAt (nao invoiceDate), verde, nunca fica atrasado
+  const doneRow = { ...row, status: 'FATURADO', shippedAt: new Date('2026-07-08T00:00:00.000Z') };
+  const done = buildShipmentEvent(doneRow, 'done', '2026-08-01');
+  assert.equal(done.dayKey, '2026-07-08'); // do shippedAt
+  assert.equal(done.event.typeKey, 'contract_shipment_done');
+  assert.equal(done.event.state, 'realizado');
+});
+
+// DSB-D7: um agendado VENCIDO cuja data real cai num FIM DE SEMANA vira overdue (sobre
+// a data real) E rola pro dia útil vizinho — o cenário que os comentários prometem e
+// que faltava cobertura (os outros testes de roll usam hoje no passado -> tudo previsto).
+test('bucketPaymentEvents (DSB-D7): agendado vencido no fim de semana -> overdue E rolado pro dia útil', () => {
+  const due = [
+    {
+      id: 'w',
+      version: 1,
+      status: 'FATURADO',
+      contractNumber: '9/26',
+      paymentDate: new Date('2026-07-11T00:00:00.000Z'), // sábado, no passado
+      paidAt: null,
+      buyerSnapshot: { displayName: 'W' },
+      sellerSnapshot: null,
+    },
+  ];
+  const map = bucketPaymentEvents(due, [], '2026-07-20'); // hoje depois -> vencido
+  assert.equal(map['2026-07-11'], undefined); // sábado não aparece
+  assert.equal(map['2026-07-10'].length, 1); // rolado sáb -> sex
+  // typeKey/state de atraso computados sobre a data REAL (11 < 20) ANTES do roll.
+  assert.equal(map['2026-07-10'][0].typeKey, 'contract_payment_overdue');
+  assert.equal(map['2026-07-10'][0].state, 'atrasado');
 });
