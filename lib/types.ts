@@ -1221,7 +1221,11 @@ export interface DashboardRecentSendsResponse {
 export interface DashboardCalendarEvent {
   id: string; // = contractId (1 evento por contrato)
   typeKey: string;
-  label: string; // recolhido: "nº · comprador"
+  label: string; // recolhido: "tipo · nº · comprador"
+  // DSB-D10: estado do evento — o card colore o chip por ESTADO (azul previsto /
+  // vermelho atrasado / verde realizado), não por tipo; o NOME DO TIPO no `label`
+  // é que diferencia os eventos. Derivado do typeKey nos builders (support).
+  state?: 'previsto' | 'atrasado' | 'realizado';
   // Campos do tipo "pagamento de contrato" (presentes quando typeKey ∈
   // {contract_payment_due, contract_payment_paid}).
   contractId?: string;

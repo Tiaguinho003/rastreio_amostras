@@ -22,7 +22,7 @@ import type { DashboardCalendarEvent } from '../../lib/types';
 type CalendarEvent = DashboardCalendarEvent;
 
 interface EventsCalendarCardProps {
-  /** Mapa 'YYYY-MM-DD' → eventos do dia (pagamento + aprovação + embarque). */
+  /** Mapa 'YYYY-MM-DD' → eventos do dia (pagamento + embarque; DSB-D11 soma faturamento). */
   events?: Record<string, CalendarEvent[]>;
   /** Emite a semana visível (from..to 'YYYY-MM-DD') pro pai buscar o feed (E24). */
   onWindowChange?: (from: string, to: string) => void;
@@ -44,11 +44,24 @@ function eventHref(event: CalendarEvent): string | null {
   return `/contratos?tab=${tab}${event.contractId ? `&highlight=${event.contractId}` : ''}`;
 }
 
+// DSB-D10: a COR do chip carrega o estado (previsto/atrasado/realizado); pra não
+// depender só da cor (a11y), o nome acessível + tooltip incluem a palavra do estado.
+function chipAccessibleLabel(event: CalendarEvent): string {
+  return event.state ? `${event.label} · ${event.state}` : event.label;
+}
+
+// DSB-D10: legenda do card — a cor virou código de estado, então explicitamos.
+const EVENT_STATES: Array<{ state: 'previsto' | 'atrasado' | 'realizado'; label: string }> = [
+  { state: 'previsto', label: 'previsto' },
+  { state: 'atrasado', label: 'atrasado' },
+  { state: 'realizado', label: 'realizado' },
+];
+
 // Card "Eventos" (dashboard desktop, DSB-D4 + DSB-D7): SEMANA DE DIAS ÚTEIS (seg–sex,
 // 5 células) com navegação livre ◀ Hoje ▶ de 7 em 7 dias. A janela BUSCADA continua
 // dom–sáb (7 dias) — o backend rola os eventos de fim de semana pro dia útil vizinho
 // (sáb→sex, dom→seg) pra nada sumir. Cada dia é um quadrado alto que mostra os eventos
-// DENTRO da célula — chips coloridos por tipo, clicáveis (navegação pura → /contratos);
+// DENTRO da célula — chips coloridos por ESTADO (DSB-D10), clicáveis (navegação pura → /contratos);
 // dias cheios rolam POR DENTRO da própria célula. Sem painel de dia selecionado.
 // "Hoje" com anel. Desktop-only (o DashboardMobile não o monta).
 export function EventsCalendarCard({ events = {}, onWindowChange }: EventsCalendarCardProps) {
@@ -118,6 +131,16 @@ export function EventsCalendarCard({ events = {}, onWindowChange }: EventsCalend
         </div>
       </header>
 
+      {/* DSB-D10: legenda das cores (a cor = estado). aria-hidden: o estado já vai
+          no aria-label de cada chip; aqui é só apoio visual. */}
+      <div className="dd-events-legend" aria-hidden="true">
+        {EVENT_STATES.map((s) => (
+          <span key={s.state} className="dd-events-legend-item" data-state={s.state}>
+            {s.label}
+          </span>
+        ))}
+      </div>
+
       <div className="dd-events-weekdays" aria-hidden="true">
         {CALENDAR_WEEKDAY_INITIALS.map((initial, i) => (
           <span key={i}>{initial}</span>
@@ -154,15 +177,19 @@ export function EventsCalendarCard({ events = {}, onWindowChange }: EventsCalend
                 <div className="dd-events-day-list">
                   {dayEvents.map((event) => {
                     // Navegação PURA → a sub-aba dona (a ação mora lá). Tipo
-                    // desconhecido vira chip só-rótulo (sem link).
+                    // desconhecido vira chip só-rótulo (sem link). A cor sai do
+                    // `data-state` (DSB-D10); `data-type` fica pra QA/semântica.
                     const href = eventHref(event);
+                    const accessibleLabel = chipAccessibleLabel(event);
                     return href ? (
                       <Link
                         key={event.id}
                         href={href}
                         className="dd-events-chip"
                         data-type={event.typeKey}
-                        title={event.label}
+                        data-state={event.state}
+                        title={accessibleLabel}
+                        aria-label={accessibleLabel}
                       >
                         {event.label}
                       </Link>
@@ -171,7 +198,9 @@ export function EventsCalendarCard({ events = {}, onWindowChange }: EventsCalend
                         key={event.id}
                         className="dd-events-chip"
                         data-type={event.typeKey}
-                        title={event.label}
+                        data-state={event.state}
+                        title={accessibleLabel}
+                        aria-label={accessibleLabel}
                       >
                         {event.label}
                       </span>

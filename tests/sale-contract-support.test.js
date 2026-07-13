@@ -648,12 +648,15 @@ test('buildPaymentEvent (D138): agendado usa paymentDate; realizado usa paidAt; 
   assert.equal(due.event.status, 'FATURADO');
   assert.equal(due.event.buyerName, 'Comprador X');
   assert.equal(due.event.sellerName, 'Vendedor Y');
-  assert.equal(due.event.label, '0007/26 · Comprador X'); // recolhido: nº · comprador
+  // DSB-D10: rótulo com prefixo do tipo + `state` (cor do chip = estado).
+  assert.equal(due.event.label, 'pagamento · 0007/26 · Comprador X');
+  assert.equal(due.event.state, 'previsto');
 
   const paidRow = { ...row, status: 'PAGO', paidAt: new Date('2026-07-15T00:00:00.000Z') };
   const paid = buildPaymentEvent(paidRow, 'paid', '2026-07-20');
   assert.equal(paid.dayKey, '2026-07-15'); // do paidAt (nao do paymentDate)
   assert.equal(paid.event.typeKey, 'contract_payment_paid'); // realizado nunca fica atrasado
+  assert.equal(paid.event.state, 'realizado');
 });
 
 // E29 (Revisao do Pagamento): agendado vencido -> "atrasado" (dot vermelho) a partir
@@ -671,11 +674,13 @@ test('buildPaymentEvent (E29): vencido vira overdue no dia seguinte; vence-hoje 
   };
   // dia do vencimento: ainda due
   assert.equal(buildPaymentEvent(row, 'due', '2026-07-10').event.typeKey, 'contract_payment_due');
+  assert.equal(buildPaymentEvent(row, 'due', '2026-07-10').event.state, 'previsto');
   // dia seguinte: overdue
   assert.equal(
     buildPaymentEvent(row, 'due', '2026-07-11').event.typeKey,
     'contract_payment_overdue'
   );
+  assert.equal(buildPaymentEvent(row, 'due', '2026-07-11').event.state, 'atrasado');
   // dias depois: segue overdue
   assert.equal(
     buildPaymentEvent(row, 'due', '2026-08-01').event.typeKey,
@@ -715,7 +720,8 @@ test('buildPaymentEvent (D138): sem comprador -> label = so o numero', () => {
     sellerSnapshot: null,
   };
   const { event } = buildPaymentEvent(row, 'due');
-  assert.equal(event.label, '0008/26');
+  assert.equal(event.label, 'pagamento · 0008/26');
+  assert.equal(event.state, 'previsto');
   assert.equal(event.buyerName, null);
   assert.equal(event.sellerName, null);
 });
@@ -760,7 +766,7 @@ test('bucketPaymentEvents (D138): agrupa por dayKey (agendado no paymentDate + r
   assert.equal(map['2026-07-13'].length, 1);
   assert.equal(map['2026-07-10'][0].id, 'a');
   assert.equal(map['2026-07-10'][0].typeKey, 'contract_payment_due');
-  assert.equal(map['2026-07-10'][1].label, '2/26'); // sem comprador -> so o numero
+  assert.equal(map['2026-07-10'][1].label, 'pagamento · 2/26'); // sem comprador -> prefixo + numero
   assert.equal(map['2026-07-13'][0].typeKey, 'contract_payment_paid'); // realizado no paidAt
 });
 
@@ -858,4 +864,5 @@ test('bucketShipmentEvents: embarque em fim de semana rola pro dia útil vizinho
   assert.equal(map['2026-07-12'], undefined);
   assert.equal(map['2026-07-13'].length, 1); // domingo → segunda
   assert.ok(map['2026-07-13'][0].id.startsWith('shipment:'));
+  assert.equal(map['2026-07-13'][0].state, 'previsto'); // DSB-D10: cor por estado
 });

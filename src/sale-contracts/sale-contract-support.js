@@ -742,7 +742,8 @@ export function brtTodayKey(now = new Date()) {
 // F1 (E21-E27/D138): projeta 1 contrato num evento de pagamento do card de Eventos.
 // kind 'due' = agendado (no paymentDate); 'paid' = realizado (no paidAt). O dayKey
 // vem da data @db.Date via `.slice(0,10)` (sem conversao de fuso — casa com o
-// toDayKey/BRT do dashboard-calendar). `label` = o rotulo recolhido "nº · comprador".
+// toDayKey/BRT do dashboard-calendar). `label` = recolhido "pagamento · nº · comprador"
+// (DSB-D10: prefixo do tipo). `state` = previsto/atrasado/realizado (cor do chip).
 // E29 (Revisao do Pagamento): um agendado cujo dia ja passou (dayKey < todayKey, dia
 // BRT) vira "atrasado" (dot vermelho) a partir do dia SEGUINTE ao vencimento (vence-
 // hoje ainda e 'due'); o realizado nunca fica atrasado. `todayKey` opcional: sem ele,
@@ -753,12 +754,16 @@ export function buildPaymentEvent(row, kind, todayKey) {
   const buyerName = row.buyerSnapshot?.displayName ?? null;
   const sellerName = row.sellerSnapshot?.displayName ?? null;
   let typeKey;
+  let state;
   if (kind === 'paid') {
     typeKey = 'contract_payment_paid';
+    state = 'realizado';
   } else if (todayKey && dayKey && dayKey < todayKey) {
     typeKey = 'contract_payment_overdue';
+    state = 'atrasado';
   } else {
     typeKey = 'contract_payment_due';
+    state = 'previsto';
   }
   return {
     dayKey,
@@ -766,7 +771,13 @@ export function buildPaymentEvent(row, kind, todayKey) {
       id: row.id,
       contractId: row.id,
       typeKey,
-      label: buyerName ? `${row.contractNumber} · ${buyerName}` : row.contractNumber,
+      state,
+      // DSB-D10: prefixo com o nome do tipo — a cor do chip agora carrega só o
+      // estado (previsto/atrasado/realizado), então o tipo precisa estar no texto
+      // pra diferenciar os eventos (embarque/faturamento tambem levam o prefixo).
+      label: buyerName
+        ? `pagamento · ${row.contractNumber} · ${buyerName}`
+        : `pagamento · ${row.contractNumber}`,
       contractNumber: row.contractNumber,
       buyerName,
       sellerName,
@@ -812,22 +823,28 @@ export const SHIPMENT_EVENT_SELECT = Object.freeze({
 });
 
 // Projeta 1 contrato num evento de embarque do calendario (1→1, molde do pagamento).
-// kind 'scheduled' -> dia previsto = invoiceDate; typeKey contract_shipment (azul) ou
-// contract_shipment_overdue (vermelho) se o dia ja passou (dayKey < todayKey, EMB24).
-// kind 'done' -> dia real = shippedAt; typeKey contract_shipment_done (azul-escuro,
-// EMB17). label recolhido = "embarque · nº · comprador" (EMB11/EMB26). id NAMESPACED
-// ('shipment:') pra nao colidir com pagamento/aprovacao do mesmo dia (card usa key=id).
+// kind 'scheduled' -> dia previsto = invoiceDate; typeKey contract_shipment ou
+// contract_shipment_overdue se o dia ja passou (dayKey < todayKey, EMB24).
+// kind 'done' -> dia real = shippedAt; typeKey contract_shipment_done (EMB17).
+// DSB-D10: `state` (previsto/atrasado/realizado) dirige a COR do chip (azul/vermelho/
+// verde); o typeKey vira só rota+identificacao. label recolhido = "embarque · nº ·
+// comprador" (EMB11/EMB26). id NAMESPACED ('shipment:') pra nao colidir com pagamento/
+// faturamento do mesmo dia (card usa key=id).
 export function buildShipmentEvent(row, kind, todayKey) {
   const iso = toIsoString(kind === 'done' ? row.shippedAt : row.invoiceDate);
   const dayKey = iso ? iso.slice(0, 10) : null;
   const buyerName = row.buyerSnapshot?.displayName ?? null;
   let typeKey;
+  let state;
   if (kind === 'done') {
     typeKey = 'contract_shipment_done';
+    state = 'realizado';
   } else if (todayKey && dayKey && dayKey < todayKey) {
     typeKey = 'contract_shipment_overdue';
+    state = 'atrasado';
   } else {
     typeKey = 'contract_shipment';
+    state = 'previsto';
   }
   const label = buyerName
     ? `embarque · ${row.contractNumber} · ${buyerName}`
@@ -838,6 +855,7 @@ export function buildShipmentEvent(row, kind, todayKey) {
       id: `shipment:${row.id}`,
       contractId: row.id,
       typeKey,
+      state,
       label,
       contractNumber: row.contractNumber,
       buyerName,

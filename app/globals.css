@@ -24742,6 +24742,11 @@ select.samples-filter-field-input {
      (~60%, E14). Shell no molde dos cards da linha 2. ── */
 
   .dd-events-card {
+    /* DSB-D10: cores por ESTADO (o chip colore por data-state, não por tipo).
+       previsto azul · atrasado vermelho · realizado verde. */
+    --state-previsto: #2563eb;
+    --state-atrasado: #dc2626;
+    --state-realizado: #15803d;
     min-height: 0;
     display: flex;
     flex-direction: column;
@@ -24927,8 +24932,8 @@ select.samples-filter-field-input {
     gap: clamp(0.2rem, 0.4vw, 0.3rem);
   }
 
-  /* Chip de evento: cor por tipo (borda-esquerda) + rótulo truncado. É um Link
-     (navegação pura → /contratos) ou span (tipo desconhecido). */
+  /* Chip de evento: cor por ESTADO (borda-esquerda, DSB-D10) + rótulo truncado. É
+     um Link (navegação pura → /contratos) ou span (tipo desconhecido/inerte). */
   .dd-events-chip {
     display: block;
     padding: clamp(0.2rem, 0.4vw, 0.32rem) clamp(0.3rem, 0.55vw, 0.45rem);
@@ -24958,26 +24963,44 @@ select.samples-filter-field-input {
     }
   }
 
-  /* Cores por tipo (mesmo catálogo dos antigos dots): pagamento agendado âmbar /
-     pago verde / vencido vermelho; aprovação laranja; embarque azul / azul-escuro
-     / atrasado vermelho. */
-  .dd-events-chip[data-type='contract_payment_due'] {
-    --chip-color: #eab308;
+  /* DSB-D10: a COR (chip + bolinha da legenda) = ESTADO. 3 cores só; o nome do
+     tipo no rótulo é que diferencia os eventos. Tipos novos (faturamento) herdam a
+     cor certa pelo data-state, sem regra nova. */
+  .dd-events-chip[data-state='previsto'],
+  .dd-events-legend-item[data-state='previsto'] {
+    --chip-color: var(--state-previsto);
   }
-  .dd-events-chip[data-type='contract_payment_paid'] {
-    --chip-color: #15803d;
+  .dd-events-chip[data-state='atrasado'],
+  .dd-events-legend-item[data-state='atrasado'] {
+    --chip-color: var(--state-atrasado);
   }
-  .dd-events-chip[data-type='contract_payment_overdue'] {
-    --chip-color: #dc2626;
+  .dd-events-chip[data-state='realizado'],
+  .dd-events-legend-item[data-state='realizado'] {
+    --chip-color: var(--state-realizado);
   }
-  .dd-events-chip[data-type='contract_shipment'] {
-    --chip-color: #2563eb;
+
+  /* DSB-D10: legenda de cores do card (a cor virou código de estado). */
+  .dd-events-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 0.85rem;
+    flex: none;
   }
-  .dd-events-chip[data-type='contract_shipment_done'] {
-    --chip-color: #1e40af;
+  .dd-events-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.34rem;
+    font-size: clamp(0.62rem, 0.7vw, 0.7rem);
+    font-weight: 600;
+    color: #5c6b5a;
+    white-space: nowrap;
   }
-  .dd-events-chip[data-type='contract_shipment_overdue'] {
-    --chip-color: #dc2626;
+  .dd-events-legend-item::before {
+    content: '';
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--chip-color, #1f5d43);
   }
 
   /* "Lotes disponiveis" compacto: legenda ao lado do donut + botao "Ver
