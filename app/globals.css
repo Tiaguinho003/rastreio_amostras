@@ -34053,6 +34053,380 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   background: #fbfaf7;
 }
 
+/* Wrapper interno do canvas (preenche o host; recebe drop da paleta). */
+.pg-canvas-wrap {
+  position: absolute;
+  inset: 0;
+}
+
+/* Tokens da feature (PG34) + variáveis do React Flow, escopados no host.
+   Roxo e azul-escuro não existiam no :root — nascem aqui, locais. */
+.pg-host {
+  --pg-node-lote: var(--brand-green);
+  --pg-node-mistura: var(--color-warning);
+  --pg-node-resultado: var(--color-info);
+  --pg-node-alvo: #6d4fa1;
+  --pg-node-combinacoes: #143a5c;
+  --xy-edge-stroke: #9aa8a0;
+  --xy-edge-stroke-selected: var(--brand-green-soft);
+  --xy-handle-background-color: var(--brand-green-soft);
+  --xy-handle-border-color: #ffffff;
+}
+
+/* ── Nodes (PG29/PG34) ── */
+.pg-node {
+  position: relative;
+  min-width: 180px;
+  max-width: 240px;
+  padding: 0.6rem 0.75rem 0.7rem;
+  background: #ffffff;
+  border: 1px solid var(--color-line);
+  border-left: 3px solid var(--brand-green);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  font-size: 0.82rem;
+  color: var(--color-ink);
+}
+.pg-node-lote {
+  border-left-color: var(--pg-node-lote);
+}
+.pg-node-mistura {
+  border-left-color: var(--pg-node-mistura);
+}
+.pg-node-resultado {
+  border-left-color: var(--pg-node-resultado);
+}
+.pg-node-alvo {
+  border-left-color: var(--pg-node-alvo);
+}
+.pg-node-combinacoes {
+  border-left-color: var(--pg-node-combinacoes);
+}
+.pg-node.is-incomplete {
+  border-style: dashed;
+  border-left-style: solid;
+}
+.pg-node.has-error {
+  border-color: var(--color-danger);
+  border-left-color: var(--color-danger);
+}
+.pg-node-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-bottom: 0.3rem;
+}
+.pg-node-badge {
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--brand-muted);
+  background: var(--color-surface-muted);
+  border-radius: var(--radius-pill);
+  padding: 0.1rem 0.45rem;
+}
+.pg-node-hint {
+  margin: 0;
+  color: var(--brand-muted);
+  font-size: 0.78rem;
+}
+.pg-node-hint.is-ok {
+  color: var(--color-success);
+}
+.pg-node-error {
+  margin: 0.3rem 0 0;
+  color: var(--color-danger);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+.pg-node-sacks {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.pg-node-sacks span {
+  color: var(--brand-muted);
+  font-size: 0.76rem;
+}
+.pg-node-sacks input,
+.pg-node-sacks select {
+  width: 5.5rem;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--color-ink);
+  background: #ffffff;
+}
+.pg-node.has-error .pg-node-sacks input {
+  border-color: var(--color-danger);
+}
+.pg-node-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.pg-node-form label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.76rem;
+  color: var(--brand-muted);
+}
+.pg-node-form label > span:first-child {
+  width: 4.2rem;
+}
+.pg-node-form input {
+  width: 3.4rem;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 0.78rem;
+}
+
+/* Tooltip de hover do node Lote (PG29) — só onde hover existe de verdade. */
+.pg-node-tooltip {
+  display: none;
+}
+@media (hover: hover) {
+  .pg-node-tooltip {
+    display: flex;
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 6px);
+    gap: 0.55rem;
+    white-space: nowrap;
+    padding: 0.35rem 0.6rem;
+    background: var(--color-ink);
+    color: #ffffff;
+    font-size: 0.72rem;
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-md);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--duration-fast) var(--ease-out);
+    z-index: var(--z-tooltip);
+  }
+  .pg-node:hover .pg-node-tooltip {
+    opacity: 1;
+  }
+}
+
+/* ── Busca embutida do node Lote (PG30) ── */
+.pg-lot-search input {
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 0.8rem;
+}
+.pg-lot-search-list {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+}
+.pg-lot-search-list button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 0.78rem;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--duration-instant) var(--ease-out);
+}
+.pg-lot-search-list button:active {
+  transform: scale(0.98);
+}
+@media (hover: hover) {
+  .pg-lot-search-list button:hover {
+    background: var(--color-surface-muted);
+  }
+}
+.pg-lot-search-list strong {
+  font-size: 0.82rem;
+}
+.pg-lot-search-list span {
+  color: var(--brand-muted);
+}
+.pg-lot-search-empty {
+  padding: 0.5rem 0.55rem;
+  color: var(--brand-muted);
+  font-size: 0.78rem;
+}
+
+/* ── Paleta (PG26/PG34) ── */
+.pg-palette {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 200px;
+  background: #ffffff;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  z-index: var(--z-dropdown);
+}
+.pg-palette.is-collapsed {
+  width: auto;
+}
+.pg-palette-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.7rem;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--duration-instant) var(--ease-out);
+}
+.pg-palette-toggle:active {
+  transform: scale(0.97);
+}
+.pg-palette-toggle svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pg-palette ul {
+  list-style: none;
+  margin: 0;
+  padding: 0.25rem;
+}
+.pg-palette-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.05rem;
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border: 0;
+  border-left: 3px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: grab;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--duration-instant) var(--ease-out);
+}
+.pg-palette-item:active {
+  transform: scale(0.97);
+  cursor: grabbing;
+}
+@media (hover: hover) {
+  .pg-palette-item:hover {
+    background: var(--color-surface-muted);
+  }
+}
+.pg-accent-lote {
+  border-left-color: var(--pg-node-lote);
+}
+.pg-accent-mistura {
+  border-left-color: var(--pg-node-mistura);
+}
+.pg-accent-resultado {
+  border-left-color: var(--pg-node-resultado);
+}
+.pg-accent-alvo {
+  border-left-color: var(--pg-node-alvo);
+}
+.pg-accent-combinacoes {
+  border-left-color: var(--pg-node-combinacoes);
+}
+.pg-palette-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+.pg-palette-hint {
+  font-size: 0.72rem;
+  color: var(--brand-muted);
+}
+
+/* ── Estado vazio (PG33) ── */
+.pg-empty-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  color: var(--brand-muted);
+  font-size: 0.95rem;
+  pointer-events: none;
+}
+
+/* ── Menu de compatíveis (PG26) ── */
+.pg-connect-menu {
+  position: absolute;
+  min-width: 170px;
+  padding: 0.3rem;
+  background: #ffffff;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: var(--z-popover);
+}
+.pg-connect-menu p {
+  margin: 0.2rem 0.45rem 0.3rem;
+  font-size: 0.72rem;
+  color: var(--brand-muted);
+}
+.pg-connect-menu button {
+  display: block;
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  border: 0;
+  border-left: 3px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-ink);
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--duration-instant) var(--ease-out);
+}
+.pg-connect-menu button:active {
+  transform: scale(0.97);
+}
+@media (hover: hover) {
+  .pg-connect-menu button:hover {
+    background: var(--color-surface-muted);
+  }
+}
+
 /* Aviso mobile (PG35): estado vazio elegante + CTA de volta pra lista. */
 .pg-mobile-notice {
   display: flex;
