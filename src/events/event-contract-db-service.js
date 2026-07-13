@@ -2,6 +2,7 @@ import { EventValidator } from '../contracts/event-validator.js';
 import { HttpError } from '../contracts/errors.js';
 import {
   canonicalizeAspecto,
+  canonicalizeBebida,
   canonicalizeCatacao,
   canonicalizeCertif,
   canonicalizePadrao,
@@ -83,6 +84,7 @@ const CLASSIFICATION_FIELD_CANONICALIZERS = {
   aspecto: canonicalizeAspecto,
   catacao: canonicalizeCatacao,
   certif: canonicalizeCertif,
+  bebida: canonicalizeBebida,
 };
 
 function applyClassificationDataPatch(target, source) {

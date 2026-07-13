@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Backfill de canonicalizacao dos campos de classificacao em
-// Sample.latestClassificationData: padrao, aspecto, catacao, certif.
+// Sample.latestClassificationData: padrao, aspecto, catacao, certif, bebida.
 //
 // Context: o projetor passou a canonizar esses campos ao folder eventos de
 // classificacao (event-contract-db-service.js), pra que os filtros de /samples
@@ -21,6 +21,7 @@ import { PrismaClient } from '@prisma/client';
 
 import {
   canonicalizeAspecto,
+  canonicalizeBebida,
   canonicalizeCatacao,
   canonicalizeCertif,
   canonicalizePadrao,
@@ -34,6 +35,7 @@ const FIELDS = [
   { key: 'aspecto', canon: canonicalizeAspecto },
   { key: 'catacao', canon: canonicalizeCatacao },
   { key: 'certif', canon: canonicalizeCertif },
+  { key: 'bebida', canon: canonicalizeBebida },
 ];
 
 function isRecord(value) {

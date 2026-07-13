@@ -8,6 +8,7 @@ import OpenAI from 'openai';
 import {
   canonicalizeAspecto,
   canonicalizeBebida,
+  canonicalizeCatacao,
   canonicalizeCertif,
   canonicalizeHarvest,
   canonicalizePadrao,
@@ -589,7 +590,9 @@ function normalizeClassificacao(raw) {
     certif: canonicalizeCertif(rejectIfLabel(toStringOrNull(safe.certif))),
     peneiras: normalizePeneiras(safe.peneiras),
     fundos: normalizeFundos(safe.fundos),
-    catacao: toNumericOrNull(safe.catacao),
+    // Mesma canonizacao do save/projecao (separador decimal -> virgula),
+    // pro preview no form ja chegar canonico como padrao/aspecto/certif.
+    catacao: canonicalizeCatacao(toNumericOrNull(safe.catacao)),
     defeitos: normalizeDefeitos(safe.defeitos),
     observacoes: toStringOrNull(safe.observacoes),
     bebida: canonicalizeBebida(rejectIfLabel(toStringOrNull(safe.bebida))),
