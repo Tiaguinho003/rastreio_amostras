@@ -280,12 +280,6 @@ model Sample {
   lostSacks                   Int                 @default(0) @map("lost_sacks")
   latestClassificationVersion Int?                @map("latest_classification_version")
   latestClassificationData    Json?               @map("latest_classification_data")
-  latestType                  String?             @map("latest_type")
-  latestScreen                String?             @map("latest_screen")
-  latestDefectsCount          Int?                @map("latest_defects_count")
-  latestDensity               Decimal?            @map("latest_density") @db.Decimal(6, 2)
-  latestColorAspect           String?             @map("latest_color_aspect")
-  latestNotes                 String?             @map("latest_notes")
   classifiedAt                DateTime?           @map("classified_at") @db.Timestamptz(6)
   /// Flag denotando que esta Sample e uma liga (composta de outras
   /// amostras via SampleBlendComponent). Default false — Samples normais

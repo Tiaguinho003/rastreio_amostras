@@ -101,13 +101,6 @@ const CLASSIFICATION_PENEIRA_KEYS = [
 ];
 // Defeitos (sub-obj `defeitos`): 6 chaves fixas, todos string|null.
 const CLASSIFICATION_DEFEITO_KEYS = ['imp', 'pva', 'broca', 'gpi', 'ap', 'defeito'];
-const CLASSIFICATION_TECHNICAL_EDITABLE_FIELDS = [
-  'type',
-  'screen',
-  'defectsCount',
-  'density',
-  'notes',
-];
 const MOVEMENT_UPDATE_EDITABLE_FIELDS = new Set([
   'movementType',
   'buyerClientId',
@@ -795,21 +788,6 @@ function normalizeClassificationDataFieldValue(fieldName, value) {
   return normalizeNullableText(value, `after.classificationData.${fieldName}`);
 }
 
-function normalizeClassificationTechnicalFieldValue(fieldName, value) {
-  if (fieldName === 'defectsCount') {
-    return normalizeNullableNumber(value, 'after.technical.defectsCount', {
-      integer: true,
-      min: 0,
-    });
-  }
-
-  if (fieldName === 'density') {
-    return normalizeNullableNumber(value, `after.technical.${fieldName}`);
-  }
-
-  return normalizeNullableText(value, `after.technical.${fieldName}`);
-}
-
 function parseClassificationUpdatePatch(after) {
   const forbiddenTopLevel = new Set([
     'sampleId',
@@ -822,14 +800,13 @@ function parseClassificationUpdatePatch(after) {
   ]);
 
   // Q.cls.2.7: top-level aceita os 6 flat fields + grupos novos (peneiras,
-  // fundos, defeitos) + technical/consumptionGrams/classifiers + envoltorio
+  // fundos, defeitos) + consumptionGrams/classifiers + envoltorio
   // classificationData. Sem peneirasPercentuais (substituido por peneiras
-  // + fundos).
+  // + fundos). CL9-CL12: `technical` saiu do update — os espelhos tecnicos
+  // foram dropados e nenhum cliente envia o bloco.
   const allowedTopLevel = new Set([
     ...CLASSIFICATION_DATA_EDITABLE_FIELDS,
-    ...CLASSIFICATION_TECHNICAL_EDITABLE_FIELDS,
     'classificationData',
-    'technical',
     'consumptionGrams',
     'peneiras',
     'fundos',
@@ -860,15 +837,6 @@ function parseClassificationUpdatePatch(after) {
     ) {
       throw new HttpError(422, 'classificationData id/version fields are not editable');
     }
-  }
-
-  const technical = hasOwn(after, 'technical') ? after.technical : undefined;
-  if (technical !== undefined) {
-    assertNoUnknownKeys(
-      technical,
-      new Set(CLASSIFICATION_TECHNICAL_EDITABLE_FIELDS),
-      'after.technical'
-    );
   }
 
   const classificationDataPatch = {};
@@ -913,19 +881,6 @@ function parseClassificationUpdatePatch(after) {
     classificationDataPatch.defeitos = defeitosPatch;
   }
 
-  const technicalPatch = {};
-  for (const field of CLASSIFICATION_TECHNICAL_EDITABLE_FIELDS) {
-    const hasTopLevel = hasOwn(after, field);
-    const hasNested = isPlainObject(technical) && hasOwn(technical, field);
-
-    if (!hasTopLevel && !hasNested) {
-      continue;
-    }
-
-    const selected = hasNested ? technical[field] : after[field];
-    technicalPatch[field] = normalizeClassificationTechnicalFieldValue(field, selected);
-  }
-
   const consumptionGrams = hasOwn(after, 'consumptionGrams')
     ? normalizeNullableNumber(after.consumptionGrams, 'after.consumptionGrams')
     : undefined;
@@ -937,7 +892,6 @@ function parseClassificationUpdatePatch(after) {
 
   if (
     Object.keys(classificationDataPatch).length === 0 &&
-    Object.keys(technicalPatch).length === 0 &&
     consumptionGrams === undefined &&
     classifiers === undefined
   ) {
@@ -946,7 +900,6 @@ function parseClassificationUpdatePatch(after) {
 
   return {
     classificationData: classificationDataPatch,
-    technical: technicalPatch,
     consumptionGrams,
     classifiers,
   };
@@ -1163,9 +1116,6 @@ function buildClassificationUpdatePayload(sample, parsedPatch) {
   const currentData = isPlainObject(sample.latestClassification?.data)
     ? sample.latestClassification.data
     : {};
-  const currentTechnical = isPlainObject(sample.latestClassification?.technical)
-    ? sample.latestClassification.technical
-    : {};
   const before = {};
   const after = {};
 
@@ -1254,31 +1204,6 @@ function buildClassificationUpdatePayload(sample, parsedPatch) {
     if (Object.keys(afterClassificationData).length > 0) {
       before.classificationData = beforeClassificationData;
       after.classificationData = afterClassificationData;
-    }
-  }
-
-  if (Object.keys(parsedPatch.technical).length > 0) {
-    const beforeTechnical = {};
-    const afterTechnical = {};
-
-    for (const field of CLASSIFICATION_TECHNICAL_EDITABLE_FIELDS) {
-      if (!hasOwn(parsedPatch.technical, field)) {
-        continue;
-      }
-
-      const currentValue = hasOwn(currentTechnical, field) ? currentTechnical[field] : null;
-      const nextValue = parsedPatch.technical[field];
-      if (valuesEqual(currentValue, nextValue)) {
-        continue;
-      }
-
-      beforeTechnical[field] = currentValue;
-      afterTechnical[field] = nextValue;
-    }
-
-    if (Object.keys(afterTechnical).length > 0) {
-      before.technical = beforeTechnical;
-      after.technical = afterTechnical;
     }
   }
 
@@ -2366,10 +2291,9 @@ export class SampleCommandService {
       },
     };
 
-    if (isPlainObject(input.technical)) {
-      payload.technical = input.technical;
-    }
-
+    // CL9-CL12: o bloco `technical` deixou de ser aceito como input — os
+    // espelhos tecnicos foram dropados e nada mais o projeta. O schema do
+    // evento segue permitindo `technical` apenas pelo historico append-only.
     if (isPlainObject(input.classificationData)) {
       payload.classificationData = {
         ...input.classificationData,
@@ -4382,13 +4306,6 @@ export class SampleCommandService {
         }
       : { dataClassificacao: classificationDate };
 
-    const technical = {};
-    if (classificationData.defeito) {
-      const parsed = parseInt(classificationData.defeito, 10);
-      if (Number.isFinite(parsed)) {
-        technical.defectsCount = Math.round(parsed);
-      }
-    }
     // Re-read sample after photo upload (version changed)
     let current = await this.queryService.requireSample(sampleId);
 
@@ -4494,7 +4411,6 @@ export class SampleCommandService {
           sampleId,
           expectedVersion: current.version,
           classificationData,
-          technical: Object.keys(technical).length > 0 ? technical : undefined,
           classifiers: input.classifiers,
           idempotencyKey: input.idempotencyKey,
           classificationType: input.classificationType ?? null,

@@ -63,7 +63,6 @@ import {
   EMPTY_CLASSIFICATION_FORM,
   validateClassificationForm,
   buildClassificationDataPayload,
-  buildTechnicalFromClassificationData,
 } from '../../../lib/classification-form';
 
 // Q.print: QR_PENDING_PRINT/QR_PRINTED removidos — sample fica em
@@ -1656,7 +1655,6 @@ export default function SampleDetailPage() {
     setClassificationDetailSaving(true);
     try {
       const classificationData = buildClassificationDataPayload(classificationDetailForm);
-      const technical = buildTechnicalFromClassificationData(classificationData);
 
       const classifiersChangedNow = classifiersChanged(
         classificationDetailClassifiers,
@@ -1671,7 +1669,6 @@ export default function SampleDetailPage() {
       }
       const afterPayload: { [key: string]: unknown } = {
         classificationData,
-        ...(technical ? { technical } : {}),
       };
       if (classifiersChangedNow) {
         afterPayload.classifiers = classificationDetailClassifiers.map((entry) => ({

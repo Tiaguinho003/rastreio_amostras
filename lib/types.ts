@@ -920,13 +920,6 @@ export interface SampleSnapshot {
   latestClassification: {
     version: number | null;
     data: Record<string, unknown> | null;
-    technical: {
-      type: string | null;
-      screen: string | null;
-      defectsCount: number | null;
-      density: number | null;
-      notes: string | null;
-    };
   };
   createdAt: string;
   updatedAt: string;

@@ -205,7 +205,11 @@ function buildClassificationProjectionPatch({
   );
   patch.latestClassificationData = mergedClassificationData;
 
-  const technical = isObject(fromPayload.technical) ? fromPayload.technical : null;
+  // CL9-CL12 (auditoria 2026-07-13): os espelhos tecnicos (latest_type/
+  // screen/defects_count/density/color_aspect/notes) foram dropados —
+  // latestClassificationData + classificationType sao a fonte unica.
+  // O bloco `technical` do payload segue aceito pelo schema (historico
+  // append-only), mas nao e mais projetado.
 
   if (hasOwn(fromPayload, 'classificationVersion')) {
     patch.latestClassificationVersion = fromPayload.classificationVersion;
@@ -214,35 +218,6 @@ function buildClassificationProjectionPatch({
       currentSample.latestClassificationVersion === null
         ? 1
         : currentSample.latestClassificationVersion + 1;
-  }
-
-  if (technical && hasOwn(technical, 'type')) {
-    patch.latestType = technical.type;
-  }
-  if (technical && hasOwn(technical, 'screen')) {
-    patch.latestScreen = technical.screen;
-  }
-  if (technical && hasOwn(technical, 'density')) {
-    patch.latestDensity = technical.density;
-  }
-
-  if (mergedClassificationData && hasOwn(mergedClassificationData, 'defeito')) {
-    const defeitoRaw = mergedClassificationData.defeito;
-    const defeitoParsed =
-      typeof defeitoRaw === 'string'
-        ? parseInt(defeitoRaw, 10)
-        : typeof defeitoRaw === 'number'
-          ? defeitoRaw
-          : NaN;
-    patch.latestDefectsCount = Number.isFinite(defeitoParsed) ? Math.round(defeitoParsed) : null;
-  } else if (technical && hasOwn(technical, 'defectsCount')) {
-    patch.latestDefectsCount = technical.defectsCount;
-  }
-
-  if (mergedClassificationData && hasOwn(mergedClassificationData, 'observacoes')) {
-    patch.latestNotes = mergedClassificationData.observacoes;
-  } else if (technical && hasOwn(technical, 'notes')) {
-    patch.latestNotes = technical.notes;
   }
 
   return patch;

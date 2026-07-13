@@ -11,10 +11,10 @@ import type { ClassificationType, ExtractedClassificationFields } from './types'
 
 // --- Form state ---
 
-// 22 campos editaveis no ReviewModal + dataClassificacao (set pelo
-// backend automaticamente). Sem peneiraP19 e safra (removidos no
-// cleanup Q.cls.2.7 — peneira P19 nao existe na ficha unificada,
-// safra vive em sample.declaredHarvest).
+// 26 campos editaveis na ficha (6 flat + 10 peneiras + 4 de fundos +
+// 6 de defeitos) + dataClassificacao (set pelo backend automaticamente).
+// Sem peneiraP19 e safra (removidos no cleanup Q.cls.2.7 — peneira P19
+// nao existe na ficha unificada, safra vive em sample.declaredHarvest).
 export type ClassificationFormState = {
   dataClassificacao: string;
   padrao: string;
@@ -117,11 +117,6 @@ export type ClassificationDataPayload = {
   // individualmente). Schema do evento exige minItems:2 maxItems:2.
   fundos: [ClassificationFundoEntry, ClassificationFundoEntry] | null;
   defeitos: ClassificationDefeitosPayload | null;
-};
-
-export type ClassificationTechnicalPayload = {
-  defectsCount?: number;
-  notes?: string | null;
 };
 
 // --- Constants ---
@@ -300,28 +295,6 @@ export function buildClassificationDataPayload(
   // com buildBusinessDateStamp() (fuso de negocio), entao qualquer data
   // computada aqui seria descartada — e poderia divergir na virada do dia.
   return payload;
-}
-
-export function buildTechnicalFromClassificationData(
-  data: ClassificationDataPayload
-): ClassificationTechnicalPayload | undefined {
-  const technical: ClassificationTechnicalPayload = {};
-
-  // defeito agora vive em data.defeitos.defeito (sub-obj). Pode ser
-  // texto livre — tenta parsear como int pra preencher defectsCount mas
-  // tolera string nao-numerica (fica undefined).
-  const defeitoText = data.defeitos?.defeito ?? null;
-  if (defeitoText !== null) {
-    const parsed = parseInt(defeitoText, 10);
-    if (Number.isFinite(parsed)) {
-      technical.defectsCount = Math.round(parsed);
-    }
-  }
-  if (data.observacoes !== null) {
-    technical.notes = data.observacoes;
-  }
-
-  return Object.keys(technical).length > 0 ? technical : undefined;
 }
 
 // --- Extraction mapping ---

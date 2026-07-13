@@ -229,13 +229,6 @@ if (!databaseUrl || !databaseReachable) {
           aspecto: 'verde',
           observacoes: 'ok',
         },
-        technical: {
-          type: 'BICA CORRIDA',
-          screen: '16',
-          defectsCount: 9,
-          density: 702,
-          notes: 'ok',
-        },
         consumptionGrams: null,
         classifiers: [{ userId: actor.actorUserId }],
         idempotencyKey: randomUUID(),

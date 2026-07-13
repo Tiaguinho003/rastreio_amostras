@@ -745,18 +745,11 @@ function mapSample(row) {
       location: row.declaredLocation ?? null,
     },
     ownerClient: mapOwnerClient(row.ownerClient),
+    // CL9-CL12: espelhos tecnicos dropados — a classificacao exposta e
+    // so o JSON (fonte unica) + version. Tipo vive em classificationType.
     latestClassification: {
       version: row.latestClassificationVersion,
       data: latestClassificationData,
-      technical: {
-        type: row.latestType,
-        screen: row.latestScreen,
-        defectsCount: row.latestDefectsCount,
-        moisture: null,
-        density: toNumberOrNull(row.latestDensity),
-        colorAspect: row.latestColorAspect,
-        notes: row.latestNotes,
-      },
     },
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),

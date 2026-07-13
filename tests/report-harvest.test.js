@@ -48,7 +48,6 @@ const detailFixture = () => ({
         ],
         defeitos: { imp: '1', pva: '3', broca: '2', gpi: '0', ap: '1', defeito: null },
       },
-      technical: { type: null, screen: null, density: null },
     },
   },
 });
