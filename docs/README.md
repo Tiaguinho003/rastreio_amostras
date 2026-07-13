@@ -68,6 +68,8 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
     Uso: etiqueta de envio com QR que abre o laudo publico (Firebase Hosting), com revogacao ao cancelar. Status: Em andamento.
 16. `docs/Design-Language.md`
     Uso: **canonico dos design tokens** (cor/tipografia/espaco/raio/sombra/motion/z-index/breakpoints) — espelho legivel do `:root` de `app/globals.css`. Fonte-de-verdade dos tokens; a skill `design-system` e o guia APLICADO. Ponto de partida da reforma de design. Status: Ativo.
+17. `docs/Playground-Plano-de-Trabalho.md`
+    Uso: documento centralizado da feature Playground — sub-aba de /samples com canvas de nodes (estilo n8n) para simular ligas sem gravar nada (fluxo direto lotes→resultado estimado e inverso especificacao→combinacoes possiveis). Conceito, principios, ledger PG, questoes abertas e fases. Status: Em especificacao.
 
 ## Relatorios da reorganizacao
 
