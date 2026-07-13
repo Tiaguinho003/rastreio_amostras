@@ -48,8 +48,8 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
    Uso: historico de decisoes da reorganizacao Q2 2026 (14 ADRs). Referencia para entender escolhas arquiteturais.
 6. `docs/Notificacoes.md`
    Uso: catalogo e processo de registro das notificacoes Web Push — convencoes do canal, template de ficha e ciclo Ideia -> Construida -> Validada. Status: catalogo ZERADO em 2026-07-09 (nenhuma notificacao e enviada hoje); o canal segue de pe, aguardando o novo conjunto ser registrado aqui.
-7. `docs/Contratos-Plano-de-Trabalho.md`
-   Uso: organizacao, analise, decisoes e execucao da feature de Contratos (pagina "Contratos" + o "Fechamento" = contrato de compra e venda de cafe gerado em PDF apos a venda, alem do Espelho de Corretagem e da pagina Financeiro). Status: Em construcao.
+7. `docs/Contratos-Visao-Geral.md` + `docs/Contratos-Plano-de-Trabalho.md`
+   Uso: documentacao canonica da pagina de Contratos (par mae + plano). `Contratos-Visao-Geral.md` = documento-mae do funcionamento atual (a casca /contratos + sub-abas + acesso por papel; o contrato/PDF + Espelho de Corretagem + agio; as abas Financeiro/Aprovacoes/Embarque; a maquina de estado com os portoes; o modelo de dados e as rotas de API). `Contratos-Plano-de-Trabalho.md` = backlog, pendencias e ledger condensado das decisoes (D/CC/AP/EMB). Consolidacao 4->2 (2026-07-13): absorveu e removeu `Central-de-Contratos-`, `Aprovacoes-` e `Embarque-Plano-de-Trabalho.md` (historico no Git). Status: Visao Geral Ativo; Plano em andamento.
 8. `docs/Revisao-Pagina-Lotes-Plano-de-Trabalho.md`
    Uso: plano faseado da revisao da pagina de Lotes (lista /samples) — catalogo dos 29 achados (bugs, gargalos, dados, a11y, codigo morto), decisoes, status por fase e protocolo de verificacao. Status: fases 1-6 concluidas e EM PROD; deferidos (CSS legado M1 + testes de regressao #7) resolvidos no ciclo LOT da Revisao Geral (2026-07-07); falta validacao no device.
 9. `docs/Auditoria-Navegacao-por-Papel.md`
@@ -58,21 +58,15 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
     Uso: documento-mae da revisao geral do app, pagina por pagina e por papel — roteiro padrao (R1-R8) que orienta toda sessao de revisao, status por pagina, convencoes de achados/decisoes/pendencias e fases globais (varredura de codigo morto + organizacao de pastas). Status: Em andamento (F0).
 11. `docs/Dashboard-Visao-Geral.md` + `docs/Dashboard-Plano-de-Trabalho.md`
     Uso: documentacao canonica do dashboard (par mae + plano). `Dashboard-Visao-Geral.md` = documento-mae do funcionamento atual (fluxo, layout desktop/mobile, disponibilidade por papel, cards, rotas de API, projecoes e regras). `Dashboard-Plano-de-Trabalho.md` = backlog, decisoes e execucao do check-up do dashboard. Substituem o antigo `Eventos-Dashboard-Plano-de-Trabalho.md` (absorvido e removido em 2026-07-12, decisao DSB-D1; historico no Git). Status: Visao Geral Ativo; Plano em andamento.
-12. `docs/Aprovacoes-Plano-de-Trabalho.md`
-    Uso: reformulacao da feature de Aprovacao (etiqueta impressa auditada -> fluxo com papeis: quem cria o contrato sinaliza se precisa de aprovacao -> pendencia pro aprovador -> executa -> evento no dashboard F2). Estado atual da aprovacao = D107-D126 em Contratos-Plano-de-Trabalho.md. Status: Em decisao — Bloco 1 (o sinal) travado (AP1-AP5); Bloco 2 (apresentacao) pausado (Flavio repensando o funcionamento).
-13. `docs/Embarque-Plano-de-Trabalho.md`
-    Uso: novo tipo de evento para o card de Eventos do dashboard — o embarque (cafe carregado no caminhao), mesmo dia do faturamento mas distinto, gated pela modalidade (nao ocorre em "Disponivel"). Espelha a Aprovacao (booleano requiresShipment + shipmentDate), com ciclo proprio (pendente -> finalizado) independente do pagamento. Status: Em decisao — Bloco 1 (a logica) registrado (EMB1-EMB6); Bloco 2 (apresentacao no calendario) a fazer.
-14. `docs/Central-de-Contratos-Plano-de-Trabalho.md`
-    Uso: unificacao das 4 superficies ligadas ao contrato de venda (Contratos, Financeiro, Aprovacoes, Embarque) numa unica pagina com sub-abas. Autoridade da "casca" (pagina, abas, esquema de URL, matriz de acesso por papel aba a aba, navegacao). F1 = fundir Contratos + Financeiro (ja sao paginas) e criar Aprovacoes + Embarque como abas vazias. Prefixo de decisao CC. Status: F1 IMPLEMENTADA (C1-C4, 2026-07-09; hub /contratos com sub-abas + redirect /financeiro + nav unificada) — validar no device; F2+ (conteudo de Aprovacoes/Embarque) em aberto.
-15. `docs/Custo-Operacional-Analise.md`
+12. `docs/Custo-Operacional-Analise.md`
     Uso: **documento MESTRE de custo** (detalhado) — nuvem (GCP + OpenAI, ~R$ 193/mes) + materiais de impressao (impressora/etiqueta/ribbon, ~R$ 38/mes) = **TCO ~R$ 231/mes**; config real da producao (gcloud read-only), modelo de crescimento, projecao de 3 anos, recomendacoes e registro de atualizacoes. Padrao: atualizar ESTE md primeiro a cada evolucao, depois regenerar o **PDF enxuto para o cliente** (`docs/assets/Custo-Operacional-Analise.pdf`, 1 pagina) via `scripts/cost-report/build-cost-report.mjs`. Status: atualizado 2026-07-12.
-16. `docs/Classificacao-Plano-de-Trabalho.md`
+13. `docs/Classificacao-Plano-de-Trabalho.md`
     Uso: pipeline da extracao de classificacao via IA (gpt-4o, few-shot, canonizacao dos valores, telemetria, retry). Status: Em andamento.
-17. `docs/Liga-Plano-de-Trabalho.md`
+14. `docs/Liga-Plano-de-Trabalho.md`
     Uso: feature de Liga (blend de amostras) — composicao, cascata recursiva de movimentos, safra/proprietario reativos, viabilidade quantitativa da venda. Status: Em andamento.
-18. `docs/Etiqueta-de-Envio-Plano-de-Trabalho.md`
+15. `docs/Etiqueta-de-Envio-Plano-de-Trabalho.md`
     Uso: etiqueta de envio com QR que abre o laudo publico (Firebase Hosting), com revogacao ao cancelar. Status: Em andamento.
-19. `docs/Design-Language.md`
+16. `docs/Design-Language.md`
     Uso: **canonico dos design tokens** (cor/tipografia/espaco/raio/sombra/motion/z-index/breakpoints) — espelho legivel do `:root` de `app/globals.css`. Fonte-de-verdade dos tokens; a skill `design-system` e o guia APLICADO. Ponto de partida da reforma de design. Status: Ativo.
 
 ## Relatorios da reorganizacao

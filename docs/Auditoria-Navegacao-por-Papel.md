@@ -209,6 +209,7 @@ REGISTRATION e CADASTRO veem so as **2 sub-abas de operacao** (Embarque ·
 Aprovacoes) e o item se chama **"Embarques"** (`contractsHubTabs` /
 `contractsHubNavLabel`, `lib/roles.ts`). A lista da Aprovacao nao e escopada por
 corretor (todos veem todos, so nao-sensivel); "Ver contrato" segue escopado (D110).
+O detalhe do hub e da matriz de acesso vive em `Contratos-Visao-Geral.md` §2.
 
 **Acesso (guard) x visibilidade na nav (2026-07-02):** para a **lista** `/clients` o
 guard segue `NON_PROSPECTOR_ROLES` (todos os 5 ✅ e a rota continua acessivel por

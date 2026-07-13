@@ -19,7 +19,7 @@ import { useRequireAuth } from '../../lib/use-auth';
 // fica montada). CC F2 (Embarque) abriu o hub a TODOS os não-PROSPECTOR:
 // ADMIN/COMMERCIAL veem as 4 abas; operacionais veem Embarque + Aprovações
 // (contractsHubTabs, AP30). Todas as abas são painéis/worklists funcionais.
-// Ver docs/Central-de-Contratos-Plano-de-Trabalho.md.
+// Ver docs/Contratos-Visao-Geral.md (§2 — a casca).
 const HUB_TABS = [
   { key: 'contratos', label: 'Contratos' },
   { key: 'financeiro', label: 'Financeiro' },
