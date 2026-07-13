@@ -11,7 +11,7 @@
 
 **Elevator pitch**: o Playground é uma sub-aba da página de Lotes onde o usuário monta, num canvas visual de nodes (estilo n8n), simulações de liga: conecta lotes reais, executa o fluxo e vê as características estimadas do resultado — ou faz o caminho inverso, descreve o resultado desejado e o sistema apresenta as combinações possíveis. Nada do que acontece no Playground grava qualquer coisa no sistema.
 
-**Problema que resolve**: hoje a liga real é um compromisso — criar uma liga consome saldo dos lotes de origem e gera um novo lote que só depois é classificado. Não existe nenhum lugar para *experimentar* combinações antes de decidir. O Playground é esse laboratório: testar cenários de mistura com os dados reais disponíveis, sem custo e sem risco.
+**Problema que resolve**: hoje a liga real é um compromisso — criar uma liga consome saldo dos lotes de origem e gera um novo lote que só depois é classificado. Não existe nenhum lugar para _experimentar_ combinações antes de decidir. O Playground é esse laboratório: testar cenários de mistura com os dados reais disponíveis, sem custo e sem risco.
 
 **O que o Playground explicitamente NÃO é**:
 
@@ -22,13 +22,13 @@
 
 ## 2. Princípios
 
-| # | Princípio | Consequência prática |
-|---|-----------|----------------------|
-| P1 | **Zero escrita no domínio.** O Playground nunca cria Sample, SampleEvent, movimento ou qualquer registro de negócio. | Backend só com endpoints read-only (ou reuso dos existentes). Nenhum botão "salvar como liga" na v1 (ver estacionamento §3.3). |
-| P2 | **Resultado é estimativa, não promessa.** No sistema real a liga nasce sem classificação e é classificada do zero; o motor do Playground é uma projeção matemática nova. | A UI comunica sempre "estimado/simulado". Nenhuma tela do Playground pode ser confundida com laudo. |
-| P3 | **Fluidez em primeiro lugar.** Referência de experiência: n8n — arrastar, conectar, desconectar, executar, reorganizar sem fricção. | Interações do canvas (pan, zoom, drag, connect) devem ser nativas e responsivas; escolha técnica da lib é decisão de primeira grandeza (Q-T1). |
-| P4 | **Dados reais, somente leitura.** As simulações usam os lotes reais e seus saldos/classificações vigentes. | Fonte de dados = mesmas projeções que alimentam /samples; respeita saldo disponível (`availableSacks`). |
-| P5 | **Página visualmente livre.** O Playground pode divergir da linguagem visual das demais páginas ("totalmente diferente de qualquer outra página"), mantendo apenas o mínimo de coerência (header/navegação da casca). | O canvas não precisa seguir o design-system de cards/listas; tokens de cor/tipografia base ainda valem como ponto de partida. |
+| #   | Princípio                                                                                                                                                                                                             | Consequência prática                                                                                                                           |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| P1  | **Zero escrita no domínio.** O Playground nunca cria Sample, SampleEvent, movimento ou qualquer registro de negócio.                                                                                                  | Backend só com endpoints read-only (ou reuso dos existentes). Nenhum botão "salvar como liga" na v1 (ver estacionamento §3.3).                 |
+| P2  | **Resultado é estimativa, não promessa.** No sistema real a liga nasce sem classificação e é classificada do zero; o motor do Playground é uma projeção matemática nova.                                              | A UI comunica sempre "estimado/simulado". Nenhuma tela do Playground pode ser confundida com laudo.                                            |
+| P3  | **Fluidez em primeiro lugar.** Referência de experiência: n8n — arrastar, conectar, desconectar, executar, reorganizar sem fricção.                                                                                   | Interações do canvas (pan, zoom, drag, connect) devem ser nativas e responsivas; escolha técnica da lib é decisão de primeira grandeza (Q-T1). |
+| P4  | **Dados reais, somente leitura.** As simulações usam os lotes reais e seus saldos/classificações vigentes.                                                                                                            | Fonte de dados = mesmas projeções que alimentam /samples; respeita saldo disponível (`availableSacks`).                                        |
+| P5  | **Página visualmente livre.** O Playground pode divergir da linguagem visual das demais páginas ("totalmente diferente de qualquer outra página"), mantendo apenas o mínimo de coerência (header/navegação da casca). | O canvas não precisa seguir o design-system de cards/listas; tokens de cor/tipografia base ainda valem como ponto de partida.                  |
 
 ## 3. Escopo
 
@@ -70,13 +70,13 @@
 
 ### 4.2 Catálogo de nodes **[PROPOSTA — estrutura inicial para discussão]**
 
-| Node | Papel | Entradas | Saídas | Configuração |
-|------|-------|----------|--------|--------------|
-| **Lote** | Fonte: um lote real | — | 1 | Picker de lote real (busca por número/dono/safra); quantidade de sacas a contribuir (máximo = `availableSacks`, PG8) |
-| **Mistura** | Combina 2+ entradas | N | 1 | — (a proporção vem das sacas configuradas nos nodes de entrada) |
-| **Resultado** | Exibe características estimadas da liga simulada | 1 | — | — |
-| **Especificação-alvo** | Descreve o resultado desejado (fluxo inverso) | — | 1 | Formulário de características-alvo (tipo, peneiras, bebida, quantidade de sacas etc.) |
-| **Combinações** | Saída do fluxo inverso: lista de combinações reais possíveis | 1 | — | Limites da busca (nº máx. de lotes por combinação etc.) |
+| Node                   | Papel                                                        | Entradas | Saídas | Configuração                                                                                                         |
+| ---------------------- | ------------------------------------------------------------ | -------- | ------ | -------------------------------------------------------------------------------------------------------------------- |
+| **Lote**               | Fonte: um lote real                                          | —        | 1      | Picker de lote real (busca por número/dono/safra); quantidade de sacas a contribuir (máximo = `availableSacks`, PG8) |
+| **Mistura**            | Combina 2+ entradas                                          | N        | 1      | — (a proporção vem das sacas configuradas nos nodes de entrada)                                                      |
+| **Resultado**          | Exibe características estimadas da liga simulada             | 1        | —      | —                                                                                                                    |
+| **Especificação-alvo** | Descreve o resultado desejado (fluxo inverso)                | —        | 1      | Formulário de características-alvo (tipo, peneiras, bebida, quantidade de sacas etc.)                                |
+| **Combinações**        | Saída do fluxo inverso: lista de combinações reais possíveis | 1        | —      | Limites da busca (nº máx. de lotes por combinação etc.)                                                              |
 
 - Mistura aceita liga simulada como entrada de outra mistura? (cascata dentro do canvas — Q-F4).
 
@@ -108,17 +108,17 @@ Fato do domínio: hoje **nada** no sistema calcula características de liga a pa
 
 Proposta inicial, com peso = proporção de sacas de cada componente:
 
-| Característica | Fonte no lote | Regra de combinação proposta |
-|----------------|---------------|------------------------------|
-| Peneiras (p18…p10, mk) | `latestClassificationData.peneiras` | Média ponderada por sacas, campo a campo |
-| Densidade | `latestDensity` | Média ponderada |
-| Defeitos (catação, PVA, broca, GPI, aproveitamento, impureza) | `latestClassificationData.defeitos` | Média ponderada dos numéricos; texto livre não combina |
-| Tipo (BICA/PREPARADO/…) | `classificationType` | Dominante por peso; empate/mistura → exibir composição ("70% BICA / 30% CONILON") |
-| Bebida | `latestClassificationData.bebida` | Sem média possível: exibir composição por peso; **pior bebida domina?** (Q-F9) |
-| Cor/aspecto | `latestClassificationData.aspecto` | Idem bebida (categórico) |
-| Safra | `declaredHarvest` | União distinta concatenada (regra real) |
-| Proprietário | `ownerClientId` | Unanimidade ou "misto" (regra real) |
-| Sacas totais | soma das contribuições | Soma (regra real) |
+| Característica                                                | Fonte no lote                       | Regra de combinação proposta                                                      |
+| ------------------------------------------------------------- | ----------------------------------- | --------------------------------------------------------------------------------- |
+| Peneiras (p18…p10, mk)                                        | `latestClassificationData.peneiras` | Média ponderada por sacas, campo a campo                                          |
+| Densidade                                                     | `latestDensity`                     | Média ponderada                                                                   |
+| Defeitos (catação, PVA, broca, GPI, aproveitamento, impureza) | `latestClassificationData.defeitos` | Média ponderada dos numéricos; texto livre não combina                            |
+| Tipo (BICA/PREPARADO/…)                                       | `classificationType`                | Dominante por peso; empate/mistura → exibir composição ("70% BICA / 30% CONILON") |
+| Bebida                                                        | `latestClassificationData.bebida`   | Sem média possível: exibir composição por peso; **pior bebida domina?** (Q-F9)    |
+| Cor/aspecto                                                   | `latestClassificationData.aspecto`  | Idem bebida (categórico)                                                          |
+| Safra                                                         | `declaredHarvest`                   | União distinta concatenada (regra real)                                           |
+| Proprietário                                                  | `ownerClientId`                     | Unanimidade ou "misto" (regra real)                                               |
+| Sacas totais                                                  | soma das contribuições              | Soma (regra real)                                                                 |
 
 - Lote de entrada **sem classificação**: bloqueia? entra com lacunas ("características parciais")? (Q-F10)
 - O resultado sempre carrega o selo "estimativa" (P2).
@@ -155,16 +155,16 @@ Proposta inicial, com peso = proporção de sacas de cada componente:
 
 ## 8. Ledger de decisões
 
-| # | Decisão | Motivo | Data |
-|---|---------|--------|------|
-| PG1 | O Playground é uma **sub-aba da página de Lotes** (/samples), não uma rota própria de topo. | Ideia original do usuário: laboratório junto dos lotes. | 2026-07-13 |
-| PG2 | Formato de **canvas de workflow com nodes** (referência de fluidez: n8n): adicionar/conectar/desconectar nodes e executar o workflow. | Experiência intuitiva e exploratória, diferente das demais páginas. | 2026-07-13 |
-| PG3 | **Nenhuma escrita no domínio**: sem criação de amostras, ligas, eventos ou movimentos. Puramente simulação sobre dados reais. | Definição do usuário: página de testes, sem risco. | 2026-07-13 |
-| PG4 | **Dois fluxos**: direto (lotes existentes → características estimadas do resultado) e inverso (características desejadas → sistema apresenta as combinações possíveis). | Definição do usuário. | 2026-07-13 |
-| PG5 | Canvas construído com **React Flow (@xyflow/react)**, carregado lazy só na aba Playground. | Fluidez estilo n8n pronta (pan/zoom/edges/drag); construir caseiro custaria caro para o mesmo resultado. Resolve Q-T1. | 2026-07-13 |
-| PG6 | Acesso: **mesmos papéis que veem /samples** — quem vê a lista de Lotes vê o Playground. | Não expõe dado novo (características + saldo já aparecem na lista). Resolve Q-A1. | 2026-07-13 |
-| PG7 | Mobile v1: **desktop-only com aviso** — a aba existe no mobile mas mostra estado vazio elegante ("feito para telas grandes"); canvas só no desktop. | Canvas de nodes com dedo em tela pequena é frustrante; adaptação touch fica para fase futura. Resolve Q-U2. | 2026-07-13 |
-| PG8 | Saldo é **limite rígido** na simulação: o campo de sacas do node Lote trava em `availableSacks` — não se simula com sacas que não existem. | Toda simulação deve ser executável na prática. Resolve Q-F2. | 2026-07-13 |
+| #   | Decisão                                                                                                                                                                 | Motivo                                                                                                                 | Data       |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------- |
+| PG1 | O Playground é uma **sub-aba da página de Lotes** (/samples), não uma rota própria de topo.                                                                             | Ideia original do usuário: laboratório junto dos lotes.                                                                | 2026-07-13 |
+| PG2 | Formato de **canvas de workflow com nodes** (referência de fluidez: n8n): adicionar/conectar/desconectar nodes e executar o workflow.                                   | Experiência intuitiva e exploratória, diferente das demais páginas.                                                    | 2026-07-13 |
+| PG3 | **Nenhuma escrita no domínio**: sem criação de amostras, ligas, eventos ou movimentos. Puramente simulação sobre dados reais.                                           | Definição do usuário: página de testes, sem risco.                                                                     | 2026-07-13 |
+| PG4 | **Dois fluxos**: direto (lotes existentes → características estimadas do resultado) e inverso (características desejadas → sistema apresenta as combinações possíveis). | Definição do usuário.                                                                                                  | 2026-07-13 |
+| PG5 | Canvas construído com **React Flow (@xyflow/react)**, carregado lazy só na aba Playground.                                                                              | Fluidez estilo n8n pronta (pan/zoom/edges/drag); construir caseiro custaria caro para o mesmo resultado. Resolve Q-T1. | 2026-07-13 |
+| PG6 | Acesso: **mesmos papéis que veem /samples** — quem vê a lista de Lotes vê o Playground.                                                                                 | Não expõe dado novo (características + saldo já aparecem na lista). Resolve Q-A1.                                      | 2026-07-13 |
+| PG7 | Mobile v1: **desktop-only com aviso** — a aba existe no mobile mas mostra estado vazio elegante ("feito para telas grandes"); canvas só no desktop.                     | Canvas de nodes com dedo em tela pequena é frustrante; adaptação touch fica para fase futura. Resolve Q-U2.            | 2026-07-13 |
+| PG8 | Saldo é **limite rígido** na simulação: o campo de sacas do node Lote trava em `availableSacks` — não se simula com sacas que não existem.                              | Toda simulação deve ser executável na prática. Resolve Q-F2.                                                           | 2026-07-13 |
 
 ## 9. Questões abertas
 
@@ -200,13 +200,13 @@ Cada item resolvido vira decisão PGn no §8.
 
 ## 10. Fases de implementação **[RASCUNHO — congela após fechar as questões do §9]**
 
-| Fase | Entrega | Critério de pronto |
-|------|---------|--------------------|
-| F1 | **Casca**: /samples vira página com sub-abas (lista atual = default), aba Playground com canvas vazio funcional (pan/zoom, adicionar/mover/conectar/remover nodes sem lógica de negócio) | Gates verdes; lista de Lotes intacta (zero regressão); canvas fluido no desktop |
-| F2 | **Fluxo direto**: nodes Lote (picker real) + Mistura + Resultado; motor de estimativa; executar | Estimativa correta em testes unitários do motor; validação manual de cenários reais |
-| F3 | **Refinamento da execução**: estados visuais, validações de conexão, avisos de saldo, resultado desatualizado | Checklist de UX do §4.1 completo |
-| F4 | **Fluxo inverso**: node Especificação-alvo + Combinações + endpoint read-only de busca | Combinações coerentes em dataset real; limites de custo computacional respeitados |
-| F5 | **Polimento**: mobile (conforme Q-U2), acessibilidade, performance com muitos nodes, ajustes de identidade visual | Validação no device pelo usuário (📱) |
+| Fase | Entrega                                                                                                                                                                                  | Critério de pronto                                                                  |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| F1   | **Casca**: /samples vira página com sub-abas (lista atual = default), aba Playground com canvas vazio funcional (pan/zoom, adicionar/mover/conectar/remover nodes sem lógica de negócio) | Gates verdes; lista de Lotes intacta (zero regressão); canvas fluido no desktop     |
+| F2   | **Fluxo direto**: nodes Lote (picker real) + Mistura + Resultado; motor de estimativa; executar                                                                                          | Estimativa correta em testes unitários do motor; validação manual de cenários reais |
+| F3   | **Refinamento da execução**: estados visuais, validações de conexão, avisos de saldo, resultado desatualizado                                                                            | Checklist de UX do §4.1 completo                                                    |
+| F4   | **Fluxo inverso**: node Especificação-alvo + Combinações + endpoint read-only de busca                                                                                                   | Combinações coerentes em dataset real; limites de custo computacional respeitados   |
+| F5   | **Polimento**: mobile (conforme Q-U2), acessibilidade, performance com muitos nodes, ajustes de identidade visual                                                                        | Validação no device pelo usuário (📱)                                               |
 
 - Cada fase = commits atômicos + gates completos (lint, format, typecheck, build, unit; integração quando tocar backend).
 - Nada é ✅ sem validação no device (convenção do projeto).
@@ -220,7 +220,7 @@ Cada item resolvido vira decisão PGn no §8.
 
 ## 12. Changelog do documento
 
-| Data | Mudança |
-|------|---------|
-| 2026-07-13 | Criação do documento: conceito, princípios, escopo, especificação inicial, PG1–PG4, questões abertas Q-F1…Q-P1, fases em rascunho. |
+| Data       | Mudança                                                                                                                                                                  |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-07-13 | Criação do documento: conceito, princípios, escopo, especificação inicial, PG1–PG4, questões abertas Q-F1…Q-P1, fases em rascunho.                                       |
 | 2026-07-13 | PG5–PG8 decididas (React Flow; acesso = papéis de /samples; mobile desktop-only com aviso; saldo é limite rígido). Q-T1/Q-A1/Q-U2/Q-F2 fechadas; seções 4–7 atualizadas. |
