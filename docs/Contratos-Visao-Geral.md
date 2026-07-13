@@ -40,7 +40,7 @@ Fonte da verdade: `lib/roles.ts` (`NON_PROSPECTOR_ROLES`, `CONTRATOS_ROLES`, `co
 | Papel        | `/contratos` (Contratos·Financeiro) | `/embarques` (Embarque·Aprovações) | Itens de nav          |
 | ------------ | :---------------------------------: | :--------------------------------: | --------------------- |
 | ADMIN        |                 ✅                  |                 ✅                 | Contratos + Embarques |
-| COMMERCIAL   |           ✅ (só os dele)           |                 ✅                 | Contratos + Embarques |
+| COMMERCIAL   |             ✅ (todos)              |                 ✅                 | Contratos + Embarques |
 | CLASSIFIER   |                  —                  |                 ✅                 | Embarques             |
 | REGISTRATION |                  —                  |                 ✅                 | Embarques             |
 | CADASTRO     |                  —                  |                 ✅                 | Embarques             |
@@ -50,9 +50,9 @@ Regras que geram a matriz (split 2026-07-13):
 
 - **`/contratos` = `CONTRATOS_ROLES` (ADMIN + COMMERCIAL)** — a gestão. Operacionais são redirecionados pelo guard (→ /dashboard).
 - **`/embarques` = `NON_PROSPECTOR_ROLES`** — a operação, a todos menos o PROSPECTOR (barrado pelo allowlist + guard).
-- **COMMERCIAL é escopado ao próprio corretor** em Contratos e Financeiro (backend por `Broker.userId`). Na aba **Aprovações** a **lista é não-escopada** (todos veem todos — só colunas não-sensíveis), mas **"Ver contrato"** (que abre o detalhe em `/contratos`) segue **escopado e só ADMIN/COMMERCIAL** (D110).
+- **Escopo aberto (2026-07-13, own-only revogado — D140):** ADMIN e COMMERCIAL veem/gerenciam **TODOS** os contratos e o Financeiro (não há mais recorte por `Broker.userId`). Na aba **Aprovações** a **lista** já era **não-escopada** (todos veem todos — só colunas não-sensíveis), e o **"Ver contrato"** das worklists (que abre o detalhe em `/contratos`) abre a **ADMIN + COMMERCIAL em qualquer contrato**.
 
-> ⚠️ **Alívio de UI vs. segurança:** o escopo do COMMERCIAL (Broker) é reforçado no backend nas queries de Contratos/Financeiro/pagamento. A página de operação (`/embarques`) é **auth-only** — qualquer não-PROSPECTOR autenticado enxerga as worklists (info não-sensível). A fronteira de papel real é o allowlist do PROSPECTOR.
+> ⚠️ **Alívio de UI vs. segurança:** não há mais recorte por corretor — ADMIN e COMMERCIAL enxergam Contratos/Financeiro/pagamento por inteiro (escopo aberto — D140). A fronteira de papel **real** segue sendo o **allowlist do PROSPECTOR** somado ao guard `CONTRATOS_ROLES`: os papéis operacionais (Classificação/Impressão/Cadastro) **não acessam** Contratos/Financeiro. A página de operação (`/embarques`) é **auth-only** — qualquer não-PROSPECTOR autenticado enxerga as worklists (info não-sensível).
 
 ---
 
@@ -120,10 +120,10 @@ Pagar **herda** o portão de aprovação (só se chega a FATURADO passando por e
 
 ## 6. Aba Financeiro
 
-> A corretagem a receber por fechamento. Código: `FinanceiroPanel`/`FinanceiroCard`; `app/api/v1/financeiro`, `sale-contract-service.js`. Acesso: `FINANCEIRO_ROLES` (ADMIN + COMMERCIAL, own-only).
+> A corretagem a receber por fechamento. Código: `FinanceiroPanel`/`FinanceiroCard`; `app/api/v1/financeiro`, `sale-contract-service.js`. Acesso: `FINANCEIRO_ROLES` (ADMIN + COMMERCIAL, escopo aberto).
 
 - **Estado de pagamento** por contrato (a receber / N vencidos / pago), com os cálculos de corretagem e ágio de §4.2.
-- **Escopo:** ADMIN vê tudo; **COMMERCIAL só os contratos dele** (backend por `Broker.userId`) — D135 reabriu ao COMMERCIAL (revisou a D128 ADMIN-only).
+- **Escopo:** ADMIN e COMMERCIAL veem **tudo** (escopo aberto — D140 revogou o own-only, superando D135/D128).
 - **Sem rateio ÷N** (D136): o valor exibido é o do fechamento, não dividido.
 - **Botão "Pago"** mora **aqui** (D137) — é o ponto de disparo da transição → PAGO (com o portão de embarque de §3/§8).
 - **Ordenação/paginação:** keyset/cursor particionado (por estado de pagamento; vencidos primeiro).
@@ -179,7 +179,7 @@ _(Nota: o `Arquitetura-Tecnica.md` ainda não documenta o domínio `SaleContract
 
 - **Contrato:** `/sale-contracts/[id]/{emit, pdf, espelho/pdf, washout, timeline}`.
 - **Lookups:** `/contract-lookups` (modalidade/forma de pagamento/embalagem).
-- **Financeiro:** `/financeiro` (lista escopada + ação de pagar).
+- **Financeiro:** `/financeiro` (lista de todos os fechamentos + ação de pagar).
 - **Aprovação:** `/approval-labels` (gerar/enviar etiqueta), worklist via `listApprovalContracts`.
 - **Anexos do cliente (Fase 0):** rotas de `ClientAttachment` (D27/D139).
 - **Eventos no dashboard** (leitura): `/dashboard/{payment,shipment,invoice}-events` — detalhados no `Dashboard-Visao-Geral.md` §8.

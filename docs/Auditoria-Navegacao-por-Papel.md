@@ -33,7 +33,7 @@ item **"Embarques"** (`contractsHubTabs` / `contractTabRoute` em `lib/roles.ts`)
 O item aparece na **top bar desktop** e no **menu do avatar mobile** para os cinco
 papéis. Resolve o débito anotado na nota F1 de 2026-07-09 (as seções por papel abaixo
 descreviam o estado pré-CC F2). Sem mudança de guard no backend: a lista da Aprovação
-é não-escopada (todos veem todos, só não-sensível); "Ver contrato" segue escopado (D110).
+é não-escopada (todos veem todos, só não-sensível); o "Ver contrato" abre a ADMIN + COMMERCIAL em qualquer contrato (escopo aberto, D140).
 Atualizado: 2026-07-13 — **SPLIT do hub em 2 páginas**: `/contratos` (Contratos +
 Financeiro, gated `CONTRATOS_ROLES`) e `/embarques` (Embarque + Aprovações, gated
 `NON_PROSPECTOR_ROLES`, abre em Embarque). ADMIN/COMMERCIAL ganham 2 itens de nav
@@ -221,8 +221,8 @@ Embarque · Aprovacoes) = operacao, guard **`NON_PROSPECTOR_ROLES`** (todos meno
 PROSPECTOR), nav **"Embarques"**, abre em Embarque. ADMIN/COMMERCIAL tem os **2 itens
 de nav**; operacionais so **"Embarques"** (`contractsHubTabs` / `contractTabRoute`,
 `lib/roles.ts`). A lista da Aprovacao nao e escopada por corretor (todos veem todos, so
-nao-sensivel); "Ver contrato" abre o detalhe em `/contratos` e segue escopado a
-ADMIN/COMMERCIAL (D110). Detalhe da casca em `Contratos-Visao-Geral.md` §2.
+nao-sensivel); o "Ver contrato" abre o detalhe em `/contratos` a ADMIN + COMMERCIAL
+em qualquer contrato (escopo aberto, D140). Detalhe da casca em `Contratos-Visao-Geral.md` §2.
 
 **Acesso (guard) x visibilidade na nav (2026-07-02):** para a **lista** `/clients` o
 guard segue `NON_PROSPECTOR_ROLES` (todos os 5 ✅ e a rota continua acessivel por
@@ -688,7 +688,8 @@ Observacoes neutras do mapeamento, sem juizo de "certo/errado":
    acessam `/contratos` como **"Embarques"** — so as sub-abas Embarque e Aprovacoes
    (sem Contratos/Financeiro, que sao gestao — `contractsHubTabs`). A lista da
    Aprovacao nao e escopada por corretor (todos veem todos, so nao-sensivel); o "Ver
-   contrato" segue escopado (D110). E a unica superficie de nav que os tres ganharam
+   contrato" abre a ADMIN + COMMERCIAL em qualquer contrato (escopo aberto, D140). E a
+   unica superficie de nav que os tres ganharam
    alem da base (Inicio/Lotes/Clientes) — Cadastros so o CADASTRO.
 
 ## Manutencao

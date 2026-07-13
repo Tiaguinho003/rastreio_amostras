@@ -63,28 +63,28 @@ Rótulos de papel (`lib/roles.ts` → `USER_ROLE_LABELS`):
 
 **O que cada papel vê no dashboard:**
 
-| Elemento                                   | ADMIN |   COMMERCIAL    | CLASSIFIER | REGISTRATION | CADASTRO | PROSPECTOR |
-| ------------------------------------------ | :---: | :-------------: | :--------: | :----------: | :------: | :--------: |
-| Dashboard padrão (mobile+desktop)          |  ✅   |       ✅        |     ✅     |      ✅      |    ✅    |     —      |
-| Donut **Lotes disponíveis**                |  ✅   |       ✅        |     ✅     |      ✅      |    ✅    |     —      |
-| Card **Amostras enviadas** (desktop)       |  ✅   |       ✅        |     ✅     |      ✅      |    ✅    |     —      |
-| Card **Aprovações enviadas** (desktop)     |  ✅   |       ✅        |     ✅     |      ✅      |    ✅    |     —      |
-| Card **Eventos** — feed de **pagamento**   |  ✅   | ✅ (só os dele) |     —      |      —       |    —     |     —      |
-| Card **Eventos** — feed de **embarque**    |  ✅   |       ✅        |     ✅     |      ✅      |    ✅    |     —      |
-| Card **Eventos** — feed de **faturamento** |  ✅   |       ✅        |    ✅¹     |     ✅¹      |   ✅¹    |     —      |
-| Dashboard do PROSPECTOR                    |   —   |        —        |     —      |      —       |    —     |     ✅     |
+| Elemento                                   | ADMIN | COMMERCIAL | CLASSIFIER | REGISTRATION | CADASTRO | PROSPECTOR |
+| ------------------------------------------ | :---: | :--------: | :--------: | :----------: | :------: | :--------: |
+| Dashboard padrão (mobile+desktop)          |  ✅   |     ✅     |     ✅     |      ✅      |    ✅    |     —      |
+| Donut **Lotes disponíveis**                |  ✅   |     ✅     |     ✅     |      ✅      |    ✅    |     —      |
+| Card **Amostras enviadas** (desktop)       |  ✅   |     ✅     |     ✅     |      ✅      |    ✅    |     —      |
+| Card **Aprovações enviadas** (desktop)     |  ✅   |     ✅     |     ✅     |      ✅      |    ✅    |     —      |
+| Card **Eventos** — feed de **pagamento**   |  ✅   | ✅ (todos) |     —      |      —       |    —     |     —      |
+| Card **Eventos** — feed de **embarque**    |  ✅   |     ✅     |     ✅     |      ✅      |    ✅    |     —      |
+| Card **Eventos** — feed de **faturamento** |  ✅   |     ✅     |    ✅¹     |     ✅¹      |   ✅¹    |     —      |
+| Dashboard do PROSPECTOR                    |   —   |     —      |     —      |      —       |    —     |     ✅     |
 
 ¹ Operacionais (Classificação/Impressão/Cadastro) **veem** o chip de faturamento, mas ele é **inerte** (não abrem a aba Contratos — DSB-D11).
 
 Regras que geram a matriz:
 
-- **Feed de pagamento do card de Eventos** → `FINANCEIRO_ROLES` = **ADMIN + COMMERCIAL**; o COMMERCIAL é escopado aos contratos em que é corretor (`Broker.userId`). Os demais nem chamam o endpoint.
+- **Feed de pagamento do card de Eventos** → `FINANCEIRO_ROLES` = **ADMIN + COMMERCIAL**; ambos veem os pagamentos de **TODOS** os contratos (escopo aberto, 2026-07-13 — own-only revogado, D140; sem recorte por `Broker.userId`). Os demais nem chamam o endpoint.
 - **Feed de embarque** → **sem gate de papel**: todos os não-PROSPECTOR veem tudo (auth-only; o único bloqueio é o allowlist central que barra o PROSPECTOR). _(O feed de **aprovação** — lembrete "a enviar" — foi **REMOVIDO** em 2026-07-12, DSB-D9; a data era imprecisa. A aba Aprovações e o card "Aprovações enviadas" continuam.)_
 - **Feed de faturamento (DSB-D11)** → **sem gate de papel** (auth-only, como o embarque): todos os não-PROSPECTOR **veem** o evento. Mas o chip só **navega** (→ aba Contratos) para quem abre essa aba (ADMIN/COMMERCIAL); para os operacionais é **rótulo inerte**. Ver §7.3.
 
 > ℹ️ **"Classificação pendente" saiu do dashboard** (2026-07-12, DSB-D2): virou um card só-visualização na página de **Lotes** (`/samples`), visível a todos os papéis que abrem `/samples`. O card **"Cadastros pendentes" foi removido** por completo. Detalhes no `Dashboard-Plano-de-Trabalho.md`.
 
-> ⚠️ **Alívio de UI, não segurança.** O escopo do COMMERCIAL é reforçado no backend para o feed financeiro (§8). Mas o endpoint `sales-availability` exige **só autenticação** — qualquer papel autenticado obtém os mesmos números. A segregação de papel real, no estado atual, é o allowlist do PROSPECTOR.
+> ⚠️ **Alívio de UI, não segurança.** O feed financeiro não tem mais recorte por corretor — ADMIN e COMMERCIAL veem os pagamentos de todos os contratos (escopo aberto — D140); o gate é só de papel (`FINANCEIRO_ROLES`, §8). E o endpoint `sales-availability` exige **só autenticação** — qualquer papel autenticado obtém os mesmos números. A segregação de papel real, no estado atual, é o allowlist do PROSPECTOR.
 
 ---
 
@@ -171,7 +171,7 @@ Desde **DSB-D5** (2026-07-12) são **dois cards** que reusam o mesmo componente 
 
   | Feed        | typeKey                                                                       | Visibilidade                                                                     | Fonte                        |
   | ----------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------- |
-  | Pagamento   | `contract_payment_due` / `contract_payment_overdue` / `contract_payment_paid` | ADMIN + COMMERCIAL (escopado)                                                    | `getDashboardPaymentEvents`  |
+  | Pagamento   | `contract_payment_due` / `contract_payment_overdue` / `contract_payment_paid` | ADMIN + COMMERCIAL (todos)                                                       | `getDashboardPaymentEvents`  |
   | Embarque    | `contract_shipment` / `contract_shipment_done` / `contract_shipment_overdue`  | Todos os não-PROSPECTOR                                                          | `getDashboardShipmentEvents` |
   | Faturamento | `contract_invoice` / `contract_invoice_overdue` / `contract_invoice_done`     | Todos os não-PROSPECTOR (chip inerte p/ quem não abre a aba Contratos — DSB-D11) | `getDashboardInvoiceEvents`  |
 
@@ -205,11 +205,11 @@ Definições dos handlers: `src/api/v1/backend-api.js`. Implementações: `src/s
 
 **Regras dos feeds de eventos (backend):**
 
-- **Pagamento:** agendado = `EMITIDO`/`FATURADO` com `paymentDate` na janela; realizado = `PAGO` com `paidAt` na janela; `WASH_OUT` fora. COMMERCIAL escopado ao próprio `Broker` (sem broker → vazio). Vencidos reclassificados por "hoje BRT" (dot vermelho).
+- **Pagamento:** agendado = `EMITIDO`/`FATURADO` com `paymentDate` na janela; realizado = `PAGO` com `paidAt` na janela; `WASH_OUT` fora. ADMIN e COMMERCIAL veem os pagamentos de **todos** os contratos (escopo aberto — D140; sem recorte por `Broker.userId`). Vencidos reclassificados por "hoje BRT" (dot vermelho).
 - **Embarque:** agendado = `requiresShipment` + `EMITIDO`/`FATURADO` + não embarcado, no `invoiceDate` (vermelho se o dia passar); realizado = embarcado (`shippedAt` na janela).
 - **Faturamento (DSB-D11):** agendado = `EMITIDO` no `invoiceDate` (vermelho se o dia passar); realizado = `FATURADO`/`PAGO` no `invoicedAt` (dia REAL do faturamento, não no `invoiceDate`). Auth-only (todos os não-PROSPECTOR, sem escopo por corretor — como o embarque). `id` namespaced (`invoice:`). Índices `idx_sale_contract_status_invoice_date` / `_status_invoiced_at`.
 - **Roll de fim de semana (DSB-D7):** pagamento, embarque e faturamento **rolam** o evento pro dia útil vizinho na montagem (`bucketPaymentEvents`/`bucketShipmentEvents`/`bucketInvoiceEvents`, sáb→sex/dom→seg) — o `typeKey` de atraso é computado sobre a data REAL, antes do roll. Datas novas já não caem em fim de semana (validação do contrato); o roll cobre legado/borda.
-- **Escopo por papel dos feeds:** só o **pagamento** é escopado ao próprio corretor (COMMERCIAL, via `Broker.userId`). **Embarque e faturamento são auth-only** — o COMMERCIAL vê contratos de **outros** corretores (nº + comprador + datas), consistente com as worklists não-escopadas de Embarque/Aprovações; info **não-sensível** (os selects não trazem preço/corretagem). Decisão do check-up: **manter**.
+- **Escopo por papel dos feeds:** **nenhum** feed é mais escopado por corretor — pagamento, embarque e faturamento são todos **auth-only por papel** (o COMMERCIAL vê contratos de **outros** corretores: nº + comprador + datas; info **não-sensível**, sem preço/corretagem nos selects). O pagamento segue gated por `FINANCEIRO_ROLES` (ADMIN + COMMERCIAL); embarque e faturamento por qualquer não-PROSPECTOR. _(A "Decisão do check-up: **manter**" o pagamento escopado ao próprio corretor foi **revisada em 2026-07-13 — D140**: o own-only foi revogado e o feed de pagamento também abriu a todos os contratos.)_
 - _(O feed de **aprovação** — lembrete "a enviar" com fan-out por intervalo — foi **removido** em DSB-D9; ver §7.3.)_
 
 ---

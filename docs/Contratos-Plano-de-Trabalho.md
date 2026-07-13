@@ -150,7 +150,7 @@ Orla ajustada no mesmo passo: `README.md` (par mãe+plano no índice), `Auditori
 - **D107** — Aprovação (etiqueta) = marco pós-emissão auditado no contrato, ortogonal ao status; reusa `customPrintJob`.
 - **D108** — Detalhes do contrato = MODAL grande (não página); card mantém o acordeão + botão "Detalhes" (implementado na Fase J).
 - **D109** — Refino do Espelho: exige corretagem no lado (409 `ESPELHO_NO_BROKERAGE`) + re-busca do contrato fresco no modal.
-- **D110** — COMMERCIAL gerencia os próprios contratos (revoga "ADMIN-only"): acesso ADMIN + COMMERCIAL-corretor (posse via `Broker.userId`).
+- **D110** — (superada por D140 — escopo aberto: ADMIN + COMMERCIAL veem/gerenciam TODOS os contratos).
 - **D111** — Refinamentos visuais do PDF do contrato (logo, linha de identificação, cards centralizados, Banco 3×2, CAIXA ALTA exceto PIX, fonte adaptativa; 1 página).
 - **D112** — Todo envio de aprovação é auditado 1:N; desfecho fica fora do sistema; 5 campos + lotes pré-preenchidos e editáveis; permitido em EMITIDO/FATURADO/PAGO, a todos exceto PROSPECTOR.
 - **D113** — Entrada dupla: botão no card + `/samples` com seletor reduzido (todos os contratos, sem valores) e botão "Manual" (etiqueta 100% manual, agora auditada).
@@ -175,11 +175,12 @@ Orla ajustada no mesmo passo: `README.md` (par mãe+plano no índice), `Auditori
 - **D132** — Coluna "Comprador/Vendedor" removida do Espelho (ficam 9 colunas).
 - **D133** — Coluna "Preço" do Espelho = preço EFETIVO/saca (cru ± ágio); Ágio/Deságio e Valor ficam informativas.
 - **D134** — Fase de CONFERÊNCIA no Espelho (`EspelhoConferenciaModal`) entre seleção e prévia; toggle Vendedor|Comprador aqui + "Ver detalhes" vai-e-volta com o Detalhes.
-- **D135** — Financeiro reaberto ao COMMERCIAL, escopo own-only (`Broker.userId`), co-corretores visíveis; "Seu total a receber" (a cota ÷N foi depois removida pela D136).
-- **D136** — Rateio ÷N removido: card mostra corretagem total + só nomes dos corretores; total do COMMERCIAL = "Corretagem dos meus fechamentos".
+- **D135** — (superada por D140 — Financeiro aberto: COMMERCIAL vê TODOS os fechamentos).
+- **D136** — Rateio ÷N removido: card mostra corretagem total + só nomes dos corretores; o total do cabeçalho = "Corretagem total" (rótulo unificado pela D140).
 - **D137** — Botão "Pago" (`FATURADO`→`PAGO`) migrou do card do contrato pro card do Financeiro (acesso igual; "Faturar" segue no contrato).
 - **D138** — Pagamento do contrato vira evento do card de Eventos do dashboard (agendado no `paymentDate` / realizado no `paidAt`), escopado como o Financeiro (detalhes E21–E27 no `Dashboard-Visao-Geral.md`).
 - **D139** — `ClientAttachment.unitId` (anulável) vincula o anexo a uma filial `ClientUnit`; vínculo definitivo via `PATCH`, não move o arquivo.
+- **D140** — Escopo aberto do COMMERCIAL (own-only revogado; supera D110 e D135): ADMIN e COMMERCIAL veem e GERENCIAM TODOS os contratos, o Financeiro e o feed de pagamento — a posse por `Broker.userId` deixou de restringir (o backend removeu os 3 helpers de posse + o escopo inline das listas). Relaxa também o "nos dele" da D120, o "só nos dele" da AP9, o escopo da D138 e o "Ver contrato escopado" da AP27/AP30/EMB26 (passam a abrir a ADMIN+COMMERCIAL em qualquer contrato). Rótulo do Financeiro unificado em "Corretagem total". Motivo: simplificar o desenvolvimento; a corretagem não é dado por-corretor no schema (vive no `SaleContract`, 2 pontas — sem coluna de valor em `SaleContractBroker`), então abrir não expõe "cota alheia". Lookup inline segue ADMIN-only (D94).
 
 ### A.2 Casca do hub (CC1–CC15)
 
