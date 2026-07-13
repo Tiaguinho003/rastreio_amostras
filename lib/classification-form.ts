@@ -244,8 +244,7 @@ export function validateClassificationForm(form: ClassificationFormState): strin
 // --- Payload builders ---
 
 export function buildClassificationDataPayload(
-  form: ClassificationFormState,
-  options: { includeAutomaticDate?: boolean } = {}
+  form: ClassificationFormState
 ): ClassificationDataPayload {
   const peneiras: ClassificationPeneirasPayload = {
     p18: parseNumberInput(form.peneiraP18),
@@ -297,10 +296,9 @@ export function buildClassificationDataPayload(
     defeitos: hasAnyDefeito ? defeitos : null,
   };
 
-  if (options.includeAutomaticDate) {
-    payload.dataClassificacao = getTodayDateInput();
-  }
-
+  // dataClassificacao NAO e gerada no cliente: o backend sempre carimba
+  // com buildBusinessDateStamp() (fuso de negocio), entao qualquer data
+  // computada aqui seria descartada — e poderia divergir na virada do dia.
   return payload;
 }
 

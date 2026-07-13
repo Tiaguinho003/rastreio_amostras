@@ -96,8 +96,8 @@ export function ClassificationReclassifyModal({
             </h3>
             <p className="app-modal-description">
               {sampleLot
-                ? `A amostra ${sampleLot} já foi classificada. Reclassificar substituirá os dados anteriores.`
-                : 'Esta amostra já foi classificada. Reclassificar substituirá os dados anteriores.'}
+                ? `A amostra ${sampleLot} já foi classificada. Reclassificar substituirá todos os dados anteriores — campos não preenchidos na nova ficha ficarão vazios.`
+                : 'Esta amostra já foi classificada. Reclassificar substituirá todos os dados anteriores — campos não preenchidos na nova ficha ficarão vazios.'}
             </p>
           </div>
           <button

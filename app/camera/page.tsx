@@ -918,9 +918,7 @@ function CameraPageContent() {
     setFlowError(null);
 
     try {
-      const classificationData = buildClassificationDataPayload(classificationForm, {
-        includeAutomaticDate: true,
-      });
+      const classificationData = buildClassificationDataPayload(classificationForm);
 
       // Classifiers = [actor, ...co-classificadores selecionados]. Backend
       // valida existencia/ativo dos usuarios e normaliza snapshots.
