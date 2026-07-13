@@ -34032,21 +34032,25 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   display: none;
 }
 
-/* Host do canvas (o React Flow monta aqui a partir do C2). Altura explicita
-   exigida pela lib; drawer/pill/paleta ancoram como position:absolute NESTE
-   contexto — nunca position:fixed (PageTransition tem will-change: transform,
-   precedente documentado no MobileTabbar). */
+/* Host do canvas. Altura explicita exigida pelo React Flow; drawer/pill/
+   paleta ancoram como position:absolute NESTE contexto — nunca position:fixed
+   (PageTransition tem will-change: transform, precedente do MobileTabbar).
+   Offset de 210px ~ header + abas; ajustar na validacao visual. */
 .pg-host {
   position: relative;
-  flex: 1;
-  min-height: 60vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  height: calc(100dvh - 210px);
+  min-height: 480px;
+  margin: 0 clamp(0.9rem, 2vw, 1.5rem) 1rem;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: #fbfaf7;
+  box-shadow: var(--shadow-sm);
 }
-.pg-placeholder-hint {
-  color: var(--brand-muted);
-  font-size: 0.9rem;
+/* Skeleton do next/dynamic: reserva o mesmo box do canvas (sem CLS). */
+.pg-canvas-skeleton {
+  width: 100%;
+  height: 100%;
+  background: #fbfaf7;
 }
 
 /* Aviso mobile (PG35): estado vazio elegante + CTA de volta pra lista. */

@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -83,6 +84,18 @@ type SamplesTab = (typeof SAMPLES_TABS)[number]['key'];
 function parseSamplesTab(raw: string | null): SamplesTab {
   return SAMPLES_TABS.some((tabDef) => tabDef.key === raw) ? (raw as SamplesTab) : 'lotes';
 }
+
+// Canvas do Simulador: primeiro next/dynamic do projeto — o chunk do React
+// Flow so baixa ao abrir a aba no desktop (PG5); ssr:false porque a lib mede
+// DOM. O mobile renderiza PlaygroundMobileNotice (estatico) e nunca o baixa.
+const PlaygroundTab = dynamic(
+  () =>
+    import('../../components/playground/PlaygroundTab').then((module_) => module_.PlaygroundTab),
+  {
+    ssr: false,
+    loading: () => <div className="pg-canvas-skeleton" aria-hidden />,
+  }
+);
 
 const SAMPLE_PAGE_LIMIT = 20;
 // Mesma fonte do registro (NewSampleModal) — desliza com o ano e cobre todas
@@ -2351,7 +2364,7 @@ function SamplesPage() {
         {tab === 'simulador' ? (
           isDesktop ? (
             <div className="pg-host">
-              <p className="pg-placeholder-hint">Canvas do Simulador — em construção.</p>
+              <PlaygroundTab />
             </div>
           ) : (
             <PlaygroundMobileNotice onVerLotes={() => selectTab('lotes')} />
