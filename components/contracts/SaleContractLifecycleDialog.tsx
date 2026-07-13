@@ -47,11 +47,9 @@ type SaleContractLifecycleDialogProps = {
 };
 
 function todayInputValue(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  // Hoje em BRT (America/Sao_Paulo), YYYY-MM-DD — bate com o guard do backend
+  // (brtTodayDateOnly). O fuso do device não desloca o "hoje" (evita off-by-one).
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
 
 type Copy = {
@@ -131,9 +129,9 @@ export function SaleContractLifecycleDialog({
   const copy = dialogCopy(action, contractNumber, hasLot);
   const needsDate = copy.dateLabel !== null;
   const needsReason = copy.reasonLabel !== null;
-  // E30: o pagamento não pode ser no futuro — trava o seletor em hoje (max) e bloqueia
-  // o submit se digitarem uma data futura. O backend é a trava autoritativa.
-  const maxDate = action === 'pay' ? todayInputValue() : undefined;
+  // Faturar e pagar não podem ser no futuro (E30 + guard do faturar) — trava o
+  // seletor em hoje (max) e bloqueia o submit. O backend é a trava autoritativa.
+  const maxDate = action === 'pay' || action === 'invoice' ? todayInputValue() : undefined;
   const dateInFuture = maxDate !== undefined && date !== '' && date > maxDate;
   // DSB-D7: faturamento/pagamento (datas de ação) não podem cair em fim de semana.
   const dateIsWeekend = needsDate && date !== '' && isWeekendIso(date);

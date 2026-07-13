@@ -464,6 +464,14 @@ export function SaleContractEtapa2Modal({
       setError('Informe o preço por saca.');
       return;
     }
+    // Deságio não pode zerar/inverter o preço por saca (o backend rejeita; bloqueia antes).
+    if (agioType === 'DESAGIO') {
+      const agioParsed = parseCurrencyInput(agioValue);
+      if (agioParsed != null && agioParsed >= price) {
+        setError('O deságio não pode ser maior ou igual ao preço por saca.');
+        return;
+      }
+    }
     const sellerPct = saleSellerPct.trim() === '' ? 0 : (parseDecimalBr(saleSellerPct) ?? NaN);
     if (Number.isNaN(sellerPct) || sellerPct < 0 || sellerPct > 100) {
       setError('Corretagem do vendedor inválida (0 a 100).');

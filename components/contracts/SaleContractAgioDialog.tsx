@@ -43,8 +43,6 @@ export function SaleContractAgioDialog({
   const isAgio = agioType === 'AGIO';
   const title = isAgio ? 'Aplicar ágio' : 'Aplicar deságio';
   const parsed = parseCurrencyInput(value);
-  const canSubmit = !saving && parsed !== null && parsed > 0;
-
   // Prévia (espelha o backend): preço efetivo/saca = preço ± valor; total =
   // efetivo × sacas; corretagem de cada lado = total × %. v=0 mostra a base.
   const unitPrice = contract.unitPrice ?? 0;
@@ -57,9 +55,19 @@ export function SaleContractAgioDialog({
   const newSellerValue = round2((newTotal * sellerPct) / 100);
   const newBuyerValue = round2((newTotal * buyerPct) / 100);
 
+  // Deságio não pode zerar/inverter o preço (o backend rejeita; aqui bloqueia antes).
+  const desagioExceeds = !isAgio && parsed !== null && parsed >= unitPrice;
+  const canSubmit = !saving && parsed !== null && parsed > 0 && !desagioExceeds;
+
   async function handleSubmit() {
     if (parsed === null || parsed <= 0) {
       setError('Informe um valor maior que zero.');
+      return;
+    }
+    if (desagioExceeds) {
+      setError(
+        `O deságio não pode ser maior ou igual ao preço por saca (${BRL.format(unitPrice)}).`
+      );
       return;
     }
     setSaving(true);
@@ -109,7 +117,11 @@ export function SaleContractAgioDialog({
           </button>
         </header>
 
-        {error ? <p className="sdv-modal-error">{error}</p> : null}
+        {error ? (
+          <p className="sdv-modal-error" role="alert">
+            {error}
+          </p>
+        ) : null}
 
         <div className="app-modal-content">
           <p className="ctr-confirm-text">
@@ -132,6 +144,12 @@ export function SaleContractAgioDialog({
               }}
             />
           </label>
+
+          {desagioExceeds ? (
+            <p className="app-modal-field-error" role="alert">
+              O deságio não pode ser ≥ o preço por saca ({BRL.format(unitPrice)}).
+            </p>
+          ) : null}
 
           <dl className="ctr-agio-preview">
             <div className="ctr-agio-preview-row">

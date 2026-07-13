@@ -33,12 +33,14 @@ const STATE_BAR: Record<ApprovalState, string> = {
   cancelado: '#9ca3af',
 };
 
-// Data curta pt-BR a partir do ISO (UTC, como as colunas @db.Date do contrato).
-function dateBR(iso: string | null | undefined): string {
+// Data curta pt-BR. As colunas @db.Date (previsto/cancelado = invoiceDate) são UTC;
+// a data de ENVIO (enviada = lastSendAt) é um instante timestamptz → formata em BRT
+// pra não deslocar o dia perto da meia-noite (evita off-by-one no fim da noite).
+function dateBR(iso: string | null | undefined, timeZone = 'UTC'): string {
   if (!iso) return '—';
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+  return date.toLocaleDateString('pt-BR', { timeZone });
 }
 
 type AprovacaoCardProps = {
@@ -89,7 +91,7 @@ export function AprovacaoCard({
             <span className="emb-fig">
               <span className="emb-fig-label">{isSent ? 'Enviada em' : 'Previsto'}</span>
               <span className="emb-fig-value">
-                {isSent ? dateBR(item.date) : `~${dateBR(item.date)}`}
+                {isSent ? dateBR(item.date, 'America/Sao_Paulo') : `~${dateBR(item.date)}`}
               </span>
             </span>
             <span className="emb-fig">

@@ -269,7 +269,7 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
     <>
       <div className="fin-total" role="status">
         <span className="fin-total-label">
-          {isAdmin(session.user.role) ? 'Total a receber' : 'Corretagem dos meus fechamentos'}
+          {isAdmin(session.user.role) ? 'Corretagem total' : 'Corretagem dos meus fechamentos'}
         </span>
         <span className="fin-total-value">{BRL.format(totalCommission)}</span>
       </div>

@@ -155,6 +155,29 @@ export function computeContractMoney({ unitPrice, quantitySacks, sellerPct, buye
   return computeContractMoneyWithAgio({ unitPrice, quantitySacks, sellerPct, buyerPct });
 }
 
+// Guard de ESCRITA: o DESAGIO nao pode zerar/inverter o preco. Se valor >= preco/saca,
+// o preco efetivo fica <= 0 e total + corretagens ficam NEGATIVOS. Chamado onde
+// unitPrice e o valor coexistem (emit/criacao + applyAgio). NAO entra no compute
+// acima, que tambem serve exibicao (timeline/financeiro) e nao deve lancar.
+export function assertAgioWithinUnitPrice(
+  unitPrice,
+  agioType,
+  agioValue,
+  fieldName = 'agioDesagio'
+) {
+  if (
+    agioType === 'DESAGIO' &&
+    agioValue != null &&
+    unitPrice != null &&
+    Number(agioValue) >= Number(unitPrice)
+  ) {
+    throw new HttpError(422, `${fieldName}Value (desagio) must be less than the unit price`, {
+      code: 'VALIDATION_ERROR',
+      field: `${fieldName}Value`,
+    });
+  }
+}
+
 // Numero do contrato NNNN/AA: NNNN com zero-padding a 4 (cresce alem disso),
 // AA = 2 ultimos digitos do ano de emissao/criacao (decisao desta sessao).
 export function formatContractNumber(seq, year) {

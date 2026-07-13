@@ -33,6 +33,7 @@ import {
   bucketPaymentEvents,
   bucketInvoiceEvents,
   buildWarehouseSnapshot,
+  assertAgioWithinUnitPrice,
   computeContractMoneyWithAgio,
   CONTRACT_LOOKUP_LISTS,
   formatContractNumber,
@@ -1294,6 +1295,9 @@ export class SaleContractService {
       });
     }
 
+    // Deságio não pode inverter o preço (total/corretagem negativos).
+    assertAgioWithinUnitPrice(Number(contract.unitPrice), agioDesagioType, agioDesagioValue);
+
     // Substitui (nao acumula): recalcula SEMPRE a partir do unitPrice cru.
     const money = computeContractMoneyWithAgio({
       unitPrice: Number(contract.unitPrice),
@@ -1384,6 +1388,14 @@ export class SaleContractService {
       throw new HttpError(409, 'Sale contract was modified concurrently', {
         code: 'SALE_CONTRACT_VERSION_CONFLICT',
         field: 'expectedVersion',
+      });
+    }
+    // Não se fatura no futuro — a data REAL do faturamento não passa de hoje (BRT),
+    // consistente com pagar (E30) e embarcar. DEPOIS dos guards de status/versão.
+    if (invoicedAt.getTime() > brtTodayDateOnly().getTime()) {
+      throw new HttpError(422, 'Invoice date must not be in the future', {
+        code: 'VALIDATION_ERROR',
+        field: 'date',
       });
     }
 
@@ -1883,6 +1895,9 @@ export class SaleContractService {
       etapa2.packagingId,
       'packagingId'
     );
+
+    // Deságio não pode inverter o preço (total/corretagem negativos).
+    assertAgioWithinUnitPrice(unitPrice, etapa2.agioDesagioType, etapa2.agioDesagioValue);
 
     const money = computeContractMoneyWithAgio({
       unitPrice,

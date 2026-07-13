@@ -3,6 +3,7 @@ import { test } from 'node:test';
 
 import {
   APPROVAL_ELIGIBLE_STATUSES,
+  assertAgioWithinUnitPrice,
   assertBrokersResolved,
   assertBusinessDate,
   buildApprovalPrefill,
@@ -38,6 +39,16 @@ const UUID_1 = '00000000-0000-4000-8000-000000000001';
 const UUID_2 = '00000000-0000-4000-8000-000000000002';
 const UUID_3 = '00000000-0000-4000-8000-000000000003';
 const UUID_4 = '00000000-0000-4000-8000-000000000004';
+
+test('assertAgioWithinUnitPrice: DESAGIO >= unitPrice is rejected; AGIO/valid/no-agio pass', () => {
+  // Deságio >= preço/saca invertia o total (negativo) — o guard barra.
+  assert.throws(() => assertAgioWithinUnitPrice(800, 'DESAGIO', 800), /less than the unit price/);
+  assert.throws(() => assertAgioWithinUnitPrice(800, 'DESAGIO', 900), /less than the unit price/);
+  // Deságio abaixo do preço, ágio (qualquer valor) e "sem ágio" passam.
+  assert.doesNotThrow(() => assertAgioWithinUnitPrice(800, 'DESAGIO', 799.99));
+  assert.doesNotThrow(() => assertAgioWithinUnitPrice(800, 'AGIO', 5000));
+  assert.doesNotThrow(() => assertAgioWithinUnitPrice(800, null, null));
+});
 
 function validEtapa2() {
   return {
