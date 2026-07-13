@@ -546,6 +546,7 @@ export default function SampleDetailPage() {
   const [classificationDetailEditing, setClassificationDetailEditing] = useState(false);
   const [classificationDetailSaving, setClassificationDetailSaving] = useState(false);
   const [classificationDetailSaved, setClassificationDetailSaved] = useState(false);
+  const [classificationDetailError, setClassificationDetailError] = useState<string | null>(null);
   const [classificationDetailForm, setClassificationDetailForm] =
     useState<ClassificationFormState>(EMPTY_CLASSIFICATION_FORM);
   const [classificationDetailClassifiers, setClassificationDetailClassifiers] = useState<
@@ -1539,6 +1540,7 @@ export default function SampleDetailPage() {
     setClassificationDetailTypeOriginal(initialType);
     setClassificationDetailPickerOpen(false);
     setClassificationDetailUserError(null);
+    setClassificationDetailError(null);
     setClassificationDetailEditing(false);
     setClassificationDetailSaved(false);
     setClassificationDetailOpen(true);
@@ -1557,10 +1559,12 @@ export default function SampleDetailPage() {
     setClassificationDetailEditing(false);
     setClassificationDetailSaving(false);
     setClassificationDetailSaved(false);
+    setClassificationDetailError(null);
     setClassificationDetailPickerOpen(false);
   }
 
   function updateClassificationDetailField(key: keyof ClassificationFormState, value: string) {
+    setClassificationDetailError(null);
     setClassificationDetailForm((prev) => ({ ...prev, [key]: value }));
   }
 
@@ -1614,14 +1618,40 @@ export default function SampleDetailPage() {
     setClassificationDetailClassifiers(classificationDetailClassifiersOriginal);
     setClassificationDetailType(classificationDetailTypeOriginal);
     setClassificationDetailPickerOpen(false);
+    setClassificationDetailError(null);
     setClassificationDetailEditing(false);
+  }
+
+  // Valida ANTES de abrir a confirmacao de save: erro aparece inline no
+  // modal (sdv-modal-error) em vez de sumir silenciosamente no confirm.
+  function requestClassificationDetailSave() {
+    const validationError = validateClassificationForm(classificationDetailForm);
+    if (validationError) {
+      setClassificationDetailError(validationError);
+      return;
+    }
+    if (
+      classifiersChanged(
+        classificationDetailClassifiers,
+        classificationDetailClassifiersOriginal
+      ) &&
+      classificationDetailClassifiers.length === 0
+    ) {
+      setClassificationDetailError('Adicione pelo menos um classificador.');
+      return;
+    }
+    setClassificationDetailError(null);
+    setClassificationSaveConfirmOpen(true);
   }
 
   async function saveClassificationDetail() {
     if (!session || !detail || detail.sample.status === 'INVALIDATED') return;
 
     const validationError = validateClassificationForm(classificationDetailForm);
-    if (validationError) return;
+    if (validationError) {
+      setClassificationDetailError(validationError);
+      return;
+    }
 
     setClassificationDetailSaving(true);
     try {
@@ -1635,6 +1665,7 @@ export default function SampleDetailPage() {
       // Min 1 classificador e obrigatorio. Se o usuario limpou a lista,
       // bloqueamos o save aqui mesmo (backend tambem valida como defesa).
       if (classifiersChangedNow && classificationDetailClassifiers.length === 0) {
+        setClassificationDetailError('Adicione pelo menos um classificador.');
         setClassificationDetailSaving(false);
         return;
       }
@@ -3475,14 +3506,14 @@ export default function SampleDetailPage() {
                         <div className="cld-section is-defects">
                           <div className="cld-section-title">Catação e defeitos</div>
                           <div className="cld-grid cld-grid-3">
-                            {renderVal('catacao', 'Cat.', 'numeric')}
-                            {renderVal('imp', 'Imp.')}
-                            {renderVal('pva', 'PVA')}
+                            {renderVal('catacao', 'Cat.', 'decimal')}
+                            {renderVal('imp', 'Imp.', 'decimal')}
+                            {renderVal('pva', 'PVA', 'decimal')}
                           </div>
                           <div className="cld-grid cld-grid-3">
-                            {renderVal('broca', 'Broca')}
-                            {renderVal('gpi', 'GPI')}
-                            {renderVal('ap', 'AP')}
+                            {renderVal('broca', 'Broca', 'decimal')}
+                            {renderVal('gpi', 'GPI', 'decimal')}
+                            {renderVal('ap', 'AP', 'decimal')}
                           </div>
                           <div className="cld-grid cld-grid-1">{renderVal('defeito', 'Def.')}</div>
                         </div>
@@ -3624,6 +3655,12 @@ export default function SampleDetailPage() {
                     );
                   })()}
 
+                  {editing && classificationDetailError ? (
+                    <p className="sdv-modal-error" role="alert">
+                      {classificationDetailError}
+                    </p>
+                  ) : null}
+
                   {editing ? (
                     <div className="app-modal-actions cld-edit-actions">
                       <button
@@ -3637,7 +3674,7 @@ export default function SampleDetailPage() {
                       <button
                         type="button"
                         className="app-modal-submit"
-                        onClick={() => setClassificationSaveConfirmOpen(true)}
+                        onClick={requestClassificationDetailSave}
                         disabled={saving}
                       >
                         {saving ? 'Salvando...' : 'Salvar'}
