@@ -1249,6 +1249,14 @@ export interface DashboardShipmentEventsResponse {
   events: Record<string, DashboardCalendarEvent[]>;
 }
 
+// Faturamento (DSB-D11): feed de eventos de faturamento do card de Eventos. Mesmo
+// formato (o `DashboardCalendarEvent` é genérico por `typeKey`); usa `contract_invoice`
+// / `contract_invoice_overdue` / `contract_invoice_done`, `id` namespaced ('invoice:').
+// Navegação pura no front (→ /contratos?tab=contratos, com realce p/ quem tem a aba).
+export interface DashboardInvoiceEventsResponse {
+  events: Record<string, DashboardCalendarEvent[]>;
+}
+
 export interface ResolveSampleByQrResponse {
   query: string;
   sample: {

@@ -84,6 +84,9 @@ type SaleContractCardProps = {
   onDetalhes: () => void;
   // Avancar status (Faturado/Pago) so pra quem pode gerenciar (D110).
   canManage?: boolean;
+  // DSB-D11: realce (pisca/rola) quando chega do chip de faturamento do dashboard
+  // (?highlight=<id>). Molde do EmbarqueCard/FinanceiroCard.
+  isHighlighted?: boolean;
   // Modo de selecao p/ o Espelho de Corretagem (Fase E): o card vira botao de
   // selecao; inelegiveis (status != EMITIDO/FATURADO/PAGO) ficam esmaecidos.
   espelhoMode?: boolean;
@@ -99,6 +102,7 @@ export function SaleContractCard({
   onFaturar,
   onDetalhes,
   canManage = true,
+  isHighlighted = false,
   espelhoMode = false,
   espelhoEligible = false,
   espelhoReason,
@@ -173,7 +177,10 @@ export function SaleContractCard({
 
   // ----- Modo normal (gestao) -----
   return (
-    <div className={`ctr-card${isExpanded ? ' is-expanded' : ''}`}>
+    <div
+      className={`ctr-card${isExpanded ? ' is-expanded' : ''}${isHighlighted ? ' is-highlighted' : ''}`}
+      data-contract-id={contract.id}
+    >
       <button
         type="button"
         className="ctr-card-head-btn"

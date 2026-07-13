@@ -52,6 +52,7 @@ import type {
   DashboardRecentSendsResponse,
   DashboardPaymentEventsResponse,
   DashboardShipmentEventsResponse,
+  DashboardInvoiceEventsResponse,
   InvalidateReasonCode,
   PendingPrintQueueResponse,
   ListSamplesResponse,
@@ -1333,6 +1334,21 @@ export function getDashboardShipmentEvents(
       cachePolicy: 'default',
     }
   );
+}
+
+// Faturamento (DSB-D11): feed de eventos de faturamento do card de Eventos, por janela
+// de data. Visível a todos os não-PROSPECTOR (o card só monta no desktop); navegação
+// pura no front (→ /contratos?tab=contratos, com realce p/ quem tem a aba).
+export function getDashboardInvoiceEvents(
+  session: SessionData,
+  window: { from: string; to: string }
+) {
+  const params = new URLSearchParams({ from: window.from, to: window.to });
+  return request<DashboardInvoiceEventsResponse>(`/dashboard/invoice-events?${params.toString()}`, {
+    method: 'GET',
+    session,
+    cachePolicy: 'default',
+  });
 }
 
 export function getPendingPrintJobs(

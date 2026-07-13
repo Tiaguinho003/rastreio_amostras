@@ -63,20 +63,24 @@ Rótulos de papel (`lib/roles.ts` → `USER_ROLE_LABELS`):
 
 **O que cada papel vê no dashboard:**
 
-| Elemento                                 | ADMIN |   COMMERCIAL    | CLASSIFIER | REGISTRATION | CADASTRO | PROSPECTOR |
-| ---------------------------------------- | :---: | :-------------: | :--------: | :----------: | :------: | :--------: |
-| Dashboard padrão (mobile+desktop)        |  ✅   |       ✅        |     ✅     |      ✅      |    ✅    |     —      |
-| Donut **Lotes disponíveis**              |  ✅   |       ✅        |     ✅     |      ✅      |    ✅    |     —      |
-| Card **Amostras enviadas** (desktop)     |  ✅   |       ✅        |     ✅     |      ✅      |    ✅    |     —      |
-| Card **Aprovações enviadas** (desktop)   |  ✅   |       ✅        |     ✅     |      ✅      |    ✅    |     —      |
-| Card **Eventos** — feed de **pagamento** |  ✅   | ✅ (só os dele) |     —      |      —       |    —     |     —      |
-| Card **Eventos** — feed de **embarque**  |  ✅   |       ✅        |     ✅     |      ✅      |    ✅    |     —      |
-| Dashboard do PROSPECTOR                  |   —   |        —        |     —      |      —       |    —     |     ✅     |
+| Elemento                                   | ADMIN |   COMMERCIAL    | CLASSIFIER | REGISTRATION | CADASTRO | PROSPECTOR |
+| ------------------------------------------ | :---: | :-------------: | :--------: | :----------: | :------: | :--------: |
+| Dashboard padrão (mobile+desktop)          |  ✅   |       ✅        |     ✅     |      ✅      |    ✅    |     —      |
+| Donut **Lotes disponíveis**                |  ✅   |       ✅        |     ✅     |      ✅      |    ✅    |     —      |
+| Card **Amostras enviadas** (desktop)       |  ✅   |       ✅        |     ✅     |      ✅      |    ✅    |     —      |
+| Card **Aprovações enviadas** (desktop)     |  ✅   |       ✅        |     ✅     |      ✅      |    ✅    |     —      |
+| Card **Eventos** — feed de **pagamento**   |  ✅   | ✅ (só os dele) |     —      |      —       |    —     |     —      |
+| Card **Eventos** — feed de **embarque**    |  ✅   |       ✅        |     ✅     |      ✅      |    ✅    |     —      |
+| Card **Eventos** — feed de **faturamento** |  ✅   |       ✅        |    ✅¹     |     ✅¹      |   ✅¹    |     —      |
+| Dashboard do PROSPECTOR                    |   —   |        —        |     —      |      —       |    —     |     ✅     |
+
+¹ Operacionais (Classificação/Impressão/Cadastro) **veem** o chip de faturamento, mas ele é **inerte** (não abrem a aba Contratos — DSB-D11).
 
 Regras que geram a matriz:
 
 - **Feed de pagamento do card de Eventos** → `FINANCEIRO_ROLES` = **ADMIN + COMMERCIAL**; o COMMERCIAL é escopado aos contratos em que é corretor (`Broker.userId`). Os demais nem chamam o endpoint.
 - **Feed de embarque** → **sem gate de papel**: todos os não-PROSPECTOR veem tudo (auth-only; o único bloqueio é o allowlist central que barra o PROSPECTOR). _(O feed de **aprovação** — lembrete "a enviar" — foi **REMOVIDO** em 2026-07-12, DSB-D9; a data era imprecisa. A aba Aprovações e o card "Aprovações enviadas" continuam.)_
+- **Feed de faturamento (DSB-D11)** → **sem gate de papel** (auth-only, como o embarque): todos os não-PROSPECTOR **veem** o evento. Mas o chip só **navega** (→ aba Contratos) para quem abre essa aba (ADMIN/COMMERCIAL); para os operacionais é **rótulo inerte**. Ver §7.3.
 
 > ℹ️ **"Classificação pendente" saiu do dashboard** (2026-07-12, DSB-D2): virou um card só-visualização na página de **Lotes** (`/samples`), visível a todos os papéis que abrem `/samples`. O card **"Cadastros pendentes" foi removido** por completo. Detalhes no `Dashboard-Plano-de-Trabalho.md`.
 
@@ -163,18 +167,20 @@ Desde **DSB-D5** (2026-07-12) são **dois cards** que reusam o mesmo componente 
 
 - **Layout (DSB-D4 + DSB-D7):** card **horizontal**; calendário de **1 semana de DIAS ÚTEIS (seg–sex, 5 células)**, navegação ◀ ▶ de 7 em 7 dias + botão "Hoje". Cada dia é um **quadrado alto** que mostra os **eventos dentro da própria célula** (chips coloridos por **estado**, DSB-D10; rótulo truncado); dias com muitos eventos **rolam por dentro** da célula. **Não há painel** de dia selecionado. "Hoje" destacado com anel. Datas em BRT (helpers em `lib/dashboard-calendar.ts`).
 - **Sem fins de semana (DSB-D7):** sábado e domingo **não aparecem** (o negócio não agenda faturamento/embarque/pagamento neles — ver §8 e a regra de contrato em `API-e-Contratos.md`). A **janela buscada** continua **dom–sáb (7 dias)** de propósito: o backend **rola** os eventos de fim de semana (legado no banco, ou datas reais de borda) pro **dia útil vizinho** (sáb→sex, dom→seg) via `rollWeekendToWeekday`, então nada some do calendário. `buildBusinessDays(weekStart)` filtra os 5 dias renderizados.
-- **2 feeds mesclados client-side** no `DashboardDesktop` (a janela visível é emitida pelo card via `onWindowChange` → o pai busca a **semana**):
+- **3 feeds mesclados client-side** no `DashboardDesktop` (a janela visível é emitida pelo card via `onWindowChange` → o pai busca a **semana**):
 
-  | Feed      | typeKey                                                                       | Visibilidade                  | Fonte                        |
-  | --------- | ----------------------------------------------------------------------------- | ----------------------------- | ---------------------------- |
-  | Pagamento | `contract_payment_due` / `contract_payment_overdue` / `contract_payment_paid` | ADMIN + COMMERCIAL (escopado) | `getDashboardPaymentEvents`  |
-  | Embarque  | `contract_shipment` / `contract_shipment_done` / `contract_shipment_overdue`  | Todos os não-PROSPECTOR       | `getDashboardShipmentEvents` |
+  | Feed        | typeKey                                                                       | Visibilidade                                                                     | Fonte                        |
+  | ----------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------- |
+  | Pagamento   | `contract_payment_due` / `contract_payment_overdue` / `contract_payment_paid` | ADMIN + COMMERCIAL (escopado)                                                    | `getDashboardPaymentEvents`  |
+  | Embarque    | `contract_shipment` / `contract_shipment_done` / `contract_shipment_overdue`  | Todos os não-PROSPECTOR                                                          | `getDashboardShipmentEvents` |
+  | Faturamento | `contract_invoice` / `contract_invoice_overdue` / `contract_invoice_done`     | Todos os não-PROSPECTOR (chip inerte p/ quem não abre a aba Contratos — DSB-D11) | `getDashboardInvoiceEvents`  |
 
   > **DSB-D9 (2026-07-12):** o feed de **aprovação** (lembrete "a enviar", `contract_approval_due`) foi **REMOVIDO** do card de Eventos — a data em que a aprovação deve ser enviada não é exata (o lembrete fazia _fan-out_ do mesmo contrato sobre vários dias), então preferiu-se não exibir informação imprecisa. Removido ponta a ponta (endpoint `/dashboard/approval-events`, `getDashboardApprovalEvents`, `bucketApprovalReminders`/`buildApprovalReminderEvent`, feed no front, chip). A **aba Aprovações** (worklist do "portão") e o card **"Aprovações enviadas"** continuam; os campos `requiresApproval`/`approvalReminderLeadDays` do contrato **permanecem** (a worklist usa `requiresApproval`; o lead-time deixou de alimentar qualquer lembrete).
 
 - **Cores por ESTADO + legenda (DSB-D10):** a **cor** do chip identifica só o **estado** — 🔵 azul `#2563eb` = **previsto**, 🔴 vermelho `#dc2626` = **atrasado**, 🟢 verde `#15803d` = **realizado** (3 cores; a borda-esquerda usa `--chip-color` via **`data-state`**, não mais `data-type`). O **nome do tipo** no rótulo é que diferencia os eventos: `pagamento · nº · comprador`, `embarque · nº · comprador` — o pagamento **ganhou o prefixo** `pagamento ·` (antes era só `nº · comprador`). O estado vai também no `aria-label`/`title` do chip (a11y: não depende só da cor). Uma **legenda** (`.dd-events-legend`) sob o header explica as 3 cores. `state` é derivado do `typeKey` nos builders — tipos novos herdam a cor certa sem regra de CSS nova.
-- **Navegação pura (sem ação no card):** cada **chip** de evento (dentro da célula do dia) é um link para a sub-aba dona em `/contratos` — pagamento → `?tab=financeiro`, embarque → `?tab=embarque` (com `&highlight=<contractId>` quando há contrato). A **ação** (pagar/confirmar) mora na casa de cada um, não no dashboard.
-- **Refetch dos 2 feeds:** em foco/visibilidade (sem throttle) e quando a janela do card muda.
+- **Navegação pura (sem ação no card):** cada **chip** de evento (dentro da célula do dia) é um link para a sub-aba dona em `/contratos` — pagamento → `?tab=financeiro`, embarque → `?tab=embarque`, **faturamento → `?tab=contratos`** (DSB-D11), com `&highlight=<contractId>` quando há contrato. A **ação** (pagar/faturar/confirmar) mora na casa de cada um, não no dashboard. A aba dona **pisca/rola** até o contrato (`useContractHighlight` — Financeiro/Embarque/Aprovações e, desde DSB-D11, **Contratos**).
+- **Chip inerte por papel (DSB-D11):** se a aba-dona não é visível ao papel (ex.: faturamento → Contratos, oculta aos operacionais), o chip vira **rótulo sem link** — o pai passa `navigableTabs` (= `contractsHubTabs(role)`) e o `eventHref` só linka p/ aba visível. Assim o operacional **vê** o faturamento (auth-only) mas não navega a uma aba que não tem.
+- **Refetch dos 3 feeds:** em foco/visibilidade (sem throttle) e quando a janela do card muda.
 
 ---
 
@@ -189,10 +195,11 @@ Todas são `GET`, delegam ao backend via `executeBackend('<methodName>', …)` e
 | `/dashboard/recent-sends`       | `getDashboardRecentSends`       | Auth                       | —                       | `private, max-age=30` | `{ sampleItems: [...], approvalItems: [...] }` (top-40 cada — DSB-D5)         |
 | `/dashboard/payment-events`     | `getDashboardPaymentEvents`     | ADMIN+COMMERCIAL (service) | `?from&to` (YYYY-MM-DD) | `private, max-age=30` | `{ events: Record<dayKey, evento[]> }`                                        |
 | `/dashboard/shipment-events`    | `getDashboardShipmentEvents`    | Auth (não-PROSPECTOR)      | `?from&to`              | `private, max-age=30` | `{ events: Record<dayKey, evento[]> }`                                        |
+| `/dashboard/invoice-events`     | `getDashboardInvoiceEvents`     | Auth (não-PROSPECTOR)      | `?from&to`              | `private, max-age=30` | `{ events: Record<dayKey, evento[]> }`                                        |
 
 _(`/dashboard/approval-events` foi **removido** em 2026-07-12, DSB-D9 — ver §7.3.)_
 
-Definições dos handlers: `src/api/v1/backend-api.js`. Implementações: `src/samples/sample-query-service.js` (pending, sales, recent-sends) e `src/sale-contracts/sale-contract-service.js` (payment, shipment, recent-approval-sends).
+Definições dos handlers: `src/api/v1/backend-api.js`. Implementações: `src/samples/sample-query-service.js` (pending, sales, recent-sends) e `src/sale-contracts/sale-contract-service.js` (payment, shipment, invoice, recent-approval-sends).
 
 > **`/dashboard/pending` não é mais consumido pelo dashboard** (2026-07-12, DSB-D2). `classificationPending.total` agora alimenta o card só-visualização de `/samples` (`ClassificationPendingCard`); `clientsIncomplete` ficou **sem consumidor de UI** (limpeza adiada — ver `Dashboard-Plano-de-Trabalho.md`, DSB-H4). O endpoint segue **intacto** por decisão. O nome "dashboard" é dívida consciente até a revisão de Lotes/Clientes.
 
@@ -200,7 +207,8 @@ Definições dos handlers: `src/api/v1/backend-api.js`. Implementações: `src/s
 
 - **Pagamento:** agendado = `EMITIDO`/`FATURADO` com `paymentDate` na janela; realizado = `PAGO` com `paidAt` na janela; `WASH_OUT` fora. COMMERCIAL escopado ao próprio `Broker` (sem broker → vazio). Vencidos reclassificados por "hoje BRT" (dot vermelho).
 - **Embarque:** agendado = `requiresShipment` + `EMITIDO`/`FATURADO` + não embarcado, no `invoiceDate` (vermelho se o dia passar); realizado = embarcado (`shippedAt` na janela).
-- **Roll de fim de semana (DSB-D7):** pagamento e embarque **rolam** o evento pro dia útil vizinho na montagem (`bucketPaymentEvents`/`bucketShipmentEvents`, sáb→sex/dom→seg) — o `typeKey` de atraso é computado sobre a data REAL, antes do roll. Datas novas já não caem em fim de semana (validação do contrato); o roll cobre legado/borda.
+- **Faturamento (DSB-D11):** agendado = `EMITIDO` no `invoiceDate` (vermelho se o dia passar); realizado = `FATURADO`/`PAGO` no `invoicedAt` (dia REAL do faturamento, não no `invoiceDate`). Auth-only (todos os não-PROSPECTOR, sem escopo por corretor — como o embarque). `id` namespaced (`invoice:`). Índices `idx_sale_contract_status_invoice_date` / `_status_invoiced_at`.
+- **Roll de fim de semana (DSB-D7):** pagamento, embarque e faturamento **rolam** o evento pro dia útil vizinho na montagem (`bucketPaymentEvents`/`bucketShipmentEvents`/`bucketInvoiceEvents`, sáb→sex/dom→seg) — o `typeKey` de atraso é computado sobre a data REAL, antes do roll. Datas novas já não caem em fim de semana (validação do contrato); o roll cobre legado/borda.
 - _(O feed de **aprovação** — lembrete "a enviar" com fan-out por intervalo — foi **removido** em DSB-D9; ver §7.3.)_
 
 ---
@@ -220,7 +228,7 @@ Definições dos handlers: `src/api/v1/backend-api.js`. Implementações: `src/s
 **Frontend**
 
 - `app/dashboard/page.tsx` — orquestração (branch por papel, twins)
-- `components/dashboard/DashboardDesktop.tsx` — layout desktop + fetch dos 2 feeds de eventos (pagamento + embarque) e recent-sends
+- `components/dashboard/DashboardDesktop.tsx` — layout desktop + fetch dos 3 feeds de eventos (pagamento + embarque + faturamento) e recent-sends
 - `components/dashboard/DashboardMobile.tsx` — layout mobile (hero + donut)
 - `components/dashboard/useDashboardData.ts` — fetch do donut (`sales-availability`)
 - `components/dashboard/EventsCalendarCard.tsx` — card de Eventos (calendário)
@@ -238,7 +246,7 @@ Definições dos handlers: `src/api/v1/backend-api.js`. Implementações: `src/s
 
 **Backend**
 
-- `app/api/v1/dashboard/{pending,sales-availability,recent-sends,payment-events,shipment-events}/route.ts` _(o `approval-events` foi removido em DSB-D9)_
+- `app/api/v1/dashboard/{pending,sales-availability,recent-sends,payment-events,shipment-events,invoice-events}/route.ts` _(o `approval-events` foi removido em DSB-D9)_
 - `src/api/v1/backend-api.js` — handlers + gate central
 - `src/samples/sample-query-service.js` — pending, sales-availability, recent-sends
 - `src/sale-contracts/sale-contract-service.js` — payment/shipment events + recent-approval-sends

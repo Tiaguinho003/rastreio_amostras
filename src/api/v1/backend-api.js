@@ -3081,6 +3081,21 @@ export function createBackendApiV1({
         return { status: 200, body: { events } };
       }),
 
+    // Faturamento (DSB-D11): feed de eventos de faturamento do card de Eventos.
+    // Auth-only (todos os nao-PROSPECTOR); navegacao pura no front (→ aba Contratos).
+    getDashboardInvoiceEvents: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractService) {
+          throw new HttpError(501, 'Sale contract service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const events = await saleContractService.getDashboardInvoiceEvents(
+          { from: input?.query?.from, to: input?.query?.to },
+          actor
+        );
+        return { status: 200, body: { events } };
+      }),
+
     getSaleContract: (input) =>
       executeApiForInput(input, async () => {
         if (!saleContractService) {

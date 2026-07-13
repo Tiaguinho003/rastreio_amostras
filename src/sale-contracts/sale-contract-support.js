@@ -882,6 +882,78 @@ export function bucketShipmentEvents(scheduledRows, doneRows, todayKey) {
   return byDay;
 }
 
+// ------------------------------------------------------------
+// Evento de Faturamento no dashboard (DSB-D11) — irmao do embarque
+// ------------------------------------------------------------
+
+export const INVOICE_EVENT_SELECT = Object.freeze({
+  id: true,
+  contractNumber: true,
+  status: true,
+  invoiceDate: true,
+  invoicedAt: true,
+  buyerSnapshot: true,
+});
+
+// Projeta 1 contrato num evento de faturamento do calendario (1→1, molde do embarque).
+// kind 'scheduled' -> dia previsto = invoiceDate (status EMITIDO, ainda NAO faturado);
+// typeKey contract_invoice ou contract_invoice_overdue se o dia ja passou (dayKey <
+// todayKey). kind 'done' -> dia REAL = invoicedAt (status FATURADO/PAGO); typeKey
+// contract_invoice_done. DSB-D10: `state` (previsto/atrasado/realizado) dirige a COR.
+// label recolhido = "faturamento · nº · comprador". id NAMESPACED ('invoice:') pra nao
+// colidir com pagamento/embarque do mesmo dia (o card usa key=id).
+export function buildInvoiceEvent(row, kind, todayKey) {
+  const iso = toIsoString(kind === 'done' ? row.invoicedAt : row.invoiceDate);
+  const dayKey = iso ? iso.slice(0, 10) : null;
+  const buyerName = row.buyerSnapshot?.displayName ?? null;
+  let typeKey;
+  let state;
+  if (kind === 'done') {
+    typeKey = 'contract_invoice_done';
+    state = 'realizado';
+  } else if (todayKey && dayKey && dayKey < todayKey) {
+    typeKey = 'contract_invoice_overdue';
+    state = 'atrasado';
+  } else {
+    typeKey = 'contract_invoice';
+    state = 'previsto';
+  }
+  const label = buyerName
+    ? `faturamento · ${row.contractNumber} · ${buyerName}`
+    : `faturamento · ${row.contractNumber}`;
+  return {
+    dayKey,
+    event: {
+      id: `invoice:${row.id}`,
+      contractId: row.id,
+      typeKey,
+      state,
+      label,
+      contractNumber: row.contractNumber,
+      buyerName,
+      status: row.status,
+    },
+  };
+}
+
+// Agrupa por dayKey -> Record<dayKey, evento[]> (1→1, molde do bucketShipmentEvents).
+export function bucketInvoiceEvents(scheduledRows, doneRows, todayKey) {
+  const byDay = {};
+  const add = (rows, kind) => {
+    for (const row of rows) {
+      const { dayKey, event } = buildInvoiceEvent(row, kind, todayKey);
+      if (!dayKey) continue;
+      // DSB-D7: roll de fim de semana pro dia util vizinho (ver bucketPaymentEvents).
+      const key = rollWeekendToWeekday(dayKey);
+      if (byDay[key]) byDay[key].push(event);
+      else byDay[key] = [event];
+    }
+  };
+  add(scheduledRows, 'scheduled');
+  add(doneRows, 'done');
+  return byDay;
+}
+
 // AP16: projeta 1 linha do approval_label_log num item do feed "Ultimos envios" do
 // dashboard (kind 'APPROVAL'). id NAMESPACED ('approval:'+id) pra nao colidir com os
 // event_id dos envios de amostra. Campos de amostra nulos (aprovacao nao tem lote);

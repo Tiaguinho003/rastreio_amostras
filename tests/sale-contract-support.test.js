@@ -11,9 +11,11 @@ import {
   buildContractTimeline,
   buildRecentApprovalSendItem,
   buildPaymentEvent,
+  buildInvoiceEvent,
   buildReceivableView,
   bucketPaymentEvents,
   bucketShipmentEvents,
+  bucketInvoiceEvents,
   buildSaleContractDraftFromSale,
   computeContractMoney,
   computeContractMoneyWithAgio,
@@ -865,4 +867,78 @@ test('bucketShipmentEvents: embarque em fim de semana rola pro dia útil vizinho
   assert.equal(map['2026-07-13'].length, 1); // domingo → segunda
   assert.ok(map['2026-07-13'][0].id.startsWith('shipment:'));
   assert.equal(map['2026-07-13'][0].state, 'previsto'); // DSB-D10: cor por estado
+});
+
+// Faturamento (DSB-D11): agendado = invoiceDate/EMITIDO; realizado = invoicedAt.
+test('buildInvoiceEvent (DSB-D11): agendado usa invoiceDate; realizado usa invoicedAt; overdue; state; id namespaced', () => {
+  const row = {
+    id: 'k1',
+    status: 'EMITIDO',
+    contractNumber: '0011/26',
+    invoiceDate: new Date('2026-07-10T00:00:00.000Z'),
+    invoicedAt: null,
+    buyerSnapshot: { displayName: 'Comprador K' },
+  };
+  // agendado, vence hoje -> ainda previsto
+  const sched = buildInvoiceEvent(row, 'scheduled', '2026-07-10');
+  assert.equal(sched.dayKey, '2026-07-10'); // do invoiceDate, sem conversao de fuso
+  assert.equal(sched.event.typeKey, 'contract_invoice');
+  assert.equal(sched.event.state, 'previsto');
+  assert.equal(sched.event.id, 'invoice:k1'); // namespaced (nao colide com pagamento/embarque)
+  assert.equal(sched.event.contractId, 'k1');
+  assert.equal(sched.event.label, 'faturamento · 0011/26 · Comprador K');
+
+  // agendado com o dia ja passado -> atrasado (dia seguinte ao previsto)
+  const overdue = buildInvoiceEvent(row, 'scheduled', '2026-07-11');
+  assert.equal(overdue.event.typeKey, 'contract_invoice_overdue');
+  assert.equal(overdue.event.state, 'atrasado');
+
+  // realizado -> usa invoicedAt (nao invoiceDate), verde, nunca fica atrasado
+  const doneRow = { ...row, status: 'FATURADO', invoicedAt: new Date('2026-07-15T00:00:00.000Z') };
+  const done = buildInvoiceEvent(doneRow, 'done', '2026-08-01');
+  assert.equal(done.dayKey, '2026-07-15'); // do invoicedAt
+  assert.equal(done.event.typeKey, 'contract_invoice_done');
+  assert.equal(done.event.state, 'realizado');
+});
+
+test('buildInvoiceEvent (DSB-D11): sem comprador -> label = faturamento · numero', () => {
+  const row = {
+    id: 'k2',
+    status: 'EMITIDO',
+    contractNumber: '0012/26',
+    invoiceDate: new Date('2026-07-13T00:00:00.000Z'),
+    invoicedAt: null,
+    buyerSnapshot: null,
+  };
+  const { event } = buildInvoiceEvent(row, 'scheduled');
+  assert.equal(event.label, 'faturamento · 0012/26');
+  assert.equal(event.buyerName, null);
+});
+
+test('bucketInvoiceEvents (DSB-D11): agrupa por dayKey (agendado no invoiceDate + realizado no invoicedAt) + roll de fds', () => {
+  const scheduled = [
+    {
+      id: 'a',
+      status: 'EMITIDO',
+      contractNumber: '1/26',
+      invoiceDate: new Date('2026-07-12T00:00:00.000Z'), // domingo -> rola pra segunda
+      invoicedAt: null,
+      buyerSnapshot: { displayName: 'A' },
+    },
+  ];
+  const done = [
+    {
+      id: 'b',
+      status: 'PAGO',
+      contractNumber: '2/26',
+      invoiceDate: new Date('2026-07-06T00:00:00.000Z'), // ignorado no realizado
+      invoicedAt: new Date('2026-07-13T00:00:00.000Z'), // segunda (dia util, nao rola)
+      buyerSnapshot: null,
+    },
+  ];
+  const map = bucketInvoiceEvents(scheduled, done, '2026-07-01');
+  assert.equal(map['2026-07-12'], undefined); // domingo nao aparece
+  assert.equal(map['2026-07-13'].length, 2); // agendado (rolado) + realizado no mesmo dia util
+  assert.ok(map['2026-07-13'].every((e) => e.id.startsWith('invoice:')));
+  assert.deepEqual(map['2026-07-13'].map((e) => e.state).sort(), ['previsto', 'realizado']);
 });

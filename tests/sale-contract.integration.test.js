@@ -656,6 +656,80 @@ if (!databaseUrl || !databaseReachable) {
     assert.ok(events['2026-07-15'][0].id.startsWith('shipment:'));
   });
 
+  // Faturamento (DSB-D11): getDashboardInvoiceEvents — feed do card de Eventos, irmao
+  // do embarque (auth-only). Agendado = EMITIDO no invoiceDate; realizado = FATURADO/
+  // PAGO no invoicedAt (dia REAL do faturamento). WASH_OUT fora; janela filtra.
+  test('getDashboardInvoiceEvents: EMITIDO no invoiceDate; FATURADO realizado no invoicedAt; janela + WASH_OUT', async () => {
+    // (1) EMITIDO com invoiceDate em janela → aparece como agendado (contract_invoice*).
+    const emitido = await setupConfirmedContract({ lotNumber: '25060' });
+    await prisma.saleContract.update({
+      where: { id: emitido.contractId },
+      data: { invoiceDate: new Date('2026-07-15T00:00:00Z') },
+    });
+
+    // (2) WASH_OUT não deve aparecer no feed.
+    const washed = await setupEmittableContract({ lotNumber: '25061' });
+    await saleContractService.washoutSaleContract(
+      washed.contractId,
+      { expectedVersion: washed.version, reason: 'Caiu' },
+      adminActor
+    );
+
+    // (3) FATURADO → realizado no invoicedAt (2026-07-08), NÃO no invoiceDate.
+    const toInvoice = await setupConfirmedContract({ lotNumber: '25062' });
+    await saleContractService.invoiceSaleContract(
+      toInvoice.contractId,
+      { expectedVersion: toInvoice.version, date: '2026-07-08' },
+      adminActor
+    );
+
+    const res = await saleContractService.getDashboardInvoiceEvents(
+      { from: '2026-07-01', to: '2026-07-31' },
+      adminActor
+    );
+
+    // (1) agendado no invoiceDate 07-15 — typeKey/state do faturamento, label + id.
+    const sched = (res['2026-07-15'] ?? []).find((e) => e.contractId === emitido.contractId);
+    assert.ok(sched, 'EMITIDO deve aparecer no invoiceDate');
+    assert.ok(sched.typeKey.startsWith('contract_invoice'));
+    assert.equal(
+      sched.state,
+      sched.typeKey === 'contract_invoice_overdue' ? 'atrasado' : 'previsto'
+    );
+    assert.ok(sched.label.startsWith('faturamento · '));
+    assert.ok(sched.id.startsWith('invoice:')); // namespaced (não colide com pagamento/embarque)
+
+    // (2) WASH_OUT fora (em qualquer dia).
+    assert.ok(
+      !Object.values(res)
+        .flat()
+        .some((e) => e.contractId === washed.contractId),
+      'WASH_OUT fora do feed'
+    );
+
+    // (3) realizado no invoicedAt 07-08 (não no invoiceDate original 07-10).
+    const done = (res['2026-07-08'] ?? []).find((e) => e.contractId === toInvoice.contractId);
+    assert.ok(done, 'FATURADO deve aparecer no invoicedAt');
+    assert.equal(done.typeKey, 'contract_invoice_done');
+    assert.equal(done.state, 'realizado');
+    assert.ok(
+      !(res['2026-07-10'] ?? []).some((e) => e.contractId === toInvoice.contractId),
+      'FATURADO não aparece no invoiceDate como agendado'
+    );
+
+    // Janela em agosto → nenhum dos contratos aparece (filtro de data).
+    const out = await saleContractService.getDashboardInvoiceEvents(
+      { from: '2026-08-01', to: '2026-08-14' },
+      adminActor
+    );
+    assert.ok(
+      !Object.values(out)
+        .flat()
+        .some((e) => e.contractId === emitido.contractId),
+      'fora da janela não aparece'
+    );
+  });
+
   // Embarque F5 (EMB28): portão do pagamento — não paga sem embarcar; após confirmar,
   // segue direto pro pagamento (a version não muda no confirm).
   test('paySaleContract: portão do embarque (422 → confirma → paga)', async () => {

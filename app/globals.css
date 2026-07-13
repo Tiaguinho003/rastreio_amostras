@@ -33453,8 +33453,8 @@ body.is-selection-mode .ctr-page .cc-tabs {
 }
 
 /* Piscada do contrato tocado no evento do dashboard (?highlight=<id>): pulso de anel
-   verde por ~1.8s no card correspondente (Financeiro / Embarque). Reduced-motion = anel
-   estático (a classe fica ~2s). O `0 2px 8px` preserva a sombra-base do card. */
+   verde por ~1.8s no card correspondente (Financeiro / Embarque / Contratos, DSB-D11).
+   Reduced-motion = anel estático (a classe fica ~2s). O `0 2px 8px` preserva a sombra-base. */
 @keyframes contract-highlight-flash {
   0% {
     box-shadow:
@@ -33474,13 +33474,15 @@ body.is-selection-mode .ctr-page .cc-tabs {
 }
 @media (prefers-reduced-motion: no-preference) {
   .fin-card.is-highlighted,
-  .emb-card.is-highlighted {
+  .emb-card.is-highlighted,
+  .ctr-card.is-highlighted {
     animation: contract-highlight-flash 1.8s ease;
   }
 }
 @media (prefers-reduced-motion: reduce) {
   .fin-card.is-highlighted,
-  .emb-card.is-highlighted {
+  .emb-card.is-highlighted,
+  .ctr-card.is-highlighted {
     box-shadow:
       0 0 0 3px rgba(31, 93, 67, 0.45),
       0 2px 8px rgba(0, 0, 0, 0.05);

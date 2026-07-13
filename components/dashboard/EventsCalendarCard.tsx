@@ -24,23 +24,32 @@ type CalendarEvent = DashboardCalendarEvent;
 interface EventsCalendarCardProps {
   /** Mapa 'YYYY-MM-DD' → eventos do dia (pagamento + embarque; DSB-D11 soma faturamento). */
   events?: Record<string, CalendarEvent[]>;
+  /** DSB-D11: abas de /contratos que o papel abre — o chip só linka p/ aba visível. */
+  navigableTabs?: string[];
   /** Emite a semana visível (from..to 'YYYY-MM-DD') pro pai buscar o feed (E24). */
   onWindowChange?: (from: string, to: string) => void;
 }
 
 // EMB26/E28: TODO evento do feed é NAVEGAÇÃO PURA → a sub-aba dona (pagamento →
-// Financeiro, embarque → Embarque). O card não gera/registra nada — a ação
-// (pagar/confirmar) mora na casa de cada um. null = tipo desconhecido (fallback
-// só-rótulo, sem link).
+// Financeiro, embarque → Embarque, faturamento → Contratos; DSB-D11). O card não
+// gera/registra nada — a ação (pagar/faturar/confirmar) mora na casa de cada um.
+// null = tipo desconhecido (fallback só-rótulo, sem link).
 function navTabForEvent(typeKey: string): string | null {
   if (typeKey.startsWith('contract_payment_')) return 'financeiro';
   if (typeKey.startsWith('contract_shipment')) return 'embarque';
+  if (typeKey.startsWith('contract_invoice')) return 'contratos';
   return null;
 }
 
-function eventHref(event: CalendarEvent): string | null {
+// Abas do hub /contratos (fallback quando o pai não passa navigableTabs).
+const ALL_CONTRACT_TABS = ['contratos', 'financeiro', 'aprovacoes', 'embarque'];
+
+// DSB-D11: `navigableTabs` = abas de /contratos que o papel abre. Se a aba dona do
+// evento não está lá (ex.: faturamento → Contratos p/ um operacional), o chip vira
+// rótulo inerte (sem link) em vez de levar a uma aba que o papel não tem.
+function eventHref(event: CalendarEvent, navigableTabs: readonly string[]): string | null {
   const tab = navTabForEvent(event.typeKey);
-  if (!tab) return null;
+  if (!tab || !navigableTabs.includes(tab)) return null;
   return `/contratos?tab=${tab}${event.contractId ? `&highlight=${event.contractId}` : ''}`;
 }
 
@@ -64,7 +73,11 @@ const EVENT_STATES: Array<{ state: 'previsto' | 'atrasado' | 'realizado'; label:
 // DENTRO da célula — chips coloridos por ESTADO (DSB-D10), clicáveis (navegação pura → /contratos);
 // dias cheios rolam POR DENTRO da própria célula. Sem painel de dia selecionado.
 // "Hoje" com anel. Desktop-only (o DashboardMobile não o monta).
-export function EventsCalendarCard({ events = {}, onWindowChange }: EventsCalendarCardProps) {
+export function EventsCalendarCard({
+  events = {},
+  navigableTabs = ALL_CONTRACT_TABS,
+  onWindowChange,
+}: EventsCalendarCardProps) {
   const today = useMemo(() => getBrtToday(), []);
   const todayKey = toDayKey(today);
   const [weekStart, setWeekStart] = useState(() => computeWeekStart(today));
@@ -179,7 +192,7 @@ export function EventsCalendarCard({ events = {}, onWindowChange }: EventsCalend
                     // Navegação PURA → a sub-aba dona (a ação mora lá). Tipo
                     // desconhecido vira chip só-rótulo (sem link). A cor sai do
                     // `data-state` (DSB-D10); `data-type` fica pra QA/semântica.
-                    const href = eventHref(event);
+                    const href = eventHref(event, navigableTabs);
                     const accessibleLabel = chipAccessibleLabel(event);
                     return href ? (
                       <Link

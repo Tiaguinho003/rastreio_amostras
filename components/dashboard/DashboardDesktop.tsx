@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
+  getDashboardInvoiceEvents,
   getDashboardPaymentEvents,
   getDashboardRecentSends,
   getDashboardShipmentEvents,
 } from '../../lib/api-client';
-import { FINANCEIRO_ROLES, isRoleAllowed } from '../../lib/roles';
+import { contractsHubTabs, FINANCEIRO_ROLES, isRoleAllowed } from '../../lib/roles';
 import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
 import { EventsCalendarCard } from './EventsCalendarCard';
 import { RecentSendsCard } from './RecentSendsCard';
@@ -34,6 +35,10 @@ export function DashboardDesktop({ session, salesData, error }: DashboardDesktop
   // (E22). `paymentWindow` = a quinzena visível que o card emite via onWindowChange.
   // E28: o evento é navegação pura (→ Financeiro); o "Pago" saiu do dashboard.
   const canPay = isRoleAllowed(session.user.role, FINANCEIRO_ROLES);
+  // DSB-D11: abas de /contratos que o papel abre — o chip só vira LINK p/ a aba dona
+  // quando ela está aqui (faturamento → Contratos existe só p/ ADMIN/COMMERCIAL; p/ os
+  // operacionais o chip de faturamento aparece mas fica inerte).
+  const navigableTabs = contractsHubTabs(session.user.role);
   const [paymentEvents, setPaymentEvents] = useState<Record<string, DashboardCalendarEvent[]>>({});
   const [paymentWindow, setPaymentWindow] = useState<{ from: string; to: string } | null>(null);
   const handleWindowChange = useCallback((from: string, to: string) => {
@@ -46,14 +51,18 @@ export function DashboardDesktop({ session, salesData, error }: DashboardDesktop
   const [shipmentEvents, setShipmentEvents] = useState<Record<string, DashboardCalendarEvent[]>>(
     {}
   );
+  // DSB-D11: 3º feed — faturamento (auth-only, mesma janela). Merge client-side.
+  const [invoiceEvents, setInvoiceEvents] = useState<Record<string, DashboardCalendarEvent[]>>({});
   const calendarEvents = useMemo(() => {
     const merged: Record<string, DashboardCalendarEvent[]> = {};
     for (const [day, evs] of Object.entries(paymentEvents)) merged[day] = [...evs];
-    for (const [day, evs] of Object.entries(shipmentEvents)) {
-      merged[day] = merged[day] ? [...merged[day], ...evs] : [...evs];
+    for (const feed of [shipmentEvents, invoiceEvents]) {
+      for (const [day, evs] of Object.entries(feed)) {
+        merged[day] = merged[day] ? [...merged[day], ...evs] : [...evs];
+      }
     }
     return merged;
-  }, [paymentEvents, shipmentEvents]);
+  }, [paymentEvents, shipmentEvents, invoiceEvents]);
 
   useEffect(() => {
     if (!session) return undefined;
@@ -127,12 +136,25 @@ export function DashboardDesktop({ session, salesData, error }: DashboardDesktop
       .catch(() => {});
   }, [session, paymentWindow]);
 
+  // DSB-D11: faturamento — SEM gate de papel (auth-only, como embarque). Mesma janela.
+  // Re-busca em focus/visibility e após faturar (o evento migra previsto→realizado,
+  // podendo mudar de dia).
+  const fetchInvoiceEvents = useCallback(() => {
+    if (!paymentWindow) return;
+    if (!window.matchMedia('(min-width: 901px)').matches) return;
+    getDashboardInvoiceEvents(session, paymentWindow)
+      .then((res) => setInvoiceEvents(res.events))
+      .catch(() => {});
+  }, [session, paymentWindow]);
+
   useEffect(() => {
     fetchPaymentEvents();
     fetchShipmentEvents();
+    fetchInvoiceEvents();
     const onFocusOrVisible = () => {
       fetchPaymentEvents();
       fetchShipmentEvents();
+      fetchInvoiceEvents();
     };
     window.addEventListener('focus', onFocusOrVisible);
     document.addEventListener('visibilitychange', onFocusOrVisible);
@@ -140,7 +162,7 @@ export function DashboardDesktop({ session, salesData, error }: DashboardDesktop
       window.removeEventListener('focus', onFocusOrVisible);
       document.removeEventListener('visibilitychange', onFocusOrVisible);
     };
-  }, [fetchPaymentEvents, fetchShipmentEvents]);
+  }, [fetchPaymentEvents, fetchShipmentEvents, fetchInvoiceEvents]);
 
   return (
     <div className="dashboard-desktop">
@@ -174,7 +196,11 @@ export function DashboardDesktop({ session, salesData, error }: DashboardDesktop
               items={recentSends ? recentSends.approvalItems : null}
             />
           </div>
-          <EventsCalendarCard events={calendarEvents} onWindowChange={handleWindowChange} />
+          <EventsCalendarCard
+            events={calendarEvents}
+            navigableTabs={navigableTabs}
+            onWindowChange={handleWindowChange}
+          />
         </div>
       </section>
     </div>

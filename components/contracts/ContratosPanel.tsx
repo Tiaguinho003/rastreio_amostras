@@ -9,6 +9,7 @@ import { ClassificationFilterField } from '../samples/ClassificationFilterField'
 import { SelectionModeHeader } from '../samples/SelectionModeHeader';
 import { getNextContractNumber, listSaleContracts } from '../../lib/api-client';
 import { useDelayedValue } from '../../lib/use-delayed-value';
+import { useContractHighlight } from '../../lib/use-contract-highlight';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import { useToast } from '../../lib/toast/ToastProvider';
 import type {
@@ -270,6 +271,11 @@ export function ContratosPanel({ session }: { session: SessionData }) {
     });
   }, [contracts, search, appliedFilters]);
 
+  // DSB-D11: pisca/rola até o contrato tocado no chip de faturamento do dashboard
+  // (?highlight=<id>). Best-effort — se não estiver na lista visível, só ancora na aba.
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const highlightId = useContractHighlight(visible, scrollRef);
+
   const renderFilterFields = () => {
     const buyerField = (
       <div className="samples-filter-field">
@@ -487,7 +493,7 @@ export function ContratosPanel({ session }: { session: SessionData }) {
           <span className="spv2-list-count">{visible.length} contrato(s)</span>
         </div>
 
-        <div className="spv2-list-scroll">
+        <div className="spv2-list-scroll" ref={scrollRef}>
           {listLoading ? (
             <div className="spv2-empty">
               <p className="spv2-empty-text">Carregando...</p>
@@ -527,6 +533,7 @@ export function ContratosPanel({ session }: { session: SessionData }) {
                     onToggle={() => toggleExpand(contract.id)}
                     onDetalhes={() => setDetailsTarget(contract)}
                     canManage={canManage}
+                    isHighlighted={highlightId === contract.id}
                     onFaturar={() => openLifecycle('invoice')}
                     espelhoMode={espelhoMode}
                     espelhoEligible={espelhoEligible}

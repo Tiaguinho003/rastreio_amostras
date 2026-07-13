@@ -31,6 +31,7 @@ import {
   brtTodayDateOnly,
   brtTodayKey,
   bucketPaymentEvents,
+  bucketInvoiceEvents,
   buildWarehouseSnapshot,
   computeContractMoneyWithAgio,
   CONTRACT_LOOKUP_LISTS,
@@ -44,6 +45,7 @@ import {
   normalizeRequiredBoolean,
   normalizeWashoutReason,
   PAYMENT_EVENT_SELECT,
+  INVOICE_EVENT_SELECT,
   RECEIVABLE_VIEW_SELECT,
   SALE_CONTRACT_STATUSES,
   SALE_CONTRACT_TYPES,
@@ -811,6 +813,38 @@ export class SaleContractService {
     ]);
 
     return bucketShipmentEvents(scheduledRows, doneRows, brtTodayKey());
+  }
+
+  // Faturamento (DSB-D11): evento do card de Eventos — irmao do embarque. Agendado =
+  // EMITIDO no dia previsto (invoiceDate; vira vermelho se o dia passar); realizado =
+  // FATURADO/PAGO no dia REAL do faturamento (invoicedAt). Visibilidade: TODOS os
+  // nao-PROSPECTOR (auth-only, sem escopo por corretor — mesmo do embarque; o chip so
+  // navega pra aba Contratos p/ quem a tem). Janela [from, to] = 'YYYY-MM-DD'.
+  async getDashboardInvoiceEvents(input, actorContext) {
+    assertAuthenticatedActor(actorContext, 'list dashboard invoice events');
+
+    const dayKeyRe = /^\d{4}-\d{2}-\d{2}$/;
+    const from = typeof input?.from === 'string' && dayKeyRe.test(input.from) ? input.from : null;
+    const to = typeof input?.to === 'string' && dayKeyRe.test(input.to) ? input.to : null;
+    if (!from || !to) {
+      return {};
+    }
+
+    const gte = new Date(`${from}T00:00:00.000Z`);
+    const lte = new Date(`${to}T00:00:00.000Z`);
+
+    const [scheduledRows, doneRows] = await Promise.all([
+      this.prisma.saleContract.findMany({
+        where: { status: 'EMITIDO', invoiceDate: { gte, lte } },
+        select: INVOICE_EVENT_SELECT,
+      }),
+      this.prisma.saleContract.findMany({
+        where: { status: { in: ['FATURADO', 'PAGO'] }, invoicedAt: { gte, lte } },
+        select: INVOICE_EVENT_SELECT,
+      }),
+    ]);
+
+    return bucketInvoiceEvents(scheduledRows, doneRows, brtTodayKey());
   }
 
   // AP16: envios de aprovacao recentes p/ o card "Ultimos envios" do dashboard (o
