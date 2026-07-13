@@ -30,25 +30,34 @@ function parseTab(raw: string | null): HubTab {
 }
 
 function ContratosHubInner() {
-  const { session, loading, logout, setSession } = useRequireAuth({
-    allowedRoles: CONTRATOS_ROLES,
-  });
   const router = useRouter();
   const searchParams = useSearchParams();
+  const rawTab = searchParams.get('tab');
 
   // Compat: os deep-links antigos de embarque/aprovações vivem agora em /embarques
-  // (o hub virou 2 páginas). Redireciona antes de renderizar a aba Contratos.
-  const rawTab = searchParams.get('tab');
+  // (o hub virou 2 páginas). Alvo do redirect, preservando `?highlight=`.
+  const highlight = searchParams.get('highlight');
+  const compatTarget =
+    rawTab === 'embarque' || rawTab === 'aprovacoes'
+      ? `/embarques?tab=${rawTab}${highlight ? `&highlight=${highlight}` : ''}`
+      : null;
+
+  // Guard de gestão (ADMIN+COMMERCIAL). `unauthorizedRedirectTo` dinâmico: o
+  // operacional que abre um link antigo de embarque/aprovação cai no /embarques
+  // (que ele acessa), não no /dashboard — senão o guard corria contra o effect abaixo.
+  const { session, loading, logout, setSession } = useRequireAuth({
+    allowedRoles: CONTRATOS_ROLES,
+    unauthorizedRedirectTo: compatTarget ?? '/dashboard',
+  });
+
+  // ADMIN/COMMERCIAL (autorizados) seguem o redirect de compat por aqui.
   useEffect(() => {
-    if (rawTab === 'embarque' || rawTab === 'aprovacoes') {
-      const highlight = searchParams.get('highlight');
-      router.replace(`/embarques?tab=${rawTab}${highlight ? `&highlight=${highlight}` : ''}`);
-    }
-  }, [rawTab, router, searchParams]);
+    if (compatTarget) router.replace(compatTarget);
+  }, [compatTarget, router]);
 
   if (loading || !session) return null;
-  // Enquanto o compat-redirect acima não navega, não pisca a aba Contratos.
-  if (rawTab === 'embarque' || rawTab === 'aprovacoes') return null;
+  // Enquanto o compat-redirect não navega, não pisca a aba Contratos.
+  if (compatTarget) return null;
 
   const tab = parseTab(rawTab);
 
