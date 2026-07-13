@@ -1464,6 +1464,211 @@ if (!databaseUrl || !databaseReachable) {
       commandService.requestQrPrint = originalRequestQrPrint;
     }
   });
+
+  // CL1 (auditoria 2026-07-13): o crossValidateExtraction REAL injetava um
+  // detail {field:'data', extracted: undefined} que violava o schema
+  // (required: extracted) e rebaixava TODO CLASSIFICATION_EXTRACTION_COMPLETED
+  // pra _FAILED. Regressao: com extractionService stubado, o caminho completo
+  // addClassificationPhoto -> crossValidate -> appendEvent deve persistir o
+  // evento COMPLETED (o builder de teste antigo bypassava o crossValidate).
+  test('CL1: extracao persiste CLASSIFICATION_EXTRACTION_COMPLETED com crossValidate real', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToRegistrationConfirmed(sampleId);
+
+    const nullPeneiras = {
+      p18: null,
+      p17: null,
+      p16: null,
+      p15: null,
+      p14: null,
+      p13: null,
+      p12: null,
+      p11: null,
+      p10: null,
+      mk: null,
+    };
+    const extractionStub = {
+      async extractClassificationFromPhoto() {
+        return {
+          identificacao: { lote: null, sacas: '11', safra: '25/26' },
+          classificacao: {
+            padrao: 'L3-P4',
+            aspecto: 'VERDE',
+            certif: null,
+            peneiras: { ...nullPeneiras, p16: '55' },
+            fundos: [
+              { peneira: null, percentual: null },
+              { peneira: null, percentual: null },
+            ],
+            catacao: '0,5',
+            defeitos: { imp: null, pva: null, broca: null, gpi: null, ap: null, defeito: null },
+            observacoes: null,
+            bebida: 'DURA',
+          },
+          model: 'gpt-4o-2024-11-20',
+          processingTimeMs: 42,
+        };
+      },
+    };
+
+    const commandServiceWithExtraction = new SampleCommandService({
+      eventService,
+      queryService,
+      uploadService,
+      clientService,
+      userService: userServiceMock,
+      extractionService: extractionStub,
+    });
+
+    const result = await commandServiceWithExtraction.addClassificationPhoto(
+      {
+        sampleId,
+        fileBuffer: tinyPngBuffer,
+        mimeType: 'image/jpeg',
+        originalFileName: 'classificacao.jpg',
+      },
+      actorClassifier
+    );
+
+    assert.equal(result.statusCode, 201);
+    assert.ok(result.extraction, 'extraction deve vir na resposta');
+    // O detail fantasma field:'data' foi removido — so os 3 campos reais.
+    const detailFields = result.extraction.crossValidation.details.map((d) => d.field);
+    assert.deepEqual(detailFields.sort(), ['sacas', 'safra']);
+    assert.equal(result.extraction.crossValidation.hasMismatches, false);
+
+    const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
+    const completedEvents = detail.events.filter(
+      (event) => event.eventType === 'CLASSIFICATION_EXTRACTION_COMPLETED'
+    );
+    const failedEvents = detail.events.filter(
+      (event) => event.eventType === 'CLASSIFICATION_EXTRACTION_FAILED'
+    );
+    assert.equal(completedEvents.length, 1, 'evento COMPLETED deve persistir');
+    assert.equal(failedEvents.length, 0, 'nao pode haver rebaixamento pra FAILED');
+  });
+
+  // CL5 (auditoria 2026-07-13): o caminho de UPDATE nao impunha a faixa
+  // 0-100 no servidor (o schema classification-updated e frouxo de
+  // proposito; a defesa vive nos parsers). Regressao dos ramos 422.
+  test('CL5: updateClassification rejeita 422 peneira/fundo fora da faixa 0-100', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToRegistrationConfirmed(sampleId);
+    await commandService.addClassificationPhoto(
+      {
+        sampleId,
+        fileBuffer: tinyPngBuffer,
+        mimeType: 'image/jpeg',
+        originalFileName: 'classificacao.jpg',
+      },
+      actorClassifier
+    );
+    await commandService.completeClassification(
+      {
+        sampleId,
+        expectedVersion: 1,
+        classificationData: { peneiras: { p17: 20 } },
+        classifiers: classifiersOf(actorClassifier),
+        idempotencyKey: randomUUID(),
+      },
+      actorClassifier
+    );
+
+    const current = await queryService.requireSample(sampleId);
+
+    await assert.rejects(
+      commandService.updateClassification(
+        {
+          sampleId,
+          expectedVersion: current.version,
+          after: { classificationData: { peneiras: { p17: 250 } } },
+          reasonCode: 'DATA_FIX',
+          reasonText: 'peneira acima da faixa',
+        },
+        actorClassifier
+      ),
+      (error) => error.status === 422 && /peneiras\.p17/.test(error.message)
+    );
+
+    await assert.rejects(
+      commandService.updateClassification(
+        {
+          sampleId,
+          expectedVersion: current.version,
+          after: {
+            classificationData: {
+              fundos: [
+                { peneira: '13', percentual: 150 },
+                { peneira: null, percentual: null },
+              ],
+            },
+          },
+          reasonCode: 'DATA_FIX',
+          reasonText: 'fundo acima da faixa',
+        },
+        actorClassifier
+      ),
+      (error) => error.status === 422 && /fundos\[0\]\.percentual/.test(error.message)
+    );
+
+    await assert.rejects(
+      commandService.updateClassification(
+        {
+          sampleId,
+          expectedVersion: current.version,
+          after: { classificationData: { peneiras: { p17: -5 } } },
+          reasonCode: 'DATA_FIX',
+          reasonText: 'peneira negativa',
+        },
+        actorClassifier
+      ),
+      (error) => error.status === 422 && /peneiras\.p17/.test(error.message)
+    );
+
+    // Valor dentro da faixa segue aceito.
+    await commandService.updateClassification(
+      {
+        sampleId,
+        expectedVersion: current.version,
+        after: { classificationData: { peneiras: { p17: 25 } } },
+        reasonCode: 'DATA_FIX',
+        reasonText: 'ajuste dentro da faixa',
+      },
+      actorClassifier
+    );
+    const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
+    assert.equal(detail.sample.latestClassification.data?.peneiras?.p17, 25);
+  });
+
+  // CL6 (auditoria 2026-07-13): bebida agora e canonizada na projecao como
+  // padrao/aspecto/catacao/certif (edicao manual gravava valor cru).
+  test('CL6: bebida e canonizada na projecao do CLASSIFICATION_COMPLETED', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToRegistrationConfirmed(sampleId);
+    await commandService.addClassificationPhoto(
+      {
+        sampleId,
+        fileBuffer: tinyPngBuffer,
+        mimeType: 'image/jpeg',
+        originalFileName: 'classificacao.jpg',
+      },
+      actorClassifier
+    );
+    await commandService.completeClassification(
+      {
+        sampleId,
+        expectedVersion: 1,
+        classificationData: { bebida: 'dura  pra  mole' },
+        classifiers: classifiersOf(actorClassifier),
+        idempotencyKey: randomUUID(),
+      },
+      actorClassifier
+    );
+
+    const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
+    // canonicalizeBebida: uppercase + colapso de espacos.
+    assert.equal(detail.sample.latestClassification.data?.bebida, 'DURA PRA MOLE');
+  });
 }
 
 async function canReachDatabase(databaseUrlValue) {

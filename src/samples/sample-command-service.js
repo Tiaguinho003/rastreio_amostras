@@ -718,7 +718,10 @@ function parseClassificationPeneirasPatch(value) {
   const patch = {};
   for (const key of CLASSIFICATION_PENEIRA_KEYS) {
     if (!hasOwn(value, key)) continue;
-    patch[key] = normalizeNullableNumber(value[key], `after.classificationData.peneiras.${key}`);
+    patch[key] = normalizeNullableNumber(value[key], `after.classificationData.peneiras.${key}`, {
+      min: 0,
+      max: 100,
+    });
   }
   return Object.keys(patch).length === 0 ? undefined : patch;
 }
@@ -754,7 +757,8 @@ function parseClassificationFundosPatch(value) {
         ? null
         : normalizeNullableNumber(
             item.percentual,
-            `after.classificationData.fundos[${index}].percentual`
+            `after.classificationData.fundos[${index}].percentual`,
+            { min: 0, max: 100 }
           );
     return { peneira, percentual };
   });
@@ -1458,15 +1462,6 @@ function crossValidateExtraction(identificacao, sample) {
       extracted: identificacao.safra,
       registered,
       match: registered !== null && normalizeCompareText(identificacao.safra, registered),
-    });
-  }
-
-  if (identificacao.data !== null) {
-    details.push({
-      field: 'data',
-      extracted: identificacao.data,
-      registered: null,
-      match: true,
     });
   }
 
