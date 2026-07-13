@@ -15,6 +15,7 @@ import {
   getBrtToday,
   toDayKey,
 } from '../../lib/dashboard-calendar';
+import { DashboardLoadError } from './DashboardLoadError';
 import type { DashboardCalendarEvent } from '../../lib/types';
 
 // F1 (E21-E27/D138): o tipo do evento foi promovido pro lib/types.ts
@@ -28,6 +29,9 @@ interface EventsCalendarCardProps {
   navigableTabs?: string[];
   /** Emite a semana visível (from..to 'YYYY-MM-DD') pro pai buscar o feed (E24). */
   onWindowChange?: (from: string, to: string) => void;
+  /** Erro de carregamento de algum dos feeds (strip não-bloqueante + retry). */
+  error?: string | null;
+  onRetry?: () => void;
 }
 
 // EMB26/E28: TODO evento do feed é NAVEGAÇÃO PURA → a sub-aba dona (pagamento →
@@ -77,6 +81,8 @@ export function EventsCalendarCard({
   events = {},
   navigableTabs = ALL_CONTRACT_TABS,
   onWindowChange,
+  error,
+  onRetry,
 }: EventsCalendarCardProps) {
   const today = useMemo(() => getBrtToday(), []);
   const todayKey = toDayKey(today);
@@ -143,6 +149,8 @@ export function EventsCalendarCard({
           </button>
         </div>
       </header>
+
+      {error ? <DashboardLoadError message={error} onRetry={onRetry} compact /> : null}
 
       {/* DSB-D10: legenda das cores (a cor = estado). aria-hidden: o estado já vai
           no aria-label de cada chip; aqui é só apoio visual. */}

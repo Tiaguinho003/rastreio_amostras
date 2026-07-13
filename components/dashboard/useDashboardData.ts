@@ -10,42 +10,36 @@ const REFETCH_THROTTLE_MS = 30_000;
 export function useDashboardData(session: SessionData | null) {
   const [salesData, setSalesData] = useState<DashboardSalesAvailabilityResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Throttle pro refetch em visibilitychange: evita N requests em Alt+Tab
-  // rapido — mesmo padrao do DashboardDesktop.
+  // Throttle pro refetch em visibilitychange: evita N requests em Alt+Tab rapido.
   const lastFetchRef = useRef<number>(0);
+  // Guarda de montagem: evita setState apos unmount. Antes o refetch por
+  // visibilitychange chamava refreshDashboard() e DESCARTAVA o cleanup (o `active`
+  // por-chamada nunca virava false) — o mountedRef cobre os dois caminhos.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const refreshDashboard = useCallback(() => {
-    if (!session) {
-      return () => {};
-    }
-
-    let active = true;
+    if (!session) return;
     lastFetchRef.current = Date.now();
     setError(null);
 
     getDashboardSalesAvailability(session)
       .then((salesResponse) => {
-        if (active) {
-          setSalesData(salesResponse);
-        }
+        if (mountedRef.current) setSalesData(salesResponse);
       })
       .catch((cause) => {
-        if (active) {
-          if (cause instanceof ApiError) {
-            setError(cause.message);
-          } else {
-            setError('Não foi possível carregar o painel.');
-          }
-        }
+        if (!mountedRef.current) return;
+        setError(cause instanceof ApiError ? cause.message : 'Não foi possível carregar o painel.');
       });
-
-    return () => {
-      active = false;
-    };
   }, [session]);
 
   useEffect(() => {
-    return refreshDashboard();
+    refreshDashboard();
   }, [refreshDashboard]);
 
   useEffect(() => {
@@ -69,5 +63,7 @@ export function useDashboardData(session: SessionData | null) {
     };
   }, [session, refreshDashboard]);
 
-  return { salesData, error };
+  // `retry` = mesma função de refresh, exposta pro botão "Tentar novamente" do
+  // banner de erro do donut (decisão: mostrar erro + retry).
+  return { salesData, error, retry: refreshDashboard };
 }

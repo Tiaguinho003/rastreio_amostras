@@ -10,6 +10,7 @@ import {
 } from '../../lib/api-client';
 import { contractsHubTabs, FINANCEIRO_ROLES, isRoleAllowed } from '../../lib/roles';
 import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
+import { DashboardLoadError } from './DashboardLoadError';
 import { EventsCalendarCard } from './EventsCalendarCard';
 import { RecentSendsCard } from './RecentSendsCard';
 import type {
@@ -19,40 +20,92 @@ import type {
   SessionData,
 } from '../../lib/types';
 
+const DESKTOP_MQ = '(min-width: 901px)';
+// Throttle do refetch em focus/visibility: evita N requests em Alt+Tab rápido.
+const REFETCH_THROTTLE_MS = 30_000;
+
 interface DashboardDesktopProps {
   session: SessionData;
   salesData: DashboardSalesAvailabilityResponse | null;
   error: string | null;
+  onRetry?: () => void;
 }
 
-export function DashboardDesktop({ session, salesData, error }: DashboardDesktopProps) {
-  const [recentSends, setRecentSends] = useState<DashboardRecentSendsResponse | null>(null);
-  // Throttle pro refetch on focus/visibilitychange: evita N requests
-  // em Alt+Tab rapido.
-  const lastFetchRef = useRef<number>(0);
+export function DashboardDesktop({ session, salesData, error, onRetry }: DashboardDesktopProps) {
+  // Guarda de montagem: evita setState após unmount em qualquer fetch (o retry pode
+  // disparar fora do ciclo do effect que criava o `active` por-chamada).
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
-  // F1 (E24/E28): eventos de pagamento do card de Eventos — só ADMIN/COMMERCIAL
-  // (E22). `paymentWindow` = a quinzena visível que o card emite via onWindowChange.
-  // E28: o evento é navegação pura (→ Financeiro); o "Pago" saiu do dashboard.
+  // ───────── Cards de envios (recent-sends: 1 fetch alimenta os 2 cards) ─────────
+  const [recentSends, setRecentSends] = useState<DashboardRecentSendsResponse | null>(null);
+  const [recentSendsError, setRecentSendsError] = useState<string | null>(null);
+  const lastSendsFetchRef = useRef<number>(0);
+
+  const fetchRecentSends = useCallback(() => {
+    // Só o breakpoint desktop busca (o twin mobile fica montado mas inerte via CSS).
+    if (!window.matchMedia(DESKTOP_MQ).matches) return;
+    lastSendsFetchRef.current = Date.now();
+    getDashboardRecentSends(session)
+      .then((response) => {
+        if (!mountedRef.current) return;
+        setRecentSends(response);
+        setRecentSendsError(null);
+      })
+      .catch(() => {
+        if (mountedRef.current) setRecentSendsError('Não foi possível carregar os envios.');
+      });
+  }, [session]);
+
+  useEffect(() => {
+    fetchRecentSends();
+    const mq = window.matchMedia(DESKTOP_MQ);
+    const throttled = () => {
+      if (Date.now() - lastSendsFetchRef.current < REFETCH_THROTTLE_MS) return;
+      fetchRecentSends();
+    };
+    // 'change' re-busca ao ENTRAR no desktop num resize (senão o card ficava travado
+    // no skeleton — nada disparava o fetch).
+    const onBreakpoint = () => {
+      if (mq.matches) fetchRecentSends();
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') throttled();
+    };
+    window.addEventListener('focus', throttled);
+    document.addEventListener('visibilitychange', onVisible);
+    mq.addEventListener('change', onBreakpoint);
+    return () => {
+      window.removeEventListener('focus', throttled);
+      document.removeEventListener('visibilitychange', onVisible);
+      mq.removeEventListener('change', onBreakpoint);
+    };
+  }, [fetchRecentSends]);
+
+  // ───────── Card de Eventos (3 feeds mesclados client-side) ─────────
+  // F1 (E24/E28): pagamento — só ADMIN/COMMERCIAL (canPay); demais nem chamam o feed.
   const canPay = isRoleAllowed(session.user.role, FINANCEIRO_ROLES);
   // DSB-D11: abas de /contratos que o papel abre — o chip só vira LINK p/ a aba dona
-  // quando ela está aqui (faturamento → Contratos existe só p/ ADMIN/COMMERCIAL; p/ os
-  // operacionais o chip de faturamento aparece mas fica inerte).
+  // quando ela está aqui (faturamento → Contratos só p/ ADMIN/COMMERCIAL; operacional
+  // vê o chip mas ele fica inerte).
   const navigableTabs = contractsHubTabs(session.user.role);
   const [paymentEvents, setPaymentEvents] = useState<Record<string, DashboardCalendarEvent[]>>({});
+  const [shipmentEvents, setShipmentEvents] = useState<Record<string, DashboardCalendarEvent[]>>(
+    {}
+  );
+  const [invoiceEvents, setInvoiceEvents] = useState<Record<string, DashboardCalendarEvent[]>>({});
+  const [eventsError, setEventsError] = useState<string | null>(null);
   const [paymentWindow, setPaymentWindow] = useState<{ from: string; to: string } | null>(null);
+  const lastEventsFetchRef = useRef<number>(0);
   const handleWindowChange = useCallback((from: string, to: string) => {
     setPaymentWindow({ from, to });
   }, []);
 
-  // F4 (EMB7/EMB26): eventos de embarque — feed SEPARADO (todos os não-PROSPECTOR,
-  // auth-only), na MESMA janela. Merge client-side no `events` do card (id namespaced
-  // 'shipment:' evita colisão de key).
-  const [shipmentEvents, setShipmentEvents] = useState<Record<string, DashboardCalendarEvent[]>>(
-    {}
-  );
-  // DSB-D11: 3º feed — faturamento (auth-only, mesma janela). Merge client-side.
-  const [invoiceEvents, setInvoiceEvents] = useState<Record<string, DashboardCalendarEvent[]>>({});
   const calendarEvents = useMemo(() => {
     const merged: Record<string, DashboardCalendarEvent[]> = {};
     for (const [day, evs] of Object.entries(paymentEvents)) merged[day] = [...evs];
@@ -64,114 +117,88 @@ export function DashboardDesktop({ session, salesData, error }: DashboardDesktop
     return merged;
   }, [paymentEvents, shipmentEvents, invoiceEvents]);
 
-  useEffect(() => {
-    if (!session) return undefined;
-
-    // So o breakpoint ATIVO busca (o twin mobile fica montado mas inerte via
-    // CSS). `active` evita setState apos unmount; o listener de 'change' do
-    // matchMedia re-busca ao ENTRAR no desktop num resize (senao o card
-    // ficava travado no skeleton — nada disparava o fetch).
-    const mq = window.matchMedia('(min-width: 901px)');
-    let active = true;
-    const REFETCH_THROTTLE_MS = 30_000;
-
-    function refetchAll() {
-      if (!active || !mq.matches) return;
-      lastFetchRef.current = Date.now();
-      getDashboardRecentSends(session)
-        .then((response) => {
-          if (active) setRecentSends(response);
-        })
-        .catch(() => {});
-    }
-
-    function refetchAllThrottled() {
-      if (Date.now() - lastFetchRef.current < REFETCH_THROTTLE_MS) return;
-      refetchAll();
-    }
-
-    refetchAll();
-
-    function handleBreakpointChange() {
-      if (mq.matches) refetchAll();
-    }
-
-    function handleVisibilityChange() {
-      if (document.visibilityState === 'visible') {
-        refetchAllThrottled();
-      }
-    }
-
-    mq.addEventListener('change', handleBreakpointChange);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', refetchAllThrottled);
-    return () => {
-      active = false;
-      mq.removeEventListener('change', handleBreakpointChange);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', refetchAllThrottled);
-    };
-  }, [session]);
-
-  // F1 (E24): busca os eventos de pagamento da JANELA visível (emitida pelo card).
-  // Só desktop + só ADMIN/COMMERCIAL (canPay); demais não chamam → card vazio.
-  // Re-busca em focus/visibility. Serve tb pra recarregar após "Pago" (o evento
-  // migra agendado→realizado, podendo mudar de dia).
   const fetchPaymentEvents = useCallback(() => {
     if (!canPay || !paymentWindow) return;
-    if (!window.matchMedia('(min-width: 901px)').matches) return;
+    if (!window.matchMedia(DESKTOP_MQ).matches) return;
     getDashboardPaymentEvents(session, paymentWindow)
-      .then((res) => setPaymentEvents(res.events))
-      .catch(() => {});
+      .then((res) => {
+        if (!mountedRef.current) return;
+        setPaymentEvents(res.events);
+        setEventsError(null);
+      })
+      .catch(() => {
+        if (mountedRef.current) setEventsError('Não foi possível carregar os eventos.');
+      });
   }, [session, canPay, paymentWindow]);
 
-  // F4 (EMB7): SEM gate de papel (o card só monta no desktop, já não-PROSPECTOR).
-  // Mesma janela. Re-busca em focus/visibility e após confirmar (o evento migra
-  // agendado→realizado, podendo mudar de dia).
   const fetchShipmentEvents = useCallback(() => {
     if (!paymentWindow) return;
-    if (!window.matchMedia('(min-width: 901px)').matches) return;
+    if (!window.matchMedia(DESKTOP_MQ).matches) return;
     getDashboardShipmentEvents(session, paymentWindow)
-      .then((res) => setShipmentEvents(res.events))
-      .catch(() => {});
+      .then((res) => {
+        if (!mountedRef.current) return;
+        setShipmentEvents(res.events);
+        setEventsError(null);
+      })
+      .catch(() => {
+        if (mountedRef.current) setEventsError('Não foi possível carregar os eventos.');
+      });
   }, [session, paymentWindow]);
 
-  // DSB-D11: faturamento — SEM gate de papel (auth-only, como embarque). Mesma janela.
-  // Re-busca em focus/visibility e após faturar (o evento migra previsto→realizado,
-  // podendo mudar de dia).
   const fetchInvoiceEvents = useCallback(() => {
     if (!paymentWindow) return;
-    if (!window.matchMedia('(min-width: 901px)').matches) return;
+    if (!window.matchMedia(DESKTOP_MQ).matches) return;
     getDashboardInvoiceEvents(session, paymentWindow)
-      .then((res) => setInvoiceEvents(res.events))
-      .catch(() => {});
+      .then((res) => {
+        if (!mountedRef.current) return;
+        setInvoiceEvents(res.events);
+        setEventsError(null);
+      })
+      .catch(() => {
+        if (mountedRef.current) setEventsError('Não foi possível carregar os eventos.');
+      });
   }, [session, paymentWindow]);
 
-  useEffect(() => {
+  const refetchEvents = useCallback(() => {
     fetchPaymentEvents();
     fetchShipmentEvents();
     fetchInvoiceEvents();
-    const onFocusOrVisible = () => {
-      fetchPaymentEvents();
-      fetchShipmentEvents();
-      fetchInvoiceEvents();
-    };
-    window.addEventListener('focus', onFocusOrVisible);
-    document.addEventListener('visibilitychange', onFocusOrVisible);
-    return () => {
-      window.removeEventListener('focus', onFocusOrVisible);
-      document.removeEventListener('visibilitychange', onFocusOrVisible);
-    };
   }, [fetchPaymentEvents, fetchShipmentEvents, fetchInvoiceEvents]);
+
+  useEffect(() => {
+    const doFetch = () => {
+      lastEventsFetchRef.current = Date.now();
+      refetchEvents();
+    };
+    // Inicial + a cada mudança da janela visível (o card emite via onWindowChange).
+    doFetch();
+    const mq = window.matchMedia(DESKTOP_MQ);
+    // Throttle + gate de visibilityState: um Alt+Tab dispara focus E visibilitychange;
+    // sem isso eram até 6 requests (3 ao ocultar + 6 ao voltar) por 1 retorno.
+    const throttled = () => {
+      if (Date.now() - lastEventsFetchRef.current < REFETCH_THROTTLE_MS) return;
+      doFetch();
+    };
+    const onBreakpoint = () => {
+      if (mq.matches) doFetch(); // paridade com o card de envios: re-busca no resize
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') throttled();
+    };
+    window.addEventListener('focus', throttled);
+    document.addEventListener('visibilitychange', onVisible);
+    mq.addEventListener('change', onBreakpoint);
+    return () => {
+      window.removeEventListener('focus', throttled);
+      document.removeEventListener('visibilitychange', onVisible);
+      mq.removeEventListener('change', onBreakpoint);
+    };
+  }, [refetchEvents]);
 
   return (
     <div className="dashboard-desktop">
       <section className="dashboard-page">
-        {error ? (
-          <p className="dashboard-error-banner" role="status">
-            {error}
-          </p>
-        ) : null}
+        {error ? <DashboardLoadError message={error} onRetry={onRetry} /> : null}
 
         {/* Layout (DSB-D3 + DSB-D5): TOP ROW = "Lotes disponiveis" (donut, mais
             estreito) + "Amostras enviadas" + "Aprovacoes enviadas" lado a lado;
@@ -188,18 +215,24 @@ export function DashboardDesktop({ session, salesData, error }: DashboardDesktop
               emptyLabel="Nenhuma amostra enviada."
               variant="samples"
               items={recentSends ? recentSends.sampleItems : null}
+              error={recentSendsError}
+              onRetry={fetchRecentSends}
             />
             <RecentSendsCard
               title="Aprovações enviadas"
               emptyLabel="Nenhuma aprovação enviada."
               variant="approvals"
               items={recentSends ? recentSends.approvalItems : null}
+              error={recentSendsError}
+              onRetry={fetchRecentSends}
             />
           </div>
           <EventsCalendarCard
             events={calendarEvents}
             navigableTabs={navigableTabs}
             onWindowChange={handleWindowChange}
+            error={eventsError}
+            onRetry={refetchEvents}
           />
         </div>
       </section>

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { HeaderAvatarMenu } from '../HeaderAvatarMenu';
 import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
 import { getRoleLabel } from '../../lib/roles';
+import { DashboardLoadError } from './DashboardLoadError';
 import { getGreeting, getInitials } from './greeting';
 import type { DashboardSalesAvailabilityResponse, SessionData } from '../../lib/types';
 
@@ -12,10 +13,17 @@ interface DashboardMobileProps {
   session: SessionData;
   salesData: DashboardSalesAvailabilityResponse | null;
   error: string | null;
+  onRetry?: () => void;
   onLogout: () => void | Promise<void>;
 }
 
-export function DashboardMobile({ session, salesData, error, onLogout }: DashboardMobileProps) {
+export function DashboardMobile({
+  session,
+  salesData,
+  error,
+  onRetry,
+  onLogout,
+}: DashboardMobileProps) {
   const fullName = session.user.fullName ?? session.user.username;
   const firstName = fullName.split(' ')[0];
   const roleLabel = getRoleLabel(session.user.role);
@@ -54,11 +62,7 @@ export function DashboardMobile({ session, salesData, error, onLogout }: Dashboa
           </section>
 
           <section className="dashboard-sheet">
-            {error ? (
-              <p className="dashboard-error-banner" role="status">
-                {error}
-              </p>
-            ) : null}
+            {error ? <DashboardLoadError message={error} onRetry={onRetry} /> : null}
 
             <section className="dashboard-sheet-section dashboard-sheet-content is-slot-sales">
               {salesData ? (

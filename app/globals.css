@@ -4111,8 +4111,10 @@ button:disabled {
 .dashboard-error-banner {
   margin: 0;
   display: flex;
-  align-items: flex-start;
-  gap: clamp(10px, 3vw, 12px);
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: clamp(8px, 2.5vw, 12px);
   padding: clamp(10px, 3vw, 12px) clamp(12px, 3.5vw, 14px);
   background: rgba(196, 92, 92, 0.08);
   border: 1px solid rgba(196, 92, 92, 0.25);
@@ -4120,6 +4122,39 @@ button:disabled {
   color: #c45c5c;
   font-size: clamp(0.8rem, 2.6vw, 0.88rem);
   font-weight: 500;
+}
+
+.dashboard-error-text {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* Botão "Tentar novamente" do banner de erro (link-like, na cor do erro; sem verde,
+   afunda no :active — regras do projeto). */
+.dashboard-error-retry {
+  flex: none;
+  padding: 0.15rem 0.1rem;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease;
+}
+
+.dashboard-error-retry:active {
+  transform: scale(0.97);
+}
+
+/* Compacto: erro no CORPO de um card (envios/eventos), não no topo da página. */
+.dashboard-error-banner.is-compact {
+  flex: none;
+  padding: clamp(8px, 2vw, 10px) clamp(10px, 2.5vw, 12px);
+  font-size: clamp(0.74rem, 0.82vw, 0.8rem);
+  border-radius: 10px;
 }
 
 .dashboard-section-heading {

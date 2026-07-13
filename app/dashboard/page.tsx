@@ -27,7 +27,7 @@ function DashboardPage() {
   // dashboard padrao (403 na allowlist de API) — passar null faz o hook
   // nao buscar nada.
   const prospector = isProspector(session?.user.role);
-  const { salesData, error } = useDashboardData(prospector ? null : session);
+  const { salesData, error, retry } = useDashboardData(prospector ? null : session);
 
   if (loading || !session) {
     return null;
@@ -43,9 +43,10 @@ function DashboardPage() {
             session={session}
             salesData={salesData}
             error={error}
+            onRetry={retry}
             onLogout={logout}
           />
-          <DashboardDesktop session={session} salesData={salesData} error={error} />
+          <DashboardDesktop session={session} salesData={salesData} error={error} onRetry={retry} />
         </>
       )}
     </AppShell>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 
 import { BlendBadge } from '../samples/BlendBadge';
+import { DashboardLoadError } from './DashboardLoadError';
 import { formatRelativeTime } from '../../lib/relative-time';
 import type { DashboardRecentSendItem } from '../../lib/types';
 
@@ -16,6 +17,10 @@ interface RecentSendsCardProps {
   emptyLabel: string;
   items: DashboardRecentSendItem[] | null;
   variant: RecentSendsVariant;
+  // Erro de carregamento do feed (compartilhado pelos 2 cards; só aparece quando
+  // ainda não há dado — 1º load falhou). `onRetry` re-dispara o fetch.
+  error?: string | null;
+  onRetry?: () => void;
 }
 
 // Atualiza os rotulos relativos ("ha N min") sem refetch.
@@ -58,7 +63,14 @@ function SendsHead({ columns, semantic }: { columns: string[]; semantic: boolean
 // .spv2-card. Cards INERTES (sem clique). Envio cancelado: linha esmaecida + numero
 // riscado. Destinatario/comprador longos truncam com reticencias (+ title no hover).
 // A lista rola por dentro (o shell do dashboard nao rola).
-export function RecentSendsCard({ title, emptyLabel, items, variant }: RecentSendsCardProps) {
+export function RecentSendsCard({
+  title,
+  emptyLabel,
+  items,
+  variant,
+  error,
+  onRetry,
+}: RecentSendsCardProps) {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -80,7 +92,10 @@ export function RecentSendsCard({ title, emptyLabel, items, variant }: RecentSen
           </svg>
         </span>
       </header>
-      {items === null ? (
+      {error && items === null ? (
+        // 1º load falhou: erro + retry no lugar do skeleton eterno (antes: silêncio).
+        <DashboardLoadError message={error} onRetry={onRetry} compact />
+      ) : items === null ? (
         <div className={`dd-sends-list is-${variant} is-skeleton`} aria-hidden="true">
           <SendsHead columns={columns} semantic={false} />
           {Array.from({ length: 5 }).map((_, i) => (
