@@ -427,6 +427,11 @@ export function SaleContractEtapa2Modal({
       setError('A data de pagamento cai em fim de semana. Escolha um dia útil.');
       return;
     }
+    // D142: o cronograma planejado precisa ser coerente (espelha o 422 do backend).
+    if (paymentDate < invoiceDate) {
+      setError('A data de pagamento não pode ser anterior à data de faturamento.');
+      return;
+    }
     // Aprovacao (AP3): escolha obrigatoria. Quando "Sim", o lembrete e 1..365 dias.
     if (requiresApproval == null) {
       setError('Escolha se o contrato precisa de aprovação.');
@@ -1127,6 +1132,10 @@ export function SaleContractEtapa2Modal({
                       />
                       {isWeekendIso(paymentDate) ? (
                         <span className="app-modal-field-error">{WEEKEND_DATE_MESSAGE}</span>
+                      ) : paymentDate && invoiceDate && paymentDate < invoiceDate ? (
+                        <span className="app-modal-field-error">
+                          A data de pagamento não pode ser anterior à data de faturamento.
+                        </span>
                       ) : null}
                     </label>
                   </div>

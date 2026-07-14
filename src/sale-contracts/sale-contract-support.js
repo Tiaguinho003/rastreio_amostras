@@ -1283,6 +1283,22 @@ function normalizeSaleFields(raw) {
 export function normalizeEtapa2Input(input) {
   const agio = normalizeAgio(input ?? {});
   const requiresApproval = normalizeRequiredBoolean(input?.requiresApproval, 'requiresApproval');
+  // datas (obrigatorias) — DSB-D7: faturamento/pagamento recusam fim de semana;
+  // D142: o cronograma planejado precisa ser coerente (pagamento >= faturamento).
+  const invoiceDate = assertBusinessDate(
+    requireDate(input?.invoiceDate, 'invoiceDate'),
+    'invoiceDate'
+  );
+  const paymentDate = assertBusinessDate(
+    requireDate(input?.paymentDate, 'paymentDate'),
+    'paymentDate'
+  );
+  if (paymentDate.getTime() < invoiceDate.getTime()) {
+    throw new HttpError(422, 'paymentDate must be on or after invoiceDate', {
+      code: 'VALIDATION_ERROR',
+      field: 'paymentDate',
+    });
+  }
   return {
     // fase 1 (venda) editavel — null quando nao se esta editando a venda
     saleFields: normalizeSaleFields(input?.saleFields),
@@ -1301,9 +1317,8 @@ export function normalizeEtapa2Input(input) {
     paymentFormId: requireUuid(input?.paymentFormId, 'paymentFormId'),
     modalityId: requireUuid(input?.modalityId, 'modalityId'),
     packagingId: requireUuid(input?.packagingId, 'packagingId'),
-    // datas (obrigatorias) — DSB-D7: faturamento/pagamento recusam fim de semana
-    invoiceDate: assertBusinessDate(requireDate(input?.invoiceDate, 'invoiceDate'), 'invoiceDate'),
-    paymentDate: assertBusinessDate(requireDate(input?.paymentDate, 'paymentDate'), 'paymentDate'),
+    invoiceDate,
+    paymentDate,
     // opcionais
     purchaseNumber: optionalText(input?.purchaseNumber, 'purchaseNumber', 120),
     paymentCondition: optionalText(input?.paymentCondition, 'paymentCondition', 2000),

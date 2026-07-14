@@ -1050,9 +1050,31 @@ export class SaleContractService {
       etapa2,
     });
 
+    // Corretores (Editar fase 1): resolve ANTES dos syncs cross-aggregate (D143)
+    // — o assertBrokersResolved pode lancar 422, e depois dos syncs a unica
+    // falha aceitavel e o proprio conflito de versao. Troca dentro da tx.
+    let brokerRows = null;
+    if (sf) {
+      const brokers = await this.prisma.broker.findMany({
+        where: { id: { in: sf.brokerIds } },
+        select: { id: true, name: true, status: true },
+      });
+      assertBrokersResolved(brokers, sf.brokerIds);
+      const nameById = new Map(brokers.map((broker) => [broker.id, broker.name]));
+      brokerRows = sf.brokerIds.map((brokerId) => ({
+        id: randomUUID(),
+        saleContractId: contractId,
+        brokerId,
+        brokerNameSnapshot: nameById.get(brokerId),
+      }));
+    }
+
     // D48: contrato a vista (tem sampleId) -> mantem o dono da amostra coerente
-    // com o vendedor do contrato. Feito ANTES do update do contrato
-    // (cross-aggregate nao-atomico — ver plano). No-op se ja coerente.
+    // com o vendedor do contrato. Feito ANTES do update do contrato — passo
+    // cross-aggregate NAO-atomico por decisao (D143): a janela e minuscula (a
+    // version foi checada logo acima) e os 2 syncs sao idempotentes — num 409
+    // de concorrencia, o retry do Editar converge sem efeito duplicado.
+    // No-op se ja coerente.
     if (contract.sampleId) {
       await this._syncSampleOwner(contract.sampleId, sellerClientId, actorContext);
     }
@@ -1081,23 +1103,6 @@ export class SaleContractService {
       data.sellerBrokeragePct = effSellerPct.toFixed(2);
       data.buyerBrokeragePct = effBuyerPct.toFixed(2);
       data.contractDate = new Date(sf.contractDate);
-    }
-
-    // Corretores (Editar fase 1): resolve fora da tx (leitura) e troca dentro.
-    let brokerRows = null;
-    if (sf) {
-      const brokers = await this.prisma.broker.findMany({
-        where: { id: { in: sf.brokerIds } },
-        select: { id: true, name: true, status: true },
-      });
-      assertBrokersResolved(brokers, sf.brokerIds);
-      const nameById = new Map(brokers.map((broker) => [broker.id, broker.name]));
-      brokerRows = sf.brokerIds.map((brokerId) => ({
-        id: randomUUID(),
-        saleContractId: contractId,
-        brokerId,
-        brokerNameSnapshot: nameById.get(brokerId),
-      }));
     }
 
     // Update do contrato + troca de corretores + auditoria numa só transação

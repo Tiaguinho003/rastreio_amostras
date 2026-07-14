@@ -1032,6 +1032,28 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(exports.length, 2);
   });
 
+  test('editar com paymentDate < invoiceDate: 422 no campo (D142), sem tocar o contrato', async () => {
+    const { contractId, bankAccountId } = await setupEmittableContract({ lotNumber: '21006' });
+    const lookups = await fetchLookups();
+
+    await assert.rejects(
+      saleContractService.emitSaleContract(
+        contractId,
+        etapa2Payload({
+          bankAccountId,
+          lookups,
+          overrides: { invoiceDate: '2026-07-20', paymentDate: '2026-07-10' },
+        }),
+        adminActor
+      ),
+      (error) => error.status === 422 && error.details?.field === 'paymentDate'
+    );
+
+    // a normalizacao barra ANTES de qualquer escrita: version segue 0.
+    const contract = await prisma.saleContract.findUnique({ where: { id: contractId } });
+    assert.equal(contract.version, 0);
+  });
+
   test('emitir trocando o comprador: atualiza o contrato E a venda (P20)', async () => {
     const { contractId, sampleId, buyerId, bankAccountId } = await setupEmittableContract({
       lotNumber: '21020',

@@ -291,6 +291,26 @@ test('normalizeEtapa2Input: obrigatórios faltando lançam 422', () => {
   );
 });
 
+test('normalizeEtapa2Input: paymentDate >= invoiceDate (D142)', () => {
+  // pagamento antes do faturamento planejado -> 422 no campo paymentDate
+  assert.throws(
+    () =>
+      normalizeEtapa2Input({
+        ...validEtapa2(),
+        invoiceDate: '2026-07-20',
+        paymentDate: '2026-07-10',
+      }),
+    (error) => error.status === 422 && error.details?.field === 'paymentDate'
+  );
+  // mesmo dia e valido
+  const sameDay = normalizeEtapa2Input({
+    ...validEtapa2(),
+    invoiceDate: '2026-07-10',
+    paymentDate: '2026-07-10',
+  });
+  assert.equal(sameDay.paymentDate.getTime(), sameDay.invoiceDate.getTime());
+});
+
 test('normalizeEtapa2Input: ágio exige valor > 0 e tipo válido', () => {
   const out = normalizeEtapa2Input({
     ...validEtapa2(),
