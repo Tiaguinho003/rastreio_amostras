@@ -186,7 +186,6 @@ Lista de seletores que ja seguem o pattern corretamente — podem ser usados com
 | Selector                       | Arquivo:linha      | Variante                                                                                                         |
 | ------------------------------ | ------------------ | ---------------------------------------------------------------------------------------------------------------- |
 | `.dashboard-operation-card`    | globals.css ~3776  | scale(0.95) + focus outline                                                                                      |
-| `.sales-card-detail-button`    | globals.css        | scale(0.97) — Link "Ver disponiveis"; e `<a>`, tem tap-highlight reset + `:focus-visible` proprios (revisao DSH) |
 | `.app-modal-card-classify-cta` | globals.css ~1601  | scale(0.96) + opacity(0.92)                                                                                      |
 | `.dashboard-hero-avatar`       | globals.css ~15250 | scale(0.92) — botao pequeno circular                                                                             |
 | `.app-modal-close` (themed)    | globals.css ~1189  | scale(0.94) — close button                                                                                       |
