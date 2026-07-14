@@ -689,13 +689,7 @@ export function buildReceivableView(row, brokerRows, todayKey) {
 }
 
 // Revisao do Pagamento (FN4/FN5): filtro do Financeiro. Default 'todos'.
-const RECEIVABLE_FILTERS = Object.freeze([
-  'todos',
-  'a_vencer',
-  'vencido',
-  'pago',
-  'cancelado',
-]);
+const RECEIVABLE_FILTERS = Object.freeze(['todos', 'a_vencer', 'vencido', 'pago', 'cancelado']);
 
 export function normalizeReceivableFilter(raw) {
   return typeof raw === 'string' && RECEIVABLE_FILTERS.includes(raw) ? raw : 'todos';
