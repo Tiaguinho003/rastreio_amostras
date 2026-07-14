@@ -1,6 +1,6 @@
 # Assistente IA — Plano de Trabalho
 
-> **Status**: IDEIA EM ANÁLISE (2026-07-14) — registro da ideia + análise de viabilidade; **nenhuma decisão travada, nenhuma implementação**. Os pontos de decisão do §7 aguardam confirmação do Flavio.
+> **Status**: DECISÕES TRAVADAS (2026-07-14) — ideia registrada, análise de viabilidade feita e **decisões AST1–AST10 fechadas** (Apêndice A); pendência P1 (nome do assistente). **Sem implementação** — próximo passo: plan mode da F1.
 > **Última atualização**: 2026-07-14
 > **Prefixo de decisões**: AST (AST1, AST2, ...)
 > **Documento centralizado da feature**: conceito, análise, decisões, especificação e fases vivem AQUI.
@@ -81,7 +81,7 @@ Wrappers finos sobre métodos que já existem no `backendApi`/serviços — semp
 | `listar_contratos`      | `sale-contracts` (gate ADMIN/COMMERCIAL herdado) | "contratos EMITIDOS aguardando aprovação"            |
 | `eventos_agenda`        | feeds do dashboard (`payment/shipment/invoice`)  | "o que vence essa semana?"                           |
 
-A lista final de tools e domínios da v1 é o ponto de decisão Q2 (§7).
+A lista final de domínios da v1 foi travada pela AST2: **os quatro domínios entram** (contratos/financeiro com o gate ADMIN/COMMERCIAL herdado). O detalhamento tool a tool fica para o plan mode da F1.
 
 ### 4.4 Apresentação interativa
 
@@ -90,7 +90,7 @@ Duas camadas na resposta:
 1. **Texto** do modelo (markdown restrito), em pt-BR.
 2. **Blocos estruturados**: quando uma tool retorna lista/entidade, o backend anexa ao stream um bloco tipado (`{type: 'lots', items: [...]}`) que a UI renderiza como componente nativo do design system (card de lote, linha de contrato, mini-agenda), com **deep link** para a página real. O modelo referencia os blocos, mas quem desenha é o app — isso elimina alucinação visual e mantém a identidade do design system.
 
-Referência de mercado: "generative UI" do Vercel AI SDK (`useChat` + partes de mensagem tipadas). Adotar a lib ou implementar o protocolo na mão é parte do Q5 (§7).
+Referência de mercado: "generative UI" do Vercel AI SDK (`useChat` + partes de mensagem tipadas). A adoção da lib foi travada pela AST5.
 
 ### 4.5 Encaixe na infra
 
@@ -110,14 +110,14 @@ Referência de mercado: "generative UI" do Vercel AI SDK (`useChat` + partes de 
 | SQL/consulta arbitrária    | Descartado por arquitetura (opção C).                                                                                                 | P3 — só tools tipadas.                                                                                                                                                |
 | Custo/DoS                  | Loop de tools sem teto ou usuário spammando viram custo aberto.                                                                       | Caps por turno (rodadas/tokens) + rate limit por usuário/dia + telemetria com alarme.                                                                                 |
 | Vazamento entre usuários   | Não há cache de resposta compartilhado; cada turno roda com a sessão do usuário.                                                      | Prompt caching só do prefixo estático (system + tools), nunca de dados de usuário.                                                                                    |
-| LGPD / retenção            | Perguntas e respostas podem conter dados pessoais de clientes.                                                                        | Decisão Q6 (§7): v1 sem persistir conversas minimiza o problema; se persistir, definir retenção/expurgo.                                                              |
-| PROSPECTOR                 | A allowlist central hoje não incluiria o assistente; abrir exigiria decidir o que ele pode perguntar.                                 | Proposta: v1 sem PROSPECTOR (Q3).                                                                                                                                     |
+| LGPD / retenção            | Perguntas e respostas podem conter dados pessoais de clientes.                                                                        | AST6 — v1 não persiste conversas (histórico efêmero no navegador); se um dia persistir (F3), definir retenção/expurgo.                                                |
+| PROSPECTOR                 | A allowlist central hoje não incluiria o assistente; abrir exigiria decidir o que ele pode perguntar.                                 | AST3 — v1 sem PROSPECTOR.                                                                                                                                             |
 
 Referências: OWASP AI Agent Security Cheat Sheet; guias Google Cloud (acesso de agentes a Cloud SQL/MCP); padrão action-selector (tools pré-definidas) da literatura de 2025/26 — links no §10.
 
 ## 6. Custos (estimativa)
 
-Preços de tabela em jul/2026 (por 1M tokens, input/output — **conferir na página oficial do provedor antes de travar Q1**):
+Preços de tabela em jul/2026 (por 1M tokens, input/output — **conferir na página oficial do provedor antes de implementar a AST1**):
 
 | Modelo                      | Input | Output | Observação                                  |
 | --------------------------- | ----- | ------ | ------------------------------------------- |
@@ -140,20 +140,13 @@ Preços de tabela em jul/2026 (por 1M tokens, input/output — **conferir na pá
 
 **Conclusão**: com modelo de entrada + prompt caching + caps, o assistente custa **~R$ 10–50/mês** no uso esperado da equipe — na escala do TCO atual (~R$ 231/mês) e menor que a linha de extração (R$ 83/mês). O custo NÃO é um bloqueador; o teto (caps) é o que garante isso.
 
-## 7. Pontos de decisão em aberto (aguardando o Flavio)
+## 7. Pontos de decisão
 
-| #   | Pergunta                      | Opções                                                                                                        | Recomendação                                                                                                       |
-| --- | ----------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Q1  | Fornecedor/modelo             | (a) OpenAI (já contratado, 1 fornecedor só) · (b) Anthropic Claude (novo fornecedor)                          | (a) na v1 com GPT-5.4 Mini, pela simplicidade operacional (chave/billing já existem); trocar de modelo é 1 env var |
-| Q2  | Escopo de dados da v1         | Quais domínios de tools: lotes · clientes · contratos/financeiro · agenda/eventos · usuários                  | Lotes + clientes + agenda na v1; contratos/financeiro na v1 se ADMIN/COMMERCIAL forem o público principal          |
-| Q3  | Papéis atendidos na v1        | Todos exceto PROSPECTOR · só ADMIN/COMMERCIAL · todos                                                         | Todos exceto PROSPECTOR (allowlist dele ficaria para depois)                                                       |
-| Q4  | Superfície de UI              | (a) botão global (painel lateral desktop / bottom sheet mobile) · (b) página dedicada · (c) card no dashboard | (a) — o valor é estar a um toque de qualquer tela                                                                  |
-| Q5  | Streaming e protocolo         | (a) SSE com Vercel AI SDK (`useChat`) · (b) SSE implementado na mão · (c) sem stream (resposta única)         | (a) — lib madura, poupa o protocolo de stream/blocos; avaliar peso da dependência                                  |
-| Q6  | Histórico de conversas        | (a) efêmero (memória do navegador, some ao sair) · (b) persistido em tabela nova                              | (a) na v1 — zero schema novo, zero LGPD de retenção; (b) só se houver demanda real                                 |
-| Q7  | Caps e limites                | Valores de: rodadas de tools/turno, tokens/resposta, perguntas/usuário/dia                                    | 5 rodadas · 1,5k tokens de saída · 50 perguntas/usuário/dia (ajustáveis por env)                                   |
-| Q8  | Ambição da apresentação na v1 | (a) só texto/markdown · (b) texto + blocos estruturados (cards/tabelas/deep links)                            | (b) — é o que diferencia a experiência; os componentes visuais já existem no design system                         |
-| Q9  | Nome/persona do assistente    | a definir (aparece na UI e no system prompt)                                                                  | —                                                                                                                  |
-| Q10 | Telemetria e feedback         | (a) telemetria de tokens/latência apenas · (b) + botão 👍/👎 por resposta                                     | (a) na v1; (b) na v2 para guiar a evolução das tools                                                               |
+**Todos os pontos (Q1–Q10) foram decididos com o Flavio em 2026-07-14** e viraram AST1–AST10 no Apêndice A. O contexto completo (opções consideradas e recomendações) vive no histórico do Git desta seção.
+
+### Pendências
+
+- **P1 — Nome do assistente**: decidido que terá nome/persona próprio (AST9), mas o nome em si ainda não foi escolhido. Escolher antes da UI da F1.
 
 ## 8. Riscos
 
@@ -167,10 +160,10 @@ Preços de tabela em jul/2026 (por 1M tokens, input/output — **conferir na pá
 
 ## 9. Fases propostas (alto nível — detalhamento fica para o plan mode da implementação)
 
-- **F0 — Decisões**: travar Q1–Q10 com o Flavio; registrar como AST1+ no Apêndice A.
-- **F1 — MVP**: rota `assistant/chat` com SSE + loop de tools + 4–6 tools de leitura + chat UI mínima (texto) + caps + telemetria. Critério de pronto: responder com precisão as ~10 perguntas mais comuns do dia a dia.
-- **F2 — Apresentação rica**: blocos estruturados (cards/tabelas/deep links), sugestões de pergunta, cobertura completa dos domínios decididos.
-- **F3 — Refinamentos**: feedback 👍/👎, histórico persistente (se decidido), possíveis papéis adicionais (PROSPECTOR), RAG de documentação/ajuda.
+- **F0 — Decisões**: ✅ CONCLUÍDA (2026-07-14) — AST1–AST10 no Apêndice A; resta a pendência P1 (nome).
+- **F1 — Fundação**: rota `assistant/chat` com SSE (Vercel AI SDK) + loop de tools com caps (AST7) + tools de leitura dos 4 domínios (AST2) + telemetria + chat em texto. Critério de pronto: responder com precisão as ~10 perguntas mais comuns do dia a dia.
+- **F2 — Experiência da v1**: blocos estruturados com deep links (AST8), botão global + página dedicada (AST4), feedback 👍/👎 (AST10), sugestões de pergunta. F1+F2 juntas formam a v1 que vai ao ar.
+- **F3 — Futuro (fora da v1)**: histórico persistente, PROSPECTOR, RAG de documentação/ajuda, tools de escrita (se um dia fizer sentido, com confirmação humana).
 
 ## 10. Fontes da pesquisa (2026-07-14)
 
@@ -189,4 +182,15 @@ Preços de tabela em jul/2026 (por 1M tokens, input/output — **conferir na pá
 
 ## Apêndice A — Ledger de decisões
 
-Nenhuma decisão travada ainda. Quando os pontos do §7 forem confirmados, entram aqui como `- **ASTn** — <resolução em 1 linha>`.
+Decisões travadas com o Flavio em 2026-07-14:
+
+- **AST1** — Fornecedor/modelo da v1: OpenAI **GPT-5.4 Mini** (provedor já contratado; modelo trocável por env var; conferir preço/ID na página oficial antes de implementar).
+- **AST2** — Escopo de dados da v1: **os quatro domínios** — lotes/amostras, clientes, agenda/eventos e contratos/financeiro (este último visível só a ADMIN/COMMERCIAL, gate herdado).
+- **AST3** — Papéis na v1: **todos exceto PROSPECTOR**; cada papel vê só o que seus gates permitem.
+- **AST4** — Superfície de UI: **botão global E página dedicada** — as duas coexistem sobre o mesmo chat (painel lateral desktop / bottom sheet mobile + rota própria).
+- **AST5** — Streaming: **SSE com Vercel AI SDK** (`useChat`), proxy same-origin no route handler.
+- **AST6** — Histórico de conversas: **efêmero** (memória do navegador; nada persistido no banco na v1).
+- **AST7** — Caps default: **5 rodadas de tools/turno, ~1,5k tokens de saída, 50 perguntas/usuário/dia** — ajustáveis por env var.
+- **AST8** — Apresentação: **texto + blocos estruturados** (cards/tabelas do design system com deep links) já na v1.
+- **AST9** — O assistente **terá nome/persona próprio**; o nome em si é a pendência P1 (§7).
+- **AST10** — Telemetria técnica **+ feedback 👍/👎 por resposta já na v1**.
