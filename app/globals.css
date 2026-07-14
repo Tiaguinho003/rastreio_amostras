@@ -34059,14 +34059,11 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   inset: 0;
 }
 
-/* Tokens da feature (PG34) + variáveis do React Flow, escopados no host.
-   Roxo e azul-escuro não existiam no :root — nascem aqui, locais. */
+/* Tokens da feature (PG34) + variáveis do React Flow, escopados no host. */
 .pg-host {
   --pg-node-lote: var(--brand-green);
   --pg-node-mistura: var(--color-warning);
   --pg-node-resultado: var(--color-info);
-  --pg-node-alvo: #6d4fa1;
-  --pg-node-combinacoes: #143a5c;
   --xy-edge-stroke: #9aa8a0;
   --xy-edge-stroke-selected: var(--brand-green-soft);
   --xy-handle-background-color: var(--brand-green-soft);
@@ -34095,12 +34092,6 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
 }
 .pg-node-resultado {
   border-left-color: var(--pg-node-resultado);
-}
-.pg-node-alvo {
-  border-left-color: var(--pg-node-alvo);
-}
-.pg-node-combinacoes {
-  border-left-color: var(--pg-node-combinacoes);
 }
 .pg-node.is-incomplete {
   border-style: dashed;
@@ -34151,8 +34142,7 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   color: var(--brand-muted);
   font-size: 0.76rem;
 }
-.pg-node-sacks input,
-.pg-node-sacks select {
+.pg-node-sacks input {
   width: 5.5rem;
   padding: 0.3rem 0.45rem;
   border: 1px solid var(--color-line);
@@ -34164,29 +34154,6 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
 }
 .pg-node.has-error .pg-node-sacks input {
   border-color: var(--color-danger);
-}
-.pg-node-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-.pg-node-form label {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.76rem;
-  color: var(--brand-muted);
-}
-.pg-node-form label > span:first-child {
-  width: 4.2rem;
-}
-.pg-node-form input {
-  width: 3.4rem;
-  padding: 0.25rem 0.4rem;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-sm);
-  font: inherit;
-  font-size: 0.78rem;
 }
 
 /* Tooltip de hover do node Lote (PG29) — só onde hover existe de verdade. */
@@ -34356,12 +34323,6 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
 }
 .pg-accent-resultado {
   border-left-color: var(--pg-node-resultado);
-}
-.pg-accent-alvo {
-  border-left-color: var(--pg-node-alvo);
-}
-.pg-accent-combinacoes {
-  border-left-color: var(--pg-node-combinacoes);
 }
 .pg-palette-label {
   font-size: 0.82rem;

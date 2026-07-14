@@ -10,11 +10,10 @@ const VALID_PAIRS: ReadonlySet<string> = new Set([
   'lote->mistura',
   'mistura->mistura',
   'mistura->resultado',
-  'alvo->combinacoes',
 ]);
 
 /** Nodes de saída aceitam uma única edge de entrada. */
-const SINGLE_INPUT_TYPES: ReadonlySet<PgNodeType> = new Set(['resultado', 'combinacoes']);
+const SINGLE_INPUT_TYPES: ReadonlySet<PgNodeType> = new Set(['resultado']);
 
 export type ConnectionRejectionReason =
   | 'SELF'

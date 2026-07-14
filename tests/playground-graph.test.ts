@@ -23,13 +23,10 @@ test('validateConnection aceita os pares válidos do catálogo', () => {
     node('m1', 'mistura'),
     node('m2', 'mistura'),
     node('r1', 'resultado'),
-    node('a1', 'alvo'),
-    node('c1', 'combinacoes'),
   ];
   assert.deepEqual(validateConnection(nodes, [], edge('l1', 'm1')), { ok: true });
   assert.deepEqual(validateConnection(nodes, [], edge('m1', 'm2')), { ok: true });
   assert.deepEqual(validateConnection(nodes, [], edge('m1', 'r1')), { ok: true });
-  assert.deepEqual(validateConnection(nodes, [], edge('a1', 'c1')), { ok: true });
 });
 
 test('validateConnection rejeita pares inválidos e self-connect', () => {
@@ -38,17 +35,12 @@ test('validateConnection rejeita pares inválidos e self-connect', () => {
     lote('l2', 'mock-5661', 5),
     node('m1', 'mistura'),
     node('r1', 'resultado'),
-    node('a1', 'alvo'),
   ];
   assert.deepEqual(validateConnection(nodes, [], edge('l1', 'r1')), {
     ok: false,
     reason: 'INVALID_PAIR',
   });
   assert.deepEqual(validateConnection(nodes, [], edge('r1', 'l1')), {
-    ok: false,
-    reason: 'INVALID_PAIR',
-  });
-  assert.deepEqual(validateConnection(nodes, [], edge('a1', 'm1')), {
     ok: false,
     reason: 'INVALID_PAIR',
   });

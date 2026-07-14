@@ -8,16 +8,12 @@ export const NODE_LABELS: Record<PgNodeType, string> = {
   lote: 'Lote',
   mistura: 'Mistura',
   resultado: 'Resultado',
-  alvo: 'Especificação-alvo',
-  combinacoes: 'Combinações',
 };
 
 const PALETTE: Array<{ type: PgNodeType; hint: string }> = [
   { type: 'lote', hint: 'Fonte: um lote real' },
   { type: 'mistura', hint: 'Combina 2+ entradas' },
   { type: 'resultado', hint: 'Estimativa da liga' },
-  { type: 'alvo', hint: 'Fluxo inverso' },
-  { type: 'combinacoes', hint: 'Fluxo inverso' },
 ];
 
 // Paleta lateral colapsável (PG26): arrasta pro canvas (dataTransfer) ou

@@ -5,7 +5,7 @@ import type { SampleSnapshot } from '../types';
 // grafo, independentes do React Flow — os componentes do canvas convertem
 // nodes/edges da lib para estas formas antes de chamar os módulos.
 
-export type PgNodeType = 'lote' | 'mistura' | 'resultado' | 'alvo' | 'combinacoes';
+export type PgNodeType = 'lote' | 'mistura' | 'resultado';
 
 export type PgGraphNode = {
   id: string;

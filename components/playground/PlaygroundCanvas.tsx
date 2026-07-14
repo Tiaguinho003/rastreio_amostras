@@ -33,8 +33,6 @@ import { ExecutePill } from './ExecutePill';
 import { NodePalette } from './NodePalette';
 import { ResultDrawer } from './ResultDrawer';
 import { PlaygroundResultsContext, type PlaygroundResults } from './results-context';
-import { AlvoNode } from './nodes/AlvoNode';
-import { CombinacoesNode } from './nodes/CombinacoesNode';
 import { LoteNode } from './nodes/LoteNode';
 import { MisturaNode } from './nodes/MisturaNode';
 import { ResultadoNode } from './nodes/ResultadoNode';
@@ -45,8 +43,6 @@ const nodeTypes: NodeTypes = {
   lote: LoteNode,
   mistura: MisturaNode,
   resultado: ResultadoNode,
-  alvo: AlvoNode,
-  combinacoes: CombinacoesNode,
 };
 
 const REJECTION_MESSAGES: Record<ConnectionRejectionReason, string> = {
@@ -62,21 +58,10 @@ const REJECTION_MESSAGES: Record<ConnectionRejectionReason, string> = {
 const COMPATIBLE_TARGETS: Partial<Record<PgNodeType, PgNodeType[]>> = {
   lote: ['mistura'],
   mistura: ['mistura', 'resultado'],
-  alvo: ['combinacoes'],
 };
 
 function initialNodeData(type: PgNodeType): Record<string, unknown> {
   if (type === 'lote') return { sampleId: null, sacks: null };
-  if (type === 'combinacoes') return { maxLots: 3 };
-  if (type === 'alvo') {
-    return {
-      peneiraAlvo: '',
-      peneiraTolerancia: '',
-      catacaoAlvo: '',
-      catacaoTolerancia: '',
-      sacasMinimas: '',
-    };
-  }
   return {};
 }
 
@@ -142,12 +127,6 @@ export function PlaygroundCanvas() {
   const onExecute = useCallback(() => {
     if (!nodes.some((node) => node.type === 'resultado')) {
       toast.info({ title: 'Adicione um node Resultado para ver a estimativa' });
-    }
-    if (nodes.some((node) => node.type === 'combinacoes')) {
-      toast.info({
-        title: 'Busca de combinações em breve',
-        description: 'O fluxo inverso chega na F4.',
-      });
     }
     setHasExecuted(true);
   }, [nodes, toast]);
