@@ -122,6 +122,19 @@ mobile, `>= 901` = desktop).
 > de antes + faixa branca com o avatar (app restrito, so "Inicio" + "Sair").
 > Mobile inalterado (tabbar + hero; a topbar verde mobile nao mudou).
 
+> **DSB-D16 (2026-07-14):** entrou a **TOP BAR GLOBAL** desktop (`.app-topbar`,
+> nao-PROSPECTOR): faixa branca UNICA atravessando o viewport (row 1 do grid,
+> colunas 1/-1, sticky, 56px = `--app-topbar-h`); a **sidenav comeca abaixo
+> dela** (row 2, altura descontada) e o **logo quadrado saiu do trilho e foi
+> pra barra** (esquerda). A direita, **2 icones INERTES** que ganharao funcao
+> no futuro: **sino (Notificacoes) + ajuda "?"** (`.app-topbar-action`). O
+> miolo da barra fica **VAZIO de proposito** (sem busca, sem titulo de pagina —
+> decisao do Flavio; o titulo das paginas ficara "em outro lugar", a definir).
+> Junto veio o **canvas verde-clarinho `#f4f6f5`** (o mesmo do trilho) como
+> fundo de todas as paginas desktop nao-PROSPECTOR (`background` no
+> `.app-shell-root:has(.app-sidenav)`; cards/sheets brancos saltam sobre ele).
+> Mobile e PROSPECTOR seguem intactos (fundo branco; chrome proprio).
+
 Itens definidos em `AppShell.tsx`: `DESKTOP_NAV_ITEMS` (Inicio/Lotes/Clientes),
 `INFORME_NAV_ITEM` (Relatorios), `CADASTROS_NAV_ITEM`, `CONTRATOS_NAV_ITEM`,
 `ADMIN_NAV_ITEM` (Usuarios), `MOBILE_NAV_ITEMS` (inclui Camera). A filtragem por

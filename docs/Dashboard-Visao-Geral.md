@@ -86,18 +86,19 @@ Regras que geram a matriz:
 
 ## 4. Layout desktop (`components/dashboard/DashboardDesktop.tsx`)
 
-Desde **DSB-D14 (2026-07-14)** o dashboard desktop apresenta **apenas o card de Eventos**, ocupando a área de conteúdo inteira (`.dd-content-grid` virou uma linha única, `minmax(300px, 1fr)`):
+Desde **DSB-D14 (2026-07-14)** o dashboard desktop apresenta **apenas o card de Eventos**; desde **DSB-D16 (2026-07-14)** nem o cabeçalho da página existe mais — o card ocupa a página inteira, sobre o **canvas verde-clarinho** (`#f4f6f5`) e abaixo da **top bar global** do shell (ver `Auditoria-Navegacao-por-Papel.md`):
 
 ```
-┌─ .dd-page-header ──────────────────────────────────────────────────┐
-│  "Visão geral" + saudação/nome + papel + data por extenso           │
-├─ .dd-content-grid (1 área) ───────────────────────────────────────┤
-│           EVENTOS (largura e altura totais)                         │
+┌─ .app-topbar (shell, cross-página) ────────────────────────────────┐
+│  logo quadrado …………………………………………………… 🔔 ❓ (inertes)                 │
+├─ .dd-content-grid (1 área, canvas #f4f6f5) ───────────────────────┤
+│           EVENTOS (card branco, largura e altura totais)           │
 │           semana atual (seg–sex) com eventos dentro das células     │
 └───────────────────────────────────────────────────────────────────┘
 ```
 
-- O shell-lock de 100vh continua (a página não rola em viewport confortável; abaixo do piso de 300px a página rola e os dias cheios rolam por dentro).
+- O shell-lock de 100vh continua (a página não rola em viewport confortável; abaixo do piso de 300px a página rola e os dias cheios rolam por dentro). A top bar global (56px) entra na conta automaticamente (grid `auto 1fr` do shell).
+- **DSB-D16:** o cabeçalho `.dd-page-header` ("Visão geral" + saudação/nome + papel + data por extenso) foi **removido** (JSX + CSS `.dd-page-*`; `getTodayLong` saiu do `greeting.ts`).
 - Histórico: a linha de StatCards de pendências (`.dd-summary-row`) saiu em DSB-D2 (2026-07-12); o arranjo virou top row (donut + 2 cards de envio) + Eventos horizontal em DSB-D3/D5; em **DSB-D14** a top row inteira saiu — donut **apagado do sistema**, cards de envio migrados pra `/samples` e `/embarques` (`.dd-top-row` e o CSS exclusivo do donut removidos).
 
 ---
@@ -111,7 +112,7 @@ Página que rola inteira (`.dashboard-scroll`), sem nada fixo:
 ```
 
 - Desde **DSB-D14 (2026-07-14)** o mobile é **só o hero** — o donut foi apagado do sistema e o sheet saiu junto (estado transitório aceito pelo Flavio: o calendário de Eventos ainda é desktop-only e chega ao mobile no ciclo do dashboard mobile, **DSB-H6**).
-- O hero tem a **saudação**, que o desktop **não** tem — desde **DSB-D6 (2026-07-12)** a saudação saiu da faixa branca do desktop. _(Desde **DSB-D15, 2026-07-14**, a faixa branca nem existe mais no desktop dos não-PROSPECTOR: a navegação virou a **sidenav lateral esquerda**; ver `Auditoria-Navegacao-por-Papel.md`.)_ O `.dd-page-header` do dashboard desktop mantém a saudação própria da página.
+- O hero tem a **saudação**, que o desktop **não** tem mais em lugar nenhum — saiu da faixa branca em **DSB-D6**, e o cabeçalho da página (`.dd-page-header`, que tinha saudação própria) saiu em **DSB-D16 (2026-07-14)**. _(Desde **DSB-D15** a navegação desktop é a **sidenav lateral esquerda** + top bar global do DSB-D16; ver `Auditoria-Navegacao-por-Papel.md`.)_
 - Histórico: os op-cards de pendências saíram em DSB-D2 (2026-07-12); o donut ("hero + donut") ficou até DSB-D14.
 
 ---
