@@ -323,19 +323,10 @@ export interface SaleContractBrokerView {
   brokerNameSnapshot: string;
 }
 
-// Aprovação do contrato (Fase I, D112–D119): item REDUZIDO do seletor de
-// contratos (allowlist do backend — sem valores financeiros nem snapshots
-// crus) + prefill da etiqueta montado no backend (campos já cortados nos
-// limites físicos e lotes quebrados do Lote de origem, D115/D116).
-export interface ApprovalContractOption {
-  id: string;
-  contractNumber: string;
-  contractDate: string | null;
-  quantitySacks: number;
-  status: SaleContractStatus;
-  buyerName: string | null;
-}
-
+// Aprovação do contrato (Fase I, D112–D119): prefill da etiqueta montado no
+// backend (campos já cortados nos limites físicos e lotes quebrados do Lote
+// de origem, D115/D116). O tipo do seletor de contratos (ApprovalContractOption)
+// saiu com o picker aposentado pela AP29.
 export interface ApprovalLabelPrefill {
   fields: {
     compra: string;

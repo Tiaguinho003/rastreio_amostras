@@ -1,5 +1,4 @@
 import type {
-  ApprovalContractOption,
   ApprovalLabelPrefill,
   BlendFeasibilityResponse,
   ClassificationType,
@@ -1947,16 +1946,9 @@ export function requestQrPrint(
 }
 
 // Aprovacao do contrato (Fase I, D112-D119) — endpoints da etiqueta AUDITADA.
-// O seletor lista os contratos elegiveis em view REDUZIDA (sem valores
-// financeiros); o prefill vem montado do backend; o envio grava o
-// custom_print_job + a auditoria (approval_label_log) na MESMA transacao.
-export function listApprovalContracts(session: SessionData, options?: { signal?: AbortSignal }) {
-  return request<{ items: ApprovalContractOption[] }>('/approval-labels/contracts', {
-    session,
-    signal: options?.signal,
-  });
-}
-
+// O prefill vem montado do backend; o envio grava o custom_print_job + a
+// auditoria (approval_label_log) na MESMA transacao. (O wrapper do seletor
+// de contratos saiu com o picker aposentado pela AP29.)
 export function getApprovalLabelPrefill(session: SessionData, contractId: string) {
   return request<ApprovalLabelPrefill>(`/approval-labels/contracts/${contractId}/prefill`, {
     session,

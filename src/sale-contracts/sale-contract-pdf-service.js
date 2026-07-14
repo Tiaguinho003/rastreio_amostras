@@ -76,14 +76,14 @@ export function formatMonthYearExtenso(iso) {
 }
 
 // "Mês" (só o nome) e "Ano" do contrato — a linha de identificação separa os dois.
-export function formatMonthExtenso(iso) {
+function formatMonthExtenso(iso) {
   if (!iso) return null;
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return null;
   return MONTHS[date.getUTCMonth()];
 }
 
-export function formatYear(iso) {
+function formatYear(iso) {
   if (!iso) return null;
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return null;
@@ -91,7 +91,7 @@ export function formatYear(iso) {
 }
 
 // Data por extenso: "22 de maio de 2026" (local/data do contrato no rodapé).
-export function formatDateExtenso(iso) {
+function formatDateExtenso(iso) {
   if (!iso) return null;
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return null;

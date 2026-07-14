@@ -188,7 +188,7 @@ export function formatContractNumber(seq, year) {
 // Snapshot MINIMO de identidade do vendedor (a partir do ownerClient ja mapeado
 // da amostra). Na criacao atomica o emitData sobrescreve com o snapshot completo
 // (filial/endereco) e o EMITIDO congela (D25). buyerSnapshot reusa o binding.
-export function buildSellerSnapshot(ownerClient) {
+function buildSellerSnapshot(ownerClient) {
   if (!ownerClient) {
     return null;
   }
@@ -487,7 +487,7 @@ export const SHIPMENT_VIEW_SELECT = Object.freeze({
 // Estado derivado (sem enum, EMB23): cancelado (WASH_OUT) · embarcado (shippedAt) ·
 // atrasado (nao embarcado + invoiceDate < hoje BRT) · a_embarcar (senao). O atraso
 // so acende a partir do dia SEGUINTE a invoiceDate (o proprio dia ainda e a_embarcar).
-export function deriveShipmentState(status, invoiceDate, shippedAt, todayKey) {
+function deriveShipmentState(status, invoiceDate, shippedAt, todayKey) {
   if (status === 'WASH_OUT') return 'cancelado';
   if (shippedAt) return 'embarcado';
   const iso = toIsoString(invoiceDate);
@@ -513,7 +513,7 @@ export function buildShipmentView(row, todayKey) {
 }
 
 // Filtros da worklist (EMB25). Default 'todos'.
-export const SHIPMENT_FILTERS = Object.freeze([
+const SHIPMENT_FILTERS = Object.freeze([
   'todos',
   'a_embarcar',
   'atrasado',
@@ -581,14 +581,14 @@ export function shipmentKeysetWhere(cursor) {
 // etiqueta, nao washout) · a_enviar (EMITIDO + marcado + sem etiqueta). "Faturado sem
 // enviar" e IMPOSSIVEL (portao AP18) => marcado+FATURADO/PAGO sempre tem etiqueta =>
 // enviada. `labelCount` vem do approval_label_log (agregado na query da worklist).
-export function deriveApprovalState(status, labelCount) {
+function deriveApprovalState(status, labelCount) {
   if (status === 'WASH_OUT') return 'cancelado';
   if (labelCount >= 1) return 'enviada';
   return 'a_enviar';
 }
 
 // Filtros da worklist (AP28). Default 'a_enviar' (o acionavel em cima).
-export const APPROVAL_WL_FILTERS = Object.freeze(['a_enviar', 'enviada', 'cancelado', 'todos']);
+const APPROVAL_WL_FILTERS = Object.freeze(['a_enviar', 'enviada', 'cancelado', 'todos']);
 
 export function normalizeApprovalWlFilter(raw) {
   return typeof raw === 'string' && APPROVAL_WL_FILTERS.includes(raw) ? raw : 'a_enviar';
@@ -643,7 +643,7 @@ export function decodeApprovalWlCursor(raw) {
 // paymentDate < hoje BRT) · a_vencer (nao pago, no prazo ou SEM data). `paymentDate`
 // = Date @db.Date (ou null); `todayKey` = 'YYYY-MM-DD' BRT (brtTodayKey). Sem data
 // nunca vira vencido. String-compare de 2 'YYYY-MM-DD' == compare cronologico.
-export function deriveReceivablePaymentState(status, paymentDate, todayKey) {
+function deriveReceivablePaymentState(status, paymentDate, todayKey) {
   if (status === 'WASH_OUT') return 'cancelado';
   if (status === 'PAGO') return 'pago';
   const iso = toIsoString(paymentDate);
@@ -689,7 +689,7 @@ export function buildReceivableView(row, brokerRows, todayKey) {
 }
 
 // Revisao do Pagamento (FN4/FN5): filtro do Financeiro. Default 'todos'.
-export const RECEIVABLE_FILTERS = Object.freeze([
+const RECEIVABLE_FILTERS = Object.freeze([
   'todos',
   'a_vencer',
   'vencido',
@@ -1352,7 +1352,7 @@ export function normalizeFutureSaleContractInput(input) {
   };
 }
 
-export function clientDisplayName(client) {
+function clientDisplayName(client) {
   if (!client) {
     return null;
   }
@@ -1361,7 +1361,7 @@ export function clientDisplayName(client) {
     : (client.legalName ?? client.tradeName ?? null);
 }
 
-export function buildUnitSnapshot(unit) {
+function buildUnitSnapshot(unit) {
   if (!unit) {
     return null;
   }
