@@ -93,11 +93,11 @@ Desde **DSB-D14 (2026-07-14)** o dashboard desktop apresenta **apenas o card de 
 │  logo quadrado …………………………………………………… 🔔 ❓ (inertes)                 │
 ├─ .dd-content-grid (1 área, canvas #f4f6f5) ───────────────────────┤
 │           EVENTOS (card branco, largura e altura totais)           │
-│           semana atual (seg–sex) com eventos dentro das células     │
+│           mês inteiro (grade 7×N) com eventos dentro das células    │
 └───────────────────────────────────────────────────────────────────┘
 ```
 
-- O shell-lock de 100vh continua (a página não rola em viewport confortável; abaixo do piso de 300px a página rola e os dias cheios rolam por dentro). A top bar global (56px) entra na conta automaticamente (grid `auto 1fr` do shell).
+- O shell-lock de 100vh continua (a página não rola em viewport confortável; abaixo do piso de 420px — DSB-D18 — a página rola e os dias cheios rolam por dentro). A top bar global (56px) entra na conta automaticamente (grid `auto 1fr` do shell).
 - **DSB-D16:** o cabeçalho `.dd-page-header` ("Visão geral" + saudação/nome + papel + data por extenso) foi **removido** (JSX + CSS `.dd-page-*`; `getTodayLong` saiu do `greeting.ts`).
 - Histórico: a linha de StatCards de pendências (`.dd-summary-row`) saiu em DSB-D2 (2026-07-12); o arranjo virou top row (donut + 2 cards de envio) + Eventos horizontal em DSB-D3/D5; em **DSB-D14** a top row inteira saiu — donut **apagado do sistema**, cards de envio migrados pra `/samples` e `/embarques` (`.dd-top-row` e o CSS exclusivo do donut removidos).
 
@@ -149,9 +149,9 @@ Os dois cards continuam existindo, **fora do dashboard** (desktop-only, mesmo co
 
 ### 7.3 Eventos (`EventsCalendarCard`) — desktop-only, **único card do dashboard (DSB-D14)**
 
-- **Layout (DSB-D4 + DSB-D7):** card **horizontal**; calendário de **1 semana de DIAS ÚTEIS (seg–sex, 5 células)**, navegação ◀ ▶ de 7 em 7 dias + botão "Hoje". Cada dia é um **quadrado alto** que mostra os **eventos dentro da própria célula** (chips coloridos por **estado**, DSB-D10; rótulo truncado); dias com muitos eventos **rolam por dentro** da célula. **Não há painel** de dia selecionado. "Hoje" destacado com anel. Datas em BRT (helpers em `lib/dashboard-calendar.ts`).
-- **Sem fins de semana (DSB-D7):** sábado e domingo **não aparecem** (o negócio não agenda faturamento/embarque/pagamento neles — ver §8 e a regra de contrato em `API-e-Contratos.md`). A **janela buscada** continua **dom–sáb (7 dias)** de propósito: o backend **rola** os eventos de fim de semana (legado no banco, ou datas reais de borda) pro **dia útil vizinho** (sáb→sex, dom→seg) via `rollWeekendToWeekday`, então nada some do calendário. `buildBusinessDays(weekStart)` filtra os 5 dias renderizados.
-- **3 feeds mesclados client-side** no `DashboardDesktop` (a janela visível é emitida pelo card via `onWindowChange` → o pai busca a **semana**):
+- **Layout (DSB-D18, 2026-07-14):** calendário **MENSAL** — grade **7×N domingo-first** (N = 4/5/6 semanas, `buildMonthGrid`) com **todos os dias do mês**, navegação ◀ ▶ de **mês em mês** + botão "Hoje"; rótulo do header = "julho de 2026" (`formatMonthLabel`). Cada dia mostra os **eventos dentro da própria célula** (chips coloridos por **estado**, DSB-D10; rótulo truncado); dias com muitos eventos **rolam por dentro** da célula. **Não há painel** de dia selecionado. "Hoje" destacado com anel. Datas em BRT (helpers em `lib/dashboard-calendar.ts`). _(Supera a "1 semana de dias úteis" do DSB-D4/D7.)_
+- **Fins de semana e pontas (DSB-D18):** sáb/dom **aparecem levemente esmaecidos** (`is-weekend` — o negócio não agenda ações neles, regra de contrato em `API-e-Contratos.md`; evento ali é legado/borda e mostra no **dia REAL** — o roll `rollWeekendToWeekday` do DSB-D7 foi **removido**). Os dias dos **meses vizinhos** que fecham as semanas (`is-outside`) aparecem esmaecidos **com** os seus eventos. A **janela buscada** cobre a **grade inteira** (28–42 dias).
+- **3 feeds mesclados client-side** no `DashboardDesktop` (a janela visível é emitida pelo card via `onWindowChange` → o pai busca a **grade do mês** — DSB-D18):
 
   | Feed        | typeKey                                                                       | Visibilidade                                                                     | Fonte                        |
   | ----------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------- |
@@ -190,7 +190,7 @@ Definições dos handlers: `src/api/v1/backend-api.js`. Implementações: `src/s
 - **Pagamento:** agendado = `EMITIDO`/`FATURADO` com `paymentDate` na janela; realizado = `PAGO` com `paidAt` na janela; `WASH_OUT` fora. ADMIN e COMMERCIAL veem os pagamentos de **todos** os contratos (escopo aberto — D140; sem recorte por `Broker.userId`). Vencidos reclassificados por "hoje BRT" (dot vermelho).
 - **Embarque:** agendado = `requiresShipment` + `EMITIDO`/`FATURADO` + não embarcado, no `invoiceDate` (vermelho se o dia passar); realizado = embarcado (`shippedAt` na janela).
 - **Faturamento (DSB-D11):** agendado = `EMITIDO` no `invoiceDate` (vermelho se o dia passar); realizado = `FATURADO`/`PAGO` no `invoicedAt` (dia REAL do faturamento, não no `invoiceDate`). Auth-only (todos os não-PROSPECTOR, sem escopo por corretor — como o embarque). `id` namespaced (`invoice:`). Índices `idx_sale_contract_status_invoice_date` / `_status_invoiced_at`.
-- **Roll de fim de semana (DSB-D7):** pagamento, embarque e faturamento **rolam** o evento pro dia útil vizinho na montagem (`bucketPaymentEvents`/`bucketShipmentEvents`/`bucketInvoiceEvents`, sáb→sex/dom→seg) — o `typeKey` de atraso é computado sobre a data REAL, antes do roll. Datas novas já não caem em fim de semana (validação do contrato); o roll cobre legado/borda.
+- **Fim de semana (DSB-D18):** o roll de fim de semana do DSB-D7 (`rollWeekendToWeekday`) foi **removido** — os buckets (`bucketPaymentEvents`/`bucketShipmentEvents`/`bucketInvoiceEvents`) agrupam no **dia real**; o calendário mensal mostra sáb/dom. A validação de contrato que recusa datas de ação em fim de semana (`assertBusinessDate`, 422 `WEEKEND_DATE`) **permanece** — evento em sáb/dom é legado/borda.
 - **Escopo por papel dos feeds:** **nenhum** feed é mais escopado por corretor — pagamento, embarque e faturamento são todos **auth-only por papel** (o COMMERCIAL vê contratos de **outros** corretores: nº + comprador + datas; info **não-sensível**, sem preço/corretagem nos selects). O pagamento segue gated por `FINANCEIRO_ROLES` (ADMIN + COMMERCIAL); embarque e faturamento por qualquer não-PROSPECTOR. _(A "Decisão do check-up: **manter**" o pagamento escopado ao próprio corretor foi **revisada em 2026-07-13 — D140**: o own-only foi revogado e o feed de pagamento também abriu a todos os contratos.)_
 - _(O feed de **aprovação** — lembrete "a enviar" com fan-out por intervalo — foi **removido** em DSB-D9; ver §7.3.)_
 
@@ -198,7 +198,7 @@ Definições dos handlers: `src/api/v1/backend-api.js`. Implementações: `src/s
 
 ## 9. Regras de negócio e detalhes técnicos
 
-- **Datas em BRT:** todos os cálculos de dia usam offset São Paulo −3h (feeds de eventos, calendário). A **janela** do calendário segue ancorada no **domingo** (`computeWeekStart`/`buildWeek`, 7 dias), mas o card **renderiza só os dias úteis** (seg–sex, `buildBusinessDays`) — DSB-D7. O dia da semana de uma data de contrato (`@db.Date`) é lido em **UTC** (`getUTCDay`), sem deslocar −3h.
+- **Datas em BRT:** todos os cálculos de dia usam offset São Paulo −3h (feeds de eventos, calendário). A **grade** do calendário é mensal domingo-first (`computeMonthStart`/`buildMonthGrid` — do domingo da semana do dia 1 ao sábado da semana do último dia; DSB-D18). O dia da semana de uma data de contrato (`@db.Date`) é lido em **UTC** (`getUTCDay`), sem deslocar −3h.
 - **Throttle de refetch (C1, 2026-07-12):** os **3 feeds de eventos** refazem em `focus` **e** `visibilitychange`, com gate `visibilityState==='visible'` + throttle **30s** (antes disparavam sem gate/throttle → tempestade de requests no Alt+Tab). Só no breakpoint desktop; só com janela emitida. _(Os cards de envios levaram o mesmo padrão pra `lib/use-recent-sends-feed.ts` nas suas novas páginas — DSB-D14. O card de pendência de `/samples` segue com fetch simples na montagem.)_
 - **Twin inativo não busca:** os fetches dos feeds de eventos checam `matchMedia('(min-width: 901px)')` antes de disparar, e um listener de `change` re-busca ao **entrar** no desktop (senão o card ficava travado no skeleton após um resize — C1).
 - **Erro + retry (C1):** falha de fetch dos eventos mostra **erro + "Tentar novamente"** (componente `LoadError` — ex-`DashboardLoadError`, agora compartilhado em `components/LoadError.tsx`; reusa `.dashboard-error-banner`) no lugar de skeleton/vazio eterno.
