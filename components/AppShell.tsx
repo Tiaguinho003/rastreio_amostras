@@ -822,25 +822,49 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
         </aside>
       ) : null}
 
+      {/* Top bar global desktop dos nao-PROSPECTOR (DSB-D16): faixa branca
+          UNICA atravessando o viewport (row 1 do grid; a sidenav comeca
+          abaixo). Logo quadrado a esquerda (saiu do trilho) + icones INERTES
+          a direita (sino/ajuda — ganharao funcao no futuro). Sem busca e sem
+          titulo de pagina (decisao do Flavio). Miolo vazio de proposito. */}
+      {!prospector ? (
+        <header className="app-topbar">
+          <Link href="/dashboard" className="app-topbar-logo" aria-label="Pagina inicial">
+            <Image
+              src="/icon-safras.png"
+              alt="Safras e Negocios"
+              width={224}
+              height={224}
+              priority
+              className="app-topbar-logo-image"
+            />
+          </Link>
+
+          <div className="app-topbar-actions">
+            <button type="button" className="app-topbar-action" aria-label="Notificações">
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="M18 9a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6" />
+                <path d="M10.3 19a2 2 0 0 0 3.4 0" />
+              </svg>
+            </button>
+            <button type="button" className="app-topbar-action" aria-label="Ajuda">
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <circle cx="12" cy="12" r="8.5" />
+                <path d="M9.8 9.4a2.3 2.3 0 0 1 4.5.6c0 1.5-2.2 1.9-2.2 3.2" />
+                <path d="M12 16.4h.01" />
+              </svg>
+            </button>
+          </div>
+        </header>
+      ) : null}
+
       {/* Sidenav desktop dos nao-PROSPECTOR (DSB-D15): 2 colunas — TRILHO
-          (logo quadrado em cima, avatar/menu embaixo) + PAINEL branco com a
-          navegacao (icone + nome, pilula verde no ativo). Substitui a nav da
-          top bar (DSB-D6); a faixa branca do topo some no desktop via CSS.
+          (avatar/menu embaixo; o logo subiu pra top bar no DSB-D16) + PAINEL
+          branco com a navegacao (icone + nome, pilula verde no ativo).
           Sempre montada; o CSS liga so em >=901px (mobile usa a tabbar). */}
       {!prospector ? (
         <aside className="app-sidenav" aria-label="Navegacao principal">
           <div className="app-sidenav-rail">
-            <Link href="/dashboard" className="app-sidenav-logo" aria-label="Pagina inicial">
-              <Image
-                src="/icon-safras.png"
-                alt="Safras e Negocios"
-                width={224}
-                height={224}
-                priority
-                className="app-sidenav-logo-image"
-              />
-            </Link>
-
             <div className="app-sidenav-profile" ref={sidenavMenuRef}>
               <button
                 ref={sidenavTriggerRef}

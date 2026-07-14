@@ -7,9 +7,8 @@ import {
   getDashboardPaymentEvents,
   getDashboardShipmentEvents,
 } from '../../lib/api-client';
-import { contractsHubTabs, FINANCEIRO_ROLES, getRoleLabel, isRoleAllowed } from '../../lib/roles';
+import { contractsHubTabs, FINANCEIRO_ROLES, isRoleAllowed } from '../../lib/roles';
 import { EventsCalendarCard } from './EventsCalendarCard';
-import { getGreeting, getTodayLong } from './greeting';
 import type { DashboardCalendarEvent, SessionData } from '../../lib/types';
 
 const DESKTOP_MQ = '(min-width: 901px)';
@@ -21,11 +20,6 @@ interface DashboardDesktopProps {
 }
 
 export function DashboardDesktop({ session }: DashboardDesktopProps) {
-  // Saudação do cabeçalho da página (mesmo primeiro nome do hero mobile).
-  const fullName = session.user.fullName ?? session.user.username;
-  const firstName = fullName.split(' ')[0];
-  const roleLabel = getRoleLabel(session.user.role);
-
   // Guarda de montagem: evita setState após unmount em qualquer fetch (o retry pode
   // disparar fora do ciclo do effect que criava o `active` por-chamada).
   const mountedRef = useRef(true);
@@ -147,29 +141,8 @@ export function DashboardDesktop({ session }: DashboardDesktopProps) {
   return (
     <div className="dashboard-desktop">
       <section className="dashboard-page">
-        {/* Cabeçalho da página (desktop): rótulo "Visão geral" + saudação/nome
-            (protagonista), tipo de usuário com escudo e a data de hoje por
-            extenso. As informações (cards) começam logo abaixo. */}
-        <header className="dd-page-header">
-          <h1 className="dd-page-title">Visão geral</h1>
-          <p className="dd-page-greeting">
-            {getGreeting()} <strong className="dd-page-greeting-name">{firstName}</strong>
-          </p>
-          <span className="dd-page-role">
-            <svg
-              className="dd-page-role-icon"
-              viewBox="0 0 24 24"
-              focusable="false"
-              aria-hidden="true"
-            >
-              <path d="M12 3 5 5.5v6c0 4.5 3 8.3 7 9.5 4-1.2 7-5 7-9.5v-6L12 3z" />
-              <path d="m9 12 2 2 4-4.5" />
-            </svg>
-            {roleLabel}
-          </span>
-          <span className="dd-page-date">{getTodayLong()}</span>
-        </header>
-
+        {/* DSB-D16: o cabecalho da pagina ("Visao geral" + saudacao + papel +
+            data) foi REMOVIDO — o card de Eventos fica sozinho na pagina. */}
         {/* Layout (DSB-D14): o dashboard apresenta APENAS o card de Eventos,
             ocupando a area toda. O donut foi apagado do sistema; os cards de
             envios migraram pra /samples e pra aba Aprovacoes de /embarques. */}

@@ -16,12 +16,3 @@ export function getInitials(name: string): string {
   }
   return name.slice(0, 2).toUpperCase();
 }
-
-// Data de hoje por extenso em pt-BR: "13 de julho de 2026".
-export function getTodayLong(): string {
-  return new Date().toLocaleDateString('pt-BR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-}

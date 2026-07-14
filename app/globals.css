@@ -24754,71 +24754,9 @@ select.samples-filter-field-input {
     width: 100%;
   }
 
-  /* ── Cabeçalho da página (reforma de design): título "Visão geral" + saudação
-     com o nome do usuário. Altura natural (flex:none) acima do grid; o grid
-     preenche o resto do 100vh. Fundo branco da página → texto em tinta/muted. ── */
-  .dd-page-header {
-    flex: none;
-    display: flex;
-    flex-direction: column;
-    animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.1s backwards;
-  }
-
-  /* Reforma: "Visão geral" virou um ROTULO fino e verde acima da saudacao. */
-  .dd-page-title {
-    margin: 0 0 0.15rem;
-    font-size: clamp(0.92rem, 1.05vw, 1.05rem);
-    font-weight: 500;
-    line-height: 1.2;
-    letter-spacing: 0.01em;
-    color: var(--brand-green, #1f5d43);
-  }
-
-  /* Reforma: saudacao + nome sao o elemento PRINCIPAL (maior). */
-  .dd-page-greeting {
-    margin: 0;
-    font-size: clamp(1.5rem, 2.4vw, 2.05rem);
-    font-weight: 400;
-    line-height: 1.12;
-    color: var(--ink);
-  }
-
-  .dd-page-greeting-name {
-    font-weight: 600;
-    color: var(--ink);
-  }
-
-  /* Tipo de usuario: verde, com escudo (mesmo icone do hero mobile). */
-  .dd-page-role {
-    margin-top: 0.4rem;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-size: clamp(0.85rem, 0.95vw, 0.95rem);
-    font-weight: 500;
-    line-height: 1.25;
-    color: var(--brand-green, #1f5d43);
-  }
-
-  .dd-page-role-icon {
-    width: clamp(0.95rem, 1.05vw, 1.05rem);
-    height: clamp(0.95rem, 1.05vw, 1.05rem);
-    flex-shrink: 0;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.8;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  /* Data de hoje por extenso, logo abaixo do tipo de usuario. */
-  .dd-page-date {
-    margin-top: 0.1rem;
-    font-size: clamp(0.8rem, 0.9vw, 0.9rem);
-    font-weight: 400;
-    line-height: 1.3;
-    color: var(--muted);
-  }
+  /* (DSB-D16) O cabecalho da pagina do dashboard — rotulo "Visao geral" +
+     saudacao/nome + papel + data (`.dd-page-*`) — foi REMOVIDO: o card de
+     Eventos fica sozinho na pagina. */
 
   /* ── Dashboard Desktop: conteudo ── */
 
@@ -31342,6 +31280,10 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   display: none;
 }
 
+.app-topbar {
+  display: none;
+}
+
 /* Chevron ao lado do avatar de perfil no mobile (HeaderAvatarMenu).
    Sempre branco (pedido do usuario) — fica sobre os headers verdes. */
 .header-avatar-chevron {
@@ -31374,35 +31316,124 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   }
 
   .app-shell-root:has(.app-sidenav) {
+    /* DSB-D16: altura da top bar global (o grid e a sidenav descontam dela)
+       + canvas VERDE-CLARINHO (o mesmo do trilho) em todas as paginas
+       desktop — os cards/sheets brancos saltam sobre ele. */
+    --app-topbar-h: 56px;
     grid-template-columns: var(--app-sidenav-w, 276px) minmax(0, 1fr);
+    background: #f4f6f5;
   }
 
-  /* A faixa branca do topo morre no desktop dos nao-PROSPECTOR (DSB-D15):
-     logo e avatar/menu moram na sidenav; o conteudo ganha a altura toda. */
+  /* A faixa branca antiga (.topbar) morre no desktop dos nao-PROSPECTOR
+     (DSB-D15); a top bar global nova e a .app-topbar (DSB-D16). */
   .app-shell-root:has(.app-sidenav) .topbar {
     display: none;
   }
 
   .app-shell-root:has(.app-sidenav) .app-shell-main {
     grid-column: 2;
-    grid-row: 1 / 3;
+    grid-row: 2;
   }
 
-  /* ── Sidenav (DSB-D15): 2 colunas — trilho + painel branco ── */
+  /* ── Top bar global (DSB-D16): faixa branca UNICA por cima de tudo ──
+     Row 1 do grid atravessando as 2 colunas; logo quadrado a esquerda +
+     icones inertes (sino/ajuda) a direita; miolo VAZIO de proposito (sem
+     busca, sem titulo de pagina — decisao do Flavio). Sticky como o resto
+     do chrome (nunca fixed — PageTransition aplica transform). */
+
+  .app-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    grid-column: 1 / -1;
+    grid-row: 1;
+    position: sticky;
+    top: 0;
+    height: var(--app-topbar-h);
+    padding: 0 clamp(0.9rem, 1.6vw, 1.4rem) 0 0.7rem;
+    background: #ffffff;
+    border-bottom: 1px solid rgba(112, 130, 103, 0.16);
+    z-index: 32;
+  }
+
+  .app-topbar-logo {
+    display: inline-flex;
+    border-radius: 10px;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 140ms ease;
+  }
+
+  .app-topbar-logo:active {
+    transform: scale(0.94);
+  }
+
+  .app-topbar-logo-image {
+    display: block;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    object-fit: cover;
+  }
+
+  .app-topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  /* Botao-icone da barra (inerte por ora — ganha funcao no futuro). */
+  .app-topbar-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 140ms ease;
+  }
+
+  @media (hover: hover) {
+    .app-topbar-action:hover {
+      background: rgba(31, 93, 67, 0.06);
+    }
+  }
+
+  .app-topbar-action:active {
+    transform: scale(0.94);
+  }
+
+  .app-topbar-action svg {
+    width: 1.25rem;
+    height: 1.25rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* ── Sidenav (DSB-D15): 2 colunas — trilho + painel branco ──
+     DSB-D16: comeca ABAIXO da top bar global (row 2, altura descontada). */
 
   .app-sidenav {
     display: flex;
     grid-column: 1;
-    grid-row: 1 / 3;
+    grid-row: 2;
     align-self: start;
     position: sticky;
-    top: 0;
-    height: 100vh;
-    height: 100lvh;
+    top: var(--app-topbar-h);
+    height: calc(100vh - var(--app-topbar-h));
+    height: calc(100lvh - var(--app-topbar-h));
     z-index: 30;
   }
 
-  /* Trilho: logo quadrado no topo, avatar (menu) no rodape. */
+  /* Trilho: avatar (menu) no rodape — o logo subiu pra top bar (DSB-D16). */
   .app-sidenav-rail {
     display: flex;
     flex-direction: column;
@@ -31412,25 +31443,6 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
     padding: 0.8rem 0;
     background: #f4f6f5;
     border-right: 1px solid rgba(112, 130, 103, 0.16);
-  }
-
-  .app-sidenav-logo {
-    display: inline-flex;
-    border-radius: 10px;
-    -webkit-tap-highlight-color: transparent;
-    transition: transform 140ms ease;
-  }
-
-  .app-sidenav-logo:active {
-    transform: scale(0.94);
-  }
-
-  .app-sidenav-logo-image {
-    display: block;
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
-    object-fit: cover;
   }
 
   .app-sidenav-profile {
@@ -33906,7 +33918,6 @@ body.is-selection-mode .ctr-page .cc-tabs {
   .dashboard-mobile .dashboard-sheet,
   .dashboard-operations-grid .dashboard-operation-card:nth-child(n),
   .sales-card,
-  .dd-page-header,
   .dd-events-card,
   .dashboard-operation-badge,
   .dashboard-mobile .dashboard-operation-card.is-wide .dashboard-operation-badge,
