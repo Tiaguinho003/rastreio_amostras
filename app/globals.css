@@ -31322,33 +31322,23 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
 }
 
 /* ============================================================
-   Chrome desktop — barra de navegacao vertical + faixa branca
+   Chrome desktop — sidenav lateral (nao-PROSPECTOR) + sidebar verde
    ------------------------------------------------------------
-   No desktop (>=901px) a navegacao vira uma barra vertical verde
-   fixa a esquerda (.app-sidebar) e a .topbar vira a faixa branca
-   superior (so busca + perfil). No mobile (<=900px) nada disso
-   aparece: a topbar verde + MobileTabbar seguem como antes.
+   No desktop (>=901px) a navegacao dos 5 papeis nao-PROSPECTOR e uma
+   SIDENAV lateral esquerda em 2 colunas (DSB-D15): trilho fino (logo
+   quadrado + avatar/menu) + painel branco (nav icone+nome, pilula
+   verde no ativo). A faixa branca do topo (DSB-D6) SOME pra eles. O
+   PROSPECTOR mantem a barra vertical verde (.app-sidebar) + faixa
+   branca. No mobile (<=900px) nada disso aparece: a topbar verde +
+   MobileTabbar seguem como antes.
    ============================================================ */
 
-/* Ocultos por padrao — so o desktop liga a sidebar e os extras do
-   perfil (primeiro nome + chevron na faixa branca). */
+/* Ocultos por padrao (mobile-first) — so o desktop liga. */
 .app-sidebar {
   display: none;
 }
 
-/* DSB-D6: a nav da top bar e o logo colorido são desktop-only (papéis
-   não-PROSPECTOR). No mobile a navegação vive na MobileTabbar e o logo da
-   barra verde é o branco — então ambos ficam ocultos por padrão (mobile-first)
-   e são reativados no bloco @media (min-width: 901px). */
-.topbar-nav {
-  display: none;
-}
-
-.topbar-logo-image.is-color {
-  display: none;
-}
-
-.topbar-profile-chevron {
+.app-sidenav {
   display: none;
 }
 
@@ -31366,12 +31356,13 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
 }
 
 @media (min-width: 901px) {
-  /* DSB-D6: a nav migrou pra top bar (5 papeis nao-PROSPECTOR) -> shell de
-     COLUNA UNICA (faixa branca no topo + conteudo abaixo, largura toda). O
-     PROSPECTOR mantem a sidebar vertical -> :has(.app-sidebar) reativa o grid
-     de 2 colunas [sidebar][conteudo]. Scroll fica na janela (sticky, sem
-     position:fixed — a transicao de pagina aplica transform no ancestral e
-     quebraria fixed, mesmo motivo do portal da MobileTabbar). */
+  /* DSB-D15: os 5 papeis nao-PROSPECTOR tem a SIDENAV lateral esquerda ->
+     :has(.app-sidenav) liga o grid de 2 colunas [sidenav][conteudo] e a
+     faixa branca do topo some. O PROSPECTOR mantem a sidebar vertical verde
+     + faixa branca -> :has(.app-sidebar) liga o grid dele. Scroll fica na
+     janela (sticky, sem position:fixed — a transicao de pagina aplica
+     transform no ancestral e quebraria fixed, mesmo motivo do portal da
+     MobileTabbar). */
   .app-shell-root {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -31380,6 +31371,178 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
 
   .app-shell-root:has(.app-sidebar) {
     grid-template-columns: var(--app-sidebar-w, 220px) minmax(0, 1fr);
+  }
+
+  .app-shell-root:has(.app-sidenav) {
+    grid-template-columns: var(--app-sidenav-w, 276px) minmax(0, 1fr);
+  }
+
+  /* A faixa branca do topo morre no desktop dos nao-PROSPECTOR (DSB-D15):
+     logo e avatar/menu moram na sidenav; o conteudo ganha a altura toda. */
+  .app-shell-root:has(.app-sidenav) .topbar {
+    display: none;
+  }
+
+  .app-shell-root:has(.app-sidenav) .app-shell-main {
+    grid-column: 2;
+    grid-row: 1 / 3;
+  }
+
+  /* ── Sidenav (DSB-D15): 2 colunas — trilho + painel branco ── */
+
+  .app-sidenav {
+    display: flex;
+    grid-column: 1;
+    grid-row: 1 / 3;
+    align-self: start;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    height: 100lvh;
+    z-index: 30;
+  }
+
+  /* Trilho: logo quadrado no topo, avatar (menu) no rodape. */
+  .app-sidenav-rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 60px;
+    flex: none;
+    padding: 0.8rem 0;
+    background: #f4f6f5;
+    border-right: 1px solid rgba(112, 130, 103, 0.16);
+  }
+
+  .app-sidenav-logo {
+    display: inline-flex;
+    border-radius: 10px;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 140ms ease;
+  }
+
+  .app-sidenav-logo:active {
+    transform: scale(0.94);
+  }
+
+  .app-sidenav-logo-image {
+    display: block;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    object-fit: cover;
+  }
+
+  .app-sidenav-profile {
+    position: relative;
+    margin-top: auto;
+    display: flex;
+    justify-content: center;
+  }
+
+  .app-sidenav-profile-trigger {
+    display: inline-grid;
+    place-items: center;
+    padding: 0;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 140ms ease;
+  }
+
+  .app-sidenav-profile-trigger:active {
+    transform: scale(0.94);
+  }
+
+  /* Menu do avatar: DROPUP ancorado no rodape do trilho, abrindo pra
+     DIREITA (mesma casca branca do .topbar-profile-menu). */
+  .app-sidenav-profile-menu {
+    position: absolute;
+    left: calc(100% + 0.4rem);
+    bottom: 0;
+    width: min(20rem, calc(100vw - 5rem));
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    background: #ffffff;
+    box-shadow: 0 18px 40px rgba(15, 23, 15, 0.24);
+    padding: 0.4rem 0.5rem 0.5rem;
+    color: var(--ink);
+    z-index: 40;
+  }
+
+  /* Painel branco com a navegacao (botoes PEQUENOS: icone + nome). */
+  .app-sidenav-panel {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 0.9rem 0.65rem;
+    background: #ffffff;
+    border-right: 1px solid var(--topbar-line);
+    overflow-y: auto;
+  }
+
+  .app-sidenav-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .app-sidenav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: 10px;
+    color: var(--ink);
+    font-size: 0.9rem;
+    font-weight: 600;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 140ms ease;
+  }
+
+  @media (hover: hover) {
+    .app-sidenav-link:hover {
+      background: rgba(31, 93, 67, 0.06);
+    }
+  }
+
+  .app-sidenav-link:active {
+    transform: scale(0.97);
+  }
+
+  /* Item ativo: PILULA suave verde (referencia visual do DSB-D15 adaptada a
+     paleta; substitui o sublinhado do DSB-D6). */
+  .app-sidenav-link.is-active {
+    background: rgba(31, 93, 67, 0.1);
+    color: var(--brand-green, #1f5d43);
+  }
+
+  .app-sidenav-link-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.15rem;
+    height: 1.15rem;
+    flex: none;
+  }
+
+  .app-sidenav-link-icon svg {
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .app-sidenav-link-label {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   .app-sidebar {
@@ -31538,9 +31701,9 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
     stroke-linejoin: round;
   }
 
-  /* .topbar = FAIXA BRANCA no topo. DSB-D6: passou a hospedar a NAVEGACAO
-     (logo colorido + nav de nomes + perfil). Ocupa a largura toda (col 1);
-     so recua pra col 2 quando ha sidebar (PROSPECTOR). */
+  /* .topbar = FAIXA BRANCA no topo. DSB-D15: no desktop ela so existe pro
+     PROSPECTOR (col 2, ao lado da sidebar verde dele — so o perfil); pros
+     nao-PROSPECTOR ela e escondida (a navegacao/perfil moram na sidenav). */
   .topbar {
     grid-column: 1;
     grid-row: 1;
@@ -31569,102 +31732,20 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
     padding: 0.6rem clamp(1rem, 2.5vw, 2rem);
   }
 
-  /* Top bar com navegacao (DSB-D6, nao-PROSPECTOR): 3 blocos —
-     logo (esquerda) | nav (centralizada) | perfil (direita). */
-  .topbar-inner:has(.topbar-nav) {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    justify-content: initial;
-  }
-
-  .topbar-inner:has(.topbar-nav) .topbar-mobile-spacer {
-    display: none;
-  }
-
+  /* O logo da barra verde mobile nao aparece no desktop (o logo desktop mora
+     na sidebar de cada papel: sidenav ou sidebar verde do prospector). */
   .topbar-logo-slot {
     display: none;
   }
 
-  /* Logo colorido aparece na top bar branca (desktop com nav). */
-  .topbar-inner:has(.topbar-nav) .topbar-logo-slot {
-    display: flex;
-    justify-self: start;
-    align-items: center;
-  }
-
-  /* Alterna os dois logos: branco so na barra verde (mobile), colorido so
-     na faixa branca (desktop com nav). O .is-color ja e escondido na base
-     (mobile-first); aqui e reativado quando ha nav. */
-  .topbar-inner:has(.topbar-nav) .topbar-logo-image.is-white {
-    display: none;
-  }
-
-  .topbar-inner:has(.topbar-nav) .topbar-logo-image.is-color {
-    display: block;
-    height: 40px;
-    width: auto;
-    max-width: 100%;
-    object-fit: contain;
-  }
-
-  /* Navegacao horizontal (so nomes, sem icones): centralizada na faixa. */
-  .topbar-nav {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: clamp(0.4rem, 1.4vw, 1.4rem);
-    flex-wrap: wrap;
-  }
-
-  .topbar-nav-link {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.35rem 0.5rem;
-    color: var(--muted);
-    font-size: 0.95rem;
-    font-weight: 600;
-    white-space: nowrap;
-    border-bottom: 2px solid transparent;
-    -webkit-tap-highlight-color: transparent;
-    transition:
-      color 140ms ease,
-      border-color 140ms ease;
-  }
-
-  .topbar-nav-link:hover {
-    color: var(--ink);
-  }
-
-  /* Item ativo: sublinhado verde de marca + texto forte. */
-  .topbar-nav-link.is-active {
-    color: var(--brand-green, #1f5d43);
-    border-bottom-color: var(--brand-green, #1f5d43);
-  }
-
-  .topbar-nav-link:active {
-    transform: scale(0.97);
-  }
-
-  /* Perfil ancorado na direita da faixa (col 3 do grid). */
-  .topbar-inner:has(.topbar-nav) .topbar-tools {
-    justify-self: end;
-  }
-
-  /* Busca de lote sai da faixa branca no desktop: some sobre o branco (fica
-     "invisivel pela cor") e nao e necessaria aqui — a pagina de Lotes tem a
-     sua propria busca. Mobile (barra verde) segue com a busca. */
+  /* Busca de lote fora da faixa branca no desktop (a pagina de Lotes tem a
+     sua propria busca). Mobile (barra verde) segue com a busca. */
   .topbar-search-slot {
     display: none;
   }
 
-  /* (DSB-D6) A saudacao + nome na faixa branca do dashboard desktop foi
-     REMOVIDA — a faixa agora hospeda a navegacao. O hero mobile mantem a
-     saudacao. */
-
-  /* Perfil: SO o avatar (MAIOR) + chevron — sem nome e sem borda (pedido do
-     usuario). Mesma posicao (canto direito da faixa branca). Hover sem mudar
-     cor (a resposta visual fica no scale do bloco geral .topbar-profile-trigger
-     acima). */
+  /* Perfil: SO o avatar, sem nome e sem borda (pedido do usuario). Hover sem
+     mudar cor (a resposta visual fica no scale do trigger). */
   .topbar-profile-trigger {
     display: inline-flex;
     align-items: center;
@@ -31683,20 +31764,9 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
     background: transparent;
   }
 
-  .topbar-profile-chevron {
-    display: inline-block;
-    width: 1.2rem;
-    height: 1.2rem;
-    flex: none;
-    fill: none;
-    stroke: var(--muted);
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  /* Conteudo da pagina abaixo da faixa branca. DSB-D6: largura toda (col 1);
-     recua pra col 2 so quando ha sidebar (PROSPECTOR). */
+  /* Conteudo da pagina. Largura toda (col 1) por padrao; recua pra col 2
+     quando ha sidebar verde (PROSPECTOR) — a variante da sidenav (row 1/3)
+     esta junto das regras da sidenav, acima. */
   .app-shell-main {
     grid-column: 1;
     grid-row: 2;

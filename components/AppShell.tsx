@@ -298,6 +298,104 @@ function renderNavIcon(icon: NavIcon, user?: SessionData['user']) {
   );
 }
 
+// Card do menu de perfil — mesmo desenho do menu da conta do mobile
+// (HeaderAvatarMenu): resumo com avatar + nome/cargo no topo e linhas com
+// icone. Usado em DOIS ancoradouros (DSB-D15): dropdown da top bar
+// (mobile/PROSPECTOR desktop) e dropup do trilho da sidenav (nao-PROSPECTOR).
+function ProfileMenuCard({
+  session,
+  profileName,
+  onClose,
+  onLogout,
+}: {
+  session: SessionData;
+  profileName: string;
+  onClose: () => void;
+  onLogout: () => Promise<void> | void;
+}) {
+  return (
+    <div className="header-avatar-menu">
+      <div className="header-avatar-menu-summary">
+        <UserAvatar size="md" user={session.user} />
+        <div className="header-avatar-menu-summary-text">
+          <span className="header-avatar-menu-summary-name">{profileName}</span>
+          <span className="header-avatar-menu-summary-role">{getRoleLabel(session.user.role)}</span>
+        </div>
+      </div>
+
+      <div className="header-avatar-menu-list">
+        <Link href="/profile" className="header-avatar-menu-row" onClick={onClose}>
+          <svg className="header-avatar-menu-row-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="8" r="4" />
+            <path d="M5 20a7 7 0 0 1 14 0" />
+          </svg>
+          <span className="header-avatar-menu-row-label">Meu perfil</span>
+        </Link>
+
+        <button
+          type="button"
+          className="header-avatar-menu-row is-danger"
+          onClick={() => {
+            onClose();
+            onLogout();
+          }}
+        >
+          <svg className="header-avatar-menu-row-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" />
+            <path d="M10 16l-4-4 4-4" />
+            <path d="M6 12h11" />
+          </svg>
+          <span className="header-avatar-menu-row-label">Sair</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Fecha um menu ancorado (dropdown/dropup) em clique-fora e Escape (devolvendo
+// o foco ao trigger). Compartilhado pelo menu da top bar e pelo do trilho da
+// sidenav (DSB-D15).
+function useMenuDismiss(
+  open: boolean,
+  containerRef: React.RefObject<HTMLDivElement | null>,
+  triggerRef: React.RefObject<HTMLButtonElement | null>,
+  setOpen: (open: boolean) => void
+) {
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const onDocumentMouseDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (!containerRef.current?.contains(target)) {
+        setOpen(false);
+      }
+    };
+
+    const onDocumentKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') {
+        return;
+      }
+
+      event.preventDefault();
+      setOpen(false);
+      triggerRef.current?.focus();
+    };
+
+    document.addEventListener('mousedown', onDocumentMouseDown);
+    document.addEventListener('keydown', onDocumentKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onDocumentMouseDown);
+      document.removeEventListener('keydown', onDocumentKeyDown);
+    };
+  }, [open, containerRef, triggerRef, setOpen]);
+}
+
 function resolveMobileRouteMeta(pathname: string): MobileRouteMeta | null {
   if (pathname === '/camera') {
     return {
@@ -325,6 +423,8 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   const pathname = usePathname();
   const router = useRouter();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  // Menu do avatar no trilho da sidenav (DSB-D15, desktop nao-PROSPECTOR).
+  const [sidenavMenuOpen, setSidenavMenuOpen] = useState(false);
   const isDashboard = pathname === '/dashboard';
   const isSamplesList = pathname === '/samples';
   const isClientsList = pathname === '/clients';
@@ -371,6 +471,8 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   }, []);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const profileTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const sidenavMenuRef = useRef<HTMLDivElement | null>(null);
+  const sidenavTriggerRef = useRef<HTMLButtonElement | null>(null);
   const toast = useToast();
 
   // Fila offline de informes de visita: tenta sincronizar ao montar, quando
@@ -446,39 +548,9 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   const mobileRouteMeta = resolveMobileRouteMeta(pathname);
   const isCameraRoute = pathname === '/camera';
 
-  useEffect(() => {
-    if (!profileMenuOpen) {
-      return;
-    }
-
-    const onDocumentMouseDown = (event: MouseEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node)) {
-        return;
-      }
-
-      if (!profileMenuRef.current?.contains(target)) {
-        setProfileMenuOpen(false);
-      }
-    };
-
-    const onDocumentKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') {
-        return;
-      }
-
-      event.preventDefault();
-      setProfileMenuOpen(false);
-      profileTriggerRef.current?.focus();
-    };
-
-    document.addEventListener('mousedown', onDocumentMouseDown);
-    document.addEventListener('keydown', onDocumentKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', onDocumentMouseDown);
-      document.removeEventListener('keydown', onDocumentKeyDown);
-    };
-  }, [profileMenuOpen]);
+  // Clique-fora + Escape dos dois menus de perfil (top bar e trilho da sidenav).
+  useMenuDismiss(profileMenuOpen, profileMenuRef, profileTriggerRef, setProfileMenuOpen);
+  useMenuDismiss(sidenavMenuOpen, sidenavMenuRef, sidenavTriggerRef, setSidenavMenuOpen);
 
   useEffect(() => {
     const KEYBOARD_SELECTOR =
@@ -750,13 +822,85 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
         </aside>
       ) : null}
 
+      {/* Sidenav desktop dos nao-PROSPECTOR (DSB-D15): 2 colunas — TRILHO
+          (logo quadrado em cima, avatar/menu embaixo) + PAINEL branco com a
+          navegacao (icone + nome, pilula verde no ativo). Substitui a nav da
+          top bar (DSB-D6); a faixa branca do topo some no desktop via CSS.
+          Sempre montada; o CSS liga so em >=901px (mobile usa a tabbar). */}
+      {!prospector ? (
+        <aside className="app-sidenav" aria-label="Navegacao principal">
+          <div className="app-sidenav-rail">
+            <Link href="/dashboard" className="app-sidenav-logo" aria-label="Pagina inicial">
+              <Image
+                src="/icon-safras.png"
+                alt="Safras e Negocios"
+                width={224}
+                height={224}
+                priority
+                className="app-sidenav-logo-image"
+              />
+            </Link>
+
+            <div className="app-sidenav-profile" ref={sidenavMenuRef}>
+              <button
+                ref={sidenavTriggerRef}
+                type="button"
+                className="app-sidenav-profile-trigger"
+                aria-haspopup="menu"
+                aria-expanded={sidenavMenuOpen}
+                aria-controls="sidenav-profile-menu"
+                aria-label="Abrir menu de perfil"
+                onClick={() => setSidenavMenuOpen((current) => !current)}
+              >
+                <UserAvatar size="md" user={session.user} />
+              </button>
+
+              {sidenavMenuOpen ? (
+                // Mesmo card do dropdown da top bar, ancorado como DROPUP no
+                // rodape do trilho.
+                <section id="sidenav-profile-menu" className="app-sidenav-profile-menu" role="menu">
+                  <ProfileMenuCard
+                    session={session}
+                    profileName={profileName}
+                    onClose={() => setSidenavMenuOpen(false)}
+                    onLogout={onLogout}
+                  />
+                </section>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="app-sidenav-panel">
+            <nav className="app-sidenav-nav" aria-label="Paginas principais">
+              {desktopNavItems.map((item) => {
+                const active = isMainNavItemActive(pathname, item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`app-sidenav-link${active ? ' is-active' : ''}`}
+                    aria-current={active ? 'page' : undefined}
+                  >
+                    <span className="app-sidenav-link-icon" aria-hidden="true">
+                      {renderNavIcon(item.icon)}
+                    </span>
+                    <span className="app-sidenav-link-label">{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+        </aside>
+      ) : null}
+
       <header className={`topbar ${headerMobileClass}`}>
         <div className="topbar-inner">
           <div className="topbar-mobile-spacer" aria-hidden="true" />
 
           <Link href="/dashboard" className="topbar-logo-slot" aria-label="Pagina inicial">
-            {/* Logo branco na barra verde (mobile); logo colorido na top bar
-                branca (desktop, DSB-D6). O CSS alterna por breakpoint. */}
+            {/* Logo branco na barra verde (mobile). DSB-D15: o logo colorido
+                do desktop saiu daqui — mora no trilho da sidenav; a top bar
+                inteira some no desktop dos nao-PROSPECTOR (CSS). */}
             <Image
               src="/logo-safras-branco.png"
               alt="Safras e Negocios"
@@ -765,36 +909,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
               priority
               className="topbar-logo-image is-white"
             />
-            <Image
-              src="/logo-safras-color.png"
-              alt="Safras e Negocios"
-              width={1024}
-              height={299}
-              priority
-              className="topbar-logo-image is-color"
-            />
           </Link>
-
-          {/* Navegacao principal na top bar (desktop, DSB-D6): só os NOMES,
-              sem ícones, centralizada. Só pros não-PROSPECTOR (o prospector
-              mantém a sidebar). Escondida no mobile via CSS (usa a tabbar). */}
-          {!prospector ? (
-            <nav className="topbar-nav" aria-label="Paginas principais">
-              {desktopNavItems.map((item) => {
-                const active = isMainNavItemActive(pathname, item.href);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`topbar-nav-link${active ? ' is-active' : ''}`}
-                    aria-current={active ? 'page' : undefined}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </nav>
-          ) : null}
 
           <div className="topbar-tools">
             <div className="topbar-search-slot">
@@ -815,70 +930,17 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
                 onClick={() => setProfileMenuOpen((current) => !current)}
               >
                 <UserAvatar size="md" user={session.user} />
-                <svg
-                  className="topbar-profile-chevron"
-                  viewBox="0 0 24 24"
-                  focusable="false"
-                  aria-hidden="true"
-                >
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
               </button>
 
               {profileMenuOpen ? (
                 <section id="topbar-profile-menu" className="topbar-profile-menu" role="menu">
-                  {/* Mesmo desenho do menu da conta do mobile (HeaderAvatarMenu):
-                      resumo com avatar + nome/cargo no topo e linhas com icone.
-                      Aqui fica num DROPDOWN (nao em bottom sheet). */}
-                  <div className="header-avatar-menu">
-                    <div className="header-avatar-menu-summary">
-                      <UserAvatar size="md" user={session.user} />
-                      <div className="header-avatar-menu-summary-text">
-                        <span className="header-avatar-menu-summary-name">{profileName}</span>
-                        <span className="header-avatar-menu-summary-role">
-                          {getRoleLabel(session.user.role)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="header-avatar-menu-list">
-                      <Link
-                        href="/profile"
-                        className="header-avatar-menu-row"
-                        onClick={() => setProfileMenuOpen(false)}
-                      >
-                        <svg
-                          className="header-avatar-menu-row-icon"
-                          viewBox="0 0 24 24"
-                          aria-hidden="true"
-                        >
-                          <circle cx="12" cy="8" r="4" />
-                          <path d="M5 20a7 7 0 0 1 14 0" />
-                        </svg>
-                        <span className="header-avatar-menu-row-label">Meu perfil</span>
-                      </Link>
-
-                      <button
-                        type="button"
-                        className="header-avatar-menu-row is-danger"
-                        onClick={() => {
-                          setProfileMenuOpen(false);
-                          onLogout();
-                        }}
-                      >
-                        <svg
-                          className="header-avatar-menu-row-icon"
-                          viewBox="0 0 24 24"
-                          aria-hidden="true"
-                        >
-                          <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" />
-                          <path d="M10 16l-4-4 4-4" />
-                          <path d="M6 12h11" />
-                        </svg>
-                        <span className="header-avatar-menu-row-label">Sair</span>
-                      </button>
-                    </div>
-                  </div>
+                  {/* Mesmo card do trilho da sidenav; aqui num DROPDOWN. */}
+                  <ProfileMenuCard
+                    session={session}
+                    profileName={profileName}
+                    onClose={() => setProfileMenuOpen(false)}
+                    onLogout={onLogout}
+                  />
                 </section>
               ) : null}
             </div>
