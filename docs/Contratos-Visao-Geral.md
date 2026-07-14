@@ -31,7 +31,7 @@ Um contrato passa pelas duas páginas no ciclo: nasce e é gerido em `/contratos
 - **Compat:** os deep-links antigos `/contratos?tab=embarque|aprovacoes` **redirecionam** para `/embarques?tab=…` (preservando `&highlight=`).
 - Coexiste com **`?details=<id>`** (modal de detalhes do contrato, na aba Contratos) e **`?highlight=<id>`** (pisca/rola até o contrato — chips do card de Eventos, via `useContractHighlight`).
 - Mecânica de abas reusa o `role="tablist"` do `/cadastros`; cada aba é um **painel** (`ContratosPanel`/`FinanceiroPanel` em /contratos; `EmbarquePanel`/`AprovacoesPanel` em /embarques).
-- **Nav:** **2 itens** — "Contratos" (`/contratos`) e "Embarques" (`/embarques`) — no top bar desktop + menu do avatar mobile.
+- **Nav:** **2 itens** — "Contratos" (`/contratos`) e "Embarques" (`/embarques`) — na sidenav desktop (DSB-D15) + menu do avatar mobile.
 
 ### 2.2 Acesso por papel
 

@@ -111,7 +111,7 @@ Página que rola inteira (`.dashboard-scroll`), sem nada fixo:
 ```
 
 - Desde **DSB-D14 (2026-07-14)** o mobile é **só o hero** — o donut foi apagado do sistema e o sheet saiu junto (estado transitório aceito pelo Flavio: o calendário de Eventos ainda é desktop-only e chega ao mobile no ciclo do dashboard mobile, **DSB-H6**).
-- O hero tem a **saudação**, que o desktop **não** tem — desde **DSB-D6 (2026-07-12)** a saudação saiu da faixa branca do desktop (que virou a top bar de navegação; ver `Auditoria-Navegacao-por-Papel.md`).
+- O hero tem a **saudação**, que o desktop **não** tem — desde **DSB-D6 (2026-07-12)** a saudação saiu da faixa branca do desktop. _(Desde **DSB-D15, 2026-07-14**, a faixa branca nem existe mais no desktop dos não-PROSPECTOR: a navegação virou a **sidenav lateral esquerda**; ver `Auditoria-Navegacao-por-Papel.md`.)_ O `.dd-page-header` do dashboard desktop mantém a saudação própria da página.
 - Histórico: os op-cards de pendências saíram em DSB-D2 (2026-07-12); o donut ("hero + donut") ficou até DSB-D14.
 
 ---
