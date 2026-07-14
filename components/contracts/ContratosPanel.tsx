@@ -253,6 +253,8 @@ export function ContratosPanel({ session }: { session: SessionData }) {
       if (sellerId && c.sellerClientId !== sellerId) return false;
       if (from || to) {
         const iso = c[dateKey];
+        // Data "À definir" (null, D144) fica fora do recorte por período —
+        // filtrar por uma data exclui quem não a tem.
         if (!iso) return false;
         const day = iso.slice(0, 10); // ISO 'YYYY-MM-DD…' → compare lexicográfico
         if (from && day < from) return false;

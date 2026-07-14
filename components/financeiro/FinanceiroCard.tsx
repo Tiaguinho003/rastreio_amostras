@@ -108,7 +108,11 @@ export function FinanceiroCard({
             <span className="fin-fig">
               <span className="fin-fig-label">{isPaid ? 'Pago em' : 'Vencimento'}</span>
               <span className="fin-fig-value">
-                {dateBR(isPaid ? item.paidAt : item.paymentDate)}
+                {isPaid
+                  ? dateBR(item.paidAt)
+                  : item.paymentDate
+                    ? dateBR(item.paymentDate)
+                    : 'À definir'}
               </span>
             </span>
           </span>

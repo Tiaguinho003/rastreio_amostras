@@ -228,13 +228,13 @@ export function SaleContractCard({
             <span className="ctr-card-stat">
               <span className="ctr-card-stat-label">Faturamento</span>
               <span className="ctr-card-stat-value">
-                {formatContractDate(contract.invoiceDate)}
+                {contract.invoiceDate ? formatContractDate(contract.invoiceDate) : 'À definir'}
               </span>
             </span>
             <span className="ctr-card-stat">
               <span className="ctr-card-stat-label">Pagamento</span>
               <span className="ctr-card-stat-value">
-                {formatContractDate(contract.paymentDate)}
+                {contract.paymentDate ? formatContractDate(contract.paymentDate) : 'À definir'}
               </span>
             </span>
           </div>

@@ -155,7 +155,7 @@ export function ShipmentConfirmationModal({ session, contractId, onClose, onDone
               </div>
               <div className="emb-confirm-row">
                 <span>Previsto</span>
-                <strong>{dateBR(context.invoiceDate)}</strong>
+                <strong>{context.invoiceDate ? dateBR(context.invoiceDate) : 'À definir'}</strong>
               </div>
             </div>
           ) : loadError ? null : (

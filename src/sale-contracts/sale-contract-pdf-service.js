@@ -659,12 +659,14 @@ export class SaleContractPdfService {
       ) + 14;
 
     // ---------- Forma | Modalidade | Embalagem | Faturamento | Pagamento ----------
+    // D144: data planejada "A definir" (null) imprime o texto (dashUpper poe em
+    // caixa alta: "A DEFINIR"), em vez do traco que parecia campo esquecido.
     y -= boxRow(y, [
       ['Forma de pagamento', contract.paymentFormText],
       ['Modalidade', contract.modalityText],
       ['Embalagem', contract.packagingText],
-      ['Faturamento', formatDateBR(contract.invoiceDate)],
-      ['Pagamento', formatDateBR(contract.paymentDate)],
+      ['Faturamento', formatDateBR(contract.invoiceDate) ?? 'À definir'],
+      ['Pagamento', formatDateBR(contract.paymentDate) ?? 'À definir'],
     ]);
     y -= 16;
 
@@ -859,7 +861,8 @@ export class SaleContractPdfService {
     const columns = [
       { label: 'N.º Contrato', value: contract.contractNumber, weight: 8.5 },
       { label: 'Data', value: generatedDate, weight: 8 },
-      { label: 'Pagamento', value: formatDateBR(contract.paymentDate), weight: 8 },
+      // D144: pagamento "A definir" imprime o texto (a celula saia em branco).
+      { label: 'Pagamento', value: formatDateBR(contract.paymentDate) ?? 'À definir', weight: 8 },
       { label: 'Preço', value: dec(effectiveUnitPrice), weight: 7.5 },
       { label: 'Sacas', value: dec(contract.quantitySacks), weight: 7 },
       // Sem ágio → as DUAS células saem vazias (D130); dec(null) = ''.

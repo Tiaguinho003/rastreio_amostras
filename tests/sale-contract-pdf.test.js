@@ -100,6 +100,21 @@ test('renderContractPdf lida com opcionais nulos (sem armazéns/observações/pe
   assert.equal(buffer.subarray(0, 5).toString('latin1'), '%PDF-');
 });
 
+test('renderContractPdf/renderEspelhoPdf: datas planejadas "À definir" (null, D144) não quebram', async () => {
+  const service = new SaleContractPdfService();
+  const contract = fakeContract({ type: 'FUTURO', invoiceDate: null, paymentDate: null });
+  const { buffer } = await service.renderContractPdf(contract, {
+    lotNumber: null,
+    issuer: getContractIssuer(),
+  });
+  assert.equal(buffer.subarray(0, 5).toString('latin1'), '%PDF-');
+  const espelho = await service.renderEspelhoPdf(contract, {
+    side: 'seller',
+    issuer: getContractIssuer(),
+  });
+  assert.equal(espelho.buffer.subarray(0, 5).toString('latin1'), '%PDF-');
+});
+
 test('formatCurrencyBRL', () => {
   const out = formatCurrencyBRL(1234.5);
   assert.ok(out.startsWith('R$'));

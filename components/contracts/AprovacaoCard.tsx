@@ -91,7 +91,11 @@ export function AprovacaoCard({
             <span className="emb-fig">
               <span className="emb-fig-label">{isSent ? 'Enviada em' : 'Previsto'}</span>
               <span className="emb-fig-value">
-                {isSent ? dateBR(item.date, 'America/Sao_Paulo') : `~${dateBR(item.date)}`}
+                {isSent
+                  ? dateBR(item.date, 'America/Sao_Paulo')
+                  : item.date
+                    ? `~${dateBR(item.date)}`
+                    : 'À definir'}
               </span>
             </span>
             <span className="emb-fig">

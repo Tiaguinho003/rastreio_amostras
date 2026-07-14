@@ -85,7 +85,11 @@ export function EmbarqueCard({
             <span className="emb-fig">
               <span className="emb-fig-label">{isShipped ? 'Embarcado em' : 'Previsto'}</span>
               <span className="emb-fig-value">
-                {dateBR(isShipped ? item.shippedAt : item.invoiceDate)}
+                {isShipped
+                  ? dateBR(item.shippedAt)
+                  : item.invoiceDate
+                    ? dateBR(item.invoiceDate)
+                    : 'À definir'}
               </span>
             </span>
             <span className="emb-fig">

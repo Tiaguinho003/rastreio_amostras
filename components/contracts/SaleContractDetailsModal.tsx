@@ -365,9 +365,16 @@ export function SaleContractDetailsModal({
   ];
   if (view.purchaseNumber) identRows.push(['Nº compra', view.purchaseNumber]);
   if (view.weightKg != null) identRows.push(['Peso', `${view.weightKg} Kg`]);
-  identRows.push(['Faturamento (planejado)', dateOnly(view.invoiceDate)]);
+  // D144: planejada null = "À definir" (as reais seguem com o dateOnly/"—").
+  identRows.push([
+    'Faturamento (planejado)',
+    view.invoiceDate ? dateOnly(view.invoiceDate) : 'À definir',
+  ]);
   if (view.invoicedAt) identRows.push(['Faturado em', dateOnly(view.invoicedAt)]);
-  identRows.push(['Pagamento (planejado)', dateOnly(view.paymentDate)]);
+  identRows.push([
+    'Pagamento (planejado)',
+    view.paymentDate ? dateOnly(view.paymentDate) : 'À definir',
+  ]);
   if (view.paidAt) identRows.push(['Pago em', dateOnly(view.paidAt)]);
   if (view.status === 'WASH_OUT' && view.washoutAt) {
     identRows.push(['Washout em', dateOnly(view.washoutAt)]);
