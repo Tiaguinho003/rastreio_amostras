@@ -1197,7 +1197,7 @@ export default function ClientDetailPage() {
             >
               <div className="sdv-unit-card-mini-content">
                 <span className="sdv-unit-card-mini-name">
-                  {account.bank?.name ?? 'Banco'}
+                  {account.bankName || 'Banco'}
                   {account.status === 'INACTIVE' ? (
                     <span className="sdv-unit-card-mini-inactive">Inativa</span>
                   ) : null}
@@ -2099,7 +2099,6 @@ export default function ClientDetailPage() {
       {/* ========== Fechamento Fase 0: Contas bancárias ========== */}
       <ClientBankAccountModal
         open={bankAccountModalOpen}
-        session={session}
         saving={savingBankAccount}
         success={bankAccountCreateSuccess}
         errorMessage={bankAccountModalNotice?.kind === 'error' ? bankAccountModalNotice.text : null}
@@ -2112,7 +2111,6 @@ export default function ClientDetailPage() {
       <ClientBankAccountDetailModal
         open={bankAccountDetailOpen}
         account={bankAccountDetailAccount}
-        session={session}
         saving={savingBankAccount}
         savingStatus={savingBankAccountStatus}
         errorMessage={bankAccountDetailNotice}

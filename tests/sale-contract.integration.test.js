@@ -124,19 +124,14 @@ if (!databaseUrl || !databaseReachable) {
     });
   }
 
-  const TEST_BANK_ID = '0000ba0c-0000-4000-8000-00000000ba0c';
+  // Banco = texto livre na conta (D141); a entidade Bank nao existe mais.
   async function createSellerBankAccount(sellerId) {
-    await prisma.bank.upsert({
-      where: { id: TEST_BANK_ID },
-      update: {},
-      create: { id: TEST_BANK_ID, name: 'Banco Teste', compeCode: '001' },
-    });
     const accountId = randomUUID();
     await prisma.clientBankAccount.create({
       data: {
         id: accountId,
         clientId: sellerId,
-        bankId: TEST_BANK_ID,
+        bankName: 'BANCO TESTE',
         agency: '0001',
         accountNumber: '12345-6',
         holderName: 'Vendedor PJ',
@@ -1025,6 +1020,8 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(emitted.contract.purchaseNumber, 'NF-123');
     assert.ok(emitted.contract.sellerBankSnapshot);
     assert.equal(emitted.contract.sellerBankSnapshot.accountId, bankAccountId);
+    // D141: snapshot novo congela o bankName da conta (sem bankId/compeCode).
+    assert.equal(emitted.contract.sellerBankSnapshot.bankName, 'BANCO TESTE');
     // nasce EMITIDO v0 (D97); a edicao/re-emissao leva a v1.
     assert.equal(emitted.contract.version, 1);
 

@@ -8,7 +8,6 @@ import { SampleQueryService } from '../../samples/sample-query-service.js';
 import { createLocalUploadServiceFromEnv } from '../../uploads/create-local-upload-service.js';
 import { UserService } from '../../users/user-service.js';
 import { ClientService } from '../../clients/client-service.js';
-import { BankService } from '../../banks/bank-service.js';
 import { BrokerService } from '../../brokers/broker-service.js';
 import { ClientBankAccountService } from '../../clients/client-bank-account-service.js';
 import { ClientAttachmentService } from '../../clients/client-attachment-service.js';
@@ -53,7 +52,6 @@ export function createBackendApiV1FromEnv() {
   const clientService = new ClientService({
     prisma,
   });
-  const bankService = new BankService({ prisma });
   const brokerService = new BrokerService({ prisma });
   const clientBankAccountService = new ClientBankAccountService({ prisma });
   const clientAttachmentService = new ClientAttachmentService({ prisma, uploadService });
@@ -107,7 +105,6 @@ export function createBackendApiV1FromEnv() {
     authService,
     userService,
     clientService,
-    bankService,
     brokerService,
     clientBankAccountService,
     clientAttachmentService,

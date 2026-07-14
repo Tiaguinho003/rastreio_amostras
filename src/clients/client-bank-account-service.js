@@ -33,19 +33,6 @@ export class ClientBankAccountService {
     }
   }
 
-  async _assertBankExists(bankId) {
-    const bank = await this.prisma.bank.findUnique({
-      where: { id: bankId },
-      select: { id: true },
-    });
-    if (!bank) {
-      throw new HttpError(422, 'bankId does not reference an existing bank', {
-        code: 'BANK_NOT_FOUND',
-        field: 'bankId',
-      });
-    }
-  }
-
   async listClientBankAccounts(clientId, actorContext) {
     assertAuthenticatedActor(actorContext, 'list client bank accounts');
     requireId(clientId, 'clientId');
@@ -65,7 +52,6 @@ export class ClientBankAccountService {
     await this._assertClientExists(clientId);
 
     const data = normalizeCreateClientBankAccountInput(input ?? {});
-    await this._assertBankExists(data.bankId);
 
     const created = await this.prisma.clientBankAccount.create({
       data: { id: randomUUID(), clientId, ...data },
@@ -80,9 +66,6 @@ export class ClientBankAccountService {
     requireId(accountId, 'accountId');
 
     const data = normalizeUpdateClientBankAccountInput(input ?? {});
-    if (data.bankId !== undefined) {
-      await this._assertBankExists(data.bankId);
-    }
 
     // Escopo: a conta tem que pertencer ao cliente da rota.
     const existing = await this.prisma.clientBankAccount.findFirst({

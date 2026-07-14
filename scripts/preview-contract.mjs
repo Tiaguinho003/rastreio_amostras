@@ -82,8 +82,7 @@ const fakeContract = {
   invoiceDate: '2026-07-10T00:00:00.000Z',
   paymentDate: '2026-07-25T00:00:00.000Z',
   sellerBankSnapshot: {
-    bankName: 'Banco do Brasil',
-    compeCode: '001',
+    bankName: 'BANCO DO BRASIL',
     agency: '1234-5',
     accountNumber: '67890-1',
     holderName: 'João da Silva Produtor',

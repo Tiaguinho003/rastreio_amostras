@@ -240,7 +240,6 @@ export function createBackendApiV1({
   authService = null,
   userService = null,
   clientService = null,
-  bankService = null,
   brokerService = null,
   clientBankAccountService = null,
   clientAttachmentService = null,
@@ -2836,56 +2835,6 @@ export function createBackendApiV1({
       }),
 
     // ============================================================
-    // Cadastro de bancos (Fechamento Fase 0 -- lookup de contas bancarias)
-    // ============================================================
-    listBanks: (input) =>
-      executeApiForInput(input, async () => {
-        if (!bankService) {
-          throw new HttpError(501, 'Bank service is not configured');
-        }
-        const actor = await resolveActorContext(input, authService);
-        const query = input?.query ?? {};
-        const result = await bankService.listBanks(
-          { search: query.search, status: query.status, limit: query.limit },
-          actor
-        );
-        return { status: 200, body: result };
-      }),
-
-    createBank: (input) =>
-      executeApiForInput(input, async () => {
-        if (!bankService) {
-          throw new HttpError(501, 'Bank service is not configured');
-        }
-        const actor = await resolveActorContext(input, authService);
-        const body = readRequestBody(input);
-        const result = await bankService.createBank(
-          { name: body.name, compeCode: body.compeCode },
-          actor
-        );
-        return { status: 201, body: result };
-      }),
-
-    updateBank: (input) =>
-      executeApiForInput(input, async () => {
-        if (!bankService) {
-          throw new HttpError(501, 'Bank service is not configured');
-        }
-        const actor = await resolveActorContext(input, authService);
-        const bankId = input?.params?.bankId;
-        if (typeof bankId !== 'string' || bankId.length === 0) {
-          throw new HttpError(422, 'bankId path param is required');
-        }
-        const body = readRequestBody(input);
-        const result = await bankService.updateBank(
-          bankId,
-          { name: body.name, compeCode: body.compeCode, status: body.status },
-          actor
-        );
-        return { status: 200, body: result };
-      }),
-
-    // ============================================================
     // Cadastro de corretores (Fechamento Fase 0)
     // ============================================================
     listBrokers: (input) =>
@@ -3419,7 +3368,7 @@ export function createBackendApiV1({
         const result = await clientBankAccountService.createClientBankAccount(
           input?.params?.clientId,
           {
-            bankId: body.bankId,
+            bankName: body.bankName,
             agency: body.agency,
             accountNumber: body.accountNumber,
             holderName: body.holderName,
@@ -3442,7 +3391,7 @@ export function createBackendApiV1({
           input?.params?.clientId,
           input?.params?.accountId,
           {
-            bankId: body.bankId,
+            bankName: body.bankName,
             agency: body.agency,
             accountNumber: body.accountNumber,
             holderName: body.holderName,

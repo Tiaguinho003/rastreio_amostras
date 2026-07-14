@@ -80,7 +80,7 @@ export function ClientBankAccountSelectField({
   }
 
   function describe(account: ClientBankAccountSummary): string {
-    const bank = account.bank ? account.bank.name : 'Banco';
+    const bank = account.bankName || 'Banco';
     return `${bank} · Ag ${account.agency} · CC ${account.accountNumber}`;
   }
 
@@ -108,7 +108,6 @@ export function ClientBankAccountSelectField({
       <ClientBankAccountModal
         open={modalOpen}
         stacked={stacked}
-        session={session}
         saving={saving}
         errorMessage={modalError}
         defaultHolderName={defaultHolderName}

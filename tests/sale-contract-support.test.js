@@ -11,6 +11,7 @@ import {
   brtTodayKey,
   buildContractTimeline,
   buildRecentApprovalSendItem,
+  buildBankSnapshot,
   buildPaymentEvent,
   buildInvoiceEvent,
   buildReceivableView,
@@ -999,4 +1000,28 @@ test('bucketPaymentEvents (DSB-D18): agendado vencido no fim de semana -> overdu
   assert.equal(map['2026-07-11'].length, 1); // no próprio sábado
   assert.equal(map['2026-07-11'][0].typeKey, 'contract_payment_overdue');
   assert.equal(map['2026-07-11'][0].state, 'atrasado');
+});
+
+// D141: banco em texto livre — o snapshot congela bankName direto da conta,
+// sem bankId/compeCode (snapshots pre-D141 seguem com os campos antigos).
+test('buildBankSnapshot (D141): bankName plano, sem bankId/compeCode', () => {
+  const snap = buildBankSnapshot({
+    id: UUID_1,
+    bankName: 'BANCO DO BRASIL',
+    agency: '0001',
+    accountNumber: '12345-6',
+    holderName: 'Vendedor X',
+    holderTaxId: '12345678000199',
+    pixKey: 'chave@pix',
+  });
+  assert.deepEqual(snap, {
+    accountId: UUID_1,
+    bankName: 'BANCO DO BRASIL',
+    agency: '0001',
+    accountNumber: '12345-6',
+    holderName: 'Vendedor X',
+    holderTaxId: '12345678000199',
+    pixKey: 'chave@pix',
+  });
+  assert.equal(buildBankSnapshot(null), null);
 });

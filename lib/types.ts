@@ -277,26 +277,10 @@ export interface ClientUnitInactivateResponse extends ClientUnitMutationResponse
   };
 }
 
-// --- Fechamento Fase 0: bancos, contas bancarias e anexos do cliente ---
+// --- Fechamento Fase 0: contas bancarias e anexos do cliente ---
+// (Entidade Bank removida na D141 — banco virou texto livre na conta.)
 
 export type LookupStatus = 'ACTIVE' | 'INACTIVE';
-
-export interface Bank {
-  id: string;
-  name: string;
-  compeCode: string;
-  status: LookupStatus;
-  createdAt: string | null;
-  updatedAt: string | null;
-}
-
-export interface BankListResponse {
-  items: Bank[];
-}
-
-export interface BankResponse {
-  bank: Bank;
-}
 
 export interface Broker {
   id: string;
@@ -701,20 +685,19 @@ export interface SaleContractEtapa2Input {
 export interface ClientBankAccountSummary {
   id: string;
   clientId: string;
-  bankId: string;
+  bankName: string;
   agency: string;
   accountNumber: string;
   holderName: string;
   holderTaxId: string;
   pixKey: string | null;
   status: LookupStatus;
-  bank: { id: string; name: string; compeCode: string } | null;
   createdAt: string | null;
   updatedAt: string | null;
 }
 
 export interface ClientBankAccountInput {
-  bankId: string;
+  bankName: string;
   agency: string;
   accountNumber: string;
   holderName: string;

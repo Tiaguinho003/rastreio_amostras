@@ -13,7 +13,7 @@ import { ClientBankAccountService } from '../src/clients/client-bank-account-ser
 const actor = { actorUserId: 'u1', role: 'COMMERCIAL', requestId: 'r1' };
 
 const validInput = {
-  bankId: 'bank-1',
+  bankName: 'BANCO DO BRASIL',
   agency: '0001',
   accountNumber: '12345-6',
   holderName: 'Fazenda Boa Vista',
@@ -34,13 +34,24 @@ test('normalizeHolderTaxId: aceita CPF(11) e CNPJ(14); rejeita outros', () => {
 
 test('normalizeCreateClientBankAccountInput: campos obrigatorios + pix opcional', () => {
   const data = normalizeCreateClientBankAccountInput(validInput);
-  assert.equal(data.bankId, 'bank-1');
+  assert.equal(data.bankName, 'BANCO DO BRASIL');
   assert.equal(data.accountNumber, '12345-6');
   assert.equal(data.holderTaxId, '12345678900');
   assert.equal(data.pixKey, 'fazenda@boa.com');
   assert.throws(
     () => normalizeCreateClientBankAccountInput({ ...validInput, agency: '' }),
     /agency/
+  );
+});
+
+test('normalizeCreateClientBankAccountInput: bankName obrigatorio (texto livre, D141)', () => {
+  assert.throws(
+    () => normalizeCreateClientBankAccountInput({ ...validInput, bankName: '' }),
+    /bankName/
+  );
+  assert.throws(
+    () => normalizeCreateClientBankAccountInput({ ...validInput, bankName: undefined }),
+    /bankName/
   );
 });
 
@@ -51,15 +62,18 @@ test('normalizeClientBankAccountStatus: case-insensitive; rejeita invalido', () 
 
 test('normalizeUpdateClientBankAccountInput: parcial; rejeita vazio', () => {
   assert.deepEqual(normalizeUpdateClientBankAccountInput({ agency: '99' }), { agency: '99' });
+  assert.deepEqual(normalizeUpdateClientBankAccountInput({ bankName: 'SICREDI' }), {
+    bankName: 'SICREDI',
+  });
   assert.throws(() => normalizeUpdateClientBankAccountInput({}), /no fields to update/);
 });
 
-test('toClientBankAccountView: inclui banco resumido + datas ISO', () => {
+test('toClientBankAccountView: bankName plano + datas ISO', () => {
   const now = new Date('2026-06-26T12:00:00.000Z');
   const view = toClientBankAccountView({
     id: 'a1',
     clientId: 'c1',
-    bankId: 'bank-1',
+    bankName: 'BANCO DO BRASIL',
     agency: '0001',
     accountNumber: '12345-6',
     holderName: 'X',
@@ -68,9 +82,8 @@ test('toClientBankAccountView: inclui banco resumido + datas ISO', () => {
     status: 'ACTIVE',
     createdAt: now,
     updatedAt: now,
-    bank: { id: 'bank-1', name: 'BB', compeCode: '001' },
   });
-  assert.deepEqual(view.bank, { id: 'bank-1', name: 'BB', compeCode: '001' });
+  assert.equal(view.bankName, 'BANCO DO BRASIL');
   assert.equal(view.pixKey, null);
   assert.equal(view.createdAt, '2026-06-26T12:00:00.000Z');
 });
@@ -84,9 +97,6 @@ function fakePrisma(overrides = {}) {
     client: {
       findUnique: overrides.clientFindUnique ?? (async () => ({ id: 'c1' })),
     },
-    bank: {
-      findUnique: overrides.bankFindUnique ?? (async () => ({ id: 'bank-1' })),
-    },
     clientBankAccount: {
       findMany: overrides.findMany ?? (async () => []),
       findFirst: overrides.findFirst ?? (async () => ({ id: 'a1' })),
@@ -97,14 +107,13 @@ function fakePrisma(overrides = {}) {
           status: 'ACTIVE',
           createdAt: new Date(0),
           updatedAt: new Date(0),
-          bank: { id: data.bankId, name: 'BB', compeCode: '001' },
         })),
       update:
         overrides.update ??
         (async ({ where, data }) => ({
           id: where.id,
           clientId: 'c1',
-          bankId: data.bankId ?? 'bank-1',
+          bankName: data.bankName ?? 'BANCO DO BRASIL',
           agency: data.agency ?? '0001',
           accountNumber: data.accountNumber ?? '12345-6',
           holderName: data.holderName ?? 'X',
@@ -113,7 +122,6 @@ function fakePrisma(overrides = {}) {
           status: data.status ?? 'ACTIVE',
           createdAt: new Date(0),
           updatedAt: new Date(0),
-          bank: { id: 'bank-1', name: 'BB', compeCode: '001' },
         })),
     },
   };
@@ -123,7 +131,7 @@ test('createClientBankAccount: cria e retorna a view', async () => {
   const svc = new ClientBankAccountService({ prisma: fakePrisma() });
   const { account } = await svc.createClientBankAccount('c1', validInput, actor);
   assert.equal(account.holderTaxId, '12345678900');
-  assert.equal(account.bank.compeCode, '001');
+  assert.equal(account.bankName, 'BANCO DO BRASIL');
 });
 
 test('createClientBankAccount: cliente inexistente vira 404', async () => {
@@ -133,16 +141,6 @@ test('createClientBankAccount: cliente inexistente vira 404', async () => {
   await assert.rejects(
     () => svc.createClientBankAccount('ghost', validInput, actor),
     (e) => e.status === 404 && e.details?.code === 'CLIENT_NOT_FOUND'
-  );
-});
-
-test('createClientBankAccount: bankId inexistente vira 422', async () => {
-  const svc = new ClientBankAccountService({
-    prisma: fakePrisma({ bankFindUnique: async () => null }),
-  });
-  await assert.rejects(
-    () => svc.createClientBankAccount('c1', validInput, actor),
-    (e) => e.status === 422 && e.details?.code === 'BANK_NOT_FOUND'
   );
 });
 

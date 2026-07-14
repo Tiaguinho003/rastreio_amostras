@@ -1674,7 +1674,6 @@ export class SaleContractService {
   async _requireSellerBankAccount(accountId, sellerClientId) {
     const account = await this.prisma.clientBankAccount.findUnique({
       where: { id: accountId },
-      include: { bank: { select: { id: true, name: true, compeCode: true } } },
     });
     if (!account || account.clientId !== sellerClientId) {
       throw new HttpError(

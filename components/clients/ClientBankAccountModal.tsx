@@ -6,14 +6,13 @@ import { createPortal } from 'react-dom';
 import { maskCnpjInput, maskCpfInput } from '../../lib/client-field-formatters';
 import { digitsOnly } from '../../lib/document-validation';
 import { useFocusTrap } from '../../lib/use-focus-trap';
-import type { ClientBankAccountInput, SessionData } from '../../lib/types';
-import { BankSelectField } from './BankSelectField';
+import type { ClientBankAccountInput } from '../../lib/types';
 
 // Criar conta bancária do cliente (Fechamento Fase 0 — D28). Molde do
 // ClientUnitModal. Titular pré-preenchido com nome/documento do cliente.
+// Banco = texto livre (D141), MAIÚSCULAS como o Titular.
 type Props = {
   open: boolean;
-  session: SessionData;
   saving: boolean;
   success?: boolean;
   errorMessage: string | null;
@@ -33,7 +32,6 @@ function maskTaxId(value: string): string {
 
 export function ClientBankAccountModal({
   open,
-  session,
   saving,
   success = false,
   errorMessage,
@@ -44,7 +42,7 @@ export function ClientBankAccountModal({
   onSubmit,
 }: Props) {
   const focusTrapRef = useFocusTrap(open);
-  const [bankId, setBankId] = useState<string | null>(null);
+  const [bankName, setBankName] = useState('');
   const [agency, setAgency] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [holderName, setHolderName] = useState('');
@@ -54,7 +52,7 @@ export function ClientBankAccountModal({
 
   useEffect(() => {
     if (!open) return;
-    setBankId(null);
+    setBankName('');
     setAgency('');
     setAccountNumber('');
     setHolderName(defaultHolderName ?? '');
@@ -67,7 +65,7 @@ export function ClientBankAccountModal({
 
   const taxDigits = digitsOnly(holderTaxId);
   const taxValid = taxDigits.length === 11 || taxDigits.length === 14;
-  const missingBank = !bankId;
+  const missingBank = !bankName.trim();
   const missingAgency = !agency.trim();
   const missingAccount = !accountNumber.trim();
   const missingHolder = !holderName.trim();
@@ -78,9 +76,9 @@ export function ClientBankAccountModal({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitted(true);
-    if (submitDisabled || !bankId) return;
+    if (submitDisabled) return;
     await onSubmit({
-      bankId,
+      bankName: bankName.trim(),
       agency: agency.trim(),
       accountNumber: accountNumber.trim(),
       holderName: holderName.trim(),
@@ -131,12 +129,12 @@ export function ClientBankAccountModal({
               <div className="client-unit-modal-body">
                 <label className="app-modal-field">
                   <span className="app-modal-label">Banco (obrigatório)</span>
-                  <BankSelectField
-                    session={session}
-                    value={bankId}
-                    onChange={setBankId}
+                  <input
+                    className={`app-modal-input${showErr && missingBank ? ' has-error' : ''}`}
+                    value={bankName}
                     disabled={saving}
-                    errorMessage={showErr && missingBank ? 'Selecione um banco' : null}
+                    maxLength={120}
+                    onChange={(event) => setBankName(event.target.value.toUpperCase())}
                   />
                 </label>
 

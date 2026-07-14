@@ -6,8 +6,6 @@ import type {
   ClientAuditListResponse,
   ClientCommercialSummaryResponse,
   ClientDetailResponse,
-  BankListResponse,
-  BankResponse,
   BrokerInput,
   BrokerListResponse,
   BrokerResponse,
@@ -733,43 +731,8 @@ export function reactivateClientUnit(
   });
 }
 
-// --- Fechamento Fase 0: bancos, contas bancarias e anexos do cliente ---
-
-export function listBanks(
-  session: SessionData,
-  query: { search?: string; status?: 'ACTIVE' | 'INACTIVE' } = {},
-  options: { signal?: AbortSignal } = {}
-) {
-  const params = new URLSearchParams();
-  if (query.search) params.set('search', query.search);
-  if (query.status) params.set('status', query.status);
-  const suffix = params.size ? `?${params.toString()}` : '';
-  return request<BankListResponse>(`/banks${suffix}`, {
-    method: 'GET',
-    session,
-    signal: options.signal,
-  });
-}
-
-export function createBank(session: SessionData, data: { name: string; compeCode: string }) {
-  return request<BankResponse>('/banks', {
-    method: 'POST',
-    session,
-    body: data,
-  });
-}
-
-export function updateBank(
-  session: SessionData,
-  bankId: string,
-  data: { name?: string; compeCode?: string; status?: 'ACTIVE' | 'INACTIVE' }
-) {
-  return request<BankResponse>(`/banks/${bankId}`, {
-    method: 'PATCH',
-    session,
-    body: data,
-  });
-}
+// --- Fechamento Fase 0: contas bancarias e anexos do cliente ---
+// (API /banks removida na D141 — banco virou texto livre na conta.)
 
 export function listBrokers(
   session: SessionData,

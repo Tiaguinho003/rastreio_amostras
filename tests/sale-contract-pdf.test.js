@@ -54,6 +54,8 @@ function fakeContract(overrides = {}) {
     invoiceDate: '2026-07-10T00:00:00.000Z',
     paymentDate: '2026-07-20T00:00:00.000Z',
     purchaseNumber: 'NF-123',
+    // Snapshot PRE-D141 de proposito (com compeCode): trava a compat do render
+    // de contratos antigos; snapshots novos saem so com bankName.
     sellerBankSnapshot: {
       bankName: 'Banco Teste',
       compeCode: '001',

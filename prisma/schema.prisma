@@ -678,20 +678,6 @@ model ClientAuditEvent {
   @@map("client_audit_event")
 }
 
-model Bank {
-  id        String       @id @db.Uuid
-  name      String
-  compeCode String       @unique(map: "uq_bank_compe_code") @map("compe_code") @db.VarChar(3)
-  status    LookupStatus @default(ACTIVE)
-  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  accounts ClientBankAccount[]
-
-  @@index([status, name], map: "idx_bank_status_name")
-  @@map("bank")
-}
-
 model Broker {
   id        String       @id @db.Uuid
   name      String
@@ -714,7 +700,7 @@ model Broker {
 model ClientBankAccount {
   id            String       @id @db.Uuid
   clientId      String       @map("client_id") @db.Uuid
-  bankId        String       @map("bank_id") @db.Uuid
+  bankName      String       @map("bank_name")
   agency        String
   accountNumber String       @map("account_number")
   holderName    String       @map("holder_name")
@@ -725,10 +711,8 @@ model ClientBankAccount {
   updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   client Client @relation(fields: [clientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  bank   Bank   @relation(fields: [bankId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([clientId, status], map: "idx_client_bank_account_client_status")
-  @@index([bankId], map: "idx_client_bank_account_bank")
   @@map("client_bank_account")
 }
 

@@ -1413,16 +1413,15 @@ export function buildWarehouseSnapshot(client) {
   };
 }
 
-// account = ClientBankAccount com o bank incluido ({ ...account, bank }).
+// account = ClientBankAccount (banco em texto livre, D141). Snapshots de
+// contratos pre-D141 carregam bankId/compeCode congelados; os novos, nao.
 export function buildBankSnapshot(account) {
   if (!account) {
     return null;
   }
   return {
     accountId: account.id,
-    bankId: account.bankId ?? null,
-    bankName: account.bank?.name ?? null,
-    compeCode: account.bank?.compeCode ?? null,
+    bankName: account.bankName ?? null,
     agency: account.agency ?? null,
     accountNumber: account.accountNumber ?? null,
     holderName: account.holderName ?? null,

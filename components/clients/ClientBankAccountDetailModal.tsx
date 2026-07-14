@@ -6,21 +6,15 @@ import { createPortal } from 'react-dom';
 import { maskCnpjInput, maskCpfInput } from '../../lib/client-field-formatters';
 import { digitsOnly } from '../../lib/document-validation';
 import { useFocusTrap } from '../../lib/use-focus-trap';
-import type {
-  ClientBankAccountInput,
-  ClientBankAccountSummary,
-  SessionData,
-} from '../../lib/types';
-import { BankSelectField } from './BankSelectField';
+import type { ClientBankAccountInput, ClientBankAccountSummary } from '../../lib/types';
 
 // Detalhe + edição inline + inativar/reativar da conta bancária. Molde do
-// ClientUnitDetailModal (mesmo padrão view↔edit).
+// ClientUnitDetailModal (mesmo padrão view↔edit). Banco = texto livre (D141).
 type Mode = 'view' | 'edit';
 
 type Props = {
   open: boolean;
   account: ClientBankAccountSummary | null;
-  session: SessionData;
   saving: boolean;
   savingStatus: boolean;
   errorMessage: string | null;
@@ -37,7 +31,6 @@ function maskTaxId(value: string): string {
 export function ClientBankAccountDetailModal({
   open,
   account,
-  session,
   saving,
   savingStatus,
   errorMessage,
@@ -48,7 +41,7 @@ export function ClientBankAccountDetailModal({
 }: Props) {
   const focusTrapRef = useFocusTrap(open);
   const [mode, setMode] = useState<Mode>('view');
-  const [bankId, setBankId] = useState<string | null>(null);
+  const [bankName, setBankName] = useState('');
   const [agency, setAgency] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [holderName, setHolderName] = useState('');
@@ -60,7 +53,7 @@ export function ClientBankAccountDetailModal({
     if (!open) return;
     setMode('view');
     setSubmitted(false);
-    setBankId(account?.bankId ?? null);
+    setBankName(account?.bankName ?? '');
     setAgency(account?.agency ?? '');
     setAccountNumber(account?.accountNumber ?? '');
     setHolderName(account?.holderName ?? '');
@@ -72,7 +65,7 @@ export function ClientBankAccountDetailModal({
 
   const taxDigits = digitsOnly(holderTaxId);
   const taxValid = taxDigits.length === 11 || taxDigits.length === 14;
-  const missingBank = !bankId;
+  const missingBank = !bankName.trim();
   const missingAgency = !agency.trim();
   const missingAccount = !accountNumber.trim();
   const missingHolder = !holderName.trim();
@@ -83,9 +76,9 @@ export function ClientBankAccountDetailModal({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitted(true);
-    if (submitDisabled || !bankId) return;
+    if (submitDisabled) return;
     await onSave({
-      bankId,
+      bankName: bankName.trim(),
       agency: agency.trim(),
       accountNumber: accountNumber.trim(),
       holderName: holderName.trim(),
@@ -95,7 +88,7 @@ export function ClientBankAccountDetailModal({
   }
 
   const isInactive = account.status === 'INACTIVE';
-  const bankLabel = account.bank ? `${account.bank.name} (${account.bank.compeCode})` : '—';
+  const bankLabel = account.bankName || '—';
 
   return createPortal(
     <div className="app-modal-backdrop" onClick={onClose}>
@@ -111,7 +104,7 @@ export function ClientBankAccountDetailModal({
           <div className="app-modal-title-wrap cudm-header-copy">
             <span className="cudm-header-eyebrow">Conta bancária</span>
             <h3 id="cbadm-title" className="app-modal-title cudm-header-name">
-              {account.bank?.name ?? 'Banco'}
+              {account.bankName || 'Banco'}
             </h3>
             {isInactive ? <span className="cudm-header-inactive">Inativa</span> : null}
           </div>
@@ -181,12 +174,12 @@ export function ClientBankAccountDetailModal({
             <div className="cudm-info-grid">
               <label className="app-modal-field is-full">
                 <span className="app-modal-label">Banco (obrigatório)</span>
-                <BankSelectField
-                  session={session}
-                  value={bankId}
-                  onChange={setBankId}
+                <input
+                  className={`app-modal-input${showErr && missingBank ? ' has-error' : ''}`}
+                  value={bankName}
                   disabled={saving}
-                  errorMessage={showErr && missingBank ? 'Selecione um banco' : null}
+                  maxLength={120}
+                  onChange={(event) => setBankName(event.target.value.toUpperCase())}
                 />
               </label>
               <label className="app-modal-field">
