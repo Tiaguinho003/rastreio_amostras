@@ -1025,6 +1025,17 @@ function requireDate(value, fieldName) {
   return new Date(requireDateString(value, fieldName));
 }
 
+// Data PLANEJADA da etapa 2 (faturamento/pagamento). D144: em contrato FUTURO
+// (allowOpen=true) o null EXPLICITO e a escolha ativa "A definir" — passa como
+// null; undefined segue 422 (campo obrigatorio). Data presente valida formato +
+// dia util como sempre.
+function normalizePlannedDate(value, fieldName, allowOpen) {
+  if (value === null && allowOpen) {
+    return null;
+  }
+  return assertBusinessDate(requireDate(value, fieldName), fieldName);
+}
+
 // Datas de ACAO do contrato (faturamento/pagamento/embarque, planejadas ou reais)
 // nao podem cair em fim de semana (DSB-D7) — o negocio nao agenda nesses dias e o
 // card de Eventos mostra so seg-sex. A data e @db.Date (meia-noite UTC), entao o dia
@@ -1274,20 +1285,16 @@ function normalizeSaleFields(raw) {
   };
 }
 
-export function normalizeEtapa2Input(input) {
+export function normalizeEtapa2Input(input, { allowOpenDates = false } = {}) {
   const agio = normalizeAgio(input ?? {});
   const requiresApproval = normalizeRequiredBoolean(input?.requiresApproval, 'requiresApproval');
   // datas (obrigatorias) — DSB-D7: faturamento/pagamento recusam fim de semana;
-  // D142: o cronograma planejado precisa ser coerente (pagamento >= faturamento).
-  const invoiceDate = assertBusinessDate(
-    requireDate(input?.invoiceDate, 'invoiceDate'),
-    'invoiceDate'
-  );
-  const paymentDate = assertBusinessDate(
-    requireDate(input?.paymentDate, 'paymentDate'),
-    'paymentDate'
-  );
-  if (paymentDate.getTime() < invoiceDate.getTime()) {
+  // D144: no FUTURO (allowOpenDates) cada uma pode vir null explicito ("A definir");
+  // D142: o cronograma planejado precisa ser coerente (pagamento >= faturamento) —
+  // so comparavel quando as DUAS existem.
+  const invoiceDate = normalizePlannedDate(input?.invoiceDate, 'invoiceDate', allowOpenDates);
+  const paymentDate = normalizePlannedDate(input?.paymentDate, 'paymentDate', allowOpenDates);
+  if (invoiceDate && paymentDate && paymentDate.getTime() < invoiceDate.getTime()) {
     throw new HttpError(422, 'paymentDate must be on or after invoiceDate', {
       code: 'VALIDATION_ERROR',
       field: 'paymentDate',

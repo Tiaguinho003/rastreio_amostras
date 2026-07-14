@@ -365,11 +365,12 @@ export class SaleContractService {
     const G0_ORDER = [{ invoiceDate: { sort: 'asc', nulls: 'last' } }, { contractSeq: 'asc' }];
     const SHIPPED_ORDER = [{ shippedAt: 'desc' }, { contractSeq: 'desc' }];
     const CANCELLED_ORDER = [{ contractSeq: 'desc' }];
-    // G0 = nao embarcado + tem dia previsto (sem invoiceDate nao entra na fila, EMB22).
+    // G0 = nao embarcado. Sem invoiceDate ("A definir" no FUTURO — D144, revisa
+    // a exclusao da EMB22): ENTRA na fila, sempre a_embarcar (nunca atrasado),
+    // no fim do G0 (nulls-last) em ordem de emissao (contractSeq).
     const UNSHIPPED = {
       status: { in: ['EMITIDO', 'FATURADO'] },
       shippedAt: null,
-      invoiceDate: { not: null },
     };
     const SHIPPED = { shippedAt: { not: null }, status: { in: ['EMITIDO', 'FATURADO', 'PAGO'] } };
     const CANCELLED = { status: 'WASH_OUT' };
@@ -383,7 +384,10 @@ export class SaleContractService {
       groups = [
         {
           g: 0,
-          where: { AND: [UNSHIPPED, { invoiceDate: { gte: brtToday } }] },
+          // "A definir" (invoiceDate null) conta como a_embarcar (D144).
+          where: {
+            AND: [UNSHIPPED, { OR: [{ invoiceDate: { gte: brtToday } }, { invoiceDate: null }] }],
+          },
           orderBy: G0_ORDER,
         },
       ];
@@ -821,7 +825,8 @@ export class SaleContractService {
     assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'create future sale contract');
 
     const fase1 = normalizeFutureSaleContractInput(input ?? {});
-    const etapa2 = normalizeEtapa2Input(input ?? {});
+    // D144: so o FUTURO pode nascer com datas planejadas "A definir" (null).
+    const etapa2 = normalizeEtapa2Input(input ?? {}, { allowOpenDates: true });
     // O vendedor do Futuro vem da etapa 2 (nao ha lote/dono).
     if (!etapa2.sellerClientId) {
       throw new HttpError(422, 'sellerClientId is required to create a future contract', {
@@ -999,7 +1004,6 @@ export class SaleContractService {
     this._requireContractId(contractId);
 
     const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
-    const etapa2 = normalizeEtapa2Input(input ?? {});
 
     const contract = await this.prisma.saleContract.findUnique({ where: { id: contractId } });
     if (!contract) {
@@ -1018,6 +1022,13 @@ export class SaleContractService {
         field: 'expectedVersion',
       });
     }
+
+    // D144: normaliza DEPOIS de carregar o contrato — so o FUTURO aceita datas
+    // planejadas "A definir" (null), e a permissao deriva do type persistido
+    // (nao do payload). Efeito colateral aceito: 404/409 precedem o 422 de payload.
+    const etapa2 = normalizeEtapa2Input(input ?? {}, {
+      allowOpenDates: contract.type === 'FUTURO',
+    });
 
     // Vendedor: usa o editado (se veio) ou o atual do contrato.
     const sellerClientId = etapa2.sellerClientId ?? contract.sellerClientId;

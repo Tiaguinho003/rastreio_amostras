@@ -20,6 +20,7 @@ import {
   bucketShipmentEvents,
   bucketInvoiceEvents,
   buildSaleContractDraftFromSale,
+  buildShipmentView,
   computeContractMoney,
   computeContractMoneyWithAgio,
   formatContractNumber,
@@ -309,6 +310,81 @@ test('normalizeEtapa2Input: paymentDate >= invoiceDate (D142)', () => {
     paymentDate: '2026-07-10',
   });
   assert.equal(sameDay.paymentDate.getTime(), sameDay.invoiceDate.getTime());
+});
+
+test('normalizeEtapa2Input: datas "À definir" (D144) — null explícito só com allowOpenDates', () => {
+  // Default (à vista): null segue 422 no campo.
+  assert.throws(
+    () => normalizeEtapa2Input({ ...validEtapa2(), invoiceDate: null }),
+    (error) => error.status === 422 && error.details?.field === 'invoiceDate'
+  );
+  assert.throws(
+    () => normalizeEtapa2Input({ ...validEtapa2(), paymentDate: null }),
+    (error) => error.status === 422 && error.details?.field === 'paymentDate'
+  );
+
+  // FUTURO (flag): null explícito passa — cada data independente, e ambas.
+  const openInvoice = normalizeEtapa2Input(
+    { ...validEtapa2(), invoiceDate: null },
+    { allowOpenDates: true }
+  );
+  assert.equal(openInvoice.invoiceDate, null);
+  assert.ok(openInvoice.paymentDate instanceof Date);
+  const openBoth = normalizeEtapa2Input(
+    { ...validEtapa2(), invoiceDate: null, paymentDate: null },
+    { allowOpenDates: true }
+  );
+  assert.equal(openBoth.invoiceDate, null);
+  assert.equal(openBoth.paymentDate, null);
+
+  // undefined NÃO é "À definir" (campo obrigatório) — 422 mesmo com a flag.
+  assert.throws(
+    () =>
+      normalizeEtapa2Input({ ...validEtapa2(), invoiceDate: undefined }, { allowOpenDates: true }),
+    (error) => error.status === 422 && error.details?.field === 'invoiceDate'
+  );
+
+  // Fim de semana continua barrado quando a data está presente sob a flag.
+  assert.throws(
+    () =>
+      normalizeEtapa2Input(
+        { ...validEtapa2(), invoiceDate: null, paymentDate: '2026-07-12' },
+        { allowOpenDates: true }
+      ),
+    (error) => error.details?.code === 'WEEKEND_DATE' && error.details?.field === 'paymentDate'
+  );
+
+  // D142 é pulada com uma das datas "À definir"...
+  const skewed = normalizeEtapa2Input(
+    { ...validEtapa2(), invoiceDate: null, paymentDate: '2026-07-10' },
+    { allowOpenDates: true }
+  );
+  assert.equal(skewed.invoiceDate, null);
+  // ...mas segue ativa com as duas presentes.
+  assert.throws(
+    () =>
+      normalizeEtapa2Input(
+        { ...validEtapa2(), invoiceDate: '2026-07-20', paymentDate: '2026-07-10' },
+        { allowOpenDates: true }
+      ),
+    (error) => error.status === 422 && error.details?.field === 'paymentDate'
+  );
+});
+
+test('buildShipmentView: sem invoiceDate nunca fica atrasado — sempre a_embarcar (D144)', () => {
+  const row = {
+    id: 'c1',
+    contractNumber: '0001/26',
+    status: 'EMITIDO',
+    buyerSnapshot: { displayName: 'Comprador Y' },
+    sellerWarehouseSnapshot: null,
+    quantitySacks: 10,
+    invoiceDate: null,
+    shippedAt: null,
+  };
+  const view = buildShipmentView(row, '2099-12-31');
+  assert.equal(view.state, 'a_embarcar');
+  assert.equal(view.invoiceDate, null);
 });
 
 test('normalizeEtapa2Input: ágio exige valor > 0 e tipo válido', () => {

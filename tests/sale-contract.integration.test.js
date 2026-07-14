@@ -2545,6 +2545,202 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(edit.contract.approvalReminderLeadDays, 10);
   });
 
+  // ---- D144: datas planejadas "À definir" (null) em contratos FUTUROS ----------
+
+  test('D144: futuro cria com datas "à definir" (ambas/uma); à vista recusa null', async () => {
+    const buyerId = randomUUID();
+    await createBuyerClient(buyerId);
+
+    const both = await saleContractService.createFutureSaleContract(
+      await createFutureInput(buyerId, { invoiceDate: null, paymentDate: null }),
+      adminActor
+    );
+    assert.equal(both.contract.status, 'EMITIDO');
+    assert.equal(both.contract.invoiceDate, null);
+    assert.equal(both.contract.paymentDate, null);
+
+    // Uma só "à definir" (independência por campo) — D142 não dispara.
+    const onlyPay = await saleContractService.createFutureSaleContract(
+      await createFutureInput(buyerId, { paymentDate: null }),
+      adminActor
+    );
+    assert.ok(onlyPay.contract.invoiceDate);
+    assert.equal(onlyPay.contract.paymentDate, null);
+
+    // À vista (caminho spot): null segue 422 no campo.
+    const sampleId = randomUUID();
+    await createClassifiedSample({ id: sampleId, lotNumber: '21050' });
+    await assert.rejects(
+      sell(sampleId, 0, buyerId, { invoiceDate: null }),
+      (error) => error.status === 422 && error.details?.field === 'invoiceDate'
+    );
+  });
+
+  test('D144: Editar futuro define, volta pra "à definir" e D142 tardio segue valendo', async () => {
+    const buyerId = randomUUID();
+    await createBuyerClient(buyerId);
+    const created = await saleContractService.createFutureSaleContract(
+      await createFutureInput(buyerId, { invoiceDate: null, paymentDate: null }),
+      adminActor
+    );
+    const lookups = await fetchLookups();
+    const bankAccountId = created.contract.sellerBankAccountId;
+
+    // Define as duas datas no Editar.
+    const defined = await saleContractService.emitSaleContract(
+      created.contract.id,
+      etapa2Payload({
+        bankAccountId,
+        lookups,
+        expectedVersion: created.contract.version,
+        overrides: { invoiceDate: '2026-08-10', paymentDate: '2026-08-20' },
+      }),
+      adminActor
+    );
+    assert.equal(defined.contract.invoiceDate?.slice(0, 10), '2026-08-10');
+    assert.equal(defined.contract.paymentDate?.slice(0, 10), '2026-08-20');
+
+    // Volta o pagamento pra "à definir" — persiste null (simetria do Editar).
+    const reverted = await saleContractService.emitSaleContract(
+      created.contract.id,
+      etapa2Payload({
+        bankAccountId,
+        lookups,
+        expectedVersion: defined.contract.version,
+        overrides: { invoiceDate: '2026-08-10', paymentDate: null },
+      }),
+      adminActor
+    );
+    assert.equal(reverted.contract.paymentDate, null);
+    assert.equal(reverted.contract.invoiceDate?.slice(0, 10), '2026-08-10');
+
+    // D142 tardio: ao definir depois, o par incoerente é recusado.
+    await assert.rejects(
+      saleContractService.emitSaleContract(
+        created.contract.id,
+        etapa2Payload({
+          bankAccountId,
+          lookups,
+          expectedVersion: reverted.contract.version,
+          overrides: { invoiceDate: '2026-08-21', paymentDate: '2026-08-20' },
+        }),
+        adminActor
+      ),
+      (error) => error.status === 422 && error.details?.field === 'paymentDate'
+    );
+  });
+
+  test('D144: Editar um à vista com data null → 422 (permissão deriva do type persistido)', async () => {
+    const { contractId, bankAccountId } = await setupEmittableContract({ lotNumber: '21051' });
+    const lookups = await fetchLookups();
+    await assert.rejects(
+      saleContractService.emitSaleContract(
+        contractId,
+        etapa2Payload({ bankAccountId, lookups, overrides: { paymentDate: null } }),
+        adminActor
+      ),
+      (error) => error.status === 422 && error.details?.field === 'paymentDate'
+    );
+  });
+
+  test('D144: faturar e pagar direto com planejadas "à definir" (data real basta)', async () => {
+    const buyerId = randomUUID();
+    await createBuyerClient(buyerId);
+    const created = await saleContractService.createFutureSaleContract(
+      await createFutureInput(buyerId, { invoiceDate: null, paymentDate: null }),
+      adminActor
+    );
+    const invoiced = await saleContractService.invoiceSaleContract(
+      created.contract.id,
+      { expectedVersion: created.contract.version, date: '2026-07-08' },
+      adminActor
+    );
+    assert.equal(invoiced.contract.status, 'FATURADO');
+    const paid = await saleContractService.paySaleContract(
+      created.contract.id,
+      { expectedVersion: invoiced.contract.version, date: '2026-07-08' },
+      adminActor
+    );
+    assert.equal(paid.contract.status, 'PAGO');
+    // As planejadas seguem "à definir" no histórico.
+    assert.equal(paid.contract.invoiceDate, null);
+    assert.equal(paid.contract.paymentDate, null);
+  });
+
+  test('D144: worklist de embarque inclui "à definir" no fim; sem atraso; sem evento no calendário', async () => {
+    const dated = await setupShipmentContract({ lotNumber: '25320' });
+    await prisma.saleContract.update({
+      where: { id: dated.id },
+      data: { invoiceDate: new Date('2000-01-01T00:00:00Z') },
+    });
+    const undated = await setupShipmentContract({ lotNumber: '25321' });
+    await prisma.saleContract.update({
+      where: { id: undated.id },
+      data: { invoiceDate: null },
+    });
+
+    const all = await saleContractService.listShipmentContracts({}, adminActor);
+    const byId = new Map(all.items.map((i) => [i.id, i]));
+    assert.equal(byId.get(undated.id)?.state, 'a_embarcar');
+    assert.equal(byId.get(undated.id)?.invoiceDate, null);
+    // Nulls-last: o datado (2000, atrasado) vem antes do "à definir".
+    const order = all.items.map((i) => i.id);
+    assert.ok(order.indexOf(dated.id) < order.indexOf(undated.id));
+    // Contador de atrasados não conta o "à definir".
+    assert.equal(all.overdueCount, 1);
+
+    // Filtros: a_embarcar inclui; atrasado exclui.
+    const fA = await saleContractService.listShipmentContracts(
+      { filter: 'a_embarcar' },
+      adminActor
+    );
+    assert.ok(fA.items.some((i) => i.id === undated.id));
+    const fAtr = await saleContractService.listShipmentContracts(
+      { filter: 'atrasado' },
+      adminActor
+    );
+    assert.ok(!fAtr.items.some((i) => i.id === undated.id));
+
+    // Keyset atravessa a cauda null: limit=1 → datado, cursor → "à definir".
+    const p1 = await saleContractService.listShipmentContracts({ limit: 1 }, adminActor);
+    assert.deepEqual(
+      p1.items.map((i) => i.id),
+      [dated.id]
+    );
+    const p2 = await saleContractService.listShipmentContracts(
+      { limit: 1, cursor: p1.nextCursor },
+      adminActor
+    );
+    assert.deepEqual(
+      p2.items.map((i) => i.id),
+      [undated.id]
+    );
+
+    // Calendário: o "à definir" não gera evento agendado em janela nenhuma.
+    const events = await saleContractService.getDashboardShipmentEvents(
+      { from: '1999-01-01', to: '2199-12-31' },
+      adminActor
+    );
+    const flat = Object.values(events).flat();
+    assert.ok(!flat.some((e) => e.id.includes(undated.id)));
+    assert.ok(flat.some((e) => e.id.includes(dated.id)));
+  });
+
+  test('D144: financeiro trata paymentDate "à definir" como a_vencer, nunca vencido', async () => {
+    const buyerId = randomUUID();
+    await createBuyerClient(buyerId);
+    const created = await saleContractService.createFutureSaleContract(
+      await createFutureInput(buyerId, { paymentDate: null }),
+      adminActor
+    );
+    const res = await saleContractService.listBrokerReceivables({}, adminActor);
+    const item = res.items.find((i) => i.id === created.contract.id);
+    assert.ok(item, 'contrato "à definir" aparece no Financeiro');
+    assert.equal(item.paymentState, 'a_vencer');
+    assert.equal(item.paymentDate, null);
+    assert.equal(res.overdueCount ?? 0, 0);
+  });
+
   // ---- Aprovacao: worklist da sub-aba (AP25-AP28, F3) ---------------------------
   // Contrato marcado direto no Prisma: controle fino de status/invoiceDate/seq pro
   // keyset (mais leve que o fluxo de venda real). O estado da worklist deriva de um
