@@ -652,6 +652,13 @@ function deriveReceivablePaymentState(status, paymentDate, todayKey) {
   return 'a_vencer';
 }
 
+// D145 (revisa D105): o contrato a vista (fisico) cancelado por washout nao gera
+// cobranca de corretagem — sai do Financeiro e bloqueia o Espelho. So o FUTURO em
+// washout segue cobravel. Predicado puro, usado no gate do Espelho (exportEspelhoPdf).
+export function isSpotWashout(contract) {
+  return contract?.status === 'WASH_OUT' && contract?.type === 'MERCADO_A_VISTA';
+}
+
 // Financeiro (Fase F): projecao de "corretagem a receber" de UM contrato. Soma a
 // corretagem das 2 pontas (commissionTotal). Os corretores sao ATRIBUICAO/metrica
 // (D34): lista de nomes, SEM valor por corretor — o sistema NAO divide a corretagem

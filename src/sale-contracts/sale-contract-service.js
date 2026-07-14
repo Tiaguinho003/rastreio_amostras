@@ -141,8 +141,9 @@ export class SaleContractService {
   // Financeiro (Fase F): lista a corretagem A RECEBER por fechamento. Relatorio
   // DERIVADO (sem persistencia): TODOS os contratos congelados (EMITIDO/FATURADO/
   // PAGO), inclusive os SEM corretagem (P24/D92 — e o unico lugar onde o total do
-  // contrato aparece) E os em WASH_OUT (D105: o corretor recebe a comissao mesmo
-  // com washout, pois fez a negociacao). SEM rateio ÷N (D136 removeu a "cota por
+  // contrato aparece) E os em WASH_OUT do FUTURO (D105 refinada pela D145: o
+  // corretor recebe a comissao no washout so no FUTURO; o fisico cancelado
+  // nao paga e sai do Financeiro). SEM rateio ÷N (D136 removeu a "cota por
   // corretor"): o valor por fechamento = a corretagem TOTAL (vendedor + comprador);
   // os co-corretores sao listados so como atribuicao. ACESSO (escopo aberto
   // 2026-07-13, own-only revogado): ADMIN e COMMERCIAL veem TODOS os fechamentos, com
@@ -195,6 +196,9 @@ export class SaleContractService {
     const G0_ORDER = [{ paymentDate: { sort: 'asc', nulls: 'last' } }, { contractSeq: 'asc' }];
     const ARCHIVE_ORDER = [{ contractSeq: 'desc' }];
     const UNPAID = { status: { in: ['EMITIDO', 'FATURADO'] } };
+    // D145 (revisa D105): washout so paga corretagem no FUTURO. O fisico (a vista)
+    // cancelado por washout nao gera cobranca — sai do Financeiro (lista + total).
+    const WASHOUT_BILLABLE = { status: 'WASH_OUT', type: 'FUTURO' };
     let groups;
     if (filter === 'vencido') {
       groups = [
@@ -213,12 +217,12 @@ export class SaleContractService {
     } else if (filter === 'pago') {
       groups = [{ g: 1, where: { status: 'PAGO' }, orderBy: ARCHIVE_ORDER }];
     } else if (filter === 'cancelado') {
-      groups = [{ g: 2, where: { status: 'WASH_OUT' }, orderBy: ARCHIVE_ORDER }];
+      groups = [{ g: 2, where: WASHOUT_BILLABLE, orderBy: ARCHIVE_ORDER }];
     } else {
       groups = [
         { g: 0, where: UNPAID, orderBy: G0_ORDER },
         { g: 1, where: { status: 'PAGO' }, orderBy: ARCHIVE_ORDER },
-        { g: 2, where: { status: 'WASH_OUT' }, orderBy: ARCHIVE_ORDER },
+        { g: 2, where: WASHOUT_BILLABLE, orderBy: ARCHIVE_ORDER },
       ];
     }
 
@@ -252,8 +256,12 @@ export class SaleContractService {
     // cursor — o cabecalho e um resumo estavel de todos os fechamentos (D136 — sem rateio ÷N).
     const [sums, overdue] = await Promise.all([
       this.prisma.saleContract.aggregate({
+        // D145: washout so entra no total quando FUTURO (o fisico cancelado nao cobra).
         where: {
-          AND: [filterWhere, { status: { in: ['EMITIDO', 'FATURADO', 'PAGO', 'WASH_OUT'] } }],
+          AND: [
+            filterWhere,
+            { OR: [{ status: { in: ['EMITIDO', 'FATURADO', 'PAGO'] } }, WASHOUT_BILLABLE] },
+          ],
         },
         _sum: { sellerBrokerageValue: true, buyerBrokerageValue: true },
       }),

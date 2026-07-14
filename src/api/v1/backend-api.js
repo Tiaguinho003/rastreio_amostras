@@ -11,6 +11,7 @@ import { getContractIssuer } from '../../sale-contracts/issuer-config.js';
 import {
   APPROVAL_ELIGIBLE_STATUSES,
   buildApprovalPrefill,
+  isSpotWashout,
   toApprovalContractOption,
 } from '../../sale-contracts/sale-contract-support.js';
 import { normalizeReportedHarvest } from '../../reports/export-fields.js';
@@ -3274,12 +3275,23 @@ export function createBackendApiV1({
           });
         }
         const { contract } = await saleContractService.getSaleContract(contractId, actor);
-        // D105: inclui WASH_OUT (o corretor recebe a comissao mesmo com washout).
+        // D105 (refinada pela D145): inclui WASH_OUT, mas so o do FUTURO — o corretor
+        // recebe a comissao no washout de um contrato a termo; o fisico a vista
+        // cancelado nao gera cobranca (bloqueado logo abaixo).
         const ELIGIBLE_STATUSES = ['EMITIDO', 'FATURADO', 'PAGO', 'WASH_OUT'];
         if (!ELIGIBLE_STATUSES.includes(contract.status)) {
           throw new HttpError(409, 'O Espelho de Corretagem não é elegível para este contrato', {
             code: 'ESPELHO_NOT_ELIGIBLE',
           });
+        }
+        // D145: o Espelho e o documento da cobranca de corretagem; o contrato a vista
+        // (fisico) cancelado por washout nao gera cobranca — bloqueia (so o FUTURO cobra).
+        if (isSpotWashout(contract)) {
+          throw new HttpError(
+            409,
+            'Contrato à vista cancelado (wash-out) não gera cobrança de corretagem',
+            { code: 'ESPELHO_WASHOUT_SPOT' }
+          );
         }
         // O Espelho é um documento de CORRETAGEM: exige comissão no lado pedido
         // (S74). Espelha o gate do front (que esmaece "Sem corretagem") e defende

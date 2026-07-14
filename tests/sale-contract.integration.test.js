@@ -1699,25 +1699,48 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(item.brokers.length, 1); // o corretor aparece; sem valor por corretor (D136)
   });
 
-  test('Financeiro: contrato em WASH_OUT ainda aparece (corretagem mantida, D105)', async () => {
-    const { contractId, version } = await setupEmittableContract({ lotNumber: '23050' });
+  test('Financeiro (D145): washout paga corretagem só no FUTURO — físico some, futuro fica', async () => {
+    // Físico (à vista) em washout → NÃO gera cobrança → some do Financeiro (D145).
+    const spot = await setupEmittableContract({ lotNumber: '23050' });
     await saleContractService.washoutSaleContract(
-      contractId,
-      { expectedVersion: version, reason: 'Negocio caiu' },
+      spot.contractId,
+      { expectedVersion: spot.version, reason: 'Físico caiu' },
       adminActor
     );
-    const washed = await prisma.saleContract.findUnique({
-      where: { id: contractId },
-      select: { status: true },
-    });
-    assert.equal(washed.status, 'WASH_OUT');
+    // FUTURO em washout → segue cobrável (D105 preservada só para o FUTURO).
+    const buyerId = randomUUID();
+    await createBuyerClient(buyerId);
+    const fut = await saleContractService.createFutureSaleContract(
+      await createFutureInput(buyerId),
+      adminActor
+    );
+    await saleContractService.washoutSaleContract(
+      fut.contract.id,
+      { expectedVersion: fut.contract.version, reason: 'Futuro caiu' },
+      adminActor
+    );
 
-    // D105: o corretor recebe a comissão mesmo com washout → o fechamento segue
-    // no Financeiro, com a corretagem intacta.
     const res = await saleContractService.listBrokerReceivables({}, adminActor);
-    const item = res.items.find((i) => i.id === contractId);
-    assert.ok(item, 'contrato em WASH_OUT deve aparecer no Financeiro');
-    assert.equal(item.commissionTotal, 30); // 2% + 1% de 1000
+    assert.equal(
+      res.items.find((i) => i.id === spot.contractId),
+      undefined,
+      'físico em WASH_OUT NÃO deve aparecer no Financeiro (D145)'
+    );
+    const futItem = res.items.find((i) => i.id === fut.contract.id);
+    assert.ok(futItem, 'FUTURO em WASH_OUT deve aparecer no Financeiro');
+    assert.equal(futItem.paymentState, 'cancelado');
+    assert.equal(futItem.commissionTotal, 150); // 3% de 5000 (50 sacas × R$100)
+    // "Corretagem total" conta só o FUTURO washout (o físico ficou de fora).
+    assert.equal(res.totalCommission, 150);
+    // O filtro "Cancelado" também lista só o FUTURO.
+    const canc = await saleContractService.listBrokerReceivables(
+      { filter: 'cancelado' },
+      adminActor
+    );
+    assert.deepEqual(
+      canc.items.map((i) => i.id),
+      [fut.contract.id]
+    );
   });
 
   test('Financeiro (S86): item traz paymentDate e a resposta traz totalCommission', async () => {
@@ -1800,7 +1823,15 @@ if (!databaseUrl || !databaseReachable) {
     const venc = await setupConfirmedContract({ lotNumber: '26010' });
     const aVenc = await setupConfirmedContract({ lotNumber: '26011' });
     const pago = await setupConfirmedContract({ lotNumber: '26012' });
-    const canc = await setupConfirmedContract({ lotNumber: '26013' });
+    // D145: o cancelado precisa ser FUTURO para aparecer no Financeiro (o físico em
+    // washout some). Wrapper mantém a forma { contractId } dos demais setups.
+    const cancBuyerId = randomUUID();
+    await createBuyerClient(cancBuyerId);
+    const cancFut = await saleContractService.createFutureSaleContract(
+      await createFutureInput(cancBuyerId),
+      adminActor
+    );
+    const canc = { contractId: cancFut.contract.id };
     // Estados/datas controlados (setupConfirmedContract nasce EMITIDO).
     await prisma.saleContract.update({
       where: { id: venc.contractId },

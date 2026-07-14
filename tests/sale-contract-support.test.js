@@ -24,6 +24,7 @@ import {
   computeContractMoney,
   computeContractMoneyWithAgio,
   formatContractNumber,
+  isSpotWashout,
   normalizeBrokeragePct,
   normalizeBrokerIds,
   normalizeContractLookupInput,
@@ -1120,4 +1121,13 @@ test('buildBankSnapshot (D141): bankName plano, sem bankId/compeCode', () => {
     pixKey: 'chave@pix',
   });
   assert.equal(buildBankSnapshot(null), null);
+});
+
+// D145: washout só cobra corretagem no FUTURO — o físico (à vista) cancelado não.
+test('isSpotWashout: só o contrato à vista em WASH_OUT (D145)', () => {
+  assert.equal(isSpotWashout({ status: 'WASH_OUT', type: 'MERCADO_A_VISTA' }), true);
+  assert.equal(isSpotWashout({ status: 'WASH_OUT', type: 'FUTURO' }), false);
+  assert.equal(isSpotWashout({ status: 'PAGO', type: 'MERCADO_A_VISTA' }), false);
+  assert.equal(isSpotWashout({ status: 'EMITIDO', type: 'FUTURO' }), false);
+  assert.equal(isSpotWashout(null), false);
 });
