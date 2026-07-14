@@ -44,6 +44,10 @@ A tabela de rotas e a matriz abaixo já refletem. Detalhe em `Contratos-Visao-Ge
 mais abaixo foram escritas **pré-split** e ainda citam `/contratos` (rotuladas "Embarques"):
 leia **`/embarques`** — e note que **`/contratos` agora é bloqueado** a eles (a tabela de
 rotas e a matriz acima são a referência autoritativa).
+Atualizado: 2026-07-14 — **aba Bancos removida do `/cadastros` (D141)**: o hub ficou
+com **2 abas** (Clientes | Corretores) — banco virou **texto livre** na conta bancária
+do cliente (a entidade `Bank`, a API `/banks` e o modal de banco saíram do sistema).
+Menções a "3 abas / Bancos" em notas históricas abaixo leiam-se com essa redução.
 
 ## Como ler este documento
 
@@ -265,8 +269,8 @@ em qualquer contrato (escopo aberto, D140). Detalhe da casca em `Contratos-Visao
 guard segue `NON_PROSPECTOR_ROLES` (todos os 5 ✅ e a rota continua acessivel por
 URL), mas o _item de nav_ "Clientes" nao aparece mais para ADMIN/CADASTRO — eles
 chegam aos clientes pela aba "Clientes" do `/cadastros`. E `/cadastros` deixou de
-ser so Bancos/Corretores: agora hospeda 3 abas (Clientes | Bancos | Corretores),
-Clientes como default.
+ser so um hub de lookups: hospeda as abas Clientes (default) | Corretores
+(a aba Bancos existiu de 2026-07-02 a 2026-07-14; saiu na D141).
 
 **Detalhe do cliente restrito (2026-07-09):** `/clients/[id]` saiu de
 `NON_PROSPECTOR_ROLES` e passou a `CLIENT_MANAGEMENT_ROLES` (ADMIN + CADASTRO,
@@ -508,9 +512,9 @@ pode ser responsavel comercial de cliente via `isCommercialRole`; o REGISTRATION
 ## CADASTRO — "Cadastro"
 
 Papel de cadastro / back-office. Acessa amostras e camera (como os demais
-nao-prospectores) e tem o hub **Cadastros** — que desde 2026-07-02 concentra 3
-abas: **Clientes** (default, gestao de clientes/armazens), **Bancos** e
-**Corretores**. Por isso o item "Clientes" avulso saiu da nav do CADASTRO: ele
+nao-prospectores) e tem o hub **Cadastros** — que concentra 2 abas:
+**Clientes** (default, gestao de clientes/armazens) e **Corretores** (a aba
+Bancos saiu na D141). Por isso o item "Clientes" avulso saiu da nav do CADASTRO: ele
 acessa os clientes pela aba Clientes do `/cadastros` (a rota `/clients` continua
 liberada por URL). **Nao** acessa Relatorios nem Contratos (removidos em 2026-06-28;
 hoje so o ADMIN) nem `/users` (exclusivo do ADMIN).
@@ -568,10 +572,10 @@ Financeiro) segue fora do CADASTRO.
 
 ### Particularidades de conteudo
 
-- **`/cadastros`**: hub com **3 abas** (2026-07-02) — **Clientes** (default; reusa
-  o `<ClientsBrowser>`, a mesma experiencia da pagina /clients: busca, filtro,
-  scroll infinito, detalhe, criar), **Bancos** e **Corretores** (gestao do
-  Fechamento Fase 0). O FAB "+" e contextual a aba (cria cliente/banco/corretor).
+- **`/cadastros`**: hub com **2 abas** (D141; eram 3 desde 2026-07-02) — **Clientes**
+  (default; reusa o `<ClientsBrowser>`, a mesma experiencia da pagina /clients: busca,
+  filtro, scroll infinito, detalhe, criar) e **Corretores** (gestao do
+  Fechamento Fase 0). O FAB "+" e contextual a aba (cria cliente/corretor).
   E a unica pagina de "gestao" que sobra para o CADASTRO, e agora tambem o ponto
   de acesso a clientes. (`app/cadastros/page.tsx`.)
 - **`/dashboard`**: dashboard padrao (com `salesData`), igual aos demais
@@ -657,9 +661,9 @@ Contagem:
   (FAB, `canCreate={isAdmin}`).
 - **`/users`**: gestao de usuarios — **exclusiva do ADMIN** (nenhum outro papel
   acessa).
-- **`/cadastros`**: hub com 3 abas (2026-07-02) — Clientes (default; gestao de
-  clientes/armazens, mesma experiencia da pagina /clients via `<ClientsBrowser>`),
-  Bancos e Corretores. **`/contratos`**: gestao dos contratos de venda (Fechamento).
+- **`/cadastros`**: hub com 2 abas (D141) — Clientes (default; gestao de
+  clientes/armazens, mesma experiencia da pagina /clients via `<ClientsBrowser>`)
+  e Corretores. **`/contratos`**: gestao dos contratos de venda (Fechamento).
 - **Modo manutencao**: o middleware redireciona **nao-ADMIN** para
   `/maintenance` — so o ADMIN usa o app durante a manutencao. (`middleware.ts`.)
 - **`/dashboard`**: dashboard padrao (com `salesData`).
@@ -713,7 +717,8 @@ Observacoes neutras do mapeamento, sem juizo de "certo/errado":
    gerir clientes e a mesma para todos, mas o ponto de entrada muda por papel:
    COMMERCIAL/CLASSIFIER/REGISTRATION usam "Clientes" (`/clients`) direto na nav;
    ADMIN/CADASTRO acessam pela aba "Clientes" (default) do hub `/cadastros` (que
-   ganhou 3 abas: Clientes | Bancos | Corretores). Implementacao: a lista de
+   ganhou 3 abas: Clientes | Bancos | Corretores; a aba Bancos saiu depois, na
+   D141 — hoje sao 2). Implementacao: a lista de
    clientes virou o componente compartilhado `components/clients/ClientsBrowser.tsx`
    (mesma UI nas duas telas; snapshots isolados por `storageKey`). Guards de rota
    inalterados — `/clients` (`NON_PROSPECTOR_ROLES`) segue acessivel por URL a

@@ -2,7 +2,7 @@
 
 Status: Ativo (documento-mãe / verdade viva do funcionamento atual)
 Escopo: o que a página `/contratos` faz hoje — a casca (hub + sub-abas + acesso por papel), o contrato de compra e venda ("Fechamento" → PDF), o Espelho de Corretagem, as abas **Financeiro**, **Aprovações** e **Embarque**, a **máquina de estado** do contrato com seus portões, o modelo de dados e as rotas de API.
-Última revisão: 2026-07-13 (consolidada a partir dos planos Contratos/Central/Aprovações/Embarque + código real)
+Última revisão: 2026-07-14 (D141 — banco em texto livre na conta bancária; entidade `Bank` removida)
 Documentos relacionados: `Contratos-Plano-de-Trabalho.md` (backlog, decisões e pendências), `Dashboard-Visao-Geral.md` (eventos/cards que apontam pra cá), `Auditoria-Navegacao-por-Papel.md`, `API-e-Contratos.md`, `Produto-e-Fluxos.md`
 
 > **Como este documento se mantém vivo:** a cada implementação concluída e validada, esta Visão Geral é atualizada no mesmo passo. As **decisões, o histórico e o backlog** vivem no `Contratos-Plano-de-Trabalho.md`; aqui fica **só o estado atual**. Esta consolidação (2026-07-13, 4→2 docs) absorveu e removeu os antigos `Central-de-Contratos-`, `Aprovacoes-` e `Embarque-Plano-de-Trabalho.md` — o histórico completo de decisões (D/CC/AP/EMB) e de sessões está no Git e, condensado, no apêndice do `Contratos-Plano-de-Trabalho.md`.
@@ -165,7 +165,7 @@ Pagar **herda** o portão de aprovação (só se chega a FATURADO passando por e
 - **`SaleContract`** — o contrato: identificação, vínculos, **snapshots** das partes (comprador/vendedor), negócio-financeiro (preço, sacas, ágio), pagamento (`invoiceDate`/`invoicedAt`/`paymentDate`/`paidAt`), flags `requiresApproval`/`requiresShipment`, textos, `status`, `version`.
 - **`SaleContractBroker`** (corretagem por lado) · **`SaleContractExport`** (dados de exportação).
 - **Lookups:** `ContractModality` (com o flag de embarque) · `PaymentForm` · `Packaging`.
-- **Cadastro que o contrato exige (Fase 0):** `Bank` · `ClientBankAccount` · `ClientAttachment` (anexos, JPEG/PNG/WebP+PDF) · `Broker` · `birthDate` no cliente.
+- **Cadastro que o contrato exige (Fase 0):** `ClientBankAccount` (banco em **texto livre** `bankName` — entidade `Bank` e COMPE removidos na D141; snapshots de contratos emitidos preservam o código congelado) · `ClientAttachment` (anexos, JPEG/PNG/WebP+PDF) · `Broker` · `birthDate` no cliente.
 - **Logs/filas:** `SaleContractStatusLog` (marcos de status) · `SaleContractAgioLog` (cada aplicação de ágio/deságio) · `SaleContractEspelhoLog` (espelho) · `approval_label_log`/`ApprovalLabelLog` (envios de aprovação) · `SaleContractShipmentPhoto` (fotos de embarque) · `CustomPrintJob` (fila da etiqueta de aprovação).
 - **Enums:** status (`EMITIDO`/`FATURADO`/`PAGO`/`WASH_OUT`) e os demais do domínio.
 
@@ -191,7 +191,7 @@ _(Nota: o `Arquitetura-Tecnica.md` ainda não documenta o domínio `SaleContract
 - **Dashboard** (`Dashboard-Visao-Geral.md`): o card de **Eventos** (único card do dashboard desde DSB-D14) e seus chips que deep-linkam `/contratos?tab=…` (pagamento/faturamento) e `/embarques?tab=embarque` (embarque), com `&highlight=` (§7.3), e os feeds `payment/shipment/invoice-events` (§8). _(O card "Aprovações enviadas" saiu do dashboard e mora na sub-aba Aprovações — ver §7 deste doc.)_ Qualquer mudança em rota, nome de aba, valores de `?tab=` ou no enum de status **obriga a atualizar lá** (`contractTabRoute` mapeia aba→rota).
 - **Navegação por papel** (`Auditoria-Navegacao-por-Papel.md`): o mapa read-only de quem acessa o hub — **aponta para este doc** como dono da matriz de acesso.
 - **API** (`API-e-Contratos.md`): a referência canônica de rotas/contratos de request-response.
-- **Cadastro de cliente** (`Clientes-e-Movimentacoes-Especificacao.md`): banco/anexos que o contrato consome.
+- **Cadastro de cliente** (`Clientes-e-Movimentacoes-Especificacao.md`): contas bancárias/anexos que o contrato consome.
 
 ---
 

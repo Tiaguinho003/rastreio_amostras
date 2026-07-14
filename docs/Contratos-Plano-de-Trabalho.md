@@ -2,7 +2,7 @@
 
 Status: Em andamento (backlog + decisões + pendências da página `/contratos`)
 Escopo: o backlog, as pendências e o **ledger de decisões** da feature de Contratos (hub `/contratos`: contrato/PDF, Espelho de Corretagem, Financeiro, Aprovações, Embarque). O **estado atual** do que existe vive em `Contratos-Visao-Geral.md`; aqui ficam as decisões (o porquê), as pendências abertas e o histórico condensado.
-Última revisão: 2026-07-13 (consolidação 4→2 — absorveu Central/Aprovações/Embarque)
+Última revisão: 2026-07-14 (D141 — banco em texto livre; entidade `Bank` e COMPE removidos)
 Documentos relacionados: `Contratos-Visao-Geral.md` (documento-mãe / estado atual), `Dashboard-Visao-Geral.md`, `API-e-Contratos.md`, `Auditoria-Navegacao-por-Papel.md`
 
 > **Divisão de papéis:** a `Contratos-Visao-Geral.md` é a **verdade viva** (o que existe hoje). Este plano guarda **decisões (por quê), pendências (o que falta) e o backlog**. O histórico completo de sessões (S1–S91 etc.) e a prosa superada foram para o **Git** (docs antigos removidos em 2026-07-13); o ledger no apêndice condensa cada decisão à resolução final.
@@ -43,7 +43,7 @@ Orla ajustada no mesmo passo: `README.md` (par mãe+plano no índice), `Auditori
 
 > Resolução final de cada decisão; as **superadas** apontam para o que as substituiu. O histórico completo (Contexto→Opções→Proposta + sessões) está no Git.
 
-### A.1 Contrato / Financeiro / Espelho (D1–D139)
+### A.1 Contrato / Financeiro / Espelho (D1–D141)
 
 - **D1** — Contrato híbrido: dados estruturados + 2 blocos de texto livre (Observações/Descrição) + assinaturas; sem cláusulas jurídicas fixas.
 - **D2** — Serve de confirmação ao comprador e ao vendedor, com valor de contrato formal entre as partes.
@@ -68,11 +68,11 @@ Orla ajustada no mesmo passo: `README.md` (par mãe+plano no índice), `Auditori
 - **D21** — Só vendas novas geram contrato; antigas ficam sem contrato (sem backfill).
 - **D22** — (superada por D41/D46 — PDF sai ao "Emitir", não ao salvar a venda).
 - **D23** — (superada por D110 — gestão ADMIN + COMMERCIAL-dono).
-- **D24** — Dados bancários: entidade `Bank` (lookup) + `ClientBankAccount` por cliente; "Banco do Vendedor" = uma conta do vendedor (refinada pela D39).
+- **D24** — Dados bancários: `ClientBankAccount` por cliente; "Banco do Vendedor" = uma conta do vendedor. (A entidade `Bank` que esta decisão criou foi removida pela D141 — banco virou texto livre na conta.)
 - **D25** — Snapshots de partes/banco/armazém congelam ao `FATURADO` (editável até `EMITIDO`); ágio/deságio é a única mutação financeira permitida depois.
 - **D26** — Armazém = `Client` com `isWarehouse` (sem entidade nova); lookup amplo + auto-promoção (D49).
 - **D27** — `ClientAttachment` (N por cliente, PDF+imagens, só arquivamento, independente do contrato).
-- **D28** — Conta bancária = banco + agência + conta c/ dígito + titular + CNPJ/CPF do titular + chave PIX (titular pode diferir).
+- **D28** — Conta bancária = banco (texto livre pela D141) + agência + conta c/ dígito + titular + CNPJ/CPF do titular + chave PIX (titular pode diferir).
 - **D29** — Emissor fixo em config (`COMPANY_INFO` + CNPJ); sem tela editável.
 - **D30** — 2 blocos de texto livre opcionais e sem limite (Observações + Descrição); sem boilerplate jurídico.
 - **D31** — (superada por D35).
@@ -83,7 +83,7 @@ Orla ajustada no mesmo passo: `README.md` (par mãe+plano no índice), `Auditori
 - **D36** — Coluna `Client.birthDate` (só PF, opcional, só cadastro; não entra no contrato).
 - **D37** — (superada por D42).
 - **D38** — Lote vincula só o `Client` (sem filial); a filial do PF (vendedor e comprador) é escolhida na etapa 2 e congelada.
-- **D39** — `Bank` ganha código COMPE (3 díg.) além de nome + status.
+- **D39** — (superada por D141 — o código COMPE saiu do sistema junto com a entidade `Bank`).
 - **D40** — Corretor não-usuário guarda CPF + telefone/e-mail (opcionais p/ corretor-usuário).
 - **D41** — Página "Contratos" lista e cria os contratos (o "2 etapas/EM_ABERTO parcial" foi superado por D69/D97 — criação atômica, nasce EMITIDO).
 - **D42** — Tipos = enum fixo `Mercado à vista / Futuro` (CPR removido); ambos geram o Fechamento.
@@ -103,8 +103,8 @@ Orla ajustada no mesmo passo: `README.md` (par mãe+plano no índice), `Auditori
 - **D56** — Auditoria de emissão em tabela própria `SaleContractExport` (cobre à vista e Futuro).
 - **D57** — `contractSeq` (Int global, nunca reseta) + `contractNumber` "NNNN/AA".
 - **D58** — `WASH_OUT` guarda `washoutReason` + `washoutAt`.
-- **D59** — CRUD de `Bank`/`Broker`/`ClientBankAccount`/`ClientAttachment` = qualquer autenticado (PROSPECTOR fora).
-- **D60** — Bancos/Corretores numa página "Cadastros" com abas; contas/anexos no detalhe do Cliente.
+- **D59** — CRUD de `Broker`/`ClientBankAccount`/`ClientAttachment` = qualquer autenticado (PROSPECTOR fora). (`Bank` constava na lista; removida pela D141.)
+- **D60** — Bancos/Corretores numa página "Cadastros" com abas; contas/anexos no detalhe do Cliente. (Ajustada pela D141: a aba Bancos saiu — Cadastros ficou Clientes | Corretores.)
 - **D61** — Venda à vista exclusivamente pela página "Contratos" (FAB → lote → venda → etapa 2); detalhe da amostra vira histórico só-leitura; venda = ADMIN.
 - **D62** — (superada por D69).
 - **D63** — O PDF do contrato não exibe o status do fluxo.
@@ -181,6 +181,7 @@ Orla ajustada no mesmo passo: `README.md` (par mãe+plano no índice), `Auditori
 - **D138** — Pagamento do contrato vira evento do card de Eventos do dashboard (agendado no `paymentDate` / realizado no `paidAt`), escopado como o Financeiro (detalhes E21–E27 no `Dashboard-Visao-Geral.md`).
 - **D139** — `ClientAttachment.unitId` (anulável) vincula o anexo a uma filial `ClientUnit`; vínculo definitivo via `PATCH`, não move o arquivo.
 - **D140** — Escopo aberto do COMMERCIAL (own-only revogado; supera D110 e D135): ADMIN e COMMERCIAL veem e GERENCIAM TODOS os contratos, o Financeiro e o feed de pagamento — a posse por `Broker.userId` deixou de restringir (o backend removeu os 3 helpers de posse + o escopo inline das listas). Relaxa também o "nos dele" da D120, o "só nos dele" da AP9, o escopo da D138 e o "Ver contrato escopado" da AP27/AP30/EMB26 (passam a abrir a ADMIN+COMMERCIAL em qualquer contrato). Rótulo do Financeiro unificado em "Corretagem total". Motivo: simplificar o desenvolvimento; a corretagem não é dado por-corretor no schema (vive no `SaleContract`, 2 pontas — sem coluna de valor em `SaleContractBroker`), então abrir não expõe "cota alheia". Lookup inline segue ADMIN-only (D94).
+- **D141** — Banco vira **texto livre** na conta bancária (supera D24 em parte e D39; ajusta D28/D59/D60): `ClientBankAccount.bankName` (texto obrigatório, máx. 120, entrada em MAIÚSCULAS como o Titular) substitui a FK `bankId`; a entidade `Bank` (lookup nome + COMPE) sai inteira do sistema — tabela, API `/banks`, aba "Bancos" de `/cadastros` (que fica Clientes | Corretores), `BankFormModal` e `BankSelectField`. Motivo: cadastrar uma instituição só para vincular a conta era fricção sem ganho — o nome do banco é dado de exibição (contrato/PDF), sem agrupamento nem relatório por banco. Compat: snapshots de contratos já emitidos preservam `bankName`/`compeCode` congelados (PDF e modal de Detalhes já renderizam o código condicionalmente); snapshots novos saem sem `bankId`/`compeCode`. Migration `20260714130000_bank_free_text` faz backfill do nome antes de dropar FK e tabela (prod nunca rodou as migrations de bancos — zero dado real; só o demo local tinha contas).
 
 ### A.2 Casca do hub (CC1–CC15)
 
