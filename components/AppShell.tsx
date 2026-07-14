@@ -547,6 +547,13 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
       ];
   const mobileRouteMeta = resolveMobileRouteMeta(pathname);
   const isCameraRoute = pathname === '/camera';
+  // Titulo da pagina no desktop (DSB-D17): o rotulo do item de nav ativo,
+  // renderizado DENTRO da pagina (topo do main), alinhado verticalmente ao
+  // botao "Inicio" da sidenav. So as rotas PRINCIPAIS (match exato) — paginas
+  // de detalhe e Perfil mantem seus headers proprios.
+  const activePageTitle = prospector
+    ? null
+    : (desktopNavItems.find((item) => item.href === pathname)?.label ?? null);
 
   // Clique-fora + Escape dos dois menus de perfil (top bar e trilho da sidenav).
   useMenuDismiss(profileMenuOpen, profileMenuRef, profileTriggerRef, setProfileMenuOpen);
@@ -991,6 +998,15 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
               </Link>
             ) : null}
           </section>
+        ) : null}
+
+        {/* Titulo da pagina (DSB-D17, desktop-only via CSS): alinhado ao
+            botao "Inicio" da sidenav pelos tokens compartilhados
+            --app-nav-row-top/--app-nav-row-h. */}
+        {activePageTitle ? (
+          <div className="app-page-title-row">
+            <h1 className="app-page-title">{activePageTitle}</h1>
+          </div>
         ) : null}
 
         <div className="app-shell-page-content">{children}</div>

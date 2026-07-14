@@ -24658,7 +24658,10 @@ select.samples-filter-field-input {
 
   .app-shell-root:has(.samples-page-v2) .app-shell-main,
   .app-shell-root:has(.clients-page-v2) .app-shell-main {
-    height: calc(100vh - 4.5rem);
+    /* DSB-D17: era `4.5rem` hardcoded (altura da top bar do DSB-D6, morta) —
+       agora desconta a top bar global real (56px). Fallback pro PROSPECTOR
+       (sem sidenav/var), que nao acessa estas paginas de todo modo. */
+    height: calc(100vh - var(--app-topbar-h, 4.5rem));
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -31284,6 +31287,10 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   display: none;
 }
 
+.app-page-title-row {
+  display: none;
+}
+
 /* Chevron ao lado do avatar de perfil no mobile (HeaderAvatarMenu).
    Sempre branco (pedido do usuario) — fica sobre os headers verdes. */
 .header-avatar-chevron {
@@ -31320,8 +31327,37 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
        + canvas VERDE-CLARINHO (o mesmo do trilho) em todas as paginas
        desktop — os cards/sheets brancos saltam sobre ele. */
     --app-topbar-h: 56px;
+    /* DSB-D17: tokens compartilhados entre a 1a linha da sidenav (botao
+       "Inicio") e o titulo da pagina — MESMO offset abaixo da top bar e MESMA
+       altura de linha, pra que os centros fiquem matematicamente alinhados. */
+    --app-nav-row-top: 0.9rem;
+    --app-nav-row-h: 34px;
     grid-template-columns: var(--app-sidenav-w, 276px) minmax(0, 1fr);
     background: #f4f6f5;
+  }
+
+  /* Titulo da pagina (DSB-D17): DENTRO da pagina (topo do main), texto = o
+     rotulo do item de nav ativo; alinhado verticalmente ao botao "Inicio" da
+     sidenav pelos tokens acima. So as rotas principais (o AppShell decide). */
+  .app-page-title-row {
+    display: block;
+    flex: none;
+    width: 100%;
+    max-width: var(--content-max-wide);
+    margin: 0 auto;
+    padding: var(--app-nav-row-top) clamp(0.85rem, 3vw, 4rem) 0;
+  }
+
+  .app-page-title {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    height: var(--app-nav-row-h);
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+    color: var(--ink);
   }
 
   /* A faixa branca antiga (.topbar) morre no desktop dos nao-PROSPECTOR
@@ -31483,13 +31519,15 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
     z-index: 40;
   }
 
-  /* Painel branco com a navegacao (botoes PEQUENOS: icone + nome). */
+  /* Painel branco com a navegacao (botoes PEQUENOS: icone + nome). O padding
+     do topo e a altura dos botoes usam os tokens do titulo (DSB-D17) — o
+     botao "Inicio" e o titulo da pagina ficam na MESMA linha visual. */
   .app-sidenav-panel {
     flex: 1;
     min-width: 0;
     display: flex;
     flex-direction: column;
-    padding: 0.9rem 0.65rem;
+    padding: var(--app-nav-row-top) 0.65rem 0.9rem;
     background: #ffffff;
     border-right: 1px solid var(--topbar-line);
     overflow-y: auto;
@@ -31505,7 +31543,8 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
     display: flex;
     align-items: center;
     gap: 0.6rem;
-    padding: 0.45rem 0.6rem;
+    height: var(--app-nav-row-h);
+    padding: 0 0.6rem;
     border-radius: 10px;
     color: var(--ink);
     font-size: 0.9rem;
@@ -31794,8 +31833,15 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
    Pagina Lotes (/samples) — ajustes desktop (>=901px)
    ============================================================ */
 @media (min-width: 901px) {
-  /* 1. Sem o titulo "Lotes" no header da pagina (desktop). */
-  .samples-page-v2:not(.informe-commercial-page) .samples-page-v2-header .nsv2-title {
+  /* 1. Sem o titulo no header da pagina (desktop) — o titulo agora vem do
+     shell (DSB-D17). Vale tambem pro "Relatorios" do informe comercial (a
+     excecao :not(.informe-commercial-page) caiu com o titulo do shell). */
+  .samples-page-v2 .samples-page-v2-header .nsv2-title {
+    display: none;
+  }
+
+  /* Idem pro titulo do intro do viewer de Relatorios (DSB-D17). */
+  .inf-intro-title {
     display: none;
   }
 
