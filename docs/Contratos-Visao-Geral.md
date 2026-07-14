@@ -2,7 +2,7 @@
 
 Status: Ativo (documento-mãe / verdade viva do funcionamento atual)
 Escopo: o que a página `/contratos` faz hoje — a casca (hub + sub-abas + acesso por papel), o contrato de compra e venda ("Fechamento" → PDF), o Espelho de Corretagem, as abas **Financeiro**, **Aprovações** e **Embarque**, a **máquina de estado** do contrato com seus portões, o modelo de dados e as rotas de API.
-Última revisão: 2026-07-14 (D144 — datas planejadas "À definir" em contratos FUTUROS: form, worklists, calendário, PDF)
+Última revisão: 2026-07-14 (D145 — washout paga corretagem só no FUTURO: físico cancelado sai do Financeiro e bloqueia o Espelho)
 Documentos relacionados: `Contratos-Plano-de-Trabalho.md` (backlog, decisões e pendências), `Dashboard-Visao-Geral.md` (eventos/cards que apontam pra cá), `Auditoria-Navegacao-por-Papel.md`, `API-e-Contratos.md`, `Produto-e-Fluxos.md`
 
 > **Como este documento se mantém vivo:** a cada implementação concluída e validada, esta Visão Geral é atualizada no mesmo passo. As **decisões, o histórico e o backlog** vivem no `Contratos-Plano-de-Trabalho.md`; aqui fica **só o estado atual**. Esta consolidação (2026-07-13, 4→2 docs) absorveu e removeu os antigos `Central-de-Contratos-`, `Aprovacoes-` e `Embarque-Plano-de-Trabalho.md` — o histórico completo de decisões (D/CC/AP/EMB) e de sessões está no Git e, condensado, no apêndice do `Contratos-Plano-de-Trabalho.md`.
@@ -72,7 +72,7 @@ O contrato tem **4 status** (`SaleContract.status`):
 - **EMITIDO** — criado **atômico** a partir da venda + Etapa 2 (não há mais rascunho / `EM_ABERTO` / `CONFERIR` / `CONFIRMADO`; esses estados antigos foram descartados por D96/D97). Registra `SaleContractStatusLog`.
 - **FATURADO** — `invoiceSaleContract` grava `invoicedAt` (dia **real** do faturamento).
 - **PAGO** — `paySaleContract` grava `paidAt`.
-- **WASH_OUT** — `washoutSaleContract` cancela/desfaz o negócio; **isento dos portões**. Não há "Desfazer" de status (D122).
+- **WASH_OUT** — `washoutSaleContract` cancela/desfaz o negócio; **isento dos portões**. Não há "Desfazer" de status (D122). A corretagem de um washout só é **cobrável no FUTURO** (D145) — ver §5 (Espelho) e §6 (Financeiro).
 
 **Portões (guards) na transição:**
 
@@ -119,7 +119,7 @@ As **datas planejadas** também têm regra (D142): a criação/edição rejeita 
 > Segundo documento gerado a partir do contrato. Código: `EspelhoCorretagemModal`, `EspelhoConferenciaModal`; `SaleContractEspelhoLog`.
 
 - **O que é:** o espelho da corretagem — mapeia campos do contrato para um PDF de 9 colunas (origem de cada campo documentada no código).
-- **Elegibilidade:** contratos em `EMITIDO/FATURADO/PAGO/WASH_OUT` **com corretagem no lado**; sem corretagem → bloqueado (`ESPELHO_NO_BROKERAGE`).
+- **Elegibilidade:** contratos em `EMITIDO/FATURADO/PAGO/WASH_OUT` **com corretagem no lado**; sem corretagem → bloqueado (`ESPELHO_NO_BROKERAGE`). **Exceção (D145):** um contrato **à vista** (`MERCADO_A_VISTA`) cancelado por washout **não gera cobrança** → o Espelho é bloqueado (`ESPELHO_WASHOUT_SPOT`); só o **FUTURO** em washout mantém o Espelho.
 - **Conferência (D134):** fluxo de conferência antes de imprimir (registra em `SaleContractEspelhoLog`).
 
 ---
@@ -128,7 +128,8 @@ As **datas planejadas** também têm regra (D142): a criação/edição rejeita 
 
 > A corretagem a receber por fechamento. Código: `FinanceiroPanel`/`FinanceiroCard`; `app/api/v1/financeiro`, `sale-contract-service.js`. Acesso: `FINANCEIRO_ROLES` (ADMIN + COMMERCIAL, escopo aberto).
 
-- **Estado de pagamento** por contrato (a receber / N vencidos / pago), com os cálculos de corretagem e ágio de §4.2. Sem `paymentDate` ("À definir" no FUTURO, D144) o contrato é **sempre "a vencer"** (nunca vencido), no fim da fila, e o card exibe **"À definir"**.
+- **Estado de pagamento** por contrato (a receber / N vencidos / pago / **cancelado**), com os cálculos de corretagem e ágio de §4.2. Sem `paymentDate` ("À definir" no FUTURO, D144) o contrato é **sempre "a vencer"** (nunca vencido), no fim da fila, e o card exibe **"À definir"**.
+- **Washout só paga corretagem no FUTURO (D145, revisa D105):** um washout aparece aqui (estado "cancelado") e conta no "Corretagem total" **apenas quando o contrato é FUTURO**. Um contrato **à vista** (`MERCADO_A_VISTA`) cancelado por washout **não aparece** no Financeiro — some da lista, de todos os filtros (inclusive "Cancelado") e do total (é filtrado no `where` por `type='FUTURO'`, nunca chega ao card). Segue visível só em `/contratos`, com o status Wash-out.
 - **Escopo:** ADMIN e COMMERCIAL veem **tudo** (escopo aberto — D140 revogou o own-only, superando D135/D128).
 - **Sem rateio ÷N** (D136): o valor exibido é o do fechamento, não dividido.
 - **Botão "Pago"** mora **aqui** (D137) — é o ponto de disparo da transição → PAGO (com o portão de embarque de §3/§8).
