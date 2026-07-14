@@ -135,6 +135,20 @@ mobile, `>= 901` = desktop).
 > `.app-shell-root:has(.app-sidenav)`; cards/sheets brancos saltam sobre ele).
 > Mobile e PROSPECTOR seguem intactos (fundo branco; chrome proprio).
 
+> **DSB-D17 (2026-07-14):** o **TITULO DA PAGINA** (o "outro lugar" prometido
+> no DSB-D16) mora no **shell**: `<h1 class="app-page-title">` no topo do
+> `.app-shell-main` (desktop nao-PROSPECTOR), **dentro da pagina** — texto = o
+> **rotulo do item de nav ativo** (Inicio, Lotes, Clientes, Relatorios,
+> Cadastros, Contratos, Embarques, Usuarios), so nas **8 rotas principais**
+> (match exato de pathname; detalhes e Perfil mantem headers proprios).
+> **Alinhamento vertical exato com o botao "Inicio"** da sidenav via tokens
+> compartilhados `--app-nav-row-top` (0.9rem) + `--app-nav-row-h` (34px),
+> usados pelo painel/links da sidenav E pelo titulo. Os titulos proprios das
+> paginas seguem escondidos no desktop (o "Relatorios" do informe
+> comercial/viewer entrou na regra). Corrigido junto: o main de
+> Lotes/Clientes descontava `4.5rem` (top bar do DSB-D6, morta) → agora
+> `var(--app-topbar-h)`.
+
 Itens definidos em `AppShell.tsx`: `DESKTOP_NAV_ITEMS` (Inicio/Lotes/Clientes),
 `INFORME_NAV_ITEM` (Relatorios), `CADASTROS_NAV_ITEM`, `CONTRATOS_NAV_ITEM`,
 `ADMIN_NAV_ITEM` (Usuarios), `MOBILE_NAV_ITEMS` (inclui Camera). A filtragem por
