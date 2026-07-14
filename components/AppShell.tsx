@@ -76,7 +76,7 @@ const INFORME_NAV_ITEM = {
   icon: 'informe' as NavIcon,
 } as const;
 
-// Item da sidebar: Cadastros (Bancos/Corretores — Fechamento Fase 0).
+// Item da sidebar: Cadastros (Clientes/Corretores — a aba Bancos saiu na D141).
 // Restrito a ADMIN + CADASTRO (item tambem no avatar menu p/ mobile).
 const CADASTROS_NAV_ITEM = {
   href: '/cadastros',

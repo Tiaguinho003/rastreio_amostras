@@ -14,7 +14,8 @@ import { ShipmentConfirmationModal } from './ShipmentConfirmationModal';
 // embarcam, com estados a embarcar/atrasado/embarcado/cancelado, fila cronológica
 // (mais antigo/atrasado no topo), filtros, busca por nº/comprador, contador "N
 // atrasados" e a ação [Confirmar embarque] (todos não-PROSPECTOR). A casca
-// (guard/AppShell/abas) vive em app/contratos/page.tsx. Paginado por cursor keyset.
+// (guard/AppShell/abas) vive em app/embarques/page.tsx (split 2026-07-13).
+// Paginado por cursor keyset.
 
 const EMB_PAGE_LIMIT = 30;
 

@@ -832,7 +832,7 @@ export function getSaleContractTimeline(session: SessionData, contractId: string
 }
 
 // Fechamento (Futuro, D97): cria um contrato FUTURO direto (sem lote) JA EMITIDO
-// num passo so (fase 1 + etapa 2 no mesmo corpo). Gestao = ADMIN.
+// num passo so (fase 1 + etapa 2 no mesmo corpo). Gestao = ADMIN + COMMERCIAL (D140).
 export function createFutureSaleContract(session: SessionData, data: CreateSaleContractInput) {
   return request<SaleContractResponse>(`/sale-contracts`, {
     method: 'POST',
@@ -843,7 +843,8 @@ export function createFutureSaleContract(session: SessionData, data: CreateSaleC
 
 // Fechamento (Mercado a vista, D97): registra a venda no lote + cria o contrato
 // JA EMITIDO num passo so (mesma tx). O corpo traz type=MERCADO_A_VISTA, o
-// sampleId + expectedVersion do lote e a fase 1 + etapa 2. Gestao = ADMIN.
+// sampleId + expectedVersion do lote e a fase 1 + etapa 2. Gestao = ADMIN +
+// COMMERCIAL (D140).
 export function createSpotSaleContract(session: SessionData, data: CreateSaleContractInput) {
   return request<SaleContractResponse>(`/sale-contracts`, {
     method: 'POST',
@@ -853,7 +854,8 @@ export function createSpotSaleContract(session: SessionData, data: CreateSaleCon
 }
 
 // Fechamento (D97): "Editar" um contrato EMITIDO re-salva a etapa 2 e regenera,
-// mantendo EMITIDO. A criacao nasce EMITIDO em createSpot/createFuture. ADMIN.
+// mantendo EMITIDO. A criacao nasce EMITIDO em createSpot/createFuture.
+// ADMIN + COMMERCIAL (D140).
 export function emitSaleContract(
   session: SessionData,
   contractId: string,
@@ -867,7 +869,8 @@ export function emitSaleContract(
 }
 
 // "Aplicar agio/desagio" no card de um contrato EMITIDO (D87): substitui o
-// agio vigente e recalcula total + corretagem no servidor. Gestao = ADMIN.
+// agio vigente e recalcula total + corretagem no servidor. Gestao = ADMIN +
+// COMMERCIAL (D140).
 export function applyAgioSaleContract(
   session: SessionData,
   contractId: string,

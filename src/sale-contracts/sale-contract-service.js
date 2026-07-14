@@ -55,12 +55,14 @@ import {
   toSaleContractView,
 } from './sale-contract-support.js';
 
-// Gestao de Contratos (criar a vista/Futuro, listar/detalhar, editar/emitir,
-// faturar/pagar/reverter, quebrar/washout). Acesso restrito a ADMIN (CADASTRO
-// saiu em 2026-06-28). A CRIACAO nasce EMITIDO numa so operacao (D97): a vista
-// via createSpotSaleContract (delega ao createSampleMovement na tx do evento);
-// Futuro via createFutureSaleContract (CRUD direto).
-const SALE_CONTRACT_MANAGE_ROLES = [USER_ROLES.ADMIN];
+// Criar valores nas listas cadastraveis inline (createContractLookup) e
+// ADMIN-only (D94). NAO confundir com a gestao do contrato em si — criar,
+// editar/emitir, faturar/pagar, ágio e washout usam SALE_CONTRACT_ACCESS_ROLES
+// (ADMIN + COMMERCIAL, escopo aberto — D140). A CRIACAO nasce EMITIDO numa so
+// operacao (D97): a vista via createSpotSaleContract (delega ao
+// createSampleMovement na tx do evento); Futuro via createFutureSaleContract
+// (CRUD direto).
+const CONTRACT_LOOKUP_MANAGE_ROLES = [USER_ROLES.ADMIN];
 
 // Financeiro (Fase F): a pagina de recebiveis e ADMIN + COMMERCIAL (D135 reabre;
 // revisa a D128 que a deixou ADMIN-only). ESCOPO ABERTO (2026-07-13, own-only
@@ -1909,12 +1911,11 @@ export class SaleContractService {
   }
 
   // "+ Adicionar" inline (D91): cria um valor numa das 3 listas (Forma/Modalidade/
-  // Embalagem) a partir do dropdown do modal. ADMIN-only (P26/D94 — alinhado ao
-  // gate da gestao de contratos); append no fim (sortOrder = max+1); nome
-  // UNIQUE -> 409. Status sempre ACTIVE.
+  // Embalagem) a partir do dropdown do modal. ADMIN-only (P26/D94); append no fim
+  // (sortOrder = max+1); nome UNIQUE -> 409. Status sempre ACTIVE.
   async createContractLookup(input, actorContext) {
     assertAuthenticatedActor(actorContext, 'create contract lookup');
-    assertRoleAllowed(actorContext.role, SALE_CONTRACT_MANAGE_ROLES, 'create contract lookup');
+    assertRoleAllowed(actorContext.role, CONTRACT_LOOKUP_MANAGE_ROLES, 'create contract lookup');
     const { list, name } = normalizeContractLookupInput(input);
     const model = this.prisma[CONTRACT_LOOKUP_LISTS[list]];
 

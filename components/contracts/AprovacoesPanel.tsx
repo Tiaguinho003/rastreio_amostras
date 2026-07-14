@@ -26,7 +26,8 @@ import { AprovacaoCard } from './AprovacaoCard';
 // estados a enviar/enviada/cancelado, fila cronológica (faturamento mais próximo em
 // cima), filtros, busca por nº/comprador, contador "N a enviar" e a ação [Gerar] (abre
 // o ApprovalLabelModal pré-preenchido — a única casa proativa da geração, AP29). A
-// casca (guard/AppShell/abas) vive em app/contratos/page.tsx. Paginado por cursor keyset.
+// casca (guard/AppShell/abas) vive em app/embarques/page.tsx (split 2026-07-13).
+// Paginado por cursor keyset.
 
 const APR_PAGE_LIMIT = 30;
 
