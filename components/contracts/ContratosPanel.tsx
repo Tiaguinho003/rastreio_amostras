@@ -518,15 +518,22 @@ export function ContratosPanel({ session }: { session: SessionData }) {
                   });
                 // Espelho elegível = status congelado E ≥1 corretagem preenchida
                 // (sem comissão não há o que espelhar). Motivo p/ o card esmaecido.
-                const espelhoStatusOk = ESPELHO_ELIGIBLE.includes(contract.status);
+                // D145: o físico (à vista) cancelado por washout não gera cobrança →
+                // Espelho bloqueado (espelha o gate do backend, ESPELHO_WASHOUT_SPOT).
+                const isSpotWashout =
+                  contract.status === 'WASH_OUT' && contract.type === 'MERCADO_A_VISTA';
+                const espelhoStatusOk =
+                  ESPELHO_ELIGIBLE.includes(contract.status) && !isSpotWashout;
                 const espelhoHasBrokerage =
                   (contract.sellerBrokeragePct ?? 0) > 0 || (contract.buyerBrokeragePct ?? 0) > 0;
                 const espelhoEligible = espelhoStatusOk && espelhoHasBrokerage;
-                const espelhoReason = !espelhoStatusOk
-                  ? 'Só confirmados'
-                  : !espelhoHasBrokerage
-                    ? 'Sem corretagem'
-                    : undefined;
+                const espelhoReason = isSpotWashout
+                  ? 'À vista cancelado'
+                  : !espelhoStatusOk
+                    ? 'Só confirmados'
+                    : !espelhoHasBrokerage
+                      ? 'Sem corretagem'
+                      : undefined;
                 return (
                   <SaleContractCard
                     key={contract.id}
