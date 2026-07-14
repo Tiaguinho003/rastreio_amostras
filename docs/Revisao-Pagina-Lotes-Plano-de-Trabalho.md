@@ -24,6 +24,13 @@
 > números deslocam conforme os arquivos mudam (a Fase 1 já deslocou o
 > `page.tsx`). **Sempre `grep` pelo símbolo antes de editar.**
 
+> ℹ️ **Mudanças vindas do ciclo do DASHBOARD** (fora deste plano): a página
+> ganhou o card só-visualização **"Classificação pendente"** (DSB-D2,
+> 2026-07-12, `.spv2-pending-stat`) e o card **"Amostras enviadas"** no topo
+> do sheet, desktop-only (DSB-D14, 2026-07-14, `RecentSendsCard` + wrapper
+> `.spv2-top-cards`; dado de `GET /samples/recent-sends`). Fonte:
+> `docs/Dashboard-Plano-de-Trabalho.md`.
+
 ---
 
 ## Decisões do usuário (travadas)

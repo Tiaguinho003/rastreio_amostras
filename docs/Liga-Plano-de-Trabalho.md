@@ -610,7 +610,7 @@ Decisões "antes do fluxo" — valem em qualquer interface. Cada decisão aqui m
 - Sem card novo. Sem breakdown.
 - **Implicação**: zero mudança no `useDashboardData` ou no endpoint `/api/v1/dashboard/pending`. Ligas aparecem na lista de "operacional" igual a samples normais.
 
-> **Atualização (2026-07-12, DSB-D2):** o card "Classificação pendente" **saiu do dashboard** e virou um card só-visualização na página de Lotes (`/samples`). A regra de contagem (TODAS as samples em `REGISTRATION_CONFIRMED`, liga junto) **não mudou** — só o lugar. O `useDashboardData` foi simplificado (só o donut) e o `/dashboard/pending` segue como fonte da contagem. Ver `docs/Dashboard-Plano-de-Trabalho.md`.
+> **Atualização (2026-07-12, DSB-D2):** o card "Classificação pendente" **saiu do dashboard** e virou um card só-visualização na página de Lotes (`/samples`). A regra de contagem (TODAS as samples em `REGISTRATION_CONFIRMED`, liga junto) **não mudou** — só o lugar. O `/dashboard/pending` segue como fonte da contagem. _(O hook `useDashboardData` e o donut foram removidos de vez em 2026-07-14 — DSB-D14.)_ Ver `docs/Dashboard-Plano-de-Trabalho.md`.
 
 **Bloco Dashboard fechado em 2026-05-15.** ✅
 

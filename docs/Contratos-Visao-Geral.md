@@ -141,7 +141,7 @@ Pagar **herda** o portão de aprovação (só se chega a FATURADO passando por e
 - **Gerar etiqueta exige `requiresApproval = true`** (`APPROVAL_CONTRACT_NOT_MARKED`, AP17); elegibilidade = **só `EMITIDO`** (`APPROVAL_ELIGIBLE_STATUSES`, AP21). **A geração mora só nesta sub-aba** (AP29 — não há mais porta no `/samples` nem etiqueta avulsa).
 - **Worklist:** particionada por estado (a enviar / enviada), via `$queryRaw` (G0/G1/G2) com cursor `{g, key, seq}` porque o estado depende de um agregado de contagem do log. Colunas não-sensíveis; abre em "a enviar".
 
-> O **lembrete de aprovação no dashboard** (data "a enviar") foi **removido** (DSB-D9) — a data não era exata. O card **"Aprovações enviadas"** do dashboard continua (ver `Dashboard-Visao-Geral.md` §7.2). O campo `approvalReminderLeadDays` permanece no schema, **sem consumidor**.
+> O **lembrete de aprovação no dashboard** (data "a enviar") foi **removido** (DSB-D9) — a data não era exata. O card **"Aprovações enviadas"** saiu do dashboard e mora **no topo desta sub-aba** desde **DSB-D14 (2026-07-14)**: visão rápida dos últimos envios (top-40, desktop-only, `RecentSendsCard`; dado de `GET /sale-contracts/approvals/recent-sends`; refetch após gerar etiqueta aqui). A worklist (filtro "Enviadas") segue sendo a lista completa. O campo `approvalReminderLeadDays` permanece no schema, **sem consumidor**.
 
 ---
 
@@ -188,7 +188,7 @@ _(Nota: o `Arquitetura-Tecnica.md` ainda não documenta o domínio `SaleContract
 
 ## 11. Fronteiras — o que vive fora deste doc
 
-- **Dashboard** (`Dashboard-Visao-Geral.md`): o card **"Aprovações enviadas"** (§7.2), o card de **Eventos** e seus chips que deep-linkam `/contratos?tab=…` (pagamento/faturamento) e `/embarques?tab=embarque` (embarque), com `&highlight=` (§7.3), e os feeds `payment/shipment/invoice-events` (§8). Qualquer mudança em rota, nome de aba, valores de `?tab=` ou no enum de status **obriga a atualizar lá** (`contractTabRoute` mapeia aba→rota).
+- **Dashboard** (`Dashboard-Visao-Geral.md`): o card de **Eventos** (único card do dashboard desde DSB-D14) e seus chips que deep-linkam `/contratos?tab=…` (pagamento/faturamento) e `/embarques?tab=embarque` (embarque), com `&highlight=` (§7.3), e os feeds `payment/shipment/invoice-events` (§8). _(O card "Aprovações enviadas" saiu do dashboard e mora na sub-aba Aprovações — ver §7 deste doc.)_ Qualquer mudança em rota, nome de aba, valores de `?tab=` ou no enum de status **obriga a atualizar lá** (`contractTabRoute` mapeia aba→rota).
 - **Navegação por papel** (`Auditoria-Navegacao-por-Papel.md`): o mapa read-only de quem acessa o hub — **aponta para este doc** como dono da matriz de acesso.
 - **API** (`API-e-Contratos.md`): a referência canônica de rotas/contratos de request-response.
 - **Cadastro de cliente** (`Clientes-e-Movimentacoes-Especificacao.md`): banco/anexos que o contrato consome.

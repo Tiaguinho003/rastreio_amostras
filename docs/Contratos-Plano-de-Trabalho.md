@@ -217,7 +217,7 @@ Orla ajustada no mesmo passo: `README.md` (par mãe+plano no índice), `Auditori
 - **AP13** — Desfecho aprovado/recusado fica FORA do sistema; rastreabilidade pelo proxy do nº de envios.
 - **AP14** — Estado derivado com 3 valores (não se aplica / a enviar / enviada), ciente do status: "pendente" só em `EMITIDO`; "feita" renomeada para "enviada".
 - **AP15** — Identidade laranja `#f97316` e rótulo "a enviar" seguem na worklist/card; o dot no calendário do dashboard saiu com DSB-D9.
-- **AP16** — Envios de aprovação num card dedicado "Aprovações enviadas" (nº do contrato + comprador, pill laranja, inerte); estado atual em `Dashboard-Visao-Geral.md` §7.2 (DSB-D5).
+- **AP16** — Envios de aprovação num card dedicado "Aprovações enviadas" (nº do contrato + comprador, inerte); desde DSB-D14 (2026-07-14) o card mora no **topo da sub-aba Aprovações** de `/embarques` (saiu do dashboard); ver `Contratos-Visao-Geral.md` §7 e `Dashboard-Visao-Geral.md` §7.2.
 - **AP17** — Gerar etiqueta exige contrato marcado "Sim" (409 `APPROVAL_CONTRACT_NOT_MARKED`); reverte AP8.
 - **AP18** — Faturar exige ≥1 etiqueta enviada (422 `CONTRACT_APPROVAL_REQUIRED` em `invoiceSaleContract`); pagar herda.
 - **AP19** — Washout isento do portão (contrato marcado sem envio pode ir a `WASH_OUT`).

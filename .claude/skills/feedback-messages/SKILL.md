@@ -216,8 +216,7 @@ Quando presente, descreva **causa** ou **próximo passo** em uma frase curta:
 > **Exceção por página (LOT-D3, 2026-07-07):** na página de **Lotes**
 > (`/samples`) a copy usa **"lote"** no lugar de "amostra" ("Nenhum lote
 > encontrado", "N lotes", "Lote X removido da seleção") — alinhada ao título
-> da página e ao dashboard ("Lotes disponíveis"/"Últimos
-> envios"). **Estendida ao fluxo de criação (LNW-D2, 2026-07-07):** o sheet do
+> da página. **Estendida ao fluxo de criação (LNW-D2, 2026-07-07):** o sheet do
 > leque "+" é "Novo lote" ("Criar lote", "Descartar lote?", "Lote criado",
 > "Número do lote", "Criar outro" — `NewSampleModal` +
 > `SampleCreatedSuccessModal`). **Estendida ao detalhe (LDT-D2, 2026-07-08):**

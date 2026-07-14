@@ -154,12 +154,14 @@ Middleware (`middleware.ts`): modo manutencao redireciona nao-ADMIN para
 `/settings`, `/offline`) e redirecionado para `/dashboard`.
 
 > **Nota (revisao DSH, 2026-07-07):** os endpoints do dashboard
-> (`dashboard/pending`, `sales-availability`) exigem apenas autenticacao no
+> (`dashboard/pending`, feeds de eventos) exigem apenas autenticacao no
 > backend (PROSPECTOR negado pela allowlist central) — **sem gate positivo de
 > papel, por decisao** (DSH-D2): o dashboard e unico para os 5 papeis
-> nao-PROSPECTOR, incluindo os dados comerciais do donut. O endpoint
-> `commercial-timeseries` (card "Vendas e perdas") foi removido em 2026-07-07
-> (DSH-D3).
+> nao-PROSPECTOR. Os endpoints `commercial-timeseries` (card "Vendas e
+> perdas", 2026-07-07 — DSH-D3), `sales-availability` (donut "Lotes
+> disponiveis", 2026-07-14 — DSB-D14) e `recent-sends` (dividido/movido pra
+> `/samples/recent-sends` + `/sale-contracts/approvals/recent-sends` —
+> DSB-D14) foram removidos.
 
 ## PROSPECTOR nao e um papel atribuivel (2026-07-09)
 

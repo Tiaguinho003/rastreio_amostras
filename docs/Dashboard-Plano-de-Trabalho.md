@@ -2,7 +2,7 @@
 
 Status: Em andamento (check-up geral do dashboard — desktop primeiro, depois mobile)
 Escopo: backlog, decisões e execução das mudanças no dashboard. Acompanha o documento-mãe `Dashboard-Visao-Geral.md`, que registra o funcionamento atual.
-Última revisão: 2026-07-12
+Última revisão: 2026-07-14
 Documentos relacionados: `Dashboard-Visao-Geral.md` (estado atual), `Revisao-Geral-Plano-de-Trabalho.md` (roteiro de revisão do app inteiro)
 
 > **Objetivo do ciclo (Flavio, 2026-07-12):** check-up geral do sistema, página por página e por dispositivo, começando pelo **dashboard desktop** → depois **dashboard mobile**. Meta: simplificar, deixar o app menos confuso de mexer e viabilizá-lo para mais corretoras (multi-cliente). Mudanças de layout/funcionalidade/disposição estão em cima da mesa.
@@ -52,8 +52,8 @@ Itens que estavam abertos no `Eventos-Dashboard-Plano-de-Trabalho.md` (removido)
 
 ### Cobertura mobile
 
-- **DSB-H6 (era EVD-P3)** — **Card de Eventos não existe no mobile** (desktop-only). Definir se/como o calendário aparece no mobile. → **Entra no ciclo do dashboard mobile.**
-- **DSB-H7** — Card "Últimos envios" também é desktop-only. Mesma pergunta para o mobile.
+- **DSB-H6 (era EVD-P3)** — **Card de Eventos não existe no mobile** (desktop-only). Definir se/como o calendário aparece no mobile. → **Entra no ciclo do dashboard mobile.** ⚠️ **Ficou mais urgente com DSB-D14:** o dashboard mobile hoje é só o hero (página vazia).
+- **DSB-H7** — Os cards de envios ("Amostras enviadas"/"Aprovações enviadas") são desktop-only. Mesma pergunta — agora nas **novas casas** (`/samples` e aba Aprovações — DSB-D14), não mais no dashboard.
 
 ### Testes
 
@@ -68,13 +68,13 @@ Itens que estavam abertos no `Eventos-Dashboard-Plano-de-Trabalho.md` (removido)
 
 ## 4. Validação no device pendente
 
-O redesenho e os feeds foram implementados mas nunca foram confirmados no aparelho real. Antes (ou durante) as mudanças deste check-up, validar:
+O redesenho e os feeds foram implementados mas nunca foram confirmados no aparelho real. Antes (ou durante) as mudanças deste check-up, validar (lista atualizada pós-DSB-D14):
 
-- **Desktop (DSB-D3/D4/D5):** top row com **3 cards** — donut "Lotes disponíveis" (mais estreito) + "Amostras enviadas" (física+laudo, com selo, cancelado esmaecido, destinatário/tempo) + "Aprovações enviadas" (nº contrato + comprador, sem selo); as listas rolam por dentro. Card de Eventos **horizontal** embaixo (semana **seg–sex**, hoje com anel, navegação ◀ Hoje ▶ com deslize, eventos como chips **dentro da célula** com scroll interno, coloridos por **estado**); os 3 feeds (**pagamento/embarque/faturamento**) com deep links para `/contratos`.
-- **Larguras 901-1200px (DSB-D5):** os 3 cards da top row continuam legíveis? Minicards estouram? Proporção donut/feeds boa?
-- **Viewport baixa** (~768px de altura): o card de Eventos estoura?
-- **Mobile:** (sem os op-cards de pendências, DSB-D2) hero + donut a 320px; dashboard do PROSPECTOR intacto; banner de erro (modo avião).
-- **Página de Lotes (`/samples`, desktop + mobile):** card "Classificação pendente" no topo do sheet com o total correto, **inerte** (não abre modal, não navega).
+- **Dashboard desktop (DSB-D14):** só o card de Eventos, ocupando a área toda (semana **seg–sex**, hoje com anel, navegação ◀ Hoje ▶ com deslize, eventos como chips **dentro da célula** com scroll interno, coloridos por **estado**, legenda); os 3 feeds (**pagamento/embarque/faturamento**) com deep links para `/contratos`/`/embarques`. Altura confortável? Viewport baixa (~768px): estoura?
+- **Dashboard mobile (DSB-D14):** só o hero (sem donut, sem sheet) a 320px; dashboard do PROSPECTOR **intacto**.
+- **Página de Lotes (`/samples`, desktop):** topo do sheet com "Classificação pendente" + **"Amostras enviadas"** lado a lado (`.spv2-top-cards`); a lista de envios rola por dentro (teto ~340px); física+laudo, cancelado esmaecido, truncamento, tempo relativo. **Mobile:** o card de envios **não aparece**; "Classificação pendente" igual a antes.
+- **Aba Aprovações (`/embarques?tab=aprovacoes`, desktop):** card **"Aprovações enviadas"** acima da worklist (nº contrato + comprador + tempo); atualiza após gerar etiqueta. **Mobile:** card não aparece; worklist igual a antes.
+- **Detalhe do cliente ("Resumo comercial"):** o donut do cliente **continua intacto** (o CSS base `.sales-card*` ficou; só o CSS exclusivo do donut do dashboard saiu).
 - **Contraste** (DSH-A3): textos secundários pequenos ficaram um tom mais escuros — conferir.
 
 ---
@@ -157,6 +157,14 @@ O redesenho e os feeds foram implementados mas nunca foram confirmados no aparel
 
 _(Fora de escopo, pra REFORMA de design: unificar os 3 feeds num endpoint; primitivo `<AgingDonut>` compartilhado; a11y — sinal não-cromático de estado no chip (WCAG 1.4.1), total no aria do donut, "cancelado" p/ leitor de tela, foco de teclado; cobertura mobile de Eventos/envios; renomear `/dashboard/pending`.)_
 
+- **DSB-D14 (2026-07-14)** — **Dashboard só com o calendário** (início da reforma de layout/design do check-up; decisão do Flavio). A página `/dashboard` passa a apresentar **apenas o card de Eventos** (que será redesenhado em decisões seguintes); os 3 cards da top row ganham outro destino:
+  - **Donut "Lotes disponíveis" — APAGADO do sistema ponta a ponta** (análise do Flavio: não é relevante): `SalesAvailabilityCard.tsx`, hook `useDashboardData.ts`, rota `/api/v1/dashboard/sales-availability`, handler `getDashboardSalesAvailability` (backend-api), método no `sample-query-service`, fn no api-client, tipo `DashboardSalesAvailabilityResponse`, CSS exclusivo e o teste `dashboard-sales-availability.integration.test.js`. ⚠️ O CSS base `.sales-card*`/`.sales-chart-*` **FICA** — é reusado pelo "Resumo comercial" do detalhe do cliente (`ClientCommercialSummaryCard`); só as regras exclusivas do donut saem (`is-compact`, `.sales-card-aside`, `.sales-card-detail-button*`).
+  - **"Amostras enviadas" → página de Lotes (`/samples`)**, topo do sheet na região do card "Classificação pendente" (que já migrou no DSB-D2). **Desktop-only**, como era no dashboard (cobertura mobile fica pro ciclo mobile, DSB-H7).
+  - **"Aprovações enviadas" → aba Aprovações (`/embarques?tab=aprovacoes`)**, no topo da aba, acima da worklist. **Desktop-only.** Redundância parcial com o filtro "Enviadas" da worklist foi apontada e **aceita** (decisão do Flavio: o card entra mesmo assim, como visão rápida dos últimos envios).
+  - **API dividida em 2 endpoints** (decisão do Flavio; cada página baixa só o que usa): `GET /samples/recent-sends` (handler `getSampleRecentSends` → query-service) e `GET /sale-contracts/approvals/recent-sends` (handler `getApprovalRecentSends` → `getRecentApprovalSends` do contract service). Mesmos caps top-40 e `Cache-Control: private, max-age=30, must-revalidate`. A rota `/dashboard/recent-sends` **morre** (sem consumidor).
+  - **Mobile:** o dashboard mobile fica **só com o hero** por enquanto (decisão do Flavio) — o calendário chega ao mobile no ciclo mobile (DSB-H6, que fica mais urgente).
+  - **Frontend compartilhado:** `RecentSendsCard` sai de `components/dashboard/` pra `components/` (desacoplado do dashboard, molde DSB-D2); classes CSS `dd-sends-*`/`dd-send-*` renomeadas pra `sends-*`; fetch desktop-gated + refetch em foreground num hook novo reutilizado pelas 2 páginas.
+
 ---
 
 ## 6. Fases
@@ -167,6 +175,7 @@ _A definir com o Flavio ao iniciar as mudanças. Ordem-base: **desktop → mobil
 
 ## 7. Histórico
 
+- **2026-07-14** — **DSB-D14 implementada:** dashboard **só com o calendário**. Donut "Lotes disponíveis" **apagado ponta a ponta** (componente + hook `useDashboardData` + rota `/dashboard/sales-availability` + handler + método do query-service + api-client + tipo + CSS exclusivo + teste de integração deletado; CSS base `.sales-card*` preservado pro "Resumo comercial" do cliente). **"Amostras enviadas" → `/samples`** (topo do sheet, wrapper `.spv2-top-cards` ao lado de "Classificação pendente") e **"Aprovações enviadas" → aba Aprovações** de `/embarques` (acima da worklist; refetch pós-gerar) — ambos desktop-only, `RecentSendsCard` movido pra `components/` (classes `dd-send*` → `sends-*`), fetch no hook novo `lib/use-recent-sends-feed.ts` (molde C1). **API dividida:** `/dashboard/recent-sends` morreu; nasceram `GET /samples/recent-sends` (`getSampleRecentSends` → `getRecentSampleSends`) e `GET /sale-contracts/approvals/recent-sends` (`getApprovalRecentSends`), mesmos caps 40 + cache. `DashboardLoadError` → `components/LoadError.tsx` (`LoadError`). Mobile = só hero (transitório; DSB-H6 mais urgente). Teste `dashboard-recent-sends` renomeado pra `sample-recent-sends` (método novo). Gates: typecheck/lint/format/**449 unit**/schemas/contracts verdes; knip sem regressão; build fica pro device (dev ativo na 3000); `test:integration:db` não rodado local de propósito. Docs (Visão Geral, API-e-Contratos, Contratos-Visão-Geral, Auditoria-Navegação, planos) + skills (design-system, feedback-messages) no mesmo ciclo. 📱 **validar no device** (ver §4).
 - **2026-07-12** — Início do check-up geral (Flavio). Documentação do dashboard consolidada nos dois arquivos (DSB-D1). Visão Geral reconstruída a partir do código real; backlog herdado absorvido dos docs antigos.
 - **2026-07-12** — **DSB-D2 implementada:** removidos os cards de pendências do dashboard (desktop + mobile); "Classificação pendente" migrou para `/samples` (só-visualização); "Cadastros pendentes" removido; `OperationModal`/`useOperationModal`/`StatCard` deletados; backend intacto. Docs (Visão Geral, API-e-Contratos, Auditoria-Navegação, Classificação-Plano, Liga-Plano) e skills (design-system, modals, feedback-messages) atualizados no mesmo ciclo. 📱 aguardando validação no device.
 - **2026-07-12** — **DSB-D3 + DSB-D4 implementadas:** rearranjo do layout desktop (donut + Últimos envios lado a lado; Eventos horizontal embaixo) e redesenho do card de Eventos (1 semana, eventos dentro da célula com scroll, sem painel, navegação semanal). `lib/dashboard-calendar.ts` de quinzena→semana; CSS `.dd-events-*` reescrito. Docs (Visão Geral §4/§7.3) e skill `design-system` atualizados; DSB-H1 endereçado. Backend intacto. 📱 aguardando validação no device.
