@@ -6,7 +6,6 @@ import { AppShell } from '../../components/AppShell';
 import { DashboardDesktop } from '../../components/dashboard/DashboardDesktop';
 import { DashboardMobile } from '../../components/dashboard/DashboardMobile';
 import { ProspectorDashboard } from '../../components/dashboard/prospector/ProspectorDashboard';
-import { useDashboardData } from '../../components/dashboard/useDashboardData';
 import { isProspector } from '../../lib/roles';
 import { useRequireAuth } from '../../lib/use-auth';
 
@@ -23,11 +22,9 @@ export default function DashboardPageWrapper() {
 function DashboardPage() {
   const { session, loading, logout, setSession } = useRequireAuth();
 
-  // PROSPECTOR tem um dashboard dedicado e nao pode chamar os stats do
-  // dashboard padrao (403 na allowlist de API) — passar null faz o hook
-  // nao buscar nada.
+  // PROSPECTOR tem um dashboard dedicado e nao pode chamar os feeds do
+  // dashboard padrao (403 na allowlist de API).
   const prospector = isProspector(session?.user.role);
-  const { salesData, error, retry } = useDashboardData(prospector ? null : session);
 
   if (loading || !session) {
     return null;
@@ -39,14 +36,8 @@ function DashboardPage() {
         <ProspectorDashboard session={session} onLogout={logout} />
       ) : (
         <>
-          <DashboardMobile
-            session={session}
-            salesData={salesData}
-            error={error}
-            onRetry={retry}
-            onLogout={logout}
-          />
-          <DashboardDesktop session={session} salesData={salesData} error={error} onRetry={retry} />
+          <DashboardMobile session={session} onLogout={logout} />
+          <DashboardDesktop session={session} />
         </>
       )}
     </AppShell>

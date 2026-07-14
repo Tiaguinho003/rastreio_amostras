@@ -5533,6 +5533,229 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   letter-spacing: -0.02em;
 }
 
+/* ── Card de envios compartilhado (sends-*) — DSB-D14 ──
+   "Amostras enviadas" (topo do sheet de /samples) e "Aprovacoes enviadas"
+   (topo da aba Aprovacoes de /embarques) — os dois sao o RecentSendsCard.
+   Nasceu no dashboard desktop (DSH-D5/DSB-D5/DSB-D8, classes dd-send*) e
+   migrou no DSB-D14. DESKTOP-ONLY por ora (cobertura mobile fica pro ciclo
+   mobile, DSB-H7) — a base esconde; o breakpoint 901px liga. */
+
+.sends-card {
+  display: none;
+}
+
+/* Wrapper do topo do sheet de /samples ("Classificacao pendente" + "Amostras
+   enviadas"): no mobile nao participa do layout (o pending-stat mantem as
+   margens proprias; o sends-card ja esta escondido). */
+.spv2-top-cards {
+  display: contents;
+}
+
+@media (min-width: 901px) {
+  .sends-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    /* Fora do grid do dashboard nao ha linha que limite o card — teto proprio;
+       a lista continua rolando por dentro. */
+    max-height: clamp(240px, 30vh, 340px);
+    gap: clamp(0.45rem, 0.9vw, 0.7rem);
+    background: #ffffff;
+    border: 1px solid rgba(112, 130, 103, 0.22);
+    border-radius: 20px;
+    /* Mesma sombra dos cards do dashboard (valor de --dd-card-shadow, que e
+       definida em .dashboard-page e nao existe aqui fora). */
+    box-shadow:
+      0 2px 6px rgba(0, 0, 0, 0.06),
+      0 14px 34px rgba(19, 35, 24, 0.14);
+    padding: clamp(0.8rem, 1.1vw, 1.1rem) clamp(0.85rem, 1.15vw, 1.2rem);
+  }
+
+  .sends-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex: none;
+  }
+
+  .sends-title {
+    margin: 0;
+    font-size: clamp(0.9rem, 0.98vw, 1rem);
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: var(--ink);
+  }
+
+  .sends-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: clamp(28px, 2.4vw, 34px);
+    height: clamp(28px, 2.4vw, 34px);
+    border-radius: 10px;
+    background: rgba(31, 93, 67, 0.1);
+  }
+
+  .sends-icon svg {
+    width: 58%;
+    height: 58%;
+    fill: none;
+    stroke: var(--brand-green, #1f5d43);
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* Lista com scroll INTERNO. DSB-D8: TABELA horizontal compacta (cabecalho
+     sticky + 1 linha por envio), desacoplada do visual .spv2-card. Sem gap:
+     as linhas se separam por divisoria (border). */
+  .sends-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: grid;
+    gap: 0;
+    align-content: start;
+    padding-right: 0.25rem;
+  }
+
+  /* Linha (cabecalho + envios): grid horizontal; o template de colunas vem da
+     variante (.is-samples = 4 colunas, .is-approvals = 3). */
+  .sends-row {
+    display: grid;
+    align-items: center;
+    gap: clamp(0.35rem, 0.7vw, 0.6rem);
+    padding: clamp(0.28rem, 0.55vw, 0.4rem) 0.1rem;
+    font-size: clamp(0.72rem, 0.82vw, 0.8rem);
+    border-bottom: 1px solid rgba(112, 130, 103, 0.14);
+  }
+
+  .sends-row:last-child {
+    border-bottom: none;
+  }
+
+  .sends-list.is-samples .sends-row {
+    grid-template-columns:
+      minmax(2.6rem, max-content) minmax(0, 1fr)
+      minmax(3rem, max-content) minmax(2.8rem, max-content);
+  }
+
+  .sends-list.is-approvals .sends-row {
+    grid-template-columns: minmax(3rem, max-content) minmax(0, 1fr) minmax(2.8rem, max-content);
+  }
+
+  /* Cabecalho de colunas: fixo no topo do scroll. */
+  .sends-head {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #ffffff;
+    border-bottom: 1px solid rgba(112, 130, 103, 0.28);
+  }
+
+  .sends-col {
+    font-size: clamp(0.62rem, 0.72vw, 0.7rem);
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* "Tempo" (ultima coluna) alinhado a direita — cabecalho e celula. */
+  .sends-col:last-child,
+  .sends-time {
+    justify-self: end;
+    text-align: right;
+  }
+
+  .sends-cell {
+    min-width: 0;
+    color: var(--ink);
+  }
+
+  .sends-code {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .sends-party {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--ink);
+  }
+
+  /* Tipo do envio (só amostras): texto cinza neutro, uma palavra. */
+  .sends-type {
+    white-space: nowrap;
+    color: var(--muted);
+  }
+
+  .sends-time {
+    white-space: nowrap;
+    color: var(--muted);
+  }
+
+  /* Envio cancelado: esmaece a linha + risca o numero (DSB-D8). */
+  .sends-row.is-cancelled {
+    opacity: 0.55;
+    filter: saturate(0.6);
+  }
+
+  .sends-row.is-cancelled .sends-code-text {
+    text-decoration: line-through;
+  }
+
+  .sends-empty {
+    margin: auto 0;
+    padding: 0 1rem;
+    text-align: center;
+    font-size: clamp(0.78rem, 0.88vw, 0.88rem);
+    color: var(--muted);
+  }
+
+  .sends-list.is-skeleton {
+    overflow: hidden;
+    gap: clamp(0.3rem, 0.6vw, 0.45rem);
+  }
+
+  .sends-list.is-skeleton .dashboard-skeleton-line {
+    height: clamp(24px, 2.2vw, 30px);
+    border-radius: clamp(8px, 0.8vw, 10px);
+  }
+
+  /* Contexto /embarques (aba Aprovacoes): respiro antes da worklist. */
+  .ctr-page .sends-card {
+    margin-bottom: clamp(0.7rem, 1.2vw, 1rem);
+  }
+
+  /* Topo do sheet de /samples no desktop: pendencia + envios lado a lado
+     (o wrapper assume as margens laterais que eram do pending-stat). */
+  .spv2-top-cards {
+    display: flex;
+    align-items: stretch;
+    gap: clamp(0.75rem, 1.4vw, 1.25rem);
+    margin: clamp(8px, 2vw, 12px) clamp(14px, 4vw, 20px) 0;
+  }
+
+  .spv2-top-cards .spv2-pending-stat {
+    margin: 0;
+  }
+
+  .spv2-top-cards .sends-card {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
 /* ── spv2: list meta ── */
 
 .spv2-list-meta {
@@ -23272,11 +23495,12 @@ select.samples-filter-field-input {
   }
 }
 
-/* ── Sales Availability Card ──
-   Card unico full-width: titulo "Lotes disponiveis" no topo, body em
-   grid de 2 colunas (donut alinhado a esquerda + legenda das cores
-   a direita) e CTA branco flutuando no canto inferior direito que
-   leva pra /samples?displayStatus=OPEN (lotes em aberto). */
+/* ── Sales Card (base do card de donut) ──
+   Nasceu como o donut "Lotes disponiveis" do dashboard (REMOVIDO do sistema
+   no DSB-D14). Hoje o UNICO consumidor das classes .sales-card*/.sales-chart-*
+   e o "Resumo comercial" do detalhe do cliente (ClientCommercialSummaryCard,
+   .client-commercial-card): titulo no topo, body em grid de 2 colunas (donut
+   a esquerda + legenda/minicards a direita). */
 
 .sales-card {
   position: relative;
@@ -23383,7 +23607,7 @@ select.samples-filter-field-input {
 }
 
 /* Resumo comercial do cliente (ajuste do usuario): rotulo "lotes" ligeiramente
-   menor que o do dashboard. Escopado ao card pra nao afetar o donut do dashboard. */
+   menor. (Era escopado pra nao afetar o donut do dashboard — removido, DSB-D14.) */
 .client-commercial-card .sales-chart-donut-label {
   font-size: 10px;
 }
@@ -23538,59 +23762,6 @@ select.samples-filter-field-input {
   .client-commercial-card .ccs-stat-count {
     font-size: clamp(1.7rem, 2.4vw, 2.1rem);
   }
-}
-
-/* Botao "Ver disponíveis" full-width no rodape do card (mockup):
-   pill verde-escura, label centrada e chevron ancorado na borda
-   direita. */
-.sales-card-detail-button {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  padding: clamp(0.85rem, 3vw, 1rem) 2.6rem;
-  background: linear-gradient(180deg, #1c5a40, #153f2d);
-  color: #ffffff;
-  border-radius: 999px;
-  font-size: clamp(0.95rem, 3.4vw, 1.05rem);
-  font-weight: 700;
-  line-height: 1;
-  box-shadow: 0 6px 16px rgba(15, 64, 41, 0.28);
-  text-decoration: none;
-  /* E um <a> (Link) — a regra global de button nao o cobre. */
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.12s ease;
-}
-
-.sales-card-detail-button:active {
-  transform: scale(0.97);
-}
-
-/* Mesmo anel do `button:focus-visible` global (o <a> nao herda). */
-.sales-card-detail-button:focus-visible {
-  outline: 2px solid rgba(0, 0, 0, 0.15);
-  outline-offset: 2px;
-}
-
-.sales-card-detail-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sales-card-detail-button svg {
-  position: absolute;
-  right: clamp(0.95rem, 3.4vw, 1.15rem);
-  top: 50%;
-  transform: translateY(-50%);
-  width: clamp(1rem, 3.6vw, 1.15rem);
-  height: clamp(1rem, 3.6vw, 1.15rem);
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
 
 /* ── Skeleton ── */
@@ -24649,229 +24820,23 @@ select.samples-filter-field-input {
     color: var(--muted);
   }
 
-  /* ── Dashboard Desktop: summary cards row ── */
+  /* ── Dashboard Desktop: conteudo ── */
 
-  /* Grid principal do dashboard (DSH-D5/D6 + E20): coluna ESQUERDA = pilha
-     "Lotes disponiveis"/"Ultimos envios"; coluna DIREITA inteira = card de
-     EVENTOS, do topo a base. Os StatCards de pendencia sairam do dashboard em
-     2026-07-12 (DSB-D2 — "Classificacao pendente" migrou pra /samples,
-     "Cadastros pendentes" foi removido). O shell-lock de 100vh continua; as
-     listas rolam por dentro. */
-  /* Grid principal (DSB-D3 + DSB-D5): duas LINHAS — top row (donut + os dois
-     cards de envio lado a lado) em cima, card de Eventos HORIZONTAL ocupando a
-     largura toda embaixo. O shell-lock de 100vh continua; as listas rolam por
-     dentro. */
+  /* Grid principal (DSB-D14): o dashboard apresenta APENAS o card de Eventos,
+     ocupando a area toda (o donut foi apagado do sistema; os cards de envios
+     migraram pra /samples e pra aba Aprovacoes de /embarques). O shell-lock de
+     100vh continua; os dias cheios rolam por dentro. */
   .dd-content-grid {
     display: grid;
-    /* Reforma: linhas com PISO em px — os cards nunca somem; quando a viewport
-       nao comporta, a pagina rola (as listas seguem rolando por dentro dos pisos).
-       Pisos tunaveis: serao revistos quando ajustarmos o tamanho dos cards. */
-    grid-template-rows: minmax(230px, 0.85fr) minmax(300px, 1.15fr);
+    /* PISO em px — o card nunca some; quando a viewport nao comporta, a pagina
+       rola (as celulas seguem rolando por dentro do piso). */
+    grid-template-rows: minmax(300px, 1fr);
     gap: clamp(1rem, 1.6vw, 1.5rem);
-    /* grow p/ preencher quando ha espaco; shrink 0 p/ nao encolher abaixo dos pisos. */
+    /* grow p/ preencher quando ha espaco; shrink 0 p/ nao encolher abaixo do piso. */
     flex: 1 0 auto;
   }
 
-  /* Top row (DSB-D5; reforma de design: 3 colunas IGUAIS — donut "Lotes
-     disponiveis" + "Amostras enviadas" + "Aprovacoes enviadas" com a mesma
-     largura). minmax(0, …) deixa cada celula encolher e as listas rolarem. */
-  .dd-top-row {
-    min-height: 0;
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: clamp(0.75rem, 1.4vw, 1.25rem);
-    animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.2s backwards;
-  }
-
-  .dd-top-row > .sales-card {
-    min-height: 0;
-    box-shadow: var(--dd-card-shadow);
-  }
-
-  /* ── Cards de envios (DSH-D5/DSB-D5 "Amostras" + "Aprovacoes"; DSB-D8 = tabela
-     horizontal compacta) — shell no padrao dos cards da linha 2 ── */
-
-  .dd-sends-card {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    gap: clamp(0.45rem, 0.9vw, 0.7rem);
-    background: #ffffff;
-    border: 1px solid rgba(112, 130, 103, 0.22);
-    border-radius: 20px;
-    box-shadow: var(--dd-card-shadow);
-    /* Reforma: cards da linha iguais → o de envios ficou um pouco mais estreito;
-       recuo lateral levemente menor p/ as colunas caberem confortaveis. */
-    padding: clamp(0.8rem, 1.1vw, 1.1rem) clamp(0.85rem, 1.15vw, 1.2rem);
-  }
-
-  .dd-sends-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    flex: none;
-  }
-
-  .dd-sends-title {
-    margin: 0;
-    font-size: clamp(0.9rem, 0.98vw, 1rem);
-    font-weight: 700;
-    letter-spacing: 0.01em;
-    color: var(--ink);
-  }
-
-  .dd-sends-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: none;
-    width: clamp(28px, 2.4vw, 34px);
-    height: clamp(28px, 2.4vw, 34px);
-    border-radius: 10px;
-    background: rgba(31, 93, 67, 0.1);
-  }
-
-  .dd-sends-icon svg {
-    width: 58%;
-    height: 58%;
-    fill: none;
-    stroke: var(--brand-green, #1f5d43);
-    stroke-width: 1.8;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  /* Lista com scroll INTERNO (o shell do dashboard nao rola). DSB-D8: virou uma
-     TABELA horizontal compacta (cabecalho sticky + 1 linha por envio), desacoplada
-     do visual .spv2-card. Sem gap: as linhas se separam por divisoria (border). */
-  .dd-sends-list {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    display: grid;
-    gap: 0;
-    align-content: start;
-    padding-right: 0.25rem;
-  }
-
-  /* Linha (cabecalho + envios): grid horizontal; o template de colunas vem da
-     variante (.is-samples = 4 colunas, .is-approvals = 3). */
-  .dd-send-row {
-    display: grid;
-    align-items: center;
-    /* Reforma: gap entre colunas um pouco menor → mais espaco p/ a coluna do
-       destinatario/comprador (a que trunca) na largura igualada dos cards. */
-    gap: clamp(0.35rem, 0.7vw, 0.6rem);
-    padding: clamp(0.28rem, 0.55vw, 0.4rem) 0.1rem;
-    font-size: clamp(0.72rem, 0.82vw, 0.8rem);
-    border-bottom: 1px solid rgba(112, 130, 103, 0.14);
-  }
-
-  .dd-send-row:last-child {
-    border-bottom: none;
-  }
-
-  .dd-sends-list.is-samples .dd-send-row {
-    grid-template-columns:
-      minmax(2.6rem, max-content) minmax(0, 1fr)
-      minmax(3rem, max-content) minmax(2.8rem, max-content);
-  }
-
-  .dd-sends-list.is-approvals .dd-send-row {
-    grid-template-columns: minmax(3rem, max-content) minmax(0, 1fr) minmax(2.8rem, max-content);
-  }
-
-  /* Cabecalho de colunas: fixo no topo do scroll. */
-  .dd-send-head {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    background: #ffffff;
-    border-bottom: 1px solid rgba(112, 130, 103, 0.28);
-  }
-
-  .dd-send-col {
-    font-size: clamp(0.62rem, 0.72vw, 0.7rem);
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    color: var(--muted);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  /* "Tempo" (ultima coluna) alinhado a direita — cabecalho e celula. */
-  .dd-send-col:last-child,
-  .dd-send-time {
-    justify-self: end;
-    text-align: right;
-  }
-
-  .dd-send-cell {
-    min-width: 0;
-    color: var(--ink);
-  }
-
-  .dd-send-code {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    font-weight: 600;
-    white-space: nowrap;
-  }
-
-  .dd-send-party {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--ink);
-  }
-
-  /* Tipo do envio (só amostras): texto cinza neutro, uma palavra. */
-  .dd-send-type {
-    white-space: nowrap;
-    color: var(--muted);
-  }
-
-  .dd-send-time {
-    white-space: nowrap;
-    color: var(--muted);
-  }
-
-  /* Envio cancelado: esmaece a linha + risca o numero (DSB-D8). */
-  .dd-send-row.is-cancelled {
-    opacity: 0.55;
-    filter: saturate(0.6);
-  }
-
-  .dd-send-row.is-cancelled .dd-send-code-text {
-    text-decoration: line-through;
-  }
-
-  .dd-sends-empty {
-    margin: auto 0;
-    padding: 0 1rem;
-    text-align: center;
-    font-size: clamp(0.78rem, 0.88vw, 0.88rem);
-    /* Mesmo tom AA dos vazios do dashboard. */
-    color: var(--muted);
-  }
-
-  .dd-sends-list.is-skeleton {
-    overflow: hidden;
-    gap: clamp(0.3rem, 0.6vw, 0.45rem);
-  }
-
-  .dd-sends-list.is-skeleton .dashboard-skeleton-line {
-    height: clamp(24px, 2.2vw, 30px);
-    border-radius: clamp(8px, 0.8vw, 10px);
-  }
-
-  /* ── Card "Eventos" (DSH-D6 / F0) — calendario de 2 semanas na coluna
-     DIREITA da linha 2; grade compacta (~40%) + painel do dia protagonista
-     (~60%, E14). Shell no molde dos cards da linha 2. ── */
+  /* ── Card "Eventos" (DSH-D6 / F0; DSB-D14 = unico card do dashboard) ── */
 
   .dd-events-card {
     /* DSB-D10: cores por ESTADO (o chip colore por data-state, não por tipo).
@@ -25133,51 +25098,6 @@ select.samples-filter-field-input {
     height: 0.5rem;
     border-radius: 50%;
     background: var(--chip-color, #1f5d43);
-  }
-
-  /* "Lotes disponiveis" compacto: legenda ao lado do donut + botao "Ver
-     disponiveis" FULL-WIDTH no rodape do card. O card e grid-stretched (mesma
-     altura do card ao lado), entao o donut e reduzido pra body + botao
-     caberem sem crescer o card. */
-  .dd-content-grid .sales-card.is-compact {
-    gap: clamp(0.4rem, 0.8vw, 0.6rem);
-    padding: clamp(0.8rem, 1.1vw, 1.1rem) clamp(0.95rem, 1.3vw, 1.3rem);
-  }
-
-  .dd-content-grid .sales-card.is-compact .sales-card-body {
-    grid-template-columns: auto 1fr;
-    align-items: center;
-    gap: clamp(0.7rem, 1.2vw, 1.1rem);
-    padding-inline-start: 0;
-    flex: 1;
-    min-height: 0;
-  }
-
-  .dd-content-grid .sales-card.is-compact .sales-chart-donut {
-    width: clamp(100px, 9.5vw, 132px);
-    height: clamp(100px, 9.5vw, 132px);
-    align-self: center;
-  }
-
-  .sales-card-aside {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 0.7rem;
-    min-width: 0;
-  }
-
-  .sales-card.is-compact .sales-chart-legend-item {
-    padding: clamp(0.22rem, 0.5vw, 0.36rem) 0;
-  }
-
-  /* Botao "Ver disponiveis" FULL-WIDTH no rodape do card (width:100% = largura
-     total agora que e filho direto do card, nao da aside). */
-  .sales-card.is-compact .sales-card-detail-button {
-    width: 100%;
-    padding: clamp(0.5rem, 0.7vw, 0.62rem) 2rem;
-    font-size: clamp(0.82rem, 0.9vw, 0.92rem);
-    box-shadow: 0 4px 12px rgba(15, 64, 41, 0.22);
   }
 
   .dashboard-sheet {
@@ -33917,7 +33837,6 @@ body.is-selection-mode .ctr-page .cc-tabs {
   .dashboard-operations-grid .dashboard-operation-card:nth-child(n),
   .sales-card,
   .dd-page-header,
-  .dd-top-row,
   .dd-events-card,
   .dashboard-operation-badge,
   .dashboard-mobile .dashboard-operation-card.is-wide .dashboard-operation-badge,

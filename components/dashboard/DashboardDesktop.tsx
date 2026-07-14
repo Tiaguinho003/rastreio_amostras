@@ -5,21 +5,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   getDashboardInvoiceEvents,
   getDashboardPaymentEvents,
-  getDashboardRecentSends,
   getDashboardShipmentEvents,
 } from '../../lib/api-client';
 import { contractsHubTabs, FINANCEIRO_ROLES, getRoleLabel, isRoleAllowed } from '../../lib/roles';
-import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
-import { DashboardLoadError } from './DashboardLoadError';
 import { EventsCalendarCard } from './EventsCalendarCard';
 import { getGreeting, getTodayLong } from './greeting';
-import { RecentSendsCard } from './RecentSendsCard';
-import type {
-  DashboardCalendarEvent,
-  DashboardRecentSendsResponse,
-  DashboardSalesAvailabilityResponse,
-  SessionData,
-} from '../../lib/types';
+import type { DashboardCalendarEvent, SessionData } from '../../lib/types';
 
 const DESKTOP_MQ = '(min-width: 901px)';
 // Throttle do refetch em focus/visibility: evita N requests em Alt+Tab rápido.
@@ -27,12 +18,9 @@ const REFETCH_THROTTLE_MS = 30_000;
 
 interface DashboardDesktopProps {
   session: SessionData;
-  salesData: DashboardSalesAvailabilityResponse | null;
-  error: string | null;
-  onRetry?: () => void;
 }
 
-export function DashboardDesktop({ session, salesData, error, onRetry }: DashboardDesktopProps) {
+export function DashboardDesktop({ session }: DashboardDesktopProps) {
   // Saudação do cabeçalho da página (mesmo primeiro nome do hero mobile).
   const fullName = session.user.fullName ?? session.user.username;
   const firstName = fullName.split(' ')[0];
@@ -47,51 +35,6 @@ export function DashboardDesktop({ session, salesData, error, onRetry }: Dashboa
       mountedRef.current = false;
     };
   }, []);
-
-  // ───────── Cards de envios (recent-sends: 1 fetch alimenta os 2 cards) ─────────
-  const [recentSends, setRecentSends] = useState<DashboardRecentSendsResponse | null>(null);
-  const [recentSendsError, setRecentSendsError] = useState<string | null>(null);
-  const lastSendsFetchRef = useRef<number>(0);
-
-  const fetchRecentSends = useCallback(() => {
-    // Só o breakpoint desktop busca (o twin mobile fica montado mas inerte via CSS).
-    if (!window.matchMedia(DESKTOP_MQ).matches) return;
-    lastSendsFetchRef.current = Date.now();
-    getDashboardRecentSends(session)
-      .then((response) => {
-        if (!mountedRef.current) return;
-        setRecentSends(response);
-        setRecentSendsError(null);
-      })
-      .catch(() => {
-        if (mountedRef.current) setRecentSendsError('Não foi possível carregar os envios.');
-      });
-  }, [session]);
-
-  useEffect(() => {
-    fetchRecentSends();
-    const mq = window.matchMedia(DESKTOP_MQ);
-    const throttled = () => {
-      if (Date.now() - lastSendsFetchRef.current < REFETCH_THROTTLE_MS) return;
-      fetchRecentSends();
-    };
-    // 'change' re-busca ao ENTRAR no desktop num resize (senão o card ficava travado
-    // no skeleton — nada disparava o fetch).
-    const onBreakpoint = () => {
-      if (mq.matches) fetchRecentSends();
-    };
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') throttled();
-    };
-    window.addEventListener('focus', throttled);
-    document.addEventListener('visibilitychange', onVisible);
-    mq.addEventListener('change', onBreakpoint);
-    return () => {
-      window.removeEventListener('focus', throttled);
-      document.removeEventListener('visibilitychange', onVisible);
-      mq.removeEventListener('change', onBreakpoint);
-    };
-  }, [fetchRecentSends]);
 
   // ───────── Card de Eventos (3 feeds mesclados client-side) ─────────
   // F1 (E24/E28): pagamento — só ADMIN/COMMERCIAL (canPay); demais nem chamam o feed.
@@ -227,35 +170,10 @@ export function DashboardDesktop({ session, salesData, error, onRetry }: Dashboa
           <span className="dd-page-date">{getTodayLong()}</span>
         </header>
 
-        {error ? <DashboardLoadError message={error} onRetry={onRetry} /> : null}
-
-        {/* Layout (DSB-D3 + DSB-D5): TOP ROW = "Lotes disponiveis" (donut, mais
-            estreito) + "Amostras enviadas" + "Aprovacoes enviadas" lado a lado;
-            EMBAIXO = card de Eventos HORIZONTAL ocupando a largura toda. */}
+        {/* Layout (DSB-D14): o dashboard apresenta APENAS o card de Eventos,
+            ocupando a area toda. O donut foi apagado do sistema; os cards de
+            envios migraram pra /samples e pra aba Aprovacoes de /embarques. */}
         <div className="dd-content-grid">
-          <div className="dd-top-row">
-            {salesData ? (
-              <SalesAvailabilityCard data={salesData} compact />
-            ) : (
-              <div className="sales-card sales-card-skeleton" aria-hidden="true" />
-            )}
-            <RecentSendsCard
-              title="Amostras enviadas"
-              emptyLabel="Nenhuma amostra enviada."
-              variant="samples"
-              items={recentSends ? recentSends.sampleItems : null}
-              error={recentSendsError}
-              onRetry={fetchRecentSends}
-            />
-            <RecentSendsCard
-              title="Aprovações enviadas"
-              emptyLabel="Nenhuma aprovação enviada."
-              variant="approvals"
-              items={recentSends ? recentSends.approvalItems : null}
-              error={recentSendsError}
-              onRetry={fetchRecentSends}
-            />
-          </div>
           <EventsCalendarCard
             events={calendarEvents}
             navigableTabs={navigableTabs}

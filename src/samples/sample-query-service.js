@@ -50,10 +50,10 @@ const COMMERCIAL_STATUSES = ['OPEN', 'PARTIALLY_SOLD', 'SOLD', 'LOST'];
 // "Deletar lote": INVALIDATED (deletado) saiu dos filtros — deletados somem da UI.
 const DISPLAY_STATUSES = ['OPEN', 'SOLD', 'LOST'];
 
-// Card "Ultimos envios" do dashboard desktop (DSH-D5): feed por-evento dos
-// envios de amostra fisica + laudos exportados, do mais recente pro mais
-// antigo, sem janela de tempo.
-const DASHBOARD_RECENT_SENDS_LIMIT = 40;
+// Card "Amostras enviadas" da pagina de Lotes (DSB-D14; nasceu no dashboard,
+// DSH-D5): feed por-evento dos envios de amostra fisica + laudos exportados,
+// do mais recente pro mais antigo, sem janela de tempo.
+const RECENT_SAMPLE_SENDS_LIMIT = 40;
 
 function mapRecentSendRow(row) {
   const payload = row.payload && typeof row.payload === 'object' ? row.payload : {};
@@ -307,19 +307,6 @@ function toNumberOrNull(value) {
 
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
-}
-
-function toIntegerOrZero(value) {
-  const parsed = toNumberOrNull(value);
-  if (parsed === null) {
-    return 0;
-  }
-
-  if (parsed <= 0) {
-    return 0;
-  }
-
-  return Math.trunc(parsed);
 }
 
 function toObjectOrNull(value) {
@@ -1781,50 +1768,13 @@ export class SampleQueryService {
     return { classificationPending: { total } };
   }
 
-  async getDashboardSalesAvailability() {
-    const nowUtc = new Date();
-    const nowSp = new Date(nowUtc.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
-
-    const spYear = nowSp.getUTCFullYear();
-    const spMonth = nowSp.getUTCMonth();
-    const spDay = nowSp.getUTCDate();
-
-    const boundary30 = new Date(
-      Date.UTC(spYear, spMonth, spDay - 30, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0)
-    );
-    const boundary15 = new Date(
-      Date.UTC(spYear, spMonth, spDay - 15, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0)
-    );
-
-    const rows = await this.prisma.$queryRaw`
-      SELECT
-        COUNT(*) FILTER (WHERE s."created_at" <  ${boundary30})::INTEGER                  AS "over30",
-        COUNT(*) FILTER (WHERE s."created_at" >= ${boundary30}
-                           AND s."created_at" <  ${boundary15})::INTEGER                  AS "from15to30",
-        COUNT(*) FILTER (WHERE s."created_at" >= ${boundary15})::INTEGER                  AS "under15"
-      FROM "sample" s
-      WHERE s."status" <> 'INVALIDATED'
-        AND s."commercial_status" IN ('OPEN', 'PARTIALLY_SOLD')
-    `;
-
-    const row = rows[0] ?? {};
-
-    return {
-      bands: {
-        over30: toIntegerOrZero(row.over30),
-        from15to30: toIntegerOrZero(row.from15to30),
-        under15: toIntegerOrZero(row.under15),
-      },
-    };
-  }
-
-  // Card "Ultimos envios" (dashboard desktop, DSH-D5): ultimos N eventos de
-  // envio — amostra fisica (PHYSICAL_SAMPLE_SENT; o laudo publico/QR da
-  // etiqueta nasce desse mesmo evento) + laudo exportado (REPORT_EXPORTED).
-  // Feed por-evento como o antigo recent-activity: cada envio vira um card;
-  // amostras invalidadas saem por inteiro. O indice
+  // Card "Amostras enviadas" da pagina de Lotes (DSB-D14; nasceu no dashboard,
+  // DSH-D5): ultimos N eventos de envio — amostra fisica (PHYSICAL_SAMPLE_SENT;
+  // o laudo publico/QR da etiqueta nasce desse mesmo evento) + laudo exportado
+  // (REPORT_EXPORTED). Feed por-evento como o antigo recent-activity: cada envio
+  // vira uma linha; amostras invalidadas saem por inteiro. O indice
   // idx_sample_event_type_occurred cobre o WHERE + ORDER BY.
-  async getDashboardRecentSends() {
+  async getRecentSampleSends() {
     const rows = await this.prisma.$queryRaw`
       SELECT
         se.event_id AS "eventId",
@@ -1866,7 +1816,7 @@ export class SampleQueryService {
       WHERE se.event_type IN ('PHYSICAL_SAMPLE_SENT', 'REPORT_EXPORTED')
         AND s.status != 'INVALIDATED'
       ORDER BY se.occurred_at DESC, se.sequence_number DESC
-      LIMIT ${DASHBOARD_RECENT_SENDS_LIMIT}
+      LIMIT ${RECENT_SAMPLE_SENDS_LIMIT}
     `;
 
     return {

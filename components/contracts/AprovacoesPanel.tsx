@@ -2,10 +2,16 @@
 
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
-import { ApiError, getApprovalLabelPrefill, listApprovals } from '../../lib/api-client';
+import {
+  ApiError,
+  getApprovalLabelPrefill,
+  getApprovalRecentSends,
+  listApprovals,
+} from '../../lib/api-client';
 import { isRoleAllowed, CONTRATOS_ROLES } from '../../lib/roles';
 import { useToast } from '../../lib/toast/ToastProvider';
 import { useContractHighlight } from '../../lib/use-contract-highlight';
+import { useRecentSendsFeed } from '../../lib/use-recent-sends-feed';
 import type {
   ApprovalFilter,
   ApprovalLabelPrefill,
@@ -13,6 +19,7 @@ import type {
   SessionData,
 } from '../../lib/types';
 import { ApprovalLabelModal } from '../ApprovalLabelModal';
+import { RecentSendsCard } from '../RecentSendsCard';
 import { AprovacaoCard } from './AprovacaoCard';
 
 // Aprovação — a CASA da aprovação (AP25-AP28): a worklist dos contratos MARCADOS, com
@@ -108,6 +115,11 @@ export function AprovacoesPanel({ session }: { session: SessionData }) {
   // "Ver contrato" só ADMIN/COMMERCIAL (D110/AP27); [Gerar] = todos (a aba já é
   // não-PROSPECTOR pela casca).
   const canViewContract = isRoleAllowed(session.user.role, CONTRATOS_ROLES);
+
+  // Card "Aprovações enviadas" (DSB-D14, migrado do dashboard): visão rápida dos
+  // últimos envios, desktop-only, acima da worklist (que segue sendo a lista
+  // completa — filtro "Enviadas").
+  const approvalSends = useRecentSendsFeed(session, getApprovalRecentSends);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const searchDebounceRef = useRef<number | null>(null);
@@ -266,6 +278,15 @@ export function AprovacoesPanel({ session }: { session: SessionData }) {
 
   return (
     <>
+      <RecentSendsCard
+        title="Aprovações enviadas"
+        emptyLabel="Nenhuma aprovação enviada."
+        variant="approvals"
+        items={approvalSends.items}
+        error={approvalSends.error}
+        onRetry={approvalSends.retry}
+      />
+
       {pendingCount > 0 ? (
         <div className="fin-overdue" role="status">
           <span className="fin-overdue-count">{pendingCount} a enviar</span>
@@ -370,8 +391,10 @@ export function AprovacoesPanel({ session }: { session: SessionData }) {
           onBack={null}
           onSent={() => {
             // Enviou → o item muda de estado (a_enviar → enviada, ou +1 no ·N×).
-            // Refetch da 1ª página (mantém filtro+busca). O modal segue no sucesso.
+            // Refetch da 1ª página (mantém filtro+busca) + do card "Aprovações
+            // enviadas" (o envio novo entra no topo). O modal segue no sucesso.
             setReloadNonce((n) => n + 1);
+            approvalSends.retry();
           }}
           onClose={() => setGerarForm(null)}
         />

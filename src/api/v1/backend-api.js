@@ -1131,35 +1131,29 @@ export function createBackendApiV1({
         };
       }),
 
-    getDashboardSalesAvailability: (input) =>
+    // Card "Amostras enviadas" da pagina de Lotes (DSB-D14; nasceu no dashboard,
+    // DSH-D5). So autenticacao, sem gate positivo de papel (DSH-D2); PROSPECTOR
+    // cai no 403 da allowlist central.
+    getSampleRecentSends: (input) =>
       executeApiForInput(input, async () => {
         await resolveActorContext(input, authService);
-        const result = await queryService.getDashboardSalesAvailability();
+        const result = await queryService.getRecentSampleSends();
         return {
           status: 200,
           body: result,
         };
       }),
 
-    // Card "Ultimos envios" (dashboard desktop, DSH-D5). So autenticacao,
-    // sem gate positivo de papel (DSH-D2); PROSPECTOR cai no 403 da
-    // allowlist central.
-    getDashboardRecentSends: (input) =>
+    // Card "Aprovacoes enviadas" da aba Aprovacoes (DSB-D14; nasceu no dashboard,
+    // DSB-D5). Mesma politica auth-only; top-40 no contract service. Se o contract
+    // service nao estiver configurado, degrada pra lista vazia.
+    getApprovalRecentSends: (input) =>
       executeApiForInput(input, async () => {
         await resolveActorContext(input, authService);
-        // DSB-D5: o dashboard passou a ter DOIS cards ("Amostras enviadas" =
-        // fisica+laudo, "Aprovacoes enviadas" = aprovacao). Devolvemos as duas
-        // sub-listas SEPARADAS, cada uma ja ordenada desc e capada no seu top-40
-        // (samples query-service e contract service) — sem merge/corte global,
-        // que podia zerar as aprovacoes quando havia muitas amostras recentes. Se
-        // o contract service nao estiver configurado, `approvalItems` degrada p/ [].
-        const [sampleRes, approvalItems] = await Promise.all([
-          queryService.getDashboardRecentSends(),
-          saleContractService ? saleContractService.getRecentApprovalSends() : [],
-        ]);
+        const items = saleContractService ? await saleContractService.getRecentApprovalSends() : [];
         return {
           status: 200,
-          body: { sampleItems: sampleRes.items, approvalItems },
+          body: { items },
         };
       }),
 

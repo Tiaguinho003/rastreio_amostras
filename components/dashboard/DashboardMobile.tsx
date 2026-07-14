@@ -3,27 +3,20 @@
 import Link from 'next/link';
 
 import { HeaderAvatarMenu } from '../HeaderAvatarMenu';
-import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
 import { getRoleLabel } from '../../lib/roles';
-import { DashboardLoadError } from './DashboardLoadError';
 import { getGreeting, getInitials } from './greeting';
-import type { DashboardSalesAvailabilityResponse, SessionData } from '../../lib/types';
+import type { SessionData } from '../../lib/types';
 
 interface DashboardMobileProps {
   session: SessionData;
-  salesData: DashboardSalesAvailabilityResponse | null;
-  error: string | null;
-  onRetry?: () => void;
   onLogout: () => void | Promise<void>;
 }
 
-export function DashboardMobile({
-  session,
-  salesData,
-  error,
-  onRetry,
-  onLogout,
-}: DashboardMobileProps) {
+// DSB-D14: o dashboard mobile ficou SO com o hero (saudacao) por enquanto — o
+// donut "Lotes disponiveis" foi apagado do sistema e o calendario de Eventos
+// ainda e desktop-only (a cobertura mobile entra no ciclo do dashboard mobile,
+// DSB-H6). Ver docs/Dashboard-Plano-de-Trabalho.md.
+export function DashboardMobile({ session, onLogout }: DashboardMobileProps) {
   const fullName = session.user.fullName ?? session.user.username;
   const firstName = fullName.split(' ')[0];
   const roleLabel = getRoleLabel(session.user.role);
@@ -32,9 +25,8 @@ export function DashboardMobile({
   return (
     <div className="dashboard-mobile">
       <section className="dashboard-page">
-        {/* Scroll simples da pagina inteira: a saudacao (hero) e o sheet
-            vivem dentro do .dashboard-scroll e rolam juntos como uma pagina
-            normal — nada fica fixo no topo. */}
+        {/* Scroll simples da pagina inteira: o hero vive dentro do
+            .dashboard-scroll e rola como uma pagina normal — nada fixo no topo. */}
         <div className="dashboard-scroll">
           <section className="dashboard-hero">
             <div className="dashboard-hero-header">
@@ -59,18 +51,6 @@ export function DashboardMobile({
                 <span className="dashboard-hero-avatar-initials">{initials}</span>
               </Link>
             </div>
-          </section>
-
-          <section className="dashboard-sheet">
-            {error ? <DashboardLoadError message={error} onRetry={onRetry} /> : null}
-
-            <section className="dashboard-sheet-section dashboard-sheet-content is-slot-sales">
-              {salesData ? (
-                <SalesAvailabilityCard data={salesData} />
-              ) : (
-                <div className="sales-card sales-card-skeleton" aria-hidden="true" />
-              )}
-            </section>
           </section>
         </div>
       </section>

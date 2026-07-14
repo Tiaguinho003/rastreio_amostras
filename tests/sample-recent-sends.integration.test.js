@@ -6,7 +6,8 @@ import { PrismaClient } from '@prisma/client';
 
 import { SampleQueryService } from '../src/samples/sample-query-service.js';
 
-// Card "Últimos envios" (DSH-D5): getDashboardRecentSends mistura
+// Card "Amostras enviadas" (DSB-D14; nasceu no dashboard, DSH-D5):
+// getRecentSampleSends mistura
 // PHYSICAL_SAMPLE_SENT + REPORT_EXPORTED (LIMIT 40, mais recente primeiro),
 // marca cancelados pelo pareamento payload.sendEventId, aplica a última
 // edição (destinatário ATUAL) e exclui amostras INVALIDATED.
@@ -15,7 +16,7 @@ const databaseUrl = process.env.DATABASE_URL;
 const databaseReachable = await canReachDatabase(databaseUrl);
 
 if (!databaseUrl || !databaseReachable) {
-  test.skip('dashboard-recent-sends integration tests require DATABASE_URL and reachable PostgreSQL', () => {});
+  test.skip('sample-recent-sends integration tests require DATABASE_URL and reachable PostgreSQL', () => {});
 } else {
   const prisma = new PrismaClient();
   const queryService = new SampleQueryService({ prisma });
@@ -97,7 +98,7 @@ if (!databaseUrl || !databaseReachable) {
   });
 
   test('banco vazio: lista vazia', async () => {
-    const result = await queryService.getDashboardRecentSends();
+    const result = await queryService.getRecentSampleSends();
     assert.deepStrictEqual(result.items, []);
   });
 
@@ -125,7 +126,7 @@ if (!databaseUrl || !databaseReachable) {
       },
     });
 
-    const { items } = await queryService.getDashboardRecentSends();
+    const { items } = await queryService.getRecentSampleSends();
 
     assert.strictEqual(items.length, 2);
     // Mais recente primeiro: o laudo (5 min) vem antes do envio físico (20 min).
@@ -154,7 +155,7 @@ if (!databaseUrl || !databaseReachable) {
       });
     }
 
-    const { items } = await queryService.getDashboardRecentSends();
+    const { items } = await queryService.getRecentSampleSends();
 
     assert.strictEqual(items.length, 40);
     // O evento mais antigo (Destino 0, há 41 min) fica de fora.
@@ -183,7 +184,7 @@ if (!databaseUrl || !databaseReachable) {
       payload: { sendEventId: cancelledSend },
     });
 
-    const { items } = await queryService.getDashboardRecentSends();
+    const { items } = await queryService.getRecentSampleSends();
 
     // O cancelamento em si não vira item; os 2 envios aparecem.
     assert.strictEqual(items.length, 2);
@@ -213,7 +214,7 @@ if (!databaseUrl || !databaseReachable) {
       payload: { sendEventId, recipientClientSnapshot: snapshot('Edição Final') },
     });
 
-    const { items } = await queryService.getDashboardRecentSends();
+    const { items } = await queryService.getRecentSampleSends();
 
     assert.strictEqual(items.length, 1);
     assert.strictEqual(items[0].recipient, 'Edição Final');
@@ -234,7 +235,7 @@ if (!databaseUrl || !databaseReachable) {
       payload: { format: 'pdf' },
     });
 
-    const { items } = await queryService.getDashboardRecentSends();
+    const { items } = await queryService.getRecentSampleSends();
 
     assert.strictEqual(items.length, 2);
     assert.strictEqual(items[0].recipient, null);
@@ -253,7 +254,7 @@ if (!databaseUrl || !databaseReachable) {
     });
     await prisma.sample.update({ where: { id: sampleId }, data: { status: 'INVALIDATED' } });
 
-    const { items } = await queryService.getDashboardRecentSends();
+    const { items } = await queryService.getRecentSampleSends();
 
     assert.deepStrictEqual(items, []);
   });

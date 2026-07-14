@@ -16,7 +16,7 @@ import {
   toDayKey,
 } from '../../lib/dashboard-calendar';
 import { contractTabRoute, type ContractsHubTab } from '../../lib/roles';
-import { DashboardLoadError } from './DashboardLoadError';
+import { LoadError } from '../LoadError';
 import type { DashboardCalendarEvent } from '../../lib/types';
 
 // F1 (E21-E27/D138): o tipo do evento foi promovido pro lib/types.ts
@@ -152,7 +152,7 @@ export function EventsCalendarCard({
         </div>
       </header>
 
-      {error ? <DashboardLoadError message={error} onRetry={onRetry} compact /> : null}
+      {error ? <LoadError message={error} onRetry={onRetry} compact /> : null}
 
       {/* DSB-D10: legenda das cores (a cor = estado). aria-hidden: o estado já vai
           no aria-label de cada chip; aqui é só apoio visual. */}

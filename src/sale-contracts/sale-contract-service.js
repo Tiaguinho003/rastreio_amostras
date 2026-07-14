@@ -737,8 +737,8 @@ export class SaleContractService {
     return bucketInvoiceEvents(scheduledRows, doneRows, brtTodayKey());
   }
 
-  // AP16: envios de aprovacao recentes p/ o card "Ultimos envios" do dashboard (o
-  // handler mescla com os envios de amostra do samples query-service). Ordena por
+  // AP16: envios de aprovacao recentes p/ o card "Aprovacoes enviadas" (DSB-D14:
+  // mora na aba Aprovacoes de /embarques; nasceu no dashboard). Ordena por
   // createdAt desc; exclui avulsas historicas (saleContractId NULL). Join manual do
   // contrato (nº + comprador) — SaleContract nao tem @relation.
   async getRecentApprovalSends() {

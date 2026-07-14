@@ -18,6 +18,7 @@ import { createPortal } from 'react-dom';
 
 import { AppShell } from '../../components/AppShell';
 import { NewSampleModal } from '../../components/NewSampleModal';
+import { RecentSendsCard } from '../../components/RecentSendsCard';
 import { ClientLookupField } from '../../components/clients/ClientLookupField';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { ClassificationFilterField } from '../../components/samples/ClassificationFilterField';
@@ -42,6 +43,7 @@ import {
   createBlend,
   createSampleMovement,
   getSampleDetail,
+  getSampleRecentSends,
   listClassificationValues,
   listSamples,
   updateRegistration,
@@ -70,6 +72,7 @@ import type {
   SampleSnapshot,
 } from '../../lib/types';
 import { getRouteLeftBehind } from '../../lib/navigation/route-history';
+import { useRecentSendsFeed } from '../../lib/use-recent-sends-feed';
 import { useRequireAuth } from '../../lib/use-auth';
 import { NON_PROSPECTOR_ROLES } from '../../lib/roles';
 
@@ -492,7 +495,12 @@ function SamplesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Deep-link de status via URL (ex.: dashboard "Ver disponiveis" -> ?displayStatus=OPEN).
+  // Card "Amostras enviadas" (DSB-D14, migrado do dashboard): feed desktop-only,
+  // fetch gated por matchMedia no hook + card escondido por CSS abaixo de 901px.
+  const sampleSends = useRecentSendsFeed(session, getSampleRecentSends);
+
+  // Deep-link de status via URL (?displayStatus=OPEN; era o "Ver disponiveis" do
+  // donut do dashboard, removido no DSB-D14 — o param segue valido).
   const displayStatusParam = searchParams.get('displayStatus');
   const urlDisplayStatus: DisplayStatusFilter =
     displayStatusParam &&
@@ -2224,9 +2232,21 @@ function SamplesPage() {
         </div>
 
         <section className="samples-page-v2-sheet">
-          {/* Card so-visualizacao "Classificacao pendente" (migrado do dashboard,
-              DSB-D2): conta amostras em REGISTRATION_CONFIRMED, inerte por ora. */}
-          <ClassificationPendingCard session={session} />
+          {/* Cards do topo do sheet, migrados do dashboard: "Classificacao
+              pendente" (DSB-D2; conta amostras em REGISTRATION_CONFIRMED, inerte
+              por ora) + "Amostras enviadas" (DSB-D14; desktop-only — o wrapper e
+              display:contents no mobile e o card se esconde sozinho). */}
+          <div className="spv2-top-cards">
+            <ClassificationPendingCard session={session} />
+            <RecentSendsCard
+              title="Amostras enviadas"
+              emptyLabel="Nenhuma amostra enviada."
+              variant="samples"
+              items={sampleSends.items}
+              error={sampleSends.error}
+              onRetry={sampleSends.retry}
+            />
+          </div>
           {/* Section 2: Count + filter btn (ou contador de selecionadas em modo blend) */}
           <div className="spv2-list-meta">
             <span className="spv2-list-count">{samplesState.total} lotes</span>

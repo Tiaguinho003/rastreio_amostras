@@ -48,8 +48,7 @@ import type {
   ResolveSampleByLotResponse,
   DashboardPendingResponse,
   DetectFormResponse,
-  DashboardSalesAvailabilityResponse,
-  DashboardRecentSendsResponse,
+  RecentSendsResponse,
   DashboardPaymentEventsResponse,
   DashboardShipmentEventsResponse,
   DashboardInvoiceEventsResponse,
@@ -1290,18 +1289,21 @@ export function getDashboardPending(session: SessionData) {
   });
 }
 
-export function getDashboardSalesAvailability(session: SessionData) {
-  return request<DashboardSalesAvailabilityResponse>('/dashboard/sales-availability', {
-    method: 'GET',
-    session,
-  });
-}
-
-export function getDashboardRecentSends(session: SessionData) {
-  return request<DashboardRecentSendsResponse>('/dashboard/recent-sends', {
+// Card "Amostras enviadas" da página de Lotes (DSB-D14; nasceu no dashboard).
+export function getSampleRecentSends(session: SessionData) {
+  return request<RecentSendsResponse>('/samples/recent-sends', {
     method: 'GET',
     session,
     // Respeita o Cache-Control private/max-age=30 do endpoint.
+    cachePolicy: 'default',
+  });
+}
+
+// Card "Aprovações enviadas" da aba Aprovações de /embarques (DSB-D14).
+export function getApprovalRecentSends(session: SessionData) {
+  return request<RecentSendsResponse>('/sale-contracts/approvals/recent-sends', {
+    method: 'GET',
+    session,
     cachePolicy: 'default',
   });
 }

@@ -1149,19 +1149,12 @@ export interface DashboardPendingResponse {
   };
 }
 
-export interface DashboardSalesAvailabilityResponse {
-  bands: {
-    over30: number;
-    from15to30: number;
-    under15: number;
-  };
-}
-
-// Envios do dashboard desktop (DSH-D5). DSB-D5: viraram DOIS cards —
-// "Amostras enviadas" (amostra física PHYSICAL_SAMPLE_SENT + laudo REPORT_EXPORTED,
-// com selo de tipo) e "Aprovações enviadas" (etiqueta de APROVAÇÃO, approval_label_log,
-// pós-AP16). Cada linha é um envio, do mais recente pro mais antigo.
-export interface DashboardRecentSendItem {
+// Cards de envios (DSB-D14: "Amostras enviadas" mora em /samples e "Aprovações
+// enviadas" na aba Aprovações de /embarques; nasceram no dashboard, DSH-D5/DSB-D5).
+// Amostra = física PHYSICAL_SAMPLE_SENT + laudo REPORT_EXPORTED; aprovação =
+// etiqueta de APROVAÇÃO (approval_label_log, pós-AP16). Cada linha é um envio,
+// do mais recente pro mais antigo.
+export interface RecentSendItem {
   id: string; // event_id (amostra) ou 'approval:<id>' (aprovação); único por linha
   sampleId: string | null; // null na aprovação (não tem amostra)
   internalLotNumber: string | null;
@@ -1175,10 +1168,10 @@ export interface DashboardRecentSendItem {
   buyer?: string | null;
 }
 
-export interface DashboardRecentSendsResponse {
-  // DSB-D5: duas listas independentes (cada card com seu próprio top-40).
-  sampleItems: DashboardRecentSendItem[]; // "Amostras enviadas" — física + laudo
-  approvalItems: DashboardRecentSendItem[]; // "Aprovações enviadas" — aprovações
+// Resposta dos DOIS endpoints de envios recentes (cada um com seu top-40):
+// GET /samples/recent-sends e GET /sale-contracts/approvals/recent-sends.
+export interface RecentSendsResponse {
+  items: RecentSendItem[];
 }
 
 // Card de Eventos do dashboard (F1, E21-E27/D138): feed de "pagamentos de contrato".

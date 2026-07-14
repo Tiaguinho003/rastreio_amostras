@@ -6,8 +6,8 @@ import { useEffect, useRef } from 'react';
 // O snapshot dá a primeira pintura instantânea (scroll preservado), mas os
 // dados congelavam até o usuário mexer em filtro/busca — num PWA que vive dias
 // em background, outro usuário criava lotes e a lista nunca atualizava.
-// Mesmo padrão do dashboard (useDashboardData/DashboardDesktop): refetch ao
-// voltar visível/focado com throttle + polling enquanto a página está visível.
+// Mesmo padrão do dashboard (DashboardDesktop/use-recent-sends-feed): refetch
+// ao voltar visível/focado com throttle + polling enquanto a página está visível.
 //
 // O chamador decide COMO revalidar (onRevalidate dispara um refetch silencioso
 // que mantém a lista atual na tela até a resposta chegar) e QUANDO aceitar
