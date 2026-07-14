@@ -2,7 +2,7 @@
 
 Status: Em andamento (backlog + decisões + pendências da página `/contratos`)
 Escopo: o backlog, as pendências e o **ledger de decisões** da feature de Contratos (hub `/contratos`: contrato/PDF, Espelho de Corretagem, Financeiro, Aprovações, Embarque). O **estado atual** do que existe vive em `Contratos-Visao-Geral.md`; aqui ficam as decisões (o porquê), as pendências abertas e o histórico condensado.
-Última revisão: 2026-07-14 (D141 — banco em texto livre; entidade `Bank` e COMPE removidos)
+Última revisão: 2026-07-14 (D142/D143 — validação `paymentDate >= invoiceDate` + limitação do emit documentada; revisão geral do fluxo)
 Documentos relacionados: `Contratos-Visao-Geral.md` (documento-mãe / estado atual), `Dashboard-Visao-Geral.md`, `API-e-Contratos.md`, `Auditoria-Navegacao-por-Papel.md`
 
 > **Divisão de papéis:** a `Contratos-Visao-Geral.md` é a **verdade viva** (o que existe hoje). Este plano guarda **decisões (por quê), pendências (o que falta) e o backlog**. O histórico completo de sessões (S1–S91 etc.) e a prosa superada foram para o **Git** (docs antigos removidos em 2026-07-13); o ledger no apêndice condensa cada decisão à resolução final.
@@ -43,7 +43,7 @@ Orla ajustada no mesmo passo: `README.md` (par mãe+plano no índice), `Auditori
 
 > Resolução final de cada decisão; as **superadas** apontam para o que as substituiu. O histórico completo (Contexto→Opções→Proposta + sessões) está no Git.
 
-### A.1 Contrato / Financeiro / Espelho (D1–D141)
+### A.1 Contrato / Financeiro / Espelho (D1–D143)
 
 - **D1** — Contrato híbrido: dados estruturados + 2 blocos de texto livre (Observações/Descrição) + assinaturas; sem cláusulas jurídicas fixas.
 - **D2** — Serve de confirmação ao comprador e ao vendedor, com valor de contrato formal entre as partes.
@@ -182,6 +182,8 @@ Orla ajustada no mesmo passo: `README.md` (par mãe+plano no índice), `Auditori
 - **D139** — `ClientAttachment.unitId` (anulável) vincula o anexo a uma filial `ClientUnit`; vínculo definitivo via `PATCH`, não move o arquivo.
 - **D140** — Escopo aberto do COMMERCIAL (own-only revogado; supera D110 e D135): ADMIN e COMMERCIAL veem e GERENCIAM TODOS os contratos, o Financeiro e o feed de pagamento — a posse por `Broker.userId` deixou de restringir (o backend removeu os 3 helpers de posse + o escopo inline das listas). Relaxa também o "nos dele" da D120, o "só nos dele" da AP9, o escopo da D138 e o "Ver contrato escopado" da AP27/AP30/EMB26 (passam a abrir a ADMIN+COMMERCIAL em qualquer contrato). Rótulo do Financeiro unificado em "Corretagem total". Motivo: simplificar o desenvolvimento; a corretagem não é dado por-corretor no schema (vive no `SaleContract`, 2 pontas — sem coluna de valor em `SaleContractBroker`), então abrir não expõe "cota alheia". Lookup inline segue ADMIN-only (D94).
 - **D141** — Banco vira **texto livre** na conta bancária (supera D24 em parte e D39; ajusta D28/D59/D60): `ClientBankAccount.bankName` (texto obrigatório, máx. 120, entrada em MAIÚSCULAS como o Titular) substitui a FK `bankId`; a entidade `Bank` (lookup nome + COMPE) sai inteira do sistema — tabela, API `/banks`, aba "Bancos" de `/cadastros` (que fica Clientes | Corretores), `BankFormModal` e `BankSelectField`. Motivo: cadastrar uma instituição só para vincular a conta era fricção sem ganho — o nome do banco é dado de exibição (contrato/PDF), sem agrupamento nem relatório por banco. Compat: snapshots de contratos já emitidos preservam `bankName`/`compeCode` congelados (PDF e modal de Detalhes já renderizam o código condicionalmente); snapshots novos saem sem `bankId`/`compeCode`. Migration `20260714130000_bank_free_text` faz backfill do nome antes de dropar FK e tabela (prod nunca rodou as migrations de bancos — zero dado real; só o demo local tinha contas).
+- **D142** — Cronograma coerente: a criação/edição valida `paymentDate >= invoiceDate` (`422 VALIDATION_ERROR` no campo `paymentDate`, em `normalizeEtapa2Input` — cobre à vista, Futuro e Editar; front espelha com erro dentro do campo). Motivo: dava para salvar pagamento planejado anterior ao faturamento planejado, cronograma incoerente que os feeds do dashboard exibiam sem crítica. Contratos já emitidos não são revalidados (a regra só age na escrita).
+- **D143** — Conviver com o cross-aggregate **não-atômico** do Editar (emit): `_syncSampleOwner`/`_syncMovementFromContract` commitam antes da transação do contrato; se a `version` bumpar no meio, o 409 deixa amostra/venda à frente do contrato. Decisão: NÃO reescrever para o caminho atômico (`appendEventBatch`+`beforeCommit`, molde da criação à vista) — a janela é minúscula (a `version` é checada imediatamente antes dos syncs) e a divergência é **autocorrigível**: os dois syncs são idempotentes e convergem no retry do Editar pós-409. Hardening aplicado: a resolução de corretores (único 422 tardio) passou para antes dos syncs — depois deles, só o próprio conflito de versão pode falhar. O fix completo fica registrado como opção futura se o app ganhar concorrência real.
 
 ### A.2 Casca do hub (CC1–CC15)
 
