@@ -60,6 +60,16 @@ O projeto e um monolito modular em Next.js, com frontend e backend no mesmo repo
 4. `PrintJob`
    Registro de tentativas de impressao e reimpressao.
 
+### Dominio de contratos (Fechamento)
+
+1. `SaleContract`
+   O contrato de compra e venda: snapshots congelados das partes/banco/armazens, valores recalculados no backend, status `EMITIDO|FATURADO|PAGO|WASH_OUT` e concorrencia otimista por `version`. Eixos laterais fora do status: aprovacao (`requiresApproval`) e embarque (`requiresShipment`/`shippedAt`).
+2. Sub-tabelas e logs de auditoria
+   `SaleContractBroker` (corretagem por lado, nome do corretor em snapshot), `SaleContractExport`, `SaleContractStatusLog`, `SaleContractAgioLog`, `SaleContractEspelhoLog`, `SaleContractShipmentPhoto` (fotos do embarque) e `ApprovalLabelLog` (envios de etiqueta, com `CustomPrintJob`).
+3. Cadastro de apoio
+   `Broker`, `ClientBankAccount` (banco em texto livre — D141), `ClientAttachment` e os lookups `ContractModality`/`PaymentForm`/`Packaging`.
+   O detalhe funcional (maquina de estado, portoes, worklists) vive na `Contratos-Visao-Geral.md` §3/§9.
+
 ### Dominio de usuarios
 
 1. `User`

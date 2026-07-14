@@ -2,7 +2,7 @@
 
 Status: Ativo (documento-mãe / verdade viva do funcionamento atual)
 Escopo: o que a página `/contratos` faz hoje — a casca (hub + sub-abas + acesso por papel), o contrato de compra e venda ("Fechamento" → PDF), o Espelho de Corretagem, as abas **Financeiro**, **Aprovações** e **Embarque**, a **máquina de estado** do contrato com seus portões, o modelo de dados e as rotas de API.
-Última revisão: 2026-07-14 (D141 — banco em texto livre na conta bancária; entidade `Bank` removida)
+Última revisão: 2026-07-14 (revisão geral do fluxo: D142 — validação `paymentDate >= invoiceDate`; D143 — limitação do Editar documentada; §10 completado; semântica do portão de aprovação explicitada)
 Documentos relacionados: `Contratos-Plano-de-Trabalho.md` (backlog, decisões e pendências), `Dashboard-Visao-Geral.md` (eventos/cards que apontam pra cá), `Auditoria-Navegacao-por-Papel.md`, `API-e-Contratos.md`, `Produto-e-Fluxos.md`
 
 > **Como este documento se mantém vivo:** a cada implementação concluída e validada, esta Visão Geral é atualizada no mesmo passo. As **decisões, o histórico e o backlog** vivem no `Contratos-Plano-de-Trabalho.md`; aqui fica **só o estado atual**. Esta consolidação (2026-07-13, 4→2 docs) absorveu e removeu os antigos `Central-de-Contratos-`, `Aprovacoes-` e `Embarque-Plano-de-Trabalho.md` — o histórico completo de decisões (D/CC/AP/EMB) e de sessões está no Git e, condensado, no apêndice do `Contratos-Plano-de-Trabalho.md`.
@@ -85,6 +85,8 @@ O contrato tem **4 status** (`SaleContract.status`):
 
 Pagar **herda** o portão de aprovação (só se chega a FATURADO passando por ele). **Faturar e pagar** rejeitam data futura — a data real (`invoicedAt`/`paidAt`) não passa de hoje (BRT), erro `422 VALIDATION_ERROR` (a linha "Data máx. hoje" acima vale para os dois). Os flags `requiresApproval`/`requiresShipment` são definidos na emissão (ver §7 e §8).
 
+As **datas planejadas** também têm regra (D142): a criação/edição rejeita `paymentDate` anterior a `invoiceDate` (`422 VALIDATION_ERROR` no campo, espelhado no form) — o cronograma planejado nunca nasce incoerente. Contratos já emitidos não são revalidados.
+
 ---
 
 ## 4. Aba Contratos — o contrato de compra e venda
@@ -93,8 +95,10 @@ Pagar **herda** o portão de aprovação (só se chega a FATURADO passando por e
 
 ### 4.1 Da venda ao PDF (Etapa 1 → Etapa 2)
 
+- **Entrada:** o FAB radial da aba (`ContractCreateRadialFab`) oferece os 2 mercados. **À vista:** escolher o lote com saldo (`SaleContractLotPickerModal`) → Etapa 2 em modo _spot_ — venda + contrato nascem **atômicos** (D97), já EMITIDO. **Futuro:** Etapa 2 direto, sem lote/venda.
 - **Etapa 1 (Venda):** a venda origina os dados do contrato (partes, produto, quantidade em sacas, preço, modalidade, prazos). As partes entram como **snapshots** no contrato (não referência viva) para o PDF ser fiel ao momento.
-- **Etapa 2 (Geração):** o modal de geração completa/valida os campos que faltam e **emite** o contrato (→ EMITIDO), gerando o **PDF** para impressão. Campos têm origem/obrigatoriedade/validação próprias (detalhe no código + `API-e-Contratos.md`).
+- **Etapa 2 (Geração):** o modal de geração completa/valida os campos que faltam e **emite** o contrato (→ EMITIDO), gerando o **PDF** para impressão. Campos têm origem/obrigatoriedade/validação próprias (detalhe no código + os limites de data em §3).
+- **Editar (re-emissão):** só age sobre `EMITIDO`. No contrato à vista, o Editar sincroniza dono da amostra e venda **antes** da transação do contrato — passo **não-atômico por decisão** (D143): a janela de corrida é minúscula e, num 409 de concorrência, os syncs são idempotentes e **convergem no retry**.
 
 ### 4.2 Modelo financeiro (ágio + corretagem)
 
@@ -134,14 +138,14 @@ Pagar **herda** o portão de aprovação (só se chega a FATURADO passando por e
 
 > A worklist do aval de aprovação. Código: `AprovacoesPanel`/`AprovacaoCard`, `ApprovalLabelModal`; `listApprovalContracts`, `setSaleContractApprovalFlag`, `sendApprovalLabel`; tabelas `approval_label_log` + `CustomPrintJob`.
 
-**O modelo ("o portão"):** aprovação não é um estado no contrato — é um **portão de faturamento**. O criador **sinaliza** se o contrato precisa de aval (`requiresApproval`); quando precisa, alguém **gera/envia a etiqueta de aprovação** (impressa, auditada em `approval_label_log`); e **faturar fica bloqueado até ≥1 etiqueta enviada** (§3, AP18).
+**O modelo ("o portão"):** aprovação não é um estado no contrato — é um **portão de faturamento**. O criador **sinaliza** se o contrato precisa de aval (`requiresApproval`); quando precisa, alguém **gera/envia a etiqueta de aprovação** (impressa, auditada em `approval_label_log`); e **faturar fica bloqueado até ≥1 etiqueta enviada** (§3, AP18). O portão audita o **envio** (enqueue no `CustomPrintJob` + linha no log), **não o sucesso da impressão** — decisão deliberada: exigir impressão concluída deixaria o faturamento refém do print agent local.
 
 - **Estados derivados** (sem enum próprio): **não se aplica** / **a enviar** / **enviada** / **cancelado** (no washout). O **desfecho** (aprovado/recusado) fica **fora do sistema**; o **proxy** é o **nº de envios** (>1 envio antes de faturar ≈ provável recusa; "enviada · N×").
 - **Sinalização:** `requiresApproval` marcado na emissão ou por **toggle** no modal de Detalhes (`setSaleContractApprovalFlag`, ADMIN/COMMERCIAL). **Desmarcar** só em `EMITIDO` sem envio; depois **trava** em "Sim" (`APPROVAL_FLAG_LOCKED`) — AP20.
 - **Gerar etiqueta exige `requiresApproval = true`** (`APPROVAL_CONTRACT_NOT_MARKED`, AP17); elegibilidade = **só `EMITIDO`** (`APPROVAL_ELIGIBLE_STATUSES`, AP21). **A geração mora só nesta sub-aba** (AP29 — não há mais porta no `/samples` nem etiqueta avulsa).
 - **Worklist:** particionada por estado (a enviar / enviada), via `$queryRaw` (G0/G1/G2) com cursor `{g, key, seq}` porque o estado depende de um agregado de contagem do log. Colunas não-sensíveis; abre em "a enviar".
 
-> O **lembrete de aprovação no dashboard** (data "a enviar") foi **removido** (DSB-D9) — a data não era exata. O card **"Aprovações enviadas"** saiu do dashboard e mora **no topo desta sub-aba** desde **DSB-D14 (2026-07-14)**: visão rápida dos últimos envios (top-40, desktop-only, `RecentSendsCard`; dado de `GET /sale-contracts/approvals/recent-sends`; refetch após gerar etiqueta aqui). A worklist (filtro "Enviadas") segue sendo a lista completa. O campo `approvalReminderLeadDays` permanece no schema, **sem consumidor**.
+> O **lembrete de aprovação no dashboard** (data "a enviar") foi **removido** (DSB-D9) — a data não era exata. O card **"Aprovações enviadas"** saiu do dashboard e mora **no topo desta sub-aba** desde **DSB-D14 (2026-07-14)**: visão rápida dos últimos envios (top-40, desktop-only, `RecentSendsCard`; dado de `GET /sale-contracts/approvals/recent-sends`; refetch após gerar etiqueta aqui). A worklist (filtro "Enviadas") segue sendo a lista completa. O campo `approvalReminderLeadDays` segue **vivo como input**: é obrigatório no form quando `requiresApproval` (1–365, default 30) e gravado na criação/edição e no toggle (AP23) — o que foi removido (DSB-D9) é só o **consumidor do lembrete** que usava o valor.
 
 ---
 
@@ -169,7 +173,7 @@ Pagar **herda** o portão de aprovação (só se chega a FATURADO passando por e
 - **Logs/filas:** `SaleContractStatusLog` (marcos de status) · `SaleContractAgioLog` (cada aplicação de ágio/deságio) · `SaleContractEspelhoLog` (espelho) · `approval_label_log`/`ApprovalLabelLog` (envios de aprovação) · `SaleContractShipmentPhoto` (fotos de embarque) · `CustomPrintJob` (fila da etiqueta de aprovação).
 - **Enums:** status (`EMITIDO`/`FATURADO`/`PAGO`/`WASH_OUT`) e os demais do domínio.
 
-_(Nota: o `Arquitetura-Tecnica.md` ainda não documenta o domínio `SaleContract` na seção "Modelo de dados" — dívida pré-existente, fora do escopo desta consolidação.)_
+_(O `Arquitetura-Tecnica.md` resume o domínio na seção "Modelo de dados" → "Domínio de contratos"; o detalhe funcional é este doc.)_
 
 ---
 
@@ -177,10 +181,12 @@ _(Nota: o `Arquitetura-Tecnica.md` ainda não documenta o domínio `SaleContract
 
 > `GET`/`POST` sob `app/api/v1/`; handlers em `src/api/v1/backend-api.js`, implementação em `src/sale-contracts/sale-contract-service.js`. PROSPECTOR barrado pelo allowlist central.
 
-- **Contrato:** `/sale-contracts/[id]/{emit, pdf, espelho/pdf, washout, timeline}`.
+- **Contrato (CRUD/ciclo):** `/sale-contracts` (lista + criação), `/sale-contracts/next-number` (preview do número), `/sale-contracts/[id]` (detalhe) e `/sale-contracts/[id]/{emit, invoice, pay, washout, apply-agio, approval-flag, timeline}` — as mutações do ciclo de §3.
+- **Documentos:** `/sale-contracts/[id]/pdf` (contrato) e `/sale-contracts/[id]/espelho/{pdf, log}` (espelho + auditoria de export).
+- **Embarque:** `/sale-contracts/shipments` (worklist), `/sale-contracts/[id]/{shipment-context, shipment-confirmation}` e `/sale-contracts/[id]/shipment-photos[/[photoId]]` (galeria + binário autenticado).
+- **Aprovação:** `/sale-contracts/approvals` (worklist), `/sale-contracts/approvals/recent-sends` (card do topo) e `/approval-labels` (gerar/enviar etiqueta; `/approval-labels/contracts*` é o resquício do picker aposentado pela AP29 — dormente).
 - **Lookups:** `/contract-lookups` (modalidade/forma de pagamento/embalagem).
-- **Financeiro:** `/financeiro` (lista de todos os fechamentos + ação de pagar).
-- **Aprovação:** `/approval-labels` (gerar/enviar etiqueta), worklist via `listApprovalContracts`.
+- **Financeiro:** `/financeiro` (lista de todos os fechamentos; o pagar é `/sale-contracts/[id]/pay`).
 - **Anexos do cliente (Fase 0):** rotas de `ClientAttachment` (D27/D139).
 - **Eventos no dashboard** (leitura): `/dashboard/{payment,shipment,invoice}-events` — detalhados no `Dashboard-Visao-Geral.md` §8.
 
@@ -190,7 +196,7 @@ _(Nota: o `Arquitetura-Tecnica.md` ainda não documenta o domínio `SaleContract
 
 - **Dashboard** (`Dashboard-Visao-Geral.md`): o card de **Eventos** (único card do dashboard desde DSB-D14) e seus chips que deep-linkam `/contratos?tab=…` (pagamento/faturamento) e `/embarques?tab=embarque` (embarque), com `&highlight=` (§7.3), e os feeds `payment/shipment/invoice-events` (§8). _(O card "Aprovações enviadas" saiu do dashboard e mora na sub-aba Aprovações — ver §7 deste doc.)_ Qualquer mudança em rota, nome de aba, valores de `?tab=` ou no enum de status **obriga a atualizar lá** (`contractTabRoute` mapeia aba→rota).
 - **Navegação por papel** (`Auditoria-Navegacao-por-Papel.md`): o mapa read-only de quem acessa o hub — **aponta para este doc** como dono da matriz de acesso.
-- **API** (`API-e-Contratos.md`): a referência canônica de rotas/contratos de request-response.
+- **API** (`API-e-Contratos.md`): a referência canônica de rotas/contratos de request-response de **amostras, clientes, usuários e informes** — as rotas de contrato vivem em **§10 deste doc** (lista única, sem duplicação fadada a derivar).
 - **Cadastro de cliente** (`Clientes-e-Movimentacoes-Especificacao.md`): contas bancárias/anexos que o contrato consome.
 
 ---

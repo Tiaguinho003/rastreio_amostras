@@ -40,14 +40,15 @@ Financeiro, gated `CONTRATOS_ROLES`) e `/embarques` (Embarque + Aprovações, ga
 ("Contratos" + "Embarques"); operacionais só "Embarques" (perdem o acesso a
 `/contratos`). Deep-links antigos `/contratos?tab=embarque|aprovacoes` redirecionam.
 A tabela de rotas e a matriz abaixo já refletem. Detalhe em `Contratos-Visao-Geral.md` §2.
-⚠️ **As seções "Detalhe por papel" dos OPERACIONAIS** (CLASSIFIER/REGISTRATION/CADASTRO)
-mais abaixo foram escritas **pré-split** e ainda citam `/contratos` (rotuladas "Embarques"):
-leia **`/embarques`** — e note que **`/contratos` agora é bloqueado** a eles (a tabela de
-rotas e a matriz acima são a referência autoritativa).
 Atualizado: 2026-07-14 — **aba Bancos removida do `/cadastros` (D141)**: o hub ficou
 com **2 abas** (Clientes | Corretores) — banco virou **texto livre** na conta bancária
 do cliente (a entidade `Bank`, a API `/banks` e o modal de banco saíram do sistema).
 Menções a "3 abas / Bancos" em notas históricas abaixo leiam-se com essa redução.
+Atualizado: 2026-07-14 — **corpo inteiro reconciliado com o split de 2026-07-13**:
+as seções "Detalhe por papel" e as notas factuais passaram a descrever as 2 páginas
+(`/contratos` gestão · `/embarques` operação), com tabelas e contagens de nav
+refeitas (COMMERCIAL sidenav 6, ADMIN sidenav 7, operacionais 4; "Embarques" agora
+é rota própria em todas as tabelas). O aviso anterior de "seções pré-split" saiu.
 
 ## Como ler este documento
 
@@ -306,7 +307,8 @@ paginas de clientes por navegacao direta.)_
 ## COMMERCIAL — "Comercial"
 
 Papel comercial padrao (vendedor). Sem app restrito (diferente do PROSPECTOR) e
-sem acesso de gestao (Cadastros/Contratos/Usuarios).
+sem acesso de gestao de cadastros/usuarios (Cadastros/Usuarios); a gestao de
+**Contratos** ele TEM (`CONTRATOS_ROLES`, escopo aberto — D140).
 
 ### Onde navega (por superficie)
 
@@ -317,17 +319,20 @@ sem acesso de gestao (Cadastros/Contratos/Usuarios).
 | Clientes   | `/clients`   | Sidenav        | Tabbar                    |
 | Relatorios | `/informe`   | Sidenav        | Tabbar                    |
 | Contratos  | `/contratos` | Sidenav        | Menu do avatar            |
+| Embarques  | `/embarques` | Sidenav        | Menu do avatar            |
 | Camera     | `/camera`    | — (sem botao)  | Tabbar (destaque, centro) |
 | Perfil     | `/profile`   | Menu do avatar | Menu do avatar            |
 | Sair       | logout       | Menu do avatar | Menu do avatar            |
 
-Contagem:
+Contagem (pos-split 2026-07-13):
 
-- **Sidenav desktop: 5 itens** — Inicio, Lotes, Clientes, Relatorios, Contratos.
+- **Sidenav desktop: 6 itens** — Inicio, Lotes, Clientes, Relatorios, Contratos,
+  Embarques.
 - **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, Clientes, Relatorios.
-  (Contratos nao entra na tabbar; fica no menu do avatar.)
-- **Menu do avatar:** desktop **2 itens** (Perfil, Sair) — Contratos esta na sidenav;
-  mobile **3 itens** (Perfil, Contratos, Sair) — sem sidenav, o hub cai no avatar.
+  (Contratos/Embarques nao entram na tabbar; ficam no menu do avatar.)
+- **Menu do avatar:** desktop **2 itens** (Perfil, Sair) — as 2 paginas de contrato
+  estao na sidenav; mobile **4 itens** (Perfil, Contratos, Embarques, Sair) — sem
+  sidenav, as 2 paginas caem no avatar.
 
 ### Rotas acessiveis sem botao de navegacao
 
@@ -340,9 +345,9 @@ proprio:
 
 ### Rotas bloqueadas (redirecionam para `/dashboard`)
 
-- `/cadastros` (exige ADMIN/CADASTRO). **(`/contratos` NAO e bloqueado: o COMMERCIAL
-  acessa o hub — sidenav desktop + menu do avatar mobile. Estando em `CONTRATOS_ROLES`,
-  ve as 4 sub-abas com o rotulo "Contratos".)**
+- `/cadastros` (exige ADMIN/CADASTRO). **(`/contratos` e `/embarques` NAO sao
+  bloqueados: o COMMERCIAL esta em `CONTRATOS_ROLES` e acessa as 2 paginas —
+  `/contratos` com Contratos · Financeiro e `/embarques` com Embarque · Aprovacoes.)**
 - `/clients/[id]` (detalhe do cliente — `CLIENT_MANAGEMENT_ROLES`, so ADMIN/CADASTRO;
   a lista `/clients` continua liberada).
 - `/users` (exige ADMIN).
@@ -381,7 +386,7 @@ de gestao.
 | Inicio    | `/dashboard` | Sidenav        | Tabbar                            |
 | Lotes     | `/samples`   | Sidenav        | Tabbar                            |
 | Clientes  | `/clients`   | Sidenav        | Tabbar                            |
-| Embarques | `/contratos` | Sidenav        | Menu do avatar                    |
+| Embarques | `/embarques` | Sidenav        | Menu do avatar                    |
 | Camera    | `/camera`    | — (sem botao)  | Tabbar (destaque, centro)         |
 | Perfil    | `/profile`   | Menu do avatar | Tabbar (5o slot) + menu do avatar |
 | Sair      | logout       | Menu do avatar | Menu do avatar                    |
@@ -389,8 +394,8 @@ de gestao.
 Contagem:
 
 - **Sidenav desktop: 4 itens** — Inicio, Lotes, Clientes, **Embarques**. (Sem
-  Relatorios, como o CADASTRO e o REGISTRATION; o hub `/contratos` aparece como
-  "Embarques" — 2 sub-abas Embarque · Aprovacoes, CC F2 2026-07-12.)
+  Relatorios, como o CADASTRO e o REGISTRATION; "Embarques" e a pagina `/embarques`
+  — sub-abas Embarque · Aprovacoes, split 2026-07-13.)
 - **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, Clientes, Perfil. O 5o
   slot, que nos papeis de `INFORME_ROLES` e Relatorios, aqui e Perfil — para o
   Classifier ter 5 abas como os demais (2026-06-28). (Embarques nao entra na
@@ -411,9 +416,9 @@ Contagem:
 - `/informe` (Relatorios) — CLASSIFIER esta fora de `INFORME_ROLES`.
 - `/cadastros` e `/clients/[id]` (exigem ADMIN/CADASTRO — `CLIENT_MANAGEMENT_ROLES`).
 - `/users` (exige ADMIN).
-
-`/contratos` **nao** e bloqueado desde a CC F2 (2026-07-12): abre como "Embarques"
-(2 sub-abas Embarque · Aprovacoes) — sidenav desktop + menu do avatar mobile.
+- `/contratos` (gestao) — bloqueado desde o **split de 2026-07-13** (`CONTRATOS_ROLES`);
+  a operacao do CLASSIFIER vive em **`/embarques`** (Embarque · Aprovacoes) — sidenav
+  desktop + menu do avatar mobile.
 
 ### Particularidades de conteudo
 
@@ -430,16 +435,16 @@ Contagem:
 
 ### Diferenca para o COMMERCIAL
 
-Duas diferencas: **Relatorios** e o **conteudo do hub de Contratos**. O Comercial
+Duas diferencas: **Relatorios** e a **pagina de gestao `/contratos`**. O Comercial
 esta em `INFORME_ROLES` e ve Relatorios na sidenav e na tabbar (+ feed proprio); o
 Classifier nao ve em lugar nenhum e e redirecionado se tentar a URL. Ambos acessam
-`/contratos`, mas o Comercial (em `CONTRATOS_ROLES`) ve as **4 sub-abas** com o
-rotulo "Contratos", enquanto o Classifier ve so **2** (Embarque · Aprovacoes) com o
-rotulo "Embarques". Para o Classifier ter 5 abas no mobile, o 5o slot da sua tabbar
-e Perfil (no Comercial e Relatorios). Resultado: **sidenav 4 vs 5 itens** (o
-Comercial tem Relatorios a mais); tabbar 5 vs 5 (5o item: Perfil no Classifier,
-Relatorios no Comercial); menu do avatar no mobile igual em contagem (3: Perfil,
-hub, Sair — "Embarques" no Classifier, "Contratos" no Comercial), desktop 2 nos dois.
+**`/embarques`** (Embarque · Aprovacoes), mas so o Comercial (em `CONTRATOS_ROLES`)
+tem tambem **`/contratos`** (Contratos · Financeiro). Para o Classifier ter 5 abas no
+mobile, o 5o slot da sua tabbar e Perfil (no Comercial e Relatorios). Resultado:
+**sidenav 4 vs 6 itens** (o Comercial tem Relatorios e Contratos a mais); tabbar 5
+vs 5 (5o item: Perfil no Classifier, Relatorios no Comercial); menu do avatar no
+mobile 3 vs 4 (Classifier: Perfil, Embarques, Sair; Comercial: + Contratos),
+desktop 2 nos dois.
 
 ## REGISTRATION — "Impressao"
 
@@ -460,15 +465,15 @@ propria moldura, e ocupava um slot da tabbar.
 | Inicio    | `/dashboard` | Sidenav                       | Tabbar                    |
 | Lotes     | `/samples`   | Sidenav                       | Tabbar                    |
 | Clientes  | `/clients`   | Sidenav                       | Tabbar                    |
-| Embarques | `/contratos` | Sidenav                       | Menu do avatar            |
+| Embarques | `/embarques` | Sidenav                       | Menu do avatar            |
 | Camera    | `/camera`    | — (sem botao)                 | Tabbar (destaque, centro) |
 | Perfil    | `/profile`   | Menu do avatar ("Meu perfil") | Tabbar + menu do avatar   |
 | Sair      | logout       | Menu do avatar                | Menu do avatar            |
 
 Contagem:
 
-- **Sidenav desktop: 4 itens** — Inicio, Lotes, Clientes, **Embarques** (hub
-  `/contratos` como "Embarques", 2 sub-abas — mesmo arranjo do Classifier).
+- **Sidenav desktop: 4 itens** — Inicio, Lotes, Clientes, **Embarques** (a pagina
+  `/embarques`, sub-abas Embarque · Aprovacoes — mesmo arranjo do Classifier).
 - **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, Clientes, Perfil. O 5o
   slot, que nos papeis de `INFORME_ROLES` e Relatorios, aqui e Perfil — mesmo
   arranjo do Classifier.
@@ -484,9 +489,8 @@ Contagem:
 
 - `/informe` (Relatorios) — fora de `INFORME_ROLES` desde 2026-07-10.
 - `/cadastros` e `/clients/[id]` (ADMIN/CADASTRO); `/users` (ADMIN).
-
-`/contratos` **nao** e bloqueado desde a CC F2 (2026-07-12): abre como "Embarques"
-(2 sub-abas) — igual ao Classifier.
+- `/contratos` (gestao) — bloqueado desde o split de 2026-07-13; a operacao vive em
+  **`/embarques`** — igual ao Classifier.
 
 ### Particularidades de conteudo
 
@@ -503,10 +507,10 @@ Contagem:
 O Comercial esta em `INFORME_ROLES` e ve Relatorios na sidenav e na tabbar (feed
 dos PROPRIOS informes, `scope=mine`, + FAB de criacao); o REGISTRATION nao ve em
 lugar nenhum desde 2026-07-10 e e redirecionado se tentar a URL. Ambos acessam
-`/contratos`, mas o Comercial ve as **4 sub-abas** ("Contratos") e o REGISTRATION so
-**2** ("Embarques"). Sidenav **5 vs 4** itens (o Comercial tem Relatorios a mais);
-tabbar 5 vs 5 (5o item: Relatorios no Comercial, Perfil no REGISTRATION); menu do
-avatar no mobile 3 nos dois (o hub muda de rotulo). (Fora da navegacao: o Comercial
+**`/embarques`**, mas so o Comercial tem tambem **`/contratos`** (gestao). Sidenav
+**6 vs 4** itens (o Comercial tem Relatorios e Contratos a mais); tabbar 5 vs 5 (5o
+item: Relatorios no Comercial, Perfil no REGISTRATION); menu do avatar no mobile 4
+vs 3 (o Comercial tem Contratos a mais). (Fora da navegacao: o Comercial
 pode ser responsavel comercial de cliente via `isCommercialRole`; o REGISTRATION nao.)
 
 ## CADASTRO — "Cadastro"
@@ -516,8 +520,9 @@ nao-prospectores) e tem o hub **Cadastros** — que concentra 2 abas:
 **Clientes** (default, gestao de clientes/armazens) e **Corretores** (a aba
 Bancos saiu na D141). Por isso o item "Clientes" avulso saiu da nav do CADASTRO: ele
 acessa os clientes pela aba Clientes do `/cadastros` (a rota `/clients` continua
-liberada por URL). **Nao** acessa Relatorios nem Contratos (removidos em 2026-06-28;
-hoje so o ADMIN) nem `/users` (exclusivo do ADMIN).
+liberada por URL). **Nao** acessa Relatorios (removido em 2026-06-28; hoje
+ADMIN/COMMERCIAL) nem a gestao `/contratos` (hoje ADMIN + COMMERCIAL) nem `/users`
+(exclusivo do ADMIN); a operacao de contrato dele vive em `/embarques`.
 
 ### Onde navega (por superficie)
 
@@ -527,7 +532,7 @@ hoje so o ADMIN) nem `/users` (exclusivo do ADMIN).
 | Lotes     | `/samples`   | Sidenav                       | Tabbar                            |
 | Camera    | `/camera`    | — (sem botao)                 | Tabbar (destaque, centro)         |
 | Cadastros | `/cadastros` | Sidenav                       | Tabbar (4o slot) + menu do avatar |
-| Embarques | `/contratos` | Sidenav                       | Menu do avatar                    |
+| Embarques | `/embarques` | Sidenav                       | Menu do avatar                    |
 | Perfil    | `/profile`   | Menu do avatar ("Meu perfil") | Tabbar (5o slot) + menu do avatar |
 | Sair      | logout       | Menu do avatar                | Menu do avatar                    |
 
@@ -537,16 +542,17 @@ Clientes (`/clients`) nao e mais item de nav proprio — e a **aba default do
 Contagem:
 
 - **Sidenav desktop: 4 itens** — Inicio, Lotes, Cadastros, **Embarques**. (Perdeu
-  Clientes em 2026-07-02 e a GESTAO de Contratos em 2026-06-28; a CC F2 de 2026-07-12
-  reabriu `/contratos` como "Embarques" — 2 sub-abas Embarque · Aprovacoes.)
+  Clientes em 2026-07-02 e a GESTAO de Contratos em 2026-06-28; a operacao voltou
+  pela CC F2 e, desde o split de 2026-07-13, e a pagina propria `/embarques` —
+  sub-abas Embarque · Aprovacoes.)
 - **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, **Cadastros**, Perfil. O 4o
   slot fixo (que era Clientes) vira Cadastros para o CADASTRO (2026-07-02); o 5o
   slot e Perfil (fora de `INFORME_ROLES`, mesma logica do Classifier). (Embarques
   nao entra na tabbar; fica no menu do avatar.)
 - **Menu do avatar:** assimetrico por plataforma. No **desktop** sao 2 itens (Meu
   perfil, Sair) — Cadastros e Embarques estao na sidenav. No **mobile** sao 4 itens
-  (Perfil, Cadastros, **Embarques**, Sair) — `HeaderAvatarMenu` carrega o hub de
-  Contratos p/ todo nao-PROSPECTOR; Cadastros aparece TANTO no 4o slot da tabbar
+  (Perfil, Cadastros, **Embarques**, Sair) — `HeaderAvatarMenu` carrega `/embarques`
+  p/ todo nao-PROSPECTOR; Cadastros aparece TANTO no 4o slot da tabbar
   QUANTO no menu do avatar (redundancia de 2026-07-02).
 
 ### Rotas acessiveis sem botao de navegacao
@@ -565,10 +571,10 @@ Contagem:
   CADASTRO saiu de `INFORME_ROLES`.
 - `/users` — exclusivo do ADMIN.
 
-`/contratos` foi bloqueado ao CADASTRO em 2026-06-28 (saiu da GESTAO de contratos),
-mas a **CC F2 (2026-07-12) reabriu o hub** como "Embarques" (2 sub-abas Embarque ·
-Aprovacoes) — sidenav desktop + menu do avatar mobile. So a GESTAO (aba Contratos +
-Financeiro) segue fora do CADASTRO.
+`/contratos` (gestao) segue **bloqueado** ao CADASTRO (desde 2026-06-28; pos-split o
+guard e `CONTRATOS_ROLES`). A operacao que a CC F2 (2026-07-12) reabriu vive hoje na
+pagina propria **`/embarques`** (Embarque · Aprovacoes, split 2026-07-13) — sidenav
+desktop + menu do avatar mobile.
 
 ### Particularidades de conteudo
 
@@ -583,8 +589,9 @@ Financeiro) segue fora do CADASTRO.
 - **Removido em 2026-06-28**: o CADASTRO era viewer + curador de Relatorios
   (`/informe`) e gestor de Contratos (`/contratos`); o acesso foi retirado em
   todas as camadas (nav, guards e autorizacao de API). _(A GESTAO de Contratos
-  segue fora; mas a **CC F2 de 2026-07-12** reabriu o hub `/contratos` ao CADASTRO
-  na forma operacional "Embarques" — Embarque + Aprovacoes, sem as abas de gestao.)_
+  segue fora; a **CC F2 de 2026-07-12** reabriu a operacao ao CADASTRO — que desde o
+  split de 2026-07-13 e a pagina propria `/embarques` (Embarque + Aprovacoes), sem
+  as abas de gestao.)_
   As 2 notificacoes push de
   visita ("Nova visita promissora" / "Novo cliente encontrado") que apontam para
   `/informe` tambem sairam do CADASTRO. O lembrete semanal do COMMERCIAL e o deep
@@ -598,13 +605,13 @@ Financeiro) segue fora do CADASTRO.
 Ate 2026-07-01 eram quase espelhos (trocando Relatorios por Cadastros). Com o
 split de 2026-07-02 divergiram mais: o Comercial ve "Clientes" avulso na nav e nao
 ve Cadastros; o CADASTRO nao tem "Clientes" avulso (acessa pela aba Clientes do
-Cadastros) e tem o hub Cadastros no lugar de Relatorios. Ambos acessam `/contratos`,
-mas o Comercial (em `CONTRATOS_ROLES`) ve as **4 sub-abas** ("Contratos") e o CADASTRO
-so **2** ("Embarques"). **Sidenav 4 (CADASTRO: Inicio/Lotes/Cadastros/Embarques) vs 5
-(Comercial: Inicio/Lotes/Clientes/Relatorios/Contratos)**; tabbar 5 vs 5 mas com 4o e
+Cadastros) e tem o hub Cadastros no lugar de Relatorios. Ambos acessam `/embarques`,
+mas so o Comercial (em `CONTRATOS_ROLES`) tem tambem a gestao `/contratos`.
+**Sidenav 4 (CADASTRO: Inicio/Lotes/Cadastros/Embarques) vs 6 (Comercial:
+Inicio/Lotes/Clientes/Relatorios/Contratos/Embarques)**; tabbar 5 vs 5 mas com 4o e
 5o slots diferentes (CADASTRO: Cadastros/Perfil; Comercial: Clientes/Relatorios);
-menu do avatar no mobile 4 vs 3 (CADASTRO tem Cadastros a mais — que no mobile tambem
-esta na tabbar; os dois carregam o hub de Contratos).
+menu do avatar no mobile 4 vs 4 (CADASTRO: Perfil/Cadastros/Embarques/Sair;
+Comercial: Perfil/Contratos/Embarques/Sair).
 
 ## ADMIN — "Administracao"
 
@@ -622,6 +629,7 @@ bloqueada.
 | Camera     | `/camera`    | — (sem botao)                 | Tabbar (destaque, centro)         |
 | Cadastros  | `/cadastros` | Sidenav                       | Tabbar (4o slot) + menu do avatar |
 | Contratos  | `/contratos` | Sidenav                       | Menu do avatar                    |
+| Embarques  | `/embarques` | Sidenav                       | Menu do avatar                    |
 | Usuarios   | `/users`     | Sidenav                       | Menu do avatar                    |
 | Perfil     | `/profile`   | Menu do avatar ("Meu perfil") | Menu do avatar                    |
 | Sair       | logout       | Menu do avatar                | Menu do avatar                    |
@@ -631,16 +639,17 @@ do `/cadastros`** (e segue acessivel por URL). Ver "Particularidades de conteudo
 
 Contagem:
 
-- **Sidenav desktop: 6 itens** — Inicio, Lotes, Relatorios, Cadastros, Contratos,
-  Usuarios. (Perdeu Clientes avulso em 2026-07-02; segue a sidenav mais cheia.)
+- **Sidenav desktop: 7 itens** — Inicio, Lotes, Relatorios, Cadastros, Contratos,
+  Embarques, Usuarios. (Perdeu Clientes avulso em 2026-07-02; ganhou Embarques no
+  split de 2026-07-13; segue a sidenav mais cheia.)
 - **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, **Cadastros**, Relatorios. O
   4o slot fixo (que era Clientes) vira Cadastros para o ADMIN (2026-07-02);
-  Contratos/Usuarios continuam so no menu do avatar.
+  Contratos/Embarques/Usuarios continuam so no menu do avatar.
 - **Menu do avatar:** assimetrico. No **desktop** sao 2 itens (Meu perfil, Sair) —
-  a gestao esta na sidenav. No **mobile** sao 5 itens (Perfil, Usuarios,
-  Cadastros, Contratos, Sair) — sem sidenav, o menu carrega toda a gestao;
-  `HeaderAvatarMenu` nao mudou, entao Cadastros aparece TANTO no 4o slot da tabbar
-  QUANTO no menu do avatar (redundancia introduzida em 2026-07-02).
+  a gestao esta na sidenav. No **mobile** sao 6 itens (Perfil, Usuarios,
+  Cadastros, Contratos, Embarques, Sair) — sem sidenav, o menu carrega toda a
+  gestao; Cadastros aparece TANTO no 4o slot da tabbar QUANTO no menu do avatar
+  (redundancia introduzida em 2026-07-02).
 
 ### Rotas acessiveis sem botao de navegacao
 
@@ -664,19 +673,20 @@ Contagem:
 - **`/cadastros`**: hub com 2 abas (D141) — Clientes (default; gestao de
   clientes/armazens, mesma experiencia da pagina /clients via `<ClientsBrowser>`)
   e Corretores. **`/contratos`**: gestao dos contratos de venda (Fechamento).
+  **`/embarques`**: a operacao (Embarque · Aprovacoes), compartilhada com os
+  operacionais.
 - **Modo manutencao**: o middleware redireciona **nao-ADMIN** para
   `/maintenance` — so o ADMIN usa o app durante a manutencao. (`middleware.ts`.)
 - **`/dashboard`**: dashboard padrao (com `salesData`).
 
 ### Diferenca para o CADASTRO
 
-ADMIN = CADASTRO **+ Relatorios + Usuarios**, e no hub `/contratos` ve as **4
-sub-abas** (Contratos · Financeiro · Aprovacoes · Embarque) enquanto o CADASTRO ve so
-as **2 de operacao** (Embarque · Aprovacoes, item "Embarques"). No Relatorios, alem
-de ver/curar, o ADMIN tambem **cria**. Ambos perderam "Clientes" avulso e acessam
-clientes pela aba Clientes do Cadastros. **Sidenav 6 vs 4**; tabbar 5 vs 5 — 4o slot
-igual (Cadastros nos dois), 5o slot diferente (ADMIN Relatorios, CADASTRO Perfil);
-menu do avatar no mobile 5 vs 4.
+ADMIN = CADASTRO **+ Relatorios + Contratos (gestao) + Usuarios**: os dois acessam
+`/embarques` (operacao), mas so o ADMIN tem tambem `/contratos` (Contratos ·
+Financeiro). No Relatorios, alem de ver/curar, o ADMIN tambem **cria**. Ambos
+perderam "Clientes" avulso e acessam clientes pela aba Clientes do Cadastros.
+**Sidenav 7 vs 4**; tabbar 5 vs 5 — 4o slot igual (Cadastros nos dois), 5o slot
+diferente (ADMIN Relatorios, CADASTRO Perfil); menu do avatar no mobile 6 vs 4.
 
 ---
 
@@ -694,16 +704,15 @@ Observacoes neutras do mapeamento, sem juizo de "certo/errado":
 3. **Redirects silenciosos.** `/settings` -> `/profile` e `/resumo` -> `/informe`.
 4. **O menu do avatar muda de conteudo por plataforma.** No DESKTOP (dropdown do
    topbar, no `AppShell`) traz sempre so "Meu perfil" + "Sair" — a gestao
-   (Cadastros/Contratos/Usuarios) fica na TOP BAR. No MOBILE (bottom sheet
+   (Cadastros/Contratos/Embarques/Usuarios) fica na sidenav. No MOBILE (bottom sheet
    `HeaderAvatarMenu`) nao ha sidenav, entao o menu do avatar TAMBEM carrega o que
-   la ficaria: o hub de Contratos (todos os nao-PROSPECTOR — "Contratos" p/
-   ADMIN/COMMERCIAL, "Embarques" p/ CLASSIFIER/REGISTRATION/CADASTRO, CC F2
-   2026-07-12), Cadastros (ADMIN/CADASTRO) e Usuarios (ADMIN). Por isso, no mobile,
-   ate os papeis sem gestao (Comercial, Classifier, Registration) tem 3 itens no
-   avatar — Perfil + hub + Sair — contra 2 no desktop (Perfil + Sair). Desde
-   2026-07-02, no mobile Cadastros tambem esta no 4o slot da tabbar (ADMIN/CADASTRO),
-   entao aparece em DOIS lugares (tabbar + menu do avatar) — `HeaderAvatarMenu` nao
-   foi alterado no split.
+   la ficaria: "Contratos" (`/contratos`, ADMIN/COMMERCIAL), "Embarques"
+   (`/embarques`, todos os nao-PROSPECTOR — split 2026-07-13), Cadastros
+   (ADMIN/CADASTRO) e Usuarios (ADMIN). Por isso, no mobile, ate os papeis sem
+   gestao (Classifier, Registration) tem 3 itens no avatar — Perfil + Embarques +
+   Sair — contra 2 no desktop (Perfil + Sair); o Comercial tem 4 (+ Contratos).
+   Desde 2026-07-02, no mobile Cadastros tambem esta no 4o slot da tabbar
+   (ADMIN/CADASTRO), entao aparece em DOIS lugares (tabbar + menu do avatar).
 5. **Dois nao-prospectores ficam sem Relatorios: CLASSIFIER e CADASTRO.** Dos
    cinco papeis de `NON_PROSPECTOR_ROLES`, CLASSIFIER (nunca teve) e CADASTRO
    (removido em 2026-06-28) estao fora de `INFORME_ROLES`. No mobile, ambos
@@ -725,14 +734,15 @@ Observacoes neutras do mapeamento, sem juizo de "certo/errado":
    todos os nao-prospectores; `/cadastros` segue ADMIN+CADASTRO. Sem backend nem
    migration. So mudou a UI de navegacao (`AppShell.tsx`) e a composicao das duas
    paginas.
-8. **O hub `/contratos` e a unica pagina de "operacao de contrato" aberta aos
-   papeis operacionais (CC F2, 2026-07-12).** CLASSIFIER, REGISTRATION e CADASTRO
-   acessam `/contratos` como **"Embarques"** — so as sub-abas Embarque e Aprovacoes
-   (sem Contratos/Financeiro, que sao gestao — `contractsHubTabs`). A lista da
-   Aprovacao nao e escopada por corretor (todos veem todos, so nao-sensivel); o "Ver
-   contrato" abre a ADMIN + COMMERCIAL em qualquer contrato (escopo aberto, D140). E a
-   unica superficie de nav que os tres ganharam
-   alem da base (Inicio/Lotes/Clientes) — Cadastros so o CADASTRO.
+8. **`/embarques` e a unica pagina de "operacao de contrato" aberta aos papeis
+   operacionais (CC F2 2026-07-12; pagina propria desde o split 2026-07-13).**
+   CLASSIFIER, REGISTRATION e CADASTRO acessam **`/embarques`** — sub-abas Embarque
+   e Aprovacoes (a gestao Contratos/Financeiro vive em `/contratos`,
+   `CONTRATOS_ROLES`). A lista da Aprovacao nao e escopada por corretor (todos veem
+   todos, so nao-sensivel); o "Ver contrato" abre o detalhe em `/contratos` a
+   ADMIN + COMMERCIAL em qualquer contrato (escopo aberto, D140). E a unica
+   superficie de nav que os tres ganharam alem da base (Inicio/Lotes/Clientes) —
+   Cadastros so o CADASTRO.
 
 ## Manutencao
 

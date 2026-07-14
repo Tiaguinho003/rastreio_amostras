@@ -25,7 +25,7 @@ Contrato à vista + futuro, o hub com 4 sub-abas (Central F1/F2), a reforma de A
 
 ## 3. Dívidas / fora do escopo desta consolidação
 
-- **`Arquitetura-Tecnica.md`** não documenta o domínio `SaleContract` na seção "Modelo de dados" — dívida pré-existente (o modelo atual está em `Contratos-Visao-Geral.md` §9).
+- ~~**`Arquitetura-Tecnica.md`** não documenta o domínio `SaleContract` na seção "Modelo de dados"~~ — **resolvida 2026-07-14**: seção "Domínio de contratos (Fechamento)" adicionada (o detalhe funcional segue em `Contratos-Visao-Geral.md` §9).
 
 ## 4. Consolidação da documentação (2026-07-13)
 

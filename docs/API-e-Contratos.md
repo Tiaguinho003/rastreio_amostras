@@ -9,6 +9,8 @@ Documentos relacionados: `docs/Produto-e-Fluxos.md`, `docs/schemas/events/v1/REA
 
 A API `v1` e interna ao sistema e atende o frontend web do proprio projeto. As rotas HTTP vivem em `app/api/v1`, mas a logica principal fica no backend framework-agnostic em `src/api/v1/backend-api.js`.
 
+Este doc cobre as rotas de **amostras, clientes, usuarios e informes**. As rotas do dominio de **contratos** (`/sale-contracts/*`, `/approval-labels`, `/financeiro`, `/contract-lookups`) estao catalogadas na `Contratos-Visao-Geral.md` §10 — lista unica, sem duplicacao.
+
 ## Autenticacao
 
 1. `POST /api/v1/auth/login`
