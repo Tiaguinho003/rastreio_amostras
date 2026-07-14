@@ -148,6 +148,10 @@ export function SaleContractEtapa2Modal({
   const [packagingId, setPackagingId] = useState('');
   const [invoiceDate, setInvoiceDate] = useState('');
   const [paymentDate, setPaymentDate] = useState('');
+  // D144: datas planejadas "À definir" — só em contrato FUTURO. Toggle por campo;
+  // marcado limpa/desabilita o input e o submit envia null explícito.
+  const [invoiceDateTbd, setInvoiceDateTbd] = useState(false);
+  const [paymentDateTbd, setPaymentDateTbd] = useState(false);
   const [observations, setObservations] = useState('');
   const [description, setDescription] = useState('');
   // Aprovacao (reforma AP1/AP6): sinal obrigatorio (null = nao escolhido, trava a
@@ -157,6 +161,10 @@ export function SaleContractEtapa2Modal({
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // D144: o "À definir" só existe no FUTURO — criação (futureCreate) ou Editar
+  // de um contrato FUTURO (type persistido; molde do displayContractType).
+  const isFuturo = futureCreate || contract?.type === 'FUTURO';
 
   // Sub-modais de "+cadastrar filial"
   const [unitModalFor, setUnitModalFor] = useState<'seller' | 'buyer' | null>(null);
@@ -240,6 +248,9 @@ export function SaleContractEtapa2Modal({
         setPackagingId(c.packagingId ?? '');
         setInvoiceDate(dateInputValue(c.invoiceDate));
         setPaymentDate(dateInputValue(c.paymentDate));
+        // D144: FUTURO com data null abre com o "À definir" marcado.
+        setInvoiceDateTbd(c.type === 'FUTURO' && c.invoiceDate == null);
+        setPaymentDateTbd(c.type === 'FUTURO' && c.paymentDate == null);
         setObservations(c.observations ?? '');
         setDescription(c.description ?? '');
         setRequiresApproval(c.requiresApproval);
@@ -410,25 +421,31 @@ export function SaleContractEtapa2Modal({
       setError('Selecione a embalagem.');
       return;
     }
-    if (!invoiceDate) {
-      setError('Informe a data de faturamento.');
-      return;
+    // D144: campo com "À definir" marcado (só FUTURO) pula obrigatoriedade/dia útil.
+    if (!invoiceDateTbd) {
+      if (!invoiceDate) {
+        setError('Informe a data de faturamento.');
+        return;
+      }
+      // DSB-D7: faturamento/pagamento não podem cair em fim de semana.
+      if (isWeekendIso(invoiceDate)) {
+        setError('A data de faturamento cai em fim de semana. Escolha um dia útil.');
+        return;
+      }
     }
-    // DSB-D7: faturamento/pagamento não podem cair em fim de semana.
-    if (isWeekendIso(invoiceDate)) {
-      setError('A data de faturamento cai em fim de semana. Escolha um dia útil.');
-      return;
+    if (!paymentDateTbd) {
+      if (!paymentDate) {
+        setError('Informe a data de pagamento.');
+        return;
+      }
+      if (isWeekendIso(paymentDate)) {
+        setError('A data de pagamento cai em fim de semana. Escolha um dia útil.');
+        return;
+      }
     }
-    if (!paymentDate) {
-      setError('Informe a data de pagamento.');
-      return;
-    }
-    if (isWeekendIso(paymentDate)) {
-      setError('A data de pagamento cai em fim de semana. Escolha um dia útil.');
-      return;
-    }
-    // D142: o cronograma planejado precisa ser coerente (espelha o 422 do backend).
-    if (paymentDate < invoiceDate) {
+    // D142: o cronograma planejado precisa ser coerente (espelha o 422 do
+    // backend) — só comparável quando as duas datas existem (D144).
+    if (!invoiceDateTbd && !paymentDateTbd && paymentDate < invoiceDate) {
       setError('A data de pagamento não pode ser anterior à data de faturamento.');
       return;
     }
@@ -520,8 +537,9 @@ export function SaleContractEtapa2Modal({
       paymentFormId,
       modalityId,
       packagingId,
-      invoiceDate,
-      paymentDate,
+      // D144: null explícito = "À definir" (só FUTURO; o backend valida o type).
+      invoiceDate: invoiceDateTbd ? null : invoiceDate,
+      paymentDate: paymentDateTbd ? null : paymentDate,
       purchaseNumber: purchaseNumber.trim() || null,
       paymentCondition: null,
       observations: observations.trim() || null,
@@ -563,8 +581,9 @@ export function SaleContractEtapa2Modal({
           paymentFormId,
           modalityId,
           packagingId,
-          invoiceDate,
-          paymentDate,
+          // D144: null explícito = "À definir" (só chega aqui no futureCreate).
+          invoiceDate: invoiceDateTbd ? null : invoiceDate,
+          paymentDate: paymentDateTbd ? null : paymentDate,
           purchaseNumber: purchaseNumber.trim() || null,
           paymentCondition: null,
           observations: observations.trim() || null,
@@ -1100,44 +1119,90 @@ export function SaleContractEtapa2Modal({
                     />
                   </label>
 
+                  {/* D144: no FUTURO cada data planejada tem o toggle "À definir"
+                      (limpa/desabilita o input; o submit envia null explícito). */}
                   <div style={halfRowStyle}>
-                    <label className="app-modal-field">
-                      <span className="app-modal-label">Data de faturamento</span>
+                    <div className="app-modal-field">
+                      <span className="app-modal-label ctr-date-label">
+                        Data de faturamento
+                        {isFuturo ? (
+                          <button
+                            type="button"
+                            className={`ctr-tbd-toggle${invoiceDateTbd ? ' is-selected' : ''}`}
+                            aria-pressed={invoiceDateTbd}
+                            disabled={disabled}
+                            onClick={() => {
+                              setInvoiceDateTbd((prev) => {
+                                if (!prev) setInvoiceDate('');
+                                return !prev;
+                              });
+                              setError(null);
+                            }}
+                          >
+                            À definir
+                          </button>
+                        ) : null}
+                      </span>
                       <input
                         className="app-modal-input"
                         type="date"
+                        aria-label="Data de faturamento"
                         value={invoiceDate}
-                        disabled={disabled}
+                        disabled={disabled || invoiceDateTbd}
                         onChange={(event) => {
                           setInvoiceDate(event.target.value);
                           setError(null);
                         }}
                       />
-                      {isWeekendIso(invoiceDate) ? (
+                      {!invoiceDateTbd && isWeekendIso(invoiceDate) ? (
                         <span className="app-modal-field-error">{WEEKEND_DATE_MESSAGE}</span>
                       ) : null}
-                    </label>
+                    </div>
 
-                    <label className="app-modal-field">
-                      <span className="app-modal-label">Data de pagamento</span>
+                    <div className="app-modal-field">
+                      <span className="app-modal-label ctr-date-label">
+                        Data de pagamento
+                        {isFuturo ? (
+                          <button
+                            type="button"
+                            className={`ctr-tbd-toggle${paymentDateTbd ? ' is-selected' : ''}`}
+                            aria-pressed={paymentDateTbd}
+                            disabled={disabled}
+                            onClick={() => {
+                              setPaymentDateTbd((prev) => {
+                                if (!prev) setPaymentDate('');
+                                return !prev;
+                              });
+                              setError(null);
+                            }}
+                          >
+                            À definir
+                          </button>
+                        ) : null}
+                      </span>
                       <input
                         className="app-modal-input"
                         type="date"
+                        aria-label="Data de pagamento"
                         value={paymentDate}
-                        disabled={disabled}
+                        disabled={disabled || paymentDateTbd}
                         onChange={(event) => {
                           setPaymentDate(event.target.value);
                           setError(null);
                         }}
                       />
-                      {isWeekendIso(paymentDate) ? (
+                      {!paymentDateTbd && isWeekendIso(paymentDate) ? (
                         <span className="app-modal-field-error">{WEEKEND_DATE_MESSAGE}</span>
-                      ) : paymentDate && invoiceDate && paymentDate < invoiceDate ? (
+                      ) : !invoiceDateTbd &&
+                        !paymentDateTbd &&
+                        paymentDate &&
+                        invoiceDate &&
+                        paymentDate < invoiceDate ? (
                         <span className="app-modal-field-error">
                           A data de pagamento não pode ser anterior à data de faturamento.
                         </span>
                       ) : null}
-                    </label>
+                    </div>
                   </div>
                 </div>
 

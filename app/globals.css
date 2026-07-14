@@ -9067,6 +9067,60 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   color: var(--brand-muted);
 }
 
+/* D144: cabeçalho do campo de data com o toggle "À definir" (só FUTURO).
+   Chip compacto no molde do ctr-approval-btn: sem mudança de cor no toque,
+   só o afundar (scale); selecionado ganha o tinte verde da marca. */
+.ctr-date-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ctr-tbd-toggle {
+  padding: 2px 8px;
+  background: #f8f6f2;
+  border: 1.5px solid rgba(0, 0, 0, 0.06);
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #555;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease;
+}
+
+.ctr-tbd-toggle:active {
+  transform: scale(0.95);
+}
+
+.ctr-tbd-toggle:focus-visible {
+  outline: 2px solid rgba(0, 0, 0, 0.15);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .ctr-tbd-toggle:hover {
+    border-color: rgba(31, 93, 67, 0.3);
+  }
+}
+
+.ctr-tbd-toggle.is-selected {
+  background: linear-gradient(135deg, rgba(31, 93, 67, 0.12), rgba(47, 107, 74, 0.06));
+  border-color: var(--brand-green-soft);
+  color: var(--brand-green);
+}
+
+.ctr-tbd-toggle:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.ctr-tbd-toggle:disabled:active {
+  transform: none;
+}
+
 /* Erro de grupo de opcoes (nao ha input pra abrigar o placeholder). */
 .inf-card-error {
   margin: 0;
@@ -23497,7 +23551,8 @@ select.samples-filter-field-input {
 
 /* ── Sales Card (base do card de donut) ──
    Nasceu como o donut "Lotes disponiveis" do dashboard (REMOVIDO do sistema
-   no DSB-D14). Hoje o UNICO consumidor das classes .sales-card*/.sales-chart-*
+   no DSB-D14). Hoje o UNICO consumidor das classes .sales-card*/
+.sales-chart-*
    e o "Resumo comercial" do detalhe do cliente (ClientCommercialSummaryCard,
    .client-commercial-card): titulo no topo, body em grid de 2 colunas (donut
    a esquerda + legenda/minicards a direita). */

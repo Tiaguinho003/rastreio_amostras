@@ -475,8 +475,9 @@ export interface CreateSaleContractInput {
   paymentFormId: string;
   modalityId: string;
   packagingId: string;
-  invoiceDate: string;
-  paymentDate: string;
+  // D144: null explícito = "À definir" (aceito só quando o contrato é FUTURO).
+  invoiceDate: string | null;
+  paymentDate: string | null;
   purchaseNumber?: string | null;
   paymentCondition?: string | null;
   observations?: string | null;
@@ -657,8 +658,9 @@ export interface SaleContractEtapa2Input {
   paymentFormId: string;
   modalityId: string;
   packagingId: string;
-  invoiceDate: string;
-  paymentDate: string;
+  // D144: null explícito = "À definir" (aceito só quando o contrato é FUTURO).
+  invoiceDate: string | null;
+  paymentDate: string | null;
   purchaseNumber?: string | null;
   paymentCondition?: string | null;
   observations?: string | null;
