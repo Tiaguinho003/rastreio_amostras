@@ -69,7 +69,7 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
 16. `docs/Design-Language.md`
     Uso: **canonico dos design tokens** (cor/tipografia/espaco/raio/sombra/motion/z-index/breakpoints) — espelho legivel do `:root` de `app/globals.css`. Fonte-de-verdade dos tokens; a skill `design-system` e o guia APLICADO. Ponto de partida da reforma de design. Status: Ativo.
 17. `docs/Playground-Plano-de-Trabalho.md`
-    Uso: documento centralizado da feature Playground — sub-aba "Simulador" de /samples com canvas de nodes (estilo n8n) para simular ligas sem gravar nada (fluxo direto lotes→resultado estimado e inverso especificacao→combinacoes possiveis). Conceito, principios, ledger PG1-PG24, pendencias deliberadas e fases. Status: Especificado (fases congeladas em 2026-07-13; implementacao nao iniciada).
+    Uso: documento centralizado da feature Playground — sub-aba "Simulador" de /samples com canvas de nodes (estilo n8n) para simular ligas sem gravar nada (fluxo direto lotes→resultado estimado; o fluxo inverso foi removido do sistema pela PG38). Conceito, principios, ledger PG1-PG38, pendencias deliberadas e fases. Status: Prototipo implementado em 2026-07-13 (mocks + motor stub atras da interface PlaygroundEngine); motor real do fluxo direto e a proxima fase (F2).
 
 ## Relatorios da reorganizacao
 

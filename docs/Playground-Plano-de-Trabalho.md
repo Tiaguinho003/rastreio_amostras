@@ -1,7 +1,7 @@
 # Playground — Plano de Trabalho
 
 > **Status**: PROTÓTIPO IMPLEMENTADO (2026-07-13) — decisões PG1–PG38 fechadas; casca + canvas + mocks + motor stub em código (ver nota no §10); **fluxo inverso REMOVIDO do sistema (PG38, 2026-07-14)** — re-entra num futuro distante; pendentes deliberados: Q-F11, DEP-1; 🖥️ validação visual pendente
-> **Última atualização**: 2026-07-13
+> **Última atualização**: 2026-07-14
 > **Prefixo de decisões**: PG (PG1, PG2, ...)
 > **Documento centralizado da feature**: conceito, decisões, especificação e fases vivem AQUI.
 
@@ -9,7 +9,7 @@
 
 ## 1. Conceito e motivação
 
-**Elevator pitch**: o Playground é uma sub-aba da página de Lotes onde o usuário monta, num canvas visual de nodes (estilo n8n), simulações de liga: conecta lotes reais, executa o fluxo e vê as características estimadas do resultado — ou faz o caminho inverso, descreve o resultado desejado e o sistema apresenta as combinações possíveis. Nada do que acontece no Playground grava qualquer coisa no sistema.
+**Elevator pitch**: o Playground é uma sub-aba da página de Lotes onde o usuário monta, num canvas visual de nodes (estilo n8n), simulações de liga: conecta lotes reais, executa o fluxo e vê as características estimadas do resultado. Nada do que acontece no Playground grava qualquer coisa no sistema. (O caminho inverso — descrever o resultado desejado e receber combinações possíveis — fazia parte do conceito original, mas foi **removido do sistema pela PG38**; fica no estacionamento §3.3 para um futuro distante.)
 
 **Problema que resolve**: hoje a liga real é um compromisso — criar uma liga consome saldo dos lotes de origem e gera um novo lote que só depois é classificado. Não existe nenhum lugar para _experimentar_ combinações antes de decidir. O Playground é esse laboratório: testar cenários de mistura com os dados reais disponíveis, sem custo e sem risco.
 
@@ -160,7 +160,7 @@ Peso = proporção de sacas de cada componente. Escopo dos campos decidido em PG
 
 - **Fonte de dados**: endpoint read-only para o picker de lotes e características (reusar a query/projeção da lista de /samples, incluindo `latestClassificationData` + `availableSacks`); nenhuma escrita.
 - **Fluxo direto**: cálculo 100% client-side (dados já carregados nos nodes) — sem backend novo.
-- **Fluxo inverso [SUSPENSO — PG38]**: busca server-side, endpoint read-only dedicado (ex.: `POST /api/v1/samples/playground/combinations` recebendo a especificação-alvo e devolvendo combinações). Direção do usuário (2026-07-13): **busca por semelhança** — pré-ranquear candidatos pela proximidade ao alvo campo a campo e compor combinações a partir dos mais próximos, em vez de enumeração combinatória cega. O desenho do algoritmo (pré-rank, composição, poda, caps, top-N) é a análise pré-implementação da F4 (Q-T2 reformulada).
+- **Fluxo inverso [SUSPENSO — PG38]**: busca server-side, endpoint read-only dedicado (ex.: `POST /api/v1/samples/playground/combinations` recebendo a especificação-alvo e devolvendo combinações). Direção do usuário (2026-07-13): **busca por semelhança** — pré-ranquear candidatos pela proximidade ao alvo campo a campo e compor combinações a partir dos mais próximos, em vez de enumeração combinatória cega. O desenho do algoritmo (pré-rank, composição, poda, caps, top-N) fica como referência para quando o tema voltar (Q-T2 suspensa; a antiga F4 saiu do plano).
 - **Lib de canvas**: **React Flow (@xyflow/react)** — decidido (PG5). Nada de canvas/drag-drop existia no projeto (front é CSS puro + React 19); React Flow entra como dependência nova, MIT, mesma família de UX do n8n, carregada lazy só ao abrir a aba.
 - **Persistência do rascunho (PG24)**: `localStorage` por usuário, **1 rascunho único** na v1 (nodes, conexões, configurações — galeria de cenários segue no estacionamento §3.3); dados dos lotes são re-buscados ao restaurar (saldo/classificação podem ter mudado). Nada no servidor.
 - **Código**: aba nova como componente próprio (ex.: `components/playground/`), lazy-loaded para não pesar a lista de Lotes (a lib de canvas só carrega ao abrir a aba).
@@ -214,7 +214,7 @@ Cada item resolvido vira decisão PGn no §8.
 
 ### Funcionais
 
-- ~~Q-F1~~ — resolvida → **PG15** (os 5 nodes confirmados: Lote, Mistura, Resultado, Especificação-alvo, Combinações).
+- ~~Q-F1~~ — resolvida → **PG15** (os 5 nodes confirmados: Lote, Mistura, Resultado, Especificação-alvo, Combinações). **Catálogo reduzido a 3 pela PG38** (os 2 do fluxo inverso saíram).
 - ~~Q-F2~~ — resolvida → **PG8** (saldo é limite rígido).
 - ~~Q-F3~~ — resolvida → **PG14** (manual na primeira execução; automática nas edições seguintes).
 - ~~Q-F4~~ — resolvida → **PG13** (cascata permitida; resultado entra inteiro, espelhando F7.7).
@@ -252,7 +252,7 @@ Cada item resolvido vira decisão PGn no §8.
 >
 > **PG38 (2026-07-14)**: o **fluxo inverso foi removido do sistema** (nodes Alvo/Combinações deletados do código) — a **F4 sai do plano** e volta só num futuro distante, via estacionamento (§3.3).
 
-> **PROTÓTIPO IMPLEMENTADO em 2026-07-13** (commits `ff1588b`→`ec83cf0`, 5 commits C1–C5): casca de abas + canvas completo (paleta, 5 nodes, conexões validadas, drawer, "▶ Executar") com **dados mockados no contrato real** (`lib/playground/mock-lots.ts`, shape `SampleSnapshot`) e **motor stub atrás da interface** `PlaygroundEngine` (`lib/playground/engine.ts`) — composição/sacas/safra/dono reais triviais; peneiras média ponderada simples; catação/defeitos sempre composição (sem parse PG11/renormalização PG17 completa). Equivale à F1 + adiantamentos de F2/F3 com stubs; a F2 real troca `stubEngine` + a fonte de dados (busca real) sem refazer UI. **Fora do protótipo** (deliberado): localStorage (PG24), undo/redo (PG37), execução do inverso (casca com placeholder). 🖥️ validação visual pendente.
+> **PROTÓTIPO IMPLEMENTADO em 2026-07-13** (commits `ff1588b`→`ec83cf0`, 5 commits C1–C5): casca de abas + canvas completo (paleta, 5 nodes, conexões validadas, drawer, "▶ Executar") com **dados mockados no contrato real** (`lib/playground/mock-lots.ts`, shape `SampleSnapshot`) e **motor stub atrás da interface** `PlaygroundEngine` (`lib/playground/engine.ts`) — composição/sacas/safra/dono reais triviais; peneiras média ponderada simples; catação/defeitos sempre composição (sem parse PG11/renormalização PG17 completa). Equivale à F1 + adiantamentos de F2/F3 com stubs; a F2 real troca `stubEngine` + a fonte de dados (busca real) sem refazer UI. **Fora do protótipo** (deliberado): localStorage (PG24), undo/redo (PG37), execução do inverso (casca com placeholder — a casca inteira foi removida depois pela PG38, deixando o catálogo com 3 nodes). 🖥️ validação visual pendente.
 
 | Fase   | Entrega                                                                                                                                                                                  | Critério de pronto                                                                  |
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
@@ -267,7 +267,7 @@ Cada item resolvido vira decisão PGn no §8.
 
 ## 11. Validação e testes
 
-- **Motor de estimativa** (fluxo direto): testes unitários puros — combinações de peneiras/densidade/defeitos, pesos, lotes sem classificação, categóricos. É a peça mais testável da feature.
+- **Motor de estimativa** (fluxo direto): testes unitários puros — combinações de peneiras/catação/defeitos, pesos, lotes sem classificação, campos ausentes. É a peça mais testável da feature.
 - ~~**Busca de combinações** (fluxo inverso)~~ — suspenso pela PG38 (era: testes unitários do algoritmo + teste de integração read-only do endpoint).
 - **Canvas/UX**: sem testes automatizados de browser (convenção do projeto: visual é validado pelo usuário no device); gates padrão cobrem o resto.
 - **Garantia de P1 (zero escrita)**: revisão de código + ausência de qualquer chamada de comando; nenhum teste de integração deve detectar evento novo originado do Playground.
