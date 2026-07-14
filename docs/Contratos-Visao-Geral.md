@@ -2,7 +2,7 @@
 
 Status: Ativo (documento-mãe / verdade viva do funcionamento atual)
 Escopo: o que a página `/contratos` faz hoje — a casca (hub + sub-abas + acesso por papel), o contrato de compra e venda ("Fechamento" → PDF), o Espelho de Corretagem, as abas **Financeiro**, **Aprovações** e **Embarque**, a **máquina de estado** do contrato com seus portões, o modelo de dados e as rotas de API.
-Última revisão: 2026-07-14 (revisão geral do fluxo: D142 — validação `paymentDate >= invoiceDate`; D143 — limitação do Editar documentada; §10 completado; semântica do portão de aprovação explicitada)
+Última revisão: 2026-07-14 (D144 — datas planejadas "À definir" em contratos FUTUROS: form, worklists, calendário, PDF)
 Documentos relacionados: `Contratos-Plano-de-Trabalho.md` (backlog, decisões e pendências), `Dashboard-Visao-Geral.md` (eventos/cards que apontam pra cá), `Auditoria-Navegacao-por-Papel.md`, `API-e-Contratos.md`, `Produto-e-Fluxos.md`
 
 > **Como este documento se mantém vivo:** a cada implementação concluída e validada, esta Visão Geral é atualizada no mesmo passo. As **decisões, o histórico e o backlog** vivem no `Contratos-Plano-de-Trabalho.md`; aqui fica **só o estado atual**. Esta consolidação (2026-07-13, 4→2 docs) absorveu e removeu os antigos `Central-de-Contratos-`, `Aprovacoes-` e `Embarque-Plano-de-Trabalho.md` — o histórico completo de decisões (D/CC/AP/EMB) e de sessões está no Git e, condensado, no apêndice do `Contratos-Plano-de-Trabalho.md`.
@@ -87,6 +87,8 @@ Pagar **herda** o portão de aprovação (só se chega a FATURADO passando por e
 
 As **datas planejadas** também têm regra (D142): a criação/edição rejeita `paymentDate` anterior a `invoiceDate` (`422 VALIDATION_ERROR` no campo, espelhado no form) — o cronograma planejado nunca nasce incoerente. Contratos já emitidos não são revalidados.
 
+**"À definir" no FUTURO (D144):** em contratos `FUTURO`, cada data planejada pode — independentemente — ser **"À definir"** (`null` explícito no payload; `undefined` segue 422). À vista exige as duas sempre, inclusive no Editar. Com data "à definir": dia-útil e D142 só valem para data presente (D142 compara quando AMBAS existem); **faturar/pagar/embarcar direto é permitido** (as transições usam só a data real); o contrato **não gera evento no calendário** até a data ser definida. O Editar define a data depois — e pode voltar uma definida para "à definir".
+
 ---
 
 ## 4. Aba Contratos — o contrato de compra e venda
@@ -95,7 +97,7 @@ As **datas planejadas** também têm regra (D142): a criação/edição rejeita 
 
 ### 4.1 Da venda ao PDF (Etapa 1 → Etapa 2)
 
-- **Entrada:** o FAB radial da aba (`ContractCreateRadialFab`) oferece os 2 mercados. **À vista:** escolher o lote com saldo (`SaleContractLotPickerModal`) → Etapa 2 em modo _spot_ — venda + contrato nascem **atômicos** (D97), já EMITIDO. **Futuro:** Etapa 2 direto, sem lote/venda.
+- **Entrada:** o FAB radial da aba (`ContractCreateRadialFab`) oferece os 2 mercados. **À vista:** escolher o lote com saldo (`SaleContractLotPickerModal`) → Etapa 2 em modo _spot_ — venda + contrato nascem **atômicos** (D97), já EMITIDO. **Futuro:** Etapa 2 direto, sem lote/venda; as datas planejadas de faturamento/pagamento podem nascer **"À definir"** (checkbox por campo — D144) e ser definidas (ou revertidas) no Editar.
 - **Etapa 1 (Venda):** a venda origina os dados do contrato (partes, produto, quantidade em sacas, preço, modalidade, prazos). As partes entram como **snapshots** no contrato (não referência viva) para o PDF ser fiel ao momento.
 - **Etapa 2 (Geração):** o modal de geração completa/valida os campos que faltam e **emite** o contrato (→ EMITIDO), gerando o **PDF** para impressão. Campos têm origem/obrigatoriedade/validação próprias (detalhe no código + os limites de data em §3).
 - **Editar (re-emissão):** só age sobre `EMITIDO`. No contrato à vista, o Editar sincroniza dono da amostra e venda **antes** da transação do contrato — passo **não-atômico por decisão** (D143): a janela de corrida é minúscula e, num 409 de concorrência, os syncs são idempotentes e **convergem no retry**.
@@ -126,7 +128,7 @@ As **datas planejadas** também têm regra (D142): a criação/edição rejeita 
 
 > A corretagem a receber por fechamento. Código: `FinanceiroPanel`/`FinanceiroCard`; `app/api/v1/financeiro`, `sale-contract-service.js`. Acesso: `FINANCEIRO_ROLES` (ADMIN + COMMERCIAL, escopo aberto).
 
-- **Estado de pagamento** por contrato (a receber / N vencidos / pago), com os cálculos de corretagem e ágio de §4.2.
+- **Estado de pagamento** por contrato (a receber / N vencidos / pago), com os cálculos de corretagem e ágio de §4.2. Sem `paymentDate` ("À definir" no FUTURO, D144) o contrato é **sempre "a vencer"** (nunca vencido), no fim da fila, e o card exibe **"À definir"**.
 - **Escopo:** ADMIN e COMMERCIAL veem **tudo** (escopo aberto — D140 revogou o own-only, superando D135/D128).
 - **Sem rateio ÷N** (D136): o valor exibido é o do fechamento, não dividido.
 - **Botão "Pago"** mora **aqui** (D137) — é o ponto de disparo da transição → PAGO (com o portão de embarque de §3/§8).
@@ -143,7 +145,7 @@ As **datas planejadas** também têm regra (D142): a criação/edição rejeita 
 - **Estados derivados** (sem enum próprio): **não se aplica** / **a enviar** / **enviada** / **cancelado** (no washout). O **desfecho** (aprovado/recusado) fica **fora do sistema**; o **proxy** é o **nº de envios** (>1 envio antes de faturar ≈ provável recusa; "enviada · N×").
 - **Sinalização:** `requiresApproval` marcado na emissão ou por **toggle** no modal de Detalhes (`setSaleContractApprovalFlag`, ADMIN/COMMERCIAL). **Desmarcar** só em `EMITIDO` sem envio; depois **trava** em "Sim" (`APPROVAL_FLAG_LOCKED`) — AP20.
 - **Gerar etiqueta exige `requiresApproval = true`** (`APPROVAL_CONTRACT_NOT_MARKED`, AP17); elegibilidade = **só `EMITIDO`** (`APPROVAL_ELIGIBLE_STATUSES`, AP21). **A geração mora só nesta sub-aba** (AP29 — não há mais porta no `/samples` nem etiqueta avulsa).
-- **Worklist:** particionada por estado (a enviar / enviada), via `$queryRaw` (G0/G1/G2) com cursor `{g, key, seq}` porque o estado depende de um agregado de contagem do log. Colunas não-sensíveis; abre em "a enviar".
+- **Worklist:** particionada por estado (a enviar / enviada), via `$queryRaw` (G0/G1/G2) com cursor `{g, key, seq}` porque o estado depende de um agregado de contagem do log. Colunas não-sensíveis; abre em "a enviar". Ordena por `invoice_date ASC NULLS LAST` — faturamento "à definir" (D144) vai pro fim da fila e o card mostra **"À definir"** (sem o `~` de previsão).
 
 > O **lembrete de aprovação no dashboard** (data "a enviar") foi **removido** (DSB-D9) — a data não era exata. O card **"Aprovações enviadas"** saiu do dashboard e mora **no topo desta sub-aba** desde **DSB-D14 (2026-07-14)**: visão rápida dos últimos envios (top-40, desktop-only, `RecentSendsCard`; dado de `GET /sale-contracts/approvals/recent-sends`; refetch após gerar etiqueta aqui). A worklist (filtro "Enviadas") segue sendo a lista completa. O campo `approvalReminderLeadDays` segue **vivo como input**: é obrigatório no form quando `requiresApproval` (1–365, default 30) e gravado na criação/edição e no toggle (AP23) — o que foi removido (DSB-D9) é só o **consumidor do lembrete** que usava o valor.
 
@@ -153,7 +155,7 @@ As **datas planejadas** também têm regra (D142): a criação/edição rejeita 
 
 > A confirmação do café no caminhão + o evento no dashboard. Código: `EmbarquePanel`/`EmbarqueCard`, `ShipmentConfirmationModal`; `SaleContractShipmentService`, `saveContractShipmentPhoto`, `listShipmentContracts`, `getDashboardShipmentEvents`; tabela `SaleContractShipmentPhoto`.
 
-- **Quem tem embarque ("Modelo X", EMB22):** não há campo de data próprio — o **dia previsto do embarque = `invoiceDate`** (mover um move o outro); **atrasado** = `invoiceDate` passou sem embarque.
+- **Quem tem embarque ("Modelo X", EMB22):** não há campo de data próprio — o **dia previsto do embarque = `invoiceDate`** (mover um move o outro); **atrasado** = `invoiceDate` passou sem embarque. **Sem `invoiceDate`** ("À definir" no FUTURO — D144, revisa a EMB22): o contrato **entra na fila** como "à definir" — sempre `a_embarcar` (nunca atrasado, não conta no contador de atrasados), no fim do grupo em **ordem de emissão** (`contractSeq`), e **sem evento no calendário** até a data ser definida.
 - **Flag `requiresShipment` (EMB21):** vem da **modalidade** (`ContractModality` tem um flag, semeado: Retirar/Posto = `true`, Disponível = `false`) e é **snapshotado** em `SaleContract.requiresShipment` na emissão.
 - **Estados da worklist** (derivados): **a embarcar** / **atrasado** / **embarcado** / **cancelado**.
 - **Confirmação (EMB27):** **fotos opcionais 0–10** (JPEG/PNG/WebP, 12 MiB — valida magic bytes) + seletor **`shippedAt`** (default hoje, **máx. hoje**, **rejeita fim de semana** → `WEEKEND_DATE`). Local do embarque = armazém do vendedor (`sellerWarehouseSnapshot`, EMB29). A confirmação **não incrementa `version`** do contrato.
@@ -181,7 +183,7 @@ _(O `Arquitetura-Tecnica.md` resume o domínio na seção "Modelo de dados" → 
 
 > `GET`/`POST` sob `app/api/v1/`; handlers em `src/api/v1/backend-api.js`, implementação em `src/sale-contracts/sale-contract-service.js`. PROSPECTOR barrado pelo allowlist central.
 
-- **Contrato (CRUD/ciclo):** `/sale-contracts` (lista + criação), `/sale-contracts/next-number` (preview do número), `/sale-contracts/[id]` (detalhe) e `/sale-contracts/[id]/{emit, invoice, pay, washout, apply-agio, approval-flag, timeline}` — as mutações do ciclo de §3.
+- **Contrato (CRUD/ciclo):** `/sale-contracts` (lista + criação), `/sale-contracts/next-number` (preview do número), `/sale-contracts/[id]` (detalhe) e `/sale-contracts/[id]/{emit, invoice, pay, washout, apply-agio, approval-flag, timeline}` — as mutações do ciclo de §3. No create/emit, `invoiceDate`/`paymentDate` aceitam `null` explícito ("À definir") **só quando o contrato é FUTURO** (D144; à vista → 422).
 - **Documentos:** `/sale-contracts/[id]/pdf` (contrato) e `/sale-contracts/[id]/espelho/{pdf, log}` (espelho + auditoria de export).
 - **Embarque:** `/sale-contracts/shipments` (worklist), `/sale-contracts/[id]/{shipment-context, shipment-confirmation}` e `/sale-contracts/[id]/shipment-photos[/[photoId]]` (galeria + binário autenticado).
 - **Aprovação:** `/sale-contracts/approvals` (worklist), `/sale-contracts/approvals/recent-sends` (card do topo) e `/approval-labels` (gerar/enviar etiqueta; `/approval-labels/contracts*` é o resquício do picker aposentado pela AP29 — dormente).
