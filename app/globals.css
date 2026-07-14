@@ -24770,8 +24770,9 @@ select.samples-filter-field-input {
   .dd-content-grid {
     display: grid;
     /* PISO em px — o card nunca some; quando a viewport nao comporta, a pagina
-       rola (as celulas seguem rolando por dentro do piso). */
-    grid-template-rows: minmax(300px, 1fr);
+       rola (as celulas seguem rolando por dentro do piso). DSB-D18: piso maior
+       — a grade do MES tem ate 6 linhas de dias. */
+    grid-template-rows: minmax(420px, 1fr);
     gap: clamp(1rem, 1.6vw, 1.5rem);
     /* grow p/ preencher quando ha espaco; shrink 0 p/ nao encolher abaixo do piso. */
     flex: 1 0 auto;
@@ -24885,11 +24886,11 @@ select.samples-filter-field-input {
     }
   }
 
-  /* Cabecalho S T Q Q S (seg–sex, DSB-D7). */
+  /* Cabecalho D S T Q Q S S (semana completa domingo-first, DSB-D18). */
   .dd-events-weekdays {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: clamp(0.25rem, 0.45vw, 0.4rem);
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: clamp(0.2rem, 0.35vw, 0.35rem);
     flex: none;
   }
 
@@ -24901,13 +24902,13 @@ select.samples-filter-field-input {
     color: var(--muted);
   }
 
-  /* DSB-D4/D7: uma SEMANA de DIAS ÚTEIS (5 células numa linha), altas,
-     preenchendo a altura do card (Eventos horizontal). */
+  /* DSB-D18: o MÊS inteiro numa grade 7×N (N = 4/5/6 semanas, linhas dividem
+     a altura por igual), preenchendo a altura do card. */
   .dd-events-grid {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    grid-template-rows: 1fr;
-    gap: clamp(0.3rem, 0.5vw, 0.5rem);
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-auto-rows: minmax(0, 1fr);
+    gap: clamp(0.2rem, 0.35vw, 0.35rem);
     flex: 1;
     min-height: 0;
   }
@@ -24923,17 +24924,42 @@ select.samples-filter-field-input {
   }
 
   /* DSB-D4: célula = CONTAINER (não mais botão selecionável) — número no topo
-     + lista de eventos rolável embaixo. */
+     + lista de eventos rolável embaixo. DSB-D18: célula de MÊS (menor que a
+     da semana antiga; paddings/fontes um passo abaixo). */
   .dd-events-day {
     display: flex;
     flex-direction: column;
     min-height: 0;
-    gap: clamp(0.25rem, 0.5vw, 0.4rem);
-    padding: clamp(0.35rem, 0.6vw, 0.55rem);
+    gap: clamp(0.15rem, 0.3vw, 0.25rem);
+    padding: clamp(0.25rem, 0.45vw, 0.4rem);
     border: 1px solid rgba(112, 130, 103, 0.18);
-    border-radius: clamp(10px, 0.85vw, 12px);
+    border-radius: clamp(8px, 0.7vw, 10px);
     background: #fbfcfb;
     color: var(--ink);
+  }
+
+  /* Fim de semana (DSB-D18): coluna levemente esmaecida — institucional, o
+     negócio não agenda ações em sáb/dom (regra WEEKEND_DATE do contrato);
+     evento ali é legado/borda e continua visível/clicável. */
+  .dd-events-day.is-weekend {
+    background: #f4f6f4;
+    border-color: rgba(112, 130, 103, 0.12);
+  }
+
+  .dd-events-day.is-weekend .dd-events-day-number {
+    color: var(--muted);
+  }
+
+  /* Pontas dos meses vizinhos (DSB-D18): número apagado; os eventos aparecem
+     (a janela buscada cobre a grade inteira) e seguem legíveis/clicáveis. */
+  .dd-events-day.is-outside {
+    background: transparent;
+    border-color: rgba(112, 130, 103, 0.1);
+  }
+
+  .dd-events-day.is-outside .dd-events-day-number {
+    color: var(--muted);
+    font-weight: 500;
   }
 
   /* HOJE: anel verde da marca (E10). */
@@ -24947,7 +24973,7 @@ select.samples-filter-field-input {
     display: inline-flex;
     align-items: baseline;
     gap: 0.25rem;
-    font-size: clamp(0.82rem, 0.92vw, 0.95rem);
+    font-size: clamp(0.74rem, 0.84vw, 0.86rem);
     font-weight: 700;
     line-height: 1;
   }
@@ -24971,15 +24997,17 @@ select.samples-filter-field-input {
   }
 
   /* Chip de evento: cor por ESTADO (borda-esquerda, DSB-D10) + rótulo truncado. É
-     um Link (navegação pura → /contratos) ou span (tipo desconhecido/inerte). */
+     um Link (navegação pura → página dona) ou span (tipo desconhecido/inerte).
+     DSB-D18: um passo menor pra caber na célula do mês. */
   .dd-events-chip {
     display: block;
-    padding: clamp(0.2rem, 0.4vw, 0.32rem) clamp(0.3rem, 0.55vw, 0.45rem);
-    border-radius: 7px;
+    flex: none;
+    padding: clamp(0.16rem, 0.32vw, 0.26rem) clamp(0.26rem, 0.45vw, 0.38rem);
+    border-radius: 6px;
     border-left: 3px solid var(--chip-color, var(--brand-green, #1f5d43));
     background: #ffffff;
     box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
-    font-size: clamp(0.66rem, 0.74vw, 0.74rem);
+    font-size: clamp(0.62rem, 0.7vw, 0.7rem);
     font-weight: 600;
     line-height: 1.2;
     color: var(--ink);

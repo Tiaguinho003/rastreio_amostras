@@ -815,12 +815,10 @@ export function bucketPaymentEvents(dueRows, paidRows, todayKey) {
     for (const row of rows) {
       const { dayKey, event } = buildPaymentEvent(row, kind, todayKey);
       if (!dayKey) continue;
-      // DSB-D7: o card mostra so seg-sex; um evento de fim de semana (legado ou
-      // data real de borda) rola pro dia util vizinho pra nao sumir. O typeKey de
-      // atraso ja foi computado sobre a data REAL dentro de buildPaymentEvent.
-      const key = rollWeekendToWeekday(dayKey);
-      if (byDay[key]) byDay[key].push(event);
-      else byDay[key] = [event];
+      // DSB-D18: o card mostra o mes inteiro (sab/dom incluidos) — o evento
+      // agrupa no dia REAL. (O roll de fim de semana do DSB-D7 saiu.)
+      if (byDay[dayKey]) byDay[dayKey].push(event);
+      else byDay[dayKey] = [event];
     }
   };
   add(dueRows, 'due');
@@ -890,10 +888,9 @@ export function bucketShipmentEvents(scheduledRows, doneRows, todayKey) {
     for (const row of rows) {
       const { dayKey, event } = buildShipmentEvent(row, kind, todayKey);
       if (!dayKey) continue;
-      // DSB-D7: roll de fim de semana pro dia util vizinho (ver bucketPaymentEvents).
-      const key = rollWeekendToWeekday(dayKey);
-      if (byDay[key]) byDay[key].push(event);
-      else byDay[key] = [event];
+      // DSB-D18: agrupa no dia REAL (ver bucketPaymentEvents).
+      if (byDay[dayKey]) byDay[dayKey].push(event);
+      else byDay[dayKey] = [event];
     }
   };
   add(scheduledRows, 'scheduled');
@@ -962,10 +959,9 @@ export function bucketInvoiceEvents(scheduledRows, doneRows, todayKey) {
     for (const row of rows) {
       const { dayKey, event } = buildInvoiceEvent(row, kind, todayKey);
       if (!dayKey) continue;
-      // DSB-D7: roll de fim de semana pro dia util vizinho (ver bucketPaymentEvents).
-      const key = rollWeekendToWeekday(dayKey);
-      if (byDay[key]) byDay[key].push(event);
-      else byDay[key] = [event];
+      // DSB-D18: agrupa no dia REAL (ver bucketPaymentEvents).
+      if (byDay[dayKey]) byDay[dayKey].push(event);
+      else byDay[dayKey] = [event];
     }
   };
   add(scheduledRows, 'scheduled');
@@ -1052,26 +1048,11 @@ export function assertBusinessDate(dateObj, fieldName) {
   return dateObj;
 }
 
-// Rola uma chave de dia 'YYYY-MM-DD' que caia em fim de semana pro dia util vizinho:
-// sabado -> sexta (-1), domingo -> segunda (+1). Dia util fica igual. So-EXIBICAO
-// (DSB-D7): usado na montagem dos feeds de eventos pra um evento de fim de semana
-// (legado no banco, ou data real de borda) nao sumir do calendario seg-sex. O dado
-// no contrato nao muda; o typeKey de atraso e computado sobre a data REAL antes do roll.
-export function rollWeekendToWeekday(dayKey) {
-  if (typeof dayKey !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) {
-    return dayKey;
-  }
-  const date = new Date(`${dayKey}T00:00:00Z`);
-  const dow = date.getUTCDay();
-  if (dow === 6) {
-    date.setUTCDate(date.getUTCDate() - 1);
-  } else if (dow === 0) {
-    date.setUTCDate(date.getUTCDate() + 1);
-  } else {
-    return dayKey;
-  }
-  return date.toISOString().slice(0, 10);
-}
+// (DSB-D18) O roll de fim de semana `rollWeekendToWeekday` foi REMOVIDO: o
+// calendario do dashboard passou a mostrar o mes inteiro (sab/dom incluidos),
+// entao os eventos agrupam no dia REAL. A regra de contrato que RECUSA datas
+// de acao em fim de semana (assertBusinessDate, 422 WEEKEND_DATE — DSB-D7)
+// permanece; evento em sab/dom e so legado/borda.
 
 // Sacas do contrato (Int > 0). O saldo do lote (não exceder o disponível) é
 // garantido pelo updateSampleMovement ao sincronizar a venda.

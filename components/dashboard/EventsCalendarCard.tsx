@@ -4,14 +4,13 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
 import {
-  CALENDAR_WEEK_DAYS,
   CALENDAR_WEEKDAY_INITIALS,
-  addDays,
-  buildBusinessDays,
-  computeWeekStart,
+  addMonths,
+  buildMonthGrid,
+  computeMonthStart,
   formatDayAriaLabel,
+  formatMonthLabel,
   formatMonthShort,
-  formatPeriodLabel,
   getBrtToday,
   toDayKey,
 } from '../../lib/dashboard-calendar';
@@ -28,7 +27,7 @@ interface EventsCalendarCardProps {
   events?: Record<string, CalendarEvent[]>;
   /** DSB-D11: abas de /contratos que o papel abre — o chip só linka p/ aba visível. */
   navigableTabs?: string[];
-  /** Emite a semana visível (from..to 'YYYY-MM-DD') pro pai buscar o feed (E24). */
+  /** Emite a GRADE do mês visível (from..to 'YYYY-MM-DD') pro pai buscar o feed (E24/DSB-D18). */
   onWindowChange?: (from: string, to: string) => void;
   /** Erro de carregamento de algum dos feeds (strip não-bloqueante + retry). */
   error?: string | null;
@@ -72,13 +71,14 @@ const EVENT_STATES: Array<{ state: 'previsto' | 'atrasado' | 'realizado'; label:
   { state: 'realizado', label: 'realizado' },
 ];
 
-// Card "Eventos" (dashboard desktop, DSB-D4 + DSB-D7): SEMANA DE DIAS ÚTEIS (seg–sex,
-// 5 células) com navegação livre ◀ Hoje ▶ de 7 em 7 dias. A janela BUSCADA continua
-// dom–sáb (7 dias) — o backend rola os eventos de fim de semana pro dia útil vizinho
-// (sáb→sex, dom→seg) pra nada sumir. Cada dia é um quadrado alto que mostra os eventos
-// DENTRO da célula — chips coloridos por ESTADO (DSB-D10), clicáveis (navegação pura → /contratos);
-// dias cheios rolam POR DENTRO da própria célula. Sem painel de dia selecionado.
-// "Hoje" com anel. Desktop-only (o DashboardMobile não o monta).
+// Card "Eventos" (dashboard desktop, DSB-D18): calendário MENSAL (grade 7×N
+// domingo-first), com TODOS os dias — fins de semana esmaecidos (o negócio não
+// agenda ações neles; eventos ali são legado/borda, exibidos no dia REAL) e as
+// pontas dos meses vizinhos esmaecidas COM eventos. Navegação ◀ Hoje ▶ de mês
+// em mês. Cada dia mostra os eventos DENTRO da célula — chips coloridos por
+// ESTADO (DSB-D10), clicáveis (navegação pura → página dona); dias cheios rolam
+// POR DENTRO da própria célula. Sem painel de dia selecionado. "Hoje" com anel.
+// Desktop-only (o DashboardMobile não o monta).
 export function EventsCalendarCard({
   events = {},
   navigableTabs = ALL_CONTRACT_TABS,
@@ -88,7 +88,7 @@ export function EventsCalendarCard({
 }: EventsCalendarCardProps) {
   const today = useMemo(() => getBrtToday(), []);
   const todayKey = toDayKey(today);
-  const [weekStart, setWeekStart] = useState(() => computeWeekStart(today));
+  const [monthStart, setMonthStart] = useState(() => computeMonthStart(today));
   // Direção do deslize (E18) + contador pra re-disparar a animação a cada
   // navegação (muda a key do wrapper da grade).
   const [slide, setSlide] = useState<{ direction: 'left' | 'right' | null; tick: number }>({
@@ -96,25 +96,26 @@ export function EventsCalendarCard({
     tick: 0,
   });
 
-  // Renderiza só os 5 dias úteis (DSB-D7); os fins de semana da janela ficam de fora.
-  const days = useMemo(() => buildBusinessDays(weekStart), [weekStart]);
+  // Grade completa do mês (28/35/42 células, sempre semanas inteiras).
+  const days = useMemo(() => buildMonthGrid(monthStart), [monthStart]);
+  const monthIndex = monthStart.getUTCMonth();
 
-  // E24: emite a JANELA dom–sáb (7 dias) pro pai buscar o feed — inclui o fim de
-  // semana de propósito, pra o backend poder rolar esses eventos pros dias úteis
-  // exibidos. Dispara na montagem + a cada navegação. O pai memoiza `onWindowChange`.
+  // E24/DSB-D18: emite a GRADE inteira (inclui as pontas dos meses vizinhos)
+  // pro pai buscar os feeds. Dispara na montagem + a cada navegação. O pai
+  // memoiza `onWindowChange`.
   useEffect(() => {
-    if (!onWindowChange) return;
-    onWindowChange(toDayKey(weekStart), toDayKey(addDays(weekStart, CALENDAR_WEEK_DAYS - 1)));
-  }, [weekStart, onWindowChange]);
+    if (!onWindowChange || days.length === 0) return;
+    onWindowChange(toDayKey(days[0]), toDayKey(days[days.length - 1]));
+  }, [days, onWindowChange]);
 
   function navigate(direction: 'left' | 'right') {
-    const delta = direction === 'left' ? -CALENDAR_WEEK_DAYS : CALENDAR_WEEK_DAYS;
-    setWeekStart((start) => addDays(start, delta));
+    const delta = direction === 'left' ? -1 : 1;
+    setMonthStart((start) => addMonths(start, delta));
     setSlide((prev) => ({ direction, tick: prev.tick + 1 }));
   }
 
   function goToToday() {
-    setWeekStart(computeWeekStart(today));
+    setMonthStart(computeMonthStart(today));
     setSlide((prev) => ({ direction: null, tick: prev.tick + 1 }));
   }
 
@@ -123,14 +124,14 @@ export function EventsCalendarCard({
       <header className="dd-events-header">
         <div className="dd-events-heading">
           <h3 className="dd-events-title">Eventos</h3>
-          <span className="dd-events-period">{formatPeriodLabel(weekStart)}</span>
+          <span className="dd-events-period">{formatMonthLabel(monthStart)}</span>
         </div>
-        <div className="dd-events-nav" role="group" aria-label="Navegar entre semanas">
+        <div className="dd-events-nav" role="group" aria-label="Navegar entre meses">
           <button
             type="button"
             className="dd-events-nav-arrow"
             onClick={() => navigate('left')}
-            aria-label="Semana anterior"
+            aria-label="Mês anterior"
           >
             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
               <path d="m14.5 6-6 6 6 6" />
@@ -143,7 +144,7 @@ export function EventsCalendarCard({
             type="button"
             className="dd-events-nav-arrow"
             onClick={() => navigate('right')}
-            aria-label="Próxima semana"
+            aria-label="Próximo mês"
           >
             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
               <path d="m9.5 6 6 6-6 6" />
@@ -179,10 +180,15 @@ export function EventsCalendarCard({
           const dayEvents = events[dayKey] ?? [];
           const isToday = dayKey === todayKey;
           const showMonth = day.getUTCDate() === 1;
+          // DSB-D18: fim de semana e pontas dos meses vizinhos ficam esmaecidos
+          // (institucional) — eventos continuam visíveis/clicáveis nos dois casos.
+          const dow = day.getUTCDay();
+          const isWeekend = dow === 0 || dow === 6;
+          const isOutside = day.getUTCMonth() !== monthIndex;
           return (
             <div
               key={dayKey}
-              className={`dd-events-day${isToday ? ' is-today' : ''}`}
+              className={`dd-events-day${isToday ? ' is-today' : ''}${isWeekend ? ' is-weekend' : ''}${isOutside ? ' is-outside' : ''}`}
               aria-current={isToday ? 'date' : undefined}
               aria-label={`${formatDayAriaLabel(day)}${
                 dayEvents.length > 0

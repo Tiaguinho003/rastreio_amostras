@@ -2,23 +2,24 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  CALENDAR_WEEK_DAYS,
   CALENDAR_WEEKDAY_INITIALS,
   addDays,
-  buildBusinessDays,
-  buildWeek,
+  addMonths,
+  buildMonthGrid,
+  computeMonthStart,
   computeWeekStart,
   formatDayAriaLabel,
+  formatMonthLabel,
   formatMonthShort,
-  formatPeriodLabel,
   getBrtToday,
   toDayKey,
 } from '../lib/dashboard-calendar.ts';
 
-// DSB-H8 (destravado no check-up): a matemática de semana/dayKey/BRT do card de
-// Eventos não tinha teste (o `node --test` só passou a rodar .ts no test:unit). Tudo
-// é date-only e recebe `now` injetável → determinístico, sem depender do relógio real.
-// Âncora: 2026-07-05 é DOMINGO (logo 07-06 seg … 07-10 sex … 07-11 sáb).
+// DSB-H8 (destravado no check-up): a matemática do card de Eventos não tinha
+// teste (o `node --test` só passou a rodar .ts no test:unit). DSB-D18: o card
+// virou MENSAL — a grade cobre o mês inteiro em semanas completas domingo-first.
+// Tudo é date-only e recebe `now` injetável → determinístico.
+// Âncora: 2026-07-05 é DOMINGO; 2026-07-01 é QUARTA.
 
 const utc = (y: number, m: number, d: number) => new Date(Date.UTC(y, m, d));
 
@@ -46,52 +47,53 @@ test('computeWeekStart: volta pro domingo da semana', () => {
   assert.equal(toDayKey(computeWeekStart(utc(2026, 6, 12))), '2026-07-12'); // próximo domingo
 });
 
-test('buildWeek: 7 dias dom–sáb a partir do domingo', () => {
-  const week = buildWeek(utc(2026, 6, 5));
-  assert.equal(week.length, CALENDAR_WEEK_DAYS);
-  assert.deepEqual(week.map(toDayKey), [
-    '2026-07-05',
-    '2026-07-06',
-    '2026-07-07',
-    '2026-07-08',
-    '2026-07-09',
-    '2026-07-10',
-    '2026-07-11',
-  ]);
+test('computeMonthStart/addMonths: dia 1 do mês + navegação com virada de ano', () => {
+  assert.equal(toDayKey(computeMonthStart(utc(2026, 6, 14))), '2026-07-01');
+  assert.equal(toDayKey(computeMonthStart(utc(2026, 6, 1))), '2026-07-01'); // dia 1 -> ele mesmo
+  assert.equal(toDayKey(addMonths(utc(2026, 6, 1), 1)), '2026-08-01');
+  assert.equal(toDayKey(addMonths(utc(2026, 11, 1), 1)), '2027-01-01'); // dez -> jan
+  assert.equal(toDayKey(addMonths(utc(2026, 0, 1), -1)), '2025-12-01'); // jan -> dez
 });
 
-test('buildBusinessDays: só os 5 úteis (seg–sex); fins de semana fora', () => {
-  const days = buildBusinessDays(utc(2026, 6, 5));
-  assert.deepEqual(days.map(toDayKey), [
-    '2026-07-06',
-    '2026-07-07',
-    '2026-07-08',
-    '2026-07-09',
-    '2026-07-10',
-  ]);
-  assert.equal(CALENDAR_WEEKDAY_INITIALS.length, 5); // rótulos batem com as células
+test('buildMonthGrid: julho/2026 = 5 semanas (35 células), domingo a sábado', () => {
+  const grid = buildMonthGrid(utc(2026, 6, 1)); // 01/07/2026 é quarta
+  assert.equal(grid.length, 35);
+  assert.equal(toDayKey(grid[0]), '2026-06-28'); // domingo da semana do dia 1
+  assert.equal(toDayKey(grid[34]), '2026-08-01'); // sábado da semana do dia 31
+  assert.equal(grid[0].getUTCDay(), 0);
+  assert.equal(grid[34].getUTCDay(), 6);
+  // Pontas pertencem aos meses vizinhos (o card as esmaece por comparação de mês).
+  assert.notEqual(grid[0].getUTCMonth(), 6);
+  assert.notEqual(grid[34].getUTCMonth(), 6);
 });
 
-test('formatPeriodLabel: mesmo mês, ano corrente -> sem ano', () => {
-  const now = new Date('2026-07-08T12:00:00.000Z');
-  assert.equal(formatPeriodLabel(utc(2026, 6, 5), now), '6 – 10 de julho');
+test('buildMonthGrid: fev/2026 alinhado (dia 1 é domingo, 28 dias) = 4 semanas', () => {
+  const grid = buildMonthGrid(utc(2026, 1, 1)); // 01/02/2026 é domingo
+  assert.equal(grid.length, 28);
+  assert.equal(toDayKey(grid[0]), '2026-02-01');
+  assert.equal(toDayKey(grid[27]), '2026-02-28');
 });
 
-test('formatPeriodLabel: cruza mês, ano corrente', () => {
-  const now = new Date('2026-06-30T12:00:00.000Z');
-  // domingo 28/06 -> seg 29/06 … sex 03/07.
-  assert.equal(formatPeriodLabel(utc(2026, 5, 28), now), '29 de jun – 3 de jul');
+test('buildMonthGrid: agosto/2026 = 6 semanas (42 células)', () => {
+  const grid = buildMonthGrid(utc(2026, 7, 1)); // 01/08/2026 é sábado; 31 dias
+  assert.equal(grid.length, 42);
+  assert.equal(toDayKey(grid[0]), '2026-07-26'); // domingo antes do dia 1
+  assert.equal(toDayKey(grid[41]), '2026-09-05'); // sábado após o dia 31
 });
 
-test('formatPeriodLabel: ano != corrente acrescenta o ano (mesmo mês)', () => {
-  const now = new Date('2026-07-08T12:00:00.000Z'); // corrente = 2026
-  assert.equal(formatPeriodLabel(utc(2025, 6, 5), now), '6 – 10 de julho de 2025');
+test('buildMonthGrid: sempre múltiplo de 7, começa domingo e termina sábado', () => {
+  for (let month = 0; month < 12; month += 1) {
+    const grid = buildMonthGrid(utc(2026, month, 1));
+    assert.equal(grid.length % 7, 0);
+    assert.equal(grid[0].getUTCDay(), 0);
+    assert.equal(grid[grid.length - 1].getUTCDay(), 6);
+  }
+  assert.equal(CALENDAR_WEEKDAY_INITIALS.length, 7); // cabeçalho bate com as colunas
 });
 
-test('formatPeriodLabel: cruza o ano (dez -> jan)', () => {
-  const now = new Date('2026-12-30T12:00:00.000Z');
-  // first = seg 28/12/2026, last = sex 01/01/2027.
-  assert.equal(formatPeriodLabel(utc(2026, 11, 27), now), '28 de dez de 2026 – 1 de jan de 2027');
+test('formatMonthLabel: nome do mês + ano (sempre)', () => {
+  assert.equal(formatMonthLabel(utc(2026, 6, 1)), 'julho de 2026');
+  assert.equal(formatMonthLabel(utc(2025, 11, 1)), 'dezembro de 2025');
 });
 
 test('formatDayAriaLabel / formatMonthShort', () => {

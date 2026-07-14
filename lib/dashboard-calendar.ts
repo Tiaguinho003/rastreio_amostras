@@ -1,13 +1,15 @@
-// Helpers do card de Eventos do dashboard desktop (calendário de 1 semana —
+// Helpers do card de Eventos do dashboard desktop (calendário MENSAL —
 // docs/Dashboard-Visao-Geral.md).
 //
 // Matemática date-only em BRT no estilo de lib/weekly-report.ts (âncora
-// meia-noite UTC). DSB-D7: o card renderiza só DIAS ÚTEIS (seg–sex), mas a
-// JANELA de busca continua ancorada no domingo (dom–sáb, 7 dias) — assim os
-// eventos de fim de semana (legado/borda) são buscados e o backend os "rola" pro
-// dia útil vizinho (ver rollWeekendToWeekday em sale-contracts). Por isso
-// computeWeekStart/buildWeek/CALENDAR_WEEK_DAYS seguem de 7 dias domingo-first;
-// buildBusinessDays filtra pro que é exibido.
+// meia-noite UTC). DSB-D18: o card renderiza o MÊS inteiro (grade 7×N
+// domingo-first, incluindo fins de semana e as pontas dos meses vizinhos);
+// a janela de busca cobre a grade inteira (28–42 dias). O roll de fim de
+// semana do backend (DSB-D7) saiu junto — eventos aparecem no dia REAL.
+//
+// GOTCHA (DSB-H8): este módulo NÃO pode ter import relativo de RUNTIME —
+// ele roda no test:unit via --experimental-strip-types (só type-only é
+// stripped). Qualquer check de fim de semana fica inlinado (getUTCDay 0/6).
 
 const SAO_PAULO_UTC_OFFSET_HOURS = 3;
 
@@ -51,11 +53,8 @@ const WEEKDAY_LONG = [
   'sábado',
 ];
 
-/** Cabeçalho da grade — só dias úteis, seg–sex (DSB-D7). */
-export const CALENDAR_WEEKDAY_INITIALS = ['S', 'T', 'Q', 'Q', 'S'];
-
-/** Dias da JANELA de busca (dom–sáb). O card renderiza só os 5 úteis. */
-export const CALENDAR_WEEK_DAYS = 7;
+/** Cabeçalho da grade — semana completa domingo-first (DSB-D18). */
+export const CALENDAR_WEEKDAY_INITIALS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 
 /** Dia BRT de "agora" como date-only (meia-noite UTC). */
 export function getBrtToday(now: Date = new Date()): Date {
@@ -63,13 +62,23 @@ export function getBrtToday(now: Date = new Date()): Date {
   return new Date(Date.UTC(brtNow.getUTCFullYear(), brtNow.getUTCMonth(), brtNow.getUTCDate()));
 }
 
-/** Domingo da semana do dia dado (date-only) — início da semana exibida (E12). */
+export function addDays(date: Date, days: number): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
+}
+
+/** Domingo da semana do dia dado (date-only) — âncora das linhas da grade. */
 export function computeWeekStart(day: Date): Date {
   return addDays(day, -day.getUTCDay());
 }
 
-export function addDays(date: Date, days: number): Date {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
+/** Dia 1 do mês do dia dado (date-only) — âncora da visão mensal. */
+export function computeMonthStart(day: Date): Date {
+  return new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), 1));
+}
+
+/** Dia 1 do mês deslocado `delta` meses (navegação ◀ ▶). */
+export function addMonths(monthStart: Date, delta: number): Date {
+  return new Date(Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + delta, 1));
 }
 
 /** Chave 'YYYY-MM-DD' do mapa de eventos e das comparações de dia. */
@@ -80,53 +89,22 @@ export function toDayKey(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-/** Os 7 dias da janela a partir do domingo inicial (dom–sáb). */
-export function buildWeek(start: Date): Date[] {
-  return Array.from({ length: CALENDAR_WEEK_DAYS }, (_, i) => addDays(start, i));
-}
-
-/** Os 5 dias ÚTEIS (seg–sex) exibidos no card — os fins de semana da janela
- *  ficam de fora do render (DSB-D7); seus eventos são rolados pelo backend.
- *  Fim de semana (getUTCDay 0=dom/6=sáb) é inlinado — em vez de importar
- *  isWeekendDate de ./business-days — pra este módulo não ter import RELATIVO de
- *  runtime e assim rodar no test:unit via --experimental-strip-types (DSB-H8). */
-export function buildBusinessDays(start: Date): Date[] {
-  return buildWeek(start).filter((day) => {
-    const dow = day.getUTCDay();
-    return dow !== 0 && dow !== 6;
-  });
-}
-
 /**
- * Rótulo do período (E15), agora sobre os DIAS ÚTEIS (DSB-D7): "7 – 11 de julho"
- * no mesmo mês; "30 de jun – 4 de jul" cruzando mês; ano acrescentado quando o
- * período não é do ano corrente (ou cruza a virada). `start` é o domingo da
- * janela; o rótulo cobre segunda (start+1) até sexta (start+5).
+ * Grade do MÊS (DSB-D18): do domingo da semana do dia 1 até o sábado da
+ * semana do último dia — sempre múltiplo de 7 células (28/35/42). As pontas
+ * pertencem aos meses vizinhos (o card as esmaece via comparação de mês).
  */
-export function formatPeriodLabel(start: Date, now: Date = new Date()): string {
-  const first = addDays(start, 1); // segunda
-  const last = addDays(start, CALENDAR_WEEK_DAYS - 2); // sexta (start + 5)
-  const currentYear = getBrtToday(now).getUTCFullYear();
-  const sameYearAsNow =
-    first.getUTCFullYear() === currentYear && last.getUTCFullYear() === currentYear;
+export function buildMonthGrid(monthStart: Date): Date[] {
+  const gridStart = computeWeekStart(monthStart);
+  const monthEnd = new Date(Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 0));
+  const gridEnd = addDays(computeWeekStart(monthEnd), 6);
+  const total = Math.round((gridEnd.getTime() - gridStart.getTime()) / 86_400_000) + 1;
+  return Array.from({ length: total }, (_, i) => addDays(gridStart, i));
+}
 
-  if (
-    first.getUTCMonth() === last.getUTCMonth() &&
-    first.getUTCFullYear() === last.getUTCFullYear()
-  ) {
-    const base = `${first.getUTCDate()} – ${last.getUTCDate()} de ${MONTH_LONG[first.getUTCMonth()]}`;
-    return sameYearAsNow ? base : `${base} de ${first.getUTCFullYear()}`;
-  }
-
-  const startLabel = `${first.getUTCDate()} de ${MONTH_SHORT[first.getUTCMonth()]}`;
-  const endLabel = `${last.getUTCDate()} de ${MONTH_SHORT[last.getUTCMonth()]}`;
-  if (sameYearAsNow) {
-    return `${startLabel} – ${endLabel}`;
-  }
-  if (first.getUTCFullYear() === last.getUTCFullYear()) {
-    return `${startLabel} – ${endLabel} de ${first.getUTCFullYear()}`;
-  }
-  return `${startLabel} de ${first.getUTCFullYear()} – ${endLabel} de ${last.getUTCFullYear()}`;
+/** Rótulo do mês exibido no header: "julho de 2026" (sempre com o ano). */
+export function formatMonthLabel(monthStart: Date): string {
+  return `${MONTH_LONG[monthStart.getUTCMonth()]} de ${monthStart.getUTCFullYear()}`;
 }
 
 /** aria-label do quadrado: "9 de julho, quinta-feira". */

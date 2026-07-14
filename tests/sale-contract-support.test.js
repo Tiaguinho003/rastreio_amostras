@@ -29,7 +29,6 @@ import {
   normalizeRequiredAgio,
   normalizeUnitPrice,
   normalizeWashoutReason,
-  rollWeekendToWeekday,
   splitOriginLotForLabel,
   toApprovalContractOption,
   toSaleContractView,
@@ -833,14 +832,9 @@ test('normalizeEtapa2Input: faturamento/pagamento em fim de semana são rejeitad
   assert.doesNotThrow(() => normalizeEtapa2Input(validEtapa2()));
 });
 
-test('rollWeekendToWeekday: sábado→sexta, domingo→segunda, dia útil inalterado', () => {
-  assert.equal(rollWeekendToWeekday('2026-07-11'), '2026-07-10'); // sábado → sexta
-  assert.equal(rollWeekendToWeekday('2026-07-12'), '2026-07-13'); // domingo → segunda
-  assert.equal(rollWeekendToWeekday('2026-07-10'), '2026-07-10'); // sexta fica
-  assert.equal(rollWeekendToWeekday('2026-07-08'), '2026-07-08'); // quarta fica
-});
-
-test('bucketPaymentEvents: evento de fim de semana rola pro dia útil vizinho', () => {
+// DSB-D18: o roll de fim de semana saiu (o calendário mostra o mês inteiro) —
+// evento de sáb/dom agrupa no dia REAL.
+test('bucketPaymentEvents: evento de fim de semana fica no dia real (DSB-D18)', () => {
   const sat = [
     {
       id: 'x',
@@ -854,14 +848,13 @@ test('bucketPaymentEvents: evento de fim de semana rola pro dia útil vizinho', 
     },
   ];
   const map = bucketPaymentEvents(sat, [], '2026-07-01');
-  // Rolado pra sexta (10); não some no dia do sábado (11).
-  assert.equal(map['2026-07-11'], undefined);
-  assert.equal(map['2026-07-10'].length, 1);
-  // typeKey de atraso computado sobre a data REAL (11 < 01? não) → segue "due".
-  assert.equal(map['2026-07-10'][0].typeKey, 'contract_payment_due');
+  // Sem roll: aparece no próprio sábado (11), nada na sexta (10).
+  assert.equal(map['2026-07-10'], undefined);
+  assert.equal(map['2026-07-11'].length, 1);
+  assert.equal(map['2026-07-11'][0].typeKey, 'contract_payment_due');
 });
 
-test('bucketShipmentEvents: embarque em fim de semana rola pro dia útil vizinho', () => {
+test('bucketShipmentEvents: embarque em fim de semana fica no dia real (DSB-D18)', () => {
   const sun = [
     {
       id: 'y',
@@ -873,10 +866,10 @@ test('bucketShipmentEvents: embarque em fim de semana rola pro dia útil vizinho
     },
   ];
   const map = bucketShipmentEvents(sun, [], '2026-07-01');
-  assert.equal(map['2026-07-12'], undefined);
-  assert.equal(map['2026-07-13'].length, 1); // domingo → segunda
-  assert.ok(map['2026-07-13'][0].id.startsWith('shipment:'));
-  assert.equal(map['2026-07-13'][0].state, 'previsto'); // DSB-D10: cor por estado
+  assert.equal(map['2026-07-13'], undefined);
+  assert.equal(map['2026-07-12'].length, 1); // fica no domingo
+  assert.ok(map['2026-07-12'][0].id.startsWith('shipment:'));
+  assert.equal(map['2026-07-12'][0].state, 'previsto'); // DSB-D10: cor por estado
 });
 
 // Faturamento (DSB-D11): agendado = invoiceDate/EMITIDO; realizado = invoicedAt.
@@ -925,13 +918,13 @@ test('buildInvoiceEvent (DSB-D11): sem comprador -> label = faturamento · numer
   assert.equal(event.buyerName, null);
 });
 
-test('bucketInvoiceEvents (DSB-D11): agrupa por dayKey (agendado no invoiceDate + realizado no invoicedAt) + roll de fds', () => {
+test('bucketInvoiceEvents (DSB-D11/D18): agrupa por dayKey REAL (agendado no invoiceDate + realizado no invoicedAt)', () => {
   const scheduled = [
     {
       id: 'a',
       status: 'EMITIDO',
       contractNumber: '1/26',
-      invoiceDate: new Date('2026-07-12T00:00:00.000Z'), // domingo -> rola pra segunda
+      invoiceDate: new Date('2026-07-12T00:00:00.000Z'), // domingo — fica no domingo (DSB-D18)
       invoicedAt: null,
       buyerSnapshot: { displayName: 'A' },
     },
@@ -942,15 +935,16 @@ test('bucketInvoiceEvents (DSB-D11): agrupa por dayKey (agendado no invoiceDate 
       status: 'PAGO',
       contractNumber: '2/26',
       invoiceDate: new Date('2026-07-06T00:00:00.000Z'), // ignorado no realizado
-      invoicedAt: new Date('2026-07-13T00:00:00.000Z'), // segunda (dia util, nao rola)
+      invoicedAt: new Date('2026-07-13T00:00:00.000Z'), // segunda
       buyerSnapshot: null,
     },
   ];
   const map = bucketInvoiceEvents(scheduled, done, '2026-07-01');
-  assert.equal(map['2026-07-12'], undefined); // domingo nao aparece
-  assert.equal(map['2026-07-13'].length, 2); // agendado (rolado) + realizado no mesmo dia util
-  assert.ok(map['2026-07-13'].every((e) => e.id.startsWith('invoice:')));
-  assert.deepEqual(map['2026-07-13'].map((e) => e.state).sort(), ['previsto', 'realizado']);
+  assert.equal(map['2026-07-12'].length, 1); // agendado no dia REAL (domingo)
+  assert.equal(map['2026-07-12'][0].state, 'previsto');
+  assert.equal(map['2026-07-13'].length, 1); // realizado na segunda
+  assert.equal(map['2026-07-13'][0].state, 'realizado');
+  assert.ok([...map['2026-07-12'], ...map['2026-07-13']].every((e) => e.id.startsWith('invoice:')));
 });
 
 // Embarque (EMB): buildShipmentEvent — agendado = invoiceDate; realizado = shippedAt.
@@ -985,10 +979,9 @@ test('buildShipmentEvent (EMB): agendado usa invoiceDate; realizado usa shippedA
   assert.equal(done.event.state, 'realizado');
 });
 
-// DSB-D7: um agendado VENCIDO cuja data real cai num FIM DE SEMANA vira overdue (sobre
-// a data real) E rola pro dia útil vizinho — o cenário que os comentários prometem e
-// que faltava cobertura (os outros testes de roll usam hoje no passado -> tudo previsto).
-test('bucketPaymentEvents (DSB-D7): agendado vencido no fim de semana -> overdue E rolado pro dia útil', () => {
+// DSB-D18: um agendado VENCIDO cuja data real cai num FIM DE SEMANA vira overdue
+// (sobre a data real) e fica NO PRÓPRIO dia — o calendário mensal mostra sáb/dom.
+test('bucketPaymentEvents (DSB-D18): agendado vencido no fim de semana -> overdue no dia real', () => {
   const due = [
     {
       id: 'w',
@@ -1002,9 +995,8 @@ test('bucketPaymentEvents (DSB-D7): agendado vencido no fim de semana -> overdue
     },
   ];
   const map = bucketPaymentEvents(due, [], '2026-07-20'); // hoje depois -> vencido
-  assert.equal(map['2026-07-11'], undefined); // sábado não aparece
-  assert.equal(map['2026-07-10'].length, 1); // rolado sáb -> sex
-  // typeKey/state de atraso computados sobre a data REAL (11 < 20) ANTES do roll.
-  assert.equal(map['2026-07-10'][0].typeKey, 'contract_payment_overdue');
-  assert.equal(map['2026-07-10'][0].state, 'atrasado');
+  assert.equal(map['2026-07-10'], undefined); // nada na sexta (sem roll)
+  assert.equal(map['2026-07-11'].length, 1); // no próprio sábado
+  assert.equal(map['2026-07-11'][0].typeKey, 'contract_payment_overdue');
+  assert.equal(map['2026-07-11'][0].state, 'atrasado');
 });
