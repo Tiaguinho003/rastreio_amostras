@@ -12,6 +12,7 @@ import {
   APPROVAL_ELIGIBLE_STATUSES,
   buildApprovalPrefill,
   isSpotWashout,
+  SALE_CONTRACT_STATUSES,
   toApprovalContractOption,
 } from '../../sale-contracts/sale-contract-support.js';
 import { formatHarvestLabel, normalizeReportedHarvest } from '../../reports/export-fields.js';
@@ -3178,11 +3179,11 @@ export function createBackendApiV1({
           });
         }
         const { contract } = await saleContractService.getSaleContract(contractId, actor);
-        // D105 (refinada pela D145): inclui WASH_OUT, mas so o do FUTURO — o corretor
-        // recebe a comissao no washout de um contrato a termo; o fisico a vista
-        // cancelado nao gera cobranca (bloqueado logo abaixo).
-        const ELIGIBLE_STATUSES = ['EMITIDO', 'FATURADO', 'PAGO', 'WASH_OUT'];
-        if (!ELIGIBLE_STATUSES.includes(contract.status)) {
+        // D105 (refinada pela D145): elegivel em qualquer status do contrato
+        // (= SALE_CONTRACT_STATUSES, evita a lista hardcoded, D147) — inclui
+        // WASH_OUT, mas so o do FUTURO cobra; o fisico a vista cancelado e
+        // bloqueado logo abaixo (isSpotWashout).
+        if (!SALE_CONTRACT_STATUSES.includes(contract.status)) {
           throw new HttpError(409, 'O Espelho de Corretagem não é elegível para este contrato', {
             code: 'ESPELHO_NOT_ELIGIBLE',
           });
