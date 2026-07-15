@@ -8,7 +8,9 @@ type RouteContext = {
   }>;
 };
 
+// DELETE = cancelamento SOFT (a visita e imutavel; marca "Cancelado" e fica no
+// historico). Mesma semantica do "Deletar lote". So o proprio autor (no service).
 export async function DELETE(request: NextRequest, context: RouteContext) {
   const params = await context.params;
-  return executeBackend('deleteVisitReport', request, { params });
+  return executeBackend('cancelVisitReport', request, { params });
 }

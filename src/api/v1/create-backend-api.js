@@ -15,7 +15,6 @@ import { SaleContractService } from '../../sale-contracts/sale-contract-service.
 import { SaleContractShipmentService } from '../../sale-contracts/sale-contract-shipment-service.js';
 import { SaleContractPdfService } from '../../sale-contracts/sale-contract-pdf-service.js';
 import { VisitReportService } from '../../visits/visit-report-service.js';
-import { CommercialFormsService } from '../../visits/commercial-forms-service.js';
 import { createPushServiceFromEnv } from '../../push/create-push-service.js';
 import { ClassificationExtractionService } from '../../samples/classification-extraction-service.js';
 import { FormDetectionService } from '../../samples/form-detection-service.js';
@@ -65,8 +64,9 @@ export function createBackendApiV1FromEnv() {
   if (!pushService) {
     console.warn('[push] PUSH_VAPID_* not configured — push notifications disabled');
   }
+  // Servico unico de Relatorios (visita unificada + semanal + feed) desde a
+  // unificacao 2026-07-15 (o antigo CommercialFormsService foi absorvido).
   const visitReportService = new VisitReportService({ prisma });
-  const commercialFormsService = new CommercialFormsService({ prisma });
   const openaiApiKey = (process.env.OPENAI_API_KEY ?? '').trim() || null;
   const extractionService = openaiApiKey
     ? new ClassificationExtractionService({ apiKey: openaiApiKey })
@@ -112,7 +112,6 @@ export function createBackendApiV1FromEnv() {
     saleContractShipmentService,
     saleContractPdfService,
     visitReportService,
-    commercialFormsService,
     pushService,
     commandService,
     queryService,

@@ -8,7 +8,9 @@ type RouteContext = {
   }>;
 };
 
+// DELETE = cancelamento SOFT (relatorio imutavel; fica no historico). So o
+// proprio autor (no service).
 export async function DELETE(request: NextRequest, context: RouteContext) {
   const params = await context.params;
-  return executeBackend('deleteWeeklyReport', request, { params });
+  return executeBackend('cancelWeeklyReport', request, { params });
 }

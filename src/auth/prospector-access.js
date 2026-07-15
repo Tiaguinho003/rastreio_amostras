@@ -25,15 +25,19 @@ export const PROSPECTOR_ALLOWED_API_METHODS = new Set([
   'savePushSubscription',
   'deletePushSubscription',
 
-  // Formulario de visita + dashboard do prospector. deleteVisitReport
-  // entra porque o autor exclui o PROPRIO informe (lixeira do dashboard);
-  // a regra "so o proprio" e do service, nao do gate.
-  // SEM lookupClients: o formulario virou declaracao (sem busca de cliente
-  // cadastrado) — o papel de campo nao enumera a base de clientes. O
-  // vinculo informe->cliente (linkVisitReportClient) e curadoria de
-  // ADMIN/CADASTRO no /resumo e tambem fica fora daqui.
+  // Relatorio de VISITA + dashboard do prospector. Desde a UNIFICACAO
+  // (2026-07-15) a visita nasce VINCULADA a um cliente real, entao o
+  // prospector agora precisa BUSCAR (lookupClients) e CADASTRAR (createClient)
+  // cliente no proprio formulario — e o modal de cadastro rapido lista usuarios
+  // p/ o responsavel (lookupUsersForReference). Os tres sao auth-only no service
+  // (nenhuma mudanca de gate la); isto AMPLIA de proposito a superficie do
+  // prospector (passa a enumerar/criar clientes). cancelVisitReport (soft) entra
+  // porque o autor cancela a PROPRIA visita; a regra "so o proprio" e do service.
+  'lookupClients',
+  'createClient',
+  'lookupUsersForReference',
   'createVisitReport',
   'listVisitReports',
   'getMyVisitReportStats',
-  'deleteVisitReport',
+  'cancelVisitReport',
 ]);

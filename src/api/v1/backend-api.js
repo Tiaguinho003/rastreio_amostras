@@ -248,7 +248,6 @@ export function createBackendApiV1({
   saleContractShipmentService = null,
   saleContractPdfService = null,
   visitReportService = null,
-  commercialFormsService = null,
   pushService = null,
   commandService,
   queryService,
@@ -2588,7 +2587,8 @@ export function createBackendApiV1({
       }),
 
     // ============================================================
-    // Informe de visita (pagina /informe + listagem admin /resumo)
+    // Relatorios (pagina "Relatorios", rota /relatorios): visita unificada
+    // (prospector + comercial) + relatorio semanal — servico unico (2026-07-15).
     // ============================================================
 
     createVisitReport: (input) =>
@@ -2597,81 +2597,51 @@ export function createBackendApiV1({
           throw new HttpError(501, 'Visit report service is not configured');
         }
 
-        // Qualquer papel autenticado envia; o service carimba userId do
-        // ator e o banco carimba createdAt. capturedAt (opcional) e a hora
-        // local do preenchimento quando o envio veio da fila offline.
+        // Qualquer papel autenticado (incl. PROSPECTOR) cria a visita; nasce
+        // vinculada a um cliente real (clientId obrigatorio). Online-only —
+        // a fila offline foi removida na unificacao 2026-07-15.
         const actor = await resolveActorContext(input, authService);
-
-        // Fila offline reenvia com Idempotency-Key = id gerado no aparelho;
-        // replay devolve o registro ja criado em vez de duplicar (T8: scope
-        // isolado por usuario).
-        return withIdempotency({
-          store: idempotencyStore,
-          scope: buildScopeKey(IDEMPOTENCY_SCOPES.CREATE_VISIT_REPORT, actor?.actorUserId),
-          headers: input?.headers,
-          handler: async () => {
-            const body = readRequestBody(input);
-            const result = await visitReportService.createVisitReport(
-              {
-                clientKind: body.clientKind,
-                clientId: body.clientId,
-                newClientName: body.newClientName,
-                newClientCity: body.newClientCity,
-                newClientPhone: body.newClientPhone,
-                farmSize: body.farmSize,
-                farmSizeNotes: body.farmSizeNotes,
-                interestLevel: body.interestLevel,
-                interestNotes: body.interestNotes,
-                sellsCurrently: body.sellsCurrently,
-                sellsToWhom: body.sellsToWhom,
-                generalNotes: body.generalNotes,
-                capturedAt: body.capturedAt,
-              },
-              actor
-            );
-
-            return { status: 201, body: result };
-          },
-        });
-      }),
-
-    deleteVisitReport: (input) =>
-      executeApiForInput(input, async () => {
-        if (!visitReportService) {
-          throw new HttpError(501, 'Visit report service is not configured');
-        }
-
-        const actor = await resolveActorContext(input, authService);
-        const reportId = input?.params?.reportId;
-        if (typeof reportId !== 'string' || reportId.length === 0) {
-          throw new HttpError(422, 'reportId path param is required');
-        }
-
-        const result = await visitReportService.deleteVisitReport({ reportId }, actor);
-        return { status: 200, body: result };
-      }),
-
-    linkVisitReportClient: (input) =>
-      executeApiForInput(input, async () => {
-        if (!visitReportService) {
-          throw new HttpError(501, 'Visit report service is not configured');
-        }
-
-        // Curadoria do /resumo (ADMIN/CADASTRO): seta/troca/remove o
-        // cliente vinculado de um informe. Body {clientId: string | null}
-        // — null desvincula; a regra de papel fica no service.
-        const actor = await resolveActorContext(input, authService);
-        const reportId = input?.params?.reportId;
-        if (typeof reportId !== 'string' || reportId.length === 0) {
-          throw new HttpError(422, 'reportId path param is required');
-        }
-
         const body = readRequestBody(input);
-        const result = await visitReportService.linkVisitReportClient(
-          { reportId, clientId: body.clientId },
+        const result = await visitReportService.createVisitReport(
+          {
+            clientKind: body.clientKind,
+            clientId: body.clientId,
+            newClientName: body.newClientName,
+            newClientCity: body.newClientCity,
+            newClientPhone: body.newClientPhone,
+            farmSize: body.farmSize,
+            farmSizeNotes: body.farmSizeNotes,
+            interestLevel: body.interestLevel,
+            interestNotes: body.interestNotes,
+            sellsCurrently: body.sellsCurrently,
+            sellsToWhom: body.sellsToWhom,
+            reason: body.reason,
+            reasonNotes: body.reasonNotes,
+            outcome: body.outcome,
+            outcomeNotes: body.outcomeNotes,
+            generalNotes: body.generalNotes,
+          },
           actor
         );
 
+        return { status: 201, body: result };
+      }),
+
+    cancelVisitReport: (input) =>
+      executeApiForInput(input, async () => {
+        if (!visitReportService) {
+          throw new HttpError(501, 'Visit report service is not configured');
+        }
+
+        // Cancelamento SOFT — so o proprio autor (regra no service). A visita
+        // e imutavel: erro = cancelar e reenviar.
+        const actor = await resolveActorContext(input, authService);
+        const reportId = input?.params?.reportId;
+        if (typeof reportId !== 'string' || reportId.length === 0) {
+          throw new HttpError(422, 'reportId path param is required');
+        }
+
+        const result = await visitReportService.cancelVisitReport({ reportId }, actor);
         return { status: 200, body: result };
       }),
 
@@ -2708,87 +2678,17 @@ export function createBackendApiV1({
         return { status: 200, body: result };
       }),
 
-    // ============================================================
-    // Formularios do comercial (pagina /informe do papel COMMERCIAL)
-    // ============================================================
-
-    createCommercialVisit: (input) =>
-      executeApiForInput(input, async () => {
-        if (!commercialFormsService) {
-          throw new HttpError(501, 'Commercial forms service is not configured');
-        }
-
-        const actor = await resolveActorContext(input, authService);
-        const body = readRequestBody(input);
-        const result = await commercialFormsService.createCommercialVisit(
-          {
-            clientKind: body.clientKind,
-            clientId: body.clientId,
-            newClientName: body.newClientName,
-            newClientCity: body.newClientCity,
-            newClientPhone: body.newClientPhone,
-            reason: body.reason,
-            outcome: body.outcome,
-            outcomeNotes: body.outcomeNotes,
-            generalNotes: body.generalNotes,
-          },
-          actor
-        );
-
-        return { status: 201, body: result };
-      }),
-
-    deleteCommercialVisit: (input) =>
-      executeApiForInput(input, async () => {
-        if (!commercialFormsService) {
-          throw new HttpError(501, 'Commercial forms service is not configured');
-        }
-
-        const actor = await resolveActorContext(input, authService);
-        const visitId = input?.params?.visitId;
-        if (typeof visitId !== 'string' || visitId.length === 0) {
-          throw new HttpError(422, 'visitId path param is required');
-        }
-
-        const result = await commercialFormsService.deleteCommercialVisit({ visitId }, actor);
-        return { status: 200, body: result };
-      }),
-
-    linkCommercialVisitClient: (input) =>
-      executeApiForInput(input, async () => {
-        if (!commercialFormsService) {
-          throw new HttpError(501, 'Commercial forms service is not configured');
-        }
-
-        // Curadoria do /resumo (ADMIN/CADASTRO): seta/troca/remove o cliente
-        // vinculado de uma VISITA COMERCIAL — so quando clientKind=NEW (a regra
-        // de papel + o gate NEW ficam no service). Body {clientId: string |
-        // null} — null desvincula.
-        const actor = await resolveActorContext(input, authService);
-        const visitId = input?.params?.visitId;
-        if (typeof visitId !== 'string' || visitId.length === 0) {
-          throw new HttpError(422, 'visitId path param is required');
-        }
-
-        const body = readRequestBody(input);
-        const result = await commercialFormsService.linkCommercialVisitClient(
-          { visitId, clientId: body.clientId },
-          actor
-        );
-
-        return { status: 200, body: result };
-      }),
-
     createWeeklyReport: (input) =>
       executeApiForInput(input, async () => {
-        if (!commercialFormsService) {
-          throw new HttpError(501, 'Commercial forms service is not configured');
+        if (!visitReportService) {
+          throw new HttpError(501, 'Visit report service is not configured');
         }
 
-        // A semana de referencia e SEMPRE computada no servidor.
+        // A semana de referencia e SEMPRE computada no servidor. So ADMIN +
+        // COMMERCIAL criam (gate no service).
         const actor = await resolveActorContext(input, authService);
         const body = readRequestBody(input);
-        const result = await commercialFormsService.createWeeklyReport(
+        const result = await visitReportService.createWeeklyReport(
           {
             summary: body.summary,
             difficulties: body.difficulties,
@@ -2800,36 +2700,34 @@ export function createBackendApiV1({
         return { status: 201, body: result };
       }),
 
-    deleteWeeklyReport: (input) =>
+    cancelWeeklyReport: (input) =>
       executeApiForInput(input, async () => {
-        if (!commercialFormsService) {
-          throw new HttpError(501, 'Commercial forms service is not configured');
+        if (!visitReportService) {
+          throw new HttpError(501, 'Visit report service is not configured');
         }
 
+        // Cancelamento SOFT do semanal — so o proprio autor (regra no service).
         const actor = await resolveActorContext(input, authService);
         const reportId = input?.params?.reportId;
         if (typeof reportId !== 'string' || reportId.length === 0) {
           throw new HttpError(422, 'reportId path param is required');
         }
 
-        const result = await commercialFormsService.deleteWeeklyReport({ reportId }, actor);
+        const result = await visitReportService.cancelWeeklyReport({ reportId }, actor);
         return { status: 200, body: result };
       }),
 
     listInformeFeed: (input) =>
       executeApiForInput(input, async () => {
-        if (!commercialFormsService) {
-          throw new HttpError(501, 'Commercial forms service is not configured');
+        if (!visitReportService) {
+          throw new HttpError(501, 'Visit report service is not configured');
         }
 
+        // Feed scope=all (todo nao-PROSPECTOR) — visita + semanal de todos.
         const actor = await resolveActorContext(input, authService);
         const query = input?.query ?? {};
-        const result = await commercialFormsService.listInformeFeed(
-          {
-            scope: query.scope,
-            page: query.page,
-            limit: query.limit,
-          },
+        const result = await visitReportService.listInformeFeed(
+          { page: query.page, limit: query.limit },
           actor
         );
 

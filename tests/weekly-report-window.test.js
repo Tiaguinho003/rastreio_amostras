@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { computeWeekReference } from '../src/visits/commercial-forms-service.js';
+import { computeWeekReference } from '../src/visits/visit-report-service.js';
 import { computeClientWeekReference } from '../lib/weekly-report.ts';
 
 // Semana de referencia do relatorio semanal do comercial: segunda 00:00

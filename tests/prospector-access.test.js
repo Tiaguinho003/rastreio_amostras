@@ -49,7 +49,6 @@ function createApiFor(role, services = {}) {
     userService: {},
     clientService: {},
     visitReportService: {},
-    commercialFormsService: {},
     ...services,
   });
 }
@@ -64,16 +63,11 @@ test('PROSPECTOR: metodos fora da allowlist respondem 403 ROLE_FORBIDDEN', async
     'listClients',
     'createSample',
     'listUsers',
-    // O formulario virou declaracao (sem busca de cliente cadastrado): o
-    // papel de campo nao enumera a base de clientes.
-    'lookupClients',
-    // Curadoria do vinculo informe->cliente e de ADMIN/CADASTRO no /resumo.
-    'linkVisitReportClient',
-    // Formularios do comercial: fora do app restrito do prospector.
-    'createCommercialVisit',
-    'deleteCommercialVisit',
+    // Relatorio SEMANAL: so ADMIN + COMMERCIAL — fora do app do prospector.
     'createWeeklyReport',
-    'deleteWeeklyReport',
+    'cancelWeeklyReport',
+    // Feed da pagina "Relatorios": o prospector nao e viewer (ve so os dele
+    // no dashboard, via listVisitReports).
     'listInformeFeed',
   ];
 
@@ -106,6 +100,17 @@ test('PROSPECTOR: metodos da allowlist nao caem no gate', async () => {
           },
         };
       },
+      // Desde a unificacao (2026-07-15) o prospector cadastra cliente no
+      // proprio form da visita; o modal de cadastro rapido lista usuarios.
+      async lookupUsersForReference() {
+        return { users: [] };
+      },
+    },
+    clientService: {
+      // Buscar + cadastrar cliente no form da visita (nasce vinculada).
+      async lookupClients() {
+        return { items: [] };
+      },
     },
     visitReportService: {
       async listVisitReports() {
@@ -114,8 +119,8 @@ test('PROSPECTOR: metodos da allowlist nao caem no gate', async () => {
       async getMyVisitReportStats() {
         return { todayCount: 0, todayNewClientsCount: 0 };
       },
-      async deleteVisitReport() {
-        return { removed: true };
+      async cancelVisitReport() {
+        return { report: { id: 'x', cancelledAt: new Date().toISOString() } };
       },
     },
     pushService: {
@@ -133,6 +138,8 @@ test('PROSPECTOR: metodos da allowlist nao caem no gate', async () => {
     'listVisitReports',
     'getMyVisitReportStats',
     'getPushConfig',
+    'lookupClients',
+    'lookupUsersForReference',
   ];
 
   for (const methodName of allowedSamples) {
@@ -140,13 +147,13 @@ test('PROSPECTOR: metodos da allowlist nao caem no gate', async () => {
     assert.equal(result.status, 200, `${methodName} deveria responder 200`);
   }
 
-  // deleteVisitReport tambem entra na allowlist (lixeira do proprio
-  // informe) — a regra "so o proprio" e do service, nao do gate.
-  const del = await api.deleteVisitReport({
+  // cancelVisitReport tambem entra na allowlist (cancelamento soft do proprio
+  // relatorio) — a regra "so o proprio" e do service, nao do gate.
+  const cancelled = await api.cancelVisitReport({
     ...AUTHED_INPUT,
     params: { reportId: '00000000-0000-0000-0000-000000000099' },
   });
-  assert.equal(del.status, 200, 'deleteVisitReport deveria passar pelo gate');
+  assert.equal(cancelled.status, 200, 'cancelVisitReport deveria passar pelo gate');
 });
 
 test('demais papeis nao sao afetados pelo gate', async () => {

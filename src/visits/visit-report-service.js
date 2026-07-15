@@ -12,55 +12,60 @@ import {
   toIsoString,
 } from '../users/user-support.js';
 
-// Informe de visita (formulario do prospector): cada envio vira 1 row em
-// visit_report, imutavel via API EXCETO o trio de vinculo curado
-// (clientId/linkedByUserId/linkedAt — ver linkVisitReportClient). Qualquer
-// usuario autenticado envia; a listagem e dos viewers (pagina /resumo, veem
-// tudo) e do PROSPECTOR (apenas os PROPRIOS informes, na lista do dashboard
-// dele). userId e createdAt sao carimbados no servidor — o body nunca decide
-// quem enviou nem quando.
+// Relatorios (pagina "Relatorios", rota /relatorios). Desde a UNIFICACAO
+// (2026-07-15) sao 2 tipos:
+//   - VISITA (visit_report): funde o antigo informe do prospector + a visita
+//     do comercial num relatorio UNICO. O cliente NASCE vinculado (lookup +
+//     cadastro no proprio form); TODOS os papeis criam (incl. PROSPECTOR).
+//   - SEMANAL (weekly_report): so ADMIN + COMMERCIAL criam.
+// Ambos IMUTAVEIS: erro = cancelar (soft) e reenviar (so o proprio autor).
+// A pagina e viewer scope=all p/ todo nao-PROSPECTOR; o PROSPECTOR ve so os
+// PROPRIOS (lista do dashboard dele). user_id/created_at carimbados no servidor.
 
 export const VISIT_CLIENT_KINDS = Object.freeze(['EXISTING', 'NEW']);
 export const VISIT_FARM_SIZES = Object.freeze(['SMALL', 'MEDIUM', 'LARGE']);
 export const VISIT_INTEREST_LEVELS = Object.freeze(['NONE', 'LOW', 'MEDIUM', 'HIGH']);
+// Motivos/resultados herdados da visita comercial (COLLECTION legado nao entra).
+export const COMMERCIAL_VISIT_REASONS = Object.freeze([
+  'NEGOTIATION',
+  'SAMPLE_DELIVERY_OR_PICKUP',
+  'RELATIONSHIP',
+]);
+export const COMMERCIAL_VISIT_OUTCOMES = Object.freeze([
+  'DEAL_CLOSED',
+  'PROPOSAL_IN_PROGRESS',
+  'NO_PROGRESS',
+  'NO_INTEREST',
+]);
 
 export const VISIT_REPORT_LIST_LIMIT_DEFAULT = 20;
 export const VISIT_REPORT_LIST_LIMIT_MAX = 100;
+export const INFORME_FEED_LIMIT_DEFAULT = 20;
+export const INFORME_FEED_LIMIT_MAX = 100;
 
-// ACESSO UNIFICADO (2026-07-15): TODO papel nao-PROSPECTOR e viewer de
-// "Relatorios" — ve TODOS os informes (scope=all) e cria (espelhado no front em
-// lib/roles.ts: isVisitReportViewer). O COMMERCIAL, que via so os PROPRIOS, passa
-// a ver todos. PROSPECTOR NAO e viewer: lista apenas os PROPRIOS informes (escopo
-// forcado por userId, preservado no listVisitReports abaixo).
+// Quem ve a pagina "Relatorios" (feed scope=all — TODOS os relatorios). Todo
+// papel nao-PROSPECTOR (ACESSO UNIFICADO 2026-07-15). PROSPECTOR ve so os
+// PROPRIOS (escopo forcado por userId em listVisitReports). Espelho no front:
+// isVisitReportViewer (lib/roles.ts).
 export const VISIT_REPORT_VIEWER_ROLES = NON_PROSPECTOR_ROLES;
 
-// Curadoria do vinculo informe -> cliente (Vincular / Cadastrar e vincular /
-// Remover vinculo; atende o caso "Cliente novo"). IGUAL aos viewers: quem ve
-// tambem cura — desde o acesso unificado (2026-07-15), todo nao-PROSPECTOR.
-// Espelhado no front em lib/roles.ts (isVisitLinkCurator).
-export const VISIT_REPORT_LINK_CURATOR_ROLES = NON_PROSPECTOR_ROLES;
+// Quem CRIA o relatorio SEMANAL — so ADMIN + COMMERCIAL (unificacao 2026-07-15).
+// A VISITA, ao contrario, e criada por qualquer autenticado (incl. PROSPECTOR).
+export const WEEKLY_REPORT_AUTHOR_ROLES = Object.freeze([USER_ROLES.ADMIN, USER_ROLES.COMMERCIAL]);
 
 const NEW_CLIENT_NAME_MAX = 200;
 const NEW_CLIENT_CITY_MAX = 120;
 const NEW_CLIENT_PHONE_MAX = 40;
 const NOTES_MAX = 1000;
+const WEEKLY_TEXT_MAX = 2000;
 
-// Tolerancia de relogio adiantado do aparelho ao validar capturedAt.
-const CAPTURED_AT_FUTURE_SKEW_MS = 5 * 60 * 1000;
-
-// Offset fixo de Brasilia (UTC-3, sem horario de verao desde 2019) —
-// mesmo padrao das janelas do dashboard (src/samples/sample-query-service.js).
+// Offset fixo de Brasilia (UTC-3, sem horario de verao desde 2019).
 const SAO_PAULO_UTC_OFFSET_HOURS = 3;
 
-const VISIT_REPORT_USER_SELECT = {
-  id: true,
-  fullName: true,
-  username: true,
-};
+const REPORT_USER_SELECT = { id: true, fullName: true, username: true };
 
-// Campos minimos pra montar displayName (PF usa fullName; PJ usa
-// tradeName/legalName — ver buildClientDisplayName).
-const VISIT_REPORT_CLIENT_SELECT = {
+// Campos minimos p/ montar displayName (PF=fullName; PJ=tradeName/legalName).
+const REPORT_CLIENT_SELECT = {
   id: true,
   code: true,
   personType: true,
@@ -70,16 +75,13 @@ const VISIT_REPORT_CLIENT_SELECT = {
   status: true,
 };
 
-// Janela do dia BRT corrente como instantes UTC (inicio inclusivo, fim
-// exclusivo) — base dos dois contadores do dashboard do prospector.
-// Dia inteiro 00:00→24:00 BRT — nao confundir com a janela 07:00–18:00 do
-// todayReceivedTotal do dashboard (horario comercial, outro proposito).
+// Janela do dia BRT corrente (inicio inclusivo, fim exclusivo) — base dos dois
+// contadores do dashboard do prospector.
 export function computeVisitStatsWindows(now = new Date()) {
   const brtNow = new Date(now.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
   const brtYear = brtNow.getUTCFullYear();
   const brtMonth = brtNow.getUTCMonth();
   const brtDay = brtNow.getUTCDate();
-
   return {
     todayStartUtc: new Date(Date.UTC(brtYear, brtMonth, brtDay, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0)),
     todayEndUtc: new Date(
@@ -88,14 +90,30 @@ export function computeVisitStatsWindows(now = new Date()) {
   };
 }
 
+// Semana de referencia do relatorio semanal: segunda 00:00 BRT (inclusive) ate
+// a proxima segunda (exclusive). O SERVIDOR sempre computa de now(); o body
+// nunca decide a semana. Espelho client-side em lib/weekly-report.ts.
+export function computeWeekReference(now = new Date()) {
+  const brtNow = new Date(now.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
+  const year = brtNow.getUTCFullYear();
+  const month = brtNow.getUTCMonth();
+  const day = brtNow.getUTCDate();
+  const weekday = brtNow.getUTCDay(); // 0=domingo
+  const daysFromMonday = weekday === 0 ? 6 : weekday - 1;
+  return {
+    weekStart: new Date(Date.UTC(year, month, day - daysFromMonday)),
+    weekEndDate: new Date(Date.UTC(year, month, day - daysFromMonday + 6)),
+    weekEndExclusive: new Date(Date.UTC(year, month, day - daysFromMonday + 7)),
+  };
+}
+
 function buildPage(total, page, limit) {
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const safePage = Math.min(page, totalPages);
-  const offset = (safePage - 1) * limit;
   return {
     limit,
     page: safePage,
-    offset,
+    offset: (safePage - 1) * limit,
     total,
     totalPages,
     hasPrev: safePage > 1,
@@ -110,65 +128,41 @@ function normalizeEnumChoice(value, allowedValues, fieldName) {
       field: fieldName,
     });
   }
-
   return value;
 }
 
-function normalizeBooleanFlag(value, fieldName) {
+// Enum opcional: null quando ausente/vazio; valida quando presente. Os campos
+// da visita (fazenda/interesse/motivo/resultado) sao TODOS opcionais no form
+// unificado — a obrigatoriedade fica p/ o remodel futuro das perguntas.
+function normalizeOptionalEnum(value, allowedValues, fieldName) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+  return normalizeEnumChoice(value, allowedValues, fieldName);
+}
+
+function normalizeOptionalBoolean(value, fieldName) {
+  if (value === undefined || value === null) {
+    return null;
+  }
   if (typeof value !== 'boolean') {
     throw new HttpError(422, `${fieldName} must be a boolean`, {
       code: 'VALIDATION_ERROR',
       field: fieldName,
     });
   }
-
   return value;
 }
 
-// Hora local do preenchimento, informada pelo aparelho quando o envio veio
-// da fila offline. Opcional (null = envio online direto); quando presente
-// precisa ser data valida e nao-futura (com tolerancia pra clock skew).
-function normalizeCapturedAt(value, fieldName = 'capturedAt') {
-  if (value === undefined || value === null || value === '') {
-    return null;
-  }
-
-  if (typeof value !== 'string') {
-    throw new HttpError(422, `${fieldName} must be an ISO-8601 string`, {
-      code: 'VALIDATION_ERROR',
-      field: fieldName,
-    });
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    throw new HttpError(422, `${fieldName} must be a valid ISO-8601 date`, {
-      code: 'VALIDATION_ERROR',
-      field: fieldName,
-    });
-  }
-
-  if (parsed.getTime() > Date.now() + CAPTURED_AT_FUTURE_SKEW_MS) {
-    throw new HttpError(422, `${fieldName} must not be in the future`, {
-      code: 'VISIT_CAPTURED_AT_FUTURE',
-      field: fieldName,
-    });
-  }
-
-  return parsed;
-}
-
-// Exportada: o feed combinado (commercial-forms-service) reusa esta view
-// para os itens do tipo VISIT_REPORT.
+// View da VISITA (unificada). newClient = anotacao de campo (nome/cidade/tel do
+// "Cliente novo"), preservada ao lado do vinculo real. cancelledAt != null =
+// cancelado (soft).
 export function toVisitReportView(row) {
   return {
     id: row.id,
+    type: 'VISIT_REPORT',
     user: row.user
-      ? {
-          id: row.user.id,
-          fullName: row.user.fullName,
-          username: row.user.username,
-        }
+      ? { id: row.user.id, fullName: row.user.fullName, username: row.user.username }
       : null,
     clientKind: row.clientKind,
     client: row.client
@@ -179,34 +173,45 @@ export function toVisitReportView(row) {
           status: row.client.status,
         }
       : null,
-    // Nome anotado por PRESENCA de dados, nao por kind: a declaracao
-    // "Ja e cliente" (EXISTING sem clientId) tambem captura texto livre.
-    // Rows legadas born-linked (EXISTING+clientId) ficam sem nome anotado.
     newClient: row.newClientName
-      ? {
-          name: row.newClientName,
-          city: row.newClientCity,
-          phone: row.newClientPhone,
-        }
+      ? { name: row.newClientName, city: row.newClientCity, phone: row.newClientPhone }
       : null,
-    // Curadoria do vinculo atual (null = aguardando vinculo ou born-linked).
-    // Defensivo: hidratacao sem o include de linkedBy nao quebra a view.
-    linkedBy: row.linkedBy
-      ? {
-          id: row.linkedBy.id,
-          fullName: row.linkedBy.fullName,
-          username: row.linkedBy.username,
-        }
-      : null,
-    linkedAt: toIsoString(row.linkedAt ?? null),
     farmSize: row.farmSize,
     farmSizeNotes: row.farmSizeNotes,
     interestLevel: row.interestLevel,
     interestNotes: row.interestNotes,
     sellsCurrently: row.sellsCurrently,
     sellsToWhom: row.sellsToWhom,
+    reason: row.reason,
+    reasonNotes: row.reasonNotes,
+    outcome: row.outcome,
+    outcomeNotes: row.outcomeNotes,
     generalNotes: row.generalNotes,
-    capturedAt: toIsoString(row.capturedAt),
+    cancelledAt: toIsoString(row.cancelledAt ?? null),
+    createdAt: toIsoString(row.createdAt),
+  };
+}
+
+function toDateOnlyString(value) {
+  return value.toISOString().slice(0, 10);
+}
+
+// View do relatorio SEMANAL.
+export function toWeeklyReportView(row) {
+  const weekStart = row.weekStart;
+  const weekEnd = new Date(weekStart.getTime() + 6 * 24 * 3600_000);
+  return {
+    id: row.id,
+    type: 'WEEKLY_REPORT',
+    user: row.user
+      ? { id: row.user.id, fullName: row.user.fullName, username: row.user.username }
+      : null,
+    weekStart: toDateOnlyString(weekStart),
+    weekEnd: toDateOnlyString(weekEnd),
+    summary: row.summary,
+    difficulties: row.difficulties,
+    nextWeekPlan: row.nextWeekPlan,
+    cancelledAt: toIsoString(row.cancelledAt ?? null),
     createdAt: toIsoString(row.createdAt),
   };
 }
@@ -216,48 +221,36 @@ export class VisitReportService {
     this.prisma = prisma;
   }
 
-  // Cliente referenciavel por vinculo: precisa existir e estar ACTIVE
-  // (espelha resolveOwnerBinding, sem exigir isSeller: a visita pode ser a
-  // qualquer cliente do cadastro). Usado pelo caminho legado do create e
-  // pela curadoria (linkVisitReportClient).
   async _assertActiveClient(clientId) {
     const client = await this.prisma.client.findUnique({
       where: { id: clientId },
-      select: VISIT_REPORT_CLIENT_SELECT,
+      select: REPORT_CLIENT_SELECT,
     });
-
     if (!client) {
       throw new HttpError(422, 'clientId does not reference an existing client', {
         code: 'VISIT_CLIENT_NOT_FOUND',
         field: 'clientId',
       });
     }
-
     if (client.status !== 'ACTIVE') {
       throw new HttpError(422, 'clientId must reference an active client', {
         code: 'VISIT_CLIENT_INACTIVE',
         field: 'clientId',
       });
     }
-
     return client;
   }
 
-  // Identificacao do cliente: clientKind e DECLARACAO do autor ("Ja e
-  // cliente" / "Cliente novo"), sem lookup — newClientName obrigatorio e
-  // cidade/telefone opcionais nos DOIS kinds; clientId nasce null e o
-  // vinculo real e curadoria posterior (linkVisitReportClient).
-  // Compat legado: payload EXISTING+clientId (fila offline de versoes
-  // antigas do app) segue aceito — valida cliente ACTIVE, zera campos new_*
-  // e nasce "born-linked" (linked_* null). NAO apertar esse caminho: 4xx
-  // (exceto 401) prende o informe na fila do aparelho (visit-sync.ts).
+  // Identificacao do cliente — a visita NASCE vinculada (clientId obrigatorio
+  // nos dois kinds; unificacao 2026-07-15). clientKind e so a DECLARACAO do
+  // autor: EXISTING = achou no lookup; NEW = cadastrou o cliente ali mesmo, e
+  // newClientName/City/Phone ficam como ANOTACAO ao lado do vinculo.
   async resolveClientIdentification(input) {
     const clientKind = normalizeEnumChoice(input.clientKind, VISIT_CLIENT_KINDS, 'clientKind');
-    const legacyClientId = normalizeOptionalText(input.clientId, 'clientId', 100);
-
-    if (clientKind === 'EXISTING' && legacyClientId) {
-      const client = await this._assertActiveClient(legacyClientId);
-
+    const client = await this._assertActiveClient(
+      normalizeRequiredText(input.clientId, 'clientId', 100)
+    );
+    if (clientKind === 'EXISTING') {
       return {
         clientKind,
         clientId: client.id,
@@ -266,10 +259,9 @@ export class VisitReportService {
         newClientPhone: null,
       };
     }
-
     return {
       clientKind,
-      clientId: null,
+      clientId: client.id,
       newClientName: normalizeRequiredText(
         input.newClientName,
         'newClientName',
@@ -292,23 +284,25 @@ export class VisitReportService {
     const actor = assertAuthenticatedActor(actorContext, 'create visit report');
 
     const identification = await this.resolveClientIdentification(input ?? {});
-    const farmSize = normalizeEnumChoice(input?.farmSize, VISIT_FARM_SIZES, 'farmSize');
+    // Campos da visita — TODOS opcionais (remodel das perguntas fica p/ depois).
+    const farmSize = normalizeOptionalEnum(input?.farmSize, VISIT_FARM_SIZES, 'farmSize');
     const farmSizeNotes = normalizeOptionalText(input?.farmSizeNotes, 'farmSizeNotes', NOTES_MAX);
-    const interestLevel = normalizeEnumChoice(
+    const interestLevel = normalizeOptionalEnum(
       input?.interestLevel,
       VISIT_INTEREST_LEVELS,
       'interestLevel'
     );
     const interestNotes = normalizeOptionalText(input?.interestNotes, 'interestNotes', NOTES_MAX);
-    const sellsCurrently = normalizeBooleanFlag(input?.sellsCurrently, 'sellsCurrently');
-    // "Com quem" so existe quando ja comercializa; descarta texto perdido
-    // de quem marcou Sim, preencheu e voltou pra Nao.
+    const sellsCurrently = normalizeOptionalBoolean(input?.sellsCurrently, 'sellsCurrently');
+    // "Com quem" so persiste quando comercializa.
     const sellsToWhom = sellsCurrently
       ? normalizeOptionalText(input?.sellsToWhom, 'sellsToWhom', NOTES_MAX)
       : null;
-    // Campo 5: observacoes gerais — discursivo e opcional.
+    const reason = normalizeOptionalEnum(input?.reason, COMMERCIAL_VISIT_REASONS, 'reason');
+    const reasonNotes = normalizeOptionalText(input?.reasonNotes, 'reasonNotes', NOTES_MAX);
+    const outcome = normalizeOptionalEnum(input?.outcome, COMMERCIAL_VISIT_OUTCOMES, 'outcome');
+    const outcomeNotes = normalizeOptionalText(input?.outcomeNotes, 'outcomeNotes', NOTES_MAX);
     const generalNotes = normalizeOptionalText(input?.generalNotes, 'generalNotes', NOTES_MAX);
-    const capturedAt = normalizeCapturedAt(input?.capturedAt);
 
     const created = await this.prisma.visitReport.create({
       data: {
@@ -325,92 +319,42 @@ export class VisitReportService {
         interestNotes,
         sellsCurrently,
         sellsToWhom,
+        reason,
+        reasonNotes,
+        outcome,
+        outcomeNotes,
         generalNotes,
-        capturedAt,
       },
       include: {
-        user: { select: VISIT_REPORT_USER_SELECT },
-        client: { select: VISIT_REPORT_CLIENT_SELECT },
-        linkedBy: { select: VISIT_REPORT_USER_SELECT },
+        user: { select: REPORT_USER_SELECT },
+        client: { select: REPORT_CLIENT_SELECT },
       },
     });
 
     return { report: toVisitReportView(created) };
   }
 
-  // Exclusao: APENAS o autor exclui o proprio informe (lixeira do dashboard
-  // do prospector). Nenhum outro papel exclui informe alheio — nem ADM nem
-  // Cadastro: o /resumo e curadoria de vinculo, nao de exclusao. Informe
-  // alheio (ou inexistente) responde 404, sem vazar existencia. Hard delete:
-  // o informe nao participa de projecoes nem do event store.
-  async deleteVisitReport(input, actorContext) {
-    const actor = assertAuthenticatedActor(actorContext, 'delete visit report');
+  // Cancelamento SOFT — so o proprio autor cancela a propria visita (nem ADMIN
+  // cancela alheia). Marca cancelled_at/by; a row fica no historico como
+  // "Cancelado". Ja cancelada / alheia / inexistente => 404 (nao vaza).
+  async cancelVisitReport(input, actorContext) {
+    const actor = assertAuthenticatedActor(actorContext, 'cancel visit report');
     const reportId = normalizeRequiredText(input?.reportId, 'reportId', 100);
-
-    const result = await this.prisma.visitReport.deleteMany({
-      where: { id: reportId, userId: actor.actorUserId },
+    const result = await this.prisma.visitReport.updateMany({
+      where: { id: reportId, userId: actor.actorUserId, cancelledAt: null },
+      data: { cancelledAt: new Date(), cancelledByUserId: actor.actorUserId },
     });
     if (result.count === 0) {
-      throw new HttpError(404, 'Visit report not found', {
-        code: 'VISIT_REPORT_NOT_FOUND',
-      });
+      throw new HttpError(404, 'Visit report not found', { code: 'VISIT_REPORT_NOT_FOUND' });
     }
-
-    return { removed: true };
-  }
-
-  // Curadoria do vinculo informe -> cliente (pagina /resumo): seta, troca
-  // ou remove (clientId null) o cliente vinculado de QUALQUER informe — o
-  // escopo e o papel (VISIT_REPORT_LINK_CURATOR_ROLES), sem regra de autor.
-  // linkedByUserId/linkedAt auditam o vinculo ATUAL; desvincular limpa o
-  // trio (informe volta a "aguardando vinculo"). clientKind (declaracao do
-  // autor) nunca muda aqui. clientId === undefined responde 422: PATCH com
-  // body vazio nao pode desvincular por acidente.
-  async linkVisitReportClient(input, actorContext) {
-    const actor = assertAuthenticatedActor(actorContext, 'link visit report client');
-    assertRoleAllowed(actor.role, VISIT_REPORT_LINK_CURATOR_ROLES, 'link visit report client');
-
-    const reportId = normalizeRequiredText(input?.reportId, 'reportId', 100);
-
-    let clientId = null;
-    if (input?.clientId !== null) {
-      if (input?.clientId === undefined) {
-        throw new HttpError(422, 'clientId must be a client id string, or null to unlink', {
-          code: 'VALIDATION_ERROR',
-          field: 'clientId',
-        });
-      }
-
-      clientId = normalizeRequiredText(input.clientId, 'clientId', 100);
-      await this._assertActiveClient(clientId);
-    }
-
-    let updated;
-    try {
-      updated = await this.prisma.visitReport.update({
-        where: { id: reportId },
-        data:
-          clientId === null
-            ? { clientId: null, linkedByUserId: null, linkedAt: null }
-            : { clientId, linkedByUserId: actor.actorUserId, linkedAt: new Date() },
-        include: {
-          user: { select: VISIT_REPORT_USER_SELECT },
-          client: { select: VISIT_REPORT_CLIENT_SELECT },
-          linkedBy: { select: VISIT_REPORT_USER_SELECT },
-        },
-      });
-    } catch (cause) {
-      // P2025: informe inexistente — mesma resposta do delete, sem vazar
-      // existencia.
-      if (cause?.code === 'P2025') {
-        throw new HttpError(404, 'Visit report not found', {
-          code: 'VISIT_REPORT_NOT_FOUND',
-        });
-      }
-      throw cause;
-    }
-
-    return { report: toVisitReportView(updated) };
+    const row = await this.prisma.visitReport.findUnique({
+      where: { id: reportId },
+      include: {
+        user: { select: REPORT_USER_SELECT },
+        client: { select: REPORT_CLIENT_SELECT },
+      },
+    });
+    return { report: toVisitReportView(row) };
   }
 
   async listVisitReports(input, actorContext) {
@@ -420,21 +364,11 @@ export class VisitReportService {
       [...VISIT_REPORT_VIEWER_ROLES, USER_ROLES.PROSPECTOR],
       'list visit reports'
     );
-    // Viewers (/resumo) veem todos os informes; PROSPECTOR ve APENAS os
-    // PROPRIOS informes (so os que ele mesmo preencheu) na lista do dashboard
-    // dele. O escopo e forcado aqui por userId, nunca decidido pelo cliente;
-    // coerente com os contadores (getMyVisitReportStats), que ja sao so do
-    // proprio ator.
+    // Viewers veem todas; PROSPECTOR ve APENAS as PROPRIAS (escopo forcado).
     const where = {};
     if (actor.role === USER_ROLES.PROSPECTOR) {
       where.userId = actor.actorUserId;
     }
-
-    // Busca por nome do cliente (barra do dashboard do prospector) —
-    // acento-insensitive nos dois caminhos, via colunas GERADAS pelo banco
-    // (LOWER + immutable_unaccent): cliente novo em
-    // visit_report.new_client_name_normalized e cliente cadastrado em
-    // client.search_normalized (mesma semantica da busca de clientes).
     const search = normalizeOptionalText(input?.search, 'search', 120);
     if (search) {
       const normalized = normalizeSearchInput(search);
@@ -446,14 +380,12 @@ export class VisitReportService {
             ]
           : [{ newClientName: { contains: search, mode: 'insensitive' } }];
     }
-
     const page = readPageQuery(input?.page, 1);
     const limit = readLimitQuery(input?.limit, {
       fallback: VISIT_REPORT_LIST_LIMIT_DEFAULT,
       max: VISIT_REPORT_LIST_LIMIT_MAX,
     });
     const skip = (page - 1) * limit;
-
     const [items, total] = await this.prisma.$transaction([
       this.prisma.visitReport.findMany({
         where,
@@ -461,49 +393,158 @@ export class VisitReportService {
         skip,
         take: limit,
         include: {
-          user: { select: VISIT_REPORT_USER_SELECT },
-          client: { select: VISIT_REPORT_CLIENT_SELECT },
-          linkedBy: { select: VISIT_REPORT_USER_SELECT },
+          user: { select: REPORT_USER_SELECT },
+          client: { select: REPORT_CLIENT_SELECT },
         },
       }),
       this.prisma.visitReport.count({ where }),
     ]);
-
-    return {
-      items: items.map(toVisitReportView),
-      page: buildPage(total, page, limit),
-    };
+    return { items: items.map(toVisitReportView), page: buildPage(total, page, limit) };
   }
 
-  // Contadores do dashboard do prospector — sempre do proprio ator (escopo
-  // inerente por actorUserId; sem regra de papel aqui: quem alcanca o
-  // endpoint e decidido pelo gate central de API). Os dois cards contam o
-  // DIA corrente: visitas enviadas hoje e, dentre elas, as com "Cliente
-  // novo". Base temporal COALESCE(captured_at, created_at): informe
-  // preenchido offline ontem e sincronizado hoje conta ontem, coerente com
-  // a data que /resumo exibe. `now` e injetavel apenas para testes.
+  // Contadores do dashboard do prospector — sempre do proprio ator, EXCLUINDO
+  // canceladas. `now` injetavel p/ testes.
   async getMyVisitReportStats(actorContext, { now = new Date() } = {}) {
     const actor = assertAuthenticatedActor(actorContext, 'read visit report stats');
     const { todayStartUtc, todayEndUtc } = computeVisitStatsWindows(now);
-
     const [row] = await this.prisma.$queryRaw`
       SELECT
         COUNT(*) FILTER (
-          WHERE COALESCE(v."captured_at", v."created_at") >= ${todayStartUtc}
+          WHERE v."cancelled_at" IS NULL
+            AND COALESCE(v."captured_at", v."created_at") >= ${todayStartUtc}
             AND COALESCE(v."captured_at", v."created_at") < ${todayEndUtc}
         )::INTEGER AS "todayCount",
         COUNT(*) FILTER (
-          WHERE v."client_kind" = 'NEW'
+          WHERE v."cancelled_at" IS NULL
+            AND v."client_kind" = 'NEW'
             AND COALESCE(v."captured_at", v."created_at") >= ${todayStartUtc}
             AND COALESCE(v."captured_at", v."created_at") < ${todayEndUtc}
         )::INTEGER AS "todayNewClientsCount"
       FROM "visit_report" v
       WHERE v."user_id" = ${actor.actorUserId}::uuid
     `;
-
     return {
       todayCount: row?.todayCount ?? 0,
       todayNewClientsCount: row?.todayNewClientsCount ?? 0,
+    };
+  }
+
+  // ---- Relatorio SEMANAL ----
+
+  // `now` injetavel apenas para testes deterministas da semana.
+  async createWeeklyReport(input, actorContext, { now = new Date() } = {}) {
+    const actor = assertAuthenticatedActor(actorContext, 'create weekly report');
+    assertRoleAllowed(actor.role, WEEKLY_REPORT_AUTHOR_ROLES, 'create weekly report');
+    const summary = normalizeRequiredText(input?.summary, 'summary', WEEKLY_TEXT_MAX);
+    const difficulties = normalizeOptionalText(
+      input?.difficulties,
+      'difficulties',
+      WEEKLY_TEXT_MAX
+    );
+    const nextWeekPlan = normalizeOptionalText(
+      input?.nextWeekPlan,
+      'nextWeekPlan',
+      WEEKLY_TEXT_MAX
+    );
+    const { weekStart } = computeWeekReference(now);
+    let created;
+    try {
+      created = await this.prisma.weeklyReport.create({
+        data: {
+          id: randomUUID(),
+          userId: actor.actorUserId,
+          weekStart,
+          summary,
+          difficulties,
+          nextWeekPlan,
+        },
+        include: { user: { select: REPORT_USER_SELECT } },
+      });
+    } catch (error) {
+      // A UNIQUE (user_id, week_start) e a fonte de verdade do "1 por semana".
+      if (error?.code === 'P2002') {
+        throw new HttpError(409, 'Weekly report already submitted for this week', {
+          code: 'WEEKLY_REPORT_ALREADY_EXISTS',
+        });
+      }
+      throw error;
+    }
+    return { report: toWeeklyReportView(created) };
+  }
+
+  // Cancelamento SOFT do semanal — mesmo padrao da visita (so o proprio autor).
+  async cancelWeeklyReport(input, actorContext) {
+    const actor = assertAuthenticatedActor(actorContext, 'cancel weekly report');
+    const reportId = normalizeRequiredText(input?.reportId, 'reportId', 100);
+    const result = await this.prisma.weeklyReport.updateMany({
+      where: { id: reportId, userId: actor.actorUserId, cancelledAt: null },
+      data: { cancelledAt: new Date(), cancelledByUserId: actor.actorUserId },
+    });
+    if (result.count === 0) {
+      throw new HttpError(404, 'Weekly report not found', { code: 'WEEKLY_REPORT_NOT_FOUND' });
+    }
+    const row = await this.prisma.weeklyReport.findUnique({
+      where: { id: reportId },
+      include: { user: { select: REPORT_USER_SELECT } },
+    });
+    return { report: toWeeklyReportView(row) };
+  }
+
+  // ---- Feed combinado da pagina "Relatorios" ----
+  // scope=all (todo nao-PROSPECTOR): visita + semanal de TODOS os autores, mais
+  // recentes primeiro. UNION ALL (id, type, created_at) paginado por offset +
+  // hidratacao por tipo — pagina exata sem overfetch; total via counts somados.
+  async listInformeFeed(input, actorContext) {
+    const actor = assertAuthenticatedActor(actorContext, 'list informe feed');
+    assertRoleAllowed(actor.role, VISIT_REPORT_VIEWER_ROLES, 'list informe feed');
+    const page = readPageQuery(input?.page, 1);
+    const limit = readLimitQuery(input?.limit, {
+      fallback: INFORME_FEED_LIMIT_DEFAULT,
+      max: INFORME_FEED_LIMIT_MAX,
+    });
+    const offset = (page - 1) * limit;
+    const [counts, skeleton] = await Promise.all([
+      this.prisma.$transaction([this.prisma.visitReport.count(), this.prisma.weeklyReport.count()]),
+      this.prisma.$queryRaw`
+        SELECT id, 'VISIT_REPORT' AS type, created_at FROM "visit_report"
+        UNION ALL
+        SELECT id, 'WEEKLY_REPORT' AS type, created_at FROM "weekly_report"
+        ORDER BY created_at DESC, id DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `,
+    ]);
+    const total = counts[0] + counts[1];
+    const idsByType = { VISIT_REPORT: [], WEEKLY_REPORT: [] };
+    for (const row of skeleton) {
+      idsByType[row.type]?.push(row.id);
+    }
+    const [visitReports, weeklyReports] = await Promise.all([
+      idsByType.VISIT_REPORT.length > 0
+        ? this.prisma.visitReport.findMany({
+            where: { id: { in: idsByType.VISIT_REPORT } },
+            include: {
+              user: { select: REPORT_USER_SELECT },
+              client: { select: REPORT_CLIENT_SELECT },
+            },
+          })
+        : [],
+      idsByType.WEEKLY_REPORT.length > 0
+        ? this.prisma.weeklyReport.findMany({
+            where: { id: { in: idsByType.WEEKLY_REPORT } },
+            include: { user: { select: REPORT_USER_SELECT } },
+          })
+        : [],
+    ]);
+    const viewById = new Map();
+    for (const row of visitReports) {
+      viewById.set(row.id, toVisitReportView(row));
+    }
+    for (const row of weeklyReports) {
+      viewById.set(row.id, toWeeklyReportView(row));
+    }
+    return {
+      items: skeleton.map((row) => viewById.get(row.id)).filter(Boolean),
+      page: buildPage(total, page, limit),
     };
   }
 }
