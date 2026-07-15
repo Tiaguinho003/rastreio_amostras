@@ -1863,6 +1863,12 @@ export class SaleContractService {
         after: { ownerClientId: newOwnerClientId },
         reasonCode: 'DATA_FIX',
         reasonText: 'Vendedor ajustado no contrato (Fechamento)',
+        // D146: se o lote for origem de liga, trocar o vendedor recai na
+        // propagacao reativa de owner (deriveBlendOwner) — o contrato e a acao
+        // autoritativa, entao auto-confirma pras ligas ancestrais em vez de
+        // estourar 409 BLEND_HARVEST_PROPAGATION_REQUIRED (sem UI de confirmacao
+        // aqui; molde da conferencia de ficha na camera em sample-command-service).
+        confirmHarvestPropagation: true,
       },
       actorContext
     );

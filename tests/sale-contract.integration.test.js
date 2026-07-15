@@ -1441,6 +1441,70 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(sample.ownerClientId, newSellerId);
   });
 
+  test('D146: editar o vendedor de contrato à vista cujo lote é origem de liga não estoura 409 e propaga', async () => {
+    // Lote que alimenta uma liga E tem contrato à vista. Trocar o vendedor recai
+    // na propagação reativa de owner das ligas ancestrais; antes da D146 o
+    // owner-sync não confirmava e estourava 409 BLEND_HARVEST_PROPAGATION_REQUIRED,
+    // quebrando o Editar. Agora auto-confirma e propaga.
+    const sellerAId = randomUUID();
+    await createSellerClient(sellerAId);
+    const buyerId = randomUUID();
+    await createBuyerClient(buyerId);
+
+    // 2 origens do mesmo dono (liga exige ≥2 componentes) → owner unânime = sellerA.
+    const originId = randomUUID();
+    const origin2Id = randomUUID();
+    await createClassifiedSample({ id: originId, lotNumber: '27050', declaredSacks: 100 });
+    await createClassifiedSample({ id: origin2Id, lotNumber: '27051', declaredSacks: 100 });
+    await prisma.sample.update({ where: { id: originId }, data: { ownerClientId: sellerAId } });
+    await prisma.sample.update({ where: { id: origin2Id }, data: { ownerClientId: sellerAId } });
+
+    const blend = await commandService.createBlend(
+      {
+        clientDraftId: randomUUID(),
+        components: [
+          { originSampleId: originId, contributedSacks: 20 },
+          { originSampleId: origin2Id, contributedSacks: 20 },
+        ],
+        sampleLotNumber: '27052',
+      },
+      adminActor
+    );
+
+    // Contrato à vista sobre o lote origem (vende 10 das ~80 sacas livres).
+    const originSample = await queryService.requireSample(originId);
+    const sale = await sell(originId, originSample.version, buyerId);
+
+    // Editar o vendedor para sellerB — NÃO deve lançar (D146).
+    const sellerBId = randomUUID();
+    await createSellerClient(sellerBId);
+    const sellerBBank = await createSellerBankAccount(sellerBId);
+    const lookups = await fetchLookups();
+    await saleContractService.emitSaleContract(
+      sale.contract.id,
+      etapa2Payload({
+        bankAccountId: sellerBBank,
+        lookups,
+        expectedVersion: sale.contract.version,
+        overrides: { sellerClientId: sellerBId },
+      }),
+      adminActor
+    );
+
+    // Propagou ao lote origem…
+    const originAfter = await prisma.sample.findUnique({
+      where: { id: originId },
+      select: { ownerClientId: true },
+    });
+    assert.equal(originAfter.ownerClientId, sellerBId);
+    // …e recalculou o dono da liga (origens agora divergem → sem dono unânime).
+    const blendAfter = await prisma.sample.findUnique({
+      where: { id: blend.sample.id },
+      select: { ownerClientId: true },
+    });
+    assert.notEqual(blendAfter.ownerClientId, sellerAId);
+  });
+
   test('WASH_OUT: cancelar a venda de contrato EMITIDO vira WASH_OUT', async () => {
     // O contrato ja nasce EMITIDO (D97) — nao precisa de emit separado.
     const { contractId, sampleId } = await setupEmittableContract({
