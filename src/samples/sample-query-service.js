@@ -1895,6 +1895,7 @@ export class SampleQueryService {
           s.sold_sacks,
           s.lost_sacks,
           s.status::text AS status,
+          s.declared_harvest,
           s.internal_lot_number
         FROM sample s
         WHERE s.id = ${rootSampleId}::uuid
@@ -1912,6 +1913,7 @@ export class SampleQueryService {
           child.sold_sacks,
           child.lost_sacks,
           child.status::text AS status,
+          child.declared_harvest,
           child.internal_lot_number
         FROM blend_tree bt
         JOIN sample_blend_component bc ON bc.sample_id = bt.sample_id
@@ -1929,6 +1931,7 @@ export class SampleQueryService {
         sold_sacks,
         lost_sacks,
         status,
+        declared_harvest,
         internal_lot_number
       FROM blend_tree
       ORDER BY depth ASC, sample_id ASC
@@ -1945,6 +1948,7 @@ export class SampleQueryService {
       soldSacks: Number(row.sold_sacks),
       lostSacks: Number(row.lost_sacks),
       status: row.status,
+      declaredHarvest: row.declared_harvest ?? null,
       internalLotNumber: row.internal_lot_number,
     }));
   }

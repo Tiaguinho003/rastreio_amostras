@@ -14,7 +14,7 @@ import {
   isSpotWashout,
   toApprovalContractOption,
 } from '../../sale-contracts/sale-contract-support.js';
-import { normalizeReportedHarvest } from '../../reports/export-fields.js';
+import { formatHarvestLabel, normalizeReportedHarvest } from '../../reports/export-fields.js';
 
 const loginRateLimiter = createRateLimiter({
   windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000,
@@ -293,7 +293,10 @@ export function createBackendApiV1({
             recipientName: recipient?.displayName ?? null,
             sentDate: sentDate ?? null,
             sacks: sample.declared?.sacks ?? null,
-            harvest: reportedHarvest ?? sample.declared?.harvest ?? null,
+            // Liga (safra "Mix"): sem escolha (envios novos), uma liga
+            // multi-safra imprime "Mix — 24/25, 25/26" na etiqueta; safra unica
+            // passa direto. Escolha gravada (shares antigos) segue single.
+            harvest: reportedHarvest ?? formatHarvestLabel(sample.declared?.harvest ?? null),
           },
         },
       });
@@ -842,8 +845,9 @@ export function createBackendApiV1({
         // SampleReportShare (token) e a etiqueta sai sempre COM QR — classificada
         // ou nao. O PDF NAO e congelado; a rota publica /laudo/[token] o gera ao
         // vivo a cada acesso, refletindo o estado atual da amostra. A safra do
-        // laudo (anti-vazamento de liga) e validada/normalizada aqui no envio
-        // (422 se faltar a escolha numa amostra de safra multipla).
+        // laudo: numa liga sem escolha explicita, reportedHarvest fica null e o
+        // laudo renderiza "Mix" + as safras + % (a escolha forcada de UMA safra
+        // foi removida). Uma escolha explicita ainda e validada contra as safras.
         const reportedHarvest = normalizeReportedHarvest(
           body.reportedHarvest ?? null,
           sample.declared?.harvest ?? null

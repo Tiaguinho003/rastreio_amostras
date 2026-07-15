@@ -312,19 +312,10 @@ export function normalizeReportedHarvest(rawReported, declaredHarvest) {
   const reported =
     rawReported === undefined || rawReported === null ? null : String(rawReported).trim();
 
-  if (options.length > 1) {
-    if (!reported) {
-      throw new HttpError(
-        422,
-        'reportedHarvest e obrigatorio quando a amostra tem mais de uma safra'
-      );
-    }
-    if (!options.includes(reported)) {
-      throw new HttpError(422, `reportedHarvest "${reported}" nao e uma das safras da amostra`);
-    }
-    return reported;
-  }
-
+  // Liga (safra "Mix"): sem escolha explicita, retorna null — o laudo renderiza
+  // "Mix" + as safras + % (a antiga regra anti-vazamento, que forcava escolher
+  // UMA safra numa liga, foi revertida SO na safra). Uma escolha explicita fora
+  // do conjunto ainda e rejeitada (defensivo / compat de callers que a passem).
   if (reported && !options.includes(reported)) {
     throw new HttpError(422, `reportedHarvest "${reported}" nao e uma das safras da amostra`);
   }
@@ -336,21 +327,85 @@ export function normalizeReportedHarvest(rawReported, declaredHarvest) {
 // QR): NUNCA lanca, pra um laudo ja entregue ao comprador nunca quebrar quando o
 // cadastro da amostra muda depois do envio.
 // - escolha gravada no envio (rawReported) -> usa como esta, mesmo que nao seja
-//   mais uma das safras atuais (preserva o documento entregue);
-// - sem escolha gravada: safra unica/nenhuma -> null (laudo usa o declarado como
-//   esta); virou liga (multi) -> 1a safra (anti-vazamento: nunca a string
-//   concatenada).
-export function resolveReportedHarvestLenient(rawReported, declaredHarvest) {
+//   mais uma das safras atuais (preserva o documento entregue; e o que congela
+//   os laudos ANTIGOS de liga na safra unica escolhida na epoca);
+// - sem escolha gravada -> null: safra unica usa o declarado; liga multi-safra
+//   renderiza "Mix" + as safras + % (o render decide a partir do declaredHarvest).
+export function resolveReportedHarvestLenient(rawReported) {
   const reported =
     rawReported === undefined || rawReported === null ? null : String(rawReported).trim();
-  if (reported) {
-    return reported;
+  return reported ? reported : null;
+}
+
+// Liga (laudo "Mix"): composicao da safra de uma liga POR SAFRA, com a % de cada
+// uma por sacas. Recebe a arvore de descendentes (saida de loadBlendTree) e
+// agrupa os lotes-FOLHA (nao-liga) por safra. Exato mesmo em liga-de-liga: F7.7
+// obriga a liga-em-liga a contribuir 100%, entao a soma das folhas bate com o
+// total da raiz. Retorna [] quando ha menos de 2 safras distintas (safra unica
+// ou nao-liga nao viram "Mix"). Porcentagens com 1 casa, ajustadas pelo
+// maior-resto pra somar exatamente 100. Ordenado por safra (asc), a mesma ordem
+// canonica do declaredHarvest concatenado da liga.
+export function buildHarvestBreakdown(tree) {
+  const sacksByHarvest = new Map();
+  let total = 0;
+  for (const node of Array.isArray(tree) ? tree : []) {
+    // Folhas = nos nao-liga (as origens reais). A raiz e sempre a liga
+    // (contributedSacks null) e fica de fora naturalmente.
+    if (node?.isBlend) continue;
+    const safra = typeof node?.declaredHarvest === 'string' ? node.declaredHarvest.trim() : '';
+    const sacks = Number(node?.contributedSacks);
+    if (safra.length === 0 || !Number.isFinite(sacks) || sacks <= 0) continue;
+    sacksByHarvest.set(safra, (sacksByHarvest.get(safra) ?? 0) + sacks);
+    total += sacks;
   }
-  const options = (typeof declaredHarvest === 'string' ? declaredHarvest : '')
-    .split(/\s*,\s*/)
-    .map((value) => value.trim())
-    .filter((value) => value.length > 0);
-  return options.length > 1 ? options[0] : null;
+
+  if (sacksByHarvest.size < 2 || total <= 0) {
+    return [];
+  }
+
+  const entries = Array.from(sacksByHarvest.entries())
+    .map(([safra, sacks]) => ({ safra, sacks }))
+    .sort((a, b) => (a.safra < b.safra ? -1 : a.safra > b.safra ? 1 : 0));
+
+  // Porcentagens em decimos de % (1 casa). Maior-resto pra fechar 1000 (=100.0%).
+  const scaled = entries.map((entry) => {
+    const exact = (entry.sacks / total) * 1000;
+    const tenths = Math.floor(exact);
+    return { ...entry, tenths, remainder: exact - tenths };
+  });
+  let leftover = 1000 - scaled.reduce((sum, entry) => sum + entry.tenths, 0);
+  const byRemainderDesc = scaled
+    .map((_, index) => index)
+    .sort((a, b) => scaled[b].remainder - scaled[a].remainder);
+  for (let k = 0; k < byRemainderDesc.length && leftover > 0; k += 1) {
+    scaled[byRemainderDesc[k]].tenths += 1;
+    leftover -= 1;
+  }
+
+  return scaled.map((entry) => ({
+    safra: entry.safra,
+    sacks: entry.sacks,
+    pct: entry.tenths / 10,
+  }));
+}
+
+// Liga (etiqueta fisica de envio): rotulo da safra impresso na etiqueta que vai
+// junto da amostra. Numa liga com 2+ safras distintas retorna "Mix — 24/25,
+// 25/26" (o QR abre o laudo com as %); safra unica/nula passa direto. Espelha a
+// apresentacao "Mix" da UI no artefato fisico.
+export function formatHarvestLabel(declaredHarvest) {
+  const distinct = Array.from(
+    new Set(
+      (typeof declaredHarvest === 'string' ? declaredHarvest : '')
+        .split(/\s*,\s*/)
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0)
+    )
+  );
+  if (distinct.length <= 1) {
+    return declaredHarvest ?? null;
+  }
+  return `Mix — ${distinct.join(', ')}`;
 }
 
 export function buildSelectedExportFieldEntries(detail, selectedFields, options = {}) {

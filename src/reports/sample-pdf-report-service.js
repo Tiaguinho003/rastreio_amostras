@@ -9,6 +9,7 @@ import { HttpError } from '../contracts/errors.js';
 import {
   SAMPLE_EXPORT_FIELDS,
   SAMPLE_EXPORT_FIELDS_FOR_REPORT,
+  buildHarvestBreakdown,
   buildSelectedExportFieldEntries,
   normalizeReportedHarvest,
   resolveReportedHarvestLenient,
@@ -257,6 +258,10 @@ export async function renderSamplePdf({
   // Amostra sem classificacao (laudo ao vivo): no lugar da Foto + Dados, um
   // aviso central. Resumo do Lote (Lote/Safra/Sacas) continua aparecendo.
   unclassified = false,
+  // Liga (safra "Mix"): [{safra, sacks, pct}] quando a liga tem 2+ safras e nao
+  // ha escolha de safra — a linha "Safra" imprime "Mix" + as safras com %.
+  // Vazio ([]) em amostra normal / safra unica / share com safra escolhida.
+  harvestMix = [],
 }) {
   const pdfDoc = await PDFDocument.create();
   const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -343,6 +348,17 @@ export async function renderSamplePdf({
   const entryById = new Map(selectedFieldEntries.map((entry) => [entry.id, entry]));
   const asValue = (entry) => String(entry?.value ?? '').trim();
 
+  // Liga (safra "Mix"): a coluna "Safra" da banda (estreita) mostra so "Mix"; o
+  // breakdown completo (cada safra com a % da composicao) sai numa linha
+  // full-width logo abaixo das colunas (desenhada adiante). % em pt-BR (virgula),
+  // sem o ".0" das inteiras.
+  const formatMixPct = (pct) =>
+    (Number.isInteger(pct) ? String(pct) : pct.toFixed(1)).replace('.', ',');
+  const isMixHarvestReport = Array.isArray(harvestMix) && harvestMix.length > 0;
+  const harvestRowValue = isMixHarvestReport
+    ? 'Mix'
+    : asValue(entryById.get('harvest')) || '-';
+
   // ── Resumo do Lote: dados de cabecalho do lote ──
   const resumoRows = [
     {
@@ -352,7 +368,7 @@ export async function renderSamplePdf({
           ? sample.internalLotNumber
           : '-',
     },
-    { label: 'Safra', value: asValue(entryById.get('harvest')) || '-' },
+    { label: 'Safra', value: harvestRowValue },
     { label: 'Sacas', value: asValue(entryById.get('sacks')) || '-' },
     // Certificado: dado de classificacao apresentado no Resumo do Lote (decisao de
     // produto). SEMPRE presente (igual aos outros 3) — "-" quando nao registrado.
@@ -574,6 +590,25 @@ export async function renderSamplePdf({
     }
   });
 
+  // Liga (safra "Mix"): linha full-width (dentro do card do Resumo, abaixo das 4
+  // colunas) com a composicao — cada safra e a % por sacas. A coluna "Safra"
+  // acima mostra so "Mix"; esta linha traz o detalhe que nao cabe na coluna.
+  if (isMixHarvestReport) {
+    const mixText = harvestMix
+      .map((item) => `${item.safra} (${formatMixPct(item.pct)}%)`)
+      .join('   ·   ');
+    const mixLine = `Composição da safra: ${mixText}`;
+    const mixSize = 8.5;
+    const mixWidth = fontRegular.widthOfTextAtSize(mixLine, mixSize);
+    page.drawText(mixLine, {
+      x: contentX + Math.max(0, (contentWidth - mixWidth) / 2),
+      y: resumoBandTop - resumoBandH - 1,
+      size: mixSize,
+      font: fontRegular,
+      color: docText,
+    });
+  }
+
   // ── Linha abaixo do Resumo: Foto (esq) + Dados de Classificacao (dir) ──
   // Mesma altura; topGap acima (= gap header->Resumo). A foto e CONTIDA na caixa
   // fixa 3:4, sem corte. O espaco que sobra fica embaixo (rodape com ondas).
@@ -794,15 +829,24 @@ export class SamplePdfReportService {
     // Laudo unico ("Laudo Tecnico"): nao ha mais tipos (COMPLETO/COMPRADOR_PARCIAL).
     // Os campos sao fixos — todos os autorizados menos os internos (inclui owner).
     const selectedFields = SAMPLE_EXPORT_FIELDS_FOR_REPORT;
-    // Liga: resolve a safra que sai no laudo. Em amostra de safra multipla
-    // (liga), exige a escolha de UMA safra — o laudo nunca imprime a string
-    // concatenada (anti-vazamento). Em safra unica, fica null (usa o declarado).
-    // No caminho ao vivo, a resolucao e LENIENTE (preserva a escolha do envio,
-    // nunca lanca); no estrito (export autenticado), valida e lanca 422.
+    // Liga (safra "Mix"): resolve a safra que sai no laudo. Sem escolha, uma
+    // liga multi-safra renderiza "Mix" + as safras + % (harvestMix abaixo); uma
+    // escolha gravada (shares antigos) mantem a safra unica (backward-compat).
+    // Safra unica -> null (usa o declarado). No caminho ao vivo a resolucao e
+    // LENIENTE (preserva a escolha do envio, nunca lanca); no estrito valida.
     const declaredHarvest = detail.sample.declared?.harvest ?? null;
     const reportedHarvest = lenientHarvest
-      ? resolveReportedHarvestLenient(input?.reportedHarvest, declaredHarvest)
+      ? resolveReportedHarvestLenient(input?.reportedHarvest)
       : normalizeReportedHarvest(input?.reportedHarvest, declaredHarvest);
+
+    // Liga (safra "Mix"): quando nao ha escolha de safra e a amostra e liga,
+    // calcula a composicao por safra (% por sacas, ate os lotes-folha) pro laudo
+    // imprimir "Mix" + as safras + %. buildHarvestBreakdown retorna [] se nao ha
+    // 2+ safras (single/nao-liga), entao o gatilho e so !reportedHarvest && liga.
+    const harvestMix =
+      !reportedHarvest && detail.sample.isBlend
+        ? buildHarvestBreakdown(await this.queryService.loadBlendTree(sampleId))
+        : [];
 
     // Foto de classificacao: obrigatoria no caminho estrito (CLASSIFIED). No
     // caminho ao vivo, ausente/ilegivel degrada para "sem foto" (renderiza assim
@@ -875,6 +919,7 @@ export class SamplePdfReportService {
       headerImagePath: this.headerImagePath,
       iconPath: this.iconPath,
       unclassified: !isClassified,
+      harvestMix,
     });
 
     const checksumSha256 = createHash('sha256').update(pdfBuffer).digest('hex');
