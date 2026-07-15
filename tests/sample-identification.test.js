@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 
 import {
   compareIdentification,
+  isMixHarvest,
   normalizeHarvest,
   normalizeLot,
   normalizeSacks,
-  summarizeHarvest,
+  splitHarvests,
 } from '../lib/sample-identification.ts';
 
 // --- normalizeLot ---
@@ -244,24 +245,45 @@ test('compareIdentification: apenas sacas extraido, bate com cadastrado -> nenhu
   assert.deepEqual(result, []);
 });
 
-// --- summarizeHarvest ---
+// --- splitHarvests ---
 
-test('summarizeHarvest: safra unica retorna newest com hasMore false', () => {
-  assert.deepEqual(summarizeHarvest('24/25'), { newest: '24/25', hasMore: false });
+test('splitHarvests: safra unica retorna array de 1', () => {
+  assert.deepEqual(splitHarvests('24/25'), ['24/25']);
 });
 
-test('summarizeHarvest: multiplas safras retorna a mais nova com hasMore true', () => {
-  assert.deepEqual(summarizeHarvest('24/25, 25/26'), { newest: '25/26', hasMore: true });
+test('splitHarvests: multiplas safras (liga) divide preservando a ordem gravada', () => {
+  assert.deepEqual(splitHarvests('24/25, 25/26'), ['24/25', '25/26']);
 });
 
-test('summarizeHarvest: independe da ordem de entrada', () => {
-  assert.deepEqual(summarizeHarvest('25/26, 24/25'), { newest: '25/26', hasMore: true });
+test('splitHarvests: deduplica e ignora vazios', () => {
+  assert.deepEqual(splitHarvests('24/25, 24/25, 25/26'), ['24/25', '25/26']);
 });
 
-test('summarizeHarvest: tres safras pega a de maior ano inicial', () => {
-  assert.deepEqual(summarizeHarvest('22/23, 25/26, 24/25'), { newest: '25/26', hasMore: true });
+test('splitHarvests: tolera virgula sem espaco', () => {
+  assert.deepEqual(splitHarvests('24/25,25/26'), ['24/25', '25/26']);
 });
 
-test('summarizeHarvest: tolera virgula sem espaco', () => {
-  assert.deepEqual(summarizeHarvest('24/25,25/26'), { newest: '25/26', hasMore: true });
+test('splitHarvests: null/vazio retorna array vazio', () => {
+  assert.deepEqual(splitHarvests(null), []);
+  assert.deepEqual(splitHarvests(''), []);
+  assert.deepEqual(splitHarvests('   '), []);
+});
+
+// --- isMixHarvest ---
+
+test('isMixHarvest: 2+ safras distintas e Mix', () => {
+  assert.equal(isMixHarvest('24/25, 25/26'), true);
+});
+
+test('isMixHarvest: safra unica nao e Mix', () => {
+  assert.equal(isMixHarvest('24/25'), false);
+});
+
+test('isMixHarvest: safra repetida (apos dedup) nao e Mix', () => {
+  assert.equal(isMixHarvest('24/25, 24/25'), false);
+});
+
+test('isMixHarvest: null/vazio nao e Mix', () => {
+  assert.equal(isMixHarvest(null), false);
+  assert.equal(isMixHarvest(''), false);
 });

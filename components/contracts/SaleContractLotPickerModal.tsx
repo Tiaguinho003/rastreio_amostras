@@ -17,6 +17,7 @@ import { ApiError, getSampleDetail, listSamples } from '../../lib/api-client';
 import type { ActiveBlendDetail, SampleSnapshot, SessionData } from '../../lib/types';
 import { BottomSheet } from '../BottomSheet';
 import { BlendBadge } from '../samples/BlendBadge';
+import { HarvestDisplay } from '../samples/HarvestDisplay';
 
 type SaleContractLotPickerModalProps = {
   session: SessionData;
@@ -212,7 +213,7 @@ export function SaleContractLotPickerModal({
                             <rect x="3" y="4" width="18" height="18" rx="2" />
                             <path d="M16 2v4M8 2v4M3 10h18" />
                           </svg>
-                          {sample.declared.harvest}
+                          <HarvestDisplay harvest={sample.declared.harvest} showMixSafras={false} />
                         </span>
                       </>
                     ) : null}

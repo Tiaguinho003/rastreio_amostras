@@ -13,9 +13,9 @@ import Link from 'next/link';
 import { memo } from 'react';
 
 import { formatPercentDisplay } from '../../lib/classification-format';
-import { summarizeHarvest } from '../../lib/sample-identification';
 import type { SampleEligibilityReason, SampleSnapshot } from '../../lib/types';
 import { BlendBadge } from './BlendBadge';
+import { HarvestDisplay } from './HarvestDisplay';
 
 type CardStatusKind = 'open' | 'sold' | 'lost' | 'invalidated';
 
@@ -136,9 +136,9 @@ function SampleCardComponent({
 }: SampleCardProps) {
   const cardStatus = deriveCardStatus(sample);
   const availableSacks = sample.availableSacks;
-  // Liga: no card so a safra mais nova; "+" sinaliza que ha outras (liga de
-  // safras diferentes). Detalhe da amostra mostra todas.
-  const harvestSummary = sample.declared.harvest ? summarizeHarvest(sample.declared.harvest) : null;
+  // Liga: no card a safra multipla vira o badge "Mix" (HarvestDisplay,
+  // showMixSafras=false); o detalhe da amostra mostra o Mix + as safras.
+  const hasHarvest = Boolean(sample.declared.harvest?.trim());
   // Acoes do card expandido (idle): Enviar gated por status (canPhysicalSend);
   // Perda por status + saldo. Espelha o gating do detalhe.
   const commercialAllowed =
@@ -211,7 +211,7 @@ function SampleCardComponent({
               </svg>
               {availableSacks === null || availableSacks === undefined ? '—' : availableSacks} sacas
             </span>
-            {harvestSummary ? (
+            {hasHarvest ? (
               <>
                 <span className="spv2-card-sep" />
                 <span className="spv2-card-detail">
@@ -219,10 +219,7 @@ function SampleCardComponent({
                     <rect x="3" y="4" width="18" height="18" rx="2" />
                     <path d="M16 2v4M8 2v4M3 10h18" />
                   </svg>
-                  {harvestSummary.newest}
-                  {harvestSummary.hasMore ? (
-                    <span className="spv2-card-harvest-more"> +</span>
-                  ) : null}
+                  <HarvestDisplay harvest={sample.declared.harvest} showMixSafras={false} />
                 </span>
               </>
             ) : null}
@@ -292,7 +289,7 @@ function SampleCardComponent({
               </svg>
               {availableSacks === null || availableSacks === undefined ? '—' : availableSacks} sacas
             </span>
-            {harvestSummary ? (
+            {hasHarvest ? (
               <>
                 <span className="spv2-card-sep" />
                 <span className="spv2-card-detail">
@@ -300,10 +297,7 @@ function SampleCardComponent({
                     <rect x="3" y="4" width="18" height="18" rx="2" />
                     <path d="M16 2v4M8 2v4M3 10h18" />
                   </svg>
-                  {harvestSummary.newest}
-                  {harvestSummary.hasMore ? (
-                    <span className="spv2-card-harvest-more"> +</span>
-                  ) : null}
+                  <HarvestDisplay harvest={sample.declared.harvest} showMixSafras={false} />
                 </span>
               </>
             ) : null}

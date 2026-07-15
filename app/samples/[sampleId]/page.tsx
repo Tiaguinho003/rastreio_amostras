@@ -12,6 +12,7 @@ import { ClientLookupField } from '../../../components/clients/ClientLookupField
 import { ClientQuickCreateModal } from '../../../components/clients/ClientQuickCreateModal';
 import { BlendBadge } from '../../../components/samples/BlendBadge';
 import { BlendHarvestPropagationModal } from '../../../components/samples/BlendHarvestPropagationModal';
+import { HarvestDisplay } from '../../../components/samples/HarvestDisplay';
 import { BlendRevertModal } from '../../../components/samples/BlendRevertModal';
 import { RelatedSampleRow } from '../../../components/samples/RelatedSampleRow';
 import { SampleInvalidateBlockedModal } from '../../../components/samples/SampleInvalidateBlockedModal';
@@ -1891,7 +1892,7 @@ export default function SampleDetailPage() {
                       <div className="sdv-info-item">
                         <span className="sdv-info-label">Safra</span>
                         <span className="sdv-info-value">
-                          {buildReadableValue(detail.sample.declared.harvest)}
+                          <HarvestDisplay harvest={detail.sample.declared.harvest} fallback="" />
                         </span>
                       </div>
                       <div className="sdv-info-item">
@@ -2750,7 +2751,8 @@ export default function SampleDetailPage() {
                 <strong>Sacas:</strong> {buildReadableValue(detail.sample.declared.sacks)}
               </p>
               <p>
-                <strong>Safra:</strong> {buildReadableValue(detail.sample.declared.harvest)}
+                <strong>Safra:</strong>{' '}
+                <HarvestDisplay harvest={detail.sample.declared.harvest} fallback="" />
               </p>
               <p>
                 <strong>Lote origem:</strong> {buildReadableValue(detail.sample.declared.originLot)}
@@ -2824,7 +2826,8 @@ export default function SampleDetailPage() {
                     <strong>Sacas:</strong> {buildReadableValue(detail.sample.declared.sacks)}
                   </p>
                   <p>
-                    <strong>Safra:</strong> {buildReadableValue(detail.sample.declared.harvest)}
+                    <strong>Safra:</strong>{' '}
+                    <HarvestDisplay harvest={detail.sample.declared.harvest} fallback="" />
                   </p>
                   <p>
                     <strong>Lote origem:</strong>{' '}

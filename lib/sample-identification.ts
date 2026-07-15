@@ -133,34 +133,32 @@ export function buildHarvestPresets(): readonly string[] {
 }
 
 /**
- * Resume a safra de uma amostra para exibicao compacta (card da lista).
- * Quando ha mais de uma safra (liga de safras diferentes, ex.: "24/25, 25/26"),
- * retorna apenas a mais nova (maior ano inicial) + `hasMore=true` pra UI
- * sinalizar que existem outras (o detalhe da amostra mostra todas). Safra unica
- * passa direto com `hasMore=false`.
+ * Divide a safra (possivelmente concatenada de uma liga, ex.: "24/25, 25/26")
+ * nas safras individuais — distintas, sem vazios, preservando a ordem gravada
+ * (deriveBlendHarvest ja ordena). Safra unica -> array de 1; null/vazio -> [].
  */
-export function summarizeHarvest(harvest: string): { newest: string; hasMore: boolean } {
-  const parts = harvest
-    .split(/\s*,\s*/)
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0);
-
-  if (parts.length <= 1) {
-    return { newest: harvest.trim(), hasMore: false };
+export function splitHarvests(harvest: string | null | undefined): string[] {
+  if (harvest == null) {
+    return [];
   }
-
-  // Mais nova = maior ano inicial. Formato canonico "AA/AA": parseInt pega o 1o
-  // numero; fallback lexicografico se nao parsear.
-  const newest = parts.reduce((acc, current) => {
-    const currentYear = Number.parseInt(current, 10);
-    const accYear = Number.parseInt(acc, 10);
-    if (Number.isFinite(currentYear) && Number.isFinite(accYear)) {
-      return currentYear > accYear ? current : acc;
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of String(harvest).split(/\s*,\s*/)) {
+    const trimmed = part.trim();
+    if (trimmed.length > 0 && !seen.has(trimmed)) {
+      seen.add(trimmed);
+      out.push(trimmed);
     }
-    return current > acc ? current : acc;
-  });
+  }
+  return out;
+}
 
-  return { newest, hasMore: true };
+/**
+ * True quando a amostra tem 2+ safras distintas (liga de safras diferentes) — o
+ * gatilho da apresentacao "Mix". Safra unica ou ausente -> false.
+ */
+export function isMixHarvest(harvest: string | null | undefined): boolean {
+  return splitHarvests(harvest).length > 1;
 }
 
 function toComparableExtracted(

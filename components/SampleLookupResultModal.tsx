@@ -4,6 +4,7 @@ import { useId } from 'react';
 import { createPortal } from 'react-dom';
 
 import { CommercialStatusBadge } from './CommercialStatusBadge';
+import { HarvestDisplay } from './samples/HarvestDisplay';
 import { useFocusTrap } from '../lib/use-focus-trap';
 import type { ResolveSampleByQrResponse } from '../lib/types';
 
@@ -116,7 +117,8 @@ export function SampleLookupResultModal({
                     <strong>Sacas:</strong> {sample.declared.sacks ?? 'Nao informado'}
                   </p>
                   <p className="app-modal-card-line">
-                    <strong>Safra:</strong> {sample.declared.harvest ?? 'Nao informado'}
+                    <strong>Safra:</strong>{' '}
+                    <HarvestDisplay harvest={sample.declared.harvest} fallback="Nao informado" />
                   </p>
                   <p className="app-modal-card-line">
                     <strong>Lote origem:</strong> {sample.declared.originLot ?? 'Nao informado'}

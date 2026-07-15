@@ -17,6 +17,7 @@ import Link from 'next/link';
 
 import type { SampleStatus } from '../../lib/types';
 import { BlendBadge } from './BlendBadge';
+import { HarvestDisplay } from './HarvestDisplay';
 
 interface RelatedSampleRowProps {
   href: string;
@@ -63,7 +64,7 @@ export function RelatedSampleRow({
             <rect x="3" y="4" width="18" height="18" rx="2" />
             <path d="M16 2v4M8 2v4M3 10h18" />
           </svg>
-          {harvest?.trim() ? harvest : '—'}
+          <HarvestDisplay harvest={harvest} />
         </span>
         <span className="spv2-card-sep" aria-hidden="true" />
         <span className="spv2-card-detail">
