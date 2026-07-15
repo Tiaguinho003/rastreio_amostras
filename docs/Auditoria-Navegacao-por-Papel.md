@@ -61,6 +61,15 @@ não-PROSPECTOR (`= NON_PROSPECTOR_ROLES` / `!isProspector`; `lib/roles.ts` +
 `src/auth/roles.js`, este novo). Na navegação, o item "Clientes" avulso **sai da nav de
 todos** (clientes pela aba Clientes do hub `/cadastros`) e o menu de cada não-PROSPECTOR
 **espelha o do ADMIN menos "Usuários"**. A matriz e as seções por papel abaixo já refletem.
+Atualizado: 2026-07-15 — **UNIFICAÇÃO DE RELATÓRIOS**: a rota `/informe` virou **`/relatorios`**
+(`/informe` e `/resumo` agora **redirecionam**; `app/relatorios/page.tsx` é a página, `app/informe/page.tsx`
+virou stub de redirect). A página tem **2 tipos**: **Visita** (funde o informe do prospector + a visita do
+comercial; nasce vinculada; campos de domínio opcionais) e **Semanal** (só **ADMIN + COMMERCIAL** criam —
+`isWeeklyReportAuthor`). Acabaram a curadoria de vínculo e o `scope=mine` (feed sempre `scope=all`); os
+relatórios são **imutáveis** (**cancelar soft**, só o autor). O PROSPECTOR agora **cria visita vinculada**
+(allowlist ganhou `lookupClients`/`createClient`/`lookupUsersForReference`) e vê **só as próprias** (não
+"a equipe"); a fila **offline foi removida** (online-only). _As tabelas de nav abaixo ainda listam a rota
+antiga `/informe` na coluna "Rota" — leia-se **`/relatorios`**._
 
 ## Como ler este documento
 
@@ -200,24 +209,24 @@ viam Cadastros.)_
 
 ## Referencia 3 — Universo de rotas
 
-| Rota                                                                                          | Pagina                                              | Guard de acesso                                                                     |
-| --------------------------------------------------------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `/login`, `/forgot-password` (redirect → modal no `/login`), `/maintenance`, `/laudo/[token]` | publicas                                            | sem auth                                                                            |
-| `/dashboard`                                                                                  | Inicio                                              | qualquer autenticado                                                                |
-| `/profile`                                                                                    | Perfil                                              | qualquer autenticado                                                                |
-| `/settings`                                                                                   | —                                                   | redireciona para `/profile`                                                         |
-| `/offline`                                                                                    | offline PWA                                         | qualquer autenticado                                                                |
-| `/samples`, `/samples/[id]`                                                                   | Lotes                                               | `NON_PROSPECTOR_ROLES`                                                              |
-| `/camera`                                                                                     | Camera                                              | `NON_PROSPECTOR_ROLES`                                                              |
-| `/clients`                                                                                    | Clientes (lista)                                    | `NON_PROSPECTOR_ROLES`                                                              |
-| `/clients/[id]`                                                                               | Detalhe do cliente                                  | `CLIENT_MANAGEMENT_ROLES` (todos menos PROSPECTOR)                                  |
-| `/informe`                                                                                    | Relatorios                                          | `INFORME_ROLES` (todos menos PROSPECTOR; todos viewer scope=all + criam)            |
-| `/resumo`                                                                                     | —                                                   | redireciona para `/informe`                                                         |
-| `/cadastros`                                                                                  | Cadastros                                           | `CLIENT_MANAGEMENT_ROLES` (todos menos PROSPECTOR)                                  |
-| `/contratos`                                                                                  | Contratos (gestão — sub-abas Contratos·Financeiro)  | `CONTRATOS_ROLES` (todos menos PROSPECTOR). Nav "Contratos".                        |
-| `/embarques`                                                                                  | Embarques (operação — sub-abas Embarque·Aprovações) | `NON_PROSPECTOR_ROLES` (todos menos PROSPECTOR). Nav "Embarques". Abre em Embarque. |
-| `/financeiro`                                                                                 | → redirect para `/contratos?tab=financeiro`         | (redirect server-side)                                                              |
-| `/users`                                                                                      | Usuarios                                            | ADMIN                                                                               |
+| Rota                                                                                          | Pagina                                              | Guard de acesso                                                                                 |
+| --------------------------------------------------------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `/login`, `/forgot-password` (redirect → modal no `/login`), `/maintenance`, `/laudo/[token]` | publicas                                            | sem auth                                                                                        |
+| `/dashboard`                                                                                  | Inicio                                              | qualquer autenticado                                                                            |
+| `/profile`                                                                                    | Perfil                                              | qualquer autenticado                                                                            |
+| `/settings`                                                                                   | —                                                   | redireciona para `/profile`                                                                     |
+| `/offline`                                                                                    | offline PWA                                         | qualquer autenticado                                                                            |
+| `/samples`, `/samples/[id]`                                                                   | Lotes                                               | `NON_PROSPECTOR_ROLES`                                                                          |
+| `/camera`                                                                                     | Camera                                              | `NON_PROSPECTOR_ROLES`                                                                          |
+| `/clients`                                                                                    | Clientes (lista)                                    | `NON_PROSPECTOR_ROLES`                                                                          |
+| `/clients/[id]`                                                                               | Detalhe do cliente                                  | `CLIENT_MANAGEMENT_ROLES` (todos menos PROSPECTOR)                                              |
+| `/relatorios`                                                                                 | Relatorios (Visita unificada + Semanal)             | `INFORME_ROLES` (todos menos PROSPECTOR; viewer scope=all + criam; Semanal só ADMIN+COMMERCIAL) |
+| `/informe`, `/resumo`                                                                         | → redirect para `/relatorios`                       | (redirect server-side)                                                                          |
+| `/cadastros`                                                                                  | Cadastros                                           | `CLIENT_MANAGEMENT_ROLES` (todos menos PROSPECTOR)                                              |
+| `/contratos`                                                                                  | Contratos (gestão — sub-abas Contratos·Financeiro)  | `CONTRATOS_ROLES` (todos menos PROSPECTOR). Nav "Contratos".                                    |
+| `/embarques`                                                                                  | Embarques (operação — sub-abas Embarque·Aprovações) | `NON_PROSPECTOR_ROLES` (todos menos PROSPECTOR). Nav "Embarques". Abre em Embarque.             |
+| `/financeiro`                                                                                 | → redirect para `/contratos?tab=financeiro`         | (redirect server-side)                                                                          |
+| `/users`                                                                                      | Usuarios                                            | ADMIN                                                                                           |
 
 Middleware (`middleware.ts`): modo manutencao redireciona nao-ADMIN para
 `/maintenance`; PROSPECTOR fora do seu app (`/dashboard`, `/profile`,
