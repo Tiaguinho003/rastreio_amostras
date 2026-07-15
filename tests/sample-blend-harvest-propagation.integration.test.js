@@ -120,6 +120,23 @@ if (!databaseUrl || !databaseReachable) {
     );
   }
 
+  // Edita um patch declarado arbitrario (sacas/lote/local) — usado pelos testes
+  // de read-only dos campos derivados da liga.
+  async function editDeclared(sampleId, declared, { confirm = false } = {}) {
+    const sample = await prisma.sample.findUnique({ where: { id: sampleId } });
+    return commandService.updateRegistration(
+      {
+        sampleId,
+        expectedVersion: sample.version,
+        after: { declared },
+        reasonCode: 'DATA_FIX',
+        reasonText: 'Ajuste de cadastro',
+        confirmHarvestPropagation: confirm,
+      },
+      actor
+    );
+  }
+
   async function harvestOf(sampleId) {
     const row = await prisma.sample.findUnique({ where: { id: sampleId } });
     return row.declaredHarvest;
@@ -200,6 +217,93 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(thrown.details.code, 'BLEND_HARVEST_READ_ONLY');
     // Safra da liga inalterada.
     assert.equal(await harvestOf(blend.sample.id), '24/25, 25/26');
+  });
+
+  // Liga (sacas derivadas): as sacas da liga sao a soma das contribuicoes das
+  // origens (declaredSacks = Sigma contributedSacks) e sao READ-ONLY. Editar
+  // direto e rejeitado (422 BLEND_SACKS_READ_ONLY) — a composicao e imutavel,
+  // nao ha como rebalancear pra casar um total editado a mao.
+  test('sacas da liga sao read-only: editar direto as sacas lanca 422', async () => {
+    const o1 = randomUUID();
+    const o2 = randomUUID();
+    await createSample({ id: o1, lotNumber: '22001', harvest: '24/25' });
+    await createSample({ id: o2, lotNumber: '22002', harvest: '24/25' });
+    const blend = await createBlend({
+      clientDraftId: 'd-sacks-ro',
+      components: [
+        { originSampleId: o1, contributedSacks: 10 },
+        { originSampleId: o2, contributedSacks: 10 },
+      ],
+      lotNumber: '22003',
+    });
+    const before = await prisma.sample.findUnique({ where: { id: blend.sample.id } });
+    assert.equal(before.declaredSacks, 20);
+
+    let thrown = null;
+    try {
+      await editDeclared(blend.sample.id, { sacks: 30 });
+    } catch (error) {
+      thrown = error;
+    }
+
+    assert.ok(thrown instanceof HttpError);
+    assert.equal(thrown.status, 422);
+    assert.equal(thrown.details.code, 'BLEND_SACKS_READ_ONLY');
+    // Sacas inalteradas (continuam a soma das contribuicoes).
+    const after = await prisma.sample.findUnique({ where: { id: blend.sample.id } });
+    assert.equal(after.declaredSacks, 20);
+  });
+
+  // Liga: nao tem lote de origem proprio (declared.originLot e null por design —
+  // a origem real vive em SampleBlendComponent). READ-ONLY: editar direto e
+  // rejeitado (422 BLEND_ORIGIN_LOT_READ_ONLY), evitando um lote-fantasma.
+  test('lote de origem da liga e read-only: editar direto lanca 422', async () => {
+    const o1 = randomUUID();
+    const o2 = randomUUID();
+    await createSample({ id: o1, lotNumber: '23001', harvest: '24/25' });
+    await createSample({ id: o2, lotNumber: '23002', harvest: '24/25' });
+    const blend = await createBlend({
+      clientDraftId: 'd-lot-ro',
+      components: [
+        { originSampleId: o1, contributedSacks: 10 },
+        { originSampleId: o2, contributedSacks: 10 },
+      ],
+      lotNumber: '23003',
+    });
+
+    let thrown = null;
+    try {
+      await editDeclared(blend.sample.id, { originLot: 'LOTE-FANTASMA' });
+    } catch (error) {
+      thrown = error;
+    }
+
+    assert.ok(thrown instanceof HttpError);
+    assert.equal(thrown.status, 422);
+    assert.equal(thrown.details.code, 'BLEND_ORIGIN_LOT_READ_ONLY');
+  });
+
+  // Sanidade: o guard por presenca NAO bloqueia campos autorais — editar so o
+  // Local de uma liga passa normalmente (prova que salvar outros campos numa
+  // liga nao dispara BLEND_SACKS/ORIGIN_LOT_READ_ONLY).
+  test('editar so o local de uma liga passa (guard nao bloqueia campos autorais)', async () => {
+    const o1 = randomUUID();
+    const o2 = randomUUID();
+    await createSample({ id: o1, lotNumber: '24001', harvest: '24/25' });
+    await createSample({ id: o2, lotNumber: '24002', harvest: '24/25' });
+    const blend = await createBlend({
+      clientDraftId: 'd-loc-ok',
+      components: [
+        { originSampleId: o1, contributedSacks: 10 },
+        { originSampleId: o2, contributedSacks: 10 },
+      ],
+      lotNumber: '24003',
+    });
+
+    const result = await editDeclared(blend.sample.id, { location: 'BM' });
+    assert.ok(result?.event, 'edicao de local deve gerar evento');
+    const after = await prisma.sample.findUnique({ where: { id: blend.sample.id } });
+    assert.equal(after.declaredLocation, 'BM');
   });
 
   // 2. Recursiva A -> B -> C (Map em memoria: C usa o valor recalculado de B)
