@@ -2820,8 +2820,10 @@ export function createBackendApiV1({
         return { status: 200, body: result };
       }),
 
-    // Financeiro (Fase F, D135): corretagem a receber por fechamento — ADMIN ve
-    // todos; COMMERCIAL so os contratos dele (o service escopa por Broker.userId).
+    // Financeiro (Fase F): corretagem a receber por fechamento. Acesso =
+    // FINANCEIRO_ROLES (= NON_PROSPECTOR_ROLES desde 2026-07-15; era ADMIN+COMMERCIAL).
+    // Escopo ABERTO (D140): sem recorte por Broker.userId — todo nao-PROSPECTOR ve
+    // TODOS os fechamentos (o service NAO escopa por posse).
     listBrokerReceivables: (input) =>
       executeApiForInput(input, async () => {
         if (!saleContractService) {

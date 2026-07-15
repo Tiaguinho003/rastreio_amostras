@@ -11,8 +11,9 @@ import { FinanceiroPanel } from '../../components/financeiro/FinanceiroPanel';
 import { CONTRATOS_ROLES } from '../../lib/roles';
 import { useRequireAuth } from '../../lib/use-auth';
 
-// SPLIT 2026-07-13: página de GESTÃO do contrato — Contratos + Financeiro — restrita
-// a ADMIN+COMMERCIAL (CONTRATOS_ROLES). A OPERAÇÃO (Embarque/Aprovações) foi pra
+// SPLIT 2026-07-13: página de GESTÃO do contrato — Contratos + Financeiro — aberta a
+// todo não-PROSPECTOR (CONTRATOS_ROLES = NON_PROSPECTOR_ROLES desde 2026-07-15; era
+// ADMIN+COMMERCIAL). A OPERAÇÃO (Embarque/Aprovações) foi pra
 // /embarques (todos os não-PROSPECTOR). A casca — guard, AppShell, header e a barra
 // de abas — vive aqui; cada aba é um painel montado sob demanda (só a ativa monta).
 // Ver docs/Contratos-Visao-Geral.md (§2 — a casca).

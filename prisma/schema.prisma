@@ -850,7 +850,7 @@ model SaleContract {
   paymentDate      DateTime? @map("payment_date") @db.Date
 
   // Datas reais dos marcos de status (faturamento/pagamento); podem diferir das
-  // planejadas acima. Preenchidas ao marcar FATURADO/PAGO; limpas ao desfazer.
+  // planejadas acima. Preenchidas ao marcar FATURADO/PAGO (o Desfazer saiu no D122).
   invoicedAt DateTime? @map("invoiced_at") @db.Date
   paidAt     DateTime? @map("paid_at") @db.Date
   // Embarque (EMB22/EMB27): data REAL do embarque (par de invoicedAt/paidAt); nulo
