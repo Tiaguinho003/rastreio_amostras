@@ -718,6 +718,9 @@ function mapSample(row) {
     // Liga A2.4: expor flag isBlend pra branches de cascata em
     // createSampleMovement e checagens de domínio.
     isBlend: row.isBlend ?? false,
+    // Liga (dono fixado): true = dono fixado manualmente. A UI distingue
+    // "Carteira da corretora" (pinned + owner null) de "sem dono" (derivado).
+    blendOwnerPinned: row.blendOwnerPinned ?? false,
     soldSacks: row.soldSacks ?? 0,
     lostSacks: row.lostSacks ?? 0,
     availableSacks:

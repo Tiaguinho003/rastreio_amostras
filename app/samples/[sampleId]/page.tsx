@@ -258,6 +258,16 @@ function buildReadableValue(value: unknown): string {
   return '';
 }
 
+// Liga (dono fixado): rótulo do dono no detalhe. Uma liga fixada como "carteira
+// da corretora" (blendOwnerPinned + owner null) mostra o rótulo em vez de vazio;
+// os demais casos caem no nome do dono (buildReadableValue).
+function ownerDisplayValue(sample: SampleDetailResponse['sample']): string {
+  if (sample.isBlend && sample.blendOwnerPinned && !sample.ownerClientId) {
+    return 'Carteira da corretora';
+  }
+  return buildReadableValue(sample.declared.owner);
+}
+
 function canEditRegistrationStatus(status: SampleStatus): boolean {
   return REGISTRATION_EDITABLE_STATUSES.includes(status);
 }
@@ -1792,9 +1802,7 @@ export default function SampleDetailPage() {
                       </span>
                     ) : null}
                   </div>
-                  <span className="sdv-identity-owner">
-                    {buildReadableValue(detail.sample.declared.owner)}
-                  </span>
+                  <span className="sdv-identity-owner">{ownerDisplayValue(detail.sample)}</span>
                 </div>
                 <div className="sdv-identity-actions">
                   {canRevertBlend ? (
@@ -1872,9 +1880,7 @@ export default function SampleDetailPage() {
                     <div className="sdv-info-grid">
                       <div className="sdv-info-item is-full">
                         <span className="sdv-info-label">Proprietario</span>
-                        <span className="sdv-info-value">
-                          {buildReadableValue(detail.sample.declared.owner)}
-                        </span>
+                        <span className="sdv-info-value">{ownerDisplayValue(detail.sample)}</span>
                       </div>
                       <div className="sdv-info-item">
                         <span className="sdv-info-label">Sacas</span>
@@ -2738,7 +2744,7 @@ export default function SampleDetailPage() {
                 <strong>Lote interno:</strong> {detail.sample.internalLotNumber ?? detail.sample.id}
               </p>
               <p>
-                <strong>Proprietario:</strong> {buildReadableValue(detail.sample.declared.owner)}
+                <strong>Proprietario:</strong> {ownerDisplayValue(detail.sample)}
               </p>
               <p>
                 <strong>Sacas:</strong> {buildReadableValue(detail.sample.declared.sacks)}
@@ -2812,8 +2818,7 @@ export default function SampleDetailPage() {
                     {detail.sample.internalLotNumber ?? detail.sample.id}
                   </p>
                   <p>
-                    <strong>Proprietario:</strong>{' '}
-                    {buildReadableValue(detail.sample.declared.owner)}
+                    <strong>Proprietario:</strong> {ownerDisplayValue(detail.sample)}
                   </p>
                   <p>
                     <strong>Sacas:</strong> {buildReadableValue(detail.sample.declared.sacks)}

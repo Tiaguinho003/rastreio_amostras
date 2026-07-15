@@ -2530,6 +2530,7 @@ function SamplesPage() {
               ? {
                   sampleId: lossTarget.sample.id,
                   ownerClientId: lossTarget.sample.ownerClientId ?? null,
+                  blendOwnerPinned: lossTarget.sample.blendOwnerPinned ?? false,
                 }
               : null
           }

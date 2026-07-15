@@ -47,7 +47,11 @@ type SampleMovementModalProps = {
   // Liga B4 Fase 5: presente quando o sample e uma liga. Ativa o modo liga
   // — sem campo de quantidade (venda/perda e 100%); o modal pre-valida a
   // viabilidade da cascata (getBlendFeasibility) antes de habilitar o submit.
-  blend?: { sampleId: string; ownerClientId: string | null } | null;
+  blend?: {
+    sampleId: string;
+    ownerClientId: string | null;
+    blendOwnerPinned?: boolean;
+  } | null;
   // Liga B4 Fase 5b (F3.A): atribui um dono à liga sem dono antes da
   // movimentação. O painel implementa (updateRegistration + refetch).
   onAssignOwner?: (ownerClientId: string) => Promise<void>;
@@ -174,9 +178,15 @@ export function SampleMovementModal({
   const blendInfeasible =
     mode === 'create' && isBlend && feasibility !== null && !feasibility.feasible;
   // F3.A: liga sem dono — nudge ate o operador atribuir um dono ou escolher
-  // "Continuar mesmo assim". So no modo create.
+  // "Continuar mesmo assim". So no modo create. Liga (dono fixado): NAO alerta
+  // quando o dono foi FIXADO como "carteira da corretora" (blendOwnerPinned +
+  // owner null) — foi escolha consciente, nao um dono faltando.
   const needsOwnerNudge =
-    mode === 'create' && blend !== null && blend.ownerClientId === null && !ownerDismissed;
+    mode === 'create' &&
+    blend !== null &&
+    blend.ownerClientId === null &&
+    !blend.blendOwnerPinned &&
+    !ownerDismissed;
   // Liga B4 Fase 8 (B3.8): aviso nao-bloqueante quando a amostra (origem)
   // participa de liga(s) ativa(s). So ao criar venda/perda.
   const showBlendOriginWarning =

@@ -862,6 +862,10 @@ export interface SampleSnapshot {
   // Liga A1: flag denotando se este sample é uma liga (Sample com
   // composição em SampleBlendComponent). Sample normal: false.
   isBlend?: boolean;
+  // Liga (dono fixado): true quando o dono da liga foi fixado manualmente.
+  // "Carteira da corretora" = blendOwnerPinned true + ownerClientId null
+  // (escolha explícita), distinto de "sem dono" derivado (pinned false).
+  blendOwnerPinned?: boolean;
   // Liga B1.1 (Liga F1.B + T0.B): só presentes quando o listSamples for
   // chamado com eligibleForBlend=true ou getSampleDetail correspondente.
   // Em outros consumidores (dashboard etc), ficam undefined.
