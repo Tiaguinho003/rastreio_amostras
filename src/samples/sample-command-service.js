@@ -2424,11 +2424,9 @@ export class SampleCommandService {
         );
       }
       if (hasOwn(updatePayload.after.declared, 'originLot')) {
-        throw new HttpError(
-          422,
-          'A liga nao tem lote de origem — vem dos lotes que a compoem',
-          { code: 'BLEND_ORIGIN_LOT_READ_ONLY' }
-        );
+        throw new HttpError(422, 'A liga nao tem lote de origem — vem dos lotes que a compoem', {
+          code: 'BLEND_ORIGIN_LOT_READ_ONLY',
+        });
       }
     }
 
