@@ -3049,15 +3049,29 @@ export default function SampleDetailPage() {
                 <div className="sdv-edit-row">
                   <label className="app-modal-field">
                     <span className="app-modal-label">Sacas</span>
-                    <input
-                      className={`app-modal-input${registrationFieldErrors.sacks ? ' has-error' : ''}`}
-                      value={sacks}
-                      onChange={(event) => setSacks(event.target.value)}
-                      onFocus={() => clearRegField('sacks')}
-                      placeholder={registrationFieldErrors.sacks ?? ''}
-                      inputMode="numeric"
-                      disabled={registrationUpdating}
-                    />
+                    {detail?.sample.isBlend ? (
+                      // Liga: as sacas derivam da soma das origens — read-only
+                      // (o backend tambem rejeita mudanca de sacas numa liga).
+                      <>
+                        <input
+                          className="app-modal-input"
+                          value={sacks}
+                          disabled
+                          aria-readonly="true"
+                        />
+                        <span className="sdv-edit-hint">Deriva dos lotes que compõem a liga</span>
+                      </>
+                    ) : (
+                      <input
+                        className={`app-modal-input${registrationFieldErrors.sacks ? ' has-error' : ''}`}
+                        value={sacks}
+                        onChange={(event) => setSacks(event.target.value)}
+                        onFocus={() => clearRegField('sacks')}
+                        placeholder={registrationFieldErrors.sacks ?? ''}
+                        inputMode="numeric"
+                        disabled={registrationUpdating}
+                      />
+                    )}
                   </label>
                   <label className="app-modal-field">
                     <span className="app-modal-label">Safra</span>
@@ -3089,14 +3103,28 @@ export default function SampleDetailPage() {
                 <div className="sdv-edit-row">
                   <label className="app-modal-field">
                     <span className="app-modal-label">Lote de origem</span>
-                    <input
-                      className={`app-modal-input${registrationFieldErrors.originLot ? ' has-error' : ''}`}
-                      value={originLot}
-                      onChange={(event) => setOriginLot(event.target.value.toUpperCase())}
-                      onFocus={() => clearRegField('originLot')}
-                      placeholder={registrationFieldErrors.originLot ?? ''}
-                      disabled={registrationUpdating}
-                    />
+                    {detail?.sample.isBlend ? (
+                      // Liga: nao tem lote de origem proprio — a origem real vem
+                      // dos lotes que a compoem (o backend tambem rejeita originLot).
+                      <>
+                        <input
+                          className="app-modal-input"
+                          value={originLot}
+                          disabled
+                          aria-readonly="true"
+                        />
+                        <span className="sdv-edit-hint">A liga não tem lote de origem próprio</span>
+                      </>
+                    ) : (
+                      <input
+                        className={`app-modal-input${registrationFieldErrors.originLot ? ' has-error' : ''}`}
+                        value={originLot}
+                        onChange={(event) => setOriginLot(event.target.value.toUpperCase())}
+                        onFocus={() => clearRegField('originLot')}
+                        placeholder={registrationFieldErrors.originLot ?? ''}
+                        disabled={registrationUpdating}
+                      />
+                    )}
                   </label>
                   <label className="app-modal-field">
                     <span className="app-modal-label">Local</span>
