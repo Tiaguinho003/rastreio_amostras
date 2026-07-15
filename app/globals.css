@@ -23551,8 +23551,7 @@ select.samples-filter-field-input {
 
 /* ── Sales Card (base do card de donut) ──
    Nasceu como o donut "Lotes disponiveis" do dashboard (REMOVIDO do sistema
-   no DSB-D14). Hoje o UNICO consumidor das classes .sales-card*/
-.sales-chart-*
+   no DSB-D14). Hoje o UNICO consumidor das classes .sales-card* e .sales-chart-*
    e o "Resumo comercial" do detalhe do cliente (ClientCommercialSummaryCard,
    .client-commercial-card): titulo no topo, body em grid de 2 colunas (donut
    a esquerda + legenda/minicards a direita). */
