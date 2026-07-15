@@ -157,9 +157,14 @@ Pos Q.print: impressao virou **acao pura**. Nao muda mais o status do Sample.
    vao ao comprador). Eventos `REPORT_EXPORTED` historicos podem ter um `exportType`
    antigo (`COMPLETO`/`COMPRADOR_PARCIAL`), mantido so por compatibilidade — o campo
    nao e mais gravado.
-3. Em amostra com mais de uma safra (liga de safras diferentes), ao gerar o laudo
-   o operador escolhe qual safra sai nele (`reportedHarvest`, registrado no evento):
-   o laudo nunca imprime a safra concatenada, pra nao revelar que e uma liga.
+3. Em amostra com mais de uma safra (liga de safras diferentes), o laudo revela que
+   e um **Mix**: imprime "Mix" no campo Safra + a **composicao por safra** com a %
+   de cada uma (por sacas, ate os lotes-folha que a compoem). NAO revela as
+   origens/produtores. A safra da liga e **derivada** dos lotes (nao editavel).
+   **Laudos ja enviados** que gravaram uma safra unica (`reportedHarvest` no share/
+   `REPORT_EXPORTED`) seguem **congelados** nessa safra; so os novos mostram o Mix.
+   (Antes: o operador escolhia UMA safra pra nao revelar que era liga — revertido em
+   2026-07-15, so quanto a safra.)
 4. O detalhe do lote (`/samples/[sampleId]`) expoe historico, anexos, QR, dados principais, classificacao e status comercial. A UI usa o vocabulario "lote" (LDT-D2, 2026-07-08) e o painel comercial do detalhe e **so leitura** — venda, perda e novo envio fisico sao disparados pelo card da **lista** `/samples`, nao pelo detalhe.
 
 ## Regras de ajuste e auditoria

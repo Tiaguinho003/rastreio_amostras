@@ -225,6 +225,13 @@ Existem dois padroes em uso (ambos validos — usar conforme o contexto do card)
 - So aparece se o valor for > 0
 - Animacao de pulso: `scale(1) → scale(1.15) → scale(1)`, `2s ease-in-out infinite`
 
+### Badge indicador da amostra (Liga / Mix)
+
+Badges inline, SEM hover/click (indicadores puros), ao lado do numero do lote ou dentro do valor de um campo. Molde comum: pill `inline-flex`, `padding: 2px 7px`, `border-radius: 6px`, texto branco `font-weight: 600`, `font-size: clamp(10.5px, 2.8vw, 11.5px)`, `box-shadow` sutil.
+
+- **`.blend-badge` ("Liga")** — `components/samples/BlendBadge.tsx`, gradiente **lilas** `#7c3aed→#6d28d9`; marca que a amostra e uma liga (blend). Tamanhos `--sm`/`--md`.
+- **`.mix-badge` ("Mix")** — `components/samples/HarvestDisplay.tsx`, gradiente **ambar** `#f59e0b→#d97706`; aparece no campo **Safra** quando a liga tem **2+ safras distintas** (`isMixHarvest` em `lib/sample-identification.ts`). Cor distinta do lilas "Liga" e do verde/vermelho de status. No **card** = so o badge; no **detalhe/linhas** = badge + as safras (`.mix-harvest` / `.mix-harvest-safras`, ex.: `[Mix] 24/25 · 25/26`). Safra unica passa direto (sem badge).
+
 ## 6. Campos de Input
 
 ### Estrutura
