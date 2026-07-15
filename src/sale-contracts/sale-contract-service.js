@@ -1467,7 +1467,14 @@ export class SaleContractService {
 
     const contract = await this.prisma.saleContract.findUnique({
       where: { id: contractId },
-      select: { id: true, status: true, version: true, type: true, sampleId: true, movementId: true },
+      select: {
+        id: true,
+        status: true,
+        version: true,
+        type: true,
+        sampleId: true,
+        movementId: true,
+      },
     });
     if (!contract) {
       throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
