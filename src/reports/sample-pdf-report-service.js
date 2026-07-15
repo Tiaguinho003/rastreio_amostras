@@ -355,9 +355,7 @@ export async function renderSamplePdf({
   const formatMixPct = (pct) =>
     (Number.isInteger(pct) ? String(pct) : pct.toFixed(1)).replace('.', ',');
   const isMixHarvestReport = Array.isArray(harvestMix) && harvestMix.length > 0;
-  const harvestRowValue = isMixHarvestReport
-    ? 'Mix'
-    : asValue(entryById.get('harvest')) || '-';
+  const harvestRowValue = isMixHarvestReport ? 'Mix' : asValue(entryById.get('harvest')) || '-';
 
   // ── Resumo do Lote: dados de cabecalho do lote ──
   const resumoRows = [
