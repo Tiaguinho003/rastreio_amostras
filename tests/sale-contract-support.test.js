@@ -24,6 +24,8 @@ import {
   computeContractMoney,
   computeContractMoneyWithAgio,
   formatContractNumber,
+  isFutureContract,
+  isSpotContract,
   isSpotWashout,
   normalizeBrokeragePct,
   normalizeBrokerIds,
@@ -1130,4 +1132,21 @@ test('isSpotWashout: só o contrato à vista em WASH_OUT (D145)', () => {
   assert.equal(isSpotWashout({ status: 'PAGO', type: 'MERCADO_A_VISTA' }), false);
   assert.equal(isSpotWashout({ status: 'EMITIDO', type: 'FUTURO' }), false);
   assert.equal(isSpotWashout(null), false);
+});
+
+// D147: predicados canônicos por `type` — o washout ramifica por eles (predicado
+// único, alinhado ao Financeiro/Espelho); a invariante type<->vínculo de lote é
+// garantida pela CHECK chk_sale_contract_type_lote.
+test('isFutureContract / isSpotContract: distinguem a modalidade por type (D147)', () => {
+  assert.equal(isFutureContract({ type: 'FUTURO' }), true);
+  assert.equal(isFutureContract({ type: 'MERCADO_A_VISTA' }), false);
+  assert.equal(isFutureContract(null), false);
+  assert.equal(isFutureContract({}), false);
+  assert.equal(isSpotContract({ type: 'MERCADO_A_VISTA' }), true);
+  assert.equal(isSpotContract({ type: 'FUTURO' }), false);
+  assert.equal(isSpotContract(null), false);
+  // Mutuamente exclusivos em qualquer contrato válido.
+  for (const type of ['FUTURO', 'MERCADO_A_VISTA']) {
+    assert.notEqual(isFutureContract({ type }), isSpotContract({ type }));
+  }
 });

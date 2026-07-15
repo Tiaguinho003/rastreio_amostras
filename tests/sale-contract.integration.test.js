@@ -2899,10 +2899,13 @@ if (!databaseUrl || !databaseReachable) {
   } = {}) {
     aprSeq += 1;
     const id = randomUUID();
+    // FUTURO (sem lote): a aprovacao e type-agnostica; usar FUTURO mantem o fixture
+    // leve (sem montar Sample+SampleMovement) e satisfaz a CHECK
+    // chk_sale_contract_type_lote (D147 — um MERCADO_A_VISTA exige sample_id+movement_id).
     await prisma.saleContract.create({
       data: {
         id,
-        type: 'MERCADO_A_VISTA',
+        type: 'FUTURO',
         contractSeq: aprSeq,
         contractNumber: `${aprSeq}/99`,
         status,
