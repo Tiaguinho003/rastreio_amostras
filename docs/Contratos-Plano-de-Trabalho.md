@@ -13,7 +13,7 @@ Documentos relacionados: `Contratos-Visao-Geral.md` (documento-mãe / estado atu
 
 Contrato à vista + futuro, o hub com 4 sub-abas (Central F1/F2), a reforma de Aprovações ("o portão", AP1–AP30) e o Embarque (EMB1–EMB29) estão **implementados ponta a ponta** — gates verdes (lint/format/typecheck/unit/integração) — em `main`, **não pushados**, **aguardando validação no device**.
 
-> **Split 2026-07-13:** o hub `/contratos` virou **2 páginas** — `/contratos` (Contratos + Financeiro, gestão, ADMIN+COMMERCIAL) e `/embarques` (Embarque + Aprovações, operação, todos os não-PROSPECTOR). Casca atual em `Contratos-Visao-Geral.md` §2; a **P27** (design das páginas) segue aberta.
+> **Split 2026-07-13 + ACESSO UNIFICADO 2026-07-15:** o hub `/contratos` virou **2 páginas** — `/contratos` (Contratos + Financeiro, gestão) e `/embarques` (Embarque + Aprovações, operação). Desde 2026-07-15 **ambas abertas a todo não-PROSPECTOR** (`CONTRATOS_ROLES`/`FINANCEIRO_ROLES` = `NON_PROSPECTOR_ROLES`; a gestão era ADMIN+COMMERCIAL). O ledger histórico abaixo (D110/D135/D140, CC6, AP9/AP27) descreve os gates **da época** — a fonte do estado atual é `Contratos-Visao-Geral.md` §2. A **P27** (design das páginas) segue aberta.
 
 ## 2. Pendências abertas
 

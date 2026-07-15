@@ -216,29 +216,29 @@ Endpoints somente-leitura usados pela pagina de detalhe do cliente (4 cards-filt
 1. `POST /api/v1/visit-reports`
    Qualquer usuario autenticado. `userId` e `createdAt` carimbados no servidor; `capturedAt` opcional (hora local da fila offline). Idempotente via `Idempotency-Key` (replay da fila nao duplica).
 2. `GET /api/v1/visit-reports`
-   Paginada (`page`, `limit` max 100), mais recentes primeiro. Viewer (`ADMIN`, unico em `VISIT_REPORT_VIEWER_ROLES`) ve tudo (pagina "Relatorios", `/informe`); `PROSPECTOR` recebe os informes de todos os autores com papel `PROSPECTOR` (comparacao da equipe; escopo forcado no service). Demais papeis: 403. `search` (opcional, max 120) filtra por nome do cliente — acento-insensitive nos dois caminhos via colunas geradas: cliente novo (`visit_report.new_client_name_normalized`) e cliente cadastrado (`client.search_normalized`); `page.total` reflete o filtro.
+   Paginada (`page`, `limit` max 100), mais recentes primeiro. Viewer (todo papel em `VISIT_REPORT_VIEWER_ROLES` = `NON_PROSPECTOR_ROLES` desde o **ACESSO UNIFICADO 2026-07-15** — era so `ADMIN`) ve tudo (pagina "Relatorios", `/informe`); `PROSPECTOR` recebe os informes de todos os autores com papel `PROSPECTOR` (comparacao da equipe; escopo forcado no service). Nao ha mais o 403 dos "demais papeis" — todo nao-PROSPECTOR e viewer. `search` (opcional, max 120) filtra por nome do cliente — acento-insensitive nos dois caminhos via colunas geradas: cliente novo (`visit_report.new_client_name_normalized`) e cliente cadastrado (`client.search_normalized`); `page.total` reflete o filtro.
 3. `GET /api/v1/visit-reports/stats`
    Contadores do dashboard do prospector, sempre do proprio usuario: `{ todayCount, todayNewClientsCount }` (visitas de hoje e, dentre elas, as com "Cliente novo"). Janela do dia no fuso de Brasilia (UTC-3 fixo), base temporal `COALESCE(captured_at, created_at)`.
 4. `DELETE /api/v1/visit-reports/:reportId`
-   `ADMIN` exclui qualquer informe (curadoria do feed da pagina "Relatorios"); os demais papeis excluem apenas o proprio (lixeira do dashboard do prospector). Informe alheio responde 404, igual a inexistente.
+   **Todo autor exclui apenas o proprio** informe (`deleteVisitReport` filtra por `userId` do ator — sem excecao para ADMIN). Informe alheio responde 404, igual a inexistente. _(A curadoria do feed em "Relatorios" e o **vinculo** informe→cliente — `linkVisitReportClient`, gate `VISIT_REPORT_LINK_CURATOR_ROLES` = todo nao-PROSPECTOR — nao a exclusao.)_
 
 ### Formularios do comercial
 
 5. `POST /api/v1/commercial-visits`
-   Visita do comercial (papeis `COMMERCIAL` e `ADMIN`). Body: `clientKind` (EXISTING/NEW), `clientId` (**obrigatorio nos DOIS kinds**), `reason` (NEGOTIATION / SAMPLE_DELIVERY_OR_PICKUP / COLLECTION / RELATIONSHIP), `outcome` (DEAL_CLOSED / PROPOSAL_IN_PROGRESS / NO_PROGRESS / NO_INTEREST), `outcomeNotes`/`generalNotes` opcionais. Sem fila offline (sem Idempotency-Key).
+   Visita do comercial (autor = `COMMERCIAL_FORM_AUTHOR_ROLES` = `NON_PROSPECTOR_ROLES` desde o **ACESSO UNIFICADO 2026-07-15** — era `COMMERCIAL` + `ADMIN`). Body: `clientKind` (EXISTING/NEW), `clientId` (**obrigatorio nos DOIS kinds**), `reason` (NEGOTIATION / SAMPLE_DELIVERY_OR_PICKUP / COLLECTION / RELATIONSHIP), `outcome` (DEAL_CLOSED / PROPOSAL_IN_PROGRESS / NO_PROGRESS / NO_INTEREST), `outcomeNotes`/`generalNotes` opcionais. Sem fila offline (sem Idempotency-Key).
 
    O `clientKind` e a DECLARACAO do autor ("ja e cliente" / "cliente novo"), nao a presenca do vinculo: toda visita comercial nasce ligada a um `Client` ativo. Em `NEW`, `newClientName` continua obrigatorio e `newClientCity`/`newClientPhone` opcionais — sao a ANOTACAO de campo, guardada ao lado do vinculo; o proprio formulario cadastra o cliente (`ClientQuickCreateModal`) antes de enviar. `clientId` ausente, inexistente ou inativo: `422` (`VALIDATION_ERROR` / `VISIT_CLIENT_NOT_FOUND` / `VISIT_CLIENT_INACTIVE`).
 
-   **Nao e a mesma regra do informe do prospector** (`POST /visit-reports`), que segue aceitando declaracao em texto puro, sem `clientId`, e depende da curadoria do `ADMIN`.
+   **Nao e a mesma regra do informe do prospector** (`POST /visit-reports`), que segue aceitando declaracao em texto puro, sem `clientId`, e depende da curadoria do vinculo (`VISIT_REPORT_LINK_CURATOR_ROLES` = todo nao-PROSPECTOR desde 2026-07-15; era so `ADMIN`).
 
 6. `DELETE /api/v1/commercial-visits/:visitId`
-   Autor exclui o proprio; `ADMIN` exclui qualquer (alheio = 404).
+   **Autor exclui apenas o proprio** (mesmo padrao do `deleteVisitReport` — sem excecao para ADMIN; alheio = 404).
 7. `POST /api/v1/weekly-reports`
-   Relatorio semanal (`COMMERCIAL`/`ADMIN`). Body: `summary` (obrigatorio), `difficulties`, `nextWeekPlan`. A semana de referencia (segunda BRT) e SEMPRE computada pelo servidor; max 1 por usuario por semana — duplicata responde `409 WEEKLY_REPORT_ALREADY_EXISTS`.
+   Relatorio semanal (autor = `COMMERCIAL_FORM_AUTHOR_ROLES` = `NON_PROSPECTOR_ROLES` desde 2026-07-15; era `COMMERCIAL`/`ADMIN`). Body: `summary` (obrigatorio), `difficulties`, `nextWeekPlan`. A semana de referencia (segunda BRT) e SEMPRE computada pelo servidor; max 1 por usuario por semana — duplicata responde `409 WEEKLY_REPORT_ALREADY_EXISTS`.
 8. `DELETE /api/v1/weekly-reports/:reportId`
    Mesma regra autor-ou-admin.
 9. `GET /api/v1/informe-feed?scope=mine|all`
-   Feed combinado paginado (`page`, `limit` max 100), mais recentes primeiro, itens com `type` discriminador. `scope=mine` (papeis `COMMERCIAL`/`ADMIN`): visitas + relatorios do proprio ator — alimenta o branch COMMERCIAL da pagina "Relatorios" (`/informe`). `scope=all` (viewers `ADMIN`/`CADASTRO`): os 3 tipos (incluindo `VISIT_REPORT` do prospector) de todos os autores — o branch viewer da mesma pagina (ex-/resumo, que agora redireciona pra `/informe`).
+   Feed combinado paginado (`page`, `limit` max 100), mais recentes primeiro, itens com `type` discriminador. `scope=mine` (gate `COMMERCIAL_FORM_AUTHOR_ROLES` = todo nao-PROSPECTOR): visitas + relatorios do proprio ator. `scope=all` (gate `VISIT_REPORT_VIEWER_ROLES` = todo nao-PROSPECTOR): os 3 tipos (incluindo `VISIT_REPORT` do prospector) de todos os autores. **ACESSO UNIFICADO 2026-07-15:** ambos os gates passaram a `NON_PROSPECTOR_ROLES` e a pagina "Relatorios" (`/informe`) virou **viewer unico** (`scope=all`) para todos — o antigo branch COMMERCIAL (`InformeCommercialPage`, `scope=mine`) foi **removido** do front (o endpoint `scope=mine` permanece).
 
 ### Politica de acesso do PROSPECTOR
 

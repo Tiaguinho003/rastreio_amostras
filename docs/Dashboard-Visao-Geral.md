@@ -65,7 +65,7 @@ Rótulos de papel (`lib/roles.ts` → `USER_ROLE_LABELS`):
 | Elemento                                   | ADMIN | COMMERCIAL | CLASSIFIER | REGISTRATION | CADASTRO | PROSPECTOR |
 | ------------------------------------------ | :---: | :--------: | :--------: | :----------: | :------: | :--------: |
 | Dashboard padrão (mobile+desktop)          |  ✅   |     ✅     |     ✅     |      ✅      |    ✅    |     —      |
-| Card **Eventos** — feed de **pagamento**   |  ✅   | ✅ (todos) |     —      |      —       |    —     |     —      |
+| Card **Eventos** — feed de **pagamento**   |  ✅   |     ✅     |     ✅     |      ✅      |    ✅    |     —      |
 | Card **Eventos** — feed de **embarque**    |  ✅   |     ✅     |     ✅     |      ✅      |    ✅    |     —      |
 | Card **Eventos** — feed de **faturamento** |  ✅   |     ✅     |    ✅¹     |     ✅¹      |   ✅¹    |     —      |
 | Dashboard do PROSPECTOR                    |   —   |     —      |     —      |      —       |    —     |     ✅     |
@@ -74,13 +74,13 @@ Rótulos de papel (`lib/roles.ts` → `USER_ROLE_LABELS`):
 
 Regras que geram a matriz:
 
-- **Feed de pagamento do card de Eventos** → `FINANCEIRO_ROLES` = **ADMIN + COMMERCIAL**; ambos veem os pagamentos de **TODOS** os contratos (escopo aberto, 2026-07-13 — own-only revogado, D140; sem recorte por `Broker.userId`). Os demais nem chamam o endpoint.
+- **Feed de pagamento do card de Eventos** → `FINANCEIRO_ROLES` = **`NON_PROSPECTOR_ROLES`** (todo papel menos PROSPECTOR; **ACESSO UNIFICADO 2026-07-15** — era ADMIN + COMMERCIAL). Todos veem os pagamentos de **TODOS** os contratos (escopo aberto — own-only revogado, D140; sem recorte por `Broker.userId`). Só o PROSPECTOR não chama o endpoint.
 - **Feed de embarque** → **sem gate de papel**: todos os não-PROSPECTOR veem tudo (auth-only; o único bloqueio é o allowlist central que barra o PROSPECTOR). _(O feed de **aprovação** — lembrete "a enviar" — foi **REMOVIDO** em 2026-07-12, DSB-D9; a data era imprecisa.)_
 - **Feed de faturamento (DSB-D11)** → **sem gate de papel** (auth-only, como o embarque): todos os não-PROSPECTOR **veem** o evento. Mas o chip só **navega** (→ aba Contratos) para quem abre essa aba (ADMIN/COMMERCIAL); para os operacionais é **rótulo inerte**. Ver §7.3.
 
 > ℹ️ **Cards que saíram do dashboard:** "Classificação pendente" migrou pra `/samples` como card só-visualização (2026-07-12, DSB-D2; "Cadastros pendentes" foi removido). Em **DSB-D14 (2026-07-14)** saíram os três da top row: o donut **"Lotes disponíveis" foi APAGADO do sistema** (rota, backend, componente e teste); **"Amostras enviadas"** migrou pro topo do sheet de `/samples` e **"Aprovações enviadas"** pro topo da aba Aprovações de `/embarques` (os dois **desktop-only**, mesmo `RecentSendsCard`). Detalhes no `Dashboard-Plano-de-Trabalho.md`.
 
-> ⚠️ **Alívio de UI, não segurança.** O feed financeiro não tem mais recorte por corretor — ADMIN e COMMERCIAL veem os pagamentos de todos os contratos (escopo aberto — D140); o gate é só de papel (`FINANCEIRO_ROLES`, §8). A segregação de papel real, no estado atual, é o allowlist do PROSPECTOR.
+> ⚠️ **Alívio de UI, não segurança.** O feed financeiro não tem mais recorte por corretor — **todo não-PROSPECTOR** vê os pagamentos de todos os contratos (escopo aberto — D140; `FINANCEIRO_ROLES = NON_PROSPECTOR_ROLES` desde o acesso unificado 2026-07-15); o gate é só de papel (§8). A segregação de papel real, no estado atual, é o allowlist do PROSPECTOR.
 
 ---
 
@@ -155,7 +155,7 @@ Os dois cards continuam existindo, **fora do dashboard** (desktop-only, mesmo co
 
   | Feed        | typeKey                                                                       | Visibilidade                                                                     | Fonte                        |
   | ----------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------- |
-  | Pagamento   | `contract_payment_due` / `contract_payment_overdue` / `contract_payment_paid` | ADMIN + COMMERCIAL (todos)                                                       | `getDashboardPaymentEvents`  |
+  | Pagamento   | `contract_payment_due` / `contract_payment_overdue` / `contract_payment_paid` | Todos os não-PROSPECTOR (2026-07-15; era ADMIN + COMMERCIAL)                     | `getDashboardPaymentEvents`  |
   | Embarque    | `contract_shipment` / `contract_shipment_done` / `contract_shipment_overdue`  | Todos os não-PROSPECTOR                                                          | `getDashboardShipmentEvents` |
   | Faturamento | `contract_invoice` / `contract_invoice_overdue` / `contract_invoice_done`     | Todos os não-PROSPECTOR (chip inerte p/ quem não abre a aba Contratos — DSB-D11) | `getDashboardInvoiceEvents`  |
 
@@ -172,12 +172,12 @@ Os dois cards continuam existindo, **fora do dashboard** (desktop-only, mesmo co
 
 Todas são `GET`, delegam ao backend via `executeBackend('<methodName>', …)` e estão **fora** do `PROSPECTOR_ALLOWED_API_METHODS` → o PROSPECTOR recebe **403** (allowlist central em `src/auth/prospector-access.js`, enforcement em `resolveActorContext`).
 
-| Rota                         | methodName                   | Gate                       | Parâmetros              | Cache                                  | Resposta                                                        |
-| ---------------------------- | ---------------------------- | -------------------------- | ----------------------- | -------------------------------------- | --------------------------------------------------------------- |
-| `/dashboard/pending`         | `getDashboardPending`        | Auth                       | —                       | —                                      | `{ classificationPending: { total } }` (count-only — DSB-H4/H5) |
-| `/dashboard/payment-events`  | `getDashboardPaymentEvents`  | ADMIN+COMMERCIAL (service) | `?from&to` (YYYY-MM-DD) | `private, max-age=30, must-revalidate` | `{ events: Record<dayKey, evento[]> }`                          |
-| `/dashboard/shipment-events` | `getDashboardShipmentEvents` | Auth (não-PROSPECTOR)      | `?from&to`              | `private, max-age=30, must-revalidate` | `{ events: Record<dayKey, evento[]> }`                          |
-| `/dashboard/invoice-events`  | `getDashboardInvoiceEvents`  | Auth (não-PROSPECTOR)      | `?from&to`              | `private, max-age=30, must-revalidate` | `{ events: Record<dayKey, evento[]> }`                          |
+| Rota                         | methodName                   | Gate                     | Parâmetros              | Cache                                  | Resposta                                                        |
+| ---------------------------- | ---------------------------- | ------------------------ | ----------------------- | -------------------------------------- | --------------------------------------------------------------- |
+| `/dashboard/pending`         | `getDashboardPending`        | Auth                     | —                       | —                                      | `{ classificationPending: { total } }` (count-only — DSB-H4/H5) |
+| `/dashboard/payment-events`  | `getDashboardPaymentEvents`  | Não-PROSPECTOR (service) | `?from&to` (YYYY-MM-DD) | `private, max-age=30, must-revalidate` | `{ events: Record<dayKey, evento[]> }`                          |
+| `/dashboard/shipment-events` | `getDashboardShipmentEvents` | Auth (não-PROSPECTOR)    | `?from&to`              | `private, max-age=30, must-revalidate` | `{ events: Record<dayKey, evento[]> }`                          |
+| `/dashboard/invoice-events`  | `getDashboardInvoiceEvents`  | Auth (não-PROSPECTOR)    | `?from&to`              | `private, max-age=30, must-revalidate` | `{ events: Record<dayKey, evento[]> }`                          |
 
 _(`/dashboard/approval-events` foi **removido** em DSB-D9; `/dashboard/sales-availability` foi **removido** e `/dashboard/recent-sends` foi **dividido e movido** em DSB-D14 — os envios agora saem de `GET /samples/recent-sends` (`getSampleRecentSends`, `{ items }` top-40) e `GET /sale-contracts/approvals/recent-sends` (`getApprovalRecentSends`, `{ items }` top-40), ambos auth-only com o mesmo cache `private, max-age=30, must-revalidate`, consumidos pelas páginas donas — ver §7.2.)_
 
@@ -187,11 +187,11 @@ Definições dos handlers: `src/api/v1/backend-api.js`. Implementações: `src/s
 
 **Regras dos feeds de eventos (backend):**
 
-- **Pagamento:** agendado = `EMITIDO`/`FATURADO` com `paymentDate` na janela; realizado = `PAGO` com `paidAt` na janela; `WASH_OUT` fora. ADMIN e COMMERCIAL veem os pagamentos de **todos** os contratos (escopo aberto — D140; sem recorte por `Broker.userId`). Vencidos reclassificados por "hoje BRT" (dot vermelho).
+- **Pagamento:** agendado = `EMITIDO`/`FATURADO` com `paymentDate` na janela; realizado = `PAGO` com `paidAt` na janela; `WASH_OUT` fora. Todo **não-PROSPECTOR** vê os pagamentos de **todos** os contratos (escopo aberto — D140; `FINANCEIRO_ROLES = NON_PROSPECTOR_ROLES` desde 2026-07-15; sem recorte por `Broker.userId`). Vencidos reclassificados por "hoje BRT" (dot vermelho).
 - **Embarque:** agendado = `requiresShipment` + `EMITIDO`/`FATURADO` + não embarcado, no `invoiceDate` (vermelho se o dia passar); realizado = embarcado (`shippedAt` na janela).
 - **Faturamento (DSB-D11):** agendado = `EMITIDO` no `invoiceDate` (vermelho se o dia passar); realizado = `FATURADO`/`PAGO` no `invoicedAt` (dia REAL do faturamento, não no `invoiceDate`). Auth-only (todos os não-PROSPECTOR, sem escopo por corretor — como o embarque). `id` namespaced (`invoice:`). Índices `idx_sale_contract_status_invoice_date` / `_status_invoiced_at`.
 - **Fim de semana (DSB-D18):** o roll de fim de semana do DSB-D7 (`rollWeekendToWeekday`) foi **removido** — os buckets (`bucketPaymentEvents`/`bucketShipmentEvents`/`bucketInvoiceEvents`) agrupam no **dia real**; o calendário mensal mostra sáb/dom. A validação de contrato que recusa datas de ação em fim de semana (`assertBusinessDate`, 422 `WEEKEND_DATE`) **permanece** — evento em sáb/dom é legado/borda.
-- **Escopo por papel dos feeds:** **nenhum** feed é mais escopado por corretor — pagamento, embarque e faturamento são todos **auth-only por papel** (o COMMERCIAL vê contratos de **outros** corretores: nº + comprador + datas; info **não-sensível**, sem preço/corretagem nos selects). O pagamento segue gated por `FINANCEIRO_ROLES` (ADMIN + COMMERCIAL); embarque e faturamento por qualquer não-PROSPECTOR. _(A "Decisão do check-up: **manter**" o pagamento escopado ao próprio corretor foi **revisada em 2026-07-13 — D140**: o own-only foi revogado e o feed de pagamento também abriu a todos os contratos.)_
+- **Escopo por papel dos feeds:** **nenhum** feed é mais escopado por corretor — pagamento, embarque e faturamento são todos **auth-only por papel** (o COMMERCIAL vê contratos de **outros** corretores: nº + comprador + datas; info **não-sensível**, sem preço/corretagem nos selects). O pagamento segue gated por `FINANCEIRO_ROLES` (= `NON_PROSPECTOR_ROLES` desde 2026-07-15 — era ADMIN + COMMERCIAL); embarque e faturamento por qualquer não-PROSPECTOR. _(A "Decisão do check-up: **manter**" o pagamento escopado ao próprio corretor foi **revisada em 2026-07-13 — D140**: o own-only foi revogado e o feed de pagamento também abriu a todos os contratos.)_
 - _(O feed de **aprovação** — lembrete "a enviar" com fan-out por intervalo — foi **removido** em DSB-D9; ver §7.3.)_
 
 ---
