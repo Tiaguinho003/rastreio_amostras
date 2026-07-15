@@ -176,6 +176,7 @@ Pos Q.print: impressao virou **acao pura**. Nao muda mais o status do Sample.
 5. `reasonText` de edicao e limitado a 10 palavras no backend atual.
 6. O detalhe do lote permite reverter a ultima edicao reversivel com novo motivo auditado.
 7. A acao terminal do lote e rotulada **"Deletar"** na UI (endpoint segue `/invalidate`): encerra o lote em status terminal (`INVALIDATED`), sem reabertura; bloqueada por 409 se houver contrato vinculado (`SAMPLE_HAS_CONTRACT`) — nesse caso o desfazer e o Washout do contrato em `/contratos`.
+8. Numa **liga**, os campos que **derivam da composicao** sao **read-only** na edicao: a **safra** (deriva das origens; apresentada como "Mix" quando ha mais de uma), as **sacas** (soma das contribuicoes das origens) e o **lote de origem** (sempre nulo — a origem real vive na composicao, que e imutavel apos criar). Editar direto e rejeitado com 422 (`BLEND_HARVEST_READ_ONLY` / `BLEND_SACKS_READ_ONLY` / `BLEND_ORIGIN_LOT_READ_ONLY`). O **dono** da liga continua editavel (recurso "dono fixado") e o **local** e autoral.
 
 ## Fluxos de usuario e acesso
 
