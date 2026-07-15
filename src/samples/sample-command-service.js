@@ -2458,6 +2458,21 @@ export class SampleCommandService {
       updatePayload.after.blendOwnerPinned = true;
     }
 
+    // Liga (safra derivada): a safra de uma liga NAO e editavel — deriva das
+    // origens (deriveBlendHarvest) e so muda pela propagacao reativa
+    // (_buildBlendPropagation, que constroi os drafts direto e nao passa por
+    // aqui). Uma edicao manual que tente mudar a safra e rejeitada (o campo ja
+    // e read-only na UI; isto e defense-in-depth contra chamada direta/revert).
+    if (
+      sample.isBlend &&
+      updatePayload.after?.declared &&
+      hasOwn(updatePayload.after.declared, 'harvest')
+    ) {
+      throw new HttpError(422, 'A safra de uma liga deriva dos lotes e nao pode ser editada', {
+        code: 'BLEND_HARVEST_READ_ONLY',
+      });
+    }
+
     // Liga: safra reativa. Monta o evento de edicao do lote com eventId
     // explicito (raiz da cadeia de causation). Quando a edicao muda a safra e o
     // lote e origem de ligas ativas, recalcula a safra das ligas ancestrais
@@ -4348,7 +4363,12 @@ export class SampleCommandService {
       if (hasOwn(sampleUpdatesPatch, 'declaredSacks')) {
         registrationAfter.declared.sacks = sampleUpdatesPatch.declaredSacks;
       }
-      if (hasOwn(sampleUpdatesPatch, 'declaredHarvest')) {
+      // Liga (safra derivada): a safra de uma liga vem das origens, nunca da
+      // ficha — pula a reconciliacao de safra quando o alvo e uma liga. A
+      // propagacao leaf->liga ao classificar uma ORIGEM segue valendo (ali
+      // current nao e liga). Patch so-de-safra que vire vazio cai no 409 no-op
+      // ja tratado abaixo.
+      if (hasOwn(sampleUpdatesPatch, 'declaredHarvest') && !current.isBlend) {
         registrationAfter.declared.harvest = sampleUpdatesPatch.declaredHarvest;
       }
 

@@ -3058,14 +3058,28 @@ export default function SampleDetailPage() {
                   </label>
                   <label className="app-modal-field">
                     <span className="app-modal-label">Safra</span>
-                    <input
-                      className={`app-modal-input${registrationFieldErrors.harvest ? ' has-error' : ''}`}
-                      value={harvest}
-                      onChange={(event) => setHarvest(event.target.value.toUpperCase())}
-                      onFocus={() => clearRegField('harvest')}
-                      placeholder={registrationFieldErrors.harvest ?? ''}
-                      disabled={registrationUpdating}
-                    />
+                    {detail?.sample.isBlend ? (
+                      // Liga: a safra deriva dos lotes que a compoem — read-only
+                      // (o backend tambem rejeita mudanca de safra numa liga).
+                      <>
+                        <input
+                          className="app-modal-input"
+                          value={harvest}
+                          disabled
+                          aria-readonly="true"
+                        />
+                        <span className="sdv-edit-hint">Deriva dos lotes que compõem a liga</span>
+                      </>
+                    ) : (
+                      <input
+                        className={`app-modal-input${registrationFieldErrors.harvest ? ' has-error' : ''}`}
+                        value={harvest}
+                        onChange={(event) => setHarvest(event.target.value.toUpperCase())}
+                        onFocus={() => clearRegField('harvest')}
+                        placeholder={registrationFieldErrors.harvest ?? ''}
+                        disabled={registrationUpdating}
+                      />
+                    )}
                   </label>
                 </div>
 
