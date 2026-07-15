@@ -1159,27 +1159,37 @@ model IdempotencyRecord {
 // envio passou pela fila offline (null = envio online direto). createdAt
 // segue sendo o "recebido em" carimbado pelo servidor.
 model VisitReport {
-  id                      String             @id @db.Uuid
-  userId                  String             @map("user_id") @db.Uuid
-  clientKind              VisitClientKind    @map("client_kind")
-  clientId                String?            @map("client_id") @db.Uuid
-  newClientName           String?            @map("new_client_name")
+  id                      String                  @id @db.Uuid
+  userId                  String                  @map("user_id") @db.Uuid
+  clientKind              VisitClientKind         @map("client_kind")
+  clientId                String?                 @map("client_id") @db.Uuid
+  newClientName           String?                 @map("new_client_name")
   // Coluna GERADA pelo banco (LOWER + immutable_unaccent de
   // new_client_name) — busca acento-insensitive; nunca escrever por aqui.
-  newClientNameNormalized String?            @map("new_client_name_normalized") @db.Text
-  newClientCity           String?            @map("new_client_city")
-  newClientPhone          String?            @map("new_client_phone")
-  farmSize                VisitFarmSize      @map("farm_size")
-  farmSizeNotes           String?            @map("farm_size_notes")
-  interestLevel           VisitInterestLevel @map("interest_level")
-  interestNotes           String?            @map("interest_notes")
-  sellsCurrently          Boolean            @map("sells_currently")
-  sellsToWhom             String?            @map("sells_to_whom")
-  generalNotes            String?            @map("general_notes")
-  capturedAt              DateTime?          @map("captured_at") @db.Timestamptz(6)
-  linkedByUserId          String?            @map("linked_by_user_id") @db.Uuid
-  linkedAt                DateTime?          @map("linked_at") @db.Timestamptz(6)
-  createdAt               DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  newClientNameNormalized String?                 @map("new_client_name_normalized") @db.Text
+  newClientCity           String?                 @map("new_client_city")
+  newClientPhone          String?                 @map("new_client_phone")
+  // Unificacao (2026-07-15): campos do prospector agora OPCIONAIS no form unificado.
+  farmSize                VisitFarmSize?          @map("farm_size")
+  farmSizeNotes           String?                 @map("farm_size_notes")
+  interestLevel           VisitInterestLevel?     @map("interest_level")
+  interestNotes           String?                 @map("interest_notes")
+  sellsCurrently          Boolean?                @map("sells_currently")
+  sellsToWhom             String?                 @map("sells_to_whom")
+  // Campos herdados da VISITA COMERCIAL (unificacao) — opcionais.
+  reason                  CommercialVisitReason?
+  reasonNotes             String?                 @map("reason_notes")
+  outcome                 CommercialVisitOutcome?
+  outcomeNotes            String?                 @map("outcome_notes")
+  generalNotes            String?                 @map("general_notes")
+  // captured_at/linked_* mantidos p/ rows legadas (offline + curadoria removidos; drop na migration B).
+  capturedAt              DateTime?               @map("captured_at") @db.Timestamptz(6)
+  linkedByUserId          String?                 @map("linked_by_user_id") @db.Uuid
+  linkedAt                DateTime?               @map("linked_at") @db.Timestamptz(6)
+  // Cancelamento (soft): visita imutavel; erro = cancelar e reenviar. FK so no SQL.
+  cancelledAt             DateTime?               @map("cancelled_at") @db.Timestamptz(6)
+  cancelledByUserId       String?                 @map("cancelled_by_user_id") @db.Uuid
+  createdAt               DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
 
   user     User    @relation("VisitReportAuthor", fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   client   Client? @relation(fields: [clientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
@@ -1189,6 +1199,7 @@ model VisitReport {
   @@index([userId, createdAt], map: "idx_visit_report_user_created")
   @@index([clientId], map: "idx_visit_report_client")
   @@index([linkedByUserId], map: "idx_visit_report_linked_by")
+  @@index([cancelledByUserId], map: "idx_visit_report_cancelled_by")
   @@map("visit_report")
 }
 
@@ -1236,19 +1247,23 @@ model CommercialVisit {
 // date-only) — o body nunca decide a semana. UNIQUE (user_id, week_start)
 // garante no maximo 1 relatorio por usuario por semana (violacao -> 409).
 model WeeklyReport {
-  id           String   @id @db.Uuid
-  userId       String   @map("user_id") @db.Uuid
-  weekStart    DateTime @map("week_start") @db.Date
-  summary      String
-  difficulties String?
-  nextWeekPlan String?  @map("next_week_plan")
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id                String    @id @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  weekStart         DateTime  @map("week_start") @db.Date
+  summary           String
+  difficulties      String?
+  nextWeekPlan      String?   @map("next_week_plan")
+  // Cancelamento (soft) — FK so no SQL.
+  cancelledAt       DateTime? @map("cancelled_at") @db.Timestamptz(6)
+  cancelledByUserId String?   @map("cancelled_by_user_id") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
   user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@unique([userId, weekStart], map: "uq_weekly_report_user_week")
   @@index([createdAt, id], map: "idx_weekly_report_created_id")
   @@index([userId, createdAt], map: "idx_weekly_report_user_created")
+  @@index([cancelledByUserId], map: "idx_weekly_report_cancelled_by")
   @@map("weekly_report")
 }
 
