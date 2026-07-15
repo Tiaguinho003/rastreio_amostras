@@ -30,7 +30,7 @@ no 7B+7C), 1 OUT_OF_SCOPE (LGPD, debito documentado).
 
 ### 2. Autorizacao
 
-- Roles: OK (4 roles: ADMIN, CLASSIFIER, REGISTRATION, COMMERCIAL)
+- Roles: OK (6 roles: ADMIN, CLASSIFIER, REGISTRATION, COMMERCIAL, CADASTRO, PROSPECTOR; PROSPECTOR restrito por allowlist central, `/users` so ADMIN)
 - Enforcement admin: OK (assertAdminActor em todas as 10 operacoes de user)
 - Amostras: GAP ACEITO (any authenticated, single-tenant by design)
 - IDOR: GAP ACEITO (single-tenant, sem multi-tenancy)
