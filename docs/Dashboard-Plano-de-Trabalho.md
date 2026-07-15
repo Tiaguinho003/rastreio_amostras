@@ -195,6 +195,15 @@ _(Fora de escopo, pra REFORMA de design: unificar os 3 feeds num endpoint; primi
   - **Só mês** — a visão semanal morre (`buildBusinessDays`/`buildWeek`/`formatPeriodLabel`/`CALENDAR_WEEK_DAYS` removidos); navegação ◀ Hoje ▶ de mês em mês, rótulo "julho de 2026" (sempre com ano).
   - Supera o trecho "só seg–sex (5 células)" do DSB-D7 (o lado contrato do DSB-D7 permanece) e o "1 semana" do DSB-D4.
 
+- **DSB-D19 (2026-07-15)** — **Card de "Avisos" no dashboard** (re-introduz o lembrete de aprovação — mas como **card binário**, superando o DSB-D9). O `approvalReminderLeadDays`, retido sem consumidor desde o DSB-D9, volta a ter uso: alimenta a janela do 1º tipo de aviso. A **regra** (quem/quando é pendente, janela, "À definir") vive na **AP31** (`Contratos-Plano-de-Trabalho.md`); aqui fica **o card**. Decisões do Flavio:
+  - **Card GERAL "Avisos"** (extensível por `kind`); 1º (e por ora único) tipo = **"aprovação a enviar"**.
+  - **Binário, no padrão `RecentSendsCard`** (card-lista desktop-only), **NÃO** chip-de-calendário — o *fan-out* do mesmo contrato por N dias era o que tornava o feed antigo impreciso (motivo do DSB-D9); um card "pendente → some" mata isso na raiz.
+  - **Layout desktop: coluna à DIREITA do calendário** — `.dd-content-grid` vira 2 colunas (calendário `1fr` + Avisos `minmax(280px, 340px)`); a trava de 100vh e o piso de 420px do calendário permanecem.
+  - **Mobile: desktop-only por ora** (chega ao mobile no ciclo do dashboard mobile — DSB-H6), como o calendário e o `RecentSendsCard`.
+  - **Texto = prazo por proximidade:** "vence esta semana" (≤7d) / "vence este mês" (≤30d) / "vence em N dias"; **"sem data"** quando o faturamento é "À definir" (D144); nº do contrato + comprador ao lado.
+  - **Clicável** → `/embarques?tab=aprovacoes&highlight=<id>` (abre a worklist pra gerar a etiqueta; "a ação mora na casa", igual aos chips do calendário).
+  - **Fetch:** `GET /dashboard/avisos` (`{ items }`, cache `private, max-age=30, must-revalidate`, hook estilo `useRecentSendsFeed`), **auth-only** (todos os não-PROSPECTOR; **fora** do allowlist do PROSPECTOR → 403 automático). Reusa o índice `idx_sale_contract_requires_approval_status_invoice`.
+
 ---
 
 ## 6. Fases
