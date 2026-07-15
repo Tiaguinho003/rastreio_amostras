@@ -2406,6 +2406,32 @@ export class SampleCommandService {
       throw new HttpError(409, 'No registration changes detected');
     }
 
+    // Liga (campos derivados read-only): as sacas de uma liga sao a soma das
+    // contribuicoes das origens (declaredSacks = Sigma contributedSacks, fixado
+    // no createBlend) e o lote de origem e sempre null (a origem real vive em
+    // SampleBlendComponent). A composicao e imutavel apos criar, entao nao ha
+    // como rebalancear pra casar um valor editado a mao — rejeita a edicao
+    // (defense-in-depth; os campos ja sao read-only na UI). Posto ANTES da
+    // reducao de sacas abaixo pra a liga receber esta mensagem, nao o 409 de
+    // "nao e possivel reduzir". Guard por presenca da chave: seguro porque
+    // buildRegistrationUpdatePayload faz o diff e so mantem o campo se mudou.
+    if (sample.isBlend && updatePayload.after?.declared) {
+      if (hasOwn(updatePayload.after.declared, 'sacks')) {
+        throw new HttpError(
+          422,
+          'As sacas de uma liga derivam dos lotes e nao podem ser editadas',
+          { code: 'BLEND_SACKS_READ_ONLY' }
+        );
+      }
+      if (hasOwn(updatePayload.after.declared, 'originLot')) {
+        throw new HttpError(
+          422,
+          'A liga nao tem lote de origem — vem dos lotes que a compoem',
+          { code: 'BLEND_ORIGIN_LOT_READ_ONLY' }
+        );
+      }
+    }
+
     const nextDeclaredSacks =
       updatePayload.after?.declared &&
       Object.prototype.hasOwnProperty.call(updatePayload.after.declared, 'sacks')
@@ -4360,7 +4386,11 @@ export class SampleCommandService {
     // protege duplicacao). Tolerado por ora para nao reestruturar o fluxo.
     if (sampleUpdatesPatch) {
       const registrationAfter = { declared: {} };
-      if (hasOwn(sampleUpdatesPatch, 'declaredSacks')) {
+      // Liga (sacas derivadas): as sacas de uma liga vem da soma das origens,
+      // nunca da ficha — pula a reconciliacao de sacas quando o alvo e uma liga
+      // (espelha a safra abaixo). Patch que vire vazio cai no 409 no-op ja
+      // tratado no catch abaixo. updateRegistration tambem rejeita por defesa.
+      if (hasOwn(sampleUpdatesPatch, 'declaredSacks') && !current.isBlend) {
         registrationAfter.declared.sacks = sampleUpdatesPatch.declaredSacks;
       }
       // Liga (safra derivada): a safra de uma liga vem das origens, nunca da
