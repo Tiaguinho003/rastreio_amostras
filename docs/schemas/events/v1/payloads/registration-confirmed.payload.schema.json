@@ -12,6 +12,10 @@
       "type": "boolean",
       "description": "Lote editavel (2026-06-19): true quando o numero foi informado manualmente (fora da sequencia automatica). O gerador automatico ignora lotes manuais ao calcular o proximo numero. Opcional; ausente = false (lotes historicos, ligas, imports)."
     },
+    "blendOwnerPinned": {
+      "type": "boolean",
+      "description": "Liga (dono fixado): true quando o dono da liga foi escolhido/fixado manualmente na criacao (createBlend com ownerFixed) — a propagacao reativa nao recalcula o dono da liga (so a safra deriva das origens). Opcional; ausente = false (Samples normais, ligas derivadas/legadas)."
+    },
     "declared": {
       "type": "object",
       "properties": {

@@ -244,6 +244,9 @@ function buildSampleCreateData(event) {
       ? Number(event.payload.sampleLotNumber)
       : null;
     data.lotNumberManual = event.payload.lotNumberManual === true;
+    // Liga (dono fixado): true = dono escolhido a mao na criacao; a propagacao
+    // reativa nao recalcula o dono. Ausente = false (Samples normais/derivadas).
+    data.blendOwnerPinned = event.payload.blendOwnerPinned === true;
     // Lote editavel: a data informada (occurredAt) vira a data do lote — dirige
     // createdAt (em vez do now() do banco) pra ficar consistente apos rebuild.
     data.createdAt = new Date(event.occurredAt);
@@ -297,6 +300,7 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
       ? Number(event.payload.sampleLotNumber)
       : null;
     updateData.lotNumberManual = event.payload.lotNumberManual === true;
+    updateData.blendOwnerPinned = event.payload.blendOwnerPinned === true;
     if (hasOwn(event.payload, 'ownerClientId')) {
       updateData.ownerClientId = event.payload.ownerClientId ?? null;
     }
@@ -315,6 +319,9 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
     const declaredAfter = after.declared ?? {};
 
     if (hasOwn(after, 'ownerClientId')) updateData.ownerClientId = after.ownerClientId;
+    // Liga (dono fixado): auto-pin de edicao manual de dono de liga, e re-derivacao
+    // de ligas nao-fixadas, viajam por after.blendOwnerPinned.
+    if (hasOwn(after, 'blendOwnerPinned')) updateData.blendOwnerPinned = after.blendOwnerPinned;
     // ownerUnitId ignorado de proposito (lote nao vincula fazenda).
 
     if (hasOwn(after, 'owner')) updateData.declaredOwner = after.owner;

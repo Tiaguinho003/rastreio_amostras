@@ -285,6 +285,11 @@ model Sample {
   /// amostras via SampleBlendComponent). Default false — Samples normais
   /// herdam o comportamento atual sem mudanca. Ver docs/Liga-Plano-de-Trabalho.md.
   isBlend                     Boolean             @default(false) @map("is_blend")
+  /// True quando o dono da liga foi FIXADO manualmente (escolhido na criacao,
+  /// no contrato de venda, ou atribuido depois) — a propagacao reativa NAO
+  /// recalcula o dono (so a safra deriva). blendOwnerPinned=true + ownerClientId
+  /// null = "carteira da corretora" (escolha explicita). Ver Liga (dono fixado).
+  blendOwnerPinned            Boolean             @default(false) @map("blend_owner_pinned")
   updatedAt                   DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
   createdAt                   DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
 
