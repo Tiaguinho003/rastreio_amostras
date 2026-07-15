@@ -170,6 +170,38 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(events[0].payload.after.declared.harvest, '24/25, 25/26');
   });
 
+  // Liga (safra "Mix"): a safra da liga e derivada e READ-ONLY. Editar direto a
+  // safra da liga e rejeitado (422 BLEND_HARVEST_READ_ONLY); editar a safra de uma
+  // ORIGEM segue propagando (teste acima).
+  test('safra da liga e read-only: editar direto a safra da liga lanca 422', async () => {
+    const o1 = randomUUID();
+    const o2 = randomUUID();
+    await createSample({ id: o1, lotNumber: '21001', harvest: '24/25' });
+    await createSample({ id: o2, lotNumber: '21002', harvest: '25/26' });
+    const blend = await createBlend({
+      clientDraftId: 'd-readonly',
+      components: [
+        { originSampleId: o1, contributedSacks: 10 },
+        { originSampleId: o2, contributedSacks: 10 },
+      ],
+      lotNumber: '21003',
+    });
+    assert.equal(await harvestOf(blend.sample.id), '24/25, 25/26');
+
+    let thrown = null;
+    try {
+      await editHarvest(blend.sample.id, '26/27', { confirm: true });
+    } catch (error) {
+      thrown = error;
+    }
+
+    assert.ok(thrown instanceof HttpError);
+    assert.equal(thrown.status, 422);
+    assert.equal(thrown.details.code, 'BLEND_HARVEST_READ_ONLY');
+    // Safra da liga inalterada.
+    assert.equal(await harvestOf(blend.sample.id), '24/25, 25/26');
+  });
+
   // 2. Recursiva A -> B -> C (Map em memoria: C usa o valor recalculado de B)
   test('propaga recursivamente liga-de-liga em ordem topologica', async () => {
     const a = randomUUID();

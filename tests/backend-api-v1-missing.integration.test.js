@@ -1760,9 +1760,11 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  // Liga: laudo de amostra com mais de uma safra exige escolha de UMA safra
-  // (anti-vazamento — o laudo nunca imprime a string concatenada).
-  test('POST /export/pdf bloqueia safra multipla sem reportedHarvest (422, nada gerado)', async () => {
+  // Liga (safra "Mix"): o laudo de amostra multi-safra NAO exige mais a escolha de
+  // UMA safra — gera direto (o anti-vazamento foi revertido; uma liga renderiza
+  // "Mix" + as safras + %). Sem escolha, a chave reportedHarvest e OMITIDA no
+  // evento (schema non-nullable — nunca gravar null).
+  test('POST /export/pdf gera laudo de safra multipla sem escolha (200, sem reportedHarvest)', async () => {
     const sampleId = randomUUID();
     await moveSampleToClassified(sampleId);
     await prisma.sample.update({
@@ -1770,12 +1772,13 @@ if (!databaseUrl || !databaseReachable) {
       data: { declaredHarvest: '24/25, 25/26' },
     });
 
-    const blocked = await api.exportSamplePdf(buildInput({ params: { sampleId }, body: {} }));
+    const exported = await api.exportSamplePdf(buildInput({ params: { sampleId }, body: {} }));
 
-    assert.equal(blocked.status, 422);
+    assert.equal(exported.status, 200);
     const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 40 });
     const reportEvents = detail.events.filter((event) => event.eventType === 'REPORT_EXPORTED');
-    assert.equal(reportEvents.length, 0);
+    assert.equal(reportEvents.length, 1);
+    assert.equal(reportEvents[0].payload.reportedHarvest, undefined);
   });
 
   test('POST /export/pdf gera laudo com a safra escolhida e registra reportedHarvest', async () => {
