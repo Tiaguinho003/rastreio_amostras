@@ -15,6 +15,7 @@ function makeInput({ ligas, components, state }) {
     declaredHarvest: l.declaredHarvest ?? null,
     ownerClientId: l.ownerClientId ?? null,
     declaredOwner: l.declaredOwner ?? null,
+    blendOwnerPinned: l.blendOwnerPinned ?? false,
   }));
   const componentsByBlendId = new Map(
     Object.entries(components).map(([blendId, origins]) => [
@@ -101,6 +102,39 @@ test('owner divergente: liga perde o dono (null)', () => {
   assert.equal(diffs[0].before.ownerClientId, 'c1');
   assert.equal(diffs[0].after.ownerClientId, null);
   assert.equal(diffs[0].after.declared.owner, null);
+});
+
+// 2b — Dono fixado: o backfill NAO re-deriva o dono de uma liga fixada (so a
+// safra); protege o dono manual de um re-run.
+test('dono fixado: liga fixada nao re-deriva o dono no backfill (so a safra)', () => {
+  const { diffs } = planBlendBackfill(
+    makeInput({
+      ligas: [
+        {
+          sampleId: 'L',
+          ownerClientId: 'joao', // dono fixado (terceiro, fora das origens)
+          declaredOwner: 'Joao',
+          declaredHarvest: '24/25',
+          blendOwnerPinned: true,
+        },
+      ],
+      components: {
+        L: [
+          { originId: 'a1', ownerClientId: 'c1', declaredHarvest: '24/25' }, // origens divergem
+          { originId: 'a2', ownerClientId: 'c2', declaredHarvest: '25/26' },
+        ],
+      },
+      state: {
+        L: { harvest: '24/25', ownerClientId: 'joao', declaredOwner: 'Joao' },
+        a1: { ownerClientId: 'c1', harvest: '24/25' },
+        a2: { ownerClientId: 'c2', harvest: '25/26' },
+      },
+    })
+  );
+  // A safra deriva (24/25 -> 24/25, 25/26), mas o dono fixado NAO entra no diff.
+  assert.equal(diffs.length, 1);
+  assert.equal(diffs[0].after.declared.harvest, '24/25, 25/26');
+  assert.equal('ownerClientId' in diffs[0].after, false, 'dono fixado nao muda no backfill');
 });
 
 // 3

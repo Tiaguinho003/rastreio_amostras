@@ -90,9 +90,9 @@ if (!databaseUrl || !databaseReachable) {
     await prisma.sample.update({ where: { id }, data: { status: 'CLASSIFIED' } });
   }
 
-  async function createBlend({ clientDraftId, components, lotNumber }) {
+  async function createBlend({ clientDraftId, components, lotNumber, ownerClientId, ownerFixed }) {
     return commandService.createBlend(
-      { clientDraftId, components, sampleLotNumber: lotNumber },
+      { clientDraftId, components, sampleLotNumber: lotNumber, ownerClientId, ownerFixed },
       actor
     );
   }
@@ -115,6 +115,10 @@ if (!databaseUrl || !databaseReachable) {
   async function ownerOf(sampleId) {
     const row = await prisma.sample.findUnique({ where: { id: sampleId } });
     return { ownerClientId: row.ownerClientId, declaredOwner: row.declaredOwner };
+  }
+
+  async function blendRow(sampleId) {
+    return prisma.sample.findUnique({ where: { id: sampleId } });
   }
 
   test.before(async () => {
@@ -295,6 +299,166 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(thrown.details.affectedBlends[0].sampleId, blend.sample.id);
     // Nada gravado.
     assert.equal((await ownerOf(blend.sample.id)).ownerClientId, c1);
+  });
+
+  // Dono fixado: um dono escolhido a mao (terceiro) fica FIXADO — editar uma
+  // origem depois nao muda o dono da liga (so a safra deriva).
+  test('dono fixado: createBlend com ownerFixed fixa um terceiro; editar origem nao muda o dono', async () => {
+    const luis = randomUUID();
+    const junior = randomUUID();
+    const joao = randomUUID();
+    await createClient(luis, 'Luis');
+    await createClient(junior, 'Junior');
+    await createClient(joao, 'Joao');
+    const o1 = randomUUID();
+    const o2 = randomUUID();
+    await createSample({
+      id: o1,
+      lotNumber: '31001',
+      harvest: '24/25',
+      ownerClientId: luis,
+      ownerName: 'Luis',
+    });
+    await createSample({
+      id: o2,
+      lotNumber: '31002',
+      harvest: '24/25',
+      ownerClientId: junior,
+      ownerName: 'Junior',
+    });
+
+    // Origens de clientes diferentes, mas a liga é do Joao (terceiro), fixada.
+    const blend = await createBlend({
+      clientDraftId: 'd-pin-1',
+      components: [
+        { originSampleId: o1, contributedSacks: 10 },
+        { originSampleId: o2, contributedSacks: 10 },
+      ],
+      lotNumber: '31003',
+      ownerClientId: joao,
+      ownerFixed: true,
+    });
+    assert.equal((await ownerOf(blend.sample.id)).ownerClientId, joao);
+    assert.equal((await blendRow(blend.sample.id)).blendOwnerPinned, true);
+
+    // Editar o dono de uma origem NAO reverte o dono fixado da liga.
+    const outro = randomUUID();
+    await createClient(outro, 'Outro');
+    await editOwner(o1, outro, { confirm: true });
+    assert.equal(
+      (await ownerOf(blend.sample.id)).ownerClientId,
+      joao,
+      'o dono fixado permanece apos editar a origem'
+    );
+  });
+
+  // Dono fixado — "carteira da corretora" (fixado + owner null): sobrevive a
+  // edicao de origem; a safra continua derivando.
+  test('dono fixado: carteira (fixado null) permanece; a safra ainda deriva das origens', async () => {
+    const c1 = randomUUID();
+    await createClient(c1, 'C1');
+    const o1 = randomUUID();
+    const o2 = randomUUID();
+    await createSample({
+      id: o1,
+      lotNumber: '31010',
+      harvest: '24/25',
+      ownerClientId: c1,
+      ownerName: 'C1',
+    });
+    await createSample({
+      id: o2,
+      lotNumber: '31011',
+      harvest: '24/25',
+      ownerClientId: c1,
+      ownerName: 'C1',
+    });
+
+    // Carteira da corretora: ownerFixed=true, ownerClientId=null (sem dono, fixado).
+    const blend = await createBlend({
+      clientDraftId: 'd-pin-2',
+      components: [
+        { originSampleId: o1, contributedSacks: 10 },
+        { originSampleId: o2, contributedSacks: 10 },
+      ],
+      lotNumber: '31012',
+      ownerClientId: null,
+      ownerFixed: true,
+    });
+    assert.equal((await ownerOf(blend.sample.id)).ownerClientId, null);
+    assert.equal((await blendRow(blend.sample.id)).blendOwnerPinned, true);
+
+    // Editar a safra de uma origem: a liga recalcula a SAFRA, mas a carteira fica.
+    const sample = await prisma.sample.findUnique({ where: { id: o1 } });
+    await commandService.updateRegistration(
+      {
+        sampleId: o1,
+        expectedVersion: sample.version,
+        after: { declared: { harvest: '25/26' } },
+        reasonCode: 'DATA_FIX',
+        reasonText: 'Safra',
+        confirmHarvestPropagation: true,
+      },
+      actor
+    );
+    const row = await blendRow(blend.sample.id);
+    assert.equal(row.ownerClientId, null, 'carteira permanece');
+    assert.equal(row.blendOwnerPinned, true);
+    assert.equal(row.declaredHarvest, '24/25, 25/26', 'a safra derivou das origens');
+  });
+
+  // Dono fixado — auto-pin: editar o dono da PROPRIA liga (nao-fixada) fixa; a
+  // partir dai, editar uma origem nao reverte mais o dono.
+  test('dono fixado: editar o dono da propria liga auto-fixa e blinda de origem', async () => {
+    const c1 = randomUUID();
+    const c2 = randomUUID();
+    await createClient(c1, 'C1');
+    await createClient(c2, 'C2');
+    const o1 = randomUUID();
+    const o2 = randomUUID();
+    await createSample({
+      id: o1,
+      lotNumber: '31020',
+      harvest: '24/25',
+      ownerClientId: c1,
+      ownerName: 'C1',
+    });
+    await createSample({
+      id: o2,
+      lotNumber: '31021',
+      harvest: '24/25',
+      ownerClientId: c1,
+      ownerName: 'C1',
+    });
+    // Liga nao-fixada (herda c1, reativa).
+    const blend = await createBlend({
+      clientDraftId: 'd-pin-3',
+      components: [
+        { originSampleId: o1, contributedSacks: 10 },
+        { originSampleId: o2, contributedSacks: 10 },
+      ],
+      lotNumber: '31022',
+    });
+    assert.equal((await blendRow(blend.sample.id)).blendOwnerPinned, false);
+
+    // Editar o dono da liga direto -> auto-fixa (updateRegistration num blend).
+    await editOwner(blend.sample.id, c2, { confirm: true });
+    assert.equal((await ownerOf(blend.sample.id)).ownerClientId, c2);
+    assert.equal(
+      (await blendRow(blend.sample.id)).blendOwnerPinned,
+      true,
+      'editar o dono de uma liga auto-fixa'
+    );
+
+    // Agora editar uma origem NAO reverte mais o dono fixado.
+    const c3 = randomUUID();
+    await createClient(c3, 'C3');
+    await editOwner(o1, c3, { confirm: true });
+    assert.equal(
+      (await ownerOf(blend.sample.id)).ownerClientId,
+      c2,
+      'o dono fixado permanece apos editar a origem'
+    );
   });
 
   // 5. Filtro de proprietário casa a liga mista por qualquer dono das origens
