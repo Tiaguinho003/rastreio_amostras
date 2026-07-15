@@ -66,6 +66,7 @@ export async function run({
       declaredHarvest: true,
       ownerClientId: true,
       declaredOwner: true,
+      blendOwnerPinned: true,
     },
   });
 
@@ -90,6 +91,7 @@ export async function run({
       declaredHarvest: liga.declaredHarvest,
       ownerClientId: liga.ownerClientId,
       declaredOwner: liga.declaredOwner,
+      blendOwnerPinned: liga.blendOwnerPinned,
     });
   }
 

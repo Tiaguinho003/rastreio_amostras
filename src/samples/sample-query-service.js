@@ -2228,7 +2228,8 @@ export class SampleQueryService {
           parent.declared_owner,
           parent.internal_lot_number,
           parent.sold_sacks,
-          parent.lost_sacks
+          parent.lost_sacks,
+          parent.blend_owner_pinned
         FROM sample_blend_component bc
         JOIN sample parent ON parent.id = bc.sample_id
         WHERE bc.origin_sample_id = ${editedSampleId}::uuid
@@ -2247,7 +2248,8 @@ export class SampleQueryService {
           parent.declared_owner,
           parent.internal_lot_number,
           parent.sold_sacks,
-          parent.lost_sacks
+          parent.lost_sacks,
+          parent.blend_owner_pinned
         FROM ancestor_blends ab
         JOIN sample_blend_component bc ON bc.origin_sample_id = ab.sample_id
         JOIN sample parent ON parent.id = bc.sample_id
@@ -2265,7 +2267,8 @@ export class SampleQueryService {
         declared_owner,
         internal_lot_number,
         sold_sacks,
-        lost_sacks
+        lost_sacks,
+        blend_owner_pinned
       FROM ancestor_blends
       ORDER BY depth ASC, sample_id ASC
     `;
@@ -2282,6 +2285,7 @@ export class SampleQueryService {
       internalLotNumber: row.internal_lot_number,
       soldSacks: Number(row.sold_sacks),
       lostSacks: Number(row.lost_sacks),
+      blendOwnerPinned: row.blend_owner_pinned === true,
     }));
   }
 

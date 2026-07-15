@@ -1752,13 +1752,16 @@ export class SampleCommandService {
       ? normalizeRequiredText(input.harvest, 'harvest')
       : derivedHarvest;
 
-    // 3. Owner: override manual (`input.ownerClientId`) tem precedencia; senao
-    // deriva das origens por UNANIMIDADE — todas com o mesmo ownerClientId
-    // (nao-nulo) -> liga herda; divergente/alguma sem dono -> liga sem dono
-    // (null). Mesma logica usada pela propagacao reativa do proprietario. Nome
-    // (declaredOwner) vem do snapshot da 1a origem (deriveBlendOwner).
+    // 3. Owner (Liga — dono fixado): quando o caller escolhe explicitamente o
+    // dono (`ownerFixed`, do modal de criacao) ele e FIXADO — pode ser um cliente
+    // qualquer (inclusive terceiro) ou `null` = "carteira da corretora". Sem
+    // escolha explicita, deriva das origens por UNANIMIDADE (mesmo cliente ->
+    // herda; divergente/alguma sem dono -> null) e NAO fixa. Compat: caller antigo
+    // que so manda `ownerClientId` (sem `ownerFixed`) segue fixando esse override.
     const inputOwnerClientId = normalizeNullableUuid(input.ownerClientId, 'ownerClientId');
     const inputOwnerUnitId = normalizeNullableUuid(input.ownerUnitId, 'ownerUnitId');
+    const ownerFixed =
+      input.ownerFixed !== undefined ? input.ownerFixed === true : Boolean(inputOwnerClientId);
     let ownerBinding = null;
     if (inputOwnerClientId) {
       ownerBinding = await this.clientService.resolveOwnerBinding({
@@ -1767,7 +1770,7 @@ export class SampleCommandService {
       });
     } else if (inputOwnerUnitId) {
       throw new HttpError(422, 'ownerUnitId requires ownerClientId');
-    } else {
+    } else if (!ownerFixed) {
       const derivedOwner = deriveBlendOwner(originOwners);
       if (derivedOwner.ownerClientId) {
         ownerBinding = {
@@ -1776,6 +1779,8 @@ export class SampleCommandService {
         };
       }
     }
+    // ownerFixed && sem cliente => "carteira da corretora": ownerBinding fica null
+    // (dono null), mas o blendOwnerPinned abaixo o congela como escolha explicita.
 
     // 4. declared.* — owner pode ser null (F3.3 / T0.C docstring Prisma).
     //    harvest pode ser null tambem quando nenhuma origem tem safra
@@ -1849,6 +1854,9 @@ export class SampleCommandService {
           lotNumberManual: manualLot,
           declared,
           ownerClientId: ownerBinding?.ownerClientId ?? null,
+          // Liga (dono fixado): a escolha manual do modal congela o dono, pra a
+          // propagacao reativa nao recalcular. false = derivado (unanimidade).
+          blendOwnerPinned: ownerFixed,
           // ownerUnitId nao e mais emitido: a liga/lote nao vincula fazenda.
           // Liga T0.C: 'internal' substitui 'in_person' silencioso.
           receivedChannel: 'internal',
@@ -2441,6 +2449,15 @@ export class SampleCommandService {
       }
     }
 
+    // Liga (dono fixado): uma edicao MANUAL que seta o dono de uma liga (contrato
+    // de venda via _syncSampleOwner, editor do detalhe, "Atribuir dono" do modal
+    // de venda) FIXA o dono — a propagacao reativa deixa de sobrescreve-lo. Os
+    // drafts da propagacao sao construidos em _buildBlendPropagation (nao passam
+    // por aqui), entao NAO auto-fixam as ligas ancestrais.
+    if (sample.isBlend && hasOwn(updatePayload.after, 'ownerClientId')) {
+      updatePayload.after.blendOwnerPinned = true;
+    }
+
     // Liga: safra reativa. Monta o evento de edicao do lote com eventId
     // explicito (raiz da cadeia de causation). Quando a edicao muda a safra e o
     // lote e origem de ligas ativas, recalcula a safra das ligas ancestrais
@@ -2589,15 +2606,23 @@ export class SampleCommandService {
         })
       );
 
+      // Liga (dono fixado): se o dono da liga foi FIXADO manualmente
+      // (blendOwnerPinned), a propagacao NAO recalcula o dono — so a safra deriva.
+      // O estado das ancestrais le o owner ATUAL (fixado), nao o recalculado.
+      const pinned = blend.blendOwnerPinned === true;
+      const effectiveOwner = pinned
+        ? { ownerClientId: blend.ownerClientId, declaredOwner: blend.declaredOwner }
+        : recalcOwner;
+
       // Registra SEMPRE (mesmo no no-op) pra ligas ancestrais lerem o valor certo.
       stateBySampleId.set(blend.sampleId, {
         harvest: recalcHarvest,
-        ownerClientId: recalcOwner.ownerClientId,
-        declaredOwner: recalcOwner.declaredOwner,
+        ownerClientId: effectiveOwner.ownerClientId,
+        declaredOwner: effectiveOwner.declaredOwner,
       });
 
       const harvestChanged = recalcHarvest !== blend.declaredHarvest;
-      const ownerChanged = recalcOwner.ownerClientId !== blend.ownerClientId;
+      const ownerChanged = !pinned && recalcOwner.ownerClientId !== blend.ownerClientId;
       // No-op: nem safra nem owner mudam -> nao emite evento.
       if (!harvestChanged && !ownerChanged) {
         continue;

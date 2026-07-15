@@ -130,15 +130,23 @@ export function planBlendBackfill({ ligas, componentsByBlendId, currentStateBySa
       })
     );
 
+    // Liga (dono fixado): backfill NAO recalcula o dono de uma liga fixada
+    // manualmente (blendOwnerPinned) — so a safra. Protege re-runs futuros. Se o
+    // caller nao carregar o campo (undefined), comporta como antes (nao-fixada).
+    const pinned = liga.blendOwnerPinned === true;
+    const effectiveOwner = pinned
+      ? { ownerClientId: liga.ownerClientId, declaredOwner: liga.declaredOwner }
+      : recalcOwner;
+
     // Registra SEMPRE (mesmo no no-op) pra ligas-pai lerem o valor certo.
     state.set(id, {
       harvest: recalcHarvest,
-      ownerClientId: recalcOwner.ownerClientId,
-      declaredOwner: recalcOwner.declaredOwner,
+      ownerClientId: effectiveOwner.ownerClientId,
+      declaredOwner: effectiveOwner.declaredOwner,
     });
 
     const harvestChanged = recalcHarvest !== liga.declaredHarvest;
-    const ownerChanged = recalcOwner.ownerClientId !== liga.ownerClientId;
+    const ownerChanged = !pinned && recalcOwner.ownerClientId !== liga.ownerClientId;
     // No-op: nem safra nem owner mudam -> nao emite (idempotencia estrutural).
     if (!harvestChanged && !ownerChanged) continue;
 
