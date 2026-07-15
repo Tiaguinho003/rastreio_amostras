@@ -652,6 +652,18 @@ function deriveReceivablePaymentState(status, paymentDate, todayKey) {
   return 'a_vencer';
 }
 
+// Modalidade do contrato (D147): predicados canonicos por `type`. Usados no
+// washout (ramifica por `type`, nao pelo vinculo de lote) e onde precisar
+// distinguir a vista de futuro. A invariante `type` <-> vinculo de lote (a vista
+// tem sample/movement; futuro nao) e garantida pela CHECK chk_sale_contract_type_lote.
+export function isFutureContract(contract) {
+  return contract?.type === 'FUTURO';
+}
+
+export function isSpotContract(contract) {
+  return contract?.type === 'MERCADO_A_VISTA';
+}
+
 // D145 (revisa D105): o contrato a vista (fisico) cancelado por washout nao gera
 // cobranca de corretagem — sai do Financeiro e bloqueia o Espelho. So o FUTURO em
 // washout segue cobravel. Predicado puro, usado no gate do Espelho (exportEspelhoPdf).

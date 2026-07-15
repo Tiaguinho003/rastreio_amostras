@@ -37,6 +37,7 @@ import {
   computeContractMoneyWithAgio,
   CONTRACT_LOOKUP_LISTS,
   formatContractNumber,
+  isFutureContract,
   normalizeActionDate,
   normalizeApprovalReminderLeadDays,
   normalizeContractLookupInput,
@@ -1466,7 +1467,7 @@ export class SaleContractService {
 
     const contract = await this.prisma.saleContract.findUnique({
       where: { id: contractId },
-      select: { id: true, status: true, version: true, sampleId: true, movementId: true },
+      select: { id: true, status: true, version: true, type: true, sampleId: true, movementId: true },
     });
     if (!contract) {
       throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
@@ -1483,9 +1484,12 @@ export class SaleContractService {
       });
     }
 
-    // Futuro (sem lote): nao ha venda a cancelar nem sacas a devolver — marca
-    // WASH_OUT + motivo/data direto no contrato.
-    if (!contract.movementId || !contract.sampleId) {
+    // Futuro (D147): ramifica por `type` (predicado unico, alinhado ao
+    // Financeiro/Espelho — antes ramificava pelo vinculo de lote). Futuro nao
+    // tem lote — nao ha venda a cancelar nem sacas a devolver — marca WASH_OUT +
+    // motivo/data direto no contrato. A invariante type<->vinculo (CHECK
+    // chk_sale_contract_type_lote) garante que a vista sempre tem sample/movement.
+    if (isFutureContract(contract)) {
       const result = await this.prisma.$transaction(async (tx) => {
         const updated = await tx.saleContract.updateMany({
           where: { id: contractId, version: expectedVersion, status: contract.status },
