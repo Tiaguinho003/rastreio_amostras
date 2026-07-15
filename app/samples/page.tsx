@@ -1542,6 +1542,8 @@ function SamplesPage() {
       lotNumber: string | null;
       lotNumberManual: boolean;
       receivedDate: string | null;
+      ownerClientId: string | null;
+      ownerFixed: boolean;
     }
   ) {
     if (creatingBlend) return;
@@ -1561,7 +1563,10 @@ function SamplesPage() {
       const result = await createBlend(session, {
         clientDraftId: blendDraftIdRef.current,
         components,
-        ownerClientId: null,
+        // Liga (dono fixado): o dono escolhido no modal (ou carteira = null)
+        // nasce FIXADO — a propagação reativa não recalcula depois.
+        ownerClientId: blendOptions?.ownerClientId ?? null,
+        ownerFixed: blendOptions?.ownerFixed ?? false,
         lotNumber: blendOptions?.lotNumber ?? null,
         lotNumberManual: blendOptions?.lotNumberManual ?? false,
         receivedDate: blendOptions?.receivedDate ?? null,

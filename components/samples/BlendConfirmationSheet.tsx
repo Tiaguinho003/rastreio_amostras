@@ -33,8 +33,50 @@ import {
 } from 'react';
 
 import { BottomSheet } from '../BottomSheet';
+import { ClientLookupField } from '../clients/ClientLookupField';
 import { getNextLotNumber } from '../../lib/api-client';
-import type { SampleSnapshot, SessionData } from '../../lib/types';
+import type { ClientSummary, SampleSnapshot, SessionData } from '../../lib/types';
+
+// Liga (dono fixado): mapeia o ownerClient enxuto do SampleSnapshot para o
+// ClientSummary que o ClientLookupField exibe (pre-preenche o dono unanime).
+function mapOwnerClientToSummary(
+  client: NonNullable<SampleSnapshot['ownerClient']>
+): ClientSummary {
+  return {
+    id: client.id,
+    code: client.code,
+    personType: client.personType,
+    displayName: client.displayName,
+    fullName: client.fullName,
+    legalName: client.legalName,
+    tradeName: client.tradeName,
+    cpf: client.cpf,
+    cnpj: client.cnpj,
+    document: client.personType === 'PF' ? client.cpf : client.cnpj,
+    phone: client.phone,
+    email: null,
+    addressLine: null,
+    district: null,
+    city: null,
+    state: null,
+    postalCode: null,
+    complement: null,
+    registrationNumber: null,
+    isBuyer: client.isBuyer,
+    isSeller: client.isSeller,
+    isWarehouse: client.isWarehouse,
+    status: client.status,
+    commercialUser: null,
+    commercialUsers: [],
+    units: [],
+    unitCount: 0,
+    activeUnitCount: 0,
+    primaryCity: null,
+    primaryState: null,
+    createdAt: null,
+    updatedAt: null,
+  };
+}
 
 const REMOVE_ANIMATION_MS = 150;
 
@@ -58,6 +100,10 @@ export interface BlendCreateOptions {
   lotNumber: string | null;
   lotNumberManual: boolean;
   receivedDate: string | null;
+  /** Dono ESCOLHIDO da liga; null = "carteira da corretora". Liga (dono fixado). */
+  ownerClientId: string | null;
+  /** Sempre true na criação pela UI: o dono escolhido nasce fixado (herda e fixa). */
+  ownerFixed: boolean;
 }
 
 interface BlendConfirmationSheetProps {
@@ -211,6 +257,22 @@ export function BlendConfirmationSheet({
   const [blendReceivedDate, setBlendReceivedDate] = useState(() => todayAsInputDate());
   const blendLotEditedRef = useRef(false);
 
+  // Liga (dono fixado): dono ESCOLHIDO da liga. Pre-preenche com o dono unanime
+  // (quando ha); divergente/sem dono -> escolha obrigatoria. "Carteira da
+  // corretora" (ownerIsCorretora) = sem dono, mas escolha explicita (fixada).
+  const [selectedOwnerClient, setSelectedOwnerClient] = useState<ClientSummary | null>(null);
+  const [ownerIsCorretora, setOwnerIsCorretora] = useState(false);
+  const ownerTouchedRef = useRef(false);
+
+  // Dono unanime das origens (mesma regra do deriveBlendOwner do backend): todas
+  // com o mesmo ownerClientId nao-nulo -> herda; senao null (escolha obrigatoria).
+  const unanimousOwner = useMemo<ClientSummary | null>(() => {
+    const ids = samples.map((s) => s.ownerClientId ?? null);
+    if (ids.length === 0 || new Set(ids).size !== 1 || ids[0] == null) return null;
+    const withClient = samples.find((s) => s.ownerClient);
+    return withClient?.ownerClient ? mapOwnerClientToSummary(withClient.ownerClient) : null;
+  }, [samples]);
+
   const loadLotSuggestion = useCallback(async () => {
     if (!session) return;
     setBlendLotLoading(true);
@@ -246,8 +308,18 @@ export function BlendConfirmationSheet({
       setBlendLotNumber('');
       setBlendReceivedDate(todayAsInputDate());
       blendLotEditedRef.current = false;
+      setSelectedOwnerClient(null);
+      setOwnerIsCorretora(false);
+      ownerTouchedRef.current = false;
     }
   }, [open]);
+
+  // Liga (dono fixado): pre-preenche o dono com o unanime enquanto o usuario nao
+  // escolheu manualmente. Aberto/troca de origens re-sugere; a escolha manual trava.
+  useEffect(() => {
+    if (!open || ownerTouchedRef.current) return;
+    setSelectedOwnerClient(unanimousOwner);
+  }, [open, unanimousOwner]);
 
   // Cleanup dos timers de remoção no unmount.
   useEffect(() => {
@@ -290,6 +362,8 @@ export function BlendConfirmationSheet({
   const canProceed = useMemo(() => {
     if (samples.length < 2) return false;
     if (total <= 0) return false;
+    // Liga (dono fixado): escolha do dono é obrigatória (um cliente OU carteira).
+    if (!selectedOwnerClient && !ownerIsCorretora) return false;
     for (const sample of samples) {
       if (state.removing[sample.id]) continue;
       // Valida sempre (sem depender de touched) pra travar Continuar
@@ -298,7 +372,7 @@ export function BlendConfirmationSheet({
       if (validate(value, sample) !== null) return false;
     }
     return true;
-  }, [samples, state.values, state.removing, total]);
+  }, [samples, state.values, state.removing, total, selectedOwnerClient, ownerIsCorretora]);
 
   function handleProceedClick() {
     if (!canProceed) return;
@@ -315,6 +389,9 @@ export function BlendConfirmationSheet({
       lotNumber: trimmedLot || null,
       lotNumberManual,
       receivedDate: blendReceivedDate || null,
+      // Liga (dono fixado): o dono escolhido (ou carteira = null) nasce fixado.
+      ownerClientId: selectedOwnerClient?.id ?? null,
+      ownerFixed: true,
     });
   }
 
@@ -425,6 +502,61 @@ export function BlendConfirmationSheet({
           </div>
         </label>
       </div>
+
+      {session ? (
+        <div className="blend-conf-owner" style={{ marginBottom: '0.85rem' }}>
+          <span className="nsv2-field-label">Dono da liga</span>
+          <ClientLookupField
+            session={session}
+            label="Dono da liga"
+            kind="owner"
+            selectedClient={selectedOwnerClient}
+            disabled={submitting || ownerIsCorretora}
+            compact
+            placeholder="Buscar cliente…"
+            emptyMessage="Nenhum cliente encontrado."
+            onSelectClient={(client) => {
+              ownerTouchedRef.current = true;
+              setSelectedOwnerClient(client);
+              if (client) setOwnerIsCorretora(false);
+            }}
+          />
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              marginTop: '0.5rem',
+              fontSize: '0.85rem',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={ownerIsCorretora}
+              disabled={submitting}
+              onChange={(event) => {
+                ownerTouchedRef.current = true;
+                const next = event.target.checked;
+                setOwnerIsCorretora(next);
+                if (next) setSelectedOwnerClient(null);
+              }}
+            />
+            Carteira da corretora (sem dono)
+          </label>
+          {!selectedOwnerClient && !ownerIsCorretora ? (
+            <span
+              style={{
+                display: 'block',
+                marginTop: '0.35rem',
+                fontSize: '0.78rem',
+                color: '#6b7280',
+              }}
+            >
+              Escolha o dono da liga ou marque &ldquo;carteira da corretora&rdquo;.
+            </span>
+          ) : null}
+        </div>
+      ) : null}
 
       <ul className="blend-conf-list" role="list">
         {samples.map((sample) => (

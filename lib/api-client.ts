@@ -1520,6 +1520,8 @@ export function createBlend(
     clientDraftId: string;
     components: Array<{ originSampleId: string; contributedSacks: number }>;
     ownerClientId?: string | null;
+    /** Liga (dono fixado): true = o dono escolhido nasce fixado. */
+    ownerFixed?: boolean;
     // Liga editavel (espelha createSample): numero manual (so quando
     // lotNumberManual) + data de chegada (YYYY-MM-DD).
     lotNumber?: string | null;
@@ -1532,6 +1534,7 @@ export function createBlend(
     clientDraftId: data.clientDraftId,
     components: data.components,
     ownerClientId: data.ownerClientId ?? null,
+    ownerFixed: data.ownerFixed ?? false,
     ...(data.lotNumberManual && data.lotNumber ? { sampleLotNumber: data.lotNumber } : {}),
     lotNumberManual: data.lotNumberManual ?? false,
     receivedDate: data.receivedDate ?? null,
