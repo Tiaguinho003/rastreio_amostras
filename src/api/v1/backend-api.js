@@ -2900,8 +2900,8 @@ export function createBackendApiV1({
       }),
 
     // ============================================================
-    // Contratos de venda (Fechamento -- gestao: ADMIN + COMMERCIAL,
-    // escopo aberto D140; gates de papel vivem no service)
+    // Contratos de venda (Fechamento -- gestao: todo nao-PROSPECTOR, ACESSO
+    // UNIFICADO 2026-07-15; escopo aberto D140; gates de papel vivem no service)
     // ============================================================
     listSaleContracts: (input) =>
       executeApiForInput(input, async () => {
@@ -2978,8 +2978,8 @@ export function createBackendApiV1({
       }),
 
     // Card de Eventos (dashboard desktop, E24/D138): feed de pagamentos de contrato
-    // por janela de data. Gate no service (FINANCEIRO_ROLES = ADMIN+COMMERCIAL);
-    // COMMERCIAL escopado aos contratos dele. Janela ?from&to = 'YYYY-MM-DD'.
+    // por janela de data. Gate no service (FINANCEIRO_ROLES = NON_PROSPECTOR_ROLES,
+    // unificado 2026-07-15); escopo aberto — sem recorte por corretor. Janela ?from&to = 'YYYY-MM-DD'.
     getDashboardPaymentEvents: (input) =>
       executeApiForInput(input, async () => {
         if (!saleContractService) {
@@ -3071,7 +3071,7 @@ export function createBackendApiV1({
       }),
 
     // "Aplicar agio/desagio" no card de um contrato EMITIDO (D87): recalcula
-    // total + corretagem e registra a aplicacao. ADMIN + COMMERCIAL (gate
+    // total + corretagem e registra a aplicacao. Todo nao-PROSPECTOR (gate
     // SALE_CONTRACT_ACCESS_ROLES no service, escopo aberto D140).
     applyAgioSaleContract: (input) =>
       executeApiForInput(input, async () => {
@@ -3213,7 +3213,7 @@ export function createBackendApiV1({
       }),
 
     // Fechamento (Fase C): gera o PDF do contrato on-demand (regeneravel, sem
-    // armazenar — D32). Gate via getSaleContract (ADMIN + COMMERCIAL em
+    // armazenar — D32). Gate via getSaleContract (todo nao-PROSPECTOR em
     // qualquer contrato — escopo aberto D140; o own-only da S74 foi revogado).
     // Todo contrato nasce EMITIDO (D97), entao nao ha mais gate de status aqui.
     // Devolve o buffer; a rota serve como application/pdf binario.
@@ -3252,7 +3252,7 @@ export function createBackendApiV1({
       }),
 
     // Espelho de Corretagem (Fase E): PDF on-demand DERIVADO de UM contrato
-    // (D70-D76). Gate via getSaleContract (ADMIN + COMMERCIAL em qualquer
+    // (D70-D76). Gate via getSaleContract (todo nao-PROSPECTOR em qualquer
     // contrato — escopo aberto D140; o own-only da S74 foi revogado);
     // elegiveis = EMITIDO/FATURADO/
     // PAGO/WASH_OUT (D105 inclui washout). `side` (query) = seller|buyer (D72)

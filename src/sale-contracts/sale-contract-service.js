@@ -140,7 +140,7 @@ export class SaleContractService {
   // nao paga e sai do Financeiro). SEM rateio ÷N (D136 removeu a "cota por
   // corretor"): o valor por fechamento = a corretagem TOTAL (vendedor + comprador);
   // os co-corretores sao listados so como atribuicao. ACESSO (escopo aberto
-  // 2026-07-13, own-only revogado): ADMIN e COMMERCIAL veem TODOS os fechamentos, com
+  // 2026-07-13, own-only revogado; ACESSO UNIFICADO 2026-07-15): todo nao-PROSPECTOR ve TODOS os fechamentos, com
   // os co-corretores visiveis e o total = a corretagem total. Select enxuto
   // (RECEIVABLE_VIEW_SELECT, sem snapshots). Sem `@relation` contrato<->broker: os
   // corretores vem num batch separado (agrupado em JS).
@@ -632,8 +632,9 @@ export class SaleContractService {
 
   // F1 (E21-E27/D138): eventos de "pagamento de contrato" do card de Eventos do
   // dashboard. Agendado = NAO pagos (EMITIDO/FATURADO) no paymentDate; realizado =
-  // PAGO no paidAt; WASH_OUT fora. Escopo aberto (own-only revogado): ADMIN e
-  // COMMERCIAL veem todos; demais papeis nem chegam (gate FINANCEIRO_ROLES). Janela
+  // PAGO no paidAt; WASH_OUT fora. Escopo aberto (own-only revogado; ACESSO
+  // UNIFICADO 2026-07-15): todo nao-PROSPECTOR ve todos; so o PROSPECTOR nem chega
+  // (gate FINANCEIRO_ROLES = NON_PROSPECTOR_ROLES). Janela
   // [from, to] = 'YYYY-MM-DD' (a quinzena visivel do card). Retorna
   // Record<'YYYY-MM-DD', evento[]> (o formato da prop `events` do card).
   async getDashboardPaymentEvents(input, actorContext) {
@@ -647,7 +648,7 @@ export class SaleContractService {
       return {};
     }
 
-    // Escopo aberto (2026-07-13, own-only revogado): ADMIN e COMMERCIAL veem os
+    // Escopo aberto (own-only revogado; ACESSO UNIFICADO 2026-07-15): todo nao-PROSPECTOR ve os
     // eventos de pagamento de TODOS os contratos (o feed nao filtra por corretor).
     const scope = {};
 
