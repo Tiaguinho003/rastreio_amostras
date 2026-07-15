@@ -61,41 +61,40 @@ export const NON_PROSPECTOR_ROLES: UserRole[] = [
   'CADASTRO',
 ];
 
-// Quem ve a pagina "Relatorios" como viewer (todos os informes): ADMIN. Espelha
-// VISIT_REPORT_VIEWER_ROLES do backend (src/visits/visit-report-service.js).
-// COMMERCIAL ve os PROPRIOS formularios no /informe (scope=mine). CADASTRO saiu
-// (2026-06-28): nao acessa mais Relatorios.
+// Quem ve a pagina "Relatorios" como viewer (TODOS os informes, scope=all).
+// ACESSO UNIFICADO (2026-07-15): todo papel nao-PROSPECTOR e viewer — o COMMERCIAL,
+// que via so os proprios, passa a ver todos. Espelha VISIT_REPORT_VIEWER_ROLES do
+// backend (src/visits/visit-report-service.js). PROSPECTOR ve so os proprios.
 export function isVisitReportViewer(role: UserRole | null | undefined): boolean {
-  return role === 'ADMIN';
+  return !!role && !isProspector(role);
 }
 
 // Quem cura o vinculo informe -> cliente em "Relatorios" (Vincular / Cadastrar e
-// vincular / Remover vinculo). Espelha VISIT_REPORT_LINK_CURATOR_ROLES do
-// backend. CADASTRO saiu (2026-06-28); restou o ADMIN.
+// vincular / Remover vinculo; atende o caso "Cliente novo"). ACESSO UNIFICADO
+// (2026-07-15): todo nao-PROSPECTOR cura — IGUAL aos viewers. Espelha
+// VISIT_REPORT_LINK_CURATOR_ROLES do backend.
 export function isVisitLinkCurator(role: UserRole | null | undefined): boolean {
-  return role === 'ADMIN';
+  return !!role && !isProspector(role);
 }
 
 // allowedRoles da pagina "Relatorios" (rota /informe, unificada com o antigo
-// /resumo): ADMIN entra como VIEWER (scope=all + curadoria, via
-// isVisitReportViewer); COMMERCIAL ve os proprios (scope=mine). Espelha os dois
-// gates do backend (VISIT_REPORT_VIEWER_ROLES + COMMERCIAL_FORM_AUTHOR_ROLES em
-// src/visits/): nenhum outro papel passa deles.
-// CADASTRO saiu em 2026-06-28; REGISTRATION em 2026-07-10 (so via placeholder
-// vazio: nao tem formulario proprio, nunca teve o que ver aqui). CLASSIFIER
-// nunca acessou.
-export const INFORME_ROLES: UserRole[] = ['ADMIN', 'COMMERCIAL'];
+// /resumo). ACESSO UNIFICADO (2026-07-15): todo papel nao-PROSPECTOR acessa, entra
+// como VIEWER (scope=all, via isVisitReportViewer) e cria (canCreate). O COMMERCIAL,
+// que via so os proprios, passa a ver todos. Espelha os gates do backend
+// (VISIT_REPORT_VIEWER_ROLES + COMMERCIAL_FORM_AUTHOR_ROLES, agora NON_PROSPECTOR).
+export const INFORME_ROLES: UserRole[] = NON_PROSPECTOR_ROLES;
 
-// allowedRoles da pagina "Financeiro" (Fase F): corretagem a receber por
-// fechamento — ADMIN + COMMERCIAL. ESCOPO ABERTO (2026-07-13, own-only revogado —
-// D135 superada): ambos veem TODOS os fechamentos (o backend nao filtra por
-// Broker.userId). Espelha o FINANCEIRO_ROLES do backend (sale-contract-service.js).
-export const FINANCEIRO_ROLES: UserRole[] = ['ADMIN', 'COMMERCIAL'];
+// allowedRoles da aba "Financeiro" (Fase F): corretagem a receber por fechamento.
+// ACESSO UNIFICADO (2026-07-15): todo papel nao-PROSPECTOR ve os valores (o backend
+// nao filtra por Broker.userId). Espelha o FINANCEIRO_ROLES do backend
+// (sale-contract-service.js, agora NON_PROSPECTOR_ROLES).
+export const FINANCEIRO_ROLES: UserRole[] = NON_PROSPECTOR_ROLES;
 
-// allowedRoles da pagina "Contratos": ADMIN + COMMERCIAL veem e gerenciam TUDO.
-// ESCOPO ABERTO (2026-07-13, own-only revogado — D110 superada): a posse por Broker
-// deixou de restringir. Espelha o SALE_CONTRACT_ACCESS_ROLES do backend.
-export const CONTRATOS_ROLES: UserRole[] = ['ADMIN', 'COMMERCIAL'];
+// allowedRoles da pagina "Contratos". ACESSO UNIFICADO (2026-07-15): todo papel
+// nao-PROSPECTOR ve e gerencia TUDO (Contratos + Financeiro; escopo aberto, sem
+// filtro por Broker). Espelha o SALE_CONTRACT_ACCESS_ROLES do backend (agora
+// NON_PROSPECTOR_ROLES). Alimenta contractsHubTabs (as 4 abas para todos).
+export const CONTRATOS_ROLES: UserRole[] = NON_PROSPECTOR_ROLES;
 
 // Central de Contratos (CC F2): o hub /contratos abre a TODOS os nao-PROSPECTOR.
 // ADMIN/COMMERCIAL veem as 4 abas (gestao + operacao); os operacionais
@@ -118,14 +117,12 @@ export function contractTabRoute(tab: ContractsHubTab): '/contratos' | '/embarqu
   return tab === 'embarque' || tab === 'aprovacoes' ? '/embarques' : '/contratos';
 }
 
-// Quem GERENCIA cadastro de cliente: hub /cadastros (abas Clientes/Bancos/
-// Corretores), detalhe do cliente (/clients/[id]) e o card "Cadastros
-// pendentes" do dashboard. Os demais papeis nao-PROSPECTOR (CLASSIFIER,
-// COMMERCIAL, REGISTRATION) ficam so com a lista /clients e o modal de
-// consulta do card. NAO ha gate equivalente no backend: os endpoints de
-// cliente exigem so autenticacao — isto e alivio de UI, nao fronteira de
-// seguranca (varios deles sao compartilhados com Contratos e envio de amostra).
-export const CLIENT_MANAGEMENT_ROLES: UserRole[] = ['ADMIN', 'CADASTRO'];
+// Quem GERENCIA cadastro de cliente: hub /cadastros (abas Clientes/Corretores) e
+// detalhe do cliente (/clients/[id]). ACESSO UNIFICADO (2026-07-15): todo papel
+// nao-PROSPECTOR gerencia — o item "Clientes" avulso sai da nav e todos acessam
+// clientes pela aba Clientes do hub Cadastros (padrao antes so ADMIN/CADASTRO).
+// Continua sem gate equivalente no backend (endpoints de cliente sao auth-only).
+export const CLIENT_MANAGEMENT_ROLES: UserRole[] = NON_PROSPECTOR_ROLES;
 
 export function canManageClients(role: UserRole | null | undefined): boolean {
   return !!role && CLIENT_MANAGEMENT_ROLES.includes(role);
