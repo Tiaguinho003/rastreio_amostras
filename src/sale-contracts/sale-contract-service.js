@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { Prisma } from '@prisma/client';
 
-import { assertRoleAllowed, USER_ROLES } from '../auth/roles.js';
+import { assertRoleAllowed, NON_PROSPECTOR_ROLES } from '../auth/roles.js';
 import { HttpError } from '../contracts/errors.js';
 import { assertAuthenticatedActor, readLimitQuery } from '../users/user-support.js';
 import {
@@ -55,26 +55,20 @@ import {
   toSaleContractView,
 } from './sale-contract-support.js';
 
-// Criar valores nas listas cadastraveis inline (createContractLookup) e
-// ADMIN-only (D94). NAO confundir com a gestao do contrato em si — criar,
-// editar/emitir, faturar/pagar, ágio e washout usam SALE_CONTRACT_ACCESS_ROLES
-// (ADMIN + COMMERCIAL, escopo aberto — D140). A CRIACAO nasce EMITIDO numa so
-// operacao (D97): a vista via createSpotSaleContract (delega ao
-// createSampleMovement na tx do evento); Futuro via createFutureSaleContract
-// (CRUD direto).
-const CONTRACT_LOOKUP_MANAGE_ROLES = [USER_ROLES.ADMIN];
-
-// Financeiro (Fase F): a pagina de recebiveis e ADMIN + COMMERCIAL (D135 reabre;
-// revisa a D128 que a deixou ADMIN-only). ESCOPO ABERTO (2026-07-13, own-only
-// revogado — D110/D135 superadas): ADMIN e COMMERCIAL veem TODOS os fechamentos,
-// com os co-corretores visiveis e o total = a corretagem total (sem rateio ÷N, D136).
-const FINANCEIRO_ROLES = [USER_ROLES.ADMIN, USER_ROLES.COMMERCIAL];
-
-// Acesso/gestao dos contratos por ADMIN + COMMERCIAL. ESCOPO ABERTO (2026-07-13,
-// own-only revogado — D110/D135 superadas): ADMIN e COMMERCIAL veem e GERENCIAM
-// TODOS os contratos (a posse por Broker deixou de restringir). O gate de papel
-// (assertRoleAllowed) no topo de cada metodo e a unica autorizacao.
-const SALE_CONTRACT_ACCESS_ROLES = [USER_ROLES.ADMIN, USER_ROLES.COMMERCIAL];
+// ACESSO UNIFICADO (2026-07-15): todo papel nao-PROSPECTOR acessa e opera os
+// contratos. Gestao (SALE_CONTRACT_ACCESS_ROLES), Financeiro (FINANCEIRO_ROLES) e
+// a criacao de valores das listas cadastraveis inline (CONTRACT_LOOKUP_MANAGE_ROLES,
+// createContractLookup) passaram de ADMIN/ADMIN+COMMERCIAL para o conjunto canonico
+// NON_PROSPECTOR_ROLES. Espelhado no front (lib/roles.ts: CONTRATOS_ROLES /
+// FINANCEIRO_ROLES). O gate de papel (assertRoleAllowed) no topo de cada metodo e a
+// unica autorizacao; o escopo segue ABERTO (own-only revogado, D140 — sem filtro por
+// Broker). Contexto preservado: a CRIACAO nasce EMITIDO numa so operacao (D97 — a
+// vista via createSpotSaleContract/createSampleMovement; Futuro via
+// createFutureSaleContract, CRUD direto); o Financeiro mostra TODOS os fechamentos com
+// co-corretores e total sem rateio (D136). /users segue ADMIN (fora deste dominio).
+const CONTRACT_LOOKUP_MANAGE_ROLES = NON_PROSPECTOR_ROLES;
+const FINANCEIRO_ROLES = NON_PROSPECTOR_ROLES;
+const SALE_CONTRACT_ACCESS_ROLES = NON_PROSPECTOR_ROLES;
 
 // Mesma chave do gerador do numero em src/events/prisma-event-store.js (NNNN
 // global, compartilhado a vista + Futuro). pg_advisory_xact_lock serializa a

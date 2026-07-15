@@ -187,17 +187,22 @@ if (!databaseUrl || !databaseReachable) {
       (error) => error.status === 422 && error.details?.field === 'newClientName'
     );
 
-    // ADMIN tambem cria; demais papeis 403.
+    // ADMIN tambem cria; acesso unificado (2026-07-15): todo nao-PROSPECTOR cria.
     const byAdmin = await service.createCommercialVisit(withClient(), actorFor(admin));
     assert.equal(byAdmin.visit.user.id, admin.id);
 
-    for (const role of ['CLASSIFIER', 'REGISTRATION', 'CADASTRO', 'PROSPECTOR']) {
-      const denied = await seedUser(role);
-      await assert.rejects(
-        service.createCommercialVisit(withClient(), actorFor(denied)),
-        (error) => error.status === 403
-      );
+    for (const role of ['CLASSIFIER', 'REGISTRATION', 'CADASTRO']) {
+      const author = await seedUser(role);
+      const byAuthor = await service.createCommercialVisit(withClient(), actorFor(author));
+      assert.equal(byAuthor.visit.user.id, author.id);
     }
+
+    // So o PROSPECTOR continua barrado (usa o proprio informe de visita).
+    const prospectorDenied = await seedUser('PROSPECTOR');
+    await assert.rejects(
+      service.createCommercialVisit(withClient(), actorFor(prospectorDenied)),
+      (error) => error.status === 403
+    );
   });
 
   test('createWeeklyReport: semana do servidor; duplicata na mesma semana responde 409', async () => {
@@ -329,25 +334,25 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(secondPage.items.length, 1);
     assert.equal(secondPage.items[0].type, 'VISIT_REPORT');
 
-    // Papeis: mine e exclusivo de COMMERCIAL/ADMIN; all segue viewers.
+    // Acesso unificado (2026-07-15): mine e all abrem a todo nao-PROSPECTOR; so o
+    // PROSPECTOR e barrado nos dois escopos.
     const adminMine = await service.listInformeFeed({ scope: 'mine' }, actorFor(admin));
     assert.equal(adminMine.page.total, 0);
-    await assert.rejects(
-      service.listInformeFeed({ scope: 'mine' }, actorFor(cadastro)),
-      (error) => error.status === 403
-    );
+    const cadastroMine = await service.listInformeFeed({ scope: 'mine' }, actorFor(cadastro));
+    assert.equal(cadastroMine.page.total, 0);
     await assert.rejects(
       service.listInformeFeed({ scope: 'mine' }, actorFor(prospector)),
       (error) => error.status === 403
     );
-    // CADASTRO saiu dos viewers (2026-06-28): scope 'all' agora cai no 403.
-    for (const role of ['CLASSIFIER', 'REGISTRATION', 'PROSPECTOR', 'COMMERCIAL', 'CADASTRO']) {
-      const denied = await seedUser(role);
-      await assert.rejects(
-        service.listInformeFeed({ scope: 'all' }, actorFor(denied)),
-        (error) => error.status === 403
-      );
+    for (const role of ['CLASSIFIER', 'REGISTRATION', 'CADASTRO', 'COMMERCIAL']) {
+      const viewer = await seedUser(role);
+      const feed = await service.listInformeFeed({ scope: 'all' }, actorFor(viewer));
+      assert.ok(Array.isArray(feed.items));
     }
+    await assert.rejects(
+      service.listInformeFeed({ scope: 'all' }, actorFor(prospector)),
+      (error) => error.status === 403
+    );
 
     // scope invalido.
     await assert.rejects(
@@ -511,26 +516,43 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('linkCommercialVisitClient: papel nao-curador (COMMERCIAL, CADASTRO) rejeitado', async () => {
+  test('linkCommercialVisitClient (acesso unificado 2026-07-15): CADASTRO/COMMERCIAL curam; só PROSPECTOR 403', async () => {
     await resetDatabase();
     const commercial = await seedUser('COMMERCIAL');
     const cadastro = await seedUser('CADASTRO');
-    const client = await seedClient();
+    const prospector = await seedUser('PROSPECTOR');
+    const clientA = await seedClient({ fullName: 'Cliente A' });
+    const clientB = await seedClient({ fullName: 'Cliente B' });
+    // Visita de "cliente novo" (curável): nasce vinculada a clientA.
     const created = await service.createCommercialVisit(
-      baseVisitInput({ clientId: client.id }),
+      baseVisitInput({ clientId: clientA.id }),
       actorFor(commercial)
     );
 
-    // COMMERCIAL nunca curou; CADASTRO saiu dos curadores em 2026-06-28.
-    for (const denied of [commercial, cadastro]) {
-      await assert.rejects(
-        service.linkCommercialVisitClient(
-          { visitId: created.visit.id, clientId: client.id },
-          actorFor(denied)
-        ),
-        (error) => error.status === 403
-      );
-    }
+    // PROSPECTOR continua barrado no gate de papel (curadoria).
+    await assert.rejects(
+      service.linkCommercialVisitClient(
+        { visitId: created.visit.id, clientId: clientB.id },
+        actorFor(prospector)
+      ),
+      (error) => error.status === 403
+    );
+
+    // CADASTRO cura (troca o vínculo); antes era 403.
+    const byCadastro = await service.linkCommercialVisitClient(
+      { visitId: created.visit.id, clientId: clientB.id },
+      actorFor(cadastro)
+    );
+    assert.equal(byCadastro.visit.client.id, clientB.id);
+    assert.equal(byCadastro.visit.linkedBy.id, cadastro.id);
+
+    // COMMERCIAL também cura (re-vincula); antes era 403.
+    const byCommercial = await service.linkCommercialVisitClient(
+      { visitId: created.visit.id, clientId: clientA.id },
+      actorFor(commercial)
+    );
+    assert.equal(byCommercial.visit.client.id, clientA.id);
+    assert.equal(byCommercial.visit.linkedBy.id, commercial.id);
   });
 
   test('linkCommercialVisitClient: visita inexistente -> 404', async () => {

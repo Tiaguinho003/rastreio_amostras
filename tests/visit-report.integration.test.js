@@ -343,7 +343,7 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('listVisitReports: viewers veem tudo; PROSPECTOR ve so os PROPRIOS; 403 pros demais', async () => {
+  test('listVisitReports: todo nao-PROSPECTOR ve tudo; PROSPECTOR ve so os PROPRIOS', async () => {
     await resetDatabase();
     const admin = await seedUser('ADMIN');
     const commercial = await seedUser('COMMERCIAL');
@@ -384,12 +384,10 @@ if (!databaseUrl || !databaseReachable) {
     const mineAuthors = new Set(mine.items.map((item) => item.user.id));
     assert.deepEqual([...mineAuthors], [prospector.id]);
 
-    // CADASTRO saiu dos viewers (2026-06-28): agora cai no 403, junto dos demais.
-    for (const denied of [classifier, registration, commercial, cadastro]) {
-      await assert.rejects(
-        service.listVisitReports({}, actorFor(denied)),
-        (error) => error.status === 403
-      );
+    // Acesso unificado (2026-07-15): todo nao-PROSPECTOR e viewer — ve os 4 informes.
+    for (const viewer of [classifier, registration, commercial, cadastro]) {
+      const seen = await service.listVisitReports({}, actorFor(viewer));
+      assert.equal(seen.page.total, 4);
     }
   });
 
@@ -566,10 +564,9 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('linkVisitReportClient: ADMIN vincula com auditoria preservando nome anotado e declaracao; CADASTRO 403', async () => {
+  test('linkVisitReportClient: ADMIN vincula com auditoria preservando nome anotado e declaracao; so PROSPECTOR 403', async () => {
     await resetDatabase();
     const prospector = await seedUser('PROSPECTOR');
-    const cadastro = await seedUser('CADASTRO');
     const admin = await seedUser('ADMIN');
     const clientA = await seedClient({ fullName: 'Produtor A' });
     const clientB = await seedClient({ fullName: 'Produtor B' });
@@ -579,11 +576,11 @@ if (!databaseUrl || !databaseReachable) {
       actorFor(prospector)
     );
 
-    // CADASTRO nao cura mais o vinculo (2026-06-28): 403.
+    // Acesso unificado (2026-07-15): so o PROSPECTOR e barrado no gate de papel.
     await assert.rejects(
       service.linkVisitReportClient(
         { reportId: created.report.id, clientId: clientA.id },
-        actorFor(cadastro)
+        actorFor(prospector)
       ),
       (error) => error.status === 403
     );
@@ -655,14 +652,12 @@ if (!databaseUrl || !databaseReachable) {
     const created = await service.createVisitReport(baseInput(), actorFor(prospector));
     const reportId = created.report.id;
 
-    // Papeis fora da curadoria (viewers ou nao): 403.
-    for (const role of ['COMMERCIAL', 'PROSPECTOR', 'CLASSIFIER', 'REGISTRATION']) {
-      const denied = await seedUser(role);
-      await assert.rejects(
-        service.linkVisitReportClient({ reportId, clientId: client.id }, actorFor(denied)),
-        (error) => error.status === 403
-      );
-    }
+    // Acesso unificado (2026-07-15): so o PROSPECTOR e barrado por papel; os demais
+    // nao-PROSPECTOR curam (ver teste dedicado abaixo).
+    await assert.rejects(
+      service.linkVisitReportClient({ reportId, clientId: client.id }, actorFor(prospector)),
+      (error) => error.status === 403
+    );
 
     // Sem ator autenticado: 401.
     await assert.rejects(
@@ -700,6 +695,36 @@ if (!databaseUrl || !databaseReachable) {
     const row = await prisma.visitReport.findUnique({ where: { id: reportId } });
     assert.equal(row.clientId, null);
     assert.equal(row.linkedByUserId, null);
+  });
+
+  test('linkVisitReportClient (acesso unificado 2026-07-15): CADASTRO e COMMERCIAL curam', async () => {
+    await resetDatabase();
+    const prospector = await seedUser('PROSPECTOR');
+    const cadastro = await seedUser('CADASTRO');
+    const commercial = await seedUser('COMMERCIAL');
+    const clientA = await seedClient({ fullName: 'Produtor A' });
+    const clientB = await seedClient({ fullName: 'Produtor B' });
+
+    const created = await service.createVisitReport(
+      baseInput({ newClientName: 'Anotado' }),
+      actorFor(prospector)
+    );
+
+    // CADASTRO cura (antes era 403).
+    const byCadastro = await service.linkVisitReportClient(
+      { reportId: created.report.id, clientId: clientA.id },
+      actorFor(cadastro)
+    );
+    assert.equal(byCadastro.report.client.id, clientA.id);
+    assert.equal(byCadastro.report.linkedBy.id, cadastro.id);
+
+    // COMMERCIAL re-vincula (antes era 403).
+    const byCommercial = await service.linkVisitReportClient(
+      { reportId: created.report.id, clientId: clientB.id },
+      actorFor(commercial)
+    );
+    assert.equal(byCommercial.report.client.id, clientB.id);
+    assert.equal(byCommercial.report.linkedBy.id, commercial.id);
   });
 
   test('listVisitReports: search filtra por nome do cliente (novo e cadastrado) com total real', async () => {
@@ -895,7 +920,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(total, 2);
   });
 
-  test('PATCH /visit-reports/:id/client via backend-api: 422 sem reportId, 200 no vinculo, 403 fora da curadoria', async () => {
+  test('PATCH /visit-reports/:id/client via backend-api: 422 sem reportId, 200 no vinculo, COMMERCIAL desvincula (acesso unificado)', async () => {
     await resetDatabase();
     await seedActorUser();
     await seedCuratorUser();
@@ -936,14 +961,15 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(linked.body.report.client.id, client.id);
     assert.equal(linked.body.report.linkedBy.id, CURATOR_USER_ID);
 
-    // Ator COMMERCIAL (viewer, nao curador): 403.
-    const denied = await api.linkVisitReportClient({
+    // Acesso unificado (2026-07-15): COMMERCIAL agora e curador — desvincula com 200.
+    const byCommercial = await api.linkVisitReportClient({
       headers: authHeaders,
       params: { reportId },
       query: {},
       body: { clientId: null },
     });
-    assert.equal(denied.status, 403);
+    assert.equal(byCommercial.status, 200);
+    assert.equal(byCommercial.body.report.client, null);
   });
 }
 

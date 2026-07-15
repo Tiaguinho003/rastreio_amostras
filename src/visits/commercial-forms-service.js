@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { HttpError } from '../contracts/errors.js';
-import { assertRoleAllowed, USER_ROLES } from '../auth/roles.js';
+import { assertRoleAllowed, NON_PROSPECTOR_ROLES } from '../auth/roles.js';
 import { buildClientDisplayName } from '../clients/client-support.js';
 import {
   assertAuthenticatedActor,
@@ -47,11 +47,11 @@ export const INFORME_FEED_SCOPES = Object.freeze(['mine', 'all']);
 export const INFORME_FEED_LIMIT_DEFAULT = 20;
 export const INFORME_FEED_LIMIT_MAX = 100;
 
-// Quem CRIA os formularios do comercial (a pagina renderiza pros dois).
-export const COMMERCIAL_FORM_AUTHOR_ROLES = Object.freeze([
-  USER_ROLES.COMMERCIAL,
-  USER_ROLES.ADMIN,
-]);
+// Quem CRIA os formularios do comercial (visita + relatorio semanal) e ve o feed
+// scope=mine. ACESSO UNIFICADO (2026-07-15): todo papel nao-PROSPECTOR pode criar e
+// listar (antes so COMMERCIAL + ADMIN) — espelha o modelo do front (todos criam
+// relatorios). PROSPECTOR usa o proprio informe (visit-report-service).
+export const COMMERCIAL_FORM_AUTHOR_ROLES = NON_PROSPECTOR_ROLES;
 
 const NEW_CLIENT_NAME_MAX = 200;
 const NEW_CLIENT_CITY_MAX = 120;

@@ -873,7 +873,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal((await prisma.saleContractBroker.findMany()).length, 1);
   });
 
-  test('gestao de contratos: COMMERCIAL vê tudo (escopo aberto); REGISTRATION 403; ADMIN vê tudo', async () => {
+  test('gestao de contratos: COMMERCIAL vê tudo (escopo aberto); PROSPECTOR 403; REGISTRATION/ADMIN veem tudo', async () => {
     const sampleId = randomUUID();
     const buyerId = randomUUID();
     await createClassifiedSample({ id: sampleId, lotNumber: '20006', declaredSacks: 10 });
@@ -887,12 +887,15 @@ if (!databaseUrl || !databaseReachable) {
     const noBrokerDetail = await saleContractService.getSaleContract(result.contract.id, noBroker);
     assert.equal(noBrokerDetail.contract.id, result.contract.id);
 
-    // Papel sem acesso (REGISTRATION) continua barrado.
-    const reg = { ...commercialActor, role: 'REGISTRATION', actorUserId: randomUUID() };
+    // Acesso unificado (2026-07-15): só o PROSPECTOR continua barrado; os demais
+    // não-PROSPECTOR (ex.: REGISTRATION) passam.
+    const prospector = { ...commercialActor, role: 'PROSPECTOR', actorUserId: randomUUID() };
     await assert.rejects(
-      () => saleContractService.listSaleContracts({}, reg),
+      () => saleContractService.listSaleContracts({}, prospector),
       (err) => err.status === 403
     );
+    const reg = { ...commercialActor, role: 'REGISTRATION', actorUserId: randomUUID() };
+    assert.equal((await saleContractService.listSaleContracts({}, reg)).items.length, 1);
 
     // ADMIN vê tudo.
     const list = await saleContractService.listSaleContracts({}, adminActor);
@@ -900,6 +903,26 @@ if (!databaseUrl || !databaseReachable) {
     const detail = await saleContractService.getSaleContract(result.contract.id, adminActor);
     assert.equal(detail.contract.contractNumber, `0001/${currentYear2}`);
     assert.equal(detail.contract.brokers.length, 1);
+  });
+
+  test('acesso unificado (2026-07-15): todo não-PROSPECTOR lê e detalha contratos', async () => {
+    const sampleId = randomUUID();
+    const buyerId = randomUUID();
+    await createClassifiedSample({ id: sampleId, lotNumber: '20099', declaredSacks: 10 });
+    await createBuyerClient(buyerId);
+    const sample = await queryService.requireSample(sampleId);
+    const result = await sell(sampleId, sample.version, buyerId);
+
+    for (const role of ['CLASSIFIER', 'REGISTRATION', 'CADASTRO']) {
+      const actor = { ...commercialActor, role, actorUserId: randomUUID() };
+      const list = await saleContractService.listSaleContracts({}, actor);
+      assert.ok(
+        list.items.some((i) => i.id === result.contract.id),
+        `${role} deve listar o contrato`
+      );
+      const detail = await saleContractService.getSaleContract(result.contract.id, actor);
+      assert.equal(detail.contract.id, result.contract.id);
+    }
   });
 
   test('gestao de contratos: COMMERCIAL vê/detalha TODOS os contratos (escopo aberto)', async () => {
@@ -1539,13 +1562,18 @@ if (!databaseUrl || !databaseReachable) {
     const second = await saleContractService.getNextContractNumber(adminActor);
     assert.equal(second.contractNumber, `0002/${currentYear2}`);
 
-    // Gate ADMIN + COMMERCIAL (D110): COMMERCIAL pode prever o número (cria contratos);
-    // papel sem acesso (REGISTRATION) é barrado.
+    // Acesso unificado (2026-07-15): COMMERCIAL e os demais não-PROSPECTOR preveem o
+    // número; só o PROSPECTOR é barrado.
     const commercialPreview = await saleContractService.getNextContractNumber(commercialActor);
     assert.equal(commercialPreview.contractNumber, `0002/${currentYear2}`);
     const reg = { ...commercialActor, role: 'REGISTRATION', actorUserId: randomUUID() };
+    assert.equal(
+      (await saleContractService.getNextContractNumber(reg)).contractNumber,
+      `0002/${currentYear2}`
+    );
+    const prospector = { ...commercialActor, role: 'PROSPECTOR', actorUserId: randomUUID() };
     await assert.rejects(
-      () => saleContractService.getNextContractNumber(reg),
+      () => saleContractService.getNextContractNumber(prospector),
       (err) => err.status === 403
     );
   });
@@ -1745,9 +1773,14 @@ if (!databaseUrl || !databaseReachable) {
     assert.ok(res.items.some((i) => i.id === alheio.contractId));
   });
 
-  test('Financeiro: papel sem acesso (REGISTRATION) → 403', async () => {
+  test('Financeiro (acesso unificado): REGISTRATION acessa; só PROSPECTOR → 403', async () => {
     const reg = { ...commercialActor, role: 'REGISTRATION', actorUserId: randomUUID() };
-    await assert.rejects(() => saleContractService.listBrokerReceivables({}, reg), /not allowed/);
+    assert.ok(Array.isArray((await saleContractService.listBrokerReceivables({}, reg)).items));
+    const prospector = { ...commercialActor, role: 'PROSPECTOR', actorUserId: randomUUID() };
+    await assert.rejects(
+      () => saleContractService.listBrokerReceivables({}, prospector),
+      /not allowed/
+    );
   });
 
   test('Financeiro: inclui fechamento SEM corretagem (P24/D92) com commissionTotal 0', async () => {
@@ -2099,12 +2132,21 @@ if (!databaseUrl || !databaseReachable) {
     await prisma.contractModality.delete({ where: { id: created.item.id } });
   });
 
-  test('criar lookup inline: exige ADMIN (P26/D94) — COMMERCIAL 403', async () => {
+  test('criar lookup inline (acesso unificado 2026-07-15): COMMERCIAL cria; só PROSPECTOR 403', async () => {
+    const name = `Bag ${randomUUID().slice(0, 8)}`;
+    const created = await saleContractService.createContractLookup(
+      { list: 'packaging', name },
+      commercialActor
+    );
+    assert.ok(created.item.id);
+    await prisma.contractPackaging.delete({ where: { id: created.item.id } });
+
+    const prospector = { ...commercialActor, role: 'PROSPECTOR', actorUserId: randomUUID() };
     await assert.rejects(
       () =>
         saleContractService.createContractLookup(
           { list: 'packaging', name: 'Bag teste' },
-          commercialActor
+          prospector
         ),
       (err) => err.status === 403
     );
@@ -2199,7 +2241,7 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('Eventos (escopo aberto): COMMERCIAL vê eventos de todos; papel sem acesso → 403', async () => {
+  test('Eventos (escopo aberto): COMMERCIAL vê eventos de todos; só PROSPECTOR → 403', async () => {
     const { actor: myActor, brokerId: myBrokerId } =
       await createCommercialBrokerUser('Corretor Eventos');
     const mine = await setupContractWithBrokers({ lotNumber: '25030', brokerIds: [myBrokerId] });
@@ -2219,13 +2261,20 @@ if (!databaseUrl || !databaseReachable) {
       'vê o de outro corretor'
     );
 
-    // papel sem acesso a contratos → 403 (gate FINANCEIRO_ROLES).
+    // Acesso unificado (2026-07-15): REGISTRATION (e demais não-PROSPECTOR) acessa;
+    // só o PROSPECTOR → 403 (gate FINANCEIRO_ROLES = NON_PROSPECTOR_ROLES).
     const reg = { ...commercialActor, role: 'REGISTRATION', actorUserId: randomUUID() };
+    const regEvents = await saleContractService.getDashboardPaymentEvents(
+      { from: '2026-07-13', to: '2026-07-26' },
+      reg
+    );
+    assert.equal(typeof regEvents, 'object');
+    const prospector = { ...commercialActor, role: 'PROSPECTOR', actorUserId: randomUUID() };
     await assert.rejects(
       () =>
         saleContractService.getDashboardPaymentEvents(
           { from: '2026-07-13', to: '2026-07-26' },
-          reg
+          prospector
         ),
       /not allowed/
     );

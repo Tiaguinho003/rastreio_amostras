@@ -13,6 +13,20 @@ export const USER_ROLES = {
   CADASTRO: 'CADASTRO',
 };
 
+// Conjunto canonico de ACESSO do app "cheio": todos os papeis MENOS o PROSPECTOR
+// (que tem app de campo restrito). Desde 2026-07-15 (acesso unificado) o modelo e
+// "todo nao-PROSPECTOR acessa e opera todas as paginas", com a UNICA excecao de
+// /users (ADMIN, via assertAdminActor em src/users/user-support.js). Espelhado no
+// front em lib/roles.ts (NON_PROSPECTOR_ROLES). E o complemento de
+// NON_ASSIGNABLE_ROLES no eixo de ACESSO (nao no de atribuicao de vinculo).
+export const NON_PROSPECTOR_ROLES = Object.freeze([
+  USER_ROLES.ADMIN,
+  USER_ROLES.CLASSIFIER,
+  USER_ROLES.REGISTRATION,
+  USER_ROLES.COMMERCIAL,
+  USER_ROLES.CADASTRO,
+]);
+
 export function assertRoleAllowed(role, allowedRoles, actionLabel) {
   if (!allowedRoles.includes(role)) {
     throw new HttpError(403, `Role ${role} is not allowed to ${actionLabel}`);

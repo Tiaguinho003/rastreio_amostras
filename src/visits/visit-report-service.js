@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { HttpError } from '../contracts/errors.js';
-import { assertRoleAllowed, USER_ROLES } from '../auth/roles.js';
+import { assertRoleAllowed, NON_PROSPECTOR_ROLES, USER_ROLES } from '../auth/roles.js';
 import { buildClientDisplayName, normalizeSearchInput } from '../clients/client-support.js';
 import {
   assertAuthenticatedActor,
@@ -27,18 +27,18 @@ export const VISIT_INTEREST_LEVELS = Object.freeze(['NONE', 'LOW', 'MEDIUM', 'HI
 export const VISIT_REPORT_LIST_LIMIT_DEFAULT = 20;
 export const VISIT_REPORT_LIST_LIMIT_MAX = 100;
 
-// Quem ve a pagina "Relatorios" como viewer (espelhado no front em lib/roles.ts
-// isVisitReportViewer): Administracao. COMMERCIAL ve os PROPRIOS formularios no
-// /informe (scope=mine, COMMERCIAL_FORM_AUTHOR_ROLES). CADASTRO saiu
-// (2026-06-28): nao acessa mais Relatorios. PROSPECTOR nao e viewer: lista
-// apenas os PROPRIOS informes (escopo forcado por userId).
-export const VISIT_REPORT_VIEWER_ROLES = Object.freeze([USER_ROLES.ADMIN]);
+// ACESSO UNIFICADO (2026-07-15): TODO papel nao-PROSPECTOR e viewer de
+// "Relatorios" — ve TODOS os informes (scope=all) e cria (espelhado no front em
+// lib/roles.ts: isVisitReportViewer). O COMMERCIAL, que via so os PROPRIOS, passa
+// a ver todos. PROSPECTOR NAO e viewer: lista apenas os PROPRIOS informes (escopo
+// forcado por userId, preservado no listVisitReports abaixo).
+export const VISIT_REPORT_VIEWER_ROLES = NON_PROSPECTOR_ROLES;
 
-// Quem cura o vinculo informe -> cliente em "Relatorios" (Vincular / Cadastrar e
-// vincular / Remover vinculo; espelhado no front em lib/roles.ts
-// isVisitLinkCurator). IGUAL aos viewers: quem ve tambem cura. CADASTRO saiu
-// (2026-06-28), restou o ADMIN.
-export const VISIT_REPORT_LINK_CURATOR_ROLES = Object.freeze([USER_ROLES.ADMIN]);
+// Curadoria do vinculo informe -> cliente (Vincular / Cadastrar e vincular /
+// Remover vinculo; atende o caso "Cliente novo"). IGUAL aos viewers: quem ve
+// tambem cura — desde o acesso unificado (2026-07-15), todo nao-PROSPECTOR.
+// Espelhado no front em lib/roles.ts (isVisitLinkCurator).
+export const VISIT_REPORT_LINK_CURATOR_ROLES = NON_PROSPECTOR_ROLES;
 
 const NEW_CLIENT_NAME_MAX = 200;
 const NEW_CLIENT_CITY_MAX = 120;

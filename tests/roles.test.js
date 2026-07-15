@@ -7,6 +7,7 @@ import {
   isCommercialRole,
   isKnownRole,
   NON_ASSIGNABLE_ROLES,
+  NON_PROSPECTOR_ROLES,
   USER_ROLES,
 } from '../src/auth/roles.js';
 import { HttpError } from '../src/contracts/errors.js';
@@ -74,6 +75,18 @@ test('isCommercialRole is COMMERCIAL only — PROSPECTOR nao e mais elegivel', (
 test('NON_ASSIGNABLE_ROLES contem apenas o PROSPECTOR e e imutavel', () => {
   assert.deepEqual([...NON_ASSIGNABLE_ROLES], [USER_ROLES.PROSPECTOR]);
   assert.equal(Object.isFrozen(NON_ASSIGNABLE_ROLES), true);
+});
+
+test('NON_PROSPECTOR_ROLES contem os 5 papeis de acesso e exclui o PROSPECTOR', () => {
+  assert.deepEqual([...NON_PROSPECTOR_ROLES].sort(), [
+    'ADMIN',
+    'CADASTRO',
+    'CLASSIFIER',
+    'COMMERCIAL',
+    'REGISTRATION',
+  ]);
+  assert.equal(NON_PROSPECTOR_ROLES.includes(USER_ROLES.PROSPECTOR), false);
+  assert.equal(Object.isFrozen(NON_PROSPECTOR_ROLES), true);
 });
 
 test('isAssignableUserRole barra o PROSPECTOR e libera os demais papeis', () => {
