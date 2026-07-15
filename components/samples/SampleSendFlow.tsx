@@ -3,10 +3,10 @@
 // Fluxo de ENVIO da amostra, extraido do detalhe (app/samples/[sampleId]/page.tsx)
 // para ser reutilizado tambem pela LISTA (card de /samples). Autocontido: encapsula
 // o seletor (Descricao/laudo + Fisico), os modais de export e de envio fisico
-// (criar/editar), os seletores de safra (multi-safra) e o cancelamento.
+// (criar/editar) e o cancelamento.
 //
 // 3 entradas, controladas por props (uma por vez):
-// - CREATE  (lista): `chooserOpen` → abre o seletor; precisa de status/harvest/
+// - CREATE  (lista): `chooserOpen` → abre o seletor; precisa de status/
 //   internalLotNumber/canDescricao.
 // - EDIT    (timeline do detalhe): `editItem` → abre o modal fisico em modo edicao.
 // - CANCEL  (timeline do detalhe): `cancelEventId` → abre a confirmacao de cancelamento.
@@ -31,7 +31,6 @@ import { useToast } from '../../lib/toast/ToastProvider';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { ClientSummary, SampleStatus, SendHistoryItem, SessionData } from '../../lib/types';
 import { ClientLookupField } from '../clients/ClientLookupField';
-import { ReportHarvestSelectModal } from './ReportHarvestSelectModal';
 import { SendMethodChooserModal } from './SendMethodChooserModal';
 
 // Mesmo conjunto do backend (src/samples/sample-command-service.js): so amostras
@@ -59,7 +58,6 @@ export type SampleSendFlowProps = {
   // CREATE (lista) — abre o seletor:
   chooserOpen?: boolean;
   status?: SampleStatus;
-  harvest?: string | null;
   internalLotNumber?: string | null;
   canDescricao?: boolean;
 
@@ -77,7 +75,6 @@ export function SampleSendFlow({
   onChanged,
   chooserOpen,
   status,
-  harvest,
   internalLotNumber,
   canDescricao,
   editItem,
@@ -93,8 +90,6 @@ export function SampleSendFlow({
   const [exportPdfSuccess, setExportPdfSuccess] = useState(false);
   const [exportRecipientClients, setExportRecipientClients] = useState<ClientSummary[]>([]);
   const [exportingPdf, setExportingPdf] = useState(false);
-  const [harvestChoiceOpen, setHarvestChoiceOpen] = useState(false);
-  const [harvestOptions, setHarvestOptions] = useState<string[]>([]);
 
   // Envio fisico (criar/editar)
   const [physicalSendModalOpen, setPhysicalSendModalOpen] = useState(false);
@@ -104,8 +99,6 @@ export function SampleSendFlow({
   const [editingSendEventId, setEditingSendEventId] = useState<string | null>(null);
   const [physicalSendError, setPhysicalSendError] = useState<string | null>(null);
   const [physicalSendSuccess, setPhysicalSendSuccess] = useState(false);
-  const [physicalSendHarvestOpen, setPhysicalSendHarvestOpen] = useState(false);
-  const [physicalSendHarvestOptions, setPhysicalSendHarvestOptions] = useState<string[]>([]);
 
   // Cancelamento
   const [cancellingSend, setCancellingSend] = useState(false);
@@ -152,14 +145,10 @@ export function SampleSendFlow({
     setExportPending(false);
     setExportPdfSuccess(false);
     setExportRecipientClients([]);
-    setHarvestChoiceOpen(false);
-    setHarvestOptions([]);
     setPhysicalSendModalOpen(false);
     setPhysicalSendClients([]);
     setPhysicalSendError(null);
     setEditingSendEventId(null);
-    setPhysicalSendHarvestOpen(false);
-    setPhysicalSendHarvestOptions([]);
   }
 
   // Encerra a sessao do fluxo (fecha tudo + avisa o host).
@@ -179,10 +168,7 @@ export function SampleSendFlow({
     setExportConfirmationOpen(true);
   }
 
-  async function handleExportPdf(
-    recipientClients: ClientSummary[],
-    reportedHarvest?: string | null
-  ) {
+  async function handleExportPdf(recipientClients: ClientSummary[]) {
     if (status !== 'CLASSIFIED') {
       toast.error({ title: 'A exportação de laudo só é permitida para amostras classificadas.' });
       return;
@@ -197,7 +183,6 @@ export function SampleSendFlow({
       const exported = await exportSamplePdf(session, sampleId, {
         destination,
         recipientClientId: recipientClients[0]?.id ?? null,
-        reportedHarvest: reportedHarvest ?? null,
       });
       const lot = internalLotNumber?.trim();
       const result = await shareOrDownloadFile(exported.blob, exported.fileName, {
@@ -225,20 +210,10 @@ export function SampleSendFlow({
 
   async function handleConfirmExportFromModal() {
     if (!exportPending) return;
-    const options = (harvest ?? '')
-      .split(/\s*,\s*/)
-      .map((value) => value.trim())
-      .filter((value) => value.length > 0);
-    if (options.length > 1) {
-      setExportConfirmationOpen(false);
-      setHarvestOptions(options);
-      setHarvestChoiceOpen(true);
-      return;
-    }
     await handleExportPdf(exportRecipientClients);
   }
 
-  async function handlePhysicalSend(reportedHarvest: string | null = null) {
+  async function handlePhysicalSend() {
     setPhysicalSending(true);
     setPhysicalSendError(null);
     const isEditing = Boolean(editingSendEventId);
@@ -260,7 +235,6 @@ export function SampleSendFlow({
             await recordPhysicalSampleSent(session, sampleId, {
               recipientClientId: client?.id ?? null,
               sentDate: physicalSendDate,
-              reportedHarvest,
             });
           } catch (cause) {
             if (client) failed.push(client);
@@ -299,21 +273,8 @@ export function SampleSendFlow({
     }
   }
 
-  // Multi-safra (nao-edicao): escolhe UMA safra pro laudo antes de disparar os POSTs.
   async function handleConfirmPhysicalSend() {
     if (physicalSending) return;
-    if (!editingSendEventId) {
-      const options = (harvest ?? '')
-        .split(/\s*,\s*/)
-        .map((value) => value.trim())
-        .filter((value) => value.length > 0);
-      if (options.length > 1) {
-        setPhysicalSendModalOpen(false);
-        setPhysicalSendHarvestOptions(options);
-        setPhysicalSendHarvestOpen(true);
-        return;
-      }
-    }
     await handlePhysicalSend();
   }
 
@@ -524,41 +485,6 @@ export function SampleSendFlow({
             document.body
           )
         : null}
-
-      <ReportHarvestSelectModal
-        open={harvestChoiceOpen}
-        harvests={harvestOptions}
-        submitting={exportingPdf}
-        onConfirm={(selected) => {
-          if (exportPending) {
-            void handleExportPdf(exportRecipientClients, selected);
-          }
-        }}
-        onBack={() => {
-          setHarvestChoiceOpen(false);
-          setExportConfirmationOpen(true);
-        }}
-        onClose={() => {
-          if (!exportingPdf) dismiss();
-        }}
-      />
-
-      <ReportHarvestSelectModal
-        open={physicalSendHarvestOpen}
-        harvests={physicalSendHarvestOptions}
-        submitting={physicalSending}
-        onConfirm={(selected) => {
-          setPhysicalSendHarvestOpen(false);
-          void handlePhysicalSend(selected);
-        }}
-        onBack={() => {
-          setPhysicalSendHarvestOpen(false);
-          setPhysicalSendModalOpen(true);
-        }}
-        onClose={() => {
-          if (!physicalSending) dismiss();
-        }}
-      />
 
       {physicalSendModalOpen
         ? createPortal(

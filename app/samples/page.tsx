@@ -2505,7 +2505,6 @@ function SamplesPage() {
           sampleId={sendTarget.sample.id}
           chooserOpen
           status={sendTarget.sample.status}
-          harvest={sendTarget.sample.declared.harvest}
           internalLotNumber={sendTarget.sample.internalLotNumber}
           canDescricao={
             sendTarget.sample.status === 'CLASSIFIED' &&
