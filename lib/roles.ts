@@ -77,6 +77,13 @@ export function isVisitLinkCurator(role: UserRole | null | undefined): boolean {
   return !!role && !isProspector(role);
 }
 
+// Quem CRIA o relatorio SEMANAL na pagina "Relatorios" — so ADMIN + COMMERCIAL
+// (unificacao 2026-07-15). A VISITA, ao contrario, e criada por qualquer
+// autenticado (incl. PROSPECTOR). Espelha WEEKLY_REPORT_AUTHOR_ROLES no backend.
+export function isWeeklyReportAuthor(role: UserRole | null | undefined): boolean {
+  return role === 'ADMIN' || role === 'COMMERCIAL';
+}
+
 // allowedRoles da pagina "Relatorios" (rota /informe, unificada com o antigo
 // /resumo). ACESSO UNIFICADO (2026-07-15): todo papel nao-PROSPECTOR acessa, entra
 // como VIEWER (scope=all, via isVisitReportViewer) e cria (canCreate). O COMMERCIAL,

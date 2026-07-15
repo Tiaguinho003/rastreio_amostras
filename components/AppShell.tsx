@@ -11,8 +11,6 @@ import { SampleSearchField } from './SampleSearchField';
 import { UserAvatar } from './UserAvatar';
 import { changeCurrentUserPassword, recordInitialPasswordDecision } from '../lib/api-client';
 import { changePasswordSchema } from '../lib/form-schemas';
-import { useVisitOutboxAutoSync } from '../lib/offline/use-visit-outbox-sync';
-import { VISIT_SYNC_COMPLETED_EVENT, type VisitSyncResult } from '../lib/offline/visit-sync';
 import {
   canManageClients,
   CONTRATOS_ROLES,
@@ -71,7 +69,7 @@ const ADMIN_NAV_ITEM = {
 // Item da sidebar desktop que depende do papel: Relatorios (rota /informe —
 // INFORME_ROLES OU viewers; unifica o antigo Informe + Resumo).
 const INFORME_NAV_ITEM = {
-  href: '/informe',
+  href: '/relatorios',
   label: 'Relatórios',
   icon: 'informe' as NavIcon,
 } as const;
@@ -126,7 +124,7 @@ const MOBILE_NAV_ITEMS = [
     emphasis: 'default' as const,
   },
   {
-    href: '/informe',
+    href: '/relatorios',
     mobileLabel: 'Relatórios',
     icon: 'informe' as NavIcon,
     emphasis: 'default' as const,
@@ -160,8 +158,8 @@ function isMainNavItemActive(pathname: string, href: string) {
     return pathname === '/clients' || pathname.startsWith('/clients/');
   }
 
-  if (href === '/informe') {
-    return pathname === '/informe';
+  if (href === '/relatorios') {
+    return pathname === '/relatorios';
   }
 
   if (href === '/profile') {
@@ -432,7 +430,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   const isClientDetail = pathname.startsWith('/clients/') && pathname !== '/clients';
   const isUsersPage = pathname === '/users';
   const isProfilePage = pathname === '/profile';
-  const isInformePage = pathname === '/informe';
+  const isInformePage = pathname === '/relatorios';
   const isLayeredRoute =
     isDashboard ||
     isSamplesList ||
@@ -474,51 +472,6 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   const sidenavMenuRef = useRef<HTMLDivElement | null>(null);
   const sidenavTriggerRef = useRef<HTMLButtonElement | null>(null);
   const toast = useToast();
-
-  // Fila offline de informes de visita: tenta sincronizar ao montar, quando
-  // a internet volta e quando o app retorna ao primeiro plano. O resultado
-  // chega pelo evento global do modulo de sync — anunciado AQUI (unico
-  // listener) pra valer em qualquer pagina sem duplicar toast.
-  useVisitOutboxAutoSync(session);
-
-  useEffect(() => {
-    const handleSyncCompleted = (event: Event) => {
-      const result = (event as CustomEvent<VisitSyncResult>).detail;
-      if (!result) {
-        return;
-      }
-
-      if (result.authExpired) {
-        toast.error({
-          title: 'Sessão expirada',
-          description: 'Entre novamente para enviar os informes pendentes.',
-        });
-        return;
-      }
-
-      if (result.sent > 0) {
-        toast.success({
-          title:
-            result.sent === 1
-              ? 'Informe pendente enviado'
-              : `${result.sent} informes pendentes enviados`,
-        });
-      }
-
-      if (result.failed > 0) {
-        toast.error({
-          title:
-            result.failed === 1
-              ? '1 informe não pôde ser enviado'
-              : `${result.failed} informes não puderam ser enviados`,
-          description: 'Continuam salvos no aparelho.',
-        });
-      }
-    };
-
-    window.addEventListener(VISIT_SYNC_COMPLETED_EVENT, handleSyncCompleted);
-    return () => window.removeEventListener(VISIT_SYNC_COMPLETED_EVENT, handleSyncCompleted);
-  }, [toast]);
 
   const profileName =
     typeof session.user.fullName === 'string' && session.user.fullName.trim().length > 0
@@ -1020,7 +973,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
             // esta — hoje so o CLASSIFIER, unico nao-prospector fora de
             // INFORME_ROLES. Assim todo papel da tabbar fica com 5 itens.
             // (PROSPECTOR nao chega aqui: tabbar escondida por hideMobileTabbar.)
-            if (item.href === '/informe') {
+            if (item.href === '/relatorios') {
               return isRoleAllowed(session.user.role, INFORME_ROLES);
             }
             if (item.href === '/profile') {

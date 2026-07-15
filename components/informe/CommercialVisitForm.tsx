@@ -4,14 +4,14 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { ClientLookupField } from '../clients/ClientLookupField';
 import { ClientQuickCreateModal } from '../clients/ClientQuickCreateModal';
-import { ApiError, createCommercialVisit } from '../../lib/api-client';
+import { ApiError, createVisitReport } from '../../lib/api-client';
 import { maskPhoneInput } from '../../lib/client-field-formatters';
 import {
   COMMERCIAL_VISIT_OUTCOME_OPTIONS,
   COMMERCIAL_VISIT_REASON_OPTIONS,
 } from '../../lib/commercial-visit';
+import { VISIT_FARM_SIZE_OPTIONS, VISIT_INTEREST_OPTIONS } from '../../lib/visit-report';
 import { useRegisterDirtyState } from '../../lib/dirty-state/DirtyStateProvider';
-import { useOnlineStatus } from '../../lib/offline/use-online-status';
 import { useToast } from '../../lib/toast/ToastProvider';
 import type {
   ClientSummary,
@@ -19,41 +19,35 @@ import type {
   CommercialVisitReason,
   SessionData,
   VisitClientKind,
+  VisitFarmSize,
+  VisitInterestLevel,
 } from '../../lib/types';
 
-// Formulario de VISITA do comercial — renderizado no BottomSheet da pagina
-// /informe do papel COMMERCIAL (CommercialVisitFormSheet). SEM fila
-// offline: o envio exige internet (erro claro quando nao ha conexao).
+// Formulario de VISITA unificado (funde o informe do prospector + a visita do
+// comercial; unificacao 2026-07-15). Renderizado no BottomSheet (FAB de
+// Relatorios e sheet do dashboard do prospector). SEM fila offline: o envio
+// exige internet.
 //
-// TODA visita sai com um Client do cadastro, nos dois caminhos:
-//   EXISTING — o comercial acha o cliente no ClientLookupField.
-//   NEW      — o comercial cadastra na hora (ClientQuickCreateModal) e o
-//              cliente criado vira o vinculo; nome/cidade/telefone digitados
-//              ficam como a anotacao de campo, ao lado do vinculo.
-// O clientKind e a DECLARACAO ("ja e cliente" / "cliente novo"), nao a
-// presenca do vinculo. Nao ha mais visita comercial "aguardando vinculo".
-//
-// DIVERGENCIA DELIBERADA do VisitReportForm do prospector, que segue sendo
-// declaracao em texto puro (sem lookup, sem cadastro) e depende da curadoria
-// do ADMIN em Relatorios. Nao sincronizar os dois.
+// A visita NASCE VINCULADA a um cliente do cadastro, nos dois caminhos:
+//   EXISTING — acha no ClientLookupField.
+//   NEW      — cadastra na hora (ClientQuickCreateModal); o cliente criado vira
+//              o vinculo, e nome/cidade/telefone digitados ficam como anotacao.
+// So o CLIENTE e obrigatorio; os demais campos (motivo/resultado + fazenda/
+// interesse/comercializa + observacoes) sao TODOS opcionais — a obrigatoriedade
+// fica p/ o remodel futuro das perguntas.
 
-type FieldName = 'clientKind' | 'client' | 'newClientName' | 'reason' | 'outcome';
+type FieldName = 'clientKind' | 'client' | 'newClientName';
 type FieldErrors = Partial<Record<FieldName, string>>;
 
-interface CommercialVisitFormProps {
+interface VisitFormProps {
   session: SessionData;
   onDirtyChange?: (dirty: boolean) => void;
   /** Chamado apos envio bem-sucedido (o sheet fecha e a pagina refaz o feed). */
   onSubmitted?: () => void;
 }
 
-export function CommercialVisitForm({
-  session,
-  onDirtyChange,
-  onSubmitted,
-}: CommercialVisitFormProps) {
+export function CommercialVisitForm({ session, onDirtyChange, onSubmitted }: VisitFormProps) {
   const toast = useToast();
-  const isOnline = useOnlineStatus();
 
   const [clientKind, setClientKind] = useState<VisitClientKind | null>(null);
   const [selectedClient, setSelectedClient] = useState<ClientSummary | null>(null);
@@ -64,6 +58,12 @@ export function CommercialVisitForm({
   const [reasonNotes, setReasonNotes] = useState('');
   const [outcome, setOutcome] = useState<CommercialVisitOutcome | null>(null);
   const [outcomeNotes, setOutcomeNotes] = useState('');
+  const [farmSize, setFarmSize] = useState<VisitFarmSize | null>(null);
+  const [farmSizeNotes, setFarmSizeNotes] = useState('');
+  const [interestLevel, setInterestLevel] = useState<VisitInterestLevel | null>(null);
+  const [interestNotes, setInterestNotes] = useState('');
+  const [sellsCurrently, setSellsCurrently] = useState<boolean | null>(null);
+  const [sellsToWhom, setSellsToWhom] = useState('');
   const [generalNotes, setGeneralNotes] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
@@ -81,9 +81,15 @@ export function CommercialVisitForm({
     reasonNotes !== '' ||
     outcome !== null ||
     outcomeNotes !== '' ||
+    farmSize !== null ||
+    farmSizeNotes !== '' ||
+    interestLevel !== null ||
+    interestNotes !== '' ||
+    sellsCurrently !== null ||
+    sellsToWhom !== '' ||
     generalNotes !== '';
 
-  useRegisterDirtyState('informe-commercial-visit-form', isDirty, 'Visita não enviada');
+  useRegisterDirtyState('relatorios-visit-form', isDirty, 'Visita não enviada');
 
   useEffect(() => {
     onDirtyChange?.(isDirty);
@@ -106,6 +112,7 @@ export function CommercialVisitForm({
       return;
     }
 
+    // So o cliente e obrigatorio (a visita nasce vinculada).
     const errors: FieldErrors = {};
     if (!clientKind) {
       errors.clientKind = 'Selecione uma opção';
@@ -115,17 +122,9 @@ export function CommercialVisitForm({
       if (!newClientName.trim()) {
         errors.newClientName = 'Obrigatório';
       }
-      // O cadastro e obrigatorio: sem Client, a visita nao sai (o backend
-      // tambem recusa — 422 em clientId).
       if (!selectedClient) {
         errors.client = 'Cadastre o cliente para registrar a visita';
       }
-    }
-    if (!reason) {
-      errors.reason = 'Selecione uma opção';
-    }
-    if (!outcome) {
-      errors.outcome = 'Selecione uma opção';
     }
 
     setFieldErrors(errors);
@@ -138,7 +137,6 @@ export function CommercialVisitForm({
       return;
     }
 
-    // Sem fila offline: sem internet, nao envia.
     if (!navigator.onLine) {
       toast.error({
         title: 'Sem conexão',
@@ -150,16 +148,21 @@ export function CommercialVisitForm({
     setSubmitting(true);
     try {
       const clientName = selectedClient?.displayName ?? newClientName.trim();
-      await createCommercialVisit(session, {
+      await createVisitReport(session, {
         clientKind: clientKind as VisitClientKind,
-        // Os dois caminhos mandam um Client real; no NEW ele acabou de ser criado.
         clientId: selectedClient?.id ?? null,
         newClientName: clientKind === 'NEW' ? newClientName.trim() : null,
         newClientCity: clientKind === 'NEW' ? newClientCity.trim() || null : null,
         newClientPhone: clientKind === 'NEW' ? newClientPhone.trim() || null : null,
-        reason: reason as CommercialVisitReason,
+        farmSize,
+        farmSizeNotes: farmSizeNotes.trim() || null,
+        interestLevel,
+        interestNotes: interestNotes.trim() || null,
+        sellsCurrently,
+        sellsToWhom: sellsCurrently ? sellsToWhom.trim() || null : null,
+        reason,
         reasonNotes: reasonNotes.trim() || null,
-        outcome: outcome as CommercialVisitOutcome,
+        outcome,
         outcomeNotes: outcomeNotes.trim() || null,
         generalNotes: generalNotes.trim() || null,
       });
@@ -191,25 +194,7 @@ export function CommercialVisitForm({
   return (
     <>
       <form className="inf-form" onSubmit={handleSubmit} noValidate ref={formRef}>
-        {!isOnline ? (
-          <div className="inf-offline-banner" role="status">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M2 9c5.5-5.3 14.5-5.3 20 0" />
-              <path d="M5.5 12.5c3.6-3.4 9.4-3.4 13 0" />
-              <path d="M9 16c1.7-1.6 4.3-1.6 6 0" />
-              <path d="M12 19.4h.01" />
-              <path d="M4 4l16 16" />
-            </svg>
-            <div className="inf-offline-banner-text">
-              <p className="inf-offline-banner-title">Sem conexão</p>
-              <p className="inf-offline-banner-sub">
-                Não é possível enviar formulários agora. Conecte-se à internet e tente novamente.
-              </p>
-            </div>
-          </div>
-        ) : null}
-
-        {/* P1 — Identificação do cliente */}
+        {/* P1 — Cliente (obrigatorio) */}
         <section
           className="inf-card"
           data-invalid={
@@ -224,15 +209,12 @@ export function CommercialVisitForm({
             </span>
             <div className="inf-card-head-text">
               <h3 className="inf-card-title">
-                Identificação do cliente<span className="nsv2-required-star"> *</span>
+                Cliente<span className="nsv2-required-star"> *</span>
               </h3>
               <p className="inf-card-sub">Quem você visitou?</p>
             </div>
           </header>
 
-          {/* Trocar de opcao SEMPRE solta o cliente: os dois lados escrevem no
-            mesmo selectedClient, e um vinculo herdado do outro caminho seria
-            enviado em silencio. */}
           <div className="inf-choice-grid" role="group" aria-label="Tipo de cliente">
             <button
               type="button"
@@ -333,9 +315,6 @@ export function CommercialVisitForm({
                 />
               </label>
 
-              {/* Cadastro obrigatorio. Antes de cadastrar: CTA. Depois: o cliente
-                criado vira um chip inerte (trocar = "Remover" e cadastrar de
-                novo — nao ha edicao de cliente por aqui). */}
               {selectedClient ? (
                 <div className="inf-newclient-linked">
                   <span className="inf-newclient-linked-icon" aria-hidden="true">
@@ -396,17 +375,15 @@ export function CommercialVisitForm({
           ) : null}
         </section>
 
-        {/* P2 — Motivo da visita */}
-        <section className="inf-card" data-invalid={fieldErrors.reason ? 'true' : undefined}>
+        {/* P2 — Motivo da visita (opcional) */}
+        <section className="inf-card">
           <header className="inf-card-head">
             <span className="inf-card-num" aria-hidden="true">
               2
             </span>
             <div className="inf-card-head-text">
-              <h3 className="inf-card-title">
-                Motivo da visita<span className="nsv2-required-star"> *</span>
-              </h3>
-              <p className="inf-card-sub">O que levou você até o cliente?</p>
+              <h3 className="inf-card-title">Motivo da visita</h3>
+              <p className="inf-card-sub">O que levou você até o cliente? (opcional)</p>
             </div>
           </header>
 
@@ -417,10 +394,7 @@ export function CommercialVisitForm({
                 type="button"
                 className={`inf-choice${reason === option.value ? ' is-selected' : ''}`}
                 aria-pressed={reason === option.value}
-                onClick={() => {
-                  setReason(option.value);
-                  clearFieldError('reason');
-                }}
+                onClick={() => setReason(reason === option.value ? null : option.value)}
               >
                 <span className="inf-choice-radio" aria-hidden="true" />
                 <span className="inf-choice-text">
@@ -429,7 +403,6 @@ export function CommercialVisitForm({
               </button>
             ))}
           </div>
-          {fieldErrors.reason ? <p className="inf-card-error">{fieldErrors.reason}</p> : null}
 
           <label className="inf-field">
             <span className="inf-field-label">
@@ -446,31 +419,26 @@ export function CommercialVisitForm({
           </label>
         </section>
 
-        {/* P3 — Resultado da negociação */}
-        <section className="inf-card" data-invalid={fieldErrors.outcome ? 'true' : undefined}>
+        {/* P3 — Resultado (opcional) */}
+        <section className="inf-card">
           <header className="inf-card-head">
             <span className="inf-card-num" aria-hidden="true">
               3
             </span>
             <div className="inf-card-head-text">
-              <h3 className="inf-card-title">
-                Resultado da negociação<span className="nsv2-required-star"> *</span>
-              </h3>
-              <p className="inf-card-sub">Como a visita terminou?</p>
+              <h3 className="inf-card-title">Resultado</h3>
+              <p className="inf-card-sub">Como a visita terminou? (opcional)</p>
             </div>
           </header>
 
-          <div className="inf-choices" role="group" aria-label="Resultado da negociação">
+          <div className="inf-choices" role="group" aria-label="Resultado da visita">
             {COMMERCIAL_VISIT_OUTCOME_OPTIONS.map((option) => (
               <button
                 key={option.value}
                 type="button"
                 className={`inf-choice${outcome === option.value ? ' is-selected' : ''}`}
                 aria-pressed={outcome === option.value}
-                onClick={() => {
-                  setOutcome(option.value);
-                  clearFieldError('outcome');
-                }}
+                onClick={() => setOutcome(outcome === option.value ? null : option.value)}
               >
                 <span className="inf-choice-radio" aria-hidden="true" />
                 <span className="inf-choice-text">
@@ -479,7 +447,6 @@ export function CommercialVisitForm({
               </button>
             ))}
           </div>
-          {fieldErrors.outcome ? <p className="inf-card-error">{fieldErrors.outcome}</p> : null}
 
           <label className="inf-field">
             <span className="inf-field-label">
@@ -496,11 +463,155 @@ export function CommercialVisitForm({
           </label>
         </section>
 
-        {/* P4 — Observações gerais */}
+        {/* P4 — Tamanho da fazenda (opcional) */}
         <section className="inf-card">
           <header className="inf-card-head">
             <span className="inf-card-num" aria-hidden="true">
               4
+            </span>
+            <div className="inf-card-head-text">
+              <h3 className="inf-card-title">Tamanho da fazenda</h3>
+              <p className="inf-card-sub">Porte da propriedade (opcional)</p>
+            </div>
+          </header>
+
+          <div className="inf-choices" role="group" aria-label="Tamanho da fazenda">
+            {VISIT_FARM_SIZE_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`inf-choice${farmSize === option.value ? ' is-selected' : ''}`}
+                aria-pressed={farmSize === option.value}
+                onClick={() => setFarmSize(farmSize === option.value ? null : option.value)}
+              >
+                <span className="inf-choice-radio" aria-hidden="true" />
+                <span className="inf-choice-text">
+                  <span className="inf-choice-label">{option.label}</span>
+                  {option.description ? (
+                    <span className="inf-choice-hint">{option.description}</span>
+                  ) : null}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <label className="inf-field">
+            <span className="inf-field-label">
+              Observações <span className="inf-field-optional">(opcional)</span>
+            </span>
+            <textarea
+              className="inf-textarea"
+              rows={2}
+              value={farmSizeNotes}
+              placeholder="Ex.: 30 ha no total, 12 de café"
+              maxLength={1000}
+              onChange={(event) => setFarmSizeNotes(event.target.value)}
+            />
+          </label>
+        </section>
+
+        {/* P5 — Nível de interesse (opcional) */}
+        <section className="inf-card">
+          <header className="inf-card-head">
+            <span className="inf-card-num" aria-hidden="true">
+              5
+            </span>
+            <div className="inf-card-head-text">
+              <h3 className="inf-card-title">Interesse em comercializar</h3>
+              <p className="inf-card-sub">Disposição do cliente (opcional)</p>
+            </div>
+          </header>
+
+          <div className="inf-choices" role="group" aria-label="Nível de interesse">
+            {VISIT_INTEREST_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`inf-choice${interestLevel === option.value ? ' is-selected' : ''}`}
+                aria-pressed={interestLevel === option.value}
+                onClick={() =>
+                  setInterestLevel(interestLevel === option.value ? null : option.value)
+                }
+              >
+                <span className="inf-choice-radio" aria-hidden="true" />
+                <span className="inf-choice-text">
+                  <span className="inf-choice-label">{option.label}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <label className="inf-field">
+            <span className="inf-field-label">
+              Observações <span className="inf-field-optional">(opcional)</span>
+            </span>
+            <textarea
+              className="inf-textarea"
+              rows={2}
+              value={interestNotes}
+              placeholder="Ex.: interessado, mas quer preço melhor"
+              maxLength={1000}
+              onChange={(event) => setInterestNotes(event.target.value)}
+            />
+          </label>
+        </section>
+
+        {/* P6 — Já comercializa? (opcional) */}
+        <section className="inf-card">
+          <header className="inf-card-head">
+            <span className="inf-card-num" aria-hidden="true">
+              6
+            </span>
+            <div className="inf-card-head-text">
+              <h3 className="inf-card-title">Já comercializa hoje?</h3>
+              <p className="inf-card-sub">Com quem o cliente já vende (opcional)</p>
+            </div>
+          </header>
+
+          <div className="inf-choice-grid" role="group" aria-label="Já comercializa">
+            <button
+              type="button"
+              className={`inf-pill${sellsCurrently === true ? ' is-selected' : ''}`}
+              aria-pressed={sellsCurrently === true}
+              onClick={() => setSellsCurrently(sellsCurrently === true ? null : true)}
+            >
+              Sim
+            </button>
+            <button
+              type="button"
+              className={`inf-pill${sellsCurrently === false ? ' is-selected' : ''}`}
+              aria-pressed={sellsCurrently === false}
+              onClick={() => {
+                setSellsCurrently(sellsCurrently === false ? null : false);
+                setSellsToWhom('');
+              }}
+            >
+              Não
+            </button>
+          </div>
+
+          {sellsCurrently ? (
+            <label className="inf-field">
+              <span className="inf-field-label">
+                Com quem <span className="inf-field-optional">(opcional)</span>
+              </span>
+              <input
+                className="inf-input"
+                value={sellsToWhom}
+                placeholder="Ex.: Cooxupé, corretor local"
+                autoComplete="off"
+                maxLength={1000}
+                onChange={(event) => setSellsToWhom(event.target.value)}
+              />
+            </label>
+          ) : null}
+        </section>
+
+        {/* P7 — Observações gerais (opcional) */}
+        <section className="inf-card">
+          <header className="inf-card-head">
+            <span className="inf-card-num" aria-hidden="true">
+              7
             </span>
             <div className="inf-card-head-text">
               <h3 className="inf-card-title">Observações gerais</h3>
@@ -525,9 +636,7 @@ export function CommercialVisitForm({
 
       {/* FORA do <form>: o BottomSheet usa portal, mas eventos de portal sobem
           pela arvore React — o submit do modal chegaria ao onSubmit da visita.
-          Mesmo arranjo do NewSampleModal. Prefill com o que ja foi digitado;
-          PF por padrao (o comercial visita produtor). O Papel entra vazio de
-          proposito — escolha consciente, ver ClientQuickCreateModal. */}
+          Mesmo arranjo do NewSampleModal. */}
       {quickCreateOpen ? (
         <ClientQuickCreateModal
           session={session}

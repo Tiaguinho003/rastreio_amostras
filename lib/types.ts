@@ -1357,63 +1357,75 @@ export interface PendingPrintQueueResponse {
   total: number;
 }
 
-// ── Informe de visita (pagina /informe + listagem admin /resumo) ──
+// ── Relatorios (pagina "Relatorios", rota /relatorios): VISITA unificada
+//    (prospector + comercial) + relatorio SEMANAL ──
 
 export type VisitClientKind = 'EXISTING' | 'NEW';
 export type VisitFarmSize = 'SMALL' | 'MEDIUM' | 'LARGE';
 export type VisitInterestLevel = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
 
+export type CommercialVisitReason =
+  | 'NEGOTIATION'
+  | 'SAMPLE_DELIVERY_OR_PICKUP'
+  // LEGADO: descontinuado do formulario e nao criavel via API; mantido para
+  // ler/exibir visitas ja registradas (label em lib/commercial-visit.ts).
+  | 'COLLECTION'
+  | 'RELATIONSHIP';
+
+export type CommercialVisitOutcome =
+  | 'DEAL_CLOSED'
+  | 'PROPOSAL_IN_PROGRESS'
+  | 'NO_PROGRESS'
+  | 'NO_INTEREST';
+
+// VISITA unificada (funde o antigo informe do prospector + a visita do
+// comercial; unificacao 2026-07-15). NASCE vinculada a um cliente real; os
+// campos de dominio (fazenda/interesse/comercializa + motivo/resultado) sao
+// OPCIONAIS. Imutavel: cancelledAt != null = cancelada (soft).
 export interface VisitReportSummary {
   id: string;
+  type: 'VISIT_REPORT';
   user: {
     id: string;
     fullName: string;
     username: string;
   } | null;
-  /** Declaração do prospector ("Já é cliente" / "Cliente novo") — sem busca. */
+  /** Declaração do autor ("Já é cliente" / "Cliente novo"). */
   clientKind: VisitClientKind;
-  /** Vínculo curado (ADM/Cadastro no /resumo) ou born-linked legado.
-      Null = aguardando vínculo. */
+  /** Cliente vinculado (a visita nasce vinculada). */
   client: {
     id: string;
     code: number;
     displayName: string | null;
     status: ClientStatus;
   } | null;
-  /** Dados anotados em texto livre na visita (os dois kinds). Null apenas
-      em rows legadas born-linked. */
+  /** Anotação de campo do "Cliente novo" (nome/cidade/telefone), ao lado do vínculo. */
   newClient: {
     name: string | null;
     city: string | null;
     phone: string | null;
   } | null;
-  /** Quem curou o vínculo atual. Null: aguardando vínculo ou born-linked. */
-  linkedBy: {
-    id: string;
-    fullName: string;
-    username: string;
-  } | null;
-  linkedAt: string | null;
-  farmSize: VisitFarmSize;
+  farmSize: VisitFarmSize | null;
   farmSizeNotes: string | null;
-  interestLevel: VisitInterestLevel;
+  interestLevel: VisitInterestLevel | null;
   interestNotes: string | null;
-  sellsCurrently: boolean;
+  sellsCurrently: boolean | null;
   sellsToWhom: string | null;
-  /** Campo 5: observações gerais (discursivo, opcional). */
+  /** Herdados da visita comercial (opcionais no form unificado). */
+  reason: CommercialVisitReason | null;
+  reasonNotes: string | null;
+  outcome: CommercialVisitOutcome | null;
+  outcomeNotes: string | null;
+  /** Observações gerais (discursivo, opcional). */
   generalNotes: string | null;
-  /** Hora local do preenchimento (fila offline). Null = envio online direto. */
-  capturedAt: string | null;
-  /** "Recebido em" — carimbado pelo servidor. */
+  /** Cancelamento (soft): != null = cancelada. */
+  cancelledAt: string | null;
+  /** "Enviado em" — carimbado pelo servidor. */
   createdAt: string;
 }
 
 export interface VisitReportMutationResponse {
   report: VisitReportSummary;
-}
-
-export interface VisitReportDeleteResponse {
-  removed: boolean;
 }
 
 export interface VisitReportsListResponse {
@@ -1438,57 +1450,7 @@ export interface VisitReportStatsResponse {
   todayNewClientsCount: number;
 }
 
-// ── Formularios do comercial (pagina /informe do papel COMMERCIAL) ──
-
-export type CommercialVisitReason =
-  | 'NEGOTIATION'
-  | 'SAMPLE_DELIVERY_OR_PICKUP'
-  // LEGADO: descontinuado do formulario e nao criavel via API; mantido para
-  // ler/exibir visitas ja registradas (label em lib/commercial-visit.ts).
-  | 'COLLECTION'
-  | 'RELATIONSHIP';
-
-export type CommercialVisitOutcome =
-  | 'DEAL_CLOSED'
-  | 'PROPOSAL_IN_PROGRESS'
-  | 'NO_PROGRESS'
-  | 'NO_INTEREST';
-
-export interface CommercialVisitSummary {
-  id: string;
-  type: 'COMMERCIAL_VISIT';
-  user: {
-    id: string;
-    fullName: string;
-    username: string;
-  } | null;
-  clientKind: VisitClientKind;
-  client: {
-    id: string;
-    code: number;
-    displayName: string | null;
-    status: ClientStatus;
-  } | null;
-  newClient: {
-    name: string | null;
-    city: string | null;
-    phone: string | null;
-  } | null;
-  /** Vínculo curado (ADM/Cadastro no /resumo) — só clientKind=NEW.
-      Null = aguardando vínculo (EXISTING born-linked não é curado aqui). */
-  linkedBy: {
-    id: string;
-    fullName: string;
-    username: string;
-  } | null;
-  linkedAt: string | null;
-  reason: CommercialVisitReason;
-  reasonNotes: string | null;
-  outcome: CommercialVisitOutcome;
-  outcomeNotes: string | null;
-  generalNotes: string | null;
-  createdAt: string;
-}
+// ── Relatorio SEMANAL (weekly_report) + feed combinado ──
 
 export interface WeeklyReportSummary {
   id: string;
@@ -1505,17 +1467,14 @@ export interface WeeklyReportSummary {
   summary: string;
   difficulties: string | null;
   nextWeekPlan: string | null;
+  /** Cancelamento (soft): != null = cancelado. */
+  cancelledAt: string | null;
   createdAt: string;
 }
 
-export type InformeFeedScope = 'mine' | 'all';
-
-// Uniao discriminada por `type` — o informe do prospector entra no feed
-// com o type carimbado pelo servidor.
-export type InformeFeedItem =
-  | ({ type: 'VISIT_REPORT' } & VisitReportSummary)
-  | CommercialVisitSummary
-  | WeeklyReportSummary;
+// Feed da pagina "Relatorios" (scope=all): visita + semanal, discriminados
+// pelo `type` que cada view carrega.
+export type InformeFeedItem = VisitReportSummary | WeeklyReportSummary;
 
 export interface InformeFeedResponse {
   items: InformeFeedItem[];
@@ -1528,10 +1487,6 @@ export interface InformeFeedResponse {
     hasPrev: boolean;
     hasNext: boolean;
   };
-}
-
-export interface CommercialVisitMutationResponse {
-  visit: CommercialVisitSummary;
 }
 
 export interface WeeklyReportMutationResponse {

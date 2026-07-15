@@ -7,11 +7,8 @@ import { createPortal } from 'react-dom';
 
 import { HeaderAvatarMenu } from '../../HeaderAvatarMenu';
 import { VisitReportCard } from '../../visits/VisitReportCard';
-import { VisitReportFormSheet } from '../../visits/VisitReportFormSheet';
-import { ApiError, deleteVisitReport } from '../../../lib/api-client';
-import { flushVisitOutbox } from '../../../lib/offline/visit-sync';
-import { countVisitOutbox, VISIT_OUTBOX_CHANGED_EVENT } from '../../../lib/offline/visit-outbox';
-import { useOnlineStatus } from '../../../lib/offline/use-online-status';
+import { CommercialVisitFormSheet } from '../../informe/CommercialVisitFormSheet';
+import { ApiError, cancelVisitReport } from '../../../lib/api-client';
 import { getRoleLabel } from '../../../lib/roles';
 import { useToast } from '../../../lib/toast/ToastProvider';
 import type { SessionData, VisitReportSummary } from '../../../lib/types';
@@ -35,7 +32,6 @@ export function ProspectorDashboard({ session, onLogout }: ProspectorDashboardPr
   const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
-  const isOnline = useOnlineStatus();
 
   // Busca por nome do cliente: filtra ao digitar (debounce de 250ms), so a
   // partir da 2a letra; apagar abaixo disso limpa o filtro sozinho. O
@@ -93,58 +89,15 @@ export function ProspectorDashboard({ session, onLogout }: ProspectorDashboardPr
     });
   }, []);
 
-  // Chip de pendencias da fila offline — mesmo comportamento da pagina
-  // /informe (contador segue o outbox via evento; "Enviar agora" quando
-  // online). O resultado do flush e anunciado pelo listener global do
-  // AppShell; o refresh da lista/cards vem pelo VISIT_SYNC_COMPLETED_EVENT.
-  const [pendingCount, setPendingCount] = useState(0);
-  const [manualSyncing, setManualSyncing] = useState(false);
+  // Envio pelo sheet (online-only, sem fila): o servidor ja tem a visita —
+  // refetch imediato de cards + lista.
+  const handleSubmitted = useCallback(() => {
+    void refresh();
+  }, [refresh]);
 
-  const refreshPendingCount = useCallback(async () => {
-    setPendingCount(await countVisitOutbox(session.user.id));
-  }, [session]);
-
-  useEffect(() => {
-    void refreshPendingCount();
-    const handleChanged = () => void refreshPendingCount();
-    window.addEventListener(VISIT_OUTBOX_CHANGED_EVENT, handleChanged);
-    return () => window.removeEventListener(VISIT_OUTBOX_CHANGED_EVENT, handleChanged);
-  }, [refreshPendingCount]);
-
-  async function handleManualSync() {
-    if (manualSyncing) {
-      return;
-    }
-
-    setManualSyncing(true);
-    try {
-      const result = await flushVisitOutbox(session);
-      if (result.sent === 0 && result.failed === 0 && !result.authExpired && result.remaining > 0) {
-        toast.error({
-          title: 'Não foi possível enviar agora',
-          description: 'Verifique sua conexão e tente novamente.',
-        });
-      }
-    } finally {
-      setManualSyncing(false);
-    }
-  }
-
-  // Envio pelo sheet: online o servidor ja tem o informe — refetch imediato
-  // de cards + lista. Offline (queued) nada mudou no servidor; o chip de
-  // pendencias ja comunica e o refresh vem depois, com o sync.
-  const handleSubmitted = useCallback(
-    (info: { queued: boolean }) => {
-      if (!info.queued) {
-        void refresh();
-      }
-    },
-    [refresh]
-  );
-
-  // Exclusao do proprio informe (lixeira do card): confirmacao em modal
-  // central; confirmado, o informe some da lista e cards/contador refazem
-  // a conta no servidor.
+  // Cancelamento (soft) da propria visita (lixeira do card): confirmacao em
+  // modal central; confirmado, a visita fica marcada "Cancelado" (o refresh
+  // re-busca a lista, que a mantem marcada, e os contadores a excluem).
   const [deleteTarget, setDeleteTarget] = useState<VisitReportSummary | null>(null);
   const [deleting, setDeleting] = useState(false);
   const deleteTrapRef = useFocusTrap(deleteTarget !== null);
@@ -156,20 +109,18 @@ export function ProspectorDashboard({ session, onLogout }: ProspectorDashboardPr
 
     setDeleting(true);
     try {
-      await deleteVisitReport(session, deleteTarget.id);
+      await cancelVisitReport(session, deleteTarget.id);
       setDeleteTarget(null);
-      toast.success({ title: 'Informe excluído' });
+      toast.success({ title: 'Visita cancelada' });
       void refresh();
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 404) {
-        // Ja sumiu no servidor (excluido em outra sessao do proprio autor):
-        // alinha.
         setDeleteTarget(null);
-        toast.info({ title: 'Informe já havia sido excluído' });
+        toast.info({ title: 'Visita já havia sido cancelada' });
         void refresh();
       } else {
         toast.error({
-          title: 'Não foi possível excluir',
+          title: 'Não foi possível cancelar',
           description: cause instanceof ApiError ? cause.message : 'Tente novamente.',
         });
       }
@@ -325,25 +276,6 @@ export function ProspectorDashboard({ session, onLogout }: ProspectorDashboardPr
               </div>
             ) : null}
 
-            {pendingCount > 0 ? (
-              <div className="inf-pending" role="status">
-                <span className="inf-pending-badge">{pendingCount}</span>
-                <span className="inf-pending-text">
-                  {pendingCount === 1 ? 'informe aguardando envio' : 'informes aguardando envio'}
-                </span>
-                {isOnline ? (
-                  <button
-                    type="button"
-                    className="inf-pending-send"
-                    disabled={manualSyncing}
-                    onClick={() => void handleManualSync()}
-                  >
-                    {manualSyncing ? 'Enviando…' : 'Enviar agora'}
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
-
             {/* So esta area rola — hero, busca e cards de contagem ficam
                 sempre visiveis (scroll interno, ver CSS). */}
             <div className="prospector-list-scroll">
@@ -439,7 +371,7 @@ export function ProspectorDashboard({ session, onLogout }: ProspectorDashboardPr
       </button>
 
       {sheetMounted ? (
-        <VisitReportFormSheet
+        <CommercialVisitFormSheet
           open={sheetOpen}
           session={session}
           onClose={() => setSheetOpen(false)}
@@ -477,10 +409,10 @@ export function ProspectorDashboard({ session, onLogout }: ProspectorDashboardPr
                     </svg>
                   </div>
                   <h3 id="prospector-delete-title" className="app-confirm-modal-title">
-                    Excluir informe?
+                    Cancelar visita?
                   </h3>
                   <p id="prospector-delete-description" className="app-confirm-modal-message">
-                    Esta ação não pode ser desfeita.
+                    Ela fica no histórico marcada como “Cancelado”. Se errou, cancele e envie outra.
                   </p>
                 </div>
 
@@ -492,7 +424,7 @@ export function ProspectorDashboard({ session, onLogout }: ProspectorDashboardPr
                     disabled={deleting}
                     autoFocus
                   >
-                    Cancelar
+                    Voltar
                   </button>
                   <button
                     type="button"
@@ -500,7 +432,7 @@ export function ProspectorDashboard({ session, onLogout }: ProspectorDashboardPr
                     onClick={() => void handleConfirmDelete()}
                     disabled={deleting}
                   >
-                    {deleting ? 'Excluindo…' : 'Excluir'}
+                    {deleting ? 'Cancelando…' : 'Cancelar'}
                   </button>
                 </div>
               </section>

@@ -3,21 +3,16 @@
 import { UserAvatar } from '../UserAvatar';
 import type { VisitReportSummary } from '../../lib/types';
 import { getVisitFarmSizeLabel, getVisitInterestDetailLabel } from '../../lib/visit-report';
+import {
+  getCommercialVisitOutcomeLabel,
+  getCommercialVisitReasonLabel,
+} from '../../lib/commercial-visit';
 
-// Card accordion de um informe de visita — extraido da pagina /resumo para
-// ser compartilhado com a lista "Ultimos informes" do dashboard do
-// prospector. Colapsado mostra cabecalho (autor + data) e cliente; expandido
-// revela as respostas e, quando canDelete, o "Excluir informe" (o modal de
-// confirmacao fica na superficie que consome o card).
-// Nome do cliente por PRESENCA de dados: vinculado (client setado pela
-// curadoria ou born-linked) mostra o nome canonico do cadastro; sem vinculo
-// mostra o nome anotado pelo prospector. As props showLinkStatus/
-// canLinkClient (so o /resumo passa) ligam o badge "Aguardando vinculo" e
-// as acoes de curadoria — o dashboard do prospector fica sem nada disso.
-
-// Acima disso entre o preenchimento (capturedAt, fila offline) e a chegada
-// ao servidor (createdAt), o card ganha o marcador "enviado depois".
-const OFFLINE_GAP_MS = 5 * 60 * 1000;
+// Card accordion de uma VISITA (unificada: prospector + comercial — 2026-07-15).
+// Colapsado mostra autor + data + cliente; expandido revela SOMENTE as respostas
+// presentes (todos os campos de dominio sao opcionais). A visita nasce vinculada
+// a um cliente real. cancelledAt != null => visita CANCELADA (marcada, fica no
+// historico). `canDelete`/`quickDelete` mostram "Cancelar" (soft) — so o autor.
 
 function formatVisitDateTime(value: string): string {
   const date = new Date(value);
@@ -26,40 +21,16 @@ function formatVisitDateTime(value: string): string {
   return `${day} · ${time}`;
 }
 
-function wasSentLater(report: VisitReportSummary): boolean {
-  if (!report.capturedAt) {
-    return false;
-  }
-
-  const gap = new Date(report.createdAt).getTime() - new Date(report.capturedAt).getTime();
-  return Number.isFinite(gap) && gap > OFFLINE_GAP_MS;
-}
-
-/** Acao de curadoria disparada pelos botoes do detalhe expandido. O cadastro
-    de cliente novo nao e uma acao do card: o estado vazio do lookup no modal
-    de vinculo ja oferece "Cadastrar e vincular" inline. */
-export type VisitLinkAction = 'link' | 'unlink';
-
 interface VisitReportCardProps {
   report: VisitReportSummary;
   expanded: boolean;
   onToggle: () => void;
-  /** Mostra o botao "Excluir informe" no detalhe expandido. So o autor
-      exclui o proprio informe (vale tambem no /resumo — nem ADM nem Cadastro
-      excluem informe alheio). */
+  /** Mostra "Cancelar visita" no detalhe expandido. So o proprio autor cancela. */
   canDelete?: boolean;
-  /** Lixeira sempre visivel no canto do card (dashboard do prospector —
-      o autor exclui o proprio informe). Irma do botao-toggle no DOM
-      (button nao aninha button), posicionada por cima via CSS. */
+  /** Lixeira sempre visivel no canto do card (dashboard do prospector). */
   quickDelete?: boolean;
-  /** Etiqueta de tipo no cabecalho (feed combinado do /resumo usa
-      "Prospecção"; o dashboard do prospector nao passa). */
+  /** Etiqueta de tipo opcional no cabecalho. */
   typeBadge?: string;
-  /** /resumo: badge "Aguardando vínculo" + linha do vinculo no detalhe. */
-  showLinkStatus?: boolean;
-  /** ADM/Cadastro no /resumo: acoes de vinculo no detalhe expandido. */
-  canLinkClient?: boolean;
-  onLinkAction?: (report: VisitReportSummary, action: VisitLinkAction) => void;
   onRequestDelete?: (report: VisitReportSummary) => void;
 }
 
@@ -70,25 +41,24 @@ export function VisitReportCard({
   canDelete = false,
   quickDelete = false,
   typeBadge,
-  showLinkStatus = false,
-  canLinkClient = false,
-  onLinkAction,
   onRequestDelete,
 }: VisitReportCardProps) {
   const isNewClient = report.clientKind === 'NEW';
-  const isLinked = report.client !== null;
-  // Vinculado mostra o nome canonico do cadastro; sem vinculo, o anotado.
+  const isCancelled = report.cancelledAt !== null;
+  // Vinculado mostra o nome canonico do cadastro; o anotado e fallback.
   const clientName = report.client?.displayName ?? report.newClient?.name ?? '—';
 
   return (
     <article
-      className={`rsm-card${expanded ? ' is-expanded' : ''}${quickDelete ? ' has-quick-delete' : ''}`}
+      className={`rsm-card${expanded ? ' is-expanded' : ''}${
+        quickDelete ? ' has-quick-delete' : ''
+      }${isCancelled ? ' is-cancelled' : ''}`}
     >
-      {quickDelete && onRequestDelete ? (
+      {quickDelete && onRequestDelete && !isCancelled ? (
         <button
           type="button"
           className="rsm-card-quick-delete"
-          aria-label="Excluir informe"
+          aria-label="Cancelar visita"
           onClick={() => onRequestDelete(report)}
         >
           <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
@@ -113,19 +83,13 @@ export function VisitReportCard({
             <p className="rsm-card-user">
               {report.user?.fullName ?? report.user?.username ?? 'Usuário'}
             </p>
-            <p className="rsm-card-when">
-              {formatVisitDateTime(report.capturedAt ?? report.createdAt)}
-              {wasSentLater(report) ? (
-                <span
-                  className="rsm-offline-tag"
-                  title={`Recebido em ${formatVisitDateTime(report.createdAt)}`}
-                >
-                  enviado depois
-                </span>
-              ) : null}
-            </p>
+            <p className="rsm-card-when">{formatVisitDateTime(report.createdAt)}</p>
           </div>
-          {typeBadge ? <span className="rsm-type-badge is-prospect">{typeBadge}</span> : null}
+          {isCancelled ? (
+            <span className="rsm-type-badge is-cancelled">Cancelado</span>
+          ) : typeBadge ? (
+            <span className="rsm-type-badge is-prospect">{typeBadge}</span>
+          ) : null}
         </header>
 
         <div className="rsm-card-client">
@@ -149,17 +113,7 @@ export function VisitReportCard({
               {clientName}
               {isNewClient ? <span className="rsm-client-tag">Cliente novo</span> : null}
             </p>
-            {/* Abaixo do nome: vinculado mostra o codigo; aguardando vinculo
-                mostra o badge AQUI (saiu de inline com o nome — la estourava a
-                borda do card). Cidade/regiao + telefone foram pra versao
-                estendida (no card pequeno eram cortados pela reticencia). */}
-            {isLinked ? (
-              <p className="rsm-client-meta">Código {report.client?.code}</p>
-            ) : showLinkStatus ? (
-              <span className="rsm-client-tag is-pending-link rsm-client-pending">
-                Aguardando vínculo
-              </span>
-            ) : null}
+            {report.client ? <p className="rsm-client-meta">Código {report.client.code}</p> : null}
           </div>
           <span className="rsm-card-chevron" aria-hidden="true">
             <svg viewBox="0 0 24 24" focusable="false">
@@ -172,9 +126,6 @@ export function VisitReportCard({
       <div className="rsm-card-details">
         <div className="rsm-card-details-inner">
           <dl className="rsm-answers">
-            {/* Cidade/regiao + telefone do cliente registrado no formulario:
-                ficam aqui na versao estendida (no card pequeno a .rsm-client-meta
-                cortava com reticencia). Padrao dt/dd das demais respostas. */}
             {report.newClient?.city ? (
               <div className="rsm-answer">
                 <dt>Cidade/região</dt>
@@ -187,94 +138,63 @@ export function VisitReportCard({
                 <dd>{report.newClient.phone}</dd>
               </div>
             ) : null}
-            <div className="rsm-answer">
-              <dt>Tamanho da fazenda</dt>
-              <dd>{getVisitFarmSizeLabel(report.farmSize)}</dd>
-              {report.farmSizeNotes ? (
-                <dd className="rsm-answer-notes">“{report.farmSizeNotes}”</dd>
-              ) : null}
-            </div>
-            <div className="rsm-answer">
-              <dt>Interesse em comercializar</dt>
-              <dd>{getVisitInterestDetailLabel(report.interestLevel)}</dd>
-              {report.interestNotes ? (
-                <dd className="rsm-answer-notes">“{report.interestNotes}”</dd>
-              ) : null}
-            </div>
-            <div className="rsm-answer">
-              <dt>Já comercializa</dt>
-              <dd>
-                {report.sellsCurrently
-                  ? report.sellsToWhom
-                    ? `Sim — ${report.sellsToWhom}`
-                    : 'Sim'
-                  : 'Não'}
-              </dd>
-            </div>
+            {report.reason ? (
+              <div className="rsm-answer">
+                <dt>Motivo da visita</dt>
+                <dd>{getCommercialVisitReasonLabel(report.reason)}</dd>
+                {report.reasonNotes ? (
+                  <dd className="rsm-answer-notes">“{report.reasonNotes}”</dd>
+                ) : null}
+              </div>
+            ) : null}
+            {report.outcome ? (
+              <div className="rsm-answer">
+                <dt>Resultado</dt>
+                <dd>{getCommercialVisitOutcomeLabel(report.outcome)}</dd>
+                {report.outcomeNotes ? (
+                  <dd className="rsm-answer-notes">“{report.outcomeNotes}”</dd>
+                ) : null}
+              </div>
+            ) : null}
+            {report.farmSize ? (
+              <div className="rsm-answer">
+                <dt>Tamanho da fazenda</dt>
+                <dd>{getVisitFarmSizeLabel(report.farmSize)}</dd>
+                {report.farmSizeNotes ? (
+                  <dd className="rsm-answer-notes">“{report.farmSizeNotes}”</dd>
+                ) : null}
+              </div>
+            ) : null}
+            {report.interestLevel ? (
+              <div className="rsm-answer">
+                <dt>Interesse em comercializar</dt>
+                <dd>{getVisitInterestDetailLabel(report.interestLevel)}</dd>
+                {report.interestNotes ? (
+                  <dd className="rsm-answer-notes">“{report.interestNotes}”</dd>
+                ) : null}
+              </div>
+            ) : null}
+            {report.sellsCurrently !== null ? (
+              <div className="rsm-answer">
+                <dt>Já comercializa</dt>
+                <dd>
+                  {report.sellsCurrently
+                    ? report.sellsToWhom
+                      ? `Sim — ${report.sellsToWhom}`
+                      : 'Sim'
+                    : 'Não'}
+                </dd>
+              </div>
+            ) : null}
             {report.generalNotes !== null ? (
               <div className="rsm-answer">
                 <dt>Observações gerais</dt>
                 <dd>{report.generalNotes}</dd>
               </div>
             ) : null}
-            {showLinkStatus && isLinked ? (
-              <div className="rsm-answer">
-                <dt>Cliente vinculado</dt>
-                <dd>
-                  {report.client?.displayName ?? '—'} · Código {report.client?.code}
-                </dd>
-                {report.newClient?.name ? (
-                  <dd className="rsm-answer-notes">Anotado na visita: {report.newClient.name}</dd>
-                ) : null}
-                {report.linkedBy && report.linkedAt ? (
-                  <dd className="rsm-answer-notes">
-                    Vinculado por {report.linkedBy.fullName} em{' '}
-                    {formatVisitDateTime(report.linkedAt)}
-                  </dd>
-                ) : null}
-              </div>
-            ) : null}
           </dl>
 
-          {canLinkClient && onLinkAction ? (
-            <div className="rsm-link-actions">
-              <button
-                type="button"
-                className="rsm-link-btn"
-                tabIndex={expanded ? undefined : -1}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onLinkAction(report, 'link');
-                }}
-              >
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" />
-                  <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" />
-                </svg>
-                {isLinked ? 'Alterar vínculo' : 'Vincular cliente'}
-              </button>
-              {isLinked ? (
-                <button
-                  type="button"
-                  className="rsm-link-btn is-remove"
-                  tabIndex={expanded ? undefined : -1}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onLinkAction(report, 'unlink');
-                  }}
-                >
-                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                    <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" />
-                    <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" />
-                    <path d="m3 3 18 18" />
-                  </svg>
-                  Remover vínculo
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-
-          {canDelete ? (
+          {canDelete && !isCancelled ? (
             <button
               type="button"
               className="rsm-delete-btn"
@@ -291,7 +211,7 @@ export function VisitReportCard({
                 <path d="M10 11v6" />
                 <path d="M14 11v6" />
               </svg>
-              Excluir informe
+              Cancelar visita
             </button>
           ) : null}
         </div>

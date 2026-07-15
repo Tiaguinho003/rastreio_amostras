@@ -69,16 +69,13 @@ import type {
   VisitClientKind,
   VisitFarmSize,
   VisitInterestLevel,
-  VisitReportDeleteResponse,
   VisitReportMutationResponse,
   VisitReportsListResponse,
   VisitReportStatsResponse,
   CommercialVisitReason,
   CommercialVisitOutcome,
-  CommercialVisitMutationResponse,
   WeeklyReportMutationResponse,
   InformeFeedResponse,
-  InformeFeedScope,
   PushConfigResponse,
   PushSubscriptionMutationResponse,
 } from './types';
@@ -2264,73 +2261,45 @@ export function listSampleEvents(
   });
 }
 
-// ── Informe de visita ──
+// ── Relatorios: VISITA unificada (prospector + comercial) + SEMANAL ──
 
+// A visita NASCE VINCULADA (clientId obrigatorio no backend); os campos de
+// dominio (fazenda/interesse/comercializa + motivo/resultado) sao opcionais.
+// Sem fila offline (online-only desde a unificacao 2026-07-15).
 export function createVisitReport(
   session: SessionData,
   data: {
-    /** Declaracao do prospector — sem lookup; vinculo e curadoria no /resumo. */
     clientKind: VisitClientKind;
-    /** Legado: so em reenvios da fila offline de versoes antigas do app. */
-    clientId?: string | null;
+    clientId: string | null;
     newClientName: string | null;
     newClientCity: string | null;
     newClientPhone: string | null;
-    farmSize: VisitFarmSize;
+    farmSize: VisitFarmSize | null;
     farmSizeNotes: string | null;
-    interestLevel: VisitInterestLevel;
+    interestLevel: VisitInterestLevel | null;
     interestNotes: string | null;
-    sellsCurrently: boolean;
+    sellsCurrently: boolean | null;
     sellsToWhom: string | null;
-    /** Campo 5: observações gerais (discursivo, opcional). */
+    reason: CommercialVisitReason | null;
+    reasonNotes: string | null;
+    outcome: CommercialVisitOutcome | null;
+    outcomeNotes: string | null;
     generalNotes: string | null;
-    /** Hora local do preenchimento (fila offline). Null em envio direto. */
-    capturedAt?: string | null;
-  },
-  options: { idempotencyKey?: string } = {}
+  }
 ) {
   return request<VisitReportMutationResponse>('/visit-reports', {
     method: 'POST',
     session,
     body: data,
-    extraHeaders: options.idempotencyKey
-      ? { 'Idempotency-Key': options.idempotencyKey }
-      : undefined,
   });
 }
 
-export function deleteVisitReport(session: SessionData, reportId: string) {
-  return request<VisitReportDeleteResponse>(`/visit-reports/${reportId}`, {
+// Cancelamento SOFT (a visita e imutavel): DELETE = cancelar. Devolve a view
+// atualizada (cancelledAt preenchido). So o proprio autor (regra no backend).
+export function cancelVisitReport(session: SessionData, reportId: string) {
+  return request<VisitReportMutationResponse>(`/visit-reports/${reportId}`, {
     method: 'DELETE',
     session,
-  });
-}
-
-// Curadoria do vinculo informe -> cliente (ADM/Cadastro no /resumo).
-// clientId null desvincula (informe volta a "aguardando vinculo").
-export function linkVisitReportClient(
-  session: SessionData,
-  reportId: string,
-  clientId: string | null
-) {
-  return request<VisitReportMutationResponse>(`/visit-reports/${reportId}/client`, {
-    method: 'PATCH',
-    session,
-    body: { clientId },
-  });
-}
-
-// Curadoria do vínculo da VISITA COMERCIAL (/resumo, ADMIN/CADASTRO). Só
-// clientKind=NEW; clientId null desvincula. Espelha linkVisitReportClient.
-export function linkCommercialVisitClient(
-  session: SessionData,
-  visitId: string,
-  clientId: string | null
-) {
-  return request<CommercialVisitMutationResponse>(`/commercial-visits/${visitId}/client`, {
-    method: 'PATCH',
-    session,
-    body: { clientId },
   });
 }
 
@@ -2357,37 +2326,7 @@ export function getMyVisitReportStats(session: SessionData) {
   });
 }
 
-// ── Formularios do comercial ──
-
-export function createCommercialVisit(
-  session: SessionData,
-  data: {
-    clientKind: VisitClientKind;
-    clientId: string | null;
-    newClientName: string | null;
-    newClientCity: string | null;
-    newClientPhone: string | null;
-    reason: CommercialVisitReason;
-    reasonNotes: string | null;
-    outcome: CommercialVisitOutcome;
-    outcomeNotes: string | null;
-    generalNotes: string | null;
-  }
-) {
-  return request<CommercialVisitMutationResponse>('/commercial-visits', {
-    method: 'POST',
-    session,
-    body: data,
-  });
-}
-
-export function deleteCommercialVisit(session: SessionData, visitId: string) {
-  return request<VisitReportDeleteResponse>(`/commercial-visits/${visitId}`, {
-    method: 'DELETE',
-    session,
-  });
-}
-
+// Relatorio SEMANAL — so ADMIN + COMMERCIAL criam (gate no backend).
 export function createWeeklyReport(
   session: SessionData,
   data: {
@@ -2403,23 +2342,25 @@ export function createWeeklyReport(
   });
 }
 
-export function deleteWeeklyReport(session: SessionData, reportId: string) {
-  return request<VisitReportDeleteResponse>(`/weekly-reports/${reportId}`, {
+// Cancelamento SOFT do semanal (DELETE = cancelar; so o proprio autor).
+export function cancelWeeklyReport(session: SessionData, reportId: string) {
+  return request<WeeklyReportMutationResponse>(`/weekly-reports/${reportId}`, {
     method: 'DELETE',
     session,
   });
 }
 
+// Feed da pagina "Relatorios" (scope=all): visita + semanal de todos.
 export function listInformeFeed(
   session: SessionData,
-  query: { scope: InformeFeedScope; page?: number; limit?: number }
+  query: { page?: number; limit?: number } = {}
 ) {
   const params = new URLSearchParams();
-  params.set('scope', query.scope);
   if (typeof query.page === 'number') params.set('page', String(query.page));
   if (typeof query.limit === 'number') params.set('limit', String(query.limit));
 
-  return request<InformeFeedResponse>(`/informe-feed?${params.toString()}`, {
+  const suffix = params.size ? `?${params.toString()}` : '';
+  return request<InformeFeedResponse>(`/informe-feed${suffix}`, {
     method: 'GET',
     session,
   });

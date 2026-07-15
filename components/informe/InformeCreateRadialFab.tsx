@@ -23,6 +23,9 @@ type MenuAction = 'visit' | 'weekly';
 interface InformeCreateRadialFabProps {
   onCreateVisit: () => void;
   onCreateWeeklyReport: () => void;
+  // Semanal so p/ ADMIN + COMMERCIAL. Quando false, so ha "Visita", entao o FAB
+  // abre a visita direto (sem leque).
+  canCreateWeekly: boolean;
   disabled?: boolean;
 }
 
@@ -34,6 +37,7 @@ const CLOSE_ANIMATION_MS = 360;
 export function InformeCreateRadialFab({
   onCreateVisit,
   onCreateWeeklyReport,
+  canCreateWeekly,
   disabled,
 }: InformeCreateRadialFabProps) {
   // mounted: leque existe no DOM (abertura, aberto e fechamento).
@@ -113,6 +117,12 @@ export function InformeCreateRadialFab({
 
   const handleMainTap = () => {
     if (disabled) return;
+    // Sem "Relatorio semanal" (papel != ADMIN/COMMERCIAL) so ha "Visita": o FAB
+    // abre a visita direto, sem leque.
+    if (!canCreateWeekly) {
+      onCreateVisit();
+      return;
+    }
     if (open) closeMenu();
     else openMenu();
   };
@@ -216,7 +226,13 @@ export function InformeCreateRadialFab({
       <button
         type="button"
         className={`cv2-fab is-informe-fab${fabIsExpanded ? ' is-expanded' : ''}`}
-        aria-label={open ? 'Fechar opções de formulário' : 'Novo formulário'}
+        aria-label={
+          !canCreateWeekly
+            ? 'Nova visita'
+            : open
+              ? 'Fechar opções de formulário'
+              : 'Novo formulário'
+        }
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={handleMainTap}

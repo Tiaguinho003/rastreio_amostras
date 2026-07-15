@@ -35,15 +35,18 @@ export function WeeklyReportCard({
   quickDelete = false,
   onRequestDelete,
 }: WeeklyReportCardProps) {
+  const isCancelled = report.cancelledAt !== null;
   return (
     <article
-      className={`rsm-card${expanded ? ' is-expanded' : ''}${quickDelete ? ' has-quick-delete' : ''}`}
+      className={`rsm-card${expanded ? ' is-expanded' : ''}${
+        quickDelete ? ' has-quick-delete' : ''
+      }${isCancelled ? ' is-cancelled' : ''}`}
     >
-      {quickDelete && onRequestDelete ? (
+      {quickDelete && onRequestDelete && !isCancelled ? (
         <button
           type="button"
           className="rsm-card-quick-delete"
-          aria-label="Excluir relatório"
+          aria-label="Cancelar relatório"
           onClick={() => onRequestDelete(report)}
         >
           <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
@@ -70,7 +73,11 @@ export function WeeklyReportCard({
             </p>
             <p className="rsm-card-when">{formatSentDateTime(report.createdAt)}</p>
           </div>
-          <span className="rsm-type-badge is-weekly">Relatório</span>
+          {isCancelled ? (
+            <span className="rsm-type-badge is-cancelled">Cancelado</span>
+          ) : (
+            <span className="rsm-type-badge is-weekly">Relatório</span>
+          )}
         </header>
 
         <div className="rsm-card-client">
@@ -116,7 +123,7 @@ export function WeeklyReportCard({
             ) : null}
           </dl>
 
-          {canDelete ? (
+          {canDelete && !isCancelled ? (
             <button
               type="button"
               className="rsm-delete-btn"
@@ -133,7 +140,7 @@ export function WeeklyReportCard({
                 <path d="M10 11v6" />
                 <path d="M14 11v6" />
               </svg>
-              Excluir relatório
+              Cancelar relatório
             </button>
           ) : null}
         </div>

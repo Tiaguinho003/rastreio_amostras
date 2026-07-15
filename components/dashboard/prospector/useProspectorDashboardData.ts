@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ApiError, getMyVisitReportStats, listVisitReports } from '../../../lib/api-client';
-import { VISIT_SYNC_COMPLETED_EVENT, type VisitSyncResult } from '../../../lib/offline/visit-sync';
 import type { SessionData, VisitReportStatsResponse, VisitReportSummary } from '../../../lib/types';
 
 // Dados do dashboard do prospector: contadores do dia e a lista paginada
@@ -133,20 +132,6 @@ export function useProspectorDashboardData(session: SessionData, search: string)
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', refreshThrottled);
     };
-  }, [refresh]);
-
-  // Fila offline sincronizou informes: o servidor mudou de verdade — sem
-  // throttle. O toast de sucesso fica com o listener global do AppShell.
-  useEffect(() => {
-    const handleSyncCompleted = (event: Event) => {
-      const result = (event as CustomEvent<VisitSyncResult>).detail;
-      if (result && result.sent > 0) {
-        void refresh();
-      }
-    };
-
-    window.addEventListener(VISIT_SYNC_COMPLETED_EVENT, handleSyncCompleted);
-    return () => window.removeEventListener(VISIT_SYNC_COMPLETED_EVENT, handleSyncCompleted);
   }, [refresh]);
 
   return { stats, items, total, hasNext, loadingMore, error, refresh, loadMore };

@@ -22,10 +22,17 @@ import type { SessionData } from '../../lib/types';
 interface InformeCreateFabProps {
   session: SessionData;
   onSubmitted: () => void;
+  // Relatorio semanal so p/ ADMIN + COMMERCIAL (o leque esconde a opcao).
+  canCreateWeekly: boolean;
   disabled?: boolean;
 }
 
-export function InformeCreateFab({ session, onSubmitted, disabled }: InformeCreateFabProps) {
+export function InformeCreateFab({
+  session,
+  onSubmitted,
+  canCreateWeekly,
+  disabled,
+}: InformeCreateFabProps) {
   // Sheets dos formularios: `open` controla intencao, `mounted` presenca no
   // DOM (delayed unmount de 400ms pro slide-down do BottomSheet).
   const [visitSheetOpen, setVisitSheetOpen] = useState(false);
@@ -60,6 +67,7 @@ export function InformeCreateFab({ session, onSubmitted, disabled }: InformeCrea
       <InformeCreateRadialFab
         onCreateVisit={() => setVisitSheetOpen(true)}
         onCreateWeeklyReport={() => setWeeklySheetOpen(true)}
+        canCreateWeekly={canCreateWeekly}
         disabled={disabled}
       />
 

@@ -8,14 +8,14 @@
 // servidos do cache antigo eternamente. Foi a causa do bug "barra bege
 // nao some" persistir por 13 tentativas de fix — todos os fixes estavam
 // em prod mas os clients viam HTML/JS cacheado do SW antigo.
-const CACHE_NAME = 'rastreio-shell-v13-2026-06-18-stale-shell-fix';
-const STATIC_PATHS = ['/', '/login', '/offline', '/informe', '/manifest.webmanifest', '/logo-laudo.png', '/logo-safras-branco.png'];
+const CACHE_NAME = 'rastreio-shell-v14-2026-07-15-relatorios';
+const STATIC_PATHS = ['/', '/login', '/offline', '/relatorios', '/manifest.webmanifest', '/logo-laudo.png', '/logo-safras-branco.png'];
 // Documentos cujo HTML e varrido no install pra precachear tambem os chunks
 // JS/CSS que eles referenciam. Sem isso o precache do documento e inutil
 // offline-cold: o HTML abre mas os assets so estariam no cache se o user
-// tivesse visitado a pagina depois do deploy. /informe esta aqui pra o
-// formulario de visita funcionar offline mesmo sem visita previa.
-const PRECACHE_DOCUMENTS = ['/', '/login', '/offline', '/informe'];
+// tivesse visitado a pagina depois do deploy. /relatorios entra aqui pra
+// abrir rapido (a fila offline da visita foi removida na unificacao 2026-07-15).
+const PRECACHE_DOCUMENTS = ['/', '/login', '/offline', '/relatorios'];
 
 // Extrai URLs /_next/static do HTML de um documento ja precacheado e as
 // adiciona ao cache (scripts, css, preloads). Para cada CSS cacheado,

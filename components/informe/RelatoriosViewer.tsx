@@ -2,83 +2,41 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
 
 import { HeaderAvatarMenu } from '../HeaderAvatarMenu';
-import { ClientLookupField } from '../clients/ClientLookupField';
-import { ClientQuickCreateModal } from '../clients/ClientQuickCreateModal';
-import { CommercialVisitCard } from './CommercialVisitCard';
 import { InformeCreateFab } from './InformeCreateFab';
 import { WeeklyReportCard } from './WeeklyReportCard';
-import { VisitReportCard, type VisitLinkAction } from '../visits/VisitReportCard';
+import { VisitReportCard } from '../visits/VisitReportCard';
 import {
   ApiError,
-  deleteCommercialVisit,
-  deleteVisitReport,
-  deleteWeeklyReport,
-  linkCommercialVisitClient,
-  linkVisitReportClient,
+  cancelVisitReport,
+  cancelWeeklyReport,
   listInformeFeed,
 } from '../../lib/api-client';
-import { isVisitLinkCurator } from '../../lib/roles';
+import { isWeeklyReportAuthor } from '../../lib/roles';
 import { useToast } from '../../lib/toast/ToastProvider';
-import type {
-  ClientSummary,
-  CommercialVisitSummary,
-  InformeFeedItem,
-  SessionData,
-  VisitReportSummary,
-} from '../../lib/types';
-import { useFocusTrap } from '../../lib/use-focus-trap';
+import type { InformeFeedItem, SessionData } from '../../lib/types';
 
-// Visao "Relatorios" dos VIEWERS (ADMIN + CADASTRO — ver isVisitReportViewer):
-// feed COMBINADO dos 3 tipos de formulario (scope=all) de todos os autores,
-// mais recentes primeiro, com "Carregar mais". Cards accordion por tipo; so o
-// autor exclui o proprio item. CURADORIA do vinculo (informe de prospeccao e
-// visita comercial NEW): ADM/Cadastro vinculam a um cliente do cadastro.
-// Extraido da antiga pagina /resumo na unificacao com /informe.
-//
-// `canCreate` (ADMIN): tambem renderiza o FAB de criacao (Visita comercial +
-// Relatorio semanal). O FAB vive como IRMAO de `.sdv-content` (nunca dentro do
-// scroller, que tem transform/overflow) e ganha as vars de ancoragem do leque
-// via `.rsm-fab-anchor`.
+// Pagina "Relatorios" (rota /relatorios): feed COMBINADO (scope=all) de VISITA
+// (unificada: prospector + comercial) + SEMANAL de TODOS os autores, mais
+// recentes primeiro, com "Carregar mais". Cards accordion por tipo; so o autor
+// CANCELA (soft) o proprio item — cancelado fica no historico, marcado. FAB de
+// criacao: Visita (todos) + Semanal (so ADMIN + COMMERCIAL). Unificacao
+// 2026-07-15 (curadoria de vinculo + fila offline removidas).
 
 const PAGE_LIMIT = 20;
 
-// Mensagens pt-BR pros erros conhecidos do vinculo (backend fala ingles).
-function translateLinkError(cause: unknown): string {
-  if (cause instanceof ApiError) {
-    const code =
-      cause.details && typeof cause.details === 'object'
-        ? (cause.details as { code?: string }).code
-        : undefined;
-    if (code === 'VISIT_CLIENT_INACTIVE') return 'Este cliente está inativo no cadastro.';
-    if (code === 'VISIT_CLIENT_NOT_FOUND') return 'Cliente não encontrado no cadastro.';
-    if (cause.status === 403) return 'Sem permissão para esta ação.';
-    if (cause.status === 0) return 'Sem conexão com o servidor. Verifique sua internet.';
-  }
-  return 'Tente novamente.';
-}
-
-function deleteLabels(item: InformeFeedItem) {
-  if (item.type === 'COMMERCIAL_VISIT') {
-    return { title: 'Excluir visita?', success: 'Visita excluída' };
-  }
+function cancelLabels(item: InformeFeedItem) {
   if (item.type === 'WEEKLY_REPORT') {
-    return { title: 'Excluir relatório?', success: 'Relatório excluído' };
+    return { title: 'Cancelar relatório?', success: 'Relatório cancelado' };
   }
-  return { title: 'Excluir informe?', success: 'Informe excluído' };
+  return { title: 'Cancelar visita?', success: 'Visita cancelada' };
 }
-
-// Itens curáveis (têm cliente vinculável): informe de prospecção e visita
-// comercial. Ambos carregam id/clientKind/client/newClient/linkedBy/linkedAt.
-// O `type` discrimina pra qual endpoint o vínculo despacha.
-type LinkableVisit = (VisitReportSummary & { type: 'VISIT_REPORT' }) | CommercialVisitSummary;
 
 interface RelatoriosViewerProps {
   session: SessionData;
   onLogout: () => void | Promise<void>;
-  // ADMIN: tambem mostra o FAB de criacao (Visita comercial + Relatorio).
+  // Mostra o FAB de criacao (Visita p/ todos; Semanal so ADMIN + COMMERCIAL).
   canCreate: boolean;
 }
 
@@ -93,27 +51,9 @@ export function RelatoriosViewer({ session, onLogout, canCreate }: RelatoriosVie
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Accordion: ids dos cards expandidos (toggle independente por card).
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-
-  // Exclusao: item alvo do modal de confirmacao + request em voo.
-  const [deleteTarget, setDeleteTarget] = useState<InformeFeedItem | null>(null);
-  const [deleting, setDeleting] = useState(false);
-
-  // Curadoria do vinculo (ADM/Cadastro): informe alvo + modo do fluxo
-  // ('lookup' = modal de busca; 'create' = ClientQuickCreateModal).
-  const [linkTarget, setLinkTarget] = useState<{
-    report: LinkableVisit;
-    mode: 'lookup' | 'create';
-  } | null>(null);
-  const [linkClient, setLinkClient] = useState<ClientSummary | null>(null);
-  // Prefill do cadastro rapido: nome digitado no lookup (se veio do estado
-  // vazio "Cadastrar e vincular") ou o nome anotado pelo prospector.
-  const [linkCreateName, setLinkCreateName] = useState('');
-  const [linking, setLinking] = useState(false);
-  const [unlinkTarget, setUnlinkTarget] = useState<LinkableVisit | null>(null);
-
-  const linkModalFocusTrapRef = useFocusTrap(linkTarget?.mode === 'lookup');
+  const [cancelTarget, setCancelTarget] = useState<InformeFeedItem | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   const loadPage = useCallback(
     async (targetPage: number, mode: 'replace' | 'append') => {
@@ -125,11 +65,7 @@ export function RelatoriosViewer({ session, onLogout, canCreate }: RelatoriosVie
       setError(null);
 
       try {
-        const response = await listInformeFeed(session, {
-          scope: 'all',
-          page: targetPage,
-          limit: PAGE_LIMIT,
-        });
+        const response = await listInformeFeed(session, { page: targetPage, limit: PAGE_LIMIT });
         setItems((current) =>
           mode === 'append' ? [...current, ...response.items] : response.items
         );
@@ -140,7 +76,7 @@ export function RelatoriosViewer({ session, onLogout, canCreate }: RelatoriosVie
         setError(
           cause instanceof ApiError
             ? cause.message
-            : 'Não foi possível carregar os informes. Verifique sua conexão.'
+            : 'Não foi possível carregar os relatórios. Verifique sua conexão.'
         );
       } finally {
         if (mode === 'replace') {
@@ -157,154 +93,50 @@ export function RelatoriosViewer({ session, onLogout, canCreate }: RelatoriosVie
     void loadPage(1, 'replace');
   }, [loadPage]);
 
-  const toggleExpanded = useCallback((reportId: string) => {
+  const toggleExpanded = useCallback((id: string) => {
     setExpandedIds((current) => {
       const next = new Set(current);
-      if (next.has(reportId)) {
-        next.delete(reportId);
+      if (next.has(id)) {
+        next.delete(id);
       } else {
-        next.add(reportId);
+        next.add(id);
       }
       return next;
     });
   }, []);
 
-  const removeFromList = useCallback((reportId: string) => {
-    setItems((current) => current.filter((item) => item.id !== reportId));
-    setTotal((current) => Math.max(0, current - 1));
-    setExpandedIds((current) => {
-      if (!current.has(reportId)) {
-        return current;
-      }
-      const next = new Set(current);
-      next.delete(reportId);
-      return next;
-    });
-  }, []);
-
-  const closeLinkFlow = useCallback(() => {
-    setLinkTarget(null);
-    setLinkClient(null);
-    setLinkCreateName('');
-    setUnlinkTarget(null);
-  }, []);
-
-  const handleLinkAction = useCallback((report: LinkableVisit, action: VisitLinkAction) => {
-    if (action === 'unlink') {
-      setUnlinkTarget(report);
+  // Cancelamento soft: substitui o item na lista (fica marcado como "Cancelado").
+  const handleConfirmCancel = useCallback(async () => {
+    if (!cancelTarget || cancelling) {
       return;
     }
-    // action === 'link': abre o modal de busca. Cadastrar cliente novo nao e
-    // acao do card — o estado vazio do lookup ja oferece "Cadastrar e
-    // vincular" inline (onRequestCreate -> mode 'create').
-    setLinkClient(null);
-    setLinkCreateName(report.newClient?.name ?? '');
-    setLinkTarget({ report, mode: 'lookup' });
-  }, []);
-
-  // Vincula (clientId) ou desvincula (null) e reflete a resposta na lista.
-  // Despacha por tipo: visita comercial -> linkCommercialVisitClient; informe
-  // de prospeccao -> linkVisitReportClient. So clientKind=NEW chega aqui no caso
-  // comercial (o card oferece a acao so pra NEW; o backend tambem barra EXISTING).
-  const performLink = useCallback(
-    async (target: LinkableVisit, clientId: string | null) => {
-      if (linking) {
-        return;
-      }
-
-      setLinking(true);
-      try {
-        const updated =
-          target.type === 'COMMERCIAL_VISIT'
-            ? (await linkCommercialVisitClient(session, target.id, clientId)).visit
-            : (await linkVisitReportClient(session, target.id, clientId)).report;
-        // Recarimba o discriminante e substitui na lista (mesma view do feed).
-        setItems((current) =>
-          current.map((item) =>
-            item.id === updated.id ? ({ ...updated, type: target.type } as InformeFeedItem) : item
-          )
-        );
-        closeLinkFlow();
-        toast.success({
-          title: clientId ? 'Cliente vinculado' : 'Vínculo removido',
-          description: clientId
-            ? `${target.type === 'COMMERCIAL_VISIT' ? 'Visita' : 'Informe'} vinculada a ${
-                updated.client?.displayName ?? 'cliente'
-              }.`
-            : 'Voltou para aguardando vínculo.',
-        });
-      } catch (cause) {
-        if (cause instanceof ApiError && cause.status === 404) {
-          // Item sumiu no servidor (excluido em outra sessao).
-          removeFromList(target.id);
-          closeLinkFlow();
-          toast.info({ title: 'Este item já havia sido excluído' });
-        } else {
-          toast.error({
-            title: clientId ? 'Não foi possível vincular' : 'Não foi possível remover o vínculo',
-            description: translateLinkError(cause),
-          });
-        }
-      } finally {
-        setLinking(false);
-      }
-    },
-    [session, linking, closeLinkFlow, removeFromList, toast]
-  );
-
-  // ESC fecha o modal de vinculo (useFocusTrap so captura Tab).
-  useEffect(() => {
-    if (linkTarget?.mode !== 'lookup') {
-      return;
-    }
-    function handleEsc(event: KeyboardEvent) {
-      if (event.key === 'Escape' && !linking) {
-        closeLinkFlow();
-      }
-    }
-    document.addEventListener('keydown', handleEsc);
-    return () => document.removeEventListener('keydown', handleEsc);
-  }, [linkTarget, linking, closeLinkFlow]);
-
-  const handleConfirmDelete = useCallback(async () => {
-    if (!deleteTarget || deleting) {
-      return;
-    }
-
-    setDeleting(true);
+    setCancelling(true);
     try {
-      // Despacha o delete pelo tipo do item.
-      if (deleteTarget.type === 'COMMERCIAL_VISIT') {
-        await deleteCommercialVisit(session, deleteTarget.id);
-      } else if (deleteTarget.type === 'WEEKLY_REPORT') {
-        await deleteWeeklyReport(session, deleteTarget.id);
-      } else {
-        await deleteVisitReport(session, deleteTarget.id);
-      }
-      removeFromList(deleteTarget.id);
-      setDeleteTarget(null);
-      toast.success({ title: deleteLabels(deleteTarget).success });
+      const updated =
+        cancelTarget.type === 'WEEKLY_REPORT'
+          ? (await cancelWeeklyReport(session, cancelTarget.id)).report
+          : (await cancelVisitReport(session, cancelTarget.id)).report;
+      setItems((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      const label = cancelLabels(cancelTarget);
+      setCancelTarget(null);
+      toast.success({ title: label.success });
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 404) {
-        // Ja sumiu no servidor (excluido em outra sessao): alinha a lista.
-        removeFromList(deleteTarget.id);
-        setDeleteTarget(null);
-        toast.info({ title: 'Este envio já havia sido excluído' });
+        setCancelTarget(null);
+        void loadPage(1, 'replace');
+        toast.info({ title: 'Este item já havia sido cancelado' });
       } else {
         toast.error({
-          title: 'Não foi possível excluir',
+          title: 'Não foi possível cancelar',
           description: cause instanceof ApiError ? cause.message : 'Tente novamente.',
         });
       }
     } finally {
-      setDeleting(false);
+      setCancelling(false);
     }
-  }, [session, deleteTarget, deleting, removeFromList, toast]);
+  }, [session, cancelTarget, cancelling, loadPage, toast]);
 
-  // Exclusao: so o autor exclui o proprio formulario — nem ADM nem Cadastro
-  // excluem alheio (espelha o backend). Avaliado por item (item.user.id).
-  const canLinkClient = isVisitLinkCurator(session.user.role);
-
+  const canCreateWeekly = isWeeklyReportAuthor(session.user.role);
   const userFullName = session.user.fullName ?? session.user.username;
   const userAvatarInitials = userFullName
     .split(' ')
@@ -357,7 +189,7 @@ export function RelatoriosViewer({ session, onLogout, canCreate }: RelatoriosVie
 
             {error && items.length === 0 ? (
               <div className="rsm-empty">
-                <p className="rsm-empty-title">Não foi possível carregar os informes</p>
+                <p className="rsm-empty-title">Não foi possível carregar os relatórios</p>
                 <p className="rsm-empty-sub">{error}</p>
                 <button
                   type="button"
@@ -378,29 +210,14 @@ export function RelatoriosViewer({ session, onLogout, canCreate }: RelatoriosVie
                     <path d="M4 13v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" />
                   </svg>
                 </span>
-                <p className="rsm-empty-title">Nenhum informe ainda</p>
-                <p className="rsm-empty-sub">Os envios do formulário de visita aparecem aqui.</p>
+                <p className="rsm-empty-title">Nenhum relatório ainda</p>
+                <p className="rsm-empty-sub">As visitas e os relatórios semanais aparecem aqui.</p>
               </div>
             ) : null}
 
             {!initialLoading && items.length > 0 ? (
               <div className="rsm-list">
                 {items.map((item) => {
-                  if (item.type === 'COMMERCIAL_VISIT') {
-                    return (
-                      <CommercialVisitCard
-                        key={item.id}
-                        visit={item}
-                        expanded={expandedIds.has(item.id)}
-                        onToggle={() => toggleExpanded(item.id)}
-                        canDelete={item.user?.id === session.user.id}
-                        showLinkStatus
-                        canLinkClient={canLinkClient}
-                        onLinkAction={handleLinkAction}
-                        onRequestDelete={setDeleteTarget}
-                      />
-                    );
-                  }
                   if (item.type === 'WEEKLY_REPORT') {
                     return (
                       <WeeklyReportCard
@@ -409,7 +226,7 @@ export function RelatoriosViewer({ session, onLogout, canCreate }: RelatoriosVie
                         expanded={expandedIds.has(item.id)}
                         onToggle={() => toggleExpanded(item.id)}
                         canDelete={item.user?.id === session.user.id}
-                        onRequestDelete={setDeleteTarget}
+                        onRequestDelete={() => setCancelTarget(item)}
                       />
                     );
                   }
@@ -417,16 +234,10 @@ export function RelatoriosViewer({ session, onLogout, canCreate }: RelatoriosVie
                     <VisitReportCard
                       key={item.id}
                       report={item}
-                      typeBadge="Prospecção"
                       expanded={expandedIds.has(item.id)}
                       onToggle={() => toggleExpanded(item.id)}
                       canDelete={item.user?.id === session.user.id}
-                      showLinkStatus
-                      canLinkClient={canLinkClient}
-                      onLinkAction={(report, action) =>
-                        handleLinkAction({ ...report, type: 'VISIT_REPORT' }, action)
-                      }
-                      onRequestDelete={() => setDeleteTarget(item)}
+                      onRequestDelete={() => setCancelTarget(item)}
                     />
                   );
                 })}
@@ -448,21 +259,24 @@ export function RelatoriosViewer({ session, onLogout, canCreate }: RelatoriosVie
           </div>
         </section>
 
-        {/* FAB de criacao (ADMIN) — IRMAO de .sdv-content (fora do scroller, que
-            tem transform/overflow). .rsm-fab-anchor fornece as vars do leque. */}
+        {/* FAB de criacao — IRMAO de .sdv-content (fora do scroller). */}
         {canCreate ? (
           <div className="rsm-fab-anchor">
-            <InformeCreateFab session={session} onSubmitted={() => void loadPage(1, 'replace')} />
+            <InformeCreateFab
+              session={session}
+              canCreateWeekly={canCreateWeekly}
+              onSubmitted={() => void loadPage(1, 'replace')}
+            />
           </div>
         ) : null}
       </section>
 
-      {deleteTarget ? (
+      {cancelTarget ? (
         <div
           className="app-modal-backdrop is-scrim-dark"
           onClick={() => {
-            if (!deleting) {
-              setDeleteTarget(null);
+            if (!cancelling) {
+              setCancelTarget(null);
             }
           }}
         >
@@ -470,8 +284,8 @@ export function RelatoriosViewer({ session, onLogout, canCreate }: RelatoriosVie
             className="app-modal is-themed app-confirm-modal"
             role="alertdialog"
             aria-modal="true"
-            aria-labelledby="rsm-delete-title"
-            aria-describedby="rsm-delete-description"
+            aria-labelledby="rsm-cancel-title"
+            aria-describedby="rsm-cancel-description"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="app-modal-content">
@@ -482,11 +296,11 @@ export function RelatoriosViewer({ session, onLogout, canCreate }: RelatoriosVie
                   <path d="M12 17v.01" />
                 </svg>
               </div>
-              <h3 id="rsm-delete-title" className="app-confirm-modal-title">
-                {deleteLabels(deleteTarget).title}
+              <h3 id="rsm-cancel-title" className="app-confirm-modal-title">
+                {cancelLabels(cancelTarget).title}
               </h3>
-              <p id="rsm-delete-description" className="app-confirm-modal-message">
-                Esta ação não pode ser desfeita.
+              <p id="rsm-cancel-description" className="app-confirm-modal-message">
+                Ele fica no histórico marcado como “Cancelado”. Se errou, cancele e envie outro.
               </p>
             </div>
 
@@ -494,207 +308,24 @@ export function RelatoriosViewer({ session, onLogout, canCreate }: RelatoriosVie
               <button
                 type="button"
                 className="app-modal-secondary"
-                onClick={() => setDeleteTarget(null)}
-                disabled={deleting}
+                onClick={() => setCancelTarget(null)}
+                disabled={cancelling}
                 autoFocus
               >
-                Cancelar
+                Voltar
               </button>
               <button
                 type="button"
                 className="app-modal-submit is-danger"
-                onClick={() => void handleConfirmDelete()}
-                disabled={deleting}
+                onClick={() => void handleConfirmCancel()}
+                disabled={cancelling}
               >
-                {deleting ? 'Excluindo…' : 'Excluir'}
+                {cancelling ? 'Cancelando…' : 'Cancelar'}
               </button>
             </div>
           </section>
         </div>
       ) : null}
-
-      {/* Vincular cliente — lookup pre-carregado com o nome anotado; o
-          estado vazio do dropdown oferece "Cadastrar e vincular". */}
-      {linkTarget?.mode === 'lookup'
-        ? createPortal(
-            <div
-              className="app-modal-backdrop"
-              onClick={() => {
-                if (!linking) {
-                  closeLinkFlow();
-                }
-              }}
-            >
-              <section
-                ref={linkModalFocusTrapRef}
-                className="app-modal is-themed is-action sample-detail-lookup-modal rsm-link-modal"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="rsm-link-title"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <header className="app-modal-header">
-                  <div className="app-modal-title-wrap">
-                    <h3 id="rsm-link-title" className="app-modal-title">
-                      {linkTarget.report.client ? 'Alterar vínculo' : 'Vincular cliente'}
-                    </h3>
-                    <p className="app-modal-description">
-                      Escolha o cliente do cadastro para este informe.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="app-modal-close"
-                    onClick={closeLinkFlow}
-                    disabled={linking}
-                    aria-label="Fechar"
-                  >
-                    <span aria-hidden="true">&times;</span>
-                  </button>
-                </header>
-
-                <form
-                  className="app-modal-content"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (linkClient && !linking) {
-                      void performLink(linkTarget.report, linkClient.id);
-                    }
-                  }}
-                >
-                  {linkTarget.report.newClient?.name ? (
-                    <div className="rsm-link-context">
-                      <span className="rsm-link-context-label">Anotado pelo prospector</span>
-                      <p className="rsm-link-context-name">{linkTarget.report.newClient.name}</p>
-                      {linkTarget.report.newClient.city || linkTarget.report.newClient.phone ? (
-                        <p className="rsm-link-context-meta">
-                          {[linkTarget.report.newClient.city, linkTarget.report.newClient.phone]
-                            .filter(Boolean)
-                            .join(' · ')}
-                        </p>
-                      ) : null}
-                    </div>
-                  ) : null}
-
-                  <ClientLookupField
-                    session={session}
-                    label="Cliente do cadastro"
-                    kind="any"
-                    required
-                    selectedClient={linkClient}
-                    onSelectClient={setLinkClient}
-                    initialSearch={linkTarget.report.newClient?.name ?? ''}
-                    maxResults={10}
-                    onRequestCreate={(search) => {
-                      setLinkCreateName(search || (linkTarget.report.newClient?.name ?? ''));
-                      setLinkTarget({ report: linkTarget.report, mode: 'create' });
-                    }}
-                    createLabel="Cadastrar e vincular"
-                    createButtonStyle="inline-cta"
-                  />
-
-                  <div className="app-modal-actions">
-                    <button
-                      type="submit"
-                      className="app-modal-submit"
-                      disabled={!linkClient || linking}
-                    >
-                      {linking ? 'Vinculando…' : 'Vincular'}
-                    </button>
-                    <button
-                      type="button"
-                      className="app-modal-secondary"
-                      onClick={closeLinkFlow}
-                      disabled={linking}
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </form>
-              </section>
-            </div>,
-            document.body
-          )
-        : null}
-
-      {/* Cadastrar e vincular — cria o cliente (prefill com o anotado) e
-          vincula na sequencia (onCreated -> performLink). */}
-      {linkTarget?.mode === 'create' ? (
-        <ClientQuickCreateModal
-          session={session}
-          open
-          title="Cadastrar e vincular"
-          initialSearch={linkCreateName}
-          initialPersonType="PF"
-          initialIsBuyer={false}
-          initialPhone={linkTarget.report.newClient?.phone ?? undefined}
-          onClose={closeLinkFlow}
-          onCreated={(client) => {
-            void performLink(linkTarget.report, client.id);
-          }}
-        />
-      ) : null}
-
-      {/* Remover vinculo — confirmacao; o informe volta a aguardando
-          vinculo (re-vinculavel, por isso is-warning e nao is-danger). */}
-      {unlinkTarget
-        ? createPortal(
-            <div
-              className="app-modal-backdrop is-scrim-dark"
-              onClick={() => {
-                if (!linking) {
-                  setUnlinkTarget(null);
-                }
-              }}
-            >
-              <section
-                className="app-modal is-themed app-confirm-modal"
-                role="alertdialog"
-                aria-modal="true"
-                aria-labelledby="rsm-unlink-title"
-                aria-describedby="rsm-unlink-description"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <div className="app-modal-content">
-                  <div className="app-confirm-modal-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" focusable="false">
-                      <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" />
-                      <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" />
-                      <path d="m3 3 18 18" />
-                    </svg>
-                  </div>
-                  <h3 id="rsm-unlink-title" className="app-confirm-modal-title">
-                    Remover vínculo?
-                  </h3>
-                  <p id="rsm-unlink-description" className="app-confirm-modal-message">
-                    O informe volta para “aguardando vínculo”. Você pode vincular de novo depois.
-                  </p>
-                </div>
-
-                <div className="app-modal-actions">
-                  <button
-                    type="button"
-                    className="app-modal-secondary"
-                    onClick={() => setUnlinkTarget(null)}
-                    disabled={linking}
-                    autoFocus
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    className="app-modal-submit is-warning"
-                    onClick={() => void performLink(unlinkTarget, null)}
-                    disabled={linking}
-                  >
-                    {linking ? 'Removendo…' : 'Remover'}
-                  </button>
-                </div>
-              </section>
-            </div>,
-            document.body
-          )
-        : null}
     </>
   );
 }
