@@ -268,6 +268,9 @@ export const RECEIVABLE_VIEW_SELECT = Object.freeze({
   paymentDate: true,
   paidAt: true,
   status: true,
+  // D147: carrega a modalidade pra qualquer consumidor do view re-derivar
+  // billabilidade (D145: washout a vista nao cobra) via isSpotWashout.
+  type: true,
   buyerSnapshot: true,
   totalValue: true,
   sellerBrokeragePct: true,
@@ -692,6 +695,7 @@ export function buildReceivableView(row, brokerRows, todayKey) {
     paymentDate: toIsoString(row.paymentDate),
     paidAt: toIsoString(row.paidAt),
     status: row.status,
+    type: row.type,
     paymentState: deriveReceivablePaymentState(row.status, row.paymentDate, todayKey),
     buyerName: row.buyerSnapshot?.displayName ?? null,
     totalValue: decimalToNumber(row.totalValue),
