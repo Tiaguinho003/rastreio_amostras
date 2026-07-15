@@ -49,6 +49,18 @@ as seções "Detalhe por papel" e as notas factuais passaram a descrever as 2 p�
 (`/contratos` gestão · `/embarques` operação), com tabelas e contagens de nav
 refeitas (COMMERCIAL sidenav 6, ADMIN sidenav 7, operacionais 4; "Embarques" agora
 é rota própria em todas as tabelas). O aviso anterior de "seções pré-split" saiu.
+Atualizado: 2026-07-15 — **ACESSO UNIFICADO por papel**: todo papel **não-PROSPECTOR**
+(ADMIN, CLASSIFIER, REGISTRATION, COMMERCIAL, CADASTRO) passa a **acessar e operar
+todas as páginas** — `/contratos` (Contratos·Financeiro), `/embarques`, `/informe`
+(Relatórios, como **viewer** `scope=all` + criação + curadoria), `/cadastros` e
+`/clients/[id]`. **Única exceção: `/users` segue exclusivo do ADMIN** (front + back,
+`assertAdminActor`). O PROSPECTOR continua 100% restrito e inalterado. As constantes de
+acesso (`INFORME_ROLES`, `CONTRATOS_ROLES`, `FINANCEIRO_ROLES`, `CLIENT_MANAGEMENT_ROLES`)
+e os helpers `isVisitReportViewer`/`isVisitLinkCurator` agora valem para todo
+não-PROSPECTOR (`= NON_PROSPECTOR_ROLES` / `!isProspector`; `lib/roles.ts` +
+`src/auth/roles.js`, este novo). Na navegação, o item "Clientes" avulso **sai da nav de
+todos** (clientes pela aba Clientes do hub `/cadastros`) e o menu de cada não-PROSPECTOR
+**espelha o do ADMIN menos "Usuários"**. A matriz e as seções por papel abaixo já refletem.
 
 ## Como ler este documento
 
@@ -78,16 +90,26 @@ Definidos em `enum UserRole` (`prisma/schema.prisma`). Labels pt-BR em
 Constantes/helpers de agrupamento (`lib/roles.ts`):
 
 - `NON_PROSPECTOR_ROLES` = ADMIN, CLASSIFIER, REGISTRATION, COMMERCIAL, CADASTRO
-  (todos menos PROSPECTOR) — guard das paginas de amostras, camera e da **lista**
-  de clientes (`/clients`).
-- `CLIENT_MANAGEMENT_ROLES` = ADMIN, CADASTRO (helper `canManageClients`) — quem
-  GERENCIA cadastro de cliente: guard do hub `/cadastros` e do **detalhe**
-  `/clients/[id]`, mais o botao "Gerenciar cliente". Sem equivalente no backend
-  (ver a nota da matriz). _(O card "Cadastros pendentes" do dashboard, antes gated
-  por este helper, foi REMOVIDO em 2026-07-12 — DSB-D2.)_
-- `INFORME_ROLES` = ADMIN, COMMERCIAL — guard da pagina "Relatorios"
-  (`/informe`). CADASTRO saiu em 2026-06-28; REGISTRATION em 2026-07-10. Cobre
-  exatamente os dois ramos da pagina: nao ha papel com acesso e sem conteudo.
+  (todos menos PROSPECTOR). Desde o **ACESSO UNIFICADO (2026-07-15)** é o guard de
+  **praticamente todas as páginas** (amostras, camera, `/clients`, `/clients/[id]`,
+  `/cadastros`, `/informe`, `/contratos`, `/embarques`) — as constantes específicas
+  abaixo passaram a apontar para ele. Única página fora dele: `/users` (só ADMIN).
+  Agora também canônico no **backend** (`NON_PROSPECTOR_ROLES` em `src/auth/roles.js`),
+  espelhando os gates de contrato/financeiro/informe.
+- `CLIENT_MANAGEMENT_ROLES` = **`NON_PROSPECTOR_ROLES`** (todos menos PROSPECTOR;
+  ACESSO UNIFICADO 2026-07-15 — era ADMIN + CADASTRO). Helper `canManageClients` —
+  quem GERENCIA cadastro de cliente: guard do hub `/cadastros` e do **detalhe**
+  `/clients/[id]`, mais o botao "Gerenciar cliente"; hoje todo não-PROSPECTOR. Sem
+  equivalente no backend (endpoints de cliente são auth-only — ver a nota da matriz).
+  _(O card "Cadastros pendentes" do dashboard, antes gated por este helper, foi
+  REMOVIDO em 2026-07-12 — DSB-D2.)_
+- `INFORME_ROLES` = **`NON_PROSPECTOR_ROLES`** (todos menos PROSPECTOR; ACESSO
+  UNIFICADO 2026-07-15 — era ADMIN + COMMERCIAL) — guard da pagina "Relatorios"
+  (`/informe`). Todo não-PROSPECTOR entra como **viewer** (`scope=all`) e **cria**; o
+  ramo "meus" do COMMERCIAL (`InformeCommercialPage`, `scope=mine`) foi removido.
+  (Histórico: CADASTRO saíra em 2026-06-28 e REGISTRATION em 2026-07-10 — ambos
+  reintegrados pelo acesso unificado.) `CONTRATOS_ROLES` e `FINANCEIRO_ROLES` seguem
+  o mesmo caminho (= `NON_PROSPECTOR_ROLES`; ver §Contratos-Visao-Geral e a matriz).
 - `isAdmin(role)` = somente ADMIN.
 - `isCommercialRole(role)` = somente COMMERCIAL (prioridade na ordenacao do
   picker de usuarios; nao confundir com acesso de navegacao). O PROSPECTOR saiu
@@ -98,8 +120,11 @@ Constantes/helpers de agrupamento (`lib/roles.ts`):
   formulario de `/users`: nao se cria mais um PROSPECTOR, mas os que ja existem
   seguem editaveis.
 - `isProspector(role)` = somente PROSPECTOR (app restrito).
-- `isVisitReportViewer(role)` / `isVisitLinkCurator(role)` = ADMIN (visao de
-  supervisao e curadoria em `/informe`; CADASTRO saiu em 2026-06-28).
+- `isVisitReportViewer(role)` / `isVisitLinkCurator(role)` = **todo não-PROSPECTOR**
+  (`!isProspector`; ACESSO UNIFICADO 2026-07-15 — era só ADMIN): visão de supervisão
+  (`scope=all`) e curadoria do vínculo informe→cliente em `/informe`, agora para
+  todos. Espelham `VISIT_REPORT_VIEWER_ROLES` / `VISIT_REPORT_LINK_CURATOR_ROLES` no
+  backend (`src/visits/visit-report-service.js`).
 
 ## Referencia 2 — Superficies de navegacao
 
@@ -162,11 +187,16 @@ papel da sidenav (desktop) fica em `desktopNavItems` (`AppShell.tsx`), a da tabb
 Os icones (`renderNavIcon`) servem a tabbar mobile E a sidenav desktop (DSB-D15
 devolveu os icones ao desktop; na top bar do DSB-D6 era so texto).
 
-Split Clientes x Cadastros (2026-07-02): para **ADMIN e CADASTRO**, `desktopNavItems`
-filtra o item "Clientes" fora da sidenav (eles acessam clientes pela aba "Clientes"
-do hub `/cadastros`); e no mobile o 4o slot fixo da tabbar (`/clients`) e trocado
-por "Cadastros". Os demais nao-prospectores (COMMERCIAL/CLASSIFIER/REGISTRATION)
-mantem "Clientes" na sidenav e na tabbar e nao veem Cadastros.
+Split Clientes x Cadastros — **ACESSO UNIFICADO (2026-07-15)**: como `canManageClients`
+passou a valer para **todo não-PROSPECTOR** (`CLIENT_MANAGEMENT_ROLES = NON_PROSPECTOR_ROLES`),
+`desktopNavItems` filtra o item "Clientes" fora da sidenav **de todos** (todos acessam
+clientes pela aba "Clientes" do hub `/cadastros`), e no mobile o 4o slot fixo da tabbar
+(`/clients`) é trocado por "Cadastros" **para todos**. O 5o slot da tabbar, antes Perfil
+para os fora de `INFORME_ROLES`, vira **Relatórios** para todos (já que `INFORME_ROLES =
+NON_PROSPECTOR_ROLES`). Resultado: a sidenav/tabbar/menu do avatar de todo não-PROSPECTOR
+converge para a do ADMIN **menos "Usuários"**. _(Antes de 2026-07-15 só ADMIN e CADASTRO
+tinham esse arranjo; COMMERCIAL/CLASSIFIER/REGISTRATION mantinham "Clientes" avulso e não
+viam Cadastros.)_
 
 ## Referencia 3 — Universo de rotas
 
@@ -180,11 +210,11 @@ mantem "Clientes" na sidenav e na tabbar e nao veem Cadastros.
 | `/samples`, `/samples/[id]`                                                                   | Lotes                                               | `NON_PROSPECTOR_ROLES`                                                              |
 | `/camera`                                                                                     | Camera                                              | `NON_PROSPECTOR_ROLES`                                                              |
 | `/clients`                                                                                    | Clientes (lista)                                    | `NON_PROSPECTOR_ROLES`                                                              |
-| `/clients/[id]`                                                                               | Detalhe do cliente                                  | `CLIENT_MANAGEMENT_ROLES` (ADMIN + CADASTRO)                                        |
-| `/informe`                                                                                    | Relatorios                                          | `INFORME_ROLES` (conteudo adaptativo por papel)                                     |
+| `/clients/[id]`                                                                               | Detalhe do cliente                                  | `CLIENT_MANAGEMENT_ROLES` (todos menos PROSPECTOR)                                  |
+| `/informe`                                                                                    | Relatorios                                          | `INFORME_ROLES` (todos menos PROSPECTOR; todos viewer scope=all + criam)            |
 | `/resumo`                                                                                     | —                                                   | redireciona para `/informe`                                                         |
-| `/cadastros`                                                                                  | Cadastros                                           | `CLIENT_MANAGEMENT_ROLES` (ADMIN + CADASTRO)                                        |
-| `/contratos`                                                                                  | Contratos (gestão — sub-abas Contratos·Financeiro)  | `CONTRATOS_ROLES` (ADMIN + COMMERCIAL; operacionais → /dashboard). Nav "Contratos". |
+| `/cadastros`                                                                                  | Cadastros                                           | `CLIENT_MANAGEMENT_ROLES` (todos menos PROSPECTOR)                                  |
+| `/contratos`                                                                                  | Contratos (gestão — sub-abas Contratos·Financeiro)  | `CONTRATOS_ROLES` (todos menos PROSPECTOR). Nav "Contratos".                        |
 | `/embarques`                                                                                  | Embarques (operação — sub-abas Embarque·Aprovações) | `NON_PROSPECTOR_ROLES` (todos menos PROSPECTOR). Nav "Embarques". Abre em Embarque. |
 | `/financeiro`                                                                                 | → redirect para `/contratos?tab=financeiro`         | (redirect server-side)                                                              |
 | `/users`                                                                                      | Usuarios                                            | ADMIN                                                                               |
@@ -235,53 +265,56 @@ de criacao nao oferece o papel; o de edicao o inclui apenas para quem ja o tem.
 Acesso a rota (✅ acessa / ❌ redireciona para `/dashboard`). A localizacao na UI
 esta no detalhe de cada papel.
 
-| Rota               | ADMIN     | CLASSIFIER | REGISTRATION | COMMERCIAL  | CADASTRO | PROSPECTOR    |
-| ------------------ | --------- | ---------- | ------------ | ----------- | -------- | ------------- |
-| `/dashboard`       | ✅        | ✅         | ✅           | ✅          | ✅       | ✅ (dedicado) |
-| `/profile`         | ✅        | ✅         | ✅           | ✅          | ✅       | ✅            |
-| `/samples` (+sub)  | ✅        | ✅         | ✅           | ✅          | ✅       | ❌            |
-| `/camera`          | ✅        | ✅         | ✅           | ✅          | ✅       | ❌            |
-| `/clients` (lista) | ✅        | ✅         | ✅           | ✅          | ✅       | ❌            |
-| `/clients/[id]`    | ✅        | ❌         | ❌           | ❌          | ✅       | ❌            |
-| `/informe`         | ✅ viewer | ❌         | ❌           | ✅ proprios | ❌       | ❌            |
-| `/cadastros`       | ✅        | ❌         | ❌           | ❌          | ✅       | ❌            |
-| `/contratos`       | ✅        | ❌         | ❌           | ✅          | ❌       | ❌            |
-| `/embarques`       | ✅        | ✅         | ✅           | ✅          | ✅       | ❌            |
-| `/users`           | ✅        | ❌         | ❌           | ❌          | ❌       | ❌            |
+| Rota               | ADMIN     | CLASSIFIER | REGISTRATION | COMMERCIAL | CADASTRO  | PROSPECTOR    |
+| ------------------ | --------- | ---------- | ------------ | ---------- | --------- | ------------- |
+| `/dashboard`       | ✅        | ✅         | ✅           | ✅         | ✅        | ✅ (dedicado) |
+| `/profile`         | ✅        | ✅         | ✅           | ✅         | ✅        | ✅            |
+| `/samples` (+sub)  | ✅        | ✅         | ✅           | ✅         | ✅        | ❌            |
+| `/camera`          | ✅        | ✅         | ✅           | ✅         | ✅        | ❌            |
+| `/clients` (lista) | ✅        | ✅         | ✅           | ✅         | ✅        | ❌            |
+| `/clients/[id]`    | ✅        | ✅         | ✅           | ✅         | ✅        | ❌            |
+| `/informe`         | ✅ viewer | ✅ viewer  | ✅ viewer    | ✅ viewer  | ✅ viewer | ❌            |
+| `/cadastros`       | ✅        | ✅         | ✅           | ✅         | ✅        | ❌            |
+| `/contratos`       | ✅        | ✅         | ✅           | ✅         | ✅        | ❌            |
+| `/embarques`       | ✅        | ✅         | ✅           | ✅         | ✅        | ❌            |
+| `/users`           | ✅        | ❌         | ❌           | ❌         | ❌        | ❌            |
 
-`/informe` por papel: ADMIN = viewer (todos os informes + curadoria + cria, FAB);
-COMMERCIAL = proprios (scope=mine + FAB); CLASSIFIER / REGISTRATION / CADASTRO /
-PROSPECTOR = sem acesso. (`app/informe/page.tsx`.) O REGISTRATION saiu em
-2026-07-10: tinha acesso a um placeholder vazio, e os dois gates do backend ja o
-recusavam.
+`/informe` por papel (**ACESSO UNIFICADO, 2026-07-15**): **todo não-PROSPECTOR é
+viewer** — vê TODOS os informes (`scope=all`), **cura** o vínculo informe→cliente e
+**cria** (FAB, `canCreate` sempre). O ramo "meus" do COMMERCIAL (`InformeCommercialPage`,
+`scope=mine`) foi **removido**; o COMMERCIAL passou a ver todos. PROSPECTOR não acessa
+(vê só os próprios no seu app). (`app/informe/page.tsx`.) _(Histórico: CLASSIFIER nunca
+teve, CADASTRO saíra em 2026-06-28, REGISTRATION em 2026-07-10 — todos reintegrados pelo
+acesso unificado.)_
 
-`/contratos` + `/embarques` por papel (SPLIT 2026-07-13): o antigo hub `/contratos`
-virou **2 paginas** no eixo gestao × operacao. **`/contratos`** (sub-abas Contratos ·
-Financeiro) = gestao, guard **`CONTRATOS_ROLES`** (ADMIN + COMMERCIAL; operacionais
-caem no redirect → /dashboard), nav **"Contratos"**. **`/embarques`** (sub-abas
-Embarque · Aprovacoes) = operacao, guard **`NON_PROSPECTOR_ROLES`** (todos menos
-PROSPECTOR), nav **"Embarques"**, abre em Embarque. ADMIN/COMMERCIAL tem os **2 itens
-de nav**; operacionais so **"Embarques"** (`contractsHubTabs` / `contractTabRoute`,
-`lib/roles.ts`). A lista da Aprovacao nao e escopada por corretor (todos veem todos, so
-nao-sensivel); o "Ver contrato" abre o detalhe em `/contratos` a ADMIN + COMMERCIAL
-em qualquer contrato (escopo aberto, D140). Detalhe da casca em `Contratos-Visao-Geral.md` §2.
+`/contratos` + `/embarques` por papel (SPLIT 2026-07-13; **ACESSO UNIFICADO 2026-07-15**):
+duas páginas no eixo gestão × operação, agora **ambas abertas a todo não-PROSPECTOR**.
+**`/contratos`** (sub-abas Contratos · Financeiro) = gestão, guard **`CONTRATOS_ROLES`**
+(= `NON_PROSPECTOR_ROLES` desde 2026-07-15 — era ADMIN + COMMERCIAL), nav **"Contratos"**.
+**`/embarques`** (sub-abas Embarque · Aprovações) = operação, guard
+**`NON_PROSPECTOR_ROLES`**, nav **"Embarques"**, abre em Embarque. Todo não-PROSPECTOR
+tem os **2 itens de nav** e vê as 4 sub-abas (`contractsHubTabs` retorna as 4 para quem
+está em `CONTRATOS_ROLES`, hoje todos; `contractTabRoute`, `lib/roles.ts`). A lista da
+Aprovação não é escopada por corretor (todos veem todos, só não-sensível); o "Ver
+contrato" abre o detalhe em `/contratos` a **qualquer não-PROSPECTOR** em qualquer
+contrato (escopo aberto, D140). Detalhe da casca em `Contratos-Visao-Geral.md` §2.
 
-**Acesso (guard) x visibilidade na nav (2026-07-02):** para a **lista** `/clients` o
-guard segue `NON_PROSPECTOR_ROLES` (todos os 5 ✅ e a rota continua acessivel por
-URL), mas o _item de nav_ "Clientes" nao aparece mais para ADMIN/CADASTRO — eles
-chegam aos clientes pela aba "Clientes" do `/cadastros`. E `/cadastros` deixou de
-ser so um hub de lookups: hospeda as abas Clientes (default) | Corretores
+**Acesso (guard) x visibilidade na nav (2026-07-02; ampliado no ACESSO UNIFICADO
+2026-07-15):** para a **lista** `/clients` o guard segue `NON_PROSPECTOR_ROLES` (todos
+os 5 ✅ e a rota continua acessível por URL), mas o _item de nav_ "Clientes" **não
+aparece mais para nenhum não-PROSPECTOR** — todos chegam aos clientes pela aba
+"Clientes" do `/cadastros` (era só ADMIN/CADASTRO até 2026-07-14). E `/cadastros`
+deixou de ser só um hub de lookups: hospeda as abas Clientes (default) | Corretores
 (a aba Bancos existiu de 2026-07-02 a 2026-07-14; saiu na D141).
 
-**Detalhe do cliente restrito (2026-07-09):** `/clients/[id]` saiu de
-`NON_PROSPECTOR_ROLES` e passou a `CLIENT_MANAGEMENT_ROLES` (ADMIN + CADASTRO,
-`lib/roles.ts`) — e uma tela de GESTAO de cadastro (edicao, filiais, contas
-bancarias, anexos, inativacao em cascata). CLASSIFIER, COMMERCIAL e REGISTRATION
-ficam com a lista `/clients` + o modal de consulta que abre ao tocar no card
-(Documento/Telefone/Lotes em aberto/Papel); o botao **"Gerenciar cliente"** desse
-modal — **unica porta de navegacao pro detalhe em todo o app**
-(`components/clients/ClientsBrowser.tsx`) — some pra eles. Por URL direta o guard
-manda de volta pra `/clients` (`unauthorizedRedirectTo`), nao pro `/dashboard`.
+**Detalhe do cliente — aberto a todo não-PROSPECTOR (ACESSO UNIFICADO 2026-07-15):**
+`/clients/[id]` é uma tela de GESTÃO de cadastro (edição, filiais, contas bancárias,
+anexos, inativação em cascata). O guard é `CLIENT_MANAGEMENT_ROLES` (`lib/roles.ts`),
+que **passou a valer para todo não-PROSPECTOR** (= `NON_PROSPECTOR_ROLES`; era ADMIN +
+CADASTRO de 2026-07-09 a 2026-07-14). O botão **"Gerenciar cliente"** do modal de
+consulta do card — **única porta de navegação pro detalhe em todo o app**
+(`components/clients/ClientsBrowser.tsx`) — aparece agora para todos. Por URL direta o
+guard manda de volta pra `/clients` (`unauthorizedRedirectTo`) apenas no PROSPECTOR.
 O "Voltar" do detalhe aponta pro hub `/cadastros`.
 
 Consequencias: o FAB de **criar** cliente continua pra todos: criar e operacao,
@@ -304,35 +337,46 @@ paginas de clientes por navegacao direta.)_
 
 # Detalhe por papel
 
+> **ACESSO UNIFICADO (2026-07-15):** depois desta data os **cinco papéis
+> não-PROSPECTOR compartilham a MESMA navegação** — a do ADMIN **menos "Usuários"**:
+> sidenav desktop `Início · Lotes · Relatórios · Cadastros · Contratos · Embarques`;
+> tabbar mobile (5) `Início · Lotes · Câmera · Cadastros · Relatórios`; menu do avatar
+> desktop `Perfil · Sair`, mobile `Perfil · Cadastros · Contratos · Embarques · Sair`.
+> Só o ADMIN acrescenta **"Usuários"** (sidenav 7; avatar mobile 6). O item "Clientes"
+> avulso saiu da nav de todos; Câmera só tem botão na tabbar mobile. As seções abaixo
+> mantêm por papel só as **particularidades de conteúdo** e o histórico; as tabelas de
+> nav apenas reafirmam esse conjunto comum. (PROSPECTOR à parte — app restrito.)
+
 ## COMMERCIAL — "Comercial"
 
-Papel comercial padrao (vendedor). Sem app restrito (diferente do PROSPECTOR) e
-sem acesso de gestao de cadastros/usuarios (Cadastros/Usuarios); a gestao de
-**Contratos** ele TEM (`CONTRATOS_ROLES`, escopo aberto — D140).
+Papel comercial padrao (vendedor). Sem app restrito (diferente do PROSPECTOR).
+Com o **ACESSO UNIFICADO (2026-07-15)** ganhou a gestão de cadastros (**Cadastros** /
+`/clients/[id]`); a única rota que não acessa é **Usuários** (`/users`, só ADMIN). A
+gestão de **Contratos** e o **Financeiro** já eram seus (`CONTRATOS_ROLES` /
+`FINANCEIRO_ROLES`, escopo aberto — D140).
 
 ### Onde navega (por superficie)
 
-| Destino    | Rota         | Desktop        | Mobile                    |
-| ---------- | ------------ | -------------- | ------------------------- |
-| Inicio     | `/dashboard` | Sidenav        | Tabbar                    |
-| Lotes      | `/samples`   | Sidenav        | Tabbar                    |
-| Clientes   | `/clients`   | Sidenav        | Tabbar                    |
-| Relatorios | `/informe`   | Sidenav        | Tabbar                    |
-| Contratos  | `/contratos` | Sidenav        | Menu do avatar            |
-| Embarques  | `/embarques` | Sidenav        | Menu do avatar            |
-| Camera     | `/camera`    | — (sem botao)  | Tabbar (destaque, centro) |
-| Perfil     | `/profile`   | Menu do avatar | Menu do avatar            |
-| Sair       | logout       | Menu do avatar | Menu do avatar            |
+| Destino    | Rota         | Desktop        | Mobile                            |
+| ---------- | ------------ | -------------- | --------------------------------- |
+| Inicio     | `/dashboard` | Sidenav        | Tabbar                            |
+| Lotes      | `/samples`   | Sidenav        | Tabbar                            |
+| Relatorios | `/informe`   | Sidenav        | Tabbar                            |
+| Cadastros  | `/cadastros` | Sidenav        | Tabbar (4o slot) + menu do avatar |
+| Contratos  | `/contratos` | Sidenav        | Menu do avatar                    |
+| Embarques  | `/embarques` | Sidenav        | Menu do avatar                    |
+| Camera     | `/camera`    | — (sem botao)  | Tabbar (destaque, centro)         |
+| Perfil     | `/profile`   | Menu do avatar | Menu do avatar                    |
+| Sair       | logout       | Menu do avatar | Menu do avatar                    |
 
-Contagem (pos-split 2026-07-13):
+Contagem (ACESSO UNIFICADO 2026-07-15 = ADMIN menos "Usuarios"):
 
-- **Sidenav desktop: 6 itens** — Inicio, Lotes, Clientes, Relatorios, Contratos,
-  Embarques.
-- **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, Clientes, Relatorios.
+- **Sidenav desktop: 6 itens** — Inicio, Lotes, Relatorios, Cadastros, Contratos,
+  Embarques. (Trocou "Clientes" avulso por "Cadastros" em 2026-07-15.)
+- **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, Cadastros, Relatorios.
   (Contratos/Embarques nao entram na tabbar; ficam no menu do avatar.)
-- **Menu do avatar:** desktop **2 itens** (Perfil, Sair) — as 2 paginas de contrato
-  estao na sidenav; mobile **4 itens** (Perfil, Contratos, Embarques, Sair) — sem
-  sidenav, as 2 paginas caem no avatar.
+- **Menu do avatar:** desktop **2 itens** (Perfil, Sair); mobile **5 itens** (Perfil,
+  Cadastros, Contratos, Embarques, Sair) — sem sidenav, a gestao cai no avatar.
 
 ### Rotas acessiveis sem botao de navegacao
 
@@ -345,19 +389,16 @@ proprio:
 
 ### Rotas bloqueadas (redirecionam para `/dashboard`)
 
-- `/cadastros` (exige ADMIN/CADASTRO). **(`/contratos` e `/embarques` NAO sao
-  bloqueados: o COMMERCIAL esta em `CONTRATOS_ROLES` e acessa as 2 paginas —
-  `/contratos` com Contratos · Financeiro e `/embarques` com Embarque · Aprovacoes.)**
-- `/clients/[id]` (detalhe do cliente — `CLIENT_MANAGEMENT_ROLES`, so ADMIN/CADASTRO;
-  a lista `/clients` continua liberada).
-- `/users` (exige ADMIN).
+- `/users` (exige ADMIN) — **única rota bloqueada** desde o ACESSO UNIFICADO
+  (2026-07-15). `/cadastros`, `/clients/[id]`, `/contratos`, `/embarques` e `/informe`
+  passaram todos a liberados.
 
 ### Particularidades de conteudo
 
-- **`/informe` (Relatorios)**: para o Comercial renderiza `InformeCommercialPage`
-  — feed dos PROPRIOS informes (`scope=mine`) + FAB de criacao. (Nao e a visao de
-  supervisao do viewer, hoje so o ADMIN.) O antigo `/resumo` redireciona para ca;
-  o Comercial saiu dos viewers em 2026-06-18.
+- **`/informe` (Relatorios)**: desde o ACESSO UNIFICADO (2026-07-15) o Comercial é
+  **viewer** como todos — vê TODOS os informes (`scope=all`), cura o vínculo e cria
+  (FAB). O antigo ramo "meus" (`InformeCommercialPage`, `scope=mine`) foi **removido**.
+  O antigo `/resumo` redireciona para cá.
 - **`/dashboard`**: usa o dashboard padrao (com dados de disponibilidade de
   venda), nao um dashboard dedicado como o do PROSPECTOR.
 
@@ -374,35 +415,31 @@ esta — mapeamento detalhado adiado.
 
 ## CLASSIFIER — "Classificacao"
 
-Papel operacional de classificacao. E o unico papel nao-prospector fora de
-`INFORME_ROLES`: nao ve "Relatorios" em superficie nenhuma. Sem app restrito
-(acessa amostras/clientes/camera como os demais nao-prospectores) e sem acesso
-de gestao.
+Papel operacional de classificacao. Sem app restrito (acessa amostras/clientes/camera
+como os demais nao-prospectores). Com o **ACESSO UNIFICADO (2026-07-15)** deixou de ser
+o papel "sem Relatorios/sem gestao": passou a ver **Relatorios** (viewer), **Cadastros**,
+**Contratos** e **Financeiro** — a nav ficou igual a do ADMIN **menos "Usuarios"**.
 
 ### Onde navega (por superficie)
 
-| Destino   | Rota         | Desktop        | Mobile                            |
-| --------- | ------------ | -------------- | --------------------------------- |
-| Inicio    | `/dashboard` | Sidenav        | Tabbar                            |
-| Lotes     | `/samples`   | Sidenav        | Tabbar                            |
-| Clientes  | `/clients`   | Sidenav        | Tabbar                            |
-| Embarques | `/embarques` | Sidenav        | Menu do avatar                    |
-| Camera    | `/camera`    | — (sem botao)  | Tabbar (destaque, centro)         |
-| Perfil    | `/profile`   | Menu do avatar | Tabbar (5o slot) + menu do avatar |
-| Sair      | logout       | Menu do avatar | Menu do avatar                    |
+Nav = a do ADMIN **menos "Usuarios"** (ACESSO UNIFICADO 2026-07-15 — ver a seção ADMIN):
 
-Contagem:
+| Destino    | Rota         | Desktop        | Mobile                            |
+| ---------- | ------------ | -------------- | --------------------------------- |
+| Inicio     | `/dashboard` | Sidenav        | Tabbar                            |
+| Lotes      | `/samples`   | Sidenav        | Tabbar                            |
+| Relatorios | `/informe`   | Sidenav        | Tabbar                            |
+| Cadastros  | `/cadastros` | Sidenav        | Tabbar (4o slot) + menu do avatar |
+| Contratos  | `/contratos` | Sidenav        | Menu do avatar                    |
+| Embarques  | `/embarques` | Sidenav        | Menu do avatar                    |
+| Camera     | `/camera`    | — (sem botao)  | Tabbar (destaque, centro)         |
+| Perfil     | `/profile`   | Menu do avatar | Menu do avatar                    |
+| Sair       | logout       | Menu do avatar | Menu do avatar                    |
 
-- **Sidenav desktop: 4 itens** — Inicio, Lotes, Clientes, **Embarques**. (Sem
-  Relatorios, como o CADASTRO e o REGISTRATION; "Embarques" e a pagina `/embarques`
-  — sub-abas Embarque · Aprovacoes, split 2026-07-13.)
-- **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, Clientes, Perfil. O 5o
-  slot, que nos papeis de `INFORME_ROLES` e Relatorios, aqui e Perfil — para o
-  Classifier ter 5 abas como os demais (2026-06-28). (Embarques nao entra na
-  tabbar; fica no menu do avatar.)
-- **Menu do avatar:** desktop **2 itens** (Perfil, Sair); mobile **3 itens**
-  (Perfil, **Embarques**, Sair) — sem sidenav, o hub cai no avatar. No mobile,
-  Perfil tambem aparece na tabbar.
+Contagem: **sidenav 6** (Inicio, Lotes, Relatorios, Cadastros, Contratos, Embarques),
+**tabbar 5** (Inicio, Lotes, Camera, Cadastros, Relatorios), **menu do avatar** desktop
+2 (Perfil, Sair) / mobile 5 (Perfil, Cadastros, Contratos, Embarques, Sair). Antes de
+2026-07-15 eram 4 na sidenav (Inicio/Lotes/Clientes/Embarques), sem Relatorios/Cadastros.
 
 ### Rotas acessiveis sem botao de navegacao
 
@@ -413,12 +450,9 @@ Contagem:
 
 ### Rotas bloqueadas (redirecionam para `/dashboard`)
 
-- `/informe` (Relatorios) — CLASSIFIER esta fora de `INFORME_ROLES`.
-- `/cadastros` e `/clients/[id]` (exigem ADMIN/CADASTRO — `CLIENT_MANAGEMENT_ROLES`).
-- `/users` (exige ADMIN).
-- `/contratos` (gestao) — bloqueado desde o **split de 2026-07-13** (`CONTRATOS_ROLES`);
-  a operacao do CLASSIFIER vive em **`/embarques`** (Embarque · Aprovacoes) — sidenav
-  desktop + menu do avatar mobile.
+- `/users` (exige ADMIN) — **única rota bloqueada** desde o ACESSO UNIFICADO
+  (2026-07-15). `/informe`, `/cadastros`, `/clients/[id]` e `/contratos` (antes
+  bloqueadas ao CLASSIFIER) passaram a liberadas; `/embarques` já era.
 
 ### Particularidades de conteudo
 
@@ -435,50 +469,44 @@ Contagem:
 
 ### Diferenca para o COMMERCIAL
 
-Duas diferencas: **Relatorios** e a **pagina de gestao `/contratos`**. O Comercial
-esta em `INFORME_ROLES` e ve Relatorios na sidenav e na tabbar (+ feed proprio); o
-Classifier nao ve em lugar nenhum e e redirecionado se tentar a URL. Ambos acessam
-**`/embarques`** (Embarque · Aprovacoes), mas so o Comercial (em `CONTRATOS_ROLES`)
-tem tambem **`/contratos`** (Contratos · Financeiro). Para o Classifier ter 5 abas no
-mobile, o 5o slot da sua tabbar e Perfil (no Comercial e Relatorios). Resultado:
-**sidenav 4 vs 6 itens** (o Comercial tem Relatorios e Contratos a mais); tabbar 5
-vs 5 (5o item: Perfil no Classifier, Relatorios no Comercial); menu do avatar no
-mobile 3 vs 4 (Classifier: Perfil, Embarques, Sair; Comercial: + Contratos),
-desktop 2 nos dois.
+Desde o **ACESSO UNIFICADO (2026-07-15)** a **navegacao e identica** (ambos = ADMIN
+menos "Usuarios"; sidenav 6, tabbar 5, avatar mobile 5). A diferenca e so de
+**conteudo/atribuicao**, fora da navegacao: o Comercial pode ser **responsavel
+comercial de cliente** (`isCommercialRole`); o Classifier pode ser registrado como
+**responsavel de uma classificacao** (`CLASSIFIERS_*`). Ambos sao viewers em
+Relatorios e gerenciam Contratos/Financeiro/Cadastros por igual.
 
 ## REGISTRATION — "Impressao"
 
 Papel ligado a impressao/registro. **Na pratica existe para o agente de
 impressao** (envio dos dados de etiqueta) — nao e um papel de uso humano no app,
-o que explica a ausencia de UI propria. A navegacao e **identica a do
-Classifier**: `NON_PROSPECTOR_ROLES` sem `INFORME_ROLES`.
+o que explica a ausencia de UI propria. A navegacao segue **identica a do
+Classifier** e, com o **ACESSO UNIFICADO (2026-07-15)**, igual a do ADMIN **menos
+"Usuarios"**.
 
-**Saiu de `INFORME_ROLES` em 2026-07-10.** Ate entao tinha acesso a Relatorios e
-caia num placeholder vazio: nao e viewer (so ADMIN) nem autor (so COMMERCIAL), e
-os dois gates do backend ja o recusavam. O acesso nao lhe dava nada alem da
-propria moldura, e ocupava um slot da tabbar.
+_(Histórico: **saiu de `INFORME_ROLES` em 2026-07-10** — até então caía num placeholder
+vazio em `/informe`; foi **reintegrado como viewer pleno pelo acesso unificado de
+2026-07-15**, junto com Cadastros/Contratos/Financeiro.)_
 
 ### Onde navega (por superficie)
 
-| Destino   | Rota         | Desktop                       | Mobile                    |
-| --------- | ------------ | ----------------------------- | ------------------------- |
-| Inicio    | `/dashboard` | Sidenav                       | Tabbar                    |
-| Lotes     | `/samples`   | Sidenav                       | Tabbar                    |
-| Clientes  | `/clients`   | Sidenav                       | Tabbar                    |
-| Embarques | `/embarques` | Sidenav                       | Menu do avatar            |
-| Camera    | `/camera`    | — (sem botao)                 | Tabbar (destaque, centro) |
-| Perfil    | `/profile`   | Menu do avatar ("Meu perfil") | Tabbar + menu do avatar   |
-| Sair      | logout       | Menu do avatar                | Menu do avatar            |
+Nav = a do ADMIN **menos "Usuarios"** (ACESSO UNIFICADO 2026-07-15; mesma do Classifier):
 
-Contagem:
+| Destino    | Rota         | Desktop                       | Mobile                            |
+| ---------- | ------------ | ----------------------------- | --------------------------------- |
+| Inicio     | `/dashboard` | Sidenav                       | Tabbar                            |
+| Lotes      | `/samples`   | Sidenav                       | Tabbar                            |
+| Relatorios | `/informe`   | Sidenav                       | Tabbar                            |
+| Cadastros  | `/cadastros` | Sidenav                       | Tabbar (4o slot) + menu do avatar |
+| Contratos  | `/contratos` | Sidenav                       | Menu do avatar                    |
+| Embarques  | `/embarques` | Sidenav                       | Menu do avatar                    |
+| Camera     | `/camera`    | — (sem botao)                 | Tabbar (destaque, centro)         |
+| Perfil     | `/profile`   | Menu do avatar ("Meu perfil") | Menu do avatar                    |
+| Sair       | logout       | Menu do avatar                | Menu do avatar                    |
 
-- **Sidenav desktop: 4 itens** — Inicio, Lotes, Clientes, **Embarques** (a pagina
-  `/embarques`, sub-abas Embarque · Aprovacoes — mesmo arranjo do Classifier).
-- **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, Clientes, Perfil. O 5o
-  slot, que nos papeis de `INFORME_ROLES` e Relatorios, aqui e Perfil — mesmo
-  arranjo do Classifier.
-- **Menu do avatar:** desktop **2 itens** (Perfil, Sair); mobile **3 itens**
-  (Perfil, **Embarques**, Sair) — igual ao Classifier.
+Contagem: **sidenav 6**, **tabbar 5** (Inicio, Lotes, Camera, Cadastros, Relatorios),
+**menu do avatar** desktop 2 / mobile 5 — igual ao Classifier. Antes de 2026-07-15 eram
+4 na sidenav (Inicio/Lotes/Clientes/Embarques), com Perfil no 5o slot da tabbar.
 
 ### Rotas acessiveis sem botao de navegacao
 
@@ -487,10 +515,9 @@ Contagem:
 
 ### Rotas bloqueadas (redirecionam para `/dashboard`)
 
-- `/informe` (Relatorios) — fora de `INFORME_ROLES` desde 2026-07-10.
-- `/cadastros` e `/clients/[id]` (ADMIN/CADASTRO); `/users` (ADMIN).
-- `/contratos` (gestao) — bloqueado desde o split de 2026-07-13; a operacao vive em
-  **`/embarques`** — igual ao Classifier.
+- `/users` (exige ADMIN) — **única rota bloqueada** desde o ACESSO UNIFICADO
+  (2026-07-15). `/informe`, `/cadastros`, `/clients/[id]` e `/contratos` passaram a
+  liberadas (igual ao Classifier); `/embarques` já era.
 
 ### Particularidades de conteudo
 
@@ -504,56 +531,46 @@ Contagem:
 
 ### Diferenca para o COMMERCIAL
 
-O Comercial esta em `INFORME_ROLES` e ve Relatorios na sidenav e na tabbar (feed
-dos PROPRIOS informes, `scope=mine`, + FAB de criacao); o REGISTRATION nao ve em
-lugar nenhum desde 2026-07-10 e e redirecionado se tentar a URL. Ambos acessam
-**`/embarques`**, mas so o Comercial tem tambem **`/contratos`** (gestao). Sidenav
-**6 vs 4** itens (o Comercial tem Relatorios e Contratos a mais); tabbar 5 vs 5 (5o
-item: Relatorios no Comercial, Perfil no REGISTRATION); menu do avatar no mobile 4
-vs 3 (o Comercial tem Contratos a mais). (Fora da navegacao: o Comercial
-pode ser responsavel comercial de cliente via `isCommercialRole`; o REGISTRATION nao.)
+Desde o **ACESSO UNIFICADO (2026-07-15)** a **navegacao e identica** (ambos = ADMIN
+menos "Usuarios"). A unica diferenca vive **fora da navegacao**: o Comercial pode ser
+**responsavel comercial de cliente** (`isCommercialRole`); o REGISTRATION nao. Ambos sao
+viewers em Relatorios e gerenciam Contratos/Financeiro/Cadastros por igual.
 
 ## CADASTRO — "Cadastro"
 
 Papel de cadastro / back-office. Acessa amostras e camera (como os demais
 nao-prospectores) e tem o hub **Cadastros** — que concentra 2 abas:
 **Clientes** (default, gestao de clientes/armazens) e **Corretores** (a aba
-Bancos saiu na D141). Por isso o item "Clientes" avulso saiu da nav do CADASTRO: ele
-acessa os clientes pela aba Clientes do `/cadastros` (a rota `/clients` continua
-liberada por URL). **Nao** acessa Relatorios (removido em 2026-06-28; hoje
-ADMIN/COMMERCIAL) nem a gestao `/contratos` (hoje ADMIN + COMMERCIAL) nem `/users`
-(exclusivo do ADMIN); a operacao de contrato dele vive em `/embarques`.
+Bancos saiu na D141). O item "Clientes" avulso saiu da nav (ele acessa os clientes
+pela aba Clientes do `/cadastros`; a rota `/clients` continua liberada por URL). Com
+o **ACESSO UNIFICADO (2026-07-15)** ganhou **Relatorios** (viewer), a **gestao
+`/contratos`** e o **Financeiro** — a nav ficou igual a do ADMIN **menos "Usuarios"**
+(`/users`, exclusivo do ADMIN, e a unica rota bloqueada).
 
 ### Onde navega (por superficie)
 
-| Destino   | Rota         | Desktop                       | Mobile                            |
-| --------- | ------------ | ----------------------------- | --------------------------------- |
-| Inicio    | `/dashboard` | Sidenav                       | Tabbar                            |
-| Lotes     | `/samples`   | Sidenav                       | Tabbar                            |
-| Camera    | `/camera`    | — (sem botao)                 | Tabbar (destaque, centro)         |
-| Cadastros | `/cadastros` | Sidenav                       | Tabbar (4o slot) + menu do avatar |
-| Embarques | `/embarques` | Sidenav                       | Menu do avatar                    |
-| Perfil    | `/profile`   | Menu do avatar ("Meu perfil") | Tabbar (5o slot) + menu do avatar |
-| Sair      | logout       | Menu do avatar                | Menu do avatar                    |
+Nav = a do ADMIN **menos "Usuarios"** (ACESSO UNIFICADO 2026-07-15):
+
+| Destino    | Rota         | Desktop                       | Mobile                            |
+| ---------- | ------------ | ----------------------------- | --------------------------------- |
+| Inicio     | `/dashboard` | Sidenav                       | Tabbar                            |
+| Lotes      | `/samples`   | Sidenav                       | Tabbar                            |
+| Relatorios | `/informe`   | Sidenav                       | Tabbar                            |
+| Cadastros  | `/cadastros` | Sidenav                       | Tabbar (4o slot) + menu do avatar |
+| Contratos  | `/contratos` | Sidenav                       | Menu do avatar                    |
+| Embarques  | `/embarques` | Sidenav                       | Menu do avatar                    |
+| Camera     | `/camera`    | — (sem botao)                 | Tabbar (destaque, centro)         |
+| Perfil     | `/profile`   | Menu do avatar ("Meu perfil") | Menu do avatar                    |
+| Sair       | logout       | Menu do avatar                | Menu do avatar                    |
 
 Clientes (`/clients`) nao e mais item de nav proprio — e a **aba default do
 `/cadastros`** (e segue acessivel por URL). Ver "Particularidades de conteudo".
 
-Contagem:
-
-- **Sidenav desktop: 4 itens** — Inicio, Lotes, Cadastros, **Embarques**. (Perdeu
-  Clientes em 2026-07-02 e a GESTAO de Contratos em 2026-06-28; a operacao voltou
-  pela CC F2 e, desde o split de 2026-07-13, e a pagina propria `/embarques` —
-  sub-abas Embarque · Aprovacoes.)
-- **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, **Cadastros**, Perfil. O 4o
-  slot fixo (que era Clientes) vira Cadastros para o CADASTRO (2026-07-02); o 5o
-  slot e Perfil (fora de `INFORME_ROLES`, mesma logica do Classifier). (Embarques
-  nao entra na tabbar; fica no menu do avatar.)
-- **Menu do avatar:** assimetrico por plataforma. No **desktop** sao 2 itens (Meu
-  perfil, Sair) — Cadastros e Embarques estao na sidenav. No **mobile** sao 4 itens
-  (Perfil, Cadastros, **Embarques**, Sair) — `HeaderAvatarMenu` carrega `/embarques`
-  p/ todo nao-PROSPECTOR; Cadastros aparece TANTO no 4o slot da tabbar
-  QUANTO no menu do avatar (redundancia de 2026-07-02).
+Contagem: **sidenav 6** (Inicio, Lotes, Relatorios, Cadastros, Contratos, Embarques),
+**tabbar 5** (Inicio, Lotes, Camera, Cadastros, Relatorios — o 4o slot fixo, que era
+Clientes, vira Cadastros; o 5o slot passou de Perfil a **Relatorios** com o acesso
+unificado), **menu do avatar** desktop 2 (Perfil, Sair) / mobile 5 (Perfil, Cadastros,
+Contratos, Embarques, Sair). Antes de 2026-07-15 eram 4 na sidenav (sem Relatorios/Contratos).
 
 ### Rotas acessiveis sem botao de navegacao
 
@@ -561,20 +578,15 @@ Contagem:
   `/cadastros`** (ou por URL direta; guard `NON_PROSPECTOR_ROLES` inalterado).
 - `/samples/[id]` — a partir de Lotes (criação de lote = modal do leque "+").
 - `/clients/[id]` — detalhe do cliente, pelo "Gerenciar cliente" do modal do card
-  (aba Clientes do `/cadastros`). Restrito a ADMIN + CADASTRO.
+  (aba Clientes do `/cadastros`). Aberto a todo nao-PROSPECTOR desde 2026-07-15.
 - `/camera` **no desktop** — rota liberada, botao so na tabbar mobile (igual aos
   demais nao-prospectores).
 
 ### Rotas bloqueadas (redirecionam para `/dashboard`)
 
-- `/informe` (Relatorios) — removido do CADASTRO em 2026-06-28 (so ADMIN/COMMERCIAL);
-  CADASTRO saiu de `INFORME_ROLES`.
-- `/users` — exclusivo do ADMIN.
-
-`/contratos` (gestao) segue **bloqueado** ao CADASTRO (desde 2026-06-28; pos-split o
-guard e `CONTRATOS_ROLES`). A operacao que a CC F2 (2026-07-12) reabriu vive hoje na
-pagina propria **`/embarques`** (Embarque · Aprovacoes, split 2026-07-13) — sidenav
-desktop + menu do avatar mobile.
+- `/users` (exige ADMIN) — **única rota bloqueada** desde o ACESSO UNIFICADO
+  (2026-07-15). `/informe` (viewer) e `/contratos` (gestao + Financeiro), antes
+  bloqueadas ao CADASTRO, passaram a liberadas; `/embarques` já era.
 
 ### Particularidades de conteudo
 
@@ -582,16 +594,17 @@ desktop + menu do avatar mobile.
   (default; reusa o `<ClientsBrowser>`, a mesma experiencia da pagina /clients: busca,
   filtro, scroll infinito, detalhe, criar) e **Corretores** (gestao do
   Fechamento Fase 0). O FAB "+" e contextual a aba (cria cliente/corretor).
-  E a unica pagina de "gestao" que sobra para o CADASTRO, e agora tambem o ponto
-  de acesso a clientes. (`app/cadastros/page.tsx`.)
+  E o ponto de acesso a clientes; desde o ACESSO UNIFICADO (2026-07-15) convive com
+  as outras paginas de gestao que o CADASTRO passou a ter (`/contratos`, `/informe`).
+  (`app/cadastros/page.tsx`.)
 - **`/dashboard`**: dashboard padrao (com `salesData`), igual aos demais
   nao-prospectores.
-- **Removido em 2026-06-28**: o CADASTRO era viewer + curador de Relatorios
-  (`/informe`) e gestor de Contratos (`/contratos`); o acesso foi retirado em
-  todas as camadas (nav, guards e autorizacao de API). _(A GESTAO de Contratos
-  segue fora; a **CC F2 de 2026-07-12** reabriu a operacao ao CADASTRO — que desde o
-  split de 2026-07-13 e a pagina propria `/embarques` (Embarque + Aprovacoes), sem
-  as abas de gestao.)_
+- **Removido em 2026-06-28, reintegrado em 2026-07-15**: o CADASTRO era viewer +
+  curador de Relatorios (`/informe`) e gestor de Contratos (`/contratos`); o acesso
+  foi retirado em 2026-06-28 em todas as camadas (nav, guards e autorizacao de API).
+  _(A **CC F2 de 2026-07-12** reabriu a operacao — `/embarques` desde o split de
+  2026-07-13 — e o **ACESSO UNIFICADO de 2026-07-15** devolveu tambem a GESTAO:
+  Relatorios como viewer + `/contratos` + Financeiro.)_
   As 2 notificacoes push de
   visita ("Nova visita promissora" / "Novo cliente encontrado") que apontam para
   `/informe` tambem sairam do CADASTRO. O lembrete semanal do COMMERCIAL e o deep
@@ -602,22 +615,21 @@ desktop + menu do avatar mobile.
 
 ### Diferenca para o COMMERCIAL
 
-Ate 2026-07-01 eram quase espelhos (trocando Relatorios por Cadastros). Com o
-split de 2026-07-02 divergiram mais: o Comercial ve "Clientes" avulso na nav e nao
-ve Cadastros; o CADASTRO nao tem "Clientes" avulso (acessa pela aba Clientes do
-Cadastros) e tem o hub Cadastros no lugar de Relatorios. Ambos acessam `/embarques`,
-mas so o Comercial (em `CONTRATOS_ROLES`) tem tambem a gestao `/contratos`.
-**Sidenav 4 (CADASTRO: Inicio/Lotes/Cadastros/Embarques) vs 6 (Comercial:
-Inicio/Lotes/Clientes/Relatorios/Contratos/Embarques)**; tabbar 5 vs 5 mas com 4o e
-5o slots diferentes (CADASTRO: Cadastros/Perfil; Comercial: Clientes/Relatorios);
-menu do avatar no mobile 4 vs 4 (CADASTRO: Perfil/Cadastros/Embarques/Sair;
-Comercial: Perfil/Contratos/Embarques/Sair).
+Desde o **ACESSO UNIFICADO (2026-07-15)** a **navegacao e identica** (ambos = ADMIN
+menos "Usuarios"; sidenav 6 Inicio/Lotes/Relatorios/Cadastros/Contratos/Embarques,
+tabbar 5, avatar mobile 5). Convergiram: o CADASTRO ganhou Relatorios/Contratos/
+Financeiro e o Comercial ganhou Cadastros e perdeu o "Clientes" avulso. A unica
+diferenca vive **fora da navegacao**: so o Comercial pode ser **responsavel comercial
+de cliente** (`isCommercialRole`). _(Historico: ate 2026-07-01 eram quase espelhos;
+o split de 2026-07-02 os afastou — CADASTRO com Cadastros, Comercial com Clientes
+avulso + Relatorios — ate o acesso unificado reuni-los.)_
 
 ## ADMIN — "Administracao"
 
-Acesso total — superconjunto de todos os papeis. Unico que ve **Usuarios**
-(`/users`) e o unico viewer + curador + **criador** em Relatorios. Nenhuma rota
-bloqueada.
+Acesso total — superconjunto de todos os papeis. **Unico que ve Usuarios** (`/users`)
+— a unica pagina que o distingue dos demais nao-PROSPECTOR desde o **ACESSO UNIFICADO
+(2026-07-15)**. Em Relatorios e viewer + curador + criador, capacidades que agora valem
+para todo nao-PROSPECTOR. Nenhuma rota bloqueada.
 
 ### Onde navega (por superficie)
 
@@ -657,7 +669,7 @@ Contagem:
   `/cadastros`** (ou por URL direta; guard `NON_PROSPECTOR_ROLES` inalterado).
 - `/samples/[id]`; `/camera` no desktop (criação de lote = modal do leque "+").
 - `/clients/[id]` — detalhe do cliente, pelo "Gerenciar cliente" do modal do card
-  (aba Clientes do `/cadastros`). Restrito a ADMIN + CADASTRO.
+  (aba Clientes do `/cadastros`). Aberto a todo nao-PROSPECTOR desde 2026-07-15.
 
 ### Rotas bloqueadas
 
@@ -665,28 +677,28 @@ Contagem:
 
 ### Particularidades de conteudo
 
-- **`/informe` (Relatorios)**: ADMIN e o **viewer** completo (RelatoriosViewer,
-  `scope=all`), **cura** vinculos (`isVisitLinkCurator`) e e o unico que **cria**
-  (FAB, `canCreate={isAdmin}`).
+- **`/informe` (Relatorios)**: ADMIN e **viewer** completo (RelatoriosViewer,
+  `scope=all`), **cura** vinculos (`isVisitLinkCurator`) e **cria** (FAB) —
+  capacidades que, desde o **ACESSO UNIFICADO (2026-07-15)**, valem para todo
+  nao-PROSPECTOR (`canCreate` deixou de ser `isAdmin`; o ramo "meus" do COMMERCIAL saiu).
 - **`/users`**: gestao de usuarios — **exclusiva do ADMIN** (nenhum outro papel
   acessa).
 - **`/cadastros`**: hub com 2 abas (D141) — Clientes (default; gestao de
   clientes/armazens, mesma experiencia da pagina /clients via `<ClientsBrowser>`)
-  e Corretores. **`/contratos`**: gestao dos contratos de venda (Fechamento).
-  **`/embarques`**: a operacao (Embarque · Aprovacoes), compartilhada com os
-  operacionais.
+  e Corretores. **`/contratos`** (gestao dos contratos de venda + Financeiro) e
+  **`/embarques`** (operacao, Embarque · Aprovacoes): desde 2026-07-15 **ambas
+  compartilhadas com todo nao-PROSPECTOR**.
 - **Modo manutencao**: o middleware redireciona **nao-ADMIN** para
   `/maintenance` — so o ADMIN usa o app durante a manutencao. (`middleware.ts`.)
 - **`/dashboard`**: dashboard padrao (com `salesData`).
 
 ### Diferenca para o CADASTRO
 
-ADMIN = CADASTRO **+ Relatorios + Contratos (gestao) + Usuarios**: os dois acessam
-`/embarques` (operacao), mas so o ADMIN tem tambem `/contratos` (Contratos ·
-Financeiro). No Relatorios, alem de ver/curar, o ADMIN tambem **cria**. Ambos
-perderam "Clientes" avulso e acessam clientes pela aba Clientes do Cadastros.
-**Sidenav 7 vs 4**; tabbar 5 vs 5 — 4o slot igual (Cadastros nos dois), 5o slot
-diferente (ADMIN Relatorios, CADASTRO Perfil); menu do avatar no mobile 6 vs 4.
+Desde o **ACESSO UNIFICADO (2026-07-15)** ADMIN = CADASTRO **+ apenas Usuarios**: a nav
+e identica exceto pelo item **Usuarios** (so ADMIN). Ambos sao viewers + curadores +
+criadores em Relatorios e gerenciam Cadastros/Contratos/Financeiro/Embarques por igual;
+ambos acessam clientes pela aba Clientes do Cadastros. **Sidenav 7 vs 6** (so Usuarios a
+mais); tabbar 5 vs 5 iguais; menu do avatar no mobile 6 vs 5 (so Usuarios a mais).
 
 ---
 
@@ -698,51 +710,50 @@ Observacoes neutras do mapeamento, sem juizo de "certo/errado":
    `NON_PROSPECTOR_ROLES`, mas a unica entrada de navegacao esta na tabbar; a
    sidenav desktop nao lista Camera. No desktop, esses papeis nao alcancam a
    camera pela navegacao.
-2. **"Relatorios" rotula o mesmo item para os dois papeis que o veem, com
-   conteudo diferente.** O botao `/informe` aparece igual, mas a pagina e
-   adaptativa por papel: viewer (ADMIN) ou proprios (COMMERCIAL).
+2. **"Relatorios" e igual para todo nao-PROSPECTOR (ACESSO UNIFICADO 2026-07-15).**
+   O botao `/informe` aparece para os cinco papeis e todos entram como **viewer**
+   (`scope=all`) + criam. Acabou a antiga divisao viewer (ADMIN) vs proprios
+   (COMMERCIAL) — o ramo "meus" (`InformeCommercialPage`) foi removido.
 3. **Redirects silenciosos.** `/settings` -> `/profile` e `/resumo` -> `/informe`.
 4. **O menu do avatar muda de conteudo por plataforma.** No DESKTOP (dropdown do
    topbar, no `AppShell`) traz sempre so "Meu perfil" + "Sair" — a gestao
    (Cadastros/Contratos/Embarques/Usuarios) fica na sidenav. No MOBILE (bottom sheet
-   `HeaderAvatarMenu`) nao ha sidenav, entao o menu do avatar TAMBEM carrega o que
-   la ficaria: "Contratos" (`/contratos`, ADMIN/COMMERCIAL), "Embarques"
-   (`/embarques`, todos os nao-PROSPECTOR — split 2026-07-13), Cadastros
-   (ADMIN/CADASTRO) e Usuarios (ADMIN). Por isso, no mobile, ate os papeis sem
-   gestao (Classifier, Registration) tem 3 itens no avatar — Perfil + Embarques +
-   Sair — contra 2 no desktop (Perfil + Sair); o Comercial tem 4 (+ Contratos).
-   Desde 2026-07-02, no mobile Cadastros tambem esta no 4o slot da tabbar
-   (ADMIN/CADASTRO), entao aparece em DOIS lugares (tabbar + menu do avatar).
-5. **Dois nao-prospectores ficam sem Relatorios: CLASSIFIER e CADASTRO.** Dos
-   cinco papeis de `NON_PROSPECTOR_ROLES`, CLASSIFIER (nunca teve) e CADASTRO
-   (removido em 2026-06-28) estao fora de `INFORME_ROLES`. No mobile, ambos
-   recebem Perfil como 5o item da tabbar, no lugar de Relatorios.
+   `HeaderAvatarMenu`) nao ha sidenav, entao o menu do avatar TAMBEM carrega o que la
+   ficaria. Desde o **ACESSO UNIFICADO (2026-07-15)** esse conjunto e o mesmo para todo
+   nao-PROSPECTOR: "Cadastros" (`/cadastros`) + "Contratos" (`/contratos`) + "Embarques"
+   (`/embarques`); so o ADMIN acrescenta "Usuarios". Assim, no mobile, todo nao-ADMIN tem
+   **5 itens** no avatar (Perfil + Cadastros + Contratos + Embarques + Sair) e o ADMIN
+   **6** (+ Usuarios), contra 2 no desktop (Perfil + Sair). Cadastros aparece em DOIS
+   lugares no mobile (4o slot da tabbar + menu do avatar).
+5. **Todo nao-PROSPECTOR ve Relatorios (ACESSO UNIFICADO 2026-07-15).** Antes,
+   CLASSIFIER (nunca teve) e CADASTRO (removido em 2026-06-28) ficavam fora de
+   `INFORME_ROLES` e recebiam Perfil como 5o item da tabbar; agora `INFORME_ROLES =
+NON_PROSPECTOR_ROLES`, os cinco papeis tem Relatorios e o 5o slot da tabbar e
+   Relatorios para todos.
 6. **CLASSIFIER e REGISTRATION tem a MESMA navegacao.** Ambos estao em
-   `NON_PROSPECTOR_ROLES` e fora de `INFORME_ROLES` (sidenav 4 — com "Embarques" —,
-   tabbar 5 com Perfil no 5o slot, avatar mobile 3). Ate 2026-07-10 o REGISTRATION
-   acompanhava o COMMERCIAL, mas so pela moldura: caia num placeholder vazio em
-   `/informe`.
-7. **Split Clientes (operacao) x Cadastros (gestao) — 2026-07-02.** A capacidade de
-   gerir clientes e a mesma para todos, mas o ponto de entrada muda por papel:
-   COMMERCIAL/CLASSIFIER/REGISTRATION usam "Clientes" (`/clients`) direto na nav;
-   ADMIN/CADASTRO acessam pela aba "Clientes" (default) do hub `/cadastros` (que
-   ganhou 3 abas: Clientes | Bancos | Corretores; a aba Bancos saiu depois, na
-   D141 — hoje sao 2). Implementacao: a lista de
-   clientes virou o componente compartilhado `components/clients/ClientsBrowser.tsx`
-   (mesma UI nas duas telas; snapshots isolados por `storageKey`). Guards de rota
-   inalterados — `/clients` (`NON_PROSPECTOR_ROLES`) segue acessivel por URL a
-   todos os nao-prospectores; `/cadastros` segue ADMIN+CADASTRO. Sem backend nem
-   migration. So mudou a UI de navegacao (`AppShell.tsx`) e a composicao das duas
-   paginas.
-8. **`/embarques` e a unica pagina de "operacao de contrato" aberta aos papeis
-   operacionais (CC F2 2026-07-12; pagina propria desde o split 2026-07-13).**
-   CLASSIFIER, REGISTRATION e CADASTRO acessam **`/embarques`** — sub-abas Embarque
-   e Aprovacoes (a gestao Contratos/Financeiro vive em `/contratos`,
-   `CONTRATOS_ROLES`). A lista da Aprovacao nao e escopada por corretor (todos veem
-   todos, so nao-sensivel); o "Ver contrato" abre o detalhe em `/contratos` a
-   ADMIN + COMMERCIAL em qualquer contrato (escopo aberto, D140). E a unica
-   superficie de nav que os tres ganharam alem da base (Inicio/Lotes/Clientes) —
-   Cadastros so o CADASTRO.
+   `NON_PROSPECTOR_ROLES` e, desde o ACESSO UNIFICADO (2026-07-15), com a nav completa
+   (sidenav 6, tabbar 5 com Relatorios no 5o slot, avatar mobile 5) — a do ADMIN menos
+   "Usuarios". _(Historico: ate 2026-07-15 ambos ficavam fora de `INFORME_ROLES`, com
+   sidenav 4 e Perfil no 5o slot; ate 2026-07-10 o REGISTRATION caia num placeholder
+   vazio em `/informe`.)_
+7. **Split Clientes (operacao) x Cadastros (gestao) — 2026-07-02, universalizado em
+   2026-07-15.** A capacidade de gerir clientes sempre foi a mesma para todos; o ponto
+   de entrada, que ate 2026-07-14 variava por papel (COMMERCIAL/CLASSIFIER/REGISTRATION
+   usavam "Clientes" avulso; ADMIN/CADASTRO a aba "Clientes" do `/cadastros`), passou a
+   ser **a aba Clientes do `/cadastros` para todos** (o "Clientes" avulso saiu da nav de
+   todos). O hub `/cadastros` (que ja teve 3 abas Clientes | Bancos | Corretores; Bancos
+   saiu na D141 — hoje 2) passou de ADMIN+CADASTRO a `NON_PROSPECTOR_ROLES` (=
+   `CLIENT_MANAGEMENT_ROLES`). Guard da lista `/clients` inalterado
+   (`NON_PROSPECTOR_ROLES`, ainda acessivel por URL). Implementacao compartilhada:
+   `components/clients/ClientsBrowser.tsx` (mesma UI nas duas telas; snapshots isolados
+   por `storageKey`).
+8. **Operacao E gestao de contrato abertas a todo nao-PROSPECTOR (ACESSO UNIFICADO
+   2026-07-15).** Antes os operacionais (CLASSIFIER/REGISTRATION/CADASTRO) so tinham
+   `/embarques` (Embarque · Aprovacoes; CC F2 2026-07-12, pagina propria no split
+   2026-07-13); agora tambem `/contratos` (Contratos · Financeiro) e o resto da nav. A
+   lista da Aprovacao nao e escopada por corretor (todos veem todos, so nao-sensivel);
+   o "Ver contrato" abre o detalhe em `/contratos` a **qualquer nao-PROSPECTOR** em
+   qualquer contrato (escopo aberto, D140).
 
 ## Manutencao
 

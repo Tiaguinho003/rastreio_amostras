@@ -2,7 +2,7 @@
 
 Status: Ativo (documento-mãe / verdade viva do funcionamento atual)
 Escopo: o que a página `/contratos` faz hoje — a casca (hub + sub-abas + acesso por papel), o contrato de compra e venda ("Fechamento" → PDF), o Espelho de Corretagem, as abas **Financeiro**, **Aprovações** e **Embarque**, a **máquina de estado** do contrato com seus portões, o modelo de dados e as rotas de API.
-Última revisão: 2026-07-14 (D146 — cascata contrato-à-vista → lote/venda: mapa de campos que propagam + fix do 409 de liga no owner-sync)
+Última revisão: 2026-07-15 (**ACESSO UNIFICADO por papel** — `/contratos` + aba Financeiro abertos a **todo não-PROSPECTOR**; antes ADMIN + COMMERCIAL. Anterior: 2026-07-14, D146 — cascata contrato-à-vista → lote/venda)
 Documentos relacionados: `Contratos-Plano-de-Trabalho.md` (backlog, decisões e pendências), `Dashboard-Visao-Geral.md` (eventos/cards que apontam pra cá), `Auditoria-Navegacao-por-Papel.md`, `API-e-Contratos.md`, `Produto-e-Fluxos.md`
 
 > **Como este documento se mantém vivo:** a cada implementação concluída e validada, esta Visão Geral é atualizada no mesmo passo. As **decisões, o histórico e o backlog** vivem no `Contratos-Plano-de-Trabalho.md`; aqui fica **só o estado atual**. Esta consolidação (2026-07-13, 4→2 docs) absorveu e removeu os antigos `Central-de-Contratos-`, `Aprovacoes-` e `Embarque-Plano-de-Trabalho.md` — o histórico completo de decisões (D/CC/AP/EMB) e de sessões está no Git e, condensado, no apêndice do `Contratos-Plano-de-Trabalho.md`.
@@ -13,10 +13,10 @@ Documentos relacionados: `Contratos-Plano-de-Trabalho.md` (backlog, decisões e 
 
 O contrato de compra e venda de café é operado em **2 páginas** (split 2026-07-13), ao longo do eixo **gestão × operação** — cada uma com 2 sub-abas:
 
-- **`/contratos`** — a **gestão** (ADMIN + COMMERCIAL): aba **Contratos** (o contrato nasce, vira PDF, ágio, ciclo de vida + o **Espelho de Corretagem**) + aba **Financeiro** (corretagem a receber / pagamento por fechamento).
+- **`/contratos`** — a **gestão** (todo não-PROSPECTOR desde 2026-07-15; antes ADMIN + COMMERCIAL): aba **Contratos** (o contrato nasce, vira PDF, ágio, ciclo de vida + o **Espelho de Corretagem**) + aba **Financeiro** (corretagem a receber / pagamento por fechamento).
 - **`/embarques`** — a **operação** (todos os não-PROSPECTOR): aba **Embarque** (confirmação do café no caminhão) + aba **Aprovações** (o "portão" de aval antes de faturar).
 
-Um contrato passa pelas duas páginas no ciclo: nasce e é gerido em `/contratos`; é aprovado e embarcado em `/embarques`; faturado/pago de volta em `/contratos` (Financeiro). **ADMIN/COMMERCIAL** abrem as 2 páginas; os **operacionais** (Classificação/Impressão/Cadastro) só a de **Embarques**.
+Um contrato passa pelas duas páginas no ciclo: nasce e é gerido em `/contratos`; é aprovado e embarcado em `/embarques`; faturado/pago de volta em `/contratos` (Financeiro). Desde o **ACESSO UNIFICADO (2026-07-15)** **todo não-PROSPECTOR** abre as 2 páginas (antes só ADMIN/COMMERCIAL abriam ambas; os operacionais — Classificação/Impressão/Cadastro — só Embarques). O PROSPECTOR não acessa nenhuma.
 
 ---
 
@@ -35,24 +35,24 @@ Um contrato passa pelas duas páginas no ciclo: nasce e é gerido em `/contratos
 
 ### 2.2 Acesso por papel
 
-Fonte da verdade: `lib/roles.ts` (`NON_PROSPECTOR_ROLES`, `CONTRATOS_ROLES`, `contractsHubTabs`, `contractTabRoute`), espelhando `SALE_CONTRACT_ACCESS_ROLES`/`FINANCEIRO_ROLES` do backend.
+Fonte da verdade: `lib/roles.ts` (`NON_PROSPECTOR_ROLES`, `CONTRATOS_ROLES`, `FINANCEIRO_ROLES`, `contractsHubTabs`, `contractTabRoute`), espelhando `SALE_CONTRACT_ACCESS_ROLES`/`FINANCEIRO_ROLES` do backend. Desde o **ACESSO UNIFICADO (2026-07-15)** `CONTRATOS_ROLES` e `FINANCEIRO_ROLES` **= `NON_PROSPECTOR_ROLES`** (antes ADMIN + COMMERCIAL).
 
 | Papel        | `/contratos` (Contratos·Financeiro) | `/embarques` (Embarque·Aprovações) | Itens de nav          |
 | ------------ | :---------------------------------: | :--------------------------------: | --------------------- |
 | ADMIN        |                 ✅                  |                 ✅                 | Contratos + Embarques |
-| COMMERCIAL   |             ✅ (todos)              |                 ✅                 | Contratos + Embarques |
-| CLASSIFIER   |                  —                  |                 ✅                 | Embarques             |
-| REGISTRATION |                  —                  |                 ✅                 | Embarques             |
-| CADASTRO     |                  —                  |                 ✅                 | Embarques             |
+| COMMERCIAL   |                 ✅                  |                 ✅                 | Contratos + Embarques |
+| CLASSIFIER   |                 ✅                  |                 ✅                 | Contratos + Embarques |
+| REGISTRATION |                 ✅                  |                 ✅                 | Contratos + Embarques |
+| CADASTRO     |                 ✅                  |                 ✅                 | Contratos + Embarques |
 | PROSPECTOR   |                  —                  |                 —                  | (nenhum)              |
 
-Regras que geram a matriz (split 2026-07-13):
+Regras que geram a matriz (split 2026-07-13; **ACESSO UNIFICADO 2026-07-15**):
 
-- **`/contratos` = `CONTRATOS_ROLES` (ADMIN + COMMERCIAL)** — a gestão. Operacionais são redirecionados pelo guard (→ /dashboard).
+- **`/contratos` = `CONTRATOS_ROLES` (= `NON_PROSPECTOR_ROLES` desde 2026-07-15; era ADMIN + COMMERCIAL)** — a gestão, aberta a **todo não-PROSPECTOR**. Só o PROSPECTOR é redirecionado pelo guard (→ /dashboard).
 - **`/embarques` = `NON_PROSPECTOR_ROLES`** — a operação, a todos menos o PROSPECTOR (barrado pelo allowlist + guard).
-- **Escopo aberto (2026-07-13, own-only revogado — D140):** ADMIN e COMMERCIAL veem/gerenciam **TODOS** os contratos e o Financeiro (não há mais recorte por `Broker.userId`). Na aba **Aprovações** a **lista** já era **não-escopada** (todos veem todos — só colunas não-sensíveis), e o **"Ver contrato"** das worklists (que abre o detalhe em `/contratos`) abre a **ADMIN + COMMERCIAL em qualquer contrato**.
+- **Escopo aberto (own-only revogado — D140; ampliado no acesso unificado 2026-07-15):** **todo não-PROSPECTOR** vê/gerencia **TODOS** os contratos e o Financeiro (não há recorte por `Broker.userId`). Na aba **Aprovações** a **lista** já era **não-escopada** (todos veem todos — só colunas não-sensíveis), e o **"Ver contrato"** das worklists (que abre o detalhe em `/contratos`) abre a **qualquer não-PROSPECTOR em qualquer contrato**.
 
-> ⚠️ **Alívio de UI vs. segurança:** não há mais recorte por corretor — ADMIN e COMMERCIAL enxergam Contratos/Financeiro/pagamento por inteiro (escopo aberto — D140). A fronteira de papel **real** segue sendo o **allowlist do PROSPECTOR** somado ao guard `CONTRATOS_ROLES`: os papéis operacionais (Classificação/Impressão/Cadastro) **não acessam** Contratos/Financeiro. A página de operação (`/embarques`) é **auth-only** — qualquer não-PROSPECTOR autenticado enxerga as worklists (info não-sensível).
+> ⚠️ **Alívio de UI vs. segurança:** não há recorte por corretor nem por papel entre os não-PROSPECTOR — os **cinco papéis** enxergam Contratos/Financeiro/pagamento por inteiro (escopo aberto — D140; acesso unificado 2026-07-15). A **única fronteira de papel** é o **allowlist do PROSPECTOR** (somado aos guards, todos hoje `= NON_PROSPECTOR_ROLES`): só o PROSPECTOR não acessa. `/contratos` e `/embarques` são **auth-only** para qualquer não-PROSPECTOR autenticado.
 
 ---
 
@@ -126,11 +126,11 @@ As **datas planejadas** também têm regra (D142): a criação/edição rejeita 
 
 ## 6. Aba Financeiro
 
-> A corretagem a receber por fechamento. Código: `FinanceiroPanel`/`FinanceiroCard`; `app/api/v1/financeiro`, `sale-contract-service.js`. Acesso: `FINANCEIRO_ROLES` (ADMIN + COMMERCIAL, escopo aberto).
+> A corretagem a receber por fechamento. Código: `FinanceiroPanel`/`FinanceiroCard`; `app/api/v1/financeiro`, `sale-contract-service.js`. Acesso: `FINANCEIRO_ROLES` (= `NON_PROSPECTOR_ROLES` desde 2026-07-15 — antes ADMIN + COMMERCIAL; escopo aberto).
 
 - **Estado de pagamento** por contrato (a receber / N vencidos / pago / **cancelado**), com os cálculos de corretagem e ágio de §4.2. Sem `paymentDate` ("À definir" no FUTURO, D144) o contrato é **sempre "a vencer"** (nunca vencido), no fim da fila, e o card exibe **"À definir"**.
 - **Washout só paga corretagem no FUTURO (D145, revisa D105):** um washout aparece aqui (estado "cancelado") e conta no "Corretagem total" **apenas quando o contrato é FUTURO**. Um contrato **à vista** (`MERCADO_A_VISTA`) cancelado por washout **não aparece** no Financeiro — some da lista, de todos os filtros (inclusive "Cancelado") e do total (é filtrado no `where` por `type='FUTURO'`, nunca chega ao card). Segue visível só em `/contratos`, com o status Wash-out.
-- **Escopo:** ADMIN e COMMERCIAL veem **tudo** (escopo aberto — D140 revogou o own-only, superando D135/D128).
+- **Escopo:** todo **não-PROSPECTOR** vê **tudo** (escopo aberto — D140 revogou o own-only, superando D135/D128; acesso unificado 2026-07-15 estendeu o `FINANCEIRO_ROLES` a todos os não-PROSPECTOR).
 - **Sem rateio ÷N** (D136): o valor exibido é o do fechamento, não dividido.
 - **Botão "Pago"** mora **aqui** (D137) — é o ponto de disparo da transição → PAGO (com o portão de embarque de §3/§8).
 - **Ordenação/paginação:** keyset/cursor particionado (por estado de pagamento; vencidos primeiro).
@@ -144,7 +144,7 @@ As **datas planejadas** também têm regra (D142): a criação/edição rejeita 
 **O modelo ("o portão"):** aprovação não é um estado no contrato — é um **portão de faturamento**. O criador **sinaliza** se o contrato precisa de aval (`requiresApproval`); quando precisa, alguém **gera/envia a etiqueta de aprovação** (impressa, auditada em `approval_label_log`); e **faturar fica bloqueado até ≥1 etiqueta enviada** (§3, AP18). O portão audita o **envio** (enqueue no `CustomPrintJob` + linha no log), **não o sucesso da impressão** — decisão deliberada: exigir impressão concluída deixaria o faturamento refém do print agent local.
 
 - **Estados derivados** (sem enum próprio): **não se aplica** / **a enviar** / **enviada** / **cancelado** (no washout). O **desfecho** (aprovado/recusado) fica **fora do sistema**; o **proxy** é o **nº de envios** (>1 envio antes de faturar ≈ provável recusa; "enviada · N×").
-- **Sinalização:** `requiresApproval` marcado na emissão ou por **toggle** no modal de Detalhes (`setSaleContractApprovalFlag`, ADMIN/COMMERCIAL). **Desmarcar** só em `EMITIDO` sem envio; depois **trava** em "Sim" (`APPROVAL_FLAG_LOCKED`) — AP20.
+- **Sinalização:** `requiresApproval` marcado na emissão ou por **toggle** no modal de Detalhes (`setSaleContractApprovalFlag`, gated por `SALE_CONTRACT_ACCESS_ROLES` = todo não-PROSPECTOR desde 2026-07-15). **Desmarcar** só em `EMITIDO` sem envio; depois **trava** em "Sim" (`APPROVAL_FLAG_LOCKED`) — AP20.
 - **Gerar etiqueta exige `requiresApproval = true`** (`APPROVAL_CONTRACT_NOT_MARKED`, AP17); elegibilidade = **só `EMITIDO`** (`APPROVAL_ELIGIBLE_STATUSES`, AP21). **A geração mora só nesta sub-aba** (AP29 — não há mais porta no `/samples` nem etiqueta avulsa).
 - **Worklist:** particionada por estado (a enviar / enviada), via `$queryRaw` (G0/G1/G2) com cursor `{g, key, seq}` porque o estado depende de um agregado de contagem do log. Colunas não-sensíveis; abre em "a enviar". Ordena por `invoice_date ASC NULLS LAST` — faturamento "à definir" (D144) vai pro fim da fila e o card mostra **"À definir"** (sem o `~` de previsão).
 
@@ -188,7 +188,7 @@ _(O `Arquitetura-Tecnica.md` resume o domínio na seção "Modelo de dados" → 
 - **Documentos:** `/sale-contracts/[id]/pdf` (contrato) e `/sale-contracts/[id]/espelho/{pdf, log}` (espelho + auditoria de export).
 - **Embarque:** `/sale-contracts/shipments` (worklist), `/sale-contracts/[id]/{shipment-context, shipment-confirmation}` e `/sale-contracts/[id]/shipment-photos[/[photoId]]` (galeria + binário autenticado).
 - **Aprovação:** `/sale-contracts/approvals` (worklist), `/sale-contracts/approvals/recent-sends` (card do topo) e `/approval-labels` (gerar/enviar etiqueta; `/approval-labels/contracts*` é o resquício do picker aposentado pela AP29 — dormente).
-- **Lookups:** `/contract-lookups` (modalidade/forma de pagamento/embalagem).
+- **Lookups:** `/contract-lookups` (modalidade/forma de pagamento/embalagem). Criar valores das listas de apoio é gated por `CONTRACT_LOOKUP_MANAGE_ROLES` (= `NON_PROSPECTOR_ROLES` desde 2026-07-15 — antes ADMIN-only).
 - **Financeiro:** `/financeiro` (lista de todos os fechamentos; o pagar é `/sale-contracts/[id]/pay`).
 - **Anexos do cliente (Fase 0):** rotas de `ClientAttachment` (D27/D139).
 - **Eventos no dashboard** (leitura): `/dashboard/{payment,shipment,invoice}-events` — detalhados no `Dashboard-Visao-Geral.md` §8.
