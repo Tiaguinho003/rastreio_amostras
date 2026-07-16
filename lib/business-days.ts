@@ -24,3 +24,23 @@ export function isWeekendIso(iso: string): boolean {
   }
   return isWeekendDate(new Date(`${iso}T00:00:00Z`));
 }
+
+// Hoje em BRT (America/Sao_Paulo), 'YYYY-MM-DD'. O fuso do device não desloca o
+// "hoje" (evita off-by-one) — bate com o guard do backend (brtTodayDateOnly).
+export function todayInputValueBRT(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+}
+
+// Recua uma data 'YYYY-MM-DD' até o dia útil mais recente <= ela (sáb/dom → sex).
+// Default do seletor de embarque: abrir num fim de semana não vira beco (o fds
+// segue bloqueado, mas o campo já nasce num dia válido). Malformado = devolve igual.
+export function lastBusinessDayIso(iso: string): string {
+  if (typeof iso !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    return iso;
+  }
+  const date = new Date(`${iso}T00:00:00Z`);
+  while (isWeekendDate(date)) {
+    date.setUTCDate(date.getUTCDate() - 1);
+  }
+  return date.toISOString().slice(0, 10);
+}

@@ -10,8 +10,9 @@ import {
   paySaleContract,
   washoutSaleContract,
 } from '../../lib/api-client';
-import { isWeekendIso, WEEKEND_DATE_MESSAGE } from '../../lib/business-days';
+import { isWeekendIso, todayInputValueBRT, WEEKEND_DATE_MESSAGE } from '../../lib/business-days';
 import { useFocusTrap } from '../../lib/use-focus-trap';
+import { useToast } from '../../lib/toast/ToastProvider';
 import type { ApprovalLabelPrefill, SessionData } from '../../lib/types';
 import { ApprovalLabelModal } from '../ApprovalLabelModal';
 import { ShipmentConfirmationModal } from './ShipmentConfirmationModal';
@@ -45,12 +46,6 @@ type SaleContractLifecycleDialogProps = {
   onClose: () => void;
   onDone: () => void;
 };
-
-function todayInputValue(): string {
-  // Hoje em BRT (America/Sao_Paulo), YYYY-MM-DD — bate com o guard do backend
-  // (brtTodayDateOnly). O fuso do device não desloca o "hoje" (evita off-by-one).
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
-}
 
 type Copy = {
   title: string;
@@ -110,8 +105,9 @@ export function SaleContractLifecycleDialog({
   onDone,
 }: SaleContractLifecycleDialogProps) {
   const focusTrapRef = useFocusTrap(true);
+  const toast = useToast();
   const [date, setDate] = useState(
-    action === 'invoice' || action === 'pay' ? todayInputValue() : ''
+    action === 'invoice' || action === 'pay' ? todayInputValueBRT() : ''
   );
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
@@ -131,7 +127,7 @@ export function SaleContractLifecycleDialog({
   const needsReason = copy.reasonLabel !== null;
   // Faturar e pagar não podem ser no futuro (E30 + guard do faturar) — trava o
   // seletor em hoje (max) e bloqueia o submit. O backend é a trava autoritativa.
-  const maxDate = action === 'pay' || action === 'invoice' ? todayInputValue() : undefined;
+  const maxDate = action === 'pay' || action === 'invoice' ? todayInputValueBRT() : undefined;
   const dateInFuture = maxDate !== undefined && date !== '' && date > maxDate;
   // DSB-D7: faturamento/pagamento (datas de ação) não podem cair em fim de semana.
   const dateIsWeekend = needsDate && date !== '' && isWeekendIso(date);
@@ -185,102 +181,106 @@ export function SaleContractLifecycleDialog({
 
   return (
     <>
-      {createPortal(
-        <div className="app-modal-backdrop">
-          <section
-            ref={focusTrapRef}
-            className="app-modal is-themed is-action sample-detail-compact-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="ctr-lifecycle-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="app-modal-header">
-              <div className="app-modal-title-wrap">
-                <h3 id="ctr-lifecycle-title" className="app-modal-title">
-                  {copy.title}
-                </h3>
-              </div>
-              <button
-                type="button"
-                className="app-modal-close"
-                onClick={onClose}
-                disabled={saving}
-                aria-label="Fechar"
+      {/* EMB33: quando um portão (embarque/aprovação) abre seu próprio modal, o
+          diálogo principal sai de cena — senão empilha dois app-modal-backdrop. */}
+      {!needsShipment && !needsApproval
+        ? createPortal(
+            <div className="app-modal-backdrop">
+              <section
+                ref={focusTrapRef}
+                className="app-modal is-themed is-action sample-detail-compact-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="ctr-lifecycle-title"
+                onClick={(event) => event.stopPropagation()}
               >
-                <span aria-hidden="true">&times;</span>
-              </button>
-            </header>
-
-            {error ? <p className="sdv-modal-error">{error}</p> : null}
-
-            <div className="app-modal-content">
-              <p className={`ctr-confirm-text${copy.danger ? ' ctr-confirm-danger' : ''}`}>
-                {copy.text}
-              </p>
-              {needsDate ? (
-                <label className="app-modal-field">
-                  <span className="app-modal-label">{copy.dateLabel}</span>
-                  <input
-                    className="app-modal-input"
-                    type="date"
-                    value={date}
-                    max={maxDate}
+                <header className="app-modal-header">
+                  <div className="app-modal-title-wrap">
+                    <h3 id="ctr-lifecycle-title" className="app-modal-title">
+                      {copy.title}
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    className="app-modal-close"
+                    onClick={onClose}
                     disabled={saving}
-                    onChange={(event) => {
-                      setDate(event.target.value);
-                      setError(null);
-                    }}
-                  />
-                  {dateInFuture ? (
-                    <span className="app-modal-field-error">
-                      A data do pagamento não pode ser futura.
-                    </span>
-                  ) : dateIsWeekend ? (
-                    <span className="app-modal-field-error">{WEEKEND_DATE_MESSAGE}</span>
+                    aria-label="Fechar"
+                  >
+                    <span aria-hidden="true">&times;</span>
+                  </button>
+                </header>
+
+                {error ? <p className="sdv-modal-error">{error}</p> : null}
+
+                <div className="app-modal-content">
+                  <p className={`ctr-confirm-text${copy.danger ? ' ctr-confirm-danger' : ''}`}>
+                    {copy.text}
+                  </p>
+                  {needsDate ? (
+                    <label className="app-modal-field">
+                      <span className="app-modal-label">{copy.dateLabel}</span>
+                      <input
+                        className="app-modal-input"
+                        type="date"
+                        value={date}
+                        max={maxDate}
+                        disabled={saving}
+                        onChange={(event) => {
+                          setDate(event.target.value);
+                          setError(null);
+                        }}
+                      />
+                      {dateInFuture ? (
+                        <span className="app-modal-field-error">
+                          A data do pagamento não pode ser futura.
+                        </span>
+                      ) : dateIsWeekend ? (
+                        <span className="app-modal-field-error">{WEEKEND_DATE_MESSAGE}</span>
+                      ) : null}
+                    </label>
                   ) : null}
-                </label>
-              ) : null}
-              {needsReason ? (
-                <label className="app-modal-field">
-                  <span className="app-modal-label">{copy.reasonLabel}</span>
-                  <textarea
-                    className="app-modal-input"
-                    rows={3}
-                    value={reason}
-                    disabled={saving}
-                    placeholder="Descreva o motivo do washout"
-                    onChange={(event) => {
-                      setReason(event.target.value);
-                      setError(null);
-                    }}
-                  />
-                </label>
-              ) : null}
-            </div>
+                  {needsReason ? (
+                    <label className="app-modal-field">
+                      <span className="app-modal-label">{copy.reasonLabel}</span>
+                      <textarea
+                        className="app-modal-input"
+                        rows={3}
+                        value={reason}
+                        disabled={saving}
+                        placeholder="Descreva o motivo do washout"
+                        onChange={(event) => {
+                          setReason(event.target.value);
+                          setError(null);
+                        }}
+                      />
+                    </label>
+                  ) : null}
+                </div>
 
-            <div className="app-modal-actions">
-              <button
-                type="button"
-                className="app-modal-secondary"
-                onClick={onClose}
-                disabled={saving}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className={`app-modal-submit${copy.danger ? ' ctr-modal-danger' : ''}`}
-                onClick={handleSubmit}
-                disabled={!canSubmit}
-              >
-                {saving ? copy.submitting : copy.submit}
-              </button>
-            </div>
-          </section>
-        </div>,
-        document.body
-      )}
+                <div className="app-modal-actions">
+                  <button
+                    type="button"
+                    className="app-modal-secondary"
+                    onClick={onClose}
+                    disabled={saving}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    className={`app-modal-submit${copy.danger ? ' ctr-modal-danger' : ''}`}
+                    onClick={handleSubmit}
+                    disabled={!canSubmit}
+                  >
+                    {saving ? copy.submitting : copy.submit}
+                  </button>
+                </div>
+              </section>
+            </div>,
+            document.body
+          )
+        : null}
       {needsShipment ? (
         <ShipmentConfirmationModal
           session={session}
@@ -288,6 +288,9 @@ export function SaleContractLifecycleDialog({
           onClose={() => setNeedsShipment(false)}
           onDone={() => {
             setNeedsShipment(false);
+            // EMB33: o embarque é irreversível — reconhece a confirmação antes de
+            // seguir pro pagamento (senão o hand-off só mostraria "Pagamento registrado").
+            toast.success({ title: 'Embarque confirmado' });
             void handleSubmit();
           }}
         />
