@@ -6,6 +6,7 @@ import {
   assertAgioWithinUnitPrice,
   assertBrokersResolved,
   assertBusinessDate,
+  assertEspelhoEligible,
   buildApprovalPrefill,
   brtTodayDateOnly,
   brtTodayKey,
@@ -1106,6 +1107,31 @@ test('isSpotWashout: só o contrato à vista em WASH_OUT (D145)', () => {
   assert.equal(isSpotWashout({ status: 'PAGO', type: 'MERCADO_A_VISTA' }), false);
   assert.equal(isSpotWashout({ status: 'EMITIDO', type: 'FUTURO' }), false);
   assert.equal(isSpotWashout(null), false);
+});
+
+test('assertEspelhoEligible: valida os 3 gates ESPELHO_* (D105/D145/S74)', () => {
+  const base = { status: 'EMITIDO', type: 'FUTURO', sellerBrokeragePct: 2, buyerBrokeragePct: 0 };
+  // Lado com corretagem → elegível (não lança).
+  assert.doesNotThrow(() => assertEspelhoEligible(base, 'seller'));
+  // Lado SEM corretagem → ESPELHO_NO_BROKERAGE.
+  assert.throws(
+    () => assertEspelhoEligible(base, 'buyer'),
+    (err) => err.status === 409 && err.details?.code === 'ESPELHO_NO_BROKERAGE'
+  );
+  // À vista cancelado por washout → ESPELHO_WASHOUT_SPOT (D145)...
+  assert.throws(
+    () => assertEspelhoEligible({ ...base, status: 'WASH_OUT', type: 'MERCADO_A_VISTA' }, 'seller'),
+    (err) => err.status === 409 && err.details?.code === 'ESPELHO_WASHOUT_SPOT'
+  );
+  // ...mas o FUTURO em washout SEGUE elegível (só o à-vista bloqueia).
+  assert.doesNotThrow(() =>
+    assertEspelhoEligible({ ...base, status: 'WASH_OUT', type: 'FUTURO' }, 'seller')
+  );
+  // Status fora do conjunto congelado → ESPELHO_NOT_ELIGIBLE.
+  assert.throws(
+    () => assertEspelhoEligible({ ...base, status: 'RASCUNHO' }, 'seller'),
+    (err) => err.status === 409 && err.details?.code === 'ESPELHO_NOT_ELIGIBLE'
+  );
 });
 
 // D147: predicados canônicos por `type` — o washout ramifica por eles (predicado
