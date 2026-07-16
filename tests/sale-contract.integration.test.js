@@ -620,35 +620,57 @@ if (!databaseUrl || !databaseReachable) {
 
   // Embarque F4 (EMB10/EMB17/EMB24): evento do dashboard — agendado/atrasado/realizado.
   test('getDashboardShipmentEvents: typeKeys agendado/atrasado/realizado', async () => {
+    // Datas ANCORADAS em hoje (BRT) pra o teste não envelhecer (fixar julho/26 fazia
+    // o "agendado" virar "atrasado" quando hoje passava da data). O feed usa a
+    // invoiceDate como dia do embarque (Modelo X); "agendado" precisa estar no FUTURO.
+    // Uso dias úteis (o feed rola fim de semana p/ trás, DSB-D7) e janela ampla.
+    const toKey = (d) => d.toISOString().slice(0, 10);
+    const bizDay = (offset) => {
+      const d = new Date();
+      d.setUTCHours(0, 0, 0, 0);
+      d.setUTCDate(d.getUTCDate() + offset);
+      while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() - 1);
+      return d;
+    };
+    const futureDate = bizDay(10); // agendado (futuro)
+    const pastDate = bizDay(-10); // atrasado (passado)
+    const doneDate = bizDay(-8); // realizado
+
     const future = await setupShipmentContract({ lotNumber: '25400' });
     await prisma.saleContract.update({
       where: { id: future.id },
-      data: { invoiceDate: new Date('2026-07-15T00:00:00Z') },
+      data: { invoiceDate: futureDate },
     });
     const past = await setupShipmentContract({ lotNumber: '25401' });
     await prisma.saleContract.update({
       where: { id: past.id },
-      // DSB-D7: dia útil (07 = terça) — o feed rolaria uma data de fim de semana.
-      data: { invoiceDate: new Date('2026-07-07T00:00:00Z') },
+      data: { invoiceDate: pastDate },
     });
     const done = await setupShipmentContract({ lotNumber: '25402' });
+    await prisma.saleContract.update({
+      where: { id: done.id },
+      data: { invoiceDate: doneDate },
+    });
     await shipmentService.confirmShipment(
       done.id,
-      { shippedAt: '2026-07-08', files: [] },
+      { shippedAt: toKey(doneDate), files: [] },
       adminActor
     );
 
     const events = await saleContractService.getDashboardShipmentEvents(
-      { from: '2026-07-01', to: '2026-07-31' },
+      { from: toKey(bizDay(-20)), to: toKey(bizDay(20)) },
       adminActor
     );
-    // Previsto (15) = azul; atrasado (07) = vermelho; realizado (08) = verde (cor por estado, DSB-D10).
-    assert.equal(events['2026-07-15']?.[0]?.typeKey, 'contract_shipment');
-    assert.equal(events['2026-07-07']?.[0]?.typeKey, 'contract_shipment_overdue');
-    assert.equal(events['2026-07-08']?.[0]?.typeKey, 'contract_shipment_done');
+    const fk = toKey(futureDate);
+    const pk = toKey(pastDate);
+    const dk = toKey(doneDate);
+    // Previsto = azul; atrasado = vermelho; realizado = verde (cor por estado, DSB-D10).
+    assert.equal(events[fk]?.[0]?.typeKey, 'contract_shipment');
+    assert.equal(events[pk]?.[0]?.typeKey, 'contract_shipment_overdue');
+    assert.equal(events[dk]?.[0]?.typeKey, 'contract_shipment_done');
     // Label recolhido + id namespaced (não colide com pagamento/aprovação do mesmo dia).
-    assert.ok(events['2026-07-15'][0].label.startsWith('embarque · '));
-    assert.ok(events['2026-07-15'][0].id.startsWith('shipment:'));
+    assert.ok(events[fk][0].label.startsWith('embarque · '));
+    assert.ok(events[fk][0].id.startsWith('shipment:'));
   });
 
   // Faturamento (DSB-D11): getDashboardInvoiceEvents — feed do card de Eventos, irmao

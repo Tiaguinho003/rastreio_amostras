@@ -195,6 +195,29 @@ if (!databaseUrl || !databaseReachable) {
     const { sampleId } = await createLot();
     // Contrato minimo em WASH_OUT vinculado ao lote (soldSacks=0, mas contrato existe:
     // aparece no Financeiro/Espelho e imprime o nº ao vivo).
+    // D147 (CHECK chk_sale_contract_type_lote): a vista exige sample_id + movement_id.
+    // O SALE exige buyer_client_id (chk_sample_movement_type_fields): comprador PF
+    // mínimo (só full_name satisfaz chk_client_person_type_fields).
+    const buyerId = randomUUID();
+    await prisma.client.create({
+      data: { id: buyerId, personType: 'PF', fullName: 'Comprador Teste', isBuyer: true },
+    });
+    const movementId = randomUUID();
+    await prisma.sampleMovement.create({
+      data: {
+        id: movementId,
+        sampleId,
+        movementType: 'SALE',
+        // WASH_OUT desfez a venda → movimento CANCELLED (soldSacks=0, como o fixture
+        // antigo). Evita o guard de "movimentacoes comerciais ativas" antes do de
+        // contrato — o teste isola o SAMPLE_HAS_CONTRACT.
+        status: 'CANCELLED',
+        cancelledAt: new Date('2026-07-02'),
+        buyerClientId: buyerId,
+        quantitySacks: 10,
+        movementDate: new Date('2026-07-02'),
+      },
+    });
     await prisma.saleContract.create({
       data: {
         id: randomUUID(),
@@ -204,6 +227,7 @@ if (!databaseUrl || !databaseReachable) {
         status: 'WASH_OUT',
         contractDate: new Date('2026-07-02'),
         sampleId,
+        movementId,
         quantitySacks: 10,
         unitPrice: '100.00',
         totalValue: '1000.00',

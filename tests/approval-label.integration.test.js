@@ -119,10 +119,37 @@ if (!databaseUrl || !databaseReachable) {
   } = {}) {
     contractSeq += 1;
     const id = randomUUID();
+    // D147 (CHECK chk_sale_contract_type_lote): MERCADO_A_VISTA exige sample_id +
+    // movement_id; FUTURO exige ambos nulos. O helper nasce FUTURO (fixture leve,
+    // type-agnostico — a aprovacao independe do tipo). Com `sampleId` (ou type
+    // MERCADO_A_VISTA explicito) monta um a-vista VALIDO: cria o SampleMovement e
+    // liga sample_id + movement_id.
+    const spot = sampleId != null || overrides.type === 'MERCADO_A_VISTA';
+    let movementId = null;
+    if (spot) {
+      if (sampleId == null) sampleId = await createSample();
+      // SALE exige buyer_client_id (CHECK chk_sample_movement_type_fields): comprador
+      // PF mínimo (só full_name; o resto NULL satisfaz chk_client_person_type_fields).
+      const buyerId = randomUUID();
+      await prisma.client.create({
+        data: { id: buyerId, personType: 'PF', fullName: 'Comprador Teste', isBuyer: true },
+      });
+      movementId = randomUUID();
+      await prisma.sampleMovement.create({
+        data: {
+          id: movementId,
+          sampleId,
+          movementType: 'SALE',
+          buyerClientId: buyerId,
+          quantitySacks: overrides.quantitySacks ?? 100,
+          movementDate: new Date('2026-07-01T00:00:00.000Z'),
+        },
+      });
+    }
     await prisma.saleContract.create({
       data: {
         id,
-        type: overrides.type ?? 'MERCADO_A_VISTA',
+        type: spot ? 'MERCADO_A_VISTA' : 'FUTURO',
         contractSeq,
         contractNumber: `${contractSeq}/99`,
         status,
@@ -132,7 +159,8 @@ if (!databaseUrl || !databaseReachable) {
         requiresApproval,
         contractDate: new Date('2026-07-01T00:00:00.000Z'),
         purchaseNumber: overrides.purchaseNumber ?? null,
-        sampleId,
+        sampleId: spot ? sampleId : null,
+        movementId,
         sellerSnapshot: overrides.sellerSnapshot ?? { displayName: 'Vendedor Teste' },
         buyerSnapshot: overrides.buyerSnapshot ?? { displayName: 'Comprador Teste' },
         sellerWarehouseSnapshot: overrides.sellerWarehouseSnapshot ?? null,
