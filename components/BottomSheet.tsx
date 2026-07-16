@@ -127,11 +127,15 @@ export function BottomSheet({
   });
   const content = open ? liveContent : contentRef.current;
 
-  const requestDismiss = useCallback(async () => {
+  // Retorna se o sheet de fato fechou — o handler de popstate usa isso pra
+  // saber se precisa re-injetar a history entry (dismiss bloqueado pelo
+  // consumidor via onDismissAttempt).
+  const requestDismiss = useCallback(async (): Promise<boolean> => {
     const canClose = onDismissAttempt ? await onDismissAttempt() : true;
     if (canClose) {
       onClose();
     }
+    return canClose;
   }, [onDismissAttempt, onClose]);
 
   // Ref estabilizada: o callback do consumidor muda a cada render (porque e
@@ -258,6 +262,13 @@ export function BottomSheet({
         pendingInternalBacks--;
         return;
       }
+      // O back do usuario JA consumiu a entry injetada. Re-injetar de
+      // imediato mantem o invariante "entry existe enquanto o sheet esta
+      // aberto": se o dismiss for bloqueado (onDismissAttempt false) ou o
+      // sheet nao for o topo, o proximo back continua protegido em vez de
+      // sair da pagina. Quando o dismiss e permitido, o cleanup do close
+      // consome esta entry via history.back() como sempre fez.
+      window.history.pushState({ bottomSheet: true }, '');
       // So o sheet do TOPO responde ao back (nao fecha o de baixo enquanto um
       // sheet empilhado esta aberto por cima).
       if (sheetStack[sheetStack.length - 1] !== sheetToken) return;
@@ -272,6 +283,19 @@ export function BottomSheet({
         // Se ainda estamos na entry que injetamos, volta uma pra limpar.
         if (window.history.state?.bottomSheet) {
           pendingInternalBacks++;
+          // O listener deste sheet ja foi removido acima — se nenhum outro
+          // sheet estiver vivo pra consumir o contador, ele ficaria
+          // envenenado e ENGOLIRIA a primeira volta real do proximo sheet
+          // aberto. O once-listener garante o consumo: se um listener vivo
+          // consumiu antes (ordem de registro), o contador ja voltou a 0 e
+          // este vira no-op.
+          window.addEventListener(
+            'popstate',
+            () => {
+              if (pendingInternalBacks > 0) pendingInternalBacks--;
+            },
+            { once: true }
+          );
           window.history.back();
         }
       }
