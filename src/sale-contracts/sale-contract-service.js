@@ -1108,6 +1108,22 @@ export class SaleContractService {
       data.approvalReminderLeadDays = null;
     }
 
+    // EMB32: requiresShipment tambem e snapshot congelado na emissao (EMB21) — o
+    // Editar so re-deriva se a MODALIDADE do contrato mudar E o embarque ainda nao
+    // foi confirmado; senao preserva o do banco. Fecha o flip silencioso (gemeo do
+    // furo AP20/AP32: mexer na flag da modalidade nao vaza pra contratos antigos num
+    // editar de campo qualquer) e nunca "des-embarca" um contrato ja confirmado
+    // (evita o orfao requiresShipment=false+shippedAt setado da corrida confirm+edit).
+    if (data.modalityId === contract.modalityId || contract.shippedAt) {
+      delete data.requiresShipment;
+    }
+    // Se sobrou um requiresShipment=false (modalidade nova nao-embarca, contrato ainda
+    // nao embarcado), a trava por version NAO enxerga um confirm concorrente
+    // (confirmShipment nao bumpa version). Exige shippedAt:null no where do update pra
+    // um confirm que escapou entre o findUnique e a tx forcar um 409 retryavel — no
+    // retry o guard acima ja preserva o requiresShipment (contract.shippedAt agora true).
+    const droppingShipment = data.requiresShipment === false;
+
     // Corretores (Editar fase 1): resolve ANTES dos syncs cross-aggregate (D143)
     // — o assertBrokersResolved pode lancar 422, e depois dos syncs a unica
     // falha aceitavel e o proprio conflito de versao. Troca dentro da tx.
@@ -1167,7 +1183,11 @@ export class SaleContractService {
     // (concorrência otimista por version mantida no updateMany).
     await this.prisma.$transaction(async (tx) => {
       const result = await tx.saleContract.updateMany({
-        where: { id: contractId, version: expectedVersion },
+        where: {
+          id: contractId,
+          version: expectedVersion,
+          ...(droppingShipment ? { shippedAt: null } : {}),
+        },
         data: { ...data, version: { increment: 1 } },
       });
       if (result.count === 0) {
