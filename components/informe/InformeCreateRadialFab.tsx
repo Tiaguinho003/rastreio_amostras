@@ -1,30 +1,34 @@
 'use client';
 
-// FAB radial da pagina /informe do COMERCIAL. Usa o mesmo LEQUE (speed-dial)
-// da pagina /samples (.fab-fan-*): 2 opcoes circulares emergem do FAB em arco
-// — Visitas ACIMA (posicao is-lote) e Relatorio A ESQUERDA (posicao
-// is-aprovacao). Ao abrir, o FAB encolhe e fica circular, a pagina escurece
-// (scrim no tier de modal) e a tabbar escurece (body.is-fab-fan-*). Diferenca
-// visual vs Lotes: o FAB MANTEM o icone LAPIS — a variante .is-informe-fab faz
-// crossfade lapis <-> x (em vez da rotacao 45 do "+").
+// FAB radial da pagina /relatorios. Usa o mesmo LEQUE (speed-dial) da pagina
+// /samples (.fab-fan-*): 3 opcoes circulares emergem do FAB em arco — Visitas
+// ACIMA (posicao is-lote), Informativo na DIAGONAL (posicao is-liga) e
+// Relatorio A ESQUERDA (posicao is-aprovacao). Ao abrir, o FAB encolhe e fica
+// circular, a pagina escurece (scrim no tier de modal) e a tabbar escurece
+// (body.is-fab-fan-*). Diferenca visual vs Lotes: o FAB MANTEM o icone LAPIS —
+// a variante .is-informe-fab faz crossfade lapis <-> x (em vez da rotacao 45
+// do "+").
 //
 // State machine (mounted/open + duplo-RAF + pulse) espelha
 // components/samples/SampleCreateRadialFab — MANTER EM SINCRONIA.
 //
 // CSS em globals.css: .fab-fan-backdrop, .fab-fan, .fab-fan-option
-// (.is-lote / .is-aprovacao), .fab-fan-option-circle/-label/-icon, body
-// is-fab-fan-mounted/-open, e o crossfade .cv2-fab.is-informe-fab. As vars
-// --fab-*/--fan-* do arco vivem em `.samples-page-v2.informe-commercial-page`.
+// (.is-lote / .is-liga / .is-aprovacao), .fab-fan-option-circle/-label/-icon,
+// body is-fab-fan-mounted/-open, e o crossfade .cv2-fab.is-informe-fab. As
+// vars --fab-*/--fan-* do arco vivem em `.rsm-fab-anchor` (viewer) e em
+// `.hero-search-wrap.is-informe`.
 
 import { useEffect, useRef, useState } from 'react';
 
-type MenuAction = 'visit' | 'weekly';
+type MenuAction = 'visit' | 'weekly' | 'informativo';
 
 interface InformeCreateRadialFabProps {
   onCreateVisit: () => void;
   onCreateWeeklyReport: () => void;
-  // Semanal so p/ ADMIN + COMMERCIAL. Quando false, so ha "Visita", entao o FAB
-  // abre a visita direto (sem leque).
+  onCreateInformativo: () => void;
+  // Semanal so p/ ADMIN + COMMERCIAL — o leque esconde a opcao. Visita e
+  // Informativo valem p/ todo nao-PROSPECTOR, entao o leque SEMPRE tem >= 2
+  // opcoes e nunca abre um formulario direto.
   canCreateWeekly: boolean;
   disabled?: boolean;
 }
@@ -37,6 +41,7 @@ const CLOSE_ANIMATION_MS = 360;
 export function InformeCreateRadialFab({
   onCreateVisit,
   onCreateWeeklyReport,
+  onCreateInformativo,
   canCreateWeekly,
   disabled,
 }: InformeCreateRadialFabProps) {
@@ -117,12 +122,9 @@ export function InformeCreateRadialFab({
 
   const handleMainTap = () => {
     if (disabled) return;
-    // Sem "Relatorio semanal" (papel != ADMIN/COMMERCIAL) so ha "Visita": o FAB
-    // abre a visita direto, sem leque.
-    if (!canCreateWeekly) {
-      onCreateVisit();
-      return;
-    }
+    // Sempre abre o leque: "Visitas" e "Informativo" valem p/ todo
+    // nao-PROSPECTOR, entao ha no minimo 2 opcoes mesmo sem o Semanal. (Antes
+    // do Informativo existir, !canCreateWeekly caia direto na visita.)
     if (open) closeMenu();
     else openMenu();
   };
@@ -138,6 +140,8 @@ export function InformeCreateRadialFab({
       // ele fecha em paralelo — sem jank visual.
       if (action === 'visit') {
         onCreateVisit();
+      } else if (action === 'informativo') {
+        onCreateInformativo();
       } else {
         onCreateWeeklyReport();
       }
@@ -193,18 +197,19 @@ export function InformeCreateRadialFab({
             </span>
           </button>
 
-          {/* Relatório — à esquerda do FAB (posicao is-aprovacao do arco) */}
+          {/* Informativo — na diagonal (posicao is-liga do arco). Nao cria
+              registro: gera a imagem do story e some. */}
           <button
             type="button"
-            className={`fab-fan-option is-aprovacao${open ? ' is-open' : ''}${
-              pulsingOption === 'weekly' ? ' is-pulsing' : ''
+            className={`fab-fan-option is-liga${open ? ' is-open' : ''}${
+              pulsingOption === 'informativo' ? ' is-pulsing' : ''
             }`}
-            aria-label="Relatório semanal"
+            aria-label="Novo informativo de mercado"
             role="menuitem"
             tabIndex={open ? 0 : -1}
-            onClick={() => handleOptionTap('weekly')}
+            onClick={() => handleOptionTap('informativo')}
           >
-            <span className="fab-fan-option-label">Relatório</span>
+            <span className="fab-fan-option-label">Informativo</span>
             <span className="fab-fan-option-circle">
               <svg
                 className="fab-fan-option-icon"
@@ -212,27 +217,54 @@ export function InformeCreateRadialFab({
                 focusable="false"
                 aria-hidden="true"
               >
-                {/* Calendario — relatorio da semana. */}
-                <rect x="4" y="5" width="16" height="16" rx="2.2" />
-                <path d="M8 3v4" />
-                <path d="M16 3v4" />
-                <path d="M4 10.5h16" />
+                {/* Imagem com montanha — a peca gerada. */}
+                <rect x="3" y="4.5" width="18" height="15" rx="2.2" />
+                <circle cx="8.5" cy="10" r="1.6" />
+                <path d="m4 17 4.5-4.5 3.5 3.5 3-2.5L20 17" />
               </svg>
             </span>
           </button>
+
+          {/* Relatório — à esquerda do FAB (posicao is-aprovacao do arco).
+              Renderizado SO p/ ADMIN + COMMERCIAL: antes quem escondia a opcao
+              de quem nao e autor era o atalho do !canCreateWeekly (o leque nem
+              abria); como o leque agora sempre abre, a condicao precisa ser
+              explicita aqui, senao o botao ficaria clicavel e levaria a um 403. */}
+          {canCreateWeekly ? (
+            <button
+              type="button"
+              className={`fab-fan-option is-aprovacao${open ? ' is-open' : ''}${
+                pulsingOption === 'weekly' ? ' is-pulsing' : ''
+              }`}
+              aria-label="Relatório semanal"
+              role="menuitem"
+              tabIndex={open ? 0 : -1}
+              onClick={() => handleOptionTap('weekly')}
+            >
+              <span className="fab-fan-option-label">Relatório</span>
+              <span className="fab-fan-option-circle">
+                <svg
+                  className="fab-fan-option-icon"
+                  viewBox="0 0 24 24"
+                  focusable="false"
+                  aria-hidden="true"
+                >
+                  {/* Calendario — relatorio da semana. */}
+                  <rect x="4" y="5" width="16" height="16" rx="2.2" />
+                  <path d="M8 3v4" />
+                  <path d="M16 3v4" />
+                  <path d="M4 10.5h16" />
+                </svg>
+              </span>
+            </button>
+          ) : null}
         </div>
       )}
 
       <button
         type="button"
         className={`cv2-fab is-informe-fab${fabIsExpanded ? ' is-expanded' : ''}`}
-        aria-label={
-          !canCreateWeekly
-            ? 'Nova visita'
-            : open
-              ? 'Fechar opções de formulário'
-              : 'Novo formulário'
-        }
+        aria-label={open ? 'Fechar opções de criação' : 'Criar'}
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={handleMainTap}
