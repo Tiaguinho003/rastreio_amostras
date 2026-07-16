@@ -3102,6 +3102,62 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
+  // AP31/DSB-D19: card de "Avisos" — aprovacao a enviar. Aparece enquanto marcado +
+  // EMITIDO + sem etiqueta, dentro da janela (invoice_date <= hoje + lead) OU sem data
+  // ("A definir", D144 — sempre avisa). Some quando a etiqueta e gerada.
+  test('aprovação (DSB-D19): getDashboardAvisos — aparece/some/À definir/fora da janela', async () => {
+    const dayOffset = (days) => {
+      const d = new Date();
+      d.setUTCDate(d.getUTCDate() + days);
+      return d.toISOString().slice(0, 10);
+    };
+    const setLead = (id, days) =>
+      prisma.saleContract.update({ where: { id }, data: { approvalReminderLeadDays: days } });
+
+    // Dentro da janela (data futura + lead folgado) → aparece.
+    const within = await mkApprovalContract({ invoiceDate: dayOffset(5), buyerName: 'Dentro' });
+    await setLead(within, 30);
+    // Faturamento ja passou sem etiqueta → aparece (dueInDays negativo).
+    const overdue = await mkApprovalContract({ invoiceDate: dayOffset(-3), buyerName: 'Vencido' });
+    // "A definir" (sem data) → SEMPRE aparece.
+    const noDate = await mkApprovalContract({ invoiceDate: null, buyerName: 'Sem data' });
+    // Marcado mas com etiqueta enviada → some.
+    const sent = await mkApprovalContract({ invoiceDate: dayOffset(2), buyerName: 'Enviado' });
+    await setLead(sent, 30);
+    await mkApprovalLabel(sent);
+    // Nao-marcado → fora.
+    const unmarked = await mkApprovalContract({
+      requiresApproval: false,
+      invoiceDate: dayOffset(2),
+    });
+    // Faturado (status != EMITIDO) → fora.
+    const invoiced = await mkApprovalContract({ status: 'FATURADO', invoiceDate: dayOffset(2) });
+    await setLead(invoiced, 30);
+    // Washout → fora.
+    const washed = await mkApprovalContract({ status: 'WASH_OUT', invoiceDate: dayOffset(2) });
+    // Alem da janela (data distante, lead 0 default) → fora.
+    const beyond = await mkApprovalContract({ invoiceDate: dayOffset(100), buyerName: 'Longe' });
+
+    const { items } = await saleContractService.getDashboardAvisos({}, adminActor);
+    const ids = new Set(items.map((i) => i.contractId));
+
+    assert.ok(ids.has(within), 'dentro da janela aparece');
+    assert.ok(ids.has(overdue), 'vencido aparece');
+    assert.ok(ids.has(noDate), '"À definir" aparece');
+    assert.ok(!ids.has(sent), 'com etiqueta some');
+    assert.ok(!ids.has(unmarked), 'não-marcado fora');
+    assert.ok(!ids.has(invoiced), 'faturado fora');
+    assert.ok(!ids.has(washed), 'washout fora');
+    assert.ok(!ids.has(beyond), 'além da janela fora');
+
+    const noDateItem = items.find((i) => i.contractId === noDate);
+    assert.equal(noDateItem.dueInDays, null);
+    assert.equal(noDateItem.kind, 'aprovacao_a_enviar');
+    assert.equal(noDateItem.id, `aviso:${noDate}`);
+    const overdueItem = items.find((i) => i.contractId === overdue);
+    assert.ok(overdueItem.dueInDays < 0, 'vencido tem dueInDays negativo');
+  });
+
   test('aprovação (AP16): getRecentApprovalSends devolve nº+comprador, exclui avulsas, ordena desc', async () => {
     const buyerId = randomUUID();
     await createBuyerClient(buyerId);

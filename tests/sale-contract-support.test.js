@@ -14,6 +14,7 @@ import {
   buildBankSnapshot,
   buildPaymentEvent,
   buildInvoiceEvent,
+  buildDashboardAvisoItem,
   buildReceivableView,
   buildShipmentEvent,
   bucketPaymentEvents,
@@ -1149,4 +1150,44 @@ test('isFutureContract / isSpotContract: distinguem a modalidade por type (D147)
   for (const type of ['FUTURO', 'MERCADO_A_VISTA']) {
     assert.notEqual(isFutureContract({ type }), isSpotContract({ type }));
   }
+});
+
+// AP31/DSB-D19: item do card de Avisos — dueInDays (com data, "À definir", vencido)
+// + id namespaced + kind extensível.
+test('buildDashboardAvisoItem: dueInDays por proximidade; "À definir" = null', () => {
+  const withDate = buildDashboardAvisoItem(
+    {
+      id: 'c1',
+      contractNumber: '1001/26',
+      buyerName: 'Comprador X',
+      invoiceDate: new Date('2026-07-20T00:00:00.000Z'),
+    },
+    '2026-07-15'
+  );
+  assert.equal(withDate.id, 'aviso:c1');
+  assert.equal(withDate.kind, 'aprovacao_a_enviar');
+  assert.equal(withDate.contractId, 'c1');
+  assert.equal(withDate.contractNumber, '1001/26');
+  assert.equal(withDate.buyerName, 'Comprador X');
+  assert.equal(withDate.dueInDays, 5); // 20 − 15
+
+  // "À definir" (D144): invoiceDate null → dueInDays null (ainda avisa, sem prazo).
+  const noDate = buildDashboardAvisoItem(
+    { id: 'c2', contractNumber: '1002/26', buyerName: null, invoiceDate: null },
+    '2026-07-15'
+  );
+  assert.equal(noDate.dueInDays, null);
+  assert.equal(noDate.buyerName, null);
+
+  // Faturamento já passou sem etiqueta → dueInDays negativo.
+  const past = buildDashboardAvisoItem(
+    {
+      id: 'c3',
+      contractNumber: '1003/26',
+      buyerName: 'Y',
+      invoiceDate: new Date('2026-07-10T00:00:00.000Z'),
+    },
+    '2026-07-15'
+  );
+  assert.equal(past.dueInDays, -5);
 });
