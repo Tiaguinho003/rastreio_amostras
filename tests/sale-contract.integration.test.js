@@ -400,9 +400,19 @@ if (!databaseUrl || !databaseReachable) {
   // a MODALIDADE do contrato mudar ali; um flip posterior da flag "embarca?" da
   // modalidade NÃO vaza pra contratos antigos (gêmeo do furo AP20/AP32).
   test('EMB32: Editar preserva requiresShipment se a modalidade não muda; segue se muda', async () => {
-    const retirar = await prisma.contractModality.findFirst({
-      where: { requiresShipment: true },
-      orderBy: { name: 'asc' },
+    // Modalidade DEDICADA (upsert idempotente por nome, self-healing) — NAO mexer nas
+    // semeadas: contract_modality NAO e truncada no beforeEach, entao um flip nelas
+    // vazaria pros outros testes de embarque (que usam a 'Retirar' semeada).
+    const shipMod = await prisma.contractModality.upsert({
+      where: { name: 'EMB32 Embarca' },
+      create: {
+        id: randomUUID(),
+        name: 'EMB32 Embarca',
+        requiresShipment: true,
+        status: 'ACTIVE',
+        sortOrder: 900,
+      },
+      update: { requiresShipment: true },
     });
     const semEmbarque = await prisma.contractModality.findFirst({
       where: { requiresShipment: false },
@@ -410,7 +420,7 @@ if (!databaseUrl || !databaseReachable) {
     });
     const { contractId, bankAccountId } = await setupEmittableContract({
       lotNumber: '21500',
-      saleOverrides: { modalityId: retirar.id },
+      saleOverrides: { modalityId: shipMod.id },
     });
     const row = await prisma.saleContract.findUnique({
       where: { id: contractId },
@@ -420,7 +430,7 @@ if (!databaseUrl || !databaseReachable) {
 
     // Alguém baixa a flag "embarca?" da modalidade DEPOIS da emissão.
     await prisma.contractModality.update({
-      where: { id: retirar.id },
+      where: { id: shipMod.id },
       data: { requiresShipment: false },
     });
 
@@ -432,7 +442,7 @@ if (!databaseUrl || !databaseReachable) {
         bankAccountId,
         lookups,
         expectedVersion: row.version,
-        overrides: { modalityId: retirar.id, observations: 'MUDOU OBS' },
+        overrides: { modalityId: shipMod.id, observations: 'MUDOU OBS' },
       }),
       adminActor
     );
@@ -471,7 +481,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(contract.requiresShipment, true);
     const res = await shipmentService.confirmShipment(
       contract.id,
-      { shippedAt: '2026-07-08', files: [] },
+      { shippedAt: '2026-07-08', transporte: 'THIRD_PARTY', files: [] },
       adminActor
     );
     // shippedAt volta como ISO (@db.Date → meia-noite UTC), igual invoiceDate/paidAt.
@@ -493,7 +503,7 @@ if (!databaseUrl || !databaseReachable) {
     });
     await shipmentService.confirmShipment(
       contract.id,
-      { shippedAt: '2026-07-08', files: [] },
+      { shippedAt: '2026-07-08', transporte: 'THIRD_PARTY', files: [] },
       adminActor
     );
     const after = await prisma.saleContract.findUnique({
@@ -509,7 +519,7 @@ if (!databaseUrl || !databaseReachable) {
       () =>
         shipmentService.confirmShipment(
           contract.id,
-          { shippedAt: '2999-01-01', files: [] },
+          { shippedAt: '2999-01-01', transporte: 'THIRD_PARTY', files: [] },
           adminActor
         ),
       (err) => err.status === 422 && err.details?.code === 'VALIDATION_ERROR'
@@ -526,7 +536,7 @@ if (!databaseUrl || !databaseReachable) {
       () =>
         shipmentService.confirmShipment(
           contract.id,
-          { shippedAt: '2026-07-08', files: [] },
+          { shippedAt: '2026-07-08', transporte: 'THIRD_PARTY', files: [] },
           adminActor
         ),
       (err) => err.status === 422 && err.details?.code === 'CONTRACT_SHIPMENT_NOT_REQUIRED'
@@ -537,14 +547,14 @@ if (!databaseUrl || !databaseReachable) {
     const contract = await setupShipmentContract({ lotNumber: '25203' });
     await shipmentService.confirmShipment(
       contract.id,
-      { shippedAt: '2026-07-08', files: [] },
+      { shippedAt: '2026-07-08', transporte: 'THIRD_PARTY', files: [] },
       adminActor
     );
     await assert.rejects(
       () =>
         shipmentService.confirmShipment(
           contract.id,
-          { shippedAt: '2026-07-08', files: [] },
+          { shippedAt: '2026-07-08', transporte: 'THIRD_PARTY', files: [] },
           adminActor
         ),
       (err) => err.status === 409 && err.details?.code === 'CONTRACT_ALREADY_SHIPPED'
@@ -558,7 +568,7 @@ if (!databaseUrl || !databaseReachable) {
       () =>
         shipmentService.confirmShipment(
           contract.id,
-          { shippedAt: '2026-07-08', files: [] },
+          { shippedAt: '2026-07-08', transporte: 'THIRD_PARTY', files: [] },
           adminActor
         ),
       (err) => err.status === 409 && err.details?.code === 'CONTRACT_NOT_SHIPPABLE'
@@ -575,7 +585,7 @@ if (!databaseUrl || !databaseReachable) {
       () =>
         shipmentService.confirmShipment(
           contract.id,
-          { shippedAt: '2026-07-08', files },
+          { shippedAt: '2026-07-08', transporte: 'THIRD_PARTY', files },
           adminActor
         ),
       (err) => err.status === 422 && err.details?.code === 'SHIPMENT_TOO_MANY_PHOTOS'
@@ -586,7 +596,11 @@ if (!databaseUrl || !databaseReachable) {
     const contract = await setupShipmentContract({ lotNumber: '25206' });
     await shipmentService.confirmShipment(
       contract.id,
-      { shippedAt: '2026-07-08', files: [{ fileBuffer: TINY_PNG, originalFileName: 'carga.png' }] },
+      {
+        shippedAt: '2026-07-08',
+        transporte: 'THIRD_PARTY',
+        files: [{ fileBuffer: TINY_PNG, originalFileName: 'carga.png' }],
+      },
       adminActor
     );
     const photos = await shipmentService.listShipmentPhotos(contract.id, adminActor);
@@ -603,7 +617,11 @@ if (!databaseUrl || !databaseReachable) {
       () =>
         shipmentService.confirmShipment(
           contract.id,
-          { shippedAt: '2026-07-08', files: [{ fileBuffer: pdf, originalFileName: 'nf.pdf' }] },
+          {
+            shippedAt: '2026-07-08',
+            transporte: 'THIRD_PARTY',
+            files: [{ fileBuffer: pdf, originalFileName: 'nf.pdf' }],
+          },
           adminActor
         ),
       (err) => err.status === 415
@@ -617,7 +635,11 @@ if (!databaseUrl || !databaseReachable) {
       () =>
         shipmentService.confirmShipment(
           contract.id,
-          { shippedAt: '2026-07-08', files: [{ fileBuffer: big, originalFileName: 'grande.png' }] },
+          {
+            shippedAt: '2026-07-08',
+            transporte: 'THIRD_PARTY',
+            files: [{ fileBuffer: big, originalFileName: 'grande.png' }],
+          },
           adminActor
         ),
       (err) => err.status === 413
@@ -632,11 +654,155 @@ if (!databaseUrl || !databaseReachable) {
     }));
     await shipmentService.confirmShipment(
       contract.id,
-      { shippedAt: '2026-07-08', files },
+      { shippedAt: '2026-07-08', transporte: 'THIRD_PARTY', files },
       adminActor
     );
     const photos = await shipmentService.listShipmentPhotos(contract.id, adminActor);
     assert.equal(photos.items.length, 10);
+  });
+
+  // ============================================================
+  // Embarque FASE 2 (EMB30): transporte + responsavel
+  // ============================================================
+  test('EMB30: COMPANY grava carrier + responsavel (snapshot do nome)', async () => {
+    const contract = await setupShipmentContract({ lotNumber: '25230' });
+    await shipmentService.confirmShipment(
+      contract.id,
+      {
+        shippedAt: '2026-07-08',
+        transporte: 'COMPANY',
+        responsibleUserId: adminActor.actorUserId,
+        files: [],
+      },
+      adminActor
+    );
+    const row = await prisma.saleContract.findUnique({
+      where: { id: contract.id },
+      select: {
+        shipmentCarrier: true,
+        shipmentResponsibleUserId: true,
+        shipmentResponsibleName: true,
+      },
+    });
+    assert.equal(row.shipmentCarrier, 'COMPANY');
+    assert.equal(row.shipmentResponsibleUserId, adminActor.actorUserId);
+    assert.ok(row.shipmentResponsibleName?.startsWith('Admin'));
+  });
+
+  test('EMB30: THIRD_PARTY grava carrier sem responsavel', async () => {
+    const contract = await setupShipmentContract({ lotNumber: '25231' });
+    await shipmentService.confirmShipment(
+      contract.id,
+      { shippedAt: '2026-07-08', transporte: 'THIRD_PARTY', files: [] },
+      adminActor
+    );
+    const row = await prisma.saleContract.findUnique({
+      where: { id: contract.id },
+      select: {
+        shipmentCarrier: true,
+        shipmentResponsibleUserId: true,
+        shipmentResponsibleName: true,
+      },
+    });
+    assert.equal(row.shipmentCarrier, 'THIRD_PARTY');
+    assert.equal(row.shipmentResponsibleUserId, null);
+    assert.equal(row.shipmentResponsibleName, null);
+  });
+
+  test('EMB30: 422 se transporte ausente', async () => {
+    const contract = await setupShipmentContract({ lotNumber: '25232' });
+    await assert.rejects(
+      () =>
+        shipmentService.confirmShipment(
+          contract.id,
+          { shippedAt: '2026-07-08', files: [] },
+          adminActor
+        ),
+      (err) =>
+        err.status === 422 &&
+        err.details?.code === 'VALIDATION_ERROR' &&
+        err.details?.field === 'transporte'
+    );
+  });
+
+  test('EMB30: 422 COMPANY sem responsavel (SHIPMENT_RESPONSIBLE_INVALID)', async () => {
+    const contract = await setupShipmentContract({ lotNumber: '25233' });
+    await assert.rejects(
+      () =>
+        shipmentService.confirmShipment(
+          contract.id,
+          { shippedAt: '2026-07-08', transporte: 'COMPANY', files: [] },
+          adminActor
+        ),
+      (err) => err.status === 422 && err.details?.code === 'SHIPMENT_RESPONSIBLE_INVALID'
+    );
+  });
+
+  test('EMB30: 422 COMPANY com responsavel PROSPECTOR (blindagem)', async () => {
+    const contract = await setupShipmentContract({ lotNumber: '25234' });
+    const prospectorId = randomUUID();
+    const suffix = prospectorId.slice(0, 8);
+    await prisma.user.create({
+      data: {
+        id: prospectorId,
+        fullName: 'Prospector Teste',
+        username: `prosp-${suffix}`,
+        usernameCanonical: `prosp-${suffix}`,
+        email: `prosp-${suffix}@example.com`,
+        emailCanonical: `prosp-${suffix}@example.com`,
+        passwordHash: 'x',
+        role: 'PROSPECTOR',
+      },
+    });
+    await assert.rejects(
+      () =>
+        shipmentService.confirmShipment(
+          contract.id,
+          {
+            shippedAt: '2026-07-08',
+            transporte: 'COMPANY',
+            responsibleUserId: prospectorId,
+            files: [],
+          },
+          adminActor
+        ),
+      (err) => err.status === 422 && err.details?.code === 'SHIPMENT_RESPONSIBLE_INVALID'
+    );
+  });
+
+  // ============================================================
+  // Embarque FASE 2 (EMB31): retencao de 15 dias das fotos
+  // ============================================================
+  test('EMB31: foto >15d some da lista, descriptor 404 e a purga apaga a linha', async () => {
+    const contract = await setupShipmentContract({ lotNumber: '25235' });
+    await shipmentService.confirmShipment(
+      contract.id,
+      {
+        shippedAt: '2026-07-08',
+        transporte: 'THIRD_PARTY',
+        files: [{ fileBuffer: TINY_PNG, originalFileName: 'velha.png' }],
+      },
+      adminActor
+    );
+    const before = await shipmentService.listShipmentPhotos(contract.id, adminActor);
+    assert.equal(before.items.length, 1);
+    const photoId = before.items[0].id;
+    // Envelhece a foto pra 20 dias atras (via update direto — o createdAt e @default now).
+    await prisma.saleContractShipmentPhoto.update({
+      where: { id: photoId },
+      data: { createdAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000) },
+    });
+    // Some da lista (filtro) e da URL direta (404).
+    const after = await shipmentService.listShipmentPhotos(contract.id, adminActor);
+    assert.equal(after.items.length, 0);
+    await assert.rejects(
+      () => shipmentService.getShipmentPhotoDescriptor(contract.id, photoId, adminActor),
+      (err) => err.status === 404
+    );
+    // A purga (force, bypassa o throttle) remove a linha do banco.
+    await shipmentService.purgeExpiredShipmentPhotos({ force: true });
+    const row = await prisma.saleContractShipmentPhoto.findUnique({ where: { id: photoId } });
+    assert.equal(row, null);
   });
 
   // ============================================================
@@ -656,7 +822,7 @@ if (!databaseUrl || !databaseReachable) {
     const embarcado = await setupShipmentContract({ lotNumber: '25302' });
     await shipmentService.confirmShipment(
       embarcado.id,
-      { shippedAt: '2026-07-08', files: [] },
+      { shippedAt: '2026-07-08', transporte: 'THIRD_PARTY', files: [] },
       adminActor
     );
     const cancelado = await setupShipmentContract({ lotNumber: '25303' });
@@ -710,7 +876,7 @@ if (!databaseUrl || !databaseReachable) {
     const c2 = await setupShipmentContract({ lotNumber: '25311' });
     await shipmentService.confirmShipment(
       c2.id,
-      { shippedAt: '2026-07-08', files: [] },
+      { shippedAt: '2026-07-08', transporte: 'THIRD_PARTY', files: [] },
       adminActor
     );
 
@@ -770,7 +936,7 @@ if (!databaseUrl || !databaseReachable) {
     });
     await shipmentService.confirmShipment(
       done.id,
-      { shippedAt: toKey(doneDate), files: [] },
+      { shippedAt: toKey(doneDate), transporte: 'THIRD_PARTY', files: [] },
       adminActor
     );
 
@@ -886,7 +1052,7 @@ if (!databaseUrl || !databaseReachable) {
     // Confirma o embarque (não bumpa version) → pagar passa com a MESMA expectedVersion.
     await shipmentService.confirmShipment(
       contract.id,
-      { shippedAt: '2026-07-08', files: [] },
+      { shippedAt: '2026-07-08', transporte: 'THIRD_PARTY', files: [] },
       adminActor
     );
     const paid = await saleContractService.paySaleContract(

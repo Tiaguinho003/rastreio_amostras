@@ -33,6 +33,7 @@ import {
   normalizeContractLookupInput,
   normalizeEtapa2Input,
   normalizeRequiredAgio,
+  normalizeShipmentCarrier,
   normalizeUnitPrice,
   normalizeWashoutReason,
   splitOriginLotForLabel,
@@ -464,6 +465,14 @@ test('normalizeRequiredAgio: aceita o par (case-insensitive) e EXIGE o tipo', ()
     () => normalizeRequiredAgio({ agioDesagioType: 'AGIO', agioDesagioValue: 0 }),
     /greater than zero/
   );
+});
+
+test('normalizeShipmentCarrier: aceita COMPANY/THIRD_PARTY (case-insensitive) e EXIGE o valor', () => {
+  assert.equal(normalizeShipmentCarrier('company'), 'COMPANY');
+  assert.equal(normalizeShipmentCarrier('THIRD_PARTY'), 'THIRD_PARTY');
+  assert.throws(() => normalizeShipmentCarrier(undefined), /transporte is required/);
+  assert.throws(() => normalizeShipmentCarrier(''), /transporte is required/);
+  assert.throws(() => normalizeShipmentCarrier('OUTRO'), /COMPANY or THIRD_PARTY/);
 });
 
 test('normalizeContractLookupInput: valida a lista e exige o nome (trim)', () => {
