@@ -51,7 +51,7 @@ validação no device · ✅ concluída.
 | 3   | LOT    | Lotes (lista)      | `/samples`                                                                    | 📱     | S8      | Deferidos resolvidos (CSS legado −594 linhas, testes do reducer+filtros) + decisões D1–D4 (uniforme, PROSPECTOR fora do service, copy "lote", vazio único) + erro de carregamento visível, portais, a11y; 10 commits                                                                 |
 | 4   | LNW    | Novo lote          | modal do leque "+" (rota `/samples/new` removida — LNW-D1)                    | 📱     | S9      | Rota wrapper removida + decisões D1–D4 (copy "lote", receivedChannel fora do front, editou = manual) + hardening da API do número fixo, CSS nsv2 órfão −299, press/reduced-motion/contraste/44px, drop-up da safra, 17 testes; 8 commits                                             |
 | 5   | LDT    | Detalhe do lote    | `/samples/[sampleId]`                                                         | 📱     | S11     | Uniforme pros 5 papéis (D1) + decisões D2–D4 (copy "lote"/"Deletar", revalidação, endurecer foto); **endurece endpoint de foto (auth)** + revalidação silenciosa + código morto −254 + CSS sdv-\* órfão −1435 + acentos/plural + press/reduced-motion/contraste/44px/a11y; 8 commits |
-| 6   | CAM    | Câmera / Scanner   | `/camera`                                                                     | ⬜     | —       | —                                                                                                                                                                                                                                                                                    |
+| 6   | CAM    | Câmera / Scanner   | `/camera`                                                                     | ⬜     | —       | Decisões CAM-D1–D4 pré-travadas (2026-07-16): vira modal global mobile-only (sheet), desktop perde classificação por foto (Editar fica), rota some (404), voltar fecha o modal; ciclo R1–R8 ainda não iniciado                                                                       |
 | 7   | CLI    | Clientes (lista)   | `/clients`                                                                    | ⬜     | —       | —                                                                                                                                                                                                                                                                                    |
 | 8   | CDT    | Detalhe do cliente | `/clients/[clientId]`                                                         | ⬜     | —       | —                                                                                                                                                                                                                                                                                    |
 | 9   | CTR    | Contratos          | `/contratos`                                                                  | ⬜     | —       | —                                                                                                                                                                                                                                                                                    |
@@ -640,6 +640,42 @@ detalhe → outro usuário classifica/vende/envia → voltar ao app atualiza;
 parado atualiza em ≤60s); os 2 modais (data, reclassificar) com foco preso.
 
 ### Câmera / Scanner (CAM) — ⬜ não iniciada
+
+> Decisões de arquitetura travadas com o Flavio em 2026-07-16, ANTES do ciclo
+> (a conferência R1–R8 ainda não começou). Elas definem o alvo contra o qual a
+> conferência vai medir — achados sobre acoplamentos de rota que a conversão
+> elimina não devem virar trabalho.
+
+**Decisões pré-ciclo:**
+
+- **CAM-D1 — Câmera vira modal global (mobile-only).** A página `/camera`
+  deixa de existir; o fluxo inteiro (scanner QR + captura + classificação)
+  passa a viver num modal disponível em todas as páginas do app mobile,
+  apresentado como sheet que **sobe da parte inferior** da tela. Gatilhos:
+  botão central da tabbar (hoje `Link`, vira ação) e os botões
+  Classificar/Reclassificar do detalhe do lote (hoje `router.push`, viram
+  abertura do modal com `sampleId` — o modo contexto por prop substitui o
+  `?sampleId=` da URL).
+- **CAM-D2 — Desktop perde a classificação POR FOTO.** Sem modal de câmera no
+  desktop (breakpoint canônico `(min-width: 901px)`): os botões
+  "Classificar"/"Reclassificar" do detalhe somem no desktop. O **"Editar"
+  permanece** (caminho 3 da `Classificacao-Visao-Geral.md` §1 — edição de
+  campos sem câmera): corrigir uma classificação existente não obriga pegar o
+  celular. Gate só de UI — backend continua por papel (device não é fronteira
+  de segurança).
+- **CAM-D3 — Rota `/camera` removida de vez (404).** Sem redirect; URLs
+  antigas caem no not-found. O modal abre só pelos gatilhos da UI.
+- **CAM-D4 — Voltar do Android fecha o modal.** O gesto/botão de voltar do
+  sistema fecha o modal em vez de navegar (exige history entry ao abrir — a
+  rota dava isso de graça, o modal precisa tratar).
+
+**Ordem de execução acordada (2026-07-16):** conferência do fluxo ainda como
+página (bugs corrigidos antes de mover código) → extração página→componente
+sem mudança de comportamento (prop `sampleId?` + callbacks no lugar de
+`useSearchParams`/`router.back()`) → montagem global do modal + troca dos
+gatilhos + remoção da rota → gate desktop. A conferência CAM cobre **fluxo e
+container, não os campos da ficha** — `ClassificationReviewSheetBody` e a
+semântica dos 22 campos pertencem ao ciclo da extração (posterior).
 
 ### Clientes — lista (CLI) — ⬜ não iniciada
 
