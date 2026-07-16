@@ -1154,6 +1154,22 @@ export interface RecentSendsResponse {
   items: RecentSendItem[];
 }
 
+// AP31/DSB-D19: item do card de "Avisos" do dashboard. Card GERAL extensível — o
+// `kind` discrimina o tipo de aviso (só "aprovacao_a_enviar" hoje). `dueInDays` = dias
+// de hoje (BRT) até a data de faturamento; `null` = "À definir" (D144) → texto "sem data".
+export interface DashboardAviso {
+  id: string;
+  kind: 'aprovacao_a_enviar';
+  contractId: string;
+  contractNumber: string;
+  buyerName: string | null;
+  dueInDays: number | null;
+}
+
+export interface DashboardAvisosResponse {
+  items: DashboardAviso[];
+}
+
 // Card de Eventos do dashboard (F1, E21-E27/D138): feed de "pagamentos de contrato".
 // Cada evento = 1 contrato no dia da sua data de pagamento — agendado
 // (contract_payment_due, no paymentDate) ou realizado (contract_payment_paid, no

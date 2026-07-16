@@ -1005,6 +1005,35 @@ export function buildRecentApprovalSendItem(log, contract) {
   };
 }
 
+// Teto de itens do card de "Avisos" do dashboard (top N por urgencia —
+// invoice_date ASC NULLS LAST). Pendencias de aprovacao raramente passam disso.
+export const DASHBOARD_AVISOS_LIMIT = 50;
+
+// AP31/DSB-D19: projeta 1 contrato num item do card de "Avisos" do dashboard (1º
+// tipo = 'aprovacao_a_enviar'). `row` vem do $queryRaw (buyerName ja extraido do
+// buyer_snapshot). `dueInDays` = dias de hoje (BRT) ate a data de faturamento; `null`
+// quando "A definir" (D144, invoice_date NULL). O texto de prazo ("vence esta semana/
+// este mes/em N dias") e derivado no front (formatAvisoDue). id NAMESPACED ('aviso:'+id)
+// — o card e extensivel por `kind`.
+export function buildDashboardAvisoItem(row, todayKey) {
+  const invoiceIso = toIsoString(row.invoiceDate);
+  const invoiceKey = invoiceIso ? invoiceIso.slice(0, 10) : null;
+  const dueInDays = invoiceKey
+    ? Math.round(
+        (Date.parse(`${invoiceKey}T00:00:00.000Z`) - Date.parse(`${todayKey}T00:00:00.000Z`)) /
+          86_400_000
+      )
+    : null;
+  return {
+    id: `aviso:${row.id}`,
+    kind: 'aprovacao_a_enviar',
+    contractId: row.id,
+    contractNumber: row.contractNumber,
+    buyerName: row.buyerName ?? null,
+    dueInDays,
+  };
+}
+
 // ===========================================================================
 // Etapa 2 (Fase B.2 Passo 2): validacao dos campos da "Gerar documento" +
 // snapshots das partes/banco/armazens. A RESOLUCAO no banco (entidades existem,

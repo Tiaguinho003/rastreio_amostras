@@ -32,6 +32,8 @@ import {
   brtTodayKey,
   bucketPaymentEvents,
   bucketInvoiceEvents,
+  buildDashboardAvisoItem,
+  DASHBOARD_AVISOS_LIMIT,
   buildWarehouseSnapshot,
   assertAgioWithinUnitPrice,
   computeContractMoneyWithAgio,
@@ -745,6 +747,35 @@ export class SaleContractService {
     ]);
 
     return bucketInvoiceEvents(scheduledRows, doneRows, brtTodayKey());
+  }
+
+  // AP31/DSB-D19: card de "Avisos" do dashboard — 1º tipo = "aprovacao a enviar".
+  // BINARIO (nao o fan-out do lembrete antigo, DSB-D9): o contrato pendente aparece
+  // uma vez e SOME quando a etiqueta e gerada. Predicado = worklist G0 + janela de
+  // lead-time (invoice_date <= hoje + approval_reminder_lead_days). "A definir" (D144,
+  // invoice_date NULL) SEMPRE avisa (sem janela). Auth-only (todos nao-PROSPECTOR;
+  // barrado no allowlist central). Hits idx_sale_contract_requires_approval_status_invoice.
+  async getDashboardAvisos(_input, actorContext) {
+    assertAuthenticatedActor(actorContext, 'list dashboard avisos');
+    const todayKey = brtTodayKey();
+    const rows = await this.prisma.$queryRaw`
+      SELECT sc.id,
+             sc.contract_number AS "contractNumber",
+             sc.buyer_snapshot->>'displayName' AS "buyerName",
+             sc.invoice_date AS "invoiceDate"
+      FROM sale_contract sc
+      WHERE sc.requires_approval = true
+        AND sc.status = 'EMITIDO'
+        AND NOT EXISTS (SELECT 1 FROM approval_label_log a WHERE a.sale_contract_id = sc.id)
+        AND (
+          sc.invoice_date IS NULL
+          OR sc.invoice_date <=
+             (${todayKey}::date + (COALESCE(sc.approval_reminder_lead_days, 0) || ' days')::interval)
+        )
+      ORDER BY sc.invoice_date ASC NULLS LAST, sc.contract_seq ASC
+      LIMIT ${DASHBOARD_AVISOS_LIMIT}
+    `;
+    return { items: rows.map((row) => buildDashboardAvisoItem(row, todayKey)) };
   }
 
   // AP16: envios de aprovacao recentes p/ o card "Aprovacoes enviadas" (DSB-D14:

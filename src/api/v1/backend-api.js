@@ -2928,6 +2928,19 @@ export function createBackendApiV1({
         return { status: 200, body: { events } };
       }),
 
+    // AP31/DSB-D19: feed do card de "Avisos" do dashboard (1º tipo = aprovacao a
+    // enviar). Auth-only (todos os nao-PROSPECTOR; PROSPECTOR barrado no allowlist
+    // central). Sem janela — e "pendente agora" (binario), nao calendario.
+    getDashboardAvisos: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractService) {
+          throw new HttpError(501, 'Sale contract service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const result = await saleContractService.getDashboardAvisos({}, actor);
+        return { status: 200, body: result };
+      }),
+
     getSaleContract: (input) =>
       executeApiForInput(input, async () => {
         if (!saleContractService) {
