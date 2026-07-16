@@ -1,6 +1,6 @@
 # Informativos — Plano de Trabalho
 
-> **Status**: **IMPLEMENTADO em 2026-07-16** (F1–F4, commits `0f7d818`..`bd89295`, **não pushados**) — decisões INF1–INF43 fechadas. Motor + modal de 2 etapas no leque do FAB da `/relatorios`, gerando o PNG 1080×1920. Sem migration, sem rota de API (P1). Gates verdes (unit 476/476, lint, typecheck, format). **Pendente: `npm run build` (o `next dev` estava ativo) e a validação visual — 🖥️ conferir a peça contra o mockup e 📱 postar um story de teste, único jeito de confirmar a zona segura (INF8).** Abertas: Q-C3 (saca em alta res), Q-F1 (2º tipo).
+> **Status**: **IMPLEMENTADO em 2026-07-16** — decisões **INF1–INF56** fechadas. Dois tipos (**Mercado** e **Meteorológico**) num fluxo de **3 fases** (mercado → meteorológico → revisão), na 3ª opção do leque do FAB da `/relatorios`, gerando PNGs 1080×1920. Sem migration, sem rota de API (P1). Gates verdes: **build**, lint, typecheck, format, **unit 521/521**. **Pendente: só a validação visual** — 🖥️ conferir as duas peças contra os mockups (com atenção à folga do título de 60px do meteorológico, INF47) e 📱 postar um story de teste, único jeito de confirmar a zona segura (INF8). Aberta: **Q-C3** (saca em alta res).
 > **Última atualização**: 2026-07-16
 > **Prefixo de decisões**: INF (INF1, INF2, ...)
 > **Documento centralizado da feature**: conceito, decisões, especificação visual e fases vivem AQUI.
@@ -36,22 +36,24 @@
 
 ## 3. Escopo
 
-### 3.1 Dentro do escopo (v1)
+### 3.1 Dentro do escopo
 
-- Modal em `/relatorios` que gera o **Informativo de Mercado**.
-- Campos preenchidos à mão, com o layout do §5.
-- Geração de **PNG 1080×1920** no navegador e download do arquivo.
-- Formatação automática dos valores monetários (elimina o erro de digitação do §1).
-- Pré-preenchimento a partir da última geração (INF25), com os campos seguindo editáveis.
+- Modal em `/relatorios` com o fluxo de **3 fases**: **Informativo de Mercado** → **Informativo Meteorológico** (pulável) → revisão (INF53).
+- Campos preenchidos à mão, com os layouts do §5 e §5-B.
+- O **print da previsão** colado pelo usuário (INF45/INF52) — colar, arrastar ou escolher.
+- Geração de **PNG 1080×1920** no navegador e entrega das duas peças (INF55).
+- Formatação automática dos valores (elimina o erro de digitação do §1).
+- Pré-preenchimento dos campos lentos do Mercado a partir da última geração (INF25).
 
 ### 3.2 Fora do escopo (explícito)
 
 - Persistir o informativo, seus valores ou um histórico (P1).
 - Buscar cotações de qualquer fonte externa ou do próprio banco (P3).
+- **Buscar a previsão do tempo de uma API** — avaliado e descartado (INF45, §4.3).
+- **Recortador de imagem embutido** — o usuário já recorta na ferramenta de captura (INF50).
 - Publicar direto no Instagram/redes (não citado; exigiria integração e credencial).
 - Editar/personalizar o layout pela tela (P2).
 - Outros enquadramentos (feed 4:5, A4, PDF) — descartados pelas INF2/INF3.
-- O **segundo tipo de informativo** — anunciado pelo usuário, ainda sem escopo (Q-F1).
 
 ### 3.3 Estacionamento (ideias futuras, sem compromisso)
 
@@ -76,11 +78,42 @@ O único tipo especificado. Estrutura de conteúdo, herdada do `.docx` atual:
 
 > **CPR fica separada (INF24)**: `MERCADO FUTURO` e `CPR — MERCADO FUTURO` têm as mesmas colunas de ano, e fundi-las numa tabela só (linhas AGO / SET / CPR) economizaria ~184px de altura — o recurso mais escasso do story. **Decisão: manter separado**, porque CPR é outro produto e a fusão comunicaria algo errado. E os anos das duas seções são **campos independentes** (INF26, 4 controles): a proposta de um par único alimentar ambas foi descartada porque os anos podem divergir.
 
-### 4.2 Segundo tipo (futuro — Q-F1)
+### 4.2 Informativo Meteorológico (INF44 — resolve a Q-F1)
 
-O usuário anunciou um segundo tipo, sem escopo definido ainda. A pasta de origem (`Instagram_Safras/Informativos/`) contém um `Informativo meteorológico (1).jpg`, o que **sugere** — sem confirmação — que seja o meteorológico.
+Confirmado em 2026-07-16: o segundo tipo é o **meteorológico**, peça irmã do Mercado (mesma casca, mesma anatomia de tabela, corpo próprio). Estrutura, herdada da peça atual:
 
-Consequência de projeto (P5): a casca (modal, seleção de tipo, motor de render, download) deve ser comum, e cada tipo entra como um **layout + um conjunto de campos**. O tipo não deve ser um `if` espalhado.
+| Bloco               | Conteúdo                                               |
+| ------------------- | ------------------------------------------------------ |
+| Data                | pílula no topo, por extenso (igual ao Mercado — INF46) |
+| _(sem barra)_       | `TEMPERATURA` · `UMIDADE RELATIVA DO AR` — 2 linhas    |
+| `REGISTRO EM 24h`   | `MÁXIMA` · `MÍNIMA` · `PLUVIOSIDADE` — 3 linhas        |
+| `PREVISÃO DO TEMPO` | painel branco com o **print** que o usuário cola       |
+| Rodapé              | @, e-mail, telefone, logo                              |
+
+**São 6 controles**, contra os 21 do Mercado — por isso a fase é rápida. A primeira tabela **não tem barra de título**, fiel ao original, e **não há valor herói** (INF48): os 5 números saem a 36px, ao contrário do Mercado, que destaca o preço físico a 52px verde.
+
+**A previsão é um print colado, não uma API (INF45).** A avaliação está no §4.3.
+
+**O P5 foi pago aqui**: até a INF44 a casca comum era uma promessa do documento, não do código — header, pílula e rodapé eram emitidos dentro do `buildMercadoLayout`. A extração para `story-layout.ts` veio antes do meteorológico, provada op a op (§9.2).
+
+### 4.3 Por que a previsão não vem de uma API (INF45)
+
+Avaliado em 2026-07-16, a pedido do usuário, e **descartado**. O que a apuração mostrou:
+
+| Fonte                    | Dias  | Uso comercial  | Custo/mês | Veredito                                          |
+| ------------------------ | ----- | -------------- | --------- | ------------------------------------------------- |
+| **INMET** (oficial)      | —     | —              | —         | ❌ derruba a conexão (4/4 tentativas)             |
+| **CPTEC/INPE** (oficial) | —     | —              | —         | ❌ XML bem-formado com **todos os campos `null`** |
+| OpenWeatherMap           | 5     | ODbL, sim      | $0        | perde 2 dias                                      |
+| WeatherAPI Free          | 3     | sim            | $0        | perde 4 dias                                      |
+| WeatherAPI Starter       | **7** | sim            | **$7**    | única grátis-ish com os 7 dias                    |
+| Open-Meteo (ECMWF)       | 7–16  | **só no pago** | **$29**   | melhor tecnicamente; +69% no TCO de R$ 231        |
+
+O Open-Meteo é o melhor tecnicamente (sem chave, CORS liberado, respondeu em 1,1s, resolveu a altitude certa), mas o plano grátis é **explicitamente não-comercial** (_"you may only use the free API services for non-commercial purposes... Integrating our service into commercial products"_) e o app é produto comercial.
+
+O print manual ganha em tudo o que importa aqui: **custo zero, sem chave, sem rota de servidor, sem segredo no Secret Manager, sem dependência de uptime** numa peça diária, e **sem divergir** do que os seguidores veem no próprio celular. Mantém o **P1** e a **INF13** intactos e dispensa emendar o **P3**.
+
+Um ganho não-óbvio da API seria desenhar a faixa na identidade da marca (o print do MSN é branco e azul, estranho à paleta) — mas ele custaria os ícones, e os CDNs entregam 64px, que numa peça de 1080 borrariam do mesmo jeito que a saca da INF9.
 
 ## 5. Especificação visual — Informativo de Mercado
 
@@ -142,6 +175,8 @@ Faixa `GREEN` de `y=0` a **`HB=466`** (sangra até o topo).
 
 Logo à esquerda e título à direita se equilibram: não sobra campo vazio, e o logo é grande o suficiente para ler no story.
 
+> O header é da **casca** (`pushHeader` do `story-layout.ts`), parametrizado por `StoryHeaderSpec` — o kicker, o título, e opcionalmente tamanho/`y`/tracking. Os valores da tabela acima são os **defaults**; o meteorológico só sobrescreve os que precisa (§5-B.1).
+
 ### 5.6 Pílula da data
 
 Retângulo arredondado **montado na borda inferior da faixa**, centrado: largura 520, `y = HB−38 → HB+38`, raio 38, preenchimento `WHITE`, contorno `GREEN` 4px. Texto Poppins 600, 30px, tracking 2, `GREEN`, centrado.
@@ -184,6 +219,46 @@ Faixa `GREEN` de **`FB=1618`** até `y=1920` (sangra até a base).
 
 - Contatos: 3 linhas Poppins 400, 25px, `FOOTER_TX`, em `x = M+8`, a partir de `y = FB+52`, passo 38 → última linha em `y≈1728`, **dentro da zona segura**.
 - Lockup branco h=72 à direita, `y = FB+62`.
+
+## 5-B. Especificação visual — Informativo Meteorológico
+
+> Peça irmã: **tudo do §5 vale**, exceto o que está aqui. Formato, zona segura, paleta, tipografia, pílula e rodapé são os mesmos, e são emitidos pela mesma casca (`lib/informativos/story-layout.ts`).
+
+### 5-B.1 Header (INF47)
+
+Idêntico ao H3, com duas diferenças: o kicker é `INFORMATIVO` (sem o "DE") e o título é `METEOROLÓGICO` a **60px**, começando em `y=282`.
+
+**Por que 60 e não 86**: a 86px a palavra pediria ~538px de largura e só existem ~568px à direita do logo — passaria sem folga nenhuma. A 60px o bloco fecha em `y=342`, na mesma base ótica do `MERCADO`. Em `y=256` (o default) um título de 60px terminaria em 316 e flutuaria alto.
+
+> ⚠️ A folga de ~30px contra o logo é **fina**, e o stub de medida dos testes documenta o orçamento mas **não prova a métrica real da Poppins** — a prova é a conferência visual. Plano B, se apertar: `tracking: 0` devolve ~24px, ou cair para 56px.
+
+### 5-B.2 Corpo — 3 seções
+
+Faixa útil `BODY_BOTTOM − BODY_TOP = 1592 − 546 = 1046`.
+
+| #   | Seção                 | Altura  | Composição                         |
+| --- | --------------------- | ------- | ---------------------------------- |
+| 1   | Temperatura / Umidade | **152** | `2 × 76` — **sem barra de título** |
+| 2   | `REGISTRO EM 24h`     | **284** | `SH 56 + 3 × 76`                   |
+| 3   | `PREVISÃO DO TEMPO`   | **516** | `SH 56 + PANEL_H 460`              |
+|     | **Σ 952**             |         | **gap = (1046 − 952) / 2 = 47**    |
+
+O Mercado tem gap 43,3 — irmãs, não gêmeas. Linhas: rótulo Poppins 600/29 `BROWN` à esquerda (`x = M+32`), valor Poppins **700/36** `BROWN` à direita (`x = W−M−32`). **Sem herói** (INF48).
+
+### 5-B.3 O painel da previsão
+
+| Item            | Valor                                       |
+| --------------- | ------------------------------------------- |
+| Retângulo       | `(60, 1132)`, **960 × 460**, raio **14**    |
+| Fundo / borda   | `WHITE` / `BORDER` 1px                      |
+| Padding interno | **12** (`PREVISAO_PAD`)                     |
+| Encaixe         | `fitContain` — imagem inteira, centralizada |
+
+- **Altura FIXA** (INF49): o layout **não flexiona** com a proporção do print. Honra o P2 — o leitor acha o dado no mesmo lugar todo dia. A sobra fica invisível porque o print do MSN tem fundo branco.
+- **O painel é emitido SEMPRE**, com ou sem print. É ele que segura a altura. Há teste provando que a peça sem print tem `sectionHeights` e `gap` idênticos à peça com print.
+- **Amplia sem trava** (INF50): print menor que o painel é ampliado, e o borrão é aceito — decisão explícita do usuário, que preferiu o campo cheio a uma imagem pequena e nítida. Há teste cercando isso contra um "conserto" futuro.
+- **O padding dispensa um `clip()`**: num canto de raio `R`, um ponto a `(p,p)` do vértice só fica dentro do arco se `p ≥ R(1 − 1/√2) ≈ 0,293R`. Com `R=14` → `p ≥ 4,1px`; os 12 dão 3× a folga, e o desenhador continua burro. Há teste com a assertiva `imgRect ⊂ inset(panel, PREVISAO_PAD)`.
+- O painel termina em `y=1592`, **168px dentro do `SAFE_BOT`**.
 
 ## 6. Campos — fixos vs. editáveis (Q-C1 resolvida em 2026-07-16)
 
@@ -253,16 +328,46 @@ Isso é bastante digitação para uma peça diária — e é o que sustenta a **
 
 Os anos são **4 controles**, não 2 (INF26): as duas seções são independentes e podem divergir.
 
+### 6.7 Meteorológico — campos
+
+Todos os rótulos são 🔒 fixos (`TEMPERATURA`, `UMIDADE RELATIVA DO AR`, `REGISTRO EM 24h`, `MÁXIMA`, `MÍNIMA`, `PLUVIOSIDADE`, `PREVISÃO DO TEMPO`). A **data é 🤖 automática**, igual ao Mercado.
+
+| Campo            | Casas       | Sinal       | Veste |
+| ---------------- | ----------- | ----------- | ----- |
+| Temperatura      | 1           | ✅ negativo | `°C`  |
+| Umidade do ar    | 0 (inteiro) | —           | `%`   |
+| Máxima           | 1           | ✅ negativo | `°C`  |
+| Mínima           | 1           | ✅ negativo | `°C`  |
+| Pluviosidade     | 1           | —           | `mm`  |
+| Previsão (print) | —           | —           | —     |
+
+**São 6 controles** — e **nenhum é "lento"**: todos mudam todo dia, então o meteorológico não usa `localStorage`.
+
+**Negativo (INF51)** — o `maskDecimalInput` do `lib/currency.ts` roda `onlyDigits` (`/\D+/g`) e **come o sinal**: mínima negativa era impossível de digitar, e numa manhã de geada no Sul de Minas a peça publicaria `1,5 °C` no lugar de `-1,5 °C` — erro de **informação**, não de layout. O `currency.ts` **não foi tocado** (é compartilhado com os contratos e cercado por `tests/currency.test.js`); o sinal é tratado por fora, no `maskDecimalSigned` do `format.ts`. Duas sutilezas que só aparecem digitando:
+
+- lê **só o `-` inicial** — `includes('-')` tornaria `3-5` negativo;
+- devolve `'-'` sozinho enquanto não há dígito, senão o sinal sumiria no instante em que fosse teclado. Esse `-` em trânsito conta como **campo vazio** (`isBlankNumber`), e é o que o `missingMeteo` usa.
+
+Umidade e pluviosidade **não aceitam sinal** — não existem negativas.
+
 ## 7. UX do modal
 
 Implementado em `components/informe/InformativoFormSheet.tsx` + `InformativoForm.tsx`.
 
 - Aberto pela 3ª opção do leque do FAB, rótulo **"Informativo"** (INF31).
 - **BottomSheet** (skill `modals`: ação com formulário → BottomSheet), classe `is-informe is-informativo`. No desktop o CSS global já converte todo `.bottom-sheet` em modal centrado de até 650px.
-- **Duas etapas (INF32)**: 1) os 21 controles; 2) a peça renderizada + `Voltar e ajustar` / `Baixar informativo`.
-- **Descarte confirmado** ao fechar com campos preenchidos (INF41), via `onDismissAttempt` do BottomSheet.
-- Ao entregar: fecha + toast "Informativo gerado" (INF42). **Cancelar** o compartilhamento mantém o sheet aberto.
-- Inputs seguem a convenção do repo: `type="text"` + `inputMode`, nunca `type="number"`.
+- **Três fases (INF53)**, com o título do sheet mudando em cada uma (o `.bottom-sheet-title` já tem `aria-live="polite"`, então a troca é anunciada de graça):
+
+| Fase      | Título                      | Ações (no **footer** do BottomSheet — INF54)       |
+| --------- | --------------------------- | -------------------------------------------------- |
+| `mercado` | "Informativo de mercado"    | `Continuar`                                        |
+| `meteo`   | "Informativo meteorológico" | `Pular` · `Revisar`                                |
+| `revisao` | "Revisar e baixar"          | `Voltar` · `Baixar os dois` / `Baixar informativo` |
+
+- **Voltar de fase não perde nada**: trocar de fase mexe só no campo `phase` do draft; nenhum campo é desmontado. Cercado por teste.
+- **Descarte confirmado** ao fechar com campos preenchidos (INF41), via `onDismissAttempt` do BottomSheet. Considera também o print colado.
+- Ao entregar: fecha + toast, no singular ou plural conforme o número de peças (INF42). **Cancelar** o compartilhamento mantém o sheet aberto.
+- Inputs seguem a convenção do repo: `type="text"` + `inputMode`, nunca `type="number"`. Os de temperatura usam `inputMode="text"` (e não `numeric`) porque precisam do `−`.
 
 > O tingimento verde/vermelho do toggle de direção é **estado persistente**, não feedback de toque — a mesma exceção que o `.inf-pill` já documenta no `globals.css` (skill `button-press-effect` §9). O `:active` continua só com `transform`.
 
@@ -291,77 +396,105 @@ Fatos do repo que sustentam a escolha (verificados em 2026-07-16):
 
 ### 9.1 Módulos (implementados)
 
-| Arquivo                                 | Papel                                                                                                                                       |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `lib/informativos/mercado-layout.ts`    | **Puro, sem canvas.** Constantes da §5 + `buildMercadoLayout(data, measure)` → lista de ops posicionadas + `gap`. É o que os testes atacam. |
-| `lib/informativos/mercado-draw.ts`      | `drawMercado(ctx, data, logo)` — percorre as ops e pinta. Sem regra.                                                                        |
-| `lib/informativos/format.ts`            | A regra INF19 ("veste a unidade") + as máscaras da peça.                                                                                    |
-| `lib/informativos/slow-fields-store.ts` | Pré-preenchimento (INF36) em `localStorage`.                                                                                                |
-| `lib/date-br.ts`                        | `formatDateExtensoLocal` / `formatDateIsoLocal` — relógio **local**.                                                                        |
+**A casca é comum e o tipo entra como layout + campos** (P5, pago pela INF44). O eixo é `story-*` (comum) vs. `mercado-*` / `meteo-*` (por tipo).
 
-A separação layout↔draw existe para que a geometria (a parte com regra) seja testável **sem navegador**: o `measure` é injetado, e os testes passam um stub determinístico.
+| Arquivo                                              | Papel                                                                                                                                                                                  |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lib/informativos/story-layout.ts`                   | **Puro, sem canvas.** A casca: geometria, paleta, tipos de op, `textExtent`, os emissores `push*` (fundo/header/pílula/rodapé/barra/faixa/célula), `distribute`, `fitContain`/`inset`. |
+| `lib/informativos/story-draw.ts`                     | O motor genérico: `drawStory(ctx, build, assets)`, `resolveFontFamily`, `makeMeasure`, `loadLogo`. Não conhece tipo nenhum.                                                            |
+| `lib/informativos/mercado-layout.ts`                 | `MercadoData` + `buildMercadoLayout` — só o corpo das 4 seções.                                                                                                                        |
+| `lib/informativos/meteo-layout.ts`                   | `MeteoData` + `buildMeteoLayout` — as 3 seções + o painel do print.                                                                                                                    |
+| `lib/informativos/mercado-draw.ts` / `meteo-draw.ts` | Uma linha cada, amarrando o builder ao `drawStory`.                                                                                                                                    |
+| `lib/informativos/informativo-draft.ts`              | **Puro.** Reducer das 3 fases + seletores (`missingMercado`, `missingMeteo`, `isDraftDirty`, `toMercadoData`, `toMeteoData`). Molde: `lib/samples/samples-list-reducer.ts`.            |
+| `lib/informativos/format.ts`                         | A regra INF19 ("veste a unidade"), as máscaras e o `maskDecimalSigned` (INF51).                                                                                                        |
+| `lib/informativos/use-previsao-image.ts`             | Recebe o print: objectURL + `decode()` + `revoke`.                                                                                                                                     |
+| `lib/informativos/use-story-canvas.ts`               | Pinta uma peça quando ela aparece (fonte → logo → flag de cancelamento).                                                                                                               |
+| `lib/informativos/slow-fields-store.ts`              | Pré-preenchimento do **Mercado** (INF36) em `localStorage`. O meteorológico não tem campo lento.                                                                                       |
+| `lib/date-br.ts`                                     | `formatDateExtensoLocal` / `formatDateIsoLocal` — relógio **local**.                                                                                                                   |
+
+Componentes: `InformativoFormSheet` (dono do estado, das canvases e do footer) → `InformativoForm` (roteador de fase) → `InformativoMercadoFields` / `InformativoMeteoFields` (+ `PrevisaoPicker`) / `InformativoRevisao`.
+
+A separação layout↔draw existe para que a geometria (a parte com regra) seja testável **sem navegador**: o `measure` é injetado, e os testes passam um stub determinístico. Pelo mesmo motivo, `MeteoData` carrega as **dimensões** do print, não o `HTMLImageElement` — o encaixe roda em node. Não é exceção: o layout já era dono da geometria de imagem (o logo tem `LOGO_RATIO` e o layout deriva a largura).
 
 ### 9.2 Gotchas descobertos na implementação
 
-- **Nome da fonte (`mercado-draw.ts`)**: o `next/font` self-hospeda a Poppins com um nome de família **hasheado** (`__Poppins_a1b2c3`). `ctx.font = '700 86px Poppins'` cairia num fallback **silenciosamente**. O `resolveFontFamily()` lê a CSS var `--font-family-sans`, que é o único lugar onde o nome real existe.
-- **`await document.fonts.ready`** antes do primeiro desenho: sem isso a peça sai na fonte de fallback e troca de cara ao redesenhar.
-- **`await img.decode()`** no logo: sem isso o primeiro desenho sai sem ele.
+- **Nome da fonte (`story-draw.ts`)**: o `next/font` self-hospeda a Poppins com um nome de família **hasheado** (`__Poppins_a1b2c3`). `ctx.font = '700 86px Poppins'` cairia num fallback **silenciosamente**. O `resolveFontFamily()` lê a CSS var `--font-family-sans`, que é o único lugar onde o nome real existe.
+- **`await document.fonts.ready`** antes do primeiro desenho: sem isso a peça sai na fonte de fallback e troca de cara ao redesenhar. Encapsulado no `useStoryCanvas`.
+- **`await img.decode()`** no logo: sem isso o primeiro desenho sai sem ele. O `loadLogo` memoiza **só o sucesso** — guardar a promise rejeitada cachearia a falha para sempre.
 - **`devicePixelRatio` ignorado**: o alvo é o arquivo (1080×1920 exatos), não a tela — a exibição é escalada por CSS.
-- **Máscara de 4 casas**: `maskCurrencyInput` era fixa em 2 casas e truncaria o dólar para `5,23`. Generalizada em `maskDecimalInput(value, decimals)`, com `maskCurrencyInput` virando o caso de 2 casas — API e comportamento preservados, guardados por `tests/currency.test.js`.
+- **Máscara de 4 casas**: `maskCurrencyInput` era fixa em 2 casas e truncaria o dólar para `5,23`. Generalizada em `maskDecimalInput(value, decimals)` — API e comportamento preservados, guardados por `tests/currency.test.js`.
+- **O `onlyDigits` come o sinal** (INF51) — ver §6.7.
+- **objectURL NÃO contamina o canvas**: é de mesma origem, então o `toBlob()` continua funcionando. Era o risco que uma imagem de CDN externo traria (e o motivo de os ícones de uma API de meteorologia serem um problema, além dos 64px).
+- **Magic bytes não se aplica ao print**: a regra 5 do CLAUDE.md amarra a validação a `src/uploads/`, onde a fronteira é o **servidor** e o arquivo é **persistido**. Aqui nada cruza o fio (P1). O `img.decode()` é, de todo modo, um gate **mais forte** — um header PNG válido com corpo corrompido passa no magic bytes e falha no decode.
+- **Arquivo solto fora da caixa = perda total**: o default do browser é **navegar até o arquivo** — o PNG abriria e os 21 campos evaporariam. O `PrevisaoPicker` recusa `dragover`/`drop` no `window` enquanto vive.
+- **Prova da refatoração da casca**: a extração foi verificada construindo o layout com o código de `HEAD` e com o refatorado e comparando **op a op, incluindo a ordem** (que é z-order), em 3 cenários — 177 operações idênticas. Os testes só cobrem o eixo vertical; não teriam pego uma cor ou um `x` trocado.
 
 ### 9.3 Reuso
 
-`lib/currency.ts` (máscaras), `lib/share-blob.ts` (`shareOrDownloadFile`), `components/BottomSheet.tsx` (`onDismissAttempt`, `footer`), `.inf-choice-grid`/`.inf-pill` (molde do toggle), `.fab-fan-option.is-liga` (a 3ª posição do arco **já existia**, usada pelo FAB de `/samples` — nenhum CSS de arco novo), `lib/toast/ToastProvider`, `public/logo-safras-branco.png`.
+`lib/currency.ts` (máscaras), `lib/share-blob.ts` (`shareOrDownloadFile` / `shareOrDownloadFiles`), `components/BottomSheet.tsx` (`onDismissAttempt`, `footer`), `lib/samples/samples-list-reducer.ts` (molde do reducer puro), `.inf-choice-grid`/`.inf-pill` (molde do toggle), `.fab-fan-option.is-liga` (a 3ª posição do arco **já existia** — nenhum CSS de arco novo; e o meteorológico é **fase**, não opção do leque, então as 3 posições seguem intactas), `lib/toast/ToastProvider`, `public/logo-safras-branco.png`.
 
 - `canvas.toBlob('image/png')` → `shareOrDownloadFile`.
 
 ## 10. Ledger de decisões
 
-| #     | Decisão                                                                                                                                                         | Motivo                                                                                                                                                                                                                                                          | Data       |
-| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| INF1  | O Informativo **gera imagem para download e não persiste nada** — sem banco, sem storage, sem histórico.                                                        | Definição do usuário: "as informações não precisam ser salvas, apenas deve criar e disponibilizar para baixar".                                                                                                                                                 | 2026-07-16 |
-| INF2  | Formato de saída: **PNG** (não PDF).                                                                                                                            | Instagram não aceita PDF em post/story; PNG é o que de fato sobe. PDF exigiria conversão manual antes de postar.                                                                                                                                                | 2026-07-16 |
-| INF3  | Enquadramento: **Story 9:16, 1080×1920**. Destino é story, e só story.                                                                                          | Decisão do usuário. Descartados feed 4:5 e A4 (proporção atual).                                                                                                                                                                                                | 2026-07-16 |
-| INF4  | O layout é **redesenhado do zero**; não reusa o PNG de fundo do `.docx`.                                                                                        | Fundo atual tem 657px de largura (ampliar p/ 1080 borra) e chumba safra/anos em imagem. Decisão do usuário: "redesenhe de forma mais organizada e apresentável".                                                                                                | 2026-07-16 |
-| INF5  | Ponto de entrada: **modal em `/relatorios`**.                                                                                                                   | Decisão do usuário; fica junto dos outros artefatos gerados (visita, semanal). Descartados card no dashboard e rota própria.                                                                                                                                    | 2026-07-16 |
-| INF6  | Direção visual **"A — claro"**: fundo branco, faixa verde no topo, barras marrons de seção, tabelas claras.                                                     | Decisão do usuário; evolução do template atual — quem já segue reconhece a peça. Descartada a direção "B — escuro".                                                                                                                                             | 2026-07-16 |
-| INF7  | Header **H3 (split editorial)**: lockup completo grande à esquerda + "INFORMATIVO DE / MERCADO" alinhado à direita.                                             | Decisão do usuário. Resolve o campo vazio do header e atende "logo maior". Descartadas H1 (centralizada, logo menor) e H2 (só o ícone, sem wordmark).                                                                                                           | 2026-07-16 |
-| INF8  | **Zona segura do story** obrigatória: conteúdo legível entre `y=180` e `y=1760`; faixas verdes sangram até as bordas.                                           | O Instagram cobre topo e base com a interface dele. No layout anterior o logo (y=50) e o rodapé (y≈1780) caíam embaixo da interface e não apareceriam.                                                                                                          | 2026-07-16 |
-| INF9  | A **saca de café sai** da peça.                                                                                                                                 | Foto de banco com 202×110 nativos, chapada no fundo branco/verde do template. Em 1080 de largura borraria. Reversível se surgir o original em alta (Q-C3).                                                                                                      | 2026-07-16 |
-| INF10 | A **variação ganha cor e seta** (▼ vermelho / ▲ verde), com a seta **desenhada como polígono**, não como caractere.                                             | A direção é a informação mais escaneável de um informativo de mercado (hoje é texto preto igual ao resto). Polígono porque a Poppins não tem os glifos ▲▼ — viraria fallback de fonte, inconsistente entre máquinas.                                            | 2026-07-16 |
-| INF11 | **Safra e anos viram campos** (`SAFRA 25/26`, `2026`, `2027`), deixando de ser imagem chumbada.                                                                 | Consequência do INF4; os rótulos envelheciam dentro do PNG.                                                                                                                                                                                                     | 2026-07-16 |
-| INF12 | O corpo **se auto-distribui**: mede a altura natural das seções e reparte a sobra em espaços iguais.                                                            | O layout se acomoda quando um rótulo cresce ou entra uma linha, em vez de quebrar. Altura é o recurso escasso do story.                                                                                                                                         | 2026-07-16 |
-| INF13 | Renderização **client-side em `<canvas>`**, sem rota de API.                                                                                                    | Nada é salvo (P1); a PWA já carrega a Poppins; evita instalar fonte na imagem do Cloud Run e depender do fontconfig; custo zero de servidor.                                                                                                                    | 2026-07-16 |
-| INF14 | Tipografia **Poppins** 400/500/600/700 — a mesma da PWA, via `next/font`.                                                                                       | Coerência com o app e zero arquivo de fonte novo no repo.                                                                                                                                                                                                       | 2026-07-16 |
-| INF15 | Paleta **amostrada do template atual** (`#0E520B`, `#186D14`, `#383223`, branco).                                                                               | Preserva a identidade da peça que já circula.                                                                                                                                                                                                                   | 2026-07-16 |
-| INF16 | A feature nasce **plural — "Informativos"**, com o de Mercado como primeiro tipo; casca comum e layout por tipo.                                                | O usuário anunciou um segundo tipo; a pasta de origem já contém um "Informativo meteorológico". Evita refatorar a casca depois.                                                                                                                                 | 2026-07-16 |
-| INF17 | **Data é automática — o dia de hoje**; não é campo. Formato `25 DE MARÇO DE 2026`.                                                                              | Decisão do usuário. Vem do relógio **local do navegador** (consequência do INF13): no servidor viria em UTC e viraria o dia às 21h, publicando a data errada à noite.                                                                                           | 2026-07-16 |
-| INF18 | `BOLSA NY — MAI/26` é **um campo de texto livre** com o rótulo inteiro; o layout normaliza para **caixa alta**.                                                 | Decisão do usuário: como o rótulo carrega mês e ano, é mais seguro digitar tudo do que compor de partes. Caixa alta automática evita destoar do `VARIAÇÃO`/`DÓLAR` ao lado.                                                                                     | 2026-07-16 |
-| INF19 | **O usuário digita só o número; o sistema veste a unidade e a formatação** (`Usc/lp`, `pts`, `R$/US$`, formato real).                                           | Decisão do usuário. Fecha a classe de erro do `.docx` (`R$ 1690,00,00` do §1): separador de milhar, vírgula decimal e unidade deixam de ser digitáveis, logo deixam de ser erráveis.                                                                            | 2026-07-16 |
-| INF20 | Variação: **botão de direção (▲alta/▼baixa) + magnitude**. A direção define seta, sinal exibido e **cor do valor**; o menos continua aparecendo (`▼ -20 pts`).  | Decisão do usuário. Direção explícita (em vez de derivada do sinal) impede o estado contraditório "baixa + `+20`", já que o campo não aceita sinal. Substitui a hipótese de derivar a seta do sinal (§6 original).                                              | 2026-07-16 |
-| INF21 | Rótulos `VARIAÇÃO`, `DÓLAR`, `CAFÉ TIPO 6/7`, as 4 barras de título e o rodapé são **fixos**.                                                                   | Decisão do usuário, tabela a tabela. Não mudaram em nenhum material analisado.                                                                                                                                                                                  | 2026-07-16 |
-| INF22 | Na faixa da safra, **`SAFRA` é fixo** e só `25/26` é campo.                                                                                                     | Decisão do usuário; a palavra nunca muda. Diverge conscientemente do INF18 (onde o rótulo inteiro é digitado), porque ali o mês/ano está embutido no meio do texto.                                                                                             | 2026-07-16 |
-| INF23 | Mercado Futuro tem **4 campos de mês** (um por célula), não 2 compartilhados entre as colunas.                                                                  | Decisão do usuário: a coluna esquerda é de um ano e a direita de outro — são cotações independentes e podem divergir, ainda que hoje coincidam.                                                                                                                 | 2026-07-16 |
-| INF24 | A **CPR permanece uma seção separada** do Mercado Futuro, com suas próprias faixas de ano.                                                                      | Decisão do usuário (resolve Q-C2). CPR é outro produto; fundir as tabelas economizaria ~184px de altura mas comunicaria algo errado.                                                                                                                            | 2026-07-16 |
-| INF25 | **Pré-preencher a partir da última geração** é aceito em princípio; os campos pré-preenchidos seguem **editáveis**.                                             | Decisão do usuário (resolve Q-U2 no mérito). São 21 controles por peça diária, e a maioria (anos, meses, safra, rótulo da bolsa) fica parada por semanas. **Quais** campos entram fica para depois.                                                             | 2026-07-16 |
-| INF26 | Mercado Futuro e CPR mantêm **4 controles de ano** (2 cada), não um par compartilhado. Resolve a Q-C4.                                                          | Decisão do usuário: os anos podem divergir entre as duas seções. Descartada a proposta de um par único alimentar as duas.                                                                                                                                       | 2026-07-16 |
-| INF27 | Verde da **alta = `#186D14`** (o `GREEN_L`). Resolve a Q-C5.                                                                                                    | Decisão do usuário. É o verde da pílula do template original, que tinha ficado reservado sem uso no layout novo — mantém a cor dentro da paleta da marca e distinta do `GREEN` das faixas.                                                                      | 2026-07-16 |
-| INF28 | **Todos os campos são obrigatórios** (resolve a Q-C6).                                                                                                          | Decisão do usuário. A peça não vai ao ar com célula vazia.                                                                                                                                                                                                      | 2026-07-16 |
-| INF29 | Dispositivo: **os dois** — compartilhar no celular, baixar no PC.                                                                                               | Decisão do usuário. O `shareOrDownloadFile` já faz o fallback sozinho, então cobrir os dois custou quase nada. No celular o share sheet leva direto ao Instagram, sem passar por arquivo.                                                                       | 2026-07-16 |
-| INF30 | Acesso: **todo não-PROSPECTOR** (`INFORME_ROLES`) — igual à própria página. Resolve a Q-A1.                                                                     | Decisão do usuário, sobre a proposta de restringir a ADMIN+COMMERCIAL como o Semanal. **Consequência**: o atalho `!canCreateWeekly → abre a visita direto` teve de sair (o leque agora sempre tem ≥2 opções), e a condição de exibir o Semanal virou explícita. | 2026-07-16 |
-| INF31 | Entrada: **3ª opção do leque do FAB**, rótulo **"Informativo"**, na posição diagonal do arco (`.is-liga`). Resolve a Q-U1.                                      | Decisão do usuário: mesmo gesto de criar que já se usa. A posição diagonal já existia no CSS (usada pelo FAB de /samples) — nenhum CSS de arco novo.                                                                                                            | 2026-07-16 |
-| INF32 | Modal em **2 etapas**: preencher → prévia + baixar.                                                                                                             | Decisão do usuário. 21 campos + uma prévia 9:16 não cabem numa tela só (no desktop o sheet é capado em 650px × `min(88dvh,44rem)`); em duas etapas a prévia fica grande o bastante para julgar.                                                                 | 2026-07-16 |
-| INF33 | **Casas decimais fixas por campo**: bolsa 2 (`292,65`), **dólar 4** (`5,2303`), variação inteiro, preços 2 — com máscara ao digitar.                            | Decisão do usuário. O dólar de 4 casas é o motivo de generalizar a máscara do `lib/currency.ts`: `maskCurrencyInput` era fixa em 2 casas e truncaria para `5,23`.                                                                                               | 2026-07-16 |
-| INF34 | Os 4 meses do Mercado Futuro são **texto livre** (o layout força a caixa alta).                                                                                 | Decisão do usuário sobre a alternativa de uma lista JAN..DEZ. Como o mês é campo "lento" (INF36), na prática é digitado uma vez e fica.                                                                                                                         | 2026-07-16 |
-| INF35 | A **data é travada em hoje**, sem edição.                                                                                                                       | Decisão do usuário. Confirma a INF17: um campo a menos e impossível publicar com data errada. Descartado "hoje por padrão, mas editável".                                                                                                                       | 2026-07-16 |
-| INF36 | Pré-preenche **só os campos "lentos"** (anos, meses, safra, rótulo da Bolsa NY). Os valores do dia (dólar, bolsa, variação, preços) abrem **sempre em branco**. | Decisão do usuário. Detalha a INF25 e resolve o mérito da Q-U2. Publicar o dólar de ontem como o de hoje é problema de credibilidade — o campo em branco torna o erro impossível por distração.                                                                 | 2026-07-16 |
-| INF37 | Texto longo: **limite de caracteres**, sem encolher a fonte (resolve Q-U3).                                                                                     | Decisão do usuário. A peça sai idêntica todo dia (P2); o rótulo quase não varia (só o mês). Auto-shrink faria a peça mudar de aparência conforme o texto.                                                                                                       | 2026-07-16 |
-| INF38 | **Variação zero não é tratada** — se acontecer, escolhe-se uma direção.                                                                                         | Decisão do usuário: não acontece na prática. Se um dia acontecer, sai `▲ +0 pts` e a gente resolve.                                                                                                                                                             | 2026-07-16 |
-| INF39 | Safra com **máscara `NN/NN`**: digita `2526`, vira `25/26`.                                                                                                     | Decisão do usuário. Mesmo estilo das máscaras que o app já usa (CPF, telefone, moeda). Impossível sair do padrão.                                                                                                                                               | 2026-07-16 |
-| INF40 | Na alta o **sinal de mais aparece**: `▲ +20 pts`.                                                                                                               | Decisão do usuário. Convenção de informativo de mercado e simétrico com o dia de baixa, que leva o menos.                                                                                                                                                       | 2026-07-16 |
-| INF41 | **Confirma o descarte** ao fechar com campos preenchidos.                                                                                                       | Decisão do usuário. Mesmo padrão da Visita e do Semanal; são 21 campos digitados e o P1 não protege nada.                                                                                                                                                       | 2026-07-16 |
-| INF42 | Após entregar a peça: **fecha o sheet + toast** "Informativo gerado". Compartilhamento **cancelado** → o sheet fica aberto.                                     | Decisão do usuário. O `cancelled` do `shareOrDownloadFile` não é erro nem sucesso — quem cancelou não quer perder os 21 campos.                                                                                                                                 | 2026-07-16 |
-| INF43 | Nome do arquivo: **`informativo-mercado-AAAA-MM-DD.png`** (data ISO).                                                                                           | Ordena cronologicamente na pasta; sem espaço nem acento. Descartado o formato BR (a pasta ordenaria todo dia 16 junto) e o nome sem data (viraria "(1)", "(2)").                                                                                                | 2026-07-16 |
+| #     | Decisão                                                                                                                                                         | Motivo                                                                                                                                                                                                                                                                             | Data       |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| INF1  | O Informativo **gera imagem para download e não persiste nada** — sem banco, sem storage, sem histórico.                                                        | Definição do usuário: "as informações não precisam ser salvas, apenas deve criar e disponibilizar para baixar".                                                                                                                                                                    | 2026-07-16 |
+| INF2  | Formato de saída: **PNG** (não PDF).                                                                                                                            | Instagram não aceita PDF em post/story; PNG é o que de fato sobe. PDF exigiria conversão manual antes de postar.                                                                                                                                                                   | 2026-07-16 |
+| INF3  | Enquadramento: **Story 9:16, 1080×1920**. Destino é story, e só story.                                                                                          | Decisão do usuário. Descartados feed 4:5 e A4 (proporção atual).                                                                                                                                                                                                                   | 2026-07-16 |
+| INF4  | O layout é **redesenhado do zero**; não reusa o PNG de fundo do `.docx`.                                                                                        | Fundo atual tem 657px de largura (ampliar p/ 1080 borra) e chumba safra/anos em imagem. Decisão do usuário: "redesenhe de forma mais organizada e apresentável".                                                                                                                   | 2026-07-16 |
+| INF5  | Ponto de entrada: **modal em `/relatorios`**.                                                                                                                   | Decisão do usuário; fica junto dos outros artefatos gerados (visita, semanal). Descartados card no dashboard e rota própria.                                                                                                                                                       | 2026-07-16 |
+| INF6  | Direção visual **"A — claro"**: fundo branco, faixa verde no topo, barras marrons de seção, tabelas claras.                                                     | Decisão do usuário; evolução do template atual — quem já segue reconhece a peça. Descartada a direção "B — escuro".                                                                                                                                                                | 2026-07-16 |
+| INF7  | Header **H3 (split editorial)**: lockup completo grande à esquerda + "INFORMATIVO DE / MERCADO" alinhado à direita.                                             | Decisão do usuário. Resolve o campo vazio do header e atende "logo maior". Descartadas H1 (centralizada, logo menor) e H2 (só o ícone, sem wordmark).                                                                                                                              | 2026-07-16 |
+| INF8  | **Zona segura do story** obrigatória: conteúdo legível entre `y=180` e `y=1760`; faixas verdes sangram até as bordas.                                           | O Instagram cobre topo e base com a interface dele. No layout anterior o logo (y=50) e o rodapé (y≈1780) caíam embaixo da interface e não apareceriam.                                                                                                                             | 2026-07-16 |
+| INF9  | A **saca de café sai** da peça.                                                                                                                                 | Foto de banco com 202×110 nativos, chapada no fundo branco/verde do template. Em 1080 de largura borraria. Reversível se surgir o original em alta (Q-C3).                                                                                                                         | 2026-07-16 |
+| INF10 | A **variação ganha cor e seta** (▼ vermelho / ▲ verde), com a seta **desenhada como polígono**, não como caractere.                                             | A direção é a informação mais escaneável de um informativo de mercado (hoje é texto preto igual ao resto). Polígono porque a Poppins não tem os glifos ▲▼ — viraria fallback de fonte, inconsistente entre máquinas.                                                               | 2026-07-16 |
+| INF11 | **Safra e anos viram campos** (`SAFRA 25/26`, `2026`, `2027`), deixando de ser imagem chumbada.                                                                 | Consequência do INF4; os rótulos envelheciam dentro do PNG.                                                                                                                                                                                                                        | 2026-07-16 |
+| INF12 | O corpo **se auto-distribui**: mede a altura natural das seções e reparte a sobra em espaços iguais.                                                            | O layout se acomoda quando um rótulo cresce ou entra uma linha, em vez de quebrar. Altura é o recurso escasso do story.                                                                                                                                                            | 2026-07-16 |
+| INF13 | Renderização **client-side em `<canvas>`**, sem rota de API.                                                                                                    | Nada é salvo (P1); a PWA já carrega a Poppins; evita instalar fonte na imagem do Cloud Run e depender do fontconfig; custo zero de servidor.                                                                                                                                       | 2026-07-16 |
+| INF14 | Tipografia **Poppins** 400/500/600/700 — a mesma da PWA, via `next/font`.                                                                                       | Coerência com o app e zero arquivo de fonte novo no repo.                                                                                                                                                                                                                          | 2026-07-16 |
+| INF15 | Paleta **amostrada do template atual** (`#0E520B`, `#186D14`, `#383223`, branco).                                                                               | Preserva a identidade da peça que já circula.                                                                                                                                                                                                                                      | 2026-07-16 |
+| INF16 | A feature nasce **plural — "Informativos"**, com o de Mercado como primeiro tipo; casca comum e layout por tipo.                                                | O usuário anunciou um segundo tipo; a pasta de origem já contém um "Informativo meteorológico". Evita refatorar a casca depois.                                                                                                                                                    | 2026-07-16 |
+| INF17 | **Data é automática — o dia de hoje**; não é campo. Formato `25 DE MARÇO DE 2026`.                                                                              | Decisão do usuário. Vem do relógio **local do navegador** (consequência do INF13): no servidor viria em UTC e viraria o dia às 21h, publicando a data errada à noite.                                                                                                              | 2026-07-16 |
+| INF18 | `BOLSA NY — MAI/26` é **um campo de texto livre** com o rótulo inteiro; o layout normaliza para **caixa alta**.                                                 | Decisão do usuário: como o rótulo carrega mês e ano, é mais seguro digitar tudo do que compor de partes. Caixa alta automática evita destoar do `VARIAÇÃO`/`DÓLAR` ao lado.                                                                                                        | 2026-07-16 |
+| INF19 | **O usuário digita só o número; o sistema veste a unidade e a formatação** (`Usc/lp`, `pts`, `R$/US$`, formato real).                                           | Decisão do usuário. Fecha a classe de erro do `.docx` (`R$ 1690,00,00` do §1): separador de milhar, vírgula decimal e unidade deixam de ser digitáveis, logo deixam de ser erráveis.                                                                                               | 2026-07-16 |
+| INF20 | Variação: **botão de direção (▲alta/▼baixa) + magnitude**. A direção define seta, sinal exibido e **cor do valor**; o menos continua aparecendo (`▼ -20 pts`).  | Decisão do usuário. Direção explícita (em vez de derivada do sinal) impede o estado contraditório "baixa + `+20`", já que o campo não aceita sinal. Substitui a hipótese de derivar a seta do sinal (§6 original).                                                                 | 2026-07-16 |
+| INF21 | Rótulos `VARIAÇÃO`, `DÓLAR`, `CAFÉ TIPO 6/7`, as 4 barras de título e o rodapé são **fixos**.                                                                   | Decisão do usuário, tabela a tabela. Não mudaram em nenhum material analisado.                                                                                                                                                                                                     | 2026-07-16 |
+| INF22 | Na faixa da safra, **`SAFRA` é fixo** e só `25/26` é campo.                                                                                                     | Decisão do usuário; a palavra nunca muda. Diverge conscientemente do INF18 (onde o rótulo inteiro é digitado), porque ali o mês/ano está embutido no meio do texto.                                                                                                                | 2026-07-16 |
+| INF23 | Mercado Futuro tem **4 campos de mês** (um por célula), não 2 compartilhados entre as colunas.                                                                  | Decisão do usuário: a coluna esquerda é de um ano e a direita de outro — são cotações independentes e podem divergir, ainda que hoje coincidam.                                                                                                                                    | 2026-07-16 |
+| INF24 | A **CPR permanece uma seção separada** do Mercado Futuro, com suas próprias faixas de ano.                                                                      | Decisão do usuário (resolve Q-C2). CPR é outro produto; fundir as tabelas economizaria ~184px de altura mas comunicaria algo errado.                                                                                                                                               | 2026-07-16 |
+| INF25 | **Pré-preencher a partir da última geração** é aceito em princípio; os campos pré-preenchidos seguem **editáveis**.                                             | Decisão do usuário (resolve Q-U2 no mérito). São 21 controles por peça diária, e a maioria (anos, meses, safra, rótulo da bolsa) fica parada por semanas. **Quais** campos entram fica para depois.                                                                                | 2026-07-16 |
+| INF26 | Mercado Futuro e CPR mantêm **4 controles de ano** (2 cada), não um par compartilhado. Resolve a Q-C4.                                                          | Decisão do usuário: os anos podem divergir entre as duas seções. Descartada a proposta de um par único alimentar as duas.                                                                                                                                                          | 2026-07-16 |
+| INF27 | Verde da **alta = `#186D14`** (o `GREEN_L`). Resolve a Q-C5.                                                                                                    | Decisão do usuário. É o verde da pílula do template original, que tinha ficado reservado sem uso no layout novo — mantém a cor dentro da paleta da marca e distinta do `GREEN` das faixas.                                                                                         | 2026-07-16 |
+| INF28 | **Todos os campos são obrigatórios** (resolve a Q-C6).                                                                                                          | Decisão do usuário. A peça não vai ao ar com célula vazia.                                                                                                                                                                                                                         | 2026-07-16 |
+| INF29 | Dispositivo: **os dois** — compartilhar no celular, baixar no PC.                                                                                               | Decisão do usuário. O `shareOrDownloadFile` já faz o fallback sozinho, então cobrir os dois custou quase nada. No celular o share sheet leva direto ao Instagram, sem passar por arquivo.                                                                                          | 2026-07-16 |
+| INF30 | Acesso: **todo não-PROSPECTOR** (`INFORME_ROLES`) — igual à própria página. Resolve a Q-A1.                                                                     | Decisão do usuário, sobre a proposta de restringir a ADMIN+COMMERCIAL como o Semanal. **Consequência**: o atalho `!canCreateWeekly → abre a visita direto` teve de sair (o leque agora sempre tem ≥2 opções), e a condição de exibir o Semanal virou explícita.                    | 2026-07-16 |
+| INF31 | Entrada: **3ª opção do leque do FAB**, rótulo **"Informativo"**, na posição diagonal do arco (`.is-liga`). Resolve a Q-U1.                                      | Decisão do usuário: mesmo gesto de criar que já se usa. A posição diagonal já existia no CSS (usada pelo FAB de /samples) — nenhum CSS de arco novo.                                                                                                                               | 2026-07-16 |
+| INF32 | Modal em **2 etapas**: preencher → prévia + baixar.                                                                                                             | Decisão do usuário. 21 campos + uma prévia 9:16 não cabem numa tela só (no desktop o sheet é capado em 650px × `min(88dvh,44rem)`); em duas etapas a prévia fica grande o bastante para julgar.                                                                                    | 2026-07-16 |
+| INF33 | **Casas decimais fixas por campo**: bolsa 2 (`292,65`), **dólar 4** (`5,2303`), variação inteiro, preços 2 — com máscara ao digitar.                            | Decisão do usuário. O dólar de 4 casas é o motivo de generalizar a máscara do `lib/currency.ts`: `maskCurrencyInput` era fixa em 2 casas e truncaria para `5,23`.                                                                                                                  | 2026-07-16 |
+| INF34 | Os 4 meses do Mercado Futuro são **texto livre** (o layout força a caixa alta).                                                                                 | Decisão do usuário sobre a alternativa de uma lista JAN..DEZ. Como o mês é campo "lento" (INF36), na prática é digitado uma vez e fica.                                                                                                                                            | 2026-07-16 |
+| INF35 | A **data é travada em hoje**, sem edição.                                                                                                                       | Decisão do usuário. Confirma a INF17: um campo a menos e impossível publicar com data errada. Descartado "hoje por padrão, mas editável".                                                                                                                                          | 2026-07-16 |
+| INF36 | Pré-preenche **só os campos "lentos"** (anos, meses, safra, rótulo da Bolsa NY). Os valores do dia (dólar, bolsa, variação, preços) abrem **sempre em branco**. | Decisão do usuário. Detalha a INF25 e resolve o mérito da Q-U2. Publicar o dólar de ontem como o de hoje é problema de credibilidade — o campo em branco torna o erro impossível por distração.                                                                                    | 2026-07-16 |
+| INF37 | Texto longo: **limite de caracteres**, sem encolher a fonte (resolve Q-U3).                                                                                     | Decisão do usuário. A peça sai idêntica todo dia (P2); o rótulo quase não varia (só o mês). Auto-shrink faria a peça mudar de aparência conforme o texto.                                                                                                                          | 2026-07-16 |
+| INF38 | **Variação zero não é tratada** — se acontecer, escolhe-se uma direção.                                                                                         | Decisão do usuário: não acontece na prática. Se um dia acontecer, sai `▲ +0 pts` e a gente resolve.                                                                                                                                                                                | 2026-07-16 |
+| INF39 | Safra com **máscara `NN/NN`**: digita `2526`, vira `25/26`.                                                                                                     | Decisão do usuário. Mesmo estilo das máscaras que o app já usa (CPF, telefone, moeda). Impossível sair do padrão.                                                                                                                                                                  | 2026-07-16 |
+| INF40 | Na alta o **sinal de mais aparece**: `▲ +20 pts`.                                                                                                               | Decisão do usuário. Convenção de informativo de mercado e simétrico com o dia de baixa, que leva o menos.                                                                                                                                                                          | 2026-07-16 |
+| INF41 | **Confirma o descarte** ao fechar com campos preenchidos.                                                                                                       | Decisão do usuário. Mesmo padrão da Visita e do Semanal; são 21 campos digitados e o P1 não protege nada.                                                                                                                                                                          | 2026-07-16 |
+| INF42 | Após entregar a peça: **fecha o sheet + toast** "Informativo gerado". Compartilhamento **cancelado** → o sheet fica aberto.                                     | Decisão do usuário. O `cancelled` do `shareOrDownloadFile` não é erro nem sucesso — quem cancelou não quer perder os 21 campos.                                                                                                                                                    | 2026-07-16 |
+| INF43 | Nome do arquivo: **`informativo-mercado-AAAA-MM-DD.png`** (data ISO).                                                                                           | Ordena cronologicamente na pasta; sem espaço nem acento. Descartado o formato BR (a pasta ordenaria todo dia 16 junto) e o nome sem data (viraria "(1)", "(2)").                                                                                                                   | 2026-07-16 |
+| INF44 | O 2º tipo é o **Informativo Meteorológico** (resolve a Q-F1). Casca comum extraída **antes** dele (paga o P5).                                                  | Confirmado pelo usuário. O P5 era promessa do documento, não do código: header/pílula/rodapé viviam dentro do `buildMercadoLayout`. A extração foi provada op a op contra o código anterior (§9.2).                                                                                | 2026-07-16 |
+| INF45 | A previsão é um **print colado**, não uma API de meteorologia.                                                                                                  | Decisão do usuário após avaliação (§4.3): as fontes oficiais BR estão mortas (INMET derruba a conexão, CPTEC devolve tudo `null`) e os 7 dias com licença comercial custam $7–$29/mês. O print custa zero, sem chave/rota/segredo/uptime, e não diverge do que os seguidores veem. | 2026-07-16 |
+| INF46 | Data **por extenso** no meteorológico, unificando com o Mercado.                                                                                                | Decisão do usuário. A peça original usava `16/07/2026`; o par lido em sequência precisa da mesma pílula.                                                                                                                                                                           | 2026-07-16 |
+| INF47 | `METEOROLÓGICO` renderiza a **60px** (contra os 86 de `MERCADO`), em `y=282`.                                                                                   | A 86px a palavra pediria ~538px e só há ~568 à direita do logo. A folga de ~30px é fina e o stub dos testes **não prova** a métrica real da Poppins — a prova é visual. Plano B: `tracking: 0` (+24px) ou 56px.                                                                    | 2026-07-16 |
+| INF48 | O meteorológico **não tem valor herói**: os 5 números saem a 36px.                                                                                              | Decisão do usuário: fiel ao original, onde todos os valores têm o mesmo peso. Descartado destacar a temperatura a 52px verde como o preço físico do Mercado.                                                                                                                       | 2026-07-16 |
+| INF49 | O print entra num **painel branco de altura FIXA** (960×460, raio 14), contido inteiro e centralizado; o layout **não flexiona**.                               | Decisão do usuário. Honra o P2 (o leitor acha o dado no mesmo lugar todo dia) sem cortar nem distorcer a imagem. Só funciona por uma coincidência: o print do MSN tem fundo branco, então a sobra fica invisível. Raio 14 = o da barra de seção (as células são quadradas).        | 2026-07-16 |
+| INF50 | O print **amplia sem trava** quando é menor que o painel; o borrão é aceito.                                                                                    | Decisão explícita do usuário, que recusou tanto bloquear quanto manter nítido-e-menor: prefere o campo cheio. Ele recorta só a linha da previsão na ferramenta de captura, então o print chega largo — daí também **não haver recortador embutido**.                               | 2026-07-16 |
+| INF51 | Temperaturas **aceitam o `−` digitado**; umidade e pluviosidade não.                                                                                            | Decisão do usuário. O `maskDecimalInput` come o sinal, e mínima negativa era impossível: numa manhã de geada a peça publicaria `1,5 °C` no lugar de `-1,5 °C`. O `lib/currency.ts` não foi tocado (compartilhado com contratos, com teste próprio) — sinal por fora.               | 2026-07-16 |
+| INF52 | Entrada do print por **colar (Ctrl+V), arrastar e escolher arquivo** — os três.                                                                                 | Cada um é o caminho curto de um contexto: no PC vira `Win+Shift+S` → `Ctrl+V` (o hábito atual do usuário); no celular o seletor abre a galeria. São poucas linhas e cobrem todos os casos.                                                                                         | 2026-07-16 |
+| INF53 | Fluxo de **3 fases** (mercado → meteorológico → revisão); o **meteorológico é pulável**, o mercado não. A INF28 passa a valer **por fase**.                     | Decisão do usuário. O mercado é a peça de todo dia; a previsão pode não estar à mão. Quem pula não pode ver os campos do meteorológico em vermelho — daí a INF28 escopada.                                                                                                         | 2026-07-16 |
+| INF54 | Revisão com as peças **empilhadas**, rolando, e as ações no **footer** do BottomSheet.                                                                          | Decisão do usuário. Lado a lado, dentro dos 650px do sheet no desktop, cada peça sairia com ~300px e os números ficariam pequenos demais para conferir — que é o que a fase existe para permitir. Footer porque o corpo rola duas peças 9:16.                                      | 2026-07-16 |
+| INF55 | Cada peça da revisão tem um **"Baixar" próprio**, além do "Baixar os dois".                                                                                     | Não é redundância: cada botão é um gesto, então não dispara o aviso de "vários downloads" do Chrome — que **não tem como ser evitado** por API (é permissão por origem, e não há como detectar a negação). É também a saída quando o iOS recusa os 2 arquivos juntos.              | 2026-07-16 |
+| INF56 | O `shareOrDownloadFile` **singular NÃO delega** para o plural, apesar dos gates idênticos.                                                                      | O singular serve o contrato de venda, o laudo e o envio físico de amostra, e o `lib/share-blob.ts` **não tem teste nenhum**. Refatorar às cegas três fluxos de negócio custa mais que a duplicação. Dívida registrada.                                                             | 2026-07-16 |
 
 ## 11. Questões abertas
 
@@ -378,7 +511,7 @@ Cada item resolvido vira decisão INFn no §10.
 
 ### Funcionais
 
-- **Q-F1** — Qual é o **segundo tipo** de informativo e qual seu conteúdo? (A pasta de origem sugere meteorológico, sem confirmação.) Ver §4.2.
+- ~~**Q-F1**~~ — resolvida (2026-07-16) → **INF44** (é o **meteorológico**). Escopo no §4.2, layout no §5-B, campos no §6.7.
 
 ### UX
 
@@ -399,26 +532,56 @@ Cada item resolvido vira decisão INFn no §10.
 | F3   | 3ª opção do leque do FAB (`is-liga`) + remoção do atalho do `canCreateWeekly`           | ✅ 2026-07-16 — `100b647` |
 | F4   | Pré-preenchimento dos campos lentos em `localStorage`                                   | ✅ 2026-07-16 — `bd89295` |
 | F5   | Docs (INF26–INF43) + skill-maintenance                                                  | ✅ 2026-07-16             |
-| —    | **`npm run build`** (não rodado: o `next dev` estava ativo)                             | ⏳ pendente               |
-| —    | **Validação visual**: 🖥️ peça vs. mockup · 📱 story de teste (confirma a INF8)          | ⏳ pendente               |
-| F6   | Segundo tipo de informativo                                                             | Q-F1 (sem escopo)         |
+| —    | **`npm run build`**                                                                     | ✅ 2026-07-16 (passou)    |
+
+**Ciclo do 2º tipo (INF44–INF56)**, 2026-07-16:
+
+| Fase | Escopo                                                                                                                                        | Status                    |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| M1   | Extração da casca do story (`story-layout.ts`) — paga o P5; provada op a op                                                                   | ✅ 2026-07-16 — `20ef08b` |
+| M2   | Walker de desenho genérico (`story-draw.ts`) + mapa de assets                                                                                 | ✅ 2026-07-16 — `5e9eb9b` |
+| M3   | Motor do meteorológico (`meteo-layout`, `fitContain`, máscara com sinal) + 22 testes                                                          | ✅ 2026-07-16 — `03c14de` |
+| M4   | Estado num reducer puro (`informativo-draft.ts`) + 22 testes                                                                                  | ✅ 2026-07-16 — `1369db2` |
+| M5   | `shareOrDownloadFiles` (múltiplos arquivos)                                                                                                   | ✅ 2026-07-16 — `f3f2690` |
+| M6   | Entrada do print (colar/arrastar/escolher) + `PrevisaoPicker` + campos do meteo                                                               | ✅ 2026-07-16 — `93e3e6e` |
+| M7   | Fluxo de 3 fases + revisão + download conjunto + extração dos campos do mercado                                                               | ✅ 2026-07-16 — `9abee1d` |
+| M8   | Docs (INF44–INF56) + skill-maintenance                                                                                                        | ✅ 2026-07-16             |
+| —    | **Validação visual**: 🖥️ as duas peças (atenção à folga do título de 60px, INF47) · 📱 story de teste (confirma a INF8) · colar um print real | ⏳ **pendente**           |
 
 > Não existe `scripts/preview-informativo.mjs` nos moldes dos `preview-*.mjs` de PDF/etiqueta: aqueles rodam em node, e canvas exige navegador. A prévia da etapa 2 é a superfície de iteração; a geometria é coberta pelos testes puros.
 
 ## 13. Validação e testes
 
-Implementados em **`tests/informativo-mercado.test.js`** (18 casos), registrados no script `test:unit` do `package.json` — a lista é manual; sem isso o arquivo não roda no CI.
+Três arquivos, **63 casos**, todos registrados no script `test:unit` do `package.json` — 🔴 **a lista é MANUAL**; sem isso o arquivo passa localmente e **nunca roda no CI**.
 
-- **Unitário** do motor de desenho: dados de entrada → assertivas sobre o layout calculado (alturas das seções, `gap`, nada fora da zona segura). O módulo é puro, então não precisa de canvas real para as assertivas de geometria.
-- **Formatação (INF19)**: número digitado → texto vestido. `1960` → `R$ 1.960,00`; `292,65` → `292,65 Usc/lp`; `5,2303` → `5,2303 R$/US$`. O caso `R$ 1690,00,00` do §1 não pode reaparecer.
-- **Variação (INF20)**: para cada direção, assertivas sobre a seta (▲/▼), o sinal exibido e a cor aplicada **ao valor e à seta**. O campo de magnitude rejeita sinal.
-- **Regressão de caber**: conteúdo de referência + um caso "gordo" (rótulos longos) → `gap` continua ≥ limiar.
-- **Visual**: 🖥️ conferir o PNG gerado em 1080×1920 e 📱 postar um story de teste para validar a zona segura na interface real do Instagram — é o único jeito de confirmar a INF8.
+| Arquivo                                   | Casos | Alvo                                                   |
+| ----------------------------------------- | ----- | ------------------------------------------------------ |
+| `tests/informativo-mercado.test.js`       | 19    | `buildMercadoLayout` + `format`                        |
+| `tests/informativo-meteorologico.test.js` | 22    | `buildMeteoLayout` + `fitContain` + máscaras com sinal |
+| `tests/informativo-draft.test.ts`         | 22    | reducer das 3 fases + seletores                        |
+
+- **Unitário** dos motores: dados de entrada → assertivas sobre o layout calculado (alturas das seções, `gap`, nada fora da zona segura). Os módulos são puros, então não precisam de canvas real.
+- **Formatação (INF19)**: número digitado → texto vestido. O caso `R$ 1690,00,00` do §1 não pode reaparecer. Inclui `-1,5` → `-1,5 °C` e o `−` solto contando como campo vazio (INF51).
+- **Variação (INF20)**: para cada direção, assertivas sobre a seta (▲/▼), o sinal exibido e a cor aplicada **ao valor e à seta**.
+- **`fitContain`**: proporção preservada, nunca excede o painel, centralizado, **amplia sem trava** (cerca a INF50 contra um "conserto" futuro) e devolve `null` para dimensão degenerada.
+- **O P2 do painel**: a peça **sem print** tem `sectionHeights` e `gap` idênticos à peça **com print** — é o que prova que o layout não flexiona (INF49).
+- **O canto arredondado**: `imgRect ⊂ inset(panel, PREVISAO_PAD)` — a assertiva que substitui um `clip()`.
+- **Regressão de caber**: conteúdo de referência + um caso "gordo" → `gap` continua ≥ limiar.
+- **Fases**: voltar de fase preserva o que foi digitado; pular não liga o destaque de erro da fase pulada.
+
+**Sem cobertura, declarado em vez de fingido:**
+
+- `shareOrDownloadFiles` — precisa de `navigator.share`/`document`, e o `lib/share-blob.ts` já não tinha teste nenhum antes (ver INF56).
+- `story-draw.ts` e os componentes.
+- ⚠️ A assertiva de que `METEOROLÓGICO` não invade o logo usa o **stub** de medida: ela documenta o **orçamento** de largura, **não prova** a métrica real da Poppins. Mesma classe da INF8 — a prova é visual.
+
+**Visual (o que só o Flavio fecha):** 🖥️ conferir as duas peças em 1080×1920 contra os mockups, com atenção à folga do título de 60px (INF47) e ao print colado (a sobra branca some?); 📱 postar um story de teste — único jeito de confirmar a zona segura (INF8) na interface real do Instagram.
 
 ## 14. Changelog do documento
 
-| Data       | Mudança                                                                                                                                                                                                                                                                                                                                        |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-07-16 | Criação. Análise do `.docx` de referência, decisões INF1–INF16 travadas, especificação visual do Informativo de Mercado (§5) fechada a partir do mockup aprovado. Campos (Q-C1) em aberto.                                                                                                                                                     |
-| 2026-07-16 | **Q-C1 resolvida** tabela a tabela → INF17–INF25 e o §6 reescrito (mapa campo a campo, 21 controles, data automática, regra "digita só o número"). Q-C2 resolvida (INF24, CPR separada) e Q-U2 resolvida no mérito (INF25). Novas: Q-C4 (anos duplicados), Q-C5 (verde da alta), Q-C6 (campo vazio).                                           |
-| 2026-07-16 | **Plan mode + implementação (F1–F4)**. Q-C4/C5/C6/A1/U1/U2/U3 resolvidas → **INF26–INF43**. §7 (UX), §8 (acesso) e §9 (arquitetura) reescritos com o que foi construído, incluindo os gotchas descobertos (nome hasheado da Poppins, `fonts.ready`, `img.decode`, máscara de 4 casas). Fases atualizadas. Restam Q-C3 (saca) e Q-F1 (2º tipo). |
+| Data       | Mudança                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-07-16 | Criação. Análise do `.docx` de referência, decisões INF1–INF16 travadas, especificação visual do Informativo de Mercado (§5) fechada a partir do mockup aprovado. Campos (Q-C1) em aberto.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 2026-07-16 | **Q-C1 resolvida** tabela a tabela → INF17–INF25 e o §6 reescrito (mapa campo a campo, 21 controles, data automática, regra "digita só o número"). Q-C2 resolvida (INF24, CPR separada) e Q-U2 resolvida no mérito (INF25). Novas: Q-C4 (anos duplicados), Q-C5 (verde da alta), Q-C6 (campo vazio).                                                                                                                                                                                                                                                                                                                                                                                            |
+| 2026-07-16 | **Plan mode + implementação (F1–F4)**. Q-C4/C5/C6/A1/U1/U2/U3 resolvidas → **INF26–INF43**. §7 (UX), §8 (acesso) e §9 (arquitetura) reescritos com o que foi construído, incluindo os gotchas descobertos (nome hasheado da Poppins, `fonts.ready`, `img.decode`, máscara de 4 casas). Fases atualizadas. Restam Q-C3 (saca) e Q-F1 (2º tipo).                                                                                                                                                                                                                                                                                                                                                  |
+| 2026-07-16 | **2º tipo + fluxo de 3 fases (M1–M8)**. **Q-F1 resolvida** → **INF44–INF56**. A API de meteorologia foi avaliada e **descartada** (§4.3: fontes oficiais BR mortas; 7 dias com licença comercial custam $7–$29/mês) → o print segue manual (INF45). Novos: §4.2 (o meteorológico), §4.3 (a avaliação da API), §5-B (especificação visual), §6.7 (campos). §3, §7, §9 e §13 reescritos. O **P5 foi pago**: a casca saiu para `story-layout.ts`/`story-draw.ts`, provada op a op (177 ops idênticas). Achado sério: o `onlyDigits` do `currency.ts` **comia o sinal** — mínima negativa era impossível de digitar (INF51). `npm run build` **passou**. Resta só a validação visual; aberta: Q-C3. |
