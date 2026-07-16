@@ -4,7 +4,12 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { ApiError, confirmShipment, getShipmentContext } from '../../lib/api-client';
-import { isWeekendIso, WEEKEND_DATE_MESSAGE } from '../../lib/business-days';
+import {
+  isWeekendIso,
+  lastBusinessDayIso,
+  todayInputValueBRT,
+  WEEKEND_DATE_MESSAGE,
+} from '../../lib/business-days';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { SessionData, ShipmentContext } from '../../lib/types';
 
@@ -14,14 +19,9 @@ import type { SessionData, ShipmentContext } from '../../lib/types';
 // e o portão do pagamento (EMB28); busca o próprio contexto por contractId.
 
 const MAX_PHOTOS = 10;
-
-function todayInputValue(): string {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
+// Espelha DEFAULT_MAX_UPLOAD_SIZE_BYTES (src/uploads/upload-policy.js) — recusa no
+// cliente pra não subir 12 MiB antes de o backend rejeitar por tamanho.
+const MAX_PHOTO_BYTES = 12 * 1024 * 1024;
 
 function dateBR(iso: string | null | undefined): string {
   if (!iso) return '—';
@@ -41,8 +41,10 @@ export function ShipmentConfirmationModal({ session, contractId, onClose, onDone
   const focusTrapRef = useFocusTrap(true);
   const [context, setContext] = useState<ShipmentContext | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const today = todayInputValue();
-  const [date, setDate] = useState(today);
+  const today = todayInputValueBRT();
+  // Default no último dia útil <= hoje (EMB34): abrir num fim de semana não vira beco
+  // (o fds segue bloqueado pelo guard). O `max` continua "hoje" (não-futuro).
+  const [date, setDate] = useState(lastBusinessDayIso(today));
   const [files, setFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,8 +73,19 @@ export function ShipmentConfirmationModal({ session, contractId, onClose, onDone
     const picked = event.target.files ? Array.from(event.target.files) : [];
     event.target.value = '';
     if (picked.length === 0) return;
-    setFiles((prev) => [...prev, ...picked].slice(0, MAX_PHOTOS));
-    setError(null);
+    // EMB34: recusa arquivo > 12 MiB no cliente e NÃO trunca em silêncio — avisa se
+    // passar do teto de 10 fotos. (`files` do closure = estado do render atual.)
+    const withinSize = picked.filter((file) => file.size <= MAX_PHOTO_BYTES);
+    const someTooBig = withinSize.length < picked.length;
+    const merged = [...files, ...withinSize];
+    if (someTooBig) {
+      setError('Cada foto deve ter no máximo 12 MB.');
+    } else if (merged.length > MAX_PHOTOS) {
+      setError(`Máximo de ${MAX_PHOTOS} fotos — as demais foram ignoradas.`);
+    } else {
+      setError(null);
+    }
+    setFiles(merged.slice(0, MAX_PHOTOS));
   }
 
   function removeFile(index: number) {
