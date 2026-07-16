@@ -604,7 +604,16 @@ export class UserService {
     assertAuthenticatedActor(actorContext, 'lookup users');
     const search = normalizeOptionalText(input?.search, 'search', 200);
     const excludeUserId = normalizeOptionalText(input?.excludeUserId, 'excludeUserId', 100);
-    const rawLimit = Number.isFinite(input?.limit) ? Number(input.limit) : 200;
+    // O limit chega como STRING via query params das rotas HTTP —
+    // Number.isFinite sem coercao rejeitava "300" e caia no default 200,
+    // ignorando silenciosamente o pedido do cliente (CAM-B4). String vazia
+    // e null/undefined continuam caindo no default (Number('') seria 0).
+    const rawInput = input?.limit;
+    const parsedLimit =
+      rawInput == null || (typeof rawInput === 'string' && rawInput.trim() === '')
+        ? NaN
+        : Number(rawInput);
+    const rawLimit = Number.isFinite(parsedLimit) ? parsedLimit : 200;
     const limit = Math.min(Math.max(1, Math.trunc(rawLimit)), 500);
 
     const where = {
