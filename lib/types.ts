@@ -366,6 +366,8 @@ export interface SaleContract {
   unitPrice: number | null;
   agioDesagioType: AgioDesagioType | null;
   agioDesagioValue: number | null;
+  // Espelho: preço efetivo/saca (cru ± ágio) da fonte única — a Conferência lê daqui.
+  effectiveUnitPrice: number | null;
   totalValue: number | null;
   weightKg: number | null;
   sellerBrokeragePct: number | null;

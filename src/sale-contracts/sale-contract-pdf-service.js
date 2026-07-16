@@ -4,6 +4,8 @@ import path from 'node:path';
 
 import { PDFDocument, StandardFonts, degrees, rgb } from 'pdf-lib';
 
+import { computeEffectiveUnitPrice } from './sale-contract-support.js';
+
 // Fechamento (Fase C): gera o PDF do "Contrato de Compra e Venda de Café" a
 // partir do SaleContract (+ snapshots), no estilo do app. Puro pdf-lib (mesmo
 // stack do laudo). Regenerável, sem armazenar (D32). LAYOUT EM PÁGINA ÚNICA
@@ -846,18 +848,17 @@ export class SaleContractPdfService {
     const generatedDate = new Date().toLocaleDateString('pt-BR', {
       timeZone: 'America/Sao_Paulo',
     });
-    // Preco EFETIVO (D133): cru ± agio/desagio POR SACA — a base real da
-    // comissao (mesma conta do computeContractMoneyWithAgio).
-    const unitRaw = decimalToNumber(contract.unitPrice);
-    const agioPerSack = decimalToNumber(contract.agioDesagioValue);
-    let effectiveUnitPrice = unitRaw;
-    if (unitRaw != null && agioPerSack) {
-      if (contract.agioDesagioType === 'AGIO') {
-        effectiveUnitPrice = Math.round((unitRaw + agioPerSack) * 100) / 100;
-      } else if (contract.agioDesagioType === 'DESAGIO') {
-        effectiveUnitPrice = Math.round((unitRaw - agioPerSack) * 100) / 100;
-      }
-    }
+    // Preco EFETIVO (D133): cru ± agio/desagio POR SACA — a base real da comissao.
+    // Le da VIEW (effectiveUnitPrice, fonte unica computeEffectiveUnitPrice); fallback
+    // pro MESMO helper se vier um contrato cru (testes). Sem formula inline aqui — fecha
+    // o drift da coluna "Preco" vs a base da comissao.
+    const effectiveUnitPrice =
+      contract.effectiveUnitPrice ??
+      computeEffectiveUnitPrice(
+        decimalToNumber(contract.unitPrice),
+        contract.agioDesagioType ?? null,
+        decimalToNumber(contract.agioDesagioValue)
+      );
     const columns = [
       { label: 'N.º Contrato', value: contract.contractNumber, weight: 8.5 },
       { label: 'Data', value: generatedDate, weight: 8 },

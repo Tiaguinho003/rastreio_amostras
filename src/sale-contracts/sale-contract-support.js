@@ -123,9 +123,24 @@ export function assertBrokersResolved(brokers, requestedIds, fieldName = 'broker
   }
 }
 
-// Financeiro com agio/desagio (D54 — R$ POR SACA): preco efetivo/saca = preco
-// +/- agio; total = efetivo x sacas; corretagem_lado = total x (% / 100). Tudo
-// arredondado a 2 casas e devolvido como string "0.00" (Decimal-safe).
+// Preco EFETIVO/saca (D54 — R$ POR SACA): preco cru +/- agio/desagio. Fonte UNICA da
+// conta — reusada pelo computeContractMoneyWithAgio (base da comissao), pela view
+// (effectiveUnitPrice) e pelo PDF/Conferencia do Espelho (coluna "Preco"). null se
+// unitPrice ausente; sem agio devolve o cru (ja e de 2 casas).
+export function computeEffectiveUnitPrice(unitPrice, agioType = null, agioValue = null) {
+  if (unitPrice == null) return null;
+  if (agioType === 'AGIO' && agioValue) {
+    return round2(unitPrice + agioValue);
+  }
+  if (agioType === 'DESAGIO' && agioValue) {
+    return round2(unitPrice - agioValue);
+  }
+  return unitPrice;
+}
+
+// Financeiro com agio/desagio (D54 — R$ POR SACA): total = efetivo x sacas;
+// corretagem_lado = total x (% / 100). Tudo arredondado a 2 casas e devolvido como
+// string "0.00" (Decimal-safe).
 export function computeContractMoneyWithAgio({
   unitPrice,
   quantitySacks,
@@ -134,12 +149,7 @@ export function computeContractMoneyWithAgio({
   agioType = null,
   agioValue = null,
 }) {
-  let effectiveUnit = unitPrice;
-  if (agioType === 'AGIO' && agioValue) {
-    effectiveUnit = round2(unitPrice + agioValue);
-  } else if (agioType === 'DESAGIO' && agioValue) {
-    effectiveUnit = round2(unitPrice - agioValue);
-  }
+  const effectiveUnit = computeEffectiveUnitPrice(unitPrice, agioType, agioValue);
   const totalValue = round2(effectiveUnit * quantitySacks);
   const sellerBrokerageValue = round2(totalValue * (sellerPct / 100));
   const buyerBrokerageValue = round2(totalValue * (buyerPct / 100));
@@ -381,6 +391,13 @@ export function toSaleContractView(row) {
     unitPrice: decimalToNumber(row.unitPrice),
     agioDesagioType: row.agioDesagioType ?? null,
     agioDesagioValue: decimalToNumber(row.agioDesagioValue),
+    // Espelho (dedup): preco efetivo/saca (cru +/- agio) pela fonte unica — o PDF e a
+    // Conferencia leem daqui em vez de recalcular a coluna "Preco".
+    effectiveUnitPrice: computeEffectiveUnitPrice(
+      decimalToNumber(row.unitPrice),
+      row.agioDesagioType ?? null,
+      decimalToNumber(row.agioDesagioValue)
+    ),
     totalValue: decimalToNumber(row.totalValue),
     weightKg: decimalToNumber(row.weightKg),
     sellerBrokeragePct: decimalToNumber(row.sellerBrokeragePct),
@@ -677,6 +694,31 @@ export function isSpotContract(contract) {
 // washout segue cobravel. Predicado puro, usado no gate do Espelho (exportEspelhoPdf).
 export function isSpotWashout(contract) {
   return contract?.status === 'WASH_OUT' && contract?.type === 'MERCADO_A_VISTA';
+}
+
+// Elegibilidade do Espelho de Corretagem (D105/D145/S74): status congelado
+// (SALE_CONTRACT_STATUSES), NAO spot-washout (D145) e corretagem > 0 no lado pedido.
+// Lanca HttpError com o ESPELHO_* certo. Reusada pelo exportEspelhoPdf E pelo
+// logEspelhoExport (o endpoint de log tambem valida — nao grava export impossivel).
+export function assertEspelhoEligible(contract, side) {
+  if (!SALE_CONTRACT_STATUSES.includes(contract.status)) {
+    throw new HttpError(409, 'O Espelho de Corretagem não é elegível para este contrato', {
+      code: 'ESPELHO_NOT_ELIGIBLE',
+    });
+  }
+  if (isSpotWashout(contract)) {
+    throw new HttpError(
+      409,
+      'Contrato à vista cancelado (wash-out) não gera cobrança de corretagem',
+      { code: 'ESPELHO_WASHOUT_SPOT' }
+    );
+  }
+  const sidePct = side === 'seller' ? contract.sellerBrokeragePct : contract.buyerBrokeragePct;
+  if (!(Number(sidePct) > 0)) {
+    throw new HttpError(409, 'O Espelho de Corretagem exige corretagem neste lado do contrato', {
+      code: 'ESPELHO_NO_BROKERAGE',
+    });
+  }
 }
 
 // Financeiro (Fase F): projecao de "corretagem a receber" de UM contrato. Soma a

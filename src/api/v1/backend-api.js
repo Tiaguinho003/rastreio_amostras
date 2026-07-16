@@ -10,9 +10,8 @@ import { IDEMPOTENCY_SCOPES, buildScopeKey, withIdempotency } from './idempotenc
 import { getContractIssuer } from '../../sale-contracts/issuer-config.js';
 import {
   APPROVAL_ELIGIBLE_STATUSES,
+  assertEspelhoEligible,
   buildApprovalPrefill,
-  isSpotWashout,
-  SALE_CONTRACT_STATUSES,
 } from '../../sale-contracts/sale-contract-support.js';
 import { formatHarvestLabel, normalizeReportedHarvest } from '../../reports/export-fields.js';
 
@@ -3172,36 +3171,8 @@ export function createBackendApiV1({
           });
         }
         const { contract } = await saleContractService.getSaleContract(contractId, actor);
-        // D105 (refinada pela D145): elegivel em qualquer status do contrato
-        // (= SALE_CONTRACT_STATUSES, evita a lista hardcoded, D147) — inclui
-        // WASH_OUT, mas so o do FUTURO cobra; o fisico a vista cancelado e
-        // bloqueado logo abaixo (isSpotWashout).
-        if (!SALE_CONTRACT_STATUSES.includes(contract.status)) {
-          throw new HttpError(409, 'O Espelho de Corretagem não é elegível para este contrato', {
-            code: 'ESPELHO_NOT_ELIGIBLE',
-          });
-        }
-        // D145: o Espelho e o documento da cobranca de corretagem; o contrato a vista
-        // (fisico) cancelado por washout nao gera cobranca — bloqueia (so o FUTURO cobra).
-        if (isSpotWashout(contract)) {
-          throw new HttpError(
-            409,
-            'Contrato à vista cancelado (wash-out) não gera cobrança de corretagem',
-            { code: 'ESPELHO_WASHOUT_SPOT' }
-          );
-        }
-        // O Espelho é um documento de CORRETAGEM: exige comissão no lado pedido
-        // (S74). Espelha o gate do front (que esmaece "Sem corretagem") e defende
-        // a chamada direta ao endpoint — sem isso o PDF sairia com TOTAL R$ 0,00.
-        const sidePct =
-          side === 'seller' ? contract.sellerBrokeragePct : contract.buyerBrokeragePct;
-        if (!(Number(sidePct) > 0)) {
-          throw new HttpError(
-            409,
-            'O Espelho de Corretagem exige corretagem neste lado do contrato',
-            { code: 'ESPELHO_NO_BROKERAGE' }
-          );
-        }
+        // Elegibilidade (D105/D145/S74) — helper compartilhado com o logEspelhoExport.
+        assertEspelhoEligible(contract, side);
         const { buffer } = await saleContractPdfService.renderEspelhoPdf(contract, {
           side,
           issuer: getContractIssuer(),
@@ -3230,9 +3201,9 @@ export function createBackendApiV1({
       }),
 
     // D127: registra a EXPORTAÇÃO do espelho (clique em Exportar/Baixar no
-    // modal — a prévia não audita). Mesmo gate/posse do getSaleContract; sem
-    // gate de status (o modal só abre p/ elegíveis e isto é auditoria, não
-    // emissão). Alimenta o timeline do modal de Detalhes (D125).
+    // modal — a prévia não audita). Mesmo gate/posse do getSaleContract +
+    // assertEspelhoEligible (o endpoint valida elegibilidade pra não gravar
+    // export impossível). Alimenta o timeline do modal de Detalhes (D125).
     logEspelhoExport: (input) =>
       executeApiForInput(input, async () => {
         if (!saleContractService) {
@@ -3251,6 +3222,9 @@ export function createBackendApiV1({
           });
         }
         const { contract } = await saleContractService.getSaleContract(contractId, actor);
+        // Fix da auditoria: valida elegibilidade antes de gravar (spot-washout / sem
+        // corretagem eram aceitos e poluíam o timeline com export impossível).
+        assertEspelhoEligible(contract, side);
         await saleContractService.logEspelhoGenerated(contract.id, side, actor);
         return { status: 200, body: { logged: true } };
       }),
