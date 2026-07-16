@@ -10483,7 +10483,12 @@ body:has(.app-modal-backdrop) .prospector-fab {
 /* Toggle de direcao da variacao. Tingir de verde/vermelho ao selecionar e
    ESTADO PERSISTENTE, nao feedback de toque — a mesma excecao ja documentada
    pro .inf-pill (ver nota do button-press-effect §9 acima). O :active segue
-   so com transform. */
+   so com transform.
+
+   Os hex abaixo NAO sao tokens do app de proposito: sao as cores da PECA
+   (INF27/INF20), pra o botao mostrar a mesma cor que vai sair no story.
+   Fonte-da-verdade = COLORS em lib/informativos/mercado-layout.ts — mexeu num,
+   mexeu nos dois. */
 .ifm-dir {
   gap: clamp(6px, 2vw, 8px);
 }
