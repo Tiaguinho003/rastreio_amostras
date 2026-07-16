@@ -2654,7 +2654,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal((await prisma.sampleMovement.findMany()).length, 0);
   });
 
-  test('futuro: aprovação (AP1/AP6) grava/lê sinal + lembrete; "Não" zera; Editar alterna', async () => {
+  test('futuro: aprovação grava/lê sinal + lembrete na criação; "Não" zera; o Editar NÃO altera o sinal (AP32)', async () => {
     const buyerId = randomUUID();
     await createBuyerClient(buyerId);
 
@@ -2674,7 +2674,8 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(nao.contract.requiresApproval, false);
     assert.equal(nao.contract.approvalReminderLeadDays, null);
 
-    // Editar (emit) liga a aprovação com lembrete 10.
+    // AP32: o Editar (emit) NÃO altera o sinal — latch de mão única. O payload
+    // pedindo "Sim" num contrato "Não" é ignorado (preserva "Não" + lead null).
     const edit = await saleContractService.emitSaleContract(
       nao.contract.id,
       etapa2Payload({
@@ -2685,8 +2686,8 @@ if (!databaseUrl || !databaseReachable) {
       }),
       adminActor
     );
-    assert.equal(edit.contract.requiresApproval, true);
-    assert.equal(edit.contract.approvalReminderLeadDays, 10);
+    assert.equal(edit.contract.requiresApproval, false);
+    assert.equal(edit.contract.approvalReminderLeadDays, null);
   });
 
   // ---- D144: datas planejadas "À definir" (null) em contratos FUTUROS ----------
@@ -3053,7 +3054,7 @@ if (!databaseUrl || !databaseReachable) {
   const verOf = async (id) =>
     (await prisma.saleContract.findUnique({ where: { id }, select: { version: true } })).version;
 
-  test('setSaleContractApprovalFlag: liga (lead 30) / desliga (lead null) em EMITIDO sem envio (AP23)', async () => {
+  test('setSaleContractApprovalFlag: liga (lead 30) em EMITIDO; desmarcar é impossível (AP32)', async () => {
     const c = await mkApprovalContract({ requiresApproval: false });
 
     const on = await saleContractService.setSaleContractApprovalFlag(
@@ -3064,16 +3065,20 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(on.contract.requiresApproval, true);
     assert.equal(on.contract.approvalReminderLeadDays, 30); // lead PADRAO ao ligar
 
-    const off = await saleContractService.setSaleContractApprovalFlag(
-      c,
-      { requiresApproval: false, expectedVersion: await verOf(c) },
-      adminActor
+    // AP32: latch de mão única — Sim→Não é sempre 409, mesmo SEM envio.
+    const vOn = await verOf(c);
+    await assert.rejects(
+      () =>
+        saleContractService.setSaleContractApprovalFlag(
+          c,
+          { requiresApproval: false, expectedVersion: vOn },
+          adminActor
+        ),
+      (err) => err.status === 409 && err.details?.code === 'APPROVAL_FLAG_LOCKED'
     );
-    assert.equal(off.contract.requiresApproval, false);
-    assert.equal(off.contract.approvalReminderLeadDays, null); // null ao desligar
   });
 
-  test('setSaleContractApprovalFlag: Sim→Não trava apos o 1o envio (409 APPROVAL_FLAG_LOCKED)', async () => {
+  test('setSaleContractApprovalFlag: Sim→Não trava também DEPOIS do envio (409 LOCKED, AP32)', async () => {
     const c = await mkApprovalContract({ requiresApproval: true });
     await mkApprovalLabel(c);
     const v = await verOf(c);
@@ -3088,18 +3093,92 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('setSaleContractApprovalFlag: faturado congela o sinal (409 APPROVAL_FLAG_NOT_EDITABLE)', async () => {
+  test('setSaleContractApprovalFlag: idempotente — re-solicitar já-Sim não reseta o lead (AP32)', async () => {
+    const c = await mkApprovalContract({ requiresApproval: true });
+    // Lead custom (simula um ajuste no "Editar"); a prisma.update NÃO bumpa version.
+    await prisma.saleContract.update({
+      where: { id: c },
+      data: { approvalReminderLeadDays: 15 },
+    });
+    const res = await saleContractService.setSaleContractApprovalFlag(
+      c,
+      { requiresApproval: true, expectedVersion: await verOf(c) },
+      adminActor
+    );
+    assert.equal(res.contract.requiresApproval, true);
+    assert.equal(res.contract.approvalReminderLeadDays, 15); // preservado, NÃO resetou p/ 30
+  });
+
+  test('setSaleContractApprovalFlag: faturado congela — nem solicitar (409 NOT_EDITABLE)', async () => {
     const c = await mkApprovalContract({ requiresApproval: true, status: 'FATURADO' });
     const v = await verOf(c);
     await assert.rejects(
       () =>
         saleContractService.setSaleContractApprovalFlag(
           c,
-          { requiresApproval: false, expectedVersion: v },
+          { requiresApproval: true, expectedVersion: v },
           adminActor
         ),
       (err) => err.status === 409 && err.details?.code === 'APPROVAL_FLAG_NOT_EDITABLE'
     );
+  });
+
+  test('emitSaleContract NÃO altera requiresApproval — o portão do faturar sobrevive (AP32/🔴)', async () => {
+    const buyerId = randomUUID();
+    await createBuyerClient(buyerId);
+    // FUTURO marcado (Sim), sem etiqueta → portão AP18 ativo.
+    const sim = await saleContractService.createFutureSaleContract(
+      await createFutureInput(buyerId, { requiresApproval: true, approvalReminderLeadDays: 20 }),
+      adminActor
+    );
+    // "Editar" (emit) tentando desmarcar: o payload pede Não, mas o latch preserva Sim.
+    const edited = await saleContractService.emitSaleContract(
+      sim.contract.id,
+      etapa2Payload({
+        bankAccountId: sim.contract.sellerBankAccountId,
+        lookups: await fetchLookups(),
+        expectedVersion: sim.contract.version,
+        overrides: { requiresApproval: false },
+      }),
+      adminActor
+    );
+    assert.equal(edited.contract.requiresApproval, true); // preservado — NÃO virou Não
+
+    // O portão AP18 do faturar segue exigindo etiqueta (não foi furado pelo Editar).
+    await assert.rejects(
+      () =>
+        saleContractService.invoiceSaleContract(
+          sim.contract.id,
+          { expectedVersion: edited.contract.version, date: '2026-07-10' },
+          adminActor
+        ),
+      (err) => err.status === 422 && err.details?.code === 'CONTRACT_APPROVAL_REQUIRED'
+    );
+  });
+
+  test('listApprovalContracts: à vista washout NÃO entra no cancelado; futuro washout entra (AP33)', async () => {
+    // Futuro washout marcado → aparece no G2 (cancelado).
+    const futuroWashed = await mkApprovalContract({ status: 'WASH_OUT' });
+
+    // À vista washout marcado → NÃO aparece (alinha ao Financeiro/D145).
+    const { contractId, version } = await setupEmittableContract({ lotNumber: '25633' });
+    await prisma.saleContract.update({
+      where: { id: contractId },
+      data: { requiresApproval: true },
+    });
+    await saleContractService.washoutSaleContract(
+      contractId,
+      { expectedVersion: version, reason: 'Caiu' },
+      adminActor
+    );
+
+    const canceladas = await saleContractService.listApprovalContracts(
+      { filter: 'cancelado' },
+      adminActor
+    );
+    const ids = canceladas.items.map((item) => item.id);
+    assert.ok(ids.includes(futuroWashed), 'futuro washout deve aparecer no cancelado');
+    assert.ok(!ids.includes(contractId), 'à vista washout NÃO deve aparecer (AP33/D145)');
   });
 
   // AP31/DSB-D19: card de "Avisos" — aprovacao a enviar. Aparece enquanto marcado +
