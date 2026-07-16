@@ -325,7 +325,7 @@ Excecao a regra "nunca verde ao clicar":
 - `max-height: 98dvh` (fallback `calc(100vh - 2vh - env(safe-area-inset-top))` em iOS Safari < 15.4)
 - Body flex com `min-height: 0` + `overflow-y: auto` (crítico pra teclado virtual)
 - Footer sticky bottom (nao fixed) — acompanha scroll-into-view
-- ESC dispara `onDismissAttempt`; back Android via `history.pushState` + `popstate` listener
+- ESC dispara `onDismissAttempt`; back Android via `history.pushState` + `popstate` listener. Dismiss BLOQUEADO (`onDismissAttempt` → false) re-injeta a entry no popstate — a proxima volta continua protegida em vez de sair da pagina (fix CAM-G6, 2026-07-16)
 - **GOTCHA — navegar a partir de uma acao do sheet:** o sheet injeta uma entry de history (`state.bottomSheet`) e, no cleanup do close/unmount, chama `history.back()` pra desfaze-la. Como `router.push` (App Router) e assincrono, esse `back()` corre contra a navegacao e a DESFAZ (a acao "nao navega"). Antes do `router.push`, limpe o marcador: `history.replaceState({ ...history.state, bottomSheet: false }, '')`. Ver `HeaderAvatarMenu.go` (linhas do menu da conta). _(O antigo `useOperationModal.classifySample`, outro exemplo deste padrao, foi removido em 2026-07-12 — DSB-D2.)_
 - Focus trap via `useFocusTrap`; `role="dialog"` + `aria-modal="true"`
 - `translate3d` permanente: GPU layer; previne scroll lock iOS standalone PWA

@@ -73,7 +73,7 @@ verificacao manual antes de remover. Processo canonico da revisao geral:
 ## Padroes de seguranca
 
 - Nunca hardcodar secrets em codigo. Usar env vars + Secret Manager.
-- Uploads: sempre validar magic bytes (file-type). Fotos de amostra: JPEG/PNG/WebP (`saveSamplePhoto`); anexos de cliente: JPEG/PNG/WebP + PDF (`saveClientAttachment`).
+- Uploads: sempre validar magic bytes (file-type), na ENTRADA — helper compartilhado `assertImageMagicBytes` em `src/uploads/upload-policy.js`. Fotos de amostra: JPEG/PNG/WebP (`saveSamplePhoto`, e tambem o detect/extract temporario da camera — CAM-I1); fotos de embarque: idem (`saveContractShipmentPhoto`); anexos de cliente: JPEG/PNG/WebP + PDF (`saveClientAttachment`).
 - Inputs: usar normalizers no service layer.
 - SQL: sempre Prisma parameterized ou tagged templates (`$queryRaw`). Nunca string concat.
 - Headers HTTP: configurados em `next.config.mjs`. Nao remover sem justificativa.
