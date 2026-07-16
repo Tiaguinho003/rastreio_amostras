@@ -821,10 +821,11 @@ function CameraPageContent() {
     setFlowError(null);
 
     try {
-      const compressed = await compressImage(capturedPhoto);
+      // CAM-G1: com token a foto ja esta no server — comprimir de novo
+      // (canvas de ate 3072px) era CPU mobile gasta num resultado ignorado.
       const result = detectedPhotoToken
         ? await extractFromDetectedForm(session, detectedPhotoToken)
-        : await extractAndPrepareClassification(session, compressed);
+        : await extractAndPrepareClassification(session, await compressImage(capturedPhoto));
       if (!mountedRef.current) return;
 
       // Garantia: token sempre conhecido apos um extract bem-sucedido
@@ -1040,7 +1041,10 @@ function CameraPageContent() {
 
     const validationError = validateClassificationForm(classificationForm);
     if (validationError) {
+      // CAM-G2: sem voltar pro review, o erro ficava invisivel (o modal de
+      // classificadores nao exibe flowError) e o Continuar virava botao morto.
       setFlowError(validationError);
+      setFlowState('confirming');
       return;
     }
 
@@ -1421,8 +1425,12 @@ function CameraPageContent() {
       {/* Modal central de sucesso pos-classificacao (Bloco F1, frente B). */}
       <ClassificationSuccessModal
         open={flowState === 'success' && Boolean(confirmedSampleId)}
-        lotNumber={resolvedSample?.internalLotNumber ?? contextSampleLot ?? confirmedSampleId ?? ''}
-        isReclassification={contextSampleStatus === 'CLASSIFIED'}
+        lotNumber={resolvedSample?.internalLotNumber ?? contextSampleLot ?? ''}
+        isReclassification={
+          // CAM-B3: no Flow A (sem contexto) a reclassificacao chega via
+          // resolvedSample — so contextSampleStatus mostrava copy errada.
+          contextSampleStatus === 'CLASSIFIED' || resolvedSample?.status === 'CLASSIFIED'
+        }
         onViewDetails={() => {
           if (confirmedSampleId) router.push(`/samples/${confirmedSampleId}`);
         }}

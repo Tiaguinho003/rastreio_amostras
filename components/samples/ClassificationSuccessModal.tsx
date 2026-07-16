@@ -79,10 +79,14 @@ export function ClassificationSuccessModal({
             </svg>
           </div>
 
-          <div className="sample-created-lot-card">
-            <p className="sample-created-label">{copy.label}</p>
-            <p className="sample-created-lot">{lotNumber}</p>
-          </div>
+          {/* CAM-UX2: sem lote conhecido o card sai por inteiro (antes o
+              fallback vazava o UUID da amostra como se fosse numero de lote). */}
+          {lotNumber ? (
+            <div className="sample-created-lot-card">
+              <p className="sample-created-label">{copy.label}</p>
+              <p className="sample-created-lot">{lotNumber}</p>
+            </div>
+          ) : null}
 
           <p className="classification-success-print">
             <svg viewBox="0 0 24 24" aria-hidden="true">
