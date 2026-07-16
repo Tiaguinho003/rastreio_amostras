@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { useCameraSheet } from '../lib/camera-sheet/CameraSheetProvider';
 import {
   canManageClients,
   CONTRATOS_ROLES,
@@ -29,8 +30,13 @@ interface HeaderAvatarMenuProps {
 export function HeaderAvatarMenu({ session, onLogout }: HeaderAvatarMenuProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const cameraSheet = useCameraSheet();
 
   const displayName = session.user.fullName?.trim() || session.user.username;
+
+  // CAM-P3: icone de camera no header de TODAS as paginas mobile — abre o
+  // bottom sheet global da camera (Flow A). PROSPECTOR nao classifica.
+  const showCameraTrigger = session.user.role !== 'PROSPECTOR';
 
   // Item launcher: fecha o sheet e navega pra rota.
   //
@@ -51,7 +57,25 @@ export function HeaderAvatarMenu({ session, onLogout }: HeaderAvatarMenuProps) {
   }
 
   return (
-    <>
+    <span className="header-actions-cluster">
+      {showCameraTrigger ? (
+        <button
+          type="button"
+          className="header-camera-trigger"
+          aria-label="Abrir câmera"
+          onClick={() => cameraSheet.open()}
+        >
+          {/* Mesmo icone de camera que era o slot central da tabbar. */}
+          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+            <path d="M4 8V5.6A1.6 1.6 0 0 1 5.6 4H8" />
+            <path d="M16 4h2.4A1.6 1.6 0 0 1 20 5.6V8" />
+            <path d="M20 16v2.4a1.6 1.6 0 0 1-1.6 1.6H16" />
+            <path d="M8 20H5.6A1.6 1.6 0 0 1 4 18.4V16" />
+            <path d="M7.5 12h9" />
+          </svg>
+        </button>
+      ) : null}
+
       <button
         type="button"
         className="header-avatar-trigger"
@@ -180,6 +204,6 @@ export function HeaderAvatarMenu({ session, onLogout }: HeaderAvatarMenuProps) {
           </div>
         </div>
       </BottomSheet>
-    </>
+    </span>
   );
 }

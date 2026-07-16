@@ -10,6 +10,7 @@ import { MobileTabbar } from './MobileTabbar';
 import { SampleSearchField } from './SampleSearchField';
 import { UserAvatar } from './UserAvatar';
 import { changeCurrentUserPassword, recordInitialPasswordDecision } from '../lib/api-client';
+import { CameraSheetProvider } from '../lib/camera-sheet/CameraSheetProvider';
 import { changePasswordSchema } from '../lib/form-schemas';
 import {
   canManageClients,
@@ -959,7 +960,13 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
           </div>
         ) : null}
 
-        <div className="app-shell-page-content">{children}</div>
+        {/* CAM-P3: provider do bottom sheet global da camera. Envolve so o
+            conteudo das paginas (onde os gatilhos vivem — icone do header no
+            HeaderAvatarMenu + botoes do detalhe do lote); o sheet em si e os
+            modais do fluxo portam pro document.body. */}
+        <CameraSheetProvider session={session}>
+          <div className="app-shell-page-content">{children}</div>
+        </CameraSheetProvider>
       </main>
 
       {!hideMobileTabbar ? (
