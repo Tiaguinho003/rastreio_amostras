@@ -466,8 +466,9 @@ export class SaleContractService {
   // AGREGADO (contagem no approval_label_log), entao — ao contrario do embarque (typed
   // findMany) — usa $queryRaw: G0 a_enviar (marcado+EMITIDO+SEM etiqueta, anti-join
   // NOT EXISTS) por invoiceDate ASC (fila, AP28); G1 enviada (>=1 etiqueta, nao washout)
-  // por ultimo envio DESC, com count => "·N×" (AP24); G2 cancelado (WASH_OUT) por
-  // contractSeq DESC. Cursor {g,key,seq} (o key do G1 leva HORA). So requiresApproval.
+  // por ultimo envio DESC, com count => "·N×" (AP24); G2 cancelado (WASH_OUT + FUTURO,
+  // AP33 — alinha ao Financeiro/D145: a vista washout sai) por contractSeq DESC. Cursor
+  // {g,key,seq} (o key do G1 leva HORA). So requiresApproval.
   async listApprovalContracts(input, actorContext) {
     assertAuthenticatedActor(actorContext, 'list approval contracts');
 
@@ -578,6 +579,7 @@ export class SaleContractService {
         FROM sale_contract sc
         WHERE sc.requires_approval = true
           AND sc.status = 'WASH_OUT'
+          AND sc.type = 'FUTURO'
           ${searchFrag}
           ${cursorFragFor(2)}
         ORDER BY sc.contract_seq DESC
@@ -1096,6 +1098,16 @@ export class SaleContractService {
       etapa2,
     });
 
+    // AP32: o "Editar" NAO altera o sinal de aprovacao — requiresApproval e um latch
+    // de mao unica, mudado SO na criacao e pelo botao "Solicitar aprovacao"
+    // (setSaleContractApprovalFlag). Preserva o do banco (nao regrava do payload —
+    // era o furo que zerava o portao AP18). O lead segue editavel, mas coerente com o
+    // sinal preservado: null quando o contrato e "Nao".
+    delete data.requiresApproval;
+    if (!contract.requiresApproval) {
+      data.approvalReminderLeadDays = null;
+    }
+
     // Corretores (Editar fase 1): resolve ANTES dos syncs cross-aggregate (D143)
     // — o assertBrokersResolved pode lancar 422, e depois dos syncs a unica
     // falha aceitavel e o proprio conflito de versao. Troca dentro da tx.
@@ -1349,11 +1361,13 @@ export class SaleContractService {
     return this.getSaleContract(contractId, actorContext);
   }
 
-  // AP23: toggle rapido Sim/Nao do requiresApproval no Detalhes (sem abrir o "Editar"
-  // inteiro). So ADMIN/COMMERCIAL (AP9; COMMERCIAL nos dele). Travas AP20: so muda em
-  // EMITIDO (faturado+/washout congelam — 409 NOT_EDITABLE); Sim->Nao so ANTES do 1o
-  // envio (apos enviar trava em "Sim" — 409 LOCKED). Grava o lead PADRAO (30) ao ligar
-  // / null ao desligar (lead custom fica no "Editar"). Bumpa version (muda o contrato).
+  // AP32: "Solicitar aprovacao" — latch de MAO UNICA do requiresApproval no Detalhes
+  // (sem abrir o "Editar"). So ADMIN/COMMERCIAL (AP9; COMMERCIAL nos dele). Nao->Sim so;
+  // Sim->Nao e IMPOSSIVEL (409 LOCKED, incondicional — endurece a AP20, que so travava
+  // apos o 1o envio). So muda enquanto EMITIDO (faturado+/washout congelam — 409
+  // NOT_EDITABLE). Idempotente em ja-"Sim" (no-op, double-click safe, NAO re-seta o
+  // lead). Ao ligar grava o lead PADRAO (30); o lead custom fica no "Editar". Bumpa
+  // version (muda o contrato).
   async setSaleContractApprovalFlag(contractId, input, actorContext) {
     const actor = assertAuthenticatedActor(actorContext, 'set approval flag');
     assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'set approval flag');
@@ -1361,18 +1375,31 @@ export class SaleContractService {
     const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
     const requiresApproval = normalizeRequiredBoolean(input?.requiresApproval, 'requiresApproval');
 
+    // AP32: o latch so LIGA. Desmarcar (Sim->Nao) nunca — nem antes do 1o envio (uma
+    // etiqueta enviada nao pode ser "desrequisitada" pra furar o portao do faturar).
+    if (!requiresApproval) {
+      throw new HttpError(409, 'Approval flag is one-way and cannot be unset', {
+        code: 'APPROVAL_FLAG_LOCKED',
+      });
+    }
+
     const contract = await this.prisma.saleContract.findUnique({
       where: { id: contractId },
-      select: { id: true, status: true, version: true },
+      select: { id: true, status: true, version: true, requiresApproval: true },
     });
     if (!contract) {
       throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
     }
-    // AP20: o sinal so muda enquanto EMITIDO; faturado/pago/washout congelam a decisao.
+    // AP20/AP32: o sinal so muda enquanto EMITIDO; faturado/pago/washout congelam.
     if (contract.status !== 'EMITIDO') {
       throw new HttpError(409, `Sale contract is ${contract.status}; approval flag is frozen`, {
         code: 'APPROVAL_FLAG_NOT_EDITABLE',
       });
+    }
+    // AP32: idempotente — ja marcado nao re-grava (double-click safe; preserva um lead
+    // custom posto pelo "Editar"). Sem checar version: nao ha o que mudar.
+    if (contract.requiresApproval) {
+      return this.getSaleContract(contractId, actorContext);
     }
     if (contract.version !== expectedVersion) {
       throw new HttpError(409, 'Sale contract was modified concurrently', {
@@ -1380,23 +1407,12 @@ export class SaleContractService {
         field: 'expectedVersion',
       });
     }
-    // AP20: desmarcar (Sim->Nao) so ANTES do 1o envio — depois trava em "Sim" (ja foi
-    // aprovado, nao da pra fingir que nao precisava). Marcar (->Sim) e sempre livre.
-    if (!requiresApproval) {
-      const labelCount = await this.prisma.approvalLabelLog.count({
-        where: { saleContractId: contractId },
-      });
-      if (labelCount > 0) {
-        throw new HttpError(409, 'Approval already sent; flag is locked to "Sim"', {
-          code: 'APPROVAL_FLAG_LOCKED',
-        });
-      }
-    }
 
-    const approvalReminderLeadDays = normalizeApprovalReminderLeadDays(undefined, requiresApproval);
+    // Nao->Sim: liga com o lead PADRAO (30). O lead custom fica no "Editar".
+    const approvalReminderLeadDays = normalizeApprovalReminderLeadDays(undefined, true);
     const updated = await this.prisma.saleContract.updateMany({
       where: { id: contractId, version: expectedVersion, status: 'EMITIDO' },
-      data: { requiresApproval, approvalReminderLeadDays, version: { increment: 1 } },
+      data: { requiresApproval: true, approvalReminderLeadDays, version: { increment: 1 } },
     });
     if (updated.count === 0) {
       throw new HttpError(409, 'Sale contract was modified concurrently', {
