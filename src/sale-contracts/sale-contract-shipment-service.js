@@ -4,6 +4,7 @@ import {
   brtTodayDateOnly,
   buildShipmentContext,
   normalizeActionDate,
+  normalizeShipmentCarrier,
   SHIPMENT_CONTEXT_SELECT,
   SHIPMENT_PHOTO_VIEW_SELECT,
   toShipmentPhotoView,
@@ -11,6 +12,16 @@ import {
 
 const MAX_SHIPMENT_PHOTOS = 10;
 const SHIPPABLE_STATUSES = ['EMITIDO', 'FATURADO'];
+// EMB31: as fotos do embarque expiram em 15 dias — somem da UI (filtro nas 2 leituras)
+// e o disco e limpo por uma purga oportunista com throttle (sem Cloud Scheduler; molde
+// do expireStalePrintJobs). No Cloud Run o throttle e per-instancia best-effort.
+const SHIPMENT_PHOTO_RETENTION_MS = 15 * 24 * 60 * 60 * 1000;
+const SHIPMENT_PHOTO_PURGE_THROTTLE_MS = 60 * 60 * 1000;
+let lastShipmentPhotoPurgeAt = 0;
+
+function shipmentPhotoCutoff() {
+  return new Date(Date.now() - SHIPMENT_PHOTO_RETENTION_MS);
+}
 
 function requireId(value, field) {
   if (typeof value !== 'string' || value.length === 0) {
@@ -51,8 +62,11 @@ export class SaleContractShipmentService {
   async listShipmentPhotos(contractId, actorContext) {
     assertAuthenticatedActor(actorContext, 'list shipment photos');
     requireId(contractId, 'contractId');
+    // EMB31: hot path que arma a purga oportunista (throttled) das fotos expiradas.
+    void this.purgeExpiredShipmentPhotos().catch(() => {});
     const rows = await this.prisma.saleContractShipmentPhoto.findMany({
-      where: { saleContractId: contractId },
+      // EMB31: some as expiradas (>15d) — a purga fisica e assincrona/throttled.
+      where: { saleContractId: contractId, createdAt: { gte: shipmentPhotoCutoff() } },
       orderBy: [{ createdAt: 'asc' }],
       select: SHIPMENT_PHOTO_VIEW_SELECT,
     });
@@ -66,13 +80,50 @@ export class SaleContractShipmentService {
     requireId(contractId, 'contractId');
     requireId(photoId, 'photoId');
     const photo = await this.prisma.saleContractShipmentPhoto.findFirst({
-      where: { id: photoId, saleContractId: contractId },
+      // EMB31: uma foto expirada (>15d) tambem some da URL direta (404), nao so da lista.
+      where: {
+        id: photoId,
+        saleContractId: contractId,
+        createdAt: { gte: shipmentPhotoCutoff() },
+      },
       select: { storagePath: true, mimeType: true },
     });
     if (!photo) {
       throw new HttpError(404, 'Shipment photo not found', { code: 'SHIPMENT_PHOTO_NOT_FOUND' });
     }
     return photo;
+  }
+
+  // EMB31: apaga do banco + disco as fotos com mais de 15 dias. Oportunista (armada por
+  // um hot path de leitura), throttled a 1h (per-instancia; `force` so nos testes).
+  // Ordem LINHA->ARQUIVO: orfao de arquivo e tolerado, orfao de linha nao (molde do
+  // rollback do confirmShipment). Delete idempotente — rodar de novo nao quebra.
+  async purgeExpiredShipmentPhotos({ force = false } = {}) {
+    const now = Date.now();
+    if (!force && now - lastShipmentPhotoPurgeAt < SHIPMENT_PHOTO_PURGE_THROTTLE_MS) {
+      return { purged: 0 };
+    }
+    lastShipmentPhotoPurgeAt = now;
+    const expired = await this.prisma.saleContractShipmentPhoto.findMany({
+      where: { createdAt: { lt: shipmentPhotoCutoff() } },
+      select: { id: true, storagePath: true },
+    });
+    if (expired.length === 0) {
+      return { purged: 0 };
+    }
+    await this.prisma.saleContractShipmentPhoto.deleteMany({
+      where: { id: { in: expired.map((photo) => photo.id) } },
+    });
+    if (this.uploadService?.deleteByStoragePath) {
+      for (const photo of expired) {
+        try {
+          await this.uploadService.deleteByStoragePath(photo.storagePath);
+        } catch {
+          // best-effort: orfao de arquivo tolerado
+        }
+      }
+    }
+    return { purged: expired.length };
   }
 
   // Confirma o embarque: grava shippedAt (<= hoje BRT) + 0..10 fotos, numa tx.
@@ -99,6 +150,34 @@ export class SaleContractShipmentService {
         code: 'SHIPMENT_TOO_MANY_PHOTOS',
         field: 'files',
       });
+    }
+
+    // EMB30: transporte OBRIGATORIO (sem default). COMPANY ("Pela empresa") exige um
+    // responsavel ATIVO nao-PROSPECTOR (blinda a API alem do picker) e congela o
+    // snapshot do nome (molde brokerNameSnapshot). THIRD_PARTY ("Por terceiros") nao tem.
+    const carrier = normalizeShipmentCarrier(input?.transporte);
+    let responsibleUserId = null;
+    let responsibleName = null;
+    if (carrier === 'COMPANY') {
+      const rawResponsible = input?.responsibleUserId;
+      if (typeof rawResponsible !== 'string' || rawResponsible.length === 0) {
+        throw new HttpError(422, 'Responsible user is required for company transport', {
+          code: 'SHIPMENT_RESPONSIBLE_INVALID',
+          field: 'responsibleUserId',
+        });
+      }
+      const user = await this.prisma.user.findUnique({
+        where: { id: rawResponsible },
+        select: { id: true, fullName: true, status: true, role: true },
+      });
+      if (!user || user.status !== 'ACTIVE' || user.role === 'PROSPECTOR') {
+        throw new HttpError(422, 'Responsible user is invalid', {
+          code: 'SHIPMENT_RESPONSIBLE_INVALID',
+          field: 'responsibleUserId',
+        });
+      }
+      responsibleUserId = user.id;
+      responsibleName = user.fullName;
     }
 
     const contract = await this._requireContract(contractId, {
@@ -147,7 +226,14 @@ export class SaleContractShipmentService {
             shippedAt: null,
             status: { in: SHIPPABLE_STATUSES },
           },
-          data: { shippedAt },
+          // EMB30: carrier + responsavel gravados JUNTO do shippedAt, na MESMA
+          // updateMany — seguem o eixo do embarque (sem bumpar version, EMB22).
+          data: {
+            shippedAt,
+            shipmentCarrier: carrier,
+            shipmentResponsibleUserId: responsibleUserId,
+            shipmentResponsibleName: responsibleName,
+          },
         });
         if (updated.count === 0) {
           // Corrida: alguem confirmou/mudou o status entre o guard e a tx.

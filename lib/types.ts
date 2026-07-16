@@ -391,6 +391,9 @@ export interface SaleContract {
   // Embarque (EMB21/EMB22): sinal herdado da modalidade + data real do embarque.
   requiresShipment: boolean;
   shippedAt: string | null;
+  // Embarque FASE 2 (EMB30): transporte + nome do responsável (snapshot), só no Detalhes.
+  shipmentCarrier: 'COMPANY' | 'THIRD_PARTY' | null;
+  shipmentResponsibleName: string | null;
   version: number;
   createdAt: string | null;
   updatedAt: string | null;

@@ -344,6 +344,9 @@ export const SALE_CONTRACT_VIEW_SELECT = Object.freeze({
   // Embarque (EMB21/EMB22): sinal herdado da modalidade + data real do embarque.
   requiresShipment: true,
   shippedAt: true,
+  // Embarque FASE 2 (EMB30): transporte + nome do responsavel (snapshot), exibidos no Detalhes.
+  shipmentCarrier: true,
+  shipmentResponsibleName: true,
   version: true,
   createdAt: true,
   updatedAt: true,
@@ -401,6 +404,8 @@ export function toSaleContractView(row) {
     approvalReminderLeadDays: row.approvalReminderLeadDays ?? null,
     requiresShipment: row.requiresShipment,
     shippedAt: toIsoString(row.shippedAt),
+    shipmentCarrier: row.shipmentCarrier ?? null,
+    shipmentResponsibleName: row.shipmentResponsibleName ?? null,
     version: row.version,
     createdAt: toIsoString(row.createdAt),
     updatedAt: toIsoString(row.updatedAt),
@@ -1257,6 +1262,25 @@ function normalizeAgio(input, fieldName = 'agioDesagio') {
     });
   }
   return { agioDesagioType: type, agioDesagioValue: value };
+}
+
+// Embarque FASE 2 (EMB30): transporte na confirmacao. OBRIGATORIO (sem default) —
+// COMPANY ("Pela empresa") exige responsavel; THIRD_PARTY ("Por terceiros") nao.
+export function normalizeShipmentCarrier(value, fieldName = 'transporte') {
+  if (value === undefined || value === null || value === '') {
+    throw new HttpError(422, `${fieldName} is required`, {
+      code: 'VALIDATION_ERROR',
+      field: fieldName,
+    });
+  }
+  const carrier = String(value).trim().toUpperCase();
+  if (carrier !== 'COMPANY' && carrier !== 'THIRD_PARTY') {
+    throw new HttpError(422, `${fieldName} must be COMPANY or THIRD_PARTY`, {
+      code: 'VALIDATION_ERROR',
+      field: fieldName,
+    });
+  }
+  return carrier;
 }
 
 // Como normalizeAgio, mas EXIGE o par (tipo + valor > 0). Usado na aplicacao de

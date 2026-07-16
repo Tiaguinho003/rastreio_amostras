@@ -3432,6 +3432,8 @@ export function createBackendApiV1({
           {
             shippedAt: body.shippedAt ?? null,
             files: Array.isArray(body.files) ? body.files : [],
+            transporte: body.transporte ?? null,
+            responsibleUserId: body.responsibleUserId ?? null,
           },
           actor
         );
