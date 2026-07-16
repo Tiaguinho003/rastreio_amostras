@@ -51,6 +51,9 @@ type SaleContractDetailsModalProps = {
   onEditar: () => void;
   onApplyAgio: (type: AgioDesagioType) => void;
   onWashout: () => void;
+  // Espelho: o botão "Gerar espelho" (só quando elegível) abre a Conferência no pai.
+  espelhoEligible?: boolean;
+  onGerarEspelho?: () => void;
 };
 
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -192,6 +195,8 @@ export function SaleContractDetailsModal({
   onEditar,
   onApplyAgio,
   onWashout,
+  espelhoEligible = false,
+  onGerarEspelho,
 }: SaleContractDetailsModalProps) {
   // Contrato fresco (corretores incluídos) + timeline, buscados ao abrir.
   const [fresh, setFresh] = useState<SaleContract | null>(null);
@@ -346,6 +351,11 @@ export function SaleContractDetailsModal({
     );
   } else if (canManage && (view.status === 'FATURADO' || view.status === 'PAGO')) {
     footerButtons.push({ key: 'washout', label: 'Washout', danger: true, onClick: onWashout });
+  }
+  // Espelho: elegível em mais status que as ações acima (inclui WASH_OUT do FUTURO) —
+  // botão à parte, guiado pela elegibilidade (não pelo branch de status).
+  if (canManage && espelhoEligible && onGerarEspelho) {
+    footerButtons.push({ key: 'espelho', label: 'Gerar espelho', onClick: onGerarEspelho });
   }
 
   const footer =

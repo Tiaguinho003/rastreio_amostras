@@ -8,6 +8,7 @@ import { ClientLookupField } from '../clients/ClientLookupField';
 import { ClassificationFilterField } from '../samples/ClassificationFilterField';
 import { SelectionModeHeader } from '../samples/SelectionModeHeader';
 import { getNextContractNumber, listSaleContracts } from '../../lib/api-client';
+import { espelhoEligibility } from '../../lib/espelho';
 import { useDelayedValue } from '../../lib/use-delayed-value';
 import { useContractHighlight } from '../../lib/use-contract-highlight';
 import { useFocusTrap } from '../../lib/use-focus-trap';
@@ -38,10 +39,6 @@ import { SaleContractDetailsModal } from './SaleContractDetailsModal';
 import { SaleContractEtapa2Modal } from './SaleContractEtapa2Modal';
 import { SaleContractLifecycleDialog, type LifecycleAction } from './SaleContractLifecycleDialog';
 import { SaleContractLotPickerModal } from './SaleContractLotPickerModal';
-
-// Espelho de Corretagem (Fase E): só contratos congelados podem gerar o espelho (D73).
-// D105: WASH_OUT também é elegível (o corretor recebe a comissão mesmo com washout).
-const ESPELHO_ELIGIBLE: SaleContractStatus[] = ['EMITIDO', 'FATURADO', 'PAGO', 'WASH_OUT'];
 
 const STATUS_OPTION_LABELS = STATUS_LABELS.map((s) => s.label);
 const TYPE_OPTION_LABELS = TYPE_LABELS.map((t) => t.label);
@@ -516,24 +513,10 @@ export function ContratosPanel({ session }: { session: SessionData }) {
                     status: contract.status,
                     hasLot: contract.type === 'MERCADO_A_VISTA',
                   });
-                // Espelho elegível = status congelado E ≥1 corretagem preenchida
-                // (sem comissão não há o que espelhar). Motivo p/ o card esmaecido.
-                // D145: o físico (à vista) cancelado por washout não gera cobrança →
-                // Espelho bloqueado (espelha o gate do backend, ESPELHO_WASHOUT_SPOT).
-                const isSpotWashout =
-                  contract.status === 'WASH_OUT' && contract.type === 'MERCADO_A_VISTA';
-                const espelhoStatusOk =
-                  ESPELHO_ELIGIBLE.includes(contract.status) && !isSpotWashout;
-                const espelhoHasBrokerage =
-                  (contract.sellerBrokeragePct ?? 0) > 0 || (contract.buyerBrokeragePct ?? 0) > 0;
-                const espelhoEligible = espelhoStatusOk && espelhoHasBrokerage;
-                const espelhoReason = isSpotWashout
-                  ? 'À vista cancelado'
-                  : !espelhoStatusOk
-                    ? 'Só confirmados'
-                    : !espelhoHasBrokerage
-                      ? 'Sem corretagem'
-                      : undefined;
+                // Espelho: elegibilidade da fonte única (lib/espelho) — espelha os gates
+                // do backend (status congelado, ≥1 corretagem, não washout à-vista/D145).
+                const { eligible: espelhoEligible, reason: espelhoReason } =
+                  espelhoEligibility(contract);
                 return (
                   <SaleContractCard
                     key={contract.id}
@@ -628,6 +611,13 @@ export function ContratosPanel({ session }: { session: SessionData }) {
           open={detailsTarget != null}
           contract={detailsRendered}
           canManage={canManage}
+          espelhoEligible={espelhoEligibility(detailsRendered).eligible}
+          onGerarEspelho={() => {
+            const target = detailsRendered;
+            espelhoReturnRef.current = null;
+            setDetailsTarget(null);
+            setEspelhoTarget(target);
+          }}
           onClose={() => {
             setDetailsTarget(null);
             // Vai-e-volta do espelho (D134): se o Detalhes foi aberto pela

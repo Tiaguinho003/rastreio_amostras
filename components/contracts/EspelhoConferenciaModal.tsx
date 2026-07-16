@@ -4,10 +4,12 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { getSaleContract } from '../../lib/api-client';
+import { espelhoEligibility, espelhoSides, type EspelhoSide } from '../../lib/espelho';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { SaleContract, SaleContractDetail, SessionData } from '../../lib/types';
 
-export type EspelhoSide = 'seller' | 'buyer';
+// Re-export p/ compatibilidade (EspelhoCorretagemModal/ContratosPanel importam daqui).
+export type { EspelhoSide };
 
 type EspelhoConferenciaModalProps = {
   session: SessionData;
@@ -58,19 +60,12 @@ export function EspelhoConferenciaModal({
   const [detail, setDetail] = useState<SaleContractDetail | null>(null);
   const view: SaleContract = detail ?? contract;
 
-  // O espelho é direcionado a quem paga corretagem: só os lados com corretagem
-  // preenchida (> 0) entram no toggle. Fallback (nenhum preenchido): oferece os
-  // dois, p/ não travar o modal — a página só abre p/ elegíveis (≥1 lado).
-  const hasSeller = (view.sellerBrokeragePct ?? 0) > 0;
-  const hasBuyer = (view.buyerBrokeragePct ?? 0) > 0;
-  const availableSides: EspelhoSide[] =
-    hasSeller && hasBuyer
-      ? ['seller', 'buyer']
-      : hasSeller
-        ? ['seller']
-        : hasBuyer
-          ? ['buyer']
-          : ['seller', 'buyer'];
+  // O espelho é direcionado a quem paga corretagem: só os lados com corretagem (> 0)
+  // entram no toggle. SEM o fallback antigo dos-dois-lados — se o contrato FRESCO ficou
+  // inelegível (perdeu corretagem / virou washout à-vista entre a lista e a abertura), a
+  // tela avisa e bloqueia "Gerar espelho" em vez de mandar pra um 409 garantido na prévia.
+  const availableSides = espelhoSides(view);
+  const ineligible = !espelhoEligibility(view).eligible;
   const [side, setSide] = useState<EspelhoSide>(() => availableSides[0] ?? 'seller');
 
   useEffect(() => {
@@ -104,15 +99,8 @@ export function EspelhoConferenciaModal({
   // Espelha os valores que o PDF imprime (D131–D133): Data = data de GERAÇÃO
   // (hoje); Preço = EFETIVO (cru ± ágio/deságio por saca).
   const generatedDate = new Date().toLocaleDateString('pt-BR');
-  const agioPerSack = view.agioDesagioValue ?? 0;
-  const effectiveUnitPrice =
-    view.unitPrice == null
-      ? null
-      : view.agioDesagioType === 'AGIO' && agioPerSack
-        ? Math.round((view.unitPrice + agioPerSack) * 100) / 100
-        : view.agioDesagioType === 'DESAGIO' && agioPerSack
-          ? Math.round((view.unitPrice - agioPerSack) * 100) / 100
-          : view.unitPrice;
+  // Espelho (dedup): lê o preço efetivo da view (fonte única) em vez de recalcular.
+  const effectiveUnitPrice = view.effectiveUnitPrice;
   const agioText =
     view.agioDesagioType && view.agioDesagioValue != null
       ? `${view.agioDesagioType === 'AGIO' ? 'Ágio' : 'Deságio'} · ${money(view.agioDesagioValue)}/sc`
@@ -198,9 +186,16 @@ export function EspelhoConferenciaModal({
             ) : null}
           </div>
 
-          <p className="ctr-espelho-conf-hint">
-            Confira os dados acima. Para corrigir alguma informação, abra os detalhes do contrato.
-          </p>
+          {ineligible ? (
+            <p className="sdv-modal-error">
+              Este contrato não está mais elegível para o Espelho (sem corretagem ou cancelado à
+              vista). Recarregue a lista.
+            </p>
+          ) : (
+            <p className="ctr-espelho-conf-hint">
+              Confira os dados acima. Para corrigir alguma informação, abra os detalhes do contrato.
+            </p>
+          )}
         </div>
 
         <div className="app-modal-actions">
@@ -210,7 +205,12 @@ export function EspelhoConferenciaModal({
           <button type="button" className="ctr-btn" onClick={onOpenDetails}>
             Ver detalhes
           </button>
-          <button type="button" className="app-modal-submit" onClick={() => onConfirm(side)}>
+          <button
+            type="button"
+            className="app-modal-submit"
+            onClick={() => onConfirm(side)}
+            disabled={ineligible}
+          >
             Gerar espelho
           </button>
         </div>
