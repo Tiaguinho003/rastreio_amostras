@@ -3,13 +3,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
+  getDashboardAvisos,
   getDashboardInvoiceEvents,
   getDashboardPaymentEvents,
   getDashboardShipmentEvents,
 } from '../../lib/api-client';
 import { contractsHubTabs, FINANCEIRO_ROLES, isRoleAllowed } from '../../lib/roles';
+import { useRecentSendsFeed } from '../../lib/use-recent-sends-feed';
+import { AvisosCard } from './AvisosCard';
 import { EventsCalendarCard } from './EventsCalendarCard';
-import type { DashboardCalendarEvent, SessionData } from '../../lib/types';
+import type { DashboardAviso, DashboardCalendarEvent, SessionData } from '../../lib/types';
 
 const DESKTOP_MQ = '(min-width: 901px)';
 // Throttle do refetch em focus/visibility: evita N requests em Alt+Tab rápido.
@@ -29,6 +32,17 @@ export function DashboardDesktop({ session }: DashboardDesktopProps) {
       mountedRef.current = false;
     };
   }, []);
+
+  // ───────── Card de Avisos (DSB-D19): aprovação a enviar ─────────
+  // Feed BINÁRIO (some quando a etiqueta é gerada — o backend filtra); desktop-only +
+  // refetch em foco/visibilidade pelo hook (o mesmo dos cards de envios). Fica na
+  // coluna à DIREITA do calendário (grid de 2 colunas). Auth-only p/ todos os
+  // não-PROSPECTOR (o dashboard padrão já é só deles).
+  const avisos = useRecentSendsFeed<DashboardAviso>(
+    session,
+    getDashboardAvisos,
+    'Não foi possível carregar os avisos.'
+  );
 
   // ───────── Card de Eventos (3 feeds mesclados client-side) ─────────
   // F1 (E24/E28): pagamento — só ADMIN/COMMERCIAL (canPay); demais nem chamam o feed.
@@ -143,9 +157,10 @@ export function DashboardDesktop({ session }: DashboardDesktopProps) {
       <section className="dashboard-page">
         {/* DSB-D16: o cabecalho da pagina ("Visao geral" + saudacao + papel +
             data) foi REMOVIDO — o card de Eventos fica sozinho na pagina. */}
-        {/* Layout (DSB-D14): o dashboard apresenta APENAS o card de Eventos,
-            ocupando a area toda. O donut foi apagado do sistema; os cards de
-            envios migraram pra /samples e pra aba Aprovacoes de /embarques. */}
+        {/* Layout (DSB-D14 + DSB-D19): grid de 2 colunas — o card de Eventos
+            (calendario, 1fr) à esquerda e o card de Avisos (~300px) à DIREITA. O
+            donut foi apagado (DSB-D14); os cards de envios migraram pra /samples e
+            pra aba Aprovacoes de /embarques. */}
         <div className="dd-content-grid">
           <EventsCalendarCard
             events={calendarEvents}
@@ -154,6 +169,7 @@ export function DashboardDesktop({ session }: DashboardDesktopProps) {
             error={eventsError}
             onRetry={refetchEvents}
           />
+          <AvisosCard items={avisos.items} error={avisos.error} onRetry={avisos.retry} />
         </div>
       </section>
     </div>

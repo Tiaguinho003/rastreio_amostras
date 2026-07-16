@@ -2,24 +2,26 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import type { RecentSendItem, RecentSendsResponse, SessionData } from './types';
+import type { SessionData } from './types';
 
 const DESKTOP_MQ = '(min-width: 901px)';
 // Throttle do refetch em focus/visibility: evita N requests em Alt+Tab rápido.
 const REFETCH_THROTTLE_MS = 30_000;
 
-// Feed dos cards de envios — "Amostras enviadas" (/samples) e "Aprovações
-// enviadas" (aba Aprovações de /embarques) — DSB-D14; o padrão de fetch veio do
+// Feed genérico de card-lista do desktop — "Amostras enviadas" e "Aprovações
+// enviadas" (DSB-D14) + o card de "Avisos" (DSB-D19). Padrão de fetch do
 // DashboardDesktop (C1): DESKTOP-ONLY (gate matchMedia — o card já é escondido
 // por CSS abaixo de 901px), refetch em focus/visibilitychange com gate de
 // visibilityState + throttle 30s, e re-busca ao ENTRAR no desktop num resize
-// (senão o card ficava travado no skeleton — nada disparava o fetch).
-export function useRecentSendsFeed(
+// (senão o card ficava travado no skeleton — nada disparava o fetch). Genérico
+// por `T` (o item) + `errorMessage` (default = envios; o Avisos passa a sua).
+export function useRecentSendsFeed<T>(
   // `null` enquanto a sessão carrega (useRequireAuth) — não busca nada.
   session: SessionData | null,
-  fetcher: (session: SessionData) => Promise<RecentSendsResponse>
+  fetcher: (session: SessionData) => Promise<{ items: T[] }>,
+  errorMessage = 'Não foi possível carregar os envios.'
 ) {
-  const [items, setItems] = useState<RecentSendItem[] | null>(null);
+  const [items, setItems] = useState<T[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const lastFetchRef = useRef<number>(0);
   // Guarda de montagem: o retry pode disparar fora do ciclo do effect.
@@ -46,9 +48,9 @@ export function useRecentSendsFeed(
         setError(null);
       })
       .catch(() => {
-        if (mountedRef.current) setError('Não foi possível carregar os envios.');
+        if (mountedRef.current) setError(errorMessage);
       });
-  }, [session]);
+  }, [session, errorMessage]);
 
   useEffect(() => {
     fetchFeed();

@@ -24828,9 +24828,125 @@ select.samples-filter-field-input {
        rola (as celulas seguem rolando por dentro do piso). DSB-D18: piso maior
        — a grade do MES tem ate 6 linhas de dias. */
     grid-template-rows: minmax(420px, 1fr);
+    /* DSB-D19: 2 colunas — o calendario (1fr) a esquerda e o card de Avisos
+       (~300px) a DIREITA. */
+    grid-template-columns: 1fr minmax(280px, 340px);
     gap: clamp(1rem, 1.6vw, 1.5rem);
     /* grow p/ preencher quando ha espaco; shrink 0 p/ nao encolher abaixo do piso. */
     flex: 1 0 auto;
+  }
+
+  /* ── Card "Avisos" (DSB-D19): coluna a direita; molde do card de Eventos ── */
+
+  .avisos-card {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(0.4rem, 0.8vw, 0.6rem);
+    background: #ffffff;
+    border: 1px solid rgba(112, 130, 103, 0.22);
+    border-radius: 20px;
+    box-shadow: var(--dd-card-shadow);
+    padding: clamp(0.8rem, 1.1vw, 1.1rem) clamp(0.9rem, 1.2vw, 1.2rem);
+    animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.35s backwards;
+  }
+
+  .avisos-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex: none;
+  }
+
+  .avisos-title {
+    margin: 0;
+    font-size: clamp(0.9rem, 0.98vw, 1rem);
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: var(--ink);
+  }
+
+  .avisos-icon {
+    display: inline-flex;
+    color: #d97706;
+  }
+  .avisos-icon svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .avisos-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .avisos-empty {
+    margin: 0.4rem 0 0;
+    font-size: 0.85rem;
+    color: #6b7280;
+  }
+
+  .avisos-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.5rem 0.6rem;
+    border-radius: 12px;
+    border: 1px solid rgba(112, 130, 103, 0.18);
+    background: #fbfaf8;
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.15s ease;
+  }
+  .avisos-row:hover {
+    background: #f4f6f5;
+  }
+
+  .avisos-row-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+  }
+  .avisos-contract {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--ink);
+  }
+  .avisos-buyer {
+    font-size: 0.78rem;
+    color: #6b7280;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .avisos-due {
+    flex: none;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #b45309;
+    background: #fef3c7;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .avisos-due.is-overdue {
+    color: #b91c1c;
+    background: #fee2e2;
   }
 
   /* ── Card "Eventos" (DSH-D6 / F0; DSB-D14 = unico card do dashboard) ── */
