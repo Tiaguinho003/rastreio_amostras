@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 import { useFocusTrap } from '../../lib/use-focus-trap';
 
@@ -36,7 +37,7 @@ export function ClassificationDetectFailedModal({ open, onRetake, onContinue }: 
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div className="app-modal-backdrop">
       <section
         ref={focusTrapRef}
@@ -90,6 +91,7 @@ export function ClassificationDetectFailedModal({ open, onRetake, onContinue }: 
           </div>
         </div>
       </section>
-    </div>
+    </div>,
+    document.body
   );
 }

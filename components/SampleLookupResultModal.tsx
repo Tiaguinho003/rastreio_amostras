@@ -89,7 +89,7 @@ export function SampleLookupResultModal({
     <div className="app-modal-backdrop" onClick={onClose}>
       <section
         ref={focusTrapRef}
-        className="app-modal is-themed app-modal-lookup-result"
+        className="app-modal is-themed is-action app-modal-lookup-result"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}

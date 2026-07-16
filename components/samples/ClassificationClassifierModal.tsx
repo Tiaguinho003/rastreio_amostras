@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import type { ClassifierSnapshot, UserLookupItem } from '../../lib/types';
 import { useFocusTrap } from '../../lib/use-focus-trap';
@@ -121,7 +122,7 @@ export function ClassificationClassifierModal({
     return self ? [self, ...others] : others;
   })();
 
-  return (
+  return createPortal(
     <div className="app-modal-backdrop">
       <section
         ref={focusTrapRef}
@@ -297,6 +298,7 @@ export function ClassificationClassifierModal({
           </div>
         </div>
       </section>
-    </div>
+    </div>,
+    document.body
   );
 }

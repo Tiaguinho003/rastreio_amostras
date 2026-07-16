@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 import type {
   IdentificationDivergence,
@@ -65,7 +66,7 @@ export function ClassificationDataMismatchModal({
 
   const allChosen = divergences.every((d) => choices[d.field] !== undefined);
 
-  return (
+  return createPortal(
     <div className="app-modal-backdrop">
       <section
         ref={focusTrapRef}
@@ -169,6 +170,7 @@ export function ClassificationDataMismatchModal({
           </div>
         </div>
       </section>
-    </div>
+    </div>,
+    document.body
   );
 }

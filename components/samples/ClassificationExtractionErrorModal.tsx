@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 import { useFocusTrap } from '../../lib/use-focus-trap';
 
@@ -80,7 +81,7 @@ export function ClassificationExtractionErrorModal({
 
   const copy = COPY[kind];
 
-  return (
+  return createPortal(
     <div className="app-modal-backdrop">
       <section
         ref={focusTrapRef}
@@ -143,6 +144,7 @@ export function ClassificationExtractionErrorModal({
           </div>
         </div>
       </section>
-    </div>
+    </div>,
+    document.body
   );
 }

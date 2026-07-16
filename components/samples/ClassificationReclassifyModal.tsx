@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 import { useFocusTrap } from '../../lib/use-focus-trap';
 
@@ -79,7 +80,7 @@ export function ClassificationReclassifyModal({
   const reasonCodeMissing = showErrors && reasonCode === null;
   const reasonTextMissing = showErrors && reasonCode === 'OTHER' && reasonText.trim().length === 0;
 
-  return (
+  return createPortal(
     <div className="app-modal-backdrop">
       <section
         ref={focusTrapRef}
@@ -186,6 +187,7 @@ export function ClassificationReclassifyModal({
           </div>
         </div>
       </section>
-    </div>
+    </div>,
+    document.body
   );
 }
