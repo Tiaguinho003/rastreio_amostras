@@ -57,7 +57,6 @@ import type {
 } from '../../lib/types';
 import { useRequireAuth } from '../../lib/use-auth';
 import { NON_PROSPECTOR_ROLES } from '../../lib/roles';
-import { useFocusTrap } from '../../lib/use-focus-trap';
 
 type QrScannerClass = typeof import('qr-scanner').default;
 type QrScannerInstance = InstanceType<QrScannerClass>;
@@ -270,9 +269,8 @@ function CameraPageContent() {
   })();
 
   // Modo review do BottomSheet — sheet expande de volta a altura cheia
-  // e mostra o form de 7 secoes via ClassificationReviewSheetBody.
-  // Substitui o ClassificationReviewModal central pra que a transicao
-  // processing → review seja continua (sem flash de close+open).
+  // e mostra o form de 7 secoes via ClassificationReviewSheetBody, mantendo
+  // a transicao processing → review continua (sem flash de close+open).
   const isReviewingPhoto = flowState === 'confirming' && (!!extractionResult || manualMode);
   const REVIEW_FORM_ID = 'classification-review-form';
 
@@ -1498,16 +1496,13 @@ function CameraPageContent() {
         onCancel={resetClassificationFlow}
       />
 
-      {/* Q.cls.2.3: Modal de revisao da ficha unificada. Avancar dispara
-          o modal de tipo (Q.cls.2.8) — save final acontece apos
+      {/* Q.cls.2.3: a revisao da ficha unificada vive no
+          ClassificationReviewSheetBody, dentro do BottomSheet
+          camera-preview-sheet (modo is-review) — sequencia visual
+          processing → review continua, sem flash de close+open. Avancar
+          dispara o modal de tipo (Q.cls.2.8); save final apos o
           classifier-modal. Em modo manual (3b), lote/sacas/safra ficam
           editaveis pre-preenchidos com valores do sample em context. */}
-      {/* O ClassificationReviewModal central foi substituido pelo
-          ClassificationReviewSheetBody renderizado dentro do BottomSheet
-          camera-preview-sheet (modo is-review). Mantem a sequencia visual
-          processing → review continua, sem flash de close+open. O
-          componente legado permanece em components/samples/ por enquanto
-          (sem callers) — pendente de limpeza em proxima sessao. */}
 
       {/* Q.cls.2.8: Modal de selecao de tipo (entre revisao e classifiers).
           Click num tipo seta classificationType e avanca pro classifier
@@ -1593,10 +1588,9 @@ function CameraPageContent() {
         onConfirm={startManualMode}
       />
 
-      {/* Q.cls.2.9: Modal de classificadores. Substitui o JSX inline antigo
-          (cam-classifier-card). Continuar dispara o save direto — a
-          extracao+revisao+tipo ja aconteceram. Voltar volta pro modal
-          de tipo. */}
+      {/* Q.cls.2.9: Modal de classificadores. Continuar dispara o save
+          direto — a extracao+revisao+tipo ja aconteceram. Voltar volta
+          pro modal de tipo. */}
       <ClassificationClassifierModal
         open={flowState === 'selecting-classifier' && (!!extractionResult || manualMode)}
         currentUserId={session.user.id}

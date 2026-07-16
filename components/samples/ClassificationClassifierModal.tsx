@@ -6,8 +6,8 @@ import { createPortal } from 'react-dom';
 import type { ClassifierSnapshot, UserLookupItem } from '../../lib/types';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 
-// Q.cls.2.9: Modal de selecao de classificadores. Substitui o JSX inline
-// antigo (cam-classifier-card) e segue a skill modals (.app-modal.is-themed).
+// Q.cls.2.9: Modal de selecao de classificadores, no padrao da skill
+// modals (.app-modal.is-themed).
 // Header verde com seta de Voltar (igual ao TypeModal). Multi-select de
 // co-classificadores; o user atual e sempre incluido implicitamente.
 //

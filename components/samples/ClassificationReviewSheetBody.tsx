@@ -8,9 +8,9 @@ import {
 } from '../../lib/classification-form';
 import { PhotoZoomViewer } from '../PhotoZoomViewer';
 
-// Body reusavel do review de classificacao — mesmo conteudo do
-// ClassificationReviewModal mas sem header/backdrop. Usado dentro do
-// BottomSheet `camera-preview-sheet` quando flowState === 'confirming',
+// Body reusavel do review de classificacao — form de 7 secoes sem
+// header/backdrop proprios. Usado dentro do BottomSheet
+// `camera-preview-sheet` quando flowState === 'confirming',
 // pra que a transicao processing → review seja continua (sheet expande
 // de volta em vez de abrir um modal central novo).
 //

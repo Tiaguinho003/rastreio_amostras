@@ -395,12 +395,9 @@ function useMenuDismiss(
 }
 
 function resolveMobileRouteMeta(pathname: string): MobileRouteMeta | null {
-  if (pathname === '/camera') {
-    return {
-      title: 'Leitor QR',
-      subtitle: 'Escaneie o QR code da etiqueta para localizar a amostra.',
-    };
-  }
+  // /camera nao tem meta: a pagina desenha o proprio cabecalho
+  // (.camera-hub-headline) e o header de rota nunca era renderizado la
+  // (CAM-M5 — o ramo antigo "Leitor QR" era computado e jogado fora).
 
   if (pathname === '/profile') {
     return null;
@@ -935,7 +932,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
       <main
         className={`app-shell-main${isCameraRoute ? ' is-camera-route' : ''}${isLayeredRoute ? ' is-dashboard-route' : ''}`}
       >
-        {mobileRouteMeta && !isCameraRoute ? (
+        {mobileRouteMeta ? (
           <section className="app-shell-mobile-route-header">
             <div className="app-shell-mobile-route-copy">
               <h1 className="app-shell-mobile-route-title">{mobileRouteMeta.title}</h1>

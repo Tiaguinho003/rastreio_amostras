@@ -3449,10 +3449,9 @@ export default function SampleDetailPage() {
                         ) : null}
 
                         {/* Q.cls.2.7 cleanup: ficha unificada — sem ramificacao
-                            por classificationType. Layout espelha o
-                            ClassificationReviewModal (tipo → identificacao →
-                            visual → peneiras 2x5 → fundos → catacao+defeitos →
-                            obs+beb). */}
+                            por classificationType. Layout espelha o review da
+                            camera (tipo → identificacao → visual → peneiras
+                            2x5 → fundos → catacao+defeitos → obs+beb). */}
                         <div className="cld-pair">
                           <div className="cld-section">
                             <div
