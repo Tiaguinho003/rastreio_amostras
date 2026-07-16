@@ -103,13 +103,11 @@ const MOBILE_NAV_ITEMS = [
     href: '/dashboard',
     mobileLabel: 'Inicio',
     icon: 'dashboard' as NavIcon,
-    emphasis: 'default' as const,
   },
   {
     href: '/samples',
     mobileLabel: 'Lotes',
     icon: 'samples' as NavIcon,
-    emphasis: 'default' as const,
   },
   // CAM-P3: o slot central da camera saiu — a camera virou bottom sheet
   // global aberto pelo icone no header (HeaderAvatarMenu). Tabbar com 4
@@ -118,23 +116,20 @@ const MOBILE_NAV_ITEMS = [
     href: '/clients',
     mobileLabel: 'Clientes',
     icon: 'clients' as NavIcon,
-    emphasis: 'default' as const,
   },
   {
     href: '/relatorios',
     mobileLabel: 'Relatórios',
     icon: 'informe' as NavIcon,
-    emphasis: 'default' as const,
   },
   {
-    // 5o slot alternativo: papeis fora de INFORME_ROLES (CLASSIFIER, CADASTRO
+    // Slot alternativo: papeis fora de INFORME_ROLES (CLASSIFIER, CADASTRO
     // e REGISTRATION) nao tem Relatorios; recebem Perfil aqui para manter a
-    // tabbar com 5 itens como os demais. A filtragem (mutuamente exclusiva com
+    // tabbar com 4 itens como os demais. A filtragem (mutuamente exclusiva com
     // /informe) fica no render da MobileTabbar.
     href: '/profile',
     mobileLabel: 'Perfil',
     icon: 'profile' as NavIcon,
-    emphasis: 'default' as const,
   },
 ] as const;
 
@@ -966,14 +961,12 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
                   href: '/cadastros',
                   mobileLabel: 'Cadastros',
                   icon: 'cadastros' as NavIcon,
-                  emphasis: item.emphasis,
                 }
               : item;
             return {
               href: resolved.href,
               mobileLabel: resolved.mobileLabel,
               icon: renderNavIcon(resolved.icon, session.user),
-              emphasis: resolved.emphasis,
             };
           })}
           isActive={(href) => isMainNavItemActive(pathname, href)}

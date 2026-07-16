@@ -3839,8 +3839,7 @@ button:disabled {
      background/color que geraria flash). */
   transition: transform 140ms ease;
   -webkit-tap-highlight-color: transparent;
-  /* Anchor pro ::before (traco verde do indicador de pagina ativa).
-     `.is-primary` ja tem position:relative pelo seu proprio bloco. */
+  /* Anchor pro ::before (traco verde do indicador de pagina ativa). */
   position: relative;
 }
 
@@ -3862,9 +3861,8 @@ button:disabled {
 }
 
 /* Indicador da pagina ativa: traco VERDE curto e arredondado ABAIXO do
-   label (referencia do mockup). Excluido do .is-primary (camera) — o
-   user pediu pra camera nao ter efeito de ativo. */
-.mobile-tabbar-link.is-active:not(.is-primary)::before {
+   label (referencia do mockup). */
+.mobile-tabbar-link.is-active::before {
   content: '';
   position: absolute;
   bottom: 0.12rem;
@@ -3877,32 +3875,6 @@ button:disabled {
   pointer-events: none;
 }
 
-.mobile-tabbar-link.is-primary {
-  position: relative;
-  /* Sem width fixa: ocupa a propria coluna do grid e o circulo (pill) e
-     centrado nela via justify-content do link. O tamanho do botao vem dos
-     clamps de width/height do .mobile-tabbar-pill (mantem a proporcao
-     visual com os links comuns). */
-  /* Camera levemente elevada em relacao aos demais itens — elevacao reduzida
-     pra ficar mais centrada na vertical da barra (pedido do usuario). */
-  margin-top: clamp(-0.5rem, -1.4vw, -0.32rem);
-  padding: 0;
-  background: transparent;
-  color: #ffffff;
-  border: 0;
-  box-shadow: none;
-  align-self: center;
-}
-
-.mobile-tabbar-link.is-primary:hover {
-  color: #ffffff;
-  background: transparent;
-}
-
-.mobile-tabbar-link.is-primary.is-active {
-  color: #ffffff;
-  background: transparent;
-}
 
 .mobile-tabbar-pill {
   width: 100%;
@@ -3935,8 +3907,7 @@ button:disabled {
   height: 100%;
   fill: none;
   stroke: currentColor;
-  /* Traco mais fino (pedido do usuario). EXCECAO: o icone da camera
-     (.is-primary) mantem o traco anterior via override proprio abaixo. */
+  /* Traco mais fino (pedido do usuario). */
   stroke-width: 0.9;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -3958,52 +3929,6 @@ button:disabled {
   font-weight: 600;
 }
 
-.mobile-tabbar-link.is-primary .mobile-tabbar-pill {
-  /* Circulo da camera: cap em % da PROPRIA COLUNA do grid, < 100% DE
-     PROPOSITO pra deixar margem simetrica dos dois lados. Antes era 100% e o
-     circulo enchia a coluna, encostando nos vizinhos -> o vao camera<->vizinho
-     ficava ~metade do vao icone<->icone, dando sensacao de desalinhado e de
-     camera "descentrada". Com cap menor sobra respiro -> os vaos ficam mais
-     parelhos e a camera parece centrada. Igualdade 100% perfeita exigiria a
-     camera do tamanho dos icones (geometria do phone), entao isto e o
-     equilibrio (afinar o % no device). aspect-ratio:1 mantem o circulo
-     perfeito (a altura segue a largura). */
-  width: min(clamp(4.28rem, 17.1vw, 4.95rem), 82%);
-  aspect-ratio: 1;
-  height: auto;
-  flex-shrink: 0;
-  min-height: 0;
-  border-radius: 999px;
-  /* Mesmo verde do cabecalho/topbar (tokens da marca). */
-  background: linear-gradient(180deg, var(--brand-green) 0%, var(--brand-green-deep) 100%);
-  border: 2px solid rgba(255, 255, 255, 0.18);
-  box-shadow:
-    0 6px 20px rgba(4, 14, 5, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  /* Override do flex column do base .mobile-tabbar-pill: grid centering
-     e mais robusto pra centralizar um unico filho (icone, label hidden
-     via display:none) sem quirks de baseline do inline-flex em Safari iOS. */
-  display: grid;
-  place-items: center;
-}
-
-.mobile-tabbar-link.is-primary .mobile-tabbar-icon {
-  /* Icone da camera -10% (escala junto com o pill).
-     Grid centering pro SVG dentro do wrap, pelo mesmo motivo do pill. */
-  width: clamp(2.25rem, 9.9vw, 2.66rem);
-  height: clamp(2.25rem, 9.9vw, 2.66rem);
-  display: grid;
-  place-items: center;
-}
-
-.mobile-tabbar-link.is-primary .mobile-tabbar-icon svg {
-  /* SVG dentro do icone -10% (cresce com tudo). */
-  width: clamp(2.03rem, 9vw, 2.43rem);
-  height: clamp(2.03rem, 9vw, 2.43rem);
-  /* Mantem o traco original do icone da camera (nao afina junto com os
-     demais — pedido do usuario). */
-  stroke-width: 1.16;
-}
 
 .mobile-tabbar-label {
   display: block;
@@ -4023,11 +3948,6 @@ button:disabled {
   margin-top: 0.16rem;
 }
 
-/* Camera (primary): nao mostra label — so o icone grande dentro do
-   circulo verde. */
-.mobile-tabbar-link.is-primary .mobile-tabbar-label {
-  display: none;
-}
 
 .title {
   margin: 0;

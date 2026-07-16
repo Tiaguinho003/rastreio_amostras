@@ -8,7 +8,6 @@ export type MobileTabbarItem = {
   href: string;
   mobileLabel: string;
   icon: ReactNode;
-  emphasis?: 'primary' | 'default';
 };
 
 interface MobileTabbarProps {
@@ -52,7 +51,7 @@ export function MobileTabbar({ items, isActive }: MobileTabbarProps) {
             <Link
               key={item.href}
               href={item.href}
-              className={`mobile-tabbar-link${item.emphasis === 'primary' ? ' is-primary' : ''}${active ? ' is-active' : ''}`}
+              className={`mobile-tabbar-link${active ? ' is-active' : ''}`}
               aria-current={active ? 'page' : undefined}
             >
               <span className="mobile-tabbar-pill">
