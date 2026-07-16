@@ -110,6 +110,16 @@ O projeto e um monolito modular em Next.js, com frontend e backend no mesmo repo
 4. O runtime aplica limite server-side de `12 MiB` por imagem por padrao.
 5. Uploads sao validados por magic bytes via `file-type` (aceita apenas JPEG, PNG, WebP).
 
+### Artefatos gerados no cliente (Informativos)
+
+Os **Informativos** (`/relatorios`) sao a excecao ao padrao acima e merecem registro porque contrariam duas suposicoes razoaveis do resto do sistema:
+
+1. **Nao passam pelo servidor.** A peca (PNG 1080x1920) e desenhada em `<canvas>` no navegador e entregue pelo `lib/share-blob.ts`. Nao ha rota de API, nao ha `pdf-lib`, nao ha `sharp`: rasterizar no servidor exigiria instalar a Poppins na imagem do Cloud Run e depender do fontconfig.
+2. **Nao persistem nada.** Sem tabela, sem migration, sem evento, sem storage, sem historico. O informativo nasce, e baixado e morre.
+3. **A regra de magic bytes NAO se aplica** ao print da previsao do tempo que o usuario cola. O item 5 acima amarra a validacao a `src/uploads/`, onde a fronteira e o **servidor** e o arquivo e **persistido**; aqui a fronteira e o navegador do proprio usuario e nada cruza o fio. O `img.decode()` usado no lugar e um gate **mais forte** que magic bytes — um header PNG valido com corpo corrompido passa no magic bytes e falha no decode.
+
+Doc canonico da feature (incluindo a especificacao visual e o ledger INF): `docs/Informativos-Plano-de-Trabalho.md`.
+
 ## API interna
 
 1. Os route handlers do Next.js ficam em `app/api`.

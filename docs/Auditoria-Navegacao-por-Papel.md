@@ -70,6 +70,12 @@ relatórios são **imutáveis** (**cancelar soft**, só o autor). O PROSPECTOR a
 (allowlist ganhou `lookupClients`/`createClient`/`lookupUsersForReference`) e vê **só as próprias** (não
 "a equipe"); a fila **offline foi removida** (online-only). _As tabelas de nav abaixo ainda listam a rota
 antiga `/informe` na coluna "Rota" — leia-se **`/relatorios`**._
+Atualizado: 2026-07-16 — **INFORMATIVOS**: o leque do FAB da `/relatorios` tem uma **3ª opção**,
+**"Informativo"**, liberada a **todo não-PROSPECTOR** (mesma regra da página). Ela **não cria registro**:
+gera imagens para o story e some (sem banco, sem rota de API), então **os "2 tipos" acima seguem
+valendo para o FEED** — o Informativo não aparece nele e não tem gate de papel próprio para auditar.
+Fica aqui porque é uma **ação de página** que um mapeamento por papel deixaria escapar. Doc:
+`docs/Informativos-Plano-de-Trabalho.md`.
 
 ## Como ler este documento
 
