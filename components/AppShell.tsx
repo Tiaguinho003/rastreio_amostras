@@ -36,7 +36,6 @@ interface AppShellProps {
 
 type NavIcon =
   | 'dashboard'
-  | 'camera'
   | 'samples'
   | 'users'
   | 'clients'
@@ -112,12 +111,9 @@ const MOBILE_NAV_ITEMS = [
     icon: 'samples' as NavIcon,
     emphasis: 'default' as const,
   },
-  {
-    href: '/camera',
-    mobileLabel: 'Camera',
-    icon: 'camera' as NavIcon,
-    emphasis: 'primary' as const,
-  },
+  // CAM-P3: o slot central da camera saiu — a camera virou bottom sheet
+  // global aberto pelo icone no header (HeaderAvatarMenu). Tabbar com 4
+  // itens; grid-auto-flow redistribui sozinho.
   {
     href: '/clients',
     mobileLabel: 'Clientes',
@@ -145,10 +141,6 @@ const MOBILE_NAV_ITEMS = [
 function isMainNavItemActive(pathname: string, href: string) {
   if (href === '/dashboard') {
     return pathname === '/dashboard';
-  }
-
-  if (href === '/camera') {
-    return pathname === '/camera';
   }
 
   if (href === '/samples') {
@@ -181,18 +173,6 @@ function renderNavIcon(icon: NavIcon, user?: SessionData['user']) {
         <path d="M4.8 10.2 12 4.8l7.2 5.4" />
         <path d="M6.6 9.6V19h10.8V9.6" />
         <path d="M10.2 19v-5.2h3.6V19" />
-      </svg>
-    );
-  }
-
-  if (icon === 'camera') {
-    return (
-      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-        <path d="M4 8V5.6A1.6 1.6 0 0 1 5.6 4H8" />
-        <path d="M16 4h2.4A1.6 1.6 0 0 1 20 5.6V8" />
-        <path d="M20 16v2.4a1.6 1.6 0 0 1-1.6 1.6H16" />
-        <path d="M8 20H5.6A1.6 1.6 0 0 1 4 18.4V16" />
-        <path d="M7.5 12h9" />
       </svg>
     );
   }

@@ -37,6 +37,7 @@ import {
   registrationFormSchema,
   updateReasonSchema,
 } from '../../../lib/form-schemas';
+import { useCameraSheet } from '../../../lib/camera-sheet/CameraSheetProvider';
 import { useFocusTrap } from '../../../lib/use-focus-trap';
 import { useListRevalidation } from '../../../lib/use-list-revalidation';
 import { useGlobalLoading } from '../../../lib/loading/loading-context';
@@ -426,6 +427,7 @@ export default function SampleDetailPage() {
     allowedRoles: NON_PROSPECTOR_ROLES,
   });
   const router = useRouter();
+  const cameraSheet = useCameraSheet();
   const params = useParams<{ sampleId: string }>();
   const searchParams = useSearchParams();
   const sampleId = typeof params.sampleId === 'string' ? params.sampleId : '';
@@ -2157,20 +2159,12 @@ export default function SampleDetailPage() {
                             <span className="sdv-card-title">Classificação</span>
                           </div>
                           {isDesktop ? (
+                            // CAM-D2: desktop NAO classifica por foto — os
+                            // botoes Classificar/Reclassificar (camera) sairam;
+                            // corrigir uma classificacao existente segue
+                            // possivel pelo Editar (caminho 3, sem camera).
                             isClassified ? (
                               <div className="sdv-cls-header-actions">
-                                <button
-                                  type="button"
-                                  className="sdv-edit-btn"
-                                  onClick={() => setReclassifyModalOpen(true)}
-                                  aria-label="Reclassificar"
-                                >
-                                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                                    <circle cx="11" cy="11" r="8" />
-                                    <path d="m21 21-4.35-4.35" />
-                                  </svg>
-                                  <span>Reclassificar</span>
-                                </button>
                                 <button
                                   type="button"
                                   className="sdv-edit-btn"
@@ -2184,23 +2178,7 @@ export default function SampleDetailPage() {
                                   <span>Editar</span>
                                 </button>
                               </div>
-                            ) : (
-                              <div className="sdv-cls-header-actions">
-                                <button
-                                  type="button"
-                                  className="sdv-edit-btn"
-                                  onClick={() => router.push(`/camera?sampleId=${sampleId}`)}
-                                  disabled={!canClassifyNow}
-                                  aria-label="Classificar"
-                                >
-                                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                                    <circle cx="11" cy="11" r="8" />
-                                    <path d="m21 21-4.35-4.35" />
-                                  </svg>
-                                  <span>Classificar</span>
-                                </button>
-                              </div>
-                            )
+                            ) : null
                           ) : cd ? (
                             // Mobile, classificado: "Expandir" abre a
                             // classificacao completa.
@@ -2222,10 +2200,11 @@ export default function SampleDetailPage() {
                             // Mobile, ainda nao classificado: "Classificar" ocupa
                             // o lugar do "Expandir" — botao pequeno/discreto no
                             // header (sem o action-card grande no rodape).
+                            // CAM-P3: abre o sheet global da camera em Flow B.
                             <button
                               type="button"
                               className="sdv-edit-btn"
-                              onClick={() => router.push(`/camera?sampleId=${sampleId}`)}
+                              onClick={() => cameraSheet.open({ sampleId })}
                               disabled={!canClassifyNow}
                               aria-label="Classificar"
                             >
@@ -3878,9 +3857,11 @@ export default function SampleDetailPage() {
                   type="button"
                   className="app-modal-submit"
                   onClick={() => {
+                    // CAM-P3: reclassificacao abre o sheet global em Flow B
+                    // (sem sair do detalhe).
                     setReclassifyModalOpen(false);
                     closeClassificationDetail();
-                    router.push(`/camera?sampleId=${sampleId}`);
+                    cameraSheet.open({ sampleId });
                   }}
                 >
                   Reclassificar
