@@ -10429,6 +10429,135 @@ body:has(.app-modal-backdrop) .prospector-fab {
   background: #ffffff;
 }
 
+/* ── INFORMATIVO DE MERCADO (prefixo .ifm-) ──
+   Sheet do FAB da /relatorios que gera a peca 1080x1920 do story. Herda o
+   .is-informe (cards achatados) e acrescenta so o que e proprio: os pares de
+   campo, o toggle de direcao da variacao e a moldura da previa.
+   Ver docs/Informativos-Plano-de-Trabalho.md. */
+
+/* Dois/quatro campos por linha. Colapsa pra 1 coluna em telas estreitas — os
+   valores sao curtos, mas os rotulos ("Ano da coluna 1") nao. */
+.ifm-pair,
+.ifm-quad {
+  display: grid;
+  gap: clamp(8px, 2.2vw, 10px);
+}
+
+.ifm-pair {
+  grid-template-columns: 1fr 1fr;
+}
+
+.ifm-quad {
+  grid-template-columns: 1fr 1fr;
+}
+
+@media (min-width: 560px) {
+  .ifm-quad {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.ifm-row-group {
+  margin-top: clamp(10px, 3vw, 14px);
+}
+
+.ifm-row-legend {
+  display: block;
+  margin-bottom: clamp(5px, 1.6vw, 7px);
+  font-size: clamp(11px, 3vw, 12px);
+  font-weight: 600;
+  color: #8a8a8a;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Unidade colada no campo — reforca visualmente a INF19 (o usuario digita so o
+   numero; a unidade e do sistema). */
+.ifm-unit {
+  margin-top: 4px;
+  font-size: clamp(11px, 3vw, 12px);
+  font-weight: 600;
+  color: #9a9a9a;
+}
+
+/* Toggle de direcao da variacao. Tingir de verde/vermelho ao selecionar e
+   ESTADO PERSISTENTE, nao feedback de toque — a mesma excecao ja documentada
+   pro .inf-pill (ver nota do button-press-effect §9 acima). O :active segue
+   so com transform. */
+.ifm-dir {
+  gap: clamp(6px, 2vw, 8px);
+}
+
+.ifm-dir-arrow {
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+}
+
+.ifm-dir-arrow.is-up {
+  border-bottom: 8px solid currentColor;
+}
+
+.ifm-dir-arrow.is-down {
+  border-top: 8px solid currentColor;
+}
+
+.ifm-dir.is-selected.is-alta {
+  border-color: #186d14;
+  background: rgba(24, 109, 20, 0.1);
+  color: #186d14;
+}
+
+.ifm-dir.is-selected.is-baixa {
+  border-color: #c2341d;
+  background: rgba(194, 52, 29, 0.1);
+  color: #c2341d;
+}
+
+/* ── Etapa 2: a previa ── */
+.ifm-preview-step {
+  align-items: center;
+}
+
+.ifm-preview-hint {
+  margin: 0 0 clamp(8px, 2.5vw, 12px);
+  font-size: clamp(12px, 3.4vw, 13px);
+  color: #8a8a8a;
+  text-align: center;
+}
+
+/* A peca e 1080x1920 no canvas; aqui ela e escalada por CSS. O teto de altura
+   existe porque no desktop o sheet vira modal com max-height min(88dvh,44rem):
+   sem ele a previa empurraria as acoes pra fora. */
+.ifm-preview-frame {
+  width: 100%;
+  max-width: min(100%, 17rem);
+  margin-inline: auto;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.18);
+}
+
+.ifm-preview-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 9 / 16;
+}
+
+.ifm-preview-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(8px, 2.2vw, 10px);
+  width: min(100%, 34rem);
+  margin-top: clamp(12px, 3.5vw, 16px);
+}
+
+.ifm-preview-actions .inf-submit {
+  margin-top: 0;
+}
+
 /* ── Pagina /informe do COMERCIAL ──
    Shell da /samples sem a barra de busca: a faixa verde vira so um respiro
    entre o header e o sheet (o FAB e position: fixed, nao ocupa fluxo). */
