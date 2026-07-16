@@ -396,6 +396,62 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(noShipment.contract.requiresShipment, false);
   });
 
+  // EMB32: requiresShipment é snapshot congelado na emissão — o Editar só re-deriva se
+  // a MODALIDADE do contrato mudar ali; um flip posterior da flag "embarca?" da
+  // modalidade NÃO vaza pra contratos antigos (gêmeo do furo AP20/AP32).
+  test('EMB32: Editar preserva requiresShipment se a modalidade não muda; segue se muda', async () => {
+    const retirar = await prisma.contractModality.findFirst({
+      where: { requiresShipment: true },
+      orderBy: { name: 'asc' },
+    });
+    const semEmbarque = await prisma.contractModality.findFirst({
+      where: { requiresShipment: false },
+      orderBy: { name: 'asc' },
+    });
+    const { contractId, bankAccountId } = await setupEmittableContract({
+      lotNumber: '21500',
+      saleOverrides: { modalityId: retirar.id },
+    });
+    const row = await prisma.saleContract.findUnique({
+      where: { id: contractId },
+      select: { requiresShipment: true, version: true },
+    });
+    assert.equal(row.requiresShipment, true);
+
+    // Alguém baixa a flag "embarca?" da modalidade DEPOIS da emissão.
+    await prisma.contractModality.update({
+      where: { id: retirar.id },
+      data: { requiresShipment: false },
+    });
+
+    const lookups = await fetchLookups();
+    // Editar um campo qualquer, MESMA modalidade → preserva (não re-snapshota o flip).
+    const edited1 = await saleContractService.emitSaleContract(
+      contractId,
+      etapa2Payload({
+        bankAccountId,
+        lookups,
+        expectedVersion: row.version,
+        overrides: { modalityId: retirar.id, observations: 'MUDOU OBS' },
+      }),
+      adminActor
+    );
+    assert.equal(edited1.contract.requiresShipment, true);
+
+    // Editar TROCANDO a modalidade → acompanha a nova (sem embarque).
+    const edited2 = await saleContractService.emitSaleContract(
+      contractId,
+      etapa2Payload({
+        bankAccountId,
+        lookups,
+        expectedVersion: edited1.contract.version,
+        overrides: { modalityId: semEmbarque.id },
+      }),
+      adminActor
+    );
+    assert.equal(edited2.contract.requiresShipment, false);
+  });
+
   // ============================================================
   // Embarque F2 (EMB27): confirmação (shippedAt + fotos 0..10) + guards
   // ============================================================
@@ -427,6 +483,24 @@ if (!databaseUrl || !databaseReachable) {
     assert.ok(row.shippedAt);
     const photos = await shipmentService.listShipmentPhotos(contract.id, adminActor);
     assert.equal(photos.items.length, 0);
+  });
+
+  test('confirmShipment NÃO bumpa a version do contrato (EMB22)', async () => {
+    const contract = await setupShipmentContract({ lotNumber: '25214' });
+    const before = await prisma.saleContract.findUnique({
+      where: { id: contract.id },
+      select: { version: true },
+    });
+    await shipmentService.confirmShipment(
+      contract.id,
+      { shippedAt: '2026-07-08', files: [] },
+      adminActor
+    );
+    const after = await prisma.saleContract.findUnique({
+      where: { id: contract.id },
+      select: { version: true },
+    });
+    assert.equal(after.version, before.version);
   });
 
   test('confirmShipment rejeita data futura (máx hoje BRT)', async () => {
@@ -520,6 +594,49 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(photos.items[0].mimeType, 'image/png');
     // A view não vaza o caminho interno do arquivo.
     assert.equal(photos.items[0].storagePath, undefined);
+  });
+
+  test('confirmShipment 415 se a foto não é imagem aceita (magic bytes)', async () => {
+    const contract = await setupShipmentContract({ lotNumber: '25215' });
+    const pdf = Buffer.from('%PDF-1.4\n1 0 obj\n', 'utf8');
+    await assert.rejects(
+      () =>
+        shipmentService.confirmShipment(
+          contract.id,
+          { shippedAt: '2026-07-08', files: [{ fileBuffer: pdf, originalFileName: 'nf.pdf' }] },
+          adminActor
+        ),
+      (err) => err.status === 415
+    );
+  });
+
+  test('confirmShipment 413 se a foto passa de 12 MiB', async () => {
+    const contract = await setupShipmentContract({ lotNumber: '25216' });
+    const big = Buffer.concat([TINY_PNG, Buffer.alloc(12 * 1024 * 1024)]);
+    await assert.rejects(
+      () =>
+        shipmentService.confirmShipment(
+          contract.id,
+          { shippedAt: '2026-07-08', files: [{ fileBuffer: big, originalFileName: 'grande.png' }] },
+          adminActor
+        ),
+      (err) => err.status === 413
+    );
+  });
+
+  test('confirmShipment aceita exatamente 10 fotos (fronteira do teto)', async () => {
+    const contract = await setupShipmentContract({ lotNumber: '25217' });
+    const files = Array.from({ length: 10 }, (_, i) => ({
+      fileBuffer: TINY_PNG,
+      originalFileName: `p${i}.png`,
+    }));
+    await shipmentService.confirmShipment(
+      contract.id,
+      { shippedAt: '2026-07-08', files },
+      adminActor
+    );
+    const photos = await shipmentService.listShipmentPhotos(contract.id, adminActor);
+    assert.equal(photos.items.length, 10);
   });
 
   // ============================================================
