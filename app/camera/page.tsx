@@ -967,10 +967,33 @@ function CameraPageContent() {
     if (!session) return;
 
     if (hasContext && contextSampleId) {
-      if (
-        !contextSampleStatus ||
-        (contextSampleStatus !== 'REGISTRATION_CONFIRMED' && contextSampleStatus !== 'CLASSIFIED')
-      ) {
+      // CAM-G3: o status carregado no mount pode estar obsoleto (outro
+      // operador pode classificar a mesma amostra durante o fluxo, pulando
+      // o portao de reclassificacao client-side). Revalida agora e atualiza
+      // os dados de contexto — a reconciliacao de sacas/safra no confirmar
+      // tambem passa a comparar com valores frescos. O backend segue
+      // protegendo o status com 409 no save.
+      setFlowState('resolving');
+      setFlowError(null);
+      let freshStatus: string | null = null;
+      try {
+        const detail = await getSampleDetail(session, contextSampleId);
+        if (!mountedRef.current) return;
+        if (!detail?.sample) {
+          throw new Error('Amostra indisponivel. Tente novamente.');
+        }
+        freshStatus = detail.sample.status;
+        setContextSampleLot(detail.sample.internalLotNumber ?? null);
+        setContextSampleStatus(detail.sample.status);
+        setContextSampleSacks(detail.sample.declared?.sacks ?? null);
+        setContextSampleHarvest(detail.sample.declared?.harvest ?? null);
+      } catch (error) {
+        if (!mountedRef.current) return;
+        setFlowError(readErrorMessage(error, 'Falha ao buscar amostra.'));
+        setFlowState('confirming');
+        return;
+      }
+      if (freshStatus !== 'REGISTRATION_CONFIRMED' && freshStatus !== 'CLASSIFIED') {
         setFlowState('status-invalid');
         return;
       }
