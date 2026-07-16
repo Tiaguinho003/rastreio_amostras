@@ -613,6 +613,11 @@ function CameraPageContent() {
       setCapturedPhotoUrl(null);
     }
     setExtractionResult(null);
+    // CAM-B1: o token pertence a UMA foto — sem limpar aqui, um fluxo novo
+    // que falhe no detect (antes de setar o token novo) cairia no modo manual
+    // com o token da foto ANTERIOR (temps vivem ~24h no server) e a
+    // classificacao seria salva com a foto errada anexada.
+    setDetectedPhotoToken(null);
     setClassificationForm(EMPTY_CLASSIFICATION_FORM);
     setClassificationType(null);
     setSelectedClassifiers([]);
@@ -696,6 +701,8 @@ function CameraPageContent() {
 
     stopScanner();
     setCameraError(null);
+    // CAM-B1: foto nova invalida o token da anterior (ver resetClassificationFlow).
+    setDetectedPhotoToken(null);
     setCapturedPhoto(file);
     setCapturedPhotoUrl(URL.createObjectURL(file));
     setFlowState('preview');
