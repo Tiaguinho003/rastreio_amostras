@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 
 import { ApiError, downloadEspelhoPdf, logEspelhoExport } from '../../lib/api-client';
 import { downloadFile, shareOrDownloadFile } from '../../lib/share-blob';
+import { useToast } from '../../lib/toast/ToastProvider';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { SaleContract, SessionData } from '../../lib/types';
 
@@ -32,6 +33,7 @@ export function EspelhoCorretagemModal({
   onClose,
 }: EspelhoCorretagemModalProps) {
   const focusTrapRef = useFocusTrap(true);
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -70,21 +72,23 @@ export function EspelhoCorretagemModal({
     };
   }, [session, contract.id, side]);
 
-  // D127: o clique em Exportar/Baixar é o que audita ("Espelho exportado" no
-  // timeline). Fire-and-forget — um log falho não bloqueia o compartilhamento.
-  function logExport() {
+  // D127: audita ("Espelho exportado" no timeline) SÓ na ENTREGA concluída — não na
+  // intenção. Fire-and-forget (log falho não invalida a entrega) + toast de sucesso.
+  function logDelivered() {
     void logEspelhoExport(session, contract.id, side).catch(() => {});
+    toast.success({ title: 'Espelho exportado' });
   }
 
   async function handleExport() {
     if (!fileRef.current || busy) return;
     setBusy(true);
-    logExport();
     try {
-      await shareOrDownloadFile(fileRef.current.blob, fileRef.current.fileName, {
+      const result = await shareOrDownloadFile(fileRef.current.blob, fileRef.current.fileName, {
         mimeType: 'application/pdf',
         shareTitle: `Espelho de Corretagem ${contract.contractNumber}`,
       });
+      // Share cancelado (AbortError → 'cancelled') NÃO audita: nada saiu do aparelho.
+      if (result !== 'cancelled') logDelivered();
     } catch {
       setError('Não foi possível compartilhar o espelho.');
     } finally {
@@ -94,8 +98,8 @@ export function EspelhoCorretagemModal({
 
   function handleDownload() {
     if (!fileRef.current) return;
-    logExport();
     downloadFile(fileRef.current.blob, fileRef.current.fileName);
+    logDelivered();
   }
 
   const ready = pdfUrl !== null;
