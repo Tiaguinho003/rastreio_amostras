@@ -10563,6 +10563,52 @@ body:has(.app-modal-backdrop) .prospector-fab {
   margin-top: 0;
 }
 
+/* ── Acoes no footer do BottomSheet (uma por fase) ──
+   Ficam fixas: na revisao o corpo rola duas pecas 9:16, e sem isto o botao
+   estaria a uma rolagem inteira de distancia. */
+.ifm-footer-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(8px, 2.2vw, 10px);
+}
+
+.ifm-footer-actions.is-single {
+  grid-template-columns: 1fr;
+}
+
+.ifm-footer-actions .inf-submit {
+  margin-top: 0;
+}
+
+/* ── Fase 3: as pecas empilhadas ── */
+.ifm-revisao {
+  align-items: center;
+  gap: clamp(14px, 4vw, 18px);
+}
+
+.ifm-revisao-piece {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(6px, 2vw, 8px);
+  width: min(100%, 17rem);
+}
+
+.ifm-revisao-head {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.ifm-revisao-title {
+  margin: 0;
+  font-size: clamp(12px, 3.2vw, 13px);
+  font-weight: 600;
+  color: #6f6f6f;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 /* ── Fase meteorologica: a caixa do print da previsao ──
    Colar (Ctrl+V), arrastar ou escolher. Nada sobe pro servidor (P1): o arquivo
    vira objectURL e e desenhado no canvas. */

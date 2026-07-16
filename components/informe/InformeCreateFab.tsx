@@ -86,9 +86,14 @@ export function InformeCreateFab({
     onSubmitted();
   }, [onSubmitted]);
 
-  const handleInformativoGenerated = useCallback(() => {
-    toast.success({ title: 'Informativo gerado.' });
-  }, [toast]);
+  const handleInformativoGenerated = useCallback(
+    (quantidade: number) => {
+      toast.success({
+        title: quantidade > 1 ? 'Informativos gerados.' : 'Informativo gerado.',
+      });
+    },
+    [toast]
+  );
 
   // Le do localStorage so na abertura do sheet — nao no render, que roda no
   // servidor.
