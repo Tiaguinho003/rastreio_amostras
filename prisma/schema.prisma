@@ -112,6 +112,12 @@ enum AgioDesagioType {
   DESAGIO
 }
 
+// Embarque FASE 2 (EMB30): quem transporta o cafe na confirmacao do embarque.
+enum ShipmentCarrier {
+  COMPANY
+  THIRD_PARTY
+}
+
 enum SampleMovementType {
   SALE
   LOSS
@@ -866,6 +872,17 @@ model SaleContract {
   // Embarque (EMB21): herda "embarca?" da ContractModality por snapshot no emit.
   // Existentes = false via default; imutavel apos emitido (nao segue a modalidade).
   requiresShipment Boolean @default(false) @map("requires_shipment")
+
+  // Embarque FASE 2 (EMB30): transporte + responsavel, capturados na confirmacao.
+  // Nulos ate embarcar (molde shippedAt; legado nao ganha carrier fabricado). COMPANY
+  // ("Pela empresa") exige responsavel (snapshot do nome, molde brokerNameSnapshot; a
+  // FK RESTRICT p/ app_user vive so no SQL, padrao das sub-refs de contrato).
+  // THIRD_PARTY ("Por terceiros") nao tem responsavel. Sem CHECK — o 422 do servico
+  // (SHIPMENT_RESPONSIBLE_INVALID) e a trava; o carrier IS NULL do legado deixaria o
+  // CHECK mais fragil que util.
+  shipmentCarrier           ShipmentCarrier? @map("shipment_carrier")
+  shipmentResponsibleUserId String?          @map("shipment_responsible_user_id") @db.Uuid
+  shipmentResponsibleName   String?          @map("shipment_responsible_name")
 
   // Textos / meta
   observations String?
