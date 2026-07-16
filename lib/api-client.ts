@@ -1093,14 +1093,24 @@ export function listShipmentPhotos(
   });
 }
 
-// Confirma o embarque: multipart com a data (shippedAt) + 0..10 fotos opcionais.
+// Confirma o embarque: multipart com a data (shippedAt) + transporte/responsavel
+// (EMB30) + 0..10 fotos opcionais.
 export function confirmShipment(
   session: SessionData,
   contractId: string,
-  input: { shippedAt: string; files: File[] }
+  input: {
+    shippedAt: string;
+    files: File[];
+    transporte: 'COMPANY' | 'THIRD_PARTY';
+    responsibleUserId: string | null;
+  }
 ) {
   const formData = new FormData();
   formData.append('shippedAt', input.shippedAt);
+  formData.append('transporte', input.transporte);
+  if (input.responsibleUserId) {
+    formData.append('responsibleUserId', input.responsibleUserId);
+  }
   for (const file of input.files) {
     formData.append('file', file);
   }

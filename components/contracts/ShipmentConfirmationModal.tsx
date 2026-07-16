@@ -3,7 +3,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import { ApiError, confirmShipment, getShipmentContext } from '../../lib/api-client';
+import {
+  ApiError,
+  confirmShipment,
+  getShipmentContext,
+  lookupUsersForReference,
+} from '../../lib/api-client';
 import {
   isWeekendIso,
   lastBusinessDayIso,
@@ -11,7 +16,8 @@ import {
   WEEKEND_DATE_MESSAGE,
 } from '../../lib/business-days';
 import { useFocusTrap } from '../../lib/use-focus-trap';
-import type { SessionData, ShipmentContext } from '../../lib/types';
+import type { SessionData, ShipmentContext, UserLookupItem } from '../../lib/types';
+import { UserSelect } from '../users/UserSelect';
 
 // Embarque (EMB27): modal de confirmação — resumo (não-sensível) + seletor de data
 // (máx hoje; confirma-se depois do fato) + upload OPCIONAL 0..10 fotos + aviso de
@@ -49,6 +55,29 @@ export function ShipmentConfirmationModal({ session, contractId, onClose, onDone
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // EMB30: transporte (obrigatório, sem default) + responsável (só "Pela empresa").
+  const [carrier, setCarrier] = useState<'COMPANY' | 'THIRD_PARTY' | null>(null);
+  const [responsibleUserId, setResponsibleUserId] = useState<string | null>(null);
+  const [users, setUsers] = useState<UserLookupItem[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    // EMB30: pool do responsável = usuários atribuíveis (ativos, não-PROSPECTOR).
+    lookupUsersForReference(session, { limit: 200 })
+      .then((res) => {
+        if (active) setUsers(res.items);
+      })
+      .catch(() => {
+        if (active) setUsers([]);
+      })
+      .finally(() => {
+        if (active) setLoadingUsers(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [session]);
 
   useEffect(() => {
     let active = true;
@@ -67,7 +96,14 @@ export function ShipmentConfirmationModal({ session, contractId, onClose, onDone
   const dateInFuture = date !== '' && date > today;
   // DSB-D7: a data do embarque (data de ação) não pode cair em fim de semana.
   const dateIsWeekend = date !== '' && isWeekendIso(date);
-  const canSubmit = !saving && date !== '' && !dateInFuture && !dateIsWeekend && context !== null;
+  const canSubmit =
+    !saving &&
+    date !== '' &&
+    !dateInFuture &&
+    !dateIsWeekend &&
+    context !== null &&
+    carrier !== null &&
+    (carrier !== 'COMPANY' || Boolean(responsibleUserId));
 
   function onFilesSelected(event: React.ChangeEvent<HTMLInputElement>) {
     const picked = event.target.files ? Array.from(event.target.files) : [];
@@ -93,10 +129,16 @@ export function ShipmentConfirmationModal({ session, contractId, onClose, onDone
   }
 
   async function handleSubmit() {
+    if (carrier === null) return; // guard — o canSubmit já bloqueia o botão
     setSaving(true);
     setError(null);
     try {
-      const res = await confirmShipment(session, contractId, { shippedAt: date, files });
+      const res = await confirmShipment(session, contractId, {
+        shippedAt: date,
+        files,
+        transporte: carrier,
+        responsibleUserId: carrier === 'COMPANY' ? responsibleUserId : null,
+      });
       onDone(res.context);
     } catch (cause) {
       const code =
@@ -175,6 +217,54 @@ export function ShipmentConfirmationModal({ session, contractId, onClose, onDone
             <p className="ctr-confirm-text">Carregando...</p>
           )}
 
+          <div className="app-modal-field">
+            <span className="app-modal-label">Transporte</span>
+            <div className="ctr-approval-choice" role="group" aria-label="Transporte do embarque">
+              <button
+                type="button"
+                className={`ctr-approval-btn${carrier === 'COMPANY' ? ' is-selected' : ''}`}
+                aria-pressed={carrier === 'COMPANY'}
+                disabled={saving}
+                onClick={() => {
+                  setCarrier('COMPANY');
+                  setError(null);
+                }}
+              >
+                Pela empresa
+              </button>
+              <button
+                type="button"
+                className={`ctr-approval-btn${carrier === 'THIRD_PARTY' ? ' is-selected' : ''}`}
+                aria-pressed={carrier === 'THIRD_PARTY'}
+                disabled={saving}
+                onClick={() => {
+                  setCarrier('THIRD_PARTY');
+                  setResponsibleUserId(null);
+                  setError(null);
+                }}
+              >
+                Por terceiros
+              </button>
+            </div>
+          </div>
+
+          {carrier === 'COMPANY' ? (
+            <>
+              <UserSelect
+                label="Responsável"
+                users={users}
+                value={responsibleUserId}
+                onChange={setResponsibleUserId}
+                disabled={saving}
+                loading={loadingUsers}
+                placeholder="Selecione o responsável"
+              />
+              <p className="ctr-approval-note">
+                Responsável obrigatório para transporte pela empresa.
+              </p>
+            </>
+          ) : null}
+
           <label className="app-modal-field">
             <span className="app-modal-label">Data do embarque</span>
             <input
@@ -231,6 +321,7 @@ export function ShipmentConfirmationModal({ session, contractId, onClose, onDone
                 ))}
               </ul>
             ) : null}
+            <p className="ctr-approval-note">As fotos ficam disponíveis por 15 dias.</p>
           </div>
 
           <p className="emb-confirm-warning">

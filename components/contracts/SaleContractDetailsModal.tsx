@@ -425,8 +425,27 @@ export function SaleContractDetailsModal({
   const shipmentRows: Array<[string, string]> = [];
   if (view.requiresShipment) {
     shipmentRows.push(['Situação', view.shippedAt ? 'Embarcado' : 'Aguardando embarque']);
-    if (view.shippedAt) shipmentRows.push(['Embarcado em', dateOnly(view.shippedAt)]);
+    if (view.shippedAt) {
+      shipmentRows.push(['Embarcado em', dateOnly(view.shippedAt)]);
+      // EMB30: transporte + responsável (só "Pela empresa"), snapshot do embarque.
+      if (view.shipmentCarrier) {
+        shipmentRows.push([
+          'Transporte',
+          view.shipmentCarrier === 'COMPANY' ? 'Pela empresa' : 'Por terceiros',
+        ]);
+        if (view.shipmentCarrier === 'COMPANY') {
+          shipmentRows.push(['Responsável', view.shipmentResponsibleName ?? '—']);
+        }
+      }
+    }
   }
+  // EMB31: passados 15 dias do embarque, uma galeria vazia significa "expiraram", não
+  // "nunca teve foto" (aproxima pelo shippedAt; se ainda houvesse foto, a lista não
+  // estaria vazia). A purga física das fotos é oportunista no backend.
+  const shipmentPhotoWindowOver =
+    view.shippedAt !== null &&
+    !Number.isNaN(new Date(view.shippedAt).getTime()) &&
+    new Date(view.shippedAt).getTime() + 15 * 24 * 60 * 60 * 1000 < Date.now();
 
   return (
     <>
@@ -552,7 +571,13 @@ export function SaleContractDetailsModal({
                 {shipmentPhotos === null ? (
                   <p className="ctr-modal-loading">Carregando as fotos...</p>
                 ) : shipmentPhotos.length === 0 ? (
-                  <p className="ctr-details-empty">Sem fotos do embarque.</p>
+                  shipmentPhotoWindowOver ? (
+                    <p className="ctr-details-empty">
+                      As fotos deste embarque não estão mais disponíveis (retenção de 15 dias).
+                    </p>
+                  ) : (
+                    <p className="ctr-details-empty">Sem fotos do embarque.</p>
+                  )
                 ) : (
                   <div className="emb-gallery">
                     {shipmentPhotos.map((photo) => (
