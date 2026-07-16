@@ -1212,36 +1212,62 @@ export function SaleContractEtapa2Modal({
 
                   <div className="app-modal-field">
                     <span className="app-modal-label">Este contrato precisa de aprovação?</span>
-                    <div
-                      className="ctr-approval-choice"
-                      role="group"
-                      aria-label="Precisa de aprovação?"
-                    >
-                      <button
-                        type="button"
-                        className={`ctr-approval-btn${requiresApproval === true ? ' is-selected' : ''}`}
-                        aria-pressed={requiresApproval === true}
-                        disabled={disabled}
-                        onClick={() => {
-                          setRequiresApproval(true);
-                          setError(null);
-                        }}
+                    {isCreateLike ? (
+                      <div
+                        className="ctr-approval-choice"
+                        role="group"
+                        aria-label="Precisa de aprovação?"
                       >
-                        Sim
-                      </button>
-                      <button
-                        type="button"
-                        className={`ctr-approval-btn${requiresApproval === false ? ' is-selected' : ''}`}
-                        aria-pressed={requiresApproval === false}
-                        disabled={disabled}
-                        onClick={() => {
-                          setRequiresApproval(false);
-                          setError(null);
-                        }}
-                      >
-                        Não
-                      </button>
-                    </div>
+                        <button
+                          type="button"
+                          className={`ctr-approval-btn${requiresApproval === true ? ' is-selected' : ''}`}
+                          aria-pressed={requiresApproval === true}
+                          disabled={disabled}
+                          onClick={() => {
+                            setRequiresApproval(true);
+                            setError(null);
+                          }}
+                        >
+                          Sim
+                        </button>
+                        <button
+                          type="button"
+                          className={`ctr-approval-btn${requiresApproval === false ? ' is-selected' : ''}`}
+                          aria-pressed={requiresApproval === false}
+                          disabled={disabled}
+                          onClick={() => {
+                            setRequiresApproval(false);
+                            setError(null);
+                          }}
+                        >
+                          Não
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        {/* AP32: no "Editar" o sinal é read-only — latch de mão única
+                            (muda só na criação e pelo botão "Solicitar aprovação"). */}
+                        <div
+                          className="ctr-approval-choice"
+                          role="group"
+                          aria-label="Precisa de aprovação?"
+                        >
+                          <button
+                            type="button"
+                            className="ctr-approval-btn is-selected"
+                            aria-pressed={true}
+                            disabled
+                          >
+                            {requiresApproval ? 'Sim' : 'Não'}
+                          </button>
+                        </div>
+                        {!requiresApproval ? (
+                          <p className="ctr-approval-note">
+                            Para exigir aprovação, use “Solicitar aprovação” no contrato.
+                          </p>
+                        ) : null}
+                      </>
+                    )}
                   </div>
 
                   {requiresApproval === true ? (

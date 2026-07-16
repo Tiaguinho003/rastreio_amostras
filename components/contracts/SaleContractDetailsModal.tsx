@@ -28,6 +28,7 @@ import {
 } from '../../lib/api-client';
 import { formatRelativeTime } from '../../lib/relative-time';
 import { downloadFile, shareOrDownloadFile } from '../../lib/share-blob';
+import { useFocusTrap } from '../../lib/use-focus-trap';
 import type {
   AgioDesagioType,
   SaleContract,
@@ -208,9 +209,12 @@ export function SaleContractDetailsModal({
   // confirmação mora na sub-aba/portão). Só busca quando o contrato exige embarque.
   const [shipmentPhotos, setShipmentPhotos] = useState<ShipmentPhoto[] | null>(null);
   const [photoPreview, setPhotoPreview] = useState<ShipmentPhoto | null>(null);
-  // AP23: estado do toggle Sim/Não da aprovação (mutação inline no Detalhes).
+  // AP32: "Solicitar aprovação" — latch de mão única (mutação inline no Detalhes) +
+  // confirmação (é definitivo). Substitui o toggle Sim/Não da AP23.
   const [approvalBusy, setApprovalBusy] = useState(false);
   const [approvalError, setApprovalError] = useState<string | null>(null);
+  const [approvalConfirmOpen, setApprovalConfirmOpen] = useState(false);
+  const approvalConfirmTrapRef = useFocusTrap(approvalConfirmOpen);
 
   useEffect(() => {
     if (!open) return;
@@ -301,23 +305,24 @@ export function SaleContractDetailsModal({
   const view = fresh ?? contract;
   const meta = STATUS_META[view.status];
 
-  // AP23/AP20: o toggle Sim/Não só muda em EMITIDO (faturado+/washout congelam); o
-  // "Não" trava após o 1º envio (a timeline já traz os envios como itens APROVACAO).
-  const canToggleApproval = canManage && view.status === 'EMITIDO';
-  const approvalLocked = (timeline ?? []).some((item) => item.kind === 'APROVACAO');
-  async function handleToggleApproval(next: boolean) {
-    if (approvalBusy || next === view.requiresApproval) return;
+  // AP32: "Solicitar aprovação" é um latch de mão única — só aparece quando o contrato
+  // ainda é "Não" + EMITIDO + gerencia; depois de "Sim" não há como desmarcar (nem aqui
+  // nem no Editar). Congelamento por status (faturado/washout) igual à AP20.
+  const canManageApproval = canManage && view.status === 'EMITIDO';
+  async function handleRequestApproval() {
+    if (approvalBusy) return;
     setApprovalBusy(true);
     setApprovalError(null);
     try {
       const res = await setSaleContractApprovalFlag(session, contract.id, {
-        requiresApproval: next,
+        requiresApproval: true,
         expectedVersion: view.version,
       });
       setFresh(res.contract);
+      setApprovalConfirmOpen(false);
     } catch (cause) {
       setApprovalError(
-        cause instanceof ApiError ? cause.message : 'Não foi possível atualizar a aprovação.'
+        cause instanceof ApiError ? cause.message : 'Não foi possível solicitar a aprovação.'
       );
     } finally {
       setApprovalBusy(false);
@@ -515,47 +520,28 @@ export function SaleContractDetailsModal({
               <h4 className="ctr-section-title">Valores e corretagem</h4>
               <FieldRows rows={valueRows} />
             </section>
-            {canToggleApproval || view.requiresApproval ? (
+            {canManageApproval || view.requiresApproval ? (
               <section>
                 <h4 className="ctr-section-title">Aprovação</h4>
-                {approvalError ? <p className="sdv-modal-error">{approvalError}</p> : null}
-                {canToggleApproval ? (
+                {view.requiresApproval ? (
+                  <FieldRows rows={[['Precisa de aprovação', 'Sim']]} />
+                ) : (
+                  // AP32: latch de mão única — botão "Solicitar aprovação" (só quando
+                  // ainda "Não" + EMITIDO + gerencia); a confirmação é obrigatória.
                   <div className="app-modal-field">
                     <span className="app-modal-label">Este contrato precisa de aprovação?</span>
-                    <div
-                      className="ctr-approval-choice"
-                      role="group"
-                      aria-label="Precisa de aprovação?"
+                    <button
+                      type="button"
+                      className="ctr-btn"
+                      disabled={approvalBusy}
+                      onClick={() => {
+                        setApprovalError(null);
+                        setApprovalConfirmOpen(true);
+                      }}
                     >
-                      <button
-                        type="button"
-                        className={`ctr-approval-btn${view.requiresApproval ? ' is-selected' : ''}`}
-                        aria-pressed={view.requiresApproval}
-                        disabled={approvalBusy}
-                        onClick={() => void handleToggleApproval(true)}
-                      >
-                        Sim
-                      </button>
-                      <button
-                        type="button"
-                        className={`ctr-approval-btn${!view.requiresApproval ? ' is-selected' : ''}`}
-                        aria-pressed={!view.requiresApproval}
-                        disabled={approvalBusy || approvalLocked}
-                        onClick={() => void handleToggleApproval(false)}
-                      >
-                        Não
-                      </button>
-                    </div>
-                    {approvalLocked ? (
-                      <p className="ctr-approval-note">
-                        Aprovação já enviada — não dá mais para desmarcar.
-                      </p>
-                    ) : null}
+                      Solicitar aprovação
+                    </button>
                   </div>
-                ) : (
-                  <FieldRows
-                    rows={[['Precisa de aprovação', view.requiresApproval ? 'Sim' : 'Não']]}
-                  />
                 )}
               </section>
             ) : null}
@@ -652,6 +638,68 @@ export function SaleContractDetailsModal({
               >
                 <span aria-hidden="true">&times;</span>
               </button>
+            </div>,
+            document.body
+          )
+        : null}
+      {/* AP32: confirmação do latch de mão única — "Solicitar aprovação" é definitivo. */}
+      {approvalConfirmOpen
+        ? createPortal(
+            <div className="app-modal-backdrop">
+              <section
+                ref={approvalConfirmTrapRef}
+                className="app-modal is-themed is-action sample-detail-compact-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="ctr-request-approval-title"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <header className="app-modal-header">
+                  <div className="app-modal-title-wrap">
+                    <h3 id="ctr-request-approval-title" className="app-modal-title">
+                      Solicitar aprovação
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    className="app-modal-close"
+                    onClick={() => setApprovalConfirmOpen(false)}
+                    disabled={approvalBusy}
+                    aria-label="Fechar"
+                  >
+                    <span aria-hidden="true">&times;</span>
+                  </button>
+                </header>
+                {approvalError ? (
+                  <p className="sdv-modal-error" role="alert">
+                    {approvalError}
+                  </p>
+                ) : null}
+                <div className="app-modal-content">
+                  <p className="ctr-confirm-text">
+                    O contrato {view.contractNumber} passará a exigir aprovação antes do
+                    faturamento. Esta ação <strong>não pode ser desfeita</strong>.
+                  </p>
+                </div>
+                <div className="app-modal-actions">
+                  <button
+                    type="button"
+                    className="app-modal-secondary"
+                    onClick={() => setApprovalConfirmOpen(false)}
+                    disabled={approvalBusy}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    className="app-modal-submit"
+                    onClick={() => void handleRequestApproval()}
+                    disabled={approvalBusy}
+                  >
+                    {approvalBusy ? 'Solicitando...' : 'Solicitar aprovação'}
+                  </button>
+                </div>
+              </section>
             </div>,
             document.body
           )
