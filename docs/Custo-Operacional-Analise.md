@@ -92,9 +92,11 @@ Notas:
 
 - **Banco não pesa:** Postgres cresce só **~200 MB/ano** (event store append-only = 65–70% disso);
   em 5 anos ~1 GB. Os binários (fotos) ficam fora do banco, no storage.
-- **Alavanca escondida:** fotos de embarque são gravadas **sem compressão** (~3,5 MB × 10 por embarque,
-  nunca deletadas). Ligar compressão no upload corta esse storage ~5×. Fotos de amostra já são
-  comprimidas no cliente (canvas → JPEG, máx 3072px).
+- **Fotos de embarque:** gravadas **sem compressão** (~3,5 MB × 10 por embarque), mas **expiram em 15
+  dias** (EMB31 — retenção + purga oportunista, 2026-07-16), então o acervo é um **working-set
+  limitado** (~15 dias), não cresce sem teto. Comprimir no upload ainda cortaria o pico ~5×, mas
+  deixou de ser alavanca de acervo. Fotos de amostra já são comprimidas no cliente (canvas → JPEG,
+  máx 3072px).
 - **Artifact Registry** é a única linha que cresce rápido — e é 100% evitável.
 
 ## Projeção de 3 anos
@@ -160,20 +162,21 @@ Por implantação (uma empresa). Nuvem convertida em R$ (US$ × 5,12); materiais
 
 ## Riscos observados
 
-| Risco                            | Impacto                                                                |
-| -------------------------------- | ---------------------------------------------------------------------- |
-| Backups do Cloud SQL desligados  | Perda de dados em falha do disco/instância. Mitigação barata (rec. 4). |
-| Artifact Registry sem limpeza    | Cresce sem teto a cada deploy; motor da curva de custo.                |
-| Fotos de embarque sem compressão | ~3,5 MB × 10 por embarque, nunca deletadas.                            |
-| Bucket sem lifecycle             | Todo o acervo fica em Standard para sempre.                            |
-| db-f1-micro (0,6 GB RAM)         | Teto de performance conforme o volume cresce.                          |
+| Risco                            | Impacto                                                                  |
+| -------------------------------- | ------------------------------------------------------------------------ |
+| Backups do Cloud SQL desligados  | Perda de dados em falha do disco/instância. Mitigação barata (rec. 4).   |
+| Artifact Registry sem limpeza    | Cresce sem teto a cada deploy; motor da curva de custo.                  |
+| Fotos de embarque sem compressão | ~3,5 MB × 10 por embarque; expiram em 15 dias (EMB31) → acervo limitado. |
+| Bucket sem lifecycle             | Todo o acervo fica em Standard para sempre.                              |
+| db-f1-micro (0,6 GB RAM)         | Teto de performance conforme o volume cresce.                            |
 
 ## Recomendações (priorizadas por impacto)
 
 1. **Prunar Artifact Registry + política keep-N** — economiza ~R$ 20/mês já e evita ~R$ 71/mês no
    ano 3. 43 GB de imagens Docker que ninguém usa. _(maior impacto, mais fácil)_
-2. **Ligar compressão no upload de embarque** — hoje as fotos vão cruas; comprimir no cliente corta
-   ~5× o storage de embarque.
+2. **(Menor) Compressão no upload de embarque** — as fotos vão cruas; comprimir no cliente cortaria
+   ~5× o pico. **Menos urgente desde a retenção de 15 dias (EMB31)**, que já limita o acervo a um
+   working-set curto em vez de acumular.
 3. **Lifecycle no bucket (Autoclass / Nearline)** — move fotos antigas para classe mais barata.
 4. **Ligar backups automáticos no Cloud SQL** — ~R$ 5/mês; seguro barato contra perda de dados.
 5. **(Opcional) Avaliar modelo OpenAI mais novo + prompt caching** — caching do prefixo (−50% input)
@@ -210,7 +213,9 @@ das páginas oficiais antes de fechar orçamento. Valores de lista, sem desconto
 - **Classificações/ano:** ~13.000 (10.950 amostras × ~1,2 de retomada/reclassificação); ~US$ 0,015
   cada (gpt-4o vision, `detail: high`, 1 few-shot, ~4,2k tokens in / ~450 out).
 - **Storage de fotos:** ~13–27 GB/ano (faixa: amostra comprimida ~0,6 MB medido a ~1,5 MB teórico;
-  embarque cru ~3,5 MB). Central ~18 GB/ano. PDFs (laudo/contrato/espelho/etiqueta) **não são
+  embarque cru ~3,5 MB — **mas com retenção de 15 dias, EMB31, as fotos de embarque não acumulam no
+  ano: são um working-set de ~15 dias, então a projeção acima é conservadora nessa linha**). Central
+  ~18 GB/ano. PDFs (laudo/contrato/espelho/etiqueta) **não são
   armazenados** — regenerados sob demanda (viram CPU do Cloud Run + egress).
 - **Event store:** multiplicador ~7 eventos por amostra (registro + classificação + etiqueta +
   venda/embarque).

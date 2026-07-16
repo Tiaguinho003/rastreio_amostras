@@ -33,7 +33,7 @@ item **"Embarques"** (`contractsHubTabs` / `contractTabRoute` em `lib/roles.ts`)
 O item aparece na **sidenav desktop** e no **menu do avatar mobile** para os cinco
 papéis. Resolve o débito anotado na nota F1 de 2026-07-09 (as seções por papel abaixo
 descreviam o estado pré-CC F2). Sem mudança de guard no backend: a lista da Aprovação
-é não-escopada (todos veem todos, só não-sensível); o "Ver contrato" abre a ADMIN + COMMERCIAL em qualquer contrato (escopo aberto, D140).
+é não-escopada (todos veem todos, só não-sensível); o "Ver contrato" abre a ADMIN + COMMERCIAL em qualquer contrato (escopo aberto, D140 — **superado em 2026-07-15 pela unificação de acesso: hoje abre a todo não-PROSPECTOR, `CONTRATOS_ROLES = NON_PROSPECTOR_ROLES`**).
 Atualizado: 2026-07-13 — **SPLIT do hub em 2 páginas**: `/contratos` (Contratos +
 Financeiro, gated `CONTRATOS_ROLES`) e `/embarques` (Embarque + Aprovações, gated
 `NON_PROSPECTOR_ROLES`, abre em Embarque). ADMIN/COMMERCIAL ganham 2 itens de nav

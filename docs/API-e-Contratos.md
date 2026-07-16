@@ -197,7 +197,7 @@ Endpoints somente-leitura usados pela pagina de detalhe do cliente (4 cards-filt
 8. `POST /api/v1/users/:userId/password/reset`
 9. `GET /api/v1/users/audit`
 10. `GET /api/v1/users/lookup`
-    Lista reduzida (`id`, `fullName`, `username`) de usuarios ativos. Endpoint unico por tras de TODOS os seletores de usuario do app: responsavel comercial de cliente, classificador de amostra (`/camera`) e usuario vinculado a um corretor. Aberta a qualquer usuario autenticado (nao restrita a `ADMIN`).
+    Lista reduzida (`id`, `fullName`, `username`) de usuarios ativos. Endpoint unico por tras de TODOS os seletores de usuario do app: responsavel comercial de cliente, classificador de amostra (`/camera`), usuario vinculado a um corretor e **responsavel do embarque quando "Pela empresa" (EMB30)**. Aberta a qualquer usuario autenticado (nao restrita a `ADMIN`).
 
     **Nao devolve papeis de `NON_ASSIGNABLE_ROLES`** (hoje: `PROSPECTOR`) — 2026-07-09. Os `COMMERCIAL` vem primeiro na ordenacao.
 
