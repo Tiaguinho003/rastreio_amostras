@@ -102,7 +102,24 @@ export interface TriangleOp {
   fill: string;
 }
 
-export type Op = RectOp | TextOp | ImageOp | TriangleOp;
+/** Icone vetorial. Os sub-paths vem de um viewBox 24×24 (a convencao do app) e
+ * sao escalados para `size` — nitidos em qualquer tamanho, ao contrario de um
+ * PNG (que borraria em 1080, ver INF9). */
+export interface PathOp {
+  kind: 'path';
+  /** Sub-paths SVG num viewBox 24×24. */
+  d: readonly string[];
+  /** Canto superior-esquerdo da caixa do icone. */
+  x: number;
+  y: number;
+  /** Lado da caixa. O path e escalado de 24 para este valor. */
+  size: number;
+  stroke: string;
+  /** Em unidades do viewBox — escala junto com o icone, como no SVG. */
+  strokeWidth: number;
+}
+
+export type Op = RectOp | TextOp | ImageOp | TriangleOp | PathOp;
 
 /** Largura do texto ja renderizado, incluindo o tracking. Injetada porque so o
  * canvas sabe medir a Poppins; os testes passam um stub deterministico. */
@@ -219,14 +236,61 @@ export function pushDatePill(ops: Op[], dataTexto: string): void {
   });
 }
 
-/** Rodape: sangra ate a base; o texto fica dentro da zona segura. */
+/**
+ * Icones de contato do rodape, em sub-paths de um viewBox 24×24 — a mesma
+ * convencao dos icones do app (Lucide: traco, sem preenchimento, cantos
+ * arredondados).
+ *
+ * Sao PATH e nao caractere pelo mesmo motivo da seta da variacao (INF10): a
+ * Poppins nao tem esses glifos, entao viraria fallback e sairia diferente em
+ * cada maquina. E nao sao PNG porque em 1080 de largura borrariam (INF9).
+ *
+ * A peca original misturava estilos — Instagram e envelope de traco, telefone
+ * num circulo CHAPADO. Aqui os tres sao de traco (INF57).
+ */
+const ICONS = {
+  instagram: [
+    'M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5z',
+    'M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z',
+    'M17.5 6.5h.01', // o ponto do canto — vira bolinha com lineCap round
+  ],
+  mail: [
+    'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+    'm22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7', // a aba
+  ],
+  phone: [
+    'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z',
+  ],
+} as const;
+
+/** Lado do icone de contato. Casa com o texto de 25px ao lado. */
+export const FOOTER_ICON = 24;
+const FOOTER_ICON_GAP = 14;
+
+const FOOTER_LINHAS: ReadonlyArray<readonly [keyof typeof ICONS, string]> = [
+  ['instagram', '@safrasnegocios'],
+  ['mail', 'atendimento@safrasnegocios.com'],
+  ['phone', '(35) 3531-3488'],
+];
+
+/** Rodape: sangra ate a base; o conteudo fica dentro da zona segura. */
 export function pushFooter(ops: Op[]): void {
   ops.push({ kind: 'rect', x: 0, y: FB, w: W, h: H - FB, fill: COLORS.green });
-  ['@safrasnegocios', 'atendimento@safrasnegocios.com', '(35) 3531-3488'].forEach((line, i) => {
+  FOOTER_LINHAS.forEach(([icone, line], i) => {
+    const cy = FB + 52 + i * 38;
+    ops.push({
+      kind: 'path',
+      d: ICONS[icone],
+      x: M + 8,
+      y: cy - FOOTER_ICON / 2,
+      size: FOOTER_ICON,
+      stroke: COLORS.footerText,
+      strokeWidth: 2,
+    });
     ops.push({
       kind: 'text',
-      x: M + 8,
-      y: FB + 52 + i * 38,
+      x: M + 8 + FOOTER_ICON + FOOTER_ICON_GAP,
+      y: cy,
       text: line,
       weight: 400,
       size: 25,

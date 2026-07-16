@@ -163,6 +163,22 @@ function drawOp(
       }
       return;
     }
+    case 'path': {
+      // O ctx.scale escala o lineWidth junto, entao op.strokeWidth fica em
+      // unidades do viewBox — o mesmo comportamento do SVG.
+      ctx.save();
+      ctx.translate(op.x, op.y);
+      ctx.scale(op.size / 24, op.size / 24);
+      ctx.strokeStyle = op.stroke;
+      ctx.lineWidth = op.strokeWidth;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      for (const d of op.d) {
+        ctx.stroke(new Path2D(d));
+      }
+      ctx.restore();
+      return;
+    }
   }
 }
 

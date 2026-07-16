@@ -144,6 +144,39 @@ test('o logo tambem fica dentro da zona segura', () => {
   }
 });
 
+test('os icones de contato ficam dentro da zona segura (INF57)', () => {
+  // O rodape e o bloco mais proximo da borda: o do .docx original caia embaixo
+  // da interface do Instagram. O icone do telefone e o item mais baixo da peca.
+  const { ops } = buildMercadoLayout(REFERENCE, measure);
+  const icons = ops.filter((op) => op.kind === 'path');
+  assert.equal(icons.length, 3); // instagram + e-mail + telefone
+  for (const op of icons) {
+    assert.ok(op.y >= SAFE_TOP, `icone comeca em ${op.y}`);
+    assert.ok(op.y + op.size <= SAFE_BOT, `icone termina em ${op.y + op.size}`);
+    assert.ok(op.d.length > 0, 'icone sem path');
+  }
+});
+
+test('cada linha do rodape tem seu icone, e o texto abre espaco pra ele', () => {
+  const { ops } = buildMercadoLayout(REFERENCE, measure);
+  const icons = ops.filter((op) => op.kind === 'path');
+  const contatos = ops.filter(
+    (op) =>
+      op.kind === 'text' &&
+      (op.text.startsWith('@') || op.text.includes('@') || op.text.startsWith('('))
+  );
+  assert.equal(contatos.length, 3);
+  contatos.forEach((texto, i) => {
+    // Icone a esquerda, texto depois — sem sobreposicao.
+    assert.ok(
+      texto.x >= icons[i].x + icons[i].size,
+      `texto "${texto.text}" em ${texto.x} invade o icone que termina em ${icons[i].x + icons[i].size}`
+    );
+    // Alinhados verticalmente: o centro do icone bate com o do texto.
+    assert.equal(icons[i].y + icons[i].size / 2, texto.y);
+  });
+});
+
 test('as faixas verdes sangram ate as bordas', () => {
   const { ops } = buildMercadoLayout(REFERENCE, measure);
   const bleeds = ops.filter(

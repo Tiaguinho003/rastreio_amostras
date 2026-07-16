@@ -212,6 +212,17 @@ test('as imagens ficam na zona segura', () => {
   }
 });
 
+test('o rodape do meteorologico tambem tem os icones, na zona segura (INF57)', () => {
+  // Vem da casca — as duas pecas compartilham o rodape.
+  const layout = buildMeteoLayout(REFERENCE, measure);
+  const icons = layout.ops.filter((op) => op.kind === 'path');
+  assert.equal(icons.length, 3);
+  for (const op of icons) {
+    assert.ok(op.y >= SAFE_TOP, `icone comeca em ${op.y}`);
+    assert.ok(op.y + op.size <= SAFE_BOT, `icone termina em ${op.y + op.size}`);
+  }
+});
+
 test('o print nunca alcanca o canto arredondado do painel', () => {
   // Esta assertiva e o que substitui um clip() no desenhador: se o print
   // couber DENTRO do painel menos o padding, o canto quadrado da imagem nunca
