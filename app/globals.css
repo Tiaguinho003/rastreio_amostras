@@ -3875,7 +3875,6 @@ button:disabled {
   pointer-events: none;
 }
 
-
 .mobile-tabbar-pill {
   width: 100%;
   min-height: 0;
@@ -3929,7 +3928,6 @@ button:disabled {
   font-weight: 600;
 }
 
-
 .mobile-tabbar-label {
   display: block;
   max-width: 100%;
@@ -3947,7 +3945,6 @@ button:disabled {
   padding-inline: 0.1rem;
   margin-top: 0.16rem;
 }
-
 
 .title {
   margin: 0;
