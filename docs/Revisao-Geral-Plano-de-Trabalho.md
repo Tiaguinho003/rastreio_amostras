@@ -51,7 +51,7 @@ validação no device · ✅ concluída.
 | 3   | LOT    | Lotes (lista)      | `/samples`                                                                    | 📱     | S8      | Deferidos resolvidos (CSS legado −594 linhas, testes do reducer+filtros) + decisões D1–D4 (uniforme, PROSPECTOR fora do service, copy "lote", vazio único) + erro de carregamento visível, portais, a11y; 10 commits                                                                 |
 | 4   | LNW    | Novo lote          | modal do leque "+" (rota `/samples/new` removida — LNW-D1)                    | 📱     | S9      | Rota wrapper removida + decisões D1–D4 (copy "lote", receivedChannel fora do front, editou = manual) + hardening da API do número fixo, CSS nsv2 órfão −299, press/reduced-motion/contraste/44px, drop-up da safra, 17 testes; 8 commits                                             |
 | 5   | LDT    | Detalhe do lote    | `/samples/[sampleId]`                                                         | 📱     | S11     | Uniforme pros 5 papéis (D1) + decisões D2–D4 (copy "lote"/"Deletar", revalidação, endurecer foto); **endurece endpoint de foto (auth)** + revalidação silenciosa + código morto −254 + CSS sdv-\* órfão −1435 + acentos/plural + press/reduced-motion/contraste/44px/a11y; 8 commits |
-| 6   | CAM    | Câmera / Scanner   | `/camera`                                                                     | ⬜     | —       | Decisões CAM-D1–D4 pré-travadas (2026-07-16): vira modal global mobile-only (sheet), desktop perde classificação por foto (Editar fica), rota some (404), voltar fecha o modal; ciclo R1–R8 ainda não iniciado                                                                       |
+| 6   | CAM    | Câmera / Scanner   | `/camera`                                                                     | 📱     | S12     | Conferência R1–R8 do fluxo como página: 20 achados (foto errada via token stale, ESC conflitante, voltar do Android furando o sheet, cap 200 no lookup, magic bytes no detect/extract, ~930 linhas de CSS órfão) + CAM-D5 (confirmar descarte) em 12 commits; conversão em modal global = CAM-P3 |
 | 7   | CLI    | Clientes (lista)   | `/clients`                                                                    | ⬜     | —       | —                                                                                                                                                                                                                                                                                    |
 | 8   | CDT    | Detalhe do cliente | `/clients/[clientId]`                                                         | ⬜     | —       | —                                                                                                                                                                                                                                                                                    |
 | 9   | CTR    | Contratos          | `/contratos`                                                                  | ⬜     | —       | —                                                                                                                                                                                                                                                                                    |
@@ -639,12 +639,12 @@ reduced-motion (sem pulse infinito no imprimir); staleness (deixar o app no
 detalhe → outro usuário classifica/vende/envia → voltar ao app atualiza;
 parado atualiza em ≤60s); os 2 modais (data, reclassificar) com foco preso.
 
-### Câmera / Scanner (CAM) — ⬜ não iniciada
+### Câmera / Scanner (CAM) — 📱 aguardando validação no device (S12, 2026-07-16)
 
-> Decisões de arquitetura travadas com o Flavio em 2026-07-16, ANTES do ciclo
-> (a conferência R1–R8 ainda não começou). Elas definem o alvo contra o qual a
-> conferência vai medir — achados sobre acoplamentos de rota que a conversão
-> elimina não devem virar trabalho.
+> Ciclo executado em 2026-07-16 (S12): conferência R1–R8 do fluxo AINDA como
+> página, conforme a ordem acordada — a conversão em modal global (CAM-D1–D4)
+> é fase posterior (CAM-P3). Escopo: fluxo e container; os 22 campos da ficha
+> (`ClassificationReviewSheetBody`) pertencem ao ciclo da extração.
 
 **Decisões pré-ciclo:**
 
@@ -669,6 +669,18 @@ parado atualiza em ≤60s); os 2 modais (data, reclassificar) com foco preso.
   sistema fecha o modal em vez de navegar (exige history entry ao abrir — a
   rota dava isso de graça, o modal precisa tratar).
 
+- **CAM-D5 — Confirmar descarte do review (S12).** Cancelar/ESC/voltar com o
+  review preenchido abrem "Descartar classificação?" antes de zerar; no
+  preview (só a foto) o descarte segue imediato; estados de processamento
+  seguem bloqueados.
+- **CAM-D6 — Eventos de extração: emitir no início do ciclo da extração
+  (S12).** O fluxo da câmera hoje NÃO grava `CLASSIFICATION_EXTRACTION_*` no
+  event store (ver CAM-I2). Análise feita com o Flavio: o payload já registra
+  os campos brutos da IA, o `COMPLETED` registra o final editado — o par
+  bruto→corrigido + foto é a base de auditoria e treinamento da IA. Custo
+  moderado (design em CAM-P1), valor composto; implementar como primeira
+  tarefa do ciclo da extração pra não inchar o ciclo CAM.
+
 **Ordem de execução acordada (2026-07-16):** conferência do fluxo ainda como
 página (bugs corrigidos antes de mover código) → extração página→componente
 sem mudança de comportamento (prop `sampleId?` + callbacks no lugar de
@@ -676,6 +688,131 @@ sem mudança de comportamento (prop `sampleId?` + callbacks no lugar de
 gatilhos + remoção da rota → gate desktop. A conferência CAM cobre **fluxo e
 container, não os campos da ficha** — `ClassificationReviewSheetBody` e a
 semântica dos 22 campos pertencem ao ciclo da extração (posterior).
+
+**Mapa (R1):** `app/camera/page.tsx` (~1700 linhas, máquina de ~20 estados
+`ClassificationFlowState`, Flow A sem contexto / Flow B `?sampleId=`) ·
+12 modais `Classification*` + `SampleLookupResultModal` + `BottomSheet`
+`camera-preview-sheet` (preview→processing→review via
+`ClassificationReviewSheetBody`) · cadeia backend: `detect-form` /
+`extract-and-prepare` (photoToken = arquivo `_temp/temp-{token}.jpg`, órfãos
+limpos em 24h best-effort, consumido no confirm) / `classification/confirm`
+(gates server-side: status 409, classifiers min 1, magic bytes) /
+`resolve-by-qr` / `resolve-by-lot` / `users/lookup` · acoplamentos de shell:
+`is-camera-route` (só `overflow:hidden`), topbar oculta, tabbar visível no
+idle, theme-color bege `#fdf9ec` + `::before` de safe-area · docs:
+`Classificacao-Visao-Geral.md` (mãe) + `Classificacao-Plano-de-Trabalho.md` ·
+skills: modals (tabela da extração), design-system (tabbar), responsive.
+
+**Matriz por papel (R2):** página exige `NON_PROSPECTOR_ROLES`
+(`useRequireAuth`); backend espelha com `USER_ACTION_ROLES` (ADMIN,
+CLASSIFIER, REGISTRATION, COMMERCIAL, CADASTRO) + allowlist default-deny do
+PROSPECTOR (403 antes do service). Sem drift front↔back; os 5 papéis
+operacionais têm o fluxo COMPLETO (acesso unificado 2026-07-15). PROSPECTOR:
+único método da cadeia que alcança é `users/lookup` (allowlist).
+
+**Achados:**
+
+- **CAM-B1** ✅ — photoToken obsoleto anexava a FOTO ERRADA: `reset` não
+  limpava `detectedPhotoToken` (temps vivem ~24h) → detect falhando na foto 2
+  + "Continuar manual" salvava com a foto 1. Limpo no reset e na troca de foto.
+- **CAM-B2** ✅ — ESC duplicado/conflitante: handler global da página + ESC
+  interno dos modais (em `lot-mismatch`, um ESC disparava reset E
+  `router.back()` juntos; em `confirming` furava o sheet não-dispensável).
+  Handler global removido; `SampleLookupResultModal` ganhou ESC interno (e o
+  `SampleSearchField` deixou de duplicar o keydown).
+- **CAM-B3** ✅ — copy de sucesso errada na reclassificação do Flow A
+  (`isReclassification` só olhava `contextSampleStatus`).
+- **CAM-B4** ✅ — cap silencioso no lookup de usuários: limit chega string
+  via query, `Number.isFinite("300")` = false → default 200. Coerção no
+  `user-service` + 5 testes (`tests/user-lookup-limit.test.js`).
+- **CAM-G1** ✅ — compressão (canvas 3072px) rodava à toa no
+  continuar-sem-crop quando já havia token.
+- **CAM-G2** ✅ — falha de validação no Continuar do classificador era
+  invisível (estado não exibe `flowError`); agora volta pro review.
+- **CAM-G3** ✅ — status do Flow B carregado no mount e nunca revalidado
+  (corrida com outro operador pulava o portão de reclassificação
+  client-side); Avançar refaz `getSampleDetail` e valida fresco.
+- **CAM-G6** ✅ — voltar do Android furava o sheet bloqueado (popstate
+  consumia a entry ANTES do dismiss; bloqueado = entry perdida → 2ª volta
+  saía da página). Fix no `BottomSheet` (compartilhado): re-injeta a entry no
+  popstate; cleanup ganha once-listener pro contador `pendingInternalBacks`
+  não ficar envenenado (fechou por botão = próximo sheet engolia a 1ª volta).
+- **CAM-I1** ✅ — magic bytes não validados no detect/extract (regra 5 do
+  CLAUDE.md; buffer arbitrário ia pro sharp + OpenAI). Helper
+  `assertImageMagicBytes` no `upload-policy` (dedup dos checks inline) +
+  gates na entrada + testes (`tests/classification-photo-magic-bytes.test.js`).
+- **CAM-I2** ⏳→CAM-P1 — eventos `CLASSIFICATION_EXTRACTION_*` não emitidos
+  pelo fluxo da câmera (só telemetria stderr). Documentado na VG §2; emissão
+  decidida pro ciclo da extração (CAM-D6).
+- **CAM-I3** ✅ — 11 modais `Classification*` sem `createPortal` (skill
+  modals §Portal é OBRIGATÓRIO); portalizados no molde do
+  `SampleLookupResultModal`.
+- **CAM-I4** ✅ — `SampleLookupResultModal` fora do padrão do fluxo: ganhou
+  `.is-action` + ESC interno (era o único precursor manual do fluxo).
+- **CAM-UX1** ✅ — descarte do review sem confirmação (CAM-D5): novo
+  `ClassificationDiscardConfirmModal` (`.app-confirm-modal` + portal +
+  `.is-stacked` sobre o sheet) + `onDismissAttempt` por estado.
+- **CAM-UX2** ✅ — modal de sucesso caía no UUID da amostra como "lote";
+  card do lote agora some sem lote conhecido.
+- **CAM-M1** ✅ — import `useFocusTrap` sem uso na página.
+- **CAM-M2** ✅ — comentários afirmavam que o `ClassificationReviewModal`
+  legado "permanece pendente de limpeza" — o arquivo já tinha sido DELETADO;
+  referências textuais ajustadas (page, SheetBody, detalhe do lote).
+- **CAM-M3/M4** ✅ — ~117 blocos de CSS órfão (~930 linhas): famílias
+  `.cam-cf-*`, `.cam-classifier-*`, `.cam-mismatch-*`, `.cam-type-*`,
+  `.cam-already-*`, `.cam-error-card`, `.cam-confirm-*` + badge/pulse/
+  success-icon/btn-primary do `camera-hub`. Keyframes `cam-*` VIVOS
+  preservados (`cam-spin`, `cam-error-*`, `cam-fade-in`, `cam-slide-up`,
+  `cam-preview-*` — usados por regras vivas).
+- **CAM-M5** ✅ — `resolveMobileRouteMeta('/camera')` ("Leitor QR") era
+  computado e nunca renderizado (`!isCameraRoute` no render); ramo removido.
+- **CAM-DOC1** ✅ — skill design-system dizia "só o ADMIN renderiza" a
+  tabbar; corrigido (todos os não-PROSPECTOR, com 5º slot por papel).
+- **CAM-DOC2** ✅ — VG §2 agora registra que a câmera não emite eventos de
+  extração (até CAM-P1).
+
+**Resumo do que foi feito:** 12 commits (`5f721e2`..) — 4 bugs, 4
+gargalos/robustez, 3 alinhamentos de padrão (portal/is-action/ESC), CAM-D5
+implementada, ~930 linhas de CSS órfão, 3 suítes/adições de teste (limit,
+magic bytes, prospector denied-list) e docs/skills sincronizadas.
+
+**Pendências:**
+
+- **CAM-P1** — Emitir `CLASSIFICATION_EXTRACTION_COMPLETED/_FAILED` no fluxo
+  da câmera (CAM-D6, início do ciclo da extração). Design pronto: o extract
+  persiste o resultado bruto num sidecar `_temp/temp-{token}-extraction.json`
+  ao lado da foto; o confirm lê o sidecar, computa a cross-validation contra
+  a amostra (agora com sampleId) e emite o evento com o
+  `photoAttachmentId` recém-criado; sidecar é limpo junto dos temps. Payload
+  schema já existe e valida. Limitação aceita: extração que nunca chega ao
+  confirm não vira evento (sem sampleId no Flow A; morre com o temp em 24h).
+- **CAM-P2** — Scanner QR decodifica à toa no Flow B (12fps de CPU/bateria
+  com `hasContext`; `handleDecodedQr` ignora tudo) + getUserMedia DUPLO na
+  inicialização (teste explícito de câmera traseira abre/fecha um stream
+  antes do QrScanner abrir o dele — latência). Resolver na fase de conversão
+  (CAM-P3), que reestrutura o ciclo de vida do scanner de qualquer forma.
+- **CAM-P3** — Conversão em modal global (CAM-D1–D4), nas fases da ordem
+  acordada. Notas pro plano: o `BottomSheet` já tem o mecanismo de history
+  entry pro voltar do Android (reusar no modal-mãe); o hack do theme-color
+  bege (page `useEffect` + `.camera-hub-page::before`) precisa ser reamarrado
+  ao abrir/fechar do modal; a tabbar some sozinha sob sheet/modal
+  (`is-bottom-sheet-open` / `:has(.app-modal-backdrop)`); o cluster CSS
+  `camera-hub-*` não é documentado em nenhuma skill (documentar na conversão).
+- **CAM-P4** — Máquina de estados do fluxo é inline no componente e não tem
+  teste (projeto sem infra de teste de componente — `node --test`, sem RTL).
+  Na conversão (extração página→componente), avaliar extrair um reducer
+  testável.
+
+**Validação no device (Flavio):** fluxo feliz Flow A (tabbar → foto direta)
+e Flow B (detalhe → Classificar); no review, "Cancelar" abre "Descartar
+classificação?" (confirmar descarta; "Continuar" mantém tudo); voltar do
+Android no review abre o MESMO modal e, desistindo, a próxima volta repete
+(entry re-injetada — antes a 2ª volta saía da página); no preview, voltar/
+backdrop descartam direto (só a foto); reclassificação via Flow A mostra
+copy de reclassificação no sucesso; galeria; scan de QR abre o modal de
+resultado e ESC/X fecham uma vez só; modais todos por cima do sheet
+corretamente (portal); lista de classificadores íntegra (>60 usuários?
+agora até 300).
 
 ### Clientes — lista (CLI) — ⬜ não iniciada
 
@@ -854,3 +991,20 @@ semântica dos 22 campos pertencem ao ciclo da extração (posterior).
   Pendências: LDT-P1 (modais inline sem portal), P2 (extração → FF2), P3
   (nth-child legado → ciclo CDT). 8 commits; gates verdes (unit 372 /
   contracts 20 / integração + re-seed). Página em 📱.
+- **S12 (2026-07-16)** — F6/CAM executada ponta a ponta (R1–R8), precedida
+  das decisões de arquitetura CAM-D1–D4 (câmera vira modal global
+  mobile-only; conversão = CAM-P3, fase própria). 3 agentes de levantamento
+  (CSS/AppShell, cadeia backend, modais/sheet) + leitura integral da página.
+  20 achados, 18 corrigidos em 12 commits: destaque pro **CAM-B1** (token de
+  foto stale anexava a FOTO ERRADA à classificação — temps vivem 24h no
+  server), **CAM-G6** (o back do Android furava o sheet bloqueado E o
+  contador interno do `BottomSheet` ficava envenenado ao fechar por botão,
+  engolindo a 1ª volta do próximo sheet — fix no componente compartilhado),
+  **CAM-B4** (`Number.isFinite("300")` capava o lookup de classificadores em
+  200 silenciosamente) e **CAM-I1** (detect/extract aceitavam buffer
+  arbitrário → sharp + OpenAI sem validar magic bytes). CAM-D5 travada e
+  implementada (confirmação de descarte do review, padrão `.app-confirm-modal`
+  + `.is-stacked`); CAM-D6 travada (eventos de extração → início do ciclo da
+  extração, design pronto em CAM-P1 — o par bruto→corrigido + foto vira base
+  de auditoria/treinamento da IA). ~930 linhas de CSS órfão do fluxo antigo
+  removidas. Skills modals/design-system + VG §2 sincronizadas. Página em 📱.

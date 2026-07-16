@@ -32,6 +32,8 @@ Três caminhos de escrita, todos convergindo no evento `CLASSIFICATION_COMPLETED
 | `CLASSIFICATION_UPDATED`                          | edição com auditoria before/after + reason | não              |
 | `CLASSIFICATION_EXTRACTION_COMPLETED` / `_FAILED` | auditoria da extração IA                   | não (audit-only) |
 
+> ⚠️ **Os eventos de extração NÃO são emitidos pelo fluxo da câmera** (constatação do ciclo CAM, 2026-07-16): `extractAndPrepareClassification` não emite evento (só telemetria estruturada em stderr) e o confirm chama `addSamplePhoto` com `skipExtraction: true`. Eles só ocorrem no caminho legado de upload direto de foto (`/samples/[id]/photos`). A emissão no fluxo da câmera está decidida (CAM-D6) para o **início do ciclo da extração** — design em `docs/Revisao-Geral-Plano-de-Trabalho.md` §CAM (pendência CAM-P1); o payload já registra os campos **brutos** da IA, enquanto o `COMPLETED` registra o final editado — o par bruto→corrigido + a foto é a base de auditoria/treinamento.
+
 Schemas em `docs/schemas/events/v1/payloads/`. `npm run validate:schemas` apenas **compila** os schemas; a validação dos payloads acontece em runtime no `appendEvent`.
 
 ### Projeção no `Sample` (fonte única)

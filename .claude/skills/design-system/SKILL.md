@@ -75,7 +75,7 @@ Overrides escopados sob `.dashboard-mobile` em `app/globals.css` (bloco "Dashboa
 
 ### Barra de navegacao inferior (MobileTabbar)
 
-Pill flutuante (`.mobile-tabbar-inner`) renderizada via Portal no `body` (`components/MobileTabbar.tsx`); so o ADMIN renderiza (5 itens: Inicio, Lotes, Camera=`is-primary`, Clientes, Informe — prospector nao tem). Estilos em `app/globals.css` (`.mobile-tabbar*`).
+Pill flutuante (`.mobile-tabbar-inner`) renderizada via Portal no `body` (`components/MobileTabbar.tsx`); todos os papeis EXCETO PROSPECTOR renderizam (oculta tambem nas paginas de detalhe de lote/cliente — `hideMobileTabbar` no `AppShell`). 5 itens: Inicio, Lotes, Camera=`is-primary`, Clientes e um 5o slot por papel — Relatorios (papeis com acesso) ou Perfil (CLASSIFIER/CADASTRO/REGISTRATION). Estilos em `app/globals.css` (`.mobile-tabbar*`).
 
 - **Superficie BRANCA** (redesign 2026-06-15, mockup): `.mobile-tabbar-inner` `#ffffff`, hairline `rgba(20,50,25,0.08)` + sombra reforcada em camadas (`0 4px 12px /.14` + `0 14px 34px /.22`) pra destacar do fundo (era barra verde-escura `#0b4a04→#073603` com icones brancos)
 - **Estados por item**: inativo cinza-esverdeado `#74837a` (icone via `currentColor` + label w500); **ativo verde `#1e8540`** (icone + label w600) com **indicador = traco verde curto arredondado ABAIXO do label** (`::before`, `bottom`, `border-radius: 999px`) — era traco branco no topo. `.is-primary` (camera) sem indicador de ativo (decisao do usuario)
