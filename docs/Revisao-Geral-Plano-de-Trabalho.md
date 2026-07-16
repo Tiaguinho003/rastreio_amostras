@@ -44,23 +44,23 @@
 Legenda: ⬜ pendente · 🔎 em análise · 🛠 em implementação · 📱 aguardando
 validação no device · ✅ concluída.
 
-| #   | Código | Página             | Rota                                                                          | Status | Sessões | Resumo                                                                                                                                                                                                                                                                                           |
-| --- | ------ | ------------------ | ----------------------------------------------------------------------------- | ------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | LOG    | Login              | `/login` (+ `/forgot-password`)                                               | ✅     | S3      | 16 achados corrigidos (incl. 3 bugs de persistência no auth), endurecimento do reset, 3 suítes de teste novas, teia de docs sincronizada; validada no device 2026-07-07                                                                                                                          |
-| 2   | DSH    | Dashboard          | `/dashboard` (twins mobile/desktop + dashboard do PROSPECTOR)                 | 📱     | S4–S7   | 19 achados + decisões D2–D6: dashboard único; "Vendas e perdas" e pulso removidos; cards novos "Últimos envios" (endpoint recent-sends) e "Eventos" (calendário F0, coluna direita inteira — INCOMPLETO, ver P6); validar tudo no device                                                         |
-| 3   | LOT    | Lotes (lista)      | `/samples`                                                                    | 📱     | S8      | Deferidos resolvidos (CSS legado −594 linhas, testes do reducer+filtros) + decisões D1–D4 (uniforme, PROSPECTOR fora do service, copy "lote", vazio único) + erro de carregamento visível, portais, a11y; 10 commits                                                                             |
-| 4   | LNW    | Novo lote          | modal do leque "+" (rota `/samples/new` removida — LNW-D1)                    | 📱     | S9      | Rota wrapper removida + decisões D1–D4 (copy "lote", receivedChannel fora do front, editou = manual) + hardening da API do número fixo, CSS nsv2 órfão −299, press/reduced-motion/contraste/44px, drop-up da safra, 17 testes; 8 commits                                                         |
-| 5   | LDT    | Detalhe do lote    | `/samples/[sampleId]`                                                         | 📱     | S11     | Uniforme pros 5 papéis (D1) + decisões D2–D4 (copy "lote"/"Deletar", revalidação, endurecer foto); **endurece endpoint de foto (auth)** + revalidação silenciosa + código morto −254 + CSS sdv-\* órfão −1435 + acentos/plural + press/reduced-motion/contraste/44px/a11y; 8 commits             |
-| 6   | CAM    | Câmera / Scanner   | `/camera`                                                                     | 📱     | S12     | Conferência R1–R8 do fluxo como página: 20 achados (foto errada via token stale, ESC conflitante, voltar do Android furando o sheet, cap 200 no lookup, magic bytes no detect/extract, ~930 linhas de CSS órfão) + CAM-D5 (confirmar descarte) em 12 commits; conversão em modal global = CAM-P3 |
-| 7   | CLI    | Clientes (lista)   | `/clients`                                                                    | ⬜     | —       | —                                                                                                                                                                                                                                                                                                |
-| 8   | CDT    | Detalhe do cliente | `/clients/[clientId]`                                                         | ⬜     | —       | —                                                                                                                                                                                                                                                                                                |
-| 9   | CTR    | Contratos          | `/contratos`                                                                  | ⬜     | —       | —                                                                                                                                                                                                                                                                                                |
-| 10  | FIN    | Financeiro         | `/financeiro`                                                                 | ⬜     | —       | —                                                                                                                                                                                                                                                                                                |
-| 11  | CAD    | Cadastros          | `/cadastros`                                                                  | ⬜     | —       | —                                                                                                                                                                                                                                                                                                |
-| 12  | REL    | Relatórios         | `/informe` (+ redirect `/resumo`)                                             | ⬜     | —       | —                                                                                                                                                                                                                                                                                                |
-| 13  | USR    | Usuários           | `/users`                                                                      | ⬜     | —       | —                                                                                                                                                                                                                                                                                                |
-| 14  | PRF    | Perfil             | `/profile` (+ redirect `/settings`)                                           | ⬜     | —       | —                                                                                                                                                                                                                                                                                                |
-| 15  | AUX    | Auxiliares         | `/laudo/[token]` (público), `/offline`, `/maintenance`, redirects `/` e afins | ⬜     | —       | —                                                                                                                                                                                                                                                                                                |
+| #   | Código | Página             | Rota                                                                          | Status | Sessões | Resumo                                                                                                                                                                                                                                                                                                                           |
+| --- | ------ | ------------------ | ----------------------------------------------------------------------------- | ------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | LOG    | Login              | `/login` (+ `/forgot-password`)                                               | ✅     | S3      | 16 achados corrigidos (incl. 3 bugs de persistência no auth), endurecimento do reset, 3 suítes de teste novas, teia de docs sincronizada; validada no device 2026-07-07                                                                                                                                                          |
+| 2   | DSH    | Dashboard          | `/dashboard` (twins mobile/desktop + dashboard do PROSPECTOR)                 | 📱     | S4–S7   | 19 achados + decisões D2–D6: dashboard único; "Vendas e perdas" e pulso removidos; cards novos "Últimos envios" (endpoint recent-sends) e "Eventos" (calendário F0, coluna direita inteira — INCOMPLETO, ver P6); validar tudo no device                                                                                         |
+| 3   | LOT    | Lotes (lista)      | `/samples`                                                                    | 📱     | S8      | Deferidos resolvidos (CSS legado −594 linhas, testes do reducer+filtros) + decisões D1–D4 (uniforme, PROSPECTOR fora do service, copy "lote", vazio único) + erro de carregamento visível, portais, a11y; 10 commits                                                                                                             |
+| 4   | LNW    | Novo lote          | modal do leque "+" (rota `/samples/new` removida — LNW-D1)                    | 📱     | S9      | Rota wrapper removida + decisões D1–D4 (copy "lote", receivedChannel fora do front, editou = manual) + hardening da API do número fixo, CSS nsv2 órfão −299, press/reduced-motion/contraste/44px, drop-up da safra, 17 testes; 8 commits                                                                                         |
+| 5   | LDT    | Detalhe do lote    | `/samples/[sampleId]`                                                         | 📱     | S11     | Uniforme pros 5 papéis (D1) + decisões D2–D4 (copy "lote"/"Deletar", revalidação, endurecer foto); **endurece endpoint de foto (auth)** + revalidação silenciosa + código morto −254 + CSS sdv-\* órfão −1435 + acentos/plural + press/reduced-motion/contraste/44px/a11y; 8 commits                                             |
+| 6   | CAM    | Câmera / Scanner   | CameraSheet global (rota `/camera` REMOVIDA na S13)                           | 📱     | S12–S13 | S12 = conferência (20 achados: foto errada via token stale, ESC conflitante, back furando o sheet, cap 200 no lookup, magic bytes, ~930 linhas CSS órfão). S13 = CAM-P3: câmera virou BOTTOM SHEET global parcial aberto por ícone no header de todas as páginas; tabbar com 4 itens; desktop sem classificar por foto; rota 404 |
+| 7   | CLI    | Clientes (lista)   | `/clients`                                                                    | ⬜     | —       | —                                                                                                                                                                                                                                                                                                                                |
+| 8   | CDT    | Detalhe do cliente | `/clients/[clientId]`                                                         | ⬜     | —       | —                                                                                                                                                                                                                                                                                                                                |
+| 9   | CTR    | Contratos          | `/contratos`                                                                  | ⬜     | —       | —                                                                                                                                                                                                                                                                                                                                |
+| 10  | FIN    | Financeiro         | `/financeiro`                                                                 | ⬜     | —       | —                                                                                                                                                                                                                                                                                                                                |
+| 11  | CAD    | Cadastros          | `/cadastros`                                                                  | ⬜     | —       | —                                                                                                                                                                                                                                                                                                                                |
+| 12  | REL    | Relatórios         | `/informe` (+ redirect `/resumo`)                                             | ⬜     | —       | —                                                                                                                                                                                                                                                                                                                                |
+| 13  | USR    | Usuários           | `/users`                                                                      | ⬜     | —       | —                                                                                                                                                                                                                                                                                                                                |
+| 14  | PRF    | Perfil             | `/profile` (+ redirect `/settings`)                                           | ⬜     | —       | —                                                                                                                                                                                                                                                                                                                                |
+| 15  | AUX    | Auxiliares         | `/laudo/[token]` (público), `/offline`, `/maintenance`, redirects `/` e afins | ⬜     | —       | —                                                                                                                                                                                                                                                                                                                                |
 
 A ordem segue o **fluxo operacional** de uso do app (D2). A revisão de cada
 página cobre também a **cadeia de backend** que ela consome (D6) e os **6
@@ -639,7 +639,7 @@ reduced-motion (sem pulse infinito no imprimir); staleness (deixar o app no
 detalhe → outro usuário classifica/vende/envia → voltar ao app atualiza;
 parado atualiza em ≤60s); os 2 modais (data, reclassificar) com foco preso.
 
-### Câmera / Scanner (CAM) — 📱 aguardando validação no device (S12, 2026-07-16)
+### Câmera / Scanner (CAM) — 📱 aguardando validação no device (S12+S13, 2026-07-16)
 
 > Ciclo executado em 2026-07-16 (S12): conferência R1–R8 do fluxo AINDA como
 > página, conforme a ordem acordada — a conversão em modal global (CAM-D1–D4)
@@ -648,14 +648,16 @@ parado atualiza em ≤60s); os 2 modais (data, reclassificar) com foco preso.
 
 **Decisões pré-ciclo:**
 
-- **CAM-D1 — Câmera vira modal global (mobile-only).** A página `/camera`
-  deixa de existir; o fluxo inteiro (scanner QR + captura + classificação)
-  passa a viver num modal disponível em todas as páginas do app mobile,
-  apresentado como sheet que **sobe da parte inferior** da tela. Gatilhos:
-  botão central da tabbar (hoje `Link`, vira ação) e os botões
-  Classificar/Reclassificar do detalhe do lote (hoje `router.push`, viram
-  abertura do modal com `sampleId` — o modo contexto por prop substitui o
-  `?sampleId=` da URL).
+- **CAM-D1 (EMENDADA na S13) — Câmera vira BOTTOM SHEET global
+  (mobile-only).** A página `/camera` deixa de existir; o fluxo inteiro
+  (scanner QR + captura + classificação) vive num **sheet PARCIAL** (molde
+  `NewSampleModal`, sobe de baixo SEM ocupar a tela toda). Gatilhos:
+  **ícone de câmera no HEADER de todas as páginas** (cluster
+  `[câmera][avatar]` do `HeaderAvatarMenu` — correção do Flavio: é no
+  header, NÃO na tabbar) e os botões Classificar/Reclassificar do detalhe
+  do lote (`open({ sampleId })` — o contexto por prop substitui o
+  `?sampleId=` da URL). **Decisão da S13: o slot central da câmera SAI da
+  tabbar** (fica com 4 itens) — o header é o único gatilho global.
 - **CAM-D2 — Desktop perde a classificação POR FOTO.** Sem modal de câmera no
   desktop (breakpoint canônico `(min-width: 901px)`): os botões
   "Classificar"/"Reclassificar" do detalhe somem no desktop. O **"Editar"
@@ -776,6 +778,21 @@ gargalos/robustez, 3 alinhamentos de padrão (portal/is-action/ESC), CAM-D5
 implementada, ~930 linhas de CSS órfão, 3 suítes/adições de teste (limit,
 magic bytes, prospector denied-list) e docs/skills sincronizadas.
 
+**Execução da CAM-P3 (S13, 2026-07-16)** — conversão feita em 6 commits:
+`CameraSheetProvider` (`lib/camera-sheet/`, `useCameraSheet()`, no-op em
+≥901px e pra PROSPECTOR) + `CameraSheet` (`components/camera/`, extração
+integral da página: UM BottomSheet trocando corpo/título/footer por estado —
+scanner `is-scanner` com viewfinder `.camera-sheet-stage` ~52dvh → preview →
+processing → review; scanner destruído/recriado quando o `<video>` remonta;
+navegações do sheet com o GOTCHA do history; cancelar Flow B = fechar o
+sheet, sem navegação) + ícone no header via `HeaderAvatarMenu` (12 páginas
+com 1 componente; compensação de centralização 3.6→6.7rem) + gatilhos do
+detalhe trocados + CAM-D2 aplicada (desktop sem Classificar/Reclassificar;
+Editar fica) + rota `/camera` DELETADA (404, CAM-D3) + limpezas (CSS da
+página, `is-camera-route`, conceito `emphasis`/`is-primary` da tabbar
+removido ~90 linhas). O voltar do Android fecha o sheet de graça (mecanismo
+do BottomSheet + fix G6 da S12 — CAM-D4 satisfeita).
+
 **Pendências:**
 
 - **CAM-P1** — Emitir `CLASSIFICATION_EXTRACTION_COMPLETED/_FAILED` no fluxo
@@ -791,28 +808,27 @@ magic bytes, prospector denied-list) e docs/skills sincronizadas.
   inicialização (teste explícito de câmera traseira abre/fecha um stream
   antes do QrScanner abrir o dele — latência). Resolver na fase de conversão
   (CAM-P3), que reestrutura o ciclo de vida do scanner de qualquer forma.
-- **CAM-P3** — Conversão em modal global (CAM-D1–D4), nas fases da ordem
-  acordada. Notas pro plano: o `BottomSheet` já tem o mecanismo de history
-  entry pro voltar do Android (reusar no modal-mãe); o hack do theme-color
-  bege (page `useEffect` + `.camera-hub-page::before`) precisa ser reamarrado
-  ao abrir/fechar do modal; a tabbar some sozinha sob sheet/modal
-  (`is-bottom-sheet-open` / `:has(.app-modal-backdrop)`); o cluster CSS
-  `camera-hub-*` não é documentado em nenhuma skill (documentar na conversão).
+- ~~**CAM-P3** — Conversão em modal global~~ **FEITA na S13** (ver bloco de
+  execução acima). O hack do theme-color bege MORREU com a página (o sheet
+  parcial usa o backdrop padrão — não muda a status bar).
 - **CAM-P4** — Máquina de estados do fluxo é inline no componente e não tem
   teste (projeto sem infra de teste de componente — `node --test`, sem RTL).
   Na conversão (extração página→componente), avaliar extrair um reducer
   testável.
 
-**Validação no device (Flavio):** fluxo feliz Flow A (tabbar → foto direta)
-e Flow B (detalhe → Classificar); no review, "Cancelar" abre "Descartar
-classificação?" (confirmar descarta; "Continuar" mantém tudo); voltar do
-Android no review abre o MESMO modal e, desistindo, a próxima volta repete
-(entry re-injetada — antes a 2ª volta saía da página); no preview, voltar/
-backdrop descartam direto (só a foto); reclassificação via Flow A mostra
-copy de reclassificação no sucesso; galeria; scan de QR abre o modal de
-resultado e ESC/X fecham uma vez só; modais todos por cima do sheet
-corretamente (portal); lista de classificadores íntegra (>60 usuários?
-agora até 300).
+**Validação no device (Flavio):** ícone 📷 no header de TODAS as páginas
+mobile (dashboard, listas, DETALHES — onde não há tabbar —, relatórios,
+contratos, embarques, cadastros, usuários, perfil); tabbar com 4 itens sem
+buraco; ícone abre o sheet PARCIAL subindo de baixo em qualquer página;
+fluxo completo dentro do sheet (scan QR → modal de resultado; captura;
+galeria; revisão; tipo; classificadores; sucesso volta pro scanner); Flow B
+pelo detalhe (Classificar e Reclassificar abrem o sheet SEM sair da página;
+cancelar volta pro detalhe); no review, "Cancelar"/voltar abrem "Descartar
+classificação?" e desistir mantém tudo (voltar seguinte pergunta de novo);
+desktop: SEM ícone no header, SEM Classificar/Reclassificar no detalhe
+(Editar fica); `/camera` → 404; título das listas continua centrado com o
+cluster novo; reclassificação Flow A com copy correta; QR: ESC/X fecham uma
+vez só.
 
 ### Clientes — lista (CLI) — ⬜ não iniciada
 
@@ -1008,3 +1024,20 @@ agora até 300).
     extração, design pronto em CAM-P1 — o par bruto→corrigido + foto vira base
     de auditoria/treinamento da IA). ~930 linhas de CSS órfão do fluxo antigo
     removidas. Skills modals/design-system + VG §2 sincronizadas. Página em 📱.
+- **S13 (2026-07-16)** — CAM-P3 executada na sequência, após o Flavio
+  corrigir a leitura do gatilho: o que ele quer é **ícone de câmera no
+  HEADER de todas as páginas** abrindo um **sheet PARCIAL** (molde Novo
+  lote), não a página. CAM-D1 emendada + decisão nova (câmera SAI da
+  tabbar → 4 itens). Levantamento revelou que o topbar do AppShell é
+  invisível no mobile em TODAS as rotas — o header real é por página, e o
+  `HeaderAvatarMenu` (12 montagens) é o único componente comum: o ícone
+  entrou nele como cluster `[câmera][avatar]` (1 componente = todas as
+  páginas; desktop herda o display:none). Fluxo inteiro extraído de
+  `app/camera/page.tsx` pro `CameraSheet` global (provider em
+  `lib/camera-sheet/`), UM BottomSheet com corpo por estado (scanner
+  `is-scanner` novo → preview → processing → review), scanner recriado
+  quando o vídeo remonta, GOTCHA do history nas navegações, cancelar
+  Flow B = fechar o sheet. CAM-D2 aplicada no detalhe (desktop sem
+  Classificar/Reclassificar), rota DELETADA (404), theme-color bege morreu
+  com a página, conceito `is-primary` da tabbar removido (~90 linhas).
+  6 commits; gates verdes. Página segue em 📱 (checklist novo na seção).

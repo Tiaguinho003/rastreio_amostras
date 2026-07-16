@@ -16,6 +16,8 @@ Três caminhos de escrita, todos convergindo no evento `CLASSIFICATION_COMPLETED
 2. **Câmera manual**: mesma ficha, sem extração (IA desligada ou ilegível); confirmação via `ClassificationManualConfirmModal`.
 3. **Edição no detalhe**: modal `cld-modal` em `/samples/[id]` (amostra `CLASSIFIED`) → `POST /api/v1/samples/:id/classification/update` (`updateClassification`, evento `CLASSIFICATION_UPDATED` com `before/after/reasonCode/reasonText`).
 
+> **A câmera é um BOTTOM SHEET GLOBAL, não uma página (CAM-P3, 2026-07-16).** A rota `/camera` foi removida (404). O fluxo inteiro (scanner QR + captura + classificação) vive no `CameraSheet` (`components/camera/CameraSheet.tsx`), montado no `AppShell` via `CameraSheetProvider` (`lib/camera-sheet/`). Gatilhos: **ícone de câmera no header de todas as páginas mobile** (`HeaderAvatarMenu`, Flow A) e os botões Classificar/Reclassificar do detalhe do lote (Flow B, `open({ sampleId })` — o contexto por prop substituiu o antigo `?sampleId=` da URL). Mobile-only: desktop não tem câmera (CAM-D2 — o Editar do detalhe cobre correções); PROSPECTOR não vê o gatilho.
+
 **Reclassificação pela câmera** (amostra já `CLASSIFIED`): a ficha parte **vazia** e o payload emite todas as chaves — campos que a nova foto não preencher **substituem os anteriores por null**. Isso é deliberado ("substituição total consciente", decisão 2026-07-13) e o portão `ClassificationReclassifyModal` avisa explicitamente. A edição no detalhe, ao contrário, pré-preenche e faz patch.
 
 **Portões**: foto de classificação é obrigatória (409 sem ela); `classifiers` mínimo 1 (validado pelo comando `normalizeClassifiers`); status `REGISTRATION_CONFIRMED` → `CLASSIFIED`. Classificar dispara auto-print (best-effort).
