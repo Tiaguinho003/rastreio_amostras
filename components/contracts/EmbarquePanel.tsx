@@ -98,8 +98,9 @@ export function EmbarquePanel({ session }: { session: SessionData }) {
   // Contrato em confirmação (abre o ShipmentConfirmationModal).
   const [confirmTarget, setConfirmTarget] = useState<string | null>(null);
 
-  // "Ver contrato" só ADMIN/COMMERCIAL (D110); [Confirmar] = todos (a aba já é
-  // não-PROSPECTOR pela casca).
+  // "Ver contrato" p/ todos os não-PROSPECTOR (D110 dissolvida 2026-07-15 →
+  // CONTRATOS_ROLES = NON_PROSPECTOR_ROLES); [Confirmar] idem (a casca já barra o
+  // PROSPECTOR).
   const canViewContract = isRoleAllowed(session.user.role, CONTRATOS_ROLES);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);

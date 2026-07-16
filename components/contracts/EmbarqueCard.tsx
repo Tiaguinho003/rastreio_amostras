@@ -6,8 +6,9 @@ import type { ShipmentReceivable, ShipmentState } from '../../lib/types';
 
 // Embarque (EMB25): card de um contrato na worklist. Só dado NÃO-sensível — chip de
 // estado + nº + comprador + data (prevista/embarcado) + sacas + armazém do vendedor.
-// Ações: [Confirmar embarque] em a_embarcar/atrasado (todos não-PROSPECTOR) + [Ver
-// contrato] só ADMIN/COMMERCIAL (D110). Sem preço/corretagem (a aba é aberta).
+// Ações: [Confirmar embarque] em a_embarcar/atrasado + [Ver contrato] — ambas p/ todos
+// os não-PROSPECTOR (D110 dissolvida na unificação de acesso 2026-07-15). Sem
+// preço/corretagem (a aba é aberta).
 
 const STATE_LABEL: Record<ShipmentState, string> = {
   a_embarcar: 'A embarcar',
