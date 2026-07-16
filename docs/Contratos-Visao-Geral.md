@@ -119,8 +119,9 @@ As **datas planejadas** também têm regra (D142): a criação/edição rejeita 
 > Segundo documento gerado a partir do contrato. Código: `EspelhoCorretagemModal`, `EspelhoConferenciaModal`; `SaleContractEspelhoLog`.
 
 - **O que é:** o espelho da corretagem — mapeia campos do contrato para um PDF de 9 colunas (origem de cada campo documentada no código).
-- **Elegibilidade:** contratos em `EMITIDO/FATURADO/PAGO/WASH_OUT` **com corretagem no lado**; sem corretagem → bloqueado (`ESPELHO_NO_BROKERAGE`). **Exceção (D145):** um contrato **à vista** (`MERCADO_A_VISTA`) cancelado por washout **não gera cobrança** → o Espelho é bloqueado (`ESPELHO_WASHOUT_SPOT`); só o **FUTURO** em washout mantém o Espelho.
-- **Conferência (D134):** fluxo de conferência antes de imprimir (registra em `SaleContractEspelhoLog`).
+- **Elegibilidade (`assertEspelhoEligible`, fonte única que gateia o PDF _e_ o log):** `side` válido (`ESPELHO_INVALID_SIDE`); status ∈ `EMITIDO/FATURADO/PAGO/WASH_OUT` (`ESPELHO_NOT_ELIGIBLE`); **com corretagem no lado pedido** (`ESPELHO_NO_BROKERAGE`). **Exceção (D145):** um contrato **à vista** (`MERCADO_A_VISTA`) cancelado por washout **não gera cobrança** → bloqueado (`ESPELHO_WASHOUT_SPOT`); só o **FUTURO** em washout mantém o Espelho.
+- **Como gerar:** pelo leque **"+"** (modo de seleção) **ou pelo botão "Gerar espelho" no Detalhes** do contrato — ambos abrem a **Conferência (D134)**, revisão _read-only_ dos campos (não grava nada; o "Preço" vem de `effectiveUnitPrice` da view, mesma fonte do PDF) antes de gerar a prévia.
+- **Auditoria (D124/D127):** o `SaleContractEspelhoLog` (contrato + lado + ator) é gravado no **Exportar/Baixar**, **só na entrega concluída** (a prévia `?preview=1` não audita; cancelar o share não audita). É **best-effort** e a prévia entrega o PDF sem log — trilha de conferência, não controle rígido; o endpoint de log **valida a elegibilidade** (não grava export impossível).
 
 ---
 
