@@ -24,7 +24,8 @@ import {
   maskVariacao,
   type VariacaoDir,
 } from '../../lib/informativos/format';
-import { drawMercado, loadLogo } from '../../lib/informativos/mercado-draw';
+import { drawMercado } from '../../lib/informativos/mercado-draw';
+import { loadLogo } from '../../lib/informativos/story-draw';
 import { type MercadoData } from '../../lib/informativos/mercado-layout';
 import { H, W } from '../../lib/informativos/story-layout';
 import { EMPTY_SLOW_FIELDS, type SlowFields } from '../../lib/informativos/slow-fields-store';
@@ -209,7 +210,7 @@ export function InformativoForm({
         }
       }
       if (cancelled) return;
-      drawMercado(ctx, data, logoRef.current);
+      drawMercado(ctx, data, { logo: logoRef.current });
     }
 
     void paint();
