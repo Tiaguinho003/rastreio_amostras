@@ -1,6 +1,6 @@
 'use client';
 
-import { useId } from 'react';
+import { useEffect, useId } from 'react';
 import { createPortal } from 'react-dom';
 
 import { CommercialStatusBadge } from './CommercialStatusBadge';
@@ -49,6 +49,20 @@ export function SampleLookupResultModal({
 }: SampleLookupResultModalProps) {
   const titleId = useId();
   const focusTrapRef = useFocusTrap(true);
+
+  // CAM-B2: o modal e dono do proprio ESC (padrao dos modais do fluxo de
+  // classificacao). Antes dependia de handlers de pagina, que duplicavam
+  // comportamento e conflitavam entre si.
+  useEffect(() => {
+    function handleKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onClose();
+      }
+    }
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [onClose]);
 
   const headerTitle = (() => {
     switch (kind) {

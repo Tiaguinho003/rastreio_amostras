@@ -365,39 +365,12 @@ function CameraPageContent() {
     };
   }, [capturedPhotoUrl]);
 
-  // Escape key for modals
-  useEffect(() => {
-    if (!resultModalOpen && flowState === 'idle') return;
-
-    const previousOverflow = document.body.style.overflow;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      event.preventDefault();
-      if (resultModalOpen) {
-        setResultModalOpen(false);
-      } else if (
-        flowState === 'preview' ||
-        flowState === 'not-found' ||
-        flowState === 'lot-mismatch' ||
-        flowState === 'data-mismatch'
-      ) {
-        resetClassificationFlow();
-      } else if (flowState === 'confirming' || flowState === 'overwrite-confirm') {
-        resetClassificationFlow();
-      }
-      // 'extraction-error-illegible' / 'extraction-error-technical' /
-      // 'manual-confirm' tem tratamento de ESC dentro dos proprios modais.
-    };
-
-    document.body.style.overflow = 'hidden';
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener('keydown', onKeyDown);
-    };
-    // resetClassificationFlow e funcao local nao memoizada; effect reage so a flow/modal state
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resultModalOpen, flowState]);
+  // CAM-B2: o handler global de ESC da pagina foi removido — cada superficie
+  // e dona do proprio dismiss: os modais Classification* e o
+  // SampleLookupResultModal tem ESC interno, e o camera-preview-sheet decide
+  // por estado via onDismissAttempt (preview livre, processamento bloqueado,
+  // review com confirmacao de descarte — CAM-D5). O scroll-lock do body ja e
+  // garantido pelo effect de mount da pagina.
 
   // --- Scanner functions ---
 

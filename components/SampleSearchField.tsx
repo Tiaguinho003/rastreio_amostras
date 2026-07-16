@@ -97,21 +97,12 @@ export function SampleSearchField({
 
     const previousOverflow = document.body.style.overflow;
 
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') {
-        return;
-      }
-
-      event.preventDefault();
-      setResultModalOpen(false);
-    };
-
+    // CAM-B2: o ESC vive DENTRO do SampleLookupResultModal (dono unico);
+    // aqui fica so o scroll-lock do body enquanto o modal esta aberto.
     document.body.style.overflow = 'hidden';
-    document.addEventListener('keydown', onKeyDown);
 
     return () => {
       document.body.style.overflow = previousOverflow;
-      document.removeEventListener('keydown', onKeyDown);
       // NAO refocar o input aqui: em mobile, focus() programatico
       // dispara o teclado, AppShell marca body.is-keyboard-open e a
       // tabbar fica escondida via transform ate o user dispensar o
