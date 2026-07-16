@@ -389,7 +389,6 @@ export function AprovacoesPanel({ session }: { session: SessionData }) {
           session={session}
           prefill={gerarForm.prefill}
           saleContractId={gerarForm.contractId}
-          onBack={null}
           onSent={() => {
             // Enviou → o item muda de estado (a_enviar → enviada, ou +1 no ·N×).
             // Refetch da 1ª página (mantém filtro+busca) + do card "Aprovações

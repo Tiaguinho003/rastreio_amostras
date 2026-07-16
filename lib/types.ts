@@ -325,8 +325,7 @@ export interface SaleContractBrokerView {
 
 // Aprovação do contrato (Fase I, D112–D119): prefill da etiqueta montado no
 // backend (campos já cortados nos limites físicos e lotes quebrados do Lote
-// de origem, D115/D116). O tipo do seletor de contratos (ApprovalContractOption)
-// saiu com o picker aposentado pela AP29.
+// de origem, D115/D116).
 export interface ApprovalLabelPrefill {
   fields: {
     compra: string;

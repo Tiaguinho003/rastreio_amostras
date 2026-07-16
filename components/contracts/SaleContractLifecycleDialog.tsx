@@ -298,7 +298,6 @@ export function SaleContractLifecycleDialog({
           session={session}
           prefill={approvalPrefill}
           saleContractId={contractId}
-          onBack={null}
           onSent={() => {
             // Marca só o sucesso; a refatura acontece no onClose (após o check da
             // etiqueta), pra não cortar a animação de sucesso do envio.

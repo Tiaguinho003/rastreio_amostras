@@ -1499,10 +1499,10 @@ export function buildBankSnapshot(account) {
 }
 
 // ============================================================
-// Aprovacao do contrato (Fase I — D112-D119). Funcoes PURAS dos handlers
-// approval-labels do backend-api (seletor reduzido + prefill). Vivem aqui
-// por serem a "regra unica pras 2 portas" (D115): card do contrato e
-// seletor do /samples passam pelo mesmo prefill/quebra.
+// Aprovacao do contrato (Fase I — D112-D119). Funcoes PURAS do handler de
+// prefill do backend-api. O prefill monta a etiqueta a partir do contrato
+// (campos cortados nos limites fisicos + lotes quebrados do Lote de origem,
+// D115/D116) — consumido pela worklist de Aprovacoes.
 // ============================================================
 
 // Limites FISICOS da etiqueta (espelham os maxChars do ApprovalLabelModal e a
@@ -1559,20 +1559,6 @@ export function buildApprovalPrefill({
     },
     lots: splitOriginLotForLabel(originText),
     originLotText: originText,
-  };
-}
-
-// Item REDUZIDO do seletor de contratos (D113): allowlist EXPLICITA — nunca
-// valores financeiros (preco/total/corretagem/agio) nem snapshots crus (PII).
-// buyerName = so o displayName extraido do snapshot do comprador.
-export function toApprovalContractOption(row) {
-  return {
-    id: row.id,
-    contractNumber: row.contractNumber,
-    contractDate: toIsoString(row.contractDate),
-    quantitySacks: row.quantitySacks,
-    status: row.status,
-    buyerName: row.buyerSnapshot?.displayName ?? null,
   };
 }
 

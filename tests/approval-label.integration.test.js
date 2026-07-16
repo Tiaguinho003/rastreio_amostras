@@ -309,11 +309,8 @@ if (!databaseUrl || !databaseReachable) {
     assert.deepEqual(await auditCounts(), { logs: 0, jobs: 0 });
   });
 
-  test('PROSPECTOR recebe 403 nos 3 metodos (gate central por methodName)', async () => {
+  test('PROSPECTOR recebe 403 nos 2 metodos (gate central por methodName)', async () => {
     const contractId = await createContract({ status: 'EMITIDO' });
-
-    const list = await api.listApprovalContractOptions(buildInput({ headers: prospectorHeaders }));
-    assert.equal(list.status, 403);
 
     const prefill = await api.getApprovalLabelPrefill(
       buildInput({ headers: prospectorHeaders, params: { contractId } })
@@ -324,38 +321,6 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({ headers: prospectorHeaders, body: { lines: buildLines() } })
     );
     assert.equal(send.status, 403);
-  });
-
-  test('listApprovalContractOptions: so EMITIDO (portao AP21), mais recente primeiro, itens sem financeiro (CLASSIFIER ve)', async () => {
-    const older = await createContract({ status: 'EMITIDO' });
-    const newer = await createContract({ status: 'EMITIDO' });
-    await createContract({ status: 'FATURADO' }); // AP21 tirou FATURADO/PAGO da lista
-    await createContract({ status: 'PAGO' });
-    await createContract({ status: 'WASH_OUT' });
-
-    const response = await api.listApprovalContractOptions(
-      buildInput({ headers: classifierHeaders })
-    );
-
-    assert.equal(response.status, 200);
-    const items = response.body.items;
-    assert.equal(items.length, 2);
-    // contractSeq desc = mais recente primeiro; so os EMITIDO aparecem.
-    assert.deepEqual(
-      items.map((item) => item.id),
-      [newer, older]
-    );
-    for (const item of items) {
-      assert.deepEqual(Object.keys(item).sort(), [
-        'buyerName',
-        'contractDate',
-        'contractNumber',
-        'id',
-        'quantitySacks',
-        'status',
-      ]);
-      assert.equal(item.buyerName, 'Comprador Teste');
-    }
   });
 
   test('getApprovalLabelPrefill: campo a campo com cortes 26/52, lotes quebrados e texto original', async () => {

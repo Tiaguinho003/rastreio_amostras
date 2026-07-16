@@ -13,7 +13,6 @@ import {
   buildApprovalPrefill,
   isSpotWashout,
   SALE_CONTRACT_STATUSES,
-  toApprovalContractOption,
 } from '../../sale-contracts/sale-contract-support.js';
 import { formatHarvestLabel, normalizeReportedHarvest } from '../../reports/export-fields.js';
 
@@ -187,7 +186,7 @@ function readPageQuery(value) {
 // mais lotes sem encolher a fonte a ponto de cortar o numero).
 const MAX_CUSTOM_LOTS = 16;
 
-// Etiqueta de Aprovacao (modal "Aprovacao" do leque "+" em /samples). Valida/
+// Etiqueta de Aprovacao (modal aberto pela worklist de Aprovacoes). Valida/
 // normaliza as linhas { label, value } enviadas pelo modal; o agente as
 // renderiza como rotulo:valor (sem QR). Generico de proposito: o modal decide os
 // rotulos, o backend so sanitiza tamanho/forma e valida a contagem de lotes.
@@ -1242,36 +1241,15 @@ export function createBackendApiV1({
 
     // ============================================================
     // Aprovacao do contrato (Fase I — D112-D119): a Etiqueta de Aprovacao
-    // vira marco AUDITADO. Seletor reduzido + prefill + envio auditado.
+    // vira marco AUDITADO. Prefill + envio auditado (o seletor de contratos
+    // do /samples saiu com a AP29 — geracao concentrada na sub-aba).
     // Gate = qualquer autenticado nao-PROSPECTOR (metodos fora da allowlist
     // do prospector); SEM posse por contrato — excecao deliberada da
     // D110/D113: COMMERCIAL etiqueta contrato de terceiros por aqui, e
-    // CLASSIFIER/REGISTRATION/CADASTRO usam o seletor sem acesso a /contratos.
+    // CLASSIFIER/REGISTRATION/CADASTRO etiquetam sem acesso a /contratos.
     // NUNCA reusar a view completa do contrato nesses handlers (vaza
     // financeiro + PII dos snapshots) — so os selects minimos abaixo.
     // ============================================================
-
-    listApprovalContractOptions: (input) =>
-      executeApiForInput(input, async () => {
-        await resolveActorContext(input, authService);
-        // Cap fixo 500 (= teto do listSaleContracts). A busca por comprador e
-        // client-side (buyerSnapshot e JSON) — acima de 500 elegiveis os mais
-        // antigos saem da lista (a ordenacao ja e mais-recente-primeiro).
-        const rows = await queryService.prisma.saleContract.findMany({
-          where: { status: { in: [...APPROVAL_ELIGIBLE_STATUSES] } },
-          orderBy: [{ contractSeq: 'desc' }],
-          take: 500,
-          select: {
-            id: true,
-            contractNumber: true,
-            contractDate: true,
-            quantitySacks: true,
-            status: true,
-            buyerSnapshot: true,
-          },
-        });
-        return { status: 200, body: { items: rows.map(toApprovalContractOption) } };
-      }),
 
     getApprovalLabelPrefill: (input) =>
       executeApiForInput(input, async () => {

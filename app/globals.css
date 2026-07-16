@@ -24205,18 +24205,6 @@ select.samples-filter-field-input {
   color: #aaa;
 }
 
-/* Aprovacao: footer com "Voltar" (fluxo via seletor) = 3 botoes. Os dois
-   secundarios (Voltar/Limpar) dividem a primeira metade e o "Imprimir
-   etiqueta" mantem a prioridade de largura — cabe em 320px. */
-.alm-footer-3 {
-  grid-template-columns: auto auto 1fr;
-}
-
-.alm-footer-3 .nsv2-clear-btn {
-  width: auto;
-  padding-inline: clamp(12px, 3.5vw, 16px);
-}
-
 @keyframes alm-lot-in {
   from {
     opacity: 0;

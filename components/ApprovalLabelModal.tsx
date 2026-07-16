@@ -10,15 +10,14 @@ import type { ApprovalLabelPrefill, SessionData } from '../lib/types';
 
 // Modal da Etiqueta de Aprovação (Fase I, D112–D119). Mesmo padrão do
 // NewSampleModal: bottom-sheet saindo de baixo (central no desktop via CSS)
-// + efeito de sucesso (check animado) que auto-fecha. Duas portas:
-// /samples (seletor de contratos → pré-preenchido, ou "Manual" → em branco;
-// `onBack` volta ao seletor) e /contratos (botão "Aprovação" do card → direto,
-// sem Voltar). Com `prefill`, os campos abrem preenchidos do contrato e o
-// texto ORIGINAL do Lote de origem aparece como referência da quebra (D116) —
-// tudo editável; "Limpar" zera tudo (decisão S80). Imprime na MESMA impressora
+// + efeito de sucesso (check animado) que auto-fecha. Uma porta: a worklist
+// de Aprovações abre com os campos PRÉ-PREENCHIDOS do contrato (o seletor do
+// /samples e a etiqueta "Manual"/avulsa saíram com a AP29/AP12). O texto
+// ORIGINAL do Lote de origem aparece como referência da quebra (D116) — tudo
+// editável; "Limpar" zera tudo (decisão S80). Imprime na MESMA impressora
 // (print agent), sem QR, 1 cópia por envio. Envio AUDITADO: sendApprovalLabel
 // grava o custom_print_job + a linha da approval_label_log na mesma transação
-// (saleContractId nulo = avulsa). Gate central não-PROSPECTOR no backend.
+// (sempre com saleContractId — AP12). Gate central não-PROSPECTOR no backend.
 
 interface FieldConfig {
   key: string;
@@ -131,13 +130,12 @@ interface ApprovalLabelModalProps {
   open: boolean;
   onClose: () => void;
   session: SessionData;
-  // Prefill do contrato (D115) — null/ausente = etiqueta em branco (Manual).
+  // Prefill do contrato (D115): a worklist abre o modal já com os campos
+  // preenchidos do contrato de origem.
   prefill?: ApprovalLabelPrefill | null;
-  // Vínculo da auditoria: nulo/ausente = avulsa (D114).
+  // Vínculo da auditoria: o contrato de origem, sempre presente (AP12 — não há
+  // mais etiqueta avulsa).
   saleContractId?: string | null;
-  // Presente = veio do seletor de contratos ("Voltar" retorna a ele; descarta
-  // as edições — D117/S80). Ausente = porta /contratos (sem Voltar).
-  onBack?: (() => void) | null;
   // Disparado APÓS o envio gravar (só no sucesso). Molde do onDone do embarque: o
   // pai usa pra refaturar (portão AP18) ou refetchar a worklist da sub-aba. Distinto
   // do onClose (que fecha em cancelamento OU no auto-close do sucesso).
@@ -168,7 +166,6 @@ export function ApprovalLabelModal({
   session,
   prefill = null,
   saleContractId = null,
-  onBack = null,
   onSent = null,
 }: ApprovalLabelModalProps) {
   const toast = useToast();
@@ -249,7 +246,7 @@ export function ApprovalLabelModal({
     setSubmitting(true);
     try {
       // Envio AUDITADO (D114): job de impressão + linha da approval_label_log
-      // na mesma transação; saleContractId nulo = etiqueta avulsa.
+      // na mesma transação; saleContractId sempre presente (AP12).
       await sendApprovalLabel(session, { saleContractId, lines });
       // Sucesso: desce o sheet (phase='success') e o check central aparece
       // logo após (ver effect abaixo), auto-fechando em seguida.
@@ -297,8 +294,8 @@ export function ApprovalLabelModal({
 
   // Semeia o formulário com o prefill do contrato QUANDO o modal abre (a página
   // só monta o modal DEPOIS do fetch do prefill — sem corrida com o reset
-  // acima). Reabrir o MESMO contrato re-preenche do contrato de novo ("Voltar"
-  // descarta edições — D117/S80).
+  // acima). Reabrir o MESMO contrato re-preenche do contrato de novo, descartando
+  // edições (D117/S80).
   useEffect(() => {
     if (!open || !prefill) return;
     setValues(valuesFromPrefill(prefill));
@@ -323,12 +320,7 @@ export function ApprovalLabelModal({
   }, [successVisible, onClose]);
 
   const formFooter = (
-    <div className={`nsv2-submit-wrap${onBack ? ' alm-footer-3' : ''}`}>
-      {onBack ? (
-        <button type="button" className="nsv2-clear-btn" disabled={submitting} onClick={onBack}>
-          <span>Voltar</span>
-        </button>
-      ) : null}
+    <div className="nsv2-submit-wrap">
       <button
         type="button"
         className="nsv2-clear-btn"

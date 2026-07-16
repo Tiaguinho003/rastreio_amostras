@@ -36,7 +36,6 @@ import {
   normalizeUnitPrice,
   normalizeWashoutReason,
   splitOriginLotForLabel,
-  toApprovalContractOption,
   toSaleContractView,
 } from '../src/sale-contracts/sale-contract-support.js';
 
@@ -600,41 +599,6 @@ test('buildApprovalPrefill: compra/armazem ausentes viram vazio; sem originLot l
   assert.equal(prefill.fields.produtor, 'Vendedor');
   assert.deepEqual(prefill.lots, []);
   assert.equal(prefill.originLotText, null);
-});
-
-test('toApprovalContractOption expoe SO os campos do allowlist (trava anti-vazamento)', () => {
-  const option = toApprovalContractOption({
-    id: 'id-1',
-    contractNumber: '0003/26',
-    contractDate: new Date('2026-07-01T00:00:00Z'),
-    quantitySacks: 200,
-    status: 'EMITIDO',
-    buyerSnapshot: { displayName: 'Comprador X', cnpj: 'nunca-sair' },
-    unitPrice: '2500.00',
-    totalValue: '500000.00',
-    sellerSnapshot: { displayName: 'nunca-sair' },
-  });
-  assert.deepEqual(Object.keys(option).sort(), [
-    'buyerName',
-    'contractDate',
-    'contractNumber',
-    'id',
-    'quantitySacks',
-    'status',
-  ]);
-  assert.equal(option.buyerName, 'Comprador X');
-});
-
-test('toApprovalContractOption: buyerSnapshot nulo vira buyerName null', () => {
-  const option = toApprovalContractOption({
-    id: 'id-2',
-    contractNumber: '0004/26',
-    contractDate: new Date('2026-07-02T00:00:00Z'),
-    quantitySacks: 50,
-    status: 'PAGO',
-    buyerSnapshot: null,
-  });
-  assert.equal(option.buyerName, null);
 });
 
 test('APPROVAL_ELIGIBLE_STATUSES = so EMITIDO (portao AP21)', () => {
