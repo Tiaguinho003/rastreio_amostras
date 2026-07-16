@@ -5,7 +5,8 @@
 // erraveis.
 //
 // Casas por campo (INF33): bolsa 2 (292,65), dolar 4 (5,2303), variacao
-// inteiro (20), precos 2 (R$ 1.960,00).
+// inteiro (20), precos 2 (R$ 1.960,00), temperatura 1 (15,5), umidade inteiro
+// (68), pluviosidade 1 (0,0).
 
 import { formatDecimalValue, maskDecimalInput } from '../currency.ts';
 
@@ -16,6 +17,9 @@ export const DECIMALS = {
   dolar: 4,
   variacao: 0,
   preco: 2,
+  temperatura: 1,
+  umidade: 0,
+  pluviosidade: 1,
 } as const;
 
 // Limites de caracteres (INF37): o campo trava no que cabe na celula, em vez
@@ -56,6 +60,50 @@ export function formatVariacao(dir: VariacaoDir, masked: string): string {
   return `${dir === 'alta' ? '+' : '-'}${masked} pts`;
 }
 
+/** "15,5" -> "15,5 °C". Vazio (ou so o sinal) -> "". */
+export function formatTemperatura(masked: string): string {
+  return isBlankNumber(masked) ? '' : `${masked} °C`;
+}
+
+/** "68" -> "68 %". Vazio -> "". */
+export function formatUmidade(masked: string): string {
+  return isBlankNumber(masked) ? '' : `${masked} %`;
+}
+
+/** "0,0" -> "0,0 mm". Vazio -> "". */
+export function formatPluviosidade(masked: string): string {
+  return isBlankNumber(masked) ? '' : `${masked} mm`;
+}
+
+/** Campo sem numero: vazio ou so o sinal em transito ("-"). */
+export function isBlankNumber(masked: string): boolean {
+  return masked === '' || masked === '-';
+}
+
+/**
+ * Mascara decimal que ACEITA negativo — para as temperaturas (geada).
+ *
+ * O maskDecimalInput do lib/currency.ts roda onlyDigits (/\D+/g) e come o
+ * sinal, entao "-1,5" viraria "1,5": numa manha de geada a peca publicaria a
+ * minima com o sinal trocado. O currency.ts nao pode mudar (e compartilhado com
+ * os contratos e cercado por tests/currency.test.js), entao o sinal e tratado
+ * aqui, por fora.
+ *
+ * Le SO o "-" inicial: `includes('-')` tornaria "3-5" negativo. Enquanto nao ha
+ * digito, devolve "-" sozinho — senao o sinal sumiria no instante em que fosse
+ * teclado e seria impossivel digitar um negativo. Esse "-" em transito conta
+ * como campo VAZIO (ver isBlankNumber).
+ */
+export function maskDecimalSigned(value: string, decimals: number): string {
+  const raw = String(value ?? '');
+  const negative = raw.trimStart().startsWith('-');
+  const masked = maskDecimalInput(raw, decimals);
+  if (masked === '') {
+    return negative ? '-' : '';
+  }
+  return negative ? `-${masked}` : masked;
+}
+
 /** Mascara da safra (INF39): "2526" -> "25/26". */
 export function maskSafraInput(value: string): string {
   const digits = String(value ?? '')
@@ -85,5 +133,10 @@ export const maskBolsa = (value: string) => maskDecimalInput(value, DECIMALS.bol
 export const maskDolar = (value: string) => maskDecimalInput(value, DECIMALS.dolar);
 export const maskVariacao = (value: string) => maskDecimalInput(value, DECIMALS.variacao);
 export const maskPreco = (value: string) => maskDecimalInput(value, DECIMALS.preco);
+
+// Temperaturas aceitam negativo (geada); umidade e chuva, nao — nao existem.
+export const maskTemperatura = (value: string) => maskDecimalSigned(value, DECIMALS.temperatura);
+export const maskUmidade = (value: string) => maskDecimalInput(value, DECIMALS.umidade);
+export const maskPluviosidade = (value: string) => maskDecimalInput(value, DECIMALS.pluviosidade);
 
 export const formatBolsaValue = (value: number) => formatDecimalValue(value, DECIMALS.bolsa);
