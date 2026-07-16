@@ -13,7 +13,7 @@ Documentos relacionados: `Dashboard-Plano-de-Trabalho.md` (backlog e próximas m
 
 O dashboard é a **home pós-login** de todos os papéis. Ele tem duas naturezas distintas:
 
-- **Dashboard padrão** — para os 5 papéis não-PROSPECTOR (ADMIN, COMMERCIAL, CLASSIFIER, REGISTRATION, CADASTRO). Desde **DSB-D14 (2026-07-14)** apresenta **apenas o calendário de Eventos** (desktop): pagamento, embarque e faturamento de contratos. Os demais cards saíram: o donut "Lotes disponíveis" foi **apagado do sistema**; "Amostras enviadas" migrou pra página de **Lotes** (`/samples`) e "Aprovações enviadas" pra aba **Aprovações** (`/embarques?tab=aprovacoes`).
+- **Dashboard padrão** — para os 5 papéis não-PROSPECTOR (ADMIN, COMMERCIAL, CLASSIFIER, REGISTRATION, CADASTRO). Desde **DSB-D14 (2026-07-14)** apresenta o **calendário de Eventos** (desktop): pagamento, embarque e faturamento de contratos; e desde **DSB-D19 (2026-07-15)** o **card de Avisos** à direita (aprovação a enviar — §7.4). Os demais cards saíram: o donut "Lotes disponíveis" foi **apagado do sistema**; "Amostras enviadas" migrou pra página de **Lotes** (`/samples`) e "Aprovações enviadas" pra aba **Aprovações** (`/embarques?tab=aprovacoes`).
 - **Dashboard do PROSPECTOR** — um app restrito e dedicado (a "casa" do papel de campo): registro de visitas/informes, contadores do dia e a lista dos próprios informes. Nada além disso.
 
 A escolha entre os dois é feita em `app/dashboard/page.tsx` pelo papel do usuário logado.
@@ -68,6 +68,7 @@ Rótulos de papel (`lib/roles.ts` → `USER_ROLE_LABELS`):
 | Card **Eventos** — feed de **pagamento**   |  ✅   |     ✅     |     ✅     |      ✅      |    ✅    |     —      |
 | Card **Eventos** — feed de **embarque**    |  ✅   |     ✅     |     ✅     |      ✅      |    ✅    |     —      |
 | Card **Eventos** — feed de **faturamento** |  ✅   |     ✅     |    ✅¹     |     ✅¹      |   ✅¹    |     —      |
+| Card **Avisos** (aprovação a enviar, D19)  |  ✅   |     ✅     |     ✅     |      ✅      |    ✅    |     —      |
 | Dashboard do PROSPECTOR                    |   —   |     —      |     —      |      —       |    —     |     ✅     |
 
 ¹ Operacionais (Classificação/Impressão/Cadastro) **veem** o chip de faturamento, mas ele é **inerte** (não abrem a aba Contratos — DSB-D11).
@@ -91,9 +92,10 @@ Desde **DSB-D14 (2026-07-14)** o dashboard desktop apresenta **apenas o card de 
 ```
 ┌─ .app-topbar (shell, cross-página) ────────────────────────────────┐
 │  logo quadrado …………………………………………………… 🔔 ❓ (inertes)                 │
-├─ .dd-content-grid (1 área, canvas #f4f6f5) ───────────────────────┤
-│           EVENTOS (card branco, largura e altura totais)           │
-│           mês inteiro (grade 7×N) com eventos dentro das células    │
+├─ .dd-content-grid (2 colunas, canvas #f4f6f5) ────────────────────┤
+│  EVENTOS (calendário, 1fr)             │  AVISOS (~300px, DSB-D19) │
+│  mês inteiro (grade 7×N)               │  aprovação a enviar       │
+│  eventos dentro das células            │  (card-lista clicável)    │
 └───────────────────────────────────────────────────────────────────┘
 ```
 
@@ -147,7 +149,7 @@ Os dois cards continuam existindo, **fora do dashboard** (desktop-only, mesmo co
 - **"Aprovações enviadas"** (`variant="approvals"`) → topo da aba **Aprovações** (`/embarques?tab=aprovacoes`), acima da worklist (visão rápida; a worklist com filtro "Enviadas" segue sendo a lista completa — redundância parcial aceita). Colunas **Contrato · Comprador · Tempo**. Dado: `GET /sale-contracts/approvals/recent-sends` (`getApprovalRecentSends` → `getRecentApprovalSends` do contract service, top-40; degrada pra `[]` sem contract service). Refetch extra após gerar etiqueta na própria aba.
 - **Comportamento comum** (inalterado desde DSB-D8): tabela compacta com cabeçalho sticky, cards inertes, cancelado = linha esmaecida + número riscado, truncamento com `title`, tempo relativo (refresh 60s). Fetch pelo hook novo `lib/use-recent-sends-feed.ts` (gate matchMedia 901px + refetch em foco/visibilidade com throttle 30s + re-busca ao entrar no desktop).
 
-### 7.3 Eventos (`EventsCalendarCard`) — desktop-only, **único card do dashboard (DSB-D14)**
+### 7.3 Eventos (`EventsCalendarCard`) — desktop-only, **card principal do dashboard** (à esquerda; DSB-D14/D19)
 
 - **Layout (DSB-D18, 2026-07-14):** calendário **MENSAL** — grade **7×N domingo-first** (N = 4/5/6 semanas, `buildMonthGrid`) com **todos os dias do mês**, navegação ◀ ▶ de **mês em mês** + botão "Hoje"; rótulo do header = "julho de 2026" (`formatMonthLabel`). Cada dia mostra os **eventos dentro da própria célula** (chips coloridos por **estado**, DSB-D10; rótulo truncado); dias com muitos eventos **rolam por dentro** da célula. **Não há painel** de dia selecionado. "Hoje" destacado com anel. Datas em BRT (helpers em `lib/dashboard-calendar.ts`). _(Supera a "1 semana de dias úteis" do DSB-D4/D7.)_
 - **Fins de semana e pontas (DSB-D18):** sáb/dom **aparecem levemente esmaecidos** (`is-weekend` — o negócio não agenda ações neles, regra de contrato em `API-e-Contratos.md`; evento ali é legado/borda e mostra no **dia REAL** — o roll `rollWeekendToWeekday` do DSB-D7 foi **removido**). Os dias dos **meses vizinhos** que fecham as semanas (`is-outside`) aparecem esmaecidos **com** os seus eventos. A **janela buscada** cobre a **grade inteira** (28–42 dias).
@@ -166,6 +168,14 @@ Os dois cards continuam existindo, **fora do dashboard** (desktop-only, mesmo co
 - **Chip inerte por papel (DSB-D11):** se a aba-dona não é visível ao papel (ex.: faturamento → Contratos, oculta aos operacionais), o chip vira **rótulo sem link** — o pai passa `navigableTabs` (= `contractsHubTabs(role)`) e o `eventHref` só linka p/ aba visível. Assim o operacional **vê** o faturamento (auth-only) mas não navega a uma aba que não tem.
 - **Refetch dos 3 feeds:** em foco/visibilidade (sem throttle) e quando a janela do card muda.
 
+### 7.4 Avisos (`AvisosCard`) — desktop-only, coluna à direita do calendário (DSB-D19)
+
+- **O que é (AP31/DSB-D19):** card **GERAL de "Avisos"** (extensível por `kind`); 1º (e por ora único) tipo = **"aprovação a enviar"** — re-introduz o lembrete de aprovação que o DSB-D9 removeu, mas como **card binário** (não o feed de calendário que fazia _fan-out_ impreciso do mesmo contrato por N dias). O `approvalReminderLeadDays` **volta a ter consumidor**.
+- **Regra:** o aviso existe enquanto o contrato está `requiresApproval + EMITIDO + sem etiqueta` e `invoice_date <= hoje + lead` **OU** sem data (**"À definir"**, D144 — sempre avisa). **Some** quando a etiqueta é gerada (ou o contrato deixa EMITIDO). Predicado = worklist G0 + janela de lead-time; reusa o índice `idx_sale_contract_requires_approval_status_invoice`. A regra vive em `Contratos-Visao-Geral.md` §7 (AP31).
+- **Item:** nº do contrato + comprador + **chip de prazo por proximidade** ("vence hoje / amanhã / esta semana / este mês / em N dias"; **"sem data"** p/ À definir; **"faturamento vencido"** se a data já passou — `formatAvisoDue`). Linha **clicável** → `/embarques?tab=aprovacoes&highlight=<id>` (gerar a etiqueta na worklist; "a ação mora na casa", igual aos chips do calendário).
+- **Layout (DSB-D19):** `.dd-content-grid` virou **2 colunas** — calendário (`1fr`) à esquerda, Avisos (`minmax(280px, 340px)`) à direita; a trava 100vh e o piso 420px do calendário permanecem. **Desktop-only por ora** (chega ao mobile no ciclo do dashboard mobile, DSB-H6).
+- **Escopo:** auth-only, todos os não-PROSPECTOR (= worklist, AP10). Rota `GET /dashboard/avisos` (§8). Fetch pelo hook `useRecentSendsFeed` (generificado por `<T>`); refetch em foco/visibilidade + ao gerar a etiqueta.
+
 ---
 
 ## 8. Rotas de API (`app/api/v1/dashboard/*`)
@@ -178,8 +188,10 @@ Todas são `GET`, delegam ao backend via `executeBackend('<methodName>', …)` e
 | `/dashboard/payment-events`  | `getDashboardPaymentEvents`  | Não-PROSPECTOR (service) | `?from&to` (YYYY-MM-DD) | `private, max-age=30, must-revalidate` | `{ events: Record<dayKey, evento[]> }`                          |
 | `/dashboard/shipment-events` | `getDashboardShipmentEvents` | Auth (não-PROSPECTOR)    | `?from&to`              | `private, max-age=30, must-revalidate` | `{ events: Record<dayKey, evento[]> }`                          |
 | `/dashboard/invoice-events`  | `getDashboardInvoiceEvents`  | Auth (não-PROSPECTOR)    | `?from&to`              | `private, max-age=30, must-revalidate` | `{ events: Record<dayKey, evento[]> }`                          |
+| `/dashboard/avisos`          | `getDashboardAvisos`         | Auth (não-PROSPECTOR)    | —                       | `private, max-age=30, must-revalidate` | `{ items: aviso[] }` (aprovação a enviar — DSB-D19; ver §7.4)   |
 
-_(`/dashboard/approval-events` foi **removido** em DSB-D9; `/dashboard/sales-availability` foi **removido** e `/dashboard/recent-sends` foi **dividido e movido** em DSB-D14 — os envios agora saem de `GET /samples/recent-sends` (`getSampleRecentSends`, `{ items }` top-40) e `GET /sale-contracts/approvals/recent-sends` (`getApprovalRecentSends`, `{ items }` top-40), ambos auth-only com o mesmo cache `private, max-age=30, must-revalidate`, consumidos pelas páginas donas — ver §7.2.)_
+_(`/dashboard/approval-events` foi **removido** em DSB-D9 — mas a ideia **voltou** como `/dashboard/avisos` (DSB-D19), um card binário de Avisos, não feed de calendário; ver §7.4.)_
+_(`/dashboard/sales-availability` foi **removido** e `/dashboard/recent-sends` foi **dividido e movido** em DSB-D14 — os envios agora saem de `GET /samples/recent-sends` (`getSampleRecentSends`, `{ items }` top-40) e `GET /sale-contracts/approvals/recent-sends` (`getApprovalRecentSends`, `{ items }` top-40), ambos auth-only com o mesmo cache `private, max-age=30, must-revalidate`, consumidos pelas páginas donas — ver §7.2.)_
 
 Definições dos handlers: `src/api/v1/backend-api.js`. Implementações: `src/samples/sample-query-service.js` (pending, recent-sample-sends) e `src/sale-contracts/sale-contract-service.js` (payment, shipment, invoice, recent-approval-sends).
 
