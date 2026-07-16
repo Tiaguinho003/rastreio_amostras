@@ -8,6 +8,7 @@ import { BottomSheet } from '../../components/BottomSheet';
 import { type LookupKind, SampleLookupResultModal } from '../../components/SampleLookupResultModal';
 import { ClassificationClassifierModal } from '../../components/samples/ClassificationClassifierModal';
 import { ClassificationDataMismatchModal } from '../../components/samples/ClassificationDataMismatchModal';
+import { ClassificationDiscardConfirmModal } from '../../components/samples/ClassificationDiscardConfirmModal';
 import { ClassificationDetectFailedModal } from '../../components/samples/ClassificationDetectFailedModal';
 import { ClassificationStatusInvalidModal } from '../../components/samples/ClassificationStatusInvalidModal';
 import { ClassificationExtractionErrorModal } from '../../components/samples/ClassificationExtractionErrorModal';
@@ -229,6 +230,16 @@ function CameraPageContent() {
   );
   const [reclassifyReasonText, setReclassifyReasonText] = useState('');
   const [reclassifyShowErrors, setReclassifyShowErrors] = useState(false);
+
+  // CAM-D5: modal "Descartar classificação?" sobre o sheet de review. O
+  // resolver pendente vive num ref pra que o onDismissAttempt do sheet e o
+  // Cancelar do footer compartilhem a MESMA pergunta (o ESC do sheet e o
+  // ESC do modal chegam no mesmo keydown — a reutilização evita reabrir).
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
+  const discardPendingRef = useRef<{
+    promise: Promise<boolean>;
+    resolve: (discard: boolean) => void;
+  } | null>(null);
 
   const scannerBlocked = resultModalOpen || flowState !== 'idle';
   const showStatusText = Boolean(cameraError) || cameraStatus !== 'scanning';
@@ -641,6 +652,26 @@ function CameraPageContent() {
     if (galleryInputRef.current) {
       galleryInputRef.current.value = '';
     }
+  }
+
+  // CAM-D5: abre (ou reusa) a pergunta de descarte do review. Resolve true
+  // quando o operador confirma "Descartar"; false em "Continuar"/ESC/backdrop.
+  function askDiscardReview(): Promise<boolean> {
+    if (discardPendingRef.current) return discardPendingRef.current.promise;
+    let resolve!: (discard: boolean) => void;
+    const promise = new Promise<boolean>((r) => {
+      resolve = r;
+    });
+    discardPendingRef.current = { promise, resolve };
+    setDiscardConfirmOpen(true);
+    return promise;
+  }
+
+  function settleDiscard(discard: boolean) {
+    setDiscardConfirmOpen(false);
+    const pending = discardPendingRef.current;
+    discardPendingRef.current = null;
+    pending?.resolve(discard);
   }
 
   // Q.cls.2 sub-caminho 3b: confirma o modo manual depois do
@@ -1582,6 +1613,14 @@ function CameraPageContent() {
         saving={flowState === 'submitting'}
       />
 
+      {/* CAM-D5: confirmação de descarte do review — empilha SOBRE o sheet
+          (portal + is-stacked). Acionado por Cancelar/ESC/voltar do Android. */}
+      <ClassificationDiscardConfirmModal
+        open={discardConfirmOpen}
+        onKeep={() => settleDiscard(false)}
+        onDiscard={() => settleDiscard(true)}
+      />
+
       {/* Bottom sheet unico que cobre preview → processing → review.
           Estados: preview (foto + Tirar outra/Enviar), is-processing
           (spinner reduzido), is-review (form expandido com 22 campos).
@@ -1594,7 +1633,14 @@ function CameraPageContent() {
           Boolean(capturedPhotoUrl)
         }
         onClose={resetClassificationFlow}
-        onDismissAttempt={() => Promise.resolve(false)}
+        onDismissAttempt={() => {
+          // CAM-D5: dismiss por estado — preview descarta direto (só a
+          // foto), processamento bloqueia (chamadas em voo), review
+          // pergunta antes de jogar fora extração + edições.
+          if (flowState === 'preview') return Promise.resolve(true);
+          if (isReviewingPhoto) return askDiscardReview();
+          return Promise.resolve(false);
+        }}
         dragToDismiss={false}
         className={`camera-preview-sheet${isProcessingPhoto ? ' is-processing' : ''}${
           isReviewingPhoto ? ' is-review' : ''
@@ -1619,7 +1665,13 @@ function CameraPageContent() {
               <button
                 type="button"
                 className="camera-preview-sheet-action-secondary"
-                onClick={resetClassificationFlow}
+                onClick={() => {
+                  // CAM-D5: mesmo portão do ESC/voltar — o review preenchido
+                  // não é descartado sem confirmação.
+                  void askDiscardReview().then((discard) => {
+                    if (discard) resetClassificationFlow();
+                  });
+                }}
               >
                 Cancelar
               </button>
