@@ -376,10 +376,6 @@ function useMenuDismiss(
 }
 
 function resolveMobileRouteMeta(pathname: string): MobileRouteMeta | null {
-  // /camera nao tem meta: a pagina desenha o proprio cabecalho
-  // (.camera-hub-headline) e o header de rota nunca era renderizado la
-  // (CAM-M5 — o ramo antigo "Leitor QR" era computado e jogado fora).
-
   if (pathname === '/profile') {
     return null;
   }
@@ -477,7 +473,6 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
         ...(isAdmin(session.user.role) ? [ADMIN_NAV_ITEM] : []),
       ];
   const mobileRouteMeta = resolveMobileRouteMeta(pathname);
-  const isCameraRoute = pathname === '/camera';
   // Titulo da pagina no desktop (DSB-D17): o rotulo do item de nav ativo,
   // renderizado DENTRO da pagina (topo do main), alinhado verticalmente ao
   // botao "Inicio" da sidenav. So as rotas PRINCIPAIS (match exato) — paginas
@@ -910,9 +905,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
         </div>
       </header>
 
-      <main
-        className={`app-shell-main${isCameraRoute ? ' is-camera-route' : ''}${isLayeredRoute ? ' is-dashboard-route' : ''}`}
-      >
+      <main className={`app-shell-main${isLayeredRoute ? ' is-dashboard-route' : ''}`}>
         {mobileRouteMeta ? (
           <section className="app-shell-mobile-route-header">
             <div className="app-shell-mobile-route-copy">

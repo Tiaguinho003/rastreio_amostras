@@ -3705,10 +3705,6 @@ button:disabled {
   min-height: 0;
 }
 
-.app-shell-main.is-camera-route {
-  overflow: hidden;
-}
-
 .app-shell-mobile-route-header {
   display: none;
 }
@@ -20258,46 +20254,11 @@ select.samples-filter-field-input {
   color: var(--ink);
 }
 
-.camera-hub-page {
-  display: grid;
-  height: 100%;
-  min-height: 0;
-}
-
-/* Status bar bege na pagina /camera. Em iOS PWA standalone com
-   apple-mobile-web-app-status-bar-style: black-translucent, a barra
-   passa por cima do conteudo — esta faixa cobre exatamente a area
-   visivel por baixo dela com o tom bege do design system. Em Android
-   o theme-color dinamico (via useEffect em camera/page.tsx) ja faz
-   a barra ficar bege, e este pseudo nao prejudica. */
-.camera-hub-page::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: env(safe-area-inset-top);
-  background: #fdf9ec;
-  z-index: 5;
-  pointer-events: none;
-}
-
-.camera-hub-panel {
-  display: grid;
-  height: 100%;
-  min-height: 0;
-}
-
-.camera-hub-stage {
-  position: relative;
-  overflow: hidden;
-  min-height: 34rem;
-  border-radius: 26px;
-  background:
-    radial-gradient(circle at top, rgba(194, 145, 73, 0.22) 0%, rgba(194, 145, 73, 0) 30%),
-    linear-gradient(180deg, #1e2d26 0%, #15211c 56%, #101713 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
+/* CAM-P3: os containers da antiga pagina /camera (camera-hub-page/panel/
+   stage, faixa bege da status bar, headline/back) morreram com a rota — o
+   viewfinder agora vive no `.camera-sheet-stage` dentro do bottom sheet
+   global. As classes camera-hub-* de FILHOS do stage (video, overlay,
+   captura, galeria, erro, status) seguem vivas, ancoradas no novo stage. */
 
 .camera-hub-video {
   position: absolute;
@@ -20306,11 +20267,6 @@ select.samples-filter-field-input {
   height: 100%;
   object-fit: cover;
   display: block;
-}
-
-.camera-hub-video.is-hidden,
-.camera-hub-overlay.is-hidden {
-  visibility: hidden;
 }
 
 .camera-hub-overlay {
@@ -20416,77 +20372,6 @@ select.samples-filter-field-input {
   opacity: 0.7;
 }
 
-/* /camera no DESKTOP: a camera nunca funciona (exige traseira; webcam frontal
-   cai em OverconstrainedError -> cameraStatus='unsupported'). Some a area
-   escura do preview e toda a UI de camera, deixando SO o card de
-   indisponibilidade — ligeiramente maior e centrado na pagina. O chrome do
-   AppShell (sidebar/topbar) segue visivel para navegar. */
-@media (min-width: 901px) {
-  /* Mantem o min-height base (34rem) — era load-bearing: a cadeia height:100%
-     nao resolve aqui, entao zera-lo colapsava o stage (overflow:hidden) e
-     recortava o card. So tiramos o fundo escuro. Os seletores levam
-     `.camera-hub-page` na frente porque as defs base de varias destas classes
-     (headline, gallery-btn, bottom-area...) vem DEPOIS deste bloco no arquivo —
-     sem o ancestral, a regra base (mesma especificidade, fonte posterior)
-     venceria o override. */
-  .camera-hub-page .camera-hub-stage {
-    background: transparent;
-    box-shadow: none;
-    border-radius: 0;
-    /* Preenche a area abaixo do topbar (~4.75rem) — a cadeia height:100% nao
-       resolve aqui (root e min-height, page-content e auto), entao sem isto o
-       stage ficava nos 34rem base colados no topo. Assim o card centraliza na
-       VERTICAL dentro do conteudo (abaixo do topbar, a direita da sidebar). */
-    min-height: calc(100dvh - 4.75rem);
-  }
-
-  /* Some a UI de camera — fica so o card + o botao de VOLTAR. NAO esconde a
-     headline: o back precisa ficar visivel e clicavel. O botao de galeria
-     flutuante sai (o "Usar galeria" do card ja faz esse papel). */
-  .camera-hub-page .camera-hub-video,
-  .camera-hub-page .camera-hub-overlay,
-  .camera-hub-page .camera-hub-gallery-btn,
-  .camera-hub-page .camera-hub-bottom-area {
-    display: none;
-  }
-
-  /* Overlay do card: transparente (sem scrim) E sem capturar cliques
-     (pointer-events:none), pra nao bloquear o botao de voltar que fica atras
-     (z-index menor). O card reativa os cliques pros proprios botoes. */
-  .camera-hub-page .camera-hub-error-overlay {
-    background: transparent;
-    pointer-events: none;
-  }
-
-  /* Card ligeiramente maior + borda leve pra definir sobre o fundo claro. */
-  .camera-hub-page .camera-hub-error-card {
-    width: min(92%, 26rem);
-    padding: clamp(30px, 3vw, 38px);
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    pointer-events: auto;
-  }
-
-  .camera-hub-page .camera-hub-error-card-title {
-    font-size: 1.35rem;
-    margin-bottom: 26px;
-  }
-
-  /* Botao de voltar sobre o fundo claro: no hover NAO clareia (o global
-     `button:hover { background: transparent }` zerava o fundo e a seta branca
-     sumia) — mantem o fundo e so ELEVA com um pouco mais de sombra. */
-  .camera-hub-page .camera-hub-back-btn {
-    transition:
-      transform 0.15s ease,
-      box-shadow 0.15s ease;
-  }
-
-  .camera-hub-page .camera-hub-back-btn:hover {
-    background: rgba(0, 0, 0, 0.35);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
-  }
-}
-
 @keyframes cam-error-fade-in {
   from {
     opacity: 0;
@@ -20505,36 +20390,6 @@ select.samples-filter-field-input {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
-}
-
-.camera-hub-back-btn {
-  display: inline-grid;
-  place-items: center;
-  width: clamp(42px, 12vw, 48px);
-  height: clamp(42px, 12vw, 48px);
-  border: 0;
-  border-radius: clamp(12px, 3.5vw, 14px);
-  background: rgba(0, 0, 0, 0.35);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  cursor: pointer;
-  padding: 0;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.15s;
-}
-
-.camera-hub-back-btn:active {
-  transform: scale(0.9);
-}
-
-.camera-hub-back-btn svg {
-  width: 50%;
-  height: 50%;
-  fill: none;
-  stroke: #ffffff;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
 
 .camera-hub-gallery-btn {
@@ -20578,27 +20433,6 @@ select.samples-filter-field-input {
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-
-.camera-hub-headline {
-  position: absolute;
-  top: calc(env(safe-area-inset-top) + clamp(10px, 3vw, 14px));
-  left: clamp(12px, 3.5vw, 16px);
-  right: 6.2rem;
-  display: grid;
-  gap: 0.55rem;
-  justify-items: start;
-  z-index: 2;
-  animation: cam-fade-in 0.5s ease-out backwards;
-}
-
-@keyframes cam-fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
 }
 
 @keyframes cam-slide-up {
@@ -20666,38 +20500,9 @@ select.samples-filter-field-input {
     grid-template-columns: 1fr;
   }
 
-  .camera-hub-page {
-    /* Override local da clearance pra ganhar altura na pagina da camera
-       sem mexer em outras paginas. A tabbar continua intacta — so reduz
-       o espaco reservado abaixo do stage. */
-    --mobile-tabbar-clearance: 7.4rem;
-    height: calc(
-      100dvh - env(safe-area-inset-top) - var(--app-safe-area-bottom, env(safe-area-inset-bottom)) -
-        var(--mobile-tabbar-clearance) - 0.2rem
-    );
-    min-height: 0;
-  }
-
-  .camera-hub-panel {
-    height: 100%;
-    min-height: 0;
-  }
-
-  .camera-hub-stage {
-    min-height: 0;
-    height: 100%;
-    border-radius: clamp(16px, 5.5vw, 22px);
-  }
-
   .camera-hub-overlay::before {
     inset: 14% 9% 27%;
     border-radius: clamp(16px, 5.5vw, 22px);
-  }
-
-  .camera-hub-headline {
-    top: clamp(0.55rem, 2.4vw, 0.82rem);
-    left: clamp(0.55rem, 2.4vw, 0.82rem);
-    right: clamp(4.2rem, 16vw, 5.9rem);
   }
 
   .camera-hub-status-text {
