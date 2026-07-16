@@ -1,15 +1,8 @@
 // Pintura do Informativo no canvas. Fino de proposito: percorre as ops que o
 // mercado-layout.ts ja posicionou. Nenhuma regra de negocio aqui.
 
-import {
-  buildMercadoLayout,
-  textExtent,
-  type Layout,
-  type MeasureText,
-  type MercadoData,
-  type Op,
-  type TextOp,
-} from './mercado-layout.ts';
+import { buildMercadoLayout, type MercadoData } from './mercado-layout.ts';
+import { textExtent, type Layout, type MeasureText, type Op, type TextOp } from './story-layout.ts';
 
 export const LOGO_SRC = '/logo-safras-branco.png';
 

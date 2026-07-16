@@ -25,7 +25,8 @@ import {
   type VariacaoDir,
 } from '../../lib/informativos/format';
 import { drawMercado, loadLogo } from '../../lib/informativos/mercado-draw';
-import { H, W, type MercadoData } from '../../lib/informativos/mercado-layout';
+import { type MercadoData } from '../../lib/informativos/mercado-layout';
+import { H, W } from '../../lib/informativos/story-layout';
 import { EMPTY_SLOW_FIELDS, type SlowFields } from '../../lib/informativos/slow-fields-store';
 import { shareOrDownloadFile } from '../../lib/share-blob';
 

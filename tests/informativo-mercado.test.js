@@ -8,8 +8,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+import { buildMercadoLayout } from '../lib/informativos/mercado-layout.ts';
 import {
-  buildMercadoLayout,
   textExtent,
   COLORS,
   MIN_GAP,
@@ -17,7 +17,7 @@ import {
   SAFE_BOT,
   W,
   H,
-} from '../lib/informativos/mercado-layout.ts';
+} from '../lib/informativos/story-layout.ts';
 import {
   formatUsc,
   formatDolar,
