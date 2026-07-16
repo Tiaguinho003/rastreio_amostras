@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import { assertRoleAllowed, isAssignableUserRole, USER_ROLES } from '../auth/roles.js';
 import { HttpError } from '../contracts/errors.js';
+import { assertImageMagicBytes } from '../uploads/upload-policy.js';
 import {
   assertBrokersResolved,
   buildSaleContractDraftFromSale,
@@ -4147,6 +4148,11 @@ export class SampleCommandService {
       throw new HttpError(422, 'fileBuffer is required');
     }
 
+    // CAM-I1: magic bytes na ENTRADA (regra 5 do CLAUDE.md). Antes so o
+    // confirm validava — buffer arbitrario era gravado no _temp e ia pro
+    // sharp + OpenAI (custo) antes de qualquer rejeicao.
+    await assertImageMagicBytes(fileBuffer);
+
     const photoToken = randomUUID();
     const tempDir = path.join(this.uploadService.baseDir, '_temp');
     const tempPath = path.join(tempDir, `temp-${photoToken}.jpg`);
@@ -4246,6 +4252,8 @@ export class SampleCommandService {
       }
     } else if (Buffer.isBuffer(input.fileBuffer) && input.fileBuffer.length > 0) {
       // Mode 1: direct file upload (legacy)
+      // CAM-I1: mesmo gate de magic bytes do detect-form (ver comentario la).
+      await assertImageMagicBytes(input.fileBuffer);
       photoToken = randomUUID();
       tempPath = path.join(tempDir, `temp-${photoToken}.jpg`);
       await fs.promises.mkdir(tempDir, { recursive: true });

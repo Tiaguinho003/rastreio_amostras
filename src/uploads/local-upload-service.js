@@ -5,9 +5,11 @@ import fs from 'node:fs/promises';
 import { fileTypeFromBuffer } from 'file-type';
 
 import { HttpError } from '../contracts/errors.js';
-import { assertAcceptedUploadSize, DEFAULT_MAX_UPLOAD_SIZE_BYTES } from './upload-policy.js';
-
-const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+import {
+  assertAcceptedUploadSize,
+  assertImageMagicBytes,
+  DEFAULT_MAX_UPLOAD_SIZE_BYTES,
+} from './upload-policy.js';
 
 // Anexos de cliente (Fechamento, D27): imagens + PDF. O tipo real e validado
 // por magic bytes (fileTypeFromBuffer), NUNCA pela extensao/Content-Type
@@ -60,13 +62,7 @@ export class LocalUploadService {
       fieldLabel: 'Uploaded image',
     });
 
-    const detected = await fileTypeFromBuffer(buffer);
-    if (!detected || !ALLOWED_IMAGE_TYPES.has(detected.mime)) {
-      throw new HttpError(
-        415,
-        'Unsupported file type. Only JPEG, PNG and WebP images are accepted'
-      );
-    }
+    const detectedMime = await assertImageMagicBytes(buffer);
 
     const attachmentId = randomUUID();
     const safeName = sanitizeFileName(originalFileName);
@@ -87,7 +83,7 @@ export class LocalUploadService {
       attachmentId,
       storagePath: relativePath,
       fileName: safeName,
-      mimeType: detected.mime,
+      mimeType: detectedMime,
       sizeBytes: buffer.length,
       checksumSha256,
     };
@@ -155,13 +151,7 @@ export class LocalUploadService {
       fieldLabel: 'Uploaded image',
     });
 
-    const detected = await fileTypeFromBuffer(buffer);
-    if (!detected || !ALLOWED_IMAGE_TYPES.has(detected.mime)) {
-      throw new HttpError(
-        415,
-        'Unsupported file type. Only JPEG, PNG and WebP images are accepted'
-      );
-    }
+    const detectedMime = await assertImageMagicBytes(buffer);
 
     const attachmentId = randomUUID();
     const safeName = sanitizeFileName(originalFileName);
@@ -182,7 +172,7 @@ export class LocalUploadService {
       attachmentId,
       storagePath: relativePath,
       fileName: safeName,
-      mimeType: detected.mime,
+      mimeType: detectedMime,
       sizeBytes: buffer.length,
       checksumSha256,
     };

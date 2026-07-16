@@ -1,6 +1,23 @@
+import { fileTypeFromBuffer } from 'file-type';
+
 import { HttpError } from '../contracts/errors.js';
 
 export const DEFAULT_MAX_UPLOAD_SIZE_BYTES = 12 * 1024 * 1024;
+
+export const ACCEPTED_IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
+// Magic bytes — NUNCA confiar no Content-Type declarado pelo cliente
+// (regra 5 do CLAUDE.md). Compartilhado entre os uploads definitivos
+// (saveSamplePhoto, saveContractShipmentPhoto) e as entradas temporarias
+// da camera (detect-form / extract-and-prepare, CAM-I1), que antes
+// gravavam buffer arbitrario no _temp e o mandavam pro sharp + OpenAI.
+export async function assertImageMagicBytes(buffer) {
+  const detected = await fileTypeFromBuffer(buffer);
+  if (!detected || !ACCEPTED_IMAGE_MIME_TYPES.has(detected.mime)) {
+    throw new HttpError(415, 'Unsupported file type. Only JPEG, PNG and WebP images are accepted');
+  }
+  return detected.mime;
+}
 
 function formatUploadLimit(bytes) {
   const mebibytes = bytes / (1024 * 1024);

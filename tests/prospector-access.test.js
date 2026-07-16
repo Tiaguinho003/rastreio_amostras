@@ -69,6 +69,13 @@ test('PROSPECTOR: metodos fora da allowlist respondem 403 ROLE_FORBIDDEN', async
     // Feed da pagina "Relatorios": o prospector nao e viewer (ve so os dele
     // no dashboard, via listVisitReports).
     'listInformeFeed',
+    // CAM-T3: cadeia da camera (classificacao por foto) — PROSPECTOR nao
+    // classifica; nenhum destes pode entrar na allowlist por engano.
+    'detectClassificationForm',
+    'extractAndPrepareClassification',
+    'confirmClassificationFromCamera',
+    'resolveSampleByLot',
+    'resolveSampleByQr',
   ];
 
   for (const methodName of deniedSamples) {
