@@ -1,6 +1,6 @@
 # Redesign — Plano de Trabalho
 
-> **Status**: F0 concluída (decisões travadas em 2026-07-20); **sem código ainda** — F1 gated (ver §5)
+> **Status**: F1 **implementada** em 2026-07-20 (5 commits, §2.1) — 🖥️📱 aguardando validação no device
 > **Última atualização**: 2026-07-20
 > **Prefixo de decisões**: RD
 > **Par futuro**: quando o padrão consolidar, o funcionamento real será absorvido pelos docs canônicos e pelas skills (`modals`, `design-system`, `responsive`). A frente visual parte de `docs/Design-Language.md` (canônico dos tokens).
@@ -30,16 +30,37 @@ Todas travadas em **2026-07-20** (conversa de kickoff, com levantamento de códi
 
 ## 2. Fases
 
-| Fase | Escopo | Estado |
-| --- | --- | --- |
-| **F0** | Decisões RD1–RD10 + este doc + registro do ciclo | ✅ 2026-07-20 |
-| **F1** | Contêiner `DetailOverlay` (apresentação por dispositivo, histórico, foco, empilhamento) + piloto **cliente** em `/cadastros` (absorve `cdm-modal` + página de gestão) + redirects de `/clients` e `/clients/[clientId]` + limpeza dos comentários do split | ☐ **destravada** (2026-07-20, §5) |
-| **F2** | **Lote** — F2a: quebra do page.tsx em seções (refactor mecânico); F2b: transplante para o overlay; F2c: cadeias (câmera, impressão, classificação, envio, liga) sobre o overlay + redirects | ☐ |
-| **F3** | **Contrato** — realinhar `SaleContractDetailsModal` ao padrão (+ P27) | ☐ |
-| **F4** | Limpeza: rotas antigas só-redirect (ou remoção), morte do snapshot de sessionStorage do `SampleCard`, sync final de skills/docs | ☐ |
-| **FV** | Frente visual: mockups → tokens (`Design-Language.md`) → reskin geral | ☐ aguarda mockups; pode iniciar após F1 validada |
+| Fase   | Escopo                                                                                                                                                                                                                                                     | Estado                                           |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| **F0** | Decisões RD1–RD10 + este doc + registro do ciclo                                                                                                                                                                                                           | ✅ 2026-07-20                                    |
+| **F1** | Contêiner `DetailOverlay` (apresentação por dispositivo, histórico, foco, empilhamento) + piloto **cliente** em `/cadastros` (absorve `cdm-modal` + página de gestão) + redirects de `/clients` e `/clients/[clientId]` + limpeza dos comentários do split | 🛠 implementada 2026-07-20 (§2.1); 🖥️📱 validar  |
+| **F2** | **Lote** — F2a: quebra do page.tsx em seções (refactor mecânico); F2b: transplante para o overlay; F2c: cadeias (câmera, impressão, classificação, envio, liga) sobre o overlay + redirects                                                                | ☐                                                |
+| **F3** | **Contrato** — realinhar `SaleContractDetailsModal` ao padrão (+ P27)                                                                                                                                                                                      | ☐                                                |
+| **F4** | Limpeza: rotas antigas só-redirect (ou remoção), morte do snapshot de sessionStorage do `SampleCard`, sync final de skills/docs                                                                                                                            | ☐                                                |
+| **FV** | Frente visual: mockups → tokens (`Design-Language.md`) → reskin geral                                                                                                                                                                                      | ☐ aguarda mockups; pode iniciar após F1 validada |
 
 Cada fase abre em **plan mode** e só fecha com **validação no device** (🖥️ + 📱), como nos demais ciclos.
+
+### 2.1 F1 — implementada (2026-07-20), aguardando validação
+
+Cinco commits atômicos, gates completos verdes (lint, format, typecheck, build, schemas, unit 535, contracts 20):
+
+1. `5021e77` — `BottomSheet` aceita `manageHistory=false`: overlay dirigido por URL pula SÓ o árbitro de história; ESC, scroll-lock, tabbar-hide e empilhamento (`sheetStack`) continuam. (Não usar `stacked` pra isso: subiria o overlay pro tier z 600, ACIMA dos modais internos.)
+2. `2510659` — extração mecânica de `components/clients/ClientDetailView.tsx` (ex-página de 2.414 linhas): saem AppShell, guard e loading global; entram props `{ session, clientId, dismissGuardRef }` e loading inline.
+3. `47dccde` — `components/DetailOverlay.tsx` (wrapper `detail-overlay` + `manageHistory=false` + `dismissGuardRef` — ESC/X não fecham com modal interno aberto) + cola de URL no `/cadastros` (`?cliente=<id>`: **push** pra abrir → back fecha; **replace** pra trocar de cliente; fechar = back se fomos nós que demos push, senão replace limpando o param — molde do `/login ?modal`) + `ClientsBrowser` troca o `cdm-modal` por `onOpenClient(id)` (FAB de criação auto-abre o novo) + CSS: mobile tela cheia (`--bottom-sheet-top-gap: 0`), desktop painel 620px com backdrop transparente e `pointer-events: none` via `:has()` (lista viva) e coluna única no `sdv-content-inner`. Os 4 modais inline da view ganharam `createPortal(document.body)` — o `transform` do sheet viraria containing block do `position: fixed`.
+4. `11df8b1` — `/clients` e `/clients/[clientId]` viram **redirects RSC** (preservando `?incomplete=true` e o id); AppShell perde o split morto (item de nav, branches, swap mobile, `canManageClients`); seletores `.cdm-*` órfãos removidos.
+5. este commit — doc + memória. Skills só após validação no device (§7).
+
+**Desvio do planejado (RD7)**: o `cdm-modal` morreu como _feature_ (JSX, estado e fetch no `ClientsBrowser`), mas parte do CSS `.cdm-*` **fica** — o modal de detalhe de usuário em `/users` reusa as classes. Só os seletores exclusivos do resumo de cliente saíram.
+
+**Checklist de validação (🖥️ ≥901px, 📱 device):**
+
+- Card abre o overlay (URL ganha `?cliente=`); back fecha; X/ESC fecham; refresh e deep-link reabrem lista+overlay; fechar após deep-link limpa o param sem sujar o histórico.
+- 🖥️ Lista continua rolando e clicável com o painel aberto; clicar noutro card TROCA o cliente (back ainda fecha em 1 passo); coluna única sem overflow nos 620px.
+- Modais internos (10) cobrem o viewport inteiro no peek (prova dos portais) e empilham sobre o sheet no mobile; ESC com modal aberto NÃO fecha o overlay; toasts acima de tudo.
+- Criar cliente pelo FAB auto-abre o overlay do novo.
+- 📱 Tabbar some com o overlay aberto e volta ao fechar; teclado iOS nos inputs de edição no fim do conteúdo (risco §6.3).
+- `/clients` e `/clients/<id>` redirecionam (com `?incomplete` e id preservados); PROSPECTOR segue barrado; a nav mobile mostra "Cadastros" no 4º slot pra todo papel.
 
 ## 3. O que NÃO muda
 
