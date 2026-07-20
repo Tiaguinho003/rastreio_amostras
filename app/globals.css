@@ -12367,61 +12367,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   max-height: min(14rem, 35vh);
 }
 
-/* ── Variant: modal que hospeda um ClientLookupField ──
-   O modal nao rola internamente (conteudo cabe sempre) e o dropdown do
-   lookup escapa das bordas em vez de ser recortado. Usado nos modais
-   onde ha poucos campos + confirmar (ex.: exportacao de laudo, envio fisico). */
-.cdm-lookup-modal.app-modal {
-  max-height: none;
-  overflow: visible;
-}
-
-.cdm-lookup-modal.app-modal .client-lookup-dropdown {
-  z-index: 30;
-  max-height: 15rem; /* aprox. 4 itens; scroll interno se tiver mais */
-}
-
-.cdm-lookup-modal.app-modal .client-lookup-list {
-  max-height: none; /* scroll fica no dropdown, evita container duplo */
-}
-
-.cdm-lookup-modal.app-modal .sdv-edit-fields,
-.cdm-lookup-modal.app-modal .sdv-edit-field {
-  min-width: 0;
-  max-width: 100%;
-}
-
-/* iOS Safari ignora width/max-width em input[type=date] nativo, causando
-   overflow do campo para fora do modal. Desativar a aparencia nativa
-   (-webkit-appearance: none) faz o browser tratar como input de texto
-   normal, respeitando width: 100%. Reaplicamos um icone de calendario
-   via background-image pra manter a dica visual. */
-.cdm-lookup-modal.app-modal .sdv-edit-input[type='date'] {
-  -webkit-appearance: none;
-  appearance: none;
-  display: block;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234d6452' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><rect x='4.5' y='5.5' width='15' height='14' rx='2.2'/><path d='M7.5 3.8v3.2'/><path d='M16.5 3.8v3.2'/><path d='M4.5 9.5h15'/></svg>");
-  background-repeat: no-repeat;
-  background-position: right clamp(10px, 2.8vw, 12px) center;
-  background-size: 1rem 1rem;
-  padding-right: clamp(2rem, 7vw, 2.4rem);
-}
-
-.cdm-lookup-modal.app-modal .sdv-edit-input[type='date']::-webkit-calendar-picker-indicator {
-  opacity: 0;
-  pointer-events: none;
-}
-
-@media (max-width: 900px) {
-  .cdm-lookup-modal.app-modal {
-    width: min(480px, calc(100vw - 1.5rem));
-  }
-}
-
 .cdm-header {
   display: flex;
   align-items: center;
@@ -12494,35 +12439,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   color: #999;
   background: #f5f5f5;
   border: 1px solid #e0e0e0;
-}
-
-/* 14.7.H: pill PF/PJ inline na meta line do modal cliente. Mostra o
-   tipo do cliente em formato compacto colorido (substitui o
-   cdm-header-avatar-inline de #14.7.D que mostrava iniciais
-   redundantes com o avatar grande do header). */
-.cdm-header-type {
-  display: inline-grid;
-  place-items: center;
-  min-width: 32px;
-  height: 22px;
-  padding: 0 8px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  border: 1px solid;
-}
-
-.cdm-header-type.is-pj {
-  color: #2980b9;
-  background: #eff6ff;
-  border-color: #bfdbfe;
-}
-
-.cdm-header-type.is-pf {
-  color: #e67e22;
-  background: #fff7ed;
-  border-color: #fed7aa;
 }
 
 .cdm-close svg {
@@ -12641,17 +12557,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
 .cdm-type-badge.is-pj {
   color: #2980b9;
   background: #eff6ff;
-}
-
-/* Grid de 2 colunas (max-content) ancorado a esquerda: 1 papel = 1 celula,
-   2 papeis = uma linha, 3 papeis = 2 em cima + 1 embaixo. justify-items:start
-   evita que a pill estique para preencher a coluna. */
-.cdm-roles {
-  display: grid;
-  grid-template-columns: repeat(2, max-content);
-  justify-content: start;
-  justify-items: start;
-  gap: 6px;
 }
 
 .cdm-manage-link {
@@ -14987,9 +14892,9 @@ select.samples-filter-field-input {
 /* iOS Safari/WebKit ignora width/min-width em input[type=date] nativo: o campo
    mantem a largura intrinseca e o indicador de calendario transborda, fazendo
    os dois campos de Periodo se sobreporem e cortarem dentro do split-grid.
-   Mesmo fix do .cdm-lookup-modal: desativar a aparencia nativa faz o browser
-   tratar como input de texto, respeitando o minmax(0,1fr) do grid. Reaplicamos
-   o icone de calendario via background pra manter a dica visual. */
+   Desativar a aparencia nativa faz o browser tratar como input de texto,
+   respeitando o minmax(0,1fr) do grid. Reaplicamos o icone de calendario via
+   background pra manter a dica visual. */
 .samples-filter-field-input[type='date'] {
   -webkit-appearance: none;
   appearance: none;
@@ -24885,41 +24790,12 @@ select.samples-filter-field-input {
     font-size: 1.25rem;
   }
 
-  /* 14.7.H: pill PF/PJ desktop — proporcional ao badge "Ativo". */
-  .cdm-modal .cdm-header-type {
-    min-width: 38px;
-    height: 26px;
-    padding: 0 10px;
-    font-size: 12px;
-    border-radius: 7px;
-  }
-
-  .cdm-modal .cdm-header-title {
-    font-size: 1.4rem;
-  }
-
-  .cdm-modal .cdm-header-subtitle {
-    font-size: 1rem;
-  }
-
-  .cdm-modal .cdm-section-title {
-    font-size: 1rem;
-  }
-
   .cdm-modal .cdm-info-label {
     font-size: 0.8rem;
   }
 
   .cdm-modal .cdm-info-value {
     font-size: 1rem;
-  }
-
-  .cdm-modal .cdm-actions button,
-  .cdm-modal .cdm-footer button {
-    min-height: 3rem;
-    font-size: 1rem;
-    padding: 0.75rem 1rem;
-    border-radius: 12px;
   }
 
   /* ══════════════════════════════════════════

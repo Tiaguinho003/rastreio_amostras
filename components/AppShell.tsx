@@ -13,7 +13,6 @@ import { changeCurrentUserPassword, recordInitialPasswordDecision } from '../lib
 import { CameraSheetProvider } from '../lib/camera-sheet/CameraSheetProvider';
 import { changePasswordSchema } from '../lib/form-schemas';
 import {
-  canManageClients,
   CONTRATOS_ROLES,
   getRoleLabel,
   INFORME_ROLES,
@@ -57,7 +56,6 @@ type MobileRouteMeta = {
 const DESKTOP_NAV_ITEMS = [
   { href: '/dashboard', label: 'Início', icon: 'dashboard' as NavIcon },
   { href: '/samples', label: 'Lotes', icon: 'samples' as NavIcon },
-  { href: '/clients', label: 'Clientes', icon: 'clients' as NavIcon },
 ] as const;
 
 const ADMIN_NAV_ITEM = {
@@ -75,7 +73,8 @@ const INFORME_NAV_ITEM = {
 } as const;
 
 // Item da sidebar: Cadastros (Clientes/Corretores — a aba Bancos saiu na D141).
-// Restrito a ADMIN + CADASTRO (item tambem no avatar menu p/ mobile).
+// Todo nao-PROSPECTOR ve (acesso unificado 2026-07-15); desde a F1 do redesign
+// e a UNICA entrada pra lista de clientes (a rota /clients virou redirect).
 const CADASTROS_NAV_ITEM = {
   href: '/cadastros',
   label: 'Cadastros',
@@ -113,9 +112,9 @@ const MOBILE_NAV_ITEMS = [
   // global aberto pelo icone no header (HeaderAvatarMenu). Tabbar com 4
   // itens; grid-auto-flow redistribui sozinho.
   {
-    href: '/clients',
-    mobileLabel: 'Clientes',
-    icon: 'clients' as NavIcon,
+    href: '/cadastros',
+    mobileLabel: 'Cadastros',
+    icon: 'cadastros' as NavIcon,
   },
   {
     href: '/relatorios',
@@ -140,10 +139,6 @@ function isMainNavItemActive(pathname: string, href: string) {
 
   if (href === '/samples') {
     return pathname === '/samples' || /^\/samples\/[^/]+$/.test(pathname);
-  }
-
-  if (href === '/clients') {
-    return pathname === '/clients' || pathname.startsWith('/clients/');
   }
 
   if (href === '/relatorios') {
@@ -379,10 +374,6 @@ function resolveMobileRouteMeta(pathname: string): MobileRouteMeta | null {
     return null;
   }
 
-  if (pathname.startsWith('/clients/')) {
-    return null;
-  }
-
   return null;
 }
 
@@ -394,31 +385,22 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   const [sidenavMenuOpen, setSidenavMenuOpen] = useState(false);
   const isDashboard = pathname === '/dashboard';
   const isSamplesList = pathname === '/samples';
-  const isClientsList = pathname === '/clients';
   const isSampleDetail = pathname.startsWith('/samples/');
-  const isClientDetail = pathname.startsWith('/clients/') && pathname !== '/clients';
   const isUsersPage = pathname === '/users';
   const isProfilePage = pathname === '/profile';
   const isInformePage = pathname === '/relatorios';
   const isLayeredRoute =
-    isDashboard ||
-    isSamplesList ||
-    isClientsList ||
-    isSampleDetail ||
-    isClientDetail ||
-    isUsersPage ||
-    isProfilePage ||
-    isInformePage;
+    isDashboard || isSamplesList || isSampleDetail || isUsersPage || isProfilePage || isInformePage;
   const headerMobileClass = isLayeredRoute ? 'topbar--dashboard-only' : 'topbar--hidden';
   // Rotas onde a tabbar mobile NAO deve renderizar (paginas de detalhe com
   // header proprio + back button; a tabbar so polui visualmente). A tabbar
   // some do DOM, sem visibility:hidden — zero risco de bug visual iOS PWA.
-  // Para modais/sheets que escondem dinamicamente, ver body.is-bottom-sheet-open
-  // / body.is-app-modal-open em globals.css.
+  // Overlays/sheets (ex.: detalhe do cliente em /cadastros) escondem a tabbar
+  // dinamicamente via body.is-bottom-sheet-open em globals.css.
   // PROSPECTOR: app restrito SEM navbar — o lugar do botao central (camera)
   // e ocupado pelo "+" do formulario, renderizado pelo ProspectorDashboard.
   const prospector = isProspector(session.user.role);
-  const hideMobileTabbar = isSampleDetail || isClientDetail || prospector;
+  const hideMobileTabbar = isSampleDetail || prospector;
   const [decisionLoading, setDecisionLoading] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
   const [passwordModalStep, setPasswordModalStep] = useState<'decision' | 'change'>('decision');
@@ -447,19 +429,15 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
       ? session.user.fullName.trim()
       : session.user.username;
   // Navegacao principal (desktop) montada por papel. Ordem (pedido do usuario):
-  // Inicio / Lotes / Clientes (base) -> Relatorios (INFORME_ROLES) -> Cadastros
-  // (ADMIN + CADASTRO) -> Contratos + Usuarios (ADMIN). Itens condicionais somem
-  // por papel mantendo essa ordem relativa.
+  // Inicio / Lotes (base) -> Relatorios (INFORME_ROLES) -> Cadastros (todo
+  // nao-PROSPECTOR) -> Contratos/Embarques -> Usuarios (ADMIN). Itens
+  // condicionais somem por papel mantendo essa ordem relativa.
   const desktopNavItems = prospector
     ? DESKTOP_NAV_ITEMS.filter((item) => item.href === '/dashboard')
     : [
-        // ADMIN/CADASTRO acessam clientes pelo hub Cadastros (aba Clientes) —
-        // por isso "Clientes" avulso sai da sidebar deles (os demais mantem).
-        ...DESKTOP_NAV_ITEMS.filter(
-          (item) => item.href !== '/clients' || !canManageClients(session.user.role)
-        ),
+        ...DESKTOP_NAV_ITEMS,
         ...(isRoleAllowed(session.user.role, INFORME_ROLES) ? [INFORME_NAV_ITEM] : []),
-        ...(canManageClients(session.user.role) ? [CADASTROS_NAV_ITEM] : []),
+        CADASTROS_NAV_ITEM,
         // 2 páginas de contrato (SPLIT 2026-07-13): "Contratos" (Contratos+Financeiro)
         // p/ ADMIN/COMMERCIAL; "Embarques" (Embarque+Aprovações) p/ todos os
         // não-PROSPECTOR. Usuários segue ADMIN-only.
@@ -952,23 +930,11 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
               return !isRoleAllowed(session.user.role, INFORME_ROLES);
             }
             return true;
-          }).map((item) => {
-            // ADMIN/CADASTRO nao tem "Clientes" avulso — o 4o slot fixo vira
-            // "Cadastros" (hub com abas), unica entrada mobile pro conjunto.
-            const swap = item.href === '/clients' && canManageClients(session.user.role);
-            const resolved = swap
-              ? {
-                  href: '/cadastros',
-                  mobileLabel: 'Cadastros',
-                  icon: 'cadastros' as NavIcon,
-                }
-              : item;
-            return {
-              href: resolved.href,
-              mobileLabel: resolved.mobileLabel,
-              icon: renderNavIcon(resolved.icon, session.user),
-            };
-          })}
+          }).map((item) => ({
+            href: item.href,
+            mobileLabel: item.mobileLabel,
+            icon: renderNavIcon(item.icon, session.user),
+          }))}
           isActive={(href) => isMainNavItemActive(pathname, href)}
         />
       ) : null}

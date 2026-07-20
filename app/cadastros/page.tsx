@@ -22,13 +22,14 @@ import { useRequireAuth } from '../../lib/use-auth';
 import { useToast } from '../../lib/toast/ToastProvider';
 import type { Broker, BrokerInput, UserLookupItem } from '../../lib/types';
 
-// Cadastros = hub ADMIN/CADASTRO com 2 abas (a aba Bancos saiu na D141 --
-// banco virou texto livre na conta bancaria). "Clientes" (default) reusa a
-// experiencia COMPLETA da pagina /clients via <ClientsBrowser>; Corretores
-// mantem a UI local. O FAB "+" e contextual a aba ativa.
+// Cadastros = hub de todo nao-PROSPECTOR com 2 abas (a aba Bancos saiu na
+// D141 -- banco virou texto livre na conta bancaria). "Clientes" (default) e a
+// casa unica da lista via <ClientsBrowser> (a rota /clients virou redirect na
+// F1 do redesign) + overlay de detalhe ?cliente=<id>; Corretores mantem a UI
+// local. O FAB "+" e contextual a aba ativa.
 type Tab = 'clientes' | 'corretores';
 
-// useSearchParams exige Suspense no App Router (mesmo padrao de /clients).
+// useSearchParams exige Suspense no App Router.
 export default function CadastrosPageWrapper() {
   return (
     <Suspense>
