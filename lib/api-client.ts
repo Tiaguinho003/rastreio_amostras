@@ -1850,14 +1850,43 @@ export function uploadClassificationPhoto(
   });
 }
 
+// Worst case do backend da extracao: deteccao 5s + 2 tentativas de 25s na
+// OpenAI + backoff 1.5s ~= 57s. Sem prazo no client, um request pendurado
+// deixava o sheet da camera preso em "processando" com o dismiss bloqueado.
+const CLASSIFICATION_AI_TIMEOUT_MS = 75_000;
+
+async function withClassificationAiTimeout<T>(
+  run: (signal: AbortSignal) => Promise<T>
+): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), CLASSIFICATION_AI_TIMEOUT_MS);
+  try {
+    return await run(controller.signal);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new ApiError(
+        0,
+        'A leitura da ficha demorou demais. Verifique sua conexao e tente novamente.',
+        null
+      );
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export function detectClassificationForm(session: SessionData, file: File) {
   const formData = new FormData();
   formData.append('file', file);
-  return request<DetectFormResponse>('/classification/detect-form', {
-    method: 'POST',
-    session,
-    formData,
-  });
+  return withClassificationAiTimeout((signal) =>
+    request<DetectFormResponse>('/classification/detect-form', {
+      method: 'POST',
+      session,
+      formData,
+      signal,
+    })
+  );
 }
 
 export function extractAndPrepareClassification(
@@ -1868,11 +1897,14 @@ export function extractAndPrepareClassification(
   const formData = new FormData();
   formData.append('file', file);
   if (classificationType) formData.append('classificationType', classificationType);
-  return request<ExtractAndPrepareResponse>('/classification/extract-and-prepare', {
-    method: 'POST',
-    session,
-    formData,
-  });
+  return withClassificationAiTimeout((signal) =>
+    request<ExtractAndPrepareResponse>('/classification/extract-and-prepare', {
+      method: 'POST',
+      session,
+      formData,
+      signal,
+    })
+  );
 }
 
 export function extractFromDetectedForm(
@@ -1882,11 +1914,14 @@ export function extractFromDetectedForm(
 ) {
   const body: Record<string, JsonValue> = { photoToken };
   if (classificationType) body.classificationType = classificationType;
-  return request<ExtractAndPrepareResponse>('/classification/extract-and-prepare', {
-    method: 'POST',
-    session,
-    body,
-  });
+  return withClassificationAiTimeout((signal) =>
+    request<ExtractAndPrepareResponse>('/classification/extract-and-prepare', {
+      method: 'POST',
+      session,
+      body,
+      signal,
+    })
+  );
 }
 
 export function confirmClassificationFromCamera(

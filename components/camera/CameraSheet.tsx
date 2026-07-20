@@ -938,7 +938,26 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
     // Em modo manual o extractionResult e null — usa o detectedPhotoToken
     // (foto ja foi enviada e tem token, mesmo que a extracao tenha
     // falhado tecnicamente depois).
-    const photoToken = manualMode ? detectedPhotoToken : (extractionResult?.photoToken ?? null);
+    let photoToken = manualMode ? detectedPhotoToken : (extractionResult?.photoToken ?? null);
+
+    // EXT (rodada 1): se o DETECT falhou por rede, o modo manual chegava aqui
+    // sem token nenhum e morria em "Foto invalida" DEPOIS do operador
+    // preencher a ficha inteira. A foto ainda esta em memoria — sobe agora
+    // pra obter o token (o save exige a foto anexada como evidencia).
+    if (!photoToken && manualMode && capturedPhoto) {
+      setFlowState('submitting');
+      setFlowError(null);
+      try {
+        const compressed = await compressImage(capturedPhoto);
+        const detection = await detectClassificationForm(session, compressed);
+        if (!mountedRef.current) return;
+        photoToken = detection.photoToken;
+        setDetectedPhotoToken(detection.photoToken);
+      } catch {
+        if (!mountedRef.current) return;
+      }
+    }
+
     if (!photoToken) {
       setFlowError('Foto invalida ou expirada. Tire outra foto.');
       setFlowState('confirming');
@@ -1519,7 +1538,9 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
       />
 
       {/* Q.cls.2 sub-caminho 3b: erro tecnico (timeout, OpenAI offline).
-          3 opcoes: tirar outra, continuar manual, cancelar. */}
+          4 opcoes: tentar de novo com a MESMA foto (EXT rodada 1 — com token
+          nao recomprime nem re-detecta), tirar outra, continuar manual,
+          cancelar. */}
       <ClassificationExtractionErrorModal
         open={flowState === 'extraction-error-technical'}
         kind="technical"
@@ -1529,6 +1550,10 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
           else resetClassificationFlow();
         }}
         onRetake={resetClassificationFlow}
+        onRetry={() => {
+          if (detectedPhotoToken) void handleContinueWithoutCrop();
+          else void handleSendPhoto();
+        }}
         onContinueManual={() => {
           setManualConfirmSource('technical');
           setFlowState('manual-confirm');

@@ -38,6 +38,10 @@ type Props = {
   // Abre o 2o modal de confirmacao do modo manual. Opcional em ambos os
   // kinds — quando presente, o botao "Continuar manual" e renderizado.
   onContinueManual?: () => void;
+  // EXT (rodada 1): re-tenta a extracao com a MESMA foto (a foto ja esta no
+  // server via photoToken; um blip de rede nao deve exigir re-enquadrar).
+  // Quando presente, vira a acao primaria e "Tirar outra" desce pra secundaria.
+  onRetry?: () => void;
 };
 
 const COPY: Record<Kind, { title: string; description?: string; body: string; iconColor: string }> =
@@ -50,7 +54,7 @@ const COPY: Record<Kind, { title: string; description?: string; body: string; ic
     },
     technical: {
       title: 'Extração indisponível',
-      body: 'Você pode tirar outra foto e tentar novamente, ou seguir preenchendo a ficha manualmente.',
+      body: 'Você pode tentar de novo com a mesma foto, tirar outra, ou seguir preenchendo a ficha manualmente.',
       iconColor: '#C0392B',
     },
   };
@@ -62,6 +66,7 @@ export function ClassificationExtractionErrorModal({
   onCancel,
   onRetake,
   onContinueManual,
+  onRetry,
 }: Props) {
   const focusTrapRef = useFocusTrap(open);
 
@@ -133,7 +138,16 @@ export function ClassificationExtractionErrorModal({
           </div>
 
           <div className="app-modal-actions extraction-error-actions">
-            <button type="button" className="app-modal-submit" onClick={onRetake}>
+            {onRetry ? (
+              <button type="button" className="app-modal-submit" onClick={onRetry}>
+                Tentar novamente
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className={onRetry ? 'app-modal-secondary' : 'app-modal-submit'}
+              onClick={onRetake}
+            >
               Tirar outra foto
             </button>
             {onContinueManual ? (
