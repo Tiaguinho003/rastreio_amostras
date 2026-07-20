@@ -19,6 +19,9 @@ import {
 import { IncompleteIcon } from './IncompleteIcon';
 import { isClientComplete } from '../../lib/clients/client-completeness';
 import { ApiError, listClients, lookupUsersForReference } from '../../lib/api-client';
+import { formatClientDocument, formatPhone } from '../../lib/client-field-formatters';
+import { formatRelativeTime } from '../../lib/relative-time';
+import { useIsDesktop } from '../../lib/use-desktop';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import { useListRevalidation } from '../../lib/use-list-revalidation';
 import { useToast } from '../../lib/toast/ToastProvider';
@@ -259,6 +262,10 @@ export function ClientsBrowser({
 }: ClientsBrowserProps) {
   const toast = useToast();
 
+  // RD14: no desktop a lista vira TABELA institucional (.fv-table); mobile
+  // segue com os cards. Mesmo breakpoint 901px do CSS.
+  const isDesktop = useIsDesktop();
+
   // storageKey e estavel por contexto (literal em cada tela); guardo num ref
   // pra usar nos effects/handlers sem entrar nas deps.
   const storageKeyRef = useRef(storageKey);
@@ -361,6 +368,10 @@ export function ClientsBrowser({
   // tambem virou filtro server-side (param completeness no listClients), entao
   // nao ha mais filtro client-side: a lista exibida e a que veio do backend.
   const displayClients = clientsState.items;
+
+  // RD14: referencia de "agora" pro "Atualizado ha X" da tabela. Recalcula a
+  // cada render (a lista re-renderiza com frequencia); sem interval proprio.
+  const nowMs = Date.now();
 
   // 14.4.B: agrupa cards por inicial para divisores alfabeticos (mobile-only;
   // CSS hide em desktop grid).
@@ -897,6 +908,156 @@ export function ClientsBrowser({
               <p className="spv2-empty-text">Nenhum cliente encontrado</p>
               <p className="spv2-empty-sub">Tente outro termo de busca</p>
             </div>
+          </div>
+        ) : isDesktop ? (
+          /* RD14 (desktop): tabela institucional. Dados/scroll infinito/ordem
+             identicos aos cards — muda SO a apresentacao. Sem divisores
+             alfabeticos (decisao RD14: tabela corrida). Linha inteira clica;
+             o nome e <button> pra teclado. O ⋯ abre o detalhe por ora — vira
+             popover de acoes no C7. */
+          <div ref={clientsScrollRef} className="spv2-list-scroll fv-table-scroll" tabIndex={-1}>
+            <table className="fv-table">
+              <thead>
+                <tr>
+                  <th scope="col">Cliente</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Documento</th>
+                  <th scope="col">Contato</th>
+                  <th scope="col">Cidade/UF</th>
+                  <th scope="col">Responsável</th>
+                  <th scope="col">Atualizado</th>
+                  <th scope="col" className="fv-table-th-actions" aria-label="Ações" />
+                </tr>
+              </thead>
+              <tbody>
+                {displayClients.map((client) => {
+                  const name = clientDisplayName(client);
+                  const isInactive = client.status === 'INACTIVE';
+                  const showIncomplete = !isClientComplete(client).complete && !isInactive;
+                  const doc = formatClientDocument(client.document, client.personType);
+                  const phone = formatPhone(client.phone);
+                  const city = client.primaryCity ?? client.city;
+                  const uf = client.primaryState ?? client.state;
+                  const owners = client.commercialUsers;
+                  return (
+                    <tr
+                      key={client.id}
+                      className={`fv-table-row${isInactive ? ' is-inactive' : ''}`}
+                      onClick={() => onOpenClient(client.id)}
+                    >
+                      <td>
+                        <span className="fv-table-client">
+                          <span
+                            className="fv-table-avatar"
+                            aria-hidden="true"
+                            style={
+                              {
+                                '--avatar-color': getClientAvatarColor(client.personType),
+                              } as React.CSSProperties
+                            }
+                          >
+                            {getClientInitials(name)}
+                          </span>
+                          <button
+                            type="button"
+                            className="fv-table-name-btn"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onOpenClient(client.id);
+                            }}
+                          >
+                            <span className="fv-table-name">{name}</span>
+                            <span className="fv-table-code">#{client.code}</span>
+                          </button>
+                        </span>
+                      </td>
+                      <td>
+                        <span className="fv-table-chips">
+                          <span
+                            className={`fv-chip ${isInactive ? 'fv-chip-gray' : 'fv-chip-green'}`}
+                          >
+                            {isInactive ? 'Inativo' : 'Ativo'}
+                          </span>
+                          {showIncomplete ? (
+                            <span className="fv-chip fv-chip-amber">Incompleto</span>
+                          ) : null}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="fv-table-cell-main">{doc ?? '—'}</span>
+                      </td>
+                      <td>
+                        {phone || client.email ? (
+                          <span className="fv-table-cell-stack">
+                            {phone ? <span className="fv-table-cell-main">{phone}</span> : null}
+                            {client.email ? (
+                              <span className="fv-table-sub">{client.email}</span>
+                            ) : null}
+                          </span>
+                        ) : (
+                          <span className="fv-table-cell-main">—</span>
+                        )}
+                      </td>
+                      <td>
+                        <span className="fv-table-cell-main">
+                          {city ? `${city}${uf ? ` · ${uf}` : ''}` : (uf ?? '—')}
+                        </span>
+                      </td>
+                      <td>
+                        {owners.length > 0 ? (
+                          <span className="fv-table-resp">
+                            <span className="fv-table-cell-main">{owners[0].fullName}</span>
+                            {owners.length > 1 ? (
+                              <span className="fv-chip fv-chip-gray fv-chip-count">
+                                +{owners.length - 1}
+                              </span>
+                            ) : null}
+                          </span>
+                        ) : (
+                          <span className="fv-table-cell-main">—</span>
+                        )}
+                      </td>
+                      <td>
+                        <span className="fv-table-sub">
+                          {client.updatedAt ? formatRelativeTime(client.updatedAt, nowMs) : '—'}
+                        </span>
+                      </td>
+                      <td className="fv-table-td-actions">
+                        <button
+                          type="button"
+                          className="fv-table-dots"
+                          aria-label={`Ações de ${name}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onOpenClient(client.id);
+                          }}
+                        >
+                          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                            <circle cx="5" cy="12" r="1.6" />
+                            <circle cx="12" cy="12" r="1.6" />
+                            <circle cx="19" cy="12" r="1.6" />
+                          </svg>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {clientsState.status === 'loading-more'
+                  ? Array.from({ length: 3 }).map((_, i) => (
+                      <tr key={`skel-${i}`} className="fv-table-skel-row" aria-hidden="true">
+                        {Array.from({ length: 8 }).map((__, j) => (
+                          <td key={j}>
+                            <span className="fv-table-skel" />
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  : null}
+              </tbody>
+            </table>
+            {clientsState.nextCursor ? (
+              <div ref={loadMoreRef} className="cv2-load-more-sentinel" aria-hidden />
+            ) : null}
           </div>
         ) : (
           <div ref={clientsScrollRef} className="spv2-list-scroll" tabIndex={-1}>

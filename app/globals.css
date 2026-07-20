@@ -34037,3 +34037,262 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
     font-variant-numeric: tabular-nums;
   }
 }
+
+/* ── Chips de status (kit FV): pastel, sem borda, radius pill. ── */
+.fv-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+.fv-chip-green {
+  background: var(--fv-chip-green-bg);
+  color: var(--fv-chip-green-fg);
+}
+.fv-chip-amber {
+  background: var(--fv-chip-amber-bg);
+  color: var(--fv-chip-amber-fg);
+}
+.fv-chip-red {
+  background: var(--fv-chip-red-bg);
+  color: var(--fv-chip-red-fg);
+}
+.fv-chip-gray {
+  background: var(--fv-chip-gray-bg);
+  color: var(--fv-chip-gray-fg);
+}
+
+@media (min-width: 901px) {
+  /* ── Sheet institucional de /cadastros: cartao branco flat com hairline
+     (substitui a borda esverdeada + sombra dupla do sheet legado). ── */
+  .fv-cad-page .clients-v2-sheet {
+    margin: 1rem clamp(0.9rem, 3vw, 2rem) 1.15rem;
+    padding: 0;
+    background: var(--fv-surface);
+    border: 1px solid var(--fv-line);
+    border-radius: var(--fv-radius-lg);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  .fv-cad-page .clients-v2-sheet .spv2-list-meta {
+    padding: 0.75rem 1rem 0.6rem;
+    margin: 0;
+    border-bottom: 1px solid var(--fv-line);
+  }
+
+  /* O scroll da tabela NAO e grid (o grid 3-col e dos cards legados). */
+  .fv-cad-page .clients-v2-sheet .spv2-list-scroll.fv-table-scroll {
+    display: block;
+    padding: 0;
+  }
+
+  /* ── Tabela institucional (kit FV). ── */
+  .fv-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.86rem;
+  }
+
+  .fv-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--fv-surface);
+    padding: 0.6rem 0.85rem;
+    border-bottom: 1px solid var(--fv-line);
+    text-align: left;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .fv-table tbody td {
+    padding: 0.65rem 0.85rem;
+    border-bottom: 1px solid var(--fv-line);
+    vertical-align: middle;
+    color: var(--ink);
+  }
+
+  .fv-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .fv-table-row {
+    cursor: pointer;
+    transition: background 120ms ease;
+  }
+  @media (hover: hover) {
+    .fv-table-row:hover {
+      background: var(--fv-hover);
+    }
+  }
+
+  /* Inativo: linha apagada (mesma leitura dos cards .is-inactive). */
+  .fv-table-row.is-inactive .fv-table-name,
+  .fv-table-row.is-inactive .fv-table-cell-main {
+    color: var(--muted);
+  }
+  .fv-table-row.is-inactive .fv-table-avatar {
+    filter: grayscale(0.7);
+    opacity: 0.75;
+  }
+
+  .fv-table-client {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-width: 0;
+  }
+
+  .fv-table-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--avatar-color, #1f5d43);
+    color: #ffffff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .fv-table-name-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.1rem;
+    min-width: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .fv-table-name {
+    font-weight: 600;
+    color: var(--ink);
+    max-width: 26ch;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .fv-table-code {
+    font-size: 0.74rem;
+    color: var(--muted);
+  }
+
+  .fv-table-chips {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+  }
+
+  .fv-table-cell-main {
+    display: block;
+    font-size: 0.84rem;
+    max-width: 24ch;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .fv-table-cell-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+  }
+
+  .fv-table-sub {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--muted);
+    max-width: 24ch;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .fv-table-resp {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+  .fv-chip-count {
+    height: 20px;
+    padding: 0 0.45rem;
+  }
+
+  .fv-table-th-actions,
+  .fv-table-td-actions {
+    width: 48px;
+    text-align: right;
+  }
+
+  .fv-table-dots {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: none;
+    border-radius: var(--fv-radius-sm);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 140ms ease;
+  }
+  .fv-table-dots svg {
+    width: 1.05rem;
+    height: 1.05rem;
+    fill: currentColor;
+    stroke: none;
+  }
+  @media (hover: hover) {
+    .fv-table-dots:hover {
+      background: var(--fv-active-bg);
+      color: var(--ink);
+    }
+  }
+  .fv-table-dots:active {
+    transform: scale(0.94);
+  }
+
+  /* Skeleton de "carregar mais": barras pulsantes por celula. */
+  .fv-table-skel {
+    display: block;
+    height: 13px;
+    border-radius: 6px;
+    background: var(--fv-active-bg);
+    animation: fv-skel-pulse 1.1s ease-in-out infinite;
+  }
+  @keyframes fv-skel-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.45;
+    }
+  }
+}
