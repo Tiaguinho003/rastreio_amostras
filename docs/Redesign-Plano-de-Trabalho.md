@@ -1,6 +1,6 @@
 # Redesign — Plano de Trabalho
 
-> **Status**: F1 **✅ validada** (2026-07-20, Flavio no dev local) e skills sincronizadas; F3 (contrato) **antecipada e implementada** em 2026-07-20 (§2.2) — 🖥️📱 aguardando validação
+> **Status**: F1 e F3 **✅ validadas** (2026-07-20, Flavio no dev local); skills sincronizadas; próxima = **F2 (lote)**
 > **Última atualização**: 2026-07-20
 > **Prefixo de decisões**: RD
 > **Par futuro**: quando o padrão consolidar, o funcionamento real será absorvido pelos docs canônicos e pelas skills (`modals`, `design-system`, `responsive`). A frente visual parte de `docs/Design-Language.md` (canônico dos tokens).
@@ -35,7 +35,7 @@ Todas travadas em **2026-07-20** (conversa de kickoff, com levantamento de códi
 | **F0** | Decisões RD1–RD10 + este doc + registro do ciclo                                                                                                                                                                                                           | ✅ 2026-07-20                                                                                  |
 | **F1** | Contêiner `DetailOverlay` (apresentação por dispositivo, histórico, foco, empilhamento) + piloto **cliente** em `/cadastros` (absorve `cdm-modal` + página de gestão) + redirects de `/clients` e `/clients/[clientId]` + limpeza dos comentários do split | ✅ validada 2026-07-20 (Flavio, dev local); skills sincronizadas                               |
 | **F2** | **Lote** — F2a: quebra do page.tsx em seções (refactor mecânico); F2b: transplante para o overlay; F2c: cadeias (câmera, impressão, classificação, envio, liga) sobre o overlay + redirects                                                                | ☐                                                                                              |
-| **F3** | **Contrato** — realinhar `SaleContractDetailsModal` ao padrão (+ P27)                                                                                                                                                                                      | 🛠 implementada 2026-07-20 (§2.2, **antecipada** antes da F2 a pedido do Flavio); 🖥️📱 validar |
+| **F3** | **Contrato** — realinhar `SaleContractDetailsModal` ao padrão (+ P27)                                                                                                                                                                                      | ✅ validada 2026-07-20 (Flavio, dev local; foi **antecipada** antes da F2). P27 segue aberta   |
 | **F4** | Limpeza: rotas antigas só-redirect (ou remoção), morte do snapshot de sessionStorage do `SampleCard`, sync final de skills/docs                                                                                                                            | ☐                                                                                              |
 | **FV** | Frente visual: mockups → tokens (`Design-Language.md`) → reskin geral                                                                                                                                                                                      | ☐ aguarda mockups; pode iniciar após F1 validada                                               |
 
@@ -62,7 +62,7 @@ Cinco commits atômicos, gates completos verdes (lint, format, typecheck, build,
 - 📱 Tabbar some com o overlay aberto e volta ao fechar; teclado iOS nos inputs de edição no fim do conteúdo (risco §6.3).
 - `/clients` e `/clients/<id>` redirecionam (com `?incomplete` e id preservados); PROSPECTOR segue barrado; a nav mobile mostra "Cadastros" no 4º slot pra todo papel.
 
-### 2.2 F3 — implementada (2026-07-20, antecipada), aguardando validação
+### 2.2 F3 — implementada e ✅ validada (2026-07-20, antecipada)
 
 **Antecipação**: por decisão do Flavio (2026-07-20, logo após validar a F1), a F3 veio **antes da F2** — os gates de device da F2 (câmera Rodada 2, liga/safra, auditoria) seguem pendentes e não tocam `/contratos`. Atenção: as frentes **espelho**, **aprovação (AP31–AP33)** e **embarque** também aguardam validação em `/contratos` — a validação da F3 soma-se a elas na mesma sessão de device. **P27** (design das páginas de Contrato) segue aberta — a F3 é só o realinhamento estrutural (RD6/RD9).
 
