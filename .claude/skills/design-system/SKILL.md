@@ -356,6 +356,23 @@ Excecao a regra "nunca verde ao clicar":
 - **Conteudo**: o miolo da antiga pagina de detalhe vira componente (ex.: `components/clients/ClientDetailView.tsx`) montado como children; regras de coluna unica pro peek (620px nao comporta grids 2-colunas do desktop) entram escopadas em `.bottom-sheet.detail-overlay`.
 - **Swap pra outro sheet a partir de uma acao do overlay (GOTCHA)**: rode o swap **POS-fechamento** — um ref com o callback pendente + um efeito que observa o param sair da URL (ver `afterDetailsCloseRef` no `ContratosPanel`). Abrir o proximo sheet no mesmo tick do `router.back()` faz o popstate atrasado engolir a entry de history que o sheet novo injeta — ele fecha sozinho logo apos abrir. E o primo, pra overlay por URL, do gotcha "navegar a partir de uma acao do sheet" da secao Bottom Sheet.
 
+### Side-sheet (`.side-sheet` — form de criacao/edicao como painel lateral no desktop)
+
+> NAO e componente novo: e uma **classe CSS** aplicada no `className` de um `BottomSheet` comum (ex.: `className="is-fit-content side-sheet"` no `NewSampleModal`; `client-quick-create-sheet side-sheet` no `ClientQuickCreateModal`). No **mobile nada muda** (sheet de baixo, como sempre); em **desktop (>=901px)** o CSS transforma o sheet num **painel lateral DIREITO** com a MESMA geometria do peek do DetailOverlay: `width: min(620px, 92vw)`, ancorado top/right/bottom, sem raio, desliza da direita (`translate3d(100%,0,0)` → `(0,0,0)` no `.is-open`), `border-left` hairline + `--shadow-xl`. Bloco `.bottom-sheet.side-sheet` no `globals.css`. Em producao desde 2026-07-20 (commits `875c777`/`7a2abbe`, extensao da F2 do redesign).
+
+**Mesma geometria do DetailOverlay, contrato DIFERENTE** (diferencas deliberadas):
+
+|                  | DetailOverlay (detalhe)                             | `.side-sheet` (criacao/edicao)                                                      |
+| ---------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Backdrop desktop | transparente + atravessavel (lista viva e clicavel) | **ESCURO BLOQUEANTE** (o padrao do sheet): form tem estado sujo, lista nao clicavel |
+| URL              | dirigido por query param (`?cliente=`/`?lote=`)     | **SEM URL** — criar nao e recurso enderecavel                                       |
+| History          | `manageHistory={false}` (a URL manda; back = URL)   | default (`true`) — o arbitro de popstate do proprio BottomSheet cuida do back       |
+| Empilhamento     | tier BASE (modais internos 500 abrem POR CIMA)      | lateral-sobre-lateral via `stacked` (600) — o de cima desliza POR CIMA              |
+
+- **Quando usar**: forms de **criacao** e **edicao** (regra de conteiner RD11 — arvore de decisao na skill `modals`). Detalhe de recurso → DetailOverlay; operacoes/avisos/confirms → centrais.
+- **Lateral SOBRE lateral = push de navegacao**: um side-sheet aberto de dentro de outro (ex.: `ClientQuickCreateModal` "Novo proprietario" sobre o `NewSampleModal`) usa o padrao `stacked` normal — o de cima desliza cobrindo o de baixo pela mesma borda direita; fechar revela o form de baixo intacto. Nada de novo alem da classe.
+- **Aplicado em**: `NewSampleModal` (Novo lote) e `ClientQuickCreateModal` (Novo cliente — padrao do componente em TODOS os contextos, sem prop). Os demais forms de criacao/edicao migram **pagina a pagina** no ciclo da FV (mockups do Flavio; piloto `/cadastros`) — NAO converter isoladamente; ver `docs/Redesign-Plano-de-Trabalho.md` §2.5 e o inventario na skill `modals` §11.
+
 ### Pagina /informe = "Relatorios" (role-adaptive; unifica o antigo /resumo)
 
 - A rota `/informe` e a pagina **"Relatorios"** (`app/informe/page.tsx`); `/resumo` redireciona pra ela (server-side). **ACESSO UNIFICADO (2026-07-15):** guard `INFORME_ROLES` = `NON_PROSPECTOR_ROLES` — **todo papel nao-PROSPECTOR** (ADMIN, CLASSIFIER, REGISTRATION, COMMERCIAL, CADASTRO) entra como VIEWER unico; o antigo ramo "meus" do COMMERCIAL foi aposentado.
