@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Poppins } from 'next/font/google';
+import { Inter, Poppins } from 'next/font/google';
 
 import { LoadingProvider } from '../components/LoadingProvider';
 import { PageTransition } from '../components/PageTransition';
@@ -13,11 +13,21 @@ import { ScannerBridge } from '../lib/scanner/ScannerBridge';
 import { ToastProvider } from '../lib/toast/ToastProvider';
 import './globals.css';
 
+// RD12: Inter e a fonte da UI (--font-sans). Poppins continua carregada SO para
+// as pecas de informativo (--font-story, lida pelo canvas via
+// --font-family-story em resolveFontFamily) — as pecas nao mudam de cara.
+const inter = Inter({
+  subsets: ['latin', 'latin-ext'],
+  display: 'swap',
+  variable: '--font-sans',
+  fallback: ['system-ui', '-apple-system', 'Segoe UI', 'Noto Sans', 'sans-serif'],
+});
+
 const poppins = Poppins({
   subsets: ['latin', 'latin-ext'],
   weight: ['400', '500', '600', '700'],
   display: 'swap',
-  variable: '--font-sans',
+  variable: '--font-story',
   fallback: ['system-ui', '-apple-system', 'Segoe UI', 'Noto Sans', 'sans-serif'],
 });
 
@@ -56,7 +66,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className={poppins.variable}>
+    <html lang="pt-BR" className={`${inter.variable} ${poppins.variable}`}>
       <body>
         <PwaRegistration />
         <RouteHistoryTracker />

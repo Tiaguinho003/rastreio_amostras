@@ -27,14 +27,16 @@ export type LayoutBuilder = (measure: MeasureText) => Layout;
  * GOTCHA: o next/font self-hospeda a Poppins com um nome de familia HASHEADO
  * (ex.: "__Poppins_a1b2c3"), entao `ctx.font = '700 86px Poppins'` cairia num
  * fallback silenciosamente. O nome real so existe na CSS var que o
- * app/layout.tsx injeta e o globals.css expoe como --font-family-sans.
+ * app/layout.tsx injeta e o globals.css expoe como --font-family-story
+ * (dedicada das pecas — a UI trocou para Inter na RD12, mas o visual do
+ * informativo continua Poppins de proposito).
  */
 export function resolveFontFamily(): string {
   if (typeof window === 'undefined') {
     return 'sans-serif';
   }
   const resolved = getComputedStyle(document.documentElement)
-    .getPropertyValue('--font-family-sans')
+    .getPropertyValue('--font-family-story')
     .trim();
   return resolved || 'sans-serif';
 }

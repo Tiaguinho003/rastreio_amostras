@@ -32,10 +32,14 @@
   --color-danger-rgb: 184, 50, 50;
 
   /* ══════════════════════════════════════════════════════════════
-     TYPOGRAPHY — Poppins via next/font
+     TYPOGRAPHY — Inter via next/font (UI). Poppins segue carregada
+     SO para as pecas de informativo (--font-family-story, lida pelo
+     canvas em lib/informativos/story-draw.ts).
      ══════════════════════════════════════════════════════════════ */
   --font-family-sans:
-    var(--font-sans), 'Poppins', system-ui, -apple-system, 'Segoe UI', 'Noto Sans', sans-serif;
+    var(--font-sans), 'Inter', system-ui, -apple-system, 'Segoe UI', 'Noto Sans', sans-serif;
+  --font-family-story:
+    var(--font-story), 'Poppins', system-ui, -apple-system, 'Segoe UI', 'Noto Sans', sans-serif;
 
   --font-size-xs: 0.75rem; /* 12px */
   --font-size-sm: 0.8125rem; /* 13px */
