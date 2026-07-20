@@ -27,7 +27,18 @@ const CameraSheetContext = createContext<CameraSheetContextValue | null>(null);
 export function useCameraSheet(): CameraSheetContextValue {
   const context = useContext(CameraSheetContext);
   if (!context) {
-    throw new Error('useCameraSheet deve ser usado dentro de <CameraSheetProvider>');
+    // ARMADILHA DE CAMADA (ja custou o detalhe do lote inteiro): o provider e
+    // montado DENTRO do AppShell, envolvendo os children. Componentes de ROTA
+    // renderizam o AppShell, entao vivem ACIMA do provider e nao enxergam o
+    // contexto — mesmo que o JSX que eles retornam acabe dentro dele. Chamar
+    // este hook no corpo da pagina derruba a rota inteira (dev e prod).
+    // Consuma o contexto num componente renderizado dentro dos children (ex.:
+    // ClassifySampleButton no detalhe do lote, HeaderAvatarMenu no header).
+    throw new Error(
+      'useCameraSheet deve ser usado dentro de <CameraSheetProvider> — ' +
+        'componentes de rota ficam ACIMA dele (o provider mora no AppShell). ' +
+        'Mova a chamada para um componente renderizado dentro do AppShell.'
+    );
   }
   return context;
 }

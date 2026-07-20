@@ -237,6 +237,57 @@ function buildClassificationFormState(detail: SampleDetailResponse): Classificat
   };
 }
 
+// CAM-P3 / camada do contexto: o `CameraSheetProvider` e montado DENTRO do
+// `AppShell` (envolve os children). O componente de rota RENDERIZA o AppShell,
+// logo vive ACIMA do provider e NAO pode chamar `useCameraSheet()` no proprio
+// corpo — a chamada estourava "useCameraSheet deve ser usado dentro de
+// <CameraSheetProvider>" e derrubava o detalhe inteiro (dev e prod; contexto do
+// React nao distingue os dois). Os gatilhos consomem o contexto aqui, ja dentro
+// dos children. Mesma razao pela qual o icone do header funciona: o
+// `HeaderAvatarMenu` e renderizado pelas paginas dentro do AppShell.
+function ClassifySampleButton({ sampleId, disabled }: { sampleId: string; disabled: boolean }) {
+  const cameraSheet = useCameraSheet();
+  return (
+    <button
+      type="button"
+      className="sdv-edit-btn"
+      onClick={() => cameraSheet.open({ sampleId })}
+      disabled={disabled}
+      aria-label="Classificar"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="11" cy="11" r="8" />
+        <path d="m21 21-4.35-4.35" />
+      </svg>
+      <span>Classificar</span>
+    </button>
+  );
+}
+
+function ReclassifySampleButton({
+  sampleId,
+  onBeforeOpen,
+}: {
+  sampleId: string;
+  onBeforeOpen: () => void;
+}) {
+  const cameraSheet = useCameraSheet();
+  return (
+    <button
+      type="button"
+      className="app-modal-submit"
+      onClick={() => {
+        // CAM-P3: reclassificacao abre o sheet global em Flow B (sem sair do
+        // detalhe). O fechamento dos modais fica com o pai via onBeforeOpen.
+        onBeforeOpen();
+        cameraSheet.open({ sampleId });
+      }}
+    >
+      Reclassificar
+    </button>
+  );
+}
+
 function NoticeSlot({ notice }: { notice: Notice }) {
   return (
     <div className="notice-slot" aria-live="polite">
@@ -428,7 +479,6 @@ export default function SampleDetailPage() {
     allowedRoles: NON_PROSPECTOR_ROLES,
   });
   const router = useRouter();
-  const cameraSheet = useCameraSheet();
   const params = useParams<{ sampleId: string }>();
   const searchParams = useSearchParams();
   const sampleId = typeof params.sampleId === 'string' ? params.sampleId : '';
@@ -2202,19 +2252,7 @@ export default function SampleDetailPage() {
                             // o lugar do "Expandir" — botao pequeno/discreto no
                             // header (sem o action-card grande no rodape).
                             // CAM-P3: abre o sheet global da camera em Flow B.
-                            <button
-                              type="button"
-                              className="sdv-edit-btn"
-                              onClick={() => cameraSheet.open({ sampleId })}
-                              disabled={!canClassifyNow}
-                              aria-label="Classificar"
-                            >
-                              <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <circle cx="11" cy="11" r="8" />
-                                <path d="m21 21-4.35-4.35" />
-                              </svg>
-                              <span>Classificar</span>
-                            </button>
+                            <ClassifySampleButton sampleId={sampleId} disabled={!canClassifyNow} />
                           )}
                         </div>
                         {isDesktop ? (
@@ -3849,19 +3887,13 @@ export default function SampleDetailPage() {
                 >
                   Cancelar
                 </button>
-                <button
-                  type="button"
-                  className="app-modal-submit"
-                  onClick={() => {
-                    // CAM-P3: reclassificacao abre o sheet global em Flow B
-                    // (sem sair do detalhe).
+                <ReclassifySampleButton
+                  sampleId={sampleId}
+                  onBeforeOpen={() => {
                     setReclassifyModalOpen(false);
                     closeClassificationDetail();
-                    cameraSheet.open({ sampleId });
                   }}
-                >
-                  Reclassificar
-                </button>
+                />
               </div>
             </div>
           </section>
