@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 
 import { AppShell } from '../../components/AppShell';
@@ -25,6 +25,7 @@ function ClientsPage() {
   const { session, loading, logout, setSession } = useRequireAuth({
     allowedRoles: NON_PROSPECTOR_ROLES,
   });
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   // URL ?incomplete=true (card "Cadastros pendentes" do dashboard) — so a
@@ -64,10 +65,13 @@ function ClientsPage() {
           </Link>
         </header>
 
+        {/* Casca transitoria da F1: o detalhe abre no overlay de /cadastros.
+            Esta pagina vira redirect no proximo commit. */}
         <ClientsBrowser
           session={session}
           storageKey="clients-list-snapshot-v3"
           initialIncomplete={incompleteFromUrl}
+          onOpenClient={(id) => router.push(`/cadastros?cliente=${encodeURIComponent(id)}`)}
         />
       </section>
     </AppShell>

@@ -1,12 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
+import { DetailOverlay } from '../../components/DetailOverlay';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { BrokerFormModal } from '../../components/cadastros/BrokerFormModal';
+import { ClientDetailView } from '../../components/clients/ClientDetailView';
 import { ClientsBrowser } from '../../components/clients/ClientsBrowser';
 import {
   ApiError,
@@ -40,6 +42,7 @@ function CadastrosPage() {
     allowedRoles: CLIENT_MANAGEMENT_ROLES,
   });
   const toast = useToast();
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   // URL ?incomplete=true (card "Cadastros pendentes" do dashboard). So a pagina
@@ -47,6 +50,45 @@ function CadastrosPage() {
   const incompleteFromUrl = searchParams.get('incomplete') === 'true';
 
   const [tab, setTab] = useState<Tab>('clientes');
+
+  // F1 do redesign (RD2/RD7): o detalhe do cliente e um OVERLAY dirigido pela
+  // URL — `?cliente=<id>` aberto, ausente fechado. Back fecha porque consome a
+  // entry criada no push; deep-link/refresh (sem push nosso) fecha limpando o
+  // param via replace (molde do /login ?modal).
+  const clienteId = searchParams.get('cliente');
+  const openedByPushRef = useRef(false);
+  // Com modal interno aberto no detalhe, ESC/X do overlay nao fecham.
+  const clientDismissGuardRef = useRef(false);
+
+  const openClient = useCallback(
+    (id: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      const alreadyOpen = params.has('cliente');
+      params.set('cliente', id);
+      const url = `/cadastros?${params.toString()}`;
+      if (alreadyOpen) {
+        // Troca de cliente com o overlay aberto (peek desktop): replace mantem
+        // UMA entry — back continua fechando em 1 passo.
+        router.replace(url, { scroll: false });
+      } else {
+        router.push(url, { scroll: false });
+        openedByPushRef.current = true;
+      }
+    },
+    [router, searchParams]
+  );
+
+  const closeClient = useCallback(() => {
+    if (openedByPushRef.current) {
+      openedByPushRef.current = false;
+      router.back();
+      return;
+    }
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('cliente');
+    const qs = params.toString();
+    router.replace(qs ? `/cadastros?${qs}` : '/cadastros', { scroll: false });
+  }, [router, searchParams]);
 
   // Corretores
   const [brokers, setBrokers] = useState<Broker[]>([]);
@@ -191,6 +233,7 @@ function CadastrosPage() {
             session={session}
             storageKey="clients-list-snapshot-cad-v3"
             initialIncomplete={incompleteFromUrl}
+            onOpenClient={openClient}
           />
         ) : (
           <>
@@ -301,6 +344,26 @@ function CadastrosPage() {
         }}
         onSubmit={submitBroker}
       />
+
+      {/* Overlay de detalhe do cliente (F1): sheet de tela cheia no mobile,
+          painel lateral peek no desktop. key={clienteId} reseta o estado ao
+          trocar de cliente com o overlay aberto. */}
+      <DetailOverlay
+        open={Boolean(clienteId)}
+        onClose={closeClient}
+        title="Cliente"
+        ariaLabel="Detalhe do cliente"
+        dismissGuardRef={clientDismissGuardRef}
+      >
+        {clienteId ? (
+          <ClientDetailView
+            key={clienteId}
+            session={session}
+            clientId={clienteId}
+            dismissGuardRef={clientDismissGuardRef}
+          />
+        ) : null}
+      </DetailOverlay>
     </AppShell>
   );
 }

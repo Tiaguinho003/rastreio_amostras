@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import {
   type FormEvent,
   useCallback,
@@ -19,14 +18,11 @@ import {
 } from './ClientsFilterButton';
 import { IncompleteIcon } from './IncompleteIcon';
 import { isClientComplete } from '../../lib/clients/client-completeness';
-import { ApiError, getClient, listClients, lookupUsersForReference } from '../../lib/api-client';
+import { ApiError, listClients, lookupUsersForReference } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import { useListRevalidation } from '../../lib/use-list-revalidation';
 import { useToast } from '../../lib/toast/ToastProvider';
-import { formatClientDocument, formatPhone } from '../../lib/client-field-formatters';
-import { canManageClients } from '../../lib/roles';
 import type {
-  ClientUnitSummary,
   ClientStatus,
   ClientSummary,
   ClientPersonType,
@@ -113,41 +109,8 @@ function clientFiltersToQuery(filters: ClientFilters) {
 // durante loading-more, da feedback claro de pausa pro usuario.
 const CLIENT_LOAD_MORE_ROOT_MARGIN = '0px';
 
-function clientDocument(client: ClientSummary | null) {
-  if (!client) {
-    return null;
-  }
-  return formatClientDocument(
-    client.document ?? client.cpf ?? client.cnpj ?? null,
-    client.personType
-  );
-}
-
 function clientDisplayName(client: ClientSummary | null) {
   return client?.displayName ?? client?.fullName ?? client?.legalName ?? 'Cliente';
-}
-
-// Nome no cabecalho do modal de detalhe: corta em 23 caracteres (contando
-// espacos) e acrescenta reticencias (tres pontos) quando excede.
-const CLIENT_DETAIL_NAME_MAX_CHARS = 23;
-function truncateClientDetailName(name: string) {
-  if (name.length <= CLIENT_DETAIL_NAME_MAX_CHARS) {
-    return name;
-  }
-  return `${name.slice(0, CLIENT_DETAIL_NAME_MAX_CHARS).trimEnd()}...`;
-}
-
-function clientRoleSummary(client: ClientSummary | null) {
-  if (!client) {
-    return 'Sem papel operacional';
-  }
-  // Compoe os papeis ativos (qualquer combinacao dos tres). Rotulos alinhados
-  // com os badges do detalhe: Vendedor / Comprador / Armazem.
-  const roles: string[] = [];
-  if (client.isSeller) roles.push('Vendedor');
-  if (client.isBuyer) roles.push('Comprador');
-  if (client.isWarehouse) roles.push('Armazém');
-  return roles.length ? roles.join(' · ') : 'Sem papel operacional';
 }
 
 // Avatar de iniciais do cliente: VERDE por TIPO (decisao 2026-06) — PJ verde
@@ -182,15 +145,6 @@ interface ClientsListState {
   // Usado pra calcular --anim-delay row-major SO nos novos cards
   // (cards antigos nao re-animam). null = nenhum batch novo pendente.
   firstNewIndex: number | null;
-  selectedId: string | null;
-  detail: ClientSummary | null;
-  units: ClientUnitSummary[];
-  // 14.7.D: agregado de lotes em aberto do cliente carregado no detail
-  // modal. null enquanto loading; preenchido em detailSuccess.
-  detailOpenLots: { count: number; sacks: number } | null;
-  detailOpen: boolean;
-  detailLoading: boolean;
-  detailError: string | null;
 }
 
 type ClientsListAction =
@@ -210,17 +164,6 @@ type ClientsListAction =
       nextCursor: ClientCursor | null;
     }
   | { type: 'error'; message: string }
-  | { type: 'selectClient'; id: string | null }
-  | { type: 'openDetail' }
-  | { type: 'closeDetail' }
-  | { type: 'fetchDetail' }
-  | {
-      type: 'detailSuccess';
-      client: ClientSummary;
-      units: ClientUnitSummary[];
-      openLots: { count: number; sacks: number };
-    }
-  | { type: 'detailError'; message: string }
   | {
       type: 'restoreSnapshot';
       items: ClientSummary[];
@@ -237,13 +180,6 @@ const CLIENTS_INITIAL: ClientsListState = {
   status: 'loading-initial',
   error: null,
   firstNewIndex: null,
-  selectedId: null,
-  detail: null,
-  units: [],
-  detailOpenLots: null,
-  detailOpen: false,
-  detailLoading: false,
-  detailError: null,
 };
 
 function clientsListReducer(state: ClientsListState, action: ClientsListAction): ClientsListState {
@@ -286,32 +222,6 @@ function clientsListReducer(state: ClientsListState, action: ClientsListAction):
       };
     case 'error':
       return { ...state, status: 'error', error: action.message };
-    case 'selectClient':
-      return { ...state, selectedId: action.id };
-    case 'openDetail':
-      return { ...state, detailOpen: true, detailError: null };
-    case 'closeDetail':
-      return {
-        ...state,
-        detailOpen: false,
-        detail: null,
-        units: [],
-        detailOpenLots: null,
-        detailError: null,
-      };
-    case 'fetchDetail':
-      return { ...state, detailLoading: true, detailError: null, detailOpenLots: null };
-    case 'detailSuccess':
-      return {
-        ...state,
-        detailLoading: false,
-        detail: action.client,
-        units: action.units,
-        detailOpenLots: action.openLots,
-        detailError: null,
-      };
-    case 'detailError':
-      return { ...state, detailLoading: false, detailError: action.message };
     default:
       return state;
   }
@@ -327,6 +237,10 @@ export interface ClientsBrowserProps {
   // Deep-link ?incomplete=true (card "Cadastros pendentes" do dashboard). So a
   // /clients le a URL e repassa; a aba de /cadastros nao usa (default false).
   initialIncomplete?: boolean;
+  // Clique num card (e pos-criacao do quick-create): a pagina-host abre o
+  // overlay de detalhe (F1 do redesign — /cadastros?cliente=<id>). O antigo
+  // modal-resumo cdm foi absorvido pelo overlay.
+  onOpenClient: (clientId: string) => void;
 }
 
 // Experiencia COMPLETA de lista de clientes (busca + filtro + FAB + scroll
@@ -337,6 +251,7 @@ export function ClientsBrowser({
   session,
   storageKey = DEFAULT_STORAGE_KEY,
   initialIncomplete = false,
+  onOpenClient,
 }: ClientsBrowserProps) {
   const toast = useToast();
 
@@ -386,7 +301,6 @@ export function ClientsBrowser({
       return CLIENTS_INITIAL;
     }
   );
-  const clientDetailTrapRef = useFocusTrap(clientsState.detail !== null);
   const [clientSearchInput, setClientSearchInput] = useState(
     () => initialSnapshot?.appliedClientSearch ?? ''
   );
@@ -413,8 +327,6 @@ export function ClientsBrowser({
   const filtersTrapRef = useFocusTrap(filtersOpen);
 
   const clientsScrollRef = useRef<HTMLDivElement | null>(null);
-  const clientDetailCloseButtonRef = useRef<HTMLButtonElement | null>(null);
-  const lastClientTriggerRef = useRef<HTMLButtonElement | null>(null);
   const filterCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const lastFilterTriggerRef = useRef<HTMLButtonElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
@@ -755,90 +667,6 @@ export function ClientsBrowser({
     };
   }, [clientsState.items.length]);
 
-  // Fetch client detail
-  useEffect(() => {
-    if (!session || !clientsState.detailOpen || !clientsState.selectedId) {
-      return;
-    }
-
-    const abortController = new AbortController();
-    let active = true;
-    dispatchClients({ type: 'fetchDetail' });
-
-    getClient(session, clientsState.selectedId, { signal: abortController.signal })
-      .then((response) => {
-        if (!active) {
-          return;
-        }
-
-        dispatchClients({
-          type: 'detailSuccess',
-          client: response.client,
-          units: response.units,
-          openLots: response.openLots,
-        });
-      })
-      .catch((cause) => {
-        if (!active) {
-          return;
-        }
-
-        if (cause instanceof DOMException && cause.name === 'AbortError') {
-          return;
-        }
-
-        dispatchClients({
-          type: 'detailError',
-          message:
-            cause instanceof ApiError ? cause.message : 'Falha ao carregar detalhes do cliente',
-        });
-      });
-
-    return () => {
-      active = false;
-      abortController.abort();
-    };
-  }, [clientsState.detailOpen, clientsState.selectedId, session]);
-
-  // Detail modal keyboard handling
-  useEffect(() => {
-    if (!clientsState.detailOpen) {
-      return;
-    }
-
-    const previousOverflow = document.body.style.overflow;
-    // snapshot da ref no momento do effect: evita acessar .current no cleanup
-    const scrollContainerEl = clientsScrollRef.current;
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') {
-        return;
-      }
-
-      event.preventDefault();
-      dispatchClients({ type: 'closeDetail' });
-    };
-
-    document.body.style.overflow = 'hidden';
-    document.addEventListener('keydown', onKeyDown);
-    const openFocusTimer = window.setTimeout(() => {
-      clientDetailCloseButtonRef.current?.focus();
-    }, 0);
-
-    return () => {
-      window.clearTimeout(openFocusTimer);
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener('keydown', onKeyDown);
-      window.setTimeout(() => {
-        if (lastClientTriggerRef.current && document.body.contains(lastClientTriggerRef.current)) {
-          lastClientTriggerRef.current.focus();
-        } else {
-          scrollContainerEl?.focus();
-        }
-      }, 0);
-    };
-  }, [clientsState.detailOpen]);
-
   // Filtro modal: ESC fecha, body lock, foco no X ao abrir e devolve o foco ao
   // botao de filtro ao fechar (espelha /samples).
   useEffect(() => {
@@ -903,25 +731,6 @@ export function ClientsBrowser({
     setFiltersOpen(false);
   }
 
-  function openClientDetail(clientId: string, trigger: HTMLButtonElement) {
-    lastClientTriggerRef.current = trigger;
-    dispatchClients({ type: 'selectClient', id: clientId });
-    dispatchClients({ type: 'openDetail' });
-  }
-
-  function closeClientDetail() {
-    dispatchClients({ type: 'closeDetail' });
-  }
-
-  async function handleCopyField(text: string, label: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-      toast.success({ title: `${label} copiado` });
-    } catch {
-      toast.error({ title: 'Não foi possível copiar' });
-    }
-  }
-
   async function refreshClientsList(nextSearch = appliedClientSearch) {
     if (!session) {
       return;
@@ -952,8 +761,6 @@ export function ClientsBrowser({
       });
     }
   }
-
-  const selectedClientDocument = clientDocument(clientsState.detail);
 
   const activeFiltersCount = countActiveClientFilters(appliedFilters);
   const hasDraftFilters = countActiveClientFilters(draftFilters) > 0;
@@ -1128,7 +935,7 @@ export function ClientsBrowser({
                       '--avatar-color': avatarColor,
                     } as React.CSSProperties
                   }
-                  onClick={(event) => openClientDetail(client.id, event.currentTarget)}
+                  onClick={() => onOpenClient(client.id)}
                 >
                   {showIncomplete ? <IncompleteIcon className="cv2-card-incomplete-badge" /> : null}
                   {/* Card em 2 blocos. Topo: avatar + nome. Rodape: arrow-btn.
@@ -1170,178 +977,6 @@ export function ClientsBrowser({
           </div>
         )}
       </section>
-
-      {/* Client detail modal */}
-      {clientsState.detailOpen ? (
-        <div className="app-modal-backdrop is-scrim-dark" onClick={closeClientDetail}>
-          <section
-            ref={clientDetailTrapRef}
-            className="app-modal cdm-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="records-client-detail-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="cdm-header">
-              {/* 14.7.H: avatar grande do cliente a esquerda do header. Verde
-                  por TIPO (PJ escuro / PF claro), igual ao avatar do card. */}
-              {clientsState.detail
-                ? (() => {
-                    const detailName = clientDisplayName(clientsState.detail!);
-                    const detailColor = getClientAvatarColor(clientsState.detail!.personType);
-                    const detailInitials = getClientInitials(detailName);
-                    return (
-                      <span
-                        className="cdm-header-avatar"
-                        style={{ '--avatar-color': detailColor } as React.CSSProperties}
-                      >
-                        <span>{detailInitials}</span>
-                      </span>
-                    );
-                  })()
-                : null}
-              <div className="cdm-header-copy">
-                <h3 id="records-client-detail-title" className="cdm-header-name">
-                  {clientsState.detail
-                    ? truncateClientDetailName(clientDisplayName(clientsState.detail))
-                    : 'Cliente'}
-                </h3>
-                {clientsState.detail ? (
-                  <div className="cdm-header-meta">
-                    <span className="cdm-header-code">Cod. {clientsState.detail.code}</span>
-                    {/* 14.7.H: pill com tipo de cliente (PF/PJ) inline na meta
-                        line. Nao confundir com o avatar de iniciais a
-                        esquerda — esse aqui indica TIPO. */}
-                    <span
-                      className={`cdm-header-type ${clientsState.detail.personType === 'PF' ? 'is-pf' : 'is-pj'}`}
-                      aria-label={`Tipo: ${clientsState.detail.personType === 'PF' ? 'Pessoa Fisica' : 'Pessoa Juridica'}`}
-                    >
-                      {clientsState.detail.personType}
-                    </span>
-                  </div>
-                ) : null}
-              </div>
-              <button
-                ref={clientDetailCloseButtonRef}
-                type="button"
-                className="app-modal-close cdm-close"
-                onClick={closeClientDetail}
-                aria-label="Fechar"
-              >
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <path d="M18 6 6 18" />
-                  <path d="m6 6 12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {clientsState.detailLoading ? (
-              <div className="cdm-loading">Carregando...</div>
-            ) : clientsState.detailError ? (
-              <div className="cdm-error">{clientsState.detailError}</div>
-            ) : clientsState.detail ? (
-              <>
-                <div className="cdm-info-grid">
-                  <div className="cdm-info-row">
-                    <div className="cdm-info-item">
-                      <span className="cdm-info-label">Documento</span>
-                      <div className="cdm-info-value-row">
-                        <span className="cdm-info-value">
-                          {selectedClientDocument ?? 'Nao informado'}
-                        </span>
-                        {selectedClientDocument ? (
-                          <button
-                            type="button"
-                            className="cdm-info-copy"
-                            aria-label="Copiar documento"
-                            onClick={() =>
-                              void handleCopyField(selectedClientDocument, 'Documento')
-                            }
-                          >
-                            <svg viewBox="0 0 24 24" aria-hidden="true">
-                              <rect x="9" y="9" width="13" height="13" rx="2" />
-                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                            </svg>
-                          </button>
-                        ) : null}
-                      </div>
-                    </div>
-                    <div className="cdm-info-item">
-                      <span className="cdm-info-label">Telefone</span>
-                      <div className="cdm-info-value-row">
-                        <span className="cdm-info-value">
-                          {formatPhone(clientsState.detail.phone) ?? 'Nao informado'}
-                        </span>
-                        {formatPhone(clientsState.detail.phone) ? (
-                          <button
-                            type="button"
-                            className="cdm-info-copy"
-                            aria-label="Copiar telefone"
-                            onClick={() =>
-                              void handleCopyField(
-                                formatPhone(clientsState.detail!.phone) ?? '',
-                                'Telefone'
-                              )
-                            }
-                          >
-                            <svg viewBox="0 0 24 24" aria-hidden="true">
-                              <rect x="9" y="9" width="13" height="13" rx="2" />
-                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                            </svg>
-                          </button>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="cdm-info-row">
-                    <div className="cdm-info-item">
-                      <span className="cdm-info-label">Lotes em aberto</span>
-                      <span className="cdm-info-value">
-                        {clientsState.detailOpenLots
-                          ? `${clientsState.detailOpenLots.count} ${clientsState.detailOpenLots.count === 1 ? 'lote' : 'lotes'} - ${clientsState.detailOpenLots.sacks} sacas`
-                          : '—'}
-                      </span>
-                    </div>
-                    <div className="cdm-info-item">
-                      <span className="cdm-info-label">Papel</span>
-                      <div className="cdm-roles">
-                        {/* Ordem alfabetica: Armazem, Comprador, Vendedor. Com os
-                            tres papeis, o grid (.cdm-roles) quebra em 2 + 1. */}
-                        {clientsState.detail.isWarehouse ? (
-                          <span className="cv2-card-role is-warehouse">Armazém</span>
-                        ) : null}
-                        {clientsState.detail.isBuyer ? (
-                          <span className="cv2-card-role is-buyer">Comprador</span>
-                        ) : null}
-                        {clientsState.detail.isSeller ? (
-                          <span className="cv2-card-role is-seller">Vendedor</span>
-                        ) : null}
-                        {!clientsState.detail.isBuyer &&
-                        !clientsState.detail.isSeller &&
-                        !clientsState.detail.isWarehouse ? (
-                          <span className="cv2-card-role is-none">Sem papel</span>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Unica porta pro detalhe do cliente. So quem gerencia cadastro
-                    (ADMIN + CADASTRO) a ve; os demais ficam com este modal. */}
-                {canManageClients(session.user.role) ? (
-                  <Link href={`/clients/${clientsState.detail.id}`} className="cdm-manage-link">
-                    Gerenciar cliente
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <path d="M5 12h14" />
-                      <path d="m12 5 7 7-7 7" />
-                    </svg>
-                  </Link>
-                ) : null}
-              </>
-            ) : null}
-          </section>
-        </div>
-      ) : null}
 
       {/* Filtros — MODAL central (reusa o CSS .samples-filter-modal de /samples,
           keyed por classe). Mesmos campos de clientes; rascunho + Aplicar/Limpar. */}
@@ -1556,8 +1191,7 @@ export function ClientsBrowser({
           setClientSearchInput('');
           setAppliedClientSearch('');
           await refreshClientsList('');
-          dispatchClients({ type: 'selectClient', id: client.id });
-          dispatchClients({ type: 'openDetail' });
+          onOpenClient(client.id);
         }}
       />
     </>

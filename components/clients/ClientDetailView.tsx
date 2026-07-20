@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
+import { createPortal } from 'react-dom';
 
 import { IncompleteIcon } from './IncompleteIcon';
 import {
@@ -1675,384 +1676,392 @@ export function ClientDetailView({ session, clientId, dismissGuardRef }: ClientD
       </section>
 
       {/* ========== MODAL 1: Edit Client ========== */}
-      {editClientOpen ? (
-        <div className="app-modal-backdrop">
-          <section
-            ref={editClientTrapRef}
-            className="app-modal is-themed is-action client-detail-edit-modal client-detail-modal-scrollable"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="edit-client-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <header className="app-modal-header">
-              <div className="app-modal-title-wrap">
-                <h3 id="edit-client-title" className="app-modal-title">
-                  {editClientTab === 'info' ? 'Editar informações' : 'Editar endereço fiscal'}
-                </h3>
-              </div>
-              <button
-                type="button"
-                className="app-modal-close"
-                onClick={closeEditClient}
-                disabled={savingClient || editClientSuccess}
-                aria-label="Fechar"
+      {/* Os 4 modais inline portalam pro body (molde do modal de senha do
+          AppShell): dentro do overlay, o .bottom-sheet tem transform permanente
+          e viraria containing block do position:fixed do backdrop. */}
+      {editClientOpen
+        ? createPortal(
+            <div className="app-modal-backdrop">
+              <section
+                ref={editClientTrapRef}
+                className="app-modal is-themed is-action client-detail-edit-modal client-detail-modal-scrollable"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="edit-client-title"
+                onClick={(e) => e.stopPropagation()}
               >
-                <span aria-hidden="true">&times;</span>
-              </button>
-            </header>
+                <header className="app-modal-header">
+                  <div className="app-modal-title-wrap">
+                    <h3 id="edit-client-title" className="app-modal-title">
+                      {editClientTab === 'info' ? 'Editar informações' : 'Editar endereço fiscal'}
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    className="app-modal-close"
+                    onClick={closeEditClient}
+                    disabled={savingClient || editClientSuccess}
+                    aria-label="Fechar"
+                  >
+                    <span aria-hidden="true">&times;</span>
+                  </button>
+                </header>
 
-            {editClientSuccess ? (
-              <div className="client-detail-success-check">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="m9 12 2 2 4-4" />
-                </svg>
-              </div>
-            ) : (
-              <form
-                className="app-modal-content client-detail-modal-form"
-                onSubmit={handleUpdateClient}
-              >
-                {editClientTab === 'info' ? (
-                  <>
-                    <div className="sdv-edit-row">
-                      <label className="app-modal-field">
-                        <span className="app-modal-label">Tipo de pessoa</span>
-                        {/* Backend bloqueia troca de personType (422 CLIENT_PERSON_TYPE_LOCKED).
-                            Mostramos readonly pra evitar UX confusa. */}
-                        <input
-                          className="app-modal-input"
-                          value={
-                            editClientForm.personType === 'PF' ? 'Pessoa fisica' : 'Pessoa juridica'
-                          }
-                          disabled
-                          readOnly
-                        />
-                      </label>
-                      {editClientForm.personType === 'PF' ? (
-                        <label className="app-modal-field">
-                          <span className="app-modal-label">CPF</span>
-                          <input
-                            className={`app-modal-input${editCpfMask.error ? ' has-error' : ''}${pendingClass('cpf', editCpfMask.masked)}`}
-                            value={editCpfMask.masked}
-                            disabled={savingClient}
-                            inputMode="numeric"
-                            onChange={editCpfMask.onChange}
-                            onBlur={editCpfMask.onBlur}
-                          />
-                          {editCpfMask.error ? (
-                            <span className="cudm-edit-error">{editCpfMask.error}</span>
-                          ) : null}
-                        </label>
-                      ) : (
-                        <label className="app-modal-field">
-                          <span className="app-modal-label">CNPJ</span>
-                          <input
-                            className={`app-modal-input${editCnpjMask.error ? ' has-error' : ''}`}
-                            value={editCnpjMask.masked}
-                            disabled={savingClient}
-                            inputMode="numeric"
-                            onChange={editCnpjMask.onChange}
-                            onBlur={editCnpjMask.onBlur}
-                          />
-                          {editCnpjMask.error ? (
-                            <span className="cudm-edit-error">{editCnpjMask.error}</span>
-                          ) : null}
-                        </label>
-                      )}
-                    </div>
-
-                    {editClientForm.personType === 'PF' ? (
-                      <>
-                        <label className="app-modal-field">
-                          <span className="app-modal-label">Nome completo</span>
-                          <input
-                            className="app-modal-input"
-                            value={editClientForm.fullName}
-                            disabled={savingClient}
-                            onChange={(e) =>
-                              setEditClientForm((c) => ({
-                                ...c,
-                                fullName: e.target.value.toUpperCase(),
-                              }))
-                            }
-                          />
-                        </label>
-                        <label className="app-modal-field">
-                          <span className="app-modal-label">Email</span>
-                          <input
-                            className="app-modal-input"
-                            type="email"
-                            value={editClientForm.email}
-                            disabled={savingClient}
-                            onChange={(e) =>
-                              setEditClientForm((c) => ({
-                                ...c,
-                                email: e.target.value.toUpperCase(),
-                              }))
-                            }
-                          />
-                        </label>
-                      </>
-                    ) : (
+                {editClientSuccess ? (
+                  <div className="client-detail-success-check">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="m9 12 2 2 4-4" />
+                    </svg>
+                  </div>
+                ) : (
+                  <form
+                    className="app-modal-content client-detail-modal-form"
+                    onSubmit={handleUpdateClient}
+                  >
+                    {editClientTab === 'info' ? (
                       <>
                         <div className="sdv-edit-row">
                           <label className="app-modal-field">
-                            <span className="app-modal-label">Razao social</span>
+                            <span className="app-modal-label">Tipo de pessoa</span>
+                            {/* Backend bloqueia troca de personType (422 CLIENT_PERSON_TYPE_LOCKED).
+                            Mostramos readonly pra evitar UX confusa. */}
                             <input
                               className="app-modal-input"
-                              value={editClientForm.legalName}
+                              value={
+                                editClientForm.personType === 'PF'
+                                  ? 'Pessoa fisica'
+                                  : 'Pessoa juridica'
+                              }
+                              disabled
+                              readOnly
+                            />
+                          </label>
+                          {editClientForm.personType === 'PF' ? (
+                            <label className="app-modal-field">
+                              <span className="app-modal-label">CPF</span>
+                              <input
+                                className={`app-modal-input${editCpfMask.error ? ' has-error' : ''}${pendingClass('cpf', editCpfMask.masked)}`}
+                                value={editCpfMask.masked}
+                                disabled={savingClient}
+                                inputMode="numeric"
+                                onChange={editCpfMask.onChange}
+                                onBlur={editCpfMask.onBlur}
+                              />
+                              {editCpfMask.error ? (
+                                <span className="cudm-edit-error">{editCpfMask.error}</span>
+                              ) : null}
+                            </label>
+                          ) : (
+                            <label className="app-modal-field">
+                              <span className="app-modal-label">CNPJ</span>
+                              <input
+                                className={`app-modal-input${editCnpjMask.error ? ' has-error' : ''}`}
+                                value={editCnpjMask.masked}
+                                disabled={savingClient}
+                                inputMode="numeric"
+                                onChange={editCnpjMask.onChange}
+                                onBlur={editCnpjMask.onBlur}
+                              />
+                              {editCnpjMask.error ? (
+                                <span className="cudm-edit-error">{editCnpjMask.error}</span>
+                              ) : null}
+                            </label>
+                          )}
+                        </div>
+
+                        {editClientForm.personType === 'PF' ? (
+                          <>
+                            <label className="app-modal-field">
+                              <span className="app-modal-label">Nome completo</span>
+                              <input
+                                className="app-modal-input"
+                                value={editClientForm.fullName}
+                                disabled={savingClient}
+                                onChange={(e) =>
+                                  setEditClientForm((c) => ({
+                                    ...c,
+                                    fullName: e.target.value.toUpperCase(),
+                                  }))
+                                }
+                              />
+                            </label>
+                            <label className="app-modal-field">
+                              <span className="app-modal-label">Email</span>
+                              <input
+                                className="app-modal-input"
+                                type="email"
+                                value={editClientForm.email}
+                                disabled={savingClient}
+                                onChange={(e) =>
+                                  setEditClientForm((c) => ({
+                                    ...c,
+                                    email: e.target.value.toUpperCase(),
+                                  }))
+                                }
+                              />
+                            </label>
+                          </>
+                        ) : (
+                          <>
+                            <div className="sdv-edit-row">
+                              <label className="app-modal-field">
+                                <span className="app-modal-label">Razao social</span>
+                                <input
+                                  className="app-modal-input"
+                                  value={editClientForm.legalName}
+                                  disabled={savingClient}
+                                  onChange={(e) =>
+                                    setEditClientForm((c) => ({
+                                      ...c,
+                                      legalName: e.target.value.toUpperCase(),
+                                    }))
+                                  }
+                                />
+                              </label>
+                              <label className="app-modal-field">
+                                <span className="app-modal-label">Nome fantasia</span>
+                                <input
+                                  className={`app-modal-input${pendingClass('tradeName', editClientForm.tradeName)}`}
+                                  value={editClientForm.tradeName}
+                                  disabled={savingClient}
+                                  onChange={(e) =>
+                                    setEditClientForm((c) => ({
+                                      ...c,
+                                      tradeName: e.target.value.toUpperCase(),
+                                    }))
+                                  }
+                                />
+                              </label>
+                            </div>
+                            <label className="app-modal-field">
+                              <span className="app-modal-label">Email</span>
+                              <input
+                                className="app-modal-input"
+                                type="email"
+                                value={editClientForm.email}
+                                disabled={savingClient}
+                                onChange={(e) =>
+                                  setEditClientForm((c) => ({
+                                    ...c,
+                                    email: e.target.value.toUpperCase(),
+                                  }))
+                                }
+                              />
+                            </label>
+                          </>
+                        )}
+
+                        <div className="sdv-edit-row">
+                          <label className="app-modal-field">
+                            <span className="app-modal-label">Telefone</span>
+                            <input
+                              className="app-modal-input"
+                              value={editClientForm.phone}
                               disabled={savingClient}
                               onChange={(e) =>
                                 setEditClientForm((c) => ({
                                   ...c,
-                                  legalName: e.target.value.toUpperCase(),
+                                  phone: maskPhoneInput(e.target.value),
+                                }))
+                              }
+                            />
+                          </label>
+                          <ChipMultiSelectField
+                            label="Papel"
+                            placeholder="Selecione"
+                            options={CLIENT_ROLE_OPTIONS}
+                            selected={editClientRoleIds}
+                            disabled={savingClient}
+                            onChange={(next) =>
+                              setEditClientForm((c) => ({
+                                ...c,
+                                isSeller: next.includes('seller'),
+                                isBuyer: next.includes('buyer'),
+                                isWarehouse: next.includes('warehouse'),
+                              }))
+                            }
+                          />
+                        </div>
+
+                        <UserMultiSelect
+                          label="Responsavel"
+                          value={editClientForm.commercialUserIds}
+                          onChange={(next) =>
+                            setEditClientForm((c) => ({ ...c, commercialUserIds: next }))
+                          }
+                          users={users}
+                          loading={loadingUsers}
+                          disabled={savingClient}
+                          hideRoleInChips
+                          firstNameOnly
+                          placeholder="Selecione (opcional)"
+                        />
+                      </>
+                    ) : null}
+
+                    {editClientTab === 'address' ? (
+                      <>
+                        {/* CEP primeiro: dispara auto-lookup que preenche endereco/
+                        bairro/cidade/UF. Endereco em coluna larga ao lado. */}
+                        <div className="sdv-edit-row" style={{ gridTemplateColumns: '1fr 2fr' }}>
+                          <label className="app-modal-field">
+                            <span className="app-modal-label">
+                              CEP
+                              {editCep.loading ? <span aria-hidden="true"> ⌛</span> : null}
+                            </span>
+                            <input
+                              className={`app-modal-input${pendingClass('postalCode', editClientForm.postalCode)}`}
+                              value={editClientForm.postalCode}
+                              disabled={savingClient}
+                              inputMode="numeric"
+                              onChange={(e) =>
+                                setEditClientForm((c) => ({
+                                  ...c,
+                                  postalCode: maskPostalCodeInput(e.target.value),
                                 }))
                               }
                             />
                           </label>
                           <label className="app-modal-field">
-                            <span className="app-modal-label">Nome fantasia</span>
+                            <span className="app-modal-label">Endereço</span>
                             <input
-                              className={`app-modal-input${pendingClass('tradeName', editClientForm.tradeName)}`}
-                              value={editClientForm.tradeName}
+                              className={`app-modal-input${pendingClass('addressLine', editClientForm.addressLine)}`}
+                              value={editClientForm.addressLine}
                               disabled={savingClient}
                               onChange={(e) =>
                                 setEditClientForm((c) => ({
                                   ...c,
-                                  tradeName: e.target.value.toUpperCase(),
+                                  addressLine: e.target.value.toUpperCase(),
                                 }))
                               }
                             />
                           </label>
                         </div>
+
+                        <div className="sdv-edit-row">
+                          <label className="app-modal-field">
+                            <span className="app-modal-label">Bairro</span>
+                            <input
+                              className={`app-modal-input${pendingClass('district', editClientForm.district)}`}
+                              value={editClientForm.district}
+                              disabled={savingClient}
+                              onChange={(e) =>
+                                setEditClientForm((c) => ({
+                                  ...c,
+                                  district: e.target.value.toUpperCase(),
+                                }))
+                              }
+                            />
+                          </label>
+                          <label className="app-modal-field">
+                            <span className="app-modal-label">Complemento</span>
+                            <input
+                              className="app-modal-input"
+                              value={editClientForm.complement}
+                              disabled={savingClient}
+                              onChange={(e) =>
+                                setEditClientForm((c) => ({
+                                  ...c,
+                                  complement: e.target.value.toUpperCase(),
+                                }))
+                              }
+                            />
+                          </label>
+                        </div>
+
+                        <div className="sdv-edit-row" style={{ gridTemplateColumns: '2fr 0.6fr' }}>
+                          <label className="app-modal-field">
+                            <span className="app-modal-label">Cidade</span>
+                            <input
+                              className={`app-modal-input${pendingClass('city', editClientForm.city)}`}
+                              value={editClientForm.city}
+                              disabled={savingClient}
+                              onChange={(e) =>
+                                setEditClientForm((c) => ({
+                                  ...c,
+                                  city: e.target.value.toUpperCase(),
+                                }))
+                              }
+                            />
+                          </label>
+                          <label className="app-modal-field">
+                            <span className="app-modal-label">UF</span>
+                            <input
+                              className={`app-modal-input${pendingClass('state', editClientForm.state)}`}
+                              value={editClientForm.state}
+                              disabled={savingClient}
+                              maxLength={2}
+                              onChange={(e) =>
+                                setEditClientForm((c) => ({
+                                  ...c,
+                                  state: e.target.value.toUpperCase(),
+                                }))
+                              }
+                            />
+                          </label>
+                        </div>
+
                         <label className="app-modal-field">
-                          <span className="app-modal-label">Email</span>
+                          <span className="app-modal-label">Inscrição estadual</span>
                           <input
-                            className="app-modal-input"
-                            type="email"
-                            value={editClientForm.email}
+                            className={`app-modal-input${pendingClass('registrationNumber', editClientForm.registrationNumber)}`}
+                            value={editClientForm.registrationNumber}
                             disabled={savingClient}
+                            inputMode="numeric"
                             onChange={(e) =>
                               setEditClientForm((c) => ({
                                 ...c,
-                                email: e.target.value.toUpperCase(),
+                                registrationNumber: maskRegistrationNumberInput(e.target.value),
                               }))
                             }
                           />
                         </label>
                       </>
-                    )}
-
-                    <div className="sdv-edit-row">
-                      <label className="app-modal-field">
-                        <span className="app-modal-label">Telefone</span>
-                        <input
-                          className="app-modal-input"
-                          value={editClientForm.phone}
-                          disabled={savingClient}
-                          onChange={(e) =>
-                            setEditClientForm((c) => ({
-                              ...c,
-                              phone: maskPhoneInput(e.target.value),
-                            }))
-                          }
-                        />
-                      </label>
-                      <ChipMultiSelectField
-                        label="Papel"
-                        placeholder="Selecione"
-                        options={CLIENT_ROLE_OPTIONS}
-                        selected={editClientRoleIds}
-                        disabled={savingClient}
-                        onChange={(next) =>
-                          setEditClientForm((c) => ({
-                            ...c,
-                            isSeller: next.includes('seller'),
-                            isBuyer: next.includes('buyer'),
-                            isWarehouse: next.includes('warehouse'),
-                          }))
-                        }
-                      />
-                    </div>
-
-                    <UserMultiSelect
-                      label="Responsavel"
-                      value={editClientForm.commercialUserIds}
-                      onChange={(next) =>
-                        setEditClientForm((c) => ({ ...c, commercialUserIds: next }))
-                      }
-                      users={users}
-                      loading={loadingUsers}
-                      disabled={savingClient}
-                      hideRoleInChips
-                      firstNameOnly
-                      placeholder="Selecione (opcional)"
-                    />
-                  </>
-                ) : null}
-
-                {editClientTab === 'address' ? (
-                  <>
-                    {/* CEP primeiro: dispara auto-lookup que preenche endereco/
-                        bairro/cidade/UF. Endereco em coluna larga ao lado. */}
-                    <div className="sdv-edit-row" style={{ gridTemplateColumns: '1fr 2fr' }}>
-                      <label className="app-modal-field">
-                        <span className="app-modal-label">
-                          CEP
-                          {editCep.loading ? <span aria-hidden="true"> ⌛</span> : null}
-                        </span>
-                        <input
-                          className={`app-modal-input${pendingClass('postalCode', editClientForm.postalCode)}`}
-                          value={editClientForm.postalCode}
-                          disabled={savingClient}
-                          inputMode="numeric"
-                          onChange={(e) =>
-                            setEditClientForm((c) => ({
-                              ...c,
-                              postalCode: maskPostalCodeInput(e.target.value),
-                            }))
-                          }
-                        />
-                      </label>
-                      <label className="app-modal-field">
-                        <span className="app-modal-label">Endereço</span>
-                        <input
-                          className={`app-modal-input${pendingClass('addressLine', editClientForm.addressLine)}`}
-                          value={editClientForm.addressLine}
-                          disabled={savingClient}
-                          onChange={(e) =>
-                            setEditClientForm((c) => ({
-                              ...c,
-                              addressLine: e.target.value.toUpperCase(),
-                            }))
-                          }
-                        />
-                      </label>
-                    </div>
-
-                    <div className="sdv-edit-row">
-                      <label className="app-modal-field">
-                        <span className="app-modal-label">Bairro</span>
-                        <input
-                          className={`app-modal-input${pendingClass('district', editClientForm.district)}`}
-                          value={editClientForm.district}
-                          disabled={savingClient}
-                          onChange={(e) =>
-                            setEditClientForm((c) => ({
-                              ...c,
-                              district: e.target.value.toUpperCase(),
-                            }))
-                          }
-                        />
-                      </label>
-                      <label className="app-modal-field">
-                        <span className="app-modal-label">Complemento</span>
-                        <input
-                          className="app-modal-input"
-                          value={editClientForm.complement}
-                          disabled={savingClient}
-                          onChange={(e) =>
-                            setEditClientForm((c) => ({
-                              ...c,
-                              complement: e.target.value.toUpperCase(),
-                            }))
-                          }
-                        />
-                      </label>
-                    </div>
-
-                    <div className="sdv-edit-row" style={{ gridTemplateColumns: '2fr 0.6fr' }}>
-                      <label className="app-modal-field">
-                        <span className="app-modal-label">Cidade</span>
-                        <input
-                          className={`app-modal-input${pendingClass('city', editClientForm.city)}`}
-                          value={editClientForm.city}
-                          disabled={savingClient}
-                          onChange={(e) =>
-                            setEditClientForm((c) => ({
-                              ...c,
-                              city: e.target.value.toUpperCase(),
-                            }))
-                          }
-                        />
-                      </label>
-                      <label className="app-modal-field">
-                        <span className="app-modal-label">UF</span>
-                        <input
-                          className={`app-modal-input${pendingClass('state', editClientForm.state)}`}
-                          value={editClientForm.state}
-                          disabled={savingClient}
-                          maxLength={2}
-                          onChange={(e) =>
-                            setEditClientForm((c) => ({
-                              ...c,
-                              state: e.target.value.toUpperCase(),
-                            }))
-                          }
-                        />
-                      </label>
-                    </div>
+                    ) : null}
 
                     <label className="app-modal-field">
-                      <span className="app-modal-label">Inscrição estadual</span>
+                      <span className="app-modal-label">Motivo da edicao (opcional)</span>
                       <input
-                        className={`app-modal-input${pendingClass('registrationNumber', editClientForm.registrationNumber)}`}
-                        value={editClientForm.registrationNumber}
+                        className="app-modal-input"
+                        value={editClientForm.reasonText}
                         disabled={savingClient}
-                        inputMode="numeric"
                         onChange={(e) =>
                           setEditClientForm((c) => ({
                             ...c,
-                            registrationNumber: maskRegistrationNumberInput(e.target.value),
+                            reasonText: e.target.value.toUpperCase(),
                           }))
                         }
+                        placeholder="Opcional"
                       />
                     </label>
-                  </>
-                ) : null}
 
-                <label className="app-modal-field">
-                  <span className="app-modal-label">Motivo da edicao (opcional)</span>
-                  <input
-                    className="app-modal-input"
-                    value={editClientForm.reasonText}
-                    disabled={savingClient}
-                    onChange={(e) =>
-                      setEditClientForm((c) => ({
-                        ...c,
-                        reasonText: e.target.value.toUpperCase(),
-                      }))
-                    }
-                    placeholder="Opcional"
-                  />
-                </label>
+                    <NoticeSlot notice={editClientModalNotice} />
 
-                <NoticeSlot notice={editClientModalNotice} />
-
-                <div className="app-modal-actions client-detail-edit-actions">
-                  <button
-                    type="button"
-                    className="app-modal-secondary"
-                    onClick={closeEditClient}
-                    disabled={savingClient}
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="app-modal-submit"
-                    disabled={savingClient || !canSaveClient}
-                  >
-                    {savingClient ? 'Salvando...' : 'Salvar'}
-                  </button>
-                </div>
-              </form>
-            )}
-          </section>
-        </div>
-      ) : null}
+                    <div className="app-modal-actions client-detail-edit-actions">
+                      <button
+                        type="button"
+                        className="app-modal-secondary"
+                        onClick={closeEditClient}
+                        disabled={savingClient}
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        className="app-modal-submit"
+                        disabled={savingClient || !canSaveClient}
+                      >
+                        {savingClient ? 'Salvando...' : 'Salvar'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </section>
+            </div>,
+            document.body
+          )
+        : null}
 
       {/* ========== MODAL 2: Create Unit (PF only — filiais L5) ========== */}
       <ClientUnitModal
@@ -2105,93 +2114,96 @@ export function ClientDetailView({ session, clientId, dismissGuardRef }: ClientD
       {/* ========== MODAL: Documentos (Anexos + Contas bancarias) — abre pelo botao
           de folha no header, em desktop E mobile. As abas separam os dois. O input
           de upload dos anexos vive no card (escondido) e e acionado por ref. */}
-      {documentsModalOpen ? (
-        <div className="app-modal-backdrop" onClick={() => setDocumentsModalOpen(false)}>
-          <section
-            className="app-modal is-themed is-action client-documents-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="client-documents-modal-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="app-modal-header">
-              <div className="app-modal-title-wrap">
-                <h3 id="client-documents-modal-title" className="app-modal-title">
-                  Documentos
-                </h3>
-              </div>
-              <button
-                type="button"
-                className="app-modal-close"
-                onClick={() => setDocumentsModalOpen(false)}
-                aria-label="Fechar"
+      {documentsModalOpen
+        ? createPortal(
+            <div className="app-modal-backdrop" onClick={() => setDocumentsModalOpen(false)}>
+              <section
+                className="app-modal is-themed is-action client-documents-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="client-documents-modal-title"
+                onClick={(event) => event.stopPropagation()}
               >
-                <span aria-hidden="true">&times;</span>
-              </button>
-            </header>
-            <div className="docs-modal-tabs" role="tablist" aria-label="Documentos">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={documentsTab === 'anexos'}
-                className={`docs-modal-tab${documentsTab === 'anexos' ? ' is-active' : ''}`}
-                onClick={() => setDocumentsTab('anexos')}
-              >
-                Anexos
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={documentsTab === 'contas'}
-                className={`docs-modal-tab${documentsTab === 'contas' ? ' is-active' : ''}`}
-                onClick={() => setDocumentsTab('contas')}
-              >
-                Contas bancárias
-              </button>
-            </div>
-            <div className="app-modal-content">
-              {documentsTab === 'anexos' ? (
-                <>
-                  <div className="client-attachments-modal-toolbar">
-                    <button
-                      type="button"
-                      className="sdv-edit-btn"
-                      onClick={() => attachmentInputRef.current?.click()}
-                      disabled={uploadingAttachment}
-                      aria-label="Adicionar anexo"
-                    >
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M12 5v14" />
-                        <path d="M5 12h14" />
-                      </svg>
-                      <span>{uploadingAttachment ? 'Enviando…' : 'Adicionar'}</span>
-                    </button>
+                <header className="app-modal-header">
+                  <div className="app-modal-title-wrap">
+                    <h3 id="client-documents-modal-title" className="app-modal-title">
+                      Documentos
+                    </h3>
                   </div>
-                  {attachmentsBody}
-                </>
-              ) : (
-                <>
-                  <div className="client-attachments-modal-toolbar">
-                    <button
-                      type="button"
-                      className="sdv-edit-btn"
-                      onClick={openBankAccountCreate}
-                      aria-label="Nova conta bancária"
-                    >
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M12 5v14" />
-                        <path d="M5 12h14" />
-                      </svg>
-                      <span>Nova</span>
-                    </button>
-                  </div>
-                  {bankAccountsBody}
-                </>
-              )}
-            </div>
-          </section>
-        </div>
-      ) : null}
+                  <button
+                    type="button"
+                    className="app-modal-close"
+                    onClick={() => setDocumentsModalOpen(false)}
+                    aria-label="Fechar"
+                  >
+                    <span aria-hidden="true">&times;</span>
+                  </button>
+                </header>
+                <div className="docs-modal-tabs" role="tablist" aria-label="Documentos">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={documentsTab === 'anexos'}
+                    className={`docs-modal-tab${documentsTab === 'anexos' ? ' is-active' : ''}`}
+                    onClick={() => setDocumentsTab('anexos')}
+                  >
+                    Anexos
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={documentsTab === 'contas'}
+                    className={`docs-modal-tab${documentsTab === 'contas' ? ' is-active' : ''}`}
+                    onClick={() => setDocumentsTab('contas')}
+                  >
+                    Contas bancárias
+                  </button>
+                </div>
+                <div className="app-modal-content">
+                  {documentsTab === 'anexos' ? (
+                    <>
+                      <div className="client-attachments-modal-toolbar">
+                        <button
+                          type="button"
+                          className="sdv-edit-btn"
+                          onClick={() => attachmentInputRef.current?.click()}
+                          disabled={uploadingAttachment}
+                          aria-label="Adicionar anexo"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 5v14" />
+                            <path d="M5 12h14" />
+                          </svg>
+                          <span>{uploadingAttachment ? 'Enviando…' : 'Adicionar'}</span>
+                        </button>
+                      </div>
+                      {attachmentsBody}
+                    </>
+                  ) : (
+                    <>
+                      <div className="client-attachments-modal-toolbar">
+                        <button
+                          type="button"
+                          className="sdv-edit-btn"
+                          onClick={openBankAccountCreate}
+                          aria-label="Nova conta bancária"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 5v14" />
+                            <path d="M5 12h14" />
+                          </svg>
+                          <span>Nova</span>
+                        </button>
+                      </div>
+                      {bankAccountsBody}
+                    </>
+                  )}
+                </div>
+              </section>
+            </div>,
+            document.body
+          )
+        : null}
 
       {/* ========== Fechamento Fase 0: Preview de anexo ========== */}
       <ClientAttachmentPreviewModal
@@ -2224,173 +2236,181 @@ export function ClientDetailView({ session, clientId, dismissGuardRef }: ClientD
       />
 
       {/* ========== MODAL 3: Inactivate/Reactivate Client ========== */}
-      {statusModalOpen ? (
-        <div className="app-modal-backdrop">
-          <section
-            ref={statusTrapRef}
-            className="app-modal is-themed is-action"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="status-modal-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <header className="app-modal-header">
-              <div className="app-modal-title-wrap">
-                <h3 id="status-modal-title" className="app-modal-title">
-                  {statusAction === 'inactivate' ? 'Inativar cliente' : 'Reativar cliente'}
-                </h3>
-                <p className="app-modal-description">
-                  {statusAction === 'inactivate'
-                    ? 'Bloqueia este cliente em novas amostras e movimentacoes.'
-                    : 'Libera este cliente para novas operacoes.'}
-                </p>
-              </div>
-              <button
-                type="button"
-                className="app-modal-close"
-                onClick={closeStatusModal}
-                disabled={savingStatus}
-                aria-label="Fechar"
+      {statusModalOpen
+        ? createPortal(
+            <div className="app-modal-backdrop">
+              <section
+                ref={statusTrapRef}
+                className="app-modal is-themed is-action"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="status-modal-title"
+                onClick={(e) => e.stopPropagation()}
               >
-                <span aria-hidden="true">&times;</span>
-              </button>
-            </header>
+                <header className="app-modal-header">
+                  <div className="app-modal-title-wrap">
+                    <h3 id="status-modal-title" className="app-modal-title">
+                      {statusAction === 'inactivate' ? 'Inativar cliente' : 'Reativar cliente'}
+                    </h3>
+                    <p className="app-modal-description">
+                      {statusAction === 'inactivate'
+                        ? 'Bloqueia este cliente em novas amostras e movimentacoes.'
+                        : 'Libera este cliente para novas operacoes.'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="app-modal-close"
+                    onClick={closeStatusModal}
+                    disabled={savingStatus}
+                    aria-label="Fechar"
+                  >
+                    <span aria-hidden="true">&times;</span>
+                  </button>
+                </header>
 
-            <form className="app-modal-content" onSubmit={handleStatusSubmit}>
-              {statusAction === 'inactivate' && statusImpactLoading ? (
-                <p className="client-detail-status-msg">Verificando impacto...</p>
-              ) : null}
+                <form className="app-modal-content" onSubmit={handleStatusSubmit}>
+                  {statusAction === 'inactivate' && statusImpactLoading ? (
+                    <p className="client-detail-status-msg">Verificando impacto...</p>
+                  ) : null}
 
-              {statusAction === 'inactivate' &&
-              statusImpact &&
-              !statusImpactLoading &&
-              (statusImpact.ownedSamples > 0 ||
-                statusImpact.activeMovements > 0 ||
-                statusImpact.activeUnits > 0) ? (
-                <div className="client-detail-impact-warning">
-                  <p className="client-detail-impact-title">Este cliente possui vinculos ativos:</p>
-                  <ul>
-                    {statusImpact.ownedSamples > 0 ? (
-                      <li>{statusImpact.ownedSamples} amostra(s) como proprietario</li>
-                    ) : null}
-                    {statusImpact.activeMovements > 0 ? (
-                      <li>{statusImpact.activeMovements} movimentacao(oes) comercial(is)</li>
-                    ) : null}
-                    {statusImpact.activeUnits > 0 ? (
-                      <li>{statusImpact.activeUnits} filial(is) ativa(s)</li>
-                    ) : null}
-                  </ul>
-                </div>
-              ) : null}
+                  {statusAction === 'inactivate' &&
+                  statusImpact &&
+                  !statusImpactLoading &&
+                  (statusImpact.ownedSamples > 0 ||
+                    statusImpact.activeMovements > 0 ||
+                    statusImpact.activeUnits > 0) ? (
+                    <div className="client-detail-impact-warning">
+                      <p className="client-detail-impact-title">
+                        Este cliente possui vinculos ativos:
+                      </p>
+                      <ul>
+                        {statusImpact.ownedSamples > 0 ? (
+                          <li>{statusImpact.ownedSamples} amostra(s) como proprietario</li>
+                        ) : null}
+                        {statusImpact.activeMovements > 0 ? (
+                          <li>{statusImpact.activeMovements} movimentacao(oes) comercial(is)</li>
+                        ) : null}
+                        {statusImpact.activeUnits > 0 ? (
+                          <li>{statusImpact.activeUnits} filial(is) ativa(s)</li>
+                        ) : null}
+                      </ul>
+                    </div>
+                  ) : null}
 
-              <label className="app-modal-field">
-                <span className="app-modal-label">Motivo</span>
-                <input
-                  className="app-modal-input"
-                  value={statusReasonText}
-                  disabled={savingStatus}
-                  onChange={(e) => setStatusReasonText(e.target.value.toUpperCase())}
-                  placeholder="Informe o motivo"
-                />
-              </label>
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">Motivo</span>
+                    <input
+                      className="app-modal-input"
+                      value={statusReasonText}
+                      disabled={savingStatus}
+                      onChange={(e) => setStatusReasonText(e.target.value.toUpperCase())}
+                      placeholder="Informe o motivo"
+                    />
+                  </label>
 
-              <NoticeSlot notice={statusModalNotice} />
+                  <NoticeSlot notice={statusModalNotice} />
 
-              <div className="app-modal-actions client-detail-status-actions">
-                <button
-                  type="button"
-                  className="app-modal-secondary"
-                  onClick={closeStatusModal}
-                  disabled={savingStatus}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="app-modal-submit"
-                  disabled={
-                    savingStatus || statusImpactLoading || statusReasonText.trim().length === 0
-                  }
-                >
-                  {savingStatus
-                    ? 'Processando...'
-                    : statusAction === 'inactivate'
-                      ? 'Inativar'
-                      : 'Reativar'}
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
-      ) : null}
+                  <div className="app-modal-actions client-detail-status-actions">
+                    <button
+                      type="button"
+                      className="app-modal-secondary"
+                      onClick={closeStatusModal}
+                      disabled={savingStatus}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="app-modal-submit"
+                      disabled={
+                        savingStatus || statusImpactLoading || statusReasonText.trim().length === 0
+                      }
+                    >
+                      {savingStatus
+                        ? 'Processando...'
+                        : statusAction === 'inactivate'
+                          ? 'Inativar'
+                          : 'Reativar'}
+                    </button>
+                  </div>
+                </form>
+              </section>
+            </div>,
+            document.body
+          )
+        : null}
 
       {/* ========== MODAL 4: Inactivate/Reactivate Unit (L5 — PF) ========== */}
-      {unitStatusModalOpen ? (
-        <div className="app-modal-backdrop">
-          <section
-            ref={unitStatusTrapRef}
-            className="app-modal is-themed is-action"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="unit-status-modal-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <header className="app-modal-header">
-              <div className="app-modal-title-wrap">
-                <h3 id="unit-status-modal-title" className="app-modal-title">
-                  {unitStatusAction === 'inactivate' ? 'Inativar filial' : 'Reativar filial'}
-                </h3>
-              </div>
-              <button
-                type="button"
-                className="app-modal-close"
-                onClick={closeUnitStatusModal}
-                disabled={savingUnitStatus}
-                aria-label="Fechar"
+      {unitStatusModalOpen
+        ? createPortal(
+            <div className="app-modal-backdrop">
+              <section
+                ref={unitStatusTrapRef}
+                className="app-modal is-themed is-action"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="unit-status-modal-title"
+                onClick={(e) => e.stopPropagation()}
               >
-                <span aria-hidden="true">&times;</span>
-              </button>
-            </header>
+                <header className="app-modal-header">
+                  <div className="app-modal-title-wrap">
+                    <h3 id="unit-status-modal-title" className="app-modal-title">
+                      {unitStatusAction === 'inactivate' ? 'Inativar filial' : 'Reativar filial'}
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    className="app-modal-close"
+                    onClick={closeUnitStatusModal}
+                    disabled={savingUnitStatus}
+                    aria-label="Fechar"
+                  >
+                    <span aria-hidden="true">&times;</span>
+                  </button>
+                </header>
 
-            <form className="app-modal-content" onSubmit={handleUnitStatusSubmit}>
-              <label className="app-modal-field">
-                <span className="app-modal-label">Motivo</span>
-                <input
-                  className="app-modal-input"
-                  value={unitStatusReason}
-                  disabled={savingUnitStatus}
-                  onChange={(e) => setUnitStatusReason(e.target.value.toUpperCase())}
-                  placeholder="Informe o motivo"
-                />
-              </label>
+                <form className="app-modal-content" onSubmit={handleUnitStatusSubmit}>
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">Motivo</span>
+                    <input
+                      className="app-modal-input"
+                      value={unitStatusReason}
+                      disabled={savingUnitStatus}
+                      onChange={(e) => setUnitStatusReason(e.target.value.toUpperCase())}
+                      placeholder="Informe o motivo"
+                    />
+                  </label>
 
-              <NoticeSlot notice={unitStatusNotice} />
+                  <NoticeSlot notice={unitStatusNotice} />
 
-              <div className="app-modal-actions client-detail-status-actions">
-                <button
-                  type="button"
-                  className="app-modal-secondary"
-                  onClick={closeUnitStatusModal}
-                  disabled={savingUnitStatus}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="app-modal-submit"
-                  disabled={savingUnitStatus || unitStatusReason.trim().length === 0}
-                >
-                  {savingUnitStatus
-                    ? 'Processando...'
-                    : unitStatusAction === 'inactivate'
-                      ? 'Inativar'
-                      : 'Reativar'}
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
-      ) : null}
+                  <div className="app-modal-actions client-detail-status-actions">
+                    <button
+                      type="button"
+                      className="app-modal-secondary"
+                      onClick={closeUnitStatusModal}
+                      disabled={savingUnitStatus}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="app-modal-submit"
+                      disabled={savingUnitStatus || unitStatusReason.trim().length === 0}
+                    >
+                      {savingUnitStatus
+                        ? 'Processando...'
+                        : unitStatusAction === 'inactivate'
+                          ? 'Inativar'
+                          : 'Reativar'}
+                    </button>
+                  </div>
+                </form>
+              </section>
+            </div>,
+            document.body
+          )
+        : null}
     </>
   );
 }

@@ -28969,6 +28969,86 @@ select.samples-filter-field-input {
   z-index: calc(var(--z-modal-stacked) + 10);
 }
 
+/* ══════════════════════════════════════════════════════════════
+   DetailOverlay (.detail-overlay) — F1 do redesign (RD3/RD4/RD5).
+   Overlay de DETALHE dirigido por URL (ex.: /cadastros?cliente=)
+   sobre a pagina de lista. Mobile: sheet de TELA CHEIA. Desktop
+   (>=901px): painel lateral direito (peek) com a lista VIVA atras
+   (backdrop transparente e atravessavel — clicar noutro card troca
+   o item aberto). Conteudo = o .sdv-page transplantado da antiga
+   pagina de detalhe. Historia e da URL (manageHistory=false).
+   ══════════════════════════════════════════════════════════════ */
+
+/* Mobile: tela cheia. A altura base do sheet ja e
+   100dvh - safe-top - top-gap; zerar o gap encosta o sheet no topo
+   (a borda superior fica na safe area, abaixo do notch). O respiro
+   lateral/inferior sai — o .sdv-content do detalhe carrega o proprio
+   padding + safe-area bottom. */
+.bottom-sheet.detail-overlay {
+  --bottom-sheet-top-gap: 0rem;
+  border-radius: 0;
+  padding-left: 0;
+  padding-right: 0;
+  padding-bottom: 0;
+}
+
+.bottom-sheet.detail-overlay .bottom-sheet-header {
+  padding-left: clamp(1rem, 4vw, 1.4rem);
+  padding-right: clamp(1rem, 4vw, 1.4rem);
+}
+
+.bottom-sheet.detail-overlay .bottom-sheet-body {
+  padding: 0;
+}
+
+@media (min-width: 901px) {
+  /* Backdrop do peek: transparente e atravessavel (RD4 "lista viva").
+     display:none NAO serve — o sheet e FILHO do backdrop e sumiria junto.
+     pointer-events volta em auto no proprio sheet (a propriedade herda). */
+  .bottom-sheet-backdrop:has(> .bottom-sheet.detail-overlay) {
+    background: rgba(0, 0, 0, 0);
+    pointer-events: none;
+  }
+
+  /* Painel lateral direito colado na borda (referencia visual: .pg-drawer
+     do Playground). Sobrescreve o ramo "modal centralizado" do sheet
+     desktop: ancora top/right/bottom, desliza da direita, sem raio. */
+  .bottom-sheet.detail-overlay {
+    pointer-events: auto;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: auto;
+    width: min(620px, 92vw);
+    max-width: none;
+    height: auto;
+    max-height: none;
+    border-radius: 0;
+    border-left: 1px solid var(--color-line);
+    box-shadow: var(--shadow-xl);
+    padding: 0 1rem 1rem;
+    opacity: 1;
+    transform: translate3d(100%, 0, 0);
+  }
+
+  .bottom-sheet.detail-overlay.is-open {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+
+  /* Coluna unica dentro do painel: neutraliza o grid 2-colunas desktop do
+     detalhe do cliente (.sdv-content-inner, ver bloco @media 901px do sdv) —
+     620px nao comportam 'info | endereco' lado a lado. Com display:flex os
+     `display: contents` das secoes seguem achatando os cards na coluna, na
+     ordem do DOM (info, endereco, filiais, resumo, rodape de status). */
+  .bottom-sheet.detail-overlay .sdv-content-inner:has(> .sdv-client-side-col) {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(13px, 3.6vw, 16px);
+    max-width: none;
+  }
+}
+
 /* Animacao fade entre steps do wizard de Nova Amostra (decisao 5.22).
    O container que envolve o step content recebe key={state.step} no
    JSX — ao trocar de step, React re-monta o div e o keyframe roda. */
