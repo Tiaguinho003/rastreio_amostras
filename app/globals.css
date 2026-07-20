@@ -28963,6 +28963,26 @@ select.samples-filter-field-input {
   letter-spacing: 0.02em;
 }
 
+/* Detalhe do LOTE no DetailOverlay (F2 do redesign, RD8). O conteudo e o
+   .sdv-page do SampleDetailView, que como no cliente carrega o proprio
+   respiro — o overlay nao repoe padding. No overlay o marcador
+   .sdv-page--sample SAI do wrapper (e ele que liga o layout desktop
+   2-colunas; o peek de 620px e coluna unica), entao repomos aqui as UNICAS
+   regras que ele dava fora do desktop: fundo branco no conteudo + sombra
+   reforcada dos cards (copia do bloco mobile do --sample). Sem media query:
+   no peek o sheet tambem e branco e a separacao dos cards vale igual. */
+.bottom-sheet.detail-overlay.lote-details-overlay .sdv-content {
+  background: #ffffff;
+}
+
+.bottom-sheet.detail-overlay.lote-details-overlay .sdv-card {
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.09),
+    0 8px 20px rgba(0, 0, 0, 0.15),
+    0 16px 36px rgba(0, 0, 0, 0.11),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
 /* Animacao fade entre steps do wizard de Nova Amostra (decisao 5.22).
    O container que envolve o step content recebe key={state.step} no
    JSX — ao trocar de step, React re-monta o div e o keyframe roda. */

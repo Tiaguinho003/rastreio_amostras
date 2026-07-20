@@ -26,12 +26,16 @@ interface SampleInvalidateBlockedModalProps {
   /** Ligas ativas que usam esta amostra como origem (bloqueiam a invalidação). */
   activeBlends: ActiveBlendDetail[];
   onClose: () => void;
+  /** Overlay (F2): as linhas de liga trocam o lote aberto no overlay em vez
+   *  de navegar (quem passa ja fecha este modal antes da troca). */
+  onOpenSample?: (sampleId: string) => void;
 }
 
 export function SampleInvalidateBlockedModal({
   open,
   activeBlends,
   onClose,
+  onOpenSample,
 }: SampleInvalidateBlockedModalProps) {
   const focusTrapRef = useFocusTrap(open);
 
@@ -89,7 +93,8 @@ export function SampleInvalidateBlockedModal({
             {activeBlends.map((blend, idx) => (
               <li key={blend.sampleId}>
                 <RelatedSampleRow
-                  href={`/samples/${blend.sampleId}`}
+                  href={`/samples?lote=${blend.sampleId}`}
+                  onOpen={onOpenSample ? () => onOpenSample(blend.sampleId) : undefined}
                   lot={blend.lotNumber ?? blend.sampleId.slice(0, 8)}
                   isBlend
                   harvest={blend.declaredHarvest}

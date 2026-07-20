@@ -2,8 +2,8 @@
 
 // Liga B1.2 + B1.4: card de sample com 2 modos.
 //
-// - 'idle' (default): renderiza <Link href="/samples/:id"> — comportamento
-//   original (navega pra detalhe ao clicar).
+// - 'idle' (default): tap expande o card; "Detalhes" abre o overlay de
+//   detalhe na propria lista (?lote=, F2 do redesign).
 // - 'blend': renderiza <button> que toggla seleção. Card ganha bolinha
 //   à esquerda (estados: vazia / preenchida-verde-check / cinza-opaca
 //   inelegível). Inelegível: card todo acinzentado, tap dispara
@@ -101,7 +101,8 @@ export type SampleCardSelectionMode = 'idle' | 'blend';
 
 export interface SampleCardProps {
   sample: SampleSnapshot;
-  /** Callback executado antes de navegar pra `/samples/:id` (preserva snapshot na sessionStorage). */
+  /** Callback executado no clique em "Detalhes", antes de abrir/navegar
+   *  (preserva snapshot na sessionStorage). */
   onClickCapture?: () => void;
   /** Liga B1.4 — modo selecao. 'idle' default mantem comportamento atual. */
   selectionMode?: SampleCardSelectionMode;
@@ -120,6 +121,9 @@ export interface SampleCardProps {
   onSend?: (sample: SampleSnapshot) => void;
   /** Acao Perda (card expandido): abre o modal de perda na propria lista. */
   onLoss?: (sample: SampleSnapshot) => void;
+  /** F2 (redesign): "Detalhes" abre o OVERLAY na propria lista (?lote=) em vez
+   *  de navegar; o href segue valido como deep-link. */
+  onOpenDetails?: (sampleId: string) => void;
 }
 
 function SampleCardComponent({
@@ -133,6 +137,7 @@ function SampleCardComponent({
   onToggleExpand,
   onSend,
   onLoss,
+  onOpenDetails,
 }: SampleCardProps) {
   const cardStatus = deriveCardStatus(sample);
   const availableSacks = sample.availableSacks;
@@ -377,9 +382,16 @@ function SampleCardComponent({
               Enviar
             </button>
             <Link
-              href={`/samples/${sample.id}`}
+              href={`/samples?lote=${sample.id}`}
               className="spv2-card-action is-detail"
-              onClick={onClickCapture}
+              onClick={(event) => {
+                // Snapshot preservado mesmo com overlay (F4 decide a morte).
+                onClickCapture?.();
+                if (onOpenDetails) {
+                  event.preventDefault();
+                  onOpenDetails(sample.id);
+                }
+              }}
               tabIndex={isExpanded ? 0 : -1}
             >
               Detalhes

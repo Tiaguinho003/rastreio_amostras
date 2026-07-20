@@ -25,6 +25,9 @@ type SampleMovementsPanelProps = {
   // O modal/salvamento vivem na detail page (como os de envio), por callback.
   canEditRegistrationDate: boolean;
   onEditRegistrationDate: () => void;
+  // Overlay (F2): o link "via cascata da liga" troca o lote aberto no overlay
+  // em vez de navegar; o href segue valido como deep-link.
+  onOpenSample?: (sampleId: string) => void;
 };
 
 function formatMovementDate(value: string): string {
@@ -55,6 +58,7 @@ export function SampleMovementsPanel({
   onCancelSend,
   canEditRegistrationDate,
   onEditRegistrationDate,
+  onOpenSample,
 }: SampleMovementsPanelProps) {
   // Timeline unificada de Movimentacoes: registro/chegada (sortKey =
   // sample.createdAt) + venda/perda (sortKey = createdAt) + envio de amostra /
@@ -220,7 +224,17 @@ export function SampleMovementsPanel({
                               <span className="sdv-com-mov-sep" />
                               <span className="sdv-com-mov-cascaded-hint">
                                 Via cascata da liga{' '}
-                                <Link href={`/samples/${cascadedFrom.sampleId}`}>
+                                <Link
+                                  href={`/samples?lote=${cascadedFrom.sampleId}`}
+                                  onClick={
+                                    onOpenSample
+                                      ? (event) => {
+                                          event.preventDefault();
+                                          onOpenSample(cascadedFrom.sampleId);
+                                        }
+                                      : undefined
+                                  }
+                                >
                                   {cascadedFrom.lotNumber ?? cascadedFrom.sampleId.slice(0, 8)}
                                 </Link>
                               </span>

@@ -473,6 +473,15 @@ function mapSampleOwnerClientToSummary(
 interface SampleDetailViewProps {
   session: SessionData;
   sampleId: string;
+  /** 'overlay' = dentro do DetailOverlay da lista (F2b): sem o marcador
+   *  `--sample` (desliga o layout desktop 2-colunas) e a classificacao rende
+   *  a variante mobile mesmo no peek. 'page' = casca transitoria da rota
+   *  antiga (morre na F2c). */
+  variant?: 'page' | 'overlay';
+  /** Fecha o overlay-pai (saida programatica pos-invalidacao/reversao). */
+  onClose?: () => void;
+  /** Troca o lote aberto no overlay (links detalhe→detalhe). */
+  onOpenSample?: (sampleId: string) => void;
   /** Sinaliza ao overlay-pai que ha modal interno aberto (bloqueia ESC/X). */
   dismissGuardRef?: MutableRefObject<boolean>;
 }
@@ -481,7 +490,14 @@ interface SampleDetailViewProps {
 // /samples/[sampleId] (F2 do redesign, RD8). Sem guard nem chrome de pagina:
 // quem monta (a casca da rota, transitoria; o overlay de /samples na F2b)
 // ja garante sessao e papel.
-export function SampleDetailView({ session, sampleId, dismissGuardRef }: SampleDetailViewProps) {
+export function SampleDetailView({
+  session,
+  sampleId,
+  variant = 'page',
+  onClose,
+  onOpenSample,
+  dismissGuardRef,
+}: SampleDetailViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const highlightPrint = searchParams.get('highlight') === 'print';
@@ -536,6 +552,13 @@ export function SampleDetailView({ session, sampleId, dismissGuardRef }: SampleD
     mq.addEventListener('change', update);
     return () => mq.removeEventListener('change', update);
   }, []);
+  // No overlay o peek tem ~620px: o card de classificacao rende a variante
+  // mobile mesmo em viewport desktop (o layout 2-colunas ja morre via CSS,
+  // pela ausencia do marcador --sample).
+  const effectiveDesktop = variant === 'overlay' ? false : isDesktop;
+  // Links detalhe→detalhe: no overlay trocam o lote via callback (replace do
+  // ?lote=); o href aponta pra lista com o param — deep-link equivalente.
+  const openSampleHref = (id: string) => `/samples?lote=${id}`;
   const [printHighlighted, setPrintHighlighted] = useState(false);
   // Envio (extraido p/ SampleSendFlow): edicao/cancelamento de envios EXISTENTES,
   // disparados pela timeline. O envio NOVO migrou p/ o card da lista (/samples).
@@ -1103,13 +1126,18 @@ export function SampleDetailView({ session, sampleId, dismissGuardRef }: SampleD
     }
   }
 
-  // Mostra o efeito de X vermelho (~1.3s) e, se pedido, volta pra /samples.
+  // Mostra o efeito de X vermelho (~1.3s) e, se pedido, sai pra lista —
+  // fechando o overlay (variant overlay) ou navegando pra /samples (pagina).
   // Substitui as mensagens verdes de sucesso de invalidacao/cancelamento.
   function showXEffect(label: string, redirectToList: boolean) {
     setXEffect(label);
     window.setTimeout(() => {
       if (redirectToList) {
-        router.push('/samples');
+        if (onClose) {
+          onClose();
+        } else {
+          router.push('/samples');
+        }
       } else {
         setXEffect(null);
       }
@@ -1793,7 +1821,11 @@ export function SampleDetailView({ session, sampleId, dismissGuardRef }: SampleD
 
   return (
     <>
-      <section className="sdv-page sdv-page--sample">
+      {/* No overlay o marcador --sample sai: e ele que liga o layout desktop
+          2-colunas no globals (o peek de 620px e coluna unica); o fundo branco
+          + sombra dos cards que ele dava no mobile voltam via
+          .lote-details-overlay. */}
+      <section className={variant === 'overlay' ? 'sdv-page' : 'sdv-page sdv-page--sample'}>
         {loadingDetail && !detail ? (
           <div className="spv2-empty">
             <p className="spv2-empty-text">Carregando lote…</p>
@@ -2001,11 +2033,11 @@ export function SampleDetailView({ session, sampleId, dismissGuardRef }: SampleD
                     const clsPhotoNode = classPhotoUrl ? (
                       <div
                         className="sdv-cls-block-thumb"
-                        role={isDesktop ? 'button' : undefined}
-                        tabIndex={isDesktop ? 0 : undefined}
-                        aria-label={isDesktop ? 'Ampliar foto da classificação' : undefined}
+                        role={effectiveDesktop ? 'button' : undefined}
+                        tabIndex={effectiveDesktop ? 0 : undefined}
+                        aria-label={effectiveDesktop ? 'Ampliar foto da classificação' : undefined}
                         onClick={
-                          isDesktop
+                          effectiveDesktop
                             ? (event) => {
                                 event.stopPropagation();
                                 setClassificationImageModalOpen(true);
@@ -2013,7 +2045,7 @@ export function SampleDetailView({ session, sampleId, dismissGuardRef }: SampleD
                             : undefined
                         }
                         onKeyDown={
-                          isDesktop
+                          effectiveDesktop
                             ? (event) => {
                                 if (event.key === 'Enter' || event.key === ' ') {
                                   event.preventDefault();
@@ -2178,7 +2210,7 @@ export function SampleDetailView({ session, sampleId, dismissGuardRef }: SampleD
                           <div className="sdv-cls-header-title">
                             <span className="sdv-card-title">Classificação</span>
                           </div>
-                          {isDesktop ? (
+                          {effectiveDesktop ? (
                             // CAM-D2: desktop NAO classifica por foto — os
                             // botoes Classificar/Reclassificar (camera) sairam;
                             // corrigir uma classificacao existente segue
@@ -2224,7 +2256,7 @@ export function SampleDetailView({ session, sampleId, dismissGuardRef }: SampleD
                             <ClassifySampleButton sampleId={sampleId} disabled={!canClassifyNow} />
                           )}
                         </div>
-                        {isDesktop ? (
+                        {effectiveDesktop ? (
                           clsDesktopNode
                         ) : cd ? (
                           <div
@@ -2278,8 +2310,16 @@ export function SampleDetailView({ session, sampleId, dismissGuardRef }: SampleD
                         {blendFeasibility.blockingOrigins.map((origin) => (
                           <li key={origin.sampleId}>
                             <Link
-                              href={`/samples/${origin.sampleId}`}
+                              href={openSampleHref(origin.sampleId)}
                               className="sdv-infeasible-origin"
+                              onClick={
+                                onOpenSample
+                                  ? (event) => {
+                                      event.preventDefault();
+                                      onOpenSample(origin.sampleId);
+                                    }
+                                  : undefined
+                              }
                             >
                               Lote {origin.lotNumber ?? origin.sampleId.slice(0, 8)}
                             </Link>{' '}
@@ -2315,7 +2355,8 @@ export function SampleDetailView({ session, sampleId, dismissGuardRef }: SampleD
                           return (
                             <li key={component.id}>
                               <RelatedSampleRow
-                                href={`/samples/${origin.id}`}
+                                href={openSampleHref(origin.id)}
+                                onOpen={onOpenSample ? () => onOpenSample(origin.id) : undefined}
                                 lot={origin.internalLotNumber ?? origin.id.slice(0, 8)}
                                 isBlend={origin.isBlend}
                                 harvest={origin.declaredHarvest}
@@ -2345,7 +2386,8 @@ export function SampleDetailView({ session, sampleId, dismissGuardRef }: SampleD
                         {detail.activeBlends.map((blend, idx) => (
                           <li key={blend.sampleId}>
                             <RelatedSampleRow
-                              href={`/samples/${blend.sampleId}`}
+                              href={openSampleHref(blend.sampleId)}
+                              onOpen={onOpenSample ? () => onOpenSample(blend.sampleId) : undefined}
                               lot={blend.lotNumber ?? blend.sampleId.slice(0, 8)}
                               isBlend={true}
                               harvest={blend.declaredHarvest}
@@ -2378,6 +2420,7 @@ export function SampleDetailView({ session, sampleId, dismissGuardRef }: SampleD
                   <SampleMovementsPanel
                     sample={detail.sample}
                     movements={detail.movements ?? []}
+                    onOpenSample={onOpenSample}
                     sendItems={sendHistoryItems}
                     canEditSend={canPhysicalSend}
                     onEditSend={(item) => setEditSendItem(item)}
@@ -2453,6 +2496,16 @@ export function SampleDetailView({ session, sampleId, dismissGuardRef }: SampleD
         open={invalidateBlockedOpen}
         activeBlends={blockedBlends}
         onClose={() => setInvalidateBlockedOpen(false)}
+        onOpenSample={
+          onOpenSample
+            ? (id) => {
+                // Fecha o modal ANTES de trocar o lote: o remount (key nova)
+                // nao pode herdar o bloqueio aberto do lote anterior.
+                setInvalidateBlockedOpen(false);
+                onOpenSample(id);
+              }
+            : undefined
+        }
       />
 
       <BlendHarvestPropagationModal

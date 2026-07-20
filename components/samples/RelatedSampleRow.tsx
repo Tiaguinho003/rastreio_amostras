@@ -21,6 +21,9 @@ import { HarvestDisplay } from './HarvestDisplay';
 
 interface RelatedSampleRowProps {
   href: string;
+  /** Overlay (F2): intercepta o Link e troca o lote aberto no proprio
+   *  overlay em vez de navegar; o href segue valido como deep-link. */
+  onOpen?: () => void;
   lot: string;
   isBlend?: boolean;
   harvest?: string | null;
@@ -38,6 +41,7 @@ function deriveStatusClass(status: SampleStatus | null | undefined): string {
 
 export function RelatedSampleRow({
   href,
+  onOpen,
   lot,
   isBlend = false,
   harvest,
@@ -49,6 +53,14 @@ export function RelatedSampleRow({
   return (
     <Link
       href={href}
+      onClick={
+        onOpen
+          ? (event) => {
+              event.preventDefault();
+              onOpen();
+            }
+          : undefined
+      }
       className={`spv2-card sdv-blend-card ${statusClass}`}
       style={animationDelay ? { animationDelay } : undefined}
     >

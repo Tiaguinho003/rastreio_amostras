@@ -17,12 +17,14 @@ import {
 import { createPortal } from 'react-dom';
 
 import { AppShell } from '../../components/AppShell';
+import { DetailOverlay } from '../../components/DetailOverlay';
 import { NewSampleModal } from '../../components/NewSampleModal';
 import { RecentSendsCard } from '../../components/RecentSendsCard';
 import { ClientLookupField } from '../../components/clients/ClientLookupField';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { ClassificationFilterField } from '../../components/samples/ClassificationFilterField';
 import { SampleCard } from '../../components/samples/SampleCard';
+import { SampleDetailView } from '../../components/samples/SampleDetailView';
 import { SampleCreateRadialFab } from '../../components/samples/SampleCreateRadialFab';
 import { SampleMovementModal } from '../../components/samples/SampleMovementModal';
 import { SampleSendFlow } from '../../components/samples/SampleSendFlow';
@@ -512,6 +514,53 @@ function SamplesPage() {
   // ?displayStatus= e consumido UMA vez na inicializacao (vira estado), entao
   // solta-lo da URL ao trocar de aba nao afeta os filtros ja aplicados.
   const tab = parseSamplesTab(searchParams.get('tab'));
+
+  // F2 do redesign (RD2/RD8): o detalhe do lote e um OVERLAY dirigido pela
+  // URL — `?lote=<id>` aberto, ausente fechado (molde /cadastros?cliente=).
+  // Back fecha porque consome a entry criada no push; deep-link/refresh (sem
+  // push nosso) fecha limpando o param via replace.
+  const loteId = searchParams.get('lote');
+  const openedLoteByPushRef = useRef(false);
+  // Com modal interno aberto no detalhe, ESC/X do overlay nao fecham.
+  const loteDismissGuardRef = useRef(false);
+
+  const openLote = useCallback(
+    (id: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      const alreadyOpen = params.has('lote');
+      // focus/highlight/source sao deep-links DO LOTE (scroll/pulso do
+      // detalhe): residuais do lote anterior nao valem pro proximo.
+      params.delete('focus');
+      params.delete('highlight');
+      params.delete('source');
+      params.set('lote', id);
+      const url = `/samples?${params.toString()}`;
+      if (alreadyOpen) {
+        // Troca de lote com o overlay aberto (peek desktop / links detalhe→
+        // detalhe): replace mantem UMA entry — back segue fechando em 1 passo.
+        router.replace(url, { scroll: false });
+      } else {
+        router.push(url, { scroll: false });
+        openedLoteByPushRef.current = true;
+      }
+    },
+    [router, searchParams]
+  );
+
+  const closeLote = useCallback(() => {
+    if (openedLoteByPushRef.current) {
+      openedLoteByPushRef.current = false;
+      router.back();
+      return;
+    }
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('lote');
+    params.delete('focus');
+    params.delete('highlight');
+    params.delete('source');
+    const qs = params.toString();
+    router.replace(qs ? `/samples?${qs}` : '/samples', { scroll: false });
+  }, [router, searchParams]);
 
   const [initialSnapshot] = useState<SamplesSnapshot | null>(() => {
     const snap = readSamplesSnapshot();
@@ -1225,6 +1274,18 @@ function SamplesPage() {
     enabled: Boolean(session),
     onRevalidate: requestSilentRefetch,
   });
+
+  // Fechou o overlay do lote (X, ESC ou back — todos passam pela URL): refetch
+  // SILENCIOSO da lista, porque acoes no detalhe (envio, perda, invalidacao,
+  // edicao) mudam status/saldo dos cards atras do overlay.
+  const loteWasOpenRef = useRef(Boolean(loteId));
+  useEffect(() => {
+    const isOpen = Boolean(loteId);
+    if (loteWasOpenRef.current && !isOpen) {
+      requestSilentRefetch('foreground');
+    }
+    loteWasOpenRef.current = isOpen;
+  }, [loteId, requestSilentRefetch]);
 
   // Liga B2.1 — quando todas as amostras forem removidas via X dentro do
   // sheet, a selecao zera e o sheet fecha automaticamente. Modo selecao
@@ -2349,6 +2410,7 @@ function SamplesPage() {
                   key={sample.id}
                   sample={sample}
                   onClickCapture={saveSnapshotBeforeLeave}
+                  onOpenDetails={openLote}
                   selectionMode={selectionMode === 'blend' ? 'blend' : 'idle'}
                   isSelected={selectedSamples.has(sample.id)}
                   onToggleSelect={toggleSampleSelection}
@@ -2574,6 +2636,31 @@ function SamplesPage() {
           }}
         />
       ) : null}
+
+      {/* Overlay de detalhe do lote (F2): sheet de tela cheia no mobile,
+          painel lateral peek no desktop com a lista viva atras. key={loteId}
+          reseta o estado ao trocar de lote com o overlay aberto (peek /
+          links detalhe→detalhe). */}
+      <DetailOverlay
+        open={Boolean(loteId)}
+        onClose={closeLote}
+        title="Lote"
+        ariaLabel="Detalhe do lote"
+        className="lote-details-overlay"
+        dismissGuardRef={loteDismissGuardRef}
+      >
+        {loteId ? (
+          <SampleDetailView
+            key={loteId}
+            session={session}
+            sampleId={loteId}
+            variant="overlay"
+            onClose={closeLote}
+            onOpenSample={openLote}
+            dismissGuardRef={loteDismissGuardRef}
+          />
+        ) : null}
+      </DetailOverlay>
     </AppShell>
   );
 }
