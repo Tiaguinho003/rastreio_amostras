@@ -1553,6 +1553,24 @@ export function createBackendApiV1({
         };
       }),
 
+    // RD14: KPI row de /cadastros (Total/Ativos/Incompletos/Novos no mes).
+    // Auth-only como os demais endpoints de cliente; PROSPECTOR cai no 403 da
+    // allowlist central (metodo fora de PROSPECTOR_ALLOWED_API_METHODS).
+    getClientStats: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientService) {
+          throw new HttpError(501, 'Client service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const result = await clientService.getClientStats(actor);
+
+        return {
+          status: 200,
+          body: result,
+        };
+      }),
+
     lookupClients: (input) =>
       executeApiForInput(input, async () => {
         if (!clientService) {

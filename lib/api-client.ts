@@ -39,6 +39,7 @@ import type {
   ClientUnitMutationResponse,
   ClientResponse,
   ClientsListResponse,
+  ClientStatsResponse,
   CommandResponse,
   CreateSampleResponse,
   ExtractAndPrepareResponse,
@@ -374,6 +375,17 @@ export function listClients(
     method: 'GET',
     session,
     signal: options.signal,
+  });
+}
+
+// RD14: KPI row de /cadastros (Total/Ativos/Incompletos/Novos no mes).
+export function getClientStats(session: SessionData, options: { signal?: AbortSignal } = {}) {
+  return request<ClientStatsResponse>('/clients/stats', {
+    method: 'GET',
+    session,
+    signal: options.signal,
+    // Respeita o Cache-Control private/max-age=30 do endpoint.
+    cachePolicy: 'default',
   });
 }
 

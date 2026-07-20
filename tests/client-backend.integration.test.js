@@ -1852,6 +1852,51 @@ if (!databaseUrl || !databaseReachable) {
     });
     assert.equal(client.status, 'ACTIVE');
   });
+
+  test('RD14: getClientStats — total/ativos/incompletos/novos-no-mes globais', async () => {
+    // 3 PJs: COMPLETO ativo (todos os campos recomendados), INCOMPLETO ativo
+    // (default do helper: sem endereco/IE) e um INCOMPLETO que sera inativado.
+    const completo = await createPjClient({
+      cnpj: nextValidCnpj(),
+      registrationNumber: '111.222.333.444',
+      addressLine: 'Rua A, 100',
+      district: 'Centro',
+      city: 'Varginha',
+      state: 'MG',
+      postalCode: '37000-000',
+    });
+    assert.equal(completo.status, 201);
+    const incompleto = await createPjClient({ cnpj: nextValidCnpj() });
+    assert.equal(incompleto.status, 201);
+    const inativado = await createPjClient({ cnpj: nextValidCnpj() });
+    assert.equal(inativado.status, 201);
+    await prisma.client.update({
+      where: { id: inativado.body.client.id },
+      data: { status: 'INACTIVE' },
+    });
+
+    const stats = await api.getClientStats(buildInput());
+    assert.equal(stats.status, 200);
+    assert.equal(stats.body.total, 3);
+    assert.equal(stats.body.active, 2);
+    // Incompletos conta SO ativos (o inativado, tambem incompleto, fica fora).
+    assert.equal(stats.body.incomplete, 1);
+    assert.equal(stats.body.newThisMonth, 3);
+
+    // Cliente "antigo" (40 dias atras) sai do "novos este mes".
+    await prisma.client.update({
+      where: { id: completo.body.client.id },
+      data: { createdAt: new Date(Date.now() - 40 * 24 * 3600_000) },
+    });
+    const stats2 = await api.getClientStats(buildInput());
+    assert.equal(stats2.body.newThisMonth, 2);
+    assert.equal(stats2.body.total, 3);
+  });
+
+  test('RD14: getClientStats exige autenticacao', async () => {
+    const result = await api.getClientStats({ headers: {}, params: {}, query: {}, body: {} });
+    assert.equal(result.status, 401);
+  });
 }
 
 async function canReachDatabase(databaseUrlValue) {

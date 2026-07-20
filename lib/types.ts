@@ -242,6 +242,16 @@ export interface ClientsListResponse {
   };
 }
 
+// RD14: KPI row de /cadastros. Contagens GLOBAIS (sem filtros da lista);
+// "incomplete" = so clientes ATIVOS incompletos; "newThisMonth" = criados no
+// mes corrente (BRT).
+export interface ClientStatsResponse {
+  total: number;
+  active: number;
+  incomplete: number;
+  newThisMonth: number;
+}
+
 export interface ClientLookupResponse {
   items: ClientSummary[];
   // L5: smart resolve por 14 digitos pode bater em Client (PJ) ou ClientUnit

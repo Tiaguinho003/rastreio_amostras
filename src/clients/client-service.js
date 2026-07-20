@@ -293,6 +293,18 @@ function buildCompletenessWhere(mode) {
   return mode === 'complete' ? { NOT: incomplete } : incomplete;
 }
 
+// RD14 (KPI "Novos este mes" de /cadastros): inicio do mes corrente em BRT
+// (offset fixo -03, sem DST desde 2019 — mesmo racional das janelas de
+// visit-report-service), devolvido em UTC pro WHERE de createdAt.
+const SAO_PAULO_UTC_OFFSET_HOURS = 3;
+
+function computeCurrentMonthStartUtc(now = new Date()) {
+  const brtNow = new Date(now.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
+  return new Date(
+    Date.UTC(brtNow.getUTCFullYear(), brtNow.getUTCMonth(), 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0)
+  );
+}
+
 function parseExactCodeSearch(search) {
   if (typeof search !== 'string') {
     return null;
@@ -729,6 +741,26 @@ export class ClientService {
         code: 'CLIENT_UNIT_REGISTRATION_ALREADY_EXISTS',
       });
     }
+  }
+
+  // RD14: KPI row de /cadastros — 4 contagens GLOBAIS (independem dos filtros
+  // da lista). "Incompletos" conta so ATIVOS (pendencia acionavel — espelha o
+  // badge da lista, que some em cliente inativo); "novos este mes" =
+  // createdAt >= dia 1 do mes corrente 00:00 BRT.
+  async getClientStats(actorContext) {
+    assertAuthenticatedActor(actorContext, 'get client stats');
+
+    const monthStartUtc = computeCurrentMonthStartUtc();
+    const [total, active, incomplete, newThisMonth] = await this.prisma.$transaction([
+      this.prisma.client.count(),
+      this.prisma.client.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.client.count({
+        where: { status: 'ACTIVE', AND: [buildCompletenessWhere('incomplete')] },
+      }),
+      this.prisma.client.count({ where: { createdAt: { gte: monthStartUtc } } }),
+    ]);
+
+    return { total, active, incomplete, newThisMonth };
   }
 
   async listClients(input, actorContext) {
