@@ -9,8 +9,10 @@ import { useFocusTrap } from '../../lib/use-focus-trap';
 // botoes "Laudo" e "Enviar" num so. Abre PRIMEIRO e roteia:
 //   - "Descricao" -> fluxo de laudo (export PDF) — exige CLASSIFIED + foto.
 //   - "Fisico"    -> fluxo de envio fisico (REGISTRATION_CONFIRMED|CLASSIFIED).
-// Espelha o visual do ClassificationTypeModal (.is-action + .type-modal-grid /
+// Usa as classes .type-modal-* (.is-action + .type-modal-grid.is-duo /
 // .type-modal-choice), reaproveitando .is-disabled. So o rotulo, sem dica.
+// (O ClassificationTypeModal, dono original dessas classes, foi removido na
+// rodada 2 — o tipo virou um campo da etapa dentro do sheet da camera.)
 // Sem seta de voltar (e o primeiro modal): o X (ou tap-fora) fecha. As setas de
 // voltar ficam nos modais de destino (export/fisico), que reabrem este.
 
