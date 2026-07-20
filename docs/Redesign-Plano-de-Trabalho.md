@@ -1,6 +1,6 @@
 # Redesign — Plano de Trabalho
 
-> **Status**: F1 e F3 **✅ validadas** (2026-07-20, Flavio no dev local); **F2 (lote) implementada 2026-07-20** — aguarda validação 🖥️📱 (junto com os gates RD10 pendentes dela)
+> **Status**: F1 e F3 **✅ validadas** (2026-07-20, Flavio no dev local); **F2 (lote) implementada 2026-07-20** — aguarda validação 🖥️📱 (junto com os gates RD10 pendentes dela). **FV redefinida (RD11, §2.5)**: ciclo página-a-página (contêiner + design juntos, mockups do Flavio) — **aguardando o mockup de `/cadastros` (piloto)**
 > **Última atualização**: 2026-07-20
 > **Prefixo de decisões**: RD
 > **Par futuro**: quando o padrão consolidar, o funcionamento real será absorvido pelos docs canônicos e pelas skills (`modals`, `design-system`, `responsive`). A frente visual parte de `docs/Design-Language.md` (canônico dos tokens).
@@ -27,6 +27,7 @@ Todas travadas em **2026-07-20** (conversa de kickoff, com levantamento de códi
 - **RD8 — Lote: quebrar antes de mover.** `app/samples/[sampleId]/page.tsx` (3.904 linhas) é decomposto em seções por **refactor mecânico sem mudança visual** (commits próprios), e só então transplantado. Sem isso a F2 vira big-bang.
 - **RD9 — Contrato: realinhamento, não conversão.** O detalhe já é modal (`SaleContractDetailsModal` dentro do `ContratosPanel`, deep-link `?details`). Na F3 ele adota o padrão do contêiner (peek no desktop / sheet no mobile). Conecta com a pendência **P27** (design das páginas de Contrato).
 - **RD10 — Kickoff gated.** F0 (este doc) feita já; **código só depois de validar no device as frentes pendentes que tocam as mesmas telas** (ver §5). Evita misturar regressões novas com validações em aberto.
+- **RD11 — Regras de contêiner por TIPO de modal (2026-07-20, após inventário completo de ~70 superfícies).** Travadas pelo Flavio: **detalhe** de recurso → `DetailOverlay` peek; form de **criação/edição** (incl. view+edit e Documentos) e **informes** → `.side-sheet` (painel lateral bloqueante no desktop); **filtros** → painel lateral; **operações** (venda/perda, envio/laudo, etiquetas, embarque, ágio/washout/faturar/pagar) → **continuam centrais**; **confirmação/descarte/aviso/sucesso** (incl. inativar com motivo) → **continuam centrais**; visualização/pickers/menus/câmera → intactos; form lateral aberto de dentro de um peek → desliza POR CIMA (push, `stacked`); **criação de contrato** (Etapa2 + LotPicker) → FORA (specs futuras). A migração acontece **página a página, junto com o design** (ver §2.5) — nenhuma conversão mecânica antecipada. Inventário por página com o alvo de cada superfície: skill `modals` §11-A.
 
 ## 2. Fases
 
@@ -37,7 +38,7 @@ Todas travadas em **2026-07-20** (conversa de kickoff, com levantamento de códi
 | **F2** | **Lote** — F2a: quebra do page.tsx em seções (refactor mecânico); F2b: transplante para o overlay; F2c: cadeias (câmera, impressão, classificação, envio, liga) sobre o overlay + redirects                                                                | 🚧 implementada 2026-07-20 (5 commits `81e80fe`..; **🖥️📱 validar**, ver §2.3)               |
 | **F3** | **Contrato** — realinhar `SaleContractDetailsModal` ao padrão (+ P27)                                                                                                                                                                                      | ✅ validada 2026-07-20 (Flavio, dev local; foi **antecipada** antes da F2). P27 segue aberta |
 | **F4** | Limpeza: rotas antigas só-redirect (ou remoção), morte do snapshot de sessionStorage do `SampleCard`, sync final de skills/docs                                                                                                                            | ☐                                                                                            |
-| **FV** | Frente visual: mockups → tokens (`Design-Language.md`) → reskin geral                                                                                                                                                                                      | ☐ aguarda mockups; pode iniciar após F1 validada                                             |
+| **FV** | Frente visual **redefinida (RD11, §2.5)**: ciclo **página-a-página** — contêiner dos modais + design/layout juntos, a partir de mockups do Flavio; piloto `/cadastros`                                                                                     | ☐ aguardando mockup de `/cadastros`                                                          |
 
 Cada fase abre em **plan mode** e só fecha com **validação no device** (🖥️ + 📱), como nos demais ciclos.
 
@@ -114,6 +115,22 @@ Na sequência da F2, os formulários de **criação** também viram painel later
 
 **Validar junto com a F2 (🖥️)**: FAB → painel lateral desliza da direita com backdrop escuro; lista atrás NÃO clicável; footer (Cancelar/Continuar·Cadastrar) ancorado embaixo; "Novo proprietário" desliza SOBRE o painel do Novo lote e fechar revela o form de baixo intacto; "Descartar?" cobre o painel (cliente) / centraliza sobre tudo (lote); 📱 mobile sem mudança visual.
 
+### 2.5 FV redefinida — ciclo página-a-página (RD11, 2026-07-20)
+
+A FV deixou de ser "reskin geral de uma vez" e virou um **ciclo por página**: cada página muda **junto** o contêiner dos modais (regras RD11) **e** o design/layout (mockup do Flavio, pixel-perfect) — tocada **uma vez só**, sem retrabalho. Nenhuma conversão mecânica antecipada: superfície fora da vez da sua página **não muda**, mesmo quando a conversão seria barata.
+
+**Processo por página** (repete o rito dos demais ciclos):
+
+1. Flavio manda o **mockup** da página. No piloto, o mockup **calibra o kit visual dos contêineres** (side-sheet, central de confirm, painel de filtros) que as demais páginas replicam.
+2. **Plan mode** da página: modais da página × regras RD11 × mockup.
+3. Implementação em **commits atômicos** (gates: typecheck, lint, format, unit, contracts; build só com dev parado).
+4. **Validação no device** (🖥️📱).
+5. **Consolidação**: skills (`modals`, `design-system`, `responsive`) + este doc + memória.
+
+**Ordem proposta** (ajustável a cada passo): `/cadastros` (piloto) → `/samples` → `/relatorios` → `/users` + `/profile` → `/contratos` + `/embarques` (sem a criação de contrato — specs futuras) → globais (senha/menu/login). Câmera fica fora (já conforme às regras).
+
+**Inventário de referência**: skill `modals` §11-A (tabela por página com o contêiner-alvo e o status de cada superfície).
+
 ## 3. O que NÃO muda
 
 - **Backend**: nenhuma rota de API muda. RD2 é só front + redirects de rota.
@@ -147,5 +164,6 @@ Regra do ciclo: **skill segue consolidação; ledger segue decisão.** Durante e
 
 - **Fechou F1 (validada)** — ✅ feito em 2026-07-20 (`8fe8580`): `design-system` §8 ganhou a seção **DetailOverlay** (molde de URL, peek, gotcha de z-index); `modals` aponta pra ela na árvore de decisão (ação = BottomSheet; aviso = central; **detalhe = DetailOverlay**), atualizou a tabela do cliente (4 modais portalados) e aposentou a exceção inline do §9; `responsive` sem `/clients/[id]`.
 - **Fechou F4**: varredura geral (`skill-maintenance`) + este doc aponta para os canônicos.
-- **FV consolidada**: reescrita maior de `design-system` (+ revisão de `feedback-messages` e `button-press-effect`), com `Design-Language.md` como fonte dos tokens.
+- **RD11 (fase 0 do ciclo página-a-página)** — ✅ feito em 2026-07-20: `design-system` §8 ganhou a seção **Side-sheet** (geometria, diferenças pro DetailOverlay, quando usar); `modals` ganhou as regras de contêiner no preâmbulo + o inventário §11-A (por página × alvo × status).
+- **FV consolida POR PÁGINA** (§2.5): ao fechar cada página do ciclo (validada no device), atualizar `modals` (§11-A: 🔜 → ✅), `design-system` e `responsive` no que a página mudou. A reescrita maior de `design-system` (+ revisão de `feedback-messages` e `button-press-effect`, com `Design-Language.md` como fonte dos tokens) acontece quando o kit visual estabilizar — a partir do piloto `/cadastros`.
 - `skill-maintenance` roda ao fim de **cada** fase, como sempre.
