@@ -4,8 +4,8 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { BottomSheet } from '../BottomSheet';
+import { ClassificationMetaStepBody, type MetaOpenField } from './ClassificationMetaStepBody';
 import { type LookupKind, SampleLookupResultModal } from '../SampleLookupResultModal';
-import { ClassificationClassifierModal } from '../samples/ClassificationClassifierModal';
 import { ClassificationDataMismatchModal } from '../samples/ClassificationDataMismatchModal';
 import { ClassificationDiscardConfirmModal } from '../samples/ClassificationDiscardConfirmModal';
 import { ClassificationDetectFailedModal } from '../samples/ClassificationDetectFailedModal';
@@ -20,7 +20,6 @@ import {
 } from '../samples/ClassificationReclassifyModal';
 import { ClassificationReviewSheetBody } from '../samples/ClassificationReviewSheetBody';
 import { ClassificationSuccessModal } from '../samples/ClassificationSuccessModal';
-import { ClassificationTypeModal } from '../samples/ClassificationTypeModal';
 import {
   ApiError,
   type JsonValue,
@@ -81,8 +80,10 @@ export interface CameraSheetProps {
 type ClassificationFlowState =
   | 'idle'
   | 'preview'
-  | 'selecting-type'
-  | 'selecting-classifier'
+  // Rodada 2 (D2): etapa unica de tipo + classificadores, corpo do proprio
+  // sheet. Substituiu os estados 'selecting-type'/'selecting-classifier', que
+  // eram dois modais centrais empilhados sobre o sheet recolhido.
+  | 'classification-meta'
   | 'detecting'
   | 'detected'
   | 'detect-failed'
@@ -100,7 +101,7 @@ type ClassificationFlowState =
   | 'overwrite-confirm'
   | 'not-found'
   // Amostra com status que nao permite classificacao. Validado no "Avancar"
-  // do review (entre confirming e selecting-type).
+  // do review (entre confirming e classification-meta).
   | 'status-invalid'
   | 'lot-mismatch'
   | 'data-mismatch'
@@ -182,6 +183,12 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
   // FIN3: se o backend disparou a impressao automatica da etiqueta nesta
   // classificacao (best-effort) — o modal de sucesso so afirma quando sim.
   const [printRequested, setPrintRequested] = useState(false);
+  // Etapa "Tipo e classificadores" (D2): qual campo esta com a lista aberta e
+  // se o tipo (obrigatorio) ja foi cobrado. O `openField` vive aqui porque o
+  // dismiss do sheet (ESC / voltar do Android) precisa fechar a lista em vez
+  // de perguntar sobre descartar a classificacao.
+  const [metaOpenField, setMetaOpenField] = useState<MetaOpenField>(null);
+  const [metaShowTypeError, setMetaShowTypeError] = useState(false);
 
   // Context sample (Flow B)
   const [contextSampleLot, setContextSampleLot] = useState<string | null>(null);
@@ -289,6 +296,14 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
   // a transicao processing → review continua (sem flash de close+open).
   const isReviewingPhoto = flowState === 'confirming' && (!!extractionResult || manualMode);
   const REVIEW_FORM_ID = 'classification-review-form';
+
+  // Etapa de tipo + classificadores (D2) e o SAVE — os dois moram no mesmo
+  // sheet. O 'submitting' entra aqui porque antes ele nao tinha superficie
+  // nenhuma: o modal de classificadores desmontava e o sheet ficava fechado,
+  // deixando o operador olhando a pagina de tras por segundos (FIN1).
+  const isMetaStep = flowState === 'classification-meta' && (!!extractionResult || manualMode);
+  const isSubmitting = flowState === 'submitting';
+  const canConfirmMeta = !!classificationType && selectedClassifiers.length > 0;
 
   // --- Lifecycle ---
 
@@ -688,6 +703,9 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
     }
     setManualConfirmSource(null);
     setFlowError(null);
+    // FIN7: mesmo prefetch do caminho com IA — no modo manual a etapa de
+    // classificadores tambem vem logo depois da revisao.
+    void loadAvailableUsersOnce();
     setFlowState('confirming');
   }
 
@@ -736,6 +754,36 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
     setFlowState('preview');
   }
 
+  // FIN7 (rodada 2): o "voce" e semeado a partir da SESSAO, nao da resposta do
+  // lookup. Antes a auto-selecao morava dentro do fetch — uma falha de rede
+  // deixava o operador sem nenhum classificador e travava o save por um dado
+  // que o cliente ja tinha em maos.
+  function seedSelfAsClassifier() {
+    if (!session) return;
+    setSelectedClassifiers((prev) =>
+      prev.length > 0
+        ? prev
+        : [
+            {
+              id: session.user.id,
+              fullName: session.user.fullName ?? session.user.username,
+              username: session.user.username,
+            },
+          ]
+    );
+  }
+
+  // Entrada na etapa de tipo + classificadores (D2). A lista de usuarios ja
+  // vem pre-carregada desde o review (prefetch), entao o campo abre pronto.
+  function enterMetaStep() {
+    setFlowError(null);
+    setMetaOpenField(null);
+    setMetaShowTypeError(false);
+    seedSelfAsClassifier();
+    void loadAvailableUsersOnce();
+    setFlowState('classification-meta');
+  }
+
   async function loadAvailableUsersOnce() {
     if (!session) return;
     if (availableUsers.length > 0) return;
@@ -747,18 +795,6 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
       });
       if (!mountedRef.current) return;
       setAvailableUsers(response.items);
-      // O usuario atual e pre-selecionado (auto), mas pode ser removido.
-      setSelectedClassifiers((prev) =>
-        prev.length > 0
-          ? prev
-          : [
-              {
-                id: session.user.id,
-                fullName: session.user.fullName ?? session.user.username,
-                username: session.user.username,
-              },
-            ]
-      );
     } catch (error) {
       if (!mountedRef.current) return;
       setUserPickerError(
@@ -777,15 +813,6 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
       }
       return [...prev, { id: user.id, fullName: user.fullName, username: user.username }];
     });
-  }
-
-  // Q.cls.2.8: tipo selecionado DEPOIS da extracao. Continuar do modal de
-  // classificadores dispara o save direto (a IA ja rodou, o tipo e o
-  // classifier ja estao escolhidos). User atual sempre implicito;
-  // co-classificadores opcionais.
-  function handleClassifierContinue() {
-    if (!classificationType) return;
-    void handleConfirmClassification();
   }
 
   // Q.cls.2.8: handleSendPhoto roda assim que o operador clica "Enviar"
@@ -872,6 +899,10 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
     setExtractionResult(result);
     const extracted = mapExtractionToForm(result.extractedFields);
     setClassificationForm((prev) => ({ ...prev, ...extracted }));
+    // FIN7: prefetch da lista de classificadores durante a revisao (o operador
+    // passa ~30s nela) — a etapa seguinte abre com o campo ja pronto em vez de
+    // esperar a rede no primeiro toque.
+    void loadAvailableUsersOnce();
 
     const lote = result.identification.lote ?? '';
     const sacas = result.identification.sacas ?? '';
@@ -929,7 +960,11 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
     if (contextSampleLot) {
       setEditableLot(contextSampleLot);
     }
-    setFlowState('confirming');
+    // FIN8: o mismatch de lote e alcancavel por dois caminhos — a deteccao
+    // precoce (logo apos a extracao, volta pro review) e o Confirmar em modo
+    // manual (volta pra etapa de tipo/classificadores, de onde o operador
+    // veio). O tipo ja escolhido distingue os dois.
+    setFlowState(classificationType ? 'classification-meta' : 'confirming');
   }
 
   function updateFormField(key: keyof ClassificationFormState, value: string) {
@@ -983,7 +1018,7 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
 
     if (!photoToken) {
       setFlowError('Foto invalida ou expirada. Tire outra foto.');
-      setFlowState('confirming');
+      setFlowState('classification-meta');
       return;
     }
 
@@ -1018,8 +1053,11 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
       setFlowState('success');
     } catch (error) {
       if (!mountedRef.current) return;
+      // FIN5: o erro volta pra PROPRIA etapa (que agora tem banner de erro),
+      // em vez de jogar o operador no topo da ficha de 26 campos com o tipo e
+      // os classificadores fora de vista.
       setFlowError(readErrorMessage(error, 'Falha ao salvar classificacao.'));
-      setFlowState('confirming');
+      setFlowState('classification-meta');
     }
   }
 
@@ -1061,7 +1099,7 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
         setFlowState('status-invalid');
         return;
       }
-      setFlowState('selecting-type');
+      enterMetaStep();
       return;
     }
 
@@ -1088,7 +1126,7 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
         setFlowState('status-invalid');
         return;
       }
-      setFlowState('selecting-type');
+      enterMetaStep();
     } catch (error) {
       if (!mountedRef.current) return;
       setFlowError(readErrorMessage(error, 'Falha ao buscar amostra.'));
@@ -1274,7 +1312,11 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
     open &&
     !resultModalOpen &&
     (isScanner ||
-      ((flowState === 'preview' || isProcessingPhoto || isReviewingPhoto) &&
+      ((flowState === 'preview' ||
+        isProcessingPhoto ||
+        isReviewingPhoto ||
+        isMetaStep ||
+        isSubmitting) &&
         Boolean(capturedPhotoUrl)));
 
   function handleSheetDismissed() {
@@ -1282,9 +1324,29 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
       onClose();
       return;
     }
-    // preview/review: descarte ja confirmado pelo onDismissAttempt —
+    // preview/review/etapa: descarte ja confirmado pelo onDismissAttempt —
     // volta pro scanner sem fechar o sheet (flowState vira 'idle').
     resetClassificationFlow();
+  }
+
+  // Dismiss por estado (CAM-D5 + rodada 2). Sem um branch aqui o estado cai no
+  // `false` default e, como este sheet nao tem X nem drag, o operador fica
+  // preso: backdrop/ESC/voltar param de responder.
+  function handleSheetDismissAttempt(): boolean | Promise<boolean> {
+    // Lista aberta na etapa: o ESC/voltar fecha SO a lista. O dropdown e o
+    // sheet escutam ESC no mesmo document — sem isto, um ESC fecharia a lista
+    // e abriria "Descartar classificacao?" de uma vez.
+    if (isMetaStep && metaOpenField !== null) {
+      setMetaOpenField(null);
+      return false;
+    }
+    if (isScanner || flowState === 'preview') return true;
+    // Chamadas em voo (detect/extract/resolve) e o save nao podem ser
+    // interrompidos: abandonar o 'submitting' deixaria a promise em voo
+    // abrindo o sucesso sobre um fluxo ja resetado.
+    if (isProcessingPhoto || isSubmitting) return false;
+    if (isReviewingPhoto || isMetaStep) return askDiscardReview();
+    return false;
   }
 
   const viewfinder = (
@@ -1485,7 +1547,15 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
         divergences={mismatchDivergences}
         choices={mismatchChoices}
         onChoose={(field, choice) => setMismatchChoices((prev) => ({ ...prev, [field]: choice }))}
-        onCancel={resetClassificationFlow}
+        // FIN4: cancelar aqui jogava a ficha inteira fora SEM perguntar,
+        // contra a CAM-D5 — e a essa altura o operador ja preencheu revisao,
+        // tipo e classificadores.
+        onCancel={() => {
+          void askDiscardReview().then((discard) => {
+            if (discard) resetClassificationFlow();
+            else setFlowState('classification-meta');
+          });
+        }}
         onApply={() => void handleApplyMismatchResolution()}
         saving={false}
       />
@@ -1506,7 +1576,9 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
           setReclassifyReasonText(text);
           if (text.trim().length > 0) setReclassifyShowErrors(false);
         }}
-        onBack={() => setFlowState('confirming')}
+        // FIN8: "Voltar" retorna a etapa ANTERIOR (tipo/classificadores), nao
+        // ao topo da ficha — o operador acabou de sair de la.
+        onBack={() => setFlowState('classification-meta')}
         onCancel={() => {
           if (hasContext) onClose();
           else resetClassificationFlow();
@@ -1530,21 +1602,6 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
           dispara o modal de tipo (Q.cls.2.8); save final apos o
           classifier-modal. Em modo manual (3b), lote/sacas/safra ficam
           editaveis pre-preenchidos com valores do sample em context. */}
-
-      {/* Q.cls.2.8: Modal de selecao de tipo (entre revisao e classifiers).
-          Click num tipo seta classificationType e avanca pro classifier
-          modal. Voltar (seta no header) volta pro modal de revisao. */}
-      <ClassificationTypeModal
-        open={flowState === 'selecting-type' && (!!extractionResult || manualMode)}
-        selectedType={classificationType}
-        onBack={() => setFlowState('confirming')}
-        onSelect={(type) => {
-          setClassificationType(type);
-          setUserPickerError(null);
-          void loadAvailableUsersOnce();
-          setFlowState('selecting-classifier');
-        }}
-      />
 
       {/* Q.cls.2 sub-caminho 3a: lote ilegivel apos extracao OK.
           F3.10 expandida: tambem oferece "Continuar manual" preservando
@@ -1621,29 +1678,6 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
         onConfirm={startManualMode}
       />
 
-      {/* Q.cls.2.9: Modal de classificadores. Continuar dispara o save
-          direto — a extracao+revisao+tipo ja aconteceram. Voltar volta
-          pro modal de tipo. */}
-      <ClassificationClassifierModal
-        open={flowState === 'selecting-classifier' && (!!extractionResult || manualMode)}
-        currentUserId={session.user.id}
-        selectedClassifiers={selectedClassifiers}
-        availableUsers={availableUsers}
-        loadingUsers={loadingUsers}
-        userPickerError={userPickerError}
-        onToggleUser={toggleClassifier}
-        onRemoveClassifier={(id) =>
-          setSelectedClassifiers((prev) => prev.filter((c) => c.id !== id))
-        }
-        onRetryLoad={() => {
-          setAvailableUsers([]);
-          void loadAvailableUsersOnce();
-        }}
-        onBack={() => setFlowState('selecting-type')}
-        onContinue={handleClassifierContinue}
-        saving={flowState === 'submitting'}
-      />
-
       {/* CAM-D5: confirmação de descarte do review — empilha SOBRE o sheet
           (portal + is-stacked). Acionado por Cancelar/ESC/voltar do Android. */}
       <ClassificationDiscardConfirmModal
@@ -1653,24 +1687,20 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
       />
 
       {/* Bottom sheet UNICO do fluxo (CAM-P3): scanner → preview →
-          processing → review no mesmo sheet, trocando corpo/titulo/footer
-          por estado (molde NewSampleModal). Sem X, sem drag; dismiss por
-          estado via onDismissAttempt (CAM-D5). */}
+          processing → review → tipo/classificadores → save no mesmo sheet,
+          trocando corpo/titulo/footer por estado (molde NewSampleModal). Sem
+          X, sem drag; dismiss por estado via onDismissAttempt (CAM-D5).
+          ⚠️ Toda cadeia abaixo termina no ramo do PREVIEW da foto — um estado
+          novo esquecido em qualquer uma cai silenciosamente em "Conferir foto"
+          (cujo "Enviar" redispara detect+extract num fluxo ja consumido). */}
       <BottomSheet
         open={sheetOpen}
         onClose={handleSheetDismissed}
-        onDismissAttempt={() => {
-          // CAM-D5: dismiss por estado — scanner fecha o sheet, preview
-          // descarta direto (só a foto), processamento bloqueia (chamadas
-          // em voo), review pergunta antes de jogar fora extração+edições.
-          if (isScanner || flowState === 'preview') return Promise.resolve(true);
-          if (isReviewingPhoto) return askDiscardReview();
-          return Promise.resolve(false);
-        }}
+        onDismissAttempt={handleSheetDismissAttempt}
         dragToDismiss={false}
         className={`camera-preview-sheet${isScanner ? ' is-scanner' : ''}${
           isProcessingPhoto ? ' is-processing' : ''
-        }${isReviewingPhoto ? ' is-review' : ''}`}
+        }${isReviewingPhoto ? ' is-review' : ''}${isMetaStep || isSubmitting ? ' is-meta' : ''}`}
         title={
           isScanner
             ? 'Câmera'
@@ -1678,7 +1708,9 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
               ? 'Processando'
               : isReviewingPhoto
                 ? 'Revisar classificação'
-                : 'Conferir foto'
+                : isMetaStep || isSubmitting
+                  ? 'Tipo e classificadores'
+                  : 'Conferir foto'
         }
         ariaLabel={
           isScanner
@@ -1687,10 +1719,44 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
               ? 'Processando foto'
               : isReviewingPhoto
                 ? 'Revisar dados extraídos'
-                : 'Conferir foto capturada'
+                : isMetaStep || isSubmitting
+                  ? 'Tipo do grão e classificadores'
+                  : 'Conferir foto capturada'
         }
         footer={
-          isScanner || isProcessingPhoto ? null : isReviewingPhoto ? (
+          isScanner || isProcessingPhoto ? null : isMetaStep || isSubmitting ? (
+            <div className="camera-preview-sheet-actions">
+              <button
+                type="button"
+                className="camera-preview-sheet-action-secondary"
+                disabled={isSubmitting}
+                onClick={() => {
+                  setMetaOpenField(null);
+                  setFlowError(null);
+                  setFlowState('confirming');
+                }}
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                className="camera-preview-sheet-action-primary"
+                disabled={isSubmitting}
+                onClick={() => {
+                  setMetaOpenField(null);
+                  // Tipo continua OBRIGATORIO (antes era impossivel avancar sem
+                  // escolher um; com dropdown o botao fica alcancavel vazio).
+                  if (!classificationType) {
+                    setMetaShowTypeError(true);
+                    return;
+                  }
+                  void handleConfirmClassification();
+                }}
+              >
+                {isSubmitting ? 'Salvando...' : 'Confirmar'}
+              </button>
+            </div>
+          ) : isReviewingPhoto ? (
             <div className="camera-preview-sheet-actions">
               <button
                 type="button"
@@ -1752,6 +1818,35 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
               <div className="camera-preview-sheet-spinner" aria-hidden="true" />
             )}
             <span className="camera-preview-sheet-processing-label">{processingMessage}</span>
+          </div>
+        ) : isMetaStep || isSubmitting ? (
+          <div className="new-sample-step-content">
+            <ClassificationMetaStepBody
+              selectedType={classificationType}
+              onSelectType={(type) => {
+                setClassificationType(type);
+                setMetaShowTypeError(false);
+              }}
+              currentUserId={session.user.id}
+              availableUsers={availableUsers}
+              selectedClassifiers={selectedClassifiers}
+              onToggleUser={toggleClassifier}
+              onRemoveClassifier={(id) =>
+                setSelectedClassifiers((prev) => prev.filter((c) => c.id !== id))
+              }
+              loadingUsers={loadingUsers}
+              userPickerError={userPickerError}
+              onRetryLoad={() => {
+                setAvailableUsers([]);
+                setUserPickerError(null);
+                void loadAvailableUsersOnce();
+              }}
+              errorMessage={flowError}
+              showTypeError={metaShowTypeError}
+              saving={isSubmitting}
+              openField={metaOpenField}
+              onOpenFieldChange={setMetaOpenField}
+            />
           </div>
         ) : isReviewingPhoto ? (
           <ClassificationReviewSheetBody

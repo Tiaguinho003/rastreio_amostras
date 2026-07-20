@@ -20487,6 +20487,36 @@ select.samples-filter-field-input {
   }
 }
 
+/* ── Rodada 2 (F7/F8): etapa "Tipo e classificadores" do sheet da camera ──
+   Dois campos empilhados. A casca/dropdown reusa `.chip-select-*` e a fila de
+   chips reusa `.samples-filter-chips-row` + `.samples-filter-token*` (nowrap +
+   overflow-x + scrollbar escondida) — aqui so o espacamento da etapa. */
+
+.cms-step {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(14px, 3.5vw, 18px);
+  padding-top: clamp(4px, 1.5vw, 8px);
+}
+
+/* Valor escolhido no campo de tipo (o placeholder cinza vira texto normal). */
+.chip-select-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.cms-hint {
+  margin: 0;
+  font-size: clamp(0.74rem, 2.4vw, 0.8rem);
+  line-height: 1.35;
+  color: rgba(0, 0, 0, 0.5);
+}
+
 /* ── Q.cls.2.3: Modal de revisao dos dados extraidos (ficha unificada) ── */
 
 .review-modal-form {
