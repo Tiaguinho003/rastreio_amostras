@@ -878,7 +878,9 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
         title="Novo lote"
         footer={formFooter}
         ariaLabel="Novo lote"
-        className="is-fit-content"
+        // side-sheet: desktop = painel lateral direito (como o detalhe);
+        // mobile segue o sheet fit-content de sempre.
+        className="is-fit-content side-sheet"
         dragToDismiss
         dragDisabled={quickCreateOpen}
       >

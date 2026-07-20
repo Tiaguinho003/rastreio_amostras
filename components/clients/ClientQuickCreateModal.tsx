@@ -70,6 +70,11 @@ type ClientQuickCreateModalProps = {
   initialIsWarehouse?: boolean;
   /** Prefill opcional do telefone (ex: anotado no informe de visita). */
   initialPhone?: string;
+  /** Desktop = painel lateral direito (.side-sheet, como o detalhe) em vez do
+   *  modal central. Uso: FAB "Novo cliente" de /cadastros. Os quick-creates
+   *  ANINHADOS (novo proprietario no Novo lote etc.) ficam centrais — lateral
+   *  sobre lateral esconderia o form de baixo. */
+  sideSheet?: boolean;
   onClose: () => void;
   onCreated: (client: ClientSummary) => void;
 };
@@ -154,6 +159,7 @@ export function ClientQuickCreateModal({
   initialIsSeller = false,
   initialIsWarehouse = false,
   initialPhone,
+  sideSheet = false,
   onClose,
   onCreated,
 }: ClientQuickCreateModalProps) {
@@ -416,7 +422,7 @@ export function ClientQuickCreateModal({
       // Pausa o arraste do proprio sheet enquanto o "Descartar?"/save estao
       // ativos (mesmo cuidado do NewSampleModal com o quick-create).
       dragDisabled={discardOpen || saving}
-      className="client-quick-create-sheet"
+      className={sideSheet ? 'client-quick-create-sheet side-sheet' : 'client-quick-create-sheet'}
     >
       <form id={formId} className="client-quick-create-form" onSubmit={handleSubmit}>
         <div className="client-quick-create-body">

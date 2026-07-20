@@ -1180,6 +1180,8 @@ export function ClientsBrowser({
         session={session}
         open={clientQuickCreateOpen}
         title="Novo cliente"
+        // Desktop: painel lateral direito, como o overlay de detalhe.
+        sideSheet
         initialSearch={clientSearchInput.trim()}
         initialPersonType="PJ"
         initialIsBuyer={false}
