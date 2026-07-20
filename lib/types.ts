@@ -1284,6 +1284,11 @@ export interface CommandResponse<TSample = unknown> {
   idempotent: boolean;
   sample?: TSample;
   event: SampleEvent;
+  // Classificação pela câmera: se a impressão automática da etiqueta foi de
+  // fato disparada (é best-effort — Print Agent offline ou PrintJob PENDING
+  // recente derrubam a tentativa). A tela de sucesso só afirma "Etiqueta
+  // impressa" quando true.
+  autoPrintRequested?: boolean;
   photo?: {
     attachmentId: string;
     kind: 'CLASSIFICATION_PHOTO';

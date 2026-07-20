@@ -9,6 +9,13 @@ interface ClassificationSuccessModalProps {
   open: boolean;
   lotNumber: string;
   isReclassification?: boolean;
+  /**
+   * FIN3 (rodada 2): a linha "Etiqueta impressa" era incondicional e mentia —
+   * a reclassificacao nao imprimia, e mesmo na classificacao nova o print e
+   * best-effort (Print Agent offline / PrintJob PENDING recente). Agora o
+   * backend informa se disparou, e a linha so aparece quando disparou.
+   */
+  printRequested?: boolean;
   onViewDetails: () => void;
   onClose: () => void;
 }
@@ -28,6 +35,7 @@ export function ClassificationSuccessModal({
   open,
   lotNumber,
   isReclassification = false,
+  printRequested = false,
   onViewDetails,
   onClose,
 }: ClassificationSuccessModalProps) {
@@ -89,14 +97,16 @@ export function ClassificationSuccessModal({
             </div>
           ) : null}
 
-          <p className="classification-success-print">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <polyline points="6 9 6 2 18 2 18 9" />
-              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-              <rect x="6" y="14" width="12" height="8" />
-            </svg>
-            Etiqueta impressa
-          </p>
+          {printRequested ? (
+            <p className="classification-success-print">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <polyline points="6 9 6 2 18 2 18 9" />
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                <rect x="6" y="14" width="12" height="8" />
+              </svg>
+              Etiqueta impressa
+            </p>
+          ) : null}
         </div>
 
         <div className="app-modal-actions">

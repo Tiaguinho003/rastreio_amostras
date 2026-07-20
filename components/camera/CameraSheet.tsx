@@ -179,6 +179,9 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
     useState<ClassificationFormState>(EMPTY_CLASSIFICATION_FORM);
   const [flowError, setFlowError] = useState<string | null>(null);
   const [confirmedSampleId, setConfirmedSampleId] = useState<string | null>(null);
+  // FIN3: se o backend disparou a impressao automatica da etiqueta nesta
+  // classificacao (best-effort) — o modal de sucesso so afirma quando sim.
+  const [printRequested, setPrintRequested] = useState(false);
 
   // Context sample (Flow B)
   const [contextSampleLot, setContextSampleLot] = useState<string | null>(null);
@@ -629,6 +632,7 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
     setUserPickerError(null);
     setFlowError(null);
     setConfirmedSampleId(null);
+    setPrintRequested(false);
     setEditableLot('');
     setEditableSacks('');
     setEditableHarvest('');
@@ -996,7 +1000,7 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
       // Q.cls.2.7: reasonCode/reasonText vem do ClassificationReclassifyModal
       // quando sample esta CLASSIFIED (sub-caminho 5). Em new classification
       // ficam null; o backend ignora.
-      await confirmClassificationFromCamera(session, {
+      const saved = await confirmClassificationFromCamera(session, {
         sampleId,
         classificationData: classificationData as { [key: string]: JsonValue },
         photoToken,
@@ -1009,6 +1013,8 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
 
       if (!mountedRef.current) return;
       setConfirmedSampleId(sampleId);
+      // FIN3: o sucesso so afirma impressao quando o backend disparou de fato.
+      setPrintRequested(saved.autoPrintRequested === true);
       setFlowState('success');
     } catch (error) {
       if (!mountedRef.current) return;
@@ -1447,6 +1453,7 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
           // resolvedSample — so contextSampleStatus mostrava copy errada.
           contextSampleStatus === 'CLASSIFIED' || resolvedSample?.status === 'CLASSIFIED'
         }
+        printRequested={printRequested}
         onViewDetails={() => {
           if (confirmedSampleId) navigateFromSheet(`/samples/${confirmedSampleId}`);
         }}

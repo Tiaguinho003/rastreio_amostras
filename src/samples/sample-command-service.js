@@ -2387,31 +2387,38 @@ export class SampleCommandService {
       expectedVersion: input.expectedVersion,
     });
 
-    // Q.auto: dispara impressao automatica pos-classificacao. Best-effort —
-    // se requestQrPrint falhar (Print Agent offline, PrintJob PENDING duplicado,
-    // 503 do banco), a classificacao ja foi commitada e nao deve falhar pelo
-    // print. A secao Etiqueta na detail page tem botao "Imprimir novamente"
-    // pra retry manual. Idempotency derivada do `event.idempotencyKey` da
-    // classificacao garante 1 print por classificacao mesmo em retry — se
-    // appendEvent retornou idempotent (duplo-clique), result.event mantem o
-    // mesmo idempotencyKey, e o print key derivado tambem dedupa.
+    // Q.auto: dispara impressao automatica pos-classificacao. Idempotency
+    // derivada do `event.idempotencyKey` da classificacao garante 1 print por
+    // classificacao mesmo em retry — se appendEvent retornou idempotent
+    // (duplo-clique), result.event mantem o mesmo idempotencyKey, e o print
+    // key derivado tambem dedupa.
+    const autoPrintRequested = await this._tryAutoPrint(
+      sample.id,
+      `${result.event.idempotencyKey}:auto-print`,
+      actor
+    );
+
+    return { ...result, autoPrintRequested };
+  }
+
+  // Q.auto / FIN3: dispara o print pos-classificacao. Best-effort — se
+  // requestQrPrint falhar (Print Agent offline, PrintJob PENDING recente,
+  // 503 do banco), a classificacao JA foi commitada e nao pode falhar pelo
+  // print; a secao Etiqueta do detalhe tem "Imprimir novamente" pro retry
+  // manual. Devolve se o print foi mesmo disparado, pra que a UI de sucesso
+  // nao afirme impressao que nao aconteceu.
+  async _tryAutoPrint(sampleId, idempotencyKey, actor) {
     try {
-      await this.requestQrPrint(
-        {
-          sampleId: sample.id,
-          idempotencyKey: `${result.event.idempotencyKey}:auto-print`,
-        },
-        actor
-      );
+      await this.requestQrPrint({ sampleId, idempotencyKey }, actor);
+      return true;
     } catch (cause) {
       console.error('[Q.auto] auto-print pos-classificacao falhou', {
-        sampleId: sample.id,
-        eventId: result.event.eventId,
+        sampleId,
+        idempotencyKey,
         error: cause instanceof Error ? cause.message : String(cause),
       });
+      return false;
     }
-
-    return result;
   }
 
   async updateRegistration(input, actorContext) {
@@ -4581,6 +4588,10 @@ export class SampleCommandService {
     }
 
     let result;
+    // FIN3: o modal de sucesso so afirma "Etiqueta impressa" quando o print
+    // foi de fato disparado (ele e best-effort — Print Agent offline ou
+    // PrintJob PENDING recente derrubam a tentativa em silencio).
+    let printRequested = false;
 
     if (sample.status === 'CLASSIFIED') {
       // Q.cls.2.7: reclassificacao via camera. classificationData ja vem
@@ -4620,9 +4631,31 @@ export class SampleCommandService {
         },
         actorContext
       );
+
+      // FIN3 (rodada 2): a reclassificacao tambem reimprime. A etiqueta
+      // interna carrega o aspecto da classificacao — reclassificar sem
+      // reimprimir deixa a etiqueta colada no lote com o dado velho, e o
+      // modal de sucesso ainda afirmava "Etiqueta impressa".
+      //
+      // Por que AQUI e nao dentro do updateClassification: aquele metodo tem
+      // outros dois chamadores — a edicao inline do detalhe (que imprimiria a
+      // cada correcao de typo) e o reverso de evento (que imprimiria ao
+      // reverter). So o caminho da camera deve disparar print.
+      //
+      // Chave derivada do eventId (FIN11): updateClassification nao passa
+      // idempotencyScope/Key, entao `result.event.idempotencyKey` e undefined
+      // — derivar dele geraria a constante "undefined:auto-print" e apenas a
+      // PRIMEIRA reclassificacao de cada amostra imprimiria, com as demais
+      // caindo no pre-check de idempotencia em silencio.
+      printRequested = await this._tryAutoPrint(
+        sampleId,
+        `${result.event.eventId}:auto-print`,
+        actor
+      );
     } else {
       // New classification. Frontend envia `classifiers` ja com actor +
-      // co-classificadores. completeClassification normaliza e valida.
+      // co-classificadores. completeClassification normaliza e valida
+      // (o auto-print da classificacao nova acontece la dentro).
       result = await this.completeClassification(
         {
           sampleId,
@@ -4634,6 +4667,7 @@ export class SampleCommandService {
         },
         actorContext
       );
+      printRequested = result.autoPrintRequested === true;
     }
 
     // CAM-P1: auditoria da extracao. O extract gravou o resultado BRUTO num
@@ -4657,7 +4691,7 @@ export class SampleCommandService {
     const sidecarTempPath = tempPath.replace('.jpg', '-extraction.json');
     await fs.promises.rm(sidecarTempPath, { force: true }).catch(() => {});
 
-    return result;
+    return { ...result, autoPrintRequested: printRequested };
   }
 
   // CAM-P1: le o sidecar temp-{token}-extraction.json e emite o evento de

@@ -720,6 +720,108 @@ if (!databaseUrl || !databaseReachable) {
     await assert.rejects(fs.access(sidecarPath));
   });
 
+  // FIN3 (rodada 2): a reclassificacao pela camera tambem reimprime a
+  // etiqueta — ela carrega o aspecto da classificacao, entao reclassificar
+  // sem reimprimir deixa a etiqueta colada no lote com o dado velho.
+  // Helper: o guard de PrintJob PENDING (1 min) barraria o print seguinte,
+  // entao encerramos o job anterior como o print agent faria.
+  async function settleLatestPrintJob(sampleId) {
+    const job = await prisma.printJob.findFirst({
+      where: { sampleId, status: 'PENDING' },
+      orderBy: [{ attemptNumber: 'desc' }],
+    });
+    if (!job) return;
+    await prisma.printJob.update({ where: { id: job.id }, data: { status: 'SUCCESS' } });
+  }
+
+  async function classifyByCamera(sampleId, overrides = {}) {
+    const photoToken = randomUUID();
+    await writeTempCameraPhoto(photoToken);
+    return commandService.confirmClassificationFromCamera(
+      {
+        sampleId,
+        photoToken,
+        classificationData: { padrao: 'PADRAO-P', bebida: 'DURA' },
+        classifiers: classifiersOf(actorClassifier),
+        idempotencyKey: randomUUID(),
+        ...overrides,
+      },
+      actorClassifier
+    );
+  }
+
+  test('FIN3: reclassificacao pela camera dispara auto-print e reporta autoPrintRequested', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToRegistrationConfirmed(sampleId);
+
+    const first = await classifyByCamera(sampleId);
+    assert.equal(first.statusCode, 201);
+    assert.equal(first.autoPrintRequested, true);
+    await settleLatestPrintJob(sampleId);
+
+    const again = await classifyByCamera(sampleId, {
+      classificationData: { padrao: 'PADRAO-R1', bebida: 'MOLE' },
+      reasonCode: 'DATA_FIX',
+      reasonText: 'Reclassificacao de teste',
+    });
+    assert.equal(again.autoPrintRequested, true);
+
+    const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
+    assert.equal(
+      detail.events.filter((event) => event.eventType === 'CLASSIFICATION_UPDATED').length,
+      1
+    );
+    const printJobs = await prisma.printJob.findMany({ where: { sampleId } });
+    assert.equal(printJobs.length, 2, 'classificacao + reclassificacao = 2 prints');
+  });
+
+  test('FIN11: duas reclassificacoes seguidas geram dois prints distintos', async () => {
+    // Guarda da chave de idempotencia: derivar de `event.idempotencyKey` daria
+    // a constante "undefined:auto-print" no caminho do UPDATED (que nao usa
+    // idempotency), e a 2a reclassificacao seria silenciosamente ignorada.
+    const sampleId = randomUUID();
+    await moveSampleToRegistrationConfirmed(sampleId);
+
+    await classifyByCamera(sampleId);
+    await settleLatestPrintJob(sampleId);
+
+    const r1 = await classifyByCamera(sampleId, { classificationData: { padrao: 'R1' } });
+    assert.equal(r1.autoPrintRequested, true);
+    await settleLatestPrintJob(sampleId);
+
+    const r2 = await classifyByCamera(sampleId, { classificationData: { padrao: 'R2' } });
+    assert.equal(r2.autoPrintRequested, true);
+
+    const printJobs = await prisma.printJob.findMany({ where: { sampleId } });
+    assert.equal(printJobs.length, 3, 'cada reclassificacao imprime uma vez');
+  });
+
+  test('FIN10: editar a classificacao fora da camera NAO imprime', async () => {
+    // updateClassification tem 3 chamadores (edicao inline do detalhe, reverso
+    // de evento e o confirm da camera). So o da camera deve imprimir — senao
+    // cada correcao de typo cuspiria etiqueta.
+    const sampleId = randomUUID();
+    await moveSampleToRegistrationConfirmed(sampleId);
+
+    await classifyByCamera(sampleId);
+    await settleLatestPrintJob(sampleId);
+    const before = await prisma.printJob.count({ where: { sampleId } });
+
+    const current = await queryService.requireSample(sampleId);
+    await commandService.updateClassification(
+      {
+        sampleId,
+        expectedVersion: current.version,
+        after: { padrao: 'CORRIGIDO' },
+        reasonCode: 'TYPO',
+        reasonText: 'Correcao de digitacao',
+      },
+      actorClassifier
+    );
+
+    assert.equal(await prisma.printJob.count({ where: { sampleId } }), before);
+  });
+
   test('CAM-P1: sidecar de falha vira CLASSIFICATION_EXTRACTION_FAILED no confirm', async () => {
     const sampleId = randomUUID();
     await moveSampleToRegistrationConfirmed(sampleId);
