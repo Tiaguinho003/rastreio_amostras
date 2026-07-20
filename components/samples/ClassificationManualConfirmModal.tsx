@@ -73,7 +73,7 @@ export function ClassificationManualConfirmModal({ open, onBack, onConfirm }: Pr
               </svg>
             </div>
             <div className="manual-confirm-text">
-              <p>Você vai preencher a ficha lendo direto da foto. Ela fica salva como evidência.</p>
+              <p>Você vai preencher a ficha manualmente. A foto fica salva como evidência.</p>
               <p className="manual-confirm-warning">
                 <strong>Confira cada campo com atenção</strong> — sem extração automática, não há
                 validação cruzada pra detectar erros.

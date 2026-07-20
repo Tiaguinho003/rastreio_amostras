@@ -1748,7 +1748,6 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
           </div>
         ) : isReviewingPhoto ? (
           <ClassificationReviewSheetBody
-            photoUrl={capturedPhotoUrl}
             lotEditable={!hasContext || manualMode}
             sacksEditable={manualMode}
             harvestEditable={manualMode}

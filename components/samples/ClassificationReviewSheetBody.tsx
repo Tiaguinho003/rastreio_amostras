@@ -6,7 +6,6 @@ import {
   type ClassificationFormState,
   validateClassificationForm,
 } from '../../lib/classification-form';
-import { PhotoZoomViewer } from '../PhotoZoomViewer';
 
 // Body reusavel do review de classificacao — form de 7 secoes sem
 // header/backdrop proprios. Usado dentro do BottomSheet
@@ -14,8 +13,13 @@ import { PhotoZoomViewer } from '../PhotoZoomViewer';
 // pra que a transicao processing → review seja continua (sheet expande
 // de volta em vez de abrir um modal central novo).
 //
-// Estado interno: zoom da foto + warning overlay (quando submit sem
-// >=1 campo da classificacao preenchido). Form e form-id sao controlados
+// A foto NAO aparece aqui (D1, rodada 2): a revisao mostra so os campos
+// editaveis. A foto segue anexada a classificacao como evidencia e
+// aparece na miniatura do lot-mismatch (onde serve pra identificar QUAL
+// ficha foi fotografada).
+//
+// Estado interno: warning overlay (quando submit sem >=1 campo da
+// classificacao preenchido). Form e form-id sao controlados
 // externamente pra que o botao "Avancar" no footer do BottomSheet
 // (fora do <form>) possa submitar via attr form="id".
 
@@ -100,7 +104,6 @@ function commitWithCaret(
 }
 
 type Props = {
-  photoUrl: string | null;
   lotEditable: boolean;
   sacksEditable: boolean;
   harvestEditable: boolean;
@@ -119,7 +122,6 @@ type Props = {
 };
 
 export function ClassificationReviewSheetBody({
-  photoUrl,
   lotEditable,
   sacksEditable,
   harvestEditable,
@@ -136,7 +138,6 @@ export function ClassificationReviewSheetBody({
   formId,
   onAdvance,
 }: Props) {
-  const [zoomOpen, setZoomOpen] = useState(false);
   const [warningOpen, setWarningOpen] = useState(false);
   const [advanceError, setAdvanceError] = useState<string | null>(null);
   // Lote obrigatorio (so quando editavel — Flow A / manual). Erro inline no
@@ -222,26 +223,6 @@ export function ClassificationReviewSheetBody({
 
   return (
     <>
-      {photoUrl ? (
-        <button
-          type="button"
-          className="review-photo"
-          onClick={() => setZoomOpen(true)}
-          aria-label="Ampliar foto da ficha"
-        >
-          {/* next/image nao se aplica: blob URL local com dimensoes dinamicas */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={photoUrl} alt="Ficha de classificação capturada" />
-          <span className="review-photo-zoom" aria-hidden="true">
-            <svg viewBox="0 0 24 24">
-              <circle cx="11" cy="11" r="7" />
-              <path d="M16 16l4 4M11 8v6M8 11h6" />
-            </svg>
-            Ampliar
-          </span>
-        </button>
-      ) : null}
-
       {advanceError || errorMessage ? (
         <p className="sdv-modal-error">{advanceError ?? errorMessage}</p>
       ) : null}
@@ -467,15 +448,6 @@ export function ClassificationReviewSheetBody({
             </button>
           </div>
         </div>
-      ) : null}
-
-      {zoomOpen && photoUrl ? (
-        <PhotoZoomViewer
-          src={photoUrl}
-          alt="Ficha de classificação capturada"
-          showShare={false}
-          onClose={() => setZoomOpen(false)}
-        />
       ) : null}
     </>
   );
