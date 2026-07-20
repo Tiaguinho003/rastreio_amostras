@@ -213,3 +213,28 @@ test('normalizeClassifiers falls back to username when fullName is empty', async
   const result = await svc.normalizeClassifiers([{ userId: UID_A }]);
   assert.equal(result[0].fullName, 'alice');
 });
+
+// Regressao: o UUID_REGEX exigia versao [1-5] e variante [89ab] (RFC 4122
+// estrito). Os usuarios do seed/fixtures nascem nil-style
+// (`00000000-...-0001`), entao classificar era IMPOSSIVEL em dev local — o
+// backend devolvia "classifiers[].userId must be a uuid" pra qualquer
+// classificador. Nao pegou antes porque toda fixture deste arquivo usa uuid v4.
+test('normalizeClassifiers accepts seed-shaped uuid (nil version/variant)', async () => {
+  const seedId = '00000000-0000-0000-0000-000000000001';
+  const svc = buildService([
+    { id: seedId, fullName: 'Flavio Seed', username: 'flavio', status: 'ACTIVE', role: 'ADMIN' },
+  ]);
+  const result = await svc.normalizeClassifiers([{ userId: seedId }]);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].id, seedId);
+});
+
+// Mesma classe: v7 (ordenavel por tempo) tem versao 7, fora do [1-5] antigo.
+test('normalizeClassifiers accepts a v7-shaped uuid', async () => {
+  const v7 = '01890a5d-ac96-774b-bcce-b302099a8057';
+  const svc = buildService([
+    { id: v7, fullName: 'Uuid Sete', username: 'sete', status: 'ACTIVE', role: 'CLASSIFIER' },
+  ]);
+  const result = await svc.normalizeClassifiers([{ userId: v7 }]);
+  assert.equal(result[0].id, v7);
+});

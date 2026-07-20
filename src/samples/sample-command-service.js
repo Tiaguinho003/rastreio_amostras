@@ -113,7 +113,20 @@ const MOVEMENT_UPDATE_EDITABLE_FIELDS = new Set([
   'notes',
   'lossReasonText',
 ]);
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+// Validacao de FORMA, nao de versao RFC. A forma estrita (`[1-5]` na versao e
+// `[89ab]` na variante) rejeitava uuids legitimos: os das fixtures/seed
+// (`00000000-...-0001`, usados tambem por 4 suites de teste), o nil uuid (RFC
+// 4122 §4.1.7) e — o que importa pra frente — v6/v7/v8, ja que v7 (ordenavel
+// por tempo) e candidato natural se um dia trocarmos o gerador de ids. Quem
+// decide se o uuid existe e o Postgres (colunas `uuid`) + o lookup no banco
+// logo abaixo; aqui so barramos lixo. Mesma forma usada por
+// sale-contract-support.js e pelo APPROVAL_UUID_REGEX do backend-api.js — esta
+// era a definicao divergente das tres.
+//
+// SEGURANCA: a restricao que importa pro normalizePhotoToken (path traversal,
+// EXT-CAM) e a FORMA — so [0-9a-f] e hifens em blocos 8-4-4-4-12. Nenhum `/`,
+// `.` ou `..` passa por aqui nem antes nem depois desta mudanca.
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function buildBusinessDateStamp(date = new Date()) {
   return new Intl.DateTimeFormat('en-CA', {
