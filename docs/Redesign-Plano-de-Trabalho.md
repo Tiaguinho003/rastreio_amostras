@@ -117,12 +117,12 @@ Na sequência da F2, os formulários de **criação** também viram painel later
 
 ### 2.5 FV redefinida — ciclo página-a-página (RD11, 2026-07-20)
 
-A FV deixou de ser "reskin geral de uma vez" e virou um **ciclo por página**: cada página muda **junto** o contêiner dos modais (regras RD11) **e** o design/layout (mockup do Flavio, pixel-perfect) — tocada **uma vez só**, sem retrabalho. Nenhuma conversão mecânica antecipada: superfície fora da vez da sua página **não muda**, mesmo quando a conversão seria barata.
+A FV deixou de ser "reskin geral de uma vez" e virou um **ciclo por página**: cada página passa por um **redesenho COMPLETO** — design e layout da página inteira (estrutura, header, cards, listas, filtros, tipografia; "o app ficará bem diferente", frente 2 deste doc) — e, na mesma passada, os modais dela realinham ao contêiner da regra RD11. O contêiner é **parte do pacote, não o escopo**: a página é tocada **uma vez só**, sem retrabalho. Nenhuma conversão mecânica antecipada: superfície fora da vez da sua página **não muda**, mesmo quando a conversão seria barata. (Confirmado pelo Flavio em 2026-07-20: "não mudaremos apenas os modais, mas todo o design e layout das páginas".)
 
 **Processo por página** (repete o rito dos demais ciclos):
 
-1. Flavio manda o **mockup** da página. No piloto, o mockup **calibra o kit visual dos contêineres** (side-sheet, central de confirm, painel de filtros) que as demais páginas replicam.
-2. **Plan mode** da página: modais da página × regras RD11 × mockup.
+1. Flavio manda o **mockup** da página — a página **INTEIRA**, nos estados relevantes (lista parada + modais/painéis abertos), não só os modais. No piloto, o mockup também **calibra o kit visual dos contêineres** (side-sheet, central de confirm, painel de filtros) que as demais páginas replicam.
+2. **Plan mode** da página: layout inteiro do mockup + modais da página × regras RD11.
 3. Implementação em **commits atômicos** (gates: typecheck, lint, format, unit, contracts; build só com dev parado).
 4. **Validação no device** (🖥️📱).
 5. **Consolidação**: skills (`modals`, `design-system`, `responsive`) + este doc + memória.
