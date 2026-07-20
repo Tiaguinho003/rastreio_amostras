@@ -276,9 +276,10 @@ model Sample {
   declaredOwner               String?             @map("declared_owner")
   declaredSacks               Int?                @map("declared_sacks")
   declaredHarvest             String?             @map("declared_harvest")
-  /// Lote de origem em texto livre (Sample normal). Em registros com
-  /// isBlend=true, e intencionalmente null — origem real fica em
-  /// SampleBlendComponent (Liga T0.C / F3.5).
+  /// Lote de origem (Sample normal: chips de multiplos codigos, juntados por ", ").
+  /// Em liga NAO e mais null (F3.5 revogada 2026-07-20) — DERIVA da somatoria dos
+  /// declaredOriginLot das origens (deriveBlendOriginLot) e e editavel/pinavel
+  /// (blendOriginLotPinned).
   declaredOriginLot           String?             @map("declared_origin_lot")
   declaredLocation            String?             @map("declared_location") @db.VarChar(30)
   classificationType          ClassificationType? @map("classification_type")
