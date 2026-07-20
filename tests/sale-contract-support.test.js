@@ -553,28 +553,35 @@ test('buildReceivableView (D136): commissionTotal com round2; corretor sem cota'
 // Aprovacao do contrato (Fase I, D112-D119): quebra do lote de origem (D116),
 // prefill da etiqueta (D115) e item reduzido do seletor (D113).
 
-test('splitOriginLotForLabel separa por traco, espaco, virgula e ponto-e-virgula (colapsa sequencias)', () => {
-  assert.deepEqual(splitOriginLotForLabel('111- 222,333 ; 444'), ['111', '222', '333', '444']);
+test('splitOriginLotForLabel separa por espaco, virgula e ponto-e-virgula (colapsa sequencias)', () => {
+  assert.deepEqual(splitOriginLotForLabel('111 222,333 ; 444'), ['111', '222', '333', '444']);
 });
 
-test('splitOriginLotForLabel NAO separa por barra (composicao do lote)', () => {
-  assert.deepEqual(splitOriginLotForLabel('AB 12/3-CD'), ['AB', '12/3', 'CD']);
+test('splitOriginLotForLabel NAO separa por traco nem barra (compoem o codigo, ex.: PA-01)', () => {
+  assert.deepEqual(splitOriginLotForLabel('PA-01 PB-07'), ['PA-01', 'PB-07']);
+  assert.deepEqual(splitOriginLotForLabel('AB 12/3-CD'), ['AB', '12/3-CD']);
 });
 
-test('splitOriginLotForLabel corta pedaco em 16 chars e limita a 16 pedacos', () => {
+test('splitOriginLotForLabel corta pedaco em 16 chars e exibe no maximo 8 (7 + "+")', () => {
   assert.deepEqual(splitOriginLotForLabel('A'.repeat(20)), ['A'.repeat(16)]);
 
+  // Exatamente 8: mostra os 8.
+  const eight = Array.from({ length: 8 }, (_, i) => `L${i + 1}`).join(' ');
+  assert.deepEqual(splitOriginLotForLabel(eight), ['L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8']);
+
+  // Mais de 8: mostra os 7 primeiros + "+".
   const many = Array.from({ length: 20 }, (_, i) => `L${i + 1}`).join(' ');
   const result = splitOriginLotForLabel(many);
-  assert.equal(result.length, 16);
+  assert.equal(result.length, 8);
   assert.equal(result[0], 'L1');
-  assert.equal(result[15], 'L16');
+  assert.equal(result[6], 'L7');
+  assert.equal(result[7], '+');
 });
 
 test('splitOriginLotForLabel: null/vazio/so separadores viram []', () => {
   assert.deepEqual(splitOriginLotForLabel(null), []);
   assert.deepEqual(splitOriginLotForLabel(''), []);
-  assert.deepEqual(splitOriginLotForLabel(' -,; - '), []);
+  assert.deepEqual(splitOriginLotForLabel(' ,; ; '), []);
 });
 
 test('buildApprovalPrefill corta compra em 26 e produtor/armazem em 52', () => {

@@ -1577,7 +1577,10 @@ export function buildBankSnapshot(account) {
 const APPROVAL_COMPRA_MAX_CHARS = 26;
 const APPROVAL_NAME_MAX_CHARS = 52;
 const APPROVAL_LOT_MAX_CHARS = 16;
-const APPROVAL_MAX_LOTS = 16;
+// Teto de EXIBICAO da etiqueta: a grade 4x2 do print agent comporta 8 celulas.
+// Havendo mais de 8 lotes de origem, mostra 7 + "+" (o sistema guarda TODOS —
+// declaredOriginLot e ilimitado; o cap aqui e so visual).
+const APPROVAL_LOT_DISPLAY_MAX = 8;
 
 // Status que aceitam ENVIO de aprovacao. Reforma "o portao" (AP21/E4): so
 // EMITIDO — a aprovacao e sempre pre-faturamento, e reenvio (proxy de recusa,
@@ -1585,17 +1588,22 @@ const APPROVAL_MAX_LOTS = 16;
 // reforma a lista era EMITIDO/FATURADO/PAGO — a AP21 apertou pra so EMITIDO).
 export const APPROVAL_ELIGIBLE_STATUSES = Object.freeze(['EMITIDO']);
 
-// Quebra do "Lote de origem" (Sample.declaredOriginLot, texto livre <=100)
-// nos campos discretos da etiqueta (D116): separadores = traco, espaco,
-// virgula e ponto-e-virgula (sequencias colapsam; pedacos vazios caem);
-// barra "/" NAO separa (pode ser composicao do lote). Pedaco >16 chars corta
-// em 16; maximo 16 pedacos (teto fisico da etiqueta).
+// Quebra do "Lote de origem" (Sample.declaredOriginLot) nos codigos discretos
+// da etiqueta: separadores = espaco, virgula e ponto-e-virgula (sequencias
+// colapsam; pedacos vazios caem). O TRACO "-" NAO separa mais (faz parte do
+// codigo, ex.: "PA-01" — antes ele quebrava em "PA" + "01"); a barra "/" tambem
+// nao. Pedaco >16 chars corta em 16. Exibe no MAXIMO 8 codigos; havendo mais,
+// mostra os 7 primeiros + "+" (a grade 4x2 do print agent tem 8 celulas). O
+// armazenamento guarda TODOS os lotes — este cap e so de EXIBICAO.
 export function splitOriginLotForLabel(text) {
-  return String(text ?? '')
-    .split(/[-\s,;]+/)
+  const pieces = String(text ?? '')
+    .split(/[\s,;]+/)
     .filter(Boolean)
-    .map((piece) => piece.slice(0, APPROVAL_LOT_MAX_CHARS))
-    .slice(0, APPROVAL_MAX_LOTS);
+    .map((piece) => piece.slice(0, APPROVAL_LOT_MAX_CHARS));
+  if (pieces.length > APPROVAL_LOT_DISPLAY_MAX) {
+    return [...pieces.slice(0, APPROVAL_LOT_DISPLAY_MAX - 1), '+'];
+  }
+  return pieces;
 }
 
 // Prefill da etiqueta a partir do contrato (D115): 5 campos + lotes, todos

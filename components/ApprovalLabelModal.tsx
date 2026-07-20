@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { ANIMATION_MS, BottomSheet } from './BottomSheet';
@@ -12,9 +12,9 @@ import type { ApprovalLabelPrefill, SessionData } from '../lib/types';
 // NewSampleModal: bottom-sheet saindo de baixo (central no desktop via CSS)
 // + efeito de sucesso (check animado) que auto-fecha. Uma porta: a worklist
 // de Aprovações abre com os campos PRÉ-PREENCHIDOS do contrato (o seletor do
-// /samples e a etiqueta "Manual"/avulsa saíram com a AP29/AP12). O texto
-// ORIGINAL do Lote de origem aparece como referência da quebra (D116) — tudo
-// editável; "Limpar" zera tudo (decisão S80). Imprime na MESMA impressora
+// /samples e a etiqueta "Manual"/avulsa saíram com a AP29/AP12). O Lote de
+// origem aparece READ-ONLY (espelha o cadastro do lote — pra corrigir, edita o
+// lote/liga e reimprime); "Limpar" zera só os campos. Imprime na MESMA impressora
 // (print agent), sem QR, 1 cópia por envio. Envio AUDITADO: sendApprovalLabel
 // grava o custom_print_job + a linha da approval_label_log na mesma transação
 // (sempre com saleContractId — AP12). Gate central não-PROSPECTOR no backend.
@@ -29,8 +29,8 @@ interface FieldConfig {
   maxChars?: number; // limite de caracteres do input (default 80)
 }
 
-// Campos de VALOR ÚNICO (impressos). O Lote NÃO está aqui: virou um grupo de
-// campos dinâmicos (ver `lots` no componente). Os printLabel saem MAIÚSCULOS com
+// Campos de VALOR ÚNICO (impressos). O Lote NÃO está aqui: é read-only (vem do
+// cadastro do lote — ver `lots` no componente). Os printLabel saem MAIÚSCULOS com
 // ":" na etiqueta (o ":" é adicionado pelo buildCustomLabel).
 const FIELDS: FieldConfig[] = [
   {
@@ -94,14 +94,11 @@ const FIELD_BY_KEY: Record<string, FieldConfig> = Object.fromEntries(
   FIELDS.map((field) => [field.key, field])
 );
 
-// Rótulo impresso do Lote. O campo virou grupo dinâmico: no envio, os lotes
-// não-vazios são juntados numa ÚNICA linha LOTE; o print agent divide por
-// vírgula numa grade. MAX_LOTS limita a quantidade — acima disso a etiqueta não
-// comporta sem encolher a fonte a ponto de cortar o número (o backend espelha o
-// mesmo teto em src/api/v1/backend-api.js).
+// Rótulo impresso do Lote. Os lotes são READ-ONLY (espelham a origem gravada do
+// lote): no envio, os valores não-vazios do prefill são juntados numa ÚNICA linha
+// LOTE; o print agent divide por vírgula numa grade 4x2. O cap de exibição
+// (8 + "+") e a quebra vêm do backend (splitOriginLotForLabel).
 const LOTE_PRINT_LABEL = 'LOTE';
-const LOT_MAX_CHARS = 16;
-const MAX_LOTS = 16;
 
 type Lot = { id: number; value: string };
 
@@ -178,49 +175,20 @@ export function ApprovalLabelModal({
   // O check central só aparece depois que o sheet termina de descer.
   const [successVisible, setSuccessVisible] = useState(false);
 
-  // Scroll-into-view do lote recém-adicionado (acompanha quando ele quebra pra
-  // próxima linha). lotsRef = fila de lotes; o flag dispara o scroll no effect.
-  const lotsRef = useRef<HTMLDivElement | null>(null);
-  const scrollToNewLotRef = useRef(false);
-
   function setField(key: string, value: string) {
     setValues((prev) => ({ ...prev, [key]: value }));
     if (formError) setFormError(null);
   }
 
-  function setLot(id: number, value: string) {
-    setLots((prev) => prev.map((lot) => (lot.id === id ? { ...lot, value } : lot)));
-    if (formError) setFormError(null);
-  }
-
-  function addLot() {
-    // Teto de lotes (o botão "+" também fica disabled em MAX_LOTS; a guarda no
-    // updater cobre clique duplo antes do re-render).
-    if (lots.length >= MAX_LOTS) return;
-    // Sem auto-foco: o campo é criado vazio; o teclado só abre quando o usuário
-    // toca no campo pra digitar. Só sinaliza o scroll-into-view do campo novo.
-    scrollToNewLotRef.current = true;
-    setLots((prev) => (prev.length >= MAX_LOTS ? prev : [...prev, { id: nextLotId(), value: '' }]));
-    if (formError) setFormError(null);
-  }
-
-  function removeLot(id: number) {
-    // O último lote nunca some (precisa de ao menos um campo).
-    setLots((prev) => (prev.length > 1 ? prev.filter((lot) => lot.id !== id) : prev));
-    if (formError) setFormError(null);
-  }
-
   function handleClear() {
+    // Lotes sao read-only (espelham a origem do lote) — Limpar so zera os campos
+    // editaveis.
     setValues(emptyValues());
-    setLots(freshLots());
     setFormError(null);
   }
 
   function hasUnsavedData() {
-    return (
-      Object.values(values).some((v) => v.trim().length > 0) ||
-      lots.some((lot) => lot.value.trim().length > 0)
-    );
+    return Object.values(values).some((v) => v.trim().length > 0);
   }
 
   async function handleSubmit() {
@@ -266,19 +234,6 @@ export function ApprovalLabelModal({
       setSubmitting(false);
     }
   }
-
-  // Rola o corpo do modal pra mostrar o lote recém-adicionado. `block: 'nearest'`
-  // só rola quando o campo está fora de vista (ex.: quebrou pra próxima linha);
-  // se já está visível, não mexe. Sem foco — não abre teclado.
-  useEffect(() => {
-    if (!scrollToNewLotRef.current) return;
-    scrollToNewLotRef.current = false;
-    const fields = lotsRef.current?.querySelectorAll<HTMLElement>('.alm-lot-field');
-    const last = fields?.[fields.length - 1];
-    if (!last) return;
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    last.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
-  }, [lots.length]);
 
   // Reset total quando o modal é totalmente dispensado (pai fecha, inclusive
   // após o auto-close do sucesso). Garante form limpo na próxima abertura.
@@ -393,56 +348,24 @@ export function ApprovalLabelModal({
               </div>
             ))}
 
-            {/* Referência read-only do Lote de origem (D116): o texto ORIGINAL
-                da amostra, pro usuário conferir/corrigir a quebra automática. */}
-            {prefill?.originLotText ? (
-              <p className="alm-origin-ref">
-                <span className="alm-origin-ref-label">Lote de origem:</span>{' '}
-                {prefill.originLotText}
-              </p>
-            ) : null}
-
-            {/* Grupo de Lotes (campos dinâmicos). "+" cria mais um ao lado (máx.
-                3 + botão por linha; o 4º quebra). "×" remove (some quando só 1). */}
+            {/* Lotes de origem READ-ONLY: espelham o cadastro do lote (o usuário
+                não edita aqui — pra corrigir, edita o lote/liga e reimprime).
+                Mostra até 8 + "+"; vazio (futuro) = sem lote. */}
             <div className="alm-lots-group">
-              <span className="nsv2-field-label">Lotes</span>
-              <div className="alm-lots" ref={lotsRef}>
-                {lots.map((lot, index) => (
-                  <div key={lot.id} className="alm-lot-field">
-                    <input
-                      className="nsv2-field-input alm-input alm-lot-input"
-                      type="text"
-                      value={lot.value}
-                      onChange={(event) => setLot(lot.id, event.target.value.replace(/[,\n]/g, ''))}
-                      placeholder={`Lote ${index + 1}`}
-                      aria-label={`Lote ${index + 1}`}
-                      maxLength={LOT_MAX_CHARS}
-                      autoComplete="off"
-                    />
-                    {lots.length > 1 ? (
-                      <button
-                        type="button"
-                        className="alm-lot-remove"
-                        aria-label={`Remover lote ${index + 1}`}
-                        onClick={() => removeLot(lot.id)}
-                      >
-                        ×
-                      </button>
-                    ) : null}
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  className="alm-lot-add"
-                  aria-label="Adicionar lote"
-                  disabled={lots.length >= MAX_LOTS}
-                  onClick={addLot}
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M12 5v14M5 12h14" />
-                  </svg>
-                </button>
-              </div>
+              <span className="nsv2-field-label">Lotes de origem</span>
+              {lots.some((lot) => lot.value.trim()) ? (
+                <div className="alm-lots-readonly">
+                  {lots
+                    .filter((lot) => lot.value.trim())
+                    .map((lot) => (
+                      <span key={lot.id} className="alm-lot-chip">
+                        {lot.value}
+                      </span>
+                    ))}
+                </div>
+              ) : (
+                <p className="alm-lots-empty">Sem lote de origem.</p>
+              )}
             </div>
           </div>
 
