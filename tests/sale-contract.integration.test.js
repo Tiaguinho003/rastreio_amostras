@@ -915,9 +915,12 @@ if (!databaseUrl || !databaseReachable) {
       while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() - 1);
       return d;
     };
+    // Offsets com gap >= 4: o roll-back de fim de semana desloca ate 2 dias,
+    // entao -10 e -8 COLIDIAM no mesmo dia (sexta) quando "hoje" UTC caia na
+    // segunda — o bucket do dia recebia [atrasado, realizado] e o [0] quebrava.
     const futureDate = bizDay(10); // agendado (futuro)
-    const pastDate = bizDay(-10); // atrasado (passado)
-    const doneDate = bizDay(-8); // realizado
+    const pastDate = bizDay(-10); // atrasado (passado; pos-roll em [-12,-10])
+    const doneDate = bizDay(-6); // realizado (pos-roll em [-8,-6] — disjunto)
 
     const future = await setupShipmentContract({ lotNumber: '25400' });
     await prisma.saleContract.update({
