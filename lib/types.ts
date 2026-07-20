@@ -1307,6 +1307,9 @@ export interface DetectFormResponse {
 
 export interface ExtractAndPrepareResponse {
   statusCode: number;
+  // false = servidor sem OPENAI_API_KEY (degrade 200 vazio) — o fluxo da
+  // camera roteia direto pro modo manual. Ausente em respostas antigas.
+  extractionAvailable?: boolean;
   extractedFields: ExtractedClassificationFields;
   identification: {
     lote: string | null;

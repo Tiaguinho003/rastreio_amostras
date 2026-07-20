@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   EMPTY_CLASSIFICATION_FORM,
   buildClassificationDataPayload,
+  hasAnyExtractedValue,
   mapExtractionToForm,
   validateClassificationForm,
 } from '../lib/classification-form.ts';
@@ -158,4 +159,29 @@ test('validateClassificationForm: barra nao-numerico e fora da faixa 0-100 nos c
     validateClassificationForm({ ...EMPTY_CLASSIFICATION_FORM, fundo1Percent: '-1' }),
     null
   );
+});
+
+test('hasAnyExtractedValue: detecta extracao 100% vazia vs parcial', () => {
+  // EXT (rodada 1): Flow A com nada extraido cai no aviso de ilegivel em vez
+  // de abrir o review em branco sem explicacao.
+  assert.equal(hasAnyExtractedValue({}), false);
+  assert.equal(
+    hasAnyExtractedValue({
+      padrao: null,
+      aspecto: null,
+      certif: null,
+      peneiras: { p18: null, p17: null },
+      fundos: [
+        { peneira: null, percentual: null },
+        { peneira: null, percentual: null },
+      ],
+      catacao: null,
+      defeitos: { imp: null },
+      observacoes: null,
+      bebida: null,
+    }),
+    false
+  );
+  assert.equal(hasAnyExtractedValue({ peneiras: { p17: '38' } }), true);
+  assert.equal(hasAnyExtractedValue({ fundos: [{ peneira: '13', percentual: null }] }), true);
 });

@@ -37,6 +37,7 @@ import { compressImage, isHighQualityEnabled, pickQualityFromEnv } from '../../l
 import {
   type ClassificationFormState,
   EMPTY_CLASSIFICATION_FORM,
+  hasAnyExtractedValue,
   mapExtractionToForm,
   validateClassificationForm,
   buildClassificationDataPayload,
@@ -875,7 +876,25 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
     setEditableSacks(sacas);
     setEditableHarvest(safra);
 
+    // EXT (rodada 1): servidor sem OPENAI_API_KEY responde 200 vazio com
+    // extractionAvailable=false. Antes isso caia no "ilegivel" (motivo
+    // errado) — agora vai direto pra confirmacao do modo manual.
+    if (result.extractionAvailable === false) {
+      setFlowError('Leitura automatica desativada neste servidor.');
+      setManualConfirmSource('technical');
+      setFlowState('manual-confirm');
+      return;
+    }
+
     if (hasContext && !lote) {
+      setFlowState('extraction-error-illegible');
+      return;
+    }
+
+    // EXT (rodada 1): Flow A com NADA extraido (nem identificacao, nem
+    // campos) abria o review 100% vazio sem explicacao. Cai no mesmo aviso
+    // de ilegivel do Flow B — o operador escolhe tirar outra ou ir de manual.
+    if (!hasContext && !lote && !sacas && !safra && !hasAnyExtractedValue(result.extractedFields)) {
       setFlowState('extraction-error-illegible');
       return;
     }

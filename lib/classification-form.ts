@@ -360,3 +360,10 @@ export function mapExtractionToForm(
   }
   return mapped;
 }
+
+// EXT (rodada 1): decide se a IA leu ALGUM campo da classificacao. Sem isso,
+// Flow A com extracao 100% vazia abria o review em branco sem explicacao
+// (Flow B ja caia no aviso de ilegivel pelo lote).
+export function hasAnyExtractedValue(fields: ExtractedClassificationFields): boolean {
+  return Object.values(mapExtractionToForm(fields)).some((value) => value.trim() !== '');
+}

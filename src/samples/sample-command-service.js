@@ -4316,8 +4316,12 @@ export class SampleCommandService {
     }
 
     if (!this.extractionService) {
+      // Degrade sem OPENAI_API_KEY: 200 vazio com extractionAvailable=false —
+      // o front roteia direto pro modo manual em vez de exibir "ilegivel"
+      // (motivo errado: a IA nao falhou, esta desligada).
       return {
         statusCode: 200,
+        extractionAvailable: false,
         extractedFields: {},
         identification: { lote: null, sacas: null, safra: null, data: null },
         photoToken,
@@ -4333,6 +4337,7 @@ export class SampleCommandService {
 
       return {
         statusCode: 200,
+        extractionAvailable: true,
         extractedFields: raw.classificacao,
         identification: raw.identificacao,
         photoToken,
