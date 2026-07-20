@@ -1,6 +1,6 @@
 # Redesign — Plano de Trabalho
 
-> **Status**: F1 e F3 **✅ validadas** (2026-07-20, Flavio no dev local); **F2 (lote) implementada 2026-07-20** — aguarda validação 🖥️📱 (junto com os gates RD10 pendentes dela). **FV DESTRAVADA (RD12–RD14, 2026-07-20)**: direção visual "institucional" travada por referência + questionário (aprovado na íntegra) — piloto `/cadastros` em implementação (**E1**: chrome global + página desktop)
+> **Status**: F1 e F3 **✅ validadas** (2026-07-20, Flavio no dev local); **F2 (lote) implementada 2026-07-20** — aguarda validação 🖥️📱 (junto com os gates RD10 pendentes dela). **FV piloto `/cadastros`: E1 IMPLEMENTADA (2026-07-20, §2.6 — chrome institucional global + página desktop; 9 commits `65b182d`..)** — aguarda **conferência 🖥️ do Flavio**; E2 (peek/modais/mobile) abre depois dela
 > **Última atualização**: 2026-07-20
 > **Prefixo de decisões**: RD
 > **Par futuro**: quando o padrão consolidar, o funcionamento real será absorvido pelos docs canônicos e pelas skills (`modals`, `design-system`, `responsive`). A frente visual parte de `docs/Design-Language.md` (canônico dos tokens).
@@ -41,7 +41,7 @@ Todas travadas em **2026-07-20** (conversa de kickoff, com levantamento de códi
 | **F2** | **Lote** — F2a: quebra do page.tsx em seções (refactor mecânico); F2b: transplante para o overlay; F2c: cadeias (câmera, impressão, classificação, envio, liga) sobre o overlay + redirects                                                                | 🚧 implementada 2026-07-20 (5 commits `81e80fe`..; **🖥️📱 validar**, ver §2.3)               |
 | **F3** | **Contrato** — realinhar `SaleContractDetailsModal` ao padrão (+ P27)                                                                                                                                                                                      | ✅ validada 2026-07-20 (Flavio, dev local; foi **antecipada** antes da F2). P27 segue aberta |
 | **F4** | Limpeza: rotas antigas só-redirect (ou remoção), morte do snapshot de sessionStorage do `SampleCard`, sync final de skills/docs                                                                                                                            | ☐                                                                                            |
-| **FV** | Frente visual **redefinida (RD11, §2.5)**: ciclo **página-a-página** — contêiner dos modais + design/layout juntos, a partir da referência aprovada (RD12–RD14); piloto `/cadastros`                                                                       | 🚧 E1 (chrome + página desktop) em implementação                                             |
+| **FV** | Frente visual **redefinida (RD11, §2.5)**: ciclo **página-a-página** — contêiner dos modais + design/layout juntos, a partir da referência aprovada (RD12–RD14); piloto `/cadastros`                                                                       | 🚧 E1 implementada 2026-07-20 (§2.6) — 🖥️ conferência do Flavio → E2                         |
 
 Cada fase abre em **plan mode** e só fecha com **validação no device** (🖥️ + 📱), como nos demais ciclos.
 
@@ -133,6 +133,32 @@ A FV deixou de ser "reskin geral de uma vez" e virou um **ciclo por página**: c
 **Ordem proposta** (ajustável a cada passo): `/cadastros` (piloto) → `/samples` → `/relatorios` → `/users` + `/profile` → `/contratos` + `/embarques` (sem a criação de contrato — specs futuras) → globais (senha/menu/login). Câmera fica fora (já conforme às regras).
 
 **Inventário de referência**: skill `modals` §11-A (tabela por página com o contêiner-alvo e o status de cada superfície).
+
+### 2.6 FV E1 — implementada 2026-07-20 (🖥️ conferência do Flavio pendente)
+
+Nove commits atômicos (gates por commit: typecheck, lint, format, unit 535, contracts 20; `db34920` também rodou schemas + o arquivo de integração de clientes 61/61 com reseed):
+
+1. `65b182d` **fonts** — Inter na UI inteira (`--font-sans`); Poppins segue SÓ nas peças de informativo via `--font-family-story` (lida pelo canvas em `story-draw.ts`).
+2. `5e86ca6` **chrome (RD13)** — sidebar única (logo+"Safras", "Menu", seções expansíveis com sub-itens `?tab=`, ativo neutro, footer Perfil+Ajuda inerte) + topbar (título da seção, sino inerte, perfil nome+papel+chevron → `ProfileMenuCard`). Cascas `.app-topbar`/`.app-sidenav` e tokens preservados; PROSPECTOR e mobile intactos. `AppShellProps.activeSubTab` (AppShell não pode usar `useSearchParams`).
+3. `db34920` **GET `/api/v1/clients/stats`** — 4 contagens (`total`/`active`/`incomplete` sobre ativos/`newThisMonth` em BRT −03 fixo); auth-only, PROSPECTOR 403 via allowlist; `Cache-Control: private, max-age=30`.
+4. `c02859a` **casca de `/cadastros` (RD14)** — `?tab=` na URL (padrão dos hubs; sub-itens da sidenav deep-linkam), `.fv-page-head` (título + "+ Novo cliente"/"+ Novo corretor"; FAB morre no desktop), `.fv-kpi-row` desktop-only com refetch ao abrir/fechar o overlay; `lib/use-desktop.ts` extraído.
+5. `3204753` **tabela de clientes** — `.fv-table` 8 colunas (avatar+nome+#código · chips pastel · documento · contato · cidade/UF · responsável +N · atualizado relativo · ⋯); header sticky, linha clicável (nome é `<button>`), skeleton/sentinel/ordem idênticos aos cards; sheet vira cartão flat hairline. Sem divisores alfabéticos na tabela (decisão RD14).
+6. `22c886e` **toolbar + filtros laterais** — `.fv-toolbar` (busca mesma lógica, funil com badge, limpar, contador); filtros saem do modal central pro `BottomSheet` `side-sheet` (400px; ESC/back/foco/lock do próprio sheet). `.samples-filter-modal*` intocado (segue em /samples e /contratos).
+7. `df08362` **menu ⋯ + ações profundas** — popover (Ver detalhes/Editar/Documentos/Inativar·Reativar) → `?cliente=<id>&acao=editar|documentos|status`; `ClientDetailView.initialAction` abre o modal UMA vez pós-load e `onInitialActionConsumed` limpa o `?acao=` via replace (back segue fechando em 1 passo; ação repetida no mesmo cliente montado funciona — ref reseta quando a prop limpa).
+8. `a241852` **Corretores em tabela** — Nome · Contato · Usuário vinculado · Status · lápis Editar; toolbar com busca + "mostrar inativos"; linha abre o `BrokerFormModal` atual (re-skin na E2).
+9. (este commit) **docs + memória**.
+
+**Exceções deliberadas ao "mobile intacto" da E1** (anotar na conferência): (a) **Inter** vale no mobile também (RD12 é global de UI); (b) **filtros de clientes no mobile viram bottom sheet** (eram modal central — efeito do side-sheet, padrão da casa); (c) a aba de /cadastros agora lê/escreve a URL (invisível ao usuário).
+
+**Pendências desta etapa**: `npm run build` + passe de integração completo ficam pro pré-push (dev do Flavio rodando); skills (`design-system`/`modals`) só mudam na consolidação pós-device (§7). Ramos desktop dos cards de cliente ficam DORMENTES atrás do `isDesktop` (não deletar até a FV fechar).
+
+**Checklist de conferência (Flavio, dev local ≥901px)**:
+
+1. Fonte Inter no app todo; gerar uma peça de informativo → continua Poppins.
+2. Sidebar única (logo "Safras", Menu, ativo neutro, Cadastros/Contratos/Embarques expandem e navegam por sub-item; footer Perfil + Ajuda) e topbar (título da seção, sino, perfil nome+papel abre Meu perfil/Sair).
+3. As 8 páginas desktop funcionais com o chrome novo (conteúdo antigo, sem quebra); PROSPECTOR desktop intacto; mobile intacto (fora as exceções acima).
+4. `/cadastros`: título + "+ Novo cliente" (side-sheet §2.4 funciona e auto-abre o overlay do criado); KPI com números certos; tabela (8 colunas, chips, hover, linha abre o peek); ⋯ abre Editar/Documentos/Inativar·Reativar direto no peek; scroll infinito; busca; funil → painel lateral aplica/limpa; `?incomplete=true` pré-filtra; `?cliente=` deep-link ok; aba Corretores em tabela; `?tab=corretores` deep-link ok.
+5. Ajustes de degustação esperados (mudo na hora): texto do logo, tons de chips/hairlines, densidade da tabela, largura da sidebar.
 
 ## 3. O que NÃO muda
 
