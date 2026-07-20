@@ -11,6 +11,7 @@ import {
 } from 'react';
 
 import { ClientQuickCreateModal } from './ClientQuickCreateModal';
+import { BottomSheet } from '../BottomSheet';
 import {
   EMPTY_CLIENT_FILTERS,
   countActiveClientFilters,
@@ -22,7 +23,6 @@ import { ApiError, listClients, lookupUsersForReference } from '../../lib/api-cl
 import { formatClientDocument, formatPhone } from '../../lib/client-field-formatters';
 import { formatRelativeTime } from '../../lib/relative-time';
 import { useIsDesktop } from '../../lib/use-desktop';
-import { useFocusTrap } from '../../lib/use-focus-trap';
 import { useListRevalidation } from '../../lib/use-list-revalidation';
 import { useToast } from '../../lib/toast/ToastProvider';
 import type {
@@ -335,16 +335,14 @@ export function ClientsBrowser({
   });
   const [users, setUsers] = useState<UserLookupItem[]>([]);
 
-  // Filtros como MODAL central (espelha /samples): rascunho local + aplicado no
-  // estado da pagina. openFilters semeia o draft com o aplicado; Aplicar/Limpar
-  // agem no aplicado. Substituiu o dropdown ancorado do antigo ClientsFilterButton.
+  // Filtros em PAINEL LATERAL (RD14): BottomSheet `side-sheet` — desktop =
+  // painel direito bloqueante, mobile = bottom sheet. Rascunho local + aplicado
+  // no estado da pagina; ESC/back/foco/scroll-lock sao do proprio BottomSheet.
+  // (Substituiu o modal central bespoke, que espelhava /samples.)
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [draftFilters, setDraftFilters] = useState<ClientFilters>(appliedFilters);
-  const filtersTrapRef = useFocusTrap(filtersOpen);
 
   const clientsScrollRef = useRef<HTMLDivElement | null>(null);
-  const filterCloseButtonRef = useRef<HTMLButtonElement | null>(null);
-  const lastFilterTriggerRef = useRef<HTMLButtonElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const loadMoreStateRef = useRef<{
     inFlight: boolean;
@@ -687,34 +685,6 @@ export function ClientsBrowser({
     };
   }, [clientsState.items.length]);
 
-  // Filtro modal: ESC fecha, body lock, foco no X ao abrir e devolve o foco ao
-  // botao de filtro ao fechar (espelha /samples).
-  useEffect(() => {
-    if (!filtersOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        closeFilters();
-      }
-    };
-    document.body.style.overflow = 'hidden';
-    document.addEventListener('keydown', onKeyDown);
-    const openFocusTimer = window.setTimeout(() => {
-      filterCloseButtonRef.current?.focus();
-    }, 0);
-    return () => {
-      window.clearTimeout(openFocusTimer);
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener('keydown', onKeyDown);
-      window.setTimeout(() => {
-        lastFilterTriggerRef.current?.focus();
-      }, 0);
-    };
-    // closeFilters nao memoizada; dispara so quando filtersOpen muda
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtersOpen]);
-
   function handleClientSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (clientSearchDebounceRef.current !== null) {
@@ -725,7 +695,7 @@ export function ClientsBrowser({
     setAppliedClientSearch(trimmed.length >= 2 ? trimmed : '');
   }
 
-  // ── Filtros (modal central) — handlers espelhando /samples ──
+  // ── Filtros (painel lateral) ──
   function handleApplyFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     clearSnapshot(storageKeyRef.current);
@@ -733,15 +703,15 @@ export function ClientsBrowser({
     setFiltersOpen(false);
   }
 
-  // Reusado pelo botao "Limpar" do modal E pelo botao "X" da linha de busca.
+  // Reusado pelo botao "Limpar" do painel E pelos botoes de limpar da busca/
+  // toolbar.
   function handleClearFiltersOnly() {
     clearSnapshot(storageKeyRef.current);
     setDraftFilters(EMPTY_CLIENT_FILTERS);
     setAppliedFilters(EMPTY_CLIENT_FILTERS);
   }
 
-  function openFilters(trigger: HTMLButtonElement) {
-    lastFilterTriggerRef.current = trigger;
+  function openFilters() {
     setDraftFilters(appliedFilters);
     setFiltersOpen(true);
   }
@@ -789,8 +759,12 @@ export function ClientsBrowser({
     <>
       {/* Busca + botão "X" de limpar + botão de filtro + FAB na mesma linha
           (mobile: FAB sai do fluxo via position:fixed). has-applied-filters
-          revela o "X" deslizando de trás do filtro. */}
-      <div className={`hero-search-wrap${activeFiltersCount > 0 ? ' has-applied-filters' : ''}`}>
+          revela o "X" deslizando de trás do filtro. fv-hide-desktop (RD14):
+          no desktop esta linha morre — busca/funil/limpar moram na .fv-toolbar
+          dentro do cartao da tabela. */}
+      <div
+        className={`hero-search-wrap fv-hide-desktop${activeFiltersCount > 0 ? ' has-applied-filters' : ''}`}
+      >
         <form className="hero-search-bar" role="search" onSubmit={handleClientSearchSubmit}>
           <input
             className="hero-search-input"
@@ -849,12 +823,12 @@ export function ClientsBrowser({
           aria-label="Filtros"
           aria-haspopup="dialog"
           aria-expanded={filtersOpen}
-          onClick={(event) => {
+          onClick={() => {
             if (filtersOpen) {
               closeFilters();
               return;
             }
-            openFilters(event.currentTarget);
+            openFilters();
           }}
         >
           <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
@@ -881,8 +855,73 @@ export function ClientsBrowser({
 
       {/* Sheet */}
       <section className="clients-v2-sheet">
-        {/* Contador a direita (o botao de filtros migrou pra linha de busca,
-           abrindo o modal central — espelha /samples). */}
+        {/* RD14 (desktop): toolbar do cartao da tabela — busca (mesma logica/
+            debounce da hero) + funil com badge + limpar + contador a direita.
+            Mobile: display:none (a hero-search acima segue no comando). */}
+        <div className="fv-toolbar">
+          <form className="fv-toolbar-search" role="search" onSubmit={handleClientSearchSubmit}>
+            <svg
+              className="fv-toolbar-search-icon"
+              viewBox="0 0 24 24"
+              focusable="false"
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <path d="m16.2 16.2 4.1 4.1" />
+            </svg>
+            <input
+              className="fv-input fv-toolbar-search-input"
+              value={clientSearchInput}
+              onChange={(event) => setClientSearchInput(event.target.value)}
+              placeholder="Buscar por nome ou documento..."
+              autoComplete="off"
+              spellCheck={false}
+            />
+            {clientSearchInput ? (
+              <button
+                type="button"
+                className="fv-toolbar-search-clear"
+                aria-label="Limpar busca"
+                onClick={() => setClientSearchInput('')}
+              >
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            ) : null}
+          </form>
+          <button
+            type="button"
+            className="fv-btn fv-btn-secondary fv-toolbar-filter"
+            aria-haspopup="dialog"
+            aria-expanded={filtersOpen}
+            onClick={() => {
+              if (filtersOpen) {
+                closeFilters();
+                return;
+              }
+              openFilters();
+            }}
+          >
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M4 6h16" />
+              <path d="M7 12h10" />
+              <path d="M10 18h4" />
+            </svg>
+            Filtros
+            {activeFiltersCount > 0 ? (
+              <span className="fv-btn-badge">{activeFiltersCount}</span>
+            ) : null}
+          </button>
+          {activeFiltersCount > 0 ? (
+            <button type="button" className="fv-toolbar-clear" onClick={handleClearFiltersOnly}>
+              Limpar
+            </button>
+          ) : null}
+          <span className="fv-toolbar-count">{clientsState.total} clientes</span>
+        </div>
+
+        {/* Contador a direita (mobile; no desktop o contador mora na toolbar). */}
         <div className="spv2-list-meta">
           <span className="spv2-list-count">{clientsState.total} clientes</span>
         </div>
@@ -1148,203 +1187,132 @@ export function ClientsBrowser({
         )}
       </section>
 
-      {/* Filtros — MODAL central (reusa o CSS .samples-filter-modal de /samples,
-          keyed por classe). Mesmos campos de clientes; rascunho + Aplicar/Limpar. */}
-      {filtersOpen ? (
-        <div className="app-modal-backdrop samples-filter-modal-backdrop" onClick={closeFilters}>
-          <section
-            ref={filtersTrapRef}
-            id="clients-filter-modal"
-            className="app-modal is-themed samples-filter-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="clients-filter-modal-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="app-modal-header samples-filter-modal-header">
-              <div className="app-modal-title-wrap">
-                <h3 id="clients-filter-modal-title" className="app-modal-title">
-                  Filtros
-                </h3>
-              </div>
-              <button
-                ref={filterCloseButtonRef}
-                type="button"
-                className="app-modal-close"
-                onClick={closeFilters}
-                aria-label="Fechar filtros"
-              >
-                <span aria-hidden="true">×</span>
-              </button>
-            </header>
+      {/* Filtros — PAINEL LATERAL (RD14): BottomSheet `side-sheet` (desktop =
+          painel direito bloqueante; mobile = bottom sheet, excecao deliberada
+          ao "mobile intacto" da E1 — padrao da casa). Mesmo rascunho +
+          Aplicar/Limpar; o Aplicar do footer submete o form via `form=`. */}
+      <BottomSheet
+        open={filtersOpen}
+        onClose={closeFilters}
+        title="Filtros"
+        ariaLabel="Filtros de clientes"
+        className="side-sheet fv-filter-sheet"
+        footer={
+          <div className="fv-filter-actions">
+            <button
+              type="button"
+              className="fv-btn fv-btn-secondary"
+              onClick={handleClearFiltersOnly}
+              disabled={!hasDraftFilters && activeFiltersCount === 0}
+            >
+              Limpar
+            </button>
+            <button type="submit" form="clients-filter-form" className="fv-btn fv-btn-primary">
+              Aplicar
+            </button>
+          </div>
+        }
+      >
+        <form id="clients-filter-form" className="fv-filter-form" onSubmit={handleApplyFilters}>
+          <label className="fv-filter-field">
+            <span className="fv-filter-label">Responsável</span>
+            <select
+              className="fv-select"
+              value={draftFilters.commercialUserId}
+              onChange={(event) =>
+                setDraftFilters((current) => ({
+                  ...current,
+                  commercialUserId: event.target.value,
+                }))
+              }
+            >
+              <option value="">Qualquer responsável</option>
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.fullName}
+                </option>
+              ))}
+            </select>
+          </label>
 
-            <form className="samples-filter-modal-form" onSubmit={handleApplyFilters}>
-              <div className="samples-filter-modal-content">
-                <div className="samples-filter-fields">
-                  <div
-                    className={`samples-filter-field${draftFilters.commercialUserId ? ' is-active' : ''}`}
-                  >
-                    <span className="samples-filter-field-label">Responsável</span>
-                    <span className="samples-filter-control">
-                      <select
-                        className={`samples-filter-field-input${draftFilters.commercialUserId ? ' is-active' : ''}`}
-                        value={draftFilters.commercialUserId}
-                        onChange={(event) =>
-                          setDraftFilters((current) => ({
-                            ...current,
-                            commercialUserId: event.target.value,
-                          }))
-                        }
-                      >
-                        <option value="">Qualquer responsável</option>
-                        {users.map((user) => (
-                          <option key={user.id} value={user.id}>
-                            {user.fullName}
-                          </option>
-                        ))}
-                      </select>
-                      {draftFilters.commercialUserId ? (
-                        <span className="samples-filter-field-count" aria-hidden="true">
-                          1
-                        </span>
-                      ) : null}
-                    </span>
-                  </div>
+          <label className="fv-filter-field">
+            <span className="fv-filter-label">Status</span>
+            <select
+              className="fv-select"
+              value={draftFilters.status}
+              onChange={(event) =>
+                setDraftFilters((current) => ({
+                  ...current,
+                  status: event.target.value as ClientFilters['status'],
+                }))
+              }
+            >
+              <option value="">Qualquer</option>
+              <option value="ACTIVE">Ativo</option>
+              <option value="INACTIVE">Inativo</option>
+            </select>
+          </label>
 
-                  <div className="samples-filter-row">
-                    <div
-                      className={`samples-filter-field${draftFilters.status ? ' is-active' : ''}`}
-                    >
-                      <span className="samples-filter-field-label">Status</span>
-                      <span className="samples-filter-control">
-                        <select
-                          className={`samples-filter-field-input${draftFilters.status ? ' is-active' : ''}`}
-                          value={draftFilters.status}
-                          onChange={(event) =>
-                            setDraftFilters((current) => ({
-                              ...current,
-                              status: event.target.value as ClientFilters['status'],
-                            }))
-                          }
-                        >
-                          <option value="">Qualquer</option>
-                          <option value="ACTIVE">Ativo</option>
-                          <option value="INACTIVE">Inativo</option>
-                        </select>
-                        {draftFilters.status ? (
-                          <span className="samples-filter-field-count" aria-hidden="true">
-                            1
-                          </span>
-                        ) : null}
-                      </span>
-                    </div>
+          <label className="fv-filter-field">
+            <span className="fv-filter-label">Tipo</span>
+            <select
+              className="fv-select"
+              value={draftFilters.personType}
+              onChange={(event) =>
+                setDraftFilters((current) => ({
+                  ...current,
+                  personType: event.target.value as ClientFilters['personType'],
+                }))
+              }
+            >
+              <option value="">Qualquer</option>
+              <option value="PF">Pessoa física</option>
+              <option value="PJ">Pessoa jurídica</option>
+            </select>
+          </label>
 
-                    <div
-                      className={`samples-filter-field${draftFilters.personType ? ' is-active' : ''}`}
-                    >
-                      <span className="samples-filter-field-label">Tipo</span>
-                      <span className="samples-filter-control">
-                        <select
-                          className={`samples-filter-field-input${draftFilters.personType ? ' is-active' : ''}`}
-                          value={draftFilters.personType}
-                          onChange={(event) =>
-                            setDraftFilters((current) => ({
-                              ...current,
-                              personType: event.target.value as ClientFilters['personType'],
-                            }))
-                          }
-                        >
-                          <option value="">Qualquer</option>
-                          <option value="PF">Pessoa física</option>
-                          <option value="PJ">Pessoa jurídica</option>
-                        </select>
-                        {draftFilters.personType ? (
-                          <span className="samples-filter-field-count" aria-hidden="true">
-                            1
-                          </span>
-                        ) : null}
-                      </span>
-                    </div>
-                  </div>
+          <label className="fv-filter-field">
+            <span className="fv-filter-label">Papel</span>
+            <select
+              className="fv-select"
+              value={draftFilters.role}
+              onChange={(event) =>
+                setDraftFilters((current) => ({
+                  ...current,
+                  role: event.target.value as ClientFilters['role'],
+                }))
+              }
+            >
+              <option value="">Qualquer</option>
+              <option value="buyer">Comprador</option>
+              <option value="seller">Vendedor</option>
+              <option value="warehouse">Armazém</option>
+            </select>
+          </label>
 
-                  <div className="samples-filter-row">
-                    <div className={`samples-filter-field${draftFilters.role ? ' is-active' : ''}`}>
-                      <span className="samples-filter-field-label">Papel</span>
-                      <span className="samples-filter-control">
-                        <select
-                          className={`samples-filter-field-input${draftFilters.role ? ' is-active' : ''}`}
-                          value={draftFilters.role}
-                          onChange={(event) =>
-                            setDraftFilters((current) => ({
-                              ...current,
-                              role: event.target.value as ClientFilters['role'],
-                            }))
-                          }
-                        >
-                          <option value="">Qualquer</option>
-                          <option value="buyer">Comprador</option>
-                          <option value="seller">Vendedor</option>
-                          <option value="warehouse">Armazém</option>
-                        </select>
-                        {draftFilters.role ? (
-                          <span className="samples-filter-field-count" aria-hidden="true">
-                            1
-                          </span>
-                        ) : null}
-                      </span>
-                    </div>
-
-                    <div
-                      className={`samples-filter-field${draftFilters.completeness ? ' is-active' : ''}`}
-                    >
-                      <span className="samples-filter-field-label">Completude</span>
-                      <span className="samples-filter-control">
-                        <select
-                          className={`samples-filter-field-input${draftFilters.completeness ? ' is-active' : ''}`}
-                          value={draftFilters.completeness}
-                          onChange={(event) =>
-                            setDraftFilters((current) => ({
-                              ...current,
-                              completeness: event.target.value as ClientFilters['completeness'],
-                            }))
-                          }
-                        >
-                          <option value="">Qualquer</option>
-                          <option value="complete">Completo</option>
-                          <option value="incomplete">
-                            {clientsState.incompleteTotal && clientsState.incompleteTotal > 0
-                              ? `Incompleto (${clientsState.incompleteTotal})`
-                              : 'Incompleto'}
-                          </option>
-                        </select>
-                        {draftFilters.completeness ? (
-                          <span className="samples-filter-field-count" aria-hidden="true">
-                            1
-                          </span>
-                        ) : null}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="app-modal-actions samples-filter-modal-actions">
-                <button
-                  type="button"
-                  className="app-modal-secondary"
-                  onClick={handleClearFiltersOnly}
-                  disabled={!hasDraftFilters && activeFiltersCount === 0}
-                >
-                  Limpar
-                </button>
-                <button type="submit" className="app-modal-submit">
-                  Aplicar
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
-      ) : null}
+          <label className="fv-filter-field">
+            <span className="fv-filter-label">Completude</span>
+            <select
+              className="fv-select"
+              value={draftFilters.completeness}
+              onChange={(event) =>
+                setDraftFilters((current) => ({
+                  ...current,
+                  completeness: event.target.value as ClientFilters['completeness'],
+                }))
+              }
+            >
+              <option value="">Qualquer</option>
+              <option value="complete">Completo</option>
+              <option value="incomplete">
+                {clientsState.incompleteTotal && clientsState.incompleteTotal > 0
+                  ? `Incompleto (${clientsState.incompleteTotal})`
+                  : 'Incompleto'}
+              </option>
+            </select>
+          </label>
+        </form>
+      </BottomSheet>
 
       <ClientQuickCreateModal
         session={session}

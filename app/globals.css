@@ -34296,3 +34296,202 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
     }
   }
 }
+
+/* ── Painel de filtros (kit FV, dentro do BottomSheet side-sheet). Vive nos
+   DOIS breakpoints (mobile = bottom sheet). ── */
+.fv-filter-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 0.25rem 0.15rem 0.6rem;
+}
+
+.fv-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.fv-filter-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.fv-input,
+.fv-select {
+  width: 100%;
+  height: 40px;
+  padding: 0 0.7rem;
+  border: 1px solid var(--fv-line-strong);
+  border-radius: var(--fv-radius);
+  background: var(--fv-surface);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 0.88rem;
+}
+.fv-input:focus-visible,
+.fv-select:focus-visible {
+  outline: none;
+  border-color: var(--fv-cta);
+  box-shadow: 0 0 0 3px rgba(23, 60, 48, 0.12);
+}
+
+.fv-filter-actions {
+  display: flex;
+  gap: 0.6rem;
+  width: 100%;
+}
+.fv-filter-actions .fv-btn {
+  flex: 1;
+  justify-content: center;
+  height: 42px;
+}
+.fv-filter-actions .fv-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (min-width: 901px) {
+  /* Painel de filtros mais enxuto que o side-sheet de criacao (620px). */
+  .bottom-sheet.fv-filter-sheet {
+    width: min(400px, 92vw);
+  }
+
+  /* RD14: no desktop a linha de busca mobile (hero) sai de cena — busca/
+     funil/limpar moram na .fv-toolbar do cartao. Classe aplicada pelo
+     proprio ClientsBrowser (nao esconde a hero de Corretores, que so migra
+     no C8). O contador mobile tambem sai (mora na toolbar). */
+  .fv-cad-page .hero-search-wrap.fv-hide-desktop {
+    display: none;
+  }
+  .fv-cad-page .clients-v2-sheet .spv2-list-meta {
+    display: none;
+  }
+}
+
+/* ── Toolbar do cartao da tabela (desktop-only). ── */
+.fv-toolbar {
+  display: none;
+}
+
+@media (min-width: 901px) {
+  .fv-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex: none;
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid var(--fv-line);
+  }
+
+  .fv-toolbar-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 0 1 340px;
+    min-width: 220px;
+  }
+
+  .fv-toolbar-search-icon {
+    position: absolute;
+    left: 0.65rem;
+    width: 1rem;
+    height: 1rem;
+    fill: none;
+    stroke: var(--muted);
+    stroke-width: 2;
+    stroke-linecap: round;
+    pointer-events: none;
+  }
+
+  .fv-toolbar-search-input {
+    height: 38px;
+    padding-left: 2.15rem;
+    padding-right: 2.1rem;
+  }
+
+  .fv-toolbar-search-clear {
+    position: absolute;
+    right: 0.35rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 140ms ease;
+  }
+  .fv-toolbar-search-clear svg {
+    width: 0.85rem;
+    height: 0.85rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+  @media (hover: hover) {
+    .fv-toolbar-search-clear:hover {
+      background: var(--fv-active-bg);
+      color: var(--ink);
+    }
+  }
+  .fv-toolbar-search-clear:active {
+    transform: scale(0.92);
+  }
+
+  .fv-toolbar-filter {
+    flex: none;
+  }
+
+  .fv-btn-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--fv-cta);
+    color: #ffffff;
+    font-size: 0.68rem;
+    font-weight: 700;
+  }
+
+  .fv-toolbar-clear {
+    flex: none;
+    padding: 0.3rem 0.4rem;
+    border: none;
+    background: none;
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    transition: transform 140ms ease;
+  }
+  @media (hover: hover) {
+    .fv-toolbar-clear:hover {
+      color: var(--ink);
+    }
+  }
+  .fv-toolbar-clear:active {
+    transform: scale(0.97);
+  }
+
+  .fv-toolbar-count {
+    margin-left: auto;
+    flex: none;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+}
