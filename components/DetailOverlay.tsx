@@ -9,9 +9,15 @@ interface DetailOverlayProps {
   onClose: () => void;
   title?: ReactNode;
   children: ReactNode;
+  /** Acoes fixas no rodape do overlay (sticky, molde do BottomSheet). */
+  footer?: ReactNode;
   /** Com `current=true` (modal interno aberto), ESC/X do overlay nao fecham. */
   dismissGuardRef?: MutableRefObject<boolean>;
   ariaLabel?: string;
+  /** Classe extra ao lado de `.detail-overlay` pra overrides escopados do
+   *  conteudo (ex.: `.ctr-details-overlay` devolve o respiro/fundo que o
+   *  detalhe do contrato esperava do sheet). */
+  className?: string;
 }
 
 // Contentor canonico de DETALHE do redesign (RD5): overlay dirigido por URL
@@ -25,8 +31,10 @@ export function DetailOverlay({
   onClose,
   title,
   children,
+  footer,
   dismissGuardRef,
   ariaLabel,
+  className,
 }: DetailOverlayProps) {
   return (
     <BottomSheet
@@ -34,8 +42,9 @@ export function DetailOverlay({
       onClose={onClose}
       onDismissAttempt={() => !dismissGuardRef?.current}
       title={title}
+      footer={footer}
       ariaLabel={ariaLabel}
-      className="detail-overlay"
+      className={className ? `detail-overlay ${className}` : 'detail-overlay'}
       manageHistory={false}
       dragToDismiss={false}
     >
