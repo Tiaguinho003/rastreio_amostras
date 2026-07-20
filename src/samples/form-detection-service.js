@@ -10,7 +10,11 @@ const ROW_WHITE_MIN_RATIO = 0.15;
 const MIN_RUN_LENGTH = 30;
 const PADDING_RATIO = 0.05;
 const MIN_AREA_RATIO = 0.03;
-const MAX_AREA_RATIO = 0.65;
+// Teto alto o bastante pra aceitar CLOSE-UP (ficha preenchendo o quadro):
+// o blur derruba as bordas e a regiao medida fica ~0.85 do frame (medido na
+// fixture cropada). Com 0.65, a foto mais bem enquadrada caia em detect-failed.
+// O teto remanescente so descarta o degenerado "imagem inteira branca".
+const MAX_AREA_RATIO = 0.95;
 const MIN_ASPECT = 0.7;
 const MAX_ASPECT = 1.5;
 const DETECTION_TIMEOUT_MS = 5000;
