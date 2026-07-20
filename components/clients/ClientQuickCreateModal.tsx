@@ -70,11 +70,6 @@ type ClientQuickCreateModalProps = {
   initialIsWarehouse?: boolean;
   /** Prefill opcional do telefone (ex: anotado no informe de visita). */
   initialPhone?: string;
-  /** Desktop = painel lateral direito (.side-sheet, como o detalhe) em vez do
-   *  modal central. Uso: FAB "Novo cliente" de /cadastros. Os quick-creates
-   *  ANINHADOS (novo proprietario no Novo lote etc.) ficam centrais — lateral
-   *  sobre lateral esconderia o form de baixo. */
-  sideSheet?: boolean;
   onClose: () => void;
   onCreated: (client: ClientSummary) => void;
 };
@@ -159,7 +154,6 @@ export function ClientQuickCreateModal({
   initialIsSeller = false,
   initialIsWarehouse = false,
   initialPhone,
-  sideSheet = false,
   onClose,
   onCreated,
 }: ClientQuickCreateModalProps) {
@@ -406,9 +400,13 @@ export function ClientQuickCreateModal({
     </div>
   );
 
-  // BottomSheet com `stacked`: este modal sempre abre SOBRE algo (sheet de Nova
-  // Amostra, fluxo de vinculo do /resumo, detalhe). O tier stacked + o
-  // scroll-lock ref-contado vivem no proprio BottomSheet (ver components/BottomSheet).
+  // BottomSheet com `stacked`: este modal costuma abrir SOBRE algo (sheet de
+  // Nova Amostra, contrato, detalhe). O tier stacked + o scroll-lock
+  // ref-contado vivem no proprio BottomSheet (ver components/BottomSheet).
+  // `side-sheet` (2026-07-20): criar cliente e SEMPRE painel lateral direito
+  // no desktop, em todos os contextos — sobre outro painel lateral (Novo
+  // lote) desliza por cima cobrindo-o, como um push de navegacao; o tier
+  // stacked garante a ordem. Mobile segue sheet empilhado.
   return (
     <BottomSheet
       open={open}
@@ -422,7 +420,7 @@ export function ClientQuickCreateModal({
       // Pausa o arraste do proprio sheet enquanto o "Descartar?"/save estao
       // ativos (mesmo cuidado do NewSampleModal com o quick-create).
       dragDisabled={discardOpen || saving}
-      className={sideSheet ? 'client-quick-create-sheet side-sheet' : 'client-quick-create-sheet'}
+      className="client-quick-create-sheet side-sheet"
     >
       <form id={formId} className="client-quick-create-form" onSubmit={handleSubmit}>
         <div className="client-quick-create-body">

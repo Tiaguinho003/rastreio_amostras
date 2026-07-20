@@ -28991,8 +28991,9 @@ select.samples-filter-field-input {
    a lista atras NAO fica clicavel (diferente do .detail-overlay).
    Historia segue com o arbitro do BottomSheet (nao e dirigido por
    URL — criar nao e um recurso enderecavel). No mobile nada muda
-   (sheet padrao). Usos: Novo lote (/samples), Novo cliente
-   (/cadastros via prop sideSheet do ClientQuickCreateModal).
+   (sheet padrao). Usos: Novo lote (/samples) e o ClientQuickCreateModal
+   em TODOS os contextos (FAB de /cadastros e os aninhados — sobre outro
+   painel lateral desliza por cima, como um push; o `stacked` da a ordem).
    ══════════════════════════════════════════════════════════════ */
 @media (min-width: 901px) {
   .bottom-sheet.side-sheet {
