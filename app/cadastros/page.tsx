@@ -21,6 +21,7 @@ import {
   lookupUsersForReference,
   updateBroker,
 } from '../../lib/api-client';
+import { formatPhone } from '../../lib/client-field-formatters';
 import { CLIENT_MANAGEMENT_ROLES } from '../../lib/roles';
 import { useRequireAuth } from '../../lib/use-auth';
 import { useIsDesktop } from '../../lib/use-desktop';
@@ -389,7 +390,9 @@ function CadastrosPage() {
           />
         ) : (
           <>
-            <div className="hero-search-wrap">
+            {/* RD14: no desktop a linha de busca mobile sai (fv-hide-desktop);
+                busca/toggle/contador moram na .fv-toolbar do cartao. */}
+            <div className="hero-search-wrap fv-hide-desktop">
               <form
                 className="hero-search-bar"
                 role="search"
@@ -437,6 +440,58 @@ function CadastrosPage() {
             </div>
 
             <section className="clients-v2-sheet">
+              {/* RD14 (desktop): toolbar do cartao — busca + toggle de
+                  inativos + contador. Mobile: display:none (a hero acima e o
+                  meta abaixo seguem no comando). */}
+              <div className="fv-toolbar">
+                <form
+                  className="fv-toolbar-search"
+                  role="search"
+                  onSubmit={(event) => event.preventDefault()}
+                >
+                  <svg
+                    className="fv-toolbar-search-icon"
+                    viewBox="0 0 24 24"
+                    focusable="false"
+                    aria-hidden="true"
+                  >
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="m16.2 16.2 4.1 4.1" />
+                  </svg>
+                  <input
+                    className="fv-input fv-toolbar-search-input"
+                    value={searchValue}
+                    onChange={(event) => setSearchValue(event.target.value)}
+                    placeholder="Buscar corretor..."
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  {searchValue ? (
+                    <button
+                      type="button"
+                      className="fv-toolbar-search-clear"
+                      aria-label="Limpar busca"
+                      onClick={() => setSearchValue('')}
+                    >
+                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                        <path d="M6 6l12 12M18 6L6 18" />
+                      </svg>
+                    </button>
+                  ) : null}
+                </form>
+                {inactiveCount > 0 ? (
+                  <button
+                    type="button"
+                    className="fv-btn fv-btn-secondary"
+                    aria-pressed={showInactive}
+                    onClick={toggleInactive}
+                  >
+                    {showInactive ? 'Esconder inativos' : `Mostrar ${inactiveCount} inativo(s)`}
+                  </button>
+                ) : null}
+                <span className="fv-toolbar-count">{count} corretor(es)</span>
+              </div>
+
               <div className="spv2-list-meta">
                 <span className="spv2-list-count">{count} corretor(es)</span>
                 {inactiveCount > 0 ? (
@@ -446,39 +501,133 @@ function CadastrosPage() {
                 ) : null}
               </div>
 
-              <div className="spv2-list-scroll">
-                {count === 0 ? (
-                  <div className="spv2-empty">
-                    <p className="spv2-empty-text">Nenhum corretor para mostrar</p>
-                  </div>
-                ) : (
-                  <div className="cad-list">
-                    {visibleBrokers.map((broker) => (
-                      <button
-                        key={broker.id}
-                        type="button"
-                        className={`cad-row${broker.status === 'INACTIVE' ? ' is-inactive' : ''}`}
-                        onClick={() => openEditBroker(broker)}
-                      >
-                        <div className="cad-row-main">
-                          <span className="cad-row-name">{broker.name}</span>
-                          <span className="cad-row-sub">
-                            {broker.user
-                              ? `Usuário: ${broker.user.fullName}`
-                              : broker.email || broker.phone || 'Sem vínculo'}
-                          </span>
-                        </div>
-                        {broker.status === 'INACTIVE' ? (
-                          <span className="cad-row-badge">Inativo</span>
-                        ) : null}
-                        <svg className="cad-row-arrow" viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="m9 6 6 6-6 6" />
-                        </svg>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {isDesktop ? (
+                /* RD14 (desktop): tabela enxuta de corretores. Linha (e o
+                   lapis) abrem o BrokerFormModal atual — re-skin fica pra E2. */
+                <div className="spv2-list-scroll fv-table-scroll" tabIndex={-1}>
+                  {count === 0 ? (
+                    <div className="spv2-empty">
+                      <p className="spv2-empty-text">Nenhum corretor para mostrar</p>
+                    </div>
+                  ) : (
+                    <table className="fv-table">
+                      <thead>
+                        <tr>
+                          <th scope="col">Nome</th>
+                          <th scope="col">Contato</th>
+                          <th scope="col">Usuário vinculado</th>
+                          <th scope="col">Status</th>
+                          <th scope="col" className="fv-table-th-actions" aria-label="Ações" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {visibleBrokers.map((broker) => {
+                          const phone = formatPhone(broker.phone);
+                          const isInactive = broker.status === 'INACTIVE';
+                          return (
+                            <tr
+                              key={broker.id}
+                              className={`fv-table-row${isInactive ? ' is-inactive' : ''}`}
+                              onClick={() => openEditBroker(broker)}
+                            >
+                              <td>
+                                <button
+                                  type="button"
+                                  className="fv-table-name-btn"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    openEditBroker(broker);
+                                  }}
+                                >
+                                  <span className="fv-table-name">{broker.name}</span>
+                                </button>
+                              </td>
+                              <td>
+                                {phone || broker.email ? (
+                                  <span className="fv-table-cell-stack">
+                                    {phone ? (
+                                      <span className="fv-table-cell-main">{phone}</span>
+                                    ) : null}
+                                    {broker.email ? (
+                                      <span className="fv-table-sub">{broker.email}</span>
+                                    ) : null}
+                                  </span>
+                                ) : (
+                                  <span className="fv-table-cell-main">—</span>
+                                )}
+                              </td>
+                              <td>
+                                <span className="fv-table-cell-main">
+                                  {broker.user ? broker.user.fullName : '—'}
+                                </span>
+                              </td>
+                              <td>
+                                <span className="fv-table-chips">
+                                  <span
+                                    className={`fv-chip ${isInactive ? 'fv-chip-gray' : 'fv-chip-green'}`}
+                                  >
+                                    {isInactive ? 'Inativo' : 'Ativo'}
+                                  </span>
+                                </span>
+                              </td>
+                              <td
+                                className="fv-table-td-actions"
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                <button
+                                  type="button"
+                                  className="fv-table-dots is-stroke-icon"
+                                  aria-label={`Editar ${broker.name}`}
+                                  onClick={() => openEditBroker(broker)}
+                                >
+                                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                    <path d="M12 20h9" />
+                                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                                  </svg>
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              ) : (
+                <div className="spv2-list-scroll">
+                  {count === 0 ? (
+                    <div className="spv2-empty">
+                      <p className="spv2-empty-text">Nenhum corretor para mostrar</p>
+                    </div>
+                  ) : (
+                    <div className="cad-list">
+                      {visibleBrokers.map((broker) => (
+                        <button
+                          key={broker.id}
+                          type="button"
+                          className={`cad-row${broker.status === 'INACTIVE' ? ' is-inactive' : ''}`}
+                          onClick={() => openEditBroker(broker)}
+                        >
+                          <div className="cad-row-main">
+                            <span className="cad-row-name">{broker.name}</span>
+                            <span className="cad-row-sub">
+                              {broker.user
+                                ? `Usuário: ${broker.user.fullName}`
+                                : broker.email || broker.phone || 'Sem vínculo'}
+                            </span>
+                          </div>
+                          {broker.status === 'INACTIVE' ? (
+                            <span className="cad-row-badge">Inativo</span>
+                          ) : null}
+                          <svg className="cad-row-arrow" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="m9 6 6 6-6 6" />
+                          </svg>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </section>
           </>
         )}

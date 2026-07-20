@@ -34268,6 +34268,14 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
     fill: currentColor;
     stroke: none;
   }
+  /* Variante pra icones de TRACO no mesmo botao (ex.: lapis de Corretores). */
+  .fv-table-dots.is-stroke-icon svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
   @media (hover: hover) {
     .fv-table-dots:hover {
       background: var(--fv-active-bg);
