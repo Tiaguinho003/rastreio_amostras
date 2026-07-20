@@ -24,17 +24,11 @@ const FONT = { 1: [8, 12], 2: [12, 20], 3: [16, 24], 4: [24, 32] };
 const SCALE = 2; // px por dot no PNG final
 const CAPTION_H = 46; // faixa de legenda abaixo da etiqueta (dots)
 
-// Campos fixos (mockup do usuario). Os lotes variam por contagem.
-const BASE_FIELDS = [
-  { label: 'N° COMPRA', value: 'C003364' },
-  { label: 'N° FECHAMENTO', value: '3228/26' },
-  { label: 'SACAS', value: '248' },
-  { label: 'PRODUT', value: 'JERONITO ANTONIO PEREIRA' },
-  { label: 'ARMAZ', value: 'PENEIRA ALTA' },
-];
-
-function lotsValue(n) {
-  return Array.from({ length: n }, (_, i) => String(5839 + i)).join(', ');
+// Lotes de teste: `chars`=3 gera 123,124...; `chars`=6 gera PA-001,PA-002...
+function lotsValue(n, chars = 3) {
+  return Array.from({ length: n }, (_, i) =>
+    chars === 6 ? `PA-${String(1 + i).padStart(3, '0')}` : String(123 + i)
+  ).join(', ');
 }
 
 function esc(text) {
@@ -141,79 +135,96 @@ async function render(sample, outName, caption) {
   console.log(`Preview gerado: ${outPng}`);
 }
 
+const SCENARIOS = [
+  {
+    name: 'custom-label-preview-1.png',
+    cap: '1 - Tipico.  Azul = margem util.  Vermelho = fora.',
+    compra: 'C003364',
+    fech: '3228/26',
+    sacas: '248',
+    prod: 'José Aparecido Pereira',
+    arm: 'Armazém Peneira Alta',
+    lots: lotsValue(6),
+  },
+  {
+    name: 'custom-label-preview-2.png',
+    cap: '2 - Numeros grandes (fechamento/compra).',
+    compra: '987654/25',
+    fech: '123456789',
+    sacas: '1200',
+    prod: 'José da Silva',
+    arm: 'Armazém Central SP',
+    lots: lotsValue(3),
+  },
+  {
+    name: 'custom-label-preview-3.png',
+    cap: '3 - Nome do produtor grande.',
+    compra: 'C003364',
+    fech: '3228/26',
+    sacas: '248',
+    prod: 'José Aparecido da Silva Oliveira Santos Júnior',
+    arm: 'Armazém Central SP',
+    lots: lotsValue(4),
+  },
+  {
+    name: 'custom-label-preview-4.png',
+    cap: '4 - Armazem grande.',
+    compra: 'C003364',
+    fech: '3228/26',
+    sacas: '248',
+    prod: 'José da Silva',
+    arm: 'Armazéns Gerais de Café do Sul de Minas Ltda',
+    lots: lotsValue(2),
+  },
+  {
+    name: 'custom-label-preview-5.png',
+    cap: '5 - Poucos lotes (1).',
+    compra: 'C003364',
+    fech: '3228/26',
+    sacas: '80',
+    prod: 'José da Silva Oliveira',
+    arm: 'Central SP',
+    lots: lotsValue(1, 6),
+  },
+  {
+    name: 'custom-label-preview-6.png',
+    cap: '6 - Pior caso (tudo grande + 8 lotes de 6).',
+    compra: '987654/25',
+    fech: '123456789',
+    sacas: '12000',
+    prod: 'José Aparecido da Silva Oliveira Santos Júnior',
+    arm: 'Armazéns Gerais de Café do Sul de Minas Ltda',
+    lots: lotsValue(8, 6),
+  },
+  {
+    name: 'custom-label-preview-7.png',
+    cap: '7 - Futuro (sem lotes; area reservada vazia).',
+    compra: 'C003364',
+    fech: '3228/26',
+    sacas: '248',
+    prod: 'José da Silva Oliveira',
+    arm: 'Armazém Central SP',
+    lots: '',
+  },
+];
+
 async function main() {
-  const variants = [
-    {
-      n: 8,
-      name: 'custom-label-preview.png',
-      cap: 'Aprovacao — 8 lotes (mockup).  Azul = margem util.  Vermelho = fora.',
-    },
-    {
-      n: 2,
-      name: 'custom-label-preview-2.png',
-      cap: 'Aprovacao — 2 lotes (1 linha, caixas grandes).',
-    },
-    { n: 6, name: 'custom-label-preview-6.png', cap: 'Aprovacao — 6 lotes (2x3).' },
-    {
-      n: 16,
-      name: 'custom-label-preview-16.png',
-      cap: 'Aprovacao — 16 lotes (teto; numero NAO pode cortar).',
-    },
-  ];
-  for (const v of variants) {
-    await render(
-      { lines: [...BASE_FIELDS, { label: 'LOTE', value: lotsValue(v.n) }] },
-      v.name,
-      v.cap
-    );
-  }
-  // Nº COMPRA longo: valida a quebra em ATE 2 linhas (max 13/linha, piso tier '2',
-  // SEM encostar nas divisorias da faixa). Curto ('C003364') ja sai 1 linha grande
-  // nas variantes acima. Espacos permitidos (word-wrap quebra nos espacos).
-  const compraVariants = [
-    {
-      compra: 'CC003364 12345',
-      name: 'custom-label-preview-compra-14.png',
-      cap: 'Aprovacao — Nº compra 14 chars (2 linhas).',
-    },
-    {
-      compra: 'C003364 SAFRA ARABICA 2026',
-      name: 'custom-label-preview-compra-26.png',
-      cap: 'Aprovacao — Nº compra 26 chars com espacos (2 linhas, piso de fonte).',
-    },
-  ];
-  for (const v of compraVariants) {
+  for (const s of SCENARIOS) {
     await render(
       {
         lines: [
-          { label: 'N° COMPRA', value: v.compra },
-          { label: 'N° FECHAMENTO', value: '3228/26' },
-          { label: 'SACAS', value: '248' },
-          { label: 'PRODUT', value: 'JERONITO ANTONIO PEREIRA' },
-          { label: 'ARMAZ', value: 'PENEIRA ALTA' },
-          { label: 'LOTE', value: lotsValue(4) },
+          { label: 'N° COMPRA', value: s.compra },
+          { label: 'N° FECHAMENTO', value: s.fech },
+          { label: 'SACAS', value: s.sacas },
+          { label: 'PRODUT', value: s.prod },
+          { label: 'ARMAZ', value: s.arm },
+          { label: 'LOTE', value: s.lots },
         ],
       },
-      v.name,
-      v.cap
+      s.name,
+      s.cap
     );
   }
-  // Valida o fix de vazio: so Compra preenchida + 3 lotes; o resto NAO pode sair
-  // como "---" (e nenhuma caixa de lote vazia).
-  await render(
-    {
-      lines: [
-        { label: 'N° COMPRA', value: 'C003364' },
-        { label: 'N° FECHAMENTO', value: '' },
-        { label: 'SACAS', value: '' },
-        { label: 'PRODUT', value: '' },
-        { label: 'ARMAZ', value: '' },
-        { label: 'LOTE', value: lotsValue(3) },
-      ],
-    },
-    'custom-label-preview-vazio.png',
-    'Aprovacao — campos vazios (so Compra + 3 lotes): sem "---".'
-  );
 }
 
 main().catch((err) => {
