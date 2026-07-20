@@ -643,7 +643,7 @@ parado atualiza em ≤60s); os 2 modais (data, reclassificar) com foco preso.
 
 > Ciclo executado em 2026-07-16 (S12): conferência R1–R8 do fluxo AINDA como
 > página, conforme a ordem acordada — a conversão em modal global (CAM-D1–D4)
-> é fase posterior (CAM-P3). Escopo: fluxo e container; os 22 campos da ficha
+> é fase posterior (CAM-P3). Escopo: fluxo e container; os 26 campos da ficha
 > (`ClassificationReviewSheetBody`) pertencem ao ciclo da extração.
 
 **Decisões pré-ciclo:**
@@ -689,7 +689,7 @@ sem mudança de comportamento (prop `sampleId?` + callbacks no lugar de
 `useSearchParams`/`router.back()`) → montagem global do modal + troca dos
 gatilhos + remoção da rota → gate desktop. A conferência CAM cobre **fluxo e
 container, não os campos da ficha** — `ClassificationReviewSheetBody` e a
-semântica dos 22 campos pertencem ao ciclo da extração (posterior).
+semântica dos 26 campos pertencem ao ciclo da extração (posterior).
 
 **Mapa (R1):** `app/camera/page.tsx` (~1700 linhas, máquina de ~20 estados
 `ClassificationFlowState`, Flow A sem contexto / Flow B `?sampleId=`) ·
@@ -743,9 +743,10 @@ operacionais têm o fluxo COMPLETO (acesso unificado 2026-07-15). PROSPECTOR:
   CLAUDE.md; buffer arbitrário ia pro sharp + OpenAI). Helper
   `assertImageMagicBytes` no `upload-policy` (dedup dos checks inline) +
   gates na entrada + testes (`tests/classification-photo-magic-bytes.test.js`).
-- **CAM-I2** ⏳→CAM-P1 — eventos `CLASSIFICATION_EXTRACTION_*` não emitidos
-  pelo fluxo da câmera (só telemetria stderr). Documentado na VG §2; emissão
-  decidida pro ciclo da extração (CAM-D6).
+- **CAM-I2** ✅ — eventos `CLASSIFICATION_EXTRACTION_*` não eram emitidos
+  pelo fluxo da câmera. Resolvido na CAM-P1 (Ciclo da Extração — Rodada 1,
+  2026-07-19): sidecar no extract + emissão no confirm. Ledger EXT no
+  `Classificacao-Plano-de-Trabalho.md`.
 - **CAM-I3** ✅ — 11 modais `Classification*` sem `createPortal` (skill
   modals §Portal é OBRIGATÓRIO); portalizados no molde do
   `SampleLookupResultModal`.
@@ -795,14 +796,10 @@ do BottomSheet + fix G6 da S12 — CAM-D4 satisfeita).
 
 **Pendências:**
 
-- **CAM-P1** — Emitir `CLASSIFICATION_EXTRACTION_COMPLETED/_FAILED` no fluxo
-  da câmera (CAM-D6, início do ciclo da extração). Design pronto: o extract
-  persiste o resultado bruto num sidecar `_temp/temp-{token}-extraction.json`
-  ao lado da foto; o confirm lê o sidecar, computa a cross-validation contra
-  a amostra (agora com sampleId) e emite o evento com o
-  `photoAttachmentId` recém-criado; sidecar é limpo junto dos temps. Payload
-  schema já existe e valida. Limitação aceita: extração que nunca chega ao
-  confirm não vira evento (sem sampleId no Flow A; morre com o temp em 24h).
+- ~~**CAM-P1**~~ **FEITA no Ciclo da Extração — Rodada 1 (2026-07-19,
+  `f18524c`)**: sidecar no extract + emissão no confirm com cross-validation
+  e `photoAttachmentId`, exatamente no design acima; sidecar consumido junto
+  dos temps. Ledger EXT1–EXT13 no `Classificacao-Plano-de-Trabalho.md`.
 - **CAM-P2** — Scanner QR decodifica à toa no Flow B (12fps de CPU/bateria
   com `hasContext`; `handleDecodedQr` ignora tudo) + getUserMedia DUPLO na
   inicialização (teste explícito de câmera traseira abre/fecha um stream

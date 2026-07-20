@@ -1,7 +1,7 @@
 # Classificação — Visão Geral
 
 > **Status**: Ativo (documento-mãe)
-> **Última atualização**: 2026-07-13 (pós-auditoria CL1–CL41 e correções F1–F4)
+> **Última atualização**: 2026-07-19 (Ciclo da Extração — Rodada 1: EXT1–EXT13)
 > **Par**: backlog, pendências e ledger vivem em `docs/Classificacao-Plano-de-Trabalho.md`.
 
 Este é o documento canônico do funcionamento ATUAL da classificação. Afirmações sobre fluxo, contrato de dados, canonização e exibição vivem aqui; os demais docs referenciam este.
@@ -34,7 +34,7 @@ Três caminhos de escrita, todos convergindo no evento `CLASSIFICATION_COMPLETED
 | `CLASSIFICATION_UPDATED`                          | edição com auditoria before/after + reason | não              |
 | `CLASSIFICATION_EXTRACTION_COMPLETED` / `_FAILED` | auditoria da extração IA                   | não (audit-only) |
 
-> ⚠️ **Os eventos de extração NÃO são emitidos pelo fluxo da câmera** (constatação do ciclo CAM, 2026-07-16): `extractAndPrepareClassification` não emite evento (só telemetria estruturada em stderr) e o confirm chama `addSamplePhoto` com `skipExtraction: true`. Eles só ocorrem no caminho legado de upload direto de foto (`/samples/[id]/photos`). A emissão no fluxo da câmera está decidida (CAM-D6) para o **início do ciclo da extração** — design em `docs/Revisao-Geral-Plano-de-Trabalho.md` §CAM (pendência CAM-P1); o payload já registra os campos **brutos** da IA, enquanto o `COMPLETED` registra o final editado — o par bruto→corrigido + a foto é a base de auditoria/treinamento.
+> **Os eventos de extração SÃO emitidos pelo fluxo da câmera desde 2026-07-19 (CAM-P1, Ciclo da Extração — Rodada 1)** via sidecar: o `extractAndPrepareClassification` grava o resultado **bruto** da IA em `_temp/temp-{token}-extraction.json` (sucesso: identificacao+classificacao+model+tempo; falha técnica no modo por token: errorCode/errorMessage) e o `confirmClassificationFromCamera` lê o sidecar, computa a cross-validation contra o cadastro **pré-reconciliação** e emite `CLASSIFICATION_EXTRACTION_COMPLETED`/`_FAILED` com o `photoAttachmentId` da foto anexada (best-effort — falha na auditoria não derruba a classificação; sidecar é consumido junto dos temps). O payload registra os campos **brutos**, enquanto o `COMPLETED` registra o final editado — o par bruto→corrigido + a foto é a base de auditoria/treinamento. Limitação aceita: extração que nunca chega ao confirm não vira evento (morre com o temp em 24h). O caminho legado de upload direto (`/samples/[id]/photos`) segue emitindo inline como antes.
 
 Schemas em `docs/schemas/events/v1/payloads/`. `npm run validate:schemas` apenas **compila** os schemas; a validação dos payloads acontece em runtime no `appendEvent`.
 
@@ -71,7 +71,7 @@ A projeção é **MERGE** (não replace): chaves ausentes do payload preservam o
 
 Funções únicas em `src/samples/classification-canonicalization.js`, aplicadas **simetricamente** (desde 2026-07-13) em três pontos:
 
-1. **Extração IA** (`normalizeClassificacao`): padrao/aspecto/certif/bebida (com `rejectIfLabel`) + catacao (CL7) + safra (`canonicalizeHarvest`).
+1. **Extração IA** (`normalizeClassificacao` + `normalizeIdentificacao`): padrao/aspecto/certif/bebida (com `rejectIfLabel`) + catacao (CL7) + safra (`canonicalizeHarvest`). Desde EXT9 (2026-07-19), `rejectIfLabel` também na identificação (lote/sacas/safra) — eco de rótulo impresso não pré-preenche o review.
 2. **Projeção** (`CLASSIFICATION_FIELD_CANONICALIZERS` no projetor): padrao/aspecto/catacao/certif/**bebida** (CL6).
 3. **Filtros de /samples** (`listClassificationValues` + aplicação de filtro): padrao/aspecto/catacao/certif.
 
@@ -107,14 +107,16 @@ Decisões deliberadas: **Tipo só no modal** (não sai no laudo — decisão 202
 
 ## 7. API (rotas atuais)
 
-| Rota                                                          | Backend                                                      | Uso                             |
-| ------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------- |
-| `POST /api/v1/classification/confirm`                         | `confirmClassificationFromCamera`                            | câmera (novo + reclassificação) |
-| `POST /api/v1/samples/:id/classification/update`              | `updateClassification`                                       | edição no detalhe               |
-| `POST /api/v1/samples/:id/classification/detect-form`         | detecção da ficha                                            | câmera                          |
-| `POST /api/v1/samples/:id/classification/extract-and-prepare` | extração p/ revisão (não persiste evento)                    | câmera                          |
-| `GET /api/v1/samples/classification-values?field=`            | DISTINCT canonizado p/ filtros                               | filtros /samples                |
-| `POST /api/v1/samples/:id/photos`                             | `addLabelPhoto` → extração persistida (eventos de auditoria) | upload de foto                  |
+| Rota                                               | Backend                                                                              | Uso                             |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------- |
+| `POST /api/v1/classification/confirm`              | `confirmClassificationFromCamera` (emite os eventos de extração do sidecar — CAM-P1) | câmera (novo + reclassificação) |
+| `POST /api/v1/samples/:id/classification/update`   | `updateClassification`                                                               | edição no detalhe               |
+| `POST /api/v1/classification/detect-form`          | detecção da ficha (sharp; grava `_temp/temp-{token}.jpg`)                            | câmera                          |
+| `POST /api/v1/classification/extract-and-prepare`  | extração p/ revisão + sidecar de auditoria (evento só no confirm)                    | câmera                          |
+| `GET /api/v1/samples/classification-values?field=` | DISTINCT canonizado p/ filtros                                                       | filtros /samples                |
+| `POST /api/v1/samples/:id/photos`                  | `addLabelPhoto` → extração persistida inline (caminho legado)                        | upload de foto                  |
+
+Erros do detect/extract (EXT — Rodada 1, 2026-07-19): `photoToken` fora do formato UUID → **422** (antes do filesystem — bloqueia path traversal); falha da IA → **504** (`TIMEOUT`) ou **502** (demais códigos), com mensagem pt-BR acionável e `errorCode` nos details (antes tudo caía em 500 genérico); entrada não-JPEG (PNG/WebP da galeria) é transcodificada para JPEG real na entrada.
 
 `POST /classification/complete` foi **removida** (2026-07-13, CL13 — era DEPRECATED; o método `completeClassification` do command service permanece como harness de teste). Não existem `classification/start` nem `/partial` (cortados no Q.cls.1).
 
@@ -122,12 +124,15 @@ Validação server-side: caminho novo valida contra o schema do evento (Ajv, pen
 
 ## 8. Extração por IA
 
-- Modelo **pinado** `gpt-4o-2024-11-20` (`OPENAI_EXTRACTION_MODEL` sobrepõe), temperature 0.2, `response_format: json_schema` strict, timeout 25 s, retry 1x só em 429/5xx.
-- Few-shot: 1 exemplo (imagem `src/samples/fixtures/extraction-example.jpg` + valores descritos no texto do prompt; o `.json` da fixture é referência humana).
+- Modelo **pinado** `gpt-4o-2024-11-20` (`OPENAI_EXTRACTION_MODEL` sobrepõe), temperature 0.2, `response_format: json_schema` strict, timeout 25 s no servidor (+ prazo client-side de 75 s nas chamadas do sheet), retry 1x só em 429/5xx.
+- **Estrutura das mensagens (EXT8, 2026-07-19)**: system + user-exemplo (`FEW_SHOT_INTRO`: só os valores do exemplo + avisos anti-cópia + imagem da fixture em `detail:'low'`) + user-real (USER_PROMPT completo com o layout célula a célula + foto em `detail:'high'`). O USER_PROMPT ia **duplicado** nas duas user messages — a deduplicação cortou 6721→4160 prompt tokens (−38%) com extração idêntica (29/29 no ground truth, medido pelo smoke). `promptVersion` (hash de system+user+intro) na telemetria atribui recall por versão.
+- Few-shot: 1 exemplo (imagem `src/samples/fixtures/extraction-example.jpg`; valores no `FEW_SHOT_INTRO`; o `.json` da fixture é o ground truth do smoke e referência humana).
+- **Smoke manual**: `node scripts/extraction-smoke.mjs` (requer `OPENAI_API_KEY`; fora dos gates) roda detect+extract reais e imprime diff campo a campo vs ground truth + tokens — obrigatório antes de qualquer mudança de prompt.
+- **Detecção da ficha** (sharp, sem IA): blur+threshold, região retangular 3–95% da área (o teto 0.95 aceita **close-up** — ficha preenchendo o quadro media ~0.85 e caía em detect-failed com o teto antigo de 0.65), aspect 0.7–1.5, timeout 5 s; crop q95 em `_temp/temp-{token}-cropped.jpg`.
 - **Recall-first**: campos numéricos saem como STRING bruta (preserva `8-9`, `<1`); a coerção para number acontece no save (`parseNumberInput`) e é barrada pelo `validateClassificationForm` (0-100).
-- Resultado **pré-preenche o form para revisão humana** — nunca grava direto. Cross-validação lote/sacas/safra contra o cadastro (`crossValidateExtraction`).
-- Toggle: secret `OPENAI_API_KEY` ausente → extração desligada, fluxo manual segue.
-- Telemetria estruturada em stderr (`classification.extraction`).
+- Resultado **pré-preenche o form para revisão humana** — nunca grava direto. Cross-validação lote/sacas/safra contra o cadastro (`crossValidateExtraction`) é computada **no confirm** (CAM-P1) e registrada no evento de auditoria.
+- Toggle: secret `OPENAI_API_KEY` ausente → extração desligada; a resposta traz `extractionAvailable: false` e o sheet roteia direto pro modo manual (EXT10). Extração 100% vazia no Flow A cai no aviso de ilegível (mesmo modal do Flow B).
+- Telemetria estruturada em stderr (`classification.extraction`, `classification.detection`).
 
 ## 9. Regras e drifts documentados (decisões, não bugs)
 
@@ -139,6 +144,6 @@ Validação server-side: caminho novo valida contra o schema do evento (Ajv, pen
 
 ## 10. Testes
 
-- Unit: `tests/classification-form.test.js` (mapExtractionToForm + payload/validação), `tests/classification-canonicalization.test.js` (6 canonizadores), `tests/classification-extraction-service.test.js` (pipeline IA), `tests/normalize-classifiers.test.js`.
-- Integração: `tests/sample-backend-sprint1.integration.test.js` (projeção ponta a ponta, canonização com valores não-invariantes, extração persistida com crossValidate real, 422 de faixa no update), `tests/sample-classification-filter.integration.test.js` (filtros), `tests/report-harvest.test.js` + `tests/physical-send-report-share.integration.test.js` (laudo/export).
+- Unit: `tests/classification-form.test.js` (mapExtractionToForm + payload/validação + hasAnyExtractedValue), `tests/classification-canonicalization.test.js` (6 canonizadores), `tests/classification-extraction-service.test.js` (pipeline IA + estrutura das mensagens few-shot), `tests/classification-photo-token.test.js` (formato UUID do token), `tests/classification-photo-magic-bytes.test.js` (415 + transcodificação JPEG), `tests/classification-extraction-errors.test.js` (502/504 + sidecar), `tests/form-detection-service.test.js` (detecção: cena completa, close-up, sintéticos), `tests/normalize-classifiers.test.js`.
+- Integração: `tests/sample-backend-sprint1.integration.test.js` (projeção ponta a ponta, canonização com valores não-invariantes, extração persistida com crossValidate real, eventos CAM-P1 do sidecar no confirm, 422 de faixa no update), `tests/sample-classification-filter.integration.test.js` (filtros), `tests/report-harvest.test.js` + `tests/physical-send-report-share.integration.test.js` (laudo/export).
 - Regra da casa: mexeu em projetor/canonização → `npm run test:integration:db` local obrigatório (e `npm run db:seed` depois).

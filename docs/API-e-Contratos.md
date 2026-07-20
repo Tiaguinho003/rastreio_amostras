@@ -76,7 +76,7 @@ Rotas top-level usadas pelo fluxo de `Camera inteligente` (o `sampleId` chega no
 1. `POST /api/v1/classification/detect-form`
    Recebe a foto (`multipart/form-data`), salva em area temporaria e tenta auto-cropar a ficha. Retorna `photoToken` e flag `detected`.
 2. `POST /api/v1/classification/extract-and-prepare`
-   Aceita `multipart/form-data` (upload direto) ou `application/json` com `photoToken`. Envia a imagem ao modelo de extracao (GPT-4o pinado) e retorna os campos extraidos. A extracao e type-agnostic (1 prompt unico da ficha unificada) — o tipo e escolhido depois pelo operador e nao influencia a IA.
+   Aceita `multipart/form-data` (upload direto) ou `application/json` com `photoToken` (obrigatoriamente UUID — 422 fora do formato). Envia a imagem ao modelo de extracao (GPT-4o pinado), retorna os campos extraidos (+ `extractionAvailable`) e grava o resultado bruto num sidecar que o confirm consome pra emitir os eventos de auditoria (CAM-P1). Falha da IA responde 504 (timeout) ou 502 (demais) com mensagem pt-BR. A extracao e type-agnostic (1 prompt unico da ficha unificada) — o tipo e escolhido depois pelo operador e nao influencia a IA.
 3. `POST /api/v1/classification/confirm`
    Persiste a classificacao apos revisao do usuario, recebendo `sampleId`, `classificationData`, `photoToken`, `classificationType` e `classifiers` (obrigatorio, min 1 — frontend compoe `[actor, ...co-classificadores]`; backend valida existencia/ativo dos usuarios). Roteia entre `completeClassification` ou `updateClassification` conforme o status atual da amostra.
 4. `POST /api/v1/classification/resolve-lot`
@@ -197,7 +197,7 @@ Endpoints somente-leitura usados pela pagina de detalhe do cliente (4 cards-filt
 8. `POST /api/v1/users/:userId/password/reset`
 9. `GET /api/v1/users/audit`
 10. `GET /api/v1/users/lookup`
-    Lista reduzida (`id`, `fullName`, `username`) de usuarios ativos. Endpoint unico por tras de TODOS os seletores de usuario do app: responsavel comercial de cliente, classificador de amostra (`/camera`), usuario vinculado a um corretor e **responsavel do embarque quando "Pela empresa" (EMB30)**. Aberta a qualquer usuario autenticado (nao restrita a `ADMIN`).
+    Lista reduzida (`id`, `fullName`, `username`) de usuarios ativos. Endpoint unico por tras de TODOS os seletores de usuario do app: responsavel comercial de cliente, classificador de amostra (CameraSheet global), usuario vinculado a um corretor e **responsavel do embarque quando "Pela empresa" (EMB30)**. Aberta a qualquer usuario autenticado (nao restrita a `ADMIN`).
 
     **Nao devolve papeis de `NON_ASSIGNABLE_ROLES`** (hoje: `PROSPECTOR`) — 2026-07-09. Os `COMMERCIAL` vem primeiro na ordenacao.
 

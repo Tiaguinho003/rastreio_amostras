@@ -137,9 +137,9 @@ Pos Q.print: impressao virou **acao pura**. Nao muda mais o status do Sample.
 1. O sistema usa GPT-4o (pinado `gpt-4o-2024-11-20`) para extrair os campos manuscritos da ficha a partir da foto, com 1 prompt unico type-agnostic + few-shot visual (detalhes em `docs/Classificacao-Visao-Geral.md` §8).
 2. O pipeline tem tres etapas: `detect-form` tenta auto-detectar e recortar a ficha; `extract-and-prepare` envia a foto (ou o recorte) para o modelo e retorna os campos extraidos; `confirm` persiste a classificacao apos revisao manual do usuario.
 3. Os campos extraidos sao pre-preenchidos no formulario, **mas o usuario sempre revisa e confirma antes de salvar**. A extracao nunca e aceita automaticamente.
-4. Cada tentativa gera `CLASSIFICATION_EXTRACTION_COMPLETED` (sucesso) ou `CLASSIFICATION_EXTRACTION_FAILED` (erro), anexados ao historico da amostra.
-5. Em caso de falha da deteccao ou da extracao, o usuario pode prosseguir manualmente com o formulario vazio.
-6. O servico depende da variavel `OPENAI_API_KEY` — ausente, o modulo de extracao responde `503` e o fluxo de camera ainda funciona com preenchimento manual.
+4. A extracao que chega ao confirm gera `CLASSIFICATION_EXTRACTION_COMPLETED` (sucesso) ou `CLASSIFICATION_EXTRACTION_FAILED` (falha tecnica seguida de preenchimento manual), anexados ao historico da amostra **no confirm** via sidecar (CAM-P1, 2026-07-19). Tentativa abandonada antes do confirm nao vira evento — o temporario (e o sidecar) expiram em 24h.
+5. Em caso de falha da deteccao ou da extracao, o usuario pode re-tentar com a mesma foto ("Tentar novamente") ou prosseguir manualmente com o formulario vazio.
+6. O servico depende da variavel `OPENAI_API_KEY` — ausente, o extract responde 200 com `extractionAvailable: false` e o fluxo de camera roteia direto pro preenchimento manual.
 
 #### Conferencia da classificacao
 

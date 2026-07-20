@@ -8,6 +8,30 @@
 
 ---
 
+## Ciclo da Extração — Rodada 1 (2026-07-19) — ledger EXT
+
+Conferência profunda da faixa **captura/galeria → detecção → extração (prompt incluso) → apresentação na revisão**, com correção das inconsistências de docs. Decisões do Flavio (2026-07-19): CAM-P1 DENTRO da rodada; CAM-P2 FORA (explicação abaixo); reestruturação do prompt APROVADA. 11 commits `329409f`…; gates verdes; prompt validado com smoke REAL contra a fixture.
+
+| EXT   | Achado                                                                                                                                                                                 | Resolução                                                                                                                                                             |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| EXT1  | **[SEGURANÇA]** `photoToken` sem validação → path traversal no extract (Mode 2) e no confirm (lia/anexava qualquer `.jpg` do filesystem)                                               | ✅ formato UUID obrigatório, 422 antes do filesystem (`329409f`)                                                                                                      |
+| EXT2  | Temp `.jpg` podia conter bytes PNG/WebP (mime pra OpenAI deduzido da extensão; confirm anexava `image/jpeg` fixo)                                                                      | ✅ transcodificação sharp→JPEG na entrada, usando o mime real que o `assertImageMagicBytes` já retornava (`09a4f16`)                                                  |
+| EXT3  | Toda falha de IA virava 500 genérico ("Internal server error" no modal técnico)                                                                                                        | ✅ TIMEOUT→504, demais códigos→502, mensagem pt-BR + `errorCode` nos details (`3588607`)                                                                              |
+| EXT4  | Detecção rejeitava CLOSE-UP: `MAX_AREA_RATIO` 0.65 e a ficha preenchendo o quadro mede ~0.85 pós-blur → detect-failed na MELHOR foto (provado empiricamente na fixture)                | ✅ teto 0.95 + primeira suíte dedicada do `FormDetectionService` (`5cb78b5`)                                                                                          |
+| EXT5  | Beco: detect caía por rede → "Continuar manual" → save morria em "Foto invalida" DEPOIS da ficha inteira preenchida (token nunca obtido)                                               | ✅ recuperação no save: sobe a foto em memória pra obter o token na hora (`eea52a2`)                                                                                  |
+| EXT6  | Modal técnico sem "Tentar novamente" — blip de rede forçava re-enquadrar ou ir de manual                                                                                               | ✅ retry com a MESMA foto (com token vai direto pro extract, sem recomprimir) (`eea52a2`)                                                                             |
+| EXT7  | Sem prazo client-side: request pendurado prendia o sheet em "processando" com dismiss bloqueado                                                                                        | ✅ 75 s (worst case do servidor ≈57 s) nas chamadas detect/extract, abort → modal técnico com retry (`eea52a2`)                                                       |
+| EXT8  | **Prompt**: USER_PROMPT (~92 linhas de layout) ia DUPLICADO — colado na mensagem do exemplo few-shot E na da foto real; duas instruções "extraia da ficha presente na foto" competindo | ✅ `FEW_SHOT_INTRO` enxuto (valores + anti-cópia + imagem low); medido no smoke: **6721→4160 prompt tokens (−38%)** com extração idêntica e exata (29/29) (`1255ec3`) |
+| EXT9  | `normalizeIdentificacao` sem `rejectIfLabel` — eco de rótulo ("LOTE"/"SCS"/"SAFRA") pré-preenchia o review                                                                             | ✅ rejectIfLabel em lote/sacas/safra (`1255ec3`)                                                                                                                      |
+| EXT10 | IA desligada (sem `OPENAI_API_KEY`) virava "ilegível" (motivo errado) no Flow B; Flow A com extração 100% vazia abria o review em branco sem explicação                                | ✅ `extractionAvailable: false` → manual direto; Flow A all-null → aviso de ilegível (`d572beb`)                                                                      |
+| EXT11 | Resíduos: `identification.data` fantasma (degrade/types/fixture — o schema nunca teve `data`) e `classificationType` morto na rota do extract                                          | ✅ removidos (`8cfb2fe`)                                                                                                                                              |
+| EXT12 | Nenhum harness pra avaliar mudança de prompt (golden set adiado desde F3)                                                                                                              | ✅ `scripts/extraction-smoke.mjs` — detect+extract reais, diff campo a campo vs ground truth, tokens, promptVersion (`7f2149b`)                                       |
+| EXT13 | CAM-P1: a câmera não emitia `CLASSIFICATION_EXTRACTION_*` (só telemetria stderr)                                                                                                       | ✅ sidecar `temp-{token}-extraction.json` no extract + emissão no confirm com cross-validation e `photoAttachmentId` (`f18524c`); VG §2/§8                            |
+
+**Fora da rodada (decisão do Flavio)**: **CAM-P2** — o viewfinder é gerenciado pela lib `qr-scanner`, que decodifica QR a **12fps mesmo no Flow B** (onde o QR é ignorado — CPU/bateria queimadas à toa) e a abertura faz **getUserMedia duplo** (stream de teste da câmera traseira + o stream da própria lib — centenas de ms de latência a mais no viewfinder). Correção desenhada: no Flow B, manter o preview sem o loop de decode (`pause()` da lib, a verificar; fallback = taxa mínima) e remover o probe deixando o erro da própria lib cobrir o caso sem traseira. Fica pra rodada própria por mexer no ciclo de vida do scanner recém-estabilizado na S13. Também seguem abertas: CAM-P4 (reducer testável da máquina de estados) e F1.10–F1.12 (validação tardia do Caminho 2 — lote só validado depois de gastar 15–30 s + custo OpenAI).
+
+---
+
 ## Auditoria CL (2026-07-13) — ledger
 
 Auditoria read-only completa do domínio (pré-requisito do Playground): 41 achados **CL1–CL41** em 6 categorias, corrigidos nas fases F1–F5 da sessão de 2026-07-13 (commits `6495d2a`…). Decisões do Flavio na mesma data: espelhos técnicos DROPADOS; reclassificação por câmera = substituição total consciente (aviso); Tipo só no modal; docs = par mãe+plano; sem validação de soma de peneiras; % sufixado em toda superfície.
@@ -134,7 +158,7 @@ Resultados consolidados num **sub-bloco no doc** com cabeçalho `### Análise pr
 
 ## Contexto
 
-Classificação é a operação mais sensível do sistema. O operador, geralmente em campo ou bancada com o celular, fotografa a ficha física manuscrita (99×95 mm), espera a IA extrair os campos, revisa, corrige divergências, escolhe o tipo, seleciona co-classificadores e salva. Cada classificação envolve **3 chamadas de rede** (detect-form + extract + complete), **5 a 9 modais** dependendo do caminho, e **22 campos editáveis** num único modal de revisão. É também o ponto onde a inteligência artificial entra no produto — e onde as falhas dela são mais visíveis pro operador.
+Classificação é a operação mais sensível do sistema. O operador, geralmente em campo ou bancada com o celular, fotografa a ficha física manuscrita (99×95 mm), espera a IA extrair os campos, revisa, corrige divergências, escolhe o tipo, seleciona co-classificadores e salva. Cada classificação envolve **3 chamadas de rede** (detect-form + extract + complete), **5 a 9 modais** dependendo do caminho, e **26 campos editáveis** num único modal de revisão. É também o ponto onde a inteligência artificial entra no produto — e onde as falhas dela são mais visíveis pro operador.
 
 Esta revisão tem foco em:
 
@@ -167,7 +191,7 @@ Síntese pra ancorar as decisões. Detalhes em `app/camera/page.tsx`, `component
 | 2   | Preview           | mesma tela (`flowState = 'preview'`)                                      | "Próximo" ou refazer                         |
 | 3   | Detecção de forma | `POST /api/v1/classification/detect-form` (sem UI explícita)              | —                                            |
 | 4   | Extração IA       | `POST /api/v1/classification/extract-and-prepare` + spinner               | aguardar (15–30 s)                           |
-| 5   | Revisão           | `ClassificationReviewSheetBody` (22 campos + foto zoomável)               | Corrigir/confirmar campos                    |
+| 5   | Revisão           | `ClassificationReviewSheetBody` (26 campos + foto zoomável)               | Corrigir/confirmar campos                    |
 | 6   | Reconciliação     | `ClassificationDataMismatchModal` (se sacas/safra divergem)               | Ficha vs Cadastro, campo a campo             |
 | 7   | Reclassificar     | `ClassificationReclassifyModal` (se `status = CLASSIFIED`)                | Reason code obrigatório + texto se OTHER     |
 | 8   | Tipo              | `ClassificationTypeModal`                                                 | BICA / PREPARADO / BAIXO / ESCOLHA / CONILON |
@@ -458,7 +482,7 @@ Decisões "antes do fluxo" — valem em qualquer interface. Cada decisão aqui m
 **O que NÃO está em escopo** (vai pra blocos seguintes):
 
 - Detecção do formulário (`detect-form`) e extração via IA → **Bloco F3**.
-- Revisão dos 22 campos extraídos → **Bloco F4**.
+- Revisão dos 26 campos extraídos → **Bloco F4**.
 - Reconciliação de divergências → **Bloco F5**.
 
 ### Estado atual (resumo)
@@ -664,7 +688,7 @@ Tudo orquestrado em `app/camera/page.tsx`. Lib QR via `qr-scanner@^1.4.2`. Compr
 
 - A ficha em `print-templates/classification-form/index.html` (layout L1..L8 unificado em 2026-05-14) **não muda nesta revisão de fluxo**. UX digital se ajusta ao que existe.
 - **Revisões pontuais permitidas**: conforme avançar nos blocos F3 (extração) e F4 (revisão), se identificarmos campos problemáticos (nunca preenchidos, ordem que confunde, ambiguidade), podemos abrir **mini-revisões focadas no layout + extração** no momento certo, sem expandir o escopo geral.
-- **Implicação**: a UX digital trata os 22 campos atuais como fixos pra fins de design dos modais. Qualquer mudança de layout vira sub-decisão dentro de F3/F4 com seu próprio registro.
+- **Implicação**: a UX digital trata os 26 campos atuais como fixos pra fins de design dos modais. Qualquer mudança de layout vira sub-decisão dentro de F3/F4 com seu próprio registro.
 
 **Bloco 0 fechado em 2026-05-25** (com Q0.4 e Q0.5 marcadas pra revisão futura nos blocos F5 e F3/F4 respectivamente). ✅
 
@@ -1179,7 +1203,7 @@ A implementação do Bloco F3 é dividida em **2 ondas independentes** pra avan�
 - Sem timeout client-side; sem cancelamento; sem deduplicação de cliques rápidos.
 - `mapExtractionToForm` (`lib/classification-form.ts:303-314`): mapeia campos extraídos achatados (`p18..p10, mk, fundo1_peneira, fundo1_percentual, fundo2_peneira, fundo2_percentual`) → keys do `ClassificationFormState`. **Null da IA → campo ausente do spread → vazio no form** (sem destaque visual).
 - `ClassificationReviewSheetBody` renderiza peneiras em grid 5×2 e fundos em layout `peneira = %`. **Nenhuma indicação visual** de quais vieram da IA vs vazios.
-- Validação genérica de submit: **"pelo menos 1 dos 22 campos preenchido"** — permite salvar com peneiras/fundos totalmente vazios sem aviso.
+- Validação genérica de submit: **"pelo menos 1 dos 26 campos preenchido"** — permite salvar com peneiras/fundos totalmente vazios sem aviso.
 - Modo manual (após erro técnico): reseta `classificationForm` pra `EMPTY_CLASSIFICATION_FORM` — operador preenche tudo do zero, sem indicação de quais campos a IA deveria ter preenchido.
 - `compareIdentification` (divergências) só compara lote/sacas/safra — **nunca compara peneiras/fundos**.
 - Modal de erro `'illegible'`: "Tirar outra" / "Cancelar"; `'technical'`: + "Continuar manual" → 2º confirm → form vazio.
@@ -1272,7 +1296,7 @@ A implementação do Bloco F3 é dividida em **2 ondas independentes** pra avan�
 
 - **(A)** Sem destaque (status quo).
 - **(B)** Destaque visual sutil (borda amarela ou ícone "⚠" no campo) **só nos campos que a IA tentou e retornou null**.
-- **(C)** Painel agregado no topo do form: "⚠ A IA não conseguiu extrair: P14, P10, fundo 1 — verifique a ficha". Operador vê o resumo sem precisar varrer 22 campos.
+- **(C)** Painel agregado no topo do form: "⚠ A IA não conseguiu extrair: P14, P10, fundo 1 — verifique a ficha". Operador vê o resumo sem precisar varrer 26 campos.
 - **(D)** (B) + (C) combinados.
 
 ##### F3.9 — Validação mais rigorosa antes de salvar?
@@ -1404,7 +1428,7 @@ Grupo A — Detecção:
 
 Grupo B — Extração IA:
 
-- [x] **F3.3** — `gpt-4o` sem pin mantido (status quo).
+- [x] **F3.3** — Modelo PINADO `gpt-4o-2024-11-20` (decisão revisada; o checklist dizia "sem pin" — corrigido na Rodada 1 EXT).
 - [x] **F3.4** ✅ **IMPLEMENTADO** — Few-shot visual com 1 imagem-exemplo + JSON (`0afcd66`).
 - [x] **F3.5** ✅ **IMPLEMENTADO** — Reforço de prompt cirúrgico nos fundos (`1e080fd`).
 - [x] **F3.6** — Schema mantido (status quo).
