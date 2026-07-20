@@ -36,6 +36,11 @@ export const ANIMATION_MS = 460;
 // counter fica em 0 e o comportamento e identico ao anterior.
 let pendingInternalBacks = 0;
 
+// Eventos de popstate que um listener VIVO ja reconheceu como back interno. O
+// once-listener do cleanup consulta este set (ver ali) pra so limpar o contador
+// quando ninguem o consumiu. WeakSet: nao segura referencia ao evento.
+const consumedInternalBacks = new WeakSet<PopStateEvent>();
+
 // Stack de sheets visiveis (topmost = ultimo). Serve a dois propositos quando um
 // sheet abre SOBRE outro (modo `stacked`):
 //  - ref-count do scroll-lock do body: trava no 0->1 e restaura no 1->0, pra
@@ -260,6 +265,15 @@ export function BottomSheet({
       }
       if (pendingInternalBacks > 0) {
         pendingInternalBacks--;
+        consumedInternalBacks.add(event);
+        // O alvo do traversal e resolvido na CHAMADA do history.back(), nao na
+        // execucao: no remount o push novo entra no meio e acaba descartado, e
+        // aterrissamos numa entry sem o marcador. Re-injetar mantem o
+        // invariante "existe entry enquanto o sheet esta aberto" — senao o
+        // proximo back sairia da pagina em vez de fechar o sheet.
+        if (!window.history.state?.bottomSheet) {
+          window.history.pushState({ bottomSheet: true }, '');
+        }
         return;
       }
       // O back do usuario JA consumiu a entry injetada. Re-injetar de
@@ -286,13 +300,24 @@ export function BottomSheet({
           // O listener deste sheet ja foi removido acima — se nenhum outro
           // sheet estiver vivo pra consumir o contador, ele ficaria
           // envenenado e ENGOLIRIA a primeira volta real do proximo sheet
-          // aberto. O once-listener garante o consumo: se um listener vivo
-          // consumiu antes (ordem de registro), o contador ja voltou a 0 e
-          // este vira no-op.
+          // aberto. Este once-listener garante o consumo.
+          //
+          // A ORDEM IMPORTA e e contra-intuitiva: ele e registrado no CLEANUP,
+          // portanto ANTES do listener do sheet que remonta (Strict Mode roda
+          // mount -> cleanup -> mount). Descontar aqui NA HORA rouba o token
+          // que o listener vivo precisa: ele le o contador em 0, trata o nosso
+          // proprio back() como back do usuario e fecha o sheet recem-aberto —
+          // era o bug do "modal de novo lote nao abre" em dev. Por isso o
+          // desconto vai pro proximo MACROTASK, depois do dispatch inteiro;
+          // microtask NAO serve, o checkpoint roda entre um listener e outro.
+          // Se o listener vivo consumiu, ele marca o evento e aqui vira no-op.
           window.addEventListener(
             'popstate',
-            () => {
-              if (pendingInternalBacks > 0) pendingInternalBacks--;
+            (event) => {
+              window.setTimeout(() => {
+                if (consumedInternalBacks.has(event)) return;
+                if (pendingInternalBacks > 0) pendingInternalBacks--;
+              }, 0);
             },
             { once: true }
           );

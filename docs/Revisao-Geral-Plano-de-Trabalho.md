@@ -739,6 +739,14 @@ operacionais têm o fluxo COMPLETO (acesso unificado 2026-07-15). PROSPECTOR:
   saía da página). Fix no `BottomSheet` (compartilhado): re-injeta a entry no
   popstate; cleanup ganha once-listener pro contador `pendingInternalBacks`
   não ficar envenenado (fechou por botão = próximo sheet engolia a 1ª volta).
+- **CAM-G7** ✅ (2026-07-20) — regressão do próprio CAM-G6: o once-listener
+  descontava o contador DURANTE o dispatch e, como é registrado no cleanup
+  (antes do listener do remount, Strict Mode = mount → cleanup → mount),
+  roubava o token do listener vivo. Este lia 0, tratava o `back()` interno
+  como back do usuário e fechava o sheet ~17ms após abrir. Sintoma: o modal
+  de **novo lote** não abria em dev (prod intacto — Strict Mode só duplica
+  efeitos em dev). Fix: desconto adiado pro próximo macrotask + `WeakSet` de
+  eventos já consumidos + re-injeção da entry quando o traversal a descarta.
 - **CAM-I1** ✅ — magic bytes não validados no detect/extract (regra 5 do
   CLAUDE.md; buffer arbitrário ia pro sharp + OpenAI). Helper
   `assertImageMagicBytes` no `upload-policy` (dedup dos checks inline) +
