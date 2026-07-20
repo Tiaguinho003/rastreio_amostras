@@ -1311,11 +1311,12 @@ export interface ExtractAndPrepareResponse {
   // camera roteia direto pro modo manual. Ausente em respostas antigas.
   extractionAvailable?: boolean;
   extractedFields: ExtractedClassificationFields;
+  // O schema de extracao so tem lote/sacas/safra — a data da classificacao e
+  // carimbada pelo backend no confirm, nunca extraida da ficha.
   identification: {
     lote: string | null;
     sacas: string | null;
     safra: string | null;
-    data: string | null;
   };
   photoToken: string;
   formDetected?: boolean;

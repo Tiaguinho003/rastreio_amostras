@@ -14,7 +14,6 @@ export async function POST(request: NextRequest) {
       return executeBackend('extractAndPrepareClassification', request, {
         body: {
           photoToken: body.photoToken,
-          classificationType: body.classificationType,
         },
       });
     }
@@ -44,18 +43,11 @@ export async function POST(request: NextRequest) {
       originalFileName = fileValue.name || null;
     }
 
-    const classificationTypeValue = formData.get('classificationType');
-    const classificationType =
-      typeof classificationTypeValue === 'string' && classificationTypeValue.length > 0
-        ? classificationTypeValue
-        : null;
-
     return executeBackend('extractAndPrepareClassification', request, {
       body: {
         fileBuffer,
         mimeType,
         originalFileName,
-        classificationType,
       },
     });
   } catch (error) {

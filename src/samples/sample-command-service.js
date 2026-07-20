@@ -4323,7 +4323,7 @@ export class SampleCommandService {
         statusCode: 200,
         extractionAvailable: false,
         extractedFields: {},
-        identification: { lote: null, sacas: null, safra: null, data: null },
+        identification: { lote: null, sacas: null, safra: null },
         photoToken,
         formDetected,
         processingTimeMs: 0,

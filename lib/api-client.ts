@@ -1889,14 +1889,9 @@ export function detectClassificationForm(session: SessionData, file: File) {
   );
 }
 
-export function extractAndPrepareClassification(
-  session: SessionData,
-  file: File,
-  classificationType?: ClassificationType | null
-) {
+export function extractAndPrepareClassification(session: SessionData, file: File) {
   const formData = new FormData();
   formData.append('file', file);
-  if (classificationType) formData.append('classificationType', classificationType);
   return withClassificationAiTimeout((signal) =>
     request<ExtractAndPrepareResponse>('/classification/extract-and-prepare', {
       method: 'POST',
@@ -1907,18 +1902,12 @@ export function extractAndPrepareClassification(
   );
 }
 
-export function extractFromDetectedForm(
-  session: SessionData,
-  photoToken: string,
-  classificationType?: string | null
-) {
-  const body: Record<string, JsonValue> = { photoToken };
-  if (classificationType) body.classificationType = classificationType;
+export function extractFromDetectedForm(session: SessionData, photoToken: string) {
   return withClassificationAiTimeout((signal) =>
     request<ExtractAndPrepareResponse>('/classification/extract-and-prepare', {
       method: 'POST',
       session,
-      body,
+      body: { photoToken },
       signal,
     })
   );
