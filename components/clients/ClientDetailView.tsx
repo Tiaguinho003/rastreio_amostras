@@ -274,17 +274,30 @@ function translateClientUpdateError(cause: unknown): string {
 /*  Detail view                                                       */
 /* ------------------------------------------------------------------ */
 
+// RD14: acoes profundas do menu ⋯ da tabela de /cadastros (?acao= na URL).
+export type ClientDetailInitialAction = 'editar' | 'documentos' | 'status';
+
 interface ClientDetailViewProps {
   session: SessionData;
   clientId: string;
   /** Sinaliza ao overlay-pai que ha modal interno aberto (bloqueia ESC/X). */
   dismissGuardRef?: MutableRefObject<boolean>;
+  /** RD14: abre o modal correspondente UMA vez apos o load (?acao= da URL). */
+  initialAction?: ClientDetailInitialAction;
+  /** Chamado ao consumir a acao — a pagina limpa o ?acao= via replace. */
+  onInitialActionConsumed?: () => void;
 }
 
 // Conteudo completo do detalhe do cliente, extraido da antiga pagina
 // /clients/[clientId] (F1 do redesign, RD7). Sem guard nem chrome de pagina:
 // quem monta (overlay de /cadastros) ja garante sessao e papel.
-export function ClientDetailView({ session, clientId, dismissGuardRef }: ClientDetailViewProps) {
+export function ClientDetailView({
+  session,
+  clientId,
+  dismissGuardRef,
+  initialAction,
+  onInitialActionConsumed,
+}: ClientDetailViewProps) {
   /* ---- data ---- */
   const [client, setClient] = useState<ClientSummary | null>(null);
   const [units, setUnits] = useState<ClientUnitSummary[]>([]);
@@ -991,6 +1004,31 @@ export function ClientDetailView({ session, clientId, dismissGuardRef }: ClientD
     if (savingStatus) return;
     setStatusModalOpen(false);
   }
+
+  // RD14: acao profunda do menu ⋯ (?acao=editar|documentos|status). Dispara o
+  // modal UMA vez quando o cliente termina de carregar e devolve o consumo pra
+  // pagina limpar a URL. O ref reseta quando a prop limpa (value -> undefined),
+  // permitindo uma nova acao no MESMO cliente montado (sem remount).
+  const initialActionConsumedRef = useRef(false);
+  useEffect(() => {
+    if (!initialAction) {
+      initialActionConsumedRef.current = false;
+      return;
+    }
+    if (!client || initialActionConsumedRef.current) return;
+    initialActionConsumedRef.current = true;
+    if (initialAction === 'editar') {
+      openEditClient('info');
+    } else if (initialAction === 'documentos') {
+      setDocumentsModalOpen(true);
+    } else {
+      openStatusModal(client.status === 'ACTIVE' ? 'inactivate' : 'reactivate');
+    }
+    onInitialActionConsumed?.();
+    // Openers sao function declarations do componente (identidade nova a cada
+    // render) — deps ficam no par que dispara de fato.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialAction, client]);
 
   async function handleStatusSubmit(event: React.FormEvent) {
     event.preventDefault();

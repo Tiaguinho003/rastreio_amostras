@@ -8,7 +8,10 @@ import { AppShell } from '../../components/AppShell';
 import { DetailOverlay } from '../../components/DetailOverlay';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { BrokerFormModal } from '../../components/cadastros/BrokerFormModal';
-import { ClientDetailView } from '../../components/clients/ClientDetailView';
+import {
+  ClientDetailView,
+  type ClientDetailInitialAction,
+} from '../../components/clients/ClientDetailView';
 import { ClientsBrowser } from '../../components/clients/ClientsBrowser';
 import {
   ApiError,
@@ -77,11 +80,25 @@ function CadastrosPage() {
   // Com modal interno aberto no detalhe, ESC/X do overlay nao fecham.
   const clientDismissGuardRef = useRef(false);
 
+  // RD14: acao profunda do menu ⋯ da tabela (?acao=editar|documentos|status).
+  // A pagina valida o param e repassa ao ClientDetailView, que abre o modal
+  // correspondente apos o load e devolve o consumo (limpamos o param).
+  const acaoParam = searchParams.get('acao');
+  const acao: ClientDetailInitialAction | undefined =
+    acaoParam === 'editar' || acaoParam === 'documentos' || acaoParam === 'status'
+      ? acaoParam
+      : undefined;
+
   const openClient = useCallback(
-    (id: string) => {
+    (id: string, action?: ClientDetailInitialAction) => {
       const params = new URLSearchParams(searchParams.toString());
       const alreadyOpen = params.has('cliente');
       params.set('cliente', id);
+      if (action) {
+        params.set('acao', action);
+      } else {
+        params.delete('acao');
+      }
       const url = `/cadastros?${params.toString()}`;
       if (alreadyOpen) {
         // Troca de cliente com o overlay aberto (peek desktop): replace mantem
@@ -94,6 +111,16 @@ function CadastrosPage() {
     },
     [router, searchParams]
   );
+
+  // Consumo da acao profunda: o modal ja abriu — o ?acao= sai da URL via
+  // replace (a entry do push do overlay continua UMA so; back segue fechando).
+  const handleInitialActionConsumed = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (!params.has('acao')) return;
+    params.delete('acao');
+    const qs = params.toString();
+    router.replace(qs ? `/cadastros?${qs}` : '/cadastros', { scroll: false });
+  }, [router, searchParams]);
 
   const closeClient = useCallback(() => {
     if (openedByPushRef.current) {
@@ -357,6 +384,7 @@ function CadastrosPage() {
             storageKey="clients-list-snapshot-cad-v3"
             initialIncomplete={incompleteFromUrl}
             onOpenClient={openClient}
+            onOpenClientAction={openClient}
             registerCreateOpener={registerCreateOpener}
           />
         ) : (
@@ -485,6 +513,8 @@ function CadastrosPage() {
             session={session}
             clientId={clienteId}
             dismissGuardRef={clientDismissGuardRef}
+            initialAction={acao}
+            onInitialActionConsumed={handleInitialActionConsumed}
           />
         ) : null}
       </DetailOverlay>

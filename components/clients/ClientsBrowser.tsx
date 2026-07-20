@@ -11,6 +11,7 @@ import {
 } from 'react';
 
 import { ClientQuickCreateModal } from './ClientQuickCreateModal';
+import type { ClientDetailInitialAction } from './ClientDetailView';
 import { BottomSheet } from '../BottomSheet';
 import {
   EMPTY_CLIENT_FILTERS,
@@ -244,6 +245,9 @@ export interface ClientsBrowserProps {
   // overlay de detalhe (F1 do redesign — /cadastros?cliente=<id>). O antigo
   // modal-resumo cdm foi absorvido pelo overlay.
   onOpenClient: (clientId: string) => void;
+  // RD14: acao profunda do menu ⋯ da tabela desktop — a pagina abre o overlay
+  // com ?acao= e o ClientDetailView dispara o modal correspondente.
+  onOpenClientAction?: (clientId: string, action: ClientDetailInitialAction) => void;
   // RD14: o CTA "+ Novo cliente" do cabecalho desktop vive na pagina, mas o
   // quick-create vive aqui — o browser registra o abridor pra pagina chamar.
   registerCreateOpener?: (openCreate: () => void) => void;
@@ -258,6 +262,7 @@ export function ClientsBrowser({
   storageKey = DEFAULT_STORAGE_KEY,
   initialIncomplete = false,
   onOpenClient,
+  onOpenClientAction,
   registerCreateOpener,
 }: ClientsBrowserProps) {
   const toast = useToast();
@@ -325,6 +330,35 @@ export function ClientsBrowser({
   useEffect(() => {
     registerCreateOpener?.(() => setClientQuickCreateOpen(true));
   }, [registerCreateOpener]);
+
+  // RD14: menu ⋯ da linha da tabela (um aberto por vez, keyed por client.id).
+  // Dismiss = clique-fora + ESC devolvendo o foco ao trigger (mesmo padrao do
+  // useMenuDismiss do AppShell, que e privado de la).
+  const [rowMenuFor, setRowMenuFor] = useState<string | null>(null);
+  const rowMenuRef = useRef<HTMLDivElement | null>(null);
+  const rowMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (!rowMenuFor) return;
+    const onDocumentMouseDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (!rowMenuRef.current?.contains(target)) {
+        setRowMenuFor(null);
+      }
+    };
+    const onDocumentKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      setRowMenuFor(null);
+      rowMenuTriggerRef.current?.focus();
+    };
+    document.addEventListener('mousedown', onDocumentMouseDown);
+    document.addEventListener('keydown', onDocumentKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onDocumentMouseDown);
+      document.removeEventListener('keydown', onDocumentKeyDown);
+    };
+  }, [rowMenuFor]);
 
   // Filtros consolidados (responsavel, status, tipo, papel, completude).
   // Semeado pelo snapshot; o deep-link ?incomplete=true sobrescreve a
@@ -1061,22 +1095,98 @@ export function ClientsBrowser({
                           {client.updatedAt ? formatRelativeTime(client.updatedAt, nowMs) : '—'}
                         </span>
                       </td>
-                      <td className="fv-table-td-actions">
-                        <button
-                          type="button"
-                          className="fv-table-dots"
-                          aria-label={`Ações de ${name}`}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onOpenClient(client.id);
-                          }}
+                      <td
+                        className="fv-table-td-actions"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <div
+                          className="fv-row-menu-wrap"
+                          ref={rowMenuFor === client.id ? rowMenuRef : undefined}
                         >
-                          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                            <circle cx="5" cy="12" r="1.6" />
-                            <circle cx="12" cy="12" r="1.6" />
-                            <circle cx="19" cy="12" r="1.6" />
-                          </svg>
-                        </button>
+                          <button
+                            type="button"
+                            className="fv-table-dots"
+                            aria-label={`Ações de ${name}`}
+                            aria-haspopup="menu"
+                            aria-expanded={rowMenuFor === client.id}
+                            onClick={(event) => {
+                              rowMenuTriggerRef.current = event.currentTarget;
+                              setRowMenuFor((current) =>
+                                current === client.id ? null : client.id
+                              );
+                            }}
+                          >
+                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                              <circle cx="5" cy="12" r="1.6" />
+                              <circle cx="12" cy="12" r="1.6" />
+                              <circle cx="19" cy="12" r="1.6" />
+                            </svg>
+                          </button>
+                          {rowMenuFor === client.id ? (
+                            <div
+                              className="fv-row-menu"
+                              role="menu"
+                              aria-label={`Ações de ${name}`}
+                            >
+                              <button
+                                type="button"
+                                role="menuitem"
+                                className="fv-row-menu-item"
+                                onClick={() => {
+                                  setRowMenuFor(null);
+                                  onOpenClient(client.id);
+                                }}
+                              >
+                                Ver detalhes
+                              </button>
+                              <button
+                                type="button"
+                                role="menuitem"
+                                className="fv-row-menu-item"
+                                onClick={() => {
+                                  setRowMenuFor(null);
+                                  if (onOpenClientAction) {
+                                    onOpenClientAction(client.id, 'editar');
+                                  } else {
+                                    onOpenClient(client.id);
+                                  }
+                                }}
+                              >
+                                Editar
+                              </button>
+                              <button
+                                type="button"
+                                role="menuitem"
+                                className="fv-row-menu-item"
+                                onClick={() => {
+                                  setRowMenuFor(null);
+                                  if (onOpenClientAction) {
+                                    onOpenClientAction(client.id, 'documentos');
+                                  } else {
+                                    onOpenClient(client.id);
+                                  }
+                                }}
+                              >
+                                Documentos
+                              </button>
+                              <button
+                                type="button"
+                                role="menuitem"
+                                className={`fv-row-menu-item${isInactive ? '' : ' is-danger'}`}
+                                onClick={() => {
+                                  setRowMenuFor(null);
+                                  if (onOpenClientAction) {
+                                    onOpenClientAction(client.id, 'status');
+                                  } else {
+                                    onOpenClient(client.id);
+                                  }
+                                }}
+                              >
+                                {isInactive ? 'Reativar' : 'Inativar'}
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   );
