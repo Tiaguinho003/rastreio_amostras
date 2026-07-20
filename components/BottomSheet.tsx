@@ -78,6 +78,15 @@ interface BottomSheetProps {
    * automaticos (ver `sheetStack`). Default: false.
    */
   stacked?: boolean;
+  /**
+   * Quando `false`, o sheet NAO injeta entry de history propria (arbitro de
+   * popstate desligado) — o abrir/fechar pertence a quem controla a URL (ex:
+   * DetailOverlay dirigido por query param, que fecha no back porque a propria
+   * entry da URL e consumida). Diferente de `stacked`: mantem o tier de z-index
+   * base e continua participando de sheetStack (ESC/scroll-lock/tabbar).
+   * Default: true.
+   */
+  manageHistory?: boolean;
   /** Aria-label do dialog (lido por screen readers). */
   ariaLabel?: string;
   /** Classe modificadora opcional aplicada ao .bottom-sheet pra permitir
@@ -97,6 +106,7 @@ export function BottomSheet({
   ariaLabel,
   className,
   stacked = false,
+  manageHistory = true,
 }: BottomSheetProps) {
   const focusTrapRef = useFocusTrap(open);
   // Token estavel por instancia pra identificar este sheet na `sheetStack`.
@@ -252,7 +262,8 @@ export function BottomSheet({
   useEffect(() => {
     // Sheet empilhado (modo stacked) delega a history ao overlay-pai — nao
     // injeta entry propria (evita back-button confuso com 2 entries iguais).
-    if (stacked) return;
+    // manageHistory=false delega a history a URL (overlay por query param).
+    if (stacked || !manageHistory) return;
     if (!open || historyInjectedRef.current) return;
 
     window.history.pushState({ bottomSheet: true }, '');
@@ -325,7 +336,7 @@ export function BottomSheet({
         }
       }
     };
-  }, [open, stacked, sheetToken]);
+  }, [open, stacked, manageHistory, sheetToken]);
 
   function handleTouchStart(event: React.TouchEvent) {
     if (!dragToDismiss || dragDisabled) return;
