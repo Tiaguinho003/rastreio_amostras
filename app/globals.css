@@ -33880,3 +33880,160 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
 .pg-mobile-notice button:active {
   transform: scale(0.96);
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   FV — KIT INSTITUCIONAL (RD12/RD14, piloto /cadastros)
+   Classes novas do redesign pagina-a-pagina; consomem os tokens
+   --fv-* do :root. Mobile-first: os blocos de pagina desktop ligam
+   em @media (min-width: 901px); mobile segue com a UI atual.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Botao institucional (kit): sem gradiente, radius contido, press =
+   so profundidade (scale) — cor NAO muda no toque (regra da casa). */
+.fv-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  height: 38px;
+  padding: 0 0.95rem;
+  border: none;
+  border-radius: var(--fv-radius);
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 140ms ease,
+    background 160ms ease;
+}
+.fv-btn svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.fv-btn:active {
+  transform: scale(0.97);
+}
+.fv-btn-primary {
+  background: var(--fv-cta);
+  color: #ffffff;
+}
+.fv-btn-secondary {
+  background: var(--fv-surface);
+  color: var(--ink);
+  border: 1px solid var(--fv-line-strong);
+}
+@media (hover: hover) {
+  .fv-btn-primary:hover {
+    background: var(--fv-cta-strong);
+  }
+  .fv-btn-secondary:hover {
+    background: var(--fv-hover);
+  }
+}
+
+/* Cabecalho de pagina + KPI row: existem so no desktop. */
+.fv-page-head,
+.fv-kpi-row {
+  display: none;
+}
+
+@media (min-width: 901px) {
+  /* RD14 (/cadastros): no desktop o chrome novo assume — header verde
+     mobile, abas internas (viraram sub-itens da sidenav) e FAB morrem. */
+  .fv-cad-page .clients-v2-header,
+  .fv-cad-page .cad-tabs,
+  .fv-cad-page .cv2-fab {
+    display: none;
+  }
+
+  .fv-page-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex: none;
+    padding: 1.15rem clamp(0.9rem, 3vw, 2rem) 0;
+  }
+
+  .fv-page-title {
+    margin: 0;
+    font-size: 1.55rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: var(--ink);
+  }
+
+  .fv-kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.9rem;
+    flex: none;
+    padding: 0 clamp(0.9rem, 3vw, 2rem);
+    margin-top: 1rem;
+  }
+
+  .fv-kpi {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    min-width: 0;
+    padding: 0.95rem 1.05rem;
+    background: var(--fv-surface);
+    border: 1px solid var(--fv-line);
+    border-radius: var(--fv-radius-lg);
+  }
+
+  .fv-kpi-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .fv-kpi-label {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--muted);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .fv-kpi-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    flex: none;
+    border: 1px solid var(--fv-line);
+    border-radius: var(--fv-radius-sm);
+    color: var(--muted);
+  }
+  .fv-kpi-icon svg {
+    width: 1rem;
+    height: 1rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .fv-kpi-value {
+    font-size: 1.7rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+}

@@ -241,6 +241,9 @@ export interface ClientsBrowserProps {
   // overlay de detalhe (F1 do redesign — /cadastros?cliente=<id>). O antigo
   // modal-resumo cdm foi absorvido pelo overlay.
   onOpenClient: (clientId: string) => void;
+  // RD14: o CTA "+ Novo cliente" do cabecalho desktop vive na pagina, mas o
+  // quick-create vive aqui — o browser registra o abridor pra pagina chamar.
+  registerCreateOpener?: (openCreate: () => void) => void;
 }
 
 // Experiencia COMPLETA de lista de clientes (busca + filtro + FAB + scroll
@@ -252,6 +255,7 @@ export function ClientsBrowser({
   storageKey = DEFAULT_STORAGE_KEY,
   initialIncomplete = false,
   onOpenClient,
+  registerCreateOpener,
 }: ClientsBrowserProps) {
   const toast = useToast();
 
@@ -309,6 +313,11 @@ export function ClientsBrowser({
   );
   const [clientQuickCreateOpen, setClientQuickCreateOpen] = useState(false);
   const clientSearchDebounceRef = useRef<number | null>(null);
+
+  // RD14: entrega o abridor do quick-create pra pagina-host (CTA desktop).
+  useEffect(() => {
+    registerCreateOpener?.(() => setClientQuickCreateOpen(true));
+  }, [registerCreateOpener]);
 
   // Filtros consolidados (responsavel, status, tipo, papel, completude).
   // Semeado pelo snapshot; o deep-link ?incomplete=true sobrescreve a

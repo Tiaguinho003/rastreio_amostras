@@ -13,14 +13,16 @@ import { ClientsBrowser } from '../../components/clients/ClientsBrowser';
 import {
   ApiError,
   createBroker,
+  getClientStats,
   listBrokers,
   lookupUsersForReference,
   updateBroker,
 } from '../../lib/api-client';
 import { CLIENT_MANAGEMENT_ROLES } from '../../lib/roles';
 import { useRequireAuth } from '../../lib/use-auth';
+import { useIsDesktop } from '../../lib/use-desktop';
 import { useToast } from '../../lib/toast/ToastProvider';
-import type { Broker, BrokerInput, UserLookupItem } from '../../lib/types';
+import type { Broker, BrokerInput, ClientStatsResponse, UserLookupItem } from '../../lib/types';
 
 // Cadastros = hub de todo nao-PROSPECTOR com 2 abas (a aba Bancos saiu na
 // D141 -- banco virou texto livre na conta bancaria). "Clientes" (default) e a
@@ -50,7 +52,21 @@ function CadastrosPage() {
   // le a URL; o ClientsBrowser recebe por prop (ele nao usa useSearchParams).
   const incompleteFromUrl = searchParams.get('incomplete') === 'true';
 
-  const [tab, setTab] = useState<Tab>('clientes');
+  // RD13/RD14: a aba vem da URL (?tab=corretores; default clientes) — mesmo
+  // padrao dos hubs (/contratos, /embarques): param e a fonte de verdade,
+  // estado DERIVADO, troca via replace. Os sub-itens da sidenav deep-linkam
+  // direto pra ca.
+  const tab: Tab = searchParams.get('tab') === 'corretores' ? 'corretores' : 'clientes';
+  const selectTab = useCallback(
+    (next: Tab) => {
+      if (next === tab) return;
+      // Troca de aba zera o resto da query (overlay/incomplete) de proposito.
+      router.replace(next === 'corretores' ? '/cadastros?tab=corretores' : '/cadastros', {
+        scroll: false,
+      });
+    },
+    [router, tab]
+  );
 
   // F1 do redesign (RD2/RD7): o detalhe do cliente e um OVERLAY dirigido pela
   // URL — `?cliente=<id>` aberto, ausente fechado. Back fecha porque consome a
@@ -90,6 +106,33 @@ function CadastrosPage() {
     const qs = params.toString();
     router.replace(qs ? `/cadastros?${qs}` : '/cadastros', { scroll: false });
   }, [router, searchParams]);
+
+  // RD14: KPI row do desktop. Fetch so >=901px; refetch quando o overlay de
+  // detalhe abre/fecha (criacao, edicao e inativacao passam por ele) — o
+  // Cache-Control de 30s da rota amortece repeticoes.
+  const isDesktop = useIsDesktop();
+  const [clientStats, setClientStats] = useState<ClientStatsResponse | null>(null);
+  useEffect(() => {
+    if (!session || !isDesktop) return;
+    let active = true;
+    getClientStats(session)
+      .then((stats) => {
+        if (active) setClientStats(stats);
+      })
+      .catch(() => {
+        /* KPI fica em "—"; a lista continua funcional */
+      });
+    return () => {
+      active = false;
+    };
+  }, [session, isDesktop, clienteId]);
+
+  // RD14: o CTA "+ Novo cliente" do cabecalho desktop abre o quick-create que
+  // vive DENTRO do ClientsBrowser — o browser registra o abridor aqui.
+  const openCreateClientRef = useRef<(() => void) | null>(null);
+  const registerCreateOpener = useCallback((openCreate: () => void) => {
+    openCreateClientRef.current = openCreate;
+  }, []);
 
   // Corretores
   const [brokers, setBrokers] = useState<Broker[]>([]);
@@ -190,9 +233,17 @@ function CadastrosPage() {
   const searchValue = brokerSearch;
   const setSearchValue = (value: string) => setBrokerSearch(value);
 
+  // RD14: cards da KPI row (desktop, so na aba Clientes). "—" enquanto carrega.
+  const kpiCards: { key: string; label: string; value: number | undefined }[] = [
+    { key: 'total', label: 'Total de clientes', value: clientStats?.total },
+    { key: 'active', label: 'Clientes ativos', value: clientStats?.active },
+    { key: 'incomplete', label: 'Cadastros incompletos', value: clientStats?.incomplete },
+    { key: 'new', label: 'Novos este mês', value: clientStats?.newThisMonth },
+  ];
+
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession} activeSubTab={tab}>
-      <section className="clients-page-v2">
+      <section className="clients-page-v2 fv-cad-page">
         <header className="clients-v2-header">
           <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao dashboard">
             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
@@ -214,7 +265,7 @@ function CadastrosPage() {
             role="tab"
             aria-selected={tab === 'clientes'}
             className={`cad-tab${tab === 'clientes' ? ' is-active' : ''}`}
-            onClick={() => setTab('clientes')}
+            onClick={() => selectTab('clientes')}
           >
             Clientes
           </button>
@@ -223,11 +274,82 @@ function CadastrosPage() {
             role="tab"
             aria-selected={tab === 'corretores'}
             className={`cad-tab${tab === 'corretores' ? ' is-active' : ''}`}
-            onClick={() => setTab('corretores')}
+            onClick={() => selectTab('corretores')}
           >
             Corretores
           </button>
         </div>
+
+        {/* RD14 (desktop >=901px): cabecalho institucional + KPI row. No mobile
+            estes blocos ficam display:none e o header verde + abas seguem. */}
+        <div className="fv-page-head">
+          <h2 className="fv-page-title">{tab === 'clientes' ? 'Clientes' : 'Corretores'}</h2>
+          {tab === 'clientes' ? (
+            <button
+              type="button"
+              className="fv-btn fv-btn-primary"
+              onClick={() => openCreateClientRef.current?.()}
+            >
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="M12 5v14" />
+                <path d="M5 12h14" />
+              </svg>
+              Novo cliente
+            </button>
+          ) : (
+            <button type="button" className="fv-btn fv-btn-primary" onClick={openCreateBroker}>
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="M12 5v14" />
+                <path d="M5 12h14" />
+              </svg>
+              Novo corretor
+            </button>
+          )}
+        </div>
+
+        {tab === 'clientes' ? (
+          <div className="fv-kpi-row">
+            {kpiCards.map((card) => (
+              <article key={card.key} className="fv-kpi">
+                <div className="fv-kpi-top">
+                  <span className="fv-kpi-label">{card.label}</span>
+                  <span className="fv-kpi-icon" aria-hidden="true">
+                    {card.key === 'total' ? (
+                      <svg viewBox="0 0 24 24" focusable="false">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                      </svg>
+                    ) : card.key === 'active' ? (
+                      <svg viewBox="0 0 24 24" focusable="false">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="m16 11 2 2 4-4" />
+                      </svg>
+                    ) : card.key === 'incomplete' ? (
+                      <svg viewBox="0 0 24 24" focusable="false">
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M12 8v4" />
+                        <path d="M12 16h.01" />
+                      </svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" focusable="false">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M19 8v6" />
+                        <path d="M22 11h-6" />
+                      </svg>
+                    )}
+                  </span>
+                </div>
+                <span className="fv-kpi-value">
+                  {card.value == null ? '—' : card.value.toLocaleString('pt-BR')}
+                </span>
+              </article>
+            ))}
+          </div>
+        ) : null}
 
         {tab === 'clientes' ? (
           <ClientsBrowser
@@ -235,6 +357,7 @@ function CadastrosPage() {
             storageKey="clients-list-snapshot-cad-v3"
             initialIncomplete={incompleteFromUrl}
             onOpenClient={openClient}
+            registerCreateOpener={registerCreateOpener}
           />
         ) : (
           <>
