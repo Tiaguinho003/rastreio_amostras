@@ -30,6 +30,10 @@ interface AppShellProps {
   session: SessionData;
   onLogout: () => Promise<void> | void;
   onSessionChange?: (session: SessionData | null) => void;
+  // RD13: sub-item ativo da secao expandida na sidenav (ex.: 'corretores',
+  // 'financeiro'). Vem por PROP das paginas com abas (?tab=) — o AppShell nao
+  // le useSearchParams de proposito (exigiria Suspense em toda pagina).
+  activeSubTab?: string;
   children: React.ReactNode;
 }
 
@@ -96,6 +100,26 @@ const EMBARQUES_NAV_ITEM = {
   label: 'Embarques',
   icon: 'embarques' as NavIcon,
 } as const;
+
+// RD13: secoes da sidenav com SUB-ITENS expansiveis (chrome institucional).
+// Deep-link via ?tab= (padrao da casa: o param e fonte de verdade na pagina);
+// o sub-item ativo chega pela prop activeSubTab. Quando a pagina esta ativa e
+// nenhum activeSubTab foi passado, o primeiro sub-item e o default visual.
+type NavSubItem = { tab: string; label: string; href: string };
+const NAV_SUB_ITEMS: Record<string, readonly NavSubItem[]> = {
+  '/cadastros': [
+    { tab: 'clientes', label: 'Clientes', href: '/cadastros' },
+    { tab: 'corretores', label: 'Corretores', href: '/cadastros?tab=corretores' },
+  ],
+  '/contratos': [
+    { tab: 'contratos', label: 'Contratos', href: '/contratos?tab=contratos' },
+    { tab: 'financeiro', label: 'Financeiro', href: '/contratos?tab=financeiro' },
+  ],
+  '/embarques': [
+    { tab: 'embarque', label: 'Embarque', href: '/embarques?tab=embarque' },
+    { tab: 'aprovacoes', label: 'Aprovações', href: '/embarques?tab=aprovacoes' },
+  ],
+};
 
 const MOBILE_NAV_ITEMS = [
   {
@@ -377,12 +401,24 @@ function resolveMobileRouteMeta(pathname: string): MobileRouteMeta | null {
   return null;
 }
 
-export function AppShell({ session, onLogout, onSessionChange, children }: AppShellProps) {
+export function AppShell({
+  session,
+  onLogout,
+  onSessionChange,
+  activeSubTab,
+  children,
+}: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  // Menu do avatar no trilho da sidenav (DSB-D15, desktop nao-PROSPECTOR).
+  // Menu do perfil na TOP BAR desktop (RD13; ex-dropup do trilho, DSB-D15).
   const [sidenavMenuOpen, setSidenavMenuOpen] = useState(false);
+  // RD13: override manual de expansao das secoes da sidenav. Sem entrada aqui,
+  // a secao ativa (pathname) fica expandida; navegar reseta os overrides.
+  const [sectionOverrides, setSectionOverrides] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    setSectionOverrides({});
+  }, [pathname]);
   const isDashboard = pathname === '/dashboard';
   const isSamplesList = pathname === '/samples';
   const isUsersPage = pathname === '/users';
@@ -444,13 +480,13 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
         ...(isAdmin(session.user.role) ? [ADMIN_NAV_ITEM] : []),
       ];
   const mobileRouteMeta = resolveMobileRouteMeta(pathname);
-  // Titulo da pagina no desktop (DSB-D17): o rotulo do item de nav ativo,
-  // renderizado DENTRO da pagina (topo do main), alinhado verticalmente ao
-  // botao "Inicio" da sidenav. So as rotas PRINCIPAIS (match exato) — paginas
-  // de detalhe e Perfil mantem seus headers proprios.
+  // Titulo da secao no desktop (RD13; ex-DSB-D17 dentro da pagina): o rotulo
+  // do item de nav ativo, agora renderizado NA TOP BAR. Rotas principais por
+  // match exato + Perfil (item do rodape da sidenav).
   const activePageTitle = prospector
     ? null
-    : (desktopNavItems.find((item) => item.href === pathname)?.label ?? null);
+    : (desktopNavItems.find((item) => item.href === pathname)?.label ??
+      (pathname === '/profile' ? 'Perfil' : null));
 
   // Clique-fora + Escape dos dois menus de perfil (top bar e trilho da sidenav).
   useMenuDismiss(profileMenuOpen, profileMenuRef, profileTriggerRef, setProfileMenuOpen);
@@ -726,23 +762,16 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
         </aside>
       ) : null}
 
-      {/* Top bar global desktop dos nao-PROSPECTOR (DSB-D16): faixa branca
-          UNICA atravessando o viewport (row 1 do grid; a sidenav comeca
-          abaixo). Logo quadrado a esquerda (saiu do trilho) + icones INERTES
-          a direita (sino/ajuda — ganharao funcao no futuro). Sem busca e sem
-          titulo de pagina (decisao do Flavio). Miolo vazio de proposito. */}
+      {/* Top bar desktop dos nao-PROSPECTOR (RD13, chrome institucional):
+          fica A DIREITA da sidenav (col 2 do grid — o logo desceu pro topo da
+          sidenav). Esquerda: titulo da secao ativa (ex-.app-page-title,
+          DSB-D17). Direita: sino (inerte) + PERFIL nome+papel+chevron, cujo
+          dropdown reusa o ProfileMenuCard (ex-dropup do trilho). */}
       {!prospector ? (
         <header className="app-topbar">
-          <Link href="/dashboard" className="app-topbar-logo" aria-label="Pagina inicial">
-            <Image
-              src="/icon-safras.png"
-              alt="Safras e Negocios"
-              width={224}
-              height={224}
-              priority
-              className="app-topbar-logo-image"
-            />
-          </Link>
+          <div className="app-topbar-lead">
+            {activePageTitle ? <h1 className="fv-topbar-title">{activePageTitle}</h1> : null}
+          </div>
 
           <div className="app-topbar-actions">
             <button type="button" className="app-topbar-action" aria-label="Notificações">
@@ -751,42 +780,35 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
                 <path d="M10.3 19a2 2 0 0 0 3.4 0" />
               </svg>
             </button>
-            <button type="button" className="app-topbar-action" aria-label="Ajuda">
-              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <circle cx="12" cy="12" r="8.5" />
-                <path d="M9.8 9.4a2.3 2.3 0 0 1 4.5.6c0 1.5-2.2 1.9-2.2 3.2" />
-                <path d="M12 16.4h.01" />
-              </svg>
-            </button>
-          </div>
-        </header>
-      ) : null}
 
-      {/* Sidenav desktop dos nao-PROSPECTOR (DSB-D15): 2 colunas — TRILHO
-          (avatar/menu embaixo; o logo subiu pra top bar no DSB-D16) + PAINEL
-          branco com a navegacao (icone + nome, pilula verde no ativo).
-          Sempre montada; o CSS liga so em >=901px (mobile usa a tabbar). */}
-      {!prospector ? (
-        <aside className="app-sidenav" aria-label="Navegacao principal">
-          <div className="app-sidenav-rail">
-            <div className="app-sidenav-profile" ref={sidenavMenuRef}>
+            <div className="fv-topbar-profile" ref={sidenavMenuRef}>
               <button
                 ref={sidenavTriggerRef}
                 type="button"
-                className="app-sidenav-profile-trigger"
+                className="fv-topbar-profile-trigger"
                 aria-haspopup="menu"
                 aria-expanded={sidenavMenuOpen}
-                aria-controls="sidenav-profile-menu"
+                aria-controls="fv-topbar-profile-menu"
                 aria-label="Abrir menu de perfil"
                 onClick={() => setSidenavMenuOpen((current) => !current)}
               >
-                <UserAvatar size="md" user={session.user} />
+                <UserAvatar size="sm" user={session.user} />
+                <span className="fv-topbar-profile-text">
+                  <span className="fv-topbar-profile-name">{profileName}</span>
+                  <span className="fv-topbar-profile-role">{getRoleLabel(session.user.role)}</span>
+                </span>
+                <svg
+                  className="fv-topbar-profile-chevron"
+                  viewBox="0 0 24 24"
+                  focusable="false"
+                  aria-hidden="true"
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
               </button>
 
               {sidenavMenuOpen ? (
-                // Mesmo card do dropdown da top bar, ancorado como DROPUP no
-                // rodape do trilho.
-                <section id="sidenav-profile-menu" className="app-sidenav-profile-menu" role="menu">
+                <section id="fv-topbar-profile-menu" className="fv-topbar-profile-menu" role="menu">
                   <ProfileMenuCard
                     session={session}
                     profileName={profileName}
@@ -797,26 +819,133 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
               ) : null}
             </div>
           </div>
+        </header>
+      ) : null}
 
-          <div className="app-sidenav-panel">
+      {/* Sidenav desktop dos nao-PROSPECTOR (RD13, chrome institucional):
+          painel UNICO branco de altura inteira (o trilho do DSB-D15 morreu; o
+          avatar migrou pra top bar). Topo: logo + "Safras" (link pro
+          dashboard, altura da top bar — as hairlines emendam). Miolo: label
+          "Menu" + navegacao com secoes EXPANSIVEIS (Cadastros/Contratos/
+          Embarques; sub-itens deep-linkam via ?tab=). Rodape: Perfil + Ajuda.
+          Sempre montada; o CSS liga so em >=901px (mobile usa a tabbar). */}
+      {!prospector ? (
+        <aside className="app-sidenav" aria-label="Navegacao principal">
+          <div className="fv-sidenav-brand">
+            <Link href="/dashboard" className="fv-sidenav-brand-link" aria-label="Pagina inicial">
+              <Image
+                src="/icon-safras.png"
+                alt="Safras e Negocios"
+                width={224}
+                height={224}
+                priority
+                className="fv-sidenav-brand-logo"
+              />
+              <span className="fv-sidenav-brand-name">Safras</span>
+            </Link>
+          </div>
+
+          <div className="fv-sidenav-scroll">
+            <span className="fv-sidenav-heading" aria-hidden="true">
+              Menu
+            </span>
+
             <nav className="app-sidenav-nav" aria-label="Paginas principais">
               {desktopNavItems.map((item) => {
                 const active = isMainNavItemActive(pathname, item.href);
+                const subItems = NAV_SUB_ITEMS[item.href];
+
+                if (!subItems) {
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`app-sidenav-link${active ? ' is-active' : ''}`}
+                      aria-current={active ? 'page' : undefined}
+                    >
+                      <span className="app-sidenav-link-icon" aria-hidden="true">
+                        {renderNavIcon(item.icon)}
+                      </span>
+                      <span className="app-sidenav-link-label">{item.label}</span>
+                    </Link>
+                  );
+                }
+
+                const expanded = sectionOverrides[item.href] ?? active;
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`app-sidenav-link${active ? ' is-active' : ''}`}
-                    aria-current={active ? 'page' : undefined}
-                  >
-                    <span className="app-sidenav-link-icon" aria-hidden="true">
-                      {renderNavIcon(item.icon)}
-                    </span>
-                    <span className="app-sidenav-link-label">{item.label}</span>
-                  </Link>
+                  <div key={item.href} className="fv-sidenav-section">
+                    <button
+                      type="button"
+                      className={`app-sidenav-link fv-sidenav-section-toggle${active ? ' is-active' : ''}`}
+                      aria-expanded={expanded}
+                      onClick={() =>
+                        setSectionOverrides((current) => ({
+                          ...current,
+                          [item.href]: !expanded,
+                        }))
+                      }
+                    >
+                      <span className="app-sidenav-link-icon" aria-hidden="true">
+                        {renderNavIcon(item.icon)}
+                      </span>
+                      <span className="app-sidenav-link-label">{item.label}</span>
+                      <svg
+                        className={`fv-sidenav-chevron${expanded ? ' is-open' : ''}`}
+                        viewBox="0 0 24 24"
+                        focusable="false"
+                        aria-hidden="true"
+                      >
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </button>
+
+                    {expanded ? (
+                      <div className="fv-sidenav-subnav">
+                        {subItems.map((sub, index) => {
+                          const subActive =
+                            active && (activeSubTab ? activeSubTab === sub.tab : index === 0);
+                          return (
+                            <Link
+                              key={sub.tab}
+                              href={sub.href}
+                              className={`fv-sidenav-sublink${subActive ? ' is-active' : ''}`}
+                              aria-current={subActive ? 'page' : undefined}
+                            >
+                              {sub.label}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                  </div>
                 );
               })}
             </nav>
+
+            <div className="fv-sidenav-footer">
+              <Link
+                href="/profile"
+                className={`app-sidenav-link${pathname === '/profile' ? ' is-active' : ''}`}
+                aria-current={pathname === '/profile' ? 'page' : undefined}
+              >
+                <span className="app-sidenav-link-icon" aria-hidden="true">
+                  {renderNavIcon('profile')}
+                </span>
+                <span className="app-sidenav-link-label">Perfil</span>
+              </Link>
+
+              {/* Inerte por ora (ganha funcao no futuro) — veio da top bar. */}
+              <button type="button" className="app-sidenav-link" aria-label="Ajuda">
+                <span className="app-sidenav-link-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <circle cx="12" cy="12" r="8.5" />
+                    <path d="M9.8 9.4a2.3 2.3 0 0 1 4.5.6c0 1.5-2.2 1.9-2.2 3.2" />
+                    <path d="M12 16.4h.01" />
+                  </svg>
+                </span>
+                <span className="app-sidenav-link-label">Ajuda</span>
+              </button>
+            </div>
           </div>
         </aside>
       ) : null}
@@ -893,15 +1022,6 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
               </Link>
             ) : null}
           </section>
-        ) : null}
-
-        {/* Titulo da pagina (DSB-D17, desktop-only via CSS): alinhado ao
-            botao "Inicio" da sidenav pelos tokens compartilhados
-            --app-nav-row-top/--app-nav-row-h. */}
-        {activePageTitle ? (
-          <div className="app-page-title-row">
-            <h1 className="app-page-title">{activePageTitle}</h1>
-          </div>
         ) : null}
 
         {/* CAM-P3: provider do bottom sheet global da camera. Envolve so o

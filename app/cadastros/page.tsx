@@ -191,7 +191,7 @@ function CadastrosPage() {
   const setSearchValue = (value: string) => setBrokerSearch(value);
 
   return (
-    <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
+    <AppShell session={session} onLogout={logout} onSessionChange={setSession} activeSubTab={tab}>
       <section className="clients-page-v2">
         <header className="clients-v2-header">
           <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao dashboard">

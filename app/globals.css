@@ -32,6 +32,32 @@
   --color-danger-rgb: 184, 50, 50;
 
   /* ══════════════════════════════════════════════════════════════
+     FV — TOKENS DO REDESIGN INSTITUCIONAL (RD12)
+     Consumidos SO pelas classes .fv-* e pelo chrome novo durante o
+     ciclo pagina-a-pagina; promocao aos tokens semanticos quando o
+     ciclo fechar. Nao usar em codigo legado.
+     ══════════════════════════════════════════════════════════════ */
+  --fv-canvas: #f6f7f6;
+  --fv-surface: #ffffff;
+  --fv-line: #e6e8e6;
+  --fv-line-strong: #d8dcd8;
+  --fv-hover: rgba(23, 60, 48, 0.05);
+  --fv-active-bg: #edf0ed;
+  --fv-radius-sm: 8px;
+  --fv-radius: 10px;
+  --fv-radius-lg: 12px;
+  --fv-cta: #173c30;
+  --fv-cta-strong: #122e25;
+  --fv-chip-green-bg: #e5f3e9;
+  --fv-chip-green-fg: #1e7c3f;
+  --fv-chip-amber-bg: #fbf1dd;
+  --fv-chip-amber-fg: #a96a10;
+  --fv-chip-red-bg: #fbe9e7;
+  --fv-chip-red-fg: #c04a3a;
+  --fv-chip-gray-bg: #eef0ee;
+  --fv-chip-gray-fg: #5f6b64;
+
+  /* ══════════════════════════════════════════════════════════════
      TYPOGRAPHY — Inter via next/font (UI). Poppins segue carregada
      SO para as pecas de informativo (--font-family-story, lida pelo
      canvas em lib/informativos/story-draw.ts).
@@ -30306,10 +30332,6 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   display: none;
 }
 
-.app-page-title-row {
-  display: none;
-}
-
 /* Chevron ao lado do avatar de perfil no mobile (HeaderAvatarMenu).
    Sempre branco (pedido do usuario) — fica sobre os headers verdes. */
 .header-avatar-chevron {
@@ -30342,45 +30364,19 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   }
 
   .app-shell-root:has(.app-sidenav) {
-    /* DSB-D16: altura da top bar global (o grid e a sidenav descontam dela)
-       + canvas VERDE-CLARINHO (o mesmo do trilho) em todas as paginas
-       desktop — os cards/sheets brancos saltam sobre ele. */
+    /* RD13: a sidenav ocupa a coluna 1 nas DUAS rows (logo no topo dela); a
+       top bar fica na coluna do conteudo. Altura da top bar segue como token
+       (paginas descontam dela) + canvas NEUTRO institucional (RD12) — os
+       cards/sheets brancos saltam sobre ele. */
     --app-topbar-h: 56px;
-    /* DSB-D17: tokens compartilhados entre a 1a linha da sidenav (botao
-       "Inicio") e o titulo da pagina — MESMO offset abaixo da top bar e MESMA
-       altura de linha, pra que os centros fiquem matematicamente alinhados. */
     --app-nav-row-top: 0.9rem;
-    --app-nav-row-h: 34px;
-    grid-template-columns: var(--app-sidenav-w, 276px) minmax(0, 1fr);
-    background: #f4f6f5;
-  }
-
-  /* Titulo da pagina (DSB-D17): DENTRO da pagina (topo do main), texto = o
-     rotulo do item de nav ativo; alinhado verticalmente ao botao "Inicio" da
-     sidenav pelos tokens acima. So as rotas principais (o AppShell decide). */
-  .app-page-title-row {
-    display: block;
-    flex: none;
-    width: 100%;
-    max-width: var(--content-max-wide);
-    margin: 0 auto;
-    padding: var(--app-nav-row-top) clamp(0.85rem, 3vw, 4rem) 0;
-  }
-
-  .app-page-title {
-    margin: 0;
-    display: flex;
-    align-items: center;
-    height: var(--app-nav-row-h);
-    font-size: 1.15rem;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    line-height: 1.2;
-    color: var(--ink);
+    --app-nav-row-h: 36px;
+    grid-template-columns: var(--app-sidenav-w, 252px) minmax(0, 1fr);
+    background: var(--fv-canvas);
   }
 
   /* A faixa branca antiga (.topbar) morre no desktop dos nao-PROSPECTOR
-     (DSB-D15); a top bar global nova e a .app-topbar (DSB-D16). */
+     (DSB-D15); a top bar nova e a .app-topbar (RD13). */
   .app-shell-root:has(.app-sidenav) .topbar {
     display: none;
   }
@@ -30390,50 +30386,51 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
     grid-row: 2;
   }
 
-  /* ── Top bar global (DSB-D16): faixa branca UNICA por cima de tudo ──
-     Row 1 do grid atravessando as 2 colunas; logo quadrado a esquerda +
-     icones inertes (sino/ajuda) a direita; miolo VAZIO de proposito (sem
-     busca, sem titulo de pagina — decisao do Flavio). Sticky como o resto
+  /* ── Top bar (RD13, chrome institucional): faixa branca NA COLUNA DO
+     CONTEUDO (col 2, row 1) — a sidenav ocupa a coluna 1 inteira com o logo
+     no topo (as hairlines emendam). Esquerda: titulo da secao ativa
+     (ex-.app-page-title do DSB-D17). Direita: sino (inerte) + perfil
+     nome+papel+chevron com dropdown do ProfileMenuCard. Sticky como o resto
      do chrome (nunca fixed — PageTransition aplica transform). */
 
   .app-topbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    grid-column: 1 / -1;
+    gap: 1rem;
+    grid-column: 2;
     grid-row: 1;
     position: sticky;
     top: 0;
     height: var(--app-topbar-h);
-    padding: 0 clamp(0.9rem, 1.6vw, 1.4rem) 0 0.7rem;
-    background: #ffffff;
-    border-bottom: 1px solid rgba(112, 130, 103, 0.16);
+    padding: 0 clamp(0.9rem, 1.6vw, 1.4rem) 0 clamp(0.9rem, 3vw, 2rem);
+    background: var(--fv-surface);
+    border-bottom: 1px solid var(--fv-line);
     z-index: 32;
   }
 
-  .app-topbar-logo {
-    display: inline-flex;
-    border-radius: 10px;
-    -webkit-tap-highlight-color: transparent;
-    transition: transform 140ms ease;
+  .app-topbar-lead {
+    display: flex;
+    align-items: center;
+    min-width: 0;
   }
 
-  .app-topbar-logo:active {
-    transform: scale(0.94);
-  }
-
-  .app-topbar-logo-image {
-    display: block;
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
-    object-fit: cover;
+  .fv-topbar-title {
+    margin: 0;
+    font-size: 1.02rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+    color: var(--ink);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   .app-topbar-actions {
     display: flex;
     align-items: center;
-    gap: 0.35rem;
+    gap: 0.5rem;
   }
 
   /* Botao-icone da barra (inerte por ora — ganha funcao no futuro). */
@@ -30445,7 +30442,7 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
     height: 38px;
     padding: 0;
     border: none;
-    border-radius: 10px;
+    border-radius: var(--fv-radius);
     background: transparent;
     color: var(--ink);
     cursor: pointer;
@@ -30455,7 +30452,7 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
 
   @media (hover: hover) {
     .app-topbar-action:hover {
-      background: rgba(31, 93, 67, 0.06);
+      background: var(--fv-hover);
     }
   }
 
@@ -30473,83 +30470,183 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
     stroke-linejoin: round;
   }
 
-  /* ── Sidenav (DSB-D15): 2 colunas — trilho + painel branco ──
-     DSB-D16: comeca ABAIXO da top bar global (row 2, altura descontada). */
-
-  .app-sidenav {
-    display: flex;
-    grid-column: 1;
-    grid-row: 2;
-    align-self: start;
-    position: sticky;
-    top: var(--app-topbar-h);
-    height: calc(100vh - var(--app-topbar-h));
-    height: calc(100lvh - var(--app-topbar-h));
-    z-index: 30;
-  }
-
-  /* Trilho: avatar (menu) no rodape — o logo subiu pra top bar (DSB-D16). */
-  .app-sidenav-rail {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 60px;
-    flex: none;
-    padding: 0.8rem 0;
-    background: #f4f6f5;
-    border-right: 1px solid rgba(112, 130, 103, 0.16);
-  }
-
-  .app-sidenav-profile {
+  /* Perfil na top bar (RD13): avatar + nome/papel + chevron. O dropdown
+     reusa o card .header-avatar-menu (ProfileMenuCard). */
+  .fv-topbar-profile {
     position: relative;
-    margin-top: auto;
     display: flex;
-    justify-content: center;
   }
 
-  .app-sidenav-profile-trigger {
-    display: inline-grid;
-    place-items: center;
-    padding: 0;
+  .fv-topbar-profile-trigger {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.3rem 0.45rem 0.3rem 0.35rem;
     border: none;
-    border-radius: 999px;
+    border-radius: var(--fv-radius);
     background: transparent;
+    cursor: pointer;
+    text-align: left;
     -webkit-tap-highlight-color: transparent;
     transition: transform 140ms ease;
   }
 
-  .app-sidenav-profile-trigger:active {
-    transform: scale(0.94);
+  @media (hover: hover) {
+    .fv-topbar-profile-trigger:hover {
+      background: var(--fv-hover);
+    }
   }
 
-  /* Menu do avatar: DROPUP ancorado no rodape do trilho, abrindo pra
-     DIREITA (mesma casca branca do .topbar-profile-menu). */
-  .app-sidenav-profile-menu {
+  .fv-topbar-profile-trigger:active {
+    transform: scale(0.97);
+  }
+
+  .fv-topbar-profile-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    max-width: 11rem;
+  }
+
+  .fv-topbar-profile-name {
+    font-size: 0.83rem;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--ink);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .fv-topbar-profile-role {
+    font-size: 0.68rem;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--muted);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .fv-topbar-profile-chevron {
+    width: 0.85rem;
+    height: 0.85rem;
+    flex: none;
+    fill: none;
+    stroke: var(--muted);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform 160ms ease;
+  }
+
+  .fv-topbar-profile-trigger[aria-expanded='true'] .fv-topbar-profile-chevron {
+    transform: rotate(180deg);
+  }
+
+  .fv-topbar-profile-menu {
     position: absolute;
-    left: calc(100% + 0.4rem);
-    bottom: 0;
+    right: 0;
+    top: calc(100% + 0.45rem);
     width: min(20rem, calc(100vw - 5rem));
-    border-radius: 16px;
-    border: 1px solid var(--line);
-    background: #ffffff;
-    box-shadow: 0 18px 40px rgba(15, 23, 15, 0.24);
+    border-radius: 14px;
+    border: 1px solid var(--fv-line-strong);
+    background: var(--fv-surface);
+    box-shadow: 0 16px 40px rgba(15, 23, 15, 0.16);
     padding: 0.4rem 0.5rem 0.5rem;
     color: var(--ink);
     z-index: 40;
   }
 
-  /* Painel branco com a navegacao (botoes PEQUENOS: icone + nome). O padding
-     do topo e a altura dos botoes usam os tokens do titulo (DSB-D17) — o
-     botao "Inicio" e o titulo da pagina ficam na MESMA linha visual. */
-  .app-sidenav-panel {
-    flex: 1;
-    min-width: 0;
+  /* ── Sidenav (RD13, chrome institucional): painel UNICO branco de altura
+     inteira (rows 1/-1 — o trilho do DSB-D15 morreu, o avatar migrou pra
+     top bar). Topo: logo + "Safras" na MESMA altura da top bar (hairlines
+     emendadas). Miolo: "Menu" + navegacao com secoes expansiveis. Rodape:
+     Perfil + Ajuda. ── */
+
+  .app-sidenav {
     display: flex;
     flex-direction: column;
-    padding: var(--app-nav-row-top) 0.65rem 0.9rem;
-    background: #ffffff;
-    border-right: 1px solid var(--topbar-line);
+    grid-column: 1;
+    grid-row: 1 / -1;
+    align-self: start;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    height: 100lvh;
+    background: var(--fv-surface);
+    border-right: 1px solid var(--fv-line);
+    z-index: 30;
+  }
+
+  .fv-sidenav-brand {
+    display: flex;
+    align-items: center;
+    height: var(--app-topbar-h);
+    flex: none;
+    padding: 0 0.65rem;
+    border-bottom: 1px solid var(--fv-line);
+  }
+
+  .fv-sidenav-brand-link {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 0;
+    width: 100%;
+    padding: 0.35rem 0.45rem;
+    border-radius: var(--fv-radius);
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 140ms ease;
+  }
+
+  @media (hover: hover) {
+    .fv-sidenav-brand-link:hover {
+      background: var(--fv-hover);
+    }
+  }
+
+  .fv-sidenav-brand-link:active {
+    transform: scale(0.97);
+  }
+
+  .fv-sidenav-brand-logo {
+    display: block;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    object-fit: cover;
+    flex: none;
+  }
+
+  .fv-sidenav-brand-name {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 0.98rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+  }
+
+  .fv-sidenav-scroll {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: var(--app-nav-row-top) 0.65rem 0.85rem;
     overflow-y: auto;
+  }
+
+  .fv-sidenav-heading {
+    padding: 0 0.6rem;
+    margin-bottom: 0.45rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
   }
 
   .app-sidenav-nav {
@@ -30558,23 +30655,31 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
     gap: 2px;
   }
 
+  /* Item de nav: serve Link E button (toggle de secao) — reset de button
+     embutido. */
   .app-sidenav-link {
     display: flex;
     align-items: center;
     gap: 0.6rem;
+    width: 100%;
     height: var(--app-nav-row-h);
     padding: 0 0.6rem;
-    border-radius: 10px;
+    border: none;
+    border-radius: var(--fv-radius);
+    background: transparent;
     color: var(--ink);
-    font-size: 0.9rem;
-    font-weight: 600;
+    font-family: inherit;
+    font-size: 0.88rem;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
     -webkit-tap-highlight-color: transparent;
     transition: transform 140ms ease;
   }
 
   @media (hover: hover) {
     .app-sidenav-link:hover {
-      background: rgba(31, 93, 67, 0.06);
+      background: var(--fv-hover);
     }
   }
 
@@ -30582,11 +30687,11 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
     transform: scale(0.97);
   }
 
-  /* Item ativo: PILULA suave verde (referencia visual do DSB-D15 adaptada a
-     paleta; substitui o sublinhado do DSB-D6). */
+  /* Item ativo (RD13): fundo NEUTRO suave + tinta — sai a pilula verde. */
   .app-sidenav-link.is-active {
-    background: rgba(31, 93, 67, 0.1);
-    color: var(--brand-green, #1f5d43);
+    background: var(--fv-active-bg);
+    color: var(--ink);
+    font-weight: 600;
   }
 
   .app-sidenav-link-icon {
@@ -30603,16 +30708,88 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
     height: 100%;
     fill: none;
     stroke: currentColor;
-    stroke-width: 1.9;
+    stroke-width: 1.7;
     stroke-linecap: round;
     stroke-linejoin: round;
   }
 
   .app-sidenav-link-label {
+    flex: 1;
     min-width: 0;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+  }
+
+  /* Secoes expansiveis (Cadastros/Contratos/Embarques). */
+  .fv-sidenav-section {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .fv-sidenav-chevron {
+    width: 0.85rem;
+    height: 0.85rem;
+    flex: none;
+    margin-left: auto;
+    fill: none;
+    stroke: var(--muted);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform 160ms ease;
+  }
+
+  .fv-sidenav-chevron.is-open {
+    transform: rotate(180deg);
+  }
+
+  .fv-sidenav-subnav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 2px 0 4px;
+    /* padding do link (0.6rem) + icone (1.15rem) + gap (0.6rem) — os
+       sub-rotulos alinham com os rotulos dos itens. */
+    padding-left: 2.35rem;
+  }
+
+  .fv-sidenav-sublink {
+    display: flex;
+    align-items: center;
+    height: 30px;
+    padding: 0 0.55rem;
+    border-radius: var(--fv-radius-sm);
+    font-size: 0.84rem;
+    font-weight: 500;
+    color: var(--muted);
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 140ms ease;
+  }
+
+  @media (hover: hover) {
+    .fv-sidenav-sublink:hover {
+      background: var(--fv-hover);
+    }
+  }
+
+  .fv-sidenav-sublink:active {
+    transform: scale(0.97);
+  }
+
+  .fv-sidenav-sublink.is-active {
+    background: var(--fv-active-bg);
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .fv-sidenav-footer {
+    margin-top: auto;
+    padding-top: 0.6rem;
+    border-top: 1px solid var(--fv-line);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
   }
 
   .app-sidebar {

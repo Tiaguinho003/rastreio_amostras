@@ -55,7 +55,7 @@ function EmbarquesHubInner() {
   };
 
   return (
-    <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
+    <AppShell session={session} onLogout={logout} onSessionChange={setSession} activeSubTab={tab}>
       <section className="clients-page-v2 ctr-page">
         <header className="clients-v2-header">
           <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao dashboard">
