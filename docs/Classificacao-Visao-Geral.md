@@ -1,7 +1,7 @@
 # Classificação — Visão Geral
 
 > **Status**: Ativo (documento-mãe)
-> **Última atualização**: 2026-07-19 (Ciclo da Extração — Rodada 1: EXT1–EXT13)
+> **Última atualização**: 2026-07-20 (Ciclo da Classificação — Rodada 2: FIN1–FIN16, blocos F7/F8/F9)
 > **Par**: backlog, pendências e ledger vivem em `docs/Classificacao-Plano-de-Trabalho.md`.
 
 Este é o documento canônico do funcionamento ATUAL da classificação. Afirmações sobre fluxo, contrato de dados, canonização e exibição vivem aqui; os demais docs referenciam este.
@@ -12,15 +12,17 @@ Este é o documento canônico do funcionamento ATUAL da classificação. Afirma�
 
 Três caminhos de escrita, todos convergindo no evento `CLASSIFICATION_COMPLETED` ou `CLASSIFICATION_UPDATED`:
 
-1. **Câmera + IA** (principal): operador fotografa a ficha SAFRAS → `detect-form` → `extract-and-prepare` (extração gpt-4o pré-preenche a ficha) → revisão humana na ficha (`ClassificationReviewSheetBody`) → `POST /api/v1/classification/confirm` (`confirmClassificationFromCamera`).
+1. **Câmera + IA** (principal): operador fotografa a ficha SAFRAS → `detect-form` → `extract-and-prepare` (extração gpt-4o pré-preenche a ficha) → revisão humana na ficha (`ClassificationReviewSheetBody`, **só campos — a foto não é exibida desde a Rodada 2/D1**) → etapa **Tipo e classificadores** (`ClassificationMetaStepBody`) → `POST /api/v1/classification/confirm` (`confirmClassificationFromCamera`).
 2. **Câmera manual**: mesma ficha, sem extração (IA desligada ou ilegível); confirmação via `ClassificationManualConfirmModal`.
 3. **Edição no detalhe**: modal `cld-modal` em `/samples/[id]` (amostra `CLASSIFIED`) → `POST /api/v1/samples/:id/classification/update` (`updateClassification`, evento `CLASSIFICATION_UPDATED` com `before/after/reasonCode/reasonText`).
+
+> **Tipo e classificadores são UMA etapa do sheet, não modais (Rodada 2, D2/2026-07-20).** Dois campos empilhados de altura fixa: o tipo num dropdown que fecha ao escolher (obrigatório) e os classificadores como chips com "×" numa fila que desliza na horizontal. Ambos abrem a lista ao toque. O save (`submitting`) também acontece dentro do sheet — antes o modal desmontava e a tela ficava vazia durante o upload.
 
 > **A câmera é um BOTTOM SHEET GLOBAL, não uma página (CAM-P3, 2026-07-16).** A rota `/camera` foi removida (404). O fluxo inteiro (scanner QR + captura + classificação) vive no `CameraSheet` (`components/camera/CameraSheet.tsx`), montado no `AppShell` via `CameraSheetProvider` (`lib/camera-sheet/`). Gatilhos: **ícone de câmera no header de todas as páginas mobile** (`HeaderAvatarMenu`, Flow A) e os botões Classificar/Reclassificar do detalhe do lote (Flow B, `open({ sampleId })` — o contexto por prop substituiu o antigo `?sampleId=` da URL). Mobile-only: desktop não tem câmera (CAM-D2 — o Editar do detalhe cobre correções); PROSPECTOR não vê o gatilho.
 
 **Reclassificação pela câmera** (amostra já `CLASSIFIED`): a ficha parte **vazia** e o payload emite todas as chaves — campos que a nova foto não preencher **substituem os anteriores por null**. Isso é deliberado ("substituição total consciente", decisão 2026-07-13) e o portão `ClassificationReclassifyModal` avisa explicitamente. A edição no detalhe, ao contrário, pré-preenche e faz patch.
 
-**Portões**: foto de classificação é obrigatória (409 sem ela); `classifiers` mínimo 1 (validado pelo comando `normalizeClassifiers`); status `REGISTRATION_CONFIRMED` → `CLASSIFIED`. Classificar dispara auto-print (best-effort).
+**Portões**: foto de classificação é obrigatória (409 sem ela); `classifiers` mínimo 1 (validado pelo comando `normalizeClassifiers`, e barrado no cliente antes de subir a foto); `classificationType` obrigatório no cliente; status `REGISTRATION_CONFIRMED` → `CLASSIFIED`. Classificar dispara auto-print (best-effort) — **e reclassificar também, desde a Rodada 2 (F9.3)**, já que a etiqueta carrega o aspecto da classificação. A tela de sucesso só afirma "Etiqueta impressa" quando o disparo aconteceu (`autoPrintRequested`).
 
 **Data da classificação**: `dataClassificacao` é SEMPRE carimbada pelo servidor com `buildBusinessDateStamp()` (fuso de negócio). O cliente não envia data (CL29).
 

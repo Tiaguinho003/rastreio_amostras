@@ -8,6 +8,46 @@
 
 ---
 
+## Ciclo da Classificação — Rodada 2 (2026-07-20) — ledger FIN
+
+Conferência das fases FINAIS (revisão → tipo → classificadores → confirmação →
+mismatches → reclassificação → sucesso) + as mudanças de UI pedidas pelo Flavio.
+Esta rodada **abriu e fechou os blocos F7, F8 e F9**, que nunca tinham tido
+bloco de decisão. 6 commits `f6b2dc5`…; gates verdes.
+
+**Decisões (2026-07-20):** **D1** a foto sai da ficha de revisão (só campos
+editáveis) · **D2** tipo + classificadores viram UMA etapa do próprio sheet, não
+dois modais centrais · **D3** nos dois campos a lista abre ao tocar no campo ·
+**D4** chips que estouram a largura deslizam na horizontal, sem "+N", e o campo
+nunca cresce · **D5** a reclassificação também reimprime a etiqueta.
+
+| FIN   | Achado                                                                                                                                                                                            | Resolução                                                                                          |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| FIN1  | **Tela morta durante o save**: o modal de classificadores desmontava (`open`→false) e o sheet não incluía `'submitting'` — por 1–5s nada ficava na tela e o operador encarava a página de trás    | ✅ o save mora no sheet, botão em "Salvando..." (`0e18354`)                                        |
+| FIN2  | **Voltar do Android perdia a classificação**: nas etapas de tipo/classificador o sheet estava desmontado e sua entrada de histórico já consumida — o back navegava para fora da página            | ✅ a etapa é do sheet; o back fecha a lista aberta ou pergunta antes de descartar (`0e18354`)      |
+| FIN3  | **Sucesso mentia**: "Etiqueta impressa" incondicional, mas só a classificação nova imprimia — reclassificar deixava a etiqueta colada no lote com o aspecto velho                                 | ✅ reclassificação imprime + a linha só aparece quando o print foi disparado (`830c209`)           |
+| FIN4  | **Descarte sem perguntar**: "Cancelar" no modal de divergência de dados jogava a ficha inteira fora sem confirmação, contra a CAM-D5                                                              | ✅ passa pela confirmação de descarte (`0e18354`)                                                  |
+| FIN5  | Erro de save devolvia o operador ao topo da ficha de 26 campos, com tipo/classificadores fora de vista                                                                                            | ✅ volta para a própria etapa, que agora tem banner (`0e18354`)                                    |
+| FIN6  | CAM-G2 era remendo da separação (validação forçada a voltar ao review "porque o modal de classificador não tem superfície de erro")                                                               | ✅ a etapa tem superfície; a validação numérica segue voltando ao review, onde o campo é editável  |
+| FIN7  | A lista de usuários só carregava DEPOIS de escolher o tipo, e a pré-seleção do "você" acontecia dentro do fetch — falha de rede travava o save por um dado que a sessão já tinha                  | ✅ "você" semeado da sessão + prefetch na revisão (`0e18354`)                                      |
+| FIN8  | "Voltar" da reclassificação e do lot-mismatch apontava para o review, pulando a etapa anterior                                                                                                    | ✅ aponta para a etapa real (`0e18354`)                                                            |
+| FIN9  | **Risco introduzido**: com dropdown, "Confirmar" ficaria alcançável sem tipo — e tipo nulo numa reclassificação faz o evento registrar a remoção enquanto a projeção mantém a coluna              | ✅ tipo obrigatório com erro dentro do campo (`getMetaStepBlocker`, `644d078`)                     |
+| FIN10 | **Risco introduzido**: pôr o auto-print no `updateClassification` faria a edição inline do detalhe imprimir a cada typo e o reverso de evento imprimir ao reverter (3 chamadores)                 | ✅ print só no confirm da câmera + teste que guarda (`830c209`)                                    |
+| FIN11 | **Risco introduzido**: chave derivada de `event.idempotencyKey` viraria a constante `"undefined:auto-print"` (o UPDATED não usa idempotency) e só a 1ª reclassificação de cada amostra imprimiria | ✅ chave derivada do `eventId` + teste de duas reclassificações seguidas (`830c209`)               |
+| FIN12 | `classificationType` não é validado em nenhuma camada de serviço — o único gate é o enum do schema no `appendEvent` (falha tardia e genérica)                                                     | 📝 documentado em teste; sem mudança de contrato nesta rodada                                      |
+| FIN13 | As opções de tipo eram `<button>` sem `aria-pressed`/`role="radio"`                                                                                                                               | ✅ a lista nova usa `role="listbox"`/`aria-selected` (`0e18354`)                                   |
+| FIN14 | Comentário do modal de classificadores dizia "chip fixo (nao-removivel)" para o usuário atual — removível desde a Sessão 7                                                                        | ✅ o componente morreu (`fb2d6bb`)                                                                 |
+| FIN15 | Sem cobertura automatizada das fases finais                                                                                                                                                       | ✅ 5 testes de integração + helper puro (`644d078`); teste de componente segue impossível (CAM-P4) |
+| FIN16 | O front nunca envia `idempotencyKey` no confirm, embora o backend aceite — retry após falha de rede pode duplicar                                                                                 | ⏳ **fora da rodada** (mudança de contrato)                                                        |
+
+**Inconsistências de documentação corrigidas:** ordem antiga das etapas em
+`Produto-e-Fluxos` ("entre a escolha do tipo e a foto…") · `[actor, ...co]` em
+`API-e-Contratos` (revogado em 2026-06-01) · F1.8.B revogada e F1.8.A marcada
+obsoleta · a saída "Continuar" do lot-mismatch (aceitar o lote divergente),
+que não estava documentada em lugar nenhum · contagem de modais.
+
+---
+
 ## Ciclo da Extração — Rodada 1 (2026-07-19) — ledger EXT
 
 Conferência profunda da faixa **captura/galeria → detecção → extração (prompt incluso) → apresentação na revisão**, com correção das inconsistências de docs. Decisões do Flavio (2026-07-19): CAM-P1 DENTRO da rodada; CAM-P2 FORA (explicação abaixo); reestruturação do prompt APROVADA. 11 commits `329409f`…; gates verdes; prompt validado com smoke REAL contra a fixture.
@@ -781,16 +821,25 @@ Tudo orquestrado em `app/camera/page.tsx`. Lib QR via `qr-scanner@^1.4.2`. Compr
 - **Hover (desktop)**: leve aumento de saturação ou nenhum efeito (a definir na implementação; mobile-first não depende disso).
 - **Disabled**: cinza neutro (opacidade ~40%). Não há caso previsto de disabled neste botão, mas mantém padrão pra coerência.
 
-**F1.8.A — X do modal de sucesso sempre volta pra `/camera`.**
+**F1.8.A — X do modal de sucesso sempre volta pra `/camera`.** ⚠️ **OBSOLETA
+desde a CAM-D3 (2026-07-16)** — a rota `/camera` foi removida; hoje o X reseta
+o fluxo e volta ao scanner com o sheet aberto (mesmo efeito prático).
 
 - Independente do caminho de origem (1, 2 ou 3), tap no X joga em `/camera`.
 - **Trade-off aceito**: pode parecer estranho pra quem veio do Caminho 3 (modal de pendências) — esperaria voltar pra lista. Aceitamos a inconsistência em troca de simplicidade (sem rastrear origem no state/URL).
-- **Implicação**: handler do X é `router.push('/camera')`. Reabrir F1.8.A se essa fricção aparecer em uso real.
+- **Implicação (histórica)**: o handler do X era `router.push('/camera')`; com a
+  rota morta, hoje é `resetClassificationFlow()` + volta ao scanner.
 
-**F1.8.B — Sem feedback de auto-impressão da etiqueta no modal de sucesso (por enquanto).** ⚠️
+**F1.8.B — Sem feedback de auto-impressão da etiqueta no modal de sucesso (por enquanto).** ❌ **REVOGADA**
 
-- O modal não menciona o `requestQrPrint` em background. Operador descobre quando a etiqueta sai da impressora (status quo).
-- **Provisória**: reabrir se o operador relatar surpresa ("imprimi sem querer?" ou "esperava que imprimisse mas não saiu") em uso real.
+- Decisão original: o modal não menciona o `requestQrPrint` em background; o
+  operador descobre quando a etiqueta sai da impressora.
+- A **Sessão 8 (2026-06-01)** contrariou isso na prática ao adicionar a linha
+  "Etiqueta impressa" — sem registrar a reabertura.
+- **Fechada na Rodada 2 (2026-07-20, F9.4)**: o feedback FICA, mas condicionado
+  ao disparo real do print (`autoPrintRequested`), e a reclassificação passou a
+  imprimir (F9.3). O motivo de ser provisória — "esperava que imprimisse mas não
+  saiu" — era exatamente o bug que a rodada corrigiu.
 
 **F1.9.A Caso A — Amostra `INVALIDATED` escaneada: modal de aviso com 1 ação.**
 
@@ -959,7 +1008,7 @@ Realizada via 3 agentes Explore em paralelo (Etapa 2 do `## Padrão de implement
 
 **Skill `modals`** confirma `.app-modal.is-themed` como canônico. Padrão sucesso documentado (overlay com check verde).
 
-**Auto-impressão (`requestQrPrint`)**: disparada em `sample-command-service.js:2205-2227` após `CLASSIFICATION_COMPLETED` commitado. Fire-and-forget. **Reclassificação não dispara** (só `completeClassification` faz; `updateClassification` não). Coerente com F1.8.B (sem feedback no modal).
+**Auto-impressão (`requestQrPrint`)**: disparada após `CLASSIFICATION_COMPLETED` commitado, best-effort. **Desde a Rodada 2 (2026-07-20) a reclassificação também dispara** — no confirm da câmera, não no `updateClassification` (que tem outros chamadores que não devem imprimir). O modal de sucesso só afirma "Etiqueta impressa" quando o disparo aconteceu (F9.4).
 
 **Reclassificação vs primeira classificação**: ambas passam por `saveClassification` que seta `flowState='success'`. Modal vai cobrir os 2 casos.
 
@@ -1462,17 +1511,52 @@ _(Ainda não iniciado.)_
 
 _(Ainda não iniciado.)_
 
-### Bloco F7 — Tipo da classificação
+### Bloco F7 — Tipo da classificação ✅ FECHADO (Rodada 2, 2026-07-20)
 
-_(Ainda não iniciado.)_
+- **F7.1** — O tipo deixa de ser um modal central e vira um **campo dropdown**
+  da etapa "Tipo e classificadores", dentro do próprio sheet (D2/D3). Campo
+  fechado de altura fixa; a lista abre ao toque e fecha ao escolher.
+- **F7.2** — **Continua obrigatório.** Enquanto eram dois modais, era
+  impossível chegar ao save sem tipo (só se avançava clicando num); com o
+  dropdown o botão fica alcançável vazio. O bloqueio agora é explícito
+  (`getMetaStepBlocker`) com erro DENTRO do campo. Motivo forte: tipo nulo numa
+  reclassificação faz o evento registrar a remoção do tipo enquanto a projeção
+  mantém a coluna (só grava quando truthy) — auditoria e estado discordariam.
+- **F7.3** — Ordem preservada: o tipo continua sendo escolhido DEPOIS da
+  extração e segue sem influenciar a IA (type-agnostic, Q0.5).
 
-### Bloco F8 — Classificadores
+### Bloco F8 — Classificadores ✅ FECHADO (Rodada 2, 2026-07-20)
 
-_(Ainda não iniciado.)_
+- **F8.1** — Campo de multi-seleção na mesma etapa, com os selecionados como
+  **chips com "×" numa fila que desliza na horizontal** (D4) — o campo nunca
+  cresce em altura. Substitui a pílula contadora + popover da Sessão 6.
+- **F8.2** — O usuário atual continua pré-selecionado e removível (Sessão 7),
+  mas passa a ser semeado **a partir da sessão**, não da resposta do lookup:
+  antes uma falha de rede deixava a lista vazia e travava o save por um dado
+  que o cliente já tinha.
+- **F8.3** — Mínimo 1 barrado no cliente (o backend rejeitaria com 422 só
+  DEPOIS de subir a foto). A lista faz prefetch durante a revisão.
+- **F8.4** — Sem busca (decisão da Sessão 6 preservada); PROSPECTOR já é
+  filtrado no `users/lookup`.
 
-### Bloco F9 — Confirmação e sucesso
+### Bloco F9 — Confirmação e sucesso ✅ FECHADO (Rodada 2, 2026-07-20)
 
-_(Ainda não iniciado.)_
+- **F9.1** — O save (`submitting`) passa a ter superfície: acontece dentro do
+  sheet, com o botão em "Salvando...". Antes o modal desmontava e o sheet
+  ficava fechado — o operador encarava a página de trás por segundos (FIN1).
+- **F9.2** — Erro de save volta para a **própria etapa** (que agora tem banner),
+  não para o topo da ficha de 26 campos.
+- **F9.3** — **A reclassificação passa a reimprimir a etiqueta** (D5): a
+  etiqueta interna carrega o aspecto da classificação, então reclassificar sem
+  reimprimir deixava o dado velho colado no lote. O print entra no confirm da
+  câmera (o `updateClassification` tem outros dois chamadores que NÃO devem
+  imprimir) com chave derivada do `eventId`.
+- **F9.4** — A linha "Etiqueta impressa" deixa de ser incondicional: o backend
+  informa se disparou (`autoPrintRequested`) e a UI só afirma quando foi.
+  **Isto REVOGA a F1.8.B** ("sem feedback de auto-impressão no sucesso"), que a
+  Sessão 8 já havia contrariado na prática sem registro.
+- **F9.5** — Cancelar no modal de divergência de dados passa pela confirmação
+  de descarte (antes jogava a ficha fora direto, contra a CAM-D5).
 
 ### Bloco F10 — Erros, offline e retry
 

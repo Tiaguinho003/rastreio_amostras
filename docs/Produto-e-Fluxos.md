@@ -122,15 +122,17 @@ Pos Q.print: impressao virou **acao pura**. Nao muda mais o status do Sample.
 
 1. A classificacao parte de `REGISTRATION_CONFIRMED` (Q.cls.1 cortou
    `CLASSIFICATION_IN_PROGRESS` e o evento `CLASSIFICATION_STARTED`).
-2. O fluxo principal e via `Camera inteligente`, com sequencia de modais:
-   foto da ficha → extracao IA (1 prompt unico, type-agnostic) → ficha de revisao
-   unificada (`ClassificationReviewSheetBody`) → modal de tipo de cafe (`BICA`,
-   `PREPARADO`, `BAIXO`, `ESCOLHA`, `CONILON`) → modal de classificadores →
-   save direto (Q.auto dispara print).
+2. O fluxo principal e via `Camera inteligente`, tudo dentro de um unico bottom
+   sheet: foto da ficha → extracao IA (1 prompt unico, type-agnostic) → ficha de
+   revisao unificada (`ClassificationReviewSheetBody`, so campos) → etapa
+   **Tipo e classificadores** (dropdown de tipo — `BICA`, `PREPARADO`, `BAIXO`,
+   `ESCOLHA`, `CONILON` — + campo de chips dos classificadores) → save
+   (Q.auto dispara print). Desde 2026-07-20 tipo e classificadores sao UMA
+   etapa do sheet; antes eram dois modais centrais separados.
 3. A foto da classificacao e obrigatoria para concluir, seja pelo fluxo de camera ou pelo modo manual (mesma ficha, sem extracao).
 4. A data de classificacao e SEMPRE carimbada pelo servidor no fuso de negocio (`buildBusinessDateStamp`); o cliente nao envia data.
 5. O tipo de cafe NAO define campos — e metadata pos-extracao; todos os campos valem pra qualquer tipo (ficha unificada Q.cls.2.7). O contrato campo a campo (6 flat fields + peneiras p18..p10+MK + 2 fundos + 6 defeitos + observacoes) esta em `docs/Classificacao-Visao-Geral.md` §3.
-6. Reclassificar uma amostra ja `CLASSIFIED` pela camera exige motivo (`reasonCode`) e e **substituicao total consciente**: a ficha parte vazia e campos nao preenchidos apagam os anteriores (aviso explicito no portao). A edicao pelo modal de detalhe, ao contrario, pre-preenche e emite `CLASSIFICATION_UPDATED` com diff before/after.
+6. Reclassificar uma amostra ja `CLASSIFIED` pela camera exige motivo (`reasonCode`) e e **substituicao total consciente**: a ficha parte vazia e campos nao preenchidos apagam os anteriores (aviso explicito no portao). A reclassificacao tambem **reimprime a etiqueta** (2026-07-20) — ela carrega o aspecto da classificacao. A edicao pelo modal de detalhe, ao contrario, pre-preenche e emite `CLASSIFICATION_UPDATED` com diff before/after.
 
 #### Extracao por IA
 
@@ -143,8 +145,10 @@ Pos Q.print: impressao virou **acao pura**. Nao muda mais o status do Sample.
 
 #### Conferencia da classificacao
 
-1. Entre a escolha do tipo e a foto, o modal pergunta obrigatoriamente se a classificacao foi conferida por outros classificadores.
-2. Se sim, o usuario seleciona um ou mais usuarios ativos do sistema via picker com busca client-side.
+1. Na mesma etapa do tipo (depois da foto e da revisao), o operador confere quem
+   classificou: o usuario atual ja entra selecionado e pode ser removido.
+2. Co-classificadores sao adicionados pelo campo de chips, que lista os usuarios
+   ativos do sistema (sem busca; PROSPECTOR nao aparece).
 3. O backend valida a lista em `normalizeClassifiers`: rejeita usuarios inativos, inexistentes ou PROSPECTOR, faz dedup silencioso, exige minimo 1, limita a 50 entradas.
 4. O conjunto final e persistido como `classifiers` no payload de `CLASSIFICATION_COMPLETED` (snapshot com `{id, fullName, username}`; o legado `conferredBy` saiu do schema no Q.cls.2.7), editavel pos-classificacao via `CLASSIFICATION_UPDATED`.
 5. A conferencia aparece no card resumo da classificacao e no modal full-view (com os nomes dos classificadores). No laudo PDF **nao** aparece — quem classificou e dado interno, nao enviado ao comprador.

@@ -78,7 +78,7 @@ Rotas top-level usadas pelo fluxo de `Camera inteligente` (o `sampleId` chega no
 2. `POST /api/v1/classification/extract-and-prepare`
    Aceita `multipart/form-data` (upload direto) ou `application/json` com `photoToken` (obrigatoriamente UUID — 422 fora do formato). Envia a imagem ao modelo de extracao (GPT-4o pinado), retorna os campos extraidos (+ `extractionAvailable`) e grava o resultado bruto num sidecar que o confirm consome pra emitir os eventos de auditoria (CAM-P1). Falha da IA responde 504 (timeout) ou 502 (demais) com mensagem pt-BR. A extracao e type-agnostic (1 prompt unico da ficha unificada) — o tipo e escolhido depois pelo operador e nao influencia a IA.
 3. `POST /api/v1/classification/confirm`
-   Persiste a classificacao apos revisao do usuario, recebendo `sampleId`, `classificationData`, `photoToken`, `classificationType` e `classifiers` (obrigatorio, min 1 — frontend compoe `[actor, ...co-classificadores]`; backend valida existencia/ativo dos usuarios). Roteia entre `completeClassification` ou `updateClassification` conforme o status atual da amostra.
+   Persiste a classificacao apos revisao do usuario, recebendo `sampleId`, `classificationData`, `photoToken`, `classificationType` e `classifiers` (obrigatorio, min 1 — o frontend envia a selecao como esta, SEM prepend do ator, que e apenas pre-selecionado e removivel desde 2026-06-01; backend valida existencia/ativo dos usuarios). Roteia entre `completeClassification` ou `updateClassification` conforme o status atual da amostra.
 4. `POST /api/v1/classification/resolve-lot`
    Procura a amostra a partir do lote extraido, usado pelo fluxo sem contexto previo.
 

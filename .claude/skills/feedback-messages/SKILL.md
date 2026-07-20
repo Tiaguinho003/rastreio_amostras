@@ -290,6 +290,7 @@ Pontos atuais que **já seguem** o padrão (use como referência):
 - `lib/toast/ToastProvider.tsx` — implementação canônica do toast viewport com ARIA correto.
 - `components/NewSampleModal.tsx` — inline errors por campo + banner topo de form (`.nsv2-inline-error`).
 - `components/samples/ClassificationReviewSheetBody.tsx` — erro inline de lote obrigatório no review da classificação: placeholder vermelho suave (`Obrigatório`) + `.review-field-input.has-error` + `aria-invalid`, validado **primeiro** no Avançar e com foco no campo. Erros assíncronos (resolve do lote) seguem em banner no topo (`flowError`).
+- `components/camera/ClassificationMetaStepBody.tsx` — mesmo padrão na etapa seguinte: o campo **Tipo do grão** (obrigatório) mostra `Obrigatório` como placeholder vermelho dentro do próprio campo (`.chip-select-placeholder.is-error` + `.chip-select-field.is-field-error`) quando o operador tenta confirmar vazio; erro de save aparece em banner no topo da etapa (o `flowError` alimenta review e etapa, então precisa ser limpo em cada transição).
 - `components/samples/SampleCreatedSuccessModal.tsx` — modal de sucesso com ações claras (alternativa ao toast quando precisa de CTA).
 
 Pontos pendentes de revisão (oportunidade ao revisar erros do sistema):
