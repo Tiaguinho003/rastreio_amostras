@@ -30,12 +30,7 @@ export const registrationFormSchema = z.object({
   owner: z.string().min(1, 'Proprietario e obrigatorio'),
   sacks: z.coerce.number().int().min(1, 'Sacas deve ser >= 1'),
   harvest: z.string().min(1, 'Safra e obrigatoria'),
-  originLot: z
-    .string()
-    .trim()
-    .max(100, 'Lote de origem deve ter no maximo 100 caracteres')
-    .optional()
-    .nullable(),
+  originLot: z.string().trim().max(2000, 'Lote de origem muito longo').optional().nullable(),
   location: z
     .string()
     .trim()
@@ -51,12 +46,7 @@ export const createSampleDraftSchema = z.object({
   ownerClientId: z.string().uuid().optional().nullable(),
   sacks: z.coerce.number().int().min(1, 'Sacas deve ser >= 1'),
   harvest: z.string().trim().min(1, 'Safra é obrigatória'),
-  originLot: z
-    .string()
-    .trim()
-    .max(100, 'Lote de origem deve ter no máximo 100 caracteres')
-    .optional()
-    .nullable(),
+  originLot: z.string().trim().max(2000, 'Lote de origem muito longo').optional().nullable(),
   location: z
     .string()
     .trim()

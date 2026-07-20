@@ -607,7 +607,8 @@ function normalizeRegistrationFieldValue(fieldName, value) {
   }
 
   if (fieldName === 'originLot') {
-    return normalizeOptionalText(value, fieldName, 100);
+    // Chips (multiplos codigos), sem limite pratico — cap so anti-abuso.
+    return normalizeOptionalText(value, fieldName, 2000);
   }
 
   if (fieldName === 'sacks') {
@@ -1587,7 +1588,9 @@ export class SampleCommandService {
       owner: ownerBinding?.displayName ?? normalizeRequiredText(input.owner, 'owner'),
       sacks: normalizeSacks(input.sacks),
       harvest: normalizeRequiredText(input.harvest, 'harvest'),
-      originLot: normalizeOptionalText(input.originLot, 'originLot', 100),
+      // Lote de origem: chips no front (multiplos codigos), guardado como string
+      // canonica. Sem limite pratico (2000) — o cap real e de EXIBICAO na etiqueta.
+      originLot: normalizeOptionalText(input.originLot, 'originLot', 2000),
       location: normalizeOptionalText(input.location, 'location', 30),
     };
     const receivedChannel = normalizeReceivedChannel(input.receivedChannel ?? 'in_person');

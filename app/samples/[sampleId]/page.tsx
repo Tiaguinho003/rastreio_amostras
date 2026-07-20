@@ -7,6 +7,7 @@ import { createPortal } from 'react-dom';
 import { QRCodeCanvas } from 'qrcode.react';
 import { AppShell } from '../../../components/AppShell';
 import { HeaderAvatarMenu } from '../../../components/HeaderAvatarMenu';
+import { OriginLotChips } from '../../../components/OriginLotChips';
 import { PhotoZoomViewer } from '../../../components/PhotoZoomViewer';
 import { ClientLookupField } from '../../../components/clients/ClientLookupField';
 import { ClientQuickCreateModal } from '../../../components/clients/ClientQuickCreateModal';
@@ -1369,7 +1370,7 @@ export default function SampleDetailPage() {
       owner: 'Obrigatório',
       sacks: 'Mín. 1 saca',
       harvest: 'Obrigatória',
-      originLot: 'Máx. 100 caract.',
+      originLot: 'Muito longo',
       location: 'Máx. 30 caract.',
     } as const;
 
@@ -3095,14 +3096,18 @@ export default function SampleDetailPage() {
                         <span className="sdv-edit-hint">A liga não tem lote de origem próprio</span>
                       </>
                     ) : (
-                      <input
-                        className={`app-modal-input${registrationFieldErrors.originLot ? ' has-error' : ''}`}
-                        value={originLot}
-                        onChange={(event) => setOriginLot(event.target.value.toUpperCase())}
-                        onFocus={() => clearRegField('originLot')}
-                        placeholder={registrationFieldErrors.originLot ?? ''}
-                        disabled={registrationUpdating}
-                      />
+                      <>
+                        <OriginLotChips
+                          value={originLot}
+                          onChange={setOriginLot}
+                          onFocus={() => clearRegField('originLot')}
+                          hasError={Boolean(registrationFieldErrors.originLot)}
+                          disabled={registrationUpdating}
+                        />
+                        {registrationFieldErrors.originLot ? (
+                          <span className="sdv-edit-hint">{registrationFieldErrors.originLot}</span>
+                        ) : null}
+                      </>
                     )}
                   </label>
                   <label className="app-modal-field">

@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 
 import { ANIMATION_MS, BottomSheet } from './BottomSheet';
+import { OriginLotChips } from './OriginLotChips';
 import { ClientLookupField } from './clients/ClientLookupField';
 import { ClientQuickCreateModal } from './clients/ClientQuickCreateModal';
 import { SampleCreatedSuccessModal } from './samples/SampleCreatedSuccessModal';
@@ -747,28 +748,13 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
         <div className="nsv2-grid-half">
           <label className="nsv2-field">
             <span className="nsv2-field-label">Lote de origem</span>
-            <div className="nsv2-field-input-wrap">
-              <span className="nsv2-field-input-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" focusable="false">
-                  <path d="M3 7V5a2 2 0 0 1 2-2h2" />
-                  <path d="M17 3h2a2 2 0 0 1 2 2v2" />
-                  <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
-                  <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
-                  <path d="M8 8v8" />
-                  <path d="M16 8v8" />
-                  <path d="M12 8v8" />
-                </svg>
-              </span>
-              <input
-                value={originLot}
-                className="nsv2-field-input has-icon-left"
-                onChange={(event) => {
-                  markDirty();
-                  setOriginLot(event.target.value.toUpperCase());
-                }}
-                placeholder="Código do lote"
-              />
-            </div>
+            <OriginLotChips
+              value={originLot}
+              onChange={(next) => {
+                markDirty();
+                setOriginLot(next);
+              }}
+            />
           </label>
         </div>
 
