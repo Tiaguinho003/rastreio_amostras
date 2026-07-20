@@ -1,6 +1,6 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ANIMATION_MS } from '../BottomSheet';
@@ -100,9 +100,6 @@ export function ContratosPanel({ session }: { session: SessionData }) {
     });
 
   const [etapa2, setEtapa2] = useState<{ contractId: string } | null>(null);
-  // Detalhes (Fase J, D120-D126): modal grande com o documento embutido +
-  // infos read-only + historico; absorveu o antigo "Visualizar" (docModal).
-  const [detailsTarget, setDetailsTarget] = useState<SaleContract | null>(null);
   const [lifecycle, setLifecycle] = useState<{
     contractId: string;
     expectedVersion: number;
@@ -151,12 +148,14 @@ export function ContratosPanel({ session }: { session: SessionData }) {
   const spotCreateRendered = useDelayedValue(spotCreate, ANIMATION_MS);
   const futureRendered = useDelayedValue(futureOpen || null, ANIMATION_MS);
   const etapa2Rendered = useDelayedValue(etapa2, ANIMATION_MS);
-  const detailsRendered = useDelayedValue(detailsTarget, ANIMATION_MS);
 
-  // F1 (E27/D138): deep-link "Ver contrato" do card de Eventos — ?details=<id>.
+  // Detalhes (Fase J, D120-D126; F3 do redesign): DetailOverlay dirigido pela
+  // URL — `?details=<id>` aberto, ausente fechado (molde do ?cliente= de
+  // /cadastros). Serve também de deep-link ("Ver contrato" do card de Eventos,
+  // E27/D138). O snapshot vem da lista; o overlay re-busca fresco por id.
+  const router = useRouter();
   const searchParams = useSearchParams();
   const detailsParam = searchParams.get('details');
-  const consumedDetailsRef = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!session) return;
@@ -176,16 +175,79 @@ export function ContratosPanel({ session }: { session: SessionData }) {
     void refresh();
   }, [session, refresh]);
 
-  // F1 (E27/D138): abre o Detalhes UMA vez quando a lista carrega e há ?details=<id>
-  // (o ref evita reabrir se o usuário fechar; o modal re-busca por id, role-scoped).
-  useEffect(() => {
-    if (!detailsParam || consumedDetailsRef.current === detailsParam) return;
-    const found = contracts.find((c) => c.id === detailsParam);
-    if (found) {
-      consumedDetailsRef.current = detailsParam;
-      setDetailsTarget(found);
+  // Contrato aberto DERIVADO da URL (fonte de verdade). Enquanto a lista não
+  // carrega o find falha — o overlay abre quando o snapshot existir.
+  const detailsContract = useMemo(
+    () => (detailsParam ? (contracts.find((c) => c.id === detailsParam) ?? null) : null),
+    [detailsParam, contracts]
+  );
+  const detailsRendered = useDelayedValue(detailsContract, ANIMATION_MS);
+  const openedDetailsByPushRef = useRef(false);
+  // Swap pendente (Editar/Ágio/Washout/Espelho): roda DEPOIS que o ?details=
+  // sai da URL — abrir o próximo sheet no mesmo tick do router.back() faria o
+  // popstate atrasado engolir a entry de history do sheet novo (fecharia na hora).
+  const afterDetailsCloseRef = useRef<(() => void) | null>(null);
+
+  const openDetails = useCallback(
+    (contract: SaleContract) => {
+      const params = new URLSearchParams(searchParams.toString());
+      const alreadyOpen = params.has('details');
+      params.set('details', contract.id);
+      const url = `/contratos?${params.toString()}`;
+      if (alreadyOpen) {
+        // Troca de contrato com o overlay aberto (peek desktop): replace mantém
+        // UMA entry — back continua fechando em 1 passo.
+        router.replace(url, { scroll: false });
+      } else {
+        router.push(url, { scroll: false });
+        openedDetailsByPushRef.current = true;
+      }
+    },
+    [router, searchParams]
+  );
+
+  const closeDetails = useCallback(() => {
+    if (openedDetailsByPushRef.current) {
+      openedDetailsByPushRef.current = false;
+      router.back();
+      return;
     }
-  }, [detailsParam, contracts]);
+    // Deep-link/refresh (sem push nosso): fecha limpando o param via replace.
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('details');
+    const qs = params.toString();
+    router.replace(qs ? `/contratos?${qs}` : '/contratos', { scroll: false });
+  }, [router, searchParams]);
+
+  // Pós-fechamento (cobre X/ESC E o back do navegador): executa o swap pendente
+  // ou o vai-e-volta do espelho (D134 — Detalhes aberto pela conferência reabre-a).
+  const detailsWasOpenRef = useRef(false);
+  useEffect(() => {
+    const isOpen = detailsContract != null;
+    if (detailsWasOpenRef.current && !isOpen) {
+      const pending = afterDetailsCloseRef.current;
+      afterDetailsCloseRef.current = null;
+      if (pending) {
+        pending();
+      } else if (espelhoReturnRef.current) {
+        const back = espelhoReturnRef.current;
+        espelhoReturnRef.current = null;
+        setEspelhoTarget(back);
+      }
+    }
+    detailsWasOpenRef.current = isOpen;
+  }, [detailsContract]);
+
+  // ?details= órfão (id que não existe na lista deste papel): limpa a URL
+  // depois que a lista carregou — senão o param zumbi fica sujando shares/back.
+  useEffect(() => {
+    if (!detailsParam || listLoading) return;
+    if (contracts.some((c) => c.id === detailsParam)) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('details');
+    const qs = params.toString();
+    router.replace(qs ? `/contratos?${qs}` : '/contratos', { scroll: false });
+  }, [detailsParam, listLoading, contracts, router, searchParams]);
 
   // Desktop vs mobile — usado so p/ reagrupar os campos do modal de filtros
   // (o resto do layout desktop e 100% CSS). Breakpoint canonico do projeto.
@@ -523,7 +585,7 @@ export function ContratosPanel({ session }: { session: SessionData }) {
                     contract={contract}
                     isExpanded={expandedIds.has(contract.id)}
                     onToggle={() => toggleExpand(contract.id)}
-                    onDetalhes={() => setDetailsTarget(contract)}
+                    onDetalhes={() => openDetails(contract)}
                     canManage={canManage}
                     isHighlighted={highlightId === contract.id}
                     onFaturar={() => openLifecycle('invoice')}
@@ -602,56 +664,51 @@ export function ContratosPanel({ session }: { session: SessionData }) {
         />
       ) : null}
 
-      {/* Detalhes (Fase J): documento embutido + infos + historico. As acoes
-          do rodape (Editar/Agio/Desagio/Washout) FECHAM o Detalhes e abrem o
-          fluxo correspondente (um modal por vez, sem sobreposicao). */}
+      {/* Detalhes (Fase J; F3 do redesign = DetailOverlay por URL): documento
+          embutido + infos + historico. As acoes do rodape (Editar/Agio/Desagio/
+          Washout) FECHAM o Detalhes e abrem o fluxo correspondente (um modal
+          por vez, sem sobreposicao) — o swap fica PENDENTE ate o ?details= sair
+          da URL (afterDetailsCloseRef), o fechamento em si e o closeDetails. */}
       {detailsRendered ? (
         <SaleContractDetailsModal
           session={session}
-          open={detailsTarget != null}
+          open={detailsContract != null}
           contract={detailsRendered}
           canManage={canManage}
           espelhoEligible={espelhoEligibility(detailsRendered).eligible}
           onGerarEspelho={() => {
             const target = detailsRendered;
             espelhoReturnRef.current = null;
-            setDetailsTarget(null);
-            setEspelhoTarget(target);
+            afterDetailsCloseRef.current = () => setEspelhoTarget(target);
+            closeDetails();
           }}
-          onClose={() => {
-            setDetailsTarget(null);
-            // Vai-e-volta do espelho (D134): se o Detalhes foi aberto pela
-            // conferência, reabre-a (o modal re-busca o contrato fresco).
-            const back = espelhoReturnRef.current;
-            if (back) {
-              espelhoReturnRef.current = null;
-              setEspelhoTarget(back);
-            }
-          }}
+          onClose={closeDetails}
           onEditar={() => {
             const target = detailsRendered;
             espelhoReturnRef.current = null;
-            setDetailsTarget(null);
-            setEtapa2({ contractId: target.id });
+            afterDetailsCloseRef.current = () => setEtapa2({ contractId: target.id });
+            closeDetails();
           }}
           onApplyAgio={(type) => {
             const target = detailsRendered;
             espelhoReturnRef.current = null;
-            setDetailsTarget(null);
-            setAgioTarget({ contract: target, agioType: type });
+            afterDetailsCloseRef.current = () =>
+              setAgioTarget({ contract: target, agioType: type });
+            closeDetails();
           }}
           onWashout={() => {
             const target = detailsRendered;
             espelhoReturnRef.current = null;
-            setDetailsTarget(null);
-            setLifecycle({
-              contractId: target.id,
-              expectedVersion: target.version,
-              contractNumber: target.contractNumber,
-              action: 'washout',
-              status: target.status,
-              hasLot: target.type === 'MERCADO_A_VISTA',
-            });
+            afterDetailsCloseRef.current = () =>
+              setLifecycle({
+                contractId: target.id,
+                expectedVersion: target.version,
+                contractNumber: target.contractNumber,
+                action: 'washout',
+                status: target.status,
+                hasLot: target.type === 'MERCADO_A_VISTA',
+              });
+            closeDetails();
           }}
         />
       ) : null}
@@ -782,7 +839,7 @@ export function ContratosPanel({ session }: { session: SessionData }) {
             const target = espelhoTarget;
             setEspelhoTarget(null);
             espelhoReturnRef.current = target;
-            setDetailsTarget(target);
+            openDetails(target);
           }}
         />
       ) : null}

@@ -1,12 +1,12 @@
 'use client';
 
-// Fase J (D120–D126): modal de DETALHES do contrato. Frame grande do modal de
-// emissão (BottomSheet .ctr-contract-sheet: central na área de conteúdo no
-// desktop ≥901px, sheet de coluna única no mobile). Desktop: o DOCUMENTO
-// (PDF on-demand, D126 — mesmo blob/iframe do antigo "Visualizar", que este
-// modal absorveu) na coluna ESQUERDA e as seções read-only na DIREITA; mobile:
-// documento primeiro. Exportar/Baixar acompanham a seção do documento, em
-// todos os status. O HISTÓRICO (timeline D125) fecha o modal em largura total:
+// Fase J (D120–D126): DETALHES do contrato. Desde a F3 do redesign (RD9) vive
+// no DetailOverlay dirigido por URL (`/contratos?details=<id>` — peek lateral
+// de 620px no desktop ≥901px, sheet de tela cheia no mobile; quem controla o
+// param é o ContratosPanel). Coluna ÚNICA: o DOCUMENTO (PDF on-demand, D126 —
+// mesmo blob/iframe do antigo "Visualizar", que este modal absorveu) primeiro,
+// seções read-only na sequência. Exportar/Baixar acompanham a seção do
+// documento, em todos os status. O HISTÓRICO (timeline D125) fecha o overlay:
 // linha = "há X tempo" + quem + o quê, com a data/hora exata de apoio (D119);
 // marcos legados (pré-D123) saem só com a data, sem autor. Rodapé = ações por
 // status (D121/D122): EMITIDO = Editar·Ágio·Deságio·Washout; FATURADO/PAGO =
@@ -37,7 +37,7 @@ import type {
   SessionData,
   ShipmentPhoto,
 } from '../../lib/types';
-import { BottomSheet } from '../BottomSheet';
+import { DetailOverlay } from '../DetailOverlay';
 import { STATUS_META, STATUS_TEXT_COLOR, STATUS_TINT } from './SaleContractCard';
 
 type SaleContractDetailsModalProps = {
@@ -220,6 +220,17 @@ export function SaleContractDetailsModal({
   const [approvalError, setApprovalError] = useState<string | null>(null);
   const [approvalConfirmOpen, setApprovalConfirmOpen] = useState(false);
   const approvalConfirmTrapRef = useFocusTrap(approvalConfirmOpen);
+
+  // F3 do redesign: com superficie interna aberta (confirm de aprovacao ou
+  // lightbox de foto), ESC/X do overlay NAO fecham o detalhe (molde do
+  // dismissGuardRef da F1 — ver DetailOverlay).
+  const dismissGuardRef = useRef(false);
+  useEffect(() => {
+    dismissGuardRef.current = approvalConfirmOpen || photoPreview != null;
+    return () => {
+      dismissGuardRef.current = false;
+    };
+  }, [approvalConfirmOpen, photoPreview]);
 
   useEffect(() => {
     if (!open) return;
@@ -459,13 +470,14 @@ export function SaleContractDetailsModal({
 
   return (
     <>
-      <BottomSheet
+      <DetailOverlay
         open={open}
         onClose={onClose}
         title={`Contrato ${view.contractNumber}`}
         ariaLabel={`Detalhes do contrato ${view.contractNumber}`}
-        className="ctr-form-sheet ctr-contract-sheet ctr-details-sheet"
+        className="ctr-details-overlay"
         footer={footer}
+        dismissGuardRef={dismissGuardRef}
       >
         <div className="ctr-details-head">
           <span
@@ -651,7 +663,7 @@ export function SaleContractDetailsModal({
             </ul>
           )}
         </section>
-      </BottomSheet>
+      </DetailOverlay>
       {photoPreview
         ? createPortal(
             <div

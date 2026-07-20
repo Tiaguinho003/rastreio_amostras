@@ -28925,6 +28925,44 @@ select.samples-filter-field-input {
   }
 }
 
+/* Detalhes do CONTRATO no DetailOverlay (F3 do redesign, RD9). Diferente do
+   cliente (cujo .sdv-content carrega o proprio respiro), o conteudo
+   .ctr-details-* dependia do padding do sheet — que o .detail-overlay zera.
+   Devolve o respiro base do .bottom-sheet + o fundo BRANCO que vinha do
+   .ctr-form-sheet do modal antigo (sheet + footer sticky) + o visual de label
+   da secao Aprovacao. Coluna unica em qualquer largura (a regra 2-colunas era
+   do .ctr-details-sheet aposentado). */
+.bottom-sheet.detail-overlay.ctr-details-overlay {
+  padding-left: clamp(1rem, 4vw, 1.4rem);
+  padding-right: clamp(1rem, 4vw, 1.4rem);
+  padding-bottom: calc(
+    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(0.6rem, 2vw, 0.9rem)
+  );
+}
+
+/* O header do .detail-overlay repoe recuo proprio (pro caso sem padding no
+   sheet); aqui o sheet ja tem — zera pra nao dobrar. */
+.bottom-sheet.detail-overlay.ctr-details-overlay .bottom-sheet-header {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.bottom-sheet.detail-overlay.ctr-details-overlay .bottom-sheet-body {
+  padding: clamp(0.7rem, 3vw, 1rem) 0 clamp(0.25rem, 1vw, 0.4rem);
+}
+
+.bottom-sheet.detail-overlay.ctr-details-overlay,
+.bottom-sheet.detail-overlay.ctr-details-overlay .bottom-sheet-footer {
+  background: #ffffff;
+}
+
+.bottom-sheet.detail-overlay.ctr-details-overlay .app-modal-label {
+  color: rgba(0, 0, 0, 0.6);
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+}
+
 /* Animacao fade entre steps do wizard de Nova Amostra (decisao 5.22).
    O container que envolve o step content recebe key={state.step} no
    JSX — ao trocar de step, React re-monta o div e o keyframe roda. */
@@ -31909,10 +31947,10 @@ body.is-selection-mode .ctr-page .cc-tabs {
   color: var(--brand-muted);
 }
 
-/* ── Detalhes do contrato (Fase J, D120–D126): frame grande compartilhado com
-   o modal de emissão (.ctr-contract-sheet). Mobile = coluna única (documento
-   primeiro); desktop ≥901px = PDF na coluna ESQUERDA + seções na DIREITA.
-   Histórico (timeline) fecha em largura total. ── */
+/* ── Detalhes do contrato (Fase J, D120–D126; F3 do redesign): conteudo do
+   DetailOverlay .ctr-details-overlay (peek 620px desktop / sheet mobile —
+   posicionamento no bloco .detail-overlay). Coluna UNICA sempre: documento
+   (PDF) primeiro, seções na sequência, histórico (timeline) fechando. ── */
 .ctr-details-head {
   display: flex;
   align-items: center;
@@ -32068,17 +32106,6 @@ body.is-selection-mode .ctr-page .cc-tabs {
   min-width: 0;
 }
 
-@media (min-width: 901px) {
-  .bottom-sheet.ctr-details-sheet .ctr-details-cols {
-    display: grid;
-    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
-    gap: clamp(1rem, 1.6vw, 1.6rem);
-    align-items: start;
-  }
-  .bottom-sheet.ctr-details-sheet .ctr-details-doc-frame {
-    height: clamp(420px, 58vh, 680px);
-  }
-}
 .ctr-modal-loading {
   margin: 0;
   padding: 1rem 0;
