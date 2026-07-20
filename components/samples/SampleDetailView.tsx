@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -234,13 +234,14 @@ function buildClassificationFormState(detail: SampleDetailResponse): Classificat
 }
 
 // CAM-P3 / camada do contexto: o `CameraSheetProvider` e montado DENTRO do
-// `AppShell` (envolve os children). O componente de rota RENDERIZA o AppShell,
-// logo vive ACIMA do provider e NAO pode chamar `useCameraSheet()` no proprio
-// corpo — a chamada estourava "useCameraSheet deve ser usado dentro de
-// <CameraSheetProvider>" e derrubava o detalhe inteiro (dev e prod; contexto do
-// React nao distingue os dois). Os gatilhos consomem o contexto aqui, ja dentro
-// dos children. Mesma razao pela qual o icone do header funciona: o
-// `HeaderAvatarMenu` e renderizado pelas paginas dentro do AppShell.
+// `AppShell` (envolve os children). Na epoca de pagina, o componente de rota
+// RENDERIZAVA o AppShell e vivia ACIMA do provider — chamar `useCameraSheet()`
+// no corpo estourava "useCameraSheet deve ser usado dentro de
+// <CameraSheetProvider>" e derrubava o detalhe inteiro (bug b2e75b2), dai os
+// gatilhos virarem satelites que consomem o contexto ja dentro dos children.
+// Desde a F2 o `SampleDetailView` vive no overlay de /samples (children do
+// AppShell) e TAMBEM pode consumir o contexto (ex.: watcher pos-camera);
+// os satelites ficam por coesao — cada gatilho carrega o proprio consumo.
 function ClassifySampleButton({ sampleId, disabled }: { sampleId: string; disabled: boolean }) {
   const cameraSheet = useCameraSheet();
   return (
@@ -473,13 +474,8 @@ function mapSampleOwnerClientToSummary(
 interface SampleDetailViewProps {
   session: SessionData;
   sampleId: string;
-  /** 'overlay' = dentro do DetailOverlay da lista (F2b): sem o marcador
-   *  `--sample` (desliga o layout desktop 2-colunas) e a classificacao rende
-   *  a variante mobile mesmo no peek. 'page' = casca transitoria da rota
-   *  antiga (morre na F2c). */
-  variant?: 'page' | 'overlay';
   /** Fecha o overlay-pai (saida programatica pos-invalidacao/reversao). */
-  onClose?: () => void;
+  onClose: () => void;
   /** Troca o lote aberto no overlay (links detalhe→detalhe). */
   onOpenSample?: (sampleId: string) => void;
   /** Sinaliza ao overlay-pai que ha modal interno aberto (bloqueia ESC/X). */
@@ -488,17 +484,15 @@ interface SampleDetailViewProps {
 
 // Conteudo completo do detalhe do lote, extraido da antiga pagina
 // /samples/[sampleId] (F2 do redesign, RD8). Sem guard nem chrome de pagina:
-// quem monta (a casca da rota, transitoria; o overlay de /samples na F2b)
-// ja garante sessao e papel.
+// vive DENTRO do DetailOverlay de /samples (?lote=), que ja garante sessao e
+// papel — a rota antiga e so um redirect.
 export function SampleDetailView({
   session,
   sampleId,
-  variant = 'page',
   onClose,
   onOpenSample,
   dismissGuardRef,
 }: SampleDetailViewProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const highlightPrint = searchParams.get('highlight') === 'print';
   const [reclassifyModalOpen, setReclassifyModalOpen] = useState(false);
@@ -544,18 +538,12 @@ export function SampleDetailView({
   // Desktop (>=901px): no card de classificacao, mostra Editar/Reclassificar no
   // header e torna a foto clicavel; o mobile mantem o "Expandir". matchMedia
   // client-side — o card so renderiza apos o fetch dos dados, sem hydration mismatch.
-  const [isDesktop, setIsDesktop] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia('(min-width: 901px)');
-    const update = () => setIsDesktop(mq.matches);
-    update();
-    mq.addEventListener('change', update);
-    return () => mq.removeEventListener('change', update);
-  }, []);
-  // No overlay o peek tem ~620px: o card de classificacao rende a variante
-  // mobile mesmo em viewport desktop (o layout 2-colunas ja morre via CSS,
-  // pela ausencia do marcador --sample).
-  const effectiveDesktop = variant === 'overlay' ? false : isDesktop;
+  // O overlay e sempre coluna unica (peek de 620px no desktop): o card de
+  // classificacao rende a variante mobile em qualquer viewport. Os ramos
+  // desktop (clsDesktopNode + Editar do header, mockup 2026-06-24) ficam
+  // DORMENTES atras desta constante ate a FV decidir o layout desktop do
+  // detalhe (RD6) — mesmo padrao do CSS 2-colunas, morto por seletor.
+  const effectiveDesktop = false;
   // Links detalhe→detalhe: no overlay trocam o lote via callback (replace do
   // ?lote=); o href aponta pra lista com o param — deep-link equivalente.
   const openSampleHref = (id: string) => `/samples?lote=${id}`;
@@ -813,6 +801,19 @@ export function SampleDetailView({
     if (detailBusyRef.current) return;
     void refreshDetail();
   }, [refreshDetail]);
+  // F2c: o sheet global da camera FECHOU (true→false) → rebusca o detalhe.
+  // Classificacao/reclassificacao acontecem SOBRE o overlay e o provider nao
+  // tem callback de "classificado" — sem isto, so o poll passivo (60s)
+  // refletia a classificacao recem-feita. Fechar sem classificar gera um
+  // refetch a toa, inofensivo (silencioso).
+  const { isOpen: cameraSheetOpen } = useCameraSheet();
+  const cameraWasOpenRef = useRef(false);
+  useEffect(() => {
+    if (cameraWasOpenRef.current && !cameraSheetOpen) {
+      void refreshDetail();
+    }
+    cameraWasOpenRef.current = cameraSheetOpen;
+  }, [cameraSheetOpen, refreshDetail]);
   const detailStatus = detail?.sample.status;
   useListRevalidation({
     enabled:
@@ -1126,18 +1127,14 @@ export function SampleDetailView({
     }
   }
 
-  // Mostra o efeito de X vermelho (~1.3s) e, se pedido, sai pra lista —
-  // fechando o overlay (variant overlay) ou navegando pra /samples (pagina).
-  // Substitui as mensagens verdes de sucesso de invalidacao/cancelamento.
+  // Mostra o efeito de X vermelho (~1.3s) e, se pedido, fecha o overlay
+  // (volta pra lista). Substitui as mensagens verdes de sucesso de
+  // invalidacao/cancelamento.
   function showXEffect(label: string, redirectToList: boolean) {
     setXEffect(label);
     window.setTimeout(() => {
       if (redirectToList) {
-        if (onClose) {
-          onClose();
-        } else {
-          router.push('/samples');
-        }
+        onClose();
       } else {
         setXEffect(null);
       }
@@ -1821,11 +1818,10 @@ export function SampleDetailView({
 
   return (
     <>
-      {/* No overlay o marcador --sample sai: e ele que liga o layout desktop
-          2-colunas no globals (o peek de 620px e coluna unica); o fundo branco
-          + sombra dos cards que ele dava no mobile voltam via
-          .lote-details-overlay. */}
-      <section className={variant === 'overlay' ? 'sdv-page' : 'sdv-page sdv-page--sample'}>
+      {/* Sem o marcador --sample: e ele que liga o layout desktop 2-colunas
+          no globals (o peek de 620px e coluna unica); o fundo branco + sombra
+          dos cards que ele dava no mobile voltam via .lote-details-overlay. */}
+      <section className="sdv-page">
         {loadingDetail && !detail ? (
           <div className="spv2-empty">
             <p className="spv2-empty-text">Carregando lote…</p>

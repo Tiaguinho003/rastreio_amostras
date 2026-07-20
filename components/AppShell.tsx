@@ -385,22 +385,20 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   const [sidenavMenuOpen, setSidenavMenuOpen] = useState(false);
   const isDashboard = pathname === '/dashboard';
   const isSamplesList = pathname === '/samples';
-  const isSampleDetail = pathname.startsWith('/samples/');
   const isUsersPage = pathname === '/users';
   const isProfilePage = pathname === '/profile';
   const isInformePage = pathname === '/relatorios';
+  // /samples/[sampleId] saiu da lista: a rota virou redirect na F2 do redesign
+  // (o detalhe do lote e overlay sobre /samples, como o cliente em /cadastros).
   const isLayeredRoute =
-    isDashboard || isSamplesList || isSampleDetail || isUsersPage || isProfilePage || isInformePage;
+    isDashboard || isSamplesList || isUsersPage || isProfilePage || isInformePage;
   const headerMobileClass = isLayeredRoute ? 'topbar--dashboard-only' : 'topbar--hidden';
-  // Rotas onde a tabbar mobile NAO deve renderizar (paginas de detalhe com
-  // header proprio + back button; a tabbar so polui visualmente). A tabbar
-  // some do DOM, sem visibility:hidden — zero risco de bug visual iOS PWA.
-  // Overlays/sheets (ex.: detalhe do cliente em /cadastros) escondem a tabbar
+  // Overlays/sheets (ex.: detalhes de cliente/lote) escondem a tabbar mobile
   // dinamicamente via body.is-bottom-sheet-open em globals.css.
   // PROSPECTOR: app restrito SEM navbar — o lugar do botao central (camera)
   // e ocupado pelo "+" do formulario, renderizado pelo ProspectorDashboard.
   const prospector = isProspector(session.user.role);
-  const hideMobileTabbar = isSampleDetail || prospector;
+  const hideMobileTabbar = prospector;
   const [decisionLoading, setDecisionLoading] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
   const [passwordModalStep, setPasswordModalStep] = useState<'decision' | 'change'>('decision');

@@ -1,34 +1,26 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { useParams } from 'next/navigation';
-
-import { AppShell } from '../../../components/AppShell';
-import { SampleDetailView } from '../../../components/samples/SampleDetailView';
-import { NON_PROSPECTOR_ROLES } from '../../../lib/roles';
-import { useRequireAuth } from '../../../lib/use-auth';
-
-// Casca TRANSITORIA da F2 (redesign): guard + AppShell em volta do
-// SampleDetailView extraido (molde da casca interina de /clients/[clientId]
-// na F1, commit 2510659). Morre no commit dos redirects da F2c, quando o
-// detalhe passa a abrir como overlay em /samples?lote=<id>.
-export default function SampleDetailPage() {
-  const { session, loading, logout, setSession } = useRequireAuth({
-    allowedRoles: NON_PROSPECTOR_ROLES,
-  });
-  const params = useParams<{ sampleId: string }>();
-  const sampleId = typeof params.sampleId === 'string' ? params.sampleId : '';
-
-  if (loading || !session) {
-    return null;
+// O detalhe do lote e um OVERLAY sobre /samples desde a F2 do redesign
+// (RD2: /samples?lote=<id>; a pagina de detalhe morreu). Redirect server-side
+// PRESERVANDO a query: as entradas externas continuam entrando por aqui —
+// QR fisico da etiqueta (?focus=classification&source=qr, backend-api.js),
+// ScannerBridge (?source=scanner), busca global e links salvos (?focus=,
+// ?highlight=print).
+export default async function SampleDetailRedirect({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ sampleId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { sampleId } = await params;
+  const query = new URLSearchParams();
+  query.set('lote', sampleId);
+  for (const [key, value] of Object.entries(await searchParams)) {
+    if (key === 'lote' || value === undefined) continue;
+    for (const item of Array.isArray(value) ? value : [value]) {
+      query.append(key, item);
+    }
   }
-
-  return (
-    <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
-      {sampleId ? (
-        <SampleDetailView session={session} sampleId={sampleId} />
-      ) : (
-        <p className="error">sampleId invalido na rota.</p>
-      )}
-    </AppShell>
-  );
+  redirect(`/samples?${query.toString()}`);
 }

@@ -306,8 +306,11 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
     }
   }, [open]);
 
+  // Default: abre o detalhe como overlay sobre a lista (?lote=, F2 do
+  // redesign). A lista continua passando onSuccessNavigate proprio
+  // (fechar + refetch, decisao 5.29 = b).
   const navigateToSample =
-    onSuccessNavigate ?? ((sampleId: string) => router.push(`/samples/${sampleId}`));
+    onSuccessNavigate ?? ((sampleId: string) => router.push(`/samples?lote=${sampleId}`));
 
   // ── Sincroniza o nome do proprietario com o cliente selecionado. O lote nao
   // vincula mais fazenda/unit, entao nao ha carregamento de filiais aqui.

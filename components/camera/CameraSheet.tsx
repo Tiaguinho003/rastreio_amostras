@@ -1279,23 +1279,52 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
     setStatusMessage(DEFAULT_STATUS_MESSAGE);
   }
 
-  // Navegar A PARTIR do sheet (GOTCHA do BottomSheet, design-system §sheet):
-  // o cleanup do close desfaz a entry de history via history.back(), que
-  // corre contra o router.push assincrono e DESFAZ a navegacao. Limpamos o
-  // marcador antes, fechamos o sheet (provider) e so entao navegamos.
-  function navigateFromSheet(href: string) {
+  // Abrir o DETALHE do lote a partir do sheet. Desde a F2 do redesign o
+  // detalhe e um overlay sobre a lista (?lote=) — daqui saem 3 casos, lendo
+  // window.location NO CLIQUE (o sheet e global; useSearchParams nao
+  // re-renderizaria com a URL de quem esta atras):
+  // - ja em /samples com ESTE lote aberto: no-op (so fecha o sheet; o
+  //   watcher pos-camera do detalhe rebusca os dados);
+  // - ja em /samples com OUTRO lote aberto: replace (mantem UMA entry);
+  // - qualquer outra rota: push.
+  // GOTCHA do BottomSheet mantido (design-system §sheet): o cleanup do close
+  // desfaz a entry de history via history.back(), que corre contra o
+  // router.push assincrono e DESFAZ a navegacao. Limpamos o marcador antes,
+  // fechamos o sheet (provider) e so entao navegamos.
+  function navigateToSample(id: string) {
     if (typeof window !== 'undefined' && window.history.state?.bottomSheet) {
       window.history.replaceState({ ...window.history.state, bottomSheet: false }, '');
     }
     onClose();
-    router.push(href);
+    const { pathname, search } = window.location;
+    if (pathname === '/samples') {
+      const params = new URLSearchParams(search);
+      const currentLote = params.get('lote');
+      if (currentLote === id) {
+        return;
+      }
+      // Residuais de deep-link do lote anterior nao valem pro proximo
+      // (mesma limpeza do openLote da lista).
+      params.delete('focus');
+      params.delete('highlight');
+      params.delete('source');
+      params.set('lote', id);
+      const url = `/samples?${params.toString()}`;
+      if (currentLote) {
+        router.replace(url);
+      } else {
+        router.push(url);
+      }
+      return;
+    }
+    router.push(`/samples?lote=${id}`);
   }
 
   function handleOpenSampleDetails() {
     if (!result) return;
     setResultModalOpen(false);
     setResultModalKind('lookup');
-    navigateFromSheet(`/samples/${result.sample.id}`);
+    navigateToSample(result.sample.id);
   }
 
   // Bloco F2 (Frente C): handler de "Tentar novamente" quando a camera
@@ -1521,7 +1550,7 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
         }
         printRequested={printRequested}
         onViewDetails={() => {
-          if (confirmedSampleId) navigateFromSheet(`/samples/${confirmedSampleId}`);
+          if (confirmedSampleId) navigateToSample(confirmedSampleId);
         }}
         onClose={() => {
           // Sucesso fechado → volta pro scanner limpo (Flow A), com o sheet
@@ -1663,7 +1692,7 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
         }}
         onViewDetails={() => {
           const id = contextSampleId ?? resolvedSample?.id;
-          if (id) navigateFromSheet(`/samples/${id}`);
+          if (id) navigateToSample(id);
         }}
       />
 

@@ -2654,7 +2654,6 @@ function SamplesPage() {
             key={loteId}
             session={session}
             sampleId={loteId}
-            variant="overlay"
             onClose={closeLote}
             onOpenSample={openLote}
             dismissGuardRef={loteDismissGuardRef}
