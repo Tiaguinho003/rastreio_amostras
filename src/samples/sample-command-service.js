@@ -191,6 +191,10 @@ function normalizeNullableUuid(value, fieldName) {
   return normalized.toLowerCase();
 }
 
+// Codigos de falha da IA aceitos no payload do CLASSIFICATION_EXTRACTION_FAILED
+// (enum do schema AJV) — qualquer outro vira 'UNKNOWN'.
+const EXTRACTION_FAILURE_CODES = new Set(['OPENAI_ERROR', 'PARSE_ERROR', 'TIMEOUT']);
+
 // As entradas da camera aceitam JPEG/PNG/WebP (magic bytes), mas todo o
 // pipeline downstream assume JPEG: o temp chama-se temp-{token}.jpg, o data
 // URI enviado a OpenAI deduz image/jpeg da extensao e o confirm anexa a foto
@@ -4335,6 +4339,23 @@ export class SampleCommandService {
         sampleId: input.sampleId ?? null,
       });
 
+      // CAM-P1: persiste o resultado BRUTO num sidecar ao lado da foto temp.
+      // O confirm (unico ponto com sampleId garantido) le, computa a
+      // cross-validation contra o cadastro e emite o evento de auditoria.
+      // Best-effort: sem sidecar, o confirm simplesmente nao emite.
+      await fs.promises
+        .writeFile(
+          path.join(tempDir, `temp-${photoToken}-extraction.json`),
+          JSON.stringify({
+            outcome: 'success',
+            identificacao: raw.identificacao,
+            classificacao: raw.classificacao,
+            model: raw.model,
+            processingTimeMs: raw.processingTimeMs,
+          })
+        )
+        .catch(() => {});
+
       return {
         statusCode: 200,
         extractionAvailable: true,
@@ -4347,6 +4368,21 @@ export class SampleCommandService {
     } catch (err) {
       if (createdTempFile) {
         await fs.promises.rm(tempPath, { force: true }).catch(() => {});
+      } else {
+        // CAM-P1: falha da IA no Mode 2 vira sidecar de failure — se o
+        // operador seguir manual com o mesmo token, o confirm emite
+        // CLASSIFICATION_EXTRACTION_FAILED (auditoria de que a IA falhou e a
+        // ficha foi digitada). No Mode 1 o temp morre junto — sem sidecar.
+        await fs.promises
+          .writeFile(
+            path.join(tempDir, `temp-${photoToken}-extraction.json`),
+            JSON.stringify({
+              outcome: 'failure',
+              errorCode: EXTRACTION_FAILURE_CODES.has(err.code) ? err.code : 'UNKNOWN',
+              errorMessage: String(err.message ?? 'Extraction failed'),
+            })
+          )
+          .catch(() => {});
       }
       if (err instanceof HttpError) {
         throw err;
@@ -4405,7 +4441,7 @@ export class SampleCommandService {
     }
 
     // Upload photo to sample
-    await this.addSamplePhoto(
+    const photoResult = await this.addSamplePhoto(
       {
         sampleId,
         kind: PHOTO_KINDS.CLASSIFICATION,
@@ -4552,11 +4588,103 @@ export class SampleCommandService {
       );
     }
 
-    // Cleanup temp files (best-effort)
+    // CAM-P1: auditoria da extracao. O extract gravou o resultado BRUTO num
+    // sidecar ao lado da foto temp; aqui (unico ponto com sampleId garantido
+    // e foto anexada) computamos a cross-validation contra o cadastro e
+    // emitimos CLASSIFICATION_EXTRACTION_COMPLETED/_FAILED. Best-effort no
+    // molde do caminho legado — falha na auditoria nao derruba uma
+    // classificacao ja persistida.
+    await this._emitCameraExtractionAudit({
+      tempDir,
+      photoToken,
+      sample,
+      photoAttachmentId: photoResult?.photo?.attachmentId ?? null,
+      actor,
+    }).catch(() => {});
+
+    // Cleanup temp files (best-effort) — sidecar da extracao incluso
     await fs.promises.rm(tempPath, { force: true }).catch(() => {});
     const croppedTempPath = tempPath.replace('.jpg', '-cropped.jpg');
     await fs.promises.rm(croppedTempPath, { force: true }).catch(() => {});
+    const sidecarTempPath = tempPath.replace('.jpg', '-extraction.json');
+    await fs.promises.rm(sidecarTempPath, { force: true }).catch(() => {});
 
     return result;
+  }
+
+  // CAM-P1: le o sidecar temp-{token}-extraction.json e emite o evento de
+  // auditoria correspondente. A cross-validation e computada contra o sample
+  // PRE-reconciliacao (o mismatch ficha vs cadastro e exatamente o que a
+  // auditoria quer registrar — applySampleUpdates pode te-lo corrigido).
+  async _emitCameraExtractionAudit({ tempDir, photoToken, sample, photoAttachmentId, actor }) {
+    if (!this.eventService || !photoAttachmentId) return;
+
+    const sidecarPath = path.join(tempDir, `temp-${photoToken}-extraction.json`);
+    let sidecar;
+    try {
+      sidecar = JSON.parse(await fs.promises.readFile(sidecarPath, 'utf8'));
+    } catch {
+      // Sem sidecar: extracao nao rodou (IA desligada, foto de caminho
+      // legado, temp expirado). Nada a auditar.
+      return;
+    }
+
+    try {
+      if (sidecar.outcome === 'success') {
+        const identificacao = {
+          lote: typeof sidecar.identificacao?.lote === 'string' ? sidecar.identificacao.lote : null,
+          sacas:
+            typeof sidecar.identificacao?.sacas === 'string' ? sidecar.identificacao.sacas : null,
+          safra:
+            typeof sidecar.identificacao?.safra === 'string' ? sidecar.identificacao.safra : null,
+        };
+        const crossValidation = crossValidateExtraction(identificacao, sample);
+        await this.eventService.appendEvent(
+          buildEventEnvelope({
+            eventType: 'CLASSIFICATION_EXTRACTION_COMPLETED',
+            sampleId: sample.id,
+            payload: {
+              extractedFields: sidecar.classificacao,
+              crossValidation,
+              model:
+                typeof sidecar.model === 'string' && sidecar.model.length > 0
+                  ? sidecar.model
+                  : 'desconhecido',
+              photoAttachmentId,
+              processingTimeMs: Number.isInteger(sidecar.processingTimeMs)
+                ? sidecar.processingTimeMs
+                : 0,
+            },
+            fromStatus: null,
+            toStatus: null,
+            module: 'classification',
+            actorContext: actor,
+          })
+        );
+      } else if (sidecar.outcome === 'failure') {
+        await this.eventService.appendEvent(
+          buildEventEnvelope({
+            eventType: 'CLASSIFICATION_EXTRACTION_FAILED',
+            sampleId: sample.id,
+            payload: {
+              errorCode: EXTRACTION_FAILURE_CODES.has(sidecar.errorCode)
+                ? sidecar.errorCode
+                : 'UNKNOWN',
+              errorMessage: typeof sidecar.errorMessage === 'string' ? sidecar.errorMessage : null,
+              photoAttachmentId,
+            },
+            fromStatus: null,
+            toStatus: null,
+            module: 'classification',
+            actorContext: actor,
+          })
+        );
+      }
+    } catch (eventError) {
+      console.error(
+        '[extraction] Failed to persist camera extraction audit event:',
+        eventError.message
+      );
+    }
   }
 }

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -91,4 +92,72 @@ test('extract: PARSE_ERROR vira 502', async () => {
 
 test('extract: erro sem code vira 502 com errorCode UNKNOWN', async () => {
   await expectStatus(null, 502, /servico de leitura da ficha falhou/);
+});
+
+// CAM-P1: o extract persiste o resultado BRUTO num sidecar ao lado da foto
+// temp — e o que o confirm le pra emitir o evento de auditoria.
+
+test('extract: sucesso grava sidecar CAM-P1 ao lado do temp', async () => {
+  await withTempBaseDir(async (baseDir) => {
+    const service = new SampleCommandService({
+      eventService: null,
+      queryService: null,
+      uploadService: { baseDir },
+      extractionService: {
+        async extractClassificationFromPhoto() {
+          return {
+            identificacao: { lote: '5689', sacas: null, safra: null },
+            classificacao: { padrao: 'L4-P3' },
+            model: 'gpt-test',
+            processingTimeMs: 42,
+          };
+        },
+      },
+    });
+
+    const result = await service.extractAndPrepareClassification(
+      { fileBuffer: ONE_BY_ONE_PNG },
+      buildActor()
+    );
+
+    const sidecar = JSON.parse(
+      await fsp.readFile(
+        path.join(baseDir, '_temp', `temp-${result.photoToken}-extraction.json`),
+        'utf8'
+      )
+    );
+    assert.equal(sidecar.outcome, 'success');
+    assert.equal(sidecar.model, 'gpt-test');
+    assert.equal(sidecar.processingTimeMs, 42);
+    assert.equal(sidecar.identificacao.lote, '5689');
+    assert.equal(sidecar.classificacao.padrao, 'L4-P3');
+  });
+});
+
+test('extract Mode 2: falha da IA grava sidecar de failure (auditoria do manual)', async () => {
+  await withTempBaseDir(async (baseDir) => {
+    const photoToken = randomUUID();
+    const tempDir = path.join(baseDir, '_temp');
+    await fsp.mkdir(tempDir, { recursive: true });
+    await fsp.writeFile(path.join(tempDir, `temp-${photoToken}.jpg`), ONE_BY_ONE_PNG);
+
+    const service = new SampleCommandService({
+      eventService: null,
+      queryService: null,
+      uploadService: { baseDir },
+      extractionService: extractionServiceThatThrows('TIMEOUT'),
+    });
+
+    await assert.rejects(
+      service.extractAndPrepareClassification({ photoToken }, buildActor()),
+      (error) => error instanceof HttpError && error.status === 504
+    );
+
+    const sidecar = JSON.parse(
+      await fsp.readFile(path.join(tempDir, `temp-${photoToken}-extraction.json`), 'utf8')
+    );
+    assert.equal(sidecar.outcome, 'failure');
+    assert.equal(sidecar.errorCode, 'TIMEOUT');
+    assert.match(sidecar.errorMessage, /stub failure/);
+  });
 });

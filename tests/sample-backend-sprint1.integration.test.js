@@ -623,6 +623,141 @@ if (!databaseUrl || !databaseReachable) {
       (event) => event.eventType === 'CLASSIFICATION_COMPLETED'
     );
     assert.equal(classificationCompletedEvents.length, 1);
+
+    // CAM-P1: sem sidecar de extracao, nenhum evento de auditoria e emitido
+    // (extracao nao rodou — IA desligada ou temp expirado).
+    const extractionEvents = detail.events.filter((event) =>
+      event.eventType.startsWith('CLASSIFICATION_EXTRACTION')
+    );
+    assert.equal(extractionEvents.length, 0);
+  });
+
+  // CAM-P1: o extract grava o resultado BRUTO num sidecar ao lado da foto
+  // temp; o confirm le, computa cross-validation contra o cadastro e emite o
+  // evento de auditoria com a foto anexada.
+  async function writeExtractionSidecar(photoToken, sidecar) {
+    const tempDir = path.join(uploadDir, '_temp');
+    await fs.mkdir(tempDir, { recursive: true });
+    const sidecarPath = path.join(tempDir, `temp-${photoToken}-extraction.json`);
+    await fs.writeFile(sidecarPath, JSON.stringify(sidecar));
+    return sidecarPath;
+  }
+
+  const SIDECAR_CLASSIFICACAO = {
+    padrao: 'L4-P3',
+    aspecto: 'GC',
+    certif: null,
+    peneiras: {
+      p18: null,
+      p17: '38',
+      p16: null,
+      p15: null,
+      p14: null,
+      p13: null,
+      p12: null,
+      p11: null,
+      p10: null,
+      mk: '8',
+    },
+    fundos: [
+      { peneira: '13', percentual: '3' },
+      { peneira: null, percentual: null },
+    ],
+    catacao: '33',
+    defeitos: { imp: '0,1', pva: null, broca: '1', gpi: null, ap: null, defeito: null },
+    observacoes: null,
+    bebida: null,
+  };
+
+  test('CAM-P1: confirm emite CLASSIFICATION_EXTRACTION_COMPLETED do sidecar com cross-validation', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToRegistrationConfirmed(sampleId);
+
+    const photoToken = randomUUID();
+    await writeTempCameraPhoto(photoToken);
+    const sidecarPath = await writeExtractionSidecar(photoToken, {
+      outcome: 'success',
+      // lote diverge do cadastro; sacas bate (11); safra bate (25/26).
+      identificacao: { lote: '99999', sacas: '11', safra: '25/26' },
+      classificacao: SIDECAR_CLASSIFICACAO,
+      model: 'gpt-4o-2024-11-20',
+      processingTimeMs: 1234,
+    });
+
+    const result = await commandService.confirmClassificationFromCamera(
+      {
+        sampleId,
+        photoToken,
+        classificationData: { padrao: 'L4-P3', bebida: 'DURA' },
+        classifiers: classifiersOf(actorClassifier),
+        idempotencyKey: randomUUID(),
+      },
+      actorClassifier
+    );
+    assert.equal(result.statusCode, 201);
+
+    const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
+    const events = detail.events.filter(
+      (event) => event.eventType === 'CLASSIFICATION_EXTRACTION_COMPLETED'
+    );
+    assert.equal(events.length, 1);
+
+    const payload = events[0].payload;
+    assert.equal(payload.model, 'gpt-4o-2024-11-20');
+    assert.equal(payload.processingTimeMs, 1234);
+    assert.ok(payload.photoAttachmentId);
+    // Resultado BRUTO da IA preservado (nao o corrigido pelo operador).
+    assert.equal(payload.extractedFields.peneiras.p17, '38');
+    assert.equal(payload.extractedFields.catacao, '33');
+    // Cross-validation contra o cadastro: lote diverge, sacas/safra batem.
+    assert.equal(payload.crossValidation.hasMismatches, true);
+    const byField = new Map(payload.crossValidation.details.map((d) => [d.field, d]));
+    assert.equal(byField.get('lote').match, false);
+    assert.equal(byField.get('sacas').match, true);
+    assert.equal(byField.get('safra').match, true);
+
+    // Sidecar consumido junto dos temps.
+    await assert.rejects(fs.access(sidecarPath));
+  });
+
+  test('CAM-P1: sidecar de falha vira CLASSIFICATION_EXTRACTION_FAILED no confirm', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToRegistrationConfirmed(sampleId);
+
+    const photoToken = randomUUID();
+    await writeTempCameraPhoto(photoToken);
+    await writeExtractionSidecar(photoToken, {
+      outcome: 'failure',
+      errorCode: 'TIMEOUT',
+      errorMessage: 'OpenAI request timed out',
+    });
+
+    const result = await commandService.confirmClassificationFromCamera(
+      {
+        sampleId,
+        photoToken,
+        // Fluxo manual: a IA falhou e o operador digitou a ficha.
+        classificationData: { padrao: 'MANUAL-1', bebida: 'RIO' },
+        classifiers: classifiersOf(actorClassifier),
+        idempotencyKey: randomUUID(),
+      },
+      actorClassifier
+    );
+    assert.equal(result.statusCode, 201);
+
+    const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
+    const failedEvents = detail.events.filter(
+      (event) => event.eventType === 'CLASSIFICATION_EXTRACTION_FAILED'
+    );
+    assert.equal(failedEvents.length, 1);
+    assert.equal(failedEvents[0].payload.errorCode, 'TIMEOUT');
+    assert.equal(failedEvents[0].payload.errorMessage, 'OpenAI request timed out');
+    assert.ok(failedEvents[0].payload.photoAttachmentId);
+
+    const completedEvents = detail.events.filter(
+      (event) => event.eventType === 'CLASSIFICATION_EXTRACTION_COMPLETED'
+    );
+    assert.equal(completedEvents.length, 0);
   });
 
   test('confirmClassificationFromCamera updates declaredSacks when applySampleUpdates.declaredSacks is provided', async () => {
