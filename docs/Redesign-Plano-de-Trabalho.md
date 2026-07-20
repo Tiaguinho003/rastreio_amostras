@@ -1,6 +1,6 @@
 # Redesign — Plano de Trabalho
 
-> **Status**: F1 e F3 **✅ validadas** (2026-07-20, Flavio no dev local); skills sincronizadas; próxima = **F2 (lote)**
+> **Status**: F1 e F3 **✅ validadas** (2026-07-20, Flavio no dev local); **F2 (lote) implementada 2026-07-20** — aguarda validação 🖥️📱 (junto com os gates RD10 pendentes dela)
 > **Última atualização**: 2026-07-20
 > **Prefixo de decisões**: RD
 > **Par futuro**: quando o padrão consolidar, o funcionamento real será absorvido pelos docs canônicos e pelas skills (`modals`, `design-system`, `responsive`). A frente visual parte de `docs/Design-Language.md` (canônico dos tokens).
@@ -34,7 +34,7 @@ Todas travadas em **2026-07-20** (conversa de kickoff, com levantamento de códi
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | **F0** | Decisões RD1–RD10 + este doc + registro do ciclo                                                                                                                                                                                                           | ✅ 2026-07-20                                                                                |
 | **F1** | Contêiner `DetailOverlay` (apresentação por dispositivo, histórico, foco, empilhamento) + piloto **cliente** em `/cadastros` (absorve `cdm-modal` + página de gestão) + redirects de `/clients` e `/clients/[clientId]` + limpeza dos comentários do split | ✅ validada 2026-07-20 (Flavio, dev local); skills sincronizadas                             |
-| **F2** | **Lote** — F2a: quebra do page.tsx em seções (refactor mecânico); F2b: transplante para o overlay; F2c: cadeias (câmera, impressão, classificação, envio, liga) sobre o overlay + redirects                                                                | ☐                                                                                            |
+| **F2** | **Lote** — F2a: quebra do page.tsx em seções (refactor mecânico); F2b: transplante para o overlay; F2c: cadeias (câmera, impressão, classificação, envio, liga) sobre o overlay + redirects                                                                | 🚧 implementada 2026-07-20 (5 commits `81e80fe`..; **🖥️📱 validar**, ver §2.3)               |
 | **F3** | **Contrato** — realinhar `SaleContractDetailsModal` ao padrão (+ P27)                                                                                                                                                                                      | ✅ validada 2026-07-20 (Flavio, dev local; foi **antecipada** antes da F2). P27 segue aberta |
 | **F4** | Limpeza: rotas antigas só-redirect (ou remoção), morte do snapshot de sessionStorage do `SampleCard`, sync final de skills/docs                                                                                                                            | ☐                                                                                            |
 | **FV** | Frente visual: mockups → tokens (`Design-Language.md`) → reskin geral                                                                                                                                                                                      | ☐ aguarda mockups; pode iniciar após F1 validada                                             |
@@ -81,6 +81,29 @@ Dois commits, gates verdes (typecheck, lint, format; build não rodou — dev se
 - 📱 Sheet de tela cheia com respiro lateral correto (o conteúdo `.ctr-details-*` não tem padding próprio); tabbar some/volta; footer de ações acima da safe area.
 - Deep-links: "Ver contrato" do card de Eventos, Financeiro, Embarque e Aprovações abrem o overlay na aba Contratos.
 
+### 2.3 F2 — implementada 2026-07-20 (🖥️📱 validar)
+
+**Contexto do destrave**: Flavio autorizou implementar mesmo com os gates de device da F2 (§5) pendentes — câmera Rodada 2 (📱), liga/safra (🖥️📱), auditoria de classificação (📱). A validação da F2 **soma-se a elas** na mesma sessão de device.
+
+Cinco commits atômicos, gates verdes a cada um (typecheck, lint, format, unit 535, contracts 20; build não rodou — dev server ativo — fica pro pré-push):
+
+1. `81e80fe` — extração mecânica de `components/samples/SampleDetailView.tsx` (ex-página de 3.904 linhas, RD8): saem AppShell, guard, loading global e a fileira de navegação do header (fica o `.sdv-header` com o identity card — badge, reverter liga, imprimir); entram props `{ session, sampleId, dismissGuardRef }`, loading inline e o efeito `detailBusy → dismissGuardRef` (11 flags de modal/ação). A rota vira casca fina transitória.
+2. `1e2c14b` — os **7 modais inline** do detalhe (invalidar, imprimir, editar data, editar registro, `cld-modal`, confirmar salvar, reclassificar) + o call site do `PhotoZoomViewer` ganham `createPortal(document.body)` (LDT-P1 — o `transform` do sheet viraria containing block do `position: fixed`).
+3. `bf707f5` — o transplante: `?lote=<id>` em `/samples` vira **fonte de verdade** (molde do `?cliente=`): push abre, replace troca, fechar = back-se-nosso-push senão replace; abrir/trocar limpa `focus`/`highlight`/`source` residuais e preserva `tab`/`displayStatus`; fechar dispara **refetch silencioso** da lista (`requestSilentRefetch`). No view: sai o marcador `--sample` (mata o desktop 2-colunas por seletor), classificação rende a variante mobile no peek, X vermelho fecha o overlay. Links detalhe→detalhe (composição, comprometida, inviável, cascata, modal de bloqueio) trocam via replace com `href=/samples?lote=` de deep-link. CSS `.lote-details-overlay` repõe fundo branco + sombra dos cards.
+4. `763de81` — cadeias: watcher pós-câmera no view (`isOpen` true→false do `useCameraSheet` → `refreshDetail`); `CameraSheet.navigateToSample` (mesmo lote = no-op só-fecha, outro lote = replace, fora de /samples = push — lê `window.location` no clique); `NewSampleModal` default → `?lote=`; **`/samples/[sampleId]` vira redirect RSC preservando a query** (QR físico, scanner, busca global); AppShell perde `isSampleDetail` (tabbar some via `body.is-bottom-sheet-open`); `variant` removido (`onClose` obrigatório) e os ramos desktop do card de classificação ficam **dormentes** atrás de `effectiveDesktop=false` até a FV.
+5. este commit — doc + memória. Skills só após validação no device (§7).
+
+**Checklist de validação (🖥️ ≥901px, 📱 device):**
+
+- "Detalhes" do card abre o overlay (URL ganha `?lote=` preservando `?tab=`); back/X/ESC fecham; refresh e deep-link reabrem lista+overlay; fechar limpa o param e a lista **refetcha silenciosa** (invalidar/vender/enviar refletem nos cards).
+- 🖥️ Lista viva atrás do peek; "Detalhes" de outro card TROCA o lote (back fecha em 1 passo); coluna única sem overflow nos 620px (identity card, classificação variante mobile, composição da liga, movimentações).
+- Modais (7 portais + externos + PhotoZoomViewer) cobrem o viewport inteiro no peek; ESC com modal aberto NÃO fecha o overlay.
+- 📱 Câmera abre SOBRE o overlay; back fecha a câmera primeiro; ao fechar a câmera o detalhe atualiza (watcher). "Ver detalhes" do sucesso com o MESMO lote atrás = só fecha o sheet.
+- Invalidar/reverter → X vermelho → overlay fecha → lista reflete.
+- QR físico, bipador e busca global redirecionam com query preservada (`?focus=classification&source=qr` etc.); `?focus=movimentacoes|informacoes` rola DENTRO do sheet; `?highlight=print` pulsa o botão.
+- 📱 Tabbar some com o overlay aberto e volta ao fechar; modo liga com peek aberto não quebra; teclado iOS nos inputs de edição no fim do sheet (risco §6.3).
+- Novo lote criado fora da lista (dashboard) abre o overlay do recém-criado.
+
 ## 3. O que NÃO muda
 
 - **Backend**: nenhuma rota de API muda. RD2 é só front + redirects de rota.
@@ -92,13 +115,13 @@ Dois commits, gates verdes (typecheck, lint, format; build não rodou — dev se
 - **Tamanhos**: detalhe do lote `app/samples/[sampleId]/page.tsx` = 3.904 linhas (câmera, impressão, classificação, envio físico, liga, movimentos, invalidação embutidos); detalhe do cliente `app/clients/[clientId]/page.tsx` = 2.414 linhas (filiais, contas bancárias, anexos, cascata); hub `/contratos` = casca de 128 linhas sobre `ContratosPanel` (799).
 - **Infra existente reaproveitável**: `components/BottomSheet.tsx` (padrão canônico de ação + árbitro de popstate), `lib/use-focus-trap`, `lib/navigation/route-history.ts`, query param como fonte de verdade já praticado (`?tab=`/`?details` no /contratos; `?focus=classification&source=qr` vindo do QR; `?source=scanner`).
 - **Sementes**: `cdm-modal` (resumo do cliente no `ClientsBrowser`); `SaleContractDetailsModal` (contrato já-modal).
-- **Pontos de entrada do detalhe do lote** (9 mapeados; reconferir no plan mode da F2): `SampleCard` (com snapshot de sessionStorage a remover na F4), `CameraSheet` ×3 (`navigateFromSheet`), `NewSampleModal`, `SampleInvalidateBlockedModal`, `SampleMovementsPanel` (origem de cascata), `ScannerBridge`, e o **backend** `src/api/v1/backend-api.js` (redirect do QR com `?focus=classification&source=qr`). Dois são **externos por URL** (QR e scanner) — por isso RD2 exige detalhe endereçável.
+- **Pontos de entrada do detalhe do lote** (9 mapeados; todos realinhados na F2c): `SampleCard` (com snapshot de sessionStorage a remover na F4), `CameraSheet` ×3 (`navigateToSample`, ex-`navigateFromSheet`), `NewSampleModal`, `SampleInvalidateBlockedModal`, `SampleMovementsPanel` (origem de cascata), `ScannerBridge`, e o **backend** `src/api/v1/backend-api.js` (redirect do QR com `?focus=classification&source=qr` — não mudou; o redirect RSC da rota antiga resolve). Dois são **externos por URL** (QR e scanner) — por isso RD2 exige detalhe endereçável.
 - **Entrada do detalhe do cliente**: só o link "Gerenciar cliente" do `cdm-modal` (as duas superfícies passam pelo `ClientsBrowser`).
 
 ## 5. Pré-requisitos para destravar código (RD10)
 
 - **F1 (cliente)** — ✅ **cumprido em 2026-07-20.** Validação executada no estado integrado atual: suítes completas verdes (**unit 535 + contracts 20 + integração FULL 492/492**, cobrindo D142/D144/D145/D146/D147 e a unificação de acesso) + conferência de código das superfícies (chips "À definir" no `SaleContractEtapa2Modal`; banco texto livre no `ClientBankAccountModal`; `isSpotWashout` filtrando o Financeiro; propagação auto-confirmada em `sale-contract-service.js`; `/users` ADMIN-only no front e `assertAdminActor` no back; nav sem "Clientes" para todos). O **passe visual** ficou com o Flavio (checklist entregue na conversa de 2026-07-20); achado visual entra como fix antes/junto da F1.
-- **F2 (lote)**: validar as frentes que vivem dentro do detalhe do lote — Rodada 2 da câmera/classificação (📱), liga/safra reativa (🖥️📱), auditoria de classificação (📱).
+- **F2 (lote)**: validar as frentes que vivem dentro do detalhe do lote — Rodada 2 da câmera/classificação (📱), liga/safra reativa (🖥️📱), auditoria de classificação (📱). **Flavio destravou a implementação em 2026-07-20 mesmo com esses gates pendentes** — a validação da F2 (§2.3) soma-se a eles na mesma sessão de device.
 
 ## 6. Riscos mapeados (endereçar nos plan modes)
 
