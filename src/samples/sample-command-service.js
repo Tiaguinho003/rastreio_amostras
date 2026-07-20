@@ -189,6 +189,23 @@ function normalizeNullableUuid(value, fieldName) {
   return normalized.toLowerCase();
 }
 
+// photoToken vira segmento de nome de arquivo em _temp/ (temp-{token}.jpg).
+// Formato UUID obrigatorio: bloqueia path traversal (token com ../ leria
+// qualquer .jpg do filesystem no extract e o anexaria no confirm) e garante
+// que so tokens emitidos pelo proprio detect/extract sejam aceitos.
+function normalizePhotoToken(value, fieldName = 'photoToken') {
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new HttpError(422, `${fieldName} e obrigatorio`);
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (!UUID_REGEX.test(normalized)) {
+    throw new HttpError(422, `${fieldName} invalido`);
+  }
+
+  return normalized;
+}
+
 function normalizeMovementType(value, fieldName = 'movementType') {
   const normalized = normalizeRequiredText(value, fieldName).toUpperCase();
   if (!Object.values(MOVEMENT_TYPES).includes(normalized)) {
@@ -4233,7 +4250,7 @@ export class SampleCommandService {
 
     if (typeof input.photoToken === 'string' && input.photoToken.length > 0) {
       // Mode 2: photoToken from detect-form (file already saved)
-      photoToken = input.photoToken;
+      photoToken = normalizePhotoToken(input.photoToken);
       tempPath = path.join(tempDir, `temp-${photoToken}.jpg`);
       const croppedPath = path.join(tempDir, `temp-${photoToken}-cropped.jpg`);
 
@@ -4324,9 +4341,7 @@ export class SampleCommandService {
     if (!sampleId) {
       throw new HttpError(422, 'sampleId e obrigatorio');
     }
-    if (!input.photoToken || typeof input.photoToken !== 'string') {
-      throw new HttpError(422, 'photoToken e obrigatorio');
-    }
+    const photoToken = normalizePhotoToken(input.photoToken);
 
     // Valida cedo o payload opcional `applySampleUpdates` para falhar antes
     // de consumir a foto temporaria caso o operador envie valores invalidos.
@@ -4344,7 +4359,7 @@ export class SampleCommandService {
       throw new HttpError(503, 'Servico de upload nao configurado');
     }
     const tempDir = path.join(this.uploadService.baseDir, '_temp');
-    const tempPath = path.join(tempDir, `temp-${input.photoToken}.jpg`);
+    const tempPath = path.join(tempDir, `temp-${photoToken}.jpg`);
     let fileBuffer;
     try {
       fileBuffer = await fs.promises.readFile(tempPath);
