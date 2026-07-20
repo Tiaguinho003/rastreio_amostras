@@ -2,6 +2,8 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import sharp from 'sharp';
+
 import { assertRoleAllowed, isAssignableUserRole, USER_ROLES } from '../auth/roles.js';
 import { HttpError } from '../contracts/errors.js';
 import { assertImageMagicBytes } from '../uploads/upload-policy.js';
@@ -187,6 +189,20 @@ function normalizeNullableUuid(value, fieldName) {
   }
 
   return normalized.toLowerCase();
+}
+
+// As entradas da camera aceitam JPEG/PNG/WebP (magic bytes), mas todo o
+// pipeline downstream assume JPEG: o temp chama-se temp-{token}.jpg, o data
+// URI enviado a OpenAI deduz image/jpeg da extensao e o confirm anexa a foto
+// com mimeType image/jpeg fixo. PNG/WebP (raro: galeria quando o client nao
+// conseguiu reencodar) e transcodificado aqui, na entrada, pra manter o
+// restante do pipeline verdadeiro.
+async function normalizeCameraPhotoToJpeg(fileBuffer) {
+  const mime = await assertImageMagicBytes(fileBuffer);
+  if (mime === 'image/jpeg') {
+    return fileBuffer;
+  }
+  return sharp(fileBuffer).jpeg({ quality: 95 }).toBuffer();
 }
 
 // photoToken vira segmento de nome de arquivo em _temp/ (temp-{token}.jpg).
@@ -4168,7 +4184,7 @@ export class SampleCommandService {
     // CAM-I1: magic bytes na ENTRADA (regra 5 do CLAUDE.md). Antes so o
     // confirm validava — buffer arbitrario era gravado no _temp e ia pro
     // sharp + OpenAI (custo) antes de qualquer rejeicao.
-    await assertImageMagicBytes(fileBuffer);
+    const jpegBuffer = await normalizeCameraPhotoToJpeg(fileBuffer);
 
     const photoToken = randomUUID();
     const tempDir = path.join(this.uploadService.baseDir, '_temp');
@@ -4180,13 +4196,13 @@ export class SampleCommandService {
     // Best-effort — erro nao bloqueia o fluxo principal.
     await this._cleanupOrphanTempFiles(tempDir).catch(() => {});
 
-    await fs.promises.writeFile(tempPath, fileBuffer);
+    await fs.promises.writeFile(tempPath, jpegBuffer);
 
     let detected = false;
 
     if (this.formDetectionService) {
       try {
-        const result = await this.formDetectionService.detectAndCrop(fileBuffer);
+        const result = await this.formDetectionService.detectAndCrop(jpegBuffer);
         if (result.detected && result.croppedBuffer) {
           const croppedPath = path.join(tempDir, `temp-${photoToken}-cropped.jpg`);
           await fs.promises.writeFile(croppedPath, result.croppedBuffer);
@@ -4269,18 +4285,18 @@ export class SampleCommandService {
       }
     } else if (Buffer.isBuffer(input.fileBuffer) && input.fileBuffer.length > 0) {
       // Mode 1: direct file upload (legacy)
-      // CAM-I1: mesmo gate de magic bytes do detect-form (ver comentario la).
-      await assertImageMagicBytes(input.fileBuffer);
+      // CAM-I1: mesmo gate de magic bytes + normalizacao JPEG do detect-form.
+      const jpegBuffer = await normalizeCameraPhotoToJpeg(input.fileBuffer);
       photoToken = randomUUID();
       tempPath = path.join(tempDir, `temp-${photoToken}.jpg`);
       await fs.promises.mkdir(tempDir, { recursive: true });
-      await fs.promises.writeFile(tempPath, input.fileBuffer);
+      await fs.promises.writeFile(tempPath, jpegBuffer);
       createdTempFile = true;
 
       // Try auto-crop inline
       if (this.formDetectionService) {
         try {
-          const detection = await this.formDetectionService.detectAndCrop(input.fileBuffer);
+          const detection = await this.formDetectionService.detectAndCrop(jpegBuffer);
           if (detection.detected && detection.croppedBuffer) {
             const croppedPath = path.join(tempDir, `temp-${photoToken}-cropped.jpg`);
             await fs.promises.writeFile(croppedPath, detection.croppedBuffer);

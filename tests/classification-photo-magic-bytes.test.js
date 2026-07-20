@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fsp from 'node:fs/promises';
 import os from 'node:os';
+import path from 'node:path';
 
 import { SampleCommandService } from '../src/samples/sample-command-service.js';
 import { assertImageMagicBytes } from '../src/uploads/upload-policy.js';
@@ -57,6 +59,29 @@ test('extractAndPrepareClassification (Mode 1): buffer nao-imagem cai em 415', a
   await assertUnsupportedType(
     service.extractAndPrepareClassification({ fileBuffer: NOT_AN_IMAGE }, buildActor())
   );
+});
+
+test('detectClassificationForm: PNG e transcodificado pra JPEG real no temp', async () => {
+  // EXT (rodada 1): o pipeline downstream assume JPEG (extensao .jpg, data
+  // URI da OpenAI, mimeType do confirm) — PNG/WebP viram JPEG na entrada.
+  const baseDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'cam-jpeg-norm-'));
+  try {
+    const isolated = new SampleCommandService({
+      eventService: null,
+      queryService: null,
+      uploadService: { baseDir },
+    });
+    const result = await isolated.detectClassificationForm(
+      { fileBuffer: ONE_BY_ONE_PNG },
+      buildActor()
+    );
+    const savedBuffer = await fsp.readFile(
+      path.join(baseDir, '_temp', `temp-${result.photoToken}.jpg`)
+    );
+    assert.equal(await assertImageMagicBytes(savedBuffer), 'image/jpeg');
+  } finally {
+    await fsp.rm(baseDir, { recursive: true, force: true });
+  }
 });
 
 test('assertImageMagicBytes: PNG real passa e retorna o mime detectado', async () => {
