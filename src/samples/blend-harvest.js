@@ -38,6 +38,30 @@ export function deriveBlendHarvest(harvestStrings) {
   return Array.from(distinct).sort().join(HARVEST_SEPARATOR);
 }
 
+// Liga: derivacao canonica do LOTE DE ORIGEM de uma liga a partir dos lotes de
+// origem das origens (a "somatoria" das origens dos componentes). Gemeo de
+// deriveBlendHarvest: cada origem contribui seu declaredOriginLot (codigos
+// separados por espaco/virgula/;); o conjunto DISTINTO, ordenado e juntado com
+// ', ' vira o lote de origem da liga. O split preserva hifen/barra (PA-01, 12/3)
+// — separadores = [\s,;], os MESMOS de splitOriginLotForLabel. Quando uma origem
+// e ela mesma uma liga, seu declaredOriginLot ja e a somatoria concatenada; o
+// split + dedup evita duplicatas (liga-de-liga). null quando nenhuma origem
+// declara lote de origem. Usado por createBlend e pela propagacao reativa.
+export function deriveBlendOriginLot(originLotStrings) {
+  const distinct = new Set();
+  for (const entry of originLotStrings) {
+    if (entry == null) continue;
+    for (const part of String(entry).split(/[\s,;]+/)) {
+      const trimmed = part.trim();
+      if (trimmed.length > 0) {
+        distinct.add(trimmed);
+      }
+    }
+  }
+  if (distinct.size === 0) return null;
+  return Array.from(distinct).sort().join(HARVEST_SEPARATOR);
+}
+
 /**
  * Deriva o proprietario de uma liga a partir das origens. Regra de UNANIMIDADE:
  * se TODAS as origens tem o mesmo `ownerClientId` (nao-nulo), a liga herda esse

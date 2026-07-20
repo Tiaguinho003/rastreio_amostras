@@ -16,7 +16,7 @@ import {
   normalizeBrokerIds,
   normalizeUnitPrice,
 } from '../sale-contracts/sale-contract-support.js';
-import { deriveBlendHarvest, deriveBlendOwner } from './blend-harvest.js';
+import { deriveBlendHarvest, deriveBlendOriginLot, deriveBlendOwner } from './blend-harvest.js';
 import { buildEventEnvelope, normalizeActorContext } from './sample-event-factory.js';
 
 // LOT-D2 (revisao geral, 2026-07-07): PROSPECTOR fora por decisao — segunda
@@ -1741,6 +1741,7 @@ export class SampleCommandService {
     // removido — operador nao informa mais manualmente).
     const originHarvests = [];
     const originOwners = [];
+    const originOriginLots = [];
     for (const component of normalizedComponents) {
       const origin = await this.queryService.loadSampleSummary(component.originSampleId);
       if (!origin) {
@@ -1772,6 +1773,7 @@ export class SampleCommandService {
         );
       }
       originHarvests.push(origin.declaredHarvest);
+      originOriginLots.push(origin.declaredOriginLot);
       originOwners.push({
         ownerClientId: origin.ownerClientId,
         declaredOwner: origin.declaredOwner,
@@ -1789,6 +1791,7 @@ export class SampleCommandService {
     // pela propagacao reativa. Override manual (`input.harvest`) ainda aceito
     // pra testes/integration de seed legado.
     const derivedHarvest = deriveBlendHarvest(originHarvests);
+    const derivedOriginLot = deriveBlendOriginLot(originOriginLots);
     const harvest = input.harvest
       ? normalizeRequiredText(input.harvest, 'harvest')
       : derivedHarvest;
@@ -1830,8 +1833,9 @@ export class SampleCommandService {
       owner: ownerBinding?.displayName ?? null,
       sacks: declaredSacks,
       harvest,
-      // Liga F3.5: declaredOriginLot intencionalmente null em liga.
-      originLot: null,
+      // Liga: lote de origem DERIVADO da somatoria das origens dos componentes
+      // (deriveBlendOriginLot). Editavel/pinavel depois (updateRegistration).
+      originLot: derivedOriginLot,
       location: normalizeOptionalText(input.location, 'location', 30),
     };
 
@@ -2464,11 +2468,8 @@ export class SampleCommandService {
           { code: 'BLEND_SACKS_READ_ONLY' }
         );
       }
-      if (hasOwn(updatePayload.after.declared, 'originLot')) {
-        throw new HttpError(422, 'A liga nao tem lote de origem — vem dos lotes que a compoem', {
-          code: 'BLEND_ORIGIN_LOT_READ_ONLY',
-        });
-      }
+      // Lote de origem da liga: NAO e mais read-only — editar a mao e permitido e
+      // FIXA (pin) a origem (ver bloco blendOriginLotPinned abaixo, estatuto "dono").
     }
 
     const nextDeclaredSacks =
@@ -2523,6 +2524,19 @@ export class SampleCommandService {
       updatePayload.after.blendOwnerPinned = true;
     }
 
+    // Liga (lote de origem fixado): editar a origem de uma liga a mao FIXA (pin) —
+    // a propagacao reativa (deriveBlendOriginLot) deixa de re-derivar a origem, que
+    // fica no valor manual. Espelha o dono. Os drafts da propagacao sao construidos
+    // em _buildBlendPropagation (nao passam por aqui), entao NAO auto-fixam as ligas
+    // ancestrais.
+    if (
+      sample.isBlend &&
+      updatePayload.after?.declared &&
+      hasOwn(updatePayload.after.declared, 'originLot')
+    ) {
+      updatePayload.after.blendOriginLotPinned = true;
+    }
+
     // Liga (safra derivada): a safra de uma liga NAO e editavel — deriva das
     // origens (deriveBlendHarvest) e so muda pela propagacao reativa
     // (_buildBlendPropagation, que constroi os drafts direto e nao passa por
@@ -2562,20 +2576,26 @@ export class SampleCommandService {
     const harvestChanged =
       updatePayload.after?.declared &&
       Object.prototype.hasOwnProperty.call(updatePayload.after.declared, 'harvest');
+    const originLotChanged =
+      updatePayload.after?.declared &&
+      Object.prototype.hasOwnProperty.call(updatePayload.after.declared, 'originLot');
     const ownerChanged = Object.prototype.hasOwnProperty.call(
       updatePayload.after ?? {},
       'ownerClientId'
     );
 
-    if (harvestChanged || ownerChanged) {
-      // Liga: propagacao reativa unificada (safra E/OU proprietario). Semeia o
-      // estado com o valor NOVO do campo que mudou e o valor ATUAL do que NAO
-      // mudou — senao a liga recalcularia o outro campo errado.
+    if (harvestChanged || ownerChanged || originLotChanged) {
+      // Liga: propagacao reativa unificada (safra, origem E/OU proprietario). Semeia
+      // o estado com o valor NOVO do campo que mudou e o valor ATUAL do que NAO
+      // mudou — senao a liga recalcularia os outros campos errado.
       const propagation = await this._buildBlendPropagation({
         editedSampleId: sample.id,
         newHarvest: harvestChanged
           ? updatePayload.after.declared.harvest
           : (sample.declared?.harvest ?? null),
+        newOriginLot: originLotChanged
+          ? updatePayload.after.declared.originLot
+          : (sample.declared?.originLot ?? null),
         newOwnerClientId: ownerChanged ? updatePayload.after.ownerClientId : sample.ownerClientId,
         newDeclaredOwner: ownerChanged
           ? (updatePayload.after.declared?.owner ?? null)
@@ -2631,6 +2651,7 @@ export class SampleCommandService {
   async _buildBlendPropagation({
     editedSampleId,
     newHarvest,
+    newOriginLot,
     newOwnerClientId,
     newDeclaredOwner,
     actor,
@@ -2662,7 +2683,12 @@ export class SampleCommandService {
     const stateBySampleId = new Map([
       [
         editedSampleId,
-        { harvest: newHarvest, ownerClientId: newOwnerClientId, declaredOwner: newDeclaredOwner },
+        {
+          harvest: newHarvest,
+          originLot: newOriginLot,
+          ownerClientId: newOwnerClientId,
+          declaredOwner: newDeclaredOwner,
+        },
       ],
     ]);
     const affectedBlends = [];
@@ -2685,6 +2711,11 @@ export class SampleCommandService {
             : { ownerClientId: origin.ownerClientId, declaredOwner: origin.declaredOwner };
         })
       );
+      const recalcOriginLot = deriveBlendOriginLot(
+        origins.map(
+          (origin) => stateBySampleId.get(origin.originId)?.originLot ?? origin.declaredOriginLot
+        )
+      );
 
       // Liga (dono fixado): se o dono da liga foi FIXADO manualmente
       // (blendOwnerPinned), a propagacao NAO recalcula o dono — so a safra deriva.
@@ -2694,17 +2725,25 @@ export class SampleCommandService {
         ? { ownerClientId: blend.ownerClientId, declaredOwner: blend.declaredOwner }
         : recalcOwner;
 
+      // Liga (lote de origem fixado): mesmo racional do dono — se a origem da liga
+      // foi editada a mao (blendOriginLotPinned), a propagacao NAO re-deriva; as
+      // ancestrais leem o valor ATUAL (fixado), nao o recalculado.
+      const originPinned = blend.blendOriginLotPinned === true;
+      const effectiveOriginLot = originPinned ? blend.declaredOriginLot : recalcOriginLot;
+
       // Registra SEMPRE (mesmo no no-op) pra ligas ancestrais lerem o valor certo.
       stateBySampleId.set(blend.sampleId, {
         harvest: recalcHarvest,
+        originLot: effectiveOriginLot,
         ownerClientId: effectiveOwner.ownerClientId,
         declaredOwner: effectiveOwner.declaredOwner,
       });
 
       const harvestChanged = recalcHarvest !== blend.declaredHarvest;
       const ownerChanged = !pinned && recalcOwner.ownerClientId !== blend.ownerClientId;
-      // No-op: nem safra nem owner mudam -> nao emite evento.
-      if (!harvestChanged && !ownerChanged) {
+      const originLotChanged = !originPinned && recalcOriginLot !== blend.declaredOriginLot;
+      // No-op: safra, owner E origem inalterados -> nao emite evento.
+      if (!harvestChanged && !ownerChanged && !originLotChanged) {
         continue;
       }
 
@@ -2716,6 +2755,10 @@ export class SampleCommandService {
       if (harvestChanged) {
         before.declared.harvest = blend.declaredHarvest;
         after.declared.harvest = recalcHarvest;
+      }
+      if (originLotChanged) {
+        before.declared.originLot = blend.declaredOriginLot;
+        after.declared.originLot = recalcOriginLot;
       }
       if (ownerChanged) {
         before.ownerClientId = blend.ownerClientId;
@@ -2733,6 +2776,8 @@ export class SampleCommandService {
         lostSacks: blend.lostSacks,
         currentHarvest: blend.declaredHarvest,
         newHarvest: recalcHarvest,
+        currentOriginLot: blend.declaredOriginLot,
+        newOriginLot: recalcOriginLot,
         currentOwner: blend.declaredOwner,
         newOwner: recalcOwner.declaredOwner,
       });

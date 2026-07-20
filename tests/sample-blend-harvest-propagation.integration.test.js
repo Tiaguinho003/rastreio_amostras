@@ -80,7 +80,13 @@ if (!databaseUrl || !databaseReachable) {
 
   // Cria um lote CLASSIFIED com a safra dada (a derivacao da liga e o foco
   // dos testes — por isso harvest e parametrizavel).
-  async function createSample({ id, lotNumber, harvest, declaredSacks = 50 }) {
+  async function createSample({
+    id,
+    lotNumber,
+    harvest,
+    declaredSacks = 50,
+    originLot = 'LOTE-ORIGEM',
+  }) {
     await eventService.appendEvent(
       registrationConfirmedEvent(id, {
         payload: {
@@ -89,7 +95,7 @@ if (!databaseUrl || !databaseReachable) {
             owner: 'Produtor',
             sacks: declaredSacks,
             harvest,
-            originLot: 'LOTE-ORIGEM',
+            originLot,
           },
         },
       })
@@ -254,14 +260,13 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(after.declaredSacks, 20);
   });
 
-  // Liga: nao tem lote de origem proprio (declared.originLot e null por design —
-  // a origem real vive em SampleBlendComponent). READ-ONLY: editar direto e
-  // rejeitado (422 BLEND_ORIGIN_LOT_READ_ONLY), evitando um lote-fantasma.
-  test('lote de origem da liga e read-only: editar direto lanca 422', async () => {
+  // Liga: lote de origem DERIVADO da somatoria das origens dos componentes (nao
+  // mais null) e EDITAVEL — editar a mao FIXA (pin) a origem, espelhando o dono.
+  test('lote de origem da liga: deriva das origens e editar a mao fixa (pin)', async () => {
     const o1 = randomUUID();
     const o2 = randomUUID();
-    await createSample({ id: o1, lotNumber: '23001', harvest: '24/25' });
-    await createSample({ id: o2, lotNumber: '23002', harvest: '24/25' });
+    await createSample({ id: o1, lotNumber: '23001', harvest: '24/25', originLot: 'PA-01' });
+    await createSample({ id: o2, lotNumber: '23002', harvest: '24/25', originLot: 'PB-07' });
     const blend = await createBlend({
       clientDraftId: 'd-lot-ro',
       components: [
@@ -271,16 +276,42 @@ if (!databaseUrl || !databaseReachable) {
       lotNumber: '23003',
     });
 
-    let thrown = null;
-    try {
-      await editDeclared(blend.sample.id, { originLot: 'LOTE-FANTASMA' });
-    } catch (error) {
-      thrown = error;
-    }
+    // Deriva a somatoria (distinta, ordenada) — nao null.
+    const created = await prisma.sample.findUnique({ where: { id: blend.sample.id } });
+    assert.equal(created.declaredOriginLot, 'PA-01, PB-07');
+    assert.equal(created.blendOriginLotPinned, false);
 
-    assert.ok(thrown instanceof HttpError);
-    assert.equal(thrown.status, 422);
-    assert.equal(thrown.details.code, 'BLEND_ORIGIN_LOT_READ_ONLY');
+    // Editar a origem a mao: permitido, atualiza o valor e FIXA (pin).
+    await editDeclared(blend.sample.id, { originLot: 'MANUAL-99' });
+    const edited = await prisma.sample.findUnique({ where: { id: blend.sample.id } });
+    assert.equal(edited.declaredOriginLot, 'MANUAL-99');
+    assert.equal(edited.blendOriginLotPinned, true);
+  });
+
+  // Liga: editar a origem de um COMPONENTE re-deriva a origem da liga NAO pinada
+  // (propagacao reativa, gemea da safra).
+  test('propaga: editar a origem de um componente re-deriva a origem da liga', async () => {
+    const o1 = randomUUID();
+    const o2 = randomUUID();
+    await createSample({ id: o1, lotNumber: '25001', harvest: '24/25', originLot: 'PA-01' });
+    await createSample({ id: o2, lotNumber: '25002', harvest: '24/25', originLot: 'PB-07' });
+    const blend = await createBlend({
+      clientDraftId: 'd-lot-prop',
+      components: [
+        { originSampleId: o1, contributedSacks: 10 },
+        { originSampleId: o2, contributedSacks: 10 },
+      ],
+      lotNumber: '25003',
+    });
+    let b = await prisma.sample.findUnique({ where: { id: blend.sample.id } });
+    assert.equal(b.declaredOriginLot, 'PA-01, PB-07');
+
+    // Edita a origem do componente o1 (PA-01 -> XX-99), confirmando a propagacao.
+    await editDeclared(o1, { originLot: 'XX-99' }, { confirm: true });
+
+    b = await prisma.sample.findUnique({ where: { id: blend.sample.id } });
+    assert.equal(b.declaredOriginLot, 'PB-07, XX-99');
+    assert.equal(b.blendOriginLotPinned, false);
   });
 
   // Sanidade: o guard por presenca NAO bloqueia campos autorais — editar so o

@@ -371,7 +371,8 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(response.body.fields.produtor, 'P'.repeat(52));
     assert.equal(response.body.fields.armazem, 'W'.repeat(52));
     assert.equal(response.body.fields.sacas, '250');
-    assert.deepEqual(response.body.lots, ['1234', '5678', '91011', '121/3', '999']);
+    // Hifen NAO separa mais (faz parte do codigo): "1234-5678" fica inteiro.
+    assert.deepEqual(response.body.lots, ['1234-5678', '91011', '121/3', '999']);
     assert.equal(response.body.originLotText, '1234-5678 91011, 121/3; 999');
   });
 

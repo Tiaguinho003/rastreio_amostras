@@ -1,7 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { deriveBlendHarvest, deriveBlendOwner } from '../src/samples/blend-harvest.js';
+import {
+  deriveBlendHarvest,
+  deriveBlendOriginLot,
+  deriveBlendOwner,
+} from '../src/samples/blend-harvest.js';
 
 // --- casos basicos ---
 
@@ -48,6 +52,30 @@ test('deriveBlendHarvest: so nulos retorna null', () => {
 
 test('deriveBlendHarvest: strings vazias/espacos sao ignoradas', () => {
   assert.equal(deriveBlendHarvest(['', '  ', '24/25']), '24/25');
+});
+
+// --- deriveBlendOriginLot (gemeo da safra, para lotes de origem) ---
+
+test('deriveBlendOriginLot: origens com a mesma origem dedupam para uma', () => {
+  assert.equal(deriveBlendOriginLot(['PA-01', 'PA-01']), 'PA-01');
+});
+
+test('deriveBlendOriginLot: origens distintas concatenam ordenado (hifen preservado)', () => {
+  assert.equal(deriveBlendOriginLot(['PB-07', 'PA-01']), 'PA-01, PB-07');
+});
+
+test('deriveBlendOriginLot: faz split de origem-liga ja concatenada e dedupa', () => {
+  assert.equal(deriveBlendOriginLot(['PA-01, PB-07', 'PA-01']), 'PA-01, PB-07');
+});
+
+test('deriveBlendOriginLot: separa por espaco/virgula/; e preserva hifen e barra', () => {
+  assert.equal(deriveBlendOriginLot(['PA-01 12/3; PB-07']), '12/3, PA-01, PB-07');
+});
+
+test('deriveBlendOriginLot: ignora null/vazio; tudo nulo -> null', () => {
+  assert.equal(deriveBlendOriginLot([null, 'PA-01', '  ']), 'PA-01');
+  assert.equal(deriveBlendOriginLot([]), null);
+  assert.equal(deriveBlendOriginLot([null, null]), null);
 });
 
 // --- deriveBlendOwner ---

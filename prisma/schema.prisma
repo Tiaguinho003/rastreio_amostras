@@ -296,6 +296,10 @@ model Sample {
   /// recalcula o dono (so a safra deriva). blendOwnerPinned=true + ownerClientId
   /// null = "carteira da corretora" (escolha explicita). Ver Liga (dono fixado).
   blendOwnerPinned            Boolean             @default(false) @map("blend_owner_pinned")
+  /// True quando o LOTE DE ORIGEM da liga foi editado manualmente (estatuto
+  /// "dono", igual ao blendOwnerPinned): a propagacao reativa NAO re-deriva a
+  /// origem (fica no valor manual). Ver deriveBlendOriginLot / propagacao.
+  blendOriginLotPinned        Boolean             @default(false) @map("blend_origin_lot_pinned")
   updatedAt                   DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
   createdAt                   DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
 

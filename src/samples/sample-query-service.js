@@ -2146,6 +2146,7 @@ export class SampleQueryService {
         soldSacks: true,
         lostSacks: true,
         declaredHarvest: true,
+        declaredOriginLot: true,
         ownerClientId: true,
         declaredOwner: true,
         internalLotNumber: true,
@@ -2164,6 +2165,7 @@ export class SampleQueryService {
       lostSacks: row.lostSacks,
       availableSacks: (row.declaredSacks ?? 0) - row.soldSacks - row.lostSacks,
       declaredHarvest: row.declaredHarvest ?? null,
+      declaredOriginLot: row.declaredOriginLot ?? null,
       ownerClientId: row.ownerClientId ?? null,
       declaredOwner: row.declaredOwner ?? null,
       internalLotNumber: row.internalLotNumber,
@@ -2231,12 +2233,14 @@ export class SampleQueryService {
           parent.status::text AS status,
           parent.commercial_status::text AS commercial_status,
           parent.declared_harvest,
+          parent.declared_origin_lot,
           parent.owner_client_id,
           parent.declared_owner,
           parent.internal_lot_number,
           parent.sold_sacks,
           parent.lost_sacks,
-          parent.blend_owner_pinned
+          parent.blend_owner_pinned,
+          parent.blend_origin_lot_pinned
         FROM sample_blend_component bc
         JOIN sample parent ON parent.id = bc.sample_id
         WHERE bc.origin_sample_id = ${editedSampleId}::uuid
@@ -2251,12 +2255,14 @@ export class SampleQueryService {
           parent.status::text AS status,
           parent.commercial_status::text AS commercial_status,
           parent.declared_harvest,
+          parent.declared_origin_lot,
           parent.owner_client_id,
           parent.declared_owner,
           parent.internal_lot_number,
           parent.sold_sacks,
           parent.lost_sacks,
-          parent.blend_owner_pinned
+          parent.blend_owner_pinned,
+          parent.blend_origin_lot_pinned
         FROM ancestor_blends ab
         JOIN sample_blend_component bc ON bc.origin_sample_id = ab.sample_id
         JOIN sample parent ON parent.id = bc.sample_id
@@ -2270,12 +2276,14 @@ export class SampleQueryService {
         status,
         commercial_status,
         declared_harvest,
+        declared_origin_lot,
         owner_client_id,
         declared_owner,
         internal_lot_number,
         sold_sacks,
         lost_sacks,
-        blend_owner_pinned
+        blend_owner_pinned,
+        blend_origin_lot_pinned
       FROM ancestor_blends
       ORDER BY depth ASC, sample_id ASC
     `;
@@ -2287,12 +2295,14 @@ export class SampleQueryService {
       status: row.status,
       commercialStatus: row.commercial_status,
       declaredHarvest: row.declared_harvest ?? null,
+      declaredOriginLot: row.declared_origin_lot ?? null,
       ownerClientId: row.owner_client_id ?? null,
       declaredOwner: row.declared_owner ?? null,
       internalLotNumber: row.internal_lot_number,
       soldSacks: Number(row.sold_sacks),
       lostSacks: Number(row.lost_sacks),
       blendOwnerPinned: row.blend_owner_pinned === true,
+      blendOriginLotPinned: row.blend_origin_lot_pinned === true,
     }));
   }
 
@@ -2311,6 +2321,7 @@ export class SampleQueryService {
         bc.sample_id AS blend_id,
         bc.origin_sample_id AS origin_id,
         origin.declared_harvest,
+        origin.declared_origin_lot,
         origin.owner_client_id,
         origin.declared_owner
       FROM sample_blend_component bc
@@ -2325,6 +2336,7 @@ export class SampleQueryService {
       result.get(blendId).push({
         originId: row.origin_id,
         declaredHarvest: row.declared_harvest ?? null,
+        declaredOriginLot: row.declared_origin_lot ?? null,
         ownerClientId: row.owner_client_id ?? null,
         declaredOwner: row.declared_owner ?? null,
       });

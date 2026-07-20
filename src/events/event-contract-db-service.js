@@ -322,6 +322,10 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
     // Liga (dono fixado): auto-pin de edicao manual de dono de liga, e re-derivacao
     // de ligas nao-fixadas, viajam por after.blendOwnerPinned.
     if (hasOwn(after, 'blendOwnerPinned')) updateData.blendOwnerPinned = after.blendOwnerPinned;
+    // Liga (lote de origem fixado): auto-pin de edicao manual da origem da liga
+    // viaja por after.blendOriginLotPinned (espelha o dono).
+    if (hasOwn(after, 'blendOriginLotPinned'))
+      updateData.blendOriginLotPinned = after.blendOriginLotPinned;
     // ownerUnitId ignorado de proposito (lote nao vincula fazenda).
 
     if (hasOwn(after, 'owner')) updateData.declaredOwner = after.owner;

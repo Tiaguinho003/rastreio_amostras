@@ -154,8 +154,9 @@ if (!databaseUrl || !databaseReachable) {
     await rejects422(await validInput({ harvest: '' }));
   });
 
-  test('originLot > 100 caracteres -> 422', async () => {
-    await rejects422(await validInput({ originLot: 'x'.repeat(101) }));
+  test('originLot > 2000 caracteres -> 422', async () => {
+    // Chips: sem limite pratico (cap so anti-abuso subiu de 100 para 2000).
+    await rejects422(await validInput({ originLot: 'x'.repeat(2001) }));
   });
 
   test('location > 30 caracteres -> 422', async () => {

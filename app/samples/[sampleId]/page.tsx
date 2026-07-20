@@ -3083,32 +3083,23 @@ export default function SampleDetailPage() {
                 <div className="sdv-edit-row">
                   <label className="app-modal-field">
                     <span className="app-modal-label">Lote de origem</span>
+                    <OriginLotChips
+                      value={originLot}
+                      onChange={setOriginLot}
+                      onFocus={() => clearRegField('originLot')}
+                      hasError={Boolean(registrationFieldErrors.originLot)}
+                      disabled={registrationUpdating}
+                    />
                     {detail?.sample.isBlend ? (
-                      // Liga: nao tem lote de origem proprio — a origem real vem
-                      // dos lotes que a compoem (o backend tambem rejeita originLot).
-                      <>
-                        <input
-                          className="app-modal-input"
-                          value={originLot}
-                          disabled
-                          aria-readonly="true"
-                        />
-                        <span className="sdv-edit-hint">A liga não tem lote de origem próprio</span>
-                      </>
-                    ) : (
-                      <>
-                        <OriginLotChips
-                          value={originLot}
-                          onChange={setOriginLot}
-                          onFocus={() => clearRegField('originLot')}
-                          hasError={Boolean(registrationFieldErrors.originLot)}
-                          disabled={registrationUpdating}
-                        />
-                        {registrationFieldErrors.originLot ? (
-                          <span className="sdv-edit-hint">{registrationFieldErrors.originLot}</span>
-                        ) : null}
-                      </>
-                    )}
+                      // Liga: origem DERIVADA da somatoria dos componentes, mas
+                      // editavel — editar a mao FIXA (pin) e a propagacao para de
+                      // re-derivar (nao toca os componentes; o backend seta o pin).
+                      <span className="sdv-edit-hint">
+                        Deriva dos lotes que a compõem; editar aqui fixa a origem da liga.
+                      </span>
+                    ) : registrationFieldErrors.originLot ? (
+                      <span className="sdv-edit-hint">{registrationFieldErrors.originLot}</span>
+                    ) : null}
                   </label>
                   <label className="app-modal-field">
                     <span className="app-modal-label">Local</span>
