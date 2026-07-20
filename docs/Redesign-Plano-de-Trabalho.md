@@ -104,6 +104,15 @@ Cinco commits atômicos, gates verdes a cada um (typecheck, lint, format, unit 5
 - 📱 Tabbar some com o overlay aberto e volta ao fechar; modo liga com peek aberto não quebra; teclado iOS nos inputs de edição no fim do sheet (risco §6.3).
 - Novo lote criado fora da lista (dashboard) abre o overlay do recém-criado.
 
+### 2.4 Extensão — CRIAÇÃO como painel lateral (2026-07-20, pedido do Flavio)
+
+Na sequência da F2, os formulários de **criação** também viram painel lateral no desktop (commit `875c777`): classe `.side-sheet` com a geometria do peek de detalhe (620px, slide da direita), mas com **backdrop escurecido/bloqueante padrão** — criação tem estado sujo, a lista atrás NÃO fica clicável (diferença deliberada pro `.detail-overlay`). Não é dirigido por URL (criar não é recurso endereçável; história segue com o árbitro do BottomSheet). Mobile intacto (sheet como sempre).
+
+- **Novo lote** (`NewSampleModal`, FAB de `/samples`): `className` ganha `side-sheet`.
+- **Novo cliente** (`ClientQuickCreateModal` via prop nova `sideSheet`, passada só pelo FAB de `/cadastros`). Os quick-creates **aninhados** (novo proprietário dentro do Novo lote etc.) continuam centrais — lateral sobre lateral esconderia o form de baixo.
+
+**Validar junto com a F2 (🖥️)**: FAB → painel lateral desliza da direita com backdrop escuro; lista atrás NÃO clicável; footer (Cancelar/Continuar·Cadastrar) ancorado embaixo; "Descartar?" cobre o painel (cliente) / centraliza sobre tudo (lote); quick-create de proprietário aninhado abre CENTRAL sobre o painel do Novo lote; 📱 mobile sem mudança visual.
+
 ## 3. O que NÃO muda
 
 - **Backend**: nenhuma rota de API muda. RD2 é só front + redirects de rota.
