@@ -796,6 +796,42 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(printJobs.length, 3, 'cada reclassificacao imprime uma vez');
   });
 
+  test('FIN12: classificationType valido chega ao evento e a projecao; invalido e barrado', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToRegistrationConfirmed(sampleId);
+
+    await classifyByCamera(sampleId, { classificationType: 'CONILON' });
+    const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
+    assert.equal(detail.sample.classificationType, 'CONILON');
+    const completed = detail.events.find((event) => event.eventType === 'CLASSIFICATION_COMPLETED');
+    assert.equal(completed.payload.classificationType, 'CONILON');
+
+    // O unico gate do tipo e o enum do schema, no appendEvent — nao ha
+    // validacao imperativa em nenhuma camada de servico (a UI so oferece os
+    // 5 valores). Um valor fora do enum falha, mas so na hora de persistir.
+    const other = randomUUID();
+    await moveSampleToRegistrationConfirmed(other);
+    await assert.rejects(classifyByCamera(other, { classificationType: 'INEXISTENTE' }));
+  });
+
+  test('FIN: reclassificacao sem motivo explicito usa os defaults do confirm', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToRegistrationConfirmed(sampleId);
+
+    await classifyByCamera(sampleId);
+    await settleLatestPrintJob(sampleId);
+    // Sem reasonCode/reasonText: o confirm carimba 'DATA_FIX' +
+    // 'Reclassificacao via foto' (compat pre-Q.cls.2.7). A obrigatoriedade
+    // do motivo e do portao no frontend, nao do backend.
+    await classifyByCamera(sampleId, { classificationData: { padrao: 'SEM-MOTIVO' } });
+
+    const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
+    const updated = detail.events.filter((event) => event.eventType === 'CLASSIFICATION_UPDATED');
+    assert.equal(updated.length, 1);
+    assert.equal(updated[0].payload.reasonCode, 'DATA_FIX');
+    assert.equal(updated[0].payload.reasonText, 'Reclassificacao via foto');
+  });
+
   test('FIN10: editar a classificacao fora da camera NAO imprime', async () => {
     // updateClassification tem 3 chamadores (edicao inline do detalhe, reverso
     // de evento e o confirm da camera). So o da camera deve imprimir — senao

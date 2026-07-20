@@ -36,6 +36,7 @@ import { compressImage, isHighQualityEnabled, pickQualityFromEnv } from '../../l
 import {
   type ClassificationFormState,
   EMPTY_CLASSIFICATION_FORM,
+  getMetaStepBlocker,
   hasAnyExtractedValue,
   mapExtractionToForm,
   validateClassificationForm,
@@ -303,7 +304,10 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
   // deixando o operador olhando a pagina de tras por segundos (FIN1).
   const isMetaStep = flowState === 'classification-meta' && (!!extractionResult || manualMode);
   const isSubmitting = flowState === 'submitting';
-  const canConfirmMeta = !!classificationType && selectedClassifiers.length > 0;
+  // Sem classificador o backend rejeitaria com 422 DEPOIS de subir a foto —
+  // barramos antes. O tipo tambem e obrigatorio, mas com erro dentro do campo
+  // (o botao continua clicavel pra que o operador VEJA o motivo).
+  const metaBlocker = getMetaStepBlocker(classificationType, selectedClassifiers.length);
 
   // --- Lifecycle ---
 
@@ -1741,15 +1745,14 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
               <button
                 type="button"
                 className="camera-preview-sheet-action-primary"
-                disabled={isSubmitting}
+                disabled={isSubmitting || metaBlocker === 'classifiers'}
                 onClick={() => {
                   setMetaOpenField(null);
-                  // Tipo continua OBRIGATORIO (antes era impossivel avancar sem
-                  // escolher um; com dropdown o botao fica alcancavel vazio).
-                  if (!classificationType) {
+                  if (metaBlocker === 'type') {
                     setMetaShowTypeError(true);
                     return;
                   }
+                  if (metaBlocker) return;
                   void handleConfirmClassification();
                 }}
               >

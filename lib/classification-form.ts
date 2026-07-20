@@ -367,3 +367,24 @@ export function mapExtractionToForm(
 export function hasAnyExtractedValue(fields: ExtractedClassificationFields): boolean {
   return Object.values(mapExtractionToForm(fields)).some((value) => value.trim() !== '');
 }
+
+// --- Etapa "Tipo e classificadores" (rodada 2) ---
+
+/**
+ * Por que o "Confirmar" da etapa nao pode salvar ainda.
+ * - `classifiers`: min 1 e regra do backend (`normalizeClassifiers`, 422
+ *   CLASSIFIERS_REQUIRED) — barramos antes de subir a foto.
+ * - `type`: obrigatorio no cliente. Enquanto eram dois modais, era impossivel
+ *   chegar ao save sem tipo (so se avancava clicando num); com o dropdown o
+ *   botao fica alcancavel vazio, e tipo nulo numa reclassificacao faz o evento
+ *   registrar a remocao do tipo sem que a projecao limpe a coluna.
+ * `null` = pode salvar.
+ */
+export function getMetaStepBlocker(
+  classificationType: string | null,
+  classifierCount: number
+): 'type' | 'classifiers' | null {
+  if (classifierCount < 1) return 'classifiers';
+  if (!classificationType) return 'type';
+  return null;
+}

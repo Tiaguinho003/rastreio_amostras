@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   EMPTY_CLASSIFICATION_FORM,
   buildClassificationDataPayload,
+  getMetaStepBlocker,
   hasAnyExtractedValue,
   mapExtractionToForm,
   validateClassificationForm,
@@ -184,4 +185,16 @@ test('hasAnyExtractedValue: detecta extracao 100% vazia vs parcial', () => {
   );
   assert.equal(hasAnyExtractedValue({ peneiras: { p17: '38' } }), true);
   assert.equal(hasAnyExtractedValue({ fundos: [{ peneira: '13', percentual: null }] }), true);
+});
+
+test('getMetaStepBlocker: bloqueia sem classificador e sem tipo, libera com os dois', () => {
+  // Rodada 2 (etapa unica): o backend rejeitaria classifiers vazio com 422
+  // DEPOIS de subir a foto; e tipo nulo numa reclassificacao faria o evento
+  // registrar a remocao do tipo sem a projecao limpar a coluna.
+  assert.equal(getMetaStepBlocker(null, 0), 'classifiers');
+  assert.equal(getMetaStepBlocker('BICA', 0), 'classifiers');
+  assert.equal(getMetaStepBlocker(null, 1), 'type');
+  assert.equal(getMetaStepBlocker('', 2), 'type');
+  assert.equal(getMetaStepBlocker('CONILON', 1), null);
+  assert.equal(getMetaStepBlocker('BICA', 3), null);
 });
