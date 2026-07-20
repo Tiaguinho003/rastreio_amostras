@@ -1,6 +1,6 @@
 # Redesign — Plano de Trabalho
 
-> **Status**: F1 **implementada** em 2026-07-20 (5 commits, §2.1) — 🖥️📱 aguardando validação no device
+> **Status**: F1 **✅ validada** (2026-07-20, Flavio no dev local) e skills sincronizadas; F3 (contrato) **antecipada e implementada** em 2026-07-20 (§2.2) — 🖥️📱 aguardando validação
 > **Última atualização**: 2026-07-20
 > **Prefixo de decisões**: RD
 > **Par futuro**: quando o padrão consolidar, o funcionamento real será absorvido pelos docs canônicos e pelas skills (`modals`, `design-system`, `responsive`). A frente visual parte de `docs/Design-Language.md` (canônico dos tokens).
@@ -30,18 +30,18 @@ Todas travadas em **2026-07-20** (conversa de kickoff, com levantamento de códi
 
 ## 2. Fases
 
-| Fase   | Escopo                                                                                                                                                                                                                                                     | Estado                                           |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| **F0** | Decisões RD1–RD10 + este doc + registro do ciclo                                                                                                                                                                                                           | ✅ 2026-07-20                                    |
-| **F1** | Contêiner `DetailOverlay` (apresentação por dispositivo, histórico, foco, empilhamento) + piloto **cliente** em `/cadastros` (absorve `cdm-modal` + página de gestão) + redirects de `/clients` e `/clients/[clientId]` + limpeza dos comentários do split | 🛠 implementada 2026-07-20 (§2.1); 🖥️📱 validar  |
-| **F2** | **Lote** — F2a: quebra do page.tsx em seções (refactor mecânico); F2b: transplante para o overlay; F2c: cadeias (câmera, impressão, classificação, envio, liga) sobre o overlay + redirects                                                                | ☐                                                |
-| **F3** | **Contrato** — realinhar `SaleContractDetailsModal` ao padrão (+ P27)                                                                                                                                                                                      | ☐                                                |
-| **F4** | Limpeza: rotas antigas só-redirect (ou remoção), morte do snapshot de sessionStorage do `SampleCard`, sync final de skills/docs                                                                                                                            | ☐                                                |
-| **FV** | Frente visual: mockups → tokens (`Design-Language.md`) → reskin geral                                                                                                                                                                                      | ☐ aguarda mockups; pode iniciar após F1 validada |
+| Fase   | Escopo                                                                                                                                                                                                                                                     | Estado                                                                                         |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| **F0** | Decisões RD1–RD10 + este doc + registro do ciclo                                                                                                                                                                                                           | ✅ 2026-07-20                                                                                  |
+| **F1** | Contêiner `DetailOverlay` (apresentação por dispositivo, histórico, foco, empilhamento) + piloto **cliente** em `/cadastros` (absorve `cdm-modal` + página de gestão) + redirects de `/clients` e `/clients/[clientId]` + limpeza dos comentários do split | ✅ validada 2026-07-20 (Flavio, dev local); skills sincronizadas                               |
+| **F2** | **Lote** — F2a: quebra do page.tsx em seções (refactor mecânico); F2b: transplante para o overlay; F2c: cadeias (câmera, impressão, classificação, envio, liga) sobre o overlay + redirects                                                                | ☐                                                                                              |
+| **F3** | **Contrato** — realinhar `SaleContractDetailsModal` ao padrão (+ P27)                                                                                                                                                                                      | 🛠 implementada 2026-07-20 (§2.2, **antecipada** antes da F2 a pedido do Flavio); 🖥️📱 validar |
+| **F4** | Limpeza: rotas antigas só-redirect (ou remoção), morte do snapshot de sessionStorage do `SampleCard`, sync final de skills/docs                                                                                                                            | ☐                                                                                              |
+| **FV** | Frente visual: mockups → tokens (`Design-Language.md`) → reskin geral                                                                                                                                                                                      | ☐ aguarda mockups; pode iniciar após F1 validada                                               |
 
 Cada fase abre em **plan mode** e só fecha com **validação no device** (🖥️ + 📱), como nos demais ciclos.
 
-### 2.1 F1 — implementada (2026-07-20), aguardando validação
+### 2.1 F1 — implementada e ✅ validada (2026-07-20)
 
 Cinco commits atômicos, gates completos verdes (lint, format, typecheck, build, schemas, unit 535, contracts 20):
 
@@ -61,6 +61,25 @@ Cinco commits atômicos, gates completos verdes (lint, format, typecheck, build,
 - Criar cliente pelo FAB auto-abre o overlay do novo.
 - 📱 Tabbar some com o overlay aberto e volta ao fechar; teclado iOS nos inputs de edição no fim do conteúdo (risco §6.3).
 - `/clients` e `/clients/<id>` redirecionam (com `?incomplete` e id preservados); PROSPECTOR segue barrado; a nav mobile mostra "Cadastros" no 4º slot pra todo papel.
+
+### 2.2 F3 — implementada (2026-07-20, antecipada), aguardando validação
+
+**Antecipação**: por decisão do Flavio (2026-07-20, logo após validar a F1), a F3 veio **antes da F2** — os gates de device da F2 (câmera Rodada 2, liga/safra, auditoria) seguem pendentes e não tocam `/contratos`. Atenção: as frentes **espelho**, **aprovação (AP31–AP33)** e **embarque** também aguardam validação em `/contratos` — a validação da F3 soma-se a elas na mesma sessão de device. **P27** (design das páginas de Contrato) segue aberta — a F3 é só o realinhamento estrutural (RD6/RD9).
+
+Dois commits, gates verdes (typecheck, lint, format; build não rodou — dev server ativo — fica pro pré-push):
+
+1. `55f750b` — `DetailOverlay` aceita `footer` (ações fixas no rodapé, repassa ao BottomSheet) e `className` extra ao lado de `.detail-overlay` (overrides escopados por conteúdo).
+2. `abe3ff1` — o realinhamento: `SaleContractDetailsModal` troca o frame central (`.ctr-form-sheet .ctr-contract-sheet .ctr-details-sheet`) pelo `DetailOverlay` (`.ctr-details-overlay`) — peek 620px desktop / sheet tela cheia mobile, **coluna única sempre** (as regras 2-colunas do `.ctr-details-sheet` morreram). No `ContratosPanel`, `?details=<id>` vira **fonte de verdade** (molde do `?cliente=`): push abre, replace troca, fechar = back-se-nosso-push senão replace; param órfão (id fora da lista) é limpo pós-carga. Os **swaps** do rodapé (Editar/Ágio/Washout/Gerar espelho) e o vai-e-volta da conferência (D134) rodam **pós-fechamento** via `afterDetailsCloseRef` — abrir o próximo sheet no mesmo tick do `router.back()` faria o popstate atrasado engolir a entry do sheet novo (fecharia na hora). `dismissGuardRef` interno cobre o confirm de aprovação (AP32) e o lightbox de foto. Deep-links `?details=` (Eventos/Financeiro/Embarque/Aprovações) intactos — e fechar agora limpa o param (antes ficava zumbi).
+
+**Checklist de validação (🖥️ ≥901px, 📱 device):**
+
+- Card "Detalhes" abre o overlay (URL ganha `?details=` preservando `?tab=`); back fecha; X/ESC fecham; refresh e deep-link reabrem lista+overlay; fechar após deep-link limpa o param.
+- 🖥️ Lista viva atrás do peek; "Detalhes" de outro card TROCA o contrato (back fecha em 1 passo); coluna única sem overflow nos 620px (PDF, tabelas de valores, galeria do embarque, timeline).
+- Rodapé por status: EMITIDO = Editar·Ágio·Deságio·Washout (+ Gerar espelho quando elegível); FATURADO/PAGO = Washout; cada ação FECHA o overlay e abre o fluxo (swap sem sobreposição, sem flash de fechamento do sheet novo).
+- Vai-e-volta do espelho: conferência → "Ver detalhes" → fechar (X, ESC ou **back**) reabre a conferência; Editar/Ágio/Washout encerram o vai-e-volta.
+- Confirm "Solicitar aprovação" e lightbox de foto abrem SOBRE o overlay; ESC com eles abertos NÃO fecha o overlay.
+- 📱 Sheet de tela cheia com respiro lateral correto (o conteúdo `.ctr-details-*` não tem padding próprio); tabbar some/volta; footer de ações acima da safe area.
+- Deep-links: "Ver contrato" do card de Eventos, Financeiro, Embarque e Aprovações abrem o overlay na aba Contratos.
 
 ## 3. O que NÃO muda
 
@@ -93,7 +112,7 @@ Cinco commits atômicos, gates completos verdes (lint, format, typecheck, build,
 
 Regra do ciclo: **skill segue consolidação; ledger segue decisão.** Durante experimentação, nada de editar skill.
 
-- **Fechou F1 (validada no device)**: `modals` ganha a terceira categoria na árvore de decisão (hoje: ação = BottomSheet; aviso = central; novo: **detalhe = DetailOverlay**); `responsive` documenta o switch de apresentação por dispositivo; `design-system` §8 ganha a variante sheet-de-tela-cheia.
+- **Fechou F1 (validada)** — ✅ feito em 2026-07-20 (`8fe8580`): `design-system` §8 ganhou a seção **DetailOverlay** (molde de URL, peek, gotcha de z-index); `modals` aponta pra ela na árvore de decisão (ação = BottomSheet; aviso = central; **detalhe = DetailOverlay**), atualizou a tabela do cliente (4 modais portalados) e aposentou a exceção inline do §9; `responsive` sem `/clients/[id]`.
 - **Fechou F4**: varredura geral (`skill-maintenance`) + este doc aponta para os canônicos.
 - **FV consolidada**: reescrita maior de `design-system` (+ revisão de `feedback-messages` e `button-press-effect`), com `Design-Language.md` como fonte dos tokens.
 - `skill-maintenance` roda ao fim de **cada** fase, como sempre.
