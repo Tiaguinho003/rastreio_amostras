@@ -4343,7 +4343,23 @@ export class SampleCommandService {
       if (createdTempFile) {
         await fs.promises.rm(tempPath, { force: true }).catch(() => {});
       }
-      throw err;
+      if (err instanceof HttpError) {
+        throw err;
+      }
+      // Falhas da IA chegam como Error plain com .code (TIMEOUT / PARSE_ERROR /
+      // OPENAI_ERROR / HTTP_ERROR) e caiam no 500 generico do
+      // toHttpErrorResponse — o modal tecnico do front exibe a .message, entao
+      // o operador via "Internal server error" sem acao possivel.
+      if (err.code === 'TIMEOUT') {
+        throw new HttpError(504, 'A leitura da ficha demorou demais. Tente novamente.', {
+          errorCode: 'TIMEOUT',
+        });
+      }
+      throw new HttpError(
+        502,
+        'O servico de leitura da ficha falhou. Tente novamente ou continue manualmente.',
+        { errorCode: err.code ?? 'UNKNOWN' }
+      );
     }
   }
 
