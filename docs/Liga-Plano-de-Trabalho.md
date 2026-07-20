@@ -1847,3 +1847,14 @@ As duas últimas sub-fases do plano da Liga, ambas marcadas como opcionais/post-
 **Commits**: `feat(samples): liga B3.6 — trace de cascata no movimento de origem` · `feat(samples): liga B3.7 — dono e safra da liga em activeBlends`.
 
 **Plano da Liga concluído** — todas as fases (Waves A, B, C + sub-fases B3.x) implementadas e em produção. B3.6/B3.7 deployadas em 2026-05-21 (canary → migrate → smoke → promote; revisão `rastreio-prod-app-00267-xob`, SHA `6ff8cf9`).
+
+### 2026-07-20 — Lote de origem multi-código (chips) + origem da liga derivada/pinável
+
+Parte de um arco maior (etiqueta de aprovação em 2 colunas + lote de origem como chips). O que toca a LIGA:
+
+- **F3.5 revogada:** o `declaredOriginLot` da liga DEIXOU de ser null. Agora **deriva da somatória** dos lotes de origem dos componentes — `deriveBlendOriginLot` (`src/samples/blend-harvest.js`), gêmeo do `deriveBlendHarvest` (união + dedup + ordenado; split por `[\s,;]+` que PRESERVA hífen/barra, ex.: `PA-01`). `createBlend` deriva na criação; `_buildBlendPropagation` re-deriva as ligas ancestrais quando a origem de um componente muda (propagação reativa, junto com safra/dono).
+- **Editável + pinável (estatuto "dono"):** editar a origem da liga a mão passou a ser PERMITIDO e **FIXA** (`Sample.blendOriginLotPinned`, migration `20260719120000_blend_origin_lot_pinned`, backward-compat). Auto-pin no `updateRegistration`; quando pinada, a propagação NÃO re-deriva (lê o valor fixado). Nunca toca os componentes. O guard `BLEND_ORIGIN_LOT_READ_ONLY` foi **removido**. Espelha exatamente o `blendOwnerPinned`.
+- **Backfill:** as ligas EXISTENTES seguem com origem null até serem tocadas (propagação) ou recriadas — backfill de dado fica para prod.
+- **Lote normal + etiqueta:** o "lote de origem" virou **chips** (múltiplos códigos) no `NewSampleModal` e na edição (componente `OriginLotChips`); cap de storage 100 → 2000. A **etiqueta de aprovação** passou a **espelhar** a origem read-only (até 8 + "+"), com layout novo em 2 colunas (`print-agent/label.js`) — ver o arco de Contratos/Aprovações.
+
+**Gates:** unit 532, integração 487/487 local (reseed). 5 commits `0c969c1`..`ace8908` (fases 1–5). **NÃO pushado; migration nova; 🖥️📱 validar.**
