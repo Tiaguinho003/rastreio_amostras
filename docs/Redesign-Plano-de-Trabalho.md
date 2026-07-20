@@ -106,12 +106,13 @@ Cinco commits atômicos, gates verdes a cada um (typecheck, lint, format, unit 5
 
 ### 2.4 Extensão — CRIAÇÃO como painel lateral (2026-07-20, pedido do Flavio)
 
-Na sequência da F2, os formulários de **criação** também viram painel lateral no desktop (commit `875c777`): classe `.side-sheet` com a geometria do peek de detalhe (620px, slide da direita), mas com **backdrop escurecido/bloqueante padrão** — criação tem estado sujo, a lista atrás NÃO fica clicável (diferença deliberada pro `.detail-overlay`). Não é dirigido por URL (criar não é recurso endereçável; história segue com o árbitro do BottomSheet). Mobile intacto (sheet como sempre).
+Na sequência da F2, os formulários de **criação** também viram painel lateral no desktop (commits `875c777` + `7a2abbe`): classe `.side-sheet` com a geometria do peek de detalhe (620px, slide da direita), mas com **backdrop escurecido/bloqueante padrão** — criação tem estado sujo, a lista atrás NÃO fica clicável (diferença deliberada pro `.detail-overlay`). Não é dirigido por URL (criar não é recurso endereçável; história segue com o árbitro do BottomSheet). Mobile intacto (sheet como sempre).
 
 - **Novo lote** (`NewSampleModal`, FAB de `/samples`): `className` ganha `side-sheet`.
-- **Novo cliente** (`ClientQuickCreateModal` via prop nova `sideSheet`, passada só pelo FAB de `/cadastros`). Os quick-creates **aninhados** (novo proprietário dentro do Novo lote etc.) continuam centrais — lateral sobre lateral esconderia o form de baixo.
+- **Novo cliente** (`ClientQuickCreateModal`): side-sheet é o **padrão do componente em todos os contextos** (`7a2abbe` matou a prop `sideSheet` do primeiro corte) — FAB de `/cadastros`, "Novo proprietário" do Novo lote, comprador da venda/perda, informe de visita e os quick-creates do contrato. Sobre outro painel lateral, o de cima desliza cobrindo o de baixo (push de navegação; o tier `stacked` z 600 dá a ordem).
+- **Criação de contrato**: fora desta extensão — terá especificações próprias do Flavio (falar antes de mexer).
 
-**Validar junto com a F2 (🖥️)**: FAB → painel lateral desliza da direita com backdrop escuro; lista atrás NÃO clicável; footer (Cancelar/Continuar·Cadastrar) ancorado embaixo; "Descartar?" cobre o painel (cliente) / centraliza sobre tudo (lote); quick-create de proprietário aninhado abre CENTRAL sobre o painel do Novo lote; 📱 mobile sem mudança visual.
+**Validar junto com a F2 (🖥️)**: FAB → painel lateral desliza da direita com backdrop escuro; lista atrás NÃO clicável; footer (Cancelar/Continuar·Cadastrar) ancorado embaixo; "Novo proprietário" desliza SOBRE o painel do Novo lote e fechar revela o form de baixo intacto; "Descartar?" cobre o painel (cliente) / centraliza sobre tudo (lote); 📱 mobile sem mudança visual.
 
 ## 3. O que NÃO muda
 
