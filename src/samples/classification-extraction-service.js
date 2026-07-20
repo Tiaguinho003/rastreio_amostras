@@ -144,6 +144,30 @@ Percorra a ficha celula por celula, na ordem das 8 linhas. Em CADA celula pergun
 Retorne APENAS o JSON estruturado conforme o schema fornecido. Nenhum texto adicional.`;
 
 // ============================================================
+// FEW-SHOT (mensagem do exemplo)
+// ============================================================
+
+// EXT (rodada 1): a mensagem do exemplo NAO repete o USER_PROMPT. Antes o
+// prompt inteiro (~92 linhas) ia colado aqui E na mensagem da foto real —
+// ~30% dos tokens de entrada duplicados e duas instrucoes "extraia da ficha
+// presente na foto" competindo, uma delas anexada a imagem-exemplo. O
+// exemplo carrega apenas os valores + a imagem em detail:'low'; o layout e
+// as regras completas vivem SO na mensagem da foto real (a ultima).
+const FEW_SHOT_INTRO = `EXEMPLO DE REFERENCIA — NAO EXTRAIA DESTA IMAGEM.
+
+A imagem-exemplo abaixo ilustra COMO interpretar uma ficha SAFRAS ja extraida corretamente. Os valores manuscritos dela sao:
+- Lote: "5689", Sacas: "250", Safra: "26/27"
+- Padrao: "L4-P3", Aspecto: "GC", Certif: vazio
+- Peneiras: P17="38", MK="8" (demais peneiras vazias)
+- Fundos: FD1 peneira "13" percentual "3" (FD2 vazio), Catacao="33"
+- Defeitos: IMP="0,1", BROCA="1" (demais vazios)
+- Obs: "otelita", Bebida: vazio
+
+Este exemplo mostra apenas o formato e o estilo de extracao. A quantidade de campos preenchidos varia de ficha pra ficha: algumas tem 8+ peneiras, outras 3, outras nenhuma. NAO copie estes valores nem a quantidade de campos preenchidos.
+
+A ficha a EXTRAIR e a da PROXIMA mensagem (a ultima imagem), acompanhada das instrucoes completas de layout.`;
+
+// ============================================================
 // CONFIG DA INFERENCIA + VERSAO DO PROMPT (telemetria)
 // ============================================================
 
@@ -154,12 +178,13 @@ const IMAGE_DETAIL = 'high';
 const MAX_TOKENS = 1500;
 const TEMPERATURE = 0.2;
 
-// promptVersion: hash curto do prompt. Muda sozinho quando SYSTEM_PROMPT ou
-// USER_PROMPT sao editados, permitindo atribuir variacoes de recall na
-// telemetria (nullRateByCategory por promptVersion) sem versionar a mao.
+// promptVersion: hash curto do prompt. Muda sozinho quando SYSTEM_PROMPT,
+// USER_PROMPT ou FEW_SHOT_INTRO sao editados, permitindo atribuir variacoes
+// de recall na telemetria (nullRateByCategory por promptVersion) sem
+// versionar a mao.
 const PROMPT_VERSION = crypto
   .createHash('sha1')
-  .update(SYSTEM_PROMPT + USER_PROMPT)
+  .update(SYSTEM_PROMPT + USER_PROMPT + FEW_SHOT_INTRO)
   .digest('hex')
   .slice(0, 8);
 
@@ -375,10 +400,10 @@ function loadFewShotExample() {
   try {
     const imageBuffer = fs.readFileSync(path.join(FIXTURES_DIR, 'extraction-example.jpg'));
     // CL16 (auditoria 2026-07-13): so a IMAGEM da fixture e usada nas
-    // mensagens; os valores-resposta do exemplo vivem hardcoded no texto do
-    // prompt (a assistant-message com o JSON foi removida no diagnostico de
-    // template binding). O extraction-example.json permanece no repo como
-    // referencia humana do que o prompt descreve.
+    // mensagens; os valores-resposta do exemplo vivem hardcoded no
+    // FEW_SHOT_INTRO (a assistant-message com o JSON foi removida no
+    // diagnostico de template binding). O extraction-example.json permanece
+    // no repo como referencia humana do que o prompt descreve.
     return {
       imageDataUri: `data:image/jpeg;base64,${imageBuffer.toString('base64')}`,
     };
@@ -528,10 +553,13 @@ function normalizeFundoPeneira(value) {
 function normalizeIdentificacao(raw) {
   const safe = isPlainObject(raw) ? raw : {};
   return {
-    lote: toStringOrNull(safe.lote),
-    sacas: toStringOrNull(safe.sacas),
+    // EXT (rodada 1): rejectIfLabel tambem na identificacao — eco de rotulo
+    // impresso ("LOTE", "SCS", "SAFRA") entrava como valor e pre-preenchia o
+    // review. Valores legitimos sao numericos/AA-AA e nunca colidem.
+    lote: rejectIfLabel(toStringOrNull(safe.lote)),
+    sacas: rejectIfLabel(toStringOrNull(safe.sacas)),
     // F3.13: canoniza safra ("26-27"/"2026/2027" -> "26/27").
-    safra: canonicalizeHarvest(toStringOrNull(safe.safra)),
+    safra: canonicalizeHarvest(rejectIfLabel(toStringOrNull(safe.safra))),
   };
 }
 
@@ -632,25 +660,22 @@ export class ClassificationExtractionService {
     ];
 
     // F3.4 + mitigacao do template binding: few-shot visual sem `assistant`
-    // message. O exemplo (imagem + descricao textual dos valores extraidos) vai
-    // numa user message separada com avisos explicitos contra cópia. A imagem
-    // do exemplo usa `detail: 'low'` (reduz peso visual, ja so referencia);
-    // a foto real continua `detail: 'high'`.
+    // message. O exemplo (FEW_SHOT_INTRO + imagem em detail:'low') vai numa
+    // user message separada com avisos explicitos contra copia; a foto real
+    // continua `detail: 'high'` e carrega sozinha o USER_PROMPT completo.
     //
-    // Mudanca veio do diagnostico de template binding (Bloco F3): com a
-    // estrutura anterior (assistant JSON + strict + temperature 0), a IA
+    // Historia (Bloco F3): com assistant JSON + strict + temperature 0, a IA
     // replicava a quantidade exata de campos preenchidos da fixture (2/10
     // peneiras, 1/2 fundos) — confirmado por telemetria nullRateByCategory.
+    // EXT (rodada 1): o USER_PROMPT saiu da mensagem do exemplo (ia duplicado
+    // nas duas user messages — ver comentario do FEW_SHOT_INTRO).
     const messages = FEW_SHOT_EXAMPLE
       ? [
           { role: 'system', content: SYSTEM_PROMPT },
           {
             role: 'user',
             content: [
-              {
-                type: 'text',
-                text: `${USER_PROMPT}\n\nEXEMPLO DE REFERENCIA (apenas pra ilustrar formato e estilo de extracao — NAO copie estes valores nem a quantidade de campos preenchidos):\n\nA imagem-exemplo abaixo e uma ficha SAFRAS com os seguintes valores manuscritos extraidos:\n- Lote: "5689", Sacas: "250", Safra: "26/27"\n- Padrao: "L4-P3", Aspecto: "GC", Certif: vazio\n- Peneiras: P17="38", MK="8" (demais peneiras vazias)\n- Fundos: FD1 peneira "13" percentual "3" (FD2 vazio), Catacao="33"\n- Defeitos: IMP="0,1", BROCA="1" (demais vazios)\n- Obs: "otelita", Bebida: vazio\n\nEsse exemplo mostra COMO interpretar a ficha. A quantidade de campos preenchidos varia de ficha pra ficha: algumas tem 8+ peneiras, outras 3, outras nenhuma. SEMPRE extraia o que voce VE na FOTO REAL (a segunda imagem, mais abaixo), NUNCA replique a quantidade ou os valores do exemplo.`,
-              },
+              { type: 'text', text: FEW_SHOT_INTRO },
               {
                 type: 'image_url',
                 image_url: { url: FEW_SHOT_EXAMPLE.imageDataUri, detail: 'low' },

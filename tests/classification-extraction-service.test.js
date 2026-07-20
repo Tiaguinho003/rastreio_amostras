@@ -152,7 +152,38 @@ test('extractClassificationFromPhoto envia prompt unico, image_url e json_schema
     assert.equal(exampleContent[0].type, 'text');
     assert.equal(exampleContent[1].type, 'image_url');
     assert.equal(exampleContent[1].image_url.detail, 'low');
+
+    // EXT (rodada 1): a mensagem do exemplo NAO repete o USER_PROMPT (antes
+    // o layout inteiro ia duplicado nas duas user messages — ~30% dos tokens
+    // de entrada). O layout completo vive SO na mensagem da foto real.
+    assert.match(exampleContent[0].text, /EXEMPLO DE REFERENCIA/);
+    assert.match(exampleContent[0].text, /NAO EXTRAIA DESTA IMAGEM/);
+    assert.doesNotMatch(exampleContent[0].text, /LAYOUT DA FICHA/);
+    assert.match(realUserContent[0].text, /LAYOUT DA FICHA/);
   }
+});
+
+test('rejectIfLabel na identificacao: eco de rotulo impresso vira null', async () => {
+  const create = async () =>
+    buildOpenAIResponse(
+      buildExtractedFields({
+        identificacao: { lote: 'LOTE', sacas: 'SCS', safra: 'SAFRA' },
+      })
+    );
+
+  const service = buildService(create);
+  const imagePath = writeFakeImage();
+
+  let result;
+  try {
+    result = await service.extractClassificationFromPhoto(imagePath);
+  } finally {
+    fs.unlinkSync(imagePath);
+  }
+
+  assert.equal(result.identificacao.lote, null);
+  assert.equal(result.identificacao.sacas, null);
+  assert.equal(result.identificacao.safra, null);
 });
 
 test('normaliza resposta com estrutura agrupada (peneiras, fundos array, defeitos)', async () => {
