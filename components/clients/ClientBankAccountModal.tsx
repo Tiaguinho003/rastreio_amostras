@@ -3,6 +3,7 @@
 import { type FormEvent, useEffect, useState } from 'react';
 
 import { BottomSheet } from '../BottomSheet';
+import { SuccessCheckOverlay } from '../SuccessCheckOverlay';
 import { maskCnpjInput, maskCpfInput } from '../../lib/client-field-formatters';
 import { digitsOnly } from '../../lib/document-validation';
 import type { ClientBankAccountInput } from '../../lib/types';
@@ -106,99 +107,94 @@ export function ClientBankAccountModal({
         )
       }
     >
-      {success ? (
-        <div className="client-detail-success-check">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r="10" />
-            <path d="m9 12 2 2 4-4" />
-          </svg>
-        </div>
-      ) : (
-        <>
-          {errorMessage ? <p className="client-unit-modal-error">{errorMessage}</p> : null}
+      <>
+        {errorMessage ? <p className="client-unit-modal-error">{errorMessage}</p> : null}
 
-          <form
-            id="client-bank-create-form"
-            className="client-unit-modal-form"
-            onSubmit={handleSubmit}
-          >
-            <div className="client-unit-modal-body">
+        <form
+          id="client-bank-create-form"
+          className="client-unit-modal-form"
+          onSubmit={handleSubmit}
+        >
+          <div className="client-unit-modal-body">
+            <label className="app-modal-field">
+              <span className="app-modal-label">Banco (obrigatório)</span>
+              <input
+                className={`app-modal-input${showErr && missingBank ? ' has-error' : ''}`}
+                value={bankName}
+                disabled={saving}
+                maxLength={120}
+                onChange={(event) => setBankName(event.target.value.toUpperCase())}
+              />
+            </label>
+
+            <div className="sdv-edit-row">
               <label className="app-modal-field">
-                <span className="app-modal-label">Banco (obrigatório)</span>
+                <span className="app-modal-label">Agência (obrigatório)</span>
                 <input
-                  className={`app-modal-input${showErr && missingBank ? ' has-error' : ''}`}
-                  value={bankName}
+                  className={`app-modal-input${showErr && missingAgency ? ' has-error' : ''}`}
+                  value={agency}
                   disabled={saving}
-                  maxLength={120}
-                  onChange={(event) => setBankName(event.target.value.toUpperCase())}
+                  maxLength={20}
+                  onChange={(event) => setAgency(event.target.value)}
                 />
               </label>
-
-              <div className="sdv-edit-row">
-                <label className="app-modal-field">
-                  <span className="app-modal-label">Agência (obrigatório)</span>
-                  <input
-                    className={`app-modal-input${showErr && missingAgency ? ' has-error' : ''}`}
-                    value={agency}
-                    disabled={saving}
-                    maxLength={20}
-                    onChange={(event) => setAgency(event.target.value)}
-                  />
-                </label>
-                <label className="app-modal-field">
-                  <span className="app-modal-label">Conta c/ dígito (obrigatório)</span>
-                  <input
-                    className={`app-modal-input${showErr && missingAccount ? ' has-error' : ''}`}
-                    value={accountNumber}
-                    disabled={saving}
-                    maxLength={20}
-                    onChange={(event) => setAccountNumber(event.target.value)}
-                  />
-                </label>
-              </div>
-
               <label className="app-modal-field">
-                <span className="app-modal-label">Titular (obrigatório)</span>
+                <span className="app-modal-label">Conta c/ dígito (obrigatório)</span>
                 <input
-                  className={`app-modal-input${showErr && missingHolder ? ' has-error' : ''}`}
-                  value={holderName}
+                  className={`app-modal-input${showErr && missingAccount ? ' has-error' : ''}`}
+                  value={accountNumber}
                   disabled={saving}
-                  maxLength={120}
-                  onChange={(event) => setHolderName(event.target.value.toUpperCase())}
+                  maxLength={20}
+                  onChange={(event) => setAccountNumber(event.target.value)}
                 />
               </label>
-
-              <div className="sdv-edit-row">
-                <label className="app-modal-field">
-                  <span className="app-modal-label">CPF/CNPJ do titular (obrigatório)</span>
-                  <input
-                    className={`app-modal-input${showErr && !taxValid ? ' has-error' : ''}`}
-                    value={holderTaxId}
-                    disabled={saving}
-                    inputMode="numeric"
-                    onChange={(event) => setHolderTaxId(maskTaxId(event.target.value))}
-                  />
-                  {showErr && !taxValid ? (
-                    <span className="sdv-edit-error" role="alert">
-                      Informe CPF (11) ou CNPJ (14) dígitos
-                    </span>
-                  ) : null}
-                </label>
-                <label className="app-modal-field">
-                  <span className="app-modal-label">Chave PIX (opcional)</span>
-                  <input
-                    className="app-modal-input"
-                    value={pixKey}
-                    disabled={saving}
-                    maxLength={140}
-                    onChange={(event) => setPixKey(event.target.value)}
-                  />
-                </label>
-              </div>
             </div>
-          </form>
-        </>
-      )}
+
+            <label className="app-modal-field">
+              <span className="app-modal-label">Titular (obrigatório)</span>
+              <input
+                className={`app-modal-input${showErr && missingHolder ? ' has-error' : ''}`}
+                value={holderName}
+                disabled={saving}
+                maxLength={120}
+                onChange={(event) => setHolderName(event.target.value.toUpperCase())}
+              />
+            </label>
+
+            <div className="sdv-edit-row">
+              <label className="app-modal-field">
+                <span className="app-modal-label">CPF/CNPJ do titular (obrigatório)</span>
+                <input
+                  className={`app-modal-input${showErr && !taxValid ? ' has-error' : ''}`}
+                  value={holderTaxId}
+                  disabled={saving}
+                  inputMode="numeric"
+                  onChange={(event) => setHolderTaxId(maskTaxId(event.target.value))}
+                />
+                {showErr && !taxValid ? (
+                  <span className="sdv-edit-error" role="alert">
+                    Informe CPF (11) ou CNPJ (14) dígitos
+                  </span>
+                ) : null}
+              </label>
+              <label className="app-modal-field">
+                <span className="app-modal-label">Chave PIX (opcional)</span>
+                <input
+                  className="app-modal-input"
+                  value={pixKey}
+                  disabled={saving}
+                  maxLength={140}
+                  onChange={(event) => setPixKey(event.target.value)}
+                />
+              </label>
+            </div>
+          </div>
+        </form>
+
+        {/* Check canonico (rodada 6): overlay sobre o painel; o form fica
+              montado embaixo — o reset do proximo open limpa o estado. */}
+        <SuccessCheckOverlay show={success} />
+      </>
     </BottomSheet>
   );
 }

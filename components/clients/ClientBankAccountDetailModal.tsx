@@ -3,6 +3,7 @@
 import { type FormEvent, useEffect, useState } from 'react';
 
 import { BottomSheet } from '../BottomSheet';
+import { SuccessCheckOverlay } from '../SuccessCheckOverlay';
 import { maskCnpjInput, maskCpfInput } from '../../lib/client-field-formatters';
 import { digitsOnly } from '../../lib/document-validation';
 import type { ClientBankAccountInput, ClientBankAccountSummary } from '../../lib/types';
@@ -18,6 +19,9 @@ type Props = {
   account: ClientBankAccountSummary | null;
   saving: boolean;
   savingStatus: boolean;
+  /** Check canonico de sucesso (rodada 6): true = overlay sobre o painel
+      enquanto o pai agenda o fechamento. */
+  success?: boolean;
   errorMessage: string | null;
   onClose: () => void;
   onSave: (data: ClientBankAccountInput) => Promise<void>;
@@ -34,6 +38,7 @@ export function ClientBankAccountDetailModal({
   account,
   saving,
   savingStatus,
+  success = false,
   errorMessage,
   onClose,
   onSave,
@@ -92,12 +97,12 @@ export function ClientBankAccountDetailModal({
     <BottomSheet
       open={open && Boolean(account)}
       onClose={onClose}
-      onDismissAttempt={() => !saving && !savingStatus}
+      onDismissAttempt={() => !saving && !savingStatus && !success}
       title={account ? account.bankName || 'Banco' : ''}
       ariaLabel="Detalhe da conta bancária"
       stacked
       closeVariant="edge-back"
-      dragDisabled={saving || savingStatus}
+      dragDisabled={saving || savingStatus || success}
       className="client-panel-sheet side-sheet"
     >
       {account ? (
@@ -240,6 +245,10 @@ export function ClientBankAccountDetailModal({
               </div>
             </form>
           )}
+
+          {/* Check canonico (rodada 6): Salvar/Inativar/Reativar mostram o
+              overlay e o pai fecha o painel na sequencia. */}
+          <SuccessCheckOverlay show={success} />
         </>
       ) : null}
     </BottomSheet>

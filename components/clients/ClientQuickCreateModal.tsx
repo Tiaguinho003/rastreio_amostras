@@ -8,6 +8,7 @@ import type { ClientPersonType, ClientSummary, SessionData, UserLookupItem } fro
 import { useToast } from '../../lib/toast/ToastProvider';
 import { BottomSheet } from '../BottomSheet';
 import { ChipMultiSelectField } from '../ChipMultiSelectField';
+import { SuccessCheckOverlay } from '../SuccessCheckOverlay';
 
 // Mapeia mensagens de erro do backend (em ingles) para pt-BR.
 const FIELD_LABELS: Record<string, string> = {
@@ -596,21 +597,7 @@ export function ClientQuickCreateModal({
         </div>
       </form>
 
-      {showSuccess ? (
-        <div className="client-create-success-overlay" aria-live="polite">
-          <svg className="client-create-success-check" viewBox="0 0 52 52" aria-hidden="true">
-            <circle cx="26" cy="26" r="24" fill="none" stroke="#2f8a3e" strokeWidth="2.5" />
-            <path
-              fill="none"
-              stroke="#2f8a3e"
-              strokeWidth="3.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M15 27l7 7 15-15"
-            />
-          </svg>
-        </div>
-      ) : null}
+      <SuccessCheckOverlay show={showSuccess} />
 
       {discardOpen ? (
         <div className="client-quick-create-discard-overlay" onClick={() => setDiscardOpen(false)}>

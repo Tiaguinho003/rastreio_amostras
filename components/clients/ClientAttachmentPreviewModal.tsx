@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 
 import { BottomSheet } from '../BottomSheet';
+import { SuccessCheckOverlay } from '../SuccessCheckOverlay';
 import type { ClientAttachmentSummary, ClientUnitSummary } from '../../lib/types';
 
 // Preview de anexo do cliente (Fechamento Fase 0 — D27): imagem inline,
@@ -22,6 +23,9 @@ type Props = {
   units: ClientUnitSummary[];
   deleting: boolean;
   linking: boolean;
+  /** Check canonico de sucesso (rodada 6): excluir e vincular mostram o
+      overlay (no excluir o pai fecha o painel na sequencia). */
+  success?: boolean;
   errorMessage: string | null;
   onClose: () => void;
   onDelete: () => void;
@@ -35,6 +39,7 @@ export function ClientAttachmentPreviewModal({
   units,
   deleting,
   linking,
+  success = false,
   errorMessage,
   onClose,
   onDelete,
@@ -99,12 +104,12 @@ export function ClientAttachmentPreviewModal({
     <BottomSheet
       open={open && ready}
       onClose={onClose}
-      onDismissAttempt={() => !deleting}
+      onDismissAttempt={() => !deleting && !success}
       title={attachment?.fileName ?? 'Anexo'}
       ariaLabel="Preview do anexo"
       stacked
       closeVariant="edge-back"
-      dragDisabled={deleting}
+      dragDisabled={deleting || success}
       className="client-panel-sheet client-attachment-sheet side-sheet"
       footer={footerActions}
     >
@@ -166,6 +171,9 @@ export function ClientAttachmentPreviewModal({
               <p className="cap-description">{attachment.description}</p>
             ) : null}
           </div>
+
+          {/* Check canonico (rodada 6). */}
+          <SuccessCheckOverlay show={success} />
         </>
       ) : null}
     </BottomSheet>

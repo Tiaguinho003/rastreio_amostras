@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObjec
 import { createPortal } from 'react-dom';
 
 import { BottomSheet } from '../BottomSheet';
+import { SuccessCheckOverlay } from '../SuccessCheckOverlay';
 import {
   ClientInactivateWithCascadeModal,
   type CascadeSample,
@@ -370,10 +371,8 @@ export function ClientDetailView({
   const [commercialRefreshKey, setCommercialRefreshKey] = useState(0);
   const invalidateCommercial = useCallback(() => setCommercialRefreshKey((k) => k + 1), []);
 
-  /* ---- notices (6 zones) ---- */
+  /* ---- notices (zonas de ERRO; sucesso virou o check canonico) ---- */
   const [pageNotice, setPageNotice] = useState<Notice>(null);
-  const [detailNotice, setDetailNotice] = useState<Notice>(null);
-  const [unitNotice, setUnitNotice] = useState<Notice>(null);
   const [editClientModalNotice, setEditClientModalNotice] = useState<Notice>(null);
   const [unitModalNotice, setUnitModalNotice] = useState<Notice>(null);
   const [statusModalNotice, setStatusModalNotice] = useState<Notice>(null);
@@ -428,11 +427,11 @@ export function ClientDetailView({
   const [unitDetailUnit, setUnitDetailUnit] = useState<ClientUnitSummary | null>(null);
   const [unitDetailOpen, setUnitDetailOpen] = useState(false);
   const [unitDetailNotice, setUnitDetailNotice] = useState<string | null>(null);
+  const [unitDetailSuccess, setUnitDetailSuccess] = useState(false);
 
   /* ---- Fechamento Fase 0: contas bancárias do cliente (D28) ---- */
   const [bankAccounts, setBankAccounts] = useState<ClientBankAccountSummary[]>([]);
   const [showInactiveBankAccounts, setShowInactiveBankAccounts] = useState(false);
-  const [bankNotice, setBankNotice] = useState<Notice>(null);
   const [bankAccountModalOpen, setBankAccountModalOpen] = useState(false);
   const [bankAccountModalNotice, setBankAccountModalNotice] = useState<Notice>(null);
   const [savingBankAccount, setSavingBankAccount] = useState(false);
@@ -441,6 +440,7 @@ export function ClientDetailView({
     useState<ClientBankAccountSummary | null>(null);
   const [bankAccountDetailOpen, setBankAccountDetailOpen] = useState(false);
   const [bankAccountDetailNotice, setBankAccountDetailNotice] = useState<string | null>(null);
+  const [bankAccountDetailSuccess, setBankAccountDetailSuccess] = useState(false);
   const [savingBankAccountStatus, setSavingBankAccountStatus] = useState(false);
 
   /* ---- Fechamento Fase 0: anexos do cliente (D27) ---- */
@@ -450,6 +450,7 @@ export function ClientDetailView({
   const [attachmentPreview, setAttachmentPreview] = useState<ClientAttachmentSummary | null>(null);
   const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState(false);
   const [attachmentPreviewNotice, setAttachmentPreviewNotice] = useState<string | null>(null);
+  const [attachmentPreviewSuccess, setAttachmentPreviewSuccess] = useState(false);
   const [deletingAttachment, setDeletingAttachment] = useState(false);
   const [linkingAttachment, setLinkingAttachment] = useState(false);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
@@ -464,6 +465,15 @@ export function ClientDetailView({
   const inactiveBankAccountsCount = bankAccounts.filter(
     (account) => account.status === 'INACTIVE'
   ).length;
+
+  /* ---- check de sucesso do DRAWER (rodada 6): flash canonico sobre o
+     detalhe quando um aviso central conclui (status do cliente, cascata,
+     status da filial) — substitui as frases "... com sucesso". ---- */
+  const [detailCheck, setDetailCheck] = useState(false);
+  const flashDetailCheck = useCallback(() => {
+    setDetailCheck(true);
+    window.setTimeout(() => setDetailCheck(false), 1000);
+  }, []);
 
   /* ---- status modal (inactivate/reactivate client) ---- */
   const [statusModalOpen, setStatusModalOpen] = useState(false);
@@ -797,11 +807,12 @@ export function ClientDetailView({
     setUnitDetailUnit(unit);
     setUnitDetailNotice(null);
     setSavingUnit(false);
+    setUnitDetailSuccess(false);
     setUnitDetailOpen(true);
   }
 
   function closeUnitDetailModal() {
-    if (savingUnit) return;
+    if (savingUnit || unitDetailSuccess) return;
     setUnitDetailOpen(false);
   }
 
@@ -817,10 +828,14 @@ export function ClientDetailView({
         ...data,
         reasonText,
       });
-      setUnitNotice({ kind: 'success', text: 'Filial atualizada com sucesso.' });
+      // Rodada 6: check canonico sobre o painel; fecha na sequencia.
+      setUnitDetailSuccess(true);
       void fetchData();
       invalidateCommercial();
-      setUnitDetailOpen(false);
+      window.setTimeout(() => {
+        setUnitDetailOpen(false);
+        setUnitDetailSuccess(false);
+      }, 1000);
     } catch (cause) {
       setUnitDetailNotice(translateUnitError(cause));
     } finally {
@@ -907,12 +922,23 @@ export function ClientDetailView({
   function openBankAccountDetail(account: ClientBankAccountSummary) {
     setBankAccountDetailAccount(account);
     setBankAccountDetailNotice(null);
+    setBankAccountDetailSuccess(false);
     setBankAccountDetailOpen(true);
   }
 
   function closeBankAccountDetail() {
-    if (savingBankAccount || savingBankAccountStatus) return;
+    if (savingBankAccount || savingBankAccountStatus || bankAccountDetailSuccess) return;
     setBankAccountDetailOpen(false);
+  }
+
+  // Rodada 6: sucesso = check canonico sobre o painel; fecha na sequencia.
+  function finishBankAccountDetail() {
+    setBankAccountDetailSuccess(true);
+    void fetchData();
+    window.setTimeout(() => {
+      setBankAccountDetailOpen(false);
+      setBankAccountDetailSuccess(false);
+    }, 1000);
   }
 
   async function handleBankAccountDetailSave(data: ClientBankAccountInput) {
@@ -921,9 +947,7 @@ export function ClientDetailView({
     setBankAccountDetailNotice(null);
     try {
       await updateClientBankAccount(session, clientId, bankAccountDetailAccount.id, data);
-      setBankNotice({ kind: 'success', text: 'Conta bancária atualizada com sucesso.' });
-      void fetchData();
-      setBankAccountDetailOpen(false);
+      finishBankAccountDetail();
     } catch (cause) {
       setBankAccountDetailNotice(
         cause instanceof ApiError ? cause.message : 'Falha ao salvar conta bancária.'
@@ -939,12 +963,7 @@ export function ClientDetailView({
     setBankAccountDetailNotice(null);
     try {
       await updateClientBankAccount(session, clientId, bankAccountDetailAccount.id, { status });
-      setBankNotice({
-        kind: 'success',
-        text: status === 'INACTIVE' ? 'Conta inativada.' : 'Conta reativada.',
-      });
-      void fetchData();
-      setBankAccountDetailOpen(false);
+      finishBankAccountDetail();
     } catch (cause) {
       setBankAccountDetailNotice(
         cause instanceof ApiError ? cause.message : 'Falha ao alterar status da conta.'
@@ -981,11 +1000,12 @@ export function ClientDetailView({
   function openAttachmentPreview(attachment: ClientAttachmentSummary) {
     setAttachmentPreview(attachment);
     setAttachmentPreviewNotice(null);
+    setAttachmentPreviewSuccess(false);
     setAttachmentPreviewOpen(true);
   }
 
   function closeAttachmentPreview() {
-    if (deletingAttachment || linkingAttachment) return;
+    if (deletingAttachment || linkingAttachment || attachmentPreviewSuccess) return;
     setAttachmentPreviewOpen(false);
   }
 
@@ -1005,7 +1025,9 @@ export function ClientDetailView({
       );
       setAttachmentPreview(attachment);
       setAttachments((prev) => prev.map((it) => (it.id === attachment.id ? attachment : it)));
-      setAttachmentNotice({ kind: 'success', text: 'Anexo vinculado à filial.' });
+      // Rodada 6: check canonico (flash) — o painel segue aberto.
+      setAttachmentPreviewSuccess(true);
+      window.setTimeout(() => setAttachmentPreviewSuccess(false), 1000);
     } catch (cause) {
       setAttachmentPreviewNotice(
         cause instanceof ApiError ? cause.message : 'Falha ao vincular o anexo à filial.'
@@ -1021,9 +1043,13 @@ export function ClientDetailView({
     setAttachmentPreviewNotice(null);
     try {
       await deleteClientAttachment(session, clientId, attachmentPreview.id);
-      setAttachmentNotice({ kind: 'success', text: 'Anexo excluído.' });
-      setAttachmentPreviewOpen(false);
+      // Rodada 6: check canonico sobre o painel; fecha na sequencia.
+      setAttachmentPreviewSuccess(true);
       void fetchData();
+      window.setTimeout(() => {
+        setAttachmentPreviewOpen(false);
+        setAttachmentPreviewSuccess(false);
+      }, 1000);
     } catch (cause) {
       setAttachmentPreviewNotice(
         cause instanceof ApiError ? cause.message : 'Falha ao excluir anexo.'
@@ -1102,13 +1128,13 @@ export function ClientDetailView({
     try {
       if (statusAction === 'inactivate') {
         await inactivateClient(session, clientId, statusReasonText);
-        setDetailNotice({ kind: 'success', text: 'Cliente inativado com sucesso.' });
       } else {
         await reactivateClient(session, clientId, statusReasonText);
-        setDetailNotice({ kind: 'success', text: 'Cliente reativado com sucesso.' });
       }
 
+      // Rodada 6: a frase de sucesso virou o check canonico sobre o drawer.
       setStatusModalOpen(false);
+      flashDetailCheck();
       void fetchData();
     } catch (cause) {
       // #6/Q-05 (E1): backend rejeita 409 quando ha samples ATIVAS. Detalhes
@@ -1149,15 +1175,14 @@ export function ClientDetailView({
     setCascadeSaving(true);
     setCascadeError(null);
     try {
-      const result = await inactivateClientWithCascade(session, clientId, {
+      await inactivateClientWithCascade(session, clientId, {
         confirmedSampleIds,
         reasonText,
       });
-      setDetailNotice({
-        kind: 'success',
-        text: `Cliente inativado. ${result.cascade.cascadedSampleCount} amostra${result.cascade.cascadedSampleCount === 1 ? '' : 's'} invalidada${result.cascade.cascadedSampleCount === 1 ? '' : 's'} em cascata.`,
-      });
+      // Rodada 6: check canonico sobre o drawer (a contagem de amostras
+      // invalidadas saiu junto com a frase; o proprio modal ja lista tudo).
       setCascadeOpen(false);
+      flashDetailCheck();
       void fetchData();
     } catch (cause) {
       setCascadeError(
@@ -1195,13 +1220,13 @@ export function ClientDetailView({
       // L5: ClientUnit so existe pra PF (filial).
       if (unitStatusAction === 'inactivate') {
         await inactivateClientUnit(session, clientId, unitStatusUnitId, unitStatusReason);
-        setUnitNotice({ kind: 'success', text: 'Filial inativada com sucesso.' });
       } else {
         await reactivateClientUnit(session, clientId, unitStatusUnitId, unitStatusReason);
-        setUnitNotice({ kind: 'success', text: 'Filial reativada com sucesso.' });
       }
 
+      // Rodada 6: a frase de sucesso virou o check canonico sobre o drawer.
       setUnitStatusModalOpen(false);
+      flashDetailCheck();
       void fetchData();
       // Status da filial muda OR clauses de baseWhere (filial inativa
       // some/aparece nos counts).
@@ -1317,12 +1342,16 @@ export function ClientDetailView({
           ) : null}
         </div>
       )}
-      <NoticeSlot notice={bankNotice} />
     </>
   );
 
   return (
     <>
+      {/* Rodada 6: check canonico sobre o DRAWER — flash apos avisos centrais
+          concluirem (status do cliente, cascata, status da filial). Ancorado
+          no sheet do detalhe (absolute). */}
+      <SuccessCheckOverlay show={detailCheck} />
+
       {/* Rodada 5 FV: o editor virou painel lateral — o drawer nao se esconde
           mais (o is-editing/display:none da rodada 2 morreu). */}
       <section className="sdv-page">
@@ -1625,7 +1654,6 @@ export function ClientDetailView({
                           {/* Telefone, e-mail e papeis sairam do DL \u2014 moram no
                             HERO fixo (rodada 3). */}
                         </div>
-                        <NoticeSlot notice={detailNotice} />
                       </div>
                     </div>
                   </section>
@@ -1779,7 +1807,6 @@ export function ClientDetailView({
                         ) : null}
                       </div>
                     )}
-                    <NoticeSlot notice={unitNotice} />
                   </div>
                 ) : null}
 
@@ -1878,337 +1905,329 @@ export function ClientDetailView({
               : 'Informações e papéis — salvar aplica tudo de uma vez.'}
           </span>
 
-          {editClientSuccess ? (
-            <div className="client-detail-success-check">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="12" cy="12" r="10" />
-                <path d="m9 12 2 2 4-4" />
-              </svg>
-            </div>
-          ) : (
-            <form
-              id="client-detail-edit-form"
-              className="app-modal-content client-detail-modal-form"
-              onSubmit={handleUpdateClient}
-            >
-              <>
-                <span className="cqc-group-heading">Informações</span>
-                <div className="sdv-edit-row">
-                  <label className="app-modal-field">
-                    <span className="app-modal-label">Tipo de pessoa</span>
-                    {/* Backend bloqueia troca de personType (422 CLIENT_PERSON_TYPE_LOCKED).
+          <form
+            id="client-detail-edit-form"
+            className="app-modal-content client-detail-modal-form"
+            onSubmit={handleUpdateClient}
+          >
+            <>
+              <span className="cqc-group-heading">Informações</span>
+              <div className="sdv-edit-row">
+                <label className="app-modal-field">
+                  <span className="app-modal-label">Tipo de pessoa</span>
+                  {/* Backend bloqueia troca de personType (422 CLIENT_PERSON_TYPE_LOCKED).
                             Mostramos readonly pra evitar UX confusa. */}
-                    <input
-                      className="app-modal-input"
-                      value={
-                        editClientForm.personType === 'PF' ? 'Pessoa fisica' : 'Pessoa juridica'
-                      }
-                      disabled
-                      readOnly
-                    />
-                  </label>
-                  {editClientForm.personType === 'PF' ? (
-                    <label className="app-modal-field">
-                      <span className="app-modal-label">CPF</span>
-                      <input
-                        className={`app-modal-input${editCpfMask.error ? ' has-error' : ''}${pendingClass('cpf', editCpfMask.masked)}`}
-                        value={editCpfMask.masked}
-                        disabled={savingClient}
-                        inputMode="numeric"
-                        onChange={editCpfMask.onChange}
-                        onBlur={editCpfMask.onBlur}
-                      />
-                      {editCpfMask.error ? (
-                        <span className="cudm-edit-error">{editCpfMask.error}</span>
-                      ) : null}
-                    </label>
-                  ) : (
-                    <label className="app-modal-field">
-                      <span className="app-modal-label">CNPJ</span>
-                      <input
-                        className={`app-modal-input${editCnpjMask.error ? ' has-error' : ''}`}
-                        value={editCnpjMask.masked}
-                        disabled={savingClient}
-                        inputMode="numeric"
-                        onChange={editCnpjMask.onChange}
-                        onBlur={editCnpjMask.onBlur}
-                      />
-                      {editCnpjMask.error ? (
-                        <span className="cudm-edit-error">{editCnpjMask.error}</span>
-                      ) : null}
-                    </label>
-                  )}
-                </div>
-
+                  <input
+                    className="app-modal-input"
+                    value={editClientForm.personType === 'PF' ? 'Pessoa fisica' : 'Pessoa juridica'}
+                    disabled
+                    readOnly
+                  />
+                </label>
                 {editClientForm.personType === 'PF' ? (
-                  <>
-                    <label className="app-modal-field">
-                      <span className="app-modal-label">Nome completo</span>
-                      <input
-                        className="app-modal-input"
-                        value={editClientForm.fullName}
-                        disabled={savingClient}
-                        onChange={(e) =>
-                          setEditClientForm((c) => ({
-                            ...c,
-                            fullName: e.target.value.toUpperCase(),
-                          }))
-                        }
-                      />
-                    </label>
-                    <label className="app-modal-field">
-                      <span className="app-modal-label">Email</span>
-                      <input
-                        className="app-modal-input"
-                        type="email"
-                        value={editClientForm.email}
-                        disabled={savingClient}
-                        onChange={(e) =>
-                          setEditClientForm((c) => ({
-                            ...c,
-                            email: e.target.value.toUpperCase(),
-                          }))
-                        }
-                      />
-                    </label>
-                  </>
-                ) : (
-                  <>
-                    <div className="sdv-edit-row">
-                      <label className="app-modal-field">
-                        <span className="app-modal-label">Razao social</span>
-                        <input
-                          className="app-modal-input"
-                          value={editClientForm.legalName}
-                          disabled={savingClient}
-                          onChange={(e) =>
-                            setEditClientForm((c) => ({
-                              ...c,
-                              legalName: e.target.value.toUpperCase(),
-                            }))
-                          }
-                        />
-                      </label>
-                      <label className="app-modal-field">
-                        <span className="app-modal-label">Nome fantasia</span>
-                        <input
-                          className={`app-modal-input${pendingClass('tradeName', editClientForm.tradeName)}`}
-                          value={editClientForm.tradeName}
-                          disabled={savingClient}
-                          onChange={(e) =>
-                            setEditClientForm((c) => ({
-                              ...c,
-                              tradeName: e.target.value.toUpperCase(),
-                            }))
-                          }
-                        />
-                      </label>
-                    </div>
-                    <label className="app-modal-field">
-                      <span className="app-modal-label">Email</span>
-                      <input
-                        className="app-modal-input"
-                        type="email"
-                        value={editClientForm.email}
-                        disabled={savingClient}
-                        onChange={(e) =>
-                          setEditClientForm((c) => ({
-                            ...c,
-                            email: e.target.value.toUpperCase(),
-                          }))
-                        }
-                      />
-                    </label>
-                  </>
-                )}
-
-                <div className="sdv-edit-row">
                   <label className="app-modal-field">
-                    <span className="app-modal-label">Telefone</span>
+                    <span className="app-modal-label">CPF</span>
+                    <input
+                      className={`app-modal-input${editCpfMask.error ? ' has-error' : ''}${pendingClass('cpf', editCpfMask.masked)}`}
+                      value={editCpfMask.masked}
+                      disabled={savingClient}
+                      inputMode="numeric"
+                      onChange={editCpfMask.onChange}
+                      onBlur={editCpfMask.onBlur}
+                    />
+                    {editCpfMask.error ? (
+                      <span className="cudm-edit-error">{editCpfMask.error}</span>
+                    ) : null}
+                  </label>
+                ) : (
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">CNPJ</span>
+                    <input
+                      className={`app-modal-input${editCnpjMask.error ? ' has-error' : ''}`}
+                      value={editCnpjMask.masked}
+                      disabled={savingClient}
+                      inputMode="numeric"
+                      onChange={editCnpjMask.onChange}
+                      onBlur={editCnpjMask.onBlur}
+                    />
+                    {editCnpjMask.error ? (
+                      <span className="cudm-edit-error">{editCnpjMask.error}</span>
+                    ) : null}
+                  </label>
+                )}
+              </div>
+
+              {editClientForm.personType === 'PF' ? (
+                <>
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">Nome completo</span>
                     <input
                       className="app-modal-input"
-                      value={editClientForm.phone}
+                      value={editClientForm.fullName}
                       disabled={savingClient}
                       onChange={(e) =>
                         setEditClientForm((c) => ({
                           ...c,
-                          phone: maskPhoneInput(e.target.value),
+                          fullName: e.target.value.toUpperCase(),
                         }))
                       }
                     />
                   </label>
-                  <ChipMultiSelectField
-                    label="Papel"
-                    placeholder="Selecione"
-                    forceDropDown
-                    options={CLIENT_ROLE_OPTIONS}
-                    selected={editClientRoleIds}
-                    disabled={savingClient}
-                    onChange={(next) =>
-                      setEditClientForm((c) => ({
-                        ...c,
-                        isSeller: next.includes('seller'),
-                        isBuyer: next.includes('buyer'),
-                        isWarehouse: next.includes('warehouse'),
-                      }))
-                    }
-                  />
-                </div>
-
-                <UserMultiSelect
-                  label="Responsavel"
-                  value={editClientForm.commercialUserIds}
-                  onChange={(next) => setEditClientForm((c) => ({ ...c, commercialUserIds: next }))}
-                  users={users}
-                  loading={loadingUsers}
-                  disabled={savingClient}
-                  hideRoleInChips
-                  firstNameOnly
-                  placeholder="Selecione (opcional)"
-                />
-              </>
-
-              {isPj ? (
-                <>
-                  <span className="cqc-group-heading">Endereço fiscal</span>
-                  {/* CEP primeiro: dispara auto-lookup que preenche endereco/
-                        bairro/cidade/UF. Endereco em coluna larga ao lado. */}
-                  <div className="sdv-edit-row" style={{ gridTemplateColumns: '1fr 2fr' }}>
-                    <label className="app-modal-field">
-                      <span className="app-modal-label">
-                        CEP
-                        {editCep.loading ? <span aria-hidden="true"> ⌛</span> : null}
-                      </span>
-                      <input
-                        className={`app-modal-input${pendingClass('postalCode', editClientForm.postalCode)}`}
-                        value={editClientForm.postalCode}
-                        disabled={savingClient}
-                        inputMode="numeric"
-                        onChange={(e) =>
-                          setEditClientForm((c) => ({
-                            ...c,
-                            postalCode: maskPostalCodeInput(e.target.value),
-                          }))
-                        }
-                      />
-                    </label>
-                    <label className="app-modal-field">
-                      <span className="app-modal-label">Endereço</span>
-                      <input
-                        className={`app-modal-input${pendingClass('addressLine', editClientForm.addressLine)}`}
-                        value={editClientForm.addressLine}
-                        disabled={savingClient}
-                        onChange={(e) =>
-                          setEditClientForm((c) => ({
-                            ...c,
-                            addressLine: e.target.value.toUpperCase(),
-                          }))
-                        }
-                      />
-                    </label>
-                  </div>
-
-                  <div className="sdv-edit-row">
-                    <label className="app-modal-field">
-                      <span className="app-modal-label">Bairro</span>
-                      <input
-                        className={`app-modal-input${pendingClass('district', editClientForm.district)}`}
-                        value={editClientForm.district}
-                        disabled={savingClient}
-                        onChange={(e) =>
-                          setEditClientForm((c) => ({
-                            ...c,
-                            district: e.target.value.toUpperCase(),
-                          }))
-                        }
-                      />
-                    </label>
-                    <label className="app-modal-field">
-                      <span className="app-modal-label">Complemento</span>
-                      <input
-                        className="app-modal-input"
-                        value={editClientForm.complement}
-                        disabled={savingClient}
-                        onChange={(e) =>
-                          setEditClientForm((c) => ({
-                            ...c,
-                            complement: e.target.value.toUpperCase(),
-                          }))
-                        }
-                      />
-                    </label>
-                  </div>
-
-                  <div className="sdv-edit-row" style={{ gridTemplateColumns: '2fr 0.6fr' }}>
-                    <label className="app-modal-field">
-                      <span className="app-modal-label">Cidade</span>
-                      <input
-                        className={`app-modal-input${pendingClass('city', editClientForm.city)}`}
-                        value={editClientForm.city}
-                        disabled={savingClient}
-                        onChange={(e) =>
-                          setEditClientForm((c) => ({
-                            ...c,
-                            city: e.target.value.toUpperCase(),
-                          }))
-                        }
-                      />
-                    </label>
-                    <label className="app-modal-field">
-                      <span className="app-modal-label">UF</span>
-                      <input
-                        className={`app-modal-input${pendingClass('state', editClientForm.state)}`}
-                        value={editClientForm.state}
-                        disabled={savingClient}
-                        maxLength={2}
-                        onChange={(e) =>
-                          setEditClientForm((c) => ({
-                            ...c,
-                            state: e.target.value.toUpperCase(),
-                          }))
-                        }
-                      />
-                    </label>
-                  </div>
-
                   <label className="app-modal-field">
-                    <span className="app-modal-label">Inscrição estadual</span>
+                    <span className="app-modal-label">Email</span>
                     <input
-                      className={`app-modal-input${pendingClass('registrationNumber', editClientForm.registrationNumber)}`}
-                      value={editClientForm.registrationNumber}
+                      className="app-modal-input"
+                      type="email"
+                      value={editClientForm.email}
                       disabled={savingClient}
-                      inputMode="numeric"
                       onChange={(e) =>
                         setEditClientForm((c) => ({
                           ...c,
-                          registrationNumber: maskRegistrationNumberInput(e.target.value),
+                          email: e.target.value.toUpperCase(),
                         }))
                       }
                     />
                   </label>
                 </>
-              ) : null}
+              ) : (
+                <>
+                  <div className="sdv-edit-row">
+                    <label className="app-modal-field">
+                      <span className="app-modal-label">Razao social</span>
+                      <input
+                        className="app-modal-input"
+                        value={editClientForm.legalName}
+                        disabled={savingClient}
+                        onChange={(e) =>
+                          setEditClientForm((c) => ({
+                            ...c,
+                            legalName: e.target.value.toUpperCase(),
+                          }))
+                        }
+                      />
+                    </label>
+                    <label className="app-modal-field">
+                      <span className="app-modal-label">Nome fantasia</span>
+                      <input
+                        className={`app-modal-input${pendingClass('tradeName', editClientForm.tradeName)}`}
+                        value={editClientForm.tradeName}
+                        disabled={savingClient}
+                        onChange={(e) =>
+                          setEditClientForm((c) => ({
+                            ...c,
+                            tradeName: e.target.value.toUpperCase(),
+                          }))
+                        }
+                      />
+                    </label>
+                  </div>
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">Email</span>
+                    <input
+                      className="app-modal-input"
+                      type="email"
+                      value={editClientForm.email}
+                      disabled={savingClient}
+                      onChange={(e) =>
+                        setEditClientForm((c) => ({
+                          ...c,
+                          email: e.target.value.toUpperCase(),
+                        }))
+                      }
+                    />
+                  </label>
+                </>
+              )}
 
-              <label className="app-modal-field">
-                <span className="app-modal-label">Motivo da edicao (opcional)</span>
-                <input
-                  className="app-modal-input"
-                  value={editClientForm.reasonText}
+              <div className="sdv-edit-row">
+                <label className="app-modal-field">
+                  <span className="app-modal-label">Telefone</span>
+                  <input
+                    className="app-modal-input"
+                    value={editClientForm.phone}
+                    disabled={savingClient}
+                    onChange={(e) =>
+                      setEditClientForm((c) => ({
+                        ...c,
+                        phone: maskPhoneInput(e.target.value),
+                      }))
+                    }
+                  />
+                </label>
+                <ChipMultiSelectField
+                  label="Papel"
+                  placeholder="Selecione"
+                  forceDropDown
+                  options={CLIENT_ROLE_OPTIONS}
+                  selected={editClientRoleIds}
                   disabled={savingClient}
-                  onChange={(e) =>
+                  onChange={(next) =>
                     setEditClientForm((c) => ({
                       ...c,
-                      reasonText: e.target.value.toUpperCase(),
+                      isSeller: next.includes('seller'),
+                      isBuyer: next.includes('buyer'),
+                      isWarehouse: next.includes('warehouse'),
                     }))
                   }
-                  placeholder="Opcional"
                 />
-              </label>
+              </div>
 
-              <NoticeSlot notice={editClientModalNotice} />
-            </form>
-          )}
+              <UserMultiSelect
+                label="Responsavel"
+                value={editClientForm.commercialUserIds}
+                onChange={(next) => setEditClientForm((c) => ({ ...c, commercialUserIds: next }))}
+                users={users}
+                loading={loadingUsers}
+                disabled={savingClient}
+                hideRoleInChips
+                firstNameOnly
+                placeholder="Selecione (opcional)"
+              />
+            </>
+
+            {isPj ? (
+              <>
+                <span className="cqc-group-heading">Endereço fiscal</span>
+                {/* CEP primeiro: dispara auto-lookup que preenche endereco/
+                        bairro/cidade/UF. Endereco em coluna larga ao lado. */}
+                <div className="sdv-edit-row" style={{ gridTemplateColumns: '1fr 2fr' }}>
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">
+                      CEP
+                      {editCep.loading ? <span aria-hidden="true"> ⌛</span> : null}
+                    </span>
+                    <input
+                      className={`app-modal-input${pendingClass('postalCode', editClientForm.postalCode)}`}
+                      value={editClientForm.postalCode}
+                      disabled={savingClient}
+                      inputMode="numeric"
+                      onChange={(e) =>
+                        setEditClientForm((c) => ({
+                          ...c,
+                          postalCode: maskPostalCodeInput(e.target.value),
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">Endereço</span>
+                    <input
+                      className={`app-modal-input${pendingClass('addressLine', editClientForm.addressLine)}`}
+                      value={editClientForm.addressLine}
+                      disabled={savingClient}
+                      onChange={(e) =>
+                        setEditClientForm((c) => ({
+                          ...c,
+                          addressLine: e.target.value.toUpperCase(),
+                        }))
+                      }
+                    />
+                  </label>
+                </div>
+
+                <div className="sdv-edit-row">
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">Bairro</span>
+                    <input
+                      className={`app-modal-input${pendingClass('district', editClientForm.district)}`}
+                      value={editClientForm.district}
+                      disabled={savingClient}
+                      onChange={(e) =>
+                        setEditClientForm((c) => ({
+                          ...c,
+                          district: e.target.value.toUpperCase(),
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">Complemento</span>
+                    <input
+                      className="app-modal-input"
+                      value={editClientForm.complement}
+                      disabled={savingClient}
+                      onChange={(e) =>
+                        setEditClientForm((c) => ({
+                          ...c,
+                          complement: e.target.value.toUpperCase(),
+                        }))
+                      }
+                    />
+                  </label>
+                </div>
+
+                <div className="sdv-edit-row" style={{ gridTemplateColumns: '2fr 0.6fr' }}>
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">Cidade</span>
+                    <input
+                      className={`app-modal-input${pendingClass('city', editClientForm.city)}`}
+                      value={editClientForm.city}
+                      disabled={savingClient}
+                      onChange={(e) =>
+                        setEditClientForm((c) => ({
+                          ...c,
+                          city: e.target.value.toUpperCase(),
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">UF</span>
+                    <input
+                      className={`app-modal-input${pendingClass('state', editClientForm.state)}`}
+                      value={editClientForm.state}
+                      disabled={savingClient}
+                      maxLength={2}
+                      onChange={(e) =>
+                        setEditClientForm((c) => ({
+                          ...c,
+                          state: e.target.value.toUpperCase(),
+                        }))
+                      }
+                    />
+                  </label>
+                </div>
+
+                <label className="app-modal-field">
+                  <span className="app-modal-label">Inscrição estadual</span>
+                  <input
+                    className={`app-modal-input${pendingClass('registrationNumber', editClientForm.registrationNumber)}`}
+                    value={editClientForm.registrationNumber}
+                    disabled={savingClient}
+                    inputMode="numeric"
+                    onChange={(e) =>
+                      setEditClientForm((c) => ({
+                        ...c,
+                        registrationNumber: maskRegistrationNumberInput(e.target.value),
+                      }))
+                    }
+                  />
+                </label>
+              </>
+            ) : null}
+
+            <label className="app-modal-field">
+              <span className="app-modal-label">Motivo da edicao (opcional)</span>
+              <input
+                className="app-modal-input"
+                value={editClientForm.reasonText}
+                disabled={savingClient}
+                onChange={(e) =>
+                  setEditClientForm((c) => ({
+                    ...c,
+                    reasonText: e.target.value.toUpperCase(),
+                  }))
+                }
+                placeholder="Opcional"
+              />
+            </label>
+
+            <NoticeSlot notice={editClientModalNotice} />
+          </form>
         </div>
+
+        {/* Check canonico (rodada 6): overlay sobre o painel do editor. */}
+        <SuccessCheckOverlay show={editClientSuccess} />
       </BottomSheet>
 
       {/* ========== MODAL 2: Create Unit (PF only — filiais L5) ========== */}
@@ -2227,6 +2246,7 @@ export function ClientDetailView({
         unit={unitDetailUnit}
         saving={savingUnit}
         savingStatus={savingUnitStatus}
+        success={unitDetailSuccess}
         errorMessage={unitDetailNotice}
         missingSet={missingSet}
         dismissLocked={unitStatusModalOpen}
@@ -2253,6 +2273,7 @@ export function ClientDetailView({
         account={bankAccountDetailAccount}
         saving={savingBankAccount}
         savingStatus={savingBankAccountStatus}
+        success={bankAccountDetailSuccess}
         errorMessage={bankAccountDetailNotice}
         onClose={closeBankAccountDetail}
         onSave={handleBankAccountDetailSave}
@@ -2270,6 +2291,7 @@ export function ClientDetailView({
         units={activeUnitsList}
         deleting={deletingAttachment}
         linking={linkingAttachment}
+        success={attachmentPreviewSuccess}
         errorMessage={attachmentPreviewNotice}
         onClose={closeAttachmentPreview}
         onDelete={handleAttachmentDelete}

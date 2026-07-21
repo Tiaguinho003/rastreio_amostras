@@ -3,6 +3,7 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
 
 import { BottomSheet } from '../BottomSheet';
+import { SuccessCheckOverlay } from '../SuccessCheckOverlay';
 import {
   formatPostalCode,
   maskPhoneInput,
@@ -26,6 +27,9 @@ type Props = {
   unit: ClientUnitSummary | null;
   saving: boolean;
   savingStatus: boolean;
+  /** Check canonico de sucesso (rodada 6): true = overlay sobre o painel
+      enquanto o pai agenda o fechamento. */
+  success?: boolean;
   errorMessage: string | null;
   missingSet: Set<string>;
   /** Trava o fechar do painel enquanto um aviso aberto POR ELE esta na
@@ -101,6 +105,7 @@ export function ClientUnitDetailModal({
   unit,
   saving,
   savingStatus,
+  success = false,
   errorMessage,
   missingSet,
   dismissLocked = false,
@@ -178,12 +183,12 @@ export function ClientUnitDetailModal({
     <BottomSheet
       open={open && Boolean(unit)}
       onClose={onClose}
-      onDismissAttempt={() => !saving && !savingStatus && !dismissLocked}
+      onDismissAttempt={() => !saving && !savingStatus && !dismissLocked && !success}
       title={unit ? (unit.name ?? unit.legalName ?? 'Sem nome') : ''}
       ariaLabel="Detalhe da filial"
       stacked
       closeVariant="edge-back"
-      dragDisabled={saving || savingStatus || dismissLocked}
+      dragDisabled={saving || savingStatus || dismissLocked || success}
       className="client-panel-sheet side-sheet"
     >
       {unit ? (
@@ -426,6 +431,10 @@ export function ClientUnitDetailModal({
               </div>
             </form>
           )}
+
+          {/* Check canonico (rodada 6): Salvar da edicao mostra o overlay e o
+              pai fecha o painel na sequencia. */}
+          <SuccessCheckOverlay show={success} />
         </>
       ) : null}
     </BottomSheet>

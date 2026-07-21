@@ -16877,6 +16877,11 @@ select.samples-filter-field-input {
   align-items: center;
 }
 
+/* Check de sucesso CANONICO dos modais (rodada 6 FV): overlay branco sobre o
+   sheet + circulo/tick desenhando. Componente components/SuccessCheckOverlay
+   (quick-create, paineis do detalhe do cliente e o flash sobre o drawer);
+   SampleDetailView/SampleSendFlow ainda carregam o markup inline — trocar
+   pelo componente na vez da pagina /samples. */
 .client-create-success-overlay {
   position: absolute;
   inset: 0;
@@ -18080,23 +18085,9 @@ select.samples-filter-field-input {
   flex-direction: column;
 }
 
-.client-detail-success-check {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-}
-
-.client-detail-success-check svg {
-  width: 3rem;
-  height: 3rem;
-  fill: none;
-  stroke: var(--color-success, #2f6b4a);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
+/* Rodada 6 FV: o check estatico .client-detail-success-check morreu — todo
+   sucesso de modal usa o check CANONICO animado (.client-create-success-*,
+   via components/SuccessCheckOverlay). */
 .client-detail-status-msg {
   margin: 0;
   color: var(--muted);
