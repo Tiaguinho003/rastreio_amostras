@@ -1,25 +1,49 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import type { SampleMovement, SampleSnapshot, SendHistoryItem } from '../../lib/types';
+import { ApiError, getClient } from '../../lib/api-client';
+import type {
+  ClientSummary,
+  SampleMovement,
+  SampleSnapshot,
+  SendHistoryItem,
+  SessionData,
+} from '../../lib/types';
+import { ClientLookupField } from '../clients/ClientLookupField';
 
 // Painel comercial do detalhe da amostra: SO LEITURA. A venda passou a ser feita
 // exclusivamente pela pagina Contratos (criando o contrato a vista); a perda sera
 // realocada depois. Aqui ficam apenas os dados (Vendido/Perdido/Disponivel) e a
 // timeline de movimentacoes/envios/laudos como historico — sem acoes de venda/perda.
+//
+// Excecao (ajuste pos-F3): a EDICAO do envio fisico e pequena demais pra um
+// painel lateral — virou um dropdown inline logo abaixo do card de movimentacao
+// (dois campos + Salvar). O cancelamento continua central (destrutivo) e o envio
+// NOVO continua no fluxo da lista.
+
+type PhysicalSendItem = Extract<SendHistoryItem, { kind: 'PHYSICAL' }>;
 
 type SampleMovementsPanelProps = {
+  session: SessionData;
   sample: SampleSnapshot;
   movements: SampleMovement[];
   // Itens do historico de envios (laudo PDF + amostra fisica), projetados na
   // detail page. A Movimentacoes unifica movimentos + envio + laudo numa so
-  // timeline. Os modais de envio/cancelamento ficam na detail page, por isso
-  // as acoes de editar/cancelar envio vem como callbacks.
+  // timeline. O cancelamento de envio (modal central) fica na detail page, por
+  // isso vem como callback.
   sendItems: SendHistoryItem[];
   canEditSend: boolean;
-  onEditSend: (item: Extract<SendHistoryItem, { kind: 'PHYSICAL' }>) => void | Promise<void>;
+  /** Envio com o editor inline aberto — o host guarda o estado (entra no detailBusy). */
+  editingSendEventId: string | null;
+  /** Abre/fecha o editor inline do envio (o mesmo botao alterna). */
+  onToggleSendEdit: (sendEventId: string) => void;
+  /** Salva a edicao; lanca em caso de falha (o editor inline mostra a mensagem). */
+  onSubmitSendEdit: (
+    sendEventId: string,
+    input: { recipientClientId: string | null; sentDate: string }
+  ) => Promise<void>;
   onCancelSend: (sendEventId: string) => void;
   // Lote editavel: edicao da data de chegada pelo item "Registro" da timeline.
   // O modal/salvamento vivem na detail page (como os de envio), por callback.
@@ -52,12 +76,122 @@ function getMovementBuyerLabel(movement: SampleMovement): string | null {
   return client.displayName ?? client.fullName ?? client.tradeName ?? null;
 }
 
+// Editor inline do envio fisico: dois campos (destinatario + data) abertos
+// abaixo do card, no lugar do painel lateral. O prefill do destinatario precisa
+// do ClientSummary completo (o historico so guarda id + nome).
+function SendEditInline({
+  session,
+  item,
+  onCancel,
+  onSubmit,
+}: {
+  session: SessionData;
+  item: PhysicalSendItem;
+  onCancel: () => void;
+  onSubmit: (
+    sendEventId: string,
+    input: { recipientClientId: string | null; sentDate: string }
+  ) => Promise<void>;
+}) {
+  const [client, setClient] = useState<ClientSummary | null>(null);
+  const [sentDate, setSentDate] = useState(item.sentDate);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const recipientClientId = item.recipientClientId;
+  useEffect(() => {
+    let cancelled = false;
+    if (!recipientClientId) {
+      setClient(null);
+      return;
+    }
+    void (async () => {
+      try {
+        const response = await getClient(session, recipientClientId);
+        if (!cancelled) setClient(response.client);
+      } catch {
+        if (!cancelled) setClient(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [recipientClientId, session]);
+
+  async function handleSubmit() {
+    if (saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await onSubmit(item.sendEventId, {
+        recipientClientId: client?.id ?? null,
+        sentDate,
+      });
+    } catch (cause) {
+      setError(
+        cause instanceof ApiError ? cause.message : 'Falha ao atualizar envio. Tente novamente.'
+      );
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form
+      className="sdv-com-mov-edit"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void handleSubmit();
+      }}
+    >
+      <div className="sdv-com-mov-edit-fields">
+        <div className="app-modal-field">
+          <ClientLookupField
+            session={session}
+            label="Destinatário"
+            kind="any"
+            compact
+            maxResults={10}
+            selectedClient={client}
+            onSelectClient={(next) => setClient(next)}
+            disabled={saving}
+            placeholder="Busque por nome, documento ou código"
+          />
+        </div>
+        <label className="app-modal-field">
+          <span className="app-modal-label">Data de envio</span>
+          <input
+            type="date"
+            className="app-modal-input"
+            value={sentDate}
+            onChange={(event) => setSentDate(event.target.value)}
+            disabled={saving}
+          />
+        </label>
+      </div>
+
+      {error ? <p className="sdv-modal-error">{error}</p> : null}
+
+      <div className="sdv-com-mov-edit-actions">
+        <button type="button" className="fv-btn fv-btn-secondary" onClick={onCancel}>
+          Cancelar
+        </button>
+        <button type="submit" className="fv-btn fv-btn-primary" disabled={saving}>
+          {saving ? 'Salvando...' : 'Salvar'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export function SampleMovementsPanel({
+  session,
   sample,
   movements,
   sendItems,
   canEditSend,
-  onEditSend,
+  editingSendEventId,
+  onToggleSendEdit,
+  onSubmitSendEdit,
   onCancelSend,
   canEditRegistrationDate,
   onEditRegistrationDate,
@@ -303,63 +437,74 @@ export function SampleMovementsPanel({
 
                   const item = entry.item;
 
-                  // Envio de amostra fisica — editavel/cancelavel (callbacks da
+                  // Envio de amostra fisica — editavel (dropdown inline logo
+                  // abaixo do card) e cancelavel (modal central, callback da
                   // detail page) quando ativo e o status permite enviar.
                   if (item.kind === 'PHYSICAL') {
                     const cancelled = item.cancelled;
+                    const editing = editingSendEventId === item.sendEventId;
                     return (
-                      <div
-                        key={item.key}
-                        role="listitem"
-                        className={`sdv-com-mov${cancelled ? ' is-cancelled' : ''}`}
-                        style={{ animationDelay }}
-                      >
-                        <div className="sdv-com-mov-icon is-send">
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="m22 2-7 20-4-9-9-4 20-7z" />
-                            <path d="M22 2 11 13" />
-                          </svg>
+                      <div key={item.key} role="listitem" className="sdv-com-mov-group">
+                        <div
+                          className={`sdv-com-mov${cancelled ? ' is-cancelled' : ''}${editing ? ' is-editing' : ''}`}
+                          style={{ animationDelay }}
+                        >
+                          <div className="sdv-com-mov-icon is-send">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="m22 2-7 20-4-9-9-4 20-7z" />
+                              <path d="M22 2 11 13" />
+                            </svg>
+                          </div>
+                          <div className="sdv-com-mov-content">
+                            <div className="sdv-com-mov-top">
+                              <span className="sdv-com-mov-badge is-send">Envio</span>
+                              <span className="sdv-com-mov-name">{item.recipientName}</span>
+                              {cancelled ? (
+                                <span className="sdv-com-mov-badge is-cancelled">Cancelado</span>
+                              ) : null}
+                            </div>
+                            <div className="sdv-com-mov-bottom">
+                              <span>Lote físico</span>
+                              <span className="sdv-com-mov-sep" />
+                              <span>{formatMovementDate(item.sentDate)}</span>
+                            </div>
+                          </div>
+                          {!cancelled && canEditSend ? (
+                            <div className="sdv-com-mov-actions">
+                              <button
+                                type="button"
+                                className={`sdv-com-mov-act${editing ? ' is-active' : ''}`}
+                                onClick={() => onToggleSendEdit(item.sendEventId)}
+                                aria-label={editing ? 'Fechar edição do envio' : 'Editar envio'}
+                                aria-expanded={editing}
+                              >
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                  <path d="M12 20h9" />
+                                  <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                                </svg>
+                              </button>
+                              <button
+                                type="button"
+                                className="sdv-com-mov-act is-danger"
+                                onClick={() => onCancelSend(item.sendEventId)}
+                                aria-label="Cancelar envio"
+                              >
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                  <path d="M3 6h18" />
+                                  <path d="M8 6V4h8v2" />
+                                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                                </svg>
+                              </button>
+                            </div>
+                          ) : null}
                         </div>
-                        <div className="sdv-com-mov-content">
-                          <div className="sdv-com-mov-top">
-                            <span className="sdv-com-mov-badge is-send">Envio</span>
-                            <span className="sdv-com-mov-name">{item.recipientName}</span>
-                            {cancelled ? (
-                              <span className="sdv-com-mov-badge is-cancelled">Cancelado</span>
-                            ) : null}
-                          </div>
-                          <div className="sdv-com-mov-bottom">
-                            <span>Lote físico</span>
-                            <span className="sdv-com-mov-sep" />
-                            <span>{formatMovementDate(item.sentDate)}</span>
-                          </div>
-                        </div>
-                        {!cancelled && canEditSend ? (
-                          <div className="sdv-com-mov-actions">
-                            <button
-                              type="button"
-                              className="sdv-com-mov-act"
-                              onClick={() => onEditSend(item)}
-                              aria-label="Editar envio"
-                            >
-                              <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M12 20h9" />
-                                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                              </svg>
-                            </button>
-                            <button
-                              type="button"
-                              className="sdv-com-mov-act is-danger"
-                              onClick={() => onCancelSend(item.sendEventId)}
-                              aria-label="Cancelar envio"
-                            >
-                              <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M3 6h18" />
-                                <path d="M8 6V4h8v2" />
-                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-                              </svg>
-                            </button>
-                          </div>
+                        {editing ? (
+                          <SendEditInline
+                            session={session}
+                            item={item}
+                            onCancel={() => onToggleSendEdit(item.sendEventId)}
+                            onSubmit={onSubmitSendEdit}
+                          />
                         ) : null}
                       </div>
                     );

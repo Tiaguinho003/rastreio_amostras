@@ -36443,3 +36443,112 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   overflow: visible;
   padding-right: 0;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   Timeline · EDITOR INLINE DO ENVIO
+   ══════════════════════════════════════════════════════════════
+   A edicao do envio fisico (dois campos) e pequena demais pra um painel
+   lateral: abre como dropdown ancorado ao proprio card. O grupo card +
+   editor vira um item so da lista (a lista e flex column com gap). */
+.sdv-com-mov-group {
+  display: flex;
+  flex-direction: column;
+}
+/* Card com o editor aberto: canto de baixo reto, pra emendar no dropdown. */
+.sdv-com-mov.is-editing {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.sdv-com-mov-act.is-active {
+  background: var(--fv-cta);
+}
+.sdv-com-mov-act.is-active svg {
+  stroke: #ffffff;
+}
+
+.sdv-com-mov-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: -1px;
+  padding: 0.7rem 0.8rem 0.75rem;
+  border: 1px solid var(--fv-line);
+  border-radius: 0 0 var(--fv-radius) var(--fv-radius);
+  background: var(--fv-hover);
+  animation: fv-mov-edit-in 0.18s ease;
+}
+@keyframes fv-mov-edit-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sdv-com-mov-edit {
+    animation: none;
+  }
+}
+/* Dois campos lado a lado quando ha largura; empilham no estreito. */
+.sdv-com-mov-edit-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 0.5rem;
+  align-items: end;
+}
+@media (max-width: 430px) {
+  .sdv-com-mov-edit-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* Mesma geometria de campo dos paineis FV (o `.fv-panel-sheet` nao alcanca
+   aqui — o editor mora na pagina, nao no sheet). */
+.sdv-com-mov-edit .app-modal-input {
+  padding: 0.5rem 0.7rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  background: var(--fv-surface);
+}
+.sdv-com-mov-edit .app-modal-label {
+  font-size: 0.72rem;
+}
+/* Fix do input date no WebKit (mesmo dos modais/sheets): sem `appearance:none`
+   o campo estoura a largura no iOS. */
+.sdv-com-mov-edit .app-modal-input[type='date'] {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235a6b5e' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><rect x='4.5' y='5.5' width='15' height='14' rx='2.2'/><path d='M7.5 3.8v3.2'/><path d='M16.5 3.8v3.2'/><path d='M4.5 9.5h15'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  background-size: 0.95rem 0.95rem;
+  padding-right: 2.2rem;
+}
+.sdv-com-mov-edit .app-modal-input[type='date']::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  pointer-events: none;
+}
+.sdv-com-mov-edit .app-modal-input[type='date']::-webkit-date-and-time-value {
+  text-align: left;
+  min-width: 0;
+}
+/* O dropdown de clientes sobrepoe os cards seguintes da timeline. */
+.sdv-com-mov-edit .client-lookup-dropdown {
+  z-index: 30;
+  max-height: min(15rem, 50vh);
+  overflow-x: hidden;
+}
+.sdv-com-mov-edit .sdv-modal-error {
+  margin: 0;
+}
+.sdv-com-mov-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+.sdv-com-mov-edit-actions .fv-btn {
+  height: 34px;
+  font-size: 0.82rem;
+}

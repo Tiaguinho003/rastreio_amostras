@@ -5,12 +5,13 @@
 // o seletor (Descricao/laudo + Fisico), os modais de export e de envio fisico
 // (criar/editar) e o cancelamento.
 //
-// 3 entradas, controladas por props (uma por vez):
+// 2 entradas, controladas por props (uma por vez):
 // - CREATE  (lista): `chooserOpen` → abre o seletor; precisa de status/
 //   internalLotNumber/canDescricao.
-// - EDIT    (timeline do detalhe): `editItem` → abre o modal fisico em modo edicao.
 // - CANCEL  (timeline do detalhe): `cancelEventId` → abre a confirmacao de cancelamento.
 // `onClose` encerra a sessao (o host limpa o gatilho); `onChanged` pede refetch.
+// A EDICAO de um envio existente NAO passa por aqui: virou dropdown inline no
+// card da timeline (SampleMovementsPanel), por ser pequena demais pra um painel.
 //
 // F3 do redesign FV: os dois FORMS (gerar laudo, envio fisico) viraram PAINEIS
 // LATERAIS no molde da rodada 5 (side-sheet stacked + seta ← + submit no footer
@@ -30,14 +31,12 @@ import {
   ApiError,
   cancelPhysicalSampleSend,
   exportSamplePdf,
-  getClient,
   recordPhysicalSampleSent,
-  updatePhysicalSampleSend,
 } from '../../lib/api-client';
 import { getTodayDateInput } from '../../lib/classification-form';
 import { shareOrDownloadFile } from '../../lib/share-blob';
 import { useToast } from '../../lib/toast/ToastProvider';
-import type { ClientSummary, SampleStatus, SendHistoryItem, SessionData } from '../../lib/types';
+import type { ClientSummary, SampleStatus, SessionData } from '../../lib/types';
 import { ClientLookupField } from '../clients/ClientLookupField';
 import { SendMethodChooserModal } from './SendMethodChooserModal';
 
@@ -53,12 +52,10 @@ function truncateChipLabel(name: string, max = 10): string {
   return name.length > max ? `${name.slice(0, max)}…` : name;
 }
 
-type PhysicalSendItem = Extract<SendHistoryItem, { kind: 'PHYSICAL' }>;
-
 export type SampleSendFlowProps = {
   session: SessionData;
   sampleId: string;
-  /** Encerra a sessao do fluxo — o host limpa o gatilho (chooserOpen/editItem/cancelEventId). */
+  /** Encerra a sessao do fluxo — o host limpa o gatilho (chooserOpen/cancelEventId). */
   onClose: () => void;
   /** Pede refetch ao host apos qualquer mudanca (envio/laudo/cancelamento). */
   onChanged?: () => void;
@@ -68,9 +65,6 @@ export type SampleSendFlowProps = {
   status?: SampleStatus;
   internalLotNumber?: string | null;
   canDescricao?: boolean;
-
-  // EDIT (timeline do detalhe):
-  editItem?: PhysicalSendItem | null;
 
   // CANCEL (timeline do detalhe):
   cancelEventId?: string | null;
@@ -85,7 +79,6 @@ export function SampleSendFlow({
   status,
   internalLotNumber,
   canDescricao,
-  editItem,
   cancelEventId,
 }: SampleSendFlowProps) {
   const toast = useToast();
@@ -99,12 +92,11 @@ export function SampleSendFlow({
   const [exportRecipientClients, setExportRecipientClients] = useState<ClientSummary[]>([]);
   const [exportingPdf, setExportingPdf] = useState(false);
 
-  // Envio fisico (criar/editar)
+  // Envio fisico (criar)
   const [physicalSendModalOpen, setPhysicalSendModalOpen] = useState(false);
   const [physicalSendClients, setPhysicalSendClients] = useState<ClientSummary[]>([]);
   const [physicalSendDate, setPhysicalSendDate] = useState('');
   const [physicalSending, setPhysicalSending] = useState(false);
-  const [editingSendEventId, setEditingSendEventId] = useState<string | null>(null);
   const [physicalSendError, setPhysicalSendError] = useState<string | null>(null);
   const [physicalSendSuccess, setPhysicalSendSuccess] = useState(false);
 
@@ -119,31 +111,6 @@ export function SampleSendFlow({
     if (chooserOpen) setChooserVisible(true);
   }, [chooserOpen]);
 
-  // ENTRADA edit: prefill (destinatario + data) e abre o modal fisico em edicao.
-  useEffect(() => {
-    if (!editItem) return;
-    let cancelled = false;
-    setEditingSendEventId(editItem.sendEventId);
-    setPhysicalSendDate(editItem.sentDate);
-    setPhysicalSendError(null);
-    setPhysicalSendModalOpen(true);
-    void (async () => {
-      if (editItem.recipientClientId) {
-        try {
-          const response = await getClient(session, editItem.recipientClientId);
-          if (!cancelled) setPhysicalSendClients([response.client]);
-        } catch {
-          if (!cancelled) setPhysicalSendClients([]);
-        }
-      } else {
-        setPhysicalSendClients([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [editItem, session]);
-
   function resetInternal() {
     setChooserVisible(false);
     setExportConfirmationOpen(false);
@@ -153,7 +120,6 @@ export function SampleSendFlow({
     setPhysicalSendModalOpen(false);
     setPhysicalSendClients([]);
     setPhysicalSendError(null);
-    setEditingSendEventId(null);
   }
 
   // Encerra a sessao do fluxo (fecha tudo + avisa o host).
@@ -221,41 +187,33 @@ export function SampleSendFlow({
   async function handlePhysicalSend() {
     setPhysicalSending(true);
     setPhysicalSendError(null);
-    const isEditing = Boolean(editingSendEventId);
     try {
-      if (isEditing && editingSendEventId) {
-        await updatePhysicalSampleSend(session, sampleId, editingSendEventId, {
-          recipientClientId: physicalSendClients[0]?.id ?? null,
-          sentDate: physicalSendDate,
-        });
-      } else {
-        // Multi-destinatario: N destinatarios -> N registros. Falha parcial mantem
-        // nos chips so os que faltaram (retry nao duplica os que ja foram).
-        const recipients: (ClientSummary | null)[] =
-          physicalSendClients.length > 0 ? physicalSendClients : [null];
-        const failed: ClientSummary[] = [];
-        let firstError: unknown = null;
-        for (const client of recipients) {
-          try {
-            await recordPhysicalSampleSent(session, sampleId, {
-              recipientClientId: client?.id ?? null,
-              sentDate: physicalSendDate,
-            });
-          } catch (cause) {
-            if (client) failed.push(client);
-            if (!firstError) firstError = cause;
-          }
+      // Multi-destinatario: N destinatarios -> N registros. Falha parcial mantem
+      // nos chips so os que faltaram (retry nao duplica os que ja foram).
+      const recipients: (ClientSummary | null)[] =
+        physicalSendClients.length > 0 ? physicalSendClients : [null];
+      const failed: ClientSummary[] = [];
+      let firstError: unknown = null;
+      for (const client of recipients) {
+        try {
+          await recordPhysicalSampleSent(session, sampleId, {
+            recipientClientId: client?.id ?? null,
+            sentDate: physicalSendDate,
+          });
+        } catch (cause) {
+          if (client) failed.push(client);
+          if (!firstError) firstError = cause;
         }
-        if (failed.length > 0 || firstError) {
-          onChanged?.();
-          setPhysicalSendClients(failed);
-          const names = failed.map((c) => c.displayName ?? 'sem nome').join(', ');
-          const base = firstError instanceof ApiError ? firstError.message : 'Tente novamente.';
-          setPhysicalSendError(
-            names ? `Falha ao enviar para: ${names}. ${base}` : `Falha ao registrar envio. ${base}`
-          );
-          return;
-        }
+      }
+      if (failed.length > 0 || firstError) {
+        onChanged?.();
+        setPhysicalSendClients(failed);
+        const names = failed.map((c) => c.displayName ?? 'sem nome').join(', ');
+        const base = firstError instanceof ApiError ? firstError.message : 'Tente novamente.';
+        setPhysicalSendError(
+          names ? `Falha ao enviar para: ${names}. ${base}` : `Falha ao registrar envio. ${base}`
+        );
+        return;
       }
       onChanged?.();
       setPhysicalSendSuccess(true);
@@ -264,15 +222,9 @@ export function SampleSendFlow({
         dismiss();
       }, 900);
     } catch (cause) {
-      if (cause instanceof ApiError) {
-        setPhysicalSendError(cause.message);
-      } else {
-        setPhysicalSendError(
-          isEditing
-            ? 'Falha ao atualizar envio. Tente novamente.'
-            : 'Falha ao registrar envio. Tente novamente.'
-        );
-      }
+      setPhysicalSendError(
+        cause instanceof ApiError ? cause.message : 'Falha ao registrar envio. Tente novamente.'
+      );
     } finally {
       setPhysicalSending(false);
     }
@@ -316,7 +268,6 @@ export function SampleSendFlow({
               }}
               onChooseFisico={() => {
                 setChooserVisible(false);
-                setEditingSendEventId(null);
                 setPhysicalSendClients([]);
                 setPhysicalSendDate(getTodayDateInput());
                 setPhysicalSendError(null);
@@ -417,20 +368,15 @@ export function SampleSendFlow({
 
       <BottomSheet
         open={physicalSendModalOpen}
-        // Criar: a seta ← volta pro seletor de metodo. Editar (vindo da
-        // timeline): a seta ← cancela e volta pro detalhe.
+        // A seta ← volta pro seletor de metodo (o fluxo tem duas etapas).
         onClose={() => {
-          if (editingSendEventId) {
-            dismiss();
-            return;
-          }
           setPhysicalSendModalOpen(false);
           setPhysicalSendError(null);
           setChooserVisible(true);
         }}
         onDismissAttempt={() => !physicalSending && !physicalSendSuccess}
-        title={editingSendEventId ? 'Editar envio' : 'Enviar amostra'}
-        ariaLabel={editingSendEventId ? 'Editar envio' : 'Enviar amostra'}
+        title="Enviar amostra"
+        ariaLabel="Enviar amostra"
         stacked
         closeVariant="edge-back"
         dragDisabled={physicalSending || physicalSendSuccess}
@@ -443,13 +389,7 @@ export function SampleSendFlow({
               className="app-modal-submit"
               disabled={physicalSending}
             >
-              {physicalSending
-                ? editingSendEventId
-                  ? 'Salvando...'
-                  : 'Enviando...'
-                : editingSendEventId
-                  ? 'Salvar'
-                  : 'Enviar'}
+              {physicalSending ? 'Enviando...' : 'Enviar'}
             </button>
           )
         }
@@ -463,67 +403,51 @@ export function SampleSendFlow({
               void handleConfirmPhysicalSend();
             }}
           >
-            {editingSendEventId ? (
-              <div className="app-modal-field">
+            <div className="app-modal-field">
+              <span className="app-modal-label">Destinatários</span>
+              <div className="samples-filter-multi samples-filter-multi--lookup send-recipient-multi">
+                {physicalSendClients.map((client) => (
+                  <span key={client.id} className="samples-filter-token">
+                    <span
+                      className="samples-filter-token-label"
+                      title={client.displayName ?? 'Sem nome'}
+                    >
+                      {truncateChipLabel(client.displayName ?? 'Sem nome')}
+                    </span>
+                    <button
+                      type="button"
+                      className="samples-filter-token-remove"
+                      aria-label={`Remover destinatário: ${client.displayName ?? ''}`}
+                      disabled={physicalSending}
+                      onClick={() =>
+                        setPhysicalSendClients((prev) => prev.filter((c) => c.id !== client.id))
+                      }
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
                 <ClientLookupField
                   session={session}
-                  label="Destinatário"
+                  label="Destinatários"
                   kind="any"
-                  maxResults={10}
-                  selectedClient={physicalSendClients[0] ?? null}
-                  onSelectClient={(client) => setPhysicalSendClients(client ? [client] : [])}
-                  disabled={physicalSending}
-                  placeholder="Busque por nome, documento ou código"
                   compact
+                  clearOnSelect
+                  maxResults={10}
+                  selectedClient={null}
+                  onSelectClient={(client) => {
+                    if (!client) return;
+                    setPhysicalSendClients((prev) =>
+                      prev.some((c) => c.id === client.id) ? prev : [...prev, client]
+                    );
+                  }}
+                  disabled={physicalSending}
+                  placeholder={
+                    physicalSendClients.length > 0 ? '' : 'Busque por nome, documento ou código'
+                  }
                 />
               </div>
-            ) : (
-              <div className="app-modal-field">
-                <span className="app-modal-label">Destinatários</span>
-                <div className="samples-filter-multi samples-filter-multi--lookup send-recipient-multi">
-                  {physicalSendClients.map((client) => (
-                    <span key={client.id} className="samples-filter-token">
-                      <span
-                        className="samples-filter-token-label"
-                        title={client.displayName ?? 'Sem nome'}
-                      >
-                        {truncateChipLabel(client.displayName ?? 'Sem nome')}
-                      </span>
-                      <button
-                        type="button"
-                        className="samples-filter-token-remove"
-                        aria-label={`Remover destinatário: ${client.displayName ?? ''}`}
-                        disabled={physicalSending}
-                        onClick={() =>
-                          setPhysicalSendClients((prev) => prev.filter((c) => c.id !== client.id))
-                        }
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                  <ClientLookupField
-                    session={session}
-                    label="Destinatários"
-                    kind="any"
-                    compact
-                    clearOnSelect
-                    maxResults={10}
-                    selectedClient={null}
-                    onSelectClient={(client) => {
-                      if (!client) return;
-                      setPhysicalSendClients((prev) =>
-                        prev.some((c) => c.id === client.id) ? prev : [...prev, client]
-                      );
-                    }}
-                    disabled={physicalSending}
-                    placeholder={
-                      physicalSendClients.length > 0 ? '' : 'Busque por nome, documento ou código'
-                    }
-                  />
-                </div>
-              </div>
-            )}
+            </div>
             <label className="app-modal-field">
               <span className="app-modal-label">Data de envio</span>
               <input

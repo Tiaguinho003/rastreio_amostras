@@ -31,6 +31,7 @@ import {
   requestQrPrint,
   revertBlend,
   updateClassification,
+  updatePhysicalSampleSend,
   updateRegistration,
 } from '../../lib/api-client';
 import {
@@ -577,12 +578,11 @@ export function SampleDetailView({
       document.removeEventListener('keydown', onDocumentKeyDown, true);
     };
   }, [heroMenuOpen]);
-  // Envio (extraido p/ SampleSendFlow): edicao/cancelamento de envios EXISTENTES,
-  // disparados pela timeline. O envio NOVO migrou p/ o card da lista (/samples).
-  const [editSendItem, setEditSendItem] = useState<Extract<
-    SendHistoryItem,
-    { kind: 'PHYSICAL' }
-  > | null>(null);
+  // Envio: a EDICAO virou dropdown inline na propria timeline (dois campos —
+  // pequena demais pra um painel); aqui fica so qual envio esta aberto, pra
+  // entrar no detailBusy. O CANCELAMENTO (destrutivo) segue no SampleSendFlow.
+  // O envio NOVO migrou p/ o card da lista (/samples).
+  const [editSendEventId, setEditSendEventId] = useState<string | null>(null);
   const [cancelSendId, setCancelSendId] = useState<string | null>(null);
 
   // Lote editavel: painel de edicao da data de chegada (createdAt do lote),
@@ -825,7 +825,7 @@ export function SampleDetailView({
     ownerQuickCreateOpen ||
     invalidateBlockedOpen ||
     classificationImageModalOpen ||
-    editSendItem !== null ||
+    editSendEventId !== null ||
     cancelSendId !== null;
   const detailBusyRef = useRef(detailBusy);
   detailBusyRef.current = detailBusy;
@@ -1061,6 +1061,17 @@ export function SampleDetailView({
   useEffect(() => {
     fetchSendHistory();
   }, [fetchSendHistory]);
+
+  // Salvamento do editor inline de envio (timeline). Lanca em caso de falha —
+  // quem mostra a mensagem e o proprio editor, dentro do card.
+  const submitSendEdit = useCallback(
+    async (sendEventId: string, input: { recipientClientId: string | null; sentDate: string }) => {
+      await updatePhysicalSampleSend(session, sampleId, sendEventId, input);
+      setEditSendEventId(null);
+      await fetchSendHistory();
+    },
+    [session, sampleId, fetchSendHistory]
+  );
 
   // F3: envio e perda disparados pelo ⋯ do hero rodam em componentes da
   // PAGINA (mesmo fluxo da lista) — ela avisa por aqui que o lote mudou.
@@ -2599,12 +2610,19 @@ export function SampleDetailView({
                 {activeTab !== 'classificacao' ? (
                   <section className="stack sample-detail-info-pane sample-detail-commercial-pane">
                     <SampleMovementsPanel
+                      session={session}
                       sample={detail.sample}
                       movements={detail.movements ?? []}
                       onOpenSample={onOpenSample}
                       sendItems={sendHistoryItems}
                       canEditSend={canPhysicalSend}
-                      onEditSend={(item) => setEditSendItem(item)}
+                      editingSendEventId={editSendEventId}
+                      onToggleSendEdit={(sendEventId) =>
+                        setEditSendEventId((current) =>
+                          current === sendEventId ? null : sendEventId
+                        )
+                      }
+                      onSubmitSendEdit={submitSendEdit}
                       onCancelSend={(sendEventId) => setCancelSendId(sendEventId)}
                       canEditRegistrationDate={canEditRegistrationStatus(detail.sample.status)}
                       onEditRegistrationDate={openDateEdit}
@@ -3805,19 +3823,16 @@ export function SampleDetailView({
           )
         : null}
 
-      {/* Envio: editar/cancelar envios EXISTENTES (disparados pela timeline). O
-          envio NOVO migrou p/ o card da lista (/samples). */}
-      {session && (editSendItem || cancelSendId) ? (
+      {/* Envio: CANCELAR envios existentes (disparado pela timeline). A edicao
+          virou dropdown inline no proprio card; o envio NOVO migrou p/ o card
+          da lista (/samples). */}
+      {cancelSendId ? (
         <SampleSendFlow
           session={session}
           sampleId={sampleId}
-          editItem={editSendItem}
           cancelEventId={cancelSendId}
           onChanged={fetchSendHistory}
-          onClose={() => {
-            setEditSendItem(null);
-            setCancelSendId(null);
-          }}
+          onClose={() => setCancelSendId(null)}
         />
       ) : null}
 
