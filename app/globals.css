@@ -16137,64 +16137,6 @@ select.samples-filter-field-input {
   opacity: 1;
 }
 
-.new-sample-harvest-options {
-  position: absolute;
-  top: calc(100% + 0.25rem);
-  left: 0;
-  right: 0;
-  z-index: 14;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  padding: 0.45rem;
-  border: 1px solid rgba(210, 215, 205, 0.9);
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 4px 16px rgba(31, 42, 31, 0.1);
-}
-
-/* LNW-L3: abre pra cima quando nao ha espaco abaixo no body do sheet. */
-.new-sample-harvest-options.is-drop-up {
-  top: auto;
-  bottom: calc(100% + 0.25rem);
-}
-
-.new-sample-harvest-option {
-  border: 1px solid rgba(195, 205, 190, 0.8);
-  border-radius: 999px;
-  padding: 0.28rem 0.65rem;
-  background: #f9faf7;
-  color: #3a4f3e;
-  font-size: 0.8rem;
-  font-weight: 600;
-  box-shadow: none;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  /* So transform na transition (LNW-L2, skill button-press-effect §5). */
-  transition: transform 120ms ease;
-}
-
-.new-sample-harvest-option:active {
-  transform: scale(0.96);
-}
-
-@media (hover: hover) {
-  .new-sample-harvest-option:hover {
-    background: #eef3ea;
-    border-color: rgba(170, 185, 165, 0.9);
-  }
-}
-
-.new-sample-harvest-option.is-active {
-  border-color: #5a8a54;
-  background: #5a8a54;
-  color: #fff;
-}
-
-.new-sample-harvest-option.is-active:hover {
-  background: #4d7a48;
-}
-
 .new-sample-photo-actions {
   gap: 0.48rem;
 }
@@ -19743,50 +19685,6 @@ select.samples-filter-field-input {
     position: relative;
   }
 
-  .new-sample-harvest-options {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: #fff;
-    border: 1px solid #c5d0c8;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    z-index: 10;
-    overflow: hidden;
-  }
-
-  /* LNW-L3 (mobile): idem base — pra cima quando falta espaco abaixo. */
-  .new-sample-harvest-options.is-drop-up {
-    top: auto;
-    bottom: 100%;
-  }
-
-  .new-sample-harvest-option {
-    width: 100%;
-    padding: 0.55rem 0.7rem;
-    /* Alvo minimo de toque (LNW-A3). */
-    min-height: 44px;
-    border: none;
-    background: #fff;
-    color: #1a3a28;
-    font-size: 0.88rem;
-    text-align: left;
-    cursor: pointer;
-  }
-
-  @media (hover: hover) {
-    .new-sample-harvest-option:hover {
-      background: #e8f5e9;
-      color: #1d762c;
-    }
-  }
-
-  .new-sample-harvest-option.is-active {
-    background: #e8f5e9;
-    color: #1d762c;
-  }
-
   .new-sample-notes-textarea {
     min-height: clamp(1.4rem, 3dvh, 2.2rem);
     height: clamp(1.4rem, 3dvh, 2.2rem);
@@ -22282,7 +22180,10 @@ select.samples-filter-field-input {
   background: transparent;
 }
 
-/* ── Form Grid ── */
+/* ── Form Grid ──
+   DORMENTE (FV /samples, ajuste pos-F3): o "Novo lote" era o unico consumidor
+   destas 3 classes (.nsv2-form-grid / -grid-full / -grid-half) e migrou pro kit
+   institucional `.fv-form-*`. Mantidas ate a consolidacao da pagina. */
 
 .nsv2-form-grid {
   display: grid;
@@ -22608,7 +22509,8 @@ select.samples-filter-field-input {
 }
 
 /* Lote editavel: erro de campo (lote duplicado, data no futuro) exibido abaixo
-   do input quando o campo ja tem valor e o placeholder de erro nao aparece. */
+   do input quando o campo ja tem valor e o placeholder de erro nao aparece.
+   DORMENTE: o "Novo lote" passou a usar `.fv-form-field-error`. */
 .nsv2-field-error {
   display: block;
   margin: 4px 2px 0;
@@ -35603,6 +35505,159 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 0.5rem;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   FV · FORMULARIO — campo institucional GENERICO
+   ══════════════════════════════════════════════════════════════
+   Mesmo molde que o painel de criar cliente estreou (rodada 2 FV):
+   rotulo pequeno muted ACIMA do valor, input hairline 1px + raio 10px
+   + anel de foco da marca, linhas de 1 ou 2 colunas e micro-cabecalhos
+   agrupando as secoes. Sem escopo de pagina — qualquer form novo usa
+   `.fv-form-*`; o `.client-quick-create-*` fica como alias do cliente
+   ate a consolidacao (mesma relacao de `.fv-panel-sheet`). */
+.fv-form-body {
+  display: grid;
+  gap: clamp(0.5rem, 2vw, 0.72rem);
+  min-width: 0;
+}
+/* Micro-cabecalho de secao: small-caps muted com hairline. */
+.fv-form-heading {
+  display: block;
+  margin: 0.4rem 0 0.05rem;
+  padding-bottom: 0.32rem;
+  border-bottom: 1px solid var(--fv-line);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.fv-form-body > .fv-form-heading:first-child {
+  margin-top: 0;
+}
+.fv-form-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(0.4rem, 1.5vw, 0.6rem);
+}
+.fv-form-row-2col {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: end;
+}
+.fv-form-field {
+  display: grid;
+  gap: clamp(0.22rem, 1vw, 0.32rem);
+  min-width: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.fv-form-field input,
+.fv-form-field select,
+.fv-form-field textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.62rem;
+  padding: clamp(0.5rem, 2vw, 0.62rem) clamp(0.6rem, 2.4vw, 0.78rem);
+  border: 1px solid var(--fv-line-strong);
+  border-radius: var(--fv-radius);
+  background: #ffffff;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 400;
+  color: var(--ink);
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+.fv-form-field input:focus,
+.fv-form-field select:focus,
+.fv-form-field textarea:focus {
+  outline: none;
+  border-color: var(--fv-cta);
+  box-shadow: 0 0 0 3px rgba(23, 60, 48, 0.12);
+}
+.fv-form-field input:disabled,
+.fv-form-field select:disabled {
+  opacity: 0.6;
+}
+/* Erro DENTRO do campo (preferencia do projeto): borda vermelha suave +
+   placeholder vermelho; some ao corrigir. */
+.fv-form-field.is-field-error input,
+.fv-form-field.is-field-error select {
+  border-color: rgba(196, 92, 92, 0.4);
+}
+.fv-form-input-error::placeholder {
+  color: #c45c5c;
+  opacity: 1;
+}
+.fv-form-field-error {
+  margin: 0.1rem 0 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #c45c5c;
+}
+.fv-form-required {
+  color: #c45c5c;
+}
+/* Rodape de acoes: secundaria | primaria, lado a lado em toda largura. */
+.fv-form-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.56rem;
+}
+.fv-form-actions .app-modal-secondary,
+.fv-form-actions .app-modal-submit {
+  min-height: 2.82rem;
+}
+@media (min-width: 901px) {
+  .fv-form-body {
+    gap: 0.9rem;
+  }
+  .fv-form-field {
+    gap: 0.32rem;
+  }
+}
+
+/* ── Painel "Novo lote": campos compostos no molde acima ──
+   O `.fv-form-field` alcanca <input>/<select> diretos; a busca de cliente e o
+   chips de lote de origem trazem markup proprio e precisam do mesmo desenho. */
+.new-sample-sheet .client-lookup-field {
+  gap: clamp(0.22rem, 1vw, 0.32rem);
+}
+.new-sample-sheet .client-lookup-field > label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.new-sample-sheet .client-lookup-shell input,
+.new-sample-sheet .olc-wrap {
+  min-height: 2.62rem;
+  padding: clamp(0.5rem, 2vw, 0.62rem) clamp(0.6rem, 2.4vw, 0.78rem);
+  border: 1px solid var(--fv-line-strong);
+  border-radius: var(--fv-radius);
+  background: #ffffff;
+  box-shadow: none;
+  font-size: 0.88rem;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+.new-sample-sheet .client-lookup-shell input:focus,
+.new-sample-sheet .olc-wrap:focus-within {
+  outline: none;
+  border-color: var(--fv-cta);
+  box-shadow: 0 0 0 3px rgba(23, 60, 48, 0.12);
+}
+.new-sample-sheet .olc-input {
+  font-size: 0.88rem;
+}
+/* Sugestoes de cliente sobrepoem as linhas seguintes do form. */
+.new-sample-sheet .client-lookup-dropdown {
+  z-index: 30;
+  max-height: min(17.5rem, 55vh);
+  overflow-x: hidden;
 }
 
 /* ── F3 FV /samples: paineis do detalhe do LOTE ── */

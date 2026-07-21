@@ -228,9 +228,6 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
   const [originLot, setOriginLot] = useState('');
   const [location, setLocation] = useState('');
   const [notes, setNotes] = useState('');
-  const [harvestOptionsOpen, setHarvestOptionsOpen] = useState(false);
-  // LNW-L3: abre pra cima quando o espaco abaixo (no body rolavel) nao basta.
-  const [harvestDropUp, setHarvestDropUp] = useState(false);
   // Lote editavel: numero (pre-preenchido com a sugestao da sequencia) + data
   // de chegada (default hoje). Manual vs automatico e decidido por
   // lotEditedRef (LNW-B2/D4): editou e nao esta vazio = manual.
@@ -246,8 +243,7 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
 
   const ownerInputRef = useRef<HTMLInputElement | null>(null);
   const sacksInputRef = useRef<HTMLInputElement | null>(null);
-  const harvestInputRef = useRef<HTMLInputElement | null>(null);
-  const harvestFieldRef = useRef<HTMLDivElement | null>(null);
+  const harvestSelectRef = useRef<HTMLSelectElement | null>(null);
   const lotNumberInputRef = useRef<HTMLInputElement | null>(null);
   const receivedDateInputRef = useRef<HTMLInputElement | null>(null);
   // true assim que o usuario digita um numero de lote (some ao limpar o campo).
@@ -334,22 +330,6 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
     };
   }, []);
 
-  // ── Outside-click pra fechar dropdown de presets de safra
-  useEffect(() => {
-    if (!harvestOptionsOpen) return;
-
-    const onDocumentMouseDown = (event: MouseEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (!harvestFieldRef.current?.contains(target)) {
-        setHarvestOptionsOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', onDocumentMouseDown);
-    return () => document.removeEventListener('mousedown', onDocumentMouseDown);
-  }, [harvestOptionsOpen]);
-
   // ── Online/offline listeners
   useEffect(() => {
     setIsOnline(navigator.onLine);
@@ -385,7 +365,7 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
           : field === 'sacks'
             ? sacksInputRef.current
             : field === 'harvest'
-              ? harvestInputRef.current
+              ? harvestSelectRef.current
               : field === 'lotNumber'
                 ? lotNumberInputRef.current
                 : field === 'receivedDate'
@@ -415,7 +395,6 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
     setOriginLot('');
     setLocation('');
     setNotes('');
-    setHarvestOptionsOpen(false);
     setLotNumber('');
     lotEditedRef.current = false;
     setReceivedDate(todayAsInputDate());
@@ -560,8 +539,13 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
       {error ? <p className="nsv2-inline-error">{error}</p> : null}
       {message ? <p className="nsv2-inline-success">{message}</p> : null}
 
-      <div className="nsv2-form-grid">
-        <div className="nsv2-grid-full">
+      {/* Campos no molde institucional do painel de criar cliente: rotulo
+          pequeno muted acima, input hairline, linhas de 1 ou 2 colunas e
+          micro-cabecalhos agrupando as secoes (kit `.fv-form-*`). */}
+      <div className="fv-form-body">
+        <span className="fv-form-heading">Identificação</span>
+
+        <div className="fv-form-row">
           <ClientLookupField
             session={session}
             label="Proprietário"
@@ -587,179 +571,107 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
           />
         </div>
 
-        <div className="nsv2-grid-half">
-          <label className="nsv2-field">
-            <span className="nsv2-field-label">Número do lote</span>
-            <div className="nsv2-field-input-wrap">
-              <span className="nsv2-field-input-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" focusable="false">
-                  <path d="M4 9h16" />
-                  <path d="M4 15h16" />
-                  <path d="M10 3 8 21" />
-                  <path d="M16 3l-2 18" />
-                </svg>
-              </span>
-              <input
-                ref={lotNumberInputRef}
-                value={lotNumber}
-                className={`nsv2-field-input has-icon-left ${fieldErrors.lotNumber ? 'has-error' : ''}`}
-                aria-invalid={Boolean(fieldErrors.lotNumber)}
-                onChange={(event) => {
-                  markDirty();
-                  const next = event.target.value.replace(/[^0-9]/g, '');
-                  lotEditedRef.current = next.trim() !== '';
-                  setLotNumber(next);
-                  clearFieldError('lotNumber');
-                }}
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={7}
-                placeholder={lotLoading ? '...' : 'Ex: 5658'}
-              />
-            </div>
+        <div className="fv-form-row fv-form-row-2col">
+          <label className={`fv-form-field${fieldErrors.lotNumber ? ' is-field-error' : ''}`}>
+            <span className="fv-form-label">Número do lote</span>
+            <input
+              ref={lotNumberInputRef}
+              value={lotNumber}
+              className={fieldErrors.lotNumber ? 'fv-form-input-error' : undefined}
+              aria-invalid={Boolean(fieldErrors.lotNumber)}
+              onChange={(event) => {
+                markDirty();
+                const next = event.target.value.replace(/[^0-9]/g, '');
+                lotEditedRef.current = next.trim() !== '';
+                setLotNumber(next);
+                clearFieldError('lotNumber');
+              }}
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={7}
+              placeholder={lotLoading ? '...' : 'Ex: 5658'}
+            />
             {fieldErrors.lotNumber ? (
-              <span className="nsv2-field-error">{fieldErrors.lotNumber}</span>
+              <span className="fv-form-field-error">{fieldErrors.lotNumber}</span>
             ) : null}
           </label>
-        </div>
 
-        <div className="nsv2-grid-half">
-          <label className="nsv2-field">
-            <span className="nsv2-field-label">Data de chegada</span>
-            <div className="nsv2-field-input-wrap">
-              <span className="nsv2-field-input-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" focusable="false">
-                  <rect x="3" y="5" width="18" height="16" rx="2" />
-                  <path d="M3 10h18" />
-                  <path d="M8 3v4" />
-                  <path d="M16 3v4" />
-                </svg>
-              </span>
-              <input
-                ref={receivedDateInputRef}
-                type="date"
-                value={receivedDate}
-                max={todayAsInputDate()}
-                className={`nsv2-field-input has-icon-left ${fieldErrors.receivedDate ? 'has-error' : ''}`}
-                aria-invalid={Boolean(fieldErrors.receivedDate)}
-                onChange={(event) => {
-                  markDirty();
-                  setReceivedDate(event.target.value);
-                  clearFieldError('receivedDate');
-                }}
-              />
-            </div>
+          <label className={`fv-form-field${fieldErrors.receivedDate ? ' is-field-error' : ''}`}>
+            <span className="fv-form-label">Data de chegada</span>
+            <input
+              ref={receivedDateInputRef}
+              type="date"
+              value={receivedDate}
+              max={todayAsInputDate()}
+              className={fieldErrors.receivedDate ? 'fv-form-input-error' : undefined}
+              aria-invalid={Boolean(fieldErrors.receivedDate)}
+              onChange={(event) => {
+                markDirty();
+                setReceivedDate(event.target.value);
+                clearFieldError('receivedDate');
+              }}
+            />
             {fieldErrors.receivedDate ? (
-              <span className="nsv2-field-error">{fieldErrors.receivedDate}</span>
+              <span className="fv-form-field-error">{fieldErrors.receivedDate}</span>
             ) : null}
           </label>
         </div>
 
-        <div className="nsv2-grid-half">
-          <label className="nsv2-field">
-            <span className="nsv2-field-label">
-              Sacas<span className="nsv2-required-star"> *</span>
-            </span>
-            <div className="nsv2-field-input-wrap">
-              <span className="nsv2-field-input-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" focusable="false">
-                  <rect x="4" y="8" width="16" height="13" rx="2" />
-                  <path d="M9 8V6a3 3 0 0 1 6 0v2" />
-                </svg>
-              </span>
-              <input
-                ref={sacksInputRef}
-                value={sacks}
-                className={`nsv2-field-input has-icon-left ${fieldErrors.sacks ? 'has-error' : ''}`}
-                aria-invalid={Boolean(fieldErrors.sacks)}
-                onChange={(event) => {
-                  markDirty();
-                  setSacks(event.target.value.replace(/[^0-9]/g, ''));
-                  clearFieldError('sacks');
-                }}
-                inputMode="numeric"
-                pattern="[0-9]*"
-                placeholder={fieldErrors.sacks ? fieldErrors.sacks : 'Ex: 40'}
-              />
-            </div>
-          </label>
-        </div>
+        <span className="fv-form-heading">Dados do lote</span>
 
-        <div className="nsv2-grid-half" ref={harvestFieldRef}>
-          <label className="nsv2-field" htmlFor="nsv2-harvest-input-modal">
-            <span className="nsv2-field-label">
-              Safra<span className="nsv2-required-star"> *</span>
+        <div className="fv-form-row fv-form-row-2col">
+          <label className={`fv-form-field${fieldErrors.sacks ? ' is-field-error' : ''}`}>
+            <span className="fv-form-label">
+              Sacas<span className="fv-form-required"> *</span>
             </span>
-            <div className="nsv2-field-input-wrap">
-              <span className="nsv2-field-input-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" focusable="false">
-                  <rect x="3" y="5" width="18" height="16" rx="2" />
-                  <path d="M3 10h18" />
-                  <path d="M8 3v4" />
-                  <path d="M16 3v4" />
-                </svg>
-              </span>
-              <input
-                id="nsv2-harvest-input-modal"
-                ref={harvestInputRef}
-                className={`nsv2-field-input has-icon-left ${fieldErrors.harvest ? 'has-error' : ''}`}
-                aria-invalid={Boolean(fieldErrors.harvest)}
-                value={harvest}
-                onFocus={() => {
-                  // LNW-L3: o dropdown abre PRA CIMA quando nao ha espaco
-                  // abaixo dentro do body rolavel do sheet (senao era
-                  // recortado/virava scroll no fim do form).
-                  const input = harvestInputRef.current;
-                  const scroller = input?.closest('.bottom-sheet-body');
-                  if (input && scroller) {
-                    const inputRect = input.getBoundingClientRect();
-                    const scrollerRect = scroller.getBoundingClientRect();
-                    const spaceBelow = scrollerRect.bottom - inputRect.bottom;
-                    const spaceAbove = inputRect.top - scrollerRect.top;
-                    setHarvestDropUp(spaceBelow < 210 && spaceAbove > spaceBelow);
-                  } else {
-                    setHarvestDropUp(false);
-                  }
-                  setHarvestOptionsOpen(true);
-                }}
-                onChange={(event) => {
-                  markDirty();
-                  setHarvest(event.target.value.toUpperCase());
-                  clearFieldError('harvest');
-                }}
-                placeholder={
-                  fieldErrors.harvest
-                    ? fieldErrors.harvest
-                    : `Ex: ${HARVEST_PRESET_OPTIONS[1] ?? '25/26'}`
-                }
-              />
-            </div>
+            <input
+              ref={sacksInputRef}
+              value={sacks}
+              className={fieldErrors.sacks ? 'fv-form-input-error' : undefined}
+              aria-invalid={Boolean(fieldErrors.sacks)}
+              onChange={(event) => {
+                markDirty();
+                setSacks(event.target.value.replace(/[^0-9]/g, ''));
+                clearFieldError('sacks');
+              }}
+              inputMode="numeric"
+              pattern="[0-9]*"
+              placeholder={fieldErrors.sacks ? fieldErrors.sacks : 'Ex: 40'}
+            />
           </label>
-          {harvestOptionsOpen ? (
-            <div className={`new-sample-harvest-options${harvestDropUp ? ' is-drop-up' : ''}`}>
+
+          {/* Safra: dropdown NORMAL (<select> nativo) com as safras da janela
+              corrente — o popover de presets proprio saiu. */}
+          <label className={`fv-form-field${fieldErrors.harvest ? ' is-field-error' : ''}`}>
+            <span className="fv-form-label">
+              Safra<span className="fv-form-required"> *</span>
+            </span>
+            <select
+              ref={harvestSelectRef}
+              value={harvest}
+              aria-invalid={Boolean(fieldErrors.harvest)}
+              onChange={(event) => {
+                markDirty();
+                setHarvest(event.target.value);
+                clearFieldError('harvest');
+              }}
+            >
+              <option value="">Selecione</option>
               {HARVEST_PRESET_OPTIONS.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  className={`new-sample-harvest-option${harvest.trim() === option ? ' is-active' : ''}`}
-                  onClick={() => {
-                    markDirty();
-                    setHarvest(option);
-                    clearFieldError('harvest');
-                    setHarvestOptionsOpen(false);
-                  }}
-                  disabled={submitting}
-                >
+                <option key={option} value={option}>
                   {option}
-                </button>
+                </option>
               ))}
-            </div>
-          ) : null}
+            </select>
+            {fieldErrors.harvest ? (
+              <span className="fv-form-field-error">{fieldErrors.harvest}</span>
+            ) : null}
+          </label>
         </div>
 
-        <div className="nsv2-grid-half">
-          <label className="nsv2-field">
-            <span className="nsv2-field-label">Lote de origem</span>
+        <div className="fv-form-row fv-form-row-2col">
+          <label className="fv-form-field">
+            <span className="fv-form-label">Lote de origem</span>
             <OriginLotChips
               value={originLot}
               onChange={(next) => {
@@ -768,52 +680,32 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
               }}
             />
           </label>
-        </div>
 
-        <div className="nsv2-grid-half">
-          <label className="nsv2-field">
-            <span className="nsv2-field-label">Local</span>
-            <div className="nsv2-field-input-wrap">
-              <span className="nsv2-field-input-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" focusable="false">
-                  <path d="M12 22s8-7 8-13a8 8 0 0 0-16 0c0 6 8 13 8 13z" />
-                  <circle cx="12" cy="9" r="3" />
-                </svg>
-              </span>
-              <input
-                value={location}
-                className="nsv2-field-input has-icon-left"
-                onChange={(event) => {
-                  markDirty();
-                  setLocation(event.target.value.toUpperCase());
-                }}
-                placeholder="Ex: BM, Patos"
-                maxLength={30}
-              />
-            </div>
+          <label className="fv-form-field">
+            <span className="fv-form-label">Local</span>
+            <input
+              value={location}
+              onChange={(event) => {
+                markDirty();
+                setLocation(event.target.value.toUpperCase());
+              }}
+              placeholder="Ex: BM, Patos"
+              maxLength={30}
+            />
           </label>
         </div>
 
-        <div className="nsv2-grid-full">
-          <label className="nsv2-field">
-            <span className="nsv2-field-label">Observações</span>
-            <div className="nsv2-field-input-wrap">
-              <input
-                value={notes}
-                className="nsv2-field-input has-icon-right"
-                onChange={(event) => {
-                  markDirty();
-                  setNotes(event.target.value.toUpperCase());
-                }}
-                placeholder=""
-              />
-              <span className="nsv2-field-input-icon is-right" aria-hidden="true">
-                <svg viewBox="0 0 24 24" focusable="false">
-                  <path d="M12 20h9" />
-                  <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                </svg>
-              </span>
-            </div>
+        <div className="fv-form-row">
+          <label className="fv-form-field">
+            <span className="fv-form-label">Observações</span>
+            <input
+              value={notes}
+              onChange={(event) => {
+                markDirty();
+                setNotes(event.target.value.toUpperCase());
+              }}
+              placeholder=""
+            />
           </label>
         </div>
       </div>
@@ -832,26 +724,28 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
     </>
   );
 
+  // Rodape no molde do painel de criar cliente: secundaria | primaria lado a
+  // lado (o gradiente do `.nsv2-submit-btn` saiu com o kit institucional).
   const formFooter: ReactNode = (
-    <div className="nsv2-submit-wrap">
+    <div className="fv-form-actions">
       <button
         type="button"
-        className="nsv2-clear-btn"
+        className="app-modal-secondary"
         disabled={submitting || !hasUnsavedData()}
         onClick={resetDraft}
       >
-        <span>Limpar</span>
+        Limpar
       </button>
       <button
         type="button"
-        className="nsv2-submit-btn"
+        className="app-modal-submit"
         disabled={submitting || !isOnline}
         onClick={() => {
           if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
           void handleConfirmDraft();
         }}
       >
-        <span>{submitting ? 'Criando...' : 'Criar lote'}</span>
+        {submitting ? 'Criando...' : 'Criar lote'}
       </button>
     </div>
   );
@@ -867,7 +761,9 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
         ariaLabel="Novo lote"
         // side-sheet: desktop = painel lateral direito (como o detalhe);
         // mobile segue o sheet fit-content de sempre.
-        className="is-fit-content side-sheet"
+        className="is-fit-content side-sheet new-sample-sheet"
+        // Mesmo fechar dos demais paineis FV: seta ← na borda, no lugar do ×.
+        closeVariant="edge-back"
         dragToDismiss
         dragDisabled={quickCreateOpen || state.step === 'created'}
       >
