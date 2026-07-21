@@ -34785,3 +34785,161 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
     min-width: 0;
   }
 }
+
+/* ── Rodada 2 FV: EDITOR do painel do cliente (modo edicao) ──
+   Sub-pagina em FLUXO no corpo do sheet: o .sdv-page some (is-editing) e o
+   form assume — header "Cliente" + X seguem visiveis (dismiss-guard bloqueia
+   fechar). Vale mobile e desktop. Substitui o modal central morto
+   (.client-detail-edit-modal — regras antigas ficam dormentes ate a
+   consolidacao). */
+.sdv-page.is-editing {
+  display: none;
+}
+
+.fv-cd-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-height: 100%;
+  padding: 1rem clamp(1rem, 4vw, 1.5rem) calc(env(safe-area-inset-bottom, 0px) + 1.2rem);
+  background: #ffffff;
+}
+
+.fv-cd-editor-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--fv-line);
+}
+
+.fv-cd-editor-title {
+  margin: 0;
+  font-size: 1.08rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.fv-cd-editor-sub {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+/* Form: largura de leitura no painel largo; grid herdado do
+   .app-modal-content (gap) + rows que ENCOLHEM. */
+.fv-cd-editor .client-detail-modal-form {
+  width: 100%;
+  max-width: 660px;
+  overflow: visible;
+}
+
+.fv-cd-editor .sdv-edit-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.fv-cd-editor .sdv-edit-row > * {
+  min-width: 0;
+}
+
+.fv-cd-editor .app-modal-field {
+  min-width: 0;
+}
+
+.fv-cd-editor .app-modal-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.fv-cd-editor .app-modal-input {
+  border: 1px solid var(--fv-line-strong);
+  border-radius: var(--fv-radius);
+  background: #ffffff;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.9rem;
+  color: var(--ink);
+  min-height: 2.62rem;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.fv-cd-editor .app-modal-input:focus {
+  outline: none;
+  border-color: var(--fv-cta);
+  box-shadow: 0 0 0 3px rgba(23, 60, 48, 0.12);
+}
+
+/* Pendencia (recomendado vazio): borda ambar discreta — some ao preencher. */
+.fv-cd-editor .app-modal-input.is-pending {
+  border-color: rgba(169, 106, 16, 0.55);
+}
+
+/* Responsavel (UserMultiSelect) e Papel (chip-select) alinhados aos inputs. */
+.fv-cd-editor .user-multi-select-field {
+  display: grid;
+  gap: 0.32rem;
+}
+
+.fv-cd-editor .user-multi-select,
+.fv-cd-editor .chip-select {
+  border-width: 1px;
+  border-color: var(--fv-line-strong);
+  border-radius: var(--fv-radius);
+  background: #ffffff;
+  min-height: 2.62rem;
+}
+
+.fv-cd-editor .chip-select.is-open {
+  border-color: var(--fv-cta);
+  box-shadow: 0 0 0 3px rgba(23, 60, 48, 0.12);
+}
+
+.fv-cd-editor .user-multi-select__chips {
+  height: 2.3rem;
+  padding: 0 0.7rem;
+  min-height: 0;
+  gap: 0.3rem;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  align-items: center;
+}
+
+.fv-cd-editor .user-multi-select__chip {
+  flex-shrink: 0;
+}
+
+.fv-cd-editor .user-multi-select-field .app-modal-error {
+  display: none;
+}
+
+/* Acoes: barra a direita, botoes no raio do kit. */
+.fv-cd-editor .app-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--fv-line);
+}
+
+.fv-cd-editor .app-modal-submit,
+.fv-cd-editor .app-modal-secondary {
+  min-height: 2.62rem;
+  padding: 0 1.5rem;
+  font-size: 0.86rem;
+  box-shadow: none;
+}
+
+.fv-cd-editor .client-detail-success-check {
+  margin: 3rem auto;
+}
+
+@media (min-width: 901px) {
+  .fv-cd-editor {
+    padding: 1.15rem 1.5rem 1.4rem;
+  }
+}
