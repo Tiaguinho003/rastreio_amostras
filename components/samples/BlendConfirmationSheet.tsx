@@ -1,10 +1,15 @@
 'use client';
 
-// Liga B2.1: bottom-sheet de confirmação da liga. Aberto pela seta `→`
+// Liga B2.1: painel de confirmação da liga. Aberto pela seta `→`
 // do FAB em /samples com >=2 amostras selecionadas. Apresenta cada
 // amostra em uma linha com input numérico de contribuição (sacas) +
-// remoção individual. Total rodando no rodapé. "Continuar" é placeholder
-// até B2.2 (BlendCreateModal F3).
+// remoção individual. Total rodando no rodapé.
+//
+// Contêiner (molde FV, ver skill `design-system` §0.4/§8 "Painéis do detalhe"):
+// side-sheet `.fv-panel-sheet` com seta ← na borda (`closeVariant="edge-back"`)
+// no lugar do ×; no desktop vira painel lateral direito de 620px, no mobile
+// segue bottom sheet. NÃO leva `stacked`: abre a partir da LISTA (nada de sheet
+// por baixo), então precisa do tier BASE + da própria entry de history.
 //
 // Decisões UX:
 // - Validação on-blur (some quando volta a editar).
@@ -14,12 +19,14 @@
 // - Remoção via × anima slide-out ~150ms antes de chamar onRemove no parent.
 // - Última amostra removida via × → effect no parent (page.tsx) fecha o
 //   sheet automaticamente, mantém modo seleção ativo.
+// - Rodapé = total (informação) + "Criar liga" (ação primária). O "Voltar"
+//   textual morreu no molde R5 — quem cancela é a seta ←.
 //
 // State interno via useReducer (consistente com NewSampleModal). Sync com
 // props.samples revalida só ids já-touched pra não chatear quem digita.
 //
-// Reusa: <BottomSheet> (footer sticky + header verde), padrão de pill
-// verde do lote (B1.5 popover), padrão de input numérico inline-error
+// Reusa: <BottomSheet> (footer sticky), kit de formulário `.fv-form-*`
+// (mesmo do NewSampleModal), padrão de input numérico inline-error
 // (NewSampleModal sacks field), animação `is-removing` (B1.5).
 
 import {
@@ -400,6 +407,9 @@ export function BlendConfirmationSheet({
     });
   }
 
+  // Rodape do painel: o total continua (e informacao, nao acao) e o "Criar
+  // liga" e a unica acao — o "Voltar" textual morreu no molde R5 (a seta ←
+  // da borda cancela).
   const footer: ReactNode = (
     <div className="blend-conf-footer">
       <div className="blend-conf-footer__total-card">
@@ -409,177 +419,135 @@ export function BlendConfirmationSheet({
           <span className="blend-conf-footer__total-unit">sc</span>
         </span>
       </div>
-      <div className="blend-conf-footer__actions">
-        <button
-          type="button"
-          className="blend-conf-footer__back"
-          onClick={onClose}
-          disabled={submitting}
-        >
-          Voltar
-        </button>
-        <button
-          type="button"
-          className="blend-conf-footer__continue"
-          onClick={handleProceedClick}
-          disabled={!canProceed || submitting}
-        >
-          {submitting ? 'Criando...' : 'Criar liga'}
-        </button>
-      </div>
+      <button
+        type="button"
+        className="app-modal-submit"
+        onClick={handleProceedClick}
+        disabled={!canProceed || submitting}
+      >
+        {submitting ? 'Criando...' : 'Criar liga'}
+      </button>
     </div>
   );
-
-  // Bloqueia fechamento (backdrop/ESC) durante submit pra evitar perder
-  // o estado e duplicar a chamada.
-  function handleDismiss() {
-    if (submitting || success) return;
-    onClose();
-  }
 
   return (
     <BottomSheet
       open={open}
-      onClose={handleDismiss}
+      onClose={onClose}
+      // Bloqueia fechamento (seta/backdrop/ESC/back) durante submit e durante o
+      // check de sucesso — evita perder o estado e duplicar a chamada. Negar
+      // pelo `onDismissAttempt` (e nao no `onClose`) mantem a entry de history
+      // protegida pro proximo back.
+      onDismissAttempt={() => !submitting && !success}
       title="Confirmação da liga"
       ariaLabel="Confirmar amostras e contribuições da liga"
       footer={success ? null : footer}
       dragToDismiss={false}
-      className="is-blend-confirm"
+      dragDisabled={submitting || success}
+      // Molde FV: seta ← na borda no lugar do ×; desktop = painel lateral.
+      // Sem `stacked`: abre da LISTA, nao de dentro de um drawer.
+      closeVariant="edge-back"
+      className="fv-panel-sheet side-sheet blend-confirm-sheet"
     >
-      <div
-        className="blend-conf-lotfields"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: '0.75rem',
-          marginBottom: '0.85rem',
-        }}
-      >
-        <label className="nsv2-field">
-          <span className="nsv2-field-label">Número do lote</span>
-          <div className="nsv2-field-input-wrap">
-            <span className="nsv2-field-input-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" focusable="false">
-                <path d="M4 9h16" />
-                <path d="M4 15h16" />
-                <path d="M10 3 8 21" />
-                <path d="M16 3l-2 18" />
-              </svg>
-            </span>
-            <input
-              value={blendLotNumber}
-              className="nsv2-field-input has-icon-left"
-              onChange={(event) => {
-                const next = event.target.value.replace(/[^0-9]/g, '');
-                blendLotEditedRef.current = next.trim() !== '';
-                setBlendLotNumber(next);
-              }}
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={7}
-              placeholder={blendLotLoading ? '...' : 'Ex: 5658'}
-              aria-label="Número do lote da liga"
-              disabled={submitting}
-            />
-          </div>
-        </label>
-        <label className="nsv2-field">
-          <span className="nsv2-field-label">Data</span>
-          <div className="nsv2-field-input-wrap">
-            <span className="nsv2-field-input-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" focusable="false">
-                <rect x="3" y="5" width="18" height="16" rx="2" />
-                <path d="M3 10h18" />
-                <path d="M8 3v4" />
-                <path d="M16 3v4" />
-              </svg>
-            </span>
-            <input
-              type="date"
-              value={blendReceivedDate}
-              max={todayAsInputDate()}
-              className="nsv2-field-input has-icon-left"
-              onChange={(event) => setBlendReceivedDate(event.target.value)}
-              aria-label="Data da liga"
-              disabled={submitting}
-            />
-          </div>
-        </label>
-      </div>
+      <>
+        {/* Campos no kit institucional `.fv-form-*` (mesmo do "Novo lote"):
+            rotulo pequeno muted acima, input hairline, linha de 2 colunas. */}
+        <div className="fv-form-body">
+          <span className="fv-form-heading">Dados da liga</span>
 
-      {session ? (
-        <div className="blend-conf-owner" style={{ marginBottom: '0.85rem' }}>
-          <span className="nsv2-field-label">Dono da liga</span>
-          <ClientLookupField
-            session={session}
-            label="Dono da liga"
-            kind="owner"
-            selectedClient={selectedOwnerClient}
-            disabled={submitting || ownerIsCorretora}
-            compact
-            placeholder="Buscar cliente…"
-            emptyMessage="Nenhum cliente encontrado."
-            onSelectClient={(client) => {
-              ownerTouchedRef.current = true;
-              setSelectedOwnerClient(client);
-              if (client) setOwnerIsCorretora(false);
-            }}
-          />
-          <label
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              marginTop: '0.5rem',
-              fontSize: '0.85rem',
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={ownerIsCorretora}
-              disabled={submitting}
-              onChange={(event) => {
-                ownerTouchedRef.current = true;
-                const next = event.target.checked;
-                setOwnerIsCorretora(next);
-                if (next) setSelectedOwnerClient(null);
-              }}
-            />
-            Carteira da corretora (sem dono)
-          </label>
-          {!selectedOwnerClient && !ownerIsCorretora ? (
-            <span
-              style={{
-                display: 'block',
-                marginTop: '0.35rem',
-                fontSize: '0.78rem',
-                color: '#6b7280',
-              }}
-            >
-              Escolha o dono da liga ou marque &ldquo;carteira da corretora&rdquo;.
-            </span>
+          <div className="fv-form-row fv-form-row-2col">
+            <label className="fv-form-field">
+              <span className="fv-form-label">Número do lote</span>
+              <input
+                value={blendLotNumber}
+                onChange={(event) => {
+                  const next = event.target.value.replace(/[^0-9]/g, '');
+                  blendLotEditedRef.current = next.trim() !== '';
+                  setBlendLotNumber(next);
+                }}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={7}
+                placeholder={blendLotLoading ? '...' : 'Ex: 5658'}
+                aria-label="Número do lote da liga"
+                disabled={submitting}
+              />
+            </label>
+
+            <label className="fv-form-field">
+              <span className="fv-form-label">Data</span>
+              <input
+                type="date"
+                value={blendReceivedDate}
+                max={todayAsInputDate()}
+                onChange={(event) => setBlendReceivedDate(event.target.value)}
+                aria-label="Data da liga"
+                disabled={submitting}
+              />
+            </label>
+          </div>
+
+          {session ? (
+            <div className="fv-form-row blend-conf-owner">
+              <ClientLookupField
+                session={session}
+                label="Dono da liga"
+                kind="owner"
+                selectedClient={selectedOwnerClient}
+                disabled={submitting || ownerIsCorretora}
+                placeholder="Buscar cliente…"
+                emptyMessage="Nenhum cliente encontrado."
+                onSelectClient={(client) => {
+                  ownerTouchedRef.current = true;
+                  setSelectedOwnerClient(client);
+                  if (client) setOwnerIsCorretora(false);
+                }}
+              />
+              <label className="blend-conf-owner-toggle">
+                <input
+                  type="checkbox"
+                  checked={ownerIsCorretora}
+                  disabled={submitting}
+                  onChange={(event) => {
+                    ownerTouchedRef.current = true;
+                    const next = event.target.checked;
+                    setOwnerIsCorretora(next);
+                    if (next) setSelectedOwnerClient(null);
+                  }}
+                />
+                <span>Carteira da corretora (sem dono)</span>
+              </label>
+              {!selectedOwnerClient && !ownerIsCorretora ? (
+                <p className="blend-conf-owner-hint">
+                  Escolha o dono da liga ou marque &ldquo;carteira da corretora&rdquo;.
+                </p>
+              ) : null}
+            </div>
           ) : null}
+
+          <span className="fv-form-heading">Composição</span>
+
+          <ul className="blend-conf-list" role="list">
+            {samples.map((sample) => (
+              <BlendConfirmationRow
+                key={sample.id}
+                sample={sample}
+                value={state.values[sample.id] ?? ''}
+                error={state.errors[sample.id] ?? null}
+                touched={state.touched[sample.id] === true}
+                isRemoving={state.removing[sample.id] === true}
+                onChange={(raw) => handleSetValue(sample.id, raw)}
+                onBlur={() => handleBlur(sample)}
+                onRemove={() => handleRemoveClick(sample.id)}
+              />
+            ))}
+          </ul>
         </div>
-      ) : null}
 
-      <ul className="blend-conf-list" role="list">
-        {samples.map((sample) => (
-          <BlendConfirmationRow
-            key={sample.id}
-            sample={sample}
-            value={state.values[sample.id] ?? ''}
-            error={state.errors[sample.id] ?? null}
-            touched={state.touched[sample.id] === true}
-            isRemoving={state.removing[sample.id] === true}
-            onChange={(raw) => handleSetValue(sample.id, raw)}
-            onBlur={() => handleBlur(sample)}
-            onRemove={() => handleRemoveClick(sample.id)}
-          />
-        ))}
-      </ul>
-
-      <SuccessCheckOverlay show={success} />
+        {/* Check canonico (§7 da skill `modals`): filho DIRETO do conteudo do
+            sheet, cobre header + corpo + rodape. */}
+        <SuccessCheckOverlay show={success} />
+      </>
     </BottomSheet>
   );
 }

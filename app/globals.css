@@ -35602,6 +35602,18 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
 .fv-form-field select:disabled {
   opacity: 0.6;
 }
+/* input[type=date] no WebKit ignora `width` e estoura a coluna quando o
+   campo divide a linha (`.fv-form-row-2col`). Fix do kit — vale pra todo
+   painel que usa `.fv-form-*` (novo lote, confirmacao da liga, ...).
+   O indicador nativo continua visivel: nao ha icone proprio a esquerda. */
+.fv-form-field input[type='date'] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+.fv-form-field input[type='date']::-webkit-date-and-time-value {
+  text-align: left;
+  min-width: 0;
+}
 /* Erro DENTRO do campo (preferencia do projeto): borda vermelha suave +
    placeholder vermelho; some ao corrigir. */
 .fv-form-field.is-field-error input,
@@ -36695,4 +36707,288 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
 .sdv-com-mov-edit-actions .fv-btn {
   height: 34px;
   font-size: 0.82rem;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   FV · /samples — painel "Confirmação da liga" (.blend-confirm-sheet)
+   ══════════════════════════════════════════════════════════════
+   O `BlendConfirmationSheet` era um sheet central com campos `nsv2-*` e
+   rodapé "Voltar | Criar liga". Passou pro molde FV: side-sheet
+   `.fv-panel-sheet` com seta ← na borda (edge-back), campos no kit
+   `.fv-form-*` e lista de contribuições em superfície branca + hairline.
+   Sem `stacked` — abre da LISTA, não de dentro de um drawer.
+
+   Tudo aqui é ESCOPADO em `.blend-confirm-sheet` (0,2,0+) pra sobrepor o
+   bloco antigo "Liga B2.1" sem reorganizá-lo. Órfãs de lá depois desta
+   passada: `.bottom-sheet.is-blend-confirm` (o branco já é o padrão do
+   sheet), `.blend-conf-footer__actions`, `.blend-conf-footer__back*` e
+   `.blend-conf-footer__continue*` (o "Voltar" e o botão próprio saíram do
+   JSX; a primária agora é `.app-modal-submit`).
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Campos: kit `.fv-form-*` + peças compostas ──────────────────── */
+
+/* (o fix de `input[type=date]` no WebKit foi promovido pro kit generico
+   `.fv-form-field` — bloco "FV · FORMULARIO") */
+
+/* Busca de cliente ("Dono da liga"): markup próprio, mesmo desenho dos
+   <input> do kit (espelha `.new-sample-sheet .client-lookup-*`). */
+.blend-confirm-sheet .client-lookup-field {
+  gap: clamp(0.22rem, 1vw, 0.32rem);
+}
+.blend-confirm-sheet .client-lookup-field > label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.blend-confirm-sheet .client-lookup-shell input {
+  min-height: 2.62rem;
+  padding: clamp(0.5rem, 2vw, 0.62rem) clamp(0.6rem, 2.4vw, 0.78rem);
+  border: 1px solid var(--fv-line-strong);
+  border-radius: var(--fv-radius);
+  background: #ffffff;
+  box-shadow: none;
+  font-size: 0.88rem;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+.blend-confirm-sheet .client-lookup-shell input:focus {
+  outline: none;
+  border-color: var(--fv-cta);
+  box-shadow: 0 0 0 3px rgba(23, 60, 48, 0.12);
+}
+/* Sugestões sobrepõem a lista de composição logo abaixo. */
+.blend-confirm-sheet .client-lookup-dropdown {
+  z-index: 30;
+  max-height: min(17.5rem, 55vh);
+  overflow-x: hidden;
+}
+
+/* "Carteira da corretora": opção de uma linha abaixo da busca. */
+.blend-conf-owner-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+  /* skill button-press-effect */
+  -webkit-tap-highlight-color: transparent;
+}
+.blend-conf-owner-toggle input[type='checkbox'] {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: var(--fv-cta);
+  cursor: pointer;
+}
+.blend-conf-owner-toggle input[type='checkbox']:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.blend-conf-owner-hint {
+  margin: 0;
+  font-size: 0.74rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+/* ── Lista de composição (uma linha por lote de origem) ──────────── */
+
+.blend-confirm-sheet .blend-conf-list {
+  gap: 0.5rem;
+  padding: 0;
+}
+.blend-confirm-sheet .blend-conf-row {
+  gap: 0.5rem;
+  padding: 0.62rem 0.72rem;
+  background: var(--fv-surface);
+  border: 1px solid var(--fv-line);
+  border-radius: var(--fv-radius);
+  box-shadow: none;
+}
+/* Origem que já é liga: participa 100% e o input fica travado. Superfície
+   levemente rebaixada, sem o gradiente quente antigo. */
+.blend-confirm-sheet .blend-conf-row.is-locked {
+  background: #fafbfa;
+}
+.blend-confirm-sheet .blend-conf-row.is-locked .blend-conf-row__input {
+  background: transparent;
+  color: var(--muted);
+}
+/* Keyframe próprio: o antigo parte do padding em clamp(12–14px) e daria um
+   pulo com o padding novo. */
+.blend-confirm-sheet .blend-conf-row.is-removing {
+  animation: blend-conf-row-out-fv 0.18s ease-in forwards;
+}
+@keyframes blend-conf-row-out-fv {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+    max-height: 220px;
+    padding-top: 0.62rem;
+    padding-bottom: 0.62rem;
+    margin-bottom: 0;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(28px);
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-bottom: -0.5rem;
+  }
+}
+
+/* Número do lote = identidade da linha: texto forte, sem pílula verde. */
+.blend-confirm-sheet .blend-conf-row__lot {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--ink);
+  font-size: 0.86rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+.blend-confirm-sheet .blend-conf-row__client {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+/* Saldo disponível = meta-info → chip pastel neutro (`.fv-chip` cinza). */
+.blend-confirm-sheet .blend-conf-row__avail {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  background: var(--fv-chip-gray-bg);
+  color: var(--fv-chip-gray-fg);
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* Remover da liga: ícone fantasma hairline. O hover fica atrás de
+   @media (hover: hover) — em touch a regra antiga ficava grudada. */
+.blend-confirm-sheet .blend-conf-row__remove {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--fv-line);
+  border-radius: var(--fv-radius-sm);
+  background: transparent;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+.blend-confirm-sheet .blend-conf-row__remove svg {
+  width: 12px;
+  height: 12px;
+  stroke-width: 2;
+}
+@media (hover: hover) {
+  .blend-confirm-sheet .blend-conf-row__remove:hover:not(:disabled) {
+    background: var(--fv-chip-red-bg);
+    border-color: var(--fv-chip-red-bg);
+    color: var(--fv-chip-red-fg);
+  }
+}
+.blend-confirm-sheet .blend-conf-row__remove:focus-visible {
+  outline: none;
+  border-color: var(--fv-cta);
+  box-shadow: 0 0 0 3px rgba(23, 60, 48, 0.12);
+}
+.blend-confirm-sheet .blend-conf-row__remove:active:not(:disabled) {
+  transform: scale(0.9);
+}
+
+/* Contribuição em sacas: caixa hairline branca, igual ao input do kit. */
+.blend-confirm-sheet .blend-conf-row__input-wrap {
+  background: #ffffff;
+  border: 1px solid var(--fv-line-strong);
+  border-radius: var(--fv-radius);
+}
+.blend-confirm-sheet .blend-conf-row__input-wrap:focus-within {
+  background: #ffffff;
+  border-color: var(--fv-cta);
+  box-shadow: 0 0 0 3px rgba(23, 60, 48, 0.12);
+}
+/* Repete o :has() do bloco antigo pra vencer por especificidade (mesma
+   pegadinha registrada na F3 de /samples). */
+.blend-confirm-sheet .blend-conf-row__input-wrap:has(.has-error) {
+  background: #ffffff;
+  border-color: rgba(196, 92, 92, 0.4);
+}
+.blend-confirm-sheet .blend-conf-row__input {
+  min-height: 2.4rem;
+  padding: 0.45rem 2.3rem 0.45rem 0.7rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: 0;
+}
+.blend-confirm-sheet .blend-conf-row__input-suffix {
+  right: 0.7rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.blend-confirm-sheet .blend-conf-row__error {
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+/* Aviso de sacas comprometidas em outras ligas → chip pastel âmbar. */
+.blend-confirm-sheet .blend-conf-row__warning {
+  gap: 5px;
+  height: 22px;
+  padding: 0 0.55rem;
+  border-radius: 999px;
+  background: var(--fv-chip-amber-bg);
+  color: var(--fv-chip-amber-fg);
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1;
+}
+.blend-confirm-sheet .blend-conf-row__warning-icon {
+  width: 12px;
+  height: 12px;
+  stroke-width: 2.2;
+}
+
+/* ── Rodapé sticky: total (informação) + "Criar liga" (ação) ──────── */
+
+.blend-confirm-sheet .blend-conf-footer {
+  gap: 0.55rem;
+  /* O `.bottom-sheet` já resolve a safe-area no padding-bottom dele. */
+  padding: 0;
+}
+.blend-confirm-sheet .blend-conf-footer__total-card {
+  padding: 0.5rem 0.75rem;
+  background: var(--fv-surface);
+  border: 1px solid var(--fv-line);
+  border-radius: var(--fv-radius);
+}
+.blend-confirm-sheet .blend-conf-footer__total-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+}
+.blend-confirm-sheet .blend-conf-footer__total-value {
+  color: var(--ink);
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.blend-confirm-sheet .blend-conf-footer__total-unit {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.blend-confirm-sheet .blend-conf-footer .app-modal-submit {
+  width: 100%;
+  min-height: 2.82rem;
 }
