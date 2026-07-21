@@ -2116,10 +2116,10 @@ export function SampleDetailView({
                   <section className="sdv-general">
                     {activeTab === 'overview' ? (
                       <>
-                        {/* Container 1: Informacoes principais — cabecalho (titulo +
-                      Editar) separado dos campos por uma divisoria discreta. O
-                      Imprimir migrou para o header; este card fica so com as
-                      informacoes. */}
+                        {/* Container 1: Informacoes principais — cabecalho separado
+                      dos campos por uma divisoria discreta. Imprimir e Editar
+                      migraram para os botoes redondos do hero; este card fica
+                      so com as informacoes. */}
                         <div id="sdv-informacoes" className="sdv-card sdv-info-compact">
                           <div className="sdv-card-header">
                             {/* FV: o "Editar" saiu daqui — virou botao redondo do hero. */}
@@ -2168,8 +2168,9 @@ export function SampleDetailView({
                       </>
                     ) : null}
 
-                    {/* Aba Classificacao: o card da ficha (resumo hoje; ficha
-                      inline no proximo passo da F2). */}
+                    {/* Aba Classificacao: a ficha inline (foto + peneiras +
+                      defeitos + bebida + obs). O modal .cld-modal so sobrevive
+                      no mobile. */}
                     {activeTab === 'classificacao'
                       ? (() => {
                           const classData = detail.sample.latestClassification?.data;
