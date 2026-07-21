@@ -321,6 +321,22 @@ _Detalhe (F2–F3)_ — (8) hero + **3 abas** (Visão geral · Classificação �
 6. ⋯ do hero → "Registrar perda": modal central sobre o drawer escurecido; depois, sacas e timeline atualizadas sem reabrir.
 7. "+ Novo lote": ao criar, o check aparece **no próprio painel** e o drawer do lote novo abre sozinho. Mesma coisa ao criar liga.
 
+#### Ajustes pós-F3 (2026-07-21, antes da F4 — lote de 7 pedidos do Flavio)
+
+Antes da conferência 🖥️ conjunta de F1+F2+F3, o Flavio passou um lote de ajustes (A–G) e pediu para executá-los "em uma ordem eficiente e organizada". Vieram em 5 commits, agrupados por arquivo tocado.
+
+Antes deles, um bug pré-existente: **o drawer do lote abria em branco** (`6153f84`). Causa: o `finally` do `fetchDetail` só limpava `loadingDetail` quando o request **não** tinha sido abortado — e o load inicial (o único com `showLoading`) é abortado por qualquer refetch silencioso, que o `useListRevalidation` dispara **já no primeiro `window.focus`** (o throttle parte de `lastRunRef = 0`). Resultado: `loadingDetail` travado em `true` com `detail` populado → os dois ramos do render (`loading && !detail`, `!loading && detail`) falsos → tela vazia, sem erro no console. Corrigido limpando a flag incondicionalmente e tornando o render **exaustivo** (ganhou o ramo de erro com "Tentar de novo" — antes, uma falha de fetch também era silenciosa, porque o `NoticeSlot` do `pageNotice` morava dentro do ramo `detail`).
+
+1. `3c35012` **F + B** — o drawer do lote troca o × pela **seta ←** (`closeVariant="edge-back"`, como o do cliente) e o corpo ganha `scrollbar-gutter: stable`: trocar de aba não desloca mais o conteúdo pra esquerda quando a barra de rolagem some.
+2. `48a4b18` **D + E** — a ficha de classificação passa a abrir com uma **linha de topo**: foto **quadrada** (`aspect-ratio: 1/1`, `object-fit: contain` — a foto aparece inteira) à esquerda e **Data + Classificador** empilhados ao lado; o resto da ficha segue abaixo, inalterado. O botão "Editar" da aba vira o **verde preenchido** `.fv-add-btn` (mesmo dos detalhes do cliente).
+3. `53933c8` **C** — a **edição do envio deixa de ser painel lateral** e vira um **dropdown inline abaixo do card** da movimentação (destinatário + data + Salvar), emendado no card. Economia real: o `SampleSendFlow` perdeu a entrada EDIT inteira (prop `editItem`, estado, prefill, ramo de update e os rótulos condicionais) e ficou com CREATE + CANCEL. O cancelamento (destrutivo) continua central.
+4. `5e7d985` **A** — os campos do "Novo lote" saem do form antigo (`nsv2`: ícone dentro do input, meias-colunas, botão verde em gradiente) e adotam o molde do painel de criar cliente. A **safra deixa de ser o popover próprio de presets e vira `<select>` normal** (pedido explícito). Nasce o kit **`.fv-form-*`** (body/heading/row/row-2col/field/actions), genérico como o `.fv-panel-sheet`.
+5. `279e87c` **G** — a tabela redistribui: **status entra na célula do lote** (número · Liga · chip, nessa ordem), o **Proprietário** deixa de ser a coluna elástica (faixa fixa que trunca) e a **classificação se divide em três colunas nomeadas** — Padrão (a nova elástica) / Bebida / Catação.
+
+**Exceções/efeitos deliberados**: (a) o dropdown inline mantém a mutação na detail page (ela segue dona do refetch) — o `SampleMovementsPanel` só ganhou a UI e um callback de submit, sem virar dono de escrita; (b) o `<select>` de safra fecha a safra nas **4 opções da janela corrente** (`buildHarvestPresets`) — safra livre por digitação **não existe mais na criação**; (c) o rodapé do "Novo lote" trocou o `.nsv2-submit-btn` (gradiente) por `app-modal-secondary | app-modal-submit`, e o sheet ganhou a seta ←; (d) CSS que ficou sem consumidor: `.new-sample-harvest-option*` foi **deletado** (o padrão foi rejeitado e não volta) e `.nsv2-form-grid` / `-grid-full` / `-grid-half` / `.nsv2-field-error` ficaram **anotados como dormentes** até a consolidação.
+
+**O que conferir a mais** (soma-se aos checklists de F1–F3): drawer abre com conteúdo (nunca em branco) e fecha pela ←; trocar de aba não desloca o conteúdo; ficha com a foto inteira e quadrada; editar envio abre embaixo do card; "Novo lote" com os campos no padrão do cliente e safra em dropdown normal; tabela com status colado no número e as três colunas de classificação.
+
 ## 3. O que NÃO muda
 
 - **Backend**: nenhuma rota de API muda. RD2 é só front + redirects de rota.

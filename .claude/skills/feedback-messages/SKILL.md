@@ -107,8 +107,11 @@ Erros que pertencem a **um input específico** ficam **abaixo do input**, não e
 
 ### Padrão
 
-- Classe no input quando inválido: `.has-error` (ou `aria-invalid={true}`).
-- Mensagem: `<p className="nsv2-inline-error">{message}</p>` ou usar `placeholder` do input pra mostrar a mensagem em cor vermelha suave (padrão atual em `NewSampleModal.tsx`).
+- Classe no input quando inválido: `.has-error` (ou `aria-invalid={true}`). No kit FV
+  (`design-system` §0.5) é `.is-field-error` no campo + `.fv-form-input-error` no input.
+- Mensagem: usar o `placeholder` do input pra mostrar o texto em vermelho suave (padrão
+  preferido) e, quando o campo já tem valor e o placeholder não aparece, uma linha abaixo do
+  input (`.fv-form-field-error` no kit FV — ex.: número de lote duplicado, data no futuro).
 - Mensagem some ao digitar (limpa via `clearFieldError(field)`).
 - Cor: vermelho suave `#c45c5c` (não vermelho saturado — não é catástrofe).
 - Sempre acompanha `aria-invalid` no input para acessibilidade.
@@ -120,7 +123,7 @@ Erros que pertencem a **um input específico** ficam **abaixo do input**, não e
 3. Ao digitar, limpa o erro do campo: `dispatch({ type: 'CLEAR_FIELD_ERROR', field })`.
 4. Foco automático no primeiro campo inválido após validação.
 
-Referência completa: `components/NewSampleModal.tsx` (linhas ~133-154 = schema/state, ~520-650 = render). NÃO replicar a lógica — copiar o pattern.
+Referência completa: `components/NewSampleModal.tsx` (`RequiredFieldErrors` + reducer no topo, render do form abaixo). NÃO replicar a lógica — copiar o pattern.
 
 ### Quando NÃO usar inline
 

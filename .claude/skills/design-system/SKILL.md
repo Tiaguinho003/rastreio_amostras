@@ -83,6 +83,28 @@ ver skill `feedback-messages` — frases "... com sucesso" morreram). Modo VIEW 
 espelha o form de edicao (campos com borda `.cudm-view-value` na MESMA ordem — view↔edit sem
 a pagina mudar de cara).
 
+### 0.5 Campo de formulario institucional (`.fv-form-*`)
+
+Molde nascido no painel de criar cliente e promovido a **generico** no ajuste pos-F3 de
+`/samples` (o `NewSampleModal` foi o primeiro a adotar): rotulo pequeno muted **acima** do
+valor, input hairline 1px `--fv-line-strong` + raio `--fv-radius` + fundo branco + anel de
+foco `0 0 0 3px rgba(23,60,48,.12)` na borda `--fv-cta`, altura minima 2.62rem.
+
+- `.fv-form-body` — a pilha de linhas (gap proprio).
+- `.fv-form-heading` — micro-cabecalho small-caps com hairline (agrupa sem virar wizard).
+- `.fv-form-row` / `.fv-form-row-2col` — linha de 1 ou 2 colunas iguais.
+- `.fv-form-field` — o `<label>`; dentro dele um `<span className="fv-form-label">` (rotulo
+  INTEIRO num unico no de grid — texto solto + `<span>` do asterisco virariam DOIS itens de
+  grid e o asterisco cairia pra outra linha) e o `<input>`/`<select>`/`<textarea>`.
+- Erro: `.is-field-error` no campo + `.fv-form-input-error` no input (placeholder vermelho) e,
+  quando o campo tem valor e o placeholder nao aparece, `.fv-form-field-error` abaixo.
+- `.fv-form-actions` — rodape secundaria | primaria (`app-modal-secondary` + `app-modal-submit`).
+
+Dropdown de opcao unica = **`<select>` nativo** (o popover proprio de presets de safra foi
+rejeitado pelo Flavio e deletado). Multi-select fica no `ChipMultiSelectField`.
+`.client-quick-create-*` segue como alias do cliente ate a consolidacao — mesma relacao de
+`.fv-panel-sheet` com `.client-panel-sheet`.
+
 ## 1. Estrutura de Pagina
 
 Toda pagina autenticada segue o padrao **Fundo Verde (app-shell) + Header Transparente + Sheet Bege**:
