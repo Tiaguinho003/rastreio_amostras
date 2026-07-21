@@ -1882,14 +1882,24 @@ if (!databaseUrl || !databaseReachable) {
     // Incompletos conta SO ativos (o inativado, tambem incompleto, fica fora).
     assert.equal(stats.body.incomplete, 1);
     assert.equal(stats.body.newThisMonth, 3);
+    assert.equal(stats.body.newLastMonth, 0);
 
-    // Cliente "antigo" (40 dias atras) sai do "novos este mes".
+    // Cliente movido pro dia 15 do MES ANTERIOR (00:00 BRT = 03:00 UTC,
+    // espelhando o offset fixo do service): sai do "novos este mes" e entra
+    // no "newLastMonth" — deterministico em qualquer dia de execucao, ao
+    // contrario do antigo "40 dias atras" (que caia em meses diferentes
+    // conforme a data do run).
+    const brtNow = new Date(Date.now() - 3 * 3600_000);
+    const previousMonth15Utc = new Date(
+      Date.UTC(brtNow.getUTCFullYear(), brtNow.getUTCMonth() - 1, 15, 3, 0, 0)
+    );
     await prisma.client.update({
       where: { id: completo.body.client.id },
-      data: { createdAt: new Date(Date.now() - 40 * 24 * 3600_000) },
+      data: { createdAt: previousMonth15Utc },
     });
     const stats2 = await api.getClientStats(buildInput());
     assert.equal(stats2.body.newThisMonth, 2);
+    assert.equal(stats2.body.newLastMonth, 1);
     assert.equal(stats2.body.total, 3);
   });
 

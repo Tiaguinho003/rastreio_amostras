@@ -250,6 +250,8 @@ export interface ClientStatsResponse {
   active: number;
   incomplete: number;
   newThisMonth: number;
+  /** Criados dentro do mês anterior (BRT) — base do "vs mês anterior". */
+  newLastMonth: number;
 }
 
 export interface ClientLookupResponse {

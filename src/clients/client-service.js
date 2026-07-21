@@ -305,6 +305,15 @@ function computeCurrentMonthStartUtc(now = new Date()) {
   );
 }
 
+// Inicio do mes ANTERIOR em BRT (Date.UTC com month-1 rola o ano sozinho em
+// janeiro). Janela de newLastMonth: [previousMonthStart, currentMonthStart).
+function computePreviousMonthStartUtc(now = new Date()) {
+  const brtNow = new Date(now.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
+  return new Date(
+    Date.UTC(brtNow.getUTCFullYear(), brtNow.getUTCMonth() - 1, 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0)
+  );
+}
+
 function parseExactCodeSearch(search) {
   if (typeof search !== 'string') {
     return null;
@@ -743,24 +752,30 @@ export class ClientService {
     }
   }
 
-  // RD14: KPI row de /cadastros — 4 contagens GLOBAIS (independem dos filtros
+  // RD14: KPI row de /cadastros — contagens GLOBAIS (independem dos filtros
   // da lista). "Incompletos" conta so ATIVOS (pendencia acionavel — espelha o
   // badge da lista, que some em cliente inativo); "novos este mes" =
-  // createdAt >= dia 1 do mes corrente 00:00 BRT.
+  // createdAt >= dia 1 do mes corrente 00:00 BRT. "newLastMonth" (ajustes
+  // rodada 1) = criados dentro do mes ANTERIOR, base da mini-metrica
+  // "vs mes anterior" do card Novos este mes.
   async getClientStats(actorContext) {
     assertAuthenticatedActor(actorContext, 'get client stats');
 
     const monthStartUtc = computeCurrentMonthStartUtc();
-    const [total, active, incomplete, newThisMonth] = await this.prisma.$transaction([
+    const previousMonthStartUtc = computePreviousMonthStartUtc();
+    const [total, active, incomplete, newThisMonth, newLastMonth] = await this.prisma.$transaction([
       this.prisma.client.count(),
       this.prisma.client.count({ where: { status: 'ACTIVE' } }),
       this.prisma.client.count({
         where: { status: 'ACTIVE', AND: [buildCompletenessWhere('incomplete')] },
       }),
       this.prisma.client.count({ where: { createdAt: { gte: monthStartUtc } } }),
+      this.prisma.client.count({
+        where: { createdAt: { gte: previousMonthStartUtc, lt: monthStartUtc } },
+      }),
     ]);
 
-    return { total, active, incomplete, newThisMonth };
+    return { total, active, incomplete, newThisMonth, newLastMonth };
   }
 
   async listClients(input, actorContext) {
