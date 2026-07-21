@@ -36992,3 +36992,75 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   width: 100%;
   min-height: 2.82rem;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   Confirm de DESCARTE padronizado (.is-scrim-none + .is-compact)
+   ══════════════════════════════════════════════════════════════
+   Pedido do Flavio (2026-07-21): os dois "Descartar?" — do "Novo lote"
+   (/samples) e do "Novo cliente" (/cadastros e demais contextos) — eram
+   diferentes: um era dialogo CENTRAL portalado, o outro um overlay INTERNO
+   do sheet com scrim escuro. Agora os dois sao o MESMO dialogo central, com
+   duas mudancas em relacao ao confirm padrao:
+
+   1. `is-scrim-none` no backdrop — fundo NAO escurece e NAO borra. A tela
+      atras (painel lateral / sheet) fica exatamente como estava; o backdrop
+      so intercepta o clique de dismiss. Tier acima do sheet `stacked`
+      (610), senao o dialogo abriria ATRAS do painel de criar cliente.
+   2. `is-compact` no card — dialogo pequeno, pra nao tomar a tela.
+
+   Como o fundo nao escurece, o card precisa se definir sozinho: hairline +
+   sombra forte (o unico separador visual que sobra). ══════════════════ */
+
+.app-modal-backdrop.is-scrim-none {
+  /* Acima do .bottom-sheet.is-stacked (--z-modal-stacked + 10). Mesmo tier do
+     .fv-panel-scrim — os dois nunca coexistem. */
+  z-index: calc(var(--z-modal-stacked) + 20);
+  align-items: center;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  animation: app-modal-scrim-in 0.2s ease backwards;
+}
+
+/* Card compacto: ~1/3 mais estreito que o `.app-confirm-modal` padrao (380px),
+   raio institucional e conteudo apertado. */
+.app-modal.is-themed.app-confirm-modal.is-compact {
+  width: min(312px, calc(100vw - 2.5rem));
+  max-width: min(312px, calc(100vw - 2.5rem));
+  border: 1px solid var(--fv-line);
+  border-radius: 14px;
+  box-shadow:
+    0 2px 8px rgba(10, 25, 16, 0.12),
+    0 18px 44px rgba(10, 25, 16, 0.26);
+}
+
+.app-confirm-modal.is-compact .app-modal-content {
+  padding: clamp(1rem, 3.2vw, 1.2rem) clamp(1rem, 3.2vw, 1.15rem) clamp(0.5rem, 1.6vw, 0.65rem);
+  gap: clamp(0.55rem, 1.8vw, 0.7rem);
+}
+
+.app-confirm-modal.is-compact .app-confirm-modal-icon {
+  width: clamp(42px, 11vw, 48px);
+  height: clamp(42px, 11vw, 48px);
+}
+
+.app-confirm-modal.is-compact .app-confirm-modal-title {
+  font-size: clamp(0.95rem, 3.2vw, 1.02rem);
+}
+
+.app-confirm-modal.is-compact .app-confirm-modal-message {
+  font-size: clamp(12px, 3.2vw, 12.5px);
+  line-height: 1.45;
+  max-width: 26ch;
+}
+
+.app-confirm-modal.is-compact .app-modal-actions {
+  gap: 0.45rem;
+  padding: clamp(0.45rem, 1.6vw, 0.6rem) clamp(1rem, 3.2vw, 1.15rem) clamp(0.85rem, 2.6vw, 1rem);
+}
+
+.app-confirm-modal.is-compact .app-modal-actions > button {
+  min-height: 2.45rem;
+  font-size: clamp(12.5px, 3.2vw, 13px);
+  border-radius: 10px;
+}

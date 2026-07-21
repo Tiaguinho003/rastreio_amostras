@@ -795,15 +795,17 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
         ? createPortal(
             // Portal pro body: o sheet de Nova Amostra ja e portalado (z-modal);
             // sem portar, este confirm inline ficava preso no contexto de
-            // empilhamento da pagina e aparecia ATRAS do sheet. Portado, o
-            // .is-stacked (z-modal-stacked) fica na frente. Sem header
+            // empilhamento da pagina e aparecia ATRAS do sheet. Sem header
             // (.app-modal-header) — titulo vai no corpo, padrao de confirm enxuto.
+            // `is-scrim-none` = backdrop transparente (fundo NAO escurece nem
+            // borra) + centrado + tier acima dos paineis; `is-compact` = card
+            // pequeno. Mesmo par do "Descartar cadastro?" do quick-create.
             <div
-              className="app-modal-backdrop is-stacked"
+              className="app-modal-backdrop is-scrim-none"
               onClick={() => setConfirmDiscardOpen(false)}
             >
               <section
-                className="app-modal is-themed app-confirm-modal is-stacked"
+                className="app-modal is-themed app-confirm-modal is-compact"
                 role="alertdialog"
                 aria-modal="true"
                 aria-labelledby="discard-sample-title"

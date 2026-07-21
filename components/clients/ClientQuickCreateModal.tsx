@@ -1,6 +1,7 @@
 'use client';
 
 import { type FormEvent, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { ApiError, createClient, lookupUsersForReference } from '../../lib/api-client';
 import { maskDocumentInput, maskPhoneInput } from '../../lib/client-field-formatters';
@@ -599,48 +600,65 @@ export function ClientQuickCreateModal({
 
       <SuccessCheckOverlay show={showSuccess} />
 
-      {discardOpen ? (
-        <div className="client-quick-create-discard-overlay" onClick={() => setDiscardOpen(false)}>
-          <section
-            className="app-modal is-themed app-confirm-modal"
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="client-quick-create-discard-title"
-            aria-describedby="client-quick-create-discard-description"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="app-modal-content">
-              <div className="app-confirm-modal-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" focusable="false">
-                  <path d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
-                  <path d="M12 9v4" />
-                  <path d="M12 17v.01" />
-                </svg>
-              </div>
-              <h3 id="client-quick-create-discard-title" className="app-confirm-modal-title">
-                Descartar cadastro?
-              </h3>
-              <p id="client-quick-create-discard-description" className="app-confirm-modal-message">
-                Os dados preenchidos serão perdidos. Esta ação não pode ser desfeita.
-              </p>
-            </div>
-
-            <div className="app-modal-actions">
-              <button
-                type="button"
-                className="app-modal-secondary"
-                onClick={() => setDiscardOpen(false)}
-                autoFocus
+      {/* "Descartar cadastro?" era um overlay INTERNO do sheet (absolute
+          inset:0 com scrim escuro). Padronizado com o "Descartar lote?" do
+          NewSampleModal: dialogo CENTRADO na tela, via portal pro body — o
+          `transform` do .bottom-sheet capturaria o position:fixed. O backdrop
+          `is-scrim-none` e transparente (o painel atras continua exatamente
+          como estava) e fica num tier acima do sheet stacked; `is-compact`
+          deixa o card pequeno. */}
+      {discardOpen
+        ? createPortal(
+            <div className="app-modal-backdrop is-scrim-none" onClick={() => setDiscardOpen(false)}>
+              <section
+                className="app-modal is-themed app-confirm-modal is-compact"
+                role="alertdialog"
+                aria-modal="true"
+                aria-labelledby="client-quick-create-discard-title"
+                aria-describedby="client-quick-create-discard-description"
+                onClick={(event) => event.stopPropagation()}
               >
-                Continuar editando
-              </button>
-              <button type="button" className="app-modal-submit is-danger" onClick={confirmDiscard}>
-                Descartar
-              </button>
-            </div>
-          </section>
-        </div>
-      ) : null}
+                <div className="app-modal-content">
+                  <div className="app-confirm-modal-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                      <path d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+                      <path d="M12 9v4" />
+                      <path d="M12 17v.01" />
+                    </svg>
+                  </div>
+                  <h3 id="client-quick-create-discard-title" className="app-confirm-modal-title">
+                    Descartar cadastro?
+                  </h3>
+                  <p
+                    id="client-quick-create-discard-description"
+                    className="app-confirm-modal-message"
+                  >
+                    Os dados preenchidos serão perdidos. Esta ação não pode ser desfeita.
+                  </p>
+                </div>
+
+                <div className="app-modal-actions">
+                  <button
+                    type="button"
+                    className="app-modal-secondary"
+                    onClick={() => setDiscardOpen(false)}
+                    autoFocus
+                  >
+                    Continuar editando
+                  </button>
+                  <button
+                    type="button"
+                    className="app-modal-submit is-danger"
+                    onClick={confirmDiscard}
+                  >
+                    Descartar
+                  </button>
+                </div>
+              </section>
+            </div>,
+            document.body
+          )
+        : null}
     </BottomSheet>
   );
 }
