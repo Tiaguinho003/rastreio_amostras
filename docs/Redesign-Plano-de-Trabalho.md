@@ -1,6 +1,6 @@
 # Redesign — Plano de Trabalho
 
-> **Status**: F1 e F3 **✅ validadas** (2026-07-20, Flavio no dev local); **F2 (lote) implementada 2026-07-20** — aguarda validação 🖥️📱 (junto com os gates RD10 pendentes dela). **FV piloto `/cadastros`: E1 IMPLEMENTADA + conferência 🖥️ APROVADA ("ficou muito bom") + rodada de ajustes 1 aplicada (2026-07-20, §2.6)** — /cadastros vira o EXEMPLO das outras páginas; **mais rodadas de ajuste virão** (página + chrome) antes do plan mode da E2 (peek/modais/mobile — mobile entra na E2 de cada página, decisão registrada na §2.6)
+> **Status**: F1 e F3 **✅ validadas** (2026-07-20, Flavio no dev local); **F2 (lote) implementada 2026-07-20** — aguarda validação 🖥️📱 (junto com os gates RD10 pendentes dela). **FV piloto `/cadastros`: E1 conferida ✔ + rodadas de ajuste 1 e 2 aplicadas (2026-07-20, §2.6)** — rodada 2 antecipou parte da E2: detalhe do cliente virou PAINEL UNIFICADO institucional (edição como modo interno, documentos/contas inline, sem modal sobre modal); /cadastros = EXEMPLO das outras páginas; mais rodadas possíveis antes do plan mode da E2 restante (peek swap, modais restantes, mobile — mobile entra na E2 de cada página)
 > **Última atualização**: 2026-07-20
 > **Prefixo de decisões**: RD
 > **Par futuro**: quando o padrão consolidar, o funcionamento real será absorvido pelos docs canônicos e pelas skills (`modals`, `design-system`, `responsive`). A frente visual parte de `docs/Design-Language.md` (canônico dos tokens).
@@ -172,6 +172,20 @@ Flavio aprovou a base e pediu a primeira rodada de ajustes (virão mais; /cadast
 6. (este commit) **docs + memória**.
 
 Pergunta do mobile respondida: mobile entra **na E2 de cada página** (não agora, nem no fim de todos os desktops) — página fecha UMA vez, componentes não acumulam ramos velho/novo.
+
+#### Rodada de ajustes 2 (2026-07-20 — detalhe UNIFICADO + quick-create + tabela)
+
+Pedido do Flavio: melhor disposição na tabela; dropdowns do quick-create PARA BAIXO + campos mais bonitos; detalhe profissional SEM ícones infantis, **tudo em um modal só** (fim dos modais de edição/documentos/detalhes separados), ações rápidas só ver detalhes + inativar, área maior, mínimo de scroll; pesquisa por referências institucionais (padrões usados: painel lateral largo com 2 colunas internas, seções agrupando campos afins, DL label|valor). Sete commits (gates por commit):
+
+1. `0c41067` **tabela** — Documento = valor + rótulo CNPJ/CPF (cadência 2 linhas); avatar PJ quadrado arredondado vs PF círculo; respiro nas bordas; tooltip de data absoluta no Atualizado.
+2. `0f369bb` **quick-create** — `ChipMultiSelectField` ganha `forceDropDown` (Responsável e Papel abrem PARA BAIXO; o corpo do sheet rola); campos institucionais (hairline 1px, raio 10, anel de foco da marca — sai a borda 2px do 14.7.C); micro-cabeçalhos `Identificação` / `Contato e comercial` (`.cqc-group-heading`).
+3. `1711afa` **painel parte 1** — modal "Documentos" MORREU (Anexos/Contas = cards sempre visíveis; a ordem mobile já os previa); overlay ganha escopo **`.client-details-overlay`** (940px desktop, grid `'info side'/'resumo side'/'footer footer'`, side-col vira flex real); header de identidade FLAT (sai o gradiente verde; chip pastel; ação = Editar); Informações vira **definition list** (label | valor). **Nada vaza pro detalhe da amostra** (mesmas classes `sdv-*`; tudo escopado pelo overlay).
+4. `52a6dad` **painel parte 2** — modal central de edição MORREU: **Editar = sub-painel em fluxo** (`.fv-cd-editor`; `.sdv-page.is-editing` some; header "Cliente"+X ficam; dismiss-guard segura ESC/X); **form ÚNICO** informações+papéis+endereço fiscal (PJ)+motivo, um Salvar (payload conjunto; validação única); lápis por card removidos; `?acao=editar` abre o modo.
+5. `834f90a` **pendências** — banner discreto no header ("Cadastro incompleto. Faltam: … · N filiais com pendências", via `labelForMissing`); triângulo pulsante das filiais → ponto âmbar estático.
+6. `50b36e4` **menu ⋯** — só Ver detalhes + Inativar/Reativar (Editar/Documentos moram no painel; deep-links `?acao=` antigos seguem aceitos — `documentos` só consome e abre).
+7. (este commit) **docs + memória**.
+
+Exceções/efeitos globais: cards de Anexos/Contas agora aparecem TAMBÉM no mobile do detalhe (o modal morreu para os dois mundos); editor de cliente idem (sub-painel nos dois). Dívida deliberada: regras CSS do modal morto (`.client-detail-edit-modal`) ficam dormentes até a consolidação.
 
 ## 3. O que NÃO muda
 
