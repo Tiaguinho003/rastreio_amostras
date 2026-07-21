@@ -802,6 +802,9 @@ function SamplesPage() {
     activeBlends: ActiveBlendDetail[];
   } | null>(null);
   const [lossSaving, setLossSaving] = useState(false);
+  // F3: envio/perda abertos pelo ⋯ do HERO rodam aqui (mesmos componentes da
+  // lista), entao o drawer precisa ser avisado que o lote mudou.
+  const [detailRefreshKey, setDetailRefreshKey] = useState(0);
 
   // Liga B1.4 (F1.D): modo selecao pra criar liga. Disparado via FAB → Liga.
   // selectionMode controla render do header (SelectionModeHeader vs normal),
@@ -3264,7 +3267,10 @@ function SamplesPage() {
             sendTarget.sample.status === 'CLASSIFIED' &&
             sendTarget.attachments.some((a) => a.kind === 'CLASSIFICATION_PHOTO')
           }
-          onChanged={() => setNewSampleRefetchKey((current) => current + 1)}
+          onChanged={() => {
+            setNewSampleRefetchKey((current) => current + 1);
+            setDetailRefreshKey((current) => current + 1);
+          }}
           onClose={() => setSendTarget(null)}
         />
       ) : null}
@@ -3275,6 +3281,9 @@ function SamplesPage() {
           open
           mode="create"
           saving={lossSaving}
+          // F3: pelo ⋯ do hero o modal abre SOBRE o drawer — precisa do tier
+          // stacked pra o backdrop escurecer o detalhe, nao ficar atras dele.
+          stacked={Boolean(loteId)}
           title="Registrar perda"
           initialMovementType="LOSS"
           availableSacks={lossTarget.sample.availableSacks ?? 0}
@@ -3316,6 +3325,7 @@ function SamplesPage() {
               });
               setLossTarget(null);
               setNewSampleRefetchKey((current) => current + 1);
+              setDetailRefreshKey((current) => current + 1);
               toast.success({ title: 'Perda registrada' });
             } catch (cause) {
               toast.error({
@@ -3353,6 +3363,7 @@ function SamplesPage() {
             onInitialActionConsumed={clearLoteAcao}
             onRequestSend={openSendBySampleId}
             onRequestLoss={openLossBySampleId}
+            externalRefreshKey={detailRefreshKey}
           />
         ) : null}
       </DetailOverlay>

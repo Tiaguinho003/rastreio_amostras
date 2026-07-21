@@ -35,6 +35,10 @@ export type SampleMovementModalSubmitInput = {
 };
 
 type SampleMovementModalProps = {
+  /** F3: aberto SOBRE o drawer do lote (⋯ do hero) — sobe pro tier stacked.
+   *  Sem isso o backdrop (z 400) ficaria ATRAS do sheet do drawer (z 410) e o
+   *  detalhe continuaria aceso por baixo do modal. */
+  stacked?: boolean;
   session: SessionData;
   open: boolean;
   mode: 'create' | 'edit';
@@ -122,6 +126,7 @@ export function SampleMovementModal({
   movement = null,
   availableSacks = 0,
   stampType = null,
+  stacked = false,
   blend = null,
   activeBlends = [],
   onAssignOwner,
@@ -516,12 +521,12 @@ export function SampleMovementModal({
   );
 
   return createPortal(
-    <div className="app-modal-backdrop">
+    <div className={`app-modal-backdrop${stacked ? ' is-stacked' : ''}`}>
       <section
         ref={focusTrapRef}
         className={`app-modal is-themed is-action sample-detail-movement-modal${
-          stampType ? ' is-stamping' : ''
-        }`}
+          stacked ? ' is-stacked' : ''
+        }${stampType ? ' is-stamping' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="sample-movement-modal-title"

@@ -478,6 +478,9 @@ interface SampleDetailViewProps {
   onRequestSend?: (sampleId: string) => void;
   /** F3: "Registrar perda" do ⋯ do hero — idem. */
   onRequestLoss?: (sampleId: string) => void;
+  /** F3: contador que a pagina incrementa quando um fluxo DELA muda o lote
+   *  (envio/perda abertos pelo ⋯ do hero). Toda mudanca refaz o fetch. */
+  externalRefreshKey?: number;
 }
 
 // Conteudo completo do detalhe do lote, extraido da antiga pagina
@@ -494,6 +497,7 @@ export function SampleDetailView({
   onInitialActionConsumed,
   onRequestSend,
   onRequestLoss,
+  externalRefreshKey = 0,
 }: SampleDetailViewProps) {
   const searchParams = useSearchParams();
   const highlightPrint = searchParams.get('highlight') === 'print';
@@ -1050,6 +1054,19 @@ export function SampleDetailView({
   useEffect(() => {
     fetchSendHistory();
   }, [fetchSendHistory]);
+
+  // F3: envio e perda disparados pelo ⋯ do hero rodam em componentes da
+  // PAGINA (mesmo fluxo da lista) — ela avisa por aqui que o lote mudou.
+  const firstExternalRefreshRef = useRef(true);
+  useEffect(() => {
+    if (firstExternalRefreshRef.current) {
+      firstExternalRefreshRef.current = false;
+      return;
+    }
+    void refreshDetail();
+    void fetchSendHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalRefreshKey]);
 
   const sendHistoryItems = useMemo(() => projectSendHistoryItems(sendHistory), [sendHistory]);
 

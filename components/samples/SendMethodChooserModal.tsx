@@ -57,11 +57,14 @@ export function SendMethodChooserModal({
 
   if (!open || !portalReady) return null;
 
+  // `is-stacked`: o seletor pode abrir a partir do ⋯ do HERO do drawer do lote
+  // (F3), e sem o tier de cima ele ficaria no MESMO z-index do drawer — a
+  // ordem de portal decidiria quem aparece. Aberto da lista, nao muda nada.
   return createPortal(
-    <div className="app-modal-backdrop" onClick={onClose}>
+    <div className="app-modal-backdrop is-stacked" onClick={onClose}>
       <section
         ref={focusTrapRef}
-        className="app-modal is-themed is-action type-modal"
+        className="app-modal is-themed is-action is-stacked type-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="send-method-title"
