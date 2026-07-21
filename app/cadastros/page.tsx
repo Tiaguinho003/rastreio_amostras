@@ -35,6 +35,13 @@ import type { Broker, BrokerInput, ClientStatsResponse, UserLookupItem } from '.
 // local. O FAB "+" e contextual a aba ativa.
 type Tab = 'clientes' | 'corretores';
 
+// Ajustes rodada 1 (KPI row): mini-metrica sob o valor de cada card.
+type KpiDelta = { text: string; dir: 'up' | 'down' | 'flat' };
+type KpiTone = 'blue' | 'green' | 'amber';
+
+const formatKpiPct = (value: number) =>
+  `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
+
 // useSearchParams exige Suspense no App Router.
 export default function CadastrosPageWrapper() {
   return (
@@ -261,12 +268,81 @@ function CadastrosPage() {
   const searchValue = brokerSearch;
   const setSearchValue = (value: string) => setBrokerSearch(value);
 
-  // RD14: cards da KPI row (desktop, so na aba Clientes). "—" enquanto carrega.
-  const kpiCards: { key: string; label: string; value: number | undefined }[] = [
-    { key: 'total', label: 'Total de clientes', value: clientStats?.total },
-    { key: 'active', label: 'Clientes ativos', value: clientStats?.active },
-    { key: 'incomplete', label: 'Cadastros incompletos', value: clientStats?.incomplete },
-    { key: 'new', label: 'Novos este mês', value: clientStats?.newThisMonth },
+  // RD14 + ajustes rodada 1: cards da KPI row (desktop, so na aba Clientes),
+  // na ordem pedida: total → novos → incompletos → ativos. As mini-metricas
+  // derivam do proprio stats (sem serie historica): o total cresce por
+  // novos/base-do-inicio-do-mes, novos compara com o mes anterior
+  // (newLastMonth) e incompletos/ativos mostram participacao. Base zero vira
+  // variacao absoluta ("+N"); sem stats o espaco fica reservado (nbsp).
+  let totalDelta: KpiDelta | null = null;
+  let newDelta: KpiDelta | null = null;
+  let incompleteDelta: KpiDelta | null = null;
+  let activeDelta: KpiDelta | null = null;
+  if (clientStats) {
+    const { total, active, incomplete, newThisMonth, newLastMonth } = clientStats;
+    const monthStartBase = total - newThisMonth;
+    if (monthStartBase > 0) {
+      totalDelta =
+        newThisMonth > 0
+          ? { dir: 'up', text: `+${formatKpiPct((newThisMonth / monthStartBase) * 100)} este mês` }
+          : { dir: 'flat', text: '0% este mês' };
+    } else {
+      totalDelta = newThisMonth > 0 ? { dir: 'up', text: `+${newThisMonth} este mês` } : null;
+    }
+    if (newLastMonth > 0) {
+      const diff = ((newThisMonth - newLastMonth) / newLastMonth) * 100;
+      newDelta =
+        diff > 0
+          ? { dir: 'up', text: `+${formatKpiPct(diff)} vs mês anterior` }
+          : diff < 0
+            ? { dir: 'down', text: `-${formatKpiPct(Math.abs(diff))} vs mês anterior` }
+            : { dir: 'flat', text: '0% vs mês anterior' };
+    } else {
+      newDelta = newThisMonth > 0 ? { dir: 'up', text: `+${newThisMonth} vs mês anterior` } : null;
+    }
+    incompleteDelta =
+      active > 0
+        ? { dir: 'flat', text: `${formatKpiPct((incomplete / active) * 100)} dos ativos` }
+        : null;
+    activeDelta =
+      total > 0 ? { dir: 'flat', text: `${formatKpiPct((active / total) * 100)} do total` } : null;
+  }
+
+  const kpiCards: {
+    key: string;
+    label: string;
+    value: number | undefined;
+    tone: KpiTone;
+    delta: KpiDelta | null;
+  }[] = [
+    {
+      key: 'total',
+      label: 'Total de clientes',
+      value: clientStats?.total,
+      tone: 'blue',
+      delta: totalDelta,
+    },
+    {
+      key: 'new',
+      label: 'Novos este mês',
+      value: clientStats?.newThisMonth,
+      tone: 'green',
+      delta: newDelta,
+    },
+    {
+      key: 'incomplete',
+      label: 'Cadastros incompletos',
+      value: clientStats?.incomplete,
+      tone: 'amber',
+      delta: incompleteDelta,
+    },
+    {
+      key: 'active',
+      label: 'Clientes ativos',
+      value: clientStats?.active,
+      tone: 'green',
+      delta: activeDelta,
+    },
   ];
 
   return (
@@ -341,7 +417,7 @@ function CadastrosPage() {
               <article key={card.key} className="fv-kpi">
                 <div className="fv-kpi-top">
                   <span className="fv-kpi-label">{card.label}</span>
-                  <span className="fv-kpi-icon" aria-hidden="true">
+                  <span className={`fv-kpi-icon is-${card.tone}`} aria-hidden="true">
                     {card.key === 'total' ? (
                       <svg viewBox="0 0 24 24" focusable="false">
                         <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
@@ -373,6 +449,24 @@ function CadastrosPage() {
                 </div>
                 <span className="fv-kpi-value">
                   {card.value == null ? '—' : card.value.toLocaleString('pt-BR')}
+                </span>
+                <span
+                  className={`fv-kpi-delta${
+                    card.delta && card.delta.dir !== 'flat' ? ` is-${card.delta.dir}` : ''
+                  }`}
+                >
+                  {card.delta?.dir === 'up' ? (
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                      <path d="M7 17 17 7" />
+                      <path d="M8 7h9v9" />
+                    </svg>
+                  ) : card.delta?.dir === 'down' ? (
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                      <path d="m7 7 10 10" />
+                      <path d="M17 8v9H8" />
+                    </svg>
+                  ) : null}
+                  {card.delta ? card.delta.text : '\u00A0'}
                 </span>
               </article>
             ))}

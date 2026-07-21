@@ -48,6 +48,7 @@
   --fv-radius-lg: 12px;
   --fv-cta: #173c30;
   --fv-cta-strong: #122e25;
+  --fv-blue: #1e5f8f; /* acento frio (icone KPI "Total de clientes") */
   --fv-chip-green-bg: #e5f3e9;
   --fv-chip-green-fg: #1e7c3f;
   --fv-chip-amber-bg: #fbf1dd;
@@ -34017,6 +34018,21 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
     stroke-linejoin: round;
   }
 
+  /* Ajustes rodada 1: tracos E borda do icone na cor do card; o
+     preenchimento segue branco (so muda color/border-color). */
+  .fv-kpi-icon.is-blue {
+    color: var(--fv-blue);
+    border-color: rgba(30, 95, 143, 0.38);
+  }
+  .fv-kpi-icon.is-green {
+    color: var(--fv-chip-green-fg);
+    border-color: rgba(30, 124, 63, 0.38);
+  }
+  .fv-kpi-icon.is-amber {
+    color: var(--fv-chip-amber-fg);
+    border-color: rgba(169, 106, 16, 0.42);
+  }
+
   .fv-kpi-value {
     font-size: 1.7rem;
     font-weight: 700;
@@ -34024,6 +34040,36 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
     line-height: 1.1;
     color: var(--ink);
     font-variant-numeric: tabular-nums;
+  }
+
+  /* Ajustes rodada 1: mini-metrica sob o valor (participacao ou variacao;
+     verde/vermelho so quando ha direcao). nbsp reserva a linha no load. */
+  .fv-kpi-delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28rem;
+    margin-top: -0.2rem;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .fv-kpi-delta svg {
+    width: 0.8rem;
+    height: 0.8rem;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .fv-kpi-delta.is-up {
+    color: var(--fv-chip-green-fg);
+  }
+  .fv-kpi-delta.is-down {
+    color: var(--fv-chip-red-fg);
   }
 }
 
