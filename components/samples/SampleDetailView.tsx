@@ -771,7 +771,14 @@ export function SampleDetailView({
         }
         return undefined;
       } finally {
-        if (!controller.signal.aborted && shouldShowLoading) {
+        // BUG do painel em branco: a guarda de `aborted` tambem valia aqui, e
+        // o carregamento inicial (showLoading) e abortado por QUALQUER refetch
+        // silencioso que chegue no meio — `useListRevalidation` dispara no
+        // primeiro `window.focus` porque o throttle parte de 0. Com o abort, o
+        // `setLoadingDetail(false)` era pulado e nada mais desligava a flag:
+        // ficava `loadingDetail && detail`, combinacao que NENHUM ramo do
+        // render cobria. Quem ligou a flag sempre desliga.
+        if (shouldShowLoading) {
           setLoadingDetail(false);
         }
       }
@@ -1878,12 +1885,30 @@ export function SampleDetailView({
           no globals (o peek de 620px e coluna unica); o fundo branco + sombra
           dos cards que ele dava no mobile voltam via .lote-details-overlay. */}
       <section className="sdv-page">
-        {loadingDetail && !detail ? (
+        {/* Os tres ramos cobrem TODAS as combinacoes de (detail, loadingDetail)
+            — antes "carregando com detalhe em maos" e "sem detalhe e sem
+            carregar" caiam no vazio e o painel abria em branco, sem nem
+            mostrar o erro (o NoticeSlot do pageNotice mora la dentro). */}
+        {!detail && loadingDetail ? (
           <div className="spv2-empty">
             <p className="spv2-empty-text">Carregando lote…</p>
           </div>
         ) : null}
-        {!loadingDetail && detail ? (
+        {!detail && !loadingDetail ? (
+          <div className="spv2-empty">
+            <p className="spv2-empty-text">
+              {pageNotice?.text ?? 'Não foi possível carregar este lote.'}
+            </p>
+            <button
+              type="button"
+              className="fv-btn fv-btn-primary"
+              onClick={() => void loadDetail()}
+            >
+              Tentar de novo
+            </button>
+          </div>
+        ) : null}
+        {detail ? (
           <>
             {/* FV (RD15): hero institucional no lugar do header verde de
                 identidade. Miniatura da foto da classificacao no papel do
