@@ -33847,6 +33847,50 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   .fv-kpi-delta.is-down {
     color: var(--fv-chip-red-fg);
   }
+
+  /* FV /samples: o card "Aguardando classificacao" e um FILTRO (liga o
+     statusGroup=CLASSIFICATION_PENDING na lista). Vira <button>: alinhamento
+     de texto a esquerda, press so por profundidade (sem troca de cor) e
+     estado ligado marcado pela borda ambar. */
+  .fv-kpi.is-clickable {
+    align-items: stretch;
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+    transition:
+      transform var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out);
+  }
+  .fv-kpi.is-clickable:hover {
+    border-color: var(--fv-line-strong);
+  }
+  .fv-kpi.is-clickable:active {
+    transform: scale(0.985);
+  }
+  .fv-kpi.is-clickable.is-active {
+    border-color: var(--fv-chip-amber-fg);
+    box-shadow: inset 0 0 0 1px var(--fv-chip-amber-fg);
+  }
+  .fv-kpi.is-clickable.is-active .fv-kpi-delta {
+    color: var(--fv-chip-amber-fg);
+  }
+
+  /* FV /samples: o chrome novo assume no desktop — o header verde mobile sai
+     (titulo e CTA vivem no .fv-page-head). As abas internas saem quando
+     viram sub-itens da sidenav; o FAB do leque sai quando "Criar liga"
+     ganha lugar na toolbar. */
+  .fv-lotes-page .samples-page-v2-header {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fv-kpi.is-clickable {
+    transition: none;
+  }
+  .fv-kpi.is-clickable:active {
+    transform: none;
+  }
 }
 
 /* ── Chips de status (kit FV): pastel, sem borda, radius pill. ── */

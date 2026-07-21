@@ -19,7 +19,6 @@ import { createPortal } from 'react-dom';
 import { AppShell } from '../../components/AppShell';
 import { DetailOverlay } from '../../components/DetailOverlay';
 import { NewSampleModal } from '../../components/NewSampleModal';
-import { RecentSendsCard } from '../../components/RecentSendsCard';
 import { ClientLookupField } from '../../components/clients/ClientLookupField';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { ClassificationFilterField } from '../../components/samples/ClassificationFilterField';
@@ -32,7 +31,6 @@ import {
   BlendConfirmationSheet,
   type BlendContribution,
 } from '../../components/samples/BlendConfirmationSheet';
-import { ClassificationPendingCard } from '../../components/samples/ClassificationPendingCard';
 import { SampleCreatedSuccessModal } from '../../components/samples/SampleCreatedSuccessModal';
 import {
   SelectedSamplesDropdown,
@@ -45,7 +43,7 @@ import {
   createBlend,
   createSampleMovement,
   getSampleDetail,
-  getSampleRecentSends,
+  getSampleStats,
   listClassificationValues,
   listSamples,
   updateRegistration,
@@ -72,11 +70,19 @@ import type {
   SampleDetailResponse,
   SampleEligibilityReason,
   SampleSnapshot,
+  SampleStatsResponse,
 } from '../../lib/types';
 import { getRouteLeftBehind } from '../../lib/navigation/route-history';
-import { useRecentSendsFeed } from '../../lib/use-recent-sends-feed';
+import { useIsDesktop } from '../../lib/use-desktop';
 import { useRequireAuth } from '../../lib/use-auth';
 import { NON_PROSPECTOR_ROLES } from '../../lib/roles';
+
+// FV (KPI row): mini-metrica sob o valor de cada card — molde de /cadastros.
+type KpiDelta = { text: string; dir: 'up' | 'down' | 'flat' };
+type KpiTone = 'blue' | 'green' | 'amber';
+
+const formatKpiPct = (value: number) =>
+  `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
 
 // Sub-abas de /samples (PG1/PG23): "Lotes" (lista atual, default) + "Simulador"
 // (Playground). Molde do ?tab= copiado de app/contratos/page.tsx.
@@ -141,6 +147,11 @@ interface HiddenFilters {
   periodFrom: string;
   periodTo: string;
   onlyBlend: boolean;
+  // FV: filtro do KPI "Aguardando classificacao" (statusGroup do backend, que
+  // ja existia e nunca fora exposto). NAO tem campo no painel de filtros — so
+  // liga/desliga pelo card; entra na contagem e no "Limpar filtros" como os
+  // demais.
+  onlyPendingClassification: boolean;
 }
 
 const EMPTY_HIDDEN_FILTERS: HiddenFilters = {
@@ -158,6 +169,7 @@ const EMPTY_HIDDEN_FILTERS: HiddenFilters = {
   periodFrom: '',
   periodTo: '',
   onlyBlend: false,
+  onlyPendingClassification: false,
 };
 
 const FILTER_SECTION_ORDER: FilterSectionId[] = [
@@ -186,7 +198,8 @@ function hasAnyHiddenFilter(filters: HiddenFilters) {
     filters.sacksMax.trim().length > 0 ||
     filters.periodFrom.trim().length > 0 ||
     filters.periodTo.trim().length > 0 ||
-    filters.onlyBlend
+    filters.onlyBlend ||
+    filters.onlyPendingClassification
   );
 }
 
@@ -206,6 +219,7 @@ function normalizeHiddenFilters(filters: HiddenFilters): HiddenFilters {
     periodFrom: filters.periodFrom.trim(),
     periodTo: filters.periodTo.trim(),
     onlyBlend: filters.onlyBlend,
+    onlyPendingClassification: filters.onlyPendingClassification,
   };
 }
 
@@ -223,6 +237,7 @@ function countActiveHiddenFilters(filters: HiddenFilters) {
   if (filters.sacksMin.trim() || filters.sacksMax.trim()) count += 1;
   if (filters.periodFrom.trim() || filters.periodTo.trim()) count += 1;
   if (filters.onlyBlend) count += 1;
+  if (filters.onlyPendingClassification) count += 1;
   return count;
 }
 
@@ -497,9 +512,9 @@ function SamplesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Card "Amostras enviadas" (DSB-D14, migrado do dashboard): feed desktop-only,
-  // fetch gated por matchMedia no hook + card escondido por CSS abaixo de 901px.
-  const sampleSends = useRecentSendsFeed(session, getSampleRecentSends);
+  // FV: o card "Amostras enviadas" (DSB-D14) saiu da lista — a pagina passou a
+  // ser cabecalho + KPI + tabela. `RecentSendsCard` e a rota
+  // /samples/recent-sends ficam orfaos (limpeza na consolidacao do ciclo).
 
   // Deep-link de status via URL (?displayStatus=OPEN; era o "Ver disponiveis" do
   // donut do dashboard, removido no DSB-D14 — o param segue valido).
@@ -623,17 +638,10 @@ function SamplesPage() {
     null
   );
   const expandedFilterInputRef = useRef<HTMLInputElement | null>(null);
-  // Breakpoint desktop (>=901px). O modal de filtros usa layout PROPRIO no
-  // desktop (campos de cliente diretos/nao-retrateis + linhas de 3 e 4
-  // colunas, modal mais largo). No mobile segue o layout retratil/compacto.
-  const [isDesktop, setIsDesktop] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia('(min-width: 901px)');
-    const update = () => setIsDesktop(mq.matches);
-    update();
-    mq.addEventListener('change', update);
-    return () => mq.removeEventListener('change', update);
-  }, []);
+  // Breakpoint desktop (>=901px) pelo hook compartilhado (FV: a pagina usava
+  // um matchMedia proprio). Governa o layout do painel de filtros e, a partir
+  // da FV, a casca institucional (cabecalho + KPI + tabela).
+  const isDesktop = useIsDesktop();
   // Opcoes dos filtros de classificacao (valores distintos canonicos), por
   // campo, carregadas sob demanda toda vez que o modal de filtros abre.
   const [classificationOptions, setClassificationOptions] = useState<{
@@ -667,6 +675,26 @@ function SamplesPage() {
   // Revalidacao silenciosa (2026-07-07): incrementa pra refazer o fetch SEM
   // skeleton/scroll-reset (retorno ao app + polling — useListRevalidation).
   const [refreshTick, setRefreshTick] = useState(0);
+
+  // KPI row da lista (FV): contagens globais, so no desktop. Recarrega quando
+  // um lote e criado (newSampleRefetchKey) e quando o detalhe abre/fecha (de
+  // dentro dele sai deletar/vender/classificar) — o Cache-Control de 30s da
+  // rota amortece repeticoes.
+  const [sampleStats, setSampleStats] = useState<SampleStatsResponse | null>(null);
+  useEffect(() => {
+    if (!session || !isDesktop) return;
+    let active = true;
+    getSampleStats(session)
+      .then((stats) => {
+        if (active) setSampleStats(stats);
+      })
+      .catch(() => {
+        /* KPI fica em "—"; a lista continua funcional */
+      });
+    return () => {
+      active = false;
+    };
+  }, [session, isDesktop, newSampleRefetchKey, loteId]);
   // Acoes do card expandido (Enviar/Perda), hospedadas aqui. Ao clicar, hidrata o
   // detalhe (getSampleDetail: version fresco + activeBlends) e abre o fluxo.
   const [sendTarget, setSendTarget] = useState<SampleDetailResponse | null>(null);
@@ -1065,6 +1093,9 @@ function SamplesPage() {
       displayStatus: filters.appliedHiddenFilters.displayStatus || undefined,
       harvests: filters.appliedHiddenFilters.harvests,
       isBlend: filters.appliedHiddenFilters.onlyBlend || undefined,
+      statusGroup: filters.appliedHiddenFilters.onlyPendingClassification
+        ? 'CLASSIFICATION_PENDING'
+        : undefined,
       sacksMin: filters.appliedHiddenFilters.sacksMin || undefined,
       sacksMax: filters.appliedHiddenFilters.sacksMax || undefined,
       ...buildPeriodQuery(filters.appliedHiddenFilters),
@@ -1164,6 +1195,9 @@ function SamplesPage() {
         displayStatus: appliedHiddenFilters.displayStatus || undefined,
         harvests: appliedHiddenFilters.harvests,
         isBlend: appliedHiddenFilters.onlyBlend || undefined,
+        statusGroup: appliedHiddenFilters.onlyPendingClassification
+          ? 'CLASSIFICATION_PENDING'
+          : undefined,
         sacksMin: appliedHiddenFilters.sacksMin || undefined,
         sacksMax: appliedHiddenFilters.sacksMax || undefined,
         ...buildPeriodQuery(appliedHiddenFilters),
@@ -1366,6 +1400,20 @@ function SamplesPage() {
     setDraftHiddenFilters(EMPTY_HIDDEN_FILTERS);
     setAppliedHiddenFilters(EMPTY_HIDDEN_FILTERS);
     setActiveFilterSection('owner');
+  }
+
+  // KPI "Aguardando classificacao" (FV): liga/desliga o recorte de pendentes
+  // mantendo os demais filtros. Nao tem campo no painel — o card e o controle.
+  function togglePendingClassificationFilter() {
+    clearSamplesSnapshot();
+    setAppliedHiddenFilters((prev) => ({
+      ...prev,
+      onlyPendingClassification: !prev.onlyPendingClassification,
+    }));
+    setDraftHiddenFilters((prev) => ({
+      ...prev,
+      onlyPendingClassification: !prev.onlyPendingClassification,
+    }));
   }
 
   // Inputs do snapshot mantidos frescos num ref (padrao "latest ref", atualizado
@@ -2151,9 +2199,73 @@ function SamplesPage() {
     .join('')
     .toUpperCase();
 
+  // FV: cards da KPI row (desktop). Mini-metricas derivam do proprio stats,
+  // como em /cadastros: o total cresce sobre a base do inicio do mes, "em
+  // aberto" mostra participacao, sacas nao tem comparativo e pendentes vira
+  // o rotulo do filtro.
+  const pendingFilterActive = appliedHiddenFilters.onlyPendingClassification;
+  let totalDelta: KpiDelta | null = null;
+  let openDelta: KpiDelta | null = null;
+  if (sampleStats) {
+    const { total, open, newThisMonth } = sampleStats;
+    const monthStartBase = total - newThisMonth;
+    if (monthStartBase > 0) {
+      totalDelta =
+        newThisMonth > 0
+          ? { dir: 'up', text: `+${formatKpiPct((newThisMonth / monthStartBase) * 100)} este mês` }
+          : { dir: 'flat', text: '0% este mês' };
+    } else {
+      totalDelta = newThisMonth > 0 ? { dir: 'up', text: `+${newThisMonth} este mês` } : null;
+    }
+    openDelta =
+      total > 0 ? { dir: 'flat', text: `${formatKpiPct((open / total) * 100)} do total` } : null;
+  }
+
+  const kpiCards: {
+    key: string;
+    label: string;
+    value: number | undefined;
+    tone: KpiTone;
+    delta: KpiDelta | null;
+  }[] = [
+    {
+      key: 'total',
+      label: 'Total de lotes',
+      value: sampleStats?.total,
+      tone: 'blue',
+      delta: totalDelta,
+    },
+    {
+      key: 'open',
+      label: 'Em aberto',
+      value: sampleStats?.open,
+      tone: 'green',
+      delta: openDelta,
+    },
+    {
+      key: 'sacks',
+      label: 'Sacas disponíveis',
+      value: sampleStats?.availableSacks,
+      tone: 'green',
+      delta: null,
+    },
+    {
+      key: 'pending',
+      label: 'Aguardando classificação',
+      value: sampleStats?.classificationPending,
+      tone: 'amber',
+      delta:
+        sampleStats && sampleStats.classificationPending > 0
+          ? { dir: 'flat', text: pendingFilterActive ? 'Filtro ativo' : 'Filtrar na lista' }
+          : null,
+    },
+  ];
+
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
-      <section className={`samples-page-v2${tab === 'simulador' ? ' is-tab-simulador' : ''}`}>
+      <section
+        className={`samples-page-v2 fv-lotes-page${tab === 'simulador' ? ' is-tab-simulador' : ''}`}
+      >
         {/* Liga B1.4: SelectionModeHeader substitui o header normal quando
             o usuario entra em modo selecao pra criar liga. CSS body class
             is-selection-mode tambem esconde o header normal por seguranca. */}
@@ -2190,6 +2302,103 @@ function SamplesPage() {
               {tabDef.label}
             </button>
           ))}
+        </div>
+
+        {/* FV (desktop >=901px): cabecalho institucional + KPI row. No mobile
+            estes blocos ficam display:none e o header verde + abas seguem. */}
+        <div className="fv-page-head">
+          <h2 className="fv-page-title">Lotes</h2>
+          <button
+            type="button"
+            className="fv-btn fv-btn-primary"
+            onClick={() => setNewSampleModalOpen(true)}
+          >
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M12 5v14" />
+              <path d="M5 12h14" />
+            </svg>
+            Novo lote
+          </button>
+        </div>
+
+        <div className="fv-kpi-row">
+          {kpiCards.map((card) => {
+            const body = (
+              <>
+                <div className="fv-kpi-top">
+                  <span className="fv-kpi-label">{card.label}</span>
+                  <span className={`fv-kpi-icon is-${card.tone}`} aria-hidden="true">
+                    {card.key === 'total' ? (
+                      <svg viewBox="0 0 24 24" focusable="false">
+                        <path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z" />
+                        <path d="m3 7.5 9 4.5 9-4.5" />
+                        <path d="M12 12v9" />
+                      </svg>
+                    ) : card.key === 'open' ? (
+                      <svg viewBox="0 0 24 24" focusable="false">
+                        <path d="M4 9h16v11H4z" />
+                        <path d="M4 9 6 4h12l2 5" />
+                        <path d="M10 13h4" />
+                      </svg>
+                    ) : card.key === 'sacks' ? (
+                      <svg viewBox="0 0 24 24" focusable="false">
+                        <path d="M8 3h8l-1.5 3.2a3 3 0 0 0 .3 3.1L17 13a5 5 0 0 1-4 8h-2a5 5 0 0 1-4-8l2.2-3.7a3 3 0 0 0 .3-3.1z" />
+                        <path d="M9.5 15.5h5" />
+                      </svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" focusable="false">
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M12 7v5l3 2" />
+                      </svg>
+                    )}
+                  </span>
+                </div>
+                <span className="fv-kpi-value">
+                  {card.value == null ? '—' : card.value.toLocaleString('pt-BR')}
+                </span>
+                <span
+                  className={`fv-kpi-delta${
+                    card.delta && card.delta.dir !== 'flat' ? ` is-${card.delta.dir}` : ''
+                  }`}
+                >
+                  {card.delta?.dir === 'up' ? (
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                      <path d="M7 17 17 7" />
+                      <path d="M8 7h9v9" />
+                    </svg>
+                  ) : card.delta?.dir === 'down' ? (
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                      <path d="m7 7 10 10" />
+                      <path d="M17 8v9H8" />
+                    </svg>
+                  ) : null}
+                  {card.delta ? card.delta.text : ' '}
+                </span>
+              </>
+            );
+
+            // "Aguardando classificacao" e um FILTRO: liga/desliga o
+            // statusGroup=CLASSIFICATION_PENDING na lista. Sem pendencias o
+            // card volta a ser so leitura.
+            if (card.key === 'pending' && (card.value ?? 0) > 0) {
+              return (
+                <button
+                  key={card.key}
+                  type="button"
+                  className={`fv-kpi is-clickable${pendingFilterActive ? ' is-active' : ''}`}
+                  aria-pressed={pendingFilterActive}
+                  onClick={togglePendingClassificationFilter}
+                >
+                  {body}
+                </button>
+              );
+            }
+            return (
+              <article key={card.key} className="fv-kpi">
+                {body}
+              </article>
+            );
+          })}
         </div>
 
         {/* Search bar — in green area, dashboard style. Filtro fica
@@ -2298,21 +2507,6 @@ function SamplesPage() {
         </div>
 
         <section className="samples-page-v2-sheet">
-          {/* Cards do topo do sheet, migrados do dashboard: "Classificacao
-              pendente" (DSB-D2; conta amostras em REGISTRATION_CONFIRMED, inerte
-              por ora) + "Amostras enviadas" (DSB-D14; desktop-only — o wrapper e
-              display:contents no mobile e o card se esconde sozinho). */}
-          <div className="spv2-top-cards">
-            <ClassificationPendingCard session={session} />
-            <RecentSendsCard
-              title="Amostras enviadas"
-              emptyLabel="Nenhuma amostra enviada."
-              variant="samples"
-              items={sampleSends.items}
-              error={sampleSends.error}
-              onRetry={sampleSends.retry}
-            />
-          </div>
           {/* Section 2: Count + filter btn (ou contador de selecionadas em modo blend) */}
           <div className="spv2-list-meta">
             <span className="spv2-list-count">{samplesState.total} lotes</span>
