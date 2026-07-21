@@ -14,9 +14,9 @@ import {
   useRef,
   useState,
 } from 'react';
-import { createPortal } from 'react-dom';
 
 import { AppShell } from '../../components/AppShell';
+import { BottomSheet } from '../../components/BottomSheet';
 import { DetailOverlay } from '../../components/DetailOverlay';
 import { NewSampleModal } from '../../components/NewSampleModal';
 import { ClientLookupField } from '../../components/clients/ClientLookupField';
@@ -69,7 +69,6 @@ import {
 import { useListRevalidation } from '../../lib/use-list-revalidation';
 import { buildHarvestPresets } from '../../lib/sample-identification';
 import { useToast } from '../../lib/toast/ToastProvider';
-import { useFocusTrap } from '../../lib/use-focus-trap';
 import type {
   ActiveBlendDetail,
   ClientSummary,
@@ -700,12 +699,6 @@ function SamplesPage() {
     () => initialFilters
   );
   const [filtersOpen, setFiltersOpen] = useState(false);
-  // Guarda de SSR pro createPortal do modal de filtros (LOT-L2; padrao do
-  // MobileTabbar/modal de senha do AppShell).
-  const [portalReady, setPortalReady] = useState(false);
-  useEffect(() => {
-    setPortalReady(true);
-  }, []);
   // Campos de cliente RETRÁTEIS (Proprietário/Comprador/Enviado para): só um
   // expande por vez; ao expandir, mostra o typeahead; colapsado mostra só os
   // chips. Fecha ao clicar fora.
@@ -848,7 +841,6 @@ function SamplesPage() {
   const blendDraftIdRef = useRef<string>('');
   const toast = useToast();
 
-  const filtersTrapRef = useFocusTrap(filtersOpen);
   const [activeFilterSection, setActiveFilterSection] = useState<FilterSectionId | null>(() =>
     initialSnapshot ? getInitialFilterSection(initialSnapshot.appliedHiddenFilters) : 'owner'
   );
@@ -860,7 +852,6 @@ function SamplesPage() {
   );
   const samplesScrollRef = useRef<HTMLDivElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
-  const filterCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const lastFilterTriggerRef = useRef<HTMLButtonElement | null>(null);
   const filterSectionRefs = useRef<Partial<Record<FilterSectionId, HTMLElement | null>>>({});
 
@@ -1002,36 +993,17 @@ function SamplesPage() {
     return () => cancelAnimationFrame(raf);
   }, []);
 
+  // FV: scroll-lock, ESC e focus-trap dos filtros passaram a ser do BottomSheet
+  // (o modal central cuidava disso a mao). Sobra so devolver o foco ao botao
+  // que abriu, ao fechar.
   useEffect(() => {
-    if (!filtersOpen) {
+    if (filtersOpen) {
       return;
     }
-
-    const previousOverflow = document.body.style.overflow;
-
-    const onDocumentKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        closeFilters();
-      }
-    };
-
-    document.body.style.overflow = 'hidden';
-    document.addEventListener('keydown', onDocumentKeyDown);
-    const openFocusTimer = window.setTimeout(() => {
-      filterCloseButtonRef.current?.focus();
+    const timer = window.setTimeout(() => {
+      lastFilterTriggerRef.current?.focus();
     }, 0);
-
-    return () => {
-      window.clearTimeout(openFocusTimer);
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener('keydown', onDocumentKeyDown);
-      window.setTimeout(() => {
-        lastFilterTriggerRef.current?.focus();
-      }, 0);
-    };
-    // closeFilters e funcao local nao memoizada; effect deve disparar so quando filtersOpen muda
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => window.clearTimeout(timer);
   }, [filtersOpen]);
 
   // Carrega as opcoes dos filtros de classificacao (4 campos em paralelo). As
@@ -1100,7 +1072,7 @@ function SamplesPage() {
   }, [activeFilterSection, filtersOpen]);
 
   // Campos retráteis de cliente: foca o typeahead ao expandir; fecha ao clicar
-  // fora do campo aberto OU ao rolar o modal; reseta quando o modal fecha.
+  // fora do campo aberto OU ao rolar o painel; reseta quando o painel fecha.
   useEffect(() => {
     if (!openClientFilter) return;
     const focusTimer = window.setTimeout(() => expandedFilterInputRef.current?.focus(), 0);
@@ -1111,18 +1083,20 @@ function SamplesPage() {
         close();
       }
     }
-    const modalContent = document.querySelector('.samples-filter-modal-content');
+    // FV: quem rola agora e o corpo do painel (o modal central tinha o proprio
+    // .samples-filter-modal-content).
+    const sheetBody = document.querySelector('.samples-filter-sheet .bottom-sheet-body');
     document.addEventListener('mousedown', onPointerDown);
-    // O scroll do modal fecha o campo. Atrasado pra o scroll que o foco inicial
+    // O scroll do painel fecha o campo. Atrasado pra o scroll que o foco inicial
     // do input pode disparar (scrollIntoView) não fechar logo na abertura.
     const scrollAttachTimer = window.setTimeout(() => {
-      modalContent?.addEventListener('scroll', close, { passive: true });
+      sheetBody?.addEventListener('scroll', close, { passive: true });
     }, 250);
     return () => {
       window.clearTimeout(focusTimer);
       window.clearTimeout(scrollAttachTimer);
       document.removeEventListener('mousedown', onPointerDown);
-      modalContent?.removeEventListener('scroll', close);
+      sheetBody?.removeEventListener('scroll', close);
     };
   }, [openClientFilter]);
 
@@ -2241,33 +2215,11 @@ function SamplesPage() {
       </div>
     );
 
-    // DESKTOP: modal mais largo; clientes em linhas proprias (diretos) +
-    // Safra/Status/Tipo (3 col) + Padrao/Aspecto/Catacao/Certificado (4 col) +
-    // Sacas/Periodo em linhas proprias. (Layout pedido pelo usuario.)
-    if (isDesktop) {
-      return (
-        <div className="samples-filter-fields">
-          {ownerFilter}
-          {buyerFilter}
-          {sentToFilter}
-          <div className="samples-filter-row samples-filter-row--3">
-            {safraField}
-            {statusField}
-            {tipoField}
-          </div>
-          <div className="samples-filter-row samples-filter-row--4">
-            {padraoField}
-            {aspectoField}
-            {catacaoField}
-            {certificadoField}
-          </div>
-          {sacasField}
-          {periodoField}
-        </div>
-      );
-    }
-
-    // MOBILE: layout compacto original (cliente retratil + pares 2 colunas).
+    // Layout compacto (pares de 2 colunas), agora UNICO: as linhas de 3 e 4
+    // colunas existiam pro modal central de 58rem, que no desktop deu lugar ao
+    // painel lateral de 400px. A unica diferenca que sobra entre os tamanhos e
+    // o campo de cliente — direto no desktop, retratil no mobile (`isDesktop`
+    // acima).
     return (
       <div className="samples-filter-fields">
         {ownerFilter}
@@ -2517,7 +2469,7 @@ function SamplesPage() {
             has-applied-filters: mostra o botao "X" de limpar entre a busca e o
             filtro (a busca encolhe; sem filtros o "X" tuca atras do filtro). */}
         <div
-          className={`hero-search-wrap${activeHiddenFiltersCount > 0 ? ' has-applied-filters' : ''}`}
+          className={`hero-search-wrap fv-hide-desktop${activeHiddenFiltersCount > 0 ? ' has-applied-filters' : ''}`}
         >
           {/* Busca AO VIVO: o onChange so atualiza o texto; o debounce
               (useEffect acima) aplica/desfiltra. role=search + onSubmit no-op
@@ -2618,6 +2570,97 @@ function SamplesPage() {
         </div>
 
         <section className="samples-page-v2-sheet">
+          {/* FV (desktop): toolbar do cartao da tabela — busca (mesma logica e
+              debounce da hero), "Criar liga", funil com badge, limpar e o
+              contador a direita. Mobile: display:none (a hero-search acima
+              segue no comando). */}
+          <div className="fv-toolbar">
+            <form
+              className="fv-toolbar-search"
+              role="search"
+              onSubmit={(event) => event.preventDefault()}
+            >
+              <svg
+                className="fv-toolbar-search-icon"
+                viewBox="0 0 24 24"
+                focusable="false"
+                aria-hidden="true"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="m16.2 16.2 4.1 4.1" />
+              </svg>
+              <input
+                className="fv-input fv-toolbar-search-input"
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                placeholder="Buscar por lote ou proprietário..."
+                aria-label="Buscar por lote ou proprietário"
+                autoComplete="off"
+                spellCheck={false}
+              />
+              {searchInput ? (
+                <button
+                  type="button"
+                  className="fv-toolbar-search-clear"
+                  aria-label="Limpar busca"
+                  onClick={() => setSearchInput('')}
+                >
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  </svg>
+                </button>
+              ) : null}
+            </form>
+            {selectionMode !== 'blend' ? (
+              <>
+                <button type="button" className="fv-btn fv-btn-secondary" onClick={enterBlendMode}>
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <path d="M8 6h11" />
+                    <path d="M8 12h11" />
+                    <path d="M8 18h11" />
+                    <circle cx="4" cy="6" r="1.4" />
+                    <circle cx="4" cy="12" r="1.4" />
+                    <circle cx="4" cy="18" r="1.4" />
+                  </svg>
+                  Criar liga
+                </button>
+                <button
+                  type="button"
+                  className="fv-btn fv-btn-secondary fv-toolbar-filter"
+                  aria-haspopup="dialog"
+                  aria-expanded={filtersOpen}
+                  onClick={(event) => {
+                    if (filtersOpen) {
+                      closeFilters();
+                      return;
+                    }
+                    openFilters(event.currentTarget);
+                  }}
+                >
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <path d="M4 6h16" />
+                    <path d="M7 12h10" />
+                    <path d="M10 18h4" />
+                  </svg>
+                  Filtros
+                  {activeHiddenFiltersCount > 0 ? (
+                    <span className="fv-btn-badge">{activeHiddenFiltersCount}</span>
+                  ) : null}
+                </button>
+                {activeHiddenFiltersCount > 0 ? (
+                  <button
+                    type="button"
+                    className="fv-toolbar-clear"
+                    onClick={handleClearFiltersOnly}
+                  >
+                    Limpar
+                  </button>
+                ) : null}
+              </>
+            ) : null}
+            <span className="fv-toolbar-count">{samplesState.total} lotes</span>
+          </div>
+
           {/* Section 2: Count + filter btn (ou contador de selecionadas em modo blend) */}
           <div className="spv2-list-meta">
             <span className="spv2-list-count">{samplesState.total} lotes</span>
@@ -2996,63 +3039,41 @@ function SamplesPage() {
         ) : null}
       </section>
 
-      {/* LOT-L2: modal central SEMPRE via createPortal (regra da skill
-          modals) — inline sob o PageTransition, o transform capturava o
-          position:fixed do backdrop. */}
-      {filtersOpen && portalReady
-        ? createPortal(
-            <div
-              className="app-modal-backdrop samples-filter-modal-backdrop"
-              onClick={closeFilters}
+      {/* FV: os filtros deixaram de ser modal central e viraram PAINEL lateral
+          (desktop = painel direito bloqueante; mobile = bottom sheet, mesma
+          excecao deliberada de /cadastros). Mesmo rascunho + Aplicar/Limpar; o
+          Aplicar do rodape submete o form via `form=`. O modal central
+          `.samples-filter-modal` morreu — o CSS dele ainda serve /contratos. */}
+      <BottomSheet
+        open={filtersOpen}
+        onClose={closeFilters}
+        title="Filtros"
+        ariaLabel="Filtros de lotes"
+        className="side-sheet fv-filter-sheet samples-filter-sheet"
+        footer={
+          <div className="fv-filter-actions">
+            <button
+              type="button"
+              className="fv-btn fv-btn-secondary"
+              onClick={handleClearFiltersOnly}
+              disabled={!hasDraftHiddenFilters && !hasAppliedHiddenFilters}
             >
-              <section
-                ref={filtersTrapRef}
-                id="samples-filter-modal"
-                className="app-modal is-themed samples-filter-modal"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="samples-filter-modal-title"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <header className="app-modal-header samples-filter-modal-header">
-                  <div className="app-modal-title-wrap">
-                    <h3 id="samples-filter-modal-title" className="app-modal-title">
-                      Filtros
-                    </h3>
-                  </div>
-                  <button
-                    ref={filterCloseButtonRef}
-                    type="button"
-                    className="app-modal-close"
-                    onClick={closeFilters}
-                    aria-label="Fechar filtros"
-                  >
-                    <span aria-hidden="true">×</span>
-                  </button>
-                </header>
-
-                <form className="samples-filter-modal-form" onSubmit={handleApplyFilters}>
-                  <div className="samples-filter-modal-content">{renderFilterFields()}</div>
-
-                  <div className="app-modal-actions samples-filter-modal-actions">
-                    <button
-                      type="button"
-                      className="app-modal-secondary"
-                      onClick={handleClearFiltersOnly}
-                      disabled={!hasDraftHiddenFilters && !hasAppliedHiddenFilters}
-                    >
-                      Limpar
-                    </button>
-                    <button type="submit" className="app-modal-submit">
-                      Aplicar
-                    </button>
-                  </div>
-                </form>
-              </section>
-            </div>,
-            document.body
-          )
-        : null}
+              Limpar
+            </button>
+            <button type="submit" form="samples-filter-form" className="fv-btn fv-btn-primary">
+              Aplicar
+            </button>
+          </div>
+        }
+      >
+        <form
+          id="samples-filter-form"
+          className="samples-filter-sheet-form"
+          onSubmit={handleApplyFilters}
+        >
+          {renderFilterFields()}
+        </form>
+      </BottomSheet>
 
       {newSampleModalMounted ? (
         <NewSampleModal

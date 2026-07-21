@@ -14180,11 +14180,19 @@ body:has(.app-modal-backdrop) .prospector-fab {
   padding: clamp(0.9rem, 3vw, 1.2rem);
 }
 
-/* Typeahead (ClientLookupField) de proprietario/comprador dentro do modal de
-   filtros: dropdown acima dos demais campos e com altura que cabe no painel. */
+/* Typeahead (ClientLookupField) de proprietario/comprador dentro dos filtros:
+   dropdown acima dos demais campos e com altura que cabe no painel. O painel
+   lateral e de /samples (FV); o modal central segue em /contratos. */
+.samples-filter-sheet .client-lookup-dropdown,
 .samples-filter-modal .client-lookup-dropdown {
   z-index: 24;
   max-height: min(13rem, 32vh);
+}
+
+/* O form e filho direto do .bottom-sheet-body (que ja rola e ja tem o recuo
+   lateral do sheet) — sobra so o respiro vertical. */
+.samples-filter-sheet-form {
+  padding: 0.25rem 0.15rem 0.6rem;
 }
 
 /* ── Filtros multi-select: box com chips DENTRO do campo ──────────────
@@ -14783,8 +14791,9 @@ body:has(.app-modal-backdrop) .prospector-fab {
 }
 
 /* Placeholder do typeahead de cliente (Buscar proprietario/comprador/
-   destinatario) dentro do modal: sem regra propria, herdava o cinza escuro
+   destinatario) dentro dos filtros: sem regra propria, herdava o cinza escuro
    padrao do navegador. Alinha ao mesmo tom apagado dos demais campos. */
+.samples-filter-sheet .client-lookup-shell input::placeholder,
 .samples-filter-modal .client-lookup-shell input::placeholder {
   color: rgba(0, 0, 0, 0.16);
   font-weight: 400;
@@ -24081,23 +24090,13 @@ select.samples-filter-field-input {
     transform: scale(0.97);
   }
 
-  /* ── Layout do modal de filtro no DESKTOP (linhas pedidas pelo usuario) ──
-     Linhas de 3 colunas (Safra · Status · Tipo de lote) e 4 colunas
-     (Padrao · Aspecto · Catacao · Certificado). Os clientes (Proprietario,
-     Comprador, Enviado para) e Sacas/Periodo ficam full-width (1 por linha,
-     fora de .samples-filter-row). minmax(0,1fr) deixa as colunas IGUAIS e
-     deixa os campos encolherem sem estourar. */
-  .samples-filter-modal .samples-filter-row--3 {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
+  /* FV: as linhas de 3 e 4 colunas (.samples-filter-row--3/--4) sairam junto
+     com o modal central de /samples — no painel de 400px os campos vao em
+     pares, o mesmo agrupamento compacto do mobile. */
 
-  .samples-filter-modal .samples-filter-row--4 {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  /* Box de busca de cliente DIRETO (nao-retratil): ocupa a largura toda da
-     linha. */
-  .samples-filter-modal .samples-filter-field--client-direct .samples-filter-multi--direct {
+  /* Box de busca de cliente DIRETO (nao-retratil, so no desktop): ocupa a
+     largura toda da linha. */
+  .samples-filter-sheet .samples-filter-field--client-direct .samples-filter-multi--direct {
     width: 100%;
   }
 
@@ -33958,7 +33957,20 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   }
 
+  /* A linha de busca mobile (hero) e o contador do sheet saem: busca, funil,
+     limpar e contagem moram na .fv-toolbar do cartao. Excecao ate o C6: em
+     modo liga o .spv2-list-meta ainda hospeda o "Revisar ▾" (o contador de
+     selecionados), que so migra pra barra contextual. */
+  .fv-lotes-page .hero-search-wrap.fv-hide-desktop {
+    display: none;
+  }
+
   .fv-lotes-page .samples-page-v2-sheet .spv2-list-meta {
+    display: none;
+  }
+
+  body.is-selection-mode .fv-lotes-page .samples-page-v2-sheet .spv2-list-meta {
+    display: flex;
     padding: 0.75rem 1rem 0.6rem;
     margin: 0;
     border-bottom: 1px solid var(--fv-line);
