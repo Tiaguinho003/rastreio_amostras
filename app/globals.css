@@ -35471,6 +35471,16 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   scrollbar-color: var(--fv-line-strong) transparent;
 }
 
+/* Mesmo tratamento no drawer do LOTE — aqui quem rola e o `.sdv-content`
+   (o corpo do sheet nao rola: hero e abas sao rigidos), entao o gutter vai
+   nele. Sem isso, trocar de aba desloca o conteudo pra esquerda. */
+.lote-details-overlay .bottom-sheet-body,
+.lote-details-overlay .sdv-content {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--fv-line-strong) transparent;
+}
+
 /* ── Rodada 5 FV: PAINEIS LATERAIS abertos do drawer do cliente ──
    Filial/conta (criar e detalhe), preview de anexo e editar cliente
    deixaram de ser modais centrais: sao side-sheets STACKED que deslizam

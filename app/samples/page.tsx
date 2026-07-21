@@ -3350,6 +3350,9 @@ function SamplesPage() {
         ariaLabel="Detalhe do lote"
         className="lote-details-overlay"
         dismissGuardRef={loteDismissGuardRef}
+        // Mesmo tratamento do drawer do cliente (rodada 4): o X vira a seta ←
+        // na borda esquerda.
+        closeVariant="edge-back"
       >
         {loteId ? (
           <SampleDetailView
