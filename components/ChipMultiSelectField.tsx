@@ -30,6 +30,12 @@ type Props = {
    * cliente): garante que as opções apareçam acima sem gerar scroll na página.
    */
   forceDropUp?: boolean;
+  /**
+   * Rodada 2 FV: força o dropdown SEMPRE para baixo (sem heurística de
+   * viewport). Nos side-sheets o corpo rola — o dropdown entra no scroll em
+   * vez de ser cortado, e o padrão institucional é abrir para baixo.
+   */
+  forceDropDown?: boolean;
 };
 
 // Só vale a pena a busca quando há um número razoável de opções.
@@ -46,6 +52,7 @@ export function ChipMultiSelectField({
   disabled = false,
   errorMessage,
   forceDropUp = false,
+  forceDropDown = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -152,7 +159,10 @@ export function ChipMultiSelectField({
   function toggleOpen() {
     if (disabled) return;
     if (!open) {
-      if (forceDropUp) {
+      if (forceDropDown) {
+        // Sempre pra baixo (sem heurística) — ver prop forceDropDown.
+        setDropUp(false);
+      } else if (forceDropUp) {
         // Sempre pra cima (sem heurística) — ver prop forceDropUp.
         setDropUp(true);
       } else {

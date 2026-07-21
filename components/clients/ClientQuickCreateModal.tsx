@@ -424,9 +424,11 @@ export function ClientQuickCreateModal({
     >
       <form id={formId} className="client-quick-create-form" onSubmit={handleSubmit}>
         <div className="client-quick-create-body">
-          {/* 14.7.C: 1 bloco unico (sem sections "Identificacao/Contato/...").
-                5 linhas ordenadas: tipo+doc / nome / nome fantasia (PJ) /
-                telefone+responsavel / vendedor+comprador. */}
+          {/* 14.7.C: 5 linhas ordenadas: tipo+doc / nome / nome fantasia (PJ) /
+                telefone+responsavel / vendedor+comprador. Rodada 2 FV: dois
+                micro-cabecalhos institucionais agrupam as linhas (Identificacao
+                / Contato e comercial) — hierarquia sem virar wizard. */}
+          <span className="cqc-group-heading">Identificação</span>
 
           {/* Linha 1: Tipo de cliente | CNPJ ou CPF */}
           <div className="client-quick-create-grid client-quick-create-grid-2col">
@@ -523,6 +525,8 @@ export function ClientQuickCreateModal({
             </label>
           </div>
 
+          <span className="cqc-group-heading">Contato e comercial</span>
+
           {/* Linha 4: Telefone | Responsavel */}
           <div className="client-quick-create-grid client-quick-create-grid-2col">
             <label className={`client-quick-create-field${hasPhoneError ? ' is-field-error' : ''}`}>
@@ -545,6 +549,9 @@ export function ClientQuickCreateModal({
               label="Responsável"
               placeholder="Selecione"
               searchable
+              // Rodada 2: sempre pra baixo (pedido do Flavio) — o corpo do
+              // sheet rola, entao nada e cortado.
+              forceDropDown
               options={users.map((user) => ({ id: user.id, label: user.fullName }))}
               selected={form.commercialUserIds}
               onChange={(next) => setForm((current) => ({ ...current, commercialUserIds: next }))}
@@ -559,9 +566,9 @@ export function ClientQuickCreateModal({
             <ChipMultiSelectField
               label="Papel"
               placeholder="Selecione"
-              // Último campo do modal: abre o dropdown PRA CIMA pra as opções
-              // aparecerem acima do campo, sem gerar scroll na página.
-              forceDropUp
+              // Rodada 2: pra BAIXO tambem no ultimo campo (pedido do Flavio);
+              // o corpo do sheet rola e acomoda o dropdown.
+              forceDropDown
               options={[
                 { id: 'seller', label: 'Vendedor' },
                 { id: 'buyer', label: 'Comprador' },

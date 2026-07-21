@@ -17389,30 +17389,81 @@ select.samples-filter-field-input {
   font-size: clamp(0.82rem, 2.8vw, 0.9rem);
 }
 
-/* 14.7.C: bordas mais visiveis (1px -> 2px) — campos do modal de novo
-   cliente estavam quase invisiveis sem foco. Tom levemente mais escuro
-   pra dar mais presenca. */
+/* Rodada 2 FV: campos institucionais — sai o 2px "presenca" (14.7.C), entra
+   hairline 1px + raio 10px + anel de foco suave da marca. Rotulo menor e
+   muted acima do valor (hierarquia de form institucional). */
+.client-quick-create-sheet .client-quick-create-field {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
 .client-quick-create-sheet .client-quick-create-field input,
 .client-quick-create-sheet .client-quick-create-field select {
-  border-width: 2px;
-  border-color: rgba(0, 0, 0, 0.18);
+  border: 1px solid var(--fv-line-strong);
+  border-radius: var(--fv-radius);
+  background: #ffffff;
+  font-size: 0.88rem;
+  font-weight: 400;
+  color: var(--ink);
+  min-height: 2.62rem;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
 }
 
 .client-quick-create-sheet .client-quick-create-field input:focus,
 .client-quick-create-sheet .client-quick-create-field select:focus {
-  border-color: rgba(22, 91, 42, 0.5);
+  outline: none;
+  border-color: var(--fv-cta);
+  box-shadow: 0 0 0 3px rgba(23, 60, 48, 0.12);
+}
+
+.client-quick-create-sheet .chip-select-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.client-quick-create-sheet .chip-select,
+.client-quick-create-sheet .user-multi-select {
+  border-width: 1px;
+  border-color: var(--fv-line-strong);
+  background: #ffffff;
+  /* Mesma altura dos inputs (campo nao cresce ao adicionar chips). */
+  min-height: 2.62rem;
+}
+
+.client-quick-create-sheet .chip-select.is-open {
+  border-color: var(--fv-cta);
+  box-shadow: 0 0 0 3px rgba(23, 60, 48, 0.12);
 }
 
 .client-quick-create-sheet .user-multi-select {
-  border-width: 2px;
-  /* Mesma altura do input Telefone (campo nao cresce ao adicionar chips). */
-  min-height: 2.5rem;
   justify-content: center;
 }
 
 .client-quick-create-sheet .client-quick-create-field input,
 .client-quick-create-sheet .client-quick-create-field select {
-  min-height: 2.5rem;
+  min-height: 2.62rem;
+}
+
+/* Micro-cabecalho de grupo (Identificacao / Contato e comercial): small-caps
+   muted com hairline — organiza sem virar wizard. */
+.cqc-group-heading {
+  display: block;
+  margin: 0.4rem 0 0.05rem;
+  padding-bottom: 0.32rem;
+  border-bottom: 1px solid var(--fv-line);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.client-quick-create-body > .cqc-group-heading:first-child {
+  margin-top: 0;
 }
 
 /* Chips dos responsaveis enfileiram na horizontal (linha unica). Excesso
