@@ -33,6 +33,7 @@ import {
 } from 'react';
 
 import { BottomSheet } from '../BottomSheet';
+import { SuccessCheckOverlay } from '../SuccessCheckOverlay';
 import { ClientLookupField } from '../clients/ClientLookupField';
 import { getNextLotNumber } from '../../lib/api-client';
 import type { ClientSummary, SampleSnapshot, SessionData } from '../../lib/types';
@@ -114,6 +115,9 @@ interface BlendConfirmationSheetProps {
   /** Loading state externo — true durante o request de createBlend.
    *  Bloqueia o botao "Criar liga" e impede fechamento (Voltar/ESC/backdrop). */
   submitting?: boolean;
+  /** F3: check canonico de sucesso sobre o sheet — o parent abre o drawer
+   *  da liga criada quando ele sai (o modal central de sucesso morreu). */
+  success?: boolean;
   onClose: () => void;
   onRemove: (sampleId: string) => void;
   /** Tap em "Criar liga". Parent chama createBlend e atualiza submitting. */
@@ -242,6 +246,7 @@ export function BlendConfirmationSheet({
   samples,
   session,
   submitting = false,
+  success = false,
   onClose,
   onRemove,
   onProceed,
@@ -428,7 +433,7 @@ export function BlendConfirmationSheet({
   // Bloqueia fechamento (backdrop/ESC) durante submit pra evitar perder
   // o estado e duplicar a chamada.
   function handleDismiss() {
-    if (submitting) return;
+    if (submitting || success) return;
     onClose();
   }
 
@@ -438,7 +443,7 @@ export function BlendConfirmationSheet({
       onClose={handleDismiss}
       title="Confirmação da liga"
       ariaLabel="Confirmar amostras e contribuições da liga"
-      footer={footer}
+      footer={success ? null : footer}
       dragToDismiss={false}
       className="is-blend-confirm"
     >
@@ -573,6 +578,8 @@ export function BlendConfirmationSheet({
           />
         ))}
       </ul>
+
+      <SuccessCheckOverlay show={success} />
     </BottomSheet>
   );
 }

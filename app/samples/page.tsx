@@ -36,7 +36,6 @@ import {
   BlendConfirmationSheet,
   type BlendContribution,
 } from '../../components/samples/BlendConfirmationSheet';
-import { SampleCreatedSuccessModal } from '../../components/samples/SampleCreatedSuccessModal';
 import {
   SelectedSamplesDropdown,
   type SelectedSampleSummary,
@@ -162,6 +161,9 @@ const PlaygroundTab = dynamic(
 );
 
 const SAMPLE_PAGE_LIMIT = 20;
+// F3: duracao do check canonico de sucesso antes de fechar o painel/sheet e
+// abrir o drawer do lote criado (mesmo tempo dos paineis do cliente).
+const SUCCESS_CHECK_MS = 1000;
 // Mesma fonte do registro (NewSampleModal) — desliza com o ano e cobre todas
 // as safras selecionaveis ao cadastrar. Ver buildHarvestPresets.
 const HARVEST_OPTIONS = buildHarvestPresets();
@@ -1785,11 +1787,9 @@ function SamplesPage() {
       const sampleId = result.sample.id;
       const lotNumber = result.sample.internalLotNumber ?? sampleId;
       blendDraftIdRef.current = '';
+      // F3 (decisao 13): o sheet FICA aberto exibindo o check canonico; quem
+      // fecha (e abre o drawer da liga) e o efeito de `createdBlend`.
       setCreatedBlend({ sampleId, lotNumber });
-      setConfirmationSheetOpen(false);
-      setSelectionMode('idle');
-      setSelectedSamples(new Map());
-      setSelectionDropdownOpen(false);
       setNewSampleRefetchKey((current) => current + 1);
     } catch (cause) {
       const description =
@@ -1807,13 +1807,23 @@ function SamplesPage() {
     }
   }
 
-  // Liga B2.3: tap em "Ir para liga" / "Criar outra liga" / X do success
-  // modal — todos fecham o modal sem navegar pro detalhe (decisao 5.29).
-  // A liga ja apareceu no topo da lista via refetch disparado em
+  // Liga B2.3 + F3 (decisao 13): criada a liga, o sheet de confirmacao fecha
+  // com o check canonico e o DRAWER da liga abre sozinho — o modal central de
+  // sucesso morreu junto com o do lote. O refetch da lista ja foi disparado em
   // handleProceedToCreate.
-  function handleBlendSuccessClose() {
-    setCreatedBlend(null);
-  }
+  useEffect(() => {
+    if (!createdBlend) return;
+    const { sampleId } = createdBlend;
+    const timer = window.setTimeout(() => {
+      setCreatedBlend(null);
+      setConfirmationSheetOpen(false);
+      setSelectionMode('idle');
+      setSelectedSamples(new Map());
+      setSelectionDropdownOpen(false);
+      openLote(sampleId);
+    }, SUCCESS_CHECK_MS);
+    return () => window.clearTimeout(timer);
+  }, [createdBlend, openLote]);
 
   function closeFilters() {
     setDraftHiddenFilters(appliedHiddenFilters);
@@ -3213,12 +3223,14 @@ function SamplesPage() {
           open={newSampleModalOpen}
           session={session}
           onClose={() => setNewSampleModalOpen(false)}
-          onSuccessNavigate={() => {
-            // Decisao 5.29 = b: nao navega pra /samples/[id]. Em vez disso
-            // fecha o modal e dispara refetch da lista (5.31 = a) — a amostra
-            // criada aparece no topo da lista atualizada.
+          onSuccessNavigate={(sampleId) => {
+            // F3 (decisao 13): o check fecha o painel e o DRAWER do lote
+            // recem-criado abre sozinho. A lista tambem refaz o fetch — o
+            // lote aparece no topo quando o drawer fechar. (Supera a decisao
+            // 5.29 = b, que so fechava e recarregava.)
             setNewSampleModalOpen(false);
             setNewSampleRefetchKey((current) => current + 1);
+            openLote(sampleId);
           }}
         />
       ) : null}
@@ -3233,21 +3245,10 @@ function SamplesPage() {
         samples={selectedSamplesForSheet}
         session={session}
         submitting={creatingBlend}
+        success={createdBlend !== null}
         onClose={closeConfirmation}
         onRemove={handleRemoveFromSelection}
         onProceed={handleProceedToCreate}
-      />
-
-      {/* Liga B2.3: success modal reusado com entity="blend". Tap em
-          qualquer botao (Ir para liga / Criar outra liga / X) fecha sem
-          navegar — refetch ja foi disparado em handleProceedToCreate. */}
-      <SampleCreatedSuccessModal
-        open={createdBlend !== null}
-        lotNumber={createdBlend?.lotNumber ?? '—'}
-        onNavigateToSample={handleBlendSuccessClose}
-        onCreateAnother={handleBlendSuccessClose}
-        onClose={handleBlendSuccessClose}
-        entity="blend"
       />
 
       {/* Acoes do card expandido (lista): envio (fluxo extraido) + perda (modal

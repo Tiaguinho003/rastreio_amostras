@@ -4,11 +4,11 @@ import { useCallback, useEffect, useReducer, useRef, useState, type ReactNode } 
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 
-import { ANIMATION_MS, BottomSheet } from './BottomSheet';
+import { BottomSheet } from './BottomSheet';
 import { OriginLotChips } from './OriginLotChips';
 import { ClientLookupField } from './clients/ClientLookupField';
+import { SuccessCheckOverlay } from './SuccessCheckOverlay';
 import { ClientQuickCreateModal } from './clients/ClientQuickCreateModal';
-import { SampleCreatedSuccessModal } from './samples/SampleCreatedSuccessModal';
 import { ApiError, createSample, getNextLotNumber } from '../lib/api-client';
 import { useRegisterDirtyState } from '../lib/dirty-state/DirtyStateProvider';
 import { createSampleDraftSchema } from '../lib/form-schemas';
@@ -208,6 +208,10 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
 // Component
 // ════════════════════════════════════════════════════════════════
 
+// Duracao do check canonico de sucesso antes de fechar o painel e abrir o
+// drawer do lote criado (mesmo tempo dos paineis do cliente, rodada 6).
+const SUCCESS_CHECK_MS = 1000;
+
 export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: NewSampleModalProps) {
   const router = useRouter();
   const [state, dispatch] = useReducer(wizardReducer, initialState);
@@ -239,7 +243,6 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
   const [isOnline, setIsOnline] = useState(true);
 
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
-  const [successModalOpen, setSuccessModalOpen] = useState(false);
 
   const ownerInputRef = useRef<HTMLInputElement | null>(null);
   const sacksInputRef = useRef<HTMLInputElement | null>(null);
@@ -282,17 +285,22 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
     void loadLotSuggestion();
   }, [open, state.step, loadLotSuggestion]);
 
-  // Apos SUBMIT_SUCCESS, state.step vira 'created'. O BottomSheet recebe
-  // open={false} (animacao de saida ~ANIMATION_MS). Aguardamos esse tempo +
-  // pequena margem e abrimos o modal central de sucesso.
+  // F3 do redesign (decisao 13): apos SUBMIT_SUCCESS o painel NAO fecha pra
+  // dar lugar a um modal central de sucesso — ele mostra o check canonico por
+  // cima do proprio form e, quando o check sai, o drawer do lote recem-criado
+  // abre sozinho. O modal `SampleCreatedSuccessModal` morreu (e com ele o
+  // "Criar outro": criar de novo e reabrir o painel pelo CTA da pagina).
   useEffect(() => {
-    if (state.step !== 'created') {
-      setSuccessModalOpen(false);
-      return;
-    }
-    const timer = window.setTimeout(() => setSuccessModalOpen(true), ANIMATION_MS + 30);
+    if (state.step !== 'created') return;
+    const sampleId = state.createdSampleId;
+    const timer = window.setTimeout(() => {
+      if (sampleId) navigateToSample(sampleId);
+    }, SUCCESS_CHECK_MS);
     return () => window.clearTimeout(timer);
-  }, [state.step]);
+    // navigateToSample e recriado a cada render (funcao do corpo); a dep
+    // relevante e a chegada do passo 'created'.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.step, state.createdSampleId]);
 
   // Quando o pai sinaliza fechamento (open=false), fecha modais aninhados
   // imediatamente — eles nao tem animacao de saida (returnam null direto),
@@ -300,7 +308,6 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
   // criaria um "flash" de modal pendurado apos a acao do user.
   useEffect(() => {
     if (!open) {
-      setSuccessModalOpen(false);
       setConfirmDiscardOpen(false);
       setQuickCreateOpen(false);
     }
@@ -535,6 +542,8 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
 
   async function handleDismissAttempt(): Promise<boolean> {
     if (state.status === 'submitting') return false;
+    // Check de sucesso na tela: o painel ja esta a caminho do drawer.
+    if (state.step === 'created') return false;
     if (state.dirty) {
       setConfirmDiscardOpen(true);
       return false;
@@ -847,53 +856,26 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
     </div>
   );
 
-  // Handlers do modal central de sucesso.
-  function handleNavigateToSample() {
-    if (state.createdSampleId) {
-      navigateToSample(state.createdSampleId);
-    }
-  }
-
-  function handleCreateAnother() {
-    setSuccessModalOpen(false);
-    resetDraft();
-  }
-
-  function handleSuccessClose() {
-    // Mesmo destino do botao primario: o user fechou o modal apos criar com
-    // sucesso. Default (sem override) navega pro detail; o caller de
-    // /samples (FAB) passa onSuccessNavigate que fecha + refetch
-    // (Decisao 5.29 = b). A rota /samples/new foi removida (LNW-D1).
-    if (state.createdSampleId) {
-      navigateToSample(state.createdSampleId);
-    }
-  }
-
   return (
     <>
       <BottomSheet
-        open={open && state.step === 'form'}
+        open={open && (state.step === 'form' || state.step === 'created')}
         onClose={onClose}
         onDismissAttempt={handleDismissAttempt}
         title="Novo lote"
-        footer={formFooter}
+        footer={state.step === 'created' ? null : formFooter}
         ariaLabel="Novo lote"
         // side-sheet: desktop = painel lateral direito (como o detalhe);
         // mobile segue o sheet fit-content de sempre.
         className="is-fit-content side-sheet"
         dragToDismiss
-        dragDisabled={quickCreateOpen}
+        dragDisabled={quickCreateOpen || state.step === 'created'}
       >
-        <div className="new-sample-step-content">{formContent}</div>
+        <>
+          <div className="new-sample-step-content">{formContent}</div>
+          <SuccessCheckOverlay show={state.step === 'created'} />
+        </>
       </BottomSheet>
-
-      <SampleCreatedSuccessModal
-        open={successModalOpen}
-        lotNumber={state.createdLotNumber ?? '—'}
-        onNavigateToSample={handleNavigateToSample}
-        onCreateAnother={handleCreateAnother}
-        onClose={handleSuccessClose}
-      />
 
       <ClientQuickCreateModal
         session={session}
