@@ -1159,36 +1159,10 @@ export function ClientsBrowser({
                               >
                                 Ver detalhes
                               </button>
-                              <button
-                                type="button"
-                                role="menuitem"
-                                className="fv-row-menu-item"
-                                onClick={() => {
-                                  setRowMenuFor(null);
-                                  if (onOpenClientAction) {
-                                    onOpenClientAction(client.id, 'editar');
-                                  } else {
-                                    onOpenClient(client.id);
-                                  }
-                                }}
-                              >
-                                Editar
-                              </button>
-                              <button
-                                type="button"
-                                role="menuitem"
-                                className="fv-row-menu-item"
-                                onClick={() => {
-                                  setRowMenuFor(null);
-                                  if (onOpenClientAction) {
-                                    onOpenClientAction(client.id, 'documentos');
-                                  } else {
-                                    onOpenClient(client.id);
-                                  }
-                                }}
-                              >
-                                Documentos
-                              </button>
+                              {/* Rodada 2: Editar e Documentos sairam do menu —
+                                  moram DENTRO do painel unificado (botao Editar
+                                  no header; anexos/contas como cards). Acoes
+                                  rapidas = ver detalhes + status. */}
                               <button
                                 type="button"
                                 role="menuitem"
