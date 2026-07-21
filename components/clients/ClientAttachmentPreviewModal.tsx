@@ -56,11 +56,15 @@ export function ClientAttachmentPreviewModal({
   const isPdf = attachment?.mimeType === 'application/pdf';
   const linkedUnit = attachment?.unit;
 
+  // Rodada 6: footer reorganizado — linha unica Excluir (vazado vermelho, a
+  // esquerda) | Baixar (verde, dominante). A confirmacao empilha: pergunta em
+  // cima, Cancelar/Excluir pareados embaixo (era tudo espremido numa grid de
+  // 2 colunas do .app-modal-actions).
   const footerActions = ready ? (
-    <div className="app-modal-actions cap-actions">
-      {confirming ? (
-        <>
-          <span className="cap-confirm-text">Excluir este anexo?</span>
+    confirming ? (
+      <div className="cap-footer cap-footer-confirm">
+        <span className="cap-confirm-text">Excluir este anexo?</span>
+        <div className="cap-footer-row">
           <button
             type="button"
             className="app-modal-secondary"
@@ -71,33 +75,33 @@ export function ClientAttachmentPreviewModal({
           </button>
           <button
             type="button"
-            className="cudm-status-btn is-danger"
+            className="cap-confirm-delete"
             onClick={onDelete}
             disabled={deleting}
           >
             {deleting ? 'Excluindo...' : 'Excluir'}
           </button>
-        </>
-      ) : (
-        <>
-          <button
-            type="button"
-            className="cap-delete-btn"
-            onClick={() => setConfirming(true)}
-            disabled={deleting}
-          >
-            Excluir
-          </button>
-          <a
-            className="app-modal-submit cap-download"
-            href={downloadUrl ?? undefined}
-            download={attachment?.fileName ?? 'anexo'}
-          >
-            Baixar
-          </a>
-        </>
-      )}
-    </div>
+        </div>
+      </div>
+    ) : (
+      <div className="cap-footer">
+        <button
+          type="button"
+          className="cap-delete-btn"
+          onClick={() => setConfirming(true)}
+          disabled={deleting}
+        >
+          Excluir
+        </button>
+        <a
+          className="app-modal-submit cap-download"
+          href={downloadUrl ?? undefined}
+          download={attachment?.fileName ?? 'anexo'}
+        >
+          Baixar
+        </a>
+      </div>
+    )
   ) : null;
 
   return (

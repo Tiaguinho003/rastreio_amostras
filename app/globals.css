@@ -35211,6 +35211,74 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   padding: 0.2rem 0 1rem;
 }
 
+/* Rodada 6 FV: footer do preview de anexo reorganizado — linha unica
+   Excluir (vazado vermelho, largura de conteudo) | Baixar (verde, ocupa o
+   resto). Confirmacao empilha: pergunta em cima, Cancelar/Excluir pareados
+   embaixo, todos na mesma altura. (Substitui o uso da grid 2-col do
+   .app-modal-actions, que espremia 3 itens.) */
+.client-attachment-sheet .cap-footer {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+.client-attachment-sheet .cap-delete-btn {
+  margin: 0;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3.2rem;
+  padding: 0 1.4rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+  /* skill button-press-effect */
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease;
+}
+.client-attachment-sheet .cap-delete-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.client-attachment-sheet .cap-download {
+  flex: 1;
+  justify-content: center;
+}
+.client-attachment-sheet .cap-footer-confirm {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
+}
+.client-attachment-sheet .cap-confirm-text {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--brand-green-ink);
+}
+.client-attachment-sheet .cap-footer-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.5rem;
+}
+.client-attachment-sheet .cap-confirm-delete {
+  min-height: 3rem;
+  border-radius: 10px;
+  border: 1px solid rgba(200, 60, 60, 0.45);
+  background: #c0392b;
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  /* skill button-press-effect */
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease;
+}
+.client-attachment-sheet .cap-confirm-delete:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.client-attachment-sheet .cap-confirm-delete:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 /* Rodada 6 FV: painel "Novo anexo" — campo QUADRADO de arquivo (clica pra
    escolher; vira thumb da imagem ou ficha do PDF) + vinculo com a filial. */
 .caa-form {
