@@ -1892,6 +1892,41 @@ export function SampleDetailView({
     setInvalidateModalNotice(null);
   }
 
+  // Bloco comercial: o RESUMO (minicards) fica na Visao geral e a TIMELINE na
+  // aba Movimentacoes — o cartao unico virou duas metades pedidas em separado
+  // ao mesmo componente. A timeline unifica venda/perda + envio de amostra +
+  // criacao de laudo (sendItems vem da projecao de eventos).
+  //
+  // Fica numa variavel porque muda de LUGAR conforme a aba: na Visao geral ele
+  // entra DENTRO da `.sdv-general`, logo depois de "Informacoes" e antes dos
+  // cards de liga (ordem pedida pelo Flavio); em Movimentacoes a `.sdv-general`
+  // nem existe e ele e o unico conteudo.
+  const commercialPane =
+    detail && activeTab !== 'classificacao' ? (
+      <section className="stack sample-detail-info-pane sample-detail-commercial-pane">
+        <SampleMovementsPanel
+          session={session}
+          sample={detail.sample}
+          movements={detail.movements ?? []}
+          onOpenSample={onOpenSample}
+          sendItems={sendHistoryItems}
+          canEditSend={canPhysicalSend}
+          editingSendEventId={editSendEventId}
+          onToggleSendEdit={(sendEventId) =>
+            setEditSendEventId((current) => (current === sendEventId ? null : sendEventId))
+          }
+          onSubmitSendEdit={submitSendEdit}
+          onCancelSend={(sendEventId) => setCancelSendId(sendEventId)}
+          canEditRegistrationDate={canEditRegistrationStatus(detail.sample.status)}
+          registrationDate={(detail.sample.createdAt ?? '').slice(0, 10)}
+          editingRegistrationDate={dateEditOpen}
+          onToggleRegistrationDateEdit={toggleDateEdit}
+          onSubmitRegistrationDate={submitRegistrationDate}
+          section={activeTab === 'overview' ? 'summary' : 'timeline'}
+        />
+      </section>
+    ) : null;
+
   return (
     <>
       {/* Sem o marcador --sample: e ele que liga o layout desktop 2-colunas
@@ -2469,6 +2504,10 @@ export function SampleDetailView({
                         })()
                       : null}
 
+                    {/* Ordem da Visao geral (pedido do Flavio): Informacoes →
+                        Resumo comercial → cards de liga (por ultimo). */}
+                    {activeTab === 'overview' ? commercialPane : null}
+
                     {activeTab === 'overview' ? (
                       <>
                         {/* Liga B4 Fase 7: flag de viabilidade — aviso derivado
@@ -2609,37 +2648,10 @@ export function SampleDetailView({
                   </section>
                 ) : null}
 
-                {/* Bloco comercial: o RESUMO (minicards) fica na Visao geral e a
-                    TIMELINE na aba Movimentacoes — o cartao unico virou duas
-                    metades pedidas em separado ao mesmo componente. A timeline
-                    unifica venda/perda + envio de amostra + criacao de laudo
-                    (sendItems vem da projecao de eventos). */}
-                {activeTab !== 'classificacao' ? (
-                  <section className="stack sample-detail-info-pane sample-detail-commercial-pane">
-                    <SampleMovementsPanel
-                      session={session}
-                      sample={detail.sample}
-                      movements={detail.movements ?? []}
-                      onOpenSample={onOpenSample}
-                      sendItems={sendHistoryItems}
-                      canEditSend={canPhysicalSend}
-                      editingSendEventId={editSendEventId}
-                      onToggleSendEdit={(sendEventId) =>
-                        setEditSendEventId((current) =>
-                          current === sendEventId ? null : sendEventId
-                        )
-                      }
-                      onSubmitSendEdit={submitSendEdit}
-                      onCancelSend={(sendEventId) => setCancelSendId(sendEventId)}
-                      canEditRegistrationDate={canEditRegistrationStatus(detail.sample.status)}
-                      registrationDate={(detail.sample.createdAt ?? '').slice(0, 10)}
-                      editingRegistrationDate={dateEditOpen}
-                      onToggleRegistrationDateEdit={toggleDateEdit}
-                      onSubmitRegistrationDate={submitRegistrationDate}
-                      section={activeTab === 'overview' ? 'summary' : 'timeline'}
-                    />
-                  </section>
-                ) : null}
+                {/* Em Movimentacoes a `.sdv-general` nao e renderizada — o
+                    bloco comercial (timeline) fica sozinho aqui. Na Visao
+                    geral ele ja entrou la dentro, entre Informacoes e liga. */}
+                {activeTab === 'movimentacoes' ? commercialPane : null}
 
                 {/* FV: o rodape "Deletar" saiu — a acao terminal mora no ⋯
                     do hero, junto de "Reverter liga". */}
