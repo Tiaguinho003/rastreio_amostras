@@ -35211,6 +35211,14 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   font-size: 0.82rem;
   color: var(--color-danger);
 }
+/* Preview de anexo no painel: o corpo (imagem/PDF + vinculo + descricao)
+   nunca teve rule propria — o layout vinha do .app-modal-content. */
+.client-attachment-sheet .cap-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.2rem 0 1rem;
+}
 
 /* Conteudo do drawer: coluna unica (o grid de 2 colunas e as regras de
    order/`display:contents` antigas dependiam do wrapper
