@@ -28,7 +28,7 @@ molde das proximas paginas do ciclo (`/samples` → `/relatorios` → `/users`+`
 - **Tokens `--fv-*`** no `:root` (espelho legivel: `docs/Design-Language.md` §1.5): canvas
   `#f6f7f6`, surface branca, hairlines `--fv-line`/`--fv-line-strong`, radius **10px**
   (`--fv-radius`; sm 8 / lg 12), CTA **verde-escuro `--fv-cta` `#173c30`** (hover
-  `--fv-cta-strong`), chips pastel `--fv-chip-{green,amber,red,gray}-{bg,fg}`, acento frio
+  `--fv-cta-strong`), chips pastel `--fv-chip-{green,amber,red,gray,blue}-{bg,fg}`, acento frio
   `--fv-blue`. _(Nomes `fv-` sao do piloto; promocao/renomeacao pro vocabulario definitivo fica
   pra consolidacao final.)_
 - **Cards/superficies**: branco definido por **hairline + sombra minima** — morrem o gradiente
@@ -65,6 +65,13 @@ conteudo em coluna unica; grafico de LINHAS (SVG manual, stroke 1.4) no lugar de
 `scrollbar-gutter: stable` no body (trocar de aba nao desloca o conteudo). **Backdrop
 BLOQUEANTE** (pagina escurecida e nao-clicavel atras — no cliente o "peek swap" morreu de
 proposito; avaliar por pagina).
+
+**Pecas genericas do molde** (sem escopo, use estas em pagina nova): `.fv-tabs`/`.fv-tab` (a
+faixa de abas), `.fv-iconbtn` (+ `.fv-iconbtn-dots`) para as acoes redondas do hero e
+`.fv-more-wrap`/`-menu`/`-item`/`-empty` para o ⋯. Os `.fv-cd-*` do cliente sao aliases com a
+MESMA geometria, mantidos ate a consolidacao. O que muda por recurso e so o miolo do hero:
+cliente = avatar de iniciais; lote = **miniatura da foto da classificacao** (108×72, retangulo,
+placeholder tracejado quando nao ha foto).
 
 ### 0.4 Modais de dentro do detalhe = PAINEIS LATERAIS
 

@@ -96,6 +96,7 @@ semânticos (§1.2) acontece na consolidação final, quando o ciclo fechar. Gui
 | `--fv-chip-amber-bg/-fg` | `#fbf1dd` / `#a96a10` | chip pastel âmbar (incompleto, pendente)    |
 | `--fv-chip-red-bg/-fg`   | `#fbe9e7` / `#c04a3a` | chip pastel vermelho (cancelado)            |
 | `--fv-chip-gray-bg/-fg`  | `#eef0ee` / `#5f6b64` | chip pastel cinza (neutro)                  |
+| `--fv-chip-blue-bg/-fg`  | `#e7eff6` / `#1e5f8f` | chip pastel azul (em aberto, informativo)   |
 
 ---
 
