@@ -474,6 +474,10 @@ interface SampleDetailViewProps {
   initialAction?: SampleDetailInitialAction;
   /** Chamado ao consumir a acao — a pagina limpa o ?acao= via replace. */
   onInitialActionConsumed?: () => void;
+  /** F3: "Enviar amostra" do ⋯ do hero — a PAGINA hidrata e abre o fluxo. */
+  onRequestSend?: (sampleId: string) => void;
+  /** F3: "Registrar perda" do ⋯ do hero — idem. */
+  onRequestLoss?: (sampleId: string) => void;
 }
 
 // Conteudo completo do detalhe do lote, extraido da antiga pagina
@@ -488,6 +492,8 @@ export function SampleDetailView({
   dismissGuardRef,
   initialAction,
   onInitialActionConsumed,
+  onRequestSend,
+  onRequestLoss,
 }: SampleDetailViewProps) {
   const searchParams = useSearchParams();
   const highlightPrint = searchParams.get('highlight') === 'print';
@@ -697,6 +703,17 @@ export function SampleDetailView({
     // ser canceladas e o lote deletado por este modal.
     (detail.sample.soldSacks ?? 0) === 0
   );
+
+  // F3 (decisao 12): envio e perda tambem no ⋯ do hero. Mesmo gating da linha
+  // da tabela (`describeSampleRow`): operacao comercial exige registro
+  // confirmado ou classificado, e a perda ainda exige saldo.
+  const commercialActionsAllowed = Boolean(
+    detail &&
+    (detail.sample.status === 'REGISTRATION_CONFIRMED' || detail.sample.status === 'CLASSIFIED')
+  );
+  const canSendFromHero = Boolean(onRequestSend) && commercialActionsAllowed;
+  const canLossFromHero =
+    Boolean(onRequestLoss) && commercialActionsAllowed && (detail?.sample.availableSacks ?? 0) > 0;
 
   const fetchDetail = useCallback(
     async ({ showLoading = false, eventLimit = DETAIL_EVENT_PREVIEW_LIMIT } = {}) => {
@@ -1997,6 +2014,32 @@ export function SampleDetailView({
                   </button>
                   {heroMenuOpen ? (
                     <div className="fv-more-menu" role="menu" aria-label="Mais ações">
+                      {canSendFromHero ? (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          className="fv-more-item"
+                          onClick={() => {
+                            setHeroMenuOpen(false);
+                            onRequestSend?.(sampleId);
+                          }}
+                        >
+                          Enviar amostra
+                        </button>
+                      ) : null}
+                      {canLossFromHero ? (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          className="fv-more-item"
+                          onClick={() => {
+                            setHeroMenuOpen(false);
+                            onRequestLoss?.(sampleId);
+                          }}
+                        >
+                          Registrar perda
+                        </button>
+                      ) : null}
                       {canRevertBlend ? (
                         <button
                           type="button"
@@ -2026,7 +2069,10 @@ export function SampleDetailView({
                           Deletar lote
                         </button>
                       ) : null}
-                      {!canRevertBlend && !canInvalidateNormal ? (
+                      {!canSendFromHero &&
+                      !canLossFromHero &&
+                      !canRevertBlend &&
+                      !canInvalidateNormal ? (
                         <span className="fv-more-empty">Nenhuma ação disponível</span>
                       ) : null}
                     </div>

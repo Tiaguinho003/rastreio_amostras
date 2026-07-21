@@ -11,11 +11,20 @@
 // - EDIT    (timeline do detalhe): `editItem` → abre o modal fisico em modo edicao.
 // - CANCEL  (timeline do detalhe): `cancelEventId` → abre a confirmacao de cancelamento.
 // `onClose` encerra a sessao (o host limpa o gatilho); `onChanged` pede refetch.
-// Todos os modais via createPortal(document.body) — a lista tem ancestral com
-// transform (PageTransition), entao position:fixed precisa escapar pra o body.
+//
+// F3 do redesign FV: os dois FORMS (gerar laudo, envio fisico) viraram PAINEIS
+// LATERAIS no molde da rodada 5 (side-sheet stacked + seta ← + submit no footer
+// sticky). O seletor de metodo continua central (picker, RD11) e a confirmacao
+// de cancelamento tambem — esta com `.fv-panel-scrim`, centrada na faixa do
+// painel. O que sobrou de central vai via createPortal(document.body) porque a
+// lista tem ancestral com transform (PageTransition), e position:fixed precisa
+// escapar pra o body.
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+
+import { BottomSheet } from '../BottomSheet';
+import { SuccessCheckOverlay } from '../SuccessCheckOverlay';
 
 import {
   ApiError,
@@ -28,7 +37,6 @@ import {
 import { getTodayDateInput } from '../../lib/classification-form';
 import { shareOrDownloadFile } from '../../lib/share-blob';
 import { useToast } from '../../lib/toast/ToastProvider';
-import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { ClientSummary, SampleStatus, SendHistoryItem, SessionData } from '../../lib/types';
 import { ClientLookupField } from '../clients/ClientLookupField';
 import { SendMethodChooserModal } from './SendMethodChooserModal';
@@ -103,9 +111,6 @@ export function SampleSendFlow({
   // Cancelamento
   const [cancellingSend, setCancellingSend] = useState(false);
   const [cancelSendError, setCancelSendError] = useState<string | null>(null);
-
-  const exportConfirmTrapRef = useFocusTrap(exportConfirmationOpen);
-  const physicalSendTrapRef = useFocusTrap(physicalSendModalOpen);
 
   const canFisico = status ? PHYSICAL_SEND_ALLOWED_STATUSES.has(status) : false;
 
@@ -322,378 +327,224 @@ export function SampleSendFlow({
           )
         : null}
 
-      {exportConfirmationOpen
-        ? createPortal(
-            <div
-              className="app-modal-backdrop"
-              onClick={() => {
-                if (!exportingPdf) dismiss();
-              }}
+      <BottomSheet
+        open={exportConfirmationOpen}
+        // A seta ← volta pro seletor de metodo (era o botao "Voltar" proprio);
+        // o fluxo tem duas etapas e desistir do laudo nao e desistir do envio.
+        onClose={() => {
+          setExportConfirmationOpen(false);
+          setChooserVisible(true);
+        }}
+        onDismissAttempt={() => !exportingPdf && !exportPdfSuccess}
+        title="Gerar laudo"
+        ariaLabel="Gerar laudo"
+        stacked
+        closeVariant="edge-back"
+        dragDisabled={exportingPdf || exportPdfSuccess}
+        className="fv-panel-sheet side-sheet sample-send-sheet"
+        footer={
+          exportPdfSuccess ? null : (
+            <button
+              type="submit"
+              form="sample-export-form"
+              className="app-modal-submit"
+              disabled={exportingPdf}
             >
-              <section
-                ref={exportConfirmTrapRef}
-                className="app-modal is-themed is-action sample-detail-compact-modal sample-detail-lookup-modal"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="export-confirm-title"
-                onClick={(event) => event.stopPropagation()}
-              >
-                {exportPdfSuccess ? (
-                  <div className="client-create-success-overlay" aria-live="polite">
-                    <svg
-                      className="client-create-success-check"
-                      viewBox="0 0 52 52"
-                      aria-hidden="true"
-                    >
-                      <circle
-                        cx="26"
-                        cy="26"
-                        r="24"
-                        fill="none"
-                        stroke="#2f8a3e"
-                        strokeWidth="2.5"
-                      />
-                      <path
-                        fill="none"
-                        stroke="#2f8a3e"
-                        strokeWidth="3.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M15 27l7 7 15-15"
-                      />
-                    </svg>
-                  </div>
-                ) : null}
-                <header className="app-modal-header is-centered-title">
-                  <div className="sdv-send-head-left">
-                    <button
-                      type="button"
-                      className="type-modal-back"
-                      onClick={() => {
-                        setExportConfirmationOpen(false);
-                        setChooserVisible(true);
-                      }}
-                      disabled={exportingPdf}
-                      aria-label="Voltar"
-                    >
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path
-                          d="M15 18l-6-6 6-6"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2.2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    </button>
-                    <div className="app-modal-title-wrap">
-                      <h3 id="export-confirm-title" className="app-modal-title">
-                        Gerar laudo
-                      </h3>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="app-modal-close"
-                    onClick={() => {
-                      if (!exportingPdf) dismiss();
-                    }}
-                    disabled={exportingPdf}
-                    aria-label="Fechar"
-                  >
-                    <span aria-hidden="true">&times;</span>
-                  </button>
-                </header>
-
-                <form
-                  className="app-modal-content"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (exportingPdf) return;
-                    void handleConfirmExportFromModal();
-                  }}
-                >
-                  <div className="app-modal-field">
-                    <span className="app-modal-label">Selecione os destinatários</span>
-                    <div className="samples-filter-multi samples-filter-multi--lookup export-recipient-multi">
-                      {exportRecipientClients.map((client) => (
-                        <span key={client.id} className="samples-filter-token">
-                          <span
-                            className="samples-filter-token-label"
-                            title={client.displayName ?? 'Sem nome'}
-                          >
-                            {truncateChipLabel(client.displayName ?? 'Sem nome')}
-                          </span>
-                          <button
-                            type="button"
-                            className="samples-filter-token-remove"
-                            aria-label={`Remover destinatário: ${client.displayName ?? ''}`}
-                            disabled={exportingPdf}
-                            onClick={() =>
-                              setExportRecipientClients((prev) =>
-                                prev.filter((c) => c.id !== client.id)
-                              )
-                            }
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                      <ClientLookupField
-                        session={session}
-                        label="Destinatários"
-                        kind="any"
-                        compact
-                        clearOnSelect
-                        maxResults={10}
-                        selectedClient={null}
-                        onSelectClient={(client) => {
-                          if (!client) return;
-                          setExportRecipientClients((prev) =>
-                            prev.some((c) => c.id === client.id) ? prev : [...prev, client]
-                          );
-                        }}
-                        disabled={exportingPdf}
-                        placeholder={
-                          exportRecipientClients.length > 0
-                            ? ''
-                            : 'Busque por nome, documento ou código'
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <div className="app-modal-actions">
-                    <button
-                      type="button"
-                      className="app-modal-secondary"
-                      onClick={() => {
-                        if (!exportingPdf) dismiss();
-                      }}
-                      disabled={exportingPdf}
-                    >
-                      Cancelar
-                    </button>
-                    <button type="submit" className="app-modal-submit" disabled={exportingPdf}>
-                      {exportingPdf ? 'Gerando...' : 'Gerar laudo'}
-                    </button>
-                  </div>
-                </form>
-              </section>
-            </div>,
-            document.body
+              {exportingPdf ? 'Gerando...' : 'Gerar laudo'}
+            </button>
           )
-        : null}
-
-      {physicalSendModalOpen
-        ? createPortal(
-            <div
-              className="app-modal-backdrop"
-              onClick={() => {
-                if (!physicalSending) dismiss();
-              }}
-            >
-              <section
-                ref={physicalSendTrapRef}
-                className="app-modal is-themed is-action sample-detail-compact-modal sample-detail-lookup-modal"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="physical-send-modal-title"
-                onClick={(event) => event.stopPropagation()}
-              >
-                {physicalSendSuccess ? (
-                  <div className="client-create-success-overlay" aria-live="polite">
-                    <svg
-                      className="client-create-success-check"
-                      viewBox="0 0 52 52"
-                      aria-hidden="true"
+        }
+      >
+        <>
+          <form
+            id="sample-export-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (exportingPdf) return;
+              void handleConfirmExportFromModal();
+            }}
+          >
+            <div className="app-modal-field">
+              <span className="app-modal-label">Selecione os destinatários</span>
+              <div className="samples-filter-multi samples-filter-multi--lookup export-recipient-multi">
+                {exportRecipientClients.map((client) => (
+                  <span key={client.id} className="samples-filter-token">
+                    <span
+                      className="samples-filter-token-label"
+                      title={client.displayName ?? 'Sem nome'}
                     >
-                      <circle
-                        cx="26"
-                        cy="26"
-                        r="24"
-                        fill="none"
-                        stroke="#2f8a3e"
-                        strokeWidth="2.5"
-                      />
-                      <path
-                        fill="none"
-                        stroke="#2f8a3e"
-                        strokeWidth="3.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M15 27l7 7 15-15"
-                      />
-                    </svg>
-                  </div>
-                ) : null}
-                <header
-                  className={`app-modal-header${editingSendEventId ? '' : ' is-centered-title'}`}
-                >
-                  <div className="sdv-send-head-left">
-                    {!editingSendEventId ? (
+                      {truncateChipLabel(client.displayName ?? 'Sem nome')}
+                    </span>
+                    <button
+                      type="button"
+                      className="samples-filter-token-remove"
+                      aria-label={`Remover destinatário: ${client.displayName ?? ''}`}
+                      disabled={exportingPdf}
+                      onClick={() =>
+                        setExportRecipientClients((prev) => prev.filter((c) => c.id !== client.id))
+                      }
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                <ClientLookupField
+                  session={session}
+                  label="Destinatários"
+                  kind="any"
+                  compact
+                  clearOnSelect
+                  maxResults={10}
+                  selectedClient={null}
+                  onSelectClient={(client) => {
+                    if (!client) return;
+                    setExportRecipientClients((prev) =>
+                      prev.some((c) => c.id === client.id) ? prev : [...prev, client]
+                    );
+                  }}
+                  disabled={exportingPdf}
+                  placeholder={
+                    exportRecipientClients.length > 0 ? '' : 'Busque por nome, documento ou código'
+                  }
+                />
+              </div>
+            </div>
+          </form>
+
+          <SuccessCheckOverlay show={exportPdfSuccess} />
+        </>
+      </BottomSheet>
+
+      <BottomSheet
+        open={physicalSendModalOpen}
+        // Criar: a seta ← volta pro seletor de metodo. Editar (vindo da
+        // timeline): a seta ← cancela e volta pro detalhe.
+        onClose={() => {
+          if (editingSendEventId) {
+            dismiss();
+            return;
+          }
+          setPhysicalSendModalOpen(false);
+          setPhysicalSendError(null);
+          setChooserVisible(true);
+        }}
+        onDismissAttempt={() => !physicalSending && !physicalSendSuccess}
+        title={editingSendEventId ? 'Editar envio' : 'Enviar amostra'}
+        ariaLabel={editingSendEventId ? 'Editar envio' : 'Enviar amostra'}
+        stacked
+        closeVariant="edge-back"
+        dragDisabled={physicalSending || physicalSendSuccess}
+        className="fv-panel-sheet side-sheet sample-send-sheet"
+        footer={
+          physicalSendSuccess ? null : (
+            <button
+              type="submit"
+              form="sample-physical-send-form"
+              className="app-modal-submit"
+              disabled={physicalSending}
+            >
+              {physicalSending
+                ? editingSendEventId
+                  ? 'Salvando...'
+                  : 'Enviando...'
+                : editingSendEventId
+                  ? 'Salvar'
+                  : 'Enviar'}
+            </button>
+          )
+        }
+      >
+        <>
+          <form
+            id="sample-physical-send-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (physicalSending) return;
+              void handleConfirmPhysicalSend();
+            }}
+          >
+            {editingSendEventId ? (
+              <div className="app-modal-field">
+                <ClientLookupField
+                  session={session}
+                  label="Destinatário"
+                  kind="any"
+                  maxResults={10}
+                  selectedClient={physicalSendClients[0] ?? null}
+                  onSelectClient={(client) => setPhysicalSendClients(client ? [client] : [])}
+                  disabled={physicalSending}
+                  placeholder="Busque por nome, documento ou código"
+                  compact
+                />
+              </div>
+            ) : (
+              <div className="app-modal-field">
+                <span className="app-modal-label">Destinatários</span>
+                <div className="samples-filter-multi samples-filter-multi--lookup send-recipient-multi">
+                  {physicalSendClients.map((client) => (
+                    <span key={client.id} className="samples-filter-token">
+                      <span
+                        className="samples-filter-token-label"
+                        title={client.displayName ?? 'Sem nome'}
+                      >
+                        {truncateChipLabel(client.displayName ?? 'Sem nome')}
+                      </span>
                       <button
                         type="button"
-                        className="type-modal-back"
-                        onClick={() => {
-                          setPhysicalSendModalOpen(false);
-                          setPhysicalSendError(null);
-                          setChooserVisible(true);
-                        }}
+                        className="samples-filter-token-remove"
+                        aria-label={`Remover destinatário: ${client.displayName ?? ''}`}
                         disabled={physicalSending}
-                        aria-label="Voltar"
+                        onClick={() =>
+                          setPhysicalSendClients((prev) => prev.filter((c) => c.id !== client.id))
+                        }
                       >
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                          <path
-                            d="M15 18l-6-6 6-6"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2.2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
+                        ×
                       </button>
-                    ) : null}
-                    <div className="app-modal-title-wrap">
-                      <h3 id="physical-send-modal-title" className="app-modal-title">
-                        {editingSendEventId ? 'Editar envio' : 'Enviar amostra'}
-                      </h3>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="app-modal-close"
-                    onClick={() => {
-                      if (!physicalSending) dismiss();
+                    </span>
+                  ))}
+                  <ClientLookupField
+                    session={session}
+                    label="Destinatários"
+                    kind="any"
+                    compact
+                    clearOnSelect
+                    maxResults={10}
+                    selectedClient={null}
+                    onSelectClient={(client) => {
+                      if (!client) return;
+                      setPhysicalSendClients((prev) =>
+                        prev.some((c) => c.id === client.id) ? prev : [...prev, client]
+                      );
                     }}
                     disabled={physicalSending}
-                    aria-label="Fechar"
-                  >
-                    <span aria-hidden="true">&times;</span>
-                  </button>
-                </header>
+                    placeholder={
+                      physicalSendClients.length > 0 ? '' : 'Busque por nome, documento ou código'
+                    }
+                  />
+                </div>
+              </div>
+            )}
+            <label className="app-modal-field">
+              <span className="app-modal-label">Data de envio</span>
+              <input
+                type="date"
+                className="app-modal-input"
+                value={physicalSendDate}
+                onChange={(event) => setPhysicalSendDate(event.target.value)}
+                disabled={physicalSending}
+              />
+            </label>
 
-                <form
-                  className="app-modal-content"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (physicalSending) return;
-                    void handleConfirmPhysicalSend();
-                  }}
-                >
-                  {editingSendEventId ? (
-                    <div className="app-modal-field">
-                      <ClientLookupField
-                        session={session}
-                        label="Destinatário"
-                        kind="any"
-                        maxResults={10}
-                        selectedClient={physicalSendClients[0] ?? null}
-                        onSelectClient={(client) => setPhysicalSendClients(client ? [client] : [])}
-                        disabled={physicalSending}
-                        placeholder="Busque por nome, documento ou código"
-                        compact
-                      />
-                    </div>
-                  ) : (
-                    <div className="app-modal-field">
-                      <span className="app-modal-label">Destinatários</span>
-                      <div className="samples-filter-multi samples-filter-multi--lookup send-recipient-multi">
-                        {physicalSendClients.map((client) => (
-                          <span key={client.id} className="samples-filter-token">
-                            <span
-                              className="samples-filter-token-label"
-                              title={client.displayName ?? 'Sem nome'}
-                            >
-                              {truncateChipLabel(client.displayName ?? 'Sem nome')}
-                            </span>
-                            <button
-                              type="button"
-                              className="samples-filter-token-remove"
-                              aria-label={`Remover destinatário: ${client.displayName ?? ''}`}
-                              disabled={physicalSending}
-                              onClick={() =>
-                                setPhysicalSendClients((prev) =>
-                                  prev.filter((c) => c.id !== client.id)
-                                )
-                              }
-                            >
-                              ×
-                            </button>
-                          </span>
-                        ))}
-                        <ClientLookupField
-                          session={session}
-                          label="Destinatários"
-                          kind="any"
-                          compact
-                          clearOnSelect
-                          maxResults={10}
-                          selectedClient={null}
-                          onSelectClient={(client) => {
-                            if (!client) return;
-                            setPhysicalSendClients((prev) =>
-                              prev.some((c) => c.id === client.id) ? prev : [...prev, client]
-                            );
-                          }}
-                          disabled={physicalSending}
-                          placeholder={
-                            physicalSendClients.length > 0
-                              ? ''
-                              : 'Busque por nome, documento ou código'
-                          }
-                        />
-                      </div>
-                    </div>
-                  )}
-                  <label className="app-modal-field">
-                    <span className="app-modal-label">Data de envio</span>
-                    <input
-                      type="date"
-                      className="app-modal-input"
-                      value={physicalSendDate}
-                      onChange={(event) => setPhysicalSendDate(event.target.value)}
-                      disabled={physicalSending}
-                    />
-                  </label>
+            {physicalSendError ? <p className="sdv-modal-error">{physicalSendError}</p> : null}
+          </form>
 
-                  {physicalSendError ? (
-                    <p className="sdv-modal-error">{physicalSendError}</p>
-                  ) : null}
-
-                  <div className="app-modal-actions">
-                    <button
-                      type="button"
-                      className="app-modal-secondary"
-                      onClick={() => {
-                        if (!physicalSending) dismiss();
-                      }}
-                      disabled={physicalSending}
-                    >
-                      Cancelar
-                    </button>
-                    <button type="submit" className="app-modal-submit" disabled={physicalSending}>
-                      {physicalSending
-                        ? editingSendEventId
-                          ? 'Salvando...'
-                          : 'Enviando...'
-                        : editingSendEventId
-                          ? 'Salvar'
-                          : 'Enviar'}
-                    </button>
-                  </div>
-                </form>
-              </section>
-            </div>,
-            document.body
-          )
-        : null}
+          <SuccessCheckOverlay show={physicalSendSuccess} />
+        </>
+      </BottomSheet>
 
       {cancelEventId
         ? createPortal(
-            <div className="app-modal-backdrop">
+            <div className="app-modal-backdrop fv-panel-scrim">
               <section
                 className="app-modal is-themed is-action sample-detail-compact-modal"
                 role="dialog"

@@ -1653,11 +1653,14 @@ function SamplesPage() {
 
   // Acoes do card: hidratam o detalhe (version fresco + activeBlends) e abrem o
   // fluxo na propria lista. Estaveis (card memoizado).
-  const handleCardSend = useCallback(
-    async (sample: SampleSnapshot) => {
+  // F3: as duas operacoes tambem saem do ⋯ do HERO do drawer, que so tem o id
+  // do lote — por isso a hidratacao mora numa versao por id, e os handlers do
+  // card (memoizado, recebe o snapshot) so delegam.
+  const openSendBySampleId = useCallback(
+    async (sampleId: string) => {
       if (!session) return;
       try {
-        const detail = await getSampleDetail(session, sample.id);
+        const detail = await getSampleDetail(session, sampleId);
         setSendTarget(detail);
       } catch (cause) {
         toast.error({
@@ -1669,11 +1672,11 @@ function SamplesPage() {
     [session, toast]
   );
 
-  const handleCardLoss = useCallback(
-    async (sample: SampleSnapshot) => {
+  const openLossBySampleId = useCallback(
+    async (sampleId: string) => {
       if (!session) return;
       try {
-        const detail = await getSampleDetail(session, sample.id);
+        const detail = await getSampleDetail(session, sampleId);
         setLossTarget({ sample: detail.sample, activeBlends: detail.activeBlends ?? [] });
       } catch (cause) {
         toast.error({
@@ -1683,6 +1686,20 @@ function SamplesPage() {
       }
     },
     [session, toast]
+  );
+
+  const handleCardSend = useCallback(
+    (sample: SampleSnapshot) => {
+      void openSendBySampleId(sample.id);
+    },
+    [openSendBySampleId]
+  );
+
+  const handleCardLoss = useCallback(
+    (sample: SampleSnapshot) => {
+      void openLossBySampleId(sample.id);
+    },
+    [openLossBySampleId]
   );
 
   const showIneligibleReason = useCallback(
@@ -3333,6 +3350,8 @@ function SamplesPage() {
             dismissGuardRef={loteDismissGuardRef}
             initialAction={loteAcao}
             onInitialActionConsumed={clearLoteAcao}
+            onRequestSend={openSendBySampleId}
+            onRequestLoss={openLossBySampleId}
           />
         ) : null}
       </DetailOverlay>

@@ -35644,6 +35644,20 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
 .sample-classification-sheet .cld-edit-row {
   margin: 0 0 0.2rem;
 }
+
+/* ── Paineis de ENVIO (gerar laudo / envio fisico) ──
+   O corpo era `.app-modal-content` (flex com gap proprio); no painel a pilha
+   de campos precisa do mesmo respiro. */
+.sample-send-sheet form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+/* Chips de destinatario + campo de busca: caixa unica, como no modal. */
+.sample-send-sheet .samples-filter-multi--lookup {
+  padding: 0.35rem 0.4rem;
+  border-radius: 10px;
+}
 /* Preview de anexo no painel: o corpo (imagem/PDF + vinculo + descricao)
    nunca teve rule propria — o layout vinha do .app-modal-content. */
 .client-attachment-sheet .cap-body {
