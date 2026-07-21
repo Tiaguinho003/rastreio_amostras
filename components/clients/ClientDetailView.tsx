@@ -208,8 +208,16 @@ function clientSummaryToForm(client: ClientSummary) {
   };
 }
 
-function getStatusLabel(status: string): string {
-  return status === 'ACTIVE' ? 'Ativo' : 'Inativo';
+// Iniciais do avatar do hero (mesma regra do avatar da tabela em
+// ClientsBrowser — duplicada por ser trivial e local a cada arquivo).
+function getClientInitials(name: string): string {
+  return name
+    .split(/\s+/)
+    .map((word) => word.match(/\p{L}/u)?.[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
 }
 
 // Mapeia mensagens de erro de updateClient (backend retorna em ingles em
@@ -318,6 +326,40 @@ export function ClientDetailView({
     },
     [toast]
   );
+
+  /* ---- Rodada 3 FV: abas do drawer de perfil ---- */
+  // 'units' so existe pra PF (PJ fica com 2 abas); guarda na render coage
+  // de volta pra overview se o cliente carregado for PJ.
+  const [detailTab, setDetailTab] = useState<'overview' | 'docs' | 'units'>('overview');
+
+  // Menu ⋯ do hero (Inativar/Reativar). Dismiss = clique-fora + ESC devolvendo
+  // o foco ao trigger (mesmo padrao do menu de linha do ClientsBrowser).
+  const [heroMenuOpen, setHeroMenuOpen] = useState(false);
+  const heroMenuRef = useRef<HTMLDivElement | null>(null);
+  const heroMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (!heroMenuOpen) return;
+    const onDocumentMouseDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (!heroMenuRef.current?.contains(target)) {
+        setHeroMenuOpen(false);
+      }
+    };
+    const onDocumentKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      setHeroMenuOpen(false);
+      heroMenuTriggerRef.current?.focus();
+    };
+    document.addEventListener('mousedown', onDocumentMouseDown);
+    document.addEventListener('keydown', onDocumentKeyDown, true);
+    return () => {
+      document.removeEventListener('mousedown', onDocumentMouseDown);
+      document.removeEventListener('keydown', onDocumentKeyDown, true);
+    };
+  }, [heroMenuOpen]);
 
   /* ---- commercial summary (4 cards: open / sold / lost / bought) ---- */
   const [commercialSummary, setCommercialSummary] =
@@ -582,6 +624,9 @@ export function ClientDetailView({
   const unitPlural = 'Filiais';
   // Backend rejeita unit em PJ com 422 CLIENT_PJ_HAS_NO_UNITS.
   const canAddUnit = isPf;
+
+  // Rodada 3: aba ativa coagida — PJ nao tem a aba Filiais.
+  const activeDetailTab = detailTab === 'units' && isPj ? 'overview' : detailTab;
 
   // 14.7.G: indicador de pendencia inline. Em vez do banner grande de
   // "Cadastro incompleto" no topo, cada campo recomendado missing recebe
@@ -1036,8 +1081,8 @@ export function ClientDetailView({
     if (initialAction === 'editar') {
       openEditClient();
     } else if (initialAction === 'documentos') {
-      // Rodada 2: documentos moram no proprio painel — abrir ja mostra;
-      // o param e so consumido (deep-links antigos seguem validos).
+      // Rodada 3: documentos viraram ABA — o deep-link abre nela.
+      setDetailTab('docs');
     } else {
       openStatusModal(client.status === 'ACTIVE' ? 'inactivate' : 'reactivate');
     }
@@ -1285,46 +1330,160 @@ export function ClientDetailView({
         ) : null}
         {!loadingPage && client ? (
           <>
-            {/* Header verde (sem a fileira de navegacao da antiga pagina — o
-                overlay que monta esta view tem o proprio header com fechar) */}
-            <header className="sdv-header">
-              <div className="sdv-identity-card">
-                <div className="sdv-identity-left">
-                  <div className="sdv-identity-code-row">
-                    <span className="sdv-identity-code">{client.displayName ?? 'Cliente'}</span>
-                    <span
-                      className={`sdv-identity-badge ${client.status === 'ACTIVE' ? 'is-active' : 'is-inactive'}`}
-                    >
-                      {getStatusLabel(client.status)}
-                    </span>
-                  </div>
-                  <span className="sdv-identity-owner">
-                    Cod. {client.code} · {client.personType}
-                  </span>
-                </div>
-                {/* Rodada 2 FV: o botao "Documentos" morreu (Anexos/Contas sao
-                    cards visiveis no painel). A acao do header e EDITAR — a
-                    porta unica pra edicao do cadastro (os lapis por card
-                    sairam). Inativar segue no rodape. */}
-                <div className="sdv-identity-actions sdv-identity-actions-client">
+            {/* Rodada 3 FV: HERO de perfil (referencia "Staff details") —
+                avatar central com ponto de status, nome, Cod., chips de
+                papeis, contato copiavel e fileira de acoes redondas
+                (e-mail, telefone, editar, ⋯). O header de identidade e o
+                botao Editar textual morreram; Inativar/Reativar migrou do
+                rodape pro menu ⋯. */}
+            <header className="fv-cd-hero">
+              <div className={`fv-cd-avatar${isPj ? ' is-pj' : ''}`} aria-hidden="true">
+                <span className="fv-cd-avatar-initials">
+                  {getClientInitials(client.displayName ?? 'Cliente') || '—'}
+                </span>
+                <span
+                  className={`fv-cd-avatar-dot ${client.status === 'ACTIVE' ? 'is-active' : 'is-inactive'}`}
+                />
+              </div>
+              <h2 className="fv-cd-name">{client.displayName ?? 'Cliente'}</h2>
+              <span className="fv-cd-code">
+                Cod. {client.code} · {client.personType}
+              </span>
+              <div className="fv-cd-role-chips">
+                {client.status !== 'ACTIVE' ? (
+                  /* Status unico da tabela: inativo = "Cancelado" (ativo fica
+                     implicito no ponto verde do avatar, como na referencia). */
+                  <span className="fv-chip fv-chip-red">Cancelado</span>
+                ) : null}
+                {client.isSeller ? <span className="fv-chip fv-chip-gray">Vendedor</span> : null}
+                {client.isBuyer ? <span className="fv-chip fv-chip-gray">Comprador</span> : null}
+                {client.isWarehouse ? <span className="fv-chip fv-chip-gray">Armazém</span> : null}
+              </div>
+              <div className="fv-cd-contact">
+                {client.email ? (
                   <button
                     type="button"
-                    className="fv-btn fv-btn-secondary fv-cd-edit"
-                    onClick={() => openEditClient()}
-                    disabled={editClientOpen}
+                    className="fv-cd-contact-item"
+                    title="Copiar e-mail"
+                    onClick={() => handleCopyField(client.email ?? '', 'Email')}
+                  >
+                    {client.email}
+                  </button>
+                ) : null}
+                {client.email && client.phone ? (
+                  <span className="fv-cd-contact-sep" aria-hidden="true">
+                    ·
+                  </span>
+                ) : null}
+                {client.phone ? (
+                  <button
+                    type="button"
+                    className="fv-cd-contact-item"
+                    title="Copiar telefone"
+                    onClick={() =>
+                      handleCopyField(formatPhone(client.phone) || (client.phone ?? ''), 'Telefone')
+                    }
+                  >
+                    {formatPhone(client.phone) || client.phone}
+                  </button>
+                ) : null}
+                {!client.email && !client.phone ? (
+                  <span className="fv-cd-contact-empty">Sem contato cadastrado</span>
+                ) : null}
+              </div>
+
+              <div className="fv-cd-actions-row">
+                {client.email ? (
+                  <a
+                    className="fv-cd-iconbtn"
+                    href={`mailto:${client.email}`}
+                    aria-label="Enviar e-mail"
+                    title="Enviar e-mail"
                   >
                     <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <path d="M12 20h9" />
-                      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                      <rect x="2" y="4" width="20" height="16" rx="2" />
+                      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
                     </svg>
-                    Editar
+                  </a>
+                ) : (
+                  <span className="fv-cd-iconbtn is-disabled" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                      <rect x="2" y="4" width="20" height="16" rx="2" />
+                      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                    </svg>
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className="fv-cd-iconbtn"
+                  disabled={!client.phone}
+                  aria-label="Copiar telefone"
+                  title="Copiar telefone"
+                  onClick={() =>
+                    client.phone
+                      ? handleCopyField(formatPhone(client.phone) || client.phone, 'Telefone')
+                      : undefined
+                  }
+                >
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  className="fv-cd-iconbtn"
+                  onClick={() => openEditClient()}
+                  disabled={editClientOpen}
+                  aria-label="Editar cadastro"
+                  title="Editar cadastro"
+                >
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                  </svg>
+                </button>
+                <div className="fv-cd-more-wrap" ref={heroMenuRef}>
+                  <button
+                    type="button"
+                    ref={heroMenuTriggerRef}
+                    className="fv-cd-iconbtn"
+                    aria-haspopup="menu"
+                    aria-expanded={heroMenuOpen}
+                    aria-label="Mais ações"
+                    title="Mais ações"
+                    onClick={() => setHeroMenuOpen((open) => !open)}
+                  >
+                    <svg
+                      className="fv-cd-iconbtn-dots"
+                      viewBox="0 0 24 24"
+                      focusable="false"
+                      aria-hidden="true"
+                    >
+                      <circle cx="5" cy="12" r="1.6" />
+                      <circle cx="12" cy="12" r="1.6" />
+                      <circle cx="19" cy="12" r="1.6" />
+                    </svg>
                   </button>
+                  {heroMenuOpen ? (
+                    <div className="fv-cd-more-menu" role="menu" aria-label="Mais ações">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className={`fv-cd-more-item${client.status === 'ACTIVE' ? ' is-danger' : ''}`}
+                        onClick={() => {
+                          setHeroMenuOpen(false);
+                          openStatusModal(client.status === 'ACTIVE' ? 'inactivate' : 'reactivate');
+                        }}
+                      >
+                        {client.status === 'ACTIVE' ? 'Inativar cliente' : 'Reativar cliente'}
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
-              {/* Rodada 2: pendencias como BANNER discreto (texto + icone fino)
-                  — sai a sinalizacao pulsante "infantil". So em cliente ativo
-                  (inativo ja e terminal). */}
+              {/* Pendencias: banner discreto abaixo das acoes. So em cliente
+                  ativo (inativo ja e terminal). */}
               {client.status === 'ACTIVE' && pendingSummary ? (
                 <div className="fv-cd-pending" role="note">
                   <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
@@ -1341,389 +1500,345 @@ export function ClientDetailView({
 
             <NoticeSlot notice={pageNotice} />
 
+            {/* Abas do drawer (molde ARIA do .cad-tabs). PJ nao tem Filiais. */}
+            <div className="fv-cd-tabs" role="tablist" aria-label="Seções do cliente">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeDetailTab === 'overview'}
+                className={`fv-cd-tab${activeDetailTab === 'overview' ? ' is-active' : ''}`}
+                onClick={() => setDetailTab('overview')}
+              >
+                Visão geral
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeDetailTab === 'docs'}
+                className={`fv-cd-tab${activeDetailTab === 'docs' ? ' is-active' : ''}`}
+                onClick={() => setDetailTab('docs')}
+              >
+                Documentos
+              </button>
+              {!isPj ? (
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeDetailTab === 'units'}
+                  className={`fv-cd-tab${activeDetailTab === 'units' ? ' is-active' : ''}`}
+                  onClick={() => setDetailTab('units')}
+                >
+                  {unitPlural}
+                </button>
+              ) : null}
+            </div>
+
             <section className="sdv-content">
               <div className="sdv-content-inner">
-                <section className="sdv-general">
-                  {/* Card de Informacoes — padrao branco dos containers (sem
-                      header verde): titulo + hairline + editar minimalista, igual
-                      ao container "Informacoes" do detalhe da amostra. Os papeis
-                      saem do cabecalho e viram um campo no corpo (ver abaixo). */}
-                  <div className="sdv-info-split-row">
-                    <div id="sdv-informacoes" className="sdv-card sdv-info-compact sdv-card-info">
-                      {/* Rodada 2: o lapis por card saiu — a edicao e uma so,
-                          pelo botao Editar do header. */}
-                      <div className="sdv-card-header">
-                        <span className="sdv-card-title">Informações</span>
-                      </div>
-                      <div className="sdv-info-grid">
-                        <div className="sdv-info-item is-full">
-                          <span className="sdv-info-label">
-                            {client.personType === 'PF' ? 'Nome completo' : 'Razao social'}
-                          </span>
-                          <div className="sdv-info-value-row">
-                            <span className="sdv-info-value">
-                              {client.personType === 'PF'
-                                ? client.fullName || '\u2014'
-                                : client.legalName || '\u2014'}
-                            </span>
-                            <InfoCopyButton
-                              value={
-                                client.personType === 'PF' ? client.fullName : client.legalName
-                              }
-                              label={client.personType === 'PF' ? 'Nome completo' : 'Razao social'}
-                              onCopy={handleCopyField}
-                            />
-                          </div>
+                {/* ── ABA VISÃO GERAL: grafico de linhas + cards numericos ── */}
+                {activeDetailTab === 'overview' ? (
+                  <section className="sdv-client-commercial-section">
+                    <ClientCommercialSummaryCard
+                      summary={commercialSummary}
+                      isBuyer={!!client.isBuyer}
+                    />
+                  </section>
+                ) : null}
+
+                {/* ── ABA DOCUMENTOS: dados cadastrais (contato e papeis moram
+                    no hero) + endereco fiscal (PJ) + contas + anexos ── */}
+                {activeDetailTab === 'docs' ? (
+                  <section className="sdv-general">
+                    <div className="sdv-info-split-row">
+                      <div id="sdv-informacoes" className="sdv-card sdv-info-compact sdv-card-info">
+                        {/* Edicao e uma so, pelas acoes do hero. */}
+                        <div className="sdv-card-header">
+                          <span className="sdv-card-title">Dados do cadastro</span>
                         </div>
-                        {client.personType === 'PJ' ? (
+                        <div className="sdv-info-grid">
                           <div className="sdv-info-item is-full">
-                            <span
-                              className={`sdv-info-label${isMissing('tradeName') ? ' is-missing' : ''}`}
-                            >
-                              Nome fantasia
+                            <span className="sdv-info-label">
+                              {client.personType === 'PF' ? 'Nome completo' : 'Razao social'}
                             </span>
                             <div className="sdv-info-value-row">
-                              <span className="sdv-info-value">{client.tradeName || '\u2014'}</span>
+                              <span className="sdv-info-value">
+                                {client.personType === 'PF'
+                                  ? client.fullName || '\u2014'
+                                  : client.legalName || '\u2014'}
+                              </span>
                               <InfoCopyButton
-                                value={client.tradeName}
-                                label="Nome fantasia"
+                                value={
+                                  client.personType === 'PF' ? client.fullName : client.legalName
+                                }
+                                label={
+                                  client.personType === 'PF' ? 'Nome completo' : 'Razao social'
+                                }
                                 onCopy={handleCopyField}
                               />
                             </div>
                           </div>
-                        ) : null}
-                        <div className="sdv-info-item is-full">
-                          <span
-                            className={`sdv-info-label${client.personType === 'PF' && isMissing('cpf') ? ' is-missing' : ''}`}
-                          >
-                            {client.personType === 'PF' ? 'CPF' : 'CNPJ'}
-                          </span>
-                          <div className="sdv-info-value-row">
-                            <span className="sdv-info-value">
-                              {client.personType === 'PF'
-                                ? formatClientDocument(client.cpf, 'PF') || '\u2014'
-                                : formatClientDocument(client.cnpj, 'PJ') || '\u2014'}
+                          {client.personType === 'PJ' ? (
+                            <div className="sdv-info-item is-full">
+                              <span
+                                className={`sdv-info-label${isMissing('tradeName') ? ' is-missing' : ''}`}
+                              >
+                                Nome fantasia
+                              </span>
+                              <div className="sdv-info-value-row">
+                                <span className="sdv-info-value">
+                                  {client.tradeName || '\u2014'}
+                                </span>
+                                <InfoCopyButton
+                                  value={client.tradeName}
+                                  label="Nome fantasia"
+                                  onCopy={handleCopyField}
+                                />
+                              </div>
+                            </div>
+                          ) : null}
+                          <div className="sdv-info-item is-full">
+                            <span
+                              className={`sdv-info-label${client.personType === 'PF' && isMissing('cpf') ? ' is-missing' : ''}`}
+                            >
+                              {client.personType === 'PF' ? 'CPF' : 'CNPJ'}
                             </span>
-                            <InfoCopyButton
-                              value={
-                                client.personType === 'PF'
-                                  ? formatClientDocument(client.cpf, 'PF')
-                                  : formatClientDocument(client.cnpj, 'PJ')
-                              }
-                              label={client.personType === 'PF' ? 'CPF' : 'CNPJ'}
-                              onCopy={handleCopyField}
-                            />
+                            <div className="sdv-info-value-row">
+                              <span className="sdv-info-value">
+                                {client.personType === 'PF'
+                                  ? formatClientDocument(client.cpf, 'PF') || '\u2014'
+                                  : formatClientDocument(client.cnpj, 'PJ') || '\u2014'}
+                              </span>
+                              <InfoCopyButton
+                                value={
+                                  client.personType === 'PF'
+                                    ? formatClientDocument(client.cpf, 'PF')
+                                    : formatClientDocument(client.cnpj, 'PJ')
+                                }
+                                label={client.personType === 'PF' ? 'CPF' : 'CNPJ'}
+                                onCopy={handleCopyField}
+                              />
+                            </div>
                           </div>
+                          {/* Telefone, e-mail e papeis sairam do DL \u2014 moram no
+                            HERO fixo (rodada 3). */}
                         </div>
-                        {/* Telefone full-width, logo abaixo do CPF/CNPJ, alinhado
-                            aos demais campos; Email vem na sequencia, tambem full.
-                            (Antes Email|Telefone dividiam uma linha 2-col.) */}
-                        <div className="sdv-info-item is-full">
-                          <span className="sdv-info-label">Telefone</span>
-                          <div className="sdv-info-value-row">
-                            <span className="sdv-info-value">
-                              {formatPhone(client.phone) || '\u2014'}
-                            </span>
-                            <InfoCopyButton
-                              value={formatPhone(client.phone)}
-                              label="Telefone"
-                              onCopy={handleCopyField}
-                            />
-                          </div>
-                        </div>
-                        <div className="sdv-info-item is-full">
-                          <span className="sdv-info-label">Email</span>
-                          <div className="sdv-info-value-row">
-                            <span className="sdv-info-value">{client.email || '\u2014'}</span>
-                            <InfoCopyButton
-                              value={client.email}
-                              label="Email"
-                              onCopy={handleCopyField}
-                            />
-                          </div>
-                        </div>
-                        {/* Responsavel do cliente NAO e mais exibido no detalhe
-                            (a relacao virou opcional; atribuicao so no modal de
-                            edicao). */}
-                        <div className="sdv-info-item is-full">
-                          <span className="sdv-info-label">Papéis</span>
-                          <div className="sdv-commercial-users">
-                            {client.isSeller ? (
-                              <span className="sdv-commercial-user-chip">Vendedor</span>
-                            ) : null}
-                            {client.isBuyer ? (
-                              <span className="sdv-commercial-user-chip">Comprador</span>
-                            ) : null}
-                            {client.isWarehouse ? (
-                              <span className="sdv-commercial-user-chip">Armazém</span>
-                            ) : null}
-                            {!client.isSeller && !client.isBuyer && !client.isWarehouse ? (
-                              <span className="sdv-info-value">{'—'}</span>
-                            ) : null}
-                          </div>
-                        </div>
+                        <NoticeSlot notice={detailNotice} />
                       </div>
-                      <NoticeSlot notice={detailNotice} />
+                    </div>
+                  </section>
+                ) : null}
+
+                {/* Endereco fiscal (PJ) — segue na aba Documentos, junto dos
+                    dados cadastrais (a IE mora aqui). Sem o wrapper
+                    .sdv-client-side-col: os cards sao filhos diretos do inner
+                    (os grids antigos que dependiam do :has() morrem sozinhos). */}
+                {activeDetailTab === 'docs' && isPj ? (
+                  <div className="sdv-card sdv-info-compact sdv-card-address">
+                    {/* Rodada 2: lapis proprio saiu — Editar do header cobre
+                          o endereco fiscal no mesmo form. */}
+                    <div className="sdv-card-header">
+                      <span className="sdv-card-title">Endereço fiscal</span>
+                    </div>
+                    <div className="sdv-info-grid">
+                      <div className="sdv-info-item">
+                        <span
+                          className={`sdv-info-label${isMissing('postalCode') ? ' is-missing' : ''}`}
+                        >
+                          CEP
+                        </span>
+                        <span className="sdv-info-value">
+                          {formatPostalCode(client.postalCode) || '—'}
+                        </span>
+                      </div>
+                      <div className="sdv-info-item">
+                        <span
+                          className={`sdv-info-label${isMissing('addressLine') ? ' is-missing' : ''}`}
+                        >
+                          Endereço
+                        </span>
+                        <span className="sdv-info-value">{client.addressLine || '—'}</span>
+                      </div>
+                      <div className="sdv-info-item">
+                        <span
+                          className={`sdv-info-label${isMissing('district') ? ' is-missing' : ''}`}
+                        >
+                          Bairro
+                        </span>
+                        <span className="sdv-info-value">{client.district || '—'}</span>
+                      </div>
+                      <div className="sdv-info-item">
+                        <span className="sdv-info-label">Complemento</span>
+                        <span className="sdv-info-value">{client.complement || '—'}</span>
+                      </div>
+                      <div className="sdv-info-item">
+                        <span
+                          className={`sdv-info-label${isMissing('city') || isMissing('state') ? ' is-missing' : ''}`}
+                        >
+                          Cidade/UF
+                        </span>
+                        <span className="sdv-info-value">
+                          {client.city && client.state ? `${client.city}/${client.state}` : '—'}
+                        </span>
+                      </div>
+                      <div className="sdv-info-item">
+                        <span
+                          className={`sdv-info-label${isMissing('registrationNumber') ? ' is-missing' : ''}`}
+                        >
+                          Inscrição estadual
+                        </span>
+                        <span className="sdv-info-value">{client.registrationNumber || '—'}</span>
+                      </div>
                     </div>
                   </div>
-                </section>
+                ) : null}
 
-                {/* Resumo comercial — grafico (donut) das contagens por status.
-                    Rodada 2 FV: saiu da side-col e virou filho direto — no grid
-                    do painel institucional ele fica na COLUNA ESQUERDA, abaixo
-                    de Informacoes (area 'resumo'); no mobile a ordem visual nao
-                    muda (rege o `order` das regras mobile). */}
-                <section className="sdv-client-commercial-section">
-                  <ClientCommercialSummaryCard
-                    summary={commercialSummary}
-                    isBuyer={!!client.isBuyer}
-                  />
-                </section>
-
-                {/* Coluna lateral (desktop): Endereco fiscal (PJ) ou Filiais
-                    (PF) + Contas bancarias + Anexos — os "objetos relacionados"
-                    do registro. No mobile o wrapper e display:contents. */}
-                <div className="sdv-client-side-col">
-                  {isPj ? (
-                    /* Card "Endereco fiscal" (PJ) — fica ABAIXO do Resumo comercial,
-                     espelhando a Filiais (PF): ultimo container, coluna unica, mesmo
-                     gap. Filho direto do .sdv-content-inner (sai do grid do .sdv-general). */
-                    <div className="sdv-card sdv-info-compact sdv-card-address">
-                      {/* Rodada 2: lapis proprio saiu — Editar do header cobre
-                          o endereco fiscal no mesmo form. */}
-                      <div className="sdv-card-header">
-                        <span className="sdv-card-title">Endereço fiscal</span>
-                      </div>
-                      <div className="sdv-info-grid">
-                        <div className="sdv-info-item">
-                          <span
-                            className={`sdv-info-label${isMissing('postalCode') ? ' is-missing' : ''}`}
-                          >
-                            CEP
-                          </span>
-                          <span className="sdv-info-value">
-                            {formatPostalCode(client.postalCode) || '—'}
-                          </span>
-                        </div>
-                        <div className="sdv-info-item">
-                          <span
-                            className={`sdv-info-label${isMissing('addressLine') ? ' is-missing' : ''}`}
-                          >
-                            Endereço
-                          </span>
-                          <span className="sdv-info-value">{client.addressLine || '—'}</span>
-                        </div>
-                        <div className="sdv-info-item">
-                          <span
-                            className={`sdv-info-label${isMissing('district') ? ' is-missing' : ''}`}
-                          >
-                            Bairro
-                          </span>
-                          <span className="sdv-info-value">{client.district || '—'}</span>
-                        </div>
-                        <div className="sdv-info-item">
-                          <span className="sdv-info-label">Complemento</span>
-                          <span className="sdv-info-value">{client.complement || '—'}</span>
-                        </div>
-                        <div className="sdv-info-item">
-                          <span
-                            className={`sdv-info-label${isMissing('city') || isMissing('state') ? ' is-missing' : ''}`}
-                          >
-                            Cidade/UF
-                          </span>
-                          <span className="sdv-info-value">
-                            {client.city && client.state ? `${client.city}/${client.state}` : '—'}
-                          </span>
-                        </div>
-                        <div className="sdv-info-item">
-                          <span
-                            className={`sdv-info-label${isMissing('registrationNumber') ? ' is-missing' : ''}`}
-                          >
-                            Inscrição estadual
-                          </span>
-                          <span className="sdv-info-value">{client.registrationNumber || '—'}</span>
-                        </div>
-                      </div>
+                {/* ── ABA FILIAIS (so PF; PJ fica com 2 abas) ── */}
+                {activeDetailTab === 'units' && !isPj ? (
+                  <div className="sdv-card sdv-info-compact sdv-card-filiais">
+                    <div className="sdv-card-header">
+                      <span className="sdv-card-title">{unitPlural}</span>
+                      {canAddUnit ? (
+                        <button
+                          type="button"
+                          className="sdv-edit-btn"
+                          onClick={openUnitCreate}
+                          aria-label="Nova filial"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 5v14" />
+                            <path d="M5 12h14" />
+                          </svg>
+                          <span>Nova</span>
+                        </button>
+                      ) : null}
                     </div>
-                  ) : null}
+                    {units.length === 0 ? (
+                      <div className="spv2-empty client-detail-empty-compact">
+                        <p className="spv2-empty-text">Nenhuma filial cadastrada</p>
+                      </div>
+                    ) : (
+                      <div className="sdv-unit-list">
+                        {visibleUnits.map((unit) => {
+                          const cityLabel =
+                            unit.city && unit.state
+                              ? `${unit.city}/${unit.state}`
+                              : 'Cidade não informada';
+                          const unitDisplayName =
+                            unit.name ?? unit.legalName ?? `Filial ${unit.code}`;
+                          // 14.7.M.2: detecta se a unit tem algum campo
+                          // recomendado missing — alimenta a barra lateral
+                          // amber do card (.is-incomplete).
+                          const unitIncomplete = Array.from(missingSet).some((key) =>
+                            key.startsWith(`units[${unit.id}].`)
+                          );
+                          return (
+                            <button
+                              key={unit.id}
+                              type="button"
+                              className={`sdv-unit-card-mini${unit.status === 'INACTIVE' ? ' is-inactive' : ''}${unitIncomplete && unit.status !== 'INACTIVE' ? ' is-incomplete' : ''}`}
+                              onClick={() => openUnitDetailModal(unit)}
+                            >
+                              {/* Rodada 2: sai o triangulo pulsante — ponto
+                                    ambar estatico (a barra lateral ambar do
+                                    is-incomplete segue como reforco). */}
+                              {unitIncomplete && unit.status !== 'INACTIVE' ? (
+                                <span
+                                  className="fv-cd-dot"
+                                  role="img"
+                                  aria-label="Filial com pendências"
+                                />
+                              ) : null}
+                              <div className="sdv-unit-card-mini-content">
+                                <span className="sdv-unit-card-mini-name">
+                                  {unitDisplayName}
+                                  {unit.status === 'INACTIVE' ? (
+                                    <span className="sdv-unit-card-mini-inactive">Inativa</span>
+                                  ) : null}
+                                </span>
+                                <span className="sdv-unit-card-mini-city">{cityLabel}</span>
+                              </div>
+                              <svg
+                                className="sdv-unit-card-mini-arrow"
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                              >
+                                <path d="m9 6 6 6-6 6" />
+                              </svg>
+                            </button>
+                          );
+                        })}
 
-                  {/* Filiais (PF) — fica ABAIXO do Resumo comercial (coluna unica,
-                    mesmo gap dos demais containers). PJ usa o Endereco fiscal
-                    no lugar dela (tambem abaixo do Resumo). */}
-                  {!isPj ? (
-                    <div className="sdv-card sdv-info-compact sdv-card-filiais">
-                      <div className="sdv-card-header">
-                        <span className="sdv-card-title">{unitPlural}</span>
-                        {canAddUnit ? (
+                        {inactiveUnitsCount > 0 ? (
                           <button
                             type="button"
-                            className="sdv-edit-btn"
-                            onClick={openUnitCreate}
-                            aria-label="Nova filial"
+                            className="sdv-edit-btn-small"
+                            onClick={() => setShowInactiveUnits((v) => !v)}
                           >
-                            <svg viewBox="0 0 24 24" aria-hidden="true">
-                              <path d="M12 5v14" />
-                              <path d="M5 12h14" />
-                            </svg>
-                            <span>Nova</span>
+                            {showInactiveUnits
+                              ? 'Esconder inativas'
+                              : `Mostrar ${inactiveUnitsCount} inativa(s)`}
                           </button>
                         ) : null}
                       </div>
-                      {units.length === 0 ? (
-                        <div className="spv2-empty client-detail-empty-compact">
-                          <p className="spv2-empty-text">Nenhuma filial cadastrada</p>
-                        </div>
-                      ) : (
-                        <div className="sdv-unit-list">
-                          {visibleUnits.map((unit) => {
-                            const cityLabel =
-                              unit.city && unit.state
-                                ? `${unit.city}/${unit.state}`
-                                : 'Cidade não informada';
-                            const unitDisplayName =
-                              unit.name ?? unit.legalName ?? `Filial ${unit.code}`;
-                            // 14.7.M.2: detecta se a unit tem algum campo
-                            // recomendado missing — alimenta a barra lateral
-                            // amber do card (.is-incomplete).
-                            const unitIncomplete = Array.from(missingSet).some((key) =>
-                              key.startsWith(`units[${unit.id}].`)
-                            );
-                            return (
-                              <button
-                                key={unit.id}
-                                type="button"
-                                className={`sdv-unit-card-mini${unit.status === 'INACTIVE' ? ' is-inactive' : ''}${unitIncomplete && unit.status !== 'INACTIVE' ? ' is-incomplete' : ''}`}
-                                onClick={() => openUnitDetailModal(unit)}
-                              >
-                                {/* Rodada 2: sai o triangulo pulsante — ponto
-                                    ambar estatico (a barra lateral ambar do
-                                    is-incomplete segue como reforco). */}
-                                {unitIncomplete && unit.status !== 'INACTIVE' ? (
-                                  <span
-                                    className="fv-cd-dot"
-                                    role="img"
-                                    aria-label="Filial com pendências"
-                                  />
-                                ) : null}
-                                <div className="sdv-unit-card-mini-content">
-                                  <span className="sdv-unit-card-mini-name">
-                                    {unitDisplayName}
-                                    {unit.status === 'INACTIVE' ? (
-                                      <span className="sdv-unit-card-mini-inactive">Inativa</span>
-                                    ) : null}
-                                  </span>
-                                  <span className="sdv-unit-card-mini-city">{cityLabel}</span>
-                                </div>
-                                <svg
-                                  className="sdv-unit-card-mini-arrow"
-                                  viewBox="0 0 24 24"
-                                  aria-hidden="true"
-                                >
-                                  <path d="m9 6 6 6-6 6" />
-                                </svg>
-                              </button>
-                            );
-                          })}
-
-                          {inactiveUnitsCount > 0 ? (
-                            <button
-                              type="button"
-                              className="sdv-edit-btn-small"
-                              onClick={() => setShowInactiveUnits((v) => !v)}
-                            >
-                              {showInactiveUnits
-                                ? 'Esconder inativas'
-                                : `Mostrar ${inactiveUnitsCount} inativa(s)`}
-                            </button>
-                          ) : null}
-                        </div>
-                      )}
-                      <NoticeSlot notice={unitNotice} />
-                    </div>
-                  ) : null}
-
-                  {/* Contas bancárias (Fechamento Fase 0 — D28) — PF e PJ */}
-                  <div className="sdv-card sdv-info-compact sdv-card-bank-accounts">
-                    <div className="sdv-card-header">
-                      <span className="sdv-card-title">Contas bancárias</span>
-                      <button
-                        type="button"
-                        className="sdv-edit-btn"
-                        onClick={openBankAccountCreate}
-                        aria-label="Nova conta bancária"
-                      >
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M12 5v14" />
-                          <path d="M5 12h14" />
-                        </svg>
-                        <span>Nova</span>
-                      </button>
-                    </div>
-                    {bankAccountsBody}
+                    )}
+                    <NoticeSlot notice={unitNotice} />
                   </div>
+                ) : null}
 
-                  {/* Anexos (Fechamento Fase 0 — D27) — PF e PJ */}
-                  <div className="sdv-card sdv-info-compact sdv-card-attachments">
-                    <div className="sdv-card-header">
-                      <span className="sdv-card-title">Anexos</span>
-                      <button
-                        type="button"
-                        className="sdv-edit-btn"
-                        onClick={() => attachmentInputRef.current?.click()}
-                        disabled={uploadingAttachment}
-                        aria-label="Adicionar anexo"
-                      >
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M12 5v14" />
-                          <path d="M5 12h14" />
-                        </svg>
-                        <span>{uploadingAttachment ? 'Enviando…' : 'Adicionar'}</span>
-                      </button>
-                      <input
-                        ref={attachmentInputRef}
-                        type="file"
-                        accept="application/pdf,image/jpeg,image/png,image/webp"
-                        style={{ display: 'none' }}
-                        onChange={handleAttachmentSelected}
-                      />
+                {/* Contas bancárias + Anexos — aba Documentos (PF e PJ). */}
+                {activeDetailTab === 'docs' ? (
+                  <>
+                    <div className="sdv-card sdv-info-compact sdv-card-bank-accounts">
+                      <div className="sdv-card-header">
+                        <span className="sdv-card-title">Contas bancárias</span>
+                        <button
+                          type="button"
+                          className="sdv-edit-btn"
+                          onClick={openBankAccountCreate}
+                          aria-label="Nova conta bancária"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 5v14" />
+                            <path d="M5 12h14" />
+                          </svg>
+                          <span>Nova</span>
+                        </button>
+                      </div>
+                      {bankAccountsBody}
                     </div>
-                    {attachmentsBody}
-                  </div>
-                </div>
 
-                {/* Inativar/Reativar (migrou do header): botao rotulado full-width
-                    no fim da pagina, como o "Invalidar" do detalhe do lote. */}
-                <div className="sdv-client-status-footer">
-                  <button
-                    type="button"
-                    className={`sdv-client-status-btn${
-                      client.status === 'ACTIVE' ? ' is-inactivate' : ' is-reactivate'
-                    }`}
-                    onClick={() =>
-                      openStatusModal(client.status === 'ACTIVE' ? 'inactivate' : 'reactivate')
-                    }
-                  >
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      {client.status === 'ACTIVE' ? (
-                        <>
-                          <path d="M3 6h18" />
-                          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                          <path d="M19 6 18 20a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                          <path d="M10 11v6" />
-                          <path d="M14 11v6" />
-                        </>
-                      ) : (
-                        <>
-                          <circle cx="12" cy="12" r="8" />
-                          <path d="m9 12 2 2 4-4" />
-                        </>
-                      )}
-                    </svg>
-                    <span>
-                      {client.status === 'ACTIVE' ? 'Inativar cliente' : 'Reativar cliente'}
-                    </span>
-                  </button>
-                </div>
+                    {/* Anexos (Fechamento Fase 0 — D27) — PF e PJ */}
+                    <div className="sdv-card sdv-info-compact sdv-card-attachments">
+                      <div className="sdv-card-header">
+                        <span className="sdv-card-title">Anexos</span>
+                        <button
+                          type="button"
+                          className="sdv-edit-btn"
+                          onClick={() => attachmentInputRef.current?.click()}
+                          disabled={uploadingAttachment}
+                          aria-label="Adicionar anexo"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 5v14" />
+                            <path d="M5 12h14" />
+                          </svg>
+                          <span>{uploadingAttachment ? 'Enviando…' : 'Adicionar'}</span>
+                        </button>
+                        <input
+                          ref={attachmentInputRef}
+                          type="file"
+                          accept="application/pdf,image/jpeg,image/png,image/webp"
+                          style={{ display: 'none' }}
+                          onChange={handleAttachmentSelected}
+                        />
+                      </div>
+                      {attachmentsBody}
+                    </div>
+                  </>
+                ) : null}
+
+                {/* Rodada 3: o rodape Inativar/Reativar morreu — a acao mora
+                    no menu ⋯ do hero. */}
               </div>
             </section>
           </>

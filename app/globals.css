@@ -34372,99 +34372,16 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   Rodada 2 FV — DETALHE DO CLIENTE como PAINEL DE REGISTRO
-   institucional. Escopo: .client-details-overlay (so o overlay
-   ?cliente= de /cadastros; o detalhe da amostra usa as mesmas
-   classes sdv-* e NAO pode ser afetado). Desktop >=901px: painel
-   940px, header de identidade FLAT (sai o gradiente verde), grid
-   de 2 colunas (Informacoes + Resumo | Endereco/Filiais + Contas
-   + Anexos) e linhas label|valor de definition list.
-   ══════════════════════════════════════════════════════════════ */
+   Rodada 2+3 FV — DETALHE DO CLIENTE. Escopo: .client-details-overlay
+   (so o overlay ?cliente= de /cadastros; o detalhe da amostra usa as
+   mesmas classes sdv-* e NAO pode ser afetado). Rodada 3: o painel
+   virou DRAWER DE PERFIL estreito (herda os 620px do .detail-overlay
+   base — o override de 940px e o grid de 2 colunas morreram junto com
+   o header de identidade e o wrapper .sdv-client-side-col). O hero,
+   as abas e o layout de coluna unica vivem no bloco base "HERO de
+   perfil" mais abaixo (valem mobile e desktop). Aqui ficam so os
+   refinos desktop dos cards/DL. ══════════════════════════════════ */
 @media (min-width: 901px) {
-  .bottom-sheet.detail-overlay.client-details-overlay {
-    width: min(940px, 94vw);
-  }
-
-  /* Header de identidade: flat institucional — fundo branco, hairline,
-     nome em tinta escura (o gradiente verde do .sdv-identity-card
-     desktop morre AQUI dentro). */
-  .client-details-overlay .sdv-header {
-    padding: 0.35rem 1.15rem 0;
-  }
-  .client-details-overlay .sdv-identity-card {
-    background: #ffffff;
-    border: none;
-    border-bottom: 1px solid var(--fv-line);
-    border-radius: 0;
-    box-shadow: none;
-    padding: 0.5rem 0 0.9rem;
-  }
-  .client-details-overlay .sdv-identity-code {
-    color: var(--ink);
-    font-size: 1.25rem;
-    letter-spacing: -0.01em;
-  }
-  .client-details-overlay .sdv-identity-owner {
-    color: var(--muted);
-    font-size: 0.82rem;
-  }
-  .client-details-overlay .sdv-identity-badge {
-    border: none;
-    border-radius: 999px;
-    padding: 3px 10px;
-    font-size: 0.7rem;
-  }
-  .client-details-overlay .sdv-identity-badge.is-active {
-    color: var(--fv-chip-green-fg);
-    background: var(--fv-chip-green-bg);
-  }
-  .client-details-overlay .sdv-identity-badge.is-inactive {
-    color: var(--fv-chip-red-fg);
-    background: var(--fv-chip-red-bg);
-  }
-
-  /* Conteudo: grid 2 colunas com a lateral independente (side-col vira
-     flex REAL aqui — sobrepoe o flex-column do peek generico e o
-     display:contents base). Footer Inativar atravessa as 2 colunas. */
-  .bottom-sheet.detail-overlay.client-details-overlay
-    .sdv-content-inner:has(> .sdv-client-side-col) {
-    display: grid;
-    grid-template-columns: minmax(0, 1.06fr) minmax(0, 0.94fr);
-    grid-template-areas:
-      'info side'
-      'resumo side'
-      'footer footer';
-    align-items: start;
-    gap: 14px;
-  }
-  .bottom-sheet.detail-overlay.client-details-overlay
-    .sdv-content-inner:has(> .sdv-client-side-col)
-    > .sdv-general {
-    grid-area: info;
-    min-width: 0;
-  }
-  .bottom-sheet.detail-overlay.client-details-overlay
-    .sdv-content-inner:has(> .sdv-client-side-col)
-    > .sdv-client-commercial-section {
-    grid-area: resumo;
-    margin: 0;
-    min-width: 0;
-  }
-  .bottom-sheet.detail-overlay.client-details-overlay
-    .sdv-content-inner:has(> .sdv-client-side-col)
-    > .sdv-client-side-col {
-    grid-area: side;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    min-width: 0;
-  }
-  .bottom-sheet.detail-overlay.client-details-overlay
-    .sdv-content-inner:has(> .sdv-client-side-col)
-    > .sdv-client-status-footer {
-    grid-area: footer;
-  }
-
   /* Cards do painel: hairline flat (sai qualquer sombra pesada). */
   .client-details-overlay .sdv-card {
     background: #ffffff;
@@ -34864,4 +34781,285 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   line-height: 1;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
+}
+
+/* ── Rodada 3 FV: HERO de perfil + abas do drawer do cliente ──
+   Referencia "Staff details": avatar central com ponto de status, nome,
+   Cod., chips de papeis, contato copiavel, acoes redondas e tab-strip.
+   Base sem media query (drawer desktop E sheet mobile); escopo
+   .client-details-overlay protege o detalhe da amostra. */
+
+.client-details-overlay .fv-cd-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 1.15rem 1.15rem 0;
+  text-align: center;
+  /* Aceno ao degrade suave do topo da referencia, em verde da marca. */
+  background: linear-gradient(180deg, rgba(23, 60, 48, 0.05) 0%, rgba(255, 255, 255, 0) 82%);
+}
+
+.client-details-overlay .fv-cd-avatar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #eaf1ec;
+  border: 1px solid rgba(23, 60, 48, 0.16);
+  color: #1f5d43;
+  font-size: 1.3rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+.client-details-overlay .fv-cd-avatar.is-pj {
+  border-radius: 18px;
+}
+.client-details-overlay .fv-cd-avatar-dot {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+}
+.client-details-overlay .fv-cd-avatar-dot.is-active {
+  background: #2e9e5b;
+}
+.client-details-overlay .fv-cd-avatar-dot.is-inactive {
+  background: var(--fv-chip-red-fg);
+}
+
+.client-details-overlay .fv-cd-name {
+  margin: 10px 0 0;
+  font-size: 1.22rem;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.client-details-overlay .fv-cd-code {
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+.client-details-overlay .fv-cd-role-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 7px;
+}
+.client-details-overlay .fv-cd-role-chips:empty {
+  display: none;
+}
+
+.client-details-overlay .fv-cd-contact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 2px 8px;
+  margin-top: 9px;
+}
+.client-details-overlay .fv-cd-contact-item {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--fv-cta);
+  overflow-wrap: anywhere;
+  -webkit-tap-highlight-color: transparent;
+}
+.client-details-overlay .fv-cd-contact-item:active {
+  transform: scale(0.98);
+}
+.client-details-overlay .fv-cd-contact-sep {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.client-details-overlay .fv-cd-contact-empty {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.client-details-overlay .fv-cd-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 13px;
+}
+.client-details-overlay .fv-cd-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--fv-surface);
+  border: 1px solid var(--fv-line-strong);
+  color: var(--ink);
+  cursor: pointer;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 140ms ease,
+    background 160ms ease;
+}
+.client-details-overlay .fv-cd-iconbtn svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.client-details-overlay .fv-cd-iconbtn svg.fv-cd-iconbtn-dots circle {
+  fill: currentColor;
+  stroke: none;
+}
+.client-details-overlay .fv-cd-iconbtn:active {
+  transform: scale(0.94);
+}
+.client-details-overlay .fv-cd-iconbtn:disabled,
+.client-details-overlay .fv-cd-iconbtn.is-disabled {
+  opacity: 0.38;
+  cursor: default;
+  pointer-events: none;
+  transform: none;
+}
+
+.client-details-overlay .fv-cd-more-wrap {
+  position: relative;
+}
+.client-details-overlay .fv-cd-more-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  min-width: 176px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: #ffffff;
+  border: 1px solid var(--fv-line);
+  border-radius: var(--fv-radius);
+  box-shadow: 0 10px 26px rgba(15, 26, 20, 0.14);
+}
+.client-details-overlay .fv-cd-more-item {
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: var(--ink);
+  padding: 0.55rem 0.7rem;
+  border-radius: 7px;
+  -webkit-tap-highlight-color: transparent;
+}
+.client-details-overlay .fv-cd-more-item.is-danger {
+  color: var(--fv-chip-red-fg);
+}
+
+/* Pendencias dentro do hero centrado: banner volta a alinhar a esquerda. */
+.client-details-overlay .fv-cd-hero .fv-cd-pending {
+  width: 100%;
+  margin: 13px 0 0;
+  text-align: left;
+}
+
+/* Tab-strip (molde ARIA do .cad-tabs; visual institucional). */
+.client-details-overlay .fv-cd-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 1.15rem;
+  margin-top: 12px;
+  border-bottom: 1px solid var(--fv-line);
+}
+.client-details-overlay .fv-cd-tab {
+  appearance: none;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--muted);
+  padding: 0.55rem 0.75rem 0.6rem;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 140ms ease;
+}
+.client-details-overlay .fv-cd-tab.is-active {
+  color: var(--ink);
+  font-weight: 600;
+  border-bottom-color: var(--fv-cta);
+}
+
+/* Conteudo do drawer: coluna unica (o grid de 2 colunas e as regras de
+   order/`display:contents` antigas dependiam do wrapper
+   .sdv-client-side-col, que saiu do DOM). Specificity alta pra vencer
+   os layouts genericos de .sdv-content-inner. */
+.bottom-sheet.detail-overlay.client-details-overlay .sdv-content-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.bottom-sheet.detail-overlay.client-details-overlay .sdv-client-commercial-section {
+  margin: 0;
+  width: auto;
+  max-width: none;
+}
+
+/* Fundo branco do corpo (a regra antiga era via :has(.sdv-client-side-col)
+   e morreu com o wrapper; sem isto o bege do detalhe da amostra vaza). */
+.client-details-overlay .sdv-content {
+  background: #ffffff;
+}
+
+/* Neutraliza os layouts desktop NUS herdados do redesign 2026-07-02 que
+   ainda casam com as classes do drawer (grid 5fr/3fr + altura fixa do
+   .sdv-general/.sdv-info-split-row; overflow escondido do card). Estao
+   declarados antes deste bloco — mesma specificity, este vence pela ordem. */
+.client-details-overlay .sdv-general {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: auto;
+  max-width: none;
+  height: auto;
+  margin: 0;
+}
+.client-details-overlay .sdv-info-split-row {
+  height: auto;
+}
+.client-details-overlay .sdv-info-split-row > .sdv-card-info {
+  overflow: visible;
+}
+
+@media (hover: hover) {
+  .client-details-overlay .fv-cd-contact-item:hover {
+    text-decoration: underline;
+  }
+  .client-details-overlay .fv-cd-iconbtn:hover {
+    background: var(--fv-hover);
+  }
+  .client-details-overlay .fv-cd-more-item:hover {
+    background: var(--fv-hover);
+  }
+  .client-details-overlay .fv-cd-tab:hover {
+    color: var(--ink);
+  }
 }
