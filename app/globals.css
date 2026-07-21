@@ -36448,10 +36448,8 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   border-radius: var(--fv-radius);
 }
 
-/* Cards de liga (composicao / comprometida) e avisos terminais. */
-.lote-details-overlay .sdv-related-list {
-  gap: 0.45rem;
-}
+/* Avisos terminais. (A lista da liga e os cards dela ficam no bloco
+   "Cards de LIGA" mais abaixo.) */
 .lote-details-overlay .sdv-empty-text {
   font-size: 0.82rem;
   color: var(--muted);
@@ -36517,6 +36515,77 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   max-height: none;
   overflow: visible;
   padding-right: 0;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Cards de LIGA (composicao / comprometida)
+   ══════════════════════════════════════════════════════════════
+   O `RelatedSampleRow` reusa o chrome do `.spv2-card` — o card MOBILE da
+   lista, com gradiente, sombra tripla e barra lateral de status. Dentro do
+   drawer institucional isso destoa de tudo. Aqui a linha vira superficie
+   plana com hairline (o `.spv2-card` da lista mobile fica INTACTO: o escopo
+   é `.lote-details-overlay` + `.sdv-blend-card`). */
+.lote-details-overlay .sdv-blend-card {
+  background: var(--fv-surface);
+  border: 1px solid var(--fv-line);
+  border-radius: var(--fv-radius);
+  box-shadow: none;
+  padding: 0.55rem 0.6rem 0.55rem 0.7rem;
+  gap: 0.55rem;
+}
+@media (hover: hover) {
+  .lote-details-overlay .sdv-blend-card:hover {
+    background: var(--fv-hover);
+  }
+}
+/* A barra colorida de status vira um ponto discreto (a cor segue
+   informando, sem o peso da barra). */
+.lote-details-overlay .sdv-blend-card .spv2-card-bar {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  box-shadow: none;
+}
+.lote-details-overlay .sdv-blend-card-lot-text {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.lote-details-overlay .sdv-blend-card .spv2-card-detail {
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+.lote-details-overlay .sdv-blend-card .spv2-card-detail svg {
+  stroke: var(--muted);
+}
+.lote-details-overlay .sdv-blend-card .spv2-card-sep {
+  background: var(--fv-line);
+  height: 12px;
+}
+.lote-details-overlay .sdv-blend-card .spv2-card-chevron {
+  stroke: var(--fv-line-strong);
+}
+/* Header do card de composicao: hairline no lugar da divisoria de 2px, e a
+   lista perde o padding que existia so pra sombra do card antigo caber. */
+.lote-details-overlay .sdv-blend-composition .sdv-card-header {
+  border-bottom-width: 1px;
+  border-bottom-color: var(--fv-line);
+}
+/* `.sdv-related-list` nunca teve regra BASE (so a do desktop legado, morta
+   por seletor com o `.sdv-page--sample`): era um <ul> cru, com marcador e
+   recuo do browser. Aqui ele vira a pilha de cards que sempre quis ser. */
+.lote-details-overlay .sdv-blend-composition-list,
+.lote-details-overlay .sdv-related-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.lote-details-overlay .sdv-blend-composition-count {
+  font-size: 0.72rem;
+  color: var(--muted);
 }
 
 /* ══════════════════════════════════════════════════════════════
