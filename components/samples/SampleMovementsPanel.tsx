@@ -172,18 +172,21 @@ function SendEditInline({
             disabled={saving}
           />
         </label>
+        {/* Acoes na MESMA linha dos campos, rente ao pe da data: o dropdown
+            perde uma linha inteira de altura e empurra menos a movimentacao
+            de baixo. No estreito, o flex-wrap joga os botoes pra linha
+            seguinte sozinhos. */}
+        <div className="sdv-com-mov-edit-actions">
+          <button type="button" className="fv-btn fv-btn-secondary" onClick={onCancel}>
+            Cancelar
+          </button>
+          <button type="submit" className="fv-btn fv-btn-primary" disabled={saving}>
+            {saving ? 'Salvando...' : 'Salvar'}
+          </button>
+        </div>
       </div>
 
       {error ? <p className="sdv-modal-error">{error}</p> : null}
-
-      <div className="sdv-com-mov-edit-actions">
-        <button type="button" className="fv-btn fv-btn-secondary" onClick={onCancel}>
-          Cancelar
-        </button>
-        <button type="submit" className="fv-btn fv-btn-primary" disabled={saving}>
-          {saving ? 'Salvando...' : 'Salvar'}
-        </button>
-      </div>
     </form>
   );
 }
@@ -246,18 +249,17 @@ function RegistrationDateEditInline({
             disabled={saving}
           />
         </label>
+        <div className="sdv-com-mov-edit-actions">
+          <button type="button" className="fv-btn fv-btn-secondary" onClick={onCancel}>
+            Cancelar
+          </button>
+          <button type="submit" className="fv-btn fv-btn-primary" disabled={saving}>
+            {saving ? 'Salvando...' : 'Salvar'}
+          </button>
+        </div>
       </div>
 
       {error ? <p className="sdv-modal-error">{error}</p> : null}
-
-      <div className="sdv-com-mov-edit-actions">
-        <button type="button" className="fv-btn fv-btn-secondary" onClick={onCancel}>
-          Cancelar
-        </button>
-        <button type="submit" className="fv-btn fv-btn-primary" disabled={saving}>
-          {saving ? 'Salvando...' : 'Salvar'}
-        </button>
-      </div>
     </form>
   );
 }

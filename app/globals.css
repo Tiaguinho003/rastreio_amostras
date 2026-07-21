@@ -36658,17 +36658,19 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
     animation: none;
   }
 }
-/* Dois campos lado a lado quando ha largura; empilham no estreito. */
+/* Campos e acoes na MESMA linha, rentes ao pe do campo de data — o dropdown
+   perde a linha inteira que o rodape ocupava e empurra menos o card de baixo.
+   Flex-wrap em vez de grid: no estreito os campos e depois os botoes descem
+   sozinhos, sem media query. */
 .sdv-com-mov-edit-fields {
-  display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
-  gap: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
   align-items: end;
+  gap: 0.5rem;
 }
-@media (max-width: 430px) {
-  .sdv-com-mov-edit-fields {
-    grid-template-columns: minmax(0, 1fr);
-  }
+.sdv-com-mov-edit-fields > .app-modal-field {
+  flex: 1 1 8.5rem;
+  min-width: 0;
 }
 /* Mesma geometria de campo dos paineis FV (o `.fv-panel-sheet` nao alcanca
    aqui — o editor mora na pagina, nao no sheet). */
@@ -36711,8 +36713,11 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
 }
 .sdv-com-mov-edit-actions {
   display: flex;
-  justify-content: flex-end;
   gap: 0.45rem;
+  /* Colado a direita da linha; `flex: none` pra os botoes nao esticarem
+     quando sobra espaco nem encolherem o texto quando falta. */
+  flex: none;
+  margin-left: auto;
 }
 .sdv-com-mov-edit-actions .fv-btn {
   height: 34px;
