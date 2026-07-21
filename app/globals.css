@@ -36092,15 +36092,6 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
 
 /* "Lote" e um rotulo do numero — vem DEPOIS no DOM (o numero e o titulo
    acessivel) e sobe visualmente com `order`. */
-.lote-details-overlay .fv-sd-eyebrow {
-  order: -1;
-  margin-top: 10px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
 .lote-details-overlay .fv-sd-lot {
   margin: 0;
   font-size: 1.35rem;

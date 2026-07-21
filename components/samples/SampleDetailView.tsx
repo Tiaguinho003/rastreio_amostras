@@ -2,7 +2,15 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Fragment,
+  type MutableRefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { QRCodeCanvas } from 'qrcode.react';
 import { BottomSheet } from '../BottomSheet';
@@ -302,6 +310,22 @@ function ownerDisplayValue(sample: SampleDetailResponse['sample']): string {
     return 'Carteira da corretora';
   }
   return buildReadableValue(sample.declared.owner);
+}
+
+// FV: a linha de fatos do hero mostra o PAPEL do cliente dono do lote
+// (Vendedor / Comprador / Armazem) — proprietario, sacas e safra saíram
+// daqui porque ja aparecem no card "Informacoes" logo abaixo. Mesma ordem e
+// mesmos rotulos dos chips de papel do drawer do cliente.
+function ownerRoleLabels(sample: SampleDetailResponse['sample']): string[] {
+  const client = sample.ownerClient;
+  if (!client) {
+    return [];
+  }
+  const roles: string[] = [];
+  if (client.isSeller) roles.push('Vendedor');
+  if (client.isBuyer) roles.push('Comprador');
+  if (client.isWarehouse) roles.push('Armazém');
+  return roles;
 }
 
 function canEditRegistrationStatus(status: SampleStatus): boolean {
@@ -715,6 +739,7 @@ export function SampleDetailView({
   const canSendFromHero = Boolean(onRequestSend) && commercialActionsAllowed;
   const canLossFromHero =
     Boolean(onRequestLoss) && commercialActionsAllowed && (detail?.sample.availableSacks ?? 0) > 0;
+  const ownerRoles = detail ? ownerRoleLabels(detail.sample) : [];
 
   const fetchDetail = useCallback(
     async ({ showLoading = false, eventLimit = DETAIL_EVENT_PREVIEW_LIMIT } = {}) => {
@@ -1927,7 +1952,6 @@ export function SampleDetailView({
               )}
 
               <h2 className="fv-sd-lot">{detail.sample.internalLotNumber ?? detail.sample.id}</h2>
-              <span className="fv-sd-eyebrow">Lote</span>
 
               <div className="fv-sd-chips">
                 {sdvCommercialStatus ? (
@@ -1943,20 +1967,26 @@ export function SampleDetailView({
                 ) : null}
               </div>
 
+              {/* Papel do cliente dono (Vendedor · Comprador · Armazem), no
+                  lugar de proprietario · sacas · safra. Sem cor: os papeis
+                  aqui sao texto, nao chip — quem colore e o drawer do
+                  cliente. Lote sem cliente vinculado fica com o traco pra
+                  linha nao sumir e mexer na altura do hero. */}
               <div className="fv-sd-facts">
-                <span className="fv-sd-fact">{ownerDisplayValue(detail.sample)}</span>
-                <span className="fv-sd-fact-sep" aria-hidden="true">
-                  ·
-                </span>
-                <span className="fv-sd-fact">
-                  {buildReadableValue(detail.sample.declared.sacks)} sacas
-                </span>
-                <span className="fv-sd-fact-sep" aria-hidden="true">
-                  ·
-                </span>
-                <span className="fv-sd-fact">
-                  <HarvestDisplay harvest={detail.sample.declared.harvest} fallback="Sem safra" />
-                </span>
+                {ownerRoles.length > 0 ? (
+                  ownerRoles.map((role, index) => (
+                    <Fragment key={role}>
+                      {index > 0 ? (
+                        <span className="fv-sd-fact-sep" aria-hidden="true">
+                          ·
+                        </span>
+                      ) : null}
+                      <span className="fv-sd-fact">{role}</span>
+                    </Fragment>
+                  ))
+                ) : (
+                  <span className="fv-sd-fact">—</span>
+                )}
               </div>
 
               <div className="fv-sd-actions-row">
