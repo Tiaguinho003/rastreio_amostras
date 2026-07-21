@@ -33957,23 +33957,14 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   }
 
-  /* A linha de busca mobile (hero) e o contador do sheet saem: busca, funil,
-     limpar e contagem moram na .fv-toolbar do cartao. Excecao ate o C6: em
-     modo liga o .spv2-list-meta ainda hospeda o "Revisar ▾" (o contador de
-     selecionados), que so migra pra barra contextual. */
-  .fv-lotes-page .hero-search-wrap.fv-hide-desktop {
+  /* A linha de busca mobile (hero, que tambem hospeda o FAB), o contador do
+     sheet e o header dedicado do modo liga saem: busca, funil, limpar e
+     contagem moram na .fv-toolbar; contador/revisao/criar/sair moram na
+     .fv-bulkbar. */
+  .fv-lotes-page .hero-search-wrap.fv-hide-desktop,
+  .fv-lotes-page .samples-page-v2-sheet .spv2-list-meta,
+  .fv-lotes-page .samples-selection-header {
     display: none;
-  }
-
-  .fv-lotes-page .samples-page-v2-sheet .spv2-list-meta {
-    display: none;
-  }
-
-  body.is-selection-mode .fv-lotes-page .samples-page-v2-sheet .spv2-list-meta {
-    display: flex;
-    padding: 0.75rem 1rem 0.6rem;
-    margin: 0;
-    border-bottom: 1px solid var(--fv-line);
   }
 
   .fv-lotes-page .samples-page-v2-sheet .spv2-list-scroll.fv-table-scroll {
@@ -34476,6 +34467,120 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
     flex: none;
     font-size: 0.8rem;
     color: var(--muted);
+  }
+}
+
+/* ── Barra contextual de selecao (kit FV, desktop): faixa tinta logo abaixo
+   da toolbar enquanto ha um modo de selecao ativo. Em /samples e o modo liga
+   — contador, "Revisar", "Criar liga" e a saida. ── */
+.fv-bulkbar {
+  display: none;
+}
+
+@media (min-width: 901px) {
+  .fv-bulkbar {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex: none;
+    padding: 0.6rem 1rem;
+    background: var(--fv-active-bg);
+    border-bottom: 1px solid var(--fv-line);
+  }
+
+  .fv-bulkbar-count {
+    flex: none;
+    margin-right: auto;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .fv-bulkbar-review-wrap {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .fv-bulkbar .fv-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .fv-bulkbar-exit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 140ms ease;
+  }
+  .fv-bulkbar-exit svg {
+    width: 1rem;
+    height: 1rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+  @media (hover: hover) {
+    .fv-bulkbar-exit:hover {
+      background: rgba(0, 0, 0, 0.05);
+      color: var(--ink);
+    }
+  }
+  .fv-bulkbar-exit:active {
+    transform: scale(0.92);
+  }
+
+  /* Coluna de selecao: entra no lugar da coluna do ⋯ enquanto a selecao
+     estiver ativa. */
+  .fv-col-select {
+    width: 46px;
+  }
+
+  .fv-table-th-select,
+  .fv-table-td-select {
+    padding-right: 0;
+  }
+
+  .fv-table-select {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--fv-cta);
+    cursor: pointer;
+  }
+
+  .fv-table-select:disabled {
+    cursor: not-allowed;
+  }
+
+  /* Linha marcada / inelegivel. A inelegivel nao some da lista: fica apagada
+     e o clique explica o motivo (mesma regra do card no mobile). */
+  .fv-table.is-selecting .fv-table-row.is-selected {
+    background: var(--fv-active-bg);
+  }
+
+  .fv-table.is-selecting .fv-table-row.is-ineligible {
+    opacity: 0.45;
+  }
+  .fv-table.is-selecting .fv-table-row.is-ineligible .fv-table-name {
+    text-decoration: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fv-bulkbar-exit {
+    transition: none;
+  }
+  .fv-bulkbar-exit:active {
+    transform: none;
   }
 }
 

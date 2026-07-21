@@ -2253,6 +2253,10 @@ function SamplesPage() {
     );
   }
 
+  // Modo liga: no desktop governa a tabela (coluna de selecao no lugar do ⋯)
+  // e a barra contextual; no mobile segue nos cards + header dedicado.
+  const isBlendMode = selectionMode === 'blend';
+
   const fullName = session.user.fullName ?? session.user.username;
   const avatarInitials = fullName
     .split(' ')
@@ -2661,6 +2665,63 @@ function SamplesPage() {
             <span className="fv-toolbar-count">{samplesState.total} lotes</span>
           </div>
 
+          {/* FV (desktop): barra contextual do modo liga. Fica logo abaixo da
+              toolbar (a busca continua util pra achar o lote a marcar) e
+              concentra o que o header dedicado + o FAB-seta faziam no mobile:
+              contador, revisao da selecao, "Criar liga" e a saida. */}
+          {selectionMode === 'blend' ? (
+            <div className="fv-bulkbar" role="group" aria-label="Seleção para liga">
+              <span className="fv-bulkbar-count">
+                {selectedSamples.size} {selectedSamples.size === 1 ? 'selecionado' : 'selecionados'}
+              </span>
+              {/* O popover traz backdrop e ESC proprios — o wrap so ancora. */}
+              <div className="fv-bulkbar-review-wrap">
+                <button
+                  type="button"
+                  className="fv-btn fv-btn-secondary"
+                  aria-haspopup="menu"
+                  aria-expanded={selectionDropdownOpen}
+                  disabled={selectedSamples.size === 0}
+                  onClick={() => setSelectionDropdownOpen((open) => !open)}
+                >
+                  Revisar
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </button>
+                {selectionDropdownOpen && selectedSamples.size > 0 ? (
+                  <SelectedSamplesDropdown
+                    samples={selectedSamplesForSheet.map<SelectedSampleSummary>((s) => ({
+                      id: s.id,
+                      lot: s.internalLotNumber ?? s.id.slice(0, 8),
+                      availableSacks: s.availableSacks ?? null,
+                    }))}
+                    onRemove={handleRemoveFromSelection}
+                    onClose={() => setSelectionDropdownOpen(false)}
+                  />
+                ) : null}
+              </div>
+              <button
+                type="button"
+                className="fv-btn fv-btn-primary"
+                disabled={selectedSamples.size < 2}
+                onClick={openConfirmation}
+              >
+                Criar liga
+              </button>
+              <button
+                type="button"
+                className="fv-bulkbar-exit"
+                aria-label="Sair do modo liga"
+                onClick={exitBlendMode}
+              >
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            </div>
+          ) : null}
+
           {/* Section 2: Count + filter btn (ou contador de selecionadas em modo blend) */}
           <div className="spv2-list-meta">
             <span className="spv2-list-count">{samplesState.total} lotes</span>
@@ -2756,54 +2817,104 @@ function SamplesPage() {
                scroll infinito e snapshot sao os mesmos dos cards — muda so a
                apresentacao. A linha inteira abre o lote; o numero e <button>
                pra teclado. A expansao do card morreu: o que ela mostrava vive
-               na coluna Classificacao e no drawer. */
+               na coluna Classificacao e no drawer. No modo liga a 1a coluna
+               vira caixa de selecao e a linha marca em vez de abrir — a coluna
+               de acoes sai (o ⋯ nao se aplica a uma selecao). */
             <div ref={samplesScrollRef} className="spv2-list-scroll fv-table-scroll" tabIndex={-1}>
-              <table className="fv-table fv-table-lotes">
+              <table className={`fv-table fv-table-lotes${isBlendMode ? ' is-selecting' : ''}`}>
                 <colgroup>
+                  {isBlendMode ? <col className="fv-col-select" /> : null}
                   <col className="fv-col-lot" />
                   <col className="fv-col-status" />
                   <col className="fv-col-owner" />
                   <col className="fv-col-sacks" />
                   <col className="fv-col-harvest" />
                   <col className="fv-col-class" />
-                  <col className="fv-col-actions" />
+                  {isBlendMode ? null : <col className="fv-col-actions" />}
                 </colgroup>
                 <thead>
                   <tr>
+                    {isBlendMode ? (
+                      <th scope="col" className="fv-table-th-select" aria-label="Seleção" />
+                    ) : null}
                     <th scope="col">Lote</th>
                     <th scope="col">Status</th>
                     <th scope="col">Proprietário</th>
                     <th scope="col">Sacas</th>
                     <th scope="col">Safra</th>
                     <th scope="col">Classificação</th>
-                    <th scope="col" className="fv-table-th-actions" aria-label="Ações" />
+                    {isBlendMode ? null : (
+                      <th scope="col" className="fv-table-th-actions" aria-label="Ações" />
+                    )}
                   </tr>
                 </thead>
                 <tbody>
                   {samplesState.items.map((sample) => {
                     const row = describeSampleRow(sample);
+                    // Elegibilidade so vem do backend em modo liga (o
+                    // eligibleForBlend da query); fora dele o campo nem existe.
+                    const eligibility = sample.eligibility;
+                    const isIneligible =
+                      isBlendMode &&
+                      eligibility !== undefined &&
+                      eligibility !== null &&
+                      !eligibility.eligible;
+                    const isSelected = selectedSamples.has(sample.id);
                     return (
                       <tr
                         key={sample.id}
-                        className={`fv-table-row${row.isInvalidated ? ' is-inactive' : ''}`}
+                        className={`fv-table-row${row.isInvalidated ? ' is-inactive' : ''}${
+                          isIneligible ? ' is-ineligible' : ''
+                        }${isBlendMode && isSelected ? ' is-selected' : ''}`}
+                        aria-selected={isBlendMode && !isIneligible ? isSelected : undefined}
                         onClick={() => {
+                          if (isBlendMode) {
+                            if (isIneligible) {
+                              showIneligibleReason(eligibility?.reason ?? null);
+                              return;
+                            }
+                            toggleSampleSelection(sample);
+                            return;
+                          }
                           saveSnapshotBeforeLeave();
                           openLote(sample.id);
                         }}
                       >
+                        {isBlendMode ? (
+                          <td className="fv-table-td-select">
+                            {/* O clique da LINHA e quem alterna — a caixa e o
+                                alvo visual e de teclado, sem handler proprio
+                                (evita alternar duas vezes). */}
+                            <input
+                              type="checkbox"
+                              className="fv-table-select"
+                              checked={isSelected && !isIneligible}
+                              disabled={isIneligible}
+                              readOnly
+                              tabIndex={-1}
+                              aria-label={`Selecionar lote ${row.lot} pra liga`}
+                            />
+                          </td>
+                        ) : null}
                         <td>
                           <span className="fv-table-lot">
-                            <button
-                              type="button"
-                              className="fv-table-name-btn"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                saveSnapshotBeforeLeave();
-                                openLote(sample.id);
-                              }}
-                            >
+                            {isBlendMode ? (
+                              /* Em modo liga a linha marca — o numero deixa de
+                                 ser atalho pro drawer. */
                               <span className="fv-table-name">{row.lot}</span>
-                            </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className="fv-table-name-btn"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  saveSnapshotBeforeLeave();
+                                  openLote(sample.id);
+                                }}
+                              >
+                                <span className="fv-table-name">{row.lot}</span>
+                              </button>
+                            )}
                             {sample.isBlend ? <BlendBadge size="sm" /> : null}
                           </span>
                         </td>
@@ -2847,110 +2958,112 @@ function SamplesPage() {
                             <span className="fv-chip fv-chip-amber">Pendente</span>
                           )}
                         </td>
-                        <td
-                          className="fv-table-td-actions"
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          <div
-                            className="fv-row-menu-wrap"
-                            ref={rowMenuFor === sample.id ? rowMenuRef : undefined}
+                        {isBlendMode ? null : (
+                          <td
+                            className="fv-table-td-actions"
+                            onClick={(event) => event.stopPropagation()}
                           >
-                            <button
-                              type="button"
-                              className="fv-table-dots"
-                              aria-label={`Ações do lote ${row.lot}`}
-                              aria-haspopup="menu"
-                              aria-expanded={rowMenuFor === sample.id}
-                              onClick={(event) => {
-                                rowMenuTriggerRef.current = event.currentTarget;
-                                setRowMenuFor((current) =>
-                                  current === sample.id ? null : sample.id
-                                );
-                              }}
+                            <div
+                              className="fv-row-menu-wrap"
+                              ref={rowMenuFor === sample.id ? rowMenuRef : undefined}
                             >
-                              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                <circle cx="5" cy="12" r="1.6" />
-                                <circle cx="12" cy="12" r="1.6" />
-                                <circle cx="19" cy="12" r="1.6" />
-                              </svg>
-                            </button>
-                            {rowMenuFor === sample.id ? (
-                              <div
-                                className="fv-row-menu"
-                                role="menu"
+                              <button
+                                type="button"
+                                className="fv-table-dots"
                                 aria-label={`Ações do lote ${row.lot}`}
+                                aria-haspopup="menu"
+                                aria-expanded={rowMenuFor === sample.id}
+                                onClick={(event) => {
+                                  rowMenuTriggerRef.current = event.currentTarget;
+                                  setRowMenuFor((current) =>
+                                    current === sample.id ? null : sample.id
+                                  );
+                                }}
                               >
-                                <button
-                                  type="button"
-                                  role="menuitem"
-                                  className="fv-row-menu-item"
-                                  onClick={() => {
-                                    closeRowMenu();
-                                    saveSnapshotBeforeLeave();
-                                    openLote(sample.id);
-                                  }}
+                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                  <circle cx="5" cy="12" r="1.6" />
+                                  <circle cx="12" cy="12" r="1.6" />
+                                  <circle cx="19" cy="12" r="1.6" />
+                                </svg>
+                              </button>
+                              {rowMenuFor === sample.id ? (
+                                <div
+                                  className="fv-row-menu"
+                                  role="menu"
+                                  aria-label={`Ações do lote ${row.lot}`}
                                 >
-                                  Ver detalhes
-                                </button>
-                                {/* Perda e envio operam SEM sair da lista (mesmo
-                                    fluxo que saia do card expandido); imprimir e
-                                    deletar abrem o lote ja com o modal (?acao=). */}
-                                {row.canSend ? (
                                   <button
                                     type="button"
                                     role="menuitem"
                                     className="fv-row-menu-item"
-                                    onClick={() => {
-                                      closeRowMenu();
-                                      handleCardSend(sample);
-                                    }}
-                                  >
-                                    Enviar amostra
-                                  </button>
-                                ) : null}
-                                {row.canLoss ? (
-                                  <button
-                                    type="button"
-                                    role="menuitem"
-                                    className="fv-row-menu-item"
-                                    onClick={() => {
-                                      closeRowMenu();
-                                      handleCardLoss(sample);
-                                    }}
-                                  >
-                                    Registrar perda
-                                  </button>
-                                ) : null}
-                                <button
-                                  type="button"
-                                  role="menuitem"
-                                  className="fv-row-menu-item"
-                                  onClick={() => {
-                                    closeRowMenu();
-                                    saveSnapshotBeforeLeave();
-                                    openLote(sample.id, 'imprimir');
-                                  }}
-                                >
-                                  Imprimir etiqueta
-                                </button>
-                                {row.canDelete ? (
-                                  <button
-                                    type="button"
-                                    role="menuitem"
-                                    className="fv-row-menu-item is-danger"
                                     onClick={() => {
                                       closeRowMenu();
                                       saveSnapshotBeforeLeave();
-                                      openLote(sample.id, 'deletar');
+                                      openLote(sample.id);
                                     }}
                                   >
-                                    Deletar lote
+                                    Ver detalhes
                                   </button>
-                                ) : null}
-                              </div>
-                            ) : null}
-                          </div>
-                        </td>
+                                  {/* Perda e envio operam SEM sair da lista (mesmo
+                                    fluxo que saia do card expandido); imprimir e
+                                    deletar abrem o lote ja com o modal (?acao=). */}
+                                  {row.canSend ? (
+                                    <button
+                                      type="button"
+                                      role="menuitem"
+                                      className="fv-row-menu-item"
+                                      onClick={() => {
+                                        closeRowMenu();
+                                        handleCardSend(sample);
+                                      }}
+                                    >
+                                      Enviar amostra
+                                    </button>
+                                  ) : null}
+                                  {row.canLoss ? (
+                                    <button
+                                      type="button"
+                                      role="menuitem"
+                                      className="fv-row-menu-item"
+                                      onClick={() => {
+                                        closeRowMenu();
+                                        handleCardLoss(sample);
+                                      }}
+                                    >
+                                      Registrar perda
+                                    </button>
+                                  ) : null}
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    className="fv-row-menu-item"
+                                    onClick={() => {
+                                      closeRowMenu();
+                                      saveSnapshotBeforeLeave();
+                                      openLote(sample.id, 'imprimir');
+                                    }}
+                                  >
+                                    Imprimir etiqueta
+                                  </button>
+                                  {row.canDelete ? (
+                                    <button
+                                      type="button"
+                                      role="menuitem"
+                                      className="fv-row-menu-item is-danger"
+                                      onClick={() => {
+                                        closeRowMenu();
+                                        saveSnapshotBeforeLeave();
+                                        openLote(sample.id, 'deletar');
+                                      }}
+                                    >
+                                      Deletar lote
+                                    </button>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
