@@ -34129,9 +34129,31 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   /* ── Tabela institucional (kit FV). ── */
   .fv-table {
     width: 100%;
+    /* Ajustes rodada 1: larguras governadas pelo colgroup (colunas estaveis;
+       ellipsis pela borda da coluna, nao por caps em ch). */
+    table-layout: fixed;
     border-collapse: separate;
     border-spacing: 0;
     font-size: 0.86rem;
+  }
+
+  .fv-col-client {
+    width: 32%;
+  }
+  .fv-col-status {
+    width: 120px;
+  }
+  .fv-col-doc {
+    width: 170px;
+  }
+  .fv-col-contact {
+    width: auto;
+  }
+  .fv-col-updated {
+    width: 120px;
+  }
+  .fv-col-actions {
+    width: 58px;
   }
 
   .fv-table thead th {
@@ -34221,7 +34243,7 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   .fv-table-name {
     font-weight: 600;
     color: var(--ink);
-    max-width: 26ch;
+    max-width: 100%;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -34242,7 +34264,7 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   .fv-table-cell-main {
     display: block;
     font-size: 0.84rem;
-    max-width: 24ch;
+    max-width: 100%;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -34259,21 +34281,34 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
     display: block;
     font-size: 0.78rem;
     color: var(--muted);
-    max-width: 24ch;
+    max-width: 100%;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
   }
 
-  .fv-table-resp {
+  /* Ajustes rodada 1: linha de contato com icone minimalista (tel/e-mail).
+     O texto interno segue com a ellipsis de cell-main/sub (min-width 0 pra
+     encolher dentro do flex). */
+  .fv-cell-ic {
     display: flex;
     align-items: center;
     gap: 0.4rem;
     min-width: 0;
   }
-  .fv-chip-count {
-    height: 20px;
-    padding: 0 0.45rem;
+  .fv-cell-ic svg {
+    width: 13px;
+    height: 13px;
+    flex: none;
+    fill: none;
+    stroke: var(--muted);
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .fv-cell-ic .fv-table-cell-main,
+  .fv-cell-ic .fv-table-sub {
+    min-width: 0;
   }
 
   .fv-table-th-actions,

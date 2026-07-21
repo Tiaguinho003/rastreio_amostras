@@ -990,14 +990,22 @@ export function ClientsBrowser({
              popover de acoes no C7. */
           <div ref={clientsScrollRef} className="spv2-list-scroll fv-table-scroll" tabIndex={-1}>
             <table className="fv-table">
+              {/* Ajustes rodada 1: 6 colunas (Cidade/UF e Responsavel sairam);
+                  table-layout fixed + colgroup dao larguras estaveis. */}
+              <colgroup>
+                <col className="fv-col-client" />
+                <col className="fv-col-status" />
+                <col className="fv-col-doc" />
+                <col className="fv-col-contact" />
+                <col className="fv-col-updated" />
+                <col className="fv-col-actions" />
+              </colgroup>
               <thead>
                 <tr>
                   <th scope="col">Cliente</th>
                   <th scope="col">Status</th>
                   <th scope="col">Documento</th>
                   <th scope="col">Contato</th>
-                  <th scope="col">Cidade/UF</th>
-                  <th scope="col">Responsável</th>
                   <th scope="col">Atualizado</th>
                   <th scope="col" className="fv-table-th-actions" aria-label="Ações" />
                 </tr>
@@ -1006,12 +1014,9 @@ export function ClientsBrowser({
                 {displayClients.map((client) => {
                   const name = clientDisplayName(client);
                   const isInactive = client.status === 'INACTIVE';
-                  const showIncomplete = !isClientComplete(client).complete && !isInactive;
+                  const isComplete = isClientComplete(client).complete;
                   const doc = formatClientDocument(client.document, client.personType);
                   const phone = formatPhone(client.phone);
-                  const city = client.primaryCity ?? client.city;
-                  const uf = client.primaryState ?? client.state;
-                  const owners = client.commercialUsers;
                   return (
                     <tr
                       key={client.id}
@@ -1045,16 +1050,16 @@ export function ClientsBrowser({
                         </span>
                       </td>
                       <td>
-                        <span className="fv-table-chips">
-                          <span
-                            className={`fv-chip ${isInactive ? 'fv-chip-gray' : 'fv-chip-green'}`}
-                          >
-                            {isInactive ? 'Inativo' : 'Ativo'}
-                          </span>
-                          {showIncomplete ? (
-                            <span className="fv-chip fv-chip-amber">Incompleto</span>
-                          ) : null}
-                        </span>
+                        {/* Ajustes rodada 1: UM status so. Ativo/inativo virou
+                            estado do CARD (linha .is-inactive apagada +
+                            "Cancelado"); ativos mostram a completude. */}
+                        {isInactive ? (
+                          <span className="fv-chip fv-chip-red">Cancelado</span>
+                        ) : isComplete ? (
+                          <span className="fv-chip fv-chip-green">Completo</span>
+                        ) : (
+                          <span className="fv-chip fv-chip-amber">Incompleto</span>
+                        )}
                       </td>
                       <td>
                         <span className="fv-table-cell-main">{doc ?? '—'}</span>
@@ -1062,27 +1067,21 @@ export function ClientsBrowser({
                       <td>
                         {phone || client.email ? (
                           <span className="fv-table-cell-stack">
-                            {phone ? <span className="fv-table-cell-main">{phone}</span> : null}
-                            {client.email ? (
-                              <span className="fv-table-sub">{client.email}</span>
+                            {phone ? (
+                              <span className="fv-cell-ic">
+                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />
+                                </svg>
+                                <span className="fv-table-cell-main">{phone}</span>
+                              </span>
                             ) : null}
-                          </span>
-                        ) : (
-                          <span className="fv-table-cell-main">—</span>
-                        )}
-                      </td>
-                      <td>
-                        <span className="fv-table-cell-main">
-                          {city ? `${city}${uf ? ` · ${uf}` : ''}` : (uf ?? '—')}
-                        </span>
-                      </td>
-                      <td>
-                        {owners.length > 0 ? (
-                          <span className="fv-table-resp">
-                            <span className="fv-table-cell-main">{owners[0].fullName}</span>
-                            {owners.length > 1 ? (
-                              <span className="fv-chip fv-chip-gray fv-chip-count">
-                                +{owners.length - 1}
+                            {client.email ? (
+                              <span className="fv-cell-ic">
+                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                  <rect x="2" y="4" width="20" height="16" rx="2" />
+                                  <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                                </svg>
+                                <span className="fv-table-sub">{client.email}</span>
                               </span>
                             ) : null}
                           </span>
@@ -1194,7 +1193,7 @@ export function ClientsBrowser({
                 {clientsState.status === 'loading-more'
                   ? Array.from({ length: 3 }).map((_, i) => (
                       <tr key={`skel-${i}`} className="fv-table-skel-row" aria-hidden="true">
-                        {Array.from({ length: 8 }).map((__, j) => (
+                        {Array.from({ length: 6 }).map((__, j) => (
                           <td key={j}>
                             <span className="fv-table-skel" />
                           </td>
