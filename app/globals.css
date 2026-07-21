@@ -35852,6 +35852,13 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
    cliente; so o que nasce `fv-sd-*` e exclusivo daqui. Sem media
    query — vale no drawer desktop e no sheet mobile. */
 
+/* O .sdv-page e flex-column com o .sdv-content rolando (flex:1) — hero e abas
+   precisam ser rigidos, como era o .sdv-header. */
+.lote-details-overlay .fv-sd-hero,
+.lote-details-overlay .fv-tabs {
+  flex: none;
+}
+
 .lote-details-overlay .fv-sd-hero {
   display: flex;
   flex-direction: column;

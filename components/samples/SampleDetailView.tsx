@@ -474,6 +474,9 @@ function mapSampleOwnerClientToSummary(
 /** Acao profunda do menu ⋯ da tabela (FV): ?acao= da URL de /samples. */
 export type SampleDetailInitialAction = 'imprimir' | 'deletar';
 
+/** Abas do detalhe (FV RD15). */
+type SampleDetailTab = 'overview' | 'classificacao' | 'movimentacoes';
+
 interface SampleDetailViewProps {
   session: SessionData;
   sampleId: string;
@@ -508,31 +511,32 @@ export function SampleDetailView({
 
   const [detail, setDetail] = useState<SampleDetailResponse | null>(null);
   const detailRef = useRef<SampleDetailResponse | null>(null);
-  // Foco vindo do dashboard (?focus=movimentacoes|informacoes): assim que o
-  // detalhe carrega, navega-primeiro-rola-depois — scroll suave (rapido) ate o
-  // container correspondente, uma unica vez.
-  const focusScrolledRef = useRef(false);
+  // FV (RD15): o detalhe virou 3 abas. Visao geral = informacoes + resumo
+  // comercial + liga; Classificacao = a ficha; Movimentacoes = a timeline.
+  const [activeTab, setActiveTab] = useState<SampleDetailTab>('overview');
+  // Foco vindo de fora (?focus=): dashboard manda `movimentacoes`/`informacoes`
+  // e o QR do laudo manda `classification`. Com as abas (FV RD15) ele deixa de
+  // rolar ate a ancora e passa a SELECIONAR a aba, uma unica vez, assim que o
+  // detalhe carrega — `classification` ganha efeito (antes caia no vazio).
+  const focusAppliedRef = useRef(false);
   useEffect(() => {
-    if (focusScrolledRef.current || !detail) {
+    if (focusAppliedRef.current || !detail) {
       return;
     }
     const focus = searchParams.get('focus');
-    const targetId =
+    const targetTab: SampleDetailTab | null =
       focus === 'movimentacoes'
-        ? 'sdv-movimentacoes'
-        : focus === 'informacoes'
-          ? 'sdv-informacoes'
-          : null;
-    if (!targetId) {
+        ? 'movimentacoes'
+        : focus === 'classification'
+          ? 'classificacao'
+          : focus === 'informacoes'
+            ? 'overview'
+            : null;
+    if (!targetTab) {
       return;
     }
-    focusScrolledRef.current = true;
-    const raf = window.requestAnimationFrame(() => {
-      window.setTimeout(() => {
-        document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 90);
-    });
-    return () => window.cancelAnimationFrame(raf);
+    focusAppliedRef.current = true;
+    setActiveTab(targetTab);
   }, [detail, searchParams]);
   // Liga B4 Fase 7: viabilidade da liga (flag derivado "liga inviavel").
   // Buscado so pra liga ainda vendavel; null pra amostra normal ou em erro.
@@ -2101,516 +2105,585 @@ export function SampleDetailView({
 
             <NoticeSlot notice={pageNotice} />
 
-            {/* Conteúdo unificado — sem abas (Geral + Comercial juntos). */}
+            {/* FV (RD15): 3 abas no molde ARIA do .cad-tabs. O conteudo era
+                uma pagina unica rolavel (Geral + Comercial emendados). */}
+            <div className="fv-tabs" role="tablist" aria-label="Seções do lote">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'overview'}
+                className={`fv-tab${activeTab === 'overview' ? ' is-active' : ''}`}
+                onClick={() => setActiveTab('overview')}
+              >
+                Visão geral
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'classificacao'}
+                className={`fv-tab${activeTab === 'classificacao' ? ' is-active' : ''}`}
+                onClick={() => setActiveTab('classificacao')}
+              >
+                Classificação
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'movimentacoes'}
+                className={`fv-tab${activeTab === 'movimentacoes' ? ' is-active' : ''}`}
+                onClick={() => setActiveTab('movimentacoes')}
+              >
+                Movimentações
+              </button>
+            </div>
+
             <section className="sdv-content">
               <div className="sdv-content-inner">
-                <section className="sdv-general">
-                  {/* Container 1: Informacoes principais — cabecalho (titulo +
+                {activeTab !== 'movimentacoes' ? (
+                  <section className="sdv-general">
+                    {activeTab === 'overview' ? (
+                      <>
+                        {/* Container 1: Informacoes principais — cabecalho (titulo +
                       Editar) separado dos campos por uma divisoria discreta. O
                       Imprimir migrou para o header; este card fica so com as
                       informacoes. */}
-                  <div id="sdv-informacoes" className="sdv-card sdv-info-compact">
-                    <div className="sdv-card-header">
-                      {/* FV: o "Editar" saiu daqui — virou botao redondo do hero. */}
-                      <span className="sdv-card-title">Informações</span>
-                    </div>
-                    <div className="sdv-info-grid">
-                      <div className="sdv-info-item is-full">
-                        <span className="sdv-info-label">Proprietario</span>
-                        <span className="sdv-info-value">{ownerDisplayValue(detail.sample)}</span>
-                      </div>
-                      <div className="sdv-info-item">
-                        <span className="sdv-info-label">Sacas</span>
-                        <span className="sdv-info-value">
-                          {buildReadableValue(detail.sample.declared.sacks)}
-                        </span>
-                      </div>
-                      <div className="sdv-info-item">
-                        <span className="sdv-info-label">Safra</span>
-                        <span className="sdv-info-value">
-                          <HarvestDisplay harvest={detail.sample.declared.harvest} fallback="" />
-                        </span>
-                      </div>
-                      <div className="sdv-info-item">
-                        <span className="sdv-info-label">Lote de origem</span>
-                        <span className="sdv-info-value">
-                          {buildReadableValue(detail.sample.declared.originLot)}
-                        </span>
-                      </div>
-                      <div className="sdv-info-item">
-                        <span className="sdv-info-label">Local</span>
-                        <span className="sdv-info-value">
-                          {buildReadableValue(detail.sample.declared.location)}
-                        </span>
-                      </div>
-                    </div>
+                        <div id="sdv-informacoes" className="sdv-card sdv-info-compact">
+                          <div className="sdv-card-header">
+                            {/* FV: o "Editar" saiu daqui — virou botao redondo do hero. */}
+                            <span className="sdv-card-title">Informações</span>
+                          </div>
+                          <div className="sdv-info-grid">
+                            <div className="sdv-info-item is-full">
+                              <span className="sdv-info-label">Proprietario</span>
+                              <span className="sdv-info-value">
+                                {ownerDisplayValue(detail.sample)}
+                              </span>
+                            </div>
+                            <div className="sdv-info-item">
+                              <span className="sdv-info-label">Sacas</span>
+                              <span className="sdv-info-value">
+                                {buildReadableValue(detail.sample.declared.sacks)}
+                              </span>
+                            </div>
+                            <div className="sdv-info-item">
+                              <span className="sdv-info-label">Safra</span>
+                              <span className="sdv-info-value">
+                                <HarvestDisplay
+                                  harvest={detail.sample.declared.harvest}
+                                  fallback=""
+                                />
+                              </span>
+                            </div>
+                            <div className="sdv-info-item">
+                              <span className="sdv-info-label">Lote de origem</span>
+                              <span className="sdv-info-value">
+                                {buildReadableValue(detail.sample.declared.originLot)}
+                              </span>
+                            </div>
+                            <div className="sdv-info-item">
+                              <span className="sdv-info-label">Local</span>
+                              <span className="sdv-info-value">
+                                {buildReadableValue(detail.sample.declared.location)}
+                              </span>
+                            </div>
+                          </div>
 
-                    {/* Imprimir migrou para o header (botao de acao ao lado do
+                          {/* Imprimir migrou para o header (botao de acao ao lado do
                         codigo do lote); este card fica so com as informacoes. */}
-                    <NoticeSlot notice={generalNotice} />
-                  </div>
+                          <NoticeSlot notice={generalNotice} />
+                        </div>
+                      </>
+                    ) : null}
 
-                  {/* Container 2: Classificacao — mesmo padrao do container de
-                      Informacoes. Acao no rodape: Classificar/Reclassificar. A
-                      area de resumo (foto + campos) continua clicavel pra abrir
-                      a classificacao completa. */}
-                  {(() => {
-                    const classData = detail.sample.latestClassification?.data;
-                    const classPhotoUrl = classificationAttachment
-                      ? `/api/v1/samples/${sampleId}/photos/${classificationAttachment.id}`
-                      : null;
-                    const cd = (classData ?? null) as Record<string, unknown> | null;
-                    const aspecto = cd ? String(cd.aspecto ?? '—') : '—';
-                    // Catação é percentual: sufixa "%" igual ao laudo (CL19).
-                    const catacao = cd ? (formatPercentDisplay(cd.catacao) ?? '—') : '—';
-                    // Classificadores: campo canonico `classificadores` (array de
-                    // snapshots). Fallback para `conferidoPor` (eventos antigos) ou
-                    // string legacy `classificador`.
-                    const classifiersArr = cd
-                      ? Array.isArray(cd.classificadores)
-                        ? cd.classificadores
-                        : Array.isArray(cd.conferidoPor)
-                          ? cd.conferidoPor
-                          : null
-                      : null;
-                    const classificador = classifiersArr
-                      ? classifiersArr
-                          .map((c) =>
-                            c && typeof c === 'object' && 'fullName' in c
-                              ? String((c as { fullName: unknown }).fullName)
-                              : ''
-                          )
-                          .filter(Boolean)
-                          .join(', ') || '—'
-                      : cd && typeof cd.classificador === 'string' && cd.classificador.trim()
-                        ? cd.classificador
-                        : '—';
-                    const classificadorLabel =
-                      classifiersArr && classifiersArr.length > 1
-                        ? 'Classificadores'
-                        : 'Classificador';
-                    // Versao "primeiro nome" pro card desktop (bloco mini, estreito):
-                    // so o 1o nome de cada classificador, evitando corte de nomes
-                    // longos. Resumo mobile e modal de edicao seguem com nome completo.
-                    const firstNameOf = (full: string) => full.trim().split(/\s+/)[0] ?? '';
-                    const classificadorShort = classifiersArr
-                      ? classifiersArr
-                          .map((c) =>
-                            c && typeof c === 'object' && 'fullName' in c
-                              ? firstNameOf(String((c as { fullName: unknown }).fullName))
-                              : ''
-                          )
-                          .filter(Boolean)
-                          .join(', ') || '—'
-                      : cd && typeof cd.classificador === 'string' && cd.classificador.trim()
-                        ? firstNameOf(cd.classificador)
-                        : '—';
+                    {/* Aba Classificacao: o card da ficha (resumo hoje; ficha
+                      inline no proximo passo da F2). */}
+                    {activeTab === 'classificacao'
+                      ? (() => {
+                          const classData = detail.sample.latestClassification?.data;
+                          const classPhotoUrl = classificationAttachment
+                            ? `/api/v1/samples/${sampleId}/photos/${classificationAttachment.id}`
+                            : null;
+                          const cd = (classData ?? null) as Record<string, unknown> | null;
+                          const aspecto = cd ? String(cd.aspecto ?? '—') : '—';
+                          // Catação é percentual: sufixa "%" igual ao laudo (CL19).
+                          const catacao = cd ? (formatPercentDisplay(cd.catacao) ?? '—') : '—';
+                          // Classificadores: campo canonico `classificadores` (array de
+                          // snapshots). Fallback para `conferidoPor` (eventos antigos) ou
+                          // string legacy `classificador`.
+                          const classifiersArr = cd
+                            ? Array.isArray(cd.classificadores)
+                              ? cd.classificadores
+                              : Array.isArray(cd.conferidoPor)
+                                ? cd.conferidoPor
+                                : null
+                            : null;
+                          const classificador = classifiersArr
+                            ? classifiersArr
+                                .map((c) =>
+                                  c && typeof c === 'object' && 'fullName' in c
+                                    ? String((c as { fullName: unknown }).fullName)
+                                    : ''
+                                )
+                                .filter(Boolean)
+                                .join(', ') || '—'
+                            : cd && typeof cd.classificador === 'string' && cd.classificador.trim()
+                              ? cd.classificador
+                              : '—';
+                          const classificadorLabel =
+                            classifiersArr && classifiersArr.length > 1
+                              ? 'Classificadores'
+                              : 'Classificador';
+                          // Versao "primeiro nome" pro card desktop (bloco mini, estreito):
+                          // so o 1o nome de cada classificador, evitando corte de nomes
+                          // longos. Resumo mobile e modal de edicao seguem com nome completo.
+                          const firstNameOf = (full: string) => full.trim().split(/\s+/)[0] ?? '';
+                          const classificadorShort = classifiersArr
+                            ? classifiersArr
+                                .map((c) =>
+                                  c && typeof c === 'object' && 'fullName' in c
+                                    ? firstNameOf(String((c as { fullName: unknown }).fullName))
+                                    : ''
+                                )
+                                .filter(Boolean)
+                                .join(', ') || '—'
+                            : cd && typeof cd.classificador === 'string' && cd.classificador.trim()
+                              ? firstNameOf(cd.classificador)
+                              : '—';
 
-                    const isClassified = detail.sample.status === 'CLASSIFIED';
-                    const canClassifyNow = detail.sample.status === 'REGISTRATION_CONFIRMED';
+                          const isClassified = detail.sample.status === 'CLASSIFIED';
+                          const canClassifyNow = detail.sample.status === 'REGISTRATION_CONFIRMED';
 
-                    // Conteiner sempre com o mesmo layout: area da foto + os 3 campos
-                    // sempre visiveis. Sem classificacao => placeholder "Sem foto" e
-                    // valores "—" (labels mais opacos via .sdv-cls-block-summary.is-empty).
-                    const clsPhotoNode = classPhotoUrl ? (
-                      <div
-                        className="sdv-cls-block-thumb"
-                        role={effectiveDesktop ? 'button' : undefined}
-                        tabIndex={effectiveDesktop ? 0 : undefined}
-                        aria-label={effectiveDesktop ? 'Ampliar foto da classificação' : undefined}
-                        onClick={
-                          effectiveDesktop
-                            ? (event) => {
-                                event.stopPropagation();
-                                setClassificationImageModalOpen(true);
+                          // Conteiner sempre com o mesmo layout: area da foto + os 3 campos
+                          // sempre visiveis. Sem classificacao => placeholder "Sem foto" e
+                          // valores "—" (labels mais opacos via .sdv-cls-block-summary.is-empty).
+                          const clsPhotoNode = classPhotoUrl ? (
+                            <div
+                              className="sdv-cls-block-thumb"
+                              role={effectiveDesktop ? 'button' : undefined}
+                              tabIndex={effectiveDesktop ? 0 : undefined}
+                              aria-label={
+                                effectiveDesktop ? 'Ampliar foto da classificação' : undefined
                               }
-                            : undefined
-                        }
-                        onKeyDown={
-                          effectiveDesktop
-                            ? (event) => {
-                                if (event.key === 'Enter' || event.key === ' ') {
-                                  event.preventDefault();
-                                  setClassificationImageModalOpen(true);
-                                }
-                              }
-                            : undefined
-                        }
-                      >
-                        {/* next/image nao se aplica: src vem do upload local; dimensoes via CSS */}
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={classPhotoUrl}
-                          alt="Foto da classificação"
-                          className="sdv-cls-block-thumb-img"
-                        />
-                      </div>
-                    ) : (
-                      <div
-                        className="sdv-cls-block-thumb sdv-cls-block-thumb-empty"
-                        aria-hidden="true"
-                      >
-                        Sem foto
-                      </div>
-                    );
-                    const clsFieldsNode = (
-                      <div className="sdv-cls-block-fields">
-                        {/* Classificador sozinho na 1a linha (alinhado a esquerda);
-                            Aspecto/Catação na linha de baixo. Padrão fica so no
-                            expandido, pra enxugar o resumo. */}
-                        <div className="sdv-info-item sdv-cls-fields-classifier">
-                          <span className="sdv-info-label">{classificadorLabel}</span>
-                          <span className="sdv-info-value">{classificador}</span>
-                        </div>
-                        <div className="sdv-info-item">
-                          <span className="sdv-info-label">Aspecto</span>
-                          <span className="sdv-info-value">{aspecto}</span>
-                        </div>
-                        <div className="sdv-info-item">
-                          <span className="sdv-info-label">Catação</span>
-                          <span className="sdv-info-value">{catacao}</span>
-                        </div>
-                      </div>
-                    );
-
-                    // Desktop: ficha completa read-only abaixo do resumo, reusando
-                    // as classes globais cld-* do modal de detalhe. Escondida no
-                    // mobile via CSS (.sdv-cls-extra). So renderiza quando ha cd.
-                    const peneiras: Record<string, unknown> =
-                      cd && isRecord(cd.peneiras) ? cd.peneiras : {};
-                    const defeitos: Record<string, unknown> =
-                      cd && isRecord(cd.defeitos) ? cd.defeitos : {};
-                    const fundosArr = cd && Array.isArray(cd.fundos) ? cd.fundos : [];
-                    const fundoA: Record<string, unknown> = isRecord(fundosArr[0])
-                      ? fundosArr[0]
-                      : {};
-                    const fundoB: Record<string, unknown> = isRecord(fundosArr[1])
-                      ? fundosArr[1]
-                      : {};
-                    const fmtClsDate = (iso: string) => {
-                      if (!iso) return '';
-                      const [y, m, d] = iso.split('-');
-                      return d && m && y ? `${d}/${m}/${y}` : iso;
-                    };
-                    // Campo dos blocos desktop: label (cinza) + valor (escuro).
-                    // Trata '—'/vazio como ausente -> valor cinza claro (.is-empty).
-                    // keyId distingue campos com o MESMO label (ex.: dois "Fundo")
-                    // pra nao colidir a key do React; default = o proprio label.
-                    const clsField = (label: string, raw: unknown, keyId?: string) => {
-                      const s = raw === null || raw === undefined ? '' : String(raw).trim();
-                      const filled = s !== '' && s !== '—';
-                      return (
-                        <div className="sdv-info-item" key={keyId ?? label}>
-                          <span className="sdv-info-label">{label}</span>
-                          <span className={`sdv-info-value${filled ? '' : ' is-empty'}`}>
-                            {filled ? s : '—'}
-                          </span>
-                        </div>
-                      );
-                    };
-                    // Separador "=" unificado com o modal e o laudo (CL20).
-                    const fundoText = (fundo: Record<string, unknown>) => {
-                      const pen = toText(fundo.peneira);
-                      const pct = toText(fundo.percentual);
-                      if (!pen && !pct) return '';
-                      return `${pen || '—'}${pct ? ` = ${pct}%` : ''}`;
-                    };
-                    const observacoes = cd ? toText(cd.observacoes) : '';
-                    // Layout DESKTOP em blocos (mockup 2026-06-24): foto + bloco de
-                    // stats (Aspecto/Catacao/Padrao · Classificador/Certificacao ·
-                    // Data/Bebida) no topo; Peneiras e Fundos&Defeitos no meio;
-                    // Observacoes embaixo. Escondido no mobile (la usa resumo + modal).
-                    const clsDesktopNode = (
-                      <div className="sdv-cls-desktop">
-                        {clsPhotoNode}
-                        <div className="sdv-cls-statwrap">
-                          <div className="sdv-cls-statbox sdv-cls-statbox--mini">
-                            <div className="sdv-cls-statbox-row sdv-cls-statbox-row--1">
-                              {clsField(
-                                'Data',
-                                cd ? fmtClsDate(toDateInput(cd.dataClassificacao)) : ''
-                              )}
-                            </div>
-                            <div className="sdv-cls-statbox-row sdv-cls-statbox-row--1">
-                              {clsField(classificadorLabel, classificadorShort)}
-                            </div>
-                          </div>
-                          <div className="sdv-cls-statbox sdv-cls-statbox--main">
-                            <div className="sdv-cls-statbox-row sdv-cls-statbox-row--3">
-                              {clsField('Aspecto', cd ? toText(cd.aspecto) : '')}
-                              {clsField('Catação', cd ? formatPercentDisplay(cd.catacao) : '')}
-                              {clsField('Padrão', cd ? toText(cd.padrao) : '')}
-                            </div>
-                            <div className="sdv-cls-statbox-row sdv-cls-statbox-row--2">
-                              {clsField('Certificado', cd ? toText(cd.certif) : '')}
-                              {clsField('Bebida', cd ? toText(cd.bebida) : '')}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="sdv-cls-blk sdv-cls-blk--peneiras">
-                          <span className="sdv-cls-blk-title">Peneiras</span>
-                          <div className="sdv-cls-blk-grid">
-                            {clsField('P18', formatPercentDisplay(peneiras.p18))}
-                            {clsField('P17', formatPercentDisplay(peneiras.p17))}
-                            {clsField('P16', formatPercentDisplay(peneiras.p16))}
-                            {clsField('P15', formatPercentDisplay(peneiras.p15))}
-                            {clsField('P14', formatPercentDisplay(peneiras.p14))}
-                            {clsField('P13', formatPercentDisplay(peneiras.p13))}
-                            {clsField('P12', formatPercentDisplay(peneiras.p12))}
-                            {clsField('P11', formatPercentDisplay(peneiras.p11))}
-                            {clsField('P10', formatPercentDisplay(peneiras.p10))}
-                            {clsField('MK', formatPercentDisplay(peneiras.mk))}
-                            {clsField('Fundo', fundoText(fundoA), 'fundo1')}
-                            {clsField('Fundo', fundoText(fundoB), 'fundo2')}
-                          </div>
-                        </div>
-                        <div className="sdv-cls-blk sdv-cls-blk--defeitos">
-                          <span className="sdv-cls-blk-title">Defeitos</span>
-                          <div className="sdv-cls-blk-grid">
-                            {clsField('Impureza', formatPercentDisplay(defeitos.imp))}
-                            {clsField('PVA', formatPercentDisplay(defeitos.pva))}
-                            {clsField('Broca', formatPercentDisplay(defeitos.broca))}
-                            {clsField('GPI', formatPercentDisplay(defeitos.gpi))}
-                            {clsField('AP', formatPercentDisplay(defeitos.ap))}
-                            {clsField('Defeito', toText(defeitos.defeito))}
-                          </div>
-                        </div>
-                        <div className="sdv-cls-blk sdv-cls-blk--obs">
-                          <span className="sdv-cls-blk-title">Observações</span>
-                          <span
-                            className={`sdv-info-value sdv-cls-obs-value${observacoes ? '' : ' is-empty'}`}
-                          >
-                            {observacoes || '—'}
-                          </span>
-                        </div>
-                      </div>
-                    );
-
-                    return (
-                      <div className="sdv-card sdv-cls-block">
-                        <div className="sdv-card-header">
-                          <div className="sdv-cls-header-title">
-                            <span className="sdv-card-title">Classificação</span>
-                          </div>
-                          {effectiveDesktop ? (
-                            // CAM-D2: desktop NAO classifica por foto — os
-                            // botoes Classificar/Reclassificar (camera) sairam;
-                            // corrigir uma classificacao existente segue
-                            // possivel pelo Editar (caminho 3, sem camera).
-                            isClassified ? (
-                              <div className="sdv-cls-header-actions">
-                                <button
-                                  type="button"
-                                  className="sdv-edit-btn"
-                                  onClick={openClassificationEdit}
-                                  aria-label="Editar classificação"
-                                >
-                                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                                    <path d="M12 20h9" />
-                                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                                  </svg>
-                                  <span>Editar</span>
-                                </button>
-                              </div>
-                            ) : null
-                          ) : cd ? (
-                            // Mobile, classificado: "Expandir" abre a
-                            // classificacao completa.
-                            <button
-                              type="button"
-                              className="sdv-edit-btn"
-                              onClick={openClassificationDetail}
-                              aria-label="Expandir classificação"
-                            >
-                              <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M15 3h6v6" />
-                                <path d="M9 21H3v-6" />
-                                <path d="M21 3l-7 7" />
-                                <path d="M3 21l7-7" />
-                              </svg>
-                              <span>Expandir</span>
-                            </button>
-                          ) : (
-                            // Mobile, ainda nao classificado: "Classificar" ocupa
-                            // o lugar do "Expandir" — botao pequeno/discreto no
-                            // header (sem o action-card grande no rodape).
-                            // CAM-P3: abre o sheet global da camera em Flow B.
-                            <ClassifySampleButton sampleId={sampleId} disabled={!canClassifyNow} />
-                          )}
-                        </div>
-                        {effectiveDesktop ? (
-                          clsDesktopNode
-                        ) : cd ? (
-                          <div
-                            className="sdv-cls-block-summary sdv-cls-block-clickable"
-                            role="button"
-                            tabIndex={0}
-                            onClick={openClassificationDetail}
-                            onKeyDown={(event) => {
-                              if (event.key === 'Enter' || event.key === ' ') {
-                                event.preventDefault();
-                                openClassificationDetail();
-                              }
-                            }}
-                            aria-label="Ver classificação completa"
-                          >
-                            {clsPhotoNode}
-                            {clsFieldsNode}
-                          </div>
-                        ) : (
-                          <div className="sdv-cls-block-summary is-empty">
-                            {clsPhotoNode}
-                            {clsFieldsNode}
-                          </div>
-                        )}
-                        {/* "Classificar" agora vive no header do card (mobile,
-                            no lugar do "Expandir"; desktop, ao lado do titulo) —
-                            sem mais o action-card grande no rodape. */}
-                      </div>
-                    );
-                  })()}
-
-                  {/* Liga B4 Fase 7: flag de viabilidade — aviso derivado
-                        (getBlendFeasibility) quando uma origem da liga nao tem
-                        saldo pra cobrir a contribuicao. A liga nao muda de
-                        status; so e sinalizada. */}
-                  {detail.sample.isBlend &&
-                  detail.sample.status !== 'INVALIDATED' &&
-                  detail.sample.commercialStatus !== 'SOLD' &&
-                  detail.sample.commercialStatus !== 'LOST' &&
-                  blendFeasibility &&
-                  !blendFeasibility.feasible &&
-                  blendFeasibility.blockingOrigins.length > 0 ? (
-                    <div className="sdv-card sdv-card-infeasible">
-                      <span className="sdv-card-title sdv-card-title-danger">Liga inviável</span>
-                      <p className="sdv-empty-text">
-                        {blendFeasibility.blockingOrigins.length === 1
-                          ? 'Uma origem desta liga não tem saldo suficiente para a venda.'
-                          : 'Origens desta liga não têm saldo suficiente para a venda.'}
-                      </p>
-                      <ul className="sdv-infeasible-list">
-                        {blendFeasibility.blockingOrigins.map((origin) => (
-                          <li key={origin.sampleId}>
-                            <Link
-                              href={openSampleHref(origin.sampleId)}
-                              className="sdv-infeasible-origin"
                               onClick={
-                                onOpenSample
+                                effectiveDesktop
                                   ? (event) => {
-                                      event.preventDefault();
-                                      onOpenSample(origin.sampleId);
+                                      event.stopPropagation();
+                                      setClassificationImageModalOpen(true);
+                                    }
+                                  : undefined
+                              }
+                              onKeyDown={
+                                effectiveDesktop
+                                  ? (event) => {
+                                      if (event.key === 'Enter' || event.key === ' ') {
+                                        event.preventDefault();
+                                        setClassificationImageModalOpen(true);
+                                      }
                                     }
                                   : undefined
                               }
                             >
-                              Lote {origin.lotNumber ?? origin.sampleId.slice(0, 8)}
-                            </Link>{' '}
-                            — precisa {origin.contributedSacks} sc, tem {origin.availableSacks} sc
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
+                              {/* next/image nao se aplica: src vem do upload local; dimensoes via CSS */}
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={classPhotoUrl}
+                                alt="Foto da classificação"
+                                className="sdv-cls-block-thumb-img"
+                              />
+                            </div>
+                          ) : (
+                            <div
+                              className="sdv-cls-block-thumb sdv-cls-block-thumb-empty"
+                              aria-hidden="true"
+                            >
+                              Sem foto
+                            </div>
+                          );
+                          const clsFieldsNode = (
+                            <div className="sdv-cls-block-fields">
+                              {/* Classificador sozinho na 1a linha (alinhado a esquerda);
+                            Aspecto/Catação na linha de baixo. Padrão fica so no
+                            expandido, pra enxugar o resumo. */}
+                              <div className="sdv-info-item sdv-cls-fields-classifier">
+                                <span className="sdv-info-label">{classificadorLabel}</span>
+                                <span className="sdv-info-value">{classificador}</span>
+                              </div>
+                              <div className="sdv-info-item">
+                                <span className="sdv-info-label">Aspecto</span>
+                                <span className="sdv-info-value">{aspecto}</span>
+                              </div>
+                              <div className="sdv-info-item">
+                                <span className="sdv-info-label">Catação</span>
+                                <span className="sdv-info-value">{catacao}</span>
+                              </div>
+                            </div>
+                          );
 
-                  {/* Liga B3.2: Composicao da liga (origens + contribuicoes).
+                          // Desktop: ficha completa read-only abaixo do resumo, reusando
+                          // as classes globais cld-* do modal de detalhe. Escondida no
+                          // mobile via CSS (.sdv-cls-extra). So renderiza quando ha cd.
+                          const peneiras: Record<string, unknown> =
+                            cd && isRecord(cd.peneiras) ? cd.peneiras : {};
+                          const defeitos: Record<string, unknown> =
+                            cd && isRecord(cd.defeitos) ? cd.defeitos : {};
+                          const fundosArr = cd && Array.isArray(cd.fundos) ? cd.fundos : [];
+                          const fundoA: Record<string, unknown> = isRecord(fundosArr[0])
+                            ? fundosArr[0]
+                            : {};
+                          const fundoB: Record<string, unknown> = isRecord(fundosArr[1])
+                            ? fundosArr[1]
+                            : {};
+                          const fmtClsDate = (iso: string) => {
+                            if (!iso) return '';
+                            const [y, m, d] = iso.split('-');
+                            return d && m && y ? `${d}/${m}/${y}` : iso;
+                          };
+                          // Campo dos blocos desktop: label (cinza) + valor (escuro).
+                          // Trata '—'/vazio como ausente -> valor cinza claro (.is-empty).
+                          // keyId distingue campos com o MESMO label (ex.: dois "Fundo")
+                          // pra nao colidir a key do React; default = o proprio label.
+                          const clsField = (label: string, raw: unknown, keyId?: string) => {
+                            const s = raw === null || raw === undefined ? '' : String(raw).trim();
+                            const filled = s !== '' && s !== '—';
+                            return (
+                              <div className="sdv-info-item" key={keyId ?? label}>
+                                <span className="sdv-info-label">{label}</span>
+                                <span className={`sdv-info-value${filled ? '' : ' is-empty'}`}>
+                                  {filled ? s : '—'}
+                                </span>
+                              </div>
+                            );
+                          };
+                          // Separador "=" unificado com o modal e o laudo (CL20).
+                          const fundoText = (fundo: Record<string, unknown>) => {
+                            const pen = toText(fundo.peneira);
+                            const pct = toText(fundo.percentual);
+                            if (!pen && !pct) return '';
+                            return `${pen || '—'}${pct ? ` = ${pct}%` : ''}`;
+                          };
+                          const observacoes = cd ? toText(cd.observacoes) : '';
+                          // Layout DESKTOP em blocos (mockup 2026-06-24): foto + bloco de
+                          // stats (Aspecto/Catacao/Padrao · Classificador/Certificacao ·
+                          // Data/Bebida) no topo; Peneiras e Fundos&Defeitos no meio;
+                          // Observacoes embaixo. Escondido no mobile (la usa resumo + modal).
+                          const clsDesktopNode = (
+                            <div className="sdv-cls-desktop">
+                              {clsPhotoNode}
+                              <div className="sdv-cls-statwrap">
+                                <div className="sdv-cls-statbox sdv-cls-statbox--mini">
+                                  <div className="sdv-cls-statbox-row sdv-cls-statbox-row--1">
+                                    {clsField(
+                                      'Data',
+                                      cd ? fmtClsDate(toDateInput(cd.dataClassificacao)) : ''
+                                    )}
+                                  </div>
+                                  <div className="sdv-cls-statbox-row sdv-cls-statbox-row--1">
+                                    {clsField(classificadorLabel, classificadorShort)}
+                                  </div>
+                                </div>
+                                <div className="sdv-cls-statbox sdv-cls-statbox--main">
+                                  <div className="sdv-cls-statbox-row sdv-cls-statbox-row--3">
+                                    {clsField('Aspecto', cd ? toText(cd.aspecto) : '')}
+                                    {clsField(
+                                      'Catação',
+                                      cd ? formatPercentDisplay(cd.catacao) : ''
+                                    )}
+                                    {clsField('Padrão', cd ? toText(cd.padrao) : '')}
+                                  </div>
+                                  <div className="sdv-cls-statbox-row sdv-cls-statbox-row--2">
+                                    {clsField('Certificado', cd ? toText(cd.certif) : '')}
+                                    {clsField('Bebida', cd ? toText(cd.bebida) : '')}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="sdv-cls-blk sdv-cls-blk--peneiras">
+                                <span className="sdv-cls-blk-title">Peneiras</span>
+                                <div className="sdv-cls-blk-grid">
+                                  {clsField('P18', formatPercentDisplay(peneiras.p18))}
+                                  {clsField('P17', formatPercentDisplay(peneiras.p17))}
+                                  {clsField('P16', formatPercentDisplay(peneiras.p16))}
+                                  {clsField('P15', formatPercentDisplay(peneiras.p15))}
+                                  {clsField('P14', formatPercentDisplay(peneiras.p14))}
+                                  {clsField('P13', formatPercentDisplay(peneiras.p13))}
+                                  {clsField('P12', formatPercentDisplay(peneiras.p12))}
+                                  {clsField('P11', formatPercentDisplay(peneiras.p11))}
+                                  {clsField('P10', formatPercentDisplay(peneiras.p10))}
+                                  {clsField('MK', formatPercentDisplay(peneiras.mk))}
+                                  {clsField('Fundo', fundoText(fundoA), 'fundo1')}
+                                  {clsField('Fundo', fundoText(fundoB), 'fundo2')}
+                                </div>
+                              </div>
+                              <div className="sdv-cls-blk sdv-cls-blk--defeitos">
+                                <span className="sdv-cls-blk-title">Defeitos</span>
+                                <div className="sdv-cls-blk-grid">
+                                  {clsField('Impureza', formatPercentDisplay(defeitos.imp))}
+                                  {clsField('PVA', formatPercentDisplay(defeitos.pva))}
+                                  {clsField('Broca', formatPercentDisplay(defeitos.broca))}
+                                  {clsField('GPI', formatPercentDisplay(defeitos.gpi))}
+                                  {clsField('AP', formatPercentDisplay(defeitos.ap))}
+                                  {clsField('Defeito', toText(defeitos.defeito))}
+                                </div>
+                              </div>
+                              <div className="sdv-cls-blk sdv-cls-blk--obs">
+                                <span className="sdv-cls-blk-title">Observações</span>
+                                <span
+                                  className={`sdv-info-value sdv-cls-obs-value${observacoes ? '' : ' is-empty'}`}
+                                >
+                                  {observacoes || '—'}
+                                </span>
+                              </div>
+                            </div>
+                          );
+
+                          return (
+                            <div className="sdv-card sdv-cls-block">
+                              <div className="sdv-card-header">
+                                <div className="sdv-cls-header-title">
+                                  <span className="sdv-card-title">Classificação</span>
+                                </div>
+                                {effectiveDesktop ? (
+                                  // CAM-D2: desktop NAO classifica por foto — os
+                                  // botoes Classificar/Reclassificar (camera) sairam;
+                                  // corrigir uma classificacao existente segue
+                                  // possivel pelo Editar (caminho 3, sem camera).
+                                  isClassified ? (
+                                    <div className="sdv-cls-header-actions">
+                                      <button
+                                        type="button"
+                                        className="sdv-edit-btn"
+                                        onClick={openClassificationEdit}
+                                        aria-label="Editar classificação"
+                                      >
+                                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                                          <path d="M12 20h9" />
+                                          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                                        </svg>
+                                        <span>Editar</span>
+                                      </button>
+                                    </div>
+                                  ) : null
+                                ) : cd ? (
+                                  // Mobile, classificado: "Expandir" abre a
+                                  // classificacao completa.
+                                  <button
+                                    type="button"
+                                    className="sdv-edit-btn"
+                                    onClick={openClassificationDetail}
+                                    aria-label="Expandir classificação"
+                                  >
+                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                      <path d="M15 3h6v6" />
+                                      <path d="M9 21H3v-6" />
+                                      <path d="M21 3l-7 7" />
+                                      <path d="M3 21l7-7" />
+                                    </svg>
+                                    <span>Expandir</span>
+                                  </button>
+                                ) : (
+                                  // Mobile, ainda nao classificado: "Classificar" ocupa
+                                  // o lugar do "Expandir" — botao pequeno/discreto no
+                                  // header (sem o action-card grande no rodape).
+                                  // CAM-P3: abre o sheet global da camera em Flow B.
+                                  <ClassifySampleButton
+                                    sampleId={sampleId}
+                                    disabled={!canClassifyNow}
+                                  />
+                                )}
+                              </div>
+                              {effectiveDesktop ? (
+                                clsDesktopNode
+                              ) : cd ? (
+                                <div
+                                  className="sdv-cls-block-summary sdv-cls-block-clickable"
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={openClassificationDetail}
+                                  onKeyDown={(event) => {
+                                    if (event.key === 'Enter' || event.key === ' ') {
+                                      event.preventDefault();
+                                      openClassificationDetail();
+                                    }
+                                  }}
+                                  aria-label="Ver classificação completa"
+                                >
+                                  {clsPhotoNode}
+                                  {clsFieldsNode}
+                                </div>
+                              ) : (
+                                <div className="sdv-cls-block-summary is-empty">
+                                  {clsPhotoNode}
+                                  {clsFieldsNode}
+                                </div>
+                              )}
+                              {/* "Classificar" agora vive no header do card (mobile,
+                            no lugar do "Expandir"; desktop, ao lado do titulo) —
+                            sem mais o action-card grande no rodape. */}
+                            </div>
+                          );
+                        })()
+                      : null}
+
+                    {activeTab === 'overview' ? (
+                      <>
+                        {/* Liga B4 Fase 7: flag de viabilidade — aviso derivado
+                        (getBlendFeasibility) quando uma origem da liga nao tem
+                        saldo pra cobrir a contribuicao. A liga nao muda de
+                        status; so e sinalizada. */}
+                        {detail.sample.isBlend &&
+                        detail.sample.status !== 'INVALIDATED' &&
+                        detail.sample.commercialStatus !== 'SOLD' &&
+                        detail.sample.commercialStatus !== 'LOST' &&
+                        blendFeasibility &&
+                        !blendFeasibility.feasible &&
+                        blendFeasibility.blockingOrigins.length > 0 ? (
+                          <div className="sdv-card sdv-card-infeasible">
+                            <span className="sdv-card-title sdv-card-title-danger">
+                              Liga inviável
+                            </span>
+                            <p className="sdv-empty-text">
+                              {blendFeasibility.blockingOrigins.length === 1
+                                ? 'Uma origem desta liga não tem saldo suficiente para a venda.'
+                                : 'Origens desta liga não têm saldo suficiente para a venda.'}
+                            </p>
+                            <ul className="sdv-infeasible-list">
+                              {blendFeasibility.blockingOrigins.map((origin) => (
+                                <li key={origin.sampleId}>
+                                  <Link
+                                    href={openSampleHref(origin.sampleId)}
+                                    className="sdv-infeasible-origin"
+                                    onClick={
+                                      onOpenSample
+                                        ? (event) => {
+                                            event.preventDefault();
+                                            onOpenSample(origin.sampleId);
+                                          }
+                                        : undefined
+                                    }
+                                  >
+                                    Lote {origin.lotNumber ?? origin.sampleId.slice(0, 8)}
+                                  </Link>{' '}
+                                  — precisa {origin.contributedSacks} sc, tem{' '}
+                                  {origin.availableSacks} sc
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+
+                        {/* Liga B3.2: Composicao da liga (origens + contribuicoes).
                         Backend mantem `components` em liga revertida (F8.3) —
                         a secao continua visivel como historico. */}
-                  {detail.sample.isBlend && detail.components && detail.components.length > 0 ? (
-                    <div className="sdv-card sdv-blend-composition">
-                      <div className="sdv-card-header">
-                        <span className="sdv-card-title">Composição da liga</span>
-                        <span className="sdv-blend-composition-count">
-                          {detail.components.length}{' '}
-                          {detail.components.length === 1 ? 'registro' : 'registros'}
-                        </span>
-                      </div>
-                      <ul className="sdv-related-list sdv-blend-composition-list">
-                        {detail.components.map((component, idx) => {
-                          const origin = component.originSample;
-                          if (!origin) {
-                            return (
-                              <li key={component.id} className="sdv-empty-text">
-                                Origem removida ou inacessível
-                              </li>
-                            );
-                          }
-                          return (
-                            <li key={component.id}>
-                              <RelatedSampleRow
-                                href={openSampleHref(origin.id)}
-                                onOpen={onOpenSample ? () => onOpenSample(origin.id) : undefined}
-                                lot={origin.internalLotNumber ?? origin.id.slice(0, 8)}
-                                isBlend={origin.isBlend}
-                                harvest={origin.declaredHarvest}
-                                contribution={component.contributedSacks}
-                                status={origin.status}
-                                animationDelay={`${Math.min(idx, 10) * 0.025}s`}
-                              />
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  ) : null}
+                        {detail.sample.isBlend &&
+                        detail.components &&
+                        detail.components.length > 0 ? (
+                          <div className="sdv-card sdv-blend-composition">
+                            <div className="sdv-card-header">
+                              <span className="sdv-card-title">Composição da liga</span>
+                              <span className="sdv-blend-composition-count">
+                                {detail.components.length}{' '}
+                                {detail.components.length === 1 ? 'registro' : 'registros'}
+                              </span>
+                            </div>
+                            <ul className="sdv-related-list sdv-blend-composition-list">
+                              {detail.components.map((component, idx) => {
+                                const origin = component.originSample;
+                                if (!origin) {
+                                  return (
+                                    <li key={component.id} className="sdv-empty-text">
+                                      Origem removida ou inacessível
+                                    </li>
+                                  );
+                                }
+                                return (
+                                  <li key={component.id}>
+                                    <RelatedSampleRow
+                                      href={openSampleHref(origin.id)}
+                                      onOpen={
+                                        onOpenSample ? () => onOpenSample(origin.id) : undefined
+                                      }
+                                      lot={origin.internalLotNumber ?? origin.id.slice(0, 8)}
+                                      isBlend={origin.isBlend}
+                                      harvest={origin.declaredHarvest}
+                                      contribution={component.contributedSacks}
+                                      status={origin.status}
+                                      animationDelay={`${Math.min(idx, 10) * 0.025}s`}
+                                    />
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </div>
+                        ) : null}
 
-                  {/* Liga B3.3: amostra normal comprometida em liga(s) ativa(s).
+                        {/* Liga B3.3: amostra normal comprometida em liga(s) ativa(s).
                         Backend filtra INVALIDATED em activeBlends (Wave A2.5),
                         entao quando liga e revertida a secao desaparece aqui. */}
-                  {!detail.sample.isBlend &&
-                  detail.activeBlends &&
-                  detail.activeBlends.length > 0 ? (
-                    <div className="sdv-card sdv-blend-compromised">
-                      <span className="sdv-card-title">
-                        Comprometida em {detail.activeBlends.length}{' '}
-                        {detail.activeBlends.length === 1 ? 'liga ativa' : 'ligas ativas'}
-                      </span>
-                      <ul className="sdv-related-list">
-                        {detail.activeBlends.map((blend, idx) => (
-                          <li key={blend.sampleId}>
-                            <RelatedSampleRow
-                              href={openSampleHref(blend.sampleId)}
-                              onOpen={onOpenSample ? () => onOpenSample(blend.sampleId) : undefined}
-                              lot={blend.lotNumber ?? blend.sampleId.slice(0, 8)}
-                              isBlend={true}
-                              harvest={blend.declaredHarvest}
-                              contribution={blend.contributedSacks}
-                              status={blend.status}
-                              animationDelay={`${Math.min(idx, 10) * 0.025}s`}
-                            />
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
+                        {!detail.sample.isBlend &&
+                        detail.activeBlends &&
+                        detail.activeBlends.length > 0 ? (
+                          <div className="sdv-card sdv-blend-compromised">
+                            <span className="sdv-card-title">
+                              Comprometida em {detail.activeBlends.length}{' '}
+                              {detail.activeBlends.length === 1 ? 'liga ativa' : 'ligas ativas'}
+                            </span>
+                            <ul className="sdv-related-list">
+                              {detail.activeBlends.map((blend, idx) => (
+                                <li key={blend.sampleId}>
+                                  <RelatedSampleRow
+                                    href={openSampleHref(blend.sampleId)}
+                                    onOpen={
+                                      onOpenSample ? () => onOpenSample(blend.sampleId) : undefined
+                                    }
+                                    lot={blend.lotNumber ?? blend.sampleId.slice(0, 8)}
+                                    isBlend={true}
+                                    harvest={blend.declaredHarvest}
+                                    contribution={blend.contributedSacks}
+                                    status={blend.status}
+                                    animationDelay={`${Math.min(idx, 10) * 0.025}s`}
+                                  />
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
 
-                  {detail.sample.status === 'INVALIDATED' ? (
-                    <div className="sdv-card sdv-card-invalidated">
-                      <span className="sdv-card-title sdv-card-title-danger">Lote deletado</span>
-                      <p className="sdv-empty-text">
-                        Este lote foi deletado e nao aparece mais nas listagens. O numero foi
-                        liberado para reuso.
-                      </p>
-                    </div>
-                  ) : null}
-                </section>
+                        {detail.sample.status === 'INVALIDATED' ? (
+                          <div className="sdv-card sdv-card-invalidated">
+                            <span className="sdv-card-title sdv-card-title-danger">
+                              Lote deletado
+                            </span>
+                            <p className="sdv-empty-text">
+                              Este lote foi deletado e nao aparece mais nas listagens. O numero foi
+                              liberado para reuso.
+                            </p>
+                          </div>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </section>
+                ) : null}
 
-                {/* Bloco comercial unificado — sempre visivel apos a secao geral.
-                    Resumo comercial (com botoes Venda/Perda) + Movimentacoes,
-                    que agora unifica venda/perda + envio de amostra + criacao de
-                    laudo (sendItems vem da projecao de eventos da detail page). */}
-                <section className="stack sample-detail-info-pane sample-detail-commercial-pane">
-                  <SampleMovementsPanel
-                    sample={detail.sample}
-                    movements={detail.movements ?? []}
-                    onOpenSample={onOpenSample}
-                    sendItems={sendHistoryItems}
-                    canEditSend={canPhysicalSend}
-                    onEditSend={(item) => setEditSendItem(item)}
-                    onCancelSend={(sendEventId) => setCancelSendId(sendEventId)}
-                    canEditRegistrationDate={canEditRegistrationStatus(detail.sample.status)}
-                    onEditRegistrationDate={openDateEdit}
-                  />
-                </section>
+                {/* Bloco comercial: o RESUMO (minicards) fica na Visao geral e a
+                    TIMELINE na aba Movimentacoes — o cartao unico virou duas
+                    metades pedidas em separado ao mesmo componente. A timeline
+                    unifica venda/perda + envio de amostra + criacao de laudo
+                    (sendItems vem da projecao de eventos). */}
+                {activeTab !== 'classificacao' ? (
+                  <section className="stack sample-detail-info-pane sample-detail-commercial-pane">
+                    <SampleMovementsPanel
+                      sample={detail.sample}
+                      movements={detail.movements ?? []}
+                      onOpenSample={onOpenSample}
+                      sendItems={sendHistoryItems}
+                      canEditSend={canPhysicalSend}
+                      onEditSend={(item) => setEditSendItem(item)}
+                      onCancelSend={(sendEventId) => setCancelSendId(sendEventId)}
+                      canEditRegistrationDate={canEditRegistrationStatus(detail.sample.status)}
+                      onEditRegistrationDate={openDateEdit}
+                      section={activeTab === 'overview' ? 'summary' : 'timeline'}
+                    />
+                  </section>
+                ) : null}
 
                 {/* FV: o rodape "Deletar" saiu — a acao terminal mora no ⋯
                     do hero, junto de "Reverter liga". */}

@@ -28,6 +28,9 @@ type SampleMovementsPanelProps = {
   // Overlay (F2): o link "via cascata da liga" troca o lote aberto no overlay
   // em vez de navegar; o href segue valido como deep-link.
   onOpenSample?: (sampleId: string) => void;
+  // FV (RD15): o detalhe virou 3 abas — o resumo (minis) fica em "Visao geral"
+  // e a timeline em "Movimentacoes". `both` mantem o cartao unico de antes.
+  section?: 'summary' | 'timeline' | 'both';
 };
 
 function formatMovementDate(value: string): string {
@@ -59,6 +62,7 @@ export function SampleMovementsPanel({
   canEditRegistrationDate,
   onEditRegistrationDate,
   onOpenSample,
+  section = 'both',
 }: SampleMovementsPanelProps) {
   // Timeline unificada de Movimentacoes: registro/chegada (sortKey =
   // sample.createdAt) + venda/perda (sortKey = createdAt) + envio de amostra /
@@ -108,13 +112,19 @@ export function SampleMovementsPanel({
   const commercialLabel = STATUS_LABEL[sample.commercialStatus] ?? 'Disponível';
   const commercialStyle = STATUS_STYLE[sample.commercialStatus] ?? STATUS_STYLE.OPEN;
 
+  const showSummary = section !== 'timeline';
+  const showTimeline = section !== 'summary';
+
   return (
     <section className="sdv-commercial">
       {/* Card unico: Resumo comercial. Minicards no topo, divisoria fina, e a
-          timeline de Movimentacoes embaixo (mesma secao, sem subtitulo/contador). */}
+          timeline de Movimentacoes embaixo (mesma secao, sem subtitulo/contador).
+          FV: as duas metades podem ser pedidas em separado (abas do detalhe). */}
       <div className="sdv-card sdv-com-summary">
         <div className="sdv-card-header">
-          <span className="sdv-card-title">Resumo comercial</span>
+          <span className="sdv-card-title">
+            {showSummary ? 'Resumo comercial' : 'Movimentações'}
+          </span>
           <span
             className="sdv-com-status"
             style={{
@@ -126,277 +136,283 @@ export function SampleMovementsPanel({
             {commercialLabel}
           </span>
         </div>
-        <div className="sdv-com-minis">
-          <div className="sdv-com-mini is-sold">
-            <div className="sdv-com-mini-label">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 19V5" />
-                <path d="m5 12 7-7 7 7" />
-              </svg>
-              <span>Vendidas</span>
+        {showSummary ? (
+          <div className="sdv-com-minis">
+            <div className="sdv-com-mini is-sold">
+              <div className="sdv-com-mini-label">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 19V5" />
+                  <path d="m5 12 7-7 7 7" />
+                </svg>
+                <span>Vendidas</span>
+              </div>
+              <span className="sdv-com-mini-value">{sold}</span>
             </div>
-            <span className="sdv-com-mini-value">{sold}</span>
-          </div>
-          <div className="sdv-com-mini is-lost">
-            <div className="sdv-com-mini-label">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 5v14" />
-                <path d="m5 12 7 7 7-7" />
-              </svg>
-              <span>Perdidas</span>
+            <div className="sdv-com-mini is-lost">
+              <div className="sdv-com-mini-label">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 5v14" />
+                  <path d="m5 12 7 7 7-7" />
+                </svg>
+                <span>Perdidas</span>
+              </div>
+              <span className="sdv-com-mini-value">{lost}</span>
             </div>
-            <span className="sdv-com-mini-value">{lost}</span>
-          </div>
-          <div className="sdv-com-mini is-avail">
-            <div className="sdv-com-mini-label">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <rect x="2" y="7" width="20" height="14" rx="2" />
-                <path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" />
-              </svg>
-              <span>Disponíveis</span>
+            <div className="sdv-com-mini is-avail">
+              <div className="sdv-com-mini-label">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="2" y="7" width="20" height="14" rx="2" />
+                  <path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" />
+                </svg>
+                <span>Disponíveis</span>
+              </div>
+              <span className="sdv-com-mini-value">{available}</span>
             </div>
-            <span className="sdv-com-mini-value">{available}</span>
           </div>
-        </div>
+        ) : null}
 
         {/* Movimentacoes: separadas dos minis so por uma divisoria fina (CSS).
-            O id ancora o deep-link ?focus=movimentacoes (scrollIntoView na page). */}
-        <div id="sdv-movimentacoes" className="sdv-com-movements-section">
-          {hasTimeline ? (
-            <div className="sdv-com-movements" role="list" aria-label="Histórico do lote">
-              {timeline.map((entry, i) => {
-                const animationDelay = `${i * 0.05}s`;
+            O id ancora o deep-link ?focus=movimentacoes. */}
+        {showTimeline ? (
+          <div id="sdv-movimentacoes" className="sdv-com-movements-section">
+            {hasTimeline ? (
+              <div className="sdv-com-movements" role="list" aria-label="Histórico do lote">
+                {timeline.map((entry, i) => {
+                  const animationDelay = `${i * 0.05}s`;
 
-                if (entry.type === 'movement') {
-                  const movement = entry.movement;
-                  const isCancelled = movement.status === 'CANCELLED';
-                  const isSale = movement.movementType === 'SALE';
-                  const buyerLabel = getMovementBuyerLabel(movement);
-                  // Liga B3.6: movimento criado pela cascata de uma liga —
-                  // read-only aqui (cancelar/editar so pela liga raiz).
-                  const cascadedFrom = movement.cascadedFrom ?? null;
-                  return (
-                    <div
-                      key={movement.id}
-                      role="listitem"
-                      className={`sdv-com-mov${isCancelled ? ' is-cancelled' : ''}`}
-                      style={{ animationDelay }}
-                    >
-                      <div className={`sdv-com-mov-icon ${isSale ? 'is-sale' : 'is-loss'}`}>
-                        {isSale ? (
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M12 19V5" />
-                            <path d="m5 12 7-7 7 7" />
-                          </svg>
-                        ) : (
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M12 5v14" />
-                            <path d="m5 12 7 7 7-7" />
-                          </svg>
-                        )}
-                      </div>
-                      <div className="sdv-com-mov-content">
-                        <div className="sdv-com-mov-top">
-                          <span className="sdv-com-mov-qty">{movement.quantitySacks} sacas</span>
-                          <span className={`sdv-com-mov-badge ${isSale ? 'is-sale' : 'is-loss'}`}>
-                            {isSale ? 'Venda' : 'Perda'}
-                          </span>
-                          {isCancelled ? (
-                            <span className="sdv-com-mov-badge is-cancelled">Cancelada</span>
-                          ) : null}
-                        </div>
-                        <div className="sdv-com-mov-bottom">
-                          <span>{formatMovementDate(movement.movementDate)}</span>
-                          {buyerLabel ? (
-                            <>
-                              <span className="sdv-com-mov-sep" />
-                              <span>→ {buyerLabel}</span>
-                            </>
-                          ) : null}
-                          {!isSale && movement.lossReasonText ? (
-                            <>
-                              <span className="sdv-com-mov-sep" />
-                              <span className="sdv-com-mov-reason">{movement.lossReasonText}</span>
-                            </>
-                          ) : null}
-                          {!isCancelled && cascadedFrom ? (
-                            <>
-                              <span className="sdv-com-mov-sep" />
-                              <span className="sdv-com-mov-cascaded-hint">
-                                Via cascata da liga{' '}
-                                <Link
-                                  href={`/samples?lote=${cascadedFrom.sampleId}`}
-                                  onClick={
-                                    onOpenSample
-                                      ? (event) => {
-                                          event.preventDefault();
-                                          onOpenSample(cascadedFrom.sampleId);
-                                        }
-                                      : undefined
-                                  }
-                                >
-                                  {cascadedFrom.lotNumber ?? cascadedFrom.sampleId.slice(0, 8)}
-                                </Link>
-                              </span>
-                            </>
-                          ) : null}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-
-                // Registro/chegada da amostra — somente leitura, ancora o fim da
-                // timeline (evento mais antigo).
-                if (entry.type === 'registration') {
-                  return (
-                    <div
-                      key="registration"
-                      role="listitem"
-                      className="sdv-com-mov"
-                      style={{ animationDelay }}
-                    >
-                      <div className="sdv-com-mov-icon is-registration">
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M4 22V4" />
-                          <path d="M4 4h13l-2 4 2 4H4" />
-                        </svg>
-                      </div>
-                      <div className="sdv-com-mov-content">
-                        <div className="sdv-com-mov-top">
-                          <span className="sdv-com-mov-badge is-registration">Registro</span>
-                          <span className="sdv-com-mov-name">Chegada do lote</span>
-                        </div>
-                        <div className="sdv-com-mov-bottom">
-                          <span>{formatMovementDate(entry.sortKey)}</span>
-                        </div>
-                      </div>
-                      {canEditRegistrationDate ? (
-                        <div className="sdv-com-mov-actions">
-                          <button
-                            type="button"
-                            className="sdv-com-mov-act"
-                            onClick={onEditRegistrationDate}
-                            aria-label="Editar data de chegada"
-                          >
+                  if (entry.type === 'movement') {
+                    const movement = entry.movement;
+                    const isCancelled = movement.status === 'CANCELLED';
+                    const isSale = movement.movementType === 'SALE';
+                    const buyerLabel = getMovementBuyerLabel(movement);
+                    // Liga B3.6: movimento criado pela cascata de uma liga —
+                    // read-only aqui (cancelar/editar so pela liga raiz).
+                    const cascadedFrom = movement.cascadedFrom ?? null;
+                    return (
+                      <div
+                        key={movement.id}
+                        role="listitem"
+                        className={`sdv-com-mov${isCancelled ? ' is-cancelled' : ''}`}
+                        style={{ animationDelay }}
+                      >
+                        <div className={`sdv-com-mov-icon ${isSale ? 'is-sale' : 'is-loss'}`}>
+                          {isSale ? (
                             <svg viewBox="0 0 24 24" aria-hidden="true">
-                              <path d="M12 20h9" />
-                              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                              <path d="M12 19V5" />
+                              <path d="m5 12 7-7 7 7" />
                             </svg>
-                          </button>
+                          ) : (
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M12 5v14" />
+                              <path d="m5 12 7 7 7-7" />
+                            </svg>
+                          )}
                         </div>
-                      ) : null}
-                    </div>
-                  );
-                }
+                        <div className="sdv-com-mov-content">
+                          <div className="sdv-com-mov-top">
+                            <span className="sdv-com-mov-qty">{movement.quantitySacks} sacas</span>
+                            <span className={`sdv-com-mov-badge ${isSale ? 'is-sale' : 'is-loss'}`}>
+                              {isSale ? 'Venda' : 'Perda'}
+                            </span>
+                            {isCancelled ? (
+                              <span className="sdv-com-mov-badge is-cancelled">Cancelada</span>
+                            ) : null}
+                          </div>
+                          <div className="sdv-com-mov-bottom">
+                            <span>{formatMovementDate(movement.movementDate)}</span>
+                            {buyerLabel ? (
+                              <>
+                                <span className="sdv-com-mov-sep" />
+                                <span>→ {buyerLabel}</span>
+                              </>
+                            ) : null}
+                            {!isSale && movement.lossReasonText ? (
+                              <>
+                                <span className="sdv-com-mov-sep" />
+                                <span className="sdv-com-mov-reason">
+                                  {movement.lossReasonText}
+                                </span>
+                              </>
+                            ) : null}
+                            {!isCancelled && cascadedFrom ? (
+                              <>
+                                <span className="sdv-com-mov-sep" />
+                                <span className="sdv-com-mov-cascaded-hint">
+                                  Via cascata da liga{' '}
+                                  <Link
+                                    href={`/samples?lote=${cascadedFrom.sampleId}`}
+                                    onClick={
+                                      onOpenSample
+                                        ? (event) => {
+                                            event.preventDefault();
+                                            onOpenSample(cascadedFrom.sampleId);
+                                          }
+                                        : undefined
+                                    }
+                                  >
+                                    {cascadedFrom.lotNumber ?? cascadedFrom.sampleId.slice(0, 8)}
+                                  </Link>
+                                </span>
+                              </>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
 
-                const item = entry.item;
+                  // Registro/chegada da amostra — somente leitura, ancora o fim da
+                  // timeline (evento mais antigo).
+                  if (entry.type === 'registration') {
+                    return (
+                      <div
+                        key="registration"
+                        role="listitem"
+                        className="sdv-com-mov"
+                        style={{ animationDelay }}
+                      >
+                        <div className="sdv-com-mov-icon is-registration">
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M4 22V4" />
+                            <path d="M4 4h13l-2 4 2 4H4" />
+                          </svg>
+                        </div>
+                        <div className="sdv-com-mov-content">
+                          <div className="sdv-com-mov-top">
+                            <span className="sdv-com-mov-badge is-registration">Registro</span>
+                            <span className="sdv-com-mov-name">Chegada do lote</span>
+                          </div>
+                          <div className="sdv-com-mov-bottom">
+                            <span>{formatMovementDate(entry.sortKey)}</span>
+                          </div>
+                        </div>
+                        {canEditRegistrationDate ? (
+                          <div className="sdv-com-mov-actions">
+                            <button
+                              type="button"
+                              className="sdv-com-mov-act"
+                              onClick={onEditRegistrationDate}
+                              aria-label="Editar data de chegada"
+                            >
+                              <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M12 20h9" />
+                                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                              </svg>
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  }
 
-                // Envio de amostra fisica — editavel/cancelavel (callbacks da
-                // detail page) quando ativo e o status permite enviar.
-                if (item.kind === 'PHYSICAL') {
-                  const cancelled = item.cancelled;
+                  const item = entry.item;
+
+                  // Envio de amostra fisica — editavel/cancelavel (callbacks da
+                  // detail page) quando ativo e o status permite enviar.
+                  if (item.kind === 'PHYSICAL') {
+                    const cancelled = item.cancelled;
+                    return (
+                      <div
+                        key={item.key}
+                        role="listitem"
+                        className={`sdv-com-mov${cancelled ? ' is-cancelled' : ''}`}
+                        style={{ animationDelay }}
+                      >
+                        <div className="sdv-com-mov-icon is-send">
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="m22 2-7 20-4-9-9-4 20-7z" />
+                            <path d="M22 2 11 13" />
+                          </svg>
+                        </div>
+                        <div className="sdv-com-mov-content">
+                          <div className="sdv-com-mov-top">
+                            <span className="sdv-com-mov-badge is-send">Envio</span>
+                            <span className="sdv-com-mov-name">{item.recipientName}</span>
+                            {cancelled ? (
+                              <span className="sdv-com-mov-badge is-cancelled">Cancelado</span>
+                            ) : null}
+                          </div>
+                          <div className="sdv-com-mov-bottom">
+                            <span>Lote físico</span>
+                            <span className="sdv-com-mov-sep" />
+                            <span>{formatMovementDate(item.sentDate)}</span>
+                          </div>
+                        </div>
+                        {!cancelled && canEditSend ? (
+                          <div className="sdv-com-mov-actions">
+                            <button
+                              type="button"
+                              className="sdv-com-mov-act"
+                              onClick={() => onEditSend(item)}
+                              aria-label="Editar envio"
+                            >
+                              <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M12 20h9" />
+                                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                              </svg>
+                            </button>
+                            <button
+                              type="button"
+                              className="sdv-com-mov-act is-danger"
+                              onClick={() => onCancelSend(item.sendEventId)}
+                              aria-label="Cancelar envio"
+                            >
+                              <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M3 6h18" />
+                                <path d="M8 6V4h8v2" />
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                              </svg>
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  }
+
+                  // Criacao de laudo PDF (REPORT) — somente leitura.
                   return (
                     <div
                       key={item.key}
                       role="listitem"
-                      className={`sdv-com-mov${cancelled ? ' is-cancelled' : ''}`}
+                      className="sdv-com-mov"
                       style={{ animationDelay }}
                     >
-                      <div className="sdv-com-mov-icon is-send">
+                      <div className="sdv-com-mov-icon is-report">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="m22 2-7 20-4-9-9-4 20-7z" />
-                          <path d="M22 2 11 13" />
+                          <path d="M7 4.8h7l3 3V19.2H7z" />
+                          <path d="M14 4.8v3h3" />
+                          <path d="M9 12h6" />
+                          <path d="M9 15h6" />
                         </svg>
                       </div>
                       <div className="sdv-com-mov-content">
                         <div className="sdv-com-mov-top">
-                          <span className="sdv-com-mov-badge is-send">Envio</span>
-                          <span className="sdv-com-mov-name">{item.recipientName}</span>
-                          {cancelled ? (
-                            <span className="sdv-com-mov-badge is-cancelled">Cancelado</span>
-                          ) : null}
+                          <span className="sdv-com-mov-badge is-report">Laudo</span>
+                          <span className="sdv-com-mov-name">
+                            {item.recipientName && item.recipientName !== '-'
+                              ? item.recipientName
+                              : 'Laudo PDF'}
+                          </span>
                         </div>
                         <div className="sdv-com-mov-bottom">
-                          <span>Lote físico</span>
-                          <span className="sdv-com-mov-sep" />
-                          <span>{formatMovementDate(item.sentDate)}</span>
+                          <span>{item.dateLabel}</span>
                         </div>
                       </div>
-                      {!cancelled && canEditSend ? (
-                        <div className="sdv-com-mov-actions">
-                          <button
-                            type="button"
-                            className="sdv-com-mov-act"
-                            onClick={() => onEditSend(item)}
-                            aria-label="Editar envio"
-                          >
-                            <svg viewBox="0 0 24 24" aria-hidden="true">
-                              <path d="M12 20h9" />
-                              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                            </svg>
-                          </button>
-                          <button
-                            type="button"
-                            className="sdv-com-mov-act is-danger"
-                            onClick={() => onCancelSend(item.sendEventId)}
-                            aria-label="Cancelar envio"
-                          >
-                            <svg viewBox="0 0 24 24" aria-hidden="true">
-                              <path d="M3 6h18" />
-                              <path d="M8 6V4h8v2" />
-                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-                            </svg>
-                          </button>
-                        </div>
-                      ) : null}
                     </div>
                   );
-                }
-
-                // Criacao de laudo PDF (REPORT) — somente leitura.
-                return (
-                  <div
-                    key={item.key}
-                    role="listitem"
-                    className="sdv-com-mov"
-                    style={{ animationDelay }}
-                  >
-                    <div className="sdv-com-mov-icon is-report">
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M7 4.8h7l3 3V19.2H7z" />
-                        <path d="M14 4.8v3h3" />
-                        <path d="M9 12h6" />
-                        <path d="M9 15h6" />
-                      </svg>
-                    </div>
-                    <div className="sdv-com-mov-content">
-                      <div className="sdv-com-mov-top">
-                        <span className="sdv-com-mov-badge is-report">Laudo</span>
-                        <span className="sdv-com-mov-name">
-                          {item.recipientName && item.recipientName !== '-'
-                            ? item.recipientName
-                            : 'Laudo PDF'}
-                        </span>
-                      </div>
-                      <div className="sdv-com-mov-bottom">
-                        <span>{item.dateLabel}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="sdv-com-empty">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <rect x="2" y="7" width="20" height="14" rx="2" />
-                <path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" />
-              </svg>
-              <span>Nenhuma movimentação registrada</span>
-            </div>
-          )}
-        </div>
+                })}
+              </div>
+            ) : (
+              <div className="sdv-com-empty">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="2" y="7" width="20" height="14" rx="2" />
+                  <path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" />
+                </svg>
+                <span>Nenhuma movimentação registrada</span>
+              </div>
+            )}
+          </div>
+        ) : null}
       </div>
     </section>
   );
