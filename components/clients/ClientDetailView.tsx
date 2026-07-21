@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
 import { createPortal } from 'react-dom';
 
-import { IncompleteIcon } from './IncompleteIcon';
 import {
   ClientInactivateWithCascadeModal,
   type CascadeSample,
@@ -47,7 +46,11 @@ import {
   maskPostalCodeInput,
   maskRegistrationNumberInput,
 } from '../../lib/client-field-formatters';
-import { isClientComplete } from '../../lib/clients/client-completeness';
+import {
+  isClientComplete,
+  labelForMissing,
+  unitIdFromMissing,
+} from '../../lib/clients/client-completeness';
 import { useCepLookup } from '../../lib/clients/use-cep-lookup';
 import { useDocumentMask } from '../../lib/use-document-mask';
 import { useToast } from '../../lib/toast/ToastProvider';
@@ -592,6 +595,24 @@ export function ClientDetailView({
   // (recomendado e ainda vazio no form). Limpa ao digitar (some quando preenche).
   const pendingClass = (field: string, value: string) =>
     isMissing(field) && value.trim().length === 0 ? ' is-pending' : '';
+
+  // Rodada 2: resumo textual das pendencias pro banner do header — campos do
+  // cliente por rotulo + filiais agregadas em contagem ("2 filiais com
+  // pendências"). Substitui os indicadores pulsantes.
+  const pendingSummary = useMemo(() => {
+    if (missingSet.size === 0) return null;
+    const parts = [...missingSet]
+      .filter((key) => !key.startsWith('units[') && key !== 'client')
+      .map((key) => labelForMissing(key));
+    const unitIds = new Set<string>();
+    for (const key of missingSet) {
+      const id = unitIdFromMissing(key);
+      if (id) unitIds.add(id);
+    }
+    if (unitIds.size === 1) parts.push('1 filial com pendências');
+    if (unitIds.size > 1) parts.push(`${unitIds.size} filiais com pendências`);
+    return parts.length > 0 ? parts.join(' · ') : null;
+  }, [missingSet]);
 
   /* ================================================================ */
   /*  Edit client handlers                                            */
@@ -1300,6 +1321,22 @@ export function ClientDetailView({
                   </button>
                 </div>
               </div>
+
+              {/* Rodada 2: pendencias como BANNER discreto (texto + icone fino)
+                  — sai a sinalizacao pulsante "infantil". So em cliente ativo
+                  (inativo ja e terminal). */}
+              {client.status === 'ACTIVE' && pendingSummary ? (
+                <div className="fv-cd-pending" role="note">
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                    <path d="M12 9v4" />
+                    <path d="M12 17h.01" />
+                  </svg>
+                  <span className="fv-cd-pending-text">
+                    <strong>Cadastro incompleto.</strong> Faltam: {pendingSummary}.
+                  </span>
+                </div>
+              ) : null}
             </header>
 
             <NoticeSlot notice={pageNotice} />
@@ -1558,8 +1595,15 @@ export function ClientDetailView({
                                 className={`sdv-unit-card-mini${unit.status === 'INACTIVE' ? ' is-inactive' : ''}${unitIncomplete && unit.status !== 'INACTIVE' ? ' is-incomplete' : ''}`}
                                 onClick={() => openUnitDetailModal(unit)}
                               >
+                                {/* Rodada 2: sai o triangulo pulsante — ponto
+                                    ambar estatico (a barra lateral ambar do
+                                    is-incomplete segue como reforco). */}
                                 {unitIncomplete && unit.status !== 'INACTIVE' ? (
-                                  <IncompleteIcon className="cv2-card-incomplete-badge" />
+                                  <span
+                                    className="fv-cd-dot"
+                                    role="img"
+                                    aria-label="Filial com pendências"
+                                  />
                                 ) : null}
                                 <div className="sdv-unit-card-mini-content">
                                   <span className="sdv-unit-card-mini-name">

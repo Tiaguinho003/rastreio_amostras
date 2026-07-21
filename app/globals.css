@@ -34943,3 +34943,46 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
     padding: 1.15rem 1.5rem 1.4rem;
   }
 }
+
+/* ── Rodada 2 FV: pendencias profissionais no detalhe do cliente ──
+   Banner discreto no header (texto + icone fino) + ponto ambar estatico nos
+   mini-cards de filial — substituem o triangulo pulsante. */
+.fv-cd-pending {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.58rem 0.8rem;
+  background: var(--fv-chip-amber-bg);
+  border: 1px solid rgba(169, 106, 16, 0.26);
+  border-radius: var(--fv-radius);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #6d4a10;
+}
+
+.fv-cd-pending svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  margin-top: 2px;
+  fill: none;
+  stroke: var(--fv-chip-amber-fg);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.fv-cd-pending strong {
+  font-weight: 600;
+  color: var(--fv-chip-amber-fg);
+}
+
+.fv-cd-dot {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--fv-chip-amber-fg);
+}
