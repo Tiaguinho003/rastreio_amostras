@@ -793,14 +793,25 @@ export function SampleDetailView({
         }
         return undefined;
       } finally {
-        // BUG do painel em branco: a guarda de `aborted` tambem valia aqui, e
-        // o carregamento inicial (showLoading) e abortado por QUALQUER refetch
-        // silencioso que chegue no meio — `useListRevalidation` dispara no
-        // primeiro `window.focus` porque o throttle parte de 0. Com o abort, o
-        // `setLoadingDetail(false)` era pulado e nada mais desligava a flag:
-        // ficava `loadingDetail && detail`, combinacao que NENHUM ramo do
-        // render cobria. Quem ligou a flag sempre desliga.
-        if (shouldShowLoading) {
+        // Quem desliga o "carregando" e o request ATUAL, seja ele qual for —
+        // nao "quem ligou a flag". Historico das duas versoes erradas:
+        //
+        // 1. `if (!aborted)` — o carregamento inicial e abortado por qualquer
+        //    refetch que chegue no meio, entao a flag ficava presa em true e o
+        //    painel abria em BRANCO (nenhum ramo do render cobria
+        //    `loadingDetail && detail`).
+        // 2. `if (shouldShowLoading)` — o inicial, ao ser abortado, desligava a
+        //    flag enquanto o refetch que o substituiu (silencioso, sem
+        //    showLoading) ainda estava no ar: caiamos em `!detail &&
+        //    !loadingDetail`, que e o ramo de ERRO, e o "Tentar de novo"
+        //    piscava a toa em toda abertura (o remount do StrictMode aborta o
+        //    primeiro fetch por construcao).
+        //
+        // Com a checagem do controller atual: quem foi substituido nao mexe na
+        // flag (o substituto e que responde por ela) e quem termina como atual
+        // sempre desliga. Assim "carregando" cobre TODA a janela em que ha
+        // request no ar, e o erro so aparece quando de fato acabou sem dados.
+        if (fetchAbortRef.current === controller) {
           setLoadingDetail(false);
         }
       }
