@@ -10908,49 +10908,9 @@ body:has(.app-modal-backdrop) .prospector-fab {
   stroke-linejoin: round;
 }
 
-/* Anexos e Contas bancarias: fora do layout em AMBOS os breakpoints — acessados
-   pelo botao de folha no header -> modal "Documentos" (abas). Os cards continuam
-   no DOM (Anexos guarda o input de upload, acionado por ref mesmo com display:none;
-   Contas mantido por simetria e reuso do corpo). */
-.sdv-page:has(.sdv-client-side-col) .sdv-card-attachments,
-.sdv-page:has(.sdv-client-side-col) .sdv-card-bank-accounts {
-  display: none;
-}
-
-/* Modal "Documentos": abas (Anexos | Contas bancarias) — underline verde. */
-.docs-modal-tabs {
-  display: flex;
-  gap: 0.25rem;
-  padding: 0 clamp(1rem, 3vw, 1.4rem);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-}
-.docs-modal-tab {
-  flex: 1 1 0;
-  background: transparent;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  padding: 0.6rem 0.4rem;
-  font-size: clamp(0.85rem, 3.4vw, 0.95rem);
-  font-weight: 600;
-  color: var(--brand-muted);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition:
-    color 0.15s ease,
-    border-color 0.15s ease;
-}
-.docs-modal-tab.is-active {
-  color: var(--brand-green);
-  border-bottom-color: var(--brand-green);
-}
-
-/* Modal "Documentos": barra com o botao de acao ("Adicionar"/"Nova") acima da lista. */
-.client-attachments-modal-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 0.25rem;
-}
+/* Rodada 2 FV: o modal "Documentos" e o esconde-cards morreram — Anexos e
+   Contas bancarias sao cards SEMPRE visiveis do painel (a ordem mobile ja os
+   previa: order 4 e 5 abaixo). */
 
 @media (max-width: 900px) {
   /* Fundo BRANCO + sombra reforcada (espelha o detalhe do lote). */
@@ -34684,5 +34644,144 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   }
   .fv-row-menu-item.is-danger {
     color: var(--fv-chip-red-fg);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Rodada 2 FV — DETALHE DO CLIENTE como PAINEL DE REGISTRO
+   institucional. Escopo: .client-details-overlay (so o overlay
+   ?cliente= de /cadastros; o detalhe da amostra usa as mesmas
+   classes sdv-* e NAO pode ser afetado). Desktop >=901px: painel
+   940px, header de identidade FLAT (sai o gradiente verde), grid
+   de 2 colunas (Informacoes + Resumo | Endereco/Filiais + Contas
+   + Anexos) e linhas label|valor de definition list.
+   ══════════════════════════════════════════════════════════════ */
+@media (min-width: 901px) {
+  .bottom-sheet.detail-overlay.client-details-overlay {
+    width: min(940px, 94vw);
+  }
+
+  /* Header de identidade: flat institucional — fundo branco, hairline,
+     nome em tinta escura (o gradiente verde do .sdv-identity-card
+     desktop morre AQUI dentro). */
+  .client-details-overlay .sdv-header {
+    padding: 0.35rem 1.15rem 0;
+  }
+  .client-details-overlay .sdv-identity-card {
+    background: #ffffff;
+    border: none;
+    border-bottom: 1px solid var(--fv-line);
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0.5rem 0 0.9rem;
+  }
+  .client-details-overlay .sdv-identity-code {
+    color: var(--ink);
+    font-size: 1.25rem;
+    letter-spacing: -0.01em;
+  }
+  .client-details-overlay .sdv-identity-owner {
+    color: var(--muted);
+    font-size: 0.82rem;
+  }
+  .client-details-overlay .sdv-identity-badge {
+    border: none;
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 0.7rem;
+  }
+  .client-details-overlay .sdv-identity-badge.is-active {
+    color: var(--fv-chip-green-fg);
+    background: var(--fv-chip-green-bg);
+  }
+  .client-details-overlay .sdv-identity-badge.is-inactive {
+    color: var(--fv-chip-red-fg);
+    background: var(--fv-chip-red-bg);
+  }
+
+  /* Conteudo: grid 2 colunas com a lateral independente (side-col vira
+     flex REAL aqui — sobrepoe o flex-column do peek generico e o
+     display:contents base). Footer Inativar atravessa as 2 colunas. */
+  .bottom-sheet.detail-overlay.client-details-overlay
+    .sdv-content-inner:has(> .sdv-client-side-col) {
+    display: grid;
+    grid-template-columns: minmax(0, 1.06fr) minmax(0, 0.94fr);
+    grid-template-areas:
+      'info side'
+      'resumo side'
+      'footer footer';
+    align-items: start;
+    gap: 14px;
+  }
+  .bottom-sheet.detail-overlay.client-details-overlay
+    .sdv-content-inner:has(> .sdv-client-side-col)
+    > .sdv-general {
+    grid-area: info;
+    min-width: 0;
+  }
+  .bottom-sheet.detail-overlay.client-details-overlay
+    .sdv-content-inner:has(> .sdv-client-side-col)
+    > .sdv-client-commercial-section {
+    grid-area: resumo;
+    margin: 0;
+    min-width: 0;
+  }
+  .bottom-sheet.detail-overlay.client-details-overlay
+    .sdv-content-inner:has(> .sdv-client-side-col)
+    > .sdv-client-side-col {
+    grid-area: side;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+  }
+  .bottom-sheet.detail-overlay.client-details-overlay
+    .sdv-content-inner:has(> .sdv-client-side-col)
+    > .sdv-client-status-footer {
+    grid-area: footer;
+  }
+
+  /* Cards do painel: hairline flat (sai qualquer sombra pesada). */
+  .client-details-overlay .sdv-card {
+    background: #ffffff;
+    border: 1px solid var(--fv-line);
+    border-radius: var(--fv-radius-lg);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+  .client-details-overlay .sdv-card-title {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* Informacoes como DEFINITION LIST: label | valor por linha, hairline
+     entre linhas — leitura de registro, nao de formulario. */
+  .client-details-overlay .sdv-info-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .client-details-overlay .sdv-info-item {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr);
+    align-items: baseline;
+    gap: 0.65rem;
+    padding: 0.44rem 0;
+    border-bottom: 1px solid var(--fv-line);
+  }
+  .client-details-overlay .sdv-info-item:last-child {
+    border-bottom: none;
+  }
+  .client-details-overlay .sdv-info-label {
+    font-size: 0.76rem;
+    font-weight: 500;
+    color: var(--muted);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .client-details-overlay .sdv-info-value-row {
+    min-width: 0;
   }
 }

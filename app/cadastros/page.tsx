@@ -749,6 +749,9 @@ function CadastrosPage() {
         title="Cliente"
         ariaLabel="Detalhe do cliente"
         dismissGuardRef={clientDismissGuardRef}
+        // Rodada 2 FV: escopo do painel de registro institucional (largura
+        // maior + grid 2 colunas no desktop) SO neste overlay.
+        className="client-details-overlay"
       >
         {clienteId ? (
           <ClientDetailView

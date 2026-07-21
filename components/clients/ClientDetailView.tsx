@@ -407,8 +407,8 @@ export function ClientDetailView({
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   // Anexos + Contas bancarias saem do layout e viram um botao (icone de folha) no
   // header que abre o modal "Documentos" (abas). Vale pra desktop E mobile.
-  const [documentsModalOpen, setDocumentsModalOpen] = useState(false);
-  const [documentsTab, setDocumentsTab] = useState<'anexos' | 'contas'>('anexos');
+  // Rodada 2 FV: o modal "Documentos" morreu — Anexos e Contas bancarias
+  // viraram cards SEMPRE visiveis no painel (desktop: coluna lateral).
 
   const visibleBankAccounts = showInactiveBankAccounts
     ? bankAccounts
@@ -456,7 +456,6 @@ export function ClientDetailView({
     bankAccountModalOpen ||
     bankAccountDetailOpen ||
     attachmentPreviewOpen ||
-    documentsModalOpen ||
     statusModalOpen ||
     cascadeOpen ||
     unitStatusModalOpen;
@@ -1020,7 +1019,8 @@ export function ClientDetailView({
     if (initialAction === 'editar') {
       openEditClient('info');
     } else if (initialAction === 'documentos') {
-      setDocumentsModalOpen(true);
+      // Rodada 2: documentos moram no proprio painel — abrir ja mostra;
+      // o param e so consumido (deep-links antigos seguem validos).
     } else {
       openStatusModal(client.status === 'ACTIVE' ? 'inactivate' : 'reactivate');
     }
@@ -1285,23 +1285,21 @@ export function ClientDetailView({
                     Cod. {client.code} · {client.personType}
                   </span>
                 </div>
-                {/* Inativar/Reativar saiu do header e virou botao rotulado no fim
-                    da pagina (ver o rodape apos os cards). No lugar antigo fica o
-                    botao de Anexos (icone de folha) que abre o modal — em desktop
-                    E mobile (o card de Anexos fica escondido; so guarda o input). */}
+                {/* Rodada 2 FV: o botao "Documentos" morreu (Anexos/Contas sao
+                    cards visiveis no painel). A acao do header e EDITAR — a
+                    porta unica pra edicao do cadastro (os lapis por card
+                    sairam). Inativar segue no rodape. */}
                 <div className="sdv-identity-actions sdv-identity-actions-client">
                   <button
                     type="button"
-                    className="sdv-identity-btn"
-                    onClick={() => setDocumentsModalOpen(true)}
-                    aria-label="Documentos"
+                    className="fv-btn fv-btn-secondary fv-cd-edit"
+                    onClick={() => openEditClient('info')}
                   >
                     <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
-                      <path d="M14 3v5h5" />
-                      <path d="M9 13h6" />
-                      <path d="M9 17h6" />
+                      <path d="M12 20h9" />
+                      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
                     </svg>
+                    Editar
                   </button>
                 </div>
               </div>
@@ -1446,22 +1444,22 @@ export function ClientDetailView({
                   </div>
                 </section>
 
-                {/* Coluna lateral (desktop): Filiais/Endereco em cima, Resumo
-                    comercial embaixo — juntos somam a altura do card Informacoes.
-                    No mobile o wrapper e display:contents (segue a ordem do DOM:
-                    Resumo, depois Filiais/Endereco). A inversao (Filiais em cima)
-                    e feita via `order` no desktop. */}
-                <div className="sdv-client-side-col">
-                  {/* Resumo comercial — grafico (donut) das contagens por status,
-                    no padrao do "Lotes disponiveis" do dashboard. So apresentacao
-                    (a lista/filtros sairam; os filtros vivem em /samples). */}
-                  <section className="sdv-client-commercial-section">
-                    <ClientCommercialSummaryCard
-                      summary={commercialSummary}
-                      isBuyer={!!client.isBuyer}
-                    />
-                  </section>
+                {/* Resumo comercial — grafico (donut) das contagens por status.
+                    Rodada 2 FV: saiu da side-col e virou filho direto — no grid
+                    do painel institucional ele fica na COLUNA ESQUERDA, abaixo
+                    de Informacoes (area 'resumo'); no mobile a ordem visual nao
+                    muda (rege o `order` das regras mobile). */}
+                <section className="sdv-client-commercial-section">
+                  <ClientCommercialSummaryCard
+                    summary={commercialSummary}
+                    isBuyer={!!client.isBuyer}
+                  />
+                </section>
 
+                {/* Coluna lateral (desktop): Endereco fiscal (PJ) ou Filiais
+                    (PF) + Contas bancarias + Anexos — os "objetos relacionados"
+                    do registro. No mobile o wrapper e display:contents. */}
+                <div className="sdv-client-side-col">
                   {isPj ? (
                     /* Card "Endereco fiscal" (PJ) — fica ABAIXO do Resumo comercial,
                      espelhando a Filiais (PF): ultimo container, coluna unica, mesmo
@@ -2148,100 +2146,6 @@ export function ClientDetailView({
         onInactivate={() => handleBankAccountStatusChange('INACTIVE')}
         onReactivate={() => handleBankAccountStatusChange('ACTIVE')}
       />
-
-      {/* ========== MODAL: Documentos (Anexos + Contas bancarias) — abre pelo botao
-          de folha no header, em desktop E mobile. As abas separam os dois. O input
-          de upload dos anexos vive no card (escondido) e e acionado por ref. */}
-      {documentsModalOpen
-        ? createPortal(
-            <div className="app-modal-backdrop" onClick={() => setDocumentsModalOpen(false)}>
-              <section
-                className="app-modal is-themed is-action client-documents-modal"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="client-documents-modal-title"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <header className="app-modal-header">
-                  <div className="app-modal-title-wrap">
-                    <h3 id="client-documents-modal-title" className="app-modal-title">
-                      Documentos
-                    </h3>
-                  </div>
-                  <button
-                    type="button"
-                    className="app-modal-close"
-                    onClick={() => setDocumentsModalOpen(false)}
-                    aria-label="Fechar"
-                  >
-                    <span aria-hidden="true">&times;</span>
-                  </button>
-                </header>
-                <div className="docs-modal-tabs" role="tablist" aria-label="Documentos">
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={documentsTab === 'anexos'}
-                    className={`docs-modal-tab${documentsTab === 'anexos' ? ' is-active' : ''}`}
-                    onClick={() => setDocumentsTab('anexos')}
-                  >
-                    Anexos
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={documentsTab === 'contas'}
-                    className={`docs-modal-tab${documentsTab === 'contas' ? ' is-active' : ''}`}
-                    onClick={() => setDocumentsTab('contas')}
-                  >
-                    Contas bancárias
-                  </button>
-                </div>
-                <div className="app-modal-content">
-                  {documentsTab === 'anexos' ? (
-                    <>
-                      <div className="client-attachments-modal-toolbar">
-                        <button
-                          type="button"
-                          className="sdv-edit-btn"
-                          onClick={() => attachmentInputRef.current?.click()}
-                          disabled={uploadingAttachment}
-                          aria-label="Adicionar anexo"
-                        >
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M12 5v14" />
-                            <path d="M5 12h14" />
-                          </svg>
-                          <span>{uploadingAttachment ? 'Enviando…' : 'Adicionar'}</span>
-                        </button>
-                      </div>
-                      {attachmentsBody}
-                    </>
-                  ) : (
-                    <>
-                      <div className="client-attachments-modal-toolbar">
-                        <button
-                          type="button"
-                          className="sdv-edit-btn"
-                          onClick={openBankAccountCreate}
-                          aria-label="Nova conta bancária"
-                        >
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M12 5v14" />
-                            <path d="M5 12h14" />
-                          </svg>
-                          <span>Nova</span>
-                        </button>
-                      </div>
-                      {bankAccountsBody}
-                    </>
-                  )}
-                </div>
-              </section>
-            </div>,
-            document.body
-          )
-        : null}
 
       {/* ========== Fechamento Fase 0: Preview de anexo ========== */}
       <ClientAttachmentPreviewModal
