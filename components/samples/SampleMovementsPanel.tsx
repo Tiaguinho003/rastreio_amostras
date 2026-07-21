@@ -45,10 +45,15 @@ type SampleMovementsPanelProps = {
     input: { recipientClientId: string | null; sentDate: string }
   ) => Promise<void>;
   onCancelSend: (sendEventId: string) => void;
-  // Lote editavel: edicao da data de chegada pelo item "Registro" da timeline.
-  // O modal/salvamento vivem na detail page (como os de envio), por callback.
+  // Lote editavel: edicao da data de chegada pelo item "Registro" da timeline —
+  // tambem em dropdown inline (um campo so). O salvamento vive na detail page.
   canEditRegistrationDate: boolean;
-  onEditRegistrationDate: () => void;
+  /** Data de chegada atual (YYYY-MM-DD) — prefill do editor inline. */
+  registrationDate: string;
+  editingRegistrationDate: boolean;
+  onToggleRegistrationDateEdit: () => void;
+  /** Salva a data; lanca em caso de falha (o editor inline mostra a mensagem). */
+  onSubmitRegistrationDate: (receivedDate: string) => Promise<void>;
   // Overlay (F2): o link "via cascata da liga" troca o lote aberto no overlay
   // em vez de navegar; o href segue valido como deep-link.
   onOpenSample?: (sampleId: string) => void;
@@ -183,6 +188,80 @@ function SendEditInline({
   );
 }
 
+// Editor inline da data de chegada: um campo so — o mesmo dropdown do envio,
+// com metade dos campos. Substituiu o painel lateral "Editar data de chegada".
+function RegistrationDateEditInline({
+  initialDate,
+  onCancel,
+  onSubmit,
+}: {
+  initialDate: string;
+  onCancel: () => void;
+  onSubmit: (receivedDate: string) => Promise<void>;
+}) {
+  const [receivedDate, setReceivedDate] = useState(initialDate);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit() {
+    if (saving) return;
+    if (!receivedDate) {
+      setError('Informe a data de chegada');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await onSubmit(receivedDate);
+    } catch (cause) {
+      setError(
+        cause instanceof ApiError
+          ? cause.message
+          : 'Falha ao salvar a data de chegada. Tente novamente.'
+      );
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form
+      className="sdv-com-mov-edit"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void handleSubmit();
+      }}
+    >
+      <div className="sdv-com-mov-edit-fields">
+        <label className="app-modal-field">
+          <span className="app-modal-label">Data de chegada</span>
+          <input
+            type="date"
+            className="app-modal-input"
+            value={receivedDate}
+            max={new Date().toLocaleDateString('en-CA')}
+            onChange={(event) => {
+              setReceivedDate(event.target.value);
+              setError(null);
+            }}
+            disabled={saving}
+          />
+        </label>
+      </div>
+
+      {error ? <p className="sdv-modal-error">{error}</p> : null}
+
+      <div className="sdv-com-mov-edit-actions">
+        <button type="button" className="fv-btn fv-btn-secondary" onClick={onCancel}>
+          Cancelar
+        </button>
+        <button type="submit" className="fv-btn fv-btn-primary" disabled={saving}>
+          {saving ? 'Salvando...' : 'Salvar'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export function SampleMovementsPanel({
   session,
   sample,
@@ -194,7 +273,10 @@ export function SampleMovementsPanel({
   onSubmitSendEdit,
   onCancelSend,
   canEditRegistrationDate,
-  onEditRegistrationDate,
+  registrationDate,
+  editingRegistrationDate,
+  onToggleRegistrationDateEdit,
+  onSubmitRegistrationDate,
   onOpenSample,
   section = 'both',
 }: SampleMovementsPanelProps) {
@@ -395,41 +477,53 @@ export function SampleMovementsPanel({
                   // timeline (evento mais antigo).
                   if (entry.type === 'registration') {
                     return (
-                      <div
-                        key="registration"
-                        role="listitem"
-                        className="sdv-com-mov"
-                        style={{ animationDelay }}
-                      >
-                        <div className="sdv-com-mov-icon is-registration">
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M4 22V4" />
-                            <path d="M4 4h13l-2 4 2 4H4" />
-                          </svg>
+                      <div key="registration" role="listitem" className="sdv-com-mov-group">
+                        <div
+                          className={`sdv-com-mov${editingRegistrationDate ? ' is-editing' : ''}`}
+                          style={{ animationDelay }}
+                        >
+                          <div className="sdv-com-mov-icon is-registration">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M4 22V4" />
+                              <path d="M4 4h13l-2 4 2 4H4" />
+                            </svg>
+                          </div>
+                          <div className="sdv-com-mov-content">
+                            <div className="sdv-com-mov-top">
+                              <span className="sdv-com-mov-badge is-registration">Registro</span>
+                              <span className="sdv-com-mov-name">Chegada do lote</span>
+                            </div>
+                            <div className="sdv-com-mov-bottom">
+                              <span>{formatMovementDate(entry.sortKey)}</span>
+                            </div>
+                          </div>
+                          {canEditRegistrationDate ? (
+                            <div className="sdv-com-mov-actions">
+                              <button
+                                type="button"
+                                className={`sdv-com-mov-act${editingRegistrationDate ? ' is-active' : ''}`}
+                                onClick={onToggleRegistrationDateEdit}
+                                aria-label={
+                                  editingRegistrationDate
+                                    ? 'Fechar edição da data de chegada'
+                                    : 'Editar data de chegada'
+                                }
+                                aria-expanded={editingRegistrationDate}
+                              >
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                  <path d="M12 20h9" />
+                                  <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                                </svg>
+                              </button>
+                            </div>
+                          ) : null}
                         </div>
-                        <div className="sdv-com-mov-content">
-                          <div className="sdv-com-mov-top">
-                            <span className="sdv-com-mov-badge is-registration">Registro</span>
-                            <span className="sdv-com-mov-name">Chegada do lote</span>
-                          </div>
-                          <div className="sdv-com-mov-bottom">
-                            <span>{formatMovementDate(entry.sortKey)}</span>
-                          </div>
-                        </div>
-                        {canEditRegistrationDate ? (
-                          <div className="sdv-com-mov-actions">
-                            <button
-                              type="button"
-                              className="sdv-com-mov-act"
-                              onClick={onEditRegistrationDate}
-                              aria-label="Editar data de chegada"
-                            >
-                              <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M12 20h9" />
-                                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                              </svg>
-                            </button>
-                          </div>
+                        {canEditRegistrationDate && editingRegistrationDate ? (
+                          <RegistrationDateEditInline
+                            initialDate={registrationDate}
+                            onCancel={onToggleRegistrationDateEdit}
+                            onSubmit={onSubmitRegistrationDate}
+                          />
                         ) : null}
                       </div>
                     );

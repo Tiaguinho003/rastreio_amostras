@@ -585,13 +585,10 @@ export function SampleDetailView({
   const [editSendEventId, setEditSendEventId] = useState<string | null>(null);
   const [cancelSendId, setCancelSendId] = useState<string | null>(null);
 
-  // Lote editavel: painel de edicao da data de chegada (createdAt do lote),
-  // acionado pelo item "Registro" da timeline de Movimentacoes.
+  // Lote editavel: edicao da data de chegada (createdAt do lote) pelo item
+  // "Registro" da timeline. Como o envio, virou dropdown INLINE no card — aqui
+  // fica so o "esta aberto?", pra entrar no detailBusy.
   const [dateEditOpen, setDateEditOpen] = useState(false);
-  const [dateEditValue, setDateEditValue] = useState('');
-  const [dateEditSaving, setDateEditSaving] = useState(false);
-  const [dateEditError, setDateEditError] = useState<string | null>(null);
-  const [dateEditSuccess, setDateEditSuccess] = useState(false);
 
   const [sendHistory, setSendHistory] = useState<SampleEvent[]>([]);
   const [, setLoadingSendHistory] = useState(false);
@@ -1576,45 +1573,27 @@ export function SampleDetailView({
     }
   }
 
-  // Lote editavel: abre o modal de edicao da data de chegada com a data atual do
-  // lote (createdAt) pre-preenchida — usa os 10 primeiros chars do ISO pra bater
-  // com o que a timeline exibe via formatMovementDate.
-  function openDateEdit() {
+  // Lote editavel: alterna o dropdown inline da data de chegada no card
+  // "Registro" da timeline (o prefill vem do proprio createdAt do lote).
+  function toggleDateEdit() {
     if (!detail || !canEditRegistrationStatus(detail.sample.status)) {
       return;
     }
-    setDateEditValue((detail.sample.createdAt ?? '').slice(0, 10));
-    setDateEditError(null);
-    setDateEditSuccess(false);
-    setDateEditOpen(true);
+    setDateEditOpen((current) => !current);
   }
 
-  async function submitDateEdit() {
-    if (!session || !detail || dateEditSaving) {
-      return;
-    }
-    if (!dateEditValue) {
-      setDateEditError('Informe a data de chegada');
-      return;
-    }
-    setDateEditSaving(true);
-    setDateEditError(null);
+  // Salvamento do editor inline da data. Lanca em caso de falha — quem mostra
+  // a mensagem e o proprio editor, dentro do card.
+  async function submitRegistrationDate(receivedDate: string) {
+    if (!detail) return;
     try {
       // Edicao rapida: motivo fixo DATA_FIX (nao exige justificativa do usuario).
       await updateRegistration(session, sampleId, {
         expectedVersion: detail.sample.version,
-        after: { receivedDate: dateEditValue },
+        after: { receivedDate },
         reasonCode: 'DATA_FIX',
         reasonText: 'Ajuste da data de chegada',
       });
-      // Check canonico (rodada 6): sucesso vira o check sobre o painel, que
-      // fecha sozinho. O sync roda por baixo, com o check ainda na tela.
-      setDateEditSuccess(true);
-      window.setTimeout(() => {
-        setDateEditOpen(false);
-        setDateEditSuccess(false);
-      }, 1000);
-      await syncDetailState();
     } catch (cause) {
       // 409 "No registration changes detected" = mesma data -> fecha silencioso.
       if (
@@ -1623,14 +1602,12 @@ export function SampleDetailView({
         /no registration changes/i.test(cause.message)
       ) {
         setDateEditOpen(false);
-      } else if (cause instanceof ApiError) {
-        setDateEditError(cause.message);
-      } else {
-        setDateEditError('Falha ao salvar a data de chegada');
+        return;
       }
-    } finally {
-      setDateEditSaving(false);
+      throw cause;
     }
+    setDateEditOpen(false);
+    await syncDetailState();
   }
 
   function readClassifiersFromDetail(data: unknown): ClassifierSnapshot[] {
@@ -2625,7 +2602,10 @@ export function SampleDetailView({
                       onSubmitSendEdit={submitSendEdit}
                       onCancelSend={(sendEventId) => setCancelSendId(sendEventId)}
                       canEditRegistrationDate={canEditRegistrationStatus(detail.sample.status)}
-                      onEditRegistrationDate={openDateEdit}
+                      registrationDate={(detail.sample.createdAt ?? '').slice(0, 10)}
+                      editingRegistrationDate={dateEditOpen}
+                      onToggleRegistrationDateEdit={toggleDateEdit}
+                      onSubmitRegistrationDate={submitRegistrationDate}
                       section={activeTab === 'overview' ? 'summary' : 'timeline'}
                     />
                   </section>
@@ -3010,62 +2990,8 @@ export function SampleDetailView({
         }}
       />
 
-      {/* Lote editavel: painel de edicao rapida da data de chegada (createdAt),
-          acionado pelo botao no item "Registro" da timeline. Sem justificativa. */}
-      <BottomSheet
-        open={dateEditOpen}
-        onClose={() => setDateEditOpen(false)}
-        onDismissAttempt={() => !dateEditSaving && !dateEditSuccess}
-        title="Editar data de chegada"
-        ariaLabel="Editar data de chegada"
-        stacked
-        closeVariant="edge-back"
-        dragDisabled={dateEditSaving || dateEditSuccess}
-        className="fv-panel-sheet side-sheet sample-date-edit-sheet"
-        footer={
-          dateEditSuccess ? null : (
-            <button
-              type="submit"
-              form="sample-date-edit-form"
-              className="app-modal-submit"
-              disabled={dateEditSaving || !dateEditValue}
-            >
-              {dateEditSaving ? 'Salvando...' : 'Salvar'}
-            </button>
-          )
-        }
-      >
-        <>
-          <form
-            id="sample-date-edit-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void submitDateEdit();
-            }}
-          >
-            <label className="app-modal-field">
-              <span className="app-modal-label">Data de chegada</span>
-              <input
-                type="date"
-                className="app-modal-input"
-                value={dateEditValue}
-                max={new Date().toLocaleDateString('en-CA')}
-                onChange={(event) => {
-                  setDateEditValue(event.target.value);
-                  setDateEditError(null);
-                }}
-                disabled={dateEditSaving}
-              />
-            </label>
-
-            {/* NoticeSlot so quando ha erro: o slot vazio tem min-height 1.25rem
-                + gaps, criando espaco morto abaixo do campo. */}
-            {dateEditError ? <NoticeSlot notice={{ kind: 'error', text: dateEditError }} /> : null}
-          </form>
-
-          <SuccessCheckOverlay show={dateEditSuccess} />
-        </>
-      </BottomSheet>
+      {/* A edicao rapida da data de chegada NAO tem painel: e um dropdown
+          inline no card "Registro" da timeline (SampleMovementsPanel). */}
 
       <BottomSheet
         open={registrationEditMode}
