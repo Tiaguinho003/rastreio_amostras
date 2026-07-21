@@ -34169,10 +34169,20 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   }
 
   .fv-table tbody td {
-    padding: 0.65rem 0.85rem;
+    padding: 0.7rem 0.85rem;
     border-bottom: 1px solid var(--fv-line);
     vertical-align: middle;
     color: var(--ink);
+  }
+
+  /* Rodada 2: respiro nas bordas do cartao (primeira/ultima coluna). */
+  .fv-table thead th:first-child,
+  .fv-table tbody td:first-child {
+    padding-left: 1.15rem;
+  }
+  .fv-table thead th:last-child,
+  .fv-table tbody td:last-child {
+    padding-right: 1.15rem;
   }
 
   .fv-table tbody tr:last-child td {
@@ -34219,6 +34229,11 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
     font-size: 0.7rem;
     font-weight: 700;
     letter-spacing: 0.02em;
+  }
+
+  /* Rodada 2: PJ = quadrado arredondado (empresa), PF segue circulo. */
+  .fv-table-avatar.is-pj {
+    border-radius: 9px;
   }
 
   .fv-table-name-btn {

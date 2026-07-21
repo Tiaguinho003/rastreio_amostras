@@ -1025,8 +1025,11 @@ export function ClientsBrowser({
                     >
                       <td>
                         <span className="fv-table-client">
+                          {/* Rodada 2: forma do avatar segue o tipo — PJ quadrado
+                              arredondado, PF circulo (padrao dos CRMs
+                              institucionais: empresa vs pessoa). */}
                           <span
-                            className="fv-table-avatar"
+                            className={`fv-table-avatar${client.personType === 'PJ' ? ' is-pj' : ''}`}
                             aria-hidden="true"
                             style={
                               {
@@ -1062,7 +1065,18 @@ export function ClientsBrowser({
                         )}
                       </td>
                       <td>
-                        <span className="fv-table-cell-main">{doc ?? '—'}</span>
+                        {/* Rodada 2: valor + rotulo do tipo — mesma cadencia de
+                            2 linhas das colunas Cliente e Contato. */}
+                        {doc ? (
+                          <span className="fv-table-cell-stack">
+                            <span className="fv-table-cell-main">{doc}</span>
+                            <span className="fv-table-sub">
+                              {client.personType === 'PJ' ? 'CNPJ' : 'CPF'}
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="fv-table-cell-main">—</span>
+                        )}
                       </td>
                       <td>
                         {phone || client.email ? (
@@ -1090,7 +1104,14 @@ export function ClientsBrowser({
                         )}
                       </td>
                       <td>
-                        <span className="fv-table-sub">
+                        <span
+                          className="fv-table-sub"
+                          title={
+                            client.updatedAt
+                              ? new Date(client.updatedAt).toLocaleString('pt-BR')
+                              : undefined
+                          }
+                        >
                           {client.updatedAt ? formatRelativeTime(client.updatedAt, nowMs) : '—'}
                         </span>
                       </td>
