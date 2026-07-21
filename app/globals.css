@@ -35980,3 +35980,174 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
     animation: none;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   FV /samples · F2 — FICHA DE CLASSIFICACAO INLINE (RD15, decisao 10)
+   ══════════════════════════════════════════════════════════════
+   A ficha completa deixou de morar num modal (`.cld-modal`) e virou o
+   conteudo da aba Classificacao. O layout de 2 colunas do mockup de
+   2026-06-24 (`.sdv-page--sample .sdv-cls-desktop`, grid-areas
+   photo|stats / pen|def / pen|obs) nao cabe na coluna de 620px do
+   drawer: aqui os blocos EMPILHAM. Aquele bloco continua morto por
+   seletor (`.sdv-page--sample` saiu do DOM na F2 do overlay).
+   Escopo `.lote-details-overlay` — as classes `sdv-cls-*` sao lidas
+   tambem pelo resumo antigo e pelo modal. */
+
+.lote-details-overlay .fv-sd-ficha {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: clamp(3px, 1vw, 5px);
+}
+
+/* Foto: faixa larga no topo (antes era um quadradinho ao lado dos campos). */
+.lote-details-overlay .fv-sd-ficha > .sdv-cls-block-thumb {
+  align-self: auto;
+  width: 100%;
+  height: 168px;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  background: #f4f6f4;
+  border-radius: var(--fv-radius);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 140ms ease;
+}
+.lote-details-overlay .fv-sd-ficha > .sdv-cls-block-thumb:active {
+  transform: scale(0.99);
+}
+.lote-details-overlay .fv-sd-ficha > .sdv-cls-block-thumb-empty {
+  height: 84px;
+  cursor: default;
+}
+
+/* Stats: Data | Classificador lado a lado, depois Aspecto/Catacao/Padrao e
+   Certificado/Bebida. Duas molduras hairline, como os blocos nomeados. */
+.lote-details-overlay .fv-sd-ficha .sdv-cls-statwrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.lote-details-overlay .fv-sd-ficha .sdv-cls-statbox {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--fv-line);
+  border-radius: var(--fv-radius);
+  padding: 0.35rem 0.75rem;
+}
+/* O bloco "mini" tem duas linhas de 1 coluna — na coluna estreita elas
+   ficam LADO A LADO (Data · Classificador). */
+.lote-details-overlay .fv-sd-ficha .sdv-cls-statbox--mini {
+  flex-direction: row;
+}
+.lote-details-overlay .fv-sd-ficha .sdv-cls-statbox--mini .sdv-cls-statbox-row {
+  flex: 1;
+  min-width: 0;
+}
+.lote-details-overlay
+  .fv-sd-ficha
+  .sdv-cls-statbox--mini
+  .sdv-cls-statbox-row
+  + .sdv-cls-statbox-row {
+  border-left: 1px solid var(--fv-line);
+  padding-left: 0.75rem;
+}
+.lote-details-overlay .fv-sd-ficha .sdv-cls-statbox-row {
+  display: grid;
+  gap: 2px 0.7rem;
+  padding: 0.4rem 0;
+  text-align: center;
+}
+.lote-details-overlay
+  .fv-sd-ficha
+  .sdv-cls-statbox--main
+  .sdv-cls-statbox-row
+  + .sdv-cls-statbox-row {
+  border-top: 1px solid var(--fv-line);
+}
+.lote-details-overlay .fv-sd-ficha .sdv-cls-statbox-row--1 {
+  grid-template-columns: minmax(0, 1fr);
+}
+.lote-details-overlay .fv-sd-ficha .sdv-cls-statbox-row--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.lote-details-overlay .fv-sd-ficha .sdv-cls-statbox-row--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.lote-details-overlay .fv-sd-ficha .sdv-cls-statbox-row--3 .sdv-info-value {
+  font-size: 1rem;
+}
+
+/* Blocos nomeados: Peneiras (4 colunas — 12 campos em 3 linhas), Defeitos
+   (3 colunas) e Observacoes (texto corrido). */
+.lote-details-overlay .fv-sd-ficha .sdv-cls-blk {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--fv-line);
+  border-radius: var(--fv-radius);
+  padding: 0.6rem 0.75rem 0.7rem;
+}
+.lote-details-overlay .fv-sd-ficha .sdv-cls-blk-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+.lote-details-overlay .fv-sd-ficha .sdv-cls-blk-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem 0.7rem;
+}
+.lote-details-overlay .fv-sd-ficha .sdv-cls-blk--peneiras .sdv-cls-blk-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.lote-details-overlay .fv-sd-ficha .sdv-info-item {
+  padding: 0;
+  min-width: 0;
+}
+.lote-details-overlay .fv-sd-ficha .sdv-info-label {
+  margin-bottom: 2px;
+}
+.lote-details-overlay .fv-sd-ficha .sdv-info-value.is-empty {
+  color: #cdcdcd;
+  font-weight: 500;
+}
+/* Peneira preenchida em verde: o acento que o mockup deu ao bloco. */
+.lote-details-overlay .fv-sd-ficha .sdv-cls-blk--peneiras .sdv-info-value:not(.is-empty) {
+  color: var(--fv-cta);
+}
+/* Observacoes: texto corrido (no drawer ha largura; o modal antigo cortava
+   em 1 linha). */
+.lote-details-overlay .fv-sd-ficha .sdv-cls-blk--obs .sdv-cls-obs-value {
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
+
+/* Estado vazio da aba (lote ainda sem classificacao). */
+.lote-details-overlay .sdv-cls-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 1.6rem 1rem 1.4rem;
+  text-align: center;
+}
+.lote-details-overlay .sdv-cls-empty svg {
+  width: 34px;
+  height: 34px;
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.6;
+}
+.lote-details-overlay .sdv-cls-empty-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}

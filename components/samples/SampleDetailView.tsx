@@ -240,27 +240,9 @@ function buildClassificationFormState(detail: SampleDetailResponse): Classificat
 // <CameraSheetProvider>" e derrubava o detalhe inteiro (bug b2e75b2), dai os
 // gatilhos virarem satelites que consomem o contexto ja dentro dos children.
 // Desde a F2 o `SampleDetailView` vive no overlay de /samples (children do
-// AppShell) e TAMBEM pode consumir o contexto (ex.: watcher pos-camera);
-// os satelites ficam por coesao — cada gatilho carrega o proprio consumo.
-function ClassifySampleButton({ sampleId, disabled }: { sampleId: string; disabled: boolean }) {
-  const cameraSheet = useCameraSheet();
-  return (
-    <button
-      type="button"
-      className="sdv-edit-btn"
-      onClick={() => cameraSheet.open({ sampleId })}
-      disabled={disabled}
-      aria-label="Classificar"
-    >
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="11" cy="11" r="8" />
-        <path d="m21 21-4.35-4.35" />
-      </svg>
-      <span>Classificar</span>
-    </button>
-  );
-}
-
+// AppShell) e consome o contexto direto — o botao Classificar/Reclassificar do
+// hero (FV) abre a camera dali. Este satelite ficou pro modal de confirmacao,
+// que dispara a reclassificacao de dentro de um portal.
 function ReclassifySampleButton({
   sampleId,
   onBeforeOpen,
@@ -548,15 +530,6 @@ export function SampleDetailView({
   const [invalidateModalNotice, setInvalidateModalNotice] = useState<Notice>(null);
 
   const [classificationImageModalOpen, setClassificationImageModalOpen] = useState(false);
-  // Desktop (>=901px): no card de classificacao, mostra Editar/Reclassificar no
-  // header e torna a foto clicavel; o mobile mantem o "Expandir". matchMedia
-  // client-side — o card so renderiza apos o fetch dos dados, sem hydration mismatch.
-  // O overlay e sempre coluna unica (peek de 620px no desktop): o card de
-  // classificacao rende a variante mobile em qualquer viewport. Os ramos
-  // desktop (clsDesktopNode + Editar do header, mockup 2026-06-24) ficam
-  // DORMENTES atras desta constante ate a FV decidir o layout desktop do
-  // detalhe (RD6) — mesmo padrao do CSS 2-colunas, morto por seletor.
-  const effectiveDesktop = false;
   // Links detalhe→detalhe: no overlay trocam o lote via callback (replace do
   // ?lote=); o href aponta pra lista com o param — deep-link equivalente.
   const openSampleHref = (id: string) => `/samples?lote=${id}`;
@@ -2204,9 +2177,6 @@ export function SampleDetailView({
                             ? `/api/v1/samples/${sampleId}/photos/${classificationAttachment.id}`
                             : null;
                           const cd = (classData ?? null) as Record<string, unknown> | null;
-                          const aspecto = cd ? String(cd.aspecto ?? '—') : '—';
-                          // Catação é percentual: sufixa "%" igual ao laudo (CL19).
-                          const catacao = cd ? (formatPercentDisplay(cd.catacao) ?? '—') : '—';
                           // Classificadores: campo canonico `classificadores` (array de
                           // snapshots). Fallback para `conferidoPor` (eventos antigos) ou
                           // string legacy `classificador`.
@@ -2217,25 +2187,14 @@ export function SampleDetailView({
                                 ? cd.conferidoPor
                                 : null
                             : null;
-                          const classificador = classifiersArr
-                            ? classifiersArr
-                                .map((c) =>
-                                  c && typeof c === 'object' && 'fullName' in c
-                                    ? String((c as { fullName: unknown }).fullName)
-                                    : ''
-                                )
-                                .filter(Boolean)
-                                .join(', ') || '—'
-                            : cd && typeof cd.classificador === 'string' && cd.classificador.trim()
-                              ? cd.classificador
-                              : '—';
                           const classificadorLabel =
                             classifiersArr && classifiersArr.length > 1
                               ? 'Classificadores'
                               : 'Classificador';
-                          // Versao "primeiro nome" pro card desktop (bloco mini, estreito):
-                          // so o 1o nome de cada classificador, evitando corte de nomes
-                          // longos. Resumo mobile e modal de edicao seguem com nome completo.
+                          // Ficha inline: bloco estreito (metade da largura da coluna),
+                          // entao vale so o PRIMEIRO nome de cada classificador — nomes
+                          // longos seriam truncados. O modal de edicao segue com o
+                          // nome completo.
                           const firstNameOf = (full: string) => full.trim().split(/\s+/)[0] ?? '';
                           const classificadorShort = classifiersArr
                             ? classifiersArr
@@ -2250,38 +2209,13 @@ export function SampleDetailView({
                               ? firstNameOf(cd.classificador)
                               : '—';
 
-                          const isClassified = detail.sample.status === 'CLASSIFIED';
-                          const canClassifyNow = detail.sample.status === 'REGISTRATION_CONFIRMED';
-
-                          // Conteiner sempre com o mesmo layout: area da foto + os 3 campos
-                          // sempre visiveis. Sem classificacao => placeholder "Sem foto" e
-                          // valores "—" (labels mais opacos via .sdv-cls-block-summary.is-empty).
+                          // Foto da ficha: faixa larga no topo, clicavel pra ampliar.
                           const clsPhotoNode = classPhotoUrl ? (
-                            <div
+                            <button
+                              type="button"
                               className="sdv-cls-block-thumb"
-                              role={effectiveDesktop ? 'button' : undefined}
-                              tabIndex={effectiveDesktop ? 0 : undefined}
-                              aria-label={
-                                effectiveDesktop ? 'Ampliar foto da classificação' : undefined
-                              }
-                              onClick={
-                                effectiveDesktop
-                                  ? (event) => {
-                                      event.stopPropagation();
-                                      setClassificationImageModalOpen(true);
-                                    }
-                                  : undefined
-                              }
-                              onKeyDown={
-                                effectiveDesktop
-                                  ? (event) => {
-                                      if (event.key === 'Enter' || event.key === ' ') {
-                                        event.preventDefault();
-                                        setClassificationImageModalOpen(true);
-                                      }
-                                    }
-                                  : undefined
-                              }
+                              aria-label="Ampliar foto da classificação"
+                              onClick={() => setClassificationImageModalOpen(true)}
                             >
                               {/* next/image nao se aplica: src vem do upload local; dimensoes via CSS */}
                               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2290,7 +2224,7 @@ export function SampleDetailView({
                                 alt="Foto da classificação"
                                 className="sdv-cls-block-thumb-img"
                               />
-                            </div>
+                            </button>
                           ) : (
                             <div
                               className="sdv-cls-block-thumb sdv-cls-block-thumb-empty"
@@ -2299,29 +2233,9 @@ export function SampleDetailView({
                               Sem foto
                             </div>
                           );
-                          const clsFieldsNode = (
-                            <div className="sdv-cls-block-fields">
-                              {/* Classificador sozinho na 1a linha (alinhado a esquerda);
-                            Aspecto/Catação na linha de baixo. Padrão fica so no
-                            expandido, pra enxugar o resumo. */}
-                              <div className="sdv-info-item sdv-cls-fields-classifier">
-                                <span className="sdv-info-label">{classificadorLabel}</span>
-                                <span className="sdv-info-value">{classificador}</span>
-                              </div>
-                              <div className="sdv-info-item">
-                                <span className="sdv-info-label">Aspecto</span>
-                                <span className="sdv-info-value">{aspecto}</span>
-                              </div>
-                              <div className="sdv-info-item">
-                                <span className="sdv-info-label">Catação</span>
-                                <span className="sdv-info-value">{catacao}</span>
-                              </div>
-                            </div>
-                          );
-
-                          // Desktop: ficha completa read-only abaixo do resumo, reusando
-                          // as classes globais cld-* do modal de detalhe. Escondida no
-                          // mobile via CSS (.sdv-cls-extra). So renderiza quando ha cd.
+                          // Ficha completa read-only (FV: era o ramo desktop dormente do
+                          // mockup de 2026-06-24; agora e o conteudo da aba, adaptado a
+                          // coluna unica de 620px).
                           const peneiras: Record<string, unknown> =
                             cd && isRecord(cd.peneiras) ? cd.peneiras : {};
                           const defeitos: Record<string, unknown> =
@@ -2362,12 +2276,13 @@ export function SampleDetailView({
                             return `${pen || '—'}${pct ? ` = ${pct}%` : ''}`;
                           };
                           const observacoes = cd ? toText(cd.observacoes) : '';
-                          // Layout DESKTOP em blocos (mockup 2026-06-24): foto + bloco de
-                          // stats (Aspecto/Catacao/Padrao · Classificador/Certificacao ·
-                          // Data/Bebida) no topo; Peneiras e Fundos&Defeitos no meio;
-                          // Observacoes embaixo. Escondido no mobile (la usa resumo + modal).
-                          const clsDesktopNode = (
-                            <div className="sdv-cls-desktop">
+                          // Ficha inline em blocos empilhados (coluna de 620px): foto
+                          // larga no topo, stats (Data/Classificador · Aspecto/Catacao/
+                          // Padrao · Certificado/Bebida), Peneiras, Defeitos e
+                          // Observacoes. O ramo de 2 colunas do mockup de 2026-06-24
+                          // (grid-areas photo|stats / pen|def / pen|obs) nao cabe aqui.
+                          const fichaNode = (
+                            <div className="fv-sd-ficha">
                               {clsPhotoNode}
                               <div className="sdv-cls-statwrap">
                                 <div className="sdv-cls-statbox sdv-cls-statbox--mini">
@@ -2441,83 +2356,42 @@ export function SampleDetailView({
                                 <div className="sdv-cls-header-title">
                                   <span className="sdv-card-title">Classificação</span>
                                 </div>
-                                {effectiveDesktop ? (
-                                  // CAM-D2: desktop NAO classifica por foto — os
-                                  // botoes Classificar/Reclassificar (camera) sairam;
-                                  // corrigir uma classificacao existente segue
-                                  // possivel pelo Editar (caminho 3, sem camera).
-                                  isClassified ? (
-                                    <div className="sdv-cls-header-actions">
-                                      <button
-                                        type="button"
-                                        className="sdv-edit-btn"
-                                        onClick={openClassificationEdit}
-                                        aria-label="Editar classificação"
-                                      >
-                                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                                          <path d="M12 20h9" />
-                                          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                                        </svg>
-                                        <span>Editar</span>
-                                      </button>
-                                    </div>
-                                  ) : null
-                                ) : cd ? (
-                                  // Mobile, classificado: "Expandir" abre a
-                                  // classificacao completa.
+                                {/* Corrigir uma classificacao existente segue pelo
+                                    Editar (caminho 3, sem camera); classificar e
+                                    reclassificar POR FOTO moram no hero (CAM-D2). */}
+                                {cd ? (
                                   <button
                                     type="button"
                                     className="sdv-edit-btn"
-                                    onClick={openClassificationDetail}
-                                    aria-label="Expandir classificação"
+                                    onClick={openClassificationEdit}
+                                    aria-label="Editar classificação"
                                   >
                                     <svg viewBox="0 0 24 24" aria-hidden="true">
-                                      <path d="M15 3h6v6" />
-                                      <path d="M9 21H3v-6" />
-                                      <path d="M21 3l-7 7" />
-                                      <path d="M3 21l7-7" />
+                                      <path d="M12 20h9" />
+                                      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
                                     </svg>
-                                    <span>Expandir</span>
+                                    <span>Editar</span>
                                   </button>
-                                ) : (
-                                  // Mobile, ainda nao classificado: "Classificar" ocupa
-                                  // o lugar do "Expandir" — botao pequeno/discreto no
-                                  // header (sem o action-card grande no rodape).
-                                  // CAM-P3: abre o sheet global da camera em Flow B.
-                                  <ClassifySampleButton
-                                    sampleId={sampleId}
-                                    disabled={!canClassifyNow}
-                                  />
-                                )}
+                                ) : null}
                               </div>
-                              {effectiveDesktop ? (
-                                clsDesktopNode
-                              ) : cd ? (
-                                <div
-                                  className="sdv-cls-block-summary sdv-cls-block-clickable"
-                                  role="button"
-                                  tabIndex={0}
-                                  onClick={openClassificationDetail}
-                                  onKeyDown={(event) => {
-                                    if (event.key === 'Enter' || event.key === ' ') {
-                                      event.preventDefault();
-                                      openClassificationDetail();
-                                    }
-                                  }}
-                                  aria-label="Ver classificação completa"
-                                >
-                                  {clsPhotoNode}
-                                  {clsFieldsNode}
-                                </div>
+                              {cd ? (
+                                fichaNode
                               ) : (
-                                <div className="sdv-cls-block-summary is-empty">
-                                  {clsPhotoNode}
-                                  {clsFieldsNode}
+                                <div className="sdv-cls-empty">
+                                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                    <rect x="3" y="5" width="18" height="14" rx="2" />
+                                    <circle cx="8.5" cy="10" r="1.6" />
+                                    <path d="m4 17 5-4.5 4 3.2 3-2.2 4 3.5" />
+                                  </svg>
+                                  <p className="sdv-empty-text">
+                                    Este lote ainda não foi classificado.
+                                  </p>
+                                  <p className="sdv-cls-empty-hint">
+                                    Use o botão de classificar no topo do painel para fotografar a
+                                    ficha.
+                                  </p>
                                 </div>
                               )}
-                              {/* "Classificar" agora vive no header do card (mobile,
-                            no lugar do "Expandir"; desktop, ao lado do titulo) —
-                            sem mais o action-card grande no rodape. */}
                             </div>
                           );
                         })()
