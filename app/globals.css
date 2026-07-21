@@ -28184,6 +28184,51 @@ select.samples-filter-field-input {
   transform: scale(0.92);
 }
 
+/* Variante 'edge-back' (rodada 4 FV — drawers do cliente: detalhe e
+   criacao): o X vira SETA pra esquerda num circulo branco hairline no
+   canto ESQUERDO. Mobile: no fluxo do header, ANTES do titulo (padrao
+   de voltar). Desktop (>=901px): ancorada na borda esquerda do drawer,
+   metade pra dentro e metade pra fora — o sheet .has-edge-close libera
+   o overflow (seguro nos drawers: raio 0 e o scroll e do body interno). */
+.bottom-sheet-close.is-edge-back {
+  order: -1;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1px solid var(--fv-line-strong);
+  color: var(--ink);
+}
+
+.bottom-sheet-close.is-edge-back:hover {
+  background: var(--fv-hover);
+}
+
+.bottom-sheet.has-edge-close .bottom-sheet-header {
+  justify-content: flex-start;
+}
+
+@media (min-width: 901px) {
+  .bottom-sheet.has-edge-close {
+    overflow: visible;
+  }
+
+  /* O header e position:relative (ancora de outros absolutes); aqui vira
+     static pra seta ancorar no PROPRIO SHEET — left negativo mede da borda
+     do drawer, nao da caixa interna do header (que tem padding). */
+  .bottom-sheet.has-edge-close .bottom-sheet-header {
+    position: static;
+  }
+
+  .bottom-sheet.has-edge-close .bottom-sheet-close.is-edge-back {
+    position: absolute;
+    top: 18px;
+    left: -17px;
+    z-index: 5;
+    width: 34px;
+    height: 34px;
+    box-shadow: 0 2px 10px rgba(15, 26, 20, 0.12);
+  }
+}
+
 .bottom-sheet-body {
   flex: 1;
   /* CRITICO: min-height: 0 permite flex item encolher e overflow disparar */
@@ -28646,6 +28691,15 @@ select.samples-filter-field-input {
   .bottom-sheet-backdrop:has(> .bottom-sheet.detail-overlay) {
     background: rgba(0, 0, 0, 0);
     pointer-events: none;
+  }
+
+  /* Rodada 4 FV (/cadastros): o drawer do CLIENTE e modal de verdade — a
+     pagina atras escurece e fica BLOQUEADA (fechar pra voltar a clicar;
+     tap no scrim fecha). O peek atravessavel do RD4 acima segue valendo
+     pros demais detail-overlays (ex. contratos). */
+  .bottom-sheet-backdrop.is-open:has(> .bottom-sheet.client-details-overlay) {
+    background: rgba(0, 0, 0, 0.55);
+    pointer-events: auto;
   }
 
   /* Painel lateral direito colado na borda (referencia visual: .pg-drawer

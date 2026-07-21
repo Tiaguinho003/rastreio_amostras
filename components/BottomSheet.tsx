@@ -89,6 +89,13 @@ interface BottomSheetProps {
   manageHistory?: boolean;
   /** Aria-label do dialog (lido por screen readers). */
   ariaLabel?: string;
+  /**
+   * Visual do botao de fechar. 'x' (padrao) ou 'edge-back': seta pra
+   * esquerda ancorada no canto ESQUERDO do sheet — nos drawers laterais
+   * desktop o circulo fica metade pra dentro, metade pra fora da borda
+   * (CSS `.has-edge-close` no sheet libera o overflow pra seta sair).
+   */
+  closeVariant?: 'x' | 'edge-back';
   /** Classe modificadora opcional aplicada ao .bottom-sheet pra permitir
       override de estilo via seletor `.bottom-sheet.minha-classe`. */
   className?: string;
@@ -107,6 +114,7 @@ export function BottomSheet({
   className,
   stacked = false,
   manageHistory = true,
+  closeVariant = 'x',
 }: BottomSheetProps) {
   const focusTrapRef = useFocusTrap(open);
   // Token estavel por instancia pra identificar este sheet na `sheetStack`.
@@ -391,7 +399,7 @@ export function BottomSheet({
     >
       <section
         ref={focusTrapRef}
-        className={`bottom-sheet${content.className ? ` ${content.className}` : ''}${isOpen ? ' is-open' : ''}${isOpen && dragOffset > 0 ? ' is-dragging' : ''}${stacked ? ' is-stacked' : ''}`}
+        className={`bottom-sheet${content.className ? ` ${content.className}` : ''}${closeVariant === 'edge-back' ? ' has-edge-close' : ''}${isOpen ? ' is-open' : ''}${isOpen && dragOffset > 0 ? ' is-dragging' : ''}${stacked ? ' is-stacked' : ''}`}
         style={{
           ...(isOpen && dragOffset > 0 ? { transform: sheetTransform } : null),
           // Conteudo congelado durante o close fica inerte: evita clique
@@ -422,13 +430,20 @@ export function BottomSheet({
           </h3>
           <button
             type="button"
-            className="bottom-sheet-close"
+            className={`bottom-sheet-close${closeVariant === 'edge-back' ? ' is-edge-back' : ''}`}
             onClick={() => void requestDismiss()}
             aria-label="Fechar"
           >
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <path d="M6 6l12 12M18 6L6 18" />
-            </svg>
+            {closeVariant === 'edge-back' ? (
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="M19 12H5" />
+                <path d="m12 19-7-7 7-7" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            )}
           </button>
         </header>
 

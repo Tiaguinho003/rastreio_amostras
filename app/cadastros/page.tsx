@@ -752,6 +752,8 @@ function CadastrosPage() {
         // Rodada 2 FV: escopo do painel de registro institucional (largura
         // maior + grid 2 colunas no desktop) SO neste overlay.
         className="client-details-overlay"
+        // Rodada 4 FV: X vira a seta ← na borda esquerda do drawer.
+        closeVariant="edge-back"
       >
         {clienteId ? (
           <ClientDetailView

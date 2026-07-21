@@ -421,6 +421,8 @@ export function ClientQuickCreateModal({
       // ativos (mesmo cuidado do NewSampleModal com o quick-create).
       dragDisabled={discardOpen || saving}
       className="client-quick-create-sheet side-sheet"
+      // Rodada 4 FV: mesmo fechar dos drawers do cliente — seta ← na borda.
+      closeVariant="edge-back"
     >
       <form id={formId} className="client-quick-create-form" onSubmit={handleSubmit}>
         <div className="client-quick-create-body">

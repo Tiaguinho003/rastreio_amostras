@@ -18,6 +18,9 @@ interface DetailOverlayProps {
    *  conteudo (ex.: `.ctr-details-overlay` devolve o respiro/fundo que o
    *  detalhe do contrato esperava do sheet). */
   className?: string;
+  /** Repassado ao BottomSheet: 'edge-back' troca o X pela seta ← na borda
+   *  esquerda (drawers do redesign, ex. detalhe do cliente). */
+  closeVariant?: 'x' | 'edge-back';
 }
 
 // Contentor canonico de DETALHE do redesign (RD5): overlay dirigido por URL
@@ -35,6 +38,7 @@ export function DetailOverlay({
   dismissGuardRef,
   ariaLabel,
   className,
+  closeVariant,
 }: DetailOverlayProps) {
   return (
     <BottomSheet
@@ -47,6 +51,7 @@ export function DetailOverlay({
       className={className ? `detail-overlay ${className}` : 'detail-overlay'}
       manageHistory={false}
       dragToDismiss={false}
+      closeVariant={closeVariant}
     >
       {children}
     </BottomSheet>
