@@ -34008,27 +34008,37 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
     width: 58px;
   }
 
-  /* Colunas da tabela de Lotes (FV /samples): 6 + acoes. Proprietario e a
-     coluna elastica (nome longo trunca); as demais tem largura fixa. */
+  /* Colunas da tabela de Lotes (FV /samples): 7 + acoes. O "Lote" carrega
+     numero + Liga + status na mesma celula (por isso a maior largura fixa);
+     o Proprietario cabe numa faixa fixa e trunca; a classificacao se divide
+     em Padrão (a coluna elastica) / Bebida / Catação. */
   .fv-col-lot {
-    width: 130px;
+    width: 232px;
   }
   .fv-col-owner {
-    width: auto;
-  }
-  .fv-col-sacks {
-    width: 120px;
-  }
-  .fv-col-harvest {
-    width: 110px;
-  }
-  .fv-col-class {
     width: 170px;
   }
+  .fv-col-sacks {
+    width: 108px;
+  }
+  .fv-col-harvest {
+    width: 96px;
+  }
+  .fv-col-padrao {
+    width: auto;
+    min-width: 130px;
+  }
+  .fv-col-bebida {
+    width: 108px;
+  }
+  .fv-col-catacao {
+    width: 96px;
+  }
 
-  /* Numero do lote + badge de liga na mesma linha. */
+  /* Celula do lote: numero · badge de liga · chip de status, em linha. O
+     numero encolhe/trunca primeiro; badge e chip nunca quebram. */
   .fv-table-lot {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     gap: 0.4rem;
     min-width: 0;
@@ -34036,10 +34046,17 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   .fv-table-lot .fv-table-name {
     font-variant-numeric: tabular-nums;
   }
+  .fv-table-lot .fv-table-name-btn {
+    min-width: 0;
+  }
+  .fv-table-lot .blend-badge,
+  .fv-table-lot .fv-chip {
+    flex: 0 0 auto;
+  }
 
-  /* Sacas (4a coluna): alinhamento a esquerda como as demais, so com
-     numeros tabulares pra a coluna nao "dancar" entre linhas. */
-  .fv-table-lotes tbody td:nth-child(4) .fv-table-cell-main {
+  /* Numeros (sacas, catacao): tabulares pra a coluna nao "dancar". */
+  .fv-table-num,
+  .fv-table-num .fv-table-cell-main {
     font-variant-numeric: tabular-nums;
   }
 

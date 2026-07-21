@@ -89,6 +89,12 @@ type KpiTone = 'blue' | 'green' | 'amber';
 // SampleCard deriva — status comercial, dono ("Carteira da corretora" pra liga
 // sem dono fixado), saldo de sacas e o resumo da ultima classificacao (padrao +
 // catacao, os mesmos campos root-level que o card expandido mostrava).
+/** Valor cru da classificacao -> texto exibivel (o blob e JSON solto). */
+function toClassText(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
+}
+
 function describeSampleRow(sample: SampleSnapshot) {
   const isInvalidated = sample.status === 'INVALIDATED';
   const status = isInvalidated
@@ -103,10 +109,15 @@ function describeSampleRow(sample: SampleSnapshot) {
   const declared = sample.declared.sacks;
   const consumed = (sample.soldSacks ?? 0) + (sample.lostSacks ?? 0);
 
+  // Classificacao: cada nomenclatura vira uma COLUNA propria na tabela (antes
+  // padrao + catacao dividiam uma celula so). O blob da ultima classificacao
+  // vem inteiro na listagem, entao bebida/aspecto tambem estao a mao.
   const classData = sample.latestClassification?.data ?? null;
-  const padrao = typeof classData?.padrao === 'string' ? classData.padrao.trim() : '';
+  const padrao = toClassText(classData?.padrao);
+  const bebida = toClassText(classData?.bebida);
   const catacao = formatPercentDisplay(classData?.catacao);
   const catacaoText = catacao === null || catacao === undefined ? '' : String(catacao).trim();
+  const hasClassification = Boolean(padrao || bebida || catacaoText);
 
   // Gating das acoes do menu ⋯ — espelha o do card expandido (envio por status,
   // perda por status + saldo) e o do detalhe (deletar so sem venda).
@@ -128,8 +139,9 @@ function describeSampleRow(sample: SampleSnapshot) {
     sacksSub:
       consumed > 0 && declared != null ? `de ${declared.toLocaleString('pt-BR')} sacas` : null,
     hasHarvest: Boolean(sample.declared.harvest?.trim()),
-    classification:
-      padrao || catacaoText ? { main: padrao || '—', sub: catacaoText || null } : null,
+    classification: hasClassification
+      ? { padrao: padrao || '—', bebida: bebida || '—', catacao: catacaoText || '—' }
+      : null,
   };
 }
 
@@ -2855,14 +2867,20 @@ function SamplesPage() {
                de acoes sai (o ⋯ nao se aplica a uma selecao). */
             <div ref={samplesScrollRef} className="spv2-list-scroll fv-table-scroll" tabIndex={-1}>
               <table className={`fv-table fv-table-lotes${isBlendMode ? ' is-selecting' : ''}`}>
+                {/* Colunas (ajuste pos-F3): o STATUS entrou na celula do lote —
+                    numero · Liga · chip, tudo junto — e a classificacao se abriu
+                    em tres colunas nomeadas (Padrão / Bebida / Catação). O
+                    Proprietario deixou de ser a coluna elastica (cabe em faixa
+                    fixa e trunca); quem estica agora e o Padrão. */}
                 <colgroup>
                   {isBlendMode ? <col className="fv-col-select" /> : null}
                   <col className="fv-col-lot" />
-                  <col className="fv-col-status" />
                   <col className="fv-col-owner" />
                   <col className="fv-col-sacks" />
                   <col className="fv-col-harvest" />
-                  <col className="fv-col-class" />
+                  <col className="fv-col-padrao" />
+                  <col className="fv-col-bebida" />
+                  <col className="fv-col-catacao" />
                   {isBlendMode ? null : <col className="fv-col-actions" />}
                 </colgroup>
                 <thead>
@@ -2871,11 +2889,12 @@ function SamplesPage() {
                       <th scope="col" className="fv-table-th-select" aria-label="Seleção" />
                     ) : null}
                     <th scope="col">Lote</th>
-                    <th scope="col">Status</th>
                     <th scope="col">Proprietário</th>
                     <th scope="col">Sacas</th>
                     <th scope="col">Safra</th>
-                    <th scope="col">Classificação</th>
+                    <th scope="col">Padrão</th>
+                    <th scope="col">Bebida</th>
+                    <th scope="col">Catação</th>
                     {isBlendMode ? null : (
                       <th scope="col" className="fv-table-th-actions" aria-label="Ações" />
                     )}
@@ -2930,6 +2949,9 @@ function SamplesPage() {
                           </td>
                         ) : null}
                         <td>
+                          {/* Numero · Liga · status, na mesma celula: o chip
+                              encosta no numero e a badge de liga entra entre os
+                              dois quando o lote e uma liga. */}
                           <span className="fv-table-lot">
                             {isBlendMode ? (
                               /* Em modo liga a linha marca — o numero deixa de
@@ -2949,10 +2971,8 @@ function SamplesPage() {
                               </button>
                             )}
                             {sample.isBlend ? <BlendBadge size="sm" /> : null}
+                            <span className={`fv-chip ${row.status.chip}`}>{row.status.label}</span>
                           </span>
-                        </td>
-                        <td>
-                          <span className={`fv-chip ${row.status.chip}`}>{row.status.label}</span>
                         </td>
                         <td>
                           <span className="fv-table-cell-main">{row.owner}</span>
@@ -2960,7 +2980,7 @@ function SamplesPage() {
                         <td>
                           {/* Disponiveis em destaque; o total so aparece quando
                               houve baixa (venda/perda), pra dar o contexto. */}
-                          <span className="fv-table-cell-stack">
+                          <span className="fv-table-cell-stack fv-table-num">
                             <span className="fv-table-cell-main">{row.sacks}</span>
                             {row.sacksSub ? (
                               <span className="fv-table-sub">{row.sacksSub}</span>
@@ -2979,17 +2999,25 @@ function SamplesPage() {
                             <span className="fv-table-cell-main">—</span>
                           )}
                         </td>
+                        {/* Classificacao em tres colunas nomeadas. Sem
+                            classificacao, o chip "Pendente" ocupa a primeira
+                            delas e as outras duas ficam vazias. */}
                         <td>
                           {row.classification ? (
-                            <span className="fv-table-cell-stack">
-                              <span className="fv-table-cell-main">{row.classification.main}</span>
-                              {row.classification.sub ? (
-                                <span className="fv-table-sub">{row.classification.sub}</span>
-                              ) : null}
-                            </span>
+                            <span className="fv-table-cell-main">{row.classification.padrao}</span>
                           ) : (
                             <span className="fv-chip fv-chip-amber">Pendente</span>
                           )}
+                        </td>
+                        <td>
+                          <span className="fv-table-cell-main">
+                            {row.classification ? row.classification.bebida : '—'}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="fv-table-cell-main fv-table-num">
+                            {row.classification ? row.classification.catacao : '—'}
+                          </span>
                         </td>
                         {isBlendMode ? null : (
                           <td
