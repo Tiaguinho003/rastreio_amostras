@@ -1150,7 +1150,9 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
   border: 1px solid rgba(214, 214, 214, 0.55);
   border-radius: clamp(24px, 7vw, 32px);
   padding: 1rem 1rem 1.05rem;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.86) 0%, rgba(248, 248, 245, 0.78) 100%);
+  /* Ajustes rodada 1 (FV): fundo BRANCO solido — sai o vidro translucido
+     bege-acinzentado (gradiente + blur pegavam o creme da pagina). */
+  background: #ffffff;
   box-shadow:
     0 22px 54px rgba(18, 24, 20, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.82);
@@ -1731,7 +1733,8 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
 
 .app-modal-submit {
   min-height: 3.2rem;
-  border-radius: 999px;
+  /* Ajustes rodada 1 (FV): sai a pilula — canto 10px (mesmo raio do kit). */
+  border-radius: 10px;
   background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
   color: #ffffff;
   font-size: 0.92rem;
@@ -1795,7 +1798,8 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
 
 .app-modal-secondary {
   min-height: 3rem;
-  border-radius: 999px;
+  /* Ajustes rodada 1 (FV): sai a pilula — canto 10px (mesmo raio do kit). */
+  border-radius: 10px;
   border: 1px solid rgba(214, 214, 214, 0.5);
   background: rgba(255, 255, 255, 0.3);
   color: #49443d;
@@ -17257,19 +17261,8 @@ select.samples-filter-field-input {
   padding-right: 0.08rem;
 }
 
-/* Modal de novo cliente em BRANCO (pedido do usuario) — sai o creme do
-   .bottom-sheet base (--brand-cream-soft). Vale mobile (sheet) E desktop (modal
-   central — mesmo elemento). O `.bottom-sheet-footer` tem fundo creme proprio
-   (nao herda do sheet), entao precisa do mesmo override pra a faixa das acoes
-   (Cancelar/Cadastrar) tambem ficar branca. Espelha `.bottom-sheet.is-menu` /
-   `.is-operations`. */
-.bottom-sheet.client-quick-create-sheet {
-  background: #ffffff;
-}
-
-.bottom-sheet.client-quick-create-sheet .bottom-sheet-footer {
-  background: #ffffff;
-}
+/* Ajustes rodada 1 (FV): o branco que este modal pediu individualmente virou
+   o PADRAO do .bottom-sheet base (e do footer) — os overrides locais sairam. */
 
 /* "Novo cliente" agora e um BottomSheet (slide de baixo). O sheet ja da o scroll
    (.bottom-sheet-body) e o recuo lateral (padding do .bottom-sheet) — entao aqui
@@ -28308,7 +28301,9 @@ select.samples-filter-field-input {
   z-index: var(--z-modal);
   display: flex;
   flex-direction: column;
-  background: var(--brand-cream-soft);
+  /* Ajustes rodada 1 (FV): branco vira o PADRAO de todos os sheets/modais
+     (antes --brand-cream-soft; os overrides brancos pontuais sairam). */
+  background: #ffffff;
   border-radius: clamp(20px, 5vw, 28px) clamp(20px, 5vw, 28px) 0 0;
   padding: 0 clamp(1rem, 4vw, 1.4rem)
     calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(0.6rem, 2vw, 0.9rem));
@@ -28469,7 +28464,8 @@ select.samples-filter-field-input {
   position: sticky;
   bottom: 0;
   padding: clamp(0.4rem, 1.2vw, 0.55rem) 0 0;
-  background: var(--brand-cream-soft);
+  /* Ajustes rodada 1 (FV): acompanha o fundo branco do sheet. */
+  background: #ffffff;
   border-top: 1px solid var(--color-line);
 }
 
