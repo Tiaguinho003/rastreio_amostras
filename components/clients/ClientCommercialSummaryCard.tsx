@@ -15,7 +15,8 @@ const STATUS_META: Array<{
   key: StatusKey;
   color: string;
   label: string;
-  field: keyof ClientCommercialSummaryResponse;
+  // So os campos NUMERICOS do summary (monthlySales fica de fora).
+  field: 'openCount' | 'soldCount' | 'lostCount' | 'boughtCount';
 }> = [
   // Cores = cor "start" dos gradientes dos cards comerciais (.sdv-card-commercial-mini.is-*).
   { key: 'open', color: '#4a73b8', label: 'Em aberto', field: 'openCount' },

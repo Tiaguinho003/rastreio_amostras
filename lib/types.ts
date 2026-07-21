@@ -745,11 +745,23 @@ export interface ClientAttachmentResponse {
   attachment: ClientAttachmentSummary;
 }
 
+/**
+ * Ponto da serie mensal do resumo comercial: sacas vendidas e compradas pelo
+ * cliente no mes `month` ('YYYY-MM'). O backend devolve sempre 6 entradas,
+ * da mais antiga ao mes corrente (ancorado em BRT).
+ */
+export interface ClientMonthlySalesPoint {
+  month: string;
+  soldSacks: number;
+  boughtSacks: number;
+}
+
 export interface ClientCommercialSummaryResponse {
   openCount: number;
   soldCount: number;
   lostCount: number;
   boughtCount: number;
+  monthlySales: ClientMonthlySalesPoint[];
 }
 
 export interface ClientSampleListItem {

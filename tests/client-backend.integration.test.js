@@ -1907,6 +1907,135 @@ if (!databaseUrl || !databaseReachable) {
     const result = await api.getClientStats({ headers: {}, params: {}, query: {}, body: {} });
     assert.equal(result.status, 401);
   });
+
+  test('FV R3: getClientCommercialSummary — serie mensal de sacas (6 meses)', async () => {
+    const vendedor = await createPjClient({ cnpj: nextValidCnpj() });
+    assert.equal(vendedor.status, 201);
+    const comprador = await createPjClient({ cnpj: nextValidCnpj() });
+    assert.equal(comprador.status, 201);
+    const vendedorId = vendedor.body.client.id;
+    const compradorId = comprador.body.client.id;
+
+    const soldSampleId = randomUUID();
+    const openSampleId = randomUUID();
+    await prisma.sample.createMany({
+      data: [
+        {
+          id: soldSampleId,
+          internalLotNumber: 'L-9101',
+          status: 'CLASSIFIED',
+          commercialStatus: 'SOLD',
+          declaredOwner: 'TEST',
+          declaredSacks: 100,
+          declaredHarvest: '2025',
+          ownerClientId: vendedorId,
+          version: 1,
+        },
+        {
+          id: openSampleId,
+          internalLotNumber: 'L-9102',
+          status: 'CLASSIFIED',
+          commercialStatus: 'OPEN',
+          declaredOwner: 'TEST',
+          declaredSacks: 60,
+          declaredHarvest: '2025',
+          ownerClientId: vendedorId,
+          version: 1,
+        },
+      ],
+    });
+
+    // Dia 15 e valido em qualquer mes; mes corrente ancorado em BRT como no
+    // service (offset fixo -03). Date.UTC com month negativo rola o ano.
+    const brtNow = new Date(Date.now() - 3 * 3600_000);
+    const y = brtNow.getUTCFullYear();
+    const m = brtNow.getUTCMonth();
+    const currentMonth15 = new Date(Date.UTC(y, m, 15));
+    const previousMonth15 = new Date(Date.UTC(y, m - 1, 15));
+    const sevenMonthsAgo15 = new Date(Date.UTC(y, m - 7, 15));
+
+    await prisma.sampleMovement.createMany({
+      data: [
+        // 2 vendas no mes corrente (40 + 10) + 1 no mes anterior (25).
+        {
+          id: randomUUID(),
+          sampleId: soldSampleId,
+          movementType: 'SALE',
+          status: 'ACTIVE',
+          buyerClientId: compradorId,
+          quantitySacks: 40,
+          movementDate: currentMonth15,
+        },
+        {
+          id: randomUUID(),
+          sampleId: openSampleId,
+          movementType: 'SALE',
+          status: 'ACTIVE',
+          buyerClientId: compradorId,
+          quantitySacks: 10,
+          movementDate: currentMonth15,
+        },
+        {
+          id: randomUUID(),
+          sampleId: soldSampleId,
+          movementType: 'SALE',
+          status: 'ACTIVE',
+          buyerClientId: compradorId,
+          quantitySacks: 25,
+          movementDate: previousMonth15,
+        },
+        // Cancelada nao conta; fora da janela de 6 meses nao conta.
+        // (CHECK chk_sample_movement_cancelled_state exige cancelledAt.)
+        {
+          id: randomUUID(),
+          sampleId: soldSampleId,
+          movementType: 'SALE',
+          status: 'CANCELLED',
+          buyerClientId: compradorId,
+          quantitySacks: 99,
+          movementDate: currentMonth15,
+          cancelledAt: new Date(),
+        },
+        {
+          id: randomUUID(),
+          sampleId: soldSampleId,
+          movementType: 'SALE',
+          status: 'ACTIVE',
+          buyerClientId: compradorId,
+          quantitySacks: 77,
+          movementDate: sevenMonthsAgo15,
+        },
+      ],
+    });
+
+    // Perspectiva do VENDEDOR (dono das amostras): soldSacks preenchido.
+    const doVendedor = await api.getClientCommercialSummary(
+      buildInput({ params: { clientId: vendedorId } })
+    );
+    assert.equal(doVendedor.status, 200);
+    assert.equal(doVendedor.body.openCount, 1);
+    assert.equal(doVendedor.body.soldCount, 1);
+    const serie = doVendedor.body.monthlySales;
+    assert.equal(serie.length, 6);
+    assert.match(serie[0].month, /^\d{4}-\d{2}$/);
+    assert.equal(serie[5].month, `${y}-${String(m + 1).padStart(2, '0')}`);
+    assert.equal(serie[5].soldSacks, 50);
+    assert.equal(serie[5].boughtSacks, 0);
+    assert.equal(serie[4].soldSacks, 25);
+    // Mes sem movimento zerado (a venda de 7 meses atras fica fora da janela).
+    assert.equal(serie[0].soldSacks, 0);
+
+    // Perspectiva do COMPRADOR: boughtSacks espelha as mesmas vendas.
+    const doComprador = await api.getClientCommercialSummary(
+      buildInput({ params: { clientId: compradorId } })
+    );
+    assert.equal(doComprador.status, 200);
+    // 2 amostras distintas compradas (a venda cancelada nao gera terceira).
+    assert.equal(doComprador.body.boughtCount, 2);
+    assert.equal(doComprador.body.monthlySales[5].boughtSacks, 50);
+    assert.equal(doComprador.body.monthlySales[5].soldSacks, 0);
+    assert.equal(doComprador.body.monthlySales[4].boughtSacks, 25);
+  });
 }
 
 async function canReachDatabase(databaseUrlValue) {

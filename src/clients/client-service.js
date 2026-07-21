@@ -314,6 +314,25 @@ function computePreviousMonthStartUtc(now = new Date()) {
   );
 }
 
+function monthKeyFromDate(date) {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+// Serie mensal do resumo comercial (grafico de linhas do detalhe do cliente):
+// mes corrente ancorado em BRT + os 5 anteriores. movementDate e DATE puro
+// (sem hora/TZ), entao os buckets usam o calendario da propria data; so a
+// definicao de "mes corrente" precisa do offset.
+function computeMonthlySalesWindow(now = new Date()) {
+  const brtNow = new Date(now.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
+  const year = brtNow.getUTCFullYear();
+  const month = brtNow.getUTCMonth();
+  const months = [];
+  for (let offset = 5; offset >= 0; offset -= 1) {
+    months.push(monthKeyFromDate(new Date(Date.UTC(year, month - offset, 1))));
+  }
+  return { months, rangeStart: new Date(Date.UTC(year, month - 5, 1)) };
+}
+
 function parseExactCodeSearch(search) {
   if (typeof search !== 'string') {
     return null;
@@ -1308,14 +1327,16 @@ export class ClientService {
   }
 
   /**
-   * Resumo comercial do cliente para os 4 cards na pagina de detalhe:
-   * Em aberto / Vendido / Perdido / Comprado.
+   * Resumo comercial do cliente para o detalhe: contagens por status
+   * (Em aberto / Vendido / Perdido / Comprado) + serie mensal de sacas
+   * vendidas/compradas dos ultimos 6 meses (grafico de linhas).
    *
    * Em aberto: amostras com commercialStatus IN (OPEN, PARTIALLY_SOLD),
    * status != INVALIDATED, vinculadas ao cliente como ownerClientId,
    * e filtradas por filiais ATIVAS quando ownerUnitId nao e null (PF).
-   *
-   * Vendido / Perdido / Comprado serao implementados nos proximos passos.
+   * Comprado: movimentos SALE ativos onde o cliente e o buyer (distinct
+   * por amostra). Serie mensal: vendas = movimentos SALE ativos de amostras
+   * do cliente; compras = movimentos SALE ativos onde ele e o buyer.
    */
   async getClientCommercialSummary(clientId, actorContext) {
     assertAuthenticatedActor(actorContext, 'get client commercial summary');
@@ -1329,8 +1350,20 @@ export class ClientService {
       OR: [{ ownerUnitId: null }, { ownerUnit: { status: 'ACTIVE' } }],
     };
 
-    const [openCount, soldCount, lostCount, distinctBoughtSamples] = await this.prisma.$transaction(
-      [
+    // Compras: cliente como buyer, com regra de filial ativa via buyerUnit.
+    // Status ACTIVE exclui movimentos cancelados. Compartilhado entre o
+    // boughtCount e a serie mensal.
+    const buyerWhere = {
+      movementType: 'SALE',
+      status: 'ACTIVE',
+      buyerClientId: clientId,
+      OR: [{ buyerUnitId: null }, { buyerUnit: { status: 'ACTIVE' } }],
+    };
+
+    const { months, rangeStart } = computeMonthlySalesWindow();
+
+    const [openCount, soldCount, lostCount, distinctBoughtSamples, soldMovements, boughtMovements] =
+      await this.prisma.$transaction([
         this.prisma.sample.count({
           where: { ...baseWhere, commercialStatus: { in: ['OPEN', 'PARTIALLY_SOLD'] } },
         }),
@@ -1340,27 +1373,51 @@ export class ClientService {
         this.prisma.sample.count({
           where: { ...baseWhere, commercialStatus: 'LOST' },
         }),
-        // Comprado: count distinct sample_id em SampleMovement onde o
-        // cliente e o comprador (regra de filial ativa replicada via
-        // buyerUnit). Status ACTIVE exclui movimentos cancelados.
+        // Comprado: count distinct sample_id em SampleMovement.
+        this.prisma.sampleMovement.findMany({
+          where: buyerWhere,
+          select: { sampleId: true },
+          distinct: ['sampleId'],
+        }),
+        // Serie mensal — lado VENDAS: movimentos de amostras do cliente.
+        // Bucketing em JS (volume por cliente e pequeno; evita SQL raw).
         this.prisma.sampleMovement.findMany({
           where: {
             movementType: 'SALE',
             status: 'ACTIVE',
-            buyerClientId: clientId,
-            OR: [{ buyerUnitId: null }, { buyerUnit: { status: 'ACTIVE' } }],
+            movementDate: { gte: rangeStart },
+            sample: baseWhere,
           },
-          select: { sampleId: true },
-          distinct: ['sampleId'],
+          select: { movementDate: true, quantitySacks: true },
         }),
-      ]
-    );
+        // Serie mensal — lado COMPRAS.
+        this.prisma.sampleMovement.findMany({
+          where: { ...buyerWhere, movementDate: { gte: rangeStart } },
+          select: { movementDate: true, quantitySacks: true },
+        }),
+      ]);
+
+    const soldByMonth = new Map();
+    for (const movement of soldMovements) {
+      const key = monthKeyFromDate(movement.movementDate);
+      soldByMonth.set(key, (soldByMonth.get(key) ?? 0) + movement.quantitySacks);
+    }
+    const boughtByMonth = new Map();
+    for (const movement of boughtMovements) {
+      const key = monthKeyFromDate(movement.movementDate);
+      boughtByMonth.set(key, (boughtByMonth.get(key) ?? 0) + movement.quantitySacks);
+    }
 
     return {
       openCount,
       soldCount,
       lostCount,
       boughtCount: distinctBoughtSamples.length,
+      monthlySales: months.map((month) => ({
+        month,
+        soldSacks: soldByMonth.get(month) ?? 0,
+        boughtSacks: boughtByMonth.get(month) ?? 0,
+      })),
     };
   }
 
