@@ -25,7 +25,10 @@ import { ClassificationFilterField } from '../../components/samples/Classificati
 import { SampleCard } from '../../components/samples/SampleCard';
 import { BlendBadge } from '../../components/samples/BlendBadge';
 import { HarvestDisplay } from '../../components/samples/HarvestDisplay';
-import { SampleDetailView } from '../../components/samples/SampleDetailView';
+import {
+  SampleDetailView,
+  type SampleDetailInitialAction,
+} from '../../components/samples/SampleDetailView';
 import { SampleCreateRadialFab } from '../../components/samples/SampleCreateRadialFab';
 import { SampleMovementModal } from '../../components/samples/SampleMovementModal';
 import { SampleSendFlow } from '../../components/samples/SampleSendFlow';
@@ -107,7 +110,15 @@ function describeSampleRow(sample: SampleSnapshot) {
   const catacao = formatPercentDisplay(classData?.catacao);
   const catacaoText = catacao === null || catacao === undefined ? '' : String(catacao).trim();
 
+  // Gating das acoes do menu ⋯ — espelha o do card expandido (envio por status,
+  // perda por status + saldo) e o do detalhe (deletar so sem venda).
+  const commercialAllowed =
+    sample.status === 'REGISTRATION_CONFIRMED' || sample.status === 'CLASSIFIED';
+
   return {
+    canSend: commercialAllowed,
+    canLoss: commercialAllowed && (available ?? 0) > 0,
+    canDelete: !isInvalidated && !sample.isBlend && (sample.soldSacks ?? 0) === 0,
     isInvalidated,
     status,
     lot: sample.internalLotNumber ?? sample.id.slice(0, 8),
@@ -583,7 +594,7 @@ function SamplesPage() {
   const loteDismissGuardRef = useRef(false);
 
   const openLote = useCallback(
-    (id: string) => {
+    (id: string, action?: SampleDetailInitialAction) => {
       const params = new URLSearchParams(searchParams.toString());
       const alreadyOpen = params.has('lote');
       // focus/highlight/source sao deep-links DO LOTE (scroll/pulso do
@@ -592,6 +603,12 @@ function SamplesPage() {
       params.delete('highlight');
       params.delete('source');
       params.set('lote', id);
+      // FV: acao profunda do menu ⋯ (abre o lote JA com o modal).
+      if (action) {
+        params.set('acao', action);
+      } else {
+        params.delete('acao');
+      }
       const url = `/samples?${params.toString()}`;
       if (alreadyOpen) {
         // Troca de lote com o overlay aberto (peek desktop / links detalhe→
@@ -616,6 +633,21 @@ function SamplesPage() {
     params.delete('focus');
     params.delete('highlight');
     params.delete('source');
+    params.delete('acao');
+    const qs = params.toString();
+    router.replace(qs ? `/samples?${qs}` : '/samples', { scroll: false });
+  }, [router, searchParams]);
+
+  // FV: acao profunda do menu ⋯ (?acao=imprimir|deletar), consumida UMA vez
+  // pelo detalhe. Ao consumir, o param sai da URL via replace — assim a mesma
+  // acao pode ser repetida no mesmo lote sem remontar o painel.
+  const acaoParam = searchParams.get('acao');
+  const loteAcao: SampleDetailInitialAction | undefined =
+    acaoParam === 'imprimir' || acaoParam === 'deletar' ? acaoParam : undefined;
+  const clearLoteAcao = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (!params.has('acao')) return;
+    params.delete('acao');
     const qs = params.toString();
     router.replace(qs ? `/samples?${qs}` : '/samples', { scroll: false });
   }, [router, searchParams]);
@@ -718,6 +750,35 @@ function SamplesPage() {
   // Revalidacao silenciosa (2026-07-07): incrementa pra refazer o fetch SEM
   // skeleton/scroll-reset (retorno ao app + polling — useListRevalidation).
   const [refreshTick, setRefreshTick] = useState(0);
+
+  // FV: menu ⋯ da linha da tabela — id do lote com o menu aberto.
+  const [rowMenuFor, setRowMenuFor] = useState<string | null>(null);
+  const rowMenuRef = useRef<HTMLDivElement | null>(null);
+  const rowMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (!rowMenuFor) return;
+    const onDocumentMouseDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (!rowMenuRef.current?.contains(target)) {
+        setRowMenuFor(null);
+      }
+    };
+    const onDocumentKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      // Nao deixa o ESC vazar pro overlay/pagina enquanto o menu esta aberto.
+      event.preventDefault();
+      event.stopPropagation();
+      setRowMenuFor(null);
+      rowMenuTriggerRef.current?.focus();
+    };
+    document.addEventListener('mousedown', onDocumentMouseDown);
+    document.addEventListener('keydown', onDocumentKeyDown, true);
+    return () => {
+      document.removeEventListener('mousedown', onDocumentMouseDown);
+      document.removeEventListener('keydown', onDocumentKeyDown, true);
+    };
+  }, [rowMenuFor]);
 
   // KPI row da lista (FV): contagens globais, so no desktop. Recarrega quando
   // um lote e criado (newSampleRefetchKey) e quando o detalhe abre/fecha (de
@@ -1443,6 +1504,13 @@ function SamplesPage() {
     setDraftHiddenFilters(EMPTY_HIDDEN_FILTERS);
     setAppliedHiddenFilters(EMPTY_HIDDEN_FILTERS);
     setActiveFilterSection('owner');
+  }
+
+  // FV: menu ⋯ da linha da tabela (um aberto por vez, keyed por sample.id).
+  // Dismiss = clique-fora + ESC devolvendo o foco ao trigger (mesmo padrao do
+  // menu da tabela de clientes).
+  function closeRowMenu() {
+    setRowMenuFor(null);
   }
 
   // KPI "Aguardando classificacao" (FV): liga/desliga o recorte de pendentes
@@ -2736,24 +2804,109 @@ function SamplesPage() {
                             <span className="fv-chip fv-chip-amber">Pendente</span>
                           )}
                         </td>
-                        <td className="fv-table-td-actions">
-                          {/* O ⋯ vira popover de acoes no C4; por ora abre o lote. */}
-                          <button
-                            type="button"
-                            className="fv-table-dots"
-                            aria-label={`Ações do lote ${row.lot}`}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              saveSnapshotBeforeLeave();
-                              openLote(sample.id);
-                            }}
+                        <td
+                          className="fv-table-td-actions"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <div
+                            className="fv-row-menu-wrap"
+                            ref={rowMenuFor === sample.id ? rowMenuRef : undefined}
                           >
-                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                              <circle cx="12" cy="5" r="1.6" />
-                              <circle cx="12" cy="12" r="1.6" />
-                              <circle cx="12" cy="19" r="1.6" />
-                            </svg>
-                          </button>
+                            <button
+                              type="button"
+                              className="fv-table-dots"
+                              aria-label={`Ações do lote ${row.lot}`}
+                              aria-haspopup="menu"
+                              aria-expanded={rowMenuFor === sample.id}
+                              onClick={(event) => {
+                                rowMenuTriggerRef.current = event.currentTarget;
+                                setRowMenuFor((current) =>
+                                  current === sample.id ? null : sample.id
+                                );
+                              }}
+                            >
+                              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                <circle cx="5" cy="12" r="1.6" />
+                                <circle cx="12" cy="12" r="1.6" />
+                                <circle cx="19" cy="12" r="1.6" />
+                              </svg>
+                            </button>
+                            {rowMenuFor === sample.id ? (
+                              <div
+                                className="fv-row-menu"
+                                role="menu"
+                                aria-label={`Ações do lote ${row.lot}`}
+                              >
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className="fv-row-menu-item"
+                                  onClick={() => {
+                                    closeRowMenu();
+                                    saveSnapshotBeforeLeave();
+                                    openLote(sample.id);
+                                  }}
+                                >
+                                  Ver detalhes
+                                </button>
+                                {/* Perda e envio operam SEM sair da lista (mesmo
+                                    fluxo que saia do card expandido); imprimir e
+                                    deletar abrem o lote ja com o modal (?acao=). */}
+                                {row.canSend ? (
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    className="fv-row-menu-item"
+                                    onClick={() => {
+                                      closeRowMenu();
+                                      handleCardSend(sample);
+                                    }}
+                                  >
+                                    Enviar amostra
+                                  </button>
+                                ) : null}
+                                {row.canLoss ? (
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    className="fv-row-menu-item"
+                                    onClick={() => {
+                                      closeRowMenu();
+                                      handleCardLoss(sample);
+                                    }}
+                                  >
+                                    Registrar perda
+                                  </button>
+                                ) : null}
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className="fv-row-menu-item"
+                                  onClick={() => {
+                                    closeRowMenu();
+                                    saveSnapshotBeforeLeave();
+                                    openLote(sample.id, 'imprimir');
+                                  }}
+                                >
+                                  Imprimir etiqueta
+                                </button>
+                                {row.canDelete ? (
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    className="fv-row-menu-item is-danger"
+                                    onClick={() => {
+                                      closeRowMenu();
+                                      saveSnapshotBeforeLeave();
+                                      openLote(sample.id, 'deletar');
+                                    }}
+                                  >
+                                    Deletar lote
+                                  </button>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -3041,6 +3194,8 @@ function SamplesPage() {
             onClose={closeLote}
             onOpenSample={openLote}
             dismissGuardRef={loteDismissGuardRef}
+            initialAction={loteAcao}
+            onInitialActionConsumed={clearLoteAcao}
           />
         ) : null}
       </DetailOverlay>

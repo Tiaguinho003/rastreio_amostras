@@ -471,6 +471,9 @@ function mapSampleOwnerClientToSummary(
   };
 }
 
+/** Acao profunda do menu ⋯ da tabela (FV): ?acao= da URL de /samples. */
+export type SampleDetailInitialAction = 'imprimir' | 'deletar';
+
 interface SampleDetailViewProps {
   session: SessionData;
   sampleId: string;
@@ -480,6 +483,10 @@ interface SampleDetailViewProps {
   onOpenSample?: (sampleId: string) => void;
   /** Sinaliza ao overlay-pai que ha modal interno aberto (bloqueia ESC/X). */
   dismissGuardRef?: MutableRefObject<boolean>;
+  /** FV: abre o modal correspondente UMA vez apos o load (?acao= da URL). */
+  initialAction?: SampleDetailInitialAction;
+  /** Chamado ao consumir a acao — a pagina limpa o ?acao= via replace. */
+  onInitialActionConsumed?: () => void;
 }
 
 // Conteudo completo do detalhe do lote, extraido da antiga pagina
@@ -492,6 +499,8 @@ export function SampleDetailView({
   onClose,
   onOpenSample,
   dismissGuardRef,
+  initialAction,
+  onInitialActionConsumed,
 }: SampleDetailViewProps) {
   const searchParams = useSearchParams();
   const highlightPrint = searchParams.get('highlight') === 'print';
@@ -1074,6 +1083,29 @@ export function SampleDetailView({
   function closeLabelModal() {
     resetLabelModal();
   }
+
+  // FV (acoes profundas do menu ⋯ da tabela): dispara o modal UMA vez quando o
+  // lote termina de carregar e devolve o consumo pra pagina limpar a URL. O ref
+  // reseta quando a prop limpa (value -> undefined), permitindo uma nova acao
+  // no MESMO lote montado (sem remount). Molde do ClientDetailView.
+  const initialActionConsumedRef = useRef(false);
+  useEffect(() => {
+    if (!initialAction) {
+      initialActionConsumedRef.current = false;
+      return;
+    }
+    if (!detail || initialActionConsumedRef.current) return;
+    initialActionConsumedRef.current = true;
+    if (initialAction === 'imprimir') {
+      openLabelReviewModal();
+    } else if (canInvalidateNormal) {
+      setInvalidateModalOpen(true);
+    }
+    onInitialActionConsumed?.();
+    // openLabelReviewModal e uma funcao do corpo do componente (recriada a cada
+    // render); as deps relevantes sao a acao e a chegada do detalhe.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialAction, detail, canInvalidateNormal]);
 
   function openLabelReviewModal(trigger?: HTMLButtonElement) {
     if (!detail) {
