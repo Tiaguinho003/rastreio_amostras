@@ -35144,6 +35144,17 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   letter-spacing: 0.3px;
 }
 
+/* Scroll do drawer: gutter ESTAVEL — o espaco da barra fica reservado
+   mesmo sem ela, entao trocar de aba (conteudo curto <-> longo) NAO
+   desloca o conteudo pra esquerda quando a barra aparece. Barra fina
+   neutra no tom institucional. (Touch usa barra overlay — o gutter nao
+   reserva nada la, sem efeito no mobile.) */
+.client-details-overlay .bottom-sheet-body {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--fv-line-strong) transparent;
+}
+
 /* Conteudo do drawer: coluna unica (o grid de 2 colunas e as regras de
    order/`display:contents` antigas dependiam do wrapper
    .sdv-client-side-col, que saiu do DOM). Specificity alta pra vencer
