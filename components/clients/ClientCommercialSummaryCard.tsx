@@ -1,113 +1,129 @@
 'use client';
 
-import type { ClientCommercialSummaryResponse } from '../../lib/types';
+import type { ClientCommercialSummaryResponse, ClientMonthlySalesPoint } from '../../lib/types';
 
-// Card de APRESENTACAO (sem botoes/filtros) do resumo comercial do cliente:
-// donut SVG manual + os status. No MOBILE os status saem como LEGENDA em lista
-// (design original, igual ao dashboard); no DESKTOP saem como MINICARDS (nome em
-// cima, numero abaixo). A alternancia e por media query, escopada a
-// .client-commercial-card (o dashboard usa outro card). As contagens (lotes) vem
-// de getClientCommercialSummary. "Comprado" so entra quando o cliente e comprador.
+// Rodada 3 FV: o Resumo comercial do detalhe do cliente virou GRAFICO DE
+// LINHAS (sacas vendidas/compradas por mes, 6 meses, serie monthlySales do
+// backend) + cards numericos (Em aberto / Vendido / Comprado). O donut e os
+// minicards ccs-* morreram junto com o CSS .sales-*. Perdido saiu da UI
+// (lostCount segue na API). "Comprado" (card e linha) so entra quando o
+// cliente e comprador. Sem tooltip/interacao — card de apresentacao.
 
-type StatusKey = 'open' | 'sold' | 'lost' | 'bought';
+// Cores herdadas dos antigos cards comerciais (start dos gradientes).
+const COLOR_OPEN = '#4a73b8';
+const COLOR_SOLD = '#4a8a5e';
+const COLOR_BOUGHT = '#7a5836';
 
-const STATUS_META: Array<{
-  key: StatusKey;
-  color: string;
-  label: string;
-  // So os campos NUMERICOS do summary (monthlySales fica de fora).
-  field: 'openCount' | 'soldCount' | 'lostCount' | 'boughtCount';
-}> = [
-  // Cores = cor "start" dos gradientes dos cards comerciais (.sdv-card-commercial-mini.is-*).
-  { key: 'open', color: '#4a73b8', label: 'Em aberto', field: 'openCount' },
-  { key: 'sold', color: '#4a8a5e', label: 'Vendido', field: 'soldCount' },
-  { key: 'lost', color: '#b15454', label: 'Perdido', field: 'lostCount' },
-  { key: 'bought', color: '#7a5836', label: 'Comprado', field: 'boughtCount' },
+const MONTH_LABELS = [
+  'jan',
+  'fev',
+  'mar',
+  'abr',
+  'mai',
+  'jun',
+  'jul',
+  'ago',
+  'set',
+  'out',
+  'nov',
+  'dez',
 ];
 
-type Segment = { key: StatusKey; color: string; label: string; value: number };
+// key = 'YYYY-MM' (contrato do backend).
+function monthLabel(key: string): string {
+  const monthIndex = Number(key.slice(5, 7)) - 1;
+  return MONTH_LABELS[monthIndex] ?? '—';
+}
 
-// Donut em SVG (sem libs) — mesma mecanica do AgingDonut do dashboard: cada
-// segmento e um <circle> com stroke-dasharray proporcional; stroke-dashoffset
-// negativo acumula o que ja foi desenhado.
-function CommercialDonut({ segments, total }: { segments: Segment[]; total: number }) {
-  const radius = 40;
-  const circumference = 2 * Math.PI * radius;
-  const strokeWidth = 11;
+// Curva suave passando pelos pontos: cubic bezier com controles horizontais
+// no meio de cada segmento — tangente horizontal nos pontos, sem overshoot
+// vertical (mesmo espirito do grafico da referencia, sem lib).
+function buildLinePath(points: Array<{ x: number; y: number }>): string {
+  if (points.length === 0) return '';
+  let d = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 1; i < points.length; i += 1) {
+    const prev = points[i - 1];
+    const curr = points[i];
+    const controlX = (prev.x + curr.x) / 2;
+    d += ` C ${controlX} ${prev.y}, ${controlX} ${curr.y}, ${curr.x} ${curr.y}`;
+  }
+  return d;
+}
 
-  const visibleCount = segments.filter((s) => s.value > 0).length;
-  const segmentGap = visibleCount > 1 ? 2 : 0;
+function SalesLineChart({
+  series,
+  isBuyer,
+}: {
+  series: ClientMonthlySalesPoint[];
+  isBuyer: boolean;
+}) {
+  const WIDTH = 320;
+  const HEIGHT = 132;
+  const PAD_LEFT = 34;
+  const PAD_RIGHT = 10;
+  const PAD_TOP = 10;
+  const PAD_BOTTOM = 22;
+  const plotWidth = WIDTH - PAD_LEFT - PAD_RIGHT;
+  const plotHeight = HEIGHT - PAD_TOP - PAD_BOTTOM;
 
-  const totalDigits = String(total).length;
-  // Numero central: ligeiramente menor que antes e com passo por digito — encolhe
-  // a cada digito a mais pra caber confortavelmente no furo do donut.
-  const totalFontSize =
-    totalDigits <= 1
-      ? 30
-      : totalDigits === 2
-        ? 28
-        : totalDigits === 3
-          ? 24
-          : totalDigits === 4
-            ? 20
-            : 16;
+  const count = series.length;
+  const rawMax = Math.max(
+    1,
+    ...series.map((point) => Math.max(point.soldSacks, isBuyer ? point.boughtSacks : 0))
+  );
+  // Teto "redondo" divisivel por 4 → gridline do meio fica inteira.
+  const axisMax = Math.max(4, Math.ceil(rawMax / 4) * 4);
 
-  let accumulated = 0;
-  const rings = segments.map((s) => {
-    const fraction = total > 0 ? s.value / total : 0;
-    const dash = fraction * circumference;
-    const offset = -(accumulated + segmentGap / 2);
-    accumulated += dash;
-    return { ...s, dash: dash > 0 ? Math.max(dash - segmentGap, 1) : 0, offset };
-  });
+  const toX = (index: number) => PAD_LEFT + (count <= 1 ? 0 : (index * plotWidth) / (count - 1));
+  const toY = (value: number) => PAD_TOP + plotHeight - (value / axisMax) * plotHeight;
+
+  const soldPath = buildLinePath(
+    series.map((point, i) => ({ x: toX(i), y: toY(point.soldSacks) }))
+  );
+  const soldArea = `${soldPath} L ${toX(count - 1)} ${PAD_TOP + plotHeight} L ${toX(0)} ${PAD_TOP + plotHeight} Z`;
+  const boughtPath = isBuyer
+    ? buildLinePath(series.map((point, i) => ({ x: toX(i), y: toY(point.boughtSacks) })))
+    : '';
+
+  const gridValues = [0, axisMax / 2, axisMax];
+  const ariaLabel = `Sacas por mês nos últimos 6 meses: ${series
+    .map(
+      (point) =>
+        `${monthLabel(point.month)} ${point.soldSacks} vendidas${
+          isBuyer ? `, ${point.boughtSacks} compradas` : ''
+        }`
+    )
+    .join('; ')}`;
 
   return (
     <svg
-      className="sales-chart-donut"
-      viewBox="0 0 100 100"
+      className="fv-cd-chart"
+      viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       role="img"
-      aria-label={`Resumo comercial: ${segments.map((s) => `${s.value} ${s.label.toLowerCase()}`).join(', ')}`}
+      aria-label={ariaLabel}
     >
-      <circle cx="50" cy="50" r={radius} fill="none" stroke="#edf0ee" strokeWidth={strokeWidth} />
-      {total > 0
-        ? rings.map(({ key, color, dash, offset }) =>
-            dash > 0 ? (
-              <circle
-                key={key}
-                cx="50"
-                cy="50"
-                r={radius}
-                fill="none"
-                stroke={color}
-                strokeWidth={strokeWidth}
-                strokeDasharray={`${dash} ${circumference - dash}`}
-                strokeDashoffset={offset}
-                strokeLinecap="butt"
-                transform="rotate(-90 50 50)"
-              />
-            ) : null
-          )
-        : null}
-      <text
-        x="50"
-        y="44"
-        textAnchor="middle"
-        dominantBaseline="central"
-        className="sales-chart-donut-total"
-        fontSize={totalFontSize}
-      >
-        {total}
-      </text>
-      <text
-        x="50"
-        y="44"
-        dy="1.9em"
-        textAnchor="middle"
-        dominantBaseline="central"
-        className="sales-chart-donut-label"
-      >
-        lotes
-      </text>
+      {gridValues.map((value) => (
+        <g key={value}>
+          <line
+            className="fv-cd-chart-grid"
+            x1={PAD_LEFT}
+            x2={WIDTH - PAD_RIGHT}
+            y1={toY(value)}
+            y2={toY(value)}
+          />
+          <text className="fv-cd-chart-ytick" x={PAD_LEFT - 6} y={toY(value)}>
+            {value.toLocaleString('pt-BR')}
+          </text>
+        </g>
+      ))}
+      <path className="fv-cd-chart-area" d={soldArea} />
+      <path className="fv-cd-chart-line is-sold" d={soldPath} />
+      {isBuyer ? <path className="fv-cd-chart-line is-bought" d={boughtPath} /> : null}
+      {series.map((point, index) => (
+        <text key={point.month} className="fv-cd-chart-xtick" x={toX(index)} y={HEIGHT - 6}>
+          {monthLabel(point.month)}
+        </text>
+      ))}
     </svg>
   );
 }
@@ -120,68 +136,77 @@ export function ClientCommercialSummaryCard({
   isBuyer: boolean;
 }) {
   if (!summary) {
-    return (
-      <div className="sales-card client-commercial-card sales-card-skeleton" aria-hidden="true" />
-    );
+    return <div className="fv-cd-chart-skeleton" aria-hidden="true" />;
   }
 
-  // "Comprado" so entra pra cliente comprador (decisao do usuario).
-  const segments: Segment[] = STATUS_META.filter((meta) => meta.key !== 'bought' || isBuyer).map(
-    (meta) => ({
-      key: meta.key,
-      color: meta.color,
-      label: meta.label,
-      value: summary[meta.field],
-    })
+  const series = summary.monthlySales ?? [];
+  const hasMovement = series.some(
+    (point) => point.soldSacks > 0 || (isBuyer && point.boughtSacks > 0)
   );
 
-  const total = segments.reduce((acc, s) => acc + s.value, 0);
-
   return (
-    <div className="sales-card client-commercial-card">
-      <div className="sales-card-header">
-        <h3 className="sales-card-title">Resumo comercial</h3>
-        <span className="sales-card-chart-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" focusable="false">
-            <path d="M3 16.5 9 10.5 13 14 20 7" />
-            <path d="M15 7 20 7 20 12" />
-          </svg>
-        </span>
+    <>
+      <div className="sdv-card fv-cd-chart-card">
+        <div className="fv-cd-chart-head">
+          <h3 className="fv-cd-chart-title">Resumo comercial</h3>
+          <span className="fv-cd-chart-period">Últimos 6 meses</span>
+        </div>
+        <div className="fv-cd-chart-legend" aria-hidden="true">
+          <span className="fv-cd-chart-legend-item">
+            <span className="fv-cd-chart-legend-dot" style={{ background: COLOR_SOLD }} />
+            Vendas
+          </span>
+          {isBuyer ? (
+            <span className="fv-cd-chart-legend-item">
+              <span className="fv-cd-chart-legend-dot" style={{ background: COLOR_BOUGHT }} />
+              Compras
+            </span>
+          ) : null}
+        </div>
+        {hasMovement ? (
+          <SalesLineChart series={series} isBuyer={isBuyer} />
+        ) : (
+          <p className="fv-cd-chart-empty">Sem movimentações nos últimos 6 meses.</p>
+        )}
       </div>
 
-      <div className="sales-card-body">
-        <CommercialDonut segments={segments} total={total} />
-
-        {/* MOBILE: legenda em lista (design original, igual ao "Lotes disponiveis"
-            do dashboard). Escondida no desktop via media query. */}
-        <ul className="sales-chart-legend">
-          {segments.map((s) => (
-            <li key={s.key} className="sales-chart-legend-item">
+      <div className="fv-cd-stats">
+        <div className="fv-cd-stat">
+          <span className="fv-cd-stat-label">
+            <span
+              className="fv-cd-stat-dot"
+              style={{ background: COLOR_OPEN }}
+              aria-hidden="true"
+            />
+            Em aberto
+          </span>
+          <span className="fv-cd-stat-value">{summary.openCount}</span>
+        </div>
+        <div className="fv-cd-stat">
+          <span className="fv-cd-stat-label">
+            <span
+              className="fv-cd-stat-dot"
+              style={{ background: COLOR_SOLD }}
+              aria-hidden="true"
+            />
+            Vendido
+          </span>
+          <span className="fv-cd-stat-value">{summary.soldCount}</span>
+        </div>
+        {isBuyer ? (
+          <div className="fv-cd-stat">
+            <span className="fv-cd-stat-label">
               <span
-                className="sales-chart-legend-dot"
-                style={{ background: s.color }}
+                className="fv-cd-stat-dot"
+                style={{ background: COLOR_BOUGHT }}
                 aria-hidden="true"
               />
-              <span className="sales-chart-legend-label">{s.label}</span>
-              <span className="sales-chart-legend-count">{s.value}</span>
-            </li>
-          ))}
-        </ul>
-
-        {/* DESKTOP: indicativos de status como MINICARDS (nome em cima, numero
-            abaixo) — aproveitam a largura do card. Escondidos no mobile. */}
-        <div className="ccs-stats">
-          {segments.map((s) => (
-            <div key={s.key} className="ccs-stat">
-              <span className="ccs-stat-head">
-                <span className="ccs-stat-dot" style={{ background: s.color }} aria-hidden="true" />
-                <span className="ccs-stat-label">{s.label}</span>
-              </span>
-              <span className="ccs-stat-count">{s.value}</span>
-            </div>
-          ))}
-        </div>
+              Comprado
+            </span>
+            <span className="fv-cd-stat-value">{summary.boughtCount}</span>
+          </div>
+        ) : null}
       </div>
-    </div>
+    </>
   );
 }

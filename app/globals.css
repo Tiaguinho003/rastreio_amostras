@@ -22152,282 +22152,6 @@ select.samples-filter-field-input {
   }
 }
 
-/* ── Sales Card (base do card de donut) ──
-   Nasceu como o donut "Lotes disponiveis" do dashboard (REMOVIDO do sistema
-   no DSB-D14). Hoje o UNICO consumidor das classes .sales-card* e .sales-chart-*
-   e o "Resumo comercial" do detalhe do cliente (ClientCommercialSummaryCard,
-   .client-commercial-card): titulo no topo, body em grid de 2 colunas (donut
-   a esquerda + legenda/minicards a direita). */
-
-.sales-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: clamp(0.85rem, 3vw, 1.1rem);
-  padding: clamp(1.1rem, 4vw, 1.4rem);
-  /* Card BRANCO (redesign 2026-06 do mockup — sai o gradiente verde
-     escuro; o verde fica no icone-titulo e no botao full-width). */
-  background: #ffffff;
-  color: #1a1a1a;
-  border-radius: 20px;
-  border: 0;
-  box-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.05),
-    0 8px 20px rgba(0, 0, 0, 0.06);
-  text-align: left;
-  font: inherit;
-  -webkit-tap-highlight-color: transparent;
-  width: 100%;
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease;
-}
-
-/* Header: titulo (flex: 1) + icone de grafico decorativo a direita. */
-.sales-card-header {
-  display: flex;
-  align-items: center;
-  gap: clamp(0.6rem, 2vw, 0.8rem);
-}
-
-.sales-card-chart-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: clamp(2.1rem, 7vw, 2.4rem);
-  height: clamp(2.1rem, 7vw, 2.4rem);
-  border-radius: 12px;
-  background: #eef5f1;
-  border: 1px solid rgba(31, 93, 67, 0.22);
-  color: var(--brand-green, #1f5d43);
-  flex-shrink: 0;
-}
-
-.sales-card-chart-icon svg {
-  width: 58%;
-  height: 58%;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.sales-card-title {
-  margin: 0;
-  flex: 1;
-  min-width: 0;
-  font-size: clamp(1.05rem, 3.8vw, 1.2rem);
-  font-weight: 700;
-  color: #1a1a1a;
-  letter-spacing: -0.01em;
-  line-height: 1.15;
-}
-
-/* Body: donut na esquerda + legenda esticando ate a borda direita do
-   card (`1fr`). Antes era `auto auto justify-content: start` (legenda
-   ocupava so a largura natural). Agora os counts da legenda alinham com
-   a borda direita do card — mesma posicao do icone de grafico no topo. */
-.sales-card-body {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: clamp(0.7rem, 3vw, 1.5rem);
-  align-items: center;
-  padding-inline-start: clamp(0.4rem, 2vw, 1.4rem);
-}
-
-.sales-chart-donut {
-  display: block;
-  /* Min 140px (era 160) pra evitar overflow da legenda em <=360px;
-     em 390px+ o 39vw assume o controle e o donut volta ao visual maior. */
-  width: clamp(140px, 39vw, 205px);
-  height: clamp(140px, 39vw, 205px);
-  flex-shrink: 0;
-}
-
-.sales-chart-donut-total {
-  /* Numero central grande verde-escuro (mockup, card claro). O tamanho
-     (em unidades do viewBox) vem do atributo `fontSize` no componente —
-     encolhe conforme a quantidade de digitos pra caber no furo do donut.
-     Nao definir `font-size` aqui: CSS venceria o atributo de apresentacao. */
-  font-weight: 700;
-  fill: #14532d;
-  font-family: inherit;
-}
-
-.sales-chart-donut-label {
-  font-size: 11px;
-  font-weight: 400;
-  /* Tom AA (4.5:1 no branco) do antigo #6b7d72 (4.0:1). */
-  fill: #68796f;
-  font-family: inherit;
-}
-
-/* Resumo comercial do cliente (ajuste do usuario): rotulo "lotes" ligeiramente
-   menor. (Era escopado pra nao afetar o donut do dashboard — removido, DSB-D14.) */
-.client-commercial-card .sales-chart-donut-label {
-  font-size: 10px;
-}
-
-/* Legenda das cores a direita do donut — 3 linhas (over30/from15to30/under15),
-   separadas por divisores sutis, centradas verticalmente com o donut. */
-.sales-chart-legend {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  min-width: 0;
-}
-
-.sales-chart-legend-item {
-  /* Grid 3-col: dot | label | count. `1fr` da meio empurra o count
-     pra ponta direita mantendo alinhamento vertical entre as 3 linhas. */
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: clamp(0.45rem, 1.7vw, 0.65rem);
-  padding: clamp(0.45rem, 1.6vw, 0.6rem) 0;
-}
-
-.sales-chart-legend-item:first-child {
-  padding-top: 0;
-}
-
-.sales-chart-legend-item:last-child {
-  padding-bottom: 0;
-}
-
-.sales-chart-legend-item:not(:last-child) {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-}
-
-.sales-chart-legend-dot {
-  display: inline-block;
-  width: clamp(0.65rem, 2.2vw, 0.78rem);
-  height: clamp(0.65rem, 2.2vw, 0.78rem);
-  /* Quadrado arredondado em vez de circulo perfeito — novo design. */
-  border-radius: 3px;
-  flex-shrink: 0;
-}
-
-.sales-chart-legend-label {
-  font-size: clamp(0.78rem, 2.8vw, 0.9rem);
-  font-weight: 400;
-  color: #4a5550;
-  line-height: 1.1;
-  white-space: nowrap;
-}
-
-.sales-chart-legend-count {
-  font-size: clamp(0.92rem, 3.2vw, 1.02rem);
-  font-weight: 700;
-  color: #1a1a1a;
-  line-height: 1.1;
-  text-align: right;
-  /* Padding-left min reduzido (era 1.5rem) pra evitar overflow em
-     viewports pequenos; o 1fr do grid garante distancia visual em
-     telas maiores. */
-  padding-left: clamp(0.5rem, 2.5vw, 2rem);
-}
-
-/* ── Resumo comercial do CLIENTE: status como LEGENDA em lista no MOBILE
-   (design original, igual ao "Lotes disponiveis" do dashboard) e como MINICARDS
-   no DESKTOP (nome em cima, numero abaixo). Escopado a .client-commercial-card
-   pra NAO afetar os cards do dashboard. */
-
-/* MOBILE (base): o card mantem o layout original — donut a esquerda + legenda a
-   direita (via .sales-card-body base grid). Os minicards ficam ocultos. */
-.client-commercial-card .ccs-stats {
-  display: none;
-}
-
-/* Estilos dos minicards (so aparecem no desktop; inertes enquanto ocultos). */
-.ccs-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  min-width: 0;
-  padding: clamp(0.6rem, 1.6vw, 0.85rem) clamp(0.6rem, 1.6vw, 0.85rem);
-  background: linear-gradient(180deg, #ffffff 0%, #fbfcfb 100%);
-  border: 1px solid rgba(0, 0, 0, 0.07);
-  border-radius: 12px;
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.05),
-    0 4px 10px rgba(0, 0, 0, 0.04);
-}
-.ccs-stat-head {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  min-width: 0;
-}
-.ccs-stat-dot {
-  width: 0.6rem;
-  height: 0.6rem;
-  border-radius: 3px;
-  flex-shrink: 0;
-}
-.ccs-stat-label {
-  font-size: clamp(0.66rem, 2vw, 0.76rem);
-  font-weight: 600;
-  color: #6b7d72;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.ccs-stat-count {
-  font-size: clamp(1.35rem, 4.5vw, 1.7rem);
-  font-weight: 700;
-  color: #14251a;
-  line-height: 1;
-}
-
-/* Desktop: o card fica em LARGURA TOTAL (grid do detalhe do cliente) — donut
-   MAIOR a esquerda + os minicards numa linha a direita, aproveitando o espaco. */
-@media (min-width: 901px) {
-  .client-commercial-card .sales-card-body {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: clamp(1.4rem, 3vw, 2.4rem);
-    padding-inline-start: 0;
-  }
-  .client-commercial-card .sales-chart-donut {
-    width: clamp(200px, 15vw, 244px);
-    height: clamp(200px, 15vw, 244px);
-    align-self: center;
-    flex-shrink: 0;
-  }
-  /* No desktop a legenda-lista (mobile) some e os minicards assumem. */
-  .client-commercial-card .sales-chart-legend {
-    display: none;
-  }
-  .client-commercial-card .ccs-stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
-    flex: 1;
-    gap: clamp(0.7rem, 1.4vw, 1rem);
-    min-width: 0;
-  }
-  .client-commercial-card .ccs-stat {
-    padding: clamp(0.85rem, 1.4vw, 1.1rem) clamp(0.8rem, 1.4vw, 1.05rem);
-  }
-  .client-commercial-card .ccs-stat-count {
-    font-size: clamp(1.7rem, 2.4vw, 2.1rem);
-  }
-}
-
-/* ── Skeleton ── */
-
-.sales-card-skeleton {
-  min-height: clamp(280px, 78vw, 330px);
-  opacity: 0.45;
-}
-
 /* ================================================================
    New Sample v2 (nsv2)
    ================================================================ */
@@ -34985,4 +34709,159 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   height: 7px;
   border-radius: 50%;
   background: var(--fv-chip-amber-fg);
+}
+
+/* ── Rodada 3 FV: Resumo comercial — grafico de linhas + cards ──
+   Substitui o donut (.sales-* deletado; consumidor unico era o cliente).
+   Base sem media query: vale no drawer desktop e no sheet mobile. */
+
+.fv-cd-chart-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.fv-cd-chart-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.fv-cd-chart-title {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.fv-cd-chart-period {
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.fv-cd-chart-legend {
+  display: flex;
+  gap: 14px;
+  margin: 6px 0 4px;
+}
+
+.fv-cd-chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.fv-cd-chart-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.fv-cd-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.fv-cd-chart-grid {
+  stroke: rgba(28, 33, 30, 0.1);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.fv-cd-chart-ytick,
+.fv-cd-chart-xtick {
+  font-size: 8.5px;
+  fill: var(--muted);
+}
+
+.fv-cd-chart-ytick {
+  text-anchor: end;
+  dominant-baseline: central;
+}
+
+.fv-cd-chart-xtick {
+  text-anchor: middle;
+}
+
+.fv-cd-chart-area {
+  fill: rgba(74, 138, 94, 0.1);
+  stroke: none;
+}
+
+.fv-cd-chart-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.fv-cd-chart-line.is-sold {
+  stroke: #4a8a5e;
+}
+
+.fv-cd-chart-line.is-bought {
+  stroke: #7a5836;
+}
+
+.fv-cd-chart-empty {
+  margin: 0;
+  padding: 30px 0 34px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.fv-cd-chart-skeleton {
+  min-height: 180px;
+  border-radius: var(--fv-radius-lg);
+  border: 1px solid var(--fv-line);
+  background: var(--fv-canvas);
+  opacity: 0.6;
+}
+
+/* Cards numericos (Em aberto / Vendido / Comprado) — estilo dos minicards
+   de metrica da referencia: label discreto em cima, numero grande. */
+.fv-cd-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.fv-cd-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 0.72rem 0.85rem;
+  background: var(--fv-surface);
+  border: 1px solid var(--fv-line);
+  border-radius: var(--fv-radius);
+}
+
+.fv-cd-stat-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.fv-cd-stat-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.fv-cd-stat-value {
+  font-size: 1.35rem;
+  font-weight: 650;
+  line-height: 1;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
