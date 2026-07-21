@@ -23,6 +23,8 @@ import { ClientLookupField } from '../../components/clients/ClientLookupField';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { ClassificationFilterField } from '../../components/samples/ClassificationFilterField';
 import { SampleCard } from '../../components/samples/SampleCard';
+import { BlendBadge } from '../../components/samples/BlendBadge';
+import { HarvestDisplay } from '../../components/samples/HarvestDisplay';
 import { SampleDetailView } from '../../components/samples/SampleDetailView';
 import { SampleCreateRadialFab } from '../../components/samples/SampleCreateRadialFab';
 import { SampleMovementModal } from '../../components/samples/SampleMovementModal';
@@ -48,6 +50,7 @@ import {
   listSamples,
   updateRegistration,
 } from '../../lib/api-client';
+import { formatPercentDisplay } from '../../lib/classification-format';
 import { mapEligibilityReasonToLabel } from '../../lib/samples/eligibility-labels';
 import {
   SAMPLES_INITIAL,
@@ -80,6 +83,46 @@ import { NON_PROSPECTOR_ROLES } from '../../lib/roles';
 // FV (KPI row): mini-metrica sob o valor de cada card — molde de /cadastros.
 type KpiDelta = { text: string; dir: 'up' | 'down' | 'flat' };
 type KpiTone = 'blue' | 'green' | 'amber';
+
+// FV (tabela desktop): campos de uma linha da tabela de lotes. Espelha o que o
+// SampleCard deriva — status comercial, dono ("Carteira da corretora" pra liga
+// sem dono fixado), saldo de sacas e o resumo da ultima classificacao (padrao +
+// catacao, os mesmos campos root-level que o card expandido mostrava).
+function describeSampleRow(sample: SampleSnapshot) {
+  const isInvalidated = sample.status === 'INVALIDATED';
+  const status = isInvalidated
+    ? { label: 'Deletado', chip: 'fv-chip-gray' }
+    : sample.commercialStatus === 'SOLD'
+      ? { label: 'Vendido', chip: 'fv-chip-gray' }
+      : sample.commercialStatus === 'LOST'
+        ? { label: 'Perdido', chip: 'fv-chip-red' }
+        : { label: 'Em aberto', chip: 'fv-chip-green' };
+
+  const available = sample.availableSacks;
+  const declared = sample.declared.sacks;
+  const consumed = (sample.soldSacks ?? 0) + (sample.lostSacks ?? 0);
+
+  const classData = sample.latestClassification?.data ?? null;
+  const padrao = typeof classData?.padrao === 'string' ? classData.padrao.trim() : '';
+  const catacao = formatPercentDisplay(classData?.catacao);
+  const catacaoText = catacao === null || catacao === undefined ? '' : String(catacao).trim();
+
+  return {
+    isInvalidated,
+    status,
+    lot: sample.internalLotNumber ?? sample.id.slice(0, 8),
+    owner:
+      sample.isBlend && sample.blendOwnerPinned && !sample.ownerClientId
+        ? 'Carteira da corretora'
+        : sample.declared.owner || '—',
+    sacks: available === null || available === undefined ? '—' : available.toLocaleString('pt-BR'),
+    sacksSub:
+      consumed > 0 && declared != null ? `de ${declared.toLocaleString('pt-BR')} sacas` : null,
+    hasHarvest: Boolean(sample.declared.harvest?.trim()),
+    classification:
+      padrao || catacaoText ? { main: padrao || '—', sub: catacaoText || null } : null,
+  };
+}
 
 const formatKpiPct = (value: number) =>
   `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
@@ -2596,6 +2639,153 @@ function SamplesPage() {
                     : 'Tente outro filtro ou termo de busca'}
                 </p>
               </div>
+            </div>
+          ) : isDesktop ? (
+            /* FV (desktop): a lista vira TABELA institucional. Dados, ordem,
+               scroll infinito e snapshot sao os mesmos dos cards — muda so a
+               apresentacao. A linha inteira abre o lote; o numero e <button>
+               pra teclado. A expansao do card morreu: o que ela mostrava vive
+               na coluna Classificacao e no drawer. */
+            <div ref={samplesScrollRef} className="spv2-list-scroll fv-table-scroll" tabIndex={-1}>
+              <table className="fv-table fv-table-lotes">
+                <colgroup>
+                  <col className="fv-col-lot" />
+                  <col className="fv-col-status" />
+                  <col className="fv-col-owner" />
+                  <col className="fv-col-sacks" />
+                  <col className="fv-col-harvest" />
+                  <col className="fv-col-class" />
+                  <col className="fv-col-actions" />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th scope="col">Lote</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Proprietário</th>
+                    <th scope="col">Sacas</th>
+                    <th scope="col">Safra</th>
+                    <th scope="col">Classificação</th>
+                    <th scope="col" className="fv-table-th-actions" aria-label="Ações" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {samplesState.items.map((sample) => {
+                    const row = describeSampleRow(sample);
+                    return (
+                      <tr
+                        key={sample.id}
+                        className={`fv-table-row${row.isInvalidated ? ' is-inactive' : ''}`}
+                        onClick={() => {
+                          saveSnapshotBeforeLeave();
+                          openLote(sample.id);
+                        }}
+                      >
+                        <td>
+                          <span className="fv-table-lot">
+                            <button
+                              type="button"
+                              className="fv-table-name-btn"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                saveSnapshotBeforeLeave();
+                                openLote(sample.id);
+                              }}
+                            >
+                              <span className="fv-table-name">{row.lot}</span>
+                            </button>
+                            {sample.isBlend ? <BlendBadge size="sm" /> : null}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`fv-chip ${row.status.chip}`}>{row.status.label}</span>
+                        </td>
+                        <td>
+                          <span className="fv-table-cell-main">{row.owner}</span>
+                        </td>
+                        <td>
+                          {/* Disponiveis em destaque; o total so aparece quando
+                              houve baixa (venda/perda), pra dar o contexto. */}
+                          <span className="fv-table-cell-stack">
+                            <span className="fv-table-cell-main">{row.sacks}</span>
+                            {row.sacksSub ? (
+                              <span className="fv-table-sub">{row.sacksSub}</span>
+                            ) : null}
+                          </span>
+                        </td>
+                        <td>
+                          {row.hasHarvest ? (
+                            <span className="fv-table-cell-main">
+                              <HarvestDisplay
+                                harvest={sample.declared.harvest}
+                                showMixSafras={false}
+                              />
+                            </span>
+                          ) : (
+                            <span className="fv-table-cell-main">—</span>
+                          )}
+                        </td>
+                        <td>
+                          {row.classification ? (
+                            <span className="fv-table-cell-stack">
+                              <span className="fv-table-cell-main">{row.classification.main}</span>
+                              {row.classification.sub ? (
+                                <span className="fv-table-sub">{row.classification.sub}</span>
+                              ) : null}
+                            </span>
+                          ) : (
+                            <span className="fv-chip fv-chip-amber">Pendente</span>
+                          )}
+                        </td>
+                        <td className="fv-table-td-actions">
+                          {/* O ⋯ vira popover de acoes no C4; por ora abre o lote. */}
+                          <button
+                            type="button"
+                            className="fv-table-dots"
+                            aria-label={`Ações do lote ${row.lot}`}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              saveSnapshotBeforeLeave();
+                              openLote(sample.id);
+                            }}
+                          >
+                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                              <circle cx="12" cy="5" r="1.6" />
+                              <circle cx="12" cy="12" r="1.6" />
+                              <circle cx="12" cy="19" r="1.6" />
+                            </svg>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {isLoadingMore
+                    ? Array.from({ length: 3 }).map((_, i) => (
+                        <tr key={`skel-${i}`} className="fv-table-skel-row" aria-hidden="true">
+                          {Array.from({ length: 7 }).map((__, cell) => (
+                            <td key={`skel-cell-${cell}`}>
+                              <span className="fv-table-skel" />
+                            </td>
+                          ))}
+                        </tr>
+                      ))
+                    : null}
+                </tbody>
+              </table>
+
+              {/* LOT-B1: erro do load-more aparece onde o usuário está (fim
+                  da lista), em vez de sumir no estado. */}
+              {samplesState.status === 'error' && samplesState.items.length > 0 ? (
+                <p className="spv2-error-banner" role="status">
+                  {samplesState.error ?? 'Não foi possível carregar mais lotes.'}
+                </p>
+              ) : null}
+
+              {samplesState.nextCursor ? (
+                <div ref={loadMoreRef} className="spv2-load-sentinel" aria-hidden />
+              ) : null}
+
+              {hasReachedEnd ? <p className="spv2-list-end">Você chegou ao fim</p> : null}
             </div>
           ) : (
             <div ref={samplesScrollRef} className="spv2-list-scroll">

@@ -33946,6 +33946,29 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
     padding: 0;
   }
 
+  /* ── Mesmo cartao institucional na lista de Lotes (FV /samples). O sheet
+     legado tinha gradiente creme + borda esverdeada; aqui vira superficie
+     branca com hairline, como em /cadastros. ── */
+  .fv-lotes-page .samples-page-v2-sheet {
+    margin: 1rem clamp(0.9rem, 3vw, 2rem) 1.15rem;
+    padding: 0;
+    background: var(--fv-surface);
+    border: 1px solid var(--fv-line);
+    border-radius: var(--fv-radius-lg);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  .fv-lotes-page .samples-page-v2-sheet .spv2-list-meta {
+    padding: 0.75rem 1rem 0.6rem;
+    margin: 0;
+    border-bottom: 1px solid var(--fv-line);
+  }
+
+  .fv-lotes-page .samples-page-v2-sheet .spv2-list-scroll.fv-table-scroll {
+    display: block;
+    padding: 0;
+  }
+
   /* ── Tabela institucional (kit FV). ── */
   .fv-table {
     width: 100%;
@@ -33974,6 +33997,41 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   }
   .fv-col-actions {
     width: 58px;
+  }
+
+  /* Colunas da tabela de Lotes (FV /samples): 6 + acoes. Proprietario e a
+     coluna elastica (nome longo trunca); as demais tem largura fixa. */
+  .fv-col-lot {
+    width: 130px;
+  }
+  .fv-col-owner {
+    width: auto;
+  }
+  .fv-col-sacks {
+    width: 120px;
+  }
+  .fv-col-harvest {
+    width: 110px;
+  }
+  .fv-col-class {
+    width: 170px;
+  }
+
+  /* Numero do lote + badge de liga na mesma linha. */
+  .fv-table-lot {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+  .fv-table-lot .fv-table-name {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Sacas (4a coluna): alinhamento a esquerda como as demais, so com
+     numeros tabulares pra a coluna nao "dancar" entre linhas. */
+  .fv-table-lotes tbody td:nth-child(4) .fv-table-cell-main {
+    font-variant-numeric: tabular-nums;
   }
 
   .fv-table thead th {
