@@ -2257,7 +2257,8 @@ export function SampleDetailView({
                               ? firstNameOf(cd.classificador)
                               : '—';
 
-                          // Foto da ficha: faixa larga no topo, clicavel pra ampliar.
+                          // Foto da ficha: quadrada a ESQUERDA, com a foto inteira
+                          // visivel (contain), clicavel pra ampliar.
                           const clsPhotoNode = classPhotoUrl ? (
                             <button
                               type="button"
@@ -2331,8 +2332,11 @@ export function SampleDetailView({
                           // (grid-areas photo|stats / pen|def / pen|obs) nao cabe aqui.
                           const fichaNode = (
                             <div className="fv-sd-ficha">
-                              {clsPhotoNode}
-                              <div className="sdv-cls-statwrap">
+                              {/* Linha do topo: foto quadrada a esquerda e, ao lado,
+                                  Data + Classificador empilhados. O resto da ficha
+                                  segue abaixo, em largura cheia. */}
+                              <div className="sdv-cls-top">
+                                {clsPhotoNode}
                                 <div className="sdv-cls-statbox sdv-cls-statbox--mini">
                                   <div className="sdv-cls-statbox-row sdv-cls-statbox-row--1">
                                     {clsField(
@@ -2344,6 +2348,8 @@ export function SampleDetailView({
                                     {clsField(classificadorLabel, classificadorShort)}
                                   </div>
                                 </div>
+                              </div>
+                              <div className="sdv-cls-statwrap">
                                 <div className="sdv-cls-statbox sdv-cls-statbox--main">
                                   <div className="sdv-cls-statbox-row sdv-cls-statbox-row--3">
                                     {clsField('Aspecto', cd ? toText(cd.aspecto) : '')}
@@ -2410,7 +2416,7 @@ export function SampleDetailView({
                                 {cd ? (
                                   <button
                                     type="button"
-                                    className="sdv-edit-btn"
+                                    className="fv-add-btn"
                                     onClick={openClassificationEdit}
                                     aria-label="Editar classificação"
                                   >

@@ -35389,6 +35389,10 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
    (molde dos botoes das rodadas 1-2). Substitui o .sdv-edit-btn "Nova"
    fantasma nesses tres pontos (o .sdv-edit-btn segue no detalhe da
    amostra). */
+/* Botao de acao PREENCHIDO verde do kit FV (rodada 4 do piloto). A versao
+   `.fv-add-btn` e a GENERICA — use em pagina nova; `.fv-cd-add-btn` e o alias
+   do cliente, mantido ate a consolidacao. */
+.fv-add-btn,
 .client-details-overlay .fv-cd-add-btn {
   display: inline-flex;
   align-items: center;
@@ -35405,6 +35409,7 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   -webkit-tap-highlight-color: transparent;
   transition: transform 140ms ease;
 }
+.fv-add-btn svg,
 .client-details-overlay .fv-cd-add-btn svg {
   width: 12px;
   height: 12px;
@@ -35414,6 +35419,7 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+.fv-add-btn:active:not(:disabled),
 .client-details-overlay .fv-cd-add-btn:active:not(:disabled) {
   transform: scale(0.96);
 }
@@ -36087,26 +36093,61 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   margin-top: clamp(3px, 1vw, 5px);
 }
 
-/* Foto: faixa larga no topo (antes era um quadradinho ao lado dos campos). */
-.lote-details-overlay .fv-sd-ficha > .sdv-cls-block-thumb {
-  align-self: auto;
+/* Topo da ficha: foto QUADRADA a esquerda + Data/Classificador ao lado. O
+   resto (Aspecto/Catacao/Padrao, peneiras, defeitos, obs) segue abaixo em
+   largura cheia. A faixa larga anterior cortava a ficha fotografada. */
+.lote-details-overlay .fv-sd-ficha .sdv-cls-top {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 10px;
+  align-items: stretch;
+}
+.lote-details-overlay .sdv-cls-top > .sdv-cls-block-thumb {
+  align-self: stretch;
   width: 100%;
-  height: 168px;
+  height: auto;
+  aspect-ratio: 1 / 1;
   min-height: 0;
   padding: 0;
-  border: none;
+  border: 1px solid var(--fv-line);
   background: #f4f6f4;
   border-radius: var(--fv-radius);
   cursor: pointer;
+  overflow: hidden;
   -webkit-tap-highlight-color: transparent;
   transition: transform 140ms ease;
 }
-.lote-details-overlay .fv-sd-ficha > .sdv-cls-block-thumb:active {
+/* `contain`: a ficha fotografada aparece INTEIRA (o `cover` da faixa larga
+   cortava as bordas do papel). Sobra de moldura fica no fundo neutro. */
+.lote-details-overlay .sdv-cls-top > .sdv-cls-block-thumb .sdv-cls-block-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 0;
+}
+.lote-details-overlay .sdv-cls-top > .sdv-cls-block-thumb:active {
   transform: scale(0.99);
 }
-.lote-details-overlay .fv-sd-ficha > .sdv-cls-block-thumb-empty {
-  height: 84px;
+.lote-details-overlay .sdv-cls-top > .sdv-cls-block-thumb-empty {
+  aspect-ratio: 1 / 1;
+  height: auto;
   cursor: default;
+}
+/* Ao lado da foto, Data e Classificador ficam EMPILHADOS (a regra geral do
+   `--mini` os poe lado a lado; aqui a coluna e estreita). */
+.lote-details-overlay .sdv-cls-top .sdv-cls-statbox--mini {
+  flex-direction: column;
+  justify-content: center;
+  gap: 0;
+}
+.lote-details-overlay
+  .sdv-cls-top
+  .sdv-cls-statbox--mini
+  .sdv-cls-statbox-row
+  + .sdv-cls-statbox-row {
+  border-left: none;
+  border-top: 1px solid var(--fv-line);
+  padding-left: 0;
 }
 
 /* Stats: Data | Classificador lado a lado, depois Aspecto/Catacao/Padrao e
