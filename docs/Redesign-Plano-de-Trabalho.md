@@ -212,7 +212,7 @@ Pedido do Flavio (5 pontos; os modais internos do detalhe ficam para **depois**,
 6. **Scroll sem deslocamento** (pedido durante a rodada) — trocar de aba fazia o conteúdo **pular pra esquerda** quando a barra de scroll aparecia (aba longa) e sumia (aba curta). Fix: `scrollbar-gutter: stable` no `.bottom-sheet-body` do drawer (espaço da barra sempre reservado) + barra fina neutra (`scrollbar-width: thin` / `scrollbar-color` hairline). Touch usa barra overlay — sem efeito no mobile.
 7. **Linhas do gráfico mais finas** (pedido durante a rodada) — stroke das linhas Vendas/Compras de 2 → **1.4** (a viewBox de 320px escala ~1.8× no drawer; rende ~2,5px na tela).
 
-Commits: `53bb96d` (style: prettier no doc, escapou da rodada 3) · `393a5c4` (bloqueio + seta) · `3f7cc8c` (cards + botões + linha reta) · `bd6d7c8` (docs) · `+1` (gutter estável do scroll, com este ajuste no doc). Gates verdes por commit (typecheck, lint, format, unit 535, contracts 20; sem mudança de backend).
+Commits: `53bb96d` (style: prettier no doc, escapou da rodada 3) · `393a5c4` (bloqueio + seta) · `3f7cc8c` (cards + botões + linha reta) · `bd6d7c8` (docs) · `ba06920` (gutter estável do scroll) · `f613b87` (linhas do gráfico mais finas). Gates verdes por commit (typecheck, lint, format, unit 535, contracts 20; sem mudança de backend).
 
 Checklist de conferência (desktop): abrir o detalhe → página escurece e **nada atrás é clicável** (tap fora fecha; com edição aberta, não fecha); criar cliente idem; seta ← meio pra fora fecha os dois painéis; cards de filial E de conta brancos hairline; "+ Adicionar filial/conta/anexo" verdes preenchidos; linha da aba ativa reta; trocar de aba **não desloca o conteúdo** (gutter estável); no mobile a seta aparece à esquerda do título.
 
