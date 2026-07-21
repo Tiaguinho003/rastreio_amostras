@@ -35226,6 +35226,28 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   min-height: 0;
 }
 
+/* Avisos/confirmacoes do drawer do cliente (Inativar/Reativar cliente e
+   filial, cascata): o dialogo central aparece DENTRO da area do painel
+   lateral — no desktop o scrim escuro cobre so a faixa direita (mesma
+   geometria dos 620px do drawer/paineis; molde do "Descartar?" do
+   quick-create). Mobile: viewport inteiro (o sheet e tela cheia). O tier
+   +20 fica ACIMA dos paineis stacked (600/610) — o aviso de filial abre
+   na frente do painel da filial. */
+.app-modal-backdrop.fv-panel-scrim {
+  z-index: calc(var(--z-modal-stacked) + 20);
+  align-items: center;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+@media (min-width: 901px) {
+  .app-modal-backdrop.fv-panel-scrim {
+    left: auto;
+    right: 0;
+    width: min(620px, 92vw);
+  }
+}
+
 /* Conteudo do drawer: coluna unica (o grid de 2 colunas e as regras de
    order/`display:contents` antigas dependiam do wrapper
    .sdv-client-side-col, que saiu do DOM). Specificity alta pra vencer

@@ -71,7 +71,9 @@ export function ClientInactivateWithCascadeModal({
   }
 
   return createPortal(
-    <div className="app-modal-backdrop">
+    // Rodada 5 FV: aviso central DENTRO da area do painel lateral
+    // (fv-panel-scrim — faixa direita no desktop, tier acima dos paineis).
+    <div className="app-modal-backdrop fv-panel-scrim">
       <section
         ref={focusTrapRef}
         className="app-modal is-themed client-cascade-modal"

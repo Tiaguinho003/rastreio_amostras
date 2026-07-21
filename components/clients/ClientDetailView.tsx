@@ -2291,9 +2291,10 @@ export function ClientDetailView({
       />
 
       {/* ========== MODAL 3: Inactivate/Reactivate Client ========== */}
+      {/* Rodada 5: aviso central DENTRO da area do painel (fv-panel-scrim). */}
       {statusModalOpen
         ? createPortal(
-            <div className="app-modal-backdrop">
+            <div className="app-modal-backdrop fv-panel-scrim">
               <section
                 ref={statusTrapRef}
                 className="app-modal is-themed is-action"
@@ -2397,9 +2398,11 @@ export function ClientDetailView({
         : null}
 
       {/* ========== MODAL 4: Inactivate/Reactivate Unit (L5 — PF) ========== */}
+      {/* Rodada 5: central dentro da area do painel, ACIMA do painel da
+          filial (tier +20 do fv-panel-scrim). */}
       {unitStatusModalOpen
         ? createPortal(
-            <div className="app-modal-backdrop">
+            <div className="app-modal-backdrop fv-panel-scrim">
               <section
                 ref={unitStatusTrapRef}
                 className="app-modal is-themed is-action"
