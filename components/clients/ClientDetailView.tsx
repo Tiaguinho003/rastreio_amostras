@@ -14,6 +14,7 @@ import { ClientUnitDetailModal } from './ClientUnitDetailModal';
 import { ClientBankAccountModal } from './ClientBankAccountModal';
 import { ClientBankAccountDetailModal } from './ClientBankAccountDetailModal';
 import { ClientAttachmentPreviewModal } from './ClientAttachmentPreviewModal';
+import { ClientAttachmentAddModal } from './ClientAttachmentAddModal';
 import { ClientCommercialSummaryCard } from './ClientCommercialSummaryCard';
 import {
   ApiError,
@@ -445,15 +446,17 @@ export function ClientDetailView({
 
   /* ---- Fechamento Fase 0: anexos do cliente (D27) ---- */
   const [attachments, setAttachments] = useState<ClientAttachmentSummary[]>([]);
-  const [attachmentNotice, setAttachmentNotice] = useState<Notice>(null);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  // Rodada 6: "Adicionar anexo" virou painel proprio (arquivo + filial).
+  const [attachmentAddOpen, setAttachmentAddOpen] = useState(false);
+  const [attachmentAddSuccess, setAttachmentAddSuccess] = useState(false);
+  const [attachmentAddNotice, setAttachmentAddNotice] = useState<string | null>(null);
   const [attachmentPreview, setAttachmentPreview] = useState<ClientAttachmentSummary | null>(null);
   const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState(false);
   const [attachmentPreviewNotice, setAttachmentPreviewNotice] = useState<string | null>(null);
   const [attachmentPreviewSuccess, setAttachmentPreviewSuccess] = useState(false);
   const [deletingAttachment, setDeletingAttachment] = useState(false);
   const [linkingAttachment, setLinkingAttachment] = useState(false);
-  const attachmentInputRef = useRef<HTMLInputElement>(null);
   // Anexos + Contas bancarias saem do layout e viram um botao (icone de folha) no
   // header que abre o modal "Documentos" (abas). Vale pra desktop E mobile.
   // Rodada 2 FV: o modal "Documentos" morreu — Anexos e Contas bancarias
@@ -513,6 +516,7 @@ export function ClientDetailView({
     unitDetailOpen ||
     bankAccountModalOpen ||
     bankAccountDetailOpen ||
+    attachmentAddOpen ||
     attachmentPreviewOpen ||
     statusModalOpen ||
     cascadeOpen ||
@@ -977,21 +981,50 @@ export function ClientDetailView({
   /*  Attachment handlers (Fechamento Fase 0)                         */
   /* ================================================================ */
 
-  async function handleAttachmentSelected(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file || !session || !clientId) return;
+  // Rodada 6: o upload saiu do card (input direto) e virou o painel "Novo
+  // anexo" — arquivo + vinculo opcional com a filial num Salvar so.
+  function openAttachmentAdd() {
+    setAttachmentAddNotice(null);
+    setAttachmentAddSuccess(false);
+    setUploadingAttachment(false);
+    setAttachmentAddOpen(true);
+  }
+
+  function closeAttachmentAdd() {
+    if (uploadingAttachment || attachmentAddSuccess) return;
+    setAttachmentAddOpen(false);
+  }
+
+  async function handleAttachmentAdd(file: File, unitId: string | null) {
+    if (!session || !clientId) return;
     setUploadingAttachment(true);
-    setAttachmentNotice(null);
+    setAttachmentAddNotice(null);
     try {
-      await uploadClientAttachment(session, clientId, file);
-      setAttachmentNotice({ kind: 'success', text: 'Anexo enviado com sucesso.' });
+      const { attachment } = await uploadClientAttachment(session, clientId, file);
+      if (unitId) {
+        try {
+          await linkClientAttachmentUnit(session, clientId, attachment.id, unitId);
+        } catch (cause) {
+          // O upload ja aconteceu — informa que SO o vinculo falhou e mantem
+          // o painel aberto (da pra vincular depois pelo preview do anexo).
+          void fetchData();
+          setAttachmentAddNotice(
+            cause instanceof ApiError
+              ? `Anexo enviado, mas o vínculo com a filial falhou: ${cause.message}`
+              : 'Anexo enviado, mas o vínculo com a filial falhou. Vincule depois pelo anexo.'
+          );
+          return;
+        }
+      }
+      // Check canonico sobre o painel; fecha de volta pro detalhe.
+      setAttachmentAddSuccess(true);
       void fetchData();
+      window.setTimeout(() => {
+        setAttachmentAddOpen(false);
+        setAttachmentAddSuccess(false);
+      }, 1000);
     } catch (cause) {
-      setAttachmentNotice({
-        kind: 'error',
-        text: cause instanceof ApiError ? cause.message : 'Falha ao enviar anexo.',
-      });
+      setAttachmentAddNotice(cause instanceof ApiError ? cause.message : 'Falha ao enviar anexo.');
     } finally {
       setUploadingAttachment(false);
     }
@@ -1292,7 +1325,6 @@ export function ClientDetailView({
           })}
         </div>
       )}
-      <NoticeSlot notice={attachmentNotice} />
     </>
   );
 
@@ -1831,29 +1863,23 @@ export function ClientDetailView({
                       {bankAccountsBody}
                     </div>
 
-                    {/* Anexos (Fechamento Fase 0 — D27) — PF e PJ */}
+                    {/* Anexos (Fechamento Fase 0 — D27) — PF e PJ. Rodada 6:
+                        o botao abre o painel "Novo anexo" (arquivo + filial). */}
                     <div className="sdv-card sdv-info-compact sdv-card-attachments">
                       <div className="sdv-card-header">
                         <span className="sdv-card-title">Anexos</span>
                         <button
                           type="button"
                           className="fv-cd-add-btn"
-                          onClick={() => attachmentInputRef.current?.click()}
-                          disabled={uploadingAttachment}
+                          onClick={openAttachmentAdd}
+                          disabled={attachmentAddOpen}
                         >
                           <svg viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M12 5v14" />
                             <path d="M5 12h14" />
                           </svg>
-                          <span>{uploadingAttachment ? 'Enviando…' : 'Adicionar anexo'}</span>
+                          <span>Adicionar anexo</span>
                         </button>
-                        <input
-                          ref={attachmentInputRef}
-                          type="file"
-                          accept="application/pdf,image/jpeg,image/png,image/webp"
-                          style={{ display: 'none' }}
-                          onChange={handleAttachmentSelected}
-                        />
                       </div>
                       {attachmentsBody}
                     </div>
@@ -2296,6 +2322,17 @@ export function ClientDetailView({
         onClose={closeAttachmentPreview}
         onDelete={handleAttachmentDelete}
         onLink={handleAttachmentLink}
+      />
+
+      {/* Rodada 6: painel "Novo anexo" (arquivo + vinculo com a filial). */}
+      <ClientAttachmentAddModal
+        open={attachmentAddOpen}
+        units={activeUnitsList}
+        saving={uploadingAttachment}
+        success={attachmentAddSuccess}
+        errorMessage={attachmentAddNotice}
+        onClose={closeAttachmentAdd}
+        onSave={handleAttachmentAdd}
       />
 
       {/* ========== MODAL 2.5: Cascade Inactivate (#6/Q-05) ========== */}

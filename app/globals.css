@@ -35210,6 +35210,96 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   gap: 0.75rem;
   padding: 0.2rem 0 1rem;
 }
+
+/* Rodada 6 FV: painel "Novo anexo" — campo QUADRADO de arquivo (clica pra
+   escolher; vira thumb da imagem ou ficha do PDF) + vinculo com a filial. */
+.caa-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding: 0.3rem 0 1rem;
+}
+.caa-drop {
+  position: relative;
+  width: min(100%, 320px);
+  aspect-ratio: 1 / 1;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px dashed var(--fv-line-strong);
+  border-radius: var(--fv-radius);
+  background: var(--fv-surface);
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+  overflow: hidden;
+}
+.caa-drop:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.caa-drop.has-file {
+  border-style: solid;
+}
+.caa-drop-empty,
+.caa-drop-file {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 1rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+.caa-drop-empty svg,
+.caa-drop-file svg {
+  width: 30px;
+  height: 30px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.caa-drop-hint {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+.caa-drop-file {
+  color: var(--fv-cta);
+  word-break: break-word;
+}
+.caa-drop-name {
+  font-size: 0.8rem;
+  max-width: 100%;
+}
+.caa-drop-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.caa-drop-swap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 6px 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--fv-cta);
+  border-top: 1px solid var(--fv-line);
+}
+.caa-hint {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
 /* Editor no painel: o respiro horizontal ja vem do sheet — zera o padding
    proprio do .fv-cd-editor (que era pro modo interno da rodada 2). */
 .fv-cd-editor-sheet .fv-cd-editor {
