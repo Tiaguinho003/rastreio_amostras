@@ -2329,7 +2329,7 @@ function SamplesPage() {
   ];
 
   return (
-    <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
+    <AppShell session={session} onLogout={logout} onSessionChange={setSession} activeSubTab={tab}>
       <section
         className={`samples-page-v2 fv-lotes-page${tab === 'simulador' ? ' is-tab-simulador' : ''}`}
       >
@@ -2372,12 +2372,15 @@ function SamplesPage() {
         </div>
 
         {/* FV (desktop >=901px): cabecalho institucional + KPI row. No mobile
-            estes blocos ficam display:none e o header verde + abas seguem. */}
+            estes blocos ficam display:none e o header verde + abas seguem. O
+            titulo acompanha a sub-aba da sidenav; "+ Novo lote" e a KPI row so
+            fazem sentido na lista. */}
         <div className="fv-page-head">
-          <h2 className="fv-page-title">Lotes</h2>
+          <h2 className="fv-page-title">{tab === 'simulador' ? 'Simulador' : 'Lotes'}</h2>
           <button
             type="button"
             className="fv-btn fv-btn-primary"
+            hidden={tab === 'simulador'}
             onClick={() => setNewSampleModalOpen(true)}
           >
             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">

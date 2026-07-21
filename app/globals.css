@@ -33024,7 +33024,9 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
 /* Aba Simulador ativa: a lista de Lotes permanece MONTADA (estado do reducer/
    cursor/selecao preservado) e some via display:none — busca+FAB e a sheet. */
 .samples-page-v2.is-tab-simulador .hero-search-wrap,
-.samples-page-v2.is-tab-simulador .samples-page-v2-sheet {
+.samples-page-v2.is-tab-simulador .samples-page-v2-sheet,
+/* FV: a KPI row e da lista — no Simulador sobra so o titulo. */
+.samples-page-v2.is-tab-simulador .fv-kpi-row {
   display: none;
 }
 
@@ -33963,7 +33965,8 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
      .fv-bulkbar. */
   .fv-lotes-page .hero-search-wrap.fv-hide-desktop,
   .fv-lotes-page .samples-page-v2-sheet .spv2-list-meta,
-  .fv-lotes-page .samples-selection-header {
+  .fv-lotes-page .samples-selection-header,
+  .fv-lotes-page .pg-tabs {
     display: none;
   }
 

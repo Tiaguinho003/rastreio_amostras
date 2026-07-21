@@ -107,6 +107,10 @@ const EMBARQUES_NAV_ITEM = {
 // nenhum activeSubTab foi passado, o primeiro sub-item e o default visual.
 type NavSubItem = { tab: string; label: string; href: string };
 const NAV_SUB_ITEMS: Record<string, readonly NavSubItem[]> = {
+  '/samples': [
+    { tab: 'lotes', label: 'Lotes', href: '/samples' },
+    { tab: 'simulador', label: 'Simulador', href: '/samples?tab=simulador' },
+  ],
   '/cadastros': [
     { tab: 'clientes', label: 'Clientes', href: '/cadastros' },
     { tab: 'corretores', label: 'Corretores', href: '/cadastros?tab=corretores' },
