@@ -28640,8 +28640,24 @@ select.samples-filter-field-input {
    regras que ele dava fora do desktop: fundo branco no conteudo + sombra
    reforcada dos cards (copia do bloco mobile do --sample). Sem media query:
    no peek o sheet tambem e branco e a separacao dos cards vale igual. */
+/* O degrade verde do topo (antes preso ao `.fv-sd-hero`) e do SHEET: assim
+   ele comeca na borda de cima — cobrindo a faixa do cabecalho, onde mora a
+   seta ← — e sangra ate as laterais, inclusive o recuo de 1rem que o painel
+   desktop tem. Antes o retangulo do degrade parava dentro do conteudo e as
+   tres bordas brancas apareciam como uma emenda. `no-repeat` + altura fixa
+   pra faixa terminar por volta do fim do hero, como era; o branco fica na
+   camada de baixo. */
+.bottom-sheet.detail-overlay.lote-details-overlay {
+  background:
+    linear-gradient(180deg, rgba(23, 60, 48, 0.06) 0%, rgba(23, 60, 48, 0) 100%) no-repeat top
+      left / 100% 260px,
+    #ffffff;
+}
+
+/* Transparente pro degrade do sheet aparecer atras do conteudo (o branco
+   vem da camada de baixo do proprio sheet). */
 .bottom-sheet.detail-overlay.lote-details-overlay .sdv-content {
-  background: #ffffff;
+  background: transparent;
 }
 
 .bottom-sheet.detail-overlay.lote-details-overlay .sdv-card {
@@ -36046,7 +36062,10 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   gap: 2px;
   padding: 1.15rem 1.15rem 0;
   text-align: center;
-  background: linear-gradient(180deg, rgba(23, 60, 48, 0.05) 0%, rgba(255, 255, 255, 0) 82%);
+  /* O degrade verde NAO mora mais aqui: ele subiu pro proprio sheet, pra
+     cobrir tambem o cabecalho (a faixa da seta ←) e sangrar nas laterais.
+     Ver ".lote-details-overlay" no bloco do DetailOverlay. */
+  background: none;
 }
 
 /* Miniatura da foto: retangulo (a foto da ficha e paisagem), nao circulo. */
