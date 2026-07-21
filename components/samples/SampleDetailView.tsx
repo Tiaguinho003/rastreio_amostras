@@ -666,15 +666,11 @@ export function SampleDetailView({
   const classificationDetailTrapRef = useFocusTrap(classificationDetailOpen);
   const classificationSaveConfirmTrapRef = useFocusTrap(classificationSaveConfirmOpen);
   const classificationPhotoSectionRef = useRef<HTMLDivElement | null>(null);
-  const invalidateTrapRef = useFocusTrap(invalidateModalOpen);
-  const labelTrapRef = useFocusTrap(labelModalOpen);
-  // LDT-A4: o modal de reclassificar estava sem foco preso. (Edicao de
-  // informacoes e de data viraram paineis na F3 — o BottomSheet ja prende.)
+  // LDT-A4: o modal de reclassificar estava sem foco preso. (Edicao, data,
+  // impressao e exclusao viraram paineis na F3 — o BottomSheet ja prende.)
   const reclassifyTrapRef = useFocusTrap(reclassifyModalOpen);
-  const labelModalCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const labelModalPrimaryActionRef = useRef<HTMLButtonElement | null>(null);
   const lastQuickPrintButtonRef = useRef<HTMLButtonElement | null>(null);
-  const invalidateModalCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const lastInvalidateTriggerRef = useRef<HTMLButtonElement | null>(null);
   const fetchAbortRef = useRef<AbortController | null>(null);
   const canInvalidateSample = Boolean(session);
@@ -950,35 +946,15 @@ export function SampleDetailView({
     ? `/api/v1/samples/${sampleId}/photos/${classificationAttachment.id}`
     : null;
 
+  // F3: impressao e exclusao viraram PAINEIS — o BottomSheet cuida de scroll
+  // lock, ESC (pela pilha de sheets) e foco. Sobrou devolver o foco ao botao
+  // que abriu, que o sheet nao conhece.
   useEffect(() => {
-    if (!labelModalOpen) {
-      return;
-    }
-
-    const previousOverflow = document.body.style.overflow;
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') {
-        return;
-      }
-
-      event.preventDefault();
-      setLabelModalOpen(false);
-    };
-
-    document.body.style.overflow = 'hidden';
-    document.addEventListener('keydown', onKeyDown);
-    window.setTimeout(() => {
-      labelModalCloseButtonRef.current?.focus();
-    }, 0);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener('keydown', onKeyDown);
-      window.setTimeout(() => {
-        lastQuickPrintButtonRef.current?.focus();
-      }, 0);
-    };
+    if (labelModalOpen) return;
+    // setTimeout: o sheet ainda esta animando a saida com o focus-trap ativo;
+    // focar no mesmo tick seria roubado de volta.
+    const timer = window.setTimeout(() => lastQuickPrintButtonRef.current?.focus(), 0);
+    return () => window.clearTimeout(timer);
   }, [labelModalOpen]);
 
   // Erros dos modais de acao somem sozinhos depois de 5s.
@@ -989,35 +965,10 @@ export function SampleDetailView({
   }, [labelModalError]);
 
   useEffect(() => {
-    if (!invalidateModalOpen) {
-      return;
-    }
-
-    const previousOverflow = document.body.style.overflow;
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || invalidating) {
-        return;
-      }
-
-      event.preventDefault();
-      setInvalidateModalOpen(false);
-    };
-
-    document.body.style.overflow = 'hidden';
-    document.addEventListener('keydown', onKeyDown);
-    window.setTimeout(() => {
-      invalidateModalCloseButtonRef.current?.focus();
-    }, 0);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener('keydown', onKeyDown);
-      window.setTimeout(() => {
-        lastInvalidateTriggerRef.current?.focus();
-      }, 0);
-    };
-  }, [invalidateModalOpen, invalidating]);
+    if (invalidateModalOpen) return;
+    const timer = window.setTimeout(() => lastInvalidateTriggerRef.current?.focus(), 0);
+    return () => window.clearTimeout(timer);
+  }, [invalidateModalOpen]);
 
   useEffect(() => {
     if (!invalidateModalOpen || !hasActiveMovements || !session) {
@@ -2643,241 +2594,202 @@ export function SampleDetailView({
           )
         : null}
 
-      {detail && invalidateModalOpen
-        ? createPortal(
-            <div className="app-modal-backdrop">
-              <section
-                ref={invalidateTrapRef}
-                className="app-modal is-themed is-action sample-detail-invalidate-modal"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="sample-detail-invalidate-modal-title"
-                onClick={(event) => event.stopPropagation()}
+      <BottomSheet
+        open={Boolean(detail) && invalidateModalOpen}
+        onClose={() => setInvalidateModalOpen(false)}
+        onDismissAttempt={() => !invalidating}
+        title="Deletar lote"
+        ariaLabel="Deletar lote"
+        stacked
+        closeVariant="edge-back"
+        dragDisabled={invalidating}
+        className="fv-panel-sheet side-sheet sample-invalidate-sheet"
+        footer={
+          hasActiveMovements ? (
+            <div className="fv-panel-footer-row">
+              <button
+                type="button"
+                className="app-modal-secondary"
+                onClick={() => {
+                  void handleCancelMovementsOnly();
+                }}
+                disabled={
+                  invalidating ||
+                  invalidateReasonText.trim().length === 0 ||
+                  activeMovements === null ||
+                  activeMovements.length === 0
+                }
               >
-                <header className="app-modal-header">
-                  <div className="app-modal-title-wrap">
-                    <h3 id="sample-detail-invalidate-modal-title" className="app-modal-title">
-                      Deletar lote
-                    </h3>
-                    <p className="app-modal-description">
-                      Use apenas quando a operação realmente exigir.
-                    </p>
+                {invalidating ? 'Cancelando...' : 'Cancelar movimentações'}
+              </button>
+              <button
+                type="submit"
+                form="sample-invalidate-form"
+                className="app-modal-submit is-danger sample-detail-invalidate-submit"
+                disabled={
+                  invalidating ||
+                  invalidateReasonText.trim().length === 0 ||
+                  activeMovements === null ||
+                  activeMovements.length === 0
+                }
+              >
+                {invalidating ? 'Deletando...' : 'Deletar'}
+              </button>
+            </div>
+          ) : (
+            <button
+              type="submit"
+              form="sample-invalidate-form"
+              className="app-modal-submit is-danger sample-detail-invalidate-submit"
+              disabled={invalidating}
+            >
+              {invalidating ? 'Deletando...' : 'Deletar'}
+            </button>
+          )
+        }
+      >
+        <>
+          <p className="fv-panel-lead">Use apenas quando a operação realmente exigir.</p>
+
+          <form
+            id="sample-invalidate-form"
+            className="sample-invalidate-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (hasActiveMovements) {
+                void handleCancelMovementsAndInvalidate();
+              } else {
+                void handleInvalidateSample();
+              }
+            }}
+          >
+            {hasActiveMovements ? (
+              <>
+                <div className="sdv-warn-box">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+                    <path d="M12 9v4" />
+                    <path d="M12 17h.01" />
+                  </svg>
+                  <div className="sdv-warn-text">
+                    <strong>
+                      Este lote possui{' '}
+                      {activeMovements && activeMovements.length > 0
+                        ? `${activeMovements.length} ${activeMovements.length > 1 ? 'movimentações ativas' : 'movimentação ativa'}`
+                        : 'movimentações ativas'}
+                    </strong>
+                    Para deletar o lote, as perdas serão canceladas. Você também pode só cancelar as
+                    movimentações.
                   </div>
-                  <button
-                    ref={invalidateModalCloseButtonRef}
-                    type="button"
-                    className="app-modal-close"
-                    onClick={() => {
-                      if (!invalidating) {
-                        setInvalidateModalOpen(false);
-                      }
-                    }}
-                    aria-label="Fechar modal de exclusão"
-                    disabled={invalidating}
-                  >
-                    <span aria-hidden="true">×</span>
-                  </button>
-                </header>
+                </div>
 
-                <form
-                  className="app-modal-content"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (hasActiveMovements) {
-                      void handleCancelMovementsAndInvalidate();
-                    } else {
-                      void handleInvalidateSample();
-                    }
-                  }}
-                >
-                  {hasActiveMovements ? (
-                    <>
-                      <div className="sdv-warn-box">
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
-                          <path d="M12 9v4" />
-                          <path d="M12 17h.01" />
-                        </svg>
-                        <div className="sdv-warn-text">
-                          <strong>
-                            Este lote possui{' '}
-                            {activeMovements && activeMovements.length > 0
-                              ? `${activeMovements.length} ${activeMovements.length > 1 ? 'movimentações ativas' : 'movimentação ativa'}`
-                              : 'movimentações ativas'}
-                          </strong>
-                          Para deletar o lote, as perdas serão canceladas. Você também pode só
-                          cancelar as movimentações.
-                        </div>
-                      </div>
-
-                      <div className="sample-detail-invalidate-movements">
-                        {activeMovements === null ? (
-                          <p className="sample-detail-invalidate-movements-hint">
-                            Carregando movimentações...
-                          </p>
-                        ) : activeMovementsError ? (
-                          <p className="sdv-modal-error">{activeMovementsError}</p>
-                        ) : activeMovements.length === 0 ? (
-                          <p className="sample-detail-invalidate-movements-hint">
-                            Nenhuma movimentação ativa encontrada.
-                          </p>
-                        ) : (
-                          <div className="sdv-com-movements">
-                            {activeMovements.map((movement, i) => {
-                              const isSale = movement.movementType === 'SALE';
-                              const buyerLabel = getMovementBuyerLabel(movement);
-                              return (
-                                <div
-                                  key={movement.id}
-                                  className="sdv-com-mov"
-                                  style={{ animationDelay: `${i * 0.05}s` }}
-                                >
-                                  <div
-                                    className={`sdv-com-mov-icon ${isSale ? 'is-sale' : 'is-loss'}`}
-                                  >
-                                    {isSale ? (
-                                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                                        <path d="M12 19V5" />
-                                        <path d="m5 12 7-7 7 7" />
-                                      </svg>
-                                    ) : (
-                                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                                        <path d="M12 5v14" />
-                                        <path d="m5 12 7 7 7-7" />
-                                      </svg>
-                                    )}
-                                  </div>
-                                  <div className="sdv-com-mov-content">
-                                    <div className="sdv-com-mov-top">
-                                      <span className="sdv-com-mov-qty">
-                                        {movement.quantitySacks} sacas
-                                      </span>
-                                      <span
-                                        className={`sdv-com-mov-badge ${isSale ? 'is-sale' : 'is-loss'}`}
-                                      >
-                                        {isSale ? 'Venda' : 'Perda'}
-                                      </span>
-                                    </div>
-                                    <div className="sdv-com-mov-bottom">
-                                      <span>{formatMovementDate(movement.movementDate)}</span>
-                                      {buyerLabel ? (
-                                        <>
-                                          <span className="sdv-com-mov-sep" />
-                                          <span>→ {buyerLabel}</span>
-                                        </>
-                                      ) : null}
-                                      {!isSale && movement.lossReasonText ? (
-                                        <>
-                                          <span className="sdv-com-mov-sep" />
-                                          <span className="sdv-com-mov-reason">
-                                            {movement.lossReasonText}
-                                          </span>
-                                        </>
-                                      ) : null}
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  ) : null}
-
-                  <label className="app-modal-field">
-                    <span className="app-modal-label">Motivo da exclusão</span>
-                    <select
-                      className="app-modal-input"
-                      value={invalidateReasonCode}
-                      disabled={invalidating}
-                      onChange={(event) =>
-                        setInvalidateReasonCode(event.target.value as InvalidateReasonCode)
-                      }
-                    >
-                      {INVALIDATE_REASON_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="app-modal-field">
-                    <span className="app-modal-label">Detalhes</span>
-                    <textarea
-                      className="app-modal-input sample-detail-invalidate-textarea"
-                      rows={4}
-                      value={invalidateReasonText}
-                      onChange={(event) =>
-                        setInvalidateReasonText(event.target.value.toUpperCase())
-                      }
-                      placeholder="Descreva o motivo"
-                      disabled={invalidating}
-                    />
-                  </label>
-
-                  <NoticeSlot notice={invalidateModalNotice} />
-
-                  {hasActiveMovements ? (
-                    <div className="app-modal-actions sample-detail-invalidate-actions">
-                      <button
-                        type="button"
-                        className="app-modal-secondary"
-                        onClick={() => {
-                          void handleCancelMovementsOnly();
-                        }}
-                        disabled={
-                          invalidating ||
-                          invalidateReasonText.trim().length === 0 ||
-                          activeMovements === null ||
-                          activeMovements.length === 0
-                        }
-                      >
-                        {invalidating ? 'Cancelando...' : 'Cancelar movimentações'}
-                      </button>
-                      <button
-                        type="submit"
-                        className="app-modal-submit is-danger sample-detail-invalidate-submit"
-                        disabled={
-                          invalidating ||
-                          invalidateReasonText.trim().length === 0 ||
-                          activeMovements === null ||
-                          activeMovements.length === 0
-                        }
-                      >
-                        {invalidating ? 'Deletando...' : 'Deletar'}
-                      </button>
-                    </div>
+                <div className="sample-detail-invalidate-movements">
+                  {activeMovements === null ? (
+                    <p className="sample-detail-invalidate-movements-hint">
+                      Carregando movimentações...
+                    </p>
+                  ) : activeMovementsError ? (
+                    <p className="sdv-modal-error">{activeMovementsError}</p>
+                  ) : activeMovements.length === 0 ? (
+                    <p className="sample-detail-invalidate-movements-hint">
+                      Nenhuma movimentação ativa encontrada.
+                    </p>
                   ) : (
-                    <div className="app-modal-actions sample-detail-invalidate-actions">
-                      <button
-                        type="button"
-                        className="app-modal-secondary"
-                        onClick={() => {
-                          if (!invalidating) {
-                            setInvalidateModalOpen(false);
-                          }
-                        }}
-                        disabled={invalidating}
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        type="submit"
-                        className="app-modal-submit is-danger sample-detail-invalidate-submit"
-                        disabled={invalidating}
-                      >
-                        {invalidating ? 'Deletando...' : 'Deletar'}
-                      </button>
+                    <div className="sdv-com-movements">
+                      {activeMovements.map((movement, i) => {
+                        const isSale = movement.movementType === 'SALE';
+                        const buyerLabel = getMovementBuyerLabel(movement);
+                        return (
+                          <div
+                            key={movement.id}
+                            className="sdv-com-mov"
+                            style={{ animationDelay: `${i * 0.05}s` }}
+                          >
+                            <div className={`sdv-com-mov-icon ${isSale ? 'is-sale' : 'is-loss'}`}>
+                              {isSale ? (
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                  <path d="M12 19V5" />
+                                  <path d="m5 12 7-7 7 7" />
+                                </svg>
+                              ) : (
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                  <path d="M12 5v14" />
+                                  <path d="m5 12 7 7 7-7" />
+                                </svg>
+                              )}
+                            </div>
+                            <div className="sdv-com-mov-content">
+                              <div className="sdv-com-mov-top">
+                                <span className="sdv-com-mov-qty">
+                                  {movement.quantitySacks} sacas
+                                </span>
+                                <span
+                                  className={`sdv-com-mov-badge ${isSale ? 'is-sale' : 'is-loss'}`}
+                                >
+                                  {isSale ? 'Venda' : 'Perda'}
+                                </span>
+                              </div>
+                              <div className="sdv-com-mov-bottom">
+                                <span>{formatMovementDate(movement.movementDate)}</span>
+                                {buyerLabel ? (
+                                  <>
+                                    <span className="sdv-com-mov-sep" />
+                                    <span>→ {buyerLabel}</span>
+                                  </>
+                                ) : null}
+                                {!isSale && movement.lossReasonText ? (
+                                  <>
+                                    <span className="sdv-com-mov-sep" />
+                                    <span className="sdv-com-mov-reason">
+                                      {movement.lossReasonText}
+                                    </span>
+                                  </>
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
-                </form>
-              </section>
-            </div>,
-            document.body
-          )
-        : null}
+                </div>
+              </>
+            ) : null}
+
+            <label className="app-modal-field">
+              <span className="app-modal-label">Motivo da exclusão</span>
+              <select
+                className="app-modal-input"
+                value={invalidateReasonCode}
+                disabled={invalidating}
+                onChange={(event) =>
+                  setInvalidateReasonCode(event.target.value as InvalidateReasonCode)
+                }
+              >
+                {INVALIDATE_REASON_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="app-modal-field">
+              <span className="app-modal-label">Detalhes</span>
+              <textarea
+                className="app-modal-input sample-detail-invalidate-textarea"
+                rows={4}
+                value={invalidateReasonText}
+                onChange={(event) => setInvalidateReasonText(event.target.value.toUpperCase())}
+                placeholder="Descreva o motivo"
+                disabled={invalidating}
+              />
+            </label>
+
+            <NoticeSlot notice={invalidateModalNotice} />
+          </form>
+        </>
+      </BottomSheet>
 
       {detail ? (
         <section className="sample-detail-print-root" aria-hidden="true">
@@ -2911,119 +2823,66 @@ export function SampleDetailView({
         </section>
       ) : null}
 
-      {detail && labelModalOpen
-        ? createPortal(
-            <div
-              className="app-modal-backdrop"
-              onClick={() => {
-                closeLabelModal();
-              }}
+      <BottomSheet
+        open={Boolean(detail) && labelModalOpen}
+        onClose={closeLabelModal}
+        onDismissAttempt={() => !labelModalSubmitting && !labelPrintSuccess}
+        title="Imprimir etiqueta"
+        ariaLabel="Imprimir etiqueta"
+        stacked
+        closeVariant="edge-back"
+        dragDisabled={labelModalSubmitting || labelPrintSuccess}
+        className="fv-panel-sheet side-sheet sample-print-sheet"
+        footer={
+          labelPrintSuccess ? null : (
+            <button
+              ref={labelModalPrimaryActionRef}
+              type="button"
+              className="app-modal-submit"
+              disabled={labelModalSubmitting}
+              onClick={() => void handleSubmitLabelReview()}
             >
-              <section
-                ref={labelTrapRef}
-                className="app-modal is-themed is-action sample-detail-compact-modal sample-detail-print-modal"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="sample-detail-label-modal-title"
-                onClick={(event) => event.stopPropagation()}
-              >
-                {labelPrintSuccess ? (
-                  <div className="client-create-success-overlay" aria-live="polite">
-                    <svg
-                      className="client-create-success-check"
-                      viewBox="0 0 52 52"
-                      aria-hidden="true"
-                    >
-                      <circle
-                        cx="26"
-                        cy="26"
-                        r="24"
-                        fill="none"
-                        stroke="#2f8a3e"
-                        strokeWidth="2.5"
-                      />
-                      <path
-                        fill="none"
-                        stroke="#2f8a3e"
-                        strokeWidth="3.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M15 27l7 7 15-15"
-                      />
-                    </svg>
-                  </div>
-                ) : null}
-                <header className="app-modal-header">
-                  <div className="app-modal-title-wrap">
-                    <h3 id="sample-detail-label-modal-title" className="app-modal-title">
-                      Confirme os dados
-                    </h3>
-                  </div>
-                  <button
-                    ref={labelModalCloseButtonRef}
-                    type="button"
-                    className="app-modal-close"
-                    onClick={closeLabelModal}
-                    aria-label="Fechar"
-                  >
-                    <span aria-hidden="true">&times;</span>
-                  </button>
-                </header>
-
-                <div className="app-modal-content">
-                  <article className="label-print-card new-sample-label-print-card">
-                    <div className="label-qr">
-                      <QRCodeCanvas value={qrValue} size={120} />
-                    </div>
-                    <div className="label-meta">
-                      <p>
-                        <strong>Lote interno:</strong>{' '}
-                        {detail.sample.internalLotNumber ?? detail.sample.id}
-                      </p>
-                      <p>
-                        <strong>Proprietario:</strong> {ownerDisplayValue(detail.sample)}
-                      </p>
-                      <p>
-                        <strong>Sacas:</strong> {buildReadableValue(detail.sample.declared.sacks)}
-                      </p>
-                      <p>
-                        <strong>Safra:</strong>{' '}
-                        <HarvestDisplay harvest={detail.sample.declared.harvest} fallback="" />
-                      </p>
-                      <p>
-                        <strong>Lote origem:</strong>{' '}
-                        {buildReadableValue(detail.sample.declared.originLot)}
-                      </p>
-                    </div>
-                  </article>
-
-                  {labelModalError ? <p className="sdv-modal-error">{labelModalError}</p> : null}
-
-                  <div className="app-modal-actions">
-                    <button
-                      type="button"
-                      className="app-modal-secondary"
-                      disabled={labelModalSubmitting}
-                      onClick={closeLabelModal}
-                    >
-                      Fechar
-                    </button>
-                    <button
-                      ref={labelModalPrimaryActionRef}
-                      type="button"
-                      className="app-modal-submit"
-                      disabled={labelModalSubmitting}
-                      onClick={() => void handleSubmitLabelReview()}
-                    >
-                      {labelModalSubmitting ? 'Enviando...' : 'Imprimir'}
-                    </button>
-                  </div>
-                </div>
-              </section>
-            </div>,
-            document.body
+              {labelModalSubmitting ? 'Enviando...' : 'Imprimir'}
+            </button>
           )
-        : null}
+        }
+      >
+        {detail ? (
+          <>
+            <p className="fv-panel-lead">Confira os dados antes de enviar para a impressora.</p>
+
+            <article className="label-print-card new-sample-label-print-card">
+              <div className="label-qr">
+                <QRCodeCanvas value={qrValue} size={120} />
+              </div>
+              <div className="label-meta">
+                <p>
+                  <strong>Lote interno:</strong>{' '}
+                  {detail.sample.internalLotNumber ?? detail.sample.id}
+                </p>
+                <p>
+                  <strong>Proprietario:</strong> {ownerDisplayValue(detail.sample)}
+                </p>
+                <p>
+                  <strong>Sacas:</strong> {buildReadableValue(detail.sample.declared.sacks)}
+                </p>
+                <p>
+                  <strong>Safra:</strong>{' '}
+                  <HarvestDisplay harvest={detail.sample.declared.harvest} fallback="" />
+                </p>
+                <p>
+                  <strong>Lote origem:</strong>{' '}
+                  {buildReadableValue(detail.sample.declared.originLot)}
+                </p>
+              </div>
+            </article>
+
+            {labelModalError ? <p className="sdv-modal-error">{labelModalError}</p> : null}
+
+            <SuccessCheckOverlay show={labelPrintSuccess} />
+          </>
+        ) : null}
+      </BottomSheet>
 
       <ClientQuickCreateModal
         session={session}

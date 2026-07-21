@@ -35572,6 +35572,45 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
 .fv-panel-sheet .notice-slot {
   min-height: 0;
 }
+/* Linha de apoio no topo do painel: era a `.app-modal-description` que morava
+   no header do modal central (o header do sheet so tem titulo + seta). */
+.fv-panel-lead {
+  margin: 0 0 0.85rem;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+/* Footer com DUAS acoes reais (nao "Cancelar" — a seta ← ja cancela): duas
+   colunas iguais, molde do `.cap-footer-row` do preview de anexo. */
+.fv-panel-footer-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.5rem;
+}
+
+/* ── F3 FV /samples: paineis do detalhe do LOTE ── */
+.sample-invalidate-form,
+.blend-revert-sheet form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+/* A lista de movimentacoes ativas dentro do painel de exclusao rola junto com
+   o corpo do sheet (o teto de 16rem do `.sdv-com-movements` nao se aplica). */
+.sample-invalidate-sheet .sdv-com-movements {
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
+}
+.sample-invalidate-sheet .sample-detail-invalidate-textarea {
+  min-height: 5.5rem;
+  resize: vertical;
+}
+/* Cartao da etiqueta: cabe na largura do painel sem escalar a fonte. */
+.sample-print-sheet .label-print-card {
+  width: 100%;
+  margin: 0 0 0.75rem;
+}
 /* Preview de anexo no painel: o corpo (imagem/PDF + vinculo + descricao)
    nunca teve rule propria — o layout vinha do .app-modal-content. */
 .client-attachment-sheet .cap-body {
