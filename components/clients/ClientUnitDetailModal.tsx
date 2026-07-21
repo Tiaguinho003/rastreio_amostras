@@ -6,6 +6,7 @@ import { BottomSheet } from '../BottomSheet';
 import { SuccessCheckOverlay } from '../SuccessCheckOverlay';
 import {
   formatPostalCode,
+  maskCnpjInput,
   maskPhoneInput,
   maskPostalCodeInput,
   maskRegistrationNumberInput,
@@ -177,7 +178,6 @@ export function ClientUnitDetailModal({
   }
 
   const isInactive = unit?.status === 'INACTIVE';
-  const cityLabel = unit?.city && unit?.state ? `${unit.city}/${unit.state}` : null;
 
   return (
     <BottomSheet
@@ -201,65 +201,96 @@ export function ClientUnitDetailModal({
           {errorMessage ? <p className="cudm-error">{errorMessage}</p> : null}
 
           {mode === 'view' ? (
+            /* Rodada 6 FV: o view espelha o form de edicao — mesmos campos,
+               mesma ordem e caixas com borda (.cudm-view-value, geometria do
+               input) — entrar em Editar nao muda a cara do painel. */
             <div className="app-modal-content cudm-body">
               <div className="cudm-info-grid">
-                <div className="cudm-info-item">
-                  <span className="cudm-info-label">CNPJ</span>
-                  <span className="cudm-info-value">{unit.cnpj || '—'}</span>
-                </div>
-                <div className="cudm-info-item">
-                  <span
-                    className={`cudm-info-label${isMissing('city') || isMissing('state') ? ' is-missing' : ''}`}
-                  >
-                    Cidade/UF
+                <div className="app-modal-field is-full">
+                  <span className="app-modal-label">Nome</span>
+                  <span className={`cudm-view-value${unit.name ? '' : ' is-empty'}`}>
+                    {unit.name || '—'}
                   </span>
-                  <span className="cudm-info-value">{cityLabel || '—'}</span>
                 </div>
-                <div className="cudm-info-item is-full">
+                <div className="app-modal-field">
+                  <span className="app-modal-label">CNPJ</span>
+                  <span className={`cudm-view-value${unit.cnpj ? '' : ' is-empty'}`}>
+                    {unit.cnpj ? maskCnpjInput(unit.cnpj) : '—'}
+                  </span>
+                </div>
+                <div className="app-modal-field">
+                  <span className={`app-modal-label${isMissing('car') ? ' is-missing' : ''}`}>
+                    CAR
+                  </span>
+                  <span className={`cudm-view-value${unit.car ? '' : ' is-empty'}`}>
+                    {unit.car || '—'}
+                  </span>
+                </div>
+                <div className="app-modal-field is-full">
                   <span
-                    className={`cudm-info-label${isMissing('addressLine') ? ' is-missing' : ''}`}
+                    className={`app-modal-label${isMissing('addressLine') ? ' is-missing' : ''}`}
                   >
                     Endereço
                   </span>
-                  <span className="cudm-info-value">{unit.addressLine || '—'}</span>
+                  <span className={`cudm-view-value${unit.addressLine ? '' : ' is-empty'}`}>
+                    {unit.addressLine || '—'}
+                  </span>
                 </div>
-                <div className="cudm-info-item">
-                  <span className={`cudm-info-label${isMissing('district') ? ' is-missing' : ''}`}>
+                <div className="app-modal-field">
+                  <span className={`app-modal-label${isMissing('district') ? ' is-missing' : ''}`}>
                     Bairro
                   </span>
-                  <span className="cudm-info-value">{unit.district || '—'}</span>
+                  <span className={`cudm-view-value${unit.district ? '' : ' is-empty'}`}>
+                    {unit.district || '—'}
+                  </span>
                 </div>
-                <div className="cudm-info-item">
+                <div className="app-modal-field">
                   <span
-                    className={`cudm-info-label${isMissing('postalCode') ? ' is-missing' : ''}`}
+                    className={`app-modal-label${isMissing('postalCode') ? ' is-missing' : ''}`}
                   >
                     CEP
                   </span>
-                  <span className="cudm-info-value">
+                  <span className={`cudm-view-value${unit.postalCode ? '' : ' is-empty'}`}>
                     {formatPostalCode(unit.postalCode) || '—'}
                   </span>
                 </div>
-                <div className="cudm-info-item">
-                  <span className="cudm-info-label">Complemento</span>
-                  <span className="cudm-info-value">{unit.complement || '—'}</span>
+                <div className="app-modal-field">
+                  <span className={`app-modal-label${isMissing('city') ? ' is-missing' : ''}`}>
+                    Cidade
+                  </span>
+                  <span className={`cudm-view-value${unit.city ? '' : ' is-empty'}`}>
+                    {unit.city || '—'}
+                  </span>
                 </div>
-                <div className="cudm-info-item">
+                <div className="app-modal-field">
+                  <span className={`app-modal-label${isMissing('state') ? ' is-missing' : ''}`}>
+                    UF
+                  </span>
+                  <span className={`cudm-view-value${unit.state ? '' : ' is-empty'}`}>
+                    {unit.state || '—'}
+                  </span>
+                </div>
+                <div className="app-modal-field is-full">
+                  <span className="app-modal-label">Complemento</span>
+                  <span className={`cudm-view-value${unit.complement ? '' : ' is-empty'}`}>
+                    {unit.complement || '—'}
+                  </span>
+                </div>
+                <div className="app-modal-field">
                   <span
-                    className={`cudm-info-label${isMissing('registrationNumber') ? ' is-missing' : ''}`}
+                    className={`app-modal-label${isMissing('registrationNumber') ? ' is-missing' : ''}`}
                   >
                     Inscrição estadual
                   </span>
-                  <span className="cudm-info-value">{unit.registrationNumber || '—'}</span>
-                </div>
-                <div className="cudm-info-item">
-                  <span className={`cudm-info-label${isMissing('car') ? ' is-missing' : ''}`}>
-                    CAR
+                  <span className={`cudm-view-value${unit.registrationNumber ? '' : ' is-empty'}`}>
+                    {unit.registrationNumber || '—'}
                   </span>
-                  <span className="cudm-info-value">{unit.car || '—'}</span>
                 </div>
-                <div className="cudm-info-item">
-                  <span className="cudm-info-label">Telefone</span>
-                  <span className="cudm-info-value">{unit.phone || '—'}</span>
+                <div className="app-modal-field">
+                  <span className="app-modal-label">Telefone</span>
+                  <span className={`cudm-view-value${unit.phone ? '' : ' is-empty'}`}>
+                    {unit.phone || '—'}
+                  </span>
                 </div>
               </div>
 

@@ -35202,6 +35202,28 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   font-size: 0.82rem;
   color: var(--color-danger);
 }
+/* Rodada 6 FV: modo VIEW dos detalhes de filial/conta espelha o form de
+   edicao — caixa com borda na geometria exata do .app-modal-input do painel
+   (mesmo padding/borda/fundo/fonte), so que estatica. Entrar em Editar troca
+   a caixa pelo input sem a pagina mudar de cara. */
+.client-panel-sheet .cudm-view-value {
+  display: flex;
+  align-items: center;
+  min-height: calc(1.35em + 1rem + 2px);
+  padding: 0.5rem 0.7rem;
+  border: 1px solid rgba(210, 210, 210, 0.6);
+  border-radius: 10px;
+  background: rgba(217, 217, 217, 0.2);
+  font-size: 0.9rem;
+  color: rgba(34, 34, 34, 0.78);
+  word-break: break-word;
+}
+.client-panel-sheet .cudm-view-value.is-empty {
+  color: var(--muted);
+}
+.client-panel-sheet .app-modal-label.is-missing {
+  color: #b54708;
+}
 /* Preview de anexo no painel: o corpo (imagem/PDF + vinculo + descricao)
    nunca teve rule propria — o layout vinha do .app-modal-content. */
 .client-attachment-sheet .cap-body {

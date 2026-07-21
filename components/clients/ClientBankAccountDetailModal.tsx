@@ -115,31 +115,46 @@ export function ClientBankAccountDetailModal({
           {errorMessage ? <p className="cudm-error">{errorMessage}</p> : null}
 
           {mode === 'view' ? (
+            /* Rodada 6 FV: o view espelha o form de edicao — mesmos campos,
+               mesma ordem e caixas com borda (.cudm-view-value) — entrar em
+               Editar nao muda a cara do painel. */
             <div className="app-modal-content cudm-body">
               <div className="cudm-info-grid">
-                <div className="cudm-info-item is-full">
-                  <span className="cudm-info-label">Banco</span>
-                  <span className="cudm-info-value">{bankLabel}</span>
+                <div className="app-modal-field is-full">
+                  <span className="app-modal-label">Banco</span>
+                  <span className={`cudm-view-value${account.bankName ? '' : ' is-empty'}`}>
+                    {bankLabel}
+                  </span>
                 </div>
-                <div className="cudm-info-item">
-                  <span className="cudm-info-label">Agência</span>
-                  <span className="cudm-info-value">{account.agency || '—'}</span>
+                <div className="app-modal-field">
+                  <span className="app-modal-label">Agência</span>
+                  <span className={`cudm-view-value${account.agency ? '' : ' is-empty'}`}>
+                    {account.agency || '—'}
+                  </span>
                 </div>
-                <div className="cudm-info-item">
-                  <span className="cudm-info-label">Conta</span>
-                  <span className="cudm-info-value">{account.accountNumber || '—'}</span>
+                <div className="app-modal-field">
+                  <span className="app-modal-label">Conta c/ dígito</span>
+                  <span className={`cudm-view-value${account.accountNumber ? '' : ' is-empty'}`}>
+                    {account.accountNumber || '—'}
+                  </span>
                 </div>
-                <div className="cudm-info-item is-full">
-                  <span className="cudm-info-label">Titular</span>
-                  <span className="cudm-info-value">{account.holderName || '—'}</span>
+                <div className="app-modal-field is-full">
+                  <span className="app-modal-label">Titular</span>
+                  <span className={`cudm-view-value${account.holderName ? '' : ' is-empty'}`}>
+                    {account.holderName || '—'}
+                  </span>
                 </div>
-                <div className="cudm-info-item">
-                  <span className="cudm-info-label">CPF/CNPJ</span>
-                  <span className="cudm-info-value">{maskTaxId(account.holderTaxId) || '—'}</span>
+                <div className="app-modal-field">
+                  <span className="app-modal-label">CPF/CNPJ do titular</span>
+                  <span className={`cudm-view-value${account.holderTaxId ? '' : ' is-empty'}`}>
+                    {maskTaxId(account.holderTaxId) || '—'}
+                  </span>
                 </div>
-                <div className="cudm-info-item">
-                  <span className="cudm-info-label">Chave PIX</span>
-                  <span className="cudm-info-value">{account.pixKey || '—'}</span>
+                <div className="app-modal-field">
+                  <span className="app-modal-label">Chave PIX</span>
+                  <span className={`cudm-view-value${account.pixKey ? '' : ' is-empty'}`}>
+                    {account.pixKey || '—'}
+                  </span>
                 </div>
               </div>
 
