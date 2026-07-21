@@ -228,9 +228,10 @@ Quando presente, descreva **causa** ou **próximo passo** em uma frase curta:
 > (`/samples`) a copy usa **"lote"** no lugar de "amostra" ("Nenhum lote
 > encontrado", "N lotes", "Lote X removido da seleção") — alinhada ao título
 > da página. **Estendida ao fluxo de criação (LNW-D2, 2026-07-07):** o sheet do
-> leque "+" é "Novo lote" ("Criar lote", "Descartar lote?", "Lote criado",
-> "Número do lote", "Criar outro" — `NewSampleModal` +
-> `SampleCreatedSuccessModal`). **Estendida ao detalhe (LDT-D2, 2026-07-08):**
+> leque "+" é "Novo lote" ("Criar lote", "Descartar lote?", "Número do lote" —
+> `NewSampleModal`; o `SampleCreatedSuccessModal` com "Lote criado"/"Criar
+> outro" foi deletado na F3 de `/samples`: sucesso = check no painel + drawer
+> do lote criado). **Estendida ao detalhe (LDT-D2, 2026-07-08):**
 > `/samples/[sampleId]` usa "lote" ("Reclassificar lote", "Chegada do lote",
 > "Lote físico", "Deletar"/"Deletado" no lugar de "Invalidar"/"Invalidada").
 > O vocabulário canônico "amostra" segue valendo nas demais telas até decisão
@@ -302,7 +303,6 @@ Pontos atuais que **já seguem** o padrão (use como referência):
 - `components/NewSampleModal.tsx` — inline errors por campo + banner topo de form (`.nsv2-inline-error`).
 - `components/samples/ClassificationReviewSheetBody.tsx` — erro inline de lote obrigatório no review da classificação: placeholder vermelho suave (`Obrigatório`) + `.review-field-input.has-error` + `aria-invalid`, validado **primeiro** no Avançar e com foco no campo. Erros assíncronos (resolve do lote) seguem em banner no topo (`flowError`).
 - `components/camera/ClassificationMetaStepBody.tsx` — mesmo padrão na etapa seguinte: o campo **Tipo do grão** (obrigatório) mostra `Obrigatório` como placeholder vermelho dentro do próprio campo (`.chip-select-placeholder.is-error` + `.chip-select-field.is-field-error`) quando o operador tenta confirmar vazio; erro de save aparece em banner no topo da etapa (o `flowError` alimenta review e etapa, então precisa ser limpo em cada transição).
-- `components/samples/SampleCreatedSuccessModal.tsx` — modal de sucesso com ações claras (alternativa ao toast quando precisa de CTA).
 
 Pontos pendentes de revisão (oportunidade ao revisar erros do sistema):
 

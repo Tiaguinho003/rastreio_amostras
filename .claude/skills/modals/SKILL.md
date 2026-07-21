@@ -358,9 +358,9 @@ Durante o success, bloquear dismiss (`onDismissAttempt` → false) e `dragDisabl
   check pisca SOBRE o drawer do detalhe (estado no pai, ex. `flashDetailCheck` no
   `ClientDetailView`).
 
-_(O check estatico `.client-detail-success-check` foi DELETADO na rodada 6. `SampleDetailView` e
-`SampleSendFlow` ainda carregam o markup inline do mesmo overlay — trocar pelo componente na vez
-da pagina `/samples`.)_
+_(O check estatico `.client-detail-success-check` foi DELETADO na rodada 6. Desde a F3 de
+`/samples`, **nenhum ponto do app carrega o markup inline** do overlay — `SuccessCheckOverlay` e o
+unico caminho.)_
 
 **Toast** continua valendo pra sucesso de acoes FORA de modal (lista, acoes globais, "copiado") —
 ver `design-system` §13 e a skill `feedback-messages`.

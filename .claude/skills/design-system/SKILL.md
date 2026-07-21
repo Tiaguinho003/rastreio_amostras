@@ -449,7 +449,7 @@ Excecao a regra "nunca verde ao clicar":
 - **Lateral SOBRE lateral = push de navegacao**: um side-sheet aberto de dentro de outro (ex.: `ClientQuickCreateModal` "Novo proprietario" sobre o `NewSampleModal`) usa o padrao `stacked` normal — o de cima desliza cobrindo o de baixo pela mesma borda direita; fechar revela o form de baixo intacto. Nada de novo alem da classe.
 - **Aplicado em**: `NewSampleModal` (Novo lote) e `ClientQuickCreateModal` (Novo cliente — padrao do componente em TODOS os contextos, sem prop). Os demais forms de criacao/edicao migram **pagina a pagina** no ciclo da FV (piloto `/cadastros` ja migrou os dele — ver "Paineis do detalhe" abaixo) — NAO converter isoladamente; ver `docs/Redesign-Plano-de-Trabalho.md` §2.5 e o inventario na skill `modals` §11.
 
-### Paineis do detalhe (`.client-panel-sheet` + `closeVariant="edge-back"` — molde FV, rodadas 5–6 do piloto)
+### Paineis do detalhe (`.fv-panel-sheet` + `closeVariant="edge-back"` — molde FV, rodadas 5–6 do piloto)
 
 > Extensao do `.side-sheet` para os modais abertos DE DENTRO de um detalhe (drawer/DetailOverlay):
 > criar/editar sub-recursos (filial, conta), preview e upload de anexo, editar o proprio recurso.
@@ -460,8 +460,10 @@ Excecao a regra "nunca verde ao clicar":
 
 Receita (BottomSheet comum, sem componente novo):
 
-- `stacked` + `closeVariant="edge-back"` + `className="client-panel-sheet side-sheet"`
-  (+ classe especifica). Desliza da direita POR CIMA do drawer (mesma faixa de 620px); mobile
+- `stacked` + `closeVariant="edge-back"` + `className="fv-panel-sheet side-sheet"`
+  (+ classe especifica). `.fv-panel-sheet` e a versao GENERICA da geometria de campo do painel
+  (input compacto, label 0.72rem, placeholder de erro vermelho, notice-slot sem vao);
+  `.client-panel-sheet` e o alias do piloto, mantido ate a consolidacao. Desliza da direita POR CIMA do drawer (mesma faixa de 620px); mobile
   empilha como bottom sheet. Sem `createPortal`/`useFocusTrap`/early-return proprios — o
   BottomSheet cuida (renderizar sempre; `open` controla).
 - **Seta ← na borda = Cancelar** (`closeVariant="edge-back"`): circulo hairline METADE pra fora
@@ -488,7 +490,9 @@ Receita (BottomSheet comum, sem componente novo):
   (`.cudm-view-value`, geometria EXATA do input do painel, vazio = "—" muted) na MESMA ordem do
   form de edicao — entrar em Editar nao muda a cara do painel.
 - ESC/back fecham so o painel do TOPO (`sheetStack`); o `dismissGuardRef` do DetailOverlay segue
-  como cinto (`anyModalOpen`). CSS do molde: bloco `.client-panel-sheet` no `globals.css`.
+  como cinto (`anyModalOpen`). CSS do molde: blocos `.fv-panel-sheet` (generico, com `.fv-panel-lead`
+  pra linha de apoio e `.fv-panel-footer-row` quando o footer tem DUAS acoes reais) e
+  `.client-panel-sheet` (alias do piloto) no `globals.css`.
 
 ### Pagina /informe = "Relatorios" (role-adaptive; unifica o antigo /resumo)
 
