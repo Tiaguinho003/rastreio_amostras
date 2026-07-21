@@ -557,6 +557,37 @@ export function SampleDetailView({
   // ?lote=); o href aponta pra lista com o param — deep-link equivalente.
   const openSampleHref = (id: string) => `/samples?lote=${id}`;
   const [printHighlighted, setPrintHighlighted] = useState(false);
+
+  // FV: menu ⋯ do hero (acoes que nao viraram botao redondo). Dismiss =
+  // clique-fora + ESC em CAPTURE devolvendo o foco ao trigger — sem o capture
+  // o ESC vazaria pro overlay e fecharia o lote junto (molde do hero do
+  // cliente e do menu de linha da tabela).
+  const [heroMenuOpen, setHeroMenuOpen] = useState(false);
+  const heroMenuRef = useRef<HTMLDivElement | null>(null);
+  const heroMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (!heroMenuOpen) return;
+    const onDocumentMouseDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (!heroMenuRef.current?.contains(target)) {
+        setHeroMenuOpen(false);
+      }
+    };
+    const onDocumentKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      setHeroMenuOpen(false);
+      heroMenuTriggerRef.current?.focus();
+    };
+    document.addEventListener('mousedown', onDocumentMouseDown);
+    document.addEventListener('keydown', onDocumentKeyDown, true);
+    return () => {
+      document.removeEventListener('mousedown', onDocumentMouseDown);
+      document.removeEventListener('keydown', onDocumentKeyDown, true);
+    };
+  }, [heroMenuOpen]);
   // Envio (extraido p/ SampleSendFlow): edicao/cancelamento de envios EXISTENTES,
   // disparados pela timeline. O envio NOVO migrou p/ o card da lista (/samples).
   const [editSendItem, setEditSendItem] = useState<Extract<
@@ -815,7 +846,10 @@ export function SampleDetailView({
   // tem callback de "classificado" — sem isto, so o poll passivo (60s)
   // refletia a classificacao recem-feita. Fechar sem classificar gera um
   // refetch a toa, inofensivo (silencioso).
-  const { isOpen: cameraSheetOpen } = useCameraSheet();
+  // FV: o hero tambem ABRE a camera (botao Classificar/Reclassificar), entao o
+  // contexto inteiro entra aqui — nao so o `isOpen`.
+  const cameraSheet = useCameraSheet();
+  const cameraSheetOpen = cameraSheet.isOpen;
   const cameraWasOpenRef = useRef(false);
   useEffect(() => {
     if (cameraWasOpenRef.current && !cameraSheetOpen) {
@@ -1830,23 +1864,43 @@ export function SampleDetailView({
     }
   }
 
-  // Badge do cabecalho: status COMERCIAL (Em aberto / Vendido / Perdido), com
-  // "Invalidada" quando a amostra foi invalidada. Cores espelham as dos cards
-  // (.is-card-*). PARTIALLY_SOLD cai em "Em aberto" (igual ao SampleCard).
+  // Chip de status COMERCIAL do hero (Em aberto / Vendido / Perdido), com
+  // "Deletado" quando o lote foi invalidado. FV: os tons inline deram lugar aos
+  // chips pastel do kit (.fv-chip-*). PARTIALLY_SOLD cai em "Em aberto"
+  // (igual ao SampleCard e a tabela da lista).
   function getSdvCommercialStatus(sample: { status: string; commercialStatus: string | null }) {
     if (sample.status === 'INVALIDATED') {
-      return { color: '#6b7280', bg: '#f3f4f6', border: '#e5e7eb', label: 'Deletado' };
+      return { chip: 'fv-chip-gray', label: 'Deletado' };
     }
     if (sample.commercialStatus === 'SOLD') {
-      return { color: '#2a6539', bg: '#e4f3e8', border: '#bcdcc6', label: 'Vendido' };
+      return { chip: 'fv-chip-green', label: 'Vendido' };
     }
     if (sample.commercialStatus === 'LOST') {
-      return { color: '#b44646', bg: '#f6e1e1', border: '#ecc6c6', label: 'Perdido' };
+      return { chip: 'fv-chip-red', label: 'Perdido' };
     }
-    return { color: '#2563eb', bg: '#dbeafe', border: '#bfdbfe', label: 'Em aberto' };
+    return { chip: 'fv-chip-blue', label: 'Em aberto' };
   }
 
   const sdvCommercialStatus = detail ? getSdvCommercialStatus(detail.sample) : null;
+
+  // Deletar: mesmo fluxo do antigo rodape, agora disparado pelo ⋯ do hero.
+  // Liga B3.5 proativo — se o lote ja e origem de liga ativa, abre direto o
+  // modal de bloqueio, sem pedir motivo.
+  function openInvalidateFlow(trigger: HTMLButtonElement | null) {
+    if (!detail) return;
+    lastInvalidateTriggerRef.current = trigger;
+    setGeneralNotice(null);
+    const active = detail.activeBlends ?? [];
+    if (active.length > 0) {
+      setBlockedBlends(active);
+      setInvalidateBlockedOpen(true);
+      return;
+    }
+    setInvalidateModalOpen(true);
+    setInvalidateReasonCode('OTHER');
+    setInvalidateReasonText('');
+    setInvalidateModalNotice(null);
+  }
 
   return (
     <>
@@ -1861,73 +1915,186 @@ export function SampleDetailView({
         ) : null}
         {!loadingDetail && detail ? (
           <>
-            {/* Header verde (sem a fileira de navegacao da antiga pagina — a
-                casca da rota poe o AppShell; no overlay o fechar e do proprio
-                DetailOverlay) */}
-            <header className="sdv-header">
-              <div className="sdv-identity-card">
-                <div className="sdv-identity-left">
-                  <div className="sdv-identity-code-row">
-                    <h1 className="sdv-identity-code">
-                      {detail.sample.internalLotNumber ?? detail.sample.id}
-                    </h1>
-                    {detail.sample.isBlend ? <BlendBadge size="md" /> : null}
-                    {sdvCommercialStatus ? (
-                      <span
-                        className="sdv-identity-badge"
-                        style={{
-                          color: sdvCommercialStatus.color,
-                          background: sdvCommercialStatus.bg,
-                          borderColor: sdvCommercialStatus.border,
-                        }}
-                      >
-                        {sdvCommercialStatus.label}
-                      </span>
-                    ) : null}
-                  </div>
-                  <span className="sdv-identity-owner">{ownerDisplayValue(detail.sample)}</span>
+            {/* FV (RD15): hero institucional no lugar do header verde de
+                identidade. Miniatura da foto da classificacao no papel do
+                avatar do cliente, numero do lote, chips de estado, a linha
+                proprietario · sacas · safra e as acoes redondas. Imprimir,
+                Editar e Classificar viram botoes proprios; o resto (reverter
+                liga, deletar) mora no ⋯. */}
+            <header className="fv-sd-hero">
+              {classificationServerPhotoUrl ? (
+                <button
+                  type="button"
+                  className="fv-sd-thumb"
+                  aria-label="Ampliar foto da classificação"
+                  onClick={() => setClassificationImageModalOpen(true)}
+                >
+                  {/* next/image nao se aplica: src vem do upload local. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={classificationServerPhotoUrl} alt="Foto da classificação" />
+                </button>
+              ) : (
+                <div className="fv-sd-thumb is-empty" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <rect x="3" y="5" width="18" height="14" rx="2" />
+                    <circle cx="8.5" cy="10" r="1.6" />
+                    <path d="m4 17 5-4.5 4 3.2 3-2.2 4 3.5" />
+                  </svg>
                 </div>
-                <div className="sdv-identity-actions">
-                  {canRevertBlend ? (
-                    <button
-                      type="button"
-                      className="sdv-identity-btn is-danger"
-                      onClick={() => {
-                        setRevertModalOpen(true);
-                        setRevertError(null);
-                        setGeneralNotice(null);
-                      }}
-                      aria-label="Reverter liga"
-                    >
-                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                        <path d="M9 14 4 9l5-5" />
-                        <path d="M4 9h10a6 6 0 0 1 0 12h-3" />
-                      </svg>
-                    </button>
-                  ) : null}
-                  {/* Imprimir (migrou do rodape de Informacoes): botao de acao
-                      do header, mesmo lugar onde ficava o antigo botao de
-                      invalidar. Preserva o gating/highlight/fluxo de etiqueta. */}
+              )}
+
+              <h2 className="fv-sd-lot">{detail.sample.internalLotNumber ?? detail.sample.id}</h2>
+              <span className="fv-sd-eyebrow">Lote</span>
+
+              <div className="fv-sd-chips">
+                {sdvCommercialStatus ? (
+                  <span className={`fv-chip ${sdvCommercialStatus.chip}`}>
+                    {sdvCommercialStatus.label}
+                  </span>
+                ) : null}
+                {detail.sample.isBlend ? <BlendBadge size="sm" /> : null}
+                {detail.sample.status === 'CLASSIFIED' ? (
+                  <span className="fv-chip fv-chip-green">Classificado</span>
+                ) : detail.sample.status !== 'INVALIDATED' ? (
+                  <span className="fv-chip fv-chip-amber">Pendente</span>
+                ) : null}
+              </div>
+
+              <div className="fv-sd-facts">
+                <span className="fv-sd-fact">{ownerDisplayValue(detail.sample)}</span>
+                <span className="fv-sd-fact-sep" aria-hidden="true">
+                  ·
+                </span>
+                <span className="fv-sd-fact">
+                  {buildReadableValue(detail.sample.declared.sacks)} sacas
+                </span>
+                <span className="fv-sd-fact-sep" aria-hidden="true">
+                  ·
+                </span>
+                <span className="fv-sd-fact">
+                  <HarvestDisplay harvest={detail.sample.declared.harvest} fallback="Sem safra" />
+                </span>
+              </div>
+
+              <div className="fv-sd-actions-row">
+                {/* Imprimir: mesmo gating/highlight/fluxo de etiqueta de antes. */}
+                <button
+                  type="button"
+                  className={`fv-iconbtn${printHighlighted ? ' is-highlight-pulse' : ''}`}
+                  disabled={
+                    !canQuickPrint ||
+                    labelModalSubmitting ||
+                    detail.latestPrintJob?.status === 'PENDING'
+                  }
+                  onClick={(event) => {
+                    setPrintHighlighted(false);
+                    openLabelReviewModal(event.currentTarget);
+                  }}
+                  aria-label="Imprimir etiqueta"
+                  title="Imprimir etiqueta"
+                >
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <path d="M6 9V2h12v7" />
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                    <rect x="6" y="14" width="12" height="8" rx="1" />
+                  </svg>
+                </button>
+                {/* Editar informacoes: saiu do header do card "Informacoes". */}
+                <button
+                  type="button"
+                  className="fv-iconbtn"
+                  disabled={!canEditRegistrationStatus(detail.sample.status)}
+                  onClick={startRegistrationEdit}
+                  aria-label="Editar informações"
+                  title="Editar informações"
+                >
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                  </svg>
+                </button>
+                {/* Classificar / Reclassificar: abre o sheet global da camera
+                    (CAM-P3, Flow B). Bloqueado enquanto o lote nao estiver com
+                    o registro confirmado nem classificado. */}
+                <button
+                  type="button"
+                  className="fv-iconbtn"
+                  disabled={
+                    detail.sample.status !== 'REGISTRATION_CONFIRMED' &&
+                    detail.sample.status !== 'CLASSIFIED'
+                  }
+                  onClick={() => cameraSheet.open({ sampleId })}
+                  aria-label={
+                    detail.sample.status === 'CLASSIFIED' ? 'Reclassificar' : 'Classificar'
+                  }
+                  title={detail.sample.status === 'CLASSIFIED' ? 'Reclassificar' : 'Classificar'}
+                >
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <path d="M4 8V6a2 2 0 0 1 2-2h2" />
+                    <path d="M16 4h2a2 2 0 0 1 2 2v2" />
+                    <path d="M20 16v2a2 2 0 0 1-2 2h-2" />
+                    <path d="M8 20H6a2 2 0 0 1-2-2v-2" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                </button>
+                <div className="fv-more-wrap" ref={heroMenuRef}>
                   <button
                     type="button"
-                    className={`sdv-identity-btn is-print${printHighlighted ? ' is-highlight-pulse' : ''}`}
-                    disabled={
-                      !canQuickPrint ||
-                      labelModalSubmitting ||
-                      detail.latestPrintJob?.status === 'PENDING'
-                    }
-                    onClick={(event) => {
-                      setPrintHighlighted(false);
-                      openLabelReviewModal(event.currentTarget);
-                    }}
-                    aria-label="Imprimir"
+                    ref={heroMenuTriggerRef}
+                    className="fv-iconbtn"
+                    aria-haspopup="menu"
+                    aria-expanded={heroMenuOpen}
+                    aria-label="Mais ações"
+                    title="Mais ações"
+                    onClick={() => setHeroMenuOpen((open) => !open)}
                   >
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <path d="M6 9V2h12v7" />
-                      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-                      <rect x="6" y="14" width="12" height="8" rx="1" />
+                    <svg
+                      className="fv-iconbtn-dots"
+                      viewBox="0 0 24 24"
+                      focusable="false"
+                      aria-hidden="true"
+                    >
+                      <circle cx="5" cy="12" r="1.6" />
+                      <circle cx="12" cy="12" r="1.6" />
+                      <circle cx="19" cy="12" r="1.6" />
                     </svg>
                   </button>
+                  {heroMenuOpen ? (
+                    <div className="fv-more-menu" role="menu" aria-label="Mais ações">
+                      {canRevertBlend ? (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          className="fv-more-item"
+                          onClick={() => {
+                            setHeroMenuOpen(false);
+                            setRevertModalOpen(true);
+                            setRevertError(null);
+                            setGeneralNotice(null);
+                          }}
+                        >
+                          Reverter liga
+                        </button>
+                      ) : null}
+                      {canInvalidateNormal ? (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          className="fv-more-item is-danger"
+                          onClick={(event) => {
+                            const trigger = event.currentTarget;
+                            setHeroMenuOpen(false);
+                            openInvalidateFlow(trigger);
+                          }}
+                        >
+                          Deletar lote
+                        </button>
+                      ) : null}
+                      {!canRevertBlend && !canInvalidateNormal ? (
+                        <span className="fv-more-empty">Nenhuma ação disponível</span>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </header>
@@ -1944,21 +2111,8 @@ export function SampleDetailView({
                       informacoes. */}
                   <div id="sdv-informacoes" className="sdv-card sdv-info-compact">
                     <div className="sdv-card-header">
+                      {/* FV: o "Editar" saiu daqui — virou botao redondo do hero. */}
                       <span className="sdv-card-title">Informações</span>
-                      {canEditRegistrationStatus(detail.sample.status) ? (
-                        <button
-                          type="button"
-                          className="sdv-edit-btn"
-                          onClick={startRegistrationEdit}
-                          aria-label="Editar informações"
-                        >
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M12 20h9" />
-                            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                          </svg>
-                          <span>Editar</span>
-                        </button>
-                      ) : null}
                     </div>
                     <div className="sdv-info-grid">
                       <div className="sdv-info-item is-full">
@@ -2458,45 +2612,8 @@ export function SampleDetailView({
                   />
                 </section>
 
-                {/* Invalidar (migrou do header): acao terminal/destrutiva no fim
-                    da pagina, como botao rotulado. Mesmo fluxo de antes (checa
-                    ligas ativas antes de abrir o modal de motivo). */}
-                {canInvalidateNormal ? (
-                  <div className="sdv-invalidate-footer">
-                    <button
-                      type="button"
-                      className="sdv-invalidate-btn"
-                      onClick={(event) => {
-                        lastInvalidateTriggerRef.current = event.currentTarget;
-                        setGeneralNotice(null);
-                        // Liga B3.5 proativo: a amostra já consta como origem de
-                        // liga(s) ativa(s) → abre o modal de bloqueio direto, sem
-                        // abrir o formulário de motivo.
-                        const active = detail.activeBlends ?? [];
-                        if (active.length > 0) {
-                          setBlockedBlends(active);
-                          setInvalidateBlockedOpen(true);
-                          return;
-                        }
-                        setInvalidateModalOpen(true);
-                        setInvalidateReasonCode('OTHER');
-                        setInvalidateReasonText('');
-                        setInvalidateModalNotice(null);
-                      }}
-                    >
-                      {/* Lixeira identica a da pagina de detalhes do cliente:
-                          trash-2 com alca curva + 2 tracos. */}
-                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                        <path d="M3 6h18" />
-                        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                        <path d="M19 6 18 20a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                        <path d="M10 11v6" />
-                        <path d="M14 11v6" />
-                      </svg>
-                      <span>Deletar</span>
-                    </button>
-                  </div>
-                ) : null}
+                {/* FV: o rodape "Deletar" saiu — a acao terminal mora no ⋯
+                    do hero, junto de "Reverter liga". */}
               </div>
             </section>
           </>
