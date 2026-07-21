@@ -1134,8 +1134,8 @@ export function createBackendApiV1({
         };
       }),
 
-    // FV /samples: KPI row da lista de Lotes (Total/Em aberto/Sacas
-    // disponiveis/Aguardando classificacao). So autenticacao, como os demais
+    // FV /samples: KPI row da lista de Lotes (Total/Em aberto/Lotes
+    // vendidos/Aguardando classificacao). So autenticacao, como os demais
     // endpoints de amostra; PROSPECTOR cai no 403 da allowlist central.
     getSampleStats: (input) =>
       executeApiForInput(input, async () => {

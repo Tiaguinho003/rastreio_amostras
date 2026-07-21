@@ -2310,13 +2310,14 @@ function SamplesPage() {
 
   // FV: cards da KPI row (desktop). Mini-metricas derivam do proprio stats,
   // como em /cadastros: o total cresce sobre a base do inicio do mes, "em
-  // aberto" mostra participacao, sacas nao tem comparativo e pendentes vira
-  // o rotulo do filtro.
+  // aberto" mostra participacao, vendidos comparam a semana corrente com a
+  // anterior e pendentes vira o rotulo do filtro.
   const pendingFilterActive = appliedHiddenFilters.onlyPendingClassification;
   let totalDelta: KpiDelta | null = null;
   let openDelta: KpiDelta | null = null;
+  let soldDelta: KpiDelta | null = null;
   if (sampleStats) {
-    const { total, open, newThisMonth } = sampleStats;
+    const { total, open, newThisMonth, soldThisWeek, soldLastWeek } = sampleStats;
     const monthStartBase = total - newThisMonth;
     if (monthStartBase > 0) {
       totalDelta =
@@ -2328,6 +2329,20 @@ function SamplesPage() {
     }
     openDelta =
       total > 0 ? { dir: 'flat', text: `${formatKpiPct((open / total) * 100)} do total` } : null;
+    // Sem base na semana passada nao ha percentual pra calcular: cai no
+    // numero absoluto da semana corrente (mesmo fallback do total no mes).
+    if (soldLastWeek > 0) {
+      const variation = ((soldThisWeek - soldLastWeek) / soldLastWeek) * 100;
+      soldDelta =
+        variation === 0
+          ? { dir: 'flat', text: '0% vs. semana passada' }
+          : {
+              dir: variation > 0 ? 'up' : 'down',
+              text: `${variation > 0 ? '+' : '−'}${formatKpiPct(Math.abs(variation))} vs. semana passada`,
+            };
+    } else if (soldThisWeek > 0) {
+      soldDelta = { dir: 'up', text: `+${soldThisWeek} esta semana` };
+    }
   }
 
   const kpiCards: {
@@ -2352,11 +2367,11 @@ function SamplesPage() {
       delta: openDelta,
     },
     {
-      key: 'sacks',
-      label: 'Sacas disponíveis',
-      value: sampleStats?.availableSacks,
+      key: 'sold',
+      label: 'Lotes vendidos',
+      value: sampleStats?.sold,
       tone: 'green',
-      delta: null,
+      delta: soldDelta,
     },
     {
       key: 'pending',
@@ -2419,18 +2434,38 @@ function SamplesPage() {
             fazem sentido na lista. */}
         <div className="fv-page-head">
           <h2 className="fv-page-title">{tab === 'simulador' ? 'Simulador' : 'Lotes'}</h2>
-          <button
-            type="button"
-            className="fv-btn fv-btn-primary"
-            hidden={tab === 'simulador'}
-            onClick={() => setNewSampleModalOpen(true)}
-          >
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <path d="M12 5v14" />
-              <path d="M5 12h14" />
-            </svg>
-            Novo lote
-          </button>
+          {/* As DUAS acoes de criacao da pagina moram aqui, lado a lado:
+              "Criar liga" (secundaria, mesma geometria) e "+ Novo lote"
+              (primaria, na ponta). "Criar liga" saiu da toolbar da tabela —
+              no modo liga quem manda e a .fv-bulkbar. */}
+          {tab === 'simulador' ? null : (
+            <div className="fv-page-head-actions">
+              {selectionMode !== 'blend' ? (
+                <button type="button" className="fv-btn fv-btn-secondary" onClick={enterBlendMode}>
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <path d="M8 6h11" />
+                    <path d="M8 12h11" />
+                    <path d="M8 18h11" />
+                    <circle cx="4" cy="6" r="1.4" />
+                    <circle cx="4" cy="12" r="1.4" />
+                    <circle cx="4" cy="18" r="1.4" />
+                  </svg>
+                  Criar liga
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="fv-btn fv-btn-primary"
+                onClick={() => setNewSampleModalOpen(true)}
+              >
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <path d="M12 5v14" />
+                  <path d="M5 12h14" />
+                </svg>
+                Novo lote
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="fv-kpi-row">
@@ -2452,10 +2487,10 @@ function SamplesPage() {
                         <path d="M4 9 6 4h12l2 5" />
                         <path d="M10 13h4" />
                       </svg>
-                    ) : card.key === 'sacks' ? (
+                    ) : card.key === 'sold' ? (
                       <svg viewBox="0 0 24 24" focusable="false">
-                        <path d="M8 3h8l-1.5 3.2a3 3 0 0 0 .3 3.1L17 13a5 5 0 0 1-4 8h-2a5 5 0 0 1-4-8l2.2-3.7a3 3 0 0 0 .3-3.1z" />
-                        <path d="M9.5 15.5h5" />
+                        <path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0l-7.2-7.2A2 2 0 0 1 3 12V5a2 2 0 0 1 2-2h7a2 2 0 0 1 1.4.6l7.2 7.2a2 2 0 0 1 0 2.8z" />
+                        <path d="M7.5 7.5h.01" />
                       </svg>
                     ) : (
                       <svg viewBox="0 0 24 24" focusable="false">
@@ -2620,9 +2655,10 @@ function SamplesPage() {
 
         <section className="samples-page-v2-sheet">
           {/* FV (desktop): toolbar do cartao da tabela — busca (mesma logica e
-              debounce da hero), "Criar liga", funil com badge, limpar e o
-              contador a direita. Mobile: display:none (a hero-search acima
-              segue no comando). */}
+              debounce da hero), funil com badge, limpar e o contador a direita.
+              "Criar liga" subiu pro cabecalho da pagina, ao lado de "+ Novo
+              lote". Mobile: display:none (a hero-search acima segue no
+              comando). */}
           <div className="fv-toolbar">
             <form
               className="fv-toolbar-search"
@@ -2662,17 +2698,6 @@ function SamplesPage() {
             </form>
             {selectionMode !== 'blend' ? (
               <>
-                <button type="button" className="fv-btn fv-btn-secondary" onClick={enterBlendMode}>
-                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                    <path d="M8 6h11" />
-                    <path d="M8 12h11" />
-                    <path d="M8 18h11" />
-                    <circle cx="4" cy="6" r="1.4" />
-                    <circle cx="4" cy="12" r="1.4" />
-                    <circle cx="4" cy="18" r="1.4" />
-                  </svg>
-                  Criar liga
-                </button>
                 <button
                   type="button"
                   className="fv-btn fv-btn-secondary fv-toolbar-filter"
@@ -2869,9 +2894,9 @@ function SamplesPage() {
               <table className={`fv-table fv-table-lotes${isBlendMode ? ' is-selecting' : ''}`}>
                 {/* Colunas (ajuste pos-F3): o STATUS entrou na celula do lote —
                     numero · Liga · chip, tudo junto — e a classificacao se abriu
-                    em tres colunas nomeadas (Padrão / Bebida / Catação). O
-                    Proprietario deixou de ser a coluna elastica (cabe em faixa
-                    fixa e trunca); quem estica agora e o Padrão. */}
+                    em tres colunas nomeadas (Padrão / Bebida / Catação). As
+                    cinco caracteristicas (sacas → catacao) tem a mesma largura,
+                    agrupadas a direita; o Proprietario e a coluna elastica. */}
                 <colgroup>
                   {isBlendMode ? <col className="fv-col-select" /> : null}
                   <col className="fv-col-lot" />
@@ -2999,15 +3024,14 @@ function SamplesPage() {
                             <span className="fv-table-cell-main">—</span>
                           )}
                         </td>
-                        {/* Classificacao em tres colunas nomeadas. Sem
-                            classificacao, o chip "Pendente" ocupa a primeira
-                            delas e as outras duas ficam vazias. */}
+                        {/* Classificacao em tres colunas nomeadas. Lote sem
+                            classificacao mostra TRACO nas tres — o vazio ja
+                            comunica a pendencia (o chip "Pendente" saiu a
+                            pedido do Flavio). */}
                         <td>
-                          {row.classification ? (
-                            <span className="fv-table-cell-main">{row.classification.padrao}</span>
-                          ) : (
-                            <span className="fv-chip fv-chip-amber">Pendente</span>
-                          )}
+                          <span className="fv-table-cell-main">
+                            {row.classification ? row.classification.padrao : '—'}
+                          </span>
                         </td>
                         <td>
                           <span className="fv-table-cell-main">

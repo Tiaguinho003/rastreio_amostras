@@ -33601,6 +33601,15 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
     color: var(--ink);
   }
 
+  /* Duas acoes no cabecalho (lotes): "Criar liga" (secundaria, mesma
+     geometria) colada em "+ Novo lote", que fica na ponta direita. */
+  .fv-page-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: none;
+  }
+
   .fv-kpi-row {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -34009,30 +34018,24 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   }
 
   /* Colunas da tabela de Lotes (FV /samples): 7 + acoes. O "Lote" carrega
-     numero + Liga + status na mesma celula (por isso a maior largura fixa);
-     o Proprietario cabe numa faixa fixa e trunca; a classificacao se divide
-     em Padrão (a coluna elastica) / Bebida / Catação. */
+     numero + Liga + status na mesma celula (por isso a maior largura fixa).
+     As CINCO caracteristicas do lote (sacas, safra, padrao, bebida, catacao)
+     tem a MESMA largura: ficam com o mesmo vao entre si e agrupadas a
+     direita. Quem absorve a sobra e o Proprietario — coluna elastica, que
+     assim ganha area em telas largas. */
   .fv-col-lot {
     width: 232px;
   }
   .fv-col-owner {
-    width: 170px;
-  }
-  .fv-col-sacks {
-    width: 108px;
-  }
-  .fv-col-harvest {
-    width: 96px;
-  }
-  .fv-col-padrao {
     width: auto;
-    min-width: 130px;
+    min-width: 150px;
   }
-  .fv-col-bebida {
-    width: 108px;
-  }
+  .fv-col-sacks,
+  .fv-col-harvest,
+  .fv-col-padrao,
+  .fv-col-bebida,
   .fv-col-catacao {
-    width: 96px;
+    width: 112px;
   }
 
   /* Celula do lote: numero · badge de liga · chip de status, em linha. O

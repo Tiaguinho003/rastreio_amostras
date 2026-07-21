@@ -417,6 +417,32 @@ function computePreviousMonthStartUtc(now = new Date()) {
   );
 }
 
+// KPI "Lotes vendidos" da lista de Lotes: inicio da semana corrente (segunda,
+// 00:00) em BRT — offset fixo -03, mesmo racional dos helpers de mes acima.
+// Diferenca proposital: a fronteira volta como MEIA-NOITE UTC do dia da segunda
+// (e nao 03:00Z), porque quem e comparado aqui e movementDate, coluna DATE pura
+// — o Prisma materializa DATE como 00:00Z do proprio dia, entao o corte tem que
+// ser data contra data, e nao instante (mesmo cuidado do bucketing mensal do
+// getClientCommercialSummary). O offset entra so pra decidir QUAL e a semana
+// corrente: domingo 23h em BRT ja e 02h de segunda em UTC, mas ainda e a semana
+// que passou.
+function computeCurrentWeekStartUtc(now = new Date()) {
+  const brtNow = new Date(now.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
+  // getUTCDay(): 0 = domingo. Com a semana comecando na segunda, o domingo
+  // recua 6 dias (e nao 0) pra chegar na segunda que o abriu.
+  const daysSinceMonday = (brtNow.getUTCDay() + 6) % 7;
+  return new Date(
+    Date.UTC(brtNow.getUTCFullYear(), brtNow.getUTCMonth(), brtNow.getUTCDate() - daysSinceMonday)
+  );
+}
+
+// Inicio da semana ANTERIOR (segunda) em BRT. Recuar 7 dias sobre um instante
+// UTC e exato (UTC nao tem horario de verao, entao a semana tem sempre 168h).
+// Janela de soldLastWeek: [previousWeekStart, currentWeekStart).
+function computePreviousWeekStartUtc(now = new Date()) {
+  return new Date(computeCurrentWeekStartUtc(now).getTime() - 7 * 24 * 3600_000);
+}
+
 function resolveCreatedDateRangeInSaoPaulo({ createdFrom = null, createdTo = null }) {
   const fromRange = parseCreatedDateRangeInSaoPaulo(createdFrom, 'createdFrom');
   const toRange = parseCreatedDateRangeInSaoPaulo(createdTo, 'createdTo');
@@ -1781,26 +1807,40 @@ export class SampleQueryService {
   // FV /samples: KPI row da lista de Lotes — contagens GLOBAIS (independem dos
   // filtros da lista), molde do getClientStats (RD14). Deletados (INVALIDATED)
   // ficam de fora de tudo, como na UI. "open" = commercialStatus OPEN ou
-  // PARTIALLY_SOLD; "availableSacks" usa a MESMA formula do resto do app
-  // (declared - sold - lost, ver mapa da lista) somada so sobre esses lotes —
-  // vendido/perdido tem disponivel zero por definicao. Liga e lote como
-  // qualquer outro: soma junto com as origens, igual a lista faz.
+  // PARTIALLY_SOLD; "sold" = commercialStatus SOLD. Liga e lote como qualquer
+  // outro: conta junto com as origens, igual a lista faz.
+  //
+  // "Vendido em" NAO existe como coluna no lote. A data em que o lote fechou e
+  // o MAX(movementDate) entre as vendas ATIVAS dele — tem que ser o MAX, e nao
+  // "existe venda na semana": um lote com venda parcial na semana passada e a
+  // venda final nesta conta UMA vez, na semana em que FECHOU.
+  //
+  // Escolhi groupBy + corte em JS (e nao $queryRaw) por dois motivos: (1) o
+  // filtro por semana compara Date com Date em memoria, exato, sem depender do
+  // timezone da sessao do Postgres — em SQL a mesma comparacao exigiria castar
+  // o parametro pra ::date, porque movementDate e coluna DATE pura; (2) o
+  // universo e pequeno (uma linha por lote JA vendido), o mesmo racional do
+  // bucketing mensal em JS do getClientCommercialSummary.
   async getSampleStats() {
     const monthStartUtc = computeCurrentMonthStartUtc();
     const previousMonthStartUtc = computePreviousMonthStartUtc();
+    const weekStartUtc = computeCurrentWeekStartUtc();
+    const previousWeekStartUtc = computePreviousWeekStartUtc();
     const notInvalidated = { status: { not: 'INVALIDATED' } };
     const openWhere = {
       ...notInvalidated,
       commercialStatus: { in: ['OPEN', 'PARTIALLY_SOLD'] },
     };
+    const soldWhere = { ...notInvalidated, commercialStatus: 'SOLD' };
 
-    const [total, open, classificationPending, newThisMonth, newLastMonth, sacks] =
+    const [total, open, classificationPending, sold, newThisMonth, newLastMonth, lastSaleByLot] =
       await this.prisma.$transaction([
         this.prisma.sample.count({ where: notInvalidated }),
         this.prisma.sample.count({ where: openWhere }),
         this.prisma.sample.count({
           where: { status: { in: CLASSIFICATION_PENDING_STATUSES } },
         }),
+        this.prisma.sample.count({ where: soldWhere }),
         this.prisma.sample.count({
           where: { ...notInvalidated, createdAt: { gte: monthStartUtc } },
         }),
@@ -1810,20 +1850,38 @@ export class SampleQueryService {
             createdAt: { gte: previousMonthStartUtc, lt: monthStartUtc },
           },
         }),
-        this.prisma.sample.aggregate({
-          where: openWhere,
-          _sum: { declaredSacks: true, soldSacks: true, lostSacks: true },
+        // Uma linha por lote vendido, com a data da venda que o fechou.
+        this.prisma.sampleMovement.groupBy({
+          by: ['sampleId'],
+          where: { movementType: 'SALE', status: 'ACTIVE', sample: soldWhere },
+          _max: { movementDate: true },
         }),
       ]);
 
-    const availableSacks =
-      (sacks._sum.declaredSacks ?? 0) - (sacks._sum.soldSacks ?? 0) - (sacks._sum.lostSacks ?? 0);
+    let soldThisWeek = 0;
+    let soldLastWeek = 0;
+    for (const row of lastSaleByLot) {
+      const closedAtUtc = row._max?.movementDate ?? null;
+      if (!closedAtUtc) {
+        continue;
+      }
+      // Lote vendido sem venda ativa (legado/ajuste manual) simplesmente nao
+      // aparece aqui: entra no "sold", fora das duas semanas.
+      const closedAtMs = closedAtUtc.getTime();
+      if (closedAtMs >= weekStartUtc.getTime()) {
+        soldThisWeek += 1;
+      } else if (closedAtMs >= previousWeekStartUtc.getTime()) {
+        soldLastWeek += 1;
+      }
+    }
 
     return {
       total,
       open,
       classificationPending,
-      availableSacks: Math.max(0, availableSacks),
+      sold,
+      soldThisWeek,
+      soldLastWeek,
       newThisMonth,
       newLastMonth,
     };

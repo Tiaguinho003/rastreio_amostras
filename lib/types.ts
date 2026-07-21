@@ -1191,8 +1191,12 @@ export interface SampleStatsResponse {
   open: number;
   /** Lotes aguardando classificação (REGISTRATION_CONFIRMED). */
   classificationPending: number;
-  /** Soma de (declaradas − vendidas − perdidas) nos lotes em aberto. */
-  availableSacks: number;
+  /** Lotes vendidos (commercialStatus SOLD). */
+  sold: number;
+  /** Vendidos na semana corrente (segunda 00:00 BRT), pela venda que fechou o lote. */
+  soldThisWeek: number;
+  /** Vendidos dentro da semana anterior — base do "vs. semana passada". */
+  soldLastWeek: number;
   /** Criados no mês corrente (BRT). */
   newThisMonth: number;
   /** Criados dentro do mês anterior (BRT) — base do "vs mês anterior". */
