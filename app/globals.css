@@ -34765,7 +34765,9 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
 
 .fv-cd-chart-line {
   fill: none;
-  stroke-width: 2;
+  /* Rodada 4: linhas mais finas/delicadas (pedido do Flavio; a viewBox
+     320px escala ~1.8x no drawer — 1.4 rende ~2.5px na tela). */
+  stroke-width: 1.4;
   stroke-linecap: round;
   stroke-linejoin: round;
 }

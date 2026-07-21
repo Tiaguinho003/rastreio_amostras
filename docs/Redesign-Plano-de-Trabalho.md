@@ -210,6 +210,7 @@ Pedido do Flavio (5 pontos; os modais internos do detalhe ficam para **depois**,
 4. **Botões de adicionar nomeados** — "Nova"/"Adicionar" viram **"+ Adicionar filial" / "+ Adicionar conta" / "+ Adicionar anexo"** (`.fv-cd-add-btn`): CTA **verde preenchido, texto branco, radius 10** (molde dos botões das rodadas 1–2); press só scale.
 5. **Sublinhado da aba reto** — a linha ativa das `.fv-cd-tabs` tinha **pontas curvas** porque o reset global de `button` aplica `border-radius: 10px` (o `border-bottom` acompanha o raio). Fix: `border-radius: 0` no `.fv-cd-tab`. (O mesmo efeito existe no `.cad-tab` mobile — fora do escopo desta rodada.)
 6. **Scroll sem deslocamento** (pedido durante a rodada) — trocar de aba fazia o conteúdo **pular pra esquerda** quando a barra de scroll aparecia (aba longa) e sumia (aba curta). Fix: `scrollbar-gutter: stable` no `.bottom-sheet-body` do drawer (espaço da barra sempre reservado) + barra fina neutra (`scrollbar-width: thin` / `scrollbar-color` hairline). Touch usa barra overlay — sem efeito no mobile.
+7. **Linhas do gráfico mais finas** (pedido durante a rodada) — stroke das linhas Vendas/Compras de 2 → **1.4** (a viewBox de 320px escala ~1.8× no drawer; rende ~2,5px na tela).
 
 Commits: `53bb96d` (style: prettier no doc, escapou da rodada 3) · `393a5c4` (bloqueio + seta) · `3f7cc8c` (cards + botões + linha reta) · `bd6d7c8` (docs) · `+1` (gutter estável do scroll, com este ajuste no doc). Gates verdes por commit (typecheck, lint, format, unit 535, contracts 20; sem mudança de backend).
 
