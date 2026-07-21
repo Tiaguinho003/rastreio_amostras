@@ -3398,7 +3398,9 @@ function SamplesPage() {
       <DetailOverlay
         open={Boolean(loteId)}
         onClose={closeLote}
-        title="Lote"
+        // Sem titulo no cabecalho: o hero logo abaixo ja abre com o numero do
+        // lote, e a faixa vazia deixa o degrade verde do topo continuo (a
+        // seta <- fica sozinha, no mesmo lugar de sempre).
         ariaLabel="Detalhe do lote"
         className="lote-details-overlay"
         dismissGuardRef={loteDismissGuardRef}
