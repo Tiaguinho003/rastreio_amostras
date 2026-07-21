@@ -103,14 +103,15 @@ export function SampleMovementsPanel({
     SOLD: 'Vendido',
     LOST: 'Perdido',
   };
-  const STATUS_STYLE: Record<string, { color: string; bg: string; border: string }> = {
-    OPEN: { color: '#2980B9', bg: '#EFF6FF', border: '#BFDBFE' },
-    PARTIALLY_SOLD: { color: '#E67E22', bg: '#FFF7ED', border: '#FDE68A' },
-    SOLD: { color: '#27AE60', bg: '#F0FDF4', border: '#BBF7D0' },
-    LOST: { color: '#C0392B', bg: '#FEF2F2', border: '#FECACA' },
+  // FV: os tons inline deram lugar aos chips pastel do kit.
+  const STATUS_CHIP: Record<string, string> = {
+    OPEN: 'fv-chip-blue',
+    PARTIALLY_SOLD: 'fv-chip-amber',
+    SOLD: 'fv-chip-green',
+    LOST: 'fv-chip-red',
   };
   const commercialLabel = STATUS_LABEL[sample.commercialStatus] ?? 'Disponível';
-  const commercialStyle = STATUS_STYLE[sample.commercialStatus] ?? STATUS_STYLE.OPEN;
+  const commercialChip = STATUS_CHIP[sample.commercialStatus] ?? 'fv-chip-blue';
 
   const showSummary = section !== 'timeline';
   const showTimeline = section !== 'summary';
@@ -125,16 +126,11 @@ export function SampleMovementsPanel({
           <span className="sdv-card-title">
             {showSummary ? 'Resumo comercial' : 'Movimentações'}
           </span>
-          <span
-            className="sdv-com-status"
-            style={{
-              color: commercialStyle.color,
-              background: commercialStyle.bg,
-              borderColor: commercialStyle.border,
-            }}
-          >
-            {commercialLabel}
-          </span>
+          {/* O chip so acompanha o RESUMO: na aba Movimentacoes ele repetiria
+              o chip de status que ja esta no hero. */}
+          {showSummary ? (
+            <span className={`fv-chip ${commercialChip}`}>{commercialLabel}</span>
+          ) : null}
         </div>
         {showSummary ? (
           <div className="sdv-com-minis">

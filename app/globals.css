@@ -36151,3 +36151,167 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   font-size: 0.78rem;
   color: var(--muted);
 }
+
+/* ══════════════════════════════════════════════════════════════
+   FV /samples · F2 — CARDS INSTITUCIONAIS do detalhe do lote
+   ══════════════════════════════════════════════════════════════
+   Restyle escopado em `.lote-details-overlay`. As classes `sdv-*` sao
+   COMPARTILHADAS com o detalhe do cliente (`.sdv-card`, `-header`,
+   `-title`, `.sdv-info-*`): nada aqui pode sair do escopo, ou o
+   /cadastros muda junto. */
+
+/* Cartao: branco flat + hairline + radius do kit. Substitui o gradiente
+   creme com sombra tripla (incluindo o reforco que o proprio overlay
+   aplicava pro card se destacar do fundo branco). */
+.bottom-sheet.detail-overlay.lote-details-overlay .sdv-card {
+  background: var(--fv-surface);
+  border: 1px solid var(--fv-line);
+  border-radius: var(--fv-radius-lg);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  padding: 0.9rem 1rem 1rem;
+}
+
+.lote-details-overlay .sdv-card-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+}
+.lote-details-overlay .sdv-card-title-danger {
+  color: var(--fv-chip-red-fg);
+}
+.lote-details-overlay .sdv-card-header {
+  margin-bottom: 0.7rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--fv-line);
+}
+
+/* Campos: rotulo miudo em caixa alta some — vira label neutro do kit. */
+.lote-details-overlay .sdv-info-label {
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+}
+.lote-details-overlay .sdv-info-value {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--ink);
+}
+.lote-details-overlay .sdv-info-item {
+  padding: 0.4rem 0;
+}
+
+/* Botao "Editar" fantasma dos headers de card. */
+.lote-details-overlay .sdv-edit-btn {
+  border: 1px solid var(--fv-line-strong);
+  border-radius: var(--fv-radius);
+  background: var(--fv-surface);
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 0.3rem 0.6rem;
+}
+.lote-details-overlay .sdv-edit-btn svg {
+  stroke: currentColor;
+}
+
+/* Minicards do resumo comercial. */
+.lote-details-overlay .sdv-com-mini {
+  border: 1px solid var(--fv-line);
+  border-radius: var(--fv-radius);
+  background: var(--fv-surface);
+  box-shadow: none;
+  padding: 0.7rem 0.5rem;
+}
+.lote-details-overlay .sdv-com-mini-label {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+.lote-details-overlay .sdv-com-mini-value {
+  color: var(--ink);
+}
+
+/* Linhas da timeline: superficie plana com hairline, sem sombra. */
+.lote-details-overlay .sdv-com-mov {
+  background: var(--fv-surface);
+  border: 1px solid var(--fv-line);
+  border-radius: var(--fv-radius);
+  box-shadow: none;
+}
+.lote-details-overlay .sdv-com-mov-icon {
+  border-radius: var(--fv-radius);
+}
+
+/* Cards de liga (composicao / comprometida) e avisos terminais. */
+.lote-details-overlay .sdv-related-list {
+  gap: 0.45rem;
+}
+.lote-details-overlay .sdv-empty-text {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+/* Neutralizadores dos layouts desktop NUS (redesign 2026-07-02) que ainda
+   casam por CLASSE dentro do drawer de 620px: `.sdv-general` vira grid
+   5fr/3fr e `.sdv-commercial` grid de 2 colunas com clamps de 400px+440px —
+   ambos pensados pra pagina larga. Mesmo tratamento que o drawer do cliente
+   precisou dar. Declarados depois: vencem por ordem (ou por escopo). */
+.lote-details-overlay .sdv-general {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: auto;
+  max-width: none;
+  margin: 0;
+}
+/* A cadeia `:has(.sample-detail-commercial-pane)` do desktop trocava o scroll
+   da pagina por "altura travada + scroll interno da timeline" — modelo da
+   pagina larga que, no drawer, corta o conteudo das outras abas. Aqui o scroll
+   volta a ser o do `.sdv-content` (base). Os seletores repetem o `:has` pra
+   empatar em especificidade e vencer pela ordem. */
+.lote-details-overlay .sdv-content,
+.lote-details-overlay .sdv-content:has(.sample-detail-commercial-pane) {
+  display: block;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.lote-details-overlay .sdv-content > .sdv-content-inner,
+.lote-details-overlay .sdv-content:has(.sample-detail-commercial-pane) > .sdv-content-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: none;
+}
+.lote-details-overlay .sdv-content .sample-detail-commercial-pane,
+.lote-details-overlay
+  .sdv-content:has(.sample-detail-commercial-pane)
+  .sample-detail-commercial-pane {
+  display: block;
+  flex: none;
+  margin: 0;
+}
+.lote-details-overlay .sdv-content .sdv-commercial,
+.lote-details-overlay .sdv-content:has(.sample-detail-commercial-pane) .sdv-commercial {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: auto;
+  max-width: none;
+  margin: 0;
+  flex: none;
+}
+.lote-details-overlay .sdv-content .sdv-commercial > .sdv-card,
+.lote-details-overlay .sdv-content:has(.sample-detail-commercial-pane) .sdv-commercial > .sdv-card {
+  display: block;
+  min-height: 0;
+  overflow: visible;
+}
+/* A timeline volta a fluir com a pagina (sem a coluna de altura fixa). */
+.lote-details-overlay .sdv-com-movements {
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
+}
