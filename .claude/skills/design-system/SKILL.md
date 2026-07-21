@@ -54,6 +54,9 @@ molde das proximas paginas do ciclo (`/samples` → `/relatorios` → `/users`+`
   (`table-layout: fixed` + colgroup, avatar de iniciais PJ quadrado/PF circulo, chips de
   status, icones de contato; linha abre o detalhe) → scroll infinito. **Filtros = side-sheet
   400px** (`.fv-filter-sheet`). Menu **⋯** = acoes profundas por URL (`?cliente=<id>&acao=…`).
+  Quando a pagina tem uma **segunda acao de pagina** (nao de linha), ela fica ao lado do CTA
+  em `.fv-page-head-actions`, como `.fv-btn-secondary` — nunca na toolbar, que e so
+  busca/filtro (ex.: "Criar liga" ao lado de "+ Novo lote" em `/samples`).
 
 ### 0.3 Detalhe = drawer de perfil (620px)
 
@@ -99,6 +102,10 @@ foco `0 0 0 3px rgba(23,60,48,.12)` na borda `--fv-cta`, altura minima 2.62rem.
 - Erro: `.is-field-error` no campo + `.fv-form-input-error` no input (placeholder vermelho) e,
   quando o campo tem valor e o placeholder nao aparece, `.fv-form-field-error` abaixo.
 - `.fv-form-actions` — rodape secundaria | primaria (`app-modal-secondary` + `app-modal-submit`).
+
+`input[type='date']` ja vem com o fix WebKit **no kit** (`-webkit-appearance: none` +
+`::-webkit-date-and-time-value { min-width: 0; text-align: left }`): sem ele o input nativo
+ignora `width` e estoura a coluna numa `.fv-form-row-2col`. Nao repetir escopado.
 
 Dropdown de opcao unica = **`<select>` nativo** (o popover proprio de presets de safra foi
 rejeitado pelo Flavio e deletado). Multi-select fica no `ChipMultiSelectField`.

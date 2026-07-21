@@ -337,6 +337,24 @@ Antes deles, um bug pré-existente: **o drawer do lote abria em branco** (`6153f
 
 **O que conferir a mais** (soma-se aos checklists de F1–F3): drawer abre com conteúdo (nunca em branco) e fecha pela ←; trocar de aba não desloca o conteúdo; ficha com a foto inteira e quadrada; editar envio abre embaixo do card; "Novo lote" com os campos no padrão do cliente e safra em dropdown normal; tabela com status colado no número e as três colunas de classificação.
 
+#### 2ª rodada de ajustes pós-F3 (2026-07-21 — 7 pedidos)
+
+Revisando a 1ª rodada, o Flavio apontou **5 pedidos que não tinham sido atendidos como queria** (1–5) e abriu **2 novos** (6–7). Vieram em 4 commits, agrupados por tema.
+
+1. `4caee08` **KPI "Lotes vendidos"** — o card de "Sacas disponíveis" sai e entra a contagem de lotes vendidos, com **variação da semana corrente contra a anterior**. No backend, `getSampleStats` troca o `aggregate` de sacas por `sold`/`soldThisWeek`/`soldLastWeek`. A **data de venda do lote** é o `MAX(movementDate)` das movimentações `SALE` **ativas** do lote — venda parcial na semana passada + final nesta conta só nesta. O corte de semana (segunda 00:00 BRT) roda **em JS**, e não em SQL, porque `movementDate` é coluna `DATE`: o mesmo corte no banco dependeria do timezone da sessão. Lote `SOLD` sem venda ativa entra no total e fica fora das duas semanas.
+2. `4caee08` **"Criar liga" ao lado de "Novo lote"** — na 1ª rodada ele tinha ficado na toolbar ("Não vejo diferença"). Agora é ação **secundária do cabeçalho** (`.fv-page-head-actions`), no mesmo desenho do CTA primário.
+3. `4caee08` **Colunas agrupadas à direita** — sacas, safra, padrão, bebida e catação com a **mesma largura fixa** e o mesmo gap entre si, encostadas à direita; o **proprietário** vira a coluna elástica (`width: auto`) e fica com toda a sobra.
+4. `4caee08` **Padrão sem "Pendente"** — o chip âmbar sai; lote não classificado mostra **traço**, igual a bebida e catação. Decisão explícita do Flavio: a pendência se comunica pelos tracinhos (e continua tendo o KPI clicável como porta de entrada).
+5. `6e138a4` **Editar data de movimentação = dropdown** — a 1ª rodada só converteu o envio; a data continuava abrindo painel lateral. Agora fecha a regra de contêiner: **edição minúscula (1–2 campos) de item de lista é dropdown inline**, nunca painel. O sheet `sample-date-edit-sheet` morreu; o submit chama `updateRegistration` direto e trata o 409 de "no registration changes" fechando em silêncio.
+6. `9146cd0` **Cards de liga no kit** — "Lotes que compõem a liga" e "Ligas onde o lote está comprometido" eram os últimos do drawer no desenho antigo (`.spv2-card` da lista mobile: gradiente, sombra, barra colorida de 4px). Restyle **escopado em `.lote-details-overlay`** (o `.spv2-card` mobile não pode mudar): branco + hairline, barra de status virando **ponto de 6px**, chevron em `--fv-line-strong`. Achado no caminho: **`.sdv-related-list` nunca teve regra base** — a única existia no `@media` desktop de `.sdv-page--sample`, morta por seletor desde a F2, então o `<ul>` renderizava cru (marcador + recuo) e o `gap` da F2 não pegava.
+7. `684f95d` **Confirmação da liga vira painel lateral** — último modal central do fluxo de liga. Molde R5 (`.fv-panel-sheet side-sheet` + seta ←), **sem `stacked`**: abre a partir da lista, sem sheet por baixo, então precisa do tier base e da própria entry de history. Junto: guard de fechamento sai do `onClose` e vai pro `onDismissAttempt` (antes o `requestDismiss` recebia `true` mesmo negando, e o back seguinte saía da página); campos migram de `nsv2-field` pro kit `.fv-form-*` (5 `style={{...}}` inline viraram CSS); rodapé perde o "Voltar" textual; lista de composição no kit (chips pastel para "disp." e para o aviso de sacas comprometidas). Comportamento intacto: validação on-blur, input travado para origem que já é liga, animação de remoção, total rodando, reducer — e **nenhuma prop mudou** no call-site.
+
+**Efeito colateral bom**: o fix WebKit de `input[type=date]` (que estoura a coluna em linha de 2 colunas) foi **promovido pro kit genérico `.fv-form-field`** — o "Novo lote" tem o mesmo campo e estava sem.
+
+**CSS órfão anotado** (não removido, conforme a política da consolidação): no bloco "Liga B2.1", `.bottom-sheet.is-blend-confirm`, `.blend-conf-footer__actions`, `.blend-conf-footer__back` e `.blend-conf-footer__continue` (+ estados e as linhas do `@media (max-width: 480px)`).
+
+**O que conferir a mais**: KPI "Lotes vendidos" com o comparativo semanal; "Criar liga" ao lado do "Novo lote" e com o mesmo desenho; colunas encostadas à direita com o proprietário largo; padrão em traço quando não classificado; editar data abrindo embaixo do card; cards de liga no kit dentro do drawer; confirmação da liga como painel lateral (seta ← cancela, back não sai da página).
+
 ## 3. O que NÃO muda
 
 - **Backend**: nenhuma rota de API muda. RD2 é só front + redirects de rota.
