@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
 import { createPortal } from 'react-dom';
 
+import { BottomSheet } from '../BottomSheet';
 import {
   ClientInactivateWithCascadeModal,
   type CascadeSample,
@@ -1322,7 +1323,9 @@ export function ClientDetailView({
 
   return (
     <>
-      <section className={`sdv-page${editClientOpen ? ' is-editing' : ''}`}>
+      {/* Rodada 5 FV: o editor virou painel lateral — o drawer nao se esconde
+          mais (o is-editing/display:none da rodada 2 morreu). */}
+      <section className="sdv-page">
         {loadingPage && !client ? (
           <div className="spv2-empty">
             <p className="spv2-empty-text">Carregando cliente…</p>
@@ -1840,24 +1843,40 @@ export function ClientDetailView({
         {!loadingPage && !client ? <NoticeSlot notice={pageNotice} /> : null}
       </section>
 
-      {/* ========== EDITOR (rodada 2 FV) ========== */}
-      {/* A edicao virou SUB-PAINEL do proprio overlay (sem modal sobre modal):
-          o .sdv-page recebe is-editing (display:none) e este bloco assume o
-          corpo do sheet — o header "Cliente" + X continuam visiveis e o
-          dismiss-guard segue bloqueando fechar enquanto edita. Form UNICO:
-          informacoes + endereco fiscal (PJ) + motivo, um Salvar so. */}
-      {editClientOpen ? (
-        <div className="fv-cd-editor" role="region" aria-labelledby="edit-client-title">
-          <div className="fv-cd-editor-head">
-            <h3 id="edit-client-title" className="fv-cd-editor-title">
-              Editar cadastro
-            </h3>
-            <span className="fv-cd-editor-sub">
-              {isPj
-                ? 'Informações, papéis e endereço fiscal — salvar aplica tudo de uma vez.'
-                : 'Informações e papéis — salvar aplica tudo de uma vez.'}
-            </span>
-          </div>
+      {/* ========== EDITOR (rodada 2 FV; rodada 5 = painel LATERAL) ========== */}
+      {/* Form UNICO (informacoes + endereco fiscal PJ + motivo, um Salvar so)
+          num side-sheet stacked que desliza por cima do drawer — mesmo molde
+          dos paineis de filial/conta. A seta ← da borda cancela (o Cancelar
+          textual morreu); Salvar mora no footer sticky. */}
+      <BottomSheet
+        open={editClientOpen}
+        onClose={closeEditClient}
+        onDismissAttempt={() => !savingClient && !editClientSuccess}
+        title="Editar cadastro"
+        ariaLabel="Editar cadastro"
+        stacked
+        closeVariant="edge-back"
+        dragDisabled={savingClient || editClientSuccess}
+        className="client-panel-sheet fv-cd-editor-sheet side-sheet"
+        footer={
+          editClientSuccess ? null : (
+            <button
+              type="submit"
+              form="client-detail-edit-form"
+              className="app-modal-submit"
+              disabled={savingClient || !canSaveClient}
+            >
+              {savingClient ? 'Salvando...' : 'Salvar'}
+            </button>
+          )
+        }
+      >
+        <div className="fv-cd-editor" role="region" aria-label="Editar cadastro">
+          <span className="fv-cd-editor-sub">
+            {isPj
+              ? 'Informações, papéis e endereço fiscal — salvar aplica tudo de uma vez.'
+              : 'Informações e papéis — salvar aplica tudo de uma vez.'}
+          </span>
 
           {editClientSuccess ? (
             <div className="client-detail-success-check">
@@ -1868,6 +1887,7 @@ export function ClientDetailView({
             </div>
           ) : (
             <form
+              id="client-detail-edit-form"
               className="app-modal-content client-detail-modal-form"
               onSubmit={handleUpdateClient}
             >
@@ -2186,28 +2206,10 @@ export function ClientDetailView({
               </label>
 
               <NoticeSlot notice={editClientModalNotice} />
-
-              <div className="app-modal-actions client-detail-edit-actions">
-                <button
-                  type="button"
-                  className="app-modal-secondary"
-                  onClick={closeEditClient}
-                  disabled={savingClient}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="app-modal-submit"
-                  disabled={savingClient || !canSaveClient}
-                >
-                  {savingClient ? 'Salvando...' : 'Salvar'}
-                </button>
-              </div>
             </form>
           )}
         </div>
-      ) : null}
+      </BottomSheet>
 
       {/* ========== MODAL 2: Create Unit (PF only — filiais L5) ========== */}
       <ClientUnitModal
