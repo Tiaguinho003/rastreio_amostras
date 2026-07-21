@@ -1698,17 +1698,12 @@ export function ClientDetailView({
                     <div className="sdv-card-header">
                       <span className="sdv-card-title">{unitPlural}</span>
                       {canAddUnit ? (
-                        <button
-                          type="button"
-                          className="sdv-edit-btn"
-                          onClick={openUnitCreate}
-                          aria-label="Nova filial"
-                        >
+                        <button type="button" className="fv-cd-add-btn" onClick={openUnitCreate}>
                           <svg viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M12 5v14" />
                             <path d="M5 12h14" />
                           </svg>
-                          <span>Nova</span>
+                          <span>Adicionar filial</span>
                         </button>
                       ) : null}
                     </div>
@@ -1793,15 +1788,14 @@ export function ClientDetailView({
                         <span className="sdv-card-title">Contas bancárias</span>
                         <button
                           type="button"
-                          className="sdv-edit-btn"
+                          className="fv-cd-add-btn"
                           onClick={openBankAccountCreate}
-                          aria-label="Nova conta bancária"
                         >
                           <svg viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M12 5v14" />
                             <path d="M5 12h14" />
                           </svg>
-                          <span>Nova</span>
+                          <span>Adicionar conta</span>
                         </button>
                       </div>
                       {bankAccountsBody}
@@ -1813,16 +1807,15 @@ export function ClientDetailView({
                         <span className="sdv-card-title">Anexos</span>
                         <button
                           type="button"
-                          className="sdv-edit-btn"
+                          className="fv-cd-add-btn"
                           onClick={() => attachmentInputRef.current?.click()}
                           disabled={uploadingAttachment}
-                          aria-label="Adicionar anexo"
                         >
                           <svg viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M12 5v14" />
                             <path d="M5 12h14" />
                           </svg>
-                          <span>{uploadingAttachment ? 'Enviando…' : 'Adicionar'}</span>
+                          <span>{uploadingAttachment ? 'Enviando…' : 'Adicionar anexo'}</span>
                         </button>
                         <input
                           ref={attachmentInputRef}

@@ -35053,6 +35053,9 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   padding: 0.55rem 0.75rem 0.6rem;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
+  /* Rodada 4: o radius global de `button` (10px) curvava as PONTAS do
+     sublinhado ativo — zera pra linha ficar reta. */
+  border-radius: 0;
   -webkit-tap-highlight-color: transparent;
   transition: color 140ms ease;
 }
@@ -35060,6 +35063,85 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   color: var(--ink);
   font-weight: 600;
   border-bottom-color: var(--fv-cta);
+}
+
+/* ── Rodada 4 FV: botoes "+ Adicionar" nomeados + cards de lista
+   institucionais ── */
+
+/* Botao "+ Adicionar filial/conta/anexo" nos headers dos cards: CTA
+   institucional PREENCHIDO — verde escuro, texto branco, radius 10
+   (molde dos botoes das rodadas 1-2). Substitui o .sdv-edit-btn "Nova"
+   fantasma nesses tres pontos (o .sdv-edit-btn segue no detalhe da
+   amostra). */
+.client-details-overlay .fv-cd-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  background: var(--fv-cta);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.46rem 0.75rem;
+  border-radius: var(--fv-radius);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 140ms ease;
+}
+.client-details-overlay .fv-cd-add-btn svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.client-details-overlay .fv-cd-add-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+.client-details-overlay .fv-cd-add-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* Cards de filial e de conta bancaria no molde institucional: branco flat,
+   hairline, radius 10 — morrem o gradiente cremoso, a sombra tripla e a
+   barra lateral de status do molde antigo (que segue intacto no detalhe da
+   amostra). O ponto ambar .fv-cd-dot e o badge "Inativa" seguem como
+   indicadores de estado. */
+.client-details-overlay .sdv-unit-card-mini {
+  padding: 0.62rem 0.75rem;
+  background: var(--fv-surface);
+  border: 1px solid var(--fv-line);
+  border-radius: var(--fv-radius);
+  box-shadow: none;
+}
+.client-details-overlay .sdv-unit-card-mini::before {
+  display: none;
+}
+.client-details-overlay .sdv-unit-card-mini:hover {
+  background: var(--fv-hover);
+  border-color: var(--fv-line-strong);
+  box-shadow: none;
+}
+.client-details-overlay .sdv-unit-card-mini-name {
+  font-weight: 600;
+  color: var(--ink);
+}
+.client-details-overlay .sdv-unit-card-mini-city {
+  color: var(--muted);
+}
+.client-details-overlay .sdv-unit-card-mini-arrow {
+  stroke: var(--muted);
+}
+.client-details-overlay .sdv-unit-card-mini-inactive {
+  border: none;
+  background: var(--fv-chip-red-bg);
+  color: var(--fv-chip-red-fg);
+  border-radius: 6px;
+  letter-spacing: 0.3px;
 }
 
 /* Conteudo do drawer: coluna unica (o grid de 2 colunas e as regras de
@@ -35115,5 +35197,8 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   }
   .client-details-overlay .fv-cd-tab:hover {
     color: var(--ink);
+  }
+  .client-details-overlay .fv-cd-add-btn:hover:not(:disabled) {
+    background: var(--fv-cta-strong);
   }
 }
