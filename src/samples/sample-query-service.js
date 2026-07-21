@@ -398,6 +398,25 @@ function parseCreatedDateRangeInSaoPaulo(value, fieldName = 'createdDate') {
   };
 }
 
+// KPI "Novos este mes" da lista de Lotes: inicio do mes corrente em BRT
+// (offset fixo -03, mesmo racional das janelas acima), devolvido em UTC pro
+// WHERE de createdAt. Espelha os helpers homonimos do client-service (RD14).
+function computeCurrentMonthStartUtc(now = new Date()) {
+  const brtNow = new Date(now.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
+  return new Date(
+    Date.UTC(brtNow.getUTCFullYear(), brtNow.getUTCMonth(), 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0)
+  );
+}
+
+// Inicio do mes ANTERIOR em BRT (Date.UTC com month-1 rola o ano sozinho em
+// janeiro). Janela de newLastMonth: [previousMonthStart, currentMonthStart).
+function computePreviousMonthStartUtc(now = new Date()) {
+  const brtNow = new Date(now.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
+  return new Date(
+    Date.UTC(brtNow.getUTCFullYear(), brtNow.getUTCMonth() - 1, 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0)
+  );
+}
+
 function resolveCreatedDateRangeInSaoPaulo({ createdFrom = null, createdTo = null }) {
   const fromRange = parseCreatedDateRangeInSaoPaulo(createdFrom, 'createdFrom');
   const toRange = parseCreatedDateRangeInSaoPaulo(createdTo, 'createdTo');
@@ -1757,6 +1776,57 @@ export class SampleQueryService {
           }
         : null,
     }));
+  }
+
+  // FV /samples: KPI row da lista de Lotes — contagens GLOBAIS (independem dos
+  // filtros da lista), molde do getClientStats (RD14). Deletados (INVALIDATED)
+  // ficam de fora de tudo, como na UI. "open" = commercialStatus OPEN ou
+  // PARTIALLY_SOLD; "availableSacks" usa a MESMA formula do resto do app
+  // (declared - sold - lost, ver mapa da lista) somada so sobre esses lotes —
+  // vendido/perdido tem disponivel zero por definicao. Liga e lote como
+  // qualquer outro: soma junto com as origens, igual a lista faz.
+  async getSampleStats() {
+    const monthStartUtc = computeCurrentMonthStartUtc();
+    const previousMonthStartUtc = computePreviousMonthStartUtc();
+    const notInvalidated = { status: { not: 'INVALIDATED' } };
+    const openWhere = {
+      ...notInvalidated,
+      commercialStatus: { in: ['OPEN', 'PARTIALLY_SOLD'] },
+    };
+
+    const [total, open, classificationPending, newThisMonth, newLastMonth, sacks] =
+      await this.prisma.$transaction([
+        this.prisma.sample.count({ where: notInvalidated }),
+        this.prisma.sample.count({ where: openWhere }),
+        this.prisma.sample.count({
+          where: { status: { in: CLASSIFICATION_PENDING_STATUSES } },
+        }),
+        this.prisma.sample.count({
+          where: { ...notInvalidated, createdAt: { gte: monthStartUtc } },
+        }),
+        this.prisma.sample.count({
+          where: {
+            ...notInvalidated,
+            createdAt: { gte: previousMonthStartUtc, lt: monthStartUtc },
+          },
+        }),
+        this.prisma.sample.aggregate({
+          where: openWhere,
+          _sum: { declaredSacks: true, soldSacks: true, lostSacks: true },
+        }),
+      ]);
+
+    const availableSacks =
+      (sacks._sum.declaredSacks ?? 0) - (sacks._sum.soldSacks ?? 0) - (sacks._sum.lostSacks ?? 0);
+
+    return {
+      total,
+      open,
+      classificationPending,
+      availableSacks: Math.max(0, availableSacks),
+      newThisMonth,
+      newLastMonth,
+    };
   }
 
   // getDashboardPending — só a CONTAGEM de pendentes de classificação (samples em RC).

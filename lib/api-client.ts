@@ -59,6 +59,7 @@ import type {
   ResolveSampleByQrResponse,
   SampleDetailResponse,
   SampleMovementsResponse,
+  SampleStatsResponse,
   SampleEventsResponse,
   SessionData,
   UpdateReasonCode,
@@ -1271,6 +1272,17 @@ export function getDashboardPending(session: SessionData) {
   return request<DashboardPendingResponse>('/dashboard/pending', {
     method: 'GET',
     session,
+  });
+}
+
+// KPI row da lista de Lotes (FV /samples): contagens globais de amostras.
+export function getSampleStats(session: SessionData, options: { signal?: AbortSignal } = {}) {
+  return request<SampleStatsResponse>('/samples/stats', {
+    method: 'GET',
+    session,
+    signal: options.signal,
+    // Respeita o Cache-Control private/max-age=30 do endpoint.
+    cachePolicy: 'default',
   });
 }
 

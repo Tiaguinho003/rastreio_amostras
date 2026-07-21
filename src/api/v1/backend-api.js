@@ -1134,6 +1134,19 @@ export function createBackendApiV1({
         };
       }),
 
+    // FV /samples: KPI row da lista de Lotes (Total/Em aberto/Sacas
+    // disponiveis/Aguardando classificacao). So autenticacao, como os demais
+    // endpoints de amostra; PROSPECTOR cai no 403 da allowlist central.
+    getSampleStats: (input) =>
+      executeApiForInput(input, async () => {
+        await resolveActorContext(input, authService);
+        const result = await queryService.getSampleStats();
+        return {
+          status: 200,
+          body: result,
+        };
+      }),
+
     // Card "Amostras enviadas" da pagina de Lotes (DSB-D14; nasceu no dashboard,
     // DSH-D5). So autenticacao, sem gate positivo de papel (DSH-D2); PROSPECTOR
     // cai no 403 da allowlist central.

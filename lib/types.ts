@@ -1182,6 +1182,23 @@ export interface RecentSendsResponse {
   items: RecentSendItem[];
 }
 
+// KPI row da lista de Lotes (FV /samples) — GET /samples/stats. Contagens
+// globais, independentes dos filtros da lista; deletados ficam de fora.
+export interface SampleStatsResponse {
+  /** Lotes não deletados. */
+  total: number;
+  /** Lotes com saldo comercial em aberto (OPEN ou PARTIALLY_SOLD). */
+  open: number;
+  /** Lotes aguardando classificação (REGISTRATION_CONFIRMED). */
+  classificationPending: number;
+  /** Soma de (declaradas − vendidas − perdidas) nos lotes em aberto. */
+  availableSacks: number;
+  /** Criados no mês corrente (BRT). */
+  newThisMonth: number;
+  /** Criados dentro do mês anterior (BRT) — base do "vs mês anterior". */
+  newLastMonth: number;
+}
+
 // AP31/DSB-D19: item do card de "Avisos" do dashboard. Card GERAL extensível — o
 // `kind` discrimina o tipo de aviso (só "aprovacao_a_enviar" hoje). `dueInDays` = dias
 // de hoje (BRT) até a data de faturamento; `null` = "À definir" (D144) → texto "sem data".
