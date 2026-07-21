@@ -947,7 +947,6 @@ export function SaleContractEtapa2Modal({
                       <span className="app-modal-label">Banco do vendedor</span>
                       <ClientBankAccountSelectField
                         session={session}
-                        stacked
                         clientId={seller?.id ?? null}
                         value={bankAccountId}
                         disabled={disabled}
@@ -1366,7 +1365,6 @@ export function SaleContractEtapa2Modal({
       {unitModalFor ? (
         <ClientUnitModal
           open
-          stacked
           saving={savingUnit}
           errorMessage={unitError}
           onClose={() => {

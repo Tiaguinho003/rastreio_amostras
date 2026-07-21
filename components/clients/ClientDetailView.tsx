@@ -2227,6 +2227,7 @@ export function ClientDetailView({
         savingStatus={savingUnitStatus}
         errorMessage={unitDetailNotice}
         missingSet={missingSet}
+        dismissLocked={unitStatusModalOpen}
         onClose={closeUnitDetailModal}
         onSave={handleUnitDetailSave}
         onInactivate={handleUnitDetailInactivate}

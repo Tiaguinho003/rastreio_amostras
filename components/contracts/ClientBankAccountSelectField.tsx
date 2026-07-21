@@ -19,9 +19,6 @@ type ClientBankAccountSelectFieldProps = {
   disabled?: boolean;
   defaultHolderName?: string | null;
   defaultHolderTaxId?: string | null;
-  /** Repassado ao ClientBankAccountModal: eleva pro tier stacked quando este
-      campo vive dentro de um sheet (ex.: criação de contrato). */
-  stacked?: boolean;
 };
 
 // Fechamento (Fase B.3): seleciona uma conta bancaria do vendedor (obrigatorio
@@ -35,7 +32,6 @@ export function ClientBankAccountSelectField({
   disabled = false,
   defaultHolderName = null,
   defaultHolderTaxId = null,
-  stacked = false,
 }: ClientBankAccountSelectFieldProps) {
   const [accounts, setAccounts] = useState<ClientBankAccountSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -105,9 +101,10 @@ export function ClientBankAccountSelectField({
         createLabel="Adicionar conta"
       />
 
+      {/* Rodada 5 FV: o modal virou painel lateral sempre-stacked — o prop
+          `stacked` repassado morreu junto com o modal central. */}
       <ClientBankAccountModal
         open={modalOpen}
-        stacked={stacked}
         saving={saving}
         errorMessage={modalError}
         defaultHolderName={defaultHolderName}

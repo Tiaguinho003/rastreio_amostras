@@ -35157,6 +35157,61 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   scrollbar-color: var(--fv-line-strong) transparent;
 }
 
+/* ── Rodada 5 FV: PAINEIS LATERAIS abertos do drawer do cliente ──
+   Filial/conta (criar e detalhe), preview de anexo e editar cliente
+   deixaram de ser modais centrais: sao side-sheets STACKED que deslizam
+   da borda direita por cima do drawer (mobile: bottom sheet empilhado).
+   A seta ← da borda (edge-back) funciona como Cancelar; o submit dos
+   forms de criacao mora no footer sticky do sheet. Reproduz aqui, sem o
+   escopo .client-unit-modal/.cudm-modal dos modais antigos, o essencial
+   dos moldes que os forms carregaram. */
+.client-panel-sheet .client-unit-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.3rem 0 1rem;
+}
+.client-panel-sheet .app-modal-input {
+  padding: 0.5rem 0.7rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+}
+.client-panel-sheet .app-modal-label {
+  font-size: 0.72rem;
+}
+.client-panel-sheet .cudm-body {
+  padding: 0.1rem 0 1rem;
+}
+.client-panel-sheet .fv-panel-eyebrow-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+.client-panel-sheet .cudm-header-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.client-panel-sheet .cudm-header-inactive {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: var(--fv-chip-red-bg);
+  color: var(--fv-chip-red-fg);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.client-panel-sheet .cudm-error,
+.client-panel-sheet .client-unit-modal-error {
+  margin: 0 0 0.6rem;
+  font-size: 0.82rem;
+  color: var(--color-danger);
+}
+
 /* Conteudo do drawer: coluna unica (o grid de 2 colunas e as regras de
    order/`display:contents` antigas dependiam do wrapper
    .sdv-client-side-col, que saiu do DOM). Specificity alta pra vencer
