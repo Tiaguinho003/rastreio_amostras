@@ -5,8 +5,10 @@ import { useSearchParams } from 'next/navigation';
 import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { QRCodeCanvas } from 'qrcode.react';
+import { BottomSheet } from '../BottomSheet';
 import { OriginLotChips } from '../OriginLotChips';
 import { PhotoZoomViewer } from '../PhotoZoomViewer';
+import { SuccessCheckOverlay } from '../SuccessCheckOverlay';
 import { ClientLookupField } from '../clients/ClientLookupField';
 import { ClientQuickCreateModal } from '../clients/ClientQuickCreateModal';
 import { BlendBadge } from '../samples/BlendBadge';
@@ -573,12 +575,13 @@ export function SampleDetailView({
   > | null>(null);
   const [cancelSendId, setCancelSendId] = useState<string | null>(null);
 
-  // Lote editavel: modal de edicao da data de chegada (createdAt do lote),
+  // Lote editavel: painel de edicao da data de chegada (createdAt do lote),
   // acionado pelo item "Registro" da timeline de Movimentacoes.
   const [dateEditOpen, setDateEditOpen] = useState(false);
   const [dateEditValue, setDateEditValue] = useState('');
   const [dateEditSaving, setDateEditSaving] = useState(false);
   const [dateEditError, setDateEditError] = useState<string | null>(null);
+  const [dateEditSuccess, setDateEditSuccess] = useState(false);
 
   const [sendHistory, setSendHistory] = useState<SampleEvent[]>([]);
   const [, setLoadingSendHistory] = useState(false);
@@ -665,9 +668,8 @@ export function SampleDetailView({
   const classificationPhotoSectionRef = useRef<HTMLDivElement | null>(null);
   const invalidateTrapRef = useFocusTrap(invalidateModalOpen);
   const labelTrapRef = useFocusTrap(labelModalOpen);
-  const registrationEditTrapRef = useFocusTrap(registrationEditMode);
-  // LDT-A4: os 2 modais que estavam sem foco preso (edicao de data + reclassificar).
-  const dateEditTrapRef = useFocusTrap(dateEditOpen);
+  // LDT-A4: o modal de reclassificar estava sem foco preso. (Edicao de
+  // informacoes e de data viraram paineis na F3 — o BottomSheet ja prende.)
   const reclassifyTrapRef = useFocusTrap(reclassifyModalOpen);
   const labelModalCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const labelModalPrimaryActionRef = useRef<HTMLButtonElement | null>(null);
@@ -1581,6 +1583,7 @@ export function SampleDetailView({
     }
     setDateEditValue((detail.sample.createdAt ?? '').slice(0, 10));
     setDateEditError(null);
+    setDateEditSuccess(false);
     setDateEditOpen(true);
   }
 
@@ -1602,7 +1605,13 @@ export function SampleDetailView({
         reasonCode: 'DATA_FIX',
         reasonText: 'Ajuste da data de chegada',
       });
-      setDateEditOpen(false);
+      // Check canonico (rodada 6): sucesso vira o check sobre o painel, que
+      // fecha sozinho. O sync roda por baixo, com o check ainda na tela.
+      setDateEditSuccess(true);
+      window.setTimeout(() => {
+        setDateEditOpen(false);
+        setDateEditSuccess(false);
+      }, 1000);
       await syncDetailState();
     } catch (cause) {
       // 409 "No registration changes detected" = mesma data -> fecha silencioso.
@@ -3031,351 +3040,261 @@ export function SampleDetailView({
         }}
       />
 
-      {/* Lote editavel: modal de edicao rapida da data de chegada (createdAt),
+      {/* Lote editavel: painel de edicao rapida da data de chegada (createdAt),
           acionado pelo botao no item "Registro" da timeline. Sem justificativa. */}
-      {dateEditOpen
-        ? createPortal(
-            <div
-              className="app-modal-backdrop"
-              onClick={() => {
-                if (!dateEditSaving) setDateEditOpen(false);
-              }}
+      <BottomSheet
+        open={dateEditOpen}
+        onClose={() => setDateEditOpen(false)}
+        onDismissAttempt={() => !dateEditSaving && !dateEditSuccess}
+        title="Editar data de chegada"
+        ariaLabel="Editar data de chegada"
+        stacked
+        closeVariant="edge-back"
+        dragDisabled={dateEditSaving || dateEditSuccess}
+        className="fv-panel-sheet side-sheet sample-date-edit-sheet"
+        footer={
+          dateEditSuccess ? null : (
+            <button
+              type="submit"
+              form="sample-date-edit-form"
+              className="app-modal-submit"
+              disabled={dateEditSaving || !dateEditValue}
             >
-              <section
-                ref={dateEditTrapRef}
-                className="app-modal is-themed is-action"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="date-edit-modal-title"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <header className="app-modal-header">
-                  <div className="app-modal-title-wrap">
-                    <h3 id="date-edit-modal-title" className="app-modal-title">
-                      Editar data de chegada
-                    </h3>
-                  </div>
-                  <button
-                    type="button"
-                    className="app-modal-close"
-                    onClick={() => setDateEditOpen(false)}
-                    disabled={dateEditSaving}
-                    aria-label="Fechar"
-                  >
-                    <span aria-hidden="true">&times;</span>
-                  </button>
-                </header>
-
-                <form
-                  className="app-modal-content"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void submitDateEdit();
-                  }}
-                >
-                  <label className="app-modal-field">
-                    <span className="app-modal-label">Data de chegada</span>
-                    <input
-                      type="date"
-                      className="app-modal-input"
-                      value={dateEditValue}
-                      max={new Date().toLocaleDateString('en-CA')}
-                      onChange={(event) => {
-                        setDateEditValue(event.target.value);
-                        setDateEditError(null);
-                      }}
-                      disabled={dateEditSaving}
-                      autoFocus
-                    />
-                  </label>
-
-                  {/* NoticeSlot so quando ha erro: o slot vazio tem min-height 1.25rem
-                  + gaps, criando espaco morto entre a data e os botoes. */}
-                  {dateEditError ? (
-                    <NoticeSlot notice={{ kind: 'error', text: dateEditError }} />
-                  ) : null}
-
-                  <div className="app-modal-actions">
-                    <button
-                      type="button"
-                      className="app-modal-secondary"
-                      onClick={() => setDateEditOpen(false)}
-                      disabled={dateEditSaving}
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="submit"
-                      className="app-modal-submit"
-                      disabled={dateEditSaving || !dateEditValue}
-                    >
-                      {dateEditSaving ? 'Salvando...' : 'Salvar'}
-                    </button>
-                  </div>
-                </form>
-              </section>
-            </div>,
-            document.body
+              {dateEditSaving ? 'Salvando...' : 'Salvar'}
+            </button>
           )
-        : null}
+        }
+      >
+        <>
+          <form
+            id="sample-date-edit-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submitDateEdit();
+            }}
+          >
+            <label className="app-modal-field">
+              <span className="app-modal-label">Data de chegada</span>
+              <input
+                type="date"
+                className="app-modal-input"
+                value={dateEditValue}
+                max={new Date().toLocaleDateString('en-CA')}
+                onChange={(event) => {
+                  setDateEditValue(event.target.value);
+                  setDateEditError(null);
+                }}
+                disabled={dateEditSaving}
+              />
+            </label>
 
-      {registrationEditMode
-        ? createPortal(
-            <div
-              className="app-modal-backdrop"
-              onClick={() => {
-                if (!registrationUpdating) cancelRegistrationEdit();
-              }}
+            {/* NoticeSlot so quando ha erro: o slot vazio tem min-height 1.25rem
+                + gaps, criando espaco morto abaixo do campo. */}
+            {dateEditError ? <NoticeSlot notice={{ kind: 'error', text: dateEditError }} /> : null}
+          </form>
+
+          <SuccessCheckOverlay show={dateEditSuccess} />
+        </>
+      </BottomSheet>
+
+      <BottomSheet
+        open={registrationEditMode}
+        onClose={cancelRegistrationEdit}
+        onDismissAttempt={() => !registrationUpdating && !registrationSaveSuccess}
+        title="Editar informações"
+        ariaLabel="Editar informações do lote"
+        stacked
+        closeVariant="edge-back"
+        dragDisabled={registrationUpdating || registrationSaveSuccess}
+        className="fv-panel-sheet side-sheet sample-reg-edit-sheet"
+        footer={
+          registrationSaveSuccess ? null : (
+            <button
+              type="submit"
+              form="sample-reg-edit-form"
+              className="app-modal-submit"
+              disabled={registrationUpdating}
             >
-              <section
-                ref={registrationEditTrapRef}
-                className="app-modal is-themed is-action sample-detail-reg-edit-modal"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="registration-edit-modal-title"
-                onClick={(event) => event.stopPropagation()}
-              >
-                {registrationSaveSuccess ? (
-                  <div className="client-create-success-overlay" aria-live="polite">
-                    <svg
-                      className="client-create-success-check"
-                      viewBox="0 0 52 52"
-                      aria-hidden="true"
-                    >
-                      <circle
-                        cx="26"
-                        cy="26"
-                        r="24"
-                        fill="none"
-                        stroke="#2f8a3e"
-                        strokeWidth="2.5"
-                      />
-                      <path
-                        fill="none"
-                        stroke="#2f8a3e"
-                        strokeWidth="3.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M15 27l7 7 15-15"
-                      />
-                    </svg>
-                  </div>
-                ) : null}
-                <header className="app-modal-header">
-                  <div className="app-modal-title-wrap">
-                    <h3 id="registration-edit-modal-title" className="app-modal-title">
-                      Editar informações
-                    </h3>
-                  </div>
-                  <button
-                    type="button"
-                    className="app-modal-close"
-                    onClick={cancelRegistrationEdit}
-                    disabled={registrationUpdating}
-                    aria-label="Fechar"
-                  >
-                    <span aria-hidden="true">&times;</span>
-                  </button>
-                </header>
-
-                <form
-                  className="sample-detail-reg-edit-form"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (registrationUpdating) {
-                      return;
-                    }
-                    // Nao bloqueia por justificativa vazia: deixa a validacao rodar
-                    // e exibir o erro no proprio campo.
-                    void handleConfirmRegistrationUpdate();
+              {registrationUpdating ? 'Salvando...' : 'Salvar'}
+            </button>
+          )
+        }
+      >
+        <>
+          <form
+            id="sample-reg-edit-form"
+            className="sample-detail-reg-edit-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (registrationUpdating) {
+                return;
+              }
+              // Nao bloqueia por justificativa vazia: deixa a validacao rodar
+              // e exibir o erro no proprio campo.
+              void handleConfirmRegistrationUpdate();
+            }}
+          >
+            <div className="sample-detail-reg-edit-body">
+              <div className="app-modal-field">
+                <ClientLookupField
+                  session={session}
+                  label="Proprietario"
+                  kind="owner"
+                  selectedClient={selectedOwnerClient}
+                  disabled={registrationUpdating}
+                  compact
+                  invalid={Boolean(registrationFieldErrors.owner)}
+                  invalidText={registrationFieldErrors.owner ?? ''}
+                  onSelectClient={(client) => {
+                    setSelectedOwnerClient(client);
+                    setOwner(client?.displayName ?? '');
+                    clearRegField('owner');
+                    setGeneralNotice(null);
                   }}
-                >
-                  <div className="sample-detail-reg-edit-body">
-                    <div className="app-modal-field">
-                      <ClientLookupField
-                        session={session}
-                        label="Proprietario"
-                        kind="owner"
-                        selectedClient={selectedOwnerClient}
-                        disabled={registrationUpdating}
-                        compact
-                        invalid={Boolean(registrationFieldErrors.owner)}
-                        invalidText={registrationFieldErrors.owner ?? ''}
-                        onSelectClient={(client) => {
-                          setSelectedOwnerClient(client);
-                          setOwner(client?.displayName ?? '');
-                          clearRegField('owner');
-                          setGeneralNotice(null);
-                        }}
-                        onRequestCreate={(searchTerm) => {
-                          setOwnerQuickCreateSeed(searchTerm);
-                          setOwnerQuickCreateOpen(true);
-                        }}
-                        createLabel="Cadastrar proprietario"
-                      />
-                    </div>
+                  onRequestCreate={(searchTerm) => {
+                    setOwnerQuickCreateSeed(searchTerm);
+                    setOwnerQuickCreateOpen(true);
+                  }}
+                  createLabel="Cadastrar proprietario"
+                />
+              </div>
 
-                    <div className="sdv-edit-row">
-                      <label className="app-modal-field">
-                        <span className="app-modal-label">Sacas</span>
-                        {detail?.sample.isBlend ? (
-                          // Liga: as sacas derivam da soma das origens — read-only
-                          // (o backend tambem rejeita mudanca de sacas numa liga).
-                          <>
-                            <input
-                              className="app-modal-input"
-                              value={sacks}
-                              disabled
-                              aria-readonly="true"
-                            />
-                            <span className="sdv-edit-hint">
-                              Deriva dos lotes que compõem a liga
-                            </span>
-                          </>
-                        ) : (
-                          <input
-                            className={`app-modal-input${registrationFieldErrors.sacks ? ' has-error' : ''}`}
-                            value={sacks}
-                            onChange={(event) => setSacks(event.target.value)}
-                            onFocus={() => clearRegField('sacks')}
-                            placeholder={registrationFieldErrors.sacks ?? ''}
-                            inputMode="numeric"
-                            disabled={registrationUpdating}
-                          />
-                        )}
-                      </label>
-                      <label className="app-modal-field">
-                        <span className="app-modal-label">Safra</span>
-                        {detail?.sample.isBlend ? (
-                          // Liga: a safra deriva dos lotes que a compoem — read-only
-                          // (o backend tambem rejeita mudanca de safra numa liga).
-                          <>
-                            <input
-                              className="app-modal-input"
-                              value={harvest}
-                              disabled
-                              aria-readonly="true"
-                            />
-                            <span className="sdv-edit-hint">
-                              Deriva dos lotes que compõem a liga
-                            </span>
-                          </>
-                        ) : (
-                          <input
-                            className={`app-modal-input${registrationFieldErrors.harvest ? ' has-error' : ''}`}
-                            value={harvest}
-                            onChange={(event) => setHarvest(event.target.value.toUpperCase())}
-                            onFocus={() => clearRegField('harvest')}
-                            placeholder={registrationFieldErrors.harvest ?? ''}
-                            disabled={registrationUpdating}
-                          />
-                        )}
-                      </label>
-                    </div>
-
-                    <div className="sdv-edit-row">
-                      <label className="app-modal-field">
-                        <span className="app-modal-label">Lote de origem</span>
-                        <OriginLotChips
-                          value={originLot}
-                          onChange={setOriginLot}
-                          onFocus={() => clearRegField('originLot')}
-                          hasError={Boolean(registrationFieldErrors.originLot)}
-                          disabled={registrationUpdating}
-                        />
-                        {detail?.sample.isBlend ? (
-                          // Liga: origem DERIVADA da somatoria dos componentes, mas
-                          // editavel — editar a mao FIXA (pin) e a propagacao para de
-                          // re-derivar (nao toca os componentes; o backend seta o pin).
-                          <span className="sdv-edit-hint">
-                            Deriva dos lotes que a compõem; editar aqui fixa a origem da liga.
-                          </span>
-                        ) : registrationFieldErrors.originLot ? (
-                          <span className="sdv-edit-hint">{registrationFieldErrors.originLot}</span>
-                        ) : null}
-                      </label>
-                      <label className="app-modal-field">
-                        <span className="app-modal-label">Local</span>
-                        <input
-                          className={`app-modal-input${registrationFieldErrors.location ? ' has-error' : ''}`}
-                          value={location}
-                          onChange={(event) => setLocation(event.target.value.toUpperCase())}
-                          onFocus={() => clearRegField('location')}
-                          maxLength={30}
-                          placeholder={registrationFieldErrors.location ?? 'Ex: BM, Patos'}
-                          disabled={registrationUpdating}
-                        />
-                      </label>
-                    </div>
-
-                    <div className="sdv-edit-sep" />
-
-                    <label className="app-modal-field">
-                      <span className="app-modal-label">Motivo da edição</span>
-                      <select
-                        className="app-modal-input"
-                        value={registrationEditReasonCode}
-                        onChange={(event) =>
-                          setRegistrationEditReasonCode(event.target.value as UpdateReasonCode)
-                        }
-                        disabled={registrationUpdating}
-                      >
-                        {UPDATE_REASON_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="app-modal-field">
-                      <span className="app-modal-label">
-                        Justificativa
-                        {registrationEditReasonCode === 'OTHER' ? ' (obrigatória)' : ''}
-                      </span>
+              <div className="sdv-edit-row">
+                <label className="app-modal-field">
+                  <span className="app-modal-label">Sacas</span>
+                  {detail?.sample.isBlend ? (
+                    // Liga: as sacas derivam da soma das origens — read-only
+                    // (o backend tambem rejeita mudanca de sacas numa liga).
+                    <>
                       <input
-                        className={`app-modal-input${registrationFieldErrors.reasonText ? ' has-error' : ''}`}
-                        value={registrationEditReasonText}
-                        onChange={(event) =>
-                          setRegistrationEditReasonText(event.target.value.toUpperCase())
-                        }
-                        onFocus={() => clearRegField('reasonText')}
-                        placeholder={
-                          registrationFieldErrors.reasonText ??
-                          (registrationEditReasonCode === 'OTHER'
-                            ? 'Explique a alteração'
-                            : 'Opcional')
-                        }
-                        disabled={registrationUpdating}
+                        className="app-modal-input"
+                        value={sacks}
+                        disabled
+                        aria-readonly="true"
                       />
-                    </label>
-
-                    <NoticeSlot notice={registrationModalNotice} />
-                    <NoticeSlot notice={generalNotice} />
-                  </div>
-
-                  <div className="app-modal-actions sample-detail-reg-edit-actions">
-                    <button
-                      type="button"
-                      className="app-modal-secondary"
-                      onClick={cancelRegistrationEdit}
+                      <span className="sdv-edit-hint">Deriva dos lotes que compõem a liga</span>
+                    </>
+                  ) : (
+                    <input
+                      className={`app-modal-input${registrationFieldErrors.sacks ? ' has-error' : ''}`}
+                      value={sacks}
+                      onChange={(event) => setSacks(event.target.value)}
+                      onFocus={() => clearRegField('sacks')}
+                      placeholder={registrationFieldErrors.sacks ?? ''}
+                      inputMode="numeric"
                       disabled={registrationUpdating}
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="submit"
-                      className="app-modal-submit"
+                    />
+                  )}
+                </label>
+                <label className="app-modal-field">
+                  <span className="app-modal-label">Safra</span>
+                  {detail?.sample.isBlend ? (
+                    // Liga: a safra deriva dos lotes que a compoem — read-only
+                    // (o backend tambem rejeita mudanca de safra numa liga).
+                    <>
+                      <input
+                        className="app-modal-input"
+                        value={harvest}
+                        disabled
+                        aria-readonly="true"
+                      />
+                      <span className="sdv-edit-hint">Deriva dos lotes que compõem a liga</span>
+                    </>
+                  ) : (
+                    <input
+                      className={`app-modal-input${registrationFieldErrors.harvest ? ' has-error' : ''}`}
+                      value={harvest}
+                      onChange={(event) => setHarvest(event.target.value.toUpperCase())}
+                      onFocus={() => clearRegField('harvest')}
+                      placeholder={registrationFieldErrors.harvest ?? ''}
                       disabled={registrationUpdating}
-                    >
-                      {registrationUpdating ? 'Salvando...' : 'Salvar'}
-                    </button>
-                  </div>
-                </form>
-              </section>
-            </div>,
-            document.body
-          )
-        : null}
+                    />
+                  )}
+                </label>
+              </div>
+
+              <div className="sdv-edit-row">
+                <label className="app-modal-field">
+                  <span className="app-modal-label">Lote de origem</span>
+                  <OriginLotChips
+                    value={originLot}
+                    onChange={setOriginLot}
+                    onFocus={() => clearRegField('originLot')}
+                    hasError={Boolean(registrationFieldErrors.originLot)}
+                    disabled={registrationUpdating}
+                  />
+                  {detail?.sample.isBlend ? (
+                    // Liga: origem DERIVADA da somatoria dos componentes, mas
+                    // editavel — editar a mao FIXA (pin) e a propagacao para de
+                    // re-derivar (nao toca os componentes; o backend seta o pin).
+                    <span className="sdv-edit-hint">
+                      Deriva dos lotes que a compõem; editar aqui fixa a origem da liga.
+                    </span>
+                  ) : registrationFieldErrors.originLot ? (
+                    <span className="sdv-edit-hint">{registrationFieldErrors.originLot}</span>
+                  ) : null}
+                </label>
+                <label className="app-modal-field">
+                  <span className="app-modal-label">Local</span>
+                  <input
+                    className={`app-modal-input${registrationFieldErrors.location ? ' has-error' : ''}`}
+                    value={location}
+                    onChange={(event) => setLocation(event.target.value.toUpperCase())}
+                    onFocus={() => clearRegField('location')}
+                    maxLength={30}
+                    placeholder={registrationFieldErrors.location ?? 'Ex: BM, Patos'}
+                    disabled={registrationUpdating}
+                  />
+                </label>
+              </div>
+
+              <div className="sdv-edit-sep" />
+
+              <label className="app-modal-field">
+                <span className="app-modal-label">Motivo da edição</span>
+                <select
+                  className="app-modal-input"
+                  value={registrationEditReasonCode}
+                  onChange={(event) =>
+                    setRegistrationEditReasonCode(event.target.value as UpdateReasonCode)
+                  }
+                  disabled={registrationUpdating}
+                >
+                  {UPDATE_REASON_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="app-modal-field">
+                <span className="app-modal-label">
+                  Justificativa
+                  {registrationEditReasonCode === 'OTHER' ? ' (obrigatória)' : ''}
+                </span>
+                <input
+                  className={`app-modal-input${registrationFieldErrors.reasonText ? ' has-error' : ''}`}
+                  value={registrationEditReasonText}
+                  onChange={(event) =>
+                    setRegistrationEditReasonText(event.target.value.toUpperCase())
+                  }
+                  onFocus={() => clearRegField('reasonText')}
+                  placeholder={
+                    registrationFieldErrors.reasonText ??
+                    (registrationEditReasonCode === 'OTHER' ? 'Explique a alteração' : 'Opcional')
+                  }
+                  disabled={registrationUpdating}
+                />
+              </label>
+
+              <NoticeSlot notice={registrationModalNotice} />
+              <NoticeSlot notice={generalNotice} />
+            </div>
+          </form>
+
+          <SuccessCheckOverlay show={registrationSaveSuccess} />
+        </>
+      </BottomSheet>
 
       {/* Classification detail modal */}
       {classificationDetailOpen && detail?.sample.latestClassification?.data
