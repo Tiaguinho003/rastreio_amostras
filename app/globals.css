@@ -35659,6 +35659,13 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   padding: 0.35rem 0.4rem;
   border-radius: 10px;
 }
+/* O dropdown de clientes rola dentro de si (o corpo do painel ja rola); o
+   equivalente vinha do `.sample-detail-lookup-modal`, morto por seletor. */
+.sample-send-sheet .client-lookup-dropdown {
+  z-index: 30;
+  max-height: min(17.5rem, 60vh);
+  overflow-x: hidden;
+}
 /* Preview de anexo no painel: o corpo (imagem/PDF + vinculo + descricao)
    nunca teve rule propria — o layout vinha do .app-modal-content. */
 .client-attachment-sheet .cap-body {
