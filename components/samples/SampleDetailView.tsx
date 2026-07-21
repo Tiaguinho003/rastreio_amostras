@@ -663,7 +663,6 @@ export function SampleDetailView({
     useState<ClassificationType | null>(null);
   const [classificationDetailTypeOriginal, setClassificationDetailTypeOriginal] =
     useState<ClassificationType | null>(null);
-  const classificationDetailTrapRef = useFocusTrap(classificationDetailOpen);
   const classificationSaveConfirmTrapRef = useFocusTrap(classificationSaveConfirmOpen);
   const classificationPhotoSectionRef = useRef<HTMLDivElement | null>(null);
   // LDT-A4: o modal de reclassificar estava sem foco preso. (Edicao, data,
@@ -3290,37 +3289,34 @@ export function SampleDetailView({
                 </div>
               );
             };
-            return createPortal(
-              <div className="app-modal-backdrop" onClick={closeClassificationDetail}>
-                <section
-                  ref={classificationDetailTrapRef}
-                  className="app-modal is-themed is-wide is-action cld-modal"
-                  role="dialog"
-                  aria-modal="true"
-                  aria-labelledby="cld-modal-title"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <header className="app-modal-header">
-                    <div className="app-modal-title-wrap">
-                      <h3 id="cld-modal-title" className="app-modal-title">
-                        Classificação
-                      </h3>
-                    </div>
-                    <div className="cld-header-actions">
-                      <button
-                        type="button"
-                        className="app-modal-close"
-                        onClick={closeClassificationDetail}
-                        aria-label="Fechar"
-                      >
-                        <span aria-hidden="true">&times;</span>
-                      </button>
-                    </div>
-                  </header>
-
+            return (
+              <BottomSheet
+                open
+                onClose={closeClassificationDetail}
+                onDismissAttempt={() => !saving && !saved}
+                title="Editar classificação"
+                ariaLabel="Editar classificação"
+                stacked
+                closeVariant="edge-back"
+                dragDisabled={saving || saved}
+                className="fv-panel-sheet side-sheet sample-classification-sheet"
+                footer={
+                  saved ? null : (
+                    <button
+                      type="button"
+                      className="app-modal-submit"
+                      onClick={requestClassificationDetailSave}
+                      disabled={saving}
+                    >
+                      {saving ? 'Salvando...' : 'Salvar'}
+                    </button>
+                  )
+                }
+              >
+                <>
                   {(() => {
                     return (
-                      <div className="app-modal-content cld-body">
+                      <div className="cld-body">
                         <div className="cld-photo-section" ref={classificationPhotoSectionRef}>
                           {classificationServerPhotoUrl ? (
                             <button
@@ -3362,43 +3358,6 @@ export function SampleDetailView({
                                 <path d="m21 21-4.35-4.35" />
                               </svg>
                               Reclassificar
-                            </button>
-                            <button
-                              type="button"
-                              className="cld-edit-action"
-                              onClick={() => {
-                                setClassificationDetailEditing(true);
-                                // Scroll natural ate a borda inferior da foto, revelando
-                                // os campos pra edicao. requestAnimationFrame garante medir
-                                // apos o DOM refletir o modo edicao.
-                                requestAnimationFrame(() => {
-                                  const photoEl = classificationPhotoSectionRef.current;
-                                  const bodyEl = photoEl?.closest('.cld-body') as
-                                    | HTMLElement
-                                    | null
-                                    | undefined;
-                                  if (photoEl && bodyEl) {
-                                    const delta =
-                                      photoEl.getBoundingClientRect().bottom -
-                                      bodyEl.getBoundingClientRect().top;
-                                    bodyEl.scrollBy({ top: delta, behavior: 'smooth' });
-                                  }
-                                });
-                              }}
-                              disabled={editing}
-                            >
-                              <svg
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1.8"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                aria-hidden="true"
-                              >
-                                <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                              </svg>
-                              Editar
                             </button>
                           </div>
                         ) : null}
@@ -3659,50 +3618,15 @@ export function SampleDetailView({
                     );
                   })()}
 
-                  {editing && classificationDetailError ? (
+                  {classificationDetailError ? (
                     <p className="sdv-modal-error" role="alert">
                       {classificationDetailError}
                     </p>
                   ) : null}
 
-                  {editing ? (
-                    <div className="app-modal-actions cld-edit-actions">
-                      <button
-                        type="button"
-                        className="app-modal-secondary"
-                        onClick={cancelClassificationDetailEdit}
-                        disabled={saving}
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        type="button"
-                        className="app-modal-submit"
-                        onClick={requestClassificationDetailSave}
-                        disabled={saving}
-                      >
-                        {saving ? 'Salvando...' : 'Salvar'}
-                      </button>
-                    </div>
-                  ) : null}
-
-                  {saved ? (
-                    <div className="cld-saved-overlay" aria-live="polite">
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="#27AE60"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                  ) : null}
-                </section>
-              </div>,
-              document.body
+                  <SuccessCheckOverlay show={saved} />
+                </>
+              </BottomSheet>
             );
           })()
         : null}
@@ -3710,7 +3634,7 @@ export function SampleDetailView({
       {classificationSaveConfirmOpen
         ? createPortal(
             <div
-              className="app-modal-backdrop"
+              className="app-modal-backdrop fv-panel-scrim"
               onClick={() => setClassificationSaveConfirmOpen(false)}
             >
               <section
@@ -3746,9 +3670,11 @@ export function SampleDetailView({
                       className="app-modal-secondary"
                       onClick={() => {
                         setClassificationSaveConfirmOpen(false);
-                        // Volta pro modal expandido em modo leitura, com os valores
-                        // antigos (descarta a edicao). Pra editar de novo, clica Editar.
+                        // F3: o painel e so de EDICAO (a ficha em leitura mora na
+                        // aba, atras dele). Desistir descarta a edicao e fecha o
+                        // painel, revelando a ficha original.
                         cancelClassificationDetailEdit();
+                        closeClassificationDetail();
                       }}
                       disabled={classificationDetailSaving}
                     >
@@ -3805,7 +3731,7 @@ export function SampleDetailView({
           full-view de classificacao. Usa o padrao oficial .app-modal. */}
       {reclassifyModalOpen
         ? createPortal(
-            <div className="app-modal-backdrop sample-detail-reclassify-backdrop">
+            <div className="app-modal-backdrop fv-panel-scrim sample-detail-reclassify-backdrop">
               <section
                 ref={reclassifyTrapRef}
                 className="app-modal is-themed is-action sample-detail-reclassify-modal"

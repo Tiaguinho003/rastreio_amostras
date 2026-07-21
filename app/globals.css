@@ -35611,6 +35611,39 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   width: 100%;
   margin: 0 0 0.75rem;
 }
+
+/* ── Painel de EDICAO da classificacao ──
+   A ficha em LEITURA mora na aba (F2); o painel e so de edicao. O modal
+   `.cld-modal` era `is-wide` (2 colunas confortaveis) — na faixa de 620px
+   os campos precisam de gaps menores. A foto some (ja aparece no hero e na
+   ficha atras); a linha "Reclassificar" fica como escape do fluxo. */
+.sample-classification-sheet {
+  /* Padding do campo compartilhado entre leitura e edicao — vinha do
+     `.cld-modal`, que saiu do DOM. */
+  --cld-field-pad: 8px 10px;
+}
+.sample-classification-sheet .cld-photo-section {
+  display: none;
+}
+.sample-classification-sheet .cld-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.1rem 0 0.4rem;
+}
+.sample-classification-sheet .cld-grid {
+  gap: 12px 10px;
+}
+.sample-classification-sheet .cld-field-label {
+  font-size: 0.68rem;
+}
+.sample-classification-sheet .cld-field-value,
+.sample-classification-sheet .cld-field-input {
+  font-size: 0.85rem;
+}
+.sample-classification-sheet .cld-edit-row {
+  margin: 0 0 0.2rem;
+}
 /* Preview de anexo no painel: o corpo (imagem/PDF + vinculo + descricao)
    nunca teve rule propria — o layout vinha do .app-modal-content. */
 .client-attachment-sheet .cap-body {
