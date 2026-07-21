@@ -30591,7 +30591,8 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   .fv-sidenav-brand-link {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
+    /* Ajustes rodada 1: logo completo CENTRALIZADO no topo do painel. */
+    justify-content: center;
     min-width: 0;
     width: 100%;
     padding: 0.35rem 0.45rem;
@@ -30612,22 +30613,10 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
 
   .fv-sidenav-brand-logo {
     display: block;
-    width: 34px;
-    height: 34px;
-    border-radius: 9px;
-    object-fit: cover;
+    width: auto;
+    height: 40px;
+    object-fit: contain;
     flex: none;
-  }
-
-  .fv-sidenav-brand-name {
-    min-width: 0;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    font-size: 0.98rem;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    color: var(--ink);
   }
 
   .fv-sidenav-scroll {

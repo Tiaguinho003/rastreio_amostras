@@ -833,15 +833,16 @@ export function AppShell({
         <aside className="app-sidenav" aria-label="Navegacao principal">
           <div className="fv-sidenav-brand">
             <Link href="/dashboard" className="fv-sidenav-brand-link" aria-label="Pagina inicial">
+              {/* Ajustes rodada 1: logo COMPLETO (arvore + wordmark) centralizado
+                  no topo do painel — sai o icone quadrado + span "Safras". */}
               <Image
-                src="/icon-safras.png"
+                src="/logo-safras-color.png"
                 alt="Safras e Negocios"
-                width={224}
-                height={224}
+                width={473}
+                height={160}
                 priority
                 className="fv-sidenav-brand-logo"
               />
-              <span className="fv-sidenav-brand-name">Safras</span>
             </Link>
           </div>
 
