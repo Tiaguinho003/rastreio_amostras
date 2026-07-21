@@ -19,7 +19,8 @@ Antes de escrever uma mensagem, escolha a superfície pela **severidade × persi
 
 | Situação                                                                     | Superfície                       | Por quê                                                               |
 | ---------------------------------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------- |
-| Confirmação de ação ("Amostra criada")                                       | **Toast** `success`              | Feedback rápido, não-bloqueante. Auto-dismiss.                        |
+| Sucesso de ação **dentro de modal/painel** (salvou, criou, excluiu)          | **Check** `SuccessCheckOverlay`  | Overlay branco + check animado 1s; o painel fecha sozinho. SEM frase. |
+| Confirmação de ação **fora de modal** ("Amostra criada")                     | **Toast** `success`              | Feedback rápido, não-bloqueante. Auto-dismiss.                        |
 | Erro de operação que não bloqueia ("Não foi possível carregar")              | **Toast** `error`                | Transitório. Operador pode retry.                                     |
 | Info contextual ("Amostra removida da seleção")                              | **Toast** `info`                 | Side-effect que o operador precisa saber.                             |
 | Erro de validação de campo ("Obrigatório", "Inválido")                       | **Inline error** no campo        | Erro fica ao lado do input. Some ao digitar.                          |
@@ -53,7 +54,7 @@ toast.clear();      // limpar todos
 
 | Kind      | Quando                                                                | Ícone   | Cor principal |
 | --------- | --------------------------------------------------------------------- | ------- | ------------- |
-| `success` | Ação completou (criou, salvou, removeu)                               | ✓ check | Verde brand   |
+| `success` | Ação completou **fora de modal/painel** (criou, salvou, removeu)      | ✓ check | Verde brand   |
 | `error`   | Ação falhou (network, validação, regra)                               | ⓘ alert | Vermelho      |
 | `info`    | Side-effect / notificação neutra (selecionado, alterado externamente) | ⓘ info  | Azul-cinza    |
 
@@ -89,6 +90,16 @@ toast.info({
 // Mensagem curta autoexplicativa — description é OPCIONAL
 toast.success({ title: 'Salvo' });
 ```
+
+### Sucesso DENTRO de modal/painel → check canônico (não toast)
+
+Consolidado na rodada 6 do piloto FV (2026-07-21): ação de sucesso que acontece **dentro de um
+modal/painel** (BottomSheet, painel lateral, editor) NÃO usa toast nem frase "... com sucesso" —
+usa o **`SuccessCheckOverlay`** (`components/SuccessCheckOverlay.tsx`): overlay branco cobrindo o
+painel inteiro + check verde animado, ~1s, e o painel fecha sozinho. Sucessos de avisos centrais
+sobre o drawer do detalhe usam a variação "flash" (check pisca sobre o drawer). Receita completa,
+coreografia e guards: skill `modals` §7. Toast `success` fica para ações disparadas **fora** de
+modal (listas, cards, páginas).
 
 ## 3. Inline form errors — validação de campo
 

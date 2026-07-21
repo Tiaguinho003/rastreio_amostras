@@ -13,9 +13,11 @@ Toda construcao ou edicao de modal central (nao bottom sheet) segue o padrao con
 >
 > - **Detalhe de recurso** → `DetailOverlay` peek (✅ cliente/lote/contrato feitos)
 > - **Form de criacao/edicao** (incl. view+edit e Documentos) e **informes** (visita/relatorio/informativo) → sheet com `.side-sheet` (painel lateral bloqueante no desktop; ✅ Novo lote/Novo cliente feitos)
-> - **Filtros** (lotes/clientes/contratos) → painel lateral
+> - **Modais abertos DE DENTRO de um detalhe** (criar/editar sub-recurso, preview/upload de anexo, editar o recurso) → **paineis laterais `stacked` com seta ← na borda** (`closeVariant="edge-back"`) — molde completo em `design-system` §8 "Paineis do detalhe" (✅ todos os do cliente feitos, rodadas 5–6 do piloto)
+> - **Filtros** (lotes/clientes/contratos) → painel lateral (✅ /cadastros feito — `.fv-filter-sheet` 400px)
 > - **Operacoes** (venda/perda, envio/laudo, etiquetas, embarque, agio/washout/faturar/pagar) → **CONTINUAM centrais**
-> - **Confirmacao/descarte/atencao/aviso/sucesso** (incl. inativar com motivo) → **CONTINUAM centrais**
+> - **Confirmacao/descarte/atencao/aviso/sucesso** (incl. inativar com motivo) → **CONTINUAM centrais**; quando abertos SOBRE um painel/drawer do detalhe, o backdrop ganha **`.fv-panel-scrim`** (dialogo centrado DENTRO da faixa do painel no desktop; tier `--z-modal-stacked`+20) — rodada 5 do piloto
+> - **Sucesso de acao de modal/painel** → **check canonico `SuccessCheckOverlay`** no lugar de frases "... com sucesso" (rodada 6 do piloto — ver §7 e a skill `feedback-messages`)
 > - **Visualizacao** (foto/PDF/lightbox), **pickers/choosers/menus** e **camera/classificacao** → intactos
 > - Form lateral aberto DE DENTRO de um peek → desliza POR CIMA (push, `stacked`)
 > - **Criacao de CONTRATO** (Etapa2 + LotPicker) → FORA — specs futuras do Flavio
@@ -333,26 +335,35 @@ Padrao do `ClientQuickCreateModal`:
 
 ## 7. Sucesso
 
-Padrao 1: **success overlay com check verde** sobre o modal (modal continua visivel mas conteudo coberto pelo SVG por ~900ms antes de fechar).
+**Canonico (rodada 6 da FV, 2026-07-21): `components/SuccessCheckOverlay.tsx`** — overlay branco
+cobrindo o modal/painel inteiro com circulo+tick verde desenhando (classes
+`.client-create-success-overlay`/`.client-create-success-check` no `globals.css`). TODA acao de
+sucesso de modal/painel mostra este check; **frases "... com sucesso" nao existem mais** nesses
+fluxos (os `Notice` de sucesso do detalhe do cliente foram removidos — texto ficou so pra ERRO).
 
 ```tsx
-{
-  showSuccess ? (
-    <div className="client-detail-success-check">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="10" />
-        <path d="m9 12 2 2 4-4" />
-      </svg>
-    </div>
-  ) : null;
-}
+import { SuccessCheckOverlay } from '../SuccessCheckOverlay';
+
+// filho DIRETO do conteudo do BottomSheet (o absolute ancora no sheet fixed
+// e cobre header+body+footer, mesmo com o corpo rolado):
+<SuccessCheckOverlay show={success} />;
 ```
 
-CSS em `app/globals.css` (`.client-detail-success-check`, `.client-create-success-overlay`).
+Coreografia padrao (~1s): `setSuccess(true)` → `window.setTimeout(() => { close(); setSuccess(false); }, 1000)`.
+Durante o success, bloquear dismiss (`onDismissAttempt` → false) e `dragDisabled`. Variacoes:
 
-Padrao 2: **toast global** + fechamento imediato — usar para fluxos rapidos onde nao da pra parar pra contemplar a animacao. Ver `lib/toast/ToastProvider.tsx`.
+- **Acao que fecha** (criar, salvar, excluir): check → fecha de volta pro contexto anterior.
+- **Acao que nao fecha** (ex.: vincular anexo a filial): check pisca 1s e o painel segue aberto.
+- **Acao de um aviso central sobre o drawer** (inativar/reativar, cascata): o aviso fecha e o
+  check pisca SOBRE o drawer do detalhe (estado no pai, ex. `flashDetailCheck` no
+  `ClientDetailView`).
 
-> Modais novos: prefira toast (mais rapido). Use overlay so quando o usuario precisa visualmente confirmar a operacao antes de seguir.
+_(O check estatico `.client-detail-success-check` foi DELETADO na rodada 6. `SampleDetailView` e
+`SampleSendFlow` ainda carregam o markup inline do mesmo overlay — trocar pelo componente na vez
+da pagina `/samples`.)_
+
+**Toast** continua valendo pra sucesso de acoes FORA de modal (lista, acoes globais, "copiado") —
+ver `design-system` §13 e a skill `feedback-messages`.
 
 ## 8. Botoes (actions)
 
@@ -536,67 +547,75 @@ UPPERCASE em campos de nome/dados cadastrais (`event.target.value.toUpperCase()`
 
 Levantamento completo (~70 superficies). **"Alvo"** = conteiner pela regra RD11 (preambulo). **Status**: ✅ = ja no alvo; **fica** = ja conforme (nao muda); **🔜 ciclo** = migra quando o ciclo pagina-a-pagina da FV chegar na pagina (com o mockup do Flavio — nada de conversao antecipada); **(confirmar)** = alvo presumido, fechar no plan mode da pagina.
 
-| Pagina                  | Superficie                                                                          | Alvo (RD11)                    | Status               |
-| ----------------------- | ----------------------------------------------------------------------------------- | ------------------------------ | -------------------- |
-| Global                  | Senha inicial (aviso+form, no-dismiss)                                              | central (aviso)                | fica                 |
-| Global                  | Menu do avatar (`HeaderAvatarMenu` `.is-menu`)                                      | intacto (menu)                 | fica                 |
-| Global                  | `CameraSheet` + 10 modais de classificacao                                          | intacto (camera)               | fica                 |
-| /login                  | Esqueci a senha (wizard `login-modal-*`)                                            | intacto (fora da app)          | fica                 |
-| /samples lista          | Filtros (`samples-filter-modal`)                                                    | painel lateral                 | 🔜 ciclo             |
-| /samples lista          | Novo lote (`NewSampleModal`)                                                        | side-sheet                     | ✅ `875c777`         |
-| /samples lista          | Quick-create cliente (`ClientQuickCreateModal`, todos os contextos)                 | side-sheet                     | ✅ `7a2abbe`         |
-| /samples lista          | Descartes/sucessos (confirms + overlays de check)                                   | central                        | fica                 |
-| /samples lista          | Liga (`BlendConfirmationSheet` + sucesso + dropdown)                                | operacao — central/intacto     | fica                 |
-| /samples lista          | Venda/perda (`SampleMovementModal` + atribuir dono)                                 | operacao — central             | fica                 |
-| /samples lista          | Envio (chooser, laudo, fisico, safra do laudo)                                      | operacao — central             | fica                 |
-| /samples ?lote=         | Detalhe do lote (`SampleDetailView`)                                                | DetailOverlay                  | ✅ F2                |
-| /samples ?lote=         | Editar registro/data (`.sample-detail-reg-edit-modal`)                              | side-sheet (edicao)            | 🔜 ciclo             |
-| /samples ?lote=         | Ver/editar classificacao (`.cld-modal`)                                             | side-sheet (view+edit)         | 🔜 ciclo (confirmar) |
-| /samples ?lote=         | Confirms (salvar s/ reclassificar, reclassificar, cancelar mov./envio)              | central                        | fica                 |
-| /samples ?lote=         | Invalidar (motivo) + bloqueado + reverter liga + propagacao                         | central (destrutivo/aviso)     | fica                 |
-| /samples ?lote=         | Imprimir etiqueta; editar envio                                                     | operacao — central             | fica                 |
-| /samples ?lote=         | `PhotoZoomViewer`; carimbo/X-effect                                                 | intacto (visualizacao/efeito)  | fica                 |
-| /cadastros (PILOTO)     | Filtros (instancia do `samples-filter-modal`)                                       | painel lateral                 | 🔜 ciclo             |
-| /cadastros              | Novo cliente (`ClientQuickCreateModal`)                                             | side-sheet                     | ✅ `7a2abbe`         |
-| /cadastros ?cliente=    | Detalhe do cliente (`ClientDetailView`)                                             | DetailOverlay                  | ✅ F1                |
-| /cadastros ?cliente=    | Editar informacoes (`.client-detail-edit-modal`)                                    | side-sheet (edicao)            | 🔜 ciclo             |
-| /cadastros ?cliente=    | Documentos (abas Anexos/Contas + preview + conta nova/detalhe)                      | side-sheet                     | 🔜 ciclo             |
-| /cadastros ?cliente=    | Filial nova (`ClientUnitModal`) / detalhe (`ClientUnitDetailModal`)                 | side-sheet (criacao/view+edit) | 🔜 ciclo             |
-| /cadastros ?cliente=    | Status cliente/filial (motivo) + cascata (`ClientInactivateWithCascadeModal`)       | central                        | fica                 |
-| /cadastros aba Corretor | Corretor (`BrokerFormModal`)                                                        | side-sheet (criacao/edicao)    | 🔜 ciclo             |
-| /users                  | Detalhe/editar usuario (`cdm-modal`) + novo usuario                                 | side-sheet                     | 🔜 ciclo             |
-| /users                  | Inativar (motivo) + confirms                                                        | central                        | fica                 |
-| /profile                | Desativar push (confirm)                                                            | central                        | fica                 |
-| /relatorios             | Leque FAB (`InformeCreateRadialFab`)                                                | intacto                        | fica                 |
-| /relatorios             | 3 form-sheets (visita/semanal/informativo)                                          | side-sheet (informes)          | 🔜 ciclo             |
-| /relatorios             | 3 descartes + aviso 409 + excluir item                                              | central                        | fica                 |
-| /relatorios             | Vincular/remover vinculo (curadoria)                                                | central (operacao)             | fica (confirmar)     |
-| /contratos              | Criacao (LotPicker + `SaleContractEtapa2Modal`)                                     | **FORA** — specs futuras       | aguarda specs        |
-| /contratos ?details=    | Detalhe do contrato (`SaleContractDetailsModal`)                                    | DetailOverlay                  | ✅ F3                |
-| /contratos              | Agio; washout/faturar/pagar (`SaleContractLifecycleDialog`); conferencia do espelho | operacao — central             | fica                 |
-| /contratos              | Solicitar aprovacao (confirm); lightbox embarque; previa do espelho                 | central / intacto              | fica                 |
-| /contratos              | Filtros                                                                             | painel lateral                 | 🔜 ciclo             |
-| /embarques              | Confirmacao de embarque (`ShipmentConfirmationModal`)                               | operacao — central             | fica                 |
-| /embarques              | Etiqueta de aprovacao (`ApprovalLabelModal` + sucesso)                              | operacao — central             | fica                 |
-| Simulador               | Drawer de resultado (ja lateral); connect menu                                      | intacto                        | fica                 |
+| Pagina                  | Superficie                                                                                                              | Alvo (RD11)                          | Status               |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------ | -------------------- |
+| Global                  | Senha inicial (aviso+form, no-dismiss)                                                                                  | central (aviso)                      | fica                 |
+| Global                  | Menu do avatar (`HeaderAvatarMenu` `.is-menu`)                                                                          | intacto (menu)                       | fica                 |
+| Global                  | `CameraSheet` + 10 modais de classificacao                                                                              | intacto (camera)                     | fica                 |
+| /login                  | Esqueci a senha (wizard `login-modal-*`)                                                                                | intacto (fora da app)                | fica                 |
+| /samples lista          | Filtros (`samples-filter-modal`)                                                                                        | painel lateral                       | 🔜 ciclo             |
+| /samples lista          | Novo lote (`NewSampleModal`)                                                                                            | side-sheet                           | ✅ `875c777`         |
+| /samples lista          | Quick-create cliente (`ClientQuickCreateModal`, todos os contextos)                                                     | side-sheet                           | ✅ `7a2abbe`         |
+| /samples lista          | Descartes/sucessos (confirms + overlays de check)                                                                       | central                              | fica                 |
+| /samples lista          | Liga (`BlendConfirmationSheet` + sucesso + dropdown)                                                                    | operacao — central/intacto           | fica                 |
+| /samples lista          | Venda/perda (`SampleMovementModal` + atribuir dono)                                                                     | operacao — central                   | fica                 |
+| /samples lista          | Envio (chooser, laudo, fisico, safra do laudo)                                                                          | operacao — central                   | fica                 |
+| /samples ?lote=         | Detalhe do lote (`SampleDetailView`)                                                                                    | DetailOverlay                        | ✅ F2                |
+| /samples ?lote=         | Editar registro/data (`.sample-detail-reg-edit-modal`)                                                                  | side-sheet (edicao)                  | 🔜 ciclo             |
+| /samples ?lote=         | Ver/editar classificacao (`.cld-modal`)                                                                                 | side-sheet (view+edit)               | 🔜 ciclo (confirmar) |
+| /samples ?lote=         | Confirms (salvar s/ reclassificar, reclassificar, cancelar mov./envio)                                                  | central                              | fica                 |
+| /samples ?lote=         | Invalidar (motivo) + bloqueado + reverter liga + propagacao                                                             | central (destrutivo/aviso)           | fica                 |
+| /samples ?lote=         | Imprimir etiqueta; editar envio                                                                                         | operacao — central                   | fica                 |
+| /samples ?lote=         | `PhotoZoomViewer`; carimbo/X-effect                                                                                     | intacto (visualizacao/efeito)        | fica                 |
+| /cadastros (PILOTO)     | Filtros (`.fv-filter-sheet` 400px)                                                                                      | painel lateral                       | ✅ FV E1             |
+| /cadastros              | Novo cliente (`ClientQuickCreateModal`)                                                                                 | side-sheet                           | ✅ `7a2abbe`         |
+| /cadastros ?cliente=    | Detalhe do cliente (`ClientDetailView` — drawer de perfil 620px)                                                        | DetailOverlay                        | ✅ F1 + FV R3        |
+| /cadastros ?cliente=    | Editar cliente (painel `fv-cd-editor-sheet`; central `.client-detail-edit-modal` morto)                                 | painel lateral (edge-back)           | ✅ FV R5             |
+| /cadastros ?cliente=    | Documentos: superficie de abas MORTA (R2 — cards inline no drawer); preview + novo anexo + conta nova/detalhe = paineis | painel lateral (edge-back)           | ✅ FV R5–R6          |
+| /cadastros ?cliente=    | Filial nova (`ClientUnitModal`) / detalhe (`ClientUnitDetailModal`, view bordado)                                       | painel lateral (edge-back)           | ✅ FV R5–R6          |
+| /cadastros ?cliente=    | Status cliente/filial (motivo) + cascata (`ClientInactivateWithCascadeModal`)                                           | central (backdrop `.fv-panel-scrim`) | fica                 |
+| /cadastros aba Corretor | Corretor (`BrokerFormModal`)                                                                                            | side-sheet (criacao/edicao)          | 🔜 ciclo             |
+| /users                  | Detalhe/editar usuario (`cdm-modal`) + novo usuario                                                                     | side-sheet                           | 🔜 ciclo             |
+| /users                  | Inativar (motivo) + confirms                                                                                            | central                              | fica                 |
+| /profile                | Desativar push (confirm)                                                                                                | central                              | fica                 |
+| /relatorios             | Leque FAB (`InformeCreateRadialFab`)                                                                                    | intacto                              | fica                 |
+| /relatorios             | 3 form-sheets (visita/semanal/informativo)                                                                              | side-sheet (informes)                | 🔜 ciclo             |
+| /relatorios             | 3 descartes + aviso 409 + excluir item                                                                                  | central                              | fica                 |
+| /relatorios             | Vincular/remover vinculo (curadoria)                                                                                    | central (operacao)                   | fica (confirmar)     |
+| /contratos              | Criacao (LotPicker + `SaleContractEtapa2Modal`)                                                                         | **FORA** — specs futuras             | aguarda specs        |
+| /contratos ?details=    | Detalhe do contrato (`SaleContractDetailsModal`)                                                                        | DetailOverlay                        | ✅ F3                |
+| /contratos              | Agio; washout/faturar/pagar (`SaleContractLifecycleDialog`); conferencia do espelho                                     | operacao — central                   | fica                 |
+| /contratos              | Solicitar aprovacao (confirm); lightbox embarque; previa do espelho                                                     | central / intacto                    | fica                 |
+| /contratos              | Filtros                                                                                                                 | painel lateral                       | 🔜 ciclo             |
+| /embarques              | Confirmacao de embarque (`ShipmentConfirmationModal`)                                                                   | operacao — central                   | fica                 |
+| /embarques              | Etiqueta de aprovacao (`ApprovalLabelModal` + sucesso)                                                                  | operacao — central                   | fica                 |
+| Simulador               | Drawer de resultado (ja lateral); connect menu                                                                          | intacto                              | fica                 |
 
 > As tabelas/notas abaixo (status `.is-themed`, portais, variantes) continuam validas — descrevem o estado ATUAL de cada modal. Este §11-A e a camada de PLANEJAMENTO por cima: pra onde cada superficie vai quando a vez da pagina chegar.
 
-### ✅ Seguem o padrao .is-themed
+### ✅ Superficies do CLIENTE (piloto FV — estado pos-rodadas 1–6, 2026-07-21)
 
-#### Cliente
+O detalhe do cliente foi o piloto do ciclo FV e NAO usa mais modais centrais pra forms — os
+modais internos viraram **paineis laterais** (molde em `design-system` §8 "Paineis do detalhe").
+Estado atual:
 
-| Modal                               | Arquivo                                                   | Variantes                                                                                                                                                                                 |
-| ----------------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ClientUnitModal (Nova filial)       | `components/clients/ClientUnitModal.tsx`                  | `is-themed is-action` (compacto ~30rem, 50/50 `client-unit-modal-actions`; form em grid c/ **acoes fixas** + body rolavel; sucesso via **efeito de check** `client-detail-success-check`) |
-| ClientUnitDetailModal (view + edit) | `components/clients/ClientUnitDetailModal.tsx`            | `is-themed is-action` (compacto ~30rem, 50/50 `cudm-edit-actions`)                                                                                                                        |
-| ClientInactivateWithCascadeModal    | `components/clients/ClientInactivateWithCascadeModal.tsx` | `is-themed` + `.is-danger`                                                                                                                                                                |
-| Edit Client                         | `components/clients/ClientDetailView.tsx` (portal)        | `is-themed is-action` (compacto ~30rem, espelha o reg-edit do lote)                                                                                                                       |
-| Documentos (Anexos + Contas banc.)  | `components/clients/ClientDetailView.tsx` (portal)        | `is-themed is-action client-documents-modal` (abas Anexos/Contas; abre pelo botao de folha no header do detalhe)                                                                          |
-| Status modal cliente                | `components/clients/ClientDetailView.tsx` (portal)        | `is-themed is-action` (ações 50/50 `client-detail-status-actions`)                                                                                                                        |
-| Status modal unit                   | `components/clients/ClientDetailView.tsx` (portal)        | `is-themed is-action` (ações 50/50 `client-detail-status-actions`)                                                                                                                        |
+| Superficie                            | Arquivo                                                          | Conteiner atual                                                                                                                      |
+| ------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Detalhe do cliente (drawer de perfil) | `components/clients/ClientDetailView.tsx`                        | `DetailOverlay` 620px, backdrop BLOQUEANTE (hero + abas `.fv-cd-tabs` + grafico de linhas)                                           |
+| Nova filial / Nova conta              | `ClientUnitModal.tsx` / `ClientBankAccountModal.tsx`             | painel lateral `stacked` edge-back; submit no footer sticky (`form={id}`); sem Cancelar textual                                      |
+| Detalhe filial / conta (view↔edit)    | `ClientUnitDetailModal.tsx` / `ClientBankAccountDetailModal.tsx` | painel lateral; view = campos bordados `.cudm-view-value` espelhando o form de edicao; prop `dismissLocked` (filial) trava sob aviso |
+| Editar cliente                        | `ClientDetailView.tsx` (BottomSheet inline)                      | painel lateral `fv-cd-editor-sheet` (o modo interno da rodada 2 morreu)                                                              |
+| Preview de anexo                      | `ClientAttachmentPreviewModal.tsx`                               | painel lateral; Excluir/Baixar no footer (`.cap-footer`); confirm de exclusao empilha no footer                                      |
+| Novo anexo                            | `ClientAttachmentAddModal.tsx`                                   | painel lateral; campo QUADRADO de arquivo `.caa-drop` + filial opcional + Salvar                                                     |
+| Status cliente/filial (motivo)        | `ClientDetailView.tsx` (portais)                                 | **central** `.app-modal.is-themed is-action` com backdrop **`.fv-panel-scrim`** (centrado na faixa do painel)                        |
+| Cascata                               | `ClientInactivateWithCascadeModal.tsx`                           | **central** `is-themed` + `.is-danger` com backdrop **`.fv-panel-scrim`**                                                            |
+| Sucesso (todas as acoes)              | `components/SuccessCheckOverlay.tsx`                             | check canonico (§7) — frases de sucesso mortas                                                                                       |
 
-> **F1 do redesign (2026-07-20):** o detalhe do cliente NAO e mais pagina (`/clients/[clientId]` = redirect) — e o `ClientDetailView` montado no `DetailOverlay` em `/cadastros?cliente=<id>` (ver `design-system` §8 "DetailOverlay"). Os 4 modais inline do antigo `page.tsx` (editar, documentos, status cliente, status filial) passaram a portalar pro body (§9 Portal) — dentro do sheet, o `transform` do `.bottom-sheet` capturaria o `position: fixed`. O overlay fica no tier BASE (400/410) justamente pra esses modais (tier 500) abrirem POR CIMA — nao usar `stacked` no overlay. Com modal interno aberto, o `dismissGuardRef` bloqueia ESC/X do overlay.
+> _(Historico: o modal "Documentos" morreu na rodada 2 — Anexos e Contas viraram cards sempre
+> visiveis na aba Documentos do drawer. As tabelas antigas desta secao descreviam os modais
+> centrais pre-FV.)_
+
+> **F1 do redesign (2026-07-20):** o detalhe do cliente NAO e mais pagina (`/clients/[clientId]` = redirect) — e o `ClientDetailView` montado no `DetailOverlay` em `/cadastros?cliente=<id>` (ver `design-system` §8 "DetailOverlay"). Os avisos centrais que sobraram (status/cascata) portalam pro body (§9 Portal) — dentro do sheet, o `transform` do `.bottom-sheet` capturaria o `position: fixed`. O overlay fica no tier BASE (400/410); os paineis laterais sao `stacked` (600/610) e os avisos `.fv-panel-scrim` ficam a 620. Com modal interno aberto, o `dismissGuardRef` bloqueia ESC/X do overlay (`anyModalOpen` — manter o OR completo ao adicionar modal novo).
 
 #### Dashboard
 

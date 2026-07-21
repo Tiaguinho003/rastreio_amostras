@@ -7,6 +7,75 @@ description: Use this skill whenever building, adjusting, or reviewing any page,
 
 Este documento define a linguagem visual do app. Toda pagina e componente DEVE seguir estes padroes para garantir consistencia. Nao inventar estilos novos — usar os padroes documentados aqui.
 
+> **⚠️ TRANSICAO EM CURSO (FV, 2026-07): o app esta migrando pagina a pagina para a linguagem
+> INSTITUCIONAL do §0 abaixo.** `/cadastros` (desktop) e o piloto CONCLUIDO e o EXEMPLO canonico.
+> Ao redesenhar uma pagina no ciclo da FV, o §0 MANDA e sobrepoe o que os §§1–13 disserem
+> (eles descrevem o app pre-FV e continuam validos SO para paginas ainda nao migradas — nao
+> "corrigir" uma pagina legada pro padrao antigo nem misturar os dois numa pagina migrada).
+
+## 0. FV institucional — o kit do piloto `/cadastros` (padrao das proximas paginas)
+
+Direcao travada pelo Flavio (RD12–RD14 em `docs/Redesign-Plano-de-Trabalho.md`; historico
+rodada-a-rodada na §2.6 do mesmo doc). Motivacao: aspecto "institucional" de SaaS — neutro,
+denso, sem infantilidade. O kit abaixo foi construido e conferido no `/cadastros` desktop e e o
+molde das proximas paginas do ciclo (`/samples` → `/relatorios` → `/users`+`/profile` →
+`/contratos`+`/embarques` → globais). Mobile de cada pagina entra na E2 dela.
+
+### 0.1 Fundamentos
+
+- **Fonte: Inter** (`--font-sans`, global desde a E1). Poppins segue carregada SO para as pecas
+  de informativo (`--font-family-story`, lida pelo canvas — ver gotcha do next/font na skill).
+- **Tokens `--fv-*`** no `:root` (espelho legivel: `docs/Design-Language.md` §1.5): canvas
+  `#f6f7f6`, surface branca, hairlines `--fv-line`/`--fv-line-strong`, radius **10px**
+  (`--fv-radius`; sm 8 / lg 12), CTA **verde-escuro `--fv-cta` `#173c30`** (hover
+  `--fv-cta-strong`), chips pastel `--fv-chip-{green,amber,red,gray}-{bg,fg}`, acento frio
+  `--fv-blue`. _(Nomes `fv-` sao do piloto; promocao/renomeacao pro vocabulario definitivo fica
+  pra consolidacao final.)_
+- **Cards/superficies**: branco definido por **hairline + sombra minima** — morrem o gradiente
+  quente, a sombra tripla e o radius 14–20 "fofo". Cor SO semantica e em doses pequenas (chips,
+  icones de KPI); o verde da marca vira o "preto institucional" dos CTAs, nao fundo decorativo.
+- **Botoes**: preenchido verde `--fv-cta`, texto branco, radius 10, press = so scale
+  (button-press-effect); botoes de modal (`.app-modal-submit/-secondary`) perderam a pilula →
+  radius 10 (global, app inteiro, desde a rodada 1). Botoes de adicionar sao NOMEADOS
+  ("+ Adicionar filial", nunca "+" solto) — molde `.fv-cd-add-btn`.
+- **Chips de status pastel** (fundo suave + texto colorido) sao o padrao de status. `/cadastros`
+  usa status UNICO por linha (Completo verde / Incompleto ambar / Cancelado vermelho).
+- **Modais e sheets BRANCOS** (global desde a rodada 1; o vidro bege morreu).
+
+### 0.2 Chrome global desktop (RD13) e anatomia de pagina (RD14)
+
+- Chrome: **sidebar UNICA** (logo completo centralizado + itens com sub-itens `?tab=` +
+  footer Perfil/Ajuda) + **topbar** com titulo da secao + sino + perfil (nome+papel+chevron).
+  Vale pra todas as paginas desktop nao-PROSPECTOR. (AppShell NAO pode usar `useSearchParams` —
+  `activeSubTab` chega por prop da pagina.)
+- Anatomia da pagina de listagem (molde `/cadastros`): **titulo grande + CTA** ("+ Novo
+  cliente"; FAB desktop morre) → **KPI row** (cards brancos hairline, icone traco+borda
+  colorido, mini-metricas com setas) → **toolbar** (busca + filtros) → **TABELA**
+  (`table-layout: fixed` + colgroup, avatar de iniciais PJ quadrado/PF circulo, chips de
+  status, icones de contato; linha abre o detalhe) → scroll infinito. **Filtros = side-sheet
+  400px** (`.fv-filter-sheet`). Menu **⋯** = acoes profundas por URL (`?cliente=<id>&acao=…`).
+
+### 0.3 Detalhe = drawer de perfil (620px)
+
+Molde do detalhe de recurso na FV (referencia "Staff details"): `DetailOverlay` 620px com
+**hero fixo** (avatar de iniciais + ponto de status, nome, chips de papeis, contato COPIAVEL,
+fileira de acoes redondas com menu ⋯) + **abas** `.fv-cd-tabs` (sublinhado RETO — o reset
+global `button{border-radius:10px}` curvaria o border-bottom: por `border-radius: 0` na aba) +
+conteudo em coluna unica; grafico de LINHAS (SVG manual, stroke 1.4) no lugar de donut;
+`scrollbar-gutter: stable` no body (trocar de aba nao desloca o conteudo). **Backdrop
+BLOQUEANTE** (pagina escurecida e nao-clicavel atras — no cliente o "peek swap" morreu de
+proposito; avaliar por pagina).
+
+### 0.4 Modais de dentro do detalhe = PAINEIS LATERAIS
+
+TODOS os modais alcancaveis do drawer (criar/detalhe de sub-recursos, editar, preview,
+"novo anexo") viram side-sheets `stacked` com **seta ← na borda** — molde completo no §8
+"Paineis do detalhe" abaixo. Avisos/confirms continuam CENTRAIS mas centrados **dentro da
+faixa do painel** (`.fv-panel-scrim`). Sucesso = **check canonico** (`SuccessCheckOverlay`,
+ver skill `feedback-messages` — frases "... com sucesso" morreram). Modo VIEW de um detalhe
+espelha o form de edicao (campos com borda `.cudm-view-value` na MESMA ordem — view↔edit sem
+a pagina mudar de cara).
+
 ## 1. Estrutura de Pagina
 
 Toda pagina autenticada segue o padrao **Fundo Verde (app-shell) + Header Transparente + Sheet Bege**:
@@ -39,7 +108,7 @@ Overrides escopados sob `.dashboard-mobile` em `app/globals.css` (bloco "Dashboa
 - **Busca**: pill branca solida radius 999px, input mais alto, inteira sobre a area verde. Lupa segue A DIREITA (diverge do mockup de proposito: o botao vira o CTA verde de submit no estado `.has-input` — move-lo quebraria a interacao). Estruturalmente ela NAO vive no hero: e um irmao no fluxo do `.dashboard-scroll`, entre o hero e o sheet (ver scroll abaixo)
 - **Scroll simples da pagina** (so o admin mobile): hero (saudacao + avatar) e sheet vivem dentro do `.dashboard-scroll` (`flex: 1; min-height: 0; overflow-y: auto`, momentum + `overscroll-behavior: contain`) e **rolam juntos** — nada fica fixo no topo. O sheet fica no fluxo normal (`.dashboard-sheet` `overflow: visible; flex: 1 0 auto` pra preencher a tela quando o conteudo e curto). O `.dashboard-page` continua `overflow: hidden; height: 100%` (so o `.dashboard-scroll` rola). _(A **busca por lote** no hero do admin mobile foi REMOVIDA a pedido do usuario em 2026-06-16 — o `SampleSearchField` saiu do `DashboardMobile`; as classes `.dashboard-hero-search`/CSS seguem em uso pelo prospector (busca por cliente, ver abaixo). Antes disso ja se removera o efeito antigo "cobrir a busca" — busca sticky + sheet por cima + recorte arredondado — em 2026-06-15.)_
 - **Cards de pendencias (mobile): REMOVIDOS em 2026-07-12 (DSB-D2).** Os op-cards "Lotes"/"Clientes" (classificacao pendente + cadastros incompletos) sairam do `DashboardMobile`. "Classificacao pendente" virou card so-visualizacao na pagina de Lotes (`/samples`, classe `.spv2-pending-stat`); "Cadastros pendentes" foi removido por completo. As classes `.dashboard-operation-card`/`.dashboard-operations-grid`/`.dashboard-operation-badge` seguem VIVAS pelo **PROSPECTOR** (mesmo visual, cards de contagem de visitas). Ver `docs/Dashboard-Plano-de-Trabalho.md`.
-- **Lotes disponiveis (donut): APAGADO DO SISTEMA em 2026-07-14 (DSB-D14)** — `SalesAvailabilityCard.tsx`, hook, rota, backend, tipo, CSS exclusivo (`.sales-card-detail-button*`, `.sales-card-aside`, `is-compact`) e teste sairam. **O padrao visual `.sales-card`/`.sales-chart-*` (card branco radius 20px, donut SVG manual com fresta de 2 unidades, total central `#14532d` com `fontSize` por qtd de digitos, legenda com dividers) CONTINUA VIVO no detalhe do cliente** (`components/clients/ClientCommercialSummaryCard.tsx`, secao "Resumo comercial") — donut das contagens comerciais (Em aberto/Vendido/Perdido/Comprado, "Comprado" so se comprador), SO apresentacao. O CSS base foi mantido por causa dele.
+- **Lotes disponiveis (donut): APAGADO DO SISTEMA em 2026-07-14 (DSB-D14)** — `SalesAvailabilityCard.tsx`, hook, rota, backend, tipo, CSS exclusivo (`.sales-card-detail-button*`, `.sales-card-aside`, `is-compact`) e teste sairam. _(O ultimo consumidor do padrao `.sales-card`/`.sales-chart-*` — o donut do detalhe do cliente — morreu na rodada 3 da FV (2026-07-21): o `ClientCommercialSummaryCard` virou **grafico de LINHAS 6 meses** (`.fv-cd-chart-*`, SVG manual, stroke 1.4; Perdido saiu da UI) e o CSS `.sales-*`/`.ccs-*` foi DELETADO. Sobram so 2 hooks de animacao inofensivos.)_
 - **Ultimas atividades**: card REMOVIDO em 2026-07-06 (componentes, CSS, rota `/api/v1/dashboard/recent-activity` e backend sairam). De `lib/dashboard-activity.ts` sobrou so `formatRelativeTime` (renomeado pra `lib/relative-time.ts` na revisao DSH 2026-07-07; usado pelo modal de Detalhes do contrato e pelos cards de envios)
 
 ### Paginas sem header verde
@@ -189,14 +258,14 @@ Existem dois padroes em uso (ambos validos — usar conforme o contexto do card)
 
 ### Variantes de card especificas
 
-| Classe                      | Uso                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `.sdv-card`                 | Card branco padrao (sombra 3D, radius 18px) — base para detalhe de cliente/amostra                                                                                                                                                                                                                                                                                                                                                                             |
-| `.sdv-info-compact`         | Container branco padrao (SEM header verde): `.sdv-card-header` (titulo cinza + hairline full-bleed) + acao minimalista `.sdv-edit-btn` (lapis "Editar" ou "+" "Nova") + `.sdv-info-grid`. Containers Informacoes/Classificacao/Resumo do detalhe da amostra e **Informacoes + Filiais + Endereco fiscal** do detalhe do cliente. (O antigo `.sdv-card-themed` de header verde foi APOSENTADO 2026-06-19 — nenhum container do cliente usa mais; CSS removido.) |
-| `.sdv-card-commercial-mini` | **REMOVIDO 2026-06-19** — era o mini-card-filtro (Em aberto/Vendido/Perdido/Comprado) + a lista (`.sdv-commercial-list*`) da seção comercial do detalhe do cliente; a seção virou um **gráfico donut** (`ClientCommercialSummaryCard`, ver §"Lotes disponiveis") sem filtros. Todo o CSS órfão foi removido do `globals.css`.                                                                                                                                  |
-| `.sdv-unit-card-mini`       | Card minimalista de filial — barra lateral CURTA/arredondada/centralizada (não encosta nas bordas, padrão Lotes/Clientes): verde (completo) / amber (incompleto) / cinza (inativo). Incompleto tb mostra o badge `cv2-card-incomplete-badge` no canto sup. direito (card é `overflow:visible`).                                                                                                                                                                |
-| `.sdv-attachment-thumb`     | Miniatura de anexo do cliente na `.sdv-attachment-grid` (grade compartilhada pelo card lateral "Anexos" e pela aba "Anexos" do modal "Documentos"): imagem `<img>` ou selo `.sdv-attachment-thumb-pdf` (verde translucido) + `.sdv-attachment-thumb-name`. `.sdv-attachment-thumb-chip` = chip com o nome da **filial** dona do anexo (verde translucido; `.is-inactive` = cinza esmaecido quando a filial esta inativa). Sem chip = anexo do proprio cliente. |
-| `.cv2-card`                 | Card de cliente `/clients` — barra lateral CURTA estilo Lotes (`::before` centralizada, NAO mais faixa de altura cheia): VERDE (completo) / LARANJA (`.is-incomplete`). Avatar de iniciais VERDE por TIPO (PJ `#1f5d43` escuro / PF `#2f8a5e` claro, via `--avatar-color`). Nome com ellipsis no mobile (`display:block`).                                                                                                                                     |
+| Classe                      | Uso                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.sdv-card`                 | Card branco padrao (sombra 3D, radius 18px) — base para detalhe de cliente/amostra                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `.sdv-info-compact`         | Container branco padrao (SEM header verde): `.sdv-card-header` (titulo cinza + hairline full-bleed) + acao minimalista `.sdv-edit-btn` (lapis "Editar" ou "+" "Nova") + `.sdv-info-grid`. Containers Informacoes/Classificacao/Resumo do detalhe da amostra e **Informacoes + Filiais + Endereco fiscal** do detalhe do cliente. (O antigo `.sdv-card-themed` de header verde foi APOSENTADO 2026-06-19 — nenhum container do cliente usa mais; CSS removido.)                                                                                                                                |
+| `.sdv-card-commercial-mini` | **REMOVIDO 2026-06-19** — era o mini-card-filtro (Em aberto/Vendido/Perdido/Comprado) + a lista (`.sdv-commercial-list*`) da seção comercial do detalhe do cliente; a seção virou um **gráfico donut** (`ClientCommercialSummaryCard`, ver §"Lotes disponiveis") sem filtros. Todo o CSS órfão foi removido do `globals.css`.                                                                                                                                                                                                                                                                 |
+| `.sdv-unit-card-mini`       | Card minimalista de filial — barra lateral CURTA/arredondada/centralizada (não encosta nas bordas, padrão Lotes/Clientes): verde (completo) / amber (incompleto) / cinza (inativo). Incompleto tb mostra o badge `cv2-card-incomplete-badge` no canto sup. direito (card é `overflow:visible`). **⚠️ No drawer do cliente (`.client-details-overlay`) o card foi RE-ESTILIZADO institucional (rodada 4 FV): branco+hairline+radius 10, sem gradiente/sombra tripla/barra lateral, badge Inativa = chip pastel — restyle ESCOPADO; o molde base descrito aqui segue valendo fora do overlay.** |
+| `.sdv-attachment-thumb`     | Miniatura de anexo do cliente na `.sdv-attachment-grid` (grade compartilhada pelo card lateral "Anexos" e pela aba "Anexos" do modal "Documentos"): imagem `<img>` ou selo `.sdv-attachment-thumb-pdf` (verde translucido) + `.sdv-attachment-thumb-name`. `.sdv-attachment-thumb-chip` = chip com o nome da **filial** dona do anexo (verde translucido; `.is-inactive` = cinza esmaecido quando a filial esta inativa). Sem chip = anexo do proprio cliente.                                                                                                                                |
+| `.cv2-card`                 | Card de cliente `/clients` — barra lateral CURTA estilo Lotes (`::before` centralizada, NAO mais faixa de altura cheia): VERDE (completo) / LARANJA (`.is-incomplete`). Avatar de iniciais VERDE por TIPO (PJ `#1f5d43` escuro / PF `#2f8a5e` claro, via `--avatar-color`). Nome com ellipsis no mobile (`display:block`).                                                                                                                                                                                                                                                                    |
 
 ## 4. Icones
 
@@ -312,7 +381,7 @@ Excecao a regra "nunca verde ao clicar":
 
 > Componente reusavel: `components/BottomSheet.tsx`. Usar este wrapper ao construir qualquer bottom sheet novo — nao replicar o CSS na mao. Em desktop (>900px) o mesmo componente transforma-se em modal centralizado via CSS responsivo.
 
-**API:** `{ open, onClose, onDismissAttempt?, title?, footer?, children, dragToDismiss?, dragDisabled?, stacked?, manageHistory?, ariaLabel?, className? }` (controlled, declarativo). `onDismissAttempt` async permite cancelar fechamento (ex: modal de confirmacao "Descartar?").
+**API:** `{ open, onClose, onDismissAttempt?, title?, footer?, children, dragToDismiss?, dragDisabled?, stacked?, manageHistory?, closeVariant?, ariaLabel?, className? }` (controlled, declarativo). `onDismissAttempt` async permite cancelar fechamento (ex: modal de confirmacao "Descartar?"). `closeVariant: 'x' | 'edge-back'` (default `'x'`) troca o X por uma **seta ← na borda esquerda** (metade pra fora no desktop) — o padrao dos paineis do detalhe da FV (ver "Paineis do detalhe" abaixo).
 
 **Caracteristicas do CSS base (`bottom-sheet*` em globals.css):**
 
@@ -371,7 +440,48 @@ Excecao a regra "nunca verde ao clicar":
 
 - **Quando usar**: forms de **criacao** e **edicao** (regra de conteiner RD11 — arvore de decisao na skill `modals`). Detalhe de recurso → DetailOverlay; operacoes/avisos/confirms → centrais.
 - **Lateral SOBRE lateral = push de navegacao**: um side-sheet aberto de dentro de outro (ex.: `ClientQuickCreateModal` "Novo proprietario" sobre o `NewSampleModal`) usa o padrao `stacked` normal — o de cima desliza cobrindo o de baixo pela mesma borda direita; fechar revela o form de baixo intacto. Nada de novo alem da classe.
-- **Aplicado em**: `NewSampleModal` (Novo lote) e `ClientQuickCreateModal` (Novo cliente — padrao do componente em TODOS os contextos, sem prop). Os demais forms de criacao/edicao migram **pagina a pagina** no ciclo da FV (mockups do Flavio; piloto `/cadastros`) — NAO converter isoladamente; ver `docs/Redesign-Plano-de-Trabalho.md` §2.5 e o inventario na skill `modals` §11.
+- **Aplicado em**: `NewSampleModal` (Novo lote) e `ClientQuickCreateModal` (Novo cliente — padrao do componente em TODOS os contextos, sem prop). Os demais forms de criacao/edicao migram **pagina a pagina** no ciclo da FV (piloto `/cadastros` ja migrou os dele — ver "Paineis do detalhe" abaixo) — NAO converter isoladamente; ver `docs/Redesign-Plano-de-Trabalho.md` §2.5 e o inventario na skill `modals` §11.
+
+### Paineis do detalhe (`.client-panel-sheet` + `closeVariant="edge-back"` — molde FV, rodadas 5–6 do piloto)
+
+> Extensao do `.side-sheet` para os modais abertos DE DENTRO de um detalhe (drawer/DetailOverlay):
+> criar/editar sub-recursos (filial, conta), preview e upload de anexo, editar o proprio recurso.
+> Exemplares canonicos: `ClientUnitModal`, `ClientUnitDetailModal`, `ClientBankAccountModal`,
+> `ClientBankAccountDetailModal`, `ClientAttachmentPreviewModal`, `ClientAttachmentAddModal` e o
+> editor de cliente (BottomSheet inline no `ClientDetailView`). Replicar este molde nas proximas
+> paginas do ciclo.
+
+Receita (BottomSheet comum, sem componente novo):
+
+- `stacked` + `closeVariant="edge-back"` + `className="client-panel-sheet side-sheet"`
+  (+ classe especifica). Desliza da direita POR CIMA do drawer (mesma faixa de 620px); mobile
+  empilha como bottom sheet. Sem `createPortal`/`useFocusTrap`/early-return proprios — o
+  BottomSheet cuida (renderizar sempre; `open` controla).
+- **Seta ← na borda = Cancelar** (`closeVariant="edge-back"`): circulo hairline METADE pra fora
+  da borda esquerda no desktop (`.has-edge-close` libera `overflow: visible` + **header vira
+  `position: static`** — sem isso o absolute ancora na caixa interna do header, nao no sheet);
+  no mobile a seta fica no fluxo, ANTES do titulo. **O botao "Cancelar" textual MORREU** nos
+  forms de criacao (a seta cancela); o "Cancelar" INTERNO do modo edicao de um view↔edit volta
+  pro view (nao fecha o painel).
+- **Submit no footer sticky** do sheet: form ganha `id` e o botao vai em `footer` com
+  `form={id}` (`.app-modal-submit`, "Salvar"/"Criar X").
+- **Guards**: `onDismissAttempt={() => !saving && !success && !dismissLocked}` +
+  `dragDisabled={saving || success || dismissLocked}` (drag past-threshold com dismiss negado
+  deixa o sheet deslocado — sempre pausar o drag nesses estados). `dismissLocked` = prop pra
+  travar o painel enquanto um aviso aberto POR ELE esta na frente.
+- **Avisos/confirms sobre o painel**: continuam dialogos centrais, mas o backdrop ganha
+  `.fv-panel-scrim` — z `calc(var(--z-modal-stacked) + 20)` (acima dos paineis 600/610) e, no
+  desktop, scrim escuro cobrindo SO a faixa direita de 620px (dialogo centrado DENTRO da area
+  do painel; mobile = viewport inteiro). Confirms internos curtos (ex.: "Descartar?" do
+  quick-create) podem ser overlay `position:absolute; inset:0` dentro do sheet — mesmo efeito.
+- **Sucesso = check canonico** (`components/SuccessCheckOverlay.tsx`, filho DIRETO do conteudo
+  do BottomSheet): overlay branco cobrindo o painel com circulo+tick por ~1s; acoes que fecham
+  agendam o close no timeout. Frases "... com sucesso" nao existem mais nesses fluxos.
+- **View espelha o edit**: modo visualizacao de um detalhe usa caixas com borda
+  (`.cudm-view-value`, geometria EXATA do input do painel, vazio = "—" muted) na MESMA ordem do
+  form de edicao — entrar em Editar nao muda a cara do painel.
+- ESC/back fecham so o painel do TOPO (`sheetStack`); o `dismissGuardRef` do DetailOverlay segue
+  como cinto (`anyModalOpen`). CSS do molde: bloco `.client-panel-sheet` no `globals.css`.
 
 ### Pagina /informe = "Relatorios" (role-adaptive; unifica o antigo /resumo)
 
