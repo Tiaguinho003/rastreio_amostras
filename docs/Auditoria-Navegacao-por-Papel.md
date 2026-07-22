@@ -1,5 +1,34 @@
 # Auditoria de Navegacao por Papel de Usuario
 
+> ## 🔴 Errata estrutural (2026-07-22) — leia antes das tabelas
+>
+> O corpo deste doc e um levantamento de 2026-06-28, com emendas ate 2026-07-15. Tres
+> mudancas posteriores invalidaram afirmacoes que aparecem **dezenas de vezes** nas
+> tabelas por papel. As **regras de acesso** (guards, `NON_PROSPECTOR_ROLES`, ADMIN em
+> `/users`) continuam corretas; o que envelheceu foi **onde as coisas ficam**.
+>
+> 1. **`/camera` NAO EXISTE.** A rota foi deletada no ciclo CAM (CAM-D3). A camera
+>    virou um **bottom sheet global** (`CameraSheet`), aberto pelo icone no header —
+>    ou seja, nao e uma pagina e nao tem linha de nav. Toda linha "Camera `/camera`"
+>    e toda nota "a rota e liberada mas o botao so aparece no mobile" estao mortas.
+> 2. **A tabbar mobile tem 4 itens, nao 5 com a Camera no centro:** Inicio · Lotes ·
+>    Cadastros · e um 5o slot **mutuamente exclusivo** — Relatorios (`/relatorios`)
+>    para quem esta em `INFORME_ROLES`, Perfil (`/profile`) para quem nao esta (hoje
+>    so o CLASSIFIER). O slot central da camera saiu (CAM-P3).
+> 3. **A sidenav desktop mudou com o RD13:** os itens sao Inicio · Lotes ·
+>    Relatorios (condicional) · Cadastros · Contratos (`CONTRATOS_ROLES`) ·
+>    **Embarques** (`NON_PROSPECTOR_ROLES`, ausente do corpo deste doc) · Usuarios
+>    (ADMIN). "Clientes" nao existe mais como item — foi absorvido por Cadastros. E
+>    tres secoes ganharam **sub-itens expansiveis** (`NAV_SUB_ITEMS`): Lotes →
+>    Lotes/**Simulador**, Cadastros → Clientes/Corretores, Contratos →
+>    Contratos/Financeiro, Embarques → Embarque/Aprovacoes; deep-link por `?tab=`.
+> 4. **`/samples/[id]` nao e pagina.** Redireciona para `/samples?lote=<id>`; o
+>    detalhe e um drawer. Onde o doc o trata como destino de navegacao, leia
+>    "overlay sobre a lista".
+>
+> Fonte de verdade do que esta acima: `components/AppShell.tsx`
+> (`DESKTOP_NAV_ITEMS`, `MOBILE_NAV_ITEMS`, `NAV_SUB_ITEMS`).
+
 Status: Ativo — referencia mantida para uso futuro (read-only; reflete o estado atual)
 Escopo: para cada papel de usuario, QUAIS paginas tem acesso e ONDE estao na
 navegacao, no desktop e no mobile.

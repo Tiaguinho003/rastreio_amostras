@@ -81,22 +81,26 @@ Backfill idempotente da projeção: `scripts/migrations/backfill-classification-
 
 ## 5. Matriz campo × superfície
 
-Superfícies: **A** card lista `/samples` (expandido) · **B** detalhe resumo mobile · **C** detalhe ficha desktop · **D** modal de classificação · **E** laudo PDF/QR · **F** filtros · **G** etiqueta interna (print agent).
+Superfícies: **A1** tabela `/samples` (desktop) · **A2** card da lista (mobile, expandido) · **B** detalhe resumo mobile · **C** detalhe ficha (aba Classificação) · **D** painel de classificação · **E** laudo PDF/QR · **F** filtros · **G** etiqueta interna (print agent).
 
-| Campo              | A            | B   | C         | D         | E            | F   | G   |
-| ------------------ | ------------ | --- | --------- | --------- | ------------ | --- | --- |
-| padrao             | ✅           | —   | ✅        | ✅        | ✅           | ✅  | ✅  |
-| aspecto            | ✅           | ✅  | ✅        | ✅        | ✅           | ✅  | ✅  |
-| catacao            | ✅           | ✅  | ✅        | ✅        | ✅           | ✅  | —   |
-| certif             | —            | —   | ✅        | ✅        | ✅ (Resumo)  | ✅  | —   |
-| bebida             | —            | —   | ✅        | ✅        | ✅           | —   | —   |
-| observacoes        | —            | —   | ✅        | ✅        | ✅           | —   | —   |
-| peneiras+mk        | ✅ (desktop) | —   | ✅        | ✅        | ✅           | —   | —   |
-| fundos             | —            | —   | ✅        | ✅        | ✅           | —   | —   |
-| defeitos.\*        | —            | —   | ✅        | ✅        | ✅           | —   | —   |
-| dataClassificacao  | —            | —   | ✅ (Data) | —         | — (excluída) | —   | —   |
-| classificadores    | —            | ✅  | ✅        | ✅        | — (excluído) | —   | —   |
-| classificationType | —            | —   | —         | ✅ (Tipo) | —            | —   | —   |
+> Atualizada em 2026-07-22 depois do redesenho FV: a coluna A virou **duas**, porque no desktop a lista é uma **tabela** (com colunas nomeadas Padrão · Bebida · Catação) e no mobile continua o **card com expansão**. A ficha (C) e o formulário (D) deixaram de ser desktop-only — valem nos dois breakpoints, com C na aba Classificação do drawer e D num painel lateral.
+>
+> **Peneiras no card ficaram inalcançáveis**: o `SampleCard` calcula e renderiza as peneiras preenchidas, mas o CSS as esconde abaixo de 901px — e a partir de 901px o card não monta (é a tabela). O código está vivo e o resultado nunca aparece; anotado para a F4 (mobile) do ciclo de `/samples`.
+
+| Campo              | A1  | A2  | B   | C         | D         | E            | F   | G   |
+| ------------------ | --- | --- | --- | --------- | --------- | ------------ | --- | --- |
+| padrao             | ✅  | ✅  | —   | ✅        | ✅        | ✅           | ✅  | ✅  |
+| aspecto            | —   | ✅  | ✅  | ✅        | ✅        | ✅           | ✅  | ✅  |
+| catacao            | ✅  | ✅  | ✅  | ✅        | ✅        | ✅           | ✅  | —   |
+| certif             | —   | —   | —   | ✅        | ✅        | ✅ (Resumo)  | ✅  | —   |
+| bebida             | ✅  | —   | —   | ✅        | ✅        | ✅           | —   | —   |
+| observacoes        | —   | —   | —   | ✅        | ✅        | ✅           | —   | —   |
+| peneiras+mk        | —   | —   | —   | ✅        | ✅        | ✅           | —   | —   |
+| fundos             | —   | —   | —   | ✅        | ✅        | ✅           | —   | —   |
+| defeitos.\*        | —   | —   | —   | ✅        | ✅        | ✅           | —   | —   |
+| dataClassificacao  | —   | —   | —   | ✅ (Data) | —         | — (excluída) | —   | —   |
+| classificadores    | —   | —   | ✅  | ✅        | ✅        | — (excluído) | —   | —   |
+| classificationType | —   | —   | —   | —         | ✅ (Tipo) | —            | —   | —   |
 
 Decisões deliberadas: **Tipo só no modal** (não sai no laudo — decisão 2026-07-13); laudo exclui proprietário/data/classificadores/lotes internos (`SAMPLE_EXPORT_FIELDS_EXCLUDED_FROM_REPORT`).
 
