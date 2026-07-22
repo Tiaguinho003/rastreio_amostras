@@ -5223,18 +5223,6 @@ button:disabled {
   padding-right: var(--lotes-sheet-pad);
 }
 
-.samples-page-v2:not(.informe-commercial-page) .spv2-card-wrap {
-  background: #ffffff;
-  /* Sombra um pouco mais marcada (mobile): card branco sobre o sheet branco
-     precisa da sombra pra destacar as bordas. O desktop sobrescreve pra flat
-     (box-shadow:none + hover) — entao isto so vale no mobile. */
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.08),
-    0 6px 16px rgba(0, 0, 0, 0.15),
-    0 16px 32px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
-}
-
 /* /informe tambem em BRANCO puro #ffffff (a pedido do usuario): a area dos
    registros (sheet) e os cards (.rsm-card) saem do bege, espelhando /samples e
    /clients. Cards com sombra reforcada pra definir as bordas sobre o branco. */
@@ -5879,23 +5867,22 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* ── spv2: card wrap (idle mode expandable) ──────────────────────────
-   .spv2-card-wrap envolve o botao do header (.spv2-card) + o painel
-   expandido (.spv2-card-expanded). Em modo idle, todo o visual de
-   "card" (bg/border/radius/shadow) fica no wrap — o button dentro vira
-   transparente. Em modo blend o .spv2-card sozinho mantem o styling
-   tradicional. */
+/* ── spv2: card wrap (modo idle) ─────────────────────────────────────
+   .spv2-card-wrap envolve o botao do card (.spv2-card) e a coluna do `⋯`, lado
+   a lado. Todo o visual de "card" (bg/border/radius/shadow) fica no wrap — o
+   button dentro vira transparente. Em modo blend o .spv2-card sozinho mantem o
+   styling tradicional.
+
+   RD16 M2: era `column` (card + painel expandido) e vestia gradiente + sombra
+   tripla. Agora e `row` e usa o chrome do kit: superficie branca chapada,
+   HAIRLINE e a sombra de 1px — a mesma linguagem da tabela do desktop. */
 .spv2-card-wrap {
   display: flex;
-  flex-direction: column;
-  background: linear-gradient(180deg, #ffffff 0%, #faf8f4 100%);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: clamp(14px, 4vw, 16px);
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.04),
-    0 4px 12px rgba(0, 0, 0, 0.07),
-    0 8px 24px rgba(0, 0, 0, 0.03),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  align-items: stretch;
+  background: var(--fv-surface);
+  border: 1px solid var(--fv-line);
+  border-radius: var(--fv-radius-lg);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   overflow: hidden;
   flex-shrink: 0;
   animation: spv2-cardIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) backwards;
@@ -5924,7 +5911,7 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
 @media (min-width: 901px) {
   .samples-page-v2:not(.informe-commercial-page) .spv2-card-wrap,
   .samples-page-v2 .spv2-card.is-blend-selectable {
-    contain-intrinsic-size: auto 108px;
+    contain-intrinsic-size: auto 92px;
   }
 }
 
@@ -5950,16 +5937,6 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   filter: saturate(0.6);
 }
 
-/* Quando .is-expanded, shadow um pouco mais marcada — sinal sutil de
-   "card focado" pra distinguir do resto da lista. */
-.spv2-card-wrap.is-expanded {
-  box-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.05),
-    0 8px 20px rgba(0, 0, 0, 0.08),
-    0 16px 32px rgba(0, 0, 0, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
-}
-
 /* Button dentro do wrap: layout interno (flex row) preservado, mas
    visuais (bg/border/shadow/radius/animation) delegados ao pai. */
 .spv2-card-wrap > .spv2-card {
@@ -5979,223 +5956,56 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   transform: scale(0.99);
 }
 
-/* Chevron gira 90° (aponta pra direita -> aponta pra baixo) quando o
-   card esta expandido. Sincroniza com a animacao do painel abaixo. */
-.spv2-card-wrap.is-expanded .spv2-card-chevron {
-  transform: rotate(90deg);
-  stroke: var(--brand-green, #1f5d43);
-}
-
-/* Painel expandido — abertura natural via grid-template-rows 0fr -> 1fr.
-   Cresce ate a altura natural do conteudo sem precisar de max-height
-   fixo. Inner div com overflow:hidden + min-height:0 clipa o content
-   durante a transicao. Suporte: Chrome 117+ / Safari 17+ (iOS 17.2+).
-   Em browsers mais antigos abre/fecha sem animar (degrada bem). */
-.spv2-card-expanded {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 0.34s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.spv2-card-wrap.is-expanded .spv2-card-expanded {
-  grid-template-rows: 1fr;
-}
-
-/* Inner = grid item com overflow:hidden. Bg eh herdado do wrap
-   (continuidade visual — nao tem bg proprio). Padding lateral igual
-   ao do header pra que o conteudo alinhe verticalmente com codigo/
-   owner do header. Opacity transition com delay sutil pra que o
-   content "apareca" depois do panel comecar a abrir — sensacao de
-   "revelacao" natural. */
-.spv2-card-expanded-inner {
-  overflow: hidden;
-  min-height: 0;
-  padding: 0 clamp(14px, 4vw, 18px) clamp(11px, 3vw, 13px);
-  opacity: 0;
-  transition: opacity 0.22s ease 0.07s;
-}
-
-.spv2-card-wrap.is-expanded .spv2-card-expanded-inner {
-  opacity: 1;
-}
-
-/* Ao expandir, sacas/safra do header ficam levemente mais grossas (mais
-   nitidas). So o peso muda — sem mexer no tamanho, pra nao reflow a linha. */
-.spv2-card-wrap.is-expanded .spv2-card-detail {
-  font-weight: 600;
-}
-
-/* Divider sutil no topo. Gradiente que fade nas bordas pra nao parecer
-   um corte brusco. Extende edge-to-edge via margem negativa que cancela
-   o padding lateral do inner. */
-.spv2-card-expanded-inner::before {
-  content: '';
-  display: block;
-  height: 1px;
-  margin: 0 calc(-1 * clamp(14px, 4vw, 18px)) clamp(10px, 2.8vw, 12px);
-  background: linear-gradient(
-    to right,
-    transparent 0%,
-    rgba(0, 0, 0, 0.07) 18%,
-    rgba(0, 0, 0, 0.07) 82%,
-    transparent 100%
-  );
-}
-
-.spv2-card-stats-grid {
-  /* Todos os dados numa UNICA linha de colunas IGUAIS. grid-auto-flow:column +
-     grid-auto-columns:minmax(0,1fr) cria uma coluna por item VISIVEL — 4 stats
-     no mobile (Local/Padrão/Aspecto/Catação); 4 stats + N peneiras no desktop
-     (peneiras viram colunas extras, ver .spv2-card-stat--peneira). Quanto mais
-     campos, mais estreitas as colunas: o layout se ajusta sozinho a quantidade,
-     sem nunca quebrar pra 2a linha. min-width:0 + ellipsis no label/value
-     garantem que nada transborde nem se sobreponha. */
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
-  gap: 0 clamp(6px, 2vw, 9px);
-  margin-bottom: clamp(11px, 3vw, 13px);
-}
-
-/* Peneiras entram so no desktop (mobile mantem so os 4 stats no card menor).
-   display:none remove o item do grid → nao cria coluna no mobile. Classe dupla
-   (0,2,0) pra vencer o `.spv2-card-stat { display:flex }` que vem logo abaixo,
-   independente da ordem. */
-.spv2-card-stat.spv2-card-stat--peneira {
-  display: none;
-}
-
-.spv2-card-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.spv2-card-stat-label {
-  font-size: clamp(9px, 2.4vw, 10px);
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  /* Nome do dado em verde (marca). So o nome — o valor continua escuro. */
-  color: var(--brand-green);
-  line-height: 1.2;
-  /* Single-line: nunca quebra nem transborda — trunca se faltar largura. */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Dado ausente (valor "—"): nome em cinza apagado, sinalizando que nao ha
-   informacao (igual ao tom do proprio "—" do valor). */
-.spv2-card-stat.is-empty .spv2-card-stat-label {
-  color: rgba(0, 0, 0, 0.3);
-}
-
-.spv2-card-stat-value {
-  /* block (nao inline-flex) pra que text-overflow: ellipsis trunque o texto
-     simples de forma confiavel dentro da celula 1fr. Fonte reduzida pra
-     acomodar os 4 dados numa unica linha sem transbordar. */
-  display: block;
-  max-width: 100%;
-  font-size: clamp(11.5px, 3vw, 13px);
-  font-weight: 600;
-  color: #2a3d2f;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.25;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.spv2-card-stat-value--empty {
-  color: rgba(0, 0, 0, 0.3);
-  font-weight: 500;
-  font-style: italic;
-}
-
-/* Peneiras no card expandido — DESKTOP only (mobile mantem so os 4 stats). So
-   as peneiras COM valor entram (ver SampleCard.filledPeneiras). Cada peneira e
-   um .spv2-card-stat normal: aparecer no desktop = virar mais uma coluna 1fr na
-   mesma linha dos stats. Gap um pouco maior pra respirar com mais colunas. */
-@media (min-width: 901px) {
-  .spv2-card-stat.spv2-card-stat--peneira {
-    display: flex;
-  }
-
-  .spv2-card-stats-grid {
-    gap: 0 clamp(10px, 1.1vw, 18px);
-  }
-}
-
-/* Acoes do card expandido: 3 botoes numa UNICA linha (Enviar | Perda | Detalhes).
-   Colunas iguais (minmax(0,1fr) => nunca quebra em 2 linhas, nao aumenta o card);
-   labels curtos sem icone. box-sizing:border-box (global) mantem as 3 alturas
-   iguais mesmo com o outline de 1.5px do Enviar/Perda. */
-.spv2-card-actions {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: clamp(6px, 2vw, 8px);
-}
-
-.spv2-card-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-  padding: clamp(8px, 2.4vw, 10px) clamp(6px, 2vw, 10px);
+/* `⋯` do card: coluna IRMA do botao, nao filha — botao dentro de botao e HTML
+   invalido. Sem `position: absolute`, entao nao briga com o `overflow: hidden`
+   do wrap nem com o `content-visibility` dos cards fora de tela. */
+.spv2-card-dots {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  align-self: stretch;
+  width: clamp(38px, 10.5vw, 44px);
+  padding: 0;
   border: 0;
-  border-radius: clamp(9px, 2.6vw, 10px);
+  border-left: 1px solid var(--fv-line);
   background: transparent;
-  font-family: inherit;
-  font-size: clamp(12px, 3.2vw, 13px);
-  font-weight: 600;
-  line-height: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-decoration: none;
+  color: var(--fv-chip-gray-fg);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition:
-    transform 0.1s ease,
-    box-shadow 0.15s ease;
+  transition: transform 140ms ease;
 }
 
-/* skill button-press-effect: so profundidade (scale), sem mudar a cor no tap. */
-.spv2-card-action:active:not(:disabled) {
-  transform: scale(0.98);
+.spv2-card-dots svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  fill: currentColor;
+  stroke: none;
 }
 
-.spv2-card-action:disabled {
-  opacity: 0.45;
-  cursor: default;
+.spv2-card-dots:active {
+  transform: scale(0.92);
 }
 
-/* Detalhes — primario verde (mantem o visual do antigo "Ver detalhes"). */
-.spv2-card-action.is-detail {
-  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
-  color: #ffffff;
-  box-shadow: 0 3px 10px rgba(31, 93, 67, 0.2);
-}
 @media (hover: hover) {
-  .spv2-card-action.is-detail:hover {
-    box-shadow: 0 5px 14px rgba(31, 93, 67, 0.28);
+  .spv2-card-dots:hover {
+    background: var(--fv-hover);
+    color: var(--ink);
   }
 }
 
-/* Enviar — outline azul. */
-.spv2-card-action.is-send {
-  background: #ffffff;
-  color: #2980b9;
-  border: 1.5px solid currentColor;
+/* Chip de status: o MESMO `.fv-chip` da tabela do desktop. Antes era o
+   `.spv2-card-badge`, com paleta propria que divergia da tabela — "Em aberto"
+   azul aqui e verde la, "Vendido" verde aqui e cinza la. Encostado na direita
+   da linha do numero. */
+.spv2-card-wrap .spv2-card-top .fv-chip {
+  margin-left: auto;
+  flex: none;
 }
 
-/* Perda — outline vermelho. */
-.spv2-card-action.is-loss {
-  background: #ffffff;
-  color: #c0392b;
-  border: 1.5px solid currentColor;
+/* O padding direito do card era curto pra aproximar o chevron da borda; sem
+   chevron, e a coluna do `⋯` que fecha a direita. */
+.spv2-card-wrap > .spv2-card {
+  padding-right: clamp(10px, 3vw, 12px);
 }
 
 /* ── spv2: empty state ── */
@@ -23215,19 +23025,6 @@ select.samples-filter-field-input {
     transform: translateY(0) scale(0.997);
   }
 
-  /* Card expandido (desktop): emoldura todo o card aberto com uma borda
-     verde-escura FINA — apenas RECOLORE a borda de 1px que ja existe, entao
-     NAO cresce o card — e reforca a sombra do card inteiro. Deixa explicito
-     qual informacao pertence a qual card quando varios estao abertos ao
-     mesmo tempo. Especificidade (0,4,0) vence o chrome base (box-shadow:none)
-     e o hover. */
-  .samples-page-v2:not(.informe-commercial-page) .spv2-card-wrap.is-expanded {
-    border-color: #1f5d43;
-    box-shadow:
-      0 10px 26px rgba(19, 35, 24, 0.16),
-      0 3px 8px rgba(19, 35, 24, 0.09);
-  }
-
   /* Linha dentro do wrap: so layout, sem chrome (o wrap carrega tudo). A
      elevacao (translateY)/scale do hover/active fica no wrap, nao na linha
      (senao dobraria). */
@@ -32310,8 +32107,7 @@ body.is-selection-mode .ctr-page .cc-tabs {
     animation: none;
   }
 
-  .spv2-card-chevron,
-  .spv2-card-expanded {
+  .spv2-card-chevron {
     transition: none;
   }
 }
@@ -33423,6 +33219,32 @@ body.is-selection-mode .ctr-page .cc-tabs {
   padding: 0.55rem 0.7rem;
   font-size: 0.82rem;
   color: var(--muted);
+}
+
+/* Os mesmos itens, dentro de um SHEET em vez de um popover ancorado: perde a
+   moldura (posicao, borda, sombra) e vira lista de largura total, com alvo de
+   toque de dedo. Usado pelo `⋯` do card da lista no mobile, onde ancorar um
+   popover nao e opcao — o card tem `overflow: hidden` e recortaria o menu. */
+.fv-more-menu.is-sheet {
+  position: static;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  gap: 2px;
+}
+
+.fv-more-menu.is-sheet .fv-more-item {
+  padding: 0.85rem 0.9rem;
+  font-size: 0.95rem;
+  border-radius: var(--fv-radius);
+  transition: transform 140ms ease;
+}
+
+.fv-more-menu.is-sheet .fv-more-item:active {
+  background: var(--fv-active-bg);
+  transform: scale(0.985);
 }
 
 /* Tab-strip (molde ARIA do .cad-tabs; visual institucional). */

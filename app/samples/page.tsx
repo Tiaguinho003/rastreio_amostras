@@ -40,6 +40,7 @@ import {
   type SelectedSampleSummary,
 } from '../../components/samples/SelectedSamplesDropdown';
 import { SelectionModeHeader } from '../../components/samples/SelectionModeHeader';
+import { SampleCardActionsSheet } from '../../components/samples/SampleCardActionsSheet';
 import { PlaygroundMobileNotice } from '../../components/playground/PlaygroundMobileNotice';
 import {
   ApiError,
@@ -66,6 +67,7 @@ import {
 } from '../../lib/samples/blend-selection';
 import { useListRevalidation } from '../../lib/use-list-revalidation';
 import { buildHarvestPresets } from '../../lib/sample-identification';
+import { sampleStatusDisplay } from '../../lib/sample-display';
 import { useToast } from '../../lib/toast/ToastProvider';
 import type {
   ActiveBlendDetail,
@@ -95,14 +97,10 @@ function toClassText(value: unknown): string {
 }
 
 function describeSampleRow(sample: SampleSnapshot) {
-  const isInvalidated = sample.status === 'INVALIDATED';
-  const status = isInvalidated
-    ? { label: 'Deletado', chip: 'fv-chip-gray' }
-    : sample.commercialStatus === 'SOLD'
-      ? { label: 'Vendido', chip: 'fv-chip-gray' }
-      : sample.commercialStatus === 'LOST'
-        ? { label: 'Perdido', chip: 'fv-chip-red' }
-        : { label: 'Em aberto', chip: 'fv-chip-green' };
+  // Rotulo/chip vem da fonte unica (lib/sample-display): a tabela do desktop e o
+  // card do mobile mostram a MESMA amostra e divergiam nas cores.
+  const status = sampleStatusDisplay(sample);
+  const isInvalidated = status.isInvalidated;
 
   const available = sample.availableSacks;
   const declared = sample.declared.sacks;
@@ -476,8 +474,6 @@ interface SamplesSnapshot {
   searchInput: string;
   appliedSearch: string;
   appliedHiddenFilters: HiddenFilters;
-  // Ids dos cards expandidos (versao estendida) no momento de sair.
-  expandedSampleIds: string[];
   // Hora do ultimo save (≈ hora de sair da Lotes). Usada pelo TTL acima.
   savedAt: number;
 }
@@ -509,10 +505,8 @@ function readSamplesSnapshot(): SamplesSnapshot | null {
     }
     delete mergedHiddenFilters.harvest;
     parsed.appliedHiddenFilters = mergedHiddenFilters;
-    // Snapshots antigos podem nao ter expandedSampleIds (cards expandidos).
-    parsed.expandedSampleIds = Array.isArray(parsed.expandedSampleIds)
-      ? parsed.expandedSampleIds
-      : [];
+    // Snapshots gravados antes do RD16 M2 ainda trazem `expandedSampleIds` (os
+    // cards expandidos). O campo e simplesmente ignorado — nao ha o que migrar.
     return parsed as SamplesSnapshot;
   } catch {
     return null;
@@ -742,12 +736,6 @@ function SamplesPage() {
   // transition em `.bottom-sheet` + margem). Sem o delayed unmount, o
   // conditional render desmontava antes da animacao rodar e o user nao
   // via o sheet "correndo" pra baixo.
-  // Expandable cards: ids dos cards expandidos. Multiplos podem ficar
-  // abertos simultaneamente (decisao UX). Tap no card expande/contrai;
-  // navegacao pra detalhe so via botao "Ver detalhes" dentro do painel.
-  const [expandedSampleIds, setExpandedSampleIds] = useState<Set<string>>(
-    () => new Set(initialSnapshot?.expandedSampleIds ?? [])
-  );
   const [newSampleModalOpen, setNewSampleModalOpen] = useState(false);
   const [newSampleModalMounted, setNewSampleModalMounted] = useState(false);
   // Incrementa apos criar amostra via FAB/botao pra forcar refetch da lista
@@ -1538,7 +1526,6 @@ function SamplesPage() {
     searchInput,
     appliedSearch,
     appliedHiddenFilters,
-    expandedSampleIds,
   });
   snapshotInputsRef.current = {
     items: samplesState.items,
@@ -1547,7 +1534,6 @@ function SamplesPage() {
     searchInput,
     appliedSearch,
     appliedHiddenFilters,
-    expandedSampleIds,
   };
 
   // Flush sincrono do snapshot — cinto de seguranca pro caso "rolei e cliquei
@@ -1567,7 +1553,6 @@ function SamplesPage() {
       searchInput: snap.searchInput,
       appliedSearch: snap.appliedSearch,
       appliedHiddenFilters: snap.appliedHiddenFilters,
-      expandedSampleIds: Array.from(snap.expandedSampleIds),
       savedAt: Date.now(),
     });
   }, []);
@@ -1590,7 +1575,6 @@ function SamplesPage() {
         searchInput,
         appliedSearch,
         appliedHiddenFilters,
-        expandedSampleIds: Array.from(expandedSampleIds),
         savedAt: Date.now(),
       });
     }, 250);
@@ -1603,7 +1587,6 @@ function SamplesPage() {
     searchInput,
     appliedSearch,
     appliedHiddenFilters,
-    expandedSampleIds,
   ]);
 
   // Scroll nao e estado React — listener dedicado (debounce 200ms) mantem o
@@ -1667,16 +1650,6 @@ function SamplesPage() {
     setSelectedSamples((prev) => toggleSelection(prev, sample));
   }, []);
 
-  // Toggle do card expandido. Multiplos podem ficar abertos.
-  const toggleCardExpand = useCallback((sampleId: string) => {
-    setExpandedSampleIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(sampleId)) next.delete(sampleId);
-      else next.add(sampleId);
-      return next;
-    });
-  }, []);
-
   // Acoes do card: hidratam o detalhe (version fresco + activeBlends) e abrem o
   // fluxo na propria lista. Estaveis (card memoizado).
   // F3: as duas operacoes tambem saem do ⋯ do HERO do drawer, que so tem o id
@@ -1727,6 +1700,32 @@ function SamplesPage() {
     },
     [openLossBySampleId]
   );
+
+  // `⋯` do card (mobile): o painel de acoes e UM so, montado pela pagina, com o
+  // lote alvo em state. Um sheet por card custaria caro numa lista longa e
+  // brigaria com o `content-visibility` dos cards fora de tela.
+  const [cardActionsTarget, setCardActionsTarget] = useState<SampleSnapshot | null>(null);
+  const openCardActions = useCallback((sample: SampleSnapshot) => {
+    setCardActionsTarget(sample);
+  }, []);
+  // Mesma derivacao da linha da tabela — os gates do painel de acoes e os do ⋯
+  // do desktop tem que ser os mesmos, senao a acao existe num lado e no outro
+  // nao.
+  const cardActionsRow = cardActionsTarget ? describeSampleRow(cardActionsTarget) : null;
+  const closeCardActions = useCallback(() => {
+    setCardActionsTarget(null);
+  }, []);
+  const handleCardDelete = useCallback(
+    (sample: SampleSnapshot) => {
+      // Mesmo caminho do ⋯ da tabela: o drawer abre ja com a confirmacao de
+      // exclusao (?acao=deletar), que e onde a regra de negocio mora.
+      openLote(sample.id, 'deletar');
+    },
+    [openLote]
+  );
+  const handleCardPrintLabel = useCallback((sample: SampleSnapshot) => {
+    setPrintTarget(sample);
+  }, []);
 
   const showIneligibleReason = useCallback(
     (reason: SampleEligibilityReason) => {
@@ -3117,10 +3116,7 @@ function SamplesPage() {
                   isSelected={selectedSamples.has(sample.id)}
                   onToggleSelect={toggleSampleSelection}
                   onShowIneligibleReason={showIneligibleReason}
-                  isExpanded={expandedSampleIds.has(sample.id)}
-                  onToggleExpand={toggleCardExpand}
-                  onSend={handleCardSend}
-                  onLoss={handleCardLoss}
+                  onOpenActions={openCardActions}
                 />
               ))}
 
@@ -3229,8 +3225,28 @@ function SamplesPage() {
         onProceed={handleProceedToCreate}
       />
 
-      {/* Acoes do card expandido (lista): envio (fluxo extraido) + perda (modal
-          reusado), hidratados no clique. Refetch via newSampleRefetchKey. */}
+      {/* `⋯` do card (mobile): a lista COMPLETA de acoes do lote, a mesma do ⋯ da
+          linha da tabela. Um painel so pra lista inteira; o alvo vem do state. */}
+      <SampleCardActionsSheet
+        sample={cardActionsTarget}
+        lotLabel={cardActionsRow?.lot ?? ''}
+        canSend={cardActionsRow?.canSend ?? false}
+        canLoss={cardActionsRow?.canLoss ?? false}
+        canDelete={cardActionsRow?.canDelete ?? false}
+        onClose={closeCardActions}
+        onOpenDetails={(sample) => {
+          saveSnapshotBeforeLeave();
+          openLote(sample.id);
+        }}
+        onSend={handleCardSend}
+        onLoss={handleCardLoss}
+        onPrintLabel={handleCardPrintLabel}
+        onDelete={handleCardDelete}
+      />
+
+      {/* Acoes rapidas do lote (envio + perda), abertas pelo ⋯ da linha no
+          desktop e pelo painel de acoes no mobile. Hidratadas no clique;
+          refetch via newSampleRefetchKey. */}
       {sendTarget ? (
         <SampleSendFlow
           session={session}

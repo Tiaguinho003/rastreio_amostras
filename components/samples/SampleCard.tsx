@@ -1,108 +1,32 @@
 'use client';
 
-// Liga B1.2 + B1.4: card de sample com 2 modos.
+// Card de um lote na lista mobile. Dois modos:
 //
-// - 'idle' (default): tap expande o card; "Detalhes" abre o overlay de
-//   detalhe na propria lista (?lote=, F2 do redesign).
-// - 'blend': renderiza <button> que toggla seleção. Card ganha bolinha
-//   à esquerda (estados: vazia / preenchida-verde-check / cinza-opaca
-//   inelegível). Inelegível: card todo acinzentado, tap dispara
-//   onShowIneligibleReason em vez de toggle (Liga F1.B / F1.4).
+// - 'idle' (default): tap abre o lote (?lote=, o mesmo que a LINHA da tabela do
+//   desktop faz). O `⋯` na borda direita abre o painel de acoes.
+// - 'blend': vira <button> que toggla selecao. Ganha bolinha a esquerda
+//   (vazia / verde-com-check / cinza-opaca inelegivel). Inelegivel: card todo
+//   acinzentado, tap dispara onShowIneligibleReason em vez de toggle.
+//
+// RD16 M2: a EXPANSAO morreu. O card abria um painel com Local/Padrao/Aspecto/
+// Catacao + peneiras e tres acoes (Perda | Enviar | Detalhes), e so por ele se
+// chegava ao detalhe. Duas coisas condenaram o desenho: as peneiras nunca
+// apareciam no mobile (CSS as escondia; no desktop o card nem monta) e o
+// caminho pro lote custava dois toques onde a tabela do desktop custa um. O que
+// o painel dava de acao rapida agora esta no `⋯` — mesma lista do `⋯` da linha.
 
-import Link from 'next/link';
 import { memo } from 'react';
 
-import { formatPercentDisplay } from '../../lib/classification-format';
+import { ownerDisplayValue, sampleStatusDisplay } from '../../lib/sample-display';
 import type { SampleEligibilityReason, SampleSnapshot } from '../../lib/types';
 import { BlendBadge } from './BlendBadge';
 import { HarvestDisplay } from './HarvestDisplay';
-
-type CardStatusKind = 'open' | 'sold' | 'lost' | 'invalidated';
-
-interface CardStatus {
-  kind: CardStatusKind;
-  label: string;
-  className: string;
-}
-
-function deriveCardStatus(sample: SampleSnapshot): CardStatus {
-  if (sample.status === 'INVALIDATED') {
-    // "Deletar lote": deletados somem das listas; label mantida p/ contextos
-    // residuais (ex.: detalhe por URL). Status interno segue INVALIDATED.
-    return { kind: 'invalidated', label: 'Deletado', className: 'is-card-invalid' };
-  }
-  if (sample.commercialStatus === 'SOLD') {
-    return { kind: 'sold', label: 'Vendido', className: 'is-card-sold' };
-  }
-  if (sample.commercialStatus === 'LOST') {
-    return { kind: 'lost', label: 'Perdido', className: 'is-card-lost' };
-  }
-  return { kind: 'open', label: 'Em aberto', className: 'is-card-open' };
-}
-
-// Limite de caracteres por dado do card expandido (4 numa unica linha). O
-// CSS ja trunca com reticencias (text-overflow) e impede transbordar o
-// card; este teto e um reforco pra um valor longo nao empurrar o layout.
-// Limites menores que no 2x2 porque cada celula agora ocupa ~1/4 da largura.
-// "Local" tem um pouco mais de folga (nome de lugar); padrao/aspecto/catacao
-// sao curtos por natureza.
-const EXPANDED_STAT_LIMIT = {
-  location: 16,
-  padrao: 12,
-  aspecto: 12,
-  catacao: 12,
-};
-
-function formatExpandedStat(raw: unknown, max: number): string | null {
-  if (raw === null || raw === undefined) return null;
-  const text = String(raw).trim();
-  if (text === '') return null;
-  return text.length > max ? `${text.slice(0, max)}…` : text;
-}
-
-// Peneiras (sub-obj `peneiras` da ultima classificacao): ordem VISUAL da ficha
-// (P18,P17,P16,MK,P15 na 1a linha; P14..P10 na 2a). So as preenchidas entram no
-// card expandido (desktop) — ver `filledPeneiras`.
-const PENEIRA_ORDER = [
-  'p18',
-  'p17',
-  'p16',
-  'mk',
-  'p15',
-  'p14',
-  'p13',
-  'p12',
-  'p11',
-  'p10',
-] as const;
-const PENEIRA_LABELS: Record<(typeof PENEIRA_ORDER)[number], string> = {
-  p18: 'P18',
-  p17: 'P17',
-  p16: 'P16',
-  mk: 'MK',
-  p15: 'P15',
-  p14: 'P14',
-  p13: 'P13',
-  p12: 'P12',
-  p11: 'P11',
-  p10: 'P10',
-};
-
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function peneiraValueText(raw: unknown): string | null {
-  // Peneiras são percentuais: mesmo sufixo "%" do laudo/detalhe (CL19).
-  return formatPercentDisplay(raw);
-}
 
 export type SampleCardSelectionMode = 'idle' | 'blend';
 
 export interface SampleCardProps {
   sample: SampleSnapshot;
-  /** Callback executado no clique em "Detalhes", antes de abrir/navegar
-   *  (preserva snapshot na sessionStorage). */
+  /** Executado antes de abrir o lote (preserva o snapshot na sessionStorage). */
   onClickCapture?: () => void;
   /** Liga B1.4 — modo selecao. 'idle' default mantem comportamento atual. */
   selectionMode?: SampleCardSelectionMode;
@@ -111,19 +35,12 @@ export interface SampleCardProps {
   /** Liga B1.4 — tap em card elegivel no modo blend. Recebe o snapshot inteiro:
    *  a selecao da liga guarda o item (nao so o id) pra sobreviver a busca. */
   onToggleSelect?: (sample: SampleSnapshot) => void;
-  /** Liga B1.4 — tap em card inelegivel no modo blend (mostra tooltip/toast com motivo). */
+  /** Liga B1.4 — tap em card inelegivel no modo blend (mostra o motivo). */
   onShowIneligibleReason?: (reason: SampleEligibilityReason) => void;
-  /** Modo idle: card expandido (mostra painel com infos principais). */
-  isExpanded?: boolean;
-  /** Modo idle: toggla expansao do card. */
-  onToggleExpand?: (sampleId: string) => void;
-  /** Acao Enviar (card expandido): abre o fluxo de envio na propria lista. */
-  onSend?: (sample: SampleSnapshot) => void;
-  /** Acao Perda (card expandido): abre o modal de perda na propria lista. */
-  onLoss?: (sample: SampleSnapshot) => void;
-  /** F2 (redesign): "Detalhes" abre o OVERLAY na propria lista (?lote=) em vez
-   *  de navegar; o href segue valido como deep-link. */
+  /** Tap no card: abre o OVERLAY do lote na propria lista (?lote=). */
   onOpenDetails?: (sampleId: string) => void;
+  /** `⋯`: abre o painel de acoes do lote. */
+  onOpenActions?: (sample: SampleSnapshot) => void;
 }
 
 function SampleCardComponent({
@@ -133,23 +50,49 @@ function SampleCardComponent({
   isSelected = false,
   onToggleSelect,
   onShowIneligibleReason,
-  isExpanded = false,
-  onToggleExpand,
-  onSend,
-  onLoss,
   onOpenDetails,
+  onOpenActions,
 }: SampleCardProps) {
-  const cardStatus = deriveCardStatus(sample);
+  const cardStatus = sampleStatusDisplay(sample);
   const availableSacks = sample.availableSacks;
   // Liga: no card a safra multipla vira o badge "Mix" (HarvestDisplay,
   // showMixSafras=false); o detalhe da amostra mostra o Mix + as safras.
   const hasHarvest = Boolean(sample.declared.harvest?.trim());
-  // Acoes do card expandido (idle): Enviar gated por status (canPhysicalSend);
-  // Perda por status + saldo. Espelha o gating do detalhe.
-  const commercialAllowed =
-    sample.status === 'REGISTRATION_CONFIRMED' || sample.status === 'CLASSIFIED';
-  const canSend = commercialAllowed;
-  const canLoss = commercialAllowed && (availableSacks ?? 0) > 0;
+  const lotCode = sample.internalLotNumber ?? sample.id;
+
+  // Miolo do card — identico nos dois modos, por isso mora numa variavel.
+  const content = (
+    <div className="spv2-card-content">
+      <div className="spv2-card-top">
+        <span className="spv2-card-code">{lotCode}</span>
+        {sample.isBlend ? <BlendBadge size="sm" /> : null}
+        <span className={`fv-chip ${cardStatus.chip}`}>{cardStatus.label}</span>
+      </div>
+      <div className="spv2-card-bottom">
+        <span className="spv2-card-owner">{ownerDisplayValue(sample) || '—'}</span>
+        <span className="spv2-card-sep" />
+        <span className="spv2-card-detail">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="2" y="7" width="20" height="14" rx="2" />
+            <path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" />
+          </svg>
+          {availableSacks === null || availableSacks === undefined ? '—' : availableSacks} sacas
+        </span>
+        {hasHarvest ? (
+          <>
+            <span className="spv2-card-sep" />
+            <span className="spv2-card-detail">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <path d="M16 2v4M8 2v4M3 10h18" />
+              </svg>
+              <HarvestDisplay harvest={sample.declared.harvest} showMixSafras={false} />
+            </span>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
 
   // Liga B1.4: branching idle vs blend.
   if (selectionMode === 'blend') {
@@ -165,7 +108,7 @@ function SampleCardComponent({
 
     const cardClassName = [
       'spv2-card',
-      cardStatus.className,
+      cardStatus.modifier,
       'is-blend-selectable',
       isIneligible ? 'is-ineligible-blend' : '',
       isSelected ? 'is-blend-selected' : '',
@@ -196,209 +139,44 @@ function SampleCardComponent({
             </svg>
           ) : null}
         </span>
-        <div className="spv2-card-content">
-          <div className="spv2-card-top">
-            <span className="spv2-card-code">{sample.internalLotNumber ?? sample.id}</span>
-            {sample.isBlend ? <BlendBadge size="sm" /> : null}
-            <span className="spv2-card-badge">{cardStatus.label}</span>
-          </div>
-          <div className="spv2-card-bottom">
-            <span className="spv2-card-owner">
-              {sample.isBlend && sample.blendOwnerPinned && !sample.ownerClientId
-                ? 'Carteira da corretora'
-                : sample.declared.owner || '—'}
-            </span>
-            <span className="spv2-card-sep" />
-            <span className="spv2-card-detail">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <rect x="2" y="7" width="20" height="14" rx="2" />
-                <path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" />
-              </svg>
-              {availableSacks === null || availableSacks === undefined ? '—' : availableSacks} sacas
-            </span>
-            {hasHarvest ? (
-              <>
-                <span className="spv2-card-sep" />
-                <span className="spv2-card-detail">
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <rect x="3" y="4" width="18" height="18" rx="2" />
-                    <path d="M16 2v4M8 2v4M3 10h18" />
-                  </svg>
-                  <HarvestDisplay harvest={sample.declared.harvest} showMixSafras={false} />
-                </span>
-              </>
-            ) : null}
-          </div>
-        </div>
+        {content}
       </button>
     );
   }
 
-  // Modo idle (default) — tap expande painel com infos principais.
-  // Navegacao pra detalhe so via botao "Ver detalhes" dentro do painel.
-  const handleHeaderClick = () => {
-    onToggleExpand?.(sample.id);
-  };
-
-  const declared = sample.declared;
-  // 4 dados principais do card expandido. Local vem do declarado; padrao/
-  // aspecto/catacao vem da ultima classificacao (root-level do data). Cada
-  // um cai pra "—" quando ausente (amostra ainda nao classificada).
-  const classData = sample.latestClassification?.data ?? null;
-  const localStat = formatExpandedStat(declared.location, EXPANDED_STAT_LIMIT.location);
-  const padraoStat = formatExpandedStat(classData?.padrao, EXPANDED_STAT_LIMIT.padrao);
-  const aspectoStat = formatExpandedStat(classData?.aspecto, EXPANDED_STAT_LIMIT.aspecto);
-  // Catação é percentual: sufixa "%" antes do truncamento (CL19).
-  const catacaoStat = formatExpandedStat(
-    formatPercentDisplay(classData?.catacao),
-    EXPANDED_STAT_LIMIT.catacao
-  );
-
-  // Peneiras preenchidas da ultima classificacao (so as que tem valor; pode ser
-  // 0..10). Exibidas no card expandido SO no desktop (CSS), numa unica linha.
-  const peneirasSource = isPlainRecord(classData?.peneiras) ? classData.peneiras : null;
-  const filledPeneiras = peneirasSource
-    ? PENEIRA_ORDER.flatMap((key) => {
-        const value = peneiraValueText(peneirasSource[key]);
-        return value === null ? [] : [{ key, label: PENEIRA_LABELS[key], value }];
-      })
-    : [];
-
+  // Modo idle. O `⋯` e IRMAO do card, nunca filho: botao dentro de botao e HTML
+  // invalido, e ancorar um popover dentro do wrap tambem nao serve — ele tem
+  // `overflow: hidden` e `content-visibility`, que recortariam o menu. Dai o
+  // painel de acoes ser um sheet, aberto pela pagina.
   return (
-    <div className={`spv2-card-wrap ${cardStatus.className}${isExpanded ? ' is-expanded' : ''}`}>
+    <div className={`spv2-card-wrap ${cardStatus.modifier}`}>
       <button
         type="button"
         className="spv2-card"
-        onClick={handleHeaderClick}
-        aria-expanded={isExpanded}
-        aria-controls={`spv2-card-expanded-${sample.id}`}
+        onClick={() => {
+          onClickCapture?.();
+          onOpenDetails?.(sample.id);
+        }}
       >
         <span className="spv2-card-bar" />
-        <div className="spv2-card-content">
-          <div className="spv2-card-top">
-            <span className="spv2-card-code">{sample.internalLotNumber ?? sample.id}</span>
-            {sample.isBlend ? <BlendBadge size="sm" /> : null}
-            <span className="spv2-card-badge">{cardStatus.label}</span>
-          </div>
-          <div className="spv2-card-bottom">
-            <span className="spv2-card-owner">
-              {sample.isBlend && sample.blendOwnerPinned && !sample.ownerClientId
-                ? 'Carteira da corretora'
-                : sample.declared.owner || '—'}
-            </span>
-            <span className="spv2-card-sep" />
-            <span className="spv2-card-detail">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <rect x="2" y="7" width="20" height="14" rx="2" />
-                <path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" />
-              </svg>
-              {availableSacks === null || availableSacks === undefined ? '—' : availableSacks} sacas
-            </span>
-            {hasHarvest ? (
-              <>
-                <span className="spv2-card-sep" />
-                <span className="spv2-card-detail">
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <rect x="3" y="4" width="18" height="18" rx="2" />
-                    <path d="M16 2v4M8 2v4M3 10h18" />
-                  </svg>
-                  <HarvestDisplay harvest={sample.declared.harvest} showMixSafras={false} />
-                </span>
-              </>
-            ) : null}
-          </div>
-        </div>
-        <svg className="spv2-card-chevron" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="m9 6 6 6-6 6" />
-        </svg>
+        {content}
       </button>
 
-      <div
-        id={`spv2-card-expanded-${sample.id}`}
-        className="spv2-card-expanded"
-        aria-hidden={!isExpanded}
-      >
-        <div className="spv2-card-expanded-inner">
-          {/* Stats + peneiras na MESMA linha. grid-auto-flow:column +
-              grid-auto-columns:1fr cria uma coluna igual por campo VISIVEL,
-              numa unica linha — 4 stats no mobile, 4 stats + N peneiras no
-              desktop (peneiras escondidas no mobile via CSS). Quanto mais
-              campos, mais estreitas as colunas: layout e espacamento se
-              ajustam sozinhos a quantidade. */}
-          <div className="spv2-card-stats-grid">
-            <div className={`spv2-card-stat${localStat === null ? ' is-empty' : ''}`}>
-              <span className="spv2-card-stat-label">Local</span>
-              <span className="spv2-card-stat-value">
-                {localStat ?? <span className="spv2-card-stat-value--empty">—</span>}
-              </span>
-            </div>
-            <div className={`spv2-card-stat${padraoStat === null ? ' is-empty' : ''}`}>
-              <span className="spv2-card-stat-label">Padrão</span>
-              <span className="spv2-card-stat-value">
-                {padraoStat ?? <span className="spv2-card-stat-value--empty">—</span>}
-              </span>
-            </div>
-            <div className={`spv2-card-stat${aspectoStat === null ? ' is-empty' : ''}`}>
-              <span className="spv2-card-stat-label">Aspecto</span>
-              <span className="spv2-card-stat-value">
-                {aspectoStat ?? <span className="spv2-card-stat-value--empty">—</span>}
-              </span>
-            </div>
-            <div className={`spv2-card-stat${catacaoStat === null ? ' is-empty' : ''}`}>
-              <span className="spv2-card-stat-label">Catação</span>
-              <span className="spv2-card-stat-value">
-                {catacaoStat ?? <span className="spv2-card-stat-value--empty">—</span>}
-              </span>
-            </div>
-            {/* Peneiras preenchidas: mesmos campos (nome verde + valor) dos
-                demais stats, sem titulo. DESKTOP only (CSS esconde no mobile). */}
-            {filledPeneiras.map((peneira) => (
-              <div key={peneira.key} className="spv2-card-stat spv2-card-stat--peneira">
-                <span className="spv2-card-stat-label">{peneira.label}</span>
-                <span className="spv2-card-stat-value">{peneira.value}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Acoes na MESMA linha (3 colunas iguais): Perda | Enviar | Detalhes.
-              Perda/Enviar abrem o fluxo na propria lista; Detalhes navega. */}
-          <div className="spv2-card-actions">
-            <button
-              type="button"
-              className="spv2-card-action is-loss"
-              disabled={!canLoss}
-              tabIndex={isExpanded ? 0 : -1}
-              onClick={() => onLoss?.(sample)}
-            >
-              Perda
-            </button>
-            <button
-              type="button"
-              className="spv2-card-action is-send"
-              disabled={!canSend}
-              tabIndex={isExpanded ? 0 : -1}
-              onClick={() => onSend?.(sample)}
-            >
-              Enviar
-            </button>
-            <Link
-              href={`/samples?lote=${sample.id}`}
-              className="spv2-card-action is-detail"
-              onClick={(event) => {
-                // Snapshot preservado mesmo com overlay (F4 decide a morte).
-                onClickCapture?.();
-                if (onOpenDetails) {
-                  event.preventDefault();
-                  onOpenDetails(sample.id);
-                }
-              }}
-              tabIndex={isExpanded ? 0 : -1}
-            >
-              Detalhes
-            </Link>
-          </div>
-        </div>
-      </div>
+      {onOpenActions ? (
+        <button
+          type="button"
+          className="spv2-card-dots"
+          aria-haspopup="dialog"
+          aria-label={`Ações do lote ${lotCode}`}
+          onClick={() => onOpenActions(sample)}
+        >
+          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+            <circle cx="12" cy="5" r="1.6" />
+            <circle cx="12" cy="12" r="1.6" />
+            <circle cx="12" cy="19" r="1.6" />
+          </svg>
+        </button>
+      ) : null}
     </div>
   );
 }

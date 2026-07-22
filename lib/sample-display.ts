@@ -38,3 +38,58 @@ export function ownerDisplayValue(sample: SampleOwnerDisplaySource): string {
   }
   return buildReadableValue(sample.declared.owner);
 }
+
+export type SampleStatusDisplaySource = {
+  status: string;
+  commercialStatus?: string | null;
+};
+
+export type SampleStatusDisplay = {
+  /** Rotulo curto do chip. */
+  label: string;
+  /** Variante do `.fv-chip` do kit institucional. */
+  chip: 'fv-chip-gray' | 'fv-chip-red' | 'fv-chip-green';
+  /** Modificador do card da lista: pinta a barra lateral e o esmaecimento. */
+  modifier: 'is-card-invalid' | 'is-card-sold' | 'is-card-lost' | 'is-card-open';
+  isInvalidated: boolean;
+};
+
+// FONTE UNICA do status de um lote na lista. Antes a regra vivia em TRES
+// lugares e nao batia: a tabela do desktop pintava "Em aberto" de verde e
+// "Vendido" de cinza; o card do mobile pintava "Em aberto" de AZUL e "Vendido"
+// de VERDE — a mesma amostra com duas caras dependendo da largura da tela.
+//
+// "Deletar lote" invalida: deletados somem das listas, mas o rotulo sobrevive
+// pros contextos residuais (detalhe por URL). Status interno segue INVALIDATED.
+export function sampleStatusDisplay(sample: SampleStatusDisplaySource): SampleStatusDisplay {
+  if (sample.status === 'INVALIDATED') {
+    return {
+      label: 'Deletado',
+      chip: 'fv-chip-gray',
+      modifier: 'is-card-invalid',
+      isInvalidated: true,
+    };
+  }
+  if (sample.commercialStatus === 'SOLD') {
+    return {
+      label: 'Vendido',
+      chip: 'fv-chip-gray',
+      modifier: 'is-card-sold',
+      isInvalidated: false,
+    };
+  }
+  if (sample.commercialStatus === 'LOST') {
+    return {
+      label: 'Perdido',
+      chip: 'fv-chip-red',
+      modifier: 'is-card-lost',
+      isInvalidated: false,
+    };
+  }
+  return {
+    label: 'Em aberto',
+    chip: 'fv-chip-green',
+    modifier: 'is-card-open',
+    isInvalidated: false,
+  };
+}
