@@ -1,17 +1,32 @@
 ---
 name: design-system
-description: Use this skill whenever building, adjusting, or reviewing any page, component, or visual element in this PWA. Ensures consistencia visual com a linguagem de design estabelecida no dashboard e login.
+description: Use this skill whenever building, adjusting, or reviewing any page, component, or visual element in this PWA — colors, tokens, surfaces, typography, buttons, cards. §0 is the FV institutional kit and the ONLY standard for new work; §L is a legacy appendix for pages not yet redesigned. Points to containers/data-tables/forms/modals for structure.
 ---
 
 # Design System — Linguagem Visual do App
 
-Este documento define a linguagem visual do app. Toda pagina e componente DEVE seguir estes padroes para garantir consistencia. Nao inventar estilos novos — usar os padroes documentados aqui.
+Linguagem visual do app: cores, superficies, tipografia, atomos. Nao inventar estilos novos.
 
-> **⚠️ TRANSICAO EM CURSO (FV, 2026-07): o app esta migrando pagina a pagina para a linguagem
-> INSTITUCIONAL do §0 abaixo.** `/cadastros` (desktop) e o piloto CONCLUIDO e o EXEMPLO canonico.
-> Ao redesenhar uma pagina no ciclo da FV, o §0 MANDA e sobrepoe o que os §§1–13 disserem
-> (eles descrevem o app pre-FV e continuam validos SO para paginas ainda nao migradas — nao
-> "corrigir" uma pagina legada pro padrao antigo nem misturar os dois numa pagina migrada).
+> **O §0 (FV institucional) e o unico padrao para construcao nova.** Ele nasceu no piloto
+> `/cadastros` e vale para toda pagina que ja entrou no ciclo de redesenho.
+>
+> **O §L no fim do arquivo e um APENDICE LEGADO** — descreve o app pre-FV e existe so para as
+> paginas que ainda nao foram redesenhadas. Nao usar como referencia de construcao, nao "corrigir"
+> uma pagina migrada para o padrao de la, nao misturar os dois na mesma pagina.
+
+**Mapa das skills de UI** — cada pergunta tem um dono:
+
+| Pergunta                            | Skill                 |
+| ----------------------------------- | --------------------- |
+| Que cor / superficie / tipografia?  | esta (§0)             |
+| Isso abre em que superficie?        | `containers`          |
+| Como e a pagina de lista?           | `data-tables`         |
+| Como e o formulario?                | `forms`               |
+| Como e o modal central por dentro?  | `modals`              |
+| Onde escrever a regra CSS?          | `css-architecture`    |
+| Toast, banner, mensagem de erro?    | `feedback-messages`   |
+| Feedback de toque no clicavel?      | `button-press-effect` |
+| Como redesenhar uma pagina inteira? | `page-redesign-cycle` |
 
 ## 0. FV institucional — o kit do piloto `/cadastros` (padrao das proximas paginas)
 
@@ -48,19 +63,15 @@ molde das proximas paginas do ciclo (`/samples` → `/relatorios` → `/users`+`
   footer Perfil/Ajuda) + **topbar** com titulo da secao + sino + perfil (nome+papel+chevron).
   Vale pra todas as paginas desktop nao-PROSPECTOR. (AppShell NAO pode usar `useSearchParams` —
   `activeSubTab` chega por prop da pagina.)
-- Anatomia da pagina de listagem (molde `/cadastros`): **titulo grande + CTA** ("+ Novo
-  cliente"; FAB desktop morre) → **KPI row** (cards brancos hairline, icone traco+borda
-  colorido, mini-metricas com setas) → **toolbar** (busca + filtros) → **TABELA**
-  (`table-layout: fixed` + colgroup, avatar de iniciais PJ quadrado/PF circulo, chips de
-  status, icones de contato; linha abre o detalhe) → scroll infinito. **Filtros = side-sheet
-  400px** (`.fv-filter-sheet`). Menu **⋯** = acoes profundas por URL (`?cliente=<id>&acao=…`).
-  Quando a pagina tem uma **segunda acao de pagina** (nao de linha), ela fica ao lado do CTA
-  em `.fv-page-head-actions`, como `.fv-btn-secondary` — nunca na toolbar, que e so
-  busca/filtro (ex.: "Criar liga" ao lado de "+ Novo lote" em `/samples`).
+- Anatomia da pagina de listagem: **titulo grande + CTA → KPI row → toolbar → tabela → scroll
+  infinito**. O FAB desktop morre. A **segunda acao de pagina** (nao de linha) fica ao lado do CTA
+  em `.fv-page-head-actions`, nunca na toolbar — que e so busca/filtro.
+  **Molde completo, classe a classe: skill `data-tables`.**
 
 ### 0.3 Detalhe = drawer de perfil (620px)
 
-Molde do detalhe de recurso na FV (referencia "Staff details"): `DetailOverlay` 620px com
+Molde VISUAL do detalhe de recurso (referencia "Staff details"); o conteiner em si e o
+`DetailOverlay` (`containers`). Drawer de 620px com
 **hero fixo** (avatar de iniciais + ponto de status, nome, chips de papeis, contato COPIAVEL,
 fileira de acoes redondas com menu ⋯) + **abas** `.fv-cd-tabs` (sublinhado RETO — o reset
 global `button{border-radius:10px}` curvaria o border-bottom: por `border-radius: 0` na aba) +
@@ -76,55 +87,57 @@ MESMA geometria, mantidos ate a consolidacao. O que muda por recurso e so o miol
 cliente = avatar de iniciais; lote = **miniatura da foto da classificacao** (108×72, retangulo,
 placeholder tracejado quando nao ha foto).
 
-### 0.4 Modais de dentro do detalhe = PAINEIS LATERAIS
+### 0.4 Superficies que saem do detalhe
 
-TODOS os modais alcancaveis do drawer (criar/detalhe de sub-recursos, editar, preview,
-"novo anexo") viram side-sheets `stacked` com **seta ← na borda** — molde completo no §8
-"Paineis do detalhe" abaixo. Avisos/confirms continuam CENTRAIS mas centrados **dentro da
-faixa do painel** (`.fv-panel-scrim`). Sucesso = **check canonico** (`SuccessCheckOverlay`,
-ver skill `feedback-messages` — frases "... com sucesso" morreram). Modo VIEW de um detalhe
-espelha o form de edicao (campos com borda `.cudm-view-value` na MESMA ordem — view↔edit sem
-a pagina mudar de cara).
+TODOS os modais alcancaveis do drawer (criar/detalhe de sub-recurso, editar, preview, novo anexo)
+sao **paineis laterais** `stacked` com seta ← na borda. Avisos e confirms continuam CENTRAIS, mas
+centrados dentro da faixa do painel. Modo VIEW de um detalhe **espelha o form de edicao** (campos
+com borda na MESMA ordem — view↔edit sem a pagina mudar de cara).
 
-### 0.5 Campo de formulario institucional (`.fv-form-*`)
+**Qual superficie, com que props, em que tier de z-index: skill `containers`.**
 
-Molde nascido no painel de criar cliente e promovido a **generico** no ajuste pos-F3 de
-`/samples` (o `NewSampleModal` foi o primeiro a adotar): rotulo pequeno muted **acima** do
-valor, input hairline 1px `--fv-line-strong` + raio `--fv-radius` + fundo branco + anel de
-foco `0 0 0 3px rgba(23,60,48,.12)` na borda `--fv-cta`, altura minima 2.62rem.
+### 0.5 Formulario e campos
 
-- `.fv-form-body` — a pilha de linhas (gap proprio).
-- `.fv-form-heading` — micro-cabecalho small-caps com hairline (agrupa sem virar wizard).
-- `.fv-form-row` / `.fv-form-row-2col` — linha de 1 ou 2 colunas iguais.
-- `.fv-form-field` — o `<label>`; dentro dele um `<span className="fv-form-label">` (rotulo
-  INTEIRO num unico no de grid — texto solto + `<span>` do asterisco virariam DOIS itens de
-  grid e o asterisco cairia pra outra linha) e o `<input>`/`<select>`/`<textarea>`.
-- Erro: `.is-field-error` no campo + `.fv-form-input-error` no input (placeholder vermelho) e,
-  quando o campo tem valor e o placeholder nao aparece, `.fv-form-field-error` abaixo.
-- `.fv-form-actions` — rodape secundaria | primaria (`app-modal-secondary` + `app-modal-submit`).
+O kit institucional e o `.fv-form-*`: rotulo pequeno muted acima do valor, input hairline 1px
+`--fv-line-strong` + raio `--fv-radius` + fundo branco + anel de foco
+`0 0 0 3px rgba(23,60,48,.12)`, altura minima 2.62rem. Escolha entre 2–4 opcoes = `.fv-choice*`
+(cartoes lado a lado, `role="radiogroup"`), nao um modal-seletor proprio. Opcao unica = `<select>`
+nativo.
 
-`input[type='date']` ja vem com o fix WebKit **no kit** (`-webkit-appearance: none` +
-`::-webkit-date-and-time-value { min-width: 0; text-align: left }`): sem ele o input nativo
-ignora `width` e estoura a coluna numa `.fv-form-row-2col`. Nao repetir escopado.
+**Molde completo, campos compostos, erro, sucesso e descarte: skill `forms`.**
 
-Dropdown de opcao unica = **`<select>` nativo** (o popover proprio de presets de safra foi
-rejeitado pelo Flavio e deletado). Multi-select fica no `ChipMultiSelectField`.
-`.client-quick-create-*` segue como alias do cliente ate a consolidacao — mesma relacao de
-`.fv-panel-sheet` com `.client-panel-sheet`.
+### 0.6 Checklist FV
 
-### 0.6 Escolha entre poucas opcoes (`.fv-choice*`)
+Ao construir ou revisar qualquer superficie de pagina ja migrada:
 
-Campo pra 2–4 opcoes exclusivas que antes viraria um modal-seletor proprio. Estreou no envio
-da amostra (tipo "Descricao"/"Fisico" na mesma etapa dos destinatarios, 2026-07-21), quando o
-chooser central foi deletado — ver a regra no `modals` §11-A.
+- [ ] Fonte Inter; tokens `--fv-*` (nenhuma cor solta)
+- [ ] Superficie branca definida por **hairline + sombra minima** — sem gradiente quente, sem
+      sombra tripla, sem radius "fofo"
+- [ ] Cor so semantica e em dose pequena (chips, icone de KPI); o verde da marca e o CTA
+- [ ] Radius 10px (`--fv-radius`) — sm 8 / lg 12
+- [ ] Botao preenchido `--fv-cta`, texto branco; press = so scale (`button-press-effect`)
+- [ ] Botao de adicionar **nomeado** ("+ Adicionar filial"), nunca "+" solto
+- [ ] Pecas genericas em vez de alias de pagina (`.fv-tabs`, `.fv-iconbtn`, `.fv-more-*`,
+      `.fv-add-btn`) — ver `css-architecture` §8
+- [ ] Skeleton no formato do componente final, nunca "Carregando…"
+- [ ] Textos em pt-BR
 
-- `.fv-choice-group` — grid de 2 colunas iguais, `role="radiogroup"` com `aria-label`.
-- `.fv-choice` — `<button type="button" role="radio" aria-checked>`; dentro, `.fv-choice-label`
-  (0.88rem/600) e `.fv-choice-hint` (0.7rem muted, UMA linha de apoio).
-- Selecionado = `.is-selected`: hairline `--fv-cta` + anel + lavagem `rgba(23,60,48,.045)`.
-  Toque = `scale(.985)`, **sem trocar de cor** (regra do projeto).
-- Bloqueado = `disabled` + a hint ESCREVE o motivo ("Exige o lote classificado com foto") —
-  opcao apagada e muda nao ensina nada.
+---
+
+# §L — Legado: paginas ainda nao migradas
+
+> ⚠️ **Tudo daqui para baixo descreve o app PRE-FV.** Vale so para as paginas que ainda nao
+> entraram no ciclo de redesenho:
+>
+> - dashboard
+> - `/users` e `/profile`
+> - `/relatorios`
+> - `/contratos` e `/embarques`
+> - globais (senha inicial, menu da conta, login)
+>
+> **Nao usar como referencia de construcao nova.** Quando uma dessas paginas entrar no ciclo
+> (`page-redesign-cycle`), remova a linha dela desta lista e mova para o §0 o que virou padrao.
+> Quando a lista esvaziar, o §L inteiro sai.
 
 ## 1. Estrutura de Pagina
 
@@ -690,9 +703,9 @@ toast.info({ title: 'Amostra ja aberta' });
 
 Telas com estado nao-salvo devem se registrar via `useRegisterDirtyState('chave', isDirty, 'motivo')` em `lib/dirty-state/DirtyStateProvider.tsx`. Acoes globais (bipador, navegacao futura) consultam esse registro e mostram `app-confirm-modal` antes de descartar alteracoes.
 
-## Checklist de Design
+## Checklist de Design (§L — legado)
 
-Ao construir ou revisar qualquer pagina:
+> So para pagina ainda NAO migrada. Pagina do ciclo FV usa o checklist do §0.6.
 
 - [ ] Fundo verde vem do app-shell (`is-dashboard-route`), header com `background: transparent`
 - [ ] Header com `align-items: flex-end` (conteudo na base, proximo ao sheet)
