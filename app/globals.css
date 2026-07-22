@@ -34727,11 +34727,11 @@ body.is-selection-mode .ctr-page .cc-tabs {
   scrollbar-color: var(--fv-line-strong) transparent;
 }
 
-/* Mesmo tratamento no drawer do LOTE — aqui quem rola e o `.sdv-content`
-   (o corpo do sheet nao rola: hero e abas sao rigidos), entao o gutter vai
-   nele. Sem isso, trocar de aba desloca o conteudo pra esquerda. */
-.lote-details-overlay .bottom-sheet-body,
-.lote-details-overlay .sdv-content {
+/* Mesmo tratamento no drawer do LOTE. Aqui o scroller e o proprio
+   `.bottom-sheet-body` desde a RD16 M3 (o `.sdv-content` parou de rolar
+   quando o hero e as abas foram liberados). Sem o gutter, trocar de aba
+   desloca o conteudo pra esquerda. */
+.lote-details-overlay .bottom-sheet-body {
   scrollbar-gutter: stable;
   scrollbar-width: thin;
   scrollbar-color: var(--fv-line-strong) transparent;
@@ -35432,11 +35432,37 @@ body.is-selection-mode .ctr-page .cc-tabs {
    cliente; so o que nasce `fv-sd-*` e exclusivo daqui. Sem media
    query — vale no drawer desktop e no sheet mobile. */
 
-/* O .sdv-page e flex-column com o .sdv-content rolando (flex:1) — hero e abas
-   precisam ser rigidos, como era o .sdv-header. */
-.lote-details-overlay .fv-sd-hero,
+/* ── RD16 M3: o corpo INTEIRO rola (hero + abas + conteudo) ──
+   Antes o `.sdv-page` era uma coluna rigida (hero e abas `flex:none`) e quem
+   rolava era o `.sdv-content` (`flex:1; overflow-y:auto`). No mobile isso
+   deixava ~300px de hero congelado e uma JANELINHA embaixo pra rolar — o
+   conteudo do lote lia como se coubesse num visor. Agora o scroller e o
+   `.bottom-sheet-body`, que o sheet ja tinha, e o `.sdv-page` cresce com o
+   conteudo. As ABAS grudam no topo (sticky): sao a navegacao da tela e nao
+   podem ir embora junto com o hero. Vale nos dois breakpoints. */
+.lote-details-overlay .sdv-page {
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+}
+.lote-details-overlay .fv-sd-hero {
+  flex: none;
+}
 .lote-details-overlay .fv-tabs {
   flex: none;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  /* Opaca — o conteudo passa POR BAIXO. Branco = a camada de baixo do proprio
+     sheet; em repouso as abas ja caem depois do degrade verde (260px), entao
+     nao aparece emenda. */
+  background: #ffffff;
+}
+.lote-details-overlay .sdv-content {
+  /* Deixa de ser a janela de rolagem. `visible` nos dois eixos: quem corta na
+     horizontal e o `.bottom-sheet-body` (`overflow-x: hidden`). */
+  flex: none;
+  overflow: visible;
 }
 
 .lote-details-overlay .fv-sd-hero {
@@ -35518,30 +35544,33 @@ body.is-selection-mode .ctr-page .cc-tabs {
   display: none;
 }
 
-.lote-details-overlay .fv-sd-facts {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 2px 8px;
-  margin-top: 9px;
-  font-size: 0.82rem;
-  color: var(--muted);
-}
-.lote-details-overlay .fv-sd-fact {
-  color: var(--ink);
-  font-weight: 500;
-}
-.lote-details-overlay .fv-sd-fact-sep {
-  color: var(--muted);
-}
+/* `.fv-sd-facts` / `.fv-sd-fact` / `.fv-sd-fact-sep` sairam na RD16 M3 junto
+   com a linha de papel do proprietario — eram exclusivas deste hero. */
 
 .lote-details-overlay .fv-sd-actions-row {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
   margin-top: 13px;
+}
+
+/* RD16 M3 (pedido do Flavio): os quatro redondos do hero estavam de dificil
+   leitura nos DOIS breakpoints — 40px/21px do kit viram 48px/24px AQUI. O
+   `.fv-iconbtn` cru nao muda: ele serve tambem o drawer do cliente e os
+   cabecalhos de card, onde o tamanho ja esta calibrado. */
+.lote-details-overlay .fv-sd-actions-row .fv-iconbtn {
+  width: 48px;
+  height: 48px;
+}
+.lote-details-overlay .fv-sd-actions-row .fv-iconbtn svg {
+  width: 24px;
+  height: 24px;
+}
+/* Os pontinhos crescem no raio, nao na caixa (senao viram tres bolas). */
+.lote-details-overlay .fv-sd-actions-row .fv-iconbtn svg.fv-iconbtn-dots {
+  width: 22px;
+  height: 22px;
 }
 
 /* `?highlight=print` (vem da etiqueta/lista): o botao redondo pulsa ate o
@@ -35629,6 +35658,36 @@ body.is-selection-mode .ctr-page .cc-tabs {
   border-left: none;
   border-top: 1px solid var(--fv-line);
   padding-left: 0;
+}
+
+/* ── RD16 M3: no MOBILE a foto sai da ficha ──
+   Ela e a MESMA imagem da miniatura do hero (os dois leem o anexo
+   CLASSIFICATION_PHOTO do lote), e numa tela estreita repetir a ficha
+   fotografada empurrava os numeros pra bem longe do topo da aba. Some so a
+   copia da aba — a do hero fica, e ampliar continua sendo um tap nela. No
+   desktop a coluna e larga o bastante pras duas conviverem. */
+@media (max-width: 900px) {
+  .lote-details-overlay .sdv-cls-top > .sdv-cls-block-thumb,
+  .lote-details-overlay .sdv-cls-top > .sdv-cls-block-thumb-empty {
+    display: none;
+  }
+  .lote-details-overlay .fv-sd-ficha .sdv-cls-top {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* Sem a foto ao lado, a caixa toma a largura toda — Data e Classificador
+     voltam a ficar LADO A LADO, como manda a regra geral do `--mini`. */
+  .lote-details-overlay .sdv-cls-top .sdv-cls-statbox--mini {
+    flex-direction: row;
+  }
+  .lote-details-overlay
+    .sdv-cls-top
+    .sdv-cls-statbox--mini
+    .sdv-cls-statbox-row
+    + .sdv-cls-statbox-row {
+    border-left: 1px solid var(--fv-line);
+    border-top: none;
+    padding-left: 0.75rem;
+  }
 }
 
 /* Stats: Data | Classificador lado a lado, depois Aspecto/Catacao/Padrao e
@@ -35876,14 +35935,15 @@ body.is-selection-mode .ctr-page .cc-tabs {
 }
 /* A cadeia `:has(.sample-detail-commercial-pane)` do desktop trocava o scroll
    da pagina por "altura travada + scroll interno da timeline" — modelo da
-   pagina larga que, no drawer, corta o conteudo das outras abas. Aqui o scroll
-   volta a ser o do `.sdv-content` (base). Os seletores repetem o `:has` pra
-   empatar em especificidade e vencer pela ordem. */
+   pagina larga que, no drawer, corta o conteudo das outras abas. Aqui o
+   conteudo volta a FLUIR: desde a RD16 M3 quem rola e o `.bottom-sheet-body`,
+   entao o `.sdv-content` nao pode virar scroller nenhum (senao as abas sticky
+   perdem o scrollport). Os seletores repetem o `:has` pra empatar em
+   especificidade e vencer pela ordem. */
 .lote-details-overlay .sdv-content,
 .lote-details-overlay .sdv-content:has(.sample-detail-commercial-pane) {
   display: block;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: visible;
 }
 .lote-details-overlay .sdv-content > .sdv-content-inner,
 .lote-details-overlay .sdv-content:has(.sample-detail-commercial-pane) > .sdv-content-inner {

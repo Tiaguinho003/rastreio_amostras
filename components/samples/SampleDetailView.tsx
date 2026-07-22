@@ -2,15 +2,7 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import {
-  Fragment,
-  type MutableRefObject,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { QRCodeCanvas } from 'qrcode.react';
 import { BottomSheet } from '../BottomSheet';
@@ -291,21 +283,10 @@ function NoticeSlot({ notice }: { notice: Notice }) {
   );
 }
 
-// FV: a linha de fatos do hero mostra o PAPEL do cliente dono do lote
-// (Vendedor / Comprador / Armazem) — proprietario, sacas e safra saíram
-// daqui porque ja aparecem no card "Informacoes" logo abaixo. Mesma ordem e
-// mesmos rotulos dos chips de papel do drawer do cliente.
-function ownerRoleLabels(sample: SampleDetailResponse['sample']): string[] {
-  const client = sample.ownerClient;
-  if (!client) {
-    return [];
-  }
-  const roles: string[] = [];
-  if (client.isSeller) roles.push('Vendedor');
-  if (client.isBuyer) roles.push('Comprador');
-  if (client.isWarehouse) roles.push('Armazém');
-  return roles;
-}
+// RD16 M3: a linha de fatos do hero (o PAPEL do cliente dono — Vendedor /
+// Comprador / Armazem) SAIU. Papel e atributo do cliente, nao do lote: quem
+// abre o detalhe do lote quer o lote. O papel segue nos chips do drawer do
+// cliente, que e onde ele significa alguma coisa.
 
 function canEditRegistrationStatus(status: SampleStatus): boolean {
   return REGISTRATION_EDITABLE_STATUSES.includes(status);
@@ -713,7 +694,6 @@ export function SampleDetailView({
   const canSendFromHero = Boolean(onRequestSend) && commercialActionsAllowed;
   const canLossFromHero =
     Boolean(onRequestLoss) && commercialActionsAllowed && (detail?.sample.availableSacks ?? 0) > 0;
-  const ownerRoles = detail ? ownerRoleLabels(detail.sample) : [];
 
   const fetchDetail = useCallback(
     async ({ showLoading = false, eventLimit = DETAIL_EVENT_PREVIEW_LIMIT } = {}) => {
@@ -1916,28 +1896,6 @@ export function SampleDetailView({
                 ) : detail.sample.status !== 'INVALIDATED' ? (
                   <span className="fv-chip fv-chip-amber">Pendente</span>
                 ) : null}
-              </div>
-
-              {/* Papel do cliente dono (Vendedor · Comprador · Armazem), no
-                  lugar de proprietario · sacas · safra. Sem cor: os papeis
-                  aqui sao texto, nao chip — quem colore e o drawer do
-                  cliente. Lote sem cliente vinculado fica com o traco pra
-                  linha nao sumir e mexer na altura do hero. */}
-              <div className="fv-sd-facts">
-                {ownerRoles.length > 0 ? (
-                  ownerRoles.map((role, index) => (
-                    <Fragment key={role}>
-                      {index > 0 ? (
-                        <span className="fv-sd-fact-sep" aria-hidden="true">
-                          ·
-                        </span>
-                      ) : null}
-                      <span className="fv-sd-fact">{role}</span>
-                    </Fragment>
-                  ))
-                ) : (
-                  <span className="fv-sd-fact">—</span>
-                )}
               </div>
 
               <div className="fv-sd-actions-row">
