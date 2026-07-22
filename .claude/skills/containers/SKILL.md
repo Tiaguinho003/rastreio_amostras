@@ -53,6 +53,16 @@ dismiss-guard segue valendo), por regra `:has()` sobre o backdrop. O peek atrave
 só em `.detail-overlay` que ainda não passou pelo ciclo (contrato). **Página nova nasce
 bloqueante** — adicione o seletor dela ao bloco `:has()` junto com os dois.
 
+🔴 **Quem rola é o `.bottom-sheet-body`. O conteúdo não monta scroller próprio.** O
+`SampleDetailView` montava (`.sdv-page` rígido + `.sdv-content` com `overflow-y: auto`), e no
+mobile isso virava ~300px de hero congelado com uma janelinha embaixo pra ler o recurso inteiro. Na
+RD16 M3 o corpo foi liberado — `.sdv-page { height: auto; min-height: 100%; overflow: visible }` e
+`.sdv-content { flex: none; overflow: visible }` —, e as **abas** viram
+`position: sticky; top: 0; z-index: 2` com fundo opaco, pra a navegação não ir embora junto com o
+hero. Dois detalhes: (1) ao neutralizar regra legada, qualquer `overflow` que volte pro conteúdo
+tira o scrollport de baixo do sticky; (2) o `.fv-more-menu` do ⋯ do hero é `z-index: 30` no mesmo
+contexto de empilhamento, então continua passando por cima das abas.
+
 ```tsx
 <DetailOverlay
   open={Boolean(loteId)}

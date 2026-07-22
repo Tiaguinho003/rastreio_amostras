@@ -129,7 +129,7 @@ inventar especificidade maior.
 .lote-details-overlay .sdv-content,
 .lote-details-overlay .sdv-content:has(.sample-detail-commercial-pane) {
   display: block;
-  overflow-y: auto;
+  overflow: visible;
 }
 ```
 

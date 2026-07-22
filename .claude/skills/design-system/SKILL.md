@@ -82,7 +82,7 @@ molde das proximas paginas do ciclo (`/samples` → `/relatorios` → `/users`+`
 
 Molde VISUAL do detalhe de recurso (referencia "Staff details"); o conteiner em si e o
 `DetailOverlay` (`containers`). Drawer de 620px com
-**hero fixo** (avatar de iniciais + ponto de status, nome, chips de papeis, contato COPIAVEL,
+**hero** (avatar de iniciais + ponto de status, nome, chips de papeis, contato COPIAVEL,
 fileira de acoes redondas com menu ⋯) + **abas** `.fv-cd-tabs` (sublinhado RETO — o reset
 global `button{border-radius:10px}` curvaria o border-bottom: por `border-radius: 0` na aba) +
 conteudo em coluna unica; grafico de LINHAS (SVG manual, stroke 1.4) no lugar de donut;
@@ -90,12 +90,22 @@ conteudo em coluna unica; grafico de LINHAS (SVG manual, stroke 1.4) no lugar de
 BLOQUEANTE** (pagina escurecida e nao-clicavel atras — no cliente o "peek swap" morreu de
 proposito; avaliar por pagina).
 
+🔴 **O hero NAO fica travado.** Era fixo no molde original; no lote (RD16 M3) ele rola junto com o
+corpo e so as ABAS grudam (sticky) — num celular o hero congelado comia ~300px e sobrava uma
+janelinha pra ler o recurso. Quem rola e o `.bottom-sheet-body`: ver `containers` §DetailOverlay.
+
 **Pecas genericas do molde** (sem escopo, use estas em pagina nova): `.fv-tabs`/`.fv-tab` (a
 faixa de abas), `.fv-iconbtn` (+ `.fv-iconbtn-dots`) para as acoes redondas do hero e
 `.fv-more-wrap`/`-menu`/`-item`/`-empty` para o ⋯. Os `.fv-cd-*` do cliente sao aliases com a
 MESMA geometria, mantidos ate a consolidacao. O que muda por recurso e so o miolo do hero:
 cliente = avatar de iniciais; lote = **miniatura da foto da classificacao** (108×72, retangulo,
-placeholder tracejado quando nao ha foto).
+placeholder tracejado quando nao ha foto). O `.fv-iconbtn` cru e 40px/svg 21px; no hero do LOTE
+sobe pra **48px/24px** (RD16 M3, `.lote-details-overlay .fv-sd-actions-row`) — divergencia
+deliberada, nao "consertar" igualando.
+
+O hero do lote **nao tem linha de fatos**: a `.fv-sd-facts` (papel do cliente dono) saiu na RD16
+M3 — papel e atributo do cliente, nao do recurso aberto. Miolo do hero so com o que identifica o
+proprio recurso.
 
 ### 0.4 Superficies que saem do detalhe
 
