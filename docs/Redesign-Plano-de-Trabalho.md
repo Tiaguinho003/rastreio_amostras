@@ -421,6 +421,29 @@ Seis commits (`c1cde37`, `62f870c`, `afee7fe`, `70f1131`, `dc3b836`, mais `15d9c
 - Modo Liga em `/samples`: o header verde de seleção aparece **abaixo** da faixa (a barra na base é a M2).
 - Desktop ≥901px: **nada muda** — a faixa é `display:none` e o chrome segue `.app-topbar` + sidenav.
 
+#### Rodada 1 do M1 — canvas branco (2026-07-22, `724d671`)
+
+Conferência do Flavio: _"vejo a divisão dos verdes do header e do background… header, background e área para as informações, isso deixa confuso e bagunçado"_. A verificação confirmou e ampliou o diagnóstico — eram **4 camadas de fundo com 3 verdes diferentes**:
+
+| #   | Camada                                      | Cor                                                                                                                            |
+| --- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | `.mobile-edge-shell::before` (tela inteira) | `#1f5d43` chapado                                                                                                              |
+| 2   | `.app-shell-main`                           | 4 comportamentos por rota: branco opaco · gradiente `#1f5d43`→**`#14372a`** + faixa `#f4f6f5` nos 40% de baixo · `transparent` |
+| 3   | `.fv-mtopbar`                               | `#1f5d43` chapado                                                                                                              |
+| 4   | sheet da página                             | claro, com `border-radius: 20px 20px 0 0`                                                                                      |
+
+Dois achados: o **`#14372a` não era token** (`--brand-green-deep` é `#173c30`) — um terceiro verde hardcoded numa regra só; e a camada 1 era **invisível em quase todo lugar** (coberta pela 2 nas rotas em camada, pelo branco opaco em `/cadastros`), existindo de fato só para `/contratos` e `/embarques`.
+
+**Causa**: o desenho original era _"fundo verde de tela cheia + sheet claro deslizando por cima"_ — daí o radius de 20px, o `::before` verde e o truque do gradiente `transparent 60%` (para o rubber-band do rodapé não revelar verde). Quando os sheets viraram brancos e passaram a ocupar a tela toda, **o verde perdeu a função e ninguém o removeu**. `--mobile-page-bg: #ffffff` já existia desde 2026-06-22, anulado pelo `::before`.
+
+**Decisões do Flavio**: canvas **branco puro `#ffffff`** (não `--fv-canvas`) e faixa em **`--brand-green` `#1f5d43` chapado** (a mesma cor do `theme-color`, para o topo ser uma peça sem costura).
+
+O que mudou: o fundo do `.app-shell-main` voltou a ser **uma regra** (a base) — as variantes por rota não pintam mais nada e o `::before` saiu do app autenticado; os sheets perderam o radius do topo; e **tudo que era branco-sobre-verde na faixa intermediária ganhou tinta escura**, senão sumiria — saudação do dashboard, card de perfil do `/profile`, sub-abas dos hubs (deleção limpa: a base `.cad-tab` já é feita para fundo claro) e a pill de busca, que troca a sombra flutuante por **hairline `--fv-line`**. O refino da busca para `.fv-input` fica no M2.
+
+**PROSPECTOR fora**, como no resto do RD16: sem faixa, o desenho antigo depende do verde de tela cheia. Todas as regras pendem de `:has(.fv-mtopbar)` e o verde dele é restaurado explicitamente.
+
+**A conferir junto com o resto do M1**: nenhuma faixa verde além da do topo em nenhuma página; a status bar continua verde e emenda na faixa sem linha visível; saudação do dashboard, nome/papel no `/profile` e sub-abas de `/contratos`/`/embarques`/`/samples` **legíveis** (tinta escura, não branca); a barra de busca com borda fina em vez de sombra; e o dashboard do PROSPECTOR **inalterado**, ainda verde.
+
 **Próximo**: M2 (lista de Lotes — card sem expansão, KPI em carrossel, busca/filtros fora do hero, FAB reskin, modo seleção na base).
 
 ## 3. O que NÃO muda

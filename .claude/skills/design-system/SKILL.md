@@ -143,11 +143,29 @@ Ao construir ou revisar qualquer superficie de pagina ja migrada:
 
 Toda pagina autenticada segue o padrao **Fundo Verde (app-shell) + Header Transparente + Sheet Bege**:
 
-### Fundo Verde (app-shell)
+### Fundo Verde (app-shell) — MORREU na M1 do RD16 (2026-07-22)
 
-- O verde vem do `app-shell-main.is-dashboard-route`: `linear-gradient(180deg, #1f5d43 0%, #14372a 100%)`
-- O topo DEVE ser `#1f5d43` (mesma cor do `theme-color` e da status bar)
-- Toda pagina que usa este padrao deve ser adicionada como `isLayeredRoute` no AppShell
+> ⚠️ **Nao existe mais verde de tela cheia no mobile.** O app autenticado empilhava 4 camadas de
+> fundo com 3 verdes diferentes (`.mobile-edge-shell::before`, os dois gradientes do
+> `.app-shell-main.is-dashboard-route` — cujo `#14372a` nem token era —, a faixa e o sheet claro
+> subindo com radius 20px). Era o desenho "verde atras + sheet deslizando por cima", que perdeu a
+> razao de existir quando os sheets viraram brancos e passaram a ocupar a tela toda.
+
+O mobile tem **duas** camadas: **faixa verde curta** (`.fv-mtopbar`, `--brand-green` chapado) +
+**canvas BRANCO ponta a ponta**. Regras:
+
+- O fundo do `.app-shell-main` e **uma regra so** — a base, `--mobile-page-bg` (`#ffffff`). Nenhuma
+  variante por rota pinta fundo. `isLayeredRoute`/`is-dashboard-route` ficou so com o layout
+  (travar altura + scroll interno), nao decide mais cor.
+- **Sheets sem `border-radius` no topo**: sem emenda pra cobrir, o arco so desenha um degrau do
+  branco contra o branco.
+- **Nada de branco-sobre-verde na faixa intermediaria.** Saudacao, card de perfil, sub-abas e a
+  pill de busca usam tinta escura (`--ink` / `--brand-muted` / `--brand-green`); caixa se define por
+  **hairline `--fv-line`**, nunca por sombra difusa (sobre branco a sombra vira borrao).
+- O verde da **status bar** continua, e vem da tira `.mobile-edge-shell-auth::after` + do
+  `theme-color` — a faixa usa a MESMA cor pra o topo ser uma peca sem costura.
+- **PROSPECTOR fica fora**: sem `.fv-mtopbar`, o desenho antigo (verde de tela cheia + hero branco
+  sobre verde + sheet claro) segue inteiro. Toda regra do canvas pende de `:has(.fv-mtopbar)`.
 
 ### Header da Pagina — MORREU na M1 do RD16 (2026-07-22)
 
