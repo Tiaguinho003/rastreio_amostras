@@ -26,9 +26,9 @@ DESKTOP (≥901px)                     MOBILE (≤900px)
 .fv-page-head   título + criação     (título na faixa verde do shell;
 .fv-kpi-row     grid de 4 cartões     criar é o FAB em leque)
 └ cartão da lista                    └ sheet da página
-  ├ .fv-toolbar   1 linha              ├ .fv-toolbar   2 linhas  ← travada
-  ├ .fv-bulkbar   sob a toolbar        ├ .spv2-list-scroll       ← rola
-  └ .fv-table-scroll                   │  ├ .fv-kpi-row carrossel
+  ├ .fv-toolbar   1 linha              ├ .spv2-list-scroll       ← rola INTEIRO
+  ├ .fv-bulkbar   sob a toolbar        │  ├ .fv-kpi-row  2 cartões
+  └ .fv-table-scroll                   │  ├ .fv-toolbar  2 linhas
     └ table.fv-table                   │  └ SampleCard …
                                        └ .fv-bulkbar   na BASE (order: 1)
 ```
@@ -39,6 +39,11 @@ para `.fv-lotes-page`, a única lista que já passou pelo ciclo mobile. Ligar na
 `/cadastros` e ao `ClientsBrowser` **duas chromes empilhadas** — eles ainda usam a
 `.hero-search-wrap` antiga. Vira genérico quando a segunda lista migrar (critério do
 `css-architecture`). Nenhuma delas precisa de condicional no JSX.
+
+🔴 **No mobile NADA fica travado no topo.** A lista tem altura fixa (quem rola é o
+`.spv2-list-scroll`, não a janela), então cada faixa presa acima dela custa altura **permanente** na
+tela menor. KPIs e toolbar entram como itens da rolagem — aparecem no topo, somem ao descer. O custo
+aceito é que a busca sai de vista com a lista rolada.
 
 ---
 
@@ -80,29 +85,40 @@ para `.fv-lotes-page`, a única lista que já passou pelo ciclo mobile. Ligar na
 No desktop, grid **fixo de 4 colunas** (`repeat(4, minmax(0, 1fr))`). Menos de 4 cartões deixa
 buraco; mais de 4 não cabe. Se a página tem 3 indicadores bons, ache o quarto ou repense.
 
-**No mobile o cartão é o mesmo — muda a faixa.** Ela vira carrossel horizontal (a receita de
-scroll-x do projeto: `flex-wrap: nowrap` + `overflow-x: auto` + scrollbar escondida nos três
-prefixos + `-webkit-overflow-scrolling: touch`), com `flex: 0 0 clamp(9.5rem, 42vw, 12rem)` por
-cartão e margens negativas de `--lotes-inner-pad` para rolar de borda a borda — mas com o primeiro
-e o último cartão parando na mesma linha vertical dos cards da lista.
+**No mobile são DOIS cartões, não quatro.** A tela estreita não comporta a mesma leitura de
+gestão: ficam os dois que respondem a uma pergunta de quem está operando (em `/samples`, "Em aberto"
+e pendências) e a faixa vira `grid-template-columns: repeat(2, minmax(0, 1fr))`. Quem corta é a
+**página, filtrando o array** — troca de árvore, como o resto do split; esconder cartão por CSS
+deixaria markup morto no DOM.
 
-🔴 **E ela entra DENTRO da rolagem, não acima dela.** A lista mobile tem altura fixa: o topo fica
-travado e só os cards rolam, então tudo que fica acima custa altura PERMANENTE numa tela pequena. A
-faixa é o primeiro item do `.spv2-list-scroll` — aparece no topo, some ao descer. Travado sobra só
-a toolbar.
+Dois cartões cabem lado a lado, então **não há carrossel**. Já houve: com scroll-x, metade da
+informação ficava atrás de um gesto que ninguém sabia que existia.
+
+🔴 **A faixa entra DENTRO da rolagem** (§1), como primeiro item do `.spv2-list-scroll`, com a
+toolbar logo abaixo.
+
+**Cartão mais baixo: a métrica vai para o LADO do valor.** Valor e delta ganham o wrapper
+`.fv-kpi-metric` — coluna no desktop (reproduzindo exatamente o espaço que o `gap` do cartão dava),
+linha com `align-items: baseline` no mobile. É o que tira uma linha inteira da altura. Encolha o
+`.fv-kpi-icon` junto: com o cartão em duas linhas ele vira a peça mais alta e dita de volta a altura
+economizada. Rótulo longo trunca num cartão de meia largura — use um curto no mobile.
 
 O markup é montado **uma vez** numa variável e posicionado pela bifurcação que a página já tem:
 
 ```tsx
-const kpiRow = <div className="fv-kpi-row">{cards.map(…)}</div>;
+const kpiRow = <div className="fv-kpi-row">{visibleCards.map(…)}</div>;
+const mobileListChrome = isDesktop ? null : (<>{kpiRow}{toolbar}</>);
 …
 {isDesktop ? kpiRow : null}          {/* acima do cartão da lista */}
 …
 <div className="spv2-list-scroll">
-  {isDesktop ? null : kpiRow}        {/* primeiro item da rolagem */}
+  {mobileListChrome}                 {/* primeiros itens da rolagem */}
 ```
 
 Renderizar duas vezes e esconder uma por CSS é exatamente o que o ciclo mobile veio desfazer.
+
+🔴 **O chrome entra nos QUATRO ramos de rolagem** — lista, skeleton, erro e vazio. Fora do ramo da
+lista, uma busca sem resultado tiraria da tela justamente o campo que precisa ser corrigido.
 
 ```tsx
 <article className="fv-kpi">
@@ -187,10 +203,20 @@ e se ancora à direita. Sem o contador, a toolbar fica desalinhada; se precisar 
 `margin-left` para o último elemento.
 
 **No mobile a mesma toolbar quebra em duas linhas** (`flex-wrap` + `order`): busca + funil em cima,
-contagem + "Limpar" embaixo. A quebra é um `::after` de `flex-basis: 100%` — sem ele o funil iria
-para o fim da fila em vez de ficar colado na busca. O rótulo "Filtros" vive num
+"Limpar" e a contagem embaixo — a contagem colada na direita, pelo mesmo `margin-left: auto` do
+desktop. A quebra é um `::after` de `flex-basis: 100%` — sem ele o funil iria para o fim da fila em
+vez de ficar colado na busca. O rótulo "Filtros" vive num
 `<span className="fv-toolbar-filter-label">` justamente para o mobile poder escondê-lo e deixar o
 botão do tamanho do ícone; a linha da busca não cabe os dois.
+
+🔴 **A busca precisa de `flex: 1 1 0`, não `1 1 auto`.** Um `<input>` tem largura intrínseca (~20
+caracteres) e, com base `auto`, é ela que decide se alguém cabe ao lado — o funil ia parar na linha
+de baixo mesmo sobrando espaço. Com base `0` a busca cede espaço e o funil fica sempre colado nela.
+
+**Ela também desce para dentro da rolagem** (§1, §3), logo abaixo dos KPIs. Lá perde a borda
+inferior (que marcava o fim da área travada) e o recuo lateral próprio — alinha com os cards pelo
+padding do próprio `.spv2-list-scroll`. Como a KPI row, é montada uma vez e posicionada por
+breakpoint.
 
 O `.fv-btn-badge` só aparece com filtros ativos, e conta **filtros ocultos** (os que estão dentro do
 painel), não a busca — a busca já se mostra sozinha.
@@ -446,7 +472,9 @@ pós-hidratação.
 Não usar `matchMedia` inline: `useIsDesktop()` é o gate canônico.
 
 **O que NÃO troca de árvore:** toolbar, KPI row, barra de seleção e painel de filtros. Os quatro são
-o mesmo markup nos dois breakpoints — o CSS muda a forma. Trocar a árvore aqui traria de volta a
+o mesmo markup nos dois breakpoints — o CSS muda a forma, e a página só decide **onde** montar
+(§3). A exceção é o CONTEÚDO: quantos cartões de KPI entram e que rótulo eles usam é decisão de
+dados, e sai de um filtro no array — não de um `display: none`. Trocar a árvore aqui traria de volta a
 duplicação que o ciclo mobile eliminou (dois `<input>` no mesmo state, dois contadores, dois
 popovers de revisão montados ao mesmo tempo).
 
@@ -507,6 +535,8 @@ vai escopada em `.samples-page-v2`; prefixo com nome de página não é escopo (
 - [ ] Regra nova do kit no mobile nasce escopada na página; genérica só na 2ª lista
 - [ ] `⋯` do card e `⋯` da linha com a MESMA lista de ações e os mesmos gates
 - [ ] Nada de `position: fixed` dentro do sheet da página (containing block)
+- [ ] Mobile sem faixa travada: KPI e toolbar dentro da rolagem, nos QUATRO ramos
+- [ ] Busca com `flex: 1 1 0` — com base `auto` o funil cai de linha
 
 ## §11 Fora do padrão hoje
 
