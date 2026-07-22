@@ -3608,10 +3608,6 @@ button:disabled {
   display: none;
 }
 
-.topbar-search-slot {
-  width: clamp(11rem, 22vw, 20rem);
-}
-
 .topbar-profile {
   position: relative;
 }
@@ -5072,25 +5068,6 @@ button:disabled {
   overflow: hidden;
 }
 
-.samples-page-v2-header {
-  display: flex;
-  align-items: flex-end;
-  padding: calc(env(safe-area-inset-top) + clamp(30px, 8vw, 40px)) clamp(12px, 4vw, 16px)
-    clamp(8px, 2vw, 10px);
-  background: transparent;
-  flex-shrink: 0;
-  gap: clamp(8px, 2.5vw, 12px);
-  animation: samples-header-in 0.5s ease-out both;
-}
-
-.samples-page-v2-header-center {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: clamp(6px, 1.8vw, 8px);
-}
-
 .samples-page-v2-sheet {
   flex: 1;
   display: flex;
@@ -6335,23 +6312,6 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   overflow: hidden;
 }
 
-.clients-v2-header {
-  display: flex;
-  align-items: flex-end;
-  padding: calc(env(safe-area-inset-top) + clamp(30px, 8vw, 40px)) clamp(12px, 4vw, 16px)
-    clamp(8px, 2vw, 10px);
-  background: transparent;
-  flex-shrink: 0;
-  gap: clamp(8px, 2.5vw, 12px);
-}
-
-.clients-v2-header-center {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
 .clients-v2-sheet {
   flex: 1;
   display: flex;
@@ -7329,10 +7289,6 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   }
 }
 
-.clients-page-v2 .clients-v2-header {
-  animation: samples-header-in 0.5s ease-out backwards;
-}
-
 .clients-page-v2 .hero-search-wrap {
   /* `backwards` (nao `both`): aplica o keyframe inicial mas NAO mantem o
      transform final — senao viraria containing block e prenderia o `.cv2-fab`
@@ -8247,31 +8203,11 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   margin: 0;
 }
 
-/* Paginas placeholder (Metricas, placeholder de Relatorios): o titulo era
-   centrado via flex:1 entre um spacer (esquerda) e o avatar (direita), mas as
-   larguras divergem por viewport — no desktop os avatares somem (titulo cai pra
-   direita) e no mobile o menu do avatar e mais largo (cai pra esquerda).
-   Centraliza de verdade no header, escopado a esses placeholders pelo spacer
-   invisivel `span.nsv2-back` (as paginas de detalhe usam um <a> real, nao
-   batem). pointer-events:none deixa o clique passar pros controles atras. */
-.sdv-header-top:has(> span.nsv2-back) {
-  position: relative;
-}
-
-.sdv-header-top:has(> span.nsv2-back) .sdv-header-title {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
-
-/* Perfil (/profile): no PROSPECTOR a esquerda e um back REAL (a.nsv2-back), nao
-   o spacer <span> dos demais papeis, entao a regra acima nao centraliza — o
-   titulo ficava deslocado pra esquerda (back ~44px vs menu da conta ~56px).
-   Centraliza de verdade tambem com o <a>, escopado a .stg-header (so /profile;
-   paginas de detalhe com back <a> nao batem). space-between segura o back na
-   esquerda e o menu da conta na direita com o titulo fora do fluxo. */
+/* Perfil (/profile) do PROSPECTOR: e a unica faixa .sdv-header-top que sobrou
+   depois da M1 do RD16 (ele nao tem tabbar nem o header unico do shell, entao
+   precisa do back). O titulo sai do fluxo e e centrado de verdade — com so o
+   back a esquerda, o flex:1 o jogaria pro meio do espaco restante. Escopado a
+   .stg-header: paginas de detalhe com back <a> nao batem. */
 .sdv-header.stg-header .sdv-header-top:has(> a.nsv2-back) {
   position: relative;
   justify-content: space-between;
@@ -14742,12 +14678,6 @@ select.samples-filter-field-input {
   }
 }
 
-@media (max-width: 1200px) {
-  .topbar-search-slot {
-    width: min(16rem, 30vw);
-  }
-}
-
 .export-confirm-backdrop {
   position: fixed;
   inset: 0;
@@ -18309,10 +18239,6 @@ select.samples-filter-field-input {
     overflow: visible;
   }
 
-  .topbar-search-slot {
-    display: none;
-  }
-
   .topbar-mobile-search {
     display: block;
     position: relative;
@@ -21778,18 +21704,6 @@ select.samples-filter-field-input {
     display: none;
   }
 
-  /* Sem o back a esquerda, o cluster de acoes a direita (icone de camera
-     ~2.5rem + gap 0.6rem + avatar md + chevron ~3.6rem — CAM-P3)
-     desbalanceia o flex e o titulo fica off-center pra esquerda. Adiciona
-     pseudo-element invisivel com a mesma largura pra restaurar o centro
-     visual. */
-  .samples-page-v2-header::before,
-  .clients-v2-header::before {
-    content: '';
-    flex-shrink: 0;
-    width: 6.7rem;
-  }
-
   .sdv-header .nsv2-back {
     display: inline-grid;
     width: clamp(42px, 11.5vw, 48px);
@@ -21806,40 +21720,6 @@ select.samples-filter-field-input {
     stroke: var(--brand-green);
     stroke-width: 2.4;
   }
-}
-
-.nsv2-title {
-  margin: 0;
-  font-size: clamp(18px, 5vw, 21px);
-  font-weight: 700;
-  color: #ffffff;
-  line-height: 1.2;
-}
-
-.nsv2-avatar {
-  display: inline-grid;
-  place-items: center;
-  width: clamp(32px, 9vw, 36px);
-  min-width: clamp(32px, 9vw, 36px);
-  height: clamp(32px, 9vw, 36px);
-  border-radius: 999px;
-  background: #ffffff;
-  border: 2px solid rgba(255, 255, 255, 0.9);
-  padding: 0;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.15s;
-}
-
-.nsv2-avatar:active {
-  transform: scale(0.92);
-}
-
-.nsv2-avatar-initials {
-  font-size: clamp(11px, 3.2vw, 13px);
-  font-weight: 700;
-  color: #1f5d43;
-  line-height: 1;
 }
 
 /* ── Body (shared) ── */
@@ -23210,13 +23090,6 @@ select.samples-filter-field-input {
     flex-direction: column;
   }
 
-  .samples-page-v2-header {
-    /* Gap menor entre a faixa do topo e a barra de busca (pedido do usuario):
-       o espaco reclamado vai pro sheet dos cards (flex:1, cresce sozinho). */
-    padding: 0.5rem 0 0.7rem;
-    flex-shrink: 0;
-  }
-
   /* Sheet: container unico rounded (mesmo padrao dos containers do dashboard) */
   .samples-page-v2-sheet {
     margin: 0;
@@ -23563,14 +23436,10 @@ select.samples-filter-field-input {
   }
 
   /* ── /informe desktop: contador + FAB do lapis NA MESMA LINHA, FORA do sheet
-     O titulo "Informe" (cabecalho da pagina) e ocultado pra a lista colar na
-     topbar. O contador + FAB vivem no .hero-search-wrap (FORA do sheet): o sheet
+     O contador + FAB vivem no .hero-search-wrap (FORA do sheet): o sheet
      tem transform persistente (animacao samples-sheet-in) que viraria containing
      block e prenderia o position:fixed do scrim do FAB — aqui fora, o leque/scrim
      escurecem o app TODO, igual ao "+" do /samples. */
-  .samples-page-v2.informe-commercial-page .samples-page-v2-header {
-    display: none;
-  }
 
   /* Faixa = row so do FAB do lapis, ancorado a DIREITA (fora do sheet pra o
      scrim/leque cobrirem o app). O FAB herda o inline 56x56 de
@@ -23693,14 +23562,6 @@ select.samples-filter-field-input {
     overflow: hidden;
     display: flex;
     flex-direction: column;
-  }
-
-  .clients-v2-header {
-    /* Gap menor entre a faixa do topo e a barra de busca, espelhando a
-       /samples (o titulo "Clientes" saiu no desktop): o espaco reclamado vai
-       pro sheet dos cards (flex:1, cresce sozinho). */
-    padding: 0.5rem 0 0.7rem;
-    flex-shrink: 0;
   }
 
   /* Sheet: container unico rounded (mesmo padrao dos containers do dashboard).
@@ -25047,20 +24908,7 @@ select.samples-filter-field-input {
      NEW SAMPLE (nsv2-page)
      ══════════════════════════════════════════ */
 
-  /* Header: alinha o padrao de localizacao do titulo com /samples e
-     /clients — `1.5rem 0 1.5rem` deixa o titulo visualmente centralizado
-     entre o topo da pagina e o conteudo abaixo (mesmo comentario que
-     vive em .samples-page-v2-header e .clients-v2-header). Antes era
-     `1rem 300px 0.75rem` (assimetrico + 300px lateral), o que
-     desalinhava do resto do app. */
-
-  .nsv2-title {
-    color: var(--ink);
-    font-size: 1.6rem;
-  }
-
-  /* Esconder: avatar, step dots, back button */
-  .nsv2-avatar,
+  /* Esconder: back button (o avatar do header saiu na M1 do RD16). */
   .nsv2-back {
     display: none;
   }
@@ -25851,14 +25699,9 @@ select.samples-filter-field-input {
   }
 
   /* Sem o titulo "Meu Perfil" no desktop (o nome do usuario ja titula a
-     pagina). O spacer invisivel do admin (span.nsv2-back) tambem sai pra a
-     linha do topo colapsar e o cabecalho colar na topbar; o back do prospector
-     (a.nsv2-back, link real) permanece. */
+     pagina). Desde a M1 do RD16 a linha do topo so existe pro PROSPECTOR, e o
+     back dele (a.nsv2-back, link real) permanece. */
   .stg-header .sdv-header-title {
-    display: none;
-  }
-
-  .stg-header .sdv-header-top span.nsv2-back {
     display: none;
   }
 
@@ -27225,11 +27068,12 @@ select.samples-filter-field-input {
   }
 }
 
-/* ── Botao de avatar nos headers de pagina (HeaderAvatarMenu) ──
-   Substitui o antigo sino. Mobile-only: em <= 900px o avatar Link de desktop
-   (.nsv2-avatar / .dashboard-hero-avatar) some e da lugar a este botao, que
-   abre o bottom sheet de menu da conta. Em desktop o botao fica oculto e o
-   acesso ao perfil continua pelo dropdown do topbar (.topbar-profile). */
+/* ── Botao de avatar do menu da conta (HeaderAvatarMenu) ──
+   Mobile-only: em <= 900px o avatar Link de desktop (.dashboard-hero-avatar,
+   hoje so no dashboard do PROSPECTOR) some e da lugar a este botao, que abre o
+   bottom sheet de menu da conta. Em desktop o botao fica oculto e o acesso ao
+   perfil continua pelo dropdown do topbar (.topbar-profile). Desde a M1 do
+   RD16 quem monta este cluster e a faixa unica do shell (.fv-mtopbar). */
 .header-avatar-trigger {
   display: none;
   align-items: center;
@@ -27247,7 +27091,6 @@ select.samples-filter-field-input {
 }
 
 @media (max-width: 900px) {
-  .nsv2-avatar,
   .dashboard-hero-avatar {
     display: none;
   }
@@ -28723,10 +28566,6 @@ body.is-selection-mode .mobile-tabbar {
   display: none;
 }
 
-body.is-selection-mode .samples-page-v2-header {
-  display: none;
-}
-
 body.is-selection-mode .hero-search-filter-btn {
   display: none;
 }
@@ -28734,10 +28573,7 @@ body.is-selection-mode .hero-search-filter-btn {
 /* /contratos: no modo selecao (gerar Espelho) escondemos o header normal + a
    barra de busca inteira (busca/filtro/"+"), ja que selecionar 1 card abre o
    modal direto — sem passo de "continuar". Escopado a .ctr-page pra nao vazar
-   p/ /clients (que tambem usa .clients-v2-header, mas nunca entra em selecao). */
-body.is-selection-mode .ctr-page .clients-v2-header {
-  display: none;
-}
+   p/ /cadastros, que nunca entra em selecao. */
 
 body.is-selection-mode .ctr-page .hero-search-wrap {
   display: none;
@@ -30385,12 +30221,6 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
     display: none;
   }
 
-  /* Busca de lote fora da faixa branca no desktop (a pagina de Lotes tem a
-     sua propria busca). Mobile (barra verde) segue com a busca. */
-  .topbar-search-slot {
-    display: none;
-  }
-
   /* Perfil: SO o avatar, sem nome e sem borda (pedido do usuario). Hover sem
      mudar cor (a resposta visual fica no scale do trigger). */
   .topbar-profile-trigger {
@@ -30429,14 +30259,8 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
    Pagina Lotes (/samples) — ajustes desktop (>=901px)
    ============================================================ */
 @media (min-width: 901px) {
-  /* 1. Sem o titulo no header da pagina (desktop) — o titulo agora vem do
-     shell (DSB-D17). Vale tambem pro "Relatorios" do informe comercial (a
-     excecao :not(.informe-commercial-page) caiu com o titulo do shell). */
-  .samples-page-v2 .samples-page-v2-header .nsv2-title {
-    display: none;
-  }
-
-  /* Idem pro titulo do intro do viewer de Relatorios (DSB-D17). */
+  /* 1. Titulo do intro do viewer de Relatorios: o titulo da pagina vem do
+     shell (DSB-D17 no desktop, .fv-mtopbar no mobile). */
   .inf-intro-title {
     display: none;
   }
@@ -30615,14 +30439,7 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
    CARDS de cliente NAO sao tocados (grid + card vertical seguem como estao).
    ============================================================ */
 @media (min-width: 901px) {
-  /* 1. Sem o titulo "Clientes" no header da pagina (desktop). O
-     .clients-v2-header-center (flex:1) continua como espacador entre o botao
-     de voltar e o avatar — igual /samples. */
-  .clients-page-v2 .clients-v2-header .nsv2-title {
-    display: none;
-  }
-
-  /* 2. Botao de filtro: VERDE com icone branco (era branco + icone verde),
+  /* Botao de filtro: VERDE com icone branco (era branco + icone verde),
      igual /samples. */
   .clients-page-v2 .hero-search-filter-btn {
     background: var(--brand-green);
@@ -32542,10 +32359,8 @@ body.is-selection-mode .ctr-page .cc-tabs {
    spv2-cardIn são REUSADOS pelo /clients (.clients-page-v2/.cv2-card) —
    os seletores genéricos aqui beneficiam as duas páginas. */
 @media (prefers-reduced-motion: reduce) {
-  .samples-page-v2-header,
   .samples-page-v2 .hero-search-wrap,
   .samples-page-v2-sheet,
-  .clients-page-v2 .clients-v2-header,
   .clients-page-v2 .hero-search-wrap,
   .clients-page-v2 .clients-v2-sheet,
   .spv2-card,
@@ -33322,9 +33137,8 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
 }
 
 @media (min-width: 901px) {
-  /* RD14 (/cadastros): no desktop o chrome novo assume — header verde
-     mobile, abas internas (viraram sub-itens da sidenav) e FAB morrem. */
-  .fv-cad-page .clients-v2-header,
+  /* RD14 (/cadastros): no desktop o chrome novo assume — abas internas
+     (viraram sub-itens da sidenav) e FAB morrem. */
   .fv-cad-page .cad-tabs,
   .fv-cad-page .cv2-fab {
     display: none;
@@ -33493,14 +33307,6 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   }
   .fv-kpi.is-clickable.is-active .fv-kpi-delta {
     color: var(--fv-chip-amber-fg);
-  }
-
-  /* FV /samples: o chrome novo assume no desktop — o header verde mobile sai
-     (titulo e CTA vivem no .fv-page-head). As abas internas saem quando
-     viram sub-itens da sidenav; o FAB do leque sai quando "Criar liga"
-     ganha lugar na toolbar. */
-  .fv-lotes-page .samples-page-v2-header {
-    display: none;
   }
 }
 
