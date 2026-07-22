@@ -55,10 +55,12 @@ molde das proximas paginas do ciclo (`/samples` → `/relatorios` → `/users`+`
   ("+ Adicionar filial", nunca "+" solto) — molde `.fv-cd-add-btn`.
 - **Chips de status pastel** (fundo suave + texto colorido) sao o padrao de status. `/cadastros`
   usa status UNICO por linha (Completo verde / Incompleto ambar / Cancelado vermelho).
-  **Variante `.fv-chip.is-bare`** (RD16 M2): so a letra, sem pastilha — para quando o status divide
-  a celula com outros marcadores (na LISTA de lotes ele fica ao lado do numero e do badge de liga, e
-  tres pastilhas seguidas viravam ruido). Muda a FORMA, nunca a cor: a classe de variante e a mesma.
-  Onde o status aparece sozinho — detalhe, `/cadastros` — o pastel continua sendo o padrao.
+  **Variante `.fv-chip.is-sm`** (RD16 M2): a MESMA pastilha, um ponto menor (19px / 0.66rem), para
+  quando o status divide a celula com outros marcadores — na LISTA de lotes ele fica ao lado do
+  numero e do badge de liga. Muda o TAMANHO, nunca a cor.
+  🔴 **O preenchimento nao e enfeite**: tirar o fundo e deixar so a letra foi tentado e revertido —
+  e a cor de fundo que faz o status ser varrido de relance numa lista longa; sem ela sobra peso
+  tipografico sem leitura. Se o chip esta pesado demais num contexto, encolha; nao esvazie.
 - 🔴 **Cor de status e do DADO, nao da tela.** O mesmo lote nao pode trocar de cor ao abrir o
   drawer. `sampleStatusDisplay` (`lib/sample-display.ts`) e a fonte unica de lista **e** detalhe:
   Em aberto **azul**, Vendido **verde**, Perdido **vermelho**, Deletado **cinza**. Mapa duplicado e

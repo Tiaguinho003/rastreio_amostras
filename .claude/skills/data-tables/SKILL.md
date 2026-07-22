@@ -489,7 +489,7 @@ popovers de revisão montados ao mesmo tempo).
   `box-shadow: 0 1px 2px rgba(0,0,0,.04)`. Sem gradiente, sem sombra empilhada.
 - **Tipografia da LINHA**: título em `0.86rem` / `600` / `var(--ink)` com `tabular-nums`, secundário
   em `0.78rem` / `var(--muted)`. A mesma escala das células (§5) — nada de escala própria de card.
-- **Status é o `.fv-chip` na variante `.is-bare`** (só a letra, sem pastilha), alimentado pela
+- **Status é o `.fv-chip` na variante `.is-sm`** (a mesma pastilha, um ponto menor), alimentado pela
   mesma fonte da linha da tabela e do detalhe (`sampleStatusDisplay` em `lib/sample-display.ts`).
   Fica **colado no título**, com o badge de liga entre os dois — a mesma ordem da célula da tabela.
   Encostá-lo na borda direita com `margin-left: auto` afasta o status do dado que ele qualifica, e
@@ -504,6 +504,11 @@ popovers de revisão montados ao mesmo tempo).
   Irmão no flex e não `absolute`: assim ele **reserva a própria largura** e o texto trunca antes de
   encostar nele — nada de contar caractere nem de sobrepor. Sem filete separando: a divisória soma
   uma terceira linha vertical ao card e pesa mais que a ação que abre.
+- 🔴 **Quem cede largura é o card, nunca o botão.** O botão do card precisa de
+  `flex: 1 1 auto; width: auto; min-width: 0` — o `.spv2-card` do legado combina `flex-shrink: 0`
+  com `width: 100%`, e nessa combinação ele toma a linha inteira e **empurra o irmão para fora** do
+  `overflow: hidden` do wrap. O `⋯` fica no DOM, com zero pixel visível: nada no console, nada no
+  DevTools óbvio, só um botão que "não existe". Custou duas rodadas de conferência.
 
 ### 🔴 O `⋯` do card abre um SHEET, não um popover
 

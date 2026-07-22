@@ -527,16 +527,31 @@ A tipografia foi para os tokens do kit, na escala da tabela (eram três cinzas h
 
 **As demais mudanças, todas pedidas na conferência:**
 
-1. **Status sem pastilha, na lista** — entra a variante `.fv-chip.is-bare` (só a letra, na cor da variante). Vale nos **dois breakpoints da lista**: na célula do lote o status divide espaço com o número e o badge de liga, e três pastilhas seguidas viravam ruído. O chip pastel segue sendo o padrão (RD12) no detalhe e em `/cadastros` — muda a **forma**, não a cor.
+1. **Status sem pastilha, na lista** — entra a variante `.fv-chip.is-bare` (só a letra, na cor da variante), nos dois breakpoints. _**Revertido na rodada 4**: a cor de fundo é o que faz o status ser varrido de relance numa lista longa. Virou `.fv-chip.is-sm`, a mesma pastilha um ponto menor._
 2. **Status ao lado do número.** Ele perdeu o `margin-left: auto` que o encostava na borda direita; fica colado no número, com a liga entre os dois — a mesma ordem da célula "Lote" da tabela.
 3. **`⋯` como botão solto**, alvo redondo de 38px **centrado verticalmente**, sem o filete de altura total. Segue **irmão no flex, não absoluto**: assim reserva a própria largura e o texto trunca antes de encostar nele — sem contar caractere e sem sobreposição.
 4. **Chrome mais discreta**: a contagem de lotes cai para `0.72rem` (é rodapé da chrome, não dado da lista) e o **placeholder da busca** vira dica de verdade — menor, `w300` e mais apagado, ainda legível. A busca vazia era a coisa mais escrita da tela.
-5. 🔴 **O leque do FAB estava com o arco errado desde a AP29.** A geometria (90° / 45° / 0°) foi desenhada para **três** opções; quando a Aprovação saiu, ninguém remexeu — as duas restantes ficaram amontoadas no quadrante de cima, com um buraco onde estava a terceira. Com duas, o par vai para **67.5° e 22.5°**: simétrico em torno da diagonal, com a mesma separação de 45° entre eles e até as bordas. Escopado por `.is-fan-2`, que o componente marca pelo **número de opções**, não pela página — o leque do `/informe` tem três e segue com o arco original, que continua certo para ele.
+5. 🔴 **O leque do FAB estava com o arco errado desde a AP29.** A geometria (topo / diagonal / esquerda) foi desenhada para **três** opções; quando a Aprovação saiu, ninguém remexeu — as duas restantes ficaram amontoadas no mesmo quadrante, com um buraco onde estava a terceira. _**Corrigido de novo na rodada 4**: aqui o par foi para um arco simétrico (67,5° e 22,5°), que continua sendo arco. Com duas opções o certo são os EIXOS._ Escopado por `.is-fan-2`, que o componente marca pelo **número de opções**, não pela página — o leque do `/informe` tem três e segue com o arco original, que continua certo para ele.
 6. **O "+" encolheu** em `/samples` (`clamp(53–60px)` → `clamp(46–52px)`, o tamanho de antes do +15%, com raio e ícone na mesma proporção): com a lista institucional, o botão cheio de gradiente virou a peça mais pesada da tela.
 
 **A conferir**: "Em aberto" azul **na lista e no drawer**; status como texto colado no número (liga no meio) e nada encostado na direita; `⋯` redondo, centrado, sem divisória, com o texto truncando antes dele; contagem e placeholder mais discretos; leque com as duas opções abrindo em arco simétrico; `/informe` com o leque de **três** intacto.
 
 **Próxima frente combinada**: análise dos modais.
+
+#### Rodada 4 do M2 — o `⋯` que nunca existiu (2026-07-22, `70b6232` · `6f9a2bd`)
+
+🔴 **O bug**: _"não estou vendo o botão para as ações rápidas"_. Ele estava certo — o `⋯` existia no DOM **desde o M2** e nunca apareceu. O `.spv2-card` do legado é `flex-shrink: 0`, e a regra do wrap lhe dá `width: 100%`: dentro do wrap (flex row) ele tomava a linha inteira e se recusava a ceder, **empurrando o irmão para fora** do `overflow: hidden`. Zero pixel visível, clicável em lugar nenhum — sem erro no console, sem nada óbvio no DevTools. Agora quem divide a linha é o card (`flex: 1 1 auto; width: auto; min-width: 0`); o botão tem largura fixa e fica no canto direito, centrado.
+
+Custou **duas rodadas de conferência** porque as rodadas 2 e 3 mexeram no visual do botão — divisória, formato, centralização — sem que ele estivesse na tela. Lição registrada em `data-tables` §9: quem cede largura é o card, nunca o botão.
+
+**Duas reversões, as duas por leitura de tela e não por gosto:**
+
+1. **O status volta a ter preenchimento.** A rodada 3 tirou o fundo e deixou só a letra; na tela a leitura piorou. É a cor de fundo que faz o status ser varrido de relance numa lista longa — sem ela sobra peso tipográfico sem leitura. `.fv-chip.is-bare` sai e entra `.fv-chip.is-sm`: a **mesma** pastilha, um ponto menor (19px / 0,66rem). Regra que ficou no kit: se o chip está pesado num contexto, **encolha; não esvazie**.
+2. **O leque vai para os EIXOS.** A correção da rodada 3 espalhou as duas opções num arco simétrico — que continua sendo arco. Com **duas** opções o certo são os dois eixos: uma **acima** e outra **à esquerda**, cada uma alinhada a um lado do FAB. A diagonal é a posição do **meio** de um arco de três; sem a terceira, ela não alinha com nada. A opção de cima já estava no eixo vertical — quem mudou foi a Liga, que assumiu o horizontal (a vaga da Aprovação).
+
+**E o badge de liga perdeu o ícone.** Em 10px o merge não se lia como "origens convergindo" — virava um borrão ao lado de uma palavra de cinco letras que já diz tudo. Saiu do **componente**, então vale nos sete consumidores (lista, detalhe, `RelatedSampleRow`, picker de lote, propagação de safra, feed): o badge é a mesma peça em todos, e só o rótulo carrega significado. As regras do ícone e o `gap` do badge saíram junto.
+
+**A conferir**: o `⋯` **visível** no canto direito de cada card, centrado, abrindo o painel de ações; status com fundo colorido, menor, colado no número; "Liga" sem ícone (aqui **e** no drawer, no picker de lote do contrato e onde mais apareça); leque com uma opção acima e outra à esquerda do "+", alinhadas aos lados dele; `/informe` com o leque de três intacto.
 
 **Próximo**: M3 (detalhe e painéis — a F2/F3 já vale no mobile; conferir no device e coletar dado real do bug do `.bottom-sheet` com `100dvh`) e M4 (consolidação das skills + `docs/Lotes-Visao-Geral.md`).
 
