@@ -2528,96 +2528,17 @@ function SamplesPage() {
           })}
         </div>
 
-        {/* Search bar — in green area, dashboard style. Filtro fica
-            FORA do form, alinhado a direita (mesmo padrao do "+" em /clients).
-            has-applied-filters: mostra o botao "X" de limpar entre a busca e o
-            filtro (a busca encolhe; sem filtros o "X" tuca atras do filtro). */}
-        <div
-          className={`hero-search-wrap fv-hide-desktop${activeHiddenFiltersCount > 0 ? ' has-applied-filters' : ''}`}
-        >
-          {/* Busca AO VIVO: o onChange so atualiza o texto; o debounce
-              (useEffect acima) aplica/desfiltra. role=search + onSubmit no-op
-              pra Enter nao recarregar. Sem `has-input`: o botao fica no estado
-              idle (lupa visivel, seta escondida) — vira so um icone decorativo. */}
-          <form
-            className="hero-search-bar"
-            role="search"
-            onSubmit={(event) => event.preventDefault()}
-          >
-            <input
-              className="hero-search-input"
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Buscar por lote ou proprietário"
-              aria-label="Buscar por lote ou proprietário"
-              autoComplete="off"
-              spellCheck={false}
-            />
-            {/* Ao digitar, a lupa decorativa vira um botao "x" pra limpar a
-                busca de uma vez (mesmo padrao da lupa, com borda). */}
-            {searchInput ? (
-              <button
-                type="button"
-                className="hero-search-clear-input"
-                aria-label="Limpar busca"
-                onClick={() => setSearchInput('')}
-              >
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <path d="M6 6l12 12M18 6L6 18" />
-                </svg>
-              </button>
-            ) : (
-              <span className="hero-search-submit" aria-hidden="true">
-                <svg
-                  className="hero-search-icon-search"
-                  viewBox="0 0 24 24"
-                  focusable="false"
-                  aria-hidden="true"
-                >
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="m16.2 16.2 4.1 4.1" />
-                </svg>
-              </span>
-            )}
-          </form>
-          {selectionMode !== 'blend' ? (
-            <span className="hero-search-clear-slot" aria-hidden={activeHiddenFiltersCount === 0}>
-              <button
-                type="button"
-                className="hero-search-clear-btn"
-                aria-label="Limpar filtros"
-                tabIndex={activeHiddenFiltersCount > 0 ? 0 : -1}
-                onClick={handleClearFiltersOnly}
-              >
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <path d="M6 6l12 12M18 6L6 18" />
-                </svg>
-              </button>
-            </span>
-          ) : null}
-          {selectionMode !== 'blend' ? (
-            <button
-              type="button"
-              className={`hero-search-filter-btn${activeHiddenFiltersCount > 0 ? ' has-filters' : ''}`}
-              aria-label="Filtros avançados"
-              onClick={(event) => {
-                if (filtersOpen) {
-                  closeFilters();
-                  return;
-                }
-                openFilters(event.currentTarget);
-              }}
-            >
-              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <path d="M4 6h16" />
-                <path d="M7 12h10" />
-                <path d="M10 18h4" />
-              </svg>
-              {activeHiddenFiltersCount > 0 ? (
-                <span className="hero-search-filter-badge">{activeHiddenFiltersCount}</span>
-              ) : null}
-            </button>
-          ) : null}
+        {/* RD16 M2: a linha de busca mobile (.hero-search-wrap) saiu. Busca,
+            funil, "Limpar" e contagem moram agora na .fv-toolbar do cartao —
+            UMA chrome so, servindo os dois breakpoints. Antes a pagina montava
+            as duas e escondia uma por CSS: dois <input> amarrados ao mesmo
+            `searchInput`, dois botoes de filtro, dois contadores.
+
+            O FAB fica: e a porta de criacao do mobile (leque Lote/Liga) e nao
+            tem par no kit. Como perdeu o pai que o escondia no desktop, ganhou
+            wrapper proprio — `.fv-lotes-page .fv-lotes-fab` some em >=901px,
+            onde criar mora nos botoes do .fv-page-head. */}
+        <div className="fv-lotes-fab">
           {selectionMode === 'blend' ? (
             <SampleCreateRadialFab
               mode="blendArrow"
@@ -2634,11 +2555,14 @@ function SamplesPage() {
         </div>
 
         <section className="samples-page-v2-sheet">
-          {/* FV (desktop): toolbar do cartao da tabela — busca (mesma logica e
-              debounce da hero), funil com badge, limpar e o contador a direita.
-              "Criar liga" subiu pro cabecalho da pagina, ao lado de "+ Novo
-              lote". Mobile: display:none (a hero-search acima segue no
-              comando). */}
+          {/* FV: toolbar do cartao da tabela — busca, funil com badge, "Limpar"
+              e o contador. "Criar liga" subiu pro cabecalho da pagina, ao lado
+              de "+ Novo lote".
+
+              RD16 M2: vale nos DOIS breakpoints. No desktop e uma linha so; no
+              mobile quebra em duas (busca + funil / contagem + "Limpar") e o
+              rotulo "Filtros" some, sobrando o icone. E a unica chrome da lista
+              — nao existe mais uma barra mobile paralela. */}
           <div className="fv-toolbar">
             <form
               className="fv-toolbar-search"
@@ -2696,7 +2620,10 @@ function SamplesPage() {
                     <path d="M7 12h10" />
                     <path d="M10 18h4" />
                   </svg>
-                  Filtros
+                  {/* O rotulo vive num <span> pra o mobile poder escondê-lo e
+                      deixar o botao no tamanho do icone — a linha da busca nao
+                      cabe os dois. */}
+                  <span className="fv-toolbar-filter-label">Filtros</span>
                   {activeHiddenFiltersCount > 0 ? (
                     <span className="fv-btn-badge">{activeHiddenFiltersCount}</span>
                   ) : null}
@@ -2772,10 +2699,12 @@ function SamplesPage() {
             </div>
           ) : null}
 
-          {/* Section 2: Count + filter btn (ou contador de selecionadas em modo blend) */}
-          <div className="spv2-list-meta">
-            <span className="spv2-list-count">{samplesState.total} lotes</span>
-            {selectionMode === 'blend' ? (
+          {/* RD16 M2: o contador "N lotes" mudou de casa — vive na .fv-toolbar
+              acima, que agora vale nos dois breakpoints. O que sobra aqui e o
+              contador de SELECIONADOS do modo liga; ele sai na rodada da barra
+              de selecao, quando a .fv-bulkbar assumir no mobile tambem. */}
+          {selectionMode === 'blend' ? (
+            <div className="spv2-list-meta">
               <div className="spv2-selection-counter-wrap">
                 <button
                   type="button"
@@ -2811,8 +2740,8 @@ function SamplesPage() {
                   />
                 ) : null}
               </div>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
 
           {/* Live region (a11y, lacuna #6): anuncia o load-more pro leitor de
               tela — sem isso, na rolagem infinita o conteudo novo entra em
