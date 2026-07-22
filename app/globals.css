@@ -32695,6 +32695,20 @@ body.is-selection-mode .ctr-page .cc-tabs {
   border-color: rgba(169, 106, 16, 0.42);
 }
 
+/* Valor + mini-metrica no mesmo bloco (so /samples monta o wrapper). Aqui eles
+   seguem empilhados: o wrapper apenas reproduz o espaco que o `gap` do card ja
+   dava (0.55rem do card menos os -0.2rem do delta). O mobile os poe lado a
+   lado. O `.fv-kpi` de /cadastros nao usa o wrapper e nao muda. */
+.fv-kpi-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.fv-kpi-metric .fv-kpi-delta {
+  margin-top: 0;
+}
+
 .fv-kpi-value {
   font-size: 1.7rem;
   font-weight: 700;
@@ -32761,40 +32775,61 @@ body.is-selection-mode .ctr-page .cc-tabs {
   color: var(--fv-chip-amber-fg);
 }
 
-/* ── KPI no mobile (/samples): carrossel dentro da rolagem ──
-   A faixa entra como primeiro item do .spv2-list-scroll e some ao descer a
-   lista. Receita de scroll-x do projeto (a mesma de .spv2-chips). As margens
-   negativas dao full-bleed — a faixa rola de borda a borda, mas o primeiro e o
-   ultimo card param na MESMA linha vertical dos cards da lista. ── */
+/* ── KPI no mobile (/samples): dois cards, dentro da rolagem ──
+   A faixa entra como primeiro item do .spv2-list-scroll, seguida da toolbar, e
+   some ao descer a lista.
+
+   Rodada 1 do M2: sao DOIS cards (a pagina filtra o array), e dois cabem lado a
+   lado. Com isso o carrossel de scroll-x saiu — com dois itens ele so escondia
+   metade da informacao atras de um gesto, e as margens negativas do full-bleed
+   deixaram de fazer sentido. ── */
 @media (max-width: 900px) {
   .fv-lotes-page .fv-kpi-row {
-    display: flex;
-    flex-wrap: nowrap;
-    flex: none;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: clamp(8px, 2.4vw, 10px);
-    margin: 0 calc(-1 * var(--lotes-inner-pad)) clamp(2px, 1vw, 4px);
-    /* padding-block de 2px: o card tem borda, e sem folga o overflow-x corta o
-       hairline de cima/baixo. */
-    padding: 2px var(--lotes-inner-pad);
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .fv-lotes-page .fv-kpi-row::-webkit-scrollbar {
-    display: none;
+    flex: none;
   }
 
   .fv-lotes-page .fv-kpi {
-    flex: 0 0 clamp(9.5rem, 42vw, 12rem);
+    gap: 0.3rem;
+    padding: 0.6rem 0.7rem;
+  }
+
+  .fv-lotes-page .fv-kpi-label {
+    font-size: 0.78rem;
+  }
+
+  /* Icone menor: com o card em duas linhas ele passava a ser a peca mais alta
+     e voltava a ditar a altura que a metrica inline acabou de economizar. */
+  .fv-lotes-page .fv-kpi-icon {
+    width: 26px;
+    height: 26px;
+  }
+
+  .fv-lotes-page .fv-kpi-icon svg {
+    width: 0.9rem;
+    height: 0.9rem;
+  }
+
+  /* Valor e metrica na MESMA linha — e o que tira uma linha inteira da altura
+     do card. `baseline` assenta os dois pelo pe do texto, apesar dos corpos
+     diferentes; o delta trunca se o card apertar. */
+  .fv-lotes-page .fv-kpi-metric {
+    flex-direction: row;
+    align-items: baseline;
     gap: 0.4rem;
-    padding: 0.7rem 0.8rem;
   }
 
   .fv-lotes-page .fv-kpi-value {
-    font-size: 1.45rem;
+    flex: none;
+    font-size: 1.25rem;
+  }
+
+  .fv-lotes-page .fv-kpi-delta {
+    min-width: 0;
+    font-size: 0.72rem;
+    text-overflow: ellipsis;
   }
 }
 
@@ -33568,24 +33603,31 @@ body.is-selection-mode .ctr-page .cc-tabs {
   color: var(--muted);
 }
 
-/* ── Toolbar no mobile (/samples): a UNICA chrome da lista ──
-   Duas linhas: busca + funil em cima, contagem + "Limpar" embaixo. O
-   quebra-linha e um `::after` de base 100% — sem ele o funil iria para o fim da
-   fila em vez de ficar colado na busca. A borda inferior marca onde termina a
-   area travada e comeca a rolagem. ── */
+/* ── Toolbar no mobile (/samples): dentro da rolagem, abaixo dos KPIs ──
+   Duas linhas: busca + funil em cima, "Limpar" e a contagem embaixo, a contagem
+   colada na direita. O quebra-linha e um `::after` de base 100% — sem ele o
+   funil iria para o fim da fila em vez de ficar colado na busca.
+
+   Rodada 1 do M2: ela deixou de ser faixa travada e virou mais um item da
+   coluna do .spv2-list-scroll. Por isso perdeu a borda inferior (que marcava o
+   fim da area fixa) e o recuo lateral proprio — alinha com os cards pelo
+   padding do proprio container. ── */
 @media (max-width: 900px) {
   .fv-lotes-page .fv-toolbar {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
-    /* MESMO recuo dos cards da lista (--lotes-inner-pad): a busca alinha com a
-       borda esquerda dos cards. */
-    padding: clamp(8px, 2.4vw, 10px) var(--lotes-inner-pad) clamp(7px, 2vw, 9px);
+    padding: 0;
+    border-bottom: 0;
   }
 
+  /* flex-basis 0, nao `auto`: um <input> tem largura intrinseca (~20
+     caracteres) e e ela que decide se alguem cabe ao lado — com base `auto` o
+     funil caia pra linha de baixo. Com base 0 a busca cede espaco e o funil
+     fica sempre colado nela. */
   .fv-lotes-page .fv-toolbar-search {
     order: 1;
-    flex: 1 1 auto;
+    flex: 1 1 0;
   }
 
   .fv-lotes-page .fv-toolbar-search-input {
@@ -33611,11 +33653,12 @@ body.is-selection-mode .ctr-page .cc-tabs {
     height: 0;
   }
 
-  .fv-lotes-page .fv-toolbar-count {
+  /* Contagem na ponta DIREITA da segunda linha; "Limpar" a esquerda dela. */
+  .fv-lotes-page .fv-toolbar-clear {
     order: 4;
   }
 
-  .fv-lotes-page .fv-toolbar-clear {
+  .fv-lotes-page .fv-toolbar-count {
     order: 5;
     margin-left: auto;
   }

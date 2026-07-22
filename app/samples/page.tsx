@@ -2382,7 +2382,9 @@ function SamplesPage() {
     },
     {
       key: 'pending',
-      label: 'Aguardando classificação',
+      // No mobile o card e estreito (dois por linha) e o rotulo longo truncaria
+      // no meio. "Pendencias" e como o produto ja chama essa fila.
+      label: isDesktop ? 'Aguardando classificação' : 'Pendências',
       value: sampleStats?.classificationPending,
       tone: 'amber',
       delta:
@@ -2392,14 +2394,22 @@ function SamplesPage() {
     },
   ];
 
+  // Rodada 1 do M2: no mobile a faixa fica com DOIS cards — "Em aberto" e
+  // pendencias. Total e Vendidos sao leitura de gestao: valem o espaco na grade
+  // de 4 do desktop, mas na tela estreita empurravam a lista pra baixo sem
+  // responder nenhuma pergunta de quem esta operando.
+  const visibleKpiCards = isDesktop
+    ? kpiCards
+    : kpiCards.filter((card) => card.key === 'open' || card.key === 'pending');
+
   // RD16 M2: a KPI row e montada UMA vez e posicionada por breakpoint. No
-  // desktop ela e faixa fixa no topo da pagina; no mobile vira carrossel e entra
-  // DENTRO da rolagem, como primeiro item — some ao descer a lista, deixando o
-  // topo travado so com a busca. Uma fonte, uma montagem: renderizar duas vezes
-  // e esconder uma por CSS foi exatamente o que esta fase veio desfazer.
+  // desktop ela e faixa fixa no topo da pagina; no mobile entra DENTRO da
+  // rolagem, como primeiro item, junto com a toolbar. Uma fonte, uma montagem:
+  // renderizar duas vezes e esconder uma por CSS foi exatamente o que esta fase
+  // veio desfazer.
   const kpiRow = (
     <div className="fv-kpi-row">
-      {kpiCards.map((card) => {
+      {visibleKpiCards.map((card) => {
         const body = (
           <>
             <div className="fv-kpi-top">
@@ -2430,27 +2440,33 @@ function SamplesPage() {
                 )}
               </span>
             </div>
-            <span className="fv-kpi-value">
-              {card.value == null ? '—' : card.value.toLocaleString('pt-BR')}
-            </span>
-            <span
-              className={`fv-kpi-delta${
-                card.delta && card.delta.dir !== 'flat' ? ` is-${card.delta.dir}` : ''
-              }`}
-            >
-              {card.delta?.dir === 'up' ? (
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <path d="M7 17 17 7" />
-                  <path d="M8 7h9v9" />
-                </svg>
-              ) : card.delta?.dir === 'down' ? (
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <path d="m7 7 10 10" />
-                  <path d="M17 8v9H8" />
-                </svg>
-              ) : null}
-              {card.delta ? card.delta.text : ' '}
-            </span>
+            {/* Valor + mini-metrica no mesmo bloco: empilhados no desktop,
+                lado a lado no mobile — e o que tira uma linha da altura do
+                card. O wrapper e so de /samples; o `.fv-kpi` de /cadastros
+                segue com os dois soltos. */}
+            <div className="fv-kpi-metric">
+              <span className="fv-kpi-value">
+                {card.value == null ? '—' : card.value.toLocaleString('pt-BR')}
+              </span>
+              <span
+                className={`fv-kpi-delta${
+                  card.delta && card.delta.dir !== 'flat' ? ` is-${card.delta.dir}` : ''
+                }`}
+              >
+                {card.delta?.dir === 'up' ? (
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <path d="M7 17 17 7" />
+                    <path d="M8 7h9v9" />
+                  </svg>
+                ) : card.delta?.dir === 'down' ? (
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <path d="m7 7 10 10" />
+                    <path d="M17 8v9H8" />
+                  </svg>
+                ) : null}
+                {card.delta ? card.delta.text : ' '}
+              </span>
+            </div>
           </>
         );
 
@@ -2477,6 +2493,104 @@ function SamplesPage() {
         );
       })}
     </div>
+  );
+
+  // Toolbar do cartao da tabela — busca, funil com badge, "Limpar" e o
+  // contador. "Criar liga" mora no cabecalho da pagina, ao lado de
+  // "+ Novo lote".
+  //
+  // RD16 M2: uma montagem so, posicionada por breakpoint (mesmo padrao da
+  // kpiRow). No desktop e a faixa do topo do cartao, em uma linha. Na rodada 1
+  // ela desceu, no mobile, pra DENTRO da rolagem e abaixo dos KPIs: busca e
+  // funil na mesma linha, contador alinhado a direita na linha de baixo.
+  const toolbar = (
+    <div className="fv-toolbar">
+      <form
+        className="fv-toolbar-search"
+        role="search"
+        onSubmit={(event) => event.preventDefault()}
+      >
+        <svg
+          className="fv-toolbar-search-icon"
+          viewBox="0 0 24 24"
+          focusable="false"
+          aria-hidden="true"
+        >
+          <circle cx="11" cy="11" r="7" />
+          <path d="m16.2 16.2 4.1 4.1" />
+        </svg>
+        <input
+          className="fv-input fv-toolbar-search-input"
+          value={searchInput}
+          onChange={(event) => setSearchInput(event.target.value)}
+          placeholder="Buscar por lote ou proprietário..."
+          aria-label="Buscar por lote ou proprietário"
+          autoComplete="off"
+          spellCheck={false}
+        />
+        {searchInput ? (
+          <button
+            type="button"
+            className="fv-toolbar-search-clear"
+            aria-label="Limpar busca"
+            onClick={() => setSearchInput('')}
+          >
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        ) : null}
+      </form>
+      {selectionMode !== 'blend' ? (
+        <>
+          <button
+            type="button"
+            className="fv-btn fv-btn-secondary fv-toolbar-filter"
+            aria-haspopup="dialog"
+            aria-expanded={filtersOpen}
+            onClick={(event) => {
+              if (filtersOpen) {
+                closeFilters();
+                return;
+              }
+              openFilters(event.currentTarget);
+            }}
+          >
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M4 6h16" />
+              <path d="M7 12h10" />
+              <path d="M10 18h4" />
+            </svg>
+            {/* O rotulo vive num <span> pra o mobile poder escondê-lo e
+                deixar o botao no tamanho do icone — a linha da busca nao
+                cabe os dois. */}
+            <span className="fv-toolbar-filter-label">Filtros</span>
+            {activeHiddenFiltersCount > 0 ? (
+              <span className="fv-btn-badge">{activeHiddenFiltersCount}</span>
+            ) : null}
+          </button>
+          {activeHiddenFiltersCount > 0 ? (
+            <button type="button" className="fv-toolbar-clear" onClick={handleClearFiltersOnly}>
+              Limpar
+            </button>
+          ) : null}
+        </>
+      ) : null}
+      <span className="fv-toolbar-count">{samplesState.total} lotes</span>
+    </div>
+  );
+
+  // Rodada 1 do M2: no mobile os KPIs E a toolbar rolam JUNTO com os cards —
+  // nada de chrome travado. A lista mobile tem altura fixa (o .spv2-list-scroll
+  // e quem rola, nao a janela), entao cada faixa presa no topo sai direto da
+  // area util. Entra nos QUATRO ramos de rolagem, inclusive vazio e erro: sem
+  // isso uma busca sem resultado tiraria da tela o campo que precisa ser
+  // corrigido.
+  const mobileListChrome = isDesktop ? null : (
+    <>
+      {kpiRow}
+      {toolbar}
+    </>
   );
 
   return (
@@ -2556,92 +2670,7 @@ function SamplesPage() {
         )}
 
         <section className="samples-page-v2-sheet">
-          {/* FV: toolbar do cartao da tabela — busca, funil com badge, "Limpar"
-              e o contador. "Criar liga" subiu pro cabecalho da pagina, ao lado
-              de "+ Novo lote".
-
-              RD16 M2: vale nos DOIS breakpoints. No desktop e uma linha so; no
-              mobile quebra em duas (busca + funil / contagem + "Limpar") e o
-              rotulo "Filtros" some, sobrando o icone. E a unica chrome da lista
-              — nao existe mais uma barra mobile paralela. */}
-          <div className="fv-toolbar">
-            <form
-              className="fv-toolbar-search"
-              role="search"
-              onSubmit={(event) => event.preventDefault()}
-            >
-              <svg
-                className="fv-toolbar-search-icon"
-                viewBox="0 0 24 24"
-                focusable="false"
-                aria-hidden="true"
-              >
-                <circle cx="11" cy="11" r="7" />
-                <path d="m16.2 16.2 4.1 4.1" />
-              </svg>
-              <input
-                className="fv-input fv-toolbar-search-input"
-                value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
-                placeholder="Buscar por lote ou proprietário..."
-                aria-label="Buscar por lote ou proprietário"
-                autoComplete="off"
-                spellCheck={false}
-              />
-              {searchInput ? (
-                <button
-                  type="button"
-                  className="fv-toolbar-search-clear"
-                  aria-label="Limpar busca"
-                  onClick={() => setSearchInput('')}
-                >
-                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                    <path d="M6 6l12 12M18 6L6 18" />
-                  </svg>
-                </button>
-              ) : null}
-            </form>
-            {selectionMode !== 'blend' ? (
-              <>
-                <button
-                  type="button"
-                  className="fv-btn fv-btn-secondary fv-toolbar-filter"
-                  aria-haspopup="dialog"
-                  aria-expanded={filtersOpen}
-                  onClick={(event) => {
-                    if (filtersOpen) {
-                      closeFilters();
-                      return;
-                    }
-                    openFilters(event.currentTarget);
-                  }}
-                >
-                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                    <path d="M4 6h16" />
-                    <path d="M7 12h10" />
-                    <path d="M10 18h4" />
-                  </svg>
-                  {/* O rotulo vive num <span> pra o mobile poder escondê-lo e
-                      deixar o botao no tamanho do icone — a linha da busca nao
-                      cabe os dois. */}
-                  <span className="fv-toolbar-filter-label">Filtros</span>
-                  {activeHiddenFiltersCount > 0 ? (
-                    <span className="fv-btn-badge">{activeHiddenFiltersCount}</span>
-                  ) : null}
-                </button>
-                {activeHiddenFiltersCount > 0 ? (
-                  <button
-                    type="button"
-                    className="fv-toolbar-clear"
-                    onClick={handleClearFiltersOnly}
-                  >
-                    Limpar
-                  </button>
-                ) : null}
-              </>
-            ) : null}
-            <span className="fv-toolbar-count">{samplesState.total} lotes</span>
-          </div>
+          {isDesktop ? toolbar : null}
 
           {/* Barra contextual do modo liga — vale nos DOIS breakpoints desde o
               RD16 M2. No desktop fica logo abaixo da toolbar (a busca continua
@@ -2721,6 +2750,7 @@ function SamplesPage() {
           {isLoadingInitial ? (
             /* LOT-L4: skeleton em vez de texto "Carregando..." (design-system §3). */
             <div className="spv2-list-scroll">
+              {mobileListChrome}
               {Array.from({ length: 3 }).map((_, i) => (
                 <div key={`skel-initial-${i}`} className="spv2-skeleton-card" aria-hidden />
               ))}
@@ -2729,12 +2759,14 @@ function SamplesPage() {
             /* LOT-B1: falha de carregamento deixa de ser silenciosa — antes o
                erro caia no vazio "Nenhum lote encontrado" (mensagem enganosa). */
             <div className="spv2-list-scroll">
+              {mobileListChrome}
               <p className="spv2-error-banner" role="status">
                 {samplesState.error ?? 'Não foi possível carregar os lotes.'}
               </p>
             </div>
           ) : samplesState.items.length === 0 ? (
             <div className="spv2-list-scroll">
+              {mobileListChrome}
               <div className="spv2-empty">
                 <svg className="spv2-empty-icon" viewBox="0 0 40 56" aria-hidden="true">
                   <ellipse cx="20" cy="28" rx="17" ry="25" fill="#ddd" />
@@ -3061,7 +3093,7 @@ function SamplesPage() {
             </div>
           ) : (
             <div ref={samplesScrollRef} className="spv2-list-scroll">
-              {kpiRow}
+              {mobileListChrome}
               {samplesState.items.map((sample) => (
                 <SampleCard
                   key={sample.id}
