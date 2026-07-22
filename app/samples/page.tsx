@@ -2434,25 +2434,22 @@ function SamplesPage() {
             fazem sentido na lista. */}
         <div className="fv-page-head">
           <h2 className="fv-page-title">{tab === 'simulador' ? 'Simulador' : 'Lotes'}</h2>
-          {/* As DUAS acoes de criacao da pagina moram aqui, lado a lado:
-              "Criar liga" (secundaria, mesma geometria) e "+ Novo lote"
-              (primaria, na ponta). "Criar liga" saiu da toolbar da tabela —
-              no modo liga quem manda e a .fv-bulkbar. */}
-          {tab === 'simulador' ? null : (
+          {/* As DUAS acoes de criacao da pagina moram aqui, lado a lado —
+              "Criar liga" e "+ Novo lote", as duas primarias (mesma cor: as
+              duas criam um lote, uma do zero e outra por composicao).
+              "Criar liga" saiu da toolbar da tabela. No modo liga o bloco
+              INTEIRO some: quem manda e a .fv-bulkbar, e criar um lote no
+              meio da selecao nao faz sentido. */}
+          {tab === 'simulador' || selectionMode === 'blend' ? null : (
             <div className="fv-page-head-actions">
-              {selectionMode !== 'blend' ? (
-                <button type="button" className="fv-btn fv-btn-secondary" onClick={enterBlendMode}>
-                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                    <path d="M8 6h11" />
-                    <path d="M8 12h11" />
-                    <path d="M8 18h11" />
-                    <circle cx="4" cy="6" r="1.4" />
-                    <circle cx="4" cy="12" r="1.4" />
-                    <circle cx="4" cy="18" r="1.4" />
-                  </svg>
-                  Criar liga
-                </button>
-              ) : null}
+              <button type="button" className="fv-btn fv-btn-primary" onClick={enterBlendMode}>
+                {/* Circulos sobrepostos = combinar lotes num so. */}
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <circle cx="9" cy="12" r="6" />
+                  <circle cx="15" cy="12" r="6" />
+                </svg>
+                Criar liga
+              </button>
               <button
                 type="button"
                 className="fv-btn fv-btn-primary"
