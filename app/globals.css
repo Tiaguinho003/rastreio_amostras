@@ -6984,23 +6984,28 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
    em quadrado arredondado verde-claro (mesmo pattern dos icones dos
    campos no NewSampleModal) + chevron sutil indicando acao a direita.
    Foco e :hover reforcam com tint mais saturado. */
+/* "Cadastrar cliente" no fim do dropdown de busca. FV: superficie limpa em
+   vez do bloco em degrade verde — hairline separando da lista, quadradinho
+   branco com o + e o rotulo em `--fv-cta`. O peso visual sai da tipografia,
+   nao do fundo. */
 .lookup-create-cta {
   display: flex;
   align-items: center;
-  gap: clamp(10px, 3vw, 12px);
+  gap: 0.55rem;
   width: 100%;
-  padding: clamp(10px, 3vw, 12px) clamp(12px, 3.6vw, 14px);
-  background: linear-gradient(180deg, #f4faf6 0%, #ecf5ef 100%);
+  padding: 0.58rem 0.62rem;
+  background: transparent;
   border: 0;
-  border-top: 1px solid rgba(31, 93, 67, 0.12);
+  border-top: 1px solid var(--fv-line);
   cursor: pointer;
   text-align: left;
   font-family: inherit;
-  font-size: clamp(13px, 3.6vw, 14px);
+  font-size: 0.84rem;
   font-weight: 600;
-  color: var(--brand-green, #1f5d43);
-  /* So transform (LNW-L2). */
-  transition: transform 0.12s ease;
+  color: var(--fv-cta);
+  transition:
+    transform 0.12s ease,
+    background 0.16s ease;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -7008,19 +7013,20 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   flex-shrink: 0;
   display: inline-grid;
   place-items: center;
-  width: clamp(28px, 7.8vw, 32px);
-  height: clamp(28px, 7.8vw, 32px);
-  background: rgba(31, 93, 67, 0.14);
-  border-radius: clamp(7px, 2vw, 9px);
-  color: var(--brand-green, #1f5d43);
+  width: 25px;
+  height: 25px;
+  background: #ffffff;
+  border: 1px solid var(--fv-line-strong);
+  border-radius: 7px;
+  color: var(--fv-cta);
 }
 
 .lookup-create-cta-icon svg {
-  width: 55%;
-  height: 55%;
+  width: 13px;
+  height: 13px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 2.4;
+  stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -7034,37 +7040,32 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
 
 .lookup-create-cta-chevron {
   flex-shrink: 0;
-  width: clamp(14px, 4vw, 16px);
-  height: clamp(14px, 4vw, 16px);
+  width: 15px;
+  height: 15px;
   fill: none;
-  stroke: currentColor;
+  stroke: var(--fv-line-strong);
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
-  opacity: 0.55;
-  transition:
-    transform 0.18s ease,
-    opacity 0.18s ease;
+  transition: transform 0.18s ease;
 }
 
 @media (hover: hover) {
   .lookup-create-cta:hover {
-    background: linear-gradient(180deg, #e6f3ec 0%, #d8ecde 100%);
+    background: var(--fv-hover);
   }
 
   .lookup-create-cta:hover .lookup-create-cta-chevron {
-    opacity: 1;
     transform: translateX(2px);
   }
 }
 
 .lookup-create-cta:focus-visible {
-  background: linear-gradient(180deg, #e6f3ec 0%, #d8ecde 100%);
+  background: var(--fv-hover);
   outline: 0;
 }
 
 .lookup-create-cta:focus-visible .lookup-create-cta-chevron {
-  opacity: 1;
   transform: translateX(2px);
 }
 
@@ -16652,8 +16653,35 @@ select.samples-filter-field-input {
   font-size: clamp(12px, 3.4vw, 13px);
 }
 
+/* Variante compacta do "Cadastrar cliente" (a que aparece embaixo do "nenhum
+   cliente encontrado", nos campos que nao usam o CTA de rodape). Herdava o
+   botao `.secondary` global; aqui vira o mesmo traco institucional do CTA —
+   superficie branca, hairline e rotulo em `--fv-cta`. */
 .client-lookup-create {
   justify-self: start;
+  margin-top: 0.5rem;
+  padding: 0.42rem 0.72rem;
+  background: #ffffff;
+  border: 1px solid var(--fv-line-strong);
+  border-radius: var(--fv-radius);
+  box-shadow: none;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--fv-cta);
+  cursor: pointer;
+  transition:
+    transform 0.12s ease,
+    background 0.16s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.client-lookup-create:active {
+  transform: scale(0.98);
+}
+@media (hover: hover) {
+  .client-lookup-create:hover {
+    background: var(--fv-hover);
+  }
 }
 
 .client-lookup-list {
