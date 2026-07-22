@@ -250,6 +250,18 @@ body {
   --mobile-page-bg: var(--mobile-page-bg-base);
 }
 
+/* RD16: o CANVAS do app autenticado e BRANCO, ponta a ponta. O `::before`
+   verde de tela cheia era o fundo do desenho antigo — "verde atras + sheet
+   claro deslizando por cima" — e perdeu a funcao quando os sheets viraram
+   brancos e passaram a ocupar a tela toda: hoje so apareceria em emendas.
+   O verde do app fica em DUAS pecas, ambas curtas: a faixa `.fv-mtopbar` e a
+   tira de status bar (`::after` abaixo, que segue).
+   O PROSPECTOR NAO entra: ele nao tem a faixa (app restrito, fora do ciclo) e
+   depende do verde de tela cheia — por isso a guarda `:has(.fv-mtopbar)`. */
+.mobile-edge-shell-auth:has(.fv-mtopbar)::before {
+  display: none;
+}
+
 .mobile-edge-shell-auth::after {
   content: '';
   position: fixed;
@@ -5180,7 +5192,6 @@ button:disabled {
    clearance mora no `.spv2-list-scroll`). Escopado a /contratos via `:has(.ctr-page)`. */
 @media (max-width: 900px) {
   .app-shell-root:has(.ctr-page) .app-shell-main {
-    background: transparent;
     display: flex;
     flex-direction: column;
     padding-left: 0;
@@ -18625,16 +18636,11 @@ select.samples-filter-field-input {
   /* ── Dashboard: layered layout ── */
 
   .app-shell-main.is-dashboard-route {
-    /* O .dashboard-scroll e transparente e o verde vem deste shell. No
-       rubber-band (overscroll) do RODAPE o iOS revelava o verde atras do sheet
-       claro. 2 camadas: (1) faixa clara `#f4f6f5` (= cor do sheet) so nos 40%
-       de baixo — fica atras do sheet opaco no uso normal e so aparece no
-       overscroll do rodape; (2) o verde ORIGINAL intacto (hero nao muda). O
-       topo do bounce continua verde; o respiro hero/sheet vive na zona verde
-       (sobe ao rolar, nunca cruza pra clara). Mantem o scroll/bounce nativos. */
-    background:
-      linear-gradient(180deg, transparent 60%, #f4f6f5 60%),
-      linear-gradient(180deg, #1f5d43 0%, #14372a 100%);
+    /* RD16: SEM fundo proprio — herda o branco da base. Antes empilhava dois
+       gradientes (verde `#1f5d43`→`#14372a` + faixa `#f4f6f5` nos 40% de baixo
+       pra o rubber-band do rodape nao revelar verde atras do sheet claro). Com
+       canvas e sheet na MESMA cor, o truque perdeu o problema que resolvia.
+       O PROSPECTOR mantem o verde: ver a regra guardada mais abaixo. */
     padding: 0;
     overflow: hidden;
     display: flex;
@@ -30740,18 +30746,10 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   border-bottom-color: var(--brand-green);
 }
 
-/* Central de Contratos — hub de abas (F1). Reusa .cad-tabs/.cad-tab; .cc-tabs
-   ajusta a cor pro hero verde do mobile (no desktop o fundo e claro e as cores
-   default do .cad-tab servem). Ver docs/Central-de-Contratos-Plano-de-Trabalho.md. */
-@media (max-width: 900px) {
-  .cc-tabs .cad-tab {
-    color: rgba(255, 255, 255, 0.72);
-  }
-  .cc-tabs .cad-tab.is-active {
-    color: #ffffff;
-    border-bottom-color: #ffffff;
-  }
-}
+/* Central de Contratos — hub de abas (F1). Reusa .cad-tabs/.cad-tab sem
+   override de cor: desde o canvas branco do RD16 as cores da BASE
+   (--brand-muted / --brand-green) servem nos dois breakpoints. Ver
+   docs/Central-de-Contratos-Plano-de-Trabalho.md. */
 /* Modo Espelho (selecao de contrato): esconde as abas junto do header/busca. */
 body.is-selection-mode .ctr-page .cc-tabs {
   display: none;
@@ -32422,17 +32420,6 @@ body.is-selection-mode .ctr-page .cc-tabs {
    Prefixo .pg- · canvas desktop-only; mobile = aviso (PG7/PG35)
    ════════════════════════════════════════════════════════════════ */
 
-/* Sub-abas no hero verde do mobile (mesmo ajuste do .cc-tabs de contratos;
-   no desktop o fundo e claro e as cores default do .cad-tab servem). */
-@media (max-width: 900px) {
-  .pg-tabs .cad-tab {
-    color: rgba(255, 255, 255, 0.72);
-  }
-  .pg-tabs .cad-tab.is-active {
-    color: #ffffff;
-    border-bottom-color: #ffffff;
-  }
-}
 /* Modo selecao de liga: esconde as abas junto do header/busca (precedente
    body.is-selection-mode .ctr-page .cc-tabs). */
 body.is-selection-mode .samples-page-v2 .pg-tabs {
@@ -36836,7 +36823,12 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
     gap: 0.75rem;
     min-height: calc(env(safe-area-inset-top) + var(--fv-mtopbar-h));
     padding: env(safe-area-inset-top) clamp(0.9rem, 4vw, 1.25rem) 0;
-    background: var(--mobile-edge-fill);
+    /* Verde de marca CHAPADO e explicito. Mesma cor do `theme-color` e da
+       faixa de status bar (`.mobile-edge-shell-auth::after`), pra o topo do
+       app ser UMA peca sem costura. Nao herda `--mobile-edge-fill`: aquela
+       variavel muda por variante de shell (login usa outra) e e gradiente na
+       base — em 3.3rem um gradiente vertical so suja a cor. */
+    background: var(--brand-green);
   }
 
   .fv-mtopbar-title {
@@ -36916,5 +36908,92 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
 
   .mobile-tabbar-link.is-active::before {
     background: var(--fv-cta);
+  }
+}
+
+/* ================================================================
+   RD16 — Canvas BRANCO unico (mobile)
+   ================================================================
+   Antes: 4 camadas empilhadas com 3 verdes diferentes.
+     1. `.mobile-edge-shell::before` — verde de tela cheia
+     2. `.app-shell-main` — 4 comportamentos por rota (branco opaco /
+        gradiente `#1f5d43`→`#14372a` + faixa `#f4f6f5` / transparente)
+     3. a faixa do topo
+     4. o sheet da pagina, claro, subindo com radius 20px
+   Era o desenho "verde atras + sheet deslizando por cima", que perdeu a razao
+   de existir quando os sheets viraram brancos e passaram a ocupar a tela toda.
+
+   Agora: DUAS camadas. Faixa verde curta + canvas branco de ponta a ponta. O
+   fundo do `.app-shell-main` volta a ser UMA regra (a base, `--mobile-page-bg`);
+   as variantes por rota nao pintam mais nada.
+
+   Consequencia: tudo que era BRANCO SOBRE VERDE nesta faixa intermediaria
+   (saudacao do dashboard, card de perfil, sub-abas, pill de busca) precisa de
+   tinta escura e hairline — e o que muda esta aqui embaixo, junto.
+
+   O PROSPECTOR fica de fora do ciclo inteiro (app restrito, sem a faixa): as
+   regras pendem de `:has(.fv-mtopbar)` e o verde dele e restaurado logo abaixo. */
+
+@media (max-width: 900px) {
+  /* PROSPECTOR: sem faixa, o desenho antigo continua valendo por inteiro —
+     verde de tela cheia atras + hero com texto branco + sheet claro por cima. */
+  .app-shell-root:not(:has(.fv-mtopbar)) .app-shell-main.is-dashboard-route {
+    background:
+      linear-gradient(180deg, transparent 60%, #f4f6f5 60%),
+      linear-gradient(180deg, #1f5d43 0%, #14372a 100%);
+  }
+
+  /* ── Sheets: sem a "aba" que subia sobre o verde ──────────────────────
+     O radius de 20px no topo existia pra o sheet claro emendar no verde. Com
+     canvas e sheet na mesma cor nao ha emenda: o arco so desenharia um degrau
+     do branco contra o branco. */
+  .app-shell-root:has(.fv-mtopbar) .samples-page-v2-sheet,
+  .app-shell-root:has(.fv-mtopbar) .clients-v2-sheet,
+  .app-shell-root:has(.fv-mtopbar) .sdv-content.informe-content {
+    border-radius: 0;
+  }
+
+  /* ── Saudacao do dashboard: tinta escura ─────────────────────────────
+     Era branco/verde-claro porque vivia sobre o hero verde. RD16 decisao 1:
+     "o hero verde grande sai; conteudo abaixo, neutro". */
+  .app-shell-root:has(.fv-mtopbar) .dashboard-greeting-label {
+    color: var(--brand-muted);
+  }
+
+  .app-shell-root:has(.fv-mtopbar) .dashboard-greeting-name {
+    color: var(--ink);
+  }
+
+  .app-shell-root:has(.fv-mtopbar) .dashboard-greeting-role {
+    color: var(--brand-green);
+  }
+
+  /* ── Card de perfil (/profile): mesma troca ──────────────────────────
+     O `.stg-header-user-role` usava `#7eccae`, verde-claro feito PRA fundo
+     verde — sobre branco ele sumiria. */
+  .app-shell-root:has(.fv-mtopbar) .stg-header-user-name {
+    color: var(--ink);
+  }
+
+  .app-shell-root:has(.fv-mtopbar) .stg-header-user-role {
+    color: var(--brand-green);
+  }
+
+  /* ── Busca: hairline no lugar da sombra flutuante ────────────────────
+     A pill era branca translucida com sombra difusa porque flutuava sobre o
+     verde. Sobre branco a sombra vira borrao cinza e a borda some: o kit
+     institucional define a caixa por HAIRLINE (`--fv-line`), nao por sombra.
+     O refino da barra (virar `.fv-input`) fica pra M2, com a lista. */
+  .app-shell-root:has(.fv-mtopbar) .hero-search-bar {
+    background: var(--fv-surface);
+    border: 1px solid var(--fv-line);
+    box-shadow: none;
+  }
+
+  /* O filtro de /samples e a irma branca da barra — mesmo tratamento. Nas
+     demais paginas o botao e verde solido e ja se le sobre branco. */
+  .app-shell-root:has(.fv-mtopbar) .samples-page-v2 .hero-search-filter-btn {
+    border: 1px solid var(--fv-line);
+    box-shadow: none;
   }
 }
