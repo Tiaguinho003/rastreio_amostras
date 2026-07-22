@@ -512,6 +512,32 @@ A tipografia foi para os tokens do kit, na escala da tabela (eram três cinzas h
 
 **Próxima frente combinada com o Flavio**: alinhar os modais.
 
+#### Rodada 3 do M2 — status, ações do card e o leque (2026-07-22, `a7cc7ea` · `c45043c` · `0b810af`)
+
+**O achado**: o Flavio desconfiou de que "lote em aberto tem cor azul" — e estava certo. A lista discordava do **drawer do mesmo lote**: "Em aberto" era VERDE na lista e AZUL no detalhe; "Vendido" era CINZA na lista e VERDE no detalhe. Abrir o lote trocava a cor do status. O M2 já tinha juntado tabela e card numa fonte só; o que sobrou foi o detalhe, com um mapa próprio — cópia que envelheceu sozinha. Agora `SampleDetailView` chama `sampleStatusDisplay`, e quem cedeu a paleta foi a **lista**: azul lê como "em andamento", verde como "concluído", e o painel de movimentações já usava essa leitura.
+
+| Status    | Cor                        |
+| --------- | -------------------------- |
+| Em aberto | azul `--fv-chip-blue-fg`   |
+| Vendido   | verde `--fv-chip-green-fg` |
+| Perdido   | vermelho                   |
+| Deletado  | cinza                      |
+
+`SampleMovementsPanel` fica fora de propósito: tem vocabulário próprio ("Disponível", "Parcial") porque separa o parcialmente vendido, que para a lista e para o hero é só "Em aberto". As cores dele já batem.
+
+**As demais mudanças, todas pedidas na conferência:**
+
+1. **Status sem pastilha, na lista** — entra a variante `.fv-chip.is-bare` (só a letra, na cor da variante). Vale nos **dois breakpoints da lista**: na célula do lote o status divide espaço com o número e o badge de liga, e três pastilhas seguidas viravam ruído. O chip pastel segue sendo o padrão (RD12) no detalhe e em `/cadastros` — muda a **forma**, não a cor.
+2. **Status ao lado do número.** Ele perdeu o `margin-left: auto` que o encostava na borda direita; fica colado no número, com a liga entre os dois — a mesma ordem da célula "Lote" da tabela.
+3. **`⋯` como botão solto**, alvo redondo de 38px **centrado verticalmente**, sem o filete de altura total. Segue **irmão no flex, não absoluto**: assim reserva a própria largura e o texto trunca antes de encostar nele — sem contar caractere e sem sobreposição.
+4. **Chrome mais discreta**: a contagem de lotes cai para `0.72rem` (é rodapé da chrome, não dado da lista) e o **placeholder da busca** vira dica de verdade — menor, `w300` e mais apagado, ainda legível. A busca vazia era a coisa mais escrita da tela.
+5. 🔴 **O leque do FAB estava com o arco errado desde a AP29.** A geometria (90° / 45° / 0°) foi desenhada para **três** opções; quando a Aprovação saiu, ninguém remexeu — as duas restantes ficaram amontoadas no quadrante de cima, com um buraco onde estava a terceira. Com duas, o par vai para **67.5° e 22.5°**: simétrico em torno da diagonal, com a mesma separação de 45° entre eles e até as bordas. Escopado por `.is-fan-2`, que o componente marca pelo **número de opções**, não pela página — o leque do `/informe` tem três e segue com o arco original, que continua certo para ele.
+6. **O "+" encolheu** em `/samples` (`clamp(53–60px)` → `clamp(46–52px)`, o tamanho de antes do +15%, com raio e ícone na mesma proporção): com a lista institucional, o botão cheio de gradiente virou a peça mais pesada da tela.
+
+**A conferir**: "Em aberto" azul **na lista e no drawer**; status como texto colado no número (liga no meio) e nada encostado na direita; `⋯` redondo, centrado, sem divisória, com o texto truncando antes dele; contagem e placeholder mais discretos; leque com as duas opções abrindo em arco simétrico; `/informe` com o leque de **três** intacto.
+
+**Próxima frente combinada**: análise dos modais.
+
 **Próximo**: M3 (detalhe e painéis — a F2/F3 já vale no mobile; conferir no device e coletar dado real do bug do `.bottom-sheet` com `100dvh`) e M4 (consolidação das skills + `docs/Lotes-Visao-Geral.md`).
 
 ## 3. O que NÃO muda

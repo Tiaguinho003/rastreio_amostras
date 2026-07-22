@@ -55,6 +55,14 @@ molde das proximas paginas do ciclo (`/samples` → `/relatorios` → `/users`+`
   ("+ Adicionar filial", nunca "+" solto) — molde `.fv-cd-add-btn`.
 - **Chips de status pastel** (fundo suave + texto colorido) sao o padrao de status. `/cadastros`
   usa status UNICO por linha (Completo verde / Incompleto ambar / Cancelado vermelho).
+  **Variante `.fv-chip.is-bare`** (RD16 M2): so a letra, sem pastilha — para quando o status divide
+  a celula com outros marcadores (na LISTA de lotes ele fica ao lado do numero e do badge de liga, e
+  tres pastilhas seguidas viravam ruido). Muda a FORMA, nunca a cor: a classe de variante e a mesma.
+  Onde o status aparece sozinho — detalhe, `/cadastros` — o pastel continua sendo o padrao.
+- 🔴 **Cor de status e do DADO, nao da tela.** O mesmo lote nao pode trocar de cor ao abrir o
+  drawer. `sampleStatusDisplay` (`lib/sample-display.ts`) e a fonte unica de lista **e** detalhe:
+  Em aberto **azul**, Vendido **verde**, Perdido **vermelho**, Deletado **cinza**. Mapa duplicado e
+  copia que envelhece sozinha — ja aconteceu duas vezes nesta pagina.
 - **Modais e sheets BRANCOS** (global desde a rodada 1; o vidro bege morreu).
 
 ### 0.2 Chrome global desktop (RD13) e anatomia de pagina (RD14)

@@ -489,16 +489,21 @@ popovers de revisão montados ao mesmo tempo).
   `box-shadow: 0 1px 2px rgba(0,0,0,.04)`. Sem gradiente, sem sombra empilhada.
 - **Tipografia da LINHA**: título em `0.86rem` / `600` / `var(--ink)` com `tabular-nums`, secundário
   em `0.78rem` / `var(--muted)`. A mesma escala das células (§5) — nada de escala própria de card.
-- **Chip de status é o `.fv-chip`**, alimentado pela mesma fonte da linha da tabela
-  (`sampleStatusDisplay` em `lib/sample-display.ts`). Antes a regra estava triplicada e divergia: a
-  mesma amostra era "Em aberto" azul no card e verde na tabela.
+- **Status é o `.fv-chip` na variante `.is-bare`** (só a letra, sem pastilha), alimentado pela
+  mesma fonte da linha da tabela e do detalhe (`sampleStatusDisplay` em `lib/sample-display.ts`).
+  Fica **colado no título**, com o badge de liga entre os dois — a mesma ordem da célula da tabela.
+  Encostá-lo na borda direita com `margin-left: auto` afasta o status do dado que ele qualifica, e
+  a direita é do `⋯`.
 - 🔴 **Status é lido num lugar só.** O card tinha também uma barra de cor lateral, numa paleta
   paralela à do chip. Duas codificações do mesmo dado é o que faz uma delas envelhecer sozinha —
   some com a redundante, fica o chip.
 - **Sem ícone decorativo na linha de dados.** Ícone só onde ele desambigua (§5, `.fv-cell-ic`); no
   card, o que separa os dados é um ponto médio discreto.
 - **`⋯` é IRMÃO do botão do card**, nunca filho — botão dentro de botão é HTML inválido. O wrap vira
-  `flex-direction: row` e o `⋯` é a coluna da direita, com `border-left` hairline.
+  `flex-direction: row` e o `⋯` é um alvo redondo de 38px na direita, **centrado verticalmente**.
+  Irmão no flex e não `absolute`: assim ele **reserva a própria largura** e o texto trunca antes de
+  encostar nele — nada de contar caractere nem de sobrepor. Sem filete separando: a divisória soma
+  uma terceira linha vertical ao card e pesa mais que a ação que abre.
 
 ### 🔴 O `⋯` do card abre um SHEET, não um popover
 
