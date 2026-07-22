@@ -14,6 +14,13 @@
 // apareciam no mobile (CSS as escondia; no desktop o card nem monta) e o
 // caminho pro lote custava dois toques onde a tabela do desktop custa um. O que
 // o painel dava de acao rapida agora esta no `⋯` — mesma lista do `⋯` da linha.
+//
+// Rodada 2 do M2: o card virou a LINHA da tabela em formato estreito. Saiu a
+// barra de status lateral (4px com glow, na paleta antiga — "Em aberto" era
+// AZUL aqui e verde na tabela) e sairam os dois icones da linha de baixo; o
+// status passa a ser lido num lugar so, o `.fv-chip`, e os dados se separam
+// por ponto medio. `.spv2-card-bar` e `.spv2-card-sep` seguem no CSS: quem
+// ainda os renderiza e o RelatedSampleRow e o SaleContractLotPickerModal.
 
 import { memo } from 'react';
 
@@ -70,22 +77,18 @@ function SampleCardComponent({
       </div>
       <div className="spv2-card-bottom">
         <span className="spv2-card-owner">{ownerDisplayValue(sample) || '—'}</span>
-        <span className="spv2-card-sep" />
+        <span className="spv2-card-dot" aria-hidden="true">
+          ·
+        </span>
         <span className="spv2-card-detail">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="2" y="7" width="20" height="14" rx="2" />
-            <path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" />
-          </svg>
           {availableSacks === null || availableSacks === undefined ? '—' : availableSacks} sacas
         </span>
         {hasHarvest ? (
           <>
-            <span className="spv2-card-sep" />
+            <span className="spv2-card-dot" aria-hidden="true">
+              ·
+            </span>
             <span className="spv2-card-detail">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <rect x="3" y="4" width="18" height="18" rx="2" />
-                <path d="M16 2v4M8 2v4M3 10h18" />
-              </svg>
               <HarvestDisplay harvest={sample.declared.harvest} showMixSafras={false} />
             </span>
           </>
@@ -131,7 +134,6 @@ function SampleCardComponent({
         aria-pressed={isIneligible ? undefined : isSelected}
         aria-disabled={isIneligible}
       >
-        <span className="spv2-card-bar" />
         <span className={circleClassName} aria-hidden="true">
           {isSelected && !isIneligible ? (
             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
@@ -158,7 +160,6 @@ function SampleCardComponent({
           onOpenDetails?.(sample.id);
         }}
       >
-        <span className="spv2-card-bar" />
         {content}
       </button>
 

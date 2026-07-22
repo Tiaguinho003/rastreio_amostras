@@ -5757,6 +5757,17 @@ button:disabled {
   flex-shrink: 0;
 }
 
+/* Separador do card da LISTA de lotes (rodada 2 do M2): ponto medio no lugar
+   do filete acima. Classe propria em vez de override do `.spv2-card-sep` — o
+   filete segue servindo o RelatedSampleRow e o SaleContractLotPickerModal, que
+   nao entraram no ciclo. */
+.spv2-card-dot {
+  flex: none;
+  color: var(--fv-line-strong);
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
 .spv2-card-detail {
   display: flex;
   align-items: center;
@@ -5831,7 +5842,7 @@ button:disabled {
 .samples-page-v2:not(.informe-commercial-page) .spv2-card-wrap,
 .samples-page-v2 .spv2-card.is-blend-selectable {
   content-visibility: auto;
-  contain-intrinsic-size: auto 88px;
+  contain-intrinsic-size: auto 72px;
 }
 
 @media (min-width: 901px) {
@@ -5841,24 +5852,12 @@ button:disabled {
   }
 }
 
-.spv2-card-wrap.is-card-open {
-  --card-status-color: #60a5fa;
-  --card-status-bg: #dbeafe;
-}
-
-.spv2-card-wrap.is-card-sold {
-  --card-status-color: #2a6539;
-  --card-status-bg: #e4f3e8;
-}
-
-.spv2-card-wrap.is-card-lost {
-  --card-status-color: #b44646;
-  --card-status-bg: #f6e1e1;
-}
-
+/* As variantes open/sold/lost do wrap so definiam `--card-status-color` e
+   `--card-status-bg`, e dentro do wrap nao ha mais quem as consuma — o badge
+   saiu no M2 e a barra na rodada 2. Sobra a invalidada, que apaga o card
+   inteiro. O modificador continua no JSX: e ele que carrega essa regra e o
+   estado do card no modo liga. */
 .spv2-card-wrap.is-card-invalid {
-  --card-status-color: #6b7280;
-  --card-status-bg: #f3f4f6;
   opacity: 0.55;
   filter: saturate(0.6);
 }
@@ -5928,10 +5927,45 @@ button:disabled {
   flex: none;
 }
 
-/* O padding direito do card era curto pra aproximar o chevron da borda; sem
-   chevron, e a coluna do `⋯` que fecha a direita. */
-.spv2-card-wrap > .spv2-card {
-  padding-right: clamp(10px, 3vw, 12px);
+/* ── Card da lista com a tipografia da LINHA da tabela (rodada 2 do M2) ──
+   Mesma escala e os mesmos tokens do desktop: numero em 0.86rem/600/--ink com
+   tabulares, secundario em 0.78rem/--muted. Antes eram tres cinzas hardcoded
+   (#1a1a1a, #666, #72766f) numa escala propria.
+
+   O padding e o gap vem pra ca porque a barra de status saiu: o `gap` do card
+   existia pra abrir o vao dela, e o padding esquerdo maior era a folga dela. No
+   modo LIGA o card nao passa por aqui (o seletor pede o wrap) — la o gap ainda
+   separa a bolinha de selecao do texto. ── */
+.samples-page-v2 .spv2-card-wrap > .spv2-card {
+  gap: 0;
+  padding: clamp(11px, 3.2vw, 13px) clamp(12px, 3.4vw, 14px);
+}
+
+.samples-page-v2 .spv2-card-content {
+  gap: 0.2rem;
+}
+
+/* Mesmo vao da celula do lote no desktop (numero · Liga · chip). */
+.samples-page-v2 .spv2-card-top {
+  gap: 0.4rem;
+}
+
+.samples-page-v2 .spv2-card-code {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.samples-page-v2 .spv2-card-bottom {
+  gap: 0.3rem;
+}
+
+.samples-page-v2 .spv2-card-owner,
+.samples-page-v2 .spv2-card-detail {
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: var(--muted);
 }
 
 /* ── spv2: empty state ── */
