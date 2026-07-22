@@ -197,7 +197,16 @@ export function SampleCreateRadialFab(props: SampleCreateRadialFabProps) {
       )}
 
       {mounted && (
-        <div className="fab-fan" role="menu" aria-label="Opções de criação" aria-hidden={!open}>
+        /* `is-fan-2`: o arco base foi desenhado para TRES opcoes (90°/45°/0°) e
+           ainda serve o leque do /informe. Aqui sao duas — a Aprovacao saiu na
+           AP29 —, entao o par vai para um arco simetrico (67.5°/22.5°) em vez
+           de ficar amontoado no topo com um buraco embaixo. */
+        <div
+          className="fab-fan is-fan-2"
+          role="menu"
+          aria-label="Opções de criação"
+          aria-hidden={!open}
+        >
           {/* Lote — acima do FAB */}
           <button
             ref={firstOptionRef}
