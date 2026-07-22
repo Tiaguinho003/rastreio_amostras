@@ -287,7 +287,6 @@ export function SampleSendFlow({
           setChooserVisible(true);
         }}
         onDismissAttempt={() => !exportingPdf && !exportPdfSuccess}
-        title="Gerar laudo"
         ariaLabel="Gerar laudo"
         stacked
         closeVariant="edge-back"
@@ -375,7 +374,6 @@ export function SampleSendFlow({
           setChooserVisible(true);
         }}
         onDismissAttempt={() => !physicalSending && !physicalSendSuccess}
-        title="Enviar amostra"
         ariaLabel="Enviar amostra"
         stacked
         closeVariant="edge-back"

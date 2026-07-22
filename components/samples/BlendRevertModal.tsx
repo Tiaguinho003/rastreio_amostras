@@ -67,7 +67,6 @@ export function BlendRevertModal({
       open={open}
       onClose={onClose}
       onDismissAttempt={() => !reverting}
-      title={`Reverter liga ${lotNumber}?`}
       ariaLabel={`Reverter liga ${lotNumber}`}
       stacked
       closeVariant="edge-back"

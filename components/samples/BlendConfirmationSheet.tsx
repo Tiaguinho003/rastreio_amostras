@@ -439,7 +439,6 @@ export function BlendConfirmationSheet({
       // pelo `onDismissAttempt` (e nao no `onClose`) mantem a entry de history
       // protegida pro proximo back.
       onDismissAttempt={() => !submitting && !success}
-      title="Confirmação da liga"
       ariaLabel="Confirmar amostras e contribuições da liga"
       footer={success ? null : footer}
       dragToDismiss={false}

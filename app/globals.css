@@ -37091,3 +37091,47 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   font-size: clamp(12.5px, 3.2vw, 13px);
   border-radius: 10px;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   FV · /samples — CHROME COMUM DOS PAINEIS
+   ══════════════════════════════════════════════════════════════
+   O drawer do lote fechou o desenho do contêiner: cantos arredondados só
+   à esquerda (o painel encosta na borda direita da tela), verde do topo
+   cobrindo o modal INTEIRO — inclusive a faixa do cabeçalho, sem a emenda
+   das bordas brancas — e cabeçalho SEM título, com a seta ← mais baixa.
+   Aqui os demais painéis da página adotam o mesmo.
+
+   Escopo deliberado: a lista de seletores cobre só os painéis de
+   /samples. `.fv-panel-sheet` hoje é exclusivo daqui (o cliente usa o
+   alias `.client-panel-sheet`); `.new-sample-sheet` e
+   `.samples-filter-sheet` entram nominalmente. Quando o padrão for
+   promovido, isto vira uma regra em `.side-sheet`/`.detail-overlay` e o
+   drawer do cliente e o de contrato vêm junto. */
+
+.bottom-sheet.fv-panel-sheet,
+.bottom-sheet.new-sample-sheet,
+.bottom-sheet.samples-filter-sheet {
+  /* Camada de verde sobre o branco do `.bottom-sheet`. Sem hero pra
+     acompanhar, a faixa é mais curta que a do drawer (260px): cobre o
+     cabeçalho e o primeiro grupo de campos. */
+  background:
+    linear-gradient(180deg, rgba(23, 60, 48, 0.06) 0%, rgba(23, 60, 48, 0) 100%) no-repeat top
+      left / 100% 190px,
+    #ffffff;
+}
+
+@media (min-width: 901px) {
+  .bottom-sheet.fv-panel-sheet,
+  .bottom-sheet.new-sample-sheet,
+  .bottom-sheet.samples-filter-sheet {
+    border-radius: 14px 0 0 14px;
+  }
+
+  /* Mesma altura da seta do drawer do lote — sem título, ela não tem com
+     que se alinhar lá em cima. */
+  .bottom-sheet.fv-panel-sheet .bottom-sheet-close.is-edge-back,
+  .bottom-sheet.new-sample-sheet .bottom-sheet-close.is-edge-back,
+  .bottom-sheet.samples-filter-sheet .bottom-sheet-close.is-edge-back {
+    top: 30px;
+  }
+}

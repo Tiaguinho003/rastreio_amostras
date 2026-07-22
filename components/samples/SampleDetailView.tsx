@@ -2742,7 +2742,6 @@ export function SampleDetailView({
         open={Boolean(detail) && invalidateModalOpen}
         onClose={() => setInvalidateModalOpen(false)}
         onDismissAttempt={() => !invalidating}
-        title="Deletar lote"
         ariaLabel="Deletar lote"
         stacked
         closeVariant="edge-back"
@@ -2971,7 +2970,6 @@ export function SampleDetailView({
         open={Boolean(detail) && labelModalOpen}
         onClose={closeLabelModal}
         onDismissAttempt={() => !labelModalSubmitting && !labelPrintSuccess}
-        title="Imprimir etiqueta"
         ariaLabel="Imprimir etiqueta"
         stacked
         closeVariant="edge-back"
@@ -3050,7 +3048,6 @@ export function SampleDetailView({
         open={registrationEditMode}
         onClose={cancelRegistrationEdit}
         onDismissAttempt={() => !registrationUpdating && !registrationSaveSuccess}
-        title="Editar informações"
         ariaLabel="Editar informações do lote"
         stacked
         closeVariant="edge-back"
@@ -3385,7 +3382,6 @@ export function SampleDetailView({
                 open
                 onClose={closeClassificationDetail}
                 onDismissAttempt={() => !saving && !saved}
-                title="Editar classificação"
                 ariaLabel="Editar classificação"
                 stacked
                 closeVariant="edge-back"

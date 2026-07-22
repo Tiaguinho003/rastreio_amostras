@@ -3245,7 +3245,6 @@ function SamplesPage() {
       <BottomSheet
         open={filtersOpen}
         onClose={closeFilters}
-        title="Filtros"
         ariaLabel="Filtros de lotes"
         className="side-sheet fv-filter-sheet samples-filter-sheet"
         footer={

@@ -756,7 +756,6 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
         open={open && (state.step === 'form' || state.step === 'created')}
         onClose={onClose}
         onDismissAttempt={handleDismissAttempt}
-        title="Novo lote"
         footer={state.step === 'created' ? null : formFooter}
         ariaLabel="Novo lote"
         // side-sheet: desktop = painel lateral direito (como o detalhe);
