@@ -147,16 +147,16 @@ function describeSampleRow(sample: SampleSnapshot) {
 const formatKpiPct = (value: number) =>
   `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
 
-// Sub-abas de /samples (PG1/PG23): "Lotes" (lista atual, default) + "Simulador"
-// (Playground). Molde do ?tab= copiado de app/contratos/page.tsx.
-const SAMPLES_TABS = [
-  { key: 'lotes', label: 'Lotes' },
-  { key: 'simulador', label: 'Simulador' },
-] as const;
-type SamplesTab = (typeof SAMPLES_TABS)[number]['key'];
+// Sub-abas de /samples (PG1/PG23): "Lotes" (lista, default) + "Simulador"
+// (Playground). RD16 M2: a TIRA de abas saiu — no desktop o Simulador ja era
+// sub-item da sidenav (NAV_SUB_ITEMS) e a tira ficava display:none; no mobile
+// o Simulador nao existe. O ?tab= segue como fonte da verdade pra sidenav e
+// pros deep-links.
+const SAMPLES_TABS = ['lotes', 'simulador'] as const;
+type SamplesTab = (typeof SAMPLES_TABS)[number];
 
 function parseSamplesTab(raw: string | null): SamplesTab {
-  return SAMPLES_TABS.some((tabDef) => tabDef.key === raw) ? (raw as SamplesTab) : 'lotes';
+  return SAMPLES_TABS.some((key) => key === raw) ? (raw as SamplesTab) : 'lotes';
 }
 
 // Canvas do Simulador: primeiro next/dynamic do projeto — o chunk do React
@@ -2402,24 +2402,12 @@ function SamplesPage() {
           <SelectionModeHeader title="Selecione Lotes" onExit={exitBlendMode} />
         ) : null}
         {/* RD16: o header verde da pagina saiu — o chrome mobile agora e unico
-            e mora no AppShell (.fv-mtopbar: titulo da rota + camera + avatar). */}
-
-        {/* Sub-abas (PG1/PG23): Lotes (default) + Simulador. No modo selecao
-            de liga somem via CSS (body.is-selection-mode), molde contratos. */}
-        <div className="cad-tabs pg-tabs" role="tablist" aria-label="Seções de lotes">
-          {SAMPLES_TABS.map((tabDef) => (
-            <button
-              key={tabDef.key}
-              type="button"
-              role="tab"
-              aria-selected={tab === tabDef.key}
-              className={`cad-tab${tab === tabDef.key ? ' is-active' : ''}`}
-              onClick={() => selectTab(tabDef.key)}
-            >
-              {tabDef.label}
-            </button>
-          ))}
-        </div>
+            e mora no AppShell (.fv-mtopbar: titulo da rota + camera + avatar).
+            RD16 M2: a tira de sub-abas (Lotes | Simulador) tambem saiu. Ela era
+            mobile-only na pratica — o desktop ja a escondia, porque la o
+            Simulador e sub-item da sidenav — e no mobile o Simulador nao existe
+            mais. Sobrando so "Lotes", a tira virava um rotulo caro: ~2,9rem do
+            topo travado por uma aba sem irma. */}
 
         {/* FV (desktop >=901px): cabecalho institucional + KPI row. No mobile
             estes blocos ficam display:none e o header verde + abas seguem. O

@@ -32368,12 +32368,6 @@ body.is-selection-mode .ctr-page .cc-tabs {
    Prefixo .pg- · canvas desktop-only; mobile = aviso (PG7/PG35)
    ════════════════════════════════════════════════════════════════ */
 
-/* Modo selecao de liga: esconde as abas junto do header/busca (precedente
-   body.is-selection-mode .ctr-page .cc-tabs). */
-body.is-selection-mode .samples-page-v2 .pg-tabs {
-  display: none;
-}
-
 /* Aba Simulador ativa: a lista de Lotes permanece MONTADA (estado do reducer/
    cursor/selecao preservado) e some via display:none — busca+FAB e a sheet. */
 .samples-page-v2.is-tab-simulador .hero-search-wrap,
@@ -32386,7 +32380,8 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
 /* Host do canvas. Altura explicita exigida pelo React Flow; drawer/pill/
    paleta ancoram como position:absolute NESTE contexto — nunca position:fixed
    (PageTransition tem will-change: transform, precedente do MobileTabbar).
-   Offset de 210px ~ header + abas; ajustar na validacao visual. */
+   Offset de 210px ~ topbar + cabecalho da pagina (a tira de abas nunca contou:
+   ela ja era display:none no desktop e saiu de vez no RD16 M2). */
 .pg-host {
   position: relative;
   height: calc(100dvh - 210px);
@@ -33466,8 +33461,7 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
      .fv-bulkbar. */
   .fv-lotes-page .hero-search-wrap.fv-hide-desktop,
   .fv-lotes-page .samples-page-v2-sheet .spv2-list-meta,
-  .fv-lotes-page .samples-selection-header,
-  .fv-lotes-page .pg-tabs {
+  .fv-lotes-page .samples-selection-header {
     display: none;
   }
 
