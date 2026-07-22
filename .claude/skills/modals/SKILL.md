@@ -7,25 +7,16 @@ description: Use this skill whenever building, editing, or reviewing modals/dial
 
 Toda construcao ou edicao de modal central (nao bottom sheet) segue o padrao consolidado `.app-modal.is-themed`. Esta skill e a fonte canonica. Ao encontrar um modal que nao segue (modais de `users`, `cdm-modal`, etc), refatorar pra cá quando tocar.
 
-> Bottom sheets (mobile, slide de baixo) seguem outro padrao — ver `design-system` §8 "Bottom Sheet". Detalhes-como-overlay (painel lateral desktop / sheet mobile dirigido por URL — detalhe do cliente em `/cadastros?cliente=`, detalhe do lote em `/samples?lote=`, detalhe do contrato em `/contratos?details=`) usam o `DetailOverlay` — ver `design-system` §8 "DetailOverlay". Forms de criacao/edicao viram painel lateral no desktop via classe `.side-sheet` — ver `design-system` §8 "Side-sheet". Esta skill cobre apenas modais centrais.
-
-> **Regras de conteiner por TIPO (RD11, travadas pelo Flavio 2026-07-20 — ver `docs/Redesign-Plano-de-Trabalho.md`):**
+> **Antes de abrir esta skill, decida o CONTEINER na skill `containers`.** Ela tem a arvore de
+> decisao completa (detalhe → `DetailOverlay`; criacao/edicao e filtros → painel lateral; edicao de
+> 1–2 campos → dropdown inline; confirmacao → central) e o inventario por pagina de qual superficie
+> vai para onde. Esta skill cobre **apenas o modal central** — o que ele e por dentro.
 >
-> - **Detalhe de recurso** → `DetailOverlay` peek (✅ cliente/lote/contrato feitos)
-> - **Form de criacao/edicao** (incl. view+edit e Documentos) e **informes** (visita/relatorio/informativo) → sheet com `.side-sheet` (painel lateral bloqueante no desktop; ✅ Novo lote/Novo cliente feitos)
-> - **Modais abertos DE DENTRO de um detalhe** (criar/editar sub-recurso, preview/upload de anexo, editar o recurso) → **paineis laterais `stacked` com seta ← na borda** (`closeVariant="edge-back"`) — molde completo em `design-system` §8 "Paineis do detalhe" (✅ todos os do cliente feitos, rodadas 5–6 do piloto)
-> - **Filtros** (lotes/clientes/contratos) → painel lateral (✅ /cadastros feito — `.fv-filter-sheet` 400px)
-> - **Edicao MINUSCULA de um item de lista** (1–2 campos, sem confirmacao) → **dropdown INLINE** ancorado no proprio card, nao painel: economiza codigo e espaco (decisao do Flavio 2026-07-21). Casos hoje, os dois na timeline do lote (`SampleMovementsPanel`): **editar envio** (destinatario + data — o `SampleSendFlow` perdeu a entrada EDIT por causa disso) e **editar a data de chegada** (o sheet `sample-date-edit-sheet` morreu). O CANCELAR do card de envio, por ser destrutivo, segue central.
-> - **Operacoes** (venda/perda, envio/laudo, etiquetas, embarque, agio/washout/faturar/pagar) → **CONTINUAM centrais**
-> - **Confirmacao/descarte/atencao/aviso/sucesso** (incl. inativar com motivo) → **CONTINUAM centrais**; quando abertos SOBRE um painel/drawer do detalhe, o backdrop ganha **`.fv-panel-scrim`** (dialogo centrado DENTRO da faixa do painel no desktop; tier `--z-modal-stacked`+20) — rodada 5 do piloto
-> - **Sucesso de acao de modal/painel** → **check canonico `SuccessCheckOverlay`** no lugar de frases "... com sucesso" (rodada 6 do piloto — ver §7 e a skill `feedback-messages`)
-> - **Visualizacao** (foto/PDF/lightbox), **pickers/choosers/menus** e **camera/classificacao** → intactos
-> - Form lateral aberto DE DENTRO de um peek → desliza POR CIMA (push, `stacked`)
-> - **Criacao de CONTRATO** (Etapa2 + LotPicker) → FORA — specs futuras do Flavio
->
-> **A migracao acontece PAGINA A PAGINA, dentro do redesenho COMPLETO de cada pagina** (mockups do Flavio, pixel-perfect; piloto `/cadastros`): cada ciclo redesenha a pagina INTEIRA (estrutura, header, cards, listas, tipografia) e os modais dela realinham ao conteiner-alvo na MESMA passada — o conteiner e parte do pacote, nao o escopo. Cada pagina e tocada UMA vez. **NAO converter conteiner isoladamente fora do ciclo da pagina.** Inventario por pagina com o alvo de cada superficie: §11-A.
+> O central e para **DECIDIR** (confirmar, avisar, desistir). Coletar dados e painel — ver `forms`.
+> Quando o central abre sobre um painel, o backdrop ganha `.fv-panel-scrim` ou `.is-scrim-none`
+> (`containers` §4).
 
-> **Padrao de modal de ACAO (consolidado 2026-06):** o canonico de modais de **ACAO** (forms, listas, menus que o usuario opera) e o **BottomSheet** (header branco, titulo verde a esquerda, X quadrado claro, backdrop escuro sem blur, slide-up de baixo) — ver `design-system` §8. Os centrais `.app-modal.is-themed` (esta skill) ficam pra **AVISO/notice/confirm** (`.app-confirm-modal`: icone + mensagem + confirmar/cancelar) e casos especiais. Excecao: os 2 centrais de ACAO do dashboard — busca de lote (`.app-modal-lookup-result`) e senha (`.app-modal-password-decision`) — **continuam centrais** mas adotam o VISUAL de acao via overrides ESCOPADOS (header claro + titulo verde a esquerda + X claro + backdrop escuro), sem tocar no chrome `.is-themed` compartilhado pelos demais ~28 modais.
+> **Padrao de modal de ACAO (consolidado 2026-06):** o canonico de modais de **ACAO** (forms, listas, menus que o usuario opera) e o **BottomSheet** — ver `containers`. Os centrais `.app-modal.is-themed` (esta skill) ficam pra **AVISO/notice/confirm** (`.app-confirm-modal`: icone + mensagem + confirmar/cancelar) e casos especiais. Excecao: os 2 centrais de ACAO do dashboard — busca de lote (`.app-modal-lookup-result`) e senha (`.app-modal-password-decision`) — **continuam centrais** mas adotam o VISUAL de acao via overrides ESCOPADOS (header claro + titulo verde a esquerda + X claro + backdrop escuro), sem tocar no chrome `.is-themed` compartilhado pelos demais ~28 modais.
 
 ## 1. Quando usar
 
@@ -34,9 +25,11 @@ Use o padrao `.app-modal.is-themed` para:
 - Confirmacoes destrutivas (ex: inativar cliente em cascata)
 - Status changes com motivo (ex: inativar/reativar cliente)
 - Avisos/notices e sucessos
-- Operacoes (venda/perda, envio/laudo, etiquetas, embarque, agio/washout/faturar/pagar — regra RD11)
+- Operacoes ainda nao migradas (embarque, agio/washout/faturar/pagar)
 
-> **RD11 (2026-07-20):** formularios de **criacao/edicao** (incl. view+edit, ex.: nova filial, editar cliente) deixam de ser o caso central — o alvo deles e o **BottomSheet com `.side-sheet`** (painel lateral no desktop). Os que hoje sao centrais (listados no §11-A) migram no ciclo pagina-a-pagina da FV, cada um na vez da sua pagina — NAO antes. Ate la, seguem como estao.
+> Formularios de **criacao/edicao** NAO sao caso central — o alvo deles e o painel lateral
+> (`containers`). Os que ainda estao centrais migram no ciclo pagina-a-pagina, cada um na vez da
+> sua pagina; ate la seguem como estao.
 
 NAO use para:
 
@@ -157,7 +150,7 @@ Combinar livremente: `.app-modal is-themed is-wide`.
 
 > **Confirm de DESCARTE padronizado (`.is-scrim-none` + `.is-compact`, 2026-07-21):** os dois "Descartar?" de formulario — **"Descartar lote?"** (`NewSampleModal`) e **"Descartar cadastro?"** (`ClientQuickCreateModal`) — sao o MESMO dialogo. Duas classes opt-in sobre o confirm SEM header: **`.app-modal-backdrop.is-scrim-none`** = backdrop **transparente** (nao escurece, nao borra — o painel atras fica exatamente como estava; ele so intercepta o clique de dismiss), `align-items:center` e tier `calc(var(--z-modal-stacked) + 20)` = **620**, acima do sheet `stacked` (610) e mesmo tier do `.fv-panel-scrim` (os dois nunca coexistem); **`.app-modal.is-themed.app-confirm-modal.is-compact`** = card de **312px** (o padrao e 380px), raio 14px, icone ~44px, tipografia e paddings menores. Como o fundo nao escurece, o card se define sozinho por **hairline `--fv-line` + sombra forte** — nao remover. Ambos portalam pro `document.body` (o `transform` do `.bottom-sheet` capturaria o `position:fixed`). Orfa desde entao: `.client-quick-create-discard-overlay`.
 
-> **Sheet SOBRE sheet (`<BottomSheet stacked>`):** desde 2026-06, um bottom-sheet pode abrir sobre outro — a prop `stacked` eleva backdrop+sheet pro tier `--z-modal-stacked` (600/610) e o scroll-lock/ESC/back viram ref-contados/gated-ao-topo no componente (ver `design-system` §8 "stacked"). Ex.: "Novo proprietário" (`ClientQuickCreateModal`) sobre "Novo lote" (`NewSampleModal`). **Pegadinha:** o confirm de "Descartar?" do sheet DE CIMA nao pode ser `.is-stacked` (colidiria no mesmo tier 600/610 do sheet de cima). Ate 2026-07-21 a saida era um **overlay INTERNO** ao sheet (`position:absolute; inset:0`, como o overlay de sucesso); hoje e um dialogo CENTRAL portalado com **`.app-modal-backdrop.is-scrim-none`**, que fica no tier `--z-modal-stacked + 20` (620) — ver "Confirm de DESCARTE padronizado" logo abaixo.
+> **Sheet SOBRE sheet (`<BottomSheet stacked>`):** desde 2026-06, um bottom-sheet pode abrir sobre outro — a prop `stacked` eleva backdrop+sheet pro tier `--z-modal-stacked` (600/610) e o scroll-lock/ESC/back viram ref-contados/gated-ao-topo no componente (ver `containers` §3). Ex.: "Novo proprietário" (`ClientQuickCreateModal`) sobre "Novo lote" (`NewSampleModal`). **Pegadinha:** o confirm de "Descartar?" do sheet DE CIMA nao pode ser `.is-stacked` (colidiria no mesmo tier 600/610 do sheet de cima). Ate 2026-07-21 a saida era um **overlay INTERNO** ao sheet (`position:absolute; inset:0`, como o overlay de sucesso); hoje e um dialogo CENTRAL portalado com **`.app-modal-backdrop.is-scrim-none`**, que fica no tier `--z-modal-stacked + 20` (620) — ver "Confirm de DESCARTE padronizado" logo abaixo.
 
 > **Central SOBRE central — portao do embarque (EMB28) e do faturamento (AP18):** o `ShipmentConfirmationModal` (`components/contracts/ShipmentConfirmationModal.tsx` — confirmacao de embarque: resumo + **transporte "Pela empresa | Por terceiros" + responsavel via `UserSelect` quando "Pela empresa" (EMB30)** + data `shippedAt` (max-hoje, default no ultimo dia util, BRT; recusa fds; EMB34) + upload opcional 0..10 fotos com **recusa >12 MiB no cliente** (EMB34) + aviso terminal + "fotos ficam 15 dias" (EMB31); `.app-modal is-themed is-action sample-detail-compact-modal`, portal) e alcancado por 2 portas: a worklist da sub-aba Embarque E o **portao do pagamento** — no `SaleContractLifecycleDialog` (action='pay'), um 422 `CONTRACT_SHIPMENT_REQUIRED` (lido de `ApiError.details.code`) abre o modal de confirmacao. **⚠️ EMB33 (2026-07-16) reverteu o empilhamento:** o dialog principal **SAI DE CENA** enquanto o portao esta aberto — `{!needsShipment && !needsApproval ? createPortal(...) : null}` — **UM `.app-modal-backdrop` de cada vez, NAO dois portalados** (o backdrop duplo escurecia demais). O estado (`date`) vive no COMPONENTE, nao no portal, entao persiste no hand-off; ao confirmar, um **toast "Embarque confirmado"** + o submit re-chamado paga (o confirm NAO bumpa `version`). Read-only da galeria = seção "Embarque" do `SaleContractDetailsModal` + lightbox `.emb-lightbox` (portal, z acima do BottomSheet). **Mesma moldura no portao do faturamento (aprovacao AP18):** 422 `CONTRACT_APPROVAL_REQUIRED` (action='invoice') abre o `ApprovalLabelModal` (prop `onSent`) — **tambem com o dialog base fora de cena** (o gate `!needsShipment && !needsApproval` cobre os dois portoes); ao enviar, refatura no `onClose` (envio NAO bumpa `version` → mesma `expectedVersion`). O mesmo `ApprovalLabelModal` e a porta [Gerar] da sub-aba Aprovacoes (`AprovacoesPanel`, refetch no `onSent`).
 
@@ -546,85 +539,26 @@ UPPERCASE em campos de nome/dados cadastrais (`event.target.value.toUpperCase()`
 
 ## 11. Modais existentes — status
 
-### §11-A — Inventario por pagina × conteiner-alvo (RD11, 2026-07-20)
+### §11-A — Inventario: MOVIDO
 
-Levantamento completo (~70 superficies). **"Alvo"** = conteiner pela regra RD11 (preambulo). **Status**: ✅ = ja no alvo; **fica** = ja conforme (nao muda); **🔜 ciclo** = migra quando o ciclo pagina-a-pagina da FV chegar na pagina (com o mockup do Flavio — nada de conversao antecipada); **(confirmar)** = alvo presumido, fechar no plan mode da pagina.
+> O inventario por pagina x conteiner-alvo (o que vai virar painel, o que segue central, o que ja
+> migrou) vive na skill `containers` §8. Aqui ficam apenas as notas sobre os modais CENTRAIS
+> existentes.
 
-| Pagina                  | Superficie                                                                                                              | Alvo (RD11)                          | Status                 |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------ | ---------------------- |
-| Global                  | Senha inicial (aviso+form, no-dismiss)                                                                                  | central (aviso)                      | fica                   |
-| Global                  | Menu do avatar (`HeaderAvatarMenu` `.is-menu`)                                                                          | intacto (menu)                       | fica                   |
-| Global                  | `CameraSheet` + 10 modais de classificacao                                                                              | intacto (camera)                     | fica                   |
-| /login                  | Esqueci a senha (wizard `login-modal-*`)                                                                                | intacto (fora da app)                | fica                   |
-| /samples lista          | Filtros (`fv-filter-sheet` 400px; `.samples-filter-modal` segue vivo em /contratos)                                     | painel lateral                       | ✅ F1 `11d8542`        |
-| /samples lista          | Novo lote (`NewSampleModal` — edge-back + campos `.fv-form-*`, safra em `<select>`)                                     | side-sheet                           | ✅ `875c777`+`5e7d985` |
-| /samples lista          | Quick-create cliente (`ClientQuickCreateModal`, todos os contextos)                                                     | side-sheet                           | ✅ `7a2abbe`           |
-| /samples lista          | Descartes/sucessos (confirms + overlays de check)                                                                       | central                              | fica                   |
-| /samples lista          | Liga: confirmacao (`BlendConfirmationSheet` — edge-back, campos `.fv-form-*`, SEM `stacked`)                            | side-sheet                           | ✅ `684f95d`           |
-| /samples lista          | Perda (`SampleLossSheet`; atribuir dono = central sobre o painel). Venda e edicao morreram                              | painel lateral                       | ✅ `eec71c7`           |
-| /samples lista          | Envio: UM painel — tipo + destinatarios na MESMA etapa (chooser central `SendMethodChooserModal` deletado)              | painel lateral                       | ✅ `85e5bd4`           |
-| /samples ?lote=         | Detalhe do lote (`SampleDetailView`)                                                                                    | DetailOverlay                        | ✅ F2                  |
-| /samples ?lote=         | Editar registro/data (paineis; `.sample-detail-reg-edit-modal` morto por seletor)                                       | side-sheet (edicao)                  | ✅ F3 `305648a`        |
-| /samples ?lote=         | Classificacao: ficha INLINE na aba (F2) + painel so de edicao (`.cld-modal` so no mobile)                               | ficha inline + painel                | ✅ F2/F3 `89ddb26`     |
-| /samples ?lote=         | Confirms (salvar s/ reclassificar, reclassificar, cancelar mov./envio)                                                  | central                              | fica                   |
-| /samples ?lote=         | Deletar lote + reverter liga = paineis; bloqueado e propagacao de safra seguem centrais (`.fv-panel-scrim`)             | painel + central (aviso)             | ✅ F3 `1390c2d`        |
-| /samples lista + ?lote= | Imprimir etiqueta = painel proprio (`SampleLabelPrintSheet`, sem abrir o drawer); editar envio/data = dropdown INLINE   | painel / inline                      | ✅ `57e696b`           |
-| /samples ?lote=         | `PhotoZoomViewer`; carimbo/X-effect                                                                                     | intacto (visualizacao/efeito)        | fica                   |
-| /cadastros (PILOTO)     | Filtros (`.fv-filter-sheet` 400px)                                                                                      | painel lateral                       | ✅ FV E1               |
-| /cadastros              | Novo cliente (`ClientQuickCreateModal`)                                                                                 | side-sheet                           | ✅ `7a2abbe`           |
-| /cadastros ?cliente=    | Detalhe do cliente (`ClientDetailView` — drawer de perfil 620px)                                                        | DetailOverlay                        | ✅ F1 + FV R3          |
-| /cadastros ?cliente=    | Editar cliente (painel `fv-cd-editor-sheet`; central `.client-detail-edit-modal` morto)                                 | painel lateral (edge-back)           | ✅ FV R5               |
-| /cadastros ?cliente=    | Documentos: superficie de abas MORTA (R2 — cards inline no drawer); preview + novo anexo + conta nova/detalhe = paineis | painel lateral (edge-back)           | ✅ FV R5–R6            |
-| /cadastros ?cliente=    | Filial nova (`ClientUnitModal`) / detalhe (`ClientUnitDetailModal`, view bordado)                                       | painel lateral (edge-back)           | ✅ FV R5–R6            |
-| /cadastros ?cliente=    | Status cliente/filial (motivo) + cascata (`ClientInactivateWithCascadeModal`)                                           | central (backdrop `.fv-panel-scrim`) | fica                   |
-| /cadastros aba Corretor | Corretor (`BrokerFormModal`)                                                                                            | side-sheet (criacao/edicao)          | 🔜 ciclo               |
-| /users                  | Detalhe/editar usuario (`cdm-modal`) + novo usuario                                                                     | side-sheet                           | 🔜 ciclo               |
-| /users                  | Inativar (motivo) + confirms                                                                                            | central                              | fica                   |
-| /profile                | Desativar push (confirm)                                                                                                | central                              | fica                   |
-| /relatorios             | Leque FAB (`InformeCreateRadialFab`)                                                                                    | intacto                              | fica                   |
-| /relatorios             | 3 form-sheets (visita/semanal/informativo)                                                                              | side-sheet (informes)                | 🔜 ciclo               |
-| /relatorios             | 3 descartes + aviso 409 + excluir item                                                                                  | central                              | fica                   |
-| /relatorios             | Vincular/remover vinculo (curadoria)                                                                                    | central (operacao)                   | fica (confirmar)       |
-| /contratos              | Criacao (LotPicker + `SaleContractEtapa2Modal`)                                                                         | **FORA** — specs futuras             | aguarda specs          |
-| /contratos ?details=    | Detalhe do contrato (`SaleContractDetailsModal`)                                                                        | DetailOverlay                        | ✅ F3                  |
-| /contratos              | Agio; washout/faturar/pagar (`SaleContractLifecycleDialog`); conferencia do espelho                                     | operacao — central                   | fica                   |
-| /contratos              | Solicitar aprovacao (confirm); lightbox embarque; previa do espelho                                                     | central / intacto                    | fica                   |
-| /contratos              | Filtros                                                                                                                 | painel lateral                       | 🔜 ciclo               |
-| /embarques              | Confirmacao de embarque (`ShipmentConfirmationModal`)                                                                   | operacao — central                   | fica                   |
-| /embarques              | Etiqueta de aprovacao (`ApprovalLabelModal` + sucesso)                                                                  | operacao — central                   | fica                   |
-| Simulador               | Drawer de resultado (ja lateral); connect menu                                                                          | intacto                              | fica                   |
+> **Modal central DENTRO de um sheet/drawer:** portalar pro body (§9 Portal) — dentro do sheet, o
+> `transform` do `.bottom-sheet` capturaria o `position: fixed`. Com um modal interno aberto, o
+> `dismissGuardRef` do `DetailOverlay` bloqueia ESC/X do overlay (`anyModalOpen` — manter o OR
+> completo ao adicionar modal novo). Tiers e scrim: `containers` §4.
 
-> As tabelas/notas abaixo (status `.is-themed`, portais, variantes) continuam validas — descrevem o estado ATUAL de cada modal. Este §11-A e a camada de PLANEJAMENTO por cima: pra onde cada superficie vai quando a vez da pagina chegar.
+> **Centrais que sobraram no piloto do cliente:** status de cliente/filial (motivo) e cascata de
+> inativacao — os dois `.is-themed` com backdrop `.fv-panel-scrim`. Todo o resto do detalhe do
+> cliente virou painel lateral.
 
-### ✅ Superficies do CLIENTE (piloto FV — estado pos-rodadas 1–6, 2026-07-21)
-
-O detalhe do cliente foi o piloto do ciclo FV e NAO usa mais modais centrais pra forms — os
-modais internos viraram **paineis laterais** (molde em `design-system` §8 "Paineis do detalhe").
-Estado atual:
-
-| Superficie                            | Arquivo                                                          | Conteiner atual                                                                                                                      |
-| ------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Detalhe do cliente (drawer de perfil) | `components/clients/ClientDetailView.tsx`                        | `DetailOverlay` 620px, backdrop BLOQUEANTE (hero + abas `.fv-cd-tabs` + grafico de linhas)                                           |
-| Nova filial / Nova conta              | `ClientUnitModal.tsx` / `ClientBankAccountModal.tsx`             | painel lateral `stacked` edge-back; submit no footer sticky (`form={id}`); sem Cancelar textual                                      |
-| Detalhe filial / conta (view↔edit)    | `ClientUnitDetailModal.tsx` / `ClientBankAccountDetailModal.tsx` | painel lateral; view = campos bordados `.cudm-view-value` espelhando o form de edicao; prop `dismissLocked` (filial) trava sob aviso |
-| Editar cliente                        | `ClientDetailView.tsx` (BottomSheet inline)                      | painel lateral `fv-cd-editor-sheet` (o modo interno da rodada 2 morreu)                                                              |
-| Preview de anexo                      | `ClientAttachmentPreviewModal.tsx`                               | painel lateral; Excluir/Baixar no footer (`.cap-footer`); confirm de exclusao empilha no footer                                      |
-| Novo anexo                            | `ClientAttachmentAddModal.tsx`                                   | painel lateral; campo QUADRADO de arquivo `.caa-drop` + filial opcional + Salvar                                                     |
-| Status cliente/filial (motivo)        | `ClientDetailView.tsx` (portais)                                 | **central** `.app-modal.is-themed is-action` com backdrop **`.fv-panel-scrim`** (centrado na faixa do painel)                        |
-| Cascata                               | `ClientInactivateWithCascadeModal.tsx`                           | **central** `is-themed` + `.is-danger` com backdrop **`.fv-panel-scrim`**                                                            |
-| Sucesso (todas as acoes)              | `components/SuccessCheckOverlay.tsx`                             | check canonico (§7) — frases de sucesso mortas                                                                                       |
-
-> _(Historico: o modal "Documentos" morreu na rodada 2 — Anexos e Contas viraram cards sempre
-> visiveis na aba Documentos do drawer. As tabelas antigas desta secao descreviam os modais
-> centrais pre-FV.)_
-
-> **F1 do redesign (2026-07-20):** o detalhe do cliente NAO e mais pagina (`/clients/[clientId]` = redirect) — e o `ClientDetailView` montado no `DetailOverlay` em `/cadastros?cliente=<id>` (ver `design-system` §8 "DetailOverlay"). Os avisos centrais que sobraram (status/cascata) portalam pro body (§9 Portal) — dentro do sheet, o `transform` do `.bottom-sheet` capturaria o `position: fixed`. O overlay fica no tier BASE (400/410); os paineis laterais sao `stacked` (600/610) e os avisos `.fv-panel-scrim` ficam a 620. Com modal interno aberto, o `dismissGuardRef` bloqueia ESC/X do overlay (`anyModalOpen` — manter o OR completo ao adicionar modal novo).
-
-#### Dashboard
+### Dashboard
 
 > O **OperationModal** ("Lotes pendentes") do dashboard foi **REMOVIDO em 2026-07-12 (DSB-D2)** junto com os cards de pendencia. Ele era um BottomSheet (`.is-operations`); o CSS (`.bottom-sheet.is-operations`, `.spv2-card-classify-arrow`) foi **mantido** para o rebuild do fluxo de classificar-a-partir-da-fila na pagina de Lotes. A classe `.app-modal-dashboard` ja havia sido removida antes. Ver `docs/Dashboard-Plano-de-Trabalho.md` (DSB-D2).
 
-#### Formularios de informe (prospector + comercial)
+### Formularios de informe (prospector + comercial)
 
 | Modal                                        | Arquivo                                                             | Variantes                                                                                                                                                                                           |
 | -------------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -638,9 +572,9 @@ Estado atual:
 | Vincular cliente (curadoria do ADMIN)        | `components/informe/RelatoriosViewer.tsx` (inline JSX)              | `is-themed sample-detail-lookup-modal rsm-link-modal` (portal; lookup com `initialSearch` + contexto `.rsm-link-context`; estado vazio → ClientQuickCreateModal prefilled que vincula no onCreated) |
 | Remover vinculo (curadoria do ADMIN)         | `components/informe/RelatoriosViewer.tsx` (inline JSX)              | `is-themed app-confirm-modal` + `.is-warning` (portal; re-vinculavel, nao e destrutivo)                                                                                                             |
 
-> Os formularios abrem em BottomSheets (`.bottom-sheet.is-informe`, ver skill `design-system` §8). Confirms de descarte empilham sobre o sheet (`.is-stacked`, `dragDisabled` enquanto aberto) — mesmo padrao do "Descartar lote?" do NewSampleModal. TODOS os confirms acima renderizam via `createPortal(document.body)` (regra do §2) exceto o "Excluir item" do viewer Relatórios (`RelatoriosViewer`), inline historico (os modais de vinculo do mesmo viewer ja portam).
+> Os formularios abrem em BottomSheets (`.bottom-sheet.is-informe`, ver `containers`). Confirms de descarte empilham sobre o sheet (`.is-stacked`, `dragDisabled` enquanto aberto) — mesmo padrao do "Descartar lote?" do NewSampleModal. TODOS os confirms acima renderizam via `createPortal(document.body)` (regra do §2) exceto o "Excluir item" do viewer Relatórios (`RelatoriosViewer`), inline historico (os modais de vinculo do mesmo viewer ja portam).
 
-#### Extracao da classificacao (CameraSheet global — Q.cls.2)
+### Extracao da classificacao (CameraSheet global — Q.cls.2)
 
 Todos seguem `.app-modal.is-themed`. Ordem do fluxo: `idle → preview → handleSendPhoto → detecting → detected → extracting → ` (3a/3b se falha; senão) ` confirming (Review) → classification-meta (etapa Tipo+Classificadores, corpo do SHEET) → submitting (tambem no sheet) → success`. Mismatch/reclassify aparecem no caminho do save.
 
@@ -802,7 +736,7 @@ Quando encontrar um modal listado em "⚠ Compactos sem `.is-themed`" que precis
 4. **Remover CSS duplicado** (header verde, close button, botoes) que era replicado localmente
 5. **Smoke test visual**: abrir o modal antes/depois e comparar — efeito final deve ser identico
 
-Exemplo de referencia do canonico central: `ClientUnitModal`. _(O `ClientQuickCreateModal`, antes citado aqui como modal central divergente, virou **BottomSheet** em 2026-06 — ver §1 e a secao de Bottom Sheet no `design-system` §8.)_
+Exemplo de referencia do canonico central: `ClientUnitModal`. _(O `ClientQuickCreateModal`, antes citado aqui como modal central divergente, virou **BottomSheet** em 2026-06 — ver §1 e a skill `containers`.)_
 
 ## 14. Quando criar classes scoped
 

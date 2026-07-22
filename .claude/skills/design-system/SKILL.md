@@ -427,6 +427,13 @@ Excecao a regra "nunca verde ao clicar":
 
 ## 8. Modais e Bottom Sheets
 
+> **⚠️ Esta secao MIGROU para a skill `containers`.** Qual conteiner usar (arvore de decisao),
+> `BottomSheet` e suas props, `DetailOverlay`, `.side-sheet`, `.fv-panel-sheet`, empilhamento/
+> z-index, URL-como-estado, foco e os gotchas de navegacao vivem la. O visual do modal CENTRAL
+> esta em `modals`. O que sobra aqui abaixo e material legado que ainda nao foi reconciliado
+> (variantes de sheet de paginas nao migradas e a documentacao da pagina /relatorios) — **nao usar
+> como referencia para construcao nova**.
+
 ### Bottom Sheet (padrao mobile)
 
 > Componente reusavel: `components/BottomSheet.tsx`. Usar este wrapper ao construir qualquer bottom sheet novo — nao replicar o CSS na mao. Em desktop (>900px) o mesmo componente transforma-se em modal centralizado via CSS responsivo.

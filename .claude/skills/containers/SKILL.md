@@ -1,0 +1,407 @@
+---
+name: containers
+description: Use this skill whenever a new UI surface needs to open — detail view, create/edit form, filters, confirmation, quick edit. Defines WHICH container to use (DetailOverlay, side-sheet, fv-panel-sheet, filter sheet, central modal, inline dropdown), the BottomSheet primitive underneath all of them, the stacking/z-index tiers, and URL-as-state. Answers "isso abre em que?".
+---
+
+# Contêineres — em qual superfície isso abre
+
+Toda superfície que se sobrepõe à página passa por aqui. A pergunta "isso abre em quê?" tem uma
+resposta única por caso — não é preferência.
+
+Para o **conteúdo** de dentro: `forms` (campos, submit, erro, sucesso). Para o **visual** do modal
+central: `modals`. Para tokens e cards: `design-system`.
+
+---
+
+## §1 Árvore de decisão
+
+| O que é                                            | Contêiner                                     | Largura desktop |
+| -------------------------------------------------- | --------------------------------------------- | --------------- |
+| Detalhe de um recurso (tem URL própria)            | `DetailOverlay`                               | 620px           |
+| Criar / editar a partir da lista                   | `BottomSheet` + `.side-sheet`                 | 620px           |
+| Form disparado de dentro de um detalhe             | `.side-sheet` + `.fv-panel-sheet` + `stacked` | 620px           |
+| Filtros de uma lista                               | `.side-sheet` + `.fv-filter-sheet`            | 400px           |
+| Confirmação destrutiva (fora de painel)            | `.app-modal.is-themed.app-confirm-modal`      | 380px           |
+| Confirmação **sobre** um painel                    | idem + `.fv-panel-scrim` no backdrop          | 380px           |
+| "Descartar?" de rascunho                           | idem + `.is-scrim-none.is-compact`            | 312px           |
+| Editar 1–2 campos de um card                       | **dropdown inline no próprio card**           | —               |
+| Feedback transiente (salvo, copiado, erro de rede) | toast → `feedback-messages`                   | —               |
+
+**Regra de corte do painel vs. dropdown inline:** 1–2 campos sem consequência de negócio (data,
+observação) = dropdown inline no card. A partir de 3 campos, ou se o salvamento dispara evento de
+domínio, é painel. Abrir um painel de 620px para editar uma data é caro em atenção e em cliques.
+
+**Regra de corte do painel vs. modal central:** o painel é para **coletar** (o usuário escreve
+algo). O modal central é para **decidir** (o usuário confirma ou desiste). Um "tem certeza?" nunca
+vira painel; um formulário nunca vira modal central.
+
+---
+
+## §2 O catálogo
+
+### `DetailOverlay` — detalhe de recurso
+
+Contêiner canônico de detalhe. Mobile = sheet de tela cheia; desktop = painel direito com a **lista
+viva atrás** (o backdrop não bloqueia). Quem abre e fecha é o **query param**, não o sheet.
+
+```tsx
+<DetailOverlay
+  open={Boolean(loteId)}
+  onClose={closeLote}
+  dismissGuardRef={loteDismissGuardRef}
+  ariaLabel="Detalhes do lote"
+  className="lote-details-overlay"
+  closeVariant="edge-back"
+>
+  <SampleDetailView … />
+</DetailOverlay>
+```
+
+Os quatro props travados dentro do componente (`components/DetailOverlay.tsx`) — **não replicar à
+mão com `BottomSheet` cru**: `manageHistory={false}` (a history é da URL), `dragToDismiss={false}`,
+`onDismissAttempt={() => !dismissGuardRef?.current}`, `className="detail-overlay …"`.
+
+Usos: `/samples` (lote), `/cadastros` (cliente), `/contratos` (contrato).
+
+### `.side-sheet` — criação e edição
+
+Mesma geometria do detalhe, mas com **backdrop escurecido e bloqueante**: criação tem estado sujo,
+a lista atrás não fica clicável. A history segue com o árbitro do `BottomSheet` (criar não é um
+recurso endereçável — não ganha query param).
+
+```tsx
+<BottomSheet
+  open={open}
+  onClose={handleClose}
+  onDismissAttempt={handleDismissAttempt}
+  title={null}
+  footer={footer}
+  ariaLabel="Novo lote"
+  className="fv-panel-sheet side-sheet new-sample-sheet"
+  closeVariant="edge-back"
+  dragDisabled={discardOpen}
+>
+```
+
+### `.fv-panel-sheet` — o kit de painel
+
+Modificador **de conteúdo**, não de geometria: dá ao painel a geometria de campo do kit FV e o
+chrome comum (§7). Sempre acompanhado de `.side-sheet`. Todo painel novo usa `.fv-panel-sheet`;
+`.client-panel-sheet` é alias legado do drawer do cliente.
+
+### `.fv-filter-sheet` — filtros
+
+`.side-sheet` estreitado para `min(400px, 92vw)`. **Vence por ordem**, não por especificidade: a
+regra mora depois da do `.side-sheet` no arquivo, com a mesma especificidade. Mover uma das duas de
+lugar quebra a largura.
+
+### Modal central
+
+Estrutura, variantes e tokens estão em `modals`. Aqui só o que decide **onde** ele aparece:
+
+- Confirmação disparada da página → backdrop padrão.
+- Confirmação disparada **de dentro de um painel** → `.fv-panel-scrim` no backdrop. No desktop o
+  scrim cobre só a faixa direita de 620px (`right: 0; width: min(620px, 92vw)`), então o diálogo
+  aparece **dentro** da área do painel, não no meio da tela.
+- "Descartar?" de rascunho → `.is-scrim-none` (fundo não escurece nem borra) + `.is-compact`.
+
+### Dropdown inline
+
+Sem componente próprio: um bloco condicional dentro do card, com os campos e um botão de salvar. O
+estado é só `qualId | null` (ou `boolean`), e o card fica em `detailBusy` enquanto está aberto.
+Exemplos: edição de envio e edição da data de chegada em `SampleDetailView`.
+
+---
+
+## §3 `BottomSheet` é a primitiva
+
+`DetailOverlay`, `.side-sheet`, `.fv-panel-sheet` e `.fv-filter-sheet` são todos o mesmo componente
+com props diferentes. Ele resolve portal, animação, scroll-lock, ESC, back do Android, focus trap e
+congelamento de conteúdo na saída.
+
+**Props que mudam comportamento** (`components/BottomSheet.tsx`):
+
+| Prop               | Efeito                                                                                 |
+| ------------------ | -------------------------------------------------------------------------------------- |
+| `onDismissAttempt` | Retorna `false` para **cancelar** o fechamento. É onde vai todo guard.                 |
+| `stacked`          | Sobe para o tier `--z-modal-stacked` e **delega a history ao pai** (não injeta entry). |
+| `manageHistory`    | `false` desliga o árbitro de popstate — para overlays dirigidos por URL.               |
+| `dragDisabled`     | Pausa o drag-to-dismiss (usar enquanto um confirm aninhado está aberto).               |
+| `closeVariant`     | `'edge-back'` troca o X pela seta ← na borda esquerda. Padrão dos painéis FV.          |
+| `className`        | Modificadores (`side-sheet`, `fv-panel-sheet`, classe própria).                        |
+
+**Os 5 caminhos de fechamento** convergem em `requestDismiss()`: clique no backdrop · botão de
+fechar · ESC · back do Android/gesto · drag-to-dismiss acima do threshold. Todos passam pelo
+`onDismissAttempt`. Não existe caminho que escape do guard — por isso ele não pode morar em outro
+lugar.
+
+### 🔴 Regra de ouro: o guard vai no `onDismissAttempt`, NUNCA no `onClose`
+
+```tsx
+// ✅ CORRETO
+onDismissAttempt={() => {
+  if (saving || success) return false;
+  if (dirty) { setDiscardOpen(true); return false; }
+  return true;
+}}
+onClose={() => setOpen(false)}
+
+// ❌ ERRADO — quebra o back do navegador
+onClose={() => { if (saving) return; setOpen(false); }}
+```
+
+O `requestDismiss` devolve `true` quando o `onDismissAttempt` autoriza, e é esse `true` que diz ao
+sheet para **consumir** a entry de history. Negando dentro do `onClose`, o sheet acha que fechou,
+consome a entry, e o **próximo back sai da página** em vez de fechar o painel. O sintoma aparece
+longe da causa.
+
+### `sheetStack`
+
+Pilha module-level de sheets visíveis. Resolve dois problemas de graça, sem nada a fazer no
+consumidor: o **scroll-lock é ref-contado** (fechar o de cima não destrava o de baixo) e **ESC/back
+só chegam ao topmost** (não fecham os dois de uma vez).
+
+### Variantes de altura (mobile)
+
+O sheet base ocupa quase a tela. Três modificadores encolhem:
+
+| Classe            | Efeito                                             | Para quê                        |
+| ----------------- | -------------------------------------------------- | ------------------------------- |
+| `.is-menu`        | `height: auto` + `max-height: min(72dvh, 30rem)`   | menus curtos (menu da conta)    |
+| `.is-fit-content` | `height: auto`, **mantém** o teto alto do base     | forms curtos que podem crescer  |
+| `.is-informe`     | achata os cards internos + padding lateral no form | formulários de visita/relatório |
+
+No desktop com `.side-sheet` a altura é sempre total — as variantes só valem no mobile.
+
+### Conteúdo congelado na saída
+
+Ao fechar, o sheet fica montado por `ANIMATION_MS` (460ms) para o slide e renderiza um **snapshot
+do último estado aberto**. Se o consumidor recomputar os props durante a saída (trocar de step, por
+exemplo), o conteúdo e a altura não mudam no meio do caminho. Durante a saída o sheet fica
+`pointer-events: none` — sem clique fantasma no footer congelado.
+
+### 🔴 Dois gotchas de navegação
+
+**Navegar a partir de uma ação do sheet.** O sheet injeta uma entry de history e, no cleanup, chama
+`history.back()` para desfazê-la. Como o `router.push` do App Router é assíncrono, esse `back()`
+corre contra a navegação e a **desfaz** — a ação simplesmente "não navega". Limpe o marcador antes:
+
+```ts
+window.history.replaceState({ ...window.history.state, bottomSheet: false }, '');
+router.push('/destino');
+```
+
+**Trocar de superfície a partir de uma ação do overlay.** Abrir o próximo sheet no mesmo tick do
+`router.back()` faz o popstate atrasado engolir a entry que o sheet novo injeta — ele fecha sozinho
+logo depois de abrir. Rode o swap **pós-fechamento**: um ref com o callback pendente + um effect que
+observa o param sair da URL.
+
+O árbitro de `popstate` do `BottomSheet` (contador `pendingInternalBacks`) é a peça mais delicada do
+componente. **Sintoma quando quebra: o modal "não abre" em dev e funciona em prod** — Strict Mode só
+duplica efeitos em dev. Se for mexer, leia os comentários no arquivo primeiro.
+
+---
+
+## §4 Empilhamento
+
+### Tiers
+
+| Camada                                | z-index                    |
+| ------------------------------------- | -------------------------- |
+| Backdrop base (sheet e modal central) | `--z-modal-backdrop` = 400 |
+| Card base                             | `--z-modal` = 410          |
+| Backdrop `.is-stacked`                | `--z-modal-stacked` = 600  |
+| Card `.is-stacked`                    | 610                        |
+| `.fv-panel-scrim` e `.is-scrim-none`  | 620                        |
+
+Tokens em `app/globals.css` (`:root`). **Nunca escrever z-index numérico** em regra nova de
+overlay — usar o token ou `calc()` sobre ele.
+
+### Quando `stacked` é obrigatório
+
+Sempre que a superfície abre **por cima** de outra que já está aberta. Sem `stacked`, o novo sheet
+entra no mesmo tier 400/410 e o backdrop dele fica **atrás** do painel de baixo — o painel novo
+aparece, mas clicável por fora e com o escurecimento no lugar errado.
+
+```tsx
+// Painel disparado de dentro do drawer do lote:
+stacked={Boolean(loteId)}
+```
+
+O mesmo vale para modal central sobre painel: `.app-modal.is-stacked` + `.app-modal-backdrop.is-stacked`.
+
+### Scrim não-somativo
+
+Cada camada trazia o próprio escurecimento e eles se multiplicavam (drawer a 55% + painel = ~80% de
+preto, com blur sobre blur). A regra em `globals.css` desliga o `background` e o `backdrop-filter`
+dos scrims de baixo quando existe um empilhado no ar:
+
+```css
+body:has(.bottom-sheet-backdrop.is-stacked.is-open)
+  :is(.bottom-sheet-backdrop.is-open, .app-modal-backdrop):not(.is-stacked) { … }
+```
+
+Três coisas a saber:
+
+1. Só `background` e `backdrop-filter` caem. **Bloqueio de clique, scroll-lock e ordem de foco
+   continuam** — ninguém sai do DOM.
+2. O gatilho é só o scrim empilhado que de fato **escurece**. `.is-scrim-none` fica de fora de
+   propósito: se ele disparasse a regra, nada escureceria.
+3. `:has()` no `body` porque todo backdrop é portalado para lá. A especificidade (0,6,1) foi
+   escolhida para vencer as regras de scrim próprio dos drawers (0,4,0) — **mexer no seletor
+   provavelmente quebra isso**.
+
+---
+
+## §5 URL como estado
+
+Detalhe de recurso é endereçável; criação e filtros não são.
+
+```tsx
+const loteId = searchParams.get('lote');
+const openedLoteByPushRef = useRef(false);
+
+const openLote = useCallback(
+  (id: string, action?: SampleDetailInitialAction) => {
+    const params = new URLSearchParams(searchParams.toString());
+    const alreadyOpen = params.has('lote');
+    params.delete('focus');
+    params.delete('highlight');
+    params.delete('source'); // residuais
+    params.set('lote', id);
+    if (action) params.set('acao', action);
+    else params.delete('acao');
+    const url = `/samples?${params.toString()}`;
+    if (alreadyOpen) {
+      router.replace(url, { scroll: false }); // troca de recurso: UMA entry só
+    } else {
+      router.push(url, { scroll: false });
+      openedLoteByPushRef.current = true;
+    }
+  },
+  [router, searchParams]
+);
+
+const closeLote = useCallback(() => {
+  if (openedLoteByPushRef.current) {
+    openedLoteByPushRef.current = false;
+    router.back(); // consome a entry que criamos
+    return;
+  }
+  const params = new URLSearchParams(searchParams.toString());
+  ['lote', 'focus', 'highlight', 'source', 'acao'].forEach((k) => params.delete(k));
+  const qs = params.toString();
+  router.replace(qs ? `/samples?${qs}` : '/samples', { scroll: false });
+}, [router, searchParams]);
+```
+
+**O ref não é opcional.** Deep-link e refresh chegam com o param na URL **sem** push nosso — chamar
+`router.back()` nesse caso sai do app (ou volta para o site anterior). Sem o ref, o fechamento
+funciona no fluxo normal e quebra exatamente no fluxo que veio de fora (QR code, link colado).
+
+**Push, replace ou nada:**
+
+| Param     | Como muda         | Por quê                                                         |
+| --------- | ----------------- | --------------------------------------------------------------- |
+| `?lote=`  | push ao abrir     | back tem que fechar o drawer                                    |
+| `?lote=`  | replace ao trocar | detalhe→detalhe mantém UMA entry; back fecha em um passo        |
+| `?acao=`  | replace           | consumido **uma vez** e limpo, para repetir a ação sem remontar |
+| `?tab=`   | replace           | trocar de aba não é passo de navegação                          |
+| `?focus=` | só leitura        | deep-link de entrada; limpo junto com o `?lote=`                |
+
+Ação profunda do menu ⋯ (`?lote=<id>&acao=imprimir`): o host passa `initialAction` ao detalhe e um
+`onInitialActionConsumed` que faz o replace limpando o param.
+
+---
+
+## §6 Foco e ARIA
+
+O `BottomSheet` já põe `role="dialog"`, `aria-modal="true"` e `aria-label={ariaLabel}` — **sempre
+passar o `ariaLabel`**, principalmente quando o painel não tem título visível (o padrão FV é
+`title={null}` + seta ←).
+
+`useFocusTrap` **cicla o Tab mas não devolve o foco** ao fechar. Quem abriu devolve:
+
+```tsx
+useEffect(() => {
+  if (labelModalOpen) return;
+  // setTimeout: o sheet ainda anima a saida com o focus-trap ativo;
+  // focar no mesmo tick seria roubado de volta.
+  const timer = window.setTimeout(() => lastQuickPrintButtonRef.current?.focus(), 0);
+  return () => window.clearTimeout(timer);
+}, [labelModalOpen]);
+```
+
+O `setTimeout(0)` não é superstição — sem ele o foco volta para dentro do sheet que está saindo.
+
+`dismissGuardRef` (do `DetailOverlay`) é um ref, não estado: espelhar por effect quando o valor vem
+de estado, para o guard não ler um valor velho.
+
+---
+
+## §7 Chrome comum dos painéis
+
+Wash verde do topo cobrindo o painel inteiro (inclusive a faixa do cabeçalho, sem emenda de bordas
+brancas), cantos arredondados só à esquerda (`14px 0 0 14px` — o painel encosta na borda direita da
+tela) e cabeçalho **sem título**, com a seta ← mais baixa (`top: 30px`).
+
+Hoje a regra lista nominalmente `.fv-panel-sheet`, `.new-sample-sheet` e `.samples-filter-sheet` —
+escopo deliberado, só os painéis já migrados. **Painel novo de página já migrada: usar
+`.fv-panel-sheet` e o chrome vem junto.** Quando o padrão for promovido, isto vira uma regra em
+`.side-sheet`/`.detail-overlay` e os três nomes saem da lista.
+
+---
+
+## §8 Inventário por página × contêiner-alvo
+
+**Alvo** = o contêiner pela árvore do §1. **Status**: ✅ já está lá · **fica** já conforme (não
+muda) · **🔜 ciclo** migra quando o redesenho chegar na página — nada de conversão antecipada ·
+**(confirmar)** alvo presumido, fechar no plan mode da página.
+
+| Página                  | Superfície                                                                  | Alvo                        | Status   |
+| ----------------------- | --------------------------------------------------------------------------- | --------------------------- | -------- |
+| Global                  | Senha inicial (aviso + form, no-dismiss)                                    | central (aviso)             | fica     |
+| Global                  | Menu do avatar; `CameraSheet` + 10 modais de classificação                  | intacto                     | fica     |
+| /login                  | Esqueci a senha (`login-modal-*`)                                           | intacto (fora da app)       | fica     |
+| /samples lista          | Filtros; Novo lote; quick-create de cliente; confirmação de liga            | painel lateral              | ✅       |
+| /samples lista          | Perda; envio (tipo + destinatários no MESMO painel)                         | painel lateral              | ✅       |
+| /samples lista + ?lote= | Imprimir etiqueta (painel próprio, sem abrir o drawer)                      | painel lateral              | ✅       |
+| /samples ?lote=         | Detalhe do lote                                                             | `DetailOverlay`             | ✅       |
+| /samples ?lote=         | Editar registro; editar/reclassificar; deletar lote; reverter liga          | painel lateral              | ✅       |
+| /samples ?lote=         | Classificação: ficha INLINE na aba + painel só de edição                    | inline + painel             | ✅       |
+| /samples ?lote=         | Editar envio; editar data de chegada                                        | dropdown inline             | ✅       |
+| /samples ?lote=         | Confirms; propagação de safra; descartes                                    | central                     | fica     |
+| /samples ?lote=         | `PhotoZoomViewer`; X-effect                                                 | intacto                     | fica     |
+| /cadastros              | Filtros; novo cliente                                                       | painel lateral              | ✅       |
+| /cadastros ?cliente=    | Detalhe do cliente (drawer de perfil)                                       | `DetailOverlay`             | ✅       |
+| /cadastros ?cliente=    | Editar cliente; filial nova/detalhe; conta nova/detalhe; anexo novo/preview | painel lateral              | ✅       |
+| /cadastros ?cliente=    | Status cliente/filial (motivo) + cascata                                    | central + `.fv-panel-scrim` | fica     |
+| /cadastros aba Corretor | Corretor (`BrokerFormModal`)                                                | painel lateral              | 🔜 ciclo |
+| /users                  | Detalhe/editar/novo usuário (`cdm-modal`)                                   | painel lateral              | 🔜 ciclo |
+| /users, /profile        | Inativar (motivo); confirms; desativar push                                 | central                     | fica     |
+| /relatorios             | 3 form-sheets (visita/semanal/informativo)                                  | painel lateral              | 🔜 ciclo |
+| /relatorios             | Leque FAB; descartes; aviso 409; excluir item; vincular/remover             | intacto / central           | fica     |
+| /contratos              | Criação (LotPicker + Etapa2)                                                | **FORA** — specs futuras    | aguarda  |
+| /contratos ?details=    | Detalhe do contrato                                                         | `DetailOverlay`             | ✅       |
+| /contratos              | Filtros                                                                     | painel lateral              | 🔜 ciclo |
+| /contratos              | Ágio; washout/faturar/pagar; conferência do espelho; solicitar aprovação    | central                     | fica     |
+| /embarques              | Confirmação de embarque; etiqueta de aprovação                              | central                     | fica     |
+| Simulador               | Drawer de resultado (já lateral); connect menu                              | intacto                     | fica     |
+
+**A migração acontece PÁGINA A PÁGINA**, dentro do redesenho completo de cada página: os
+contêineres dela realinham na mesma passada, junto com estrutura, cards e tipografia. Cada página é
+tocada uma vez. **Não converter contêiner isoladamente fora do ciclo** — ver `page-redesign-cycle`.
+
+---
+
+## §9 Checklist
+
+- [ ] O contêiner saiu da árvore do §1, não de preferência
+- [ ] Painel FV = `className="fv-panel-sheet side-sheet <própria>"` + `closeVariant="edge-back"` + `title={null}` + `ariaLabel`
+- [ ] `stacked` quando abre sobre outra superfície aberta (painel **e** modal central)
+- [ ] Todo guard de fechamento no `onDismissAttempt`, nenhum no `onClose`
+- [ ] `dragDisabled` enquanto um confirm aninhado está aberto
+- [ ] Detalhe dirigido por URL: push ao abrir, replace ao trocar, `openedByPushRef` no fechar
+- [ ] Foco devolvido ao trigger em `setTimeout(0)`
+- [ ] Nenhum z-index numérico novo — só tokens `--z-*`
+- [ ] Submit no footer, sem "Cancelar" textual → `forms`
