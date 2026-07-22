@@ -41,8 +41,16 @@ vira painel; um formulário nunca vira modal central.
 
 ### `DetailOverlay` — detalhe de recurso
 
-Contêiner canônico de detalhe. Mobile = sheet de tela cheia; desktop = painel direito com a **lista
-viva atrás** (o backdrop não bloqueia). Quem abre e fecha é o **query param**, não o sheet.
+Contêiner canônico de detalhe. Mobile = sheet de tela cheia; desktop = painel direito de 620px.
+Quem abre e fecha é o **query param**, não o sheet.
+
+🔴 **O backdrop bloqueia — não é mais "peek".** O desenho original tinha a lista viva e clicável
+atrás (backdrop transparente e atravessável), e clicar noutra linha trocava o item aberto. As
+páginas que entraram no ciclo FV abandonaram isso: `.client-details-overlay` e
+`.lote-details-overlay` restauram o **scrim 0.55 + `pointer-events: auto`** (tap no scrim fecha, o
+dismiss-guard segue valendo), por regra `:has()` sobre o backdrop. O peek atravessável sobrevive
+só em `.detail-overlay` que ainda não passou pelo ciclo (contrato). **Página nova nasce
+bloqueante** — adicione o seletor dela ao bloco `:has()` junto com os dois.
 
 ```tsx
 <DetailOverlay
@@ -61,12 +69,13 @@ Os quatro props travados dentro do componente (`components/DetailOverlay.tsx`) �
 mão com `BottomSheet` cru**: `manageHistory={false}` (a history é da URL), `dragToDismiss={false}`,
 `onDismissAttempt={() => !dismissGuardRef?.current}`, `className="detail-overlay …"`.
 
-Usos: `/samples` (lote), `/cadastros` (cliente), `/contratos` (contrato).
+Usos: `/samples` (lote, bloqueante), `/cadastros` (cliente, bloqueante), `/contratos` (contrato,
+ainda peek).
 
 ### `.side-sheet` — criação e edição
 
-Mesma geometria do detalhe, mas com **backdrop escurecido e bloqueante**: criação tem estado sujo,
-a lista atrás não fica clicável. A history segue com o árbitro do `BottomSheet` (criar não é um
+Mesma geometria do detalhe e o **mesmo backdrop escurecido e bloqueante** (era a diferença entre os
+dois; hoje só o detalhe de contrato ainda difere). A history segue com o árbitro do `BottomSheet` (criar não é um
 recurso endereçável — não ganha query param).
 
 ```tsx
