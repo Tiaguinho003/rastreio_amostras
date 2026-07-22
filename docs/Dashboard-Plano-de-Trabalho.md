@@ -29,7 +29,7 @@ O funcionamento atual está inteiramente descrito em **`Dashboard-Visao-Geral.md
 - Dashboard padrão (5 papéis não-PROSPECTOR): desktop = top row com **3 cards** (donut "Lotes disponíveis" estreito + "Amostras enviadas" + "Aprovações enviadas" — **DSB-D5**) + Eventos horizontal embaixo (**DSB-D3**); mobile = hero + donut. (Os cards de pendências saíram em **DSB-D2**.)
 - Dashboard do PROSPECTOR: dedicado (visitas/informes).
 - 6 rotas de API; `/dashboard/recent-sends` devolve **duas listas** (`sampleItems`/`approvalItems`, **DSB-D5**); card de Eventos com 3 feeds (pagamento/embarque/faturamento — DSB-D9 removeu o de aprovação, DSB-D11 somou o de faturamento), em **1 semana com eventos na célula** (**DSB-D4**), coloridos por **estado** (DSB-D10).
-- Página de Lotes (`/samples`): ganhou o card só-visualização "Classificação pendente" (**DSB-D2**).
+- Página de Lotes (`/samples`): ~~ganhou o card só-visualização "Classificação pendente" (**DSB-D2**)~~ — **os dois cards que vieram parar aqui saíram na F1 do redesenho FV (2026-07-21)**: "Classificação pendente" virou KPI clicável da própria lista (`GET /samples/stats`) e "Amostras enviadas" foi removido do produto. Ver `Redesign-Plano-de-Trabalho.md` §2.7.
 
 **Tudo isso está implementado mas ainda aguarda validação no device** — ver §4.
 
@@ -74,7 +74,7 @@ O redesenho e os feeds foram implementados mas nunca foram confirmados no aparel
 
 - **Dashboard desktop (DSB-D14 + DSB-D18):** só o card de Eventos, ocupando a área toda — agora **calendário MENSAL** (grade 7×N com todos os dias; sáb/dom **esmaecidos** com evento legado no dia real; pontas dos meses vizinhos esmaecidas **com** eventos; hoje com anel; navegação ◀ Hoje ▶ **por mês** com deslize; rótulo "julho de 2026"; chips por **estado** com scroll interno na célula; legenda); os 3 feeds (**pagamento/embarque/faturamento**) com deep links para `/contratos`/`/embarques`, janela = grade inteira (28–42 dias). Células legíveis num monitor comum? Viewport baixa (~768px): estoura ou rola bem (piso 420px)?
 - **Dashboard mobile (DSB-D14):** só o hero (sem donut, sem sheet) a 320px; dashboard do PROSPECTOR **intacto**.
-- **Página de Lotes (`/samples`, desktop):** topo do sheet com "Classificação pendente" + **"Amostras enviadas"** lado a lado (`.spv2-top-cards`); a lista de envios rola por dentro (teto ~340px); física+laudo, cancelado esmaecido, truncamento, tempo relativo. **Mobile:** o card de envios **não aparece**; "Classificação pendente" igual a antes.
+- ~~**Página de Lotes (`/samples`, desktop):** topo do sheet com "Classificação pendente" + **"Amostras enviadas"** lado a lado (`.spv2-top-cards`); a lista de envios rola por dentro (teto ~340px); física+laudo, cancelado esmaecido, truncamento, tempo relativo. **Mobile:** o card de envios **não aparece**; "Classificação pendente" igual a antes.~~ **Ambos removidos na F1 do redesenho FV (2026-07-21)** — ver a nota no Estado atual.
 - **Aba Aprovações (`/embarques?tab=aprovacoes`, desktop):** card **"Aprovações enviadas"** acima da worklist (nº contrato + comprador + tempo); atualiza após gerar etiqueta. **Mobile:** card não aparece; worklist igual a antes.
 - **Detalhe do cliente ("Resumo comercial"):** o donut do cliente **continua intacto** (o CSS base `.sales-card*` ficou; só o CSS exclusivo do donut do dashboard saiu).
 - **Contraste** (DSH-A3): textos secundários pequenos ficaram um tom mais escuros — conferir.

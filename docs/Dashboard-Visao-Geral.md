@@ -13,7 +13,7 @@ Documentos relacionados: `Dashboard-Plano-de-Trabalho.md` (backlog e próximas m
 
 O dashboard é a **home pós-login** de todos os papéis. Ele tem duas naturezas distintas:
 
-- **Dashboard padrão** — para os 5 papéis não-PROSPECTOR (ADMIN, COMMERCIAL, CLASSIFIER, REGISTRATION, CADASTRO). Desde **DSB-D14 (2026-07-14)** apresenta o **calendário de Eventos** (desktop): pagamento, embarque e faturamento de contratos; e desde **DSB-D19 (2026-07-15)** o **card de Avisos** à direita (aprovação a enviar — §7.4). Os demais cards saíram: o donut "Lotes disponíveis" foi **apagado do sistema**; "Amostras enviadas" migrou pra página de **Lotes** (`/samples`) e "Aprovações enviadas" pra aba **Aprovações** (`/embarques?tab=aprovacoes`).
+- **Dashboard padrão** — para os 5 papéis não-PROSPECTOR (ADMIN, COMMERCIAL, CLASSIFIER, REGISTRATION, CADASTRO). Desde **DSB-D14 (2026-07-14)** apresenta o **calendário de Eventos** (desktop): pagamento, embarque e faturamento de contratos; e desde **DSB-D19 (2026-07-15)** o **card de Avisos** à direita (aprovação a enviar — §7.4). Os demais cards saíram: o donut "Lotes disponíveis" foi **apagado do sistema**; "Amostras enviadas" migrou pra página de **Lotes** (`/samples`) — e de lá **saiu do produto** no redesenho FV, ver §7.2 — e "Aprovações enviadas" pra aba **Aprovações** (`/embarques?tab=aprovacoes`), onde segue viva.
 - **Dashboard do PROSPECTOR** — um app restrito e dedicado (a "casa" do papel de campo): registro de visitas/informes, contadores do dia e a lista dos próprios informes. Nada além disso.
 
 A escolha entre os dois é feita em `app/dashboard/page.tsx` pelo papel do usuário logado.
@@ -135,13 +135,19 @@ App restrito (tabbar só com Início + Perfil). Reusa as classes visuais do dash
 
 ## 7. Cards do dashboard padrão em detalhe
 
-> **Nota (2026-07-12, DSB-D2):** os cards "Classificação pendente" e "Cadastros pendentes" **saíram do dashboard**. "Classificação pendente" virou um card **só-visualização** na página de Lotes (`components/samples/ClassificationPendingCard.tsx`, alimentado por `getDashboardPending` → `classificationPending.total`; inerte, sem modal). "Cadastros pendentes" foi **removido**. O `OperationModal` (fila de classificação, seta → `/camera`) também saiu — será reconstruído na revisão da página de Lotes.
+> **Nota (2026-07-12, DSB-D2; superada em 2026-07-21 — ver §7.2):** os cards "Classificação pendente" e "Cadastros pendentes" **saíram do dashboard**. "Classificação pendente" virou um card **só-visualização** na página de Lotes (`components/samples/ClassificationPendingCard.tsx`, alimentado por `getDashboardPending` → `classificationPending.total`; inerte, sem modal). "Cadastros pendentes" foi **removido**. O `OperationModal` (fila de classificação, seta → `/camera`) também saiu — será reconstruído na revisão da página de Lotes.
 
 ### 7.1 Lotes disponíveis (donut) — **APAGADO DO SISTEMA (DSB-D14, 2026-07-14)**
 
 O donut de aging dos lotes disponíveis (> 30 / 15–30 / < 15 dias, contado por `created_at`, incluindo não classificados) foi **removido ponta a ponta** por decisão do Flavio (analisou e não é relevante): componente `SalesAvailabilityCard.tsx`, hook `useDashboardData.ts`, rota `/dashboard/sales-availability`, handler + método de service, fn no api-client, tipo, CSS exclusivo e o teste de integração. ⚠️ O CSS base `.sales-card*`/`.sales-chart-*` **permanece** — é reusado pelo "Resumo comercial" do detalhe do cliente (`ClientCommercialSummaryCard`).
 
 ### 7.2 Amostras enviadas + Aprovações enviadas (`RecentSendsCard`) — **MIGRARAM DE PÁGINA (DSB-D14)**
+
+> **🔴 Atualização de 2026-07-21 — "Amostras enviadas" foi REMOVIDO do produto.** A F1 do redesenho FV de `/samples` (RD15, decisão 6 do §2.7 do `Redesign-Plano-de-Trabalho.md`) tirou o card do JSX por decisão explícita do Flavio, mesmo sendo o único lugar do app que exibia o feed. Ficaram **órfãos**: a rota `GET /samples/recent-sends`, o helper `getSampleRecentSends`, o hook `lib/use-recent-sends-feed.ts` no que servia a `/samples` e o CSS `.spv2-top-cards`. O **"Classificação pendente"** saiu junto — a contagem virou o **4º KPI clicável** da lista, servido por `GET /samples/stats`, e o `ClassificationPendingCard` mais o CSS `.spv2-pending-stat` ficaram órfãos.
+>
+> **"Aprovações enviadas" não foi afetado** e continua no topo da aba Aprovações de `/embarques`, com o mesmo `RecentSendsCard` — que por isso **não** é código morto.
+>
+> O texto abaixo descreve o estado imediatamente após DSB-D14 e vale como registro daquele momento.
 
 Os dois cards continuam existindo, **fora do dashboard** (desktop-only, mesmo componente `components/RecentSendsCard.tsx`, parametrizado por `title`/`emptyLabel`/`variant`; classes CSS `sends-*`, ex-`dd-send*`):
 
@@ -230,7 +236,7 @@ Definições dos handlers: `src/api/v1/backend-api.js`. Implementações: `src/s
 - `components/dashboard/greeting.ts` — saudação + iniciais
 - `components/dashboard/prospector/ProspectorDashboard.tsx` + `useProspectorDashboardData.ts` — dashboard do PROSPECTOR
 - `components/LoadError.tsx` — erro de carregamento + "Tentar novamente" (ex-`DashboardLoadError`; compartilhado com os cards de envios nas novas páginas — DSB-D14)
-- `components/samples/ClassificationPendingCard.tsx` — card só-visualização de "Classificação pendente" (mora na página de Lotes desde DSB-D2; alimentado por `getDashboardPending`)
+- ~~`components/samples/ClassificationPendingCard.tsx`~~ — **órfão** desde a F1 do redesenho FV (a contagem virou KPI de `/samples`, servido por `GET /samples/stats`)
 - `lib/dashboard-calendar.ts` — matemática BRT do calendário
 - `lib/roles.ts` — `isProspector`, `FINANCEIRO_ROLES`, labels
 - `lib/api-client.ts` — funções `getDashboard*`

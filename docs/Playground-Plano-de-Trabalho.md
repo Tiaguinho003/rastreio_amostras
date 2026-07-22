@@ -1,5 +1,6 @@
 # Playground — Plano de Trabalho
 
+> **⚠️ Ponto de entrada mudou depois deste doc**: o redesenho FV de `/samples` (RD15) tirou a faixa de abas do desktop e pôs o Simulador na sidenav — ver §5. A feature em si (canvas, nodes, motor stub) não foi tocada.
 > **Status**: PROTÓTIPO IMPLEMENTADO (2026-07-13) — decisões PG1–PG38 fechadas; casca + canvas + mocks + motor stub em código (ver nota no §10); **fluxo inverso REMOVIDO do sistema (PG38, 2026-07-14)** — re-entra num futuro distante; pendentes deliberados: Q-F11, DEP-1; 🖥️ validação visual pendente
 > **Última atualização**: 2026-07-14
 > **Prefixo de decisões**: PG (PG1, PG2, ...)
@@ -9,14 +10,14 @@
 
 ## 1. Conceito e motivação
 
-**Elevator pitch**: o Playground é uma sub-aba da página de Lotes onde o usuário monta, num canvas visual de nodes (estilo n8n), simulações de liga: conecta lotes reais, executa o fluxo e vê as características estimadas do resultado. Nada do que acontece no Playground grava qualquer coisa no sistema. (O caminho inverso — descrever o resultado desejado e receber combinações possíveis — fazia parte do conceito original, mas foi **removido do sistema pela PG38**; fica no estacionamento §3.3 para um futuro distante.)
+**Elevator pitch**: o Playground é uma view da página de Lotes (sub-aba no mobile, sub-item da sidenav no desktop — ver §5) onde o usuário monta, num canvas visual de nodes (estilo n8n), simulações de liga: conecta lotes reais, executa o fluxo e vê as características estimadas do resultado. Nada do que acontece no Playground grava qualquer coisa no sistema. (O caminho inverso — descrever o resultado desejado e receber combinações possíveis — fazia parte do conceito original, mas foi **removido do sistema pela PG38**; fica no estacionamento §3.3 para um futuro distante.)
 
 **Problema que resolve**: hoje a liga real é um compromisso — criar uma liga consome saldo dos lotes de origem e gera um novo lote que só depois é classificado. Não existe nenhum lugar para _experimentar_ combinações antes de decidir. O Playground é esse laboratório: testar cenários de mistura com os dados reais disponíveis, sem custo e sem risco.
 
 **O que o Playground explicitamente NÃO é**:
 
 - NÃO é um atalho para criar liga, amostra ou evento — não há nenhuma ação de escrita no domínio.
-- NÃO é a tela de criação de liga existente (leque "+" de /samples) nem a substitui.
+- NÃO é a tela de criação de liga existente (leque "+" de /samples no mobile, CTA "Criar liga" do cabeçalho no desktop) nem a substitui.
 - NÃO é um relatório/dashboard — é uma ferramenta interativa de exploração.
 - NÃO promete o resultado real da classificação: a liga real é classificada do zero por classificador humano; o Playground entrega uma **estimativa** (ver §2, princípio P2).
 
@@ -134,7 +135,7 @@ Peso = proporção de sacas de cada componente. Escopo dos campos decidido em PG
 
 ## 5. UX e design
 
-- **Onde vive**: /samples ganha estrutura de sub-abas; molde técnico = padrão `.cad-tabs` de `app/contratos/page.tsx` (`?tab=` como fonte de verdade, `role="tablist"`). A lista atual de Lotes vira a aba default; o Playground é a segunda aba (PG1). Nomes visíveis (PG23): **"Lotes"** + **"Simulador"** — o nome interno da feature continua Playground em docs/código.
+- **Onde vive**: `?tab=` sobre `/samples` é a fonte de verdade (`lotes` default, `simulador` a segunda view) — isso **não mudou**. O que mudou é a **navegação**, que hoje é diferente por breakpoint (RD15/F1 do redesenho): no **desktop** a faixa de abas some (`.pg-tabs` fica `display:none`) e o Simulador é **sub-item da sidenav** (`NAV_SUB_ITEMS['/samples']` em `components/AppShell.tsx`: Lotes · Simulador); no **mobile** continua a faixa de sub-abas no molde `.cad-tabs` de `app/contratos/page.tsx` (`role="tablist"`). Nomes visíveis (PG23): **"Lotes"** + **"Simulador"** — o nome interno da feature continua Playground em docs/código.
 - **Identidade**: página deliberadamente diferente do resto do sistema (P5). Referência de fluidez: n8n.
 - **Tema do canvas (PG25)**: fundo **claro com grid de pontos** sutis (Background dots do React Flow), nodes brancos com acentos da marca — integra com a casca clara do app e comunica "ferramenta de workflow".
 - **Identidade dos nodes (PG34)**: **cor de acento por tipo** (borda esquerda + ícone): Lote = verde da marca, Mistura = âmbar, Resultado = azul. O fluxo se lê de longe pelo colorido. (Roxo e azul-escuro, dos nodes do fluxo inverso, saíram com a PG38.)
