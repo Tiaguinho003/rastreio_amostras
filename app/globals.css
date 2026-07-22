@@ -5661,15 +5661,6 @@ body.is-selection-mode .samples-page-v2:not(.informe-commercial-page) .spv2-list
   }
 }
 
-@keyframes samples-header-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
 /* Entrada do sheet (Lotes / Clientes / Informe, que reusam .samples-page-v2-sheet):
    SO translateY, SEM opacity. Com opacity:0 o conteudo entrava em 2 fases
    ("pagina vazia -> preenche", revelando o fundo) no load; opaco desde o 1o frame
@@ -28598,8 +28589,7 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
 
 /* Entrada do modo liga: o header verde DESLIZA de cima (opaco) em vez de surgir
    com fade a partir do transparente (que dava flash/gap no topo) — mais natural
-   e coerente com a saida. Keyframe proprio porque samples-header-in e
-   compartilhado por outros headers. */
+   e coerente com a saida. */
 @keyframes samples-selection-header-in {
   from {
     transform: translateY(-100%);
