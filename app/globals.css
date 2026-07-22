@@ -33053,7 +33053,9 @@ body.is-selection-mode .ctr-page .cc-tabs {
   }
 }
 
-/* Cabecalho de pagina + KPI row: existem so no desktop. */
+/* Cabecalho de pagina e KPI row nascem desligados. O cabecalho e desktop-only
+   (no mobile o titulo mora na faixa verde do shell); a KPI row acende tambem no
+   mobile, mas so em /samples — ver o bloco de carrossel adiante. */
 .fv-page-head,
 .fv-kpi-row {
   display: none;
@@ -33102,134 +33104,174 @@ body.is-selection-mode .ctr-page .cc-tabs {
     padding: 0 clamp(0.9rem, 3vw, 2rem);
     margin-top: 1rem;
   }
+}
 
-  .fv-kpi {
+/* ── Cards de KPI: geometria comum aos dois breakpoints ──
+   RD16 M2: so a FAIXA (.fv-kpi-row) muda por breakpoint — grid de 4 colunas no
+   desktop, carrossel no mobile. O card em si e o mesmo. ── */
+.fv-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.95rem 1.05rem;
+  background: var(--fv-surface);
+  border: 1px solid var(--fv-line);
+  border-radius: var(--fv-radius-lg);
+}
+
+.fv-kpi-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.fv-kpi-label {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--muted);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.fv-kpi-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border: 1px solid var(--fv-line);
+  border-radius: var(--fv-radius-sm);
+  color: var(--muted);
+}
+.fv-kpi-icon svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Ajustes rodada 1: tracos E borda do icone na cor do card; o
+   preenchimento segue branco (so muda color/border-color). */
+.fv-kpi-icon.is-blue {
+  color: var(--fv-blue);
+  border-color: rgba(30, 95, 143, 0.38);
+}
+.fv-kpi-icon.is-green {
+  color: var(--fv-chip-green-fg);
+  border-color: rgba(30, 124, 63, 0.38);
+}
+.fv-kpi-icon.is-amber {
+  color: var(--fv-chip-amber-fg);
+  border-color: rgba(169, 106, 16, 0.42);
+}
+
+.fv-kpi-value {
+  font-size: 1.7rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Ajustes rodada 1: mini-metrica sob o valor (participacao ou variacao;
+   verde/vermelho so quando ha direcao). nbsp reserva a linha no load. */
+.fv-kpi-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  margin-top: -0.2rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.fv-kpi-delta svg {
+  width: 0.8rem;
+  height: 0.8rem;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.fv-kpi-delta.is-up {
+  color: var(--fv-chip-green-fg);
+}
+.fv-kpi-delta.is-down {
+  color: var(--fv-chip-red-fg);
+}
+
+/* FV /samples: o card "Aguardando classificacao" e um FILTRO (liga o
+   statusGroup=CLASSIFICATION_PENDING na lista). Vira <button>: alinhamento
+   de texto a esquerda, press so por profundidade (sem troca de cor) e
+   estado ligado marcado pela borda ambar. */
+.fv-kpi.is-clickable {
+  align-items: stretch;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    transform var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+.fv-kpi.is-clickable:hover {
+  border-color: var(--fv-line-strong);
+}
+.fv-kpi.is-clickable:active {
+  transform: scale(0.985);
+}
+.fv-kpi.is-clickable.is-active {
+  border-color: var(--fv-chip-amber-fg);
+  box-shadow: inset 0 0 0 1px var(--fv-chip-amber-fg);
+}
+.fv-kpi.is-clickable.is-active .fv-kpi-delta {
+  color: var(--fv-chip-amber-fg);
+}
+
+/* ── KPI no mobile (/samples): carrossel dentro da rolagem ──
+   A faixa entra como primeiro item do .spv2-list-scroll e some ao descer a
+   lista. Receita de scroll-x do projeto (a mesma de .spv2-chips). As margens
+   negativas dao full-bleed — a faixa rola de borda a borda, mas o primeiro e o
+   ultimo card param na MESMA linha vertical dos cards da lista. ── */
+@media (max-width: 900px) {
+  .fv-lotes-page .fv-kpi-row {
     display: flex;
-    flex-direction: column;
-    gap: 0.55rem;
-    min-width: 0;
-    padding: 0.95rem 1.05rem;
-    background: var(--fv-surface);
-    border: 1px solid var(--fv-line);
-    border-radius: var(--fv-radius-lg);
-  }
-
-  .fv-kpi-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-  }
-
-  .fv-kpi-label {
-    font-size: 0.82rem;
-    font-weight: 500;
-    color: var(--muted);
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-
-  .fv-kpi-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
+    flex-wrap: nowrap;
     flex: none;
-    border: 1px solid var(--fv-line);
-    border-radius: var(--fv-radius-sm);
-    color: var(--muted);
-  }
-  .fv-kpi-icon svg {
-    width: 1rem;
-    height: 1rem;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.8;
-    stroke-linecap: round;
-    stroke-linejoin: round;
+    gap: clamp(8px, 2.4vw, 10px);
+    margin: 0 calc(-1 * var(--lotes-inner-pad)) clamp(2px, 1vw, 4px);
+    /* padding-block de 2px: o card tem borda, e sem folga o overflow-x corta o
+       hairline de cima/baixo. */
+    padding: 2px var(--lotes-inner-pad);
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
   }
 
-  /* Ajustes rodada 1: tracos E borda do icone na cor do card; o
-     preenchimento segue branco (so muda color/border-color). */
-  .fv-kpi-icon.is-blue {
-    color: var(--fv-blue);
-    border-color: rgba(30, 95, 143, 0.38);
-  }
-  .fv-kpi-icon.is-green {
-    color: var(--fv-chip-green-fg);
-    border-color: rgba(30, 124, 63, 0.38);
-  }
-  .fv-kpi-icon.is-amber {
-    color: var(--fv-chip-amber-fg);
-    border-color: rgba(169, 106, 16, 0.42);
+  .fv-lotes-page .fv-kpi-row::-webkit-scrollbar {
+    display: none;
   }
 
-  .fv-kpi-value {
-    font-size: 1.7rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    line-height: 1.1;
-    color: var(--ink);
-    font-variant-numeric: tabular-nums;
+  .fv-lotes-page .fv-kpi {
+    flex: 0 0 clamp(9.5rem, 42vw, 12rem);
+    gap: 0.4rem;
+    padding: 0.7rem 0.8rem;
   }
 
-  /* Ajustes rodada 1: mini-metrica sob o valor (participacao ou variacao;
-     verde/vermelho so quando ha direcao). nbsp reserva a linha no load. */
-  .fv-kpi-delta {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.28rem;
-    margin-top: -0.2rem;
-    font-size: 0.78rem;
-    font-weight: 500;
-    color: var(--muted);
-    white-space: nowrap;
-    overflow: hidden;
-  }
-  .fv-kpi-delta svg {
-    width: 0.8rem;
-    height: 0.8rem;
-    flex: none;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-  .fv-kpi-delta.is-up {
-    color: var(--fv-chip-green-fg);
-  }
-  .fv-kpi-delta.is-down {
-    color: var(--fv-chip-red-fg);
-  }
-
-  /* FV /samples: o card "Aguardando classificacao" e um FILTRO (liga o
-     statusGroup=CLASSIFICATION_PENDING na lista). Vira <button>: alinhamento
-     de texto a esquerda, press so por profundidade (sem troca de cor) e
-     estado ligado marcado pela borda ambar. */
-  .fv-kpi.is-clickable {
-    align-items: stretch;
-    text-align: left;
-    font: inherit;
-    cursor: pointer;
-    transition:
-      transform var(--duration-fast) var(--ease-out),
-      border-color var(--duration-fast) var(--ease-out);
-  }
-  .fv-kpi.is-clickable:hover {
-    border-color: var(--fv-line-strong);
-  }
-  .fv-kpi.is-clickable:active {
-    transform: scale(0.985);
-  }
-  .fv-kpi.is-clickable.is-active {
-    border-color: var(--fv-chip-amber-fg);
-    box-shadow: inset 0 0 0 1px var(--fv-chip-amber-fg);
-  }
-  .fv-kpi.is-clickable.is-active .fv-kpi-delta {
-    color: var(--fv-chip-amber-fg);
+  .fv-lotes-page .fv-kpi-value {
+    font-size: 1.45rem;
   }
 }
 

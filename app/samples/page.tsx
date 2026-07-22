@@ -537,12 +537,12 @@ function clearSamplesSnapshot() {
   }
 }
 
-/* O elemento que realmente rola depende do breakpoint: no desktop a lista rola
-   no container interno (.spv2-list-scroll, height-constrained via @media
-   min-width:901px); no mobile o container NAO e constrangido e quem rola e a
-   janela/body. Por isso o snapshot precisa ler/escrever o scroll do scroller
-   correto — senao no mobile o container reporta sempre 0 e o scroll se perde
-   ao voltar da detail. */
+/* Quem rola e o container interno (.spv2-list-scroll) nos DOIS breakpoints:
+   /samples e rota "em camada" (AppShell), e la o `.app-shell-main` mobile e
+   `height: 100lvh; overflow: hidden`, entao a janela nao rola. O fallback pro
+   `window` abaixo e defensivo — vale se a pagina algum dia sair da camada.
+   (O comentario anterior afirmava o oposto: "no mobile quem rola e a janela".
+   Nunca foi verdade desde que a rota entrou na camada.) */
 function readListScrollTop(container: HTMLElement | null): number {
   if (container && container.scrollHeight - container.clientHeight > 1) {
     return container.scrollTop;
@@ -786,13 +786,17 @@ function SamplesPage() {
     };
   }, [rowMenuFor]);
 
-  // KPI row da lista (FV): contagens globais, so no desktop. Recarrega quando
-  // um lote e criado (newSampleRefetchKey) e quando o detalhe abre/fecha (de
-  // dentro dele sai deletar/vender/classificar) — o Cache-Control de 30s da
-  // rota amortece repeticoes.
+  // KPI row da lista (FV): contagens globais. Recarrega quando um lote e criado
+  // (newSampleRefetchKey) e quando o detalhe abre/fecha (de dentro dele sai
+  // deletar/vender/classificar) — o Cache-Control de 30s da rota amortece
+  // repeticoes.
+  //
+  // RD16 M2: o gate `!isDesktop` saiu. Ele existia porque a KPI row era
+  // desktop-only; no mobile ela agora rola junto com a lista, e sem o fetch os
+  // quatro cards mostrariam "—" pra sempre.
   const [sampleStats, setSampleStats] = useState<SampleStatsResponse | null>(null);
   useEffect(() => {
-    if (!session || !isDesktop) return;
+    if (!session) return;
     let active = true;
     getSampleStats(session)
       .then((stats) => {
@@ -804,7 +808,7 @@ function SamplesPage() {
     return () => {
       active = false;
     };
-  }, [session, isDesktop, newSampleRefetchKey, loteId]);
+  }, [session, newSampleRefetchKey, loteId]);
   // Acoes do card expandido (Enviar/Perda), hospedadas aqui. Ao clicar, hidrata o
   // detalhe (getSampleDetail: version fresco + activeBlends) e abre o fluxo.
   const [sendTarget, setSendTarget] = useState<SampleDetailResponse | null>(null);
@@ -1603,9 +1607,9 @@ function SamplesPage() {
   ]);
 
   // Scroll nao e estado React — listener dedicado (debounce 200ms) mantem o
-  // scrollTop do snapshot fresco. Escuta window E o container (so o scroller
-  // real dispara); readListScrollTop pega o valor certo (window no mobile,
-  // container no desktop). So atualiza um snapshot ja existente.
+  // scrollTop do snapshot fresco. Escuta window E o container por seguranca;
+  // na pratica so o container dispara (ver readListScrollTop). So atualiza um
+  // snapshot ja existente.
   useEffect(() => {
     const container = samplesScrollRef.current;
     let timer: number | null = null;
@@ -2390,6 +2394,93 @@ function SamplesPage() {
     },
   ];
 
+  // RD16 M2: a KPI row e montada UMA vez e posicionada por breakpoint. No
+  // desktop ela e faixa fixa no topo da pagina; no mobile vira carrossel e entra
+  // DENTRO da rolagem, como primeiro item — some ao descer a lista, deixando o
+  // topo travado so com a busca. Uma fonte, uma montagem: renderizar duas vezes
+  // e esconder uma por CSS foi exatamente o que esta fase veio desfazer.
+  const kpiRow = (
+    <div className="fv-kpi-row">
+      {kpiCards.map((card) => {
+        const body = (
+          <>
+            <div className="fv-kpi-top">
+              <span className="fv-kpi-label">{card.label}</span>
+              <span className={`fv-kpi-icon is-${card.tone}`} aria-hidden="true">
+                {card.key === 'total' ? (
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z" />
+                    <path d="m3 7.5 9 4.5 9-4.5" />
+                    <path d="M12 12v9" />
+                  </svg>
+                ) : card.key === 'open' ? (
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="M4 9h16v11H4z" />
+                    <path d="M4 9 6 4h12l2 5" />
+                    <path d="M10 13h4" />
+                  </svg>
+                ) : card.key === 'sold' ? (
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0l-7.2-7.2A2 2 0 0 1 3 12V5a2 2 0 0 1 2-2h7a2 2 0 0 1 1.4.6l7.2 7.2a2 2 0 0 1 0 2.8z" />
+                    <path d="M7.5 7.5h.01" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 7v5l3 2" />
+                  </svg>
+                )}
+              </span>
+            </div>
+            <span className="fv-kpi-value">
+              {card.value == null ? '—' : card.value.toLocaleString('pt-BR')}
+            </span>
+            <span
+              className={`fv-kpi-delta${
+                card.delta && card.delta.dir !== 'flat' ? ` is-${card.delta.dir}` : ''
+              }`}
+            >
+              {card.delta?.dir === 'up' ? (
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <path d="M7 17 17 7" />
+                  <path d="M8 7h9v9" />
+                </svg>
+              ) : card.delta?.dir === 'down' ? (
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <path d="m7 7 10 10" />
+                  <path d="M17 8v9H8" />
+                </svg>
+              ) : null}
+              {card.delta ? card.delta.text : ' '}
+            </span>
+          </>
+        );
+
+        // "Aguardando classificacao" e um FILTRO: liga/desliga o
+        // statusGroup=CLASSIFICATION_PENDING na lista. Sem pendencias o
+        // card volta a ser so leitura.
+        if (card.key === 'pending' && (card.value ?? 0) > 0) {
+          return (
+            <button
+              key={card.key}
+              type="button"
+              className={`fv-kpi is-clickable${pendingFilterActive ? ' is-active' : ''}`}
+              aria-pressed={pendingFilterActive}
+              onClick={togglePendingClassificationFilter}
+            >
+              {body}
+            </button>
+          );
+        }
+        return (
+          <article key={card.key} className="fv-kpi">
+            {body}
+          </article>
+        );
+      })}
+    </div>
+  );
+
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession} activeSubTab={tab}>
       <section
@@ -2409,10 +2500,9 @@ function SamplesPage() {
             mais. Sobrando so "Lotes", a tira virava um rotulo caro: ~2,9rem do
             topo travado por uma aba sem irma. */}
 
-        {/* FV (desktop >=901px): cabecalho institucional + KPI row. No mobile
-            estes blocos ficam display:none e o header verde + abas seguem. O
-            titulo acompanha a sub-aba da sidenav; "+ Novo lote" e a KPI row so
-            fazem sentido na lista. */}
+        {/* FV (desktop >=901px): cabecalho institucional da lista. No mobile
+            fica display:none — o titulo mora na faixa verde do AppShell e as
+            duas acoes de criacao moram no FAB. */}
         <div className="fv-page-head">
           <h2 className="fv-page-title">{tab === 'simulador' ? 'Simulador' : 'Lotes'}</h2>
           {/* As DUAS acoes de criacao da pagina moram aqui, lado a lado —
@@ -2448,85 +2538,7 @@ function SamplesPage() {
           )}
         </div>
 
-        <div className="fv-kpi-row">
-          {kpiCards.map((card) => {
-            const body = (
-              <>
-                <div className="fv-kpi-top">
-                  <span className="fv-kpi-label">{card.label}</span>
-                  <span className={`fv-kpi-icon is-${card.tone}`} aria-hidden="true">
-                    {card.key === 'total' ? (
-                      <svg viewBox="0 0 24 24" focusable="false">
-                        <path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z" />
-                        <path d="m3 7.5 9 4.5 9-4.5" />
-                        <path d="M12 12v9" />
-                      </svg>
-                    ) : card.key === 'open' ? (
-                      <svg viewBox="0 0 24 24" focusable="false">
-                        <path d="M4 9h16v11H4z" />
-                        <path d="M4 9 6 4h12l2 5" />
-                        <path d="M10 13h4" />
-                      </svg>
-                    ) : card.key === 'sold' ? (
-                      <svg viewBox="0 0 24 24" focusable="false">
-                        <path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0l-7.2-7.2A2 2 0 0 1 3 12V5a2 2 0 0 1 2-2h7a2 2 0 0 1 1.4.6l7.2 7.2a2 2 0 0 1 0 2.8z" />
-                        <path d="M7.5 7.5h.01" />
-                      </svg>
-                    ) : (
-                      <svg viewBox="0 0 24 24" focusable="false">
-                        <circle cx="12" cy="12" r="9" />
-                        <path d="M12 7v5l3 2" />
-                      </svg>
-                    )}
-                  </span>
-                </div>
-                <span className="fv-kpi-value">
-                  {card.value == null ? '—' : card.value.toLocaleString('pt-BR')}
-                </span>
-                <span
-                  className={`fv-kpi-delta${
-                    card.delta && card.delta.dir !== 'flat' ? ` is-${card.delta.dir}` : ''
-                  }`}
-                >
-                  {card.delta?.dir === 'up' ? (
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <path d="M7 17 17 7" />
-                      <path d="M8 7h9v9" />
-                    </svg>
-                  ) : card.delta?.dir === 'down' ? (
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <path d="m7 7 10 10" />
-                      <path d="M17 8v9H8" />
-                    </svg>
-                  ) : null}
-                  {card.delta ? card.delta.text : ' '}
-                </span>
-              </>
-            );
-
-            // "Aguardando classificacao" e um FILTRO: liga/desliga o
-            // statusGroup=CLASSIFICATION_PENDING na lista. Sem pendencias o
-            // card volta a ser so leitura.
-            if (card.key === 'pending' && (card.value ?? 0) > 0) {
-              return (
-                <button
-                  key={card.key}
-                  type="button"
-                  className={`fv-kpi is-clickable${pendingFilterActive ? ' is-active' : ''}`}
-                  aria-pressed={pendingFilterActive}
-                  onClick={togglePendingClassificationFilter}
-                >
-                  {body}
-                </button>
-              );
-            }
-            return (
-              <article key={card.key} className="fv-kpi">
-                {body}
-              </article>
-            );
-          })}
-        </div>
+        {isDesktop ? kpiRow : null}
 
         {/* RD16 M2: a linha de busca mobile (.hero-search-wrap) saiu. Busca,
             funil, "Limpar" e contagem moram agora na .fv-toolbar do cartao —
@@ -3094,6 +3106,7 @@ function SamplesPage() {
             </div>
           ) : (
             <div ref={samplesScrollRef} className="spv2-list-scroll">
+              {kpiRow}
               {samplesState.items.map((sample) => (
                 <SampleCard
                   key={sample.id}
