@@ -355,6 +355,22 @@ Revisando a 1ª rodada, o Flavio apontou **5 pedidos que não tinham sido atendi
 
 **O que conferir a mais**: KPI "Lotes vendidos" com o comparativo semanal; "Criar liga" ao lado do "Novo lote" e com o mesmo desenho; colunas encostadas à direita com o proprietário largo; padrão em traço quando não classificado; editar data abrindo embaixo do card; cards de liga no kit dentro do drawer; confirmação da liga como painel lateral (seta ← cancela, back não sai da página).
 
+#### 3ª rodada de ajustes pós-F3 (2026-07-21 — 3 modais que ainda destoavam)
+
+Três pedidos, todos sobre superfícies que a F3 não tinha reavaliado por dentro — só realinhado o contêiner. Cinco commits.
+
+1. `57e696b` **Imprimir etiqueta abre só o painel de impressão** — pelo ⋯ da linha a ação mandava `?lote=<id>&acao=imprimir`: montava o drawer inteiro (um fetch de detalhe) e só então revelava, por cima dele, um painel com um QR e cinco linhas. O painel virou componente próprio (`SampleLabelPrintSheet`) e recebe o **snapshot** do lote que o host já tem em mãos — a lista tem na linha, o detalhe tem em `detail.sample` — então **não busca nada**: o único efeito colateral é o `requestQrPrint`, e o refetch fica com o host via `onPrinted`. `buildReadableValue`/`ownerDisplayValue` subiram pra `lib/sample-display.ts` com tipagem **estrutural**, já que agora servem os dois lados. `?acao=imprimir` segue valendo como deep-link do detalhe.
+2. `85e5bd4` **Envio da amostra em UM painel** — o fluxo pedia duas decisões em dois contêineres: um modal central só pra escolher "Descrição" ou "Físico", e só então o painel lateral perguntando o destinatário. Agora o tipo é um **campo do próprio painel** (kit novo `.fv-choice-group`/`.fv-choice`, dois cartões; o cartão bloqueado **escreve o motivo** em vez de só apagar), os **destinatários valem pros dois tipos** (trocar de tipo não perde a seleção) e a **data só aparece no físico**, que é quem registra saída. O rótulo do rodapé segue o tipo (Gerar laudo / Enviar) e o erro do laudo virou inline — era toast porque o modal central não tinha onde pôr. `SendMethodChooserModal` foi deletado.
+3. `ad22155` **Limpeza do que ficou sem dono** — `.type-modal-*` (~140 linhas, órfãs desde que o modal de tipo da classificação morreu no ciclo CAM), os overrides do back-arrow sob `.is-action`, `.sdv-send-head-left`, `.app-modal-header.is-centered-title` e `.export-recipient-multi`. Skills sincronizadas na mesma passada (fatos invalidados, não consolidação).
+4. `eec71c7` **Registrar perda vira painel lateral** — era a única das três ações do mesmo menu ⋯ (enviar, imprimir, perda) que ainda abria central, e é um formulário de três campos, que por RD11 mora em painel. O `SampleMovementModal` que a hospedava carregava ~900 linhas de venda à vista (comprador, preço, corretagens, corretores) e de edição de movimentação: a venda migrou pra /contratos e a edição virou dropdown inline no card da timeline — **nenhuma tela abria mais esses ramos**, então o componente inteiro foi deletado. Nasce o `SampleLossSheet` só com o que a perda usa: motivo + data + sacas nos campos do kit, ou o bloco de total quando é liga (perda de 100%, com a pré-validação da cascata). O nudge de liga sem dono e o aviso de origem de ligas ativas vieram inteiros; **"Atribuir dono" fica central sobre o painel** com `.fv-panel-scrim`, como os demais confirms de painel.
+5. `1869276` **Fix** — o tap-fora do "Atribuir dono", que o modal central tinha e se perdeu na conversão.
+
+**Efeito colateral deliberado**: o **carimbo "Vendido/Perdido"** (`.sdv-stamp-overlay`, com o tremor `.is-stamping`) saiu do produto junto com o `SampleMovementModal` — era o efeito de sucesso do modal de venda; a perda pela lista já fecha com toast do host.
+
+**Regra que fica pro resto do redesenho**: um seletor de 2–4 opções que só **roteia** pra outro contêiner não merece contêiner próprio — vira campo do destino (`.fv-choice*`). Registrada no `modals`; o kit está no `design-system` §0.6.
+
+**O que conferir a mais**: imprimir pelo ⋯ da linha abre **só** o painel de impressão (o drawer não aparece) e imprime; enviar abre um painel só, com tipo e destinatários juntos, a data aparecendo/sumindo ao trocar de tipo e o rótulo do botão acompanhando; a opção bloqueada explica o porquê; registrar perda abre painel lateral (inclusive sobre o drawer, pelo ⋯ do hero), com o aviso de liga quando for o caso, e "Atribuir dono" abrindo centralizado sobre a faixa do painel.
+
 ## 3. O que NÃO muda
 
 - **Backend**: nenhuma rota de API muda. RD2 é só front + redirects de rota.
