@@ -25,19 +25,28 @@ pos-hidratacao.
 
 **Quando trocar a arvore e quando usar CSS:**
 
-| Situacao                                                  | Como                                  |
-| --------------------------------------------------------- | ------------------------------------- |
-| A informacao e a mesma, so o espaco muda                  | CSS responsivo (`clamp`, grid, media) |
-| A ESTRUTURA muda (tabela ↔ cards, sidebar ↔ tabbar)       | troca de arvore React                 |
-| Bloco existe so num tamanho (KPI row, toolbar, page-head) | CSS `display: none` + `@media`        |
+| Situacao                                            | Como                                  |
+| --------------------------------------------------- | ------------------------------------- |
+| A informacao e a mesma, so o espaco muda            | CSS responsivo (`clamp`, grid, media) |
+| A ESTRUTURA muda (tabela ↔ cards, sidebar ↔ tabbar) | troca de arvore React                 |
+| Bloco existe so num tamanho (tabela, page-head)     | CSS `display: none` + `@media`        |
 
 Tentar transformar uma tabela de 8 colunas em cards por CSS produz markup que nao serve bem a
-nenhum dos dois. Blocos exclusivos de desktop (`.fv-page-head`, `.fv-kpi-row`, `.fv-toolbar`) ja
+nenhum dos dois. Blocos exclusivos de desktop (`.fv-page-head`, `.fv-table*`, `.fv-row-menu`) ja
 nascem `display: none` no kit — nao precisam de condicional no JSX.
 
-> **O mobile do kit FV ainda nao existe.** As paginas do ciclo de redesenho tem o desktop pronto e o
-> mobile entra na ULTIMA fase de cada uma (`page-redesign-cycle` §2). Ate la, o mobile dessas
-> paginas segue no visual antigo — nao "corrigir" para o kit fora da fase.
+**Nem todo bloco do kit e desses.** `.fv-toolbar`, `.fv-kpi-row` e `.fv-bulkbar` tem corpo nos DOIS
+breakpoints desde o RD16 M2: markup unico, forma diferente por `@media`. Duplicar a chrome (uma
+arvore de desktop e uma de mobile, cada uma escondida no outro tamanho) foi exatamente o que essa
+fase desfez — dois `<input>` no mesmo state, dois contadores, dois popovers montados de uma vez.
+Detalhes em `data-tables`.
+
+> **O mobile do kit FV existe, mas so onde o ciclo passou.** O RD16 entregou a **chrome**
+> (`.fv-mtopbar` + canvas branco + tabbar nos tokens `--fv-*`) para o app inteiro, e a **lista** de
+> `/samples`. As demais paginas tem o desktop pronto e o mobile entra na ULTIMA fase de cada uma
+> (`page-redesign-cycle` §2) — ate la o mobile delas segue no visual antigo; nao "corrigir" para o
+> kit fora da fase. Peca do kit que ganha vida no mobile nasce **escopada na pagina**; vira generica
+> quando a 2a pagina entrar no ciclo.
 
 ## Regras obrigatorias
 
@@ -97,7 +106,7 @@ Toda pagina deve respeitar as safe areas do dispositivo:
 - O conteudo NUNCA deve ficar atras da tabbar de navegacao
 - Usar `var(--mobile-tabbar-clearance)` para garantir espaco
 - Exemplo: `padding-bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + var(--mobile-tabbar-clearance))`
-- **List pages com sheet bege rolavel (`/samples` e a aba Clientes de `/cadastros` — F1 do redesign: `/clients` virou redirect, mas o `ClientsBrowser` segue com a casca `.clients-page-v2`) — padrao alternativo**: em vez do clearance no sheet, o sheet ocupa a tela toda (`padding-bottom` so com safe-area + breathing minimo) e o clearance do FAB+tabbar mora no container de scroll (`.spv2-list-scroll`: `padding-bottom: calc(clamp(6.3rem, 27vw, 6.8rem) + breathing)`, casando com o `bottom` do `.cv2-fab`). Assim a pill da tabbar flutua sobre o sheet e o conteudo rola **por tras** dela (iOS-native), sem sobrar faixa bege nem "linha de limite" visivel acima da tabbar. Os dois pages compartilham `.spv2-list-scroll` e a regra de clearance (`.samples-page-v2 .spv2-list-scroll, .clients-page-v2 .spv2-list-scroll`) — ao mexer num, manter o outro igual.
+- **List pages com sheet rolavel (`/samples` e a aba Clientes de `/cadastros` — F1 do redesign: `/clients` virou redirect, mas o `ClientsBrowser` segue com a casca `.clients-page-v2`) — padrao alternativo**: em vez do clearance no sheet, o sheet ocupa a tela toda (`padding-bottom` so com safe-area + breathing minimo) e o clearance do FAB+tabbar mora no container de scroll (`.spv2-list-scroll`: `padding-bottom: calc(clamp(6.3rem, 27vw, 6.8rem) + breathing)`, casando com o `bottom` do `.cv2-fab`). Assim a pill da tabbar flutua sobre o sheet e o conteudo rola **por tras** dela (iOS-native), sem sobrar faixa bege nem "linha de limite" visivel acima da tabbar. Os dois pages compartilham `.spv2-list-scroll` e a regra de clearance (`.samples-page-v2 .spv2-list-scroll, .clients-page-v2 .spv2-list-scroll`) — ao mexer num, manter o outro igual. **Excecao do modo liga em `/samples`** (RD16 M2): sem tabbar e sem FAB, o clearance vira buraco — `body.is-selection-mode .fv-lotes-page .spv2-list-scroll` cai pra `clamp(0.6rem, 2vw, 0.9rem)`, o sheet devolve o `padding-bottom` e quem assume a safe area e a `.fv-bulkbar`, que fica na base por `order: 1` (nao por `position: fixed` — o sheet roda `animation ... both` com transform e e containing block permanente).
 - **Rotas sem tabbar**: paginas listadas em `hideMobileTabbar` no `AppShell.tsx` (hoje so `/samples/[id]` + PROSPECTOR; o detalhe de cliente virou overlay em `/cadastros` e esconde a tabbar via `body.is-bottom-sheet-open`) — a tabbar nem renderiza e `--mobile-tabbar-clearance` e zerada automaticamente via `.app-shell-root.is-tabbar-hidden` no globals.css. Nao precisa ajustar padding por pagina.
 - **Esconder em modais**: `body:has(.app-modal-backdrop) .mobile-tabbar` (`:has()`) cobre todos os 38+ modais centrais automaticamente; `body.is-bottom-sheet-open` cobre BottomSheets. Tecnica e `visibility: hidden` (nao `translateY`) — nao precisa adicionar useEffect em cada modal novo.
 - **Escurecer (em vez de esconder) — leque do FAB de Lotes**: a tabbar e portalada no `body`, FORA da isolation do `.mobile-edge-shell` (`z-index: 0; isolation: isolate` na media query mobile). Logo, um scrim que vive DENTRO do shell (ex: `.fab-fan-backdrop`, z `var(--z-modal-backdrop)`) fica preso nessa camada e NAO cobre a tabbar (z-70) por z-index sozinho. Quando o overlay deve **escurecer** a tabbar (e nao some-la como os modais), NAO mova shell/scrim: elevar o shell enterra a tabbar sob o conteudo opaco da pagina; portar so o scrim cobriria o proprio FAB; portar o FAB quebra o inline do desktop e a ancoragem por `--fab-*`. Em vez disso, aplique na propria tabbar o **mesmo** escurecimento do scrim — `body.is-fab-fan-open .mobile-tabbar { filter: brightness(0.45) }` (matematicamente identico a um overlay `rgba(0,0,0,0.55)` sobre pixels opacos: `C*(1-0.55) = C*0.45`; cobre a barra inteira e as sombras, sem depender de geometria (na epoca cobria tambem o circulo elevado da camera, removido na CAM-P3) — mais `body.is-fab-fan-mounted .mobile-tabbar { pointer-events: none }`. Duas flags: `-mounted` (toda a vida do leque, pra pointer-events nao reativar no fade-out; taps caem no scrim e fecham) e `-open` (so aberto, pra o brightness sair em sincronia com o scrim). `SampleCreateRadialFab` marca as duas; o `filter` entra na `transition` da `.mobile-tabbar`.

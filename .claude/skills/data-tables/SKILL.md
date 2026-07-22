@@ -1,6 +1,6 @@
 ---
 name: data-tables
-description: Use this skill whenever building or editing a desktop LIST page — table of records, KPI cards, toolbar with search/filters, row action menu, bulk selection bar, infinite scroll. Defines the FV listing kit (fv-page-head, fv-kpi, fv-toolbar, fv-table, fv-col-*, fv-row-menu, fv-bulkbar) and the desktop/mobile tree split. Canonical examples: /samples and /cadastros.
+description: Use this skill whenever building or editing a LIST page — table or card list of records, KPI cards, toolbar with search/filters, row action menu, bulk selection bar, infinite scroll. Defines the FV listing kit (fv-page-head, fv-kpi, fv-toolbar, fv-table, fv-col-*, fv-row-menu, fv-bulkbar), which parts are desktop-only and which cross both breakpoints, and the desktop/mobile tree split. Canonical example: /samples (both breakpoints); /cadastros (desktop only, mobile pending).
 ---
 
 # Listagem — a página de lista no desktop
@@ -11,24 +11,34 @@ as colunas e os KPIs, não a estrutura.
 Contêiner dos painéis (filtros, criação): `containers`. Campos de dentro deles: `forms`. Tokens e
 cards: `design-system`.
 
-**Tudo nesta skill é desktop (≥901px).** No mobile a lista é outra árvore de componentes — §9.
+**A tabela é desktop (≥901px); o resto do kit não é mais.** No mobile a lista é outra árvore de
+componentes (§9), mas ela usa a MESMA toolbar, os MESMOS cartões de KPI e a MESMA barra de seleção
+— só a faixa muda de forma. Quem ainda é exclusivo do desktop: `.fv-page-head`, `.fv-table*` e
+`.fv-row-menu`.
 
 ---
 
 ## §1 Anatomia
 
 ```
-.fv-page-head          título + ações de criação
-.fv-kpi-row            4 cartões de indicador
-└ cartão da lista (.samples-page-v2-sheet / .clients-v2-sheet)
-  ├ .fv-toolbar        busca · filtros · limpar · contador
-  ├ .fv-bulkbar        só no modo seleção
-  └ .fv-table-scroll
-    └ table.fv-table
+DESKTOP (≥901px)                     MOBILE (≤900px)
+
+.fv-page-head   título + criação     (título na faixa verde do shell;
+.fv-kpi-row     grid de 4 cartões     criar é o FAB em leque)
+└ cartão da lista                    └ sheet da página
+  ├ .fv-toolbar   1 linha              ├ .fv-toolbar   2 linhas  ← travada
+  ├ .fv-bulkbar   sob a toolbar        ├ .spv2-list-scroll       ← rola
+  └ .fv-table-scroll                   │  ├ .fv-kpi-row carrossel
+    └ table.fv-table                   │  └ SampleCard …
+                                       └ .fv-bulkbar   na BASE (order: 1)
 ```
 
-`.fv-page-head`, `.fv-kpi-row` e `.fv-toolbar` são `display: none` por padrão e só aparecem dentro
-do `@media (min-width: 901px)`. Não precisam de condicional no JSX.
+**O `display` é o portão, e ele é escopado.** Todas as peças nascem `display: none` na base. O
+`@media (min-width: 901px)` acende para todas as listas; o `@media (max-width: 900px)` acende só
+para `.fv-lotes-page`, a única lista que já passou pelo ciclo mobile. Ligar na base daria a
+`/cadastros` e ao `ClientsBrowser` **duas chromes empilhadas** — eles ainda usam a
+`.hero-search-wrap` antiga. Vira genérico quando a segunda lista migrar (critério do
+`css-architecture`). Nenhuma delas precisa de condicional no JSX.
 
 ---
 
@@ -67,8 +77,32 @@ do `@media (min-width: 901px)`. Não precisam de condicional no JSX.
 
 ## §3 KPI row
 
-Grid **fixo de 4 colunas** (`repeat(4, minmax(0, 1fr))`). Menos de 4 cartões deixa buraco; mais de 4
-não cabe. Se a página tem 3 indicadores bons, ache o quarto ou repense.
+No desktop, grid **fixo de 4 colunas** (`repeat(4, minmax(0, 1fr))`). Menos de 4 cartões deixa
+buraco; mais de 4 não cabe. Se a página tem 3 indicadores bons, ache o quarto ou repense.
+
+**No mobile o cartão é o mesmo — muda a faixa.** Ela vira carrossel horizontal (a receita de
+scroll-x do projeto: `flex-wrap: nowrap` + `overflow-x: auto` + scrollbar escondida nos três
+prefixos + `-webkit-overflow-scrolling: touch`), com `flex: 0 0 clamp(9.5rem, 42vw, 12rem)` por
+cartão e margens negativas de `--lotes-inner-pad` para rolar de borda a borda — mas com o primeiro
+e o último cartão parando na mesma linha vertical dos cards da lista.
+
+🔴 **E ela entra DENTRO da rolagem, não acima dela.** A lista mobile tem altura fixa: o topo fica
+travado e só os cards rolam, então tudo que fica acima custa altura PERMANENTE numa tela pequena. A
+faixa é o primeiro item do `.spv2-list-scroll` — aparece no topo, some ao descer. Travado sobra só
+a toolbar.
+
+O markup é montado **uma vez** numa variável e posicionado pela bifurcação que a página já tem:
+
+```tsx
+const kpiRow = <div className="fv-kpi-row">{cards.map(…)}</div>;
+…
+{isDesktop ? kpiRow : null}          {/* acima do cartão da lista */}
+…
+<div className="spv2-list-scroll">
+  {isDesktop ? null : kpiRow}        {/* primeiro item da rolagem */}
+```
+
+Renderizar duas vezes e esconder uma por CSS é exatamente o que o ciclo mobile veio desfazer.
 
 ```tsx
 <article className="fv-kpi">
@@ -148,9 +182,15 @@ if (!session || !isDesktop) return; // KPI nao existe no mobile — nao gastar r
 </div>
 ```
 
-**`.fv-toolbar-count` tem `margin-left: auto`** — é ele que empurra tudo para a esquerda e se ancora
-à direita. Sem o contador, a toolbar fica desalinhada; se precisar removê-lo, mova o `margin-left`
-para o último elemento.
+**No desktop, `.fv-toolbar-count` tem `margin-left: auto`** — é ele que empurra tudo para a esquerda
+e se ancora à direita. Sem o contador, a toolbar fica desalinhada; se precisar removê-lo, mova o
+`margin-left` para o último elemento.
+
+**No mobile a mesma toolbar quebra em duas linhas** (`flex-wrap` + `order`): busca + funil em cima,
+contagem + "Limpar" embaixo. A quebra é um `::after` de `flex-basis: 100%` — sem ele o funil iria
+para o fim da fila em vez de ficar colado na busca. O rótulo "Filtros" vive num
+`<span className="fv-toolbar-filter-label">` justamente para o mobile poder escondê-lo e deixar o
+botão do tamanho do ícone; a linha da busca não cabe os dois.
 
 O `.fv-btn-badge` só aparece com filtros ativos, e conta **filtros ocultos** (os que estão dentro do
 painel), não a busca — a busca já se mostra sozinha.
@@ -328,6 +368,25 @@ tem para o painel.
 ) : null}
 ```
 
+### A mesma barra, na base, no mobile
+
+No mobile a `.fv-bulkbar` desce para o fim da tela, no lugar da tabbar (que já some sozinha em
+`body.is-selection-mode`). Ela substitui **três peças** que o desenho antigo tinha: um header verde
+dedicado no topo, um contador de selecionados na linha do sheet e o FAB virando seta "continuar".
+
+🔴 **Ela desce por `order: 1`, NUNCA por `position: fixed`.** O `.samples-page-v2-sheet` roda
+`animation … both` com transform no último keyframe, o que o torna **containing block permanente** —
+um filho `fixed` ficaria preso dentro dele. Como o sheet já ocupa a tela toda, `order` põe a barra
+no fim da coluna, que é o fim da tela. Isso também evita a briga de z-index com a `isolation:
+isolate` do `.mobile-edge-shell`.
+
+Dois ajustes acompanham: o sheet devolve o `padding-bottom` da safe area para a barra (que passa a
+somá-la ao próprio padding) e o clearance do fim da lista encolhe — sem tabbar e sem FAB, e com a
+barra ocupando espaço real de layout, o vão antigo vira buraco.
+
+O popover de "Revisar" abre **para cima** (`bottom: calc(100% + 8px)` + `transform-origin: bottom
+right` + keyframe espelhado): ancorado na base, para baixo sairia do viewport.
+
 ### 🔴 O checkbox mora na célula do ⋯
 
 A mesma coluna leva o ⋯ fora do modo e a caixa de seleção dentro dele. **Entrar no modo seleção não
@@ -386,8 +445,47 @@ pós-hidratação.
 
 Não usar `matchMedia` inline: `useIsDesktop()` é o gate canônico.
 
-**Exceção:** o painel de filtros é o único bloco do kit FV que vive nos dois breakpoints (no mobile
-vira bottom sheet, mesma marcação).
+**O que NÃO troca de árvore:** toolbar, KPI row, barra de seleção e painel de filtros. Os quatro são
+o mesmo markup nos dois breakpoints — o CSS muda a forma. Trocar a árvore aqui traria de volta a
+duplicação que o ciclo mobile eliminou (dois `<input>` no mesmo state, dois contadores, dois
+popovers de revisão montados ao mesmo tempo).
+
+### O card da lista
+
+`components/samples/SampleCard.tsx` é o equivalente mobile da `<tr>`, e se comporta como ela:
+
+- **Tap no card abre o registro** (`onOpenDetails` → `?lote=`), igual ao clique na linha. Card de
+  lista não expande: o painel embutido custava um toque a mais para chegar ao detalhe e escondia
+  campos que o CSS nunca mostrava.
+- **Chrome do kit**: `var(--fv-surface)` + `1px solid var(--fv-line)` + `var(--fv-radius-lg)` +
+  `box-shadow: 0 1px 2px rgba(0,0,0,.04)`. Sem gradiente, sem sombra empilhada.
+- **Chip de status é o `.fv-chip`**, alimentado pela mesma fonte da linha da tabela
+  (`sampleStatusDisplay` em `lib/sample-display.ts`). Antes a regra estava triplicada e divergia: a
+  mesma amostra era "Em aberto" azul no card e verde na tabela.
+- **`⋯` é IRMÃO do botão do card**, nunca filho — botão dentro de botão é HTML inválido. O wrap vira
+  `flex-direction: row` e o `⋯` é a coluna da direita, com `border-left` hairline.
+
+### 🔴 O `⋯` do card abre um SHEET, não um popover
+
+O `.fv-row-menu` da tabela não serve no mobile por dois motivos independentes:
+
+1. Ele não tem **uma linha** de CSS fora do `@media (min-width: 901px)`.
+2. O `.spv2-card-wrap` tem `overflow: hidden` **e** `content-visibility: auto` — um menu absoluto
+   ancorado dentro do card seria recortado.
+
+O molde é o `BottomSheet` com `className="is-menu"` (o mesmo do menu da conta) e itens
+`.fv-more-item` na variante `.is-sheet`, que tira a moldura de popover e vira lista de largura
+total. Um único sheet para a lista inteira, montado pela página, com o alvo em state — um por card
+custaria caro numa lista longa e brigaria com o `content-visibility` dos cards fora de tela.
+
+**A lista de ações e os gates são os MESMOS do `⋯` da tabela** (item ausente quando não cabe, nunca
+desabilitado). Se as duas divergirem, uma ação existe num breakpoint e some no outro.
+
+### Escopo do CSS
+
+O prefixo `spv2-` é **compartilhado** — `.spv2-card*` aparece em `RelatedSampleRow`, no
+`SaleContractLotPickerModal`, no `ClientsBrowser` e em `/users`. Mudança de visual do card de lote
+vai escopada em `.samples-page-v2`; prefixo com nome de página não é escopo (`css-architecture`).
 
 ---
 
@@ -404,7 +502,11 @@ vira bottom sheet, mesma marcação).
 - [ ] Erro sem itens mostra banner, não o vazio
 - [ ] Menu ⋯: um por vez, ESC em captura, foco devolvido, `is-danger` por último
 - [ ] Modo seleção reusa a coluna do ⋯; checkbox `readOnly tabIndex={-1}`
-- [ ] Mobile por troca de árvore com `useIsDesktop()`, nunca por CSS
+- [ ] Tabela ↔ cards por troca de árvore com `useIsDesktop()`, nunca por CSS
+- [ ] Toolbar, KPI, bulkbar e filtros com markup ÚNICO — a forma muda no CSS
+- [ ] Regra nova do kit no mobile nasce escopada na página; genérica só na 2ª lista
+- [ ] `⋯` do card e `⋯` da linha com a MESMA lista de ações e os mesmos gates
+- [ ] Nada de `position: fixed` dentro do sheet da página (containing block)
 
 ## §11 Fora do padrão hoje
 

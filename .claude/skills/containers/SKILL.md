@@ -25,6 +25,7 @@ central: `modals`. Para tokens e cards: `design-system`.
 | Confirmação **sobre** um painel                    | idem + `.fv-panel-scrim` no backdrop          | 380px           |
 | "Descartar?" de rascunho                           | idem + `.is-scrim-none.is-compact`            | 312px           |
 | Editar 1–2 campos de um card                       | **dropdown inline no próprio card**           | —               |
+| Ações de um item de LISTA no mobile                | `BottomSheet` + `.is-menu`                    | — (desktop: ⋯)  |
 | Feedback transiente (salvo, copiado, erro de rede) | toast → `feedback-messages`                   | —               |
 
 **Regra de corte do painel vs. dropdown inline:** 1–2 campos sem consequência de negócio (data,
@@ -114,6 +115,33 @@ Estrutura, variantes e tokens estão em `modals`. Aqui só o que decide **onde**
   aparece **dentro** da área do painel, não no meio da tela.
 - "Descartar?" de rascunho → `.is-scrim-none` (fundo não escurece nem borra) + `.is-compact`.
 
+### `.is-menu` — menu de ações de um item de lista (mobile)
+
+O equivalente mobile do `⋯` da linha da tabela. `BottomSheet` com `className="is-menu"` +
+`dragToDismiss`, itens no molde `.fv-more-item` na variante `.is-sheet` (sem moldura de popover,
+largura total), `is-danger` por último. Mesmo molde do menu da conta (`HeaderAvatarMenu`).
+
+🔴 **Por que não é popover.** O card da lista tem `overflow: hidden` **e**
+`content-visibility: auto` — um menu absoluto ancorado dentro dele seria recortado. E o
+`.fv-row-menu` do desktop não tem uma linha de CSS fora do `@media (min-width: 901px)`.
+
+**Um sheet para a lista inteira**, montado pela página com o alvo em state (`target | null`) — não
+um por card. Toda ação **fecha antes de disparar**: as que abrem outra superfície empilhariam sheet
+sobre sheet e o árbitro de history cobra caro por isso.
+
+```tsx
+const run = (action: (item: T) => void) => {
+  if (!target) return;
+  const item = target;
+  onClose();
+  action(item);
+};
+```
+
+A lista de ações e os gates são os **mesmos** do `⋯` da tabela (item ausente quando não cabe, nunca
+desabilitado) — se divergirem, uma ação existe num breakpoint e some no outro. Exemplo:
+`components/samples/SampleCardActionsSheet.tsx`.
+
 ### Dropdown inline
 
 Sem componente próprio: um bloco condicional dentro do card, com os campos e um botão de salvar. O
@@ -174,11 +202,11 @@ só chegam ao topmost** (não fecham os dois de uma vez).
 
 O sheet base ocupa quase a tela. Três modificadores encolhem:
 
-| Classe            | Efeito                                             | Para quê                        |
-| ----------------- | -------------------------------------------------- | ------------------------------- |
-| `.is-menu`        | `height: auto` + `max-height: min(72dvh, 30rem)`   | menus curtos (menu da conta)    |
-| `.is-fit-content` | `height: auto`, **mantém** o teto alto do base     | forms curtos que podem crescer  |
-| `.is-informe`     | achata os cards internos + padding lateral no form | formulários de visita/relatório |
+| Classe            | Efeito                                             | Para quê                            |
+| ----------------- | -------------------------------------------------- | ----------------------------------- |
+| `.is-menu`        | `height: auto` + `max-height: min(72dvh, 30rem)`   | menus curtos (conta, ações de item) |
+| `.is-fit-content` | `height: auto`, **mantém** o teto alto do base     | forms curtos que podem crescer      |
+| `.is-informe`     | achata os cards internos + padding lateral no form | formulários de visita/relatório     |
 
 No desktop com `.side-sheet` a altura é sempre total — as variantes só valem no mobile.
 
