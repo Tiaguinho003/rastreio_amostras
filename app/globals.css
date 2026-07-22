@@ -28533,6 +28533,34 @@ select.samples-filter-field-input {
   z-index: calc(var(--z-modal-stacked) + 10);
 }
 
+/* ── SCRIM NAO SE SOMA (2026-07-21) ────────────────────────────────
+   Cada camada trazia o proprio escurecimento, e eles se multiplicavam:
+   abrir um painel sobre o drawer do lote (que ja escurece a 55%) dava
+   ~80% de preto, e com blur em cima de blur a tela virava um borrao.
+
+   Regra: quando existe um scrim EMPILHADO no ar, os de baixo param de
+   pintar. Ninguem some do DOM e ninguem devolve o clique — `background`
+   e `backdrop-filter` sao as unicas coisas que caem, entao o bloqueio de
+   interacao, o scroll-lock e a ordem de foco continuam exatamente como
+   estavam. O de cima cobre a viewport inteira de qualquer jeito, entao o
+   resultado visual e o de UMA camada, na intensidade certa.
+
+   O gatilho e so o scrim empilhado que de fato ESCURECE: o
+   `.is-scrim-none` (confirm de descarte) e transparente de proposito e
+   fica de fora — se ele disparasse a regra, nada escureceria.
+
+   `:has()` no `body` porque todo backdrop e portalado pra la; a
+   especificidade (0,6,1) vence as regras de scrim proprio do drawer do
+   cliente e do lote (0,4,0). */
+body:has(.bottom-sheet-backdrop.is-stacked.is-open)
+  :is(.bottom-sheet-backdrop.is-open, .app-modal-backdrop):not(.is-stacked),
+body:has(.app-modal-backdrop.is-stacked)
+  :is(.bottom-sheet-backdrop.is-open, .app-modal-backdrop):not(.is-stacked) {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 /* ══════════════════════════════════════════════════════════════
    DetailOverlay (.detail-overlay) — F1 do redesign (RD3/RD4/RD5).
    Overlay de DETALHE dirigido por URL (ex.: /cadastros?cliente=)
