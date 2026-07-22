@@ -8,6 +8,26 @@
 > **Execução:** faseada — cada fase é aprovada no device e commitada
 > separadamente. Push e deploy são do usuário.
 
+> ## 🔴 Leia antes: o desktop deste plano não existe mais
+>
+> O **redesenho FV de `/samples`** (RD15, `docs/Redesign-Plano-de-Trabalho.md`
+> §2.7, 2026-07-21) reescreveu a página inteira. Duas premissas deste plano
+> caíram:
+>
+> 1. **A fronteira lista ↔ detalhe acabou.** `app/samples/[sampleId]/page.tsx`
+>    é um **redirect** para `/samples?lote=<id>`; o detalhe é um drawer
+>    renderizado pelo mesmo `app/samples/page.tsx` que este plano chama de
+>    "a lista". Não há mais "fora deste plano" por arquivo.
+> 2. **No desktop não há mais cards.** A lista virou `<table>`; `SampleCard`
+>    (e com ele a expansão, o `content-visibility` da Fase 4, o `memo` da
+>    Fase 2 e o leque do FAB da Fase 5) só renderiza **no mobile**.
+>
+> **Consequência prática:** os itens de validação em aberto valem **só para o
+> mobile**. Quem for validar no desktop está conferindo uma tela que foi
+> substituída — a conferência do desktop é a do §2.7 do doc de Redesign.
+> As fases 1, 3 e 6 (fetch unificado, backend, CSS morto) não dependem de
+> breakpoint e seguem válidas como estão.
+
 ## Status geral
 
 | Fase | Tema                                                               | Status                                                            |
@@ -24,12 +44,18 @@
 > números deslocam conforme os arquivos mudam (a Fase 1 já deslocou o
 > `page.tsx`). **Sempre `grep` pelo símbolo antes de editar.**
 
-> ℹ️ **Mudanças vindas do ciclo do DASHBOARD** (fora deste plano): a página
+> ℹ️ ~~**Mudanças vindas do ciclo do DASHBOARD** (fora deste plano): a página
 > ganhou o card só-visualização **"Classificação pendente"** (DSB-D2,
 > 2026-07-12, `.spv2-pending-stat`) e o card **"Amostras enviadas"** no topo
 > do sheet, desktop-only (DSB-D14, 2026-07-14, `RecentSendsCard` + wrapper
-> `.spv2-top-cards`; dado de `GET /samples/recent-sends`). Fonte:
-> `docs/Dashboard-Plano-de-Trabalho.md`.
+> `.spv2-top-cards`; dado de `GET /samples/recent-sends`).~~ **Os dois cards
+> saíram do JSX na F1 do redesenho** (`16167f4`): a contagem de pendentes
+> virou o 4º **KPI clicável** da lista (servido por `GET /samples/stats`) e o
+> feed de envios foi **removido do produto** por decisão do Flavio. Ficaram
+> órfãos `ClassificationPendingCard`, `getSampleRecentSends`, a rota
+> `/samples/recent-sends` e o CSS `.spv2-pending-stat`/`.spv2-top-cards` —
+> anotados para a consolidação. O `RecentSendsCard` **não** é órfão: a aba
+> Aprovações de `/embarques` continua usando.
 
 ---
 
@@ -48,8 +74,13 @@
 
 ## Arquivos centrais
 
-- `app/samples/page.tsx` — página (fetch, reducer, snapshot, modo Liga, modal de filtros).
-- `components/samples/SampleCard.tsx` — card do lote.
+- `app/samples/page.tsx` — página (fetch, snapshot, modo Liga, filtros). _O
+  reducer saiu para `lib/samples/samples-list-reducer.ts` (ver §Testes); o
+  modal central de filtros virou **painel lateral** de 400px na F1 do
+  redesenho; e o arquivo passou a hospedar também o drawer do detalhe._
+- `components/samples/SampleCard.tsx` — card do lote. **Só mobile** desde a F1
+  do redesenho — no desktop a lista é `<table className="fv-table
+fv-table-lotes">`.
 - `components/samples/BlendConfirmationSheet.tsx` — bottom sheet da liga.
 - `components/samples/SampleCreateRadialFab.tsx` — FAB "+" (leque).
 - `components/samples/ClassificationFilterField.tsx` — campo de filtro de classificação.
@@ -102,8 +133,9 @@
 
 ### ✅ Confirmados — Inconsistências / a11y (Fase 5)
 
-- **I2** — empty-state genérico ("Nenhuma amostra encontrada") mesmo no modo
-  Liga (deveria ser "Nenhuma amostra disponível para liga").
+- **I2** — empty-state genérico mesmo no modo Liga (deveria distinguir).
+  _Resolvido; os textos vigentes dizem **"lote"**: `Nenhum lote encontrado` /
+  `Nenhum lote disponível para liga`._
 - **I3** — skeleton de loading desalinhado do card v2 branco (estilo antigo).
 - **I4** — leque do FAB sem gestão de foco (abrir/fechar/teclado).
 - **I5** — card inelegível usa `aria-pressed` + `aria-disabled` juntos
@@ -316,7 +348,7 @@ validação no device (visual + teclado/leitor de tela).
 **O que foi feito:**
 
 - **I2 ✅** — empty-state da lista agora é condicional ao `selectionMode`: em
-  modo Liga mostra "Nenhuma amostra disponível para liga" / "Ajuste os filtros
+  modo Liga mostra "Nenhum lote disponível para liga" / "Ajuste os filtros
   ou saia do modo liga" (`app/samples/page.tsx`).
 - **I3 ✅** — `.spv2-skeleton-card` (`app/globals.css`) realinhado ao card v2
   branco: raio `clamp(14px,4vw,16px)`, sombra suave (sai a borda verde
@@ -332,9 +364,13 @@ validação no device (visual + teclado/leitor de tela).
   abrir/fechar do **`BlendConfirmationSheet`** já vem do `BottomSheet`
   compartilhado (`role="dialog"` + `aria-modal` + `useFocusTrap` + Escape) e o
   **modal de filtros** já tem trap + restauração + Escape próprios — nada a
-  mudar. Adicionado o que faltava: **live region** `role="status"
-aria-live="polite"` (classe `login-visually-hidden`) que anuncia "Carregando
-  mais amostras" no load-more (rolagem infinita não entra mais em silêncio).
+  mudar. _(O modal de filtros virou `BottomSheet` na F1 do redesenho, então
+  hoje ele **não tem mecanismo próprio**: foco, Escape e scroll-lock vêm do
+  sheet compartilhado, como no `BlendConfirmationSheet`. A conclusão "nada a
+  mudar" continua valendo, por outro motivo.)_ Adicionado o que faltava:
+  **live region** `role="status" aria-live="polite"` (classe
+  `login-visually-hidden`) que anuncia "Carregando mais lotes" no load-more
+  (rolagem infinita não entra mais em silêncio).
 
 **Verificação:** visual (empty-state da Liga, skeleton no load-more) +
 teclado/leitor de tela (foco do leque: abrir→1ª opção, Escape→FAB; card
@@ -401,7 +437,7 @@ harness de teste de componente React. O runner lista cada arquivo
 explicitamente no script `test:unit` do `package.json` → ao adicionar um teste,
 **incluir o arquivo nessa lista**.
 
-- **Reducer** (`samplesListReducer`, hoje **privado** em `page.tsx:454`):
+- **Reducer** (`samplesListReducer`, **extraído** para `lib/samples/samples-list-reducer.ts`):
   para testar, **extrair** para um módulo próprio sem deps de React (ex.
   `lib/samples/samples-list-reducer.ts`), importar no `page.tsx`, e cobrir
   `success-initial`/`success-more`/reset/token em `tests/`. Essa extração é um
