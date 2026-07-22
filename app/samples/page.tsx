@@ -2443,10 +2443,12 @@ function SamplesPage() {
           {tab === 'simulador' || selectionMode === 'blend' ? null : (
             <div className="fv-page-head-actions">
               <button type="button" className="fv-btn fv-btn-primary" onClick={enterBlendMode}>
-                {/* Circulos sobrepostos = combinar lotes num so. */}
+                {/* Mesmo icone do badge "Liga" que marca o lote na tabela
+                    (`BlendBadge`): origens convergindo numa so. O botao que
+                    cria e a marca do que foi criado falam a mesma lingua. */}
                 <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <circle cx="9" cy="12" r="6" />
-                  <circle cx="15" cy="12" r="6" />
+                  <path d="M6 4v6a4 4 0 0 0 4 4h4a4 4 0 0 0 4-4V4" />
+                  <path d="M12 14v6" />
                 </svg>
                 Criar liga
               </button>
