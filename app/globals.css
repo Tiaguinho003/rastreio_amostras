@@ -37081,3 +37081,35 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
     padding-top: 0.85rem;
   }
 }
+
+/* ── RD16: tabbar no kit institucional ──────────────────────────────────────
+   A pill branca flutuante segue (pedido do usuario: barra clara, sombra
+   reforcada, traco fino do icone) — o que muda e a PALETA, que sai do verde
+   -grama #1e8540 e vai pro verde institucional --fv-cta, o mesmo do CTA, do
+   titulo ativo da sidenav e dos botoes do kit. Superficie e hairline passam a
+   sair dos tokens em vez de hex solto. */
+@media (max-width: 900px) {
+  .mobile-tabbar-inner {
+    background: var(--fv-surface);
+    border: 1px solid var(--fv-line);
+  }
+
+  /* Inativo: cinza de texto secundario do kit (era #74837a, de outra paleta). */
+  .mobile-tabbar-link {
+    color: var(--fv-chip-gray-fg);
+  }
+
+  @media (hover: hover) {
+    .mobile-tabbar-link:hover {
+      color: var(--fv-cta);
+    }
+  }
+
+  .mobile-tabbar-link.is-active {
+    color: var(--fv-cta);
+  }
+
+  .mobile-tabbar-link.is-active::before {
+    background: var(--fv-cta);
+  }
+}
