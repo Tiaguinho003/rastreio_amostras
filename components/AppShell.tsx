@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { HeaderAvatarMenu } from './HeaderAvatarMenu';
+import { HeaderCameraButton } from './HeaderCameraButton';
 import { MobileTabbar } from './MobileTabbar';
 import { UserAvatar } from './UserAvatar';
 import { changeCurrentUserPassword, recordInitialPasswordDecision } from '../lib/api-client';
@@ -1033,9 +1034,21 @@ export function AppShell({
             onde o chrome e a .app-topbar + sidenav (RD13). PROSPECTOR fica de
             fora: app restrito, sem tabbar e sem camera. */}
         {!prospector ? (
-          <header className="fv-mtopbar">
-            {mobileTitle ? <h1 className="fv-mtopbar-title">{mobileTitle}</h1> : <span />}
-            <HeaderAvatarMenu session={session} onLogout={onLogout} />
+          <header className={`fv-mtopbar${isDashboard ? ' is-title-lead' : ''}`}>
+            {/* 3 slots simetricos (grid 1fr auto 1fr): camera a ESQUERDA,
+                titulo ao CENTRO de verdade — geometrico, nao por compensacao de
+                largura como no header antigo — e menu da conta a DIREITA.
+                Excecao do /dashboard: titulo encostado a esquerda, pra nao
+                disputar com a saudacao logo abaixo. */}
+            <span className="fv-mtopbar-slot">
+              <HeaderCameraButton />
+            </span>
+
+            <h1 className="fv-mtopbar-title">{mobileTitle}</h1>
+
+            <span className="fv-mtopbar-slot is-end">
+              <HeaderAvatarMenu session={session} onLogout={onLogout} trigger="menu" />
+            </span>
           </header>
         ) : null}
 

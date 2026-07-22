@@ -3,7 +3,6 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { useCameraSheet } from '../lib/camera-sheet/CameraSheetProvider';
 import {
   canManageClients,
   CONTRATOS_ROLES,
@@ -16,27 +15,27 @@ import type { SessionData } from '../lib/types';
 import { BottomSheet } from './BottomSheet';
 import { UserAvatar } from './UserAvatar';
 
-// Botao de avatar do header mobile (substitui o antigo sino). Abre um bottom
-// sheet curto de "menu da conta". Launcher: cada item fecha o sheet e navega
-// pra rota completa (com o navbar visivel) — nao renderiza paginas dentro do
-// sheet. Mobile-only: o botao fica escondido em >900px via `.header-avatar-
-// trigger` (globals.css); no desktop o acesso ao perfil continua pelo dropdown
-// do topbar do AppShell. Espelha as opcoes daquele dropdown.
+// Gatilho do "menu da conta" no header mobile. Abre um bottom sheet curto.
+// Launcher: cada item fecha o sheet e navega pra rota completa (com o navbar
+// visivel) — nao renderiza paginas dentro do sheet. No desktop o acesso ao
+// perfil continua pelo dropdown do topbar do AppShell; espelha as opcoes dele.
+//
+// RD16: a camera saiu daqui pro canto ESQUERDO da faixa (HeaderCameraButton).
 interface HeaderAvatarMenuProps {
   session: SessionData;
   onLogout: () => void | Promise<void>;
+  // Aparencia do gatilho. `menu` (tres tracos) e o da faixa unica do shell;
+  // `avatar` (avatar + chevron) sobrou no dashboard do PROSPECTOR, que tem
+  // header proprio e fica fora do ciclo do RD16.
+  trigger?: 'avatar' | 'menu';
 }
 
-export function HeaderAvatarMenu({ session, onLogout }: HeaderAvatarMenuProps) {
+export function HeaderAvatarMenu({ session, onLogout, trigger = 'avatar' }: HeaderAvatarMenuProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const cameraSheet = useCameraSheet();
 
   const displayName = session.user.fullName?.trim() || session.user.username;
-
-  // CAM-P3: icone de camera no header de TODAS as paginas mobile — abre o
-  // bottom sheet global da camera (Flow A). PROSPECTOR nao classifica.
-  const showCameraTrigger = session.user.role !== 'PROSPECTOR';
+  const isMenuTrigger = trigger === 'menu';
 
   // Item launcher: fecha o sheet e navega pra rota.
   //
@@ -58,41 +57,33 @@ export function HeaderAvatarMenu({ session, onLogout }: HeaderAvatarMenuProps) {
 
   return (
     <span className="header-actions-cluster">
-      {showCameraTrigger ? (
-        <button
-          type="button"
-          className="header-camera-trigger"
-          aria-label="Abrir câmera"
-          onClick={() => cameraSheet.open()}
-        >
-          {/* Mesmo icone de camera que era o slot central da tabbar. */}
-          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-            <path d="M4 8V5.6A1.6 1.6 0 0 1 5.6 4H8" />
-            <path d="M16 4h2.4A1.6 1.6 0 0 1 20 5.6V8" />
-            <path d="M20 16v2.4a1.6 1.6 0 0 1-1.6 1.6H16" />
-            <path d="M8 20H5.6A1.6 1.6 0 0 1 4 18.4V16" />
-            <path d="M7.5 12h9" />
-          </svg>
-        </button>
-      ) : null}
-
       <button
         type="button"
-        className="header-avatar-trigger"
+        className={isMenuTrigger ? 'fv-mtopbar-btn' : 'header-avatar-trigger'}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label="Abrir menu da conta"
         onClick={() => setOpen(true)}
       >
-        <UserAvatar size="md" user={session.user} />
-        <svg
-          className="header-avatar-chevron"
-          viewBox="0 0 24 24"
-          focusable="false"
-          aria-hidden="true"
-        >
-          <path d="m6 9 6 6 6-6" />
-        </svg>
+        {isMenuTrigger ? (
+          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+            <path d="M4 7h16" />
+            <path d="M4 12h16" />
+            <path d="M4 17h16" />
+          </svg>
+        ) : (
+          <>
+            <UserAvatar size="md" user={session.user} />
+            <svg
+              className="header-avatar-chevron"
+              viewBox="0 0 24 24"
+              focusable="false"
+              aria-hidden="true"
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </>
+        )}
       </button>
 
       {/* Sem titulo visivel: o resumo (avatar + nome/cargo) ja encabeca o
