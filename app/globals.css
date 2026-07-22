@@ -33890,14 +33890,22 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
     transform 140ms ease,
     background 160ms ease;
 }
+/* 21px num botao de 40px (era 17px): a metade da moeda. Com 17px o desenho
+   ficava pequeno demais pra distinguir imprimir de classificar de relance. */
 .fv-iconbtn svg {
-  width: 17px;
-  height: 17px;
+  width: 21px;
+  height: 21px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.9;
+  stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+/* Os tres pontinhos sao circulos preenchidos — crescem no raio, nao na caixa
+   (senao viram tres bolas). */
+.fv-iconbtn svg.fv-iconbtn-dots {
+  width: 19px;
+  height: 19px;
 }
 .fv-iconbtn svg.fv-iconbtn-dots circle {
   fill: currentColor;
