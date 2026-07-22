@@ -31,7 +31,7 @@ import {
 } from '../../components/samples/SampleDetailView';
 import { SampleCreateRadialFab } from '../../components/samples/SampleCreateRadialFab';
 import { SampleLabelPrintSheet } from '../../components/samples/SampleLabelPrintSheet';
-import { SampleMovementModal } from '../../components/samples/SampleMovementModal';
+import { SampleLossSheet } from '../../components/samples/SampleLossSheet';
 import { SampleSendFlow } from '../../components/samples/SampleSendFlow';
 import {
   BlendConfirmationSheet,
@@ -3351,16 +3351,13 @@ function SamplesPage() {
       />
 
       {lossTarget ? (
-        <SampleMovementModal
+        <SampleLossSheet
           session={session}
           open
-          mode="create"
           saving={lossSaving}
-          // F3: pelo ⋯ do hero o modal abre SOBRE o drawer — precisa do tier
-          // stacked pra o backdrop escurecer o detalhe, nao ficar atras dele.
+          // F3: pelo ⋯ do hero o painel abre SOBRE o drawer — precisa do tier
+          // stacked pra escurecer o detalhe, nao ficar atras dele.
           stacked={Boolean(loteId)}
-          title="Registrar perda"
-          initialMovementType="LOSS"
           availableSacks={lossTarget.sample.availableSacks ?? 0}
           blend={
             lossTarget.sample.isBlend
@@ -3390,12 +3387,12 @@ function SamplesPage() {
             try {
               await createSampleMovement(session, lossTarget.sample.id, {
                 expectedVersion: lossTarget.sample.version,
-                movementType: data.movementType,
-                buyerClientId: data.buyerClientId,
-                buyerUnitId: data.buyerUnitId,
+                movementType: 'LOSS',
+                buyerClientId: null,
+                buyerUnitId: null,
                 quantitySacks: data.quantitySacks,
                 movementDate: data.movementDate,
-                notes: data.notes,
+                notes: null,
                 lossReasonText: data.lossReasonText,
               });
               setLossTarget(null);
