@@ -28546,11 +28546,12 @@ select.samples-filter-field-input {
     pointer-events: none;
   }
 
-  /* Rodada 4 FV (/cadastros): o drawer do CLIENTE e modal de verdade — a
-     pagina atras escurece e fica BLOQUEADA (fechar pra voltar a clicar;
-     tap no scrim fecha). O peek atravessavel do RD4 acima segue valendo
-     pros demais detail-overlays (ex. contratos). */
-  .bottom-sheet-backdrop.is-open:has(> .bottom-sheet.client-details-overlay) {
+  /* Rodada 4 FV (/cadastros) e ajuste de /samples: os drawers de CLIENTE e de
+     LOTE sao modais de verdade — a pagina atras escurece e fica BLOQUEADA
+     (fechar pra voltar a clicar; tap no scrim fecha). O peek atravessavel do
+     RD4 acima segue valendo pros demais detail-overlays (ex. contratos). */
+  .bottom-sheet-backdrop.is-open:has(> .bottom-sheet.client-details-overlay),
+  .bottom-sheet-backdrop.is-open:has(> .bottom-sheet.lote-details-overlay) {
     background: rgba(0, 0, 0, 0.55);
     pointer-events: auto;
   }
