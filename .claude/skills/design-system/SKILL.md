@@ -112,6 +112,20 @@ rejeitado pelo Flavio e deletado). Multi-select fica no `ChipMultiSelectField`.
 `.client-quick-create-*` segue como alias do cliente ate a consolidacao — mesma relacao de
 `.fv-panel-sheet` com `.client-panel-sheet`.
 
+### 0.6 Escolha entre poucas opcoes (`.fv-choice*`)
+
+Campo pra 2–4 opcoes exclusivas que antes viraria um modal-seletor proprio. Estreou no envio
+da amostra (tipo "Descricao"/"Fisico" na mesma etapa dos destinatarios, 2026-07-21), quando o
+chooser central foi deletado — ver a regra no `modals` §11-A.
+
+- `.fv-choice-group` — grid de 2 colunas iguais, `role="radiogroup"` com `aria-label`.
+- `.fv-choice` — `<button type="button" role="radio" aria-checked>`; dentro, `.fv-choice-label`
+  (0.88rem/600) e `.fv-choice-hint` (0.7rem muted, UMA linha de apoio).
+- Selecionado = `.is-selected`: hairline `--fv-cta` + anel + lavagem `rgba(23,60,48,.045)`.
+  Toque = `scale(.985)`, **sem trocar de cor** (regra do projeto).
+- Bloqueado = `disabled` + a hint ESCREVE o motivo ("Exige o lote classificado com foto") —
+  opcao apagada e muda nao ensina nada.
+
 ## 1. Estrutura de Pagina
 
 Toda pagina autenticada segue o padrao **Fundo Verde (app-shell) + Header Transparente + Sheet Bege**:
