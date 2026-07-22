@@ -34581,17 +34581,9 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
     transform: scale(0.92);
   }
 
-  /* Coluna de selecao: entra no lugar da coluna do ⋯ enquanto a selecao
-     estiver ativa. */
-  .fv-col-select {
-    width: 46px;
-  }
-
-  .fv-table-th-select,
-  .fv-table-td-select {
-    padding-right: 0;
-  }
-
+  /* A caixa de selecao mora na MESMA celula do ⋯ (`.fv-table-td-actions`,
+     ultima coluna) — entrar no modo liga nao desloca nenhuma informacao da
+     linha. Por isso nao ha coluna propria de selecao. */
   .fv-table-select {
     width: 16px;
     height: 16px;

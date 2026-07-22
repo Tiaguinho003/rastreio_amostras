@@ -2895,7 +2895,6 @@ function SamplesPage() {
                     cinco caracteristicas (sacas → catacao) tem a mesma largura,
                     agrupadas a direita; o Proprietario e a coluna elastica. */}
                 <colgroup>
-                  {isBlendMode ? <col className="fv-col-select" /> : null}
                   <col className="fv-col-lot" />
                   <col className="fv-col-owner" />
                   <col className="fv-col-sacks" />
@@ -2903,13 +2902,10 @@ function SamplesPage() {
                   <col className="fv-col-padrao" />
                   <col className="fv-col-bebida" />
                   <col className="fv-col-catacao" />
-                  {isBlendMode ? null : <col className="fv-col-actions" />}
+                  <col className="fv-col-actions" />
                 </colgroup>
                 <thead>
                   <tr>
-                    {isBlendMode ? (
-                      <th scope="col" className="fv-table-th-select" aria-label="Seleção" />
-                    ) : null}
                     <th scope="col">Lote</th>
                     <th scope="col">Proprietário</th>
                     <th scope="col">Sacas</th>
@@ -2917,9 +2913,14 @@ function SamplesPage() {
                     <th scope="col">Padrão</th>
                     <th scope="col">Bebida</th>
                     <th scope="col">Catação</th>
-                    {isBlendMode ? null : (
-                      <th scope="col" className="fv-table-th-actions" aria-label="Ações" />
-                    )}
+                    {/* Mesma coluna nos dois modos: fora do modo liga leva o ⋯,
+                        dentro dele leva a caixa de selecao. Assim entrar no
+                        modo liga nao desloca NENHUMA informacao da linha. */}
+                    <th
+                      scope="col"
+                      className="fv-table-th-actions"
+                      aria-label={isBlendMode ? 'Seleção' : 'Ações'}
+                    />
                   </tr>
                 </thead>
                 <tbody>
@@ -2954,22 +2955,6 @@ function SamplesPage() {
                           openLote(sample.id);
                         }}
                       >
-                        {isBlendMode ? (
-                          <td className="fv-table-td-select">
-                            {/* O clique da LINHA e quem alterna — a caixa e o
-                                alvo visual e de teclado, sem handler proprio
-                                (evita alternar duas vezes). */}
-                            <input
-                              type="checkbox"
-                              className="fv-table-select"
-                              checked={isSelected && !isIneligible}
-                              disabled={isIneligible}
-                              readOnly
-                              tabIndex={-1}
-                              aria-label={`Selecionar lote ${row.lot} pra liga`}
-                            />
-                          </td>
-                        ) : null}
                         <td>
                           {/* Numero · Liga · status, na mesma celula: o chip
                               encosta no numero e a badge de liga entra entre os
@@ -3040,11 +3025,27 @@ function SamplesPage() {
                             {row.classification ? row.classification.catacao : '—'}
                           </span>
                         </td>
-                        {isBlendMode ? null : (
-                          <td
-                            className="fv-table-td-actions"
-                            onClick={(event) => event.stopPropagation()}
-                          >
+                        <td
+                          className="fv-table-td-actions"
+                          // No modo liga o clique PRECISA subir pra linha, que e
+                          // quem alterna a selecao; fora dele o ⋯ nao pode abrir
+                          // o drawer junto.
+                          onClick={isBlendMode ? undefined : (event) => event.stopPropagation()}
+                        >
+                          {isBlendMode ? (
+                            /* O clique da LINHA e quem alterna — a caixa e o
+                               alvo visual e de teclado, sem handler proprio
+                               (evita alternar duas vezes). */
+                            <input
+                              type="checkbox"
+                              className="fv-table-select"
+                              checked={isSelected && !isIneligible}
+                              disabled={isIneligible}
+                              readOnly
+                              tabIndex={-1}
+                              aria-label={`Selecionar lote ${row.lot} pra liga`}
+                            />
+                          ) : (
                             <div
                               className="fv-row-menu-wrap"
                               ref={rowMenuFor === sample.id ? rowMenuRef : undefined}
@@ -3144,8 +3145,8 @@ function SamplesPage() {
                                 </div>
                               ) : null}
                             </div>
-                          </td>
-                        )}
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
@@ -3153,7 +3154,7 @@ function SamplesPage() {
                   {isLoadingMore
                     ? Array.from({ length: 3 }).map((_, i) => (
                         <tr key={`skel-${i}`} className="fv-table-skel-row" aria-hidden="true">
-                          {Array.from({ length: 7 }).map((__, cell) => (
+                          {Array.from({ length: 8 }).map((__, cell) => (
                             <td key={`skel-cell-${cell}`}>
                               <span className="fv-table-skel" />
                             </td>
