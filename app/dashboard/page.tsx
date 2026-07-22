@@ -36,7 +36,7 @@ function DashboardPage() {
         <ProspectorDashboard session={session} onLogout={logout} />
       ) : (
         <>
-          <DashboardMobile session={session} onLogout={logout} />
+          <DashboardMobile session={session} />
           <DashboardDesktop session={session} />
         </>
       )}

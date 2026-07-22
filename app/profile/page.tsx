@@ -6,7 +6,6 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 
 import { AppShell } from '../../components/AppShell';
-import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { UserAvatar } from '../../components/UserAvatar';
 import {
   ApiError,
@@ -384,26 +383,20 @@ export default function ProfilePage() {
       <section className="sdv-page">
         {/* Header */}
         <header className="sdv-header stg-header">
-          <div className="sdv-header-top">
-            {/* Esquerda: back (prospector, que nao tem navbar) ou spacer
-                invisivel (demais papeis), pra manter o titulo centrado com o
-                menu de conta a direita. */}
-            {isProspector(session.user.role) ? (
+          {/* RD16: a faixa de topo aqui sobrou SO pro PROSPECTOR — ele nao tem
+              tabbar nem o header unico do AppShell (.fv-mtopbar), entao precisa
+              do back. Os demais papeis recebem titulo + camera + avatar do
+              shell; o card de perfil abaixo segue para todos. */}
+          {isProspector(session.user.role) ? (
+            <div className="sdv-header-top">
               <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao início">
                 <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                   <path d="M15 18l-6-6 6-6" />
                 </svg>
               </Link>
-            ) : (
-              <span
-                className="nsv2-back"
-                aria-hidden="true"
-                style={{ visibility: 'hidden', pointerEvents: 'none' }}
-              />
-            )}
-            <span className="sdv-header-title">Meu Perfil</span>
-            <HeaderAvatarMenu session={session} onLogout={logout} />
-          </div>
+              <span className="sdv-header-title">Meu Perfil</span>
+            </div>
+          ) : null}
           <div className="stg-header-wrap">
             <UserAvatar size="lg" user={session.user} className="stg-profile-avatar" />
             <div className="stg-header-text-wrap">

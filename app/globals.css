@@ -18194,7 +18194,9 @@ select.samples-filter-field-input {
   }
 
   :root {
-    --mobile-shell-top-offset: 5.2rem;
+    /* RD16: o offset do topo do shell mobile e a altura da faixa verde
+       unica (.fv-mtopbar) — antes era 5.2rem, herdado da .topbar branca. */
+    --mobile-shell-top-offset: var(--fv-mtopbar-h);
     /* Tabbar -10% na vertical (pedido do usuario): icone, label e paddings
        internos escalados por 0.9 (ver clamps em .mobile-tabbar-icon/-label,
        .mobile-tabbar-link e o pill da camera). Clearance reduzida ~0.56rem
@@ -18267,10 +18269,6 @@ select.samples-filter-field-input {
 
   .topbar.topbar--dashboard-only .topbar-inner {
     justify-content: flex-end;
-  }
-
-  .app-shell-root:has(.topbar--hidden) > .app-shell-main {
-    padding-top: calc(env(safe-area-inset-top) + 0.8rem);
   }
 
   .topbar-inner {
@@ -36996,4 +36994,90 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
 }
 .samples-filter-group + .samples-filter-group > .fv-form-heading {
   margin-top: 0.35rem;
+}
+
+/* ================================================================
+   RD16 — Chrome mobile institucional: header UNICO (.fv-mtopbar)
+   ================================================================
+   Faixa verde CURTA no topo de todas as paginas <= 900px, montada pelo
+   AppShell: titulo da rota (mesmo mapa do titulo desktop) + cluster
+   camera/avatar (HeaderAvatarMenu). Substitui os 4 moldes por pagina que
+   existiam antes — .samples-page-v2-header, .clients-v2-header,
+   .sdv-header-top e o bloco de avatar do .dashboard-hero-header — e com eles
+   o espacador hardcoded de 6.7rem que centralizava o titulo por compensacao.
+
+   Desktop: some por completo; o chrome la e .app-topbar + sidenav (RD13).
+   PROSPECTOR: nao renderiza (app restrito, sem tabbar e sem camera) — o
+   /profile dele mantem a faixa .sdv-header-top propria com o back.
+
+   A faixa e FIXED (como era a .topbar): quem reserva o espaco e o
+   padding-top do .app-shell-main, em todas as suas variantes. Por isso
+   nenhum bloco de topo de pagina repete env(safe-area-inset-top) — a faixa
+   ja o consome. */
+
+.fv-mtopbar {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  :root {
+    /* Altura da faixa SEM a safe area (ela entra por cima, no padding-top).
+       O cluster de acoes tem clamp(36px, 10vw, 40px) de alto; o resto e
+       respiro. */
+    --fv-mtopbar-h: 3.3rem;
+  }
+
+  .fv-mtopbar {
+    position: fixed;
+    inset: 0 0 auto;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-height: calc(env(safe-area-inset-top) + var(--fv-mtopbar-h));
+    padding: env(safe-area-inset-top) clamp(0.9rem, 4vw, 1.25rem) 0;
+    background: var(--mobile-edge-fill);
+  }
+
+  .fv-mtopbar-title {
+    margin: 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #ffffff;
+    font-size: clamp(1.05rem, 4.6vw, 1.25rem);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+
+  /* Reserva da faixa em TODAS as variantes do main. A base ja soma
+     env(safe-area-inset-top) + --mobile-shell-top-offset; as variantes que
+     zeram o padding (rotas em camada, /contratos e /embarques) precisam do
+     valor de volta so no topo. */
+  .app-shell-main.is-dashboard-route,
+  .app-shell-root:has(.ctr-page) .app-shell-main {
+    padding-top: calc(env(safe-area-inset-top) + var(--fv-mtopbar-h));
+  }
+
+  /* Paginas montadas DIRETO no shell com molde de detalhe (/profile e
+     /relatorios): o topo delas nao repete a safe area. O encadeamento de
+     filho direto e proposital — exclui os .sdv-page dos overlays de detalhe
+     (lote e cliente), que vivem alguns niveis abaixo e nao tem faixa acima. */
+  .app-shell-page-content > .sdv-page > .sdv-header {
+    padding-top: clamp(12px, 3vw, 16px);
+  }
+
+  .dashboard-hero {
+    padding-top: 1.1rem;
+  }
+
+  /* Header do modo selecao de liga: era o topo absoluto da pagina (por isso
+     somava a safe area) e agora fica ABAIXO da faixa. Ele sai de cena na M2
+     do RD16 — a barra de acoes vai pra base, no lugar da tabbar. */
+  .samples-selection-header {
+    padding-top: 0.85rem;
+  }
 }

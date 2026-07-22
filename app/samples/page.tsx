@@ -1,7 +1,6 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   type FormEvent,
@@ -20,7 +19,6 @@ import { BottomSheet } from '../../components/BottomSheet';
 import { DetailOverlay } from '../../components/DetailOverlay';
 import { NewSampleModal } from '../../components/NewSampleModal';
 import { ClientLookupField } from '../../components/clients/ClientLookupField';
-import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { ClassificationFilterField } from '../../components/samples/ClassificationFilterField';
 import { SampleCard } from '../../components/samples/SampleCard';
 import { BlendBadge } from '../../components/samples/BlendBadge';
@@ -2315,15 +2313,6 @@ function SamplesPage() {
   // e a barra contextual; no mobile segue nos cards + header dedicado.
   const isBlendMode = selectionMode === 'blend';
 
-  const fullName = session.user.fullName ?? session.user.username;
-  const avatarInitials = fullName
-    .split(' ')
-    .map((w) => w[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
-
   // FV: cards da KPI row (desktop). Mini-metricas derivam do proprio stats,
   // como em /cadastros: o total cresce sobre a base do inicio do mes, "em
   // aberto" mostra participacao, vendidos comparam a semana corrente com a
@@ -2412,20 +2401,8 @@ function SamplesPage() {
         {selectionMode === 'blend' ? (
           <SelectionModeHeader title="Selecione Lotes" onExit={exitBlendMode} />
         ) : null}
-        <header className="samples-page-v2-header">
-          <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao dashboard">
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-          </Link>
-          <div className="samples-page-v2-header-center">
-            <h2 className="nsv2-title">Lotes</h2>
-          </div>
-          <HeaderAvatarMenu session={session} onLogout={logout} />
-          <Link href="/profile" className="nsv2-avatar" aria-label="Ir para perfil">
-            <span className="nsv2-avatar-initials">{avatarInitials}</span>
-          </Link>
-        </header>
+        {/* RD16: o header verde da pagina saiu — o chrome mobile agora e unico
+            e mora no AppShell (.fv-mtopbar: titulo da rota + camera + avatar). */}
 
         {/* Sub-abas (PG1/PG23): Lotes (default) + Simulador. No modo selecao
             de liga somem via CSS (body.is-selection-mode), molde contratos. */}

@@ -22,7 +22,7 @@ export default function RelatoriosPage() {
 
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
-      <RelatoriosViewer session={session} onLogout={logout} canCreate />
+      <RelatoriosViewer session={session} canCreate />
     </AppShell>
   );
 }

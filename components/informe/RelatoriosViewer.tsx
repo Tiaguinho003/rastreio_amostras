@@ -1,9 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
-import { HeaderAvatarMenu } from '../HeaderAvatarMenu';
 import { InformeCreateFab } from './InformeCreateFab';
 import { WeeklyReportCard } from './WeeklyReportCard';
 import { VisitReportCard } from '../visits/VisitReportCard';
@@ -35,12 +33,11 @@ function cancelLabels(item: InformeFeedItem) {
 
 interface RelatoriosViewerProps {
   session: SessionData;
-  onLogout: () => void | Promise<void>;
   // Mostra o FAB de criacao (Visita p/ todos; Semanal so ADMIN + COMMERCIAL).
   canCreate: boolean;
 }
 
-export function RelatoriosViewer({ session, onLogout, canCreate }: RelatoriosViewerProps) {
+export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) {
   const toast = useToast();
 
   const [items, setItems] = useState<InformeFeedItem[]>([]);
@@ -137,34 +134,13 @@ export function RelatoriosViewer({ session, onLogout, canCreate }: RelatoriosVie
   }, [session, cancelTarget, cancelling, loadPage, toast]);
 
   const canCreateWeekly = isWeeklyReportAuthor(session.user.role);
-  const userFullName = session.user.fullName ?? session.user.username;
-  const userAvatarInitials = userFullName
-    .split(' ')
-    .map((w) => w[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
-
   const showEmpty = !initialLoading && !error && items.length === 0;
 
   return (
     <>
       <section className="sdv-page">
-        <header className="sdv-header">
-          <div className="sdv-header-top">
-            <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao dashboard">
-              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <path d="M15 18l-6-6 6-6" />
-              </svg>
-            </Link>
-            <span className="sdv-header-title">Relatórios</span>
-            <HeaderAvatarMenu session={session} onLogout={onLogout} />
-            <Link href="/profile" className="nsv2-avatar" aria-label="Ir para perfil">
-              <span className="nsv2-avatar-initials">{userAvatarInitials}</span>
-            </Link>
-          </div>
-        </header>
+        {/* RD16: o header verde da pagina saiu — o chrome mobile agora e unico
+            e mora no AppShell (.fv-mtopbar: titulo da rota + camera + avatar). */}
 
         <section className="sdv-content informe-content rsm-content">
           <div className="rsm-feed">

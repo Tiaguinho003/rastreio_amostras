@@ -1,26 +1,21 @@
 'use client';
 
-import Link from 'next/link';
-
-import { HeaderAvatarMenu } from '../HeaderAvatarMenu';
 import { getRoleLabel } from '../../lib/roles';
-import { getGreeting, getInitials } from './greeting';
+import { getGreeting } from './greeting';
 import type { SessionData } from '../../lib/types';
 
 interface DashboardMobileProps {
   session: SessionData;
-  onLogout: () => void | Promise<void>;
 }
 
 // DSB-D14: o dashboard mobile ficou SO com o hero (saudacao) por enquanto — o
 // donut "Lotes disponiveis" foi apagado do sistema e o calendario de Eventos
 // ainda e desktop-only (a cobertura mobile entra no ciclo do dashboard mobile,
 // DSB-H6). Ver docs/Dashboard-Plano-de-Trabalho.md.
-export function DashboardMobile({ session, onLogout }: DashboardMobileProps) {
+export function DashboardMobile({ session }: DashboardMobileProps) {
   const fullName = session.user.fullName ?? session.user.username;
   const firstName = fullName.split(' ')[0];
   const roleLabel = getRoleLabel(session.user.role);
-  const initials = getInitials(fullName);
 
   return (
     <div className="dashboard-mobile">
@@ -46,10 +41,6 @@ export function DashboardMobile({ session, onLogout }: DashboardMobileProps) {
                   {roleLabel}
                 </span>
               </div>
-              <HeaderAvatarMenu session={session} onLogout={onLogout} />
-              <Link href="/profile" className="dashboard-hero-avatar" aria-label="Ir para perfil">
-                <span className="dashboard-hero-avatar-initials">{initials}</span>
-              </Link>
             </div>
           </section>
         </div>

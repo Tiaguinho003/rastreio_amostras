@@ -1,12 +1,10 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import { DetailOverlay } from '../../components/DetailOverlay';
-import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { BrokerFormModal } from '../../components/cadastros/BrokerFormModal';
 import {
   ClientDetailView,
@@ -221,15 +219,6 @@ function CadastrosPage() {
 
   if (loading || !session) return null;
 
-  const avatarInitials = (() => {
-    const base = (session.user.fullName ?? session.user.username ?? '').trim();
-    if (!base) return '?';
-    const parts = base.split(/\s+/);
-    const first = parts[0]?.[0] ?? '';
-    const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? '') : '';
-    return (first + last).toUpperCase() || '?';
-  })();
-
   function openCreateBroker() {
     setEditingBroker(null);
     setBrokerModalError(null);
@@ -348,20 +337,8 @@ function CadastrosPage() {
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession} activeSubTab={tab}>
       <section className="clients-page-v2 fv-cad-page">
-        <header className="clients-v2-header">
-          <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao dashboard">
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-          </Link>
-          <div className="clients-v2-header-center">
-            <h2 className="nsv2-title">Cadastros</h2>
-          </div>
-          <HeaderAvatarMenu session={session} onLogout={logout} />
-          <Link href="/profile" className="nsv2-avatar" aria-label="Ir para perfil">
-            <span className="nsv2-avatar-initials">{avatarInitials}</span>
-          </Link>
-        </header>
+        {/* RD16: o header verde da pagina saiu — o chrome mobile agora e unico
+            e mora no AppShell (.fv-mtopbar: titulo da rota + camera + avatar). */}
 
         <div className="cad-tabs" role="tablist" aria-label="Tipo de cadastro">
           <button

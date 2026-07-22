@@ -6,8 +6,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
+import { HeaderAvatarMenu } from './HeaderAvatarMenu';
 import { MobileTabbar } from './MobileTabbar';
-import { SampleSearchField } from './SampleSearchField';
 import { UserAvatar } from './UserAvatar';
 import { changeCurrentUserPassword, recordInitialPasswordDecision } from '../lib/api-client';
 import { CameraSheetProvider } from '../lib/camera-sheet/CameraSheetProvider';
@@ -491,6 +491,13 @@ export function AppShell({
     ? null
     : (desktopNavItems.find((item) => item.href === pathname)?.label ??
       (pathname === '/profile' ? 'Perfil' : null));
+  // RD16: titulo da faixa verde mobile. MESMO mapa do desktop (nao criar um
+  // segundo), com fallback por prefixo pras sub-rotas que nao batem exato.
+  const mobileTitle = prospector
+    ? null
+    : (activePageTitle ??
+      desktopNavItems.find((item) => isMainNavItemActive(pathname, item.href))?.label ??
+      null);
 
   // Clique-fora + Escape dos dois menus de perfil (top bar e trilho da sidenav).
   useMenuDismiss(profileMenuOpen, profileMenuRef, profileTriggerRef, setProfileMenuOpen);
@@ -955,88 +962,105 @@ export function AppShell({
         </aside>
       ) : null}
 
-      <header className={`topbar ${headerMobileClass}`}>
-        <div className="topbar-inner">
-          <div className="topbar-mobile-spacer" aria-hidden="true" />
+      {/* Faixa verde antiga: RD16 deixou-a SO pro PROSPECTOR (o desktop dele
+          nao tem sidenav). Pros demais papeis ela ja era DOM morto em 100% das
+          rotas — display:none no desktop (`:has(.app-sidenav)`) e transparente
+          com os filhos escondidos no mobile — e agora o header mobile e a
+          .fv-mtopbar. DIVIDA: o <SampleSearchField> que morava aqui era
+          inalcancavel (so montava pra nao-PROSPECTOR, dentro de um header que
+          nunca aparecia pra eles) — saiu junto; a busca global de lote precisa
+          de casa nova. */}
+      {prospector ? (
+        <header className={`topbar ${headerMobileClass}`}>
+          <div className="topbar-inner">
+            <div className="topbar-mobile-spacer" aria-hidden="true" />
 
-          <Link href="/dashboard" className="topbar-logo-slot" aria-label="Pagina inicial">
-            {/* Logo branco na barra verde (mobile). DSB-D15: o logo colorido
-                do desktop saiu daqui — mora no trilho da sidenav; a top bar
-                inteira some no desktop dos nao-PROSPECTOR (CSS). */}
-            <Image
-              src="/logo-safras-branco.png"
-              alt="Safras e Negocios"
-              width={1024}
-              height={299}
-              priority
-              className="topbar-logo-image is-white"
-            />
-          </Link>
+            <Link href="/dashboard" className="topbar-logo-slot" aria-label="Pagina inicial">
+              {/* Logo branco na barra verde. DSB-D15: o logo colorido do
+                  desktop saiu daqui — mora no trilho da sidenav. */}
+              <Image
+                src="/logo-safras-branco.png"
+                alt="Safras e Negocios"
+                width={1024}
+                height={299}
+                priority
+                className="topbar-logo-image is-white"
+              />
+            </Link>
 
-          <div className="topbar-tools">
-            <div className="topbar-search-slot">
-              {/* PROSPECTOR nao acessa amostras — a busca de lote chamaria
-                  um endpoint negado pela allowlist de API (403). */}
-              {!prospector ? <SampleSearchField session={session} compact /> : null}
-            </div>
+            <div className="topbar-tools">
+              <div className="topbar-profile" ref={profileMenuRef}>
+                <button
+                  ref={profileTriggerRef}
+                  type="button"
+                  className="topbar-profile-trigger"
+                  aria-haspopup="menu"
+                  aria-expanded={profileMenuOpen}
+                  aria-controls="topbar-profile-menu"
+                  aria-label="Abrir menu de perfil"
+                  onClick={() => setProfileMenuOpen((current) => !current)}
+                >
+                  <UserAvatar size="md" user={session.user} />
+                </button>
 
-            <div className="topbar-profile" ref={profileMenuRef}>
-              <button
-                ref={profileTriggerRef}
-                type="button"
-                className="topbar-profile-trigger"
-                aria-haspopup="menu"
-                aria-expanded={profileMenuOpen}
-                aria-controls="topbar-profile-menu"
-                aria-label="Abrir menu de perfil"
-                onClick={() => setProfileMenuOpen((current) => !current)}
-              >
-                <UserAvatar size="md" user={session.user} />
-              </button>
-
-              {profileMenuOpen ? (
-                <section id="topbar-profile-menu" className="topbar-profile-menu" role="menu">
-                  {/* Mesmo card do trilho da sidenav; aqui num DROPDOWN. */}
-                  <ProfileMenuCard
-                    session={session}
-                    profileName={profileName}
-                    onClose={() => setProfileMenuOpen(false)}
-                    onLogout={onLogout}
-                  />
-                </section>
-              ) : null}
+                {profileMenuOpen ? (
+                  <section id="topbar-profile-menu" className="topbar-profile-menu" role="menu">
+                    {/* Mesmo card do trilho da sidenav; aqui num DROPDOWN. */}
+                    <ProfileMenuCard
+                      session={session}
+                      profileName={profileName}
+                      onClose={() => setProfileMenuOpen(false)}
+                      onLogout={onLogout}
+                    />
+                  </section>
+                ) : null}
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
+      ) : null}
 
-      <main className={`app-shell-main${isLayeredRoute ? ' is-dashboard-route' : ''}`}>
-        {mobileRouteMeta ? (
-          <section className="app-shell-mobile-route-header">
-            <div className="app-shell-mobile-route-copy">
-              <h1 className="app-shell-mobile-route-title">{mobileRouteMeta.title}</h1>
-              <p className="app-shell-mobile-route-subtitle">{mobileRouteMeta.subtitle}</p>
-            </div>
-
-            {mobileRouteMeta.ctaHref && mobileRouteMeta.ctaLabel ? (
-              <Link href={mobileRouteMeta.ctaHref} className="app-shell-mobile-route-cta">
-                <span className="app-shell-mobile-route-cta-icon" aria-hidden="true">
-                  {renderNavIcon(mobileRouteMeta.ctaIcon ?? 'samples')}
-                </span>
-                <span>{mobileRouteMeta.ctaLabel}</span>
-              </Link>
-            ) : null}
-          </section>
+      {/* CAM-P3 + RD16: o provider da camera envolve o HEADER MOBILE e o
+          conteudo — os gatilhos vivem nos dois (icone do header + botoes do
+          detalhe do lote). Context.Provider NAO cria DOM, entao <header> e
+          <main> seguem filhos DIRETOS do .app-shell-root (ha seletores `>` e
+          o grid do desktop contando com isso); o sheet em si e os modais do
+          fluxo portam pro document.body. */}
+      <CameraSheetProvider session={session}>
+        {/* RD16: faixa verde curta — o UNICO header mobile do app. Substitui os
+            4 moldes por pagina (.samples-page-v2-header, .clients-v2-header,
+            .sdv-header-top, .dashboard-hero-header). Some no desktop por CSS,
+            onde o chrome e a .app-topbar + sidenav (RD13). PROSPECTOR fica de
+            fora: app restrito, sem tabbar e sem camera. */}
+        {!prospector ? (
+          <header className="fv-mtopbar">
+            {mobileTitle ? <h1 className="fv-mtopbar-title">{mobileTitle}</h1> : <span />}
+            <HeaderAvatarMenu session={session} onLogout={onLogout} />
+          </header>
         ) : null}
 
-        {/* CAM-P3: provider do bottom sheet global da camera. Envolve so o
-            conteudo das paginas (onde os gatilhos vivem — icone do header no
-            HeaderAvatarMenu + botoes do detalhe do lote); o sheet em si e os
-            modais do fluxo portam pro document.body. */}
-        <CameraSheetProvider session={session}>
+        <main className={`app-shell-main${isLayeredRoute ? ' is-dashboard-route' : ''}`}>
+          {mobileRouteMeta ? (
+            <section className="app-shell-mobile-route-header">
+              <div className="app-shell-mobile-route-copy">
+                <h1 className="app-shell-mobile-route-title">{mobileRouteMeta.title}</h1>
+                <p className="app-shell-mobile-route-subtitle">{mobileRouteMeta.subtitle}</p>
+              </div>
+
+              {mobileRouteMeta.ctaHref && mobileRouteMeta.ctaLabel ? (
+                <Link href={mobileRouteMeta.ctaHref} className="app-shell-mobile-route-cta">
+                  <span className="app-shell-mobile-route-cta-icon" aria-hidden="true">
+                    {renderNavIcon(mobileRouteMeta.ctaIcon ?? 'samples')}
+                  </span>
+                  <span>{mobileRouteMeta.ctaLabel}</span>
+                </Link>
+              ) : null}
+            </section>
+          ) : null}
+
           <div className="app-shell-page-content">{children}</div>
-        </CameraSheetProvider>
-      </main>
+        </main>
+      </CameraSheetProvider>
 
       {!hideMobileTabbar ? (
         <MobileTabbar

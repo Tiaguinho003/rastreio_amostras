@@ -1,10 +1,8 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
-import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { InactivateUserModal } from '../../components/users/InactivateUserModal';
 import {
   ApiError,
@@ -700,32 +698,11 @@ export default function UsersPage() {
     }
   }
 
-  const userFullName = session.user.fullName ?? session.user.username;
-  const userAvatarInitials = userFullName
-    .split(' ')
-    .map((w: string) => w[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
-
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
       <section className="clients-page-v2">
-        <header className="clients-v2-header">
-          <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao dashboard">
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-          </Link>
-          <div className="clients-v2-header-center">
-            <h2 className="nsv2-title">Usuários</h2>
-          </div>
-          <HeaderAvatarMenu session={session} onLogout={logout} />
-          <Link href="/profile" className="nsv2-avatar" aria-label="Ir para perfil">
-            <span className="nsv2-avatar-initials">{userAvatarInitials}</span>
-          </Link>
-        </header>
+        {/* RD16: o header verde da pagina saiu — o chrome mobile agora e unico
+            e mora no AppShell (.fv-mtopbar: titulo da rota + camera + avatar). */}
 
         {/* Busca + FAB na mesma linha (mobile: FAB sai do fluxo via fixed).
             Sem botao de filtro (decisao: so busca). Lupa DECORATIVA + "X" pra
