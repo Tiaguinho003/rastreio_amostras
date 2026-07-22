@@ -1,8 +1,12 @@
 'use client';
 
 // Liga B3.1: badge "Liga" renderizado ao lado do numero do lote em qualquer
-// listagem/detalhe onde aparece uma amostra. Pill lilas com icone de merge
-// (origens convergindo em uma) + texto "Liga".
+// listagem/detalhe onde aparece uma amostra. Pill lilas com o texto "Liga".
+//
+// RD16 M2 (rodada 4): o icone de merge saiu. Em 10px ele nao se lia como
+// "origens convergindo" — virava um borrao ao lado de uma palavra de cinco
+// letras que ja diz tudo. Vale nos SETE consumidores: o badge e a mesma peca
+// em todos, e so o rotulo carrega significado.
 //
 // Tom lilas escolhido por nao competir com:
 // - verde (status sucesso / brand)
@@ -26,10 +30,6 @@ export function BlendBadge({ size = 'sm', className, style }: BlendBadgeProps) {
   const composed = ['blend-badge', `blend-badge--${size}`, className].filter(Boolean).join(' ');
   return (
     <span className={composed} role="img" aria-label="Liga" style={style}>
-      <svg className="blend-badge__icon" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-        <path d="M6 4v6a4 4 0 0 0 4 4h4a4 4 0 0 0 4-4V4" />
-        <path d="M12 14v6" />
-      </svg>
       <span className="blend-badge__text">Liga</span>
     </span>
   );
