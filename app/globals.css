@@ -35744,6 +35744,64 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
   }
 }
 
+/* ── Escolha entre poucas opcoes DENTRO do painel (kit) ──────────────
+   Quando o que antes seria um modal-seletor proprio vira um campo do
+   formulario (o envio da amostra estreou: "Descricao" ou "Fisico" na
+   mesma etapa dos destinatarios). Cartoes lado a lado com rotulo + uma
+   linha de apoio; semantica de radiogroup. Selecionado = hairline da
+   marca + anel + lavagem discreta; o toque afunda, sem trocar de cor
+   (regra do projeto). Generico: sem escopo de pagina. */
+.fv-choice-group {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.fv-choice {
+  display: grid;
+  align-content: start;
+  gap: 0.16rem;
+  min-width: 0;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--fv-line-strong);
+  border-radius: var(--fv-radius);
+  background: #ffffff;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 120ms ease;
+}
+.fv-choice:active:not(:disabled) {
+  transform: scale(0.985);
+}
+.fv-choice:focus-visible {
+  outline: none;
+  border-color: var(--fv-cta);
+  box-shadow: 0 0 0 3px rgba(23, 60, 48, 0.12);
+}
+.fv-choice.is-selected {
+  border-color: var(--fv-cta);
+  background: rgba(23, 60, 48, 0.045);
+  box-shadow: 0 0 0 3px rgba(23, 60, 48, 0.12);
+}
+.fv-choice:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.fv-choice-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.fv-choice-hint {
+  font-size: 0.7rem;
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--muted);
+}
+
 /* ── Painel "Novo lote": campos compostos no molde acima ──
    O `.fv-form-field` alcanca <input>/<select> diretos; a busca de cliente e o
    chips de lote de origem trazem markup proprio e precisam do mesmo desenho. */
