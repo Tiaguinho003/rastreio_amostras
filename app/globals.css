@@ -28669,6 +28669,16 @@ select.samples-filter-field-input {
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
+@media (min-width: 901px) {
+  /* TESTE (pedido do Flavio): cantos levemente arredondados. So os da
+     ESQUERDA — o painel encosta na borda direita da tela, entao os de la
+     nao aparecem. Se for pra ficar, avaliar promover pro `.detail-overlay`
+     inteiro (o drawer do cliente e o do contrato ainda sao retos). */
+  .bottom-sheet.detail-overlay.lote-details-overlay {
+    border-radius: 14px 0 0 14px;
+  }
+}
+
 /* ══════════════════════════════════════════════════════════════
    Side-sheet (.side-sheet) — formularios de CRIACAO como painel
    lateral direito no desktop (pedido 2026-07-20, na esteira do
