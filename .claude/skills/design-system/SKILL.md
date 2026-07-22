@@ -174,8 +174,19 @@ O mobile tem **duas** camadas: **faixa verde curta** (`.fv-mtopbar`, `--brand-gr
 > `.dashboard-hero-header`) somando `env(safe-area-inset-top)` por conta propria; os quatro moldes
 > sairam e as ~31 regras que so os alcancavam foram varridas.
 
-O chrome mobile e **um so**, montado pelo `AppShell`: `.fv-mtopbar`, faixa verde CURTA com o
-**titulo da rota** (mesmo mapa do titulo desktop) + cluster camera/avatar (`HeaderAvatarMenu`).
+O chrome mobile e **um so**, montado pelo `AppShell`: `.fv-mtopbar`, faixa verde CURTA em **3
+slots** — `[camera]` a esquerda, **titulo da rota ao centro** (mesmo mapa do titulo desktop),
+`[tres tracos]` (menu da conta) a direita.
+
+- O centro e **geometrico**: grid `1fr auto 1fr`. As colunas das pontas tem sempre a mesma largura,
+  entao o titulo fica centrado sem depender do tamanho dos botoes. **Nunca centralizar por
+  compensacao** (pseudo-element fingindo a largura do outro lado) — era o que o header antigo fazia
+  e quebrava a cada mudanca no cluster.
+- Os dois botoes das pontas usam a MESMA caixa (`.fv-mtopbar-btn`); a simetria sustenta o centro.
+- **`/dashboard` e a excecao**: `.is-title-lead` encosta o titulo a esquerda, pra nao disputar com a
+  saudacao logo abaixo.
+- Componentes: `HeaderCameraButton` (esquerda) e `HeaderAvatarMenu` com `trigger="menu"` (direita).
+  O `trigger="avatar"` (avatar + chevron) e o default e sobrou so no dashboard do PROSPECTOR.
 
 - E `position: fixed`; **quem reserva o espaco e o `padding-top` do `.app-shell-main`** (token
   `--fv-mtopbar-h` via `--mobile-shell-top-offset`). Por isso **nenhum bloco de topo de pagina

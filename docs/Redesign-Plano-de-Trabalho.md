@@ -444,6 +444,18 @@ O que mudou: o fundo do `.app-shell-main` voltou a ser **uma regra** (a base) �
 
 **A conferir junto com o resto do M1**: nenhuma faixa verde além da do topo em nenhuma página; a status bar continua verde e emenda na faixa sem linha visível; saudação do dashboard, nome/papel no `/profile` e sub-abas de `/contratos`/`/embarques`/`/samples` **legíveis** (tinta escura, não branca); a barra de busca com borda fina em vez de sombra; e o dashboard do PROSPECTOR **inalterado**, ainda verde.
 
+#### Rodada 2 do M1 — anatomia da faixa (2026-07-22, `579e4c2`)
+
+Três ajustes pedidos na conferência, todos sobre a própria faixa:
+
+1. **Título centralizado** em todas as páginas, **menos `/dashboard`** (`is-title-lead`), onde ele encosta à esquerda para não disputar com a saudação logo abaixo. O centro é **geométrico**: grid `1fr auto 1fr`, cujas colunas das pontas têm sempre a mesma largura independentemente do tamanho dos botões. É o oposto do header antigo, que centralizava por **compensação** — um pseudo-element de `6.7rem` fingindo a largura do cluster da direita, que quebrava sempre que o cluster mudava.
+2. **Câmera no canto esquerdo**, com ícone de câmera de verdade (corpo + visor + lente). O anterior era o **alvo do scanner** (4 cantos e uma linha central): lia como "escanear", não como "fotografar". Saiu do cluster do `HeaderAvatarMenu` e virou `HeaderCameraButton` próprio — o que também tirou o `useCameraSheet()` de dentro do menu da conta.
+3. **Menu da conta = três traços**, sem avatar e sem chevron. O `HeaderAvatarMenu` ganhou a prop `trigger`: `menu` na faixa do shell; `avatar` (o antigo, com chevron) segue como **default** e sobrou no dashboard do PROSPECTOR, que tem header próprio e está fora do ciclo.
+
+Os dois botões das pontas usam a mesma caixa (`.fv-mtopbar-btn`) — a simetria é o que sustenta o título centrado. `.header-camera-trigger` ficou sem consumidor e saiu, junto com o override dele em `.sdv-header`.
+
+**A conferir**: título no centro exato em Lotes/Cadastros/Contratos/Embarques/Usuários/Relatórios/Perfil (e à esquerda só no Início); câmera à esquerda abrindo o sheet da câmera de qualquer página; três traços à direita abrindo o menu da conta; e o dashboard do PROSPECTOR ainda com avatar + chevron no header dele.
+
 **Próximo**: M2 (lista de Lotes — card sem expansão, KPI em carrossel, busca/filtros fora do hero, FAB reskin, modo seleção na base).
 
 ## 3. O que NÃO muda
