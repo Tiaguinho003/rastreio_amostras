@@ -505,7 +505,7 @@ Todos seguem `.app-modal.is-themed`. Ordem do fluxo: `idle → preview → handl
 > — antes o modal desmontava e NENHUMA superficie ficava na tela durante o save.
 > A tabela abaixo tem 10 modais (eram 12). As classes `.type-modal-*` estao
 > MORTAS desde 2026-07-21: o ultimo dono era o `SendMethodChooserModal`, que
-> caiu quando o envio virou painel de uma etapa so (§11-A). O CSS saiu do
+> caiu quando o envio virou painel de uma etapa so (regra em `forms` §4). O CSS saiu do
 > `globals.css` junto — "escolher entre poucas opcoes" hoje e `.fv-choice*`
 > DENTRO do painel de destino, nao um modal-seletor proprio.
 
