@@ -1,23 +1,23 @@
 'use client';
 
-// FAB de criação na página /samples (Lotes). Dois modos:
+// FAB de criação na página /samples (Lotes).
 //
-// - 'idle': mostra "+". Tap abre um LEQUE (speed-dial) de 2 opções circulares
-//   em ARCO de quarto de círculo que parecem sair de DENTRO do FAB: Lote sobe
-//   ACIMA do FAB e Liga vai no DIAGONAL (45°). (A opção Aprovação saiu na AP29 —
-//   a geração da etiqueta mora só na sub-aba Aprovações.) Ao abrir, o FAB encolhe, vira
-//   circular e o "+" gira 45° virando "×"; a página escurece (scrim no tier de
-//   modal) e fica não-clicável. A tabbar é portalada no body (fora da isolation
-//   do shell), então o scrim — preso DENTRO do shell — não a alcança por
-//   z-index. Em vez de fazê-la sumir (padrão dos modais), o CSS escurece a
-//   própria tabbar com filter:brightness(0.45) (== o mesmo veil rgba(0,0,0,0.55)
-//   do scrim sobre pixels opacos) + pointer-events:none, via as classes de body
-//   is-fab-fan-mounted/-open (ver globals.css). Só as opções respondem; tap fora
-//   (inclusive na tabbar escurecida) fecha o leque. Fechamento reverte tudo.
+// Tap abre um LEQUE (speed-dial) de 2 opções circulares
+// em ARCO de quarto de círculo que parecem sair de DENTRO do FAB: Lote sobe
+// ACIMA do FAB e Liga vai no DIAGONAL (45°). (A opção Aprovação saiu na AP29 —
+// a geração da etiqueta mora só na sub-aba Aprovações.) Ao abrir, o FAB encolhe,
+// vira circular e o "+" gira 45° virando "×"; a página escurece (scrim no tier
+// de modal) e fica não-clicável. A tabbar é portalada no body (fora da isolation
+// do shell), então o scrim — preso DENTRO do shell — não a alcança por z-index.
+// Em vez de fazê-la sumir (padrão dos modais), o CSS escurece a própria tabbar
+// com filter:brightness(0.45) (== o mesmo veil rgba(0,0,0,0.55) do scrim sobre
+// pixels opacos) + pointer-events:none, via as classes de body
+// is-fab-fan-mounted/-open (ver globals.css). Só as opções respondem; tap fora
+// (inclusive na tabbar escurecida) fecha o leque. Fechamento reverte tudo.
 //
-// - 'blendArrow' (Liga F1.1 + F1.D): substitui "+" por seta direita ->.
-//   Disabled (opacity 40% + cursor not-allowed) quando selectedCount < 2.
-//   Tap habilitado dispara onContinue. Cabeado em B1.4 (modo selecao).
+// RD16 M2: o modo 'blendArrow' (o FAB virava seta "continuar" durante a seleção
+// de liga) morreu — quem carrega o "Criar liga" agora é a `.fv-bulkbar` fixa na
+// base, que também mostra a contagem e a saída. No modo liga não há FAB.
 //
 // CSS em app/globals.css (seção "Leque do FAB"): .fab-fan-backdrop (scrim
 // escuro), .fab-fan / .fab-fan-option (opções circulares + rótulo ao lado,
@@ -30,20 +30,13 @@ import { useEffect, useRef, useState } from 'react';
 
 type MenuAction = 'unit' | 'blend';
 
-type SampleCreateRadialFabProps =
-  | {
-      mode: 'idle';
-      onCreateUnit: () => void;
-      onStartBlendSelection: () => void;
-      disabled?: boolean;
-    }
-  | {
-      mode: 'blendArrow';
-      selectedCount: number;
-      onContinue: () => void;
-    };
+interface SampleCreateRadialFabProps {
+  mode?: 'idle';
+  onCreateUnit: () => void;
+  onStartBlendSelection: () => void;
+  disabled?: boolean;
+}
 
-const TOOLTIP_BLEND_DISABLED = 'Selecione pelo menos 2 amostras';
 // Duracao do fechamento — precisa bater com a transition de transform do
 // `.fab-fan-option` (sem `.is-open`) no globals.css, pra o unmount esperar a
 // animacao de "recolher pra dentro do FAB" terminar.
@@ -109,20 +102,20 @@ export function SampleCreateRadialFab(props: SampleCreateRadialFabProps) {
 
   // Escape fecha o expandido.
   useEffect(() => {
-    if (props.mode !== 'idle' || !open) return;
+    if (!open) return;
     function onKeydown(e: KeyboardEvent) {
       if (e.key === 'Escape') closeMenu();
     }
     document.addEventListener('keydown', onKeydown);
     return () => document.removeEventListener('keydown', onKeydown);
-  }, [open, props.mode]);
+  }, [open]);
 
   // Foca a 1a opcao do leque ao abrir (padrao menu-button do WAI-ARIA). O foco
   // volta ao FAB no closeMenu. :focus-visible evita anel visivel em tap/mouse.
   useEffect(() => {
-    if (props.mode !== 'idle' || !open) return;
+    if (!open) return;
     firstOptionRef.current?.focus();
-  }, [open, props.mode]);
+  }, [open]);
 
   // A tabbar vive num portal no body, fora da isolation do .mobile-edge-shell,
   // entao o scrim (preso no shell) nao a cobre. Em vez de mover o shell/scrim,
@@ -133,7 +126,6 @@ export function SampleCreateRadialFab(props: SampleCreateRadialFabProps) {
   //   — taps na tabbar caem no scrim e fecham o leque, sem reativar no fade-out.
   // - open (aberto): brightness — sai junto com o scrim no fechamento (open vira
   //   false antes do unmount), pra o fade casar.
-  // Em modo blendArrow nenhuma das duas vira true (sem leque montado).
   useEffect(() => {
     if (!mounted) return;
     document.body.classList.add('is-fab-fan-mounted');
@@ -155,30 +147,6 @@ export function SampleCreateRadialFab(props: SampleCreateRadialFabProps) {
     };
   }, []);
 
-  if (props.mode === 'blendArrow') {
-    const isDisabled = props.selectedCount < 2;
-    return (
-      <button
-        type="button"
-        className={`cv2-fab is-blend-arrow${isDisabled ? ' is-disabled' : ''}`}
-        aria-label={
-          isDisabled ? TOOLTIP_BLEND_DISABLED : `Continuar com ${props.selectedCount} amostras`
-        }
-        title={isDisabled ? TOOLTIP_BLEND_DISABLED : undefined}
-        onClick={() => {
-          if (!isDisabled) props.onContinue();
-        }}
-        disabled={isDisabled}
-      >
-        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-          <path d="M5 12h14" />
-          <path d="m13 6 6 6-6 6" />
-        </svg>
-      </button>
-    );
-  }
-
-  // Mode 'idle'
   const handleMainTap = () => {
     if (props.disabled) return;
     if (open) closeMenu();
@@ -198,9 +166,9 @@ export function SampleCreateRadialFab(props: SampleCreateRadialFabProps) {
         props.onCreateUnit();
         actionFiredRef.current = false;
       } else {
-        // Mode troca pra 'blendArrow' e o early return do component
-        // desmontaria o leque instantaneamente. Espera o close
-        // animation completar antes pra que o user veja a transicao.
+        // Entrar no modo liga desmonta o FAB inteiro (quem manda ali e a
+        // .fv-bulkbar). Espera a animacao de fechamento terminar antes, pra o
+        // usuario ver a transicao em vez de o leque sumir de uma vez.
         setTimeout(() => {
           props.onStartBlendSelection();
           actionFiredRef.current = false;

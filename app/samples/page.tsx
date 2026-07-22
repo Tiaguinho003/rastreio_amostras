@@ -39,7 +39,6 @@ import {
   SelectedSamplesDropdown,
   type SelectedSampleSummary,
 } from '../../components/samples/SelectedSamplesDropdown';
-import { SelectionModeHeader } from '../../components/samples/SelectionModeHeader';
 import { SampleCardActionsSheet } from '../../components/samples/SampleCardActionsSheet';
 import { PlaygroundMobileNotice } from '../../components/playground/PlaygroundMobileNotice';
 import {
@@ -816,8 +815,8 @@ function SamplesPage() {
   const [detailRefreshKey, setDetailRefreshKey] = useState(0);
 
   // Liga B1.4 (F1.D): modo selecao pra criar liga. Disparado via FAB → Liga.
-  // selectionMode controla render do header (SelectionModeHeader vs normal),
-  // navbar (body class is-selection-mode), e shape dos cards (com bolinha).
+  // selectionMode controla a barra contextual (.fv-bulkbar), a navbar (body
+  // class is-selection-mode) e o shape dos cards (com bolinha).
   // A selecao guarda o SNAPSHOT do lote (Map id→SampleSnapshot, ordem de
   // selecao) e persiste entre buscas/filtros — antes era Set<string> e todo
   // consumo filtrava a lista visivel, entao lote selecionado fora da busca
@@ -2485,12 +2484,6 @@ function SamplesPage() {
       <section
         className={`samples-page-v2 fv-lotes-page${tab === 'simulador' ? ' is-tab-simulador' : ''}`}
       >
-        {/* Liga B1.4: SelectionModeHeader substitui o header normal quando
-            o usuario entra em modo selecao pra criar liga. CSS body class
-            is-selection-mode tambem esconde o header normal por seguranca. */}
-        {selectionMode === 'blend' ? (
-          <SelectionModeHeader title="Selecione Lotes" onExit={exitBlendMode} />
-        ) : null}
         {/* RD16: o header verde da pagina saiu — o chrome mobile agora e unico
             e mora no AppShell (.fv-mtopbar: titulo da rota + camera + avatar).
             RD16 M2: a tira de sub-abas (Lotes | Simulador) tambem saiu. Ela era
@@ -2548,22 +2541,19 @@ function SamplesPage() {
             O FAB fica: e a porta de criacao do mobile (leque Lote/Liga) e nao
             tem par no kit. Como perdeu o pai que o escondia no desktop, ganhou
             wrapper proprio — `.fv-lotes-page .fv-lotes-fab` some em >=901px,
-            onde criar mora nos botoes do .fv-page-head. */}
-        <div className="fv-lotes-fab">
-          {selectionMode === 'blend' ? (
-            <SampleCreateRadialFab
-              mode="blendArrow"
-              selectedCount={selectedSamples.size}
-              onContinue={openConfirmation}
-            />
-          ) : (
+            onde criar mora nos botoes do .fv-page-head.
+
+            No modo liga ele nao aparece: quem manda ali e a .fv-bulkbar da base,
+            que ja carrega o "Criar liga". Era o FAB-seta que fazia esse papel. */}
+        {selectionMode === 'blend' ? null : (
+          <div className="fv-lotes-fab">
             <SampleCreateRadialFab
               mode="idle"
               onCreateUnit={() => setNewSampleModalOpen(true)}
               onStartBlendSelection={enterBlendMode}
             />
-          )}
-        </div>
+          </div>
+        )}
 
         <section className="samples-page-v2-sheet">
           {/* FV: toolbar do cartao da tabela — busca, funil com badge, "Limpar"
@@ -2653,10 +2643,20 @@ function SamplesPage() {
             <span className="fv-toolbar-count">{samplesState.total} lotes</span>
           </div>
 
-          {/* FV (desktop): barra contextual do modo liga. Fica logo abaixo da
-              toolbar (a busca continua util pra achar o lote a marcar) e
-              concentra o que o header dedicado + o FAB-seta faziam no mobile:
-              contador, revisao da selecao, "Criar liga" e a saida. */}
+          {/* Barra contextual do modo liga — vale nos DOIS breakpoints desde o
+              RD16 M2. No desktop fica logo abaixo da toolbar (a busca continua
+              util pra achar o lote a marcar); no mobile vai pra BASE da tela, no
+              lugar da tabbar, que ja some sozinha em `body.is-selection-mode`.
+
+              Ela desce por `order`, NAO por position:fixed: o sheet tem
+              `animation ... both` com transform no ultimo keyframe, o que o
+              torna containing block permanente — um filho fixed ficaria preso
+              nele. Como o sheet ja ocupa a tela inteira, `order` poe a barra no
+              fim da coluna, que e o fim da tela.
+
+              Concentra o que no mobile estava espalhado por tres pecas: o header
+              verde dedicado (contador + sair), o contador de selecionados da
+              linha do sheet (revisao) e o FAB-seta ("Criar liga"). */}
           {selectionMode === 'blend' ? (
             <div className="fv-bulkbar" role="group" aria-label="Seleção para liga">
               <span className="fv-bulkbar-count">
@@ -2707,50 +2707,6 @@ function SamplesPage() {
                   <path d="M6 6l12 12M18 6L6 18" />
                 </svg>
               </button>
-            </div>
-          ) : null}
-
-          {/* RD16 M2: o contador "N lotes" mudou de casa — vive na .fv-toolbar
-              acima, que agora vale nos dois breakpoints. O que sobra aqui e o
-              contador de SELECIONADOS do modo liga; ele sai na rodada da barra
-              de selecao, quando a .fv-bulkbar assumir no mobile tambem. */}
-          {selectionMode === 'blend' ? (
-            <div className="spv2-list-meta">
-              <div className="spv2-selection-counter-wrap">
-                <button
-                  type="button"
-                  className="spv2-selection-counter"
-                  aria-label={`${selectedSamples.size} lotes selecionados — abrir revisão`}
-                  aria-expanded={selectionDropdownOpen}
-                  aria-haspopup="menu"
-                  onClick={() => setSelectionDropdownOpen((open) => !open)}
-                  disabled={selectedSamples.size === 0}
-                >
-                  <span className="spv2-selection-counter__num">{selectedSamples.size}</span>
-                  <span className="spv2-selection-counter__label">
-                    {selectedSamples.size === 1 ? 'selecionado' : 'selecionados'}
-                  </span>
-                  <svg
-                    className="spv2-selection-counter__chevron"
-                    viewBox="0 0 24 24"
-                    focusable="false"
-                    aria-hidden="true"
-                  >
-                    <path d="M6 9l6 6 6-6" />
-                  </svg>
-                </button>
-                {selectionDropdownOpen && selectedSamples.size > 0 ? (
-                  <SelectedSamplesDropdown
-                    samples={selectedSamplesForSheet.map<SelectedSampleSummary>((s) => ({
-                      id: s.id,
-                      lot: s.internalLotNumber ?? s.id.slice(0, 8),
-                      availableSacks: s.availableSacks ?? null,
-                    }))}
-                    onRemove={handleRemoveFromSelection}
-                    onClose={() => setSelectionDropdownOpen(false)}
-                  />
-                ) : null}
-              </div>
             </div>
           ) : null}
 

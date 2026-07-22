@@ -28329,15 +28329,6 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
    .samples-page-v2-sheet + .spv2-list-scroll. Pagina ja continua tanto
    em modo normal quanto selecao.) */
 
-/* FAB-seta de "continuar liga": no modo liga a tabbar fica escondida, entao a
-   seta DESCE pra zona da tabbar (mesmo bottom baixo do .prospector-fab, app sem
-   navbar) em vez de ficar na posicao alta do "+". Right offset segue igual. */
-.cv2-fab.is-blend-arrow {
-  bottom: calc(
-    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(0.9rem, 3.6vw, 1.25rem)
-  );
-}
-
 /* Entrada do modo liga: o header verde DESLIZA de cima (opaco) em vez de surgir
    com fade a partir do transparente (que dava flash/gap no topo) — mais natural
    e coerente com a saida. */
@@ -28664,6 +28655,19 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   0% {
     opacity: 0;
     transform: scale(0.7) translateY(-8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Espelho do anterior pra quando o popover abre pra CIMA (barra de selecao na
+   base da tela, no mobile): o deslize entra de baixo, nao de cima. */
+@keyframes selected-samples-dropdown-in-up {
+  0% {
+    opacity: 0;
+    transform: scale(0.7) translateY(8px);
   }
   100% {
     opacity: 1;
@@ -33319,13 +33323,11 @@ body.is-selection-mode .ctr-page .cc-tabs {
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   }
 
-  /* O FAB de criacao, o contador do sheet e o header dedicado do modo liga
-     saem: criar mora nos botoes do .fv-page-head; contador/revisao/criar/sair
-     moram na .fv-bulkbar. (A busca mobile ja nao existe — virou .fv-toolbar,
-     que vale nos dois breakpoints desde o RD16 M2.) */
-  .fv-lotes-page .fv-lotes-fab,
-  .fv-lotes-page .samples-page-v2-sheet .spv2-list-meta,
-  .fv-lotes-page .samples-selection-header {
+  /* O FAB de criacao sai: no desktop criar mora nos botoes do .fv-page-head.
+     (Os outros dois hides daqui — contador do sheet e header do modo liga —
+     morreram no RD16 M2: nenhum dos dois e renderizado em /samples. Busca,
+     funil, contagem e a barra de selecao valem nos dois breakpoints agora.) */
+  .fv-lotes-page .fv-lotes-fab {
     display: none;
   }
 
@@ -33911,73 +33913,133 @@ body.is-selection-mode .ctr-page .cc-tabs {
   }
 }
 
-/* ── Barra contextual de selecao (kit FV, desktop): faixa tinta logo abaixo
-   da toolbar enquanto ha um modo de selecao ativo. Em /samples e o modo liga
-   — contador, "Revisar", "Criar liga" e a saida. ── */
+/* ── Barra contextual de selecao (kit FV): faixa tinta enquanto ha um modo de
+   selecao ativo. Em /samples e o modo liga — contador, "Revisar", "Criar liga"
+   e a saida. Geometria comum na BASE; o `display` e o portao, igual a toolbar:
+   desktop sempre, mobile so em /samples. ── */
 .fv-bulkbar {
   display: none;
+  align-items: center;
+  gap: 0.6rem;
+  flex: none;
+  padding: 0.6rem 1rem;
+  background: var(--fv-active-bg);
+}
+
+.fv-bulkbar-count {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fv-bulkbar-review-wrap {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+
+.fv-bulkbar .fv-btn {
+  flex: none;
+}
+
+.fv-bulkbar .fv-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.fv-bulkbar-exit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 140ms ease;
+}
+.fv-bulkbar-exit svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+@media (hover: hover) {
+  .fv-bulkbar-exit:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--ink);
+  }
+}
+.fv-bulkbar-exit:active {
+  transform: scale(0.92);
+}
+
+/* ── Modo liga no mobile (/samples): a barra desce pra base ──
+   Por `order`, nao por `position: fixed` — o `.samples-page-v2-sheet` roda
+   `animation ... both` com transform no ultimo keyframe, entao fica containing
+   block PERMANENTE e prenderia um filho fixed dentro dele. Como o sheet ja
+   ocupa a tela toda, `order` basta: a barra vai pro fim da coluna, que e o fim
+   da tela. Sem briga de z-index — a tabbar ja some em `body.is-selection-mode`
+   e o FAB nao e renderizado no modo liga. ── */
+@media (max-width: 900px) {
+  .fv-lotes-page .fv-bulkbar {
+    display: flex;
+    order: 1;
+    gap: 0.45rem;
+    padding: clamp(9px, 2.6vw, 11px) var(--lotes-inner-pad);
+    border-top: 1px solid var(--fv-line);
+    /* A barra assume a safe area que o sheet devolve abaixo. */
+    padding-bottom: calc(
+      var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(9px, 2.6vw, 11px)
+    );
+  }
+
+  /* Botoes mais justos: a linha tem contador + 2 botoes + saida. */
+  .fv-lotes-page .fv-bulkbar .fv-btn {
+    padding: 0 0.72rem;
+  }
+
+  body.is-selection-mode .fv-lotes-page .samples-page-v2-sheet {
+    padding-bottom: 0;
+  }
+
+  /* Sem tabbar e sem FAB no modo liga, o clearance do fim da lista (que existia
+     pra os dois) vira buraco — e a barra agora ocupa espaco REAL de layout. */
+  body.is-selection-mode .fv-lotes-page .spv2-list-scroll {
+    padding-bottom: clamp(0.6rem, 2vw, 0.9rem);
+  }
+
+  /* O popover da revisao abre pra CIMA: ancorado na base da tela, pra baixo
+     sairia do viewport. */
+  .fv-lotes-page .fv-bulkbar .selected-samples-dropdown {
+    top: auto;
+    bottom: calc(100% + 8px);
+    transform-origin: bottom right;
+    animation-name: selected-samples-dropdown-in-up;
+  }
 }
 
 @media (min-width: 901px) {
   .fv-bulkbar {
     display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    flex: none;
-    padding: 0.6rem 1rem;
-    background: var(--fv-active-bg);
     border-bottom: 1px solid var(--fv-line);
   }
 
   .fv-bulkbar-count {
     flex: none;
     margin-right: auto;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--ink);
-  }
-
-  .fv-bulkbar-review-wrap {
-    position: relative;
-    display: inline-flex;
-  }
-
-  .fv-bulkbar .fv-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .fv-bulkbar-exit {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    border: none;
-    border-radius: 50%;
-    background: transparent;
-    color: var(--muted);
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    transition: transform 140ms ease;
-  }
-  .fv-bulkbar-exit svg {
-    width: 1rem;
-    height: 1rem;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 2;
-    stroke-linecap: round;
-  }
-  @media (hover: hover) {
-    .fv-bulkbar-exit:hover {
-      background: rgba(0, 0, 0, 0.05);
-      color: var(--ink);
-    }
-  }
-  .fv-bulkbar-exit:active {
-    transform: scale(0.92);
   }
 
   /* A caixa de selecao mora na MESMA celula do ⋯ (`.fv-table-td-actions`,
@@ -36805,8 +36867,8 @@ body.is-selection-mode .ctr-page .cc-tabs {
   }
 
   /* Header do modo selecao de liga: era o topo absoluto da pagina (por isso
-     somava a safe area) e agora fica ABAIXO da faixa. Ele sai de cena na M2
-     do RD16 — a barra de acoes vai pra base, no lugar da tabbar. */
+     somava a safe area) e agora fica ABAIXO da faixa. Saiu de /samples no M2 do
+     RD16 (la a barra de acoes desceu pra base); segue servindo /contratos. */
   .app-shell-root:has(.fv-mtopbar) .samples-selection-header {
     padding-top: 0.85rem;
   }
