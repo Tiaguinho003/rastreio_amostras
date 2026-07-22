@@ -63,6 +63,10 @@ Audit: o enum `ClientAuditEventType` foi reduzido a 8 valores (`CLIENT_CREATED|U
 
 ### Comprador e venda
 
+> **⚠️ Onde a venda acontece hoje (2026-07-22).** As regras desta secao continuam valendo no backend, mas a **superficie mudou**: a venda a vista deixou de nascer na amostra e passou a nascer no **contrato** (`/contratos`, `SaleContractEtapa2Modal` → `createSampleMovement`). Em `/samples` sobrou so a **perda** (`SampleLossSheet`). O `SampleMovementModal`, que hospedava os dois ramos, foi deletado no redesenho FV.
+>
+> Consequencia direta: os itens **9, 10 e 11** abaixo (editar a venda) e os itens **6 e 7** de Perda **nao tem caminho de UI** — `updateSampleMovement` existe na API e no api-client, mas nenhum componente a chama. Cancelar (com motivo) continua acessivel pela timeline.
+
 1. O comprador tambem e um `Cliente`.
 2. O comprador nao fica salvo diretamente na amostra; ele existe apenas em registros de venda.
 3. A inscricao do comprador e opcional.
@@ -125,7 +129,7 @@ Audit: o enum `ClientAuditEventType` foi reduzido a 8 valores (`CLIENT_CREATED|U
 
 ### Restricoes operacionais
 
-1. Vendas e perdas so podem ser registradas depois que a amostra estiver `CLASSIFIED`.
+1. Vendas e perdas so podem ser registradas quando a amostra esta em `REGISTRATION_CONFIRMED` **ou** `CLASSIFIED` (`COMMERCIAL_MUTABLE_OPERATIONAL_STATUSES`). _A regra original exigia `CLASSIFIED`; foi relaxada em 2026-05-19, junto com a Liga._
 2. Se a amostra estiver `INVALIDATED`, deve bloquear:
    novas vendas;
    novas perdas;
@@ -144,7 +148,7 @@ Audit: o enum `ClientAuditEventType` foi reduzido a 8 valores (`CLIENT_CREATED|U
 2. O formato aprovado do codigo e sequencial simples.
 3. O codigo do cliente nao pode ser editado.
 4. Todos os usuarios autenticados poderao cadastrar, editar, inativar e reativar clientes.
-5. Todos os usuarios autenticados poderao criar, editar e cancelar movimentacoes comerciais.
+5. Todos os usuarios autenticados poderao criar, editar e cancelar movimentacoes comerciais. _Na pratica: a **perda** segue assim; a **venda** so nasce em `/contratos`, gated por `CONTRATOS_ROLES` (= `NON_PROSPECTOR_ROLES`), entao PROSPECTOR nao cria venda; e **editar** nao esta disponivel para ninguem (ver o aviso em "Comprador e venda")._
 6. O telefone do cliente, na primeira versao, sera um unico telefone principal.
 7. A busca de clientes no modulo proprio deve funcionar por:
    codigo;
@@ -247,10 +251,12 @@ Audit: o enum `ClientAuditEventType` foi reduzido a 8 valores (`CLIENT_CREATED|U
 
 ### Detalhe da amostra
 
+> O detalhe **nao e mais uma pagina**: `/samples/[sampleId]` redireciona para `/samples?lote=<id>` e o conteudo e o drawer `SampleDetailView`. A "lista unica de movimentacoes" virou uma **timeline** que tambem mescla envios fisicos e laudos, alem de vendas e perdas.
+
 1. O detalhe da amostra deve permitir alterar o proprietario por cliente, com motivo obrigatorio.
 2. O detalhe da amostra deve ter uma lista unica de movimentacoes.
 3. A lista unica deve mostrar vendas e perdas ativas e canceladas.
-4. A lista unica deve ter filtros.
+4. ~~A lista unica deve ter filtros.~~ **Nao implementado** — a timeline nao tem nenhum filtro.
 5. O detalhe da amostra deve exibir:
    quantidade total;
    quantidade vendida;
@@ -266,7 +272,7 @@ Audit: o enum `ClientAuditEventType` foi reduzido a 8 valores (`CLIENT_CREATED|U
 ### Etiqueta e laudo
 
 1. A etiqueta continua simples e segue exibindo o nome vinculado ao proprietario.
-2. O laudo continua simples na primeira versao.
+2. O laudo continua simples na primeira versao. _Ganhou depois a linha "Composicao da safra" para liga multi-safra (Mix + % por safra) — ver a revisao "safra Mix" no `Liga-Plano-de-Trabalho.md`._
 3. No laudo completo, o proprietario continua sendo mostrado.
 4. O laudo parcial para comprador continua sem exibir proprietario.
 

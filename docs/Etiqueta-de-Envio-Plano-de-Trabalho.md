@@ -13,8 +13,8 @@
 
 Hoje o sistema imprime dois tipos de etiqueta:
 
-1. **Etiqueta de amostra** (`buildLabel` em `print-agent/label.js`) — com QR code cujo valor é o `internalLotNumber` (ou `id`). O QR serve para **busca interna** pela câmera do app (`app/camera/page.tsx`) e **exige login** para resolver. Ver `app/samples/[sampleId]/page.tsx` (`qrValue`).
-2. **Etiqueta de Aprovação** (antiga "Etiqueta avulsa" — `buildCustomLabel` / `CustomLabelPrintCard.tsx`) — etiqueta livre com campos editáveis, sem QR, impressa pela fila desacoplada `CustomPrintJob`.
+1. **Etiqueta de amostra** (`buildLabel` em `print-agent/label.js`) — com QR code cujo valor é o `internalLotNumber` (ou `id`). O QR serve para **busca interna** pela câmera do app e **exige login** para resolver. _(Ponteiros atualizados: `app/camera/page.tsx` foi deletado no ciclo CAM — a câmera é o `CameraSheet` global; e o `qrValue` mora em `components/samples/SampleLabelPrintSheet.tsx`, painel próprio desde o redesenho FV.)_
+2. **Etiqueta de Aprovação** (antiga "Etiqueta avulsa" — `buildCustomLabel` / ~~`CustomLabelPrintCard.tsx`~~ **hoje `ApprovalLabelModal`**, aberto só pela sub-aba Aprovações de `/embarques`; a porta que existia em `/samples` saiu na AP29) — etiqueta livre com campos editáveis, sem QR, impressa pela fila desacoplada `CustomPrintJob`.
 
 A nova demanda é uma terceira etiqueta, a **Etiqueta de Envio**: quando o operador envia fisicamente uma amostra a um cliente/comprador, imprime-se uma etiqueta com dados do envio e um QR que, ao ser escaneado pelo destinatário (que **não tem acesso ao sistema**), abre **apenas o PDF do laudo** daquele lote.
 
@@ -35,20 +35,20 @@ Síntese verificada no código em 2026-06-17. Detalhes nas referências.
 A feature **não constrói** o envio — ele já está implementado e é event-sourced. A Etiqueta de Envio se **acopla** a ele:
 
 - **Eventos**: `PHYSICAL_SAMPLE_SENT` / `PHYSICAL_SAMPLE_SEND_UPDATED` / `PHYSICAL_SAMPLE_SEND_CANCELLED` (`prisma/schema.prisma`), payload `{ recipientClientId, recipientClientSnapshot, sentDate }`.
-- **UI**: modal "Enviar amostra" / "Editar envio de amostra" em `app/samples/[sampleId]/page.tsx` (form a partir de ~4088).
-- **API**: `POST/PATCH/DELETE /api/v1/samples/{id}/physical-send` → `recordPhysicalSampleSent` etc. (`src/samples/sample-command-service.js:3597+`).
-- **Gate de status**: `PHYSICAL_SEND_ALLOWED_STATUSES = ['REGISTRATION_CONFIRMED', 'CLASSIFIED']` (`sample-command-service.js:42`) — dá para enviar **antes** de classificar.
-- **Multi-destinatário = N envios**: o modal coleta vários destinatários e o handler faz **um POST por cliente** num loop (`app/samples/[sampleId]/page.tsx:1197`). Cada destinatário já é um `PHYSICAL_SAMPLE_SENT` próprio → encaixa 1:1 com "uma etiqueta por destinatário" (D9).
+- **UI**: ~~modal "Enviar amostra" / "Editar envio de amostra" em `app/samples/[sampleId]/page.tsx`~~ → hoje são **duas superfícies distintas**: criar envio é o painel único `components/samples/SampleSendFlow.tsx` (tipo Descrição/Físico + destinatários na mesma etapa, servindo lista e detalhe); **editar** um envio existente é um **dropdown inline** no card da timeline (`SampleMovementsPanel`), não passa pelo painel.
+- **API**: `POST /api/v1/samples/{id}/physical-send` e `PATCH/DELETE .../physical-send/{sendEventId}` → `recordPhysicalSampleSentWithReport` / `cancelPhysicalSampleSend` (`src/samples/sample-command-service.js`).
+- **Gate de status**: `PHYSICAL_SEND_ALLOWED_STATUSES = ['REGISTRATION_CONFIRMED', 'CLASSIFIED']` (`sample-command-service.js`) — dá para enviar **antes** de classificar.
+- **Multi-destinatário = N envios**: o painel coleta vários destinatários e o handler faz **um POST por cliente** num loop (`SampleSendFlow.tsx`). Cada destinatário já é um `PHYSICAL_SAMPLE_SENT` próprio → encaixa 1:1 com "uma etiqueta por destinatário" (D9).
 - **Timeline**: `components/samples/SampleMovementsPanel.tsx` já mescla venda/perda/envio/laudo.
 
 ### Laudo PDF e classificação
 
 - **Geração** (`src/reports/sample-pdf-report-service.js`, `exportSamplePdf` → `renderSamplePdf`): server-side via `pdf-lib`.
 - **Pré-requisitos**: `sample.status === 'CLASSIFIED'` **e** anexo `CLASSIFICATION_PHOTO`.
-- **A foto é obrigatória para classificar**: `completeClassification` lança 409 sem ela (`sample-command-service.js:2159`). Logo **CLASSIFIED ⟹ laudo sempre possível** — não existe "classificada sem laudo". A regra do QR fica **binária** (ver D4).
+- **A foto é obrigatória para classificar**: `completeClassification` lança 409 sem ela (`sample-command-service.js`). Logo **CLASSIFIED ⟹ laudo sempre possível** — não existe "classificada sem laudo". A regra do QR fica **binária** (ver D4).
 - **Campos fixos**: o laudo usa `SAMPLE_EXPORT_FIELDS_FOR_REPORT` (`export-fields.js`) — o operador **nunca escolheu** quais campos entram. O único input além do destinatário é a **safra, e só quando a amostra é liga**.
-- **Destinatário no PDF**: o laudo imprime o destinatário no cabeçalho (`sample-pdf-report-service.js:371`); quando `destination` é nulo, a linha é **omitida** nativamente. Por isso "1 PDF por destinatário" sai natural (cada PDF leva o nome daquele destinatário), e enviar sem destinatário também funciona.
-- **Liga (safra múltipla)**: exige escolher **uma** safra (`reportedHarvest`) via `components/samples/ReportHarvestSelectModal.tsx`; o laudo nunca imprime a string concatenada de safras (anti-vazamento). Validação backend em `export-fields.js`.
+- **Destinatário no PDF**: o laudo imprime o destinatário no cabeçalho (`sample-pdf-report-service.js`); quando `destination` é nulo, a linha é **omitida** nativamente. Por isso "1 PDF por destinatário" sai natural (cada PDF leva o nome daquele destinatário), e enviar sem destinatário também funciona.
+- **Liga (safra múltipla)**: ~~exige escolher **uma** safra (`reportedHarvest`) via `ReportHarvestSelectModal`; o laudo nunca imprime a string concatenada (anti-vazamento).~~ **⚠️ INVERTIDO na revisão "safra Mix" (Liga, 2026-07-15)** — o anti-vazamento foi revogado _só na safra_: hoje o laudo de liga multi-safra imprime **`Mix` + cada safra com a % da composição** (`buildHarvestBreakdown` em `export-fields.js`). `normalizeReportedHarvest` deixou de lançar 422 e retorna `null` quando não há escolha; o `ReportHarvestSelectModal` foi **deletado** e o threading de `reportedHarvest` saiu do fluxo de envio — o backend resolve a safra do laudo sozinho. Laudos já enviados seguem congelados na safra que gravaram.
 - **O PDF NÃO é persistido hoje** — é gerado, transmitido (`app/api/v1/samples/[sampleId]/export/pdf/route.ts`, stream `attachment`) e descartado. Só o checksum sobrevive (evento `REPORT_EXPORTED`).
 - **Regeneração** é livre (sem idempotência); cada export gera novo checksum.
 
@@ -84,7 +84,7 @@ A feature **não constrói** o envio — ele já está implementado e é event-s
 
 ```
 [Operador]  Amostra em REGISTRATION_CONFIRMED ou CLASSIFIED → modal "Enviar amostra"
-     │        (se liga + CLASSIFIED: escolhe a safra via ReportHarvestSelectModal)
+     │        (a etapa de escolher safra da liga MORREU — ver "Liga (safra multipla)")
      │        confirma envio com 1+ destinatários
      │
      │   Para CADA destinatário:
@@ -133,7 +133,7 @@ Não toca `SampleEvent` (append-only). A auditoria do snapshot vive no próprio 
 4. **Rota pública** `GET /laudo/[token]` → valida token, checa `revokedAt`/`expiresAt`, faz stream do PDF; serve a página mínima (D10) se inválido. Adicionar `/laudo` ao `PUBLIC_PATH_PREFIXES` (`middleware.ts`).
 5. **Builder `buildShippingLabel`** no print agent (`print-agent/label.js`) com os campos do envio + QR condicional (URL pública completa).
 6. **Revogação** → `cancelPhysicalSampleSend` seta `revokedAt`; botão "Revogar laudo" na timeline de envios (P7), para os mesmos papéis que registram envio.
-7. **Safra no envio** → reusar `ReportHarvestSelectModal` quando (liga + CLASSIFIED).
+7. ~~**Safra no envio** → reusar `ReportHarvestSelectModal` quando (liga + CLASSIFIED).~~ **Peça descartada** — o laudo imprime o Mix; nada a escolher.
 
 ### Segurança
 
@@ -154,7 +154,7 @@ O grosso foi resolvido na sessão 2. Sobram detalhes de layout/implementação:
 | P-impl-1 | Registrar (ou não) `REPORT_EXPORTED` por share no envio.                                  | Auditoria já fica no share. Decidir na implementação se mantém o evento (timeline) ou não, para não poluir.                                         |
 | P-impl-2 | Editar destinatário de um envio com link ativo: **bloquear troca** ou regenerar snapshot. | Default proposto: snapshot é imutável; trocar destinatário = cancelar (revoga) + novo envio. Confirmar na implementação.                            |
 
-**Resolvidas**: P2 (expira em 30d — D7), P3 (PDF direto — D6), P4 (ação = envio existente), P6 (safra via `ReportHarvestSelectModal`), P7 (revogação na timeline), P8 (reenvio = novo token/snapshot; reimpressão reusa), P9 (`SampleReportShare` / `/laudo/[token]` / `buildShippingLabel`).
+**Resolvidas**: P2 (expira em 30d — D7), P3 (PDF direto — D6), P4 (ação = envio existente), P6 (safra via `ReportHarvestSelectModal` — **peça depois descartada**), P7 (revogação na timeline), P8 (reenvio = novo token/snapshot; reimpressão reusa), P9 (`SampleReportShare` / `/laudo/[token]` / `buildShippingLabel`).
 
 ---
 
@@ -217,7 +217,7 @@ Verificação: `curl -s …/laudo/zzz` → "Laudo não encontrado" (veio do Clou
 - **Achado central**: o fluxo de envio físico (`PHYSICAL_SAMPLE_SENT`) **já existe** e é event-sourced (modal, API POST/PATCH/DELETE, timeline). A feature **enxerta** etiqueta + laudo congelado + token nesse fluxo; não constrói "enviar" do zero. A peça 3 do plano foi reescrita nesse sentido.
 - **Foto obrigatória para classificar** (`completeClassification:2159`) ⟹ `CLASSIFIED` sempre tem laudo ⟹ regra do QR vira binária. **Revisou o D4**: a etiqueta sempre imprime; o QR é condicional ao `CLASSIFIED` (resposta do usuário à P de gate).
 - **Multi-destinatário já é 1 envio por cliente** (loop em `page.tsx:1197`) ⟹ **D9** (1 share/token/PDF por destinatário, com o nome no PDF).
-- **Laudo tem campos fixos** e só pede safra quando liga ⟹ gerar no envio não adiciona telas, exceto o `ReportHarvestSelectModal` para ligas (P6).
+- **Laudo tem campos fixos** e só pede safra quando liga ⟹ gerar no envio não adiciona telas, exceto o `ReportHarvestSelectModal` para ligas (P6). _(Hoje **não adiciona tela nenhuma**: o modal foi deletado com a revisão "safra Mix".)_
 - Fechadas **D5** (impressão automática), **D6** (PDF direto), **D7** (expira em 30 dias), **D8** (cancelar revoga), **D9** (1 por destinatário), **D10** (página mínima de indisponível).
 - Defaults aceitos: revogação manual na timeline; reenvio = novo token; edição não regenera; rate-limit leve; nomes `SampleReportShare` / `/laudo/[token]` / `buildShippingLabel`.
 - Próximo passo: protótipo — começar pela **base** (migration `SampleReportShare` + variante de `exportSamplePdf` que persiste os bytes), depois rota pública e builder.
@@ -229,7 +229,7 @@ Verificação: `curl -s …/laudo/zzz` → "Laudo não encontrado" (veio do Clou
   - `recordPhysicalSampleSentWithReport` no command service: evento `PHYSICAL_SAMPLE_SENT` + `SampleReportShare` **atômicos** via `appendEventBatch` + `beforeCommit` (helper novo `PrismaEventStoreTx.createReportShare`). Token 32B, expiração 30d. **Não** registra `REPORT_EXPORTED` — resolve **P-impl-1** (a auditoria vive no share).
   - Handler `recordPhysicalSampleSent` (`backend-api.js`) bifurca por status: `CLASSIFIED` gera o PDF (fora da tx) + share + enfileira etiqueta **com** QR; `REGISTRATION_CONFIRMED` só registra + etiqueta **sem** QR. Falha de geração do PDF = 409 atômico (nada gravado).
   - **Fila incluída na fase 3** (decisão do usuário): tabela `ShippingPrintJob` (migration manual) + enqueue best-effort + endpoints `GET /shipping-print/pending` + `POST /shipping-print/result`. O print agent que consome + o builder TSPL `buildShippingLabel` ficam na **fase 5**.
-  - **Fase 7 dobrada**: modal de envio reusa `ReportHarvestSelectModal` quando a amostra é liga (>1 safra) + `CLASSIFIED`; `recordPhysicalSampleSent` (api-client) passou a enviar `reportedHarvest`.
+  - **Fase 7 dobrada**: modal de envio reusa `ReportHarvestSelectModal` quando a amostra é liga (>1 safra) + `CLASSIFIED`; `recordPhysicalSampleSent` (api-client) passou a enviar `reportedHarvest`. _(**Desfeito em 2026-07-15**: modal deletado e o `reportedHarvest` saiu do threading do fluxo.)_
   - Teste `tests/physical-send-report-share.integration.test.js` (4 casos: CLASSIFIED com share+PDF+job, REGISTRATION_CONFIRMED sem share, multi-destinatário, foto sumida 409 atômico). Suite de integração completa verde (278) + todos os gates.
 - Restam: **fase 4** (rota pública `/laudo/[token]` + página mínima de indisponível), **fase 5** (builder TSPL + consumo no print agent), **fase 6** (revogação na timeline). Pendências menores: **P1** (layout da etiqueta), **P5** (rate-limit). ⚠️ `APP_BASE_URL` em produção precisa ser o domínio real (hoje `placeholder.invalid`) para o QR funcionar.
 
