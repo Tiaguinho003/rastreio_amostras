@@ -5942,9 +5942,8 @@ button:disabled {
   }
 }
 
-/* Chip de status: o MESMO `.fv-chip` da tabela do desktop, na variante
-   `is-bare`. Antes era o `.spv2-card-badge`, com paleta propria que divergia da
-   tabela.
+/* Chip de status: o MESMO `.fv-chip` da tabela do desktop, na variante `is-sm`.
+   Antes era o `.spv2-card-badge`, com paleta propria que divergia da tabela.
 
    Ele NAO e mais encostado na direita (havia um `margin-left: auto` aqui): fica
    colado no numero, com o badge de liga entre os dois quando ha liga — a mesma
@@ -5969,6 +5968,15 @@ button:disabled {
   /* A direita quem fecha e o `⋯` (irmao, com margem propria): o padding daqui
      so garante a folga entre o texto e o alvo dele. */
   padding-right: clamp(6px, 2vw, 8px);
+  /* 🔴 Sem isto o `⋯` NAO APARECE. O `.spv2-card` base e `flex-shrink: 0` e a
+     regra do wrap lhe da `width: 100%`: dentro do wrap (flex row) ele tomava a
+     largura inteira e se recusava a ceder, empurrando o irmao pra fora do
+     `overflow: hidden`. O botao existia no DOM, clicavel em zero pixel — foi
+     assim do M2 ate aqui. Quem divide a linha e o card, nao o botao: ele tem
+     largura fixa. */
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
 }
 
 .samples-page-v2 .spv2-card-content {
@@ -23087,12 +23095,6 @@ select.samples-filter-field-input {
     font-size: 0.78rem;
     font-weight: 700;
     letter-spacing: 0.02em;
-    gap: 5px;
-  }
-
-  .samples-page-v2 .spv2-card .blend-badge__icon {
-    width: 13px;
-    height: 13px;
   }
 
   .samples-page-v2 .spv2-card-owner {
@@ -28043,34 +28045,24 @@ body:has(.app-modal-backdrop.is-stacked)
     transform 0.36s cubic-bezier(0.34, 1.46, 0.5, 1);
 }
 
-/* ── Leque de DUAS opcoes: arco SIMETRICO (67.5° e 22.5°) ──
-   As posicoes abaixo (90° / 45° / 0°) foram desenhadas para TRES opcoes. Em
-   /samples a terceira (Aprovacao) saiu na AP29 e ninguem remexeu o arco: as
-   duas restantes ficaram amontoadas no quadrante de cima, com um buraco onde
-   estava a terceira. Com duas, o par vai para 67.5° e 22.5° — simetrico em
-   torno da diagonal, com a mesma separacao de 45° entre eles e ate as bordas.
+/* ── Leque de DUAS opcoes: ORTOGONAIS ──
+   As posicoes abaixo (topo / diagonal / esquerda) foram desenhadas para TRES
+   opcoes. Em /samples a terceira (Aprovacao) saiu na AP29 e ninguem remexeu o
+   arco: sobraram o topo e a DIAGONAL — duas opcoes juntas no mesmo quadrante,
+   com um buraco onde estava a terceira, e nenhuma alinhada ao FAB.
+
+   Com duas, o par usa os dois eixos: uma ACIMA e outra A ESQUERDA, cada uma
+   alinhada a um lado do FAB. A diagonal e a posicao do meio de um arco de tres
+   — sem a terceira, ela nao alinha com nada.
 
    Escopado por `.is-fan-2` (o componente marca o leque pelo NUMERO de opcoes,
-   nao pela pagina): o leque do /informe segue com tres e o arco original.
-
-   cos(67.5°) = sen(22.5°) = 0.3827 · sen(67.5°) = cos(22.5°) = 0.9239 — os
-   mesmos dois fatores trocados entre os eixos. ── */
-.fab-fan.is-fan-2 .fab-fan-option.is-lote {
-  right: calc(
-    var(--fab-right) + var(--fab-size) / 2 + var(--fan-radius) * 0.3827 - var(--fan-opt-size) / 2
-  );
-  bottom: calc(
-    var(--fab-bottom) + var(--fab-size) / 2 + var(--fan-radius) * 0.9239 - var(--fan-opt-size) / 2
-  );
-}
-
+   nao pela pagina): o leque do /informe segue com tres e o arco original. A
+   opcao de cima (`is-lote`) ja esta no eixo vertical e nao precisa de override;
+   quem muda e a `is-liga`, que assume o eixo horizontal. ── */
 .fab-fan.is-fan-2 .fab-fan-option.is-liga {
-  right: calc(
-    var(--fab-right) + var(--fab-size) / 2 + var(--fan-radius) * 0.9239 - var(--fan-opt-size) / 2
-  );
-  bottom: calc(
-    var(--fab-bottom) + var(--fab-size) / 2 + var(--fan-radius) * 0.3827 - var(--fan-opt-size) / 2
-  );
+  right: calc(var(--fab-right) + var(--fab-size) + var(--fan-gap));
+  bottom: calc(var(--fab-bottom) + (var(--fab-size) - var(--fan-opt-size)) / 2);
+  transform-origin: right center;
 }
 
 /* Lote: ACIMA do FAB (centro horizontal alinhado ao FAB, topo do arco).
@@ -28411,7 +28403,6 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
 .blend-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
   padding: 2px 7px;
   border-radius: 6px;
   background: linear-gradient(135deg, #7c3aed, #6d28d9);
@@ -28429,28 +28420,9 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   padding: 2px 6px;
 }
 
-.blend-badge--sm .blend-badge__icon {
-  width: 10px;
-  height: 10px;
-}
-
 .blend-badge--md {
   font-size: clamp(12px, 3.2vw, 13px);
   padding: 3px 8px;
-}
-
-.blend-badge--md .blend-badge__icon {
-  width: 12px;
-  height: 12px;
-}
-
-.blend-badge__icon {
-  flex-shrink: 0;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.4;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
 
 .blend-badge__text {
@@ -32969,17 +32941,15 @@ body.is-selection-mode .ctr-page .cc-tabs {
   color: var(--fv-chip-blue-fg);
 }
 
-/* Variante sem pastilha: so a letra, na cor da variante. Usada na LISTA de
-   lotes (card e linha da tabela), onde o status divide a celula com o numero e
-   o badge de liga — tres pastilhas seguidas viravam ruido. O chip pastel segue
-   sendo o padrao (RD12) no detalhe, em /cadastros e onde o status aparece
-   sozinho. Mesma classe de cor nos dois casos: muda so a forma. */
-.fv-chip.is-bare {
-  height: auto;
-  padding: 0;
-  border-radius: 0;
-  background: none;
-  font-size: 0.75rem;
+/* Variante compacta: a MESMA pastilha, um ponto menor. Usada na LISTA de lotes
+   (card e linha da tabela), onde o status divide a celula com o numero e o
+   badge de liga. Testamos tirar o preenchimento e a leitura piorou — a cor de
+   fundo e o que faz o status ser varrido de relance numa lista longa; o que
+   sobrava era so peso. Muda o TAMANHO, nunca a cor. */
+.fv-chip.is-sm {
+  height: 19px;
+  padding: 0 0.42rem;
+  font-size: 0.66rem;
 }
 
 /* ══════════════════════════════════════════════════════════════

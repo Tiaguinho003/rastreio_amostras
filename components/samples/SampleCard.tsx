@@ -73,9 +73,9 @@ function SampleCardComponent({
       <div className="spv2-card-top">
         <span className="spv2-card-code">{lotCode}</span>
         {sample.isBlend ? <BlendBadge size="sm" /> : null}
-        {/* `is-bare`: na LISTA o status e so a letra colorida, sem pastilha —
-            a pastilha do kit segue no detalhe e em /cadastros. */}
-        <span className={`fv-chip is-bare ${cardStatus.chip}`}>{cardStatus.label}</span>
+        {/* `is-sm`: a pastilha do kit, um ponto menor — na celula do lote ela
+            divide espaco com o numero e o badge de liga. */}
+        <span className={`fv-chip is-sm ${cardStatus.chip}`}>{cardStatus.label}</span>
       </div>
       <div className="spv2-card-bottom">
         <span className="spv2-card-owner">{ownerDisplayValue(sample) || '—'}</span>
