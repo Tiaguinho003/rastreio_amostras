@@ -18125,7 +18125,10 @@ select.samples-filter-field-input {
 
   :root {
     /* RD16: o offset do topo do shell mobile e a altura da faixa verde
-       unica (.fv-mtopbar) — antes era 5.2rem, herdado da .topbar branca. */
+       unica (.fv-mtopbar) — antes era 5.2rem, herdado da .topbar branca.
+       Nao precisa de guarda por papel: o PROSPECTOR, unico sem a faixa, so
+       navega em rotas EM CAMADA (/dashboard e /profile), e a variante
+       .is-dashboard-route zera o padding do main antes deste valor chegar. */
     --mobile-shell-top-offset: var(--fv-mtopbar-h);
     /* Tabbar -10% na vertical (pedido do usuario): icone, label e paddings
        internos escalados por 0.9 (ver clamps em .mobile-tabbar-icon/-label,
@@ -36859,12 +36862,18 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
     line-height: 1.2;
   }
 
-  /* Reserva da faixa em TODAS as variantes do main. A base ja soma
-     env(safe-area-inset-top) + --mobile-shell-top-offset; as variantes que
-     zeram o padding (rotas em camada, /contratos e /embarques) precisam do
-     valor de volta so no topo. */
-  .app-shell-main.is-dashboard-route,
-  .app-shell-root:has(.ctr-page) .app-shell-main {
+  /* ── Reserva do espaco da faixa ─────────────────────────────────────────
+     TODAS as regras abaixo pendem de `.app-shell-root:has(.fv-mtopbar)`: a
+     reserva so vale onde a faixa EXISTE. O PROSPECTOR nao a recebe (app
+     restrito) e compartilha o .dashboard-hero, o .sdv-header do /profile e o
+     .is-dashboard-route com os demais papeis — sem o `:has()` ele ganharia um
+     vazio de 3.3rem no topo e perderia a propria safe area. */
+
+  /* A base do .app-shell-main ja soma env(safe-area-inset-top) +
+     --mobile-shell-top-offset; as variantes que zeram o padding (rotas em
+     camada, /contratos e /embarques) precisam do valor de volta so no topo. */
+  .app-shell-root:has(.fv-mtopbar) .app-shell-main.is-dashboard-route,
+  .app-shell-root:has(.fv-mtopbar):has(.ctr-page) .app-shell-main {
     padding-top: calc(env(safe-area-inset-top) + var(--fv-mtopbar-h));
   }
 
@@ -36872,18 +36881,18 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
      /relatorios): o topo delas nao repete a safe area. O encadeamento de
      filho direto e proposital — exclui os .sdv-page dos overlays de detalhe
      (lote e cliente), que vivem alguns niveis abaixo e nao tem faixa acima. */
-  .app-shell-page-content > .sdv-page > .sdv-header {
+  .app-shell-root:has(.fv-mtopbar) .app-shell-page-content > .sdv-page > .sdv-header {
     padding-top: clamp(12px, 3vw, 16px);
   }
 
-  .dashboard-hero {
+  .app-shell-root:has(.fv-mtopbar) .dashboard-hero {
     padding-top: 1.1rem;
   }
 
   /* Header do modo selecao de liga: era o topo absoluto da pagina (por isso
      somava a safe area) e agora fica ABAIXO da faixa. Ele sai de cena na M2
      do RD16 — a barra de acoes vai pra base, no lugar da tabbar. */
-  .samples-selection-header {
+  .app-shell-root:has(.fv-mtopbar) .samples-selection-header {
     padding-top: 0.85rem;
   }
 }
