@@ -493,6 +493,25 @@ Conferência do Flavio, quatro pedidos que formam **um só rearranjo** do topo d
 
 **A conferir**: dois cartões, mais baixos, com o número e a métrica na mesma linha; busca e funil lado a lado; contagem na ponta direita, abaixo dos cartões; a ordem KPIs → busca → contagem → lista; tudo rolando junto; e o desktop com os quatro cartões e a toolbar no topo do cartão, como estava.
 
+#### Rodada 2 do M2 — o card de lote (2026-07-22, `22964dd`)
+
+Pedido do Flavio: _"vamos ajustar o design para um tom mais institucional assim como no desktop"_. O M2 já tinha trocado a **moldura** do card (superfície branca, hairline, radius e sombra de 1px); faltava o **miolo**, que seguia com escala e cores próprias. A referência foi lida no código do desktop: número em `0.86rem` / `600` / `--ink` com tabulares, secundário em `0.78rem` / `--muted`, ícones só onde desambiguam.
+
+Duas peças saíram, as duas confirmadas antes de implementar:
+
+1. **A barra de status lateral.** Eram 4px de cor com sombra difusa, na paleta **antiga** do card (`#60a5fa` azul para "Em aberto", `#2a6539` para "Vendido") — uma segunda leitura de status convivendo com o `.fv-chip` e divergindo dele. A tabela do desktop não tem nada disso. Duas codificações do mesmo dado é o que faz uma delas envelhecer sozinha.
+2. **Os dois ícones da linha de baixo** (caixa e calendário) e o filete que separava os dados. No lugar, **ponto médio** — e o nome do proprietário, que é quem trunca, ganhou a largura de volta.
+
+A tipografia foi para os tokens do kit, na escala da tabela (eram três cinzas hardcoded: `#1a1a1a`, `#666`, `#72766f`). Padding e `gap` do card vieram junto: o `gap` existia para abrir o vão da barra e o padding esquerdo maior era a folga dela.
+
+**Escopo**: tudo em `.samples-page-v2` e no wrap. `.spv2-card-bar` e `.spv2-card-sep` seguem **vivos na base** — quem ainda os renderiza é o `RelatedSampleRow` e o `SaleContractLotPickerModal`, que não entraram no ciclo. Por isso o separador novo é classe própria (`.spv2-card-dot`), não um override do filete. No modo liga o card também perde a barra, mas mantém `gap` e padding do base: lá o vão separa a bolinha de seleção do texto.
+
+**Varredura**: as variantes `open`/`sold`/`lost` do `.spv2-card-wrap` só definiam `--card-status-color`/`-bg` e ficaram sem consumidor dentro do wrap (o badge saiu no M2, a barra agora); sobra a invalidada, que apaga o card. O `contain-intrinsic-size` caiu de 88px para 72px — o card encolheu de verdade.
+
+**A conferir**: nenhum traço de cor na lateral, status só no chip; número, proprietário, sacas e safra na mesma escala da tabela; ponto médio separando os dados; card visivelmente mais baixo; modo liga com a bolinha de seleção ainda folgada; e o `RelatedSampleRow` (origens de uma liga, dentro do drawer) e o seletor de lotes do contrato **inalterados**, ainda com barra e filete.
+
+**Próxima frente combinada com o Flavio**: alinhar os modais.
+
 **Próximo**: M3 (detalhe e painéis — a F2/F3 já vale no mobile; conferir no device e coletar dado real do bug do `.bottom-sheet` com `100dvh`) e M4 (consolidação das skills + `docs/Lotes-Visao-Geral.md`).
 
 ## 3. O que NÃO muda
