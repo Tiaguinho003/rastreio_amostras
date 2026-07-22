@@ -37135,3 +37135,72 @@ body.is-selection-mode .samples-page-v2 .pg-tabs {
     top: 30px;
   }
 }
+
+/* ── Painel de FILTROS de /samples no kit institucional ──────────────
+   Os campos nasceram no modal central e ficaram menores que o kit
+   `.fv-form-*` (input de ~1,9rem contra 2,62rem, borda cinza-esverdeada
+   com sombrinha, raio 10px). Aqui eles adotam a MESMA geometria do kit:
+   hairline `--fv-line-strong`, raio `--fv-radius`, altura e tipografia do
+   `.fv-form-field`, anel de foco em `--fv-cta`. Escopado ao painel de
+   /samples — o `.samples-filter-modal` de /contratos segue como está. */
+
+.samples-filter-sheet .samples-filter-field-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  padding-left: 0;
+}
+
+.samples-filter-sheet .samples-filter-field-input,
+.samples-filter-sheet .samples-filter-multi,
+.samples-filter-sheet .samples-filter-toggle {
+  min-height: 2.62rem;
+  border: 1px solid var(--fv-line-strong);
+  border-radius: var(--fv-radius);
+  box-shadow: none;
+}
+
+.samples-filter-sheet .samples-filter-field-input {
+  padding: clamp(0.5rem, 2vw, 0.62rem) clamp(0.6rem, 2.4vw, 0.78rem);
+  font-size: 0.88rem;
+  font-weight: 400;
+}
+.samples-filter-sheet select.samples-filter-field-input {
+  padding-right: 1.9rem;
+}
+
+/* Foco: mesmo anel dos campos do kit (o verde-claro antigo era de outra
+   paleta). Vale pro input, pro multi-select e pro toggle. */
+.samples-filter-sheet .samples-filter-field-input:focus,
+.samples-filter-sheet .samples-filter-multi:focus-within,
+.samples-filter-sheet .samples-filter-multi.is-open,
+.samples-filter-sheet .samples-filter-toggle:focus-visible {
+  outline: none;
+  border-color: var(--fv-cta);
+  box-shadow: 0 0 0 3px rgba(23, 60, 48, 0.12);
+}
+
+.samples-filter-sheet .samples-filter-multi {
+  padding: 0.34rem 0.5rem;
+}
+.samples-filter-sheet .samples-filter-toggle {
+  padding: 0.5rem 0.72rem;
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+/* Grupos: mesmo micro-cabeçalho do kit (`.fv-form-heading`) separando
+   Clientes / Classificação / Lote. O grupo herda o gap da pilha de campos. */
+.samples-filter-group {
+  display: grid;
+  gap: 0.7rem;
+  min-width: 0;
+}
+/* O heading traz margem própria (`.fv-form-heading`); sem isto o gap do grid
+   somaria e os grupos ficariam soltos demais. */
+.samples-filter-group > .fv-form-heading {
+  margin: 0 0 -0.2rem;
+}
+.samples-filter-group + .samples-filter-group > .fv-form-heading {
+  margin-top: 0.35rem;
+}

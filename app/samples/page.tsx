@@ -2262,35 +2262,44 @@ function SamplesPage() {
     // painel lateral de 400px. A unica diferenca que sobra entre os tamanhos e
     // o campo de cliente — direto no desktop, retratil no mobile (`isDesktop`
     // acima).
+    //
+    // Os campos entram agrupados por ASSUNTO, com o micro-cabecalho do kit
+    // (`.fv-form-heading`) — a pilha unica de 10 campos nao dizia onde uma
+    // coisa acabava e a outra comecava.
     return (
       <div className="samples-filter-fields">
-        {ownerFilter}
-        {buyerFilter}
-        {sentToFilter}
-
-        {/* Padrao + Aspecto e Catacao + Certificado vao 2 por linha (mesmo grid
-            do par Status/Safra) pra economizar espaco vertical no modal. */}
-        <div className="samples-filter-row">
-          {padraoField}
-          {aspectoField}
+        <div className="samples-filter-group">
+          <span className="fv-form-heading">Clientes</span>
+          {ownerFilter}
+          {buyerFilter}
+          {sentToFilter}
         </div>
 
-        <div className="samples-filter-row">
-          {catacaoField}
-          {certificadoField}
+        <div className="samples-filter-group">
+          <span className="fv-form-heading">Classificação</span>
+          {/* Padrao + Aspecto e Catacao + Certificado vao 2 por linha pra
+              economizar espaco vertical no painel. */}
+          <div className="samples-filter-row">
+            {padraoField}
+            {aspectoField}
+          </div>
+          <div className="samples-filter-row">
+            {catacaoField}
+            {certificadoField}
+          </div>
         </div>
 
-        <div className="samples-filter-row">
-          {statusField}
-          {safraField}
+        <div className="samples-filter-group">
+          <span className="fv-form-heading">Lote</span>
+          <div className="samples-filter-row">
+            {statusField}
+            {safraField}
+          </div>
+          {sacasField}
+          {periodoField}
+          {/* Meia largura: ocupa só a coluna esquerda do grid de 2 colunas. */}
+          <div className="samples-filter-row">{tipoField}</div>
         </div>
-
-        {sacasField}
-
-        {periodoField}
-
-        {/* Meia largura: ocupa só a coluna esquerda do grid de 2 colunas. */}
-        <div className="samples-filter-row">{tipoField}</div>
       </div>
     );
   }
