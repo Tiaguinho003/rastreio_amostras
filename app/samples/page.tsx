@@ -2889,7 +2889,9 @@ function SamplesPage() {
                               </button>
                             )}
                             {sample.isBlend ? <BlendBadge size="sm" /> : null}
-                            <span className={`fv-chip ${row.status.chip}`}>{row.status.label}</span>
+                            <span className={`fv-chip is-bare ${row.status.chip}`}>
+                              {row.status.label}
+                            </span>
                           </span>
                         </td>
                         <td>

@@ -5058,7 +5058,11 @@ button:disabled {
   /* Geometria do FAB flutuante (mobile) — ESPELHA `.cv2-fab` (manter em sync):
      o leque (`.fab-fan-option`) ancora as opcoes a partir dela. */
   --fab-right: calc(var(--lotes-sheet-pad) + var(--lotes-inner-pad));
-  --fab-size: clamp(53px, 14.95vw, 60px);
+  /* Menor que o `.cv2-fab` base (clamp 53-60): com a lista institucional o
+     botao cheio de gradiente virava a peca mais pesada da tela. Volta ao
+     tamanho de antes do +15%. Espelhado na regra escopada de `.cv2-fab` —
+     manter os dois em sync. */
+  --fab-size: clamp(46px, 13vw, 52px);
   --fab-bottom: calc(
     var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(6.3rem, 27vw, 6.8rem)
   );
@@ -5191,6 +5195,14 @@ button:disabled {
 @media (max-width: 900px) {
   .samples-page-v2:not(.informe-commercial-page) .cv2-fab {
     right: var(--fab-right);
+    width: var(--fab-size);
+    height: var(--fab-size);
+    border-radius: clamp(14px, 4vw, 16px);
+  }
+
+  .samples-page-v2:not(.informe-commercial-page) .cv2-fab svg {
+    width: clamp(18px, 5vw, 21px);
+    height: clamp(18px, 5vw, 21px);
   }
 }
 
@@ -5881,23 +5893,35 @@ button:disabled {
   transform: scale(0.99);
 }
 
-/* `⋯` do card: coluna IRMA do botao, nao filha — botao dentro de botao e HTML
-   invalido. Sem `position: absolute`, entao nao briga com o `overflow: hidden`
-   do wrap nem com o `content-visibility` dos cards fora de tela. */
+/* `⋯` do card: botao IRMAO do botao do card, nao filho — botao dentro de botao
+   e HTML invalido. Sem `position: absolute`, entao nao briga com o
+   `overflow: hidden` do wrap nem com o `content-visibility` dos cards fora de
+   tela; e, sendo irmao no flex, ele RESERVA a propria largura em vez de flutuar
+   por cima — o texto do card trunca antes de encostar nele, sem calculo de
+   caractere.
+
+   Era uma coluna de altura total com filete a esquerda. Virou um alvo redondo
+   centrado verticalmente: o filete somava uma terceira linha vertical ao card
+   (borda + filete + ponto de rolagem) e a coluna cheia pesava mais que a acao
+   que ela abre. */
 .spv2-card-dots {
   display: inline-grid;
   place-items: center;
   flex: none;
-  align-self: stretch;
-  width: clamp(38px, 10.5vw, 44px);
+  align-self: center;
+  width: 38px;
+  height: 38px;
+  margin-right: clamp(4px, 1.4vw, 6px);
   padding: 0;
   border: 0;
-  border-left: 1px solid var(--fv-line);
+  border-radius: 50%;
   background: transparent;
   color: var(--fv-chip-gray-fg);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 140ms ease;
+  transition:
+    transform 140ms ease,
+    background 140ms ease;
 }
 
 .spv2-card-dots svg {
@@ -5918,12 +5942,15 @@ button:disabled {
   }
 }
 
-/* Chip de status: o MESMO `.fv-chip` da tabela do desktop. Antes era o
-   `.spv2-card-badge`, com paleta propria que divergia da tabela — "Em aberto"
-   azul aqui e verde la, "Vendido" verde aqui e cinza la. Encostado na direita
-   da linha do numero. */
+/* Chip de status: o MESMO `.fv-chip` da tabela do desktop, na variante
+   `is-bare`. Antes era o `.spv2-card-badge`, com paleta propria que divergia da
+   tabela.
+
+   Ele NAO e mais encostado na direita (havia um `margin-left: auto` aqui): fica
+   colado no numero, com o badge de liga entre os dois quando ha liga — a mesma
+   ordem da celula "Lote" da tabela. O `auto` empurrava o status pra longe do
+   dado que ele qualifica, e agora a direita e do `⋯`. */
 .spv2-card-wrap .spv2-card-top .fv-chip {
-  margin-left: auto;
   flex: none;
 }
 
@@ -5939,6 +5966,9 @@ button:disabled {
 .samples-page-v2 .spv2-card-wrap > .spv2-card {
   gap: 0;
   padding: clamp(11px, 3.2vw, 13px) clamp(12px, 3.4vw, 14px);
+  /* A direita quem fecha e o `⋯` (irmao, com margem propria): o padding daqui
+     so garante a folga entre o texto e o alvo dele. */
+  padding-right: clamp(6px, 2vw, 8px);
 }
 
 .samples-page-v2 .spv2-card-content {
@@ -28013,6 +28043,36 @@ body:has(.app-modal-backdrop.is-stacked)
     transform 0.36s cubic-bezier(0.34, 1.46, 0.5, 1);
 }
 
+/* ── Leque de DUAS opcoes: arco SIMETRICO (67.5° e 22.5°) ──
+   As posicoes abaixo (90° / 45° / 0°) foram desenhadas para TRES opcoes. Em
+   /samples a terceira (Aprovacao) saiu na AP29 e ninguem remexeu o arco: as
+   duas restantes ficaram amontoadas no quadrante de cima, com um buraco onde
+   estava a terceira. Com duas, o par vai para 67.5° e 22.5° — simetrico em
+   torno da diagonal, com a mesma separacao de 45° entre eles e ate as bordas.
+
+   Escopado por `.is-fan-2` (o componente marca o leque pelo NUMERO de opcoes,
+   nao pela pagina): o leque do /informe segue com tres e o arco original.
+
+   cos(67.5°) = sen(22.5°) = 0.3827 · sen(67.5°) = cos(22.5°) = 0.9239 — os
+   mesmos dois fatores trocados entre os eixos. ── */
+.fab-fan.is-fan-2 .fab-fan-option.is-lote {
+  right: calc(
+    var(--fab-right) + var(--fab-size) / 2 + var(--fan-radius) * 0.3827 - var(--fan-opt-size) / 2
+  );
+  bottom: calc(
+    var(--fab-bottom) + var(--fab-size) / 2 + var(--fan-radius) * 0.9239 - var(--fan-opt-size) / 2
+  );
+}
+
+.fab-fan.is-fan-2 .fab-fan-option.is-liga {
+  right: calc(
+    var(--fab-right) + var(--fab-size) / 2 + var(--fan-radius) * 0.9239 - var(--fan-opt-size) / 2
+  );
+  bottom: calc(
+    var(--fab-bottom) + var(--fab-size) / 2 + var(--fan-radius) * 0.3827 - var(--fan-opt-size) / 2
+  );
+}
+
 /* Lote: ACIMA do FAB (centro horizontal alinhado ao FAB, topo do arco).
    transform-origin no canto inferior-direito do botao (onde fica o circulo,
    logo acima do FAB). */
@@ -32909,6 +32969,19 @@ body.is-selection-mode .ctr-page .cc-tabs {
   color: var(--fv-chip-blue-fg);
 }
 
+/* Variante sem pastilha: so a letra, na cor da variante. Usada na LISTA de
+   lotes (card e linha da tabela), onde o status divide a celula com o numero e
+   o badge de liga — tres pastilhas seguidas viravam ruido. O chip pastel segue
+   sendo o padrao (RD12) no detalhe, em /cadastros e onde o status aparece
+   sozinho. Mesma classe de cor nos dois casos: muda so a forma. */
+.fv-chip.is-bare {
+  height: auto;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  font-size: 0.75rem;
+}
+
 /* ══════════════════════════════════════════════════════════════
    Kit FV compartilhado dos DETALHES (hero de painel): botao redondo
    de acao, menu ⋯ e tab-strip. Nasceram no drawer do cliente
@@ -33554,6 +33627,16 @@ body.is-selection-mode .ctr-page .cc-tabs {
   padding-right: 2.1rem;
 }
 
+/* O placeholder e uma DICA, nao um dado: menor, mais leve e mais apagado que o
+   texto digitado, ainda legivel. Sem isso ele competia com o conteudo da lista,
+   e a busca vazia era a coisa mais escrita da tela. */
+.fv-toolbar-search-input::placeholder {
+  font-size: 0.8rem;
+  font-weight: 300;
+  color: color-mix(in srgb, var(--muted) 62%, transparent);
+  opacity: 1;
+}
+
 .fv-toolbar-search-clear {
   position: absolute;
   right: 0.35rem;
@@ -33687,7 +33770,13 @@ body.is-selection-mode .ctr-page .cc-tabs {
     height: 0;
   }
 
-  /* Contagem na ponta DIREITA da segunda linha; "Limpar" a esquerda dela. */
+  /* Contagem na ponta DIREITA da segunda linha; "Limpar" a esquerda dela. Ela
+     e um rodape da chrome, nao um dado da lista — por isso menor que o
+     secundario do card. */
+  .fv-lotes-page .fv-toolbar-count {
+    font-size: 0.72rem;
+  }
+
   .fv-lotes-page .fv-toolbar-clear {
     order: 4;
   }
