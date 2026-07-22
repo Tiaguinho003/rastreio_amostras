@@ -43,26 +43,37 @@ Regra consolidada:
 
 ### Escrita
 
-1. `POST /api/v1/samples/receive`
-   Cria evento de recebimento simples.
-2. `POST /api/v1/samples/create`
+1. `POST /api/v1/samples/create`
    Cria o lote emitindo um unico evento `REGISTRATION_CONFIRMED`. Body: `clientDraftId` (obrigatorio — ancora da idempotencia), `ownerClientId` (obrigatorio; `resolveOwnerBinding` exige cliente existente, ativo e vendedor), `sacks` (inteiro >= 1), `harvest` (obrigatorio), `originLot` (opcional, <= 100), `location` (opcional, <= 30), `notes` (opcional, <= 500), `sampleLotNumber` + `lotNumberManual` (numero manual do lote — a API so repassa o numero quando `lotNumberManual === true`, hardening LNW-B1; `normalizeManualLotNumber` valida digitos/faixa e colisao responde 409 com `field: lotNumber`) e `receivedDate` (data de chegada `YYYY-MM-DD`; dia passado vira meio-dia SP, futuro 422). `receivedChannel` nao vem mais do frontend (LNW-D3): o backend aplica o default `in_person` e segue aceitando o enum completo. Idempotencia: `sampleId` deterministico (hash de `actorUserId` + `clientDraftId`) — retry do mesmo draft responde `200 { idempotent: true }` sem evento novo; draft de amostra INVALIDATED responde 409. Cobertura em `tests/sample-create-validation.integration.test.js`.
-3. `POST /api/v1/samples/:sampleId/registration/start`
-4. `POST /api/v1/samples/:sampleId/photos`
-5. `POST /api/v1/samples/:sampleId/registration/confirm`
-6. `POST /api/v1/samples/:sampleId/registration/update`
-7. `POST /api/v1/samples/:sampleId/qr/print/request`
-8. `POST /api/v1/samples/:sampleId/qr/reprint/request`
-9. `POST /api/v1/samples/:sampleId/qr/print/failed`
-10. `POST /api/v1/samples/:sampleId/qr/printed`
-11. `POST /api/v1/samples/:sampleId/classification/update`
-    (Nao existem `classification/start` nem `/partial` — cortados no Q.cls.1; `classification/complete` era DEPRECATED e foi REMOVIDA em 2026-07-13, CL13 — classificacao nova e exclusiva de `POST /api/v1/classification/confirm`.)
-12. `POST /api/v1/samples/:sampleId/edits/revert`
-13. `POST /api/v1/samples/:sampleId/commercial-status`
-14. `POST /api/v1/samples/:sampleId/physical-send`
-15. `POST /api/v1/samples/:sampleId/export/pdf`
-16. `POST /api/v1/samples/:sampleId/invalidate`
-    Encerra o lote em `INVALIDATED` (soft-delete que libera o numero). A UI do detalhe rotula essa acao como **"Deletar"** (LDT-D2) — o endpoint continua `/invalidate`. 409 `SAMPLE_HAS_CONTRACT` se houver contrato vinculado.
+2. `POST /api/v1/samples/blends`
+   Cria a liga a partir de 2+ lotes de origem. Mesma ancora de idempotencia da criacao (`clientDraftId`), mais `components[]`, `ownerClientId?`/`ownerFixed?`, `lotNumber?`/`lotNumberManual?` e `receivedDate?`. Safra, sacas e lote de origem sao **derivados** das origens — ver `Liga-Plano-de-Trabalho.md`.
+3. `POST /api/v1/samples/:sampleId/revert-blend`
+   Reverte a liga: emite `BLEND_REVERTED`, leva a liga a `INVALIDATED` e devolve as origens ao estado anterior. Composicao preservada no evento.
+4. `POST /api/v1/samples/:sampleId/registration/update`
+   Edita os campos declarados do lote. Guards de liga: 422 `BLEND_HARVEST_READ_ONLY` (safra) e `BLEND_SACKS_READ_ONLY` (sacas); o lote de origem, ao contrario, e editavel e a edicao **fixa** a origem (`blendOriginLotPinned`).
+5. `POST /api/v1/samples/:sampleId/photos`
+6. `POST /api/v1/samples/:sampleId/qr/print/request`
+7. `POST /api/v1/samples/:sampleId/qr/print/failed`
+8. `POST /api/v1/samples/:sampleId/qr/printed`
+9. `POST /api/v1/samples/:sampleId/classification/update`
+   (Nao existem `classification/start` nem `/partial` — cortados no Q.cls.1; `classification/complete` era DEPRECATED e foi REMOVIDA em 2026-07-13, CL13 — classificacao nova e exclusiva de `POST /api/v1/classification/confirm`. Tambem nao existem `registration/start`, `registration/confirm` nem `qr/reprint/request`: a criacao emite `REGISTRATION_CONFIRMED` direto e a reimpressao reusa `qr/print/request`.)
+10. `POST /api/v1/samples/:sampleId/edits/revert`
+11. `POST /api/v1/samples/:sampleId/commercial-status`
+12. `POST /api/v1/samples/:sampleId/movements`
+    Registra venda (`SALE`) ou perda (`LOSS`). Gate de status: so em `REGISTRATION_CONFIRMED` ou `CLASSIFIED`. Numa liga a perda e sempre 100% (sem campo de quantidade) e dispara a cascata nas ligas que a contem.
+13. `PATCH /api/v1/samples/:sampleId/movements/:movementId`
+    Edita uma movimentacao ativa (exige motivo). **Sem consumidor de UI hoje** — a superficie que a chamava era o `SampleMovementModal`, deletado no redesenho.
+14. `POST /api/v1/samples/:sampleId/movements/:movementId/cancel`
+    Cancela a movimentacao (exige motivo) e recalcula o status comercial.
+15. `POST /api/v1/samples/:sampleId/physical-send`
+    Registra o envio fisico. Um POST **por destinatario** (a UI itera a lista de clientes). Gate de status: `REGISTRATION_CONFIRMED` ou `CLASSIFIED`.
+16. `PATCH /api/v1/samples/:sampleId/physical-send/:sendEventId`
+    Edita destinatario e data do envio (`PHYSICAL_SAMPLE_SEND_UPDATED`).
+17. `DELETE /api/v1/samples/:sampleId/physical-send/:sendEventId`
+    Cancela o envio (`PHYSICAL_SAMPLE_SEND_CANCELLED`) e **revoga o laudo publico** vinculado (`revokeReportShareBySendEvent`).
+18. `POST /api/v1/samples/:sampleId/export/pdf`
+19. `POST /api/v1/samples/:sampleId/invalidate`
+    Encerra o lote em `INVALIDATED` (soft-delete que libera o numero). A UI do detalhe rotula essa acao como **"Deletar"** (LDT-D2) — o endpoint continua `/invalidate`. 409 `SAMPLE_HAS_CONTRACT` se houver contrato vinculado; 409 `SAMPLE_HAS_ACTIVE_BLENDS` se o lote for origem de liga ativa.
 
 ### Leitura de anexo (foto)
 
@@ -91,19 +102,30 @@ Validacoes criticas nessas rotas:
 ### Leitura
 
 1. `GET /api/v1/samples`
-   Lista paginada (cursor keyset por numero de lote). Filtros: busca por texto (`search`, casa por prefixo); status de exibicao (`displayStatus`); safra multipla (`harvests`); proprietario / comprador / enviado-para por cliente (`ownerClientIds` / `buyerClientIds` / `sentToClientIds`); classificacao (`padroes` / `aspectos` / `catacoes` / `certificados`); faixa de sacas (`sacksMin` / `sacksMax`); periodo de registro (`createdFrom` / `createdTo`); apenas ligas (`isBlend`). Opcional `eligibleForBlend` enriquece cada item com `eligibility` + `committedSacks` (modo Liga). No load-more (com cursor) `page.total`/`page.totalPages` vem `null` (o COUNT so roda na carga inicial).
-2. `GET /api/v1/samples/:sampleId`
+   Lista paginada (cursor keyset por numero de lote). Filtros: busca por texto (`search`, casa por prefixo); status de exibicao (`displayStatus`); **grupo de status (`statusGroup`, hoje so `CLASSIFICATION_PENDING` — e o que o KPI clicavel da lista aplica)**; safra multipla (`harvests`); proprietario / comprador / enviado-para por cliente (`ownerClientIds` / `buyerClientIds` / `sentToClientIds`); classificacao (`padroes` / `aspectos` / `catacoes` / `certificados`); faixa de sacas (`sacksMin` / `sacksMax`); periodo de registro (`createdFrom` / `createdTo`); apenas ligas (`isBlend`). Opcional `eligibleForBlend` enriquece cada item com `eligibility` + `committedSacks` (modo Liga). No load-more (com cursor) `page.total`/`page.totalPages` vem `null` (o COUNT so roda na carga inicial).
+2. `GET /api/v1/samples/stats`
+   KPI row da lista de Lotes. Contagens **globais**, independentes dos filtros da lista, com deletados de fora: `total`, `open`, `classificationPending`, `sold`, `soldThisWeek`, `soldLastWeek`, `newThisMonth`, `newLastMonth` (shape em `SampleStatsResponse`, `lib/types.ts`). Os pares `*ThisWeek`/`*LastWeek` e `*ThisMonth`/`*LastMonth` existem so pra render da variacao. `Cache-Control: private, max-age=30, must-revalidate`. So e chamado no desktop.
+3. `GET /api/v1/samples/:sampleId`
    Retorna snapshot, anexos e preview inicial do historico.
-3. `GET /api/v1/samples/:sampleId/events`
+4. `GET /api/v1/samples/:sampleId/events`
    Retorna timeline de eventos.
-4. `GET /api/v1/samples/resolve`
+5. `GET /api/v1/samples/:sampleId/movements`
+   Movimentacoes (vendas e perdas) ativas e canceladas do lote.
+6. `GET /api/v1/samples/:sampleId/blend-feasibility`
+   Pre-valida a cascata antes de vender/perder um lote que e origem de liga ativa: diz se a operacao cabe e o que ela derruba.
+7. `GET /api/v1/samples/resolve`
    Resolve QR bruto para UUID ou lote interno.
-5. `GET /api/v1/samples/next-lot-number`
-   Sugestao do proximo numero da sequencia (`{ nextLotNumber }`) pra pre-preencher o campo editavel no modal de criacao. E so sugestao: o numero real e gerado server-side no submit (com retry de colisao no modo automatico).
-6. `GET /api/v1/dashboard/pending`
-   Retorna `{ classificationPending: { total } }` (count-only desde o check-up DSB-H4/H5 — os `items` e o `clientsIncomplete` eram payload morto e saíram). **Desde 2026-07-12 (DSB-D2) não é mais consumido pelo dashboard:** alimenta o card só-visualização "Classificação pendente" da página de Lotes (`/samples`). O nome "dashboard" é dívida até a revisão de Lotes/Clientes.
-7. `GET /api/v1/samples/recent-sends`
-   Card "Amostras enviadas" — **no topo da página de Lotes desde DSB-D14 (2026-07-14; era o feed do dashboard `/dashboard/recent-sends`, removido)**. Devolve `{ items }`, top-40 do mais recente pro mais antigo, `kind ∈ {PHYSICAL_SAMPLE, REPORT}` (`PHYSICAL_SAMPLE_SENT` + `REPORT_EXPORTED`, sobre `sample_event`): lote/`isBlend`, destinatário ATUAL (última `SEND_UPDATED` vence; laudo cai pro snapshot ou `destination`) e flag `cancelled` (pareamento por `payload.sendEventId`); exclui amostras `INVALIDATED`. `Cache-Control: private, max-age=30, must-revalidate`. _(O feed de envios de APROVAÇÃO virou endpoint próprio: `GET /api/v1/sale-contracts/approvals/recent-sends` → `{ items }` com `kind = APPROVAL`, 1 item por linha do `approval_label_log` ligada a contrato, `contractNumber` + `buyer`, `id` namespaced `approval:<id>`; degrada para `[]` sem contract service. Consumido pelo card "Aprovações enviadas" da aba Aprovações de `/embarques`.)_
+8. `GET /api/v1/samples/classification-values`
+   Valores distintos de um campo de classificacao (`?field=padrao|aspecto|catacao|certif`) — alimenta as opcoes dos multi-selects do painel de filtros.
+9. `GET /api/v1/samples/next-lot-number`
+   Sugestao do proximo numero da sequencia (`{ nextLotNumber }`) pra pre-preencher o campo editavel no formulario de criacao. E so sugestao: o numero real e gerado server-side no submit (com retry de colisao no modo automatico).
+
+Duas rotas de leitura ficaram **sem consumidor** quando os cards que as alimentavam sairam de `/samples` no redesenho FV (a contagem de pendentes virou KPI da propria lista, servida por `/samples/stats`; o feed de envios saiu do produto). Continuam de pe, mas nada as chama:
+
+- `GET /api/v1/dashboard/pending` — `{ classificationPending: { total } }`. Alimentava o card so-visualizacao "Classificacao pendente" (DSB-D2). Componente `ClassificationPendingCard` orfao.
+- `GET /api/v1/samples/recent-sends` — `{ items }`, top-40, `kind ∈ {PHYSICAL_SAMPLE, REPORT}`, destinatario ATUAL (ultima `SEND_UPDATED` vence) e flag `cancelled`; excluia `INVALIDATED`. Alimentava o card "Amostras enviadas" (DSB-D14). O helper `getSampleRecentSends` do api-client tambem esta orfao.
+
+> O feed de envios de APROVACAO **nao** e afetado: vive em endpoint proprio (`GET /api/v1/sale-contracts/approvals/recent-sends` → `{ items }` com `kind = APPROVAL`, 1 item por linha do `approval_label_log` ligada a contrato, `contractNumber` + `buyer`, `id` namespaced `approval:<id>`; degrada para `[]` sem contract service) e continua consumido pelo card "Aprovacoes enviadas" da aba Aprovacoes de `/embarques`, que reusa o `RecentSendsCard`.
 
 > Autorização dos endpoints de dashboard e dos feeds de envios: apenas autenticação (PROSPECTOR é negado pela allowlist central). **Sem gate positivo de papel por decisão** (DSH-D2, 2026-07-07). As rotas `dashboard/commercial-timeseries` (card "Vendas e perdas", 2026-07-07 — DSH-D3), `dashboard/sales-availability` (donut "Lotes disponíveis", 2026-07-14 — DSB-D14) e `dashboard/recent-sends` (dividida/movida — DSB-D14) foram removidas.
 
@@ -115,19 +137,21 @@ Validacoes criticas nessas rotas:
    Lista paginada com busca por nome, documento, codigo. Filtra por `personType`, `isBuyer`, `isSeller`, `commercialUserIds[]`.
 2. `POST /api/v1/clients`
    Cria cliente. Para PJ exige `cnpj` direto no body (e aceita `addressLine`/`city`/`state`/`registrationNumber`/etc.). Para PF aceita `units[]` (fazendas opcionais com `name` obrigatorio + `cnpj`/`car`/endereco). PJ rejeita `units[]` com 422 `PJ_HAS_NO_UNITS`. **Suporta header opcional `Idempotency-Key` (#5/Q-02)** — duas chamadas com a mesma key (e mesmo escopo + actor) retornam a resposta da primeira sem criar duplicata. Cache 24h. Cache TUDO (sucessos e erros).
-3. `GET /api/v1/clients/lookup`
+3. `GET /api/v1/clients/stats`
+   KPI row da lista de `/cadastros` — contagens globais, independentes dos filtros. Mesmo racional de cache do `/samples/stats`: `Cache-Control: private, max-age=30, must-revalidate`, chamado so no desktop.
+4. `GET /api/v1/clients/lookup`
    Smart resolve: 14 digitos batem CNPJ direto em Client (PJ) ou em ClientUnit (fazenda PF). Retorna `matchedUnitId` quando o match e via unit.
-4. `GET /api/v1/clients/:clientId`
+5. `GET /api/v1/clients/:clientId`
    Detalhe + lista de `units` (PF; PJ retorna `units: []`). Aceita query
    param **`?onlyActive=true`** (Q-01) que filtra unidades inativas do
    payload retornado. Default `false` (retrocompativel).
-5. `PATCH /api/v1/clients/:clientId`
+6. `PATCH /api/v1/clients/:clientId`
    Atualiza fields. **Aceita payload partial** — backend usa `Object.hasOwn` para detectar campos presentes (em `normalizeUpdateClientInput`); o front divide a edicao em duas tabs (`info` e `address`) e envia apenas os campos da tab atual + `reasonText`. PJ pode editar `cnpj` (UNIQUE), `addressLine`, `city`, `state`, `registrationNumber`, `email` direto. Bloqueia troca de `personType` com 422 `CLIENT_PERSON_TYPE_LOCKED`. Outros codigos de erro mapeados no front (em pt-BR): `COMMERCIAL_USER_REQUIRED_FOR_ACTIVE`, `COMMERCIAL_USER_NOT_FOUND`, `COMMERCIAL_USER_INACTIVE`, `PROSPECTOR_NOT_ASSIGNABLE` (422; papel nao atribuivel como responsavel — vale tambem em `createClient`, `addCommercialUserToClient` e `bulkAddCommercialUser`), `PJ_REQUIRES_CNPJ`. `email` e opcional em ambos PF e PJ. Exige `reasonText`.
-6. `POST /api/v1/clients/:clientId/inactivate`
+7. `POST /api/v1/clients/:clientId/inactivate`
    Inativa cliente. **#6/Q-05 (E1): rejeita 409 `CLIENT_HAS_ACTIVE_SAMPLES`** se o cliente tem amostras ATIVAS (`status NOT IN ('INVALIDATED')`). Body `{ reasonText: string }` (obrigatorio). Resposta 409 inclui `details.code = 'CLIENT_HAS_ACTIVE_SAMPLES'` + `details.details.activeSampleIds`/`activeSamples` para o front abrir o modal de cascata.
-7. `POST /api/v1/clients/:clientId/inactivate-with-cascade`
+8. `POST /api/v1/clients/:clientId/inactivate-with-cascade`
    **#6/Q-05+Q-08**: inativacao em cascata. Body `{ confirmedSampleIds: string[], reasonText?: string }`. Pre-valida que nenhuma sample tem `soldSacks>0` ou `lostSacks>0` (retorna 409 `SAMPLES_HAVE_ACTIVE_MOVEMENTS` se houver). Numa unica transacao, invalida cada sample (status=INVALIDATED + audit `SAMPLE_INVALIDATED` com payload `{ reason: 'OWNER_INACTIVATED', batchId, ... }`) e inativa o cliente (audit `CLIENT_INACTIVATED` com `cascade.{ batchId, cascadedSampleIds, skippedSampleIds }`). IDs ja INVALIDATED sao silenciosamente pulados (A1). reasonText opcional (D2). Reativar cliente NAO reativa samples — status terminal (B1).
-8. `POST /api/v1/clients/:clientId/reactivate`
+9. `POST /api/v1/clients/:clientId/reactivate`
    Reativacao de cliente ACTIVE exige >= 1 user comercial vinculado.
 
 ### Unidades (PF — fazendas)
