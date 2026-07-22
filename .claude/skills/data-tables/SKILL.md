@@ -250,6 +250,10 @@ pulsa é o `.fv-table-skel`.
 
 O vazio do modo seleção tem texto próprio ("Nenhum lote disponível para liga"), não o genérico.
 
+> ⚠️ As classes de estado (`.spv2-list-scroll`, `.spv2-empty`, `.spv2-error-banner`,
+> `.spv2-skeleton-card`) são **compartilhadas por todas as listas do app** — reuse o markup, mas
+> qualquer mudança de CSS nelas vai escopada na página (`css-architecture` §3).
+
 ---
 
 ## §6 Menu ⋯ da linha

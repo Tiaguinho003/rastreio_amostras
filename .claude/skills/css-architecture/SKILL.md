@@ -53,24 +53,42 @@ O alias fica assim, e é assim que se lê um no arquivo:
 
 ---
 
-## §3 🔴 `.sdv-*` é compartilhado
+## §3 🔴 Os prefixos são compartilhados
 
-O prefixo `.sdv-` nasceu no detalhe da amostra e foi **reusado** pelo detalhe do cliente. Hoje:
+**Um prefixo com nome de página não é escopo de página.** Quase todos foram reusados por outras
+telas. Consumidores hoje:
 
-- **173** classes `.sdv-*` no CSS
-- **68** usadas pelo `SampleDetailView`, **37** pelo `ClientDetailView`
-- **14 no núcleo comum**: `sdv-page` · `sdv-content` · `sdv-content-inner` · `sdv-general` ·
-  `sdv-card` · `sdv-card-header` · `sdv-card-title` · `sdv-informacoes` · `sdv-info-compact` ·
-  `sdv-info-grid` · `sdv-info-item` · `sdv-info-label` · `sdv-info-value` · `sdv-edit-row`
+| Prefixo   | Arquivos | Nasceu em           | Também serve                                            |
+| --------- | -------- | ------------------- | ------------------------------------------------------- |
+| `.sdv-*`  | 33       | detalhe da amostra  | detalhe do cliente, e outros                            |
+| `.spv2-*` | 19       | lista de `/samples` | `/cadastros`, `/users`, contratos, financeiro, embarque |
+| `.ctr-*`  | 15       | `/contratos`        | embarque, aprovações, financeiro                        |
+| `.cv2-*`  | 8        | lista de clientes   | `/samples` e outras listas                              |
+| `.rsm-*`  | 7        | `/relatorios`       | cards de visita/informe                                 |
+| `.cdm-*`  | 3        | `/users`            | `/profile`                                              |
 
-**Mexer numa dessas 14 sem escopo muda os dois detalhes.** Sempre escope no contêiner:
+### O caso mais afiado: `.sdv-*`
+
+173 classes no CSS; 68 usadas pelo `SampleDetailView` e 37 pelo `ClientDetailView`, com **14 no
+núcleo comum**: `sdv-page` · `sdv-content` · `sdv-content-inner` · `sdv-general` · `sdv-card` ·
+`sdv-card-header` · `sdv-card-title` · `sdv-informacoes` · `sdv-info-compact` · `sdv-info-grid` ·
+`sdv-info-item` · `sdv-info-label` · `sdv-info-value` · `sdv-edit-row`
+
+Mexer numa dessas 14 sem escopo muda **os dois detalhes**. Sempre escope no contêiner:
 
 ```css
 .lote-details-overlay .sdv-card { … }      /* só o drawer do lote   */
 .client-details-overlay .sdv-card { … }    /* só o drawer do cliente */
 ```
 
-Antes de editar qualquer `.sdv-*`, cheque quem mais usa (§7).
+### O mais fácil de subestimar: `.spv2-*`
+
+Os estados de lista (`.spv2-list-scroll`, `.spv2-empty`, `.spv2-error-banner`,
+`.spv2-skeleton-card`) são reusados por **todas** as listas do app, inclusive páginas que ainda não
+entraram no ciclo de redesenho. Restilizar o "vazio" de uma lista mexe no vazio de todas.
+
+**Regra:** antes de editar qualquer regra de prefixo de página, rode a checagem do §7. Se voltar
+mais de um arquivo, a regra vai escopada no contêiner da página.
 
 ---
 
