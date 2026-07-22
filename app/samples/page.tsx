@@ -30,6 +30,7 @@ import {
   type SampleDetailInitialAction,
 } from '../../components/samples/SampleDetailView';
 import { SampleCreateRadialFab } from '../../components/samples/SampleCreateRadialFab';
+import { SampleLabelPrintSheet } from '../../components/samples/SampleLabelPrintSheet';
 import { SampleMovementModal } from '../../components/samples/SampleMovementModal';
 import { SampleSendFlow } from '../../components/samples/SampleSendFlow';
 import {
@@ -814,6 +815,12 @@ function SamplesPage() {
     activeBlends: ActiveBlendDetail[];
   } | null>(null);
   const [lossSaving, setLossSaving] = useState(false);
+  // Impressao de etiqueta pelo ⋯ da linha: painel proprio, SEM abrir o drawer.
+  // A tabela ja tem o snapshot do lote na mao (mesmos campos que a etiqueta
+  // usa), entao o painel nao precisa de fetch nenhum — antes essa acao ia por
+  // `?lote=<id>&acao=imprimir`, que montava o detalhe inteiro pra mostrar um
+  // QR de cinco linhas.
+  const [printTarget, setPrintTarget] = useState<SampleSnapshot | null>(null);
   // F3: envio/perda abertos pelo ⋯ do HERO rodam aqui (mesmos componentes da
   // lista), entao o drawer precisa ser avisado que o lote mudou.
   const [detailRefreshKey, setDetailRefreshKey] = useState(0);
@@ -3098,9 +3105,11 @@ function SamplesPage() {
                                   >
                                     Ver detalhes
                                   </button>
-                                  {/* Perda e envio operam SEM sair da lista (mesmo
-                                    fluxo que saia do card expandido); imprimir e
-                                    deletar abrem o lote ja com o modal (?acao=). */}
+                                  {/* Perda, envio e impressao operam SEM sair da
+                                    lista (mesmo fluxo que saia do card
+                                    expandido); so deletar abre o lote ja com o
+                                    painel (?acao=), porque a exclusao depende
+                                    de estado que so o detalhe carrega. */}
                                   {row.canSend ? (
                                     <button
                                       type="button"
@@ -3133,8 +3142,7 @@ function SamplesPage() {
                                     className="fv-row-menu-item"
                                     onClick={() => {
                                       closeRowMenu();
-                                      saveSnapshotBeforeLeave();
-                                      openLote(sample.id, 'imprimir');
+                                      setPrintTarget(sample);
                                     }}
                                   >
                                     Imprimir etiqueta
@@ -3334,6 +3342,13 @@ function SamplesPage() {
           onClose={() => setSendTarget(null)}
         />
       ) : null}
+
+      <SampleLabelPrintSheet
+        session={session}
+        open={Boolean(printTarget)}
+        sample={printTarget}
+        onClose={() => setPrintTarget(null)}
+      />
 
       {lossTarget ? (
         <SampleMovementModal

@@ -17,6 +17,7 @@ import { BottomSheet } from '../BottomSheet';
 import { OriginLotChips } from '../OriginLotChips';
 import { PhotoZoomViewer } from '../PhotoZoomViewer';
 import { SuccessCheckOverlay } from '../SuccessCheckOverlay';
+import { buildReadableValue, ownerDisplayValue } from '../../lib/sample-display';
 import { ClientLookupField } from '../clients/ClientLookupField';
 import { ClientQuickCreateModal } from '../clients/ClientQuickCreateModal';
 import { BlendBadge } from '../samples/BlendBadge';
@@ -25,6 +26,7 @@ import { HarvestDisplay } from '../samples/HarvestDisplay';
 import { BlendRevertModal } from '../samples/BlendRevertModal';
 import { RelatedSampleRow } from '../samples/RelatedSampleRow';
 import { SampleInvalidateBlockedModal } from '../samples/SampleInvalidateBlockedModal';
+import { SampleLabelPrintSheet } from '../samples/SampleLabelPrintSheet';
 import { SampleMovementsPanel } from '../samples/SampleMovementsPanel';
 import { SampleSendFlow } from '../samples/SampleSendFlow';
 import {
@@ -36,7 +38,6 @@ import {
   listSampleEvents,
   listSampleMovements,
   lookupUsersForReference,
-  requestQrPrint,
   revertBlend,
   updateClassification,
   updatePhysicalSampleSend,
@@ -284,32 +285,6 @@ function NoticeSlot({ notice }: { notice: Notice }) {
       {notice ? <p className={`notice-slot-text is-${notice.kind}`}>{notice.text}</p> : null}
     </div>
   );
-}
-
-function buildReadableValue(value: unknown): string {
-  if (value === null || value === undefined) {
-    return '';
-  }
-
-  if (typeof value === 'string') {
-    return value.trim() ? value : '';
-  }
-
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return String(value);
-  }
-
-  return '';
-}
-
-// Liga (dono fixado): rótulo do dono no detalhe. Uma liga fixada como "carteira
-// da corretora" (blendOwnerPinned + owner null) mostra o rótulo em vez de vazio;
-// os demais casos caem no nome do dono (buildReadableValue).
-function ownerDisplayValue(sample: SampleDetailResponse['sample']): string {
-  if (sample.isBlend && sample.blendOwnerPinned && !sample.ownerClientId) {
-    return 'Carteira da corretora';
-  }
-  return buildReadableValue(sample.declared.owner);
 }
 
 // FV: a linha de fatos do hero mostra o PAPEL do cliente dono do lote
@@ -626,11 +601,7 @@ export function SampleDetailView({
   const [originLot, setOriginLot] = useState('');
   const [location, setLocation] = useState('');
 
-  const [printerId] = useState('printer-main');
   const [labelModalOpen, setLabelModalOpen] = useState(false);
-  const [labelModalSubmitting, setLabelModalSubmitting] = useState(false);
-  const [labelModalError, setLabelModalError] = useState<string | null>(null);
-  const [labelPrintSuccess, setLabelPrintSuccess] = useState(false);
   const [invalidateReasonCode, setInvalidateReasonCode] = useState<InvalidateReasonCode>('OTHER');
   const [invalidateReasonText, setInvalidateReasonText] = useState('');
   const [invalidating, setInvalidating] = useState(false);
@@ -699,7 +670,6 @@ export function SampleDetailView({
   // LDT-A4: o modal de reclassificar estava sem foco preso. (Edicao, data,
   // impressao e exclusao viraram paineis na F3 — o BottomSheet ja prende.)
   const reclassifyTrapRef = useFocusTrap(reclassifyModalOpen);
-  const labelModalPrimaryActionRef = useRef<HTMLButtonElement | null>(null);
   const lastQuickPrintButtonRef = useRef<HTMLButtonElement | null>(null);
   const lastInvalidateTriggerRef = useRef<HTMLButtonElement | null>(null);
   const fetchAbortRef = useRef<AbortController | null>(null);
@@ -970,9 +940,6 @@ export function SampleDetailView({
 
   useEffect(() => {
     setLabelModalOpen(false);
-    setLabelModalSubmitting(false);
-    setLabelModalError(null);
-    setLabelPrintSuccess(false);
     registrationEditModeRef.current = false;
     setRegistrationEditMode(false);
     setRegistrationEditReasonCode('OTHER');
@@ -1016,13 +983,6 @@ export function SampleDetailView({
     const timer = window.setTimeout(() => lastQuickPrintButtonRef.current?.focus(), 0);
     return () => window.clearTimeout(timer);
   }, [labelModalOpen]);
-
-  // Erros dos modais de acao somem sozinhos depois de 5s.
-  useEffect(() => {
-    if (!labelModalError) return;
-    const timer = window.setTimeout(() => setLabelModalError(null), 5000);
-    return () => window.clearTimeout(timer);
-  }, [labelModalError]);
 
   useEffect(() => {
     if (invalidateModalOpen) return;
@@ -1121,15 +1081,8 @@ export function SampleDetailView({
 
   const sendHistoryItems = useMemo(() => projectSendHistoryItems(sendHistory), [sendHistory]);
 
-  function resetLabelModal() {
-    setLabelModalOpen(false);
-    setLabelModalSubmitting(false);
-    setLabelModalError(null);
-    setLabelPrintSuccess(false);
-  }
-
   function closeLabelModal() {
-    resetLabelModal();
+    setLabelModalOpen(false);
   }
 
   // FV (acoes profundas do menu ⋯ da tabela): dispara o modal UMA vez quando o
@@ -1165,46 +1118,7 @@ export function SampleDetailView({
     }
 
     setGeneralNotice(null);
-    setLabelModalError(null);
-    setLabelPrintSuccess(false);
     setLabelModalOpen(true);
-  }
-
-  async function handleSubmitLabelReview() {
-    if (!session || !detail) {
-      return;
-    }
-
-    setLabelModalSubmitting(true);
-    setLabelModalError(null);
-    setLabelPrintSuccess(false);
-    setGeneralNotice(null);
-
-    try {
-      const normalizedPrinterId = printerId.trim() || null;
-
-      // Q.print: impressao virou acao pura — uma rota so, sem distinguir
-      // PRINT/REPRINT (attemptNumber e gerado no backend).
-      await requestQrPrint(session, sampleId, {
-        printerId: normalizedPrinterId,
-      });
-
-      void refreshDetail();
-      // Sucesso: efeito de check verde por ~900ms e fecha o modal (sem mensagem).
-      setLabelPrintSuccess(true);
-      window.setTimeout(() => {
-        setLabelPrintSuccess(false);
-        resetLabelModal();
-      }, 900);
-    } catch (cause) {
-      if (cause instanceof ApiError) {
-        setLabelModalError(cause.message);
-      } else {
-        setLabelModalError(cause instanceof Error ? cause.message : 'Falha ao solicitar impressao');
-      }
-    } finally {
-      setLabelModalSubmitting(false);
-    }
   }
 
   // Mostra o efeito de X vermelho (~1.3s) e, se pedido, fecha o overlay
@@ -2040,11 +1954,7 @@ export function SampleDetailView({
                 <button
                   type="button"
                   className={`fv-iconbtn${printHighlighted ? ' is-highlight-pulse' : ''}`}
-                  disabled={
-                    !canQuickPrint ||
-                    labelModalSubmitting ||
-                    detail.latestPrintJob?.status === 'PENDING'
-                  }
+                  disabled={!canQuickPrint || detail.latestPrintJob?.status === 'PENDING'}
                   onClick={(event) => {
                     setPrintHighlighted(false);
                     openLabelReviewModal(event.currentTarget);
@@ -2966,65 +2876,14 @@ export function SampleDetailView({
         </section>
       ) : null}
 
-      <BottomSheet
-        open={Boolean(detail) && labelModalOpen}
-        onClose={closeLabelModal}
-        onDismissAttempt={() => !labelModalSubmitting && !labelPrintSuccess}
-        ariaLabel="Imprimir etiqueta"
+      <SampleLabelPrintSheet
+        session={session}
+        open={labelModalOpen}
+        sample={detail?.sample ?? null}
         stacked
-        closeVariant="edge-back"
-        dragDisabled={labelModalSubmitting || labelPrintSuccess}
-        className="fv-panel-sheet side-sheet sample-print-sheet"
-        footer={
-          labelPrintSuccess ? null : (
-            <button
-              ref={labelModalPrimaryActionRef}
-              type="button"
-              className="app-modal-submit"
-              disabled={labelModalSubmitting}
-              onClick={() => void handleSubmitLabelReview()}
-            >
-              {labelModalSubmitting ? 'Enviando...' : 'Imprimir'}
-            </button>
-          )
-        }
-      >
-        {detail ? (
-          <>
-            <p className="fv-panel-lead">Confira os dados antes de enviar para a impressora.</p>
-
-            <article className="label-print-card new-sample-label-print-card">
-              <div className="label-qr">
-                <QRCodeCanvas value={qrValue} size={120} />
-              </div>
-              <div className="label-meta">
-                <p>
-                  <strong>Lote interno:</strong>{' '}
-                  {detail.sample.internalLotNumber ?? detail.sample.id}
-                </p>
-                <p>
-                  <strong>Proprietario:</strong> {ownerDisplayValue(detail.sample)}
-                </p>
-                <p>
-                  <strong>Sacas:</strong> {buildReadableValue(detail.sample.declared.sacks)}
-                </p>
-                <p>
-                  <strong>Safra:</strong>{' '}
-                  <HarvestDisplay harvest={detail.sample.declared.harvest} fallback="" />
-                </p>
-                <p>
-                  <strong>Lote origem:</strong>{' '}
-                  {buildReadableValue(detail.sample.declared.originLot)}
-                </p>
-              </div>
-            </article>
-
-            {labelModalError ? <p className="sdv-modal-error">{labelModalError}</p> : null}
-
-            <SuccessCheckOverlay show={labelPrintSuccess} />
-          </>
-        ) : null}
-      </BottomSheet>
+        onClose={closeLabelModal}
+        onPrinted={() => void refreshDetail()}
+      />
 
       <ClientQuickCreateModal
         session={session}
