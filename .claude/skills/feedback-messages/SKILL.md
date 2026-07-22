@@ -103,32 +103,18 @@ modal (listas, cards, páginas).
 
 ## 3. Inline form errors — validação de campo
 
-Erros que pertencem a **um input específico** ficam **abaixo do input**, não em toast.
+> **A mecânica está em `forms` §6** (classes do kit FV, limpar ao digitar, fluxo de submit,
+> `aria-invalid`, o mapeamento das duas famílias de classe). Aqui fica só a decisão de superfície.
 
-### Padrão
-
-- Classe no input quando inválido: `.has-error` (ou `aria-invalid={true}`). No kit FV
-  (`design-system` §0.5) é `.is-field-error` no campo + `.fv-form-input-error` no input.
-- Mensagem: usar o `placeholder` do input pra mostrar o texto em vermelho suave (padrão
-  preferido) e, quando o campo já tem valor e o placeholder não aparece, uma linha abaixo do
-  input (`.fv-form-field-error` no kit FV — ex.: número de lote duplicado, data no futuro).
-- Mensagem some ao digitar (limpa via `clearFieldError(field)`).
-- Cor: vermelho suave `#c45c5c` (não vermelho saturado — não é catástrofe).
-- Sempre acompanha `aria-invalid` no input para acessibilidade.
-
-### Estrutura recomendada (controlled form)
-
-1. State `fieldErrors: Record<FieldName, string | null>` (reducer + dispatch).
-2. Validação no submit + on-blur opcional.
-3. Ao digitar, limpa o erro do campo: `dispatch({ type: 'CLEAR_FIELD_ERROR', field })`.
-4. Foco automático no primeiro campo inválido após validação.
-
-Referência completa: `components/NewSampleModal.tsx` (`RequiredFieldErrors` + reducer no topo, render do form abaixo). NÃO replicar a lógica — copiar o pattern.
+Erro que pertence a **um input específico** fica **no campo**, nunca em toast. Cor `#c45c5c` —
+vermelho suave, não é catástrofe.
 
 ### Quando NÃO usar inline
 
-- Erro de operação assíncrona (API falhou após submit) → **toast.error** acima ou banner no topo do form.
-- Erro de regra de negócio que abrange múltiplos campos → **banner inline no topo do form** (ex: `.nsv2-inline-error` standalone) ou modal.
+- Erro de operação assíncrona (API falhou após o submit) → linha de erro geral no fim do form, ou
+  **toast.error** se a superfície já fechou.
+- Erro de regra de negócio que abrange múltiplos campos → banner no topo do form, ou modal quando
+  exige decisão.
 
 ## 4. Banner — estado persistente da página
 

@@ -215,151 +215,56 @@ Definicoes em `app/globals.css` linhas 1015–1405. NAO duplicar; usar as classe
 - Submit a esquerda do Cancelar (visualmente, devido ao `flex-end` + ordem do JSX)
 - Border-top `1px solid rgba(0, 0, 0, 0.06)` separa do body
 
-## 5. Campos (`.app-modal-field` + `.app-modal-input`)
+## 5. Campos do modal central
 
-### Estrutura
-
-```tsx
-<label className="app-modal-field">
-  <span className="app-modal-label">Nome (obrigatório)</span>
-  <input className="app-modal-input" value={...} onChange={...} />
-</label>
-```
-
-### `.app-modal-input` sob `.is-themed`
-
-- `border: 2px solid rgba(0, 0, 0, 0.16)` — espessura dobrada vs default; bordas precisam ser visiveis sem foco
-- `background: #ffffff`
-- `border-radius: 12px`
-- `padding: 0.82rem 1.1rem`
-- `font-size: 1rem`
-- Focado: `border-color: rgba(22, 91, 42, 0.5)` + `box-shadow: 0 0 0 3px rgba(22, 91, 42, 0.1)` (glow verde)
-- **Inputs `type="date"`:** no WebKit/iOS o input nativo **ignora `width`/`max-width`** (usa a largura intrinseca do valor — o pseudo `::-webkit-date-and-time-value` tem `min-width` proprio) e estoura o modal (campo gigante + scroll lateral). `min-width:0`/`max-width:100%` em `.app-modal-field`/`.app-modal-input` **nao bastam**. O fix de verdade (regra `.app-modal.is-themed .app-modal-input[type='date']`): `-webkit-appearance: none` (vira input de texto, respeita `width:100%`) **+** `::-webkit-date-and-time-value { min-width: 0; text-align: left }`. O icone de calendario volta via `background-image` (a `.is-themed` pinta o fundo branco, entao precisa de especificidade 0,3,1). Mesmo padrao de `.samples-filter-field-input[type='date']`. Nao remover.
-
-### `.app-modal-label` sob `.is-themed`
-
-- `color: rgba(0, 0, 0, 0.6)`
-- `font-size: 0.78rem`
-- `font-weight: 600`
-- `letter-spacing: 0.02em`
-
-### Textarea
-
-Usar a mesma classe `app-modal-input` no `<textarea>`. Adicionar `rows={2-3}` e `maxLength` conforme caso.
+> **Form novo NAO nasce aqui.** Coletar dados e painel lateral com o kit `.fv-form-*` — ver a skill
+> `forms` (molde canonico, campos compostos, submit, erro no campo, sucesso, descarte). Esta secao
+> cobre so os campos que sobram nos modais CENTRAIS: o "motivo" de um confirm, a senha, o lookup de
+> um aviso.
 
 ```tsx
 <label className="app-modal-field">
   <span className="app-modal-label">Motivo (obrigatório)</span>
-  <textarea
-    className="app-modal-input"
-    value={...}
-    rows={2}
-    maxLength={300}
-    onChange={...}
-  />
+  <textarea className="app-modal-input" rows={2} maxLength={300} value={...} onChange={...} />
 </label>
 ```
 
-### Layout multi-coluna
+`.app-modal-input` sob `.is-themed`: borda `2px solid rgba(0,0,0,.16)` (espessura dobrada — precisa
+ser visivel sem foco), fundo `#fff`, raio 12px, padding `0.82rem 1.1rem`, `font-size: 1rem`; foco
+`border-color: rgba(22,91,42,.5)` + `box-shadow: 0 0 0 3px rgba(22,91,42,.1)`.
+`.app-modal-label`: `rgba(0,0,0,.6)`, `0.78rem`, peso 600.
 
-Para 2 campos lado a lado (ex: CPF | telefone), envolver com `<div className="sdv-edit-row">`:
+Dois campos lado a lado: envolver com `<div className="sdv-edit-row">`.
 
-```tsx
-<div className="sdv-edit-row">
-  <label className="app-modal-field">...</label>
-  <label className="app-modal-field">...</label>
-</div>
-```
+**`input[type="date"]` (NAO remover):** no WebKit/iOS o input nativo ignora `width`/`max-width` e
+estoura o modal. `min-width:0` no campo nao basta. O fix e
+`.app-modal.is-themed .app-modal-input[type='date'] { -webkit-appearance: none }` +
+`::-webkit-date-and-time-value { min-width: 0; text-align: left }`, com o icone de calendario
+voltando por `background-image`. O kit `.fv-form-*` tem o equivalente proprio.
 
-`.sdv-edit-row` = `display: grid; grid-template-columns: 1fr 1fr; gap: clamp(8px, 2.2vw, 10px)`.
-
-Para proporcoes diferentes, usar `style={{ gridTemplateColumns: '1fr 2fr' }}` inline.
-
-Para campo full-width dentro de grid de 2 colunas, usar modificador `.is-full` no `.app-modal-field` (depende do CSS scoping local — ver `cudm-info-grid > .app-modal-field.is-full` em `globals.css` como exemplo).
-
-### ClientLookupField num modal (dropdown que escapa)
-
-Modal central que hospeda um `<ClientLookupField>` (ex.: envio fisico e gerar laudo no detalhe da amostra): o dropdown de resultados e `position: absolute` dentro do `.app-modal-content` (que tem `overflow: auto`), entao fica **recortado** pelas bordas. Pra ele "escapar" sem aumentar o modal, adicionar a classe **`.sample-detail-lookup-modal`** no `<section>` (junto de `.app-modal is-themed ...`):
-
-- libera `overflow: visible` no modal e no `.app-modal-content` (o card continua arredondado pelo `border-radius` e o header tem radius proprio — so o dropdown, que e filho, passa pra fora);
-- o dropdown ganha `max-height` pra ~4 itens + scroll **vertical** (`overflow-x: hidden`);
-- capar resultados com a prop **`maxResults={10}`** no `ClientLookupField` (alem de 10, o usuario refina a digitacao);
-- pra abrir com a busca ja preenchida (ex.: nome anotado no informe, modal de vinculo do viewer Relatórios), usar a prop **`initialSearch`** — so inicializa o estado no mount; o primeiro foco no campo ja dispara as sugestoes.
-
-**Multi-select de clientes:** chips dentro do box `.samples-filter-multi .samples-filter-multi--lookup` + `ClientLookupField` com `clearOnSelect` (o pai mantem o array e renderiza os chips). Rotulo do chip capado em ~10 chars + `…` (nome completo no `title`), placeholder sai quando ha selecao. Ver `design-system` §"Campos de filtro multi-select".
+**`ClientLookupField` num modal central:** o dropdown escapa do `overflow` do card — o modal precisa
+de `overflow: visible` no `.app-modal-content` ou o lookup fica cortado.
 
 ## 6. Erros e validacao
 
-### Erro generico do modal (topo)
+> A regra (**erro DENTRO do campo, limpando ao digitar**) e o fluxo de submit estao em `forms` §6.
+> Aqui so o mapeamento de classes do modal central.
 
-Antes do `<form>`, mostrar mensagem geral em `.sdv-modal-error`:
+| Onde                 | Classe                                                            |
+| -------------------- | ----------------------------------------------------------------- |
+| Erro geral do modal  | `.sdv-modal-error` (fundo `rgba(192,57,43,.08)`, texto `#8a2727`) |
+| Erro por campo       | `.app-modal-input.has-error` (borda `rgba(196,92,92,.5)`)         |
+| Mensagem do campo    | `.cudm-edit-error` (`#c45c5c`, `0.78rem`)                         |
+| Placeholder vermelho | `.cqc-input-error::placeholder`                                   |
 
-```tsx
-{
-  errorMessage ? <p className="sdv-modal-error">{errorMessage}</p> : null;
-}
-```
-
-`.sdv-modal-error` = fundo `rgba(192, 57, 43, 0.08)` + texto `#8a2727` + borda vermelha clara.
-
-### Erro por campo
-
-Aplicar `.has-error` no `.app-modal-input`:
-
-```tsx
-<input
-  className={`app-modal-input${hasError ? ' has-error' : ''}`}
-  ...
-/>
-{hasError ? <span className="cudm-edit-error">{errorMessage}</span> : null}
-```
-
-`.app-modal-input.has-error` = `border-color: rgba(196, 92, 92, 0.5)` (vermelho suave).
-
-`.cudm-edit-error` = texto `#c45c5c` font-size `0.78rem` abaixo do input.
-
-### Erros de validacao em fluxo de submit
-
-Padrao do `ClientQuickCreateModal`:
-
-1. State `submitted = false` inicialmente
-2. Ao clicar Salvar: `setSubmitted(true)` antes de validar
-3. Erros so aparecem se `submitted && !canSubmit` — evita marcar campo como vermelho antes do usuario interagir
-4. Erro do campo entra como **placeholder vermelho** dentro do input (`placeholder={hasError ? hint : ''}`) + classe `.cqc-input-error::placeholder { color: #c45c5c }`
-
-> Convencao de feedback do projeto: erro de validacao **dentro do input** (placeholder vermelho + borda vermelha suave), nunca abaixo nem com tooltip. Ver memoria `feedback_error_inside_field`.
+_(No kit `.fv-form-*` os equivalentes sao `.is-field-error` no wrapper, `.fv-form-input-error` no
+input e `.fv-form-field-error` na mensagem.)_
 
 ## 7. Sucesso
 
-**Canonico (rodada 6 da FV, 2026-07-21): `components/SuccessCheckOverlay.tsx`** — overlay branco
-cobrindo o modal/painel inteiro com circulo+tick verde desenhando (classes
-`.client-create-success-overlay`/`.client-create-success-check` no `globals.css`). TODA acao de
-sucesso de modal/painel mostra este check; **frases "... com sucesso" nao existem mais** nesses
-fluxos (os `Notice` de sucesso do detalhe do cliente foram removidos — texto ficou so pra ERRO).
-
-```tsx
-import { SuccessCheckOverlay } from '../SuccessCheckOverlay';
-
-// filho DIRETO do conteudo do BottomSheet (o absolute ancora no sheet fixed
-// e cobre header+body+footer, mesmo com o corpo rolado):
-<SuccessCheckOverlay show={success} />;
-```
-
-Coreografia padrao (~1s): `setSuccess(true)` → `window.setTimeout(() => { close(); setSuccess(false); }, 1000)`.
-Durante o success, bloquear dismiss (`onDismissAttempt` → false) e `dragDisabled`. Variacoes:
-
-- **Acao que fecha** (criar, salvar, excluir): check → fecha de volta pro contexto anterior.
-- **Acao que nao fecha** (ex.: vincular anexo a filial): check pisca 1s e o painel segue aberto.
-- **Acao de um aviso central sobre o drawer** (inativar/reativar, cascata): o aviso fecha e o
-  check pisca SOBRE o drawer do detalhe (estado no pai, ex. `flashDetailCheck` no
-  `ClientDetailView`).
-
-_(O check estatico `.client-detail-success-check` foi DELETADO na rodada 6. Desde a F3 de
-`/samples`, **nenhum ponto do app carrega o markup inline** do overlay — `SuccessCheckOverlay` e o
-unico caminho.)_
-
-**Toast** continua valendo pra sucesso de acoes FORA de modal (lista, acoes globais, "copiado") —
-ver `design-system` §13 e a skill `feedback-messages`.
+> **MOVIDO para `forms` §7.** O canonico e o `SuccessCheckOverlay` (filho DIRETO do conteudo do
+> sheet/modal), com os tres padroes de temporizacao. Frases "... com sucesso" nao existem mais
+> nesses fluxos. Toast segue valendo pra sucesso FORA de modal — `feedback-messages`.
 
 ## 8. Botoes (actions)
 
