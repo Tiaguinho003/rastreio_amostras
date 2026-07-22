@@ -28677,6 +28677,15 @@ select.samples-filter-field-input {
   .bottom-sheet.detail-overlay.lote-details-overlay {
     border-radius: 14px 0 0 14px;
   }
+
+  /* A seta ← desce um pouco (18px -> 30px). Aqui o cabecalho ficou SEM
+     titulo, entao ela nao tem mais com que se alinhar la em cima e sobrava
+     colada no topo; nesta altura ela conversa com a miniatura do hero. So
+     no drawer do LOTE — o do cliente ainda tem titulo e a seta segue
+     alinhada a ele. */
+  .bottom-sheet.detail-overlay.lote-details-overlay .bottom-sheet-close.is-edge-back {
+    top: 30px;
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════
