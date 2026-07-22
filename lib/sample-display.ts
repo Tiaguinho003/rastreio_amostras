@@ -48,16 +48,25 @@ export type SampleStatusDisplay = {
   /** Rotulo curto do chip. */
   label: string;
   /** Variante do `.fv-chip` do kit institucional. */
-  chip: 'fv-chip-gray' | 'fv-chip-red' | 'fv-chip-green';
+  chip: 'fv-chip-gray' | 'fv-chip-red' | 'fv-chip-green' | 'fv-chip-blue';
   /** Modificador do card da lista: pinta a barra lateral e o esmaecimento. */
   modifier: 'is-card-invalid' | 'is-card-sold' | 'is-card-lost' | 'is-card-open';
   isInvalidated: boolean;
 };
 
-// FONTE UNICA do status de um lote na lista. Antes a regra vivia em TRES
-// lugares e nao batia: a tabela do desktop pintava "Em aberto" de verde e
-// "Vendido" de cinza; o card do mobile pintava "Em aberto" de AZUL e "Vendido"
-// de VERDE — a mesma amostra com duas caras dependendo da largura da tela.
+// FONTE UNICA do status comercial de um lote — LISTA e DETALHE.
+//
+// A regra ja viveu em quatro lugares e nao batia. Primeiro o M2 juntou a tabela
+// e o card, que divergiam entre si; sobrava a lista discordando do DRAWER do
+// mesmo lote — "Em aberto" era verde na lista e AZUL no detalhe, "Vendido" era
+// cinza na lista e VERDE no detalhe. Quem cedeu foi a lista: azul le como "em
+// andamento" e verde como "concluido", e o painel de movimentacoes ja usava
+// essa leitura. Hoje `SampleDetailView` chama esta funcao.
+//
+// PARTIALLY_SOLD cai em "Em aberto" de proposito: o lote parcialmente vendido
+// segue disponivel. Quem separa os dois e o resumo comercial
+// (`SampleMovementsPanel`), que tem vocabulario proprio ("Disponivel",
+// "Parcial") e por isso nao passa por aqui.
 //
 // "Deletar lote" invalida: deletados somem das listas, mas o rotulo sobrevive
 // pros contextos residuais (detalhe por URL). Status interno segue INVALIDATED.
@@ -73,7 +82,7 @@ export function sampleStatusDisplay(sample: SampleStatusDisplaySource): SampleSt
   if (sample.commercialStatus === 'SOLD') {
     return {
       label: 'Vendido',
-      chip: 'fv-chip-gray',
+      chip: 'fv-chip-green',
       modifier: 'is-card-sold',
       isInvalidated: false,
     };
@@ -88,7 +97,7 @@ export function sampleStatusDisplay(sample: SampleStatusDisplaySource): SampleSt
   }
   return {
     label: 'Em aberto',
-    chip: 'fv-chip-green',
+    chip: 'fv-chip-blue',
     modifier: 'is-card-open',
     isInvalidated: false,
   };

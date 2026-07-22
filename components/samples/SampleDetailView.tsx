@@ -17,7 +17,11 @@ import { BottomSheet } from '../BottomSheet';
 import { OriginLotChips } from '../OriginLotChips';
 import { PhotoZoomViewer } from '../PhotoZoomViewer';
 import { SuccessCheckOverlay } from '../SuccessCheckOverlay';
-import { buildReadableValue, ownerDisplayValue } from '../../lib/sample-display';
+import {
+  buildReadableValue,
+  ownerDisplayValue,
+  sampleStatusDisplay,
+} from '../../lib/sample-display';
 import { ClientLookupField } from '../clients/ClientLookupField';
 import { ClientQuickCreateModal } from '../clients/ClientQuickCreateModal';
 import { BlendBadge } from '../samples/BlendBadge';
@@ -1780,23 +1784,10 @@ export function SampleDetailView({
   }
 
   // Chip de status COMERCIAL do hero (Em aberto / Vendido / Perdido), com
-  // "Deletado" quando o lote foi invalidado. FV: os tons inline deram lugar aos
-  // chips pastel do kit (.fv-chip-*). PARTIALLY_SOLD cai em "Em aberto"
-  // (igual ao SampleCard e a tabela da lista).
-  function getSdvCommercialStatus(sample: { status: string; commercialStatus: string | null }) {
-    if (sample.status === 'INVALIDATED') {
-      return { chip: 'fv-chip-gray', label: 'Deletado' };
-    }
-    if (sample.commercialStatus === 'SOLD') {
-      return { chip: 'fv-chip-green', label: 'Vendido' };
-    }
-    if (sample.commercialStatus === 'LOST') {
-      return { chip: 'fv-chip-red', label: 'Perdido' };
-    }
-    return { chip: 'fv-chip-blue', label: 'Em aberto' };
-  }
-
-  const sdvCommercialStatus = detail ? getSdvCommercialStatus(detail.sample) : null;
+  // "Deletado" quando o lote foi invalidado. Vem da FONTE UNICA
+  // (`lib/sample-display`), a mesma que pinta o card e a linha da lista — o
+  // mapa daqui era uma copia, e as duas divergiram.
+  const sdvCommercialStatus = detail ? sampleStatusDisplay(detail.sample) : null;
 
   // Deletar: mesmo fluxo do antigo rodape, agora disparado pelo ⋯ do hero.
   // Liga B3.5 proativo — se o lote ja e origem de liga ativa, abre direto o
