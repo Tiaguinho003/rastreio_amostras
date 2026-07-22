@@ -25,11 +25,24 @@ Para cada arquivo modificado, verificar se alguma skill faz referencia a ele:
 | `tests/**`             | tests (categorias, padroes)                                        |
 | `scripts/gcp/**`       | deploy (scripts, antipadroes)                                      |
 | `.github/workflows/**` | conventions (CI), tests (CI)                                       |
-| `app/globals.css`      | design-system (tokens, cores, variaveis)                           |
-| `components/**`        | design-system (padroes), responsive (breakpoints, safe areas)      |
 | `src/auth/**`          | conventions (seguranca)                                            |
 | `src/uploads/**`       | conventions (magic bytes)                                          |
 | `CLAUDE.md`            | referencia central, verificar consistencia                         |
+
+Frente de UI (o kit FV se espalha por varias skills — conferir a dona da peca que mudou):
+
+| Arquivo modificado                                                                        | Skills potencialmente impactadas                                   |
+| ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `app/globals.css`                                                                         | css-architecture (onde a regra foi), design-system (tokens/atomos) |
+| `app/globals.css` — bloco `.fv-table*`/`.fv-kpi*`/`.fv-toolbar*`                          | data-tables                                                        |
+| `app/globals.css` — bloco `.fv-form-*`/`.fv-choice*`                                      | forms                                                              |
+| `app/globals.css` — tiers de z-index, scrim, `.side-sheet`, `.fv-panel-*`                 | containers                                                         |
+| `components/BottomSheet.tsx`, `components/DetailOverlay.tsx`                              | containers                                                         |
+| `app/samples/page.tsx`, `components/clients/ClientsBrowser.tsx`                           | data-tables                                                        |
+| `components/SuccessCheckOverlay.tsx`, `ClientLookupField.tsx`, `ChipMultiSelectField.tsx` | forms                                                              |
+| `lib/use-desktop.ts`                                                                      | responsive, data-tables                                            |
+| `components/**` (visual)                                                                  | design-system, responsive, button-press-effect                     |
+| Fase de redesenho concluida                                                               | page-redesign-cycle, containers §8 (status da pagina)              |
 
 ## 3. Verificar skills impactadas
 

@@ -7,6 +7,38 @@ description: Use this skill whenever building, adjusting, or reviewing any page,
 
 Este projeto e uma PWA mobile-first. Toda pagina, componente ou ajuste de layout DEVE se adaptar proporcionalmente a qualquer tamanho de tela. O usuario pode estar em um iPhone SE (320px), iPhone 14 (390px), iPhone 17 Pro (430px), ou qualquer outro dispositivo. As proporcoes visuais devem ser identicas em todos.
 
+## 0. Desktop e mobile sao ARVORES diferentes, nao CSS responsivo
+
+O breakpoint canonico e **901px**, e o gate em JS e o hook `useIsDesktop()` (`lib/use-desktop.ts`) —
+nao usar `matchMedia` inline:
+
+```tsx
+const isDesktop = useIsDesktop(); // SSR e primeiro paint = false (mobile-first)
+
+{
+  isDesktop ? <table className="fv-table">…</table> : items.map((s) => <SampleCard … />);
+}
+```
+
+O hook devolve `false` no SSR e no primeiro paint, entao o consumidor tem que tolerar o flip
+pos-hidratacao.
+
+**Quando trocar a arvore e quando usar CSS:**
+
+| Situacao                                                  | Como                                  |
+| --------------------------------------------------------- | ------------------------------------- |
+| A informacao e a mesma, so o espaco muda                  | CSS responsivo (`clamp`, grid, media) |
+| A ESTRUTURA muda (tabela ↔ cards, sidebar ↔ tabbar)       | troca de arvore React                 |
+| Bloco existe so num tamanho (KPI row, toolbar, page-head) | CSS `display: none` + `@media`        |
+
+Tentar transformar uma tabela de 8 colunas em cards por CSS produz markup que nao serve bem a
+nenhum dos dois. Blocos exclusivos de desktop (`.fv-page-head`, `.fv-kpi-row`, `.fv-toolbar`) ja
+nascem `display: none` no kit — nao precisam de condicional no JSX.
+
+> **O mobile do kit FV ainda nao existe.** As paginas do ciclo de redesenho tem o desktop pronto e o
+> mobile entra na ULTIMA fase de cada uma (`page-redesign-cycle` §2). Ate la, o mobile dessas
+> paginas segue no visual antigo — nao "corrigir" para o kit fora da fase.
+
 ## Regras obrigatorias
 
 ### 1. Nunca usar valores fixos em px para dimensoes de layout

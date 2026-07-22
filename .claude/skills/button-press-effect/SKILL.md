@@ -192,6 +192,19 @@ Lista de seletores que ja seguem o pattern corretamente — podem ser usados com
 | `.header-avatar-trigger`       | globals.css        | scale(0.92) — botao de avatar no header (abre menu da conta) |
 | `.header-avatar-menu-row`      | globals.css        | scale(0.98) — linha do menu da conta (depth-only, sem cor)   |
 
+**Kit FV** — todos ja conformes; use como referencia em pagina nova (`design-system` §0):
+
+| Selector               | Variante                                                    |
+| ---------------------- | ----------------------------------------------------------- |
+| `.fv-btn`              | scale(0.97) — botao preenchido/secundario do kit            |
+| `.fv-iconbtn`          | scale — acoes redondas do hero do drawer                    |
+| `.fv-table-dots`       | scale(0.94) — o ⋯ da linha da tabela                        |
+| `.fv-choice`           | scale(0.985) — cartao de escolha; selecao NAO troca por cor |
+| `.fv-kpi.is-clickable` | KPI que filtra a lista                                      |
+
+> No kit FV o **hover** de cor mora em `@media (hover: hover)` e o **estado selecionado** se marca
+> por hairline + anel de foco, nunca por troca de fundo no `:active`.
+
 ## 7. Como auditar um elemento existente
 
 Sequencia rapida:
