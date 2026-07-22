@@ -407,7 +407,12 @@ export function SampleLossSheet({
         com `.fv-panel-scrim` (mesmo tratamento dos confirms sobre painel). */}
       {open && ownerModalOpen
         ? createPortal(
-            <div className="app-modal-backdrop fv-panel-scrim">
+            <div
+              className="app-modal-backdrop fv-panel-scrim"
+              onClick={() => {
+                if (!assigningOwner) setOwnerModalOpen(false);
+              }}
+            >
               <section
                 className="app-modal is-themed is-action sample-loss-owner-modal"
                 role="dialog"
