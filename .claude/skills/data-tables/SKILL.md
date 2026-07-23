@@ -1,6 +1,6 @@
 ---
 name: data-tables
-description: Use this skill whenever building or editing a LIST page — table or card list of records, KPI cards, toolbar with search/filters, row action menu, bulk selection bar, infinite scroll. Defines the FV listing kit (fv-page-head, fv-kpi, fv-toolbar, fv-table, fv-col-*, fv-row-menu, fv-bulkbar), which parts are desktop-only and which cross both breakpoints, and the desktop/mobile tree split. Canonical example: /samples (both breakpoints); /cadastros (desktop only, mobile pending).
+description: Use this skill whenever building or editing a LIST page — table or card list of records, KPI cards, toolbar with search/filters, row action menu, bulk selection bar, infinite scroll. Defines the FV listing kit (fv-page-head, fv-kpi, fv-toolbar, fv-table, fv-col-*, fv-row-menu, fv-bulkbar), which parts are desktop-only and which cross both breakpoints, and the desktop/mobile tree split. Canonical example: /samples and /cadastros (both breakpoints).
 ---
 
 # Listagem — a página de lista no desktop
@@ -34,11 +34,12 @@ DESKTOP (≥901px)                     MOBILE (≤900px)
 ```
 
 **O `display` é o portão, e ele é escopado.** Todas as peças nascem `display: none` na base. O
-`@media (min-width: 901px)` acende para todas as listas; o `@media (max-width: 900px)` acende só
-para `.fv-lotes-page`, a única lista que já passou pelo ciclo mobile. Ligar na base daria a
-`/cadastros` e ao `ClientsBrowser` **duas chromes empilhadas** — eles ainda usam a
-`.hero-search-wrap` antiga. Vira genérico quando a segunda lista migrar (critério do
-`css-architecture`). Nenhuma delas precisa de condicional no JSX.
+`@media (min-width: 901px)` acende para todas as listas; o `@media (max-width: 900px)` acende por
+**seletor multi-página** — `.fv-lotes-page X, .clients-page-v2 .spv2-list-scroll X` — as duas listas
+que já passaram pelo ciclo mobile (`/samples` e as duas abas de `/cadastros`, RD16). Ligar na base
+acenderia `/users`, `/contratos` e `/embarques`, que ainda usam a `.hero-search-wrap` antiga (**duas
+chromes empilhadas**). Cada nova lista entra somando seu escopo ao media-gate (critério do
+`css-architecture`). Nenhuma precisa de condicional no JSX.
 
 🔴 **No mobile NADA fica travado no topo.** A lista tem altura fixa (quem rola é o
 `.spv2-list-scroll`, não a janela), então cada faixa presa acima dela custa altura **permanente** na
