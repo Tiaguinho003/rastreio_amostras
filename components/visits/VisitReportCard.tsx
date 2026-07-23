@@ -29,8 +29,6 @@ interface VisitReportCardProps {
   canDelete?: boolean;
   /** Lixeira sempre visivel no canto do card (dashboard do prospector). */
   quickDelete?: boolean;
-  /** Etiqueta de tipo opcional no cabecalho. */
-  typeBadge?: string;
   onRequestDelete?: (report: VisitReportSummary) => void;
 }
 
@@ -40,7 +38,6 @@ export function VisitReportCard({
   onToggle,
   canDelete = false,
   quickDelete = false,
-  typeBadge,
   onRequestDelete,
 }: VisitReportCardProps) {
   const isNewClient = report.clientKind === 'NEW';
@@ -85,11 +82,13 @@ export function VisitReportCard({
             </p>
             <p className="rsm-card-when">{formatVisitDateTime(report.createdAt)}</p>
           </div>
+          {/* Chip de tipo/estado persistente (RD16 §2.10 R2): Visita sempre
+              visivel; cancelado troca a cor. */}
           {isCancelled ? (
-            <span className="rsm-type-badge is-cancelled">Cancelado</span>
-          ) : typeBadge ? (
-            <span className="rsm-type-badge is-prospect">{typeBadge}</span>
-          ) : null}
+            <span className="fv-chip fv-chip-gray is-sm">Cancelado</span>
+          ) : (
+            <span className="fv-chip fv-chip-green is-sm">Visita</span>
+          )}
         </header>
 
         <div className="rsm-card-client">

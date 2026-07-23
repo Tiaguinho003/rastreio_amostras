@@ -73,10 +73,12 @@ export function WeeklyReportCard({
             </p>
             <p className="rsm-card-when">{formatSentDateTime(report.createdAt)}</p>
           </div>
+          {/* Chip de tipo/estado persistente (RD16 §2.10 R2): Semanal sempre
+              visivel; cancelado troca a cor. */}
           {isCancelled ? (
-            <span className="rsm-type-badge is-cancelled">Cancelado</span>
+            <span className="fv-chip fv-chip-gray is-sm">Cancelado</span>
           ) : (
-            <span className="rsm-type-badge is-weekly">Relatório</span>
+            <span className="fv-chip fv-chip-blue is-sm">Semanal</span>
           )}
         </header>
 

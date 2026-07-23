@@ -8867,18 +8867,14 @@ button:disabled {
   display: none;
 }
 
-/* Cards da /resumo em BRANCO puro + sombra reforcada (igual /informe) pra
-   definir as bordas sobre o sheet branco. */
-.rsm-content .rsm-card {
-  background: #ffffff;
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.06),
-    0 6px 14px rgba(0, 0, 0, 0.11),
-    0 14px 28px rgba(0, 0, 0, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
-}
+/* (RD16 §2.10 R2) O override branco+sombra-reforcada de `.rsm-content .rsm-card`
+   saiu: o card base ja e institucional (superficie + hairline + sombra de 1px),
+   entao nao ha mais o que sobrescrever aqui. */
 
-/* /resumo DESKTOP: mesma estrutura visual do /informe (sem o FAB de lapis —
+/* /relatorios DESKTOP: cabecalho oculto (a top-bar FV mostra o titulo); o feed
+   vive num CARD contido (borda + raio + sombra institucional, igual ao
+   .samples-page-v2-sheet) com a contagem no topo; gap pra topbar. O FAB "leque"
+   fica por cima (fixed). */
    pagina so de leitura). Sem titulo "Resumo" nem seta de voltar (cabecalho
    oculto); o feed num CARD branco contido (borda + raio + sombra, igual ao
    .samples-page-v2-sheet) com o total no topo; gap pra topbar. */
@@ -8897,15 +8893,15 @@ button:disabled {
 
   .sdv-content.informe-content.rsm-content {
     /* flex:1 (ja vem do .sdv-content) preenche a altura do .sdv-page; o
-       .rsm-feed (flex:1 + overflow-y:auto) rola por dentro do card. */
+       .rsm-feed (flex:1 + overflow-y:auto) rola por dentro do card. RD16 §2.10
+       R2: superficie institucional (hairline --fv-line + sombra de 1px), igual
+       ao card de lote. */
     flex: 1;
     min-height: 0;
     margin-top: 1.5rem;
-    border: 1px solid rgba(112, 130, 103, 0.22);
-    border-radius: 18px;
-    box-shadow:
-      0 2px 4px rgba(0, 0, 0, 0.04),
-      0 12px 26px rgba(19, 35, 24, 0.08);
+    border: 1px solid var(--fv-line);
+    border-radius: var(--fv-radius-lg);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
     padding: 1rem 1.2rem 0.8rem;
   }
 
@@ -8915,11 +8911,16 @@ button:disabled {
   }
 }
 
+/* Cabecalho enxuto do feed (RD16 §2.10 R2): so a contagem, alinhada a esquerda
+   como legenda da lista (o titulo saiu — vive na top-bar FV). Self-sufficient
+   agora que o className nao carrega mais `.inf-intro`. */
 .rsm-intro {
+  display: flex;
   flex-direction: row;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: clamp(8px, 2.5vw, 12px);
+  padding: 0 clamp(2px, 0.8vw, 4px);
 }
 
 .rsm-intro-text {
@@ -8953,15 +8954,16 @@ button:disabled {
 .rsm-card {
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, #ffffff 0%, #faf8f4 100%);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: clamp(14px, 4vw, 16px);
+  /* RD16 §2.10 R2: card institucional — superficie chapada + HAIRLINE + sombra
+     de 1px, a mesma linguagem do .spv2-card/.cv2-card (Lotes/Clientes). Mata o
+     gradiente creme + sombra tripla + inset. Base compartilhada pelos dois
+     unicos consumidores: /relatorios (.rsm-content) e o dashboard do prospector
+     (.dashboard-sheet) — ambos entram no institucional (R-D4). */
+  background: var(--fv-surface);
+  border: 1px solid var(--fv-line);
+  border-radius: var(--fv-radius-lg);
   padding: clamp(14px, 4vw, 16px);
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.04),
-    0 4px 12px rgba(0, 0, 0, 0.07),
-    0 8px 24px rgba(0, 0, 0, 0.03),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   animation: sdv-fadeIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
@@ -9058,6 +9060,19 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: clamp(8px, 2.5vw, 10px);
+}
+
+/* Chip de tipo/estado (Visita/Semanal/Cancelado) no cabecalho do card do feed
+   (RD16 §2.10 R2): .fv-chip.is-sm empurrado pra direita — herda o papel de
+   posicao do antigo .rsm-type-badge. Convive com a lixeira rapida do prospector
+   (canto absoluto): recua pra nao encostar nela. */
+.rsm-card-head > .fv-chip {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.rsm-card.has-quick-delete .rsm-card-head > .fv-chip {
+  margin-right: clamp(26px, 7vw, 30px);
 }
 
 .rsm-card-head-text {
@@ -9203,7 +9218,8 @@ button:disabled {
   flex-direction: column;
   gap: 1px;
   padding-top: clamp(8px, 2.5vw, 10px);
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  /* RD16 §2.10 R2: hairline institucional entre respostas. */
+  border-top: 1px solid var(--fv-line);
 }
 
 .rsm-answer dt {

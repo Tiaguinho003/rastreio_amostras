@@ -144,16 +144,15 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
 
         <section className="sdv-content informe-content rsm-content">
           <div className="rsm-feed">
-            <header className="inf-intro rsm-intro">
-              <div className="rsm-intro-text">
-                <h2 className="inf-intro-title">Relatórios</h2>
-              </div>
-              {!initialLoading && !error ? (
+            {/* RD16 §2.10 R2: o titulo "Relatorios" saiu (a top-bar FV ja o
+                mostra). Sobra so a contagem como legenda enxuta da lista. */}
+            {!initialLoading && !error ? (
+              <header className="rsm-intro">
                 <span className="rsm-total-chip">
-                  {total} {total === 1 ? 'envio' : 'envios'}
+                  {total} {total === 1 ? 'relatório' : 'relatórios'}
                 </span>
-              ) : null}
-            </header>
+              </header>
+            ) : null}
 
             {initialLoading ? (
               <div className="rsm-list" aria-hidden="true">
