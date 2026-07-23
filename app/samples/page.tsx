@@ -18,6 +18,7 @@ import { AppShell } from '../../components/AppShell';
 import { BottomSheet } from '../../components/BottomSheet';
 import { DetailOverlay } from '../../components/DetailOverlay';
 import { NewSampleModal } from '../../components/NewSampleModal';
+import { SUCCESS_CHECK_MS } from '../../components/SuccessCheckOverlay';
 import { ClientLookupField } from '../../components/clients/ClientLookupField';
 import { ClassificationFilterField } from '../../components/samples/ClassificationFilterField';
 import { SampleCard } from '../../components/samples/SampleCard';
@@ -169,9 +170,8 @@ const PlaygroundTab = dynamic(
 );
 
 const SAMPLE_PAGE_LIMIT = 20;
-// F3: duracao do check canonico de sucesso antes de fechar o painel/sheet e
-// abrir o drawer do lote criado (mesmo tempo dos paineis do cliente).
-const SUCCESS_CHECK_MS = 1000;
+// Duracao do efeito terminal (check verde / carimbo de perda) antes de fechar o
+// painel — constante UNICA em SuccessCheckOverlay (era 800/900/1000 espalhados).
 // Mesma fonte do registro (NewSampleModal) — desliza com o ano e cobre todas
 // as safras selecionaveis ao cadastrar. Ver buildHarvestPresets.
 const HARVEST_OPTIONS = buildHarvestPresets();
@@ -804,6 +804,9 @@ function SamplesPage() {
     activeBlends: ActiveBlendDetail[];
   } | null>(null);
   const [lossSaving, setLossSaving] = useState(false);
+  // Perda registrada: mantem o painel aberto pra o CARIMBO vermelho tocar antes
+  // de fechar (no lugar do antigo toast). Fecha via setTimeout(SUCCESS_CHECK_MS).
+  const [lossSuccess, setLossSuccess] = useState(false);
   // Impressao de etiqueta pelo ⋯ da linha: painel proprio, SEM abrir o drawer.
   // A tabela ja tem o snapshot do lote na mao (mesmos campos que a etiqueta
   // usa), entao o painel nao precisa de fetch nenhum — antes essa acao ia por
@@ -3268,6 +3271,7 @@ function SamplesPage() {
           session={session}
           open
           saving={lossSaving}
+          success={lossSuccess}
           // F3: pelo ⋯ do hero o painel abre SOBRE o drawer — precisa do tier
           // stacked pra escurecer o detalhe, nao ficar atras dele.
           stacked={Boolean(loteId)}
@@ -3293,7 +3297,7 @@ function SamplesPage() {
             setLossTarget({ sample: detail.sample, activeBlends: detail.activeBlends ?? [] });
           }}
           onClose={() => {
-            if (!lossSaving) setLossTarget(null);
+            if (!lossSaving && !lossSuccess) setLossTarget(null);
           }}
           onSubmit={async (data) => {
             setLossSaving(true);
@@ -3308,10 +3312,15 @@ function SamplesPage() {
                 notes: null,
                 lossReasonText: data.lossReasonText,
               });
-              setLossTarget(null);
               setNewSampleRefetchKey((current) => current + 1);
               setDetailRefreshKey((current) => current + 1);
-              toast.success({ title: 'Perda registrada' });
+              // Carimbo vermelho "Perda registrada" (no lugar do toast): mantem o
+              // painel aberto pelo tempo do efeito e depois fecha.
+              setLossSuccess(true);
+              window.setTimeout(() => {
+                setLossSuccess(false);
+                setLossTarget(null);
+              }, SUCCESS_CHECK_MS);
             } catch (cause) {
               toast.error({
                 title: 'Não foi possível registrar a perda',

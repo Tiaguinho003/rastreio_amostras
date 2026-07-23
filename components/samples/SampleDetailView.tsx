@@ -8,7 +8,7 @@ import { QRCodeCanvas } from 'qrcode.react';
 import { BottomSheet } from '../BottomSheet';
 import { OriginLotChips } from '../OriginLotChips';
 import { PhotoZoomViewer } from '../PhotoZoomViewer';
-import { SuccessCheckOverlay } from '../SuccessCheckOverlay';
+import { SuccessCheckOverlay, SUCCESS_CHECK_MS } from '../SuccessCheckOverlay';
 import {
   buildReadableValue,
   ownerDisplayValue,
@@ -1480,7 +1480,7 @@ export function SampleDetailView({
         confirmHarvestPropagation,
       });
 
-      // Sucesso: efeito de check por ~900ms e fecha o modal (sem mensagem verde).
+      // Sucesso: efeito de check e fecha o modal (sem mensagem verde).
       setHarvestPropagationBlends(null);
       setRegistrationSaveSuccess(true);
       window.setTimeout(() => {
@@ -1489,7 +1489,7 @@ export function SampleDetailView({
         setRegistrationEditMode(false);
         setRegistrationEditReasonCode('OTHER');
         setRegistrationEditReasonText('');
-      }, 900);
+      }, SUCCESS_CHECK_MS);
       await syncDetailState();
     } catch (cause) {
       // Liga: 409 BLEND_HARVEST_PROPAGATION_REQUIRED abre o modal de confirmacao
@@ -1753,7 +1753,7 @@ export function SampleDetailView({
       void syncDetailState({ refreshHistory: true });
       window.setTimeout(() => {
         closeClassificationDetail();
-      }, 800);
+      }, SUCCESS_CHECK_MS);
     } catch {
       // Falha: reverte o check e volta pro modo edicao pra tentar de novo.
       setClassificationDetailSaved(false);

@@ -25,7 +25,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { BottomSheet } from '../BottomSheet';
-import { SuccessCheckOverlay } from '../SuccessCheckOverlay';
+import { SuccessCheckOverlay, SUCCESS_CHECK_MS } from '../SuccessCheckOverlay';
 
 import {
   ApiError,
@@ -35,7 +35,6 @@ import {
 } from '../../lib/api-client';
 import { getTodayDateInput } from '../../lib/classification-form';
 import { shareOrDownloadFile } from '../../lib/share-blob';
-import { useToast } from '../../lib/toast/ToastProvider';
 import type { ClientSummary, SampleStatus, SessionData } from '../../lib/types';
 import { ClientLookupField } from '../clients/ClientLookupField';
 
@@ -82,8 +81,6 @@ export function SampleSendFlow({
   canDescricao,
   cancelEventId,
 }: SampleSendFlowProps) {
-  const toast = useToast();
-
   const [sendPanelOpen, setSendPanelOpen] = useState(false);
   const [method, setMethod] = useState<SendMethod>('descricao');
   const [recipients, setRecipients] = useState<ClientSummary[]>([]);
@@ -95,6 +92,9 @@ export function SampleSendFlow({
   // Cancelamento
   const [cancellingSend, setCancellingSend] = useState(false);
   const [cancelSendError, setCancelSendError] = useState<string | null>(null);
+  // Envio cancelado: X vermelho (no lugar do toast) sobre o modal de
+  // confirmacao antes de fechar — reversao, nao criacao (por isso X, nao check).
+  const [cancelSuccess, setCancelSuccess] = useState(false);
 
   const canFisico = status ? PHYSICAL_SEND_ALLOWED_STATUSES.has(status) : false;
   const descricaoAllowed = Boolean(canDescricao);
@@ -162,7 +162,7 @@ export function SampleSendFlow({
     window.setTimeout(() => {
       setSendSuccess(false);
       dismiss();
-    }, 900);
+    }, SUCCESS_CHECK_MS);
   }
 
   async function handlePhysicalSend() {
@@ -197,7 +197,7 @@ export function SampleSendFlow({
     window.setTimeout(() => {
       setSendSuccess(false);
       dismiss();
-    }, 900);
+    }, SUCCESS_CHECK_MS);
   }
 
   async function handleSubmitSend() {
@@ -224,15 +224,20 @@ export function SampleSendFlow({
   }
 
   async function handleConfirmCancelSend() {
-    if (!cancelEventId) return;
+    if (!cancelEventId || cancelSuccess) return;
     setCancellingSend(true);
     setCancelSendError(null);
     try {
       await cancelPhysicalSampleSend(session, sampleId, cancelEventId);
       onChanged?.();
-      toast.success({ title: 'Envio cancelado com sucesso.' });
       setCancellingSend(false);
-      onClose();
+      // X vermelho "Envio cancelado" (no lugar do toast): segura o modal aberto
+      // pelo tempo do efeito e fecha.
+      setCancelSuccess(true);
+      window.setTimeout(() => {
+        setCancelSuccess(false);
+        onClose();
+      }, SUCCESS_CHECK_MS);
     } catch (cause) {
       setCancelSendError(
         cause instanceof ApiError ? cause.message : 'Falha ao cancelar envio. Tente novamente.'
@@ -398,7 +403,7 @@ export function SampleSendFlow({
         ? createPortal(
             <div className="app-modal-backdrop fv-panel-scrim">
               <section
-                className="app-modal is-themed is-action sample-detail-compact-modal"
+                className="app-modal is-themed is-action sample-detail-compact-modal sample-cancel-send-modal"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="cancel-send-modal-title"
@@ -414,12 +419,12 @@ export function SampleSendFlow({
                     type="button"
                     className="app-modal-close"
                     onClick={() => {
-                      if (!cancellingSend) {
+                      if (!cancellingSend && !cancelSuccess) {
                         setCancelSendError(null);
                         onClose();
                       }
                     }}
-                    disabled={cancellingSend}
+                    disabled={cancellingSend || cancelSuccess}
                     aria-label="Fechar"
                   >
                     <span aria-hidden="true">&times;</span>
@@ -439,12 +444,12 @@ export function SampleSendFlow({
                       type="button"
                       className="app-modal-secondary"
                       onClick={() => {
-                        if (!cancellingSend) {
+                        if (!cancellingSend && !cancelSuccess) {
                           setCancelSendError(null);
                           onClose();
                         }
                       }}
-                      disabled={cancellingSend}
+                      disabled={cancellingSend || cancelSuccess}
                     >
                       Voltar
                     </button>
@@ -452,12 +457,17 @@ export function SampleSendFlow({
                       type="button"
                       className="app-modal-submit is-danger"
                       onClick={handleConfirmCancelSend}
-                      disabled={cancellingSend}
+                      disabled={cancellingSend || cancelSuccess}
                     >
                       {cancellingSend ? 'Cancelando...' : 'Confirmar'}
                     </button>
                   </div>
                 </div>
+
+                {/* Envio cancelado: X vermelho cobrindo o modal (o
+                    `.sample-cancel-send-modal` recebe position:relative pro
+                    overlay ancorar nele, nao no backdrop). */}
+                <SuccessCheckOverlay show={cancelSuccess} variant="x" label="Envio cancelado" />
               </section>
             </div>,
             document.body

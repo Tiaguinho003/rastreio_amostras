@@ -1535,6 +1535,13 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
   max-width: min(28rem, calc(100vw - 1.5rem));
 }
 
+/* Cancelar envio: o X vermelho (`.client-create-success-overlay`, absolute
+   inset:0) ancora NESTE modal — sem position:relative ele subiria ao backdrop
+   e cobriria a tela toda. So o modal de cancelamento precisa disso. */
+.app-modal.sample-cancel-send-modal {
+  position: relative;
+}
+
 .sample-detail-compact-modal .app-modal-input {
   padding: 0.55rem 0.75rem;
   border-radius: 10px;
@@ -16411,6 +16418,97 @@ select.samples-filter-field-input {
   stroke-dasharray: 40;
   stroke-dashoffset: 40;
   animation: client-success-tick 0.35s 0.35s ease forwards;
+}
+
+/* Variantes NEGATIVAS do mesmo overlay (unificacao 2026-07-22): o veu e a
+   entrada sao os mesmos do check verde; muda so o desenho central. */
+
+/* Rotulo sob o efeito (X vermelho com texto — ex.: "Envio cancelado"). O check
+   verde de criacao/edicao nao usa rotulo; aqui o texto nomeia a reversao. */
+.client-create-success-label {
+  margin: clamp(0.6rem, 2vw, 0.85rem) 0 0;
+  font-size: clamp(0.9rem, 2.8vw, 1rem);
+  font-weight: 600;
+  color: var(--ink);
+  text-align: center;
+}
+.client-create-success-overlay.is-negative {
+  flex-direction: column;
+}
+.client-create-success-overlay.is-negative .client-create-success-label {
+  color: #a5342a;
+}
+/* O X desenha os dois tracos com o mesmo timing do tick do check. */
+.client-create-success-check.is-x path {
+  stroke-dasharray: 46;
+  stroke-dashoffset: 46;
+  animation: client-success-tick 0.3s 0.35s ease forwards;
+}
+
+/* CARIMBO de PERDA — herdado do antigo modal de movimentacao (`.sdv-stamp`,
+   removido com o SampleMovementModal). Volta so a variante de perda (vermelha),
+   agora dentro do veu branco do overlay em vez do veu proprio. O `multiply`
+   assenta a tinta sobre o branco, como carimbo de verdade. */
+.client-create-success-overlay.is-stamp {
+  /* Veu levemente mais opaco: o multiply do carimbo pede um branco mais solido
+     pra tinta nao ficar lavada. */
+  background: rgba(255, 255, 255, 0.95);
+}
+.client-create-success-overlay.is-stamp .sdv-stamp {
+  --stamp-color: #c0392b;
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: clamp(8px, 2.4vw, 12px) clamp(20px, 6vw, 34px);
+  border: 3px solid var(--stamp-color);
+  border-radius: 12px;
+  color: var(--stamp-color);
+  /* Duas palavras ("Perda registrada") pedem um corpo menor que o carimbo de
+     uma palavra do modal antigo, pra caber na largura do painel sem quebrar. */
+  font-size: clamp(18px, 5.4vw, 26px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  opacity: 0.9;
+  mix-blend-mode: multiply;
+  transform: rotate(-13deg);
+  animation: sdv-stamp-slam 0.5s cubic-bezier(0.2, 1.5, 0.35, 1) both;
+}
+/* Anel interno fino — look de carimbo de borracha (borda dupla). */
+.client-create-success-overlay.is-stamp .sdv-stamp::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 1.5px solid var(--stamp-color);
+  border-radius: 8px;
+}
+.client-create-success-overlay.is-stamp .sdv-stamp-text {
+  position: relative;
+}
+@keyframes sdv-stamp-slam {
+  0% {
+    transform: rotate(-13deg) scale(2.3);
+    opacity: 0;
+  }
+  55% {
+    transform: rotate(-13deg) scale(0.9);
+    opacity: 0.96;
+  }
+  72% {
+    transform: rotate(-13deg) scale(1.06);
+    opacity: 0.88;
+  }
+  100% {
+    transform: rotate(-13deg) scale(1);
+    opacity: 0.9;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .client-create-success-overlay.is-stamp .sdv-stamp {
+    animation: client-success-fade-in 0.2s ease;
+  }
 }
 
 @keyframes client-success-fade-in {

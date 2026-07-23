@@ -27,6 +27,7 @@ import type {
 } from '../../lib/types';
 import { BottomSheet } from '../BottomSheet';
 import { ClientLookupField } from '../clients/ClientLookupField';
+import { SuccessCheckOverlay } from '../SuccessCheckOverlay';
 
 export type SampleLossSubmitInput = {
   quantitySacks: number;
@@ -38,6 +39,12 @@ type SampleLossSheetProps = {
   session: SessionData;
   open: boolean;
   saving?: boolean;
+  /**
+   * Perda registrada: o host mantem o painel aberto e liga isto pra tocar o
+   * CARIMBO vermelho "Perda registrada" (~900ms) antes de fechar — mesmo
+   * contrato do `success` do BlendConfirmationSheet.
+   */
+  success?: boolean;
   /** Aberto SOBRE o drawer do lote (⋯ do hero) — sobe pro tier stacked. */
   stacked?: boolean;
   availableSacks?: number;
@@ -68,6 +75,7 @@ export function SampleLossSheet({
   session,
   open,
   saving = false,
+  success = false,
   stacked = false,
   availableSacks = 0,
   blend = null,
@@ -212,21 +220,23 @@ export function SampleLossSheet({
       <BottomSheet
         open={open}
         onClose={onClose}
-        onDismissAttempt={() => !saving && !ownerModalOpen}
+        onDismissAttempt={() => !saving && !success && !ownerModalOpen}
         ariaLabel="Registrar perda"
         stacked={stacked}
         closeVariant="edge-back"
-        dragDisabled={saving}
+        dragDisabled={saving || success}
         className="fv-panel-sheet side-sheet sample-loss-sheet"
         footer={
-          <button
-            type="submit"
-            form="sample-loss-form"
-            className="app-modal-submit"
-            disabled={saving || submitDisabled}
-          >
-            {saving ? 'Registrando...' : 'Registrar perda'}
-          </button>
+          success ? null : (
+            <button
+              type="submit"
+              form="sample-loss-form"
+              className="app-modal-submit"
+              disabled={saving || submitDisabled}
+            >
+              {saving ? 'Registrando...' : 'Registrar perda'}
+            </button>
+          )
         }
       >
         <>
@@ -400,6 +410,10 @@ export function SampleLossSheet({
 
             {error ? <p className="sdv-modal-error">{error}</p> : null}
           </form>
+
+          {/* Carimbo vermelho "Perda registrada" no lugar do toast — filho
+              direto do sheet, cobre painel inteiro (header + footer). */}
+          <SuccessCheckOverlay show={success} variant="stamp-loss" label="Perda registrada" />
         </>
       </BottomSheet>
 

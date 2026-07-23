@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { BottomSheet } from './BottomSheet';
 import { OriginLotChips } from './OriginLotChips';
 import { ClientLookupField } from './clients/ClientLookupField';
-import { SuccessCheckOverlay } from './SuccessCheckOverlay';
+import { SuccessCheckOverlay, SUCCESS_CHECK_MS } from './SuccessCheckOverlay';
 import { ClientQuickCreateModal } from './clients/ClientQuickCreateModal';
 import { ApiError, createSample, getNextLotNumber } from '../lib/api-client';
 import { useRegisterDirtyState } from '../lib/dirty-state/DirtyStateProvider';
@@ -207,10 +207,6 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
 // ════════════════════════════════════════════════════════════════
 // Component
 // ════════════════════════════════════════════════════════════════
-
-// Duracao do check canonico de sucesso antes de fechar o painel e abrir o
-// drawer do lote criado (mesmo tempo dos paineis do cliente, rodada 6).
-const SUCCESS_CHECK_MS = 1000;
 
 export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: NewSampleModalProps) {
   const router = useRouter();
