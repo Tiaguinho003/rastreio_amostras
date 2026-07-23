@@ -429,7 +429,7 @@ muda) · **🔜 ciclo** migra quando o redesenho chegar na página — nada de c
 | /cadastros ?cliente=    | Detalhe do cliente (drawer de perfil)                                       | `DetailOverlay`             | ✅       |
 | /cadastros ?cliente=    | Editar cliente; filial nova/detalhe; conta nova/detalhe; anexo novo/preview | painel lateral              | ✅       |
 | /cadastros ?cliente=    | Status cliente/filial (motivo) + cascata                                    | central + `.fv-panel-scrim` | fica     |
-| /cadastros aba Corretor | Corretor (`BrokerFormModal`)                                                | painel lateral              | 🔜 ciclo |
+| /cadastros aba Corretor | Corretor (`BrokerFormModal`)                                                | painel lateral              | ✅       |
 | /users                  | Detalhe/editar/novo usuário (`cdm-modal`)                                   | painel lateral              | 🔜 ciclo |
 | /users, /profile        | Inativar (motivo); confirms; desativar push                                 | central                     | fica     |
 | /relatorios             | 3 form-sheets (visita/semanal/informativo)                                  | painel lateral              | 🔜 ciclo |
