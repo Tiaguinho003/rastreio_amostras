@@ -23641,20 +23641,6 @@ mas
      Patches sobrescrevem/complementam regras anteriores neste mesmo bloco.
      ══════════════════════════════════════════ */
 
-  /* T2: hover refinado nos cards de samples (desabilitado — usa override do 901) */
-  .samples-page-v2 .spv2-card {
-    transition:
-      transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
-      background 0.18s ease,
-      border-color 0.18s ease,
-      box-shadow 0.18s ease;
-  }
-
-  .samples-page-v2 .spv2-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 18px rgba(19, 35, 24, 0.12);
-  }
-
   /* T2: hover com sombra marcada */
   .clients-page-v2 .cv2-card {
     transition:
