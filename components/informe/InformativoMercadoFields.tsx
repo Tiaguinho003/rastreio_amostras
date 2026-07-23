@@ -3,8 +3,10 @@
 // Campos do Informativo de Mercado: 21 controles em 4 cards (INF28 — todos
 // obrigatorios).
 //
-// Reusa a linguagem do CommercialVisitForm (.inf-card/.inf-field/.inf-pill) e
-// acrescenta so o que e proprio da peca, no prefixo .ifm-.
+// Reusa o kit legado do Informativo (.inf-card/.inf-field/.inf-pill) e
+// acrescenta so o que e proprio da peca, no prefixo .ifm-. (A visita/semanal
+// migraram para o kit institucional .fv-form-* na RD16 §2.10; o Informativo
+// segue no kit .inf-* por ser um wizard/canvas proprio — R-D5.)
 
 import {
   MAX_LEN,
