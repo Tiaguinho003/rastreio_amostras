@@ -658,6 +658,39 @@ O "passo final da página" (método §7): a página ficou pronta, o Flavio confe
 - **Skills** (`4de04d8`): `design-system` (§L ClientsBrowser migrou pra `.fv-toolbar` + filtro side-sheet; campos glass; `forceDropDown`), `data-tables` (rota de stats sem gate `!isDesktop`), `modals` (campos do quick-create no kit, placeholder de erro, discard-overlay removido). `containers` L432 (BrokerFormModal painel lateral) foi na rodada.
 - **NÃO tocado:** os overrides `.clients-page-v2 .hero-search-*` — a classe é **compartilhada** com /users, /contratos, /embarques, que ainda usam hero-search; escopar/remover quebraria essas páginas (só saiu o que era escopado em `.fv-cad-page`). O `docs/Cadastros-Visao-Geral.md` previsto **não foi criado** — este ledger + `Clientes-e-Movimentacoes-Especificacao.md` cobrem a página; criar um Visão-Geral do zero é feature, não limpeza.
 
+### 2.10 FV `/relatorios` — 3ª página do ciclo (desktop; decisões travadas 2026-07-23)
+
+Fechado o desktop de `/samples` (§2.7) e o mobile de `/cadastros` (§2.9), `/relatorios` é a **3ª página** a entrar. O inventário (4 subagentes + auditoria de docs + reads) mostrou que a **casca já é FV** e o **corpo é legado**:
+
+- **✅ Já FV (não tocar):** chrome (sidebar `.fv-sidenav` + top-bar `.fv-topbar-title` "Relatórios"; rota em `isLayeredRoute`), FAB "leque" radial, confirms/descartes/aviso 409 (`.app-modal.is-themed`), quick-create de cliente (`.side-sheet`, intocável).
+- **❌ Legado (alvo):** título **duplicado** dentro da página (`.inf-intro-title` "Relatórios", redundante com a top-bar); feed de acordeões `.rsm-*` com cartão legado (gradiente quente + sombra tripla); detalhe = acordeão inline; formulários de criação (Visita/Semanal) = `BottomSheet` que no desktop vira **modal central 650px** + kit legado `.inf-*`.
+
+**Domínio:** acesso = todos os não-PROSPECTOR (não é só ADMIN+COMMERCIAL — correção de leitura antiga); Semanal só ADMIN+COMMERCIAL cria; cancelar = soft (fica no feed, só o autor); relatórios imutáveis, sem link público; feed inclui cancelados. Informativo = gerador de imagem (canvas, sem persistência). `CommercialVisit` é modelo órfão. **Sem backend nesta rodada.**
+
+**Decisões travadas (com o Flavio, 2026-07-23, via AskUserQuestion):**
+
+| #    | Decisão                                                                                                                                                                                                                                                                             |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R-D1 | **Apresentação = feed institucional + acordeão.** Mantém o feed cronológico; cartões chapados FV (hairline + chip de tipo/status); o detalhe **continua expandindo inline** (só restilado). NÃO vira tabela nem drawer — respeita relatórios ricos/heterogêneos (visita + semanal). |
+| R-D2 | **Cabeçalho = enxuto.** Remove só o título duplicado (a top-bar já diz "Relatórios"); **sem KPI, sem toolbar/filtro** → zero backend. Mantém a contagem e o "Carregar mais".                                                                                                        |
+| R-D3 | **Formulários Visita + Semanal migram agora** para `.side-sheet` + kit `.fv-form-*` (molde `SampleLossSheet`).                                                                                                                                                                      |
+| R-D4 | **Visita compartilhada migra INTEIRA.** `CommercialVisitFormSheet` também é a tela de criar visita do **dashboard do prospector** (mobile) — vira side-sheet + `.fv-form-*` **nos dois lugares**, sem bifurcação. Semanal só existe em /relatorios.                                 |
+| R-D5 | **Informativo fica como está** nesta rodada. É um wizard/canvas (gerador de imagem, kit `.ifm-*`/`.inf-*` próprio, cap de 650px pras artes 9:16). Container dele = follow-up.                                                                                                       |
+
+**Superfícies compartilhadas (validar as duas no device):** por R-D4, o **dashboard do prospector** (mobile) ganha o form Visita em side-sheet + `.fv-form-*` (`ProspectorDashboard.tsx:374` renderiza o mesmo sheet), e o **feed do prospector** ganha o cartão institucional junto (mesmo `VisitReportCard`/`.rsm-card`). Coerente com "migrar o form inteiro".
+
+**Regra de escopo:** o restyle de card é **escopado em `.rsm-content`** (o caminho vivo — `/relatorios` renderiza `.sdv-content.informe-content.rsm-content`); `.informe-commercial-page` é a cópia **morta** (o adiamento do §2.8 M4c), não usar. O kit `.inf-*` de formulário **não é morto** — segue vivo via Informativo (`InformativoMercadoFields` "reusa a linguagem do CommercialVisitForm"); só os 2 forms deixam de referenciá-lo.
+
+**As rodadas** (uma = um commit; gates a cada uma) — _planejadas, anotar commits conforme implementar:_
+
+- **R1 — esta §2.10** (ledger antes do código).
+- **R2 — corpo institucional.** `RelatoriosViewer` (tira o `.inf-intro-title` duplicado; cópia "relatório(s)"); `VisitReportCard`/`WeeklyReportCard` (chip de tipo persistente `.fv-chip.is-sm` + cancelado); `globals.css` `.rsm-content .rsm-card` chapado + hairline + `radius-lg` + `box-shadow: 0 1px 2px rgba(0,0,0,.04)` (espelha Lotes/Clientes), acordeão e card-contêiner desktop refinados.
+- **R3 — form Visita** → `fv-panel-sheet side-sheet commercial-visit-sheet` + edge-back + submit no footer + `.fv-form-*` + `SuccessCheckOverlay` + descarte `.is-scrim-none.is-compact`. Estado consolidado no sheet (molde `SampleLossSheet`); `ClientQuickCreateModal` intocável (empilha side-sheet sobre side-sheet).
+- **R4 — form Semanal** → mesmo molde (`weekly-report-sheet`); aviso 409 → `.fv-panel-scrim`; banner offline e semana read-only preservados.
+- **R5 — varredura + skills.** CSS morto por token (`.inf-intro-title`, `.inf-intro`; kit `.inf-*` de form **fica**). Skills: `containers` §8 (linha /relatorios migrada; Informativo adiado; consequência prospector) + §7 (chrome herdado via `.fv-panel-sheet`); `design-system` §0 (`.rsm-card` institucional).
+
+**Consolidação pós-device** (rodada separada): `docs/Relatorios-Visao-Geral.md` (hub, molde do `Lotes-Visao-Geral.md`), fechar esta §2.10, corrigir a coluna de rota `/informe`→`/relatorios` no `Auditoria-Navegacao-por-Papel.md`, varredura de CSS mais profunda.
+
 ## 3. O que NÃO muda
 
 - **Backend**: nenhuma rota de API muda. RD2 é só front + redirects de rota.
