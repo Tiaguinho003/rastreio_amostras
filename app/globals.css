@@ -34698,13 +34698,21 @@ body.is-selection-mode .ctr-page .cc-tabs {
   text-align: left;
 }
 
-/* Tab-strip (molde ARIA do .cad-tabs; visual institucional). */
+/* Tab-strip (molde ARIA do .cad-tabs; visual institucional). RD16 C5: gruda no
+   topo quando o hero rola pra fora (sticky) — sao a navegacao da tela e nao
+   podem ir embora junto com o hero. z-index 2 fica ABAIXO do .fv-cd-more-menu
+   do ⋯ (z-index 30), que passa por cima. */
 .client-details-overlay .fv-cd-tabs {
   display: flex;
   gap: 4px;
   padding: 0 1.15rem;
   margin-top: 12px;
   border-bottom: 1px solid var(--fv-line);
+  flex: none;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #ffffff;
 }
 .client-details-overlay .fv-cd-tab {
   appearance: none;
@@ -35478,9 +35486,29 @@ body.is-selection-mode .ctr-page .cc-tabs {
   max-width: none;
 }
 
+/* RD16 C5: drawer do cliente rola INTEIRO no mobile (porta o M3 r1 do lote,
+   escopado). Antes o .sdv-page era coluna rigida (hero + abas flex:none) e quem
+   rolava era o .sdv-content — no mobile o hero (mais alto que o do lote: avatar
+   + chips + 4 botoes + banner de pendencias) ficava congelado e sobrava uma
+   janelinha pra rolar. Agora o scroller e o .bottom-sheet-body (que o sheet ja
+   tem) e o .sdv-page cresce com o conteudo; as abas grudam no topo (sticky).
+   Mais simples que o lote: sem a cadeia :has(.sample-detail-commercial-pane).
+   Vale nos dois breakpoints. */
+.client-details-overlay .sdv-page {
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+}
+.client-details-overlay .fv-cd-hero {
+  flex: none;
+}
 /* Fundo branco do corpo (a regra antiga era via :has(.sdv-client-side-col)
-   e morreu com o wrapper; sem isto o bege do detalhe da amostra vaza). */
+   e morreu com o wrapper; sem isto o bege do detalhe da amostra vaza). Deixa
+   de ser a janela de rolagem: flex:none + overflow:visible (quem corta na
+   horizontal e o .bottom-sheet-body). */
 .client-details-overlay .sdv-content {
+  flex: none;
+  overflow: visible;
   background: #ffffff;
 }
 
