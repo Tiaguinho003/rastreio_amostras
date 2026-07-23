@@ -8055,25 +8055,9 @@ button:disabled {
   padding-top: clamp(4px, 1.5vw, 8px);
 }
 
-.inf-intro {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(2px, 0.8vw, 4px);
-  padding: 0 clamp(2px, 0.8vw, 4px);
-}
-
-.inf-intro-title {
-  margin: 0;
-  font-size: clamp(18px, 5vw, 20px);
-  font-weight: 700;
-  color: #1a1a1a;
-}
-
-.inf-intro-sub {
-  margin: 0;
-  font-size: clamp(12px, 3.2vw, 13px);
-  color: #999;
-}
+/* (RD16 §2.10 R5) `.inf-intro`/`.inf-intro-title`/`.inf-intro-sub` removidos:
+   o cabecalho da pagina /relatorios deixou de duplicar o titulo (a top-bar FV
+   ja o mostra) e o unico consumidor era o RelatoriosViewer. */
 
 /* Banner offline — estado persistente (skill feedback-messages §4): faixa
    ambar suave; fica enquanto nao houver conexao. */
@@ -8923,12 +8907,8 @@ button:disabled {
   padding: 0 clamp(2px, 0.8vw, 4px);
 }
 
-.rsm-intro-text {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(2px, 0.8vw, 4px);
-  min-width: 0;
-}
+/* (RD16 §2.10 R5) `.rsm-intro-text` removido: o cabecalho enxuto so tem a
+   contagem — o wrapper de titulo/subtitulo saiu com o titulo duplicado. */
 
 .rsm-total-chip {
   flex-shrink: 0;
@@ -10158,39 +10138,10 @@ body:has(.app-modal-backdrop) .prospector-fab {
 
 /* Badge de tipo nos cards do feed (Visita / Relatorio / Prospeccao) —
    pill discreta no canto direito do cabecalho do card. */
-.rsm-type-badge {
-  margin-left: auto;
-  align-self: flex-start;
-  flex-shrink: 0;
-  padding: 2px clamp(7px, 2vw, 9px);
-  border-radius: 999px;
-  font-size: clamp(9.5px, 2.6vw, 10.5px);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  line-height: 1.5;
-}
-
-.rsm-type-badge.is-visit {
-  color: #1f5d43;
-  background: rgba(31, 93, 67, 0.12);
-}
-
-.rsm-type-badge.is-weekly {
-  color: #2980b9;
-  background: rgba(41, 128, 185, 0.12);
-}
-
-.rsm-type-badge.is-prospect {
-  color: #b07d10;
-  background: rgba(212, 160, 23, 0.14);
-}
-
-/* Badge convive com a lixeira rapida (absoluta no canto): empurra o badge
-   pra esquerda dela. */
-.rsm-card.has-quick-delete .rsm-type-badge {
-  margin-right: clamp(26px, 7vw, 30px);
-}
+/* (RD16 §2.10 R5) `.rsm-type-badge` (+ .is-visit/.is-weekly/.is-prospect e o
+   recuo da lixeira rapida) removidos: o chip de tipo/estado do card do feed
+   agora e o `.fv-chip.is-sm` institucional, posicionado por
+   `.rsm-card-head > .fv-chip`. */
 
 /* FAB da pagina /informe: icone LAPIS no idle. O .cv2-fab base gira o svg
    45 graus no .is-expanded ("+" vira "x") — aqui ha DOIS svgs empilhados
@@ -28457,16 +28408,9 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   }
 }
 
-/* Titulo do intro do viewer de Relatorios: no desktop o titulo da pagina vem do
-   shell (DSB-D17; no mobile, da .fv-mtopbar).
-   (Esta regra era o item 1 de um bloco "ajustes desktop de /samples" que o
-   RD16 M2 esvaziou — a barra de busca mobile daquela pagina deixou de existir,
-   e com ela o filtro verde, a sombra da busca e o leque do FAB inline.) */
-@media (min-width: 901px) {
-  .inf-intro-title {
-    display: none;
-  }
-}
+/* (RD16 §2.10 R5) O media-query que ocultava `.inf-intro-title` no desktop saiu
+   junto com o titulo duplicado do viewer de Relatorios (a top-bar FV ja o
+   mostra). */
 
 /* ============================================================
    Pagina Contratos (/contratos) — leque do "+" no desktop (>=901px)
@@ -35187,9 +35131,10 @@ body.is-selection-mode .ctr-page .cc-tabs {
    das bordas brancas — e cabeçalho SEM título, com a seta ← mais baixa.
    Aqui os demais painéis da página adotam o mesmo.
 
-   Escopo deliberado: a lista de seletores cobre só os painéis de
-   /samples. `.fv-panel-sheet` hoje é exclusivo daqui (o cliente usa o
-   alias `.client-panel-sheet`); `.new-sample-sheet` e
+   Escopo deliberado: a lista de seletores cobre os painéis já migrados.
+   `.fv-panel-sheet` é genérico — além de /samples, os painéis de Visita e
+   Semanal de /relatorios o usam (RD16 §2.10 R3/R4), herdando este chrome; o
+   cliente usa o alias `.client-panel-sheet`. `.new-sample-sheet` e
    `.samples-filter-sheet` entram nominalmente. Quando o padrão for
    promovido, isto vira uma regra em `.side-sheet`/`.detail-overlay` e o
    drawer do cliente e o de contrato vêm junto. */
