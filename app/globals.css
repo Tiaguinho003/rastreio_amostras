@@ -8859,9 +8859,6 @@ button:disabled {
    vive num CARD contido (borda + raio + sombra institucional, igual ao
    .samples-page-v2-sheet) com a contagem no topo; gap pra topbar. O FAB "leque"
    fica por cima (fixed). */
-   pagina so de leitura). Sem titulo "Resumo" nem seta de voltar (cabecalho
-   oculto); o feed num CARD branco contido (borda + raio + sombra, igual ao
-   .samples-page-v2-sheet) com o total no topo; gap pra topbar. */
 @media (min-width: 901px) {
   .sdv-page:has(.rsm-content) .sdv-header {
     display: none;
@@ -16093,29 +16090,10 @@ select.samples-filter-field-input {
 
 /* (RD16 M3 · 2026-07-22) O modal de sucesso da classificacao virou o check
    canonico (`SuccessCheckOverlay`, portalado da camera). A `.classification-
-   success-print` saiu com ele. As `.sample-created-lot*/
--title` ficaram orfas junto,
-mas
-  moram
-  no
-  bloco
-  `.sample-created-*`
-  que
-  o
-  ApprovalLabelModal
-  ainda
-  compartilha
-  (check + body)
-  —
-  a
-  poda
-  dessas
-  fica
-  pra
-  consolidacao
-  da
-  camera.
-  */
+   success-print` saiu com ele. As `.sample-created-lot` e `-title` ficaram
+   orfas junto, mas moram no bloco `.sample-created-*` que o ApprovalLabelModal
+   ainda compartilha (check + body) — a poda dessas fica pra consolidacao da
+   camera. */
   .client-modal-header {
   display: flex;
   justify-content: space-between;
