@@ -77,7 +77,10 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
 20. `docs/Redesign-Plano-de-Trabalho.md`
     Uso: documento centralizado do ciclo de redesign — duas frentes: (a) detalhes-como-modais (detalhes de lote/cliente/contrato deixam de ser paginas e viram overlays sobre as listas, enderecaveis por query param; sheet de tela cheia no mobile, painel lateral no desktop) e (b) frente visual institucional, aplicada **pagina a pagina** (contêiner dos modais + design juntos), a partir de `Design-Language.md`. Ledger **RD1-RD16**, fases F0-F4 + FV + ciclo mobile, inventario tecnico, riscos e plano de sync de skills. Prefixo de decisoes: RD. Status: **F1 e F3 validadas, F2 implementada**; FV com `/cadastros` como exemplo (desktop conferido; **mobile RD16 C1-C8 + rodada de ajustes finos validados no device e consolidados** — CSS morto e skills sincronizados, 2026-07-23) e `/samples` em conferencia (F1-F3 + ajustes + **mobile M1-M3 implementado**; consolidacao pendente). **E o doc mais atual sobre como /samples e /cadastros funcionam hoje.**
 
-21. `docs/hardware/bipador-goldensky-j32w.md`
+21. `docs/Lotes-Visao-Geral.md`
+    Uso: documento-mae (hub) do dominio Lote (o modelo `Sample`) — o que e, ciclo de vida e estados (SampleStatus/CommercialStatus), event store (SampleEvent append-only), projecao, superficies (/samples lista + detalhe drawer), sub-dominios (Classificacao/Liga/Simulador), API, testes e dividas abertas. E um HUB: aponta para os docs que detalham cada parte (Produto-e-Fluxos, Arquitetura-Tecnica, API-e-Contratos, Classificacao-Visao-Geral, Liga, Redesign §2.7/2.8) em vez de duplica-los. Status: Ativo (criado no M4 do redesenho FV de /samples, 2026-07-23).
+
+22. `docs/hardware/bipador-goldensky-j32w.md`
     Uso: guia de configuracao do leitor de QR/codigo de barras Goldensky J32W (USB sem fio, 2D) para a leitura global do sistema — modo HID Keyboard com prefixo STX + sufixo CR, e como o listener de `lib/scanner/` consome isso. Status: Ativo (referencia de hardware).
 
 ## Relatorios da reorganizacao
