@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObjec
 import { createPortal } from 'react-dom';
 
 import { BottomSheet } from '../BottomSheet';
-import { SuccessCheckOverlay } from '../SuccessCheckOverlay';
+import { SuccessCheckOverlay, SUCCESS_CHECK_MS } from '../SuccessCheckOverlay';
 import {
   ClientInactivateWithCascadeModal,
   type CascadeSample,
@@ -475,7 +475,7 @@ export function ClientDetailView({
   const [detailCheck, setDetailCheck] = useState(false);
   const flashDetailCheck = useCallback(() => {
     setDetailCheck(true);
-    window.setTimeout(() => setDetailCheck(false), 1000);
+    window.setTimeout(() => setDetailCheck(false), SUCCESS_CHECK_MS);
   }, []);
 
   /* ---- status modal (inactivate/reactivate client) ---- */
@@ -779,7 +779,7 @@ export function ClientDetailView({
       window.setTimeout(() => {
         setEditClientOpen(false);
         setEditClientSuccess(false);
-      }, 1000);
+      }, SUCCESS_CHECK_MS);
     } catch (cause) {
       setEditClientModalNotice({
         kind: 'error',
@@ -839,7 +839,7 @@ export function ClientDetailView({
       window.setTimeout(() => {
         setUnitDetailOpen(false);
         setUnitDetailSuccess(false);
-      }, 1000);
+      }, SUCCESS_CHECK_MS);
     } catch (cause) {
       setUnitDetailNotice(translateUnitError(cause));
     } finally {
@@ -874,7 +874,7 @@ export function ClientDetailView({
       window.setTimeout(() => {
         setUnitModalOpen(false);
         setUnitCreateSuccess(false);
-      }, 1000);
+      }, SUCCESS_CHECK_MS);
     } catch (cause) {
       setUnitModalNotice({
         kind: 'error',
@@ -912,7 +912,7 @@ export function ClientDetailView({
       window.setTimeout(() => {
         setBankAccountModalOpen(false);
         setBankAccountCreateSuccess(false);
-      }, 1000);
+      }, SUCCESS_CHECK_MS);
     } catch (cause) {
       setBankAccountModalNotice({
         kind: 'error',
@@ -942,7 +942,7 @@ export function ClientDetailView({
     window.setTimeout(() => {
       setBankAccountDetailOpen(false);
       setBankAccountDetailSuccess(false);
-    }, 1000);
+    }, SUCCESS_CHECK_MS);
   }
 
   async function handleBankAccountDetailSave(data: ClientBankAccountInput) {
@@ -1022,7 +1022,7 @@ export function ClientDetailView({
       window.setTimeout(() => {
         setAttachmentAddOpen(false);
         setAttachmentAddSuccess(false);
-      }, 1000);
+      }, SUCCESS_CHECK_MS);
     } catch (cause) {
       setAttachmentAddNotice(cause instanceof ApiError ? cause.message : 'Falha ao enviar anexo.');
     } finally {
@@ -1060,7 +1060,7 @@ export function ClientDetailView({
       setAttachments((prev) => prev.map((it) => (it.id === attachment.id ? attachment : it)));
       // Rodada 6: check canonico (flash) — o painel segue aberto.
       setAttachmentPreviewSuccess(true);
-      window.setTimeout(() => setAttachmentPreviewSuccess(false), 1000);
+      window.setTimeout(() => setAttachmentPreviewSuccess(false), SUCCESS_CHECK_MS);
     } catch (cause) {
       setAttachmentPreviewNotice(
         cause instanceof ApiError ? cause.message : 'Falha ao vincular o anexo à filial.'
@@ -1082,7 +1082,7 @@ export function ClientDetailView({
       window.setTimeout(() => {
         setAttachmentPreviewOpen(false);
         setAttachmentPreviewSuccess(false);
-      }, 1000);
+      }, SUCCESS_CHECK_MS);
     } catch (cause) {
       setAttachmentPreviewNotice(
         cause instanceof ApiError ? cause.message : 'Falha ao excluir anexo.'

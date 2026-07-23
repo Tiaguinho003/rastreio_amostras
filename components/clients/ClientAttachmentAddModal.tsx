@@ -76,7 +76,7 @@ export function ClientAttachmentAddModal({
       stacked
       closeVariant="edge-back"
       dragDisabled={saving || success}
-      className="client-panel-sheet client-attachment-add-sheet side-sheet"
+      className="client-panel-sheet client-attachment-add-sheet side-sheet is-fit-content"
       footer={
         success ? null : (
           <button

@@ -9,7 +9,7 @@ import type { ClientPersonType, ClientSummary, SessionData, UserLookupItem } fro
 import { useToast } from '../../lib/toast/ToastProvider';
 import { BottomSheet } from '../BottomSheet';
 import { ChipMultiSelectField } from '../ChipMultiSelectField';
-import { SuccessCheckOverlay } from '../SuccessCheckOverlay';
+import { SuccessCheckOverlay, SUCCESS_CHECK_MS } from '../SuccessCheckOverlay';
 
 // Mapeia mensagens de erro do backend (em ingles) para pt-BR.
 const FIELD_LABELS: Record<string, string> = {
@@ -376,7 +376,7 @@ export function ClientQuickCreateModal({
       window.setTimeout(() => {
         setShowSuccess(false);
         onCreated(response.client);
-      }, 900);
+      }, SUCCESS_CHECK_MS);
     } catch (cause) {
       toast.error({ title: translateCreateClientError(cause) });
       setSaving(false);
