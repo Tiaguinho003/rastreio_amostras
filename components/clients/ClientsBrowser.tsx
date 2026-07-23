@@ -789,186 +789,120 @@ export function ClientsBrowser({
   const activeFiltersCount = countActiveClientFilters(appliedFilters);
   const hasDraftFilters = countActiveClientFilters(draftFilters) > 0;
 
-  return (
-    <>
-      {/* Busca + botão "X" de limpar + botão de filtro + FAB na mesma linha
-          (mobile: FAB sai do fluxo via position:fixed). has-applied-filters
-          revela o "X" deslizando de trás do filtro. fv-hide-desktop (RD14):
-          no desktop esta linha morre — busca/funil/limpar moram na .fv-toolbar
-          dentro do cartao da tabela. */}
-      <div
-        className={`hero-search-wrap fv-hide-desktop${activeFiltersCount > 0 ? ' has-applied-filters' : ''}`}
-      >
-        <form className="hero-search-bar" role="search" onSubmit={handleClientSearchSubmit}>
-          <input
-            className="hero-search-input"
-            value={clientSearchInput}
-            onChange={(event) => setClientSearchInput(event.target.value)}
-            placeholder="Buscar por nome ou documento..."
-            autoComplete="off"
-            spellCheck={false}
-          />
-          {/* Lupa DECORATIVA (a busca filtra ao vivo; Enter ainda submete o
-              form via implicit submission). Era botão de submit com cross-fade
-              pra seta verde — agora decorativa, igual /samples. */}
-          {/* Ao digitar, a lupa decorativa vira um botao "x" pra limpar a
-              busca de uma vez (mesmo padrao da lupa, com borda). */}
-          {clientSearchInput ? (
-            <button
-              type="button"
-              className="hero-search-clear-input"
-              aria-label="Limpar busca"
-              onClick={() => setClientSearchInput('')}
-            >
-              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <path d="M6 6l12 12M18 6L6 18" />
-              </svg>
-            </button>
-          ) : (
-            <span className="hero-search-submit" aria-hidden="true">
-              <svg
-                className="hero-search-icon-search"
-                viewBox="0 0 24 24"
-                focusable="false"
-                aria-hidden="true"
-              >
-                <circle cx="11" cy="11" r="7" />
-                <path d="m16.2 16.2 4.1 4.1" />
-              </svg>
-            </span>
-          )}
-        </form>
-        <span className="hero-search-clear-slot" aria-hidden={activeFiltersCount === 0}>
+  // RD16 /cadastros C2: UMA chrome so. A .fv-toolbar (busca + funil + limpar +
+  // contagem) serve os dois breakpoints — no desktop fica presa no topo do
+  // cartao ({isDesktop ? toolbar}); no mobile rola DENTRO do .spv2-list-scroll
+  // (mobileListChrome, injetado nos ramos). Antes a pagina montava DUAS chromes
+  // e escondia uma por CSS (a .hero-search-wrap saiu; o "Filtros" ganhou span
+  // pro mobile poder esconde-lo).
+  const toolbar = (
+    <div className="fv-toolbar">
+      <form className="fv-toolbar-search" role="search" onSubmit={handleClientSearchSubmit}>
+        <svg
+          className="fv-toolbar-search-icon"
+          viewBox="0 0 24 24"
+          focusable="false"
+          aria-hidden="true"
+        >
+          <circle cx="11" cy="11" r="7" />
+          <path d="m16.2 16.2 4.1 4.1" />
+        </svg>
+        <input
+          className="fv-input fv-toolbar-search-input"
+          value={clientSearchInput}
+          onChange={(event) => setClientSearchInput(event.target.value)}
+          placeholder="Buscar por nome ou documento..."
+          autoComplete="off"
+          spellCheck={false}
+        />
+        {clientSearchInput ? (
           <button
             type="button"
-            className="hero-search-clear-btn"
-            aria-label="Limpar filtros"
-            tabIndex={activeFiltersCount > 0 ? 0 : -1}
-            onClick={handleClearFiltersOnly}
+            className="fv-toolbar-search-clear"
+            aria-label="Limpar busca"
+            onClick={() => setClientSearchInput('')}
           >
             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
           </button>
-        </span>
-        <button
-          type="button"
-          className={`hero-search-filter-btn${activeFiltersCount > 0 ? ' has-filters' : ''}`}
-          aria-label="Filtros"
-          aria-haspopup="dialog"
-          aria-expanded={filtersOpen}
-          onClick={() => {
-            if (filtersOpen) {
-              closeFilters();
-              return;
-            }
-            openFilters();
-          }}
-        >
-          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-            <path d="M4 6h16" />
-            <path d="M7 12h10" />
-            <path d="M10 18h4" />
-          </svg>
-          {activeFiltersCount > 0 ? (
-            <span className="hero-search-filter-badge">{activeFiltersCount}</span>
-          ) : null}
+        ) : null}
+      </form>
+      <button
+        type="button"
+        className="fv-btn fv-btn-secondary fv-toolbar-filter"
+        aria-haspopup="dialog"
+        aria-expanded={filtersOpen}
+        onClick={() => {
+          if (filtersOpen) {
+            closeFilters();
+            return;
+          }
+          openFilters();
+        }}
+      >
+        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+          <path d="M4 6h16" />
+          <path d="M7 12h10" />
+          <path d="M10 18h4" />
+        </svg>
+        {/* O rotulo vive num <span> pra o mobile poder esconde-lo e deixar o
+            botao no tamanho do icone — a linha da busca nao cabe os dois. */}
+        <span className="fv-toolbar-filter-label">Filtros</span>
+        {activeFiltersCount > 0 ? <span className="fv-btn-badge">{activeFiltersCount}</span> : null}
+      </button>
+      {activeFiltersCount > 0 ? (
+        <button type="button" className="fv-toolbar-clear" onClick={handleClearFiltersOnly}>
+          Limpar
         </button>
-        <button
-          type="button"
-          className="cv2-fab"
-          aria-label="Cadastrar novo cliente"
-          onClick={() => setClientQuickCreateOpen(true)}
-        >
-          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-            <path d="M12 5v14" />
-            <path d="M5 12h14" />
-          </svg>
-        </button>
-      </div>
+      ) : null}
+      <span className="fv-toolbar-count">{clientsState.total} clientes</span>
+    </div>
+  );
+
+  // No mobile a toolbar rola junto com os cards (nada de chrome travada). Entra
+  // como 1o filho nos ramos de rolagem (carregando/vazio/cards); no C4 o KPI-2
+  // entra aqui na frente dela.
+  const mobileListChrome = isDesktop ? null : toolbar;
+
+  return (
+    <>
+      {/* RD16 C2: a .hero-search-wrap mobile saiu — busca/funil/limpar/contagem
+          agora vivem na .fv-toolbar (uma chrome so, mobileListChrome no scroll).
+          O FAB de criacao perdeu o pai que o abrigava; virou filho direto,
+          escondido no desktop por `.fv-cad-page .cv2-fab` (criar mora no
+          "+ Novo cliente" do .fv-page-head). */}
+      <button
+        type="button"
+        className="cv2-fab"
+        aria-label="Cadastrar novo cliente"
+        onClick={() => setClientQuickCreateOpen(true)}
+      >
+        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+          <path d="M12 5v14" />
+          <path d="M5 12h14" />
+        </svg>
+      </button>
 
       {/* Sheet */}
       <section className="clients-v2-sheet">
-        {/* RD14 (desktop): toolbar do cartao da tabela — busca (mesma logica/
-            debounce da hero) + funil com badge + limpar + contador a direita.
-            Mobile: display:none (a hero-search acima segue no comando). */}
-        <div className="fv-toolbar">
-          <form className="fv-toolbar-search" role="search" onSubmit={handleClientSearchSubmit}>
-            <svg
-              className="fv-toolbar-search-icon"
-              viewBox="0 0 24 24"
-              focusable="false"
-              aria-hidden="true"
-            >
-              <circle cx="11" cy="11" r="7" />
-              <path d="m16.2 16.2 4.1 4.1" />
-            </svg>
-            <input
-              className="fv-input fv-toolbar-search-input"
-              value={clientSearchInput}
-              onChange={(event) => setClientSearchInput(event.target.value)}
-              placeholder="Buscar por nome ou documento..."
-              autoComplete="off"
-              spellCheck={false}
-            />
-            {clientSearchInput ? (
-              <button
-                type="button"
-                className="fv-toolbar-search-clear"
-                aria-label="Limpar busca"
-                onClick={() => setClientSearchInput('')}
-              >
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <path d="M6 6l12 12M18 6L6 18" />
-                </svg>
-              </button>
-            ) : null}
-          </form>
-          <button
-            type="button"
-            className="fv-btn fv-btn-secondary fv-toolbar-filter"
-            aria-haspopup="dialog"
-            aria-expanded={filtersOpen}
-            onClick={() => {
-              if (filtersOpen) {
-                closeFilters();
-                return;
-              }
-              openFilters();
-            }}
-          >
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <path d="M4 6h16" />
-              <path d="M7 12h10" />
-              <path d="M10 18h4" />
-            </svg>
-            Filtros
-            {activeFiltersCount > 0 ? (
-              <span className="fv-btn-badge">{activeFiltersCount}</span>
-            ) : null}
-          </button>
-          {activeFiltersCount > 0 ? (
-            <button type="button" className="fv-toolbar-clear" onClick={handleClearFiltersOnly}>
-              Limpar
-            </button>
-          ) : null}
-          <span className="fv-toolbar-count">{clientsState.total} clientes</span>
-        </div>
-
-        {/* Contador a direita (mobile; no desktop o contador mora na toolbar). */}
-        <div className="spv2-list-meta">
-          <span className="spv2-list-count">{clientsState.total} clientes</span>
-        </div>
+        {/* RD16 C2: no desktop a toolbar fica presa no topo do cartao; no mobile
+            ela rola dentro do scroll (mobileListChrome, injetado nos ramos). Uma
+            fonte, montada acima — e o contador mobile (.spv2-list-meta) sai: mora
+            na .fv-toolbar-count. */}
+        {isDesktop ? toolbar : null}
 
         {/* Card list */}
         {clientsState.status === 'loading-initial' ? (
           <div className="spv2-list-scroll">
+            {mobileListChrome}
             <div className="spv2-empty">
               <p className="spv2-empty-text">Carregando...</p>
             </div>
           </div>
         ) : displayClients.length === 0 ? (
           <div className="spv2-list-scroll">
+            {mobileListChrome}
             <div className="spv2-empty">
               <svg
                 className="spv2-empty-icon cv2-empty-icon"
@@ -1204,6 +1138,7 @@ export function ClientsBrowser({
           </div>
         ) : (
           <div ref={clientsScrollRef} className="spv2-list-scroll" tabIndex={-1}>
+            {mobileListChrome}
             {groupedDisplay.map((node) => {
               if (node.kind === 'divider') {
                 return (

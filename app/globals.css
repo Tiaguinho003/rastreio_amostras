@@ -33605,11 +33605,15 @@ body.is-selection-mode .ctr-page .cc-tabs {
     width: min(400px, 92vw);
   }
 
-  /* RD14: no desktop a linha de busca mobile (hero) sai de cena — busca/
-     funil/limpar moram na .fv-toolbar do cartao. Classe aplicada pelo
-     proprio ClientsBrowser (nao esconde a hero de Corretores, que so migra
-     no C8). O contador mobile tambem sai (mora na toolbar). */
+  /* Desktop: a chrome mobile de /cadastros sai de cena — busca/funil/limpar
+     moram na .fv-toolbar do cartao, e criar mora no "+ Novo" do .fv-page-head.
+     Clientes (RD16 C2) ja migrou: a .hero-search-wrap dele sumiu e o FAB virou
+     filho direto (escondido aqui). Corretores ainda usa a .hero-search-wrap
+     (migra na rodada dele). O contador mobile (.spv2-list-meta) tambem sai. */
   .fv-cad-page .hero-search-wrap.fv-hide-desktop {
+    display: none;
+  }
+  .fv-cad-page .cv2-fab {
     display: none;
   }
   .fv-cad-page .clients-v2-sheet .spv2-list-meta {
@@ -33762,8 +33766,15 @@ body.is-selection-mode .ctr-page .cc-tabs {
    coluna do .spv2-list-scroll. Por isso perdeu a borda inferior (que marcava o
    fim da area fixa) e o recuo lateral proprio — alinha com os cards pelo
    padding do proprio container. ── */
+/* RD16 /cadastros C2: a mesma toolbar mobile passa a valer na lista de Clientes
+   (.clients-page-v2). O 2o seletor pede `.spv2-list-scroll` de proposito — no
+   /cadastros a toolbar so entra em cena quando MOVIDA para dentro da rolagem
+   (como no /samples). A lista de Corretores ainda renderiza a toolbar FORA da
+   rolagem (com a .hero-search-wrap dela): sem o qualificador, ela acenderia
+   junto = chrome dupla. Corretores migra na rodada dele. */
 @media (max-width: 900px) {
-  .fv-lotes-page .fv-toolbar {
+  .fv-lotes-page .fv-toolbar,
+  .clients-page-v2 .spv2-list-scroll .fv-toolbar {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
@@ -33775,16 +33786,19 @@ body.is-selection-mode .ctr-page .cc-tabs {
      caracteres) e e ela que decide se alguem cabe ao lado — com base `auto` o
      funil caia pra linha de baixo. Com base 0 a busca cede espaco e o funil
      fica sempre colado nela. */
-  .fv-lotes-page .fv-toolbar-search {
+  .fv-lotes-page .fv-toolbar-search,
+  .clients-page-v2 .spv2-list-scroll .fv-toolbar-search {
     order: 1;
     flex: 1 1 0;
   }
 
-  .fv-lotes-page .fv-toolbar-search-input {
+  .fv-lotes-page .fv-toolbar-search-input,
+  .clients-page-v2 .spv2-list-scroll .fv-toolbar-search-input {
     height: 40px;
   }
 
-  .fv-lotes-page .fv-toolbar-filter {
+  .fv-lotes-page .fv-toolbar-filter,
+  .clients-page-v2 .spv2-list-scroll .fv-toolbar-filter {
     order: 2;
     height: 40px;
     padding-left: 0.75rem;
@@ -33792,11 +33806,13 @@ body.is-selection-mode .ctr-page .cc-tabs {
   }
 
   /* So o icone: a linha da busca nao cabe icone + rotulo. */
-  .fv-lotes-page .fv-toolbar-filter-label {
+  .fv-lotes-page .fv-toolbar-filter-label,
+  .clients-page-v2 .spv2-list-scroll .fv-toolbar-filter-label {
     display: none;
   }
 
-  .fv-lotes-page .fv-toolbar::after {
+  .fv-lotes-page .fv-toolbar::after,
+  .clients-page-v2 .spv2-list-scroll .fv-toolbar::after {
     content: '';
     order: 3;
     flex-basis: 100%;
@@ -33806,15 +33822,18 @@ body.is-selection-mode .ctr-page .cc-tabs {
   /* Contagem na ponta DIREITA da segunda linha; "Limpar" a esquerda dela. Ela
      e um rodape da chrome, nao um dado da lista — por isso menor que o
      secundario do card. */
-  .fv-lotes-page .fv-toolbar-count {
+  .fv-lotes-page .fv-toolbar-count,
+  .clients-page-v2 .spv2-list-scroll .fv-toolbar-count {
     font-size: 0.72rem;
   }
 
-  .fv-lotes-page .fv-toolbar-clear {
+  .fv-lotes-page .fv-toolbar-clear,
+  .clients-page-v2 .spv2-list-scroll .fv-toolbar-clear {
     order: 4;
   }
 
-  .fv-lotes-page .fv-toolbar-count {
+  .fv-lotes-page .fv-toolbar-count,
+  .clients-page-v2 .spv2-list-scroll .fv-toolbar-count {
     order: 5;
     margin-left: auto;
   }

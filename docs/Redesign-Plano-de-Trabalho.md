@@ -623,12 +623,13 @@ Ajuste fino de sizing: modais com muitos campos deviam **crescer** (menos scroll
 **As rodadas** (uma = um commit; gates a cada uma):
 
 - **C1 — rota em camada.** `/cadastros` entra no `isLayeredRoute` (`AppShell.tsx`), igual /users — o `.spv2-list-scroll` das duas abas (Clientes e Corretores) vira scroller interno; sem isso a página rolava na janela. + esta §2.9.
-- **C2 — uma chrome só.** `.fv-toolbar` vale no mobile (escopo `.clients-page-v2`), movida para dentro da rolagem; `.hero-search-wrap` mobile sai (Clientes no `ClientsBrowser`, Corretores na página). Promove `.fv-lotes-page .fv-toolbar*` a multi-página.
-- **C3 — card institucional.** `.cv2-card` chapado + hairline + `radius-lg` + chip de status `.fv-chip.is-sm`, escopado em `.clients-page-v2`; `.cad-row` dos corretores idem.
+- **C2 — Clientes: chrome única.** A `.fv-toolbar` de Clientes passa a valer no mobile, **movida para DENTRO do `.spv2-list-scroll`** (`mobileListChrome`, nos ramos carregando/vazio/cards). A promoção é escopada `.clients-page-v2 .spv2-list-scroll .fv-toolbar` — o qualificador `.spv2-list-scroll` evita acender a toolbar de **Corretores** (que segue na `.hero-search-wrap` até a rodada dele); sem ele = chrome dupla. A `.hero-search-wrap` de Clientes sai; o FAB vira filho direto (escondido no desktop por `.fv-cad-page .cv2-fab`); o "Filtros" ganha `<span className="fv-toolbar-filter-label">` pro mobile poder escondê-lo.
+- **C3 — Clientes: card institucional.** `.cv2-card` chapado + hairline + `radius-lg` + chip de status `.fv-chip.is-sm`, escopado em `.clients-page-v2`.
 - **C4 — KPI-2 mobile.** Total + Incompletos dentro do scroll; gate de desktop sai do fetch de stats (`page.tsx:149`); `clientStats` desce por prop pro `ClientsBrowser`. Promove `.fv-lotes-page .fv-kpi-row*` a multi-página.
 - **C5 — drawer rola inteiro.** M3 r1 escopado em `.client-details-overlay` (sdv-page/sdv-content/fv-cd-tabs sticky) + timing canônico (`SUCCESS_CHECK_MS` no `ClientDetailView` e `QuickCreate`).
 - **C6 — sub-abas institucionais.** `.cad-tabs` → visual do `.fv-tabs`, escopado em `.fv-cad-page` (compartilhado com /contratos e /embarques via `.cc-tabs`).
-- **C7 — varredura + skills.** CSS morto por seletor; skills no commit em que o fato muda (`data-tables`, `css-architecture`, `design-system`, `containers`); índice do `README.md`.
+- **C7 — Corretores: chrome + card + lista.** A toolbar de Corretores tem o toggle de inativos (botão de texto largo, sem `order`) que não encaixa na toolbar de 2 linhas de Clientes — por isso migra em rodada própria: `.hero-search-wrap` sai, toolbar entra na rolagem, `.cad-row` vira card institucional.
+- **C8 — varredura + skills.** CSS morto por seletor; skills no commit em que o fato muda (`data-tables`, `css-architecture`, `design-system`, `containers`); índice do `README.md`.
 
 **A conferir** (📱🖥️, ≤900px): /cadastros rola por dentro (não a janela); card institucional (chip de status), toque abre o perfil, sem `⋯`; KPI-2 rolando no topo (Incompletos filtrando); busca única; drawer do cliente rola inteiro (hero sobe, abas grudam); Corretores no mesmo molde; desktop (≥901px) intocado.
 
