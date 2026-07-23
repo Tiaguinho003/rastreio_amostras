@@ -32910,53 +32910,64 @@ body.is-selection-mode .ctr-page .cc-tabs {
   color: var(--fv-chip-amber-fg);
 }
 
-/* ── KPI no mobile (/samples): dois cards, dentro da rolagem ──
+/* ── KPI no mobile: dois cards, dentro da rolagem ──
    A faixa entra como primeiro item do .spv2-list-scroll, seguida da toolbar, e
    some ao descer a lista.
 
-   Rodada 1 do M2: sao DOIS cards (a pagina filtra o array), e dois cabem lado a
-   lado. Com isso o carrossel de scroll-x saiu — com dois itens ele so escondia
-   metade da informacao atras de um gesto, e as margens negativas do full-bleed
-   deixaram de fazer sentido. ── */
+   Rodada 1 do M2 (/samples): sao DOIS cards (a pagina filtra o array), e dois
+   cabem lado a lado. Com isso o carrossel de scroll-x saiu — com dois itens ele
+   so escondia metade da informacao atras de um gesto.
+
+   RD16 C4: /cadastros ganha o mesmo KPI-2 (Total + Incompletos), montado pelo
+   ClientsBrowser DENTRO do .spv2-list-scroll (por isso o 2o seletor pede o
+   container). O card mobile de la e label+icone + valor, SEM delta — logo
+   .fv-kpi-metric/.fv-kpi-delta seguem so-/samples (nao ha o que casar). ── */
 @media (max-width: 900px) {
-  .fv-lotes-page .fv-kpi-row {
+  .fv-lotes-page .fv-kpi-row,
+  .clients-page-v2 .spv2-list-scroll .fv-kpi-row {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: clamp(8px, 2.4vw, 10px);
     flex: none;
   }
 
-  .fv-lotes-page .fv-kpi {
+  .fv-lotes-page .fv-kpi,
+  .clients-page-v2 .spv2-list-scroll .fv-kpi {
     gap: 0.3rem;
     padding: 0.6rem 0.7rem;
   }
 
-  .fv-lotes-page .fv-kpi-label {
+  .fv-lotes-page .fv-kpi-label,
+  .clients-page-v2 .spv2-list-scroll .fv-kpi-label {
     font-size: 0.78rem;
   }
 
   /* Icone menor: com o card em duas linhas ele passava a ser a peca mais alta
      e voltava a ditar a altura que a metrica inline acabou de economizar. */
-  .fv-lotes-page .fv-kpi-icon {
+  .fv-lotes-page .fv-kpi-icon,
+  .clients-page-v2 .spv2-list-scroll .fv-kpi-icon {
     width: 26px;
     height: 26px;
   }
 
-  .fv-lotes-page .fv-kpi-icon svg {
+  .fv-lotes-page .fv-kpi-icon svg,
+  .clients-page-v2 .spv2-list-scroll .fv-kpi-icon svg {
     width: 0.9rem;
     height: 0.9rem;
   }
 
   /* Valor e metrica na MESMA linha — e o que tira uma linha inteira da altura
      do card. `baseline` assenta os dois pelo pe do texto, apesar dos corpos
-     diferentes; o delta trunca se o card apertar. */
+     diferentes; o delta trunca se o card apertar. (So /samples: o KPI-2 de
+     /cadastros nao tem metrica/delta.) */
   .fv-lotes-page .fv-kpi-metric {
     flex-direction: row;
     align-items: baseline;
     gap: 0.4rem;
   }
 
-  .fv-lotes-page .fv-kpi-value {
+  .fv-lotes-page .fv-kpi-value,
+  .clients-page-v2 .spv2-list-scroll .fv-kpi-value {
     flex: none;
     font-size: 1.25rem;
   }

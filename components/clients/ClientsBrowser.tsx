@@ -27,6 +27,7 @@ import { useListRevalidation } from '../../lib/use-list-revalidation';
 import { useToast } from '../../lib/toast/ToastProvider';
 import type {
   ClientStatus,
+  ClientStatsResponse,
   ClientSummary,
   ClientPersonType,
   SessionData,
@@ -250,6 +251,10 @@ export interface ClientsBrowserProps {
   // RD14: o CTA "+ Novo cliente" do cabecalho desktop vive na pagina, mas o
   // quick-create vive aqui — o browser registra o abridor pra pagina chamar.
   registerCreateOpener?: (openCreate: () => void) => void;
+  // RD16 C4: stats globais (Total + Incompletos) pro KPI-2 do mobile, que rola
+  // dentro da lista. A pagina ja busca (getClientStats) e passa; no desktop o
+  // KPI de 4 cards fica na pagina.
+  clientStats?: ClientStatsResponse | null;
 }
 
 // Experiencia COMPLETA de lista de clientes (busca + filtro + FAB + scroll
@@ -263,6 +268,7 @@ export function ClientsBrowser({
   onOpenClient,
   onOpenClientAction,
   registerCreateOpener,
+  clientStats,
 }: ClientsBrowserProps) {
   const toast = useToast();
 
@@ -859,10 +865,69 @@ export function ClientsBrowser({
     </div>
   );
 
-  // No mobile a toolbar rola junto com os cards (nada de chrome travada). Entra
-  // como 1o filho nos ramos de rolagem (carregando/vazio/cards); no C4 o KPI-2
-  // entra aqui na frente dela.
-  const mobileListChrome = isDesktop ? null : toolbar;
+  // RD16 C4: KPI-2 mobile (Total + Incompletos), montado aqui porque o cartao
+  // "Incompletos" alterna o filtro completeness — que e state deste browser. Os
+  // numeros vem do clientStats (global, o mesmo do KPI de 4 cards do desktop),
+  // nao da contagem filtrada da lista. Sem delta: card compacto acima da lista.
+  const incompleteFilterActive = appliedFilters.completeness === 'incomplete';
+  const toggleIncompleteFilter = () =>
+    setAppliedFilters((prev) => ({
+      ...prev,
+      completeness: prev.completeness === 'incomplete' ? '' : 'incomplete',
+    }));
+  const mobileKpi = (
+    <div className="fv-kpi-row">
+      <article className="fv-kpi">
+        <div className="fv-kpi-top">
+          <span className="fv-kpi-label">Total de clientes</span>
+          <span className="fv-kpi-icon is-blue" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+          </span>
+        </div>
+        <span className="fv-kpi-value">
+          {clientStats?.total == null ? '—' : clientStats.total.toLocaleString('pt-BR')}
+        </span>
+      </article>
+      {/* Cartao clicavel: alterna completeness=incomplete (o mesmo filtro
+          server-side do painel e do deep-link ?incomplete=true do dashboard),
+          como o "Aguardando classificacao" do /samples. */}
+      <button
+        type="button"
+        className={`fv-kpi is-clickable${incompleteFilterActive ? ' is-active' : ''}`}
+        aria-pressed={incompleteFilterActive}
+        onClick={toggleIncompleteFilter}
+      >
+        <div className="fv-kpi-top">
+          <span className="fv-kpi-label">Cadastros incompletos</span>
+          <span className="fv-kpi-icon is-amber" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 8v4" />
+              <path d="M12 16h.01" />
+            </svg>
+          </span>
+        </div>
+        <span className="fv-kpi-value">
+          {clientStats?.incomplete == null ? '—' : clientStats.incomplete.toLocaleString('pt-BR')}
+        </span>
+      </button>
+    </div>
+  );
+
+  // No mobile o KPI-2 e a toolbar rolam junto com os cards (nada de chrome
+  // travada). Entram como 1os filhos nos ramos de rolagem (carregando/vazio/
+  // cards): o KPI na frente, a toolbar logo abaixo.
+  const mobileListChrome = isDesktop ? null : (
+    <>
+      {mobileKpi}
+      {toolbar}
+    </>
+  );
 
   return (
     <>

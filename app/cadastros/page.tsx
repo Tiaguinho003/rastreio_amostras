@@ -146,7 +146,10 @@ function CadastrosPage() {
   const isDesktop = useIsDesktop();
   const [clientStats, setClientStats] = useState<ClientStatsResponse | null>(null);
   useEffect(() => {
-    if (!session || !isDesktop) return;
+    // RD16 C4: stats valem nos DOIS breakpoints — o KPI-2 mobile (Total +
+    // Incompletos) do ClientsBrowser bebe do mesmo clientStats. Antes o gate
+    // `!isDesktop` deixava os numeros em "—" no mobile pra sempre.
+    if (!session) return;
     let active = true;
     getClientStats(session)
       .then((stats) => {
@@ -158,7 +161,7 @@ function CadastrosPage() {
     return () => {
       active = false;
     };
-  }, [session, isDesktop, clienteId]);
+  }, [session, clienteId]);
 
   // RD14: o CTA "+ Novo cliente" do cabecalho desktop abre o quick-create que
   // vive DENTRO do ClientsBrowser — o browser registra o abridor aqui.
@@ -388,7 +391,10 @@ function CadastrosPage() {
           )}
         </div>
 
-        {tab === 'clientes' ? (
+        {/* RD16 C4: no mobile o KPI-2 (Total + Incompletos) vem do ClientsBrowser,
+            dentro da rolagem — aqui fica so o KPI de 4 cards do desktop, pra nao
+            montar duas faixas (uma escondida por CSS). */}
+        {tab === 'clientes' && isDesktop ? (
           <div className="fv-kpi-row">
             {kpiCards.map((card) => (
               <article key={card.key} className="fv-kpi">
@@ -455,6 +461,7 @@ function CadastrosPage() {
             session={session}
             storageKey="clients-list-snapshot-cad-v3"
             initialIncomplete={incompleteFromUrl}
+            clientStats={clientStats}
             onOpenClient={openClient}
             onOpenClientAction={openClient}
             registerCreateOpener={registerCreateOpener}
