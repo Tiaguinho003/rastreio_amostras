@@ -13294,6 +13294,29 @@ body:has(.app-modal-backdrop) .prospector-fab {
   padding: 0.25rem 0.15rem 0.6rem;
 }
 
+/* Painel de filtros de /relatorios (Tipo/Status/Periodo): mesma familia do de
+   /samples, mas empilhamento simples (sem as linhas de 2 colunas). Reusa os
+   campos .samples-filter-field* (label + date grid) e os pills .fv-choice. */
+.relatorios-filter-sheet-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.05rem;
+  padding: 0.35rem 0.15rem 0.6rem;
+}
+/* Tipo e Status tem 3 opcoes cada — 3 colunas (o kit .fv-choice-group e 2, que
+   deixaria a 3a pilula sozinha na linha de baixo). Pilulas centradas: no filtro
+   sao rotulos curtos (Todos/Visita/Semanal), nao campos de formulario. */
+.relatorios-filter-sheet-form .fv-choice-group {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.relatorios-filter-sheet-form .fv-choice {
+  align-content: center;
+  text-align: center;
+}
+.relatorios-filter-sheet-form .fv-choice-label {
+  font-size: 0.82rem;
+}
+
 /* ── Filtros multi-select: box com chips DENTRO do campo ──────────────
    Usado por Proprietario/Comprador/Enviado para (typeahead) e por Padrao
    (checklist). Os selecionados viram chips dentro do box — nada cai abaixo
