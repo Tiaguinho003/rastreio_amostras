@@ -53,7 +53,7 @@ Todas travadas em **2026-07-20** (conversa de kickoff, com levantamento de códi
 | **F3**        | **Contrato** — realinhar `SaleContractDetailsModal` ao padrão (+ P27)                                                                                                                                                                                                                                           | ✅ validada 2026-07-20 (Flavio, dev local; foi **antecipada** antes da F2). P27 segue aberta                                                                    |
 | **F4**        | Limpeza: rotas antigas só-redirect (ou remoção), morte do snapshot de sessionStorage do `SampleCard`, sync final de skills/docs. **⚠️ Não confundir com a "F4 (Mobile)" do RD15/§2.7**, que é a última fase da FV de `/samples` — esta aqui é a limpeza da frente de _navegação_ e segue inteiramente por fazer | ☐                                                                                                                                                               |
 | **FV**        | Frente visual **redefinida (RD11, §2.5)**: ciclo **página-a-página** — contêiner dos modais + design/layout juntos, a partir da referência aprovada (RD12–RD14); piloto `/cadastros`                                                                                                                            | 🚧 E1 conferida ✔ + rodadas 1–6 (§2.6; detalhe = drawer de perfil; modais internos = painéis laterais; check canônico de sucesso) — mais rodadas → plan mode E2 |
-| **FV Mobile** | Ciclo mobile (RD16, §2.8): `/samples` define o padrão — M1 chrome → M2 lista → M3 detalhe → M4 consolidação                                                                                                                                                                                                     | 🚧 M1 + M2 + M3 r1 (drawer) + r2 (efeitos dos modais) 2026-07-22 (até `711d2f2`; **📱🖥️ validar**, ver §2.8)                                                    |
+| **FV Mobile** | Ciclo mobile (RD16, §2.8): `/samples` define o padrão — M1 chrome → M2 lista → M3 detalhe → M4 consolidação                                                                                                                                                                                                     | 🚧 M1 + M2 + M3 r1 (drawer) + r2 (efeitos dos modais) + r3 (tamanho) 2026-07-22 (até `55490d6`; **📱🖥️ validar**, ver §2.8)                                     |
 
 Cada fase abre em **plan mode** e só fecha com **validação no device** (🖥️ + 📱), como nos demais ciclos.
 
@@ -397,7 +397,7 @@ Três pedidos, todos sobre superfícies que a F3 não tinha reavaliado por dentr
 
 **O que conferir a mais**: imprimir pelo ⋯ da linha abre **só** o painel de impressão (o drawer não aparece) e imprime; enviar abre um painel só, com tipo e destinatários juntos, a data aparecendo/sumindo ao trocar de tipo e o rótulo do botão acompanhando; a opção bloqueada explica o porquê; registrar perda abre painel lateral (inclusive sobre o drawer, pelo ⋯ do hero), com o aviso de liga quando for o caso, e "Atribuir dono" abrindo centralizado sobre a faixa do painel.
 
-### 2.8 FV Mobile (RD16) — M1 (chrome) + M2 (lista) + M3 r1 (drawer) + M3 r2 (efeitos terminais dos modais) implementadas 2026-07-22
+### 2.8 FV Mobile (RD16) — M1 (chrome) + M2 (lista) + M3 r1 (drawer) + M3 r2 (efeitos terminais dos modais) + M3 r3 (tamanho adaptativo) implementadas 2026-07-22
 
 **O achado que definiu o escopo do M1**: o header verde do mobile **não vinha do `AppShell`**. Cada página desenhava o seu — `.samples-page-v2-header` (`/samples`), `.clients-v2-header` (`/cadastros`, `/contratos`, `/embarques`, `/users`), `.sdv-header-top` (`/relatorios`, `/profile`) e o bloco de avatar do `.dashboard-hero-header` (`/dashboard`) — enquanto o `.topbar` do shell era **DOM morto no mobile em 100% das rotas** (`display:none` nas não-em-camada; transparente com os filhos escondidos nas demais). Fazer "faixa curta em todas as páginas" editando 4 moldes seria retrabalho garantido; a jogada foi a mesma do RD13 no desktop: **um header único no shell**.
 
@@ -583,7 +583,25 @@ _(Nota do commit: `b107941` saiu incompleto — o `git add` abortou no pathspec 
 
 **A conferir** (📱 e 🖥️): a perda com o carimbo vermelho batendo antes de fechar; o cancelar-envio com o X sobre a confirmação; a classificação pela câmera terminando no check verde e voltando ao scanner (Flow A) / ao lote (Flow B); e todos os checks no mesmo tempo. O `ApprovalLabelModal` (fluxo de Aprovação, fora do ciclo) segue com o check antigo `.sample-created-*` — é o último dono dessas classes.
 
-**Próximo**: as demais superfícies do detalhe/lista se precisarem de ajuste fino, depois o M4 (consolidação das skills + `docs/Lotes-Visao-Geral.md`). Segue pendente coletar dado real do bug do `.bottom-sheet` com `100dvh`.
+**Próximo** (à época): as demais superfícies do detalhe/lista se precisarem de ajuste fino, depois o M4 — o ajuste fino veio na rodada 3 abaixo.
+
+#### M3 rodada 3 — tamanho adaptativo dos modais (2026-07-22, `72dca3f` · `55490d6`)
+
+Ajuste fino de sizing: modais com muitos campos deviam **crescer** (menos scroll), os com poucos **encolher**. O Flavio pediu a análise com multiagentes; quatro varreram em paralelo (centrais do detalhe · sheets/painéis · cadeia da câmera · modais de cliente) e o inventário reenquadrou o problema.
+
+**O achado que muda a forma:** o redesenho FV já resolveu o "modal cheio que rola" ao mover **toda** superfície de muitos campos para **side-sheet** (`.side-sheet`/`.fv-panel-sheet`), que no desktop é painel de **altura cheia** (`top:0; bottom:0; max-height:none`) e no mobile abraça o conteúdo. A ficha de classificação (~26 campos), editar informações (PJ ~16), nova filial (11) — nenhuma é mais modal central. Então: (a) o teto central `.app-modal max-height: min(84dvh, 40rem)` só governa **confirmes pequenos** (todos folgados) e **dois modais de DADOS** que crescem com N; (b) a queixa _"criar amostra é muito pequeno"_ é **fenômeno de mobile** — no desktop ele é um painel de 620px de altura cheia; no mobile os `8rem` do `--bottom-sheet-top-gap` + a safe-area comiam ~20% da tela.
+
+**As mudanças (3 alavancas):**
+
+- **Centrais de dados crescem** (`72dca3f`): `BlendHarvestPropagationModal` (N ligas afetadas) e `SampleInvalidateBlockedModal` (N ligas bloqueantes) batiam nos 640px e rolavam. Ganham teto escopado `min(88dvh, 44rem)`. Subir um teto de `max-height` nunca força altura — os confirmes que herdam o padrão seguem no tamanho do conteúdo.
+- **DataMismatch encolhe** (`72dca3f`): o chooser de 2-3 linhas vinha em 46rem/736px pelo `is-wide`. Removido o modificador → cai pro `.data-mismatch-modal` (38rem/608px), que passa a valer.
+- **Sheets no mobile adaptam** (`55490d6`): duas alavancas, só no mobile (no desktop o side-sheet já é altura cheia). O `--bottom-sheet-top-gap` global cai de **8rem → 4rem** (mais altura útil antes de rolar; para os `is-fit-content` é só teto, os curtos não esticam), e os sheets curtos passam a **abraçar o conteúdo** (`is-fit-content`): etiqueta (só o cartão de QR) e perda (motivo + data + sacas). O **envio ficou de fora de propósito** — seu lookup de destinatários abre `.client-lookup-dropdown` (`position:absolute`, 22rem) que o hug recortaria; mesma razão do meta-step da câmera manter folga.
+
+**O que ficou como está:** todos os confirmes/avisos (centrais, pequenos, já certos — os **avisos são centrais por decisão do Flavio**), o painel de Filtros (alto por natureza), `BlendConfirmationSheet` (cresce com N amostras) e os painéis de cliente form-pesados. Limpeza de CSS morto (`.client-detail-edit-modal`, `.cudm-modal` — overrides centrais mortos desde a migração pra side-sheet) fica para o M4.
+
+**A conferir** (📱 e 🖥️): "criar amostra" no mobile com menos scroll; perda e etiqueta abraçando o conteúdo (sem faixa vazia embaixo) e o envio ainda com espaço pro dropdown de destinatários; propagação de safra / invalidação bloqueada com listas longas rolando menos; o DataMismatch mais estreito.
+
+**Próximo**: conferência 📱🖥️ das três rodadas do M3, depois o M4 (consolidação das skills + `docs/Lotes-Visao-Geral.md`; limpeza do CSS morto). Segue pendente coletar dado real do bug do `.bottom-sheet` com `100dvh`.
 
 ## 3. O que NÃO muda
 

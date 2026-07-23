@@ -212,13 +212,19 @@ só chegam ao topmost** (não fecham os dois de uma vez).
 
 O sheet base ocupa quase a tela. Três modificadores encolhem:
 
-| Classe            | Efeito                                             | Para quê                            |
-| ----------------- | -------------------------------------------------- | ----------------------------------- |
-| `.is-menu`        | `height: auto` + `max-height: min(72dvh, 30rem)`   | menus curtos (conta, ações de item) |
-| `.is-fit-content` | `height: auto`, **mantém** o teto alto do base     | forms curtos que podem crescer      |
-| `.is-informe`     | achata os cards internos + padding lateral no form | formulários de visita/relatório     |
+| Classe            | Efeito                                             | Para quê                                       |
+| ----------------- | -------------------------------------------------- | ---------------------------------------------- |
+| `.is-menu`        | `height: auto` + `max-height: min(72dvh, 30rem)`   | menus curtos (conta, ações de item)            |
+| `.is-fit-content` | `height: auto`, **mantém** o teto alto do base     | sheets curtos (form/leitura) que podem crescer |
+| `.is-informe`     | achata os cards internos + padding lateral no form | formulários de visita/relatório                |
 
 No desktop com `.side-sheet` a altura é sempre total — as variantes só valem no mobile.
+
+> **`.is-fit-content` × dropdown inline:** só use `.is-fit-content` se o conteúdo não tiver dropdown
+> absoluto inline. O lookup de cliente (`.client-lookup-dropdown`) é `position: absolute` com até
+> 22rem de altura própria; num sheet que abraça o conteúdo, o `overflow` do body recorta o dropdown.
+> Sheets com esse lookup ficam de altura cheia (ex.: painel de envio, meta-step da câmera). Formulário
+> longo com o lookup perto do topo tolera (sobra espaço abaixo) — ex.: `NewSampleModal`.
 
 ### Conteúdo congelado na saída
 
