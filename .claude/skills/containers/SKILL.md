@@ -212,11 +212,11 @@ só chegam ao topmost** (não fecham os dois de uma vez).
 
 O sheet base ocupa quase a tela. Três modificadores encolhem:
 
-| Classe            | Efeito                                             | Para quê                                       |
-| ----------------- | -------------------------------------------------- | ---------------------------------------------- |
-| `.is-menu`        | `height: auto` + `max-height: min(72dvh, 30rem)`   | menus curtos (conta, ações de item)            |
-| `.is-fit-content` | `height: auto`, **mantém** o teto alto do base     | sheets curtos (form/leitura) que podem crescer |
-| `.is-informe`     | achata os cards internos + padding lateral no form | formulários de visita/relatório                |
+| Classe            | Efeito                                              | Para quê                                                        |
+| ----------------- | --------------------------------------------------- | --------------------------------------------------------------- |
+| `.is-menu`        | `height: auto` + `max-height: min(72dvh, 30rem)`    | menus curtos (conta, ações de item)                             |
+| `.is-fit-content` | `height: auto`, **mantém** o teto alto do base      | sheets curtos (form/leitura) que podem crescer                  |
+| `.is-informe`     | **legado/morto** — achatava cards + padding no form | nada (visita/semanal/informativo migraram p/ `.fv-panel-sheet`) |
 
 No desktop com `.side-sheet` a altura é sempre total — as variantes só valem no mobile.
 
@@ -433,7 +433,7 @@ muda) · **🔜 ciclo** migra quando o redesenho chegar na página — nada de c
 | /users                  | Detalhe/editar/novo usuário (`cdm-modal`)                                    | painel lateral              | 🔜 ciclo                                                  |
 | /users, /profile        | Inativar (motivo); confirms; desativar push                                  | central                     | fica                                                      |
 | /relatorios             | Visita + Semanal (form-sheets)                                               | painel lateral              | ✅ (RD16 §2.10 R3/R4; vale tb no dashboard do prospector) |
-| /relatorios             | Informativo (wizard/canvas — gera imagem, sem persistência)                  | central (BottomSheet)       | fica (adiado — R-D5)                                      |
+| /relatorios             | Informativo (2 colunas + preview ao vivo — gera imagem, sem persistência)    | painel lateral              | ✅ (RD16 §2.10 R10)                                       |
 | /relatorios             | Leque FAB; descarte de rascunho; aviso 409 (sobre painel, `.fv-panel-scrim`) | intacto / central           | fica                                                      |
 | /contratos              | Criação (LotPicker + Etapa2)                                                 | **FORA** — specs futuras    | aguarda                                                   |
 | /contratos ?details=    | Detalhe do contrato                                                          | `DetailOverlay`             | ✅                                                        |
