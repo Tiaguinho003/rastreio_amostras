@@ -260,6 +260,64 @@ function CadastrosPage() {
   const searchValue = brokerSearch;
   const setSearchValue = (value: string) => setBrokerSearch(value);
 
+  // RD16 /cadastros C7: UMA chrome so pra Corretores, no molde do Clientes (C2).
+  // A .fv-toolbar (busca + toggle de inativos + contagem) serve os dois
+  // breakpoints — no desktop presa no topo do cartao ({isDesktop ? brokerToolbar});
+  // no mobile rola DENTRO do .spv2-list-scroll. Antes a aba montava DUAS chromes
+  // (.hero-search-wrap mobile + .fv-toolbar desktop) e um .spv2-list-meta. O
+  // toggle ganhou .fv-toolbar-filter-toggle: no desktop segue pilula secundaria,
+  // no mobile vira texto compacto na 2a linha (nao cabe pilula ao lado da busca).
+  const brokerToolbar = (
+    <div className="fv-toolbar">
+      <form
+        className="fv-toolbar-search"
+        role="search"
+        onSubmit={(event) => event.preventDefault()}
+      >
+        <svg
+          className="fv-toolbar-search-icon"
+          viewBox="0 0 24 24"
+          focusable="false"
+          aria-hidden="true"
+        >
+          <circle cx="11" cy="11" r="7" />
+          <path d="m16.2 16.2 4.1 4.1" />
+        </svg>
+        <input
+          className="fv-input fv-toolbar-search-input"
+          value={searchValue}
+          onChange={(event) => setSearchValue(event.target.value)}
+          placeholder="Buscar corretor..."
+          autoComplete="off"
+          spellCheck={false}
+        />
+        {searchValue ? (
+          <button
+            type="button"
+            className="fv-toolbar-search-clear"
+            aria-label="Limpar busca"
+            onClick={() => setSearchValue('')}
+          >
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        ) : null}
+      </form>
+      {inactiveCount > 0 ? (
+        <button
+          type="button"
+          className="fv-btn fv-btn-secondary fv-toolbar-filter-toggle"
+          aria-pressed={showInactive}
+          onClick={toggleInactive}
+        >
+          {showInactive ? 'Esconder inativos' : `Mostrar ${inactiveCount} inativo(s)`}
+        </button>
+      ) : null}
+      <span className="fv-toolbar-count">{count} corretor(es)</span>
+    </div>
+  );
+
   // RD14 + ajustes rodada 1: cards da KPI row (desktop, so na aba Clientes),
   // na ordem pedida: total → novos → incompletos → ativos. As mini-metricas
   // derivam do proprio stats (sem serie historica): o total cresce por
@@ -468,116 +526,28 @@ function CadastrosPage() {
           />
         ) : (
           <>
-            {/* RD14: no desktop a linha de busca mobile sai (fv-hide-desktop);
-                busca/toggle/contador moram na .fv-toolbar do cartao. */}
-            <div className="hero-search-wrap fv-hide-desktop">
-              <form
-                className="hero-search-bar"
-                role="search"
-                onSubmit={(event) => event.preventDefault()}
-              >
-                <input
-                  className="hero-search-input"
-                  value={searchValue}
-                  onChange={(event) => setSearchValue(event.target.value)}
-                  placeholder="Buscar corretor..."
-                  autoComplete="off"
-                  spellCheck={false}
-                />
-                {searchValue ? (
-                  <button
-                    type="button"
-                    className="hero-search-clear-input"
-                    aria-label="Limpar busca"
-                    onClick={() => setSearchValue('')}
-                  >
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <path d="M6 6l12 12M18 6L6 18" />
-                    </svg>
-                  </button>
-                ) : (
-                  <span className="hero-search-submit" aria-hidden="true">
-                    <svg className="hero-search-icon-search" viewBox="0 0 24 24" aria-hidden="true">
-                      <circle cx="11" cy="11" r="7" />
-                      <path d="m16.2 16.2 4.1 4.1" />
-                    </svg>
-                  </span>
-                )}
-              </form>
-              <button
-                type="button"
-                className="cv2-fab"
-                aria-label="Novo corretor"
-                onClick={openCreateBroker}
-              >
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <path d="M12 5v14" />
-                  <path d="M5 12h14" />
-                </svg>
-              </button>
-            </div>
+            {/* RD16 C7: a .hero-search-wrap mobile saiu — busca/toggle/contagem
+                agora vivem na brokerToolbar (uma chrome so, no scroll). O FAB de
+                criacao perdeu o pai que o abrigava; virou filho direto, escondido
+                no desktop por `.fv-cad-page .cv2-fab` (criar mora no "+ Novo
+                corretor" do .fv-page-head). */}
+            <button
+              type="button"
+              className="cv2-fab"
+              aria-label="Novo corretor"
+              onClick={openCreateBroker}
+            >
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="M12 5v14" />
+                <path d="M5 12h14" />
+              </svg>
+            </button>
 
             <section className="clients-v2-sheet">
-              {/* RD14 (desktop): toolbar do cartao — busca + toggle de
-                  inativos + contador. Mobile: display:none (a hero acima e o
-                  meta abaixo seguem no comando). */}
-              <div className="fv-toolbar">
-                <form
-                  className="fv-toolbar-search"
-                  role="search"
-                  onSubmit={(event) => event.preventDefault()}
-                >
-                  <svg
-                    className="fv-toolbar-search-icon"
-                    viewBox="0 0 24 24"
-                    focusable="false"
-                    aria-hidden="true"
-                  >
-                    <circle cx="11" cy="11" r="7" />
-                    <path d="m16.2 16.2 4.1 4.1" />
-                  </svg>
-                  <input
-                    className="fv-input fv-toolbar-search-input"
-                    value={searchValue}
-                    onChange={(event) => setSearchValue(event.target.value)}
-                    placeholder="Buscar corretor..."
-                    autoComplete="off"
-                    spellCheck={false}
-                  />
-                  {searchValue ? (
-                    <button
-                      type="button"
-                      className="fv-toolbar-search-clear"
-                      aria-label="Limpar busca"
-                      onClick={() => setSearchValue('')}
-                    >
-                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                        <path d="M6 6l12 12M18 6L6 18" />
-                      </svg>
-                    </button>
-                  ) : null}
-                </form>
-                {inactiveCount > 0 ? (
-                  <button
-                    type="button"
-                    className="fv-btn fv-btn-secondary"
-                    aria-pressed={showInactive}
-                    onClick={toggleInactive}
-                  >
-                    {showInactive ? 'Esconder inativos' : `Mostrar ${inactiveCount} inativo(s)`}
-                  </button>
-                ) : null}
-                <span className="fv-toolbar-count">{count} corretor(es)</span>
-              </div>
-
-              <div className="spv2-list-meta">
-                <span className="spv2-list-count">{count} corretor(es)</span>
-                {inactiveCount > 0 ? (
-                  <button type="button" className="sdv-edit-btn-small" onClick={toggleInactive}>
-                    {showInactive ? 'Esconder inativos' : `Mostrar ${inactiveCount} inativo(s)`}
-                  </button>
-                ) : null}
-              </div>
+              {/* RD16 C7: no desktop a brokerToolbar fica presa no topo do
+                  cartao; no mobile ela rola dentro do .spv2-list-scroll (o
+                  antigo .spv2-list-meta saiu — contagem e toggle moram nela). */}
+              {isDesktop ? brokerToolbar : null}
 
               {isDesktop ? (
                 /* RD14 (desktop): tabela enxuta de corretores. Linha (e o
@@ -673,6 +643,9 @@ function CadastrosPage() {
                 </div>
               ) : (
                 <div className="spv2-list-scroll">
+                  {/* RD16 C7: chrome unica — a brokerToolbar rola no topo da
+                      lista (mobileListChrome, molde do Clientes/C2). */}
+                  {brokerToolbar}
                   {count === 0 ? (
                     <div className="spv2-empty">
                       <p className="spv2-empty-text">Nenhum corretor para mostrar</p>
@@ -694,9 +667,16 @@ function CadastrosPage() {
                                 : broker.email || broker.phone || 'Sem vínculo'}
                             </span>
                           </div>
-                          {broker.status === 'INACTIVE' ? (
-                            <span className="cad-row-badge">Inativo</span>
-                          ) : null}
+                          {/* RD16 C7: status institucional por chip (a MESMA
+                              leitura da tabela desktop e do card do Clientes/C3),
+                              sempre visivel. Substitui o .cad-row-badge cinza. */}
+                          <span className="cad-row-status">
+                            {broker.status === 'INACTIVE' ? (
+                              <span className="fv-chip fv-chip-gray is-sm">Inativo</span>
+                            ) : (
+                              <span className="fv-chip fv-chip-green is-sm">Ativo</span>
+                            )}
+                          </span>
                           <svg className="cad-row-arrow" viewBox="0 0 24 24" aria-hidden="true">
                             <path d="m9 6 6 6-6 6" />
                           </svg>

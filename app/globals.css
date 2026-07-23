@@ -30463,6 +30463,30 @@ body.is-selection-mode .ctr-page .cc-tabs {
   stroke-linejoin: round;
 }
 
+/* RD16 C7: card de corretor institucional no mobile (a .cad-list so monta
+   abaixo de 901px — no desktop e a .fv-table). Escopado em .fv-cad-page pra
+   casar o card do Clientes (C3): superficie + hairline --fv-line + sombra
+   minima + radius do kit; nome em tinta neutra. O status virou .fv-chip no
+   JSX (o .cad-row-badge cinza saiu). O toque abre o BrokerFormModal. */
+.fv-cad-page .cad-row {
+  background: var(--fv-surface);
+  border-color: var(--fv-line);
+  border-radius: var(--fv-radius-lg);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+/* Sem realce verde no toque (o hover "gruda" no touch) — card calmo. */
+.fv-cad-page .cad-row:hover {
+  border-color: var(--fv-line);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.fv-cad-page .cad-row-name {
+  color: var(--ink);
+}
+.fv-cad-page .cad-row-status {
+  flex: 0 0 auto;
+  display: flex;
+}
+
 /* Fechamento (Fase B.2): seletor de corretores (BrokerMultiSelectField) no
    modal de venda. Chips DENTRO do control, numa unica linha de altura fixa. */
 .bms-field {
@@ -33876,6 +33900,23 @@ body.is-selection-mode .ctr-page .cc-tabs {
   .fv-lotes-page .fv-toolbar-clear,
   .clients-page-v2 .spv2-list-scroll .fv-toolbar-clear {
     order: 4;
+  }
+
+  /* Corretores (C7) nao tem funil — tem o toggle de inativos, um botao de
+     TEXTO largo que nao caberia ao lado da busca na 1a linha. No mobile ele
+     deixa de ser pilula secundaria e vira texto compacto na 2a linha (order 4,
+     na vaga do "Limpar" que so o Clientes usa), a esquerda da contagem. */
+  .clients-page-v2 .spv2-list-scroll .fv-toolbar-filter-toggle {
+    order: 4;
+    height: auto;
+    min-height: 0;
+    padding: 0;
+    background: none;
+    border: 0;
+    border-radius: 0;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--fv-cta);
   }
 
   .fv-lotes-page .fv-toolbar-count,
