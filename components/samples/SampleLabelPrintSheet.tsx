@@ -115,7 +115,7 @@ export function SampleLabelPrintSheet({
       stacked={stacked}
       closeVariant="edge-back"
       dragDisabled={submitting || success}
-      className="fv-panel-sheet side-sheet sample-print-sheet"
+      className="fv-panel-sheet side-sheet is-fit-content sample-print-sheet"
       footer={
         success ? null : (
           <button

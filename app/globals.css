@@ -27234,9 +27234,13 @@ mas
 }
 
 .bottom-sheet {
-  /* Espaco reservado no topo (abaixo do header da pagina). Sobreescreva
-     em contextos especificos via classe (`.bottom-sheet.is-tall` etc.). */
-  --bottom-sheet-top-gap: 8rem;
+  /* Espaco reservado no topo (abaixo do header da pagina). RD16 M3: caiu de
+     8rem -> 4rem pra dar mais altura util aos sheets no mobile (menos scroll
+     nos formularios longos como "Nova amostra" e a revisao da camera); os
+     sheets is-fit-content so tem o TETO elevado, o tamanho segue o conteudo.
+     Sobreescreva em contextos especificos via classe (`.bottom-sheet.is-tall`
+     etc.). */
+  --bottom-sheet-top-gap: 4rem;
   position: fixed;
   bottom: 0;
   left: 0;
@@ -27283,7 +27287,7 @@ mas
   height: auto;
 }
 
-/* Modal "Nova amostra" (unico BottomSheet com is-fit-content): superficie
+/* Sheets is-fit-content (Nova amostra e afins — perda, etiqueta): superficie
    BRANCA em vez do creme quente (--brand-cream-soft) — vale mobile (sheet) E
    desktop (modal central, mesmo elemento). O footer sticky tambem fica branco
    (precisa ser opaco pra mascarar o scroll do form). Pedido do usuario. */

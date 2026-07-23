@@ -225,7 +225,7 @@ export function SampleLossSheet({
         stacked={stacked}
         closeVariant="edge-back"
         dragDisabled={saving || success}
-        className="fv-panel-sheet side-sheet sample-loss-sheet"
+        className="fv-panel-sheet side-sheet is-fit-content sample-loss-sheet"
         footer={
           success ? null : (
             <button
