@@ -6170,16 +6170,22 @@ button:disabled {
 }
 
 .clients-page-v2 .cv2-card {
-  background: #ffffff;
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.06),
-    0 6px 14px rgba(0, 0, 0, 0.11),
-    0 14px 28px rgba(0, 0, 0, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  /* Folga a esquerda pra "lane" da barra de status (::before) — sem ela a barra
-     encostaria no avatar. (mobile; no desktop o `padding` shorthand da media
-     query de >901px manda.) */
-  padding-left: clamp(15px, 4.5vw, 19px);
+  /* RD16 C3: card institucional — superficie chapada + HAIRLINE + sombra de
+     1px, a mesma linguagem da tabela do desktop e do .spv2-card-wrap do
+     /samples. Mata a sombra tripla + inset (o card "estufado") e o gradiente
+     creme herdado da base; padding volta a simetrico (nao ha mais lane de
+     barra lateral — o status agora e o chip sob o nome). */
+  background: var(--fv-surface);
+  border: 1px solid var(--fv-line);
+  border-radius: var(--fv-radius-lg);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  padding-left: clamp(12px, 3.5vw, 14px);
+}
+
+/* Chip de status sob o nome: alinhado a esquerda, no tamanho do conteudo (o
+   flex-column do .cv2-card-content esticaria um filho block ate a largura toda). */
+.clients-page-v2 .cv2-card-status {
+  display: flex;
 }
 
 /* ── Client card ── */

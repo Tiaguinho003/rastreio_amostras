@@ -18,7 +18,6 @@ import {
   countActiveClientFilters,
   type ClientFilters,
 } from './ClientsFilterButton';
-import { IncompleteIcon } from './IncompleteIcon';
 import { isClientComplete } from '../../lib/clients/client-completeness';
 import { ApiError, listClients, lookupUsersForReference } from '../../lib/api-client';
 import { formatClientDocument, formatPhone } from '../../lib/client-field-formatters';
@@ -1185,17 +1184,29 @@ export function ClientsBrowser({
                   }
                   onClick={() => onOpenClient(client.id)}
                 >
-                  {showIncomplete ? <IncompleteIcon className="cv2-card-incomplete-badge" /> : null}
-                  {/* Card em 2 blocos. Topo: avatar + nome. Rodape: arrow-btn.
-                      O UserAvatarStack de responsaveis comerciais foi removido
-                      do card (2026-06-17, batch /clients alinhado ao /samples);
-                      responsaveis seguem visiveis no detalhe/gestao do cliente. */}
+                  {/* Card em 2 blocos. Topo: avatar + nome + chip de status.
+                      Rodape: arrow-btn. O UserAvatarStack de responsaveis
+                      comerciais foi removido do card (2026-06-17, batch /clients
+                      alinhado ao /samples); responsaveis seguem no detalhe. */}
                   <div className="cv2-card-head">
                     <span className="cv2-card-avatar">
                       <span>{initials}</span>
                     </span>
                     <div className="cv2-card-content">
                       <span className="cv2-card-name">{name}</span>
+                      {/* RD16 C3: status institucional por chip, a MESMA leitura
+                          da tabela do desktop — Cancelado (inativo) · Completo ·
+                          Incompleto. Substitui o badge pulsante: sinal unico e
+                          calmo, como o card do /samples. */}
+                      <span className="cv2-card-status">
+                        {isInactive ? (
+                          <span className="fv-chip fv-chip-red is-sm">Cancelado</span>
+                        ) : incomplete ? (
+                          <span className="fv-chip fv-chip-amber is-sm">Incompleto</span>
+                        ) : (
+                          <span className="fv-chip fv-chip-green is-sm">Completo</span>
+                        )}
+                      </span>
                     </div>
                   </div>
                   <span className="cv2-card-divider" aria-hidden="true" />
