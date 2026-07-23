@@ -33356,16 +33356,9 @@ body.is-selection-mode .ctr-page .cc-tabs {
 
   /* Desktop: a chrome mobile de /cadastros sai de cena — busca/funil/limpar
      moram na .fv-toolbar do cartao, e criar mora no "+ Novo" do .fv-page-head.
-     Clientes (RD16 C2) ja migrou: a .hero-search-wrap dele sumiu e o FAB virou
-     filho direto (escondido aqui). Corretores ainda usa a .hero-search-wrap
-     (migra na rodada dele). O contador mobile (.spv2-list-meta) tambem sai. */
-  .fv-cad-page .hero-search-wrap.fv-hide-desktop {
-    display: none;
-  }
+     Clientes (C2) e Corretores (C7) ja migraram: a .hero-search-wrap sumiu dos
+     dois; resta esconder aqui o FAB "+" (que so existe no mobile). */
   .fv-cad-page .cv2-fab {
-    display: none;
-  }
-  .fv-cad-page .clients-v2-sheet .spv2-list-meta {
     display: none;
   }
 }
