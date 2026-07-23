@@ -34533,6 +34533,17 @@ body.is-selection-mode .ctr-page .cc-tabs {
    Base sem media query (drawer desktop E sheet mobile); escopo
    .client-details-overlay protege o detalhe da amostra. */
 
+/* Verde do topo AGORA no SHEET (nao mais no hero): cobre TODA a borda superior
+   — inclusive a faixa do header (seta ←), que antes ficava branca acima do
+   hero. Igual ao desktop, nos dois breakpoints. Degrade sobre o branco; apaga
+   por volta do fim do hero (~300px). Specificity .detail-overlay.client-
+   details-overlay pra vencer o fundo branco do sheet base sem depender de ordem. */
+.bottom-sheet.detail-overlay.client-details-overlay {
+  background:
+    linear-gradient(180deg, rgba(23, 60, 48, 0.05) 0%, rgba(255, 255, 255, 0) 300px) no-repeat,
+    #ffffff;
+}
+
 .client-details-overlay .fv-cd-hero {
   display: flex;
   flex-direction: column;
@@ -34540,8 +34551,8 @@ body.is-selection-mode .ctr-page .cc-tabs {
   gap: 2px;
   padding: 1.15rem 1.15rem 0;
   text-align: center;
-  /* Aceno ao degrade suave do topo da referencia, em verde da marca. */
-  background: linear-gradient(180deg, rgba(23, 60, 48, 0.05) 0%, rgba(255, 255, 255, 0) 82%);
+  /* Verde vem do SHEET (regra acima) pra cobrir tambem o header — transparente. */
+  background: transparent;
 }
 
 .client-details-overlay .fv-cd-avatar {
@@ -34641,12 +34652,14 @@ body.is-selection-mode .ctr-page .cc-tabs {
   gap: 10px;
   margin-top: 13px;
 }
+/* Botoes redondos do header do drawer: 48px/24px (eram 40px/17px), igual aos
+   quatro redondos do hero do LOTE (M3) — leitura melhor nos dois breakpoints. */
 .client-details-overlay .fv-cd-iconbtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   background: var(--fv-surface);
   border: 1px solid var(--fv-line-strong);
@@ -34659,13 +34672,18 @@ body.is-selection-mode .ctr-page .cc-tabs {
     background 160ms ease;
 }
 .client-details-overlay .fv-cd-iconbtn svg {
-  width: 17px;
-  height: 17px;
+  width: 24px;
+  height: 24px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.9;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+/* Os tres pontinhos crescem no raio, nao na caixa (senao viram tres bolas). */
+.client-details-overlay .fv-cd-iconbtn svg.fv-cd-iconbtn-dots {
+  width: 22px;
+  height: 22px;
 }
 .client-details-overlay .fv-cd-iconbtn svg.fv-cd-iconbtn-dots circle {
   fill: currentColor;

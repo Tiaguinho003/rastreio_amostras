@@ -710,7 +710,7 @@ function CadastrosPage() {
       <DetailOverlay
         open={Boolean(clienteId)}
         onClose={closeClient}
-        title="Cliente"
+        title=""
         ariaLabel="Detalhe do cliente"
         dismissGuardRef={clientDismissGuardRef}
         // Rodada 2 FV: escopo do painel de registro institucional (largura

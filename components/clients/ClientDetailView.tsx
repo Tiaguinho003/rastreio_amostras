@@ -1555,8 +1555,10 @@ export function ClientDetailView({
                     <path d="M12 9v4" />
                     <path d="M12 17h.01" />
                   </svg>
+                  {/* So o aviso, sem listar os campos (pedido do Flavio). O
+                      pendingSummary segue como CONDICAO (ha pendencia?). */}
                   <span className="fv-cd-pending-text">
-                    <strong>Cadastro incompleto.</strong> Faltam: {pendingSummary}.
+                    <strong>Cadastro incompleto.</strong>
                   </span>
                 </div>
               ) : null}
