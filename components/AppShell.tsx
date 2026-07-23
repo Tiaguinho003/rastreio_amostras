@@ -429,10 +429,14 @@ export function AppShell({
   const isUsersPage = pathname === '/users';
   const isProfilePage = pathname === '/profile';
   const isInformePage = pathname === '/relatorios';
+  const isCadastros = pathname === '/cadastros';
   // /samples/[sampleId] saiu da lista: a rota virou redirect na F2 do redesign
   // (o detalhe do lote e overlay sobre /samples, como o cliente em /cadastros).
+  // RD16 /cadastros mobile: /cadastros entra como rota em camada (igual /users,
+  // mesma casca .clients-page-v2) — o .spv2-list-scroll das duas abas (Clientes
+  // e Corretores) vira o scroller interno; sem isso a pagina rolava na janela.
   const isLayeredRoute =
-    isDashboard || isSamplesList || isUsersPage || isProfilePage || isInformePage;
+    isDashboard || isSamplesList || isUsersPage || isProfilePage || isInformePage || isCadastros;
   const headerMobileClass = isLayeredRoute ? 'topbar--dashboard-only' : 'topbar--hidden';
   // Overlays/sheets (ex.: detalhes de cliente/lote) escondem a tabbar mobile
   // dinamicamente via body.is-bottom-sheet-open em globals.css.

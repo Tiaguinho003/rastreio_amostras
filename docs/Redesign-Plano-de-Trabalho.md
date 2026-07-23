@@ -603,6 +603,37 @@ Ajuste fino de sizing: modais com muitos campos deviam **crescer** (menos scroll
 
 **Próximo**: conferência 📱🖥️ das três rodadas do M3, depois o M4 (consolidação das skills + `docs/Lotes-Visao-Geral.md`; limpeza do CSS morto). Segue pendente coletar dado real do bug do `.bottom-sheet` com `100dvh`.
 
+### 2.9 FV `/cadastros` Mobile (RD16) — 2ª página do ciclo mobile (em andamento, 2026-07-23)
+
+`/samples` fechou o padrão mobile (M1+M2+M3). `/cadastros` é a 2ª página a entrar — e o inventário (4 subagentes + reads) mostrou que **quase toda a fundação já existe**: o chrome é app-wide (M1), o desktop inteiro é RD14/E1, os painéis de cliente já são side-sheets (herdaram o M3), o painel de filtros já é `.side-sheet fv-filter-sheet` nos dois breakpoints (`ClientsBrowser.tsx:1303`), e o FAB é único (sem leque). O `/cadastros` mobile está hoje no estado **pré-M2 do `/samples`**: chrome legado (`.hero-search-wrap`) empilhado ACIMA da rolagem + card `.cv2-card` no visual antigo (gradiente + sombra tripla).
+
+**O trabalho real:** (A) tornar `/cadastros` rota em camada; (B) uma chrome de lista só (toolbar + card institucional + KPI-2); (C) o drawer do cliente rolar inteiro; (D) as sub-abas institucionais. Clientes **e** Corretores no mesmo ciclo.
+
+**Decisões travadas (com o Flavio, 2026-07-23):**
+
+| #   | Decisão                                                                                                                                                                                                                                                   |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | KPI no mobile = **2 cartões** (Total + Cadastros incompletos). "Incompletos" é clicável e alterna `completeness=incomplete` (já server-side, ponta-a-ponta). Rola com a lista — mesma emenda do M2 (grade de 2, sem carrossel). O desktop segue com os 4. |
+| D2  | Card de cliente = **só toque** abre o perfil; **sem `⋯`**. A linha só tem "Ver detalhes" (= o toque) e "Inativar" (que já vive no topo do drawer) — um `⋯` duplicaria o que já existe.                                                                    |
+| D3  | **Clientes + Corretores** no mesmo ciclo — as duas listas de `/cadastros` ficam institucionais agora.                                                                                                                                                     |
+| D4  | Drawer do cliente **rola inteiro nos dois breakpoints** (paridade com o lote no M3 r1).                                                                                                                                                                   |
+
+**Regra de escopo:** `/cadastros` é a 2ª lista → gatilho para promover o kit mobile (`.fv-toolbar`, `.fv-kpi-row`) de `.fv-lotes-page` para **seletor multi-página** (`.fv-lotes-page X, .clients-page-v2 X`), **nunca** por drop cego (acenderia chrome dupla em /users, /contratos, /embarques, que ainda não migraram). Restyle de card sempre escopado em `.clients-page-v2` (`.cv2-*` e `.spv2-*` são compartilhados).
+
+**As rodadas** (uma = um commit; gates a cada uma):
+
+- **C1 — rota em camada.** `/cadastros` entra no `isLayeredRoute` (`AppShell.tsx`), igual /users — o `.spv2-list-scroll` das duas abas (Clientes e Corretores) vira scroller interno; sem isso a página rolava na janela. + esta §2.9.
+- **C2 — uma chrome só.** `.fv-toolbar` vale no mobile (escopo `.clients-page-v2`), movida para dentro da rolagem; `.hero-search-wrap` mobile sai (Clientes no `ClientsBrowser`, Corretores na página). Promove `.fv-lotes-page .fv-toolbar*` a multi-página.
+- **C3 — card institucional.** `.cv2-card` chapado + hairline + `radius-lg` + chip de status `.fv-chip.is-sm`, escopado em `.clients-page-v2`; `.cad-row` dos corretores idem.
+- **C4 — KPI-2 mobile.** Total + Incompletos dentro do scroll; gate de desktop sai do fetch de stats (`page.tsx:149`); `clientStats` desce por prop pro `ClientsBrowser`. Promove `.fv-lotes-page .fv-kpi-row*` a multi-página.
+- **C5 — drawer rola inteiro.** M3 r1 escopado em `.client-details-overlay` (sdv-page/sdv-content/fv-cd-tabs sticky) + timing canônico (`SUCCESS_CHECK_MS` no `ClientDetailView` e `QuickCreate`).
+- **C6 — sub-abas institucionais.** `.cad-tabs` → visual do `.fv-tabs`, escopado em `.fv-cad-page` (compartilhado com /contratos e /embarques via `.cc-tabs`).
+- **C7 — varredura + skills.** CSS morto por seletor; skills no commit em que o fato muda (`data-tables`, `css-architecture`, `design-system`, `containers`); índice do `README.md`.
+
+**A conferir** (📱🖥️, ≤900px): /cadastros rola por dentro (não a janela); card institucional (chip de status), toque abre o perfil, sem `⋯`; KPI-2 rolando no topo (Incompletos filtrando); busca única; drawer do cliente rola inteiro (hero sobe, abas grudam); Corretores no mesmo molde; desktop (≥901px) intocado.
+
+**Próximo:** conferência do Flavio no device; depois a consolidação (skills reescritas + `docs/Cadastros-Visao-Geral.md`).
+
 ## 3. O que NÃO muda
 
 - **Backend**: nenhuma rota de API muda. RD2 é só front + redirects de rota.
