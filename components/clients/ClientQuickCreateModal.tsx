@@ -414,7 +414,7 @@ export function ClientQuickCreateModal({
       open={open}
       onClose={handleClose}
       onDismissAttempt={handleDismissAttempt}
-      title={title}
+      title=""
       ariaLabel={title}
       footer={footerActions}
       stacked
@@ -429,10 +429,9 @@ export function ClientQuickCreateModal({
       <form id={formId} className="client-quick-create-form" onSubmit={handleSubmit}>
         <div className="client-quick-create-body">
           {/* 14.7.C: 5 linhas ordenadas: tipo+doc / nome / nome fantasia (PJ) /
-                telefone+responsavel / vendedor+comprador. Rodada 2 FV: dois
-                micro-cabecalhos institucionais agrupam as linhas (Identificacao
-                / Contato e comercial) — hierarquia sem virar wizard. */}
-          <span className="cqc-group-heading">Identificação</span>
+                telefone+responsavel / vendedor+comprador. Sem micro-cabecalhos
+                (pedido do Flavio, rodada de ajustes): formulario direto, sem
+                titulos de grupo, sem virar wizard. */}
 
           {/* Linha 1: Tipo de cliente | CNPJ ou CPF */}
           <div className="client-quick-create-grid client-quick-create-grid-2col">
@@ -528,8 +527,6 @@ export function ClientQuickCreateModal({
               />
             </label>
           </div>
-
-          <span className="cqc-group-heading">Contato e comercial</span>
 
           {/* Linha 4: Telefone | Responsavel */}
           <div className="client-quick-create-grid client-quick-create-grid-2col">
