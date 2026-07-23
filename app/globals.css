@@ -10176,6 +10176,250 @@ body:has(.app-modal-backdrop) .prospector-fab {
   color: #c2341d;
 }
 
+/* ══════════════════════════════════════════════════════════════
+   INFORMATIVO — side-sheet de DUAS colunas + previa AO VIVO (R10)
+   ══════════════════════════════════════════════════════════════
+   Substitui o antigo wizard de 3 fases (mercado -> meteo -> revisao).
+   O sheet herda `.fv-panel-sheet .side-sheet` (seta ←, footer sticky,
+   geometria lateral direita) e so acrescenta a largura folgada e o
+   layout form | previa. Mobile empilha (form -> previa). As classes
+   `.ifm-preview-frame/-actions/-hint`, `.ifm-revisao*` e
+   `.ifm-footer-actions` do wizard antigo viram CSS morto (varredura R11).
+   Os antigos `.inf-card*` do formulario deram lugar a `.fv-form-heading`. */
+
+/* Mais largo que o side-sheet padrao (620px) pra caber as duas colunas. */
+@media (min-width: 901px) {
+  .bottom-sheet.informativo-sheet {
+    width: min(1000px, 96vw);
+  }
+}
+
+.ifm-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1rem, 3vw, 1.4rem);
+}
+
+@media (min-width: 901px) {
+  .ifm-workspace {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 1.6rem;
+  }
+}
+
+/* Coluna do formulario: a elastica no desktop. */
+.ifm-form-pane {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* Grupo de campos sob um `.fv-form-heading` (no lugar dos `.inf-card`).
+   O gap do flex cuida do respiro — zera as margens proprias do heading. */
+.ifm-group {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.5rem, 2vw, 0.7rem);
+}
+
+.ifm-group .fv-form-heading {
+  margin: 0;
+}
+
+.ifm-group:first-child .fv-form-heading {
+  margin-top: 0;
+}
+
+.ifm-group-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+/* Secao do meteorologico: separada por um filete, cabecalho com toggle a
+   direita e (se incluido) os campos abaixo. */
+.ifm-meteo-section {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.5rem, 2vw, 0.7rem);
+  margin-top: 0.3rem;
+  padding-top: clamp(0.7rem, 2.5vw, 0.95rem);
+  border-top: 1px solid var(--fv-line);
+}
+
+.ifm-meteo-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+
+.ifm-meteo-toggle-text {
+  min-width: 0;
+}
+
+.ifm-meteo-toggle-text .fv-form-heading {
+  margin: 0 0 0.1rem;
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+/* Switch on/off. Tingir de verde ao ligar e ESTADO persistente (excecao ja
+   documentada no button-press-effect §9); o toque so afunda. */
+.ifm-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--fv-line-strong);
+  border-radius: 999px;
+  background: #eceee9;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    transform 0.12s ease;
+}
+
+.ifm-switch.is-on {
+  background: var(--fv-cta);
+  border-color: var(--fv-cta);
+}
+
+.ifm-switch:active {
+  transform: scale(0.96);
+}
+
+.ifm-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 160ms ease;
+}
+
+.ifm-switch.is-on .ifm-switch-knob {
+  transform: translateX(18px);
+}
+
+.ifm-form-error {
+  margin-top: 0.4rem;
+}
+
+/* ── Coluna da previa (direita no desktop, embaixo no mobile) ── */
+.ifm-preview-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+@media (min-width: 901px) {
+  .ifm-preview-pane {
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    flex: 0 0 auto;
+    width: 320px;
+  }
+}
+
+/* Abas segmentadas Mercado | Meteorológico. */
+.ifm-preview-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 1px solid var(--fv-line);
+  border-radius: var(--fv-radius);
+  background: #eef1ec;
+}
+
+.ifm-preview-tab {
+  padding: 0.42rem 0.5rem;
+  border: 0;
+  border-radius: calc(var(--fv-radius) - 3px);
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    color 140ms ease,
+    transform 0.12s ease;
+}
+
+.ifm-preview-tab.is-active {
+  background: #ffffff;
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.ifm-preview-tab:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.ifm-preview-tab:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Palco das duas canvases: a inativa some (display:none) mas segue MONTADA —
+   o toBlob do download le o bitmap dela. A peca 9:16 e escalada por CSS. */
+.ifm-preview-stage {
+  width: 100%;
+  max-width: 320px;
+  margin-inline: auto;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #ffffff;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.18);
+}
+
+.ifm-stage-canvas {
+  display: none;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 9 / 16;
+}
+
+.ifm-stage-canvas.is-active {
+  display: block;
+}
+
+.ifm-preview-note {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* Footer: baixar cada peca (secundarias, NAO fecham) + baixar as duas
+   (primaria, fecha). Sem meteo, so a primaria em toda a largura. */
+.ifm-footer-dl {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ifm-footer-dl-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.5rem;
+}
+
+.ifm-footer-single {
+  width: 100%;
+}
+
 /* ── Pagina /informe do COMERCIAL ──
    Shell da /samples sem a barra de busca: a faixa verde vira so um respiro
    entre o header e o sheet (o FAB e position: fixed, nao ocupa fluxo). */

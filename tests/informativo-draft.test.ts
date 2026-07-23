@@ -1,7 +1,7 @@
 // Testes do estado do preenchimento dos Informativos.
 //
-// Molde: tests/samples-list-reducer.test.ts. O reducer e puro, entao o fluxo
-// das 3 fases roda aqui sem React.
+// Molde: tests/samples-list-reducer.test.ts. O reducer e puro, entao o toggle
+// do meteo e o destaque por secao rodam aqui sem React.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -64,12 +64,11 @@ const METEO_CHEIO = {
 // Inicio
 // ---------------------------------------------------------------------------
 
-test('o fluxo comeca no mercado, com o meteorologico incluido', () => {
+test('o draft nasce com o meteorologico incluido e nada submetido', () => {
   const d = createInformativoDraft(null);
-  assert.equal(d.phase, 'mercado');
   assert.equal(d.incluiMeteo, true);
   assert.deepEqual(d.slow, EMPTY_SLOW_FIELDS);
-  assert.deepEqual(d.submitted, { mercado: false, meteo: false, revisao: false });
+  assert.deepEqual(d.submitted, { mercado: false, meteo: false });
 });
 
 test('os campos lentos entram pre-preenchidos, os do dia nao (INF36)', () => {
@@ -83,64 +82,44 @@ test('os campos lentos entram pre-preenchidos, os do dia nao (INF36)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Fases
+// Meteo opcional
 // ---------------------------------------------------------------------------
 
-test('voltar de fase NAO perde o que foi digitado', () => {
-  // O requisito central das 3 fases.
-  let d = cheio();
-  d = reduce(d, { type: 'set-phase', phase: 'meteo' });
-  d = reduce(d, { type: 'patch-meteo', patch: METEO_CHEIO });
-  d = reduce(d, { type: 'set-phase', phase: 'revisao' });
-  d = reduce(d, { type: 'set-phase', phase: 'mercado' });
+test('desligar o meteorologico tira ele da geracao', () => {
+  const d = reduce(cheio(), { type: 'set-inclui-meteo', inclui: false });
+  assert.equal(d.incluiMeteo, false);
+});
+
+test('religar o meteorologico volta a inclui-lo', () => {
+  let d = reduce(cheio(), { type: 'set-inclui-meteo', inclui: false });
+  assert.equal(d.incluiMeteo, false);
+  d = reduce(d, { type: 'set-inclui-meteo', inclui: true });
+  assert.equal(d.incluiMeteo, true);
+});
+
+test('alternar o meteorologico nao perde o que foi digitado', () => {
+  // Sem maquina de fases, nada e desmontado — o toggle so vira a flag.
+  let d = reduce(cheio(), { type: 'patch-meteo', patch: METEO_CHEIO });
+  d = reduce(d, { type: 'set-inclui-meteo', inclui: false });
+  d = reduce(d, { type: 'set-inclui-meteo', inclui: true });
 
   assert.equal(d.mercado.bolsa, '292,65');
   assert.equal(d.mercado.variacaoDir, 'alta');
   assert.equal(d.slow.mesA1, 'SET');
-
-  d = reduce(d, { type: 'set-phase', phase: 'meteo' });
   assert.equal(d.meteo.temperatura, '15,5');
   assert.equal(d.meteo.pluviosidade, '0,0');
 });
 
-test('pular o meteorologico vai direto para a revisao', () => {
-  let d = reduce(cheio(), { type: 'set-phase', phase: 'meteo' });
-  d = reduce(d, { type: 'skip-meteo' });
-  assert.equal(d.phase, 'revisao');
-  assert.equal(d.incluiMeteo, false);
-});
-
-test('voltar para a fase meteo desfaz o pulo', () => {
-  let d = reduce(cheio(), { type: 'skip-meteo' });
-  assert.equal(d.incluiMeteo, false);
-  d = reduce(d, { type: 'set-phase', phase: 'meteo' });
-  assert.equal(d.incluiMeteo, true);
-});
-
-test('pular preserva o que ja tinha sido digitado no meteorologico', () => {
-  let d = reduce(cheio(), { type: 'set-phase', phase: 'meteo' });
-  d = reduce(d, { type: 'patch-meteo', patch: { temperatura: '15,5' } });
-  d = reduce(d, { type: 'skip-meteo' });
-  assert.equal(d.meteo.temperatura, '15,5');
-});
-
-test('ir para a revisao nao liga o meteo sozinho', () => {
-  let d = reduce(cheio(), { type: 'skip-meteo' });
-  d = reduce(d, { type: 'set-phase', phase: 'revisao' });
-  assert.equal(d.incluiMeteo, false);
-});
-
 // ---------------------------------------------------------------------------
-// INF28 escopada por fase
+// INF28 escopada por secao
 // ---------------------------------------------------------------------------
 
-test('marcar uma fase como submetida nao liga o destaque da outra', () => {
-  // A INF28 passa a valer dentro da fase escolhida: quem pula o meteorologico
-  // nao pode ver os campos dele em vermelho.
-  const d = reduce(createInformativoDraft(null), { type: 'mark-submitted', phase: 'mercado' });
+test('marcar uma secao como submetida nao liga o destaque da outra', () => {
+  // A INF28 passa a valer dentro da secao tentada: quem so tentou baixar o
+  // mercado nao pode ver os campos do meteorologico em vermelho.
+  const d = reduce(createInformativoDraft(null), { type: 'mark-submitted', secao: 'mercado' });
   assert.equal(d.submitted.mercado, true);
   assert.equal(d.submitted.meteo, false);
-  assert.equal(d.submitted.revisao, false);
 });
 
 // ---------------------------------------------------------------------------

@@ -2,10 +2,10 @@
 //
 // Molde: lib/samples/samples-list-reducer.ts.
 //
-// O fluxo tem 3 fases (mercado -> meteorologico -> revisao) e o meteorologico e
-// pulavel. Voltar de fase nao pode perder o que foi digitado — o que sai de
-// graca aqui, porque trocar de fase mexe SO no campo `phase` e nenhum campo e
-// desmontado.
+// A peca de mercado e obrigatoria; a meteorologica e OPCIONAL (toggle
+// `incluiMeteo`). Nao ha mais maquina de fases: o formulario e o preview ao vivo
+// convivem numa superficie so (RD16 §2.10 R10). O que era "voltar de fase sem
+// perder o digitado" saiu de graca — nada e desmontado ao alternar as secoes.
 //
 // As mascaras ficam no onChange do componente, como sempre estiveram: o draft
 // guarda a string JA mascarada. Nada aqui reformata.
@@ -16,7 +16,8 @@ import { type MeteoData } from './meteo-layout.ts';
 import { EMPTY_SLOW_FIELDS, type SlowFields } from './slow-fields-store.ts';
 import { type Size } from './story-layout.ts';
 
-export type Phase = 'mercado' | 'meteo' | 'revisao';
+/** Qual das duas pecas — usado no destaque de erro por secao. */
+export type Secao = 'mercado' | 'meteo';
 
 /** Valores do dia do Mercado. Nunca sao pre-preenchidos (INF36). */
 export interface MercadoFields {
@@ -43,15 +44,14 @@ export interface MeteoFields {
 }
 
 export interface InformativoDraft {
-  phase: Phase;
   /** Campos "lentos" do Mercado (INF36), pre-preenchidos da ultima geracao. */
   slow: SlowFields;
   mercado: MercadoFields;
   meteo: MeteoFields;
-  /** false = pulou o meteorologico; a revisao mostra so o mercado. */
+  /** false = a peca meteorologica sai fora; so o mercado e gerado. */
   incluiMeteo: boolean;
-  /** Liga o destaque de erro POR FASE: a INF28 vale dentro da fase escolhida. */
-  submitted: Record<Phase, boolean>;
+  /** Liga o destaque de erro POR SECAO: a INF28 vale dentro da secao tentada. */
+  submitted: Record<Secao, boolean>;
 }
 
 export const EMPTY_MERCADO_FIELDS: MercadoFields = {
@@ -77,21 +77,19 @@ export const EMPTY_METEO_FIELDS: MeteoFields = {
 };
 
 export type InformativoDraftAction =
-  | { type: 'set-phase'; phase: Phase }
   | { type: 'patch-slow'; patch: Partial<SlowFields> }
   | { type: 'patch-mercado'; patch: Partial<MercadoFields> }
   | { type: 'patch-meteo'; patch: Partial<MeteoFields> }
-  | { type: 'skip-meteo' }
-  | { type: 'mark-submitted'; phase: Phase };
+  | { type: 'set-inclui-meteo'; inclui: boolean }
+  | { type: 'mark-submitted'; secao: Secao };
 
 export function createInformativoDraft(initialSlow: SlowFields | null): InformativoDraft {
   return {
-    phase: 'mercado',
     slow: initialSlow ?? EMPTY_SLOW_FIELDS,
     mercado: EMPTY_MERCADO_FIELDS,
     meteo: EMPTY_METEO_FIELDS,
     incluiMeteo: true,
-    submitted: { mercado: false, meteo: false, revisao: false },
+    submitted: { mercado: false, meteo: false },
   };
 }
 
@@ -100,24 +98,16 @@ export function informativoDraftReducer(
   action: InformativoDraftAction
 ): InformativoDraft {
   switch (action.type) {
-    case 'set-phase':
-      // Entrar na fase meteo e, por si so, decidir inclui-la: e o caminho de
-      // volta depois de ter pulado.
-      return {
-        ...state,
-        phase: action.phase,
-        incluiMeteo: action.phase === 'meteo' ? true : state.incluiMeteo,
-      };
     case 'patch-slow':
       return { ...state, slow: { ...state.slow, ...action.patch } };
     case 'patch-mercado':
       return { ...state, mercado: { ...state.mercado, ...action.patch } };
     case 'patch-meteo':
       return { ...state, meteo: { ...state.meteo, ...action.patch } };
-    case 'skip-meteo':
-      return { ...state, incluiMeteo: false, phase: 'revisao' };
+    case 'set-inclui-meteo':
+      return { ...state, incluiMeteo: action.inclui };
     case 'mark-submitted':
-      return { ...state, submitted: { ...state.submitted, [action.phase]: true } };
+      return { ...state, submitted: { ...state.submitted, [action.secao]: true } };
     default:
       return state;
   }

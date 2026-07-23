@@ -2,9 +2,9 @@
 
 // Campos do Informativo Meteorologico: 5 valores + o print da previsao.
 //
-// Bem menos que os 21 do mercado — e por isso que a fase e rapida. Os rotulos
-// (TEMPERATURA, REGISTRO EM 24h...) sao fixos na peca; aqui so entram os
-// numeros, sem unidade (INF19).
+// Bem menos que os 21 do mercado — e por isso que a peca e opcional e rapida. Os
+// rotulos (TEMPERATURA, REGISTRO EM 24h...) sao fixos na peca; aqui so entram os
+// numeros, sem unidade (INF19). Mesmo shell `.fv-form-heading` do mercado (R10).
 
 import { maskPluviosidade, maskTemperatura, maskUmidade } from '../../lib/informativos/format';
 import { type MeteoFields } from '../../lib/informativos/informativo-draft';
@@ -34,16 +34,9 @@ export function InformativoMeteoFields({
 
   return (
     <>
-      <section className="inf-card">
-        <header className="inf-card-head">
-          <span className="inf-card-num" aria-hidden="true">
-            1
-          </span>
-          <div className="inf-card-head-text">
-            <h3 className="inf-card-title">Agora</h3>
-            <p className="inf-card-sub">No momento da publicação</p>
-          </div>
-        </header>
+      <div className="ifm-group">
+        <h3 className="fv-form-heading">Agora</h3>
+        <p className="ifm-group-hint">No momento da publicação.</p>
 
         <div className="ifm-pair">
           <label className="inf-field">
@@ -70,18 +63,11 @@ export function InformativoMeteoFields({
             <span className="ifm-unit">%</span>
           </label>
         </div>
-      </section>
+      </div>
 
-      <section className="inf-card">
-        <header className="inf-card-head">
-          <span className="inf-card-num" aria-hidden="true">
-            2
-          </span>
-          <div className="inf-card-head-text">
-            <h3 className="inf-card-title">Registro em 24h</h3>
-            <p className="inf-card-sub">Use “-” para temperatura negativa</p>
-          </div>
-        </header>
+      <div className="ifm-group">
+        <h3 className="fv-form-heading">Registro em 24h</h3>
+        <p className="ifm-group-hint">Use “-” para temperatura negativa.</p>
 
         <div className="ifm-pair">
           <label className="inf-field">
@@ -120,18 +106,11 @@ export function InformativoMeteoFields({
           />
           <span className="ifm-unit">mm</span>
         </label>
-      </section>
+      </div>
 
-      <section className="inf-card">
-        <header className="inf-card-head">
-          <span className="inf-card-num" aria-hidden="true">
-            3
-          </span>
-          <div className="inf-card-head-text">
-            <h3 className="inf-card-title">Previsão do tempo</h3>
-            <p className="inf-card-sub">O print da linha dos próximos dias</p>
-          </div>
-        </header>
+      <div className="ifm-group">
+        <h3 className="fv-form-heading">Previsão do tempo</h3>
+        <p className="ifm-group-hint">O print da linha dos próximos dias.</p>
 
         <PrevisaoPicker
           previsao={previsao}
@@ -140,7 +119,7 @@ export function InformativoMeteoFields({
           onAccept={onAcceptPrevisao}
           onClear={onClearPrevisao}
         />
-      </section>
+      </div>
     </>
   );
 }

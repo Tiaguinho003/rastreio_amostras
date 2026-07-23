@@ -1,12 +1,13 @@
 'use client';
 
-// Campos do Informativo de Mercado: 21 controles em 4 cards (INF28 — todos
+// Campos do Informativo de Mercado: 21 controles em 4 grupos (INF28 — todos
 // obrigatorios).
 //
-// Reusa o kit legado do Informativo (.inf-card/.inf-field/.inf-pill) e
-// acrescenta so o que e proprio da peca, no prefixo .ifm-. (A visita/semanal
-// migraram para o kit institucional .fv-form-* na RD16 §2.10; o Informativo
-// segue no kit .inf-* por ser um wizard/canvas proprio — R-D5.)
+// Reusa o kit de INPUT legado do Informativo (.inf-field/.inf-input/.inf-pill/
+// .ifm-*) e adota o SHELL institucional `.fv-form-heading` no lugar dos antigos
+// cards numerados `.inf-card` (RD16 §2.10 R10 — o Informativo virou side-sheet
+// de duas colunas com preview ao vivo). A migracao total dos inputs pra
+// `.fv-form-field` fica pra uma passada futura.
 
 import {
   MAX_LEN,
@@ -40,16 +41,9 @@ export function InformativoMercadoFields({
 
   return (
     <>
-      <section className="inf-card">
-        <header className="inf-card-head">
-          <span className="inf-card-num" aria-hidden="true">
-            1
-          </span>
-          <div className="inf-card-head-text">
-            <h3 className="inf-card-title">Resumo do mercado</h3>
-            <p className="inf-card-sub">A data de hoje entra sozinha na peça</p>
-          </div>
-        </header>
+      <div className="ifm-group">
+        <h3 className="fv-form-heading">Resumo do mercado</h3>
+        <p className="ifm-group-hint">A data de hoje entra sozinha na peça.</p>
 
         <label className="inf-field">
           <span className="inf-field-label">Bolsa NY</span>
@@ -129,18 +123,11 @@ export function InformativoMercadoFields({
           />
           <span className="ifm-unit">pts</span>
         </label>
-      </section>
+      </div>
 
-      <section className="inf-card">
-        <header className="inf-card-head">
-          <span className="inf-card-num" aria-hidden="true">
-            2
-          </span>
-          <div className="inf-card-head-text">
-            <h3 className="inf-card-title">Mercado físico</h3>
-            <p className="inf-card-sub">Café tipo 6/7, preço livre</p>
-          </div>
-        </header>
+      <div className="ifm-group">
+        <h3 className="fv-form-heading">Mercado físico</h3>
+        <p className="ifm-group-hint">Café tipo 6/7, preço livre.</p>
 
         <div className="ifm-pair">
           <label className="inf-field">
@@ -166,18 +153,11 @@ export function InformativoMercadoFields({
             <span className="ifm-unit">R$</span>
           </label>
         </div>
-      </section>
+      </div>
 
-      <section className="inf-card">
-        <header className="inf-card-head">
-          <span className="inf-card-num" aria-hidden="true">
-            3
-          </span>
-          <div className="inf-card-head-text">
-            <h3 className="inf-card-title">Mercado futuro</h3>
-            <p className="inf-card-sub">Preço livre, duas safras</p>
-          </div>
-        </header>
+      <div className="ifm-group">
+        <h3 className="fv-form-heading">Mercado futuro</h3>
+        <p className="ifm-group-hint">Preço livre, duas safras.</p>
 
         <div className="ifm-pair">
           <label className="inf-field">
@@ -257,18 +237,11 @@ export function InformativoMercadoFields({
             </div>
           );
         })}
-      </section>
+      </div>
 
-      <section className="inf-card">
-        <header className="inf-card-head">
-          <span className="inf-card-num" aria-hidden="true">
-            4
-          </span>
-          <div className="inf-card-head-text">
-            <h3 className="inf-card-title">CPR — mercado futuro</h3>
-            <p className="inf-card-sub">Um valor por ano</p>
-          </div>
-        </header>
+      <div className="ifm-group">
+        <h3 className="fv-form-heading">CPR — mercado futuro</h3>
+        <p className="ifm-group-hint">Um valor por ano.</p>
 
         <div className="ifm-quad">
           <label className="inf-field">
@@ -312,7 +285,7 @@ export function InformativoMercadoFields({
             />
           </label>
         </div>
-      </section>
+      </div>
     </>
   );
 }
