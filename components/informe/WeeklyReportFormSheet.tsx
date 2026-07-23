@@ -13,7 +13,8 @@ import type { SessionData } from '../../lib/types';
 import { computeClientWeekReference, formatWeekLabel } from '../../lib/weekly-report';
 
 // Painel lateral (side-sheet) do RELATORIO SEMANAL do comercial — opcao
-// "Semanal" do FAB "leque" de /relatorios (InformeCreateFab).
+// "Semanal" das portas de criacao de /relatorios (useInformeCreateSheets:
+// botao da faixa no desktop, FAB "leque" no mobile).
 // RD16 §2.10 R4: migrou do modal central `.is-informe` + kit `.inf-*` para o
 // molde institucional `.fv-panel-sheet .side-sheet` + kit `.fv-form-*` (submit
 // no footer, check terminal, descarte `.is-scrim-none`). O corpo (antigo

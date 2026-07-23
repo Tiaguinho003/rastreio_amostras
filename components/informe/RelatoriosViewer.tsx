@@ -1,28 +1,41 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { InformeCreateFab } from './InformeCreateFab';
+import { InformeCreateRadialFab } from './InformeCreateRadialFab';
+import { useInformeCreateSheets } from './useInformeCreateSheets';
 import { WeeklyReportCard } from './WeeklyReportCard';
 import { VisitReportCard } from '../visits/VisitReportCard';
 import {
   ApiError,
   cancelVisitReport,
   cancelWeeklyReport,
+  getRelatoriosStats,
   listInformeFeed,
 } from '../../lib/api-client';
 import { isWeeklyReportAuthor } from '../../lib/roles';
+import { useDebouncedValue } from '../../lib/use-debounced-value';
 import { useToast } from '../../lib/toast/ToastProvider';
-import type { InformeFeedItem, SessionData } from '../../lib/types';
+import type {
+  InformeFeedItem,
+  InformeFeedQuery,
+  RelatoriosStatsResponse,
+  SessionData,
+} from '../../lib/types';
 
 // Pagina "Relatorios" (rota /relatorios): feed COMBINADO (scope=all) de VISITA
 // (unificada: prospector + comercial) + SEMANAL de TODOS os autores, mais
 // recentes primeiro, com "Carregar mais". Cards accordion por tipo; so o autor
-// CANCELA (soft) o proprio item — cancelado fica no historico, marcado. FAB de
-// criacao: Visita (todos) + Semanal (so ADMIN + COMMERCIAL). Unificacao
-// 2026-07-15 (curadoria de vinculo + fila offline removidas).
+// CANCELA (soft) o proprio item — cancelado fica no historico, marcado.
+//
+// Reformulacao FV desktop (RD §2.10 v2): faixa unica no topo com 2 KPIs de
+// visita (esquerda) + 3 botoes de criacao (direita) e o feed num cartao de
+// altura cheia com toolbar de busca. No mobile a faixa/toolbar somem (kit) e
+// criar mora no FAB "leque" — Visita (todos) + Semanal (so ADMIN + COMMERCIAL)
+// + Informativo (todos). Unificacao 2026-07-15 (curadoria + fila offline fora).
 
 const PAGE_LIMIT = 20;
+const SEARCH_DEBOUNCE_MS = 280;
 
 function cancelLabels(item: InformeFeedItem) {
   if (item.type === 'WEEKLY_REPORT') {
@@ -33,7 +46,8 @@ function cancelLabels(item: InformeFeedItem) {
 
 interface RelatoriosViewerProps {
   session: SessionData;
-  // Mostra o FAB de criacao (Visita p/ todos; Semanal so ADMIN + COMMERCIAL).
+  // Mostra as portas de criacao (Visita p/ todos; Semanal so ADMIN + COMMERCIAL;
+  // Informativo p/ todos) — botoes da faixa no desktop, FAB "leque" no mobile.
   canCreate: boolean;
 }
 
@@ -48,9 +62,20 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [stats, setStats] = useState<RelatoriosStatsResponse | null>(null);
+  const [searchInput, setSearchInput] = useState('');
+  const debouncedSearch = useDebouncedValue(searchInput.trim(), SEARCH_DEBOUNCE_MS);
+
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [cancelTarget, setCancelTarget] = useState<InformeFeedItem | null>(null);
   const [cancelling, setCancelling] = useState(false);
+
+  // Params do feed (R7). Memo pra a mudanca de busca (debounced) ser o unico
+  // gatilho de refetch — sem um objeto novo a cada render disparando o efeito.
+  const feedQuery = useMemo<InformeFeedQuery>(
+    () => ({ search: debouncedSearch || undefined }),
+    [debouncedSearch]
+  );
 
   const loadPage = useCallback(
     async (targetPage: number, mode: 'replace' | 'append') => {
@@ -62,7 +87,11 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
       setError(null);
 
       try {
-        const response = await listInformeFeed(session, { page: targetPage, limit: PAGE_LIMIT });
+        const response = await listInformeFeed(session, {
+          ...feedQuery,
+          page: targetPage,
+          limit: PAGE_LIMIT,
+        });
         setItems((current) =>
           mode === 'append' ? [...current, ...response.items] : response.items
         );
@@ -83,12 +112,28 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
         }
       }
     },
-    [session]
+    [session, feedQuery]
   );
 
+  // Refetch da pagina 1 na carga inicial E a cada mudanca de busca (loadPage muda
+  // com feedQuery).
   useEffect(() => {
     void loadPage(1, 'replace');
   }, [loadPage]);
+
+  // KPIs (2 cards de visita). Sao um PLUS: se falharem, a lista ainda vale e o
+  // ultimo valor conhecido fica (nao zera a tela).
+  const refetchStats = useCallback(() => {
+    getRelatoriosStats(session)
+      .then(setStats)
+      .catch(() => {
+        /* silencioso — os cards mostram "—" ate a proxima tentativa. */
+      });
+  }, [session]);
+
+  useEffect(() => {
+    refetchStats();
+  }, [refetchStats]);
 
   const toggleExpanded = useCallback((id: string) => {
     setExpandedIds((current) => {
@@ -102,7 +147,19 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
     });
   }, []);
 
-  // Cancelamento soft: substitui o item na lista (fica marcado como "Cancelado").
+  // Uma visita/semanal criada muda a lista E os contadores.
+  const handleSubmitted = useCallback(() => {
+    void loadPage(1, 'replace');
+    refetchStats();
+  }, [loadPage, refetchStats]);
+
+  const { openVisit, openWeekly, openInformativo, sheets } = useInformeCreateSheets({
+    session,
+    onSubmitted: handleSubmitted,
+  });
+
+  // Cancelamento soft: substitui o item na lista (fica marcado como "Cancelado")
+  // e reconta os KPIs (uma visita cancelada sai do total).
   const handleConfirmCancel = useCallback(async () => {
     if (!cancelTarget || cancelling) {
       return;
@@ -116,6 +173,7 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
       setItems((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       const label = cancelLabels(cancelTarget);
       setCancelTarget(null);
+      refetchStats();
       toast.success({ title: label.success });
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 404) {
@@ -131,21 +189,176 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
     } finally {
       setCancelling(false);
     }
-  }, [session, cancelTarget, cancelling, loadPage, toast]);
+  }, [session, cancelTarget, cancelling, loadPage, refetchStats, toast]);
 
   const canCreateWeekly = isWeeklyReportAuthor(session.user.role);
   const showEmpty = !initialLoading && !error && items.length === 0;
 
+  // Δ da semana (this vs. last) derivado na UI — o endpoint so devolve os counts.
+  const weekDelta = stats ? stats.visitsThisWeek - stats.visitsLastWeek : null;
+  const weekDeltaDir =
+    weekDelta == null || weekDelta === 0 ? 'flat' : weekDelta > 0 ? 'up' : 'down';
+  const weekDeltaText =
+    weekDelta == null
+      ? ' '
+      : weekDelta === 0
+        ? 'igual à semana passada'
+        : `${weekDelta > 0 ? '+' : '−'}${Math.abs(weekDelta)} vs. semana passada`;
+
+  // 2 KPI cards de VISITA (esquerda da faixa). Icones = os do leque de criacao
+  // (prancheta-check p/ visita, calendario p/ semana).
+  const kpiRow = (
+    <div className="rsm-kpis">
+      <article className="fv-kpi">
+        <div className="fv-kpi-top">
+          <span className="fv-kpi-label">Total de visitas</span>
+          <span className="fv-kpi-icon is-green" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <rect x="5.5" y="4" width="13" height="17" rx="2.2" />
+              <rect x="9" y="2.5" width="6" height="3.5" rx="1.2" />
+              <path d="m9 13.5 2.3 2.3 4.4-5" />
+            </svg>
+          </span>
+        </div>
+        <div className="fv-kpi-metric">
+          <span className="fv-kpi-value">
+            {stats ? stats.totalVisits.toLocaleString('pt-BR') : '—'}
+          </span>
+        </div>
+      </article>
+
+      <article className="fv-kpi">
+        <div className="fv-kpi-top">
+          <span className="fv-kpi-label">Visitas esta semana</span>
+          <span className="fv-kpi-icon is-blue" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <rect x="4" y="5" width="16" height="16" rx="2.2" />
+              <path d="M8 3v4" />
+              <path d="M16 3v4" />
+              <path d="M4 10.5h16" />
+            </svg>
+          </span>
+        </div>
+        <div className="fv-kpi-metric">
+          <span className="fv-kpi-value">
+            {stats ? stats.visitsThisWeek.toLocaleString('pt-BR') : '—'}
+          </span>
+          <span className={`fv-kpi-delta${weekDeltaDir !== 'flat' ? ` is-${weekDeltaDir}` : ''}`}>
+            {weekDeltaDir === 'up' ? (
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="M7 17 17 7" />
+                <path d="M8 7h9v9" />
+              </svg>
+            ) : weekDeltaDir === 'down' ? (
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="m7 7 10 10" />
+                <path d="M17 8v9H8" />
+              </svg>
+            ) : null}
+            {weekDeltaText}
+          </span>
+        </div>
+      </article>
+    </div>
+  );
+
+  // 3 botoes de criacao (direita da faixa, desktop). "Semanal" so p/ autor
+  // (ADMIN + COMMERCIAL). Icones espelham o leque.
+  const headActions = canCreate ? (
+    <div className="fv-page-head-actions">
+      <button type="button" className="fv-btn fv-btn-primary" onClick={openVisit}>
+        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+          <rect x="5.5" y="4" width="13" height="17" rx="2.2" />
+          <rect x="9" y="2.5" width="6" height="3.5" rx="1.2" />
+          <path d="m9 13.5 2.3 2.3 4.4-5" />
+        </svg>
+        Nova visita
+      </button>
+      {canCreateWeekly ? (
+        <button type="button" className="fv-btn fv-btn-secondary" onClick={openWeekly}>
+          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+            <rect x="4" y="5" width="16" height="16" rx="2.2" />
+            <path d="M8 3v4" />
+            <path d="M16 3v4" />
+            <path d="M4 10.5h16" />
+          </svg>
+          Semanal
+        </button>
+      ) : null}
+      <button type="button" className="fv-btn fv-btn-secondary" onClick={openInformativo}>
+        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+          <rect x="3" y="4.5" width="18" height="15" rx="2.2" />
+          <circle cx="8.5" cy="10" r="1.6" />
+          <path d="m4 17 4.5-4.5 3.5 3.5 3-2.5L20 17" />
+        </svg>
+        Informativo
+      </button>
+    </div>
+  ) : null;
+
+  // Toolbar do cartao (desktop): busca por autor/cliente + contagem. O kit a
+  // esconde no mobile (base display:none; so /samples + /clients a acendem la).
+  const toolbar = (
+    <div className="fv-toolbar rsm-toolbar">
+      <form
+        className="fv-toolbar-search"
+        role="search"
+        onSubmit={(event) => event.preventDefault()}
+      >
+        <svg
+          className="fv-toolbar-search-icon"
+          viewBox="0 0 24 24"
+          focusable="false"
+          aria-hidden="true"
+        >
+          <circle cx="11" cy="11" r="7" />
+          <path d="m16.2 16.2 4.1 4.1" />
+        </svg>
+        <input
+          className="fv-input fv-toolbar-search-input"
+          value={searchInput}
+          onChange={(event) => setSearchInput(event.target.value)}
+          placeholder="Buscar por autor ou cliente..."
+          aria-label="Buscar por autor ou cliente"
+          autoComplete="off"
+          spellCheck={false}
+        />
+        {searchInput ? (
+          <button
+            type="button"
+            className="fv-toolbar-search-clear"
+            aria-label="Limpar busca"
+            onClick={() => setSearchInput('')}
+          >
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        ) : null}
+      </form>
+      <span className="fv-toolbar-count">
+        {total} {total === 1 ? 'relatório' : 'relatórios'}
+      </span>
+    </div>
+  );
+
   return (
     <>
-      <section className="sdv-page">
-        {/* RD16: o header verde da pagina saiu — o chrome mobile agora e unico
-            e mora no AppShell (.fv-mtopbar: titulo da rota + camera + avatar). */}
+      <section className="sdv-page relatorios-page">
+        {/* Faixa unica (desktop >=901px; some no mobile pelo kit .fv-page-head):
+            2 KPIs a esquerda + 3 botoes de criacao a direita, sem titulo grande
+            (a top-bar FV ja mostra "Relatorios"). */}
+        <div className="fv-page-head rsm-page-head">
+          {kpiRow}
+          {headActions}
+        </div>
 
         <section className="sdv-content informe-content rsm-content">
+          {toolbar}
+
           <div className="rsm-feed">
-            {/* RD16 §2.10 R2: o titulo "Relatorios" saiu (a top-bar FV ja o
-                mostra). Sobra so a contagem como legenda enxuta da lista. */}
+            {/* Mobile mantem a legenda de contagem enxuta; no desktop a contagem
+                vive na toolbar (esta .rsm-intro fica display:none >=901px). */}
             {!initialLoading && !error ? (
               <header className="rsm-intro">
                 <span className="rsm-total-chip">
@@ -185,8 +398,14 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
                     <path d="M4 13v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" />
                   </svg>
                 </span>
-                <p className="rsm-empty-title">Nenhum relatório ainda</p>
-                <p className="rsm-empty-sub">As visitas e os relatórios semanais aparecem aqui.</p>
+                <p className="rsm-empty-title">
+                  {debouncedSearch ? 'Nenhum relatório encontrado' : 'Nenhum relatório ainda'}
+                </p>
+                <p className="rsm-empty-sub">
+                  {debouncedSearch
+                    ? 'Tente outro autor ou cliente.'
+                    : 'As visitas e os relatórios semanais aparecem aqui.'}
+                </p>
               </div>
             ) : null}
 
@@ -234,16 +453,21 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
           </div>
         </section>
 
-        {/* FAB de criacao — IRMAO de .sdv-content (fora do scroller). */}
+        {/* FAB "leque" de criacao — mobile-only: a regra
+            `.relatorios-page .rsm-fab-anchor` e display:none >=901px, onde criar
+            mora nos botoes da faixa. IRMAO de .sdv-content (fora do scroller). */}
         {canCreate ? (
           <div className="rsm-fab-anchor">
-            <InformeCreateFab
-              session={session}
+            <InformeCreateRadialFab
+              onCreateVisit={openVisit}
+              onCreateWeeklyReport={openWeekly}
+              onCreateInformativo={openInformativo}
               canCreateWeekly={canCreateWeekly}
-              onSubmitted={() => void loadPage(1, 'replace')}
             />
           </div>
         ) : null}
+
+        {sheets}
       </section>
 
       {cancelTarget ? (

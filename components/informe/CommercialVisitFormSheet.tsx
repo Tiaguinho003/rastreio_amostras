@@ -41,9 +41,10 @@ import type {
 //              o vinculo, e nome/cidade/telefone digitados ficam como anotacao.
 // So o CLIENTE e obrigatorio; os demais campos sao TODOS opcionais.
 //
-// Consumidores: o FAB "leque" de /relatorios (InformeCreateFab) e o dashboard
-// do prospector (ProspectorDashboard). A API deste componente (open/session/
-// onClose/onSubmitted) ficou inalterada na migracao.
+// Consumidores: as portas de criacao de /relatorios (useInformeCreateSheets:
+// botoes da faixa no desktop, FAB "leque" no mobile) e o dashboard do prospector
+// (ProspectorDashboard). A API deste componente (open/session/onClose/
+// onSubmitted) ficou inalterada na migracao.
 
 const FORM_ID = 'commercial-visit-form';
 
