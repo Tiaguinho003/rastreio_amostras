@@ -2505,8 +2505,14 @@ button:disabled {
 .app-modal.is-themed .app-modal-actions.blend-harvest-propagation-actions,
 .app-modal.is-themed .app-modal-actions.report-harvest-select-actions,
 .app-modal.is-themed .app-modal-actions.client-detail-status-actions,
-.app-modal.is-themed .app-modal-actions.client-detail-edit-actions,
-.app-modal.is-themed .app-modal-actions.client-unit-modal-actions,
+.app-modal.is-themed .app-modal-actions.cudm-edit-actions,
+.app-modal.is-themed .app-modal-actions.sample-detail-reclassify-actions,
+.app-modal.is-themed .app-modal-actions.sample-detail-reg-edit-actions,
+.app-modal.is-themed .app-modal-actions.sample-detail-invalidate-actions,
+.app-modal.is-themed .app-modal-actions.blend-revert-actions,
+.app-modal.is-themed .app-modal-actions.blend-harvest-propagation-actions,
+.app-modal.is-themed .app-modal-actions.report-harvest-select-actions,
+.app-modal.is-themed .app-modal-actions.client-detail-status-actions,
 .app-modal.is-themed .app-modal-actions.cudm-edit-actions,
 .app-modal.is-themed .app-modal-actions.samples-filter-modal-actions {
   display: grid;
@@ -2521,8 +2527,14 @@ button:disabled {
 .blend-harvest-propagation-actions > button,
 .report-harvest-select-actions > button,
 .client-detail-status-actions > button,
-.client-detail-edit-actions > button,
-.client-unit-modal-actions > button,
+.cudm-edit-actions > button,
+.sample-detail-reclassify-actions > button,
+.sample-detail-reg-edit-actions > button,
+.sample-detail-invalidate-actions > button,
+.blend-revert-actions > button,
+.blend-harvest-propagation-actions > button,
+.report-harvest-select-actions > button,
+.client-detail-status-actions > button,
 .cudm-edit-actions > button,
 .samples-filter-modal-actions > button {
   width: 100%;
@@ -7911,146 +7923,6 @@ button:disabled {
   pointer-events: none;
 }
 
-.sdv-identity-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: clamp(10px, 3vw, 14px);
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: clamp(12px, 3.5vw, 14px);
-  padding: clamp(12px, 3.5vw, 14px) clamp(14px, 4vw, 16px);
-  animation: sdv-element-in 0.4s ease-out backwards;
-}
-
-.sdv-identity-left {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: clamp(3px, 1vw, 4px);
-}
-
-.sdv-identity-code-row {
-  display: flex;
-  align-items: center;
-  gap: clamp(6px, 2vw, 8px);
-}
-
-.sdv-identity-code {
-  /* LDT-A4: h1 acessivel do detalhe — reset da margem default do heading. */
-  margin: 0;
-  font-size: clamp(18px, 5.5vw, 22px);
-  font-weight: 700;
-  color: #ffffff;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sdv-identity-badge {
-  font-size: clamp(9px, 2.5vw, 10px);
-  font-weight: 600;
-  padding: 2px clamp(8px, 2.5vw, 10px);
-  border-radius: 6px;
-  border: 1px solid;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.sdv-identity-badge.is-active {
-  color: #27ae60;
-  background: #f0fdf4;
-  border-color: #bbf7d0;
-}
-
-.sdv-identity-badge.is-inactive {
-  color: #c0392b;
-  background: #fef2f2;
-  border-color: #fecaca;
-}
-
-.sdv-identity-owner {
-  font-size: clamp(12px, 3.2vw, 13px);
-  color: rgba(255, 255, 255, 0.6);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sdv-identity-actions {
-  display: flex;
-  gap: clamp(6px, 1.8vw, 8px);
-  flex-shrink: 0;
-}
-
-/* 14.7.E: botao maior. is-danger usa vermelho solido com icone branco
-   (lixeira) — antes era bg translucido com icone vermelho-claro, pouco
-   destacado contra o header verde. */
-.sdv-identity-btn {
-  display: inline-grid;
-  place-items: center;
-  /* LDT-A3: piso do alvo de toque sobe de 40px pra 44px em telas pequenas. */
-  width: clamp(44px, 11vw, 46px);
-  height: clamp(44px, 11vw, 46px);
-  border-radius: clamp(10px, 3vw, 12px);
-  border: 0;
-  background: rgba(255, 255, 255, 0.1);
-  padding: 0;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition:
-    transform 0.15s,
-    background 0.15s,
-    box-shadow 0.15s;
-}
-
-.sdv-identity-btn:active {
-  transform: scale(0.92);
-}
-
-.sdv-identity-btn:disabled {
-  opacity: 0.35;
-}
-
-/* 14.7.H: stroke-width maior + cor branca pura pra icone (lixeira)
-   destacar mais sobre o vermelho solido. */
-.sdv-identity-btn svg {
-  width: 60%;
-  height: 60%;
-  fill: none;
-  stroke: #ffffff;
-  stroke-width: 2.4;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.sdv-identity-btn.is-danger {
-  background: #c0392b;
-  box-shadow: 0 4px 12px rgba(192, 57, 43, 0.32);
-}
-
-.sdv-identity-btn.is-danger svg {
-  stroke: #ffffff;
-}
-
-/* Imprimir no header (migrou do rodape de Informacoes): fundo branco solido +
-   icone verde. Destaca-se positivamente sobre o header verde — contraste com o
-   antigo botao vermelho de invalidar que ocupava este mesmo lugar. */
-.sdv-identity-btn.is-print {
-  background: #ffffff;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
-}
-
-.sdv-identity-btn.is-print svg {
-  stroke: var(--brand-green);
-}
-
-/* Highlight (pulso) reutiliza os keyframes do action-card. */
-.sdv-identity-btn.is-highlight-pulse {
-  animation: sdv-print-pulse 1.2s ease-in-out infinite;
-}
-
 /* Botao "Invalidar" no rodape da pagina (migrou do header). Acao destrutiva
    terminal, apresentada como botao rotulado outline vermelho, centralizado no
    fim do conteudo. */
@@ -10437,56 +10309,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   }
 }
 
-/* ══════════ Detalhe do CLIENTE — rodape Inativar/Reativar + rebalanceamento ══════════
-   Marcador CLIENT-only = .sdv-client-side-col (so existe no detalhe do cliente). */
-
-/* Rodape Inativar/Reativar (rotulado, full-width) — espelha o .sdv-invalidate-btn
-   do detalhe do lote; inativar = danger outline, reativar = verde outline. */
-.sdv-client-status-footer {
-  display: flex;
-  justify-content: center;
-  padding: clamp(8px, 3vw, 12px) 0 clamp(4px, 2vw, 8px);
-}
-.sdv-client-status-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(6px, 2vw, 8px);
-  width: 100%;
-  padding: clamp(11px, 3vw, 14px) clamp(18px, 5vw, 28px);
-  border-radius: clamp(10px, 3vw, 12px);
-  border: 1.5px solid currentColor;
-  background: #ffffff;
-  font-size: clamp(13px, 3.6vw, 14.5px);
-  font-weight: 600;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease,
-    background 0.15s ease,
-    color 0.15s ease;
-}
-.sdv-client-status-btn.is-inactivate {
-  color: var(--danger);
-}
-.sdv-client-status-btn.is-reactivate {
-  color: var(--brand-green);
-}
-.sdv-client-status-btn:active {
-  transform: scale(0.97);
-}
-.sdv-client-status-btn svg {
-  width: clamp(16px, 4.5vw, 18px);
-  height: clamp(16px, 4.5vw, 18px);
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
 /* Rodada 2 FV: o modal "Documentos" e o esconde-cards morreram — Anexos e
    Contas bancarias sao cards SEMPRE visiveis do painel (a ordem mobile ja os
    previa: order 4 e 5 abaixo). */
@@ -10529,16 +10351,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   }
   .sdv-content-inner:has(> .sdv-client-side-col) .sdv-card-attachments {
     order: 5;
-  }
-  .sdv-content-inner:has(> .sdv-client-side-col) > .sdv-client-status-footer {
-    order: 6;
-  }
-}
-
-@media (min-width: 901px) {
-  /* Rodape Inativar/Reativar: span das 2 colunas no fim do grid do cliente. */
-  .sdv-content-inner:has(> .sdv-client-side-col) > .sdv-client-status-footer {
-    grid-column: 1 / -1;
   }
 }
 
@@ -11689,37 +11501,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   backdrop-filter: none;
 }
 
-/* 14.7.I/L: ClientUnitDetailModal — view + edit inline. Width/header
-   herdados de .app-modal.is-themed. So sobra os specifics: eyebrow,
-   inactive badge, body grid. */
-/* Header claro (is-action): eyebrow em cinza-verde mudo (era branco no header
-   verde) e badge "Inativa" em vermelho legivel sobre fundo claro. */
-.cudm-modal .cudm-header-eyebrow {
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.7px;
-  color: #8a948c;
-}
-
-.cudm-modal .cudm-header-name {
-  word-break: break-word;
-}
-
-.cudm-modal .cudm-header-inactive {
-  display: inline-block;
-  margin-top: 4px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: #b03224;
-  background: rgba(196, 92, 92, 0.1);
-  border: 1px solid rgba(196, 92, 92, 0.28);
-  padding: 1px 8px;
-  border-radius: 999px;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-}
-
 .cudm-error {
   margin: 0;
   padding: 0.5rem 0.7rem;
@@ -11743,36 +11524,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   gap: 0.75rem 1rem;
 }
 
-.cudm-info-item {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-
-.cudm-info-item.is-full {
-  grid-column: 1 / -1;
-}
-
-.cudm-info-label {
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: #999;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-}
-
-.cudm-info-label.is-missing {
-  color: #b54708;
-}
-
-.cudm-info-value {
-  font-size: 0.92rem;
-  font-weight: 600;
-  color: #2a2a2a;
-  word-break: break-word;
-}
-
 .cudm-edit-form {
   margin: 0;
 }
@@ -11781,40 +11532,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
    Mantemos so o is-full do grid scoped + variante has-error global. */
 .cudm-info-grid > .app-modal-field.is-full {
   grid-column: 1 / -1;
-}
-
-/* Mesmo padrao dos demais modais do cliente: largura ~30rem, inputs/labels
-   compactos, borda laranja de pendencia e grid que ENCOLHE (minmax(0,1fr) +
-   min-width:0 + overflow-x:hidden) pra nada vazar nem ter scroll lateral. */
-.app-modal.is-themed.cudm-modal {
-  width: min(30rem, calc(100vw - 1.5rem));
-  max-width: min(30rem, calc(100vw - 1.5rem));
-}
-
-.cudm-modal .cudm-body {
-  overflow-x: hidden;
-}
-
-.cudm-modal .cudm-info-grid {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-}
-
-.cudm-modal .app-modal-field {
-  min-width: 0;
-}
-
-.cudm-modal .app-modal-input {
-  padding: 0.5rem 0.7rem;
-  border-radius: 10px;
-  font-size: 0.9rem;
-}
-
-.cudm-modal .app-modal-label {
-  font-size: 0.72rem;
-}
-
-.cudm-modal .app-modal-input.is-pending {
-  border-color: #d97706;
 }
 
 .app-modal-input.has-error {
@@ -11837,8 +11554,8 @@ body:has(.app-modal-backdrop) .prospector-fab {
 
 .cudm-status-btn,
 .cudm-edit-btn,
-.cudm-cancel-btn,
-.cudm-save-btn {
+.cudm-status-btn,
+.cudm-edit-btn {
   padding: 0.55rem 1.1rem;
   border-radius: 10px;
   font-size: 0.88rem;
@@ -11872,7 +11589,7 @@ body:has(.app-modal-backdrop) .prospector-fab {
 }
 
 .cudm-edit-btn,
-.cudm-save-btn {
+.cudm-edit-btn {
   background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
   color: #ffffff;
   border: 0;
@@ -11880,25 +11597,15 @@ body:has(.app-modal-backdrop) .prospector-fab {
 }
 
 .cudm-edit-btn:hover:not(:disabled),
-.cudm-save-btn:hover:not(:disabled) {
+.cudm-edit-btn:hover:not(:disabled) {
   box-shadow: 0 4px 14px rgba(31, 93, 67, 0.4);
   transform: translateY(-1px);
 }
 
-.cudm-cancel-btn {
-  background: transparent;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  color: #555;
-}
-
-.cudm-cancel-btn:hover:not(:disabled) {
-  background: rgba(0, 0, 0, 0.04);
-}
-
 .cudm-status-btn:disabled,
 .cudm-edit-btn:disabled,
-.cudm-cancel-btn:disabled,
-.cudm-save-btn:disabled {
+.cudm-status-btn:disabled,
+.cudm-edit-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
@@ -17164,19 +16871,6 @@ mas
   font-weight: 600;
 }
 
-/* ── Client detail: shared helpers (commercial section + modals) ── */
-
-.client-detail-modal-scrollable {
-  display: flex;
-  flex-direction: column;
-  max-height: 85vh;
-}
-
-.client-detail-modal-scrollable .app-modal-header,
-.client-detail-modal-scrollable .app-modal-actions {
-  flex-shrink: 0;
-}
-
 .client-detail-modal-form {
   flex: 1;
   min-height: 0;
@@ -17186,9 +16880,6 @@ mas
   flex-direction: column;
 }
 
-/* Rodada 6 FV: o check estatico .client-detail-success-check morreu — todo
-   sucesso de modal usa o check CANONICO animado (.client-create-success-*,
-   via components/SuccessCheckOverlay). */
 .client-detail-status-msg {
   margin: 0;
   color: var(--muted);
@@ -17198,228 +16889,6 @@ mas
 
 .client-detail-empty-compact {
   padding: clamp(20px, 5vw, 28px) 0;
-}
-
-/* Variant compacto so pra Reg modal. Filial detail modal e Edit Client
-   usam tamanhos full do tema (.app-modal.is-themed defaults). */
-.client-detail-reg-modal .app-modal-input {
-  padding: 0.48rem 0.72rem;
-  font-size: 0.84rem;
-  border-radius: 10px;
-  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.1);
-}
-
-.client-detail-reg-modal .app-modal-label {
-  font-size: 0.68rem;
-}
-
-.client-detail-reg-modal .app-modal-field {
-  gap: 0.18rem;
-}
-
-.client-detail-reg-modal .app-modal-content {
-  gap: 0.42rem;
-}
-
-/* Edit Client + Nova/Editar Filial — actions colam no ultimo campo,
-   sem ar morto e sem border separadora */
-.client-detail-edit-modal .app-modal-actions,
-/* Acoes FIXAS fora do scroll (sempre visiveis, mesmo com o body rolado).
-   Padding proprio + separador no topo. */
-.client-unit-modal .app-modal-actions {
-  margin: 0;
-  padding: 0.7rem clamp(1rem, 3vw, 1.4rem) clamp(1rem, 3vw, 1.4rem);
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-/* Editar endereco fiscal/informacoes (ajuste do usuario): footer mais compacto —
-   colado no ultimo campo (menos padding no topo), botoes mais largos (menos
-   padding lateral) e area menor embaixo (menos padding inferior). Override so do
-   edit-modal; o .client-unit-modal mantem o padding base acima. */
-.app-modal.is-themed.client-detail-edit-modal .app-modal-actions {
-  padding: 0.5rem clamp(0.8rem, 2.6vw, 1.05rem) clamp(0.7rem, 2.2vw, 0.9rem);
-}
-
-.client-detail-edit-modal .client-detail-modal-form {
-  flex: 0 1 auto;
-}
-
-/* Espacamento entre campos do form mais apertado pra nao deixar buraco */
-.client-detail-edit-modal .app-modal-content,
-.client-unit-modal .app-modal-content {
-  gap: 0.55rem;
-}
-
-/* Nova filial (create) no MESMO padrao do editar: largura ~30rem, inputs/labels
-   compactos, grids que encolhem (minmax(0,1fr) + min-width:0 nos filhos, inclui
-   o grid inline 1fr 2fr 0.6fr de CEP/Cidade/UF) e overflow-x:hidden no form pra
-   nao vazar nem ter scroll lateral. */
-.app-modal.is-themed.client-unit-modal {
-  width: min(30rem, calc(100vw - 1.5rem));
-  max-width: min(30rem, calc(100vw - 1.5rem));
-}
-
-/* Form em grid: body rolavel (1a linha) + acoes fixas (2a linha) — botoes
-   sempre visiveis mesmo com o body rolando. */
-.client-unit-modal .client-unit-modal-form {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-}
-
-.client-unit-modal .client-unit-modal-body {
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-  padding: clamp(1rem, 3vw, 1.4rem);
-}
-
-.client-unit-modal .app-modal-input {
-  padding: 0.5rem 0.7rem;
-  border-radius: 10px;
-  font-size: 0.9rem;
-}
-
-.client-unit-modal .app-modal-label {
-  font-size: 0.72rem;
-}
-
-.client-unit-modal .app-modal-field {
-  min-width: 0;
-}
-
-.client-unit-modal .sdv-edit-row {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-}
-
-.client-unit-modal .sdv-edit-row > * {
-  min-width: 0;
-}
-
-/* Largura ~30rem como o modal de edicao do lote (vence o 38rem do
-   .app-modal.is-themed base via especificidade 0,3,0). */
-.app-modal.is-themed.client-detail-edit-modal {
-  width: min(30rem, calc(100vw - 1.5rem));
-  max-width: min(30rem, calc(100vw - 1.5rem));
-}
-
-/* Campos compactos (espelha o modal de edicao do lote): inputs/labels menores
-   e grids que ENCOLHEM (minmax(0,1fr) + min-width:0 nos filhos) pra os campos
-   caberem confortavelmente, sem corte na borda nem scroll lateral. O min-width:0
-   tambem neutraliza os grids inline do endereco (1fr 2fr / 2fr 0.6fr). */
-.client-detail-edit-modal .app-modal-input {
-  padding: 0.5rem 0.7rem;
-  border-radius: 10px;
-  font-size: 0.9rem;
-}
-
-/* Campo com pendencia (recomendado + ainda vazio): borda laranja de atencao.
-   Some ao preencher (a classe is-pending cai). Nao colide com .has-error
-   (vermelho), que so aparece com valor invalido digitado. */
-.client-detail-edit-modal .app-modal-input.is-pending {
-  border-color: #d97706;
-}
-
-.client-detail-edit-modal .app-modal-label {
-  font-size: 0.72rem;
-}
-
-.client-detail-edit-modal .app-modal-field {
-  min-width: 0;
-}
-
-.client-detail-edit-modal .sdv-edit-row {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-}
-
-.client-detail-edit-modal .sdv-edit-row > * {
-  min-width: 0;
-}
-
-/* UserMultiSelect (Responsavel) alinhado com .app-modal-input — mesmo
-   border / padding / font-size. Forca .user-multi-select-field a usar
-   o mesmo layout (display:grid + gap) que .app-modal-field, senao o
-   componente fica deslocado verticalmente do par de linha. */
-.client-detail-edit-modal .user-multi-select-field {
-  display: grid;
-  gap: 0.32rem;
-}
-
-.client-detail-edit-modal .user-multi-select {
-  border-width: 2px;
-  border-color: rgba(0, 0, 0, 0.16);
-  border-radius: 12px;
-  background: #ffffff;
-}
-
-/* Altura travada — bate com .app-modal-input (padding 0.82rem * 2 + font
-   1rem * line-height 1.2). Chips/input vivem dentro dessa caixa fixa,
-   independente de quantos forem selecionados. */
-.client-detail-edit-modal .user-multi-select__chips {
-  height: 2.3rem;
-  padding: 0 0.7rem;
-  min-height: 0;
-  gap: 0.3rem;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: thin;
-  align-items: center;
-}
-
-.client-detail-edit-modal .user-multi-select__chip {
-  flex-shrink: 0;
-}
-
-.client-detail-edit-modal .user-multi-select__input {
-  font-size: 0.9rem;
-  padding: 0;
-  line-height: 1.2;
-}
-
-.client-detail-edit-modal .user-multi-select.is-field-error {
-  border-color: rgba(196, 92, 92, 0.5);
-  background: #ffffff;
-}
-
-/* Esconde a mensagem de erro abaixo do UserMultiSelect — mantemos so a
-   border vermelha + placeholder "Obrigatorio" dentro do campo. */
-.client-detail-edit-modal .user-multi-select-field .app-modal-error {
-  display: none;
-}
-
-.client-detail-edit-modal .app-modal-submit,
-.client-detail-edit-modal .app-modal-secondary,
-.client-detail-reg-modal .app-modal-submit,
-.client-detail-reg-modal .app-modal-secondary {
-  min-height: 2.4rem;
-  font-size: 0.82rem;
-}
-
-.client-detail-edit-modal,
-.client-detail-reg-modal {
-  width: min(92vw, 28rem);
-}
-
-.client-detail-modal-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.55rem;
-}
-
-@media (max-width: 900px) {
-  .client-detail-modal-row {
-    grid-template-columns: 1fr;
-  }
-
-  .client-detail-edit-modal,
-  .client-detail-reg-modal {
-    width: min(calc(100vw - 0.75rem), 28rem);
-  }
 }
 
 .admin-page-layout {
@@ -18442,10 +17911,6 @@ mas
 
   .dashboard-operations-grid .dashboard-operation-card:nth-child(2) {
     animation: dashboard-card-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.14s both;
-  }
-
-  .sales-card {
-    animation: dashboard-card-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both;
   }
 
   .dashboard-sheet-section {
@@ -23065,82 +22530,6 @@ mas
      paginas desktop, que nao exibem titulo de pagina). */
   .sdv-page--sample .sdv-header-title {
     display: none;
-  }
-
-  /* Identidade: card verde escuro com destaque */
-  .sdv-identity-card {
-    background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 18px;
-    padding: 1.5rem 1.75rem;
-    box-shadow:
-      0 4px 16px rgba(27, 94, 32, 0.3),
-      0 8px 28px rgba(0, 0, 0, 0.1);
-  }
-
-  .sdv-identity-code {
-    font-size: 1.6rem;
-    color: #ffffff;
-  }
-
-  .sdv-identity-badge {
-    font-size: 0.72rem;
-    padding: 4px 12px;
-  }
-
-  .sdv-identity-owner {
-    font-size: 0.95rem;
-    color: rgba(255, 255, 255, 0.7);
-  }
-
-  /* 14.7.E: desktop botao 56px com icone proporcional. is-danger
-     vermelho solido (#c0392b) com sombra colorida. */
-  .sdv-identity-btn {
-    width: 56px;
-    height: 56px;
-    border-radius: 14px;
-    background: rgba(255, 255, 255, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    transition:
-      transform 0.2s ease,
-      background 0.2s ease,
-      box-shadow 0.2s ease;
-  }
-
-  /* Hover gated (LDT-L2): sem (hover:hover) o fundo grudava em touch >=901px. */
-  @media (hover: hover) {
-    .sdv-identity-btn:hover {
-      background: rgba(255, 255, 255, 0.22);
-      transform: scale(1.08);
-    }
-  }
-
-  .sdv-identity-btn svg {
-    stroke: #ffffff;
-    stroke-width: 2.6;
-  }
-
-  .sdv-identity-btn.is-danger {
-    background: #c0392b;
-    border-color: transparent;
-    box-shadow: 0 6px 18px rgba(192, 57, 43, 0.4);
-  }
-
-  .sdv-identity-btn.is-danger:hover {
-    background: #b03224;
-    box-shadow: 0 8px 22px rgba(192, 57, 43, 0.55);
-  }
-
-  .sdv-identity-btn.is-danger svg {
-    stroke: #ff8a80;
-  }
-
-  /* Imprimir no header (desktop): mantem o branco no hover, so reforca a
-     sombra (nao pega o hover translucido generico). O icone verde vem da regra
-     base .sdv-identity-btn.is-print svg (maior especificidade). */
-  .sdv-identity-btn.is-print:hover {
-    background: #ffffff;
-    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.26);
   }
 
   /* Content: fundo transparente (body beige) — sem verde feio */
@@ -29360,16 +28749,6 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   color: rgba(0, 0, 0, 0.45);
 }
 
-/* Preview de anexo (ClientAttachmentPreviewModal) */
-.cap-modal {
-  max-width: 640px;
-  width: 92vw;
-}
-.cap-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .cap-preview-img {
   width: 100%;
   max-height: 60vh;
@@ -29408,10 +28787,7 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   font-size: 0.9rem;
   color: var(--brand-green-ink);
 }
-.cap-actions {
-  align-items: center;
-  gap: 0.6rem;
-}
+
 .cap-confirm-text {
   margin-right: auto;
   font-size: 0.9rem;
@@ -31089,7 +30465,6 @@ body.is-selection-mode .ctr-page .cc-tabs {
   .dashboard-sheet,
   .dashboard-mobile .dashboard-sheet,
   .dashboard-operations-grid .dashboard-operation-card:nth-child(n),
-  .sales-card,
   .dd-events-card,
   .dashboard-operation-badge,
   .dashboard-mobile .dashboard-operation-card.is-wide .dashboard-operation-badge,
@@ -31150,22 +30525,16 @@ body.is-selection-mode .ctr-page .cc-tabs {
 }
 
 /* LDT-A1 (Revisao Geral): prefers-reduced-motion pro detalhe do lote. Zera as
-   entradas encenadas dos cards e — o mais importante — o pulse INFINITO do
-   botao de imprimir em destaque (.sdv-identity-btn.is-highlight-pulse) e o pop
-   do X de exclusao. Respeita quem pediu menos movimento. */
+   entradas encenadas dos cards e o pop do X de exclusao. Respeita quem pediu
+   menos movimento. */
 @media (prefers-reduced-motion: reduce) {
   .sdv-header,
-  .sdv-identity-card,
   .sdv-content,
   .sdv-content-inner,
   .sdv-card,
   .rsm-card,
   .cld-saved-overlay,
   .sdv-x-effect-mark {
-    animation: none;
-  }
-
-  .sdv-identity-btn.is-highlight-pulse {
     animation: none;
   }
 }
@@ -33306,9 +32675,8 @@ body.is-selection-mode .ctr-page .cc-tabs {
 /* ── Rodada 2 FV: EDITOR do painel do cliente (modo edicao) ──
    Sub-pagina em FLUXO no corpo do sheet: o .sdv-page some (is-editing) e o
    form assume — header "Cliente" + X seguem visiveis (dismiss-guard bloqueia
-   fechar). Vale mobile e desktop. Substitui o modal central morto
-   (.client-detail-edit-modal — regras antigas ficam dormentes ate a
-   consolidacao). */
+   fechar). Vale mobile e desktop. Substitui o antigo modal central de edicao,
+   ja removido na consolidacao. */
 .sdv-page.is-editing {
   display: none;
 }
@@ -33320,22 +32688,6 @@ body.is-selection-mode .ctr-page .cc-tabs {
   min-height: 100%;
   padding: 1rem clamp(1rem, 4vw, 1.5rem) calc(env(safe-area-inset-bottom, 0px) + 1.2rem);
   background: #ffffff;
-}
-
-.fv-cd-editor-head {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--fv-line);
-}
-
-.fv-cd-editor-title {
-  margin: 0;
-  font-size: 1.08rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--ink);
 }
 
 .fv-cd-editor-sub {
@@ -33449,10 +32801,6 @@ body.is-selection-mode .ctr-page .cc-tabs {
   padding: 0 1.5rem;
   font-size: 0.86rem;
   box-shadow: none;
-}
-
-.fv-cd-editor .client-detail-success-check {
-  margin: 3rem auto;
 }
 
 @media (min-width: 901px) {
@@ -34026,8 +33374,8 @@ body.is-selection-mode .ctr-page .cc-tabs {
    deixaram de ser modais centrais: sao side-sheets STACKED que deslizam
    da borda direita por cima do drawer (mobile: bottom sheet empilhado).
    A seta ← da borda (edge-back) funciona como Cancelar; o submit dos
-   forms de criacao mora no footer sticky do sheet. Reproduz aqui, sem o
-   escopo .client-unit-modal/.cudm-modal dos modais antigos, o essencial
+   forms de criacao mora no footer sticky do sheet. Reproduz aqui, sem
+   herdar o escopo dos modais centrais antigos (ja removidos), o essencial
    dos moldes que os forms carregaram. */
 .client-panel-sheet .client-unit-modal-body {
   display: flex;
