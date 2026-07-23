@@ -381,10 +381,12 @@ export function ApprovalLabelModal({
         ? createPortal(
             // Modal central canonico no VISUAL DE ACAO (.app-modal.is-themed
             // .is-action): header claro + titulo verde a esquerda + backdrop
-            // escuro SEM blur (via :has(.is-action) no globals.css). Mesmo padrao
-            // do ClassificationSuccessModal. Via createPortal (obrigatorio — sem
-            // ele o transform do <PageTransition> captura o position:fixed e o
-            // modal abre atras da pagina). Ver skill `modals`.
+            // escuro SEM blur (via :has(.is-action) no globals.css). Ultimo
+            // consumidor do check antigo `.sample-created-*` (o
+            // ClassificationSuccessModal que o dividia foi deletado em 2026-07-22;
+            // Aprovacao esta fora do ciclo FV). Via createPortal (obrigatorio —
+            // sem ele o transform do <PageTransition> captura o position:fixed e
+            // o modal abre atras da pagina). Ver skill `modals`.
             <div className="app-modal-backdrop" onClick={onClose}>
               <section
                 className="app-modal is-themed is-action"
