@@ -43,6 +43,11 @@ export const VISIT_REPORT_LIST_LIMIT_MAX = 100;
 export const INFORME_FEED_LIMIT_DEFAULT = 20;
 export const INFORME_FEED_LIMIT_MAX = 100;
 
+// Filtros opcionais do feed (v2 2026-07-23): type escolhe a perna do UNION;
+// status filtra cancelledAt.
+export const INFORME_FEED_TYPES = Object.freeze(['VISIT_REPORT', 'WEEKLY_REPORT']);
+export const INFORME_FEED_STATUSES = Object.freeze(['active', 'cancelled']);
+
 // Quem ve a pagina "Relatorios" (feed scope=all — TODOS os relatorios). Todo
 // papel nao-PROSPECTOR (ACESSO UNIFICADO 2026-07-15). PROSPECTOR ve so os
 // PROPRIOS (escopo forcado por userId em listVisitReports). Espelho no front:
@@ -105,6 +110,89 @@ export function computeWeekReference(now = new Date()) {
     weekEndDate: new Date(Date.UTC(year, month, day - daysFromMonday + 6)),
     weekEndExclusive: new Date(Date.UTC(year, month, day - daysFromMonday + 7)),
   };
+}
+
+// Janelas de SEMANA BRT (segunda 00:00 BRT como INSTANTE UTC, i.e. segunda
+// 03:00Z) p/ filtrar created_at (Timestamptz) — diferente de
+// computeWeekReference, que devolve a DATE da segunda p/ a coluna weekStart
+// (@db.Date). Base dos cards de /relatorios. `now` injetavel p/ testes.
+export function computeVisitWeekWindows(now = new Date()) {
+  const brtNow = new Date(now.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
+  const year = brtNow.getUTCFullYear();
+  const month = brtNow.getUTCMonth();
+  const day = brtNow.getUTCDate();
+  const weekday = brtNow.getUTCDay(); // 0=domingo
+  const daysFromMonday = weekday === 0 ? 6 : weekday - 1;
+  const monday = day - daysFromMonday;
+  return {
+    prevWeekStartUtc: new Date(Date.UTC(year, month, monday - 7, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0)),
+    thisWeekStartUtc: new Date(Date.UTC(year, month, monday, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0)),
+    nextWeekStartUtc: new Date(Date.UTC(year, month, monday + 7, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0)),
+  };
+}
+
+const INFORME_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// authorId do filtro do feed = UUID exato (não texto de busca) — valida cedo p/
+// não vazar erro de sintaxe do Postgres na coluna uuid.
+function normalizeOptionalUuid(value, fieldName) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+  const str = String(value).trim();
+  if (!INFORME_UUID_RE.test(str)) {
+    throw new HttpError(422, `${fieldName} must be a UUID`, {
+      code: 'VALIDATION_ERROR',
+      field: fieldName,
+    });
+  }
+  return str;
+}
+
+// "YYYY-MM-DD" -> {y, mo (0-based), d} ou null; 422 se malformado.
+function parseInformeDateParts(value, fieldName) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value).trim());
+  if (!match) {
+    throw new HttpError(422, `${fieldName} must be a date (YYYY-MM-DD)`, {
+      code: 'VALIDATION_ERROR',
+      field: fieldName,
+    });
+  }
+  return { y: Number(match[1]), mo: Number(match[2]) - 1, d: Number(match[3]) };
+}
+
+// Range de created_at (Timestamptz) a partir de datas BRT: `from` = 00:00 BRT
+// inclusivo; `to` = 00:00 BRT do DIA SEGUINTE (exclusivo — cobre o dia inteiro).
+function buildInformeCreatedAtRange(fromInput, toInput) {
+  const from = parseInformeDateParts(fromInput, 'from');
+  const to = parseInformeDateParts(toInput, 'to');
+  if (!from && !to) {
+    return null;
+  }
+  const range = {};
+  if (from) {
+    range.gte = new Date(Date.UTC(from.y, from.mo, from.d, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0));
+  }
+  if (to) {
+    range.lt = new Date(Date.UTC(to.y, to.mo, to.d + 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0));
+  }
+  return range;
+}
+
+// Ordena o feed fundido: created_at desc, id desc (mesmo critério do UNION SQL
+// anterior). id é UUID — comparação textual basta p/ o desempate raro.
+function compareInformeFeedDesc(a, b) {
+  const at = a.createdAt.getTime();
+  const bt = b.createdAt.getTime();
+  if (at !== bt) {
+    return bt - at;
+  }
+  if (a.id < b.id) return 1;
+  if (a.id > b.id) return -1;
+  return 0;
 }
 
 function buildPage(total, page, limit) {
@@ -429,6 +517,25 @@ export class VisitReportService {
     };
   }
 
+  // Cards da página "Relatórios" (2 KPIs de VISITA, EXCLUINDO canceladas): total
+  // geral e "esta semana" + a semana anterior p/ a UI derivar o delta. Janela de
+  // semana BRT. Acesso = viewer scope=all (mesmo gate do feed). `now` p/ testes.
+  async getRelatoriosStats(actorContext, { now = new Date() } = {}) {
+    const actor = assertAuthenticatedActor(actorContext, 'read relatorios stats');
+    assertRoleAllowed(actor.role, VISIT_REPORT_VIEWER_ROLES, 'read relatorios stats');
+    const { prevWeekStartUtc, thisWeekStartUtc, nextWeekStartUtc } = computeVisitWeekWindows(now);
+    const [totalVisits, visitsThisWeek, visitsLastWeek] = await this.prisma.$transaction([
+      this.prisma.visitReport.count({ where: { cancelledAt: null } }),
+      this.prisma.visitReport.count({
+        where: { cancelledAt: null, createdAt: { gte: thisWeekStartUtc, lt: nextWeekStartUtc } },
+      }),
+      this.prisma.visitReport.count({
+        where: { cancelledAt: null, createdAt: { gte: prevWeekStartUtc, lt: thisWeekStartUtc } },
+      }),
+    ]);
+    return { totalVisits, visitsThisWeek, visitsLastWeek };
+  }
+
   // ---- Relatorio SEMANAL ----
 
   // `now` injetavel apenas para testes deterministas da semana.
@@ -492,8 +599,12 @@ export class VisitReportService {
 
   // ---- Feed combinado da pagina "Relatorios" ----
   // scope=all (todo nao-PROSPECTOR): visita + semanal de TODOS os autores, mais
-  // recentes primeiro. UNION ALL (id, type, created_at) paginado por offset +
-  // hidratacao por tipo — pagina exata sem overfetch; total via counts somados.
+  // recentes primeiro. Filtros opcionais (busca/tipo/autor/periodo/status) entram
+  // no WHERE das DUAS pernas; a busca de CLIENTE casa só na visita (o semanal não
+  // tem cliente). Estratégia "top-K de listas ordenadas": busca `offset+limit` de
+  // cada tabela já filtrada+ordenada, funde, ordena e fatia a página — o topo
+  // global `offset+limit` está garantido dentro do topo de cada tabela. Total via
+  // counts filtrados.
   async listInformeFeed(input, actorContext) {
     const actor = assertAuthenticatedActor(actorContext, 'list informe feed');
     assertRoleAllowed(actor.role, VISIT_REPORT_VIEWER_ROLES, 'list informe feed');
@@ -503,48 +614,83 @@ export class VisitReportService {
       max: INFORME_FEED_LIMIT_MAX,
     });
     const offset = (page - 1) * limit;
-    const [counts, skeleton] = await Promise.all([
-      this.prisma.$transaction([this.prisma.visitReport.count(), this.prisma.weeklyReport.count()]),
-      this.prisma.$queryRaw`
-        SELECT id, 'VISIT_REPORT' AS type, created_at FROM "visit_report"
-        UNION ALL
-        SELECT id, 'WEEKLY_REPORT' AS type, created_at FROM "weekly_report"
-        ORDER BY created_at DESC, id DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `,
-    ]);
-    const total = counts[0] + counts[1];
-    const idsByType = { VISIT_REPORT: [], WEEKLY_REPORT: [] };
-    for (const row of skeleton) {
-      idsByType[row.type]?.push(row.id);
+
+    // Filtros (todos opcionais).
+    const type = normalizeOptionalEnum(input?.type, INFORME_FEED_TYPES, 'type');
+    const status = normalizeOptionalEnum(input?.status, INFORME_FEED_STATUSES, 'status');
+    const authorId = normalizeOptionalUuid(input?.authorId, 'authorId');
+    const search = normalizeOptionalText(input?.search, 'search', 120);
+    const createdAt = buildInformeCreatedAtRange(input?.from, input?.to);
+
+    // WHERE comum aos dois tipos (autor / período / status).
+    const commonWhere = {};
+    if (authorId) commonWhere.userId = authorId;
+    if (status === 'active') commonWhere.cancelledAt = null;
+    else if (status === 'cancelled') commonWhere.cancelledAt = { not: null };
+    if (createdAt) commonWhere.createdAt = createdAt;
+
+    // Busca: nome/usuário do AUTOR (os dois tipos) + CLIENTE (só a visita).
+    const visitWhere = { ...commonWhere };
+    const weeklyWhere = { ...commonWhere };
+    if (search) {
+      const authorOr = [
+        { user: { is: { fullName: { contains: search, mode: 'insensitive' } } } },
+        { user: { is: { username: { contains: search, mode: 'insensitive' } } } },
+      ];
+      const normalized = normalizeSearchInput(search);
+      visitWhere.OR =
+        normalized.length > 0
+          ? [
+              ...authorOr,
+              { newClientNameNormalized: { contains: normalized } },
+              { client: { is: { searchNormalized: { contains: normalized } } } },
+            ]
+          : [...authorOr, { newClientName: { contains: search, mode: 'insensitive' } }];
+      weeklyWhere.OR = authorOr;
     }
-    const [visitReports, weeklyReports] = await Promise.all([
-      idsByType.VISIT_REPORT.length > 0
+
+    const includeVisit = type !== 'WEEKLY_REPORT';
+    const includeWeekly = type !== 'VISIT_REPORT';
+    const need = offset + limit; // overfetch limitado por perna
+
+    const [visitRows, visitCount, weeklyRows, weeklyCount] = await Promise.all([
+      includeVisit
         ? this.prisma.visitReport.findMany({
-            where: { id: { in: idsByType.VISIT_REPORT } },
+            where: visitWhere,
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            take: need,
             include: {
               user: { select: REPORT_USER_SELECT },
               client: { select: REPORT_CLIENT_SELECT },
             },
           })
-        : [],
-      idsByType.WEEKLY_REPORT.length > 0
+        : Promise.resolve([]),
+      includeVisit ? this.prisma.visitReport.count({ where: visitWhere }) : Promise.resolve(0),
+      includeWeekly
         ? this.prisma.weeklyReport.findMany({
-            where: { id: { in: idsByType.WEEKLY_REPORT } },
+            where: weeklyWhere,
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            take: need,
             include: { user: { select: REPORT_USER_SELECT } },
           })
-        : [],
+        : Promise.resolve([]),
+      includeWeekly ? this.prisma.weeklyReport.count({ where: weeklyWhere }) : Promise.resolve(0),
     ]);
-    const viewById = new Map();
-    for (const row of visitReports) {
-      viewById.set(row.id, toVisitReportView(row));
-    }
-    for (const row of weeklyReports) {
-      viewById.set(row.id, toWeeklyReportView(row));
-    }
-    return {
-      items: skeleton.map((row) => viewById.get(row.id)).filter(Boolean),
-      page: buildPage(total, page, limit),
-    };
+
+    const total = visitCount + weeklyCount;
+    const merged = [
+      ...visitRows.map((row) => ({
+        createdAt: row.createdAt,
+        id: row.id,
+        view: toVisitReportView(row),
+      })),
+      ...weeklyRows.map((row) => ({
+        createdAt: row.createdAt,
+        id: row.id,
+        view: toWeeklyReportView(row),
+      })),
+    ].sort(compareInformeFeedDesc);
+    const items = merged.slice(offset, offset + limit).map((entry) => entry.view);
+    return { items, page: buildPage(total, page, limit) };
   }
 }

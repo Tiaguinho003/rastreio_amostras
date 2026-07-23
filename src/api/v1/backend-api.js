@@ -2691,6 +2691,20 @@ export function createBackendApiV1({
         return { status: 200, body: result };
       }),
 
+    getRelatoriosStats: (input) =>
+      executeApiForInput(input, async () => {
+        if (!visitReportService) {
+          throw new HttpError(501, 'Visit report service is not configured');
+        }
+
+        // Cards da pagina "Relatorios" (2 KPIs de visita) — viewer scope=all
+        // (gate no service). PROSPECTOR nem chega (fora do allowlist central).
+        const actor = await resolveActorContext(input, authService);
+        const result = await visitReportService.getRelatoriosStats(actor);
+
+        return { status: 200, body: result };
+      }),
+
     createWeeklyReport: (input) =>
       executeApiForInput(input, async () => {
         if (!visitReportService) {
@@ -2740,7 +2754,16 @@ export function createBackendApiV1({
         const actor = await resolveActorContext(input, authService);
         const query = input?.query ?? {};
         const result = await visitReportService.listInformeFeed(
-          { page: query.page, limit: query.limit },
+          {
+            page: query.page,
+            limit: query.limit,
+            search: query.search,
+            type: query.type,
+            authorId: query.authorId,
+            from: query.from,
+            to: query.to,
+            status: query.status,
+          },
           actor
         );
 

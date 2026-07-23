@@ -1566,6 +1566,34 @@ export interface InformeFeedResponse {
   };
 }
 
+// Cards da pagina "Relatorios" (2 KPIs de VISITA, EXCLUINDO canceladas). O delta
+// da semana e derivado na UI (thisWeek vs lastWeek). Semana = segunda 00:00 BRT.
+export interface RelatoriosStatsResponse {
+  /** Total de visitas (nao-canceladas). */
+  totalVisits: number;
+  /** Visitas desta semana. */
+  visitsThisWeek: number;
+  /** Visitas da semana anterior (base do delta). */
+  visitsLastWeek: number;
+}
+
+export type InformeFeedType = 'VISIT_REPORT' | 'WEEKLY_REPORT';
+export type InformeFeedStatus = 'active' | 'cancelled';
+
+// Filtros do feed (v2): busca casa autor (os 2 tipos) + cliente (so visita).
+export interface InformeFeedQuery {
+  page?: number;
+  limit?: number;
+  search?: string;
+  type?: InformeFeedType;
+  authorId?: string;
+  /** Data inicial (YYYY-MM-DD, BRT). */
+  from?: string;
+  /** Data final inclusiva (YYYY-MM-DD, BRT). */
+  to?: string;
+  status?: InformeFeedStatus;
+}
+
 export interface WeeklyReportMutationResponse {
   report: WeeklyReportSummary;
 }

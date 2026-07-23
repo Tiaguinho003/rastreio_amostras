@@ -75,10 +75,12 @@ import type {
   VisitReportMutationResponse,
   VisitReportsListResponse,
   VisitReportStatsResponse,
+  RelatoriosStatsResponse,
   CommercialVisitReason,
   CommercialVisitOutcome,
   WeeklyReportMutationResponse,
   InformeFeedResponse,
+  InformeFeedQuery,
   PushConfigResponse,
   PushSubscriptionMutationResponse,
 } from './types';
@@ -2395,6 +2397,14 @@ export function getMyVisitReportStats(session: SessionData) {
   });
 }
 
+// Cards da pagina "Relatorios" (2 KPIs de visita: total + esta semana).
+export function getRelatoriosStats(session: SessionData) {
+  return request<RelatoriosStatsResponse>('/relatorios/stats', {
+    method: 'GET',
+    session,
+  });
+}
+
 // Relatorio SEMANAL — so ADMIN + COMMERCIAL criam (gate no backend).
 export function createWeeklyReport(
   session: SessionData,
@@ -2419,14 +2429,18 @@ export function cancelWeeklyReport(session: SessionData, reportId: string) {
   });
 }
 
-// Feed da pagina "Relatorios" (scope=all): visita + semanal de todos.
-export function listInformeFeed(
-  session: SessionData,
-  query: { page?: number; limit?: number } = {}
-) {
+// Feed da pagina "Relatorios" (scope=all): visita + semanal de todos, com
+// filtros opcionais (busca/tipo/autor/periodo/status).
+export function listInformeFeed(session: SessionData, query: InformeFeedQuery = {}) {
   const params = new URLSearchParams();
   if (typeof query.page === 'number') params.set('page', String(query.page));
   if (typeof query.limit === 'number') params.set('limit', String(query.limit));
+  if (query.search) params.set('search', query.search);
+  if (query.type) params.set('type', query.type);
+  if (query.authorId) params.set('authorId', query.authorId);
+  if (query.from) params.set('from', query.from);
+  if (query.to) params.set('to', query.to);
+  if (query.status) params.set('status', query.status);
 
   const suffix = params.size ? `?${params.toString()}` : '';
   return request<InformeFeedResponse>(`/informe-feed${suffix}`, {

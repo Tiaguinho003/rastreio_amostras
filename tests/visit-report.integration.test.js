@@ -463,6 +463,270 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(cancelled.status, 200);
     assert.ok(cancelled.body.report.cancelledAt);
   });
+
+  // ===== R7 (v2 2026-07-23): cards de /relatorios + filtros do feed =====
+  // Insere linhas com created_at CONTROLADO (o create do service carimba now()).
+  // newClientNameNormalized e coluna GERADA — o Postgres a popula do newClientName
+  // no proprio INSERT, entao a busca por cliente casa sem precisar setar.
+
+  async function seedVisitRow({
+    user,
+    client,
+    createdAt,
+    cancelledAt = null,
+    clientKind = 'EXISTING',
+    newClientName = null,
+  }) {
+    return prisma.visitReport.create({
+      data: {
+        id: randomUUID(),
+        userId: user.id,
+        clientKind,
+        clientId: client ? client.id : null,
+        newClientName,
+        createdAt,
+        cancelledAt,
+        cancelledByUserId: cancelledAt ? user.id : null,
+      },
+    });
+  }
+
+  async function seedWeeklyRow({
+    user,
+    weekStart,
+    createdAt,
+    summary = 'Resumo da semana',
+    cancelledAt = null,
+  }) {
+    return prisma.weeklyReport.create({
+      data: {
+        id: randomUUID(),
+        userId: user.id,
+        weekStart,
+        summary,
+        createdAt,
+        cancelledAt,
+        cancelledByUserId: cancelledAt ? user.id : null,
+      },
+    });
+  }
+
+  test('getRelatoriosStats: total (nao-cancelado) + esta semana + semana passada', async () => {
+    await resetDatabase();
+    const commercial = await seedUser('COMMERCIAL');
+    const client = await seedClient();
+    const now = new Date('2026-07-22T17:00:00.000Z'); // quarta BRT, semana 20-26/07
+
+    await seedVisitRow({
+      user: commercial,
+      client,
+      createdAt: new Date('2026-07-21T12:00:00.000Z'),
+    });
+    await seedVisitRow({
+      user: commercial,
+      client,
+      createdAt: new Date('2026-07-22T12:00:00.000Z'),
+    });
+    await seedVisitRow({
+      user: commercial,
+      client,
+      createdAt: new Date('2026-07-15T12:00:00.000Z'),
+    });
+    await seedVisitRow({
+      user: commercial,
+      client,
+      createdAt: new Date('2026-06-10T12:00:00.000Z'),
+    });
+    await seedVisitRow({
+      user: commercial,
+      client,
+      createdAt: new Date('2026-07-22T13:00:00.000Z'),
+      cancelledAt: new Date('2026-07-22T14:00:00.000Z'),
+    });
+
+    const stats = await service.getRelatoriosStats(actorFor(commercial), { now });
+    assert.equal(stats.totalVisits, 4); // 5 linhas, 1 cancelada excluida
+    assert.equal(stats.visitsThisWeek, 2); // 2 nao-canceladas nesta semana
+    assert.equal(stats.visitsLastWeek, 1);
+  });
+
+  test('getRelatoriosStats: PROSPECTOR nao acessa (403 no gate do service)', async () => {
+    await resetDatabase();
+    const prospector = await seedUser('PROSPECTOR');
+    await assert.rejects(
+      () => service.getRelatoriosStats(actorFor(prospector)),
+      (err) => err.status === 403
+    );
+  });
+
+  test('listInformeFeed type=: filtra a perna do UNION', async () => {
+    await resetDatabase();
+    const commercial = await seedUser('COMMERCIAL');
+    const client = await seedClient();
+    await seedVisitRow({
+      user: commercial,
+      client,
+      createdAt: new Date('2026-07-22T12:00:00.000Z'),
+    });
+    await seedWeeklyRow({
+      user: commercial,
+      weekStart: new Date('2026-07-20'),
+      createdAt: new Date('2026-07-22T13:00:00.000Z'),
+    });
+
+    const all = await service.listInformeFeed({}, actorFor(commercial));
+    assert.equal(all.page.total, 2);
+
+    const visits = await service.listInformeFeed({ type: 'VISIT_REPORT' }, actorFor(commercial));
+    assert.equal(visits.page.total, 1);
+    assert.equal(visits.items[0].type, 'VISIT_REPORT');
+
+    const weeklies = await service.listInformeFeed({ type: 'WEEKLY_REPORT' }, actorFor(commercial));
+    assert.equal(weeklies.page.total, 1);
+    assert.equal(weeklies.items[0].type, 'WEEKLY_REPORT');
+  });
+
+  test('listInformeFeed status=: filtra cancelledAt (active/cancelled)', async () => {
+    await resetDatabase();
+    const commercial = await seedUser('COMMERCIAL');
+    const client = await seedClient();
+    await seedVisitRow({
+      user: commercial,
+      client,
+      createdAt: new Date('2026-07-22T12:00:00.000Z'),
+    });
+    await seedVisitRow({
+      user: commercial,
+      client,
+      createdAt: new Date('2026-07-22T13:00:00.000Z'),
+      cancelledAt: new Date('2026-07-22T14:00:00.000Z'),
+    });
+
+    const active = await service.listInformeFeed({ status: 'active' }, actorFor(commercial));
+    assert.equal(active.page.total, 1);
+    assert.equal(active.items[0].cancelledAt, null);
+
+    const cancelled = await service.listInformeFeed({ status: 'cancelled' }, actorFor(commercial));
+    assert.equal(cancelled.page.total, 1);
+    assert.ok(cancelled.items[0].cancelledAt);
+  });
+
+  test('listInformeFeed authorId=: filtra por autor (os dois tipos) + valida UUID', async () => {
+    await resetDatabase();
+    const a = await seedUser('COMMERCIAL');
+    const b = await seedUser('COMMERCIAL');
+    const client = await seedClient();
+    await seedVisitRow({ user: a, client, createdAt: new Date('2026-07-22T12:00:00.000Z') });
+    await seedWeeklyRow({
+      user: a,
+      weekStart: new Date('2026-07-20'),
+      createdAt: new Date('2026-07-22T13:00:00.000Z'),
+    });
+    await seedVisitRow({ user: b, client, createdAt: new Date('2026-07-22T14:00:00.000Z') });
+
+    const onlyA = await service.listInformeFeed({ authorId: a.id }, actorFor(a));
+    assert.equal(onlyA.page.total, 2);
+    for (const item of onlyA.items) {
+      assert.equal(item.user.id, a.id);
+    }
+
+    await assert.rejects(
+      () => service.listInformeFeed({ authorId: 'nao-e-uuid' }, actorFor(a)),
+      (err) => err.status === 422 && err.details?.field === 'authorId'
+    );
+  });
+
+  test('listInformeFeed search=: casa autor (2 tipos) e cliente novo (so visita)', async () => {
+    await resetDatabase();
+    const zelia = await seedUser('COMMERCIAL', 'zebrafeed');
+    const other = await seedUser('COMMERCIAL', 'otherfeed');
+    const client = await seedClient();
+    await seedVisitRow({
+      user: zelia,
+      client,
+      clientKind: 'NEW',
+      newClientName: 'Fazenda Girassol',
+      createdAt: new Date('2026-07-22T12:00:00.000Z'),
+    });
+    await seedWeeklyRow({
+      user: zelia,
+      weekStart: new Date('2026-07-20'),
+      createdAt: new Date('2026-07-22T13:00:00.000Z'),
+    });
+    await seedVisitRow({ user: other, client, createdAt: new Date('2026-07-22T14:00:00.000Z') });
+
+    // autor: username "user-zebrafeed" contem "zebrafeed" -> visita + semanal do zelia
+    const byAuthor = await service.listInformeFeed({ search: 'zebrafeed' }, actorFor(zelia));
+    assert.equal(byAuthor.page.total, 2);
+
+    // cliente: "Girassol" (newClientNameNormalized gerado) casa SO a visita
+    const byClient = await service.listInformeFeed({ search: 'Girassol' }, actorFor(zelia));
+    assert.equal(byClient.page.total, 1);
+    assert.equal(byClient.items[0].type, 'VISIT_REPORT');
+  });
+
+  test('listInformeFeed from/to: filtra por periodo (createdAt, dia BRT inclusivo)', async () => {
+    await resetDatabase();
+    const commercial = await seedUser('COMMERCIAL');
+    const client = await seedClient();
+    const inside = await seedVisitRow({
+      user: commercial,
+      client,
+      createdAt: new Date('2026-07-20T12:00:00.000Z'),
+    });
+    await seedVisitRow({
+      user: commercial,
+      client,
+      createdAt: new Date('2026-07-10T12:00:00.000Z'),
+    });
+    await seedVisitRow({
+      user: commercial,
+      client,
+      createdAt: new Date('2026-07-25T12:00:00.000Z'),
+    });
+
+    const ranged = await service.listInformeFeed(
+      { from: '2026-07-15', to: '2026-07-22' },
+      actorFor(commercial)
+    );
+    assert.equal(ranged.page.total, 1);
+    assert.equal(ranged.items[0].id, inside.id);
+  });
+
+  test('listInformeFeed: funde visita+semanal por created_at desc e pagina certo', async () => {
+    await resetDatabase();
+    const commercial = await seedUser('COMMERCIAL');
+    const client = await seedClient();
+    const v1 = await seedVisitRow({
+      user: commercial,
+      client,
+      createdAt: new Date('2026-07-22T10:00:00.000Z'),
+    });
+    const w1 = await seedWeeklyRow({
+      user: commercial,
+      weekStart: new Date('2026-07-20'),
+      createdAt: new Date('2026-07-22T11:00:00.000Z'),
+    });
+    const v2 = await seedVisitRow({
+      user: commercial,
+      client,
+      createdAt: new Date('2026-07-22T12:00:00.000Z'),
+    });
+
+    const page1 = await service.listInformeFeed({ page: 1, limit: 2 }, actorFor(commercial));
+    assert.equal(page1.page.total, 3);
+    assert.equal(page1.page.hasNext, true);
+    assert.deepEqual(
+      page1.items.map((i) => i.id),
+      [v2.id, w1.id]
+    );
+
+    const page2 = await service.listInformeFeed({ page: 2, limit: 2 }, actorFor(commercial));
+    assert.deepEqual(
+      page2.items.map((i) => i.id),
+      [v1.id]
+    );
+  });
 }
 
 async function canReachDatabase(databaseUrlValue) {
