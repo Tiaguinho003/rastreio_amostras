@@ -1179,6 +1179,16 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
   animation: app-modal-card-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) 0.05s backwards;
 }
 
+/* Modais centrais orientados a DADOS (a lista cresce com N): teto maior que
+   o padrao de 40rem pra reduzir o scroll quando a lista e longa — propagacao
+   de safra (N ligas afetadas) e invalidacao bloqueada (N ligas bloqueantes).
+   Subir um teto de max-height nunca forca altura: os confirmes curtos seguem
+   no tamanho do proprio conteudo. */
+.app-modal.blend-harvest-propagation-modal,
+.app-modal.sample-invalidate-blocked-modal {
+  max-height: min(88dvh, 44rem);
+}
+
 @keyframes app-modal-card-in {
   from {
     opacity: 0;
