@@ -665,7 +665,7 @@ Fechado o desktop de `/samples` (§2.7) e o mobile de `/cadastros` (§2.9), `/re
 - **✅ Já FV (não tocar):** chrome (sidebar `.fv-sidenav` + top-bar `.fv-topbar-title` "Relatórios"; rota em `isLayeredRoute`), FAB "leque" radial, confirms/descartes/aviso 409 (`.app-modal.is-themed`), quick-create de cliente (`.side-sheet`, intocável).
 - **❌ Legado (alvo):** título **duplicado** dentro da página (`.inf-intro-title` "Relatórios", redundante com a top-bar); feed de acordeões `.rsm-*` com cartão legado (gradiente quente + sombra tripla); detalhe = acordeão inline; formulários de criação (Visita/Semanal) = `BottomSheet` que no desktop vira **modal central 650px** + kit legado `.inf-*`.
 
-**Domínio:** acesso = todos os não-PROSPECTOR (não é só ADMIN+COMMERCIAL — correção de leitura antiga); Semanal só ADMIN+COMMERCIAL cria; cancelar = soft (fica no feed, só o autor); relatórios imutáveis, sem link público; feed inclui cancelados. Informativo = gerador de imagem (canvas, sem persistência). `CommercialVisit` é modelo órfão. **Sem backend nesta rodada.**
+**Domínio:** acesso = todos os não-PROSPECTOR (não é só ADMIN+COMMERCIAL — correção de leitura antiga); Semanal só ADMIN+COMMERCIAL cria; cancelar = soft (fica no feed, só o autor); relatórios imutáveis, sem link público; feed inclui cancelados. Informativo = gerador de imagem (canvas, sem persistência). `CommercialVisit` é modelo órfão. **1ª passada sem backend; a v2 (2026-07-23) adiciona stats + params do feed — ver "Reformulação v2" abaixo.**
 
 **Decisões travadas (com o Flavio, 2026-07-23, via AskUserQuestion):**
 
@@ -677,17 +677,44 @@ Fechado o desktop de `/samples` (§2.7) e o mobile de `/cadastros` (§2.9), `/re
 | R-D4 | **Visita compartilhada migra INTEIRA.** `CommercialVisitFormSheet` também é a tela de criar visita do **dashboard do prospector** (mobile) — vira side-sheet + `.fv-form-*` **nos dois lugares**, sem bifurcação. Semanal só existe em /relatorios.                                 |
 | R-D5 | **Informativo fica como está** nesta rodada. É um wizard/canvas (gerador de imagem, kit `.ifm-*`/`.inf-*` próprio, cap de 650px pras artes 9:16). Container dele = follow-up.                                                                                                       |
 
+> **Revisto na v2 (2026-07-23, ao ver o desktop):** **R-D2** (enxuto/zero-backend) foi **superada** e **R-D5** (Informativo adiado) foi **executada** — ver "Reformulação v2" no fim desta seção. R-D1/R-D3/R-D4 seguem valendo.
+
 **Superfícies compartilhadas (validar as duas no device):** por R-D4, o **dashboard do prospector** (mobile) ganha o form Visita em side-sheet + `.fv-form-*` (`ProspectorDashboard.tsx:374` renderiza o mesmo sheet), e o **feed do prospector** ganha o cartão institucional junto (mesmo `VisitReportCard`/`.rsm-card`). Coerente com "migrar o form inteiro".
 
 **Regra de escopo:** o restyle de card é **escopado em `.rsm-content`** (o caminho vivo — `/relatorios` renderiza `.sdv-content.informe-content.rsm-content`); `.informe-commercial-page` é a cópia **morta** (o adiamento do §2.8 M4c), não usar. O kit `.inf-*` de formulário **não é morto** — segue vivo via Informativo (`InformativoMercadoFields` "reusa a linguagem do CommercialVisitForm"); só os 2 forms deixam de referenciá-lo.
 
-**As rodadas** (uma = um commit; gates a cada uma) — _planejadas, anotar commits conforme implementar:_
+**As rodadas — 1ª passada (versão mínima, IMPLEMENTADA 2026-07-23; commits `9072719`..`0c113ed` + fix de build `b71bc80`; NÃO pushada):**
 
-- **R1 — esta §2.10** (ledger antes do código).
-- **R2 — corpo institucional.** `RelatoriosViewer` (tira o `.inf-intro-title` duplicado; cópia "relatório(s)"); `VisitReportCard`/`WeeklyReportCard` (chip de tipo persistente `.fv-chip.is-sm` + cancelado); `globals.css` `.rsm-content .rsm-card` chapado + hairline + `radius-lg` + `box-shadow: 0 1px 2px rgba(0,0,0,.04)` (espelha Lotes/Clientes), acordeão e card-contêiner desktop refinados.
-- **R3 — form Visita** → `fv-panel-sheet side-sheet commercial-visit-sheet` + edge-back + submit no footer + `.fv-form-*` + `SuccessCheckOverlay` + descarte `.is-scrim-none.is-compact`. Estado consolidado no sheet (molde `SampleLossSheet`); `ClientQuickCreateModal` intocável (empilha side-sheet sobre side-sheet).
-- **R4 — form Semanal** → mesmo molde (`weekly-report-sheet`); aviso 409 → `.fv-panel-scrim`; banner offline e semana read-only preservados.
-- **R5 — varredura + skills.** CSS morto por token (`.inf-intro-title`, `.inf-intro`; kit `.inf-*` de form **fica**). Skills: `containers` §8 (linha /relatorios migrada; Informativo adiado; consequência prospector) + §7 (chrome herdado via `.fv-panel-sheet`); `design-system` §0 (`.rsm-card` institucional).
+- **R1 — esta §2.10** (ledger antes do código). ✅ `9072719`
+- **R2 — corpo institucional.** ✅ `2c978cc` — `RelatoriosViewer` (tira o `.inf-intro-title` duplicado; cópia "relatório(s)"); `VisitReportCard`/`WeeklyReportCard` (chip de tipo persistente `.fv-chip.is-sm` + cancelado); `globals.css` base `.rsm-card` chapado + hairline + `radius-lg` + `box-shadow: 0 1px 2px rgba(0,0,0,.04)` (espelha Lotes/Clientes; override `.rsm-content .rsm-card` deletado), acordeão e card-contêiner desktop refinados.
+- **R3 — form Visita** ✅ `5b98964` → `fv-panel-sheet side-sheet commercial-visit-sheet` + edge-back + submit no footer + `.fv-form-*` + `SuccessCheckOverlay` + descarte `.is-scrim-none.is-compact`. `CommercialVisitForm` absorvido no sheet; `ClientQuickCreateModal` intocável.
+- **R4 — form Semanal** ✅ `48fb478` → mesmo molde (`weekly-report-sheet`); aviso 409 → `.fv-panel-scrim`; banner offline e semana read-only preservados. `WeeklyReportForm` absorvido.
+- **R5 — varredura + skills.** ✅ `0c113ed` — CSS morto por token (`.inf-intro-title`, `.inf-intro`, `.rsm-type-badge`; kit `.inf-*` de form **fica**). Skills `containers`/`design-system` sincronizadas.
+
+---
+
+### Reformulação v2 (2026-07-23, ao ver o desktop)
+
+A 1ª passada acertou o feed e os forms, mas no **desktop** a página seguiu **muito fora do padrão** de Lotes/Clientes (feedback do Flavio): o **botão de criar** é o FAB-lápis flutuante (leque radial, padrão mobile); a **lista é pequena** num mar de branco; **sem busca**, **sem filtros**; **sem KPI** — e ele **quer os cards**. Além disso, quer **foco no fluxo do Informativo**. A v2 **supera a R-D2** (enxuto/zero-backend → agora com KPI + busca + filtros + backend novo), **mantém** R-D1/R-D3/R-D4 e **executa** a R-D5. Foco **desktop primeiro**; mobile é passada posterior (não pode quebrar).
+
+**Decisões v2 (Flavio, 2026-07-23, via AskUserQuestion + correção mid-turn):**
+
+| #     | Decisão                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| R-D6  | **Lista = feed + acordeão MANTIDO** (não vira tabela — preserva a heterogeneidade visita/semanal, sem células vazias), agora dentro do **cartão de altura cheia** com a chrome por cima.                                                                                                                                                                                                                                 |
+| R-D7  | **Cabeçalho compacto numa FAIXA ÚNICA**: 2 KPI cards à esquerda + os **3 botões de criação na MESMA linha** à direita (`+ Nova visita` · `Semanal` [só ADMIN+COMMERCIAL] · `Informativo`). **Título grande da página SAI** (a top-bar FV já mostra "Relatórios") — divergência consciente de Lotes/Clientes, pra caber numa linha. **FAB radial → mobile-only** (embrulho `display:none` ≥901px, molde `.fv-lotes-fab`). |
+| R-D8  | **2 KPI cards, ambos de VISITA**: (1) **Total de visitas** (não-canceladas); (2) **Visitas esta semana** com Δ vs. semana passada (molde do "Lotes vendidos"). Endpoint de stats novo (molde `getClientStats`, só counts, **sem groupBy**). _(Um 3º card "usuário que mais visitou" foi cogitado e **removido a pedido do Flavio** — 2 cards concentram à esquerda e liberam a linha pros botões.)_                      |
+| R-D9  | **Busca + filtros.** `listInformeFeed` ganha params. Busca = autor (os 2 tipos) + cliente (só visita, via `newClientNameNormalized`/`client.searchNormalized`). Filtros laterais `.fv-filter-sheet`: Tipo/Autor/Período/Status (dimensões comuns aos 2 tipos → sem degradação visita-only).                                                                                                                              |
+| R-D10 | **Informativo = side-sheet lateral LARGO** (~1000px) com **duas colunas** (form reorganizado à esquerda + preview 1080×1920 **AO VIVO** à direita); wizard de 3 fases colapsa (meteo = seção opcional); downloads no footer. "Como os outros" (side-sheet). Fecha a R-D5.                                                                                                                                                |
+
+**As rodadas v2** (uma = um commit; gates a cada uma) — _anotar commits conforme implementar:_
+
+- **R6 — esta atualização** da §2.10 (ledger v2, antes do código).
+- **R7 — backend.** Stats (`totalVisits`/`visitsThisWeek`/`visitsLastWeek`, molde `getClientStats`, **sem cache** — relatórios nascem nesta página) + params do feed (`search`/`type`/`authorId`/`from`/`to`/`status` nas 2 pernas do `UNION ALL`; `search` de cliente só na visita). Testes integração+contrato; `db:seed` depois do `test:integration:db`.
+- **R8 — chrome desktop.** `RelatoriosViewer` + `globals.css`: **faixa única** (2 cards + 3 botões, sem título grande), **cartão de altura cheia** (molde `.samples-page-v2-sheet`), **toolbar** (busca + Filtros + contagem), **FAB radial mobile-only**. Wire stats + busca. Botão "Semanal" só se `isWeeklyReportAuthor`.
+- **R9 — filtros laterais** `.fv-filter-sheet relatorios-filter-sheet` (Tipo/Autor/Período/Status) → params do feed. "Limpar" + contador de filtros ativos.
+- **R10 — Informativo** two-pane side-sheet + preview ao vivo: shell largo (`informativo-sheet`, `fv-panel-sheet side-sheet` edge-back), `.ifm-workspace` 2 colunas (form + preview sticky), canvases **montados** com repintura **debounced** (novo `lib/use-debounced-value.ts`), meteo = seção opcional (`set-inclui-meteo`), reorg dos 21 campos (fixo vs. hoje, `.fv-form-heading`), `informativo-draft.ts` perde a máquina de fases, **deleta** `InformativoRevisao.tsx`. Preserva os gotchas do canvas (Poppins hasheada via `resolveFontFamily`+`fonts.ready`; previsão = objectURL mesma-origem p/ `toBlob`; swallow de `dragover`/`drop`; per-piece download; `onPersistSlow`).
+- **R11 — varredura + skills.** CSS morto (resíduos do wizard; `.rsm-intro`/`-total-chip` se a contagem migrou pra toolbar; kit `.inf-*` de form **fica**). Skills: `containers` (Informativo agora **side-sheet** — fecha a R-D5, era "adiado"), `data-tables` (/relatorios entra no padrão: **faixa compacta 2-cards vs. as 2 linhas de Lotes** — não copiar cru), `design-system`/`forms` no que mudou.
 
 **Consolidação pós-device** (rodada separada): `docs/Relatorios-Visao-Geral.md` (hub, molde do `Lotes-Visao-Geral.md`), fechar esta §2.10, corrigir a coluna de rota `/informe`→`/relatorios` no `Auditoria-Navegacao-por-Papel.md`, varredura de CSS mais profunda.
 
