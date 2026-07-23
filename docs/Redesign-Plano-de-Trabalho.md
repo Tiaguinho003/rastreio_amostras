@@ -53,7 +53,7 @@ Todas travadas em **2026-07-20** (conversa de kickoff, com levantamento de códi
 | **F3**        | **Contrato** — realinhar `SaleContractDetailsModal` ao padrão (+ P27)                                                                                                                                                                                                                                           | ✅ validada 2026-07-20 (Flavio, dev local; foi **antecipada** antes da F2). P27 segue aberta                                                                    |
 | **F4**        | Limpeza: rotas antigas só-redirect (ou remoção), morte do snapshot de sessionStorage do `SampleCard`, sync final de skills/docs. **⚠️ Não confundir com a "F4 (Mobile)" do RD15/§2.7**, que é a última fase da FV de `/samples` — esta aqui é a limpeza da frente de _navegação_ e segue inteiramente por fazer | ☐                                                                                                                                                               |
 | **FV**        | Frente visual **redefinida (RD11, §2.5)**: ciclo **página-a-página** — contêiner dos modais + design/layout juntos, a partir da referência aprovada (RD12–RD14); piloto `/cadastros`                                                                                                                            | 🚧 E1 conferida ✔ + rodadas 1–6 (§2.6; detalhe = drawer de perfil; modais internos = painéis laterais; check canônico de sucesso) — mais rodadas → plan mode E2 |
-| **FV Mobile** | Ciclo mobile (RD16, §2.8): `/samples` define o padrão — M1 chrome → M2 lista → M3 detalhe → M4 consolidação                                                                                                                                                                                                     | 🚧 M1 + M2 + M3 rodada 1 implementadas 2026-07-22 (até `f84d9e9`; **📱🖥️ validar**, ver §2.8)                                                                   |
+| **FV Mobile** | Ciclo mobile (RD16, §2.8): `/samples` define o padrão — M1 chrome → M2 lista → M3 detalhe → M4 consolidação                                                                                                                                                                                                     | 🚧 M1 + M2 + M3 r1 (drawer) + r2 (efeitos dos modais) 2026-07-22 (até `711d2f2`; **📱🖥️ validar**, ver §2.8)                                                    |
 
 Cada fase abre em **plan mode** e só fecha com **validação no device** (🖥️ + 📱), como nos demais ciclos.
 
@@ -397,7 +397,7 @@ Três pedidos, todos sobre superfícies que a F3 não tinha reavaliado por dentr
 
 **O que conferir a mais**: imprimir pelo ⋯ da linha abre **só** o painel de impressão (o drawer não aparece) e imprime; enviar abre um painel só, com tipo e destinatários juntos, a data aparecendo/sumindo ao trocar de tipo e o rótulo do botão acompanhando; a opção bloqueada explica o porquê; registrar perda abre painel lateral (inclusive sobre o drawer, pelo ⋯ do hero), com o aviso de liga quando for o caso, e "Atribuir dono" abrindo centralizado sobre a faixa do painel.
 
-### 2.8 FV Mobile (RD16) — M1 (chrome) + M2 (lista de Lotes) + M3 rodada 1 (drawer do lote) implementadas 2026-07-22
+### 2.8 FV Mobile (RD16) — M1 (chrome) + M2 (lista) + M3 r1 (drawer) + M3 r2 (efeitos terminais dos modais) implementadas 2026-07-22
 
 **O achado que definiu o escopo do M1**: o header verde do mobile **não vinha do `AppShell`**. Cada página desenhava o seu — `.samples-page-v2-header` (`/samples`), `.clients-v2-header` (`/cadastros`, `/contratos`, `/embarques`, `/users`), `.sdv-header-top` (`/relatorios`, `/profile`) e o bloco de avatar do `.dashboard-hero-header` (`/dashboard`) — enquanto o `.topbar` do shell era **DOM morto no mobile em 100% das rotas** (`display:none` nas não-em-camada; transparente com os filhos escondidos nas demais). Fazer "faixa curta em todas as páginas" editando 4 moldes seria retrabalho garantido; a jogada foi a mesma do RD13 no desktop: **um header único no shell**.
 
@@ -564,7 +564,26 @@ O M3 começou pelo **contêiner de detalhe em si**, antes das superfícies que s
 
 **A conferir** (📱 e 🖥️, porque o scroll e os botões mudaram nos dois): o drawer rolando do topo do hero até o fim do conteúdo, com as abas fixas no topo depois que o hero passa; o ⋯ do hero abrindo **por cima** das abas (é `z-index: 30` no mesmo contexto); os quatro redondos legíveis; a aba Classificação **sem** a foto no celular e **com** ela no desktop; e o hero sem a linha de papéis, sem buraco no lugar.
 
-**Próximo**: as superfícies abertas a partir do detalhe — incluindo a cadeia da câmera —, depois as que saem da lista, e o M4 (consolidação das skills + `docs/Lotes-Visao-Geral.md`). Segue pendente coletar dado real do bug do `.bottom-sheet` com `100dvh`.
+#### M3 rodada 2 — os efeitos terminais dos modais (2026-07-22, `6606e58` · `b107941` · `711d2f2`)
+
+Depois do contêiner, os **modais que saem do detalhe/lista**. O Flavio pediu para focar no **efeito de check**: auditar quais ações mostram, quais faltam, e padronizar posicionamento/efeito/tempo. A auditoria (17+ superfícies) achou o padrão e os furos.
+
+**O padrão que já existia** (correto): criar lote, criar liga, enviar, imprimir etiqueta, editar informações e editar ficha de classificação mostram o **check verde** (`SuccessCheckOverlay`, overlay branco `inset:0` cobrindo o sheet). Deletar/reverter/cancelar-movimentação mostram um **X vermelho full-screen** (`.sdv-x-effect`) e redirecionam para a lista — outra família, o recurso inteiro sai de cena.
+
+**Os furos, e as decisões do Flavio:**
+
+- **Perda** mostrava um **toast** (`"Perda registrada"`) — o único fora do padrão entre as movimentações (o envio, seu par, mostra check). Decisão: **carimbo vermelho "Perda registrada"**. O `.sdv-stamp` que morreu com o `SampleMovementModal` **voltou** como variante do overlay (borracha, "slam", rotação -13°, `#c0392b`), agora dentro do véu branco do próprio overlay.
+- **Classificação pela câmera** terminava num **modal central próprio** (`ClassificationSuccessModal`: anel + número do lote + "etiqueta impressa" + "Ver detalhes"). Decisão: **trocar pelo check canônico**. O modal foi **deletado**; a câmera portala `<SuccessCheckOverlay fixed />` (o `fixed` cobre a tela, não um sheet). Perde o card do lote e o CTA; a saída é a mesma do antigo X do modal (`resetClassificationFlow` + `onExitContext`) — Flow A volta ao scanner limpo, Flow B ao lote de origem.
+- **Cancelar envio** mostrava **toast**. Decisão: **X vermelho** (`variant="x"`), cobrindo o próprio modal de confirmação (que ganhou `position:relative`). É reversão — X, não check.
+- **Tempo** variava 800/900/**1000**ms, com `SUCCESS_CHECK_MS=1000` duplicado. Vira **900ms**, uma constante **exportada de `SuccessCheckOverlay`** e importada por todos.
+
+Arquitetura: o `SuccessCheckOverlay` deixou de ser só o check verde e virou o **overlay terminal único** — mesmo véu e mesma entrada, três variantes (`check` default · `x` · `stamp-loss`) + `fixed`. Os 14 consumidores verdes não passaram prop nenhuma (retrocompatível). Efeitos inline (editar envio/data no card, dropdowns) ficaram **sem** check de propósito — não são modais.
+
+_(Nota do commit: `b107941` saiu incompleto — o `git add` abortou no pathspec do arquivo já deletado e não preparou os 3 modificados; corrigido com `reset --soft` + recommit, sem `--amend`/force-push em `main`.)_
+
+**A conferir** (📱 e 🖥️): a perda com o carimbo vermelho batendo antes de fechar; o cancelar-envio com o X sobre a confirmação; a classificação pela câmera terminando no check verde e voltando ao scanner (Flow A) / ao lote (Flow B); e todos os checks no mesmo tempo. O `ApprovalLabelModal` (fluxo de Aprovação, fora do ciclo) segue com o check antigo `.sample-created-*` — é o último dono dessas classes.
+
+**Próximo**: as demais superfícies do detalhe/lista se precisarem de ajuste fino, depois o M4 (consolidação das skills + `docs/Lotes-Visao-Geral.md`). Segue pendente coletar dado real do bug do `.bottom-sheet` com `100dvh`.
 
 ## 3. O que NÃO muda
 
