@@ -5272,82 +5272,15 @@ button:disabled {
   line-height: 1.4;
 }
 
-/* ── spv2: card "Classificacao pendente" (migrado do dashboard, DSB-D2) ──
-   Card so-visualizacao no topo do sheet. Estilo proprio da pagina de Lotes
-   (nao reusa o .dd-stat-* do dashboard, que era desktop-only). Responsivo. */
-
-.spv2-pending-stat {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: clamp(0.6rem, 2.5vw, 0.9rem);
-  margin: clamp(8px, 2vw, 12px) clamp(14px, 4vw, 20px) 0;
-  padding: clamp(0.7rem, 2.5vw, 0.95rem) clamp(0.85rem, 3vw, 1.15rem);
-  background: #ffffff;
-  border: 1px solid rgba(112, 130, 103, 0.22);
-  border-radius: 16px;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
-}
-
-.spv2-pending-stat-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: clamp(40px, 11vw, 48px);
-  height: clamp(40px, 11vw, 48px);
-  border-radius: 13px;
-  background: rgba(31, 93, 67, 0.1);
-}
-
-.spv2-pending-stat-icon svg {
-  width: clamp(20px, 5.5vw, 24px);
-  height: clamp(20px, 5.5vw, 24px);
-  stroke: var(--brand-green, #1f5d43);
-  stroke-width: 1.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  fill: none;
-}
-
-.spv2-pending-stat-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.12rem;
-  min-width: 0;
-}
-
-.spv2-pending-stat-title {
-  font-size: clamp(0.78rem, 3.5vw, 0.84rem);
-  font-weight: 500;
-  color: #72766f;
-  letter-spacing: 0.01em;
-}
-
-.spv2-pending-stat-value {
-  font-size: clamp(1.5rem, 6vw, 1.9rem);
-  font-weight: 800;
-  line-height: 1.1;
-  color: #1a2e1f;
-  letter-spacing: -0.02em;
-}
-
 /* ── Card de envios compartilhado (sends-*) — DSB-D14 ──
-   "Amostras enviadas" (topo do sheet de /samples) e "Aprovacoes enviadas"
-   (topo da aba Aprovacoes de /embarques) — os dois sao o RecentSendsCard.
-   Nasceu no dashboard desktop (DSH-D5/DSB-D5/DSB-D8, classes dd-send*) e
-   migrou no DSB-D14. DESKTOP-ONLY por ora (cobertura mobile fica pro ciclo
-   mobile, DSB-H7) — a base esconde; o breakpoint 901px liga. */
+   "Aprovacoes enviadas" (topo da aba Aprovacoes de /embarques) — o RecentSendsCard.
+   Nasceu no dashboard desktop (DSH-D5/DSB-D5/DSB-D8, classes dd-send*) e migrou no
+   DSB-D14. DESKTOP-ONLY (a base esconde; o breakpoint 901px liga). O gemeo de
+   /samples ("Amostras enviadas", com o wrapper .spv2-top-cards e o card
+   .spv2-pending-stat) saiu do produto no RD15/F1. */
 
 .sends-card {
   display: none;
-}
-
-/* Wrapper do topo do sheet de /samples ("Classificacao pendente" + "Amostras
-   enviadas"): no mobile nao participa do layout (o pending-stat mantem as
-   margens proprias; o sends-card ja esta escondido). */
-.spv2-top-cards {
-  display: contents;
 }
 
 @media (min-width: 901px) {
@@ -5534,24 +5467,6 @@ button:disabled {
   /* Contexto /embarques (aba Aprovacoes): respiro antes da worklist. */
   .ctr-page .sends-card {
     margin-bottom: clamp(0.7rem, 1.2vw, 1rem);
-  }
-
-  /* Topo do sheet de /samples no desktop: pendencia + envios lado a lado
-     (o wrapper assume as margens laterais que eram do pending-stat). */
-  .spv2-top-cards {
-    display: flex;
-    align-items: stretch;
-    gap: clamp(0.75rem, 1.4vw, 1.25rem);
-    margin: clamp(8px, 2vw, 12px) clamp(14px, 4vw, 20px) 0;
-  }
-
-  .spv2-top-cards .spv2-pending-stat {
-    margin: 0;
-  }
-
-  .spv2-top-cards .sends-card {
-    flex: 1;
-    min-width: 0;
   }
 }
 

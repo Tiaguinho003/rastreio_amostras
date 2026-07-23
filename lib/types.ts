@@ -1147,10 +1147,13 @@ export interface ListSamplesResponse {
   };
 }
 
-// getDashboardPending enxugado pra COUNT-ONLY (DSB-H4/H5, check-up do dashboard): o
-// único consumidor (card de /samples, ClassificationPendingCard) usa só `.total`. Os
-// antigos `counts`/`items` (projeção parcial de sample) e `clientsIncomplete` eram
-// payload morto — removidos.
+// getDashboardPending enxugado pra COUNT-ONLY (DSB-H4/H5, check-up do dashboard). O
+// consumidor era o ClassificationPendingCard de /samples, removido na consolidação
+// M4a (2026-07-23) — o endpoint /dashboard/pending ficou órfão de UI (a KPI
+// "Aguardando classificação" de /samples usa getSampleStats.classificationPending).
+// Endpoint + tipo + api-client seguem vivos (rota + integração), à espera de uma
+// varredura de órfãos de backend. Os antigos `counts`/`items` e `clientsIncomplete`
+// eram payload morto — removidos.
 export interface DashboardPendingResponse {
   classificationPending: {
     total: number;

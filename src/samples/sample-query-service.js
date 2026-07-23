@@ -1888,10 +1888,11 @@ export class SampleQueryService {
   }
 
   // getDashboardPending — só a CONTAGEM de pendentes de classificação (samples em RC).
-  // Enxugado pra count-only no check-up do dashboard (DSB-H4/H5): o único consumidor
-  // (card de /samples, ClassificationPendingCard) usa apenas `.total`. Os antigos
-  // `items` (findMany 500 mapeado e descartado), `clientsIncomplete` (client.count com
-  // near-full scan) e `counts` por status (groupBy) eram payload MORTO — removidos.
+  // Enxugado pra count-only no check-up do dashboard (DSB-H4/H5). O consumidor era o
+  // ClassificationPendingCard de /samples, removido na consolidação M4a — o endpoint
+  // ficou órfão de UI (a KPI de /samples usa getSampleStats). Endpoint segue vivo
+  // (rota + teste de integração), à espera de uma varredura de órfãos de backend. Os
+  // antigos `items`, `clientsIncomplete` e `counts` por status eram MORTOS — removidos.
   async getDashboardPending() {
     const total = await this.prisma.sample.count({
       where: { status: { in: CLASSIFICATION_PENDING_STATUSES } },
