@@ -536,11 +536,9 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
       {message ? <p className="nsv2-inline-success">{message}</p> : null}
 
       {/* Campos no molde institucional do painel de criar cliente: rotulo
-          pequeno muted acima, input hairline, linhas de 1 ou 2 colunas e
-          micro-cabecalhos agrupando as secoes (kit `.fv-form-*`). */}
+          pequeno muted acima, input hairline, linhas de 1 ou 2 colunas
+          (kit `.fv-form-*`). */}
       <div className="fv-form-body">
-        <span className="fv-form-heading">Identificação</span>
-
         <div className="fv-form-row">
           <ClientLookupField
             session={session}
@@ -612,8 +610,6 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
             ) : null}
           </label>
         </div>
-
-        <span className="fv-form-heading">Dados do lote</span>
 
         <div className="fv-form-row fv-form-row-2col">
           <label className={`fv-form-field${fieldErrors.sacks ? ' is-field-error' : ''}`}>
