@@ -182,17 +182,9 @@ const DISPLAY_STATUS_FILTER_OPTIONS = [
   { value: 'LOST', label: 'Perdido' },
 ] as const;
 type DisplayStatusFilter = '' | (typeof DISPLAY_STATUS_FILTER_OPTIONS)[number]['value'];
-type FilterSectionId =
-  | 'owner'
-  | 'buyer'
-  | 'sentTo'
-  | 'displayStatus'
-  | 'harvest'
-  | 'sacks'
-  | 'period';
+type FilterSectionId = 'buyer' | 'sentTo' | 'displayStatus' | 'harvest' | 'sacks' | 'period';
 
 interface HiddenFilters {
-  ownerClients: ClientSummary[];
   buyerClients: ClientSummary[];
   sentToClients: ClientSummary[];
   // Classificacao: multi-selecao de valores canonicos existentes.
@@ -216,7 +208,6 @@ interface HiddenFilters {
 }
 
 const EMPTY_HIDDEN_FILTERS: HiddenFilters = {
-  ownerClients: [],
   buyerClients: [],
   sentToClients: [],
   padroes: [],
@@ -233,7 +224,6 @@ const EMPTY_HIDDEN_FILTERS: HiddenFilters = {
 };
 
 const FILTER_SECTION_ORDER: FilterSectionId[] = [
-  'owner',
   'buyer',
   'sentTo',
   'displayStatus',
@@ -244,7 +234,6 @@ const FILTER_SECTION_ORDER: FilterSectionId[] = [
 
 function hasAnyHiddenFilter(filters: HiddenFilters) {
   return (
-    filters.ownerClients.length > 0 ||
     filters.buyerClients.length > 0 ||
     filters.sentToClients.length > 0 ||
     filters.padroes.length > 0 ||
@@ -263,7 +252,6 @@ function hasAnyHiddenFilter(filters: HiddenFilters) {
 
 function normalizeHiddenFilters(filters: HiddenFilters): HiddenFilters {
   return {
-    ownerClients: filters.ownerClients,
     buyerClients: filters.buyerClients,
     sentToClients: filters.sentToClients,
     padroes: filters.padroes,
@@ -282,7 +270,6 @@ function normalizeHiddenFilters(filters: HiddenFilters): HiddenFilters {
 
 function countActiveHiddenFilters(filters: HiddenFilters) {
   let count = 0;
-  if (filters.ownerClients.length > 0) count += 1;
   if (filters.buyerClients.length > 0) count += 1;
   if (filters.sentToClients.length > 0) count += 1;
   if (filters.padroes.length > 0) count += 1;
@@ -373,10 +360,6 @@ function formatSacksSummary(filters: HiddenFilters) {
 }
 
 function hasFilterSectionValue(sectionId: FilterSectionId, filters: HiddenFilters) {
-  if (sectionId === 'owner') {
-    return filters.ownerClients.length > 0;
-  }
-
   if (sectionId === 'buyer') {
     return filters.buyerClients.length > 0;
   }
@@ -401,10 +384,6 @@ function hasFilterSectionValue(sectionId: FilterSectionId, filters: HiddenFilter
 }
 
 function getFilterSectionSummary(sectionId: FilterSectionId, filters: HiddenFilters) {
-  if (sectionId === 'owner') {
-    return getClientsFilterSummary(filters.ownerClients, 'Qualquer proprietário', 'proprietários');
-  }
-
   if (sectionId === 'buyer') {
     return getClientsFilterSummary(filters.buyerClients, 'Qualquer comprador', 'compradores');
   }
@@ -432,7 +411,7 @@ function getFilterSectionSummary(sectionId: FilterSectionId, filters: HiddenFilt
 
 function getInitialFilterSection(filters: HiddenFilters): FilterSectionId {
   return (
-    FILTER_SECTION_ORDER.find((sectionId) => hasFilterSectionValue(sectionId, filters)) ?? 'owner'
+    FILTER_SECTION_ORDER.find((sectionId) => hasFilterSectionValue(sectionId, filters)) ?? 'buyer'
   );
 }
 
@@ -843,7 +822,7 @@ function SamplesPage() {
   const toast = useToast();
 
   const [activeFilterSection, setActiveFilterSection] = useState<FilterSectionId | null>(() =>
-    initialSnapshot ? getInitialFilterSection(initialSnapshot.appliedHiddenFilters) : 'owner'
+    initialSnapshot ? getInitialFilterSection(initialSnapshot.appliedHiddenFilters) : 'buyer'
   );
   // Mount restaurado do snapshot: o fetch de mount roda SILENCIOSO (stale-
   // while-revalidate) em vez de skeleton — ver o effect unificado.
@@ -919,12 +898,6 @@ function SamplesPage() {
     Array<{ id: FilterSectionId; label: string; summary: string; active: boolean }>
   >(
     () => [
-      {
-        id: 'owner',
-        label: 'Proprietario',
-        summary: getFilterSectionSummary('owner', draftHiddenFilters),
-        active: hasFilterSectionValue('owner', draftHiddenFilters),
-      },
       {
         id: 'buyer',
         label: 'Comprador',
@@ -1162,7 +1135,6 @@ function SamplesPage() {
       cursorLotInt: cursor.lotInt != null ? String(cursor.lotInt) : undefined,
       cursorId: cursor.id,
       search: filters.appliedSearch || undefined,
-      ownerClientIds: filters.appliedHiddenFilters.ownerClients.map((client) => client.id),
       buyerClientIds: filters.appliedHiddenFilters.buyerClients.map((client) => client.id),
       sentToClientIds: filters.appliedHiddenFilters.sentToClients.map((client) => client.id),
       padroes: filters.appliedHiddenFilters.padroes,
@@ -1263,7 +1235,6 @@ function SamplesPage() {
       {
         limit: SAMPLE_PAGE_LIMIT,
         search: appliedSearch || undefined,
-        ownerClientIds: appliedHiddenFilters.ownerClients.map((client) => client.id),
         buyerClientIds: appliedHiddenFilters.buyerClients.map((client) => client.id),
         sentToClientIds: appliedHiddenFilters.sentToClients.map((client) => client.id),
         padroes: appliedHiddenFilters.padroes,
@@ -1476,7 +1447,7 @@ function SamplesPage() {
     clearSamplesSnapshot();
     setDraftHiddenFilters(EMPTY_HIDDEN_FILTERS);
     setAppliedHiddenFilters(EMPTY_HIDDEN_FILTERS);
-    setActiveFilterSection('owner');
+    setActiveFilterSection('buyer');
   }
 
   // FV: menu ⋯ da linha da tabela (um aberto por vez, keyed por sample.id).
@@ -2003,28 +1974,6 @@ function SamplesPage() {
       (draftHiddenFilters.periodFrom ? 1 : 0) + (draftHiddenFilters.periodTo ? 1 : 0);
     // Campos de cliente: no desktop sao DIRETOS (nao-retrateis, via isDesktop ->
     // param `direct`); no mobile seguem retrateis (disclosure).
-    const ownerFilter = renderClientMultiFilter(
-      'owner',
-      'owner',
-      'Proprietário',
-      'Buscar proprietário',
-      'Nenhum proprietário encontrado',
-      'Remover proprietário',
-      draftHiddenFilters.ownerClients,
-      (client) =>
-        setDraftHiddenFilters((c) =>
-          c.ownerClients.some((existing) => existing.id === client.id)
-            ? c
-            : { ...c, ownerClients: [...c.ownerClients, client] }
-        ),
-      (clientId) =>
-        setDraftHiddenFilters((c) => ({
-          ...c,
-          ownerClients: c.ownerClients.filter((existing) => existing.id !== clientId),
-        })),
-      isDesktop
-    );
-
     const buyerFilter = renderClientMultiFilter(
       'buyer',
       'buyer',
@@ -2244,7 +2193,6 @@ function SamplesPage() {
     return (
       <div className="samples-filter-fields">
         <div className="samples-filter-group">
-          {ownerFilter}
           {buyerFilter}
           {sentToFilter}
         </div>
