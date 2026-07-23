@@ -1574,25 +1574,6 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
   width: 100%;
 }
 
-/* Modais do detalhe que hospedam um ClientLookupField (envio fisico / laudo):
-   o dropdown precisa "escapar" do modal sem aumenta-lo. Liberamos o overflow
-   (poucos campos, sem scroll interno) — o card continua arredondado pelo
-   border-radius e o header tem radius proprio, entao so o dropdown (filho)
-   passa pra fora. Especificidade 4 classes pra vencer o .app-modal.is-themed
-   .app-modal-content (overflow-y:auto) base. */
-.app-modal.is-themed.sample-detail-lookup-modal,
-.app-modal.is-themed.sample-detail-lookup-modal .app-modal-content {
-  overflow: visible;
-}
-
-/* Dropdown maior e fora das bordas: ~4 clientes visiveis, scroll vertical
-   interno ate 10 (cap via maxResults no componente). Sem scroll horizontal. */
-.app-modal.is-themed.sample-detail-lookup-modal .client-lookup-dropdown {
-  z-index: 30;
-  max-height: min(17.5rem, 60vh);
-  overflow-x: hidden;
-}
-
 .app-modal-field {
   display: grid;
   gap: 0.32rem;
@@ -2470,14 +2451,6 @@ button:disabled {
 .sample-detail-commercial-pane .sdv-commercial {
   margin-top: clamp(13px, 3.6vw, 16px);
   gap: clamp(13px, 3.6vw, 16px);
-}
-
-.sample-detail-invalidate-modal {
-  width: min(28rem, calc(100vw - 1.25rem));
-}
-
-.sample-detail-invalidate-modal .app-modal-input {
-  border-radius: 12px;
 }
 
 .sample-detail-invalidate-textarea {
@@ -3563,10 +3536,6 @@ button:disabled {
 
   .sample-classification-footer button {
     width: auto;
-  }
-
-  .sample-detail-invalidate-modal {
-    width: min(100%, calc(100vw - 1rem));
   }
 }
 
@@ -12975,52 +12944,13 @@ body:has(.app-modal-backdrop) .prospector-fab {
   stroke-linejoin: round;
 }
 
-/* ── Classification detail modal (cld) ──
-   Q.cls.2.7 (refator pos-tipo): segue o padrao .app-modal.is-themed.is-wide
-   da skill modals — header verde brand + body branco + actions com
-   submit/secondary. As classes .cld-* internas (section, grid, field,
-   classifier, photo, saved-overlay, type-select) coabitam com as
-   .app-modal-* canonicas. */
-
-.cld-modal {
-  /* Posicionamento + scroll do saved overlay. Largura/altura/padding/
-     animacao herdadas de .app-modal.is-themed.is-wide. */
-  position: relative;
-  /* Padding do campo compartilhado entre LEITURA e EDICAO: garante que a caixa
-     do valor e do input sejam identicas — ao editar so a borda aparece. */
-  --cld-field-pad: clamp(8px, 2.2vw, 10px) clamp(10px, 2.6vw, 12px);
-}
-
-/* DESKTOP (>=901px): o modal de edicao da classificacao difere do mobile — SEM a
-   foto e SEM a linha de acoes Reclassificar/Editar, mostrando so os campos. No
-   desktop esse modal abre sempre via "Editar" do card (ja em modo edicao) e
-   Reclassificar/Editar ja vivem no header do card. Salvar/Cancelar (.cld-edit-
-   actions) ficam no rodape, intactos. Mobile mantem foto + acoes (abre em
-   visualizacao e entra em edicao pela .cld-edit-row). */
-@media (min-width: 901px) {
-  .cld-modal .cld-photo-section,
-  .cld-modal .cld-edit-row {
-    display: none;
-  }
-}
-
-/* Acoes de edicao (Cancelar | Salvar): metade pra cada, com gap claro das bordas
-   — alem do padding do corpo do modal, um inset horizontal extra recua os botoes
-   (a divisoria/border-top continua na largura toda). margin-bottom afasta do
-   rodape. Especificidade alta pra sobrescrever o flex/flex-end base. */
-.app-modal.is-themed .app-modal-actions.cld-edit-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: clamp(0.6rem, 2.5vw, 0.85rem);
-  padding: clamp(0.75rem, 2.4vw, 1rem) clamp(0.45rem, 2vw, 0.7rem) 0;
-  margin-bottom: clamp(0.25rem, 1.2vw, 0.45rem);
-}
-
-.cld-edit-actions > button {
-  width: 100%;
-  min-width: 0;
-  min-height: 2.6rem;
-}
+/* ── Classification detail (cld) ──
+   As classes .cld-* (section, grid, field, classifier, photo, saved-overlay)
+   estilam a ficha de classificacao. Hoje ela vive dentro do
+   .sample-classification-sheet (que define --cld-field-pad); no desktop o lote
+   usa .fv-sd-ficha/.sdv-cls-*. O antigo wrapper de modal central .cld-modal
+   saiu do DOM quando a ficha deixou de ser modal — junto sairam o modo desktop
+   que escondia foto/acoes e a barra .cld-edit-actions. */
 
 /* Acoes secundarias no header verde (Reclassificar, Editar). Visualmente
    alinhadas com .app-modal-close.is-themed: pill branco translucido sobre
@@ -15725,32 +15655,6 @@ select.samples-filter-field-input {
   opacity: 1;
 }
 
-.new-sample-label-modal {
-  max-height: min(90dvh, 44rem);
-}
-
-/* Fase D: modal usa .app-modal.is-themed (header verde com letras
-   brancas), entao padding e gap vem da-i (padding 0, gap 0). Restaura
-   espacamentos internos para cada secao abaixo do header. */
-.app-modal.is-themed.new-sample-label-modal {
-  gap: clamp(0.7rem, 2vw, 0.9rem);
-}
-
-.new-sample-label-modal .new-sample-label-modal-content,
-.new-sample-label-modal .new-sample-label-modal-feedback,
-.new-sample-label-modal .new-sample-label-modal-actions {
-  padding-left: clamp(1rem, 3vw, 1.4rem);
-  padding-right: clamp(1rem, 3vw, 1.4rem);
-}
-
-.new-sample-label-modal .new-sample-label-modal-content {
-  padding-top: clamp(0.8rem, 2.5vw, 1.1rem);
-}
-
-.new-sample-label-modal .new-sample-label-modal-actions {
-  padding-bottom: clamp(0.8rem, 2.5vw, 1.1rem);
-}
-
 /* Fase P3: step "created" foca o usuario no lote pra anotar na saca. */
 .new-sample-created-panel {
   display: flex;
@@ -15787,20 +15691,6 @@ select.samples-filter-field-input {
 /* Botao "Ir para amostra": full-width, reusa o estilo do submit verde. */
 .new-sample-created-cta {
   width: 100%;
-}
-
-.new-sample-label-modal-content {
-  display: grid;
-  justify-content: center;
-}
-
-.new-sample-label-modal-content .label-print-card {
-  width: 100%;
-  margin: 0 auto;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.7);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .new-sample-label-print-card {
@@ -15873,10 +15763,6 @@ select.samples-filter-field-input {
   text-align: center;
 }
 
-.new-sample-label-modal-feedback {
-  margin: 0;
-}
-
 .new-sample-failure-panel {
   width: min(100%, 700px);
 }
@@ -15887,14 +15773,6 @@ select.samples-filter-field-input {
 
 .sample-search-result-modal {
   width: min(900px, 100%);
-}
-
-.new-sample-label-modal-actions {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  padding-top: 0.2rem;
 }
 
 .new-sample-modal-circle {
@@ -19139,17 +19017,6 @@ mas
     }
   }
 
-  .new-sample-label-modal {
-    max-height: 90dvh;
-    padding: clamp(0.65rem, 2.7vw, 0.95rem);
-    gap: clamp(0.48rem, 2vw, 0.7rem);
-    border-radius: clamp(18px, 6vw, 24px);
-  }
-
-  .new-sample-label-modal-title {
-    font-size: clamp(0.88rem, 3vw, 1.06rem);
-  }
-
   .label-print-card {
     grid-template-columns: 1fr;
   }
@@ -21381,46 +21248,6 @@ mas
   background: transparent;
 }
 
-/* ── Form Grid ──
-   DORMENTE (FV /samples, ajuste pos-F3): o "Novo lote" era o unico consumidor
-   destas 3 classes (.nsv2-form-grid / -grid-full / -grid-half) e migrou pro kit
-   institucional `.fv-form-*`. Mantidas ate a consolidacao da pagina. */
-
-.nsv2-form-grid {
-  display: grid;
-  /* minmax(0, 1fr) (em vez de 1fr) forca colunas EXATAS de 50% — sem isso o
-     tamanho intrinseco de um campo (ex: o input[type=date] nativo) alarga a
-     coluna e desiguala/estoura. Par com o min-width:0 das celulas abaixo. */
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: clamp(10px, 2.8vw, 14px) clamp(8px, 2.5vw, 10px);
-}
-
-.nsv2-form-grid > * {
-  animation: nsv2-field-cascade 0.4s ease-out backwards;
-}
-
-.nsv2-form-grid > *:nth-child(1) {
-  animation-delay: 0.15s;
-}
-.nsv2-form-grid > *:nth-child(2) {
-  animation-delay: 0.2s;
-}
-.nsv2-form-grid > *:nth-child(3) {
-  animation-delay: 0.25s;
-}
-.nsv2-form-grid > *:nth-child(4) {
-  animation-delay: 0.3s;
-}
-.nsv2-form-grid > *:nth-child(5) {
-  animation-delay: 0.35s;
-}
-.nsv2-form-grid > *:nth-child(6) {
-  animation-delay: 0.4s;
-}
-.nsv2-form-grid > *:nth-child(7) {
-  animation-delay: 0.45s;
-}
-
 .nsv2-grid-full {
   grid-column: 1 / -1;
 }
@@ -21433,7 +21260,7 @@ mas
 }
 
 /* Etiqueta de Aprovação — disposição própria dos campos em linhas (pares lado a
-   lado), SEM tocar no .nsv2-form-grid compartilhado com o NewSampleModal. Cada
+   lado). Cada
    .alm-form-row é um grid próprio; as colunas (em fr) vêm do style inline por
    linha (FORM_ROWS no ApprovalLabelModal). O min-width:0 nos campos e no input
    é o que segura a largura FIXA: sem ele, texto longo (ou o tamanho intrínseco
@@ -21706,17 +21533,6 @@ mas
 }
 
 .nsv2-field-input.has-error::placeholder {
-  color: #c45c5c;
-}
-
-/* Lote editavel: erro de campo (lote duplicado, data no futuro) exibido abaixo
-   do input quando o campo ja tem valor e o placeholder de erro nao aparece.
-   DORMENTE: o "Novo lote" passou a usar `.fv-form-field-error`. */
-.nsv2-field-error {
-  display: block;
-  margin: 4px 2px 0;
-  font-size: clamp(10px, 2.6vw, 11px);
-  font-weight: 600;
   color: #c45c5c;
 }
 
@@ -24363,38 +24179,6 @@ mas
     cursor: not-allowed;
   }
 
-  /* Modal de invalidar amostra + outros modais dessa pagina: mesmo padrao */
-  .sample-detail-invalidate-modal,
-  .new-sample-label-modal {
-    width: min(600px, calc(100vw - 3rem));
-    max-height: none;
-    overflow: visible;
-    padding: 1.25rem;
-    gap: 0.95rem;
-  }
-
-  .sample-detail-invalidate-modal .app-modal-title,
-  .new-sample-label-modal .app-modal-title {
-    font-size: 1.25rem;
-  }
-
-  .sample-detail-invalidate-modal .app-modal-input,
-  .new-sample-label-modal .app-modal-input {
-    padding: 0.775rem 0.975rem;
-    font-size: 1.05rem;
-    border-radius: 14px;
-  }
-
-  .sample-detail-invalidate-modal .app-modal-submit,
-  .sample-detail-invalidate-modal .app-modal-secondary,
-  .new-sample-label-modal .app-modal-submit,
-  .new-sample-label-modal .app-modal-secondary {
-    min-height: 3.525rem;
-    padding: 0.8rem;
-    font-size: 1.05rem;
-    border-radius: 12px;
-  }
-
   /* ══════════════════════════════════════════
      NEW SAMPLE (nsv2-page)
      ══════════════════════════════════════════ */
@@ -24434,11 +24218,6 @@ mas
      a borda direita do conteudo do topbar (onde fica o profile button). */
 
   /* Form scroll: espaco interno generoso */
-
-  /* Grid do form: gap grande */
-  .nsv2-form-grid {
-    gap: 1rem 1.5rem;
-  }
 
   /* Labels: maiores e visiveis */
   .nsv2-field-label {
@@ -24540,10 +24319,6 @@ mas
 
   .nsv2-clear-btn:active {
     transform: scale(0.98);
-  }
-
-  .new-sample-label-modal {
-    width: min(560px, calc(100vw - 3rem));
   }
 
   /* ══════════════════════════════════════════
@@ -25086,12 +24861,6 @@ mas
      ══════════════════════════════════════════ */
 
   /* 4.1.1: new sample form card edge-to-edge dentro das margens de 300px */
-
-  /* 4.1.2: grid permanece 2-col (4 grid-half nao balanceiam em 3-col) */
-  .nsv2-form-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.5rem 2rem;
-  }
 
   /* 4.1.3-bis: padding mais generoso nos campos no wide */
   .nsv2-field-input {
@@ -28470,15 +28239,6 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
    NewSampleModal (input numerico com placeholder vermelho em erro).
 */
 
-/* Superficie BRANCA (em vez do creme quente --brand-cream-soft do BottomSheet
-   base) — mobile (sheet) E desktop (modal central, mesmo elemento). O footer
-   sticky tambem fica branco (precisa ser opaco). O card de total verde-tint
-   (.blend-conf-footer__total-card) e proposital e nao muda. */
-.bottom-sheet.is-blend-confirm,
-.bottom-sheet.is-blend-confirm .bottom-sheet-footer {
-  background: #ffffff;
-}
-
 .blend-conf-list {
   display: flex;
   flex-direction: column;
@@ -28776,75 +28536,6 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   color: rgba(31, 93, 67, 0.6);
 }
 
-.blend-conf-footer__actions {
-  display: flex;
-  gap: clamp(8px, 2.4vw, 10px);
-}
-
-.blend-conf-footer__back,
-.blend-conf-footer__continue {
-  flex: 1;
-  min-height: clamp(2.5rem, 7.5vw, 2.8rem);
-  font-family: inherit;
-  font-size: clamp(13px, 3.6vw, 14px);
-  font-weight: 600;
-  border-radius: clamp(10px, 3vw, 12px);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition:
-    background 0.15s ease,
-    box-shadow 0.15s ease,
-    transform 0.1s ease,
-    opacity 0.15s ease;
-}
-
-.blend-conf-footer__back {
-  background: #f4f3ef;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  color: #4a4a45;
-}
-
-.blend-conf-footer__back:hover,
-.blend-conf-footer__back:focus-visible {
-  background: #ecebe6;
-  outline: none;
-}
-
-.blend-conf-footer__back:active:not(:disabled) {
-  transform: scale(0.97);
-  background: #e5e4df;
-}
-
-.blend-conf-footer__back:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.blend-conf-footer__continue {
-  border: 0;
-  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
-  color: #ffffff;
-  font-weight: 700;
-  box-shadow: 0 4px 14px rgba(31, 93, 67, 0.28);
-}
-
-.blend-conf-footer__continue:hover:not(:disabled),
-.blend-conf-footer__continue:focus-visible:not(:disabled) {
-  box-shadow: 0 6px 18px rgba(31, 93, 67, 0.36);
-  outline: none;
-}
-
-.blend-conf-footer__continue:active:not(:disabled) {
-  transform: scale(0.97);
-  box-shadow: 0 2px 8px rgba(31, 93, 67, 0.22);
-}
-
-.blend-conf-footer__continue:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  box-shadow: none;
-}
-
 @media (max-width: 480px) {
   .blend-conf-footer {
     flex-direction: column;
@@ -28852,14 +28543,6 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
     gap: 10px;
   }
   .blend-conf-footer__total {
-    text-align: center;
-  }
-  .blend-conf-footer__actions {
-    width: 100%;
-  }
-  .blend-conf-footer__back,
-  .blend-conf-footer__continue {
-    flex: 1;
     text-align: center;
   }
 }
@@ -31712,7 +31395,6 @@ body.is-selection-mode .ctr-page .cc-tabs {
    abrir/fechar SEM deslize (transition do transform) — o slide do sheet é
    global e beneficia todos os sheets do app (LNW-A1 da revisão geral). */
 @media (prefers-reduced-motion: reduce) {
-  .nsv2-form-grid > *,
   .nsv2-offline-banner,
   .sample-created-check circle,
   .sample-created-check path,
