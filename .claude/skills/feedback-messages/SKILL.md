@@ -17,16 +17,18 @@ Toda mensagem que o sistema mostra ao operador segue uma das **4 superfícies de
 
 Antes de escrever uma mensagem, escolha a superfície pela **severidade × persistência**:
 
-| Situação                                                                     | Superfície                       | Por quê                                                               |
-| ---------------------------------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------- |
-| Sucesso de ação **dentro de modal/painel** (salvou, criou, excluiu)          | **Check** `SuccessCheckOverlay`  | Overlay branco + check animado 1s; o painel fecha sozinho. SEM frase. |
-| Confirmação de ação **fora de modal** ("Amostra criada")                     | **Toast** `success`              | Feedback rápido, não-bloqueante. Auto-dismiss.                        |
-| Erro de operação que não bloqueia ("Não foi possível carregar")              | **Toast** `error`                | Transitório. Operador pode retry.                                     |
-| Info contextual ("Amostra removida da seleção")                              | **Toast** `info`                 | Side-effect que o operador precisa saber.                             |
-| Erro de validação de campo ("Obrigatório", "Inválido")                       | **Inline error** no campo        | Erro fica ao lado do input. Some ao digitar.                          |
-| Estado persistente da página ("Mais de 30 dias", "Sem conexão")              | **Banner**                       | Não-clicável (ou com close opcional). Fica enquanto o estado existir. |
-| Erro bloqueante que exige ação ("Não foi possível invalidar — Liga X ativa") | **Modal** `.app-modal.is-themed` | Tem listagem, links, decisão. Toast efêmero não serve.                |
-| Confirmação destrutiva ("Descartar amostra?")                                | **Modal** `.app-confirm-modal`   | Precisa do "Cancelar / Continuar" explícito.                          |
+| Situação                                                                     | Superfície                                             | Por quê                                                                          |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| Sucesso de ação **dentro de modal/painel** (salvou, criou)                   | **Check verde** `SuccessCheckOverlay`                  | Overlay branco + tick animado ~900ms; o painel fecha sozinho. SEM frase.         |
+| **Reversão** dentro de um sheet (cancelar envio)                             | **X vermelho** `SuccessCheckOverlay variant="x"`       | Mesmo overlay, X + rótulo. Não é criação — não usa check verde.                  |
+| **Perda registrada** (movimentação negativa)                                 | **Carimbo** `SuccessCheckOverlay variant="stamp-loss"` | Carimbo de borracha vermelho "slam". Efeito de caráter, herdado do `.sdv-stamp`. |
+| Confirmação de ação **fora de modal** ("Amostra criada")                     | **Toast** `success`                                    | Feedback rápido, não-bloqueante. Auto-dismiss.                                   |
+| Erro de operação que não bloqueia ("Não foi possível carregar")              | **Toast** `error`                                      | Transitório. Operador pode retry.                                                |
+| Info contextual ("Amostra removida da seleção")                              | **Toast** `info`                                       | Side-effect que o operador precisa saber.                                        |
+| Erro de validação de campo ("Obrigatório", "Inválido")                       | **Inline error** no campo                              | Erro fica ao lado do input. Some ao digitar.                                     |
+| Estado persistente da página ("Mais de 30 dias", "Sem conexão")              | **Banner**                                             | Não-clicável (ou com close opcional). Fica enquanto o estado existir.            |
+| Erro bloqueante que exige ação ("Não foi possível invalidar — Liga X ativa") | **Modal** `.app-modal.is-themed`                       | Tem listagem, links, decisão. Toast efêmero não serve.                           |
+| Confirmação destrutiva ("Descartar amostra?")                                | **Modal** `.app-confirm-modal`                         | Precisa do "Cancelar / Continuar" explícito.                                     |
 
 **Regra simples:** se a mensagem some sozinha em segundos → toast. Se fica enquanto algo for verdade → banner ou inline. Se exige ação do operador → modal.
 
@@ -91,15 +93,26 @@ toast.info({
 toast.success({ title: 'Salvo' });
 ```
 
-### Sucesso DENTRO de modal/painel → check canônico (não toast)
+### Efeito terminal DENTRO de modal/painel → `SuccessCheckOverlay` (não toast)
 
-Consolidado na rodada 6 do piloto FV (2026-07-21): ação de sucesso que acontece **dentro de um
-modal/painel** (BottomSheet, painel lateral, editor) NÃO usa toast nem frase "... com sucesso" —
-usa o **`SuccessCheckOverlay`** (`components/SuccessCheckOverlay.tsx`): overlay branco cobrindo o
-painel inteiro + check verde animado, ~1s, e o painel fecha sozinho. Sucessos de avisos centrais
-sobre o drawer do detalhe usam a variação "flash" (check pisca sobre o drawer). Receita completa,
-coreografia e guards: skill `modals` §7. Toast `success` fica para ações disparadas **fora** de
-modal (listas, cards, páginas).
+Consolidado na rodada 6 do piloto FV (2026-07-21) e generalizado na unificação de 2026-07-22: ação
+terminal que acontece **dentro de um modal/painel** (BottomSheet, painel lateral, editor) NÃO usa
+toast nem frase "... com sucesso" — usa o **`SuccessCheckOverlay`** (`components/SuccessCheckOverlay.tsx`),
+o overlay TERMINAL único: mesmo véu branco e mesma entrada, **três variantes** pelo caráter da ação:
+
+- **`check`** (default): tick verde. Criação/edição bem-sucedida. Os consumidores existentes não
+  passam prop nova.
+- **`x`**: X vermelho + rótulo. **Reversão** dentro do sheet (ex.: cancelar envio) — não é criação.
+- **`stamp-loss`**: carimbo de borracha vermelho ("slam"). **Perda registrada** — herdado do
+  `.sdv-stamp` do antigo `SampleMovementModal`.
+
+Duração ÚNICA `SUCCESS_CHECK_MS = 900` exportada do próprio componente (era 800/900/1000 espalhados).
+Renderizar como filho DIRETO do sheet; para cobrir a TELA (overlay portalado, sem sheet por baixo —
+ex.: sucesso da classificação na câmera), passar `fixed`. Receita e guards: skill `modals` §7.
+
+**Não confundir** com o **X full-screen `.sdv-x-effect`** (deletar lote / reverter liga / cancelar
+movimentação): esse redireciona pra lista (o recurso inteiro sai de cena) e é de outra família —
+ver `modals`. Toast `success` fica para ações disparadas **fora** de modal (listas, cards, páginas).
 
 ## 3. Inline form errors — validação de campo
 

@@ -611,9 +611,13 @@ Receita (BottomSheet comum, sem componente novo):
   desktop, scrim escuro cobrindo SO a faixa direita de 620px (dialogo centrado DENTRO da area
   do painel; mobile = viewport inteiro). Confirms internos curtos (ex.: "Descartar?" do
   quick-create) podem ser overlay `position:absolute; inset:0` dentro do sheet — mesmo efeito.
-- **Sucesso = check canonico** (`components/SuccessCheckOverlay.tsx`, filho DIRETO do conteudo
-  do BottomSheet): overlay branco cobrindo o painel com circulo+tick por ~1s; acoes que fecham
-  agendam o close no timeout. Frases "... com sucesso" nao existem mais nesses fluxos.
+- **Efeito terminal = `SuccessCheckOverlay`** (`components/SuccessCheckOverlay.tsx`, filho DIRETO
+  do conteudo do BottomSheet): overlay branco cobrindo o painel, `SUCCESS_CHECK_MS = 900` exportado
+  do proprio componente; acoes que fecham agendam o close nesse timeout. **Tres variantes** pelo
+  caracter da acao: `check` (tick verde, default — criacao/edicao), `x` (X vermelho + rotulo —
+  reversao no sheet, ex. cancelar envio), `stamp-loss` (carimbo de borracha vermelho — perda). Prop
+  `fixed` = `position:fixed` pra cobrir a tela quando portalado no body (ex.: sucesso da camera).
+  Frases "... com sucesso" nao existem mais nesses fluxos. Detalhe da arvore: `feedback-messages`.
 - **View espelha o edit**: modo visualizacao de um detalhe usa caixas com borda
   (`.cudm-view-value`, geometria EXATA do input do painel, vazio = "—" muted) na MESMA ordem do
   form de edicao — entrar em Editar nao muda a cara do painel.

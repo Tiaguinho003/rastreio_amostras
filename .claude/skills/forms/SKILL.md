@@ -211,26 +211,38 @@ Copywriting, toasts e banners: `feedback-messages`.
 
 ## §7 Sucesso
 
-`components/SuccessCheckOverlay.tsx` — overlay branco com círculo + tick cobrindo o painel inteiro,
-incluindo header e footer, mesmo com o corpo rolado.
+`components/SuccessCheckOverlay.tsx` — overlay TERMINAL único, véu branco cobrindo o painel inteiro
+(header e footer, mesmo com o corpo rolado). Três variantes pelo caráter da ação (a posição e a
+entrada são as mesmas; só o desenho central muda):
 
 ```tsx
-<SuccessCheckOverlay show={success} />
+<SuccessCheckOverlay show={success} />                                {/* check verde: criação/edição */}
+<SuccessCheckOverlay show={cancelSuccess} variant="x" label="Envio cancelado" />   {/* reversão no sheet */}
+<SuccessCheckOverlay show={lossSuccess} variant="stamp-loss" label="Perda registrada" /> {/* carimbo */}
 ```
 
 **Filho DIRETO do conteúdo do sheet.** O `position: absolute` ancora no sheet (que é `fixed`); se
-ficar dentro do `<form>` ou de um wrapper com `overflow`, cobre só um pedaço.
+ficar dentro do `<form>` ou de um wrapper com `overflow`, cobre só um pedaço. Para cobrir a TELA
+(overlay portalado no `body`, sem sheet posicionado por baixo — ex.: sucesso da classificação na
+câmera), passar **`fixed`** (`position: fixed`).
 
-Três padrões de temporização:
+Tempo ÚNICO: `SUCCESS_CHECK_MS = 900`, **exportado do próprio componente** (era 800/900/1000
+espalhados). Importar dele, não redigitar o número:
 
-| Padrão                   | Tempo  | Quando                                     |
-| ------------------------ | ------ | ------------------------------------------ |
-| Check e fecha            | 900ms  | ação terminou, nada mais a ver             |
-| Check e abre outra coisa | 1000ms | criação que leva ao detalhe do que criou   |
-| Flash sem fechar         | 1000ms | salvou um trecho, o painel continua aberto |
+```tsx
+import { SuccessCheckOverlay, SUCCESS_CHECK_MS } from '../SuccessCheckOverlay';
+window.setTimeout(() => {
+  setSuccess(false);
+  onClose();
+}, SUCCESS_CHECK_MS);
+```
 
-**Frases "... com sucesso" não existem mais nesses fluxos.** Durante o sucesso o dismiss fica
-bloqueado (`onDismissAttempt` retorna `false`) — o painel já está a caminho do próximo passo.
+Três coreografias (todas no mesmo tempo): **check e fecha** (ação terminou), **check e abre outra
+coisa** (criação → detalhe do que criou), **flash sem fechar** (salvou um trecho, o painel segue).
+
+**Frases "... com sucesso" não existem mais nesses fluxos.** Durante o efeito o dismiss fica
+bloqueado (`onDismissAttempt` retorna `false`) e o footer some (`success ? null : ...`) — o painel
+já está a caminho do próximo passo.
 
 ---
 
