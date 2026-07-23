@@ -173,10 +173,12 @@ exposto na UI.
 ### A rota de stats
 
 Endpoint separado da listagem (`/api/v1/<recurso>/stats`), com `Cache-Control: private, max-age=30`.
-O fetch é gated:
+O fetch é gated só por sessão. Desde o RD16 o KPI aparece nos DOIS breakpoints
+(desktop = 4 cartões; mobile = 2 — Total + um clicável, ver §9), então **não** se
+gateia por `!isDesktop` (senão os números do mobile ficariam `—`):
 
 ```ts
-if (!session || !isDesktop) return; // KPI nao existe no mobile — nao gastar request
+if (!session) return; // KPI vale nos dois breakpoints
 ```
 
 ---
