@@ -16670,88 +16670,6 @@ mas
   color: #45503f;
 }
 
-/* 14.7.J: padding 0 + overflow hidden pra header verde colar nas
-   bordas do modal. Body interno cuida do proprio padding.
-   Background pure white + sem border bege (override do .app-modal base). */
-.client-quick-create-modal {
-  position: relative;
-  width: min(100%, 29rem);
-  max-height: min(88dvh, 40rem);
-  overflow: hidden;
-  overscroll-behavior: contain;
-  gap: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  background: #ffffff;
-  border: 0;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-}
-
-/* 14.7.C: titulo "Novo cliente" 25% maior. 14.7.J: cor branca. */
-.client-quick-create-modal #client-quick-create-title {
-  font-size: 1.5rem;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
-  color: #ffffff;
-}
-
-/* 14.7.J: header verde brand + titulo/close branco. Faixa colada
-   nas bordas do modal (overflow:hidden no parent recorta). */
-.client-quick-create-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.65rem;
-  padding: clamp(0.85rem, 3vw, 1.1rem) clamp(1rem, 3.5vw, 1.4rem);
-  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
-  color: #ffffff;
-  flex-shrink: 0;
-  /* 14.7.M.1: top corners arredondados acompanhando o radius do modal pai
-     (clamp 24-32px). overflow:hidden do pai sozinho nao clipa por causa
-     do backdrop-filter que cria stacking context. */
-  border-top-left-radius: clamp(24px, 7vw, 32px);
-  border-top-right-radius: clamp(24px, 7vw, 32px);
-}
-
-.client-quick-create-copy {
-  display: grid;
-  gap: 0;
-  min-width: 0;
-}
-
-.client-quick-create-close {
-  flex: 0 0 auto;
-  min-width: 2rem;
-  min-height: 2rem;
-  display: inline-grid;
-  place-items: center;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.16);
-  border: 0;
-  color: #ffffff;
-  cursor: pointer;
-  transition:
-    background 0.15s,
-    transform 0.15s;
-}
-
-.client-quick-create-close:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.28);
-}
-
-.client-quick-create-close:active:not(:disabled) {
-  transform: scale(0.94);
-}
-
-.client-quick-create-close span {
-  font-size: 1.4rem;
-  line-height: 1;
-  font-weight: 600;
-  color: #ffffff;
-}
-
 .client-quick-create-form {
   min-height: 0;
   display: grid;
@@ -16788,60 +16706,10 @@ mas
   padding: 0;
 }
 
-/* "Descartar cadastro?" — overlay INTERNO do sheet. O containing block do
-   position:absolute e o .bottom-sheet (fixed), entao inset:0 cobre o sheet
-   INTEIRO (header/body/footer), sem ser cortado pelo overflow do body. Evita um
-   3o tier de z-index sobre o sheet ja empilhado (ver modals skill). */
-/* Confirm de "Descartar?" do sheet de novo cliente. Overlay INTERNO ao sheet
-   (NAO portado: o sheet pode abrir stacked sobre "Nova amostra" e um
-   .app-modal.is-stacked portado colidiria no mesmo tier — ver skill modals
-   "Sheet sobre sheet"). Scrim escuro + card canonico .app-confirm-modal, pra
-   ficar identico ao "Descartar amostra?" do NewSampleModal (que e portado). */
-.client-quick-create-discard-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 11;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: clamp(1rem, 5vw, 1.5rem);
-  background: rgba(0, 0, 0, 0.55);
-  animation: client-success-fade-in 0.2s ease;
-}
-
-.client-quick-create-error {
-  margin: 0;
-}
-
-.client-quick-create-group {
-  display: grid;
-  gap: clamp(0.4rem, 1.5vw, 0.52rem);
-  padding: clamp(0.55rem, 2.2vw, 0.7rem);
-  border: 1px solid rgba(214, 214, 214, 0.46);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.44);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.72),
-    0 8px 14px rgba(18, 24, 20, 0.05);
-}
-
-.client-quick-create-group-title {
-  margin: 0 0 clamp(0.1rem, 0.6vw, 0.2rem);
-  color: #536152;
-  font-size: clamp(0.66rem, 2.3vw, 0.72rem);
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
 .client-quick-create-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: clamp(0.4rem, 1.5vw, 0.6rem);
-}
-
-.client-quick-create-grid-compact {
-  align-items: end;
 }
 
 .client-quick-create-grid-single {
@@ -16852,26 +16720,6 @@ mas
 .client-quick-create-grid-2col {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   align-items: end;
-}
-
-/* 14.7.J: fix layout — label era inline por default, input dentro
-   pegava largura do conteudo do label em vez do grid cell. Forca
-   grid pra label preencher a celula e input/select esticarem 100%. */
-.client-quick-create-field {
-  display: grid;
-  gap: clamp(0.22rem, 1vw, 0.32rem);
-  font-size: clamp(0.82rem, 2.8vw, 0.88rem);
-  min-width: 0;
-  /* desbota/reacende suave ao alternar PJ/PF (ver .is-dimmed). */
-  transition: opacity 0.18s ease;
-}
-
-/* Razao social no PF: campo PERMANECE renderizado (altura estavel) mas desbota
-   e fica nao-clicavel. O `disabled` no input ja barra edicao/foco; o
-   pointer-events reforca no label inteiro. */
-.client-quick-create-field.is-dimmed {
-  opacity: 0.45;
-  pointer-events: none;
 }
 
 /* Rotulo com troca de texto por CROSSFADE (documento CNPJ↔CPF e nome do topo
@@ -16889,42 +16737,6 @@ mas
   .cqc-label-fade {
     transition: none;
   }
-}
-
-.client-quick-create-field input,
-.client-quick-create-field select {
-  padding: clamp(0.5rem, 2vw, 0.62rem) clamp(0.6rem, 2.4vw, 0.78rem);
-  font-size: clamp(0.82rem, 2.8vw, 0.9rem);
-}
-
-/* Rodada 2 FV: campos institucionais — sai o 2px "presenca" (14.7.C), entra
-   hairline 1px + raio 10px + anel de foco suave da marca. Rotulo menor e
-   muted acima do valor (hierarquia de form institucional). */
-.client-quick-create-sheet .client-quick-create-field {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--muted);
-}
-
-.client-quick-create-sheet .client-quick-create-field input,
-.client-quick-create-sheet .client-quick-create-field select {
-  border: 1px solid var(--fv-line-strong);
-  border-radius: var(--fv-radius);
-  background: #ffffff;
-  font-size: 0.88rem;
-  font-weight: 400;
-  color: var(--ink);
-  min-height: 2.62rem;
-  transition:
-    border-color 140ms ease,
-    box-shadow 140ms ease;
-}
-
-.client-quick-create-sheet .client-quick-create-field input:focus,
-.client-quick-create-sheet .client-quick-create-field select:focus {
-  outline: none;
-  border-color: var(--fv-cta);
-  box-shadow: 0 0 0 3px rgba(23, 60, 48, 0.12);
 }
 
 /* Rodada de ajustes finos (2026-07-23): o Novo Cliente adotou o kit
@@ -16977,11 +16789,6 @@ mas
   justify-content: center;
 }
 
-.client-quick-create-sheet .client-quick-create-field input,
-.client-quick-create-sheet .client-quick-create-field select {
-  min-height: 2.62rem;
-}
-
 /* Micro-cabecalho de grupo (Identificacao / Contato e comercial): small-caps
    muted com hairline — organiza sem virar wizard. */
 .cqc-group-heading {
@@ -17023,19 +16830,6 @@ mas
 
 .client-quick-create-sheet .user-multi-select__input {
   min-width: 60px;
-}
-
-.client-quick-create-field.is-field-error {
-  color: inherit;
-}
-
-.client-quick-create-field.is-field-error input,
-.client-quick-create-field.is-field-error select {
-  border-color: rgba(196, 92, 92, 0.4);
-}
-
-.cqc-input-error::placeholder {
-  color: #c45c5c !important;
 }
 
 /* === ChipMultiSelectField (Responsavel/Papel no modal de novo cliente) ===
@@ -17291,57 +17085,6 @@ mas
   color: rgba(0, 0, 0, 0.45);
 }
 
-.client-quick-create-flags.is-field-error {
-  border: 1px solid rgba(178, 59, 59, 0.4);
-  border-radius: 10px;
-  padding: 0.42rem;
-}
-
-.client-quick-create-field-disabled {
-  color: #8a9288;
-}
-
-.client-quick-create-field-disabled input:disabled {
-  border-color: rgba(216, 216, 216, 0.62);
-  background: rgba(239, 239, 237, 0.72);
-  color: rgba(82, 82, 78, 0.54);
-  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.06);
-  opacity: 1;
-}
-
-.client-quick-create-flags {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(0.4rem, 1.5vw, 0.52rem);
-}
-
-.client-quick-create-flag {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-height: 2.5rem;
-  padding: 0.55rem 0.65rem;
-  border: 1px solid rgba(214, 214, 214, 0.42);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.68);
-  line-height: 1.28;
-  text-align: left;
-}
-
-.client-quick-create-flag input {
-  flex: 0 0 auto;
-  width: 1rem;
-  height: 1rem;
-  margin: 0;
-  padding: 0;
-}
-
-.client-quick-create-flag-label {
-  display: block;
-  white-space: nowrap;
-  font-size: clamp(0.8rem, 2.8vw, 0.88rem);
-}
-
 .client-quick-create-actions {
   display: grid;
   /* Cancelar | Cadastrar lado a lado em todas as larguras (mobile incluso). */
@@ -17359,10 +17102,6 @@ mas
    body deixa de recortar e o scroll passa pro modal, que recorta apenas no
    proprio limite — o dropdown sobrepoe os botoes sem vazar do modal. */
 @media (max-width: 900px) {
-  .client-quick-create-modal {
-    overflow-y: auto;
-  }
-
   .client-quick-create-body {
     overflow: visible;
     min-height: auto;
@@ -24941,44 +24680,11 @@ mas
     width: min(520px, calc(100vw - 3rem));
   }
 
-  .client-quick-create-modal {
-    width: min(750px, calc(100vw - 3rem));
-    max-height: none;
-    overflow: hidden;
-    gap: 0;
-    padding: 0;
-  }
-
   .client-quick-create-body {
     overflow: visible;
     min-height: auto;
     gap: 0.9rem;
     padding-right: 0;
-  }
-
-  .client-quick-create-group {
-    padding: 0.875rem;
-  }
-
-  .client-quick-create-field {
-    gap: 0.4rem;
-  }
-
-  .client-quick-create-field label {
-    font-size: 1rem;
-  }
-
-  .client-quick-create-field input,
-  .client-quick-create-field select,
-  .client-quick-create-field textarea {
-    padding: 0.775rem 0.975rem;
-    font-size: 1.05rem;
-  }
-
-  .client-quick-create-flag {
-    min-height: 3.125rem;
-    padding: 0.7rem 0.82rem;
-    gap: 0.65rem;
   }
 
   .client-quick-create-actions > button {
@@ -30424,15 +30130,7 @@ body.is-selection-mode .ctr-page .cc-tabs {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.cad-row-badge {
-  flex: 0 0 auto;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--brand-muted);
-  background: rgba(0, 0, 0, 0.06);
-  border-radius: 999px;
-  padding: 0.1rem 0.5rem;
-}
+
 .cad-row-arrow {
   flex: 0 0 auto;
   width: 18px;
