@@ -140,7 +140,10 @@ function CrossfadeLabel({ text }: { text: string }) {
   }, [text]);
 
   return (
-    <span className={`cqc-label-fade${visible ? '' : ' is-hidden'}`} aria-hidden="true">
+    <span
+      className={`app-modal-label cqc-label-fade${visible ? '' : ' is-hidden'}`}
+      aria-hidden="true"
+    >
       {shown}
     </span>
   );
@@ -435,9 +438,10 @@ export function ClientQuickCreateModal({
 
           {/* Linha 1: Tipo de cliente | CNPJ ou CPF */}
           <div className="client-quick-create-grid client-quick-create-grid-2col">
-            <label className="client-quick-create-field">
-              Tipo de cliente
+            <label className="app-modal-field">
+              <span className="app-modal-label">Tipo de cliente</span>
               <select
+                className="app-modal-input"
                 value={form.personType}
                 disabled={saving}
                 onChange={(event) => {
@@ -451,15 +455,13 @@ export function ClientQuickCreateModal({
               </select>
             </label>
 
-            <label
-              className={`client-quick-create-field${hasDocumentError ? ' is-field-error' : ''}`}
-            >
+            <label className="app-modal-field">
               <CrossfadeLabel text={documentLabel} />
               <input
                 value={documentValue}
                 disabled={saving}
                 aria-label={documentLabel}
-                className={hasDocumentError ? 'cqc-input-error' : undefined}
+                className={`app-modal-input${hasDocumentError ? ' has-error' : ''}`}
                 onChange={(event) =>
                   setForm((current) => ({
                     ...current,
@@ -481,15 +483,13 @@ export function ClientQuickCreateModal({
           {/* Linha 2 (topo): nome principal — PF "Nome completo" (fullName) /
               PJ "Nome fantasia" (tradeName). Rotulo com crossfade ao trocar. */}
           <div className="client-quick-create-grid client-quick-create-grid-single">
-            <label
-              className={`client-quick-create-field${hasTopNameError ? ' is-field-error' : ''}`}
-            >
+            <label className="app-modal-field">
               <CrossfadeLabel text={topNameLabel} />
               <input
                 value={topNameValue}
                 disabled={saving}
                 aria-label={topNameLabel}
-                className={hasTopNameError ? 'cqc-input-error' : undefined}
+                className={`app-modal-input${hasTopNameError ? ' has-error' : ''}`}
                 onChange={(event) => {
                   const value = event.target.value.toUpperCase();
                   setForm((current) => ({
@@ -507,16 +507,12 @@ export function ClientQuickCreateModal({
               desabilita (is-dimmed) mas PERMANECE renderizada — assim a altura do
               modal nao pula ao alternar o tipo. */}
           <div className="client-quick-create-grid client-quick-create-grid-single">
-            <label
-              className={`client-quick-create-field${hasRazaoError ? ' is-field-error' : ''}${
-                form.personType === 'PF' ? ' is-dimmed' : ''
-              }`}
-            >
-              Razão social
+            <label className={`app-modal-field${form.personType === 'PF' ? ' is-dimmed' : ''}`}>
+              <span className="app-modal-label">Razão social</span>
               <input
                 value={form.legalName}
                 disabled={saving || form.personType === 'PF'}
-                className={hasRazaoError ? 'cqc-input-error' : undefined}
+                className={`app-modal-input${hasRazaoError ? ' has-error' : ''}`}
                 onChange={(event) =>
                   setForm((current) => ({
                     ...current,
@@ -530,12 +526,12 @@ export function ClientQuickCreateModal({
 
           {/* Linha 4: Telefone | Responsavel */}
           <div className="client-quick-create-grid client-quick-create-grid-2col">
-            <label className={`client-quick-create-field${hasPhoneError ? ' is-field-error' : ''}`}>
-              Telefone
+            <label className="app-modal-field">
+              <span className="app-modal-label">Telefone</span>
               <input
                 value={form.phone}
                 disabled={saving}
-                className={hasPhoneError ? 'cqc-input-error' : undefined}
+                className={`app-modal-input${hasPhoneError ? ' has-error' : ''}`}
                 onChange={(event) =>
                   setForm((current) => ({
                     ...current,
