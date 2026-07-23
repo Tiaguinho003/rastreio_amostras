@@ -30354,6 +30354,35 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   border-bottom-color: var(--brand-green);
 }
 
+/* RD16 C6: sub-abas Clientes/Corretores de /cadastros no visual institucional
+   (mobile — no desktop `.fv-cad-page .cad-tabs` ja e display:none e as abas
+   viram sub-itens da sidenav). Espelha o tab-strip do detalhe institucional
+   (`.fv-cd-tab`, globals.css): hairline de base + abas a esquerda, muted -> ink
+   com sublinhado `--fv-cta`. Escopado em `.fv-cad-page` pra NAO tocar o
+   `.cad-tabs.cc-tabs` de /contratos e /embarques (ver comentario abaixo). */
+.fv-cad-page .cad-tabs {
+  gap: 4px;
+  padding: 0 1.15rem;
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--fv-line);
+}
+.fv-cad-page .cad-tab {
+  flex: 0 0 auto;
+  max-width: none;
+  padding: 0.55rem 0.75rem 0.6rem;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+.fv-cad-page .cad-tab.is-active {
+  color: var(--ink);
+  font-weight: 600;
+  border-bottom-color: var(--fv-cta);
+}
+
 /* Central de Contratos — hub de abas (F1). Reusa .cad-tabs/.cad-tab sem
    override de cor: desde o canvas branco do RD16 as cores da BASE
    (--brand-muted / --brand-green) servem nos dois breakpoints. Ver
