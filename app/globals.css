@@ -6229,28 +6229,21 @@ button:disabled {
    card, pra a letra nao ser "furada" pela barra de status que rola por baixo.
    So a letra (sem linha), colada na borda esquerda. Opaco + sombra pra ler
    como etiqueta flutuando sobre os cards. */
+/* Divisor alfabetico do mobile: institucional e minimalista — SO a letra
+   (sem chip: fora o fundo branco, a borda e a sombra; sai o sticky flutuante,
+   vira estatica no fluxo como no desktop). Letra menor, leve, sem negrito. */
 .cv2-section-divider {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  align-self: flex-start; /* nao estica: chip compacto colado a esquerda */
-  margin: 0;
-  padding: 4px 9px;
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 12px;
-  box-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.12),
-    0 6px 16px rgba(0, 0, 0, 0.1);
+  align-self: flex-start;
+  margin: 0.45rem 0 0.1rem;
+  padding: 0 2px;
 }
 
 .cv2-section-divider-letter {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: rgba(0, 0, 0, 0.55);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.4);
   letter-spacing: 0.04em;
   line-height: 1;
 }
@@ -7158,8 +7151,18 @@ button:disabled {
   animation: samples-sheet-in 0.5s ease-out 0.15s backwards;
 }
 
+/* FAB "+" no MESMO tamanho de /samples (era o base +15% = clamp 53-60; volta
+   pro clamp 46-52, radius 14-16, svg 18-21). So mobile importa — no desktop o
+   FAB de /cadastros e display:none. */
 .clients-page-v2 .cv2-fab {
+  width: clamp(46px, 13vw, 52px);
+  height: clamp(46px, 13vw, 52px);
+  border-radius: clamp(14px, 4vw, 16px);
   animation: cv2-fabIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) 0.5s backwards;
+}
+.clients-page-v2 .cv2-fab svg {
+  width: clamp(18px, 5vw, 21px);
+  height: clamp(18px, 5vw, 21px);
 }
 
 .cv2-empty-icon {
@@ -26584,28 +26587,9 @@ mas
   font-size: 12px;
 }
 
-/* Linha de status do card de cliente — MESMO padrao dos cards de Lotes
-   (.spv2-card-bar): barra CURTA arredondada e centralizada na esquerda (antes
-   era uma faixa de ALTURA CHEIA que contornava a lateral). VERDE = cadastro
-   completo; LARANJA = pendente (.is-incomplete). Escopado a .clients-page-v2. */
-.clients-page-v2 .cv2-card::before {
-  content: '';
-  position: absolute;
-  left: clamp(6px, 1.8vw, 8px);
-  top: 50%;
-  transform: translateY(-50%);
-  width: 4px;
-  height: clamp(38px, 11vw, 46px);
-  border-radius: 2px;
-  background: #2a6539;
-  box-shadow: 0 0 6px rgba(0, 0, 0, 0.08);
-  z-index: 1;
-  pointer-events: none;
-}
-
-.clients-page-v2 .cv2-card.is-incomplete::before {
-  background: #f59e0b;
-}
+/* Barra de status colorida na lateral do card REMOVIDA (pedido do Flavio,
+   rodada de ajustes finos): o status ja e lido no chip; a lateral fica limpa,
+   mais institucional. O `.cv2-card::before`/`.is-incomplete::before` saiu. */
 
 /* Cliente INATIVO: card apagado/esmaecido. O fade usa `filter: opacity()` (e
    NAO a propriedade `opacity`) de proposito: a propriedade e animada de 0->1
