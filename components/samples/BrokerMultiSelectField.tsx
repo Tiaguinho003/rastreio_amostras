@@ -131,16 +131,17 @@ export function BrokerMultiSelectField({
     try {
       const res = await createBroker(session, data);
       const created = res.broker;
-      // Adiciona o novo corretor a lista local pra o chip renderizar o nome,
-      // e ja o seleciona na venda.
+      // Adiciona o novo corretor a lista local pra o chip renderizar o nome, e
+      // ja o seleciona na venda. NÃO fecha aqui — o BrokerFormModal mostra o
+      // check terminal e fecha via onClose.
       setBrokers((prev) => [...prev, created]);
       if (!selectedIds.includes(created.id)) {
         onChange([...selectedIds, created.id]);
       }
-      setCreateOpen(false);
       setSearch('');
     } catch (cause) {
       setCreateError(cause instanceof ApiError ? cause.message : 'Falha ao salvar corretor.');
+      throw cause; // sinaliza a falha pro modal (pula o check).
     } finally {
       setSavingBroker(false);
     }

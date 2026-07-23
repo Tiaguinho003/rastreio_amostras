@@ -23,7 +23,6 @@ import { formatPhone } from '../../lib/client-field-formatters';
 import { CLIENT_MANAGEMENT_ROLES } from '../../lib/roles';
 import { useRequireAuth } from '../../lib/use-auth';
 import { useIsDesktop } from '../../lib/use-desktop';
-import { useToast } from '../../lib/toast/ToastProvider';
 import type { Broker, BrokerInput, ClientStatsResponse, UserLookupItem } from '../../lib/types';
 
 // Cadastros = hub de todo nao-PROSPECTOR com 2 abas (a aba Bancos saiu na
@@ -53,7 +52,6 @@ function CadastrosPage() {
   const { session, loading, logout, setSession } = useRequireAuth({
     allowedRoles: CLIENT_MANAGEMENT_ROLES,
   });
-  const toast = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -187,7 +185,7 @@ function CadastrosPage() {
       const res = await listBrokers(session, {});
       setBrokers(res.items);
     } catch {
-      /* lista vazia em falha; toast cobre a mutação */
+      /* refresh best-effort: a lista fica como está em falha */
     }
   }, [session]);
 
@@ -239,15 +237,15 @@ function CadastrosPage() {
     try {
       if (editingBroker) {
         await updateBroker(session, editingBroker.id, data);
-        toast.success({ title: 'Corretor atualizado' });
       } else {
         await createBroker(session, data);
-        toast.success({ title: 'Corretor criado' });
       }
-      setBrokerModalOpen(false);
+      // Sucesso: NÃO fecha aqui nem dá toast — o BrokerFormModal mostra o check
+      // terminal e fecha via onClose. A lista atrás é atualizada antes.
       await refreshBrokers();
     } catch (cause) {
       setBrokerModalError(cause instanceof ApiError ? cause.message : 'Falha ao salvar corretor.');
+      throw cause; // sinaliza a falha pro modal (pula o check).
     } finally {
       setSavingBroker(false);
     }

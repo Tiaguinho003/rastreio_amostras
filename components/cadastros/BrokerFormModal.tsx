@@ -3,6 +3,7 @@
 import { type FormEvent, useEffect, useState } from 'react';
 
 import { BottomSheet } from '../BottomSheet';
+import { SuccessCheckOverlay, SUCCESS_CHECK_MS } from '../SuccessCheckOverlay';
 import { maskCpfInput, maskPhoneInput } from '../../lib/client-field-formatters';
 import { digitsOnly } from '../../lib/document-validation';
 import { UserSelect } from '../users/UserSelect';
@@ -15,6 +16,12 @@ import type { Broker, BrokerInput, UserLookupItem } from '../../lib/types';
 // demais painéis de cliente (R5). Vale nos dois breakpoints e em todos os
 // contextos (aba Corretores e o BrokerMultiSelectField do contrato, que o abre
 // por cima do formulário de venda — daí o `stacked`).
+//
+// Sucesso = efeito TERMINAL (check verde) igual aos demais painéis: o pai NÃO
+// fecha mais no sucesso — o `onSubmit` só faz o trabalho (e RELANÇA em erro); o
+// modal mostra o `SuccessCheckOverlay` por `SUCCESS_CHECK_MS` e então fecha via
+// `onClose`. Em erro o catch pula o check e a mensagem chega pela prop
+// `errorMessage`.
 type Props = {
   open: boolean;
   broker: Broker | null;
@@ -47,6 +54,7 @@ export function BrokerFormModal({
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
   const [submitted, setSubmitted] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -57,6 +65,7 @@ export function BrokerFormModal({
     setEmail(broker?.email ?? '');
     setStatus(broker?.status ?? 'ACTIVE');
     setSubmitted(false);
+    setShowSuccess(false);
   }, [open, broker, initialName]);
 
   const cpfDigits = digitsOnly(cpf);
@@ -69,26 +78,37 @@ export function BrokerFormModal({
     event.preventDefault();
     setSubmitted(true);
     if (submitDisabled) return;
-    await onSubmit({
-      name: name.trim(),
-      userId: userId ?? null,
-      cpf: cpfDigits ? cpfDigits : null,
-      phone: phone.trim() ? phone.trim() : null,
-      email: email.trim() ? email.trim() : null,
-      ...(isEdit ? { status } : {}),
-    });
+    try {
+      await onSubmit({
+        name: name.trim(),
+        userId: userId ?? null,
+        cpf: cpfDigits ? cpfDigits : null,
+        phone: phone.trim() ? phone.trim() : null,
+        email: email.trim() ? email.trim() : null,
+        ...(isEdit ? { status } : {}),
+      });
+      // Sucesso: o pai já persistiu e atualizou a lista atrás; mostra o check e
+      // fecha via onClose ao fim do overlay.
+      setShowSuccess(true);
+      window.setTimeout(() => {
+        setShowSuccess(false);
+        onClose();
+      }, SUCCESS_CHECK_MS);
+    } catch {
+      // Erro: o pai setou `errorMessage` (prop) e relançou — pula o check.
+    }
   }
 
   return (
     <BottomSheet
       open={open}
       onClose={onClose}
-      onDismissAttempt={() => !saving}
+      onDismissAttempt={() => !saving && !showSuccess}
       title={isEdit ? 'Editar corretor' : 'Novo corretor'}
       ariaLabel={isEdit ? 'Editar corretor' : 'Novo corretor'}
       stacked
       closeVariant="edge-back"
-      dragDisabled={saving}
+      dragDisabled={saving || showSuccess}
       className="client-panel-sheet side-sheet"
       footer={
         <button
@@ -183,6 +203,8 @@ export function BrokerFormModal({
             ) : null}
           </div>
         </form>
+
+        <SuccessCheckOverlay show={showSuccess} />
       </>
     </BottomSheet>
   );
