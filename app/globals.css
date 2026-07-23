@@ -16939,6 +16939,15 @@ mas
   transition: opacity 0.18s ease;
 }
 
+/* O Novo Cliente mostra a dica de erro NO placeholder (ex.: "CNPJ deve ter 14
+   digitos", "Obrigatorio"). O kit `.app-modal-input` pinta so a borda em erro —
+   aqui o placeholder tambem fica vermelho suave (preferencia de erro dentro do
+   campo). Escopado: os demais modais usam <span> de erro, nao placeholder. */
+.client-quick-create-sheet .app-modal-input.has-error::placeholder {
+  color: #c45c5c;
+  opacity: 1;
+}
+
 .client-quick-create-sheet .chip-select-label {
   padding-left: 0.15rem;
   font-size: 0.76rem;
