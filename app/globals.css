@@ -16403,6 +16403,13 @@ select.samples-filter-field-input {
   animation: client-success-fade-in 0.3s ease;
 }
 
+/* `fixed`: cobre a TELA (nao o sheet) — pro overlay portalado no body, ex.: o
+   sucesso da classificacao na camera, que nao tem sheet posicionado por baixo. */
+.client-create-success-overlay.is-fixed {
+  position: fixed;
+  z-index: 1200;
+}
+
 .client-create-success-check {
   width: 4.5rem;
   height: 4.5rem;
@@ -16685,29 +16692,32 @@ select.samples-filter-field-input {
   line-height: 1;
 }
 
-/* Linha de confirmacao "Etiqueta impressa" no modal de sucesso da
-   classificacao (auto-print best-effort apos CLASSIFICATION_COMPLETED). */
-.classification-success-print {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  margin: 0;
-  font-size: clamp(0.82rem, 2.6vw, 0.9rem);
-  font-weight: 600;
-  color: var(--brand-green);
-}
-
-.classification-success-print svg {
-  width: 17px;
-  height: 17px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.client-modal-header {
+/* (RD16 M3 · 2026-07-22) O modal de sucesso da classificacao virou o check
+   canonico (`SuccessCheckOverlay`, portalado da camera). A `.classification-
+   success-print` saiu com ele. As `.sample-created-lot*/
+-title` ficaram orfas junto,
+mas
+  moram
+  no
+  bloco
+  `.sample-created-*`
+  que
+  o
+  ApprovalLabelModal
+  ainda
+  compartilha
+  (check + body)
+  —
+  a
+  poda
+  dessas
+  fica
+  pra
+  consolidacao
+  da
+  camera.
+  */
+  .client-modal-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;

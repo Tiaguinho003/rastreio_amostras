@@ -2,8 +2,10 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { BottomSheet } from '../BottomSheet';
+import { SuccessCheckOverlay, SUCCESS_CHECK_MS } from '../SuccessCheckOverlay';
 import { ClassificationMetaStepBody, type MetaOpenField } from './ClassificationMetaStepBody';
 import { type LookupKind, SampleLookupResultModal } from '../SampleLookupResultModal';
 import { ClassificationDataMismatchModal } from '../samples/ClassificationDataMismatchModal';
@@ -19,7 +21,6 @@ import {
   type ReclassifyReasonCode,
 } from '../samples/ClassificationReclassifyModal';
 import { ClassificationReviewSheetBody } from '../samples/ClassificationReviewSheetBody';
-import { ClassificationSuccessModal } from '../samples/ClassificationSuccessModal';
 import {
   ApiError,
   type JsonValue,
@@ -181,9 +182,6 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
     useState<ClassificationFormState>(EMPTY_CLASSIFICATION_FORM);
   const [flowError, setFlowError] = useState<string | null>(null);
   const [confirmedSampleId, setConfirmedSampleId] = useState<string | null>(null);
-  // FIN3: se o backend disparou a impressao automatica da etiqueta nesta
-  // classificacao (best-effort) — o modal de sucesso so afirma quando sim.
-  const [printRequested, setPrintRequested] = useState(false);
   // Etapa "Tipo e classificadores" (D2): qual campo esta com a lista aberta e
   // se o tipo (obrigatorio) ja foi cobrado. O `openField` vive aqui porque o
   // dismiss do sheet (ESC / voltar do Android) precisa fechar a lista em vez
@@ -651,7 +649,6 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
     setUserPickerError(null);
     setFlowError(null);
     setConfirmedSampleId(null);
-    setPrintRequested(false);
     setEditableLot('');
     setEditableSacks('');
     setEditableHarvest('');
@@ -669,6 +666,22 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
       galleryInputRef.current.value = '';
     }
   }
+
+  // Sucesso da classificacao: o check verde (que substituiu o modal central)
+  // cobre a tela por SUCCESS_CHECK_MS e entao volta ao scanner limpo — o
+  // "Ver detalhes" saiu (decisao 2026-07-22). Em Flow B o exitContext devolve
+  // ao lote de origem; em Flow A o scanner segue aberto pro proximo lote.
+  useEffect(() => {
+    if (flowState !== 'success' || !confirmedSampleId) return;
+    const timer = window.setTimeout(() => {
+      resetClassificationFlow();
+      onExitContext();
+    }, SUCCESS_CHECK_MS);
+    return () => window.clearTimeout(timer);
+    // resetClassificationFlow e funcao local nao-memoizada; o gatilho e o estado
+    // de sucesso, nao a identidade dela.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flowState, confirmedSampleId]);
 
   // CAM-D5: abre (ou reusa) a pergunta de descarte do review. Resolve true
   // quando o operador confirma "Descartar"; false em "Continuar"/ESC/backdrop.
@@ -1039,7 +1052,7 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
       // Q.cls.2.7: reasonCode/reasonText vem do ClassificationReclassifyModal
       // quando sample esta CLASSIFIED (sub-caminho 5). Em new classification
       // ficam null; o backend ignora.
-      const saved = await confirmClassificationFromCamera(session, {
+      await confirmClassificationFromCamera(session, {
         sampleId,
         classificationData: classificationData as { [key: string]: JsonValue },
         photoToken,
@@ -1052,8 +1065,6 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
 
       if (!mountedRef.current) return;
       setConfirmedSampleId(sampleId);
-      // FIN3: o sucesso so afirma impressao quando o backend disparou de fato.
-      setPrintRequested(saved.autoPrintRequested === true);
       setFlowState('success');
     } catch (error) {
       if (!mountedRef.current) return;
@@ -1539,26 +1550,15 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
         />
       ) : null}
 
-      {/* Modal central de sucesso pos-classificacao (Bloco F1, frente B). */}
-      <ClassificationSuccessModal
-        open={flowState === 'success' && Boolean(confirmedSampleId)}
-        lotNumber={resolvedSample?.internalLotNumber ?? contextSampleLot ?? ''}
-        isReclassification={
-          // CAM-B3: no Flow A (sem contexto) a reclassificacao chega via
-          // resolvedSample — so contextSampleStatus mostrava copy errada.
-          contextSampleStatus === 'CLASSIFIED' || resolvedSample?.status === 'CLASSIFIED'
-        }
-        printRequested={printRequested}
-        onViewDetails={() => {
-          if (confirmedSampleId) navigateToSample(confirmedSampleId);
-        }}
-        onClose={() => {
-          // Sucesso fechado → volta pro scanner limpo (Flow A), com o sheet
-          // aberto — equivalente ao antigo router.push('/camera').
-          resetClassificationFlow();
-          onExitContext();
-        }}
-      />
+      {/* Sucesso pos-classificacao (Bloco F1, frente B): o modal central proprio
+          (anel + numero do lote + "Ver detalhes") virou o CHECK canonico dos
+          demais fluxos (unificacao 2026-07-22, decisao do Flavio). Sem CTA nem
+          numero do lote — o check confirma e o `handleClassificationSuccessExit`
+          devolve ao scanner limpo (Flow A) ou ao lote de origem (Flow B, via
+          exitContext). Portal + `is-fixed` cobre a tela toda, como o modal fazia. */}
+      {flowState === 'success' && confirmedSampleId
+        ? createPortal(<SuccessCheckOverlay show fixed variant="check" />, document.body)
+        : null}
 
       {/* Q.cls.2 sub-caminho 2: lote diverge. Mostra valores comparados +
           miniatura da foto. */}

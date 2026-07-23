@@ -29,16 +29,25 @@ export function SuccessCheckOverlay({
   show,
   variant = 'check',
   label,
+  fixed = false,
 }: {
   show: boolean;
   variant?: SuccessCheckVariant;
   label?: string;
+  /**
+   * `position: fixed` no lugar do absolute padrao — pra quando o overlay NAO e
+   * filho de um sheet posicionado e precisa cobrir a tela (ex.: sucesso da
+   * classificacao na camera, portalado no body). Sem isto o overlay ancora no
+   * proprio sheet.
+   */
+  fixed?: boolean;
 }) {
   if (!show) return null;
+  const base = `client-create-success-overlay${fixed ? ' is-fixed' : ''}`;
 
   if (variant === 'stamp-loss') {
     return (
-      <div className="client-create-success-overlay is-stamp" role="alert" aria-live="assertive">
+      <div className={`${base} is-stamp`} role="alert" aria-live="assertive">
         <div className="sdv-stamp is-loss">
           <span className="sdv-stamp-text">{label ?? 'Perdido'}</span>
         </div>
@@ -48,7 +57,7 @@ export function SuccessCheckOverlay({
 
   if (variant === 'x') {
     return (
-      <div className="client-create-success-overlay is-negative" role="alert" aria-live="assertive">
+      <div className={`${base} is-negative`} role="alert" aria-live="assertive">
         <svg className="client-create-success-check is-x" viewBox="0 0 52 52" aria-hidden="true">
           <circle cx="26" cy="26" r="24" fill="none" stroke="#c0392b" strokeWidth="2.5" />
           <path
@@ -66,7 +75,7 @@ export function SuccessCheckOverlay({
   }
 
   return (
-    <div className="client-create-success-overlay" aria-live="polite">
+    <div className={base} aria-live="polite">
       <svg className="client-create-success-check" viewBox="0 0 52 52" aria-hidden="true">
         <circle cx="26" cy="26" r="24" fill="none" stroke="#2f8a3e" strokeWidth="2.5" />
         <path
