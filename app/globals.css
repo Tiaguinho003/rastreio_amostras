@@ -14254,64 +14254,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   padding-left: 0.05rem;
 }
 
-/* Liga: toggle "Ligas" no filtro de /samples (switch on/off). */
-.samples-filter-toggle {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 0.72rem 0.9rem;
-  background: #fff;
-  border: 2px solid rgba(0, 0, 0, 0.12);
-  border-radius: 12px;
-  cursor: pointer;
-  font-size: clamp(0.9rem, 2.6vw, 1rem);
-  font-weight: 600;
-  color: #1a1a17;
-  transition:
-    border-color 0.15s ease,
-    transform 0.1s ease;
-}
-
-.samples-filter-toggle:active {
-  transform: scale(0.99);
-}
-
-.samples-filter-toggle-track {
-  position: relative;
-  width: 38px;
-  min-width: 38px;
-  height: 22px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.18);
-  transition: background 0.15s ease;
-}
-
-.samples-filter-toggle.is-on .samples-filter-toggle-track {
-  background: var(--brand-green);
-}
-
-.samples-filter-toggle-thumb {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-  transition: transform 0.15s ease;
-}
-
-.samples-filter-toggle.is-on .samples-filter-toggle-thumb {
-  transform: translateX(16px);
-}
-
-.samples-filter-toggle-text {
-  flex: 1;
-  text-align: left;
-}
-
 .samples-filter-field-input {
   width: 100%;
   min-width: 0;
@@ -23347,8 +23289,7 @@ mas
 
   /* Todos os controles com a MESMA altura -> campos uniformes na grade. */
   .samples-filter-modal-content .samples-filter-field-input,
-  .samples-filter-modal-content .samples-filter-multi,
-  .samples-filter-modal-content .samples-filter-toggle {
+  .samples-filter-modal-content .samples-filter-multi {
     min-height: 2.85rem;
   }
 
@@ -36706,8 +36647,7 @@ body.is-selection-mode .ctr-page .cc-tabs {
 }
 
 .samples-filter-sheet .samples-filter-field-input,
-.samples-filter-sheet .samples-filter-multi,
-.samples-filter-sheet .samples-filter-toggle {
+.samples-filter-sheet .samples-filter-multi {
   min-height: 2.62rem;
   border: 1px solid var(--fv-line-strong);
   border-radius: var(--fv-radius);
@@ -36724,11 +36664,10 @@ body.is-selection-mode .ctr-page .cc-tabs {
 }
 
 /* Foco: mesmo anel dos campos do kit (o verde-claro antigo era de outra
-   paleta). Vale pro input, pro multi-select e pro toggle. */
+   paleta). Vale pro input e pro multi-select. */
 .samples-filter-sheet .samples-filter-field-input:focus,
 .samples-filter-sheet .samples-filter-multi:focus-within,
-.samples-filter-sheet .samples-filter-multi.is-open,
-.samples-filter-sheet .samples-filter-toggle:focus-visible {
+.samples-filter-sheet .samples-filter-multi.is-open {
   outline: none;
   border-color: var(--fv-cta);
   box-shadow: 0 0 0 3px rgba(23, 60, 48, 0.12);
@@ -36737,26 +36676,14 @@ body.is-selection-mode .ctr-page .cc-tabs {
 .samples-filter-sheet .samples-filter-multi {
   padding: 0.34rem 0.5rem;
 }
-.samples-filter-sheet .samples-filter-toggle {
-  padding: 0.5rem 0.72rem;
-  font-size: 0.88rem;
-  font-weight: 500;
-}
 
-/* Grupos: mesmo micro-cabeçalho do kit (`.fv-form-heading`) separando
-   Clientes / Classificação / Lote. O grupo herda o gap da pilha de campos. */
+/* Grupos: pilha de campos sem titulo (Clientes / Classificação / Lote fluem
+   como uma lista continua). O grupo herda o gap da pilha, igual ao gap entre
+   grupos, entao a separacao fica uniforme. */
 .samples-filter-group {
   display: grid;
   gap: 0.7rem;
   min-width: 0;
-}
-/* O heading traz margem própria (`.fv-form-heading`); sem isto o gap do grid
-   somaria e os grupos ficariam soltos demais. */
-.samples-filter-group > .fv-form-heading {
-  margin: 0 0 -0.2rem;
-}
-.samples-filter-group + .samples-filter-group > .fv-form-heading {
-  margin-top: 0.35rem;
 }
 
 /* ================================================================

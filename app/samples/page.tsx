@@ -189,8 +189,7 @@ type FilterSectionId =
   | 'displayStatus'
   | 'harvest'
   | 'sacks'
-  | 'period'
-  | 'onlyBlend';
+  | 'period';
 
 interface HiddenFilters {
   ownerClients: ClientSummary[];
@@ -209,7 +208,6 @@ interface HiddenFilters {
   sacksMax: string;
   periodFrom: string;
   periodTo: string;
-  onlyBlend: boolean;
   // FV: filtro do KPI "Aguardando classificacao" (statusGroup do backend, que
   // ja existia e nunca fora exposto). NAO tem campo no painel de filtros — so
   // liga/desliga pelo card; entra na contagem e no "Limpar filtros" como os
@@ -231,7 +229,6 @@ const EMPTY_HIDDEN_FILTERS: HiddenFilters = {
   sacksMax: '',
   periodFrom: '',
   periodTo: '',
-  onlyBlend: false,
   onlyPendingClassification: false,
 };
 
@@ -243,7 +240,6 @@ const FILTER_SECTION_ORDER: FilterSectionId[] = [
   'harvest',
   'sacks',
   'period',
-  'onlyBlend',
 ];
 
 function hasAnyHiddenFilter(filters: HiddenFilters) {
@@ -261,7 +257,6 @@ function hasAnyHiddenFilter(filters: HiddenFilters) {
     filters.sacksMax.trim().length > 0 ||
     filters.periodFrom.trim().length > 0 ||
     filters.periodTo.trim().length > 0 ||
-    filters.onlyBlend ||
     filters.onlyPendingClassification
   );
 }
@@ -281,7 +276,6 @@ function normalizeHiddenFilters(filters: HiddenFilters): HiddenFilters {
     sacksMax: filters.sacksMax.trim(),
     periodFrom: filters.periodFrom.trim(),
     periodTo: filters.periodTo.trim(),
-    onlyBlend: filters.onlyBlend,
     onlyPendingClassification: filters.onlyPendingClassification,
   };
 }
@@ -299,7 +293,6 @@ function countActiveHiddenFilters(filters: HiddenFilters) {
   if (filters.harvests.length > 0) count += 1;
   if (filters.sacksMin.trim() || filters.sacksMax.trim()) count += 1;
   if (filters.periodFrom.trim() || filters.periodTo.trim()) count += 1;
-  if (filters.onlyBlend) count += 1;
   if (filters.onlyPendingClassification) count += 1;
   return count;
 }
@@ -404,11 +397,7 @@ function hasFilterSectionValue(sectionId: FilterSectionId, filters: HiddenFilter
     return filters.sacksMin.trim().length > 0 || filters.sacksMax.trim().length > 0;
   }
 
-  if (sectionId === 'period') {
-    return filters.periodFrom.trim().length > 0 || filters.periodTo.trim().length > 0;
-  }
-
-  return filters.onlyBlend;
+  return filters.periodFrom.trim().length > 0 || filters.periodTo.trim().length > 0;
 }
 
 function getFilterSectionSummary(sectionId: FilterSectionId, filters: HiddenFilters) {
@@ -438,11 +427,7 @@ function getFilterSectionSummary(sectionId: FilterSectionId, filters: HiddenFilt
     return formatSacksSummary(filters);
   }
 
-  if (sectionId === 'period') {
-    return formatPeriodSummary(filters);
-  }
-
-  return filters.onlyBlend ? 'Ligas' : 'Todas';
+  return formatPeriodSummary(filters);
 }
 
 function getInitialFilterSection(filters: HiddenFilters): FilterSectionId {
@@ -1186,7 +1171,6 @@ function SamplesPage() {
       certificados: filters.appliedHiddenFilters.certificados,
       displayStatus: filters.appliedHiddenFilters.displayStatus || undefined,
       harvests: filters.appliedHiddenFilters.harvests,
-      isBlend: filters.appliedHiddenFilters.onlyBlend || undefined,
       statusGroup: filters.appliedHiddenFilters.onlyPendingClassification
         ? 'CLASSIFICATION_PENDING'
         : undefined,
@@ -1288,7 +1272,6 @@ function SamplesPage() {
         certificados: appliedHiddenFilters.certificados,
         displayStatus: appliedHiddenFilters.displayStatus || undefined,
         harvests: appliedHiddenFilters.harvests,
-        isBlend: appliedHiddenFilters.onlyBlend || undefined,
         statusGroup: appliedHiddenFilters.onlyPendingClassification
           ? 'CLASSIFICATION_PENDING'
           : undefined,
@@ -2175,24 +2158,6 @@ function SamplesPage() {
       />
     );
 
-    const tipoField = (
-      <div className="samples-filter-field">
-        <span className="samples-filter-field-label">Tipo de lote</span>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={draftHiddenFilters.onlyBlend}
-          className={`samples-filter-toggle${draftHiddenFilters.onlyBlend ? ' is-on' : ''}`}
-          onClick={() => setDraftHiddenFilters((c) => ({ ...c, onlyBlend: !c.onlyBlend }))}
-        >
-          <span className="samples-filter-toggle-track" aria-hidden="true">
-            <span className="samples-filter-toggle-thumb" />
-          </span>
-          <span className="samples-filter-toggle-text">Ligas</span>
-        </button>
-      </div>
-    );
-
     const sacasField = (
       <div className={`samples-filter-field${sacksActiveCount > 0 ? ' is-active' : ''}`}>
         <span className="samples-filter-field-label">Sacas</span>
@@ -2273,20 +2238,18 @@ function SamplesPage() {
     // o campo de cliente — direto no desktop, retratil no mobile (`isDesktop`
     // acima).
     //
-    // Os campos entram agrupados por ASSUNTO, com o micro-cabecalho do kit
-    // (`.fv-form-heading`) — a pilha unica de 10 campos nao dizia onde uma
-    // coisa acabava e a outra comecava.
+    // Os campos entram agrupados por ASSUNTO (Clientes / Classificacao / Lote)
+    // em `.samples-filter-group`, sem titulo — o gap uniforme do grid separa os
+    // grupos (pedido do usuario 2026-07-23: tirar os micro-cabecalhos).
     return (
       <div className="samples-filter-fields">
         <div className="samples-filter-group">
-          <span className="fv-form-heading">Clientes</span>
           {ownerFilter}
           {buyerFilter}
           {sentToFilter}
         </div>
 
         <div className="samples-filter-group">
-          <span className="fv-form-heading">Classificação</span>
           {/* Padrao + Aspecto e Catacao + Certificado vao 2 por linha pra
               economizar espaco vertical no painel. */}
           <div className="samples-filter-row">
@@ -2300,15 +2263,12 @@ function SamplesPage() {
         </div>
 
         <div className="samples-filter-group">
-          <span className="fv-form-heading">Lote</span>
           <div className="samples-filter-row">
             {statusField}
             {safraField}
           </div>
           {sacasField}
           {periodoField}
-          {/* Meia largura: ocupa só a coluna esquerda do grid de 2 colunas. */}
-          <div className="samples-filter-row">{tipoField}</div>
         </div>
       </div>
     );
