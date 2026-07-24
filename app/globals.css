@@ -8966,17 +8966,23 @@ button:disabled {
   }
 }
 
-/* Card único "Visitas esta semana" de /relatorios: número grande à esquerda +
-   gráfico de tendência semanal (VisitsTrendChart) preenchendo o resto. Vale nos
-   dois breakpoints (o card é o mesmo; muda só a largura do wrapper). */
+/* Corpo do card "Visitas esta semana" — agora só o gráfico (o número saiu: no
+   mobile foi pro cabeçalho ao lado do título; no desktop virou card próprio). */
 .rsm-week-body {
   display: flex;
   align-items: center;
   gap: clamp(12px, 3vw, 20px);
   min-width: 0;
 }
-.rsm-week-body .fv-kpi-value {
-  flex: none;
+/* Mobile: título + número agrupados à esquerda do cabeçalho (o ícone fica à
+   direita pelo space-between do .fv-kpi-top). O tamanho do número (.fv-kpi-value)
+   vem da regra mobile do feed (1.25rem) — maior que o rótulo, e cabe na altura da
+   linha do ícone (26px), sem crescer o card. */
+.rsm-week-headline {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
 }
 /* Wrapper do gráfico: coluna (svg + legenda "últimos 90 dias") e relativo p/ o
    tooltip absoluto seguir o x da semana sob o cursor/toque. */

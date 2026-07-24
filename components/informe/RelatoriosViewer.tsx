@@ -216,33 +216,11 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
   const canCreateWeekly = isWeeklyReportAuthor(session.user.role);
   const showEmpty = !initialLoading && !error && items.length === 0;
 
-  // 1 KPI card de VISITA ("Visitas esta semana"). Funcao (nao elemento
-  // compartilhado): no mobile o card da faixa (.rsm-kpis, escondida) e o da
-  // chrome de lista (.fv-kpi-row) coexistem no DOM — cada wrapper precisa de
-  // instancia fresca. Icone = o do leque de criacao (calendario p/ semana).
-  const renderVisitKpiCards = () => (
-    <article className="fv-kpi">
-      <div className="fv-kpi-top">
-        <span className="fv-kpi-label">Visitas esta semana</span>
-        <span className="fv-kpi-icon is-blue" aria-hidden="true">
-          <svg viewBox="0 0 24 24" focusable="false">
-            <rect x="4" y="5" width="16" height="16" rx="2.2" />
-            <path d="M8 3v4" />
-            <path d="M16 3v4" />
-            <path d="M4 10.5h16" />
-          </svg>
-        </span>
-      </div>
-      <div className="rsm-week-body">
-        <span className="fv-kpi-value">
-          {stats ? stats.visitsThisWeek.toLocaleString('pt-BR') : '—'}
-        </span>
-        {stats && stats.weeklyTrend.length > 0 ? (
-          <VisitsTrendChart data={stats.weeklyTrend} />
-        ) : null}
-      </div>
-    </article>
-  );
+  // Cards de VISITA ("Visitas esta semana"). Sao FUNCOES (nao elementos
+  // compartilhados): a faixa desktop (.rsm-kpis) e a chrome de lista mobile
+  // (.fv-kpi-row) coexistem no DOM — cada wrapper precisa de instancia fresca.
+  // Desktop e mobile tem ESTRUTURAS diferentes (2 cards vs. 1 card com o numero
+  // no cabecalho), entao ha um render por dispositivo.
 
   // Icone calendario (leque de criacao) reutilizado no cabecalho do card da semana.
   const weekCalendarIcon = (
@@ -311,11 +289,33 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
     </>
   );
 
+  // Mobile: 1 card — numero no CABECALHO ao lado do titulo (ligeiramente maior,
+  // sem crescer a altura da linha, que ja tem 30px do icone) + o grafico ocupando
+  // o corpo. Icone calendario segue a direita.
+  const renderMobileVisitCard = () => (
+    <article className="fv-kpi rsm-week-card">
+      <div className="fv-kpi-top">
+        <span className="rsm-week-headline">
+          <span className="fv-kpi-label">Visitas esta semana</span>
+          <span className="fv-kpi-value">
+            {stats ? stats.visitsThisWeek.toLocaleString('pt-BR') : '—'}
+          </span>
+        </span>
+        {weekCalendarIcon}
+      </div>
+      <div className="rsm-week-body">
+        {stats && stats.weeklyTrend.length > 0 ? (
+          <VisitsTrendChart data={stats.weeklyTrend} />
+        ) : null}
+      </div>
+    </article>
+  );
+
   // Desktop: os 2 cards na faixa do topo.
   const kpiRow = <div className="rsm-kpis">{renderDesktopVisitCards()}</div>;
 
-  // Mobile: mesmos cards em grid 2-up, dentro da rolagem (via mobileListChrome).
-  const mobileKpi = <div className="fv-kpi-row">{renderVisitKpiCards()}</div>;
+  // Mobile: o card unico, dentro da rolagem (via mobileListChrome).
+  const mobileKpi = <div className="fv-kpi-row">{renderMobileVisitCard()}</div>;
 
   // 3 botoes de criacao (direita da faixa, desktop). "Semanal" so p/ autor
   // (ADMIN + COMMERCIAL). Icones espelham o leque.
