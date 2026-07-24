@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { InformeCreateRadialFab } from './InformeCreateRadialFab';
 import { useInformeCreateSheets } from './useInformeCreateSheets';
-import { VisitsSparkline } from './VisitsSparkline';
+import { VisitsTrendChart } from './VisitsTrendChart';
 import { WeeklyReportCard } from './WeeklyReportCard';
 import { VisitReportCard } from '../visits/VisitReportCard';
 import {
@@ -238,7 +238,7 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
           {stats ? stats.visitsThisWeek.toLocaleString('pt-BR') : '—'}
         </span>
         {stats && stats.weeklyTrend.length > 0 ? (
-          <VisitsSparkline data={stats.weeklyTrend.map((week) => week.count)} />
+          <VisitsTrendChart data={stats.weeklyTrend} />
         ) : null}
       </div>
     </article>

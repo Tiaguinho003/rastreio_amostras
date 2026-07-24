@@ -8902,7 +8902,9 @@ button:disabled {
 
   /* Cluster do KPI de visita encostado a esquerda: NAO estica (os botoes vao pra
      ponta direita pelo space-between do .fv-page-head). Card unico e largo —
-     cabe o numero + a sparkline diaria do mes lado a lado. */
+     cabe o numero + o grafico de tendencia semanal lado a lado. No desktop o
+     card pode crescer (mais largura = ticks/meses mais legiveis); o mobile
+     (.fv-kpi-row, fora deste @media) mantem o tamanho. */
   .relatorios-page .rsm-kpis {
     display: flex;
     gap: 0.9rem;
@@ -8910,7 +8912,7 @@ button:disabled {
   }
   .relatorios-page .rsm-kpis .fv-kpi {
     flex: none;
-    width: clamp(300px, 30vw, 360px);
+    width: clamp(360px, 36vw, 460px);
   }
 
   .sdv-content.informe-content.rsm-content {
@@ -8954,8 +8956,8 @@ button:disabled {
 }
 
 /* Card único "Visitas esta semana" de /relatorios: número grande à esquerda +
-   sparkline diária do mês (VisitsSparkline) preenchendo o resto. Vale nos dois
-   breakpoints (o card é o mesmo; muda só a largura do wrapper na faixa/chrome). */
+   gráfico de tendência semanal (VisitsTrendChart) preenchendo o resto. Vale nos
+   dois breakpoints (o card é o mesmo; muda só a largura do wrapper). */
 .rsm-week-body {
   display: flex;
   align-items: center;
@@ -8965,28 +8967,72 @@ button:disabled {
 .rsm-week-body .fv-kpi-value {
   flex: none;
 }
-.rsm-spark {
+/* Wrapper do gráfico: coluna (svg + legenda "últimos 90 dias") e relativo p/ o
+   tooltip absoluto seguir o x da semana sob o cursor/toque. */
+.rsm-trend {
   flex: 1 1 auto;
   min-width: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rsm-trend-svg {
   display: block;
   width: 100%;
   height: auto;
   overflow: visible;
 }
-.rsm-spark-area {
+.rsm-trend-area {
   fill: rgba(30, 95, 143, 0.1);
   stroke: none;
 }
-.rsm-spark-line {
+.rsm-trend-line {
   fill: none;
   stroke: var(--fv-blue);
-  stroke-width: 1.6;
+  stroke-width: 1.2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.rsm-spark-dot {
+.rsm-trend-dot {
   fill: var(--fv-blue);
   stroke: none;
+}
+/* tracinho vertical por semana (referência de cada ponto) */
+.rsm-trend-tick {
+  stroke: var(--fv-line-strong);
+  stroke-width: 1;
+}
+/* guia vertical tracejada do hover/toque */
+.rsm-trend-guide {
+  stroke: var(--fv-line-strong);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+}
+/* rótulo de mês abreviado na base (SVG text) */
+.rsm-trend-month {
+  fill: var(--muted);
+  font-size: 9px;
+}
+/* pílula flutuante "Semana de DD/MM · N visitas" */
+.rsm-trend-tooltip {
+  position: absolute;
+  top: 2px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  white-space: nowrap;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: var(--fv-surface);
+  border: 1px solid var(--fv-line);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  font-size: 0.68rem;
+  color: inherit;
+}
+.rsm-trend-caption {
+  align-self: flex-end;
+  font-size: 0.68rem;
+  color: var(--muted);
 }
 
 .rsm-list {
