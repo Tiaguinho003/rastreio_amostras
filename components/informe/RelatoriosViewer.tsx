@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { InformeCreateRadialFab } from './InformeCreateRadialFab';
 import { useInformeCreateSheets } from './useInformeCreateSheets';
+import { VisitsSparkline } from './VisitsSparkline';
 import { WeeklyReportCard } from './WeeklyReportCard';
 import { VisitReportCard } from '../visits/VisitReportCard';
 import {
@@ -215,17 +216,6 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
   const canCreateWeekly = isWeeklyReportAuthor(session.user.role);
   const showEmpty = !initialLoading && !error && items.length === 0;
 
-  // Δ da semana (this vs. last) derivado na UI — o endpoint so devolve os counts.
-  const weekDelta = stats ? stats.visitsThisWeek - stats.visitsLastWeek : null;
-  const weekDeltaDir =
-    weekDelta == null || weekDelta === 0 ? 'flat' : weekDelta > 0 ? 'up' : 'down';
-  const weekDeltaText =
-    weekDelta == null
-      ? ' '
-      : weekDelta === 0
-        ? 'igual à semana passada'
-        : `${weekDelta > 0 ? '+' : '−'}${Math.abs(weekDelta)} vs. semana passada`;
-
   // 1 KPI card de VISITA ("Visitas esta semana"). Funcao (nao elemento
   // compartilhado): no mobile o card da faixa (.rsm-kpis, escondida) e o da
   // chrome de lista (.fv-kpi-row) coexistem no DOM — cada wrapper precisa de
@@ -243,24 +233,13 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
           </svg>
         </span>
       </div>
-      <div className="fv-kpi-metric">
+      <div className="rsm-week-body">
         <span className="fv-kpi-value">
           {stats ? stats.visitsThisWeek.toLocaleString('pt-BR') : '—'}
         </span>
-        <span className={`fv-kpi-delta${weekDeltaDir !== 'flat' ? ` is-${weekDeltaDir}` : ''}`}>
-          {weekDeltaDir === 'up' ? (
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <path d="M7 17 17 7" />
-              <path d="M8 7h9v9" />
-            </svg>
-          ) : weekDeltaDir === 'down' ? (
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <path d="m7 7 10 10" />
-              <path d="M17 8v9H8" />
-            </svg>
-          ) : null}
-          {weekDeltaText}
-        </span>
+        {stats && stats.dailyThisMonth.length > 0 ? (
+          <VisitsSparkline data={stats.dailyThisMonth} />
+        ) : null}
       </div>
     </article>
   );

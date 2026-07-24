@@ -8953,6 +8953,42 @@ button:disabled {
   }
 }
 
+/* Card único "Visitas esta semana" de /relatorios: número grande à esquerda +
+   sparkline diária do mês (VisitsSparkline) preenchendo o resto. Vale nos dois
+   breakpoints (o card é o mesmo; muda só a largura do wrapper na faixa/chrome). */
+.rsm-week-body {
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 3vw, 20px);
+  min-width: 0;
+}
+.rsm-week-body .fv-kpi-value {
+  flex: none;
+}
+.rsm-spark {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.rsm-spark-area {
+  fill: rgba(30, 95, 143, 0.1);
+  stroke: none;
+}
+.rsm-spark-line {
+  fill: none;
+  stroke: var(--fv-blue);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.rsm-spark-dot {
+  fill: var(--fv-blue);
+  stroke: none;
+}
+
 .rsm-list {
   display: flex;
   flex-direction: column;
