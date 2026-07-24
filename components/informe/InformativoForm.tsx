@@ -35,6 +35,8 @@ interface InformativoFormProps {
   onClearPrevisao: () => void;
   mercadoRef: React.RefObject<HTMLCanvasElement | null>;
   meteoRef: React.RefObject<HTMLCanvasElement | null>;
+  /** Raiz do workspace — o sheet usa pra rolar ate o 1o campo faltante. */
+  containerRef: React.RefObject<HTMLDivElement | null>;
 }
 
 export function InformativoForm({
@@ -52,9 +54,10 @@ export function InformativoForm({
   onClearPrevisao,
   mercadoRef,
   meteoRef,
+  containerRef,
 }: InformativoFormProps) {
   return (
-    <div className="ifm-workspace">
+    <div className="ifm-workspace" ref={containerRef}>
       {/* ── Bloco 1: mercado (form | previa fixa) ── */}
       <section className="ifm-block">
         <div className="ifm-form-pane">

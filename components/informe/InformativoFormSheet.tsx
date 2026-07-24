@@ -82,6 +82,9 @@ export function InformativoFormSheet({
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Bumpado quando a validacao do download falha: rola ate o 1o campo faltante.
+  const [errorScrollTick, setErrorScrollTick] = useState(0);
+  const formRef = useRef<HTMLDivElement | null>(null);
   const confirmTrapRef = useFocusTrap(confirmDiscardOpen);
 
   const previsaoImage = usePrevisaoImage();
@@ -168,6 +171,17 @@ export function InformativoFormSheet({
     [draft.submitted.meteo, missingMet]
   );
 
+  // Ao falhar a validacao, rola ate o 1o campo faltante (facilita achar o que
+  // preencher). Roda DEPOIS do render que aplica `has-error` — por isso via
+  // efeito no tick, nao direto no handler. DOM order = ordem visual, entao o
+  // primeiro `.has-error` e o campo faltante mais acima (input, variacao ou o
+  // drop da previsao). `block:'center'` deixa ele no meio da area rolavel.
+  useEffect(() => {
+    if (errorScrollTick === 0) return;
+    const alvo = formRef.current?.querySelector<HTMLElement>('.has-error');
+    alvo?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [errorScrollTick]);
+
   // Ref, e nao leitura direta do draft, de proposito: o requestClose do
   // BottomSheet entra nas deps do efeito de ESC, entao um handler que mudasse a
   // cada tecla re-registraria o listener de keydown a cada tecla.
@@ -239,6 +253,7 @@ export function InformativoFormSheet({
       : new Set<string>();
     if (missM.size > 0 || missMe.size > 0) {
       setError(ERRO_CAMPOS);
+      setErrorScrollTick((t) => t + 1);
       return;
     }
 
@@ -293,6 +308,7 @@ export function InformativoFormSheet({
         qual === 'mercado' ? missingMercado(draft) : missingMeteo(draft.meteo, previsao !== null);
       if (faltando.size > 0) {
         setError(ERRO_CAMPOS);
+        setErrorScrollTick((t) => t + 1);
         return;
       }
 
@@ -391,6 +407,7 @@ export function InformativoFormSheet({
           onClearPrevisao={previsaoImage.clear}
           mercadoRef={mercadoRef}
           meteoRef={meteoRef}
+          containerRef={formRef}
         />
       </BottomSheet>
 
