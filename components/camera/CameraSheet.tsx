@@ -1352,6 +1352,10 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
   // de resultado do QR. Dismiss do sheet: idle fecha por completo (provider);
   // preview/review (via onDismissAttempt) descartam e VOLTAM pro scanner.
   const isScanner = flowState === 'idle';
+  // Estado "Conferir foto": foto capturada aguardando envio (antes do detect).
+  // Full-bleed no sheet (header oculto, altura acompanha a proporcao da foto,
+  // botoes glass sobre a imagem) — ver `.is-preview` no globals.css.
+  const isPreview = flowState === 'preview' && Boolean(capturedPhotoUrl);
   const sheetOpen =
     open &&
     !resultModalOpen &&
@@ -1403,13 +1407,27 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
           aria-hidden="true"
         />
 
+        {/* Fechar a camera: botao glass no topo-esquerda sobre o video (o X do
+            header do sheet fica oculto no scanner). Fecha o sheet por completo
+            via onClose do provider — no idle nao ha nada a descartar. */}
+        <button
+          type="button"
+          className="camera-hub-close-btn"
+          onClick={onClose}
+          aria-label="Fechar câmera"
+        >
+          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
+
         {/* Card de erro unificado: getUserMedia falhou (permission-denied ou
             unsupported). Mensagem fixa em pt-BR + atalho "Usar galeria"
             (acao que sempre funciona, independente da permissao). */}
         {cameraStatus === 'permission-denied' || cameraStatus === 'unsupported' ? (
           <div className="camera-hub-error-overlay" role="alert">
             <div className="camera-hub-error-card">
-              <h2 className="camera-hub-error-card-title">Acesso a camera indisponivel</h2>
+              <h2 className="camera-hub-error-card-title">Câmera indisponível</h2>
               <div className="camera-hub-error-card-actions">
                 <button
                   type="button"
@@ -1733,7 +1751,9 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
         dragToDismiss={false}
         className={`camera-preview-sheet${isScanner ? ' is-scanner' : ''}${
           isProcessingPhoto ? ' is-processing' : ''
-        }${isReviewingPhoto ? ' is-review' : ''}${isMetaStep || isSubmitting ? ' is-meta' : ''}`}
+        }${isReviewingPhoto ? ' is-review' : ''}${isMetaStep || isSubmitting ? ' is-meta' : ''}${
+          isPreview ? ' is-preview' : ''
+        }`}
         title={
           isScanner
             ? 'Câmera'
@@ -1811,24 +1831,9 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
                 Avançar
               </button>
             </div>
-          ) : (
-            <div className="camera-preview-sheet-actions">
-              <button
-                type="button"
-                className="camera-preview-sheet-action-secondary"
-                onClick={resetClassificationFlow}
-              >
-                Tirar outra
-              </button>
-              <button
-                type="button"
-                className="camera-preview-sheet-action-primary"
-                onClick={() => void handleSendPhoto()}
-              >
-                Enviar
-              </button>
-            </div>
-          )
+          ) : // "Conferir foto" (is-preview): sem footer — os botoes ↺/→ flutuam
+          // sobre a foto (overlay glass no corpo). Ver ramo capturedPhotoUrl.
+          null
         }
       >
         {isScanner ? (
@@ -1907,6 +1912,32 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
               alt="Foto capturada para classificacao"
               className="camera-preview-sheet-img"
             />
+            {/* Controles glass sobre a foto (full-bleed): ↺ tirar outra
+                (esquerda) · → enviar (direita). Substituem o footer de texto. */}
+            <div className="camera-preview-sheet-overlay-actions">
+              <button
+                type="button"
+                className="camera-preview-sheet-overlay-btn"
+                onClick={resetClassificationFlow}
+                aria-label="Tirar outra"
+              >
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <path d="M3 12a9 9 0 1 0 3-6.7" />
+                  <path d="M3 4v4h4" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                className="camera-preview-sheet-overlay-btn"
+                onClick={() => void handleSendPhoto()}
+                aria-label="Enviar"
+              >
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <path d="M5 12h14" />
+                  <path d="m13 6 6 6-6 6" />
+                </svg>
+              </button>
+            </div>
           </div>
         ) : null}
       </BottomSheet>

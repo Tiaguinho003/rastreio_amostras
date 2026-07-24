@@ -509,6 +509,19 @@ Todos seguem `.app-modal.is-themed`. Ordem do fluxo: `idle → preview → handl
 > caiu quando o envio virou painel de uma etapa so (regra em `forms` §4). O CSS saiu do
 > `globals.css` junto — "escolher entre poucas opcoes" hoje e `.fv-choice*`
 > DENTRO do painel de destino, nao um modal-seletor proprio.
+>
+> **Full-bleed da camera (2026-07-24):** os estados `is-scanner` (Camera) e
+> `is-preview` (Conferir foto) DROPAM o header/titulo (`display:none`) e o sheet
+> vira edge-to-edge escuro (`padding` zerado, `height:auto`) pra o video/foto
+> cobrir o modal — molde do app do ChatGPT. Controles em circulos glass sobre a
+> imagem: no scanner, `.camera-hub-close-btn` (X, topo-esq., chama `onClose`)
+> junto do obturador/galeria ja existentes; no preview, `.camera-preview-sheet-overlay-btn`
+> (↺ tirar outra / → enviar, so icones + `aria-label`) SUBSTITUEM o footer de texto
+> "Tirar outra"/"Enviar". No preview a altura acompanha a proporcao da foto
+> (`img { width:100%; height:auto }` com teto `max-height`, object-fit contain no
+> caso raro de foto muito vertical). Os estados processing/review/meta MANTEM o
+> header branco + titulo centrado + footer. O card de erro (`.camera-hub-error-card`)
+> encolheu e o titulo virou "Camera indisponivel".
 
 **Rodada 1 do ciclo da extracao (2026-07-19, ledger EXT no Classificacao-Plano):** o ExtractionErrorModal kind=technical ganhou a acao primaria "Tentar novamente" (prop `onRetry` — re-extrai com a MESMA foto; "Tirar outra" vira secundaria quando presente); IA indisponivel (`extractionAvailable: false`) pula o aviso de ilegivel e vai direto pro ManualConfirmModal; Flow A com extracao 100% vazia cai no ExtractionErrorModal kind=illegible.
 
