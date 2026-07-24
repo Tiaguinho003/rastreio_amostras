@@ -226,63 +226,43 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
         ? 'igual à semana passada'
         : `${weekDelta > 0 ? '+' : '−'}${Math.abs(weekDelta)} vs. semana passada`;
 
-  // 2 KPI cards de VISITA. Funcao (nao elemento compartilhado): no mobile os
-  // cards da faixa (.rsm-kpis, escondida) e os da chrome de lista (.fv-kpi-row)
-  // coexistem no DOM — cada wrapper precisa de instancias frescas. Icones = os
-  // do leque de criacao (prancheta-check p/ visita, calendario p/ semana).
+  // 1 KPI card de VISITA ("Visitas esta semana"). Funcao (nao elemento
+  // compartilhado): no mobile o card da faixa (.rsm-kpis, escondida) e o da
+  // chrome de lista (.fv-kpi-row) coexistem no DOM — cada wrapper precisa de
+  // instancia fresca. Icone = o do leque de criacao (calendario p/ semana).
   const renderVisitKpiCards = () => (
-    <>
-      <article className="fv-kpi">
-        <div className="fv-kpi-top">
-          <span className="fv-kpi-label">Total de visitas</span>
-          <span className="fv-kpi-icon is-green" aria-hidden="true">
-            <svg viewBox="0 0 24 24" focusable="false">
-              <rect x="5.5" y="4" width="13" height="17" rx="2.2" />
-              <rect x="9" y="2.5" width="6" height="3.5" rx="1.2" />
-              <path d="m9 13.5 2.3 2.3 4.4-5" />
+    <article className="fv-kpi">
+      <div className="fv-kpi-top">
+        <span className="fv-kpi-label">Visitas esta semana</span>
+        <span className="fv-kpi-icon is-blue" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <rect x="4" y="5" width="16" height="16" rx="2.2" />
+            <path d="M8 3v4" />
+            <path d="M16 3v4" />
+            <path d="M4 10.5h16" />
+          </svg>
+        </span>
+      </div>
+      <div className="fv-kpi-metric">
+        <span className="fv-kpi-value">
+          {stats ? stats.visitsThisWeek.toLocaleString('pt-BR') : '—'}
+        </span>
+        <span className={`fv-kpi-delta${weekDeltaDir !== 'flat' ? ` is-${weekDeltaDir}` : ''}`}>
+          {weekDeltaDir === 'up' ? (
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M7 17 17 7" />
+              <path d="M8 7h9v9" />
             </svg>
-          </span>
-        </div>
-        <div className="fv-kpi-metric">
-          <span className="fv-kpi-value">
-            {stats ? stats.totalVisits.toLocaleString('pt-BR') : '—'}
-          </span>
-        </div>
-      </article>
-
-      <article className="fv-kpi">
-        <div className="fv-kpi-top">
-          <span className="fv-kpi-label">Visitas esta semana</span>
-          <span className="fv-kpi-icon is-blue" aria-hidden="true">
-            <svg viewBox="0 0 24 24" focusable="false">
-              <rect x="4" y="5" width="16" height="16" rx="2.2" />
-              <path d="M8 3v4" />
-              <path d="M16 3v4" />
-              <path d="M4 10.5h16" />
+          ) : weekDeltaDir === 'down' ? (
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="m7 7 10 10" />
+              <path d="M17 8v9H8" />
             </svg>
-          </span>
-        </div>
-        <div className="fv-kpi-metric">
-          <span className="fv-kpi-value">
-            {stats ? stats.visitsThisWeek.toLocaleString('pt-BR') : '—'}
-          </span>
-          <span className={`fv-kpi-delta${weekDeltaDir !== 'flat' ? ` is-${weekDeltaDir}` : ''}`}>
-            {weekDeltaDir === 'up' ? (
-              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <path d="M7 17 17 7" />
-                <path d="M8 7h9v9" />
-              </svg>
-            ) : weekDeltaDir === 'down' ? (
-              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <path d="m7 7 10 10" />
-                <path d="M17 8v9H8" />
-              </svg>
-            ) : null}
-            {weekDeltaText}
-          </span>
-        </div>
-      </article>
-    </>
+          ) : null}
+          {weekDeltaText}
+        </span>
+      </div>
+    </article>
   );
 
   // Desktop: cards na faixa do topo (byte-identico ao que ja existia).
