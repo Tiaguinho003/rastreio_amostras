@@ -83,6 +83,9 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
 22. `docs/hardware/bipador-goldensky-j32w.md`
     Uso: guia de configuracao do leitor de QR/codigo de barras Goldensky J32W (USB sem fio, 2D) para a leitura global do sistema — modo HID Keyboard com prefixo STX + sufixo CR, e como o listener de `lib/scanner/` consome isso. Status: Ativo (referencia de hardware).
 
+23. `docs/Shell-e-Navegacao-Plano-de-Trabalho.md`
+    Uso: plano de trabalho para remover a "pagina de carregamento verde" (boot splash + page loader), tornar o navbar/shell PERSISTENTE (nunca desmonta) e definir a transicao entre paginas sem loader full-screen + a politica de cache/estado por pagina. Estrutura em duas metades: A (contexto estavel — estado atual das 5 camadas de loading, a maquina do splash, o fato do AppShell por-pagina, grafo de delecao, arquitetura-alvo de app shell persistente) e B (decisoes evolutivas — ledger SN, mapa de paginas atual->alvo, politica de estado, faseamento F1-F4). Prefixo de decisoes: SN. Status: Rascunho / em decisao (estrutura aprovada 2026-07-24; Metade A preenchida, Metade B esqueleto; decisoes SN-D1..D6 EM ABERTO). Pre-requisito: doc completo + disposicao das paginas decidida (§5.1) antes de implementar.
+
 ## Relatorios da reorganizacao
 
 1. `docs/Passe-6A-Relatorio-Testes-Cobertura.md`
