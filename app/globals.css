@@ -31788,7 +31788,8 @@ body.is-selection-mode .ctr-page .cc-tabs {
    .fv-kpi-metric/.fv-kpi-delta seguem so-/samples (nao ha o que casar). ── */
 @media (max-width: 900px) {
   .fv-lotes-page .fv-kpi-row,
-  .clients-page-v2 .spv2-list-scroll .fv-kpi-row {
+  .clients-page-v2 .spv2-list-scroll .fv-kpi-row,
+  .relatorios-page .rsm-feed .fv-kpi-row {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: clamp(8px, 2.4vw, 10px);
@@ -31796,26 +31797,30 @@ body.is-selection-mode .ctr-page .cc-tabs {
   }
 
   .fv-lotes-page .fv-kpi,
-  .clients-page-v2 .spv2-list-scroll .fv-kpi {
+  .clients-page-v2 .spv2-list-scroll .fv-kpi,
+  .relatorios-page .rsm-feed .fv-kpi {
     gap: 0.3rem;
     padding: 0.6rem 0.7rem;
   }
 
   .fv-lotes-page .fv-kpi-label,
-  .clients-page-v2 .spv2-list-scroll .fv-kpi-label {
+  .clients-page-v2 .spv2-list-scroll .fv-kpi-label,
+  .relatorios-page .rsm-feed .fv-kpi-label {
     font-size: 0.78rem;
   }
 
   /* Icone menor: com o card em duas linhas ele passava a ser a peca mais alta
      e voltava a ditar a altura que a metrica inline acabou de economizar. */
   .fv-lotes-page .fv-kpi-icon,
-  .clients-page-v2 .spv2-list-scroll .fv-kpi-icon {
+  .clients-page-v2 .spv2-list-scroll .fv-kpi-icon,
+  .relatorios-page .rsm-feed .fv-kpi-icon {
     width: 26px;
     height: 26px;
   }
 
   .fv-lotes-page .fv-kpi-icon svg,
-  .clients-page-v2 .spv2-list-scroll .fv-kpi-icon svg {
+  .clients-page-v2 .spv2-list-scroll .fv-kpi-icon svg,
+  .relatorios-page .rsm-feed .fv-kpi-icon svg {
     width: 0.9rem;
     height: 0.9rem;
   }
@@ -31824,19 +31829,22 @@ body.is-selection-mode .ctr-page .cc-tabs {
      do card. `baseline` assenta os dois pelo pe do texto, apesar dos corpos
      diferentes; o delta trunca se o card apertar. (So /samples: o KPI-2 de
      /cadastros nao tem metrica/delta.) */
-  .fv-lotes-page .fv-kpi-metric {
+  .fv-lotes-page .fv-kpi-metric,
+  .relatorios-page .rsm-feed .fv-kpi-metric {
     flex-direction: row;
     align-items: baseline;
     gap: 0.4rem;
   }
 
   .fv-lotes-page .fv-kpi-value,
-  .clients-page-v2 .spv2-list-scroll .fv-kpi-value {
+  .clients-page-v2 .spv2-list-scroll .fv-kpi-value,
+  .relatorios-page .rsm-feed .fv-kpi-value {
     flex: none;
     font-size: 1.25rem;
   }
 
-  .fv-lotes-page .fv-kpi-delta {
+  .fv-lotes-page .fv-kpi-delta,
+  .relatorios-page .rsm-feed .fv-kpi-delta {
     min-width: 0;
     font-size: 0.72rem;
     text-overflow: ellipsis;
@@ -32648,7 +32656,8 @@ body.is-selection-mode .ctr-page .cc-tabs {
    junto = chrome dupla. Corretores migra na rodada dele. */
 @media (max-width: 900px) {
   .fv-lotes-page .fv-toolbar,
-  .clients-page-v2 .spv2-list-scroll .fv-toolbar {
+  .clients-page-v2 .spv2-list-scroll .fv-toolbar,
+  .relatorios-page .rsm-feed .fv-toolbar {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
@@ -32661,18 +32670,21 @@ body.is-selection-mode .ctr-page .cc-tabs {
      funil caia pra linha de baixo. Com base 0 a busca cede espaco e o funil
      fica sempre colado nela. */
   .fv-lotes-page .fv-toolbar-search,
-  .clients-page-v2 .spv2-list-scroll .fv-toolbar-search {
+  .clients-page-v2 .spv2-list-scroll .fv-toolbar-search,
+  .relatorios-page .rsm-feed .fv-toolbar-search {
     order: 1;
     flex: 1 1 0;
   }
 
   .fv-lotes-page .fv-toolbar-search-input,
-  .clients-page-v2 .spv2-list-scroll .fv-toolbar-search-input {
+  .clients-page-v2 .spv2-list-scroll .fv-toolbar-search-input,
+  .relatorios-page .rsm-feed .fv-toolbar-search-input {
     height: 40px;
   }
 
   .fv-lotes-page .fv-toolbar-filter,
-  .clients-page-v2 .spv2-list-scroll .fv-toolbar-filter {
+  .clients-page-v2 .spv2-list-scroll .fv-toolbar-filter,
+  .relatorios-page .rsm-feed .fv-toolbar-filter {
     order: 2;
     height: 40px;
     padding-left: 0.75rem;
@@ -32681,12 +32693,14 @@ body.is-selection-mode .ctr-page .cc-tabs {
 
   /* So o icone: a linha da busca nao cabe icone + rotulo. */
   .fv-lotes-page .fv-toolbar-filter-label,
-  .clients-page-v2 .spv2-list-scroll .fv-toolbar-filter-label {
+  .clients-page-v2 .spv2-list-scroll .fv-toolbar-filter-label,
+  .relatorios-page .rsm-feed .fv-toolbar-filter-label {
     display: none;
   }
 
   .fv-lotes-page .fv-toolbar::after,
-  .clients-page-v2 .spv2-list-scroll .fv-toolbar::after {
+  .clients-page-v2 .spv2-list-scroll .fv-toolbar::after,
+  .relatorios-page .rsm-feed .fv-toolbar::after {
     content: '';
     order: 3;
     flex-basis: 100%;
@@ -32697,12 +32711,14 @@ body.is-selection-mode .ctr-page .cc-tabs {
      e um rodape da chrome, nao um dado da lista — por isso menor que o
      secundario do card. */
   .fv-lotes-page .fv-toolbar-count,
-  .clients-page-v2 .spv2-list-scroll .fv-toolbar-count {
+  .clients-page-v2 .spv2-list-scroll .fv-toolbar-count,
+  .relatorios-page .rsm-feed .fv-toolbar-count {
     font-size: 0.72rem;
   }
 
   .fv-lotes-page .fv-toolbar-clear,
-  .clients-page-v2 .spv2-list-scroll .fv-toolbar-clear {
+  .clients-page-v2 .spv2-list-scroll .fv-toolbar-clear,
+  .relatorios-page .rsm-feed .fv-toolbar-clear {
     order: 4;
   }
 
@@ -32724,7 +32740,8 @@ body.is-selection-mode .ctr-page .cc-tabs {
   }
 
   .fv-lotes-page .fv-toolbar-count,
-  .clients-page-v2 .spv2-list-scroll .fv-toolbar-count {
+  .clients-page-v2 .spv2-list-scroll .fv-toolbar-count,
+  .relatorios-page .rsm-feed .fv-toolbar-count {
     order: 5;
     margin-left: auto;
   }
