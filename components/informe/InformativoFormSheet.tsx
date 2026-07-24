@@ -82,7 +82,6 @@ export function InformativoFormSheet({
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [previewTab, setPreviewTab] = useState<Secao>('mercado');
   const confirmTrapRef = useFocusTrap(confirmDiscardOpen);
 
   const previsaoImage = usePrevisaoImage();
@@ -119,14 +118,6 @@ export function InformativoFormSheet({
     },
     [previsaoImage]
   );
-
-  // Desligar o meteorologico enquanto a aba dele esta aberta joga a previa de
-  // volta pro mercado (a aba fica desabilitada).
-  useEffect(() => {
-    if (!draft.incluiMeteo) {
-      setPreviewTab('mercado');
-    }
-  }, [draft.incluiMeteo]);
 
   // Dados VIVOS (sem debounce): a fonte de verdade do download exato.
   const mercadoData = useMemo(() => toMercadoData(draft, dataTexto), [draft, dataTexto]);
@@ -248,7 +239,6 @@ export function InformativoFormSheet({
       : new Set<string>();
     if (missM.size > 0 || missMe.size > 0) {
       setError(ERRO_CAMPOS);
-      setPreviewTab(missM.size > 0 ? 'mercado' : 'meteo');
       return;
     }
 
@@ -303,7 +293,6 @@ export function InformativoFormSheet({
         qual === 'mercado' ? missingMercado(draft) : missingMeteo(draft.meteo, previsao !== null);
       if (faltando.size > 0) {
         setError(ERRO_CAMPOS);
-        setPreviewTab(qual);
         return;
       }
 
@@ -402,8 +391,6 @@ export function InformativoFormSheet({
           onClearPrevisao={previsaoImage.clear}
           mercadoRef={mercadoRef}
           meteoRef={meteoRef}
-          previewTab={previewTab}
-          onPreviewTab={setPreviewTab}
         />
       </BottomSheet>
 

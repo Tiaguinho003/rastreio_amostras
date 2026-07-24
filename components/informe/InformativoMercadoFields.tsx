@@ -1,13 +1,14 @@
 'use client';
 
 // Campos do Informativo de Mercado: 21 controles em 4 grupos (INF28 — todos
-// obrigatorios).
+// obrigatorios), na MESMA ordem logica da peca (Resumo -> Fisico -> Futuro ->
+// CPR).
 //
-// Reusa o kit de INPUT legado do Informativo (.inf-field/.inf-input/.inf-pill/
-// .ifm-*) e adota o SHELL institucional `.fv-form-heading` no lugar dos antigos
-// cards numerados `.inf-card` (RD16 §2.10 R10 — o Informativo virou side-sheet
-// de duas colunas com preview ao vivo). A migracao total dos inputs pra
-// `.fv-form-field` fica pra uma passada futura.
+// Layout compacto RD16 §2.10 (pedido do Flavio): campos enxutos com a cor
+// padrao dos modais (`.app-modal-*`, escopada em `.informativo-sheet`), unidade
+// DENTRO do rotulo (sem a linha `.ifm-unit`), variacao numa linha so com os
+// botoes alta/baixa, e o mercado futuro agrupado POR ANO (uma coluna por ano,
+// espelhando a arte) em vez de por "linha". Mantem o shell `.fv-form-heading`.
 
 import {
   MAX_LEN,
@@ -43,7 +44,6 @@ export function InformativoMercadoFields({
     <>
       <div className="ifm-group">
         <h3 className="fv-form-heading">Resumo do mercado</h3>
-        <p className="ifm-group-hint">A data de hoje entra sozinha na peça.</p>
 
         <label className="inf-field">
           <span className="inf-field-label">Bolsa NY</span>
@@ -60,7 +60,7 @@ export function InformativoMercadoFields({
 
         <div className="ifm-pair">
           <label className="inf-field">
-            <span className="inf-field-label">Valor da bolsa</span>
+            <span className="inf-field-label">Valor (Usc/lp)</span>
             <input
               className={cls('bolsa')}
               value={fields.bolsa}
@@ -68,11 +68,10 @@ export function InformativoMercadoFields({
               placeholder="292,65"
               onChange={(e) => onPatch({ bolsa: maskBolsa(e.target.value) })}
             />
-            <span className="ifm-unit">Usc/lp</span>
           </label>
 
           <label className="inf-field">
-            <span className="inf-field-label">Dólar</span>
+            <span className="inf-field-label">Dólar (R$/US$)</span>
             <input
               className={cls('dolar')}
               value={fields.dolar}
@@ -80,21 +79,25 @@ export function InformativoMercadoFields({
               placeholder="5,2303"
               onChange={(e) => onPatch({ dolar: maskDolar(e.target.value) })}
             />
-            <span className="ifm-unit">R$/US$</span>
           </label>
         </div>
 
-        <div className="inf-field">
-          <span className="inf-field-label">Variação</span>
-          <div
-            className="inf-choice-grid ifm-dir-grid"
-            role="group"
-            aria-label="Direção da variação"
-          >
+        <div className={`inf-field ifm-var-field${invalid('variacaoDir') ? ' has-error' : ''}`}>
+          <span className="inf-field-label">Variação (pts)</span>
+          <div className="ifm-var-row">
+            <input
+              className={cls('variacao')}
+              value={fields.variacao}
+              inputMode="numeric"
+              placeholder="20"
+              aria-label="Pontos de variação"
+              onChange={(e) => onPatch({ variacao: maskVariacao(e.target.value) })}
+            />
             <button
               type="button"
-              className={`inf-pill ifm-dir${fields.variacaoDir === 'alta' ? ' is-selected is-alta' : ''}`}
+              className={`inf-pill ifm-dir is-alta${fields.variacaoDir === 'alta' ? ' is-selected' : ''}`}
               aria-pressed={fields.variacaoDir === 'alta'}
+              aria-label="Alta"
               onClick={() => onPatch({ variacaoDir: 'alta' })}
             >
               <span className="ifm-dir-arrow is-up" aria-hidden="true" />
@@ -102,8 +105,9 @@ export function InformativoMercadoFields({
             </button>
             <button
               type="button"
-              className={`inf-pill ifm-dir${fields.variacaoDir === 'baixa' ? ' is-selected is-baixa' : ''}`}
+              className={`inf-pill ifm-dir is-baixa${fields.variacaoDir === 'baixa' ? ' is-selected' : ''}`}
               aria-pressed={fields.variacaoDir === 'baixa'}
+              aria-label="Baixa"
               onClick={() => onPatch({ variacaoDir: 'baixa' })}
             >
               <span className="ifm-dir-arrow is-down" aria-hidden="true" />
@@ -111,23 +115,10 @@ export function InformativoMercadoFields({
             </button>
           </div>
         </div>
-
-        <label className="inf-field">
-          <span className="inf-field-label">Pontos</span>
-          <input
-            className={cls('variacao')}
-            value={fields.variacao}
-            inputMode="numeric"
-            placeholder="20"
-            onChange={(e) => onPatch({ variacao: maskVariacao(e.target.value) })}
-          />
-          <span className="ifm-unit">pts</span>
-        </label>
       </div>
 
       <div className="ifm-group">
         <h3 className="fv-form-heading">Mercado físico</h3>
-        <p className="ifm-group-hint">Café tipo 6/7, preço livre.</p>
 
         <div className="ifm-pair">
           <label className="inf-field">
@@ -142,7 +133,7 @@ export function InformativoMercadoFields({
           </label>
 
           <label className="inf-field">
-            <span className="inf-field-label">Preço</span>
+            <span className="inf-field-label">Preço (R$)</span>
             <input
               className={cls('fisicoPreco')}
               value={fields.fisicoPreco}
@@ -150,140 +141,98 @@ export function InformativoMercadoFields({
               placeholder="1.960,00"
               onChange={(e) => onPatch({ fisicoPreco: maskPreco(e.target.value) })}
             />
-            <span className="ifm-unit">R$</span>
           </label>
         </div>
       </div>
 
       <div className="ifm-group">
         <h3 className="fv-form-heading">Mercado futuro</h3>
-        <p className="ifm-group-hint">Preço livre, duas safras.</p>
 
-        <div className="ifm-pair">
-          <label className="inf-field">
-            <span className="inf-field-label">Ano da coluna 1</span>
-            <input
-              className={cls('futuroAnoA')}
-              value={slow.futuroAnoA}
-              inputMode="numeric"
-              placeholder="2026"
-              onChange={(e) => onPatchSlow({ futuroAnoA: maskAnoInput(e.target.value) })}
-            />
-          </label>
-          <label className="inf-field">
-            <span className="inf-field-label">Ano da coluna 2</span>
-            <input
-              className={cls('futuroAnoB')}
-              value={slow.futuroAnoB}
-              inputMode="numeric"
-              placeholder="2027"
-              onChange={(e) => onPatchSlow({ futuroAnoB: maskAnoInput(e.target.value) })}
-            />
-          </label>
-        </div>
+        {/* Uma coluna por ANO, espelhando a arte: mesmo ano fica junto. Cada
+            coluna = o ano + duas linhas Mês|Preço. */}
+        <div className="ifm-year-cols">
+          {(['A', 'B'] as const).map((col) => {
+            const anoKey = `futuroAno${col}` as const;
+            return (
+              <div className="ifm-year-col" key={col}>
+                <label className="inf-field">
+                  <span className="inf-field-label">Ano</span>
+                  <input
+                    className={cls(anoKey)}
+                    value={slow[anoKey]}
+                    inputMode="numeric"
+                    placeholder={col === 'A' ? '2026' : '2027'}
+                    onChange={(e) => onPatchSlow({ [anoKey]: maskAnoInput(e.target.value) })}
+                  />
+                </label>
 
-        {([1, 2] as const).map((n) => {
-          const mesAKey = `mesA${n}` as const;
-          const mesBKey = `mesB${n}` as const;
-          const precoAKey = `precoA${n}` as const;
-          const precoBKey = `precoB${n}` as const;
-          return (
-            <div className="ifm-row-group" key={n}>
-              <span className="ifm-row-legend">Linha {n}</span>
-              <div className="ifm-quad">
-                <label className="inf-field">
-                  <span className="inf-field-label">Mês {slow.futuroAnoA || '(coluna 1)'}</span>
-                  <input
-                    className={cls(mesAKey)}
-                    value={slow[mesAKey]}
-                    placeholder="AGO"
-                    onChange={(e) =>
-                      onPatchSlow({ [mesAKey]: maskUpperInput(e.target.value, MAX_LEN.mes) })
-                    }
-                  />
-                </label>
-                <label className="inf-field">
-                  <span className="inf-field-label">Preço</span>
-                  <input
-                    className={cls(precoAKey)}
-                    value={fields[precoAKey]}
-                    inputMode="numeric"
-                    placeholder="1.690,00"
-                    onChange={(e) => onPatch({ [precoAKey]: maskPreco(e.target.value) })}
-                  />
-                </label>
-                <label className="inf-field">
-                  <span className="inf-field-label">Mês {slow.futuroAnoB || '(coluna 2)'}</span>
-                  <input
-                    className={cls(mesBKey)}
-                    value={slow[mesBKey]}
-                    placeholder="AGO"
-                    onChange={(e) =>
-                      onPatchSlow({ [mesBKey]: maskUpperInput(e.target.value, MAX_LEN.mes) })
-                    }
-                  />
-                </label>
-                <label className="inf-field">
-                  <span className="inf-field-label">Preço</span>
-                  <input
-                    className={cls(precoBKey)}
-                    value={fields[precoBKey]}
-                    inputMode="numeric"
-                    placeholder="1.620,00"
-                    onChange={(e) => onPatch({ [precoBKey]: maskPreco(e.target.value) })}
-                  />
-                </label>
+                {([1, 2] as const).map((n) => {
+                  const mesKey = `mes${col}${n}` as const;
+                  const precoKey = `preco${col}${n}` as const;
+                  return (
+                    <div className="ifm-mp-row" key={n}>
+                      <label className="inf-field">
+                        <span className="inf-field-label">Mês</span>
+                        <input
+                          className={cls(mesKey)}
+                          value={slow[mesKey]}
+                          placeholder="AGO"
+                          onChange={(e) =>
+                            onPatchSlow({ [mesKey]: maskUpperInput(e.target.value, MAX_LEN.mes) })
+                          }
+                        />
+                      </label>
+                      <label className="inf-field">
+                        <span className="inf-field-label">Preço</span>
+                        <input
+                          className={cls(precoKey)}
+                          value={fields[precoKey]}
+                          inputMode="numeric"
+                          placeholder="1.690,00"
+                          onChange={(e) => onPatch({ [precoKey]: maskPreco(e.target.value) })}
+                        />
+                      </label>
+                    </div>
+                  );
+                })}
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
       <div className="ifm-group">
         <h3 className="fv-form-heading">CPR — mercado futuro</h3>
-        <p className="ifm-group-hint">Um valor por ano.</p>
 
-        <div className="ifm-quad">
-          <label className="inf-field">
-            <span className="inf-field-label">Ano da coluna 1</span>
-            <input
-              className={cls('cprAnoA')}
-              value={slow.cprAnoA}
-              inputMode="numeric"
-              placeholder="2026"
-              onChange={(e) => onPatchSlow({ cprAnoA: maskAnoInput(e.target.value) })}
-            />
-          </label>
-          <label className="inf-field">
-            <span className="inf-field-label">Valor</span>
-            <input
-              className={cls('cprA')}
-              value={fields.cprA}
-              inputMode="numeric"
-              placeholder="1.545,00"
-              onChange={(e) => onPatch({ cprA: maskPreco(e.target.value) })}
-            />
-          </label>
-          <label className="inf-field">
-            <span className="inf-field-label">Ano da coluna 2</span>
-            <input
-              className={cls('cprAnoB')}
-              value={slow.cprAnoB}
-              inputMode="numeric"
-              placeholder="2027"
-              onChange={(e) => onPatchSlow({ cprAnoB: maskAnoInput(e.target.value) })}
-            />
-          </label>
-          <label className="inf-field">
-            <span className="inf-field-label">Valor</span>
-            <input
-              className={cls('cprB')}
-              value={fields.cprB}
-              inputMode="numeric"
-              placeholder="1.245,00"
-              onChange={(e) => onPatch({ cprB: maskPreco(e.target.value) })}
-            />
-          </label>
+        <div className="ifm-year-cols">
+          {(['A', 'B'] as const).map((col) => {
+            const anoKey = `cprAno${col}` as const;
+            const valorKey = `cpr${col}` as const;
+            return (
+              <div className="ifm-year-col" key={col}>
+                <label className="inf-field">
+                  <span className="inf-field-label">Ano</span>
+                  <input
+                    className={cls(anoKey)}
+                    value={slow[anoKey]}
+                    inputMode="numeric"
+                    placeholder={col === 'A' ? '2026' : '2027'}
+                    onChange={(e) => onPatchSlow({ [anoKey]: maskAnoInput(e.target.value) })}
+                  />
+                </label>
+                <label className="inf-field">
+                  <span className="inf-field-label">Valor</span>
+                  <input
+                    className={cls(valorKey)}
+                    value={fields[valorKey]}
+                    inputMode="numeric"
+                    placeholder={col === 'A' ? '1.545,00' : '1.245,00'}
+                    onChange={(e) => onPatch({ [valorKey]: maskPreco(e.target.value) })}
+                  />
+                </label>
+              </div>
+            );
+          })}
         </div>
       </div>
     </>
