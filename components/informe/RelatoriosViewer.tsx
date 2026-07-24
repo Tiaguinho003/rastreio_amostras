@@ -16,6 +16,7 @@ import {
 } from '../../lib/api-client';
 import { isWeeklyReportAuthor } from '../../lib/roles';
 import { useDebouncedValue } from '../../lib/use-debounced-value';
+import { useIsDesktop } from '../../lib/use-desktop';
 import { useToast } from '../../lib/toast/ToastProvider';
 import type {
   InformeFeedItem,
@@ -80,6 +81,7 @@ interface RelatoriosViewerProps {
 
 export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) {
   const toast = useToast();
+  const isDesktop = useIsDesktop();
 
   const [items, setItems] = useState<InformeFeedItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -275,10 +277,12 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
         ? 'igual à semana passada'
         : `${weekDelta > 0 ? '+' : '−'}${Math.abs(weekDelta)} vs. semana passada`;
 
-  // 2 KPI cards de VISITA (esquerda da faixa). Icones = os do leque de criacao
-  // (prancheta-check p/ visita, calendario p/ semana).
-  const kpiRow = (
-    <div className="rsm-kpis">
+  // 2 KPI cards de VISITA. Funcao (nao elemento compartilhado): no mobile os
+  // cards da faixa (.rsm-kpis, escondida) e os da chrome de lista (.fv-kpi-row)
+  // coexistem no DOM — cada wrapper precisa de instancias frescas. Icones = os
+  // do leque de criacao (prancheta-check p/ visita, calendario p/ semana).
+  const renderVisitKpiCards = () => (
+    <>
       <article className="fv-kpi">
         <div className="fv-kpi-top">
           <span className="fv-kpi-label">Total de visitas</span>
@@ -329,8 +333,14 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
           </span>
         </div>
       </article>
-    </div>
+    </>
   );
+
+  // Desktop: cards na faixa do topo (byte-identico ao que ja existia).
+  const kpiRow = <div className="rsm-kpis">{renderVisitKpiCards()}</div>;
+
+  // Mobile: mesmos cards em grid 2-up, dentro da rolagem (via mobileListChrome).
+  const mobileKpi = <div className="fv-kpi-row">{renderVisitKpiCards()}</div>;
 
   // 3 botoes de criacao (direita da faixa, desktop). "Semanal" so p/ autor
   // (ADMIN + COMMERCIAL). Icones espelham o leque.
@@ -432,6 +442,17 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
     </div>
   );
 
+  // Chrome mobile: KPI-2 + toolbar entram DENTRO da rolagem (kit FV, molde
+  // /samples//cadastros). No desktop e null — a faixa tem os KPIs e a toolbar
+  // fica no topo do cartao. `toolbar` e o MESMO elemento do topo; como isDesktop
+  // gateia os dois lados, ele monta em no maximo um lugar por render.
+  const mobileListChrome = isDesktop ? null : (
+    <>
+      {mobileKpi}
+      {toolbar}
+    </>
+  );
+
   return (
     <>
       <section className="sdv-page relatorios-page">
@@ -444,18 +465,13 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
         </div>
 
         <section className="sdv-content informe-content rsm-content">
-          {toolbar}
+          {isDesktop ? toolbar : null}
 
           <div className="rsm-feed">
-            {/* Mobile mantem a legenda de contagem enxuta; no desktop a contagem
-                vive na toolbar (esta .rsm-intro fica display:none >=901px). */}
-            {!initialLoading && !error ? (
-              <header className="rsm-intro">
-                <span className="rsm-total-chip">
-                  {total} {total === 1 ? 'relatório' : 'relatórios'}
-                </span>
-              </header>
-            ) : null}
+            {/* Chrome mobile (KPI-2 + toolbar) como PRIMEIRO filho do feed, antes
+                de qualquer ramo, pra a busca seguir visivel em vazio/erro/sem-
+                resultado. No desktop e null (a faixa/toolbar do topo cuidam). */}
+            {mobileListChrome}
 
             {initialLoading ? (
               <div className="rsm-list" aria-hidden="true">
