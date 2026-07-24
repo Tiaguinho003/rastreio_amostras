@@ -131,20 +131,22 @@ export function computeVisitWeekWindows(now = new Date()) {
   };
 }
 
-// Janela do MES BRT corrente p/ a serie diaria da sparkline (dia 1 -> hoje).
-// inicio = dia 1 00:00 BRT (= 03:00Z); fim EXCLUSIVO = amanha 00:00 BRT (cobre
-// o dia de hoje inteiro). daysInSeries = dia-do-mes de hoje (comprimento da
-// serie: indice 0 = dia 1 ... ultimo = hoje). Offset fixo -3h como os irmaos.
-export function computeVisitMonthWindows(now = new Date()) {
-  const brtNow = new Date(now.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
-  const year = brtNow.getUTCFullYear();
-  const month = brtNow.getUTCMonth();
-  const day = brtNow.getUTCDate();
-  return {
-    monthStartUtc: new Date(Date.UTC(year, month, 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0)),
-    todayEndUtc: new Date(Date.UTC(year, month, day + 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0)),
-    daysInSeries: day,
-  };
+// 13 semanas BRT (segunda->segunda) p/ o grafico de tendencia do card "Visitas
+// esta semana": a ATUAL + 12 anteriores (~90 dias). Reusa a segunda da semana
+// corrente de computeVisitWeekWindows; a janela [startUtc, endUtc) cobre as 13
+// semanas (endUtc = proxima segunda = fim da semana atual). weekStarts = as 13
+// datas 'YYYY-MM-DD' das segundas BRT (indice canonico p/ zero-fill; [12] = a
+// semana de hoje, cujo count bate com visitsThisWeek). Offset fixo -3h.
+export function computeVisitTrendWindows(now = new Date(), weeks = 13) {
+  const { thisWeekStartUtc, nextWeekStartUtc } = computeVisitWeekWindows(now);
+  const startUtc = new Date(thisWeekStartUtc.getTime() - (weeks - 1) * 7 * 24 * 3600_000);
+  // startUtc e' segunda 03:00Z; -3h -> segunda 00:00Z cuja DATA UTC = a segunda BRT.
+  const weekStarts = Array.from({ length: weeks }, (_, i) =>
+    new Date(startUtc.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000 + i * 7 * 24 * 3600_000)
+      .toISOString()
+      .slice(0, 10)
+  );
+  return { startUtc, endUtc: nextWeekStartUtc, weekStarts };
 }
 
 const INFORME_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -540,39 +542,44 @@ export class VisitReportService {
     const actor = assertAuthenticatedActor(actorContext, 'read relatorios stats');
     assertRoleAllowed(actor.role, VISIT_REPORT_VIEWER_ROLES, 'read relatorios stats');
     const { prevWeekStartUtc, thisWeekStartUtc, nextWeekStartUtc } = computeVisitWeekWindows(now);
-    const { monthStartUtc, todayEndUtc, daysInSeries } = computeVisitMonthWindows(now);
-    const [totalVisits, visitsThisWeek, visitsLastWeek, dailyRows] = await this.prisma.$transaction(
-      [
-        this.prisma.visitReport.count({ where: { cancelledAt: null } }),
-        this.prisma.visitReport.count({
-          where: { cancelledAt: null, createdAt: { gte: thisWeekStartUtc, lt: nextWeekStartUtc } },
-        }),
-        this.prisma.visitReport.count({
-          where: { cancelledAt: null, createdAt: { gte: prevWeekStartUtc, lt: thisWeekStartUtc } },
-        }),
-        // Serie diaria do mes: agrupa por dia-do-mes BRT. Deriva o dia com
-        // (created_at AT TIME ZONE 'UTC') - INTERVAL '3 hours' (independente do
-        // TimeZone da sessao do banco), NAO `::date` cru. Bucketa por created_at
-        // (coerente com as contagens de semana), so nao-canceladas, todos autores.
-        this.prisma.$queryRaw`
+    const { startUtc, endUtc, weekStarts } = computeVisitTrendWindows(now);
+    const [totalVisits, visitsThisWeek, visitsLastWeek, weekRows] = await this.prisma.$transaction([
+      this.prisma.visitReport.count({ where: { cancelledAt: null } }),
+      this.prisma.visitReport.count({
+        where: { cancelledAt: null, createdAt: { gte: thisWeekStartUtc, lt: nextWeekStartUtc } },
+      }),
+      this.prisma.visitReport.count({
+        where: { cancelledAt: null, createdAt: { gte: prevWeekStartUtc, lt: thisWeekStartUtc } },
+      }),
+      // Tendencia semanal (~90 dias): agrupa por SEMANA BRT via date_trunc('week',
+      // ...) sobre o timestamp deslocado -3h (ISO week = segunda; independente do
+      // TimeZone da sessao do banco, NAO `::date` cru). So nao-canceladas, todos autores.
+      this.prisma.$queryRaw`
         SELECT
-          EXTRACT(DAY FROM ((v."created_at" AT TIME ZONE 'UTC') - INTERVAL '3 hours'))::INTEGER AS "dayOfMonth",
+          date_trunc('week', (v."created_at" AT TIME ZONE 'UTC') - INTERVAL '3 hours')::date AS "weekStart",
           COUNT(*)::INTEGER AS "count"
         FROM "visit_report" v
         WHERE v."cancelled_at" IS NULL
-          AND v."created_at" >= ${monthStartUtc}
-          AND v."created_at" < ${todayEndUtc}
+          AND v."created_at" >= ${startUtc}
+          AND v."created_at" < ${endUtc}
         GROUP BY 1
       `,
-      ]
+    ]);
+    // Zero-fill nas 13 semanas (indice 0 = mais antiga ... 12 = a semana atual).
+    // Prisma pode devolver weekStart como Date -> normaliza p/ 'YYYY-MM-DD'.
+    const byWeek = new Map(
+      weekRows.map((row) => [
+        row.weekStart instanceof Date
+          ? row.weekStart.toISOString().slice(0, 10)
+          : String(row.weekStart),
+        Number(row.count),
+      ])
     );
-    // Zero-fill do dia 1 (indice 0) ate hoje (indice daysInSeries-1).
-    const dailyThisMonth = Array.from({ length: daysInSeries }, () => 0);
-    for (const row of dailyRows) {
-      const idx = Number(row.dayOfMonth) - 1;
-      if (idx >= 0 && idx < daysInSeries) dailyThisMonth[idx] = Number(row.count);
-    }
-    return { totalVisits, visitsThisWeek, visitsLastWeek, dailyThisMonth };
+    const weeklyTrend = weekStarts.map((weekStart) => ({
+      weekStart,
+      count: byWeek.get(weekStart) ?? 0,
+    }));
+    return { totalVisits, visitsThisWeek, visitsLastWeek, weeklyTrend };
   }
 
   // ---- Relatorio SEMANAL ----

@@ -1566,21 +1566,24 @@ export interface InformeFeedResponse {
   };
 }
 
-// Cards da pagina "Relatorios" (2 KPIs de VISITA, EXCLUINDO canceladas). O delta
-// da semana e derivado na UI (thisWeek vs lastWeek). Semana = segunda 00:00 BRT.
+// Card da pagina "Relatorios": KPI de VISITA "Visitas esta semana" (EXCLUINDO
+// canceladas) + a tendencia semanal que alimenta o grafico. Semana = segunda
+// 00:00 BRT. (totalVisits/visitsLastWeek seguem no payload — usados por outros
+// consumidores/testes — mesmo sem card proprio hoje.)
 export interface RelatoriosStatsResponse {
   /** Total de visitas (nao-canceladas). */
   totalVisits: number;
   /** Visitas desta semana. */
   visitsThisWeek: number;
-  /** Visitas da semana anterior (base do delta). */
+  /** Visitas da semana anterior. */
   visitsLastWeek: number;
   /**
-   * Serie diaria de visitas (nao-canceladas) do mes corrente, do dia 1 ate
-   * hoje (BRT). Indice 0 = dia 1 ... ultimo = hoje. Base da sparkline do card
-   * "Visitas esta semana".
+   * Tendencia de visitas (nao-canceladas) por SEMANA BRT: 13 semanas (a atual
+   * + 12 anteriores, ~90 dias), zero-preenchida e em ordem cronologica.
+   * weekStart = segunda 'YYYY-MM-DD'; indice 12 = semana atual (count ==
+   * visitsThisWeek). Base do grafico de tendencia do card "Visitas esta semana".
    */
-  dailyThisMonth: number[];
+  weeklyTrend: { weekStart: string; count: number }[];
 }
 
 export type InformeFeedType = 'VISIT_REPORT' | 'WEEKLY_REPORT';

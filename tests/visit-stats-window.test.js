@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  computeVisitMonthWindows,
   computeVisitStatsWindows,
+  computeVisitTrendWindows,
   computeVisitWeekWindows,
 } from '../src/visits/visit-report-service.js';
 
@@ -108,43 +108,41 @@ test('as duas janelas de semana sao contiguas e de 7 dias', () => {
   assert.strictEqual((thisWeekStartUtc.getTime() - prevWeekStartUtc.getTime()) / 86_400_000, 7);
 });
 
-// Janela do MES BRT corrente (dia 1 -> hoje) da serie diaria da sparkline.
-// inicio inclusivo = dia 1 03:00Z; fim exclusivo = amanha 03:00Z; days = dia-do-mes.
+// Janela de 13 semanas BRT (atual + 12 anteriores, ~90 dias) da tendencia do
+// card. weekStarts = segundas 'YYYY-MM-DD'; [12] = a semana de `now` (o count
+// dela == visitsThisWeek); janela [startUtc, endUtc) alinhada a segunda.
 
-test('mes BRT em dia comum: serie do dia 1 ate hoje', () => {
-  const { monthStartUtc, todayEndUtc, daysInSeries } = computeVisitMonthWindows(
-    brt(2026, 7, 22, 14, 30)
-  );
-  assert.strictEqual(monthStartUtc.toISOString(), '2026-07-01T03:00:00.000Z');
-  assert.strictEqual(todayEndUtc.toISOString(), '2026-07-23T03:00:00.000Z');
-  assert.strictEqual(daysInSeries, 22);
-  // fim exclusivo cobre exatamente daysInSeries dias a partir do inicio.
-  assert.strictEqual((todayEndUtc.getTime() - monthStartUtc.getTime()) / 86_400_000, 22);
+test('tendencia: 13 semanas BRT terminando na semana corrente', () => {
+  const { startUtc, endUtc, weekStarts } = computeVisitTrendWindows(brt(2026, 7, 22, 14, 30));
+  assert.strictEqual(weekStarts.length, 13);
+  assert.strictEqual(weekStarts[0], '2026-04-27'); // segunda 12 semanas atras
+  assert.strictEqual(weekStarts[12], '2026-07-20'); // segunda da semana de hoje
+  assert.strictEqual(startUtc.toISOString(), '2026-04-27T03:00:00.000Z');
+  assert.strictEqual(endUtc.toISOString(), '2026-07-27T03:00:00.000Z'); // proxima segunda (exclusivo)
+  // A janela cobre exatamente 13 semanas (91 dias).
+  assert.strictEqual((endUtc.getTime() - startUtc.getTime()) / 86_400_000, 91);
 });
 
-test('dia 1 do mes: serie de comprimento 1', () => {
-  const { monthStartUtc, todayEndUtc, daysInSeries } = computeVisitMonthWindows(
-    brt(2026, 7, 1, 10, 0)
-  );
-  assert.strictEqual(monthStartUtc.toISOString(), '2026-07-01T03:00:00.000Z');
-  assert.strictEqual(todayEndUtc.toISOString(), '2026-07-02T03:00:00.000Z');
-  assert.strictEqual(daysInSeries, 1);
+test('tendencia: weekStarts sao segundas consecutivas (delta 7 dias)', () => {
+  const { weekStarts } = computeVisitTrendWindows(brt(2026, 7, 22, 14, 30));
+  for (let i = 1; i < weekStarts.length; i += 1) {
+    const prev = new Date(`${weekStarts[i - 1]}T00:00:00.000Z`).getTime();
+    const curr = new Date(`${weekStarts[i]}T00:00:00.000Z`).getTime();
+    assert.strictEqual((curr - prev) / 86_400_000, 7, `semana ${i}`);
+  }
 });
 
-test('02:59Z do dia 1 ainda e o ultimo dia do mes anterior (BRT)', () => {
-  const { monthStartUtc, todayEndUtc, daysInSeries } = computeVisitMonthWindows(
-    new Date('2026-07-01T02:59:59.000Z')
-  );
-  assert.strictEqual(monthStartUtc.toISOString(), '2026-06-01T03:00:00.000Z');
-  assert.strictEqual(todayEndUtc.toISOString(), '2026-07-01T03:00:00.000Z');
-  assert.strictEqual(daysInSeries, 30);
+test('tendencia: domingo BRT pertence a semana da segunda anterior', () => {
+  // 2026-07-26 e domingo BRT (semana 20-26/07): a semana corrente segue a de 20/07.
+  const { weekStarts } = computeVisitTrendWindows(brt(2026, 7, 26, 10, 0));
+  assert.strictEqual(weekStarts[12], '2026-07-20');
 });
 
-test('virada de ano: 31/12 BRT abre serie de dezembro', () => {
-  const { monthStartUtc, todayEndUtc, daysInSeries } = computeVisitMonthWindows(
-    new Date('2027-01-01T02:59:59.000Z')
-  );
-  assert.strictEqual(monthStartUtc.toISOString(), '2026-12-01T03:00:00.000Z');
-  assert.strictEqual(todayEndUtc.toISOString(), '2027-01-01T03:00:00.000Z');
-  assert.strictEqual(daysInSeries, 31);
+test('tendencia: virada de ano (semana corrente cruza dez/jan)', () => {
+  // 2026-01-01 e quinta; a segunda dessa semana e 2025-12-29.
+  const { startUtc, endUtc, weekStarts } = computeVisitTrendWindows(brt(2026, 1, 1, 12, 0));
+  assert.strictEqual(weekStarts.length, 13);
+  assert.strictEqual(weekStarts[12], '2025-12-29');
+  assert.strictEqual(startUtc.toISOString(), '2025-10-06T03:00:00.000Z'); // 12 semanas antes
+  assert.strictEqual(endUtc.toISOString(), '2026-01-05T03:00:00.000Z'); // proxima segunda
 });

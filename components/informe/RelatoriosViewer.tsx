@@ -237,8 +237,8 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
         <span className="fv-kpi-value">
           {stats ? stats.visitsThisWeek.toLocaleString('pt-BR') : '—'}
         </span>
-        {stats && stats.dailyThisMonth.length > 0 ? (
-          <VisitsSparkline data={stats.dailyThisMonth} />
+        {stats && stats.weeklyTrend.length > 0 ? (
+          <VisitsSparkline data={stats.weeklyTrend.map((week) => week.count)} />
         ) : null}
       </div>
     </article>
