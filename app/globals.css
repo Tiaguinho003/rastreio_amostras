@@ -5098,13 +5098,29 @@ button:disabled {
    (.fab-fan/.fab-fan-option, position:fixed) ancorar corretamente no FAB. */
 .rsm-fab-anchor {
   --fab-right: clamp(24px, 7vw, 34px);
-  --fab-size: clamp(53px, 14.95vw, 60px);
+  --fab-size: clamp(46px, 13vw, 52px);
   --fab-bottom: calc(
     var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(6.3rem, 27vw, 6.8rem)
   );
   --fan-opt-size: clamp(44px, 12vw, 50px);
   --fan-gap: clamp(40px, 12vw, 50px);
   --fan-radius: calc(var(--fab-size) / 2 + var(--fan-gap) + var(--fan-opt-size) / 2);
+}
+
+/* FAB de criar do /relatorios do mesmo tamanho que o "+" de Lotes: o botao usa
+   o BASE .cv2-fab (nao a var), entao amarramos a largura a --fab-size — mirror
+   do .samples-page-v2 .cv2-fab. Fica acima de .cv2-fab.is-expanded pra o raio
+   50% do estado aberto ainda vencer. */
+@media (max-width: 900px) {
+  .rsm-fab-anchor .cv2-fab {
+    width: var(--fab-size);
+    height: var(--fab-size);
+    border-radius: clamp(14px, 4vw, 16px);
+  }
+  .rsm-fab-anchor .cv2-fab svg {
+    width: clamp(18px, 5vw, 21px);
+    height: clamp(18px, 5vw, 21px);
+  }
 }
 
 /* FAB radial da pagina /contratos (ContractCreateRadialFab) — mesmas vars do
