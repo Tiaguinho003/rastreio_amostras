@@ -8874,12 +8874,12 @@ button:disabled {
     overflow: hidden;
   }
 
-  /* Faixa: cards a esquerda, botoes a direita, ambos alinhados ao TOPO (o
-     .fv-page-head base centraliza — aqui os cards sao mais altos que os botoes).
-     flex-wrap = rede de seguranca: num desktop estreito (901–1100px) os botoes
-     descem pra uma 2a linha em vez de espremer/estourar a faixa. */
+  /* Faixa: cards a esquerda, botoes a direita, os botoes alinhados a BASE dos
+     cards (que sao mais altos que os botoes) — pedido do Flavio. flex-wrap =
+     rede de seguranca: num desktop estreito (901–1100px) os botoes descem pra
+     uma 2a linha em vez de espremer/estourar a faixa. */
   .relatorios-page .rsm-page-head {
-    align-items: flex-start;
+    align-items: flex-end;
     flex-wrap: wrap;
     row-gap: 0.8rem;
   }
