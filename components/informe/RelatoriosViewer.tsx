@@ -1,11 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { InformeCreateRadialFab } from './InformeCreateRadialFab';
 import { useInformeCreateSheets } from './useInformeCreateSheets';
 import { WeeklyReportCard } from './WeeklyReportCard';
-import { BottomSheet } from '../BottomSheet';
 import { VisitReportCard } from '../visits/VisitReportCard';
 import {
   ApiError,
@@ -21,7 +20,6 @@ import { useToast } from '../../lib/toast/ToastProvider';
 import type {
   InformeFeedItem,
   InformeFeedQuery,
-  InformeFeedStatus,
   InformeFeedType,
   RelatoriosStatsResponse,
   SessionData,
@@ -48,28 +46,14 @@ function cancelLabels(item: InformeFeedItem) {
   return { title: 'Cancelar visita?', success: 'Visita cancelada' };
 }
 
-// Filtros laterais (desktop): `''` = "Todos" (param omitido). Autor fica de fora
-// desta rodada — a busca ja casa por nome de autor, e um seletor de autor exigiria
-// um endpoint de autores distintos acessivel a TODO viewer (o /users e ADMIN-only).
-interface RelatoriosFilters {
-  type: '' | InformeFeedType;
-  status: '' | InformeFeedStatus;
-  from: string;
-  to: string;
-}
-
-const EMPTY_FILTERS: RelatoriosFilters = { type: '', status: '', from: '', to: '' };
-
-const TYPE_OPTIONS: { value: '' | InformeFeedType; label: string }[] = [
-  { value: '', label: 'Todos' },
-  { value: 'VISIT_REPORT', label: 'Visita' },
+// Filtro por TIPO — chips fixos no topo do histórico (Todas/Visitas/Semanal),
+// aplicam imediato (sem rascunho). `''` = "Todas" (param omitido). Status e
+// Período saíram na reformulação: a busca já casa autor/cliente, e um seletor de
+// autor exigiria um endpoint de autores acessível a todo viewer (/users é ADMIN).
+const TYPE_CHIPS: { value: '' | InformeFeedType; label: string }[] = [
+  { value: '', label: 'Todas' },
+  { value: 'VISIT_REPORT', label: 'Visitas' },
   { value: 'WEEKLY_REPORT', label: 'Semanal' },
-];
-
-const STATUS_OPTIONS: { value: '' | InformeFeedStatus; label: string }[] = [
-  { value: '', label: 'Todos' },
-  { value: 'active', label: 'Ativos' },
-  { value: 'cancelled', label: 'Cancelados' },
 ];
 
 interface RelatoriosViewerProps {
@@ -99,34 +83,19 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
   const [cancelTarget, setCancelTarget] = useState<InformeFeedItem | null>(null);
   const [cancelling, setCancelling] = useState(false);
 
-  // Filtros laterais: `applied` alimenta o feed; `draft` e o que o painel edita
-  // ate o "Aplicar" (mesmo padrao de /samples).
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [appliedFilters, setAppliedFilters] = useState<RelatoriosFilters>(EMPTY_FILTERS);
-  const [draftFilters, setDraftFilters] = useState<RelatoriosFilters>(EMPTY_FILTERS);
+  // Filtro por tipo (chips): aplica imediato — sem rascunho/painel.
+  const [typeFilter, setTypeFilter] = useState<'' | InformeFeedType>('');
+  const hasActiveQuery = Boolean(debouncedSearch) || Boolean(typeFilter);
 
-  const activeFilterCount =
-    (appliedFilters.type ? 1 : 0) +
-    (appliedFilters.status ? 1 : 0) +
-    (appliedFilters.from || appliedFilters.to ? 1 : 0);
-  const draftHasFilters =
-    Boolean(draftFilters.type) ||
-    Boolean(draftFilters.status) ||
-    Boolean(draftFilters.from) ||
-    Boolean(draftFilters.to);
-  const hasActiveQuery = Boolean(debouncedSearch) || activeFilterCount > 0;
-
-  // Params do feed (R7). Memo pra so a busca (debounced) e os filtros APLICADOS
-  // dispararem o refetch — sem um objeto novo a cada render acionando o efeito.
+  // Params do feed (R7). Memo pra só a busca (debounced) e o tipo dispararem o
+  // refetch — sem um objeto novo a cada render acionando o efeito. O backend
+  // ainda aceita status/from/to; esta UI só não os envia mais.
   const feedQuery = useMemo<InformeFeedQuery>(
     () => ({
       search: debouncedSearch || undefined,
-      type: appliedFilters.type || undefined,
-      status: appliedFilters.status || undefined,
-      from: appliedFilters.from || undefined,
-      to: appliedFilters.to || undefined,
+      type: typeFilter || undefined,
     }),
-    [debouncedSearch, appliedFilters]
+    [debouncedSearch, typeFilter]
   );
 
   const loadPage = useCallback(
@@ -209,26 +178,6 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
     session,
     onSubmitted: handleSubmitted,
   });
-
-  // Painel de filtros: abre com o rascunho sincronizado ao que esta aplicado.
-  const openFilters = useCallback(() => {
-    setDraftFilters(appliedFilters);
-    setFiltersOpen(true);
-  }, [appliedFilters]);
-
-  const handleApplyFilters = useCallback(
-    (event: FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      setAppliedFilters(draftFilters);
-      setFiltersOpen(false);
-    },
-    [draftFilters]
-  );
-
-  const handleClearFilters = useCallback(() => {
-    setDraftFilters(EMPTY_FILTERS);
-    setAppliedFilters(EMPTY_FILTERS);
-  }, []);
 
   // Cancelamento soft: substitui o item na lista (fica marcado como "Cancelado")
   // e reconta os KPIs (uma visita cancelada sai do total).
@@ -416,29 +365,29 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
           </button>
         ) : null}
       </form>
-      <button
-        type="button"
-        className="fv-btn fv-btn-secondary fv-toolbar-filter"
-        aria-haspopup="dialog"
-        aria-expanded={filtersOpen}
-        onClick={() => (filtersOpen ? setFiltersOpen(false) : openFilters())}
-      >
-        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-          <path d="M4 6h16" />
-          <path d="M7 12h10" />
-          <path d="M10 18h4" />
-        </svg>
-        <span className="fv-toolbar-filter-label">Filtros</span>
-        {activeFilterCount > 0 ? <span className="fv-btn-badge">{activeFilterCount}</span> : null}
-      </button>
-      {activeFilterCount > 0 ? (
-        <button type="button" className="fv-toolbar-clear" onClick={handleClearFilters}>
-          Limpar
-        </button>
-      ) : null}
       <span className="fv-toolbar-count">
         {total} {total === 1 ? 'relatório' : 'relatórios'}
       </span>
+    </div>
+  );
+
+  // Chips fixos de TIPO no topo do histórico (Todas/Visitas/Semanal) — aplicam
+  // imediato, sem rascunho/painel. Substituem o antigo painel de filtros; reusam
+  // o visual .fv-choice (hairline + ring no selecionado, afunda ao clicar).
+  const typeChips = (
+    <div className="rsm-type-chips" role="radiogroup" aria-label="Tipo de relatório">
+      {TYPE_CHIPS.map((chip) => (
+        <button
+          key={chip.value || 'all'}
+          type="button"
+          role="radio"
+          aria-checked={typeFilter === chip.value}
+          className={`fv-choice${typeFilter === chip.value ? ' is-selected' : ''}`}
+          onClick={() => setTypeFilter(chip.value)}
+        >
+          <span className="fv-choice-label">{chip.label}</span>
+        </button>
+      ))}
     </div>
   );
 
@@ -472,6 +421,9 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
                 de qualquer ramo, pra a busca seguir visivel em vazio/erro/sem-
                 resultado. No desktop e null (a faixa/toolbar do topo cuidam). */}
             {mobileListChrome}
+            {/* Chips de tipo — 1º filho fixo do feed (ambos breakpoints), acima
+                da lista, seguem visíveis em vazio/erro/carregando. */}
+            {typeChips}
 
             {initialLoading ? (
               <div className="rsm-list" aria-hidden="true">
@@ -509,7 +461,7 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
                 </p>
                 <p className="rsm-empty-sub">
                   {hasActiveQuery
-                    ? 'Ajuste a busca ou os filtros.'
+                    ? 'Ajuste a busca ou o tipo.'
                     : 'As visitas e os relatórios semanais aparecem aqui.'}
                 </p>
               </div>
@@ -575,101 +527,6 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
 
         {sheets}
       </section>
-
-      {/* Filtros laterais (desktop = painel direito; mobile = bottom sheet, mas
-          o gatilho — "Filtros" da toolbar — so existe no desktop por ora).
-          Rascunho + Aplicar/Limpar, molde do painel de /samples. */}
-      <BottomSheet
-        open={filtersOpen}
-        onClose={() => setFiltersOpen(false)}
-        ariaLabel="Filtros de relatórios"
-        className="side-sheet fv-filter-sheet relatorios-filter-sheet"
-        footer={
-          <div className="fv-filter-actions">
-            <button
-              type="button"
-              className="fv-btn fv-btn-secondary"
-              onClick={handleClearFilters}
-              disabled={!draftHasFilters && activeFilterCount === 0}
-            >
-              Limpar
-            </button>
-            <button type="submit" form="relatorios-filter-form" className="fv-btn fv-btn-primary">
-              Aplicar
-            </button>
-          </div>
-        }
-      >
-        <form
-          id="relatorios-filter-form"
-          className="relatorios-filter-sheet-form"
-          onSubmit={handleApplyFilters}
-        >
-          <div className="samples-filter-field">
-            <span className="samples-filter-field-label">Tipo</span>
-            <div className="fv-choice-group" role="radiogroup" aria-label="Tipo de relatório">
-              {TYPE_OPTIONS.map((option) => (
-                <button
-                  key={option.value || 'all'}
-                  type="button"
-                  role="radio"
-                  aria-checked={draftFilters.type === option.value}
-                  className={`fv-choice${draftFilters.type === option.value ? ' is-selected' : ''}`}
-                  onClick={() => setDraftFilters((current) => ({ ...current, type: option.value }))}
-                >
-                  <span className="fv-choice-label">{option.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="samples-filter-field">
-            <span className="samples-filter-field-label">Status</span>
-            <div className="fv-choice-group" role="radiogroup" aria-label="Status">
-              {STATUS_OPTIONS.map((option) => (
-                <button
-                  key={option.value || 'all'}
-                  type="button"
-                  role="radio"
-                  aria-checked={draftFilters.status === option.value}
-                  className={`fv-choice${draftFilters.status === option.value ? ' is-selected' : ''}`}
-                  onClick={() =>
-                    setDraftFilters((current) => ({ ...current, status: option.value }))
-                  }
-                >
-                  <span className="fv-choice-label">{option.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="samples-filter-field">
-            <span className="samples-filter-field-label">Período</span>
-            <div className="samples-filter-split-grid">
-              <input
-                className={`samples-filter-field-input${draftFilters.from === '' ? ' is-placeholder' : ' is-active'}`}
-                type="date"
-                value={draftFilters.from}
-                max={draftFilters.to || undefined}
-                onChange={(event) =>
-                  setDraftFilters((current) => ({ ...current, from: event.target.value }))
-                }
-                aria-label="Data inicial"
-              />
-              <input
-                className={`samples-filter-field-input${draftFilters.to === '' ? ' is-placeholder' : ' is-active'}`}
-                type="date"
-                value={draftFilters.to}
-                min={draftFilters.from || undefined}
-                onChange={(event) =>
-                  setDraftFilters((current) => ({ ...current, to: event.target.value }))
-                }
-                aria-label="Data final"
-              />
-            </div>
-          </div>
-        </form>
-      </BottomSheet>
 
       {cancelTarget ? (
         <div

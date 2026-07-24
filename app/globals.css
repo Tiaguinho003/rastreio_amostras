@@ -13627,26 +13627,21 @@ body:has(.app-modal-backdrop) .prospector-fab {
   padding: 0.25rem 0.15rem 0.6rem;
 }
 
-/* Painel de filtros de /relatorios (Tipo/Status/Periodo): mesma familia do de
-   /samples, mas empilhamento simples (sem as linhas de 2 colunas). Reusa os
-   campos .samples-filter-field* (label + date grid) e os pills .fv-choice. */
-.relatorios-filter-sheet-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.05rem;
-  padding: 0.35rem 0.15rem 0.6rem;
-}
-/* Tipo e Status tem 3 opcoes cada — 3 colunas (o kit .fv-choice-group e 2, que
-   deixaria a 3a pilula sozinha na linha de baixo). Pilulas centradas: no filtro
-   sao rotulos curtos (Todos/Visita/Semanal), nao campos de formulario. */
-.relatorios-filter-sheet-form .fv-choice-group {
+/* Chips fixos de TIPO no topo do histórico de /relatorios (Todas/Visitas/
+   Semanal) — substituem o antigo painel de filtros lateral. Aplicam imediato;
+   reusam .fv-choice (hairline + ring no is-selected, afunda ao clicar). 3
+   colunas iguais; o espaçamento vertical vem do gap do .rsm-feed. */
+.rsm-type-chips {
+  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
 }
-.relatorios-filter-sheet-form .fv-choice {
+.rsm-type-chips .fv-choice {
   align-content: center;
   text-align: center;
+  padding: 0.5rem 0.6rem;
 }
-.relatorios-filter-sheet-form .fv-choice-label {
+.rsm-type-chips .fv-choice-label {
   font-size: 0.82rem;
 }
 
