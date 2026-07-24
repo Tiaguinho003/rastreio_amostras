@@ -5103,7 +5103,7 @@ button:disabled {
     var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(6.3rem, 27vw, 6.8rem)
   );
   --fan-opt-size: clamp(44px, 12vw, 50px);
-  --fan-gap: clamp(40px, 12vw, 50px);
+  --fan-gap: clamp(52px, 15vw, 64px);
   --fan-radius: calc(var(--fab-size) / 2 + var(--fan-gap) + var(--fan-opt-size) / 2);
 }
 

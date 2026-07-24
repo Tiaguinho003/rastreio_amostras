@@ -1,8 +1,8 @@
 'use client';
 
 // FAB radial da pagina /relatorios. Usa o mesmo LEQUE (speed-dial) da pagina
-// /samples (.fab-fan-*): 3 opcoes circulares emergem do FAB em arco — Visitas
-// ACIMA (posicao is-lote), Informativo na DIAGONAL (posicao is-liga) e
+// /samples (.fab-fan-*): 3 opcoes circulares emergem do FAB em arco —
+// Informativo ACIMA (posicao is-lote), Visitas na DIAGONAL (posicao is-liga) e
 // Relatorio A ESQUERDA (posicao is-aprovacao). Ao abrir, o FAB encolhe e fica
 // circular, a pagina escurece (scrim no tier de modal) e a tabbar escurece
 // (body.is-fab-fan-*). Diferenca visual vs Lotes: o FAB MANTEM o icone LAPIS —
@@ -170,38 +170,11 @@ export function InformeCreateRadialFab({
 
       {mounted && (
         <div className="fab-fan" role="menu" aria-label="Opções de formulário" aria-hidden={!open}>
-          {/* Visitas — acima do FAB (posicao is-lote do arco) */}
+          {/* Informativo — acima do FAB (posicao is-lote do arco), PRIMEIRO do
+              leque. Nao cria registro: gera a imagem do story e some. */}
           <button
             type="button"
             className={`fab-fan-option is-lote${open ? ' is-open' : ''}${
-              pulsingOption === 'visit' ? ' is-pulsing' : ''
-            }`}
-            aria-label="Nova visita"
-            role="menuitem"
-            tabIndex={open ? 0 : -1}
-            onClick={() => handleOptionTap('visit')}
-          >
-            <span className="fab-fan-option-label">Visitas</span>
-            <span className="fab-fan-option-circle">
-              <svg
-                className="fab-fan-option-icon"
-                viewBox="0 0 24 24"
-                focusable="false"
-                aria-hidden="true"
-              >
-                {/* Prancheta com check — visita registrada. */}
-                <rect x="5.5" y="4" width="13" height="17" rx="2.2" />
-                <rect x="9" y="2.5" width="6" height="3.5" rx="1.2" />
-                <path d="m9 13.5 2.3 2.3 4.4-5" />
-              </svg>
-            </span>
-          </button>
-
-          {/* Informativo — na diagonal (posicao is-liga do arco). Nao cria
-              registro: gera a imagem do story e some. */}
-          <button
-            type="button"
-            className={`fab-fan-option is-liga${open ? ' is-open' : ''}${
               pulsingOption === 'informativo' ? ' is-pulsing' : ''
             }`}
             aria-label="Novo informativo de mercado"
@@ -221,6 +194,33 @@ export function InformeCreateRadialFab({
                 <rect x="3" y="4.5" width="18" height="15" rx="2.2" />
                 <circle cx="8.5" cy="10" r="1.6" />
                 <path d="m4 17 4.5-4.5 3.5 3.5 3-2.5L20 17" />
+              </svg>
+            </span>
+          </button>
+
+          {/* Visitas — na diagonal (posicao is-liga do arco). */}
+          <button
+            type="button"
+            className={`fab-fan-option is-liga${open ? ' is-open' : ''}${
+              pulsingOption === 'visit' ? ' is-pulsing' : ''
+            }`}
+            aria-label="Nova visita"
+            role="menuitem"
+            tabIndex={open ? 0 : -1}
+            onClick={() => handleOptionTap('visit')}
+          >
+            <span className="fab-fan-option-label">Visitas</span>
+            <span className="fab-fan-option-circle">
+              <svg
+                className="fab-fan-option-icon"
+                viewBox="0 0 24 24"
+                focusable="false"
+                aria-hidden="true"
+              >
+                {/* Prancheta com check — visita registrada. */}
+                <rect x="5.5" y="4" width="13" height="17" rx="2.2" />
+                <rect x="9" y="2.5" width="6" height="3.5" rx="1.2" />
+                <path d="m9 13.5 2.3 2.3 4.4-5" />
               </svg>
             </span>
           </button>
