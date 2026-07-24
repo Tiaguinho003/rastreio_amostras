@@ -35,8 +35,10 @@ DESKTOP (≥901px)                     MOBILE (≤900px)
 
 **O `display` é o portão, e ele é escopado.** Todas as peças nascem `display: none` na base. O
 `@media (min-width: 901px)` acende para todas as listas; o `@media (max-width: 900px)` acende por
-**seletor multi-página** — `.fv-lotes-page X, .clients-page-v2 .spv2-list-scroll X` — as duas listas
-que já passaram pelo ciclo mobile (`/samples` e as duas abas de `/cadastros`, RD16). Ligar na base
+**seletor multi-página** — `.fv-lotes-page X, .clients-page-v2 .spv2-list-scroll X, .relatorios-page .rsm-feed X` —
+as listas que já passaram pelo ciclo mobile (`/samples` e as duas abas de `/cadastros`, RD16; mais o
+feed de `/relatorios`, que não é tabela — feed + acordeão — mas reusa a chrome KPI+toolbar, escopada
+ao seu container de rolagem `.rsm-feed`). Ligar na base
 acenderia `/users`, `/contratos` e `/embarques`, que ainda usam a `.hero-search-wrap` antiga (**duas
 chromes empilhadas**). Cada nova lista entra somando seu escopo ao media-gate (critério do
 `css-architecture`). Nenhuma precisa de condicional no JSX.
