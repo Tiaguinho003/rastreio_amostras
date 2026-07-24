@@ -8929,44 +8929,12 @@ button:disabled {
     padding-top: clamp(10px, 1.6vw, 14px);
   }
 
-  /* No desktop a contagem vive na toolbar — a legenda enxuta some. */
-  .rsm-content .rsm-intro {
-    display: none;
-  }
-
   /* Criar mora nos botoes da faixa; o FAB "leque" e so mobile. Escopado a
      /relatorios pra NAO apagar o FAB do dashboard do prospector (mesma classe
      .rsm-fab-anchor). */
   .relatorios-page .rsm-fab-anchor {
     display: none;
   }
-}
-
-/* Cabecalho enxuto do feed (RD16 §2.10 R2): so a contagem, alinhada a esquerda
-   como legenda da lista (o titulo saiu — vive na top-bar FV). Self-sufficient
-   agora que o className nao carrega mais `.inf-intro`. */
-.rsm-intro {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: flex-start;
-  gap: clamp(8px, 2.5vw, 12px);
-  padding: 0 clamp(2px, 0.8vw, 4px);
-}
-
-/* (RD16 §2.10 R5) `.rsm-intro-text` removido: o cabecalho enxuto so tem a
-   contagem — o wrapper de titulo/subtitulo saiu com o titulo duplicado. */
-
-.rsm-total-chip {
-  flex-shrink: 0;
-  padding: clamp(4px, 1.2vw, 5px) clamp(10px, 3vw, 12px);
-  border-radius: 999px;
-  background: rgba(31, 93, 67, 0.1);
-  border: 1px solid rgba(31, 93, 67, 0.18);
-  color: var(--brand-green);
-  font-size: clamp(11px, 3vw, 12px);
-  font-weight: 700;
-  white-space: nowrap;
 }
 
 .rsm-list {
