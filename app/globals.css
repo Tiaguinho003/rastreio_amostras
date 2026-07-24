@@ -10187,10 +10187,13 @@ body:has(.app-modal-backdrop) .prospector-fab {
    `.ifm-footer-actions` do wizard antigo viram CSS morto (varredura R11).
    Os antigos `.inf-card*` do formulario deram lugar a `.fv-form-heading`. */
 
-/* Mais largo que o side-sheet padrao (620px) pra caber as duas colunas. */
+/* Mais largo que o side-sheet padrao (620px) pra caber as duas colunas. A
+   especificidade INCLUI `.side-sheet` de proposito: a largura do `.side-sheet`
+   (620px) mora DEPOIS neste arquivo e, com a mesma especificidade, venceria por
+   ordem (a mesma pegadinha ja documentada no `.fv-filter-sheet`). */
 @media (min-width: 901px) {
-  .bottom-sheet.informativo-sheet {
-    width: min(1000px, 96vw);
+  .bottom-sheet.side-sheet.informativo-sheet {
+    width: min(1080px, 96vw);
   }
 }
 
@@ -10202,9 +10205,10 @@ body:has(.app-modal-backdrop) .prospector-fab {
 
 @media (min-width: 901px) {
   .ifm-workspace {
-    flex-direction: row;
-    align-items: flex-start;
-    gap: 1.6rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    align-items: start;
+    gap: clamp(1.4rem, 3vw, 2rem);
   }
 }
 
@@ -10324,9 +10328,7 @@ body:has(.app-modal-backdrop) .prospector-fab {
   .ifm-preview-pane {
     position: sticky;
     top: 0;
-    align-self: flex-start;
-    flex: 0 0 auto;
-    width: 320px;
+    align-self: start;
   }
 }
 
@@ -10376,7 +10378,8 @@ body:has(.app-modal-backdrop) .prospector-fab {
    o toBlob do download le o bitmap dela. A peca 9:16 e escalada por CSS. */
 .ifm-preview-stage {
   width: 100%;
-  max-width: 320px;
+  max-width: 340px;
+  aspect-ratio: 9 / 16;
   margin-inline: auto;
   border-radius: 12px;
   overflow: hidden;
@@ -10384,11 +10387,14 @@ body:has(.app-modal-backdrop) .prospector-fab {
   box-shadow: 0 6px 22px rgba(0, 0, 0, 0.18);
 }
 
+/* As duas canvases preenchem o palco (que ja carrega a proporcao 9:16); a
+   inativa some mas segue MONTADA pro toBlob. object-fit preserva a arte
+   1080x1920 sem distorcer. */
 .ifm-stage-canvas {
   display: none;
   width: 100%;
-  height: auto;
-  aspect-ratio: 9 / 16;
+  height: 100%;
+  object-fit: contain;
 }
 
 .ifm-stage-canvas.is-active {
