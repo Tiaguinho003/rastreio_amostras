@@ -550,6 +550,67 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(stats.visitsLastWeek, 1);
   });
 
+  test('getRelatoriosStats: dailyThisMonth = serie diaria do mes (dia 1 -> hoje)', async () => {
+    await resetDatabase();
+    const commercial = await seedUser('COMMERCIAL');
+    const client = await seedClient();
+    const now = new Date('2026-07-22T17:00:00.000Z'); // quarta BRT 22/07 14:00 → serie de 22 dias
+
+    // Dia 1 (idx 0): dois eventos, um exatamente no inicio da janela (03:00Z, gte inclusivo).
+    await seedVisitRow({
+      user: commercial,
+      client,
+      createdAt: new Date('2026-07-01T12:00:00.000Z'),
+    });
+    await seedVisitRow({
+      user: commercial,
+      client,
+      createdAt: new Date('2026-07-01T03:00:00.000Z'),
+    });
+    // Dia 22 = hoje (idx 21): dois eventos.
+    await seedVisitRow({
+      user: commercial,
+      client,
+      createdAt: new Date('2026-07-22T12:00:00.000Z'),
+    });
+    await seedVisitRow({
+      user: commercial,
+      client,
+      createdAt: new Date('2026-07-22T12:30:00.000Z'),
+    });
+    // FORA (limite): 02:59:59Z do dia 1 cai em 30/06 BRT, antes do monthStart.
+    await seedVisitRow({
+      user: commercial,
+      client,
+      createdAt: new Date('2026-07-01T02:59:59.000Z'),
+    });
+    // FORA (mes anterior): junho.
+    await seedVisitRow({
+      user: commercial,
+      client,
+      createdAt: new Date('2026-06-10T12:00:00.000Z'),
+    });
+    // FORA (cancelada): dia 22.
+    await seedVisitRow({
+      user: commercial,
+      client,
+      createdAt: new Date('2026-07-22T13:00:00.000Z'),
+      cancelledAt: new Date('2026-07-22T14:00:00.000Z'),
+    });
+
+    const stats = await service.getRelatoriosStats(actorFor(commercial), { now });
+    assert.equal(stats.dailyThisMonth.length, 22); // dia 1 ... dia 22 (hoje)
+    assert.equal(stats.dailyThisMonth[0], 2); // dia 1
+    assert.equal(stats.dailyThisMonth[21], 2); // dia 22
+    assert.equal(
+      stats.dailyThisMonth.reduce((sum, v) => sum + v, 0),
+      4
+    ); // fora-do-mes/limite/cancelada excluidas
+    stats.dailyThisMonth.forEach((v, i) => {
+      if (i !== 0 && i !== 21) assert.equal(v, 0, `dia ${i + 1} deveria estar zerado`);
+    });
+  });
+
   test('getRelatoriosStats: PROSPECTOR nao acessa (403 no gate do service)', async () => {
     await resetDatabase();
     const prospector = await seedUser('PROSPECTOR');

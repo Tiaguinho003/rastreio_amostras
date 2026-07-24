@@ -1575,6 +1575,12 @@ export interface RelatoriosStatsResponse {
   visitsThisWeek: number;
   /** Visitas da semana anterior (base do delta). */
   visitsLastWeek: number;
+  /**
+   * Serie diaria de visitas (nao-canceladas) do mes corrente, do dia 1 ate
+   * hoje (BRT). Indice 0 = dia 1 ... ultimo = hoje. Base da sparkline do card
+   * "Visitas esta semana".
+   */
+  dailyThisMonth: number[];
 }
 
 export type InformeFeedType = 'VISIT_REPORT' | 'WEEKLY_REPORT';

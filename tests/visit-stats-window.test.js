@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  computeVisitMonthWindows,
   computeVisitStatsWindows,
   computeVisitWeekWindows,
 } from '../src/visits/visit-report-service.js';
@@ -105,4 +106,45 @@ test('as duas janelas de semana sao contiguas e de 7 dias', () => {
   );
   assert.strictEqual((nextWeekStartUtc.getTime() - thisWeekStartUtc.getTime()) / 86_400_000, 7);
   assert.strictEqual((thisWeekStartUtc.getTime() - prevWeekStartUtc.getTime()) / 86_400_000, 7);
+});
+
+// Janela do MES BRT corrente (dia 1 -> hoje) da serie diaria da sparkline.
+// inicio inclusivo = dia 1 03:00Z; fim exclusivo = amanha 03:00Z; days = dia-do-mes.
+
+test('mes BRT em dia comum: serie do dia 1 ate hoje', () => {
+  const { monthStartUtc, todayEndUtc, daysInSeries } = computeVisitMonthWindows(
+    brt(2026, 7, 22, 14, 30)
+  );
+  assert.strictEqual(monthStartUtc.toISOString(), '2026-07-01T03:00:00.000Z');
+  assert.strictEqual(todayEndUtc.toISOString(), '2026-07-23T03:00:00.000Z');
+  assert.strictEqual(daysInSeries, 22);
+  // fim exclusivo cobre exatamente daysInSeries dias a partir do inicio.
+  assert.strictEqual((todayEndUtc.getTime() - monthStartUtc.getTime()) / 86_400_000, 22);
+});
+
+test('dia 1 do mes: serie de comprimento 1', () => {
+  const { monthStartUtc, todayEndUtc, daysInSeries } = computeVisitMonthWindows(
+    brt(2026, 7, 1, 10, 0)
+  );
+  assert.strictEqual(monthStartUtc.toISOString(), '2026-07-01T03:00:00.000Z');
+  assert.strictEqual(todayEndUtc.toISOString(), '2026-07-02T03:00:00.000Z');
+  assert.strictEqual(daysInSeries, 1);
+});
+
+test('02:59Z do dia 1 ainda e o ultimo dia do mes anterior (BRT)', () => {
+  const { monthStartUtc, todayEndUtc, daysInSeries } = computeVisitMonthWindows(
+    new Date('2026-07-01T02:59:59.000Z')
+  );
+  assert.strictEqual(monthStartUtc.toISOString(), '2026-06-01T03:00:00.000Z');
+  assert.strictEqual(todayEndUtc.toISOString(), '2026-07-01T03:00:00.000Z');
+  assert.strictEqual(daysInSeries, 30);
+});
+
+test('virada de ano: 31/12 BRT abre serie de dezembro', () => {
+  const { monthStartUtc, todayEndUtc, daysInSeries } = computeVisitMonthWindows(
+    new Date('2027-01-01T02:59:59.000Z')
+  );
+  assert.strictEqual(monthStartUtc.toISOString(), '2026-12-01T03:00:00.000Z');
+  assert.strictEqual(todayEndUtc.toISOString(), '2027-01-01T03:00:00.000Z');
+  assert.strictEqual(daysInSeries, 31);
 });

@@ -131,6 +131,22 @@ export function computeVisitWeekWindows(now = new Date()) {
   };
 }
 
+// Janela do MES BRT corrente p/ a serie diaria da sparkline (dia 1 -> hoje).
+// inicio = dia 1 00:00 BRT (= 03:00Z); fim EXCLUSIVO = amanha 00:00 BRT (cobre
+// o dia de hoje inteiro). daysInSeries = dia-do-mes de hoje (comprimento da
+// serie: indice 0 = dia 1 ... ultimo = hoje). Offset fixo -3h como os irmaos.
+export function computeVisitMonthWindows(now = new Date()) {
+  const brtNow = new Date(now.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
+  const year = brtNow.getUTCFullYear();
+  const month = brtNow.getUTCMonth();
+  const day = brtNow.getUTCDate();
+  return {
+    monthStartUtc: new Date(Date.UTC(year, month, 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0)),
+    todayEndUtc: new Date(Date.UTC(year, month, day + 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0)),
+    daysInSeries: day,
+  };
+}
+
 const INFORME_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // authorId do filtro do feed = UUID exato (não texto de busca) — valida cedo p/
@@ -524,16 +540,39 @@ export class VisitReportService {
     const actor = assertAuthenticatedActor(actorContext, 'read relatorios stats');
     assertRoleAllowed(actor.role, VISIT_REPORT_VIEWER_ROLES, 'read relatorios stats');
     const { prevWeekStartUtc, thisWeekStartUtc, nextWeekStartUtc } = computeVisitWeekWindows(now);
-    const [totalVisits, visitsThisWeek, visitsLastWeek] = await this.prisma.$transaction([
-      this.prisma.visitReport.count({ where: { cancelledAt: null } }),
-      this.prisma.visitReport.count({
-        where: { cancelledAt: null, createdAt: { gte: thisWeekStartUtc, lt: nextWeekStartUtc } },
-      }),
-      this.prisma.visitReport.count({
-        where: { cancelledAt: null, createdAt: { gte: prevWeekStartUtc, lt: thisWeekStartUtc } },
-      }),
-    ]);
-    return { totalVisits, visitsThisWeek, visitsLastWeek };
+    const { monthStartUtc, todayEndUtc, daysInSeries } = computeVisitMonthWindows(now);
+    const [totalVisits, visitsThisWeek, visitsLastWeek, dailyRows] = await this.prisma.$transaction(
+      [
+        this.prisma.visitReport.count({ where: { cancelledAt: null } }),
+        this.prisma.visitReport.count({
+          where: { cancelledAt: null, createdAt: { gte: thisWeekStartUtc, lt: nextWeekStartUtc } },
+        }),
+        this.prisma.visitReport.count({
+          where: { cancelledAt: null, createdAt: { gte: prevWeekStartUtc, lt: thisWeekStartUtc } },
+        }),
+        // Serie diaria do mes: agrupa por dia-do-mes BRT. Deriva o dia com
+        // (created_at AT TIME ZONE 'UTC') - INTERVAL '3 hours' (independente do
+        // TimeZone da sessao do banco), NAO `::date` cru. Bucketa por created_at
+        // (coerente com as contagens de semana), so nao-canceladas, todos autores.
+        this.prisma.$queryRaw`
+        SELECT
+          EXTRACT(DAY FROM ((v."created_at" AT TIME ZONE 'UTC') - INTERVAL '3 hours'))::INTEGER AS "dayOfMonth",
+          COUNT(*)::INTEGER AS "count"
+        FROM "visit_report" v
+        WHERE v."cancelled_at" IS NULL
+          AND v."created_at" >= ${monthStartUtc}
+          AND v."created_at" < ${todayEndUtc}
+        GROUP BY 1
+      `,
+      ]
+    );
+    // Zero-fill do dia 1 (indice 0) ate hoje (indice daysInSeries-1).
+    const dailyThisMonth = Array.from({ length: daysInSeries }, () => 0);
+    for (const row of dailyRows) {
+      const idx = Number(row.dayOfMonth) - 1;
+      if (idx >= 0 && idx < daysInSeries) dailyThisMonth[idx] = Number(row.count);
+    }
+    return { totalVisits, visitsThisWeek, visitsLastWeek, dailyThisMonth };
   }
 
   // ---- Relatorio SEMANAL ----
