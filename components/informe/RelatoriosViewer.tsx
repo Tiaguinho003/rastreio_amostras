@@ -244,8 +244,75 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
     </article>
   );
 
-  // Desktop: cards na faixa do topo (byte-identico ao que ja existia).
-  const kpiRow = <div className="rsm-kpis">{renderVisitKpiCards()}</div>;
+  // Icone calendario (leque de criacao) reutilizado no cabecalho do card da semana.
+  const weekCalendarIcon = (
+    <span className="fv-kpi-icon is-blue" aria-hidden="true">
+      <svg viewBox="0 0 24 24" focusable="false">
+        <rect x="4" y="5" width="16" height="16" rx="2.2" />
+        <path d="M8 3v4" />
+        <path d="M16 3v4" />
+        <path d="M4 10.5h16" />
+      </svg>
+    </span>
+  );
+
+  // Mini-metrica "Visitas esta semana" vs. a semana anterior (so desktop). Molde
+  // e setas identicos aos KPIs de /cadastros (.fv-kpi-delta is-up/is-down); nbsp
+  // reserva a linha enquanto stats carrega.
+  const renderWeekDelta = () => {
+    const delta = stats ? stats.visitsThisWeek - stats.visitsLastWeek : null;
+    const dir = delta == null ? 'flat' : delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
+    const text =
+      delta == null
+        ? ' '
+        : delta === 0
+          ? 'sem variação vs. semana passada'
+          : `${Math.abs(delta)} vs. semana passada`;
+    return (
+      <span className={`fv-kpi-delta${dir !== 'flat' ? ` is-${dir}` : ''}`}>
+        {dir === 'up' ? (
+          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+            <path d="M7 17 17 7" />
+            <path d="M8 7h9v9" />
+          </svg>
+        ) : dir === 'down' ? (
+          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+            <path d="m7 7 10 10" />
+            <path d="M17 8v9H8" />
+          </svg>
+        ) : null}
+        {text}
+      </span>
+    );
+  };
+
+  // Desktop: DOIS cards na faixa — o grafico (largo, so ele; viewBox mais largo
+  // p/ ficar ~50% mais largo SEM subir de altura) + "Visitas esta semana" (numero
+  // grande + delta). Funcao (instancia fresca; ver nota do render mobile).
+  const renderDesktopVisitCards = () => (
+    <>
+      <article className="fv-kpi rsm-kpi-chart">
+        {stats && stats.weeklyTrend.length > 0 ? (
+          <VisitsTrendChart data={stats.weeklyTrend} viewBoxWidth={460} />
+        ) : null}
+      </article>
+      <article className="fv-kpi rsm-kpi-week">
+        <div className="fv-kpi-top">
+          <span className="fv-kpi-label">Visitas esta semana</span>
+          {weekCalendarIcon}
+        </div>
+        <div className="fv-kpi-metric">
+          <span className="fv-kpi-value">
+            {stats ? stats.visitsThisWeek.toLocaleString('pt-BR') : '—'}
+          </span>
+          {renderWeekDelta()}
+        </div>
+      </article>
+    </>
+  );
+
+  // Desktop: os 2 cards na faixa do topo.
+  const kpiRow = <div className="rsm-kpis">{renderDesktopVisitCards()}</div>;
 
   // Mobile: mesmos cards em grid 2-up, dentro da rolagem (via mobileListChrome).
   const mobileKpi = <div className="fv-kpi-row">{renderVisitKpiCards()}</div>;

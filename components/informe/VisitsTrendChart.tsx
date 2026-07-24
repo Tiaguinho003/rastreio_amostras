@@ -36,10 +36,20 @@ function parseWeek(weekStart: string): Date {
   return new Date(`${weekStart}T00:00:00.000Z`);
 }
 
-export function VisitsTrendChart({ data }: { data: { weekStart: string; count: number }[] }) {
+export function VisitsTrendChart({
+  data,
+  viewBoxWidth = 260,
+}: {
+  data: { weekStart: string; count: number }[];
+  // Largura do viewBox. O default (260) mantém a proporção compacta do card
+  // mobile. O card do gráfico no desktop é ~50% mais largo — passa um viewBox
+  // MAIS LARGO (ex.: 460) pra ficar mais "deitado" e a ALTURA renderizada não
+  // subir junto (o SVG escala pela proporção do viewBox).
+  viewBoxWidth?: number;
+}) {
   const [hover, setHover] = useState<number | null>(null);
 
-  const W = 260;
+  const W = viewBoxWidth;
   const H = 72;
   const PAD_X = 8;
   const TOP_Y = 6; // topo do plot (headroom p/ o pico da linha)
