@@ -9465,6 +9465,15 @@ button:disabled {
   padding: clamp(2rem, 10vw, 3rem) clamp(1rem, 4vw, 1.5rem);
 }
 
+/* No /relatorios o feed vive num cartao de altura CHEIA (.rsm-content); sem
+   isto a mensagem de vazio grudaria no TOPO com um vao branco embaixo. flex:1
+   + justify-content:center a centralizam no cartao. Escopado em .rsm-content
+   de proposito: o dashboard do prospector reusa .rsm-empty noutro contexto. */
+.rsm-content .rsm-empty {
+  flex: 1;
+  justify-content: center;
+}
+
 .rsm-empty-icon {
   display: inline-grid;
   place-items: center;
