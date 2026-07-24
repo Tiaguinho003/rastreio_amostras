@@ -414,26 +414,18 @@ export function InformativoFormSheet({
       {confirmDiscardOpen
         ? createPortal(
             <div
-              className="app-modal-backdrop is-stacked"
+              className="app-modal-backdrop is-scrim-none"
               onClick={() => setConfirmDiscardOpen(false)}
             >
               <section
                 ref={confirmTrapRef}
-                className="app-modal is-themed app-confirm-modal is-stacked"
+                className="app-modal is-themed app-confirm-modal is-compact"
                 role="alertdialog"
                 aria-modal="true"
                 aria-labelledby="discard-informativo-title"
                 aria-describedby="discard-informativo-description"
                 onClick={(event) => event.stopPropagation()}
               >
-                <header className="app-modal-header">
-                  <div className="app-modal-title-wrap">
-                    <h3 id="discard-informativo-title" className="app-modal-title">
-                      Descartar informativo?
-                    </h3>
-                  </div>
-                </header>
-
                 <div className="app-modal-content">
                   <div className="app-confirm-modal-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" focusable="false">
@@ -442,6 +434,9 @@ export function InformativoFormSheet({
                       <path d="M12 17v.01" />
                     </svg>
                   </div>
+                  <h3 id="discard-informativo-title" className="app-confirm-modal-title">
+                    Descartar informativo?
+                  </h3>
                   <p id="discard-informativo-description" className="app-confirm-modal-message">
                     Os valores preenchidos serão perdidos. Esta ação não pode ser desfeita.
                   </p>
