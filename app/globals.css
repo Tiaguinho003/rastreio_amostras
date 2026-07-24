@@ -13665,20 +13665,33 @@ body:has(.app-modal-backdrop) .prospector-fab {
 
 /* Chips fixos de TIPO no topo do histórico de /relatorios (Todas/Visitas/
    Semanal) — substituem o antigo painel de filtros lateral. Aplicam imediato;
-   reusam .fv-choice (hairline + ring no is-selected, afunda ao clicar). 3
-   colunas iguais; o espaçamento vertical vem do gap do .rsm-feed. */
+   reusam .fv-choice. Cluster COMPACTO à esquerda (pílulas com largura pelo
+   conteúdo, não 1fr) e o selecionado ganha preenchimento VERDE sólido + rótulo
+   branco. O verde é ESTADO persistente (tipo radio), NÃO o feedback de clique —
+   este segue sendo o afundar/scale do .fv-choice:active. Escopado em
+   .rsm-type-chips: não toca o .fv-choice de outras páginas (filtros/forms). */
 .rsm-type-chips {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 0.4rem;
 }
 .rsm-type-chips .fv-choice {
   align-content: center;
   text-align: center;
-  padding: 0.5rem 0.6rem;
+  padding: 0.32rem 0.7rem;
+  border-radius: 999px;
 }
 .rsm-type-chips .fv-choice-label {
-  font-size: 0.82rem;
+  font-size: 0.78rem;
+}
+.rsm-type-chips .fv-choice.is-selected {
+  background: var(--fv-cta);
+  border-color: var(--fv-cta);
+  box-shadow: none;
+}
+.rsm-type-chips .fv-choice.is-selected .fv-choice-label {
+  color: #ffffff;
 }
 
 /* ── Filtros multi-select: box com chips DENTRO do campo ──────────────
