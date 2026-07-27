@@ -778,12 +778,13 @@ Fechada a `/relatorios` (§2.10), entra o par **`/users` + `/profile`** — `/us
 
 **As fases:**
 
-- **U1 — esta §2.11** (ledger antes do código).
-- **U2 — lista desktop.** `.fv-page-head` (título + "+ Novo usuário", o FAB morre no desktop) · `.fv-toolbar` (busca + contagem) · `table.fv-table` com `<colgroup>` e as 5 colunas + `⋯` · linha clicável · estados (skeleton, vazio, erro) · scroll infinito e ordem preservados.
-- **U3 — painel do usuário.** Ver + editar + criar saem do `cdm-modal` para `.fv-panel-sheet side-sheet` + `.fv-form-*`, erro **dentro do campo**, submit no footer, `SuccessCheckOverlay`, descarte com `.is-scrim-none.is-compact`. Ações administrativas no painel e no `⋯`.
-- **U4 — senha + copy.** `window.prompt` → seção de "Redefinir senha" dentro do painel (avisando que as sessões do usuário caem); criar deixa de exibir a senha; toda a copy da página em pt-BR com acento, inclusive o item da sidebar.
+- **U1 — esta §2.11** (ledger antes do código). ✅ `6fb78dd`
+- **U2 — lista desktop.** ✅ `2f5821e` — `.fv-page-head` ("Usuários" + "+ Novo usuário"; o FAB morre no desktop) · `.fv-toolbar` (busca + contagem) · `table.fv-table` com `<colgroup>` e as 5 colunas + `⋯` · linha clicável · skeleton no boot, vazio e **erro** · scroll infinito e ordem preservados. Nova coluna do kit: `.fv-col-role`. Escopo `.fv-users-page` (a página divide a casca `.clients-page-v2` com `/cadastros`) troca o sheet legado pela superfície branca e esconde a `.hero-search-wrap` no desktop. **Dois achados viraram correção aqui**: `lastLoginAt` vinha no payload sem aparecer em lugar nenhum (virou a coluna "Último acesso"; quem nunca entrou lê "Nunca acessou") e o `listState.error` **não era renderizado** — falha de rede caía no vazio "Nenhum usuário encontrado".
+- **U3 — painel do usuário.** ✅ `05d853d` — os **dois** `cdm-modal` centrais viram **UM** `BottomSheet` + `.fv-panel-sheet side-sheet` (lateral no desktop, sheet de baixo no mobile) servindo os três modos. Um sheet só, não um por modo: depois de criar, o painel passa a mostrar o usuário recém-criado — com dois sheets isso seria um saindo enquanto o outro entra. Formulários no `.fv-form-*`, erro **dentro do campo** limpando ao digitar, submit no footer via `form={id}`, `SuccessCheckOverlay`, descarte `.is-scrim-none.is-compact`, falha de escrita em toast. Ações administrativas saíram das classes emprestadas com semântica errada (`sdv-com-action-loss` = perda de amostra) e viraram `.fv-btn` no corpo do painel. CSS próprio `.usr-panel-*`, reusando `.sdv-info-grid` para a leitura.
+  > **A U4 foi absorvida aqui** (mudança de plano registrada no ato): o painel força o assunto — não há onde pendurar a senha num contêiner que perdeu a linha de feedback. Então **U-D4 saiu inteira na U3**: o `window.prompt('Informe a nova senha do usuario:')` morreu e virou seção do painel, e nem criar nem redefinir ecoam a senha (o backend já a envia por e-mail; o toast diz para qual endereço). **A U4 fica sendo só a varredura de copy pt-BR**, incluindo o "Usuarios" sem acento da própria sidebar (`AppShell.tsx:67`).
+- **U4 — copy pt-BR.** Acentos em toda a página e no item da sidebar.
 - **U5 — mobile.** Card FV na lista (a tabela não desce), FAB fica (RD16 decisão 4), toolbar entra na rolagem, `/users` somado ao media-gate.
-- **U6 — varredura + consolidação.** CSS morto por token, skills, `containers` §8 (🔜 → ✅), dívidas registradas.
+- **U6 — varredura + consolidação.** CSS morto por token (`.usr-feedback`, `.usr-action-grid` e o que mais tiver ficado sem consumidor; `.cdm-*` **não** — só morre com `/profile`), skills, `containers` §8 (🔜 → ✅), dívidas registradas.
 
 ---
 
