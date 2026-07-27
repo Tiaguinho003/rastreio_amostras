@@ -197,8 +197,17 @@ Pos Q.print: impressao virou **acao pura**. Nao muda mais o status do Sample.
    criar usuario;
    editar dados e papel;
    redefinir senha;
-   inativar, reativar e desbloquear conta;
-   consultar trilha de auditoria de usuarios.
+   inativar, reativar e desbloquear conta.
+
+   Duas travas do backend valem pros dois ultimos itens: o administrador **nao consegue tirar o
+   proprio acesso administrativo** (nem trocando o papel, nem se inativando) e **o sistema nunca
+   fica sem ADMIN ativo** — as duas respondem `409 LAST_ADMIN_REQUIRED`. A tela de `/users`
+   antecipa a primeira (no proprio usuario nao oferece inativar nem deixa trocar o papel); a
+   segunda so aparece na tentativa.
+
+   A **trilha de auditoria** (`UserAuditEvent`) e gravada em todas essas acoes — quem fez, de que
+   IP, com que motivo — mas **nao tem tela** (decisao U-D5, RD16 §2.11): a consulta e pelo banco,
+   no runbook de incidente do `SECURITY.md`.
 
 ## Experiencia do PROSPECTOR
 

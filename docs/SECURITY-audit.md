@@ -11,7 +11,8 @@ Documentos relacionados: docs/README.md
 Auditoria de seguranca realizada em 2026-04-10. Postura geral: razoavel
 para sistema interno em estagio inicial. Fundacoes solidas em hashing
 (bcrypt 10 rounds), JWT com secret via env var, cookie flags completos,
-brute-force protection com lockout, audit trail robusto (13 event types).
+brute-force protection com lockout, audit trail robusto (event types em
+`enum UserAuditEventType` no `prisma/schema.prisma`).
 
 Resultado: 12 OK, 9 GAP (7 corrigidos no 7B+7C), 5 RISCO (4 corrigidos
 no 7B+7C), 1 OUT_OF_SCOPE (LGPD, debito documentado).
@@ -73,7 +74,7 @@ no 7B+7C), 1 OUT_OF_SCOPE (LGPD, debito documentado).
 - Leak de segredos: OK (nenhum console.\* imprime tokens/passwords)
 - Stack trace em respostas: OK (sanitizado em http-utils.js, two-tier)
 - Structured logging: GAP (debito Passe 8, console.\* apenas)
-- Audit trail: OK (13 event types de UserAuditEvent, append-only)
+- Audit trail: OK (`enum UserAuditEventType` no `prisma/schema.prisma`, append-only)
 
 ### 9. LGPD
 

@@ -7,7 +7,7 @@ Documentos relacionados: `docs/SECURITY-audit.md`, `docs/SECURITY-threat-model.m
 
 ## Postura geral
 
-Sistema interno B2B em estagio inicial (11 eventos em prod), operado pela Measy. Fundacoes solidas em auth (bcrypt 10 rounds, JWT com secret via env var, cookie HttpOnly + Secure + SameSite), brute-force protection com lockout por user e rate limit por IP, audit trail robusto (13 event types de UserAuditEvent), headers HTTP completos (HSTS, CSP, Permissions-Policy) e upload validado por magic bytes. Hardening aplicado no Passe 7 (2026-04-10).
+Sistema interno B2B em estagio inicial (11 eventos em prod), operado pela Measy. Fundacoes solidas em auth (bcrypt 10 rounds, JWT com secret via env var, cookie HttpOnly + Secure + SameSite), brute-force protection com lockout por user e rate limit por IP, audit trail robusto (event types em `enum UserAuditEventType` no `prisma/schema.prisma`), headers HTTP completos (HSTS, CSP, Permissions-Policy) e upload validado por magic bytes. Hardening aplicado no Passe 7 (2026-04-10).
 
 ## Principios de seguranca
 

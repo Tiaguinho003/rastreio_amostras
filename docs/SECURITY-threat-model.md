@@ -89,7 +89,7 @@ Documentos relacionados: `docs/SECURITY.md`, `docs/SECURITY-audit.md`
 | ---------------------------------- | ------------------------------------------------------ | ------------- | ----------------------------------------------- |
 | Leak de secrets em logs            | Nenhum console.\* imprime tokens/passwords/connections | Mitigado      | -                                               |
 | Stack trace exposto ao client      | http-utils.js sanitiza resposta (two-tier)             | Mitigado      | Stack trace vai pro log do servidor (aceitavel) |
-| Ausencia de audit trail para admin | 13 event types em UserAuditEvent, append-only          | Mitigado      | -                                               |
+| Ausencia de audit trail para admin | `enum UserAuditEventType` (schema.prisma), append-only | Mitigado      | -                                               |
 | Sem structured logging             | Console.\* apenas                                      | Debito aceito | Aceitavel para volume atual                     |
 
 ### 9. LGPD
