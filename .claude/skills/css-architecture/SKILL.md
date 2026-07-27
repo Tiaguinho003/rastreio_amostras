@@ -163,7 +163,7 @@ tem consumidor aparente, mas o seletor não casa. O segundo é perigoso; o prime
 
 ---
 
-## §7 Antes de escrever: três checagens
+## §7 Antes de escrever: quatro checagens
 
 ```bash
 # 1. Esta classe tem consumidor no JSX?
@@ -174,10 +174,27 @@ grep -rln "sdv-card" --include=*.tsx app components
 
 # 3. Onde ela ja e declarada no CSS (pode ser em varios blocos)?
 grep -n "\.minha-classe" app/globals.css
+
+# 4. O kit JA TEM esta peca? Procure pelo PREFIXO que voce ja esta usando,
+#    nao pelo nome que voce ia inventar:
+grep -n "\.sdv-info" app/globals.css
 ```
 
 A checagem 2 é a que evita o estrago: se a classe aparece em mais de um componente, a regra vai
 escopada.
+
+### 🔴 A checagem 4 é a que se esquece
+
+Peça nova nasce com o nome que **você** ia dar, e por esse nome o grep não acha nada — então parece
+que não existe. Procure pelo **prefixo do markup em que a peça vai morar**: se o JSX já é
+`.sdv-info-grid` / `.sdv-info-label` / `.sdv-info-value`, a peça mora ao lado, no mesmo bloco.
+
+Caso real (RD16 §2.11 U3, corrigido em `258ac62`): o painel de `/users` precisava de "valor + botão
+de copiar na mesma linha" e ganhou `.usr-panel-value-row` + `.usr-panel-copy` montado sobre
+`.fv-iconbtn`. O kit já tinha **`.sdv-info-value-row` + `.sdv-info-copy`** — escritas para essas
+mesmas linhas, três regras abaixo de `.sdv-info-value` no `globals.css`, e vivas no detalhe do
+cliente com o mesmo SVG. A duplicata custou dois commits de ajuste de cor num botão que nunca era
+o certo.
 
 ---
 
@@ -205,6 +222,7 @@ final. Nenhum código muda por causa desta lista — ela existe para que página
 - [ ] Se toca `.sdv-*` ou outro prefixo compartilhado: escopada no contêiner
 - [ ] Verificado que a classe tem consumidor no JSX (§4)
 - [ ] Verificado quem mais usa a classe (§7)
+- [ ] Peça NOVA: procurado no kit pelo prefixo do markup antes de escrever (§7, checagem 4)
 - [ ] Sem `!important` — se pareceu necessário, o problema é o §5
 - [ ] Sem `nth-child` novo em lista que pode reordenar
 - [ ] Regra que perdeu consumidor foi marcada `DORMENTE` com o motivo

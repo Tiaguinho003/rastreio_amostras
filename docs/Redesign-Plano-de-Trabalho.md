@@ -795,6 +795,10 @@ Fechada a `/relatorios` (§2.10), entra o par **`/users` + `/profile`** — `/us
 
 **Dívidas registradas, não removidas** (órfãs de páginas fora da vez desta): `.cv2-card-top`, `.cv2-card-bottom`, `.cv2-card-type`, `.cv2-card-person-type`, `.cv2-card-person-dot` (sobras de `/cadastros`) e `.hero-search-icon`, `.hero-search-icon-submit` (sobras de `/contratos`). Também segue de pé, por decisão: **auditoria de usuário sem tela** (U-D5) e os params `role`/`status` do `listUsers` **sem consumidor** (U-D3).
 
+- **U7 — 1ª rodada de ajuste (conferência do Flavio).** ✅ `258ac62` — "o botão de copiar do e-mail devia ser o ícone verde, sem preenchimento". O botão aparecia como **moeda vazia**: contorno sem ícone. A U3 tinha montado o copiar em cima do `.fv-iconbtn` com regras próprias (`.usr-panel-value-row` + `.usr-panel-copy`) — e o kit **já tinha a peça**: `.sdv-info-value-row` + `.sdv-info-copy`, escritas para as linhas `.sdv-info-*` que este painel usa, três regras abaixo de `.sdv-info-value` no `globals.css`, e vivas no detalhe do cliente com o **mesmo SVG**. Adotada a do kit; saem 4 regras duplicadas.
+
+🔴 **Lição:** peça nova nasce com o nome que **eu** ia dar, e por esse nome o grep não acha nada — parece que não existe. Procurar pelo **prefixo do markup em que ela vai morar** (`grep -n "\.sdv-info" app/globals.css`). Virou a **checagem 4** da `css-architecture` §7 + linha no checklist §9, e a dupla entrou na tabela de variantes da `design-system`. Custo de não ter feito: dois commits ajustando a cor de um botão que nunca era o certo.
+
 **Pendente:** 🖥️📱 validação no device.
 
 ---
