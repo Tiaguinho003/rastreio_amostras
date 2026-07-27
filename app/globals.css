@@ -7224,12 +7224,18 @@ button:disabled {
   text-overflow: ellipsis;
 }
 
-/* O ícone de copiar não compete com os botões de ação: mesmo desenho do
-   .fv-iconbtn, metade do tamanho. */
+/* O ícone de copiar não compete com os botões de ação: metade do tamanho do
+   .fv-iconbtn e SEM a moeda branca — o painel já é branco, então o fundo do
+   botão não aparecia e a borda só somava um contorno cinza em volta de um
+   ícone pequeno. Fica o ícone verde sozinho; a caixa de 28px segue como área
+   de toque, e o afundar (:active) vem do kit. */
 .usr-panel-copy.fv-iconbtn {
   flex: none;
   width: 28px;
   height: 28px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--fv-cta);
 }
 
 .usr-panel-copy.fv-iconbtn svg {
