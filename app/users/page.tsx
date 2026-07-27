@@ -15,7 +15,9 @@ import {
   updateUser,
 } from '../../lib/api-client';
 import { maskPhoneInput } from '../../lib/client-field-formatters';
+import { formatRelativeTime } from '../../lib/relative-time';
 import { useToast } from '../../lib/toast/ToastProvider';
+import { useIsDesktop } from '../../lib/use-desktop';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import { getRoleLabel, isAssignableUserRole } from '../../lib/roles';
 import { useRequireAuth } from '../../lib/use-auth';
@@ -62,6 +64,19 @@ function getUserInitials(name: string): string {
     .slice(0, 2)
     .join('')
     .toUpperCase();
+}
+
+// U-D6: UM chip de status por linha. Inativo domina (o usuario nao entra de
+// qualquer forma); bloqueado so aparece em quem esta ativo, que e onde a
+// informacao e acionavel.
+function getUserStatusChip(user: Pick<UserSummary, 'status' | 'isLocked'>) {
+  if (user.status !== 'ACTIVE') {
+    return { label: 'Inativo', className: 'fv-chip fv-chip-gray' };
+  }
+  if (user.isLocked) {
+    return { label: 'Bloqueado', className: 'fv-chip fv-chip-red' };
+  }
+  return { label: 'Ativo', className: 'fv-chip fv-chip-green' };
 }
 
 function getRoleModifierClass(role: UserRole): string {
@@ -235,9 +250,20 @@ export default function UsersPage() {
   const [listState, dispatchList] = useReducer(usersListReducer, USERS_INITIAL);
   const [modal, dispatchModal] = useReducer(modalReducer, MODAL_INITIAL);
 
+  // U-D1: no desktop a lista vira TABELA institucional (.fv-table); no mobile
+  // seguem os cards. Dados, ordem e scroll infinito sao os mesmos — muda so a
+  // apresentacao (data-tables §9).
+  const isDesktop = useIsDesktop();
+
   const [searchInput, setSearchInput] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [inactivateOpen, setInactivateOpen] = useState(false);
+
+  // Menu ⋯ da linha. Dismiss = clique-fora + ESC devolvendo o foco ao trigger
+  // (mesmo padrao do ClientsBrowser).
+  const [rowMenuFor, setRowMenuFor] = useState<string | null>(null);
+  const rowMenuRef = useRef<HTMLDivElement | null>(null);
+  const rowMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   const [createForm, setCreateForm] = useState(blankCreateForm());
   const [editForm, setEditForm] = useState({
@@ -259,6 +285,29 @@ export default function UsersPage() {
     token: number;
     abort: AbortController | null;
   }>({ inFlight: false, token: 0, abort: null });
+
+  useEffect(() => {
+    if (!rowMenuFor) return;
+    const onDocumentMouseDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (!rowMenuRef.current?.contains(target)) {
+        setRowMenuFor(null);
+      }
+    };
+    const onDocumentKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      setRowMenuFor(null);
+      rowMenuTriggerRef.current?.focus();
+    };
+    document.addEventListener('mousedown', onDocumentMouseDown);
+    document.addEventListener('keydown', onDocumentKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onDocumentMouseDown);
+      document.removeEventListener('keydown', onDocumentKeyDown);
+    };
+  }, [rowMenuFor]);
 
   // Debounce da busca: aplica so com >=2 chars; <2 desfiltra. Espelha /clients.
   useEffect(() => {
@@ -488,7 +537,11 @@ export default function UsersPage() {
 
   // --- Handlers ---
 
-  function openUserDetail(userId: string, trigger: HTMLButtonElement) {
+  function openUserDetail(
+    userId: string,
+    trigger: HTMLButtonElement | null,
+    mode: 'view' | 'edit' = 'view'
+  ) {
     lastTriggerRef.current = trigger;
     const cached = listState.items.find((u) => u.id === userId) ?? null;
     dispatchModal({ type: 'openView', userId });
@@ -501,6 +554,12 @@ export default function UsersPage() {
         phone: maskPhoneInput(cached.phone ?? ''),
         role: cached.role,
       });
+    }
+    // O ⋯ abre direto na acao pedida. Sem o cache o formulario nasceria vazio,
+    // entao a edicao so e antecipada quando a linha ja veio na lista — o que e
+    // sempre o caso aqui (o menu sai da propria linha).
+    if (mode === 'edit' && cached) {
+      dispatchModal({ type: 'switchToEdit' });
     }
   }
 
@@ -698,15 +757,78 @@ export default function UsersPage() {
     }
   }
 
+  const nowMs = Date.now();
+
+  // U-D3: a toolbar de /users e a mais enxuta do kit — busca + contagem. Sem
+  // funil e sem "Limpar": a pagina nao tem filtros (o role/status do backend
+  // segue sem consumidor de tela, de proposito).
+  const toolbar = (
+    <div className="fv-toolbar">
+      <form className="fv-toolbar-search" role="search" onSubmit={handleSearchSubmit}>
+        <svg
+          className="fv-toolbar-search-icon"
+          viewBox="0 0 24 24"
+          focusable="false"
+          aria-hidden="true"
+        >
+          <circle cx="11" cy="11" r="7" />
+          <path d="m16.2 16.2 4.1 4.1" />
+        </svg>
+        <input
+          className="fv-input fv-toolbar-search-input"
+          value={searchInput}
+          onChange={(event) => setSearchInput(event.target.value)}
+          placeholder="Buscar por nome, usuário ou e-mail..."
+          autoComplete="off"
+          spellCheck={false}
+        />
+        {searchInput ? (
+          <button
+            type="button"
+            className="fv-toolbar-search-clear"
+            aria-label="Limpar busca"
+            onClick={() => setSearchInput('')}
+          >
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        ) : null}
+      </form>
+      <span className="fv-toolbar-count">{listState.total} usuários</span>
+    </div>
+  );
+
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
-      <section className="clients-page-v2">
+      <section className="clients-page-v2 fv-users-page">
         {/* RD16: o header verde da pagina saiu — o chrome mobile agora e unico
             e mora no AppShell (.fv-mtopbar: titulo da rota + camera + avatar). */}
 
-        {/* Busca + FAB na mesma linha (mobile: FAB sai do fluxo via fixed).
-            Sem botao de filtro (decisao: so busca). Lupa DECORATIVA + "X" pra
-            limpar o input — espelha /clients (a busca filtra ao vivo). */}
+        {/* U2 (desktop >=901px): cabecalho institucional. No mobile fica
+            display:none — o titulo mora na faixa do shell e criar e o FAB. */}
+        <div className="fv-page-head">
+          <h2 className="fv-page-title">Usuários</h2>
+          <button
+            type="button"
+            className="fv-btn fv-btn-primary"
+            onClick={(event) => openCreateModal(event.currentTarget)}
+          >
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M12 5v14" />
+              <path d="M5 12h14" />
+            </svg>
+            Novo usuário
+          </button>
+        </div>
+
+        {/* Chrome LEGADA, hoje so mobile: no desktop `.fv-users-page
+            .hero-search-wrap` esconde a faixa inteira — busca mora na
+            .fv-toolbar e criar no "+ Novo usuário" do .fv-page-head. As duas
+            juntas dariam DUAS chromes empilhadas (data-tables §1). Sai do JSX
+            na U5, quando a toolbar passar a valer nos dois breakpoints.
+            Busca + FAB na mesma linha (o FAB sai do fluxo via fixed); lupa
+            DECORATIVA + "X" pra limpar (a busca filtra ao vivo). */}
         <div className="hero-search-wrap">
           <form className="hero-search-bar" role="search" onSubmit={handleSearchSubmit}>
             <input
@@ -756,18 +878,50 @@ export default function UsersPage() {
         </div>
 
         <section className="clients-v2-sheet">
-          {/* Contador a direita (espelha /clients). */}
-          <div className="spv2-list-meta">
-            <span className="spv2-list-count">{listState.total} usuários</span>
-          </div>
+          {/* No desktop a toolbar assume a contagem (.fv-toolbar-count); no
+              mobile segue o contador legado. Uma fonte por breakpoint. */}
+          {isDesktop ? (
+            toolbar
+          ) : (
+            <div className="spv2-list-meta">
+              <span className="spv2-list-count">{listState.total} usuários</span>
+            </div>
+          )}
+
+          {/* O erro da lista nao era renderizado em lugar nenhum — o reducer
+              guardava a mensagem e a tela ficava no vazio "Nenhum usuário
+              encontrado". */}
+          {listState.status === 'error' && listState.error ? (
+            <p className="spv2-error-banner" role="status">
+              {listState.error}
+            </p>
+          ) : null}
 
           {/* Card list */}
           {listState.status === 'loading-initial' ? (
-            <div className="spv2-list-scroll">
-              <div className="spv2-empty">
-                <p className="spv2-empty-text">Carregando...</p>
+            isDesktop ? (
+              <div className="spv2-list-scroll fv-table-scroll">
+                <table className="fv-table">
+                  <tbody>
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <tr key={`boot-${i}`} className="fv-table-skel-row" aria-hidden="true">
+                        {Array.from({ length: 6 }).map((__, j) => (
+                          <td key={j}>
+                            <span className="fv-table-skel" />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            </div>
+            ) : (
+              <div className="spv2-list-scroll">
+                <div className="spv2-empty">
+                  <p className="spv2-empty-text">Carregando...</p>
+                </div>
+              </div>
+            )
           ) : listState.items.length === 0 ? (
             <div className="spv2-list-scroll">
               <div className="spv2-empty">
@@ -778,6 +932,185 @@ export default function UsersPage() {
                 <p className="spv2-empty-text">Nenhum usuário encontrado</p>
                 <p className="spv2-empty-sub">Tente outro termo de busca</p>
               </div>
+            </div>
+          ) : isDesktop ? (
+            /* U-D1/U-D6 (desktop): tabela institucional de 5 colunas + ⋯.
+               Dados, ordem alfabetica e scroll infinito identicos aos cards —
+               muda so a apresentacao. A linha inteira clica; o nome e <button>
+               pra dar alvo de teclado. */
+            <div ref={scrollRef} className="spv2-list-scroll fv-table-scroll" tabIndex={-1}>
+              <table className="fv-table">
+                <colgroup>
+                  <col className="fv-col-client" />
+                  <col className="fv-col-role" />
+                  <col className="fv-col-status" />
+                  <col className="fv-col-contact" />
+                  <col className="fv-col-updated" />
+                  <col className="fv-col-actions" />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th scope="col">Usuário</th>
+                    <th scope="col">Perfil</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Contato</th>
+                    <th scope="col">Último acesso</th>
+                    <th scope="col" className="fv-table-th-actions" aria-label="Ações" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {listState.items.map((user) => {
+                    const chip = getUserStatusChip(user);
+                    const isInactive = user.status !== 'ACTIVE';
+                    return (
+                      <tr
+                        key={user.id}
+                        className={`fv-table-row${isInactive ? ' is-inactive' : ''}`}
+                        onClick={() => openUserDetail(user.id, null)}
+                      >
+                        <td>
+                          <span className="fv-table-client">
+                            <span
+                              className="fv-table-avatar"
+                              aria-hidden="true"
+                              style={{ '--avatar-color': USER_AVATAR_COLOR } as React.CSSProperties}
+                            >
+                              {getUserInitials(user.fullName)}
+                            </span>
+                            <button
+                              type="button"
+                              className="fv-table-name-btn"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openUserDetail(user.id, event.currentTarget);
+                              }}
+                            >
+                              <span className="fv-table-name">{user.fullName}</span>
+                              <span className="fv-table-code">@{user.username}</span>
+                            </button>
+                          </span>
+                        </td>
+                        <td>
+                          {/* RD12: cor so semantica. O papel e categoria, nao
+                              alerta — texto, nao chip colorido. */}
+                          <span className="fv-table-cell-main">{getRoleLabel(user.role)}</span>
+                        </td>
+                        <td>
+                          <span className={chip.className}>{chip.label}</span>
+                        </td>
+                        <td>
+                          <span className="fv-table-cell-stack">
+                            <span className="fv-cell-ic">
+                              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                <rect x="2" y="4" width="20" height="16" rx="2" />
+                                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                              </svg>
+                              <span className="fv-table-cell-main">{user.email}</span>
+                            </span>
+                            {user.phone ? (
+                              <span className="fv-cell-ic">
+                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />
+                                </svg>
+                                <span className="fv-table-sub">{user.phone}</span>
+                              </span>
+                            ) : null}
+                          </span>
+                        </td>
+                        <td>
+                          <span
+                            className="fv-table-sub"
+                            title={
+                              user.lastLoginAt
+                                ? new Date(user.lastLoginAt).toLocaleString('pt-BR')
+                                : undefined
+                            }
+                          >
+                            {user.lastLoginAt
+                              ? formatRelativeTime(user.lastLoginAt, nowMs)
+                              : 'Nunca acessou'}
+                          </span>
+                        </td>
+                        <td
+                          className="fv-table-td-actions"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <div
+                            className="fv-row-menu-wrap"
+                            ref={rowMenuFor === user.id ? rowMenuRef : undefined}
+                          >
+                            <button
+                              type="button"
+                              className="fv-table-dots"
+                              aria-label={`Ações de ${user.fullName}`}
+                              aria-haspopup="menu"
+                              aria-expanded={rowMenuFor === user.id}
+                              onClick={(event) => {
+                                rowMenuTriggerRef.current = event.currentTarget;
+                                setRowMenuFor((current) => (current === user.id ? null : user.id));
+                              }}
+                            >
+                              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                <circle cx="5" cy="12" r="1.6" />
+                                <circle cx="12" cy="12" r="1.6" />
+                                <circle cx="19" cy="12" r="1.6" />
+                              </svg>
+                            </button>
+                            {rowMenuFor === user.id ? (
+                              <div
+                                className="fv-row-menu"
+                                role="menu"
+                                aria-label={`Ações de ${user.fullName}`}
+                              >
+                                {/* U2 entrega os dois atalhos que ja tem
+                                    destino. Inativar/Reativar, Desbloquear e
+                                    Redefinir senha entram aqui na U3/U4, junto
+                                    com o painel que as hospeda. */}
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className="fv-row-menu-item"
+                                  onClick={() => {
+                                    setRowMenuFor(null);
+                                    openUserDetail(user.id, null);
+                                  }}
+                                >
+                                  Ver detalhes
+                                </button>
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className="fv-row-menu-item"
+                                  onClick={() => {
+                                    setRowMenuFor(null);
+                                    openUserDetail(user.id, null, 'edit');
+                                  }}
+                                >
+                                  Editar
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {listState.status === 'loading-more'
+                    ? Array.from({ length: 3 }).map((_, i) => (
+                        <tr key={`skel-${i}`} className="fv-table-skel-row" aria-hidden="true">
+                          {Array.from({ length: 6 }).map((__, j) => (
+                            <td key={j}>
+                              <span className="fv-table-skel" />
+                            </td>
+                          ))}
+                        </tr>
+                      ))
+                    : null}
+                </tbody>
+              </table>
+              {listState.nextCursor ? (
+                <div ref={loadMoreRef} className="cv2-load-more-sentinel" aria-hidden />
+              ) : null}
             </div>
           ) : (
             <div ref={scrollRef} className="spv2-list-scroll" tabIndex={-1}>

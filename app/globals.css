@@ -31758,6 +31758,33 @@ body.is-selection-mode .ctr-page .cc-tabs {
     padding: 0;
   }
 
+  /* ── Mesmo cartao institucional na lista de Usuarios (FV /users, U2). A
+     pagina compartilha a casca `.clients-page-v2` com /cadastros, entao o
+     escopo proprio `.fv-users-page` (mesma especificidade, declarado depois)
+     e o que troca o sheet legado pela superficie branca. ── */
+  .fv-users-page .clients-v2-sheet {
+    margin: 1rem clamp(0.9rem, 3vw, 2rem) 1.15rem;
+    padding: 0;
+    background: var(--fv-surface);
+    border: 1px solid var(--fv-line);
+    border-radius: var(--fv-radius-lg);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  /* O scroll da tabela NAO e grid (o grid 3-col e dos cards legados). */
+  .fv-users-page .clients-v2-sheet .spv2-list-scroll.fv-table-scroll {
+    display: block;
+    padding: 0;
+  }
+
+  /* A chrome legada inteira sai do desktop: a busca mora na .fv-toolbar e
+     criar no "+ Novo usuário" do .fv-page-head. O FAB e filho da faixa, entao
+     desaparece junto (o `fixed` dele nao escapa de um ancestral display:none).
+     Some do JSX na U5, quando a toolbar valer nos dois breakpoints. */
+  .fv-users-page .hero-search-wrap {
+    display: none;
+  }
+
   /* ── Mesmo cartao institucional na lista de Lotes (FV /samples). O sheet
      legado tinha gradiente creme + borda esverdeada; aqui vira superficie
      branca com hairline, como em /cadastros. ── */
@@ -31811,6 +31838,12 @@ body.is-selection-mode .ctr-page .cc-tabs {
   }
   .fv-col-actions {
     width: 58px;
+  }
+
+  /* Coluna de Perfil (FV /users): cabe o rotulo mais longo do getRoleLabel sem
+     quebrar, e o resto da sobra fica com Contato (que e a coluna elastica). */
+  .fv-col-role {
+    width: 150px;
   }
 
   /* Colunas da tabela de Lotes (FV /samples): 7 + acoes. O "Lote" carrega
