@@ -29680,20 +29680,33 @@ body.is-selection-mode .ctr-page .cc-tabs {
   display: none;
 }
 
-/* Host do canvas. Altura explicita exigida pelo React Flow; drawer/pill/
-   paleta ancoram como position:absolute NESTE contexto — nunca position:fixed
-   (PageTransition tem will-change: transform, precedente do MobileTabbar).
-   Offset de 210px ~ topbar + cabecalho da pagina (a tira de abas nunca contou:
-   ela ja era display:none no desktop e saiu de vez no RD16 M2). */
+/* O `.fv-page-head` do kit nao tem padding embaixo porque nas paginas de
+   lista quem da o respiro e a KPI row logo abaixo. Aqui ela nao existe e o
+   canvas encosta borda a borda, entao o titulo ficaria colado nele. Respiro
+   escopado na aba — o kit compartilhado nao muda por causa de uma pagina. */
+.samples-page-v2.is-tab-simulador .fv-page-head {
+  padding-bottom: 0.8rem;
+}
+
+/* Host do canvas. O React Flow exige altura resolvida, e ela vem da CADEIA
+   FLEX do shell, nao de conta na mao: `.app-shell-main` ja trava
+   `100vh - topbar` para `.samples-page-v2`, e daqui pra baixo e tudo
+   flex:1 + min-height:0. O `calc(100dvh - 210px)` que morava aqui era um
+   offset magico calibrado a olho — descolava do layout a cada peca que
+   entrava ou saia do topo.
+
+   Borda a borda (pedido do Flavio): sem margem, sem raio e sem sombra. O
+   canvas nao e um cartao dentro da pagina, ele E a pagina.
+
+   Drawer/pill/paleta ancoram como position:absolute NESTE contexto — nunca
+   position:fixed (PageTransition tem will-change: transform, precedente do
+   MobileTabbar). */
 .pg-host {
   position: relative;
-  height: calc(100dvh - 210px);
-  min-height: 480px;
-  margin: 0 clamp(0.9rem, 2vw, 1.5rem) 1rem;
-  border-radius: var(--radius-lg);
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
   background: #fbfaf7;
-  box-shadow: var(--shadow-sm);
 }
 /* Skeleton do next/dynamic: reserva o mesmo box do canvas (sem CLS). */
 .pg-canvas-skeleton {
