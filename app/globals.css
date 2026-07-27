@@ -9355,6 +9355,81 @@ button:disabled {
   font-style: italic;
 }
 
+/* ── /relatorios: cards do feed em LINHA COLUNAR institucional ─────────────
+   Reescopo SO da pagina /relatorios (contêiner .rsm-content) — o dashboard do
+   prospector reusa o MESMO .rsm-card FORA de .rsm-content e fica intocado
+   (mesmo padrao do `.rsm-content .rsm-empty` mais abaixo). O JSX dos cards nao
+   muda: a ordem do DOM ja e a ordem-alvo das colunas.
+   . MOBILE (base): de-box da faixa do cliente + aperto vertical (a caixa verde
+     + o icone de 34px sao o maior vilao de altura hoje).
+   . DESKTOP (>=901px): grid de 7 tracks p/ 5 colunas conceituais — Autor
+     (avatar + nome) · Data·hora · Tipo (chip) · Cliente/Semana (icone + texto)
+     · chevron. Especificidade (0,2,0) vence os originais (0,1,0). */
+.rsm-content .rsm-card {
+  padding: clamp(11px, 3.2vw, 14px);
+}
+.rsm-content .rsm-card-toggle {
+  gap: clamp(7px, 2.2vw, 9px);
+}
+.rsm-content .rsm-card-client {
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  gap: clamp(8px, 2.5vw, 10px);
+}
+.rsm-content .rsm-client-icon {
+  width: clamp(20px, 5.6vw, 22px);
+  height: clamp(20px, 5.6vw, 22px);
+  border-radius: clamp(6px, 1.8vw, 7px);
+}
+/* Digitos de largura fixa: a data tem sempre 18 chars, entao a coluna Data·hora
+   fica com largura identica entre cards -> as colunas do desktop ALINHAM
+   verticalmente (junto com o floor do chip abaixo, as tracks nao-fr sao
+   invariantes; as fr sobrantes tambem, pois o card tem largura fixa). */
+.rsm-content .rsm-card-when {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (min-width: 901px) {
+  .rsm-content .rsm-card-toggle {
+    display: grid;
+    grid-template-columns:
+      auto /* 1 avatar (sm) */
+      minmax(0, 1.3fr) /* 2 nome do autor — trunca */
+      auto /* 3 data·hora — nowrap, tabular-nums */
+      minmax(78px, auto) /* 4 chip (Tipo) — floor iguala Visita/Semanal/Cancelado */
+      auto /* 5 icone do assunto */
+      minmax(0, 1.7fr) /* 6 cliente/semana — trunca (col. maior) */
+      auto; /* 7 chevron */
+    align-items: center;
+    column-gap: clamp(10px, 1.4vw, 16px);
+    row-gap: 0;
+  }
+  /* Achata os wrappers -> os filhos viram irmaos-grid. ANCORA: a grid depende
+     deste aninhamento (.rsm-card-head > avatar/.rsm-card-head-text/chip;
+     .rsm-card-client > icone/.rsm-card-client-text/chevron). Nao mexer no JSX
+     dos cards sem reconferir a contagem de colunas acima. */
+  .rsm-content .rsm-card-head,
+  .rsm-content .rsm-card-head-text,
+  .rsm-content .rsm-card-client {
+    display: contents;
+  }
+  /* A grid posiciona o chip; o margin-left:auto so servia ao layout em flex. */
+  .rsm-content .rsm-card-head > .fv-chip {
+    margin-left: 0;
+  }
+  /* Coluna 6: o nome do cliente/semana trunca (é flex e hospeda a tag "Cliente
+     novo", que ja tem flex-shrink:0). .rsm-card-client-text NAO e achatado, entao
+     nome + "Codigo X" seguem empilhados na mesma celula. */
+  .rsm-content .rsm-client-name {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
 /* Excluir informe (admin-only) — rodape da area expandida. Discreto,
    vermelho-suave; tap so profundidade (skill button-press-effect). */
 .rsm-delete-btn {
