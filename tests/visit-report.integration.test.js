@@ -511,7 +511,7 @@ if (!databaseUrl || !databaseReachable) {
     });
   }
 
-  test('getRelatoriosStats: total (nao-cancelado) + esta semana + semana passada', async () => {
+  test('getRelatoriosStats: esta semana + semana passada (excluindo canceladas)', async () => {
     await resetDatabase();
     const commercial = await seedUser('COMMERCIAL');
     const client = await seedClient();
@@ -545,9 +545,14 @@ if (!databaseUrl || !databaseReachable) {
     });
 
     const stats = await service.getRelatoriosStats(actorFor(commercial), { now });
-    assert.equal(stats.totalVisits, 4); // 5 linhas, 1 cancelada excluida
-    assert.equal(stats.visitsThisWeek, 2); // 2 nao-canceladas nesta semana
+    assert.equal(stats.visitsThisWeek, 2); // 2 nao-canceladas nesta semana (1 cancelada fora)
     assert.equal(stats.visitsLastWeek, 1);
+    // A visita de 10/06 esta na janela de 13 semanas, mas nao nas duas ultimas.
+    assert.equal(
+      stats.weeklyTrend.reduce((sum, w) => sum + w.count, 0),
+      4
+    );
+    assert.equal(stats.totalVisits, undefined); // sem card desde a §2.10 R13
   });
 
   test('getRelatoriosStats: weeklyTrend = 13 semanas BRT (ultima == visitsThisWeek)', async () => {

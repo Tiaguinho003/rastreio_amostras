@@ -535,36 +535,34 @@ export class VisitReportService {
     };
   }
 
-  // Cards da página "Relatórios" (2 KPIs de VISITA, EXCLUINDO canceladas): total
-  // geral e "esta semana" + a semana anterior p/ a UI derivar o delta. Janela de
-  // semana BRT. Acesso = viewer scope=all (mesmo gate do feed). `now` p/ testes.
+  // Cards do topo da página "Relatórios" (VISITAS, EXCLUINDO canceladas, de
+  // todos os autores): "esta semana" + a semana anterior (a UI deriva o delta) e
+  // a tendência de 13 semanas do gráfico. Acesso = viewer scope=all (mesmo gate
+  // do feed). `now` p/ testes.
+  //
+  // UMA query só: a janela da tendência TERMINA na semana corrente
+  // (`computeVisitTrendWindows` fecha em `nextWeekStartUtc`), então o último
+  // balde É "esta semana" e o penúltimo É "a semana passada" — as mesmas
+  // fronteiras BRT que os counts separados usavam. Contar de novo seria pedir ao
+  // banco o que já está na mão (e o `totalVisits`, que era a 4ª query, perdeu o
+  // card na §2.10 R13).
   async getRelatoriosStats(actorContext, { now = new Date() } = {}) {
     const actor = assertAuthenticatedActor(actorContext, 'read relatorios stats');
     assertRoleAllowed(actor.role, VISIT_REPORT_VIEWER_ROLES, 'read relatorios stats');
-    const { prevWeekStartUtc, thisWeekStartUtc, nextWeekStartUtc } = computeVisitWeekWindows(now);
     const { startUtc, endUtc, weekStarts } = computeVisitTrendWindows(now);
-    const [totalVisits, visitsThisWeek, visitsLastWeek, weekRows] = await this.prisma.$transaction([
-      this.prisma.visitReport.count({ where: { cancelledAt: null } }),
-      this.prisma.visitReport.count({
-        where: { cancelledAt: null, createdAt: { gte: thisWeekStartUtc, lt: nextWeekStartUtc } },
-      }),
-      this.prisma.visitReport.count({
-        where: { cancelledAt: null, createdAt: { gte: prevWeekStartUtc, lt: thisWeekStartUtc } },
-      }),
-      // Tendencia semanal (~90 dias): agrupa por SEMANA BRT via date_trunc('week',
-      // ...) sobre o timestamp deslocado -3h (ISO week = segunda; independente do
-      // TimeZone da sessao do banco, NAO `::date` cru). So nao-canceladas, todos autores.
-      this.prisma.$queryRaw`
-        SELECT
-          date_trunc('week', (v."created_at" AT TIME ZONE 'UTC') - INTERVAL '3 hours')::date AS "weekStart",
-          COUNT(*)::INTEGER AS "count"
-        FROM "visit_report" v
-        WHERE v."cancelled_at" IS NULL
-          AND v."created_at" >= ${startUtc}
-          AND v."created_at" < ${endUtc}
-        GROUP BY 1
-      `,
-    ]);
+    // Agrupa por SEMANA BRT via date_trunc('week', ...) sobre o timestamp
+    // deslocado -3h (ISO week = segunda; independente do TimeZone da sessao do
+    // banco, NAO `::date` cru).
+    const weekRows = await this.prisma.$queryRaw`
+      SELECT
+        date_trunc('week', (v."created_at" AT TIME ZONE 'UTC') - INTERVAL '3 hours')::date AS "weekStart",
+        COUNT(*)::INTEGER AS "count"
+      FROM "visit_report" v
+      WHERE v."cancelled_at" IS NULL
+        AND v."created_at" >= ${startUtc}
+        AND v."created_at" < ${endUtc}
+      GROUP BY 1
+    `;
     // Zero-fill nas 13 semanas (indice 0 = mais antiga ... 12 = a semana atual).
     // Prisma pode devolver weekStart como Date -> normaliza p/ 'YYYY-MM-DD'.
     const byWeek = new Map(
@@ -579,7 +577,11 @@ export class VisitReportService {
       weekStart,
       count: byWeek.get(weekStart) ?? 0,
     }));
-    return { totalVisits, visitsThisWeek, visitsLastWeek, weeklyTrend };
+    return {
+      visitsThisWeek: weeklyTrend[weeklyTrend.length - 1]?.count ?? 0,
+      visitsLastWeek: weeklyTrend[weeklyTrend.length - 2]?.count ?? 0,
+      weeklyTrend,
+    };
   }
 
   // ---- Relatorio SEMANAL ----

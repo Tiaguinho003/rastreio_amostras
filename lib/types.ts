@@ -1566,16 +1566,14 @@ export interface InformeFeedResponse {
   };
 }
 
-// Card da pagina "Relatorios": KPI de VISITA "Visitas esta semana" (EXCLUINDO
-// canceladas) + a tendencia semanal que alimenta o grafico. Semana = segunda
-// 00:00 BRT. (totalVisits/visitsLastWeek seguem no payload — usados por outros
-// consumidores/testes — mesmo sem card proprio hoje.)
+// Cards do topo da pagina "Relatorios": "Visitas esta semana" (EXCLUINDO
+// canceladas, todos os autores) + a tendencia semanal que alimenta o grafico.
+// Semana = segunda 00:00 BRT. Os tres campos saem do MESMO group-by: o ultimo
+// balde da tendencia e' esta semana e o penultimo, a passada.
 export interface RelatoriosStatsResponse {
-  /** Total de visitas (nao-canceladas). */
-  totalVisits: number;
   /** Visitas desta semana. */
   visitsThisWeek: number;
-  /** Visitas da semana anterior. */
+  /** Visitas da semana anterior (a UI deriva o delta ▲/▼). */
   visitsLastWeek: number;
   /**
    * Tendencia de visitas (nao-canceladas) por SEMANA BRT: 13 semanas (a atual

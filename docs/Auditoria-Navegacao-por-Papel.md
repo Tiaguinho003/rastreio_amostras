@@ -180,9 +180,11 @@ Constantes/helpers de agrupamento (`lib/roles.ts`):
 - `isVisitReportViewer(role)` = **todo não-PROSPECTOR** (`!isProspector`; ACESSO
   UNIFICADO 2026-07-15 — era só ADMIN): visão de supervisão (`scope=all`). Espelha
   `VISIT_REPORT_VIEWER_ROLES` no backend (`src/visits/visit-report-service.js`).
+  _(Hoje sem call-site: quem guarda a página é o `INFORME_ROLES`, que é o mesmo
+  conjunto. Mantido por nomear um gate real do backend.)_
   _(A **curadoria do vínculo** informe→cliente **acabou** na unificação de 2026-07-15 —
-  a Visita nasce vinculada. O helper `isVisitLinkCurator` e o `VISIT_REPORT_LINK_CURATOR_ROLES`
-  do backend não existem mais como gate de nada.)_
+  a Visita nasce vinculada. O helper `isVisitLinkCurator` foi **removido** em 2026-07-27
+  e o `VISIT_REPORT_LINK_CURATOR_ROLES` do backend já não existia.)_
 
 ## Referencia 2 — Superficies de navegacao
 

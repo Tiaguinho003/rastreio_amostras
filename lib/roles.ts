@@ -69,14 +69,6 @@ export function isVisitReportViewer(role: UserRole | null | undefined): boolean 
   return !!role && !isProspector(role);
 }
 
-// Quem cura o vinculo informe -> cliente em "Relatorios" (Vincular / Cadastrar e
-// vincular / Remover vinculo; atende o caso "Cliente novo"). ACESSO UNIFICADO
-// (2026-07-15): todo nao-PROSPECTOR cura — IGUAL aos viewers. Espelha
-// VISIT_REPORT_LINK_CURATOR_ROLES do backend.
-export function isVisitLinkCurator(role: UserRole | null | undefined): boolean {
-  return !!role && !isProspector(role);
-}
-
 // Quem CRIA o relatorio SEMANAL na pagina "Relatorios" — so ADMIN + COMMERCIAL
 // (unificacao 2026-07-15). A VISITA, ao contrario, e criada por qualquer
 // autenticado (incl. PROSPECTOR). Espelha WEEKLY_REPORT_AUTHOR_ROLES no backend.

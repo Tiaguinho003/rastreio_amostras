@@ -1,8 +1,8 @@
 import type { VisitFarmSize, VisitInterestLevel } from './types';
 
-// Opcoes do formulario de visita (pagina /informe) e labels pt-BR usados
-// tambem na listagem admin (/resumo). Os values espelham os enums Prisma
-// VisitFarmSize / VisitInterestLevel.
+// Opcoes do formulario de VISITA (pagina /relatorios + sheet do dashboard do
+// prospector — o mesmo formulario) e os labels pt-BR usados no card do feed.
+// Os values espelham os enums Prisma VisitFarmSize / VisitInterestLevel.
 
 export interface VisitChoiceOption<TValue extends string> {
   value: TValue;
@@ -28,13 +28,10 @@ export function getVisitFarmSizeLabel(value: VisitFarmSize): string {
   return option ? `${option.label} · ${option.description.toLowerCase()}` : value;
 }
 
-export function getVisitInterestLabel(value: VisitInterestLevel): string {
-  const option = VISIT_INTEREST_OPTIONS.find((candidate) => candidate.value === value);
-  return option ? option.label : value;
-}
-
-// Versao com contexto pro /resumo ("Baixo · só conhecendo"). NONE fica so
-// com o label — a descricao seria redundante.
+// Label com contexto ("Baixo · só conhecendo") — o card do feed usa este. NONE
+// fica so com o label; a descricao seria redundante. _(A variante curta,
+// `getVisitInterestLabel`, saiu em 2026-07-27: era do card do prospector, que a
+// unificacao de 2026-07-15 fundiu no card unico.)_
 export function getVisitInterestDetailLabel(value: VisitInterestLevel): string {
   const option = VISIT_INTEREST_OPTIONS.find((candidate) => candidate.value === value);
   if (!option) {
