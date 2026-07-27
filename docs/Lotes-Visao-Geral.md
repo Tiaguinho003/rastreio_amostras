@@ -88,11 +88,15 @@ Cobertura em `tests/` — projeção/canonização/extração de classificação
 
 ## 9. Dívidas e decisões abertas
 
-- **`.informe-commercial-page`** — classe CSS com **zero ocorrências no TSX** (morta em
-  silêncio). Desfazê-la tira `:not(.informe-commercial-page)` de regras **vivas** de
-  `/samples` (risco de cascata) e a classe parece reservada à **unificação de Relatórios**
-  (trabalho ativo). Adiada de propósito no M4 — sai quando Relatórios entrar no ciclo. Ver
-  Redesign §2.8 (M4) e `docs/Redesign-Plano-de-Trabalho.md`.
+- **`.informe-commercial-page`** — classe CSS com **zero ocorrências no TSX**, morta desde que
+  a unificação de 2026-07-15 apagou o `InformeCommercialPage`. _(A hipótese do M4 de que estivesse
+  "reservada à unificação de Relatórios" caiu: Relatórios passou pelo ciclo e não a usa.)_ Na
+  consolidação de 2026-07-27 saíram as **5 regras que exigiam a classe**; sobraram **7
+  `:not(.informe-commercial-page)`** qualificando regras **vivas** de `/samples`
+  (`.samples-page-v2`, `-sheet`, `.spv2-list-scroll`, `.cv2-fab` ×2, `.spv2-card-wrap` ×2).
+  Removê-los é semanticamente inócuo mas **baixa a especificidade de (0,2,0) para (0,1,0)** — pode
+  virar a cascata numa página que não está na vez do ciclo. **Sai na próxima passada de `/samples`,
+  com conferência visual.** Ver Redesign §2.8 (M4) e §2.10 (consolidação).
 - **Cadeia órfã de backend** — `getDashboardPending`, `getSampleRecentSends`,
   `updateSampleMovement` (+ testes de integração) ficaram órfãos de UI após o redesenho
   (o feed "Amostras enviadas" saiu do produto; a KPI "Aguardando classificação" substituiu
