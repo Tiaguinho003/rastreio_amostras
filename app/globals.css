@@ -7254,6 +7254,136 @@ button:disabled {
 }
 
 /* ================================================================
+   FV /users · painel do usuário (.usr-panel-*) — U3
+   Conteúdo do `BottomSheet.fv-panel-sheet.side-sheet`: lateral no
+   desktop, sheet de baixo no mobile. O chrome (header, footer, scrim,
+   arrasto) é do sheet; aqui mora só o miolo. Sem media query — o kit
+   de painel já resolve os dois breakpoints.
+   ================================================================ */
+
+/* Identidade no topo do painel: o header do sheet só tem a seta, então o
+   "quem é este usuário" vem como primeiro bloco do corpo. */
+.usr-panel-id {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid var(--fv-line);
+}
+
+.usr-panel-avatar {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--avatar-color, var(--fv-cta));
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.usr-panel-id-copy {
+  min-width: 0;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.usr-panel-name {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usr-panel-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.usr-panel-username {
+  font-size: 0.82rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* UMA coluna: reusa o grid de leitura compartilhado (.sdv-info-grid, o mesmo
+   do detalhe do lote e do cliente), mas em painel estreito duas colunas
+   espremem o e-mail — que é o campo mais longo e o mais copiado. */
+.usr-panel-facts.sdv-info-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.usr-panel-value-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.usr-panel-value-row .sdv-info-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* O ícone de copiar não compete com os botões de ação: mesmo desenho do
+   .fv-iconbtn, metade do tamanho. */
+.usr-panel-copy.fv-iconbtn {
+  flex: none;
+  width: 28px;
+  height: 28px;
+}
+
+.usr-panel-copy.fv-iconbtn svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Ações administrativas: coluna de botões secundários. Em painel estreito
+   empilhar ganha de emparelhar — os rótulos têm comprimentos bem diferentes
+   ("Desbloquear" vs "Inativar") e lado a lado ficariam desalinhados. */
+.usr-panel-actions {
+  display: grid;
+  gap: 0.5rem;
+}
+
+/* Vermelho suave do kit (#c45c5c, o mesmo do .fv-form-field-error) — tom de
+   atenção, não de alarme. Candidato a virar `.fv-btn-secondary.is-danger` no
+   kit quando a SEGUNDA página precisar (css-architecture §2). */
+.usr-panel-actions .fv-btn.is-danger {
+  color: #c45c5c;
+  border-color: #e6c4c4;
+}
+
+.usr-panel-note {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.usr-panel-reset {
+  padding: 0.15rem 0 0;
+}
+
+/* ================================================================
    Settings page (.stg-*)
    ================================================================ */
 

@@ -1,8 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { AppShell } from '../../components/AppShell';
+import { BottomSheet } from '../../components/BottomSheet';
+import { SuccessCheckOverlay, SUCCESS_CHECK_MS } from '../../components/SuccessCheckOverlay';
 import { InactivateUserModal } from '../../components/users/InactivateUserModal';
 import {
   ApiError,
@@ -18,10 +21,9 @@ import { maskPhoneInput } from '../../lib/client-field-formatters';
 import { formatRelativeTime } from '../../lib/relative-time';
 import { useToast } from '../../lib/toast/ToastProvider';
 import { useIsDesktop } from '../../lib/use-desktop';
-import { useFocusTrap } from '../../lib/use-focus-trap';
 import { getRoleLabel, isAssignableUserRole } from '../../lib/roles';
 import { useRequireAuth } from '../../lib/use-auth';
-import type { UserRole, UserStatus, UserSummary } from '../../lib/types';
+import type { UserRole, UserSummary } from '../../lib/types';
 
 // Papeis oferecidos ao CRIAR um usuario. O PROSPECTOR ficou de fora: o papel
 // continua existindo (enum, login, app de campo), mas ninguem cria mais.
@@ -51,10 +53,6 @@ const USER_LOAD_MORE_ROOT_MARGIN = '0px';
 // Avatar unificado no verde da marca (decisao 2026-06): todos os usuarios usam
 // o mesmo verde do /clients. O gradiente + sombra derivam de --avatar-color.
 const USER_AVATAR_COLOR = '#1f5d43';
-
-function userStatusLabel(status: UserStatus) {
-  return status === 'ACTIVE' ? 'Ativo' : 'Inativo';
-}
 
 function getUserInitials(name: string): string {
   return name
@@ -94,6 +92,25 @@ function getRoleModifierClass(role: UserRole): string {
     default:
       return '';
   }
+}
+
+// Os forms vivem no corpo do painel e o botao no footer do sheet — a ligacao e
+// pelo `form={id}` (forms §5).
+const EDIT_FORM_ID = 'user-edit-form';
+const CREATE_FORM_ID = 'user-create-form';
+
+type UserFieldName = 'fullName' | 'username' | 'email' | 'phone' | 'password' | 'reset';
+type UserFieldErrors = Partial<Record<UserFieldName, string>>;
+
+const MIN_PASSWORD_LENGTH = 8;
+
+// Telefone e OPCIONAL, mas se vier tem que ser DDD + 8 ou 9 digitos.
+function validatePhone(masked: string): string | null {
+  const digits = masked.replace(/\D/g, '');
+  if (digits.length === 0) return null;
+  return digits.length === 10 || digits.length === 11
+    ? null
+    : 'Informe DDD + número (10 ou 11 dígitos)';
 }
 
 function blankCreateForm() {
@@ -181,7 +198,6 @@ interface ModalState {
   loading: boolean;
   saving: boolean;
   error: string | null;
-  message: string | null;
 }
 
 const MODAL_INITIAL: ModalState = {
@@ -190,21 +206,21 @@ const MODAL_INITIAL: ModalState = {
   loading: false,
   saving: false,
   error: null,
-  message: null,
 };
 
 type ModalAction =
   | { type: 'openCreate' }
   | { type: 'openView'; userId: string }
   | { type: 'switchToEdit' }
+  | { type: 'switchToView' }
   | { type: 'close' }
   | { type: 'fetchDetail' }
   | { type: 'detailSuccess'; user: UserSummary }
   | { type: 'detailError'; message: string }
   | { type: 'saving' }
-  | { type: 'saveSuccess'; user: UserSummary; message: string }
-  | { type: 'saveError'; message: string }
-  | { type: 'actionSuccess'; user: UserSummary; message: string }
+  | { type: 'saveSuccess'; user: UserSummary }
+  | { type: 'saveError' }
+  | { type: 'actionSuccess'; user: UserSummary }
   | { type: 'clearMessages' };
 
 function modalReducer(state: ModalState, action: ModalAction): ModalState {
@@ -219,7 +235,9 @@ function modalReducer(state: ModalState, action: ModalAction): ModalState {
         user: action.userId ? ({ id: action.userId } as UserSummary) : null,
       };
     case 'switchToEdit':
-      return { ...state, mode: 'edit', error: null, message: null };
+      return { ...state, mode: 'edit', error: null };
+    case 'switchToView':
+      return { ...state, mode: 'view', error: null };
     case 'close':
       return MODAL_INITIAL;
     case 'fetchDetail':
@@ -229,15 +247,18 @@ function modalReducer(state: ModalState, action: ModalAction): ModalState {
     case 'detailError':
       return { ...state, loading: false, error: action.message };
     case 'saving':
-      return { ...state, saving: true, error: null, message: null };
+      return { ...state, saving: true, error: null };
     case 'saveSuccess':
-      return { ...state, saving: false, user: action.user, message: action.message, mode: 'view' };
+      return { ...state, saving: false, user: action.user, mode: 'view' };
+    // Falha de escrita virou TOAST (o painel nao tem mais linha de feedback);
+    // aqui so destrava o formulario. O `error` sobrevive para o unico caso que
+    // ainda pertence ao corpo do painel: falhar ao CARREGAR o usuario.
     case 'saveError':
-      return { ...state, saving: false, error: action.message };
+      return { ...state, saving: false };
     case 'actionSuccess':
-      return { ...state, saving: false, user: action.user, message: action.message };
+      return { ...state, saving: false, user: action.user };
     case 'clearMessages':
-      return { ...state, error: null, message: null };
+      return { ...state, error: null };
     default:
       return state;
   }
@@ -274,10 +295,19 @@ export default function UsersPage() {
     role: 'CLASSIFIER' as UserRole,
   });
 
+  // Erro DENTRO do campo (forms §6): o form nao tem mais a linha "Preencha
+  // todos os campos obrigatorios" no topo. Falha de rede/409 vira toast.
+  const [fieldErrors, setFieldErrors] = useState<UserFieldErrors>({});
+  // Rascunho sujo => tentar fechar abre o confirm de descarte.
+  const [panelDirty, setPanelDirty] = useState(false);
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
+  const [panelSuccess, setPanelSuccess] = useState(false);
+  // "Redefinir senha": secao que abre dentro do painel (era window.prompt).
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetValue, setResetValue] = useState('');
+
   const lastTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const modalTrapRef = useFocusTrap(modal.mode !== 'closed');
   const searchDebounceRef = useRef<number | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const loadMoreStateRef = useRef<{
@@ -507,35 +537,39 @@ export default function UsersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modal.mode, modal.user?.id, session]);
 
-  // --- Modal focus & scroll lock ---
+  // Devolve o foco a quem abriu o painel. Scroll-lock, ESC, focus trap e
+  // historico sao do BottomSheet — duplicar aqui daria dois donos do
+  // `body.overflow` (o segundo a limpar restauraria o valor errado).
   useEffect(() => {
-    if (modal.mode === 'closed') return;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !modal.saving) {
-        event.preventDefault();
-        closeModal();
-      }
-    };
-
-    document.addEventListener('keydown', onKeyDown);
-    window.setTimeout(() => closeButtonRef.current?.focus(), 0);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener('keydown', onKeyDown);
-      window.setTimeout(() => lastTriggerRef.current?.focus(), 0);
-    };
-    // closeModal e funcao local nao memoizada; reage so a abertura/saving do modal
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modal.mode, modal.saving]);
+    if (modal.mode !== 'closed') return;
+    const trigger = lastTriggerRef.current;
+    if (!trigger) return;
+    const id = window.setTimeout(() => trigger.focus(), 0);
+    return () => window.clearTimeout(id);
+  }, [modal.mode]);
 
   if (loading || !session) return null;
 
   // --- Handlers ---
+
+  // Zera tudo o que e do painel — some junto com ele, nunca vaza pro proximo.
+  function resetPanelScratch() {
+    setFieldErrors({});
+    setPanelDirty(false);
+    setConfirmDiscardOpen(false);
+    setPanelSuccess(false);
+    setResetOpen(false);
+    setResetValue('');
+  }
+
+  function clearFieldError(field: UserFieldName) {
+    setFieldErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
 
   function openUserDetail(
     userId: string,
@@ -543,6 +577,7 @@ export default function UsersPage() {
     mode: 'view' | 'edit' = 'view'
   ) {
     lastTriggerRef.current = trigger;
+    resetPanelScratch();
     const cached = listState.items.find((u) => u.id === userId) ?? null;
     dispatchModal({ type: 'openView', userId });
     if (cached) {
@@ -565,12 +600,46 @@ export default function UsersPage() {
 
   function openCreateModal(trigger: HTMLButtonElement) {
     lastTriggerRef.current = trigger;
+    resetPanelScratch();
     setCreateForm(blankCreateForm());
     dispatchModal({ type: 'openCreate' });
   }
 
   function closeModal() {
     if (modal.saving) return;
+    resetPanelScratch();
+    dispatchModal({ type: 'close' });
+  }
+
+  // Gesto de fechar (seta, ESC, back, drag, tap no scrim). Rascunho tocado
+  // abre o confirm em vez de fechar (forms §8).
+  function handlePanelDismiss(): boolean {
+    if (modal.saving || panelSuccess) return false;
+    if (panelDirty) {
+      setConfirmDiscardOpen(true);
+      return false;
+    }
+    return true;
+  }
+
+  function handleDiscardPanel() {
+    setConfirmDiscardOpen(false);
+    setPanelDirty(false);
+    // Editar volta pro modo leitura com o formulario restaurado; criar fecha o
+    // painel inteiro (nao ha estado anterior pra onde voltar).
+    if (modal.mode === 'edit' && modal.user) {
+      setFieldErrors({});
+      setEditForm({
+        fullName: modal.user.fullName,
+        username: modal.user.username,
+        email: modal.user.email,
+        phone: maskPhoneInput(modal.user.phone ?? ''),
+        role: modal.user.role,
+      });
+      dispatchModal({ type: 'switchToView' });
+      return;
+    }
+    resetPanelScratch();
     dispatchModal({ type: 'close' });
   }
 
@@ -596,22 +665,21 @@ export default function UsersPage() {
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (
-      !createForm.fullName.trim() ||
-      !createForm.username.trim() ||
-      !createForm.email.trim() ||
-      !createForm.password.trim()
-    ) {
-      dispatchModal({ type: 'saveError', message: 'Preencha todos os campos obrigatorios' });
+    const errors: UserFieldErrors = {};
+    if (!createForm.fullName.trim()) errors.fullName = 'Informe o nome completo';
+    if (!createForm.username.trim()) errors.username = 'Informe o usuário de acesso';
+    if (!createForm.email.trim()) errors.email = 'Informe o e-mail';
+    if (createForm.password.trim().length < MIN_PASSWORD_LENGTH) {
+      errors.password = `Mínimo de ${MIN_PASSWORD_LENGTH} caracteres`;
+    }
+    const phoneError = validatePhone(createForm.phone);
+    if (phoneError) errors.phone = phoneError;
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       return;
     }
 
-    const phoneDigits = createForm.phone.replace(/\D/g, '');
-    if (phoneDigits.length > 0 && phoneDigits.length !== 10 && phoneDigits.length !== 11) {
-      dispatchModal({ type: 'saveError', message: 'Telefone deve ter 10 ou 11 digitos' });
-      return;
-    }
-
+    setFieldErrors({});
     dispatchModal({ type: 'saving' });
 
     try {
@@ -624,11 +692,11 @@ export default function UsersPage() {
         role: createForm.role,
       });
 
-      dispatchModal({
-        type: 'saveSuccess',
-        user: response.user,
-        message: `Usuario criado. Senha: ${response.generatedPassword}`,
-      });
+      // U-D4: a senha NAO volta pra tela. O backend ja a envia por e-mail
+      // (sendUserCreated) — repetir aqui so criava uma copia em texto puro no
+      // state do React e na tela de quem estivesse por perto.
+      setPanelDirty(false);
+      setPanelSuccess(true);
       setEditForm({
         fullName: response.user.fullName,
         username: response.user.username,
@@ -637,33 +705,41 @@ export default function UsersPage() {
         role: response.user.role,
       });
       refreshList();
+      // Check terminal e o painel segue aberto no usuario recem-criado
+      // (coreografia "check e abre outra coisa", forms §7).
+      window.setTimeout(() => {
+        setPanelSuccess(false);
+        dispatchModal({ type: 'saveSuccess', user: response.user });
+        toast.success({
+          title: 'Usuário criado',
+          description: `A senha de acesso foi enviada para ${response.user.email}.`,
+        });
+      }, SUCCESS_CHECK_MS);
     } catch (cause) {
-      dispatchModal({
-        type: 'saveError',
-        message: cause instanceof ApiError ? cause.message : 'Falha ao criar usuario',
+      dispatchModal({ type: 'saveError' });
+      toast.error({
+        title: 'Não foi possível criar o usuário',
+        description: cause instanceof ApiError ? cause.message : undefined,
       });
     }
   }
 
   async function handleEdit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!modal.user) return;
 
-    if (
-      !modal.user ||
-      !editForm.fullName.trim() ||
-      !editForm.username.trim() ||
-      !editForm.email.trim()
-    ) {
-      dispatchModal({ type: 'saveError', message: 'Preencha todos os campos obrigatorios' });
+    const errors: UserFieldErrors = {};
+    if (!editForm.fullName.trim()) errors.fullName = 'Informe o nome completo';
+    if (!editForm.username.trim()) errors.username = 'Informe o usuário de acesso';
+    if (!editForm.email.trim()) errors.email = 'Informe o e-mail';
+    const phoneError = validatePhone(editForm.phone);
+    if (phoneError) errors.phone = phoneError;
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       return;
     }
 
-    const phoneDigits = editForm.phone.replace(/\D/g, '');
-    if (phoneDigits.length > 0 && phoneDigits.length !== 10 && phoneDigits.length !== 11) {
-      dispatchModal({ type: 'saveError', message: 'Telefone deve ter 10 ou 11 digitos' });
-      return;
-    }
-
+    setFieldErrors({});
     dispatchModal({ type: 'saving' });
 
     try {
@@ -675,18 +751,24 @@ export default function UsersPage() {
         role: editForm.role,
       });
 
-      dispatchModal({
-        type: 'saveSuccess',
-        user: response.user,
-        message: response.sessionRevoked
-          ? 'Atualizado. Sessoes do usuario encerradas.'
-          : 'Usuario atualizado.',
-      });
+      setPanelDirty(false);
+      setPanelSuccess(true);
       refreshList();
+      window.setTimeout(() => {
+        setPanelSuccess(false);
+        dispatchModal({ type: 'saveSuccess', user: response.user });
+        if (response.sessionRevoked) {
+          toast.success({
+            title: 'Usuário atualizado',
+            description: 'As sessões abertas dele foram encerradas.',
+          });
+        }
+      }, SUCCESS_CHECK_MS);
     } catch (cause) {
-      dispatchModal({
-        type: 'saveError',
-        message: cause instanceof ApiError ? cause.message : 'Falha ao atualizar',
+      dispatchModal({ type: 'saveError' });
+      toast.error({
+        title: 'Não foi possível salvar',
+        description: cause instanceof ApiError ? cause.message : undefined,
       });
     }
   }
@@ -704,12 +786,14 @@ export default function UsersPage() {
 
     try {
       const response = await reactivateUser(session!, modal.user.id);
-      dispatchModal({ type: 'actionSuccess', user: response.user, message: 'Usuario reativado.' });
+      dispatchModal({ type: 'actionSuccess', user: response.user });
+      toast.success({ title: 'Usuário reativado' });
       refreshList();
     } catch (cause) {
-      dispatchModal({
-        type: 'saveError',
-        message: cause instanceof ApiError ? cause.message : 'Falha ao reativar',
+      dispatchModal({ type: 'saveError' });
+      toast.error({
+        title: 'Não foi possível reativar',
+        description: cause instanceof ApiError ? cause.message : undefined,
       });
     }
   }
@@ -721,38 +805,51 @@ export default function UsersPage() {
 
     try {
       const response = await unlockUser(session!, modal.user.id);
-      dispatchModal({
-        type: 'actionSuccess',
-        user: response.user,
-        message: 'Usuario desbloqueado.',
-      });
+      dispatchModal({ type: 'actionSuccess', user: response.user });
+      toast.success({ title: 'Usuário desbloqueado' });
       refreshList();
     } catch (cause) {
-      dispatchModal({
-        type: 'saveError',
-        message: cause instanceof ApiError ? cause.message : 'Falha ao desbloquear',
+      dispatchModal({ type: 'saveError' });
+      toast.error({
+        title: 'Não foi possível desbloquear',
+        description: cause instanceof ApiError ? cause.message : undefined,
       });
     }
   }
 
-  async function handlePasswordReset() {
-    if (!modal.user) return;
-    const password = window.prompt('Informe a nova senha do usuario:');
-    if (!password) return;
+  // Era um window.prompt() do browser — dialogo nativo no meio do app
+  // institucional, e a senha voltava pra tela em texto puro. Agora e uma secao
+  // do painel; a senha vai por e-mail (U-D4) e nunca e ecoada.
+  async function handlePasswordReset(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!modal.user || modal.saving) return;
 
+    if (resetValue.trim().length < MIN_PASSWORD_LENGTH) {
+      setFieldErrors((current) => ({
+        ...current,
+        reset: `Mínimo de ${MIN_PASSWORD_LENGTH} caracteres`,
+      }));
+      return;
+    }
+
+    const targetEmail = modal.user.email;
     dispatchModal({ type: 'saving' });
 
     try {
-      const response = await resetUserPassword(session!, modal.user.id, password);
-      dispatchModal({
-        type: 'actionSuccess',
-        user: response.user,
-        message: `Senha redefinida: ${response.generatedPassword}`,
+      const response = await resetUserPassword(session!, modal.user.id, resetValue);
+      dispatchModal({ type: 'actionSuccess', user: response.user });
+      setResetOpen(false);
+      setResetValue('');
+      clearFieldError('reset');
+      toast.success({
+        title: 'Senha redefinida',
+        description: `A nova senha foi enviada para ${targetEmail}. As sessões abertas foram encerradas.`,
       });
     } catch (cause) {
-      dispatchModal({
-        type: 'saveError',
-        message: cause instanceof ApiError ? cause.message : 'Falha ao redefinir senha',
+      dispatchModal({ type: 'saveError' });
+      toast.error({
+        title: 'Não foi possível redefinir a senha',
+        description: cause instanceof ApiError ? cause.message : undefined,
       });
     }
   }
@@ -1180,251 +1277,478 @@ export default function UsersPage() {
         </section>
       </section>
 
-      {/* Detail / Edit Modal */}
-      {modal.mode === 'view' || modal.mode === 'edit' ? (
-        <div className="app-modal-backdrop is-scrim-dark">
-          <section
-            ref={modalTrapRef}
-            className="app-modal cdm-modal"
-            role="dialog"
-            aria-modal="true"
-            onClick={(event) => event.stopPropagation()}
-          >
-            {modal.user && modal.user.fullName ? (
-              (() => {
-                const detailInit = getUserInitials(modal.user.fullName);
-                return (
-                  <div className="cdm-header">
-                    <span
-                      className="cdm-header-avatar"
-                      style={{ '--avatar-color': USER_AVATAR_COLOR } as React.CSSProperties}
-                    >
-                      <span>{detailInit}</span>
-                    </span>
-                    <div className="cdm-header-copy">
-                      <h3 className="cdm-header-name">{modal.user.fullName}</h3>
-                      <div className="cdm-header-meta">
-                        <span className="cdm-header-code">@{modal.user.username}</span>
-                        <span
-                          className={`cdm-header-status ${modal.user.status === 'ACTIVE' ? 'is-active' : 'is-inactive'}`}
-                        >
-                          {userStatusLabel(modal.user.status)}
-                        </span>
-                        {modal.user.isLocked ? (
-                          <span className="cdm-header-status is-locked">Bloqueado</span>
-                        ) : null}
-                      </div>
-                    </div>
-                    <button
-                      ref={closeButtonRef}
-                      type="button"
-                      className="cdm-close"
-                      onClick={closeModal}
-                      aria-label="Fechar"
-                    >
-                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                        <path d="M18 6 6 18" />
-                        <path d="m6 6 12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                );
-              })()
-            ) : (
-              <div className="cdm-header">
-                <h3 className="cdm-header-name is-fill">Usuario</h3>
-                <button
-                  ref={closeButtonRef}
-                  type="button"
-                  className="cdm-close"
-                  onClick={closeModal}
-                  aria-label="Fechar"
-                >
-                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                    <path d="M18 6 6 18" />
-                    <path d="m6 6 12 12" />
-                  </svg>
-                </button>
-              </div>
-            )}
+      {/* ── Painel do usuário: criar · ver ↔ editar ───────────────────────
+          Um so contêiner nos dois breakpoints: `BottomSheet` +
+          `.fv-panel-sheet.side-sheet` = painel LATERAL no desktop e sheet de
+          baixo no mobile (RD11 / containers §8). Eram DOIS `.app-modal
+          .cdm-modal` centrais (detalhe/editar e criar).
 
-            {modal.loading ? (
-              <div className="cdm-loading">Carregando...</div>
-            ) : modal.error && !modal.user ? (
-              <div className="cdm-error">{modal.error}</div>
-            ) : modal.user ? (
-              <>
-                {modal.mode === 'view' ? (
+          Um sheet so para os tres modos, nao um por modo: depois de criar, o
+          painel passa a mostrar o usuario recem-criado (`saveSuccess` leva o
+          mode pra 'view'). Com dois sheets isso seria um saindo enquanto o
+          outro entra — aqui e so o conteudo que troca, por baixo do check.
+
+          Scroll-lock, ESC, back, foco e historico sao do BottomSheet. */}
+      <BottomSheet
+        open={modal.mode !== 'closed'}
+        onClose={closeModal}
+        onDismissAttempt={handlePanelDismiss}
+        ariaLabel={
+          modal.mode === 'create'
+            ? 'Novo usuário'
+            : modal.mode === 'edit'
+              ? 'Editar usuário'
+              : 'Usuário'
+        }
+        closeVariant="edge-back"
+        dragDisabled={modal.saving || confirmDiscardOpen || inactivateOpen}
+        className="fv-panel-sheet side-sheet usr-panel-sheet"
+        footer={
+          panelSuccess ? null : modal.mode === 'create' ? (
+            <button
+              type="submit"
+              form={CREATE_FORM_ID}
+              className="app-modal-submit"
+              disabled={modal.saving}
+            >
+              {modal.saving ? 'Criando...' : 'Criar usuário'}
+            </button>
+          ) : !modal.user || modal.loading ? null : modal.mode === 'edit' ? (
+            <div className="fv-panel-footer-row">
+              <button
+                type="button"
+                className="app-modal-secondary"
+                onClick={handleDiscardPanel}
+                disabled={modal.saving}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                form={EDIT_FORM_ID}
+                className="app-modal-submit"
+                disabled={modal.saving}
+              >
+                {modal.saving ? 'Salvando...' : 'Salvar'}
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="app-modal-submit"
+              onClick={() => dispatchModal({ type: 'switchToEdit' })}
+              disabled={modal.saving}
+            >
+              Editar
+            </button>
+          )
+        }
+      >
+        <>
+          {modal.mode === 'create' ? (
+            <>
+              <p className="fv-panel-lead">
+                O acesso é criado na hora e a senha vai por e-mail para o endereço informado.
+              </p>
+
+              <form id={CREATE_FORM_ID} className="fv-form-body" onSubmit={handleCreate}>
+                <div className="fv-form-row fv-form-row-2col">
+                  <label
+                    className={`fv-form-field${fieldErrors.fullName ? ' is-field-error' : ''}`}
+                  >
+                    <span className="fv-form-label">
+                      Nome completo <span className="fv-form-required">*</span>
+                    </span>
+                    <input
+                      value={createForm.fullName}
+                      disabled={modal.saving}
+                      onChange={(e) => {
+                        setCreateForm((c) => ({ ...c, fullName: e.target.value }));
+                        setPanelDirty(true);
+                        clearFieldError('fullName');
+                      }}
+                    />
+                    {fieldErrors.fullName ? (
+                      <p className="fv-form-field-error">{fieldErrors.fullName}</p>
+                    ) : null}
+                  </label>
+                  <label
+                    className={`fv-form-field${fieldErrors.username ? ' is-field-error' : ''}`}
+                  >
+                    <span className="fv-form-label">
+                      Usuário <span className="fv-form-required">*</span>
+                    </span>
+                    <input
+                      value={createForm.username}
+                      autoComplete="off"
+                      disabled={modal.saving}
+                      onChange={(e) => {
+                        setCreateForm((c) => ({ ...c, username: e.target.value }));
+                        setPanelDirty(true);
+                        clearFieldError('username');
+                      }}
+                    />
+                    {fieldErrors.username ? (
+                      <p className="fv-form-field-error">{fieldErrors.username}</p>
+                    ) : null}
+                  </label>
+                </div>
+                <label className={`fv-form-field${fieldErrors.email ? ' is-field-error' : ''}`}>
+                  <span className="fv-form-label">
+                    E-mail <span className="fv-form-required">*</span>
+                  </span>
+                  <input
+                    type="email"
+                    value={createForm.email}
+                    autoComplete="email"
+                    disabled={modal.saving}
+                    onChange={(e) => {
+                      setCreateForm((c) => ({ ...c, email: e.target.value }));
+                      setPanelDirty(true);
+                      clearFieldError('email');
+                    }}
+                  />
+                  {fieldErrors.email ? (
+                    <p className="fv-form-field-error">{fieldErrors.email}</p>
+                  ) : null}
+                </label>
+                <div className="fv-form-row fv-form-row-2col">
+                  <label className={`fv-form-field${fieldErrors.phone ? ' is-field-error' : ''}`}>
+                    <span className="fv-form-label">Telefone</span>
+                    <input
+                      value={createForm.phone}
+                      placeholder="(00) 00000-0000"
+                      inputMode="tel"
+                      disabled={modal.saving}
+                      onChange={(e) => {
+                        setCreateForm((c) => ({ ...c, phone: maskPhoneInput(e.target.value) }));
+                        setPanelDirty(true);
+                        clearFieldError('phone');
+                      }}
+                    />
+                    {fieldErrors.phone ? (
+                      <p className="fv-form-field-error">{fieldErrors.phone}</p>
+                    ) : null}
+                  </label>
+                  <label className="fv-form-field">
+                    <span className="fv-form-label">Perfil</span>
+                    <select
+                      value={createForm.role}
+                      disabled={modal.saving}
+                      onChange={(e) => {
+                        setCreateForm((c) => ({ ...c, role: e.target.value as UserRole }));
+                        setPanelDirty(true);
+                      }}
+                    >
+                      {CREATE_ROLE_OPTIONS.map((role) => (
+                        <option key={role} value={role}>
+                          {getRoleLabel(role)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <label className={`fv-form-field${fieldErrors.password ? ' is-field-error' : ''}`}>
+                  <span className="fv-form-label">
+                    Senha inicial <span className="fv-form-required">*</span>
+                  </span>
+                  <input
+                    type="password"
+                    value={createForm.password}
+                    autoComplete="new-password"
+                    placeholder={`Mínimo de ${MIN_PASSWORD_LENGTH} caracteres`}
+                    disabled={modal.saving}
+                    onChange={(e) => {
+                      setCreateForm((c) => ({ ...c, password: e.target.value }));
+                      setPanelDirty(true);
+                      clearFieldError('password');
+                    }}
+                  />
+                  {fieldErrors.password ? (
+                    <p className="fv-form-field-error">{fieldErrors.password}</p>
+                  ) : null}
+                </label>
+              </form>
+            </>
+          ) : (
+            <>
+              {modal.user && modal.user.fullName ? (
+                <div className="usr-panel-id">
+                  <span
+                    className="usr-panel-avatar"
+                    aria-hidden="true"
+                    style={{ '--avatar-color': USER_AVATAR_COLOR } as React.CSSProperties}
+                  >
+                    {getUserInitials(modal.user.fullName)}
+                  </span>
+                  <div className="usr-panel-id-copy">
+                    <h3 className="usr-panel-name">{modal.user.fullName}</h3>
+                    <div className="usr-panel-meta">
+                      <span className="usr-panel-username">@{modal.user.username}</span>
+                      {(() => {
+                        const chip = getUserStatusChip(modal.user);
+                        return <span className={`${chip.className} is-sm`}>{chip.label}</span>;
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {modal.loading ? (
+                <p className="fv-panel-lead">Carregando...</p>
+              ) : modal.error && !modal.user?.fullName ? (
+                <p className="fv-panel-lead">{modal.error}</p>
+              ) : modal.user ? (
+                modal.mode === 'view' ? (
                   <>
-                    <div className="cdm-info-grid">
-                      <div className="cdm-info-row">
-                        <div className="cdm-info-item">
-                          <span className="cdm-info-label">Email</span>
-                          <div className="cdm-info-value-row">
-                            <span className="cdm-info-value">{modal.user.email}</span>
+                    <div className="usr-panel-facts sdv-info-grid">
+                      <div className="sdv-info-item">
+                        <span className="sdv-info-label">E-mail</span>
+                        <div className="usr-panel-value-row">
+                          <span className="sdv-info-value">{modal.user.email}</span>
+                          <button
+                            type="button"
+                            className="fv-iconbtn usr-panel-copy"
+                            aria-label="Copiar e-mail"
+                            onClick={() => void handleCopyField(modal.user!.email, 'E-mail')}
+                          >
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                              <rect x="9" y="9" width="13" height="13" rx="2" />
+                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                      <div className="sdv-info-item">
+                        <span className="sdv-info-label">Telefone</span>
+                        <div className="usr-panel-value-row">
+                          <span className="sdv-info-value">
+                            {modal.user.phone ?? 'Não informado'}
+                          </span>
+                          {modal.user.phone ? (
                             <button
                               type="button"
-                              className="cdm-info-copy"
-                              aria-label="Copiar email"
-                              onClick={() => void handleCopyField(modal.user!.email, 'Email')}
+                              className="fv-iconbtn usr-panel-copy"
+                              aria-label="Copiar telefone"
+                              onClick={() =>
+                                void handleCopyField(modal.user!.phone ?? '', 'Telefone')
+                              }
                             >
                               <svg viewBox="0 0 24 24" aria-hidden="true">
                                 <rect x="9" y="9" width="13" height="13" rx="2" />
                                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                               </svg>
                             </button>
-                          </div>
-                        </div>
-                        <div className="cdm-info-item">
-                          <span className="cdm-info-label">Telefone</span>
-                          <div className="cdm-info-value-row">
-                            <span className="cdm-info-value">
-                              {modal.user.phone ?? 'Nao informado'}
-                            </span>
-                            {modal.user.phone ? (
-                              <button
-                                type="button"
-                                className="cdm-info-copy"
-                                aria-label="Copiar telefone"
-                                onClick={() =>
-                                  void handleCopyField(modal.user!.phone ?? '', 'Telefone')
-                                }
-                              >
-                                <svg viewBox="0 0 24 24" aria-hidden="true">
-                                  <rect x="9" y="9" width="13" height="13" rx="2" />
-                                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                                </svg>
-                              </button>
-                            ) : null}
-                          </div>
+                          ) : null}
                         </div>
                       </div>
-                      <div className="cdm-info-row">
-                        <div className="cdm-info-item">
-                          <span className="cdm-info-label">Perfil</span>
-                          <span
-                            className={`cdm-type-badge ${getRoleModifierClass(modal.user!.role)}`}
+                      <div className="sdv-info-item">
+                        <span className="sdv-info-label">Perfil</span>
+                        <span className="sdv-info-value">{getRoleLabel(modal.user.role)}</span>
+                      </div>
+                      <div className="sdv-info-item">
+                        <span className="sdv-info-label">Criado em</span>
+                        <span className="sdv-info-value">
+                          {new Date(modal.user.createdAt).toLocaleDateString('pt-BR')}
+                        </span>
+                      </div>
+                      <div className="sdv-info-item">
+                        <span className="sdv-info-label">Último acesso</span>
+                        <span className="sdv-info-value">
+                          {modal.user.lastLoginAt
+                            ? new Date(modal.user.lastLoginAt).toLocaleString('pt-BR')
+                            : 'Nunca acessou'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <span className="fv-form-heading">Acesso</span>
+
+                    {/* U-D4: "Redefinir senha" era um window.prompt(). Agora abre
+                      aqui; a senha vai por e-mail e nao volta pra tela. */}
+                    {resetOpen ? (
+                      <form className="fv-form-body usr-panel-reset" onSubmit={handlePasswordReset}>
+                        <label
+                          className={`fv-form-field${fieldErrors.reset ? ' is-field-error' : ''}`}
+                        >
+                          <span className="fv-form-label">Nova senha</span>
+                          <input
+                            type="password"
+                            value={resetValue}
+                            autoComplete="new-password"
+                            placeholder={`Mínimo de ${MIN_PASSWORD_LENGTH} caracteres`}
+                            disabled={modal.saving}
+                            onChange={(event) => {
+                              setResetValue(event.target.value);
+                              clearFieldError('reset');
+                            }}
+                          />
+                          {fieldErrors.reset ? (
+                            <p className="fv-form-field-error">{fieldErrors.reset}</p>
+                          ) : null}
+                        </label>
+                        <p className="usr-panel-note">
+                          {modal.user.fullName.split(' ')[0]} recebe a nova senha por e-mail e todas
+                          as sessões abertas dele são encerradas.
+                        </p>
+                        <div className="fv-panel-footer-row">
+                          <button
+                            type="button"
+                            className="app-modal-secondary"
+                            disabled={modal.saving}
+                            onClick={() => {
+                              setResetOpen(false);
+                              setResetValue('');
+                              clearFieldError('reset');
+                            }}
                           >
-                            {getRoleLabel(modal.user!.role)}
-                          </span>
+                            Cancelar
+                          </button>
+                          <button
+                            type="submit"
+                            className="app-modal-submit"
+                            disabled={modal.saving}
+                          >
+                            {modal.saving ? 'Redefinindo...' : 'Redefinir senha'}
+                          </button>
                         </div>
-                        <div className="cdm-info-item">
-                          <span className="cdm-info-label">Criado em</span>
-                          <span className="cdm-info-value">
-                            {new Date(modal.user.createdAt).toLocaleDateString('pt-BR')}
-                          </span>
-                        </div>
+                      </form>
+                    ) : (
+                      <div className="usr-panel-actions">
+                        <button
+                          type="button"
+                          className="fv-btn fv-btn-secondary"
+                          onClick={() => setResetOpen(true)}
+                          disabled={modal.saving}
+                        >
+                          Redefinir senha
+                        </button>
+                        {modal.user.isLocked ? (
+                          <button
+                            type="button"
+                            className="fv-btn fv-btn-secondary"
+                            onClick={handleUnlock}
+                            disabled={modal.saving}
+                          >
+                            Desbloquear
+                          </button>
+                        ) : null}
+                        {modal.user.status === 'ACTIVE' ? (
+                          <button
+                            type="button"
+                            className="fv-btn fv-btn-secondary is-danger"
+                            onClick={openInactivateFlow}
+                            disabled={modal.saving}
+                          >
+                            Inativar
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="fv-btn fv-btn-secondary"
+                            onClick={handleReactivate}
+                            disabled={modal.saving}
+                          >
+                            Reativar
+                          </button>
+                        )}
                       </div>
-                    </div>
-
-                    {modal.error ? <p className="usr-feedback is-error">{modal.error}</p> : null}
-                    {modal.message ? (
-                      <p className="usr-feedback is-success">{modal.message}</p>
-                    ) : null}
-
-                    <div className="sdv-edit-actions">
-                      <button
-                        type="button"
-                        className="cdm-manage-link"
-                        onClick={() => dispatchModal({ type: 'switchToEdit' })}
-                        disabled={modal.saving}
-                      >
-                        Editar
-                      </button>
-                    </div>
-                    <div className="usr-action-grid">
-                      {modal.user.status === 'ACTIVE' ? (
-                        <button
-                          type="button"
-                          className="sdv-com-action-loss"
-                          onClick={openInactivateFlow}
-                          disabled={modal.saving}
-                        >
-                          Inativar
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="sdv-cls-action-complete"
-                          onClick={handleReactivate}
-                          disabled={modal.saving}
-                        >
-                          Reativar
-                        </button>
-                      )}
-                      {modal.user.isLocked ? (
-                        <button
-                          type="button"
-                          className="sdv-cls-action-complete"
-                          onClick={handleUnlock}
-                          disabled={modal.saving}
-                        >
-                          Desbloquear
-                        </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        className="sdv-cls-action-save"
-                        onClick={handlePasswordReset}
-                        disabled={modal.saving}
-                      >
-                        Redefinir senha
-                      </button>
-                    </div>
+                    )}
                   </>
                 ) : (
-                  <form className="sdv-edit-fields" onSubmit={handleEdit}>
-                    <div className="sdv-edit-row">
-                      <label className="sdv-edit-field">
-                        <span className="sdv-edit-label">Nome completo</span>
+                  <form id={EDIT_FORM_ID} className="fv-form-body" onSubmit={handleEdit}>
+                    <div className="fv-form-row fv-form-row-2col">
+                      <label
+                        className={`fv-form-field${fieldErrors.fullName ? ' is-field-error' : ''}`}
+                      >
+                        <span className="fv-form-label">
+                          Nome completo <span className="fv-form-required">*</span>
+                        </span>
                         <input
-                          className="sdv-edit-input"
                           value={editForm.fullName}
-                          onChange={(e) => setEditForm((c) => ({ ...c, fullName: e.target.value }))}
+                          disabled={modal.saving}
+                          onChange={(e) => {
+                            setEditForm((c) => ({ ...c, fullName: e.target.value }));
+                            setPanelDirty(true);
+                            clearFieldError('fullName');
+                          }}
                         />
+                        {fieldErrors.fullName ? (
+                          <p className="fv-form-field-error">{fieldErrors.fullName}</p>
+                        ) : null}
                       </label>
-                      <label className="sdv-edit-field">
-                        <span className="sdv-edit-label">Usuario</span>
+                      <label
+                        className={`fv-form-field${fieldErrors.username ? ' is-field-error' : ''}`}
+                      >
+                        <span className="fv-form-label">
+                          Usuário <span className="fv-form-required">*</span>
+                        </span>
                         <input
-                          className="sdv-edit-input"
                           value={editForm.username}
-                          onChange={(e) => setEditForm((c) => ({ ...c, username: e.target.value }))}
+                          disabled={modal.saving}
+                          autoComplete="off"
+                          onChange={(e) => {
+                            setEditForm((c) => ({ ...c, username: e.target.value }));
+                            setPanelDirty(true);
+                            clearFieldError('username');
+                          }}
                         />
+                        {fieldErrors.username ? (
+                          <p className="fv-form-field-error">{fieldErrors.username}</p>
+                        ) : null}
                       </label>
                     </div>
-                    <label className="sdv-edit-field">
-                      <span className="sdv-edit-label">Email</span>
+                    <label className={`fv-form-field${fieldErrors.email ? ' is-field-error' : ''}`}>
+                      <span className="fv-form-label">
+                        E-mail <span className="fv-form-required">*</span>
+                      </span>
                       <input
-                        className="sdv-edit-input"
+                        type="email"
                         value={editForm.email}
-                        onChange={(e) => setEditForm((c) => ({ ...c, email: e.target.value }))}
+                        disabled={modal.saving}
+                        onChange={(e) => {
+                          setEditForm((c) => ({ ...c, email: e.target.value }));
+                          setPanelDirty(true);
+                          clearFieldError('email');
+                        }}
                       />
+                      {fieldErrors.email ? (
+                        <p className="fv-form-field-error">{fieldErrors.email}</p>
+                      ) : null}
                     </label>
-                    <div className="sdv-edit-row">
-                      <label className="sdv-edit-field">
-                        <span className="sdv-edit-label">Telefone</span>
+                    <div className="fv-form-row fv-form-row-2col">
+                      <label
+                        className={`fv-form-field${fieldErrors.phone ? ' is-field-error' : ''}`}
+                      >
+                        <span className="fv-form-label">Telefone</span>
                         <input
-                          className="sdv-edit-input"
                           value={editForm.phone}
-                          onChange={(e) =>
-                            setEditForm((c) => ({ ...c, phone: maskPhoneInput(e.target.value) }))
-                          }
                           placeholder="(00) 00000-0000"
                           inputMode="tel"
+                          disabled={modal.saving}
+                          onChange={(e) => {
+                            setEditForm((c) => ({ ...c, phone: maskPhoneInput(e.target.value) }));
+                            setPanelDirty(true);
+                            clearFieldError('phone');
+                          }}
                         />
+                        {fieldErrors.phone ? (
+                          <p className="fv-form-field-error">{fieldErrors.phone}</p>
+                        ) : null}
                       </label>
-                      <label className="sdv-edit-field">
-                        <span className="sdv-edit-label">Perfil</span>
+                      <label className="fv-form-field">
+                        <span className="fv-form-label">Perfil</span>
                         <select
-                          className="sdv-edit-input"
                           value={editForm.role}
-                          onChange={(e) =>
-                            setEditForm((c) => ({ ...c, role: e.target.value as UserRole }))
-                          }
+                          disabled={modal.saving}
+                          onChange={(e) => {
+                            setEditForm((c) => ({ ...c, role: e.target.value as UserRole }));
+                            setPanelDirty(true);
+                          }}
                         >
                           {/* Baseado no papel PERSISTIDO (modal.user), nao no
-                              editForm: senao a opcao sumiria assim que o
-                              usuario trocasse o select, impedindo desfazer. */}
+                            editForm: senao a opcao sumiria assim que o
+                            usuario trocasse o select, impedindo desfazer. */}
                           {editRoleOptions(modal.user.role).map((role) => (
                             <option key={role} value={role}>
                               {getRoleLabel(role)}
@@ -1433,136 +1757,70 @@ export default function UsersPage() {
                         </select>
                       </label>
                     </div>
-                    {modal.error ? <p className="usr-feedback is-error">{modal.error}</p> : null}
-                    <div className="sdv-edit-actions">
-                      <button
-                        type="submit"
-                        className={`cdm-manage-link${modal.saving ? ' is-saving' : ''}`}
-                        disabled={modal.saving}
-                      >
-                        {modal.saving ? 'Salvando...' : 'Salvar'}
-                      </button>
-                    </div>
                   </form>
-                )}
-              </>
-            ) : null}
-          </section>
-        </div>
-      ) : null}
+                )
+              ) : null}
+            </>
+          )}
 
-      {/* Create Modal */}
-      {modal.mode === 'create' ? (
-        <div className="app-modal-backdrop is-scrim-dark">
-          <section
-            ref={modalTrapRef}
-            className="app-modal cdm-modal"
-            role="dialog"
-            aria-modal="true"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="cdm-header">
-              <h3 className="cdm-header-name is-fill">Novo usuario</h3>
-              <button
-                ref={closeButtonRef}
-                type="button"
-                className="cdm-close"
-                onClick={closeModal}
-                aria-label="Fechar"
+          <SuccessCheckOverlay show={panelSuccess} />
+        </>
+      </BottomSheet>
+
+      {/* Descartar rascunho: confirm central portalado, `.is-scrim-none`
+          (o painel atras fica como estava) + `.is-compact` (forms §8). */}
+      {confirmDiscardOpen
+        ? createPortal(
+            <div
+              className="app-modal-backdrop is-scrim-none"
+              onClick={() => setConfirmDiscardOpen(false)}
+            >
+              <section
+                className="app-modal is-themed app-confirm-modal is-compact"
+                role="alertdialog"
+                aria-modal="true"
+                aria-labelledby="discard-user-title"
+                aria-describedby="discard-user-description"
+                onClick={(event) => event.stopPropagation()}
               >
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <path d="M18 6 6 18" />
-                  <path d="m6 6 12 12" />
-                </svg>
-              </button>
-            </div>
+                <div className="app-modal-content">
+                  <div className="app-confirm-modal-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                      <path d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+                      <path d="M12 9v4" />
+                      <path d="M12 17v.01" />
+                    </svg>
+                  </div>
+                  <h3 id="discard-user-title" className="app-confirm-modal-title">
+                    {modal.mode === 'create' ? 'Descartar usuário?' : 'Descartar alterações?'}
+                  </h3>
+                  <p id="discard-user-description" className="app-confirm-modal-message">
+                    Os dados preenchidos serão perdidos. Esta ação não pode ser desfeita.
+                  </p>
+                </div>
 
-            <form className="sdv-edit-fields" onSubmit={handleCreate}>
-              <div className="sdv-edit-row">
-                <label className="sdv-edit-field">
-                  <span className="sdv-edit-label">Nome completo</span>
-                  <input
-                    className="sdv-edit-input"
-                    value={createForm.fullName}
-                    onChange={(e) => setCreateForm((c) => ({ ...c, fullName: e.target.value }))}
-                  />
-                </label>
-                <label className="sdv-edit-field">
-                  <span className="sdv-edit-label">Usuario</span>
-                  <input
-                    className="sdv-edit-input"
-                    value={createForm.username}
-                    onChange={(e) => setCreateForm((c) => ({ ...c, username: e.target.value }))}
-                  />
-                </label>
-              </div>
-              <label className="sdv-edit-field">
-                <span className="sdv-edit-label">Email</span>
-                <input
-                  className="sdv-edit-input"
-                  value={createForm.email}
-                  onChange={(e) => setCreateForm((c) => ({ ...c, email: e.target.value }))}
-                  autoComplete="email"
-                />
-              </label>
-              <div className="sdv-edit-row">
-                <label className="sdv-edit-field">
-                  <span className="sdv-edit-label">Telefone</span>
-                  <input
-                    className="sdv-edit-input"
-                    value={createForm.phone}
-                    onChange={(e) =>
-                      setCreateForm((c) => ({ ...c, phone: maskPhoneInput(e.target.value) }))
-                    }
-                    placeholder="(00) 00000-0000"
-                    inputMode="tel"
-                  />
-                </label>
-                <label className="sdv-edit-field">
-                  <span className="sdv-edit-label">Perfil</span>
-                  <select
-                    className="sdv-edit-input"
-                    value={createForm.role}
-                    onChange={(e) =>
-                      setCreateForm((c) => ({ ...c, role: e.target.value as UserRole }))
-                    }
+                <div className="app-modal-actions">
+                  <button
+                    type="button"
+                    className="app-modal-secondary"
+                    onClick={() => setConfirmDiscardOpen(false)}
+                    autoFocus
                   >
-                    {CREATE_ROLE_OPTIONS.map((role) => (
-                      <option key={role} value={role}>
-                        {getRoleLabel(role)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <label className="sdv-edit-field">
-                <span className="sdv-edit-label">Senha inicial</span>
-                <input
-                  className="sdv-edit-input"
-                  type="password"
-                  value={createForm.password}
-                  onChange={(e) => setCreateForm((c) => ({ ...c, password: e.target.value }))}
-                  autoComplete="new-password"
-                  placeholder="Minimo 8 caracteres"
-                />
-              </label>
-
-              {modal.error ? <p className="usr-feedback is-error">{modal.error}</p> : null}
-              {modal.message ? <p className="usr-feedback is-success">{modal.message}</p> : null}
-
-              <div className="sdv-edit-actions">
-                <button
-                  type="submit"
-                  className={`cdm-manage-link${modal.saving ? ' is-saving' : ''}`}
-                  disabled={modal.saving}
-                >
-                  {modal.saving ? 'Criando...' : 'Criar usuario'}
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
-      ) : null}
+                    Continuar
+                  </button>
+                  <button
+                    type="button"
+                    className="app-modal-submit is-danger"
+                    onClick={handleDiscardPanel}
+                  >
+                    Descartar
+                  </button>
+                </div>
+              </section>
+            </div>,
+            document.body
+          )
+        : null}
 
       {inactivateOpen && modal.user ? (
         <InactivateUserModal
@@ -1571,7 +1829,8 @@ export default function UsersPage() {
           session={session}
           onSuccess={(updated) => {
             setInactivateOpen(false);
-            dispatchModal({ type: 'actionSuccess', user: updated, message: 'Usuario inativado.' });
+            dispatchModal({ type: 'actionSuccess', user: updated });
+            toast.success({ title: 'Usuário inativado' });
             refreshList();
           }}
           onCancel={() => setInactivateOpen(false)}
