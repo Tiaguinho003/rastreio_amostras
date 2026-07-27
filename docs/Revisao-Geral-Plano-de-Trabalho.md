@@ -592,7 +592,8 @@ o mesmo no detalhe; PROSPECTOR barrado nas 3 camadas (guard, middleware, API
   send/print/checklist/foto antigos) removidas por parser que ignora
   comentários/strings e trata a regra como morta se QUALQUER classe sdv exigida
   em profundidade-0 for órfã; invariante verificada (nenhuma classe VIVA perdeu
-  regra-chave; `sdv-com-action-loss` reusada no /users preservada); −1435
+  regra-chave; `sdv-com-action-loss` reusada no /users preservada — 🔴 **caiu na RD16 §2.11 U6**:
+  a U3 trocou o botão de inativar por `.fv-btn.is-danger` e a classe ficou sem consumidor); −1435
   linhas (`0f88ff9`).
 - **LDT-L1** ✅ (D2) — copy "lote" + "Deletar"/"Deletado" + acentos sistêmicos
   (page.tsx + SampleMovementsPanel), incluindo aria-labels e alts (`490fda8`).

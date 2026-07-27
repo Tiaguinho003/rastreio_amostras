@@ -11334,46 +11334,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   font-weight: 500;
 }
 
-.sdv-com-action-loss {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(5px, 1.5vw, 6px);
-  padding: clamp(12px, 3vw, 14px);
-  border-radius: 13px;
-  font-size: clamp(13px, 3.5vw, 14px);
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.15s;
-}
-
-.sdv-com-action-loss:active {
-  transform: scale(0.96);
-}
-
-.sdv-com-action-loss:disabled {
-  opacity: 0.45;
-}
-
-.sdv-com-action-loss {
-  flex: 1;
-  background: #fef2f2;
-  border: 1.5px solid #fecaca;
-  color: #c0392b;
-}
-
-.sdv-com-action-loss svg {
-  width: clamp(14px, 3.8vw, 16px);
-  height: clamp(14px, 3.8vw, 16px);
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
 .cudm-error {
   margin: 0;
   padding: 0.5rem 0.7rem;
@@ -22921,44 +22881,6 @@ select.samples-filter-field-input {
     font-size: 0.8rem;
   }
 
-  .sdv-com-action-loss {
-    padding: 1rem 1.25rem;
-    border-radius: 14px;
-    font-size: 1rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    color: #ffffff;
-    border: 0;
-    transition:
-      transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
-      box-shadow 0.2s ease,
-      filter 0.2s ease;
-  }
-
-  .sdv-com-action-loss {
-    background: linear-gradient(135deg, #9a3434 0%, #c0392b 100%);
-    box-shadow:
-      0 4px 10px rgba(192, 57, 43, 0.24),
-      0 10px 24px rgba(192, 57, 43, 0.16);
-  }
-
-  .sdv-com-action-loss:hover:not(:disabled) {
-    transform: translateY(-3px);
-    filter: brightness(1.05);
-    box-shadow:
-      0 6px 14px rgba(192, 57, 43, 0.3),
-      0 14px 32px rgba(192, 57, 43, 0.22);
-  }
-
-  .sdv-com-action-loss:active:not(:disabled) {
-    transform: translateY(-1px) scale(0.98);
-  }
-
-  .sdv-com-action-loss:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
   /* ══════════════════════════════════════════
      NEW SAMPLE (nsv2-page)
      ══════════════════════════════════════════ */
@@ -23377,18 +23299,6 @@ select.samples-filter-field-input {
 
   .sdv-cls-action-save:hover:not(:disabled),
   .sdv-cls-action-complete:hover:not(:disabled) {
-    transform: translateY(-1px);
-    filter: brightness(1.04);
-  }
-
-  /* Acoes comerciais (loss/sale) */
-  .sdv-com-action-loss {
-    transition:
-      transform 0.15s ease,
-      filter 0.15s ease;
-  }
-
-  .sdv-com-action-loss:hover:not(:disabled) {
     transform: translateY(-1px);
     filter: brightness(1.04);
   }
