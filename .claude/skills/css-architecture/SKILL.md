@@ -65,7 +65,7 @@ telas. Consumidores hoje:
 | `.ctr-*`  | 15       | `/contratos`        | embarque, aprovações, financeiro                        |
 | `.cv2-*`  | 8        | lista de clientes   | `/samples` e outras listas                              |
 | `.rsm-*`  | 6        | `/relatorios`       | feed do dashboard do prospector                         |
-| `.cdm-*`  | 1        | `/profile`          | — (o kit do modal de `/users` morreu na §2.11 U6)       |
+| `.cdm-*`  | **0**    | — (namespace morto) | — (o kit do modal de `/users` morreu na §2.11 U6)       |
 
 ### O caso mais afiado: `.sdv-*`
 

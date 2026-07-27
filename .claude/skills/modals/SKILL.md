@@ -549,7 +549,8 @@ Estes usam `.app-modal` simples (430px max, fundo glass) ou variante `cdm-modal`
 
 - ~~`cdm-modal`~~ — **MORREU na §2.11 U3**: os três modos de `/users` (ver/editar/criar) viraram UM
   `BottomSheet` + `.fv-panel-sheet.side-sheet`. O CSS saiu na U6; só `.cdm-manage-link` sobreviveu,
-  porque `/profile` ainda o usa em 4 lugares — morre na vez dele.
+  porque `/profile` ainda o usava em 4 lugares. **Na P2 do RD17 (2026-07-27) esses 4 viraram
+  `.fv-btn` e o namespace `.cdm-*` ficou sem nenhum consumidor** — o CSS restante sai na P3.
 - `InactivateUserModal` → `InactivateConfirmDialog` em `/users` — inativar com motivo **continua
   central** (RD11). _(`CancelInactivationDialog` não existe; a reatribuição forçada de clientes saiu
   do fluxo e o componente foi junto.)_
