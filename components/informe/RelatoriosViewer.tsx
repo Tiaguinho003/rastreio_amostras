@@ -330,7 +330,7 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
         Nova visita
       </button>
       {canCreateWeekly ? (
-        <button type="button" className="fv-btn fv-btn-secondary" onClick={openWeekly}>
+        <button type="button" className="fv-btn fv-btn-primary" onClick={openWeekly}>
           <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
             <rect x="4" y="5" width="16" height="16" rx="2.2" />
             <path d="M8 3v4" />
@@ -340,7 +340,7 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
           Semanal
         </button>
       ) : null}
-      <button type="button" className="fv-btn fv-btn-secondary" onClick={openInformativo}>
+      <button type="button" className="fv-btn fv-btn-primary" onClick={openInformativo}>
         <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
           <rect x="3" y="4.5" width="18" height="15" rx="2.2" />
           <circle cx="8.5" cy="10" r="1.6" />
