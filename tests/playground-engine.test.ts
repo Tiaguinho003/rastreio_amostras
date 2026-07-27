@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type { ClassificationDataPayload } from '../lib/classification-form.ts';
-import { stubEngine } from '../lib/playground/engine.ts';
+import { DEFEITO_UNITS, playgroundEngine } from '../lib/playground/engine.ts';
 import type { BlendComponentInput } from '../lib/playground/types.ts';
 import type { SampleSnapshot } from '../lib/types.ts';
 
@@ -27,6 +27,28 @@ const EMPTY_DATA: ClassificationDataPayload = {
   fundos: null,
   defeitos: null,
 };
+
+/** As 10 chaves de peneira em branco — o payload real exige todas. */
+function peneiras(overrides: Record<string, number> = {}) {
+  return {
+    p18: null,
+    p17: null,
+    p16: null,
+    p15: null,
+    p14: null,
+    p13: null,
+    p12: null,
+    p11: null,
+    p10: null,
+    mk: null,
+    ...overrides,
+  };
+}
+
+/** As 6 chaves de defeito em branco. */
+function defeitos(overrides: Record<string, string> = {}) {
+  return { imp: null, pva: null, broca: null, gpi: null, ap: null, defeito: null, ...overrides };
+}
 
 function sample(seed: SampleSeed): SampleSnapshot {
   return {
@@ -62,13 +84,12 @@ function component(seed: SampleSeed, sacks: number): BlendComponentInput {
   return { sample: sample(seed), sacks };
 }
 
-test('stubEngine soma sacas e calcula composição ordenada por peso', () => {
-  const estimate = stubEngine.estimateBlend([
+test('soma sacas e calcula composição ordenada por peso', () => {
+  const estimate = playgroundEngine.estimateBlend([
     component({ id: 'a', lot: '100' }, 40),
     component({ id: 'b', lot: '200' }, 60),
   ]);
   assert.equal(estimate.totalSacks, 100);
-  assert.equal(estimate.isStub, true);
   assert.deepEqual(
     estimate.composition.map((part) => [part.lotNumber, part.sacks, part.proportion]),
     [
@@ -78,106 +99,217 @@ test('stubEngine soma sacas e calcula composição ordenada por peso', () => {
   );
 });
 
-test('stubEngine deriva safra por união distinta ordenada (regra real)', () => {
-  const estimate = stubEngine.estimateBlend([
+test('deriva safra por união distinta ordenada (regra real)', () => {
+  const estimate = playgroundEngine.estimateBlend([
     component({ id: 'a', lot: '100', harvest: '24/25' }, 10),
     component({ id: 'b', lot: '200', harvest: '24/25, 25/26' }, 10),
     component({ id: 'c', lot: '300', harvest: null }, 10),
   ]);
   assert.equal(estimate.harvest, '24/25, 25/26');
 
-  const empty = stubEngine.estimateBlend([component({ id: 'a', lot: '100', harvest: null }, 10)]);
+  const empty = playgroundEngine.estimateBlend([
+    component({ id: 'a', lot: '100', harvest: null }, 10),
+  ]);
   assert.equal(empty.harvest, null);
 });
 
-test('stubEngine deriva dono por unanimidade de ownerClientId (regra real)', () => {
-  const unanimous = stubEngine.estimateBlend([
+test('deriva dono por unanimidade de ownerClientId (regra real)', () => {
+  const unanimous = playgroundEngine.estimateBlend([
     component({ id: 'a', lot: '100', ownerId: 'c1', ownerName: 'João Silva' }, 10),
     component({ id: 'b', lot: '200', ownerId: 'c1', ownerName: 'João Silva' }, 10),
   ]);
   assert.equal(unanimous.ownerLabel, 'João Silva');
 
-  const divergent = stubEngine.estimateBlend([
+  const divergent = playgroundEngine.estimateBlend([
     component({ id: 'a', lot: '100', ownerId: 'c1', ownerName: 'João Silva' }, 10),
     component({ id: 'b', lot: '200', ownerId: 'c2', ownerName: 'Maria Santos' }, 10),
   ]);
   assert.equal(divergent.ownerLabel, null);
 
-  const missing = stubEngine.estimateBlend([
+  const missing = playgroundEngine.estimateBlend([
     component({ id: 'a', lot: '100', ownerId: null }, 10),
     component({ id: 'b', lot: '200', ownerId: 'c1', ownerName: 'João Silva' }, 10),
   ]);
   assert.equal(missing.ownerLabel, null);
 });
 
-test('stubEngine faz média ponderada de peneiras ignorando nulls (marca parcial)', () => {
-  const full = stubEngine.estimateBlend([
-    component({ id: 'a', lot: '100', data: { peneiras: { ...peneiras(), p16: 40 } } }, 30),
-    component({ id: 'b', lot: '200', data: { peneiras: { ...peneiras(), p16: 20 } } }, 10),
+test('PG41: branco vale ZERO com peso cheio — nada de renormalizar', () => {
+  const estimate = playgroundEngine.estimateBlend([
+    component({ id: 'a', lot: '100', data: { peneiras: peneiras({ p16: 40 }) } }, 250),
+    component({ id: 'b', lot: '200', data: { peneiras: peneiras() } }, 250),
   ]);
-  assert.deepEqual(full.peneiras.p16, { kind: 'value', value: 35, partial: false });
-
-  const partial = stubEngine.estimateBlend([
-    component({ id: 'a', lot: '100', data: { peneiras: { ...peneiras(), p16: 40 } } }, 30),
-    component({ id: 'b', lot: '200', data: { peneiras: { ...peneiras(), p16: 20 } } }, 10),
-    component({ id: 'c', lot: '300', data: { peneiras: peneiras() } }, 60),
-  ]);
-  // Pesos renormalizados entre quem TEM o campo: (40*30 + 20*10) / 40 = 35.
-  assert.deepEqual(partial.peneiras.p16, { kind: 'value', value: 35, partial: true });
-
-  const empty = stubEngine.estimateBlend([
-    component({ id: 'a', lot: '100', data: { peneiras: peneiras() } }, 10),
-  ]);
-  assert.deepEqual(empty.peneiras.p16, { kind: 'empty' });
-
-  function peneiras() {
-    return {
-      p18: null,
-      p17: null,
-      p16: null,
-      p15: null,
-      p14: null,
-      p13: null,
-      p12: null,
-      p11: null,
-      p10: null,
-      mk: null,
-    };
-  }
+  // O lote B contribui metade da massa sem nada em P16: (40*250 + 0*250)/500.
+  // A regra antiga (PG17, revogada) renormalizava e devolvia 40 — afirmando
+  // que a liga era tão rica quanto o lote puro.
+  assert.deepEqual(estimate.peneiras.p16, { kind: 'value', value: 20, excluded: [] });
 });
 
-test('stubEngine exibe catação e defeitos como composição por componente', () => {
-  const estimate = stubEngine.estimateBlend([
-    component({ id: 'a', lot: '100', data: { catacao: '0,5' } }, 75),
-    component({ id: 'b', lot: '200', data: { catacao: null } }, 25),
-  ]);
-  assert.deepEqual(estimate.catacao, {
-    kind: 'composition',
-    parts: [
-      { lotNumber: '100', raw: '0,5', proportion: 0.75 },
-      { lotNumber: '200', raw: null, proportion: 0.25 },
-    ],
-  });
-
-  const allNull = stubEngine.estimateBlend([
-    component({ id: 'a', lot: '100', data: {} }, 10),
+test('PG42: campo que NINGUÉM declarou vira vazio, não zero', () => {
+  const estimate = playgroundEngine.estimateBlend([
+    component({ id: 'a', lot: '100', data: { peneiras: peneiras({ p17: 50 }) } }, 10),
     component({ id: 'b', lot: '200', data: null }, 10),
   ]);
-  assert.deepEqual(allNull.catacao, { kind: 'empty' });
-  assert.deepEqual(allNull.defeitos.imp, { kind: 'empty' });
+  assert.deepEqual(estimate.peneiras.p16, { kind: 'empty', excluded: [] });
+  assert.deepEqual(estimate.catacao, { kind: 'empty', excluded: [] });
+  assert.deepEqual(estimate.defeitos.gpi, { kind: 'empty', excluded: [] });
+  // O que foi declarado continua saindo normalmente.
+  assert.equal(estimate.peneiras.p17.kind, 'value');
+});
 
-  const defeitos = stubEngine.estimateBlend([
+test('PG40/PG11: catação e defeitos saem como NÚMERO (texto pt-BR e sufixo %)', () => {
+  const estimate = playgroundEngine.estimateBlend([
+    component(
+      { id: 'a', lot: '100', data: { catacao: '0,5', defeitos: defeitos({ pva: '8' }) } },
+      250
+    ),
+    component(
+      { id: 'b', lot: '200', data: { catacao: '1,5', defeitos: defeitos({ pva: '12%' }) } },
+      250
+    ),
+  ]);
+  assert.deepEqual(estimate.catacao, { kind: 'value', value: 1, excluded: [] });
+  assert.deepEqual(estimate.defeitos.pva, { kind: 'value', value: 10, excluded: [] });
+});
+
+test('PG45: texto não numérico tira SÓ aquele componente, e é nomeado', () => {
+  const estimate = playgroundEngine.estimateBlend([
+    component({ id: 'a', lot: '100', data: { defeitos: defeitos({ imp: '0,5' }) } }, 250),
+    component({ id: 'b', lot: '200', data: { defeitos: defeitos({ imp: '8-9' }) } }, 250),
+  ]);
+  // O peso de B sai do denominador (renormaliza entre quem tem número) — é o
+  // oposto do branco, que entra como 0. A regra antiga derrubava o campo
+  // INTEIRO para composição por causa de um componente.
+  assert.deepEqual(estimate.defeitos.imp, {
+    kind: 'value',
+    value: 0.5,
+    excluded: [{ lotNumber: '200', raw: '8-9' }],
+  });
+
+  const allUnreadable = playgroundEngine.estimateBlend([
+    component({ id: 'a', lot: '100', data: { catacao: '<1' } }, 10),
+    component({ id: 'b', lot: '200', data: { catacao: '1/2' } }, 10),
+  ]);
+  assert.deepEqual(allUnreadable.catacao, {
+    kind: 'empty',
+    excluded: [
+      { lotNumber: '100', raw: '<1' },
+      { lotNumber: '200', raw: '1/2' },
+    ],
+  });
+});
+
+test('PG44: fundos combinam por RÓTULO; rótulo ausente é branco (zero)', () => {
+  const estimate = playgroundEngine.estimateBlend([
     component(
       {
         id: 'a',
         lot: '100',
         data: {
-          defeitos: { imp: '8-9', pva: null, broca: null, gpi: null, ap: null, defeito: null },
+          fundos: [
+            { peneira: '13', percentual: 6 },
+            { peneira: null, percentual: null },
+          ],
         },
       },
-      10
+      250
     ),
-    component({ id: 'b', lot: '200', data: {} }, 10),
+    component(
+      {
+        id: 'b',
+        lot: '200',
+        data: {
+          fundos: [
+            { peneira: '12', percentual: 4 },
+            { peneira: '13', percentual: 5 },
+          ],
+        },
+      },
+      250
+    ),
   ]);
-  assert.equal(defeitos.defeitos.imp.kind, 'composition');
+  // Ordem das peneiras: do maior para o menor.
+  assert.deepEqual(
+    estimate.fundos.map((fundo) => fundo.peneira),
+    ['13', '12']
+  );
+  // Fundo 13: os dois declaram → (6*250 + 5*250)/500.
+  assert.deepEqual(estimate.fundos[0].value, { kind: 'value', value: 5.5, excluded: [] });
+  // Fundo 12: só B declara; A não tem esse rótulo, o que é branco = 0.
+  assert.deepEqual(estimate.fundos[1].value, { kind: 'value', value: 2, excluded: [] });
+
+  const semFundos = playgroundEngine.estimateBlend([component({ id: 'a', lot: '100' }, 10)]);
+  assert.deepEqual(semFundos.fundos, []);
+});
+
+test('PG43: defeito é contagem — mesma média, unidade sem %', () => {
+  const estimate = playgroundEngine.estimateBlend([
+    component({ id: 'a', lot: '100', data: { defeitos: defeitos({ defeito: '4' }) } }, 250),
+    component({ id: 'b', lot: '200', data: { defeitos: defeitos({ defeito: '5' }) } }, 250),
+  ]);
+  assert.deepEqual(estimate.defeitos.defeito, { kind: 'value', value: 4.5, excluded: [] });
+  assert.equal(DEFEITO_UNITS.defeito, '');
+  assert.equal(DEFEITO_UNITS.pva, '%');
+});
+
+test('caso-âncora: os lotes reais 6228 e 6241, 250 + 250 sc', () => {
+  // Fichas copiadas do banco em 2026-07-27 — são os dois lotes que o usuário
+  // classificou para fechar as PG39–PG45. Se este teste quebrar, a mudança
+  // contraria uma conta já validada com ele.
+  const estimate = playgroundEngine.estimateBlend([
+    component(
+      {
+        id: 'a',
+        lot: '6228',
+        ownerId: 'produtor-teste',
+        ownerName: 'Produtor Teste',
+        harvest: '26/27',
+        data: {
+          peneiras: peneiras({ p17: 76, mk: 9 }),
+          fundos: [
+            { peneira: '13', percentual: 6 },
+            { peneira: null, percentual: null },
+          ],
+          catacao: '28',
+          defeitos: defeitos({ imp: '0,5', pva: '8', broca: '2' }),
+        },
+      },
+      250
+    ),
+    component(
+      {
+        id: 'b',
+        lot: '6241',
+        ownerId: 'produtor-teste',
+        ownerName: 'Produtor Teste',
+        harvest: '26/27',
+        data: {
+          peneiras: peneiras({ p17: 19, mk: 8 }),
+          fundos: [
+            { peneira: '13', percentual: 5 },
+            { peneira: null, percentual: null },
+          ],
+          catacao: '26',
+          defeitos: defeitos({ imp: '0,3', pva: '12', broca: '3' }),
+        },
+      },
+      250
+    ),
+  ]);
+
+  assert.equal(estimate.totalSacks, 500);
+  assert.equal(estimate.harvest, '26/27');
+  assert.equal(estimate.ownerLabel, 'Produtor Teste');
+  assert.deepEqual(estimate.peneiras.p17, { kind: 'value', value: 47.5, excluded: [] });
+  assert.deepEqual(estimate.peneiras.mk, { kind: 'value', value: 8.5, excluded: [] });
+  assert.deepEqual(estimate.peneiras.p16, { kind: 'empty', excluded: [] });
+  assert.deepEqual(estimate.fundos, [
+    { peneira: '13', value: { kind: 'value', value: 5.5, excluded: [] } },
+  ]);
+  assert.deepEqual(estimate.catacao, { kind: 'value', value: 27, excluded: [] });
+  assert.deepEqual(estimate.defeitos.imp, { kind: 'value', value: 0.4, excluded: [] });
+  assert.deepEqual(estimate.defeitos.pva, { kind: 'value', value: 10, excluded: [] });
+  assert.deepEqual(estimate.defeitos.broca, { kind: 'value', value: 2.5, excluded: [] });
+  assert.deepEqual(estimate.defeitos.gpi, { kind: 'empty', excluded: [] });
+  assert.deepEqual(estimate.defeitos.ap, { kind: 'empty', excluded: [] });
+  assert.deepEqual(estimate.defeitos.defeito, { kind: 'empty', excluded: [] });
 });

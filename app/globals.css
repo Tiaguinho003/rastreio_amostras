@@ -30207,26 +30207,29 @@ body.is-selection-mode .ctr-page .cc-tabs {
 .pg-drawer-grid span:first-child {
   color: var(--brand-muted);
 }
-.pg-drawer-defects {
+/* Catação é um valor só — sem par, a grade de 2 colunas deixaria metade da
+   linha vazia. (`.pg-drawer-defects` e `.pg-drawer-parts` morreram junto com
+   a saida "composicao por componente": desde as PG39-PG45 catacao e defeitos
+   saem como NUMERO e usam a mesma grade das peneiras.) */
+.pg-drawer-grid.is-single {
+  grid-template-columns: 1fr;
+}
+
+/* PG45: prestação de contas de quem ficou fora de um campo por trazer texto
+   não numérico. Rodapé da ficha, não linha a linha — a ficha inteira tem 17
+   campos e a exceção é rara. */
+.pg-drawer-exclusions ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  font-size: 0.82rem;
-}
-.pg-drawer-defects > div {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-.pg-drawer-defects span:first-child {
+  font-size: 0.78rem;
   color: var(--brand-muted);
-  flex-shrink: 0;
 }
-.pg-drawer-parts {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  text-align: right;
+.pg-drawer-exclusions strong {
+  color: var(--color-ink);
 }
 .pg-drawer-note {
   margin: 0;

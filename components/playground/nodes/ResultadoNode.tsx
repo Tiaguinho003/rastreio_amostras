@@ -2,7 +2,11 @@
 
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 
-import { PENEIRA_KEYS, type PeneiraKey } from '../../../lib/playground/engine';
+import {
+  PENEIRA_KEYS,
+  type EstimateFieldValue,
+  type PeneiraKey,
+} from '../../../lib/playground/engine';
 import type { SimulationOutcome } from '../../../lib/playground/simulation';
 import { usePlaygroundResults } from '../results-context';
 
@@ -20,18 +24,18 @@ function errorMessage(outcome: Extract<SimulationOutcome, { kind: 'error' }>): s
 }
 
 /** Peneira de maior participação — o destaque do resumo (PG18). */
-function topPeneira(peneiras: Record<PeneiraKey, { kind: string; value?: number }>): string | null {
+function topPeneira(peneiras: Record<PeneiraKey, EstimateFieldValue>): string | null {
   let bestKey: PeneiraKey | null = null;
   let bestValue = -1;
   for (const key of PENEIRA_KEYS) {
     const field = peneiras[key];
-    if (field.kind === 'value' && typeof field.value === 'number' && field.value > bestValue) {
+    if (field.kind === 'value' && field.value > bestValue) {
       bestValue = field.value;
       bestKey = key;
     }
   }
   if (!bestKey) return null;
-  return `${bestKey === 'mk' ? 'MK' : bestKey} ${String(bestValue).replace('.', ',')}%`;
+  return `${bestKey.toUpperCase()} ${String(bestValue).replace('.', ',')}%`;
 }
 
 // Node Resultado (PG18): resumo da estimativa no canvas + "Ver ficha" que abre

@@ -18,7 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } fro
 
 import '@xyflow/react/dist/style.css';
 
-import { stubEngine } from '../../lib/playground/engine';
+import { playgroundEngine } from '../../lib/playground/engine';
 import {
   validateConnection,
   type ConnectionRejectionReason,
@@ -118,7 +118,7 @@ export function PlaygroundCanvas({ session }: { session: SessionData }) {
   const outcomes = useMemo(() => {
     if (!hasExecuted) return null;
     const graph = toGraph(nodes, edges);
-    return runSimulation(graph.nodes, graph.edges, collectLots(nodes), stubEngine);
+    return runSimulation(graph.nodes, graph.edges, collectLots(nodes), playgroundEngine);
   }, [nodes, edges, hasExecuted]);
   const resultsValue = useMemo<PlaygroundResults>(
     () => ({ outcomes, openDrawer: setDrawerResultId }),

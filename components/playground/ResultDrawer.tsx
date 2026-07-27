@@ -4,9 +4,11 @@ import { useEffect } from 'react';
 
 import {
   DEFEITO_KEYS,
+  DEFEITO_UNITS,
   PENEIRA_KEYS,
   type DefeitoKey,
   type EstimateFieldValue,
+  type LigaEstimate,
   type PeneiraKey,
 } from '../../lib/playground/engine';
 import type { SimulationOutcome } from '../../lib/playground/simulation';
@@ -41,22 +43,31 @@ function formatProportion(proportion: number): string {
   return `${Math.round(proportion * 100)}%`;
 }
 
-function numericFieldText(field: EstimateFieldValue): string {
-  if (field.kind === 'value') return `${formatNumberBr(field.value)}%${field.partial ? ' *' : ''}`;
-  return '—';
+/** PG42: campo que ninguém declarou vira traço — nunca 0%. */
+function fieldText(field: EstimateFieldValue, unit: string): string {
+  if (field.kind === 'empty') return '—';
+  return `${formatNumberBr(field.value)}${unit}`;
 }
 
-function CompositionParts({ field }: { field: EstimateFieldValue }) {
-  if (field.kind !== 'composition') return <span>—</span>;
-  return (
-    <span className="pg-drawer-parts">
-      {field.parts.map((part, index) => (
-        <span key={`${part.lotNumber}-${index}`}>
-          {part.lotNumber} = {part.raw ?? '—'} ({formatProportion(part.proportion)})
-        </span>
-      ))}
-    </span>
-  );
+type ExclusionNote = { field: string; lotNumber: string; raw: string };
+
+/**
+ * PG45: junta, de todos os campos, os componentes que ficaram de fora por
+ * trazerem texto não numérico. Vira uma prestação de contas única no rodapé
+ * em vez de poluir cada linha da ficha.
+ */
+function collectExclusions(estimate: LigaEstimate): ExclusionNote[] {
+  const notes: ExclusionNote[] = [];
+  const push = (field: string, value: EstimateFieldValue) => {
+    for (const item of value.excluded) {
+      notes.push({ field, lotNumber: item.lotNumber, raw: item.raw });
+    }
+  };
+  for (const key of PENEIRA_KEYS) push(PENEIRA_LABELS[key], estimate.peneiras[key]);
+  for (const fundo of estimate.fundos) push(`Fundo ${fundo.peneira}`, fundo.value);
+  push('Catação', estimate.catacao);
+  for (const key of DEFEITO_KEYS) push(DEFEITO_LABELS[key], estimate.defeitos[key]);
+  return notes;
 }
 
 // Drawer lateral direito (PG18/PG27): ficha estimada completa do Resultado.
@@ -79,12 +90,7 @@ export function ResultDrawer({
   }, [onClose]);
 
   const estimate = outcome?.kind === 'estimate' ? outcome.estimate : null;
-  const hasPartial =
-    estimate !== null &&
-    PENEIRA_KEYS.some((key) => {
-      const field = estimate.peneiras[key];
-      return field.kind === 'value' && field.partial;
-    });
+  const exclusions = estimate ? collectExclusions(estimate) : [];
 
   return (
     <aside className="pg-drawer" role="complementary" aria-label="Ficha estimada">
@@ -141,36 +147,68 @@ export function ResultDrawer({
               {PENEIRA_KEYS.map((key) => (
                 <div key={key}>
                   <span>{PENEIRA_LABELS[key]}</span>
-                  <span>{numericFieldText(estimate.peneiras[key])}</span>
+                  <span>{fieldText(estimate.peneiras[key], '%')}</span>
                 </div>
               ))}
             </div>
-            {hasPartial ? (
-              <p className="pg-drawer-note">
-                * estimativa parcial — nem todos os componentes têm o campo
-              </p>
-            ) : null}
           </section>
+
+          {/* PG44: quantos rótulos de fundo os componentes trouxerem — pode
+              passar dos 2 slots que a ficha de um lote comporta. */}
+          {estimate.fundos.length > 0 ? (
+            <section>
+              <h4>Fundos</h4>
+              <div className="pg-drawer-grid">
+                {estimate.fundos.map((fundo) => (
+                  <div key={fundo.peneira}>
+                    <span>Fundo {fundo.peneira}</span>
+                    <span>{fieldText(fundo.value, '%')}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           <section>
             <h4>Catação</h4>
-            <CompositionParts field={estimate.catacao} />
+            <div className="pg-drawer-grid is-single">
+              <div>
+                <span>Catação</span>
+                <span>{fieldText(estimate.catacao, '%')}</span>
+              </div>
+            </div>
           </section>
 
           <section>
             <h4>Defeitos</h4>
-            <div className="pg-drawer-defects">
+            <div className="pg-drawer-grid">
               {DEFEITO_KEYS.map((key) => (
                 <div key={key}>
                   <span>{DEFEITO_LABELS[key]}</span>
-                  <CompositionParts field={estimate.defeitos[key]} />
+                  {/* PG43: "Defeito" é contagem, então sai sem o %. */}
+                  <span>{fieldText(estimate.defeitos[key], DEFEITO_UNITS[key])}</span>
                 </div>
               ))}
             </div>
           </section>
 
+          {exclusions.length > 0 ? (
+            <section className="pg-drawer-exclusions">
+              <h4>Fora da conta</h4>
+              <ul>
+                {exclusions.map((note, index) => (
+                  <li key={`${note.field}-${note.lotNumber}-${index}`}>
+                    <strong>{note.field}</strong> não considerou o lote {note.lotNumber}: “
+                    {note.raw}” não é um número.
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
           <p className="pg-drawer-note">
-            Protótipo: valores do motor stub — a estimativa real chega na F2. Isto não é um laudo.
+            A média é exata — mistura de café por peso. Mas a liga real é reclassificada por uma
+            pessoa, sobre uma amostra nova: isto é uma estimativa, não um laudo.
           </p>
         </div>
       )}

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { stubEngine } from '../lib/playground/engine.ts';
+import { playgroundEngine } from '../lib/playground/engine.ts';
 import { mockLotIndex } from '../lib/playground/mock-lots.ts';
 import { runSimulation } from '../lib/playground/simulation.ts';
 import type { PgGraphEdge, PgGraphNode } from '../lib/playground/types.ts';
@@ -27,13 +27,12 @@ test('runSimulation estima cada node Resultado do canvas', () => {
     node('r2', 'resultado'), // segundo resultado, desconectado
   ];
   const edges = [edge('l1', 'm1'), edge('l2', 'm1'), edge('m1', 'r1')];
-  const outcomes = runSimulation(nodes, edges, mockLotIndex, stubEngine);
+  const outcomes = runSimulation(nodes, edges, mockLotIndex, playgroundEngine);
 
   const first = outcomes.get('r1');
   assert.equal(first?.kind, 'estimate');
   if (first?.kind === 'estimate') {
     assert.equal(first.estimate.totalSacks, 40);
-    assert.equal(first.estimate.isStub, true);
   }
   assert.deepEqual(outcomes.get('r2'), { kind: 'error', reason: 'NO_MIX', nodeId: 'r2' });
 });
@@ -47,7 +46,7 @@ test('runSimulation barra contribuição acima do saldo físico (PG8/PG10)', () 
     node('r1', 'resultado'),
   ];
   const edges = [edge('l1', 'm1'), edge('l2', 'm1'), edge('m1', 'r1')];
-  const outcomes = runSimulation(nodes, edges, mockLotIndex, stubEngine);
+  const outcomes = runSimulation(nodes, edges, mockLotIndex, playgroundEngine);
   assert.deepEqual(outcomes.get('r1'), {
     kind: 'error',
     reason: 'LOT_OVER_BALANCE',
@@ -64,7 +63,7 @@ test('runSimulation propaga erros de composição do grafo', () => {
     node('r1', 'resultado'),
   ];
   const edges = [edge('l1', 'm1'), edge('m1', 'r1')];
-  const outcomes = runSimulation(nodes, edges, mockLotIndex, stubEngine);
+  const outcomes = runSimulation(nodes, edges, mockLotIndex, playgroundEngine);
   assert.deepEqual(outcomes.get('r1'), {
     kind: 'error',
     reason: 'MIX_NEEDS_TWO_INPUTS',
