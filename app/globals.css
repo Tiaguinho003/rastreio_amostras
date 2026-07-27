@@ -6768,13 +6768,6 @@ button:disabled {
   display: none;
 }
 
-.cv2-card-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
 .cv2-card-arrow-btn {
   display: contents;
 }
@@ -6814,39 +6807,6 @@ button:disabled {
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
-}
-
-.cv2-card-role {
-  font-size: clamp(9px, 2.5vw, 10px);
-  font-weight: 600;
-  padding: 2px clamp(6px, 1.8vw, 8px);
-  border-radius: 6px;
-  border: 1px solid;
-  white-space: nowrap;
-}
-
-.cv2-card-role.is-buyer {
-  color: #2980b9;
-  background: #eff6ff;
-  border-color: #bfdbfe;
-}
-
-.cv2-card-role.is-seller {
-  color: #27ae60;
-  background: #f0fdf4;
-  border-color: #bbf7d0;
-}
-
-.cv2-card-role.is-warehouse {
-  color: #b45309;
-  background: #fffbeb;
-  border-color: #fde68a;
-}
-
-.cv2-card-role.is-none {
-  color: #999;
-  background: #f5f5f5;
-  border-color: #e0e0e0;
 }
 
 /* ── FAB ── */
@@ -7112,15 +7072,6 @@ button:disabled {
   color: #1a1a1a;
 }
 
-/* CDM header avatar (clients lista quick-view modal) */
-.cdm-header-avatar {
-  background: linear-gradient(
-    135deg,
-    var(--avatar-color, #1f5d43),
-    rgb(from var(--avatar-color, #1f5d43) r g b / 0.8)
-  );
-}
-
 /* ── Sample detail v2 (sdv) ── */
 
 @keyframes sdv-header-in {
@@ -7166,91 +7117,8 @@ button:disabled {
   }
 }
 
-/* ================================================================
-   Users page helpers (.usr-*)
-   ================================================================ */
-
-.usr-card-email {
-  font-size: clamp(10px, 2.8vw, 11px);
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cv2-card-role.is-role-admin,
-.cdm-type-badge.is-role-admin {
-  color: #c62828;
-  background: #fef2f2;
-  border-color: #fecaca;
-}
-
-.cv2-card-role.is-role-classifier,
-.cdm-type-badge.is-role-classifier {
-  color: #2980b9;
-  background: #eff6ff;
-  border-color: #bfdbfe;
-}
-
-.cv2-card-role.is-role-registration,
-.cdm-type-badge.is-role-registration {
-  color: #e67e22;
-  background: #fff7ed;
-  border-color: #fde68a;
-}
-
-.cv2-card-role.is-role-commercial,
-.cdm-type-badge.is-role-commercial {
-  color: #27ae60;
-  background: #f0fdf4;
-  border-color: #bbf7d0;
-}
-
-.cv2-card-role.is-role-prospector,
-.cdm-type-badge.is-role-prospector {
-  color: #0d9488;
-  background: #f0fdfa;
-  border-color: #99f6e4;
-}
-
-.cv2-card-role.is-locked,
-.cdm-header-status.is-locked {
-  color: #c62828;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-}
-
-.usr-feedback {
-  margin: 0;
-  font-size: clamp(11px, 3vw, 12px);
-}
-
-.usr-feedback.is-error {
-  color: var(--color-danger);
-}
-
-.usr-feedback.is-success {
-  color: #27ae60;
-}
-
-.usr-action-grid {
-  display: flex;
-  gap: clamp(6px, 1.8vw, 8px);
-  flex-wrap: wrap;
-}
-
-.usr-action-grid > button {
-  flex: 1;
-  padding: clamp(8px, 2.2vw, 10px);
-  font-size: clamp(11px, 3vw, 12px);
-}
-
 .cdm-manage-link.is-saving {
   opacity: 0.65;
-}
-
-.cdm-header-name.is-fill {
-  flex: 1;
 }
 
 /* Card mobile de /users (U5): a linha sob o nome é "perfil · status" — o
@@ -10971,13 +10839,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   border-color: var(--brand-green-soft);
 }
 
-/* Campos do modal de usuario (Novo/editar — .app-modal.cdm-modal): superficie
-   BRANCA em repouso (era #f7f5f1 creme). Escopado a .cdm-modal pra NAO afetar
-   os mesmos campos no /profile. Pedido do usuario. */
-.cdm-modal .sdv-edit-input {
-  background: #ffffff;
-}
-
 .sdv-edit-sep {
   height: 1px;
   background: rgba(0, 0, 0, 0.06);
@@ -11540,22 +11401,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   stroke-linejoin: round;
 }
 
-/* ── Client detail modal (cdm) ── */
-
-.cdm-modal {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: clamp(14px, 3.5vw, 16px);
-  padding: clamp(18px, 5vw, 24px);
-  /* Superficie BRANCA solida (pedido do usuario 2026-06-23): sai o gradiente
-     translucido + vidro do .app-modal base — agora abre sobre scrim escuro
-     (.is-scrim-dark), entao a translucidez deixaria o fundo escuro vazar. */
-  background: #fff;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-}
-
 .cudm-error {
   margin: 0;
   padding: 0.5rem 0.7rem;
@@ -11663,206 +11508,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
 .cudm-edit-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
-}
-
-.cdm-modal::-webkit-scrollbar {
-  display: none;
-}
-
-.cdm-modal .client-lookup-dropdown {
-  max-height: min(14rem, 35vh);
-}
-
-.cdm-header {
-  display: flex;
-  align-items: center;
-  gap: clamp(10px, 3vw, 12px);
-}
-
-.cdm-header-avatar {
-  display: inline-grid;
-  place-items: center;
-  width: clamp(38px, 10vw, 44px);
-  min-width: clamp(38px, 10vw, 44px);
-  height: clamp(38px, 10vw, 44px);
-  border-radius: clamp(12px, 3.5vw, 14px);
-  flex-shrink: 0;
-}
-
-.cdm-header-avatar span {
-  font-size: clamp(14px, 3.8vw, 16px);
-  font-weight: 700;
-  color: #fff;
-  line-height: 1;
-}
-
-.cdm-header-copy {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.cdm-header-name {
-  flex: 1;
-  min-width: 0;
-  margin: 0;
-  font-size: clamp(14px, 3.8vw, 16px);
-  font-weight: 700;
-  color: #1a1a1a;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cdm-header-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.cdm-header-code {
-  font-size: 11px;
-  color: #999;
-  font-weight: 500;
-}
-
-.cdm-header-status {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 1px 8px;
-  border-radius: 6px;
-}
-
-.cdm-header-status.is-active {
-  color: #27ae60;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-}
-
-.cdm-header-status.is-inactive {
-  color: #999;
-  background: #f5f5f5;
-  border: 1px solid #e0e0e0;
-}
-
-.cdm-close svg {
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.cdm-loading,
-.cdm-error {
-  font-size: 13px;
-  color: #999;
-  text-align: center;
-  padding: 20px 0;
-  margin: 0;
-}
-
-.cdm-error {
-  color: #c45c5c;
-}
-
-.cdm-info-grid {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(10px, 2.5vw, 12px);
-}
-
-.cdm-info-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: clamp(10px, 2.5vw, 12px);
-}
-
-.cdm-info-item {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.cdm-info-label {
-  font-size: 9px;
-  font-weight: 700;
-  color: #aaa;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.cdm-info-value {
-  font-size: 13px;
-  font-weight: 500;
-  color: #1a1a1a;
-}
-
-/* Valor + botao de copiar na mesma linha (Documento/Telefone). Espelha o
-   .stg-field-copy do /profile, em tamanho compacto pra caber no info-item. */
-.cdm-info-value-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.cdm-info-value-row .cdm-info-value {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cdm-info-copy {
-  flex-shrink: 0;
-  display: inline-grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border: 0;
-  background: transparent;
-  border-radius: 7px;
-  color: var(--brand-green);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.12s ease;
-}
-
-.cdm-info-copy svg {
-  width: 15px;
-  height: 15px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.cdm-info-copy:active {
-  transform: scale(0.9);
-}
-
-.cdm-type-badge {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 6px;
-  width: fit-content;
-}
-
-.cdm-type-badge.is-pf {
-  color: #e67e22;
-  background: #fff7ed;
-}
-
-.cdm-type-badge.is-pj {
-  color: #2980b9;
-  background: #eff6ff;
 }
 
 .cdm-manage-link {
@@ -22299,14 +21944,6 @@ select.samples-filter-field-input {
     letter-spacing: -0.01em;
   }
 
-  /* Linha meta: PJ/PF + UserAvatarStack lado a lado */
-  .clients-page-v2 .cv2-card-meta {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    flex-wrap: wrap;
-  }
-
   .clients-page-v2 .cv2-card-type {
     font-size: 0.7rem;
     padding: 3px 10px;
@@ -22530,38 +22167,6 @@ select.samples-filter-field-input {
 
   .cv2-fab:active {
     transform: scale(0.95);
-  }
-
-  /* Client detail modal: padrao client-quick-create (750px, no-scroll) */
-  .cdm-modal {
-    width: min(750px, calc(100vw - 3rem));
-    max-height: none;
-    overflow: visible;
-    padding: 1.25rem;
-    gap: 0.95rem;
-    border-radius: 24px;
-  }
-
-  .cdm-modal .cdm-header {
-    gap: 0.85rem;
-  }
-
-  .cdm-modal .cdm-header-avatar {
-    width: 56px;
-    height: 56px;
-    border-radius: 16px;
-  }
-
-  .cdm-modal .cdm-header-avatar span {
-    font-size: 1.25rem;
-  }
-
-  .cdm-modal .cdm-info-label {
-    font-size: 0.8rem;
-  }
-
-  .cdm-modal .cdm-info-value {
-    font-size: 1rem;
   }
 
   /* ══════════════════════════════════════════
@@ -23653,10 +23258,6 @@ select.samples-filter-field-input {
     width: min(52rem, 90vw);
   }
 
-  .cdm-modal {
-    width: min(520px, calc(100vw - 3rem));
-  }
-
   .client-quick-create-body {
     overflow: visible;
     min-height: auto;
@@ -23736,58 +23337,14 @@ select.samples-filter-field-input {
     border-color: rgba(0, 0, 0, 0.09);
   }
 
-  /* T5: role badges proporcionais ao card 25% menor */
-  .clients-page-v2 .cv2-card .cv2-card-role.is-role-admin,
-  .clients-page-v2 .cv2-card .cv2-card-role.is-role-classifier,
-  .clients-page-v2 .cv2-card .cv2-card-role.is-role-registration,
-  .clients-page-v2 .cv2-card .cv2-card-role.is-role-commercial,
-  .clients-page-v2 .cv2-card .cv2-card-role.is-role-prospector {
-    font-size: 0.62rem;
-    padding: 3px 9px;
-    border-radius: 7px;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-  }
-
   /* T5: icone "locked" no canto superior direito do card */
   .clients-page-v2 .cv2-card {
     position: relative;
   }
 
-  .clients-page-v2 .cv2-card .cv2-card-role.is-locked {
-    position: absolute;
-    top: 0.6rem;
-    right: 0.6rem;
-    font-size: 0.7rem;
-    padding: 3px 8px;
-    border-radius: 999px;
-    z-index: 1;
-  }
-
-  /* T7: modal quick-view de cliente expande de 520 para 640 */
-  .cdm-modal {
-    width: min(640px, calc(100vw - 3rem));
-    padding: 1.75rem;
-    border-radius: 24px;
-  }
-
   /* T2: .sdv-card — gap interno no desktop */
   .sdv-card {
     gap: 1.2rem;
-  }
-
-  /* T3: .app-modal.cdm-modal — modal de edicao maior nas paginas de detalhe */
-  .app-modal.cdm-modal {
-    width: min(750px, calc(100vw - 3rem));
-    max-height: none;
-    overflow: visible;
-    padding: 1.25rem;
-    gap: 0.95rem;
-    border-radius: 22px;
-  }
-
-  .app-modal.cdm-modal .sdv-edit-row {
-    gap: 0.9rem 1rem;
   }
 
   /* ══════════════════════════════════════════
