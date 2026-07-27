@@ -464,21 +464,33 @@ UPPERCASE em campos de nome/dados cadastrais (`event.target.value.toUpperCase()`
 
 > O **OperationModal** ("Lotes pendentes") do dashboard foi **REMOVIDO em 2026-07-12 (DSB-D2)** junto com os cards de pendencia. Ele era um BottomSheet (`.is-operations`); o CSS (`.bottom-sheet.is-operations`, `.spv2-card-classify-arrow`) foi **mantido** para o rebuild do fluxo de classificar-a-partir-da-fila na pagina de Lotes. A classe `.app-modal-dashboard` ja havia sido removida antes. Ver `docs/Dashboard-Plano-de-Trabalho.md` (DSB-D2).
 
-### Formularios de informe (prospector + comercial)
+### Superficies de /relatorios (Visita · Semanal · Informativo)
 
-| Modal                                        | Arquivo                                                             | Variantes                                                                                                                                                                                           |
-| -------------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Excluir item (confirm, viewer Relatórios)    | `components/informe/RelatoriosViewer.tsx` (inline, titulo por tipo) | `is-themed app-confirm-modal` SEM header (titulo no corpo) + `.is-danger` + backdrop `.is-scrim-dark`                                                                                               |
-| Excluir informe (dashboard do prospector)    | `components/dashboard/prospector/ProspectorDashboard.tsx`           | `is-themed app-confirm-modal` SEM header (titulo no corpo) + `.is-danger` + backdrop `.is-scrim-dark` (portal)                                                                                      |
-| Descartar informe (sheet do prospector)      | `components/visits/VisitReportFormSheet.tsx`                        | `is-themed app-confirm-modal is-stacked` SEM header (titulo no corpo) + `.is-danger` + backdrop `.is-scrim-dark` (portal)                                                                           |
-| Descartar visita (sheet do comercial)        | `components/informe/CommercialVisitFormSheet.tsx`                   | `is-themed app-confirm-modal is-stacked` + `.is-danger` (portal)                                                                                                                                    |
-| Descartar relatorio (sheet do comercial)     | `components/informe/WeeklyReportFormSheet.tsx`                      | `is-themed app-confirm-modal is-stacked` + `.is-danger` (portal)                                                                                                                                    |
-| Relatorio ja enviado (aviso 409, bloqueante) | `components/informe/WeeklyReportForm.tsx`                           | `is-themed app-confirm-modal is-stacked` (botao unico "Entendi", portal)                                                                                                                            |
-| Excluir visita/relatorio (pagina comercial)  | `components/informe/InformeCommercialPage.tsx`                      | `app-confirm-modal` SEM header (titulo no corpo) + `.is-danger` + backdrop `.is-scrim-dark` (portal, titulo por tipo)                                                                               |
-| Vincular cliente (curadoria do ADMIN)        | `components/informe/RelatoriosViewer.tsx` (inline JSX)              | `is-themed sample-detail-lookup-modal rsm-link-modal` (portal; lookup com `initialSearch` + contexto `.rsm-link-context`; estado vazio → ClientQuickCreateModal prefilled que vincula no onCreated) |
-| Remover vinculo (curadoria do ADMIN)         | `components/informe/RelatoriosViewer.tsx` (inline JSX)              | `is-themed app-confirm-modal` + `.is-warning` (portal; re-vinculavel, nao e destrutivo)                                                                                                             |
+> **Sincronizado em 2026-07-27** (redesenho FV, Redesign §2.10). Os tres formularios sao
+> **paineis laterais** (`.fv-panel-sheet .side-sheet`, ver `containers`) — nao ha mais
+> BottomSheet `.is-informe`. O que sobra de MODAL CENTRAL aqui e o que esta na tabela.
 
-> Os formularios abrem em BottomSheets (`.bottom-sheet.is-informe`, ver `containers`). Confirms de descarte empilham sobre o sheet (`.is-stacked`, `dragDisabled` enquanto aberto) — mesmo padrao do "Descartar lote?" do NewSampleModal. TODOS os confirms acima renderizam via `createPortal(document.body)` (regra do §2) exceto o "Excluir item" do viewer Relatórios (`RelatoriosViewer`), inline historico (os modais de vinculo do mesmo viewer ja portam).
+| Modal                                        | Arquivo                                                     | Variantes                                                                                               |
+| -------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Cancelar visita/relatorio (confirm, viewer)  | `components/informe/RelatoriosViewer.tsx` (titulo por tipo) | `is-themed app-confirm-modal` SEM header + `.is-danger` + backdrop `.is-scrim-dark` — **inline**, unico |
+| Cancelar visita (dashboard do prospector)    | `components/dashboard/prospector/ProspectorDashboard.tsx`   | `is-themed app-confirm-modal` SEM header + `.is-danger` + backdrop `.is-scrim-dark` (portal)            |
+| Descartar visita (painel)                    | `components/informe/CommercialVisitFormSheet.tsx`           | `is-themed app-confirm-modal is-compact` + backdrop `.is-scrim-none` (portal)                           |
+| Descartar relatorio semanal (painel)         | `components/informe/WeeklyReportFormSheet.tsx`              | `is-themed app-confirm-modal is-compact` + backdrop `.is-scrim-none` (portal)                           |
+| Descartar informativo (painel)               | `components/informe/InformativoFormSheet.tsx`               | `is-themed app-confirm-modal is-compact` + backdrop `.is-scrim-none` (portal)                           |
+| Relatorio ja enviado (aviso 409, bloqueante) | `components/informe/WeeklyReportFormSheet.tsx`              | `is-themed app-confirm-modal` + backdrop **`.fv-panel-scrim`** (botao unico "Entendi", portal)          |
+
+> **Descarte sobre painel lateral = `.is-scrim-none` + `.is-compact`**, nao `.is-stacked`: o
+> `.is-stacked` era do tempo do BottomSheet (confirm empilhado sobre o sheet). O fundo nao
+> escurece nem borra — o painel continua legivel atras. O **aviso 409** e a excecao que usa
+> `.fv-panel-scrim`: cobre so a faixa do painel, nao a pagina (skill `containers` §1).
+>
+> **Portal**: todos portalam em `document.body`, **exceto** o "Cancelar" do `RelatoriosViewer`,
+> inline por historico (o unico que sobrou depois que os modais de curadoria sairam).
+>
+> **Sumiram na unificacao de 2026-07-15** (nao procurar): `VisitReportFormSheet` (descarte do
+> informe do prospector — o form virou o unificado), `WeeklyReportForm` (absorvido pelo sheet),
+> `InformeCommercialPage` (a pagina "meus" do COMMERCIAL) e os dois modais de **curadoria de
+> vinculo** do viewer (Vincular cliente / Remover vinculo) — a Visita nasce vinculada.
 
 ### Extracao da classificacao (CameraSheet global — Q.cls.2)
 

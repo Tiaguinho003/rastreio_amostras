@@ -64,7 +64,7 @@ telas. Consumidores hoje:
 | `.spv2-*` | 19       | lista de `/samples` | `/cadastros`, `/users`, contratos, financeiro, embarque |
 | `.ctr-*`  | 15       | `/contratos`        | embarque, aprovações, financeiro                        |
 | `.cv2-*`  | 8        | lista de clientes   | `/samples` e outras listas                              |
-| `.rsm-*`  | 7        | `/relatorios`       | cards de visita/informe                                 |
+| `.rsm-*`  | 6        | `/relatorios`       | feed do dashboard do prospector                         |
 | `.cdm-*`  | 3        | `/users`            | `/profile`                                              |
 
 ### O caso mais afiado: `.sdv-*`

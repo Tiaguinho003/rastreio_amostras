@@ -135,15 +135,15 @@ Banner é uma faixa horizontal informando uma condição que **permanece enquant
 
 ### Padrões existentes
 
-| Classe                              | Quando                                                         | Exemplo                                                 |
-| ----------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------- |
-| `.nsv2-offline-banner`              | Conexão offline em `NewSampleModal`                            | "Sem conexão"                                           |
-| `.inf-offline-banner`               | Conexão offline nos formulários de visita/relatório            | "Sem conexão" + o que acontece com o envio (ver abaixo) |
-| `.nsv2-inline-error` (topo de form) | Erro de submit no topo do form (não-campo)                     | "Este cliente PF não tem fazenda ativa"                 |
-| `.dashboard-error-banner`           | Erro de carregamento do dashboard (3 twins)                    | "Não foi possível carregar o painel." + `role="status"` |
-| `.spv2-error-banner`                | Erro de carregamento da lista `/samples` (inicial e load-more) | "Não foi possível carregar os lotes." + `role="status"` |
+| Classe                              | Quando                                                         | Exemplo                                                    |
+| ----------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------- |
+| `.nsv2-offline-banner`              | Conexão offline em `NewSampleModal`                            | "Sem conexão"                                              |
+| `.inf-offline-banner`               | Conexão offline no **Semanal** (`WeeklyReportFormSheet`)       | "Sem conexão" + "Não é possível enviar formulários agora…" |
+| `.nsv2-inline-error` (topo de form) | Erro de submit no topo do form (não-campo)                     | "Este cliente PF não tem fazenda ativa"                    |
+| `.dashboard-error-banner`           | Erro de carregamento do dashboard (3 twins)                    | "Não foi possível carregar o painel." + `role="status"`    |
+| `.spv2-error-banner`                | Erro de carregamento da lista `/samples` (inicial e load-more) | "Não foi possível carregar os lotes." + `role="status"`    |
 
-> **`.inf-offline-banner` diz coisas OPOSTAS conforme o formulário — a classe é a mesma, a promessa não.** O `VisitReportForm` (informe do prospector, sheet do dashboard) tem fila offline: "ficam salvos no aparelho e são enviados quando a internet voltar". O `CommercialVisitForm` e o `WeeklyReportForm` (página Relatorios) **não têm fila**: "Não é possível enviar formulários agora. Conecte-se à internet e tente novamente." Nunca prometer persistência local num formulário sem outbox.
+> **Não prometer persistência local num formulário sem outbox.** _(Corrigido em 2026-07-27.)_ A **fila offline saiu do produto** na unificação de Relatórios (2026-07-15) — não existe mais formulário que guarde e reenvie depois. Sobrou **um** consumidor da classe, o Semanal (`WeeklyReportFormSheet`), com a promessa honesta: "Não é possível enviar formulários agora. Conecte-se à internet e tente novamente." O antigo `VisitReportForm`, que prometia "ficam salvos no aparelho", **não existe mais**; o formulário de Visita unificado (`CommercialVisitFormSheet`) simplesmente exige internet e **não mostra banner** — assimetria conhecida, não bug.
 
 ### Estrutura
 
