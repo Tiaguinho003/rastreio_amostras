@@ -23238,19 +23238,53 @@ select.samples-filter-field-input {
      /profile — casca institucional (RD17)
      ══════════════════════════════════════════ */
 
-  /* P-D1: no desktop a pagina de perfil e uma COLUNA CENTRADA ESTREITA. Ela e
-     um formulario de conta: com o --desktop-content-max herdado do .sdv-page
-     (2400px) a linha de campo fica larga demais pra ler e pra mirar.
-     --content-max-narrow e o token que ja existe pra "forms centrados, auth".
-     Antes o perfil ia pro outro extremo — --content-max-wide (2600px) + grid
-     de 2 colunas em >=1200px. */
+  /* P-D1 (REVISADA na conferencia da P1 — ver §2.12): o perfil segue o MESMO
+     molde de pagina das demais do ciclo, largura cheia. A primeira tentativa
+     foi uma coluna centrada estreita e o Flavio recusou: nao e o padrao que o
+     app esta construindo, e a pagina vai ganhar mais informacao — area em
+     branco agora e espaco reservado.
+
+     O molde e o do `/relatorios` (a irma: pagina nao-lista sobre .sdv-page):
+     a pagina ocupa a altura toda e o CONTEUDO vira o cartao institucional,
+     como o .rsm-content la e o sheet em /samples e /users. */
   .sdv-page:has(.stg-content) {
-    max-width: min(var(--content-max-narrow), calc(100vw - 4rem));
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .sdv-content.stg-content {
+    flex: 1;
+    min-height: 0;
+    /* Mesma geometria do .rsm-content: recuo lateral casado com o do
+       cabecalho, hairline + sombra de 1px. */
+    margin: 0.9rem clamp(0.9rem, 3vw, 2rem) 1.15rem;
+    padding: 1.35rem;
+    border: 1px solid var(--fv-line);
+    border-radius: var(--fv-radius-lg);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  /* Dentro do cartao da pagina os dois grupos sao SECOES, nao cartoes —
+     cartao dentro de cartao nao existe no kit. Separa-os uma hairline. */
+  .stg-content > .sdv-card.stg-card {
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .stg-content > .sdv-card.stg-card + .sdv-card.stg-card {
+    margin-top: 1.4rem;
+    padding-top: 1.4rem;
+    border-top: 1px solid var(--fv-line);
   }
 
   /* P-D3: cabecalho institucional. O nome do usuario TITULA a pagina no
      desktop (por isso o .sdv-header-title some), entao ele adota a escala do
      .fv-page-title — 1.55rem/700/--ink — no lugar do 2.5rem verde de antes.
+     Ele faz aqui o papel que a `.fv-page-head` faz nas outras paginas, e por
+     isso usa o MESMO recuo lateral dela (clamp(.9rem, 3vw, 2rem)).
      🔴 Estas regras precisam comecar em 901px, nao em 1200px: o nome base e
      BRANCO (feito pra faixa verde do mobile) e o desktop tem fundo claro.
      Entre 901 e 1199px ele ficava branco no branco — invisivel. */
@@ -23260,7 +23294,7 @@ select.samples-filter-field-input {
   }
 
   .sdv-header.stg-header {
-    padding-top: 0.75rem;
+    padding: 0.75rem clamp(0.9rem, 3vw, 2rem) 0;
   }
 
   .stg-header .sdv-header-title {

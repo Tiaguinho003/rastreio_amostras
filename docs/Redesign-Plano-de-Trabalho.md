@@ -43,7 +43,7 @@ Todas travadas em **2026-07-20** (conversa de kickoff, com levantamento de códi
 - **RD16 — FV Mobile, com `/samples` como padrão do app (2026-07-22, 8 decisões em plan mode).** O desktop de `/cadastros` e `/samples` fechou; abaixo de 901px o app seguia no visual anterior. O mobile entra com a MESMA lógica do desktop: a página de Lotes decide, e o que sair dela vira o kit, as skills e o padrão das demais páginas. O inventário do código organizou o plano: **o kit FV no mobile é hoje "átomos + formulários"** — já valem `.fv-btn`, `.fv-chip`, `.fv-iconbtn`, `.fv-tabs`, todo o `.fv-form-*`, `.fv-choice*`, `.fv-filter-*`, `.fv-input`, `.fv-panel-sheet` e **o detalhe do lote inteiro** (`.fv-sd-*`, escrito sem media query de propósito) —, e **o que falta é o kit de LISTAGEM** (`.fv-page-head`, `.fv-kpi-row`, `.fv-toolbar`, `.fv-bulkbar`, `.fv-row-menu` e as ~30 classes `.fv-table*`, todas presas em `@media (min-width: 901px)`). Consequência: **o detalhe e os painéis já estão prontos no mobile** — o trabalho real é **o chrome e a lista**. Decisões travadas: 1. **topo = faixa verde curta** (o hero verde grande sai; resolve o ponto que o RD12 deixou explicitamente em aberto); 2. **o chrome vale para TODAS as páginas de uma vez** (mesma escolha do RD13 no desktop — o conteúdo de cada página espera a vez dela); 3. **lista = card sem expansão** (tap abre o drawer, igual à linha da tabela no desktop); 4. **criar = o FAB em leque fica** (ergonomia de polegar; só ganha reskin — a faixa NÃO leva `[+]`); 5. **KPI = carrossel horizontal**, com "Aguardando classificação" seguindo clicável; 6. **modo seleção = barra na base**, no lugar da tabbar; 7. **formulários = sheet parcial**, como hoje; 8. **sem referência externa** — o mobile é o kit institucional adaptado à tela estreita. Fases **M1 chrome → M2 lista → M3 detalhe (leve) → M4 consolidação**; detalhamento e commits: §2.8.
   **⚠️ Emenda vinda da conferência do M2 (2026-07-22)**: a decisão 5 caiu pela metade — **KPI não é mais carrossel**. Com a faixa reduzida a **dois cartões** ("Em aberto" e pendências), os dois cabem lado a lado numa grade, e o scroll-x só escondia metade da informação atrás de um gesto. O que sobrevive da decisão é o essencial: a faixa **rola junto com a lista** e o cartão de pendências segue clicável.
 
-- **RD17 — `/profile` institucional: coluna centrada, acordeão preservado (2026-07-27, 3 decisões).** 5ª página do ciclo e a que menos tinha sido tocada — `.stg-*` é anterior ao kit FV e nunca migrou. As decisões travadas com o Flavio: **P-D1 — desktop vira coluna centrada estreita** (`--content-max-narrow`, 720px), **substituindo** o grid de 2 colunas que já existia em `≥1200px` (a faixa `≥901px` só tinha hover, o que enganou o diagnóstico inicial); **P-D2 — a edição continua acordeão**, vestida com `.fv-form-*` em vez de virar painel lateral, porque é **um campo por vez** e a árvore do `containers` manda inline nesse caso; **P-D3 — o cabeçalho mantém avatar + nome + papel** (é a identidade da página), institucionalizado — sai o ícone de escudo, saem os hovers que levantam. Correções por regra já vigente, sem pergunta: acentos, erro dentro do campo, `.sdv-info-copy` do kit no lugar do botão de cópia próprio. Fases **P1 casca → P2 formulários → P3 limpeza**; detalhamento e commits: §2.12.
+- **RD17 — `/profile` institucional: coluna centrada, acordeão preservado (2026-07-27, 3 decisões).** 5ª página do ciclo e a que menos tinha sido tocada — `.stg-*` é anterior ao kit FV e nunca migrou. As decisões travadas com o Flavio: **~~P-D1 — desktop vira coluna centrada estreita~~ (CAIU na conferência da P1; ver P-D1b no §2.12)**, que **substituiria** o grid de 2 colunas já existente em `≥1200px` (a faixa `≥901px` só tinha hover, o que enganou o diagnóstico inicial); **P-D2 — a edição continua acordeão**, vestida com `.fv-form-*` em vez de virar painel lateral, porque é **um campo por vez** e a árvore do `containers` manda inline nesse caso; **P-D3 — o cabeçalho mantém avatar + nome + papel** (é a identidade da página), institucionalizado — sai o ícone de escudo, saem os hovers que levantam. Correções por regra já vigente, sem pergunta: acentos, erro dentro do campo, `.sdv-info-copy` do kit no lugar do botão de cópia próprio. Fases **P1 casca → P2 formulários → P3 limpeza**; detalhamento e commits: §2.12.
 
 ## 2. Fases
 
@@ -864,6 +864,36 @@ vira o registro de que **checar um tier de media query não é checar o desktop*
 **Domínio:** acesso é `useRequireAuth()` **sem restrição de papel** — todos entram no próprio
 perfil. A única variação por papel é a **barra de voltar**, que existe só para o PROSPECTOR (ele não
 tem tabbar nem o header do `AppShell`); por isso `.nsv2-back` **fica**.
+
+#### P1 — casca institucional (implementada 2026-07-27, `0b1be82` + `d10f0d1`)
+
+Mobile aprovado de primeira. **No desktop o Flavio recusou a P-D1** e a decisão foi substituída:
+
+> **P-D1b — o perfil usa o MESMO molde de página das demais do ciclo, largura cheia.** Nas palavras
+> dele: _"a página está centralizada e isso não segue o padrão das páginas que estamos construindo…
+> mesmo que fique muita área em branco, pois no futuro iremos adicionar mais informações"_. Área em
+> branco agora é **espaço reservado**, não desperdício.
+
+O molde é o do **`/relatorios`** — a irmã da `/profile`: página **não-lista** montada sobre
+`.sdv-page`. A geometria copiada de lá: a página ocupa a altura toda
+(`.sdv-page:has(…) { height: 100%; overflow: hidden }`) e **o conteúdo vira O cartão institucional**
+(`margin: 0.9rem clamp(0.9rem, 3vw, 2rem) 1.15rem` + hairline + sombra de 1px), com o recuo lateral
+casado com o do cabeçalho. Os dois `.stg-card` internos **perdem a casca** no desktop e viram seções
+separadas por hairline — **cartão dentro de cartão não existe no kit**.
+
+🔴 **A lição da rodada:** o levantamento tratou "coluna centrada" como uma escolha de gosto entre
+três opções de largura, quando a pergunta certa era **"qual é o molde de página já construído para
+uma página não-lista?"**. Ele existia — `/relatorios` — e não foi consultado. **Antes de propor
+layout de página nova, procurar a página do ciclo com a mesma NATUREZA (lista? detalhe? conta?), não
+a com o mesmo conteúdo.**
+
+Além do molde, a P1 entregou: cabeçalho institucional (escala do `.fv-page-title`, avatar 7rem →
+4.5rem, papel em `--muted`, sem o escudo), superfícies no kit (`--fv-canvas` + hairline nas linhas,
+`--fv-cta` no ícone), saída dos dois hovers que levantavam, e `--i: 3` → `1` no card de Notificações.
+
+**Um bug pré-existente caiu junto:** os overrides de cabeçalho só existiam a partir de **1200px**,
+mas o nome do usuário é `#ffffff` na base (feito para a faixa verde do mobile). Entre **901 e
+1199px** ele ficava branco sobre fundo claro — **invisível**. As regras subiram para `≥901px`.
 
 ---
 
