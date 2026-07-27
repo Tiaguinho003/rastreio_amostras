@@ -43,6 +43,8 @@ Todas travadas em **2026-07-20** (conversa de kickoff, com levantamento de códi
 - **RD16 — FV Mobile, com `/samples` como padrão do app (2026-07-22, 8 decisões em plan mode).** O desktop de `/cadastros` e `/samples` fechou; abaixo de 901px o app seguia no visual anterior. O mobile entra com a MESMA lógica do desktop: a página de Lotes decide, e o que sair dela vira o kit, as skills e o padrão das demais páginas. O inventário do código organizou o plano: **o kit FV no mobile é hoje "átomos + formulários"** — já valem `.fv-btn`, `.fv-chip`, `.fv-iconbtn`, `.fv-tabs`, todo o `.fv-form-*`, `.fv-choice*`, `.fv-filter-*`, `.fv-input`, `.fv-panel-sheet` e **o detalhe do lote inteiro** (`.fv-sd-*`, escrito sem media query de propósito) —, e **o que falta é o kit de LISTAGEM** (`.fv-page-head`, `.fv-kpi-row`, `.fv-toolbar`, `.fv-bulkbar`, `.fv-row-menu` e as ~30 classes `.fv-table*`, todas presas em `@media (min-width: 901px)`). Consequência: **o detalhe e os painéis já estão prontos no mobile** — o trabalho real é **o chrome e a lista**. Decisões travadas: 1. **topo = faixa verde curta** (o hero verde grande sai; resolve o ponto que o RD12 deixou explicitamente em aberto); 2. **o chrome vale para TODAS as páginas de uma vez** (mesma escolha do RD13 no desktop — o conteúdo de cada página espera a vez dela); 3. **lista = card sem expansão** (tap abre o drawer, igual à linha da tabela no desktop); 4. **criar = o FAB em leque fica** (ergonomia de polegar; só ganha reskin — a faixa NÃO leva `[+]`); 5. **KPI = carrossel horizontal**, com "Aguardando classificação" seguindo clicável; 6. **modo seleção = barra na base**, no lugar da tabbar; 7. **formulários = sheet parcial**, como hoje; 8. **sem referência externa** — o mobile é o kit institucional adaptado à tela estreita. Fases **M1 chrome → M2 lista → M3 detalhe (leve) → M4 consolidação**; detalhamento e commits: §2.8.
   **⚠️ Emenda vinda da conferência do M2 (2026-07-22)**: a decisão 5 caiu pela metade — **KPI não é mais carrossel**. Com a faixa reduzida a **dois cartões** ("Em aberto" e pendências), os dois cabem lado a lado numa grade, e o scroll-x só escondia metade da informação atrás de um gesto. O que sobrevive da decisão é o essencial: a faixa **rola junto com a lista** e o cartão de pendências segue clicável.
 
+- **RD17 — `/profile` institucional: coluna centrada, acordeão preservado (2026-07-27, 3 decisões).** 5ª página do ciclo e a que menos tinha sido tocada — `.stg-*` é anterior ao kit FV e nunca migrou. As decisões travadas com o Flavio: **P-D1 — desktop vira coluna centrada estreita** (`--content-max-narrow`, 720px), **substituindo** o grid de 2 colunas que já existia em `≥1200px` (a faixa `≥901px` só tinha hover, o que enganou o diagnóstico inicial); **P-D2 — a edição continua acordeão**, vestida com `.fv-form-*` em vez de virar painel lateral, porque é **um campo por vez** e a árvore do `containers` manda inline nesse caso; **P-D3 — o cabeçalho mantém avatar + nome + papel** (é a identidade da página), institucionalizado — sai o ícone de escudo, saem os hovers que levantam. Correções por regra já vigente, sem pergunta: acentos, erro dentro do campo, `.sdv-info-copy` do kit no lugar do botão de cópia próprio. Fases **P1 casca → P2 formulários → P3 limpeza**; detalhamento e commits: §2.12.
+
 ## 2. Fases
 
 | Fase          | Escopo                                                                                                                                                                                                                                                                                                          | Estado                                                                                                                                                          |
@@ -807,6 +809,61 @@ Fechada a `/relatorios` (§2.10), entra o par **`/users` + `/profile`** — `/us
   - **Aberto (decisão do Flavio):** `/users` não tem doc-mãe como `Lotes-Visao-Geral.md` e `Relatorios-Visao-Geral.md`. O domínio é pequeno e já está coberto por `API-e-Contratos` + `Auditoria-Navegacao-por-Papel` + `SECURITY` — um hub novo provavelmente duplicaria.
 
 **Pendente:** 🖥️📱 validação no device.
+
+### 2.12 FV `/profile` (Perfil) — 5ª página do ciclo (decisões travadas 2026-07-27)
+
+Fecha o par aberto na §2.11. `/profile` é **a página que menos foi tocada** no app: o namespace
+`.stg-*` é anterior ao kit FV e nunca migrou. `app/profile/page.tsx` (990 linhas) é **uma árvore
+só** — não usa `useIsDesktop` —, com um cabeçalho de identidade, **um card de 5 linhas em acordeão**
+(Nome · Usuário · Telefone · E-mail · Senha) que expandem inline para editar, um card de
+Notificações com o switch de Web Push, e um modal central de confirmação que **já está no kit**
+(`.app-modal.is-themed.app-confirm-modal`).
+
+**O levantamento achou o motivo real de a página valer a passada — ela é a última consumidora de
+três namespaces:**
+
+- **123 regras** `.stg-*`/`.cdm-*` no `globals.css`, das quais **18 tokens já estão mortos hoje**
+  (`stg-card-icon` e as 4 variantes de ícone, `stg-email-box*`, `stg-logout-*`,
+  `stg-push-toggle-*`, `stg-username-row`, `stg-badge-fixed`, `stg-header-spacer`,
+  `stg-card-title*`, `stg-edit-btn-label`, `stg-field-fixed-badge`, `stg-push-description`).
+- **Todo token `.stg-*` vivo aponta só para `app/profile/page.tsx`** — o namespace é exclusivo da
+  página. Idem `.cdm-manage-link` (11 regras / 60 linhas), usado 4× como botão salvar: **migrar
+  aqui mata o namespace `.cdm-*` inteiro**, pendência que a §2.11 deixou aberta.
+- Ficam órfãos junto: `.sdv-edit-fields/-field/-label/-input` (31 regras / 182 linhas — e
+  `.sdv-edit-actions`/`.sdv-edit-btn` **já** estavam mortos), `.sdv-cls-action-save` (usado como
+  botão em 3 pontos), `.sdv-header`, `.sdv-header-top`, `.sdv-header-title`.
+- **Compartilhadas de verdade, ficam:** `.sdv-page`, `.sdv-content`, `.sdv-card` (ClientDetailView,
+  SampleDetailView, RelatoriosViewer, SampleMovementsPanel).
+
+🔴 **A verificação foi por `className` com comentários removidos, não por grep.** O primeiro
+levantamento deu `.sdv-header-top` como vivo por causa de `AppShell.tsx:1037` — que é **comentário**.
+É a mesma lição da §2.11 ("cruzar o token contra o código também casa comentário"), agora aplicada
+antes de custar commit.
+
+**Desktop — o diagnóstico inicial estava errado e a correção mudou a natureza da decisão.** Olhando
+só a faixa `≥901px` (6 regras, todas hover) a conclusão foi "não existe layout de desktop". Existe:
+em **`≥1200px`** o `.stg-content` já é **grid de 2 colunas**, com `--content-max-wide` (2600px),
+avatar de 7rem e nome verde de 2.5rem. Então P-D1 é **substituição**, não criação — e a `/profile`
+vira o registro de que **checar um tier de media query não é checar o desktop**.
+
+**Achados que entram como defeito, sem virar pergunta:**
+
+1. **12 strings sem acento no front** (`Operacao cancelada.`, `Dados invalidos`, `Email invalido`,
+   `Codigo enviado para o novo email.`, `Senha invalida`, `As senhas nao coincidem.`, …) mais dois
+   avisos no JSX — o mesmo defeito que a U-D8 corrigiu no backend, do outro lado da mesma tela.
+2. **`.stg-field-copy` é duplicata de `.sdv-info-copy`**, a peça do kit que `/users` e
+   `ClientDetailView` já usam com o mesmo SVG. É exatamente a duplicação que custou 3 commits na
+   §2.11 — aqui a peça é adotada de saída.
+3. **O mesmo `profileError` renderizado em 3 linhas do acordeão** (Nome, Usuário, Telefone), porque
+   as três compartilham `handleProfileSubmit`. Vai para erro-dentro-do-campo.
+4. **Efeito morto:** o `useEffect` de `?section=password` rola até a seção de senha, mas **nada no
+   repositório gera esse link** (varredura repo-wide) — e a linha para a qual ele rola está
+   **fechada**, então nem a intenção original funcionava.
+5. **`--i: 3`** no card de Notificações — delay de animação de quando havia 4 cards; hoje são 2.
+
+**Domínio:** acesso é `useRequireAuth()` **sem restrição de papel** — todos entram no próprio
+perfil. A única variação por papel é a **barra de voltar**, que existe só para o PROSPECTOR (ele não
+tem tabbar nem o header do `AppShell`); por isso `.nsv2-back` **fica**.
 
 ---
 
