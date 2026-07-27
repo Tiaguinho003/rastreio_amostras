@@ -1,7 +1,7 @@
 # Informativos — Plano de Trabalho
 
-> **Status**: **IMPLEMENTADO em 2026-07-16** — decisões **INF1–INF57** fechadas. Dois tipos (**Mercado** e **Meteorológico**) num fluxo de **3 fases** (mercado → meteorológico → revisão), na 3ª opção do leque do FAB da `/relatorios`, gerando PNGs 1080×1920. Sem migration, sem rota de API (P1). Gates verdes: **build**, lint, typecheck, format, **unit 524/524**. **Pendente: só a validação visual** — 🖥️ conferir as duas peças contra os mockups (com atenção à folga do título de 60px do meteorológico, INF47) e 📱 postar um story de teste, único jeito de confirmar a zona segura (INF8). Aberta: **Q-C3** (saca em alta res).
-> **Última atualização**: 2026-07-16
+> **Status**: **IMPLEMENTADO em 2026-07-16** (decisões **INF1–INF57**) e **REFORMULADO no redesenho FV da `/relatorios`** (2026-07-23/27 — Redesign §2.10 R10/R12/R16). Dois tipos (**Mercado** e **Meteorológico**) gerando PNGs 1080×1920, sem migration e sem rota de API (P1). 🔴 **O fluxo de 3 fases (mercado → meteorológico → revisão) foi SUPERADO**: hoje é um **painel lateral de duas colunas com prévia AO VIVO** (o meteorológico é uma seção opcional; não há fase de revisão — a validação mora no clique de baixar). Ver **§7**, que é a fonte da verdade do fluxo. **Pendente: só a validação visual** — 🖥️ conferir as duas peças contra os mockups (com atenção à folga do título de 60px do meteorológico, INF47) e 📱 postar um story de teste, único jeito de confirmar a zona segura (INF8). Aberta: **Q-C3** (saca em alta res).
+> **Última atualização**: 2026-07-27 (fluxo do §3.1/§7 e rótulo dinâmico 24h/72h sincronizados com o código)
 > **Prefixo de decisões**: INF (INF1, INF2, ...)
 > **Documento centralizado da feature**: conceito, decisões, especificação visual e fases vivem AQUI.
 
@@ -38,7 +38,7 @@
 
 ### 3.1 Dentro do escopo
 
-- Modal em `/relatorios` com o fluxo de **3 fases**: **Informativo de Mercado** → **Informativo Meteorológico** (pulável) → revisão (INF53).
+- Superfície em `/relatorios` com as duas peças: **Informativo de Mercado** (sempre) + **Informativo Meteorológico** (opcional). _(O **fluxo de 3 fases** do INF53 — mercado → meteorológico → revisão — foi **SUPERADO** no redesenho FV: virou um painel lateral de duas colunas com prévia ao vivo, sem fase de revisão. Ver §7.)_
 - Campos preenchidos à mão, com os layouts do §5 e §5-B.
 - O **print da previsão** colado pelo usuário (INF45/INF52) — colar, arrastar ou escolher.
 - Geração de **PNG 1080×1920** no navegador e entrega das duas peças (INF55).
@@ -86,7 +86,7 @@ Confirmado em 2026-07-16: o segundo tipo é o **meteorológico**, peça irmã do
 | ------------------- | ------------------------------------------------------ |
 | Data                | pílula no topo, por extenso (igual ao Mercado — INF46) |
 | _(sem barra)_       | `TEMPERATURA` · `UMIDADE RELATIVA DO AR` — 2 linhas    |
-| `REGISTRO EM 24h`   | `MÁXIMA` · `MÍNIMA` · `PLUVIOSIDADE` — 3 linhas        |
+| `REGISTRO EM 24h`\* | `MÁXIMA` · `MÍNIMA` · `PLUVIOSIDADE` — 3 linhas        |
 | `PREVISÃO DO TEMPO` | painel branco com o **print** que o usuário cola       |
 | Rodapé              | @, e-mail, telefone, logo                              |
 
@@ -244,7 +244,7 @@ Faixa útil `BODY_BOTTOM − BODY_TOP = 1592 − 546 = 1046`.
 | #   | Seção                 | Altura  | Composição                         |
 | --- | --------------------- | ------- | ---------------------------------- |
 | 1   | Temperatura / Umidade | **152** | `2 × 76` — **sem barra de título** |
-| 2   | `REGISTRO EM 24h`     | **284** | `SH 56 + 3 × 76`                   |
+| 2   | `REGISTRO EM 24h`\*   | **284** | `SH 56 + 3 × 76`                   |
 | 3   | `PREVISÃO DO TEMPO`   | **516** | `SH 56 + PANEL_H 460`              |
 |     | **Σ 952**             |         | **gap = (1046 − 952) / 2 = 47**    |
 
@@ -335,7 +335,9 @@ Os anos são **4 controles**, não 2 (INF26): as duas seções são independente
 
 ### 6.7 Meteorológico — campos
 
-Todos os rótulos são 🔒 fixos (`TEMPERATURA`, `UMIDADE RELATIVA DO AR`, `REGISTRO EM 24h`, `MÁXIMA`, `MÍNIMA`, `PLUVIOSIDADE`, `PREVISÃO DO TEMPO`). A **data é 🤖 automática**, igual ao Mercado.
+Todos os rótulos são 🔒 fixos (`TEMPERATURA`, `UMIDADE RELATIVA DO AR`, `REGISTRO EM 24h`\*, `MÁXIMA`, `MÍNIMA`, `PLUVIOSIDADE`, `PREVISÃO DO TEMPO`). A **data é 🤖 automática**, igual ao Mercado.
+
+> \* **A janela do registro é DINÂMICA (2026-07-27)**: `registroEmHoras(hoje)` devolve **72** na **segunda-feira** (o registro fecha o fim de semana) e **24** nos demais dias. O número entra tanto no rótulo da peça (`meteo-layout.ts`) quanto no título da seção do formulário — os dois leem a mesma função. Não é campo: o usuário não digita nem escolhe.
 
 | Campo            | Casas       | Sinal       | Veste |
 | ---------------- | ----------- | ----------- | ----- |
@@ -359,17 +361,16 @@ Umidade e pluviosidade **não aceitam sinal** — não existem negativas.
 
 Implementado em `components/informe/InformativoFormSheet.tsx` + `InformativoForm.tsx`.
 
-- Aberto pela 3ª opção do leque do FAB, rótulo **"Informativo"** (INF31).
-- **BottomSheet** (skill `modals`: ação com formulário → BottomSheet), classe `is-informe is-informativo`. No desktop o CSS global já converte todo `.bottom-sheet` em modal centrado de até 650px.
-- **Três fases (INF53)**, com o título do sheet mudando em cada uma (o `.bottom-sheet-title` já tem `aria-live="polite"`, então a troca é anunciada de graça):
+> **REFORMULADO no redesenho FV da `/relatorios`** (Redesign §2.10 R10 + R12 + afinamentos de R16, 2026-07-23/27). O que está abaixo é o comportamento **atual**; o fluxo de 3 fases do INF53 e o BottomSheet centrado de 650px **não existem mais**.
 
-| Fase      | Título                      | Ações (no **footer** do BottomSheet — INF54)       |
-| --------- | --------------------------- | -------------------------------------------------- |
-| `mercado` | "Informativo de mercado"    | `Continuar`                                        |
-| `meteo`   | "Informativo meteorológico" | `Pular` · `Revisar`                                |
-| `revisao` | "Revisar e baixar"          | `Voltar` · `Baixar os dois` / `Baixar informativo` |
-
-- **Voltar de fase não perde nada**: trocar de fase mexe só no campo `phase` do draft; nenhum campo é desmontado. Cercado por teste.
+- Aberto pelo botão **"Informativo"** da faixa do topo (desktop) ou pela **1ª opção do leque** do FAB (mobile), que é mobile-only. Rótulo "Informativo" (INF31).
+- **Painel lateral** `.fv-panel-sheet side-sheet informativo-sheet` (~850px, altura cheia no desktop) com seta ← de edge-back e título fixo "Informativo" — o mesmo contêiner da Visita e do Semanal. A variante `.is-informe` do BottomSheet ficou **sem consumidor**.
+- **Duas colunas, sem fases**: o `.ifm-workspace` é uma pilha de blocos, cada um "formulário | prévia" (`minmax(0,1fr) 340px`) com a prévia **sticky** e **AO VIVO** — repintura debounced em 160ms, exceto o print da previsão, que entra no paint na hora (debouncê-lo desalinharia 160ms depois de colar).
+  - **Mercado** — sempre visível.
+  - **Meteorológico** — **seção opcional**, ligada por um toggle (`set-inclui-meteo`); a canvas dele só monta quando ligada.
+- **Sem fase de revisão** (`InformativoRevisao.tsx` foi deletado; o draft perdeu a máquina de `phase`). A **validação (INF28) migrou para o clique de baixar, por seção** — e, quando falta campo, além de marcá-lo em vermelho o form **rola até o primeiro faltante** (`scrollIntoView` no primeiro `.has-error` em ordem de DOM).
+- **Footer** = `Baixar mercado` · `Baixar meteorológico` (não fecham o painel) + `Baixar os dois` / `Baixar informativo` (fecha). No desktop os três cabem **numa linha só**.
+- O download **repinta com os dados vivos** (`renderToBlob`) para bater com o último dígito digitado.
 - **Descarte confirmado** ao fechar com campos preenchidos (INF41), via `onDismissAttempt` do BottomSheet. Considera também o print colado.
 - Ao entregar: fecha + toast, no singular ou plural conforme o número de peças (INF42). **Cancelar** o compartilhamento mantém o sheet aberto.
 - Inputs seguem a convenção do repo: `type="text"` + `inputMode`, nunca `type="number"`. Os de temperatura usam `inputMode="text"` (e não `numeric`) porque precisam do `−`.
