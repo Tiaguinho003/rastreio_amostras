@@ -85,7 +85,7 @@ Um único componente visual reutilizado por dois controladores independentes, co
 
 **O `AppShell` (navbar + chrome) é renderizado DENTRO de cada `page.tsx`**, não no layout:
 
-- `app/dashboard/page.tsx:34`, `app/samples/page.tsx`, `app/cadastros/page.tsx:397`, `app/contratos/page.tsx:71`, `app/embarques/page.tsx:47`, `app/users/page.tsx:702`, `app/relatorios/page.tsx:24`, `app/profile/page.tsx`.
+- `app/dashboard/page.tsx:34`, `app/samples/page.tsx`, `app/cadastros/page.tsx:397`, `app/contratos/page.tsx:71`, `app/embarques/page.tsx:47`, `app/users/page.tsx:892`, `app/relatorios/page.tsx:24`, `app/profile/page.tsx`.
 - `app/layout.tsx` **não** monta o `AppShell`.
 
 Consequência: no App Router **só o `layout` persiste**. A cada navegação, a página **desmonta e remonta** → o `AppShell` (navbar) **remonta junto** → pisca. Este é o item nº 1 a resolver para "navbar fixo".

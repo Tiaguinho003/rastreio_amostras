@@ -212,6 +212,7 @@ Endpoints somente-leitura usados pela pagina de detalhe do cliente (4 cards-filt
 ### Administracao
 
 1. `GET /api/v1/users`
+   ADMIN. Busca (`search`) + cursor alfabetico (`cursorFullName` + `cursorId`, espelha o de `listClients`) + `limit` (`USER_LIST_LIMIT_DEFAULT`/`_MAX`). Aceita tambem `role` e `status`, que **nenhuma tela envia** — o redesenho FV decidiu toolbar so-busca em `/users` (RD16 §2.11, decisao U-D3). Testados e mantidos de proposito.
 2. `POST /api/v1/users`
 3. `GET /api/v1/users/:userId`
 4. `PATCH /api/v1/users/:userId`
@@ -220,7 +221,10 @@ Endpoints somente-leitura usados pela pagina de detalhe do cliente (4 cards-filt
 7. `POST /api/v1/users/:userId/unlock`
 8. `POST /api/v1/users/:userId/password/reset`
 9. `GET /api/v1/users/audit`
-10. `GET /api/v1/users/lookup`
+   **Sem tela hoje, de proposito** (RD16 §2.11, decisao U-D5): a trilha de auditoria de usuario existe de ponta a ponta (service → rota → `listUserAuditEvents` no `api-client`) e nao tem consumidor de UI. O redesenho FV de `/users` decidiu nao abrir tela pra ela. Nao e codigo morto — nao remover sem reverter a U-D5.
+10. `GET /api/v1/users/:userId/clients-impact`
+    Quais clientes ficam **sem responsavel comercial** se este usuario sair: devolve `soleCustodianOf` (ele e o unico vinculado) e `coCustodianOf` (ha outros). Aberta a qualquer autenticado (`assertAuthenticatedActor`). **Tambem sem consumidor de UI** — a confirmacao de inativar em `/users` nao consulta esse impacto.
+11. `GET /api/v1/users/lookup`
     Lista reduzida (`id`, `fullName`, `username`) de usuarios ativos. Endpoint unico por tras de TODOS os seletores de usuario do app: responsavel comercial de cliente, classificador de amostra (CameraSheet global), usuario vinculado a um corretor e **responsavel do embarque quando "Pela empresa" (EMB30)**. Aberta a qualquer usuario autenticado (nao restrita a `ADMIN`).
 
     **Nao devolve papeis de `NON_ASSIGNABLE_ROLES`** (hoje: `PROSPECTOR`) — 2026-07-09. Os `COMMERCIAL` vem primeiro na ordenacao.

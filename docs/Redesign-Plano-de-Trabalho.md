@@ -67,7 +67,7 @@ Cinco commits atômicos, gates completos verdes (lint, format, typecheck, build,
 4. `11df8b1` — `/clients` e `/clients/[clientId]` viram **redirects RSC** (preservando `?incomplete=true` e o id); AppShell perde o split morto (item de nav, branches, swap mobile, `canManageClients`); seletores `.cdm-*` órfãos removidos.
 5. este commit — doc + memória. Skills só após validação no device (§7).
 
-**Desvio do planejado (RD7)**: o `cdm-modal` morreu como _feature_ (JSX, estado e fetch no `ClientsBrowser`), mas parte do CSS `.cdm-*` **fica** — o modal de detalhe de usuário em `/users` reusa as classes. Só os seletores exclusivos do resumo de cliente saíram.
+**Desvio do planejado (RD7)**: o `cdm-modal` morreu como _feature_ (JSX, estado e fetch no `ClientsBrowser`), mas parte do CSS `.cdm-*` **fica** — o modal de detalhe de usuário em `/users` reusa as classes. Só os seletores exclusivos do resumo de cliente saíram. — 🔴 **superado na §2.11 U6 (2026-07-27)**: `/users` deixou de usar `.cdm-*` (o modal central virou painel na U3) e o kit foi removido em `fbe5c11`. Sobra só `.cdm-manage-link`, cujo dono agora é `/profile`.
 
 **Checklist de validação (🖥️ ≥901px, 📱 device):**
 
