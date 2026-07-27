@@ -365,6 +365,28 @@ funciona no fluxo normal e quebra exatamente no fluxo que veio de fora (QR code,
 Ação profunda do menu ⋯ (`?lote=<id>&acao=imprimir`): o host passa `initialAction` ao detalhe e um
 `onInitialActionConsumed` que faz o replace limpando o param.
 
+### 🔴 Quem é o dono do histórico: o overlay OU a URL, nunca os dois
+
+O molde acima (push ao abrir) pressupõe que **a URL é a dona**. Vale para o `DetailOverlay`, que
+passa `manageHistory={false}` ao sheet justamente por isso. Mas o `BottomSheet` **cru injeta entry
+própria** — com push você teria duas, e o back precisaria de dois toques.
+
+Antes de copiar o molde, decida quem manda:
+
+| Contêiner                                           | Dono do histórico | Como a URL muda              |
+| --------------------------------------------------- | ----------------- | ---------------------------- |
+| `DetailOverlay` (`/samples`, `/cadastros`)          | a URL             | push ao abrir, back fecha    |
+| `BottomSheet` cru como painel de detalhe (`/users`) | o sheet           | **replace sempre** (espelho) |
+
+Em `/users` (RD16 §2.11 U-D9) a URL é **espelho**: `router.replace` ao abrir, ao trocar de usuário
+e ao fechar. Dá tudo o que a §5 pede — deep-link, F5 e link compartilhável — sem disputar o
+histórico com o sheet.
+
+**Por que não `manageHistory={false}` lá também:** o mesmo sheet hospeda ver/editar **e criar**, e
+criar não é endereçável. Virar a prop de `true` para `false` com o painel ABERTO dispara o cleanup
+do efeito de histórico do sheet, que chama `history.back()` — fecharia o painel no meio da
+transição criar→ver. A prop precisa ser constante durante a vida do sheet.
+
 ---
 
 ## §6 Foco e ARIA

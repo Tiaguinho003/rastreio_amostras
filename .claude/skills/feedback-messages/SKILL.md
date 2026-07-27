@@ -187,6 +187,29 @@ Modais bloqueantes são reservados para **erros que exigem decisão ou contêm c
 
 > Memória `feedback_messages_portuguese`: **todas as mensagens de UI em pt-BR**, nunca inglês.
 
+### 🔴 A mensagem do BACKEND também é UI
+
+O padrão do projeto é o toast repassar a mensagem do erro:
+
+```tsx
+toast.error({
+  title: 'Não foi possível salvar',
+  description: cause instanceof ApiError ? cause.message : undefined,
+});
+```
+
+Ou seja: **o texto do `HttpError` no service aparece na tela** — ele é copy, não log. Vale a §6
+inteira (pt-BR, acentuado, tom direto). A `/users` tinha 16 mensagens sem acento subindo para o
+toast até a RD16 §2.11 (decisão U-D8, corrigidas em `8a6465c`).
+
+**A fronteira:** mensagem de **contrato**, ligada a campo (`normalizeRequiredText` e afins, que
+lançam 422 com `field`), continua técnica em inglês — quem mostra o pt-BR é o campo, pelo padrão
+de erro inline da §3. Só escapa se o front não antecipar aquele 422; catalogado como USR-I2 na
+`Revisao-Geral-Plano-de-Trabalho.md`.
+
+Ao mexer numa mensagem de service, cheque se algum teste assere o texto — no domínio de usuários as
+asserções são por `details.code`, então a copy é livre.
+
 ### Tom de voz
 
 - **Direto, sem floreio.** "Não foi possível X" > "Infelizmente ocorreu um problema ao tentar X".
