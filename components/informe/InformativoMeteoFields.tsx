@@ -94,28 +94,29 @@ export function InformativoMeteoFields({
           </label>
         </div>
 
-        <label className="inf-field">
-          <span className="inf-field-label">Pluviosidade (mm)</span>
-          <input
-            className={cls('pluviosidade')}
-            value={fields.pluviosidade}
-            inputMode="numeric"
-            placeholder="0,0"
-            onChange={(e) => onPatch({ pluviosidade: maskPluviosidade(e.target.value) })}
+        {/* Pluviosidade e o print da previsão dividem a linha (metade a metade):
+            o campo tem o tamanho ideal e o print vira um quadradinho ao lado —
+            a prévia ao vivo já mostra a imagem inteira. */}
+        <div className="ifm-pair ifm-rain-row">
+          <label className="inf-field">
+            <span className="inf-field-label">Pluviosidade (mm)</span>
+            <input
+              className={cls('pluviosidade')}
+              value={fields.pluviosidade}
+              inputMode="numeric"
+              placeholder="0,0"
+              onChange={(e) => onPatch({ pluviosidade: maskPluviosidade(e.target.value) })}
+            />
+          </label>
+
+          <PrevisaoPicker
+            previsao={previsao}
+            error={previsaoError}
+            invalid={invalid('previsao')}
+            onAccept={onAcceptPrevisao}
+            onClear={onClearPrevisao}
           />
-        </label>
-      </div>
-
-      <div className="ifm-group">
-        <h3 className="fv-form-heading">Previsão do tempo</h3>
-
-        <PrevisaoPicker
-          previsao={previsao}
-          error={previsaoError}
-          invalid={invalid('previsao')}
-          onAccept={onAcceptPrevisao}
-          onClear={onClearPrevisao}
-        />
+        </div>
       </div>
     </>
   );

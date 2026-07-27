@@ -91,7 +91,7 @@ export function InformativoForm({
       </section>
 
       {/* ── Bloco 2: meteorologico (opcional) ── */}
-      <section className={`ifm-block${draft.incluiMeteo ? '' : ' is-off'}`}>
+      <section className={`ifm-block ifm-block-meteo${draft.incluiMeteo ? '' : ' is-off'}`}>
         <div className="ifm-form-pane">
           <div className="ifm-meteo-toggle">
             <div className="ifm-meteo-toggle-text">

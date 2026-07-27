@@ -9981,6 +9981,12 @@ body:has(.app-modal-backdrop) .prospector-fab {
   grid-template-columns: 1fr 1fr;
 }
 
+/* Pluviosidade | print da previsao: alinha os rotulos no topo — o quadrado
+   (mais alto que o input) desce a partir dali, ao lado do campo curto. */
+.ifm-rain-row {
+  align-items: start;
+}
+
 .ifm-quad {
   grid-template-columns: 1fr 1fr;
 }
@@ -10146,8 +10152,17 @@ body:has(.app-modal-backdrop) .prospector-fab {
 /* ── Fase meteorologica: a caixa do print da previsao ──
    Colar (Ctrl+V), arrastar ou escolher. Nada sobe pro servidor (P1): o arquivo
    vira objectURL e e desenhado no canvas. */
+/* Quadradinho: o print encolheu pra um selo ao lado da Pluviosidade (a previa
+   9:16 ao lado ja mostra a imagem inteira). max-width segura o tamanho mesmo
+   quando a meia-coluna e larga. */
 .ifm-drop {
   position: relative;
+  aspect-ratio: 1;
+  width: 100%;
+  max-width: clamp(120px, 16vw, 150px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 1.5px dashed #d5d9d3;
   border-radius: 12px;
   background: #fafbfa;
@@ -10182,12 +10197,12 @@ body:has(.app-modal-backdrop) .prospector-fab {
 .ifm-drop-empty {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: clamp(88px, 24vw, 104px);
-  padding: clamp(12px, 3.5vw, 16px);
+  height: 100%;
+  padding: 8px;
   border: 0;
   border-radius: 12px;
   background: transparent;
@@ -10202,51 +10217,62 @@ body:has(.app-modal-backdrop) .prospector-fab {
   transform: scale(0.985);
 }
 
-.ifm-drop-title {
-  font-size: clamp(13px, 3.6vw, 14px);
+.ifm-drop-icon {
+  display: flex;
+  color: #9aa39a;
+}
+
+.ifm-drop-icon svg {
+  width: clamp(24px, 6vw, 30px);
+  height: clamp(24px, 6vw, 30px);
+}
+
+.ifm-drop-empty-label {
+  font-size: clamp(12px, 3.2vw, 13px);
   font-weight: 600;
   color: #3a3a3a;
 }
 
-.ifm-drop-hint {
-  font-size: clamp(11px, 3vw, 12px);
-  color: #9a9a9a;
-}
-
-.ifm-drop-preview {
+/* Preenchido: sem miniatura (a previa ao lado mostra o print inteiro) — so um
+   selo "colado" verde + as acoes, centrados no quadrado. */
+.ifm-drop-sealed {
   display: flex;
   flex-direction: column;
-  gap: clamp(8px, 2.4vw, 10px);
-  padding: clamp(8px, 2.4vw, 10px);
-}
-
-/* Fundo branco: o print do MSN e branco, e e essa coincidencia que faz a sobra
-   sumir dentro do painel da peca. A miniatura mostra o mesmo. */
-.ifm-drop-thumb {
-  display: block;
-  width: 100%;
-  max-height: clamp(120px, 32vw, 160px);
-  object-fit: contain;
-  border-radius: 8px;
-  background: #ffffff;
-}
-
-.ifm-drop-meta {
-  display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+  text-align: center;
 }
 
-.ifm-drop-dim {
-  font-size: clamp(11px, 3vw, 12px);
-  font-variant-numeric: tabular-nums;
-  color: #9a9a9a;
+.ifm-drop-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(28px, 7vw, 34px);
+  height: clamp(28px, 7vw, 34px);
+  border-radius: 999px;
+  background: rgba(24, 109, 20, 0.1);
+  color: #186d14;
+}
+
+.ifm-drop-check svg {
+  width: 60%;
+  height: 60%;
+}
+
+.ifm-drop-sealed-text {
+  font-size: clamp(12px, 3.2vw, 13px);
+  font-weight: 600;
+  color: #186d14;
 }
 
 .ifm-drop-meta-actions {
   display: flex;
-  gap: clamp(10px, 3vw, 14px);
+  justify-content: center;
+  gap: 8px;
 }
 
 .ifm-drop-link {
@@ -10321,6 +10347,17 @@ body:has(.app-modal-backdrop) .prospector-fab {
 
   .ifm-block.is-off {
     display: block;
+  }
+
+  /* Bloco meteo: poucos campos e o print virou quadradinho, entao a coluna do
+     formulario encolhe (campos no tamanho ideal) e a previa cresce pro espaco
+     que sobra. So o meteo — o mercado (21 campos) mantem 1fr | 340px. */
+  .ifm-block-meteo {
+    grid-template-columns: minmax(0, clamp(360px, 34vw, 440px)) minmax(0, 1fr);
+  }
+
+  .ifm-block-meteo .ifm-preview-stage {
+    max-width: clamp(340px, 40vw, 400px);
   }
 }
 

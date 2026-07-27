@@ -78,7 +78,7 @@ export function PrevisaoPicker({
 
   return (
     <div className="inf-field">
-      <span className="inf-field-label">Previsão do tempo</span>
+      <span className="inf-field-label">Previsão</span>
 
       <div
         className={`ifm-drop${dragging ? ' is-dragging' : ''}${invalid ? ' has-error' : ''}`}
@@ -101,25 +101,33 @@ export function PrevisaoPicker({
         onDrop={handleDrop}
       >
         {previsao ? (
-          <div className="ifm-drop-preview">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={previsao.url} alt="Print da previsão do tempo" className="ifm-drop-thumb" />
-            <div className="ifm-drop-meta">
-              <span className="ifm-drop-dim">
-                {previsao.size.w} × {previsao.size.h}
-              </span>
-              <div className="ifm-drop-meta-actions">
-                <button
-                  type="button"
-                  className="ifm-drop-link"
-                  onClick={() => inputRef.current?.click()}
-                >
-                  Trocar
-                </button>
-                <button type="button" className="ifm-drop-link is-remove" onClick={onClear}>
-                  Remover
-                </button>
-              </div>
+          // Sem miniatura: a previa 9:16 ao lado ja mostra o print inteiro, aqui
+          // basta um selo de "colado" + as acoes.
+          <div className="ifm-drop-sealed">
+            <span className="ifm-drop-check" aria-hidden="true">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+            </span>
+            <span className="ifm-drop-sealed-text">Print colado</span>
+            <div className="ifm-drop-meta-actions">
+              <button
+                type="button"
+                className="ifm-drop-link"
+                onClick={() => inputRef.current?.click()}
+              >
+                Trocar
+              </button>
+              <button type="button" className="ifm-drop-link is-remove" onClick={onClear}>
+                Remover
+              </button>
             </div>
           </div>
         ) : (
@@ -127,9 +135,23 @@ export function PrevisaoPicker({
             type="button"
             className="ifm-drop-empty"
             onClick={() => inputRef.current?.click()}
+            title="Ctrl+V, arraste o arquivo, ou toque para escolher"
           >
-            <span className="ifm-drop-title">Cole o print aqui</span>
-            <span className="ifm-drop-hint">Ctrl+V, arraste o arquivo, ou toque para escolher</span>
+            <span className="ifm-drop-icon" aria-hidden="true">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <circle cx="9" cy="9" r="1.6" />
+                <path d="M21 15l-5-5L5 21" />
+              </svg>
+            </span>
+            <span className="ifm-drop-empty-label">Colar print</span>
           </button>
         )}
 
