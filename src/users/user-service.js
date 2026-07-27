@@ -103,7 +103,7 @@ function maskEmailForPayload(value) {
 function normalizePasswordResetCode(value, fieldName = 'code') {
   const normalized = normalizeRequiredText(value, fieldName, 6);
   if (!/^\d{6}$/.test(normalized)) {
-    throw new HttpError(422, 'Codigo invalido', {
+    throw new HttpError(422, 'Código inválido', {
       code: 'INVALID_CODE',
       field: fieldName,
     });
@@ -201,7 +201,7 @@ export class UserService {
     // codigo (o request nao envia email nesses casos), entao nao chega aqui
     // num fluxo legitimo.
     const genericInvalid = () =>
-      new HttpError(422, 'Codigo invalido ou expirado. Solicite um novo codigo.', {
+      new HttpError(422, 'Código inválido ou expirado. Solicite um novo código.', {
         code: 'INVALID_CODE',
       });
 
@@ -270,7 +270,7 @@ export class UserService {
       });
     }
 
-    throw new HttpError(422, 'Codigo invalido', {
+    throw new HttpError(422, 'Código inválido', {
       code: 'INVALID_CODE',
     });
   }
@@ -344,7 +344,7 @@ export class UserService {
     });
 
     if (!user) {
-      throw new HttpError(404, 'Usuario nao encontrado', {
+      throw new HttpError(404, 'Usuário não encontrado', {
         code: 'USER_NOT_FOUND',
       });
     }
@@ -372,7 +372,7 @@ export class UserService {
     });
 
     if (existingUser) {
-      throw new HttpError(409, 'Email ja esta em uso', {
+      throw new HttpError(409, 'E-mail já está em uso', {
         code: 'EMAIL_ALREADY_IN_USE',
       });
     }
@@ -399,7 +399,7 @@ export class UserService {
     });
 
     if (reserved) {
-      throw new HttpError(409, 'Email ja esta em uso', {
+      throw new HttpError(409, 'E-mail já está em uso', {
         code: 'EMAIL_ALREADY_IN_USE',
       });
     }
@@ -424,7 +424,7 @@ export class UserService {
     });
 
     if (existingUser) {
-      throw new HttpError(409, 'Usuario ja esta em uso', {
+      throw new HttpError(409, 'Usuário já está em uso', {
         code: 'USERNAME_ALREADY_IN_USE',
       });
     }
@@ -458,7 +458,7 @@ export class UserService {
     const remainsActive = status === USER_STATUSES.ACTIVE;
 
     if (targetUser.id === actorUserId && (!remainsAdmin || !remainsActive)) {
-      throw new HttpError(409, 'O administrador nao pode remover o proprio acesso administrativo', {
+      throw new HttpError(409, 'O administrador não pode remover o próprio acesso administrativo', {
         code: 'LAST_ADMIN_REQUIRED',
       });
     }
@@ -466,7 +466,7 @@ export class UserService {
     if (isAdmin && (!remainsAdmin || !remainsActive)) {
       const otherActiveAdmins = await this.countActiveAdmins(tx, { excludeUserId: targetUser.id });
       if (otherActiveAdmins === 0) {
-        throw new HttpError(409, 'Nao e permitido deixar o sistema sem administrador ativo', {
+        throw new HttpError(409, 'Não é permitido deixar o sistema sem administrador ativo', {
           code: 'LAST_ADMIN_REQUIRED',
         });
       }
@@ -780,7 +780,7 @@ export class UserService {
       await this.expireEmailChangeReservations(tx, userId, now);
       const user = await this.requireUserById(tx, userId);
       if (user.status !== USER_STATUSES.ACTIVE) {
-        throw new HttpError(409, 'Usuario inativo deve ser reativado antes da edicao', {
+        throw new HttpError(409, 'Usuário inativo deve ser reativado antes da edição', {
           code: 'USER_INACTIVE',
         });
       }
@@ -1344,13 +1344,13 @@ export class UserService {
       });
 
       if (!request) {
-        throw new HttpError(404, 'Nao existe troca de email pendente', {
+        throw new HttpError(404, 'Não existe troca de e-mail pendente', {
           code: 'EMAIL_CHANGE_REQUEST_NOT_FOUND',
         });
       }
 
       if (new Date(request.resendAvailableAt).getTime() > now.getTime()) {
-        throw new HttpError(429, 'Aguarde 1 minuto para reenviar o codigo', {
+        throw new HttpError(429, 'Aguarde 1 minuto para reenviar o código', {
           code: 'EMAIL_CHANGE_RESEND_NOT_AVAILABLE',
           resendAvailableAt: toIsoString(request.resendAvailableAt),
         });
@@ -1416,7 +1416,7 @@ export class UserService {
       });
 
       if (!request) {
-        throw new HttpError(404, 'Nao existe troca de email pendente', {
+        throw new HttpError(404, 'Não existe troca de e-mail pendente', {
           code: 'EMAIL_CHANGE_REQUEST_NOT_FOUND',
         });
       }
@@ -1444,7 +1444,7 @@ export class UserService {
           });
         }
 
-        throw new HttpError(422, 'Codigo invalido', {
+        throw new HttpError(422, 'Código inválido', {
           code: 'INVALID_CODE',
         });
       }
@@ -1568,7 +1568,7 @@ export class UserService {
       });
 
       if (latest && new Date(latest.retryAvailableAt).getTime() > now.getTime()) {
-        throw new HttpError(429, 'Aguarde alguns minutos para solicitar um novo codigo', {
+        throw new HttpError(429, 'Aguarde alguns minutos para solicitar um novo código', {
           code: 'PASSWORD_RESET_RATE_LIMITED',
         });
       }
@@ -1580,7 +1580,7 @@ export class UserService {
         new Date(latest.expiresAt).getTime() > now.getTime() &&
         new Date(latest.resendAvailableAt).getTime() > now.getTime()
       ) {
-        throw new HttpError(429, 'Aguarde alguns minutos para solicitar um novo codigo', {
+        throw new HttpError(429, 'Aguarde alguns minutos para solicitar um novo código', {
           code: 'PASSWORD_RESET_RATE_LIMITED',
         });
       }
@@ -1806,7 +1806,7 @@ export class UserService {
           },
         });
 
-        return new HttpError(401, 'Usuario ou senha invalidos', {
+        return new HttpError(401, 'Usuário ou senha inválidos', {
           code: 'INVALID_CREDENTIALS',
         });
       }
@@ -1876,7 +1876,7 @@ export class UserService {
         });
       }
 
-      return new HttpError(401, 'Usuario ou senha invalidos', {
+      return new HttpError(401, 'Usuário ou senha inválidos', {
         code: 'INVALID_CREDENTIALS',
       });
     });
@@ -2055,7 +2055,7 @@ export class UserService {
         });
       }
 
-      throw new HttpError(401, 'Sessao expirada', {
+      throw new HttpError(401, 'Sessão expirada', {
         code: 'SESSION_EXPIRED',
       });
     }
