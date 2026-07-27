@@ -154,7 +154,7 @@ const MOBILE_NAV_ITEMS = [
     // Slot alternativo: papeis fora de INFORME_ROLES (CLASSIFIER, CADASTRO
     // e REGISTRATION) nao tem Relatorios; recebem Perfil aqui para manter a
     // tabbar com 4 itens como os demais. A filtragem (mutuamente exclusiva com
-    // /informe) fica no render da MobileTabbar.
+    // /relatorios) fica no render da MobileTabbar.
     href: '/profile',
     mobileLabel: 'Perfil',
     icon: 'profile' as NavIcon,
@@ -1082,10 +1082,11 @@ export function AppShell({
       {!hideMobileTabbar ? (
         <MobileTabbar
           items={MOBILE_NAV_ITEMS.filter((item) => {
-            // 5o slot da tabbar (mutuamente exclusivo): Relatorios (/informe)
+            // 4o slot da tabbar (mutuamente exclusivo): Relatorios (/relatorios)
             // para quem esta em INFORME_ROLES; Perfil (/profile) para quem nao
             // esta — hoje so o CLASSIFIER, unico nao-prospector fora de
-            // INFORME_ROLES. Assim todo papel da tabbar fica com 5 itens.
+            // INFORME_ROLES. Assim todo papel da tabbar fica com 4 itens (o slot
+            // central da camera saiu na CAM-P3).
             // (PROSPECTOR nao chega aqui: tabbar escondida por hideMobileTabbar.)
             if (item.href === '/relatorios') {
               return isRoleAllowed(session.user.role, INFORME_ROLES);

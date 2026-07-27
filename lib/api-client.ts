@@ -2397,7 +2397,8 @@ export function getMyVisitReportStats(session: SessionData) {
   });
 }
 
-// Cards da pagina "Relatorios" (2 KPIs de visita: total + esta semana).
+// Cards do topo da pagina "Relatorios": semana atual + anterior (delta na UI)
+// e a tendencia semanal do grafico.
 export function getRelatoriosStats(session: SessionData) {
   return request<RelatoriosStatsResponse>('/relatorios/stats', {
     method: 'GET',
@@ -2429,8 +2430,9 @@ export function cancelWeeklyReport(session: SessionData, reportId: string) {
   });
 }
 
-// Feed da pagina "Relatorios" (scope=all): visita + semanal de todos, com
-// filtros opcionais (busca/tipo/autor/periodo/status).
+// Feed da pagina "Relatorios" (escopo `all` fixo): visita + semanal de todos,
+// com filtros opcionais (busca/tipo/autor/periodo/status). Hoje a UI so envia
+// page/limit/search/type — os filtros da pagina viraram chips de tipo.
 export function listInformeFeed(session: SessionData, query: InformeFeedQuery = {}) {
   const params = new URLSearchParams();
   if (typeof query.page === 'number') params.set('page', String(query.page));

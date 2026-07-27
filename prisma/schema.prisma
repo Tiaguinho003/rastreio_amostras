@@ -213,7 +213,7 @@ enum UserAuditEventType {
   INITIAL_PASSWORD_DECISION_RECORDED
 }
 
-// Informe de visita (formulario da pagina /informe). Ver model VisitReport.
+// Visita (formulario da pagina /relatorios). Ver model VisitReport.
 enum VisitClientKind {
   EXISTING // cliente ja cadastrado (vinculo via visit_report.client_id)
   NEW // prospect ainda fora do cadastro (campos new_client_*)
@@ -235,7 +235,8 @@ enum VisitInterestLevel {
   HIGH
 }
 
-// Motivo da visita do comercial (formulario "Visitas" da pagina /informe).
+// Motivo da visita. Nasceu na visita do comercial e migrou para o VisitReport
+// unificado (2026-07-15) — segue VIVO, ao contrario do model CommercialVisit.
 enum CommercialVisitReason {
   NEGOTIATION // negociacao de compra/venda
   SAMPLE_DELIVERY_OR_PICKUP // entrega ou coleta de amostra
@@ -1230,11 +1231,12 @@ model VisitReport {
   @@map("visit_report")
 }
 
-// Visita do COMERCIAL (formulario "Visitas" da pagina /informe do papel
-// COMMERCIAL — diferente do informe do prospector). 1 row por envio, sem
-// update via API; user_id/created_at carimbados no servidor. Identificacao
-// do cliente identica ao visit_report (client_kind EXISTING/NEW). Sem
-// captured_at: o formulario do comercial nao tem fila offline.
+// ORFAO desde a UNIFICACAO de 2026-07-15: a visita do COMERCIAL foi absorvida
+// pelo VisitReport (visita unica) e o service dela foi deletado. Nenhuma rota,
+// service ou tela le/escreve esta tabela — ela segue aqui (vazia em producao)
+// so ate a migration B (contracao), que a dropa. NAO usar em codigo novo.
+// (Os enums CommercialVisitReason/Outcome, ao contrario, seguem VIVOS: migraram
+// para o visit_report.)
 model CommercialVisit {
   id                      String                 @id @db.Uuid
   userId                  String                 @map("user_id") @db.Uuid

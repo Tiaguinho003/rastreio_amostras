@@ -84,8 +84,8 @@ export function isWeeklyReportAuthor(role: UserRole | null | undefined): boolean
   return role === 'ADMIN' || role === 'COMMERCIAL';
 }
 
-// allowedRoles da pagina "Relatorios" (rota /informe, unificada com o antigo
-// /resumo). ACESSO UNIFICADO (2026-07-15): todo papel nao-PROSPECTOR acessa, entra
+// allowedRoles da pagina "Relatorios" (rota /relatorios; /informe e /resumo
+// redirecionam pra ela). ACESSO UNIFICADO (2026-07-15): todo papel nao-PROSPECTOR acessa, entra
 // como VIEWER (scope=all, via isVisitReportViewer) e cria (canCreate). O COMMERCIAL,
 // que via so os proprios, passa a ver todos. Espelha os gates do backend
 // (VISIT_REPORT_VIEWER_ROLES + COMMERCIAL_FORM_AUTHOR_ROLES, agora NON_PROSPECTOR).
