@@ -5,7 +5,7 @@ description: Use this skill whenever building, editing, or reviewing modals/dial
 
 # Modais — Padrao .app-modal
 
-Toda construcao ou edicao de modal central (nao bottom sheet) segue o padrao consolidado `.app-modal.is-themed`. Esta skill e a fonte canonica. Ao encontrar um modal que nao segue (modais de `users`, `cdm-modal`, etc), refatorar pra cá quando tocar.
+Toda construcao ou edicao de modal central (nao bottom sheet) segue o padrao consolidado `.app-modal.is-themed`. Esta skill e a fonte canonica. Ao encontrar um modal que nao segue, refatorar pra cá quando tocar — o inventario dos que faltam esta no fim desta skill.
 
 > **Antes de abrir esta skill, decida o CONTEINER na skill `containers`.** Ela tem a arvore de
 > decisao completa (detalhe → `DetailOverlay`; criacao/edicao e filtros → painel lateral; edicao de
