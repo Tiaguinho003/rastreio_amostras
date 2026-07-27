@@ -39,7 +39,7 @@ DESKTOP (≥901px)                     MOBILE (≤900px)
 as listas que já passaram pelo ciclo mobile (`/samples` e as duas abas de `/cadastros`, RD16; mais o
 feed de `/relatorios`, que não é tabela — feed + acordeão — mas reusa a chrome KPI+toolbar, escopada
 ao seu container de rolagem `.rsm-feed`). Ligar na base
-acenderia `/users`, `/contratos` e `/embarques`, que ainda usam a `.hero-search-wrap` antiga (**duas
+acenderia `/contratos` e `/embarques`, que ainda usam a `.hero-search-wrap` antiga (**duas
 chromes empilhadas**). Cada nova lista entra somando seu escopo ao media-gate (critério do
 `css-architecture`). Nenhuma precisa de condicional no JSX.
 
@@ -261,10 +261,11 @@ para de respeitar a coluna. **Uma classe `fv-col-*` por coluna, na ordem exata d
 
 **Larguras fixas agrupadas à direita, UMA coluna elástica que absorve a sobra.**
 
-| Página       | Elástica                            | Fixas                                                                      |
-| ------------ | ----------------------------------- | -------------------------------------------------------------------------- |
-| `/samples`   | `fv-col-owner` (`min-width: 150px`) | lote 232px · sacas/safra/padrão/bebida/catação **112px cada** · ações 58px |
-| `/cadastros` | `fv-col-contact`                    | cliente 32% · status 120px · doc 170px · atualizado 120px · ações 58px     |
+| Página       | Elástica                            | Fixas                                                                        |
+| ------------ | ----------------------------------- | ---------------------------------------------------------------------------- |
+| `/samples`   | `fv-col-owner` (`min-width: 150px`) | lote 232px · sacas/safra/padrão/bebida/catação **112px cada** · ações 58px   |
+| `/cadastros` | `fv-col-contact`                    | cliente 32% · status 120px · doc 170px · atualizado 120px · ações 58px       |
+| `/users`     | `fv-col-contact`                    | usuário 32% · perfil 150px · status 120px · último acesso 120px · ações 58px |
 
 Características do mesmo tipo (as cinco de `/samples`) levam a **mesma largura**: mesmo vão entre
 si, bloco visualmente coeso à direita. A identidade do registro fica à esquerda e ganha a sobra.
@@ -534,7 +535,8 @@ desabilitado). Se as duas divergirem, uma ação existe num breakpoint e some no
 ### Escopo do CSS
 
 O prefixo `spv2-` é **compartilhado** — `.spv2-card*` aparece em `RelatedSampleRow`, no
-`SaleContractLotPickerModal`, no `ClientsBrowser` e em `/users`. Mudança de visual do card de lote
+`SaleContractLotPickerModal` e no `ClientsBrowser`; `/users` usa os ESTADOS (`.spv2-list-scroll`,
+`.spv2-empty`, `.spv2-error-banner`, `.spv2-skeleton-card`), não o card. Mudança de visual do card de lote
 vai escopada em `.samples-page-v2`; prefixo com nome de página não é escopo (`css-architecture`).
 
 ---

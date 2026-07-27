@@ -154,7 +154,7 @@ Combinar livremente: `.app-modal is-themed is-wide`.
 
 > **Central SOBRE central — portao do embarque (EMB28) e do faturamento (AP18):** o `ShipmentConfirmationModal` (`components/contracts/ShipmentConfirmationModal.tsx` — confirmacao de embarque: resumo + **transporte "Pela empresa | Por terceiros" + responsavel via `UserSelect` quando "Pela empresa" (EMB30)** + data `shippedAt` (max-hoje, default no ultimo dia util, BRT; recusa fds; EMB34) + upload opcional 0..10 fotos com **recusa >12 MiB no cliente** (EMB34) + aviso terminal + "fotos ficam 15 dias" (EMB31); `.app-modal is-themed is-action sample-detail-compact-modal`, portal) e alcancado por 2 portas: a worklist da sub-aba Embarque E o **portao do pagamento** — no `SaleContractLifecycleDialog` (action='pay'), um 422 `CONTRACT_SHIPMENT_REQUIRED` (lido de `ApiError.details.code`) abre o modal de confirmacao. **⚠️ EMB33 (2026-07-16) reverteu o empilhamento:** o dialog principal **SAI DE CENA** enquanto o portao esta aberto — `{!needsShipment && !needsApproval ? createPortal(...) : null}` — **UM `.app-modal-backdrop` de cada vez, NAO dois portalados** (o backdrop duplo escurecia demais). O estado (`date`) vive no COMPONENTE, nao no portal, entao persiste no hand-off; ao confirmar, um **toast "Embarque confirmado"** + o submit re-chamado paga (o confirm NAO bumpa `version`). Read-only da galeria = seção "Embarque" do `SaleContractDetailsModal` + lightbox `.emb-lightbox` (portal, z acima do BottomSheet). **Mesma moldura no portao do faturamento (aprovacao AP18):** 422 `CONTRACT_APPROVAL_REQUIRED` (action='invoice') abre o `ApprovalLabelModal` (prop `onSent`) — **tambem com o dialog base fora de cena** (o gate `!needsShipment && !needsApproval` cobre os dois portoes); ao enviar, refatura no `onClose` (envio NAO bumpa `version` → mesma `expectedVersion`). O mesmo `ApprovalLabelModal` e a porta [Gerar] da sub-aba Aprovacoes (`AprovacoesPanel`, refetch no `onSent`).
 
-> Existe um `.app-modal` "compacto" sem `.is-themed` (legacy: 430px max, fundo glass). NAO usar pra modais novos. Existe apenas pra `cdm-modal`, modais de users, cam-\* e similares — todos candidatos a refatoracao quando tocar.
+> Existe um `.app-modal` "compacto" sem `.is-themed` (legacy: 430px max, fundo glass). NAO usar pra modais novos. Sobrou pra `InactivateConfirmDialog`, cam-\* e similares — todos candidatos a refatoracao quando tocar. _(O `cdm-modal` que liderava esta lista morreu na RD16 §2.11 U3.)_
 
 ## 4. Tokens visuais (referencia rapida)
 
@@ -547,8 +547,12 @@ Todos seguem `.app-modal.is-themed`. Ordem do fluxo: `idle → preview → handl
 
 Estes usam `.app-modal` simples (430px max, fundo glass) ou variante `cdm-modal` em vez de `.is-themed`:
 
-- `cdm-modal` (Client Detail Modal em `/clients`, `/users`, `/samples`)
-- `InactivateUserModal`, `CancelInactivationDialog`, `InactivateConfirmDialog` em `/users`
+- ~~`cdm-modal`~~ — **MORREU na §2.11 U3**: os três modos de `/users` (ver/editar/criar) viraram UM
+  `BottomSheet` + `.fv-panel-sheet.side-sheet`. O CSS saiu na U6; só `.cdm-manage-link` sobreviveu,
+  porque `/profile` ainda o usa em 4 lugares — morre na vez dele.
+- `InactivateUserModal` → `InactivateConfirmDialog` em `/users` — inativar com motivo **continua
+  central** (RD11). _(`CancelInactivationDialog` não existe; a reatribuição forçada de clientes saiu
+  do fluxo e o componente foi junto.)_
 - `SampleLookupResultModal` — usa `.app-modal-lookup-result` legacy mas **ja renderiza via portal pra body** (fix pra bug de stacking sob `<PageTransition>` no dashboard).
 
 > Refatorar pra `.is-themed` somente quando tiver outro motivo pra mexer no modal — nao e prioridade visual hoje.
