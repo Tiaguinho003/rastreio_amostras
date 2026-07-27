@@ -7253,6 +7253,24 @@ button:disabled {
   flex: 1;
 }
 
+/* Card mobile de /users (U5): a linha sob o nome é "perfil · status" — o
+   perfil como TEXTO discreto e o status como chip, a mesma leitura da tabela
+   do desktop. A caixa do card já vem institucional de `.clients-page-v2
+   .cv2-card` (RD16 C3), compartilhada com /cadastros. */
+.usr-card-meta {
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.usr-card-role {
+  font-size: 0.78rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ================================================================
    FV /users · painel do usuário (.usr-panel-*) — U3
    Conteúdo do `BottomSheet.fv-panel-sheet.side-sheet`: lateral no
@@ -31907,11 +31925,10 @@ body.is-selection-mode .ctr-page .cc-tabs {
     padding: 0;
   }
 
-  /* A chrome legada inteira sai do desktop: a busca mora na .fv-toolbar e
-     criar no "+ Novo usuário" do .fv-page-head. O FAB e filho da faixa, entao
-     desaparece junto (o `fixed` dele nao escapa de um ancestral display:none).
-     Some do JSX na U5, quando a toolbar valer nos dois breakpoints. */
-  .fv-users-page .hero-search-wrap {
+  /* U5: a `.hero-search-wrap` saiu do JSX — a `.fv-toolbar` serve os dois
+     breakpoints. Resta esconder aqui o FAB, que so existe no mobile (no
+     desktop criar mora no "+ Novo usuário" do `.fv-page-head`). */
+  .fv-users-page .cv2-fab {
     display: none;
   }
 
@@ -32476,7 +32493,13 @@ body.is-selection-mode .ctr-page .cc-tabs {
    /cadastros a toolbar so entra em cena quando MOVIDA para dentro da rolagem
    (como no /samples). A lista de Corretores ainda renderiza a toolbar FORA da
    rolagem (com a .hero-search-wrap dela): sem o qualificador, ela acenderia
-   junto = chrome dupla. Corretores migra na rodada dele. */
+   junto = chrome dupla. Corretores migra na rodada dele.
+
+   FV /users U5: a pagina de Usuarios divide a casca `.clients-page-v2`, entao
+   o 2o seletor ja a cobre — ela nao precisa de linha propria aqui, so precisou
+   mover a toolbar pra dentro do `.spv2-list-scroll` (que e o que o seletor
+   pede). `/contratos` e `/embarques` tambem usam a casca e seguem com a
+   `.hero-search-wrap` — por isso o qualificador da rolagem importa. */
 @media (max-width: 900px) {
   .fv-lotes-page .fv-toolbar,
   .clients-page-v2 .spv2-list-scroll .fv-toolbar,

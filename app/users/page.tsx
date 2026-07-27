@@ -77,23 +77,6 @@ function getUserStatusChip(user: Pick<UserSummary, 'status' | 'isLocked'>) {
   return { label: 'Ativo', className: 'fv-chip fv-chip-green' };
 }
 
-function getRoleModifierClass(role: UserRole): string {
-  switch (role) {
-    case 'ADMIN':
-      return 'is-role-admin';
-    case 'CLASSIFIER':
-      return 'is-role-classifier';
-    case 'REGISTRATION':
-      return 'is-role-registration';
-    case 'COMMERCIAL':
-      return 'is-role-commercial';
-    case 'PROSPECTOR':
-      return 'is-role-prospector';
-    default:
-      return '';
-  }
-}
-
 // Os forms vivem no corpo do painel e o botao no footer do sheet — a ligacao e
 // pelo `form={id}` (forms §5).
 const EDIT_FORM_ID = 'user-edit-form';
@@ -900,6 +883,11 @@ export default function UsersPage() {
     </div>
   );
 
+  // A MESMA toolbar, montada dentro da rolagem quando e mobile. Uma fonte de
+  // estado — dois `<input>` no mesmo state seria a duplicacao que o ciclo
+  // mobile eliminou nas outras listas.
+  const mobileListChrome = isDesktop ? null : toolbar;
+
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
       <section className="clients-page-v2 fv-users-page">
@@ -923,71 +911,33 @@ export default function UsersPage() {
           </button>
         </div>
 
-        {/* Chrome LEGADA, hoje so mobile: no desktop `.fv-users-page
-            .hero-search-wrap` esconde a faixa inteira — busca mora na
-            .fv-toolbar e criar no "+ Novo usuário" do .fv-page-head. As duas
-            juntas dariam DUAS chromes empilhadas (data-tables §1). Sai do JSX
-            na U5, quando a toolbar passar a valer nos dois breakpoints.
-            Busca + FAB na mesma linha (o FAB sai do fluxo via fixed); lupa
-            DECORATIVA + "X" pra limpar (a busca filtra ao vivo). */}
-        <div className="hero-search-wrap">
-          <form className="hero-search-bar" role="search" onSubmit={handleSearchSubmit}>
-            <input
-              className="hero-search-input"
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Buscar por nome ou email..."
-              autoComplete="off"
-              spellCheck={false}
-            />
-            {searchInput ? (
-              <button
-                type="button"
-                className="hero-search-clear-input"
-                aria-label="Limpar busca"
-                onClick={() => setSearchInput('')}
-              >
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <path d="M6 6l12 12M18 6L6 18" />
-                </svg>
-              </button>
-            ) : (
-              <span className="hero-search-submit" aria-hidden="true">
-                <svg
-                  className="hero-search-icon-search"
-                  viewBox="0 0 24 24"
-                  focusable="false"
-                  aria-hidden="true"
-                >
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="m16.2 16.2 4.1 4.1" />
-                </svg>
-              </span>
-            )}
-          </form>
-          <button
-            type="button"
-            className="cv2-fab"
-            aria-label="Novo usuário"
-            onClick={(event) => openCreateModal(event.currentTarget)}
-          >
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <path d="M12 5v14" />
-              <path d="M5 12h14" />
-            </svg>
-          </button>
-        </div>
+        {/* U5: a `.hero-search-wrap` legada SAIU. Busca e contagem moram na
+            `.fv-toolbar` nos dois breakpoints — presa no topo do cartao no
+            desktop, rolando com a lista no mobile (`mobileListChrome`). Uma
+            chrome so, como em /samples e /cadastros.
+
+            O FAB perdeu o pai que o abrigava e virou filho direto; e `fixed`,
+            entao a posicao nao muda. No desktop ele some por
+            `.fv-users-page .cv2-fab` (criar mora no "+ Novo usuário"). */}
+        <button
+          type="button"
+          className="cv2-fab"
+          aria-label="Novo usuário"
+          onClick={(event) => openCreateModal(event.currentTarget)}
+        >
+          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+            <path d="M12 5v14" />
+            <path d="M5 12h14" />
+          </svg>
+        </button>
 
         <section className="clients-v2-sheet">
-          {/* No desktop a toolbar assume a contagem (.fv-toolbar-count); no
-              mobile segue o contador legado. Uma fonte por breakpoint. */}
-          {isDesktop ? (
-            toolbar
-          ) : (
-            <div className="spv2-list-meta">
-              <span className="spv2-list-count">{listState.total} usuários</span>
-            </div>
-          )}
+          {/* Desktop: a toolbar fica presa no topo do cartao. Mobile: ela
+              entra na rolagem (`mobileListChrome`), porque no mobile a lista
+              tem altura fixa e cada faixa presa acima dela custa altura
+              PERMANENTE na tela menor (data-tables §1). O `.spv2-list-meta`
+              legado saiu — a contagem mora na `.fv-toolbar-count`. */}
+          {isDesktop ? toolbar : null}
 
           {/* O erro da lista nao era renderizado em lugar nenhum — o reducer
               guardava a mensagem e a tela ficava no vazio "Nenhum usuário
@@ -1018,6 +968,7 @@ export default function UsersPage() {
               </div>
             ) : (
               <div className="spv2-list-scroll">
+                {mobileListChrome}
                 <div className="spv2-empty">
                   <p className="spv2-empty-text">Carregando...</p>
                 </div>
@@ -1025,6 +976,7 @@ export default function UsersPage() {
             )
           ) : listState.items.length === 0 ? (
             <div className="spv2-list-scroll">
+              {mobileListChrome}
               <div className="spv2-empty">
                 <svg className="cv2-empty-icon" viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -1215,9 +1167,10 @@ export default function UsersPage() {
             </div>
           ) : (
             <div ref={scrollRef} className="spv2-list-scroll" tabIndex={-1}>
+              {mobileListChrome}
               {listState.items.map((user, i) => {
                 const initials = getUserInitials(user.fullName);
-                const roleModifier = getRoleModifierClass(user.role);
+                const chip = getUserStatusChip(user);
                 return (
                   <button
                     key={user.id}
@@ -1242,17 +1195,15 @@ export default function UsersPage() {
                       </span>
                       <div className="cv2-card-content">
                         <span className="cv2-card-name">{user.fullName}</span>
-                        <div className="cv2-card-meta">
-                          <span className={`cv2-card-role ${roleModifier}`}>
-                            {getRoleLabel(user.role)}
-                          </span>
-                          {user.status !== 'ACTIVE' ? (
-                            <span className="cv2-card-role is-none">Inativo</span>
-                          ) : null}
-                          {user.isLocked ? (
-                            <span className="cv2-card-role is-locked">Bloqueado</span>
-                          ) : null}
-                        </div>
+                        {/* U5: a MESMA leitura da tabela do desktop — perfil
+                            como TEXTO (categoria, nao alerta: RD12) e UM chip
+                            de status. Eram tres pilulas `.cv2-card-role` com
+                            paleta propria por papel, e ate duas somavam na
+                            mesma linha (Inativo + Bloqueado). */}
+                        <span className="cv2-card-status usr-card-meta">
+                          <span className="usr-card-role">{getRoleLabel(user.role)}</span>
+                          <span className={`${chip.className} is-sm`}>{chip.label}</span>
+                        </span>
                       </div>
                     </div>
                     <span className="cv2-card-divider" aria-hidden="true" />
