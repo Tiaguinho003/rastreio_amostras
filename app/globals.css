@@ -29431,9 +29431,16 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
    TSX, invisível pra quem procura cor no CSS. Agora o React Flow lê o ponto
    do `--xy-background-pattern-color`, e a prop saiu do componente. */
 .pg-host {
-  --pg-canvas-bg: #fbfaf7;
+  /* PG57: o canvas não tem cor própria — herda a da página, pra não existir
+     emenda entre um e outro. `transparent` em vez de repetir o branco: assim
+     não há hex pra dessincronizar se o fundo da página mudar de novo (ele já
+     mudou uma vez, quando virou branco por pedido do usuário). */
+  --pg-canvas-bg: transparent;
   --pg-surface: #ffffff;
-  --pg-dot: #d3cec2;
+  /* PG57: pontinhos VERDES (pedido do Flavio). Eram um cinza-quente neutro
+     que combinava com o papel creme antigo. Presos ao verde da marca, com
+     alfa, em vez de um hex solto — o ponto acompanha a paleta. */
+  --pg-dot: color-mix(in srgb, var(--brand-green) 38%, transparent);
   --pg-edge: #9aa8a0;
   --pg-node-lote: var(--brand-green);
   --pg-node-mistura: var(--color-warning);
