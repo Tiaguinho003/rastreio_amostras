@@ -10,17 +10,19 @@ import type { DashboardAviso } from '../../lib/types';
 // calendário). GERAL/extensível — 1º (e por ora único) tipo = "aprovação a enviar".
 // BINÁRIO: o aviso some quando a etiqueta é gerada (o feed já filtra por
 // NOT EXISTS(approval_label_log)), sem o fan-out impreciso do lembrete antigo (DSB-D9).
-// Linhas CLICÁVEIS → worklist de Aprovações (a ação mora na casa, igual aos chips do
-// calendário). 4 estados (erro/skeleton/vazio/dados), molde do RecentSendsCard.
+// Linhas CLICÁVEIS → o próprio CONTRATO (RC-D23; era a worklist de Aprovações, extinta
+// com a /embarques). A ação continua morando na casa: "Gerar etiqueta" agora é a seção
+// Aprovação do detalhe (RC-D25). 4 estados (erro/skeleton/vazio/dados).
 interface AvisosCardProps {
   items: DashboardAviso[] | null;
   error?: string | null;
   onRetry?: () => void;
 }
 
-// href da worklist de Aprovações (gerar a etiqueta), destacando o contrato.
+// RC-D23: abre o CONTRATO (onde "Gerar etiqueta" mora agora). `?details=` abre o
+// overlay; `?highlight=` pisca/rola a linha dele na lista atrás.
 function avisoHref(item: DashboardAviso): string {
-  return `/embarques?tab=aprovacoes&highlight=${item.contractId}`;
+  return `/contratos?details=${item.contractId}&highlight=${item.contractId}`;
 }
 
 export function AvisosCard({ items, error, onRetry }: AvisosCardProps) {

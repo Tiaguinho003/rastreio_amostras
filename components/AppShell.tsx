@@ -21,7 +21,6 @@ import {
   isAdmin,
   isProspector,
   isRoleAllowed,
-  NON_PROSPECTOR_ROLES,
 } from '../lib/roles';
 import { useToast } from '../lib/toast/ToastProvider';
 import type { SessionData } from '../lib/types';
@@ -48,7 +47,6 @@ type NavIcon =
   | 'informe'
   | 'cadastros'
   | 'contratos'
-  | 'embarques'
   | 'financeiro'
   | 'profile';
 type MobileRouteMeta = {
@@ -87,10 +85,9 @@ const CADASTROS_NAV_ITEM = {
   icon: 'cadastros' as NavIcon,
 } as const;
 
-// Itens de nav das 2 páginas de contrato (SPLIT 2026-07-13): "Contratos" (rota
-// /contratos = Contratos + Financeiro, gated CONTRATOS_ROLES) e "Embarques" (rota
-// /embarques = Embarque + Aprovações, gated NON_PROSPECTOR). Ambos também no avatar
-// menu p/ mobile (HeaderAvatarMenu). Ver docs/Contratos-Visao-Geral.md §2.
+// Itens de nav das 2 páginas de contrato (RC-D1): "Contratos" (a lista, gated
+// CONTRATOS_ROLES) e "Financeiro" (a carteira, ADMIN). Ambos também no avatar menu
+// p/ mobile (HeaderAvatarMenu). Ver docs/Contratos-Visao-Geral.md §2.
 const CONTRATOS_NAV_ITEM = {
   href: '/contratos',
   label: 'Contratos',
@@ -104,12 +101,6 @@ const FINANCEIRO_NAV_ITEM = {
   href: '/financeiro',
   label: 'Financeiro',
   icon: 'financeiro' as NavIcon,
-} as const;
-
-const EMBARQUES_NAV_ITEM = {
-  href: '/embarques',
-  label: 'Embarques',
-  icon: 'embarques' as NavIcon,
 } as const;
 
 // RD13: secoes da sidenav com SUB-ITENS expansiveis (chrome institucional).
@@ -126,12 +117,8 @@ const NAV_SUB_ITEMS: Record<string, readonly NavSubItem[]> = {
     { tab: 'clientes', label: 'Clientes', href: '/cadastros' },
     { tab: 'corretores', label: 'Corretores', href: '/cadastros?tab=corretores' },
   ],
-  // RC-D1: /contratos perdeu as sub-abas (pagina unica) — sem entrada aqui, a
-  // secao vira link simples (ver o ramo `if (!subItems)` abaixo).
-  '/embarques': [
-    { tab: 'embarque', label: 'Embarque', href: '/embarques?tab=embarque' },
-    { tab: 'aprovacoes', label: 'Aprovações', href: '/embarques?tab=aprovacoes' },
-  ],
+  // RC-D1/RC-D2: /contratos perdeu as sub-abas (pagina unica) e /embarques foi
+  // extinta — sem entrada aqui, a secao vira link simples (ver `if (!subItems)`).
 };
 
 const MOBILE_NAV_ITEMS = [
@@ -252,17 +239,6 @@ function renderNavIcon(icon: NavIcon, user?: SessionData['user']) {
         <path d="M14 3v5h5" />
         <path d="M9 13h6" />
         <path d="M9 17h5" />
-      </svg>
-    );
-  }
-
-  if (icon === 'embarques') {
-    return (
-      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-        <path d="M3 6h11v9H3z" />
-        <path d="M14 9h4l3 3v3h-7z" />
-        <circle cx="7" cy="18" r="1.6" />
-        <circle cx="17.5" cy="18" r="1.6" />
       </svg>
     );
   }
@@ -481,7 +457,7 @@ export function AppShell({
       : session.user.username;
   // Navegacao principal (desktop) montada por papel. Ordem (pedido do usuario):
   // Inicio / Lotes (base) -> Relatorios (INFORME_ROLES) -> Cadastros (todo
-  // nao-PROSPECTOR) -> Contratos/Financeiro/Embarques -> Usuarios (ADMIN). Itens
+  // nao-PROSPECTOR) -> Contratos/Financeiro -> Usuarios (ADMIN). Itens
   // condicionais somem por papel mantendo essa ordem relativa.
   const desktopNavItems = prospector
     ? DESKTOP_NAV_ITEMS.filter((item) => item.href === '/dashboard')
@@ -489,12 +465,11 @@ export function AppShell({
         ...DESKTOP_NAV_ITEMS,
         ...(isRoleAllowed(session.user.role, INFORME_ROLES) ? [INFORME_NAV_ITEM] : []),
         CADASTROS_NAV_ITEM,
-        // RC-D1/RC-D3: "Contratos" p/ todo não-PROSPECTOR e "Financeiro" (página
-        // própria de novo) só p/ ADMIN. "Embarques" segue por ora — a rota morre na
-        // sequência desta fase. Usuários segue ADMIN-only.
+        // RC-D1/RC-D2/RC-D3: "Contratos" p/ todo não-PROSPECTOR e "Financeiro"
+        // (página própria de novo) só p/ ADMIN. "Embarques" saiu — a rota foi
+        // extinta e virou fase dentro do contrato. Usuários segue ADMIN-only.
         ...(isRoleAllowed(session.user.role, CONTRATOS_ROLES) ? [CONTRATOS_NAV_ITEM] : []),
         ...(isRoleAllowed(session.user.role, FINANCEIRO_ROLES) ? [FINANCEIRO_NAV_ITEM] : []),
-        ...(isRoleAllowed(session.user.role, NON_PROSPECTOR_ROLES) ? [EMBARQUES_NAV_ITEM] : []),
         ...(isAdmin(session.user.role) ? [ADMIN_NAV_ITEM] : []),
       ];
   const mobileRouteMeta = resolveMobileRouteMeta(pathname);

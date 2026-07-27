@@ -99,32 +99,19 @@ export const FINANCEIRO_ROLES: UserRole[] = ['ADMIN'];
 // backend (sale-contract-service.js).
 export const PAYMENT_FEED_ROLES: UserRole[] = NON_PROSPECTOR_ROLES;
 
-// allowedRoles da pagina "Contratos". ACESSO UNIFICADO (2026-07-15): todo papel
-// nao-PROSPECTOR ve e gerencia TUDO (Contratos + Financeiro; escopo aberto, sem
-// filtro por Broker). Espelha o SALE_CONTRACT_ACCESS_ROLES do backend (agora
-// NON_PROSPECTOR_ROLES). Alimenta contractsHubTabs (as 4 abas para todos).
+// allowedRoles da pagina "Contratos" (rota /contratos, pagina unica desde a
+// RC-D1). ACESSO UNIFICADO (2026-07-15): todo papel nao-PROSPECTOR ve e gerencia
+// os contratos — escopo aberto, sem filtro por Broker. Espelha o
+// SALE_CONTRACT_ACCESS_ROLES do backend. A carteira consolidada saiu daqui pra
+// /financeiro, so ADMIN (RC-D3).
 export const CONTRATOS_ROLES: UserRole[] = NON_PROSPECTOR_ROLES;
 
-// Central de Contratos (CC F2): o hub /contratos abre a TODOS os nao-PROSPECTOR.
-// ADMIN/COMMERCIAL veem as 4 abas (gestao + operacao); os operacionais
-// (CLASSIFIER/REGISTRATION/CADASTRO) veem as 2 abas de OPERACAO — Embarque +
-// Aprovacoes (AP30) — sem gestao (Contratos/Financeiro). A lista da Aprovacao e
-// nao-escopada (todos veem todos, so nao-sensivel); o "Ver contrato" abre a
-// ADMIN+COMMERCIAL a qualquer contrato (escopo aberto). SPLIT 2026-07-13: virou 2 paginas — /contratos (Contratos +
-// Financeiro, gated CONTRATOS_ROLES) e /embarques (Embarque + Aprovacoes, gated
-// NON_PROSPECTOR). contractsHubTabs = abas navegaveis por papel (card de Eventos).
-export type ContractsHubTab = 'contratos' | 'financeiro' | 'aprovacoes' | 'embarque';
-
-export function contractsHubTabs(role: UserRole): ContractsHubTab[] {
-  return isRoleAllowed(role, CONTRATOS_ROLES)
-    ? ['contratos', 'financeiro', 'aprovacoes', 'embarque']
-    : ['embarque', 'aprovacoes'];
-}
-
-// A rota (pagina) dona de cada aba, pro deep-link dos chips do card de Eventos.
-export function contractTabRoute(tab: ContractsHubTab): '/contratos' | '/embarques' {
-  return tab === 'embarque' || tab === 'aprovacoes' ? '/embarques' : '/contratos';
-}
+// RC-D1/RC-D2/RC-D23 (2026-07-27): `ContractsHubTab`, `contractsHubTabs` e
+// `contractTabRoute` foram REMOVIDOS. Eles existiam pra mapear evento -> sub-aba
+// dona -> rota (e apagar o link quando o papel nao abria aquela aba, DSB-D11).
+// Nao ha mais sub-aba nem segunda rota: /contratos e pagina unica, /embarques foi
+// extinta, e todo chip do calendario aponta pro proprio contrato
+// (`/contratos?details=<id>`), que os 5 papeis nao-PROSPECTOR abrem.
 
 // Quem GERENCIA cadastro de cliente: hub /cadastros (abas Clientes/Corretores) e
 // detalhe do cliente (/clients/[id]). ACESSO UNIFICADO (2026-07-15): todo papel

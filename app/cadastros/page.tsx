@@ -59,10 +59,10 @@ function CadastrosPage() {
   // le a URL; o ClientsBrowser recebe por prop (ele nao usa useSearchParams).
   const incompleteFromUrl = searchParams.get('incomplete') === 'true';
 
-  // RD13/RD14: a aba vem da URL (?tab=corretores; default clientes) — mesmo
-  // padrao dos hubs (/contratos, /embarques): param e a fonte de verdade,
-  // estado DERIVADO, troca via replace. Os sub-itens da sidenav deep-linkam
-  // direto pra ca.
+  // RD13/RD14: a aba vem da URL (?tab=corretores; default clientes) — padrao da
+  // casa: param e a fonte de verdade, estado DERIVADO, troca via replace. Os
+  // sub-itens da sidenav deep-linkam direto pra ca. (/contratos seguia o mesmo
+  // molde ate a RC-D1 tirar as sub-abas dele.)
   const tab: Tab = searchParams.get('tab') === 'corretores' ? 'corretores' : 'clientes';
   const selectTab = useCallback(
     (next: Tab) => {

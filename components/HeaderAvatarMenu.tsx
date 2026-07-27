@@ -10,7 +10,6 @@ import {
   getRoleLabel,
   isAdmin,
   isRoleAllowed,
-  NON_PROSPECTOR_ROLES,
 } from '../lib/roles';
 import type { SessionData } from '../lib/types';
 import { BottomSheet } from './BottomSheet';
@@ -175,22 +174,6 @@ export function HeaderAvatarMenu({ session, onLogout, trigger = 'avatar' }: Head
                   <path d="M14.4 9.6a2.4 2.4 0 0 0-2.4-1.2c-1.4 0-2.4.8-2.4 1.9 0 2.4 4.8 1.4 4.8 3.8 0 1.1-1 1.9-2.4 1.9a2.4 2.4 0 0 1-2.4-1.2" />
                 </svg>
                 <span className="header-avatar-menu-row-label">Financeiro</span>
-              </button>
-            ) : null}
-
-            {isRoleAllowed(session.user.role, NON_PROSPECTOR_ROLES) ? (
-              <button
-                type="button"
-                className="header-avatar-menu-row"
-                onClick={() => go('/embarques')}
-              >
-                <svg className="header-avatar-menu-row-icon" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M3 6h11v9H3z" />
-                  <path d="M14 9h4l3 3v3h-7z" />
-                  <circle cx="7" cy="18" r="1.6" />
-                  <circle cx="17.5" cy="18" r="1.6" />
-                </svg>
-                <span className="header-avatar-menu-row-label">Embarques</span>
               </button>
             ) : null}
 

@@ -8,7 +8,7 @@ import {
   getDashboardPaymentEvents,
   getDashboardShipmentEvents,
 } from '../../lib/api-client';
-import { contractsHubTabs, isRoleAllowed, PAYMENT_FEED_ROLES } from '../../lib/roles';
+import { isRoleAllowed, PAYMENT_FEED_ROLES } from '../../lib/roles';
 import { useRecentSendsFeed } from '../../lib/use-recent-sends-feed';
 import { AvisosCard } from './AvisosCard';
 import { EventsCalendarCard } from './EventsCalendarCard';
@@ -49,10 +49,8 @@ export function DashboardDesktop({ session }: DashboardDesktopProps) {
   // a carteira pro ADMIN-only — segue em todo não-PROSPECTOR (PAYMENT_FEED_ROLES);
   // só o PROSPECTOR nem chama o feed.
   const canSeePaymentEvents = isRoleAllowed(session.user.role, PAYMENT_FEED_ROLES);
-  // DSB-D11: abas de /contratos que o papel abre — o chip só vira LINK p/ a aba dona
-  // quando ela está aqui (faturamento → Contratos só p/ ADMIN/COMMERCIAL; operacional
-  // vê o chip mas ele fica inerte).
-  const navigableTabs = contractsHubTabs(session.user.role);
+  // RC-D23: a DSB-D11 (chip inerte quando o papel não abre a aba dona) perdeu o
+  // objeto — todo chip aponta pro próprio contrato, que os 5 papéis abrem.
   const [paymentEvents, setPaymentEvents] = useState<Record<string, DashboardCalendarEvent[]>>({});
   const [shipmentEvents, setShipmentEvents] = useState<Record<string, DashboardCalendarEvent[]>>(
     {}
@@ -161,12 +159,12 @@ export function DashboardDesktop({ session }: DashboardDesktopProps) {
             data) foi REMOVIDO — o card de Eventos fica sozinho na pagina. */}
         {/* Layout (DSB-D14 + DSB-D19): grid de 2 colunas — o card de Eventos
             (calendario, 1fr) à esquerda e o card de Avisos (~300px) à DIREITA. O
-            donut foi apagado (DSB-D14); os cards de envios migraram pra /samples e
-            pra aba Aprovacoes de /embarques. */}
+            donut foi apagado (DSB-D14). O card de Avisos linka pro proprio
+            contrato desde a RC-D23 (a worklist de Aprovacoes que ele abria morreu
+            com a /embarques). */}
         <div className="dd-content-grid">
           <EventsCalendarCard
             events={calendarEvents}
-            navigableTabs={navigableTabs}
             onWindowChange={handleWindowChange}
             error={eventsError}
             onRetry={refetchEvents}

@@ -1141,7 +1141,9 @@ export function shipmentPhotoDownloadUrl(contractId: string, photoId: string): s
   return `${API_BASE}/sale-contracts/${contractId}/shipment-photos/${photoId}`;
 }
 
-// Embarque (EMB23-EMB25): worklist da sub-aba (paginada por cursor keyset).
+// Embarque (EMB23-EMB25): worklist paginada por cursor keyset. SEM CONSUMIDOR de UI
+// desde a RC-D2 (a sub-aba que a exibia morreu). Mantida de proposito: a RC-F3
+// reescreve a lista de contratos com filtro de fase e vai reusar este recorte.
 export function listShipments(
   session: SessionData,
   query: { search?: string; limit?: number; cursor?: string; filter?: ShipmentFilter } = {},
@@ -1160,8 +1162,9 @@ export function listShipments(
   });
 }
 
-// Aprovação (AP25-AP28): worklist da sub-aba. Default 'a_enviar' (o param só vai
-// quando difere do default). Auth-only (todos os não-PROSPECTOR).
+// Aprovação (AP25-AP28): worklist paginada. Default 'a_enviar' (o param só vai quando
+// difere do default). Auth-only (todos os não-PROSPECTOR). Como a de embarque acima,
+// ficou SEM CONSUMIDOR de UI na RC-D2 e espera a RC-F3.
 export function listApprovals(
   session: SessionData,
   query: { search?: string; limit?: number; cursor?: string; filter?: ApprovalFilter } = {},
@@ -1333,7 +1336,7 @@ export function getDashboardPaymentEvents(
 
 // Embarque (EMB7/EMB26): feed de eventos de embarque do card de Eventos, por janela de
 // data. Visível a todos os não-PROSPECTOR (o card só monta no desktop); navegação pura
-// no front (→ /embarques?tab=embarque — SPLIT 2026-07-13).
+// no front (→ o próprio contrato, `/contratos?details=<id>` — RC-D23).
 export function getDashboardShipmentEvents(
   session: SessionData,
   window: { from: string; to: string }

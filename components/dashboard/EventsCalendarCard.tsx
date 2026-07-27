@@ -14,7 +14,6 @@ import {
   getBrtToday,
   toDayKey,
 } from '../../lib/dashboard-calendar';
-import { contractTabRoute, type ContractsHubTab } from '../../lib/roles';
 import { LoadError } from '../LoadError';
 import type { DashboardCalendarEvent } from '../../lib/types';
 
@@ -25,8 +24,6 @@ type CalendarEvent = DashboardCalendarEvent;
 interface EventsCalendarCardProps {
   /** Mapa 'YYYY-MM-DD' → eventos do dia (pagamento + embarque; DSB-D11 soma faturamento). */
   events?: Record<string, CalendarEvent[]>;
-  /** DSB-D11: abas de /contratos que o papel abre — o chip só linka p/ aba visível. */
-  navigableTabs?: string[];
   /** Emite a GRADE do mês visível (from..to 'YYYY-MM-DD') pro pai buscar o feed (E24/DSB-D18). */
   onWindowChange?: (from: string, to: string) => void;
   /** Erro de carregamento de algum dos feeds (strip não-bloqueante + retry). */
@@ -34,28 +31,16 @@ interface EventsCalendarCardProps {
   onRetry?: () => void;
 }
 
-// EMB26/E28: TODO evento do feed é NAVEGAÇÃO PURA → a sub-aba dona (pagamento →
-// Financeiro, embarque → Embarque, faturamento → Contratos; DSB-D11). O card não
-// gera/registra nada — a ação (pagar/faturar/confirmar) mora na casa de cada um.
-// null = tipo desconhecido (fallback só-rótulo, sem link).
-function navTabForEvent(typeKey: string): ContractsHubTab | null {
-  if (typeKey.startsWith('contract_payment_')) return 'financeiro';
-  if (typeKey.startsWith('contract_shipment')) return 'embarque';
-  if (typeKey.startsWith('contract_invoice')) return 'contratos';
-  return null;
-}
-
-// Abas de contrato navegáveis (fallback quando o pai não passa navigableTabs).
-const ALL_CONTRACT_TABS = ['contratos', 'financeiro', 'aprovacoes', 'embarque'];
-
-// DSB-D11: `navigableTabs` = abas de /contratos que o papel abre. Se a aba dona do
-// evento não está lá (ex.: faturamento → Contratos p/ um operacional), o chip vira
-// rótulo inerte (sem link) em vez de levar a uma aba que o papel não tem.
-function eventHref(event: CalendarEvent, navigableTabs: readonly string[]): string | null {
-  const tab = navTabForEvent(event.typeKey);
-  if (!tab || !navigableTabs.includes(tab)) return null;
-  // SPLIT 2026-07-13: embarque/aprovações → /embarques; contratos/financeiro → /contratos.
-  return `${contractTabRoute(tab)}?tab=${tab}${event.contractId ? `&highlight=${event.contractId}` : ''}`;
+// EMB26/E28: TODO evento do feed é NAVEGAÇÃO PURA — o card não gera/registra nada.
+// RC-D23: o destino de TODOS eles é o mesmo, o próprio CONTRATO. Antes cada tipo
+// apontava pra sub-aba dona (pagamento → Financeiro, embarque → Embarque,
+// faturamento → Contratos), e a DSB-D11 apagava o link quando o papel não abria
+// aquela aba. Com as fases dentro do contrato, não há aba nem papel a checar:
+// pagar, faturar e confirmar embarque moram todos lá. Evento sem contractId
+// (nenhum feed atual) segue como rótulo inerte.
+function eventHref(event: CalendarEvent): string | null {
+  if (!event.contractId) return null;
+  return `/contratos?details=${event.contractId}&highlight=${event.contractId}`;
 }
 
 // DSB-D10: a COR do chip carrega o estado (previsto/atrasado/realizado); pra não
@@ -81,7 +66,6 @@ const EVENT_STATES: Array<{ state: 'previsto' | 'atrasado' | 'realizado'; label:
 // Desktop-only (o DashboardMobile não o monta).
 export function EventsCalendarCard({
   events = {},
-  navigableTabs = ALL_CONTRACT_TABS,
   onWindowChange,
   error,
   onRetry,
@@ -208,7 +192,7 @@ export function EventsCalendarCard({
                     // Navegação PURA → a sub-aba dona (a ação mora lá). Tipo
                     // desconhecido vira chip só-rótulo (sem link). A cor sai do
                     // `data-state` (DSB-D10); `data-type` fica pra QA/semântica.
-                    const href = eventHref(event, navigableTabs);
+                    const href = eventHref(event);
                     const accessibleLabel = chipAccessibleLabel(event);
                     return href ? (
                       <Link

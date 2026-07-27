@@ -1252,7 +1252,7 @@ export interface DashboardPaymentEventsResponse {
 // formato (o `DashboardCalendarEvent` é genérico por `typeKey`); usa `contract_shipment`
 // (previsto), `contract_shipment_overdue` (atrasado) e `contract_shipment_done` (realizado)
 // — cor por ESTADO desde DSB-D10 (azul/vermelho/verde). `id` namespaced ('shipment:').
-// Navegação pura no front (→ /embarques?tab=embarque — SPLIT 2026-07-13).
+// Navegação pura no front (→ o próprio contrato, `/contratos?details=<id>` — RC-D23).
 export interface DashboardShipmentEventsResponse {
   events: Record<string, DashboardCalendarEvent[]>;
 }
