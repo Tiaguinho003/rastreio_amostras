@@ -865,7 +865,7 @@ vira o registro de que **checar um tier de media query não é checar o desktop*
 perfil. A única variação por papel é a **barra de voltar**, que existe só para o PROSPECTOR (ele não
 tem tabbar nem o header do `AppShell`); por isso `.nsv2-back` **fica**.
 
-#### P1 — casca institucional (implementada 2026-07-27, `0b1be82` + `d10f0d1`)
+#### P1 — casca institucional (implementada 2026-07-27, `0b1be82` + `f3035db`)
 
 Mobile aprovado de primeira. **No desktop o Flavio recusou a P-D1** e a decisão foi substituída:
 
