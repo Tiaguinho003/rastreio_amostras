@@ -549,17 +549,23 @@ function UsersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modal.mode, modal.user?.id, session]);
 
-  // U-D9: URL → painel. Cobre deep-link e F5 (o unico caminho em que a URL
-  // chega na frente do estado). Abrir pela lista ja despacha o estado e so
-  // ESPELHA na URL, e este efeito vira no-op pelo guard do id.
+  // U-D9: URL → painel, UMA VEZ SO, na entrada. Deep-link e F5 sao os unicos
+  // caminhos em que a URL chega na frente do estado; dali em diante quem manda
+  // e a pagina, e a URL so espelha.
+  //
+  // 🔴 Nao transformar isto num sync continuo de `usuarioParam`: fechar
+  // despacha o `close` (sincrono) e chama `router.replace('/users')`
+  // (ASSINCRONO). No render entre os dois o painel ja esta fechado e a URL
+  // ainda tem o `?usuario=` — um efeito que observasse o param reabriria o
+  // painel nesse instante, e ele viraria impossivel de fechar.
+  const deepLinkHandledRef = useRef(false);
   useEffect(() => {
-    if (!session || !usuarioParam) return;
-    if (modal.mode === 'create') return;
-    if (modal.mode !== 'closed' && modal.user?.id === usuarioParam) return;
-    openUserDetail(usuarioParam, null);
+    if (!session || deepLinkHandledRef.current) return;
+    deepLinkHandledRef.current = true;
+    if (usuarioParam) openUserDetail(usuarioParam, null);
     // openUserDetail e estavel (function declaration) e so le refs/listState.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [usuarioParam, session, modal.mode, modal.user?.id]);
+  }, [session, usuarioParam]);
 
   // Devolve o foco a quem abriu o painel. Scroll-lock, ESC, focus trap e
   // historico sao do BottomSheet — duplicar aqui daria dois donos do
