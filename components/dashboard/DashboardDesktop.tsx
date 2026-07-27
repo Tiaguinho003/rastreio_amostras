@@ -8,7 +8,7 @@ import {
   getDashboardPaymentEvents,
   getDashboardShipmentEvents,
 } from '../../lib/api-client';
-import { contractsHubTabs, FINANCEIRO_ROLES, isRoleAllowed } from '../../lib/roles';
+import { contractsHubTabs, isRoleAllowed, PAYMENT_FEED_ROLES } from '../../lib/roles';
 import { useRecentSendsFeed } from '../../lib/use-recent-sends-feed';
 import { AvisosCard } from './AvisosCard';
 import { EventsCalendarCard } from './EventsCalendarCard';
@@ -45,8 +45,10 @@ export function DashboardDesktop({ session }: DashboardDesktopProps) {
   );
 
   // ───────── Card de Eventos (3 feeds mesclados client-side) ─────────
-  // F1 (E24/E28): pagamento — só ADMIN/COMMERCIAL (canPay); demais nem chamam o feed.
-  const canPay = isRoleAllowed(session.user.role, FINANCEIRO_ROLES);
+  // F1 (E24/E28): o feed de pagamento tem gate próprio. RC-D5: ele NÃO acompanhou
+  // a carteira pro ADMIN-only — segue em todo não-PROSPECTOR (PAYMENT_FEED_ROLES);
+  // só o PROSPECTOR nem chama o feed.
+  const canSeePaymentEvents = isRoleAllowed(session.user.role, PAYMENT_FEED_ROLES);
   // DSB-D11: abas de /contratos que o papel abre — o chip só vira LINK p/ a aba dona
   // quando ela está aqui (faturamento → Contratos só p/ ADMIN/COMMERCIAL; operacional
   // vê o chip mas ele fica inerte).
@@ -75,7 +77,7 @@ export function DashboardDesktop({ session }: DashboardDesktopProps) {
   }, [paymentEvents, shipmentEvents, invoiceEvents]);
 
   const fetchPaymentEvents = useCallback(() => {
-    if (!canPay || !paymentWindow) return;
+    if (!canSeePaymentEvents || !paymentWindow) return;
     if (!window.matchMedia(DESKTOP_MQ).matches) return;
     getDashboardPaymentEvents(session, paymentWindow)
       .then((res) => {
@@ -86,7 +88,7 @@ export function DashboardDesktop({ session }: DashboardDesktopProps) {
       .catch(() => {
         if (mountedRef.current) setEventsError('Não foi possível carregar os eventos.');
       });
-  }, [session, canPay, paymentWindow]);
+  }, [session, canSeePaymentEvents, paymentWindow]);
 
   const fetchShipmentEvents = useCallback(() => {
     if (!paymentWindow) return;

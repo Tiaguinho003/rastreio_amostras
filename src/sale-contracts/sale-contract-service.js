@@ -59,18 +59,28 @@ import {
 } from './sale-contract-support.js';
 
 // ACESSO UNIFICADO (2026-07-15): todo papel nao-PROSPECTOR acessa e opera os
-// contratos. Gestao (SALE_CONTRACT_ACCESS_ROLES), Financeiro (FINANCEIRO_ROLES) e
-// a criacao de valores das listas cadastraveis inline (CONTRACT_LOOKUP_MANAGE_ROLES,
-// createContractLookup) passaram de ADMIN/ADMIN+COMMERCIAL para o conjunto canonico
-// NON_PROSPECTOR_ROLES. Espelhado no front (lib/roles.ts: CONTRATOS_ROLES /
-// FINANCEIRO_ROLES). O gate de papel (assertRoleAllowed) no topo de cada metodo e a
-// unica autorizacao; o escopo segue ABERTO (own-only revogado, D140 — sem filtro por
-// Broker). Contexto preservado: a CRIACAO nasce EMITIDO numa so operacao (D97 — a
-// vista via createSpotSaleContract/createSampleMovement; Futuro via
-// createFutureSaleContract, CRUD direto); o Financeiro mostra TODOS os fechamentos com
-// co-corretores e total sem rateio (D136). /users segue ADMIN (fora deste dominio).
+// contratos. Gestao (SALE_CONTRACT_ACCESS_ROLES) e a criacao de valores das listas
+// cadastraveis inline (CONTRACT_LOOKUP_MANAGE_ROLES, createContractLookup) passaram
+// de ADMIN/ADMIN+COMMERCIAL para o conjunto canonico NON_PROSPECTOR_ROLES.
+// Espelhado no front (lib/roles.ts). O gate de papel (assertRoleAllowed) no topo de
+// cada metodo e a unica autorizacao; o escopo segue ABERTO (own-only revogado, D140
+// — sem filtro por Broker). Contexto preservado: a CRIACAO nasce EMITIDO numa so
+// operacao (D97 — a vista via createSpotSaleContract/createSampleMovement; Futuro
+// via createFutureSaleContract, CRUD direto); o Financeiro mostra TODOS os
+// fechamentos com co-corretores e total sem rateio (D136).
+//
+// RC-D3/RC-D5 (2026-07-27): o FINANCEIRO sai do conjunto unificado e vira ADMIN —
+// e a carteira consolidada, agora em pagina propria (/financeiro). A constante se
+// PARTE EM DUAS porque tinha dois consumidores com publicos diferentes: a carteira
+// (listBrokerReceivables) e o feed de pagamento do calendario do dashboard
+// (getDashboardPaymentEvents), que continua para todo nao-PROSPECTOR. Apertar as
+// duas juntas tiraria o pagamento do calendario de 4 dos 5 papeis.
+//
+// RC-D4: o gate e de ROTA, nao de campo — o detalhe do contrato segue devolvendo
+// valores e corretagem para todos. /users segue ADMIN (fora deste dominio).
 const CONTRACT_LOOKUP_MANAGE_ROLES = NON_PROSPECTOR_ROLES;
-const FINANCEIRO_ROLES = NON_PROSPECTOR_ROLES;
+const FINANCEIRO_ROLES = ['ADMIN'];
+const PAYMENT_FEED_ROLES = NON_PROSPECTOR_ROLES;
 const SALE_CONTRACT_ACCESS_ROLES = NON_PROSPECTOR_ROLES;
 
 // Mesma chave do gerador do numero em src/events/prisma-event-store.js (NNNN
@@ -143,8 +153,9 @@ export class SaleContractService {
   // nao paga e sai do Financeiro). SEM rateio ÷N (D136 removeu a "cota por
   // corretor"): o valor por fechamento = a corretagem TOTAL (vendedor + comprador);
   // os co-corretores sao listados so como atribuicao. ACESSO (escopo aberto
-  // 2026-07-13, own-only revogado; ACESSO UNIFICADO 2026-07-15): todo nao-PROSPECTOR ve TODOS os fechamentos, com
-  // os co-corretores visiveis e o total = a corretagem total. Select enxuto
+  // 2026-07-13, own-only revogado): RC-D3 fecha a carteira no ADMIN — dentro dela
+  // o escopo segue ABERTO (TODOS os fechamentos, co-corretores visiveis, total =
+  // a corretagem total), so quem entra e que mudou. Select enxuto
   // (RECEIVABLE_VIEW_SELECT, sem snapshots). Sem `@relation` contrato<->broker: os
   // corretores vem num batch separado (agrupado em JS).
   async listBrokerReceivables(input, actorContext) {
@@ -639,12 +650,12 @@ export class SaleContractService {
   // dashboard. Agendado = NAO pagos (EMITIDO/FATURADO) no paymentDate; realizado =
   // PAGO no paidAt; WASH_OUT fora. Escopo aberto (own-only revogado; ACESSO
   // UNIFICADO 2026-07-15): todo nao-PROSPECTOR ve todos; so o PROSPECTOR nem chega
-  // (gate FINANCEIRO_ROLES = NON_PROSPECTOR_ROLES). Janela
-  // [from, to] = 'YYYY-MM-DD' (a quinzena visivel do card). Retorna
-  // Record<'YYYY-MM-DD', evento[]> (o formato da prop `events` do card).
+  // (gate PAYMENT_FEED_ROLES — RC-D5: o calendario NAO seguiu a carteira pro
+  // ADMIN-only). Janela [from, to] = 'YYYY-MM-DD' (a quinzena visivel do card).
+  // Retorna Record<'YYYY-MM-DD', evento[]> (o formato da prop `events` do card).
   async getDashboardPaymentEvents(input, actorContext) {
     const actor = assertAuthenticatedActor(actorContext, 'list dashboard payment events');
-    assertRoleAllowed(actor.role, FINANCEIRO_ROLES, 'list dashboard payment events');
+    assertRoleAllowed(actor.role, PAYMENT_FEED_ROLES, 'list dashboard payment events');
 
     const dayKeyRe = /^\d{4}-\d{2}-\d{2}$/;
     const from = typeof input?.from === 'string' && dayKeyRe.test(input.from) ? input.from : null;

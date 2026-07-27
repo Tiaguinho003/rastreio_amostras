@@ -2852,9 +2852,9 @@ export function createBackendApiV1({
       }),
 
     // Financeiro (Fase F): corretagem a receber por fechamento. Acesso =
-    // FINANCEIRO_ROLES (= NON_PROSPECTOR_ROLES desde 2026-07-15; era ADMIN+COMMERCIAL).
-    // Escopo ABERTO (D140): sem recorte por Broker.userId — todo nao-PROSPECTOR ve
-    // TODOS os fechamentos (o service NAO escopa por posse).
+    // FINANCEIRO_ROLES (= ADMIN desde a RC-D3; era NON_PROSPECTOR_ROLES).
+    // Escopo ABERTO (D140): sem recorte por Broker.userId — o ADMIN ve TODOS os
+    // fechamentos (o service NAO escopa por posse).
     listBrokerReceivables: (input) =>
       executeApiForInput(input, async () => {
         if (!saleContractService) {
@@ -2914,8 +2914,9 @@ export function createBackendApiV1({
       }),
 
     // Card de Eventos (dashboard desktop, E24/D138): feed de pagamentos de contrato
-    // por janela de data. Gate no service (FINANCEIRO_ROLES = NON_PROSPECTOR_ROLES,
-    // unificado 2026-07-15); escopo aberto — sem recorte por corretor. Janela ?from&to = 'YYYY-MM-DD'.
+    // por janela de data. Gate no service (PAYMENT_FEED_ROLES = NON_PROSPECTOR_ROLES
+    // — RC-D5: o calendario NAO acompanhou a carteira pro ADMIN-only); escopo aberto
+    // — sem recorte por corretor. Janela ?from&to = 'YYYY-MM-DD'.
     getDashboardPaymentEvents: (input) =>
       executeApiForInput(input, async () => {
         if (!saleContractService) {

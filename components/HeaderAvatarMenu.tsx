@@ -6,6 +6,7 @@ import { useState } from 'react';
 import {
   canManageClients,
   CONTRATOS_ROLES,
+  FINANCEIRO_ROLES,
   getRoleLabel,
   isAdmin,
   isRoleAllowed,
@@ -158,6 +159,22 @@ export function HeaderAvatarMenu({ session, onLogout, trigger = 'avatar' }: Head
                   <path d="M9 17h5" />
                 </svg>
                 <span className="header-avatar-menu-row-label">Contratos</span>
+              </button>
+            ) : null}
+
+            {/* RC-D1/RC-D3: Financeiro voltou a ser pagina propria, so ADMIN. */}
+            {isRoleAllowed(session.user.role, FINANCEIRO_ROLES) ? (
+              <button
+                type="button"
+                className="header-avatar-menu-row"
+                onClick={() => go('/financeiro')}
+              >
+                <svg className="header-avatar-menu-row-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="8.5" />
+                  <path d="M12 7.5v9" />
+                  <path d="M14.4 9.6a2.4 2.4 0 0 0-2.4-1.2c-1.4 0-2.4.8-2.4 1.9 0 2.4 4.8 1.4 4.8 3.8 0 1.1-1 1.9-2.4 1.9a2.4 2.4 0 0 1-2.4-1.2" />
+                </svg>
+                <span className="header-avatar-menu-row-label">Financeiro</span>
               </button>
             ) : null}
 

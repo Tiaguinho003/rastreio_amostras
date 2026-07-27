@@ -83,11 +83,21 @@ export function isWeeklyReportAuthor(role: UserRole | null | undefined): boolean
 // (VISIT_REPORT_VIEWER_ROLES + COMMERCIAL_FORM_AUTHOR_ROLES, agora NON_PROSPECTOR).
 export const INFORME_ROLES: UserRole[] = NON_PROSPECTOR_ROLES;
 
-// allowedRoles da aba "Financeiro" (Fase F): corretagem a receber por fechamento.
-// ACESSO UNIFICADO (2026-07-15): todo papel nao-PROSPECTOR ve os valores (o backend
-// nao filtra por Broker.userId). Espelha o FINANCEIRO_ROLES do backend
-// (sale-contract-service.js, agora NON_PROSPECTOR_ROLES).
-export const FINANCEIRO_ROLES: UserRole[] = NON_PROSPECTOR_ROLES;
+// allowedRoles da PAGINA "Financeiro" (rota /financeiro): a carteira de
+// corretagem a receber. RC-D3: so ADMIN — e a primeira rota ADMIN-only do
+// dominio de contratos. Espelha o FINANCEIRO_ROLES do backend
+// (sale-contract-service.js).
+//
+// RC-D4: o gate e de ROTA, nao de campo. Dentro do contrato TODOS continuam
+// vendo dinheiro (valores e corretagem no detalhe); o ADMIN-only protege a
+// carteira consolidada, nao o numero.
+export const FINANCEIRO_ROLES: UserRole[] = ['ADMIN'];
+
+// RC-D5: o feed de PAGAMENTO do calendario do dashboard NAO segue a carteira.
+// Ele era gateado pela mesma constante; apertar sem partir em duas tiraria o
+// pagamento do calendario de 4 dos 5 papeis. Espelha o PAYMENT_FEED_ROLES do
+// backend (sale-contract-service.js).
+export const PAYMENT_FEED_ROLES: UserRole[] = NON_PROSPECTOR_ROLES;
 
 // allowedRoles da pagina "Contratos". ACESSO UNIFICADO (2026-07-15): todo papel
 // nao-PROSPECTOR ve e gerencia TUDO (Contratos + Financeiro; escopo aberto, sem

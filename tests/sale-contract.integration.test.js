@@ -2014,16 +2014,16 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('Financeiro (escopo aberto): COMMERCIAL vê TODOS os fechamentos, co-corretores visíveis', async () => {
-    const { actor: myActor, brokerId: myBrokerId } =
-      await createCommercialBrokerUser('Corretor Fin');
+  test('Financeiro (escopo aberto): ADMIN vê TODOS os fechamentos, co-corretores visíveis', async () => {
+    const { brokerId: myBrokerId } = await createCommercialBrokerUser('Corretor Fin');
     const mine = await setupConfirmedContractWithBroker({
       lotNumber: '23021',
       brokerId: myBrokerId,
     });
     const other = await setupConfirmedContract({ lotNumber: '23022' }); // corretor = TEST_BROKER
 
-    const res = await saleContractService.listBrokerReceivables({}, myActor);
+    // RC-D3: a carteira e ADMIN-only; o ESCOPO dentro dela segue aberto.
+    const res = await saleContractService.listBrokerReceivables({}, adminActor);
     assert.equal(res.items.length, 2);
     assert.ok(res.items.some((i) => i.id === mine.contractId));
     assert.ok(
@@ -2036,24 +2036,23 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(res.totalCommission, 60);
   });
 
-  test('Financeiro (escopo aberto): COMMERCIAL sem Broker vinculado vê TODOS os fechamentos', async () => {
+  test('Financeiro (escopo aberto): ADMIN sem Broker vinculado vê TODOS os fechamentos', async () => {
     const { contractId } = await setupConfirmedContract({ lotNumber: '23023' });
-    const orphan = { ...commercialActor, actorUserId: randomUUID() };
+    const orphan = { ...adminActor, actorUserId: randomUUID() };
     const res = await saleContractService.listBrokerReceivables({}, orphan);
     assert.equal(res.items.length, 1);
     assert.equal(res.items[0].id, contractId);
     assert.equal(res.totalCommission, 30);
   });
 
-  test('Financeiro (D136): total do COMMERCIAL = corretagem total dos fechamentos dele (sem rateio)', async () => {
-    const { actor: myActor, brokerId: myBrokerId } =
-      await createCommercialBrokerUser('Corretor Rateio');
+  test('Financeiro (D136): total = corretagem total dos fechamentos (sem rateio)', async () => {
+    const { brokerId: myBrokerId } = await createCommercialBrokerUser('Corretor Rateio');
     // contrato dividido entre ele e o TEST_BROKER: corretagem 30, 2 corretores (sem ÷N)
     const shared = await setupContractWithBrokers({
       lotNumber: '23024',
       brokerIds: [myBrokerId, TEST_BROKER_ID],
     });
-    const res = await saleContractService.listBrokerReceivables({}, myActor);
+    const res = await saleContractService.listBrokerReceivables({}, adminActor);
     const item = res.items.find((i) => i.id === shared.contractId);
     assert.ok(item);
     assert.equal(item.commissionTotal, 30); // corretagem cheia do contrato (2 lados)
@@ -2062,9 +2061,8 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(res.totalCommission, 30); // corretagem TOTAL dos fechamentos dele (NÃO ÷N)
   });
 
-  test('Financeiro (escopo aberto): COMMERCIAL busca por corretor acha contratos de todos', async () => {
-    const { actor: myActor, brokerId: myBrokerId } =
-      await createCommercialBrokerUser('Corretor Busca');
+  test('Financeiro (escopo aberto): busca por corretor acha contratos de todos', async () => {
+    const { brokerId: myBrokerId } = await createCommercialBrokerUser('Corretor Busca');
     await setupConfirmedContractWithBroker({ lotNumber: '23025', brokerId: myBrokerId });
     // contrato de OUTRO corretor (Mariana), em que ele NÃO está
     const marianaId = randomUUID();
@@ -2076,19 +2074,26 @@ if (!databaseUrl || !databaseReachable) {
       brokerId: marianaId,
     });
 
-    // Escopo aberto: COMMERCIAL busca "mariana" → acha o contrato dela.
-    const res = await saleContractService.listBrokerReceivables({ search: 'mariana' }, myActor);
+    // Escopo aberto: busca "mariana" → acha o contrato dela.
+    const res = await saleContractService.listBrokerReceivables({ search: 'mariana' }, adminActor);
     assert.ok(res.items.some((i) => i.id === alheio.contractId));
   });
 
-  test('Financeiro (acesso unificado): REGISTRATION acessa; só PROSPECTOR → 403', async () => {
-    const reg = { ...commercialActor, role: 'REGISTRATION', actorUserId: randomUUID() };
-    assert.ok(Array.isArray((await saleContractService.listBrokerReceivables({}, reg)).items));
-    const prospector = { ...commercialActor, role: 'PROSPECTOR', actorUserId: randomUUID() };
-    await assert.rejects(
-      () => saleContractService.listBrokerReceivables({}, prospector),
-      /not allowed/
+  test('Financeiro (RC-D3): só ADMIN acessa a carteira; demais não-PROSPECTOR → 403', async () => {
+    assert.ok(
+      Array.isArray((await saleContractService.listBrokerReceivables({}, adminActor)).items)
     );
+    // A carteira consolidada saiu do acesso unificado (RC-D3). O dinheiro em si
+    // NAO ficou reservado: o detalhe do contrato segue devolvendo valores e
+    // corretagem pra todos (RC-D4) — o gate e de rota, nao de campo.
+    for (const role of ['COMMERCIAL', 'REGISTRATION', 'CLASSIFIER', 'CADASTRO', 'PROSPECTOR']) {
+      const actor = { ...commercialActor, role, actorUserId: randomUUID() };
+      await assert.rejects(
+        () => saleContractService.listBrokerReceivables({}, actor),
+        /not allowed/,
+        `${role} nao deve acessar a carteira`
+      );
+    }
   });
 
   test('Financeiro: inclui fechamento SEM corretagem (P24/D92) com commissionTotal 0', async () => {
@@ -2570,7 +2575,8 @@ if (!databaseUrl || !databaseReachable) {
     );
 
     // Acesso unificado (2026-07-15): REGISTRATION (e demais não-PROSPECTOR) acessa;
-    // só o PROSPECTOR → 403 (gate FINANCEIRO_ROLES = NON_PROSPECTOR_ROLES).
+    // só o PROSPECTOR → 403 (gate PAYMENT_FEED_ROLES = NON_PROSPECTOR_ROLES —
+    // RC-D5: o feed do calendário NÃO acompanhou a carteira pro ADMIN-only).
     const reg = { ...commercialActor, role: 'REGISTRATION', actorUserId: randomUUID() };
     const regEvents = await saleContractService.getDashboardPaymentEvents(
       { from: '2026-07-13', to: '2026-07-26' },

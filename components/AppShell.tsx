@@ -15,6 +15,7 @@ import { CameraSheetProvider } from '../lib/camera-sheet/CameraSheetProvider';
 import { changePasswordSchema } from '../lib/form-schemas';
 import {
   CONTRATOS_ROLES,
+  FINANCEIRO_ROLES,
   getRoleLabel,
   INFORME_ROLES,
   isAdmin,
@@ -94,6 +95,15 @@ const CONTRATOS_NAV_ITEM = {
   href: '/contratos',
   label: 'Contratos',
   icon: 'contratos' as NavIcon,
+} as const;
+
+// RC-D1/RC-D3: o Financeiro voltou a ser pagina propria, gated ADMIN. O icone
+// 'financeiro' do NavIcon estava orfao desde o split de 2026-07-13, quando a
+// pagina virou sub-aba.
+const FINANCEIRO_NAV_ITEM = {
+  href: '/financeiro',
+  label: 'Financeiro',
+  icon: 'financeiro' as NavIcon,
 } as const;
 
 const EMBARQUES_NAV_ITEM = {
@@ -473,7 +483,7 @@ export function AppShell({
       : session.user.username;
   // Navegacao principal (desktop) montada por papel. Ordem (pedido do usuario):
   // Inicio / Lotes (base) -> Relatorios (INFORME_ROLES) -> Cadastros (todo
-  // nao-PROSPECTOR) -> Contratos/Embarques -> Usuarios (ADMIN). Itens
+  // nao-PROSPECTOR) -> Contratos/Financeiro/Embarques -> Usuarios (ADMIN). Itens
   // condicionais somem por papel mantendo essa ordem relativa.
   const desktopNavItems = prospector
     ? DESKTOP_NAV_ITEMS.filter((item) => item.href === '/dashboard')
@@ -481,10 +491,11 @@ export function AppShell({
         ...DESKTOP_NAV_ITEMS,
         ...(isRoleAllowed(session.user.role, INFORME_ROLES) ? [INFORME_NAV_ITEM] : []),
         CADASTROS_NAV_ITEM,
-        // 2 páginas de contrato (SPLIT 2026-07-13): "Contratos" (Contratos+Financeiro)
-        // p/ ADMIN/COMMERCIAL; "Embarques" (Embarque+Aprovações) p/ todos os
-        // não-PROSPECTOR. Usuários segue ADMIN-only.
+        // RC-D1/RC-D3: "Contratos" p/ todo não-PROSPECTOR e "Financeiro" (página
+        // própria de novo) só p/ ADMIN. "Embarques" segue por ora — a rota morre na
+        // sequência desta fase. Usuários segue ADMIN-only.
         ...(isRoleAllowed(session.user.role, CONTRATOS_ROLES) ? [CONTRATOS_NAV_ITEM] : []),
+        ...(isRoleAllowed(session.user.role, FINANCEIRO_ROLES) ? [FINANCEIRO_NAV_ITEM] : []),
         ...(isRoleAllowed(session.user.role, NON_PROSPECTOR_ROLES) ? [EMBARQUES_NAV_ITEM] : []),
         ...(isAdmin(session.user.role) ? [ADMIN_NAV_ITEM] : []),
       ];

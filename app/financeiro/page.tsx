@@ -1,10 +1,47 @@
-import { redirect } from 'next/navigation';
+'use client';
 
-// A pagina Financeiro foi unificada como sub-aba do hub /contratos (Central de
-// Contratos, F1/CC3). Mantido como redirect server-side pra bookmarks, links
-// antigos e deep-links continuarem resolvendo (roda no RSC antes do AppShell
-// montar — sem loop nem flicker), molde do /resumo -> /informe. Ver
-// docs/Contratos-Visao-Geral.md (§2.1).
-export default function FinanceiroRedirect() {
-  redirect('/contratos?tab=financeiro');
+import { Suspense } from 'react';
+
+import { AppShell } from '../../components/AppShell';
+import { FinanceiroPanel } from '../../components/financeiro/FinanceiroPanel';
+import { FINANCEIRO_ROLES } from '../../lib/roles';
+import { useRequireAuth } from '../../lib/use-auth';
+
+// RC-D1/RC-D3 (2026-07-27): o Financeiro DEIXA de ser sub-aba do hub /contratos
+// (onde a CC3 o pos, em 2026-07-13) e volta a ser PAGINA PROPRIA — agora gated
+// em ADMIN, a primeira rota ADMIN-only do dominio de contratos.
+//
+// RC-D4: o gate e de ROTA, nao de campo. Quem nao e ADMIN segue vendo valores e
+// corretagem DENTRO do contrato; o que fica reservado e a carteira consolidada.
+// E o "Pago", que morava so aqui, voltou pro card da lista (RC-D22) — sem isso
+// 4 dos 5 papeis perderiam o fim do ciclo do dinheiro.
+//
+// RC-D24: a pagina nasce com o PAINEL INTACTO, so trocando de casca — o chrome
+// institucional FV vem na RC-F6, junto com /contratos.
+function FinanceiroPageInner() {
+  const { session, loading, logout, setSession } = useRequireAuth({
+    allowedRoles: FINANCEIRO_ROLES,
+  });
+
+  if (loading || !session) return null;
+
+  return (
+    <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
+      <section className="clients-page-v2 ctr-page">
+        {/* RD16: sem header verde de pagina — o chrome mobile e unico e mora no
+            AppShell (.fv-mtopbar: titulo da rota + camera + avatar). O titulo
+            sai do item de nav, sem mapa proprio. */}
+        <FinanceiroPanel session={session} />
+      </section>
+    </AppShell>
+  );
+}
+
+// O painel le `?highlight=` (chip do calendario) — useSearchParams exige Suspense.
+export default function FinanceiroPage() {
+  return (
+    <Suspense fallback={null}>
+      <FinanceiroPageInner />
+    </Suspense>
+  );
 }
