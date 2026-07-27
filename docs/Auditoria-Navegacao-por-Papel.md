@@ -17,7 +17,7 @@
 >    so o CLASSIFIER). O slot central da camera saiu (CAM-P3).
 > 3. **A sidenav desktop mudou com o RD13:** os itens sao Inicio · Lotes ·
 >    Relatorios (condicional) · Cadastros · Contratos (`CONTRATOS_ROLES`) ·
->    **Embarques** (`NON_PROSPECTOR_ROLES`, ausente do corpo deste doc) · Usuarios
+>    **Embarques** (`NON_PROSPECTOR_ROLES`, ausente do corpo deste doc) · Usuários
 >    (ADMIN). "Clientes" nao existe mais como item — foi absorvido por Cadastros. E
 >    tres secoes ganharam **sub-itens expansiveis** (`NAV_SUB_ITEMS`): Lotes →
 >    Lotes/**Simulador**, Cadastros → Clientes/Corretores, Contratos →
@@ -229,7 +229,7 @@ mobile, `>= 901` = desktop).
 > no DSB-D16) mora no **shell**: `<h1 class="app-page-title">` no topo do
 > `.app-shell-main` (desktop nao-PROSPECTOR), **dentro da pagina** — texto = o
 > **rotulo do item de nav ativo** (Inicio, Lotes, Clientes, Relatorios,
-> Cadastros, Contratos, Embarques, Usuarios), so nas **8 rotas principais**
+> Cadastros, Contratos, Embarques, Usuários), so nas **8 rotas principais**
 > (match exato de pathname; detalhes e Perfil mantem headers proprios).
 > **Alinhamento vertical exato com o botao "Inicio"** da sidenav via tokens
 > compartilhados `--app-nav-row-top` (0.9rem) + `--app-nav-row-h` (34px),
@@ -241,7 +241,7 @@ mobile, `>= 901` = desktop).
 
 Itens definidos em `AppShell.tsx`: `DESKTOP_NAV_ITEMS` (Inicio/Lotes/Clientes),
 `INFORME_NAV_ITEM` (Relatorios), `CADASTROS_NAV_ITEM`, `CONTRATOS_NAV_ITEM`,
-`ADMIN_NAV_ITEM` (Usuarios), `MOBILE_NAV_ITEMS` (inclui Camera). A filtragem por
+`ADMIN_NAV_ITEM` (Usuários), `MOBILE_NAV_ITEMS` (inclui Camera). A filtragem por
 papel da sidenav (desktop) fica em `desktopNavItems` (`AppShell.tsx`), a da tabbar no
 `<MobileTabbar items={...} />`, e a do menu do avatar no `HeaderAvatarMenu.tsx`.
 Os icones (`renderNavIcon`) servem a tabbar mobile E a sidenav desktop (DSB-D15
@@ -277,7 +277,7 @@ viam Cadastros.)_
 | `/contratos`                                                                                  | Contratos (gestão — sub-abas Contratos·Financeiro)  | `CONTRATOS_ROLES` (todos menos PROSPECTOR). Nav "Contratos".                                    |
 | `/embarques`                                                                                  | Embarques (operação — sub-abas Embarque·Aprovações) | `NON_PROSPECTOR_ROLES` (todos menos PROSPECTOR). Nav "Embarques". Abre em Embarque.             |
 | `/financeiro`                                                                                 | → redirect para `/contratos?tab=financeiro`         | (redirect server-side)                                                                          |
-| `/users`                                                                                      | Usuarios                                            | ADMIN                                                                                           |
+| `/users`                                                                                      | Usuários                                            | ADMIN                                                                                           |
 
 Middleware (`middleware.ts`): modo manutencao redireciona nao-ADMIN para
 `/maintenance`; PROSPECTOR fora do seu app (`/dashboard`, `/profile`,
@@ -429,7 +429,7 @@ gestão de **Contratos** e o **Financeiro** já eram seus (`CONTRATOS_ROLES` /
 | Perfil     | `/profile`    | Menu do avatar | Menu do avatar                    |
 | Sair       | logout        | Menu do avatar | Menu do avatar                    |
 
-Contagem (ACESSO UNIFICADO 2026-07-15 = ADMIN menos "Usuarios"):
+Contagem (ACESSO UNIFICADO 2026-07-15 = ADMIN menos "Usuários"):
 
 - **Sidenav desktop: 6 itens** — Inicio, Lotes, Relatorios, Cadastros, Contratos,
   Embarques. (Trocou "Clientes" avulso por "Cadastros" em 2026-07-15.)
@@ -479,11 +479,11 @@ esta — mapeamento detalhado adiado.
 Papel operacional de classificacao. Sem app restrito (acessa amostras/clientes/camera
 como os demais nao-prospectores). Com o **ACESSO UNIFICADO (2026-07-15)** deixou de ser
 o papel "sem Relatorios/sem gestao": passou a ver **Relatorios** (viewer), **Cadastros**,
-**Contratos** e **Financeiro** — a nav ficou igual a do ADMIN **menos "Usuarios"**.
+**Contratos** e **Financeiro** — a nav ficou igual a do ADMIN **menos "Usuários"**.
 
 ### Onde navega (por superficie)
 
-Nav = a do ADMIN **menos "Usuarios"** (ACESSO UNIFICADO 2026-07-15 — ver a seção ADMIN):
+Nav = a do ADMIN **menos "Usuários"** (ACESSO UNIFICADO 2026-07-15 — ver a seção ADMIN):
 
 | Destino    | Rota          | Desktop        | Mobile                            |
 | ---------- | ------------- | -------------- | --------------------------------- |
@@ -531,7 +531,7 @@ Contagem: **sidenav 6** (Inicio, Lotes, Relatorios, Cadastros, Contratos, Embarq
 ### Diferenca para o COMMERCIAL
 
 Desde o **ACESSO UNIFICADO (2026-07-15)** a **navegacao e identica** (ambos = ADMIN
-menos "Usuarios"; sidenav 6, tabbar 5, avatar mobile 5). A diferenca e so de
+menos "Usuários"; sidenav 6, tabbar 5, avatar mobile 5). A diferenca e so de
 **conteudo/atribuicao**, fora da navegacao: o Comercial pode ser **responsavel
 comercial de cliente** (`isCommercialRole`); o Classifier pode ser registrado como
 **responsavel de uma classificacao** (`CLASSIFIERS_*`). Ambos sao viewers em
@@ -543,7 +543,7 @@ Papel ligado a impressao/registro. **Na pratica existe para o agente de
 impressao** (envio dos dados de etiqueta) — nao e um papel de uso humano no app,
 o que explica a ausencia de UI propria. A navegacao segue **identica a do
 Classifier** e, com o **ACESSO UNIFICADO (2026-07-15)**, igual a do ADMIN **menos
-"Usuarios"**.
+"Usuários"**.
 
 _(Histórico: **saiu de `INFORME_ROLES` em 2026-07-10** — até então caía num placeholder
 vazio em `/relatorios`; foi **reintegrado como viewer pleno pelo acesso unificado de
@@ -551,7 +551,7 @@ vazio em `/relatorios`; foi **reintegrado como viewer pleno pelo acesso unificad
 
 ### Onde navega (por superficie)
 
-Nav = a do ADMIN **menos "Usuarios"** (ACESSO UNIFICADO 2026-07-15; mesma do Classifier):
+Nav = a do ADMIN **menos "Usuários"** (ACESSO UNIFICADO 2026-07-15; mesma do Classifier):
 
 | Destino    | Rota          | Desktop                       | Mobile                            |
 | ---------- | ------------- | ----------------------------- | --------------------------------- |
@@ -593,7 +593,7 @@ Contagem: **sidenav 6**, **tabbar 5** (Inicio, Lotes, Camera, Cadastros, Relator
 ### Diferenca para o COMMERCIAL
 
 Desde o **ACESSO UNIFICADO (2026-07-15)** a **navegacao e identica** (ambos = ADMIN
-menos "Usuarios"). A unica diferenca vive **fora da navegacao**: o Comercial pode ser
+menos "Usuários"). A unica diferenca vive **fora da navegacao**: o Comercial pode ser
 **responsavel comercial de cliente** (`isCommercialRole`); o REGISTRATION nao. Ambos sao
 viewers em Relatorios e gerenciam Contratos/Financeiro/Cadastros por igual.
 
@@ -605,12 +605,12 @@ nao-prospectores) e tem o hub **Cadastros** — que concentra 2 abas:
 Bancos saiu na D141). O item "Clientes" avulso saiu da nav (ele acessa os clientes
 pela aba Clientes do `/cadastros`; a rota `/clients` continua liberada por URL). Com
 o **ACESSO UNIFICADO (2026-07-15)** ganhou **Relatorios** (viewer), a **gestao
-`/contratos`** e o **Financeiro** — a nav ficou igual a do ADMIN **menos "Usuarios"**
+`/contratos`** e o **Financeiro** — a nav ficou igual a do ADMIN **menos "Usuários"**
 (`/users`, exclusivo do ADMIN, e a unica rota bloqueada).
 
 ### Onde navega (por superficie)
 
-Nav = a do ADMIN **menos "Usuarios"** (ACESSO UNIFICADO 2026-07-15):
+Nav = a do ADMIN **menos "Usuários"** (ACESSO UNIFICADO 2026-07-15):
 
 | Destino    | Rota          | Desktop                       | Mobile                            |
 | ---------- | ------------- | ----------------------------- | --------------------------------- |
@@ -678,7 +678,7 @@ Contratos, Embarques, Sair). Antes de 2026-07-15 eram 4 na sidenav (sem Relatori
 ### Diferenca para o COMMERCIAL
 
 Desde o **ACESSO UNIFICADO (2026-07-15)** a **navegacao e identica** (ambos = ADMIN
-menos "Usuarios"; sidenav 6 Inicio/Lotes/Relatorios/Cadastros/Contratos/Embarques,
+menos "Usuários"; sidenav 6 Inicio/Lotes/Relatorios/Cadastros/Contratos/Embarques,
 tabbar 5, avatar mobile 5). Convergiram: o CADASTRO ganhou Relatorios/Contratos/
 Financeiro e o Comercial ganhou Cadastros e perdeu o "Clientes" avulso. A unica
 diferenca vive **fora da navegacao**: so o Comercial pode ser **responsavel comercial
@@ -688,7 +688,7 @@ avulso + Relatorios — ate o acesso unificado reuni-los.)_
 
 ## ADMIN — "Administracao"
 
-Acesso total — superconjunto de todos os papeis. **Unico que ve Usuarios** (`/users`)
+Acesso total — superconjunto de todos os papeis. **Unico que ve Usuários** (`/users`)
 — a unica pagina que o distingue dos demais nao-PROSPECTOR desde o **ACESSO UNIFICADO
 (2026-07-15)**. Em Relatorios e viewer + criador, capacidades que agora valem
 para todo nao-PROSPECTOR. Nenhuma rota bloqueada.
@@ -704,7 +704,7 @@ para todo nao-PROSPECTOR. Nenhuma rota bloqueada.
 | Cadastros  | `/cadastros`  | Sidenav                       | Tabbar (4o slot) + menu do avatar |
 | Contratos  | `/contratos`  | Sidenav                       | Menu do avatar                    |
 | Embarques  | `/embarques`  | Sidenav                       | Menu do avatar                    |
-| Usuarios   | `/users`      | Sidenav                       | Menu do avatar                    |
+| Usuários   | `/users`      | Sidenav                       | Menu do avatar                    |
 | Perfil     | `/profile`    | Menu do avatar ("Meu perfil") | Menu do avatar                    |
 | Sair       | logout        | Menu do avatar                | Menu do avatar                    |
 
@@ -714,13 +714,13 @@ do `/cadastros`** (e segue acessivel por URL). Ver "Particularidades de conteudo
 Contagem:
 
 - **Sidenav desktop: 7 itens** — Inicio, Lotes, Relatorios, Cadastros, Contratos,
-  Embarques, Usuarios. (Perdeu Clientes avulso em 2026-07-02; ganhou Embarques no
+  Embarques, Usuários. (Perdeu Clientes avulso em 2026-07-02; ganhou Embarques no
   split de 2026-07-13; segue a sidenav mais cheia.)
 - **Tabbar mobile: 5 itens** — Inicio, Lotes, Camera, **Cadastros**, Relatorios. O
   4o slot fixo (que era Clientes) vira Cadastros para o ADMIN (2026-07-02);
-  Contratos/Embarques/Usuarios continuam so no menu do avatar.
+  Contratos/Embarques/Usuários continuam so no menu do avatar.
 - **Menu do avatar:** assimetrico. No **desktop** sao 2 itens (Meu perfil, Sair) —
-  a gestao esta na sidenav. No **mobile** sao 6 itens (Perfil, Usuarios,
+  a gestao esta na sidenav. No **mobile** sao 6 itens (Perfil, Usuários,
   Cadastros, Contratos, Embarques, Sair) — sem sidenav, o menu carrega toda a
   gestao; Cadastros aparece TANTO no 4o slot da tabbar QUANTO no menu do avatar
   (redundancia introduzida em 2026-07-02).
@@ -756,10 +756,10 @@ Contagem:
 
 ### Diferenca para o CADASTRO
 
-Desde o **ACESSO UNIFICADO (2026-07-15)** ADMIN = CADASTRO **+ apenas Usuarios**: a nav
-e identica exceto pelo item **Usuarios** (so ADMIN). Ambos sao viewers + criadores em Relatorios e gerenciam Cadastros/Contratos/Financeiro/Embarques por igual;
-ambos acessam clientes pela aba Clientes do Cadastros. **Sidenav 7 vs 6** (so Usuarios a
-mais); tabbar 5 vs 5 iguais; menu do avatar no mobile 6 vs 5 (so Usuarios a mais).
+Desde o **ACESSO UNIFICADO (2026-07-15)** ADMIN = CADASTRO **+ apenas Usuários**: a nav
+e identica exceto pelo item **Usuários** (so ADMIN). Ambos sao viewers + criadores em Relatorios e gerenciam Cadastros/Contratos/Financeiro/Embarques por igual;
+ambos acessam clientes pela aba Clientes do Cadastros. **Sidenav 7 vs 6** (so Usuários a
+mais); tabbar 5 vs 5 iguais; menu do avatar no mobile 6 vs 5 (so Usuários a mais).
 
 ---
 
@@ -778,13 +778,13 @@ Observacoes neutras do mapeamento, sem juizo de "certo/errado":
 3. **Redirects silenciosos.** `/settings` -> `/profile` e `/resumo` -> `/relatorios`.
 4. **O menu do avatar muda de conteudo por plataforma.** No DESKTOP (dropdown do
    topbar, no `AppShell`) traz sempre so "Meu perfil" + "Sair" — a gestao
-   (Cadastros/Contratos/Embarques/Usuarios) fica na sidenav. No MOBILE (bottom sheet
+   (Cadastros/Contratos/Embarques/Usuários) fica na sidenav. No MOBILE (bottom sheet
    `HeaderAvatarMenu`) nao ha sidenav, entao o menu do avatar TAMBEM carrega o que la
    ficaria. Desde o **ACESSO UNIFICADO (2026-07-15)** esse conjunto e o mesmo para todo
    nao-PROSPECTOR: "Cadastros" (`/cadastros`) + "Contratos" (`/contratos`) + "Embarques"
-   (`/embarques`); so o ADMIN acrescenta "Usuarios". Assim, no mobile, todo nao-ADMIN tem
+   (`/embarques`); so o ADMIN acrescenta "Usuários". Assim, no mobile, todo nao-ADMIN tem
    **5 itens** no avatar (Perfil + Cadastros + Contratos + Embarques + Sair) e o ADMIN
-   **6** (+ Usuarios), contra 2 no desktop (Perfil + Sair). Cadastros aparece em DOIS
+   **6** (+ Usuários), contra 2 no desktop (Perfil + Sair). Cadastros aparece em DOIS
    lugares no mobile (4o slot da tabbar + menu do avatar).
 5. **Todo nao-PROSPECTOR ve Relatorios (ACESSO UNIFICADO 2026-07-15).** Antes,
    CLASSIFIER (nunca teve) e CADASTRO (removido em 2026-06-28) ficavam fora de
@@ -794,7 +794,7 @@ NON_PROSPECTOR_ROLES`, os cinco papeis tem Relatorios e o 5o slot da tabbar e
 6. **CLASSIFIER e REGISTRATION tem a MESMA navegacao.** Ambos estao em
    `NON_PROSPECTOR_ROLES` e, desde o ACESSO UNIFICADO (2026-07-15), com a nav completa
    (sidenav 6, tabbar 5 com Relatorios no 5o slot, avatar mobile 5) — a do ADMIN menos
-   "Usuarios". _(Historico: ate 2026-07-15 ambos ficavam fora de `INFORME_ROLES`, com
+   "Usuários". _(Historico: ate 2026-07-15 ambos ficavam fora de `INFORME_ROLES`, com
    sidenav 4 e Perfil no 5o slot; ate 2026-07-10 o REGISTRATION caia num placeholder
    vazio em `/relatorios`.)_
 7. **Split Clientes (operacao) x Cadastros (gestao) — 2026-07-02, universalizado em
