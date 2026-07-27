@@ -24,16 +24,18 @@ import {
   type ConnectionRejectionReason,
   type ConnectionVerdict,
 } from '../../lib/playground/graph';
-import { mockLotIndex } from '../../lib/playground/mock-lots';
+import { createApiLotSource } from '../../lib/playground/lot-source';
 import { runSimulation } from '../../lib/playground/simulation';
 import type { PgGraphEdge, PgGraphNode, PgNodeType } from '../../lib/playground/types';
 import { useToast } from '../../lib/toast/ToastProvider';
+import type { SampleSnapshot, SessionData } from '../../lib/types';
 import { ConnectMenu, type ConnectMenuState } from './ConnectMenu';
 import { ExecutePill } from './ExecutePill';
 import { NodePalette } from './NodePalette';
 import { ResultDrawer } from './ResultDrawer';
+import { PlaygroundLotsContext, type PlaygroundLots } from './lots-context';
 import { PlaygroundResultsContext, type PlaygroundResults } from './results-context';
-import { LoteNode } from './nodes/LoteNode';
+import { LoteNode, type LoteNodeData } from './nodes/LoteNode';
 import { MisturaNode } from './nodes/MisturaNode';
 import { ResultadoNode } from './nodes/ResultadoNode';
 
@@ -61,7 +63,7 @@ const COMPATIBLE_TARGETS: Partial<Record<PgNodeType, PgNodeType[]>> = {
 };
 
 function initialNodeData(type: PgNodeType): Record<string, unknown> {
-  if (type === 'lote') return { sampleId: null, sacks: null };
+  if (type === 'lote') return { sampleId: null, sacks: null, sample: null };
   return {};
 }
 
@@ -82,7 +84,22 @@ function toGraph(nodes: Node[], edges: Edge[]): { nodes: PgGraphNode[]; edges: P
   };
 }
 
-export function PlaygroundCanvas() {
+/**
+ * Índice de lotes que os módulos puros consomem — DERIVADO dos nodes, porque
+ * o snapshot mora no `data` de cada node Lote desde a troca dos mocks pela
+ * busca real. Antes era o `mockLotIndex` estático.
+ */
+function collectLots(nodes: Node[]): ReadonlyMap<string, SampleSnapshot> {
+  const lots = new Map<string, SampleSnapshot>();
+  for (const node of nodes) {
+    if (node.type !== 'lote') continue;
+    const { sample } = node.data as LoteNodeData;
+    if (sample) lots.set(sample.id, sample);
+  }
+  return lots;
+}
+
+export function PlaygroundCanvas({ session }: { session: SessionData }) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const { screenToFlowPosition } = useReactFlow();
@@ -101,11 +118,30 @@ export function PlaygroundCanvas() {
   const outcomes = useMemo(() => {
     if (!hasExecuted) return null;
     const graph = toGraph(nodes, edges);
-    return runSimulation(graph.nodes, graph.edges, mockLotIndex, stubEngine);
+    return runSimulation(graph.nodes, graph.edges, collectLots(nodes), stubEngine);
   }, [nodes, edges, hasExecuted]);
   const resultsValue = useMemo<PlaygroundResults>(
     () => ({ outcomes, openDrawer: setDrawerResultId }),
     [outcomes]
+  );
+
+  // Fonte de lotes: uma por sessão. Recriar a cada render faria a busca do
+  // node reagir como se o termo tivesse mudado (o `source` é dependência do
+  // efeito de busca) e cada tecla dispararia duas requisições.
+  const lotSource = useMemo(() => createApiLotSource(session), [session]);
+  const lotsValue = useMemo<PlaygroundLots>(
+    () => ({
+      source: lotSource,
+      // PG46: o mesmo lote não entra duas vezes no canvas. Some da busca em
+      // vez de ser oferecido e recusado depois — e libera de volta quando o
+      // node que o segurava é apagado.
+      usedSampleIds: new Set(
+        nodes.flatMap((node) =>
+          node.type === 'lote' ? ((node.data as LoteNodeData).sample?.id ?? []) : []
+        )
+      ),
+    }),
+    [lotSource, nodes]
   );
 
   // Live region: anuncia o recálculo automático a leitores de tela.
@@ -254,47 +290,49 @@ export function PlaygroundCanvas() {
   );
 
   return (
-    <PlaygroundResultsContext.Provider value={resultsValue}>
-      <div className="pg-canvas-wrap" ref={hostRef} onDragOver={onDragOver} onDrop={onDrop}>
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={nodeTypes}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onConnectEnd={onConnectEnd}
-          isValidConnection={isValidConnection}
-          onPaneClick={() => setConnectMenu(null)}
-          deleteKeyCode={['Backspace', 'Delete']}
-          minZoom={0.3}
-          maxZoom={2}
-        >
-          <Background variant={BackgroundVariant.Dots} gap={22} size={1.5} color="#d3cec2" />
-          <Controls showInteractive={false} />
-          <ExecutePill onExecute={onExecute} disabled={nodes.length === 0} />
-        </ReactFlow>
-        <NodePalette onAdd={addNodeAtCenter} />
-        {nodes.length === 0 ? (
-          <p className="pg-empty-hint">Arraste um Lote da paleta para começar</p>
-        ) : null}
-        {connectMenu ? (
-          <ConnectMenu
-            state={connectMenu}
-            onPick={onPickFromConnectMenu}
-            onClose={() => setConnectMenu(null)}
-          />
-        ) : null}
-        {drawerResultId ? (
-          <ResultDrawer
-            outcome={outcomes?.get(drawerResultId) ?? null}
-            onClose={() => setDrawerResultId(null)}
-          />
-        ) : null}
-        <p className="pg-live-region" role="status" aria-live="polite">
-          {announcement}
-        </p>
-      </div>
-    </PlaygroundResultsContext.Provider>
+    <PlaygroundLotsContext.Provider value={lotsValue}>
+      <PlaygroundResultsContext.Provider value={resultsValue}>
+        <div className="pg-canvas-wrap" ref={hostRef} onDragOver={onDragOver} onDrop={onDrop}>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onConnectEnd={onConnectEnd}
+            isValidConnection={isValidConnection}
+            onPaneClick={() => setConnectMenu(null)}
+            deleteKeyCode={['Backspace', 'Delete']}
+            minZoom={0.3}
+            maxZoom={2}
+          >
+            <Background variant={BackgroundVariant.Dots} gap={22} size={1.5} color="#d3cec2" />
+            <Controls showInteractive={false} />
+            <ExecutePill onExecute={onExecute} disabled={nodes.length === 0} />
+          </ReactFlow>
+          <NodePalette onAdd={addNodeAtCenter} />
+          {nodes.length === 0 ? (
+            <p className="pg-empty-hint">Arraste um Lote da paleta para começar</p>
+          ) : null}
+          {connectMenu ? (
+            <ConnectMenu
+              state={connectMenu}
+              onPick={onPickFromConnectMenu}
+              onClose={() => setConnectMenu(null)}
+            />
+          ) : null}
+          {drawerResultId ? (
+            <ResultDrawer
+              outcome={outcomes?.get(drawerResultId) ?? null}
+              onClose={() => setDrawerResultId(null)}
+            />
+          ) : null}
+          <p className="pg-live-region" role="status" aria-live="polite">
+            {announcement}
+          </p>
+        </div>
+      </PlaygroundResultsContext.Provider>
+    </PlaygroundLotsContext.Provider>
   );
 }

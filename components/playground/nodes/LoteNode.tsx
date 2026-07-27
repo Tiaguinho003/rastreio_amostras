@@ -2,10 +2,18 @@
 
 import { Handle, Position, useReactFlow, type NodeProps } from '@xyflow/react';
 
-import { mockLotIndex } from '../../../lib/playground/mock-lots';
+import type { SampleSnapshot } from '../../../lib/types';
 import { LotSearchField } from '../LotSearchField';
 
-export type LoteNodeData = { sampleId: string | null; sacks: number | null };
+// O snapshot do lote mora no PRÓPRIO node desde a troca pela busca real: o
+// canvas não mantém mais um índice à parte (era o `mockLotIndex`), e o
+// `lotsById` que os módulos puros recebem é derivado dos nodes a cada
+// simulação. Um dono só para o dado.
+export type LoteNodeData = {
+  sampleId: string | null;
+  sacks: number | null;
+  sample: SampleSnapshot | null;
+};
 
 // Node Lote (PG29/PG30): recém-criado mostra a busca embutida; configurado
 // fica MÍNIMO (número + input de sacas), com dono/saldo/safra no hover e o
@@ -13,7 +21,7 @@ export type LoteNodeData = { sampleId: string | null; sacks: number | null };
 export function LoteNode({ id, data }: NodeProps) {
   const { updateNodeData } = useReactFlow();
   const typed = data as LoteNodeData;
-  const sample = typed.sampleId ? mockLotIndex.get(typed.sampleId) : undefined;
+  const sample = typed.sample;
 
   if (!sample) {
     return (
@@ -23,6 +31,7 @@ export function LoteNode({ id, data }: NodeProps) {
           onPick={(picked) =>
             updateNodeData(id, {
               sampleId: picked.id,
+              sample: picked,
               // Default = saldo físico total, como a liga real (F2.1).
               sacks: picked.availableSacks ?? null,
             })

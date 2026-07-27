@@ -3050,7 +3050,7 @@ function SamplesPage() {
         {tab === 'simulador' ? (
           isDesktop ? (
             <div className="pg-host">
-              <PlaygroundTab />
+              <PlaygroundTab session={session} />
             </div>
           ) : (
             <PlaygroundMobileNotice onVerLotes={() => selectTab('lotes')} />

@@ -5,8 +5,11 @@
 // de 620px no desktop ≥901px, sheet de tela cheia no mobile; quem controla o
 // param é o ContratosPanel). Coluna ÚNICA: o DOCUMENTO (PDF on-demand, D126 —
 // mesmo blob/iframe do antigo "Visualizar", que este modal absorveu) primeiro,
-// seções read-only na sequência. Exportar/Baixar acompanham a seção do
-// documento, em todos os status. O HISTÓRICO (timeline D125) fecha o overlay:
+// seções na sequência — read-only, MENOS Aprovação e Embarque, que desde a
+// RC-D25 carregam as ações que moravam na /embarques extinta ("Gerar etiqueta"
+// e "Confirmar embarque"; é a semente das fases da RC-F2). Exportar/Baixar
+// acompanham a seção do documento, em todos os status.
+// O HISTÓRICO (timeline D125) fecha o overlay:
 // linha = "há X tempo" + quem + o quê, com a data/hora exata de apoio (D119);
 // marcos legados (pré-D123) saem só com a data, sem autor. Rodapé = ações por
 // status (D121/D122): EMITIDO = Editar·Ágio·Deságio·Washout; FATURADO/PAGO =
@@ -20,6 +23,7 @@ import { createPortal } from 'react-dom';
 import {
   ApiError,
   downloadSaleContractPdf,
+  getApprovalLabelPrefill,
   getSaleContract,
   getSaleContractTimeline,
   listShipmentPhotos,
@@ -28,17 +32,21 @@ import {
 } from '../../lib/api-client';
 import { formatRelativeTime } from '../../lib/relative-time';
 import { downloadFile, shareOrDownloadFile } from '../../lib/share-blob';
+import { useToast } from '../../lib/toast/ToastProvider';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type {
   AgioDesagioType,
+  ApprovalLabelPrefill,
   SaleContract,
   SaleContractBrokerView,
   SaleContractTimelineItem,
   SessionData,
   ShipmentPhoto,
 } from '../../lib/types';
+import { ApprovalLabelModal } from '../ApprovalLabelModal';
 import { DetailOverlay } from '../DetailOverlay';
 import { STATUS_META, STATUS_TEXT_COLOR, STATUS_TINT } from './SaleContractCard';
+import { ShipmentConfirmationModal } from './ShipmentConfirmationModal';
 
 type SaleContractDetailsModalProps = {
   session: SessionData;
@@ -210,10 +218,21 @@ export function SaleContractDetailsModal({
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<{ blob: Blob; fileName: string } | null>(null);
   const [now] = useState(() => Date.now());
-  // EMB18: seção "Embarque" read-only — data real + galeria (ver ≠ confirmar; a
-  // confirmação mora na sub-aba/portão). Só busca quando o contrato exige embarque.
+  // Seção "Embarque": data real + galeria + a AÇÃO de confirmar (RC-D25 — a
+  // EMB18 mandava só ver, porque a casa da confirmação era a sub-aba; com
+  // /embarques extinta, a casa é aqui). Só busca quando o contrato exige embarque.
   const [shipmentPhotos, setShipmentPhotos] = useState<ShipmentPhoto[] | null>(null);
   const [photoPreview, setPhotoPreview] = useState<ShipmentPhoto | null>(null);
+  const [shipmentOpen, setShipmentOpen] = useState(false);
+  // RC-D25: geração da etiqueta de aprovação (revoga a AP29 — a sub-aba era "a
+  // única porta proativa"). Busca o prefill e abre o ApprovalLabelModal, molde
+  // do ex-AprovacoesPanel.
+  const [labelPrefill, setLabelPrefill] = useState<ApprovalLabelPrefill | null>(null);
+  const [labelBusy, setLabelBusy] = useState(false);
+  // Recarrega contrato + timeline + fotos depois de gerar etiqueta / confirmar
+  // embarque (os dois mudam o que as seções mostram).
+  const [reloadNonce, setReloadNonce] = useState(0);
+  const toast = useToast();
   // AP32: "Solicitar aprovação" — latch de mão única (mutação inline no Detalhes) +
   // confirmação (é definitivo). Substitui o toggle Sim/Não da AP23.
   const [approvalBusy, setApprovalBusy] = useState(false);
@@ -221,16 +240,17 @@ export function SaleContractDetailsModal({
   const [approvalConfirmOpen, setApprovalConfirmOpen] = useState(false);
   const approvalConfirmTrapRef = useFocusTrap(approvalConfirmOpen);
 
-  // F3 do redesign: com superficie interna aberta (confirm de aprovacao ou
-  // lightbox de foto), ESC/X do overlay NAO fecham o detalhe (molde do
-  // dismissGuardRef da F1 — ver DetailOverlay).
+  // F3 do redesign: com superficie interna aberta (confirm de aprovacao,
+  // lightbox de foto, etiqueta ou confirmacao de embarque), ESC/X do overlay
+  // NAO fecham o detalhe (molde do dismissGuardRef da F1 — ver DetailOverlay).
   const dismissGuardRef = useRef(false);
   useEffect(() => {
-    dismissGuardRef.current = approvalConfirmOpen || photoPreview != null;
+    dismissGuardRef.current =
+      approvalConfirmOpen || photoPreview != null || labelPrefill != null || shipmentOpen;
     return () => {
       dismissGuardRef.current = false;
     };
-  }, [approvalConfirmOpen, photoPreview]);
+  }, [approvalConfirmOpen, photoPreview, labelPrefill, shipmentOpen]);
 
   useEffect(() => {
     if (!open) return;
@@ -257,7 +277,7 @@ export function SaleContractDetailsModal({
     return () => {
       aborted = true;
     };
-  }, [open, session, contract.id]);
+  }, [open, session, contract.id, reloadNonce]);
 
   // EMB18: fotos do embarque (só quando o contrato exige — requiresShipment é imutável
   // desde a emissão, então o snapshot da lista basta para gatear).
@@ -274,7 +294,7 @@ export function SaleContractDetailsModal({
     return () => {
       aborted = true;
     };
-  }, [open, session, contract.id, contract.requiresShipment]);
+  }, [open, session, contract.id, contract.requiresShipment, reloadNonce]);
 
   useEffect(() => {
     if (!open) return;
@@ -315,6 +335,23 @@ export function SaleContractDetailsModal({
       setPdfError('Não foi possível compartilhar o documento.');
     } finally {
       setBusy(false);
+    }
+  }
+
+  // RC-D25: [Gerar etiqueta] busca o prefill e só então abre o modal (molde do
+  // ex-AprovacoesPanel). Falha vira toast — o overlay segue aberto.
+  async function handleOpenLabel() {
+    if (labelBusy) return;
+    setLabelBusy(true);
+    try {
+      setLabelPrefill(await getApprovalLabelPrefill(session, contract.id));
+    } catch (cause) {
+      toast.error({
+        title: 'Não foi possível abrir a etiqueta',
+        description: cause instanceof ApiError ? cause.message : undefined,
+      });
+    } finally {
+      setLabelBusy(false);
     }
   }
 
@@ -565,7 +602,25 @@ export function SaleContractDetailsModal({
               <section>
                 <h4 className="ctr-section-title">Aprovação</h4>
                 {view.requiresApproval ? (
-                  <FieldRows rows={[['Precisa de aprovação', 'Sim']]} />
+                  <>
+                    <FieldRows rows={[['Precisa de aprovação', 'Sim']]} />
+                    {/* RC-D25: a geração da etiqueta mora AQUI (revoga a AP29 —
+                        a sub-aba Aprovações era "a única porta proativa" e foi
+                        extinta). Reenvio é permitido (o log conta N×); só o
+                        washout tira o botão, como fazia a worklist. */}
+                    {canManage && view.status !== 'WASH_OUT' ? (
+                      <div className="ctr-details-actions">
+                        <button
+                          type="button"
+                          className="ctr-btn"
+                          disabled={labelBusy}
+                          onClick={handleOpenLabel}
+                        >
+                          {labelBusy ? 'Abrindo...' : 'Gerar etiqueta'}
+                        </button>
+                      </div>
+                    ) : null}
+                  </>
                 ) : (
                   // AP32: latch de mão única — botão "Solicitar aprovação" (só quando
                   // ainda "Não" + EMITIDO + gerencia); a confirmação é obrigatória.
@@ -590,6 +645,20 @@ export function SaleContractDetailsModal({
               <section>
                 <h4 className="ctr-section-title">Embarque</h4>
                 <FieldRows rows={shipmentRows} />
+                {/* RC-D25: confirmar o embarque mora AQUI (revoga EMB20/EMB26 —
+                    a casa era a sub-aba Embarque, extinta). Espelha o gate do
+                    backend: SHIPPABLE_STATUSES = EMITIDO|FATURADO e shippedAt
+                    nulo (sale-contract-shipment-service.js:14,194). O portão do
+                    pagar (EMB28) segue abrindo o mesmo modal reativamente. */}
+                {canManage &&
+                !view.shippedAt &&
+                (view.status === 'EMITIDO' || view.status === 'FATURADO') ? (
+                  <div className="ctr-details-actions">
+                    <button type="button" className="ctr-btn" onClick={() => setShipmentOpen(true)}>
+                      Confirmar embarque
+                    </button>
+                  </div>
+                ) : null}
                 {shipmentPhotos === null ? (
                   <p className="ctr-modal-loading">Carregando as fotos...</p>
                 ) : shipmentPhotos.length === 0 ? (
@@ -664,6 +733,31 @@ export function SaleContractDetailsModal({
           )}
         </section>
       </DetailOverlay>
+      {/* RC-D25: as duas superfícies que a extinção de /embarques trouxe pra cá.
+          Ambas seguram o dismissGuardRef enquanto abertas e, ao concluir,
+          bumpam o reloadNonce — contrato, timeline e fotos voltam frescos. */}
+      {labelPrefill ? (
+        <ApprovalLabelModal
+          open
+          session={session}
+          prefill={labelPrefill}
+          saleContractId={contract.id}
+          onSent={() => setReloadNonce((n) => n + 1)}
+          onClose={() => setLabelPrefill(null)}
+        />
+      ) : null}
+      {shipmentOpen ? (
+        <ShipmentConfirmationModal
+          session={session}
+          contractId={contract.id}
+          onClose={() => setShipmentOpen(false)}
+          onDone={() => {
+            setShipmentOpen(false);
+            setReloadNonce((n) => n + 1);
+            toast.success({ title: 'Embarque confirmado' });
+          }}
+        />
+      ) : null}
       {photoPreview
         ? createPortal(
             <div

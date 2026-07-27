@@ -29882,10 +29882,15 @@ body.is-selection-mode .ctr-page .cc-tabs {
 .pg-lot-search-list span {
   color: var(--brand-muted);
 }
-.pg-lot-search-empty {
+/* Estados da lista da busca real: "Buscando…", falha e vazio dividem a mesma
+   caixa; só o erro muda de cor. */
+.pg-lot-search-status {
   padding: 0.5rem 0.55rem;
   color: var(--brand-muted);
   font-size: 0.78rem;
+}
+.pg-lot-search-status.is-error {
+  color: var(--color-danger);
 }
 
 /* ── Paleta (PG26/PG34) ── */

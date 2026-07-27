@@ -4,11 +4,15 @@ import type {
 } from '../classification-form';
 import type { SampleSnapshot } from '../types';
 
-// Lotes MOCKADOS do protótipo do Playground — no contrato REAL
-// (SampleSnapshot + ClassificationDataPayload), para que a troca pela busca
-// real (F2) seja só de fonte, sem tocar em nenhum componente do canvas.
-// Todos elegíveis por PG9: status CLASSIFIED + availableSacks > 0.
-// Variedade deliberada: ficha completa, ficha com nulls, defeitos em texto
+// FIXTURE DE TESTE — não é mais a fonte do canvas. Estes lotes serviram de
+// mock ao protótipo; a busca real (`lot-source.ts`) os aposentou em produção,
+// e o `searchMockLots` que alimentava o picker foi apagado junto. O que
+// sobrou (`MOCK_LOTS` + `mockLotIndex`) é o fixture de graph/simulation, e
+// vale a pena manter: cobre casos que o banco de dev não tem à mão.
+//
+// Estão no contrato REAL (SampleSnapshot + ClassificationDataPayload) e todos
+// são elegíveis por PG9 (CLASSIFIED + availableSacks > 0). Variedade
+// deliberada: ficha completa, ficha com nulls, defeitos em texto
 // não-interpretável ("8-9", "<1", "1/2"), saldos 3–120, safras distintas,
 // donos iguais/distintos/ausentes e uma liga real (isBlend) como origem.
 
@@ -249,17 +253,3 @@ export const MOCK_LOTS: SampleSnapshot[] = [
 export const mockLotIndex: ReadonlyMap<string, SampleSnapshot> = new Map(
   MOCK_LOTS.map((lot) => [lot.id, lot])
 );
-
-/**
- * Busca do picker do node Lote (PG30) sobre os mocks — mesma assinatura da
- * busca real futura (número do lote por prefixo, dono por substring).
- */
-export function searchMockLots(term: string): SampleSnapshot[] {
-  const normalized = term.trim().toLowerCase();
-  if (!normalized) return MOCK_LOTS;
-  return MOCK_LOTS.filter((lot) => {
-    const byNumber = (lot.internalLotNumber ?? '').toLowerCase().startsWith(normalized);
-    const byOwner = (lot.declared.owner ?? '').toLowerCase().includes(normalized);
-    return byNumber || byOwner;
-  });
-}
