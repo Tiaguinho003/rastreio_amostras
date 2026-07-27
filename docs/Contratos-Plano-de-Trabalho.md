@@ -136,6 +136,64 @@ A derivação nasce **função pura compartilhada** front/back, no molde de `der
 - **118 testes de integração** cobrem o domínio; os dois portões estão em `:1038` e `:1073`. A suíte **trunca o banco local** — `db:seed` depois, sempre.
 - **Nenhum JSON Schema cobre contratos** — reorganizar não quebra nada validado em CI.
 
+### 5.8 Fluxo 1 — criação do contrato à vista (RC-D13..D20)
+
+> **Método (combinado 2026-07-27):** as decisões saem da **análise do fluxo, na ordem das ações do usuário** — um fluxo por vez, com layout e superfícies decididos junto. Este é o **primeiro**: do "+" até a emissão. Os status e ações seguintes (aprovação, embarque, faturamento, pagamento) vêm em sequência, depois.
+
+#### O fluxo hoje (medido no código)
+
+`ContractCreateRadialFab` (leque de 3: À vista · Espelho · Futuro) → `SaleContractLotPickerModal` (BottomSheet; lotes `displayStatus=OPEN`, busca com debounce de 300 ms, scroll infinito de 30) → hidrata o lote (`getSampleDetail`) → `SaleContractEtapa2Modal` **empilhado por cima** do picker (`stacked`), 7 blocos e 20+ campos em 2 colunas → **[Emitir]** → `createSpotSaleContract` (venda + contrato EMITIDO na mesma transação, D97) → toast + volta à lista.
+
+Três achados que motivaram as decisões abaixo:
+
+1. **25 validações, uma única mensagem.** Todas caem num `<p className="sdv-modal-error">` no topo do sheet (`SaleContractEtapa2Modal.tsx:387-513`, `:781`). Nada aponta o campo — com 20+ campos em 2 colunas, "Selecione a filial do comprador" vira caça ao tesouro. **Contraria a regra vigente do projeto** (erro dentro do campo, vermelho suave, limpa ao digitar) → **corrigido por regra, sem decisão**.
+2. **Nenhuma prévia de número.** Preço/saca, sacas, ágio e as duas corretagens em % são digitados sem que total, preço efetivo ou corretagem em R$ apareçam em lugar nenhum.
+3. **Um clique cria tudo.** "Emitir" registra a venda no lote, consome o número da sequência, nasce EMITIDO e gera o PDF — sem revisão, e o único desfazer é o Washout (D104/D122). O **Espelho**, documento bem menos grave, tem uma tela de Conferência inteira (D134).
+
+_(Conferido e **não** é bug: a filial aparece só para **PF** — é a D38; para produtor pessoa física a "filial" é a propriedade. `paymentCondition` está **hardcoded `null`** no payload e não tem campo no form — resquício da D20, a remover.)_
+
+#### Decisões
+
+| #          | Decisão                                                                                                                                                                                                                                                               |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RC-D13** | **O contrato aparece sendo montado ao lado do formulário, em tempo real — e é o PDF DE VERDADE, gerado no NAVEGADOR.** O mesmo `renderContractPdf` que produz o arquivo final redesenha a cada pausa da digitação. Fidelidade **por construção**, não por disciplina. |
+| **RC-D14** | Desktop: **metade a metade** — formulário de um lado, documento do outro, a prévia _sticky_. (Um A4 de fonte 8 só é legível a partir de ~700px; na coluna de 340px do Informativo o texto renderizaria a ~6px.)                                                       |
+| **RC-D15** | **Sem prévia no celular, e sem substituto** — mesmo formulário, emite direto. Consequência aceita e registrada: no telefone não há documento à vista, nem total calculado, nem confirmação antes de um ato irreversível.                                              |
+| **RC-D16** | Como a prévia **é** a conferência: **não entra resumo de números** nem tela/modal de confirmação; "Emitir" segue emitindo direto. ⚠️ **Dependência explícita:** estas duas ausências se justificam pela RC-D13 — se a prévia ao vivo cair, as duas voltam à mesa.     |
+| **RC-D17** | A prévia vale nos **três modos** do componente: criar à vista, criar futuro e **editar** (onde ganha peso extra — reemitir muda um contrato que já existe, e hoje não se vê o efeito antes de gravar).                                                                |
+| **RC-D18** | **A ordem dos campos espelha a ordem do documento** — o olho vai do campo ao trecho sem procurar. Ver a tabela abaixo.                                                                                                                                                |
+| **RC-D19** | **O lote continua um passo antes** (picker), como hoje: ele determina o vendedor e o teto de sacas, então o formulário nasce coerente.                                                                                                                                |
+| **RC-D20** | Ao emitir, **fecha o formulário e abre o contrato recém-criado** (o detalhe com as fases) — no lugar do toast + volta à lista. A pessoa cai onde vai acompanhar aprovação, embarque e faturamento.                                                                    |
+
+#### A ordem do documento (extraída de `sale-contract-pdf-service.js:240-760`)
+
+Cabeçalho (logo + emissor) · Título · **Identificação** (Nº Contrato · Nº Compra · Lote · Mês · Ano) · **Comprador | Armazém do comprador** · **Vendedor | Armazém do vendedor** · **Forma · Modalidade · Embalagem · Faturamento · Pagamento** · **Quantidades e valores** (corretagem em %) · **Banco do vendedor** · **Observação / Descrição** · Local + data + 3 assinaturas.
+
+Formulário espelhando (RC-D18):
+
+| #   | Bloco do formulário       | Campos                                                                               | Trecho do documento         |
+| --- | ------------------------- | ------------------------------------------------------------------------------------ | --------------------------- |
+| 1   | **Identificação**         | Nº de compra (opcional), Data do contrato                                            | linha de identificação      |
+| 2   | **Comprador**             | Comprador, Filial (só PF), Armazém do comprador                                      | cards do comprador          |
+| 3   | **Vendedor**              | Vendedor, Filial (só PF), Armazém do vendedor                                        | cards do vendedor           |
+| 4   | **Pagamento e logística** | Forma, Modalidade, Embalagem, Faturamento, Pagamento                                 | fila de caixas              |
+| 5   | **Quantidades e valores** | Sacas, Preço/saca, Ágio/Deságio, Peso, Corretagem vendedor %, Corretagem comprador % | faixa de valores            |
+| 6   | **Banco do vendedor**     | conta bancária do vendedor                                                           | caixa do banco              |
+| 7   | **Textos**                | Observações, Descrição                                                               | caixa de rótulo vertical    |
+| 8   | **Controle interno**      | **Corretores**, **Precisa de aprovação?**, lembrete em dias                          | **nenhum — não é impresso** |
+
+Duas consequências da ordem nova:
+
+- **O comprador passa a vir ANTES do vendedor** (hoje é o contrário) — porque é assim que o documento os imprime.
+- **Dois campos não têm contraparte no PDF:** os **corretores** (só a corretagem em **%** é impressa; os nomes não saem — a linha de assinatura diz só "Corretor") e a **aprovação** inteira, que é controle interno. Ambos ganham um bloco final **visualmente separado**, fora do espelho — o que também tira a decisão irreversível da aprovação do meio do formulário, onde está hoje.
+
+#### Riscos técnicos da RC-D13 (a decidir na implementação)
+
+- **`sale-contract-pdf-service.js` importa `node:fs`, `node:path` e `node:crypto`** — não roda no navegador como está. O `fs` serve só para ler o PNG do logo (`tryReadPng`) e o `createHash` só para o checksum do download; nenhum dos dois pertence ao desenho. Extrair para a borda deixa o renderizador isomórfico.
+- **`pdf-lib` já é dependência** (`^1.17.1`) e é isomórfico. Carregar sob demanda ao abrir o formulário, para não pesar o _bundle_ de quem não emite contrato.
+- **Re-render a cada pausa**: debounce, revogar os blob URLs antigos e evitar que o quadro perca a posição de rolagem a cada redesenho.
+- A prévia usa o payload **ainda não salvo** — o renderizador hoje recebe o contrato persistido. Precisa aceitar a mesma forma montada em memória.
+
 ---
 
 ## Apêndice A — Ledger de decisões (condensado)
