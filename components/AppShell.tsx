@@ -65,7 +65,7 @@ const DESKTOP_NAV_ITEMS = [
 
 const ADMIN_NAV_ITEM = {
   href: '/users',
-  label: 'Usuarios',
+  label: 'Usuários',
   icon: 'users' as NavIcon,
 } as const;
 

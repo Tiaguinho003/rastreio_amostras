@@ -394,7 +394,8 @@ export default function UsersPage() {
         if (cause instanceof DOMException && cause.name === 'AbortError') return;
         dispatchList({
           type: 'error',
-          message: cause instanceof ApiError ? cause.message : 'Falha ao carregar usuarios',
+          message:
+            cause instanceof ApiError ? cause.message : 'Não foi possível carregar os usuários',
         });
       });
 
@@ -442,7 +443,8 @@ export default function UsersPage() {
           if (cause instanceof DOMException && cause.name === 'AbortError') return;
           dispatchList({
             type: 'error',
-            message: cause instanceof ApiError ? cause.message : 'Falha ao carregar mais',
+            message:
+              cause instanceof ApiError ? cause.message : 'Não foi possível carregar mais usuários',
           });
         })
         .finally(() => {
@@ -495,7 +497,8 @@ export default function UsersPage() {
     } catch (cause) {
       dispatchList({
         type: 'error',
-        message: cause instanceof ApiError ? cause.message : 'Falha ao carregar usuarios',
+        message:
+          cause instanceof ApiError ? cause.message : 'Não foi possível carregar os usuários',
       });
     }
   }, [appliedSearch, session]);
@@ -526,7 +529,8 @@ export default function UsersPage() {
         if (!active) return;
         dispatchModal({
           type: 'detailError',
-          message: cause instanceof ApiError ? cause.message : 'Falha ao carregar usuario',
+          message:
+            cause instanceof ApiError ? cause.message : 'Não foi possível carregar o usuário',
         });
       });
 
