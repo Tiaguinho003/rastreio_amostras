@@ -86,7 +86,14 @@ ainda peek).
 ### `.side-sheet` — criação e edição
 
 Mesma geometria do detalhe e o **mesmo backdrop escurecido e bloqueante** (era a diferença entre os
-dois; hoje só o detalhe de contrato ainda difere). A history segue com o árbitro do `BottomSheet` (criar não é um
+dois; hoje só o detalhe de contrato ainda difere).
+
+**Duas exceções**, ambas com regra `:has(> .bottom-sheet.X)` que devolve o backdrop pra transparente
+e `pointer-events: none`: o peek `.detail-overlay` (RD4, "lista viva") e a ficha do Simulador
+(`.pg-ficha-sheet`, PG52). O critério é o mesmo nos dois: **o que está atrás precisa continuar
+clicável pra superfície fazer sentido** — na ficha, editar as sacas no canvas recalcula a estimativa
+ao vivo. Painel que cria ou edita **não** entra aqui: tem estado sujo, e o bloqueio é a proteção.
+`display: none` no backdrop não serve — o sheet é FILHO dele e sumiria junto. A history segue com o árbitro do `BottomSheet` (criar não é um
 recurso endereçável — não ganha query param).
 
 ```tsx
@@ -113,7 +120,8 @@ chrome comum (§7). Sempre acompanhado de `.side-sheet`. Todo painel novo usa `.
 
 `.side-sheet` estreitado para `min(400px, 92vw)`. **Vence por ordem**, não por especificidade: a
 regra mora depois da do `.side-sheet` no arquivo, com a mesma especificidade. Mover uma das duas de
-lugar quebra a largura.
+lugar quebra a largura. Mesma armadilha em `.pg-ficha-sheet` (420px) — qualquer largura de painel
+se escreve como `.bottom-sheet.<própria>` e depende de estar DEPOIS no arquivo.
 
 ### Modal central
 
@@ -465,8 +473,9 @@ muda) · **🔜 ciclo** migra quando o redesenho chegar na página — nada de c
 | /contratos ?details=    | Detalhe do contrato                                                                                                        | `DetailOverlay`             | ✅                                                        |
 | /contratos              | Filtros                                                                                                                    | painel lateral              | 🔜 ciclo                                                  |
 | /contratos              | Ágio; washout/faturar/pagar; conferência do espelho; solicitar aprovação                                                   | central                     | fica                                                      |
-| /embarques              | Confirmação de embarque; etiqueta de aprovação                                                                             | central                     | fica                                                      |
-| Simulador               | Drawer de resultado (já lateral); connect menu                                                                             | intacto                     | fica                                                      |
+| /contratos ?details=    | Etiqueta de aprovação; confirmação de embarque — **abrem de dentro do `DetailOverlay`** (RC-D25)                           | central **stacked**         | fica                                                      |
+| /financeiro             | Pagar (mesmo `SaleContractLifecycleDialog` da lista)                                                                       | central                     | fica                                                      |
+| Simulador               | Ficha de resultado (`.pg-ficha-sheet`, backdrop atravessável); connect menu                                                | painel lateral              | ✅ (PG52)                                                 |
 
 **A migração acontece PÁGINA A PÁGINA**, dentro do redesenho completo de cada página: os
 contêineres dela realinham na mesma passada, junto com estrutura, cards e tipografia. Cada página é
