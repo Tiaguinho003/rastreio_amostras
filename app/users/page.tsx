@@ -1459,11 +1459,11 @@ export default function UsersPage() {
                     <div className="usr-panel-facts sdv-info-grid">
                       <div className="sdv-info-item">
                         <span className="sdv-info-label">E-mail</span>
-                        <div className="usr-panel-value-row">
+                        <div className="sdv-info-value-row">
                           <span className="sdv-info-value">{modal.user.email}</span>
                           <button
                             type="button"
-                            className="fv-iconbtn usr-panel-copy"
+                            className="sdv-info-copy"
                             aria-label="Copiar e-mail"
                             onClick={() => void handleCopyField(modal.user!.email, 'E-mail')}
                           >
@@ -1476,14 +1476,14 @@ export default function UsersPage() {
                       </div>
                       <div className="sdv-info-item">
                         <span className="sdv-info-label">Telefone</span>
-                        <div className="usr-panel-value-row">
+                        <div className="sdv-info-value-row">
                           <span className="sdv-info-value">
                             {modal.user.phone ?? 'Não informado'}
                           </span>
                           {modal.user.phone ? (
                             <button
                               type="button"
-                              className="fv-iconbtn usr-panel-copy"
+                              className="sdv-info-copy"
                               aria-label="Copiar telefone"
                               onClick={() =>
                                 void handleCopyField(modal.user!.phone ?? '', 'Telefone')

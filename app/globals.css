@@ -7211,39 +7211,9 @@ button:disabled {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.usr-panel-value-row {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  min-width: 0;
-}
-
-.usr-panel-value-row .sdv-info-value {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* O ícone de copiar não compete com os botões de ação: mesmo desenho do
-   .fv-iconbtn, metade do tamanho. */
-.usr-panel-copy.fv-iconbtn {
-  flex: none;
-  width: 28px;
-  height: 28px;
-}
-
-/* Moeda branca + ícone verde — o mesmo par do kit em .hero-search-clear-btn e
-   no filtro de .clients-page-v2. O `.fv-iconbtn` cru pinta o traço de --ink,
-   que num botão branco fica cinza-escuro e não lê como ação. */
-.usr-panel-copy.fv-iconbtn svg {
-  width: 15px;
-  height: 15px;
-  fill: none;
-  stroke: var(--brand-green);
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
+/* Copiar e-mail/telefone reusa a dupla do kit `.sdv-info-value-row` +
+   `.sdv-info-copy` (ícone verde sem preenchimento, sem moeda), a mesma do
+   detalhe do cliente. */
 
 /* Ações administrativas: coluna de botões secundários. Em painel estreito
    empilhar ganha de emparelhar — os rótulos têm comprimentos bem diferentes
