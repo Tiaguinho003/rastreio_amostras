@@ -401,18 +401,9 @@ export default function ProfilePage() {
             <UserAvatar size="lg" user={session.user} className="stg-profile-avatar" />
             <div className="stg-header-text-wrap">
               <p className="stg-header-user-name">{fullName}</p>
-              <span className="stg-header-user-role">
-                <svg
-                  className="stg-header-user-role-icon"
-                  viewBox="0 0 24 24"
-                  focusable="false"
-                  aria-hidden="true"
-                >
-                  <path d="M12 3 5 5.5v6c0 4.5 3 8.3 7 9.5 4-1.2 7-5 7-9.5v-6L12 3z" />
-                  <path d="m9 12 2 2 4-4.5" />
-                </svg>
-                {getRoleLabel(session.user.role)}
-              </span>
+              {/* P-D3: o papel e texto puro. O escudo saiu — era decoracao de
+                  cor num lugar onde o kit institucional pede neutralidade. */}
+              <span className="stg-header-user-role">{getRoleLabel(session.user.role)}</span>
             </div>
           </div>
         </header>
@@ -887,7 +878,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Notificacoes (Web Push) */}
-          <div className="sdv-card stg-card" style={{ '--i': 3 } as React.CSSProperties}>
+          <div className="sdv-card stg-card" style={{ '--i': 1 } as React.CSSProperties}>
             <div className="stg-field-row">
               <div className="stg-field-head is-static">
                 <span className="stg-field-icon">

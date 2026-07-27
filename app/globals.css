@@ -7299,24 +7299,13 @@ button:disabled {
   line-height: 1.3;
 }
 
-.stg-header-user-role-icon {
-  width: clamp(0.85rem, 3.2vw, 0.95rem);
-  height: clamp(0.85rem, 3.2vw, 0.95rem);
-  flex-shrink: 0;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
 /* ── Linhas compactas de campo no perfil (ícone verde + label/valor + ação) ──
    Cada campo é uma "pílula" preenchida; os editáveis expandem inline (acordeão
    grid 0fr→1fr) ao tocar. E-mail/Telefone têm botão de copiar. */
 .stg-field-row {
-  background: #f4f5f7;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  border-radius: clamp(12px, 3.5vw, 14px);
+  background: var(--fv-canvas);
+  border: 1px solid var(--fv-line);
+  border-radius: var(--fv-radius-lg);
   overflow: hidden;
 }
 
@@ -7352,8 +7341,10 @@ button:disabled {
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  border-radius: 10px;
-  background: var(--brand-green-soft, #2f6b4a);
+  border-radius: var(--fv-radius);
+  /* RD17: verde-escuro institucional (o mesmo dos CTAs), no lugar do verde
+     medio #2f6b4a. Cor em dose pequena, como manda o RD12. */
+  background: var(--fv-cta);
 }
 
 .stg-field-icon svg {
@@ -7377,13 +7368,13 @@ button:disabled {
 .stg-field-label {
   font-size: clamp(13px, 3.6vw, 14.5px);
   font-weight: 700;
-  color: #2e3a32;
+  color: var(--ink);
   line-height: 1.2;
 }
 
 .stg-field-value {
   font-size: clamp(11.5px, 3.2vw, 13px);
-  color: rgba(0, 0, 0, 0.5);
+  color: var(--muted);
   line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -7424,7 +7415,7 @@ button:disabled {
   width: 18px;
   height: 18px;
   fill: none;
-  stroke: rgba(0, 0, 0, 0.32);
+  stroke: var(--muted);
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -7505,15 +7496,16 @@ button:disabled {
   animation-delay: calc(var(--i, 0) * 0.05s);
 }
 
-/* Padrao branco (como /samples, /clients): card BRANCO puro + sombra reforcada
-   pra definir a borda sobre o sheet branco (sai o gradiente quente). */
+/* RD17: cartao institucional — branco definido por HAIRLINE + sombra minima,
+   radius 12px (RD12). Antes era o mesmo branco com 3 camadas de sombra e o
+   radius 14–16px (18px no desktop) que o .sdv-card ainda usa nas paginas de
+   detalhe. Escopado com .sdv-card.stg-card (0,2,0) pra vencer o .sdv-card do
+   bloco de >=901px sem tocar nas outras paginas. */
 .sdv-card.stg-card {
-  background: #ffffff;
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.06),
-    0 6px 14px rgba(0, 0, 0, 0.11),
-    0 14px 28px rgba(0, 0, 0, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  background: var(--fv-surface);
+  border: 1px solid var(--fv-line);
+  border-radius: var(--fv-radius-lg);
+  box-shadow: 0 1px 2px rgba(19, 35, 24, 0.05);
 }
 
 .stg-card-title-row {
@@ -23243,50 +23235,60 @@ select.samples-filter-field-input {
   }
 
   /* ══════════════════════════════════════════
-     FASE 4 — FORMS DESKTOP (settings hover)
+     /profile — casca institucional (RD17)
      ══════════════════════════════════════════ */
 
-  /* 4.2.4: stg-card lift suave no hover */
-  .stg-card {
-    transition:
-      transform 0.2s ease,
-      box-shadow 0.2s ease;
+  /* P-D1: no desktop a pagina de perfil e uma COLUNA CENTRADA ESTREITA. Ela e
+     um formulario de conta: com o --desktop-content-max herdado do .sdv-page
+     (2400px) a linha de campo fica larga demais pra ler e pra mirar.
+     --content-max-narrow e o token que ja existe pra "forms centrados, auth".
+     Antes o perfil ia pro outro extremo — --content-max-wide (2600px) + grid
+     de 2 colunas em >=1200px. */
+  .sdv-page:has(.stg-content) {
+    max-width: min(var(--content-max-narrow), calc(100vw - 4rem));
   }
 
-  .stg-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+  /* P-D3: cabecalho institucional. O nome do usuario TITULA a pagina no
+     desktop (por isso o .sdv-header-title some), entao ele adota a escala do
+     .fv-page-title — 1.55rem/700/--ink — no lugar do 2.5rem verde de antes.
+     🔴 Estas regras precisam comecar em 901px, nao em 1200px: o nome base e
+     BRANCO (feito pra faixa verde do mobile) e o desktop tem fundo claro.
+     Entre 901 e 1199px ele ficava branco no branco — invisivel. */
+  .stg-header .stg-header-wrap {
+    gap: 1.1rem;
+    padding-block: 0 0.75rem;
   }
 
-  /* 4.2.5: edit btn hover escopado em settings */
-  .stg-card .sdv-edit-btn {
-    transition:
-      transform 0.15s ease,
-      background 0.15s ease;
+  .sdv-header.stg-header {
+    padding-top: 0.75rem;
   }
 
-  .stg-card .sdv-edit-btn:hover {
-    transform: scale(1.05);
-    background: rgba(0, 0, 0, 0.04);
+  .stg-header .sdv-header-title {
+    display: none;
+  }
+
+  .stg-header .stg-profile-avatar.user-avatar--lg {
+    width: 4.5rem;
+    height: 4.5rem;
+    font-size: 1.6rem;
+  }
+
+  .stg-header .stg-header-user-name {
+    font-size: 1.55rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: var(--ink);
+  }
+
+  .stg-header .stg-header-user-role {
+    color: var(--muted);
+    font-size: 0.85rem;
   }
 
   /* ══════════════════════════════════════════
      FASE 6 — POLISH GLOBAL (hover audit em classes compartilhadas)
      ══════════════════════════════════════════ */
-
-  /* CTA principal dos modais/CTAs — lift sutil no desktop */
-  .cdm-manage-link {
-    transition:
-      transform 0.15s ease,
-      box-shadow 0.15s ease,
-      filter 0.15s ease;
-  }
-
-  .cdm-manage-link:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(27, 94, 32, 0.35);
-    filter: brightness(1.03);
-  }
 
   /* Acoes de classificacao (save/complete) */
   .sdv-cls-action-save,
@@ -23495,35 +23497,6 @@ select.samples-filter-field-input {
     padding: 1.2rem 1.4rem;
   }
 
-  /* 4.2.1: settings content vira grid 2-col (3a card full-width) */
-  .stg-content {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1.5rem;
-    align-items: start;
-  }
-
-  .stg-content > .stg-card:nth-child(3) {
-    grid-column: 1 / -1;
-  }
-
-  /* 4.2.2: profile edit form 2-col, escopado em settings */
-  .stg-card .sdv-edit-fields {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.75rem 1rem;
-  }
-
-  .stg-card .sdv-edit-fields > .sdv-edit-actions,
-  .stg-card .sdv-edit-fields > .stg-feedback,
-  .stg-card .sdv-edit-fields > .stg-email-box,
-  .stg-card .sdv-edit-fields > .stg-email-pending,
-  .stg-card .sdv-edit-fields > .stg-email-confirm-row,
-  .stg-card .sdv-edit-fields > .stg-password-warning,
-  .stg-card .sdv-edit-fields > button {
-    grid-column: 1 / -1;
-  }
-
   /* 4.2.3: card icon maior no wide */
   .stg-card-icon {
     width: 36px;
@@ -23536,56 +23509,12 @@ select.samples-filter-field-input {
     height: 18px;
   }
 
-  /* settings shell respira mais no wide */
-  .sdv-page:has(.stg-content) {
-    max-width: min(var(--content-max-wide), calc(100vw - 4rem));
-  }
-
-  /* Perfil desktop: cabecalho (avatar + nome) BEM maior e nome em VERDE. No
-     desktop o header fica sobre fundo BRANCO (a .sdv-header e transparente),
-     entao o nome branco do mobile sumia. A area maior do cabecalho empurra os
-     campos pra baixo, reduzindo o espaco vazio. Avatar e nome MANTEM a posicao
-     (avatar a esquerda + nome a direita, no topo). Escopado ao .stg-header pra
-     so afetar o /profile. */
-  .stg-header .stg-header-wrap {
-    gap: 1.5rem;
-    padding-block: 0 0.75rem;
-  }
-
-  /* Sem o titulo "Meu Perfil" no desktop (o nome do usuario ja titula a
-     pagina). Desde a M1 do RD16 a linha do topo so existe pro PROSPECTOR, e o
-     back dele (a.nsv2-back, link real) permanece. */
-  .stg-header .sdv-header-title {
-    display: none;
-  }
-
-  /* Cabecalho colado na topbar (era 1.5rem, muito afastado). */
-  .sdv-header.stg-header {
-    padding-top: 0.75rem;
-  }
-
-  .stg-header .stg-profile-avatar.user-avatar--lg {
-    width: 7rem;
-    height: 7rem;
-    font-size: 2.5rem;
-  }
-
-  .stg-header .stg-header-user-name {
-    font-size: 2.5rem;
-    line-height: 1.1;
-    color: var(--brand-green);
-  }
-
-  .stg-header .stg-header-user-role {
-    color: var(--brand-green-soft);
-    font-size: 1.05rem;
-    gap: 0.45rem;
-  }
-
-  .stg-header .stg-header-user-role-icon {
-    width: 1.25rem;
-    height: 1.25rem;
-  }
+  /* 🔴 O /profile NAO tem mais nada nesta faixa (RD17). O grid de 2 colunas do
+     .stg-content, o form de edicao em 2 colunas, o --content-max-wide e os
+     overrides de cabecalho saíram: a coluna centrada (P-D1) e o cabecalho
+     institucional (P-D3) valem a partir de 901px, no bloco de la. Trocar de
+     layout no meio do desktop era o que deixava o nome branco no branco entre
+     901 e 1199px. */
 }
 
 /* ════════════════════════════════════════════════════════════════
