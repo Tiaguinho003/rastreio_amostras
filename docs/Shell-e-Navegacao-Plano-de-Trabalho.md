@@ -198,9 +198,11 @@ _(Adicionar SN-D8+ conforme surgirem. Decisões travadas migram para uma tabela 
 
 > **Aqui mora a reorganização/unificação de páginas que o Flavio antecipou.** É a seção mais volátil — evoluir à vontade.
 
-### 5.1 Mapa de rotas (atual → alvo) — **EM DECISÃO**
+### 5.1 Mapa de rotas (atual → alvo) — **EM DECISÃO** (linhas de contrato FECHADAS em 2026-07-27)
 
 **Ordem (combinado 2026-07-24):** o mapa de páginas (§5.1) é decidido **ANTES** do ledger SN-D — a disposição define as **abas do navbar** e restringe D4/D6/D7. Implementar só com o §5.1 fechado.
+
+> **2026-07-27 — as 3 linhas de contrato saíram de "a decidir".** O ledger **RC** (`Contratos-Plano-de-Trabalho.md` §5) travou: `/contratos` vira página única, `/financeiro` vira página própria só-ADMIN e `/embarques` é extinta. Consequência direta para a SN: a **contagem de itens de nav não muda** (continuam 2 no bloco de contrato — Contratos e Financeiro no lugar de Contratos e Embarques), mas **as sub-abas expansíveis do bloco desaparecem**, o que simplifica a sidebar e libera a decisão do 4º slot da tabbar. Nada disso está implementado — a RC roda num ciclo próprio e a SN **reconcilia** com o código entregue ao retomar.
 
 **Inventário verificado (2026-07-24):**
 
@@ -212,17 +214,18 @@ _(Adicionar SN-D8+ conforme surgirem. Decisões travadas migram para uma tabela 
 
 Rotas de hoje (a preencher com o alvo conforme decidir unificações/ajustes):
 
-| Rota atual                                       | Tipo                      | Na tabbar mobile? | Alvo (unificar/ajustar/manter)   | Notas                                                |
-| ------------------------------------------------ | ------------------------- | ----------------- | -------------------------------- | ---------------------------------------------------- |
-| `/dashboard`                                     | página autenticada        | sim (Início)      | _a decidir_                      |                                                      |
-| `/samples` (+ `/samples/[sampleId]`)             | lista + detalhe (drawer)  | sim (Lotes)       | _a decidir_                      | sub-abas Lotes/Simulador                             |
-| `/cadastros`                                     | lista + detalhe (overlay) | sim               | _a decidir_                      | absorve `/clients`; sub-abas Clientes/Corretores     |
-| `/contratos`                                     | hub + sub-abas            | não (avatar)      | _a decidir_                      | absorve `/financeiro`; sub-abas Contratos/Financeiro |
-| `/embarques`                                     | operação                  | não (avatar)      | _a decidir_                      | sub-abas Embarque/Aprovações                         |
-| `/relatorios`                                    | feed                      | sim (4º slot A)   | _a decidir_                      | absorve `/resumo`, `/informe`                        |
-| `/users`                                         | lista (ADMIN)             | não               | _a decidir_                      | só ADMIN                                             |
-| `/profile`                                       | perfil                    | 4º slot B         | _a decidir_                      | absorve `/settings`; senão via avatar                |
-| `/login`, `/offline`, `/maintenance`, `/laudo/*` | públicas                  | —                 | manter fora do shell autenticado | `/forgot-password` só bounce p/ `/login`             |
+| Rota atual                                       | Tipo                      | Na tabbar mobile? | Alvo (unificar/ajustar/manter)              | Notas                                                                                                                                                 |
+| ------------------------------------------------ | ------------------------- | ----------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/dashboard`                                     | página autenticada        | sim (Início)      | _a decidir_                                 |                                                                                                                                                       |
+| `/samples` (+ `/samples/[sampleId]`)             | lista + detalhe (drawer)  | sim (Lotes)       | _a decidir_                                 | sub-abas Lotes/Simulador                                                                                                                              |
+| `/cadastros`                                     | lista + detalhe (overlay) | sim               | _a decidir_                                 | absorve `/clients`; sub-abas Clientes/Corretores                                                                                                      |
+| `/contratos`                                     | hub + sub-abas            | não (avatar)      | **página única, sem sub-abas** (RC-D1)      | **DECIDIDO 2026-07-27.** Perde a aba Financeiro; absorve Embarque e Aprovações como **fases dentro do contrato**. Gate inalterado (5 não-PROSPECTOR)  |
+| `/financeiro`                                    | redirect hoje             | não               | **página própria** (RC-D1/RC-D3)            | **DECIDIDO 2026-07-27.** Deixa de ser redirect; carteira de corretagem, **só ADMIN** — 1ª rota ADMIN-only do domínio                                  |
+| `/embarques`                                     | operação                  | não (avatar)      | **extinta → redirect `/contratos`** (RC-D2) | **DECIDIDO 2026-07-27.** As 2 sub-abas somem: worklists viram filtro de fase na lista de contratos (RC-D9); as ações vão para o contrato (RC-D10/D11) |
+| `/relatorios`                                    | feed                      | sim (4º slot A)   | _a decidir_                                 | absorve `/resumo`, `/informe`                                                                                                                         |
+| `/users`                                         | lista (ADMIN)             | não               | _a decidir_                                 | só ADMIN                                                                                                                                              |
+| `/profile`                                       | perfil                    | 4º slot B         | _a decidir_                                 | absorve `/settings`; senão via avatar                                                                                                                 |
+| `/login`, `/offline`, `/maintenance`, `/laudo/*` | públicas                  | —                 | manter fora do shell autenticado            | `/forgot-password` só bounce p/ `/login`                                                                                                              |
 
 ### 5.2 Política de estado por página — **ESQUELETO**
 

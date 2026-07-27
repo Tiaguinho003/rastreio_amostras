@@ -5,6 +5,8 @@ Escopo: o que a página `/contratos` faz hoje — a casca (hub + sub-abas + aces
 Última revisão: 2026-07-15 (**ACESSO UNIFICADO por papel** — `/contratos` + aba Financeiro abertos a **todo não-PROSPECTOR**; antes ADMIN + COMMERCIAL. Anterior: 2026-07-14, D146 — cascata contrato-à-vista → lote/venda)
 Documentos relacionados: `Contratos-Plano-de-Trabalho.md` (backlog, decisões e pendências), `Dashboard-Visao-Geral.md` (eventos/cards que apontam pra cá), `Auditoria-Navegacao-por-Papel.md`, `API-e-Contratos.md`, `Produto-e-Fluxos.md`
 
+> ⚠️ **Rumo travado em 2026-07-27 (ledger RC — `Contratos-Plano-de-Trabalho.md` §5).** Esta casca de 2 páginas × 2 sub-abas vai ser reorganizada: **`/contratos` e `/financeiro` viram páginas separadas** (Financeiro só ADMIN), **`/embarques` e a sub-aba Aprovações são extintos**, e o processo de venda passa a ser exibido **fase a fase dentro do próprio contrato** (Emissão → Aprovação → Embarque → Faturamento → Pagamento). **Nada disso está no código ainda** — tudo abaixo continua descrevendo o comportamento atual, que é o que vale até a RC ser implementada e validada.
+
 > **Como este documento se mantém vivo:** a cada implementação concluída e validada, esta Visão Geral é atualizada no mesmo passo. As **decisões, o histórico e o backlog** vivem no `Contratos-Plano-de-Trabalho.md`; aqui fica **só o estado atual**. Esta consolidação (2026-07-13, 4→2 docs) absorveu e removeu os antigos `Central-de-Contratos-`, `Aprovacoes-` e `Embarque-Plano-de-Trabalho.md` — o histórico completo de decisões (D/CC/AP/EMB) e de sessões está no Git e, condensado, no apêndice do `Contratos-Plano-de-Trabalho.md`.
 
 ---
