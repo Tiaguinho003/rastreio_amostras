@@ -65,7 +65,10 @@ telas. Consumidores hoje:
 | `.ctr-*`  | 15       | `/contratos`        | embarque, aprovações, financeiro                        |
 | `.cv2-*`  | 8        | lista de clientes   | `/samples` e outras listas                              |
 | `.rsm-*`  | 6        | `/relatorios`       | feed do dashboard do prospector                         |
-| `.cdm-*`  | **0**    | — (namespace morto) | — (o kit do modal de `/users` morreu na §2.11 U6)       |
+
+> **`.cdm-*` não existe mais.** Nasceu no modal de cliente, sobreviveu servindo o modal de `/users`
+> (§2.11 U6) e depois só pelo botão salvar de `/profile`; as últimas 9 regras saíram na §2.12 P3.
+> Fica registrado porque o nome ainda aparece em docs e comentários antigos — **não recriar**.
 
 ### O caso mais afiado: `.sdv-*`
 
@@ -114,6 +117,30 @@ grep -rn "minha-classe" --include=*.tsx app components | head
 
 Zero resultados = a regra está morta. Não conserte: apague, ou aponte o seletor para a classe que o
 JSX realmente usa.
+
+### 🔴 Ao APAGAR em lote: prefixo não é família
+
+Na varredura o instinto é "essa família inteira morreu, some com `.xyz-*`". **Prefixo comum não
+quer dizer destino comum.** A remoção tem que ser token a token, com casamento de **token
+completo** — `\.token(?![A-Za-z0-9_-])` —, nunca por `startsWith`.
+
+Caso real (RD17 §2.12 P3): o plano dizia "a família `.sdv-edit-*` fica órfã quando `/profile`
+migrar". Metade ficou. Morreram `-fields`, `-field`, `-label`, `-input`, `-actions` e `-btn`;
+**continuam vivos** `-row`, `-sep`, `-hint`, `-label-hint` e `-btn-small`, em seis componentes de
+cliente e de lote. Apagar por prefixo teria levado os cinco junto — e `-btn-small` não herda nada de
+`-btn`, então o estrago seria visível na hora, em página fora da vez.
+
+Duas verificações que fecham o buraco:
+
+1. **O uso se mede dentro de `className`, com os comentários do fonte removidos antes de casar** —
+   senão um comentário citando a classe a "ressuscita" (o caso do `.sdv-header-top`, vivo por uma
+   menção em comentário no `AppShell`).
+2. **Depois de casar em `className`, procure o token cru em TODAS as formas textuais** — é o único
+   jeito de pegar classe montada em runtime (`` `sdv-edit-btn${small ? '-small' : ''}` ``), que
+   nenhuma varredura de `className` literal enxerga.
+
+E confirme o resultado por **diferença de conjuntos de seletores** antes/depois (`postcss.parse`),
+não pelo diff: o número que importa é "saiu algo que não continha token morto?".
 
 ---
 

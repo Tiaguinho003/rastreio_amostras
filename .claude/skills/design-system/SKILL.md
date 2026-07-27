@@ -150,11 +150,10 @@ Ao construir ou revisar qualquer superficie de pagina ja migrada:
 > entraram no ciclo de redesenho:
 >
 > - dashboard
-> - `/profile`
 > - `/contratos` e `/embarques`
 > - globais (senha inicial, menu da conta, login)
 >
-> _(Sairam da lista: `/relatorios` na RD16 §2.10 e `/users` na §2.11.)_
+> _(Sairam da lista: `/relatorios` na RD16 §2.10, `/users` na §2.11 e `/profile` na §2.12.)_
 >
 > **Nao usar como referencia de construcao nova.** Quando uma dessas paginas entrar no ciclo
 > (`page-redesign-cycle`), remova a linha dela desta lista e mova para o §0 o que virou padrao.

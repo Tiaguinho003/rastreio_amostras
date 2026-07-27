@@ -69,7 +69,7 @@ Cinco commits atômicos, gates completos verdes (lint, format, typecheck, build,
 4. `11df8b1` — `/clients` e `/clients/[clientId]` viram **redirects RSC** (preservando `?incomplete=true` e o id); AppShell perde o split morto (item de nav, branches, swap mobile, `canManageClients`); seletores `.cdm-*` órfãos removidos.
 5. este commit — doc + memória. Skills só após validação no device (§7).
 
-**Desvio do planejado (RD7)**: o `cdm-modal` morreu como _feature_ (JSX, estado e fetch no `ClientsBrowser`), mas parte do CSS `.cdm-*` **fica** — o modal de detalhe de usuário em `/users` reusa as classes. Só os seletores exclusivos do resumo de cliente saíram. — 🔴 **superado na §2.11 U6 (2026-07-27)**: `/users` deixou de usar `.cdm-*` (o modal central virou painel na U3) e o kit foi removido em `fbe5c11`. Sobra só `.cdm-manage-link`, cujo dono agora é `/profile`.
+**Desvio do planejado (RD7)**: o `cdm-modal` morreu como _feature_ (JSX, estado e fetch no `ClientsBrowser`), mas parte do CSS `.cdm-*` **fica** — o modal de detalhe de usuário em `/users` reusa as classes. Só os seletores exclusivos do resumo de cliente saíram. — 🔴 **superado na §2.11 U6 (2026-07-27)**: `/users` deixou de usar `.cdm-*` (o modal central virou painel na U3) e o kit foi removido em `fbe5c11`. Sobra só `.cdm-manage-link`, cujo dono agora é `/profile`. — 🔴 **encerrado na §2.12 P2/P3 (2026-07-27)**: os 4 usos viraram `.fv-btn` e as 9 regras restantes saíram em `deebcbf`. **O namespace `.cdm-*` não existe mais.**
 
 **Checklist de validação (🖥️ ≥901px, 📱 device):**
 
@@ -894,6 +894,54 @@ Além do molde, a P1 entregou: cabeçalho institucional (escala do `.fv-page-tit
 **Um bug pré-existente caiu junto:** os overrides de cabeçalho só existiam a partir de **1200px**,
 mas o nome do usuário é `#ffffff` na base (feito para a faixa verde do mobile). Entre **901 e
 1199px** ele ficava branco sobre fundo claro — **invisível**. As regras subiram para `≥901px`.
+
+#### P2 — formulários, feedback e cópia (implementada 2026-07-27, `4e7254d` + `a06cf5c`)
+
+Os 5 formulários trocam `.sdv-edit-*` + `.stg-input` pelo kit (`.fv-form-body`/`.fv-form-field`), e
+os **7 botões** — 4 `.cdm-manage-link` + 3 `.sdv-cls-action-save` — viram `.fv-btn`. Com isso **o
+namespace `.cdm-*` fica sem consumidor no app**, encerrando a pendência da §2.11. Os dois botões de
+copiar adotam `.sdv-info-copy` **de saída** — é a duplicata que custou 3 commits na página anterior.
+
+**Feedback.** O erro passa para dentro do campo e some ao digitar; cada issue do zod volta para o
+**seu** campo (antes só a primeira aparecia). O ganho não é cosmético: o mesmo `profileError` era
+renderizado em **três linhas** do acordeão, porque nome/usuário/telefone compartilham o submit —
+errar o telefone acendia o erro embaixo do nome. Sucesso vira toast **e fecha a linha** (o "salvo"
+saiu de dentro dela; aberta, ela esconderia o valor recém-gravado). **Dois casos continuam banner de
+propósito**: erro de carga e erro do push — descrevem um estado que persiste, e um toast some.
+
+**Três acertos que a troca de kit exigiu**, achados conferindo o CSS servido, não o arquivo:
+
+1. O olho de mostrar/ocultar senha ficaria **sobre o texto**: o `padding-right` morava em
+   `.stg-password-input` (0,1,0) e o seletor do kit é `.fv-form-field input` (0,1,1) — o do kit
+   vence. 🔴 **Trocar de kit muda a especificidade que valia antes; add-on de página precisa ser
+   requalificado.**
+2. Cada "Salvar" viraria uma barra da largura do cartão com o rótulo à esquerda — os botões são
+   itens de grid do `.fv-form-body`, que estica os filhos, e o `.fv-btn` não centraliza.
+3. Os dois botões da confirmação de e-mail, pelo mesmo motivo.
+
+**Código morto:** o efeito de `?section=password` saiu — nada no repositório gera esse link, e a
+linha para a qual ele rolava está **fechada** por padrão, então nem a intenção original funcionava.
+
+**Acentos:** 14 strings da página e 21 em `lib/form-schemas.ts`. Esse arquivo **já tinha duas
+grafias** (`createSampleDraftSchema` acentuado, o gêmeo `registrationFormSchema` não) — mesmo
+argumento da U-D8: acentuar só a parte do perfil deixaria a divergência de pé. Nenhum teste depende
+desses textos.
+
+#### P3 — limpeza (implementada 2026-07-27, `deebcbf`)
+
+**66 regras / 447 linhas** fora, em três origens: as 18 já mortas antes da sessão, as órfãs da P2
+(`.stg-feedback`, `.stg-field-copy`, `.stg-input`, os três `.stg-btn-*`) e o `.cdm-*` inteiro mais a
+parte da família `.sdv-edit-` que só o perfil usava. **Zero regras mistas** — nenhum seletor precisou
+ser partido —, e a diferença de conjuntos deu 66 fora / 0 dentro.
+
+🔴 **Duas armadilhas verificadas ANTES de apagar, e as duas teriam causado estrago:**
+
+1. **A `.sdv-edit-` não é órfã inteira**, como o plano dizia. Cinco tokens seguem vivos em seis
+   componentes (`-row`, `-sep`, `-hint`, `-label-hint`, `-btn-small`); só morreram `-fields`,
+   `-field`, `-label`, `-input`, `-actions` e `-btn`. **Casar por prefixo teria levado os vivos
+   junto** — a regra "cruzar token por substring mente" vale também na direção do prefixo.
+2. **Classe montada em runtime:** busquei `.sdv-edit-btn` em **todas** as formas textuais, não só
+   dentro de `className`. Os únicos hits são `-btn-small` e `-label-hint`, tokens diferentes.
 
 ---
 

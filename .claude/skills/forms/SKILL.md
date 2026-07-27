@@ -177,6 +177,24 @@ explicação vira um beco.
 - `disabled={saving || submitDisabled}` — validação de forma no `submitDisabled`, nunca deixar o
   usuário clicar para descobrir.
 
+### 🔴 Botão DENTRO do `.fv-form-body` (form inline, sem painel)
+
+O molde acima assume o botão no footer do sheet. Quando o formulário é **inline** — sem painel, sem
+footer, como o acordeão de `/profile` —, o `.fv-btn` vira **filho direto do `.fv-form-body`**, que é
+um `display: grid`. Grid estica os filhos por padrão, e o `.fv-btn` **não centraliza o conteúdo**
+(não tem `justify-content`). Resultado: o botão vira uma barra da largura do cartão com o rótulo
+colado à esquerda.
+
+```css
+/* escopo da página, não do kit */
+.<escopo > .fv-form-body > .fv-btn {
+  justify-self: start;
+}
+```
+
+CTA compacto é o padrão institucional — o mesmo do `+ Novo usuário` na `.fv-page-head`. Se forem
+**dois** botões lado a lado num flex, o par também precisa de `flex: 0 0 auto`, senão estica igual.
+
 ---
 
 ## §6 Erro dentro do campo
