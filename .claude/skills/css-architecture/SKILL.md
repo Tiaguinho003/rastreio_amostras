@@ -58,13 +58,13 @@ O alias fica assim, e é assim que se lê um no arquivo:
 **Um prefixo com nome de página não é escopo de página.** Quase todos foram reusados por outras
 telas. Consumidores hoje:
 
-| Prefixo   | Arquivos | Nasceu em           | Também serve                                            |
-| --------- | -------- | ------------------- | ------------------------------------------------------- |
-| `.sdv-*`  | 33       | detalhe da amostra  | detalhe do cliente, e outros                            |
-| `.spv2-*` | 19       | lista de `/samples` | `/cadastros`, `/users`, contratos, financeiro, embarque |
-| `.ctr-*`  | 15       | `/contratos`        | embarque, aprovações, financeiro                        |
-| `.cv2-*`  | 8        | lista de clientes   | `/samples` e outras listas                              |
-| `.rsm-*`  | 6        | `/relatorios`       | feed do dashboard do prospector                         |
+| Prefixo   | Arquivos | Nasceu em           | Também serve                                               |
+| --------- | -------- | ------------------- | ---------------------------------------------------------- |
+| `.sdv-*`  | 33       | detalhe da amostra  | detalhe do cliente, e outros                               |
+| `.spv2-*` | 19       | lista de `/samples` | `/cadastros`, `/users`, `/profile`, contratos, financeiro  |
+| `.ctr-*`  | 15       | `/contratos`        | `/financeiro` (casca `.ctr-page`), embarque, espelho, ágio |
+| `.cv2-*`  | 8        | lista de clientes   | `/samples` e outras listas                                 |
+| `.rsm-*`  | 6        | `/relatorios`       | feed do dashboard do prospector                            |
 
 > **`.cdm-*` não existe mais.** Nasceu no modal de cliente, sobreviveu servindo o modal de `/users`
 > (§2.11 U6) e depois só pelo botão salvar de `/profile`; as últimas 9 regras saíram na §2.12 P3.

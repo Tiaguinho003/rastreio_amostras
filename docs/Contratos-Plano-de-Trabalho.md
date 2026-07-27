@@ -2,7 +2,7 @@
 
 Status: Em andamento (backlog + decisões + pendências da página `/contratos`)
 Escopo: o backlog, as pendências e o **ledger de decisões** da feature de Contratos (hub `/contratos`: contrato/PDF, Espelho de Corretagem, Financeiro, Aprovações, Embarque). O **estado atual** do que existe vive em `Contratos-Visao-Geral.md`; aqui ficam as decisões (o porquê), as pendências abertas e o histórico condensado.
-Última revisão: 2026-07-27 (**§5 — Reorganização por fases (ledger RC)**: `/contratos` + `/financeiro` separados, `/embarques` e Aprovações extintos, o processo visível fase a fase dentro do contrato. Anterior: 2026-07-14, D146 — cascata contrato-à-vista → lote/venda)
+Última revisão: 2026-07-27 (**§5.9 — RC-F1+F4 IMPLEMENTADAS**: `/financeiro` é página própria ADMIN, `/contratos` é página única, `/embarques` foi extinta. Antes, no mesmo dia: §5 ledger RC e §5.8 fluxo de criação. Anterior: 2026-07-14, D146 — cascata contrato-à-vista → lote/venda)
 Documentos relacionados: `Contratos-Visao-Geral.md` (documento-mãe / estado atual), `Dashboard-Visao-Geral.md`, `API-e-Contratos.md`, `Auditoria-Navegacao-por-Papel.md`
 
 > **Divisão de papéis:** a `Contratos-Visao-Geral.md` é a **verdade viva** (o que existe hoje). Este plano guarda **decisões (por quê), pendências (o que falta) e o backlog**. O histórico completo de sessões (S1–S91 etc.) e a prosa superada foram para o **Git** (docs antigos removidos em 2026-07-13); o ledger no apêndice condensa cada decisão à resolução final.
@@ -15,7 +15,7 @@ Contrato à vista + futuro, o hub com 4 sub-abas (Central F1/F2), a reforma de A
 
 > **Split 2026-07-13 + ACESSO UNIFICADO 2026-07-15:** o hub `/contratos` virou **2 páginas** — `/contratos` (Contratos + Financeiro, gestão) e `/embarques` (Embarque + Aprovações, operação). Desde 2026-07-15 **ambas abertas a todo não-PROSPECTOR** (`CONTRATOS_ROLES`/`FINANCEIRO_ROLES` = `NON_PROSPECTOR_ROLES`; a gestão era ADMIN+COMMERCIAL). O ledger histórico abaixo (D110/D135/D140, CC6, AP9/AP27, EMB26) descreve os gates **da época** — a fonte do estado atual é `Contratos-Visao-Geral.md` §2.
 
-> ⚠️ **A §5 (RC, 2026-07-27) reorganiza esta casca inteira** — `/contratos` e `/financeiro` viram páginas separadas, `/embarques` e Aprovações são extintos e o processo passa a ser exibido **fase a fase dentro do contrato**. Enquanto a RC não for implementada, o estado descrito acima e na Visão Geral continua sendo o do código.
+> ⚠️ **A §5 (RC, 2026-07-27) reorganizou esta casca.** A **primeira parte já está no código** (§5.9: `/financeiro` é página própria ADMIN, `/contratos` é página única sem sub-abas, `/embarques` é redirect e os painéis dela foram apagados). O que **ainda não** está: as fases desenhadas dentro do contrato (RC-F2), a lista virando worklist (RC-F3), a criação repensada (RC-F5) e o ciclo FV (RC-F6). O parágrafo acima descreve a casca **anterior** — a atual está na §5.9.
 
 ## 2. Pendências abertas
 
@@ -75,7 +75,7 @@ Três fatos reenquadram o trabalho:
 ### 5.3 Em aberto — travam a fase que depende delas
 
 - **RC-A1 — a superfície do contrato.** Painel lateral de 620px (hoje; realinhamento validado em 2026-07-20, RD9/F3), página própria `/contratos/[id]`, ou híbrido. **Trava a RC-F2.** Peso da escolha: o ciclo FV **matou** as páginas de detalhe de lote e cliente em favor do overlay — uma página de contrato seria a exceção, justificada por ser o único detalhe que concentra 5 fases com ação.
-- **RC-A2 — o card "Aprovações enviadas"** (top-40, desktop-only, AP16/DSB-D14): volta ao dashboard, morre, ou vira recorte da lista. **Trava a RC-F4.**
+- ~~**RC-A2 — o card "Aprovações enviadas"**~~ — **FECHADA em 2026-07-27 pela RC-D26**: morre, e leva o `RecentSendsCard` junto (era o último consumidor vivo dele). Ver §5.9.
 - **RC-A3 — o embarque não deixa rastro no histórico.** Nenhuma das 5 tabelas de auditoria registra a confirmação e `buildContractTimeline` não trata o caso — virando fase de primeira classe, o histórico dela fica mudo. Achado desta análise. Opções: linha derivada de `shippedAt` (molde dos marcos legados, D123) ou log próprio.
 
 ### 5.4 O modelo de fases
@@ -107,19 +107,21 @@ A derivação nasce **função pura compartilhada** front/back, no molde de `der
 | Botão **Faturado**                              | fase Faturamento (já existe no card e no Detalhes)             |
 | **Solicitar aprovação** (latch AP32)            | fase Aprovação — já está lá                                    |
 | Carteira de corretagem                          | `/financeiro`, ADMIN                                           |
-| Card "Aprovações enviadas"                      | **RC-A2, em aberto**                                           |
-| `AvisosCard` → `/embarques?tab=aprovacoes`      | → `/contratos?details=<id>` na fase Aprovação                  |
-| Chips do calendário (`contractTabRoute`)        | → `/contratos` (a função perde a razão de existir)             |
+| Card "Aprovações enviadas"                      | **morreu** (RC-D26) — com o `RecentSendsCard` junto ✅         |
+| `AvisosCard` → `/embarques?tab=aprovacoes`      | → `/contratos?details=<id>&highlight=<id>` ✅                  |
+| Chips do calendário (`contractTabRoute`)        | → `/contratos?details=<id>` p/ TODOS os tipos (RC-D23) ✅      |
 
 ### 5.6 Roteiro
 
-**RC-F1 — o Financeiro sai.** `app/financeiro/page.tsx` deixa de ser redirect e vira a página; `FINANCEIRO_ROLES` se parte em dois nos dois lados (`lib/roles.ts:90`, `sale-contract-service.js:73`; **3 consumidores**: `service:152` carteira, `service:647` feed de pagamento, `DashboardDesktop.tsx:49` `canPay`); "Pagar" migra para o contrato; a nav ganha o item — o ícone `'financeiro'` do `NavIcon` (`AppShell.tsx:262`) já existe e está **órfão** desde o split. `/contratos` perde a barra de abas. Sem tocar embarque nem aprovação.
+**RC-F1 — o Financeiro sai.** ✅ **IMPLEMENTADA em 2026-07-27** (ver §5.9).
+Escopo original: `app/financeiro/page.tsx` deixa de ser redirect e vira a página; `FINANCEIRO_ROLES` se parte em dois nos dois lados (`lib/roles.ts:90`, `sale-contract-service.js:73`; **3 consumidores**: `service:152` carteira, `service:647` feed de pagamento, `DashboardDesktop.tsx:49` `canPay`); "Pagar" migra para o contrato; a nav ganha o item — o ícone `'financeiro'` do `NavIcon` (`AppShell.tsx:262`) já existe e está **órfão** desde o split. `/contratos` perde a barra de abas. Sem tocar embarque nem aprovação.
 
 **RC-F2 — as fases entram no contrato.** Depende de **RC-A1**. As duas ações que faltam (`ApprovalLabelModal`, `ShipmentConfirmationModal`) passam a ser alcançáveis do contrato, além dos portões reativos que já as abrem (`SaleContractLifecycleDialog.tsx:284,299`). A derivação de fase nasce como função pura com teste unitário **antes** de qualquer UI.
 
 **RC-F3 — a lista vira worklist.** O maior pedaço de backend. `listSaleContracts` (`service:104`) é reescrito com fase no SQL e keyset particionado, no molde dos três `$queryRaw` que já existem (`listApprovalContracts:472`, `listShipmentContracts:342`, `listBrokerReceivables:150`).
 
-**RC-F4 — `/embarques` morre.** Depende de **RC-A2**. Rota vira redirect; `EmbarquePanel`, `AprovacoesPanel`, `EmbarqueCard`, `AprovacaoCard` apagados; deep-links re-apontados (`AvisosCard.tsx:23`, `EventsCalendarCard.tsx:58`, `HeaderAvatarMenu.tsx:168`, `AppShell.tsx:99-126`); `contractsHubTabs`/`contractTabRoute` removidos de `lib/roles.ts`; CSS morto varrido. ⚠️ **No mesmo passo, `Dashboard-Visao-Geral.md`** — a Visão Geral de contratos (§11) obriga a atualizá-la a cada mudança de rota, nome de aba ou valor de `?tab=`, e a RC muda os três.
+**RC-F4 — `/embarques` morre.** ✅ **IMPLEMENTADA em 2026-07-27, ANTECIPADA** — o roteiro a punha depois da RC-F2, e o Flavio escolheu juntá-la à F1 (RC-D21). Viável porque as duas ações que só a worklist oferecia mudaram de casa no mesmo passo (RC-D25). Ver §5.9. Dependia da RC-A2, fechada pela RC-D26.
+Escopo original: Rota vira redirect; `EmbarquePanel`, `AprovacoesPanel`, `EmbarqueCard`, `AprovacaoCard` apagados; deep-links re-apontados (`AvisosCard.tsx:23`, `EventsCalendarCard.tsx:58`, `HeaderAvatarMenu.tsx:168`, `AppShell.tsx:99-126`); `contractsHubTabs`/`contractTabRoute` removidos de `lib/roles.ts`; CSS morto varrido. ⚠️ **No mesmo passo, `Dashboard-Visao-Geral.md`** — a Visão Geral de contratos (§11) obriga a atualizá-la a cada mudança de rota, nome de aba ou valor de `?tab=`, e a RC muda os três.
 
 **RC-F5 — a criação repensada** (RC-D12). `SaleContractEtapa2Modal` = 1421 linhas, 7 seções, 3 modos (novo à vista, novo futuro, editar). Provavelmente ciclo próprio, com specs do Flavio — é o que a RD11 reservava.
 
@@ -195,6 +197,66 @@ Duas consequências da ordem nova:
 - A prévia usa o payload **ainda não salvo** — o renderizador hoje recebe o contrato persistido. Precisa aceitar a mesma forma montada em memória.
 
 ---
+
+### 5.9 RC-F1 + RC-F4 — implementadas (RC-D21..D26)
+
+**7 commits, 2026-07-27** (`c878652`, `8f37842`, `25d4201`, `8bbe780`, `86fa2cb`, `1127fc2` + este).
+Primeira implementação do ciclo: o Flavio pediu para parar de decidir no abstrato e ver o
+resultado rodando. Alvo = **reorganização das páginas**, não redesenho (que é a RC-F6, por último).
+
+| #          | Decisão                                                                                                                                                                                           |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RC-D21** | Escopo da 1ª fase = **RC-F1 + RC-F4 juntas**, antecipando a F4. Consequência aceita e resolvida pela RC-D25.                                                                                      |
+| **RC-D22** | **"Pagar" vai para o card da lista**, ao lado de Faturado — e **continua** no Financeiro para o ADMIN. Executa a RC-D6; **revoga a D137**.                                                        |
+| **RC-D23** | **Todo chip do calendário aponta para o contrato** (`/contratos?details=<id>&highlight=<id>`), para os 5 papéis. `contractsHubTabs`, `contractTabRoute` e `ContractsHubTab` removidos.            |
+| **RC-D24** | A página Financeiro nasce com o **painel intacto**, só trocando de casca. O chrome FV vem na RC-F6, junto com `/contratos`.                                                                       |
+| **RC-D25** | **"Gerar etiqueta" e "Confirmar embarque" vão para as seções Aprovação e Embarque do detalhe** — que eram read-only. Executa RC-D10/RC-D11 (revoga AP29, EMB20, EMB26). É a **semente da RC-F2**. |
+| **RC-D26** | O card **"Aprovações enviadas" morre**, e leva o `RecentSendsCard` junto. **Fecha a RC-A2.**                                                                                                      |
+
+**O que mudou de fato**
+
+- `app/financeiro/page.tsx` deixou de ser redirect e virou página real, gated `['ADMIN']`.
+  `app/contratos/page.tsx` perdeu `HUB_TABS`, `parseTab`, a barra `.cad-tabs.cc-tabs` e o
+  `activeSubTab`; `?tab=financeiro` redireciona, os demais `?tab=` são ignorados.
+  `app/embarques/page.tsx` virou `redirect('/contratos')`.
+- **`FINANCEIRO_ROLES` partiu em dois** (RC-D5), nos dois lados: `FINANCEIRO_ROLES = ['ADMIN']`
+  (carteira) e **`PAYMENT_FEED_ROLES = NON_PROSPECTOR_ROLES`** (feed de pagamento do calendário).
+  `DashboardDesktop`: `canPay` → `canSeePaymentEvents`.
+- **Apagados:** `EmbarquePanel`, `AprovacoesPanel`, `EmbarqueCard`, `AprovacaoCard`,
+  `RecentSendsCard`, a rota `GET /sale-contracts/approvals/recent-sends` e o helper
+  `getApprovalRecentSends`. CSS varrido de `globals.css` (~330 linhas): `.emb-card*` + `.emb-fig*`,
+  `.sends-*`, `.cc-tabs`, `.cc-placeholder-hint`.
+- **Sobreviveram de propósito:** `listShipments`/`listApprovals` (api-client + endpoints) e o método
+  de service `getRecentApprovalSends`, todos **sem consumidor de UI** e marcados como tal — a RC-F3
+  reescreve a lista com filtro de fase e vai reusar esses recortes. `use-recent-sends-feed.ts`
+  também fica: o card de Avisos usa o mesmo hook com outro feed.
+
+**Verificação**
+
+Gates verdes em cada commit (`typecheck`, `lint`, `format:check`, **556** unit, **20** contrato);
+`globals.css` validado com `postcss.parse` (o `format:check` não cobre `.css`). Integração rodada
+no commit do gate de service (`npm run test:integration:db` + `db:seed`): **123/124** na suíte de
+contratos — a única falha é **pré-existente e de calendário**, não da RC: o teste
+`Eventos (D138): ADMIN vê agendado no paymentDate` (`sale-contract.integration.test.js:2497`) fixa
+`paymentDate 2026-07-20` e, passada a data, o evento deriva corretamente como
+`contract_payment_overdue` em vez de `contract_payment_due`. É uma **bomba-relógio de fixture**, que
+falha para qualquer um a partir de 2026-07-21; consertar exige decidir entre datas relativas e
+absolutas nos fixtures — fora do escopo desta fase.
+
+**Ajustes de teste que a RC-D3 exigiu.** Quatro pontos da integração liam a carteira com
+`COMMERCIAL` para provar **escopo aberto** (vê fechamentos de qualquer corretor); passaram a
+`adminActor` — o escopo dentro da carteira segue aberto, só quem entra mudou. O teste "acesso
+unificado" virou **"só ADMIN acessa; demais não-PROSPECTOR → 403"**, com o loop dos 5 papéis.
+
+**O que a RC-F2 herda pronto.** As seções Aprovação e Embarque do detalhe já **agem**, com
+`dismissGuardRef` e um `reloadNonce` que refaz contrato + timeline + fotos ao concluir. Quando a
+trilha de fases chegar, o botão não muda de tela — só de moldura.
+
+> ⚠️ **`/embarques` morreu antes das fases existirem.** Até a RC-F2, o contrato mostra as duas ações
+> soltas nas seções, sem a trilha que dá sentido a elas — e as duas worklists ("o que está a
+> embarcar", "o que está a enviar") **não existem em lugar nenhum** até a RC-F3. O que sobrou de
+> visão agregada: o card de **Avisos** do dashboard (o que falta etiquetar) e os **chips do
+> calendário** (embarque/faturamento/pagamento por data). Consequência conhecida e aceita.
 
 ## Apêndice A — Ledger de decisões (condensado)
 

@@ -1,5 +1,35 @@
 # Auditoria de Navegacao por Papel de Usuario
 
+> ## 🔴 Errata estrutural (2026-07-27) — a mais recente, leia primeiro
+>
+> A **RC-F1 + RC-F4** (`Contratos-Plano-de-Trabalho.md` §5.9) reorganizou o dominio de
+> contratos. Isso invalida a **linha "Embarques"** e a **linha `/financeiro`** em todas
+> as tabelas por papel abaixo, e o **item 3 da errata de 2026-07-22**.
+>
+> 1. **`/embarques` NAO EXISTE mais.** Virou `redirect('/contratos')` server-side. Saiu
+>    da sidenav e do menu do avatar de **todos** os papeis. As sub-abas Embarque e
+>    Aprovacoes foram apagadas com ela — as duas acoes que so elas ofereciam ("Gerar
+>    etiqueta" e "Confirmar embarque") passaram para o **detalhe do contrato** (RC-D25).
+> 2. **`/financeiro` deixou de ser redirect e virou pagina propria — SO ADMIN**
+>    (RC-D3, `FINANCEIRO_ROLES = ['ADMIN']`). E a **primeira rota ADMIN-only** do dominio
+>    de contratos depois de `/users`. Os outros 4 nao-PROSPECTOR nao veem o item de nav e
+>    caem no `/dashboard` pelo guard. **O gate e de rota, nao de campo** (RC-D4): dentro
+>    do contrato todos continuam vendo valores e corretagem, e o botao **"Pago"** ficou
+>    aberto aos 5 papeis no card da lista (RC-D22).
+> 3. **A sidenav desktop agora e:** Inicio · Lotes · Relatorios · Cadastros · Contratos
+>    (`CONTRATOS_ROLES`) · **Financeiro (`FINANCEIRO_ROLES` = ADMIN)** · Usuarios (ADMIN).
+>    Onde o corpo diz "Embarques", leia "Financeiro, e so para o ADMIN". As contagens de
+>    nav do corpo caem em 1 para os 4 papeis nao-ADMIN e ficam iguais para o ADMIN.
+> 4. **Sub-itens expansiveis sobraram 2:** Lotes → Lotes/Simulador e Cadastros →
+>    Clientes/Corretores. `/contratos` e `/embarques` perderam os seus (`NAV_SUB_ITEMS`);
+>    `/contratos` e **pagina unica sem `?tab=`**.
+> 5. **Menu do avatar (mobile):** Perfil · Cadastros · Contratos · **Financeiro (so
+>    ADMIN)** · Usuarios (so ADMIN) · Sair. "Embarques" saiu.
+>
+> Fonte de verdade: `components/AppShell.tsx`, `components/HeaderAvatarMenu.tsx`,
+> `lib/roles.ts`. A matriz de acesso do dominio de contratos e do
+> `Contratos-Visao-Geral.md` §2.2 — este doc segue apontando pra la.
+
 > ## 🔴 Errata estrutural (2026-07-22) — leia antes das tabelas
 >
 > O corpo deste doc e um levantamento de 2026-06-28, com emendas ate 2026-07-15. Tres

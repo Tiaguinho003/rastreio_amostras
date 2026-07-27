@@ -7,6 +7,13 @@ Documentos relacionados: `Dashboard-Visao-Geral.md` (estado atual), `Revisao-Ger
 
 > **Objetivo do ciclo (Flavio, 2026-07-12):** check-up geral do sistema, página por página e por dispositivo, começando pelo **dashboard desktop** → depois **dashboard mobile**. Meta: simplificar, deixar o app menos confuso de mexer e viabilizá-lo para mais corretoras (multi-cliente). Mudanças de layout/funcionalidade/disposição estão em cima da mesa.
 
+> ⚠️ **2026-07-27 — o ciclo RC revogou duas decisões deste ledger.** Elas ficam registradas abaixo como história; **o que vale hoje** está no `Dashboard-Visao-Geral.md`:
+>
+> - **DSB-D11 perdeu o objeto** (por **RC-D23**): não existe mais mapa evento → sub-aba dona → rota. `navTabForEvent`, `ALL_CONTRACT_TABS` e a prop `navigableTabs` foram apagados; **todo** chip do calendário aponta para `/contratos?details=<id>&highlight=<id>`, e nenhum chip é inerte por papel. _(O feed de faturamento em si, criado no mesmo DSB-D11, continua vivo.)_
+> - **A casa do card "Aprovações enviadas" morreu junto com ela** (por **RC-D26**): a sub-aba Aprovações de `/embarques` deixou de existir, e o card, o `RecentSendsCard`, o CSS `.sends-*` e a rota `/sale-contracts/approvals/recent-sends` foram **apagados**. O sinal proativo de aprovação que sobrou é o **card de Avisos** (DSB-D19).
+>
+> Também: o **feed de pagamento** do calendário agora é gateado por `PAYMENT_FEED_ROLES` (todo não-PROSPECTOR), e **não** por `FINANCEIRO_ROLES`, que virou ADMIN-only (**RC-D5**) — sem essa partição, 4 dos 5 papéis teriam perdido o pagamento no calendário.
+
 ---
 
 ## 1. Protocolo de trabalho

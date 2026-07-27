@@ -39,8 +39,8 @@ DESKTOP (≥901px)                     MOBILE (≤900px)
 as listas que já passaram pelo ciclo mobile (`/samples` e as duas abas de `/cadastros`, RD16; mais o
 feed de `/relatorios`, que não é tabela — feed + acordeão — mas reusa a chrome KPI+toolbar, escopada
 ao seu container de rolagem `.rsm-feed`). Ligar na base
-acenderia `/contratos` e `/embarques`, que ainda usam a `.hero-search-wrap` antiga (**duas
-chromes empilhadas**). Cada nova lista entra somando seu escopo ao media-gate (critério do
+acenderia `/contratos` e `/financeiro`, que ainda usam a `.hero-search-wrap` antiga (**duas
+chromes empilhadas**) — as duas entram juntas no ciclo, na RC-F6. Cada nova lista entra somando seu escopo ao media-gate (critério do
 `css-architecture`). Nenhuma precisa de condicional no JSX.
 
 🔴 **No mobile NADA fica travado no topo.** A lista tem altura fixa (quem rola é o
