@@ -738,6 +738,55 @@ A 1ª passada acertou o feed e os forms, mas no **desktop** a página seguiu **m
 - **Runtime** — `getRelatoriosStats` fazia **4 consultas** onde 1 basta: `totalVisits` não tem card desde a R13 (e era `COUNT` na tabela inteira a cada carga) e `visitsThisWeek`/`visitsLastWeek` são o último e o penúltimo balde da própria tendência (mesmas fronteiras BRT). Órfãos removidos: `isVisitLinkCurator` e `getVisitInterestLabel`.
 - **Mantido de propósito**: os params `status`/`from`/`to`/`authorId` do feed seguem no backend, testados, sem consumidor de tela — o filtro por autor é **decisão pendente** (R-D9). Se a resposta for "não volta", eles saem juntos.
 
+### 2.11 FV `/users` (Usuários) — 4ª página do ciclo (decisões travadas 2026-07-27)
+
+Fechada a `/relatorios` (§2.10), entra o par **`/users` + `/profile`** — `/users` primeiro. O levantamento mostrou a situação mais simples de diagnosticar do ciclo até aqui: **a casca já é FV e o corpo é a `/clients` de antes do FV**. `app/users/page.tsx` (1.249 linhas) monta `.clients-page-v2` + `.hero-search-wrap` + `.cv2-card` + `.spv2-list-meta` + `.cv2-fab` — o kit que `/cadastros` aposentou na F1 — e o detalhe é `.app-modal.cdm-modal` com três modos (ver/editar/criar), com o formulário emprestando `.sdv-edit-*` do detalhe da amostra.
+
+- **✅ Já FV (não tocar):** sidebar `.fv-sidenav` (item ADMIN-only), top-bar desktop, `.fv-mtopbar` no mobile — `/users` já é `isLayeredRoute`, então o scroller interno e o título mobile funcionam. **Inativar (motivo)** é central e continua central (RD11).
+- **❌ Legado (alvo):** lista de cards `.cv2-*`; busca `.hero-search-*`; contagem `.spv2-list-meta`; FAB `.cv2-fab` no desktop; os três modos do `cdm-modal`; o `window.prompt` de redefinir senha.
+
+**Domínio:** acesso é **ADMIN puro** (`useRequireAuth({ allowedRoles: ['ADMIN'] })` + `assertAdminActor` no backend — não é o `NON_PROSPECTOR_ROLES` do resto do app). Ordem alfabética por `fullName`, scroll infinito por cursor (30/página, cap 60). PROSPECTOR não é criável mas sobrevive na edição de quem já o tem (`editRoleOptions`). Inativar **não** reatribui clientes, só desvincula.
+
+**Achados da análise (os que não viram decisão entram como defeito, sem perguntar):**
+
+1. 🔴 **`window.prompt()` para redefinir senha** (`page.tsx:681`) — diálogo nativo do browser dentro do app institucional.
+2. 🔴 **Senha em texto puro na tela** (`Senha: ${generatedPassword}` num `<p>`, sem copiar, sem sumir) — e **redundante**: `createUser` e `resetUserPassword` já enviam a senha **por e-mail** (`sendUserCreated` / `sendPasswordResetByAdmin`) e revogam as sessões do usuário.
+3. **Filtros existem no backend e a UI não usa** — `listUsers` aceita `role` e `status`, e o `api-client` já repassa. (Ver U-D3: fica assim de propósito.)
+4. **Auditoria construída e sem tela** — `user_audit_event` grava criação/edição/inativação/reset com ator, IP, user-agent e motivo; há `GET /users/audit` e `listUserAuditEvents()` no client, **sem nenhum consumidor**. (Ver U-D5.)
+5. **`lastLoginAt` e `initialPasswordDecision` vêm no payload e nunca aparecem.**
+6. **Erro global em vez de erro no campo** ("Preencha todos os campos obrigatorios") e feedback como `<p>` inline em vez de toast — contra a regra da casa.
+7. **Textos sem acento** por toda a página, inclusive **"Usuarios" na própria sidebar** (`AppShell.tsx:67`).
+8. **Classes emprestadas com semântica errada:** Inativar usa `.sdv-com-action-loss` (perda de amostra) e Desbloquear usa `.sdv-cls-action-complete` (concluir classificação).
+
+**Decisões travadas (com o Flavio, 2026-07-27, via AskUserQuestion):**
+
+| #    | Decisão                                                                                                                                                                                                                                                                             |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| U-D1 | **Lista = TABELA no desktop, card no mobile.** Mesma árvore dupla de `/cadastros` e `/samples` (`useIsDesktop()`, 901px). Registros de usuário são uniformes — é o caso canônico de tabela. Linha clicável abre o painel; `⋯` na última célula.                                     |
+| U-D2 | **Sem faixa de KPI.** Só a contagem na toolbar. **Zero backend novo** — não nasce `/users/stats`.                                                                                                                                                                                   |
+| U-D3 | **Sem filtros. Só busca.** O `role`/`status` do backend continuam sem consumidor de tela, de propósito (mesma figura dos params do feed de `/relatorios`). A toolbar fica com **busca + contagem**, sem funil e sem "limpar".                                                       |
+| U-D4 | **A senha nunca aparece na tela.** O `window.prompt` morre; o ADMIN segue digitando a senha (criar e redefinir), mas a UI **não a ecoa** — diz "Senha enviada para `<e-mail>`". Sai o `generatedPassword` da tela e do state do React. O backend **não muda**.                      |
+| U-D5 | **Auditoria fica como dívida, sem tela.** Registrada na doc; `listUserAuditEvents()` **permanece** no client — é órfão, mas nomeia uma rota viva (mesmo critério que salvou o `isVisitReportViewer` na varredura de `/relatorios`).                                                 |
+| U-D6 | **Colunas: Usuário · Perfil · Status · Contato · Último acesso · `⋯`** (5 + `⋯`). Usuário = avatar + nome + `@username`; Status absorve Ativo/Inativo/**Bloqueado** num chip só; Contato = ✉ e-mail + ☎ telefone com ícones e ellipsis, molde da célula de contato do `/cadastros`. |
+
+**Consequências que já saem das decisões (não são novas escolhas):**
+
+- A `.hero-search-wrap` **sai** de `/users`. Se ela e a `.fv-toolbar` coexistissem, o mobile ficaria com **duas chromes empilhadas** — exatamente o que o `data-tables` §1 avisa ao explicar por que o media-gate do mobile é por seletor multi-página. `/users` entra nesse gate somando o próprio escopo.
+- **Detalhe/editar/criar viram painel lateral** — alvo já previsto no `containers` §8 (🔜 ciclo) e coberto pelo RD11 ("form de criação/edição → `.side-sheet`"). Não é decisão nova.
+- **`⋯` da linha = ações profundas**, no molde de `/cadastros`: Editar · Redefinir senha · Desbloquear · Inativar/Reativar abrem o painel já na ação pedida, sem duplicar superfície.
+- **`.cdm-*` só morre quando `/profile` migrar** (é o outro consumidor). Fica vivo até a vez dele. `.cv2-*`/`.spv2-*` servem 8 e 19 arquivos: o restyle é **escopado**, como em `/relatorios`.
+
+**As fases:**
+
+- **U1 — esta §2.11** (ledger antes do código).
+- **U2 — lista desktop.** `.fv-page-head` (título + "+ Novo usuário", o FAB morre no desktop) · `.fv-toolbar` (busca + contagem) · `table.fv-table` com `<colgroup>` e as 5 colunas + `⋯` · linha clicável · estados (skeleton, vazio, erro) · scroll infinito e ordem preservados.
+- **U3 — painel do usuário.** Ver + editar + criar saem do `cdm-modal` para `.fv-panel-sheet side-sheet` + `.fv-form-*`, erro **dentro do campo**, submit no footer, `SuccessCheckOverlay`, descarte com `.is-scrim-none.is-compact`. Ações administrativas no painel e no `⋯`.
+- **U4 — senha + copy.** `window.prompt` → seção de "Redefinir senha" dentro do painel (avisando que as sessões do usuário caem); criar deixa de exibir a senha; toda a copy da página em pt-BR com acento, inclusive o item da sidebar.
+- **U5 — mobile.** Card FV na lista (a tabela não desce), FAB fica (RD16 decisão 4), toolbar entra na rolagem, `/users` somado ao media-gate.
+- **U6 — varredura + consolidação.** CSS morto por token, skills, `containers` §8 (🔜 → ✅), dívidas registradas.
+
+---
+
 ## 3. O que NÃO muda
 
 - **Backend**: nenhuma rota de API muda. RD2 é só front + redirects de rota.
