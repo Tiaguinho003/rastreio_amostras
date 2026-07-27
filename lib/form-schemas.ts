@@ -1,40 +1,40 @@
 import { z } from 'zod';
 
 export const loginSchema = z.object({
-  username: z.string().min(1, 'Usuario e obrigatorio'),
-  password: z.string().min(1, 'Senha e obrigatoria'),
+  username: z.string().min(1, 'Usuário é obrigatório'),
+  password: z.string().min(1, 'Senha é obrigatória'),
 });
 
 export const forgotPasswordRequestSchema = z.object({
-  email: z.string().trim().min(1, 'Email e obrigatorio').email('Email invalido'),
+  email: z.string().trim().min(1, 'E-mail é obrigatório').email('E-mail inválido'),
 });
 
 export const forgotPasswordVerifyCodeSchema = z.object({
-  email: z.string().trim().min(1, 'Email e obrigatorio').email('Email invalido'),
+  email: z.string().trim().min(1, 'E-mail é obrigatório').email('E-mail inválido'),
   code: z
     .string()
     .trim()
-    .regex(/^\d{6}$/, 'Codigo deve ter 6 digitos'),
+    .regex(/^\d{6}$/, 'Código deve ter 6 dígitos'),
 });
 
 export const forgotPasswordResetSchema = z.object({
-  email: z.string().trim().min(1, 'Email e obrigatorio').email('Email invalido'),
+  email: z.string().trim().min(1, 'E-mail é obrigatório').email('E-mail inválido'),
   code: z
     .string()
     .trim()
-    .regex(/^\d{6}$/, 'Codigo deve ter 6 digitos'),
+    .regex(/^\d{6}$/, 'Código deve ter 6 dígitos'),
   password: z.string().min(8, 'Nova senha deve ter pelo menos 8 caracteres'),
 });
 
 export const registrationFormSchema = z.object({
-  owner: z.string().min(1, 'Proprietario e obrigatorio'),
+  owner: z.string().min(1, 'Proprietário é obrigatório'),
   sacks: z.coerce.number().int().min(1, 'Sacas deve ser >= 1'),
-  harvest: z.string().min(1, 'Safra e obrigatoria'),
+  harvest: z.string().min(1, 'Safra é obrigatória'),
   originLot: z.string().trim().max(2000, 'Lote de origem muito longo').optional().nullable(),
   location: z
     .string()
     .trim()
-    .max(30, 'Local deve ter no maximo 30 caracteres')
+    .max(30, 'Local deve ter no máximo 30 caracteres')
     .optional()
     .nullable(),
 });
@@ -60,8 +60,8 @@ export const createSampleDraftSchema = z.object({
 });
 
 export const updateProfileSchema = z.object({
-  fullName: z.string().trim().min(1, 'Nome completo e obrigatorio'),
-  username: z.string().trim().min(1, 'Usuario e obrigatorio'),
+  fullName: z.string().trim().min(1, 'Nome completo é obrigatório'),
+  username: z.string().trim().min(1, 'Usuário é obrigatório'),
   phone: z
     .string()
     .trim()
@@ -73,19 +73,19 @@ export const updateProfileSchema = z.object({
         const digits = value.replace(/\D/g, '');
         return digits.length === 10 || digits.length === 11;
       },
-      { message: 'Telefone deve ter 10 ou 11 digitos' }
+      { message: 'Telefone deve ter 10 ou 11 dígitos' }
     ),
 });
 
 export const emailChangeRequestSchema = z.object({
-  email: z.string().trim().min(1, 'Email e obrigatorio').email('Email invalido'),
+  email: z.string().trim().min(1, 'E-mail é obrigatório').email('E-mail inválido'),
 });
 
 export const emailChangeConfirmSchema = z.object({
   code: z
     .string()
     .trim()
-    .regex(/^\d{6}$/, 'Codigo deve ter 6 digitos'),
+    .regex(/^\d{6}$/, 'Código deve ter 6 dígitos'),
 });
 
 export const changePasswordSchema = z.object({
@@ -105,10 +105,10 @@ export const updateReasonSchema = z
       .trim()
       .refine(
         (value) => value.split(/\s+/).filter((part) => part.length > 0).length <= 10,
-        'Justificativa deve ter no maximo 10 palavras'
+        'Justificativa deve ter no máximo 10 palavras'
       ),
   })
   .refine((data) => data.reasonCode !== 'OTHER' || data.reasonText.length >= 1, {
-    message: 'Justificativa obrigatoria para "Outro motivo"',
+    message: 'Justificativa obrigatória para "Outro motivo"',
     path: ['reasonText'],
   });

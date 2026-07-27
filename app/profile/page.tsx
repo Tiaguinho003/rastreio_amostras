@@ -48,7 +48,7 @@ function formatExpiresAt(expiresAt: string): string | null {
 
 function extractErrorMessage(cause: unknown, fallback: string): string {
   if (cause instanceof DOMException && cause.name === 'AbortError') {
-    return 'Operacao cancelada.';
+    return 'Operação cancelada.';
   }
 
   if (cause instanceof ApiError) {
@@ -57,6 +57,19 @@ function extractErrorMessage(cause: unknown, fallback: string): string {
 
   return fallback;
 }
+
+// P2: o erro de validacao mora DENTRO do campo (regra da casa) — um slot por
+// campo, e nao um paragrafo solto por formulario.
+type ProfileFieldName =
+  | 'fullName'
+  | 'username'
+  | 'phone'
+  | 'email'
+  | 'code'
+  | 'password'
+  | 'confirmPassword';
+
+type ProfileFieldErrors = Partial<Record<ProfileFieldName, string>>;
 
 // Rótulo curto do estado das notificações (subtítulo da linha). O fallback
 // cobre needs-install/unsupported sem instrução específica de iPhone.
@@ -72,7 +85,6 @@ export default function ProfilePage() {
   const router = useRouter();
   const { session, loading, logout, setSession } = useRequireAuth();
   const toast = useToast();
-  const passwordSectionRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const profileLoadedRef = useRef(false);
 
@@ -96,12 +108,11 @@ export default function ProfilePage() {
   const [profileLoading, setProfileLoading] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
-  const [profileMessage, setProfileMessage] = useState<string | null>(null);
-  const [emailMessage, setEmailMessage] = useState<string | null>(null);
-  const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
-  const [profileError, setProfileError] = useState<string | null>(null);
-  const [emailError, setEmailError] = useState<string | null>(null);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
+  // P2: um estado de erro POR CAMPO substitui os 6 pares mensagem/erro de
+  // antes. O ganho nao e so de codigo: `profileError` era renderizado em TRES
+  // linhas do acordeao (Nome, Usuario, Telefone) porque as tres compartilham
+  // o mesmo submit — errar o telefone acendia o erro embaixo do nome tambem.
+  const [fieldErrors, setFieldErrors] = useState<ProfileFieldErrors>({});
 
   useEffect(() => {
     return () => {
@@ -188,14 +199,11 @@ export default function ProfilePage() {
     loadProfile(session);
   }, [session, loadProfile]);
 
-  useEffect(() => {
-    if (
-      typeof window !== 'undefined' &&
-      new URLSearchParams(window.location.search).get('section') === 'password'
-    ) {
-      passwordSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }, []);
+  // P2: o efeito de `?section=password` saiu. Ele rolava ate a linha da senha,
+  // mas NADA no repositorio gera esse link (varredura repo-wide) — e a linha
+  // pra qual ele rolava esta FECHADA por padrao, entao nem a intencao original
+  // funcionava. Se um dia o deep-link voltar, ele precisa abrir o acordeao
+  // (`setExpandedField('senha')`), nao so rolar.
 
   const pendingEmailChange = useMemo(() => {
     const pending = session?.user.pendingEmailChange ?? null;
@@ -223,12 +231,17 @@ export default function ProfilePage() {
   function toggleField(field: 'nome' | 'usuario' | 'telefone' | 'email' | 'senha') {
     setExpandedField((cur) => (cur === field ? null : field));
     // Limpa feedback transiente ao abrir/fechar um campo.
-    setProfileError(null);
-    setProfileMessage(null);
-    setEmailError(null);
-    setEmailMessage(null);
-    setPasswordError(null);
-    setPasswordMessage(null);
+    setFieldErrors({});
+  }
+
+  // O erro some ao digitar (regra da casa), nao so no proximo submit.
+  function clearFieldError(field: ProfileFieldName) {
+    setFieldErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
   }
 
   async function handleCopy(text: string, label: string) {
@@ -242,15 +255,23 @@ export default function ProfilePage() {
 
   async function handleProfileSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setProfileMessage(null);
-    setProfileError(null);
 
     const parsed = updateProfileSchema.safeParse(profileForm);
     if (!parsed.success) {
-      setProfileError(parsed.error.issues[0]?.message ?? 'Dados invalidos');
+      // Cada issue volta pro SEU campo. Antes so a primeira aparecia, e num
+      // paragrafo abaixo do formulario.
+      const errors: ProfileFieldErrors = {};
+      for (const issue of parsed.error.issues) {
+        const field = issue.path[0];
+        if (field === 'fullName' || field === 'username' || field === 'phone') {
+          errors[field] = issue.message;
+        }
+      }
+      setFieldErrors(errors);
       return;
     }
 
+    setFieldErrors({});
     setProfileLoading(true);
 
     try {
@@ -267,9 +288,15 @@ export default function ProfilePage() {
       }
 
       setSession(mergeUserIntoSession(session!, response.user));
-      setProfileMessage('Perfil atualizado.');
+      toast.success({ title: 'Perfil atualizado' });
+      // Fecha a linha: o "salvo" saiu de dentro do acordeao (virou toast) e
+      // deixar a linha aberta esconderia justamente o valor recem-gravado.
+      setExpandedField(null);
     } catch (cause) {
-      setProfileError(extractErrorMessage(cause, 'Falha ao atualizar perfil'));
+      toast.error({
+        title: 'Não foi possível salvar',
+        description: extractErrorMessage(cause, 'Falha ao atualizar perfil'),
+      });
     } finally {
       setProfileLoading(false);
     }
@@ -277,28 +304,33 @@ export default function ProfilePage() {
 
   async function handleEmailRequest(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setEmailMessage(null);
-    setEmailError(null);
 
     const parsed = emailChangeRequestSchema.safeParse({ email: emailInput });
     if (!parsed.success) {
-      setEmailError(parsed.error.issues[0]?.message ?? 'Email invalido');
+      setFieldErrors({ email: parsed.error.issues[0]?.message ?? 'E-mail inválido' });
       return;
     }
 
     if (parsed.data.email === session!.user.email) {
-      setEmailError('O novo email deve ser diferente do email atual.');
+      setFieldErrors({ email: 'O novo e-mail deve ser diferente do atual.' });
       return;
     }
 
+    setFieldErrors({});
     setEmailLoading(true);
 
     try {
       const response = await requestCurrentUserEmailChange(session!, parsed.data.email);
       setSession(mergeUserIntoSession(session!, response.user));
-      setEmailMessage('Codigo enviado para o novo email.');
+      toast.success({
+        title: 'Código enviado',
+        description: 'Confira a caixa de entrada do novo e-mail.',
+      });
     } catch (cause) {
-      setEmailError(extractErrorMessage(cause, 'Falha ao solicitar troca de email'));
+      toast.error({
+        title: 'Não foi possível solicitar a troca',
+        description: extractErrorMessage(cause, 'Falha ao solicitar troca de e-mail'),
+      });
     } finally {
       setEmailLoading(false);
     }
@@ -306,15 +338,14 @@ export default function ProfilePage() {
 
   async function handleEmailConfirm(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setEmailMessage(null);
-    setEmailError(null);
 
     const parsed = emailChangeConfirmSchema.safeParse({ code: emailCode });
     if (!parsed.success) {
-      setEmailError(parsed.error.issues[0]?.message ?? 'Codigo invalido');
+      setFieldErrors({ code: parsed.error.issues[0]?.message ?? 'Código inválido' });
       return;
     }
 
+    setFieldErrors({});
     setEmailLoading(true);
 
     try {
@@ -323,25 +354,31 @@ export default function ProfilePage() {
       setSession(merged);
       setEmailCode('');
       setEmailInput(merged.user.email);
-      setEmailMessage('Email confirmado com sucesso.');
+      toast.success({ title: 'E-mail confirmado' });
+      setExpandedField(null);
     } catch (cause) {
-      setEmailError(extractErrorMessage(cause, 'Falha ao confirmar novo email'));
+      toast.error({
+        title: 'Não foi possível confirmar o e-mail',
+        description: extractErrorMessage(cause, 'Falha ao confirmar novo e-mail'),
+      });
     } finally {
       setEmailLoading(false);
     }
   }
 
   async function handleResendEmailCode() {
-    setEmailMessage(null);
-    setEmailError(null);
+    setFieldErrors({});
     setEmailLoading(true);
 
     try {
       const response = await resendCurrentUserEmailChangeCode(session!);
       setSession(mergeUserIntoSession(session!, response.user));
-      setEmailMessage('Codigo reenviado.');
+      toast.success({ title: 'Código reenviado' });
     } catch (cause) {
-      setEmailError(extractErrorMessage(cause, 'Falha ao reenviar codigo'));
+      toast.error({
+        title: 'Não foi possível reenviar o código',
+        description: extractErrorMessage(cause, 'Falha ao reenviar código'),
+      });
     } finally {
       setEmailLoading(false);
     }
@@ -349,28 +386,34 @@ export default function ProfilePage() {
 
   async function handlePasswordSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPasswordMessage(null);
-    setPasswordError(null);
-
-    if (password !== confirmPassword) {
-      setPasswordError('As senhas nao coincidem.');
-      return;
-    }
 
     const parsed = changePasswordSchema.safeParse({ password });
     if (!parsed.success) {
-      setPasswordError(parsed.error.issues[0]?.message ?? 'Senha invalida');
+      setFieldErrors({ password: parsed.error.issues[0]?.message ?? 'Senha inválida' });
       return;
     }
 
+    // A confirmacao e checada DEPOIS da senha: com as duas erradas, o erro que
+    // interessa e o da regra ("mínimo de 8"), nao o "não coincidem".
+    if (password !== confirmPassword) {
+      setFieldErrors({ confirmPassword: 'As senhas não coincidem.' });
+      return;
+    }
+
+    setFieldErrors({});
     setPasswordLoading(true);
 
     try {
       await changeCurrentUserPassword(session!, parsed.data.password);
+      // Sem toast: a troca encerra a sessao e a proxima tela e o /login, que
+      // ja explica o motivo pelo `reason=session-ended`.
       setSession(null);
       router.replace('/login?reason=session-ended');
     } catch (cause) {
-      setPasswordError(extractErrorMessage(cause, 'Falha ao alterar senha'));
+      toast.error({
+        title: 'Não foi possível alterar a senha',
+        description: extractErrorMessage(cause, 'Falha ao alterar senha'),
+      });
     } finally {
       setPasswordLoading(false);
     }
@@ -410,7 +453,15 @@ export default function ProfilePage() {
 
         {/* Content */}
         <section className="sdv-content stg-content">
-          {initialLoadError ? <p className="stg-feedback is-error">{initialLoadError}</p> : null}
+          {/* Erro de CARGA continua banner (nao e erro de campo, e nao pode
+              sumir num toast: os dados na tela podem estar velhos enquanto ele
+              existir). `.spv2-error-banner` e a peca compartilhada que /samples
+              e /users ja usam pro mesmo caso. */}
+          {initialLoadError ? (
+            <p className="spv2-error-banner" role="status">
+              {initialLoadError}
+            </p>
+          ) : null}
 
           {/* Container único: Dados pessoais + Email + Senha */}
           <div className="sdv-card stg-card" style={{ '--i': 0 } as React.CSSProperties}>
@@ -445,27 +496,29 @@ export default function ProfilePage() {
               </div>
               <div className="stg-field-expand">
                 <div className="stg-field-expand-inner">
-                  <form className="sdv-edit-fields" onSubmit={handleProfileSubmit}>
-                    <label className="sdv-edit-field">
-                      <span className="sdv-edit-label">Nome completo</span>
+                  <form className="fv-form-body" onSubmit={handleProfileSubmit}>
+                    <label
+                      className={`fv-form-field${fieldErrors.fullName ? ' is-field-error' : ''}`}
+                    >
+                      <span className="fv-form-label">Nome completo</span>
                       <input
-                        className="sdv-edit-input stg-input"
                         value={profileForm.fullName}
-                        onChange={(e) =>
-                          setProfileForm((c) => ({ ...c, fullName: e.target.value }))
-                        }
+                        disabled={profileLoading}
+                        onChange={(e) => {
+                          setProfileForm((c) => ({ ...c, fullName: e.target.value }));
+                          clearFieldError('fullName');
+                        }}
                       />
+                      {fieldErrors.fullName ? (
+                        <p className="fv-form-field-error">{fieldErrors.fullName}</p>
+                      ) : null}
                     </label>
-                    {profileError ? <p className="stg-feedback is-error">{profileError}</p> : null}
-                    {profileMessage ? (
-                      <p className="stg-feedback is-success">{profileMessage}</p>
-                    ) : null}
                     <button
                       type="submit"
-                      className={`cdm-manage-link stg-btn-save-profile${profileLoading ? ' is-disabled' : ''}`}
+                      className="fv-btn fv-btn-primary"
                       disabled={profileLoading}
                     >
-                      {profileLoading ? 'Salvando...' : 'Salvar'}
+                      {profileLoading ? 'Salvando…' : 'Salvar'}
                     </button>
                   </form>
                 </div>
@@ -517,28 +570,30 @@ export default function ProfilePage() {
                       Alterar o usuário encerra a sessão e exige novo login.
                     </span>
                   </div>
-                  <form className="sdv-edit-fields" onSubmit={handleProfileSubmit}>
-                    <label className="sdv-edit-field">
-                      <span className="sdv-edit-label">Usuário</span>
+                  <form className="fv-form-body" onSubmit={handleProfileSubmit}>
+                    <label
+                      className={`fv-form-field${fieldErrors.username ? ' is-field-error' : ''}`}
+                    >
+                      <span className="fv-form-label">Usuário</span>
                       <input
-                        className="sdv-edit-input stg-input"
                         value={profileForm.username}
-                        onChange={(e) =>
-                          setProfileForm((c) => ({ ...c, username: e.target.value }))
-                        }
+                        disabled={profileLoading}
                         autoComplete="username"
+                        onChange={(e) => {
+                          setProfileForm((c) => ({ ...c, username: e.target.value }));
+                          clearFieldError('username');
+                        }}
                       />
+                      {fieldErrors.username ? (
+                        <p className="fv-form-field-error">{fieldErrors.username}</p>
+                      ) : null}
                     </label>
-                    {profileError ? <p className="stg-feedback is-error">{profileError}</p> : null}
-                    {profileMessage ? (
-                      <p className="stg-feedback is-success">{profileMessage}</p>
-                    ) : null}
                     <button
                       type="submit"
-                      className={`cdm-manage-link stg-btn-save-profile${profileLoading ? ' is-disabled' : ''}`}
+                      className="fv-btn fv-btn-primary"
                       disabled={profileLoading}
                     >
-                      {profileLoading ? 'Salvando...' : 'Salvar'}
+                      {profileLoading ? 'Salvando…' : 'Salvar'}
                     </button>
                   </form>
                 </div>
@@ -572,7 +627,7 @@ export default function ProfilePage() {
                 {profileForm.phone ? (
                   <button
                     type="button"
-                    className="stg-field-copy"
+                    className="sdv-info-copy"
                     aria-label="Copiar telefone"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -591,29 +646,29 @@ export default function ProfilePage() {
               </div>
               <div className="stg-field-expand">
                 <div className="stg-field-expand-inner">
-                  <form className="sdv-edit-fields" onSubmit={handleProfileSubmit}>
-                    <label className="sdv-edit-field">
-                      <span className="sdv-edit-label">Telefone</span>
+                  <form className="fv-form-body" onSubmit={handleProfileSubmit}>
+                    <label className={`fv-form-field${fieldErrors.phone ? ' is-field-error' : ''}`}>
+                      <span className="fv-form-label">Telefone</span>
                       <input
-                        className="sdv-edit-input stg-input"
                         value={profileForm.phone}
-                        onChange={(e) =>
-                          setProfileForm((c) => ({ ...c, phone: maskPhoneInput(e.target.value) }))
-                        }
+                        disabled={profileLoading}
                         placeholder="(00) 00000-0000"
                         inputMode="tel"
+                        onChange={(e) => {
+                          setProfileForm((c) => ({ ...c, phone: maskPhoneInput(e.target.value) }));
+                          clearFieldError('phone');
+                        }}
                       />
+                      {fieldErrors.phone ? (
+                        <p className="fv-form-field-error">{fieldErrors.phone}</p>
+                      ) : null}
                     </label>
-                    {profileError ? <p className="stg-feedback is-error">{profileError}</p> : null}
-                    {profileMessage ? (
-                      <p className="stg-feedback is-success">{profileMessage}</p>
-                    ) : null}
                     <button
                       type="submit"
-                      className={`cdm-manage-link stg-btn-save-profile${profileLoading ? ' is-disabled' : ''}`}
+                      className="fv-btn fv-btn-primary"
                       disabled={profileLoading}
                     >
-                      {profileLoading ? 'Salvando...' : 'Salvar'}
+                      {profileLoading ? 'Salvando…' : 'Salvar'}
                     </button>
                   </form>
                 </div>
@@ -647,7 +702,7 @@ export default function ProfilePage() {
                 </span>
                 <button
                   type="button"
-                  className="stg-field-copy"
+                  className="sdv-info-copy"
                   aria-label="Copiar e-mail"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -671,56 +726,64 @@ export default function ProfilePage() {
                         Pendente: <strong>{pendingEmailChange.newEmail}</strong>{' '}
                         {pendingExpiresLabel
                           ? `(expira em ${pendingExpiresLabel})`
-                          : '(codigo expirado)'}
+                          : '(código expirado)'}
                       </span>
                     </div>
                   ) : null}
-                  <form className="sdv-edit-fields" onSubmit={handleEmailRequest}>
-                    <label className="sdv-edit-field">
-                      <span className="sdv-edit-label">Novo e-mail</span>
+                  <form className="fv-form-body" onSubmit={handleEmailRequest}>
+                    <label className={`fv-form-field${fieldErrors.email ? ' is-field-error' : ''}`}>
+                      <span className="fv-form-label">Novo e-mail</span>
                       <input
-                        className="sdv-edit-input"
                         value={emailInput}
-                        onChange={(e) => setEmailInput(e.target.value)}
+                        disabled={emailLoading}
                         placeholder="Digite o novo e-mail"
                         autoComplete="email"
                         inputMode="email"
+                        onChange={(e) => {
+                          setEmailInput(e.target.value);
+                          clearFieldError('email');
+                        }}
                       />
+                      {fieldErrors.email ? (
+                        <p className="fv-form-field-error">{fieldErrors.email}</p>
+                      ) : null}
                     </label>
-                    <button
-                      type="submit"
-                      className="sdv-cls-action-save stg-btn-request-email"
-                      disabled={emailLoading}
-                    >
-                      {emailLoading ? 'Enviando...' : 'Solicitar troca de e-mail'}
+                    <button type="submit" className="fv-btn fv-btn-primary" disabled={emailLoading}>
+                      {emailLoading ? 'Enviando…' : 'Solicitar troca de e-mail'}
                     </button>
                   </form>
                   {pendingEmailChange ? (
-                    <form className="sdv-edit-fields" onSubmit={handleEmailConfirm}>
-                      <label className="sdv-edit-field">
-                        <span className="sdv-edit-label">Código de confirmação</span>
+                    <form className="fv-form-body" onSubmit={handleEmailConfirm}>
+                      <label
+                        className={`fv-form-field${fieldErrors.code ? ' is-field-error' : ''}`}
+                      >
+                        <span className="fv-form-label">Código de confirmação</span>
                         <input
-                          className="sdv-edit-input"
                           value={emailCode}
-                          onChange={(e) =>
-                            setEmailCode(e.target.value.replace(/\D/g, '').slice(0, 6))
-                          }
+                          disabled={emailLoading}
                           inputMode="numeric"
                           maxLength={6}
                           placeholder="000000"
+                          onChange={(e) => {
+                            setEmailCode(e.target.value.replace(/\D/g, '').slice(0, 6));
+                            clearFieldError('code');
+                          }}
                         />
+                        {fieldErrors.code ? (
+                          <p className="fv-form-field-error">{fieldErrors.code}</p>
+                        ) : null}
                       </label>
                       <div className="stg-email-confirm-row">
                         <button
                           type="submit"
-                          className={`cdm-manage-link${emailLoading || emailCode.length !== 6 ? ' is-disabled' : ''}`}
+                          className="fv-btn fv-btn-primary"
                           disabled={emailLoading || emailCode.length !== 6}
                         >
-                          {emailLoading ? 'Confirmando...' : 'Confirmar'}
+                          {emailLoading ? 'Confirmando…' : 'Confirmar'}
                         </button>
                         <button
                           type="button"
-                          className="sdv-cls-action-save"
+                          className="fv-btn fv-btn-secondary"
                           onClick={handleResendEmailCode}
                           disabled={emailLoading}
                         >
@@ -729,21 +792,12 @@ export default function ProfilePage() {
                       </div>
                     </form>
                   ) : null}
-                  {emailError ? (
-                    <p className="stg-feedback is-error is-top-gap">{emailError}</p>
-                  ) : null}
-                  {emailMessage ? (
-                    <p className="stg-feedback is-success is-top-gap">{emailMessage}</p>
-                  ) : null}
                 </div>
               </div>
             </div>
 
             {/* Senha */}
-            <div
-              className={`stg-field-row${expandedField === 'senha' ? ' is-open' : ''}`}
-              ref={passwordSectionRef}
-            >
+            <div className={`stg-field-row${expandedField === 'senha' ? ' is-open' : ''}`}>
               <div
                 className="stg-field-head"
                 role="button"
@@ -784,20 +838,26 @@ export default function ProfilePage() {
                       <line x1="12" y1="17" x2="12.01" y2="17" />
                     </svg>
                     <span className="stg-password-warning-text">
-                      A alteracao de senha encerra todas as sessoes ativas e exige novo login.
+                      A alteração de senha encerra todas as sessões ativas e exige novo login.
                     </span>
                   </div>
-                  <form className="sdv-edit-fields" onSubmit={handlePasswordSubmit}>
-                    <label className="sdv-edit-field">
-                      <span className="sdv-edit-label">Nova senha</span>
+                  <form className="fv-form-body" onSubmit={handlePasswordSubmit}>
+                    <label
+                      className={`fv-form-field${fieldErrors.password ? ' is-field-error' : ''}`}
+                    >
+                      <span className="fv-form-label">Nova senha</span>
                       <div className="stg-password-field-wrap">
                         <input
-                          className="sdv-edit-input stg-password-input"
+                          className="stg-password-input"
                           type={showPassword ? 'text' : 'password'}
                           value={password}
-                          onChange={(e) => setPassword(e.target.value)}
+                          disabled={passwordLoading}
                           autoComplete="new-password"
-                          placeholder="Minimo de 8 caracteres"
+                          placeholder="Mínimo de 8 caracteres"
+                          onChange={(e) => {
+                            setPassword(e.target.value);
+                            clearFieldError('password');
+                          }}
                         />
                         <button
                           type="button"
@@ -822,17 +882,26 @@ export default function ProfilePage() {
                           </svg>
                         </button>
                       </div>
+                      {fieldErrors.password ? (
+                        <p className="fv-form-field-error">{fieldErrors.password}</p>
+                      ) : null}
                     </label>
-                    <label className="sdv-edit-field">
-                      <span className="sdv-edit-label">Confirmar nova senha</span>
+                    <label
+                      className={`fv-form-field${fieldErrors.confirmPassword ? ' is-field-error' : ''}`}
+                    >
+                      <span className="fv-form-label">Confirmar nova senha</span>
                       <div className="stg-password-field-wrap">
                         <input
-                          className="sdv-edit-input stg-password-input"
+                          className="stg-password-input"
                           type={showConfirmPassword ? 'text' : 'password'}
                           value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          disabled={passwordLoading}
                           autoComplete="new-password"
                           placeholder="Repita a nova senha"
+                          onChange={(e) => {
+                            setConfirmPassword(e.target.value);
+                            clearFieldError('confirmPassword');
+                          }}
                         />
                         <button
                           type="button"
@@ -857,19 +926,16 @@ export default function ProfilePage() {
                           </svg>
                         </button>
                       </div>
+                      {fieldErrors.confirmPassword ? (
+                        <p className="fv-form-field-error">{fieldErrors.confirmPassword}</p>
+                      ) : null}
                     </label>
-                    {passwordError ? (
-                      <p className="stg-feedback is-error">{passwordError}</p>
-                    ) : null}
-                    {passwordMessage ? (
-                      <p className="stg-feedback is-success">{passwordMessage}</p>
-                    ) : null}
                     <button
                       type="submit"
-                      className="sdv-cls-action-save stg-btn-save-password"
+                      className="fv-btn fv-btn-primary"
                       disabled={passwordLoading || password.length < 8}
                     >
-                      {passwordLoading ? 'Salvando...' : 'Alterar senha'}
+                      {passwordLoading ? 'Salvando…' : 'Alterar senha'}
                     </button>
                   </form>
                 </div>
@@ -916,8 +982,12 @@ export default function ProfilePage() {
                 ) : null}
               </div>
             </div>
+            {/* Idem: o erro do push descreve o ESTADO do switch ao lado, entao
+                fica na tela enquanto durar, nao passa num toast. */}
             {push.errorMessage ? (
-              <p className="stg-feedback is-error is-top-gap">{push.errorMessage}</p>
+              <p className="spv2-error-banner" role="status">
+                {push.errorMessage}
+              </p>
             ) : null}
           </div>
 
