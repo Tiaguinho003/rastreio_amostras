@@ -10311,7 +10311,10 @@ body:has(.app-modal-backdrop) .prospector-fab {
    ordem (a mesma pegadinha ja documentada no `.fv-filter-sheet`). */
 @media (min-width: 901px) {
   .bottom-sheet.side-sheet.informativo-sheet {
-    width: min(1080px, 96vw);
+    /* Afinado: os campos sao curtos (valores/mes/ano), entao a coluna do
+       formulario (1fr) nao precisa de ~660px. ~850 deixa o form em ~420 (campos
+       no tamanho suficiente) + a previa 340, sem espaco horizontal desperdicado. */
+    width: min(850px, 96vw);
   }
 }
 
@@ -10347,17 +10350,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
 
   .ifm-block.is-off {
     display: block;
-  }
-
-  /* Bloco meteo: poucos campos e o print virou quadradinho, entao a coluna do
-     formulario encolhe (campos no tamanho ideal) e a previa cresce pro espaco
-     que sobra. So o meteo — o mercado (21 campos) mantem 1fr | 340px. */
-  .ifm-block-meteo {
-    grid-template-columns: minmax(0, clamp(360px, 34vw, 440px)) minmax(0, 1fr);
-  }
-
-  .ifm-block-meteo .ifm-preview-stage {
-    max-width: clamp(340px, 40vw, 400px);
   }
 }
 
