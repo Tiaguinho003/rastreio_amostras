@@ -5037,10 +5037,16 @@ button:disabled {
 }
 
 /* ── Pagina de Lotes (/samples): visual BRANCO limpo + alinhamento direito ──
-   ESCOPADO so a /samples. O InformeCommercialPage reusa `.samples-page-v2` +
-   `.samples-page-v2-sheet` + `.spv2-list-scroll` + `.spv2-card-wrap` (distinto
-   por `.informe-commercial-page`) e a /clients usa `.clients-page-v2` — ambos
-   seguem no visual/recuo originais.
+   ESCOPADO so a /samples; a /clients usa `.clients-page-v2` e segue no
+   visual/recuo originais.
+
+   🔴 O `:not(.informe-commercial-page)` daqui e de mais 6 regras e INERTE: a
+   classe morreu com o `InformeCommercialPage` (unificacao 2026-07-15) e as
+   regras que EXIGIAM a classe sairam na consolidacao de 2026-07-27. O
+   qualificador ficou de proposito — tirar `:not(.classe)` baixa a
+   especificidade de (0,2,0) pra (0,1,0) e pode virar a cascata destas regras
+   de /samples, pagina que nao esta na vez do ciclo. Sai junto com a proxima
+   passada de /samples (ver docs/Lotes-Visao-Geral.md §9).
 
    FONTE UNICA do recuo lateral (vars abaixo) pra os cards (lista), o
    contador/filtro (meta) E o FAB "+" alinharem a MESMA borda esquerda/direita
@@ -5074,21 +5080,6 @@ button:disabled {
   /* Raio centro-a-centro do arco do leque. Lote (topo) e Aprovacao (esquerda)
      sao ortogonais ao FAB; Liga fica no diagonal a 45° usando este raio
      (offset --fan-radius * 0.7071 em cada eixo). */
-  --fan-radius: calc(var(--fab-size) / 2 + var(--fan-gap) + var(--fan-opt-size) / 2);
-}
-
-/* Leque do FAB do /informe — mesmo speed-dial do Lotes (.fab-fan-*). As vars
-   vivem aqui porque o bloco acima exclui o informe. `--fab-right` = o `right`
-   REAL do `.cv2-fab` no informe (que NAO e reposicionado pra borda dos cards
-   como o do Lotes), pra o arco das opcoes ancorar no FAB. Demais vars iguais. */
-.samples-page-v2.informe-commercial-page {
-  --fab-right: clamp(24px, 7vw, 34px);
-  --fab-size: clamp(53px, 14.95vw, 60px);
-  --fab-bottom: calc(
-    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(6.3rem, 27vw, 6.8rem)
-  );
-  --fan-opt-size: clamp(44px, 12vw, 50px);
-  --fan-gap: clamp(40px, 12vw, 50px);
   --fan-radius: calc(var(--fab-size) / 2 + var(--fan-gap) + var(--fan-opt-size) / 2);
 }
 
@@ -5177,22 +5168,6 @@ button:disabled {
   background: #ffffff;
   padding-left: var(--lotes-sheet-pad);
   padding-right: var(--lotes-sheet-pad);
-}
-
-/* /informe tambem em BRANCO puro #ffffff (a pedido do usuario): a area dos
-   registros (sheet) e os cards (.rsm-card) saem do bege, espelhando /samples e
-   /clients. Cards com sombra reforcada pra definir as bordas sobre o branco. */
-.informe-commercial-page .samples-page-v2-sheet {
-  background: #ffffff;
-}
-
-.informe-commercial-page .rsm-card {
-  background: #ffffff;
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.06),
-    0 6px 14px rgba(0, 0, 0, 0.11),
-    0 14px 28px rgba(0, 0, 0, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 /* Recuo interno dos cards da lista. A MESMA var alinha a toolbar e o FAB — as
@@ -8062,15 +8037,6 @@ button:disabled {
   );
 }
 
-/* Coluna do formulario: full-width no mobile, capada e centrada no desktop. */
-.inf-form {
-  width: min(100%, 36rem);
-  display: flex;
-  flex-direction: column;
-  gap: clamp(12px, 3.5vw, 16px);
-  padding-top: clamp(4px, 1.5vw, 8px);
-}
-
 /* (RD16 §2.10 R5) `.inf-intro`/`.inf-intro-title`/`.inf-intro-sub` removidos:
    o cabecalho da pagina /relatorios deixou de duplicar o titulo (a top-bar FV
    ja o mostra) e o unico consumidor era o RelatoriosViewer. */
@@ -8117,234 +8083,6 @@ button:disabled {
   margin: 0;
   font-size: clamp(11.5px, 3.2vw, 12.5px);
   color: #8a7559;
-}
-
-/* Chip de pendentes da fila offline + botao "Enviar agora". */
-.inf-pending {
-  display: flex;
-  align-items: center;
-  gap: clamp(8px, 2.5vw, 10px);
-  padding: clamp(8px, 2.5vw, 10px) clamp(12px, 3.5vw, 14px);
-  background: rgba(31, 93, 67, 0.06);
-  border: 1px solid rgba(31, 93, 67, 0.15);
-  border-radius: clamp(10px, 3vw, 12px);
-}
-
-.inf-pending-badge {
-  display: inline-grid;
-  place-items: center;
-  min-width: clamp(22px, 6vw, 24px);
-  height: clamp(22px, 6vw, 24px);
-  padding: 0 6px;
-  border-radius: 999px;
-  background: var(--brand-green);
-  color: #ffffff;
-  font-size: clamp(11px, 3vw, 12px);
-  font-weight: 700;
-}
-
-.inf-pending-text {
-  flex: 1;
-  min-width: 0;
-  font-size: clamp(12px, 3.4vw, 13px);
-  font-weight: 600;
-  color: var(--brand-green);
-}
-
-.inf-pending-send {
-  flex-shrink: 0;
-  padding: clamp(7px, 2.2vw, 9px) clamp(12px, 3.5vw, 14px);
-  border: 0;
-  border-radius: 999px;
-  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
-  color: #ffffff;
-  font-size: clamp(12px, 3.3vw, 12.5px);
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  box-shadow: 0 2px 10px rgba(31, 93, 67, 0.25);
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.15s ease;
-}
-
-.inf-pending-send:hover,
-.inf-pending-send:focus,
-.inf-pending-send:focus-visible {
-  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
-  outline: none;
-}
-
-.inf-pending-send:active:not(:disabled) {
-  transform: scale(0.95);
-  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
-}
-
-.inf-pending-send:disabled {
-  opacity: 0.65;
-  cursor: wait;
-  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
-}
-
-/* Card branco de pergunta — estilo base de card do design system. */
-.inf-card {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(10px, 3vw, 14px);
-  background: linear-gradient(180deg, #ffffff 0%, #f9f7f2 100%);
-  border-top: 1px solid rgba(255, 255, 255, 0.9);
-  border-radius: clamp(14px, 4vw, 16px);
-  padding: clamp(14px, 4vw, 18px);
-  box-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.06),
-    0 6px 16px rgba(0, 0, 0, 0.08),
-    0 12px 28px rgba(0, 0, 0, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-}
-
-.inf-card-head {
-  display: flex;
-  align-items: center;
-  gap: clamp(10px, 3vw, 12px);
-}
-
-.inf-card-num {
-  display: inline-grid;
-  place-items: center;
-  width: clamp(26px, 7vw, 30px);
-  height: clamp(26px, 7vw, 30px);
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: linear-gradient(135deg, rgba(31, 93, 67, 0.15), rgba(31, 93, 67, 0.08));
-  border: 1.5px solid rgba(31, 93, 67, 0.25);
-  color: var(--brand-green);
-  font-size: clamp(12px, 3.4vw, 13px);
-  font-weight: 700;
-}
-
-.inf-card-head-text {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-
-.inf-card-title {
-  margin: 0;
-  font-size: clamp(14px, 4vw, 15.5px);
-  font-weight: 700;
-  color: #1a1a1a;
-}
-
-.inf-card-sub {
-  margin: 0;
-  font-size: clamp(11.5px, 3.2vw, 12.5px);
-  color: #999;
-}
-
-/* Opcoes empilhadas (radio-like). Selecao e estado persistente — pode tintar
-   verde (excecao legitima da skill button-press-effect §9); o :active do tap
-   continua so transform. */
-.inf-choices {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(8px, 2.2vw, 10px);
-}
-
-.inf-choice {
-  display: flex;
-  align-items: center;
-  gap: clamp(10px, 3vw, 12px);
-  width: 100%;
-  padding: clamp(10px, 3vw, 12px) clamp(12px, 3.5vw, 14px);
-  background: #f8f6f2;
-  border: 1.5px solid rgba(0, 0, 0, 0.06);
-  border-radius: clamp(10px, 3vw, 12px);
-  text-align: left;
-  font-family: inherit;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.15s ease;
-}
-
-.inf-choice:active {
-  transform: scale(0.98);
-}
-
-.inf-choice:focus-visible {
-  outline: 2px solid rgba(0, 0, 0, 0.15);
-  outline-offset: 2px;
-}
-
-@media (hover: hover) {
-  .inf-choice:hover {
-    border-color: rgba(31, 93, 67, 0.3);
-  }
-}
-
-.inf-choice.is-selected {
-  background: linear-gradient(135deg, rgba(31, 93, 67, 0.1), rgba(47, 107, 74, 0.05));
-  border-color: var(--brand-green-soft);
-}
-
-.inf-choice-radio {
-  position: relative;
-  width: clamp(18px, 5vw, 20px);
-  height: clamp(18px, 5vw, 20px);
-  flex-shrink: 0;
-  border-radius: 50%;
-  border: 2px solid #cfc9b8;
-  background: #ffffff;
-  transition: border-color 0.2s ease;
-}
-
-.inf-choice-radio::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  width: 52%;
-  height: 52%;
-  border-radius: 50%;
-  background: var(--brand-green-soft);
-  transform: scale(0);
-  transition: transform 0.18s ease;
-}
-
-.inf-choice.is-selected .inf-choice-radio {
-  border-color: var(--brand-green-soft);
-}
-
-.inf-choice.is-selected .inf-choice-radio::after {
-  transform: scale(1);
-}
-
-.inf-choice-text {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-
-.inf-choice-label {
-  font-size: clamp(13px, 3.6vw, 14px);
-  font-weight: 600;
-  color: #1a1a1a;
-}
-
-.inf-choice-desc {
-  font-size: clamp(11px, 3vw, 12px);
-  color: #999;
-}
-
-.inf-choice.is-selected .inf-choice-label {
-  color: var(--brand-green);
-}
-
-/* Par de pills lado a lado (Ja cadastrado/Cliente novo, Sim/Nao). */
-.inf-choice-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: clamp(8px, 2.2vw, 10px);
 }
 
 .inf-pill {
@@ -8536,15 +8274,7 @@ button:disabled {
   white-space: nowrap;
 }
 
-.inf-field-optional {
-  color: #c5beae;
-  font-weight: 600;
-  text-transform: none;
-  letter-spacing: 0.2px;
-}
-
-.inf-input,
-.inf-textarea {
+.inf-input {
   width: 100%;
   padding: clamp(10px, 3vw, 12px) clamp(12px, 3.5vw, 14px);
   background: #f8f6f2;
@@ -8561,20 +8291,13 @@ button:disabled {
     box-shadow 0.25s;
 }
 
-.inf-textarea {
-  resize: none;
-  min-height: clamp(56px, 14vw, 64px);
-}
-
-.inf-input:focus,
-.inf-textarea:focus {
+.inf-input:focus {
   background: #ffffff;
   border-color: var(--brand-green-soft);
   box-shadow: 0 0 0 3px rgba(47, 107, 74, 0.08);
 }
 
-.inf-input::placeholder,
-.inf-textarea::placeholder {
+.inf-input::placeholder {
   color: rgba(0, 0, 0, 0.18);
 }
 
@@ -8739,90 +8462,6 @@ button:disabled {
   stroke-linejoin: round;
 }
 
-/* ClientLookupField dentro do card branco: label minusculo uppercase +
-   input com os mesmos tokens dos .inf-input. */
-.inf-card .client-lookup-field > label {
-  font-size: clamp(9px, 2.5vw, 9.5px);
-  font-weight: 700;
-  color: #aaa;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-}
-
-.inf-card .client-lookup-shell input {
-  padding: clamp(10px, 3vw, 12px) clamp(12px, 3.5vw, 14px);
-  background: #f8f6f2;
-  border: 1.5px solid rgba(0, 0, 0, 0.06);
-  border-radius: clamp(10px, 3vw, 12px);
-  font-size: clamp(13px, 3.6vw, 14px);
-  color: #1a1a1a;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  outline: none;
-  transition:
-    background 0.25s,
-    border-color 0.25s,
-    box-shadow 0.25s;
-}
-
-.inf-card .client-lookup-shell input:focus {
-  background: #ffffff;
-  border-color: var(--brand-green-soft);
-  box-shadow: 0 0 0 3px rgba(47, 107, 74, 0.08);
-}
-
-.inf-card .client-lookup-shell input::placeholder {
-  color: rgba(0, 0, 0, 0.18);
-}
-
-.inf-card .client-lookup-field.is-invalid .client-lookup-shell input {
-  border-color: rgba(196, 92, 92, 0.4);
-}
-
-.inf-card .client-lookup-field.is-invalid .client-lookup-shell input::placeholder {
-  color: #c45c5c;
-}
-
-/* Botao primario full-width (design system §7). */
-.inf-submit {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  padding: clamp(14px, 4vw, 16px);
-  border: 0;
-  border-radius: clamp(12px, 3.5vw, 14px);
-  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
-  color: #ffffff;
-  font-size: clamp(14px, 3.8vw, 15px);
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  box-shadow: 0 4px 24px rgba(31, 93, 67, 0.3);
-  -webkit-tap-highlight-color: transparent;
-  transition:
-    transform 0.15s,
-    box-shadow 0.15s;
-}
-
-.inf-submit:hover,
-.inf-submit:focus,
-.inf-submit:focus-visible {
-  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
-  outline: none;
-}
-
-.inf-submit:active:not(:disabled) {
-  transform: scale(0.96);
-  box-shadow: 0 2px 10px rgba(31, 93, 67, 0.2);
-  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
-}
-
-.inf-submit:disabled {
-  opacity: 0.65;
-  cursor: wait;
-  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
-}
-
 /* ── Pagina Resumo (admin) — feed dos informes de visita ──
    Reusa o sheet .informe-content (topo arredondado + clearance da tabbar). */
 .rsm-feed {
@@ -8833,8 +8472,8 @@ button:disabled {
   padding-top: clamp(4px, 1.5vw, 8px);
 }
 
-/* Scroll do /resumo: como toda lista do app (/samples, /clients, feed do
-   comercial, dashboard do prospector), o sheet NAO rola — quem rola e a
+/* Scroll da /relatorios: como toda lista do app (/samples, /cadastros,
+   dashboard do prospector), o sheet NAO rola — quem rola e a
    lista. O .informe-content vira container limitado (overflow hidden) e o
    .rsm-feed assume o scroll (mesmo padrao de .spv2-list-scroll), pra os
    formularios mais antigos ficarem alcancaveis conforme a quantidade. O
@@ -8842,7 +8481,7 @@ button:disabled {
 .sdv-content.informe-content.rsm-content {
   overflow: hidden;
   padding-bottom: 0;
-  /* /resumo em BRANCO puro como /informe/samples/clients. Recuo lateral
+  /* /relatorios em BRANCO puro como /samples e /cadastros. Recuo lateral
      redistribuido (pouco no sheet, mais no .rsm-feed) pra a sombra reforcada
      dos cards nao ser decepada pelo overflow-x: hidden do feed. */
   background: #ffffff;
@@ -8884,7 +8523,7 @@ button:disabled {
 
   /* Trava a altura (o desktop base poe .sdv-page em height:auto = scroll de
      pagina): o card preenche a tela TODA e o feed rola POR DENTRO da area dos
-     cards — como o /informe e o painel comercial do detalhe. */
+     cards — como o painel comercial do detalhe. */
   .sdv-page:has(.rsm-content) {
     height: 100%;
     overflow: hidden;
@@ -9211,22 +8850,6 @@ button:disabled {
   color: #999;
 }
 
-/* Informe preenchido offline e sincronizado depois: a hora exibida e a do
-   preenchimento; o title do tag mostra quando o servidor recebeu. */
-.rsm-offline-tag {
-  flex-shrink: 0;
-  padding: 1px clamp(6px, 2vw, 8px);
-  border-radius: 6px;
-  background: rgba(230, 126, 34, 0.1);
-  border: 1px solid rgba(230, 126, 34, 0.3);
-  color: #a85d12;
-  font-size: clamp(9px, 2.6vw, 10px);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  white-space: nowrap;
-}
-
 /* Cliente visitado: faixa com tint suave + icone em caixa (design system §4). */
 .rsm-card-client {
   display: flex;
@@ -9305,14 +8928,6 @@ button:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* "Aguardando vínculo" abaixo do nome (saiu de inline com o nome, que estourava
-   a borda do card). align-self mantém o badge no tamanho natural, à esquerda,
-   dentro da coluna .rsm-card-client-text. */
-.rsm-client-pending {
-  align-self: flex-start;
-  margin-top: 3px;
 }
 
 /* Respostas: lista label uppercase + valor. */
@@ -9476,116 +9091,6 @@ button:disabled {
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-
-/* Badge de curadoria pendente (so /resumo, via showLinkStatus): informe de
-   prospeccao ainda sem cliente do cadastro. Paleta ambar do .is-prospect. */
-.rsm-client-tag.is-pending-link {
-  background: rgba(212, 160, 23, 0.12);
-  border-color: rgba(212, 160, 23, 0.32);
-  color: #b07d10;
-}
-
-/* Acoes de vinculo (ADM/Cadastro no /resumo) — par de botoes acima do
-   "Excluir informe", mesma geometria do .rsm-delete-btn em verde brand.
-   Tap so profundidade (skill button-press-effect). */
-.rsm-link-actions {
-  display: flex;
-  gap: clamp(8px, 2.5vw, 10px);
-  margin-top: clamp(10px, 3vw, 12px);
-}
-
-.rsm-link-btn {
-  display: flex;
-  flex: 1;
-  min-width: 0;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(6px, 2vw, 8px);
-  padding: clamp(9px, 2.8vw, 11px) clamp(10px, 3vw, 12px);
-  border: 1px solid rgba(31, 93, 67, 0.24);
-  border-radius: clamp(10px, 3vw, 12px);
-  background: rgba(31, 93, 67, 0.06);
-  color: #1f5d43;
-  font-size: clamp(12px, 3.3vw, 13px);
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.15s ease;
-}
-
-.rsm-link-btn:active {
-  transform: scale(0.97);
-}
-
-.rsm-link-btn:focus-visible {
-  outline: 2px solid rgba(0, 0, 0, 0.15);
-  outline-offset: 2px;
-}
-
-@media (hover: hover) {
-  .rsm-link-btn:hover {
-    background: rgba(31, 93, 67, 0.11);
-  }
-}
-
-.rsm-link-btn svg {
-  width: clamp(14px, 4vw, 16px);
-  height: clamp(14px, 4vw, 16px);
-  flex-shrink: 0;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-/* "Remover vinculo" — ambar (re-vinculavel; nao e destrutivo como excluir). */
-.rsm-link-btn.is-remove {
-  border-color: rgba(212, 160, 23, 0.32);
-  background: rgba(212, 160, 23, 0.08);
-  color: #b07d10;
-}
-
-@media (hover: hover) {
-  .rsm-link-btn.is-remove:hover {
-    background: rgba(212, 160, 23, 0.14);
-  }
-}
-
-/* Bloco de contexto no modal de vinculo: o que o prospector anotou. */
-.rsm-link-context {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: clamp(10px, 3vw, 12px) clamp(12px, 3.5vw, 14px);
-  border: 1px solid rgba(212, 160, 23, 0.28);
-  border-radius: clamp(10px, 3vw, 12px);
-  background: rgba(212, 160, 23, 0.08);
-}
-
-.rsm-link-context-label {
-  font-size: clamp(9px, 2.6vw, 10px);
-  font-weight: 600;
-  color: #b07d10;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-}
-
-.rsm-link-context-name {
-  margin: 0;
-  font-size: clamp(13.5px, 3.8vw, 14.5px);
-  font-weight: 600;
-  color: #1a1a1a;
-  word-break: break-word;
-}
-
-.rsm-link-context-meta {
-  margin: 0;
-  font-size: clamp(11.5px, 3.2vw, 12.5px);
-  color: #777;
-  word-break: break-word;
 }
 
 /* Skeleton no formato do card final (design system §3). */
@@ -9992,44 +9497,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   width: 100%;
 }
 
-/* Formulario do informe NATIVO do sheet (uso exclusivo do prospector — a
-   pagina /informe virou placeholder por papel): sem o chrome de cards da
-   antiga pagina. As secoes .inf-card fluem no corpo do sheet separadas por
-   divisorias suaves, com padding horizontal proprio (o body do sheet nao
-   tem padding lateral — sem isto os cards batiam na borda do modal). */
-.bottom-sheet.is-informe .bottom-sheet-body {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.bottom-sheet.is-informe .inf-form {
-  width: min(100%, 34rem);
-  gap: 0;
-  padding: 0 clamp(1rem, 4vw, 1.4rem) clamp(0.8rem, 2.5vw, 1.1rem);
-}
-
-.bottom-sheet.is-informe .inf-card {
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  padding: clamp(14px, 4.2vw, 18px) 0;
-}
-
-.bottom-sheet.is-informe .inf-card + .inf-card {
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.bottom-sheet.is-informe .inf-offline-banner,
-.bottom-sheet.is-informe .inf-pending {
-  margin-bottom: clamp(10px, 3vw, 14px);
-}
-
-.bottom-sheet.is-informe .inf-submit {
-  margin-top: clamp(6px, 2vw, 10px);
-}
-
 /* "Nova visita" do PROSPECTOR em BRANCO (padrao do app), em vez do creme do
    .bottom-sheet base (--brand-cream-soft). Escopado a .is-prospector-visit pra
    NAO afetar a visita do COMERCIAL, que compartilha .is-informe. Header e
@@ -10038,52 +9505,26 @@ body:has(.app-modal-backdrop) .prospector-fab {
   background: #ffffff;
 }
 
-/* ── INFORMATIVO DE MERCADO (prefixo .ifm-) ──
-   Sheet do FAB da /relatorios que gera a peca 1080x1920 do story. Herda o
-   .is-informe (cards achatados) e acrescenta so o que e proprio: os pares de
-   campo, o toggle de direcao da variacao e a moldura da previa.
+/* ── INFORMATIVO (prefixo .ifm-) ──
+   Painel lateral de duas colunas (form | previa ao vivo) da /relatorios que
+   gera as pecas 1080x1920 do story. Acrescenta so o que e proprio: o workspace
+   de blocos, os pares de campo, o toggle de direcao da variacao e o palco da
+   canvas. (Ate a §2.10 R10 isto era um BottomSheet `.is-informe`, que achatava
+   os cards — a variante nao tem mais consumidor.)
    Ver docs/Informativos-Plano-de-Trabalho.md. */
 
-/* Dois/quatro campos por linha. Colapsa pra 1 coluna em telas estreitas — os
-   valores sao curtos, mas os rotulos ("Ano da coluna 1") nao. */
-.ifm-pair,
-.ifm-quad {
-  display: grid;
-  gap: clamp(8px, 2.2vw, 10px);
-}
-
+/* Dois campos por linha. Colapsa pra 1 coluna em telas estreitas — os valores
+   sao curtos, mas os rotulos ("Ano da coluna 1") nao. */
 .ifm-pair {
+  display: grid;
   grid-template-columns: 1fr 1fr;
+  gap: clamp(8px, 2.2vw, 10px);
 }
 
 /* Pluviosidade | print da previsao: alinha os rotulos no topo — o quadrado
    (mais alto que o input) desce a partir dali, ao lado do campo curto. */
 .ifm-rain-row {
   align-items: start;
-}
-
-.ifm-quad {
-  grid-template-columns: 1fr 1fr;
-}
-
-@media (min-width: 560px) {
-  .ifm-quad {
-    grid-template-columns: repeat(4, 1fr);
-  }
-}
-
-.ifm-row-group {
-  margin-top: clamp(10px, 3vw, 14px);
-}
-
-.ifm-row-legend {
-  display: block;
-  margin-bottom: clamp(5px, 1.6vw, 7px);
-  font-size: clamp(11px, 3vw, 12px);
-  font-weight: 600;
-  color: #8a8a8a;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 /* Unidade colada no campo — reforca visualmente a INF19 (o usuario digita so o
@@ -10133,95 +9574,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   border-color: #c2341d;
   background: rgba(194, 52, 29, 0.1);
   color: #c2341d;
-}
-
-/* ── Etapa 2: a previa ── */
-.ifm-preview-step {
-  align-items: center;
-}
-
-.ifm-preview-hint {
-  margin: 0 0 clamp(8px, 2.5vw, 12px);
-  font-size: clamp(12px, 3.4vw, 13px);
-  color: #8a8a8a;
-  text-align: center;
-}
-
-/* A peca e 1080x1920 no canvas; aqui ela e escalada por CSS. O teto de altura
-   existe porque no desktop o sheet vira modal com max-height min(88dvh,44rem):
-   sem ele a previa empurraria as acoes pra fora. */
-.ifm-preview-frame {
-  width: 100%;
-  max-width: min(100%, 17rem);
-  margin-inline: auto;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.18);
-}
-
-.ifm-preview-canvas {
-  display: block;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 9 / 16;
-}
-
-.ifm-preview-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: clamp(8px, 2.2vw, 10px);
-  width: min(100%, 34rem);
-  margin-top: clamp(12px, 3.5vw, 16px);
-}
-
-.ifm-preview-actions .inf-submit {
-  margin-top: 0;
-}
-
-/* ── Acoes no footer do BottomSheet (uma por fase) ──
-   Ficam fixas: na revisao o corpo rola duas pecas 9:16, e sem isto o botao
-   estaria a uma rolagem inteira de distancia. */
-.ifm-footer-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: clamp(8px, 2.2vw, 10px);
-}
-
-.ifm-footer-actions.is-single {
-  grid-template-columns: 1fr;
-}
-
-.ifm-footer-actions .inf-submit {
-  margin-top: 0;
-}
-
-/* ── Fase 3: as pecas empilhadas ── */
-.ifm-revisao {
-  align-items: center;
-  gap: clamp(14px, 4vw, 18px);
-}
-
-.ifm-revisao-piece {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(6px, 2vw, 8px);
-  width: min(100%, 17rem);
-}
-
-.ifm-revisao-head {
-  display: flex;
-  gap: 8px;
-  align-items: baseline;
-  justify-content: space-between;
-}
-
-.ifm-revisao-title {
-  margin: 0;
-  font-size: clamp(12px, 3.2vw, 13px);
-  font-weight: 600;
-  color: #6f6f6f;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 /* ── Fase meteorologica: a caixa do print da previsao ──
@@ -10723,13 +10075,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   }
 }
 
-/* ── Pagina /informe do COMERCIAL ──
-   Shell da /samples sem a barra de busca: a faixa verde vira so um respiro
-   entre o header e o sheet (o FAB e position: fixed, nao ocupa fluxo). */
-.informe-commercial-page .hero-search-wrap.is-informe {
-  min-height: clamp(10px, 3vw, 18px);
-}
-
 /* Badge de tipo nos cards do feed (Visita / Relatorio / Prospeccao) —
    pill discreta no canto direito do cabecalho do card. */
 /* (RD16 §2.10 R5) `.rsm-type-badge` (+ .is-visit/.is-weekly/.is-prospect e o
@@ -10737,7 +10082,8 @@ body:has(.app-modal-backdrop) .prospector-fab {
    agora e o `.fv-chip.is-sm` institucional, posicionado por
    `.rsm-card-head > .fv-chip`. */
 
-/* FAB da pagina /informe: icone LAPIS no idle. O .cv2-fab base gira o svg
+/* FAB da pagina /relatorios: icone LAPIS no idle (mobile-only desde a §2.10
+   R8 — no desktop criar mora nos 3 botoes da faixa). O .cv2-fab base gira o svg
    45 graus no .is-expanded ("+" vira "x") — aqui ha DOIS svgs empilhados
    em crossfade (lapis some girando, "x" entra), neutralizando a rotacao
    herdada por svg individual. */
@@ -16722,7 +16068,7 @@ select.samples-filter-field-input {
    orfas junto, mas moram no bloco `.sample-created-*` que o ApprovalLabelModal
    ainda compartilha (check + body) — a poda dessas fica pra consolidacao da
    camera. */
-  .client-modal-header {
+.client-modal-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -22550,31 +21896,6 @@ select.samples-filter-field-input {
     background: transparent;
   }
 
-  /* ── /informe desktop: contador + FAB do lapis NA MESMA LINHA, FORA do sheet
-     O contador + FAB vivem no .hero-search-wrap (FORA do sheet): o sheet
-     tem transform persistente (animacao samples-sheet-in) que viraria containing
-     block e prenderia o position:fixed do scrim do FAB — aqui fora, o leque/scrim
-     escurecem o app TODO, igual ao "+" do /samples. */
-
-  /* Faixa = row so do FAB do lapis, ancorado a DIREITA (fora do sheet pra o
-     scrim/leque cobrirem o app).
-     🔴 DIVIDA: `informe-commercial-page` tem ZERO ocorrencias no TSX — a classe
-     nao e mais renderizada por ninguem, entao este bloco (e todo `:not(.informe
-     -commercial-page)` espalhado pelo arquivo) esta morto desde antes do RD16.
-     As regras de que ele dependia (`.samples-page-v2 .hero-search-wrap .cv2-fab`
-     e os pivots do leque) sairam no M2 junto com a busca mobile de /samples. */
-  .samples-page-v2.informe-commercial-page .hero-search-wrap.is-informe {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    min-height: 56px;
-    /* margin-top (nao padding) cria o gap pra topbar SEM mover o FAB dentro do
-       wrap — assim o pivot do leque (--fan-pivot-top, medido do topo do wrap)
-       segue casando com o centro do FAB. */
-    margin-top: 1.5rem;
-    padding: 0 0 0.75rem;
-  }
-
   .samples-page-v2 .spv2-empty {
     padding: 5rem 2rem;
   }
@@ -27311,7 +26632,7 @@ body:has(.app-modal-backdrop.is-stacked)
 }
 
 /* ============================================================
-   Leque (speed-dial) do FAB — Lotes (/samples) E Informe (/informe)
+   Leque (speed-dial) do FAB — Lotes (/samples) E Relatorios (/relatorios)
    ============================================================
    Scrim escuro no tier de modal (cobre a tabbar e bloqueia cliques) + opcoes
    circulares em ARCO de quarto de circulo que emergem do FAB. Lotes: 3 opcoes
