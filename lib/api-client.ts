@@ -1301,15 +1301,6 @@ export function getSampleRecentSends(session: SessionData) {
   });
 }
 
-// Card "Aprovações enviadas" da aba Aprovações de /embarques (DSB-D14).
-export function getApprovalRecentSends(session: SessionData) {
-  return request<RecentSendsResponse>('/sale-contracts/approvals/recent-sends', {
-    method: 'GET',
-    session,
-    cachePolicy: 'default',
-  });
-}
-
 // AP31/DSB-D19: card de "Avisos" do dashboard — aprovação a enviar (binário, some
 // quando a etiqueta é gerada). Sem janela de data. Auth-only (todos os não-PROSPECTOR).
 export function getDashboardAvisos(session: SessionData) {

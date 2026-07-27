@@ -1160,19 +1160,6 @@ export function createBackendApiV1({
         };
       }),
 
-    // Card "Aprovacoes enviadas" da aba Aprovacoes (DSB-D14; nasceu no dashboard,
-    // DSB-D5). Mesma politica auth-only; top-40 no contract service. Se o contract
-    // service nao estiver configurado, degrada pra lista vazia.
-    getApprovalRecentSends: (input) =>
-      executeApiForInput(input, async () => {
-        await resolveActorContext(input, authService);
-        const items = saleContractService ? await saleContractService.getRecentApprovalSends() : [];
-        return {
-          status: 200,
-          body: { items },
-        };
-      }),
-
     getPendingPrintJobs: (input) =>
       executeApiForInput(input, async () => {
         await resolveActorContext(input, authService);

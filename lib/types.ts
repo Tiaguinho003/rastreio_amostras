@@ -1160,11 +1160,12 @@ export interface DashboardPendingResponse {
   };
 }
 
-// Cards de envios (DSB-D14: "Amostras enviadas" mora em /samples e "Aprovações
-// enviadas" na aba Aprovações de /embarques; nasceram no dashboard, DSH-D5/DSB-D5).
-// Amostra = física PHYSICAL_SAMPLE_SENT + laudo REPORT_EXPORTED; aprovação =
-// etiqueta de APROVAÇÃO (approval_label_log, pós-AP16). Cada linha é um envio,
-// do mais recente pro mais antigo.
+// Cards de envios (DSB-D14; nasceram no dashboard, DSH-D5/DSB-D5). Os DOIS cards
+// já morreram: "Amostras enviadas" saiu no ciclo FV de /samples e "Aprovações
+// enviadas" na RC-D26, junto com a aba Aprovações. O tipo fica pela rota
+// /samples/recent-sends, que ainda existe. Amostra = física PHYSICAL_SAMPLE_SENT +
+// laudo REPORT_EXPORTED; aprovação = etiqueta de APROVAÇÃO (approval_label_log,
+// pós-AP16). Cada linha é um envio, do mais recente pro mais antigo.
 export interface RecentSendItem {
   id: string; // event_id (amostra) ou 'approval:<id>' (aprovação); único por linha
   sampleId: string | null; // null na aprovação (não tem amostra)

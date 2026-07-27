@@ -5275,204 +5275,6 @@ button:disabled {
   line-height: 1.4;
 }
 
-/* ── Card de envios compartilhado (sends-*) — DSB-D14 ──
-   "Aprovacoes enviadas" (topo da aba Aprovacoes de /embarques) — o RecentSendsCard.
-   Nasceu no dashboard desktop (DSH-D5/DSB-D5/DSB-D8, classes dd-send*) e migrou no
-   DSB-D14. DESKTOP-ONLY (a base esconde; o breakpoint 901px liga). O gemeo de
-   /samples ("Amostras enviadas", com o wrapper .spv2-top-cards e o card
-   .spv2-pending-stat) saiu do produto no RD15/F1. */
-
-.sends-card {
-  display: none;
-}
-
-@media (min-width: 901px) {
-  .sends-card {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    /* Fora do grid do dashboard nao ha linha que limite o card — teto proprio;
-       a lista continua rolando por dentro. */
-    max-height: clamp(240px, 30vh, 340px);
-    gap: clamp(0.45rem, 0.9vw, 0.7rem);
-    background: #ffffff;
-    border: 1px solid rgba(112, 130, 103, 0.22);
-    border-radius: 20px;
-    /* Mesma sombra dos cards do dashboard (valor de --dd-card-shadow, que e
-       definida em .dashboard-page e nao existe aqui fora). */
-    box-shadow:
-      0 2px 6px rgba(0, 0, 0, 0.06),
-      0 14px 34px rgba(19, 35, 24, 0.14);
-    padding: clamp(0.8rem, 1.1vw, 1.1rem) clamp(0.85rem, 1.15vw, 1.2rem);
-  }
-
-  .sends-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    flex: none;
-  }
-
-  .sends-title {
-    margin: 0;
-    font-size: clamp(0.9rem, 0.98vw, 1rem);
-    font-weight: 700;
-    letter-spacing: 0.01em;
-    color: var(--ink);
-  }
-
-  .sends-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: none;
-    width: clamp(28px, 2.4vw, 34px);
-    height: clamp(28px, 2.4vw, 34px);
-    border-radius: 10px;
-    background: rgba(31, 93, 67, 0.1);
-  }
-
-  .sends-icon svg {
-    width: 58%;
-    height: 58%;
-    fill: none;
-    stroke: var(--brand-green, #1f5d43);
-    stroke-width: 1.8;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  /* Lista com scroll INTERNO. DSB-D8: TABELA horizontal compacta (cabecalho
-     sticky + 1 linha por envio), desacoplada do visual .spv2-card. Sem gap:
-     as linhas se separam por divisoria (border). */
-  .sends-list {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    display: grid;
-    gap: 0;
-    align-content: start;
-    padding-right: 0.25rem;
-  }
-
-  /* Linha (cabecalho + envios): grid horizontal; o template de colunas vem da
-     variante (.is-samples = 4 colunas, .is-approvals = 3). */
-  .sends-row {
-    display: grid;
-    align-items: center;
-    gap: clamp(0.35rem, 0.7vw, 0.6rem);
-    padding: clamp(0.28rem, 0.55vw, 0.4rem) 0.1rem;
-    font-size: clamp(0.72rem, 0.82vw, 0.8rem);
-    border-bottom: 1px solid rgba(112, 130, 103, 0.14);
-  }
-
-  .sends-row:last-child {
-    border-bottom: none;
-  }
-
-  .sends-list.is-samples .sends-row {
-    grid-template-columns:
-      minmax(2.6rem, max-content) minmax(0, 1fr)
-      minmax(3rem, max-content) minmax(2.8rem, max-content);
-  }
-
-  .sends-list.is-approvals .sends-row {
-    grid-template-columns: minmax(3rem, max-content) minmax(0, 1fr) minmax(2.8rem, max-content);
-  }
-
-  /* Cabecalho de colunas: fixo no topo do scroll. */
-  .sends-head {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    background: #ffffff;
-    border-bottom: 1px solid rgba(112, 130, 103, 0.28);
-  }
-
-  .sends-col {
-    font-size: clamp(0.62rem, 0.72vw, 0.7rem);
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    color: var(--muted);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  /* "Tempo" (ultima coluna) alinhado a direita — cabecalho e celula. */
-  .sends-col:last-child,
-  .sends-time {
-    justify-self: end;
-    text-align: right;
-  }
-
-  .sends-cell {
-    min-width: 0;
-    color: var(--ink);
-  }
-
-  .sends-code {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    font-weight: 600;
-    white-space: nowrap;
-  }
-
-  .sends-party {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--ink);
-  }
-
-  /* Tipo do envio (só amostras): texto cinza neutro, uma palavra. */
-  .sends-type {
-    white-space: nowrap;
-    color: var(--muted);
-  }
-
-  .sends-time {
-    white-space: nowrap;
-    color: var(--muted);
-  }
-
-  /* Envio cancelado: esmaece a linha + risca o numero (DSB-D8). */
-  .sends-row.is-cancelled {
-    opacity: 0.55;
-    filter: saturate(0.6);
-  }
-
-  .sends-row.is-cancelled .sends-code-text {
-    text-decoration: line-through;
-  }
-
-  .sends-empty {
-    margin: auto 0;
-    padding: 0 1rem;
-    text-align: center;
-    font-size: clamp(0.78rem, 0.88vw, 0.88rem);
-    color: var(--muted);
-  }
-
-  .sends-list.is-skeleton {
-    overflow: hidden;
-    gap: clamp(0.3rem, 0.6vw, 0.45rem);
-  }
-
-  .sends-list.is-skeleton .dashboard-skeleton-line {
-    height: clamp(24px, 2.2vw, 30px);
-    border-radius: clamp(8px, 0.8vw, 10px);
-  }
-
-  /* Contexto /embarques (aba Aprovacoes): respiro antes da worklist. */
-  .ctr-page .sends-card {
-    margin-bottom: clamp(0.7rem, 1.2vw, 1rem);
-  }
-}
-
 /* ── spv2: list meta ── */
 
 .spv2-list-meta {
@@ -27966,8 +27768,9 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
    (mobile — no desktop `.fv-cad-page .cad-tabs` ja e display:none e as abas
    viram sub-itens da sidenav). Espelha o tab-strip do detalhe institucional
    (`.fv-cd-tab`, globals.css): hairline de base + abas a esquerda, muted -> ink
-   com sublinhado `--fv-cta`. Escopado em `.fv-cad-page` pra NAO tocar o
-   `.cad-tabs.cc-tabs` de /contratos e /embarques (ver comentario abaixo). */
+   com sublinhado `--fv-cta`. O escopo `.fv-cad-page` nasceu pra NAO tocar o
+   `.cad-tabs.cc-tabs` de /contratos e /embarques — que a RC-D1/RC-D2 extinguiu;
+   hoje /cadastros e /samples sao os unicos donos de `.cad-tabs`. */
 .fv-cad-page .cad-tabs {
   gap: 4px;
   padding: 0 1.15rem;
@@ -27989,21 +27792,6 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   color: var(--ink);
   font-weight: 600;
   border-bottom-color: var(--fv-cta);
-}
-
-/* Central de Contratos — hub de abas (F1). Reusa .cad-tabs/.cad-tab sem
-   override de cor: desde o canvas branco do RD16 as cores da BASE
-   (--brand-muted / --brand-green) servem nos dois breakpoints. Ver
-   docs/Central-de-Contratos-Plano-de-Trabalho.md. */
-/* Modo Espelho (selecao de contrato): esconde as abas junto do header/busca. */
-body.is-selection-mode .ctr-page .cc-tabs {
-  display: none;
-}
-/* Subtitulo do placeholder das abas ainda sem conteudo. */
-.cc-placeholder-hint {
-  margin-top: 0.35rem;
-  color: var(--brand-muted);
-  font-size: 0.9rem;
 }
 
 .cad-list {
@@ -29283,106 +29071,17 @@ body.is-selection-mode .ctr-page .cc-tabs {
 }
 @media (prefers-reduced-motion: no-preference) {
   .fin-card.is-highlighted,
-  .emb-card.is-highlighted,
   .ctr-card.is-highlighted {
     animation: contract-highlight-flash 1.8s ease;
   }
 }
 @media (prefers-reduced-motion: reduce) {
   .fin-card.is-highlighted,
-  .emb-card.is-highlighted,
   .ctr-card.is-highlighted {
     box-shadow:
       0 0 0 3px rgba(31, 93, 67, 0.45),
       0 2px 8px rgba(0, 0, 0, 0.05);
   }
-}
-
-/* ============================================================
-   Embarque (EMB25) — worklist da sub-aba. Card = molde do .fin-card
-   (cabeçalho + ações abaixo), sem expand; reusa .fin-btn/.fin-filters/
-   .fin-overdue/.hero-search do Financeiro. ============================================================ */
-.emb-card {
-  background: #fff;
-  border: 1px solid var(--brand-cream-line);
-  border-radius: 14px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  overflow: hidden;
-}
-.emb-card-head {
-  display: flex;
-  align-items: stretch;
-  gap: 0.7rem;
-  padding: 0.85rem 1rem;
-}
-.emb-card-bar {
-  flex: 0 0 auto;
-  width: 4px;
-  border-radius: 2px;
-}
-.emb-card-main {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-}
-.emb-card-top {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-.emb-card-number {
-  font-weight: 700;
-  color: var(--brand-green-ink);
-  font-size: 1rem;
-}
-.emb-card-status {
-  font-size: 0.72rem;
-  font-weight: 700;
-  border-radius: 999px;
-  padding: 0.12rem 0.5rem;
-  white-space: nowrap;
-}
-.emb-card-buyer {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--brand-green-ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.emb-card-figures {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 1.4rem;
-}
-.emb-fig {
-  display: flex;
-  flex-direction: column;
-  gap: 0.05rem;
-  min-width: 0;
-}
-.emb-fig-label {
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--brand-muted);
-}
-.emb-fig-value {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--brand-green-ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.emb-card-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  padding: 0 0.85rem 0.75rem;
 }
 
 /* Confirmação (EMB27): resumo (não-sensível) + upload opcional + aviso terminal. */
@@ -29680,12 +29379,12 @@ body.is-selection-mode .ctr-page .cc-tabs {
   display: none;
 }
 
-/* O `.fv-page-head` do kit nao tem padding embaixo porque nas paginas de
-   lista quem da o respiro e a KPI row logo abaixo. Aqui ela nao existe e o
-   canvas encosta borda a borda, entao o titulo ficaria colado nele. Respiro
-   escopado na aba — o kit compartilhado nao muda por causa de uma pagina. */
-.samples-page-v2.is-tab-simulador .fv-page-head {
-  padding-bottom: 0.8rem;
+/* O FAB de criacao e da LISTA. No desktop ele ja sai por
+   `.fv-lotes-page .fv-lotes-fab` (dentro do @media 901px), mas no mobile
+   ficava flutuando por cima do aviso "feito para telas grandes" — criar lote
+   nao e acao do Simulador em breakpoint nenhum. */
+.samples-page-v2.is-tab-simulador .fv-lotes-fab {
+  display: none;
 }
 
 /* Host do canvas. O React Flow exige altura resolvida, e ela vem da CADEIA
@@ -29999,18 +29698,6 @@ body.is-selection-mode .ctr-page .cc-tabs {
 .pg-palette-hint {
   font-size: 0.72rem;
   color: var(--brand-muted);
-}
-
-/* ── Estado vazio (PG33) ── */
-.pg-empty-hint {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  margin: 0;
-  color: var(--brand-muted);
-  font-size: 0.95rem;
-  pointer-events: none;
 }
 
 /* ── Menu de compatíveis (PG26) ── */

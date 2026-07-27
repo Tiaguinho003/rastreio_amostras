@@ -791,10 +791,12 @@ export class SaleContractService {
     return { items: rows.map((row) => buildDashboardAvisoItem(row, todayKey)) };
   }
 
-  // AP16: envios de aprovacao recentes p/ o card "Aprovacoes enviadas" (DSB-D14:
-  // mora na aba Aprovacoes de /embarques; nasceu no dashboard). Ordena por
-  // createdAt desc; exclui avulsas historicas (saleContractId NULL). Join manual do
-  // contrato (nº + comprador) — SaleContract nao tem @relation.
+  // AP16: envios de aprovacao recentes. SEM CONSUMIDOR desde a RC-D26 — o card
+  // "Aprovacoes enviadas" (DSB-D14) morreu junto com a aba Aprovacoes, e a rota
+  // HTTP saiu com ele. O metodo fica (coberto por teste de integracao) porque o
+  // dado — "o que ja foi enviado" — e candidato natural da fase Aprovacao na RC-F2.
+  // Ordena por createdAt desc; exclui avulsas historicas (saleContractId NULL).
+  // Join manual do contrato (nº + comprador) — SaleContract nao tem @relation.
   async getRecentApprovalSends() {
     const logs = await this.prisma.approvalLabelLog.findMany({
       where: { saleContractId: { not: null } },

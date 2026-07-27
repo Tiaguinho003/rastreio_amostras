@@ -536,8 +536,9 @@ function SamplesPage() {
   const searchParams = useSearchParams();
 
   // FV: o card "Amostras enviadas" (DSB-D14) saiu da lista — a pagina passou a
-  // ser cabecalho + KPI + tabela. `RecentSendsCard` e a rota
-  // /samples/recent-sends ficam orfaos (limpeza na consolidacao do ciclo).
+  // ser cabecalho + KPI + tabela. O `RecentSendsCard` ja foi apagado (RC-D26, que
+  // matou o ultimo consumidor vivo dele); sobra orfa a rota /samples/recent-sends
+  // + getSampleRecentSends, que tem suite propria e saem na consolidacao do ciclo.
 
   // Deep-link de status via URL (?displayStatus=OPEN; era o "Ver disponiveis" do
   // donut do dashboard, removido no DSB-D14 — o param segue valido).
