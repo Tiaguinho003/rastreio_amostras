@@ -344,24 +344,22 @@ export function InformativoFormSheet({
 
   const footer = draft.incluiMeteo ? (
     <div className="ifm-footer-dl">
-      <div className="ifm-footer-dl-row">
-        <button
-          type="button"
-          className="app-modal-secondary"
-          onClick={() => void handleDownloadUma('mercado')}
-          disabled={busy}
-        >
-          Baixar mercado
-        </button>
-        <button
-          type="button"
-          className="app-modal-secondary"
-          onClick={() => void handleDownloadUma('meteo')}
-          disabled={busy}
-        >
-          Baixar meteorológico
-        </button>
-      </div>
+      <button
+        type="button"
+        className="app-modal-secondary"
+        onClick={() => void handleDownloadUma('mercado')}
+        disabled={busy}
+      >
+        Baixar mercado
+      </button>
+      <button
+        type="button"
+        className="app-modal-secondary"
+        onClick={() => void handleDownloadUma('meteo')}
+        disabled={busy}
+      >
+        Baixar meteorológico
+      </button>
       <button
         type="button"
         className="app-modal-submit"

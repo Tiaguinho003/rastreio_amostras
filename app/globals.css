@@ -10497,17 +10497,28 @@ body:has(.app-modal-backdrop) .prospector-fab {
 }
 
 /* Footer: baixar cada peca (secundarias, NAO fecham) + baixar as duas
-   (primaria, fecha). Sem meteo, so a primaria em toda a largura. */
+   (primaria, fecha). Sem meteo, so a primaria em toda a largura.
+   Mobile: as duas secundarias dividem a 1a linha e a primaria ocupa a 2a
+   inteira (3 botoes nao cabem lado a lado num telefone). Desktop (>=901px):
+   os tres numa linha so. */
 .ifm-footer-dl {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 0.5rem;
 }
 
-.ifm-footer-dl-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 0.5rem;
+.ifm-footer-dl .app-modal-submit {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 901px) {
+  .ifm-footer-dl {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .ifm-footer-dl .app-modal-submit {
+    grid-column: auto;
+  }
 }
 
 .ifm-footer-single {
