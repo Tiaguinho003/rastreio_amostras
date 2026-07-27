@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { AppShell } from '../../components/AppShell';
@@ -247,9 +248,33 @@ function modalReducer(state: ModalState, action: ModalAction): ModalState {
   }
 }
 
-export default function UsersPage() {
+// useSearchParams exige Suspense no App Router (molde de /cadastros).
+export default function UsersPageWrapper() {
+  return (
+    <Suspense>
+      <UsersPage />
+    </Suspense>
+  );
+}
+
+function UsersPage() {
   const { session, loading, logout, setSession } = useRequireAuth({ allowedRoles: ['ADMIN'] });
   const toast = useToast();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // U-D9: o detalhe e ENDERECAVEL (`containers` §5) — `/users?usuario=<id>`
+  // sobrevive ao F5 e vira link. Criar NAO entra na URL, de proposito.
+  //
+  // 🔴 A URL aqui e ESPELHO, nao dona do historico: sempre `replace`, nunca
+  // `push`. Diferente de /cadastros, o container e o `BottomSheet`, que ja
+  // injeta a propria entry — com push seriam DUAS (back precisaria de dois
+  // toques). E `manageHistory={false}` nao resolve: o mesmo sheet serve os
+  // tres modos, e virar a prop de true pra false com o painel ABERTO dispara o
+  // cleanup do efeito de historico do sheet, que chama `history.back()` e
+  // fecharia o painel no meio do criar→ver. Com `replace` o sheet segue dono
+  // unico do historico: back fecha em UM toque e a URL so acompanha.
+  const usuarioParam = searchParams.get('usuario');
 
   const [listState, dispatchList] = useReducer(usersListReducer, USERS_INITIAL);
   const [modal, dispatchModal] = useReducer(modalReducer, MODAL_INITIAL);
@@ -524,6 +549,18 @@ export default function UsersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modal.mode, modal.user?.id, session]);
 
+  // U-D9: URL → painel. Cobre deep-link e F5 (o unico caminho em que a URL
+  // chega na frente do estado). Abrir pela lista ja despacha o estado e so
+  // ESPELHA na URL, e este efeito vira no-op pelo guard do id.
+  useEffect(() => {
+    if (!session || !usuarioParam) return;
+    if (modal.mode === 'create') return;
+    if (modal.mode !== 'closed' && modal.user?.id === usuarioParam) return;
+    openUserDetail(usuarioParam, null);
+    // openUserDetail e estavel (function declaration) e so le refs/listState.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usuarioParam, session, modal.mode, modal.user?.id]);
+
   // Devolve o foco a quem abriu o painel. Scroll-lock, ESC, focus trap e
   // historico sao do BottomSheet — duplicar aqui daria dois donos do
   // `body.overflow` (o segundo a limpar restauraria o valor errado).
@@ -558,6 +595,14 @@ export default function UsersPage() {
     });
   }
 
+  // U-D9: o painel de ver/editar vive na URL. `replace` porque o dono do
+  // historico e o BottomSheet (ver o comentario do usuarioParam).
+  function syncUrl(userId: string | null) {
+    const target = userId ? `/users?usuario=${encodeURIComponent(userId)}` : '/users';
+    if (userId ? usuarioParam === userId : usuarioParam === null) return;
+    router.replace(target, { scroll: false });
+  }
+
   function openUserDetail(
     userId: string,
     trigger: HTMLButtonElement | null,
@@ -565,6 +610,7 @@ export default function UsersPage() {
   ) {
     lastTriggerRef.current = trigger;
     resetPanelScratch();
+    syncUrl(userId);
     const cached = listState.items.find((u) => u.id === userId) ?? null;
     dispatchModal({ type: 'openView', userId });
     if (cached) {
@@ -596,6 +642,7 @@ export default function UsersPage() {
     if (modal.saving) return;
     resetPanelScratch();
     dispatchModal({ type: 'close' });
+    syncUrl(null);
   }
 
   // Gesto de fechar (seta, ESC, back, drag, tap no scrim). Rascunho tocado
@@ -628,6 +675,7 @@ export default function UsersPage() {
     }
     resetPanelScratch();
     dispatchModal({ type: 'close' });
+    syncUrl(null);
   }
 
   async function handleCopyField(text: string, label: string) {
@@ -697,6 +745,10 @@ export default function UsersPage() {
       window.setTimeout(() => {
         setPanelSuccess(false);
         dispatchModal({ type: 'saveSuccess', user: response.user });
+        // Criar nao e enderecavel, mas o que sobra na tela DEPOIS do check e o
+        // detalhe — e detalhe e enderecavel (U-D9). `replace` de novo: a entry
+        // do sheet, aberta pelo criar, continua sendo a unica.
+        syncUrl(response.user.id);
         toast.success({
           title: 'Usuário criado',
           description: `A senha de acesso foi enviada para ${response.user.email}.`,
