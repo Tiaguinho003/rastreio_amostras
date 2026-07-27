@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
-
+import { BottomSheet } from '../BottomSheet';
 import {
   DEFEITO_KEYS,
   DEFEITO_UNITS,
@@ -70,43 +69,48 @@ function collectExclusions(estimate: LigaEstimate): ExclusionNote[] {
   return notes;
 }
 
-// Drawer lateral direito (PG18/PG27): ficha estimada completa do Resultado.
-// position:absolute DENTRO do .pg-host — nunca fixed (PageTransition tem
-// will-change: transform). O canvas segue interativo ao lado: editar sacas
-// recalcula a ficha ao vivo (PG14).
+// Ficha estimada do Resultado (PG18/PG27, recontêinerizada na PG52).
+//
+// Era um `<aside>` próprio com `position: absolute` dentro do `.pg-host`. Passa
+// a ser o contêiner institucional de painel lateral: `BottomSheet` +
+// `.fv-panel-sheet.side-sheet` (containers §8) — o mesmo de /users, /samples e
+// /relatorios. Vem de graça o que o drawer caseiro não tinha: ESC, back do
+// Android, focus trap, animação de entrada/saída e a seta `edge-back`.
+//
+// O `BottomSheet` faz `createPortal` pro `document.body`, então o `fixed` dele
+// não é capturado pelo `will-change: transform` do `PageTransition` — a razão
+// original do `absolute` some junto com o drawer.
+//
+// Uma coisa NÃO é padrão e está no CSS: o backdrop deste sheet é atravessável.
+// A PG14 recalcula ao vivo, e o ponto de editar sacas COM a ficha aberta é ver
+// o número mudar. Backdrop bloqueante mataria isso. Precedente idêntico:
+// `.detail-overlay` da "lista viva" (RD4).
 export function ResultDrawer({
+  open,
   outcome,
   onClose,
 }: {
+  open: boolean;
   outcome: SimulationOutcome | null;
   onClose: () => void;
 }) {
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') onClose();
-    }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
-
   const estimate = outcome?.kind === 'estimate' ? outcome.estimate : null;
   const exclusions = estimate ? collectExclusions(estimate) : [];
 
   return (
-    <aside className="pg-drawer" role="complementary" aria-label="Ficha estimada">
-      <header className="pg-drawer-header">
-        <h3>
-          Ficha estimada <span className="pg-node-badge">estimativa</span>
-        </h3>
-        <button
-          type="button"
-          className="pg-drawer-close"
-          aria-label="Fechar ficha"
-          onClick={onClose}
-        >
-          <span aria-hidden="true">×</span>
-        </button>
-      </header>
+    <BottomSheet
+      open={open}
+      onClose={onClose}
+      ariaLabel="Ficha estimada"
+      closeVariant="edge-back"
+      className="fv-panel-sheet side-sheet pg-ficha-sheet"
+    >
+      {/* O `.fv-panel-sheet` não usa o slot de `title` do BottomSheet (a seta
+          edge-back se alinha ao topo contando com isso), então o título mora
+          no corpo — mesma escolha dos painéis de /users e /relatorios. */}
+      <h3 className="pg-ficha-title">
+        Ficha estimada <span className="pg-node-badge">estimativa</span>
+      </h3>
 
       {estimate === null ? (
         <p className="pg-drawer-unavailable">
@@ -212,6 +216,6 @@ export function ResultDrawer({
           </p>
         </div>
       )}
-    </aside>
+    </BottomSheet>
   );
 }

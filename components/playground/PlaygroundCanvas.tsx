@@ -278,6 +278,17 @@ export function PlaygroundCanvas({ session }: { session: SessionData }) {
     event.dataTransfer.dropEffect = 'move';
   }, []);
 
+  // PG53: o node de Resultado virou só um check — o alvo de clique passou a
+  // ser o node inteiro. `onNodeClick` do React Flow, e não um onClick no
+  // node, porque ele só dispara em clique de verdade: arrastar o node pelo
+  // canvas não abre a ficha.
+  const onNodeClick = useCallback(
+    (_event: unknown, node: Node) => {
+      if (node.type === 'resultado') setDrawerResultId(node.id);
+    },
+    [setDrawerResultId]
+  );
+
   const onDrop = useCallback(
     (event: DragEvent) => {
       const type = event.dataTransfer.getData('application/pg-node') as PgNodeType | '';
@@ -303,11 +314,14 @@ export function PlaygroundCanvas({ session }: { session: SessionData }) {
             onConnectEnd={onConnectEnd}
             isValidConnection={isValidConnection}
             onPaneClick={() => setConnectMenu(null)}
+            onNodeClick={onNodeClick}
             deleteKeyCode={['Backspace', 'Delete']}
             minZoom={0.3}
             maxZoom={2}
           >
-            <Background variant={BackgroundVariant.Dots} gap={22} size={1.5} color="#d3cec2" />
+            {/* PG55: sem prop `color` — o ponto vem do `--pg-dot` via
+                `--xy-background-pattern-color`, no `.pg-host`. */}
+            <Background variant={BackgroundVariant.Dots} gap={22} size={1.5} />
             <Controls showInteractive={false} />
             <ExecutePill onExecute={onExecute} disabled={nodes.length === 0} />
           </ReactFlow>
@@ -320,12 +334,13 @@ export function PlaygroundCanvas({ session }: { session: SessionData }) {
               onClose={() => setConnectMenu(null)}
             />
           ) : null}
-          {drawerResultId ? (
-            <ResultDrawer
-              outcome={outcomes?.get(drawerResultId) ?? null}
-              onClose={() => setDrawerResultId(null)}
-            />
-          ) : null}
+          {/* PG52: sempre montado — o `BottomSheet` precisa do `open` indo de
+              true pra false pra animar a saída; desmontar corta o slide. */}
+          <ResultDrawer
+            open={drawerResultId !== null}
+            outcome={drawerResultId ? (outcomes?.get(drawerResultId) ?? null) : null}
+            onClose={() => setDrawerResultId(null)}
+          />
           <p className="pg-live-region" role="status" aria-live="polite">
             {announcement}
           </p>

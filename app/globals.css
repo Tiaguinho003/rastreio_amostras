@@ -25354,9 +25354,11 @@ body:has(.app-modal-backdrop.is-stacked)
     pointer-events: auto;
   }
 
-  /* Painel lateral direito colado na borda (referencia visual: .pg-drawer
-     do Playground). Sobrescreve o ramo "modal centralizado" do sheet
-     desktop: ancora top/right/bottom, desliza da direita, sem raio. */
+  /* Painel lateral direito colado na borda — a referencia visual foi o
+     `.pg-drawer` caseiro do Playground, que na PG52 fez o caminho de volta e
+     virou `.side-sheet` tambem (a classe nao existe mais). Sobrescreve o ramo
+     "modal centralizado" do sheet desktop: ancora top/right/bottom, desliza
+     da direita, sem raio. */
   .bottom-sheet.detail-overlay {
     pointer-events: auto;
     top: 0;
@@ -29397,21 +29399,22 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
    Borda a borda (pedido do Flavio): sem margem, sem raio e sem sombra. O
    canvas nao e um cartao dentro da pagina, ele E a pagina.
 
-   Drawer/pill/paleta ancoram como position:absolute NESTE contexto — nunca
-   position:fixed (PageTransition tem will-change: transform, precedente do
-   MobileTabbar). */
+   Pill/paleta/menu de conexao ancoram como position:absolute NESTE contexto —
+   nunca position:fixed (PageTransition tem will-change: transform, precedente
+   do MobileTabbar). A ficha e a excecao e nao mora aqui: virou BottomSheet
+   (PG52), que faz portal pro body e escapa do contexto por construcao. */
 .pg-host {
   position: relative;
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  background: #fbfaf7;
+  background: var(--pg-canvas-bg);
 }
 /* Skeleton do next/dynamic: reserva o mesmo box do canvas (sem CLS). */
 .pg-canvas-skeleton {
   width: 100%;
   height: 100%;
-  background: #fbfaf7;
+  background: var(--pg-canvas-bg);
 }
 
 /* Wrapper interno do canvas (preenche o host; recebe drop da paleta). */
@@ -29420,15 +29423,26 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   inset: 0;
 }
 
-/* Tokens da feature (PG34) + variáveis do React Flow, escopados no host. */
+/* Tokens da feature (PG34/PG55) + variáveis do React Flow, escopados no host.
+
+   PG55: as cores cruas do canvas viraram token. Eram 14 hex espalhados por
+   ~600 linhas — trocar o tom do papel exigia caçar `#fbfaf7` um por um, e o
+   `#d3cec2` dos pontos nem estava aqui: era prop `color` do `<Background>` em
+   TSX, invisível pra quem procura cor no CSS. Agora o React Flow lê o ponto
+   do `--xy-background-pattern-color`, e a prop saiu do componente. */
 .pg-host {
+  --pg-canvas-bg: #fbfaf7;
+  --pg-surface: #ffffff;
+  --pg-dot: #d3cec2;
+  --pg-edge: #9aa8a0;
   --pg-node-lote: var(--brand-green);
   --pg-node-mistura: var(--color-warning);
   --pg-node-resultado: var(--color-info);
-  --xy-edge-stroke: #9aa8a0;
+  --xy-background-pattern-color: var(--pg-dot);
+  --xy-edge-stroke: var(--pg-edge);
   --xy-edge-stroke-selected: var(--brand-green-soft);
   --xy-handle-background-color: var(--brand-green-soft);
-  --xy-handle-border-color: #ffffff;
+  --xy-handle-border-color: var(--pg-surface);
 }
 
 /* ── Nodes (PG29/PG34) ── */
@@ -29437,7 +29451,7 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   min-width: 180px;
   max-width: 240px;
   padding: 0.6rem 0.75rem 0.7rem;
-  background: #ffffff;
+  background: var(--pg-surface);
   border: 1px solid var(--color-line);
   border-left: 3px solid var(--brand-green);
   border-radius: var(--radius-md);
@@ -29511,7 +29525,7 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   font: inherit;
   font-size: 0.82rem;
   color: var(--color-ink);
-  background: #ffffff;
+  background: var(--pg-surface);
 }
 .pg-node.has-error .pg-node-sacks input {
   border-color: var(--color-danger);
@@ -29531,7 +29545,7 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
     white-space: nowrap;
     padding: 0.35rem 0.6rem;
     background: var(--color-ink);
-    color: #ffffff;
+    color: var(--pg-surface);
     font-size: 0.72rem;
     border-radius: var(--radius-sm);
     box-shadow: var(--shadow-md);
@@ -29562,7 +29576,7 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   overflow-y: auto;
   border: 1px solid var(--color-line);
   border-radius: var(--radius-sm);
-  background: #ffffff;
+  background: var(--pg-surface);
 }
 .pg-lot-search-list button {
   display: flex;
@@ -29611,7 +29625,7 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   top: 12px;
   left: 12px;
   width: 200px;
-  background: #ffffff;
+  background: var(--pg-surface);
   border: 1px solid var(--color-line);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
@@ -29705,7 +29719,7 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   position: absolute;
   min-width: 170px;
   padding: 0.3rem;
-  background: #ffffff;
+  background: var(--pg-surface);
   border: 1px solid var(--color-line);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
@@ -29751,7 +29765,7 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   border: 0;
   border-radius: var(--radius-pill);
   background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
-  color: #ffffff;
+  color: var(--pg-surface);
   font: inherit;
   font-size: 0.95rem;
   font-weight: 600;
@@ -29771,91 +29785,139 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   transform: none;
 }
 
-/* ── Resumo do node Resultado (PG18) ── */
-.pg-result-summary {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  font-size: 0.78rem;
-  color: var(--brand-muted);
+/* ── Controles de zoom / fit (PG51) ──
+   Ficam no canto que o React Flow já escolheu; muda só a pele. De fábrica
+   vêm com a cara do React Flow — quadrados empilhados, cinza-azulado, borda
+   de 1px separando cada um. Aqui viram um cartão só: mesma superfície,
+   mesmo raio, mesma sombra e mesmo hairline dos outros flutuantes do canvas
+   (paleta, menu de conexão). O afundar no toque é o do app: só escala, sem
+   troca de cor (skill `button-press-effect`). */
+.pg-host .react-flow__controls {
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-line);
+  background: var(--pg-surface);
+  box-shadow: var(--shadow-md);
 }
-.pg-result-summary strong {
-  font-size: 0.95rem;
-  color: var(--color-ink);
-}
-.pg-result-open {
-  margin-top: 0.45rem;
-  padding: 0.3rem 0;
+
+.pg-host .react-flow__controls-button {
+  width: 1.9rem;
+  height: 1.9rem;
+  padding: 0;
   border: 0;
+  border-bottom: 1px solid var(--color-line);
   background: transparent;
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--brand-green-soft);
+  color: var(--brand-muted);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--duration-instant) var(--ease-out);
+}
+
+.pg-host .react-flow__controls-button:last-child {
+  border-bottom: 0;
+}
+
+.pg-host .react-flow__controls-button svg {
+  width: 0.7rem;
+  height: 0.7rem;
+  fill: currentColor;
+}
+
+.pg-host .react-flow__controls-button:active {
+  transform: scale(0.9);
+}
+
+.pg-host .react-flow__controls-button:disabled {
+  opacity: 0.35;
+}
+
+.pg-host .react-flow__controls-button:disabled:active {
+  transform: none;
+}
+
+@media (hover: hover) {
+  .pg-host .react-flow__controls-button:hover {
+    background: var(--color-surface-muted);
+    color: var(--color-ink);
+  }
+}
+
+/* ── Node Resultado pronto (PG53) ──
+   Saíram o resumo de 4 linhas e o "Ver ficha completa →": o node vira uma
+   plaquinha com o check. Sem número, ele encolhe pro tamanho do próprio
+   título — por isso o min-width menor que o dos demais. O node inteiro é
+   clicável (`onNodeClick`); o cursor avisa. */
+.pg-node-resultado.is-ready {
+  min-width: 0;
+  padding-right: 2.3rem;
+  cursor: pointer;
+}
+
+.pg-result-check {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.5rem;
+  display: grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--brand-green);
+  color: var(--pg-surface);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: transform var(--duration-instant) var(--ease-out);
 }
-.pg-result-open:active {
-  transform: scale(0.97);
+.pg-result-check svg {
+  width: 0.8rem;
+  height: 0.8rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pg-result-check:active {
+  transform: scale(0.88);
 }
 
-/* ── Drawer da ficha estimada (PG18/PG27) ── */
-.pg-drawer {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: min(380px, 90%);
-  display: flex;
-  flex-direction: column;
-  background: #ffffff;
-  border-left: 1px solid var(--color-line);
-  box-shadow: var(--shadow-xl);
-  z-index: var(--z-popover);
-  animation: pg-drawer-in var(--duration-slow) var(--ease-out);
-}
-@keyframes pg-drawer-in {
-  from {
-    transform: translateX(100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-.pg-drawer-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.85rem 1rem 0.6rem;
-  border-bottom: 1px solid var(--color-line);
-}
-.pg-drawer-header h3 {
+/* ── Ficha estimada (PG18/PG27, recontêinerizada na PG52) ──
+   A casca caseira (`.pg-drawer` absoluto + keyframes + header + botão ×) foi
+   embora: o painel agora é `BottomSheet` + `.fv-panel-sheet.side-sheet`, que
+   já traz geometria, animação, seta edge-back e chrome institucional. Sobrou
+   daqui o MIOLO da ficha — os `.pg-drawer-*` de conteúdo, que continuam
+   valendo dentro do sheet. */
+.pg-ficha-title {
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  margin: 0;
+  margin: 0 0 0.9rem;
   font-size: 1rem;
   color: var(--color-ink);
 }
-.pg-drawer-close {
-  border: 0;
-  background: transparent;
-  font-size: 1.3rem;
-  line-height: 1;
-  color: var(--brand-muted);
-  cursor: pointer;
-  padding: 0.2rem 0.45rem;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform var(--duration-instant) var(--ease-out);
+
+@media (min-width: 901px) {
+  /* PG52: EXCEÇÃO ao `.side-sheet`, que por padrão escurece e bloqueia o que
+     está atrás (criação tem estado sujo). A ficha não cria nada: é leitura, e
+     a PG14 recalcula ao vivo. O ponto de abrir a ficha e mexer nas sacas é
+     ver o número mudar — backdrop bloqueante mataria exatamente isso.
+     `display: none` não serve: o sheet é FILHO do backdrop e sumiria junto.
+     Mesmo mecanismo do peek `.detail-overlay` da "lista viva" (RD4). */
+  .bottom-sheet-backdrop:has(> .bottom-sheet.pg-ficha-sheet) {
+    background: rgba(0, 0, 0, 0);
+    pointer-events: none;
+  }
+
+  /* Mais estreita que os 620px do kit, pelo mesmo motivo: quanto mais canvas
+     sobra visível, mais serve a edição ao vivo ao lado da ficha. */
+  .bottom-sheet.pg-ficha-sheet {
+    pointer-events: auto;
+    width: min(420px, 92vw);
+  }
 }
-.pg-drawer-close:active {
-  transform: scale(0.9);
-}
+
 .pg-drawer-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0.85rem 1rem 1.2rem;
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
@@ -29964,7 +30026,7 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   gap: 0.5rem;
   padding: clamp(2.5rem, 12vw, 4rem) 1.5rem;
   margin: 0.75rem clamp(0.9rem, 4vw, 1.5rem) 1.5rem;
-  background: #ffffff;
+  background: var(--pg-surface);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
 }
@@ -29997,7 +30059,7 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   padding: 0.65rem 1.6rem;
   font-size: 0.95rem;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--pg-surface);
   background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;

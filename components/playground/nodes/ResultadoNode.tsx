@@ -2,11 +2,6 @@
 
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 
-import {
-  PENEIRA_KEYS,
-  type EstimateFieldValue,
-  type PeneiraKey,
-} from '../../../lib/playground/engine';
 import type { SimulationOutcome } from '../../../lib/playground/simulation';
 import { usePlaygroundResults } from '../results-context';
 
@@ -23,23 +18,13 @@ function errorMessage(outcome: Extract<SimulationOutcome, { kind: 'error' }>): s
   }
 }
 
-/** Peneira de maior participação — o destaque do resumo (PG18). */
-function topPeneira(peneiras: Record<PeneiraKey, EstimateFieldValue>): string | null {
-  let bestKey: PeneiraKey | null = null;
-  let bestValue = -1;
-  for (const key of PENEIRA_KEYS) {
-    const field = peneiras[key];
-    if (field.kind === 'value' && field.value > bestValue) {
-      bestValue = field.value;
-      bestKey = key;
-    }
-  }
-  if (!bestKey) return null;
-  return `${bestKey.toUpperCase()} ${String(bestValue).replace('.', ',')}%`;
-}
-
-// Node Resultado (PG18): resumo da estimativa no canvas + "Ver ficha" que abre
-// o drawer lateral. Antes da execução (PG14) fica como casca incompleta.
+// Node Resultado (PG18, reescrito na PG53): quando a estimativa fecha, o node
+// NÃO mostra número nenhum — só um check discreto no canto. A ficha inteira
+// mora no painel lateral (PG52); repetir um resumo aqui criava duas fontes pra
+// mesma verdade, em tamanhos diferentes, e a de cima era a menos útil.
+//
+// Erro segue NO node de propósito: é sobre o desenho do fluxo, que é
+// justamente o que está na tela, e some sozinho quando o usuário corrige.
 export function ResultadoNode({ id }: NodeProps) {
   const { outcomes, openDrawer } = usePlaygroundResults();
   const outcome = outcomes?.get(id) ?? null;
@@ -70,27 +55,25 @@ export function ResultadoNode({ id }: NodeProps) {
     );
   }
 
-  const { estimate } = outcome;
-  const highlight = topPeneira(estimate.peneiras);
-
   return (
-    <div className="pg-node pg-node-resultado">
+    <div className="pg-node pg-node-resultado is-ready">
       <Handle type="target" position={Position.Left} />
+      {/* O check é um botão de verdade, não enfeite: o node inteiro abre a
+          ficha no clique (`onNodeClick` do canvas), mas teclado e leitor de
+          tela precisam de um alvo focável — e é este. */}
+      <button
+        type="button"
+        className="pg-result-check nodrag"
+        aria-label="Ver ficha estimada"
+        onClick={() => openDrawer(id)}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M20 6 9 17l-5-5" />
+        </svg>
+      </button>
       <header className="pg-node-title">
         Resultado <span className="pg-node-badge">estimativa</span>
       </header>
-      <div className="pg-result-summary">
-        <strong>{estimate.totalSacks} sacas</strong>
-        <span>safra {estimate.harvest ?? '—'}</span>
-        <span>{estimate.ownerLabel ?? 'Sem dono'}</span>
-        <span>
-          {estimate.composition.length} {estimate.composition.length === 1 ? 'lote' : 'lotes'}
-          {highlight ? ` · ${highlight}` : ''}
-        </span>
-      </div>
-      <button type="button" className="pg-result-open nodrag" onClick={() => openDrawer(id)}>
-        Ver ficha completa →
-      </button>
     </div>
   );
 }
