@@ -20,6 +20,8 @@ Fluxo para uma sessão futura: ler §1–§3 → conferir §4 (o que já foi tra
 
 **Pré-requisito de implementação (combinado com o Flavio):** a documentação precisa estar **completa** E a **disposição das páginas decidida** (§5.1) ANTES de escrever qualquer código.
 
+**Sequência acordada (2026-07-27):** a **disposição das páginas (§5.1) é executada PRIMEIRO**, num ciclo/agente separado (redesign das páginas — ver `Redesign-Plano-de-Trabalho.md`). A SN só retoma **depois**, provavelmente em outra conversa. **Por isso o 1º passo ao retomar a SN é RECONCILIAR a Metade A com o código já entregue** — a reorganização de páginas muda o inventário de rotas/abas do §5.1, a lista de páginas do §2.3, os gates do §2.6 e todos os `arquivo:linha` (re-derivar). Só depois preencher a coluna "alvo" do §5.1 e seguir o ledger na ordem **D4→D6→D1→D3** (D5/D2 por último). Este documento carrega o contexto conceitual; os fatos de código precisam ser re-conferidos.
+
 ---
 
 # METADE A — Contexto estável
@@ -29,7 +31,7 @@ Fluxo para uma sessão futura: ler §1–§3 → conferir §4 (o que já foi tra
 ### Objetivo
 
 1. **Remover** a página de carregamento verde que existe hoje (some ao entrar no app e ao transicionar entre páginas). Uma **nova** splash de entrada será criada **depois** — só apresentação do nome do app, disparada apenas na entrada após ficar **X tempo** fora (§3.5, fase futura).
-2. **Navbar fixo:** o shell (navbar + chrome) **nunca desaparece** entre navegações.
+2. **Navbar fixo (modelo _tab bar_):** o shell (navbar + chrome) **nunca desaparece** entre navegações. Intenção do Flavio (2026-07-24): o navbar funciona como **barra de abas** à la WhatsApp/Instagram — tocar numa aba dá **feedback de seleção instantâneo** e o conteúdo troca de forma **natural** (sem loader), a barra imóvel. Consequências: (a) os destinos (= abas) dependem do §5.1; (b) o grau de **preservação de estado por aba** (scroll/filtros ao voltar) é o **SN-D7** (§5.2).
 3. **Transição natural:** sem página de carregamento entre páginas; ao navegar, **só o conteúdo da página** carrega (skeleton/inline por área, não overlay full-screen).
 4. **Estado & atualização:** definir, por página, **o que é cacheado, por quanto tempo o estado é mantido e quando revalida**.
 
@@ -87,6 +89,8 @@ Um único componente visual reutilizado por dois controladores independentes, co
 - `app/layout.tsx` **não** monta o `AppShell`.
 
 Consequência: no App Router **só o `layout` persiste**. A cada navegação, a página **desmonta e remonta** → o `AppShell` (navbar) **remonta junto** → pisca. Este é o item nº 1 a resolver para "navbar fixo".
+
+**A barra mobile (`components/MobileTabbar.tsx`) confirma o sintoma e a solução.** Ela já é renderizada via **portal no `document.body`** (fora do `PageTransition`, para não herdar o `will-change:transform` que quebrava o `position:fixed`) e já traz o **efeito de seleção pronto** (`.mobile-tabbar-link.is-active` + `aria-current="page"`) — exatamente o feedback IG/WA que o Flavio quer. Mas o componente ainda vive **dentro do `AppShell` montado por página** → remonta a cada navegação, e seu gate `mounted` (`useEffect`) o **zera por um tick** (`return null`) antes de reaparecer = o "pisca". Ou seja: **o efeito de seleção já existe no código; o que o destrói é a remontagem** — precisamente o que o shell persistente (F2) elimina. Abas mobile hoje: **4** — Início `/dashboard`, Lotes `/samples`, Cadastros `/cadastros`, e um 4º slot papel-dependente (Relatórios `/relatorios` **ou** Perfil `/profile`). Contratos e Embarques não entram na tabbar (só no menu do avatar).
 
 ### 2.4 Ciclo de vida de uma navegação hoje
 
@@ -158,18 +162,37 @@ Só apresentação do **nome do app**, disparada **apenas na entrada** após fic
 
 ## §4. Ledger de decisões (SN)
 
+### §4.0 Protocolo de decisão (coerência entre decisões)
+
+Toda decisão SN passa por este rito — **uma situação por vez** — antes de ser travada:
+
+1. **Questão** — objetiva e isolada.
+2. **Opções** — enumeradas, cada uma com seu trade-off (descartar as dominadas explicando por quê).
+3. **Recomendação** — a opção escolhida e o porquê.
+4. **Análise de impacto** (obrigatória, antes de travar) — responder:
+   - (a) contradiz algum princípio de §1 ou fato de §2 (contexto estável)?
+   - (b) afeta, ou é afetada por, alguma decisão **já travada**?
+   - (c) mexe no faseamento (§6), no mapa de páginas (§5) ou nos riscos (§7)?
+   - (d) o que esta decisão **restringe** nas decisões seguintes?
+5. **Registro** — só após confirmação do Flavio: status → **TRAVADA** (com data) e as implicações **propagadas** (editar §5/§6/§7 conforme a análise apontar).
+
+**Regra de ouro:** nenhuma decisão trava se a análise revelar conflito não resolvido com uma decisão anterior — nesse caso, reabrir a anterior explicitamente antes de seguir.
+
+### §4.1 Ledger
+
 > Formato: **ID · questão · opções · decisão · data · implicação.** Enquanto `EM ABERTO`, registrar a recomendação (não travada) para acelerar a retomada.
 
-| ID        | Questão                                                                                                                                           | Status        | Recomendação (não travada)                                                   |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ---------------------------------------------------------------------------- |
-| **SN-D1** | O que aparece durante a espera **real** de sessão (1ª carga sem cache)? Causa-raiz + loader neutro · causa-raiz + branco · cosmético (só deletar) | **EM ABERTO** | Causa-raiz (init da sessão via cache) + loader mínimo neutro só na 1ª carga. |
-| **SN-D2** | A tela verde **nativa do SO** (manifest `background_color`/`theme_color`) — neutralizar também?                                                   | **EM ABERTO** | Decidir junto do visual da nova splash (F4).                                 |
-| **SN-D3** | Quais comportamentos load-bearing do boot preservar? (offline→/offline · resume 30/60min · deep-link)                                             | **EM ABERTO** | Adotar deep-link funcionando; avaliar repor offline; descartar resume.       |
-| **SN-D4** | Onde vive o shell persistente: layout raiz único vs. _route group_ `(app)` autenticado?                                                           | **EM ABERTO** | _Route group_ autenticado, separando rotas públicas.                         |
-| **SN-D5** | Manter / ajustar / remover a animação `PageTransition` (300ms) na troca de conteúdo?                                                              | **EM ABERTO** | Reavaliar após o shell persistente (pode ficar redundante).                  |
-| **SN-D6** | Onde a **sessão** é resolvida no novo modelo (provider no shell)? Contrato do estado de sessão.                                                   | **EM ABERTO** | Provider único no shell, sessão via cache + revalidação.                     |
+| ID        | Questão                                                                                                                                                                                                                      | Status        | Recomendação (não travada)                                                                                             |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **SN-D1** | O que aparece durante a espera **real** de sessão (1ª carga sem cache)? Causa-raiz + loader neutro · causa-raiz + branco · cosmético (só deletar)                                                                            | **EM ABERTO** | Causa-raiz (init da sessão via cache) + loader mínimo neutro só na 1ª carga.                                           |
+| **SN-D2** | A tela verde **nativa do SO** (manifest `background_color`/`theme_color`) — neutralizar também?                                                                                                                              | **EM ABERTO** | Decidir junto do visual da nova splash (F4).                                                                           |
+| **SN-D3** | Quais comportamentos load-bearing do boot preservar? (offline→/offline · resume 30/60min · deep-link)                                                                                                                        | **EM ABERTO** | Adotar deep-link funcionando; avaliar repor offline; descartar resume.                                                 |
+| **SN-D4** | Onde vive o shell persistente: layout raiz único vs. _route group_ `(app)` autenticado?                                                                                                                                      | **EM ABERTO** | _Route group_ autenticado, separando rotas públicas.                                                                   |
+| **SN-D5** | Manter / ajustar / remover a animação `PageTransition` (300ms) na troca de conteúdo?                                                                                                                                         | **EM ABERTO** | Reavaliar após o shell persistente (pode ficar redundante).                                                            |
+| **SN-D6** | Onde a **sessão** é resolvida no novo modelo (provider no shell)? Contrato do estado de sessão.                                                                                                                              | **EM ABERTO** | Provider único no shell, sessão via cache + revalidação.                                                               |
+| **SN-D7** | **Modelo de navegação do navbar** (IG/WA): quanto **estado por aba** preservar ao trocar — nenhum (re-monta o conteúdo) · scroll/filtros restaurados do cache · abas mantidas montadas (feel mais nativo, custo de memória)? | **EM ABERTO** | Meio-termo: restaurar scroll/filtros do cache por aba; manter montado só se o feel exigir. Decidir junto de §5.1/§5.2. |
 
-_(Adicionar SN-D7+ conforme surgirem. Decisões travadas migram para uma tabela "Travadas" com data.)_
+_(Adicionar SN-D8+ conforme surgirem. Decisões travadas migram para uma tabela "Travadas" com data.)_
 
 ## §5. Mapa de páginas & política de estado
 
@@ -177,19 +200,29 @@ _(Adicionar SN-D7+ conforme surgirem. Decisões travadas migram para uma tabela 
 
 ### 5.1 Mapa de rotas (atual → alvo) — **EM DECISÃO**
 
+**Ordem (combinado 2026-07-24):** o mapa de páginas (§5.1) é decidido **ANTES** do ledger SN-D — a disposição define as **abas do navbar** e restringe D4/D6/D7. Implementar só com o §5.1 fechado.
+
+**Inventário verificado (2026-07-24):**
+
+- **Abas mobile hoje (`MobileTabbar`, 4 slots):** Início `/dashboard` · Lotes `/samples` · Cadastros `/cadastros` · 4º slot papel-dependente = Relatórios `/relatorios` **ou** Perfil `/profile`. Contratos e Embarques **não** estão na tabbar (entram pelo menu do avatar).
+- **Sidebar desktop (`AppShell`):** Início · Lotes · Relatórios · Cadastros · Contratos · Embarques · Usuários (ADMIN). Sub-abas expansíveis via `?tab=`: `/samples` (Lotes/Simulador) · `/cadastros` (Clientes/Corretores) · `/contratos` (Contratos/Financeiro) · `/embarques` (Embarque/Aprovações).
+- **Páginas autenticadas reais (8):** `/dashboard`, `/samples` (+ `/samples/[sampleId]`), `/cadastros`, `/contratos`, `/embarques`, `/relatorios`, `/users` (ADMIN), `/profile`.
+- **Redirects/aliases (não são páginas):** `/clients`→`/cadastros` · `/financeiro`→`/contratos?tab=financeiro` · `/resumo`→`/relatorios` · `/informe`→`/relatorios` · `/settings`→`/profile` · `/forgot-password`→`/login?modal=forgot-password`.
+- **Públicas (UI própria, fora do shell):** `/login`, `/offline`, `/maintenance`, `/laudo/*` (laudo público via QR).
+
 Rotas de hoje (a preencher com o alvo conforme decidir unificações/ajustes):
 
-| Rota atual                           | Tipo                      | Alvo (unificar/ajustar/manter)   | Notas                                    |
-| ------------------------------------ | ------------------------- | -------------------------------- | ---------------------------------------- |
-| `/dashboard`                         | página autenticada        | _a decidir_                      |                                          |
-| `/samples` (+ `/samples/[id]`)       | lista + detalhe (drawer)  | _a decidir_                      |                                          |
-| `/cadastros`                         | lista + detalhe (overlay) | _a decidir_                      | absorve `/clients` (redirect)            |
-| `/contratos`                         | hub + sub-abas            | _a decidir_                      | absorve `/financeiro` (redirect)         |
-| `/embarques`                         | operação                  | _a decidir_                      |                                          |
-| `/relatorios`                        | feed                      | _a decidir_                      | absorve `/resumo`, `/informe` (redirect) |
-| `/users`                             | lista (ADMIN)             | _a decidir_                      |                                          |
-| `/profile`                           | perfil                    | _a decidir_                      |                                          |
-| `/login`, `/offline`, `/maintenance` | públicas                  | manter fora do shell autenticado |                                          |
+| Rota atual                                       | Tipo                      | Na tabbar mobile? | Alvo (unificar/ajustar/manter)   | Notas                                                |
+| ------------------------------------------------ | ------------------------- | ----------------- | -------------------------------- | ---------------------------------------------------- |
+| `/dashboard`                                     | página autenticada        | sim (Início)      | _a decidir_                      |                                                      |
+| `/samples` (+ `/samples/[sampleId]`)             | lista + detalhe (drawer)  | sim (Lotes)       | _a decidir_                      | sub-abas Lotes/Simulador                             |
+| `/cadastros`                                     | lista + detalhe (overlay) | sim               | _a decidir_                      | absorve `/clients`; sub-abas Clientes/Corretores     |
+| `/contratos`                                     | hub + sub-abas            | não (avatar)      | _a decidir_                      | absorve `/financeiro`; sub-abas Contratos/Financeiro |
+| `/embarques`                                     | operação                  | não (avatar)      | _a decidir_                      | sub-abas Embarque/Aprovações                         |
+| `/relatorios`                                    | feed                      | sim (4º slot A)   | _a decidir_                      | absorve `/resumo`, `/informe`                        |
+| `/users`                                         | lista (ADMIN)             | não               | _a decidir_                      | só ADMIN                                             |
+| `/profile`                                       | perfil                    | 4º slot B         | _a decidir_                      | absorve `/settings`; senão via avatar                |
+| `/login`, `/offline`, `/maintenance`, `/laudo/*` | públicas                  | —                 | manter fora do shell autenticado | `/forgot-password` só bounce p/ `/login`             |
 
 ### 5.2 Política de estado por página — **ESQUELETO**
 
