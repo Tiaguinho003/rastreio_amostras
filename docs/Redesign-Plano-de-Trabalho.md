@@ -799,6 +799,13 @@ Fechada a `/relatorios` (§2.10), entra o par **`/users` + `/profile`** — `/us
 
 🔴 **Lição:** peça nova nasce com o nome que **eu** ia dar, e por esse nome o grep não acha nada — parece que não existe. Procurar pelo **prefixo do markup em que ela vai morar** (`grep -n "\.sdv-info" app/globals.css`). Virou a **checagem 4** da `css-architecture` §7 + linha no checklist §9, e a dupla entrou na tabela de variantes da `design-system`. Custo de não ter feito: dois commits ajustando a cor de um botão que nunca era o certo.
 
+- **U8 — varredura de documentação, inconsistências e código morto de CÓDIGO.** ✅ `546b134` (CSS) · `6f4fab4` (docs). A U6 tinha varrido **CSS e skills**; faltava o resto.
+  - **Órfã que esta migração criou:** `.sdv-com-action-loss` (6 seletores). A varredura da `/samples` a preservou **justamente porque `/users` reusava** no botão de inativar; a U3 trocou por `.fv-btn.is-danger` e ninguém mais monta a classe. 🔴 **Padrão a repetir:** ao migrar uma página, reler as notas de "preservado porque a página X usa" das varreduras anteriores — a página X pode ser esta.
+  - **Documentação:** faltava a rota `GET /users/:userId/clients-impact` no `API-e-Contratos`; o `GET /users` não citava os filtros `role`/`status`; a nota do RD7 dizia que o CSS `.cdm-*` fica porque `/users` reusa (falso desde a U6); e `Shell-e-Navegacao` apontava `app/users/page.tsx:702` para o `AppShell`, linha que virou um toast quando a página cresceu (é 892).
+  - **As duas rotas sem tela agora dizem que isso é decisão**, não esquecimento: `/users/audit` (U-D5) e `clients-impact`. Sem essa nota, a próxima varredura de código morto as trata como órfãs e as remove.
+  - **Sem inconsistência de contrato:** o front pede `limit=30`, o back tem `USER_LIST_LIMIT_DEFAULT=30` / `_MAX=60`. Campos do payload que `/users` não usa (`initialPasswordDecision`, `lockedUntil`, `pendingEmailChange`, `updatedAt`) têm consumidor em `/profile` e na sessão — não são morto.
+  - **Aberto (decisão do Flavio):** `/users` não tem doc-mãe como `Lotes-Visao-Geral.md` e `Relatorios-Visao-Geral.md`. O domínio é pequeno e já está coberto por `API-e-Contratos` + `Auditoria-Navegacao-por-Papel` + `SECURITY` — um hub novo provavelmente duplicaria.
+
 **Pendente:** 🖥️📱 validação no device.
 
 ---
