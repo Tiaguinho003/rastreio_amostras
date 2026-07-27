@@ -74,11 +74,14 @@ type SaleContractCardProps = {
   contract: SaleContract;
   isExpanded: boolean;
   onToggle: () => void;
-  // Card ENXUTO (Fase J, D121; D137): so o dia a dia — Faturar (canManage) +
-  // Detalhes. O "Pago" MIGROU pro Financeiro (D137). Editar/Visualizar/
-  // Agio/Desagio/Washout vivem no modal de Detalhes (Desfazer removido, D122).
-  // A geracao de Aprovacao SAIU do /contratos (reforma AP11): so no dashboard + /samples.
+  // Card ENXUTO (Fase J, D121): so o dia a dia — avancar status (canManage) +
+  // Detalhes. Editar/Visualizar/Agio/Desagio/Washout vivem no modal de Detalhes
+  // (Desfazer removido, D122).
   onFaturar: () => void;
+  // RC-D22 REVOGA a D137: o "Pago" VOLTA pro card, ao lado do Faturado. Ele
+  // morava so no Financeiro, que a RC-D3 fecha pro ADMIN — sem isso, 4 dos 5
+  // papeis perderiam o fim do ciclo do dinheiro. Segue tambem no Financeiro.
+  onPagar: () => void;
   // Detalhes (D120): modal grande com o documento + infos + historico. Em
   // TODOS os status, fora do canManage (COMMERCIAL ve tudo nos dele).
   onDetalhes: () => void;
@@ -100,6 +103,7 @@ export function SaleContractCard({
   isExpanded,
   onToggle,
   onFaturar,
+  onPagar,
   onDetalhes,
   canManage = true,
   isHighlighted = false,
@@ -244,12 +248,18 @@ export function SaleContractCard({
           ) : null}
 
           {/* Card ENXUTO (D121): avancar status + Detalhes. O resto (Editar/Visualizar/
-              Agio/Desagio/Washout) vive no modal de Detalhes. A geracao de Aprovacao
-              saiu daqui (reforma AP11) — agora so no dashboard + /samples. */}
+              Agio/Desagio/Washout/etiqueta/embarque) vive no modal de Detalhes.
+              RC-D22: um botao de avanco por vez — EMITIDO mostra [Faturado],
+              FATURADO mostra [Pago]; o portao do embarque (EMB28) segue no dialogo. */}
           <div className="ctr-card-actions">
             {contract.status === 'EMITIDO' && canManage ? (
               <button type="button" className="ctr-btn ctr-btn-primary" onClick={onFaturar}>
                 Faturado
+              </button>
+            ) : null}
+            {contract.status === 'FATURADO' && canManage ? (
+              <button type="button" className="ctr-btn ctr-btn-primary" onClick={onPagar}>
+                Pago
               </button>
             ) : null}
             <button type="button" className="ctr-btn" onClick={onDetalhes}>

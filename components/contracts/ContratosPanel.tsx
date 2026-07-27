@@ -589,6 +589,7 @@ export function ContratosPanel({ session }: { session: SessionData }) {
                     canManage={canManage}
                     isHighlighted={highlightId === contract.id}
                     onFaturar={() => openLifecycle('invoice')}
+                    onPagar={() => openLifecycle('pay')}
                     espelhoMode={espelhoMode}
                     espelhoEligible={espelhoEligible}
                     espelhoReason={espelhoReason}
