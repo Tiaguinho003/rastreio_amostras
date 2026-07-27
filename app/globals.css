@@ -7462,6 +7462,14 @@ button:disabled {
   margin-top: clamp(8px, 2.2vw, 10px);
 }
 
+/* P2: os botoes de submit sao itens de grid do `.fv-form-body`, que estica os
+   filhos por padrao — sem isto cada "Salvar" viraria uma barra da largura do
+   cartao com o rotulo colado a esquerda (o `.fv-btn` nao centraliza). CTA
+   compacto e o padrao institucional, igual ao "+ Novo usuário" da faixa. */
+.stg-field-expand-inner .fv-form-body > .fv-btn {
+  justify-self: start;
+}
+
 .stg-field-expand-inner > :last-child {
   margin-bottom: clamp(9px, 2.4vw, 11px);
 }
@@ -7734,12 +7742,11 @@ button:disabled {
   margin-top: clamp(8px, 2.2vw, 10px);
 }
 
-.stg-email-confirm-row > * {
-  flex: 1;
-}
-
-.stg-email-confirm-row .cdm-manage-link.is-disabled {
-  opacity: 0.5;
+/* P2: os dois botoes ficam na largura natural, lado a lado. Antes eram
+   `flex: 1` porque o botao legado nao tinha largura propria; o `.fv-btn` tem,
+   e esticado num cartao largo ele viraria uma barra com o rotulo na ponta. */
+.stg-email-confirm-row > .fv-btn {
+  flex: 0 0 auto;
 }
 
 .stg-password-warning {
@@ -7776,8 +7783,11 @@ button:disabled {
   position: relative;
 }
 
-.stg-password-input {
-  padding-right: 36px;
+/* Abre espaco pro olho de mostrar/ocultar. Qualificado com .fv-form-field
+   porque o seletor do kit e `.fv-form-field input` (0,1,1) e venceria um
+   `.stg-password-input` solto (0,1,0) — o olho ficaria sobre o texto. */
+.fv-form-field .stg-password-input {
+  padding-right: 2.4rem;
 }
 
 .stg-password-toggle {
