@@ -843,6 +843,15 @@ export default function UsersPage() {
 
   const nowMs = Date.now();
 
+  // U-D7: o backend recusa o ADMIN que tenta tirar o proprio acesso
+  // administrativo — trocando o papel OU se inativando (409
+  // LAST_ADMIN_REQUIRED, assertAdminInvariant no user-service). A tela para de
+  // OFERECER o que vai ser recusado; a trava de verdade continua no backend.
+  // O outro ramo do invariante (ultimo ADMIN ativo do sistema, mesmo que nao
+  // seja voce) fica so no backend: a tela precisaria de uma contagem que ela
+  // nao tem, e o toast do 409 ja explica.
+  const isSelf = modal.user != null && modal.user.id === session?.user.id;
+
   // U-D3: a toolbar de /users e a mais enxuta do kit — busca + contagem. Sem
   // funil e sem "Limpar": a pagina nao tem filtros (o role/status do backend
   // segue sem consumidor de tela, de proposito).
@@ -1115,10 +1124,11 @@ export default function UsersPage() {
                                 role="menu"
                                 aria-label={`Ações de ${user.fullName}`}
                               >
-                                {/* U2 entrega os dois atalhos que ja tem
-                                    destino. Inativar/Reativar, Desbloquear e
-                                    Redefinir senha entram aqui na U3/U4, junto
-                                    com o painel que as hospeda. */}
+                                {/* So os dois atalhos de ABRIR. Inativar,
+                                    Reativar, Desbloquear e Redefinir senha
+                                    ficaram no PAINEL (U3), nao aqui: sao acoes
+                                    que precisam do contexto do usuario na tela
+                                    (e a de inativar ainda pede um motivo). */}
                                 <button
                                   type="button"
                                   role="menuitem"
@@ -1589,14 +1599,16 @@ export default function UsersPage() {
                           </button>
                         ) : null}
                         {modal.user.status === 'ACTIVE' ? (
-                          <button
-                            type="button"
-                            className="fv-btn fv-btn-secondary is-danger"
-                            onClick={openInactivateFlow}
-                            disabled={modal.saving}
-                          >
-                            Inativar
-                          </button>
+                          isSelf ? null : (
+                            <button
+                              type="button"
+                              className="fv-btn fv-btn-secondary is-danger"
+                              onClick={openInactivateFlow}
+                              disabled={modal.saving}
+                            >
+                              Inativar
+                            </button>
+                          )
                         ) : (
                           <button
                             type="button"
@@ -1695,7 +1707,7 @@ export default function UsersPage() {
                         <span className="fv-form-label">Perfil</span>
                         <select
                           value={editForm.role}
-                          disabled={modal.saving}
+                          disabled={modal.saving || isSelf}
                           onChange={(e) => {
                             setEditForm((c) => ({ ...c, role: e.target.value as UserRole }));
                             setPanelDirty(true);
@@ -1710,6 +1722,13 @@ export default function UsersPage() {
                             </option>
                           ))}
                         </select>
+                        {/* U-D7: travado no proprio usuario. A nota diz por que
+                            em vez de deixar o campo cinza sem explicacao. */}
+                        {isSelf ? (
+                          <p className="usr-panel-note">
+                            Você não pode alterar o próprio perfil de acesso.
+                          </p>
+                        ) : null}
                       </label>
                     </div>
                   </form>
