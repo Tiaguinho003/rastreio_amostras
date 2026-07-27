@@ -44,6 +44,7 @@ const REFERENCE = {
   minima: '13,7',
   pluviosidade: '0,0',
   previsao: PRINT_REAL,
+  registroHoras: 24,
 };
 
 // Tudo no maior tamanho plausivel: negativos (geada) e 3 digitos.
@@ -55,6 +56,7 @@ const FAT = {
   minima: '-12,3',
   pluviosidade: '999,9',
   previsao: { w: 4000, h: 200 },
+  registroHoras: 24,
 };
 
 const SEM_PRINT = { ...REFERENCE, previsao: null };
@@ -285,6 +287,15 @@ test('o titulo METEOROLOGICO nao invade o logo do header', () => {
     esquerdaTitulo >= direitaLogo,
     `o titulo comeca em ${esquerdaTitulo} e o logo termina em ${direitaLogo}`
   );
+});
+
+test('o rotulo do registro segue o registroHoras: 24h no dia, 72h na segunda', () => {
+  const header = (data) =>
+    buildMeteoLayout(data, measure).ops.find(
+      (op) => op.kind === 'text' && typeof op.text === 'string' && op.text.startsWith('REGISTRO EM')
+    );
+  assert.equal(header(REFERENCE).text, 'REGISTRO EM 24h');
+  assert.equal(header({ ...REFERENCE, registroHoras: 72 }).text, 'REGISTRO EM 72h');
 });
 
 // ---------------------------------------------------------------------------

@@ -21,6 +21,8 @@ interface InformativoMeteoFieldsProps {
   onAcceptPrevisao: (file: File | null | undefined) => void;
   onClearPrevisao: () => void;
   invalid: (key: string) => boolean;
+  /** 24 ou 72 — o registro fecha 72h na segunda (ver `registroEmHoras`). */
+  registroHoras: 24 | 72;
 }
 
 export function InformativoMeteoFields({
@@ -31,6 +33,7 @@ export function InformativoMeteoFields({
   onAcceptPrevisao,
   onClearPrevisao,
   invalid,
+  registroHoras,
 }: InformativoMeteoFieldsProps) {
   const cls = (key: string) => `inf-input${invalid(key) ? ' has-error' : ''}`;
 
@@ -65,7 +68,7 @@ export function InformativoMeteoFields({
       </div>
 
       <div className="ifm-group">
-        <h3 className="fv-form-heading">Registro em 24h</h3>
+        <h3 className="fv-form-heading">Registro em {registroHoras}h</h3>
 
         <div className="ifm-pair">
           <label className="inf-field">

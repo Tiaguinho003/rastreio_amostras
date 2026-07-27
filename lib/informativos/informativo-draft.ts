@@ -223,12 +223,21 @@ export function toMercadoData(draft: InformativoDraft, dataTexto: string): Merca
   };
 }
 
+/** O rotulo do registro meteorologico cobre as ultimas 24h — MAS na segunda-
+ * feira ele fecha o fim de semana inteiro, entao vira 72h. Puro: recebe a data
+ * LOCAL de hoje (o `hoje` do sheet) e alimenta tanto o <h3> do formulario
+ * quanto o rotulo da peca. `getDay()===1` = segunda. */
+export function registroEmHoras(date: Date): 24 | 72 {
+  return date.getDay() === 1 ? 72 : 24;
+}
+
 /** O tamanho do print entra por fora: ele nasce do HTMLImageElement, que vive
  * no hook do picker. Duplica-lo no draft criaria duas fontes de verdade. */
 export function toMeteoData(
   fields: MeteoFields,
   dataTexto: string,
-  previsao: Size | null
+  previsao: Size | null,
+  registroHoras: 24 | 72
 ): MeteoData {
   return {
     dataTexto,
@@ -238,5 +247,6 @@ export function toMeteoData(
     minima: fields.minima,
     pluviosidade: fields.pluviosidade,
     previsao,
+    registroHoras,
   };
 }

@@ -67,6 +67,12 @@ export interface MeteoData {
    * casa, nao uma excecao.
    */
   previsao: Size | null;
+  /**
+   * 24 ou 72 — o rotulo "REGISTRO EM {h}h". 72h na segunda-feira (fecha o fim
+   * de semana), 24h nos demais dias. Vem de `registroEmHoras(hoje)`. E DADO
+   * (nao literal) pra manter o layout puro/deterministico nos testes.
+   */
+  registroHoras: 24 | 72;
 }
 
 /** Retangulo do painel branco da previsao, dado o topo da secao. */
@@ -133,8 +139,8 @@ export function buildMeteoLayout(data: MeteoData, _measure: MeasureText): Layout
   pushLinha(ops, cursor, 'UMIDADE RELATIVA DO AR', formatUmidade(data.umidade), COLORS.white);
   y += sectionHeights[0] + gap;
 
-  // --- 2. Registro em 24h ---
-  cursor = pushSectionHeader(ops, y, 'REGISTRO EM 24h');
+  // --- 2. Registro em 24h / 72h (segunda) ---
+  cursor = pushSectionHeader(ops, y, `REGISTRO EM ${data.registroHoras}h`);
   cursor = pushLinha(ops, cursor, 'MÁXIMA', formatTemperatura(data.maxima), COLORS.canvas);
   cursor = pushLinha(ops, cursor, 'MÍNIMA', formatTemperatura(data.minima), COLORS.white);
   pushLinha(ops, cursor, 'PLUVIOSIDADE', formatPluviosidade(data.pluviosidade), COLORS.canvas);

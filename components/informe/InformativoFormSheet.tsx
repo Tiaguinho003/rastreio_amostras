@@ -26,6 +26,7 @@ import {
   isDraftDirty,
   missingMercado,
   missingMeteo,
+  registroEmHoras,
   toMercadoData,
   toMeteoData,
   type MercadoFields,
@@ -94,6 +95,9 @@ export function InformativoFormSheet({
   // navegador, entao e o dia de quem esta publicando.
   const hoje = useMemo(() => new Date(), []);
   const dataTexto = useMemo(() => formatDateExtensoLocal(hoje), [hoje]);
+  // "Registro em 24h", ou 72h na segunda (fecha o fim de semana). Trava com a
+  // data (INF17): o mesmo rotulo no <h3> do form e na peca.
+  const registroHoras = useMemo(() => registroEmHoras(hoje), [hoje]);
 
   // Editar um campo limpa o erro — igual em todos, entao o clear mora aqui.
   const patchSlow = useCallback((patch: Partial<SlowFields>) => {
@@ -125,8 +129,8 @@ export function InformativoFormSheet({
   // Dados VIVOS (sem debounce): a fonte de verdade do download exato.
   const mercadoData = useMemo(() => toMercadoData(draft, dataTexto), [draft, dataTexto]);
   const meteoData = useMemo(
-    () => toMeteoData(draft.meteo, dataTexto, previsao?.size ?? null),
-    [draft.meteo, dataTexto, previsao]
+    () => toMeteoData(draft.meteo, dataTexto, previsao?.size ?? null, registroHoras),
+    [draft.meteo, dataTexto, previsao, registroHoras]
   );
 
   // Dados ATRASADOS: alimentam so a previa, pra nao repintar a cada tecla. O
@@ -408,6 +412,7 @@ export function InformativoFormSheet({
           mercadoRef={mercadoRef}
           meteoRef={meteoRef}
           containerRef={formRef}
+          registroHoras={registroHoras}
         />
       </BottomSheet>
 

@@ -12,6 +12,7 @@ import {
   isDraftDirty,
   missingMercado,
   missingMeteo,
+  registroEmHoras,
   toMercadoData,
   toMeteoData,
   type InformativoDraft,
@@ -220,8 +221,19 @@ test('toMercadoData sem direcao escolhida nao quebra o layout', () => {
 });
 
 test('toMeteoData carrega o TAMANHO do print, nao a imagem', () => {
-  const data = toMeteoData(METEO_CHEIO, '16 de julho de 2026', { w: 1023, h: 327 });
+  const data = toMeteoData(METEO_CHEIO, '16 de julho de 2026', { w: 1023, h: 327 }, 24);
   assert.deepEqual(data.previsao, { w: 1023, h: 327 });
   assert.equal(data.temperatura, '15,5');
-  assert.equal(toMeteoData(METEO_CHEIO, 'x', null).previsao, null);
+  assert.equal(data.registroHoras, 24);
+  assert.equal(toMeteoData(METEO_CHEIO, 'x', null, 72).registroHoras, 72);
+  assert.equal(toMeteoData(METEO_CHEIO, 'x', null, 24).previsao, null);
+});
+
+test('registroEmHoras: 72h so na segunda, 24h nos demais dias', () => {
+  // Datas locais (o helper roda no client com `hoje = new Date()`). Julho/2026:
+  // 27 = segunda, 28 = terca, 26 = domingo, 25 = sabado.
+  assert.equal(registroEmHoras(new Date(2026, 6, 27)), 72);
+  assert.equal(registroEmHoras(new Date(2026, 6, 28)), 24);
+  assert.equal(registroEmHoras(new Date(2026, 6, 26)), 24);
+  assert.equal(registroEmHoras(new Date(2026, 6, 25)), 24);
 });

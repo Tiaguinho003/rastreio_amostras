@@ -37,6 +37,8 @@ interface InformativoFormProps {
   meteoRef: React.RefObject<HTMLCanvasElement | null>;
   /** Raiz do workspace — o sheet usa pra rolar ate o 1o campo faltante. */
   containerRef: React.RefObject<HTMLDivElement | null>;
+  /** 24 ou 72 — o registro fecha 72h na segunda (ver `registroEmHoras`). */
+  registroHoras: 24 | 72;
 }
 
 export function InformativoForm({
@@ -55,6 +57,7 @@ export function InformativoForm({
   mercadoRef,
   meteoRef,
   containerRef,
+  registroHoras,
 }: InformativoFormProps) {
   return (
     <div className="ifm-workspace" ref={containerRef}>
@@ -117,6 +120,7 @@ export function InformativoForm({
                 onAcceptPrevisao={onAcceptPrevisao}
                 onClearPrevisao={onClearPrevisao}
                 invalid={invalidMeteo}
+                registroHoras={registroHoras}
               />
             </div>
           ) : null}
