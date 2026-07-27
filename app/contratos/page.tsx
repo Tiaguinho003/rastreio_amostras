@@ -5,101 +5,55 @@ import { Suspense, useEffect } from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import { ContratosPanel } from '../../components/contracts/ContratosPanel';
-import { FinanceiroPanel } from '../../components/financeiro/FinanceiroPanel';
 import { CONTRATOS_ROLES } from '../../lib/roles';
 import { useRequireAuth } from '../../lib/use-auth';
 
-// SPLIT 2026-07-13: página de GESTÃO do contrato — Contratos + Financeiro — aberta a
-// todo não-PROSPECTOR (CONTRATOS_ROLES = NON_PROSPECTOR_ROLES desde 2026-07-15; era
-// ADMIN+COMMERCIAL). A OPERAÇÃO (Embarque/Aprovações) foi pra
-// /embarques (todos os não-PROSPECTOR). A casca — guard, AppShell, header e a barra
-// de abas — vive aqui; cada aba é um painel montado sob demanda (só a ativa monta).
-// Ver docs/Contratos-Visao-Geral.md (§2 — a casca).
-const HUB_TABS = [
-  { key: 'contratos', label: 'Contratos' },
-  { key: 'financeiro', label: 'Financeiro' },
-] as const;
-type HubTab = (typeof HUB_TABS)[number]['key'];
-const HUB_TAB_KEYS = HUB_TABS.map((t) => t.key);
-
-// `?tab=` é a fonte de verdade da aba ativa; ausente/inválido cai em Contratos.
-function parseTab(raw: string | null): HubTab {
-  if (raw != null && HUB_TAB_KEYS.includes(raw as HubTab)) return raw as HubTab;
-  return 'contratos';
-}
-
-function ContratosHubInner() {
+// RC-D1 (2026-07-27): o hub de sub-abas ACABOU — /contratos e PAGINA UNICA, so a
+// lista de contratos. O Financeiro voltou a ser rota propria (/financeiro, ADMIN)
+// e a operacao (Embarque/Aprovacoes) virou FASE dentro do proprio contrato.
+// Aberta a todo nao-PROSPECTOR (CONTRATOS_ROLES). Ver docs/Contratos-Visao-Geral.md.
+//
+// Compat: `?tab=financeiro` (o deep-link da sub-aba) leva pra /financeiro; os
+// demais `?tab=` sao ignorados — a pagina nao tem mais abas. `?details=<id>` e
+// `?highlight=<id>` seguem sendo lidos pelo ContratosPanel.
+function ContratosPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rawTab = searchParams.get('tab');
 
-  // Compat: os deep-links antigos de embarque/aprovações vivem agora em /embarques
-  // (o hub virou 2 páginas). Alvo do redirect, preservando `?highlight=`.
-  const highlight = searchParams.get('highlight');
-  const compatTarget =
-    rawTab === 'embarque' || rawTab === 'aprovacoes'
-      ? `/embarques?tab=${rawTab}${highlight ? `&highlight=${highlight}` : ''}`
-      : null;
+  // Compat do deep-link da sub-aba Financeiro. Vale so pro ADMIN — os demais caem
+  // no guard de /financeiro e vao pro dashboard; edge aceito (nada em producao).
+  const financeiroTarget = rawTab === 'financeiro' ? '/financeiro' : null;
 
-  // Guard de gestão (ADMIN+COMMERCIAL). `unauthorizedRedirectTo` dinâmico: o
-  // operacional que abre um link antigo de embarque/aprovação cai no /embarques
-  // (que ele acessa), não no /dashboard — senão o guard corria contra o effect abaixo.
   const { session, loading, logout, setSession } = useRequireAuth({
     allowedRoles: CONTRATOS_ROLES,
-    unauthorizedRedirectTo: compatTarget ?? '/dashboard',
   });
 
-  // ADMIN/COMMERCIAL (autorizados) seguem o redirect de compat por aqui.
   useEffect(() => {
-    if (compatTarget) router.replace(compatTarget);
-  }, [compatTarget, router]);
+    if (financeiroTarget) router.replace(financeiroTarget);
+  }, [financeiroTarget, router]);
 
   if (loading || !session) return null;
-  // Enquanto o compat-redirect não navega, não pisca a aba Contratos.
-  if (compatTarget) return null;
-
-  const tab = parseTab(rawTab);
-
-  const selectTab = (next: HubTab) => {
-    if (next === tab) return;
-    // Troca via replace (sem poluir o histórico) e solta `?details=` (deep-link
-    // específico da aba Contratos). A aba inativa desmonta → carregamento lazy.
-    router.replace(`/contratos?tab=${next}`);
-  };
+  // Enquanto o redirect de compat nao navega, nao pisca a lista.
+  if (financeiroTarget) return null;
 
   return (
-    <AppShell session={session} onLogout={logout} onSessionChange={setSession} activeSubTab={tab}>
+    <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
       <section className="clients-page-v2 ctr-page">
         {/* RD16: o header verde da pagina saiu — o chrome mobile agora e unico
             e mora no AppShell (.fv-mtopbar: titulo da rota + camera + avatar). */}
-
-        <div className="cad-tabs cc-tabs" role="tablist" aria-label="Seções do contrato">
-          {HUB_TABS.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              role="tab"
-              aria-selected={tab === t.key}
-              className={`cad-tab${tab === t.key ? ' is-active' : ''}`}
-              onClick={() => selectTab(t.key)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        {tab === 'contratos' ? <ContratosPanel session={session} /> : null}
-        {tab === 'financeiro' ? <FinanceiroPanel session={session} /> : null}
+        <ContratosPanel session={session} />
       </section>
     </AppShell>
   );
 }
 
-// useSearchParams (?tab / deep-link ?details) exige Suspense — molde /samples e /dashboard.
+// useSearchParams (?details / ?highlight / compat ?tab) exige Suspense — molde
+// /samples e /dashboard.
 export default function ContratosPage() {
   return (
     <Suspense fallback={null}>
-      <ContratosHubInner />
+      <ContratosPageInner />
     </Suspense>
   );
 }

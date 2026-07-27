@@ -126,10 +126,8 @@ const NAV_SUB_ITEMS: Record<string, readonly NavSubItem[]> = {
     { tab: 'clientes', label: 'Clientes', href: '/cadastros' },
     { tab: 'corretores', label: 'Corretores', href: '/cadastros?tab=corretores' },
   ],
-  '/contratos': [
-    { tab: 'contratos', label: 'Contratos', href: '/contratos?tab=contratos' },
-    { tab: 'financeiro', label: 'Financeiro', href: '/contratos?tab=financeiro' },
-  ],
+  // RC-D1: /contratos perdeu as sub-abas (pagina unica) — sem entrada aqui, a
+  // secao vira link simples (ver o ramo `if (!subItems)` abaixo).
   '/embarques': [
     { tab: 'embarque', label: 'Embarque', href: '/embarques?tab=embarque' },
     { tab: 'aprovacoes', label: 'Aprovações', href: '/embarques?tab=aprovacoes' },
