@@ -2520,41 +2520,49 @@ function SamplesPage() {
 
         {/* FV (desktop >=901px): cabecalho institucional da lista. No mobile
             fica display:none — o titulo mora na faixa verde do AppShell e as
-            duas acoes de criacao moram no FAB. */}
-        <div className="fv-page-head">
-          <h2 className="fv-page-title">{tab === 'simulador' ? 'Simulador' : 'Lotes'}</h2>
-          {/* As DUAS acoes de criacao da pagina moram aqui, lado a lado —
+            duas acoes de criacao moram no FAB.
+
+            PG50: no Simulador o cabecalho INTEIRO nao e renderizado. O titulo
+            repetia o que a sidenav ja diz (o sub-item fica ativo) e custava
+            ~54px entre a topbar e a ferramenta, agora que o canvas e borda a
+            borda (PG48) e a acao primaria subiu pro topo dele (PG49). O nome
+            acessivel da regiao passou pro aria-label do `.pg-host`. */}
+        {tab === 'simulador' ? null : (
+          <div className="fv-page-head">
+            <h2 className="fv-page-title">Lotes</h2>
+            {/* As DUAS acoes de criacao da pagina moram aqui, lado a lado —
               "Criar liga" e "+ Novo lote", as duas primarias (mesma cor: as
               duas criam um lote, uma do zero e outra por composicao).
               "Criar liga" saiu da toolbar da tabela. No modo liga o bloco
               INTEIRO some: quem manda e a .fv-bulkbar, e criar um lote no
               meio da selecao nao faz sentido. */}
-          {tab === 'simulador' || selectionMode === 'blend' ? null : (
-            <div className="fv-page-head-actions">
-              <button type="button" className="fv-btn fv-btn-primary" onClick={enterBlendMode}>
-                {/* Mesmo icone do badge "Liga" que marca o lote na tabela
+            {selectionMode === 'blend' ? null : (
+              <div className="fv-page-head-actions">
+                <button type="button" className="fv-btn fv-btn-primary" onClick={enterBlendMode}>
+                  {/* Mesmo icone do badge "Liga" que marca o lote na tabela
                     (`BlendBadge`): origens convergindo numa so. O botao que
                     cria e a marca do que foi criado falam a mesma lingua. */}
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <path d="M6 4v6a4 4 0 0 0 4 4h4a4 4 0 0 0 4-4V4" />
-                  <path d="M12 14v6" />
-                </svg>
-                Criar liga
-              </button>
-              <button
-                type="button"
-                className="fv-btn fv-btn-primary"
-                onClick={() => setNewSampleModalOpen(true)}
-              >
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <path d="M12 5v14" />
-                  <path d="M5 12h14" />
-                </svg>
-                Novo lote
-              </button>
-            </div>
-          )}
-        </div>
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <path d="M6 4v6a4 4 0 0 0 4 4h4a4 4 0 0 0 4-4V4" />
+                    <path d="M12 14v6" />
+                  </svg>
+                  Criar liga
+                </button>
+                <button
+                  type="button"
+                  className="fv-btn fv-btn-primary"
+                  onClick={() => setNewSampleModalOpen(true)}
+                >
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <path d="M12 5v14" />
+                    <path d="M5 12h14" />
+                  </svg>
+                  Novo lote
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {isDesktop ? kpiRow : null}
 
@@ -3050,7 +3058,10 @@ function SamplesPage() {
             cursor/selecao. Desktop recebe o canvas; mobile mostra o aviso. */}
         {tab === 'simulador' ? (
           isDesktop ? (
-            <div className="pg-host">
+            // PG50: sem o `.fv-page-head`, o nome acessivel da regiao mora
+            // aqui — a sidenav marca "Simulador" visualmente, mas leitor de
+            // tela nao herda isso de um landmark irmao.
+            <div className="pg-host" role="region" aria-label="Simulador de ligas">
               <PlaygroundTab session={session} />
             </div>
           ) : (

@@ -311,10 +311,8 @@ export function PlaygroundCanvas({ session }: { session: SessionData }) {
             <Controls showInteractive={false} />
             <ExecutePill onExecute={onExecute} disabled={nodes.length === 0} />
           </ReactFlow>
+          {/* PG54: o canvas vazio fica vazio mesmo — a dica central saiu. */}
           <NodePalette onAdd={addNodeAtCenter} />
-          {nodes.length === 0 ? (
-            <p className="pg-empty-hint">Arraste um Lote da paleta para começar</p>
-          ) : null}
           {connectMenu ? (
             <ConnectMenu
               state={connectMenu}
