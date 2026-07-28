@@ -1298,9 +1298,14 @@ export class SampleQueryService {
     // resolveCommercialStatusFromTotals em sample-command-service). O buraco era
     // so o `declaredSacks` nulo, que cai em 'OPEN' sem nunca ter tido saldo.
     // O eixo 2 (viabilidade da liga) exige a arvore e roda depois das linhas.
+    // RC-D39, eixo 3 (dono): venda precisa de vendedor, e o vendedor de um
+    // contrato a vista E o dono do lote (RC-D37). Lote normal sempre tem dono
+    // (obrigatorio na criacao), entao isto so alcanca a LIGA LEGADA sem dono — a
+    // criacao passou a exigi-lo (RC-D38). Regulariza-se pelo detalhe do lote.
     if (sellableOnly) {
       conditions.push({ commercialStatus: { in: ['OPEN', 'PARTIALLY_SOLD'] } });
       conditions.push({ declaredSacks: { gt: 0 } });
+      conditions.push({ ownerClientId: { not: null } });
     }
 
     const normalizedLot = normalizeOptionalText(lot);

@@ -2897,6 +2897,16 @@ export class SampleCommandService {
     // (preco/saca, corretagens %, >=1 corretor) — D43/D44/D34.
     let saleContractInput = null;
     if (movementType === MOVEMENT_TYPES.SALE) {
+      // RC-D39: venda exige vendedor, e o vendedor E o dono do lote (RC-D37).
+      // Fecha a porta que o picker sozinho nao fecha: esta rota chega ao
+      // buildSaleContractDraftFromSale, que gravaria `sellerClientId: null`.
+      // So alcanca liga LEGADA sem dono — lote normal sempre tem dono.
+      if (!sample.ownerClientId) {
+        throw new HttpError(422, 'Sample has no owner and cannot be sold', {
+          code: 'SAMPLE_WITHOUT_OWNER',
+          field: 'ownerClientId',
+        });
+      }
       const buyerClientId = normalizeNullableUuid(input.buyerClientId, 'buyerClientId');
       const buyerUnitId = normalizeNullableUuid(input.buyerUnitId, 'buyerUnitId');
       if (!buyerClientId) {

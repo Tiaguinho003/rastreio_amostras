@@ -32,6 +32,22 @@ if (!databaseUrl || !databaseReachable) {
     );
   }
 
+  // RC-D39: o `sellableOnly` passou a exigir dono. Um cliente fixo cobre todos os
+  // cenarios; quem varia e o saldo e a composicao, nao o dono.
+  const OWNER_ID = '00000000-0000-4000-8000-0000000000c1';
+
+  async function createOwnerClient() {
+    await prisma.client.create({
+      data: {
+        id: OWNER_ID,
+        personType: 'PF',
+        fullName: 'Dono do lote',
+        status: 'INACTIVE',
+        isSeller: true,
+      },
+    });
+  }
+
   // Linha direta de sample (sem eventos — o filtro le colunas do sample).
   async function createSample({
     lotNumber,
@@ -40,11 +56,13 @@ if (!databaseUrl || !databaseReachable) {
     lostSacks = 0,
     commercialStatus = 'OPEN',
     isBlend = false,
+    ownerClientId = OWNER_ID,
   }) {
     const id = randomUUID();
     await prisma.sample.create({
       data: {
         id,
+        ownerClientId,
         internalLotNumber: lotNumber,
         // Espelho numerico do numero do lote, a mesma regra do projetor
         // (event-contract-db-service.js:243). Sem ele a coluna fica NULL, a
@@ -80,6 +98,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test('lote sem quantidade declarada some — e era o que displayStatus=OPEN deixava passar', async () => {
     await resetDatabase();
+    await createOwnerClient();
     await createSample({ lotNumber: 'SEL-0001', declaredSacks: 100 });
     await createSample({ lotNumber: 'SEL-0002', declaredSacks: null });
 
@@ -93,6 +112,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test('lote vendido e lote perdido ficam de fora', async () => {
     await resetDatabase();
+    await createOwnerClient();
     await createSample({ lotNumber: 'SEL-0010', declaredSacks: 100 });
     await createSample({
       lotNumber: 'SEL-0011',
@@ -113,6 +133,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test('lote parcialmente vendido continua vendavel (tem saldo)', async () => {
     await resetDatabase();
+    await createOwnerClient();
     await createSample({
       lotNumber: 'SEL-0020',
       declaredSacks: 100,
@@ -126,6 +147,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test('liga inviavel some; liga viavel fica', async () => {
     await resetDatabase();
+    await createOwnerClient();
     // Liga viavel: as duas origens cobrem o que contribuiram.
     const okA = await createSample({ lotNumber: 'SEL-0030', declaredSacks: 100 });
     const okB = await createSample({ lotNumber: 'SEL-0031', declaredSacks: 100 });
@@ -158,8 +180,47 @@ if (!databaseUrl || !databaseReachable) {
     assert.ok(!lotNumbers(sellable).includes('SEL-0042'));
   });
 
+  // RC-D39: liga LEGADA sem dono ("carteira da corretora") nao vende. O vendedor
+  // do contrato a vista e o dono do lote (RC-D37) — sem dono nao ha vendedor, e o
+  // beco sem saida apareceria so no submit. A criacao ja exige dono (RC-D38),
+  // entao isto so alcanca liga antiga; regulariza-se atribuindo dono no lote.
+  test('liga legada sem dono some do sellableOnly — e a mesma liga com dono fica', async () => {
+    await resetDatabase();
+    await createOwnerClient();
+    const o1 = await createSample({ lotNumber: 'SEL-0060', declaredSacks: 100 });
+    const o2 = await createSample({ lotNumber: 'SEL-0061', declaredSacks: 100 });
+
+    // As duas ligas sao VIAVEIS (as origens cobrem a contribuicao) e so diferem
+    // no dono — o que isola a regra nova do eixo de viabilidade.
+    const semDono = await createSample({
+      lotNumber: 'SEL-0062',
+      declaredSacks: 40,
+      isBlend: true,
+      ownerClientId: null,
+    });
+    await linkOrigin(semDono, o1, 20);
+    await linkOrigin(semDono, o2, 20);
+
+    const comDono = await createSample({
+      lotNumber: 'SEL-0063',
+      declaredSacks: 40,
+      isBlend: true,
+    });
+    await linkOrigin(comDono, o1, 20);
+    await linkOrigin(comDono, o2, 20);
+
+    // Sem a flag, a liga sem dono continua visivel em /samples.
+    const all = await queryService.listSamples({});
+    assert.ok(lotNumbers(all).includes('SEL-0062'));
+
+    const sellable = lotNumbers(await queryService.listSamples({ sellableOnly: true }));
+    assert.ok(!sellable.includes('SEL-0062'), 'liga sem dono nao vende');
+    assert.ok(sellable.includes('SEL-0063'), 'liga com dono continua vendavel');
+  });
+
   test('sem a flag nada e restringido (o filtro nao vaza pra /samples)', async () => {
     await resetDatabase();
+    await createOwnerClient();
     await createSample({ lotNumber: 'SEL-0050', declaredSacks: 100 });
     await createSample({ lotNumber: 'SEL-0051', declaredSacks: null });
     await createSample({
@@ -175,6 +236,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test('o cursor sai da ultima linha BUSCADA, nao da ultima exibida', async () => {
     await resetDatabase();
+    await createOwnerClient();
     // A lista ordena por numero do lote DESC, entao com limit=4 a pagina busca
     // 90006, 90005, 90004 e 90003 — a liga inviavel (90005) cai no meio dela.
     // Descarta a liga e mostra 3, mas ainda tem que oferecer cursor, senao o
