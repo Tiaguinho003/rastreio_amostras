@@ -236,6 +236,11 @@ export function SaleContractEtapa2Modal({
     provisionalNumber: boolean;
   } | null>(null);
   const pendingEmitRef = useRef<(() => Promise<void>) | null>(null);
+  // RC-D37: aviso de que o dono do lote mudou desde a emissão, então o vendedor
+  // acompanhou e filial + banco foram esvaziados. Estado persistente do
+  // formulário (vale enquanto os campos estiverem vazios) → banner, não toast:
+  // some quando o usuário reescolhe, não sozinho depois de 4s.
+  const [ownerDivergedNotice, setOwnerDivergedNotice] = useState(false);
 
   function clearErrors() {
     setError(null);
@@ -424,6 +429,10 @@ export function SaleContractEtapa2Modal({
         if (c.sampleOwner && c.sampleOwner.clientId !== c.sellerClientId) {
           setSellerUnitId('');
           setBankAccountId('');
+          // Zerar em silêncio faria os dois campos aparecerem vazios sem
+          // explicação, e o usuário só descobriria no submit como "campo
+          // obrigatório". O banner conta o porquê antes de ele preencher.
+          setOwnerDivergedNotice(true);
         }
 
         const [sellerD, buyerD, bwD, swD] = await Promise.all([
@@ -1108,6 +1117,14 @@ export function SaleContractEtapa2Modal({
       >
         {error ? <p className="sdv-modal-error">{error}</p> : null}
         {loadError ? <p className="sdv-modal-error">{loadError}</p> : null}
+        {/* Some sozinho quando a conta é reescolhida: o banner vale enquanto o
+            estado que ele descreve for verdade, e não por um tempo fixo. */}
+        {ownerDivergedNotice && !bankAccountId ? (
+          <p className="ctr-form-notice" role="status">
+            O dono do lote mudou desde a emissão, então o vendedor deste contrato acompanhou.
+            Escolha de novo a filial e a conta bancária.
+          </p>
+        ) : null}
 
         {loading ? (
           <div className="app-modal-content">

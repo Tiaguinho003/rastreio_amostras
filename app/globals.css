@@ -28300,6 +28300,21 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   font-size: 0.74rem;
   line-height: 1.35;
 }
+/* RC-D37: banner de estado do formulario (o dono do lote mudou -> o vendedor
+   acompanhou e filial/banco foram esvaziados). Divide o slot do topo com o
+   `.sdv-modal-error`, mas NAO e erro: nada falhou e o operador nao errou nada —
+   por isso tom neutro do kit, e nao o vermelho. */
+.ctr-form-notice {
+  margin: 0;
+  padding: 10px 12px;
+  color: var(--ink);
+  font-size: clamp(12px, 3.2vw, 13px);
+  font-weight: 500;
+  line-height: 1.4;
+  background: var(--fv-hover);
+  border: 1px solid var(--fv-line);
+  border-radius: var(--fv-radius);
+}
 /* Fix do input date no WebKit (mesmo do modal central) — sem isso o campo
    estoura a largura no iOS. */
 .bottom-sheet.ctr-form-sheet .app-modal-input[type='date'] {

@@ -662,6 +662,18 @@ export function SampleDetailView({
   const hasActiveMovements = Boolean(
     detail && ((detail.sample.soldSacks ?? 0) > 0 || (detail.sample.lostSacks ?? 0) > 0)
   );
+  // RC-D41: o vendedor do contrato à vista É o dono do lote (RC-D37), derivado
+  // no servidor. Trocar o dono aqui é permitido — mas num lote já vendido isso
+  // muda quem vai assinar como vendedor na próxima edição do contrato, e o
+  // operador não tem como adivinhar essa consequência olhando o cadastro. O PDF
+  // já emitido não muda (guarda o snapshot do vendedor da época).
+  const ownerChangeHitsContract = Boolean(
+    detail &&
+    (detail.sample.soldSacks ?? 0) > 0 &&
+    selectedOwnerClient &&
+    detail.sample.ownerClientId &&
+    selectedOwnerClient.id !== detail.sample.ownerClientId
+  );
   // Liga B3.4: numa liga (isBlend), "Reverter liga" substitui o "Invalidar"
   // genérico — caminho terminal único, via revertBlend (emite BLEND_REVERTED).
   // Liga com venda/perda não pode ser revertida (F8.4): nenhum botão aparece.
@@ -2911,6 +2923,14 @@ export function SampleDetailView({
                   }}
                   createLabel="Cadastrar proprietario"
                 />
+                {ownerChangeHitsContract ? (
+                  <span className="sdv-edit-hint">
+                    Este lote tem venda registrada. O vendedor do contrato é o dono do lote — ao
+                    salvar, o contrato passa a sair no nome de{' '}
+                    {selectedOwnerClient?.displayName ?? 'o novo dono'} na próxima vez que for
+                    editado. O documento já emitido não muda.
+                  </span>
+                ) : null}
               </div>
 
               <div className="sdv-edit-row">
