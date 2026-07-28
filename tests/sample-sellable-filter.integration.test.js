@@ -46,6 +46,12 @@ if (!databaseUrl || !databaseReachable) {
       data: {
         id,
         internalLotNumber: lotNumber,
+        // Espelho numerico do numero do lote, a mesma regra do projetor
+        // (event-contract-db-service.js:243). Sem ele a coluna fica NULL, a
+        // ordenacao `internalLotNumberInt desc nulls last` empata em tudo e o
+        // desempate vira `id asc` de UUID aleatorio — ordem sorteada a cada
+        // execucao.
+        internalLotNumberInt: /^[0-9]{1,7}$/.test(lotNumber) ? Number(lotNumber) : null,
         status: 'REGISTRATION_CONFIRMED',
         commercialStatus,
         declaredSacks,
@@ -169,9 +175,10 @@ if (!databaseUrl || !databaseReachable) {
 
   test('o cursor sai da ultima linha BUSCADA, nao da ultima exibida', async () => {
     await resetDatabase();
-    // 3 lotes bons + 1 liga inviavel no meio. Com limit=4 a pagina busca 4
-    // linhas, descarta a liga e mostra 3 — mas ainda tem que oferecer cursor,
-    // senao o scroll infinito para antes do fim.
+    // A lista ordena por numero do lote DESC, entao com limit=4 a pagina busca
+    // 90006, 90005, 90004 e 90003 — a liga inviavel (90005) cai no meio dela.
+    // Descarta a liga e mostra 3, mas ainda tem que oferecer cursor, senao o
+    // scroll infinito para antes do fim.
     await createSample({ lotNumber: '90001', declaredSacks: 100 });
     await createSample({ lotNumber: '90002', declaredSacks: 100 });
     const drained = await createSample({
