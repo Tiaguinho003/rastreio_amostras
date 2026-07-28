@@ -17,7 +17,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ApiError, getSampleDetail, listSamples } from '../../lib/api-client';
-import type { ActiveBlendDetail, SampleSnapshot, SessionData } from '../../lib/types';
+import { ownerDisplayValue, sampleStatusDisplay } from '../../lib/sample-display';
+import type { SampleSnapshot, SessionData } from '../../lib/types';
 import { BottomSheet } from '../BottomSheet';
 import { BlendBadge } from '../samples/BlendBadge';
 import { HarvestDisplay } from '../samples/HarvestDisplay';
@@ -26,7 +27,7 @@ type SaleContractLotPickerModalProps = {
   session: SessionData;
   open: boolean;
   onClose: () => void;
-  onPicked: (sample: SampleSnapshot, activeBlends: ActiveBlendDetail[]) => void;
+  onPicked: (sample: SampleSnapshot) => void;
   /** Pausa o arraste do sheet enquanto o form de criação está aberto por cima. */
   dragDisabled?: boolean;
 };
@@ -34,13 +35,17 @@ type SaleContractLotPickerModalProps = {
 const PAGE_LIMIT = 30;
 
 function ownerLabel(sample: SampleSnapshot): string {
+  // ownerDisplayValue e a fonte unica (trata "Carteira da corretora" da liga de
+  // dono fixado); o fallback pelo cliente vinculado cobre o lote cujo
+  // declaredOwner esta vazio mas tem dono no cadastro.
+  const fromDisplay = ownerDisplayValue(sample).trim();
+  if (fromDisplay && fromDisplay !== '—') return fromDisplay;
   const fromClient =
     sample.ownerClient?.displayName ??
     sample.ownerClient?.fullName ??
     sample.ownerClient?.tradeName ??
     null;
-  const value = (fromClient ?? sample.declared.owner ?? '').trim();
-  return value || 'Sem produtor';
+  return (fromClient ?? '').trim() || 'Sem produtor';
 }
 
 function lotLabel(sample: SampleSnapshot): string {
@@ -48,9 +53,19 @@ function lotLabel(sample: SampleSnapshot): string {
   return lot || 'Sem número';
 }
 
-function availableLabel(sample: SampleSnapshot): number {
-  if (typeof sample.availableSacks === 'number') return sample.availableSacks;
-  return typeof sample.declared.sacks === 'number' ? sample.declared.sacks : 0;
+// Saldo do lote. Com `sellableOnly` (RC-D30) o backend so manda lote com
+// quantidade declarada, entao o null nao chega aqui — mas a funcao nao mente se
+// chegar. O antigo fallback pra `declared.sacks` era inalcancavel: availableSacks
+// e null exatamente quando declaredSacks e null.
+function availableSacks(sample: SampleSnapshot): number | null {
+  return typeof sample.availableSacks === 'number' ? sample.availableSacks : null;
+}
+
+// "80 de 300" quando parte do lote ja saiu — e o que distingue um lote do outro
+// nesta lista, ja que aqui todos sao vendaveis e o chip de status diria sempre a
+// mesma coisa.
+function movedSacks(sample: SampleSnapshot): number {
+  return (sample.soldSacks ?? 0) + (sample.lostSacks ?? 0);
 }
 
 export function SaleContractLotPickerModal({
@@ -143,7 +158,7 @@ export function SaleContractLotPickerModal({
     setError(null);
     try {
       const detail = await getSampleDetail(session, sample.id);
-      onPicked(detail.sample, detail.activeBlends ?? []);
+      onPicked(detail.sample);
     } catch (cause) {
       setHydratingId(null);
       setError(cause instanceof ApiError ? cause.message : 'Falha ao abrir o lote.');
@@ -155,16 +170,16 @@ export function SaleContractLotPickerModal({
       open={open}
       onClose={onClose}
       onDismissAttempt={() => hydratingId === null}
-      title="Selecionar lote"
+      title={null}
       ariaLabel="Selecionar lote"
       dragDisabled={dragDisabled}
-      className="ctr-form-sheet ctr-lotpick-sheet is-fit-content"
+      closeVariant="edge-back"
+      className="fv-panel-sheet side-sheet ctr-lotpick-sheet"
     >
-      <p className="lotpick-hint">A venda à vista parte de um lote.</p>
+      <p className="fv-panel-lead">A venda à vista parte de um lote.</p>
 
       <div className="lotpick-search">
         <input
-          className="app-modal-input"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Buscar por nº do lote ou produtor..."
@@ -184,49 +199,57 @@ export function SaleContractLotPickerModal({
           </p>
         ) : (
           <>
-            {items.map((sample) => (
-              <button
-                key={sample.id}
-                type="button"
-                className="spv2-card is-card-open lotpick-card"
-                onClick={() => void handlePick(sample)}
-              >
-                <span className="spv2-card-bar" aria-hidden="true" />
-                <span className="spv2-card-content">
-                  <span className="spv2-card-top">
-                    <span className="spv2-card-code">{lotLabel(sample)}</span>
-                    {sample.isBlend ? <BlendBadge size="sm" /> : null}
-                    <span className="spv2-card-badge">Em aberto</span>
-                  </span>
-                  <span className="spv2-card-bottom">
-                    <span className="spv2-card-owner">{ownerLabel(sample)}</span>
-                    <span className="spv2-card-sep" aria-hidden="true" />
-                    <span className="spv2-card-detail">
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <rect x="2" y="7" width="20" height="14" rx="2" />
-                        <path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" />
-                      </svg>
-                      {availableLabel(sample)} sacas
+            {items.map((sample) => {
+              const status = sampleStatusDisplay(sample);
+              const available = availableSacks(sample);
+              const moved = movedSacks(sample);
+              return (
+                <button
+                  key={sample.id}
+                  type="button"
+                  className={`spv2-card ${status.modifier} lotpick-card`}
+                  onClick={() => void handlePick(sample)}
+                >
+                  <span className="spv2-card-content">
+                    <span className="spv2-card-top">
+                      <span className="spv2-card-code">{lotLabel(sample)}</span>
+                      {sample.isBlend ? <BlendBadge size="sm" /> : null}
+                      {/* Chip canonico (sampleStatusDisplay), nao rotulo fixo: o
+                          "Em aberto" era literal no JSX e nao dependia do lote. */}
+                      <span className={`fv-chip is-sm ${status.chip}`}>{status.label}</span>
                     </span>
-                    {sample.declared.harvest ? (
-                      <>
-                        <span className="spv2-card-sep" aria-hidden="true" />
-                        <span className="spv2-card-detail">
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <rect x="3" y="4" width="18" height="18" rx="2" />
-                            <path d="M16 2v4M8 2v4M3 10h18" />
-                          </svg>
-                          <HarvestDisplay harvest={sample.declared.harvest} showMixSafras={false} />
-                        </span>
-                      </>
-                    ) : null}
+                    <span className="spv2-card-bottom">
+                      <span className="spv2-card-owner">{ownerLabel(sample)}</span>
+                      <span className="spv2-card-dot" aria-hidden="true">
+                        ·
+                      </span>
+                      <span className="spv2-card-detail">
+                        {available === null ? '—' : available} sacas
+                        {moved > 0 && available !== null ? (
+                          <span className="lotpick-card-of">de {available + moved}</span>
+                        ) : null}
+                      </span>
+                      {sample.declared.harvest ? (
+                        <>
+                          <span className="spv2-card-dot" aria-hidden="true">
+                            ·
+                          </span>
+                          <span className="spv2-card-detail">
+                            <HarvestDisplay
+                              harvest={sample.declared.harvest}
+                              showMixSafras={false}
+                            />
+                          </span>
+                        </>
+                      ) : null}
+                    </span>
                   </span>
-                </span>
-                <svg className="spv2-card-chevron" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M9 6l6 6-6 6" />
-                </svg>
-              </button>
-            ))}
+                  <svg className="spv2-card-chevron" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M9 6l6 6-6 6" />
+                  </svg>
+                </button>
+              );
+            })}
             {cursor ? (
               <div ref={sentinelRef} className="lotpick-sentinel">
                 {loadingMore ? 'Carregando mais...' : ''}

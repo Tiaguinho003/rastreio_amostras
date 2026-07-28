@@ -28332,17 +28332,13 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
     min-width: 0;
   }
 }
-/* Picker de lote: o corpo do sheet vira coluna flex pra a lista (.lotpick-list,
-   flex:1 + overflow) esticar e rolar — hint/busca ficam fixos no topo e o
-   scroll infinito (root = .lotpick-list) segue funcionando. */
+/* Picker de lote (RC-D29: painel lateral do kit FV): o corpo do sheet vira
+   coluna flex pra a lista (.lotpick-list) esticar e rolar — a linha de apoio e a
+   busca ficam fixas no topo e o scroll infinito (root = .lotpick-list) segue
+   funcionando. A linha de apoio usa .fv-panel-lead, do chrome comum do painel. */
 .ctr-lotpick-sheet .bottom-sheet-body {
   display: flex;
   flex-direction: column;
-}
-.ctr-lotpick-sheet .lotpick-hint {
-  margin: 0 clamp(0.3rem, 1.2vw, 0.5rem) 0.2rem;
-  font-size: 0.82rem;
-  color: var(--brand-muted);
 }
 
 /* ── Detalhes do contrato (Fase J, D120–D126; F3 do redesign): conteudo do
@@ -28682,13 +28678,35 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   flex-shrink: 0;
   padding: clamp(0.85rem, 3vw, 1.1rem) clamp(0.3rem, 1.2vw, 0.5rem) 0.55rem;
 }
+/* Campo composto (markup proprio, sem .fv-form-field): recebe o MESMO desenho
+   do kit por uma regra pequena, em vez de copiar o bloco — regra da skill
+   `forms` §2. */
+.lotpick-search input {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.62rem;
+  padding: clamp(0.5rem, 2vw, 0.62rem) clamp(0.6rem, 2.4vw, 0.78rem);
+  border: 1px solid var(--fv-line-strong);
+  border-radius: var(--fv-radius);
+  background: #ffffff;
+  font-family: inherit;
+  font-size: 0.88rem;
+  color: var(--ink);
+}
+.lotpick-search input:focus-visible {
+  outline: none;
+  border-color: var(--fv-cta);
+  box-shadow: 0 0 0 3px rgba(23, 60, 48, 0.12);
+}
 .lotpick-error {
   margin: 0 clamp(1.1rem, 3.5vw, 1.4rem) 0.5rem;
 }
 .lotpick-list {
-  /* flex:0 (nao cresce): a lista tem a altura do conteudo ate o max-height —
-     casa com o sheet is-fit-content (encolhe pro conteudo, sem vao em branco). */
-  flex: 0 1 auto;
+  /* RC-D29: no painel lateral a lista OCUPA o que sobra e rola — o teto de
+     ~3 cards (max-height 14.5rem) existia pro sheet `is-fit-content`, que
+     encolhia pro conteudo. Num painel de altura cheia aquele teto deixaria dois
+     tercos da tela em branco. */
+  flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
   display: flex;
@@ -28700,9 +28718,6 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
      (o .bottom-sheet-body tem overflow-x: hidden). */
   padding: 0.15rem clamp(0.3rem, 1.2vw, 0.5rem) clamp(0.9rem, 3vw, 1.1rem);
   overscroll-behavior: contain;
-  /* Limite de ~3 lotes sem scroll (o 4º espia, sinalizando que ha mais); acima
-     disso a lista rola. Casa com a altura compacta do .lotpick-card (~62px). */
-  max-height: 14.5rem;
 }
 .lotpick-status {
   margin: 0;
@@ -28732,9 +28747,12 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
     0 14px 34px rgba(0, 0, 0, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
-/* Barra de status mais baixa, acompanhando a altura reduzida do card. */
-.lotpick-card .spv2-card-bar {
-  height: 2.5rem;
+/* "80 sacas de 300" — o total original em tom secundario, so quando parte do
+   lote ja saiu. Aqui todo lote e vendavel e o chip diria sempre a mesma coisa,
+   entao e o saldo que distingue um card do outro. */
+.lotpick-card-of {
+  margin-left: 0.25rem;
+  color: var(--brand-muted);
 }
 .lotpick-sentinel {
   flex-shrink: 0;
