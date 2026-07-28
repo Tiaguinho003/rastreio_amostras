@@ -415,8 +415,19 @@ export function SaleContractEtapa2Modal({
         setSaleBrokerIds(c.brokers.map((broker) => broker.brokerId));
         setSampleIsBlend(Boolean(c.sampleIsBlend));
 
+        // RC-D37: com lote, o vendedor exibido é o dono ATUAL do lote — é ele que
+        // o servidor vai emitir. Se divergir do gravado, a filial e o banco do
+        // contrato são de outro cliente: zera os dois (mesmo tratamento do
+        // handleSelectSeller), senão o submit estouraria um 422 de banco numa
+        // edição que nem tocou no vendedor.
+        const effectiveSellerId = c.sampleOwner?.clientId ?? c.sellerClientId;
+        if (c.sampleOwner && c.sampleOwner.clientId !== c.sellerClientId) {
+          setSellerUnitId('');
+          setBankAccountId('');
+        }
+
         const [sellerD, buyerD, bwD, swD] = await Promise.all([
-          c.sellerClientId ? getClient(session, c.sellerClientId).catch(() => null) : null,
+          effectiveSellerId ? getClient(session, effectiveSellerId).catch(() => null) : null,
           c.buyerClientId ? getClient(session, c.buyerClientId).catch(() => null) : null,
           c.buyerWarehouseClientId
             ? getClient(session, c.buyerWarehouseClientId).catch(() => null)
@@ -848,8 +859,33 @@ export function SaleContractEtapa2Modal({
       const { sample } = await getSampleDetail(session, spotCreate.sampleId);
       const nextAvailable = sample.availableSacks ?? 0;
       onSpotRefreshed(sample);
+      // RC-D37: o vendedor é o dono do lote. Se o dono mudou no meio do
+      // preenchimento, o campo travado tem que acompanhar — e a filial e o banco
+      // do dono antigo deixam de valer.
+      const nextOwnerId = sample.ownerClientId ?? null;
+      const ownerChanged = nextOwnerId !== (seller?.id ?? null);
+      if (ownerChanged) {
+        setSellerUnitId('');
+        setBankAccountId('');
+        if (nextOwnerId) {
+          const detail = await getClient(session, nextOwnerId).catch(() => null);
+          if (detail) {
+            setSeller(detail.client);
+            setSellerUnits(detail.units);
+          }
+        } else {
+          setSeller(null);
+          setSellerUnits([]);
+        }
+      }
       if (nextAvailable <= 0) {
         setError('O lote não tem mais saldo para venda. Volte e escolha outro lote.');
+        return;
+      }
+      if (ownerChanged) {
+        setError(
+          'O dono do lote mudou enquanto você preenchia — o vendedor do contrato acompanhou. Confira o banco e emita de novo.'
+        );
         return;
       }
       // Sacas acima do novo saldo viram o saldo — é o valor que o auto-preenchimento
@@ -992,15 +1028,10 @@ export function SaleContractEtapa2Modal({
   // rodapé mostra "Cancelar".
   const handleBack = onBack ?? null;
 
-  // RC-D33: à vista, emitir com vendedor != dono do lote transfere o lote para o
-  // vendedor (`_syncSampleOwner`). Só vale quando o lote TEM dono — sem dono, a
-  // venda apenas atribui um, e não há troca a avisar.
-  const ownerWillChange =
-    isSpotCreate &&
-    spotCreate != null &&
-    spotCreate.ownerClientId != null &&
-    seller != null &&
-    seller.id !== spotCreate.ownerClientId;
+  // RC-D37: contrato COM lote tem o vendedor TRAVADO — é o dono do lote, e o
+  // servidor o deriva de lá (o payload não é lido). Trocar o vendedor se faz no
+  // cadastro do lote. No Futuro (sem lote) o campo segue livre.
+  const sellerLockedToLot = isSpotCreate || contract?.sampleId != null;
 
   function doExit(kind: 'close' | 'back') {
     if (kind === 'back' && handleBack) handleBack();
@@ -1258,32 +1289,37 @@ export function SaleContractEtapa2Modal({
                   <div className="ctr-pair">
                     <div className={fieldClass('seller')}>
                       <span className="app-modal-label">Vendedor</span>
-                      <ClientLookupField
-                        session={session}
-                        label="Vendedor"
-                        kind="owner"
-                        selectedClient={seller}
-                        disabled={disabled}
-                        compact
-                        onSelectClient={(client) => void handleSelectSeller(client)}
-                        emptyMessage="Nenhum vendedor encontrado."
-                        onRequestCreate={(searchTerm) => {
-                          setSellerCreateSeed(searchTerm);
-                          setSellerCreateOpen(true);
-                        }}
-                        createLabel="Cadastrar vendedor"
-                      />
+                      {/* RC-D37: com lote, o vendedor é o dono do lote e o campo
+                          não abre. Trocá-lo aqui transferia o lote no ato de
+                          emitir — agora a troca se faz onde ela pertence, no
+                          cadastro do lote. */}
+                      {sellerLockedToLot ? (
+                        <>
+                          <p className="ctr-locked-value">
+                            {seller?.displayName ?? 'Sem produtor'}
+                          </p>
+                          <span className="ctr-locked-hint">
+                            É o dono do lote. Para trocar, edite o dono no cadastro do lote.
+                          </span>
+                        </>
+                      ) : (
+                        <ClientLookupField
+                          session={session}
+                          label="Vendedor"
+                          kind="owner"
+                          selectedClient={seller}
+                          disabled={disabled}
+                          compact
+                          onSelectClient={(client) => void handleSelectSeller(client)}
+                          emptyMessage="Nenhum vendedor encontrado."
+                          onRequestCreate={(searchTerm) => {
+                            setSellerCreateSeed(searchTerm);
+                            setSellerCreateOpen(true);
+                          }}
+                          createLabel="Cadastrar vendedor"
+                        />
+                      )}
                       {fieldMessage('seller')}
-                      {/* RC-D33: vender por outro que não o dono TRANSFERE o lote
-                          (_syncSampleOwner, no mesmo emit). Era um efeito
-                          invisível: nada na tela dizia que o dono do lote ia
-                          mudar. */}
-                      {ownerWillChange ? (
-                        <span className="ctr-owner-warning">
-                          O lote passa a ser de {seller?.displayName ?? 'este vendedor'} ao emitir.
-                          Hoje é de {spotCreate?.ownerName ?? 'outro produtor'}.
-                        </span>
-                      ) : null}
                     </div>
 
                     {sellerIsPF ? sellerUnitField : null}

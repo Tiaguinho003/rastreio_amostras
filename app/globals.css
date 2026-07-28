@@ -28283,13 +28283,21 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   color: #c45c5c;
   font-weight: 600;
 }
-/* RC-D33: aviso de que emitir vai TROCAR o dono do lote. Ambar, nao vermelho —
-   nao e erro nem impede a emissao; e uma consequencia que estava invisivel. */
-.ctr-owner-warning {
+/* RC-D37: campo travado — o Vendedor de um contrato com lote nao abre, porque e
+   o dono do lote. Le como VALOR (peso do texto do formulario), nao como input
+   desabilitado: nao ha o que clicar, entao nao ha por que parecer clicavel. */
+.ctr-locked-value {
+  margin: 0;
+  padding: 0.1rem 0.15rem;
+  color: var(--ink);
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.ctr-locked-hint {
   padding-left: 0.15rem;
-  color: #8a6116;
+  color: var(--muted);
   font-size: 0.74rem;
-  font-weight: 500;
   line-height: 1.35;
 }
 /* Fix do input date no WebKit (mesmo do modal central) — sem isso o campo
