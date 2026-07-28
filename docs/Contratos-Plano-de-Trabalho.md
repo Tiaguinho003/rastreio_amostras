@@ -118,19 +118,19 @@ Escopo original: `app/financeiro/page.tsx` deixa de ser redirect e vira a págin
 
 **RC-F2 — as fases entram no contrato.** Depende de **RC-A1**. As duas ações que faltam (`ApprovalLabelModal`, `ShipmentConfirmationModal`) passam a ser alcançáveis do contrato, além dos portões reativos que já as abrem (`SaleContractLifecycleDialog.tsx:284,299`). A derivação de fase nasce como função pura com teste unitário **antes** de qualquer UI.
 
-**RC-F3 — a lista vira worklist.** O maior pedaço de backend. `listSaleContracts` (`service:104`) é reescrito com fase no SQL e keyset particionado, no molde dos três `$queryRaw` que já existem (`listApprovalContracts:472`, `listShipmentContracts:342`, `listBrokerReceivables:150`).
+**RC-F3 — a lista vira worklist.** O maior pedaço de backend. `listSaleContracts` é reescrito com fase no SQL e keyset particionado, no molde dos três `$queryRaw` que já existem (`listApprovalContracts`, `listShipmentContracts`, `listBrokerReceivables`). 🟡 **O encanamento já está de pé** — a RC-D45 (§5.12) levou busca, filtros e paginação por cursor para o servidor. **Falta a FASE**: derivação em SQL, keyset particionado por grupo e os contadores por fase (que são também os números da faixa de KPI que a F6 deixou de fora).
 
 **RC-F4 — `/embarques` morre.** ✅ **IMPLEMENTADA em 2026-07-27, ANTECIPADA** — o roteiro a punha depois da RC-F2, e o Flavio escolheu juntá-la à F1 (RC-D21). Viável porque as duas ações que só a worklist oferecia mudaram de casa no mesmo passo (RC-D25). Ver §5.9. Dependia da RC-A2, fechada pela RC-D26.
 Escopo original: Rota vira redirect; `EmbarquePanel`, `AprovacoesPanel`, `EmbarqueCard`, `AprovacaoCard` apagados; deep-links re-apontados (`AvisosCard.tsx:23`, `EventsCalendarCard.tsx:58`, `HeaderAvatarMenu.tsx:168`, `AppShell.tsx:99-126`); `contractsHubTabs`/`contractTabRoute` removidos de `lib/roles.ts`; CSS morto varrido. ⚠️ **No mesmo passo, `Dashboard-Visao-Geral.md`** — a Visão Geral de contratos (§11) obriga a atualizá-la a cada mudança de rota, nome de aba ou valor de `?tab=`, e a RC muda os três.
 
 **RC-F5 — a criação repensada** (RC-D12). 🟡 **1ª rodada IMPLEMENTADA em 2026-07-28** (RC-D27..D36, §5.10): seleção do lote, auto-preenchimento, erro no campo e a conferência pelo documento. **Falta** a RC-D18 (ordem dos campos espelhando o documento + bloco de controle interno) e o redesenho FV do corpo do formulário, que ainda é markup `.app-modal-*`.
 
-**RC-F6 — o ciclo FV.** Layout e design, no molde das 5 páginas já migradas (`Redesign-Plano-de-Trabalho.md`).
+**RC-F6 — o ciclo FV.** 🟡 **1ª rodada IMPLEMENTADA em 2026-07-28, ANTECIPADA** (RC-D42..D48, §5.12): moldura institucional, tabela no desktop, filtros em painel lateral, estados da lista, Espelho fora das ações da página. **Falta** o conteúdo do **card mobile** e a passada em `/financeiro`, que segue no kit legado.
 
 ### 5.7 Gargalos e riscos (achados do levantamento)
 
 - **A fase corrente é expressão de 7 campos** (`status`, `requiresApproval`, `count(ApprovalLabelLog)`, `requiresShipment`, `shippedAt`, `invoiceDate`, `paymentDate`). Filtrar e paginar por ela exige `CASE` + anti-join em SQL, não `findMany`. Os índices necessários **já existem** (`prisma/schema.prisma:900-919`).
-- **Hoje a lista de contratos não pagina** — carrega até 500 e filtra no navegador (`ContratosPanel.tsx:164`). É o gargalo que a RC-F3 resolve; sem ela, os contadores de fase mentiriam ao passar do teto.
+- ~~**Hoje a lista de contratos não pagina** — carrega até 500 e filtra no navegador. É o gargalo que a RC-F3 resolve; sem ela, os contadores de fase mentiriam ao passar do teto.~~ ✅ **Resolvido pela RC-D45** (§5.12): busca, filtros e paginação por cursor no servidor, `total` do filtro inteiro. Os contadores **por fase** seguem dependendo da RC-F3.
 - **`SALE_CONTRACT_VIEW_SELECT` é allow-list do Prisma** — campo novo que não entre nela volta `undefined`, e isso só aparece no teste de integração.
 - **`confirmShipment` não incrementa `version` de propósito** (`sale-contract-shipment-service.js:218-221`), para o portão do pagar seguir com a mesma `expectedVersion`. Invariante frágil, coberta por teste (`sale-contract.integration.test.js:498`) — não quebrar ao mudar de superfície.
 - **As rotas de embarque e aprovação são auth-only**, sem gate de papel algum; os handlers de etiqueta têm exceção deliberada de posse com selects mínimos (`backend-api.js:1258-1264`) — **nunca reusar a view completa** ali (vazaria financeiro + PII).
@@ -432,6 +432,75 @@ estado é — e o meu `2100` absoluto. Consolidado em `tests/helpers/relative-da
 (`bizDay`/`calendarDay`/`dayKey`), com a asserta do faturamento **reapertada** para
 `contract_invoice` + `previsto`. Registrado na skill `tests`.
 
+### 5.12 RC-F6 — `/contratos` entra no ciclo FV (RC-D42..D48), 2026-07-28
+
+> **Antecipada.** O roteiro (§5.6) punha a F6 por último, depois da F2 e da F3. O Flavio pediu o
+> layout antes de seguir com o fluxo de emissão. Escopo: a **página** — a moldura, a lista e as ações.
+> O conteúdo do **card mobile** ficou de fora por decisão dele, para uma rodada seguinte.
+
+#### As decisões
+
+- **RC-D42** — **O Espelho de Corretagem deixa de ser ação da página.** Ele nasce só dentro do
+  Detalhes do contrato. As portas de criação da página passam a ser **duas**: à vista e futuro.
+  **Revoga a D76** (entrada por modo de seleção). Nenhuma capacidade se perde: os dois caminhos já
+  convergiam em `setEspelhoTarget` → Conferência (é lá que se escolhe o lado) → Prévia. O que sai é
+  um **modo de seleção inteiro** — com ele morrem `espelhoMode`, o `body.is-selection-mode` da
+  página, o ramo de seleção do card (e 4 props), e o `SelectionModeHeader`, que ficou órfão e foi
+  **apagado**. No Detalhes o botão segue **sumindo** quando não cabe (decisão do Flavio: não repor a
+  explicação do motivo, que só existia no modo de seleção).
+- **RC-D43** — **No desktop a lista vira `fv-table`**; o card sobrevive só no mobile. **5 colunas +
+  ⋯**: Contrato (nº + tipo) · Partes (vendedor → comprador) · Sacas · Datas (faturamento +
+  pagamento) · Status (`.fv-chip`). **Sem coluna de Total e sem preço/saca** — o dinheiro fica no
+  Detalhes. O menu ⋯ carrega o avanço de status que o card mostra (RC-D22: um por vez) + "Ver
+  detalhes"; Editar/Ágio/Washout seguem no painel, que é onde há contexto.
+- **RC-D44** — **Criar no desktop são DOIS botões** no `.fv-page-head` ("+ Futuro" secundário,
+  "+ À vista" primário), não um botão com menu: criar contrato tem duas portas de verdade, e
+  escondê-las atrás de um clique não paga. No mobile segue o FAB, agora com leque de **2** opções
+  (`.fab-fan.is-fan-2` — a variante já existia, herdada de `/samples`).
+- **RC-D45** — **Busca, filtros e paginação vão para o SERVIDOR** (keyset por `contractSeq`).
+  Antecipa o encanamento da RC-F3 — sem as fases, que continuam sendo o pedaço grande dela. Motivo:
+  redesenhar a toolbar por cima do filtro em memória significaria refazer a mesma região quando a F3
+  chegasse. **Sem faixa de KPI nesta rodada** (decisão do Flavio): os números certos para ela são os
+  contadores por fase, que nascem na F3.
+- **RC-D46** — Escopo próprio **`.fv-ctr-page`** para o kit institucional. A classe `.ctr-page`
+  **fica**: carrega as vars do arco do FAB e o ajuste de altura do shell via `:has()`, e é
+  compartilhada com `/financeiro`, que **não** entra nesta rodada (decisão do Flavio) e segue no kit
+  legado. As duas páginas ficam com caras diferentes até a próxima passada.
+- **RC-D47** — Os filtros saem do modal central `.samples-filter-modal` para o painel lateral
+  `.side-sheet.fv-filter-sheet`. `/contratos` era o **último consumidor vivo** daquele modal, então o
+  CSS dele morreu junto (47 regras removidas, 4 regras agrupadas aparadas). Status e Tipo passam ao
+  `ChipMultiSelectField` do kit, e o `ContractFilters` passa a guardar **código**, não rótulo PT —
+  esses valores agora viram querystring.
+- **RC-D48** — Os três estados da lista passam a existir de verdade: **skeleton** no 1º carregamento
+  (linhas de tabela no desktop, cards no mobile), **`.spv2-error-banner`** quando falha (antes era um
+  `catch {}` vazio que caía no vazio, sem dizer nada) e vazio com ícone + subtexto. A recarga
+  **pós-mutação não pisca skeleton** — antes a lista inteira voltava para "Carregando..." depois de
+  cada faturar/pagar/washout/ágio.
+
+#### Achados do caminho
+
+- **A busca do servidor e a do navegador procuravam em campos DIFERENTES.** O servidor casava nº do
+  contrato + nº da compra; o navegador casava nº + nome do vendedor + nome do comprador. Unificado na
+  união dos quatro; os nomes moram em JSON, então vão por `ILIKE` no `->>'displayName'` (molde do
+  `_searchBuyerContractIds` do Financeiro, com o mesmo escape de `\ % _`).
+- **O teto de 200 era silencioso.** A página chamava `listSaleContracts` com query **vazia**: acima do
+  teto os contratos sumiam sem aviso e a contagem exibida era a do array baixado. Agora o `total` vem
+  de um `count` do filtro inteiro.
+- **`?details=<id>` fora da página baixada morria calado.** Era `contracts.find(...)`; não achando, o
+  efeito de limpeza tratava como órfão e **apagava o parâmetro da URL**. Agora busca por id no
+  servidor antes de julgar órfão.
+- ⚠️ **Regra agrupada não se apaga inteira.** A primeira varredura de CSS morto removeu a regra toda
+  quando o seletor citava uma classe morta — e levou junto `.sample-detail-reclassify-actions` e
+  `.samples-filter-sheet`, que estavam vivos na mesma lista de seletores. O correto é aparar
+  **seletor a seletor** (`rule.selectors`), removendo a regra só quando **nenhum** sobrevive.
+- **`canManage` está fixo em `true`** (`ContratosPanel.tsx`), então o desvio de COMMERCIAL do S74 é
+  código morto hoje. Não mexido: é decisão de regra, não de layout.
+
+#### O que NÃO entrou
+
+Conteúdo do card mobile · `/financeiro` · faixa de KPI · ordenação (não existe peça de sort no kit) ·
+as fases da RC-F3.
+
 ## Apêndice A — Ledger de decisões (condensado)
 
 > Resolução final de cada decisão; as **superadas** apontam para o que as substituiu. O histórico completo (Contexto→Opções→Proposta + sessões) está no Git.
@@ -513,7 +582,7 @@ estado é — e o meu `2100` absoluto. Consolidado em `tests/helpers/relative-da
 - **D73** — Elegíveis ao Espelho = status congelados (`EMITIDO/FATURADO/PAGO/WASH_OUT`) com ≥1 corretagem >0 no lado (renomeados por D96, WASH_OUT por D105).
 - **D74** — Rodapé bancário = conta fixa da SAFRAS (SICREDI ag. 0361, c/c 83515-3, CNPJ 23.490.860/0001-56) no `issuer-config`.
 - **D75** — Modal de conferência do Espelho só-leitura → gera o PDF (hoje `EspelhoConferenciaModal`, D134).
-- **D76** — Entrada do Espelho via modo de seleção (padrão "liga"): tocar 1 contrato elegível abre direto.
+- **D76** — (**revogada pela RC-D42**, §5.12) Entrada do Espelho via modo de seleção (padrão "liga"): tocar 1 contrato elegível abre direto. Hoje o Espelho nasce **só no Detalhes** do contrato.
 - **D77** — Página "Financeiro" = relatório derivado (sem schema), corretagem a receber por fechamento; acesso ADMIN + COMMERCIAL.
 - **D78** — Valor a receber por fechamento = `sellerBrokerageValue + buyerBrokerageValue` (as 2 pontas).
 - **D79** — (superada por D136 — rateio ÷N removido).

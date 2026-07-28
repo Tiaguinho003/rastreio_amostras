@@ -38,9 +38,9 @@ DESKTOP (≥901px)                     MOBILE (≤900px)
 **seletor multi-página** — `.fv-lotes-page X, .clients-page-v2 .spv2-list-scroll X, .relatorios-page .rsm-feed X` —
 as listas que já passaram pelo ciclo mobile (`/samples` e as duas abas de `/cadastros`, RD16; mais o
 feed de `/relatorios`, que não é tabela — feed + acordeão — mas reusa a chrome KPI+toolbar, escopada
-ao seu container de rolagem `.rsm-feed`). Ligar na base
-acenderia `/contratos` e `/financeiro`, que ainda usam a `.hero-search-wrap` antiga (**duas
-chromes empilhadas**) — as duas entram juntas no ciclo, na RC-F6. Cada nova lista entra somando seu escopo ao media-gate (critério do
+ao seu container de rolagem `.rsm-feed`). `/contratos` entrou na RC-F6 e pega o gate de graça, porque
+já é `.clients-page-v2`. Quem ainda usa a `.hero-search-wrap` antiga é **`/financeiro`** — ligar o gate
+na base lhe daria **duas chromes empilhadas**. Cada nova lista entra somando seu escopo ao media-gate (critério do
 `css-architecture`). Nenhuma precisa de condicional no JSX.
 
 🔴 **No mobile NADA fica travado no topo.** A lista tem altura fixa (quem rola é o

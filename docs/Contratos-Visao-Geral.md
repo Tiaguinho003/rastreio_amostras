@@ -15,7 +15,7 @@ Documentos relacionados: `Contratos-Plano-de-Trabalho.md` (backlog, decisões e 
 
 O contrato de compra e venda de café é operado em **2 páginas sem sub-aba nenhuma** (RC-F1/RC-F4, 2026-07-27) — o eixo não é mais gestão × operação, é **o contrato × o dinheiro consolidado**:
 
-- **`/contratos`** — **o contrato inteiro**, de ponta a ponta (todo não-PROSPECTOR): nasce, vira PDF, ágio, ciclo de vida completo (faturar **e** pagar no card), o **Espelho de Corretagem**, e — dentro do detalhe — **gerar a etiqueta de aprovação** e **confirmar o embarque** (RC-D25).
+- **`/contratos`** — **o contrato inteiro**, de ponta a ponta (todo não-PROSPECTOR): nasce, vira PDF, ágio, ciclo de vida completo (faturar **e** pagar direto da lista), e — dentro do detalhe — o **Espelho de Corretagem** (RC-D42), **gerar a etiqueta de aprovação** e **confirmar o embarque** (RC-D25). Lista: **tabela** no desktop, **cards** no mobile (RC-D43); busca/filtros/paginação no servidor (RC-D45).
 - **`/financeiro`** — **só ADMIN** (RC-D3): a carteira consolidada de corretagem a receber. É um **recorte gerencial**, não uma etapa do fluxo: o contrato não precisa passar por aqui para ser pago.
 
 Um contrato não muda de página no ciclo: **tudo acontece em `/contratos`**. O `/financeiro` olha o conjunto de fora. Desde o **ACESSO UNIFICADO (2026-07-15)** todo não-PROSPECTOR abre `/contratos`; o PROSPECTOR não acessa nenhuma das duas, e os demais 4 papéis não abrem o `/financeiro`.
@@ -120,16 +120,16 @@ As **datas planejadas** também têm regra (D142): a criação/edição rejeita 
 
 **Onde cada ação mora hoje:**
 
-| Ação                      | Onde              | Condição                                             |
-| ------------------------- | ----------------- | ---------------------------------------------------- |
-| **Faturado** (→ FATURADO) | card da lista     | `status === 'EMITIDO'` + `canManage`                 |
-| **Pago** (→ PAGO)         | card da lista     | `status === 'FATURADO'` + `canManage` (**RC-D22**)   |
-| Editar · Washout          | card da lista     | conforme D121/D126                                   |
-| Ágio / Deságio            | modal de Detalhes | D121                                                 |
-| "Solicitar aprovação"     | modal de Detalhes | latch de mão única, só `EMITIDO` (AP32 — §7)         |
-| **"Gerar etiqueta"**      | modal de Detalhes | seção Aprovação; `canManage` + status ≠ `WASH_OUT`   |
-| **"Confirmar embarque"**  | modal de Detalhes | seção Embarque; sem `shippedAt` + `EMITIDO/FATURADO` |
-| "Gerar espelho"           | modal de Detalhes | + leque "+" da lista (D134 — §5)                     |
+| Ação                      | Onde                       | Condição                                             |
+| ------------------------- | -------------------------- | ---------------------------------------------------- |
+| **Faturado** (→ FATURADO) | card (mobile) · ⋯ da linha | `status === 'EMITIDO'` + `canManage`                 |
+| **Pago** (→ PAGO)         | card (mobile) · ⋯ da linha | `status === 'FATURADO'` + `canManage` (**RC-D22**)   |
+| Editar · Washout          | modal de Detalhes          | conforme D121/D126                                   |
+| Ágio / Deságio            | modal de Detalhes          | D121                                                 |
+| "Solicitar aprovação"     | modal de Detalhes          | latch de mão única, só `EMITIDO` (AP32 — §7)         |
+| **"Gerar etiqueta"**      | modal de Detalhes          | seção Aprovação; `canManage` + status ≠ `WASH_OUT`   |
+| **"Confirmar embarque"**  | modal de Detalhes          | seção Embarque; sem `shippedAt` + `EMITIDO/FATURADO` |
+| "Gerar espelho"           | modal de Detalhes          | **só ali** (RC-D42 revogou a D76 — §5)               |
 
 As duas linhas em negrito são a **RC-D25**: elas vieram das worklists de `/embarques`, que morreram. Os modais (`ApprovalLabelModal`, `ShipmentConfirmationModal`) abrem **por cima** do detalhe, e enquanto um deles está de pé o overlay não fecha por ESC/backdrop (`dismissGuardRef`). Ao concluir, o detalhe **se recarrega** para refletir o novo estado. _(Isso é a semente da RC-F2: as seções já **agem**, mas ainda não são uma trilha de fases.)_
 
@@ -141,7 +141,7 @@ As duas linhas em negrito são a **RC-D25**: elas vieram das worklists de `/emba
 
 - **O que é:** o espelho da corretagem — mapeia campos do contrato para um PDF de 9 colunas (origem de cada campo documentada no código).
 - **Elegibilidade (`assertEspelhoEligible`, fonte única que gateia o PDF _e_ o log):** `side` válido (`ESPELHO_INVALID_SIDE`); status ∈ `EMITIDO/FATURADO/PAGO/WASH_OUT` (`ESPELHO_NOT_ELIGIBLE`); **com corretagem no lado pedido** (`ESPELHO_NO_BROKERAGE`). **Exceção (D145):** um contrato **à vista** (`MERCADO_A_VISTA`) cancelado por washout **não gera cobrança** → bloqueado (`ESPELHO_WASHOUT_SPOT`); só o **FUTURO** em washout mantém o Espelho.
-- **Como gerar:** pelo leque **"+"** (modo de seleção) **ou pelo botão "Gerar espelho" no Detalhes** do contrato — ambos abrem a **Conferência (D134)**, revisão _read-only_ dos campos (não grava nada; o "Preço" vem de `effectiveUnitPrice` da view, mesma fonte do PDF) antes de gerar a prévia.
+- **Como gerar:** pelo botão **"Gerar espelho" no Detalhes** do contrato — e só por ali (**RC-D42** revogou a D76: o leque "+" da lista deixou de oferecê-lo, e com ele saiu o modo de seleção da página). Abre a **Conferência (D134)**, revisão _read-only_ dos campos (não grava nada; o "Preço" vem de `effectiveUnitPrice` da view, mesma fonte do PDF) antes de gerar a prévia. Quando o contrato não é elegível o botão **não aparece**.
 - **Auditoria (D124/D127):** o `SaleContractEspelhoLog` (contrato + lado + ator) é gravado no **Exportar/Baixar**, **só na entrega concluída** (a prévia `?preview=1` não audita; cancelar o share não audita). É **best-effort** e a prévia entrega o PDF sem log — trilha de conferência, não controle rígido; o endpoint de log **valida a elegibilidade** (não grava export impossível).
 
 ---
