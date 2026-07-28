@@ -19,6 +19,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
+import { downloadFile } from '../../lib/share-blob';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 
 type ContractDocumentConfirmModalProps = {
@@ -55,6 +56,9 @@ export function ContractDocumentConfirmModal({
   const [pages, setPages] = useState<PageImage[]>([]);
   const [rendering, setRendering] = useState(true);
   const [renderError, setRenderError] = useState<string | null>(null);
+  // Só libera o Confirmar depois que o documento foi VISTO de alguma forma: na
+  // tela, ou baixado quando a tela falhou. Confirmar no escuro derrota a tela.
+  const [downloaded, setDownloaded] = useState(false);
   // As object URLs das páginas vivem aqui pra o cleanup revogar todas, inclusive
   // as que ficaram prontas depois de um unmount no meio da renderização.
   const urlsRef = useRef<string[]>([]);
@@ -127,6 +131,13 @@ export function ContractDocumentConfirmModal({
     return () => document.removeEventListener('keydown', onKeyDown, true);
   }, [submitting, onBack]);
 
+  function handleDownload() {
+    // Mesma convenção do nome que o servidor manda no Content-Disposition.
+    const slug = (contractNumber ?? '').replace('/', '-').trim();
+    downloadFile(blob, slug ? `contrato-${slug}-previa.pdf` : 'contrato-previa.pdf');
+    setDownloaded(true);
+  }
+
   return createPortal(
     // Backdrop CHEIO, não `.fv-panel-scrim`: exceção deliberada à regra de
     // "confirmação sobre painel" (skill containers §2) — o documento precisa da
@@ -158,7 +169,16 @@ export function ContractDocumentConfirmModal({
           {rendering ? (
             <p className="ctr-modal-loading">Montando o documento...</p>
           ) : renderError ? (
-            <p className="ctr-modal-loading">{renderError}</p>
+            // Rasterização falhou (aparelho antigo, memória, worker bloqueado).
+            // O PDF em si está aqui e é válido — então a saída é BAIXAR e olhar,
+            // não emitir no escuro. É o mesmo contorno do `.ctr-doc-hint` do
+            // Espelho, só que aqui virou a ação principal do estado.
+            <div className="ctr-doc-fallback">
+              <p className="ctr-modal-loading">{renderError}</p>
+              <button type="button" className="ctr-btn" onClick={handleDownload}>
+                Baixar o PDF para conferir
+              </button>
+            </div>
           ) : (
             <div className="ctr-doc-pages">
               {pages.map((page, index) => (
@@ -194,7 +214,7 @@ export function ContractDocumentConfirmModal({
             type="button"
             className="app-modal-submit"
             onClick={onConfirm}
-            disabled={submitting || rendering}
+            disabled={submitting || rendering || (renderError !== null && !downloaded)}
           >
             {submitting ? 'Emitindo...' : 'Confirmar e emitir'}
           </button>

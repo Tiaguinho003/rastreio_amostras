@@ -28616,6 +28616,15 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   background: #ffffff;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
 }
+/* Rasterizacao falhou: o PDF esta valido, so nao deu pra pintar. A saida e
+   baixar e olhar — o Confirmar so libera depois disso. */
+.ctr-doc-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 1.6rem 0.75rem;
+}
 .ctr-section-title {
   margin: 0.4rem 0 0;
   font-size: 0.78rem;
