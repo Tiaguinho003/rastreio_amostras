@@ -38,24 +38,17 @@ interface AppShellProps {
   children: React.ReactNode;
 }
 
+// Um membro por item de nav que existe. 'users' nao tem desenho proprio: cai
+// de proposito no fallback generico do renderNavIcon.
 type NavIcon =
   | 'dashboard'
   | 'samples'
   | 'users'
-  | 'clients'
-  | 'avatar'
   | 'informe'
   | 'cadastros'
   | 'contratos'
   | 'financeiro'
   | 'profile';
-type MobileRouteMeta = {
-  title: string;
-  subtitle: string;
-  ctaHref?: string;
-  ctaLabel?: string;
-  ctaIcon?: NavIcon;
-};
 
 const DESKTOP_NAV_ITEMS = [
   { href: '/dashboard', label: 'Início', icon: 'dashboard' as NavIcon },
@@ -182,7 +175,7 @@ function isMainNavItemActive(pathname: string, href: string) {
   return pathname === href;
 }
 
-function renderNavIcon(icon: NavIcon, user?: SessionData['user']) {
+function renderNavIcon(icon: NavIcon) {
   if (icon === 'dashboard') {
     return (
       <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
@@ -200,15 +193,6 @@ function renderNavIcon(icon: NavIcon, user?: SessionData['user']) {
       <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
         <ellipse cx="12" cy="12" rx="6.2" ry="8.7" transform="rotate(28 12 12)" />
         <path d="M15.9 4.9c-2.9 2.1-1.1 5-2.9 7.1-1.8 2.1-4.3 2.6-4.9 7" />
-      </svg>
-    );
-  }
-
-  if (icon === 'clients') {
-    return (
-      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-        <circle cx="12" cy="8" r="3.5" />
-        <path d="M5 20a7 7 0 0 1 14 0" />
       </svg>
     );
   }
@@ -255,13 +239,9 @@ function renderNavIcon(icon: NavIcon, user?: SessionData['user']) {
     );
   }
 
-  if (icon === 'avatar' && user) {
-    return <UserAvatar size="sm" user={user} />;
-  }
-
   if (icon === 'profile') {
     // Pessoa dentro de um circulo (convencao "conta/perfil"), em traco como
-    // os demais icones do nav — distinta da silhueta aberta de "Clientes".
+    // os demais icones do nav.
     return (
       <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
         <circle cx="12" cy="12" r="8.5" />
@@ -271,7 +251,7 @@ function renderNavIcon(icon: NavIcon, user?: SessionData['user']) {
     );
   }
 
-  // Fallback generico (icon 'users' ou avatar sem usuario disponivel)
+  // Fallback generico — hoje so o 'users' cai aqui (nao tem desenho proprio)
   return (
     <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
       <circle cx="12" cy="8.2" r="3.2" />
@@ -380,18 +360,6 @@ function useMenuDismiss(
   }, [open, containerRef, triggerRef, setOpen]);
 }
 
-function resolveMobileRouteMeta(pathname: string): MobileRouteMeta | null {
-  if (pathname === '/profile') {
-    return null;
-  }
-
-  if (pathname === '/users') {
-    return null;
-  }
-
-  return null;
-}
-
 export function AppShell({
   session,
   onLogout,
@@ -475,7 +443,6 @@ export function AppShell({
         ...(isRoleAllowed(session.user.role, FINANCEIRO_ROLES) ? [FINANCEIRO_NAV_ITEM] : []),
         ...(isAdmin(session.user.role) ? [ADMIN_NAV_ITEM] : []),
       ];
-  const mobileRouteMeta = resolveMobileRouteMeta(pathname);
   // Titulo da secao no desktop (RD13; ex-DSB-D17 dentro da pagina): o rotulo
   // do item de nav ativo, agora renderizado NA TOP BAR. Rotas principais por
   // match exato + Perfil (item do rodape da sidenav).
@@ -1044,24 +1011,6 @@ export function AppShell({
         ) : null}
 
         <main className={`app-shell-main${isLayeredRoute ? ' is-dashboard-route' : ''}`}>
-          {mobileRouteMeta ? (
-            <section className="app-shell-mobile-route-header">
-              <div className="app-shell-mobile-route-copy">
-                <h1 className="app-shell-mobile-route-title">{mobileRouteMeta.title}</h1>
-                <p className="app-shell-mobile-route-subtitle">{mobileRouteMeta.subtitle}</p>
-              </div>
-
-              {mobileRouteMeta.ctaHref && mobileRouteMeta.ctaLabel ? (
-                <Link href={mobileRouteMeta.ctaHref} className="app-shell-mobile-route-cta">
-                  <span className="app-shell-mobile-route-cta-icon" aria-hidden="true">
-                    {renderNavIcon(mobileRouteMeta.ctaIcon ?? 'samples')}
-                  </span>
-                  <span>{mobileRouteMeta.ctaLabel}</span>
-                </Link>
-              ) : null}
-            </section>
-          ) : null}
-
           <div className="app-shell-page-content">{children}</div>
         </main>
       </CameraSheetProvider>
@@ -1084,7 +1033,7 @@ export function AppShell({
           }).map((item) => ({
             href: item.href,
             mobileLabel: item.mobileLabel,
-            icon: renderNavIcon(item.icon, session.user),
+            icon: renderNavIcon(item.icon),
           }))}
           isActive={(href) => isMainNavItemActive(pathname, href)}
         />
