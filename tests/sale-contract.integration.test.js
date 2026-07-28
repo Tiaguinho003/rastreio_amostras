@@ -14,6 +14,7 @@ import { SaleContractShipmentService } from '../src/sale-contracts/sale-contract
 import { SaleContractPdfService } from '../src/sale-contracts/sale-contract-pdf-service.js';
 import { LocalUploadService } from '../src/uploads/local-upload-service.js';
 import { getContractIssuer } from '../src/sale-contracts/issuer-config.js';
+import { bizDay, calendarDay, dayKey } from './helpers/relative-dates.js';
 import { registrationConfirmedEvent } from './helpers/event-builders.js';
 import { TEST_BROKER_ID, seedTestBroker } from './helpers/sale-contract-fixtures.js';
 
@@ -907,18 +908,9 @@ if (!databaseUrl || !databaseReachable) {
     // Datas ANCORADAS em hoje (BRT) pra o teste não envelhecer (fixar julho/26 fazia
     // o "agendado" virar "atrasado" quando hoje passava da data). O feed usa a
     // invoiceDate como dia do embarque (Modelo X); "agendado" precisa estar no FUTURO.
-    // Uso dias úteis (o feed rola fim de semana p/ trás, DSB-D7) e janela ampla.
-    const toKey = (d) => d.toISOString().slice(0, 10);
-    const bizDay = (offset) => {
-      const d = new Date();
-      d.setUTCHours(0, 0, 0, 0);
-      d.setUTCDate(d.getUTCDate() + offset);
-      while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() - 1);
-      return d;
-    };
-    // Offsets com gap >= 4: o roll-back de fim de semana desloca ate 2 dias,
-    // entao -10 e -8 COLIDIAM no mesmo dia (sexta) quando "hoje" UTC caia na
-    // segunda — o bucket do dia recebia [atrasado, realizado] e o [0] quebrava.
+    // O `bizDay` saiu daqui pra `tests/helpers/relative-dates.js` — a armadilha
+    // reapareceu no feed de pagamento, então o antídoto virou compartilhado.
+    // Offsets com gap >= 4 (ver o porquê no helper).
     const futureDate = bizDay(10); // agendado (futuro)
     const pastDate = bizDay(-10); // atrasado (passado; pos-roll em [-12,-10])
     const doneDate = bizDay(-6); // realizado (pos-roll em [-8,-6] — disjunto)
@@ -940,17 +932,17 @@ if (!databaseUrl || !databaseReachable) {
     });
     await shipmentService.confirmShipment(
       done.id,
-      { shippedAt: toKey(doneDate), transporte: 'THIRD_PARTY', files: [] },
+      { shippedAt: dayKey(doneDate), transporte: 'THIRD_PARTY', files: [] },
       adminActor
     );
 
     const events = await saleContractService.getDashboardShipmentEvents(
-      { from: toKey(bizDay(-20)), to: toKey(bizDay(20)) },
+      { from: dayKey(bizDay(-20)), to: dayKey(bizDay(20)) },
       adminActor
     );
-    const fk = toKey(futureDate);
-    const pk = toKey(pastDate);
-    const dk = toKey(doneDate);
+    const fk = dayKey(futureDate);
+    const pk = dayKey(pastDate);
+    const dk = dayKey(doneDate);
     // Previsto = azul; atrasado = vermelho; realizado = verde (cor por estado, DSB-D10).
     assert.equal(events[fk]?.[0]?.typeKey, 'contract_shipment');
     assert.equal(events[pk]?.[0]?.typeKey, 'contract_shipment_overdue');
@@ -965,10 +957,15 @@ if (!databaseUrl || !databaseReachable) {
   // PAGO no invoicedAt (dia REAL do faturamento). WASH_OUT fora; janela filtra.
   test('getDashboardInvoiceEvents: EMITIDO no invoiceDate; FATURADO realizado no invoicedAt; janela + WASH_OUT', async () => {
     // (1) EMITIDO com invoiceDate em janela → aparece como agendado (contract_invoice*).
+    // Data ancorada em hoje: com a fixa de 2026-07-15 o "agendado" virou
+    // "atrasado" quando o dia passou, e a asserta tinha sido AFROUXADA pra
+    // aceitar os dois — o teste deixava de provar qual estado é. Este feed
+    // agrupa no dia REAL (DSB-D18, sem roll de fim de semana) → calendarDay.
+    const schedDate = calendarDay(10);
     const emitido = await setupConfirmedContract({ lotNumber: '25060' });
     await prisma.saleContract.update({
       where: { id: emitido.contractId },
-      data: { invoiceDate: new Date('2026-07-15T00:00:00Z') },
+      data: { invoiceDate: schedDate },
     });
 
     // (2) WASH_OUT não deve aparecer no feed.
@@ -987,19 +984,18 @@ if (!databaseUrl || !databaseReachable) {
       adminActor
     );
 
+    // Janela abre em 2026-07-01 (cobre o realizado de 07-08) e fecha depois do
+    // agendado, que anda com o relógio.
     const res = await saleContractService.getDashboardInvoiceEvents(
-      { from: '2026-07-01', to: '2026-07-31' },
+      { from: '2026-07-01', to: dayKey(calendarDay(20)) },
       adminActor
     );
 
-    // (1) agendado no invoiceDate 07-15 — typeKey/state do faturamento, label + id.
-    const sched = (res['2026-07-15'] ?? []).find((e) => e.contractId === emitido.contractId);
+    // (1) agendado no invoiceDate — typeKey/state do faturamento, label + id.
+    const sched = (res[dayKey(schedDate)] ?? []).find((e) => e.contractId === emitido.contractId);
     assert.ok(sched, 'EMITIDO deve aparecer no invoiceDate');
-    assert.ok(sched.typeKey.startsWith('contract_invoice'));
-    assert.equal(
-      sched.state,
-      sched.typeKey === 'contract_invoice_overdue' ? 'atrasado' : 'previsto'
-    );
+    assert.equal(sched.typeKey, 'contract_invoice');
+    assert.equal(sched.state, 'previsto');
     assert.ok(sched.label.startsWith('faturamento · '));
     assert.ok(sched.id.startsWith('invoice:')); // namespaced (não colide com pagamento/embarque)
 
@@ -1021,9 +1017,11 @@ if (!databaseUrl || !databaseReachable) {
       'FATURADO não aparece no invoiceDate como agendado'
     );
 
-    // Janela em agosto → nenhum dos contratos aparece (filtro de data).
+    // Janela depois do agendado → nenhum dos contratos aparece (filtro de data).
+    // Ancorada também: com uma janela fixa de agosto o agendado (hoje+10) podia
+    // cair DENTRO dela e o teste virava falso-negativo.
     const out = await saleContractService.getDashboardInvoiceEvents(
-      { from: '2026-08-01', to: '2026-08-14' },
+      { from: dayKey(calendarDay(30)), to: dayKey(calendarDay(44)) },
       adminActor
     );
     assert.ok(
@@ -2751,34 +2749,35 @@ if (!databaseUrl || !databaseReachable) {
       adminActor
     );
 
-    // O paymentDate 2026-07-20 do fixture ja passou no relogio real, e um
-    // vencimento vencido vira 'atrasado' (E29). Empurra os dois contratos pra
-    // uma data estavelmente futura — o que este teste prova e o AGENDADO.
-    const dueDate = new Date('2100-01-20T00:00:00.000Z');
+    // O paymentDate 2026-07-20 do fixture já passou no relógio real, e um
+    // vencimento vencido vira 'atrasado' (E29). Ancora os dois contratos no
+    // futuro — o que este teste prova é o AGENDADO. Feed agrupa no dia REAL
+    // (DSB-D18, sem roll de fim de semana) → calendarDay.
+    const dueDate = calendarDay(10);
     await prisma.saleContract.updateMany({
       where: { id: { in: [emitido.contractId, washed.contractId] } },
       data: { paymentDate: dueDate },
     });
 
-    // janela cobrindo 2100-01-20 → o EMITIDO aparece como agendado; o WASH_OUT não.
+    // janela cobrindo o vencimento → o EMITIDO aparece como agendado; o WASH_OUT não.
     const inWindow = await saleContractService.getDashboardPaymentEvents(
-      { from: '2100-01-13', to: '2100-01-26' },
+      { from: dayKey(calendarDay(3)), to: dayKey(calendarDay(16)) },
       adminActor
     );
-    const day = inWindow['2100-01-20'] ?? [];
+    const day = inWindow[dayKey(dueDate)] ?? [];
     const ev = day.find((e) => e.contractId === emitido.contractId);
     assert.ok(ev, 'contrato EMITIDO deve aparecer como agendado no paymentDate');
     assert.equal(ev.typeKey, 'contract_payment_due');
     assert.equal(ev.status, 'EMITIDO');
     assert.ok(!day.some((e) => e.contractId === washed.contractId), 'WASH_OUT fora do feed');
 
-    // janela em fevereiro → o contrato de 2100-01-20 não aparece (filtro de data).
+    // janela depois do vencimento → o contrato não aparece (filtro de data).
     const outWindow = await saleContractService.getDashboardPaymentEvents(
-      { from: '2100-02-01', to: '2100-02-14' },
+      { from: dayKey(calendarDay(30)), to: dayKey(calendarDay(44)) },
       adminActor
     );
     assert.ok(
-      !(outWindow['2100-01-20'] ?? []).some((e) => e.contractId === emitido.contractId),
+      !(outWindow[dayKey(dueDate)] ?? []).some((e) => e.contractId === emitido.contractId),
       'fora da janela não aparece'
     );
   });
