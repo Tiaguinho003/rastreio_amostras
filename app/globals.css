@@ -2513,8 +2513,7 @@ button:disabled {
 .app-modal.is-themed .app-modal-actions.blend-harvest-propagation-actions,
 .app-modal.is-themed .app-modal-actions.report-harvest-select-actions,
 .app-modal.is-themed .app-modal-actions.client-detail-status-actions,
-.app-modal.is-themed .app-modal-actions.cudm-edit-actions,
-.app-modal.is-themed .app-modal-actions.samples-filter-modal-actions {
+.app-modal.is-themed .app-modal-actions.cudm-edit-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.6rem;
@@ -2535,8 +2534,7 @@ button:disabled {
 .blend-harvest-propagation-actions > button,
 .report-harvest-select-actions > button,
 .client-detail-status-actions > button,
-.cudm-edit-actions > button,
-.samples-filter-modal-actions > button {
+.cudm-edit-actions > button {
   width: 100%;
   min-width: 0;
 }
@@ -4704,89 +4702,12 @@ button:disabled {
   padding: 0 clamp(8px, 3vw, 14px) clamp(14px, 3.5vw, 18px);
 }
 
-/* ── Botao "X" (limpar filtros) — só aparece quando ha filtros aplicados
-   (wrap.has-applied-filters), entre a busca e o filtro. Dois níveis:
-   - SLOT: colapsa a LARGURA (e cancela 1 gap com margin-left negativa) pra a
-     busca crescer/encolher suavemente.
-   - BOTAO: desliza com transform pra ATRAS do botao de filtro (z-index menor) +
-     fade, sem ser cortado (slot tem overflow:visible).
-   Default = COLAPSADO (sem filtros). */
-.hero-search-clear-slot {
-  --clear-btn-size: clamp(31px, 8.2vw, 35px);
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  overflow: visible;
-  width: 0;
-  margin-left: calc(-1 * var(--search-row-gap));
-  transition:
-    width 0.34s cubic-bezier(0.22, 1, 0.36, 1),
-    margin-left 0.34s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.hero-search-clear-btn {
-  flex-shrink: 0;
-  display: inline-grid;
-  place-items: center;
-  width: var(--clear-btn-size);
-  height: var(--clear-btn-size);
-  border: 0;
-  /* padding:0 + box-sizing: SEM isto o padding padrao do <button> descentraliza
-     o icone (pra direita/baixo) — mesmo motivo do `padding: 0` no filtro. */
-  padding: 0;
-  box-sizing: border-box;
-  border-radius: 50%;
-  background: #ffffff;
-  box-shadow: 0 4px 14px rgba(10, 30, 18, 0.1);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  /* Colapsado: desliza só o suficiente pra parar CENTRALIZADO atras do botao de
-     filtro (não passa pro outro lado) + encolhe + some. O slot já colapsou a
-     largura, então este offset é pequeno (gap + meia diferença de tamanho). */
-  transform: translateX(calc(var(--search-row-gap) + 4px)) scale(0.6);
-  opacity: 0;
-  pointer-events: none;
-  transition:
-    transform 0.34s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.26s ease;
-}
-
-/* "X" como SVG de tamanho FIXO (não %, que renderizava a 0 neste contexto). O
-   path é simétrico no viewBox 0-24, então o grid `place-items: center` do botao
-   centraliza perfeitamente. */
-.hero-search-clear-btn svg {
-  display: block;
-  width: clamp(16px, 4.6vw, 19px);
-  height: clamp(16px, 4.6vw, 19px);
-  fill: none;
-  stroke: var(--brand-green);
-  stroke-width: 3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.hero-search-clear-btn:active {
-  transform: scale(0.9);
-}
+/* RC-F6: o "X" de limpar filtros e o botao de funil da `.hero-search-wrap`
+   sairam — /contratos foi o ultimo a monta-los, e agora usa a `.fv-toolbar`
+   (funil + "Limpar" do kit). O que resta desta chrome legada serve so
+   /financeiro: wrap, barra, input, "X" da busca e a lupa. */
 
 /* Expandido: ha filtros aplicados → o "X" aparece e a busca encolhe. */
-.hero-search-wrap.has-applied-filters .hero-search-clear-slot {
-  width: var(--clear-btn-size);
-  margin-left: 0;
-}
-
-.hero-search-wrap.has-applied-filters .hero-search-clear-btn {
-  transform: translateX(0) scale(1);
-  opacity: 1;
-  pointer-events: auto;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hero-search-clear-slot,
-  .hero-search-clear-btn {
-    transition: none;
-  }
-}
 
 .hero-search-bar {
   display: flex;
@@ -4950,61 +4871,6 @@ button:disabled {
 
 .hero-search-input::placeholder {
   color: #6b8a74;
-}
-
-.hero-search-filter-btn {
-  flex-shrink: 0;
-  position: relative;
-  display: inline-grid;
-  place-items: center;
-  /* Bumpado de 28-32 → 38-44px pra ficar mais clicavel (atinge o
-     touch target 44px da Apple HIG em phones maiores). Alinhamento
-     com o contador "X registros" preservado via align-items: center
-     do .spv2-list-meta — o contador segue no centro vertical da row. */
-  width: clamp(38px, 10vw, 44px);
-  height: clamp(38px, 10vw, 44px);
-  border: 0;
-  /* Border-radius bumpado proporcionalmente. */
-  border-radius: clamp(10px, 2.8vw, 12px);
-  background: var(--brand-green);
-  padding: 0;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.15s;
-}
-
-.hero-search-filter-btn:active {
-  transform: scale(0.92);
-}
-
-.hero-search-filter-btn svg {
-  width: 56%;
-  height: 56%;
-  fill: none;
-  stroke: #ffffff;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.hero-search-filter-btn.has-filters svg {
-  stroke: #ffffff;
-}
-
-.hero-search-filter-badge {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  min-width: 16px;
-  height: 16px;
-  border-radius: 8px;
-  background: #c0392b;
-  color: #fff;
-  font-size: 9px;
-  font-weight: 700;
-  display: inline-grid;
-  place-items: center;
-  padding: 0 4px;
 }
 
 /* ── Samples page v2 (layered layout) ── */
@@ -6741,10 +6607,9 @@ button:disabled {
      transform final — senao viraria containing block e prenderia o `.cv2-fab`
      (position:fixed). Mesmo cuidado de /samples. */
   animation: samples-search-in 0.4s ease-out 0.1s backwards;
-  /* Busca + filtro na MESMA linha (mobile), espelhando /samples: a busca
-     (flex:1) encurta sozinha; o FAB segue flutuando (fixed, fora do fluxo).
-     Gap em var pro slot do "X" (limpar filtros) cancelar exatamente uma unidade
-     ao colapsar (ver .hero-search-clear-slot). */
+  /* Busca na linha (mobile), espelhando /samples: a busca (flex:1) encurta
+     sozinha; o FAB segue flutuando (fixed, fora do fluxo). O gap segue em var
+     por herança — o slot do "X" que o consumia saiu na RC-F6. */
   display: flex;
   align-items: center;
   --search-row-gap: clamp(8px, 2.5vw, 10px);
@@ -6759,17 +6624,6 @@ button:disabled {
 /* Filtro = pilula BRANCA + icone verde (igual /samples; o badge vermelho conta
    filtros ativos). Escopado a /clients — /users segue com o filtro base verde.
    position/z-index + fundo opaco deixam o botao "X" tucar ATRAS ao colapsar. */
-.clients-page-v2 .hero-search-filter-btn {
-  background: #ffffff;
-  box-shadow: 0 4px 14px rgba(10, 30, 18, 0.1);
-  position: relative;
-  z-index: 1;
-}
-
-.clients-page-v2 .hero-search-filter-btn svg,
-.clients-page-v2 .hero-search-filter-btn.has-filters svg {
-  stroke: var(--brand-green);
-}
 
 /* Lupa da busca de /clients = DECORATIVA (a busca filtra ao vivo; Enter ainda
    submete via o form). Mesmo override de /samples, escopado a .clients-page-v2
@@ -12276,66 +12130,23 @@ body:has(.app-modal-backdrop) .prospector-fab {
 
 /* Backdrop ESCURO sem blur — padrao de modal de ACAO (mesmo dos bottom sheets
    de criar/liga e dos 2 centrais de acao do dashboard). Anima so a opacidade. */
-.samples-filter-modal-backdrop {
-  background: rgba(0, 0, 0, 0.55);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  animation: app-modal-scrim-in 0.3s ease backwards;
-}
 
 /* Largura mais estreita que o default do .is-themed (38rem) — painel de
    filtros. Header verde / body branco / actions vem do .is-themed. Selector
    com 3 classes pra vencer o `.app-modal.is-themed { width: 38rem }`. */
-.app-modal.is-themed.samples-filter-modal {
-  width: min(26rem, calc(100vw - 1rem));
-  max-height: min(42rem, calc(100dvh - 2rem));
-  box-sizing: border-box;
-}
 
 /* Visual de ACAO (form que o usuario opera): header CLARO + titulo verde a
    esquerda + X claro — igual aos 2 centrais de acao do dashboard
    (.app-modal-lookup-result) e aos bottom sheets de /samples. O header verde do
    .is-themed fica reservado pra modais de AVISO/confirm. */
-.app-modal.is-themed.samples-filter-modal .app-modal-header {
-  background: #ffffff;
-  color: var(--color-ink);
-}
-.app-modal.is-themed.samples-filter-modal .app-modal-title {
-  color: var(--brand-green);
-}
-.app-modal.is-themed.samples-filter-modal .app-modal-close {
-  background: #eef1ee;
-  color: #4a5751;
-}
-.app-modal.is-themed.samples-filter-modal .app-modal-close span {
-  color: #4a5751;
-}
 
 /* Form ocupa o espaco restante do modal flex-column e bound a a area de
    conteudo, que rola na vertical (actions ficam fixas na 2a linha). */
-.samples-filter-modal-form {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-}
-
-.samples-filter-modal-content {
-  min-height: 0;
-  min-width: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  -webkit-overflow-scrolling: touch;
-  padding: clamp(0.9rem, 3vw, 1.2rem);
-}
 
 /* Typeahead (ClientLookupField) de proprietario/comprador dentro dos filtros:
    dropdown acima dos demais campos e com altura que cabe no painel. O painel
    lateral e de /samples (FV); o modal central segue em /contratos. */
-.samples-filter-sheet .client-lookup-dropdown,
-.samples-filter-modal .client-lookup-dropdown {
+.samples-filter-sheet .client-lookup-dropdown {
   z-index: 24;
   max-height: min(13rem, 32vh);
 }
@@ -12912,8 +12723,7 @@ body:has(.app-modal-backdrop) .prospector-fab {
 /* Placeholder do typeahead de cliente (Buscar proprietario/comprador/
    destinatario) dentro dos filtros: sem regra propria, herdava o cinza escuro
    padrao do navegador. Alinha ao mesmo tom apagado dos demais campos. */
-.samples-filter-sheet .client-lookup-shell input::placeholder,
-.samples-filter-modal .client-lookup-shell input::placeholder {
+.samples-filter-sheet .client-lookup-shell input::placeholder {
   color: rgba(0, 0, 0, 0.16);
   font-weight: 400;
   opacity: 1;
@@ -13049,9 +12859,6 @@ select.samples-filter-field-input {
 /* Actions fora da area de scroll (2a linha do grid do form) — precisam do
    padding horizontal/inferior proprio (o .is-themed so da padding-top + a
    borda separadora; o resto vinha do padding do .app-modal-content canonico). */
-.samples-filter-modal-actions {
-  padding: 0.75rem clamp(0.9rem, 3vw, 1.2rem) clamp(0.9rem, 3vw, 1.2rem);
-}
 
 @media (max-width: 900px) {
   .records-mode-switch {
@@ -17440,21 +17247,6 @@ select.samples-filter-field-input {
     text-align: left;
   }
 
-  .samples-filter-modal {
-    width: min(100%, calc(100vw - 1rem));
-    max-height: min(31.5rem, calc(100dvh - 0.75rem));
-    padding: clamp(0.58rem, 2.4vw, 0.84rem);
-    gap: clamp(0.48rem, 2vw, 0.68rem);
-  }
-
-  .samples-filter-modal-header .app-modal-description {
-    font-size: clamp(0.64rem, 2.2vw, 0.78rem);
-  }
-
-  .samples-filter-modal-form {
-    gap: clamp(0.48rem, 2vw, 0.68rem);
-  }
-
   .samples-filter-section-list {
     gap: clamp(0.22rem, 1vw, 0.34rem);
   }
@@ -17494,17 +17286,6 @@ select.samples-filter-field-input {
      e raio dos demais ja estao corretos e nao devem mudar. */
   .samples-filter-field-input {
     min-height: clamp(2.1rem, 7vw, 2.46rem);
-  }
-
-  .samples-filter-modal-actions {
-    gap: clamp(0.28rem, 1.2vw, 0.42rem);
-  }
-
-  .samples-filter-modal-actions .app-modal-secondary,
-  .samples-filter-modal-actions .app-modal-submit {
-    min-height: clamp(2.3rem, 8vw, 2.7rem);
-    padding: clamp(0.4rem, 1.5vw, 0.55rem) clamp(0.6rem, 2.4vw, 0.9rem);
-    font-size: clamp(0.76rem, 2.6vw, 0.9rem);
   }
 
   .sample-detail-top-bar {
@@ -21005,62 +20786,6 @@ select.samples-filter-field-input {
     font-size: 0.85rem;
   }
 
-  /* Modal de filtro DESKTOP: bem mais LARGO pra aproveitar o espaco e caber o
-     layout de 7 linhas SEM scroll (clientes diretos em linhas proprias +
-     linhas de 3 e 4 colunas). Altura acompanha o conteudo (cap na viewport).
-     Selector com 3 classes (.app-modal.is-themed.samples-filter-modal) pra
-     VENCER a largura base de 26rem — `.samples-filter-modal` sozinho (0,1,0)
-     perdia pra ela (0,3,0) e a largura nunca mudava no desktop. */
-  .app-modal.is-themed.samples-filter-modal {
-    width: min(58rem, calc(100vw - 3rem));
-    max-height: min(92dvh, 54rem);
-    padding: 1.5rem 1.75rem;
-    border-radius: 28px;
-  }
-
-  .samples-filter-modal .app-modal-title {
-    font-size: 1.25rem;
-  }
-
-  .samples-filter-modal .app-modal-close {
-    min-width: 2.4rem;
-    min-height: 2.4rem;
-  }
-
-  .samples-filter-modal .app-modal-close span {
-    font-size: 1.4rem;
-  }
-
-  .samples-filter-modal-content {
-    padding: 0.75rem 0.5rem;
-  }
-
-  .samples-filter-modal-content label,
-  .samples-filter-modal-content input,
-  .samples-filter-modal-content select {
-    font-size: 0.95rem;
-  }
-
-  .samples-filter-modal-content input,
-  .samples-filter-modal-content select {
-    padding: 0.75rem 0.85rem;
-    border-radius: 12px;
-  }
-
-  .samples-filter-modal-actions .app-modal-secondary,
-  .samples-filter-modal-actions .app-modal-submit {
-    min-height: 2.8rem;
-    padding: 0.6rem 1rem;
-    font-size: 0.95rem;
-    border-radius: 999px;
-    transition: transform 0.15s ease;
-  }
-
-  .samples-filter-modal-actions .app-modal-secondary:active,
-  .samples-filter-modal-actions .app-modal-submit:active {
-    transform: scale(0.97);
-  }
-
   /* FV: as linhas de 3 e 4 colunas (.samples-filter-row--3/--4) sairam junto
      com o modal central de /samples — no painel de 400px os campos vao em
      pares, o mesmo agrupamento compacto do mobile. */
@@ -21072,10 +20797,6 @@ select.samples-filter-field-input {
   }
 
   /* Todos os controles com a MESMA altura -> campos uniformes na grade. */
-  .samples-filter-modal-content .samples-filter-field-input,
-  .samples-filter-modal-content .samples-filter-multi {
-    min-height: 2.85rem;
-  }
 
   /* ══════════════════════════════════════════
      CLIENTS / USERS / WAREHOUSES (clients-page-v2)
@@ -21746,9 +21467,6 @@ select.samples-filter-field-input {
 
   .sdv-info-item {
     padding: 0.6rem 0;
-  }
-
-  @media (hover: hover) {
   }
 
   /* Card de foto: segunda coluna, mesma linha */
@@ -25735,18 +25453,9 @@ body.is-selection-mode .mobile-tabbar {
   display: none;
 }
 
-body.is-selection-mode .hero-search-filter-btn {
-  display: none;
-}
-
-/* /contratos: no modo selecao (gerar Espelho) escondemos o header normal + a
-   barra de busca inteira (busca/filtro/"+"), ja que selecionar 1 card abre o
-   modal direto — sem passo de "continuar". Escopado a .ctr-page pra nao vazar
-   p/ /cadastros, que nunca entra em selecao. */
-
-body.is-selection-mode .ctr-page .hero-search-wrap {
-  display: none;
-}
+/* (RC-F6: /contratos nao entra mais em modo selecao — o Espelho deixou de ser
+   acao da pagina e nasce so no Detalhes do contrato, entao a regra que escondia
+   a chrome dela aqui saiu. O modo selecao segue existindo em /samples, pra Liga.) */
 
 /* (Antes havia override de padding-bottom em selection-mode aqui — agora
    redundante porque os mesmos valores foram aplicados na base do
@@ -27325,72 +27034,12 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
    junto com o titulo duplicado do viewer de Relatorios (a top-bar FV ja o
    mostra). */
 
-/* ============================================================
-   Pagina Contratos (/contratos) — leque do "+" no desktop (>=901px)
-   O scaffold .clients-page-v2 ja entrega titulo oculto, filtro verde, busca
-   com sombra e o FAB INLINE (basta o "+" estar dentro do .hero-search-wrap).
-   Falta so a GEOMETRIA do leque: as opcoes emergindo do FAB inline num quarto
-   de arco que DESCE e abre pra esquerda na area de cards. Valores identicos aos
-   de .samples-page-v2 (bloco acima): is-lote=À vista, is-liga=Espelho,
-   is-aprovacao=Futuro. Bloco isolado (nao agrupado com .samples-page-v2) de
-   proposito, pra reduzir conflito de merge no globals.css compartilhado.
-   ============================================================ */
-@media (min-width: 901px) {
-  .clients-page-v2.ctr-page .hero-search-wrap {
-    position: relative;
-    --fan-pivot-right: 28px;
-    --fan-pivot-top: 28px;
-    --fan-opt-size: 60px;
-    --fan-shift-right: 45px;
-  }
-
-  .clients-page-v2.ctr-page .fab-fan {
-    position: absolute;
-    inset: 0;
-  }
-
-  .clients-page-v2.ctr-page .fab-fan-option {
-    position: absolute;
-    left: auto;
-    bottom: auto;
-    right: calc(
-      var(--fan-pivot-right) + var(--ox) - var(--fan-opt-size) / 2 - var(--fan-shift-right)
-    );
-    top: calc(var(--fan-pivot-top) + var(--oy) - var(--fan-opt-size) / 2);
-    transform-origin: right top;
-  }
-
-  /* À vista (is-lote): ponta de baixo do arco. */
-  .clients-page-v2.ctr-page .fab-fan-option.is-lote {
-    --ox: 80px;
-    --oy: 268px;
-  }
-
-  /* Espelho (is-liga): meio do arco (diagonal baixo-esquerda). */
-  .clients-page-v2.ctr-page .fab-fan-option.is-liga {
-    --ox: 192px;
-    --oy: 204px;
-  }
-
-  /* Futuro (is-aprovacao): ponta do arco, ja abaixo da barra de busca. */
-  .clients-page-v2.ctr-page .fab-fan-option.is-aprovacao {
-    --ox: 263px;
-    --oy: 96px;
-  }
-
-  .clients-page-v2.ctr-page .fab-fan-option-label {
-    top: 50%;
-    left: auto;
-    right: calc(100% + 12px);
-    bottom: auto;
-    transform: translateY(-50%);
-    font-size: 16px;
-  }
-
-  body.is-fab-fan-open .clients-page-v2.ctr-page .hero-search-wrap {
-    z-index: calc(var(--z-modal, 500) + 1);
-  }
-}
+/* (RC-F6: aqui vivia a GEOMETRIA do leque do "+" de /contratos no DESKTOP — o
+   FAB era inline dentro da `.hero-search-wrap` e as opcoes emergiam num quarto
+   de arco sobre a area de cards. Tudo isso saiu: no desktop o FAB nao e mais
+   renderizado (`.fv-ctr-page .cv2-fab { display: none }`) e criar mora nos dois
+   botoes do `.fv-page-head`. O leque segue vivo no MOBILE, com o arco base de
+   duas opcoes — ver `.fab-fan.is-fan-2`.) */
 
 /* ============================================================
    Pagina Clientes (/clients) — ajustes desktop (>=901px)
@@ -27401,15 +27050,6 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
 @media (min-width: 901px) {
   /* Botao de filtro: VERDE com icone branco (era branco + icone verde),
      igual /samples. */
-  .clients-page-v2 .hero-search-filter-btn {
-    background: var(--brand-green);
-    box-shadow: 0 4px 14px rgba(15, 64, 41, 0.28);
-  }
-
-  .clients-page-v2 .hero-search-filter-btn svg,
-  .clients-page-v2 .hero-search-filter-btn.has-filters svg {
-    stroke: #ffffff;
-  }
 
   /* 3. Campo de busca com sombra mais forte e SIMETRICA (mesmas camadas
      espelhadas pra cima), igual /samples. */
@@ -28700,31 +28340,6 @@ body:has(.app-modal-backdrop.is-stacked > .ctr-confirm-doc) .bottom-sheet-backdr
    --------------------------------------------------------------------------- */
 
 /* Card selecionavel (o card inteiro vira botao de selecao) */
-.ctr-card-selectable .ctr-card-head-btn {
-  cursor: pointer;
-}
-.ctr-card-selectable.is-ineligible {
-  opacity: 0.5;
-}
-.ctr-card-selectable.is-ineligible .ctr-card-head-btn {
-  cursor: not-allowed;
-}
-.ctr-card-select-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  color: #047857;
-  font-weight: 700;
-  font-size: 0.85rem;
-}
-.ctr-card-select-cta .ctr-card-arrow {
-  width: 1rem;
-  height: 1rem;
-}
-.ctr-card-select-hint {
-  font-size: 0.72rem;
-  color: var(--muted, #6b7280);
-}
 
 /* Modal de conferencia do espelho: subtitulo + toggle de lado + resumo */
 .app-modal-subtitle {
@@ -30764,6 +30379,32 @@ body:has(.app-modal-backdrop.is-stacked > .ctr-confirm-doc) .bottom-sheet-backdr
     display: none;
   }
 
+  /* ── Mesmo cartao institucional na lista de Contratos (FV /contratos, RC-F6).
+     A pagina compartilha a casca `.clients-page-v2` com /cadastros e /users — e
+     ainda a `.ctr-page` com /financeiro, que segue no kit legado. Por isso o
+     escopo proprio `.fv-ctr-page`: mesma especificidade, declarado DEPOIS, e o
+     vizinho legado nao sente nada. ── */
+  .fv-ctr-page .clients-v2-sheet {
+    margin: 1rem clamp(0.9rem, 3vw, 2rem) 1.15rem;
+    padding: 0;
+    background: var(--fv-surface);
+    border: 1px solid var(--fv-line);
+    border-radius: var(--fv-radius-lg);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  /* O scroll da tabela NAO e grid (o grid 3-col e dos cards legados). */
+  .fv-ctr-page .clients-v2-sheet .spv2-list-scroll.fv-table-scroll {
+    display: block;
+    padding: 0;
+  }
+
+  /* O FAB e a porta de criacao do MOBILE; no desktop criar mora nos DOIS
+     botoes do `.fv-page-head` ("Futuro" e "À vista"). */
+  .fv-ctr-page .cv2-fab {
+    display: none;
+  }
+
   /* ── Mesmo cartao institucional na lista de Lotes (FV /samples). O sheet
      legado tinha gradiente creme + borda esverdeada; aqui vira superficie
      branca com hairline, como em /cadastros. ── */
@@ -30844,6 +30485,22 @@ body:has(.app-modal-backdrop.is-stacked > .ctr-confirm-doc) .bottom-sheet-backdr
   .fv-col-bebida,
   .fv-col-catacao {
     width: 112px;
+  }
+
+  /* Colunas da tabela de Contratos (RC-F6): 5 + acoes. "Contrato" carrega o
+     numero + o tipo empilhados; "Datas" carrega faturamento + pagamento (por
+     isso as duas com largura fixa generosa). Quem absorve a sobra e Partes —
+     vendedor -> comprador sao os textos que mais variam. Sacas reusa a largura
+     da coluna homonima de /samples: e o mesmo dado. */
+  .fv-col-contract {
+    width: 148px;
+  }
+  .fv-col-parties {
+    width: auto;
+    min-width: 200px;
+  }
+  .fv-col-dates {
+    width: 168px;
   }
 
   /* Celula do lote: numero · badge de liga · chip de status, em linha. O
@@ -31124,6 +30781,15 @@ body:has(.app-modal-backdrop.is-stacked > .ctr-confirm-doc) .bottom-sheet-backdr
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--muted);
+}
+
+/* Par de campos na MESMA linha do painel (RC-F6: "De"/"Até" do periodo em
+   /contratos). Uma janela e um campo so partido em dois — empilhar as duas
+   pontas faria o periodo ocupar tres linhas do painel. */
+.fv-filter-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
 }
 
 .fv-input,
@@ -34231,7 +33897,8 @@ body:has(.app-modal-backdrop.is-stacked > .ctr-confirm-doc) .bottom-sheet-backdr
    com sombrinha, raio 10px). Aqui eles adotam a MESMA geometria do kit:
    hairline `--fv-line-strong`, raio `--fv-radius`, altura e tipografia do
    `.fv-form-field`, anel de foco em `--fv-cta`. Escopado ao painel de
-   /samples — o `.samples-filter-modal` de /contratos segue como está. */
+   /samples. (RC-F6: o modal central que /contratos ainda usava morreu — a
+   pagina passou ao `.fv-filter-sheet`, com os campos do proprio kit.) */
 
 .samples-filter-sheet .samples-filter-field-label {
   font-size: 0.72rem;

@@ -1,33 +1,32 @@
 'use client';
 
-// FAB radial da página /contratos. Usa o MESMO leque (speed-dial) da página
-// /samples (.cv2-fab + .fab-fan-*): 3 opções circulares emergem do FAB em arco
-// — Mercado à vista ACIMA (posição is-lote), Espelho de Corretagem na DIAGONAL
-// (posição is-liga) e Futuro À ESQUERDA (posição is-aprovacao). O Espelho NÃO
-// cria contrato: entra no modo de SELEÇÃO (Fase E, D76). Ao abrir, o FAB
-// encolhe/fica circular, a página escurece
-// (scrim) e a tabbar escurece (body.is-fab-fan-*). Usa o "+" (rotaciona 45° →
-// "×"), igual ao de Amostras — sem o crossfade lápis do /informe.
+// FAB radial da página /contratos — a porta de criação do MOBILE (no desktop ele
+// some: criar mora nos botões do `.fv-page-head`, RC-F6). Usa o MESMO leque
+// (speed-dial) da /samples (.cv2-fab + .fab-fan-*): DUAS opções circulares
+// emergem do FAB — Mercado à vista ACIMA (is-lote) e Futuro À ESQUERDA (is-liga
+// sob `.is-fan-2`, que joga o par nos dois eixos). Ao abrir, o FAB encolhe/fica
+// circular, a página escurece (scrim) e a tabbar escurece (body.is-fab-fan-*).
+// Usa o "+" (rotaciona 45° → "×"), igual ao de Amostras.
+//
+// RC-F6: a 3ª opção (Espelho de Corretagem) SAIU. Ela era a única que não criava
+// nada — ligava um modo de seleção (D76, revogada). O espelho nasce agora só
+// dentro do Detalhes do contrato.
 //
 // State machine (mounted/open + duplo-RAF + pulse) espelha
 // components/samples/SampleCreateRadialFab — MANTER EM SINCRONIA.
 //
-// CSS em globals.css: .fab-fan-backdrop, .fab-fan, .fab-fan-option (.is-lote /
-// .is-aprovacao), .fab-fan-option-circle/-label/-icon, body is-fab-fan-*. As
-// vars --fab-*/--fan-* do arco vivem em `.clients-page-v2.ctr-page`.
+// CSS em globals.css: .fab-fan-backdrop, .fab-fan(.is-fan-2), .fab-fan-option
+// (.is-lote / .is-liga), .fab-fan-option-circle/-label/-icon, body is-fab-fan-*.
+// As vars --fab-*/--fan-* do arco vivem em `.clients-page-v2.ctr-page`.
 
 import { useEffect, useRef, useState } from 'react';
 
-type MenuAction = 'spot' | 'future' | 'espelho';
+type MenuAction = 'spot' | 'future';
 
 interface ContractCreateRadialFabProps {
   onCreateSpot: () => void;
   onCreateFuture: () => void;
-  onCreateEspelho: () => void;
   disabled?: boolean;
-  // Fase 1 (S74): o COMMERCIAL não cria contrato — o FAB vira um gatilho DIRETO
-  // do Espelho (sem o leque de criação). Default true (ADMIN: leque completo).
-  canCreate?: boolean;
 }
 
 // Duração do fechamento — bate com a transition de transform do
@@ -37,9 +36,7 @@ const CLOSE_ANIMATION_MS = 360;
 export function ContractCreateRadialFab({
   onCreateSpot,
   onCreateFuture,
-  onCreateEspelho,
   disabled,
-  canCreate = true,
 }: ContractCreateRadialFabProps) {
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
@@ -108,12 +105,6 @@ export function ContractCreateRadialFab({
 
   const handleMainTap = () => {
     if (disabled) return;
-    // COMMERCIAL (Fase 1): sem criar contrato — o FAB dispara direto o modo de
-    // seleção do Espelho, sem abrir o leque.
-    if (!canCreate) {
-      onCreateEspelho();
-      return;
-    }
     if (open) closeMenu();
     else openMenu();
   };
@@ -127,10 +118,8 @@ export function ContractCreateRadialFab({
       closeMenu();
       if (action === 'spot') {
         onCreateSpot();
-      } else if (action === 'future') {
-        onCreateFuture();
       } else {
-        onCreateEspelho();
+        onCreateFuture();
       }
       actionFiredRef.current = false;
     }, 130);
@@ -154,7 +143,16 @@ export function ContractCreateRadialFab({
       )}
 
       {mounted && (
-        <div className="fab-fan" role="menu" aria-label="Tipo de contrato" aria-hidden={!open}>
+        /* `is-fan-2`: o arco base foi desenhado para TRES opcoes (90°/45°/0°).
+           Com o Espelho fora sao duas — o par vai para os dois eixos (uma ACIMA,
+           outra A ESQUERDA), cada uma alinhada a um lado do FAB, em vez de ficar
+           amontoada num quadrante com um buraco. Mesmo tratamento da /samples. */
+        <div
+          className="fab-fan is-fan-2"
+          role="menu"
+          aria-label="Tipo de contrato"
+          aria-hidden={!open}
+        >
           {/* Mercado à vista — acima do FAB (posicao is-lote do arco) */}
           <button
             type="button"
@@ -181,37 +179,10 @@ export function ContractCreateRadialFab({
             </span>
           </button>
 
-          {/* Espelho de Corretagem — diagonal (posicao is-liga do arco). NAO cria
-              contrato: dispara o modo de selecao (Fase E). */}
+          {/* Futuro — à esquerda do FAB (is-liga sob `.is-fan-2` = eixo horizontal) */}
           <button
             type="button"
             className={`fab-fan-option is-liga${open ? ' is-open' : ''}${
-              pulsingOption === 'espelho' ? ' is-pulsing' : ''
-            }`}
-            aria-label="Espelho de Corretagem"
-            role="menuitem"
-            tabIndex={open ? 0 : -1}
-            onClick={() => handleOptionTap('espelho')}
-          >
-            <span className="fab-fan-option-label">Espelho</span>
-            <span className="fab-fan-option-circle">
-              <svg
-                className="fab-fan-option-icon"
-                viewBox="0 0 24 24"
-                focusable="false"
-                aria-hidden="true"
-              >
-                {/* Documento/demonstrativo de comissao. */}
-                <rect x="5" y="3" width="14" height="18" rx="2" />
-                <path d="M9 8h6M9 12h6M9 16h3" />
-              </svg>
-            </span>
-          </button>
-
-          {/* Futuro — à esquerda do FAB (posicao is-aprovacao do arco) */}
-          <button
-            type="button"
-            className={`fab-fan-option is-aprovacao${open ? ' is-open' : ''}${
               pulsingOption === 'future' ? ' is-pulsing' : ''
             }`}
             aria-label="Novo contrato — Futuro"
@@ -239,13 +210,7 @@ export function ContractCreateRadialFab({
       <button
         type="button"
         className={`cv2-fab${fabIsExpanded ? ' is-expanded' : ''}`}
-        aria-label={
-          !canCreate
-            ? 'Gerar Espelho de Corretagem'
-            : open
-              ? 'Fechar opções de contrato'
-              : 'Novo contrato'
-        }
+        aria-label={open ? 'Fechar opções de contrato' : 'Novo contrato'}
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={handleMainTap}

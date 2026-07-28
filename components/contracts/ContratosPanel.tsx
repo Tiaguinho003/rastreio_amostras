@@ -1,18 +1,30 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from 'react';
 
-import { ANIMATION_MS } from '../BottomSheet';
+import { ANIMATION_MS, BottomSheet } from '../BottomSheet';
+import { ChipMultiSelectField } from '../ChipMultiSelectField';
 import { ClientLookupField } from '../clients/ClientLookupField';
-import { ClassificationFilterField } from '../samples/ClassificationFilterField';
-import { SelectionModeHeader } from '../samples/SelectionModeHeader';
-import { getNextContractNumber, listSaleContracts } from '../../lib/api-client';
+import {
+  ApiError,
+  getNextContractNumber,
+  getSaleContract,
+  listSaleContracts,
+} from '../../lib/api-client';
 import { espelhoEligibility } from '../../lib/espelho';
 import { ownerDisplayValue } from '../../lib/sample-display';
 import { useDelayedValue } from '../../lib/use-delayed-value';
 import { useContractHighlight } from '../../lib/use-contract-highlight';
-import { useFocusTrap } from '../../lib/use-focus-trap';
+import { useIsDesktop } from '../../lib/use-desktop';
 import { useToast } from '../../lib/toast/ToastProvider';
 import type {
   AgioDesagioType,
@@ -26,8 +38,6 @@ import { ContractCreateRadialFab } from './ContractCreateRadialFab';
 import {
   type ContractFilters,
   EMPTY_CONTRACT_FILTERS,
-  LABEL_TO_STATUS,
-  LABEL_TO_TYPE,
   PERIOD_BASE_LABELS,
   STATUS_LABELS,
   TYPE_LABELS,
@@ -36,14 +46,87 @@ import {
 import { EspelhoConferenciaModal, type EspelhoSide } from './EspelhoConferenciaModal';
 import { EspelhoCorretagemModal } from './EspelhoCorretagemModal';
 import { SaleContractAgioDialog } from './SaleContractAgioDialog';
-import { SaleContractCard } from './SaleContractCard';
+import {
+  formatContractDate,
+  SaleContractCard,
+  snapshotName,
+  STATUS_CHIP,
+  STATUS_META,
+  TYPE_LABEL,
+} from './SaleContractCard';
 import { SaleContractDetailsModal } from './SaleContractDetailsModal';
 import { SaleContractEtapa2Modal } from './SaleContractEtapa2Modal';
 import { SaleContractLifecycleDialog, type LifecycleAction } from './SaleContractLifecycleDialog';
 import { SaleContractLotPickerModal } from './SaleContractLotPickerModal';
 
-const STATUS_OPTION_LABELS = STATUS_LABELS.map((s) => s.label);
-const TYPE_OPTION_LABELS = TYPE_LABELS.map((t) => t.label);
+const STATUS_CHIP_OPTIONS = STATUS_LABELS.map((s) => ({ id: s.value, label: s.label }));
+const TYPE_CHIP_OPTIONS = TYPE_LABELS.map((t) => ({ id: t.value, label: t.label }));
+
+// RC-F6: a lista pagina no servidor (keyset por contractSeq). O limite bate com
+// o default do listSaleContracts; o rootMargin dispara o load-more antes do fim.
+const CONTRACT_PAGE_LIMIT = 30;
+const LOAD_MORE_ROOT_MARGIN = '320px';
+const TABLE_COLUMN_COUNT = 6;
+
+// --- Estado da lista (molde do usersListReducer de /users) ------------------
+
+type ContractsListStatus = 'loading-initial' | 'loading-more' | 'idle' | 'error';
+
+interface ContractsListState {
+  items: SaleContract[];
+  total: number;
+  nextCursor: string | null;
+  status: ContractsListStatus;
+  error: string | null;
+}
+
+type ContractsListAction =
+  | { type: 'fetch-initial' }
+  | { type: 'fetch-more' }
+  | { type: 'success-initial'; items: SaleContract[]; total: number; nextCursor: string | null }
+  | { type: 'success-more'; items: SaleContract[]; nextCursor: string | null }
+  | { type: 'error'; message: string };
+
+const CONTRACTS_INITIAL: ContractsListState = {
+  items: [],
+  total: 0,
+  nextCursor: null,
+  status: 'loading-initial',
+  error: null,
+};
+
+function contractsListReducer(
+  state: ContractsListState,
+  action: ContractsListAction
+): ContractsListState {
+  switch (action.type) {
+    case 'fetch-initial':
+      return { ...CONTRACTS_INITIAL, status: 'loading-initial' };
+    case 'fetch-more':
+      return { ...state, status: 'loading-more', error: null };
+    case 'success-initial':
+      return {
+        items: action.items,
+        total: action.total,
+        nextCursor: action.nextCursor,
+        status: 'idle',
+        error: null,
+      };
+    case 'success-more':
+      return {
+        ...state,
+        items: [...state.items, ...action.items],
+        nextCursor: action.nextCursor,
+        status: 'idle',
+        error: null,
+      };
+    case 'error':
+      // Mantem os itens: erro ao paginar nao pode esvaziar o que ja esta na tela.
+      return { ...state, status: 'error', error: action.message };
+    default:
+      return state;
+  }
+}
 
 // O que o formulário à vista precisa saber do lote escolhido.
 type SpotCreateState = {
@@ -76,29 +159,46 @@ function spotCreateFromSample(sample: SampleSnapshot, nextNumber: string | null)
   };
 }
 
+// Filtros aplicados -> querystring do listSaleContracts. Uma funcao so, usada
+// pelo fetch inicial, pelo load-more e pelo refresh — assim as tres chamadas nao
+// podem divergir no recorte.
+function filtersToQuery(filters: ContractFilters, search: string) {
+  return {
+    search: search || undefined,
+    status: filters.statuses.length ? filters.statuses : undefined,
+    type: filters.types.length ? filters.types : undefined,
+    buyerClientId: filters.buyerClient?.id,
+    sellerClientId: filters.sellerClient?.id,
+    periodBase: filters.periodBase,
+    periodFrom: filters.periodFrom || undefined,
+    periodTo: filters.periodTo || undefined,
+    limit: CONTRACT_PAGE_LIMIT,
+  };
+}
+
 export function ContratosPanel({ session }: { session: SessionData }) {
   // Painel da aba "Contratos" do hub (Central de Contratos). A casca — guard,
-  // AppShell, header e as abas — vive em app/contratos/page.tsx; aqui fica só o
-  // conteúdo. Escopo aberto (own-only revogado): ADMIN e COMMERCIAL veem e
-  // gerenciam TODOS os contratos; quem chega aqui pode gerenciar.
+  // AppShell e o cabeçalho institucional — vive em app/contratos/page.tsx; aqui
+  // fica só o conteúdo. Escopo aberto (own-only revogado): ADMIN e COMMERCIAL
+  // veem e gerenciam TODOS os contratos; quem chega aqui pode gerenciar.
   const canManage = true;
   const toast = useToast();
+  const isDesktop = useIsDesktop();
 
-  const [contracts, setContracts] = useState<SaleContract[]>([]);
-  const [listLoading, setListLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [listState, dispatchList] = useReducer(contractsListReducer, CONTRACTS_INITIAL);
+  const [searchInput, setSearchInput] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [rowMenuFor, setRowMenuFor] = useState<string | null>(null);
+  const rowMenuRef = useRef<HTMLDivElement | null>(null);
+  const rowMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
 
-  // Filtros avancados (modal) — estado local draft/applied (sem query params),
-  // molde de /samples e /clients. `applied` filtra a lista; `draft` e o que o
-  // modal edita; "Aplicar" copia draft->applied. `isDesktop` so reagrupa campos.
+  // Filtros avancados — rascunho/aplicado (sem query params), molde de /samples e
+  // /cadastros. `applied` vira querystring do servidor; `draft` e o que o painel
+  // lateral edita; "Aplicar" copia draft->applied e refaz a 1a pagina.
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [draftFilters, setDraftFilters] = useState<ContractFilters>(EMPTY_CONTRACT_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState<ContractFilters>(EMPTY_CONTRACT_FILTERS);
-  const [isDesktop, setIsDesktop] = useState(false);
-  const filtersTrapRef = useFocusTrap(filtersOpen);
-  const filterCloseButtonRef = useRef<HTMLButtonElement | null>(null);
-  const lastFilterTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   const activeFiltersCount = useMemo(
     () => countActiveContractFilters(appliedFilters),
@@ -106,8 +206,7 @@ export function ContratosPanel({ session }: { session: SessionData }) {
   );
   const hasAnyFilter = activeFiltersCount > 0 || countActiveContractFilters(draftFilters) > 0;
 
-  const openFilters = (trigger: HTMLButtonElement) => {
-    lastFilterTriggerRef.current = trigger;
+  const openFilters = () => {
     setDraftFilters(appliedFilters);
     setFiltersOpen(true);
   };
@@ -141,7 +240,7 @@ export function ContratosPanel({ session }: { session: SessionData }) {
     status: SaleContractStatus;
     hasLot: boolean;
   } | null>(null);
-  // Aplicar ágio/deságio (D87): alvo = contrato + sinal escolhido no card.
+  // Aplicar ágio/deságio (D87): alvo = contrato + sinal escolhido no Detalhes.
   const [agioTarget, setAgioTarget] = useState<{
     contract: SaleContract;
     agioType: AgioDesagioType;
@@ -154,9 +253,9 @@ export function ContratosPanel({ session }: { session: SessionData }) {
   const [spotPickerOpen, setSpotPickerOpen] = useState(false);
   const [spotCreate, setSpotCreate] = useState<SpotCreateState | null>(null);
 
-  // Espelho de Corretagem (Fase E): modo de seleção (D76) + alvo. O alvo abre a
-  // fase de CONFERÊNCIA (D134); "Gerar espelho" avança pra prévia (espelhoPreview).
-  const [espelhoMode, setEspelhoMode] = useState(false);
+  // Espelho de Corretagem (Fase E): alvo abre a fase de CONFERÊNCIA (D134);
+  // "Gerar espelho" avança pra prévia. RC-F6: o gatilho é SÓ o Detalhes — o modo
+  // de seleção pela página (D76) foi revogado.
   const [espelhoTarget, setEspelhoTarget] = useState<SaleContract | null>(null);
   const [espelhoPreview, setEspelhoPreview] = useState<{
     contract: SaleContract;
@@ -182,30 +281,202 @@ export function ContratosPanel({ session }: { session: SessionData }) {
   const searchParams = useSearchParams();
   const detailsParam = searchParams.get('details');
 
-  const refresh = useCallback(async () => {
-    if (!session) return;
-    setListLoading(true);
-    try {
-      const res = await listSaleContracts(session, {});
-      setContracts(res.items);
-    } catch {
-      /* lista vazia em falha; toasts cobrem as mutações */
-    } finally {
-      setListLoading(false);
-    }
-  }, [session]);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const searchDebounceRef = useRef<number | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const loadMoreStateRef = useRef<{
+    inFlight: boolean;
+    token: number;
+    abort: AbortController | null;
+  }>({ inFlight: false, token: 0, abort: null });
 
+  // Debounce da busca: aplica com >=2 chars; <2 desfiltra. Espelha /users.
+  useEffect(() => {
+    if (searchDebounceRef.current !== null) {
+      window.clearTimeout(searchDebounceRef.current);
+    }
+    const trimmed = searchInput.trim();
+    const next = trimmed.length >= 2 ? trimmed : '';
+    if (next === appliedSearch) return;
+    searchDebounceRef.current = window.setTimeout(() => {
+      searchDebounceRef.current = null;
+      setAppliedSearch(next);
+    }, 400);
+    return () => {
+      if (searchDebounceRef.current !== null) {
+        window.clearTimeout(searchDebounceRef.current);
+        searchDebounceRef.current = null;
+      }
+    };
+  }, [searchInput, appliedSearch]);
+
+  // Fetch inicial: dispara ao mudar busca, filtros ou sessão. Reseta o cursor.
   useEffect(() => {
     if (!session) return;
-    void refresh();
-  }, [session, refresh]);
 
-  // Contrato aberto DERIVADO da URL (fonte de verdade). Enquanto a lista não
-  // carrega o find falha — o overlay abre quando o snapshot existir.
-  const detailsContract = useMemo(
+    const abortController = new AbortController();
+    let active = true;
+    dispatchList({ type: 'fetch-initial' });
+    loadMoreStateRef.current.token += 1;
+    loadMoreStateRef.current.inFlight = false;
+    loadMoreStateRef.current.abort?.abort();
+    loadMoreStateRef.current.abort = null;
+
+    listSaleContracts(session, filtersToQuery(appliedFilters, appliedSearch), {
+      signal: abortController.signal,
+    })
+      .then((response) => {
+        if (!active) return;
+        dispatchList({
+          type: 'success-initial',
+          items: response.items,
+          total: response.total,
+          nextCursor: response.nextCursor,
+        });
+      })
+      .catch((cause) => {
+        if (!active) return;
+        if (cause instanceof DOMException && cause.name === 'AbortError') return;
+        dispatchList({
+          type: 'error',
+          message:
+            cause instanceof ApiError ? cause.message : 'Não foi possível carregar os contratos',
+        });
+      });
+
+    return () => {
+      active = false;
+      abortController.abort();
+    };
+  }, [session, appliedSearch, appliedFilters]);
+
+  // Load-more pelo cursor. inFlight + token protegem contra race em scrolls
+  // rápidos (mesmo padrão de /users e /cadastros).
+  const runLoadMore = useCallback(
+    (cursor: string) => {
+      const state = loadMoreStateRef.current;
+      if (state.inFlight) return;
+      if (!session) return;
+      state.inFlight = true;
+      state.token += 1;
+      const myToken = state.token;
+      state.abort?.abort();
+      const controller = new AbortController();
+      state.abort = controller;
+      dispatchList({ type: 'fetch-more' });
+
+      listSaleContracts(
+        session,
+        { ...filtersToQuery(appliedFilters, appliedSearch), cursor },
+        { signal: controller.signal }
+      )
+        .then((response) => {
+          if (loadMoreStateRef.current.token !== myToken) return;
+          dispatchList({
+            type: 'success-more',
+            items: response.items,
+            nextCursor: response.nextCursor,
+          });
+        })
+        .catch((cause) => {
+          if (loadMoreStateRef.current.token !== myToken) return;
+          if (cause instanceof DOMException && cause.name === 'AbortError') return;
+          dispatchList({
+            type: 'error',
+            message:
+              cause instanceof ApiError
+                ? cause.message
+                : 'Não foi possível carregar mais contratos',
+          });
+        })
+        .finally(() => {
+          if (loadMoreStateRef.current.token === myToken) {
+            loadMoreStateRef.current.inFlight = false;
+            loadMoreStateRef.current.abort = null;
+          }
+        });
+    },
+    [session, appliedSearch, appliedFilters]
+  );
+
+  // IntersectionObserver no sentinel: dispara load-more quando entra na viewport.
+  useEffect(() => {
+    if (!session) return;
+    if (listState.status !== 'idle') return;
+    if (!listState.nextCursor) return;
+    const sentinel = loadMoreRef.current;
+    if (!sentinel) return;
+    const cursor = listState.nextCursor;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) runLoadMore(cursor);
+      },
+      { root: scrollRef.current, rootMargin: LOAD_MORE_ROOT_MARGIN }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [runLoadMore, listState.nextCursor, listState.status, session]);
+
+  // Recarga pós-mutação (faturar/pagar/washout/ágio/criar): re-busca a 1ª página
+  // SEM passar por 'fetch-initial' — o skeleton é para o primeiro carregamento e
+  // para troca de filtro, não para cada avanço de status (antes a lista inteira
+  // piscava "Carregando..." depois de toda mutação).
+  const refresh = useCallback(async () => {
+    if (!session) return;
+    loadMoreStateRef.current.token += 1;
+    loadMoreStateRef.current.inFlight = false;
+    try {
+      const response = await listSaleContracts(
+        session,
+        filtersToQuery(appliedFilters, appliedSearch)
+      );
+      dispatchList({
+        type: 'success-initial',
+        items: response.items,
+        total: response.total,
+        nextCursor: response.nextCursor,
+      });
+    } catch (cause) {
+      dispatchList({
+        type: 'error',
+        message:
+          cause instanceof ApiError ? cause.message : 'Não foi possível carregar os contratos',
+      });
+    }
+  }, [session, appliedSearch, appliedFilters]);
+
+  const contracts = listState.items;
+
+  // Deep-link `?details=<id>` de um contrato FORA da página carregada: busca por
+  // id no servidor. Antes era só `contracts.find(...)` sobre o array baixado —
+  // com paginação (e mesmo antes, acima do teto) um link válido morria calado,
+  // porque o efeito de limpeza tratava como órfão e apagava o param da URL.
+  const [detailsFallback, setDetailsFallback] = useState<SaleContract | null>(null);
+  const detailsInList = useMemo(
     () => (detailsParam ? (contracts.find((c) => c.id === detailsParam) ?? null) : null),
     [detailsParam, contracts]
   );
+  const detailsContract =
+    detailsInList ?? (detailsFallback?.id === detailsParam ? detailsFallback : null);
+
+  useEffect(() => {
+    if (!session) return;
+    if (!detailsParam || detailsInList) return;
+    if (detailsFallback?.id === detailsParam) return;
+    let active = true;
+    getSaleContract(session, detailsParam)
+      .then((response) => {
+        if (active) setDetailsFallback(response.contract);
+      })
+      .catch(() => {
+        // Id inexistente: o efeito de limpeza abaixo tira o param da URL.
+        if (active) setDetailsFallback(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [session, detailsParam, detailsInList, detailsFallback]);
+
   const detailsRendered = useDelayedValue(detailsContract, ANIMATION_MS);
   const openedDetailsByPushRef = useRef(false);
   // Swap pendente (Editar/Ágio/Washout/Espelho): roda DEPOIS que o ?details=
@@ -268,418 +539,576 @@ export function ContratosPanel({ session }: { session: SessionData }) {
     detailsWasOpenRef.current = isOpen;
   }, [detailsContract]);
 
-  // ?details= órfão (id que não existe na lista deste papel): limpa a URL
-  // depois que a lista carregou — senão o param zumbi fica sujando shares/back.
+  // ?details= órfão (id que não existe MESMO — nem na lista, nem no servidor):
+  // limpa a URL, senão o param zumbi fica sujando shares/back.
   useEffect(() => {
-    if (!detailsParam || listLoading) return;
-    if (contracts.some((c) => c.id === detailsParam)) return;
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete('details');
-    const qs = params.toString();
-    router.replace(qs ? `/contratos?${qs}` : '/contratos', { scroll: false });
-  }, [detailsParam, listLoading, contracts, router, searchParams]);
+    if (!detailsParam) return;
+    if (listState.status === 'loading-initial') return;
+    if (detailsContract) return;
+    // Espera a busca por id responder antes de julgar órfão.
+    if (detailsFallback === null && detailsInList === null) {
+      const timer = window.setTimeout(() => {
+        const params = new URLSearchParams(searchParams.toString());
+        params.delete('details');
+        const qs = params.toString();
+        router.replace(qs ? `/contratos?${qs}` : '/contratos', { scroll: false });
+      }, 1200);
+      return () => window.clearTimeout(timer);
+    }
+  }, [
+    detailsParam,
+    detailsContract,
+    detailsFallback,
+    detailsInList,
+    listState.status,
+    router,
+    searchParams,
+  ]);
 
-  // Desktop vs mobile — usado so p/ reagrupar os campos do modal de filtros
-  // (o resto do layout desktop e 100% CSS). Breakpoint canonico do projeto.
+  // Menu ⋯ da linha: fecha no clique fora e no ESC (devolvendo o foco).
   useEffect(() => {
-    const mql = window.matchMedia('(min-width: 901px)');
-    const apply = () => setIsDesktop(mql.matches);
-    apply();
-    mql.addEventListener('change', apply);
-    return () => mql.removeEventListener('change', apply);
-  }, []);
-
-  // Modal de filtros aberto: trava o scroll do body, ESC fecha, foca o "×" ao
-  // abrir e devolve o foco ao gatilho ao fechar (molde de /samples).
-  useEffect(() => {
-    if (!filtersOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        closeFilters();
-      }
+    if (!rowMenuFor) return;
+    const onDocumentMouseDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (!rowMenuRef.current?.contains(target)) setRowMenuFor(null);
     };
-    document.body.style.overflow = 'hidden';
-    document.addEventListener('keydown', onKeyDown);
-    const focusTimer = window.setTimeout(() => filterCloseButtonRef.current?.focus(), 0);
+    const onDocumentKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      setRowMenuFor(null);
+      rowMenuTriggerRef.current?.focus();
+    };
+    document.addEventListener('mousedown', onDocumentMouseDown);
+    document.addEventListener('keydown', onDocumentKeyDown);
     return () => {
-      window.clearTimeout(focusTimer);
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener('keydown', onKeyDown);
-      window.setTimeout(() => lastFilterTriggerRef.current?.focus(), 0);
+      document.removeEventListener('mousedown', onDocumentMouseDown);
+      document.removeEventListener('keydown', onDocumentKeyDown);
     };
-    // closeFilters e local nao-memoizado; disparar so quando filtersOpen muda
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtersOpen]);
-
-  // Modo de seleção do Espelho: marca o body para o CSS esconder o header
-  // normal + a barra de busca/filtro/"+" (paridade com o modo seleção de
-  // /samples). O SelectionModeHeader assume o topo enquanto ativo.
-  useEffect(() => {
-    if (!espelhoMode) return;
-    document.body.classList.add('is-selection-mode');
-    return () => document.body.classList.remove('is-selection-mode');
-  }, [espelhoMode]);
-
-  const visible = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const statusSet = new Set(appliedFilters.statusLabels.map((l) => LABEL_TO_STATUS[l]));
-    const typeSet = new Set(appliedFilters.typeLabels.map((l) => LABEL_TO_TYPE[l]));
-    const buyerId = appliedFilters.buyerClient?.id ?? null;
-    const sellerId = appliedFilters.sellerClient?.id ?? null;
-    const dateKey: 'invoiceDate' | 'paymentDate' | 'contractDate' =
-      appliedFilters.periodBase === 'invoice'
-        ? 'invoiceDate'
-        : appliedFilters.periodBase === 'payment'
-          ? 'paymentDate'
-          : 'contractDate';
-    const { periodFrom: from, periodTo: to } = appliedFilters;
-    return contracts.filter((c) => {
-      if (statusSet.size && !statusSet.has(c.status)) return false;
-      if (typeSet.size && !typeSet.has(c.type)) return false;
-      if (buyerId && c.buyerClientId !== buyerId) return false;
-      if (sellerId && c.sellerClientId !== sellerId) return false;
-      if (from || to) {
-        const iso = c[dateKey];
-        // Data "À definir" (null, D144) fica fora do recorte por período —
-        // filtrar por uma data exclui quem não a tem.
-        if (!iso) return false;
-        const day = iso.slice(0, 10); // ISO 'YYYY-MM-DD…' → compare lexicográfico
-        if (from && day < from) return false;
-        if (to && day > to) return false;
-      }
-      if (q) {
-        const seller = String(c.sellerSnapshot?.displayName ?? '').toLowerCase();
-        const buyer = String(c.buyerSnapshot?.displayName ?? '').toLowerCase();
-        if (
-          !(c.contractNumber.toLowerCase().includes(q) || seller.includes(q) || buyer.includes(q))
-        ) {
-          return false;
-        }
-      }
-      return true;
-    });
-  }, [contracts, search, appliedFilters]);
+  }, [rowMenuFor]);
 
   // DSB-D11: pisca/rola até o contrato tocado no chip de faturamento do dashboard
-  // (?highlight=<id>). Best-effort — se não estiver na lista visível, só ancora na aba.
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-  const highlightId = useContractHighlight(visible, scrollRef);
+  // (?highlight=<id>). Best-effort — se não estiver na página carregada, só ancora.
+  const highlightId = useContractHighlight(contracts, scrollRef);
 
-  const renderFilterFields = () => {
-    const buyerField = (
-      <div className="samples-filter-field">
-        <ClientLookupField
-          session={session}
-          label="Comprador"
-          kind="buyer"
-          selectedClient={draftFilters.buyerClient}
-          onSelectClient={(client: ClientSummary | null) =>
-            setDraftFilters((f) => ({ ...f, buyerClient: client }))
-          }
-          compact
-          placeholder="Qualquer comprador"
-        />
-      </div>
-    );
-    const sellerField = (
-      <div className="samples-filter-field">
-        <ClientLookupField
-          session={session}
-          label="Vendedor"
-          kind="owner"
-          selectedClient={draftFilters.sellerClient}
-          onSelectClient={(client: ClientSummary | null) =>
-            setDraftFilters((f) => ({ ...f, sellerClient: client }))
-          }
-          compact
-          placeholder="Qualquer vendedor"
-        />
-      </div>
-    );
-    const statusField = (
-      <ClassificationFilterField
-        label="Status"
-        placeholder="Qualquer status"
-        options={STATUS_OPTION_LABELS}
-        selected={draftFilters.statusLabels}
-        onChange={(next) => setDraftFilters((f) => ({ ...f, statusLabels: next }))}
-      />
-    );
-    const typeField = (
-      <ClassificationFilterField
-        label="Tipo"
-        placeholder="Qualquer tipo"
-        options={TYPE_OPTION_LABELS}
-        selected={draftFilters.typeLabels}
-        onChange={(next) => setDraftFilters((f) => ({ ...f, typeLabels: next }))}
-      />
-    );
-    const periodActive = draftFilters.periodFrom !== '' || draftFilters.periodTo !== '';
-    const periodField = (
-      <div className={`samples-filter-field${periodActive ? ' is-active' : ''}`}>
-        <span className="samples-filter-field-label">Período</span>
-        <select
-          className="samples-filter-field-input"
-          value={draftFilters.periodBase}
-          onChange={(event) =>
-            setDraftFilters((f) => ({
-              ...f,
-              periodBase: event.target.value as ContractFilters['periodBase'],
-            }))
-          }
-          aria-label="Base da data do período"
+  const openLifecycleFor = (contract: SaleContract, action: LifecycleAction) =>
+    setLifecycle({
+      contractId: contract.id,
+      expectedVersion: contract.version,
+      contractNumber: contract.contractNumber,
+      action,
+      status: contract.status,
+      hasLot: contract.type === 'MERCADO_A_VISTA',
+    });
+
+  // --- Chrome (toolbar) ------------------------------------------------------
+
+  // A MESMA toolbar nos dois breakpoints — uma fonte de estado. No desktop fica
+  // presa no topo do cartão; no mobile rola DENTRO do `.spv2-list-scroll`, porque
+  // ali cada faixa presa acima da lista custa altura PERMANENTE (data-tables §1).
+  // Substitui a `.hero-search-wrap` legada + o `.spv2-list-meta`.
+  const toolbar = (
+    <div className="fv-toolbar">
+      <form
+        className="fv-toolbar-search"
+        role="search"
+        onSubmit={(event) => event.preventDefault()}
+      >
+        <svg
+          className="fv-toolbar-search-icon"
+          viewBox="0 0 24 24"
+          focusable="false"
+          aria-hidden="true"
         >
-          {PERIOD_BASE_LABELS.map((base) => (
-            <option key={base.value} value={base.value}>
-              {base.label}
-            </option>
-          ))}
-        </select>
-        <div className="samples-filter-split-grid">
-          <input
-            className={`samples-filter-field-input${draftFilters.periodFrom === '' ? ' is-placeholder' : ' is-active'}`}
-            type="date"
-            value={draftFilters.periodFrom}
-            onChange={(event) => setDraftFilters((f) => ({ ...f, periodFrom: event.target.value }))}
-            aria-label="Data inicial"
-          />
-          <input
-            className={`samples-filter-field-input${draftFilters.periodTo === '' ? ' is-placeholder' : ' is-active'}`}
-            type="date"
-            value={draftFilters.periodTo}
-            onChange={(event) => setDraftFilters((f) => ({ ...f, periodTo: event.target.value }))}
-            aria-label="Data final"
-          />
-        </div>
-      </div>
-    );
-
-    if (isDesktop) {
-      return (
-        <>
-          <div className="samples-filter-row">
-            {buyerField}
-            {sellerField}
-          </div>
-          <div className="samples-filter-row">
-            {statusField}
-            {typeField}
-          </div>
-          {periodField}
-        </>
-      );
-    }
-    return (
-      <>
-        {buyerField}
-        {sellerField}
-        <div className="samples-filter-row">
-          {statusField}
-          {typeField}
-        </div>
-        {periodField}
-      </>
-    );
-  };
-
-  return (
-    <>
-      {espelhoMode ? (
-        <SelectionModeHeader
-          title="Selecionar contrato"
-          onExit={() => {
-            setEspelhoMode(false);
-            setEspelhoTarget(null);
-            setEspelhoPreview(null);
-            espelhoReturnRef.current = null;
-          }}
+          <circle cx="11" cy="11" r="7" />
+          <path d="m16.2 16.2 4.1 4.1" />
+        </svg>
+        <input
+          className="fv-input fv-toolbar-search-input"
+          value={searchInput}
+          onChange={(event) => setSearchInput(event.target.value)}
+          placeholder="Buscar nº, vendedor ou comprador..."
+          autoComplete="off"
+          spellCheck={false}
         />
-      ) : null}
-      <div className={`hero-search-wrap${activeFiltersCount > 0 ? ' has-applied-filters' : ''}`}>
-        <form
-          className="hero-search-bar"
-          role="search"
-          onSubmit={(event) => event.preventDefault()}
-        >
-          <input
-            className="hero-search-input"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar nº, vendedor ou comprador..."
-            autoComplete="off"
-            spellCheck={false}
-          />
-          {search ? (
-            <button
-              type="button"
-              className="hero-search-clear-input"
-              aria-label="Limpar busca"
-              onClick={() => setSearch('')}
-            >
-              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <path d="M6 6l12 12M18 6L6 18" />
-              </svg>
-            </button>
-          ) : (
-            <span className="hero-search-submit" aria-hidden="true">
-              <svg className="hero-search-icon-search" viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="11" cy="11" r="7" />
-                <path d="m16.2 16.2 4.1 4.1" />
-              </svg>
-            </span>
-          )}
-        </form>
-        {/* "X" de limpar filtros (aparece só com filtros aplicados) + botão de
-              filtros avançados (abre o modal). O FAB "+" entra aqui na Fase 2. */}
-        <span className="hero-search-clear-slot" aria-hidden={activeFiltersCount === 0}>
+        {searchInput ? (
           <button
             type="button"
-            className="hero-search-clear-btn"
-            aria-label="Limpar filtros"
-            tabIndex={activeFiltersCount > 0 ? 0 : -1}
-            onClick={handleClearFilters}
+            className="fv-toolbar-search-clear"
+            aria-label="Limpar busca"
+            onClick={() => setSearchInput('')}
           >
             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
           </button>
-        </span>
-        <button
-          type="button"
-          className={`hero-search-filter-btn${activeFiltersCount > 0 ? ' has-filters' : ''}`}
-          aria-label="Filtros avançados"
-          onClick={(event) => {
-            if (filtersOpen) {
-              closeFilters();
-              return;
-            }
-            openFilters(event.currentTarget);
-          }}
-        >
-          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-            <path d="M4 6h16" />
-            <path d="M7 12h10" />
-            <path d="M10 18h4" />
-          </svg>
-          {activeFiltersCount > 0 ? (
-            <span className="hero-search-filter-badge">{activeFiltersCount}</span>
-          ) : null}
-        </button>
-        {/* FAB "+" como último filho do wrap: inline no desktop (regra
-              .clients-page-v2 .hero-search-wrap .cv2-fab), flutuante no mobile. */}
-        {!espelhoMode ? (
-          <ContractCreateRadialFab
-            canCreate={canManage}
-            onCreateSpot={() => setSpotPickerOpen(true)}
-            onCreateFuture={() => setFutureOpen(true)}
-            onCreateEspelho={() => setEspelhoMode(true)}
-          />
         ) : null}
+      </form>
+      <button
+        type="button"
+        className="fv-btn fv-btn-secondary fv-toolbar-filter"
+        aria-haspopup="dialog"
+        aria-expanded={filtersOpen}
+        onClick={() => (filtersOpen ? closeFilters() : openFilters())}
+      >
+        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+          <path d="M4 6h16" />
+          <path d="M7 12h10" />
+          <path d="M10 18h4" />
+        </svg>
+        {/* No mobile o rótulo some (a linha da busca não cabe os dois) e o
+            botão fica do tamanho do ícone — regra do kit. */}
+        <span className="fv-toolbar-filter-label">Filtros</span>
+        {activeFiltersCount > 0 ? <span className="fv-btn-badge">{activeFiltersCount}</span> : null}
+      </button>
+      {activeFiltersCount > 0 ? (
+        <button type="button" className="fv-toolbar-clear" onClick={handleClearFilters}>
+          Limpar
+        </button>
+      ) : null}
+      <span className="fv-toolbar-count">{listState.total} contrato(s)</span>
+    </div>
+  );
+
+  const mobileListChrome = isDesktop ? null : toolbar;
+
+  const emptyState = (
+    <div className="spv2-empty">
+      <svg className="cv2-empty-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <path d="M14 2v6h6" />
+        <path d="M9 13h6M9 17h4" />
+      </svg>
+      <p className="spv2-empty-text">Nenhum contrato para mostrar</p>
+      <p className="spv2-empty-sub">
+        {activeFiltersCount > 0 || appliedSearch
+          ? 'Tente outro termo ou revise os filtros'
+          : 'Crie um contrato à vista ou futuro para começar'}
+      </p>
+    </div>
+  );
+
+  const tableSkeletonRows = (count: number, keyPrefix: string) =>
+    Array.from({ length: count }).map((_, i) => (
+      <tr key={`${keyPrefix}-${i}`} className="fv-table-skel-row" aria-hidden="true">
+        {Array.from({ length: TABLE_COLUMN_COUNT }).map((__, j) => (
+          <td key={j}>
+            <span className="fv-table-skel" />
+          </td>
+        ))}
+      </tr>
+    ));
+
+  return (
+    <>
+      {/* RC-F6 (desktop >=901px): cabeçalho institucional. No mobile fica
+          display:none — o título mora na faixa do shell e criar é o FAB.
+          Criar contrato tem DUAS portas, então são dois botões: "À vista" em
+          destaque e "Futuro" ao lado, sem clique extra escondendo um menu. */}
+      <div className="fv-page-head">
+        <h2 className="fv-page-title">Contratos</h2>
+        <div className="fv-page-head-actions">
+          <button type="button" className="fv-btn" onClick={() => setFutureOpen(true)}>
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M12 5v14" />
+              <path d="M5 12h14" />
+            </svg>
+            Futuro
+          </button>
+          <button
+            type="button"
+            className="fv-btn fv-btn-primary"
+            onClick={() => setSpotPickerOpen(true)}
+          >
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M12 5v14" />
+              <path d="M5 12h14" />
+            </svg>
+            À vista
+          </button>
+        </div>
       </div>
 
-      <section className="clients-v2-sheet">
-        <div className="spv2-list-meta">
-          <span className="spv2-list-count">{visible.length} contrato(s)</span>
-        </div>
+      {/* O FAB é a porta de criação do MOBILE (no desktop some por
+          `.fv-ctr-page .cv2-fab`). Perdeu o pai `.hero-search-wrap` e virou
+          filho direto; é `fixed`, então a posição não muda. */}
+      <ContractCreateRadialFab
+        onCreateSpot={() => setSpotPickerOpen(true)}
+        onCreateFuture={() => setFutureOpen(true)}
+      />
 
-        <div className="spv2-list-scroll" ref={scrollRef}>
-          {listLoading ? (
-            <div className="spv2-empty">
-              <p className="spv2-empty-text">Carregando...</p>
-            </div>
-          ) : visible.length === 0 ? (
-            <div className="spv2-empty">
-              <p className="spv2-empty-text">Nenhum contrato para mostrar</p>
+      <section className="clients-v2-sheet">
+        {isDesktop ? toolbar : null}
+
+        {listState.status === 'error' && listState.error ? (
+          <p className="spv2-error-banner" role="status">
+            {listState.error}
+          </p>
+        ) : null}
+
+        {listState.status === 'loading-initial' ? (
+          isDesktop ? (
+            <div className="spv2-list-scroll fv-table-scroll">
+              <table className="fv-table">
+                <tbody>{tableSkeletonRows(6, 'boot')}</tbody>
+              </table>
             </div>
           ) : (
-            <div className="ctr-list">
-              {visible.map((contract) => {
-                const openLifecycle = (action: LifecycleAction) =>
-                  setLifecycle({
-                    contractId: contract.id,
-                    expectedVersion: contract.version,
-                    contractNumber: contract.contractNumber,
-                    action,
-                    status: contract.status,
-                    hasLot: contract.type === 'MERCADO_A_VISTA',
-                  });
-                // Espelho: elegibilidade da fonte única (lib/espelho) — espelha os gates
-                // do backend (status congelado, ≥1 corretagem, não washout à-vista/D145).
-                const { eligible: espelhoEligible, reason: espelhoReason } =
-                  espelhoEligibility(contract);
-                return (
-                  <SaleContractCard
-                    key={contract.id}
-                    contract={contract}
-                    isExpanded={expandedIds.has(contract.id)}
-                    onToggle={() => toggleExpand(contract.id)}
-                    onDetalhes={() => openDetails(contract)}
-                    canManage={canManage}
-                    isHighlighted={highlightId === contract.id}
-                    onFaturar={() => openLifecycle('invoice')}
-                    onPagar={() => openLifecycle('pay')}
-                    espelhoMode={espelhoMode}
-                    espelhoEligible={espelhoEligible}
-                    espelhoReason={espelhoReason}
-                    onSelectEspelho={() => setEspelhoTarget(contract)}
-                  />
-                );
-              })}
+            <div className="spv2-list-scroll">
+              {mobileListChrome}
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={`boot-${i}`} className="spv2-skeleton-card" aria-hidden />
+              ))}
             </div>
-          )}
-        </div>
+          )
+        ) : contracts.length === 0 ? (
+          // `fv-table-scroll` no desktop tambem no vazio: sem ele o
+          // `.spv2-list-scroll` e um grid de 3 colunas (herdado dos cards) e o
+          // `.spv2-empty` cairia na primeira celula, encostado a esquerda.
+          <div className={`spv2-list-scroll${isDesktop ? ' fv-table-scroll' : ''}`}>
+            {mobileListChrome}
+            {emptyState}
+          </div>
+        ) : isDesktop ? (
+          /* RC-F6 (desktop): tabela institucional de 5 colunas + ⋯. Os mesmos
+             dados, ordem e scroll infinito dos cards — muda a apresentação. A
+             linha inteira clica; o nº é <button> pra dar alvo de teclado. */
+          <div ref={scrollRef} className="spv2-list-scroll fv-table-scroll" tabIndex={-1}>
+            <table className="fv-table">
+              <colgroup>
+                <col className="fv-col-contract" />
+                <col className="fv-col-parties" />
+                <col className="fv-col-sacks" />
+                <col className="fv-col-dates" />
+                <col className="fv-col-status" />
+                <col className="fv-col-actions" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th scope="col">Contrato</th>
+                  <th scope="col">Partes</th>
+                  <th scope="col">Sacas</th>
+                  <th scope="col">Datas</th>
+                  <th scope="col">Status</th>
+                  <th scope="col" className="fv-table-th-actions" aria-label="Ações" />
+                </tr>
+              </thead>
+              <tbody>
+                {contracts.map((contract) => (
+                  <tr
+                    key={contract.id}
+                    className={`fv-table-row${highlightId === contract.id ? ' is-highlighted' : ''}`}
+                    data-contract-id={contract.id}
+                    onClick={() => openDetails(contract)}
+                  >
+                    <td>
+                      <button
+                        type="button"
+                        className="fv-table-name-btn"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openDetails(contract);
+                        }}
+                      >
+                        <span className="fv-table-name">{contract.contractNumber}</span>
+                        <span className="fv-table-code">
+                          {TYPE_LABEL[contract.type] ?? contract.type}
+                        </span>
+                      </button>
+                    </td>
+                    <td>
+                      <span className="fv-table-cell-stack">
+                        <span className="fv-table-cell-main">
+                          {snapshotName(contract.sellerSnapshot)}
+                        </span>
+                        <span className="fv-cell-ic">
+                          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                            <path d="M5 12h14M13 6l6 6-6 6" />
+                          </svg>
+                          <span className="fv-table-sub">
+                            {snapshotName(contract.buyerSnapshot)}
+                          </span>
+                        </span>
+                      </span>
+                    </td>
+                    <td>
+                      <span className="fv-table-cell-main">{contract.quantitySacks} sc</span>
+                    </td>
+                    <td>
+                      {/* "À definir" (D144): data nula é um estado legítimo do
+                          contrato, não um vazio — mesma leitura do card. */}
+                      <span className="fv-table-cell-stack">
+                        <span className="fv-table-sub">
+                          Fat.{' '}
+                          {contract.invoiceDate
+                            ? formatContractDate(contract.invoiceDate)
+                            : 'À definir'}
+                        </span>
+                        <span className="fv-table-sub">
+                          Pag.{' '}
+                          {contract.paymentDate
+                            ? formatContractDate(contract.paymentDate)
+                            : 'À definir'}
+                        </span>
+                      </span>
+                    </td>
+                    <td>
+                      <span className={STATUS_CHIP[contract.status]}>
+                        {STATUS_META[contract.status].label}
+                      </span>
+                    </td>
+                    <td
+                      className="fv-table-td-actions"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <div
+                        className="fv-row-menu-wrap"
+                        ref={rowMenuFor === contract.id ? rowMenuRef : undefined}
+                      >
+                        <button
+                          type="button"
+                          className="fv-table-dots"
+                          aria-label={`Ações do contrato ${contract.contractNumber}`}
+                          aria-haspopup="menu"
+                          aria-expanded={rowMenuFor === contract.id}
+                          onClick={(event) => {
+                            rowMenuTriggerRef.current = event.currentTarget;
+                            setRowMenuFor((current) =>
+                              current === contract.id ? null : contract.id
+                            );
+                          }}
+                        >
+                          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                            <circle cx="5" cy="12" r="1.6" />
+                            <circle cx="12" cy="12" r="1.6" />
+                            <circle cx="19" cy="12" r="1.6" />
+                          </svg>
+                        </button>
+                        {rowMenuFor === contract.id ? (
+                          <div
+                            className="fv-row-menu"
+                            role="menu"
+                            aria-label={`Ações do contrato ${contract.contractNumber}`}
+                          >
+                            {/* O avanço de status que o card mostra no mobile
+                                (RC-D22: um por vez) + abrir. Editar, Ágio e
+                                Washout ficam no PAINEL de Detalhes: precisam do
+                                contexto do contrato na tela. */}
+                            {contract.status === 'EMITIDO' && canManage ? (
+                              <button
+                                type="button"
+                                role="menuitem"
+                                className="fv-row-menu-item"
+                                onClick={() => {
+                                  setRowMenuFor(null);
+                                  openLifecycleFor(contract, 'invoice');
+                                }}
+                              >
+                                Marcar como faturado
+                              </button>
+                            ) : null}
+                            {contract.status === 'FATURADO' && canManage ? (
+                              <button
+                                type="button"
+                                role="menuitem"
+                                className="fv-row-menu-item"
+                                onClick={() => {
+                                  setRowMenuFor(null);
+                                  openLifecycleFor(contract, 'pay');
+                                }}
+                              >
+                                Marcar como pago
+                              </button>
+                            ) : null}
+                            <button
+                              type="button"
+                              role="menuitem"
+                              className="fv-row-menu-item"
+                              onClick={() => {
+                                setRowMenuFor(null);
+                                openDetails(contract);
+                              }}
+                            >
+                              Ver detalhes
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {listState.status === 'loading-more' ? tableSkeletonRows(3, 'more') : null}
+              </tbody>
+            </table>
+            {listState.nextCursor ? (
+              <div ref={loadMoreRef} className="cv2-load-more-sentinel" aria-hidden />
+            ) : null}
+            {!listState.nextCursor && listState.status === 'idle' ? (
+              <p className="spv2-list-end">Você chegou ao fim</p>
+            ) : null}
+          </div>
+        ) : (
+          <div className="spv2-list-scroll" ref={scrollRef}>
+            {mobileListChrome}
+            <div className="ctr-list">
+              {contracts.map((contract) => (
+                <SaleContractCard
+                  key={contract.id}
+                  contract={contract}
+                  isExpanded={expandedIds.has(contract.id)}
+                  onToggle={() => toggleExpand(contract.id)}
+                  onDetalhes={() => openDetails(contract)}
+                  canManage={canManage}
+                  isHighlighted={highlightId === contract.id}
+                  onFaturar={() => openLifecycleFor(contract, 'invoice')}
+                  onPagar={() => openLifecycleFor(contract, 'pay')}
+                />
+              ))}
+              {listState.status === 'loading-more'
+                ? Array.from({ length: 3 }).map((_, i) => (
+                    <div key={`more-${i}`} className="spv2-skeleton-card" aria-hidden />
+                  ))
+                : null}
+            </div>
+            {listState.nextCursor ? (
+              <div ref={loadMoreRef} className="cv2-load-more-sentinel" aria-hidden />
+            ) : null}
+            {!listState.nextCursor && listState.status === 'idle' ? (
+              <p className="spv2-list-end">Você chegou ao fim</p>
+            ) : null}
+          </div>
+        )}
       </section>
 
-      {filtersOpen ? (
-        <div className="app-modal-backdrop samples-filter-modal-backdrop" onClick={closeFilters}>
-          <section
-            ref={filtersTrapRef}
-            id="contracts-filter-modal"
-            className="app-modal is-themed samples-filter-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="contracts-filter-modal-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="app-modal-header samples-filter-modal-header">
-              <div className="app-modal-title-wrap">
-                <h3 id="contracts-filter-modal-title" className="app-modal-title">
-                  Filtros
-                </h3>
-              </div>
-              <button
-                ref={filterCloseButtonRef}
-                type="button"
-                className="app-modal-close"
-                onClick={closeFilters}
-                aria-label="Fechar filtros"
-              >
-                <span aria-hidden="true">×</span>
-              </button>
-            </header>
+      {/* Filtros — PAINEL LATERAL (RC-F6): BottomSheet `side-sheet` (desktop =
+          painel direito bloqueante; mobile = bottom sheet, exceção deliberada,
+          padrão da casa). Era o modal central `.samples-filter-modal`, do qual
+          esta página era o último consumidor vivo. Mesmo rascunho +
+          Aplicar/Limpar; o Aplicar do rodapé submete o form via `form=`. */}
+      <BottomSheet
+        open={filtersOpen}
+        onClose={closeFilters}
+        title="Filtros"
+        ariaLabel="Filtros de contratos"
+        className="side-sheet fv-filter-sheet"
+        footer={
+          <div className="fv-filter-actions">
+            <button
+              type="button"
+              className="fv-btn fv-btn-secondary"
+              onClick={handleClearFilters}
+              disabled={!hasAnyFilter}
+            >
+              Limpar
+            </button>
+            <button type="submit" form="contracts-filter-form" className="fv-btn fv-btn-primary">
+              Aplicar
+            </button>
+          </div>
+        }
+      >
+        <form id="contracts-filter-form" className="fv-filter-form" onSubmit={handleApplyFilters}>
+          <div className="fv-filter-field">
+            <ClientLookupField
+              session={session}
+              label="Comprador"
+              kind="buyer"
+              selectedClient={draftFilters.buyerClient}
+              onSelectClient={(client: ClientSummary | null) =>
+                setDraftFilters((f) => ({ ...f, buyerClient: client }))
+              }
+              compact
+              placeholder="Qualquer comprador"
+            />
+          </div>
 
-            <form className="samples-filter-modal-form" onSubmit={handleApplyFilters}>
-              <div className="samples-filter-modal-content">{renderFilterFields()}</div>
+          <div className="fv-filter-field">
+            <ClientLookupField
+              session={session}
+              label="Vendedor"
+              kind="owner"
+              selectedClient={draftFilters.sellerClient}
+              onSelectClient={(client: ClientSummary | null) =>
+                setDraftFilters((f) => ({ ...f, sellerClient: client }))
+              }
+              compact
+              placeholder="Qualquer vendedor"
+            />
+          </div>
 
-              <div className="app-modal-actions samples-filter-modal-actions">
-                <button
-                  type="button"
-                  className="app-modal-secondary"
-                  onClick={handleClearFilters}
-                  disabled={!hasAnyFilter}
-                >
-                  Limpar
-                </button>
-                <button type="submit" className="app-modal-submit">
-                  Aplicar
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
-      ) : null}
+          <div className="fv-filter-field">
+            <ChipMultiSelectField
+              label="Status"
+              placeholder="Qualquer status"
+              options={STATUS_CHIP_OPTIONS}
+              selected={draftFilters.statuses}
+              onChange={(next) =>
+                setDraftFilters((f) => ({ ...f, statuses: next as SaleContractStatus[] }))
+              }
+              forceDropDown
+            />
+          </div>
+
+          <div className="fv-filter-field">
+            <ChipMultiSelectField
+              label="Tipo"
+              placeholder="Qualquer tipo"
+              options={TYPE_CHIP_OPTIONS}
+              selected={draftFilters.types}
+              onChange={(next) =>
+                setDraftFilters((f) => ({ ...f, types: next as ContractFilters['types'] }))
+              }
+              forceDropDown
+            />
+          </div>
+
+          <label className="fv-filter-field">
+            <span className="fv-filter-label">Período</span>
+            <select
+              className="fv-select"
+              value={draftFilters.periodBase}
+              onChange={(event) =>
+                setDraftFilters((f) => ({
+                  ...f,
+                  periodBase: event.target.value as ContractFilters['periodBase'],
+                }))
+              }
+              aria-label="Base da data do período"
+            >
+              {PERIOD_BASE_LABELS.map((base) => (
+                <option key={base.value} value={base.value}>
+                  {base.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="fv-filter-row">
+            <label className="fv-filter-field">
+              <span className="fv-filter-label">De</span>
+              <input
+                className="fv-input"
+                type="date"
+                value={draftFilters.periodFrom}
+                onChange={(event) =>
+                  setDraftFilters((f) => ({ ...f, periodFrom: event.target.value }))
+                }
+              />
+            </label>
+            <label className="fv-filter-field">
+              <span className="fv-filter-label">Até</span>
+              <input
+                className="fv-input"
+                type="date"
+                value={draftFilters.periodTo}
+                onChange={(event) =>
+                  setDraftFilters((f) => ({ ...f, periodTo: event.target.value }))
+                }
+              />
+            </label>
+          </div>
+        </form>
+      </BottomSheet>
 
       {etapa2Rendered ? (
         <SaleContractEtapa2Modal
@@ -699,9 +1128,9 @@ export function ContratosPanel({ session }: { session: SessionData }) {
 
       {/* Detalhes (Fase J; F3 do redesign = DetailOverlay por URL): documento
           embutido + infos + historico. As acoes do rodape (Editar/Agio/Desagio/
-          Washout) FECHAM o Detalhes e abrem o fluxo correspondente (um modal
-          por vez, sem sobreposicao) — o swap fica PENDENTE ate o ?details= sair
-          da URL (afterDetailsCloseRef), o fechamento em si e o closeDetails. */}
+          Washout/Espelho) FECHAM o Detalhes e abrem o fluxo correspondente (um
+          modal por vez, sem sobreposicao) — o swap fica PENDENTE ate o ?details=
+          sair da URL (afterDetailsCloseRef), o fechamento em si e o closeDetails. */}
       {detailsRendered ? (
         <SaleContractDetailsModal
           session={session}
@@ -856,7 +1285,7 @@ export function ContratosPanel({ session }: { session: SessionData }) {
 
       {/* Espelho de Corretagem (Fase E + D134): 1ª etapa = CONFERÊNCIA dos campos
           (toggle de lado + Ver detalhes vai-e-volta) → 2ª etapa = prévia do PDF
-          com Exportar/Baixar. */}
+          com Exportar/Baixar. RC-F6: só nasce pelo Detalhes. */}
       {espelhoTarget ? (
         <EspelhoConferenciaModal
           session={session}

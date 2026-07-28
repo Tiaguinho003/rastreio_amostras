@@ -7,9 +7,10 @@ import type { SaleContract, SaleContractStatus, SaleContractType } from '../../l
 // status na lateral + acoes e detalhes ao expandir. As acoes dependem do status
 // (maquina do Passo 2). Nomes das partes vem do snapshot.
 //
-// Modo de selecao do Espelho de Corretagem (Fase E, D76): quando `espelhoMode`,
-// o card vira um BOTAO de selecao (tap-to-open); inelegiveis (status nao
-// congelado) ficam esmaecidos e nao selecionaveis.
+// RC-F6: este card e a lista do MOBILE. No desktop a lista virou `.fv-table`
+// (ContratosPanel) — os helpers/mapas exportados daqui sao a fonte unica dos
+// dois. O modo de selecao do Espelho (D76) SAIU junto com o gatilho da pagina:
+// o espelho nasce so no Detalhes do contrato.
 
 // Exportado: rótulo/cores do selo de status, reusados por outros componentes de
 // contrato (ex.: o modal de Detalhes). (O seletor da Aprovação do /samples saiu na AP29.)
@@ -46,20 +47,30 @@ export const STATUS_TEXT_COLOR: Record<SaleContractStatus, string> = {
   WASH_OUT: '#dc2626',
 };
 
-const TYPE_LABEL: Record<SaleContractType, string> = {
+// RC-F6: variante do `.fv-chip` por status, pra tabela do desktop. Os mapas de
+// cor acima pintam o card (barra lateral + selo com `style` inline); a tabela usa
+// o chip do kit institucional. Mesma leitura semantica nos dois.
+export const STATUS_CHIP: Record<SaleContractStatus, string> = {
+  EMITIDO: 'fv-chip fv-chip-amber',
+  FATURADO: 'fv-chip fv-chip-blue',
+  PAGO: 'fv-chip fv-chip-green',
+  WASH_OUT: 'fv-chip fv-chip-red',
+};
+
+export const TYPE_LABEL: Record<SaleContractType, string> = {
   MERCADO_A_VISTA: 'À vista',
   FUTURO: 'Futuro',
 };
 
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
-function snapshotName(snap: Record<string, unknown> | null): string {
+export function snapshotName(snap: Record<string, unknown> | null): string {
   if (!snap) return '—';
   const value = (snap.displayName ?? snap.legalName ?? snap.fullName) as string | undefined;
   return value && value.trim() ? value : '—';
 }
 
-function formatContractDate(iso: string | null): string {
+export function formatContractDate(iso: string | null): string {
   if (!iso) return '—';
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '—';
@@ -90,12 +101,6 @@ type SaleContractCardProps = {
   // DSB-D11: realce (pisca/rola) quando chega do chip de faturamento do dashboard
   // (?highlight=<id>). Molde do EmbarqueCard/FinanceiroCard.
   isHighlighted?: boolean;
-  // Modo de selecao p/ o Espelho de Corretagem (Fase E): o card vira botao de
-  // selecao; inelegiveis (status != EMITIDO/FATURADO/PAGO) ficam esmaecidos.
-  espelhoMode?: boolean;
-  espelhoEligible?: boolean;
-  espelhoReason?: string;
-  onSelectEspelho?: () => void;
 };
 
 export function SaleContractCard({
@@ -107,10 +112,6 @@ export function SaleContractCard({
   onDetalhes,
   canManage = true,
   isHighlighted = false,
-  espelhoMode = false,
-  espelhoEligible = false,
-  espelhoReason,
-  onSelectEspelho,
 }: SaleContractCardProps) {
   const meta = STATUS_META[contract.status];
 
@@ -146,40 +147,6 @@ export function SaleContractCard({
     </>
   );
 
-  // ----- Modo de selecao do Espelho de Corretagem (tap-to-open, D76) -----
-  if (espelhoMode) {
-    return (
-      <div className={`ctr-card ctr-card-selectable${espelhoEligible ? '' : ' is-ineligible'}`}>
-        <button
-          type="button"
-          className="ctr-card-head-btn"
-          onClick={espelhoEligible ? onSelectEspelho : undefined}
-          disabled={!espelhoEligible}
-          aria-label={
-            espelhoEligible
-              ? `Gerar Espelho de Corretagem do contrato ${contract.contractNumber}`
-              : `Contrato ${contract.contractNumber} indisponível para espelho`
-          }
-        >
-          {head}
-          <span className="ctr-card-head-right">
-            {espelhoEligible ? (
-              <span className="ctr-card-select-cta">
-                Gerar
-                <svg className="ctr-card-arrow" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M5 12h14M13 6l6 6-6 6" />
-                </svg>
-              </span>
-            ) : (
-              <span className="ctr-card-select-hint">{espelhoReason ?? 'Indisponível'}</span>
-            )}
-          </span>
-        </button>
-      </div>
-    );
-  }
-
-  // ----- Modo normal (gestao) -----
   return (
     <div
       className={`ctr-card${isExpanded ? ' is-expanded' : ''}${isHighlighted ? ' is-highlighted' : ''}`}

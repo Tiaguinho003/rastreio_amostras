@@ -39,9 +39,15 @@ function ContratosPageInner() {
 
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
-      <section className="clients-page-v2 ctr-page">
+      <section className="clients-page-v2 ctr-page fv-ctr-page">
         {/* RD16: o header verde da pagina saiu — o chrome mobile agora e unico
-            e mora no AppShell (.fv-mtopbar: titulo da rota + camera + avatar). */}
+            e mora no AppShell (.fv-mtopbar: titulo da rota + camera + avatar).
+            RC-F6: `fv-ctr-page` e o escopo do kit institucional desta pagina
+            (molde `fv-cad-page`/`fv-users-page`). `ctr-page` FICA: carrega as
+            vars do arco do FAB e o ajuste de altura do shell via `:has()`, que
+            /financeiro — ainda no kit legado — tambem usa.
+            O `.fv-page-head` do desktop e os botoes de criar moram no
+            ContratosPanel, junto do estado que eles abrem. */}
         <ContratosPanel session={session} />
       </section>
     </AppShell>

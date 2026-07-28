@@ -1,19 +1,26 @@
 'use client';
 
-// Tipos e helpers dos filtros da pagina /contratos (modal de filtros avancados).
-// Espelha components/clients/ClientsFilterButton.tsx: aqui ficam so os tipos + os
-// helpers; o JSX do modal mora na page (app/contratos/page.tsx), reusando as
-// classes .samples-filter-*. Filtragem 100% client-side (o `visible` useMemo).
+// Tipos e helpers dos filtros da pagina /contratos. Espelha
+// components/clients/ClientsFilterButton.tsx: aqui ficam so os tipos + os helpers;
+// o JSX do painel mora no ContratosPanel, no kit .fv-filter-sheet.
+// RC-F6: a filtragem e do SERVIDOR — estes valores viram querystring do
+// listSaleContracts, nao mais um `visible` useMemo sobre o array baixado.
 
-import type { ClientSummary, SaleContractStatus, SaleContractType } from '../../lib/types';
+import type {
+  ClientSummary,
+  ContractPeriodBase,
+  SaleContractStatus,
+  SaleContractType,
+} from '../../lib/types';
 
-export type ContractPeriodBase = 'contract' | 'invoice' | 'payment';
+export type { ContractPeriodBase };
 
+// RC-F6: os multi guardam o CODIGO, nao o rotulo PT. Antes eram `statusLabels`/
+// `typeLabels` porque a filtragem era em memoria e o mapa rotulo->codigo vivia
+// aqui; agora estes valores viram querystring direto.
 export type ContractFilters = {
-  /** rotulos PT dos status selecionados (multi); mapeados p/ SaleContractStatus. */
-  statusLabels: string[];
-  /** rotulos PT dos tipos selecionados (multi): 'À vista' | 'Futuro'. */
-  typeLabels: string[];
+  statuses: SaleContractStatus[];
+  types: SaleContractType[];
   /** qual data ancora o filtro de periodo. */
   periodBase: ContractPeriodBase;
   periodFrom: string; // 'YYYY-MM-DD' ('' = sem limite inferior)
@@ -23,8 +30,8 @@ export type ContractFilters = {
 };
 
 export const EMPTY_CONTRACT_FILTERS: ContractFilters = {
-  statusLabels: [],
-  typeLabels: [],
+  statuses: [],
+  types: [],
   periodBase: 'contract',
   periodFrom: '',
   periodTo: '',
@@ -32,25 +39,19 @@ export const EMPTY_CONTRACT_FILTERS: ContractFilters = {
   sellerClient: null,
 };
 
-// Status: rotulo PT <-> codigo. A ordem define a ordem dos chips no modal.
+// Status: codigo + rotulo PT. A ordem define a ordem das opcoes no painel.
 export const STATUS_LABELS: { label: string; value: SaleContractStatus }[] = [
   { label: 'Emitido', value: 'EMITIDO' },
   { label: 'Faturado', value: 'FATURADO' },
   { label: 'Pago', value: 'PAGO' },
   { label: 'Washout', value: 'WASH_OUT' },
 ];
-export const LABEL_TO_STATUS: Record<string, SaleContractStatus> = Object.fromEntries(
-  STATUS_LABELS.map((s) => [s.label, s.value])
-);
 
-// Tipo: rotulo PT <-> codigo.
+// Tipo: codigo + rotulo PT.
 export const TYPE_LABELS: { label: string; value: SaleContractType }[] = [
   { label: 'À vista', value: 'MERCADO_A_VISTA' },
   { label: 'Futuro', value: 'FUTURO' },
 ];
-export const LABEL_TO_TYPE: Record<string, SaleContractType> = Object.fromEntries(
-  TYPE_LABELS.map((t) => [t.label, t.value])
-);
 
 // Base do periodo: valor <-> rotulo do <select>.
 export const PERIOD_BASE_LABELS: { value: ContractPeriodBase; label: string }[] = [
@@ -63,8 +64,8 @@ export const PERIOD_BASE_LABELS: { value: ContractPeriodBase; label: string }[] 
 // so quando ha `from` ou `to`.
 export function countActiveContractFilters(f: ContractFilters): number {
   let count = 0;
-  if (f.statusLabels.length) count += 1;
-  if (f.typeLabels.length) count += 1;
+  if (f.statuses.length) count += 1;
+  if (f.types.length) count += 1;
   if (f.periodFrom || f.periodTo) count += 1;
   if (f.buyerClient) count += 1;
   if (f.sellerClient) count += 1;
