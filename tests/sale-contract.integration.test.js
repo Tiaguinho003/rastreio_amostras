@@ -99,12 +99,15 @@ if (!databaseUrl || !databaseReachable) {
     return String(20000000000000 + cnpjCounter);
   }
 
-  async function createBuyerClient(id) {
+  // `legalName` e opcional so pra RC-F6 (busca por nome da parte): os nomes
+  // padrao sao iguais em todos os fixtures, entao um contrato so com nome
+  // proprio prova que a busca casa a PARTE certa, e nao a lista inteira.
+  async function createBuyerClient(id, legalName = 'Comprador PJ') {
     await prisma.client.create({
       data: {
         id,
         personType: 'PJ',
-        legalName: 'Comprador PJ',
+        legalName,
         cnpj: nextCnpj(),
         status: 'INACTIVE',
         isBuyer: true,
@@ -112,12 +115,12 @@ if (!databaseUrl || !databaseReachable) {
     });
   }
 
-  async function createSellerClient(id) {
+  async function createSellerClient(id, legalName = 'Vendedor PJ') {
     await prisma.client.create({
       data: {
         id,
         personType: 'PJ',
-        legalName: 'Vendedor PJ',
+        legalName,
         cnpj: nextCnpj(),
         status: 'INACTIVE',
         isSeller: true,
@@ -1230,6 +1233,264 @@ if (!databaseUrl || !databaseReachable) {
       const detail = await saleContractService.getSaleContract(result.contract.id, actor);
       assert.equal(detail.contract.id, result.contract.id);
     }
+  });
+
+  // =========================================================================
+  // RC-F6: a lista de /contratos virou servidor-side. Antes o front baixava ate
+  // 200 com query VAZIA e filtrava/buscava/contava em memoria.
+  // =========================================================================
+
+  test('RC-F6 lista: status e tipo sao MULTI e filtram no servidor', async () => {
+    const emitido = await setupConfirmedContract({ lotNumber: '20120' });
+    const faturado = await setupConfirmedContract({ lotNumber: '20121' });
+    await saleContractService.invoiceSaleContract(
+      faturado.contractId,
+      { expectedVersion: faturado.version, date: '2026-07-08' },
+      adminActor
+    );
+    const buyerId = randomUUID();
+    await createBuyerClient(buyerId);
+    const futuro = (
+      await saleContractService.createFutureSaleContract(
+        await createFutureInput(buyerId),
+        adminActor
+      )
+    ).contract;
+
+    const all = await saleContractService.listSaleContracts({}, adminActor);
+    assert.equal(all.items.length, 3);
+    assert.equal(all.total, 3);
+
+    // Um valor so.
+    const soFaturado = await saleContractService.listSaleContracts(
+      { status: 'FATURADO' },
+      adminActor
+    );
+    assert.deepEqual(
+      soFaturado.items.map((i) => i.id),
+      [faturado.contractId]
+    );
+    assert.equal(soFaturado.total, 1);
+
+    // Multi por csv (como viaja na querystring) e por lista.
+    const doisStatus = await saleContractService.listSaleContracts(
+      { status: 'EMITIDO,FATURADO' },
+      adminActor
+    );
+    assert.equal(doisStatus.items.length, 3); // o FUTURO tambem esta EMITIDO
+    const porLista = await saleContractService.listSaleContracts(
+      { status: ['EMITIDO', 'FATURADO'] },
+      adminActor
+    );
+    assert.equal(porLista.items.length, 3);
+
+    // Tipo recorta a vista x futuro.
+    const soFuturo = await saleContractService.listSaleContracts({ type: 'FUTURO' }, adminActor);
+    assert.deepEqual(
+      soFuturo.items.map((i) => i.id),
+      [futuro.id]
+    );
+    const soVista = await saleContractService.listSaleContracts(
+      { type: 'MERCADO_A_VISTA' },
+      adminActor
+    );
+    assert.equal(soVista.items.length, 2);
+    assert.ok(soVista.items.every((i) => i.id !== futuro.id));
+
+    // Combinar status + tipo intersecta (AND), nao soma.
+    const combinado = await saleContractService.listSaleContracts(
+      { status: 'EMITIDO', type: 'MERCADO_A_VISTA' },
+      adminActor
+    );
+    assert.deepEqual(
+      combinado.items.map((i) => i.id),
+      [emitido.contractId]
+    );
+
+    // Valor invalido e 422 — ignorar em silencio devolveria a lista inteira.
+    await assert.rejects(
+      () => saleContractService.listSaleContracts({ status: 'QUITADO' }, adminActor),
+      (err) => err.status === 422 && err.details?.field === 'status'
+    );
+  });
+
+  test('RC-F6 lista: busca cobre nº do contrato, nº da compra E nomes das partes', async () => {
+    // Ate a RC-F6 o servidor buscava nº do contrato + nº da compra e o navegador
+    // buscava nº + nomes: campos DIFERENTES nos dois lados. Agora e a uniao.
+    const alvo = await setupConfirmedContract({ lotNumber: '20130' });
+    await setupConfirmedContract({ lotNumber: '20131' }); // ruido
+    const detalhe = await saleContractService.getSaleContract(alvo.contractId, adminActor);
+
+    // Nº do contrato.
+    const porNumero = await saleContractService.listSaleContracts(
+      { search: detalhe.contract.contractNumber },
+      adminActor
+    );
+    assert.deepEqual(
+      porNumero.items.map((i) => i.id),
+      [alvo.contractId]
+    );
+
+    // Nomes das PARTES (snapshot JSON) — o caso que so existia no navegador. Os
+    // fixtures padrao chamam todo mundo de "Comprador PJ"/"Vendedor PJ", entao um
+    // contrato com as duas partes batizadas prova que a busca casa a parte certa.
+    const compradorUnico = randomUUID();
+    const vendedorUnico = randomUUID();
+    await createBuyerClient(compradorUnico, 'Exportadora Zanzibar');
+    await createSellerClient(vendedorUnico, 'Fazenda Kilimanjaro');
+    const bancoDoVendedor = await createSellerBankAccount(vendedorUnico);
+    const futuroInput = await createFutureInput(compradorUnico, {
+      sellerClientId: vendedorUnico,
+      sellerBankAccountId: bancoDoVendedor,
+    });
+    const doZanzibar = (await saleContractService.createFutureSaleContract(futuroInput, adminActor))
+      .contract;
+
+    const porComprador = await saleContractService.listSaleContracts(
+      { search: 'zanzibar' }, // case-insensitive
+      adminActor
+    );
+    assert.deepEqual(
+      porComprador.items.map((i) => i.id),
+      [doZanzibar.id]
+    );
+    assert.equal(porComprador.total, 1);
+
+    // Nome do VENDEDOR (o outro lado do OR do snapshot).
+    const porVendedor = await saleContractService.listSaleContracts(
+      { search: 'kilimanjaro' },
+      adminActor
+    );
+    assert.deepEqual(
+      porVendedor.items.map((i) => i.id),
+      [doZanzibar.id]
+    );
+
+    // E o nome padrao pega so os dois a vista — a busca discrimina a parte.
+    const porNomePadrao = await saleContractService.listSaleContracts(
+      { search: 'Vendedor PJ' },
+      adminActor
+    );
+    assert.equal(porNomePadrao.items.length, 2);
+    assert.ok(porNomePadrao.items.every((i) => i.id !== doZanzibar.id));
+
+    // O ILIKE do snapshot escapa `%`/`_`: sem o escape, '%PJ' viraria curinga e
+    // casaria "Comprador PJ"/"Vendedor PJ" nos tres contratos.
+    const comCuringa = await saleContractService.listSaleContracts({ search: '%PJ' }, adminActor);
+    assert.equal(comCuringa.items.length, 0);
+    assert.equal(comCuringa.total, 0);
+  });
+
+  test('RC-F6 lista: filtra por comprador, vendedor e janela de periodo', async () => {
+    const a = await setupConfirmedContract({ lotNumber: '20140' });
+    const b = await setupConfirmedContract({ lotNumber: '20141' });
+    await saleContractService.invoiceSaleContract(
+      b.contractId,
+      { expectedVersion: b.version, date: '2026-07-08' },
+      adminActor
+    );
+
+    // Partes: cada fixture cria comprador e vendedor proprios.
+    const porComprador = await saleContractService.listSaleContracts(
+      { buyerClientId: a.buyerId },
+      adminActor
+    );
+    assert.deepEqual(
+      porComprador.items.map((i) => i.id),
+      [a.contractId]
+    );
+    const porVendedor = await saleContractService.listSaleContracts(
+      { sellerClientId: b.sellerId },
+      adminActor
+    );
+    assert.deepEqual(
+      porVendedor.items.map((i) => i.id),
+      [b.contractId]
+    );
+
+    // Periodo: a base escolhe a COLUNA. Os dois tem contractDate 2026-06-26;
+    // so o `b` tem invoiceDate/paymentDate preenchidos pelo etapa2 do fixture.
+    const porDataContrato = await saleContractService.listSaleContracts(
+      { periodBase: 'contract', periodFrom: '2026-06-26', periodTo: '2026-06-26' },
+      adminActor
+    );
+    assert.equal(porDataContrato.items.length, 2);
+
+    const foraDaJanela = await saleContractService.listSaleContracts(
+      { periodBase: 'contract', periodFrom: '2026-06-27', periodTo: '2026-12-31' },
+      adminActor
+    );
+    assert.equal(foraDaJanela.items.length, 0);
+    assert.equal(foraDaJanela.total, 0);
+
+    // Janela invertida e 422 (silenciar devolveria zero sem explicar).
+    await assert.rejects(
+      () =>
+        saleContractService.listSaleContracts(
+          { periodFrom: '2026-08-31', periodTo: '2026-08-01' },
+          adminActor
+        ),
+      (err) => err.status === 422 && err.details?.field === 'periodFrom'
+    );
+    await assert.rejects(
+      () => saleContractService.listSaleContracts({ buyerClientId: 'nao-e-uuid' }, adminActor),
+      (err) => err.status === 422 && err.details?.field === 'buyerClientId'
+    );
+  });
+
+  test('RC-F6 lista: keyset por contractSeq nao repete nem pula, e total e do FILTRO', async () => {
+    const criados = [];
+    for (const lotNumber of ['20150', '20151', '20152', '20153', '20154']) {
+      criados.push((await setupConfirmedContract({ lotNumber })).contractId);
+    }
+
+    // Pagina 1: ordem contractSeq desc (mais novo primeiro).
+    const p1 = await saleContractService.listSaleContracts({ limit: 2 }, adminActor);
+    assert.equal(p1.items.length, 2);
+    assert.ok(p1.nextCursor, 'pagina cheia deve trazer cursor');
+    // O total e do filtro inteiro, NAO da pagina — e o que a toolbar mostra.
+    assert.equal(p1.total, 5);
+
+    const p2 = await saleContractService.listSaleContracts(
+      { limit: 2, cursor: p1.nextCursor },
+      adminActor
+    );
+    assert.equal(p2.items.length, 2);
+    assert.equal(p2.total, 5);
+
+    const p3 = await saleContractService.listSaleContracts(
+      { limit: 2, cursor: p2.nextCursor },
+      adminActor
+    );
+    assert.equal(p3.items.length, 1);
+    assert.equal(p3.nextCursor, null, 'ultima pagina nao tem proxima');
+
+    // Sem repetir, sem pular e na ordem decrescente de seq.
+    const paginado = [...p1.items, ...p2.items, ...p3.items].map((i) => i.id);
+    assert.equal(new Set(paginado).size, 5);
+    assert.deepEqual([...paginado].sort(), [...criados].sort());
+    const seqs = [...p1.items, ...p2.items, ...p3.items].map((i) => i.contractSeq);
+    assert.deepEqual(
+      seqs,
+      [...seqs].sort((x, y) => y - x)
+    );
+
+    // O cursor respeita o filtro: filtrando por tipo, o total acompanha.
+    const soVista = await saleContractService.listSaleContracts(
+      { type: 'MERCADO_A_VISTA', limit: 2 },
+      adminActor
+    );
+    assert.equal(soVista.total, 5);
+
+    // Cursor malformado cai na 1a pagina em vez de estourar.
+    const lixo = await saleContractService.listSaleContracts(
+      { limit: 2, cursor: 'abc' },
+      adminActor
+    );
+    assert.deepEqual(
+      lixo.items.map((i) => i.id),
+      p1.items.map((i) => i.id)
+    );
   });
 
   test('gestao de contratos: COMMERCIAL vê/detalha TODOS os contratos (escopo aberto)', async () => {

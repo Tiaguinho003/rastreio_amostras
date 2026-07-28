@@ -512,8 +512,17 @@ export interface CreateSaleContractInput {
   approvalReminderLeadDays?: number | null;
 }
 
+// Qual data ancora o filtro de periodo da lista de /contratos. Mora aqui (e nao
+// no componente do filtro) porque o api-client precisa dele — RC-F6.
+export type ContractPeriodBase = 'contract' | 'invoice' | 'payment';
+
 export interface SaleContractListResponse {
   items: SaleContract[];
+  // RC-F6: a lista pagina por cursor (contractSeq). `nextCursor` nulo = fim.
+  // `total` e a contagem do FILTRO inteiro, nao da pagina — e o que a
+  // `.fv-toolbar-count` mostra.
+  nextCursor: string | null;
+  total: number;
 }
 
 export interface SaleContractResponse {

@@ -12,9 +12,13 @@ import {
   buildContractTimeline,
   buildPartySnapshot,
   buildReceivableView,
+  decodeContractSeqCursor,
   decodeReceivableCursor,
   encodeReceivableCursor,
+  normalizeContractPeriodFilter,
+  normalizeEnumFilterList,
   normalizeReceivableFilter,
+  normalizeUuidFilter,
   receivableKeysetWhere,
   buildShipmentView,
   bucketShipmentEvents,
@@ -89,8 +93,10 @@ const SALE_CONTRACT_ACCESS_ROLES = NON_PROSPECTOR_ROLES;
 // alocacao do contract_seq na criacao do contrato Futuro (sem movimento).
 const SALE_CONTRACT_SEQ_LOCK_KEY = 831202606;
 
-const SALE_CONTRACT_LIST_LIMIT_DEFAULT = 200;
-const SALE_CONTRACT_LIST_LIMIT_MAX = 500;
+// RC-F6: a lista pagina por cursor (contractSeq) com scroll infinito no front —
+// o teto caiu de 200/500 pra uma pagina de verdade (molde do FINANCEIRO_LIST_*).
+const SALE_CONTRACT_LIST_LIMIT_DEFAULT = 30;
+const SALE_CONTRACT_LIST_LIMIT_MAX = 60;
 
 // AP16: teto dos envios de aprovacao recentes no feed "Ultimos envios" (mesmo 40 do
 // DASHBOARD_RECENT_SENDS_LIMIT do samples query-service). DSB-D5: cada lista tem seu
@@ -110,40 +116,94 @@ export class SaleContractService {
     this.queryService = queryService;
   }
 
+  // RC-F6: a lista de /contratos virou servidor-side. Ate aqui o front chamava com
+  // query VAZIA e resolvia tudo em memoria — acima do teto de 200 os contratos
+  // sumiam sem aviso, a contagem exibida era a do array baixado e `?details=<id>`
+  // de um contrato fora da pagina morria calado. Agora busca, filtros e paginacao
+  // (keyset por contractSeq) vivem aqui.
   async listSaleContracts(input, actorContext) {
     const actor = assertAuthenticatedActor(actorContext, 'list sale contracts');
     assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'list sale contracts');
 
     const search = typeof input?.search === 'string' ? input.search.trim() : '';
-    const status = input?.status ? this._normalizeStatusFilter(input.status) : null;
-    const type = input?.type ? this._normalizeTypeFilter(input.type) : null;
+    const statuses = normalizeEnumFilterList(input?.status, SALE_CONTRACT_STATUSES, 'status');
+    const types = normalizeEnumFilterList(input?.type, SALE_CONTRACT_TYPES, 'type');
+    const buyerClientId = normalizeUuidFilter(input?.buyerClientId, 'buyerClientId');
+    const sellerClientId = normalizeUuidFilter(input?.sellerClientId, 'sellerClientId');
+    const period = normalizeContractPeriodFilter(input);
     const limit = readLimitQuery(input?.limit, {
       fallback: SALE_CONTRACT_LIST_LIMIT_DEFAULT,
       max: SALE_CONTRACT_LIST_LIMIT_MAX,
     });
+    const cursor = decodeContractSeqCursor(input?.cursor);
 
-    const where = {};
-    if (status) {
-      where.status = status;
-    }
-    if (type) {
-      where.type = type;
+    // Filtros como lista AND (evita a chave OR da busca colidir com a do periodo).
+    // filterClauses (sem cursor) alimenta o count do total; pageWhere acrescenta o
+    // cursor — molde do listUsers.
+    const filterClauses = [];
+    if (statuses.length) filterClauses.push({ status: { in: statuses } });
+    if (types.length) filterClauses.push({ type: { in: types } });
+    if (buyerClientId) filterClauses.push({ buyerClientId });
+    if (sellerClientId) filterClauses.push({ sellerClientId });
+    if (period.from || period.to) {
+      const range = {};
+      if (period.from) range.gte = period.from;
+      if (period.to) range.lte = period.to;
+      filterClauses.push({ [period.field]: range });
     }
     if (search.length >= 1) {
-      where.OR = [
-        { contractNumber: { contains: search, mode: 'insensitive' } },
-        { purchaseNumber: { contains: search, mode: 'insensitive' } },
-      ];
+      // As partes moram em JSON (seller_snapshot/buyer_snapshot) — ILIKE no `->>` e
+      // o mesmo molde do Financeiro. Ate a RC-F6 o servidor buscava nº do contrato +
+      // nº da compra e o navegador buscava nº + nomes das partes: campos DIFERENTES
+      // nos dois lados. Agora e a uniao dos quatro, num lugar so.
+      const partyMatchIds = await this._searchPartyContractIds(search);
+      filterClauses.push({
+        OR: [
+          { contractNumber: { contains: search, mode: 'insensitive' } },
+          { purchaseNumber: { contains: search, mode: 'insensitive' } },
+          { id: { in: partyMatchIds } },
+        ],
+      });
     }
 
-    const rows = await this.prisma.saleContract.findMany({
-      where,
-      orderBy: [{ contractSeq: 'desc' }],
-      take: limit,
-      select: SALE_CONTRACT_VIEW_SELECT,
-    });
+    const filterWhere = filterClauses.length ? { AND: filterClauses } : {};
+    const pageWhere = cursor
+      ? { AND: [...filterClauses, { contractSeq: { lt: cursor } }] }
+      : filterWhere;
 
-    return { items: rows.map(toSaleContractView) };
+    // take = limit + 1 detecta a proxima pagina sem um count extra por rolagem.
+    const [rows, total] = await this.prisma.$transaction([
+      this.prisma.saleContract.findMany({
+        where: pageWhere,
+        orderBy: [{ contractSeq: 'desc' }],
+        take: limit + 1,
+        select: SALE_CONTRACT_VIEW_SELECT,
+      }),
+      this.prisma.saleContract.count({ where: filterWhere }),
+    ]);
+
+    const hasMore = rows.length > limit;
+    const pageRows = hasMore ? rows.slice(0, limit) : rows;
+
+    return {
+      items: pageRows.map(toSaleContractView),
+      nextCursor: hasMore ? String(pageRows[pageRows.length - 1].contractSeq) : null,
+      total,
+    };
+  }
+
+  // RC-F6: ids dos contratos cujo vendedor OU comprador casa com a busca. Os nomes
+  // moram no snapshot JSON, entao vai por $queryRaw com ILIKE no `->>'displayName'`
+  // (mesmo escape de \ % _ do _searchBuyerContractIds do Financeiro).
+  async _searchPartyContractIds(search) {
+    const esc = search.replace(/[\\%_]/g, (c) => `\\${c}`);
+    const like = `%${esc}%`;
+    const rows = await this.prisma.$queryRaw`
+      SELECT id FROM sale_contract
+      WHERE seller_snapshot->>'displayName' ILIKE ${like}
+         OR buyer_snapshot->>'displayName' ILIKE ${like}
+    `;
+    return [...new Set(rows.map((r) => r.id))];
   }
 
   // Financeiro (Fase F): lista a corretagem A RECEBER por fechamento. Relatorio
@@ -2180,27 +2240,5 @@ export class SaleContractService {
     }
 
     return { list, item };
-  }
-
-  _normalizeStatusFilter(value) {
-    const normalized = String(value).trim().toUpperCase();
-    if (!SALE_CONTRACT_STATUSES.includes(normalized)) {
-      throw new HttpError(422, 'status is invalid', {
-        code: 'VALIDATION_ERROR',
-        field: 'status',
-      });
-    }
-    return normalized;
-  }
-
-  _normalizeTypeFilter(value) {
-    const normalized = String(value).trim().toUpperCase();
-    if (!SALE_CONTRACT_TYPES.includes(normalized)) {
-      throw new HttpError(422, 'type is invalid', {
-        code: 'VALIDATION_ERROR',
-        field: 'type',
-      });
-    }
-    return normalized;
   }
 }

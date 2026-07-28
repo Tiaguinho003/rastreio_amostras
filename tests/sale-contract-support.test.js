@@ -25,6 +25,7 @@ import {
   buildShipmentView,
   computeContractMoney,
   computeContractMoneyWithAgio,
+  decodeContractSeqCursor,
   formatContractNumber,
   isFutureContract,
   isSpotContract,
@@ -32,7 +33,10 @@ import {
   normalizeBrokeragePct,
   normalizeBrokerIds,
   normalizeContractLookupInput,
+  normalizeContractPeriodFilter,
+  normalizeEnumFilterList,
   normalizeEtapa2Input,
+  normalizeUuidFilter,
   normalizeRequiredAgio,
   normalizeShipmentCarrier,
   normalizeUnitPrice,
@@ -1196,4 +1200,115 @@ test('buildDashboardAvisoItem: dueInDays por proximidade; "À definir" = null', 
     '2026-07-15'
   );
   assert.equal(past.dueInDays, -5);
+});
+
+// ===========================================================================
+// RC-F6: filtros da lista de /contratos (agora servidor-side).
+// ===========================================================================
+
+const STATUSES = ['EMITIDO', 'FATURADO', 'PAGO', 'WASH_OUT'];
+
+test('normalizeEnumFilterList: aceita lista, string e csv; vazio = sem filtro', () => {
+  assert.deepEqual(normalizeEnumFilterList(undefined, STATUSES, 'status'), []);
+  assert.deepEqual(normalizeEnumFilterList(null, STATUSES, 'status'), []);
+  assert.deepEqual(normalizeEnumFilterList('', STATUSES, 'status'), []);
+
+  // Multi-selecao viaja como csv na querystring; um valor so viaja cru.
+  assert.deepEqual(normalizeEnumFilterList('PAGO', STATUSES, 'status'), ['PAGO']);
+  assert.deepEqual(normalizeEnumFilterList('EMITIDO,PAGO', STATUSES, 'status'), [
+    'EMITIDO',
+    'PAGO',
+  ]);
+  assert.deepEqual(normalizeEnumFilterList(['EMITIDO', 'PAGO'], STATUSES, 'status'), [
+    'EMITIDO',
+    'PAGO',
+  ]);
+
+  // Normaliza caixa/espaco e nao repete.
+  assert.deepEqual(normalizeEnumFilterList(' pago , PAGO ', STATUSES, 'status'), ['PAGO']);
+  // Itens vazios do csv sao ignorados (trailing comma nao vira erro).
+  assert.deepEqual(normalizeEnumFilterList('PAGO,', STATUSES, 'status'), ['PAGO']);
+});
+
+test('normalizeEnumFilterList: item invalido e 422, nao silencio', () => {
+  // Ignorar em silencio faria um erro de digitacao devolver a lista INTEIRA.
+  assert.throws(
+    () => normalizeEnumFilterList('QUITADO', STATUSES, 'status'),
+    (err) => {
+      assert.equal(err.status, 422);
+      assert.equal(err.details?.field, 'status');
+      return true;
+    }
+  );
+  assert.throws(() => normalizeEnumFilterList('PAGO,QUITADO', STATUSES, 'status'), /invalid/);
+});
+
+test('normalizeUuidFilter: vazio = sem filtro, malformado = 422', () => {
+  assert.equal(normalizeUuidFilter(undefined, 'buyerClientId'), null);
+  assert.equal(normalizeUuidFilter('', 'buyerClientId'), null);
+  assert.equal(normalizeUuidFilter(` ${UUID_1} `, 'buyerClientId'), UUID_1);
+  assert.throws(
+    () => normalizeUuidFilter('nao-e-uuid', 'buyerClientId'),
+    (err) => {
+      assert.equal(err.status, 422);
+      assert.equal(err.details?.field, 'buyerClientId');
+      return true;
+    }
+  );
+});
+
+test('normalizeContractPeriodFilter: base escolhe a COLUNA; janela ancorada em UTC', () => {
+  // Sem base -> data do contrato. Sem janela -> nao recorta nada.
+  assert.deepEqual(normalizeContractPeriodFilter({}), {
+    field: 'contractDate',
+    from: null,
+    to: null,
+  });
+  assert.equal(normalizeContractPeriodFilter({ periodBase: 'invoice' }).field, 'invoiceDate');
+  assert.equal(normalizeContractPeriodFilter({ periodBase: 'payment' }).field, 'paymentDate');
+
+  const range = normalizeContractPeriodFilter({
+    periodBase: 'payment',
+    periodFrom: '2026-08-01',
+    periodTo: '2026-08-31',
+  });
+  // @db.Date e meia-noite UTC: ancorar em T00:00:00Z evita off-by-one de fuso.
+  assert.equal(range.from.toISOString(), '2026-08-01T00:00:00.000Z');
+  assert.equal(range.to.toISOString(), '2026-08-31T00:00:00.000Z');
+
+  // Uma ponta so e valido (aberto do outro lado).
+  assert.equal(normalizeContractPeriodFilter({ periodFrom: '2026-08-01' }).to, null);
+  assert.equal(normalizeContractPeriodFilter({ periodTo: '2026-08-01' }).from, null);
+});
+
+test('normalizeContractPeriodFilter: base/data invalida e janela invertida sao 422', () => {
+  assert.throws(
+    () => normalizeContractPeriodFilter({ periodBase: 'embarque' }),
+    (err) => {
+      assert.equal(err.status, 422);
+      assert.equal(err.details?.field, 'periodBase');
+      return true;
+    }
+  );
+  assert.throws(() => normalizeContractPeriodFilter({ periodFrom: '01/08/2026' }), /YYYY-MM-DD/);
+  assert.throws(
+    () => normalizeContractPeriodFilter({ periodFrom: '2026-08-31', periodTo: '2026-08-01' }),
+    (err) => {
+      assert.equal(err.status, 422);
+      assert.equal(err.details?.field, 'periodFrom');
+      return true;
+    }
+  );
+});
+
+test('decodeContractSeqCursor: seq positivo; lixo vira 1a pagina', () => {
+  assert.equal(decodeContractSeqCursor('42'), 42);
+  assert.equal(decodeContractSeqCursor(42), 42);
+  assert.equal(decodeContractSeqCursor(undefined), null);
+  assert.equal(decodeContractSeqCursor(''), null);
+  // Cursor malformado nao explode: cai na 1a pagina (molde do Financeiro).
+  assert.equal(decodeContractSeqCursor('abc'), null);
+  assert.equal(decodeContractSeqCursor('1.5'), null);
+  assert.equal(decodeContractSeqCursor('-1'), null);
+  assert.equal(decodeContractSeqCursor('0'), null);
 });

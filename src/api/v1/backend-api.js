@@ -2833,8 +2833,21 @@ export function createBackendApiV1({
         }
         const actor = await resolveActorContext(input, authService);
         const query = input?.query ?? {};
+        // RC-F6: a lista virou servidor-side. `status` e `type` chegam como lista
+        // separada por virgula (sao multi-selecao na tela); `cursor` e o contractSeq.
         const result = await saleContractService.listSaleContracts(
-          { search: query.search, status: query.status, type: query.type, limit: query.limit },
+          {
+            search: query.search,
+            status: query.status,
+            type: query.type,
+            buyerClientId: query.buyerClientId,
+            sellerClientId: query.sellerClientId,
+            periodBase: query.periodBase,
+            periodFrom: query.periodFrom,
+            periodTo: query.periodTo,
+            limit: query.limit,
+            cursor: query.cursor,
+          },
           actor
         );
         return { status: 200, body: result };

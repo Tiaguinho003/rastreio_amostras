@@ -809,6 +809,111 @@ export function receivableKeysetWhere(cursor) {
   return { contractSeq: { lt: cursor.seq } };
 }
 
+// ===========================================================================
+// RC-F6: filtros da lista de /contratos. Ate aqui a pagina baixava ate 200
+// contratos com query VAZIA e filtrava/buscava/contava no navegador — acima do
+// teto os contratos sumiam sem aviso e a contagem mentia. Estes helpers sao
+// puros; o `where` e a paginacao moram no listSaleContracts.
+// ===========================================================================
+
+const CONTRACT_PERIOD_BASES = Object.freeze(['contract', 'invoice', 'payment']);
+const CONTRACT_PERIOD_FIELD = Object.freeze({
+  contract: 'contractDate',
+  invoice: 'invoiceDate',
+  payment: 'paymentDate',
+});
+const FILTER_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+// Status e tipo sao MULTI-selecao na tela. Aceita string, lista, ou string
+// separada por virgula (querystring) e devolve sempre lista normalizada. Vazio =
+// sem filtro; item invalido = 422 — ignorar em silencio faria um erro de
+// digitacao devolver a lista inteira sem ninguem perceber.
+export function normalizeEnumFilterList(raw, allowed, fieldName) {
+  if (raw === undefined || raw === null || raw === '') return [];
+  const values = Array.isArray(raw) ? raw : String(raw).split(',');
+  const out = [];
+  for (const value of values) {
+    const normalized = String(value).trim().toUpperCase();
+    if (normalized === '') continue;
+    if (!allowed.includes(normalized)) {
+      throw new HttpError(422, `${fieldName} is invalid`, {
+        code: 'VALIDATION_ERROR',
+        field: fieldName,
+      });
+    }
+    if (!out.includes(normalized)) out.push(normalized);
+  }
+  return out;
+}
+
+export function normalizeUuidFilter(value, fieldName) {
+  if (value === undefined || value === null || value === '') return null;
+  const raw = String(value).trim();
+  if (!UUID_REGEX.test(raw)) {
+    throw new HttpError(422, `${fieldName} is invalid`, {
+      code: 'VALIDATION_ERROR',
+      field: fieldName,
+    });
+  }
+  return raw;
+}
+
+// Periodo = uma BASE (data do contrato / do faturamento / do pagamento) + janela
+// inclusiva. A base sozinha nao recorta nada — a tela manda ela sempre, mesmo sem
+// datas. Devolve o NOME da coluna ja resolvido pra o service so montar o range.
+export function normalizeContractPeriodFilter({ periodBase, periodFrom, periodTo } = {}) {
+  const base =
+    periodBase === undefined || periodBase === null || periodBase === ''
+      ? 'contract'
+      : String(periodBase).trim().toLowerCase();
+  if (!CONTRACT_PERIOD_BASES.includes(base)) {
+    throw new HttpError(422, 'periodBase is invalid', {
+      code: 'VALIDATION_ERROR',
+      field: 'periodBase',
+    });
+  }
+  const from = normalizeFilterDate(periodFrom, 'periodFrom');
+  const to = normalizeFilterDate(periodTo, 'periodTo');
+  if (from && to && from.getTime() > to.getTime()) {
+    throw new HttpError(422, 'periodFrom must not be after periodTo', {
+      code: 'VALIDATION_ERROR',
+      field: 'periodFrom',
+    });
+  }
+  return { field: CONTRACT_PERIOD_FIELD[base], from, to };
+}
+
+// As datas do contrato sao @db.Date (meia-noite UTC) — ancorar em T00:00:00Z
+// mantem a janela alinhada ao dia-calendario, sem off-by-one de fuso.
+function normalizeFilterDate(value, fieldName) {
+  if (value === undefined || value === null || value === '') return null;
+  const raw = String(value).trim();
+  if (!FILTER_DATE_REGEX.test(raw)) {
+    throw new HttpError(422, `${fieldName} must be a YYYY-MM-DD date`, {
+      code: 'VALIDATION_ERROR',
+      field: fieldName,
+    });
+  }
+  const date = new Date(`${raw}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) {
+    throw new HttpError(422, `${fieldName} is invalid`, {
+      code: 'VALIDATION_ERROR',
+      field: fieldName,
+    });
+  }
+  return date;
+}
+
+// Cursor da lista de contratos. A ordem e `contractSeq desc` — coluna UNICA e
+// monotonica —, entao o cursor E o proprio seq: nao ha tupla a esconder, ao
+// contrario do cursor de 3 campos do Financeiro (que precisa de base64url).
+// Cursor malformado vira 1a pagina, mesmo molde do decodeReceivableCursor.
+export function decodeContractSeqCursor(raw) {
+  if (raw === undefined || raw === null || raw === '') return null;
+  const seq = Number(raw);
+  return Number.isInteger(seq) && seq > 0 ? seq : null;
+}
+
 // "Hoje" no fuso BRT (America/Sao_Paulo — sem DST desde 2019, offset fixo −3h),
 // ancorado como Date meia-noite-UTC do dia-CALENDARIO BRT. As datas do contrato sao
 // @db.Date (meia-noite UTC); comparar contra este ancora mantem o corte de

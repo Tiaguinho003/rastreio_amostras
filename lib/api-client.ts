@@ -10,6 +10,7 @@ import type {
   BrokerResponse,
   ContractLookupListKey,
   ContractLookupsResponse,
+  ContractPeriodBase,
   CreateContractLookupResponse,
   CreateSaleContractInput,
   FinanceiroFilter,
@@ -784,15 +785,40 @@ export function updateBroker(
 
 // Fechamento (Fase B.2): gestao de contratos (ADMIN+COMMERCIAL, escopo aberto — ambos
 // veem/gerenciam TODOS os contratos; own-only revogado 2026-07-13, D110 superada).
+// RC-F6: busca, filtros e paginacao sao do SERVIDOR. `status`/`type` sao
+// multi-selecao e viajam separados por virgula; `cursor` e o contractSeq da
+// ultima linha da pagina anterior.
 export function listSaleContracts(
   session: SessionData,
-  query: { search?: string; status?: SaleContractStatus; type?: SaleContractType } = {},
+  query: {
+    search?: string;
+    status?: SaleContractStatus[];
+    type?: SaleContractType[];
+    buyerClientId?: string;
+    sellerClientId?: string;
+    periodBase?: ContractPeriodBase;
+    periodFrom?: string;
+    periodTo?: string;
+    limit?: number;
+    cursor?: string | null;
+  } = {},
   options: { signal?: AbortSignal } = {}
 ) {
   const params = new URLSearchParams();
   if (query.search) params.set('search', query.search);
-  if (query.status) params.set('status', query.status);
-  if (query.type) params.set('type', query.type);
+  if (query.status?.length) params.set('status', query.status.join(','));
+  if (query.type?.length) params.set('type', query.type.join(','));
+  if (query.buyerClientId) params.set('buyerClientId', query.buyerClientId);
+  if (query.sellerClientId) params.set('sellerClientId', query.sellerClientId);
+  // A base so viaja acompanhada de pelo menos uma ponta da janela — sozinha ela
+  // nao recorta nada e so sujaria a URL.
+  if (query.periodFrom || query.periodTo) {
+    if (query.periodBase) params.set('periodBase', query.periodBase);
+    if (query.periodFrom) params.set('periodFrom', query.periodFrom);
+    if (query.periodTo) params.set('periodTo', query.periodTo);
+  }
+  if (query.limit) params.set('limit', String(query.limit));
+  if (query.cursor) params.set('cursor', query.cursor);
   const suffix = params.size ? `?${params.toString()}` : '';
   return request<SaleContractListResponse>(`/sale-contracts${suffix}`, {
     method: 'GET',
