@@ -28283,6 +28283,15 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   color: #c45c5c;
   font-weight: 600;
 }
+/* RC-D33: aviso de que emitir vai TROCAR o dono do lote. Ambar, nao vermelho —
+   nao e erro nem impede a emissao; e uma consequencia que estava invisivel. */
+.ctr-owner-warning {
+  padding-left: 0.15rem;
+  color: #8a6116;
+  font-size: 0.74rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
 /* Fix do input date no WebKit (mesmo do modal central) — sem isso o campo
    estoura a largura no iOS. */
 .bottom-sheet.ctr-form-sheet .app-modal-input[type='date'] {

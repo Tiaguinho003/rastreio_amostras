@@ -1,6 +1,7 @@
 'use client';
 
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import {
   ApiError,
@@ -214,9 +215,25 @@ export function SaleContractEtapa2Modal({
     null
   );
 
+  // RC-D34: houve mexida do usuário em algum campo. Não dá pra inferir de
+  // "campo preenchido": à vista o formulário JÁ nasce com data, sacas, vendedor,
+  // filial e banco (RC-D31) e no Editar nasce com o contrato inteiro — o guard
+  // dispararia sempre, que é pior que não existir.
+  const [touched, setTouched] = useState(false);
+  // Qual saída está esperando a confirmação: fechar de vez ou voltar ao picker.
+  const [pendingExit, setPendingExit] = useState<'close' | 'back' | null>(null);
+
   function clearErrors() {
     setError(null);
     setFieldError(null);
+  }
+
+  // RC-D34: qualquer mexida do usuario num campo. Serve de sinal de rascunho
+  // sujo (o `descartar?` ao fechar) e limpa o erro de campo de quebra — os dois
+  // acontecem sempre juntos, entao os handlers chamam um so.
+  function onFieldChange() {
+    setTouched(true);
+    clearErrors();
   }
 
   // Um erro por vez (o 1º pendente), como já era — só que agora apontando o campo.
@@ -237,6 +254,12 @@ export function SaleContractEtapa2Modal({
     if (fieldError?.field !== field) return null;
     return <span className="app-modal-field-error">{fieldError.message}</span>;
   }
+
+  // Fecha o confirm aninhado quando o pai sinaliza fechamento — senão ele fica
+  // pendurado durante o unmount atrasado do sheet (molde do WeeklyReportFormSheet).
+  useEffect(() => {
+    if (!open) setPendingExit(null);
+  }, [open]);
 
   // Rola até o campo com erro: sem isso, apertar Emitir com um campo pendente
   // acima da dobra não muda nada visível. Consulta o DOM em vez de manter ~25
@@ -415,7 +438,7 @@ export function SaleContractEtapa2Modal({
     setSeller(client);
     setSellerUnitId('');
     setBankAccountId('');
-    clearErrors();
+    onFieldChange();
     if (!client) {
       setSellerUnits([]);
       return;
@@ -439,7 +462,7 @@ export function SaleContractEtapa2Modal({
   async function handleSelectBuyer(client: ClientSummary | null) {
     setBuyer(client);
     setBuyerUnitId('');
-    clearErrors();
+    onFieldChange();
     if (!client) {
       setBuyerUnits([]);
       return;
@@ -456,7 +479,7 @@ export function SaleContractEtapa2Modal({
   async function handleSelectWarehouse(which: 'buyer' | 'seller', client: ClientSummary | null) {
     if (which === 'buyer') setBuyerWarehouse(client);
     else setSellerWarehouse(client);
-    clearErrors();
+    onFieldChange();
     // D49: liga isWarehouse no cliente escolhido (best-effort — o contrato
     // guarda a referencia mesmo se isto falhar).
     if (client && !client.isWarehouse) {
@@ -798,7 +821,7 @@ export function SaleContractEtapa2Modal({
         value={sellerUnitId}
         onChange={(id) => {
           setSellerUnitId(id);
-          clearErrors();
+          onFieldChange();
         }}
         disabled={disabled}
         placeholder="Selecione a filial"
@@ -821,7 +844,7 @@ export function SaleContractEtapa2Modal({
         value={buyerUnitId}
         onChange={(id) => {
           setBuyerUnitId(id);
-          clearErrors();
+          onFieldChange();
         }}
         disabled={disabled}
         placeholder="Selecione a filial"
@@ -845,7 +868,7 @@ export function SaleContractEtapa2Modal({
         disabled={disabled}
         onChange={(event) => {
           setAgioType(event.target.value as '' | 'AGIO' | 'DESAGIO');
-          clearErrors();
+          onFieldChange();
         }}
       >
         <option value="">Nenhum</option>
@@ -865,7 +888,7 @@ export function SaleContractEtapa2Modal({
         disabled={disabled}
         onChange={(event) => {
           setAgioValue(maskCurrencyInput(event.target.value));
-          clearErrors();
+          onFieldChange();
         }}
         placeholder="0,00"
       />
@@ -897,12 +920,51 @@ export function SaleContractEtapa2Modal({
   // rodapé mostra "Cancelar".
   const handleBack = onBack ?? null;
 
+  // RC-D33: à vista, emitir com vendedor != dono do lote transfere o lote para o
+  // vendedor (`_syncSampleOwner`). Só vale quando o lote TEM dono — sem dono, a
+  // venda apenas atribui um, e não há troca a avisar.
+  const ownerWillChange =
+    isSpotCreate &&
+    spotCreate != null &&
+    spotCreate.ownerClientId != null &&
+    seller != null &&
+    seller.id !== spotCreate.ownerClientId;
+
+  function doExit(kind: 'close' | 'back') {
+    if (kind === 'back' && handleBack) handleBack();
+    else handleSheetClose();
+  }
+
+  // RC-D34: as duas saídas perdem o formulário inteiro. Com algo preenchido pelo
+  // usuário, pedem confirmação; com o formulário intocado, saem direto — a
+  // pergunta em cima de nada é só atrito. `true` = pode sair agora.
+  function canExit(kind: 'close' | 'back'): boolean {
+    if (saving) return false;
+    if (touched) {
+      setPendingExit(kind);
+      return false;
+    }
+    return true;
+  }
+
+  // O botão do rodapé precisa AGIR; o dismiss do sheet só precisa da resposta
+  // (quem fecha, nesse caso, é o próprio BottomSheet).
+  function requestExit(kind: 'close' | 'back') {
+    if (canExit(kind)) doExit(kind);
+  }
+
+  function confirmExit() {
+    const kind = pendingExit ?? 'close';
+    setPendingExit(null);
+    doExit(kind);
+  }
+
   const sheetFooter = (
     <div className="app-modal-actions ctr-etapa2-actions">
       <button
         type="button"
         className="app-modal-secondary"
-        onClick={handleBack ?? handleSheetClose}
+        onClick={() => requestExit(handleBack ? 'back' : 'close')}
         disabled={saving}
       >
         {handleBack ? 'Voltar' : 'Cancelar'}
@@ -923,12 +985,13 @@ export function SaleContractEtapa2Modal({
       <BottomSheet
         open={open}
         onClose={handleSheetClose}
-        onDismissAttempt={() => !saving}
+        onDismissAttempt={() => canExit('close')}
         title={null}
         ariaLabel={sheetTitle}
         footer={sheetFooter}
         stacked={isSpotCreate}
         closeVariant="edge-back"
+        dragDisabled={pendingExit != null}
         className="fv-panel-sheet side-sheet ctr-form-sheet ctr-contract-sheet"
       >
         {error ? <p className="sdv-modal-error">{error}</p> : null}
@@ -1015,7 +1078,7 @@ export function SaleContractEtapa2Modal({
                       disabled={disabled}
                       onChange={(event) => {
                         setSaleDate(event.target.value);
-                        clearErrors();
+                        onFieldChange();
                       }}
                     />
                     {fieldMessage('saleDate')}
@@ -1038,7 +1101,7 @@ export function SaleContractEtapa2Modal({
                         disabled={disabled || sampleIsBlend}
                         onChange={(event) => {
                           setSaleSacks(event.target.value.replace(/[^0-9]/g, ''));
-                          clearErrors();
+                          onFieldChange();
                         }}
                       />
                       {fieldMessage('saleSacks')}
@@ -1053,7 +1116,7 @@ export function SaleContractEtapa2Modal({
                         disabled={disabled}
                         onChange={(event) => {
                           setSaleUnitPrice(maskCurrencyInput(event.target.value));
-                          clearErrors();
+                          onFieldChange();
                         }}
                         placeholder="0,00"
                       />
@@ -1071,7 +1134,7 @@ export function SaleContractEtapa2Modal({
                         disabled={disabled}
                         onChange={(event) => {
                           setSaleSellerPct(event.target.value.replace(/[^0-9.,]/g, ''));
-                          clearErrors();
+                          onFieldChange();
                         }}
                         placeholder="0"
                       />
@@ -1087,7 +1150,7 @@ export function SaleContractEtapa2Modal({
                         disabled={disabled}
                         onChange={(event) => {
                           setSaleBuyerPct(event.target.value.replace(/[^0-9.,]/g, ''));
-                          clearErrors();
+                          onFieldChange();
                         }}
                         placeholder="0"
                       />
@@ -1103,7 +1166,7 @@ export function SaleContractEtapa2Modal({
                       disabled={disabled}
                       onChange={(ids) => {
                         setSaleBrokerIds(ids);
-                        clearErrors();
+                        onFieldChange();
                       }}
                     />
                     {fieldMessage('saleBrokers')}
@@ -1133,6 +1196,16 @@ export function SaleContractEtapa2Modal({
                         createLabel="Cadastrar vendedor"
                       />
                       {fieldMessage('seller')}
+                      {/* RC-D33: vender por outro que não o dono TRANSFERE o lote
+                          (_syncSampleOwner, no mesmo emit). Era um efeito
+                          invisível: nada na tela dizia que o dono do lote ia
+                          mudar. */}
+                      {ownerWillChange ? (
+                        <span className="ctr-owner-warning">
+                          O lote passa a ser de {seller?.displayName ?? 'este vendedor'} ao emitir.
+                          Hoje é de {spotCreate?.ownerName ?? 'outro produtor'}.
+                        </span>
+                      ) : null}
                     </div>
 
                     {sellerIsPF ? sellerUnitField : null}
@@ -1150,7 +1223,7 @@ export function SaleContractEtapa2Modal({
                         defaultHolderTaxId={seller?.cnpj ?? seller?.cpf ?? null}
                         onChange={(id) => {
                           setBankAccountId(id ?? '');
-                          clearErrors();
+                          onFieldChange();
                         }}
                       />
                       {fieldMessage('bankAccount')}
@@ -1241,7 +1314,7 @@ export function SaleContractEtapa2Modal({
                         value={paymentFormId}
                         onChange={(id) => {
                           setPaymentFormId(id);
-                          clearErrors();
+                          onFieldChange();
                         }}
                         disabled={disabled}
                         loading={!lookups}
@@ -1270,7 +1343,7 @@ export function SaleContractEtapa2Modal({
                         value={modalityId}
                         onChange={(id) => {
                           setModalityId(id);
-                          clearErrors();
+                          onFieldChange();
                         }}
                         disabled={disabled}
                         loading={!lookups}
@@ -1300,7 +1373,7 @@ export function SaleContractEtapa2Modal({
                       value={packagingId}
                       onChange={(id) => {
                         setPackagingId(id);
-                        clearErrors();
+                        onFieldChange();
                       }}
                       disabled={disabled}
                       loading={!lookups}
@@ -1336,7 +1409,7 @@ export function SaleContractEtapa2Modal({
                                 if (!prev) setInvoiceDate('');
                                 return !prev;
                               });
-                              clearErrors();
+                              onFieldChange();
                             }}
                           >
                             À definir
@@ -1351,7 +1424,7 @@ export function SaleContractEtapa2Modal({
                         disabled={disabled || invoiceDateTbd}
                         onChange={(event) => {
                           setInvoiceDate(event.target.value);
-                          clearErrors();
+                          onFieldChange();
                         }}
                       />
                       {/* O aviso do submit entra só como ÚLTIMO caso: as datas já
@@ -1378,7 +1451,7 @@ export function SaleContractEtapa2Modal({
                                 if (!prev) setPaymentDate('');
                                 return !prev;
                               });
-                              clearErrors();
+                              onFieldChange();
                             }}
                           >
                             À definir
@@ -1393,7 +1466,7 @@ export function SaleContractEtapa2Modal({
                         disabled={disabled || paymentDateTbd}
                         onChange={(event) => {
                           setPaymentDate(event.target.value);
-                          clearErrors();
+                          onFieldChange();
                         }}
                       />
                       {!paymentDateTbd && isWeekendIso(paymentDate) ? (
@@ -1432,7 +1505,7 @@ export function SaleContractEtapa2Modal({
                           disabled={disabled}
                           onClick={() => {
                             setRequiresApproval(true);
-                            clearErrors();
+                            onFieldChange();
                           }}
                         >
                           Sim
@@ -1444,7 +1517,7 @@ export function SaleContractEtapa2Modal({
                           disabled={disabled}
                           onClick={() => {
                             setRequiresApproval(false);
-                            clearErrors();
+                            onFieldChange();
                           }}
                         >
                           Não
@@ -1490,7 +1563,7 @@ export function SaleContractEtapa2Modal({
                         disabled={disabled}
                         onChange={(event) => {
                           setApprovalReminderLeadDays(event.target.value.replace(/[^0-9]/g, ''));
-                          clearErrors();
+                          onFieldChange();
                         }}
                         placeholder="30"
                       />
@@ -1626,6 +1699,62 @@ export function SaleContractEtapa2Modal({
           if (which) void handleSelectWarehouse(which, client);
         }}
       />
+
+      {/* RC-D34: descartar rascunho. Confirm central `.is-scrim-none` +
+          `.is-compact` — o fundo NÃO escurece, então o formulário que está
+          prestes a se perder continua visível atrás (molde de /users e
+          /relatorios, skill `forms` §8). */}
+      {pendingExit
+        ? createPortal(
+            <div className="app-modal-backdrop is-scrim-none" onClick={() => setPendingExit(null)}>
+              <section
+                className="app-modal is-themed app-confirm-modal is-compact"
+                role="alertdialog"
+                aria-modal="true"
+                aria-labelledby="ctr-discard-title"
+                aria-describedby="ctr-discard-description"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="app-modal-content">
+                  <div className="app-confirm-modal-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                      <path d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+                      <path d="M12 9v4" />
+                      <path d="M12 17v.01" />
+                    </svg>
+                  </div>
+                  <h3 id="ctr-discard-title" className="app-confirm-modal-title">
+                    {pendingExit === 'back'
+                      ? 'Voltar e escolher outro lote?'
+                      : 'Descartar contrato?'}
+                  </h3>
+                  <p id="ctr-discard-description" className="app-confirm-modal-message">
+                    O que você preencheu será perdido. O contrato ainda não foi emitido.
+                  </p>
+                </div>
+
+                <div className="app-modal-actions">
+                  <button
+                    type="button"
+                    className="app-modal-secondary"
+                    onClick={() => setPendingExit(null)}
+                    autoFocus
+                  >
+                    Continuar preenchendo
+                  </button>
+                  <button
+                    type="button"
+                    className="app-modal-submit is-danger"
+                    onClick={confirmExit}
+                  >
+                    {pendingExit === 'back' ? 'Voltar' : 'Descartar'}
+                  </button>
+                </div>
+              </section>
+            </div>,
+            document.body
+          )
+        : null}
     </>
   );
 }
