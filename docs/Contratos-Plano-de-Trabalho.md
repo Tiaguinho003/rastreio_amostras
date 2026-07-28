@@ -123,7 +123,7 @@ Escopo original: `app/financeiro/page.tsx` deixa de ser redirect e vira a págin
 **RC-F4 — `/embarques` morre.** ✅ **IMPLEMENTADA em 2026-07-27, ANTECIPADA** — o roteiro a punha depois da RC-F2, e o Flavio escolheu juntá-la à F1 (RC-D21). Viável porque as duas ações que só a worklist oferecia mudaram de casa no mesmo passo (RC-D25). Ver §5.9. Dependia da RC-A2, fechada pela RC-D26.
 Escopo original: Rota vira redirect; `EmbarquePanel`, `AprovacoesPanel`, `EmbarqueCard`, `AprovacaoCard` apagados; deep-links re-apontados (`AvisosCard.tsx:23`, `EventsCalendarCard.tsx:58`, `HeaderAvatarMenu.tsx:168`, `AppShell.tsx:99-126`); `contractsHubTabs`/`contractTabRoute` removidos de `lib/roles.ts`; CSS morto varrido. ⚠️ **No mesmo passo, `Dashboard-Visao-Geral.md`** — a Visão Geral de contratos (§11) obriga a atualizá-la a cada mudança de rota, nome de aba ou valor de `?tab=`, e a RC muda os três.
 
-**RC-F5 — a criação repensada** (RC-D12). `SaleContractEtapa2Modal` = 1421 linhas, 7 seções, 3 modos (novo à vista, novo futuro, editar). Provavelmente ciclo próprio, com specs do Flavio — é o que a RD11 reservava.
+**RC-F5 — a criação repensada** (RC-D12). 🟡 **1ª rodada IMPLEMENTADA em 2026-07-28** (RC-D27..D36, §5.10): seleção do lote, auto-preenchimento, erro no campo e a conferência pelo documento. **Falta** a RC-D18 (ordem dos campos espelhando o documento + bloco de controle interno) e o redesenho FV do corpo do formulário, que ainda é markup `.app-modal-*`.
 
 **RC-F6 — o ciclo FV.** Layout e design, no molde das 5 páginas já migradas (`Redesign-Plano-de-Trabalho.md`).
 
@@ -139,6 +139,8 @@ Escopo original: Rota vira redirect; `EmbarquePanel`, `AprovacoesPanel`, `Embarq
 - **Nenhum JSON Schema cobre contratos** — reorganizar não quebra nada validado em CI.
 
 ### 5.8 Fluxo 1 — criação do contrato à vista (RC-D13..D20)
+
+> ⚠️ **Ledger histórico.** As decisões de desenho desta seção (RC-D13..D16) foram **revogadas ou superadas** pela análise do fluxo de 2026-07-28 — ver **§5.10**, que é o estado atual. Os achados e a tabela do documento (RC-D18) seguem valendo.
 
 > **Método (combinado 2026-07-27):** as decisões saem da **análise do fluxo, na ordem das ações do usuário** — um fluxo por vez, com layout e superfícies decididos junto. Este é o **primeiro**: do "+" até a emissão. Os status e ações seguintes (aprovação, embarque, faturamento, pagamento) vêm em sequência, depois.
 
@@ -156,16 +158,16 @@ _(Conferido e **não** é bug: a filial aparece só para **PF** — é a D38; pa
 
 #### Decisões
 
-| #          | Decisão                                                                                                                                                                                                                                                               |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **RC-D13** | **O contrato aparece sendo montado ao lado do formulário, em tempo real — e é o PDF DE VERDADE, gerado no NAVEGADOR.** O mesmo `renderContractPdf` que produz o arquivo final redesenha a cada pausa da digitação. Fidelidade **por construção**, não por disciplina. |
-| **RC-D14** | Desktop: **metade a metade** — formulário de um lado, documento do outro, a prévia _sticky_. (Um A4 de fonte 8 só é legível a partir de ~700px; na coluna de 340px do Informativo o texto renderizaria a ~6px.)                                                       |
-| **RC-D15** | **Sem prévia no celular, e sem substituto** — mesmo formulário, emite direto. Consequência aceita e registrada: no telefone não há documento à vista, nem total calculado, nem confirmação antes de um ato irreversível.                                              |
-| **RC-D16** | Como a prévia **é** a conferência: **não entra resumo de números** nem tela/modal de confirmação; "Emitir" segue emitindo direto. ⚠️ **Dependência explícita:** estas duas ausências se justificam pela RC-D13 — se a prévia ao vivo cair, as duas voltam à mesa.     |
-| **RC-D17** | A prévia vale nos **três modos** do componente: criar à vista, criar futuro e **editar** (onde ganha peso extra — reemitir muda um contrato que já existe, e hoje não se vê o efeito antes de gravar).                                                                |
-| **RC-D18** | **A ordem dos campos espelha a ordem do documento** — o olho vai do campo ao trecho sem procurar. Ver a tabela abaixo.                                                                                                                                                |
-| **RC-D19** | **O lote continua um passo antes** (picker), como hoje: ele determina o vendedor e o teto de sacas, então o formulário nasce coerente.                                                                                                                                |
-| **RC-D20** | Ao emitir, **fecha o formulário e abre o contrato recém-criado** (o detalhe com as fases) — no lugar do toast + volta à lista. A pessoa cai onde vai acompanhar aprovação, embarque e faturamento.                                                                    |
+| #              | Decisão                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ~~**RC-D13**~~ | ⚠️ **SUPERADA pela RC-D28 (§5.10)** — a intenção (fidelidade por construção) sobreviveu; o desenho saiu do navegador para o servidor. Original: **O contrato aparece sendo montado ao lado do formulário, em tempo real — e é o PDF DE VERDADE, gerado no NAVEGADOR.** O mesmo `renderContractPdf` que produz o arquivo final redesenha a cada pausa da digitação. Fidelidade **por construção**, não por disciplina.           |
+| ~~**RC-D14**~~ | ⚠️ **REVOGADA pela RC-D28 (§5.10).** Original: Desktop: **metade a metade** — formulário de um lado, documento do outro, a prévia _sticky_. (Um A4 de fonte 8 só é legível a partir de ~700px; na coluna de 340px do Informativo o texto renderizaria a ~6px.)                                                                                                                                                                  |
+| ~~**RC-D15**~~ | ⚠️ **REVOGADA pela RC-D28 (§5.10)** — a conferência funciona em qualquer aparelho. Original: **Sem prévia no celular, e sem substituto** — mesmo formulário, emite direto. Consequência aceita e registrada: no telefone não há documento à vista, nem total calculado, nem confirmação antes de um ato irreversível.                                                                                                           |
+| ~~**RC-D16**~~ | ⚠️ **REVOGADA pela RC-D27 (§5.10)** — a dependência explícita que ela própria registrava se cumpriu: a prévia ao vivo caiu, e a confirmação voltou. Original: Como a prévia **é** a conferência: **não entra resumo de números** nem tela/modal de confirmação; "Emitir" segue emitindo direto. ⚠️ **Dependência explícita:** estas duas ausências se justificam pela RC-D13 — se a prévia ao vivo cair, as duas voltam à mesa. |
+| **RC-D17**     | ✅ **CUMPRIDA pela RC-D27** (§5.10). A conferência vale nos **três modos** do componente: criar à vista, criar futuro e **editar** (onde ganha peso extra — reemitir muda um contrato que já existe, e hoje não se vê o efeito antes de gravar).                                                                                                                                                                                |
+| **RC-D18**     | ⏳ **próxima rodada** (§5.10). **A ordem dos campos espelha a ordem do documento** — o olho vai do campo ao trecho sem procurar. Ver a tabela abaixo.                                                                                                                                                                                                                                                                           |
+| **RC-D19**     | ✅ **CUMPRIDA** (§5.10). **O lote continua um passo antes** (picker), como hoje: ele determina o vendedor e o teto de sacas, então o formulário nasce coerente.                                                                                                                                                                                                                                                                 |
+| **RC-D20**     | ✅ **IMPLEMENTADA em 2026-07-28** (§5.10), nos três modos. Ao emitir, **fecha o formulário e abre o contrato recém-criado** (o detalhe com as fases) — no lugar do toast + volta à lista. A pessoa cai onde vai acompanhar aprovação, embarque e faturamento.                                                                                                                                                                   |
 
 #### A ordem do documento (extraída de `sale-contract-pdf-service.js:240-760`)
 
@@ -189,7 +191,7 @@ Duas consequências da ordem nova:
 - **O comprador passa a vir ANTES do vendedor** (hoje é o contrário) — porque é assim que o documento os imprime.
 - **Dois campos não têm contraparte no PDF:** os **corretores** (só a corretagem em **%** é impressa; os nomes não saem — a linha de assinatura diz só "Corretor") e a **aprovação** inteira, que é controle interno. Ambos ganham um bloco final **visualmente separado**, fora do espelho — o que também tira a decisão irreversível da aprovação do meio do formulário, onde está hoje.
 
-#### Riscos técnicos da RC-D13 (a decidir na implementação)
+#### Riscos técnicos da RC-D13 (❌ não se aplicam mais — a RC-D28 tirou o renderizador do navegador)
 
 - **`sale-contract-pdf-service.js` importa `node:fs`, `node:path` e `node:crypto`** — não roda no navegador como está. O `fs` serve só para ler o PNG do logo (`tryReadPng`) e o `createHash` só para o checksum do download; nenhum dos dois pertence ao desenho. Extrair para a borda deixa o renderizador isomórfico.
 - **`pdf-lib` já é dependência** (`^1.17.1`) e é isomórfico. Carregar sob demanda ao abrir o formulário, para não pesar o _bundle_ de quem não emite contrato.
@@ -257,6 +259,100 @@ trilha de fases chegar, o botão não muda de tela — só de moldura.
 > embarcar", "o que está a enviar") **não existem em lugar nenhum** até a RC-F3. O que sobrou de
 > visão agregada: o card de **Avisos** do dashboard (o que falta etiquetar) e os **chips do
 > calendário** (embarque/faturamento/pagamento por data). Consequência conhecida e aceita.
+
+---
+
+### 5.10 Fluxo 1 — implementado (RC-D27..D36), 2026-07-28
+
+**6 commits**: `e7834ac` (RC-D36) · `6cc1f54` (RC-D30) · `a1bfae4` (RC-D29 picker) ·
+`c794253` (RC-D29/D31/D32 formulário) · `f299212` (RC-D35) · `c07a948` (RC-D33/D34) ·
+`bbd903b` (RC-D27/D28/D20).
+
+A análise do fluxo do lote encontrou **oito inconsistências**, **quatro campos obrigatórios cuja
+resposta o sistema já tinha** e **uma emissão irreversível sem nenhuma conferência**. As decisões
+abaixo resolvem os três, e **revogam a base da RC-D13..D16**: a prévia ao vivo no navegador saiu do
+desenho.
+
+| #          | Decisão                                                                                                                                                                                                                                                                             |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RC-D27** | **Emitir vira duas fases.** O botão do painel monta o documento e abre a **conferência**; quem emite é o **Confirmar**. **Voltar** devolve o formulário intacto. Vale nos **três modos** (à vista, futuro, editar).                                                                 |
+| **RC-D28** | O documento da conferência é o **PDF de verdade, montado no SERVIDOR**. **Revoga a RC-D14** (meio a meio), a **RC-D15** (sem prévia no celular) e a **RC-D16** (sem conferência). A **RC-D13 sobrevive na intenção** — fidelidade por construção — mas o desenho saiu do navegador. |
+| **RC-D29** | Toda superfície do fluxo é **painel lateral** do kit FV (`.fv-panel-sheet.side-sheet`, 620px): picker e formulário. Mobile = sheet de tela cheia, como todo painel do kit.                                                                                                          |
+| **RC-D30** | O picker lista **só lote vendável**: saldo > 0 **e** liga viável. Lote sem quantidade declarada e liga inviável somem da lista em vez de virarem beco sem saída no submit.                                                                                                          |
+| **RC-D31** | O lote passa a preencher **data do contrato (hoje)**, **sacas (saldo)**, **filial do vendedor** e **conta bancária** quando a resposta é única. Todos seguem editáveis.                                                                                                             |
+| **RC-D32** | O formulário ganha **faixa de identidade do lote** no topo (número · produtor · safra · saldo) — era uma linha cinza com o número e nada mais.                                                                                                                                      |
+| **RC-D33** | Vendedor ≠ dono do lote passa a **avisar no campo**. O `_syncSampleOwner` deixa de ser efeito invisível. (A confirmação antes de emitir virou a própria tela do documento, RC-D27.)                                                                                                 |
+| **RC-D34** | Fechar **ou voltar** com o formulário mexido pede confirmação (`.is-scrim-none` + `.is-compact`, molde de `/users` e `/relatorios`).                                                                                                                                                |
+| **RC-D35** | As 25 validações passam a **apontar o campo** (regra vigente do projeto), no lugar da mensagem única no topo do sheet.                                                                                                                                                              |
+| **RC-D36** | **A propagação origem→liga do DONO acaba.** Editar o dono de um lote nunca mexe no dono de liga ancestral — fixada ou não. Só safra e lote de origem seguem derivando. Alinha o código ao que o `Liga-Plano` afirma desde 2026-07-15.                                               |
+
+#### Como a conferência funciona (RC-D27/D28)
+
+`POST /sale-contracts/preview/pdf` → `previewSaleContract` reusa o **`_resolveEmitData`** (a mesma
+função que a emissão usa para montar o contrato **antes** da transação) e entrega ao **mesmo
+`renderContractPdf`** do PDF definitivo. Fidelidade por construção, não por réplica.
+
+- **Nada é gravado.** O endpoint **não aloca número** — a alocação vive na transação sob
+  `pg_advisory_xact_lock`. Na criação o documento sai com número **provisório** e diz isso; no
+  "Editar" o número já é o do contrato. Header `X-Provisional-Number`.
+- **Os 25 campos que o renderizador lê:** 18 vêm do `_resolveEmitData`, 6 da fase 1
+  (`quantitySacks`, `unitPrice`, as duas corretagens em %, `contractDate`) e o `contractNumber`; o
+  `effectiveUnitPrice` tem fallback próprio no PDF.
+- ⚠️ **Desvio registrado.** O Flavio escolheu "servidor manda imagem". O servidor gera o **PDF**
+  (reuso exato do renderizador, risco zero) e **o cliente rasteriza**, com `pdfjs-dist` em import
+  dinâmico pintando em `<canvas>` e exibindo `<img>` por página. Rasterizar no servidor exigiria
+  Ghostscript ou binding nativo no contêiner. O resultado para o usuário é o mesmo — imagem que
+  aparece em qualquer aparelho, inclusive onde o `<iframe>` de PDF não renderiza. **`pdfjs-dist` é a
+  única dependência nova**; o build confirma chunk lazy (`/contratos` segue em 214 kB de first load)
+  e o worker emitido como asset próprio.
+- O modal usa **backdrop cheio**, não `.fv-panel-scrim` — exceção deliberada à regra de "confirmação
+  sobre painel" (skill `containers` §2), porque o documento precisa da tela inteira e é ele o objeto
+  da decisão. **Segunda exceção registrada na skill** (a primeira foi a PG52).
+
+#### Os oito achados e o que foi feito
+
+| Achado                                                                                                                | Resolução                                                                                                          |
+| --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Lote com `declaredSacks` nulo entrava no picker (o `commercialStatus` nasce `'OPEN'` de propósito) e morria no submit | `sellableOnly` no `listSamples` (RC-D30)                                                                           |
+| Liga inviável (cascata) idem                                                                                          | pós-filtro de `getBlendFeasibility` na página, **depois** do `nextCursor` — senão o scroll infinito pularia linhas |
+| Chip "Em aberto" era literal no JSX                                                                                   | `sampleStatusDisplay`, a fonte única de lista e detalhe                                                            |
+| Data, sacas, filial e banco obrigatórios com resposta única já conhecida                                              | auto-preenchimento (RC-D31)                                                                                        |
+| Só o número do lote no formulário                                                                                     | faixa de identidade (RC-D32)                                                                                       |
+| 25 validações numa mensagem única no topo                                                                             | erro dentro do campo + rolagem até ele (RC-D35)                                                                    |
+| 409 dizia "Este contrato foi modificado. Recarregue a página" e prendia a versão velha no estado                      | re-hidrata versão e saldo **preservando o formulário**, ajusta as sacas e diz o que mudou                          |
+| Troca de dono do lote sem nenhum sinal na tela                                                                        | aviso âmbar no campo Vendedor (RC-D33)                                                                             |
+
+#### Detalhes de implementação que importam
+
+- **`sellableOnly` no `listSamples`, não em query nova.** O plano previa um `listSellableSamples` em
+  `$queryRaw`; `commercialStatus IN ('OPEN','PARTIALLY_SOLD') AND declaredSacks > 0` já implica saldo
+  > 0, então a condição coube no Prisma. A viabilidade da liga é pós-filtro **da página**, com um
+  > teste dedicado provando que o cursor sai da última linha **buscada**, não da última exibida.
+- **A mensagem de erro usa `.app-modal-field-error`**, não o `.fv-form-field-error` do kit: é a peça
+  que este formulário já usa nos avisos de fim de semana e de ordem das datas. Duas classes de erro
+  no mesmo campo dariam dois vermelhos. O `.ctr-form-sheet` retinta ambas no tom do kit.
+- **O sinal de rascunho sujo é um `touched` explícito**, não "campo preenchido": à vista o formulário
+  já nasce preenchido (RC-D31) e no Editar nasce com o contrato inteiro — inferir dispararia o guard
+  sempre.
+- **A hidratação passou a depender do ID do lote**, não da identidade do objeto `spotCreate` — senão
+  a própria re-hidratação do 409 reescreveria o formulário que ela existe para salvar.
+- **RC-D36 no código:** `_buildBlendPropagation` perdeu `ownerChanged`; o gatilho virou
+  `harvestChanged || originLotChanged`. `deriveBlendOwner` segue servindo o `createBlend`
+  (unanimidade na criação). O auto-pin **fica** (é o que distingue "carteira da corretora" de "sem
+  dono"). O `confirmHarvestPropagation: true` do `_syncSampleOwner` virou inócuo para troca de
+  vendedor e ganhou comentário dizendo por quê. Três testes de integração foram **invertidos** para
+  afirmar o comportamento novo.
+
+#### O que ficou de fora, por decisão
+
+**RC-D18** (ordem dos campos espelhando o documento — comprador antes do vendedor) e o **bloco final
+de controle interno** (corretores + aprovação) ficam para a próxima rodada, junto com o resto do
+redesenho FV do corpo do formulário (que ainda é markup `.app-modal-*`). A conferência pelo documento
+que esta rodada entrega é o que torna essa próxima rodada segura de fazer.
+
+**Verificação.** `typecheck`, `lint`, `format:check`, `build`, **556** unit, **20** contrato,
+`validate:schemas`; `globals.css` com `postcss.parse`. Integração rodada ao fim.
+📱🖥️ **pendente a conferência do Flavio.**
 
 ## Apêndice A — Ledger de decisões (condensado)
 

@@ -223,6 +223,20 @@ Preferência firme do projeto: **o erro aparece no campo, não acima do form.**
 Erro geral do form (falha de rede, 409 do servidor) vai numa linha no **fim** do `<form>`, não no
 topo — o usuário está olhando para o botão quando o erro chega.
 
+**Form longo (20+ campos) com validação em cascata** — molde do `SaleContractEtapa2Modal` (RC-D35),
+que tem 25 validações e 19 campos apontáveis:
+
+- **uma chave fechada** por campo (`type FormFieldKey = 'seller' | 'saleSacks' | ...`), não `string`:
+  chave sem markup vira erro de typecheck, e não campo sem marca vermelha;
+- **um erro por vez** (o 1º pendente) — o helper `failField(key, msg)` no lugar de `setError`;
+- **rola até o campo** (`document.querySelector('.is-field-error')?.scrollIntoView`) — sem isso,
+  apertar o botão com um pendente acima da dobra não muda nada visível. Consultar o DOM é preferível
+  a manter 25 refs: só existe um `.is-field-error` por vez;
+- o que **não tem campo** (falha do servidor, pré-condição de outro objeto) fica na linha geral —
+  marcar um campo que o usuário não pode corrigir é pior que não marcar;
+- campo com **aviso ao vivo** (fim de semana, ordem de datas) tem prioridade sobre a mensagem do
+  submit: entram no mesmo slot, com o do submit como último caso.
+
 Copywriting, toasts e banners: `feedback-messages`.
 
 ---
@@ -285,6 +299,16 @@ past-threshold com dismiss negado deixa o painel deslocado.
 
 O `dirty` é do form, não do sheet: qualquer campo tocado liga a flag e ela não desliga.
 
+⚠️ **Form que nasce preenchido** (auto-preenchimento, ou edição hidratada de um objeto existente):
+`dirty` **não** pode ser inferido de "tem campo com conteúdo" — dispararia sempre, o que é pior que
+não ter guard. Use um `touched` explícito, ligado pelo handler de mudança de campo. Molde:
+`SaleContractEtapa2Modal` (RC-D34), onde o handler compartilhado `onFieldChange()` marca o toque e
+limpa o erro de campo de uma vez — os dois sempre acontecem juntos.
+
+**Saída lateral também perde o rascunho.** Painel com "Voltar" para um passo anterior (picker de
+lote → formulário) precisa do mesmo guard, com copy própria ("Voltar e escolher outro lote?" ×
+"Descartar contrato?"). Um `pendingExit: 'close' | 'back'` cobre as duas com um diálogo só.
+
 ---
 
 ## §9 Checklist
@@ -296,7 +320,7 @@ O `dirty` é do form, não do sheet: qualquer campo tocado liga a flag e ela nã
 - [ ] `disabled` de todo campo acompanha `saving`
 - [ ] Erro dentro do campo, limpando ao digitar; erro geral no fim do `<form>`
 - [ ] `SuccessCheckOverlay` como filho direto do conteúdo do sheet
-- [ ] `dirty` → confirm `.is-scrim-none.is-compact` + `dragDisabled`
+- [ ] `dirty` → confirm `.is-scrim-none.is-compact` + `dragDisabled` (form que nasce preenchido: `touched` explícito, não conteúdo)
 - [ ] Guard no `onDismissAttempt`, nunca no `onClose` (`containers` §3)
 - [ ] Escolha de 2–4 opções é campo do form, não superfície própria; bloqueada explica o motivo
 - [ ] Opção única = `<select>` nativo
