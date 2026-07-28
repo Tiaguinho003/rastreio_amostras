@@ -1772,11 +1772,13 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(sample.ownerClientId, newSellerId);
   });
 
-  test('D146: editar o vendedor de contrato à vista cujo lote é origem de liga não estoura 409 e propaga', async () => {
-    // Lote que alimenta uma liga E tem contrato à vista. Trocar o vendedor recai
-    // na propagação reativa de owner das ligas ancestrais; antes da D146 o
-    // owner-sync não confirmava e estourava 409 BLEND_HARVEST_PROPAGATION_REQUIRED,
-    // quebrando o Editar. Agora auto-confirma e propaga.
+  test('D146/RC-D36: editar o vendedor de contrato à vista cujo lote é origem de liga não estoura 409 nem toca a liga', async () => {
+    // Lote que alimenta uma liga E tem contrato à vista. Antes da D146 o
+    // owner-sync estourava 409 BLEND_HARVEST_PROPAGATION_REQUIRED e quebrava o
+    // Editar; a D146 resolveu auto-confirmando a propagação. A RC-D36 (2026-07-28)
+    // foi além e tirou o dono da propagação: trocar o vendedor muda o dono do LOTE
+    // e nada mais. O 409 continua não acontecendo — agora porque não há o que
+    // propagar, não porque a confirmação é automática.
     const sellerAId = randomUUID();
     await createSellerClient(sellerAId);
     const buyerId = randomUUID();
@@ -1822,18 +1824,18 @@ if (!databaseUrl || !databaseReachable) {
       adminActor
     );
 
-    // Propagou ao lote origem…
+    // O lote origem trocou de dono…
     const originAfter = await prisma.sample.findUnique({
       where: { id: originId },
       select: { ownerClientId: true },
     });
     assert.equal(originAfter.ownerClientId, sellerBId);
-    // …e recalculou o dono da liga (origens agora divergem → sem dono unânime).
+    // …e a liga NÃO: o dono dela só muda por edição direta (RC-D36).
     const blendAfter = await prisma.sample.findUnique({
       where: { id: blend.sample.id },
       select: { ownerClientId: true },
     });
-    assert.notEqual(blendAfter.ownerClientId, sellerAId);
+    assert.equal(blendAfter.ownerClientId, sellerAId);
   });
 
   test('WASH_OUT: cancelar a venda de contrato EMITIDO vira WASH_OUT', async () => {

@@ -1949,11 +1949,16 @@ export class SaleContractService {
         after: { ownerClientId: newOwnerClientId },
         reasonCode: 'DATA_FIX',
         reasonText: 'Vendedor ajustado no contrato (Fechamento)',
-        // D146: se o lote for origem de liga, trocar o vendedor recai na
-        // propagacao reativa de owner (deriveBlendOwner) — o contrato e a acao
-        // autoritativa, entao auto-confirma pras ligas ancestrais em vez de
-        // estourar 409 BLEND_HARVEST_PROPAGATION_REQUIRED (sem UI de confirmacao
-        // aqui; molde da conferencia de ficha na camera em sample-command-service).
+        // D146 resolvia aqui um 409 BLEND_HARVEST_PROPAGATION_REQUIRED: trocar o
+        // vendedor de um lote que era origem de liga recaia na propagacao reativa
+        // de owner, e sem confirmacao explicita o Editar quebrava.
+        //
+        // RC-D36 (2026-07-28) tirou o DONO da propagacao — este updateRegistration
+        // muda so o campo `ownerClientId` do proprio lote, entao nao ha mais
+        // propagacao alguma a confirmar. A flag fica por seguranca: se um dia este
+        // sync passar a mexer em safra ou lote de origem, o comportamento
+        // auto-confirmado da D146 continua sendo o certo (o contrato e a acao
+        // autoritativa, e nao ha UI de confirmacao neste caminho).
         confirmHarvestPropagation: true,
       },
       actorContext

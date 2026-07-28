@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 
-import { HttpError } from '../src/contracts/errors.js';
 import { EventContractDbService } from '../src/events/event-contract-db-service.js';
 import { PrismaEventStore } from '../src/events/prisma-event-store.js';
 import { SampleQueryService } from '../src/samples/sample-query-service.js';
@@ -204,7 +203,10 @@ if (!databaseUrl || !databaseReachable) {
   });
 
   // 3. Propagação só-owner: liga unânime vira mista ao trocar o dono de um lote
-  test('editar o dono de um lote propaga para a liga (unanime -> sem dono), sem tocar a safra', async () => {
+  // RC-D36 (2026-07-28): editar o dono de uma ORIGEM nao toca mais o dono da liga
+  // — nem de liga sem pin, que era o unico caso que ainda propagava. Antes deste
+  // teste inverter, ele afirmava "unanime -> sem dono".
+  test('editar o dono de um lote NAO propaga para a liga (RC-D36)', async () => {
     const c1 = randomUUID();
     const c2 = randomUUID();
     await createClient(c1, 'Joao');
@@ -237,27 +239,24 @@ if (!databaseUrl || !databaseReachable) {
 
     await editOwner(o1, c2, { confirm: true });
 
+    // A liga permanece com o dono que tinha: as origens divergiram, mas isso
+    // deixou de ser assunto dela.
     const owner = await ownerOf(blend.sample.id);
-    assert.equal(owner.ownerClientId, null);
-    assert.equal(owner.declaredOwner, null);
+    assert.equal(owner.ownerClientId, c1);
 
-    // O evento da liga mexe no owner mas NAO na safra (so-owner muda).
+    // E nenhum evento foi emitido na liga — a propagacao nem chega a montar.
     const events = await prisma.sampleEvent.findMany({
       where: { sampleId: blend.sample.id, eventType: 'REGISTRATION_UPDATED' },
     });
-    assert.equal(events.length, 1);
-    assert.equal(
-      Object.prototype.hasOwnProperty.call(events[0].payload.after, 'ownerClientId'),
-      true
-    );
-    assert.equal(
-      Object.prototype.hasOwnProperty.call(events[0].payload.after.declared ?? {}, 'harvest'),
-      false
-    );
+    assert.equal(events.length, 0);
+
+    // A origem editada, essa sim, mudou de dono.
+    assert.equal((await ownerOf(o1)).ownerClientId, c2);
   });
 
-  // 4. Sem confirmação -> 409 lista a liga afetada pelo owner
-  test('editar dono sem confirmacao retorna 409 com a liga afetada', async () => {
+  // RC-D36: sem eixo de dono na propagacao, editar so o dono nao afeta liga
+  // nenhuma — logo nao ha o que confirmar e o 409 deixa de existir neste caso.
+  test('editar dono sem confirmacao NAO exige confirmacao (RC-D36)', async () => {
     const c1 = randomUUID();
     const c2 = randomUUID();
     await createClient(c1, 'Joao');
@@ -287,17 +286,11 @@ if (!databaseUrl || !databaseReachable) {
       lotNumber: '33003',
     });
 
-    let thrown = null;
-    try {
-      await editOwner(o1, c2, { confirm: false });
-    } catch (error) {
-      thrown = error;
-    }
-    assert.ok(thrown instanceof HttpError);
-    assert.equal(thrown.status, 409);
-    assert.equal(thrown.details.code, 'BLEND_HARVEST_PROPAGATION_REQUIRED');
-    assert.equal(thrown.details.affectedBlends[0].sampleId, blend.sample.id);
-    // Nada gravado.
+    // Sem confirmacao: aplica direto, sem 409.
+    await editOwner(o1, c2, { confirm: false });
+
+    assert.equal((await ownerOf(o1)).ownerClientId, c2);
+    // A liga fica onde estava.
     assert.equal((await ownerOf(blend.sample.id)).ownerClientId, c1);
   });
 

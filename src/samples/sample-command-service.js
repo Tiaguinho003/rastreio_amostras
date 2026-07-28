@@ -2599,15 +2599,16 @@ export class SampleCommandService {
     const originLotChanged =
       updatePayload.after?.declared &&
       Object.prototype.hasOwnProperty.call(updatePayload.after.declared, 'originLot');
-    const ownerChanged = Object.prototype.hasOwnProperty.call(
-      updatePayload.after ?? {},
-      'ownerClientId'
-    );
-
-    if (harvestChanged || ownerChanged || originLotChanged) {
-      // Liga: propagacao reativa unificada (safra, origem E/OU proprietario). Semeia
-      // o estado com o valor NOVO do campo que mudou e o valor ATUAL do que NAO
-      // mudou — senao a liga recalcularia os outros campos errado.
+    // RC-D36 (2026-07-28): o DONO nao entra mais na propagacao. Editar o dono de
+    // um lote muda o dono DAQUELE lote e nada mais — nenhuma liga ancestral e
+    // recalculada, fixada ou nao. Cumpre o que a revisao "dono fixado" de
+    // 2026-07-15 ja afirmava ("origem->liga propaga so a safra") e que o codigo
+    // ainda nao cumpria pras ligas sem pin. A direcao liga->origem nunca existiu:
+    // loadAncestorBlendTree so sobe a arvore.
+    if (harvestChanged || originLotChanged) {
+      // Liga: propagacao reativa de safra E/OU lote de origem. Semeia o estado com
+      // o valor NOVO do campo que mudou e o valor ATUAL do que NAO mudou — senao a
+      // liga recalcularia o outro campo errado.
       const propagation = await this._buildBlendPropagation({
         editedSampleId: sample.id,
         newHarvest: harvestChanged
@@ -2616,10 +2617,6 @@ export class SampleCommandService {
         newOriginLot: originLotChanged
           ? updatePayload.after.declared.originLot
           : (sample.declared?.originLot ?? null),
-        newOwnerClientId: ownerChanged ? updatePayload.after.ownerClientId : sample.ownerClientId,
-        newDeclaredOwner: ownerChanged
-          ? (updatePayload.after.declared?.owner ?? null)
-          : (sample.declared?.owner ?? null),
         actor,
         causationEventId: editedEventId,
       });
@@ -2654,16 +2651,18 @@ export class SampleCommandService {
   }
 
   // Liga: monta os eventos de recalculo das ligas ancestrais de um lote cuja
-  // SAFRA e/ou PROPRIETARIO foi editado. Sobe a arvore (loadAncestorBlendTree),
+  // SAFRA e/ou LOTE DE ORIGEM foi editado. Sobe a arvore (loadAncestorBlendTree),
   // deduplica diamantes por sampleId (mantendo o maior depth) e recalcula safra
-  // (deriveBlendHarvest) e owner (deriveBlendOwner — unanimidade) de cada liga em
-  // ordem topologica (depth ASC), com um Map de estado {harvest, ownerClientId,
-  // declaredOwner} — liga-de-liga le o valor JA recalculado da filha. Emite UM
-  // REGISTRATION_UPDATED por liga cujo valor muda (no-op = safra E owner
-  // inalterados; o Map recebe o estado recalculado SEMPRE, mesmo no no-op, pra
-  // ligas acima lerem certo). Owner comparado por id. before/after montados
-  // condicionalmente (so os campos que mudam). Retorna drafts + optionsByIndex +
-  // affectedBlends.
+  // (deriveBlendHarvest) e origem (deriveBlendOriginLot) de cada liga em ordem
+  // topologica (depth ASC), com um Map de estado {harvest, originLot} —
+  // liga-de-liga le o valor JA recalculado da filha. Emite UM
+  // REGISTRATION_UPDATED por liga cujo valor muda (no-op = safra E origem
+  // inalteradas; o Map recebe o estado recalculado SEMPRE, mesmo no no-op, pra
+  // ligas acima lerem certo). before/after montados condicionalmente (so os
+  // campos que mudam). Retorna drafts + optionsByIndex + affectedBlends.
+  //
+  // RC-D36: o DONO nao propaga (nem aqui nem em lugar nenhum) — o dono da liga so
+  // muda por edicao direta dela, que o auto-pin fixa.
   //
   // A arvore e carregada fora da tx do batch — confia no expectedVersion por
   // liga (igual _createBlendCascadeMovement): escrita concorrente vira conflito
@@ -2672,8 +2671,6 @@ export class SampleCommandService {
     editedSampleId,
     newHarvest,
     newOriginLot,
-    newOwnerClientId,
-    newDeclaredOwner,
     actor,
     causationEventId,
   }) {
@@ -2698,18 +2695,10 @@ export class SampleCommandService {
       blends.map((blend) => blend.sampleId)
     );
 
-    // Estado por sampleId: {harvest, ownerClientId, declaredOwner}. Seed com o
-    // lote editado (valor novo do campo mudado + atual do nao-mudado).
+    // Estado por sampleId: {harvest, originLot}. Seed com o lote editado (valor
+    // novo do campo mudado + atual do nao-mudado).
     const stateBySampleId = new Map([
-      [
-        editedSampleId,
-        {
-          harvest: newHarvest,
-          originLot: newOriginLot,
-          ownerClientId: newOwnerClientId,
-          declaredOwner: newDeclaredOwner,
-        },
-      ],
+      [editedSampleId, { harvest: newHarvest, originLot: newOriginLot }],
     ]);
     const affectedBlends = [];
     const drafts = [];
@@ -2723,31 +2712,16 @@ export class SampleCommandService {
           (origin) => stateBySampleId.get(origin.originId)?.harvest ?? origin.declaredHarvest
         )
       );
-      const recalcOwner = deriveBlendOwner(
-        origins.map((origin) => {
-          const state = stateBySampleId.get(origin.originId);
-          return state
-            ? { ownerClientId: state.ownerClientId, declaredOwner: state.declaredOwner }
-            : { ownerClientId: origin.ownerClientId, declaredOwner: origin.declaredOwner };
-        })
-      );
       const recalcOriginLot = deriveBlendOriginLot(
         origins.map(
           (origin) => stateBySampleId.get(origin.originId)?.originLot ?? origin.declaredOriginLot
         )
       );
 
-      // Liga (dono fixado): se o dono da liga foi FIXADO manualmente
-      // (blendOwnerPinned), a propagacao NAO recalcula o dono — so a safra deriva.
-      // O estado das ancestrais le o owner ATUAL (fixado), nao o recalculado.
-      const pinned = blend.blendOwnerPinned === true;
-      const effectiveOwner = pinned
-        ? { ownerClientId: blend.ownerClientId, declaredOwner: blend.declaredOwner }
-        : recalcOwner;
-
-      // Liga (lote de origem fixado): mesmo racional do dono — se a origem da liga
-      // foi editada a mao (blendOriginLotPinned), a propagacao NAO re-deriva; as
-      // ancestrais leem o valor ATUAL (fixado), nao o recalculado.
+      // Liga (lote de origem fixado): se a origem da liga foi editada a mao
+      // (blendOriginLotPinned), a propagacao NAO re-deriva; as ancestrais leem o
+      // valor ATUAL (fixado), nao o recalculado. Espelha o pin do dono, que segue
+      // existindo — so nao e mais alimentado por esta propagacao (RC-D36).
       const originPinned = blend.blendOriginLotPinned === true;
       const effectiveOriginLot = originPinned ? blend.declaredOriginLot : recalcOriginLot;
 
@@ -2755,15 +2729,12 @@ export class SampleCommandService {
       stateBySampleId.set(blend.sampleId, {
         harvest: recalcHarvest,
         originLot: effectiveOriginLot,
-        ownerClientId: effectiveOwner.ownerClientId,
-        declaredOwner: effectiveOwner.declaredOwner,
       });
 
       const harvestChanged = recalcHarvest !== blend.declaredHarvest;
-      const ownerChanged = !pinned && recalcOwner.ownerClientId !== blend.ownerClientId;
       const originLotChanged = !originPinned && recalcOriginLot !== blend.declaredOriginLot;
-      // No-op: safra, owner E origem inalterados -> nao emite evento.
-      if (!harvestChanged && !ownerChanged && !originLotChanged) {
+      // No-op: safra E origem inalteradas -> nao emite evento.
+      if (!harvestChanged && !originLotChanged) {
         continue;
       }
 
@@ -2780,12 +2751,6 @@ export class SampleCommandService {
         before.declared.originLot = blend.declaredOriginLot;
         after.declared.originLot = recalcOriginLot;
       }
-      if (ownerChanged) {
-        before.ownerClientId = blend.ownerClientId;
-        after.ownerClientId = recalcOwner.ownerClientId;
-        before.declared.owner = blend.declaredOwner;
-        after.declared.owner = recalcOwner.declaredOwner;
-      }
 
       affectedBlends.push({
         sampleId: blend.sampleId,
@@ -2798,8 +2763,11 @@ export class SampleCommandService {
         newHarvest: recalcHarvest,
         currentOriginLot: blend.declaredOriginLot,
         newOriginLot: recalcOriginLot,
+        // RC-D36: o dono da liga nao e mais tocado pela propagacao — segue no
+        // valor atual dela. Mantido no payload pra UI de confirmacao nao perder
+        // a coluna de contexto.
         currentOwner: blend.declaredOwner,
-        newOwner: recalcOwner.declaredOwner,
+        newOwner: blend.declaredOwner,
       });
 
       drafts.push(
