@@ -1748,19 +1748,26 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('D48: editar o vendedor sincroniza o Sample.ownerClientId', async () => {
+  // RC-D37 (revoga a D48): o vendedor de um contrato COM lote e o dono do lote. O
+  // `sellerClientId` do payload deixou de ser lido — editar o contrato nao
+  // transfere mais o lote, e o vendedor gravado continua o dono.
+  test('RC-D37: editar mandando outro vendedor NAO troca o dono do lote nem o vendedor', async () => {
     const { contractId, sampleId } = await setupEmittableContract({ lotNumber: '21008' });
     const lookups = await fetchLookups();
-    const newSellerId = randomUUID();
-    await createSellerClient(newSellerId);
-    const newBankAccountId = await createSellerBankAccount(newSellerId);
+    const ownerBefore = await prisma.sample.findUnique({
+      where: { id: sampleId },
+      select: { ownerClientId: true },
+    });
+    const bankAccountId = await createSellerBankAccount(ownerBefore.ownerClientId);
+    const intruderId = randomUUID();
+    await createSellerClient(intruderId);
 
-    await saleContractService.emitSaleContract(
+    const updated = await saleContractService.emitSaleContract(
       contractId,
       etapa2Payload({
-        bankAccountId: newBankAccountId,
+        bankAccountId,
         lookups,
-        overrides: { sellerClientId: newSellerId },
+        overrides: { sellerClientId: intruderId },
       }),
       adminActor
     );
@@ -1769,16 +1776,51 @@ if (!databaseUrl || !databaseReachable) {
       where: { id: sampleId },
       select: { ownerClientId: true },
     });
-    assert.equal(sample.ownerClientId, newSellerId);
+    assert.equal(sample.ownerClientId, ownerBefore.ownerClientId, 'o lote nao muda de dono');
+    assert.equal(
+      updated.contract.sellerClientId,
+      ownerBefore.ownerClientId,
+      'o vendedor emitido e o dono do lote, nao o do payload'
+    );
   });
 
-  test('D146/RC-D36: editar o vendedor de contrato à vista cujo lote é origem de liga não estoura 409 nem toca a liga', async () => {
+  // A contraparte: trocar o dono NO LOTE e o caminho que muda o vendedor — e ele
+  // vale na proxima emissao, sem ninguem tocar no contrato.
+  test('RC-D37: trocar o dono do lote muda o vendedor do contrato na re-emissao', async () => {
+    const { contractId, sampleId } = await setupEmittableContract({ lotNumber: '21009' });
+    const lookups = await fetchLookups();
+    const newOwnerId = randomUUID();
+    await createSellerClient(newOwnerId);
+    const newBankAccountId = await createSellerBankAccount(newOwnerId);
+
+    const sampleBefore = await prisma.sample.findUnique({ where: { id: sampleId } });
+    await commandService.updateRegistration(
+      {
+        sampleId,
+        expectedVersion: sampleBefore.version,
+        after: { ownerClientId: newOwnerId },
+        reasonCode: 'DATA_FIX',
+        reasonText: 'Troca de dono no lote',
+      },
+      adminActor
+    );
+
+    const updated = await saleContractService.emitSaleContract(
+      contractId,
+      etapa2Payload({ bankAccountId: newBankAccountId, lookups }),
+      adminActor
+    );
+
+    assert.equal(updated.contract.sellerClientId, newOwnerId);
+  });
+
+  test('RC-D37: editar contrato à vista cujo lote é origem de liga não estoura 409 nem toca lote e liga', async () => {
     // Lote que alimenta uma liga E tem contrato à vista. Antes da D146 o
     // owner-sync estourava 409 BLEND_HARVEST_PROPAGATION_REQUIRED e quebrava o
-    // Editar; a D146 resolveu auto-confirmando a propagação. A RC-D36 (2026-07-28)
-    // foi além e tirou o dono da propagação: trocar o vendedor muda o dono do LOTE
-    // e nada mais. O 409 continua não acontecendo — agora porque não há o que
-    // propagar, não porque a confirmação é automática.
+    // Editar; a D146 resolveu auto-confirmando a propagação, e a RC-D36 tirou o
+    // dono da propagação. A RC-D37 fecha o assunto: o Editar não escreve mais no
+    // lote, então não há propagação a disparar nem dono a trocar — nem no lote
+    // origem, nem na liga.
     const sellerAId = randomUUID();
     await createSellerClient(sellerAId);
     const buyerId = randomUUID();
@@ -1795,6 +1837,7 @@ if (!databaseUrl || !databaseReachable) {
     const blend = await commandService.createBlend(
       {
         clientDraftId: randomUUID(),
+        ownerClientId: sellerAId,
         components: [
           { originSampleId: originId, contributedSacks: 20 },
           { originSampleId: origin2Id, contributedSacks: 20 },
@@ -1808,15 +1851,15 @@ if (!databaseUrl || !databaseReachable) {
     const originSample = await queryService.requireSample(originId);
     const sale = await sell(originId, originSample.version, buyerId);
 
-    // Editar o vendedor para sellerB — NÃO deve lançar (D146).
+    // Editar mandando outro vendedor — NÃO deve lançar, e o campo é ignorado.
     const sellerBId = randomUUID();
     await createSellerClient(sellerBId);
-    const sellerBBank = await createSellerBankAccount(sellerBId);
+    const sellerABank = await createSellerBankAccount(sellerAId);
     const lookups = await fetchLookups();
-    await saleContractService.emitSaleContract(
+    const updated = await saleContractService.emitSaleContract(
       sale.contract.id,
       etapa2Payload({
-        bankAccountId: sellerBBank,
+        bankAccountId: sellerABank,
         lookups,
         expectedVersion: sale.contract.version,
         overrides: { sellerClientId: sellerBId },
@@ -1824,18 +1867,20 @@ if (!databaseUrl || !databaseReachable) {
       adminActor
     );
 
-    // O lote origem trocou de dono…
+    // O lote origem NÃO trocou de dono (RC-D37 revogou a D48)…
     const originAfter = await prisma.sample.findUnique({
       where: { id: originId },
       select: { ownerClientId: true },
     });
-    assert.equal(originAfter.ownerClientId, sellerBId);
-    // …e a liga NÃO: o dono dela só muda por edição direta (RC-D36).
+    assert.equal(originAfter.ownerClientId, sellerAId);
+    // …a liga também não…
     const blendAfter = await prisma.sample.findUnique({
       where: { id: blend.sample.id },
       select: { ownerClientId: true },
     });
     assert.equal(blendAfter.ownerClientId, sellerAId);
+    // …e o vendedor emitido segue sendo o dono do lote.
+    assert.equal(updated.contract.sellerClientId, sellerAId);
   });
 
   test('WASH_OUT: cancelar a venda de contrato EMITIDO vira WASH_OUT', async () => {
@@ -2040,6 +2085,31 @@ if (!databaseUrl || !databaseReachable) {
     );
     assert.equal(preview.contract.sellerClientId, sellerId);
     assert.equal(preview.sampleId, sampleId);
+  });
+
+  // RC-D37: o gêmeo do teste acima. A prévia é o documento que o usuário
+  // confirma antes de emitir — ela tem que ignorar o vendedor do payload
+  // exatamente como a emissão ignora, senão ele aprovaria um PDF com um vendedor
+  // e emitiria outro.
+  test('Previa (RC-D37): a vista com vendedor explicito IGNORA o payload e usa o dono do lote', async () => {
+    const { sampleId, sellerId, bankAccountId, buyerId } = await setupEmittableContract({
+      lotNumber: '21057',
+    });
+    const lookups = await fetchLookups();
+    const intruderId = randomUUID();
+    await createSellerClient(intruderId);
+
+    const preview = await saleContractService.previewSaleContract(
+      {
+        type: 'MERCADO_A_VISTA',
+        sampleId,
+        buyerClientId: buyerId,
+        ...saleFields(),
+        ...etapa2Payload({ bankAccountId, lookups, overrides: { sellerClientId: intruderId } }),
+      },
+      adminActor
+    );
+    assert.equal(preview.contract.sellerClientId, sellerId);
   });
 
   test('Espelho: contrato EMITIDO renderiza %PDF p/ os 2 lados, com a comissão de cada lado', async () => {

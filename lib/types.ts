@@ -418,6 +418,10 @@ export interface SaleContractDetail extends SaleContract {
   // Liga? — quando o contrato a vista vem de uma liga (isBlend), as sacas sao
   // travadas (F7.1). null quando nao ha amostra vinculada (ex.: Futuro).
   sampleIsBlend: boolean | null;
+  // RC-D37: dono ATUAL do lote — o vendedor que o "Editar" vai emitir, que pode
+  // divergir do `sellerClientId` gravado se o dono mudou desde a emissao. null
+  // quando nao ha lote (Futuro).
+  sampleOwner: { clientId: string; displayName: string | null } | null;
 }
 
 // Embarque (EMB27) — fotos da confirmacao. A view nao expoe storagePath/checksum;

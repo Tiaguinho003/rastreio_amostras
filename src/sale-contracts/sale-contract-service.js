@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 
 import { assertRoleAllowed, NON_PROSPECTOR_ROLES } from '../auth/roles.js';
+import { buildClientDisplayName } from '../clients/client-support.js';
 import { HttpError } from '../contracts/errors.js';
 import { assertAuthenticatedActor, readLimitQuery } from '../users/user-support.js';
 import {
@@ -847,13 +848,36 @@ export class SaleContractService {
 
     // Liga? — em liga as sacas sao travadas (F7.1: venda = 100%). O front usa isto
     // pra deixar o campo de sacas so-leitura no "Editar". So consulta se ha sample.
+    // RC-D37: a mesma consulta traz o DONO ATUAL do lote — e ele, nao o vendedor
+    // gravado, que sera emitido no "Editar"; a tela precisa mostrar o que vai sair.
     let sampleIsBlend = null;
+    let sampleOwner = null;
     if (row.sampleId) {
       const sample = await this.prisma.sample.findUnique({
         where: { id: row.sampleId },
-        select: { isBlend: true },
+        select: {
+          isBlend: true,
+          ownerClientId: true,
+          // `displayName` nao e coluna — o nome sai do buildClientDisplayName
+          // sobre personType + fullName/tradeName/legalName.
+          ownerClient: {
+            select: {
+              id: true,
+              personType: true,
+              fullName: true,
+              tradeName: true,
+              legalName: true,
+            },
+          },
+        },
       });
       sampleIsBlend = sample?.isBlend ?? null;
+      sampleOwner = sample?.ownerClientId
+        ? {
+            clientId: sample.ownerClientId,
+            displayName: sample.ownerClient ? buildClientDisplayName(sample.ownerClient) : null,
+          }
+        : null;
     }
 
     return {
@@ -861,6 +885,7 @@ export class SaleContractService {
         ...toSaleContractView(row),
         brokers: brokers.map(toSaleContractBrokerView),
         sampleIsBlend,
+        sampleOwner,
       },
     };
   }
@@ -989,11 +1014,14 @@ export class SaleContractService {
         field: 'expectedVersion',
       });
     }
-    // Vendedor: escolhido na etapa 2 (D48) ou o dono atual do lote.
-    const sellerClientId = etapa2.sellerClientId ?? sample.ownerClientId;
+    // RC-D37: o vendedor E o dono do lote. O `sellerClientId` do payload NAO e
+    // lido — trocar o vendedor se faz no cadastro do lote, nao aqui (revoga a
+    // D48, que sincronizava o dono a partir do contrato). Sem dono, o lote nao
+    // vende (RC-D39) — e o picker ja nao o lista.
+    const sellerClientId = sample.ownerClientId;
     if (!sellerClientId) {
-      throw new HttpError(422, 'sellerClientId is required to create the contract', {
-        code: 'VALIDATION_ERROR',
+      throw new HttpError(422, 'Sample has no owner and cannot be sold', {
+        code: 'SAMPLE_WITHOUT_OWNER',
         field: 'sellerClientId',
       });
     }
@@ -1009,16 +1037,10 @@ export class SaleContractService {
       etapa2,
     });
 
-    // D48: o dono do lote passa a ser o vendedor ANTES da venda (bumpa a versao;
-    // no-op se ja coerente). Assim o SALE_CREATED e o snapshot base ja nascem com
-    // o vendedor certo, sem precisar de owner-sync depois.
-    await this._syncSampleOwner(sampleId, sellerClientId, actorContext);
-    const refreshed = await this.queryService.requireSample(sampleId);
-
     const result = await this.commandService.createSampleMovement(
       {
         sampleId,
-        expectedVersion: refreshed.version,
+        expectedVersion: sample.version,
         movementType: 'SALE',
         buyerClientId: fase1.buyerClientId,
         buyerUnitId: etapa2.buyerUnitId ?? null,
@@ -1080,8 +1102,11 @@ export class SaleContractService {
       allowOpenDates: contract.type === 'FUTURO',
     });
 
-    // Vendedor: usa o editado (se veio) ou o atual do contrato.
-    const sellerClientId = etapa2.sellerClientId ?? contract.sellerClientId;
+    // RC-D37: contrato COM lote tem o vendedor derivado do dono do lote (o
+    // payload nao e lido); o FUTURO, sem lote, segue com vendedor editavel.
+    const sellerClientId = contract.sampleId
+      ? await this._requireSampleOwner(contract.sampleId)
+      : (etapa2.sellerClientId ?? contract.sellerClientId);
     if (!sellerClientId) {
       throw new HttpError(422, 'sellerClientId is required to emit the contract', {
         code: 'VALIDATION_ERROR',
@@ -1156,19 +1181,10 @@ export class SaleContractService {
       }));
     }
 
-    // D48: contrato a vista (tem sampleId) -> mantem o dono da amostra coerente
-    // com o vendedor do contrato. Feito ANTES do update do contrato — passo
-    // cross-aggregate NAO-atomico por decisao (D143): a janela e minuscula (a
-    // version foi checada logo acima) e os 2 syncs sao idempotentes — num 409
-    // de concorrencia, o retry do Editar converge sem efeito duplicado.
-    // No-op se ja coerente.
-    if (contract.sampleId) {
-      await this._syncSampleOwner(contract.sampleId, sellerClientId, actorContext);
-    }
-
     // Venda do lote coerente com o contrato à vista, via SALE_UPDATED
-    // (append-only): comprador (P20) + sacas/data (Editar fase 1). Depois do sync
-    // do vendedor (que bumpa a versao do sample). So a vista (tem movementId).
+    // (append-only): comprador (P20) + sacas/data (Editar fase 1). So a vista
+    // (tem movementId). O vendedor NAO viaja mais nesta cascata — desde a
+    // RC-D37 ele vem do lote, entao nao ha o que devolver para ele.
     if (contract.sampleId && contract.movementId) {
       await this._syncMovementFromContract(
         contract.sampleId,
@@ -1773,13 +1789,14 @@ export class SaleContractService {
       fase1 = normalizeFutureSaleContractInput(input ?? {});
     }
 
-    // A vista sem vendedor explicito cai no dono do lote — mesma regra do
-    // createSpotSaleContract, pra a previa nao divergir do que sera emitido.
-    let sellerClientId = etapa2.sellerClientId ?? contract?.sellerClientId ?? null;
-    if (!sellerClientId && input?.sampleId && this.queryService) {
-      const sample = await this.queryService.requireSample(input.sampleId);
-      sellerClientId = sample.ownerClientId ?? null;
-    }
+    // RC-D37: com lote, o vendedor E o dono do lote — mesma regra do
+    // createSpotSaleContract/emitSaleContract. A previa TEM que seguir a regra da
+    // emissao: e o documento que o usuario confirma (RC-D27/D28), e divergir aqui
+    // faria emitir um vendedor diferente do que ele aprovou.
+    const previewSampleId = contract?.sampleId ?? input?.sampleId ?? null;
+    let sellerClientId = previewSampleId
+      ? await this._requireSampleOwner(previewSampleId)
+      : (etapa2.sellerClientId ?? contract?.sellerClientId ?? null);
     if (!sellerClientId) {
       throw new HttpError(422, 'sellerClientId is required to preview the contract', {
         code: 'VALIDATION_ERROR',
@@ -2028,37 +2045,24 @@ export class SaleContractService {
     return { data };
   }
 
-  async _syncSampleOwner(sampleId, newOwnerClientId, actorContext) {
-    if (!this.commandService || !this.queryService) {
-      throw new HttpError(501, 'Sample owner sync is not configured', {
-        code: 'SAMPLE_SYNC_NOT_CONFIGURED',
+  // RC-D37: o dono do lote e a FONTE do vendedor do contrato a vista. Le direto
+  // pelo prisma (nao pelo queryService) porque o "Editar" e a previa rodam em
+  // contextos onde os services de amostra podem nao estar montados.
+  async _requireSampleOwner(sampleId) {
+    const sample = await this.prisma.sample.findUnique({
+      where: { id: sampleId },
+      select: { ownerClientId: true },
+    });
+    if (!sample) {
+      throw new HttpError(404, `Sample ${sampleId} not found`, { code: 'SAMPLE_NOT_FOUND' });
+    }
+    if (!sample.ownerClientId) {
+      throw new HttpError(422, 'Sample has no owner and cannot be sold', {
+        code: 'SAMPLE_WITHOUT_OWNER',
+        field: 'sellerClientId',
       });
     }
-    const sample = await this.queryService.requireSample(sampleId);
-    if ((sample.ownerClientId ?? null) === newOwnerClientId) {
-      return; // ja coerente — evita "No registration changes detected"
-    }
-    await this.commandService.updateRegistration(
-      {
-        sampleId,
-        expectedVersion: sample.version,
-        after: { ownerClientId: newOwnerClientId },
-        reasonCode: 'DATA_FIX',
-        reasonText: 'Vendedor ajustado no contrato (Fechamento)',
-        // D146 resolvia aqui um 409 BLEND_HARVEST_PROPAGATION_REQUIRED: trocar o
-        // vendedor de um lote que era origem de liga recaia na propagacao reativa
-        // de owner, e sem confirmacao explicita o Editar quebrava.
-        //
-        // RC-D36 (2026-07-28) tirou o DONO da propagacao — este updateRegistration
-        // muda so o campo `ownerClientId` do proprio lote, entao nao ha mais
-        // propagacao alguma a confirmar. A flag fica por seguranca: se um dia este
-        // sync passar a mexer em safra ou lote de origem, o comportamento
-        // auto-confirmado da D146 continua sendo o certo (o contrato e a acao
-        // autoritativa, e nao ha UI de confirmacao neste caminho).
-        confirmHarvestPropagation: true,
-      },
-      actorContext
-    );
+    return sample.ownerClientId;
   }
 
   // Sincroniza a VENDA do lote (movimento) com o contrato à vista via

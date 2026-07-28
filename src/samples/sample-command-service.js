@@ -2520,11 +2520,12 @@ export class SampleCommandService {
       }
     }
 
-    // Liga (dono fixado): uma edicao MANUAL que seta o dono de uma liga (contrato
-    // de venda via _syncSampleOwner, editor do detalhe, "Atribuir dono" do modal
-    // de venda) FIXA o dono — a propagacao reativa deixa de sobrescreve-lo. Os
-    // drafts da propagacao sao construidos em _buildBlendPropagation (nao passam
-    // por aqui), entao NAO auto-fixam as ligas ancestrais.
+    // Liga (dono fixado): uma edicao MANUAL que seta o dono de uma liga (editor
+    // do detalhe ou "Atribuir dono" do modal de venda) FIXA o dono — a propagacao
+    // reativa deixa de sobrescreve-lo. Os drafts da propagacao sao construidos em
+    // _buildBlendPropagation (nao passam por aqui), entao NAO auto-fixam as ligas
+    // ancestrais. O contrato de venda saiu desta lista: desde a RC-D37 ele LE o
+    // dono do lote em vez de escrever nele.
     if (sample.isBlend && hasOwn(updatePayload.after, 'ownerClientId')) {
       updatePayload.after.blendOwnerPinned = true;
     }
