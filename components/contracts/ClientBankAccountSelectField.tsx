@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ApiError, createClientBankAccount, listClientBankAccounts } from '../../lib/api-client';
 import { ClientBankAccountModal } from '../clients/ClientBankAccountModal';
@@ -39,6 +39,12 @@ export function ClientBankAccountSelectField({
   const [saving, setSaving] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
 
+  // `value` entra por ref, nao por dependencia: a pre-selecao abaixo so precisa
+  // saber se JA ha conta escolhida, e pendurar `value` nas deps refaria o fetch
+  // a cada escolha.
+  const valueRef = useRef(value);
+  valueRef.current = value;
+
   const refresh = useCallback(async () => {
     if (!clientId) {
       setAccounts([]);
@@ -47,12 +53,21 @@ export function ClientBankAccountSelectField({
     setLoading(true);
     try {
       const res = await listClientBankAccounts(session, clientId);
-      setAccounts(res.items.filter((account) => account.status === 'ACTIVE'));
+      const active = res.items.filter((account) => account.status === 'ACTIVE');
+      setAccounts(active);
+      // RC-D31: conta unica = escolher e ritual. O campo e obrigatorio e a
+      // resposta ja e conhecida; segue trocavel se houver mais de uma depois.
+      if (active.length === 1 && !valueRef.current) {
+        onChange(active[0].id);
+      }
     } catch {
       setAccounts([]);
     } finally {
       setLoading(false);
     }
+    // `onChange` vem do pai sem memo; incluir na lista refaria o fetch a cada
+    // render dele. O efeito depende de sessao + cliente, e so.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, clientId]);
 
   useEffect(() => {

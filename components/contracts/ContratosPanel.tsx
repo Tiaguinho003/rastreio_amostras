@@ -9,6 +9,7 @@ import { ClassificationFilterField } from '../samples/ClassificationFilterField'
 import { SelectionModeHeader } from '../samples/SelectionModeHeader';
 import { getNextContractNumber, listSaleContracts } from '../../lib/api-client';
 import { espelhoEligibility } from '../../lib/espelho';
+import { ownerDisplayValue } from '../../lib/sample-display';
 import { useDelayedValue } from '../../lib/use-delayed-value';
 import { useContractHighlight } from '../../lib/use-contract-highlight';
 import { useFocusTrap } from '../../lib/use-focus-trap';
@@ -127,6 +128,10 @@ export function ContratosPanel({ session }: { session: SessionData }) {
     isBlend: boolean;
     ownerClientId: string | null;
     nextNumber: string | null;
+    // RC-D32: o que a faixa de identidade do lote mostra no topo do formulário.
+    // Tudo já vem do getSampleDetail que o picker faz — não custa requisição.
+    ownerName: string | null;
+    harvest: string | null;
   } | null>(null);
 
   // Espelho de Corretagem (Fase E): modo de seleção (D76) + alvo. O alvo abre a
@@ -791,6 +796,8 @@ export function ContratosPanel({ session }: { session: SessionData }) {
               isBlend: sample.isBlend ?? false,
               ownerClientId: sample.ownerClientId ?? null,
               nextNumber,
+              ownerName: ownerDisplayValue(sample) || null,
+              harvest: sample.declared.harvest,
             });
           }}
         />

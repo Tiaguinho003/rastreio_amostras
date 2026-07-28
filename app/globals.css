@@ -28241,21 +28241,28 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
 .bottom-sheet.ctr-form-sheet .bottom-sheet-footer {
   background: #ffffff;
 }
+/* RC-D29: os campos usam o desenho do kit FV. O corpo do formulario ainda e
+   markup `.app-modal-*` (a migracao pro `.fv-form-*` vai junto com a reordenacao
+   dos campos, RC-D18) — mas com o sheet virando painel do kit, borda de 2px em
+   preto translucido e anel de foco num verde diferente do `--fv-cta` deixavam a
+   metade de baixo do painel destoando da de cima. Mesma geometria do kit, sem
+   copiar o bloco (skill `forms` §2). */
 .bottom-sheet.ctr-form-sheet .app-modal-input {
-  border-width: 2px;
-  border-color: rgba(0, 0, 0, 0.16);
+  border-width: 1px;
+  border-color: var(--fv-line-strong);
+  border-radius: var(--fv-radius);
   background: #ffffff;
-  color: #1a1a1a;
+  color: var(--ink);
 }
 .bottom-sheet.ctr-form-sheet .app-modal-input:focus-visible {
-  border-color: rgba(22, 91, 42, 0.5);
-  box-shadow: 0 0 0 3px rgba(22, 91, 42, 0.1);
+  border-color: var(--fv-cta);
+  box-shadow: 0 0 0 3px rgba(23, 60, 48, 0.12);
 }
 .bottom-sheet.ctr-form-sheet .app-modal-label {
-  color: rgba(0, 0, 0, 0.6);
-  font-weight: 600;
+  color: var(--brand-muted);
+  font-weight: 500;
   font-size: 0.78rem;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
 }
 /* Fix do input date no WebKit (mesmo do modal central) — sem isso o campo
    estoura a largura no iOS. */
@@ -28287,41 +28294,22 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   min-width: 0;
 }
 
-/* ── Emissão do contrato — DESKTOP: modal MAIOR e centralizado na ÁREA DE
-   CONTEÚDO (S74). Escopado a .ctr-contract-sheet (exclusivo deste modal) — NÃO
-   afeta os outros sheets/modais. Os wrappers .ctr-etapa2-cols/-col e .ctr-pair
-   são `display: contents` no mobile (layout idêntico ao atual, coluna única) e
-   viram 2 colunas de seções + pares de campos só no desktop, pra caber sem
-   scroll (scroll fica só como fallback em telas baixas). ── */
+/* ── Emissão do contrato (RC-D29): o formulário é PAINEL LATERAL, como o picker
+   que vem antes dele. Era um sheet centralizado de min(1180px, 80vw) com as
+   seções em 2 colunas (S74) — largura que existia pra caber tudo sem scroll.
+   Num painel de 620px a leitura é em COLUNA ÚNICA: os wrappers
+   .ctr-etapa2-cols/-col ficam `display: contents` em toda largura e as seções
+   caem na ordem do DOM. A conferência antes de emitir não depende mais de ver
+   tudo de uma vez — ela virou a tela do documento (RC-D27). ── */
 .ctr-etapa2-cols,
 .ctr-etapa2-col,
 .ctr-pair {
   display: contents;
 }
 @media (min-width: 901px) {
-  .bottom-sheet.ctr-contract-sheet {
-    /* grande com respiro: ~80% da largura. DSB-D6: os papéis que emitem contrato
-       (ADMIN/COMMERCIAL) não têm mais sidebar, então centraliza normal (50%). */
-    width: min(1180px, 80vw);
-    max-width: min(1180px, 80vw);
-    left: 50%;
-    /* mais alto: sem o teto de 44rem. Scroll (body) só se exceder 88dvh */
-    max-height: 88dvh;
-  }
-  /* Seções em 2 colunas: Venda/Vendedor/Comprador · Pagamento/Valores/Textos */
-  .ctr-etapa2-content .ctr-etapa2-cols {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: clamp(0.9rem, 1.4vw, 1.4rem);
-    align-items: start;
-  }
-  .ctr-etapa2-content .ctr-etapa2-col {
-    display: flex;
-    flex-direction: column;
-    gap: clamp(0.8rem, 1.2vw, 1rem);
-  }
-  /* Pares de campos lado a lado; com 1 campo (ex.: filial ausente em PJ) ele
-     ocupa a linha inteira (flex: 1). */
+  /* Pares de campos lado a lado (Sacas | Preço, Filial | Banco): cabem nos
+     620px do painel. Com 1 campo (ex.: filial ausente em PJ) ele ocupa a linha
+     inteira (flex: 1). No mobile seguem empilhados pelo `display: contents`. */
   .ctr-etapa2-content .ctr-pair {
     display: flex;
     gap: 0.6rem;
@@ -28331,6 +28319,32 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
     flex: 1 1 0;
     min-width: 0;
   }
+}
+
+/* Faixa de identidade do lote (RC-D32): no lugar da linha cinza que só dizia
+   "Lote 1234". Fechado o picker, é a única chance de conferir que o lote é o
+   certo — então carrega número, produtor, safra e saldo. */
+.ctr-lot-band {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3rem 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--fv-line);
+  border-radius: var(--fv-radius);
+  background: var(--fv-canvas);
+}
+.ctr-lot-band-code {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.ctr-lot-band-fact {
+  font-size: 0.82rem;
+  color: var(--brand-muted);
+}
+.ctr-lot-band-dot {
+  color: var(--fv-line-strong);
 }
 /* Picker de lote (RC-D29: painel lateral do kit FV): o corpo do sheet vira
    coluna flex pra a lista (.lotpick-list) esticar e rolar — a linha de apoio e a

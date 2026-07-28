@@ -28,6 +28,7 @@ import { BrokerMultiSelectField } from '../samples/BrokerMultiSelectField';
 import { ClientLookupField } from '../clients/ClientLookupField';
 import { ClientQuickCreateModal } from '../clients/ClientQuickCreateModal';
 import { ClientUnitModal } from '../clients/ClientUnitModal';
+import { HarvestDisplay } from '../samples/HarvestDisplay';
 import { ClientBankAccountSelectField } from './ClientBankAccountSelectField';
 import { InlineSelectField } from './InlineSelectField';
 import type {
@@ -63,6 +64,9 @@ type SaleContractEtapa2ModalProps = {
     isBlend: boolean;
     ownerClientId: string | null;
     nextNumber: string | null;
+    /** RC-D32: fatos do lote para a faixa de identidade no topo. */
+    ownerName: string | null;
+    harvest: string | null;
   };
   // Modo CRIACAO FUTURO (1 modal): sem lote/contrato. Mostra o bloco "Venda"
   // (vazio, sacas LIVRES) + Vendedor/Comprador manuais; o submit cria o contrato
@@ -72,6 +76,16 @@ type SaleContractEtapa2ModalProps = {
 
 function dateInputValue(iso: string | null): string {
   return iso ? iso.slice(0, 10) : '';
+}
+
+// RC-D31: a data do contrato nascia vazia e o submit exigia. Hoje e a resposta
+// em praticamente todo caso — e continua editavel. Fuso local (nao toISOString,
+// que devolve UTC e pode voltar um dia a noite no Brasil).
+function todayInputValue(): string {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${now.getFullYear()}-${month}-${day}`;
 }
 
 function unitLabel(unit: ClientUnitSummary): string {
@@ -186,15 +200,22 @@ export function SaleContractEtapa2Modal({
           setLookups(lookupsRes);
           setContract(null);
           setSampleIsBlend(spotCreate.isBlend);
-          if (spotCreate.isBlend) {
-            setSaleSacks(String(spotCreate.availableSacks));
-          }
+          // RC-D31: sacas = saldo do lote. Em liga isso e obrigatorio (venda de
+          // liga e 100%, campo travado); em lote normal e so o caso comum —
+          // vender o lote inteiro — com o campo livre pra reduzir.
+          setSaleSacks(String(spotCreate.availableSacks));
+          setSaleDate(todayInputValue());
           if (spotCreate.ownerClientId) {
             const sellerD = await getClient(session, spotCreate.ownerClientId).catch(() => null);
             if (aborted) return;
             if (sellerD) {
               setSeller(sellerD.client);
               setSellerUnits(sellerD.units);
+              // RC-D31: filial obrigatoria para PF. Com uma unica, escolher e
+              // ritual — o formulario ja sabe a resposta.
+              if (sellerD.client.personType === 'PF' && sellerD.units.length === 1) {
+                setSellerUnitId(sellerD.units[0].id);
+              }
             }
           }
           // Liga: viabilidade da venda (bloqueia se alguma origem não cobre a cascata).
@@ -221,6 +242,9 @@ export function SaleContractEtapa2Modal({
           if (aborted) return;
           setLookups(lookupsRes);
           setContract(null);
+          // RC-D31: mesma razao do a vista. Sacas ficam livres (contrato futuro
+          // nao tem lote pra limitar).
+          setSaleDate(todayInputValue());
           // Preview do número (opcional; o número real é gerado no submit).
           try {
             const { contractNumber } = await getNextContractNumber(session);
@@ -319,6 +343,11 @@ export function SaleContractEtapa2Modal({
       const detail = await getClient(session, client.id);
       setSeller(detail.client);
       setSellerUnits(detail.units);
+      // RC-D31: mesma pre-selecao da hidratacao — vale tambem quando o vendedor
+      // e TROCADO a mao, senao o atalho existiria so no caminho automatico.
+      if (detail.client.personType === 'PF' && detail.units.length === 1) {
+        setSellerUnitId(detail.units[0].id);
+      }
     } catch {
       setSellerUnits(client.units ?? []);
     }
@@ -772,11 +801,12 @@ export function SaleContractEtapa2Modal({
         open={open}
         onClose={handleSheetClose}
         onDismissAttempt={() => !saving}
-        title={sheetTitle}
+        title={null}
         ariaLabel={sheetTitle}
         footer={sheetFooter}
         stacked={isSpotCreate}
-        className="ctr-form-sheet ctr-contract-sheet"
+        closeVariant="edge-back"
+        className="fv-panel-sheet side-sheet ctr-form-sheet ctr-contract-sheet"
       >
         {error ? <p className="sdv-modal-error">{error}</p> : null}
         {loadError ? <p className="sdv-modal-error">{loadError}</p> : null}
@@ -787,6 +817,48 @@ export function SaleContractEtapa2Modal({
           </div>
         ) : (
           <div className="app-modal-content ctr-etapa2-content">
+            <p className="fv-panel-lead">{sheetTitle}</p>
+
+            {/* RC-D32: faixa de identidade do lote. Fechado o picker, é a única
+                chance de conferir que o lote é o certo — antes daqui só havia
+                uma linha cinza com o número. */}
+            {isSpotCreate && spotCreate ? (
+              <div className="ctr-lot-band">
+                <span className="ctr-lot-band-code">
+                  Lote {spotCreate.internalLotNumber ?? 'sem número'}
+                </span>
+                {spotCreate.ownerName ? (
+                  <>
+                    <span className="ctr-lot-band-dot" aria-hidden="true">
+                      ·
+                    </span>
+                    <span className="ctr-lot-band-fact">{spotCreate.ownerName}</span>
+                  </>
+                ) : null}
+                {spotCreate.harvest ? (
+                  <>
+                    <span className="ctr-lot-band-dot" aria-hidden="true">
+                      ·
+                    </span>
+                    <span className="ctr-lot-band-fact">
+                      {/* HarvestDisplay, nao texto cru: liga com 2+ safras vira o
+                          badge "Mix" — mesmo desenho do card do picker que o
+                          usuario acabou de ver. `showMixSafras={false}` porque a
+                          faixa ja separa fatos por "·" e a lista de safras usa o
+                          mesmo separador. */}
+                      Safra <HarvestDisplay harvest={spotCreate.harvest} showMixSafras={false} />
+                    </span>
+                  </>
+                ) : null}
+                <span className="ctr-lot-band-dot" aria-hidden="true">
+                  ·
+                </span>
+                <span className="ctr-lot-band-fact">
+                  {spotCreate.availableSacks} sacas disponíveis
+                </span>
+              </div>
+            ) : null}
+
             {/* Topo (primeira info após o header): número que será criado + tipo,
                 ambos só-leitura. */}
             <div style={halfRowStyle}>
@@ -810,12 +882,6 @@ export function SaleContractEtapa2Modal({
                   {/* Fase 1 (venda) — bloco em todos os modos. Sacas travadas em liga
                   (F7.1 / à vista liga = 100%); à vista limita ao saldo do lote. */}
                   <p className="ctr-section-title">Venda</p>
-
-                  {isSpotCreate && spotCreate ? (
-                    <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--brand-muted)' }}>
-                      Lote {spotCreate.internalLotNumber ?? 'Sem número'}
-                    </p>
-                  ) : null}
 
                   <label className="app-modal-field">
                     <span className="app-modal-label">Data do contrato</span>
