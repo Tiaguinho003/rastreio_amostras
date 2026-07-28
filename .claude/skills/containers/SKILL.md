@@ -130,6 +130,12 @@ Deixar os dois rolando põe uma barra de rolagem do passo por fora da lista, sem
 voltar ao modal: ganha um botão **"Ampliar"** — tela cheia sob demanda, portalada, com ESC em fase
 de captura para fechar só a ampliação e não atravessar até o painel.
 
+**A largura, se mudar, é do PAINEL — vale para todos os passos.** `/contratos` foi a 700px (RC-D61)
+quando o formulário passou a ter linhas de 3 colunas; o documento e o picker herdaram o respiro. É
+o oposto de alargar por causa de um passo só: não há como um passo ser mais largo que o painel.
+🔴 O seletor precisa citar `.side-sheet` — `.bottom-sheet.side-sheet` (620px, 0,2,0) mora **depois**
+no `globals.css` e, com a mesma especificidade, venceria por ordem.
+
 **Um sheet a menos é um `stacked` a menos.** Se o passo novo veio de um sheet que ficava **embaixo**
 do outro, o de cima provavelmente era `stacked` só por isso — e volta ao tier normal. Ganha-se de
 brinde uma entrada de history em vez de duas (sheet `stacked` não injeta a sua), então o back do
@@ -576,7 +582,7 @@ muda) · **🔜 ciclo** migra quando o redesenho chegar na página — nada de c
 | /relatorios             | Descarte de rascunho (`.is-scrim-none` + `.is-compact`); cancelar item; aviso 409 (sobre painel, `.fv-panel-scrim`)        | central                                        | fica                                                      |
 | /relatorios             | Criar: 3 **botões na faixa** (desktop) · **leque do FAB** (mobile-only) — mesma fonte de estado (`useInformeCreateSheets`) | —                                              | ✅ (§2.10 R8/R13)                                         |
 | /relatorios             | Filtro de tipo: **chips fixos no topo do feed**, aplicam imediato (não há painel de filtros)                               | inline                                         | ✅ (§2.10 R13/R14)                                        |
-| /contratos              | Criação à vista: lote → formulário → documento (`.ctr-form-sheet.ctr-contract-sheet`)                                      | painel de **três passos** (§1-A)               | 🟡 (RC-D53/D57; corpo do form ainda `.app-modal-*`)       |
+| /contratos              | Criação à vista: lote → formulário → documento (`.ctr-form-sheet.ctr-contract-sheet`, **700px**)                           | painel de **três passos** (§1-A)               | ✅ (RC-D53/D57/D58..D61)                                  |
 | /contratos ?details=    | Detalhe do contrato                                                                                                        | `DetailOverlay`                                | ✅                                                        |
 | /contratos              | Filtros                                                                                                                    | painel lateral (`.side-sheet.fv-filter-sheet`) | ✅ (RC-D47)                                               |
 | /contratos              | Ágio; washout/faturar/pagar; conferência do espelho; solicitar aprovação                                                   | central                                        | fica                                                      |

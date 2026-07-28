@@ -123,7 +123,7 @@ Escopo original: `app/financeiro/page.tsx` deixa de ser redirect e vira a págin
 **RC-F4 — `/embarques` morre.** ✅ **IMPLEMENTADA em 2026-07-27, ANTECIPADA** — o roteiro a punha depois da RC-F2, e o Flavio escolheu juntá-la à F1 (RC-D21). Viável porque as duas ações que só a worklist oferecia mudaram de casa no mesmo passo (RC-D25). Ver §5.9. Dependia da RC-A2, fechada pela RC-D26.
 Escopo original: Rota vira redirect; `EmbarquePanel`, `AprovacoesPanel`, `EmbarqueCard`, `AprovacaoCard` apagados; deep-links re-apontados (`AvisosCard.tsx:23`, `EventsCalendarCard.tsx:58`, `HeaderAvatarMenu.tsx:168`, `AppShell.tsx:99-126`); `contractsHubTabs`/`contractTabRoute` removidos de `lib/roles.ts`; CSS morto varrido. ⚠️ **No mesmo passo, `Dashboard-Visao-Geral.md`** — a Visão Geral de contratos (§11) obriga a atualizá-la a cada mudança de rota, nome de aba ou valor de `?tab=`, e a RC muda os três.
 
-**RC-F5 — a criação repensada** (RC-D12). 🟡 **1ª rodada IMPLEMENTADA em 2026-07-28** (RC-D27..D36, §5.10): seleção do lote, auto-preenchimento, erro no campo e a conferência pelo documento. 🟡 **2ª rodada no mesmo dia** (RC-D49..D52, §5.13): o **picker de lote** ganhou card FV em 4 colunas com cabeçalho fixo, e o status saiu dele. 🟡 **3ª rodada no mesmo dia** (RC-D53..D56, §5.14): a conferência deixou de ser modal central e virou o **2º passo do painel**, com deslize do miolo, ← e ESC voltando um passo e "Ampliar" para ler de perto. 🟡 **4ª rodada no mesmo dia** (RC-D57, §5.15): a **seleção de lote** virou o **1º passo** — o fluxo à vista inteiro (lote → formulário → documento) num painel só, e voltar ao lote deixou de descartar o formulário. **Falta** a RC-D18 (ordem dos campos espelhando o documento + bloco de controle interno) e o redesenho FV do corpo do formulário, que ainda é markup `.app-modal-*` — as duas coisas na mesma passada, que é a 5ª rodada.
+**RC-F5 — a criação repensada** (RC-D12). 🟡 **1ª rodada IMPLEMENTADA em 2026-07-28** (RC-D27..D36, §5.10): seleção do lote, auto-preenchimento, erro no campo e a conferência pelo documento. 🟡 **2ª rodada no mesmo dia** (RC-D49..D52, §5.13): o **picker de lote** ganhou card FV em 4 colunas com cabeçalho fixo, e o status saiu dele. 🟡 **3ª rodada no mesmo dia** (RC-D53..D56, §5.14): a conferência deixou de ser modal central e virou o **2º passo do painel**, com deslize do miolo, ← e ESC voltando um passo e "Ampliar" para ler de perto. 🟡 **4ª rodada no mesmo dia** (RC-D57, §5.15): a **seleção de lote** virou o **1º passo** — o fluxo à vista inteiro (lote → formulário → documento) num painel só, e voltar ao lote deixou de descartar o formulário. 🟡 **5ª rodada no mesmo dia** (RC-D18 + RC-D58..D61, §5.16): o **corpo do formulário** — ordem espelhando o documento, cartão de identidade no lugar dos três jeitos de mostrar o não-editável, seções sem moldura e o painel a 700px. **A fase está fechada**; falta só a conferência no aparelho.
 
 **RC-F6 — o ciclo FV.** 🟡 **1ª rodada IMPLEMENTADA em 2026-07-28, ANTECIPADA** (RC-D42..D48, §5.12): moldura institucional, tabela no desktop, filtros em painel lateral, estados da lista, Espelho fora das ações da página. **Falta** o conteúdo do **card mobile** e a passada em `/financeiro`, que segue no kit legado.
 
@@ -167,7 +167,7 @@ _(Conferido e **não** é bug: a filial aparece só para **PF** — é a D38; pa
 | ~~**RC-D15**~~ | ⚠️ **REVOGADA pela RC-D28 (§5.10)** — a conferência funciona em qualquer aparelho. Original: **Sem prévia no celular, e sem substituto** — mesmo formulário, emite direto. Consequência aceita e registrada: no telefone não há documento à vista, nem total calculado, nem confirmação antes de um ato irreversível.                                                                                                           |
 | ~~**RC-D16**~~ | ⚠️ **REVOGADA pela RC-D27 (§5.10)** — a dependência explícita que ela própria registrava se cumpriu: a prévia ao vivo caiu, e a confirmação voltou. Original: Como a prévia **é** a conferência: **não entra resumo de números** nem tela/modal de confirmação; "Emitir" segue emitindo direto. ⚠️ **Dependência explícita:** estas duas ausências se justificam pela RC-D13 — se a prévia ao vivo cair, as duas voltam à mesa. |
 | **RC-D17**     | ✅ **CUMPRIDA pela RC-D27** (§5.10). A conferência vale nos **três modos** do componente: criar à vista, criar futuro e **editar** (onde ganha peso extra — reemitir muda um contrato que já existe, e hoje não se vê o efeito antes de gravar).                                                                                                                                                                                |
-| **RC-D18**     | ⏳ **próxima rodada** (§5.10). **A ordem dos campos espelha a ordem do documento** — o olho vai do campo ao trecho sem procurar. Ver a tabela abaixo.                                                                                                                                                                                                                                                                           |
+| **RC-D18**     | ✅ **IMPLEMENTADA em 2026-07-28** (§5.16), tabela abaixo aplicada campo a campo. **A ordem dos campos espelha a ordem do documento** — o olho vai do campo ao trecho sem procurar.                                                                                                                                                                                                                                              |
 | **RC-D19**     | ✅ **CUMPRIDA** (§5.10). **O lote continua um passo antes** (picker), como hoje: ele determina o vendedor e o teto de sacas, então o formulário nasce coerente.                                                                                                                                                                                                                                                                 |
 | **RC-D20**     | ✅ **IMPLEMENTADA em 2026-07-28** (§5.10), nos três modos. Ao emitir, **fecha o formulário e abre o contrato recém-criado** (o detalhe com as fases) — no lugar do toast + volta à lista. A pessoa cai onde vai acompanhar aprovação, embarque e faturamento.                                                                                                                                                                   |
 
@@ -353,7 +353,8 @@ função que a emissão usa para montar o contrato **antes** da transação) e e
 **RC-D18** (ordem dos campos espelhando o documento — comprador antes do vendedor) e o **bloco final
 de controle interno** (corretores + aprovação) ficam para a próxima rodada, junto com o resto do
 redesenho FV do corpo do formulário (que ainda é markup `.app-modal-*`). A conferência pelo documento
-que esta rodada entrega é o que torna essa próxima rodada segura de fazer.
+que esta rodada entrega é o que torna essa próxima rodada segura de fazer. → **Cumpridas na §5.16**
+(5ª rodada), no mesmo dia.
 
 **Verificação.** `typecheck`, `lint`, `format:check`, `build`, **556** unit, **20** contrato,
 `validate:schemas`; `globals.css` com `postcss.parse`. Integração rodada ao fim.
@@ -546,8 +547,8 @@ largura que sobra vai para o nome do produtor, que hoje truncava cedo.
 #### O que NÃO entrou
 
 Classificação (padrão/bebida/catação) · armazém · largura maior · skeleton e vazio-com-ícone dos
-estados da lista · lupa no campo de busca · **o formulário da Etapa 2**, que é a rodada seguinte
-junto com a RC-D18.
+estados da lista · lupa no campo de busca · **o formulário da Etapa 2**, junto com a RC-D18
+(entregues na §5.16). A largura maior também veio depois: **RC-D61**, na mesma §5.16.
 
 ### 5.14 RC-F5, 3ª rodada — o documento vira passo do painel (RC-D53..D56), 2026-07-28
 
@@ -602,9 +603,10 @@ documento apareceu** (ou foi baixado, quando a rasterização falha).
 #### O que NÃO entrou
 
 **Picker → formulário como passos do mesmo painel** — o Flavio pediu e é a rodada seguinte
-(entregue na §5.15, no mesmo dia). Também fora: a largura do painel (fica 620px, por decisão dele —
-quem resolve a leitura de perto é o "Ampliar") e o layout/ordem dos campos do formulário, que é a
-RC-D18.
+(entregue na §5.15, no mesmo dia). Também fora: a largura do painel (~~fica 620px, por decisão dele —
+quem resolve a leitura de perto é o "Ampliar"~~ → **revista na RC-D61**, §5.16: foi a 700px quando o
+formulário passou a ter linhas de 3 colunas; o "Ampliar" continua sendo quem resolve a leitura de
+perto) e o layout/ordem dos campos do formulário, que é a RC-D18.
 
 ### 5.15 RC-F5, 4ª rodada — o lote vira o 1º passo do painel (RC-D57), 2026-07-28
 
@@ -658,6 +660,83 @@ Consequências que valem registrar, porque mudam comportamento:
 
 A ordem e o layout dos campos do formulário (RC-D18 + kit `.fv-form-*`), que seguem sendo a rodada
 seguinte.
+
+### 5.16 RC-F5, 5ª rodada — o formulário por dentro (RC-D18, RC-D58..D61), 2026-07-28
+
+Por fora o painel já era o que devia ser. Por dentro, o formulário era a última peça de `/contratos`
+que não tinha passado pelo ciclo FV: **26 campos** em markup `.app-modal-*` legado, com quatro
+problemas que se somavam.
+
+**A ordem não tinha lógica.** O primeiro bloco chamava-se "Venda" e misturava quatro assuntos: data
+do contrato (identificação), sacas e preço (valores), corretagem em % (valores) e **corretores** —
+que nem sai no documento. "Valores", lá embaixo, guardava o **número de compra** (identificação) e o
+**peso** (quantidade). O vendedor vinha antes do comprador; o documento imprime ao contrário.
+
+**A aprovação decidia no meio do caminho.** "Este contrato precisa de aprovação?" é escolha de mão
+única (AP32: no Editar vira só-leitura) e morava entre a embalagem e o número de compra.
+
+**Havia três jeitos diferentes de mostrar o que não se edita.** Uma faixa cinza com os fatos do lote,
+dois pseudo-campos (Número do contrato / Tipo) com rótulo e caixa de input desabilitada, e o Vendedor
+travado como valor + instrução. Os dois do meio convidavam ao clique e não faziam nada.
+
+**Excesso de moldura e de texto.** Seis caixas com hairline dentro de um painel que já é superfície,
+seis títulos em caixa alta, oito rótulos terminando em "(opcional)", e frases como "Lembrar quantos
+dias antes do faturamento?".
+
+| #      | Decisão                                                                                                                                                                                                                  |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| RC-D58 | **A ordem espelha o documento** (a tabela da RC-D18): Identificação · Comprador · Vendedor · Pagamento e logística · Quantidades e valores · Banco · Textos, e um 8º bloco **Controle interno** com o que não é impresso |
+| RC-D59 | O que **não se edita** vira **um cartão de identidade** no topo. Morrem os dois pseudo-campos e a faixa do lote separada                                                                                                 |
+| RC-D60 | As seções perdem a moldura e viram **micro-cabeçalho `.fv-form-heading`** — o padrão do kit                                                                                                                              |
+| RC-D61 | O painel vai a **700px** no desktop. Vale para os três passos: o lote ganha respiro e a folha A4 do documento sobe de ~0,78 para ~0,84 da escala                                                                         |
+
+O cartão de identidade tem duas linhas: número + tipo, e — **só na criação à vista** — lote ·
+produtor · safra · saldo. No Futuro não há lote; no Editar o `SaleContractDetail` carrega `sampleId`
+mas não o número do lote nem a safra, e buscá-los seria requisição nova (fora do escopo, registrado).
+
+**Menos texto, sem perder informação:** somem os oito "(opcional)" e entra o asterisco
+`.fv-form-required` nos obrigatórios. "Este contrato precisa de aprovação?" → "Precisa de aprovação?";
+"Lembrar quantos dias antes do faturamento?" → "Lembrete (dias antes do faturamento)"; "Preço por
+saca (R$)" → "Preço/saca (R$)". O sufixo "(300 disp.)" do campo Sacas saiu — o cartão já diz o saldo;
+"(liga: 100%)" ficou, porque explica um campo travado.
+
+#### Achados do caminho
+
+- 🔴 **O kit desenha `input` por DESCENDÊNCIA.** `.fv-form-field input` (0,1,1) alcança **qualquer**
+  input aninhado, não só o filho direto. Isso é o que faz a busca de cliente ganhar a geometria certa
+  de graça — e é o que **quebrou** o `.bms-input`, o campo de digitar dentro da caixa de corretores:
+  `.bms-input` era (0,1,0) e perdia, então o input interno ganhava borda, fundo e 2.62rem de altura
+  **dentro** da caixa que já é o controle. Consertado onde o componente mora
+  (`.bms-control .bms-input`, 0,2,0), não no escopo da página: o problema segue qualquer form que
+  hospede a caixa.
+- **O bloco `.ctr-form-sheet .app-modal-*` morreu, como o próprio comentário previa.** Ele existia só
+  para dar o desenho do kit a um corpo que ainda era legado. Efeito colateral desejado: as datas
+  trocam o ícone de calendário próprio pelo **indicador nativo**, que é o que todo painel FV usa.
+- **`.ctr-section-title` NÃO morreu**, ao contrário do que a análise supunha: quem usa são os 12
+  títulos da `SaleContractDetailsModal`. Só o `.ctr-block` (a moldura) foi embora.
+- **`.ctr-etapa2-cols` / `-col` / `.ctr-pair` eram legado inerte.** Restos do sheet central de 2
+  colunas (S74), viraram `display: contents` quando o formulário virou painel (RC-D29) e desde então
+  não faziam nada em largura nenhuma.
+- 🔴 **O submit continua sendo do botão, não de um `<form onSubmit>`.** O molde de `forms` §1 pede
+  `<form id>` + `form={id}` no rodapé, e aqui seria regressão: são **cinco tipos de campo composto
+  com input de busca interno** (`ClientLookupField` ×4, `InlineSelectField` ×5,
+  `BrokerMultiSelectField`) onde Enter significa "escolher este", não "emitir o contrato".
+- **A largura precisa citar `.side-sheet`.** `.bottom-sheet.side-sheet` (620px, 0,2,0) mora **depois**
+  no `globals.css`; com a mesma especificidade venceria por ordem. Mesma pegadinha do
+  `.informativo-sheet`.
+- **`.fv-form-row-3col` entrou no kit** (Sacas | Preço/saca | Peso) com `auto-fit`: dá três colunas a
+  700px e degrada sozinho no celular, sem media query. Já o par de textos (Observações | Descrição)
+  precisou de colapso escopado — o `-2col` do kit **não** colapsa de propósito, e dois textareas a
+  ~160px não se leem.
+- **`.ctr-etapa2-content` ficou sem regra CSS nenhuma.** A classe sobrevive só como **âncora do
+  `scrollIntoView`** do erro de campo — é o que distingue este formulário de qualquer outro
+  `.fv-form-body` aberto na página.
+
+#### O que NÃO entrou
+
+Lógica, validações e payload — nada mudou; a rodada é de apresentação. Também ficaram de fora buscar
+os fatos do lote no modo Editar (requisição nova) e a prévia de números ao vivo (era a RC-D14/D16,
+revogadas: quem confere hoje é o passo do documento).
 
 ## Apêndice A — Ledger de decisões (condensado)
 

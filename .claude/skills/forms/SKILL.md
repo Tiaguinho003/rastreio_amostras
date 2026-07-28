@@ -74,6 +74,7 @@ Quatro coisas estruturais neste molde:
 | `.fv-form-heading`     | micro-cabeçalho de seção: small-caps muted + hairline                  |
 | `.fv-form-row`         | linha de 1 coluna                                                      |
 | `.fv-form-row-2col`    | linha de 2 colunas, `align-items: end`                                 |
+| `.fv-form-row-3col`    | 3 campos curtos, `auto-fit` de `minmax(8.5rem, 1fr)` — degrada sozinho |
 | `.fv-form-field`       | o campo (label + controle), `<label>` envolvendo tudo                  |
 | `.fv-form-label`       | **marcador semântico — não tem CSS**; o estilo vem do `.fv-form-field` |
 | `.fv-form-required`    | asterisco vermelho                                                     |
@@ -86,6 +87,24 @@ Geometria do controle, herdada por `input`/`select`/`textarea` dentro de `.fv-fo
 
 **Não redeclarar essa geometria escopada.** Se um campo composto (markup próprio) precisa dela, o
 caminho é uma regra pequena que aplica o mesmo desenho ao markup dele — não copiar o bloco.
+
+🔴 **É por DESCENDÊNCIA, não filho direto** — `.fv-form-field input` (0,1,1). Isso é o que faz um
+composto como o `ClientLookupField` (cujo `<input>` não tem classe) ganhar a geometria de graça. E é
+o que **quebra** o input interno de um composto que **não** deve parecer campo: a caixa de chips tem
+o próprio `.bms-control` desenhado, e o `.bms-input` lá dentro precisa ficar sem borda. Uma classe
+só (0,1,0) **perde** para o kit. Conserto no componente, não no escopo da página:
+
+```css
+.bms-control .bms-input {
+  /* 0,2,0 — ganha do kit e vale em qualquer form que hospede a caixa */
+  min-height: 0;
+  border: 0;
+  background: transparent;
+}
+```
+
+Ao pôr um composto dentro de um `.fv-form-field` pela primeira vez, conferir **todo `<input>`
+aninhado**: o que deve virar campo, e o que é peça interna de outro controle.
 
 O fix do `input[type='date']` (WebKit ignora `width` e estoura a coluna em linha de 2 colunas) já
 está no kit. Não repetir por painel.
@@ -135,7 +154,7 @@ lote, RC-D37):
 
 ```tsx
 <div className={fieldClass('seller')}>
-  <span className="app-modal-label">Vendedor</span>
+  <span className="fv-form-label">Vendedor</span>
   <p className="ctr-locked-value">{seller?.displayName ?? 'Sem produtor'}</p>
   <span className="ctr-locked-hint">
     É o dono do lote. Para trocar, edite o dono no cadastro do lote.
@@ -226,6 +245,17 @@ colado à esquerda.
 
 CTA compacto é o padrão institucional — o mesmo do `+ Novo usuário` na `.fv-page-head`. Se forem
 **dois** botões lado a lado num flex, o par também precisa de `flex: 0 0 auto`, senão estica igual.
+
+### 🔴 A exceção: form cheio de campo composto NÃO usa `<form onSubmit>`
+
+O `<form id>` + `form={id}` do §1 vale por padrão, mas ele liga o **Enter** de qualquer input ao
+submit. Num formulário onde a maioria dos campos é composta com busca interna — `ClientLookupField`,
+`InlineSelectField`, chips —, Enter significa "**escolher este**", não "emitir". O molde do
+`SaleContractEtapa2Modal` (11 compostos, RC-D58): o corpo é uma `<div className="fv-form-body">` e o
+botão do rodapé chama o handler direto, sem `form=`.
+
+Regra de bolso: se um Enter distraído dentro de um campo puder disparar um ato **irreversível**
+(emitir, enviar, faturar), o submit é do botão.
 
 ---
 
@@ -337,16 +367,44 @@ não ter guard. Use um `touched` explícito, ligado pelo handler de mudança de 
 `SaleContractEtapa2Modal` (RC-D34), onde o handler compartilhado `onFieldChange()` marca o toque e
 limpa o erro de campo de uma vez — os dois sempre acontecem juntos.
 
-**Saída lateral também perde o rascunho.** Painel com "Voltar" para um passo anterior (picker de
-lote → formulário) precisa do mesmo guard, com copy própria ("Voltar e escolher outro lote?" ×
-"Descartar contrato?"). Um `pendingExit: 'close' | 'back'` cobre as duas com um diálogo só.
+**Saída lateral só perde o rascunho se o passo anterior for outra SUPERFÍCIE.** Quando "Voltar" é um
+passo do **mesmo painel** (`containers` §1-A), o form continua montado ao lado com o que foi digitado
+e a rolagem onde estava — não há o que confirmar, e perguntar seria ruído. O guard fica **só para
+sair do painel**, e o estado de confirmação volta a ser booleano.
+
+Molde no `SaleContractEtapa2Modal` (RC-D57): o `canExit()` trata a volta antes de olhar o rascunho.
+
+```tsx
+function canExit(): boolean {
+  if (saving) return false;
+  if (onDocumentStep) {
+    backToForm();
+    return false;
+  } // volta um passo…
+  if (spotFlow && spotCreate != null) {
+    backToLot();
+    return false;
+  } // …e nada se perde
+  if (touched) {
+    setPendingExit(true);
+    return false;
+  } // aí sim, "Descartar?"
+  return true;
+}
+```
+
+🔴 **Mas o que o passo anterior DETERMINA tem que morrer na troca.** Voltar ao picker e escolher
+outro lote troca o vendedor: filial e conta bancária do dono anterior sobreviveriam caladas e virariam
+um 422 no submit. Zerar na hidratação do passo novo. Antes o problema não existia porque o formulário
+era destruído — manter o estado é a feature, e é também a armadilha.
 
 ---
 
 ## §9 Checklist
 
 - [ ] `.fv-form-*` (não `.app-modal-field`, não `.client-quick-create-*`)
-- [ ] `<form id>` + submit no footer com `form={id}`
+- [ ] `<form id>` + submit no footer com `form={id}` — **exceto** form cheio de campo composto com busca (§5)
+- [ ] Composto novo dentro de `.fv-form-field`: conferir todo `<input>` aninhado (§2)
 - [ ] Sem "Cancelar" textual
 - [ ] Rótulo de saving no gerúndio, bifurcando se o submit bifurca
 - [ ] `disabled` de todo campo acompanha `saving`
