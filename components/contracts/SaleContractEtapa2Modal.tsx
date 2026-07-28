@@ -1,6 +1,6 @@
 'use client';
 
-import { type CSSProperties, useEffect, useState } from 'react';
+import { type CSSProperties, useEffect, useRef, useState } from 'react';
 
 import {
   ApiError,
@@ -13,6 +13,7 @@ import {
   getClient,
   getNextContractNumber,
   getSaleContract,
+  getSampleDetail,
   listContractLookups,
   updateClient,
 } from '../../lib/api-client';
@@ -39,6 +40,7 @@ import type {
   SaleContractDetail,
   SaleContractEtapa2Input,
   SaleContractSaleFieldsInput,
+  SampleSnapshot,
   SessionData,
 } from '../../lib/types';
 
@@ -68,6 +70,10 @@ type SaleContractEtapa2ModalProps = {
     ownerName: string | null;
     harvest: string | null;
   };
+  // À VISTA: o lote mudou durante o preenchimento (409 SAMPLE_VERSION_CONFLICT) e
+  // este é o snapshot fresco. Quem monta o `spotCreate` é o pai — devolve o
+  // snapshot inteiro pra ele reaproveitar o mesmo mapeamento do picker.
+  onSpotRefreshed?: (sample: SampleSnapshot) => void;
   // Modo CRIACAO FUTURO (1 modal): sem lote/contrato. Mostra o bloco "Venda"
   // (vazio, sacas LIVRES) + Vendedor/Comprador manuais; o submit cria o contrato
   // FUTURO JA EMITIDO numa só chamada (createFutureSaleContract, D97).
@@ -92,6 +98,30 @@ function unitLabel(unit: ClientUnitSummary): string {
   return unit.name ?? `Filial ${unit.code}`;
 }
 
+// RC-D35: os campos que uma validação pode apontar. Fechado (não `string`) pra o
+// typecheck pegar chave que não existe no markup — erro silencioso seria um campo
+// sem nenhuma marca vermelha.
+type FormFieldKey =
+  | 'saleDate'
+  | 'saleSacks'
+  | 'saleUnitPrice'
+  | 'saleSellerPct'
+  | 'saleBuyerPct'
+  | 'saleBrokers'
+  | 'seller'
+  | 'sellerUnit'
+  | 'bankAccount'
+  | 'buyer'
+  | 'buyerUnit'
+  | 'paymentForm'
+  | 'modality'
+  | 'packaging'
+  | 'invoiceDate'
+  | 'paymentDate'
+  | 'requiresApproval'
+  | 'approvalLead'
+  | 'agioValue';
+
 // Fechamento: modal do contrato. 3 modos: "Editar" (contrato existente, via
 // contractId → emitSaleContract) e criação em 1 modal — À VISTA (spotCreate, vem
 // do picker de lote → createSpotSaleContract) ou FUTURO (futureCreate, sem lote →
@@ -105,6 +135,7 @@ export function SaleContractEtapa2Modal({
   onSaved,
   onBack,
   spotCreate,
+  onSpotRefreshed,
   futureCreate = false,
 }: SaleContractEtapa2ModalProps) {
   // Modos de criação em 1 modal: à vista (spotCreate, do picker) ou Futuro.
@@ -174,7 +205,47 @@ export function SaleContractEtapa2Modal({
   const [approvalReminderLeadDays, setApprovalReminderLeadDays] = useState('30');
 
   const [saving, setSaving] = useState(false);
+  // `error` = o que NÃO tem campo (falha do servidor, liga inviável, conflito de
+  // versão). O que tem campo vive em `fieldError` (RC-D35) e é desenhado dentro
+  // dele — num painel de 620px com ~30 campos, a mensagem no topo do sheet ficava
+  // fora da tela justamente quando o usuário apertava Emitir.
   const [error, setError] = useState<string | null>(null);
+  const [fieldError, setFieldError] = useState<{ field: FormFieldKey; message: string } | null>(
+    null
+  );
+
+  function clearErrors() {
+    setError(null);
+    setFieldError(null);
+  }
+
+  // Um erro por vez (o 1º pendente), como já era — só que agora apontando o campo.
+  function failField(field: FormFieldKey, message: string) {
+    setError(null);
+    setFieldError({ field, message });
+  }
+
+  function fieldClass(field: FormFieldKey): string {
+    return fieldError?.field === field ? 'app-modal-field is-field-error' : 'app-modal-field';
+  }
+
+  // `.app-modal-field-error`, não o `.fv-form-field-error` do kit: é a peça que
+  // este formulário já usa no aviso de fim de semana logo abaixo das datas — duas
+  // classes de erro no mesmo campo dariam dois vermelhos diferentes. O
+  // `.ctr-form-sheet` retinta a peça no tom do kit.
+  function fieldMessage(field: FormFieldKey) {
+    if (fieldError?.field !== field) return null;
+    return <span className="app-modal-field-error">{fieldError.message}</span>;
+  }
+
+  // Rola até o campo com erro: sem isso, apertar Emitir com um campo pendente
+  // acima da dobra não muda nada visível. Consulta o DOM em vez de manter ~25
+  // refs — só existe um `.is-field-error` por vez.
+  useEffect(() => {
+    if (!fieldError) return;
+    const node = document.querySelector('.ctr-etapa2-content .is-field-error');
+    node?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [fieldError]);
 
   // D144: o "À definir" só existe no FUTURO — criação (futureCreate) ou Editar
   // de um contrato FUTURO (type persistido; molde do displayContractType).
@@ -185,6 +256,15 @@ export function SaleContractEtapa2Modal({
   const [savingUnit, setSavingUnit] = useState(false);
   const [unitError, setUnitError] = useState<string | null>(null);
 
+  // RC-D35: depois do 409 do lote, `spotCreate` troca de IDENTIDADE (versão e
+  // saldo novos) — mas a hidratação abaixo não pode rodar de novo, senão ela
+  // reescreveria o formulário que o usuário acabou de preencher, que é
+  // exatamente o que a recuperação existe pra evitar. Por isso o objeto entra
+  // por ref e a dependência do efeito é o ID do lote: hidrata uma vez por lote.
+  const spotCreateRef = useRef(spotCreate);
+  spotCreateRef.current = spotCreate;
+  const spotSampleId = spotCreate?.sampleId ?? null;
+
   useEffect(() => {
     let aborted = false;
     (async () => {
@@ -194,19 +274,20 @@ export function SaleContractEtapa2Modal({
         // Modo CRIACAO À VISTA (1 modal): vem do picker de lote. Carrega lookups,
         // pré-preenche o vendedor (dono do lote, se houver), semeia o blend e — para
         // liga — semeia sacas = 100% e checa a viabilidade da cascata.
-        if (spotCreate) {
+        const spot = spotCreateRef.current;
+        if (spot) {
           const lookupsRes = await listContractLookups(session);
           if (aborted) return;
           setLookups(lookupsRes);
           setContract(null);
-          setSampleIsBlend(spotCreate.isBlend);
+          setSampleIsBlend(spot.isBlend);
           // RC-D31: sacas = saldo do lote. Em liga isso e obrigatorio (venda de
           // liga e 100%, campo travado); em lote normal e so o caso comum —
           // vender o lote inteiro — com o campo livre pra reduzir.
-          setSaleSacks(String(spotCreate.availableSacks));
+          setSaleSacks(String(spot.availableSacks));
           setSaleDate(todayInputValue());
-          if (spotCreate.ownerClientId) {
-            const sellerD = await getClient(session, spotCreate.ownerClientId).catch(() => null);
+          if (spot.ownerClientId) {
+            const sellerD = await getClient(session, spot.ownerClientId).catch(() => null);
             if (aborted) return;
             if (sellerD) {
               setSeller(sellerD.client);
@@ -219,9 +300,9 @@ export function SaleContractEtapa2Modal({
             }
           }
           // Liga: viabilidade da venda (bloqueia se alguma origem não cobre a cascata).
-          if (spotCreate.isBlend) {
+          if (spot.isBlend) {
             try {
-              const feas = await getBlendFeasibility(session, spotCreate.sampleId);
+              const feas = await getBlendFeasibility(session, spot.sampleId);
               if (aborted) return;
               setBlendInfeasible(!feas.feasible);
             } catch (cause) {
@@ -325,7 +406,7 @@ export function SaleContractEtapa2Modal({
     return () => {
       aborted = true;
     };
-  }, [session, contractId, spotCreate, futureCreate]);
+  }, [session, contractId, spotSampleId, futureCreate]);
 
   const sellerIsPF = seller?.personType === 'PF';
   const buyerIsPF = buyer?.personType === 'PF';
@@ -334,7 +415,7 @@ export function SaleContractEtapa2Modal({
     setSeller(client);
     setSellerUnitId('');
     setBankAccountId('');
-    setError(null);
+    clearErrors();
     if (!client) {
       setSellerUnits([]);
       return;
@@ -358,7 +439,7 @@ export function SaleContractEtapa2Modal({
   async function handleSelectBuyer(client: ClientSummary | null) {
     setBuyer(client);
     setBuyerUnitId('');
-    setError(null);
+    clearErrors();
     if (!client) {
       setBuyerUnits([]);
       return;
@@ -375,7 +456,7 @@ export function SaleContractEtapa2Modal({
   async function handleSelectWarehouse(which: 'buyer' | 'seller', client: ClientSummary | null) {
     if (which === 'buyer') setBuyerWarehouse(client);
     else setSellerWarehouse(client);
-    setError(null);
+    clearErrors();
     // D49: liga isWarehouse no cliente escolhido (best-effort — o contrato
     // guarda a referencia mesmo se isto falhar).
     if (client && !client.isWarehouse) {
@@ -416,129 +497,132 @@ export function SaleContractEtapa2Modal({
   async function handleSubmit() {
     // Card: exige o contrato carregado. Criação (wizard/Futuro): não há contrato.
     if (!isCreateLike && !contract) return;
-    // Erros por campo (molde da Etapa 1): mensagem especifica do 1o pendente.
+    // RC-D35: mensagem específica do 1º pendente, DENTRO do campo dele.
     if (!seller) {
-      setError('Selecione o vendedor.');
+      failField('seller', 'Selecione o vendedor.');
       return;
     }
     if (sellerIsPF && !sellerUnitId) {
-      setError('Selecione a filial do vendedor.');
+      failField('sellerUnit', 'Selecione a filial do vendedor.');
       return;
     }
     // Criação (à vista/Futuro): o comprador é obrigatório (vai na venda/contrato).
     if (isCreateLike && !buyer) {
-      setError('Selecione o comprador.');
+      failField('buyer', 'Selecione o comprador.');
       return;
     }
     if (buyerIsPF && !buyerUnitId) {
-      setError('Selecione a filial do comprador.');
+      failField('buyerUnit', 'Selecione a filial do comprador.');
       return;
     }
     if (!bankAccountId) {
-      setError('Selecione o banco do vendedor.');
+      failField('bankAccount', 'Selecione o banco do vendedor.');
       return;
     }
     if (!paymentFormId) {
-      setError('Selecione a forma de pagamento.');
+      failField('paymentForm', 'Selecione a forma de pagamento.');
       return;
     }
     if (!modalityId) {
-      setError('Selecione a modalidade.');
+      failField('modality', 'Selecione a modalidade.');
       return;
     }
     if (!packagingId) {
-      setError('Selecione a embalagem.');
+      failField('packaging', 'Selecione a embalagem.');
       return;
     }
     // D144: campo com "À definir" marcado (só FUTURO) pula obrigatoriedade/dia útil.
     if (!invoiceDateTbd) {
       if (!invoiceDate) {
-        setError('Informe a data de faturamento.');
+        failField('invoiceDate', 'Informe a data de faturamento.');
         return;
       }
       // DSB-D7: faturamento/pagamento não podem cair em fim de semana.
       if (isWeekendIso(invoiceDate)) {
-        setError('A data de faturamento cai em fim de semana. Escolha um dia útil.');
+        failField('invoiceDate', 'A data cai em fim de semana. Escolha um dia útil.');
         return;
       }
     }
     if (!paymentDateTbd) {
       if (!paymentDate) {
-        setError('Informe a data de pagamento.');
+        failField('paymentDate', 'Informe a data de pagamento.');
         return;
       }
       if (isWeekendIso(paymentDate)) {
-        setError('A data de pagamento cai em fim de semana. Escolha um dia útil.');
+        failField('paymentDate', 'A data cai em fim de semana. Escolha um dia útil.');
         return;
       }
     }
     // D142: o cronograma planejado precisa ser coerente (espelha o 422 do
     // backend) — só comparável quando as duas datas existem (D144).
     if (!invoiceDateTbd && !paymentDateTbd && paymentDate < invoiceDate) {
-      setError('A data de pagamento não pode ser anterior à data de faturamento.');
+      failField('paymentDate', 'Não pode ser anterior à data de faturamento.');
       return;
     }
     // Aprovacao (AP3): escolha obrigatoria. Quando "Sim", o lembrete e 1..365 dias.
     if (requiresApproval == null) {
-      setError('Escolha se o contrato precisa de aprovação.');
+      failField('requiresApproval', 'Escolha se o contrato precisa de aprovação.');
       return;
     }
     if (requiresApproval) {
       const lead = Number(approvalReminderLeadDays);
       if (!approvalReminderLeadDays.trim() || !Number.isInteger(lead) || lead < 1 || lead > 365) {
-        setError('Informe o lembrete entre 1 e 365 dias.');
+        failField('approvalLead', 'Informe o lembrete entre 1 e 365 dias.');
         return;
       }
     }
     if (agioType !== '' && !agioValue.trim()) {
-      setError('Informe o valor do ágio/deságio.');
+      failField('agioValue', 'Informe o valor do ágio/deságio.');
       return;
     }
 
     // Fase 1 (venda) — todos os modos mostram o bloco "Venda". À vista: sacas ≤
     // saldo do lote (liga já vem travada em 100%). Liga inviável (à vista) bloqueia.
+    // Liga inviável não é erro de campo: nada que o usuário digite aqui resolve —
+    // é o estado das origens. Fica na mensagem do topo.
     if (isSpotCreate && blendInfeasible) {
+      setFieldError(null);
       setError(feasibilityError ?? 'Liga inviável para venda — alguma origem não cobre a cascata.');
       return;
     }
     const sacks = Number(saleSacks);
     if (!saleSacks.trim() || !Number.isInteger(sacks) || sacks <= 0) {
-      setError('Informe a quantidade de sacas.');
+      failField('saleSacks', 'Informe a quantidade de sacas.');
       return;
     }
     if (isSpotCreate && spotCreate && sacks > spotCreate.availableSacks) {
-      setError(`Máximo de ${spotCreate.availableSacks} sacas disponíveis no lote.`);
+      failField('saleSacks', `Máximo de ${spotCreate.availableSacks} sacas no lote.`);
       return;
     }
     const price = parseCurrencyInput(saleUnitPrice);
     if (!saleUnitPrice.trim() || price == null || price <= 0) {
-      setError('Informe o preço por saca.');
+      failField('saleUnitPrice', 'Informe o preço por saca.');
       return;
     }
     // Deságio não pode zerar/inverter o preço por saca (o backend rejeita; bloqueia antes).
     if (agioType === 'DESAGIO') {
       const agioParsed = parseCurrencyInput(agioValue);
       if (agioParsed != null && agioParsed >= price) {
-        setError('O deságio não pode ser maior ou igual ao preço por saca.');
+        failField('agioValue', 'O deságio não pode ser maior ou igual ao preço por saca.');
         return;
       }
     }
     const sellerPct = saleSellerPct.trim() === '' ? 0 : (parseDecimalBr(saleSellerPct) ?? NaN);
     if (Number.isNaN(sellerPct) || sellerPct < 0 || sellerPct > 100) {
-      setError('Corretagem do vendedor inválida (0 a 100).');
+      failField('saleSellerPct', 'Informe de 0 a 100.');
       return;
     }
     const buyerPct = saleBuyerPct.trim() === '' ? 0 : (parseDecimalBr(saleBuyerPct) ?? NaN);
     if (Number.isNaN(buyerPct) || buyerPct < 0 || buyerPct > 100) {
-      setError('Corretagem do comprador inválida (0 a 100).');
+      failField('saleBuyerPct', 'Informe de 0 a 100.');
       return;
     }
     if (!saleDate) {
-      setError('Informe a data do contrato.');
+      failField('saleDate', 'Informe a data do contrato.');
       return;
     }
     if (saleBrokerIds.length === 0) {
-      setError('Selecione ao menos um corretor.');
+      failField('saleBrokers', 'Selecione ao menos um corretor.');
       return;
     }
     const saleFieldsPayload: SaleContractSaleFieldsInput = {
@@ -553,7 +637,7 @@ export function SaleContractEtapa2Modal({
     // Lembrete (AP6): dias só quando precisa de aprovação; null quando "Não".
     const leadDaysPayload = requiresApproval ? Number(approvalReminderLeadDays) : null;
     setSaving(true);
-    setError(null);
+    clearErrors();
     const payload: SaleContractEtapa2Input = {
       expectedVersion: 0,
       sellerClientId: seller.id,
@@ -588,7 +672,7 @@ export function SaleContractEtapa2Modal({
         // completo na MESMA transação; não há mais passo EM_ABERTO intermediário
         // nem venda parcial a limpar.
         if (!buyer) {
-          setError('Selecione o comprador.');
+          failField('buyer', 'Selecione o comprador.');
           return;
         }
         const createBody = {
@@ -643,12 +727,48 @@ export function SaleContractEtapa2Modal({
       }
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 409) {
-        setError('Este contrato foi modificado. Recarregue a página e tente de novo.');
+        await handleVersionConflict(cause);
       } else {
         setError(cause instanceof ApiError ? cause.message : 'Falha ao emitir o contrato.');
       }
     } finally {
       setSaving(false);
+    }
+  }
+
+  // 409 na emissão. Dizia sempre "Este contrato foi modificado. Recarregue a
+  // página" — assunto errado na criação à vista (quem mudou foi o LOTE, não o
+  // contrato, que ainda nem existe) e beco sem saída: a versão velha ficava presa
+  // no estado, então reenviar falhava para sempre.
+  //
+  // No conflito do lote, re-hidrata versão e saldo PRESERVANDO o formulário: o
+  // usuário só precisa conferir as sacas e emitir de novo.
+  async function handleVersionConflict(cause: ApiError) {
+    const code = (cause.details as { code?: string } | null)?.code;
+    if (code !== 'SAMPLE_VERSION_CONFLICT' || !spotCreate || !onSpotRefreshed) {
+      setError('Este contrato foi modificado. Recarregue a página e tente de novo.');
+      return;
+    }
+    try {
+      const { sample } = await getSampleDetail(session, spotCreate.sampleId);
+      const nextAvailable = sample.availableSacks ?? 0;
+      onSpotRefreshed(sample);
+      if (nextAvailable <= 0) {
+        setError('O lote não tem mais saldo para venda. Volte e escolha outro lote.');
+        return;
+      }
+      // Sacas acima do novo saldo viram o saldo — é o valor que o auto-preenchimento
+      // teria colocado, e o campo segue editável.
+      const current = Number(saleSacks);
+      const clamped = !Number.isInteger(current) || current > nextAvailable;
+      if (clamped) setSaleSacks(String(nextAvailable));
+      setError(
+        clamped
+          ? `O saldo do lote mudou para ${nextAvailable} sacas — o campo foi ajustado. Confira e emita de novo.`
+          : `O lote mudou enquanto você preenchia (saldo atual: ${nextAvailable} sacas). Confira e emita de novo.`
+      );
+    } catch {
+      setError('O lote mudou e não foi possível recarregá-lo. Volte e escolha o lote de novo.');
     }
   }
 
@@ -671,14 +791,14 @@ export function SaleContractEtapa2Modal({
   };
 
   const sellerUnitField = (
-    <div className="app-modal-field">
+    <div className={fieldClass('sellerUnit')}>
       <span className="app-modal-label">Filial do vendedor</span>
       <InlineSelectField
         options={sellerUnits.map((unit) => ({ id: unit.id, label: unitLabel(unit) }))}
         value={sellerUnitId}
         onChange={(id) => {
           setSellerUnitId(id);
-          setError(null);
+          clearErrors();
         }}
         disabled={disabled}
         placeholder="Selecione a filial"
@@ -689,18 +809,19 @@ export function SaleContractEtapa2Modal({
         }}
         createLabel="Cadastrar filial"
       />
+      {fieldMessage('sellerUnit')}
     </div>
   );
 
   const buyerUnitField = (
-    <div className="app-modal-field">
+    <div className={fieldClass('buyerUnit')}>
       <span className="app-modal-label">Filial do comprador</span>
       <InlineSelectField
         options={buyerUnits.map((unit) => ({ id: unit.id, label: unitLabel(unit) }))}
         value={buyerUnitId}
         onChange={(id) => {
           setBuyerUnitId(id);
-          setError(null);
+          clearErrors();
         }}
         disabled={disabled}
         placeholder="Selecione a filial"
@@ -711,6 +832,7 @@ export function SaleContractEtapa2Modal({
         }}
         createLabel="Cadastrar filial"
       />
+      {fieldMessage('buyerUnit')}
     </div>
   );
 
@@ -723,7 +845,7 @@ export function SaleContractEtapa2Modal({
         disabled={disabled}
         onChange={(event) => {
           setAgioType(event.target.value as '' | 'AGIO' | 'DESAGIO');
-          setError(null);
+          clearErrors();
         }}
       >
         <option value="">Nenhum</option>
@@ -734,7 +856,7 @@ export function SaleContractEtapa2Modal({
   );
 
   const agioValueField = (
-    <label className="app-modal-field">
+    <label className={fieldClass('agioValue')}>
       <span className="app-modal-label">Valor (R$/saca)</span>
       <input
         className="app-modal-input"
@@ -743,10 +865,11 @@ export function SaleContractEtapa2Modal({
         disabled={disabled}
         onChange={(event) => {
           setAgioValue(maskCurrencyInput(event.target.value));
-          setError(null);
+          clearErrors();
         }}
         placeholder="0,00"
       />
+      {fieldMessage('agioValue')}
     </label>
   );
 
@@ -883,7 +1006,7 @@ export function SaleContractEtapa2Modal({
                   (F7.1 / à vista liga = 100%); à vista limita ao saldo do lote. */}
                   <p className="ctr-section-title">Venda</p>
 
-                  <label className="app-modal-field">
+                  <label className={fieldClass('saleDate')}>
                     <span className="app-modal-label">Data do contrato</span>
                     <input
                       className="app-modal-input"
@@ -892,13 +1015,14 @@ export function SaleContractEtapa2Modal({
                       disabled={disabled}
                       onChange={(event) => {
                         setSaleDate(event.target.value);
-                        setError(null);
+                        clearErrors();
                       }}
                     />
+                    {fieldMessage('saleDate')}
                   </label>
 
                   <div style={halfRowStyle}>
-                    <div className="app-modal-field">
+                    <div className={fieldClass('saleSacks')}>
                       <span className="app-modal-label">
                         Sacas
                         {sampleIsBlend
@@ -914,12 +1038,13 @@ export function SaleContractEtapa2Modal({
                         disabled={disabled || sampleIsBlend}
                         onChange={(event) => {
                           setSaleSacks(event.target.value.replace(/[^0-9]/g, ''));
-                          setError(null);
+                          clearErrors();
                         }}
                       />
+                      {fieldMessage('saleSacks')}
                     </div>
 
-                    <label className="app-modal-field">
+                    <label className={fieldClass('saleUnitPrice')}>
                       <span className="app-modal-label">Preço por saca (R$)</span>
                       <input
                         className="app-modal-input"
@@ -928,15 +1053,16 @@ export function SaleContractEtapa2Modal({
                         disabled={disabled}
                         onChange={(event) => {
                           setSaleUnitPrice(maskCurrencyInput(event.target.value));
-                          setError(null);
+                          clearErrors();
                         }}
                         placeholder="0,00"
                       />
+                      {fieldMessage('saleUnitPrice')}
                     </label>
                   </div>
 
                   <div style={halfRowStyle}>
-                    <label className="app-modal-field">
+                    <label className={fieldClass('saleSellerPct')}>
                       <span className="app-modal-label">Corretagem do vendedor (%)</span>
                       <input
                         className="app-modal-input"
@@ -945,13 +1071,14 @@ export function SaleContractEtapa2Modal({
                         disabled={disabled}
                         onChange={(event) => {
                           setSaleSellerPct(event.target.value.replace(/[^0-9.,]/g, ''));
-                          setError(null);
+                          clearErrors();
                         }}
                         placeholder="0"
                       />
+                      {fieldMessage('saleSellerPct')}
                     </label>
 
-                    <label className="app-modal-field">
+                    <label className={fieldClass('saleBuyerPct')}>
                       <span className="app-modal-label">Corretagem do comprador (%)</span>
                       <input
                         className="app-modal-input"
@@ -960,14 +1087,15 @@ export function SaleContractEtapa2Modal({
                         disabled={disabled}
                         onChange={(event) => {
                           setSaleBuyerPct(event.target.value.replace(/[^0-9.,]/g, ''));
-                          setError(null);
+                          clearErrors();
                         }}
                         placeholder="0"
                       />
+                      {fieldMessage('saleBuyerPct')}
                     </label>
                   </div>
 
-                  <div className="app-modal-field">
+                  <div className={fieldClass('saleBrokers')}>
                     <span className="app-modal-label">Corretores</span>
                     <BrokerMultiSelectField
                       session={session}
@@ -975,9 +1103,10 @@ export function SaleContractEtapa2Modal({
                       disabled={disabled}
                       onChange={(ids) => {
                         setSaleBrokerIds(ids);
-                        setError(null);
+                        clearErrors();
                       }}
                     />
+                    {fieldMessage('saleBrokers')}
                   </div>
                 </div>
 
@@ -986,7 +1115,7 @@ export function SaleContractEtapa2Modal({
                   <p className="ctr-section-title">Vendedor</p>
 
                   <div className="ctr-pair">
-                    <div className="app-modal-field">
+                    <div className={fieldClass('seller')}>
                       <span className="app-modal-label">Vendedor</span>
                       <ClientLookupField
                         session={session}
@@ -1003,13 +1132,14 @@ export function SaleContractEtapa2Modal({
                         }}
                         createLabel="Cadastrar vendedor"
                       />
+                      {fieldMessage('seller')}
                     </div>
 
                     {sellerIsPF ? sellerUnitField : null}
                   </div>
 
                   <div className="ctr-pair">
-                    <div className="app-modal-field">
+                    <div className={fieldClass('bankAccount')}>
                       <span className="app-modal-label">Banco do vendedor</span>
                       <ClientBankAccountSelectField
                         session={session}
@@ -1020,9 +1150,10 @@ export function SaleContractEtapa2Modal({
                         defaultHolderTaxId={seller?.cnpj ?? seller?.cpf ?? null}
                         onChange={(id) => {
                           setBankAccountId(id ?? '');
-                          setError(null);
+                          clearErrors();
                         }}
                       />
+                      {fieldMessage('bankAccount')}
                     </div>
 
                     <div className="app-modal-field">
@@ -1051,7 +1182,7 @@ export function SaleContractEtapa2Modal({
                   <p className="ctr-section-title">Comprador</p>
 
                   <div className="ctr-pair">
-                    <div className="app-modal-field">
+                    <div className={fieldClass('buyer')}>
                       <span className="app-modal-label">Comprador</span>
                       <ClientLookupField
                         session={session}
@@ -1068,6 +1199,7 @@ export function SaleContractEtapa2Modal({
                         }}
                         createLabel="Cadastrar comprador"
                       />
+                      {fieldMessage('buyer')}
                     </div>
 
                     {buyerIsPF ? buyerUnitField : null}
@@ -1099,7 +1231,7 @@ export function SaleContractEtapa2Modal({
                   <p className="ctr-section-title">Pagamento e logística</p>
 
                   <div style={halfRowStyle}>
-                    <label className="app-modal-field">
+                    <label className={fieldClass('paymentForm')}>
                       <span className="app-modal-label">Forma de pagamento</span>
                       <InlineSelectField
                         options={(lookups?.paymentForms ?? []).map((item) => ({
@@ -1109,7 +1241,7 @@ export function SaleContractEtapa2Modal({
                         value={paymentFormId}
                         onChange={(id) => {
                           setPaymentFormId(id);
-                          setError(null);
+                          clearErrors();
                         }}
                         disabled={disabled}
                         loading={!lookups}
@@ -1125,9 +1257,10 @@ export function SaleContractEtapa2Modal({
                           return { id: item.id, label: item.name };
                         }}
                       />
+                      {fieldMessage('paymentForm')}
                     </label>
 
-                    <label className="app-modal-field">
+                    <label className={fieldClass('modality')}>
                       <span className="app-modal-label">Modalidade</span>
                       <InlineSelectField
                         options={(lookups?.modalities ?? []).map((item) => ({
@@ -1137,7 +1270,7 @@ export function SaleContractEtapa2Modal({
                         value={modalityId}
                         onChange={(id) => {
                           setModalityId(id);
-                          setError(null);
+                          clearErrors();
                         }}
                         disabled={disabled}
                         loading={!lookups}
@@ -1153,10 +1286,11 @@ export function SaleContractEtapa2Modal({
                           return { id: item.id, label: item.name };
                         }}
                       />
+                      {fieldMessage('modality')}
                     </label>
                   </div>
 
-                  <label className="app-modal-field">
+                  <label className={fieldClass('packaging')}>
                     <span className="app-modal-label">Embalagem</span>
                     <InlineSelectField
                       options={(lookups?.packagings ?? []).map((item) => ({
@@ -1166,7 +1300,7 @@ export function SaleContractEtapa2Modal({
                       value={packagingId}
                       onChange={(id) => {
                         setPackagingId(id);
-                        setError(null);
+                        clearErrors();
                       }}
                       disabled={disabled}
                       loading={!lookups}
@@ -1182,12 +1316,13 @@ export function SaleContractEtapa2Modal({
                         return { id: item.id, label: item.name };
                       }}
                     />
+                    {fieldMessage('packaging')}
                   </label>
 
                   {/* D144: no FUTURO cada data planejada tem o toggle "À definir"
                       (limpa/desabilita o input; o submit envia null explícito). */}
                   <div style={halfRowStyle}>
-                    <div className="app-modal-field">
+                    <div className={fieldClass('invoiceDate')}>
                       <span className="app-modal-label ctr-date-label">
                         Data de faturamento
                         {isFuturo ? (
@@ -1201,7 +1336,7 @@ export function SaleContractEtapa2Modal({
                                 if (!prev) setInvoiceDate('');
                                 return !prev;
                               });
-                              setError(null);
+                              clearErrors();
                             }}
                           >
                             À definir
@@ -1216,15 +1351,20 @@ export function SaleContractEtapa2Modal({
                         disabled={disabled || invoiceDateTbd}
                         onChange={(event) => {
                           setInvoiceDate(event.target.value);
-                          setError(null);
+                          clearErrors();
                         }}
                       />
+                      {/* O aviso do submit entra só como ÚLTIMO caso: as datas já
+                          avisam ao vivo (fim de semana, ordem) e duas mensagens no
+                          mesmo campo seria ruído. */}
                       {!invoiceDateTbd && isWeekendIso(invoiceDate) ? (
                         <span className="app-modal-field-error">{WEEKEND_DATE_MESSAGE}</span>
-                      ) : null}
+                      ) : (
+                        fieldMessage('invoiceDate')
+                      )}
                     </div>
 
-                    <div className="app-modal-field">
+                    <div className={fieldClass('paymentDate')}>
                       <span className="app-modal-label ctr-date-label">
                         Data de pagamento
                         {isFuturo ? (
@@ -1238,7 +1378,7 @@ export function SaleContractEtapa2Modal({
                                 if (!prev) setPaymentDate('');
                                 return !prev;
                               });
-                              setError(null);
+                              clearErrors();
                             }}
                           >
                             À definir
@@ -1253,7 +1393,7 @@ export function SaleContractEtapa2Modal({
                         disabled={disabled || paymentDateTbd}
                         onChange={(event) => {
                           setPaymentDate(event.target.value);
-                          setError(null);
+                          clearErrors();
                         }}
                       />
                       {!paymentDateTbd && isWeekendIso(paymentDate) ? (
@@ -1266,7 +1406,9 @@ export function SaleContractEtapa2Modal({
                         <span className="app-modal-field-error">
                           A data de pagamento não pode ser anterior à data de faturamento.
                         </span>
-                      ) : null}
+                      ) : (
+                        fieldMessage('paymentDate')
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1275,7 +1417,7 @@ export function SaleContractEtapa2Modal({
                   {/* Aprovação (reforma AP1/AP6) */}
                   <p className="ctr-section-title">Aprovação</p>
 
-                  <div className="app-modal-field">
+                  <div className={fieldClass('requiresApproval')}>
                     <span className="app-modal-label">Este contrato precisa de aprovação?</span>
                     {isCreateLike ? (
                       <div
@@ -1290,7 +1432,7 @@ export function SaleContractEtapa2Modal({
                           disabled={disabled}
                           onClick={() => {
                             setRequiresApproval(true);
-                            setError(null);
+                            clearErrors();
                           }}
                         >
                           Sim
@@ -1302,7 +1444,7 @@ export function SaleContractEtapa2Modal({
                           disabled={disabled}
                           onClick={() => {
                             setRequiresApproval(false);
-                            setError(null);
+                            clearErrors();
                           }}
                         >
                           Não
@@ -1333,10 +1475,11 @@ export function SaleContractEtapa2Modal({
                         ) : null}
                       </>
                     )}
+                    {fieldMessage('requiresApproval')}
                   </div>
 
                   {requiresApproval === true ? (
-                    <label className="app-modal-field">
+                    <label className={fieldClass('approvalLead')}>
                       <span className="app-modal-label">
                         Lembrar quantos dias antes do faturamento?
                       </span>
@@ -1347,10 +1490,11 @@ export function SaleContractEtapa2Modal({
                         disabled={disabled}
                         onChange={(event) => {
                           setApprovalReminderLeadDays(event.target.value.replace(/[^0-9]/g, ''));
-                          setError(null);
+                          clearErrors();
                         }}
                         placeholder="30"
                       />
+                      {fieldMessage('approvalLead')}
                     </label>
                   ) : null}
                 </div>

@@ -19,6 +19,7 @@ import type {
   ClientSummary,
   SaleContract,
   SaleContractStatus,
+  SampleSnapshot,
   SessionData,
 } from '../../lib/types';
 import { ContractCreateRadialFab } from './ContractCreateRadialFab';
@@ -43,6 +44,37 @@ import { SaleContractLotPickerModal } from './SaleContractLotPickerModal';
 
 const STATUS_OPTION_LABELS = STATUS_LABELS.map((s) => s.label);
 const TYPE_OPTION_LABELS = TYPE_LABELS.map((t) => t.label);
+
+// O que o formulário à vista precisa saber do lote escolhido.
+type SpotCreateState = {
+  sampleId: string;
+  sampleVersion: number;
+  internalLotNumber: string | null;
+  availableSacks: number;
+  isBlend: boolean;
+  ownerClientId: string | null;
+  nextNumber: string | null;
+  // RC-D32: o que a faixa de identidade do lote mostra no topo do formulário.
+  // Tudo já vem do getSampleDetail que o picker faz — não custa requisição.
+  ownerName: string | null;
+  harvest: string | null;
+};
+
+// Um mapeamento só, usado no pick e na re-hidratação depois do 409 do lote
+// (RC-D35) — assim os dois caminhos não podem divergir.
+function spotCreateFromSample(sample: SampleSnapshot, nextNumber: string | null): SpotCreateState {
+  return {
+    sampleId: sample.id,
+    sampleVersion: sample.version,
+    internalLotNumber: sample.internalLotNumber,
+    availableSacks: sample.availableSacks ?? 0,
+    isBlend: sample.isBlend ?? false,
+    ownerClientId: sample.ownerClientId ?? null,
+    nextNumber,
+    ownerName: ownerDisplayValue(sample) || null,
+    harvest: sample.declared.harvest,
+  };
+}
 
 export function ContratosPanel({ session }: { session: SessionData }) {
   // Painel da aba "Contratos" do hub (Central de Contratos). A casca — guard,
@@ -120,19 +152,7 @@ export function ContratosPanel({ session }: { session: SessionData }) {
   // Criação à vista pela página: picker de lote → 1 modal (spotCreate) que cria a
   // venda no lote e emite (createSampleMovement → emit, dentro do Etapa2Modal).
   const [spotPickerOpen, setSpotPickerOpen] = useState(false);
-  const [spotCreate, setSpotCreate] = useState<{
-    sampleId: string;
-    sampleVersion: number;
-    internalLotNumber: string | null;
-    availableSacks: number;
-    isBlend: boolean;
-    ownerClientId: string | null;
-    nextNumber: string | null;
-    // RC-D32: o que a faixa de identidade do lote mostra no topo do formulário.
-    // Tudo já vem do getSampleDetail que o picker faz — não custa requisição.
-    ownerName: string | null;
-    harvest: string | null;
-  } | null>(null);
+  const [spotCreate, setSpotCreate] = useState<SpotCreateState | null>(null);
 
   // Espelho de Corretagem (Fase E): modo de seleção (D76) + alvo. O alvo abre a
   // fase de CONFERÊNCIA (D134); "Gerar espelho" avança pra prévia (espelhoPreview).
@@ -788,17 +808,7 @@ export function ContratosPanel({ session }: { session: SessionData }) {
               nextNumber = null;
             }
             setSpotPickerOpen(false);
-            setSpotCreate({
-              sampleId: sample.id,
-              sampleVersion: sample.version,
-              internalLotNumber: sample.internalLotNumber,
-              availableSacks: sample.availableSacks ?? 0,
-              isBlend: sample.isBlend ?? false,
-              ownerClientId: sample.ownerClientId ?? null,
-              nextNumber,
-              ownerName: ownerDisplayValue(sample) || null,
-              harvest: sample.declared.harvest,
-            });
+            setSpotCreate(spotCreateFromSample(sample, nextNumber));
           }}
         />
       ) : null}
@@ -826,6 +836,11 @@ export function ContratosPanel({ session }: { session: SessionData }) {
             setSpotPickerOpen(false);
             void refresh();
             toast.success({ title: 'Contrato à vista gerado' });
+          }}
+          onSpotRefreshed={(sample) => {
+            // O lote mudou durante o preenchimento (409). O número já reservado
+            // no pick continua valendo — só a versão e o saldo envelheceram.
+            setSpotCreate((prev) => spotCreateFromSample(sample, prev?.nextNumber ?? null));
           }}
         />
       ) : null}

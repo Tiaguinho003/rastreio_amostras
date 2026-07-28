@@ -28264,6 +28264,25 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   font-size: 0.78rem;
   letter-spacing: 0.01em;
 }
+/* RC-D35: erro DENTRO do campo, no lugar da mensagem unica no topo do sheet.
+   Mesmo desenho do `.fv-form-field.is-field-error` do kit — borda vermelha suave
+   no controle e a mensagem logo abaixo. Escopado ao sheet porque o markup do
+   corpo ainda e `.app-modal-*` (kit vs escopo, skill `css-architecture` §1);
+   quando a RC-D18 migrar os campos pro `.fv-form-*`, este bloco morre.
+   Alem do input direto (que o InlineSelectField tambem usa como gatilho), pinta
+   os compostos com controle proprio: a busca de cliente (`.client-lookup-shell
+   input`), a caixa de corretores (`.bms-control`) e os botoes Sim/Nao da
+   aprovacao. */
+.bottom-sheet.ctr-form-sheet .app-modal-field.is-field-error .app-modal-input,
+.bottom-sheet.ctr-form-sheet .app-modal-field.is-field-error .client-lookup-shell input,
+.bottom-sheet.ctr-form-sheet .app-modal-field.is-field-error .bms-control,
+.bottom-sheet.ctr-form-sheet .app-modal-field.is-field-error .ctr-approval-btn {
+  border-color: rgba(196, 92, 92, 0.55);
+}
+.bottom-sheet.ctr-form-sheet .app-modal-field-error {
+  color: #c45c5c;
+  font-weight: 600;
+}
 /* Fix do input date no WebKit (mesmo do modal central) — sem isso o campo
    estoura a largura no iOS. */
 .bottom-sheet.ctr-form-sheet .app-modal-input[type='date'] {
