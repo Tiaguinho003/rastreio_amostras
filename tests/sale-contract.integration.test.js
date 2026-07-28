@@ -2688,25 +2688,34 @@ if (!databaseUrl || !databaseReachable) {
       adminActor
     );
 
-    // janela cobrindo 2026-07-20 → o EMITIDO aparece como agendado; o WASH_OUT não.
+    // O paymentDate 2026-07-20 do fixture ja passou no relogio real, e um
+    // vencimento vencido vira 'atrasado' (E29). Empurra os dois contratos pra
+    // uma data estavelmente futura — o que este teste prova e o AGENDADO.
+    const dueDate = new Date('2100-01-20T00:00:00.000Z');
+    await prisma.saleContract.updateMany({
+      where: { id: { in: [emitido.contractId, washed.contractId] } },
+      data: { paymentDate: dueDate },
+    });
+
+    // janela cobrindo 2100-01-20 → o EMITIDO aparece como agendado; o WASH_OUT não.
     const inWindow = await saleContractService.getDashboardPaymentEvents(
-      { from: '2026-07-13', to: '2026-07-26' },
+      { from: '2100-01-13', to: '2100-01-26' },
       adminActor
     );
-    const day = inWindow['2026-07-20'] ?? [];
+    const day = inWindow['2100-01-20'] ?? [];
     const ev = day.find((e) => e.contractId === emitido.contractId);
     assert.ok(ev, 'contrato EMITIDO deve aparecer como agendado no paymentDate');
     assert.equal(ev.typeKey, 'contract_payment_due');
     assert.equal(ev.status, 'EMITIDO');
     assert.ok(!day.some((e) => e.contractId === washed.contractId), 'WASH_OUT fora do feed');
 
-    // janela em agosto → o contrato de 2026-07-20 não aparece (filtro de data).
+    // janela em fevereiro → o contrato de 2100-01-20 não aparece (filtro de data).
     const outWindow = await saleContractService.getDashboardPaymentEvents(
-      { from: '2026-08-01', to: '2026-08-14' },
+      { from: '2100-02-01', to: '2100-02-14' },
       adminActor
     );
     assert.ok(
-      !(outWindow['2026-07-20'] ?? []).some((e) => e.contractId === emitido.contractId),
+      !(outWindow['2100-01-20'] ?? []).some((e) => e.contractId === emitido.contractId),
       'fora da janela não aparece'
     );
   });
