@@ -2,14 +2,17 @@
 
 // Fechamento (criacao a vista pela pagina Contratos): modal de SELECAO DE LOTE.
 // A venda a vista que parte da pagina precisa estar atrelada a um lote, entao
-// este picker lista os lotes VENDAVEIS (displayStatus=OPEN: status != INVALIDATED
-// e commercialStatus em OPEN/PARTIALLY_SOLD => tem saldo) com busca por numero/
-// produtor (debounce) e scroll infinito por cursor — mesmo backend do /samples.
+// este picker lista os lotes VENDAVEIS com busca por numero/produtor (debounce)
+// e scroll infinito por cursor — mesmo backend do /samples.
+//
+// RC-D30: "vendavel" e `sellableOnly`, nao `displayStatus=OPEN`. O displayStatus
+// filtra pelo ROTULO `commercialStatus` e deixava passar dois lotes que a venda
+// depois recusa — o sem quantidade declarada (que nasce 'OPEN' de proposito) e a
+// liga de cascata inviavel. Ambos so falhavam no submit, com o formulario inteiro
+// preenchido.
 //
 // Ao escolher, HIDRATA o detalhe (getSampleDetail) pra obter o snapshot fresco
-// (version/availableSacks atuais) + activeBlends, e devolve ambos via onPicked —
-// e o que o SampleMovementModal precisa pra abrir a venda identica a do lote
-// (inclusive ligas, com o aviso de origem em ligas ativas).
+// (version/availableSacks/dono/safra atuais) e devolve via onPicked.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -80,7 +83,7 @@ export function SaleContractLotPickerModal({
     setError(null);
     listSamples(
       session,
-      { search: appliedSearch || undefined, displayStatus: 'OPEN', limit: PAGE_LIMIT },
+      { search: appliedSearch || undefined, sellableOnly: true, limit: PAGE_LIMIT },
       { signal: controller.signal }
     )
       .then((res) => {
@@ -106,7 +109,7 @@ export function SaleContractLotPickerModal({
     try {
       const res = await listSamples(session, {
         search: appliedSearch || undefined,
-        displayStatus: 'OPEN',
+        sellableOnly: true,
         limit: PAGE_LIMIT,
         cursorLotInt: cursor.lotInt != null ? String(cursor.lotInt) : undefined,
         cursorId: cursor.id,

@@ -1413,6 +1413,13 @@ export function listSamples(
     eligibleForBlend?: boolean;
     /** Liga: filtro "Apenas ligas". */
     isBlend?: boolean;
+    /**
+     * RC-D30: só lote que dá venda — quantidade declarada > 0 e, sendo liga,
+     * cascata viável. Mais estrito que `displayStatus: 'OPEN'`, que filtra pelo
+     * rótulo `commercialStatus` e deixa passar lote sem quantidade e liga
+     * inviável. Usado pelo picker de lote do contrato à vista.
+     */
+    sellableOnly?: boolean;
   } = {},
   options: { signal?: AbortSignal } = {}
 ) {
@@ -1461,6 +1468,7 @@ export function listSamples(
   if (query.createdTo) params.set('createdTo', query.createdTo);
   if (query.eligibleForBlend) params.set('eligibleForBlend', 'true');
   if (query.isBlend) params.set('isBlend', 'true');
+  if (query.sellableOnly) params.set('sellableOnly', 'true');
 
   const suffix = params.size ? `?${params.toString()}` : '';
   return request<ListSamplesResponse>(`/samples${suffix}`, {

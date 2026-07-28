@@ -1189,6 +1189,17 @@ export class SampleQueryService {
     eligibleForBlend = false,
     // Liga: filtro "Apenas ligas" (toggle em /samples). true -> so isBlend=true.
     isBlend = null,
+    // RC-D30: so lote VENDAVEL — usado pelo picker de lote do contrato a vista.
+    // Difere de displayStatus=OPEN, que filtra pelo ROTULO `commercialStatus` e
+    // deixa passar dois casos que nao dao venda:
+    //   1. lote sem quantidade declarada (declaredSacks null) —
+    //      resolveCommercialStatusFromTotals devolve 'OPEN' de proposito, e o
+    //      createSampleMovement depois recusa com 409;
+    //   2. liga cuja cascata nao fecha (alguma origem nao cobre a contribuicao),
+    //      que o createSampleMovement recusa pelo hard block F7.6.
+    // Sem isto o lote entra na lista e so revela o problema no submit, depois de
+    // 20+ campos preenchidos.
+    sellableOnly = false,
   } = {}) {
     const safeLimit = Math.min(Math.max(limit, 1), SAMPLES_LIST_MAX_LIMIT);
     const cursor = resolveCursor({ cursorLotInt, cursorId });
@@ -1279,6 +1290,17 @@ export class SampleQueryService {
     const displayStatusConditions = resolveDisplayStatusFilter(displayStatus);
     if (displayStatusConditions) {
       conditions.push(displayStatusConditions);
+    }
+
+    // RC-D30, eixo 1 (saldo). Basta exigir quantidade declarada: para
+    // `declaredSacks > 0`, o proprio `commercialStatus` ja carrega o saldo — a
+    // projecao marca SOLD/LOST assim que `available <= 0` (ver
+    // resolveCommercialStatusFromTotals em sample-command-service). O buraco era
+    // so o `declaredSacks` nulo, que cai em 'OPEN' sem nunca ter tido saldo.
+    // O eixo 2 (viabilidade da liga) exige a arvore e roda depois das linhas.
+    if (sellableOnly) {
+      conditions.push({ commercialStatus: { in: ['OPEN', 'PARTIALLY_SOLD'] } });
+      conditions.push({ declaredSacks: { gt: 0 } });
     }
 
     const normalizedLot = normalizeOptionalText(lot);
@@ -1497,6 +1519,32 @@ export class SampleQueryService {
     const hasNext = cursor ? nextCursor !== null : resolvedPage < totalPages;
 
     let items = rows.map(mapSample);
+
+    // RC-D30, eixo 2 (viabilidade da liga). Roda DEPOIS do nextCursor de
+    // proposito: o cursor tem que continuar apontando para a ultima linha
+    // BUSCADA, nao para a ultima exibida — senao a pagina seguinte pularia as
+    // ligas descartadas aqui. Efeito visivel: uma pagina pode trazer menos que
+    // `limit` cards; o scroll infinito completa sozinho.
+    // Custo: uma arvore por liga da pagina (nao por lote), em paralelo. Ligas sao
+    // minoria numa lista de lotes.
+    if (sellableOnly) {
+      const blendItems = items.filter((sample) => sample.isBlend);
+      if (blendItems.length > 0) {
+        const verdicts = await Promise.all(
+          blendItems.map((sample) => this.getBlendFeasibility(sample.id).catch(() => null))
+        );
+        // Falha ao avaliar (null) NAO esconde o lote: melhor deixar seguir e o
+        // backend recusar com mensagem propria do que sumir sem explicacao.
+        const infeasibleIds = new Set(
+          blendItems
+            .filter((_, index) => verdicts[index]?.feasible === false)
+            .map((sample) => sample.id)
+        );
+        if (infeasibleIds.size > 0) {
+          items = items.filter((sample) => !infeasibleIds.has(sample.id));
+        }
+      }
+    }
 
     // Liga A3.3: enrichment quando eligibleForBlend=true. F1.B + T0.B.
     if (eligibleForBlend && items.length > 0) {

@@ -694,6 +694,9 @@ export function createBackendApiV1({
           eligibleForBlend: readOptionalQueryString(query.eligibleForBlend) === 'true',
           // Liga: filtro "Apenas ligas".
           isBlend: readOptionalQueryString(query.isBlend) === 'true' ? true : null,
+          // RC-D30: so lote que da venda (saldo declarado + liga viavel).
+          // Consumido pelo picker de lote do contrato a vista.
+          sellableOnly: readOptionalQueryString(query.sellableOnly) === 'true',
         });
 
         return {
