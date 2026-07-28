@@ -486,7 +486,9 @@ export interface CreateSaleContractInput {
   contractDate: string;
   brokerIds: string[];
   // etapa 2
-  sellerClientId: string;
+  // RC-D40: opcional porque o à vista NÃO manda — o vendedor é o dono do lote e
+  // o servidor recusa o campo (422). O Futuro (sem lote) continua exigindo.
+  sellerClientId?: string;
   sellerUnitId?: string | null;
   buyerUnitId?: string | null;
   sellerBankAccountId: string;

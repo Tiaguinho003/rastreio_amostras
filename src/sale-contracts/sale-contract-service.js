@@ -1002,6 +1002,7 @@ export class SaleContractService {
     }
     const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
     const etapa2 = normalizeEtapa2Input(input ?? {});
+    this._rejectSellerInPayload(etapa2);
 
     // Fase 1 da venda a vista (mesmos normalizadores do createSampleMovement).
     const fase1 = normalizeFutureSaleContractInput(input ?? {});
@@ -1104,6 +1105,7 @@ export class SaleContractService {
 
     // RC-D37: contrato COM lote tem o vendedor derivado do dono do lote (o
     // payload nao e lido); o FUTURO, sem lote, segue com vendedor editavel.
+    if (contract.sampleId) this._rejectSellerInPayload(etapa2);
     const sellerClientId = contract.sampleId
       ? await this._requireSampleOwner(contract.sampleId)
       : (etapa2.sellerClientId ?? contract.sellerClientId);
@@ -1794,6 +1796,7 @@ export class SaleContractService {
     // emissao: e o documento que o usuario confirma (RC-D27/D28), e divergir aqui
     // faria emitir um vendedor diferente do que ele aprovou.
     const previewSampleId = contract?.sampleId ?? input?.sampleId ?? null;
+    if (previewSampleId) this._rejectSellerInPayload(etapa2);
     let sellerClientId = previewSampleId
       ? await this._requireSampleOwner(previewSampleId)
       : (etapa2.sellerClientId ?? contract?.sellerClientId ?? null);
@@ -2043,6 +2046,23 @@ export class SaleContractService {
     };
 
     return { data };
+  }
+
+  // RC-D40: contrato COM lote nao le o `sellerClientId` do payload (RC-D37) —
+  // entao manda-lo e erro do chamador, nao dado a descartar em silencio. Um campo
+  // aceito-e-ignorado mente sobre o que faz: quem chamasse a API acreditaria ter
+  // trocado o vendedor. O FUTURO (sem lote) segue exigindo o campo.
+  _rejectSellerInPayload(etapa2) {
+    if (etapa2.sellerClientId) {
+      throw new HttpError(
+        422,
+        'sellerClientId is derived from the lot owner and must not be sent',
+        {
+          code: 'SELLER_DERIVED_FROM_SAMPLE',
+          field: 'sellerClientId',
+        }
+      );
+    }
   }
 
   // RC-D37: o dono do lote e a FONTE do vendedor do contrato a vista. Le direto

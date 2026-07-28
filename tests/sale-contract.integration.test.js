@@ -303,7 +303,8 @@ if (!databaseUrl || !databaseReachable) {
         buyerBrokeragePct: 1,
         contractDate: '2026-06-26',
         brokerIds: [TEST_BROKER_ID],
-        sellerClientId: sellerId,
+        // RC-D40: sem `sellerClientId` — o servidor deriva do dono do lote e
+        // RECUSA o campo. O `sellerId` acima ainda serve pra achar a conta.
         sellerBankAccountId: bank.id,
         paymentFormId: lookups.paymentForm.id,
         modalityId: lookups.modality.id,
@@ -1751,7 +1752,9 @@ if (!databaseUrl || !databaseReachable) {
   // RC-D37 (revoga a D48): o vendedor de um contrato COM lote e o dono do lote. O
   // `sellerClientId` do payload deixou de ser lido — editar o contrato nao
   // transfere mais o lote, e o vendedor gravado continua o dono.
-  test('RC-D37: editar mandando outro vendedor NAO troca o dono do lote nem o vendedor', async () => {
+  // RC-D40: o campo nao e mais ignorado em silencio — e RECUSADO. Aceitar-e-
+  // descartar faria o chamador acreditar que trocou o vendedor.
+  test('RC-D40: editar mandando outro vendedor recusa com 422 e nao toca o lote', async () => {
     const { contractId, sampleId } = await setupEmittableContract({ lotNumber: '21008' });
     const lookups = await fetchLookups();
     const ownerBefore = await prisma.sample.findUnique({
@@ -1762,14 +1765,21 @@ if (!databaseUrl || !databaseReachable) {
     const intruderId = randomUUID();
     await createSellerClient(intruderId);
 
-    const updated = await saleContractService.emitSaleContract(
-      contractId,
-      etapa2Payload({
-        bankAccountId,
-        lookups,
-        overrides: { sellerClientId: intruderId },
-      }),
-      adminActor
+    await assert.rejects(
+      () =>
+        saleContractService.emitSaleContract(
+          contractId,
+          etapa2Payload({
+            bankAccountId,
+            lookups,
+            overrides: { sellerClientId: intruderId },
+          }),
+          adminActor
+        ),
+      (error) =>
+        error.status === 422 &&
+        error.details?.code === 'SELLER_DERIVED_FROM_SAMPLE' &&
+        error.details?.field === 'sellerClientId'
     );
 
     const sample = await prisma.sample.findUnique({
@@ -1777,11 +1787,43 @@ if (!databaseUrl || !databaseReachable) {
       select: { ownerClientId: true },
     });
     assert.equal(sample.ownerClientId, ownerBefore.ownerClientId, 'o lote nao muda de dono');
-    assert.equal(
-      updated.contract.sellerClientId,
-      ownerBefore.ownerClientId,
-      'o vendedor emitido e o dono do lote, nao o do payload'
+    const { contract } = await saleContractService.getSaleContract(contractId, adminActor);
+    assert.equal(contract.sellerClientId, ownerBefore.ownerClientId, 'o vendedor segue o do lote');
+  });
+
+  // O mesmo campo, na porta de criacao a vista.
+  test('RC-D40: criar a vista mandando vendedor recusa com 422', async () => {
+    const sampleId = randomUUID();
+    const ownerId = randomUUID();
+    const buyerId = randomUUID();
+    await createSellerClient(ownerId);
+    await createBuyerClient(buyerId);
+    await createClassifiedSample({ id: sampleId, lotNumber: '21010', declaredSacks: 10 });
+    await prisma.sample.update({ where: { id: sampleId }, data: { ownerClientId: ownerId } });
+    const bankAccountId = await createSellerBankAccount(ownerId);
+    const lookups = await fetchLookups();
+    const intruderId = randomUUID();
+    await createSellerClient(intruderId);
+
+    const sample = await queryService.requireSample(sampleId);
+
+    await assert.rejects(
+      () =>
+        saleContractService.createSpotSaleContract(
+          {
+            sampleId,
+            expectedVersion: sample.version,
+            buyerClientId: buyerId,
+            ...saleFields(),
+            ...etapa2Payload({ bankAccountId, lookups, overrides: { sellerClientId: intruderId } }),
+          },
+          adminActor
+        ),
+      (error) => error.status === 422 && error.details?.code === 'SELLER_DERIVED_FROM_SAMPLE'
     );
+
+    // Nada foi criado — a recusa precede a transacao.
+    assert.equal(await prisma.saleContract.count({ where: { sampleId } }), 0);
   });
 
   // A contraparte: trocar o dono NO LOTE e o caminho que muda o vendedor — e ele
@@ -1851,9 +1893,8 @@ if (!databaseUrl || !databaseReachable) {
     const originSample = await queryService.requireSample(originId);
     const sale = await sell(originId, originSample.version, buyerId);
 
-    // Editar mandando outro vendedor — NÃO deve lançar, e o campo é ignorado.
-    const sellerBId = randomUUID();
-    await createSellerClient(sellerBId);
+    // Editar o contrato — NÃO deve lançar 409 de propagação de liga. (O
+    // vendedor não entra no payload: RC-D40 o recusa em contrato com lote.)
     const sellerABank = await createSellerBankAccount(sellerAId);
     const lookups = await fetchLookups();
     const updated = await saleContractService.emitSaleContract(
@@ -1862,7 +1903,6 @@ if (!databaseUrl || !databaseReachable) {
         bankAccountId: sellerABank,
         lookups,
         expectedVersion: sale.contract.version,
-        overrides: { sellerClientId: sellerBId },
       }),
       adminActor
     );
@@ -2027,11 +2067,11 @@ if (!databaseUrl || !databaseReachable) {
     );
     const lookups = await fetchLookups();
 
-    // Mesma entrada que o "Editar" mandaria.
+    // Mesma entrada que o "Editar" mandaria — sem `sellerClientId`, que a
+    // RC-D40 recusa em contrato com lote (o vendedor sai do dono).
     const preview = await saleContractService.previewSaleContract(
       {
         contractId,
-        sellerClientId: sellerId,
         buyerClientId: buyerId,
         saleFields: saleFields({ unitPrice: 120 }),
         ...etapa2Payload({ bankAccountId, lookups }),
@@ -2050,7 +2090,6 @@ if (!databaseUrl || !databaseReachable) {
       contractId,
       {
         ...etapa2Payload({ bankAccountId, lookups, expectedVersion: contract.version }),
-        sellerClientId: sellerId,
         buyerClientId: buyerId,
         saleFields: saleFields({ unitPrice: 120 }),
       },
@@ -2087,17 +2126,41 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(preview.sampleId, sampleId);
   });
 
-  // RC-D37: o gêmeo do teste acima. A prévia é o documento que o usuário
-  // confirma antes de emitir — ela tem que ignorar o vendedor do payload
-  // exatamente como a emissão ignora, senão ele aprovaria um PDF com um vendedor
+  // RC-D40: o gêmeo do teste de emissão. A prévia é o documento que o usuário
+  // confirma antes de emitir — ela tem que tratar o vendedor do payload
+  // exatamente como a emissão trata, senão ele aprovaria um PDF com um vendedor
   // e emitiria outro.
-  test('Previa (RC-D37): a vista com vendedor explicito IGNORA o payload e usa o dono do lote', async () => {
-    const { sampleId, sellerId, bankAccountId, buyerId } = await setupEmittableContract({
+  test('Previa (RC-D40): a vista com vendedor explicito recusa com 422', async () => {
+    const { sampleId, bankAccountId, buyerId } = await setupEmittableContract({
       lotNumber: '21057',
     });
     const lookups = await fetchLookups();
     const intruderId = randomUUID();
     await createSellerClient(intruderId);
+
+    await assert.rejects(
+      () =>
+        saleContractService.previewSaleContract(
+          {
+            type: 'MERCADO_A_VISTA',
+            sampleId,
+            buyerClientId: buyerId,
+            ...saleFields(),
+            ...etapa2Payload({ bankAccountId, lookups, overrides: { sellerClientId: intruderId } }),
+          },
+          adminActor
+        ),
+      (error) => error.status === 422 && error.details?.code === 'SELLER_DERIVED_FROM_SAMPLE'
+    );
+  });
+
+  // E o caminho limpo: sem vendedor no payload, a prévia cai no dono do lote —
+  // é o que garante que o PDF confirmado traz quem vai assinar.
+  test('Previa (RC-D37): a vista sem vendedor no payload usa o dono do lote', async () => {
+    const { sampleId, sellerId, bankAccountId, buyerId } = await setupEmittableContract({
+      lotNumber: '21058',
+    });
+    const lookups = await fetchLookups();
 
     const preview = await saleContractService.previewSaleContract(
       {
@@ -2105,7 +2168,7 @@ if (!databaseUrl || !databaseReachable) {
         sampleId,
         buyerClientId: buyerId,
         ...saleFields(),
-        ...etapa2Payload({ bankAccountId, lookups, overrides: { sellerClientId: intruderId } }),
+        ...etapa2Payload({ bankAccountId, lookups }),
       },
       adminActor
     );

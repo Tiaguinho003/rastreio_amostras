@@ -692,7 +692,9 @@ export function SaleContractEtapa2Modal({
     clearErrors();
     const payload: SaleContractEtapa2Input = {
       expectedVersion: 0,
-      sellerClientId: seller.id,
+      // RC-D40: com lote o servidor deriva o vendedor do dono e RECUSA o campo
+      // (422) — manda-lo seria pedir uma troca que não vai acontecer.
+      sellerClientId: sellerLockedToLot ? undefined : seller.id,
       buyerClientId: buyer?.id ?? null,
       sellerUnitId: sellerIsPF ? sellerUnitId || null : null,
       buyerUnitId: buyerIsPF ? buyerUnitId || null : null,
@@ -734,8 +736,9 @@ export function SaleContractEtapa2Modal({
           buyerBrokeragePct: buyerPct,
           contractDate: saleDate,
           brokerIds: saleBrokerIds,
-          // etapa 2
-          sellerClientId: seller.id,
+          // etapa 2 — RC-D40: à vista o vendedor sai do lote e o campo é recusado
+          // (422); o Futuro, sem lote, continua mandando o vendedor escolhido.
+          sellerClientId: isSpotCreate ? undefined : seller.id,
           sellerUnitId: sellerIsPF ? sellerUnitId || null : null,
           buyerUnitId: buyerIsPF ? buyerUnitId || null : null,
           sellerBankAccountId: bankAccountId,
