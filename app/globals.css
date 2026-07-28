@@ -3804,14 +3804,16 @@ button:disabled {
 
 .mobile-tabbar-inner {
   /* Colunas de largura IGUAL (grid auto-flow) -> todos os itens ficam
-     exatamente a mesma distancia um do outro, com o scanner central
-     centrado na sua propria coluna (era flex com o scanner em slot de
-     largura fixa, que deixava os vaos levemente desiguais). */
+     exatamente a mesma distancia um do outro, seja qual for a quantidade
+     (era flex com o scanner em slot de largura fixa, que deixava os vaos
+     levemente desiguais). */
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: minmax(0, 1fr);
   align-items: center;
-  gap: 0.2rem;
+  /* 5 itens (2026-07-28): o vao encolheu pra devolver ~6px de largura util —
+     com 5 colunas cada pixel recuperado vai pro nome, que e quem estoura. */
+  gap: 0.12rem;
 }
 
 .mobile-tabbar-link {
@@ -3883,11 +3885,14 @@ button:disabled {
 }
 
 .mobile-tabbar-icon {
-  /* Clamp ajustada pra ATIVAR dentro do range de phones (320-430px),
-     -10% em relacao ao tamanho anterior (barra mais baixa): de 32.4px
-     (iPhone SE/12 mini) ate ~38.9px (iPhone Pro Max). */
-  width: clamp(2.03rem, 9vw, 2.43rem);
-  height: clamp(2.03rem, 9vw, 2.43rem);
+  /* Clamp ajustada pra ATIVAR dentro do range de phones (320-430px). Escala
+     acumulada: -10% quando a barra baixou (2026-06) e outros -10% quando ela
+     passou a 5 itens (2026-07-28) — de ~29.3px (iPhone SE) ate ~35px (Pro
+     Max). O 2o corte e o que devolve o AR EM VOLTA do icone: com 5 colunas a
+     coluna cai de ~69px pra ~57px no pior caso (320px), e o icone anterior
+     encostava nos vizinhos. */
+  width: clamp(1.83rem, 8.1vw, 2.19rem);
+  height: clamp(1.83rem, 8.1vw, 2.19rem);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -16085,18 +16090,16 @@ select.samples-filter-field-input {
        .is-dashboard-route zera o padding do main antes deste valor chegar. */
     --mobile-shell-top-offset: var(--fv-mtopbar-h);
     /* Tabbar -10% na vertical (pedido do usuario): icone, label e paddings
-       internos escalados por 0.9 (ver clamps em .mobile-tabbar-icon/-label,
-       .mobile-tabbar-link e o pill da camera). Clearance reduzida ~0.56rem
-       (a queda real da altura do pill no topo dos clamps) pra preservar o
-       mesmo respiro entre o conteudo e a barra. */
-    --mobile-tabbar-clearance: 8.3rem;
+       internos escalados por 0.9 (ver clamps em .mobile-tabbar-icon/-label e
+       .mobile-tabbar-link). Clearance reduzida ~0.56rem (a queda real da
+       altura do pill no topo dos clamps) pra preservar o mesmo respiro entre
+       o conteudo e a barra.
+       2026-07-28 (5 itens): o icone caiu outros 10% e levou a altura junto
+       (~3px) — a clearance desce 0.2rem pra manter esse mesmo respiro. Ao
+       mexer na altura da barra, reavaliar este valor. */
+    --mobile-tabbar-clearance: 8.1rem;
     --mobile-tabbar-inner-pad-top: 0.31rem;
     --mobile-tabbar-inner-pad-bottom: 0.16rem;
-    --mobile-tabbar-link-pad-top: 0.04rem;
-    --mobile-tabbar-link-pad-bottom: 0.1rem;
-    --mobile-tabbar-primary-link-pad-top: 0.02rem;
-    --mobile-tabbar-primary-link-pad-bottom: 0.08rem;
-    --mobile-tabbar-sticky-gap: 0.9rem;
   }
 
   .login-page {
@@ -16464,7 +16467,10 @@ select.samples-filter-field-input {
        de cache do iOS Safari standalone apos orientationchange e
        keyboard close. Fallback pra env() em browsers que nao tem o
        hook ativo (SSR ou JS desabilitado). */
-    padding: clamp(0.45rem, 1.8vw, 0.7rem) clamp(1rem, 4vw, 1.5rem)
+    /* Respiro lateral encolhido na passagem pra 5 itens (2026-07-28): o valor
+       antigo (1rem-1.5rem) era folgado pra 4 colunas e virava largura roubada
+       do nome com 5. Vertical intacto. */
+    padding: clamp(0.45rem, 1.8vw, 0.7rem) clamp(0.6rem, 3vw, 1.25rem)
       calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(0.45rem, 1.8vw, 0.7rem));
     background: transparent;
     box-shadow: none;
@@ -16557,7 +16563,7 @@ select.samples-filter-field-input {
     max-width: 28rem;
     margin: 0 auto;
     border-radius: clamp(18px, 5.5vw, 24px);
-    padding: var(--mobile-tabbar-inner-pad-top) clamp(0.35rem, 2vw, 0.6rem)
+    padding: var(--mobile-tabbar-inner-pad-top) clamp(0.3rem, 1.6vw, 0.5rem)
       var(--mobile-tabbar-inner-pad-bottom);
     /* Barra BRANCA com sombra reforcada pra destacar do fundo da pagina
        (pedido do usuario). Sombra em camadas: contato curto + difusa
