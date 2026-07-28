@@ -43,11 +43,19 @@ description: Use this skill when writing, running, or debugging tests. Covers te
 
 - Testes de integracao criam dados proprios e limpam ao final (TRUNCATE no beforeEach)
 - Testes de contrato usam `tests/helpers/event-builders.js` para construir eventos
-- **Data fixa que o relogio ultrapassa = bomba-relogio.** Um fixture com data absoluta proxima
+- 🔴 **Data fixa que o relogio ultrapassa = bomba-relogio.** Um fixture com data absoluta proxima
   (`paymentDate: '2026-07-20'`) afirmando "previsto/agendado" passa ate a data chegar e quebra
-  sozinho depois, sem nada no codigo mudar. Quando a asserta e sobre FUTURO/PASSADO e nao sobre a
-  data em si, usar uma data estavelmente longe (`2100-01-20`, `2000-01-01` — idioma ja usado em
-  `sale-contract.integration.test.js`) em vez de uma data plausivel
+  sozinho depois, sem nada no codigo mudar. Ja aconteceu 2x no `sale-contract.integration.test.js`.
+  Quando a asserta e sobre um ESTADO derivado do relogio (previsto/atrasado/realizado, "vence em N
+  dias", janelas de retencao), ancorar em hoje com **`tests/helpers/relative-dates.js`**:
+  `bizDay(offset)` (rola fim de semana pra tras, molde do feed de embarque — DSB-D7),
+  `calendarDay(offset)` (dia real, sem roll — feeds de faturamento/pagamento, DSB-D18) e
+  `dayKey(date)`. **A janela da consulta tambem tem de ser ancorada**, senao uma janela fixa acaba
+  cobrindo a data movel e o "fora da janela" vira falso-negativo. Se a data e so um dado que vai e
+  volta, data fixa serve
+- ⚠️ **Nao "resolver" bomba-relogio afrouxando a asserta.** Aceitar os dois estados
+  (`typeKey === 'x_overdue' ? 'atrasado' : 'previsto'`) faz o teste parar de quebrar **e** parar de
+  provar — foi exatamente o que tinha acontecido no feed de faturamento
 - **Cliente semeado que precisa passar pelo `resolveOwnerBinding` real** (suites de API, que montam o
   `ClientService` de verdade) tem de nascer `status: 'ACTIVE'` **e** `isSeller: true` — o binding
   recusa inativo e nao-vendedor. So o `INACTIVE` "so pra satisfazer a FK" e suficiente quando o teste

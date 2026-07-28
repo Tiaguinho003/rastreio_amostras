@@ -142,6 +142,15 @@ Banner é uma faixa horizontal informando uma condição que **permanece enquant
 | `.nsv2-inline-error` (topo de form) | Erro de submit no topo do form (não-campo)                     | "Este cliente PF não tem fazenda ativa"                    |
 | `.dashboard-error-banner`           | Erro de carregamento do dashboard (3 twins)                    | "Não foi possível carregar o painel." + `role="status"`    |
 | `.spv2-error-banner`                | Erro de carregamento da lista `/samples` (inicial e load-more) | "Não foi possível carregar os lotes." + `role="status"`    |
+| `.ctr-form-notice`                  | **Consequência** (não erro) de um estado do form em contratos  | "O dono do lote mudou desde a emissão…" + `role="status"`  |
+
+> **Banner nem sempre é erro.** O `.ctr-form-notice` nasceu (RC-D37) para o único caso em que o
+> formulário **mexe sozinho** nos campos: o vendedor do contrato é derivado do dono do lote, e quando
+> esse dono muda a tela esvazia filial + conta bancária. Nada falhou e o operador não errou nada —
+> por isso tom neutro do kit, e **não** o vermelho do `.sdv-modal-error`, com quem divide o slot do
+> topo. Regra que ele carrega: **campo esvaziado pelo sistema tem de se explicar antes do submit**,
+> senão vira "campo obrigatório" — um erro que o usuário não causou. E some quando o campo é
+> reescolhido, não por tempo: é estado, não aviso.
 
 > **Não prometer persistência local num formulário sem outbox.** _(Corrigido em 2026-07-27.)_ A **fila offline saiu do produto** na unificação de Relatórios (2026-07-15) — não existe mais formulário que guarde e reenvie depois. Sobrou **um** consumidor da classe, o Semanal (`WeeklyReportFormSheet`), com a promessa honesta: "Não é possível enviar formulários agora. Conecte-se à internet e tente novamente." O antigo `VisitReportForm`, que prometia "ficam salvos no aparelho", **não existe mais**; o formulário de Visita unificado (`CommercialVisitFormSheet`) simplesmente exige internet e **não mostra banner** — assimetria conhecida, não bug.
 

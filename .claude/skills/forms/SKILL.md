@@ -144,12 +144,19 @@ lote, RC-D37):
 ```
 
 `.ctr-locked-value` tem o peso do texto do formulário (0.92rem/600, `--ink`); `.ctr-locked-hint` é a
-instrução (0.74rem, `--muted`). Duas armadilhas:
+instrução (0.74rem, `--muted`). Três armadilhas, nesta ordem:
 
 - **O que a tela mostra é o que o servidor vai gravar**, não o que está salvo. Se os dois podem
   divergir, a leitura tem que trazer o valor de origem (ali, `getSaleContract` devolve `sampleOwner`).
 - **Campos que dependiam do valor antigo precisam ser zerados** na hidratação, senão o submit estoura
   um 422 de FK numa edição que nem tocou no campo travado (ali, filial + conta bancária).
+- 🔴 **E o zeramento precisa se explicar.** Campo esvaziado em silêncio vira "campo obrigatório" no
+  submit — um erro que o operador não causou. Banner no topo do form (`.ctr-form-notice`, tom
+  neutro: nada falhou), que **some quando o campo é reescolhido**, não por tempo. É estado
+  persistente, não aviso efêmero — skill `feedback-messages` §1.
+- **O campo travado sai do payload.** Se o servidor não lê, mandá-lo é erro do chamador, não dado a
+  descartar: o backend recusa (RC-D40, 422 `SELLER_DERIVED_FROM_SAMPLE`) e o front omite. Um campo
+  aceito-e-ignorado mente sobre o que faz.
 
 ---
 

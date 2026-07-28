@@ -375,12 +375,25 @@ fixo, pulando a escolha de motivo que a porta canônica (Editar cadastro, no det
 | **RC-D38** | **A liga nasce com dono.** A opção "Carteira da corretora (sem dono)" sai da criação e o `createBlend` devolve **422** sem `ownerClientId`. Origens unânimes seguem pré-preenchendo o campo — mas quem deriva agora é a TELA; o backend só grava o que recebeu, e sempre fixado.                        |
 | **RC-D39** | **Liga legada sem dono não vende.** Sai do `sellableOnly` (some do picker) e o `createSampleMovement` recusa `SALE` sem dono. Regulariza-se atribuindo dono no lote. **Revoga a opção (D) do `Liga-Plano` (`:1202`)**, que descartara bloquear a venda como "fricção sem justificativa".                |
 
+#### Segunda rodada (RC-D40/D41), mesmo dia
+
+A conferência da 1ª rodada levantou duas pontas soltas — as duas decididas pelo Flavio:
+
+| #          | Decisão                                                                                                                                                                                                                                                                             |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RC-D40** | **Mandar `sellerClientId` num contrato COM lote é 422** (`SELLER_DERIVED_FROM_SAMPLE`), nos mesmos 3 caminhos. Aceitar-e-descartar mentia sobre o que o campo faz: quem chamasse a API acreditaria ter trocado o vendedor. O FUTURO (sem lote) segue exigindo o campo.              |
+| **RC-D41** | **Trocar o dono de um lote já vendido avisa, e deixa passar.** No "Editar cadastro" do detalhe, quando o dono muda num lote com venda registrada, um hint diz que o contrato passa a sair no nome do novo dono na próxima edição — e que o documento já emitido não muda. Sem gate. |
+
+Na RC-D41 pesou que bloquear obrigaria a dar washout num contrato para corrigir um dono digitado
+errado. O aviso é reativo (só quando o dono realmente mudou) e sai de dado que o detalhe já tem
+(`soldSacks` + `ownerClientId`) — nenhuma consulta nova.
+
 #### Por que a prévia muda no mesmo commit
 
 Desde a RC-D27/D28 o documento da conferência é o que o "Confirmar" emite. Se só a emissão derivasse
 o vendedor do lote, o usuário aprovaria um PDF com um vendedor e emitiria outro. `previewSaleContract`
 usa a mesma regra — e o teste gêmeo (`sale-contract.integration.test.js`, "a vista **com** vendedor
-explícito IGNORA o payload") existe para isso.
+explícito recusa com 422") existe para isso.
 
 #### O gargalo escondido: o banco do vendedor
 
@@ -392,6 +405,12 @@ buscava o `isBlend`), e a tela, ao ver divergência, **zera filial e banco** —
 `handleSelectSeller` já fazia quando o vendedor mudava à mão. Mesmo tratamento no 409 do lote: se o
 dono mudou durante o preenchimento, o campo travado acompanha e o aviso diz isso.
 
+🔴 **Zerar em silêncio era metade da solução.** Os dois campos apareciam vazios sem explicação e o
+usuário só descobria no submit, como "campo obrigatório" — um erro que ele não causou. Fechado com um
+**banner** no topo do formulário (`.ctr-form-notice`, tom neutro: nada falhou), que **some quando a
+conta é reescolhida** em vez de por tempo — é estado persistente, não aviso efêmero
+(skill `feedback-messages` §1).
+
 #### O que sobrevive como legado
 
 `blendOwnerPinned`, o rótulo "Carteira da corretora" nos cards/detalhe, o nudge "Atribuir dono
@@ -402,6 +421,16 @@ primeiro" do painel de perda e o `deriveBlendOwner` (que segue servindo o `blend
 ⚠️ **Efeito conhecido, benigno:** um re-run do `backfill-liga-harvest-owner.js` pode atribuir dono por
 unanimidade a uma liga legada não-fixada (`blend-backfill.js:149`) e assim destravá-la para venda. É
 regularização, não regressão.
+
+#### Bomba-relógio nos testes (achado colateral)
+
+Consertando o teste D138 que quebrou sozinho (`paymentDate` fixo em 2026-07-20 afirmando "previsto"),
+apareceu que a suíte tinha **três tratamentos diferentes para o mesmo perigo**: um `bizDay(offset)`
+ancorado em hoje (closure local no teste de embarque, com o comentário certo), uma asserta
+**afrouxada para aceitar os dois estados** no feed de faturamento — que assim deixou de provar qual
+estado é — e o meu `2100` absoluto. Consolidado em `tests/helpers/relative-dates.js`
+(`bizDay`/`calendarDay`/`dayKey`), com a asserta do faturamento **reapertada** para
+`contract_invoice` + `previsto`. Registrado na skill `tests`.
 
 ## Apêndice A — Ledger de decisões (condensado)
 
