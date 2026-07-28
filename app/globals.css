@@ -16483,9 +16483,10 @@ select.samples-filter-field-input {
     filter: brightness(0.45);
   }
 
-  /* Rotas declaradas em ROUTES_WITHOUT_MOBILE_TABBAR (AppShell): a tabbar
-     nem renderiza (Portal nao monta), entao so precisamos zerar a
-     clearance pra que o main reganhe o espaco do bottom. */
+  /* Quem entra aqui e o `hideMobileTabbar` do AppShell — hoje SO o PROSPECTOR
+     (nao ha lista de rotas; a antiga ROUTES_WITHOUT_MOBILE_TABBAR nao existe
+     mais). A tabbar nem renderiza (Portal nao monta), entao so precisamos
+     zerar a clearance pra que o main reganhe o espaco do bottom. */
   .app-shell-root.is-tabbar-hidden .app-shell-main {
     --mobile-tabbar-clearance: 0rem;
   }
