@@ -142,7 +142,10 @@ export function ContractDocumentConfirmModal({
     // Backdrop CHEIO, não `.fv-panel-scrim`: exceção deliberada à regra de
     // "confirmação sobre painel" (skill containers §2) — o documento precisa da
     // tela inteira pra ser legível, e é ele o objeto da decisão.
-    <div className="app-modal-backdrop">
+    // `is-stacked` obrigatório: o painel do formulário é `stacked` na criação à
+    // vista, e sem isso a conferência abriria atrás dele (ver o bloco
+    // `.ctr-confirm-doc` no globals.css).
+    <div className="app-modal-backdrop is-stacked">
       <section
         ref={focusTrapRef}
         className="app-modal is-themed is-action ctr-doc-modal ctr-confirm-doc"

@@ -28585,6 +28585,15 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
    Espelho (iframe), aqui o PDF vem RASTERIZADO em <img> pelo pdfjs — aparece em
    qualquer aparelho, inclusive onde o iframe de PDF nao renderiza. A folha e o
    objeto da decisao, entao o modal cresce ate onde a tela deixa. */
+/* ⚠️ Tier: o painel do formulario e `stacked` na criacao a vista (600/610), e um
+   `.app-modal-backdrop` normal fica em 400 — a conferencia abriria ATRAS dele.
+   O `.is-stacked` no backdrop resolve duas coisas de uma vez: sobe pro tier
+   empilhado E tira este backdrop da regra "scrim nao se soma" (que apagaria
+   justamente o escurecimento de que o documento precisa). O `+ 20` desempata
+   contra o sheet, que tambem esta em 610 — mesmo tier do `.is-scrim-none`. */
+.app-modal-backdrop.is-stacked:has(> .ctr-confirm-doc) {
+  z-index: calc(var(--z-modal-stacked) + 20);
+}
 .app-modal.is-themed.ctr-confirm-doc {
   width: min(52rem, calc(100vw - 1rem));
   max-width: min(52rem, calc(100vw - 1rem));
