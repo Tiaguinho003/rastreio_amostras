@@ -27870,6 +27870,133 @@ body.is-selection-mode .mobile-tabbar {
   flex-direction: column;
   gap: 0.7rem;
 }
+
+/* ── RC-D53/D54: o painel do contrato tem DOIS PASSOS (formulario -> documento)
+   e a virada acontece DENTRO dele: so o miolo desliza, o cabecalho e o rodape
+   ficam parados. E o que faz os dois lerem como o mesmo painel trocando de
+   conteudo, em vez de duas telas.
+
+   🔴 Quem recorta e o CORPO, e quem rola passa a ser o PASSO. Nao ha como
+   recortar so o eixo horizontal: declarar `overflow-x: hidden` com
+   `overflow-y: visible` faz o `y` virar `auto` sozinho. Entao o corpo para de
+   rolar e cada passo assume a propria rolagem — com um efeito colateral bom:
+   cada um guarda a propria posicao, e "Voltar" devolve o formulario exatamente
+   onde estava. ── */
+.bottom-sheet.ctr-contract-sheet .bottom-sheet-body {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+  /* O padding desce pro passo: se ficasse aqui, entraria na area recortada e o
+     conteudo que sai apareceria por baixo dele. */
+  padding: 0;
+}
+.ctr-step {
+  grid-area: 1 / 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: clamp(0.7rem, 3vw, 1rem) 0 clamp(0.25rem, 1vw, 0.4rem);
+  transition:
+    transform 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 200ms ease,
+    visibility 0s;
+}
+/* O passo que ficou pra tras sai pela esquerda; o que ainda nao chegou espera a
+   direita. `visibility` com delay igual a duracao: some do tab order DEPOIS de
+   animar, nao no primeiro quadro. */
+.ctr-step.is-past,
+.ctr-step.is-next {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition-delay: 0s, 0s, 280ms;
+}
+.ctr-step.is-past {
+  transform: translateX(-100%);
+}
+.ctr-step.is-next {
+  transform: translateX(100%);
+}
+.ctr-step-doc {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+/* A faixa do "Ampliar" fica encostada a direita, acima do documento. */
+.ctr-doc-stepbar {
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+.ctr-doc-stepbar .ctr-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.ctr-doc-stepbar svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+/* O passo do documento nao rola por dentro: quem rola e o proprio passo, senao
+   haveria dois scrollers aninhados com a barra do de dentro no meio do painel.
+   (No modal central era o contrario — la o rodape era do modal e as paginas
+   precisavam rolar sozinhas.) */
+.ctr-step-doc .ctr-doc-pages {
+  overflow: visible;
+  min-height: 0;
+}
+
+/* RC-D56: "Ampliar" — a leitura de perto sem devolver o documento pra uma tela
+   por cima do painel. Stage propria (nao o .pzv-stage do PhotoZoomViewer, que e
+   de UMA imagem com pinca e pan): aqui sao N paginas em rolagem vertical, e o
+   que resolve a legibilidade e a LARGURA. */
+.ctr-doc-zoom {
+  position: fixed;
+  inset: 0;
+  /* Acima do sheet (610) e do tier empilhado (600). Empata com o toast (700) e
+     ganha por ordem no DOM — a stage e portalada por ultimo. */
+  z-index: var(--z-toast);
+  display: flex;
+  justify-content: center;
+  overflow-y: auto;
+  padding: clamp(1rem, 4vw, 2.5rem) clamp(0.5rem, 3vw, 2rem);
+  background: rgba(12, 14, 12, 0.92);
+  overscroll-behavior: contain;
+}
+.ctr-doc-zoom-pages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  width: min(1100px, 100%);
+  height: max-content;
+}
+.ctr-doc-zoom-close {
+  position: fixed;
+  top: clamp(0.6rem, 2vw, 1rem);
+  right: clamp(0.6rem, 2vw, 1rem);
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+}
+.ctr-doc-zoom-close svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
 /* ── Forms de contrato (Etapa2 + LotPicker) migrados pra BOTTOM SHEET no mobile
    (central no desktop pelo CSS do .bottom-sheet). Dentro do sheet nao ha
    ancestral .app-modal.is-themed, entao reaplicamos os overrides dos campos
@@ -28246,38 +28373,21 @@ body.is-selection-mode .mobile-tabbar {
 
 /* RC-D27/D28: confirmacao PELO DOCUMENTO antes de emitir. Diferente da previa do
    Espelho (iframe), aqui o PDF vem RASTERIZADO em <img> pelo pdfjs — aparece em
-   qualquer aparelho, inclusive onde o iframe de PDF nao renderiza. A folha e o
-   objeto da decisao, entao o modal cresce ate onde a tela deixa. */
-/* ⚠️ Tier: o painel do formulario e `stacked` na criacao a vista (600/610), e um
-   `.app-modal-backdrop` normal fica em 400 — a conferencia abriria ATRAS dele.
-   O `.is-stacked` no backdrop resolve duas coisas de uma vez: sobe pro tier
-   empilhado E tira este backdrop da regra "scrim nao se soma" (que apagaria
-   justamente o escurecimento de que o documento precisa). O `+ 20` desempata
-   contra o sheet, que tambem esta em 610 — mesmo tier do `.is-scrim-none`. */
-.app-modal-backdrop.is-stacked:has(> .ctr-confirm-doc) {
-  z-index: calc(var(--z-modal-stacked) + 20);
-}
-/* Scrim nao se soma, continuacao (a regra generica de 2026-07-21 nao pega este
-   caso: ela suprime os backdrops `:not(.is-stacked)`, e aqui os DOIS sao
-   empilhados — o do painel do formulario e o da conferencia). Com o documento
-   no ar, o escurecimento do sheet de baixo para de pintar; ninguem sai do DOM,
-   entao bloqueio de clique, scroll-lock e foco seguem iguais. */
-body:has(.app-modal-backdrop.is-stacked > .ctr-confirm-doc) .bottom-sheet-backdrop.is-open {
-  background: transparent;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-.app-modal.is-themed.ctr-confirm-doc {
-  width: min(52rem, calc(100vw - 1rem));
-  max-width: min(52rem, calc(100vw - 1rem));
-  max-height: calc(100dvh - 1rem);
-}
-.ctr-confirm-doc .ctr-doc-content {
-  /* O scroll e das PAGINAS, nao do modal: o rodape com Voltar/Confirmar fica
-     sempre visivel — e ele a decisao. */
-  overflow: hidden;
-  flex: 1 1 auto;
-}
+   qualquer aparelho, inclusive onde o iframe de PDF nao renderiza.
+
+   🪦 RC-D53 (2026-07-28): as quatro regras do `.ctr-confirm-doc` sairam daqui. A
+   conferencia deixou de ser um modal central por cima do painel e virou o 2o
+   PASSO dele (`.ctr-step`, na secao do Etapa2), entao acabaram junto: a largura
+   de 52rem, o `overflow` do `.ctr-doc-content`, o `.is-stacked:has()` que
+   empurrava o backdrop pro tier de cima e o `body:has()` que apagava o scrim do
+   sheet de baixo pra os dois escurecimentos nao se somarem. **Nao ha mais
+   backdrop nenhum aqui** — e com isso morre a excecao de "backdrop cheio sobre
+   painel" que a skill `containers` §2 registrava.
+
+   O que sobrou abaixo (`.ctr-doc-pages`, `.ctr-doc-page`, `.ctr-doc-fallback`)
+   segue vivo, agora dentro do passo. E `.ctr-doc-modal`, `.ctr-doc-content`,
+   `.ctr-doc-frame`, `.ctr-doc-hint` e `.ctr-doc-actions` NAO sao desta tela: o
+   `EspelhoCorretagemModal` usa todas. */
 .ctr-doc-pages {
   display: flex;
   flex-direction: column;
