@@ -27871,10 +27871,11 @@ body.is-selection-mode .mobile-tabbar {
   gap: 0.7rem;
 }
 
-/* ── RC-D53/D54: o painel do contrato tem DOIS PASSOS (formulario -> documento)
-   e a virada acontece DENTRO dele: so o miolo desliza, o cabecalho e o rodape
-   ficam parados. E o que faz os dois lerem como o mesmo painel trocando de
-   conteudo, em vez de duas telas.
+/* ── RC-D53/D54/D57: o painel do contrato tem ATE TRES PASSOS (lote ->
+   formulario -> documento) e a virada acontece DENTRO dele: so o miolo desliza,
+   o cabecalho e o rodape ficam parados. E o que faz os passos lerem como o mesmo
+   painel trocando de conteudo, em vez de telas diferentes. Padrao geral em
+   `containers` §1-A.
 
    🔴 Quem recorta e o CORPO, e quem rola passa a ser o PASSO. Nao ha como
    recortar so o eixo horizontal: declarar `overflow-x: hidden` com
@@ -27923,6 +27924,24 @@ body.is-selection-mode .mobile-tabbar {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+}
+/* RC-D57: o passo do LOTE e a excecao a "cada passo rola sozinho" — aqui quem
+   rola e a lista (.lotpick-list), pra a busca ficar parada no topo e o scroll
+   infinito continuar com a lista como root. Entao o passo vira coluna flex e
+   NAO rola: fossem os dois, a barra de rolagem do passo apareceria por fora da
+   lista, sem nada pra rolar.
+
+   As larguras das colunas moram AQUI (nao no card) pra o cabecalho .lotpick-head
+   e a celula nao poderem sair de sincronia: mudar uma largura move os dois. */
+.ctr-step-lot {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  --lotpick-cols: 96px minmax(0, 1fr) 92px 78px;
+  --lotpick-colgap: 0.6rem;
+  --lotpick-pad-x: 0.85rem;
+  --lotpick-gap: 0.7rem;
+  --lotpick-chevron: 18px;
 }
 /* A faixa do "Ampliar" fica encostada a direita, acima do documento. */
 .ctr-doc-stepbar {
@@ -28164,14 +28183,11 @@ body.is-selection-mode .mobile-tabbar {
 .ctr-lot-band-dot {
   color: var(--fv-line-strong);
 }
-/* Picker de lote (RC-D29: painel lateral do kit FV): o corpo do sheet vira
-   coluna flex pra a lista (.lotpick-list) esticar e rolar — a linha de apoio e a
-   busca ficam fixas no topo e o scroll infinito (root = .lotpick-list) segue
-   funcionando. A linha de apoio usa .fv-panel-lead, do chrome comum do painel. */
-.ctr-lotpick-sheet .bottom-sheet-body {
-  display: flex;
-  flex-direction: column;
-}
+/* 🪦 RC-D57 (2026-07-28): `.ctr-lotpick-sheet` NAO EXISTE MAIS. A selecao de lote
+   era um sheet irmao do formulario (um descia enquanto o outro subia) e virou o
+   PRIMEIRO PASSO do painel do contrato. As duas regras que ela tinha — a coluna
+   flex do corpo e as custom properties da grade — mudaram de dono para
+   `.ctr-step-lot`, na secao dos passos do Etapa2. */
 
 /* ── Detalhes do contrato (Fase J, D120–D126; F3 do redesign): conteudo do
    DetailOverlay .ctr-details-overlay (peek 620px desktop / sheet mobile —
@@ -28573,6 +28589,12 @@ body.is-selection-mode .mobile-tabbar {
   padding: 0.15rem clamp(0.3rem, 1.2vw, 0.5rem) clamp(0.9rem, 3vw, 1.1rem);
   overscroll-behavior: contain;
 }
+/* RC-D57: enquanto o lote escolhido hidrata (detalhe + proximo numero), a lista
+   recua. Antes o segundo toque era engolido por um early-return invisivel. */
+.lotpick-list[aria-busy='true'] {
+  opacity: 0.55;
+  pointer-events: none;
+}
 .lotpick-status {
   margin: 0;
   padding: 1.6rem 0.5rem;
@@ -28583,22 +28605,16 @@ body.is-selection-mode .mobile-tabbar {
 /* RC-D49: o card dos lotes SAIU do `.spv2-card` de /samples (gradiente creme,
    radius 16, sombra tripla) e virou superficie FV — branco chapado, hairline e
    sombra minima, como manda o §0.1 do design-system. Markup em
-   components/contracts/SaleContractLotPickerModal.tsx.
+   components/contracts/ContractLotPickerStep.tsx.
 
    RC-D50: o conteudo virou GRADE de 4 colunas, compartilhada com o cabecalho
-   (.lotpick-head) por estas custom properties. Elas moram no sheet, e nao no
-   card, justamente pra as duas pecas nao poderem sair de sincronia: mudar uma
-   largura aqui move o titulo e a celula juntos.
+   (.lotpick-head). As larguras vem por custom properties declaradas no PASSO
+   (.ctr-step-lot) — no ancestral, e nao no card, justamente pra as duas pecas
+   nao poderem sair de sincronia: mudar uma largura la move o titulo e a celula
+   juntos.
 
    Regra de larguras do `data-tables` §5: as fixas agrupadas e UMA elastica que
    absorve a sobra — aqui o Produtor, que e o texto que mais varia. */
-.ctr-lotpick-sheet {
-  --lotpick-cols: 96px minmax(0, 1fr) 92px 78px;
-  --lotpick-colgap: 0.6rem;
-  --lotpick-pad-x: 0.85rem;
-  --lotpick-gap: 0.7rem;
-  --lotpick-chevron: 18px;
-}
 .lotpick-card {
   display: flex;
   align-items: center;

@@ -1,8 +1,8 @@
 'use client';
 
-// Fechamento (criacao a vista pela pagina Contratos): modal de SELECAO DE LOTE.
+// Fechamento (criacao a vista pela pagina Contratos): a SELECAO DE LOTE.
 // A venda a vista que parte da pagina precisa estar atrelada a um lote, entao
-// este picker lista os lotes VENDAVEIS com busca por numero/produtor (debounce)
+// este passo lista os lotes VENDAVEIS com busca por numero/produtor (debounce)
 // e scroll infinito por cursor — mesmo backend do /samples.
 //
 // RC-D30: "vendavel" e `sellableOnly`, nao `displayStatus=OPEN`. O displayStatus
@@ -11,32 +11,40 @@
 // liga de cascata inviavel. Ambos so falhavam no submit, com o formulario inteiro
 // preenchido.
 //
-// Ao escolher, HIDRATA o detalhe (getSampleDetail) pra obter o snapshot fresco
-// (version/availableSacks/dono/safra atuais) e devolve via onPicked.
-//
 // RC-D49/D50 (2026-07-28): o card saiu do `.spv2-card` legado (gradiente creme,
 // radius 16, sombra tripla) e virou superficie FV. Os dados — os MESMOS de antes
 // — deixaram de correr numa linha separada por pontos e viraram QUATRO COLUNAS
 // alinhadas, com cabecalho fixo no topo: comparar dois lotes deixou de exigir
 // reler cada linha inteira. Celular mantem a linha corrida (RC-D52), pelo mesmo
 // markup — quem troca o desenho e a media query, nao um branch em JS.
+//
+// RC-D57 (2026-07-28): isto DEIXOU DE SER UM SHEET. Era um `BottomSheet` irmao
+// do formulario — um descia enquanto o outro subia, e o "Voltar" destruia o
+// formulario pra reabrir este. Virou o PRIMEIRO PASSO do painel do contrato
+// (`containers` §1-A), ao lado do formulario e do documento. Por isso nao ha
+// mais `open`/`onClose` aqui: quem gere a superficie, o rodape e a saida e o
+// `SaleContractEtapa2Modal`.
+//
+// Quem HIDRATA o lote escolhido tambem e o pai (getSampleDetail + o proximo
+// numero de contrato): o resultado abre o passo seguinte, entao a decisao de
+// avancar nao pode morar aqui.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { ApiError, getSampleDetail, listSamples } from '../../lib/api-client';
+import { ApiError, listSamples } from '../../lib/api-client';
 import { ownerDisplayValue } from '../../lib/sample-display';
 import type { SampleSnapshot, SessionData } from '../../lib/types';
-import { BottomSheet } from '../BottomSheet';
 import { BlendBadge } from '../samples/BlendBadge';
 import { HarvestDisplay } from '../samples/HarvestDisplay';
 
-type SaleContractLotPickerModalProps = {
+type ContractLotPickerStepProps = {
   session: SessionData;
-  open: boolean;
-  onClose: () => void;
-  onPicked: (sample: SampleSnapshot) => void;
-  /** Pausa o arraste do sheet enquanto o form de criação está aberto por cima. */
-  dragDisabled?: boolean;
+  /** O pai hidrata o lote e avanca o passo. */
+  onPick: (sample: SampleSnapshot) => void;
+  /** Hidratacao em curso: a lista para de aceitar toque enquanto isso. */
+  busy: boolean;
+  /** Falha do PAI ao abrir o lote — some no lugar do erro da lista. */
+  pickError: string | null;
 };
 
 const PAGE_LIMIT = 30;
@@ -75,13 +83,12 @@ function movedSacks(sample: SampleSnapshot): number {
   return (sample.soldSacks ?? 0) + (sample.lostSacks ?? 0);
 }
 
-export function SaleContractLotPickerModal({
+export function ContractLotPickerStep({
   session,
-  open,
-  onClose,
-  onPicked,
-  dragDisabled = false,
-}: SaleContractLotPickerModalProps) {
+  onPick,
+  busy,
+  pickError,
+}: ContractLotPickerStepProps) {
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [items, setItems] = useState<SampleSnapshot[]>([]);
@@ -89,7 +96,6 @@ export function SaleContractLotPickerModal({
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cursor, setCursor] = useState<{ lotInt: number | null; id: string } | null>(null);
-  const [hydratingId, setHydratingId] = useState<string | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   // Debounce da busca -> appliedSearch (recarrega a lista do zero).
@@ -159,30 +165,10 @@ export function SaleContractLotPickerModal({
     return () => observer.disconnect();
   }, [cursor, loading, loadMore]);
 
-  async function handlePick(sample: SampleSnapshot) {
-    if (hydratingId) return;
-    setHydratingId(sample.id);
-    setError(null);
-    try {
-      const detail = await getSampleDetail(session, sample.id);
-      onPicked(detail.sample);
-    } catch (cause) {
-      setHydratingId(null);
-      setError(cause instanceof ApiError ? cause.message : 'Falha ao abrir o lote.');
-    }
-  }
+  const shownError = pickError ?? error;
 
   return (
-    <BottomSheet
-      open={open}
-      onClose={onClose}
-      onDismissAttempt={() => hydratingId === null}
-      title={null}
-      ariaLabel="Selecionar lote"
-      dragDisabled={dragDisabled}
-      closeVariant="edge-back"
-      className="fv-panel-sheet side-sheet ctr-lotpick-sheet"
-    >
+    <>
       <p className="fv-panel-lead">A venda à vista parte de um lote.</p>
 
       <div className="lotpick-search">
@@ -195,9 +181,12 @@ export function SaleContractLotPickerModal({
         />
       </div>
 
-      {error ? <p className="sdv-modal-error lotpick-error">{error}</p> : null}
+      {shownError ? <p className="sdv-modal-error lotpick-error">{shownError}</p> : null}
 
-      <div className="lotpick-list">
+      {/* `aria-busy` enquanto o pai hidrata o lote: antes o segundo toque era
+          engolido por um early-return invisivel — agora a lista mostra que
+          esta ocupada. */}
+      <div className="lotpick-list" aria-busy={busy}>
         {loading ? (
           <p className="lotpick-status">Carregando lotes...</p>
         ) : items.length === 0 ? (
@@ -227,7 +216,7 @@ export function SaleContractLotPickerModal({
                   key={sample.id}
                   type="button"
                   className="lotpick-card"
-                  onClick={() => void handlePick(sample)}
+                  onClick={() => onPick(sample)}
                 >
                   {/* RC-D51: o chip de status saiu. Nesta lista TODO lote e
                       vendavel (sellableOnly), entao ele dizia sempre a mesma
@@ -240,9 +229,7 @@ export function SaleContractLotPickerModal({
                     </span>
                     <span className="lotpick-c lotpick-c-owner">{ownerLabel(sample)}</span>
                     <span className="lotpick-c lotpick-c-sacks">
-                      <span className="lotpick-c-value">
-                        {available === null ? '—' : available} sacas
-                      </span>
+                      <span>{available === null ? '—' : available} sacas</span>
                       {moved > 0 && available !== null ? (
                         <span className="lotpick-card-of">de {available + moved}</span>
                       ) : null}
@@ -269,6 +256,6 @@ export function SaleContractLotPickerModal({
           </>
         )}
       </div>
-    </BottomSheet>
+    </>
   );
 }

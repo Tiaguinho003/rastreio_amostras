@@ -32,7 +32,9 @@ import { ClientLookupField } from '../clients/ClientLookupField';
 import { ClientQuickCreateModal } from '../clients/ClientQuickCreateModal';
 import { ClientUnitModal } from '../clients/ClientUnitModal';
 import { HarvestDisplay } from '../samples/HarvestDisplay';
+import { ownerDisplayValue } from '../../lib/sample-display';
 import { ClientBankAccountSelectField } from './ClientBankAccountSelectField';
+import { ContractLotPickerStep } from './ContractLotPickerStep';
 import { InlineSelectField } from './InlineSelectField';
 import type {
   ClientSummary,
@@ -57,34 +59,51 @@ type SaleContractEtapa2ModalProps = {
   // RC-D20: recebe o id do contrato recém-emitido pra o pai poder ABRI-LO em vez
   // de só voltar pra lista. Null quando a emissão não devolveu id.
   onSaved: (contractId: string | null) => void;
-  // À VISTA: "Voltar" no rodapé retorna à seleção de lote (fecha este sheet e
-  // reabre o picker). Ausente em Futuro/Editar, onde o rodapé mostra "Cancelar".
-  onBack?: () => void;
-  // Modo CRIACAO À VISTA (1 modal): vem do picker de lote. Mostra o bloco "Venda"
-  // (sacas ≤ disponível; liga = 100% travado) + Vendedor pré-preenchido do dono do
-  // lote + Comprador manual; o submit registra a venda no lote E cria o contrato
-  // JA EMITIDO numa só chamada (createSpotSaleContract, D97).
-  spotCreate?: {
-    sampleId: string;
-    sampleVersion: number;
-    internalLotNumber: string | null;
-    availableSacks: number;
-    isBlend: boolean;
-    ownerClientId: string | null;
-    nextNumber: string | null;
-    /** RC-D32: fatos do lote para a faixa de identidade no topo. */
-    ownerName: string | null;
-    harvest: string | null;
-  };
-  // À VISTA: o lote mudou durante o preenchimento (409 SAMPLE_VERSION_CONFLICT) e
-  // este é o snapshot fresco. Quem monta o `spotCreate` é o pai — devolve o
-  // snapshot inteiro pra ele reaproveitar o mesmo mapeamento do picker.
-  onSpotRefreshed?: (sample: SampleSnapshot) => void;
+  // Modo CRIACAO À VISTA: o painel abre na SELEÇÃO DE LOTE (passo 1) e o
+  // formulário é o passo 2. Mostra o bloco "Venda" (sacas ≤ disponível; liga =
+  // 100% travado) + Vendedor pré-preenchido do dono do lote + Comprador manual;
+  // o submit registra a venda no lote E cria o contrato JA EMITIDO numa só
+  // chamada (createSpotSaleContract, D97).
+  //
+  // RC-D57: era o pai que escolhia o lote (num sheet irmão) e mandava o objeto
+  // pronto por prop. Hoje o lote é estado DESTE painel — ver `spotCreate`.
+  spotFlow?: boolean;
   // Modo CRIACAO FUTURO (1 modal): sem lote/contrato. Mostra o bloco "Venda"
   // (vazio, sacas LIVRES) + Vendedor/Comprador manuais; o submit cria o contrato
   // FUTURO JA EMITIDO numa só chamada (createFutureSaleContract, D97).
   futureCreate?: boolean;
 };
+
+// O que o formulário à vista precisa saber do lote escolhido.
+type SpotCreateState = {
+  sampleId: string;
+  sampleVersion: number;
+  internalLotNumber: string | null;
+  availableSacks: number;
+  isBlend: boolean;
+  ownerClientId: string | null;
+  nextNumber: string | null;
+  // RC-D32: o que a faixa de identidade do lote mostra no topo do formulário.
+  // Tudo já vem do getSampleDetail do pick — não custa requisição.
+  ownerName: string | null;
+  harvest: string | null;
+};
+
+// Um mapeamento só, usado no pick e na re-hidratação depois do 409 do lote
+// (RC-D35) — assim os dois caminhos não podem divergir.
+function spotCreateFromSample(sample: SampleSnapshot, nextNumber: string | null): SpotCreateState {
+  return {
+    sampleId: sample.id,
+    sampleVersion: sample.version,
+    internalLotNumber: sample.internalLotNumber,
+    availableSacks: sample.availableSacks ?? 0,
+    isBlend: sample.isBlend ?? false,
+    ownerClientId: sample.ownerClientId ?? null,
+    nextNumber,
+    ownerName: ownerDisplayValue(sample) || null,
+    harvest: sample.declared.harvest,
+  };
+}
 
 function dateInputValue(iso: string | null): string {
   return iso ? iso.slice(0, 10) : '';
@@ -128,25 +147,35 @@ type FormFieldKey =
   | 'approvalLead'
   | 'agioValue';
 
-// Fechamento: modal do contrato. 3 modos: "Editar" (contrato existente, via
-// contractId → emitSaleContract) e criação em 1 modal — À VISTA (spotCreate, vem
-// do picker de lote → createSpotSaleContract) ou FUTURO (futureCreate, sem lote →
+// Fechamento: o PAINEL do contrato. 3 modos: "Editar" (contrato existente, via
+// contractId → emitSaleContract) e criação — À VISTA (spotFlow, que começa na
+// seleção de lote → createSpotSaleContract) ou FUTURO (futureCreate, sem lote →
 // createFutureSaleContract). Na criação o contrato nasce EMITIDO numa só chamada
 // (D97). Pre-preenche via getSaleContract/getClient + listContractLookups.
+//
+// RC-D53/D57: o painel tem ATÉ TRÊS PASSOS na mesma superfície (`containers`
+// §1-A) — lote → formulário → documento. Só o à vista tem o primeiro; Futuro e
+// Editar abrem direto no formulário. Cabeçalho e rodapé não deslizam: quem anda
+// é o miolo.
 export function SaleContractEtapa2Modal({
   session,
   open,
   contractId,
   onClose,
   onSaved,
-  onBack,
-  spotCreate,
-  onSpotRefreshed,
+  spotFlow = false,
   futureCreate = false,
 }: SaleContractEtapa2ModalProps) {
-  // Modos de criação em 1 modal: à vista (spotCreate, do picker) ou Futuro.
-  const isSpotCreate = spotCreate != null;
+  // Modos de criação em 1 painel: à vista (spotFlow) ou Futuro.
+  const isSpotCreate = spotFlow;
   const isCreateLike = isSpotCreate || futureCreate;
+
+  // RC-D57: o lote escolhido no passo 1. `null` = ainda estamos escolhendo.
+  const [spotCreate, setSpotCreate] = useState<SpotCreateState | null>(null);
+  const [pickingId, setPickingId] = useState<string | null>(null);
+  const [pickError, setPickError] = useState<string | null>(null);
+  // O passo do lote só existe no à vista, e some assim que um lote é escolhido.
+  const onLotStep = spotFlow && spotCreate == null;
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -225,8 +254,10 @@ export function SaleContractEtapa2Modal({
   // filial e banco (RC-D31) e no Editar nasce com o contrato inteiro — o guard
   // dispararia sempre, que é pior que não existir.
   const [touched, setTouched] = useState(false);
-  // Qual saída está esperando a confirmação: fechar de vez ou voltar ao picker.
-  const [pendingExit, setPendingExit] = useState<'close' | 'back' | null>(null);
+  // A saída do FLUXO está esperando confirmação. Voltar um passo não passa por
+  // aqui desde a RC-D57: o passo anterior continua montado, então não se perde
+  // nada ao recuar — só ao sair do painel.
+  const [pendingExit, setPendingExit] = useState(false);
 
   // RC-D27: o documento em conferência. RC-D53: ele não é mais um modal por
   // cima — é o SEGUNDO PASSO deste painel, e este estado é o próprio passo (não
@@ -293,16 +324,29 @@ export function SaleContractEtapa2Modal({
     setError(null);
   }, []);
 
-  // Volta ao passo 1 quando o pai sinaliza fechamento — senão o painel reabriria
-  // no documento (molde do WeeklyReportFormSheet).
+  // RC-D57: volta ao passo do LOTE. O formulário fica montado ao lado, com o que
+  // já foi digitado e a rolagem onde estava — trocar de lote não é descartar o
+  // contrato, então aqui não há "Descartar?". O que o lote determina (sacas,
+  // vendedor, filial, banco, liga) é re-hidratado pelo efeito de carga, que tem
+  // o id do lote na dependência.
+  const backToLot = useCallback(() => {
+    setSpotCreate(null);
+    setPickError(null);
+    setError(null);
+    setFieldError(null);
+  }, []);
+
+  // Volta ao primeiro passo quando o pai sinaliza fechamento — senão o painel
+  // reabriria no documento (molde do WeeklyReportFormSheet).
   useEffect(() => {
     if (!open) {
-      setPendingExit(null);
+      setPendingExit(false);
       setConfirmDoc(null);
       setDocDownloaded(false);
       pendingEmitRef.current = null;
+      if (spotFlow) setSpotCreate(null);
     }
-  }, [open]);
+  }, [open, spotFlow]);
 
   // Rola até o campo com erro: sem isso, apertar Emitir com um campo pendente
   // acima da dobra não muda nada visível. Consulta o DOM em vez de manter ~25
@@ -342,6 +386,18 @@ export function SaleContractEtapa2Modal({
         // liga — semeia sacas = 100% e checa a viabilidade da cascata.
         const spot = spotCreateRef.current;
         if (spot) {
+          // RC-D57: dá pra VOLTAR e escolher outro lote sem perder o resto do
+          // formulário — então o que era do lote ANTERIOR tem que sair antes de
+          // hidratar o novo. Vendedor, filial e banco são os perigosos: o
+          // vendedor é o dono do lote (RC-D37), e uma filial/conta do dono
+          // antigo sobreviveria como um 422 de banco no submit.
+          setSeller(null);
+          setSellerUnits([]);
+          setSellerUnitId('');
+          setBankAccountId('');
+          setBlendInfeasible(false);
+          setFeasibilityError(null);
+          setOwnerDivergedNotice(false);
           const lookupsRes = await listContractLookups(session);
           if (aborted) return;
           setLookups(lookupsRes);
@@ -883,14 +939,17 @@ export function SaleContractEtapa2Modal({
   // usuário só precisa conferir as sacas e emitir de novo.
   async function handleVersionConflict(cause: ApiError) {
     const code = (cause.details as { code?: string } | null)?.code;
-    if (code !== 'SAMPLE_VERSION_CONFLICT' || !spotCreate || !onSpotRefreshed) {
+    if (code !== 'SAMPLE_VERSION_CONFLICT' || !spotCreate) {
       setError('Este contrato foi modificado. Recarregue a página e tente de novo.');
       return;
     }
     try {
       const { sample } = await getSampleDetail(session, spotCreate.sampleId);
       const nextAvailable = sample.availableSacks ?? 0;
-      onSpotRefreshed(sample);
+      // Mesmo lote, versão e saldo novos: o efeito de carga NÃO re-hidrata (a
+      // dependência é o id), então o formulário preenchido sobrevive — que é
+      // exatamente o ponto desta recuperação.
+      setSpotCreate((prev) => spotCreateFromSample(sample, prev?.nextNumber ?? null));
       // RC-D37: o vendedor é o dono do lote. Se o dono mudou no meio do
       // preenchimento, o campo travado tem que acompanhar — e a filial e o banco
       // do dono antigo deixam de valer.
@@ -1050,44 +1109,46 @@ export function SaleContractEtapa2Modal({
       : (futureNumber ?? '—');
   const displayContractType = futureCreate || contract?.type === 'FUTURO' ? 'Futuro' : 'À vista';
 
-  // Fechar (X / backdrop / ESC / arraste) ENCERRA o fluxo e volta à página. Como
-  // nada é gravado antes do submit (o contrato nasce EMITIDO numa só chamada,
-  // D97), não há venda parcial a limpar. NÃO retorna ao passo anterior — isso é
-  // o "Voltar" (handleBack).
+  // Fechar (backdrop / ESC / arraste) no PRIMEIRO passo encerra o fluxo e volta
+  // à página. Como nada é gravado antes do submit (o contrato nasce EMITIDO numa
+  // só chamada, D97), não há venda parcial a limpar.
   const handleSheetClose = onClose;
-
-  // À vista: "Voltar" retorna à seleção de lote. Null em Futuro/Editar → o
-  // rodapé mostra "Cancelar".
-  const handleBack = onBack ?? null;
 
   // RC-D37: contrato COM lote tem o vendedor TRAVADO — é o dono do lote, e o
   // servidor o deriva de lá (o payload não é lido). Trocar o vendedor se faz no
   // cadastro do lote. No Futuro (sem lote) o campo segue livre.
   const sellerLockedToLot = isSpotCreate || contract?.sampleId != null;
 
-  function doExit(kind: 'close' | 'back') {
-    if (kind === 'back' && handleBack) handleBack();
-    else handleSheetClose();
-  }
+  // RC-D57: há passo anterior para onde recuar? É o que decide entre "Voltar" e
+  // "Cancelar" no rodapé — e o que a seta ←, o ESC e o back do Android fazem.
+  const canStepBack = onDocumentStep || (spotFlow && spotCreate != null);
 
-  // RC-D34: as duas saídas perdem o formulário inteiro. Com algo preenchido pelo
-  // usuário, pedem confirmação; com o formulário intocado, saem direto — a
+  // RC-D34: sair do painel perde o formulário inteiro. Com algo preenchido pelo
+  // usuário, pede confirmação; com o formulário intocado, sai direto — a
   // pergunta em cima de nada é só atrito. `true` = pode sair agora.
-  function canExit(kind: 'close' | 'back'): boolean {
+  //
+  // RC-D55/D57: com um passo atrás, a seta ←, o ESC e o back do Android VOLTAM
+  // UM PASSO em vez de sair. Devolver `false` com efeito colateral é o padrão
+  // daqui: é assim que o "Descartar?" logo abaixo já funciona.
+  function canExit(): boolean {
     if (saving) return false;
-    // RC-D55: com o documento na tela, a seta ← e o ESC voltam UM PASSO — não
-    // saem do fluxo. Devolver `false` com efeito colateral é o padrão daqui: é
-    // assim que o "Descartar?" logo abaixo já funciona.
     if (onDocumentStep) {
       backToForm();
+      return false;
+    }
+    if (spotFlow && spotCreate != null) {
+      backToLot();
       return false;
     }
     // O ESC do BottomSheet é global e o "Descartar?" é modal central, que não
     // entra na pilha de sheets — sem este guard, apertar ESC com ele aberto
     // fecharia o painel POR BAIXO.
     if (pendingExit) return false;
+    // Enquanto o lote hidrata, o passo seguinte já está a caminho: sair no meio
+    // deixaria o `setSpotCreate` cair num painel fechando.
+    if (pickingId) return false;
     if (touched) {
-      setPendingExit(kind);
+      setPendingExit(true);
       return false;
     }
     return true;
@@ -1095,19 +1156,47 @@ export function SaleContractEtapa2Modal({
 
   // O botão do rodapé precisa AGIR; o dismiss do sheet só precisa da resposta
   // (quem fecha, nesse caso, é o próprio BottomSheet).
-  function requestExit(kind: 'close' | 'back') {
-    if (canExit(kind)) doExit(kind);
+  function requestExit() {
+    if (canExit()) handleSheetClose();
   }
 
   function confirmExit() {
-    const kind = pendingExit ?? 'close';
-    setPendingExit(null);
-    doExit(kind);
+    setPendingExit(false);
+    handleSheetClose();
   }
 
-  // RC-D54: o rodapé é UM só nos dois passos — ele não desliza, só troca de
-  // rótulo e de ação. É o que faz a virada ler como o mesmo painel mudando de
+  // RC-D57: escolher o lote. A hidratação (detalhe fresco + próximo número) é
+  // daqui e não do passo, porque o resultado é o que ABRE o passo seguinte — e
+  // quem manda no passo é este painel.
+  async function handlePickLot(sample: SampleSnapshot) {
+    if (pickingId) return;
+    setPickingId(sample.id);
+    setPickError(null);
+    try {
+      const detail = await getSampleDetail(session, sample.id);
+      // Número só de PREVIEW: o definitivo é alocado na transação da emissão.
+      // Falhar aqui não pode travar o fluxo — o formulário mostra "—".
+      let nextNumber: string | null = null;
+      try {
+        nextNumber = (await getNextContractNumber(session)).contractNumber;
+      } catch {
+        nextNumber = null;
+      }
+      setSpotCreate(spotCreateFromSample(detail.sample, nextNumber));
+    } catch (cause) {
+      setPickError(cause instanceof ApiError ? cause.message : 'Falha ao abrir o lote.');
+    } finally {
+      setPickingId(null);
+    }
+  }
+
+  // RC-D54: o rodapé é UM só nos passos que têm ação — ele não desliza, só troca
+  // de rótulo e de ação. É o que faz a virada ler como o mesmo painel mudando de
   // conteúdo, em vez de duas telas.
+  //
+  // RC-D57: no passo do LOTE não há rodapé. Ali não existe decisão a confirmar —
+  // escolher é tocar num lote —, e um rodapé com um botão só seria chrome que
+  // não faz nada.
   const sheetFooter = (
     <div className="app-modal-actions ctr-etapa2-actions" key={onDocumentStep ? 'doc' : 'form'}>
       <button
@@ -1115,11 +1204,12 @@ export function SaleContractEtapa2Modal({
         className="app-modal-secondary"
         onClick={() => {
           if (onDocumentStep) backToForm();
-          else requestExit(handleBack ? 'back' : 'close');
+          else if (canStepBack) backToLot();
+          else requestExit();
         }}
         disabled={saving}
       >
-        {onDocumentStep || handleBack ? 'Voltar' : 'Cancelar'}
+        {canStepBack ? 'Voltar' : 'Cancelar'}
       </button>
       {onDocumentStep ? (
         <button
@@ -1156,19 +1246,37 @@ export function SaleContractEtapa2Modal({
       <BottomSheet
         open={open}
         onClose={handleSheetClose}
-        onDismissAttempt={() => canExit('close')}
+        onDismissAttempt={() => canExit()}
         title={null}
-        ariaLabel={sheetTitle}
-        footer={sheetFooter}
-        stacked={isSpotCreate}
+        ariaLabel={onLotStep ? 'Selecionar lote' : sheetTitle}
+        footer={onLotStep ? null : sheetFooter}
         closeVariant="edge-back"
-        dragDisabled={pendingExit != null || confirmDoc != null}
+        dragDisabled={pendingExit || confirmDoc != null}
         className="fv-panel-sheet side-sheet ctr-form-sheet ctr-contract-sheet"
       >
-        {/* RC-D53/D54: os DOIS passos vivem no corpo do mesmo painel, na mesma
+        {/* RC-D53/D54/D57: os passos vivem no corpo do mesmo painel, na mesma
             célula da grade. Quem sai vai pra esquerda, quem entra vem da
-            direita, e o corpo recorta — cabeçalho e rodapé não se mexem. */}
-        <div className={`ctr-step${onDocumentStep ? ' is-past' : ''}`} aria-hidden={onDocumentStep}>
+            direita, e o corpo recorta — cabeçalho e rodapé não se mexem.
+            No à vista são três (lote → formulário → documento); em Futuro e
+            Editar o primeiro nem é montado. */}
+        {spotFlow ? (
+          <div
+            className={`ctr-step ctr-step-lot${onLotStep ? '' : ' is-past'}`}
+            aria-hidden={!onLotStep}
+          >
+            <ContractLotPickerStep
+              session={session}
+              onPick={(sample) => void handlePickLot(sample)}
+              busy={pickingId != null}
+              pickError={pickError}
+            />
+          </div>
+        ) : null}
+
+        <div
+          className={`ctr-step${onDocumentStep ? ' is-past' : onLotStep ? ' is-next' : ''}`}
+          aria-hidden={onDocumentStep || onLotStep}
+        >
           {!onDocumentStep && error ? <p className="sdv-modal-error">{error}</p> : null}
           {loadError ? <p className="sdv-modal-error">{loadError}</p> : null}
           {/* Some sozinho quando a conta é reescolhida: o banner vale enquanto o
@@ -1188,9 +1296,10 @@ export function SaleContractEtapa2Modal({
             <div className="app-modal-content ctr-etapa2-content">
               <p className="fv-panel-lead">{sheetTitle}</p>
 
-              {/* RC-D32: faixa de identidade do lote. Fechado o picker, é a única
-                chance de conferir que o lote é o certo — antes daqui só havia
-                uma linha cinza com o número. */}
+              {/* RC-D32: faixa de identidade do lote — antes daqui só havia uma
+                linha cinza com o número. É o que confirma, sem sair do passo,
+                que o lote é o certo; se não for, "Voltar" devolve a lista
+                (RC-D57) com o resto do formulário preservado. */}
               {isSpotCreate && spotCreate ? (
                 <div className="ctr-lot-band">
                   <span className="ctr-lot-band-code">
@@ -1914,7 +2023,7 @@ export function SaleContractEtapa2Modal({
           /relatorios, skill `forms` §8). */}
       {pendingExit
         ? createPortal(
-            <div className="app-modal-backdrop is-scrim-none" onClick={() => setPendingExit(null)}>
+            <div className="app-modal-backdrop is-scrim-none" onClick={() => setPendingExit(false)}>
               <section
                 className="app-modal is-themed app-confirm-modal is-compact"
                 role="alertdialog"
@@ -1932,9 +2041,7 @@ export function SaleContractEtapa2Modal({
                     </svg>
                   </div>
                   <h3 id="ctr-discard-title" className="app-confirm-modal-title">
-                    {pendingExit === 'back'
-                      ? 'Voltar e escolher outro lote?'
-                      : 'Descartar contrato?'}
+                    Descartar contrato?
                   </h3>
                   <p id="ctr-discard-description" className="app-confirm-modal-message">
                     O que você preencheu será perdido. O contrato ainda não foi emitido.
@@ -1945,7 +2052,7 @@ export function SaleContractEtapa2Modal({
                   <button
                     type="button"
                     className="app-modal-secondary"
-                    onClick={() => setPendingExit(null)}
+                    onClick={() => setPendingExit(false)}
                     autoFocus
                   >
                     Continuar preenchendo
@@ -1955,7 +2062,7 @@ export function SaleContractEtapa2Modal({
                     className="app-modal-submit is-danger"
                     onClick={confirmExit}
                   >
-                    {pendingExit === 'back' ? 'Voltar' : 'Descartar'}
+                    Descartar
                   </button>
                 </div>
               </section>

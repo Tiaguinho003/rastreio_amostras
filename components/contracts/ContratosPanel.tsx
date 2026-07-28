@@ -14,14 +14,8 @@ import {
 import { ANIMATION_MS, BottomSheet } from '../BottomSheet';
 import { ChipMultiSelectField } from '../ChipMultiSelectField';
 import { ClientLookupField } from '../clients/ClientLookupField';
-import {
-  ApiError,
-  getNextContractNumber,
-  getSaleContract,
-  listSaleContracts,
-} from '../../lib/api-client';
+import { ApiError, getSaleContract, listSaleContracts } from '../../lib/api-client';
 import { espelhoEligibility } from '../../lib/espelho';
-import { ownerDisplayValue } from '../../lib/sample-display';
 import { useDelayedValue } from '../../lib/use-delayed-value';
 import { useContractHighlight } from '../../lib/use-contract-highlight';
 import { useIsDesktop } from '../../lib/use-desktop';
@@ -31,7 +25,6 @@ import type {
   ClientSummary,
   SaleContract,
   SaleContractStatus,
-  SampleSnapshot,
   SessionData,
 } from '../../lib/types';
 import { ContractCreateRadialFab } from './ContractCreateRadialFab';
@@ -57,7 +50,6 @@ import {
 import { SaleContractDetailsModal } from './SaleContractDetailsModal';
 import { SaleContractEtapa2Modal } from './SaleContractEtapa2Modal';
 import { SaleContractLifecycleDialog, type LifecycleAction } from './SaleContractLifecycleDialog';
-import { SaleContractLotPickerModal } from './SaleContractLotPickerModal';
 
 const STATUS_CHIP_OPTIONS = STATUS_LABELS.map((s) => ({ id: s.value, label: s.label }));
 const TYPE_CHIP_OPTIONS = TYPE_LABELS.map((t) => ({ id: t.value, label: t.label }));
@@ -126,37 +118,6 @@ function contractsListReducer(
     default:
       return state;
   }
-}
-
-// O que o formulário à vista precisa saber do lote escolhido.
-type SpotCreateState = {
-  sampleId: string;
-  sampleVersion: number;
-  internalLotNumber: string | null;
-  availableSacks: number;
-  isBlend: boolean;
-  ownerClientId: string | null;
-  nextNumber: string | null;
-  // RC-D32: o que a faixa de identidade do lote mostra no topo do formulário.
-  // Tudo já vem do getSampleDetail que o picker faz — não custa requisição.
-  ownerName: string | null;
-  harvest: string | null;
-};
-
-// Um mapeamento só, usado no pick e na re-hidratação depois do 409 do lote
-// (RC-D35) — assim os dois caminhos não podem divergir.
-function spotCreateFromSample(sample: SampleSnapshot, nextNumber: string | null): SpotCreateState {
-  return {
-    sampleId: sample.id,
-    sampleVersion: sample.version,
-    internalLotNumber: sample.internalLotNumber,
-    availableSacks: sample.availableSacks ?? 0,
-    isBlend: sample.isBlend ?? false,
-    ownerClientId: sample.ownerClientId ?? null,
-    nextNumber,
-    ownerName: ownerDisplayValue(sample) || null,
-    harvest: sample.declared.harvest,
-  };
 }
 
 // Filtros aplicados -> querystring do listSaleContracts. Uma funcao so, usada
@@ -248,10 +209,10 @@ export function ContratosPanel({ session }: { session: SessionData }) {
   // Criação de contrato FUTURO (sem lote): 1 modal só (futureCreate).
   const [futureOpen, setFutureOpen] = useState(false);
 
-  // Criação à vista pela página: picker de lote → 1 modal (spotCreate) que cria a
-  // venda no lote e emite (createSampleMovement → emit, dentro do Etapa2Modal).
-  const [spotPickerOpen, setSpotPickerOpen] = useState(false);
-  const [spotCreate, setSpotCreate] = useState<SpotCreateState | null>(null);
+  // Criação à vista pela página: UM painel que começa na seleção de lote e
+  // segue para o formulário e o documento (RC-D57). O lote escolhido é estado
+  // DELE, não daqui — a página só abre e fecha o fluxo.
+  const [spotCreateOpen, setSpotCreateOpen] = useState(false);
 
   // Espelho de Corretagem (Fase E): alvo abre a fase de CONFERÊNCIA (D134);
   // "Gerar espelho" avança pra prévia. RC-F6: o gatilho é SÓ o Detalhes — o modo
@@ -266,10 +227,9 @@ export function ContratosPanel({ session }: { session: SessionData }) {
   // Os swaps do Detalhes (Editar/Ágio/Washout) LIMPAM o retorno (fluxo encerra).
   const espelhoReturnRef = useRef<SaleContract | null>(null);
 
-  // Os modais de criação/lote são bottom sheets: mantê-los montados durante o
+  // Os painéis de criação são bottom sheets: mantê-los montados durante o
   // slide-down de saída (ANIMATION_MS) antes de desmontar. `open` = intenção ao vivo.
-  const spotPickerRendered = useDelayedValue(spotPickerOpen || null, ANIMATION_MS);
-  const spotCreateRendered = useDelayedValue(spotCreate, ANIMATION_MS);
+  const spotCreateRendered = useDelayedValue(spotCreateOpen || null, ANIMATION_MS);
   const futureRendered = useDelayedValue(futureOpen || null, ANIMATION_MS);
   const etapa2Rendered = useDelayedValue(etapa2, ANIMATION_MS);
 
@@ -718,7 +678,7 @@ export function ContratosPanel({ session }: { session: SessionData }) {
           <button
             type="button"
             className="fv-btn fv-btn-primary"
-            onClick={() => setSpotPickerOpen(true)}
+            onClick={() => setSpotCreateOpen(true)}
           >
             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
               <path d="M12 5v14" />
@@ -733,7 +693,7 @@ export function ContratosPanel({ session }: { session: SessionData }) {
           `.fv-ctr-page .cv2-fab`). Perdeu o pai `.hero-search-wrap` e virou
           filho direto; é `fixed`, então a posição não muda. */}
       <ContractCreateRadialFab
-        onCreateSpot={() => setSpotPickerOpen(true)}
+        onCreateSpot={() => setSpotCreateOpen(true)}
         onCreateFuture={() => setFutureOpen(true)}
       />
 
@@ -1229,56 +1189,21 @@ export function ContratosPanel({ session }: { session: SessionData }) {
         />
       ) : null}
 
-      {spotPickerRendered ? (
-        <SaleContractLotPickerModal
-          session={session}
-          open={spotPickerOpen}
-          dragDisabled={spotCreate != null}
-          onClose={() => setSpotPickerOpen(false)}
-          onPicked={async (sample) => {
-            // Swap sem sobreposição: o picker FECHA no mesmo batch em que o form
-            // abre (um desce enquanto o outro sobe). "Voltar" reabre o picker.
-            let nextNumber: string | null = null;
-            try {
-              nextNumber = (await getNextContractNumber(session)).contractNumber;
-            } catch {
-              nextNumber = null;
-            }
-            setSpotPickerOpen(false);
-            setSpotCreate(spotCreateFromSample(sample, nextNumber));
-          }}
-        />
-      ) : null}
-
-      {/* Criação à vista — form que SUBSTITUI o picker (sem sobreposição). Voltar
-          reabre o picker; X/backdrop/ESC encerra o fluxo (volta à página);
-          onSaved fecha tudo. */}
+      {/* Criação à vista — RC-D57: UM painel de três passos (lote → formulário →
+          documento). O picker era um sheet irmão, com um descendo enquanto o
+          outro subia e o "Voltar" destruindo o formulário; hoje quem gere os
+          passos é o próprio painel, e a página só liga e desliga o fluxo. */}
       {spotCreateRendered ? (
         <SaleContractEtapa2Modal
           session={session}
-          open={spotCreate != null}
-          spotCreate={spotCreateRendered}
-          onBack={() => {
-            // "Voltar": fecha o form e reabre o picker de lote (swap).
-            setSpotCreate(null);
-            setSpotPickerOpen(true);
-          }}
-          onClose={() => {
-            // "X"/dismiss: encerra todo o fluxo à vista, volta à página.
-            setSpotCreate(null);
-            setSpotPickerOpen(false);
-          }}
+          open={spotCreateOpen}
+          spotFlow
+          onClose={() => setSpotCreateOpen(false)}
           onSaved={(contractId) => {
-            setSpotCreate(null);
-            setSpotPickerOpen(false);
+            setSpotCreateOpen(false);
             void refresh();
             toast.success({ title: 'Contrato à vista gerado' });
             if (contractId) openDetailsById(contractId);
-          }}
-          onSpotRefreshed={(sample) => {
-            // O lote mudou durante o preenchimento (409). O número já reservado
-            // no pick continua valendo — só a versão e o saldo envelheceram.
-            setSpotCreate((prev) => spotCreateFromSample(sample, prev?.nextNumber ?? null));
           }}
         />
       ) : null}
