@@ -273,18 +273,18 @@ resposta o sistema já tinha** e **uma emissão irreversível sem nenhuma confer
 abaixo resolvem os três, e **revogam a base da RC-D13..D16**: a prévia ao vivo no navegador saiu do
 desenho.
 
-| #          | Decisão                                                                                                                                                                                                                                                                             |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **RC-D27** | **Emitir vira duas fases.** O botão do painel monta o documento e abre a **conferência**; quem emite é o **Confirmar**. **Voltar** devolve o formulário intacto. Vale nos **três modos** (à vista, futuro, editar).                                                                 |
-| **RC-D28** | O documento da conferência é o **PDF de verdade, montado no SERVIDOR**. **Revoga a RC-D14** (meio a meio), a **RC-D15** (sem prévia no celular) e a **RC-D16** (sem conferência). A **RC-D13 sobrevive na intenção** — fidelidade por construção — mas o desenho saiu do navegador. |
-| **RC-D29** | Toda superfície do fluxo é **painel lateral** do kit FV (`.fv-panel-sheet.side-sheet`, 620px): picker e formulário. Mobile = sheet de tela cheia, como todo painel do kit.                                                                                                          |
-| **RC-D30** | O picker lista **só lote vendável**: saldo > 0 **e** liga viável. Lote sem quantidade declarada e liga inviável somem da lista em vez de virarem beco sem saída no submit.                                                                                                          |
-| **RC-D31** | O lote passa a preencher **data do contrato (hoje)**, **sacas (saldo)**, **filial do vendedor** e **conta bancária** quando a resposta é única. Todos seguem editáveis.                                                                                                             |
-| **RC-D32** | O formulário ganha **faixa de identidade do lote** no topo (número · produtor · safra · saldo) — era uma linha cinza com o número e nada mais.                                                                                                                                      |
-| **RC-D33** | Vendedor ≠ dono do lote passa a **avisar no campo**. O `_syncSampleOwner` deixa de ser efeito invisível. (A confirmação antes de emitir virou a própria tela do documento, RC-D27.)                                                                                                 |
-| **RC-D34** | Fechar **ou voltar** com o formulário mexido pede confirmação (`.is-scrim-none` + `.is-compact`, molde de `/users` e `/relatorios`).                                                                                                                                                |
-| **RC-D35** | As 25 validações passam a **apontar o campo** (regra vigente do projeto), no lugar da mensagem única no topo do sheet.                                                                                                                                                              |
-| **RC-D36** | **A propagação origem→liga do DONO acaba.** Editar o dono de um lote nunca mexe no dono de liga ancestral — fixada ou não. Só safra e lote de origem seguem derivando. Alinha o código ao que o `Liga-Plano` afirma desde 2026-07-15.                                               |
+| #              | Decisão                                                                                                                                                                                                                                                                                   |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RC-D27**     | **Emitir vira duas fases.** O botão do painel monta o documento e abre a **conferência**; quem emite é o **Confirmar**. **Voltar** devolve o formulário intacto. Vale nos **três modos** (à vista, futuro, editar).                                                                       |
+| **RC-D28**     | O documento da conferência é o **PDF de verdade, montado no SERVIDOR**. **Revoga a RC-D14** (meio a meio), a **RC-D15** (sem prévia no celular) e a **RC-D16** (sem conferência). A **RC-D13 sobrevive na intenção** — fidelidade por construção — mas o desenho saiu do navegador.       |
+| **RC-D29**     | Toda superfície do fluxo é **painel lateral** do kit FV (`.fv-panel-sheet.side-sheet`, 620px): picker e formulário. Mobile = sheet de tela cheia, como todo painel do kit.                                                                                                                |
+| **RC-D30**     | O picker lista **só lote vendável**: saldo > 0 **e** liga viável. Lote sem quantidade declarada e liga inviável somem da lista em vez de virarem beco sem saída no submit.                                                                                                                |
+| **RC-D31**     | O lote passa a preencher **data do contrato (hoje)**, **sacas (saldo)**, **filial do vendedor** e **conta bancária** quando a resposta é única. Todos seguem editáveis.                                                                                                                   |
+| **RC-D32**     | O formulário ganha **faixa de identidade do lote** no topo (número · produtor · safra · saldo) — era uma linha cinza com o número e nada mais.                                                                                                                                            |
+| ~~**RC-D33**~~ | ⚠️ **REVOGADA pela RC-D37 (§5.11)** — o efeito não ficou visível, ficou **impossível**: o vendedor virou o dono do lote e o campo travou, então não há troca a avisar. Original: vendedor ≠ dono do lote passa a **avisar no campo**; o `_syncSampleOwner` deixa de ser efeito invisível. |
+| **RC-D34**     | Fechar **ou voltar** com o formulário mexido pede confirmação (`.is-scrim-none` + `.is-compact`, molde de `/users` e `/relatorios`).                                                                                                                                                      |
+| **RC-D35**     | As 25 validações passam a **apontar o campo** (regra vigente do projeto), no lugar da mensagem única no topo do sheet.                                                                                                                                                                    |
+| **RC-D36**     | **A propagação origem→liga do DONO acaba.** Editar o dono de um lote nunca mexe no dono de liga ancestral — fixada ou não. Só safra e lote de origem seguem derivando. Alinha o código ao que o `Liga-Plano` afirma desde 2026-07-15.                                                     |
 
 #### Como a conferência funciona (RC-D27/D28)
 
@@ -320,7 +320,7 @@ função que a emissão usa para montar o contrato **antes** da transação) e e
 | Só o número do lote no formulário                                                                                     | faixa de identidade (RC-D32)                                                                                       |
 | 25 validações numa mensagem única no topo                                                                             | erro dentro do campo + rolagem até ele (RC-D35)                                                                    |
 | 409 dizia "Este contrato foi modificado. Recarregue a página" e prendia a versão velha no estado                      | re-hidrata versão e saldo **preservando o formulário**, ajusta as sacas e diz o que mudou                          |
-| Troca de dono do lote sem nenhum sinal na tela                                                                        | aviso âmbar no campo Vendedor (RC-D33)                                                                             |
+| Troca de dono do lote sem nenhum sinal na tela                                                                        | aviso âmbar no campo Vendedor (RC-D33) — **superado pela RC-D37**: a troca deixou de existir                       |
 
 #### Detalhes de implementação que importam
 
@@ -337,11 +337,12 @@ função que a emissão usa para montar o contrato **antes** da transação) e e
 - **A hidratação passou a depender do ID do lote**, não da identidade do objeto `spotCreate` — senão
   a própria re-hidratação do 409 reescreveria o formulário que ela existe para salvar.
 - **RC-D36 no código:** `_buildBlendPropagation` perdeu `ownerChanged`; o gatilho virou
-  `harvestChanged || originLotChanged`. `deriveBlendOwner` segue servindo o `createBlend`
-  (unanimidade na criação). O auto-pin **fica** (é o que distingue "carteira da corretora" de "sem
-  dono"). O `confirmHarvestPropagation: true` do `_syncSampleOwner` virou inócuo para troca de
-  vendedor e ganhou comentário dizendo por quê. Três testes de integração foram **invertidos** para
-  afirmar o comportamento novo.
+  `harvestChanged || originLotChanged`. O auto-pin **fica** (é o que distingue "carteira da
+  corretora" de "sem dono"). Três testes de integração foram **invertidos** para afirmar o
+  comportamento novo. ⚠️ Duas frases desta entrada caducaram no mesmo dia, pela **§5.11**: o
+  `deriveBlendOwner` saiu do `createBlend` (RC-D38 — o dono vem escolhido, a unanimidade virou
+  pré-preenchimento da tela) e o `_syncSampleOwner` foi apagado (RC-D37), levando junto a nota sobre
+  o `confirmHarvestPropagation`.
 
 #### O que ficou de fora, por decisão
 
@@ -353,6 +354,54 @@ que esta rodada entrega é o que torna essa próxima rodada segura de fazer.
 **Verificação.** `typecheck`, `lint`, `format:check`, `build`, **556** unit, **20** contrato,
 `validate:schemas`; `globals.css` com `postcss.parse`. Integração rodada ao fim.
 📱🖥️ **pendente a conferência do Flavio.**
+
+**Rescaldo (mesma rodada, 5 commits depois do ledger acima):** `5fa0cc7` (testes da prévia + ESC não
+fecha o painel por baixo do documento) · `a619153` (Confirmar exige ter VISTO o documento) ·
+`85b84a4` (a conferência abria ATRÁS do painel na criação à vista — `is-stacked` no backdrop + regra
+escopada acima do tier do sheet) · `79ef6a0` (os dois escurecimentos empilhados somavam ~80% de
+preto; a regra "scrim não se soma" não cobria dois `is-stacked`) · `888c3f7` (o teste de cursor do
+`sellableOnly` sorteava a ordem das linhas — o helper não preenchia `internal_lot_number_int`).
+
+### 5.11 O lote manda no vendedor (RC-D37..D39), 2026-07-28
+
+A revisão do que cruza a fronteira **lote → contrato** achou **um campo andando para o lado errado**:
+o Vendedor era livre e, ao emitir, **transferia a posse do lote** (`_syncSampleOwner`) — na criação
+com aviso âmbar, e no "Editar" **sem aviso nenhum**. Era um atalho que gravava no lote com motivo
+fixo, pulando a escolha de motivo que a porta canônica (Editar cadastro, no detalhe do lote) exige.
+
+| #          | Decisão                                                                                                                                                                                                                                                                                                 |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RC-D37** | **O vendedor de um contrato com lote É o dono do lote**, derivado no SERVIDOR — o `sellerClientId` do payload deixa de ser lido, nos três caminhos (criar à vista, Editar, **prévia**). Na tela o campo vira texto travado com a instrução. **Revoga a D48 e a RC-D33.** FUTURO (sem lote) segue livre. |
+| **RC-D38** | **A liga nasce com dono.** A opção "Carteira da corretora (sem dono)" sai da criação e o `createBlend` devolve **422** sem `ownerClientId`. Origens unânimes seguem pré-preenchendo o campo — mas quem deriva agora é a TELA; o backend só grava o que recebeu, e sempre fixado.                        |
+| **RC-D39** | **Liga legada sem dono não vende.** Sai do `sellableOnly` (some do picker) e o `createSampleMovement` recusa `SALE` sem dono. Regulariza-se atribuindo dono no lote. **Revoga a opção (D) do `Liga-Plano` (`:1202`)**, que descartara bloquear a venda como "fricção sem justificativa".                |
+
+#### Por que a prévia muda no mesmo commit
+
+Desde a RC-D27/D28 o documento da conferência é o que o "Confirmar" emite. Se só a emissão derivasse
+o vendedor do lote, o usuário aprovaria um PDF com um vendedor e emitiria outro. `previewSaleContract`
+usa a mesma regra — e o teste gêmeo (`sale-contract.integration.test.js`, "a vista **com** vendedor
+explícito IGNORA o payload") existe para isso.
+
+#### O gargalo escondido: o banco do vendedor
+
+`_requireSellerBankAccount` exige que a conta pertença ao vendedor. Com o vendedor derivado, um
+"Editar" cujo lote trocou de dono teria a conta gravada de **outro** cliente — e estouraria 422
+`CLIENT_BANK_ACCOUNT_NOT_FOUND` numa edição que só queria mudar a observação. Por isso o
+`getSaleContract` passou a devolver **`sampleOwner`** (o dono ATUAL do lote, na consulta que já
+buscava o `isBlend`), e a tela, ao ver divergência, **zera filial e banco** — exatamente o que o
+`handleSelectSeller` já fazia quando o vendedor mudava à mão. Mesmo tratamento no 409 do lote: se o
+dono mudou durante o preenchimento, o campo travado acompanha e o aviso diz isso.
+
+#### O que sobrevive como legado
+
+`blendOwnerPinned`, o rótulo "Carteira da corretora" nos cards/detalhe, o nudge "Atribuir dono
+primeiro" do painel de perda e o `deriveBlendOwner` (que segue servindo o `blend-backfill`) **ficam**
+— agora servindo só a ligas antigas. O JSON Schema de `registration-confirmed` mantém
+`declared.owner` nullable: torná-lo obrigatório quebraria o replay do histórico.
+
+⚠️ **Efeito conhecido, benigno:** um re-run do `backfill-liga-harvest-owner.js` pode atribuir dono por
+unanimidade a uma liga legada não-fixada (`blend-backfill.js:149`) e assim destravá-la para venda. É
+regularização, não regressão.
 
 ## Apêndice A — Ledger de decisões (condensado)
 
@@ -371,7 +420,7 @@ que esta rodada entrega é o que torna essa próxima rodada segura de fazer.
 - **D9** — (superada por D41/D69 — criação hoje em 1 modal único, não no modal de venda).
 - **D10** — Qualidade/classificação do café NÃO entra no contrato (fica só no laudo).
 - **D11** — Persistência em tabela dedicada `SaleContract` (resolvida pela D51).
-- **D12** — Comprador (comprador da venda) e Vendedor (dono do lote) pré-preenchidos, editáveis, com snapshot.
+- **D12** — Comprador (comprador da venda) e Vendedor (dono do lote) pré-preenchidos, com snapshot. ⚠️ O "editáveis" vale só para o comprador e para o contrato FUTURO: com lote, o vendedor é travado (RC-D37, §5.11).
 - **D13** — (superada por D34).
 - **D14** — (superada por D96/D97 — enum final `EMITIDO·FATURADO·PAGO·WASH_OUT`).
 - **D15** — Número do contrato automático `NNNN/AA` contínuo, não editável (cancelar pode deixar gap).
@@ -402,12 +451,12 @@ que esta rodada entrega é o que torna essa próxima rodada segura de fazer.
 - **D40** — Corretor não-usuário guarda CPF + telefone/e-mail (opcionais p/ corretor-usuário).
 - **D41** — Página "Contratos" lista e cria os contratos (o "2 etapas/EM_ABERTO parcial" foi superado por D69/D97 — criação atômica, nasce EMITIDO).
 - **D42** — Tipos = enum fixo `Mercado à vista / Futuro` (CPR removido); ambos geram o Fechamento.
-- **D43** — Campos por etapa: etapa 1 (Venda) = comprador/data/sacas/preço/corretagens %/corretores; etapa 2 (Geração) = lote/vendedor/filiais/banco/armazéns/nº-compra/pagamento/textos/datas.
+- **D43** — Campos por etapa: etapa 1 (Venda) = comprador/data/sacas/preço/corretagens %/corretores; etapa 2 (Geração) = lote/vendedor/filiais/banco/armazéns/nº-compra/pagamento/textos/datas (o **vendedor** saiu dos campos editáveis do modo à vista — RC-D37, §5.11).
 - **D44** — Corretagem do vendedor e do comprador, separadas, entrada só em %; N corretores.
 - **D45** — `WASH_OUT` = status de quebra (com `washoutReason`/`washoutAt`, D58).
 - **D46** — (superada por D96/D97 — criação atômica nasce `EMITIDO`, sem `CONFERIR`).
 - **D47** — (superada por D96).
-- **D48** — Editar o vendedor no contrato (até `EMITIDO`) sincroniza o `Sample.ownerClientId`.
+- ~~**D48**~~ — ⚠️ **REVOGADA pela RC-D37 (§5.11)** em 2026-07-28. A direção se inverteu: o contrato passou a **ler** o dono do lote em vez de escrever nele, e `_syncSampleOwner` foi apagado. Trocar o vendedor se faz no cadastro do lote. Original: editar o vendedor no contrato (até `EMITIDO`) sincroniza o `Sample.ownerClientId`.
 - **D49** — Campos de armazém buscam todos os clientes; selecionar não-armazém liga `isWarehouse`; opcionais, snapshot.
 - **D50** — (superada por D61 — entrada única pela página via FAB; à vista não nasce mais no lote).
 - **D51** — Persistência uniforme no `SaleContract`: Futuro 100% na tabela (`sampleId`/`movementId` nulos); à vista vincula o movimento 1:1.
@@ -428,7 +477,7 @@ que esta rodada entrega é o que torna essa próxima rodada segura de fazer.
 - **D66** — O "Editar" libera também a fase 1; `emitSaleContract` aceita `saleFields` e sincroniza a venda via `SALE_UPDATED` (resolve P20).
 - **D67** — Futuro criado em 1 modal único (Vendedor/Comprador manuais, sacas livres, sem lote), 100% no `SaleContract`.
 - **D68** — Futuro sem lote: "Washout" marca `WASH_OUT`+motivo sem devolver sacas (o "Cancelar/Excluir" saiu com D97/D104).
-- **D69** — Criação à vista em 1 modal só (modo `spotCreate`: sacas ≤ disponível, liga 100%, vendedor = dono do lote) — fim do wizard.
+- **D69** — Criação à vista em 1 modal só (modo `spotCreate`: sacas ≤ disponível, liga 100%, vendedor = dono do lote) — fim do wizard. Desde a **RC-D37** (§5.11) o "vendedor = dono do lote" deixou de ser default e virou **invariante**.
 - **D70** — Espelho de Corretagem = 3º documento, derivado de 1 `SaleContract` (lê o contrato; não é tipo/tabela/status novos).
 - **D71** — Espelho on-demand, sem tabela/numeração/status próprios (a auditoria da geração veio depois, D124).
 - **D72** — Na geração escolhe-se a parte (Comprador/Vendedor) = CLIENTE do topo + lado da comissão; só os lados com corretagem >0.
