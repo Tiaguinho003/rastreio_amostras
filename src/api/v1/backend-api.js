@@ -3191,6 +3191,45 @@ export function createBackendApiV1({
         };
       }),
 
+    // RC-D27/D28: PDF de PREVIA da emissao — o mesmo documento, sem gravar nada.
+    // E a confirmacao pelo documento que passou a preceder o "Emitir". Reusa o
+    // `previewSaleContract` (que reusa o `_resolveEmitData` da emissao) e o
+    // MESMO `renderContractPdf` do PDF definitivo: fidelidade por construcao,
+    // nao por replica. O numero pode ser provisorio (a alocacao real so acontece
+    // na transacao) — o header `X-Provisional-Number` diz quando.
+    previewSaleContractPdf: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractService || !saleContractPdfService) {
+          throw new HttpError(501, 'Sale contract PDF service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const { contract, provisionalNumber, sampleId } =
+          await saleContractService.previewSaleContract(input?.body ?? {}, actor);
+        let lotNumber = null;
+        if (sampleId) {
+          try {
+            const sample = await queryService.requireSample(sampleId);
+            lotNumber = sample.internalLotNumber ?? null;
+          } catch {
+            lotNumber = null;
+          }
+        }
+        const { buffer } = await saleContractPdfService.renderContractPdf(contract, {
+          lotNumber,
+          issuer: getContractIssuer(),
+        });
+        return {
+          status: 200,
+          body: {
+            buffer,
+            fileName: `contrato-${String(contract.contractNumber).replace('/', '-')}-previa.pdf`,
+            contentType: 'application/pdf',
+            provisionalNumber,
+            contractNumber: contract.contractNumber,
+          },
+        };
+      }),
+
     // Espelho de Corretagem (Fase E): PDF on-demand DERIVADO de UM contrato
     // (D70-D76). Gate via getSaleContract (todo nao-PROSPECTOR em qualquer
     // contrato — escopo aberto D140; o own-only da S74 foi revogado);

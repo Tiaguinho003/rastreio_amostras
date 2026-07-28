@@ -28580,6 +28580,42 @@ body.is-selection-mode .ctr-page .hero-search-wrap {
   grid-template-columns: auto 1fr 1fr;
   gap: 0.6rem;
 }
+
+/* RC-D27/D28: confirmacao PELO DOCUMENTO antes de emitir. Diferente da previa do
+   Espelho (iframe), aqui o PDF vem RASTERIZADO em <img> pelo pdfjs — aparece em
+   qualquer aparelho, inclusive onde o iframe de PDF nao renderiza. A folha e o
+   objeto da decisao, entao o modal cresce ate onde a tela deixa. */
+.app-modal.is-themed.ctr-confirm-doc {
+  width: min(52rem, calc(100vw - 1rem));
+  max-width: min(52rem, calc(100vw - 1rem));
+  max-height: calc(100dvh - 1rem);
+}
+.ctr-confirm-doc .ctr-doc-content {
+  /* O scroll e das PAGINAS, nao do modal: o rodape com Voltar/Confirmar fica
+     sempre visivel — e ele a decisao. */
+  overflow: hidden;
+  flex: 1 1 auto;
+}
+.ctr-doc-pages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  overflow: auto;
+  min-height: 0;
+  padding: 0.5rem;
+  border: 1px solid var(--brand-cream-line);
+  border-radius: 12px;
+  background: var(--fv-canvas);
+  -webkit-overflow-scrolling: touch;
+}
+.ctr-doc-page {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+  background: #ffffff;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
+}
 .ctr-section-title {
   margin: 0.4rem 0 0;
   font-size: 0.78rem;

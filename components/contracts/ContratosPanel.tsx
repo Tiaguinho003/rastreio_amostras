@@ -213,11 +213,11 @@ export function ContratosPanel({ session }: { session: SessionData }) {
   // popstate atrasado engolir a entry de history do sheet novo (fecharia na hora).
   const afterDetailsCloseRef = useRef<(() => void) | null>(null);
 
-  const openDetails = useCallback(
-    (contract: SaleContract) => {
+  const openDetailsById = useCallback(
+    (contractId: string) => {
       const params = new URLSearchParams(searchParams.toString());
       const alreadyOpen = params.has('details');
-      params.set('details', contract.id);
+      params.set('details', contractId);
       const url = `/contratos?${params.toString()}`;
       if (alreadyOpen) {
         // Troca de contrato com o overlay aberto (peek desktop): replace mantém
@@ -229,6 +229,11 @@ export function ContratosPanel({ session }: { session: SessionData }) {
       }
     },
     [router, searchParams]
+  );
+
+  const openDetails = useCallback(
+    (contract: SaleContract) => openDetailsById(contract.id),
+    [openDetailsById]
   );
 
   const closeDetails = useCallback(() => {
@@ -682,10 +687,12 @@ export function ContratosPanel({ session }: { session: SessionData }) {
           open={etapa2 != null}
           contractId={etapa2Rendered.contractId}
           onClose={() => setEtapa2(null)}
-          onSaved={() => {
+          onSaved={(contractId) => {
             setEtapa2(null);
             void refresh();
             toast.success({ title: 'Documento emitido' });
+            // RC-D20: quem emitiu quer VER o contrato, não voltar pra lista.
+            if (contractId) openDetailsById(contractId);
           }}
         />
       ) : null}
@@ -745,10 +752,11 @@ export function ContratosPanel({ session }: { session: SessionData }) {
           open={futureOpen}
           futureCreate
           onClose={() => setFutureOpen(false)}
-          onSaved={() => {
+          onSaved={(contractId) => {
             setFutureOpen(false);
             void refresh();
             toast.success({ title: 'Contrato Futuro gerado' });
+            if (contractId) openDetailsById(contractId);
           }}
         />
       ) : null}
@@ -831,11 +839,12 @@ export function ContratosPanel({ session }: { session: SessionData }) {
             setSpotCreate(null);
             setSpotPickerOpen(false);
           }}
-          onSaved={() => {
+          onSaved={(contractId) => {
             setSpotCreate(null);
             setSpotPickerOpen(false);
             void refresh();
             toast.success({ title: 'Contrato à vista gerado' });
+            if (contractId) openDetailsById(contractId);
           }}
           onSpotRefreshed={(sample) => {
             // O lote mudou durante o preenchimento (409). O número já reservado

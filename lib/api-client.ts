@@ -1770,6 +1770,50 @@ export async function downloadEspelhoPdf(
   return { blob, fileName };
 }
 
+// RC-D27/D28: PDF de PRÉVIA da emissão — o documento que o "Emitir" vai gerar,
+// montado a partir do formulário e sem gravar nada. POST porque o contrato ainda
+// não existe: o corpo do formulário é a entrada. `provisionalNumber` diz se o
+// número no documento ainda vai ser alocado (criação) ou já é o do contrato
+// (Editar).
+export async function previewSaleContractPdf(session: SessionData, body: JsonValue) {
+  void session;
+  const response = await fetch(`${API_BASE}/sale-contracts/preview/pdf`, {
+    method: 'POST',
+    cache: 'no-store',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const payload = await parseJsonSafe(response);
+    const maybeError = payload.error as { message?: string; details?: unknown } | undefined;
+    throw new ApiError(
+      response.status,
+      maybeError?.message ?? 'Erro ao gerar a prévia do contrato.',
+      maybeError?.details ?? null
+    );
+  }
+
+  const blob = await response.blob();
+  const fileName =
+    parseFileNameFromContentDisposition(response.headers.get('content-disposition')) ||
+    'contrato-previa.pdf';
+  const rawNumber = response.headers.get('x-contract-number') ?? '';
+  let contractNumber: string | null = null;
+  try {
+    contractNumber = decodeURIComponent(rawNumber) || null;
+  } catch {
+    contractNumber = rawNumber || null;
+  }
+  return {
+    blob,
+    fileName,
+    contractNumber,
+    provisionalNumber: response.headers.get('x-provisional-number') === '1',
+  };
+}
+
 // D127: registra a EXPORTAÇÃO do espelho (clique em Exportar/Baixar) — a
 // prévia não audita. Fire-and-forget no modal (não bloqueia o download).
 export function logEspelhoExport(

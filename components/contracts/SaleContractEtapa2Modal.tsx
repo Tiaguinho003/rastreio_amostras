@@ -16,6 +16,7 @@ import {
   getSaleContract,
   getSampleDetail,
   listContractLookups,
+  previewSaleContractPdf,
   updateClient,
 } from '../../lib/api-client';
 import {
@@ -44,6 +45,8 @@ import type {
   SampleSnapshot,
   SessionData,
 } from '../../lib/types';
+import type { JsonValue } from '../../lib/api-client';
+import { ContractDocumentConfirmModal } from './ContractDocumentConfirmModal';
 
 type SaleContractEtapa2ModalProps = {
   session: SessionData;
@@ -51,7 +54,9 @@ type SaleContractEtapa2ModalProps = {
   contractId?: string;
   open: boolean;
   onClose: () => void;
-  onSaved: () => void;
+  // RC-D20: recebe o id do contrato recém-emitido pra o pai poder ABRI-LO em vez
+  // de só voltar pra lista. Null quando a emissão não devolveu id.
+  onSaved: (contractId: string | null) => void;
   // À VISTA: "Voltar" no rodapé retorna à seleção de lote (fecha este sheet e
   // reabre o picker). Ausente em Futuro/Editar, onde o rodapé mostra "Cancelar".
   onBack?: () => void;
@@ -223,6 +228,15 @@ export function SaleContractEtapa2Modal({
   // Qual saída está esperando a confirmação: fechar de vez ou voltar ao picker.
   const [pendingExit, setPendingExit] = useState<'close' | 'back' | null>(null);
 
+  // RC-D27: o documento em conferência (fase 2). Enquanto existe, o painel
+  // continua montado atrás — "Voltar" só descarta isto.
+  const [confirmDoc, setConfirmDoc] = useState<{
+    blob: Blob;
+    contractNumber: string | null;
+    provisionalNumber: boolean;
+  } | null>(null);
+  const pendingEmitRef = useRef<(() => Promise<void>) | null>(null);
+
   function clearErrors() {
     setError(null);
     setFieldError(null);
@@ -258,7 +272,11 @@ export function SaleContractEtapa2Modal({
   // Fecha o confirm aninhado quando o pai sinaliza fechamento — senão ele fica
   // pendurado durante o unmount atrasado do sheet (molde do WeeklyReportFormSheet).
   useEffect(() => {
-    if (!open) setPendingExit(null);
+    if (!open) {
+      setPendingExit(null);
+      setConfirmDoc(null);
+      pendingEmitRef.current = null;
+    }
   }, [open]);
 
   // Rola até o campo com erro: sem isso, apertar Emitir com um campo pendente
@@ -688,17 +706,15 @@ export function SaleContractEtapa2Modal({
       // À vista/Futuro: a fase 1 vai na venda/contrato (não no emit).
       saleFields: isCreateLike ? undefined : saleFieldsPayload,
     };
-    try {
-      if (isCreateLike) {
-        // Criação (à vista/Futuro) — 1 chamada só: o contrato nasce EMITIDO
-        // (D97). O backend registra a venda no lote (à vista) e grava o contrato
-        // completo na MESMA transação; não há mais passo EM_ABERTO intermediário
-        // nem venda parcial a limpar.
-        if (!buyer) {
-          failField('buyer', 'Selecione o comprador.');
-          return;
-        }
-        const createBody = {
+    // Criação (à vista/Futuro): o comprador é obrigatório. A validação lá em cima
+    // já garante — este guard é o estreitamento de tipo.
+    if (isCreateLike && !buyer) {
+      failField('buyer', 'Selecione o comprador.');
+      setSaving(false);
+      return;
+    }
+    const createBody = buyer
+      ? {
           // fase 1 (venda)
           buyerClientId: buyer.id,
           quantitySacks: isSpotCreate && spotCreate?.isBlend ? spotCreate.availableSacks : sacks,
@@ -729,27 +745,83 @@ export function SaleContractEtapa2Modal({
           agioDesagioValue: agioType ? parseCurrencyInput(agioValue) : null,
           requiresApproval,
           approvalReminderLeadDays: leadDaysPayload,
-        };
+        }
+      : null;
+
+    // RC-D27: o que o servidor precisa pra montar o MESMO documento que a emissão
+    // vai gerar. Criação manda o corpo da criação; "Editar" manda o contractId +
+    // a etapa 2 (o backend herda do contrato o que não veio).
+    const previewBody = createBody
+      ? futureCreate
+        ? { type: 'FUTURO', ...createBody }
+        : { type: 'MERCADO_A_VISTA', sampleId: spotCreate?.sampleId ?? null, ...createBody }
+      : { contractId, ...payload };
+
+    // RC-D27: a emissão de verdade, guardada pra rodar SÓ no "Confirmar" da tela
+    // do documento. Fica num ref (não em estado): o que o usuário confirma tem
+    // que ser exatamente o que foi validado e renderizado, sem chance de um
+    // re-render trocar o payload no meio.
+    pendingEmitRef.current = async () => {
+      if (isCreateLike && createBody) {
+        // Criação (à vista/Futuro) — 1 chamada só: o contrato nasce EMITIDO
+        // (D97). O backend registra a venda no lote (à vista) e grava o contrato
+        // completo na MESMA transação; não há mais passo EM_ABERTO intermediário
+        // nem venda parcial a limpar.
+        let created: { contract: { id: string } } | null = null;
         if (futureCreate) {
-          await createFutureSaleContract(session, { type: 'FUTURO', ...createBody });
+          created = await createFutureSaleContract(session, { type: 'FUTURO', ...createBody });
         } else if (spotCreate) {
-          await createSpotSaleContract(session, {
+          created = await createSpotSaleContract(session, {
             type: 'MERCADO_A_VISTA',
             sampleId: spotCreate.sampleId,
             expectedVersion: spotCreate.sampleVersion,
             ...createBody,
           });
         }
-        onSaved();
-      } else if (contractId && contract) {
+        // RC-D20: quem acabou de emitir quer VER o contrato, não a lista.
+        onSaved(created?.contract?.id ?? null);
+        return;
+      }
+      if (contractId && contract) {
         await emitSaleContract(session, contractId, {
           ...payload,
           expectedVersion: contract.version,
         });
-        onSaved();
+        onSaved(contractId);
       }
+    };
+
+    try {
+      const preview = await previewSaleContractPdf(session, previewBody as JsonValue);
+      setConfirmDoc({
+        blob: preview.blob,
+        contractNumber: preview.contractNumber,
+        provisionalNumber: preview.provisionalNumber,
+      });
+    } catch (cause) {
+      pendingEmitRef.current = null;
+      setError(cause instanceof ApiError ? cause.message : 'Falha ao gerar a prévia do contrato.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // "Confirmar e emitir": só agora o contrato é criado. Erro NÃO fecha a tela do
+  // documento — o usuário decide se tenta de novo ou volta ao formulário.
+  async function handleConfirmEmit() {
+    const run = pendingEmitRef.current;
+    if (!run || saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await run();
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 409) {
+        // O conflito é sobre o formulário (saldo/versão do lote): fecha o
+        // documento e devolve o painel, onde a mensagem faz sentido e o campo
+        // ajustado está à mão.
+        setConfirmDoc(null);
+        pendingEmitRef.current = null;
         await handleVersionConflict(cause);
       } else {
         setError(cause instanceof ApiError ? cause.message : 'Falha ao emitir o contrato.');
@@ -969,13 +1041,15 @@ export function SaleContractEtapa2Modal({
       >
         {handleBack ? 'Voltar' : 'Cancelar'}
       </button>
+      {/* RC-D27: "Emitir" deixou de emitir — ele monta o documento e abre a
+          conferência. Quem emite é o "Confirmar" de lá. */}
       <button
         type="button"
         className="app-modal-submit"
         onClick={handleSubmit}
         disabled={saving || loading}
       >
-        {saving ? 'Emitindo...' : 'Emitir'}
+        {saving ? 'Gerando...' : 'Emitir'}
       </button>
     </div>
   );
@@ -991,7 +1065,7 @@ export function SaleContractEtapa2Modal({
         footer={sheetFooter}
         stacked={isSpotCreate}
         closeVariant="edge-back"
-        dragDisabled={pendingExit != null}
+        dragDisabled={pendingExit != null || confirmDoc != null}
         className="fv-panel-sheet side-sheet ctr-form-sheet ctr-contract-sheet"
       >
         {error ? <p className="sdv-modal-error">{error}</p> : null}
@@ -1699,6 +1773,25 @@ export function SaleContractEtapa2Modal({
           if (which) void handleSelectWarehouse(which, client);
         }}
       />
+
+      {/* RC-D27/D28: fase 2 — o documento pra conferir antes de emitir. O painel
+          continua montado atrás; "Voltar" só descarta esta tela. */}
+      {confirmDoc ? (
+        <ContractDocumentConfirmModal
+          blob={confirmDoc.blob}
+          contractNumber={confirmDoc.contractNumber}
+          provisionalNumber={confirmDoc.provisionalNumber}
+          submitting={saving}
+          error={error}
+          onConfirm={() => void handleConfirmEmit()}
+          onBack={() => {
+            if (saving) return;
+            setConfirmDoc(null);
+            pendingEmitRef.current = null;
+            setError(null);
+          }}
+        />
+      ) : null}
 
       {/* RC-D34: descartar rascunho. Confirm central `.is-scrim-none` +
           `.is-compact` — o fundo NÃO escurece, então o formulário que está

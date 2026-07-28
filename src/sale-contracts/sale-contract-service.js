@@ -1729,6 +1729,102 @@ export class SaleContractService {
     return { contractNumber: formatContractNumber(nextSeq, new Date().getFullYear()) };
   }
 
+  // RC-D27/D28: monta o CONTRATO QUE SERIA EMITIDO, sem gravar nada. E o que a
+  // confirmacao pelo documento renderiza: o usuario ve o PDF de verdade — mesmo
+  // `_resolveEmitData`, mesmo `renderContractPdf` da emissao — antes de decidir.
+  //
+  // Cobre os tres modos, pela mesma porta da criacao:
+  //   { type: 'MERCADO_A_VISTA', sampleId, ...body }  -> a vista
+  //   { type: 'FUTURO', ...body }                     -> futuro
+  //   { contractId, ...body }                         -> editar (re-emissao)
+  //
+  // O numero e PROVISORIO: a alocacao real vive na transacao sob advisory lock
+  // (formatContractNumber a partir do MAX(contract_seq)), e por isso nao pode
+  // acontecer aqui. Mesma leitura sem lock do getNextContractNumber.
+  async previewSaleContract(input, actorContext) {
+    const actor = assertAuthenticatedActor(actorContext, 'preview sale contract');
+    assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'preview sale contract');
+
+    const contractId = input?.contractId ?? null;
+    const contract = contractId
+      ? (await this.getSaleContract(contractId, actorContext)).contract
+      : null;
+
+    // "Editar" so aceita datas abertas se o contrato JA e FUTURO (D144); na
+    // criacao, o proprio type do payload manda.
+    const isFuturo = contract ? contract.type === 'FUTURO' : input?.type === 'FUTURO';
+    const etapa2 = normalizeEtapa2Input(input ?? {}, { allowOpenDates: isFuturo });
+
+    // Fase 1: na criacao vem inteira no payload; no "Editar" so quando o usuario
+    // mexeu nela (saleFields), senao herda do contrato — espelho exato do que o
+    // emitSaleContract faz.
+    let fase1;
+    if (contract) {
+      const sf = etapa2.saleFields;
+      fase1 = {
+        buyerClientId: etapa2.buyerClientId ?? contract.buyerClientId,
+        quantitySacks: sf ? sf.quantitySacks : contract.quantitySacks,
+        unitPrice: sf ? sf.unitPrice : Number(contract.unitPrice),
+        sellerBrokeragePct: sf ? sf.sellerBrokeragePct : Number(contract.sellerBrokeragePct),
+        buyerBrokeragePct: sf ? sf.buyerBrokeragePct : Number(contract.buyerBrokeragePct),
+        contractDate: sf ? sf.contractDate : contract.contractDate,
+      };
+    } else {
+      fase1 = normalizeFutureSaleContractInput(input ?? {});
+    }
+
+    // A vista sem vendedor explicito cai no dono do lote — mesma regra do
+    // createSpotSaleContract, pra a previa nao divergir do que sera emitido.
+    let sellerClientId = etapa2.sellerClientId ?? contract?.sellerClientId ?? null;
+    if (!sellerClientId && input?.sampleId && this.queryService) {
+      const sample = await this.queryService.requireSample(input.sampleId);
+      sellerClientId = sample.ownerClientId ?? null;
+    }
+    if (!sellerClientId) {
+      throw new HttpError(422, 'sellerClientId is required to preview the contract', {
+        code: 'VALIDATION_ERROR',
+        field: 'sellerClientId',
+      });
+    }
+
+    const { data } = await this._resolveEmitData({
+      sellerClientId,
+      buyerClientId: fase1.buyerClientId,
+      quantitySacks: fase1.quantitySacks,
+      unitPrice: fase1.unitPrice,
+      sellerBrokeragePct: fase1.sellerBrokeragePct,
+      buyerBrokeragePct: fase1.buyerBrokeragePct,
+      etapa2,
+    });
+
+    // Numero: no "Editar" o contrato ja tem o dele; na criacao e o proximo da
+    // sequencia, sem lock.
+    let contractNumber = contract?.contractNumber ?? null;
+    let provisionalNumber = false;
+    if (!contractNumber) {
+      const { contractNumber: peeked } = await this.getNextContractNumber(actorContext);
+      contractNumber = peeked;
+      provisionalNumber = true;
+    }
+
+    // O renderizador le 25 campos; o `_resolveEmitData` produz os 18 de etapa 2 e
+    // os 7 restantes sao a fase 1 + o numero (effectiveUnitPrice tem fallback
+    // proprio no PDF, que recalcula do unitPrice + agio).
+    return {
+      contract: {
+        ...data,
+        contractNumber,
+        contractDate: fase1.contractDate,
+        quantitySacks: fase1.quantitySacks,
+        unitPrice: fase1.unitPrice,
+        sellerBrokeragePct: fase1.sellerBrokeragePct,
+        buyerBrokeragePct: fase1.buyerBrokeragePct,
+      },
+      provisionalNumber,
+      sampleId: input?.sampleId ?? contract?.sampleId ?? null,
+    };
+  }
+
   _requireContractId(contractId) {
     if (typeof contractId !== 'string' || contractId.length === 0) {
       throw new HttpError(422, 'contractId is required', {
