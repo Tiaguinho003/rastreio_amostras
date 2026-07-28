@@ -38,6 +38,84 @@ vira painel; um formulário nunca vira modal central.
 
 ---
 
+## §1-A Painel de vários passos
+
+Quando um ato só tem **momentos** (preencher → conferir → emitir), eles são **passos do mesmo
+painel**, não superfícies empilhadas. Sintoma de que você errou: um modal por cima de um painel que
+continua montado atrás, apagado; ou dois sheets irmãos, um descendo enquanto o outro sobe.
+
+**Como se monta.** Um `BottomSheet` só. O corpo vira a **trilha que recorta** e cada passo rola
+sozinho — os dois na mesma célula de grid, o que saiu deslocado para fora:
+
+```css
+.bottom-sheet.ctr-contract-sheet .bottom-sheet-body {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden; /* recorta o passo que sai pela esquerda */
+  padding: 0; /* o padding desce para o passo */
+}
+.ctr-step {
+  grid-area: 1 / 1; /* os dois na MESMA célula */
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  transition:
+    transform 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 200ms ease,
+    visibility 0s;
+}
+.ctr-step.is-past,
+.ctr-step.is-next {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition-delay: 0s, 0s, 280ms; /* esconde DEPOIS de animar */
+}
+.ctr-step.is-past {
+  transform: translateX(-100%);
+}
+.ctr-step.is-next {
+  transform: translateX(100%);
+}
+```
+
+🔴 **A rolagem tem que descer para o passo.** `overflow-x: hidden` com `overflow-y: visible` não
+existe — declarar um força o outro a `auto`. Só dá para recortar o eixo horizontal se o corpo parar
+de rolar. Efeito colateral **bom**: cada passo guarda a própria posição de scroll, então voltar
+devolve o formulário exatamente onde estava.
+
+🔴 **`visibility: hidden` com `transition-delay` igual à duração.** Sem isso o passo que saiu
+continua no tab order; com `visibility` sem delay ele some antes de animar.
+
+**Cabeçalho e rodapé não deslizam** — só o miolo. O rodapé é um só, do painel, e troca o rótulo do
+botão (`key` no elemento para o React remontar e o crossfade acontecer).
+
+**Voltar um passo, não fechar.** Seta ← e ESC voltam; quem responde é o `BottomSheet` via
+`onDismissAttempt` → devolver `false` **com efeito colateral** (§3). O primeiro passo mantém o
+comportamento normal de saída, com "Descartar?" se houver rascunho:
+
+```tsx
+const canExit = useCallback(() => {
+  if (onDocumentStep) {
+    backToForm();
+    return false;
+  }
+  if (pendingExit) return false;
+  // ...regra normal de saída do primeiro passo
+}, [onDocumentStep, backToForm, pendingExit]);
+```
+
+**Quem é o sinal do passo.** Um estado que já existe (`confirmDoc != null`), não uma máquina de
+estado nova. Se o passo 2 depende de um dado assíncrono, o dado **é** o passo.
+
+**Conteúdo que não cabe em 620px** (uma folha A4, por exemplo) não justifica alargar o painel nem
+voltar ao modal: ganha um botão **"Ampliar"** — tela cheia sob demanda, portalada, com ESC em fase
+de captura para fechar só a ampliação e não atravessar até o painel.
+
+Exemplo vivo: `SaleContractEtapa2Modal` + `ContractDocumentStep` (formulário → documento, RC-D53..D56).
+
+---
+
 ## §2 O catálogo
 
 ### `DetailOverlay` — detalhe de recurso
@@ -131,11 +209,11 @@ Estrutura, variantes e tokens estão em `modals`. Aqui só o que decide **onde**
 - Confirmação disparada **de dentro de um painel** → `.fv-panel-scrim` no backdrop. No desktop o
   scrim cobre só a faixa direita de 620px (`right: 0; width: min(620px, 92vw)`), então o diálogo
   aparece **dentro** da área do painel, não no meio da tela.
-  **Uma exceção** (RC-D27, `ContractDocumentConfirmModal`): a conferência do contrato antes de
-  emitir sai de dentro do painel mas usa **backdrop cheio** — o objeto da decisão é um documento A4,
-  que precisa da tela inteira pra ser legível. O critério: use `.fv-panel-scrim` quando a pergunta é
-  _sobre_ o que está no painel; use backdrop cheio quando o conteúdo do diálogo **é** a decisão e não
-  cabe em 620px.
+  **Não há exceção.** Havia uma (RC-D27): a conferência do contrato antes de emitir usava backdrop
+  cheio, porque o objeto da decisão é um documento A4 e ele não cabia em 620px. A **RC-D53**
+  (2026-07-28) resolveu isso pela raiz — ver §1-A: ela deixou de ser um diálogo **sobre** o painel e
+  virou um **passo dentro** dele. Se você chegar aqui com "meu conteúdo não cabe em 620px", a
+  pergunta certa não é qual backdrop usar; é se aquilo é mesmo um diálogo.
 - "Descartar?" de rascunho → `.is-scrim-none` (fundo não escurece nem borra) + `.is-compact`.
 
 ### `.is-menu` — menu de ações de um item de lista (mobile)
@@ -446,41 +524,41 @@ escopo deliberado, só os painéis já migrados. **Painel novo de página já mi
 muda) · **🔜 ciclo** migra quando o redesenho chegar na página — nada de conversão antecipada ·
 **(confirmar)** alvo presumido, fechar no plan mode da página.
 
-| Página                  | Superfície                                                                                                                 | Alvo                                            | Status                                                    |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------- |
-| Global                  | Senha inicial (aviso + form, no-dismiss)                                                                                   | central (aviso)                                 | fica                                                      |
-| Global                  | Menu do avatar; `CameraSheet` + 10 modais de classificação                                                                 | intacto                                         | fica                                                      |
-| /login                  | Esqueci a senha (`login-modal-*`)                                                                                          | intacto (fora da app)                           | fica                                                      |
-| /samples lista          | Filtros; Novo lote; quick-create de cliente; confirmação de liga                                                           | painel lateral                                  | ✅                                                        |
-| /samples lista          | Perda; envio (tipo + destinatários no MESMO painel)                                                                        | painel lateral                                  | ✅                                                        |
-| /samples lista + ?lote= | Imprimir etiqueta (painel próprio, sem abrir o drawer)                                                                     | painel lateral                                  | ✅                                                        |
-| /samples ?lote=         | Detalhe do lote                                                                                                            | `DetailOverlay`                                 | ✅                                                        |
-| /samples ?lote=         | Editar registro; editar/reclassificar; deletar lote; reverter liga                                                         | painel lateral                                  | ✅                                                        |
-| /samples ?lote=         | Classificação: ficha INLINE na aba + painel só de edição                                                                   | inline + painel                                 | ✅                                                        |
-| /samples ?lote=         | Editar envio; editar data de chegada                                                                                       | dropdown inline                                 | ✅                                                        |
-| /samples ?lote=         | Confirms; propagação de safra; descartes                                                                                   | central                                         | fica                                                      |
-| /samples ?lote=         | `PhotoZoomViewer`; X-effect                                                                                                | intacto                                         | fica                                                      |
-| /cadastros              | Filtros; novo cliente                                                                                                      | painel lateral                                  | ✅                                                        |
-| /cadastros ?cliente=    | Detalhe do cliente (drawer de perfil)                                                                                      | `DetailOverlay`                                 | ✅                                                        |
-| /cadastros ?cliente=    | Editar cliente; filial nova/detalhe; conta nova/detalhe; anexo novo/preview                                                | painel lateral                                  | ✅                                                        |
-| /cadastros ?cliente=    | Status cliente/filial (motivo) + cascata                                                                                   | central + `.fv-panel-scrim`                     | fica                                                      |
-| /cadastros aba Corretor | Corretor (`BrokerFormModal`)                                                                                               | painel lateral                                  | ✅                                                        |
-| /users                  | Detalhe + editar + **criar** — UM `BottomSheet` para os três modos (o `cdm-modal` morreu)                                  | painel lateral                                  | ✅ (RD16 §2.11 U3)                                        |
-| /users                  | Redefinir senha — **seção dentro** do painel (era `window.prompt`)                                                         | inline no painel                                | ✅ (RD16 §2.11 U3)                                        |
-| /users                  | Descartar rascunho (`.is-scrim-none` + `.is-compact`)                                                                      | central                                         | fica                                                      |
-| /users, /profile        | Inativar (motivo); confirms; desativar push                                                                                | central                                         | fica                                                      |
-| /relatorios             | Visita + Semanal (form-sheets)                                                                                             | painel lateral                                  | ✅ (RD16 §2.10 R3/R4; vale tb no dashboard do prospector) |
-| /relatorios             | Informativo (2 colunas + preview ao vivo — gera imagem, sem persistência)                                                  | painel lateral                                  | ✅ (RD16 §2.10 R10)                                       |
-| /relatorios             | Descarte de rascunho (`.is-scrim-none` + `.is-compact`); cancelar item; aviso 409 (sobre painel, `.fv-panel-scrim`)        | central                                         | fica                                                      |
-| /relatorios             | Criar: 3 **botões na faixa** (desktop) · **leque do FAB** (mobile-only) — mesma fonte de estado (`useInformeCreateSheets`) | —                                               | ✅ (§2.10 R8/R13)                                         |
-| /relatorios             | Filtro de tipo: **chips fixos no topo do feed**, aplicam imediato (não há painel de filtros)                               | inline                                          | ✅ (§2.10 R13/R14)                                        |
-| /contratos              | Criação: lote (`.ctr-lotpick-sheet`) → formulário (`.ctr-form-sheet.ctr-contract-sheet`) → conferência do documento        | painel lateral → modal central (backdrop cheio) | 🟡 (RC-D29/D27; corpo do form ainda `.app-modal-*`)       |
-| /contratos ?details=    | Detalhe do contrato                                                                                                        | `DetailOverlay`                                 | ✅                                                        |
-| /contratos              | Filtros                                                                                                                    | painel lateral (`.side-sheet.fv-filter-sheet`)  | ✅ (RC-D47)                                               |
-| /contratos              | Ágio; washout/faturar/pagar; conferência do espelho; solicitar aprovação                                                   | central                                         | fica                                                      |
-| /contratos ?details=    | Etiqueta de aprovação; confirmação de embarque — **abrem de dentro do `DetailOverlay`** (RC-D25)                           | central **stacked**                             | fica                                                      |
-| /financeiro             | Pagar (mesmo `SaleContractLifecycleDialog` da lista)                                                                       | central                                         | fica                                                      |
-| Simulador               | Ficha de resultado (`.pg-ficha-sheet`, backdrop atravessável); connect menu                                                | painel lateral                                  | ✅ (PG52)                                                 |
+| Página                  | Superfície                                                                                                                 | Alvo                                              | Status                                                    |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------- |
+| Global                  | Senha inicial (aviso + form, no-dismiss)                                                                                   | central (aviso)                                   | fica                                                      |
+| Global                  | Menu do avatar; `CameraSheet` + 10 modais de classificação                                                                 | intacto                                           | fica                                                      |
+| /login                  | Esqueci a senha (`login-modal-*`)                                                                                          | intacto (fora da app)                             | fica                                                      |
+| /samples lista          | Filtros; Novo lote; quick-create de cliente; confirmação de liga                                                           | painel lateral                                    | ✅                                                        |
+| /samples lista          | Perda; envio (tipo + destinatários no MESMO painel)                                                                        | painel lateral                                    | ✅                                                        |
+| /samples lista + ?lote= | Imprimir etiqueta (painel próprio, sem abrir o drawer)                                                                     | painel lateral                                    | ✅                                                        |
+| /samples ?lote=         | Detalhe do lote                                                                                                            | `DetailOverlay`                                   | ✅                                                        |
+| /samples ?lote=         | Editar registro; editar/reclassificar; deletar lote; reverter liga                                                         | painel lateral                                    | ✅                                                        |
+| /samples ?lote=         | Classificação: ficha INLINE na aba + painel só de edição                                                                   | inline + painel                                   | ✅                                                        |
+| /samples ?lote=         | Editar envio; editar data de chegada                                                                                       | dropdown inline                                   | ✅                                                        |
+| /samples ?lote=         | Confirms; propagação de safra; descartes                                                                                   | central                                           | fica                                                      |
+| /samples ?lote=         | `PhotoZoomViewer`; X-effect                                                                                                | intacto                                           | fica                                                      |
+| /cadastros              | Filtros; novo cliente                                                                                                      | painel lateral                                    | ✅                                                        |
+| /cadastros ?cliente=    | Detalhe do cliente (drawer de perfil)                                                                                      | `DetailOverlay`                                   | ✅                                                        |
+| /cadastros ?cliente=    | Editar cliente; filial nova/detalhe; conta nova/detalhe; anexo novo/preview                                                | painel lateral                                    | ✅                                                        |
+| /cadastros ?cliente=    | Status cliente/filial (motivo) + cascata                                                                                   | central + `.fv-panel-scrim`                       | fica                                                      |
+| /cadastros aba Corretor | Corretor (`BrokerFormModal`)                                                                                               | painel lateral                                    | ✅                                                        |
+| /users                  | Detalhe + editar + **criar** — UM `BottomSheet` para os três modos (o `cdm-modal` morreu)                                  | painel lateral                                    | ✅ (RD16 §2.11 U3)                                        |
+| /users                  | Redefinir senha — **seção dentro** do painel (era `window.prompt`)                                                         | inline no painel                                  | ✅ (RD16 §2.11 U3)                                        |
+| /users                  | Descartar rascunho (`.is-scrim-none` + `.is-compact`)                                                                      | central                                           | fica                                                      |
+| /users, /profile        | Inativar (motivo); confirms; desativar push                                                                                | central                                           | fica                                                      |
+| /relatorios             | Visita + Semanal (form-sheets)                                                                                             | painel lateral                                    | ✅ (RD16 §2.10 R3/R4; vale tb no dashboard do prospector) |
+| /relatorios             | Informativo (2 colunas + preview ao vivo — gera imagem, sem persistência)                                                  | painel lateral                                    | ✅ (RD16 §2.10 R10)                                       |
+| /relatorios             | Descarte de rascunho (`.is-scrim-none` + `.is-compact`); cancelar item; aviso 409 (sobre painel, `.fv-panel-scrim`)        | central                                           | fica                                                      |
+| /relatorios             | Criar: 3 **botões na faixa** (desktop) · **leque do FAB** (mobile-only) — mesma fonte de estado (`useInformeCreateSheets`) | —                                                 | ✅ (§2.10 R8/R13)                                         |
+| /relatorios             | Filtro de tipo: **chips fixos no topo do feed**, aplicam imediato (não há painel de filtros)                               | inline                                            | ✅ (§2.10 R13/R14)                                        |
+| /contratos              | Criação: lote (`.ctr-lotpick-sheet`) → formulário + conferência do documento (`.ctr-form-sheet.ctr-contract-sheet`)        | painel lateral → painel de **dois passos** (§1-A) | 🟡 (RC-D29/D53; corpo do form ainda `.app-modal-*`)       |
+| /contratos ?details=    | Detalhe do contrato                                                                                                        | `DetailOverlay`                                   | ✅                                                        |
+| /contratos              | Filtros                                                                                                                    | painel lateral (`.side-sheet.fv-filter-sheet`)    | ✅ (RC-D47)                                               |
+| /contratos              | Ágio; washout/faturar/pagar; conferência do espelho; solicitar aprovação                                                   | central                                           | fica                                                      |
+| /contratos ?details=    | Etiqueta de aprovação; confirmação de embarque — **abrem de dentro do `DetailOverlay`** (RC-D25)                           | central **stacked**                               | fica                                                      |
+| /financeiro             | Pagar (mesmo `SaleContractLifecycleDialog` da lista)                                                                       | central                                           | fica                                                      |
+| Simulador               | Ficha de resultado (`.pg-ficha-sheet`, backdrop atravessável); connect menu                                                | painel lateral                                    | ✅ (PG52)                                                 |
 
 **A migração acontece PÁGINA A PÁGINA**, dentro do redesenho completo de cada página: os
 contêineres dela realinham na mesma passada, junto com estrutura, cards e tipografia. Cada página é

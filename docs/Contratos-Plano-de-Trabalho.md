@@ -123,7 +123,7 @@ Escopo original: `app/financeiro/page.tsx` deixa de ser redirect e vira a págin
 **RC-F4 — `/embarques` morre.** ✅ **IMPLEMENTADA em 2026-07-27, ANTECIPADA** — o roteiro a punha depois da RC-F2, e o Flavio escolheu juntá-la à F1 (RC-D21). Viável porque as duas ações que só a worklist oferecia mudaram de casa no mesmo passo (RC-D25). Ver §5.9. Dependia da RC-A2, fechada pela RC-D26.
 Escopo original: Rota vira redirect; `EmbarquePanel`, `AprovacoesPanel`, `EmbarqueCard`, `AprovacaoCard` apagados; deep-links re-apontados (`AvisosCard.tsx:23`, `EventsCalendarCard.tsx:58`, `HeaderAvatarMenu.tsx:168`, `AppShell.tsx:99-126`); `contractsHubTabs`/`contractTabRoute` removidos de `lib/roles.ts`; CSS morto varrido. ⚠️ **No mesmo passo, `Dashboard-Visao-Geral.md`** — a Visão Geral de contratos (§11) obriga a atualizá-la a cada mudança de rota, nome de aba ou valor de `?tab=`, e a RC muda os três.
 
-**RC-F5 — a criação repensada** (RC-D12). 🟡 **1ª rodada IMPLEMENTADA em 2026-07-28** (RC-D27..D36, §5.10): seleção do lote, auto-preenchimento, erro no campo e a conferência pelo documento. 🟡 **2ª rodada IMPLEMENTADA no mesmo dia** (RC-D49..D52, §5.13): o **picker de lote** ganhou card FV em 4 colunas com cabeçalho fixo, e o status saiu dele. **Falta** a RC-D18 (ordem dos campos espelhando o documento + bloco de controle interno) e o redesenho FV do corpo do formulário, que ainda é markup `.app-modal-*` — as duas coisas na mesma passada, que é a 3ª rodada.
+**RC-F5 — a criação repensada** (RC-D12). 🟡 **1ª rodada IMPLEMENTADA em 2026-07-28** (RC-D27..D36, §5.10): seleção do lote, auto-preenchimento, erro no campo e a conferência pelo documento. 🟡 **2ª rodada no mesmo dia** (RC-D49..D52, §5.13): o **picker de lote** ganhou card FV em 4 colunas com cabeçalho fixo, e o status saiu dele. 🟡 **3ª rodada no mesmo dia** (RC-D53..D56, §5.14): a conferência deixou de ser modal central e virou o **2º passo do painel**, com deslize do miolo, ← e ESC voltando um passo e "Ampliar" para ler de perto. **Falta** a RC-D18 (ordem dos campos espelhando o documento + bloco de controle interno) e o redesenho FV do corpo do formulário, que ainda é markup `.app-modal-*` — as duas coisas na mesma passada, que é a 4ª rodada; e o **picker → formulário** como passos do mesmo painel, pedido do Flavio na 3ª rodada.
 
 **RC-F6 — o ciclo FV.** 🟡 **1ª rodada IMPLEMENTADA em 2026-07-28, ANTECIPADA** (RC-D42..D48, §5.12): moldura institucional, tabela no desktop, filtros em painel lateral, estados da lista, Espelho fora das ações da página. **Falta** o conteúdo do **card mobile** e a passada em `/financeiro`, que segue no kit legado.
 
@@ -305,9 +305,11 @@ função que a emissão usa para montar o contrato **antes** da transação) e e
   aparece em qualquer aparelho, inclusive onde o `<iframe>` de PDF não renderiza. **`pdfjs-dist` é a
   única dependência nova**; o build confirma chunk lazy (`/contratos` segue em 214 kB de first load)
   e o worker emitido como asset próprio.
-- O modal usa **backdrop cheio**, não `.fv-panel-scrim` — exceção deliberada à regra de "confirmação
-  sobre painel" (skill `containers` §2), porque o documento precisa da tela inteira e é ele o objeto
-  da decisão. **Segunda exceção registrada na skill** (a primeira foi a PG52).
+- ~~O modal usa **backdrop cheio**, não `.fv-panel-scrim` — exceção deliberada à regra de
+  "confirmação sobre painel" (skill `containers` §2), porque o documento precisa da tela inteira e é
+  ele o objeto da decisão.~~ ⚠️ **REVOGADO pela RC-D53** (§5.14): não há mais modal nem backdrop —
+  a conferência virou o **2º passo do painel**, e a exceção saiu da skill. A pergunta certa não era
+  qual backdrop usar; era se aquilo era mesmo um diálogo.
 
 #### Os oito achados e o que foi feito
 
@@ -544,6 +546,64 @@ largura que sobra vai para o nome do produtor, que hoje truncava cedo.
 Classificação (padrão/bebida/catação) · armazém · largura maior · skeleton e vazio-com-ícone dos
 estados da lista · lupa no campo de busca · **o formulário da Etapa 2**, que é a rodada seguinte
 junto com a RC-D18.
+
+### 5.14 RC-F5, 3ª rodada — o documento vira passo do painel (RC-D53..D56), 2026-07-28
+
+A RC-D27 tinha acertado o **fluxo** (o [Emitir] não emite: monta, pede a prévia e mostra o
+documento; quem emite é o [Confirmar]) e errado a **superfície**. A conferência era um modal central
+portalado, com backdrop cheio, subindo por cima do painel do formulário — que continuava montado
+atrás, apagado. Duas superfícies para o que o usuário vive como um ato só: preencher e conferir são
+dois momentos da mesma coisa.
+
+| #      | Decisão                                                                                                                                          |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| RC-D53 | O documento deixa de ser modal central e vira o **2º passo do mesmo painel**. Mesma largura (620px), mesmo cabeçalho, mesmo rodapé               |
+| RC-D54 | Na virada, **só o miolo desliza** — os campos saem pela esquerda e o documento entra; cabeçalho e rodapé ficam parados e o rótulo do botão troca |
+| RC-D55 | **Seta ← e ESC voltam UM passo.** No primeiro passo continuam saindo do fluxo, com "Descartar?" se houver campo preenchido                       |
+| RC-D56 | Em 620px a folha A4 fica pequena para a letra do contrato, então o passo ganha **"Ampliar"** — tela cheia sob demanda, não a apresentação padrão |
+
+**A RC-D53 revoga a exceção da RC-D27** registrada em `containers` §2 ("confirmação sobre painel usa
+`.fv-panel-scrim`, exceto a conferência do contrato, que precisa da tela inteira"). Não há mais
+backdrop nenhum ali. No lugar da exceção, a skill ganhou a **§1-A — painel de vários passos**, que é
+o padrão reusável que saiu daqui.
+
+`ContractDocumentConfirmModal.tsx` (229 linhas) foi **deletado** e virou
+`components/contracts/ContractDocumentStep.tsx`, partido em dois: o hook
+**`useContractDocumentPages(blob)`** (a rasterização, intacta) e o componente apresentacional. O
+hook é chamado pelo **pai**, não pelo passo, porque quem decide o `disabled` do [Confirmar] é o
+rodapé — e o rodapé é o do painel. O guard da RC-D27 não mudou: **confirmar só libera depois que o
+documento apareceu** (ou foi baixado, quando a rasterização falha).
+
+#### Achados do caminho
+
+- 🔴 **`overflow-x: hidden` com `overflow-y: visible` não existe** — declarar um força o outro a
+  `auto`. Para o corpo do painel recortar o passo que sai pela esquerda, ele tem que **parar de
+  rolar** e a rolagem descer para cada passo. Efeito colateral **bom**: cada passo guarda a própria
+  posição de scroll, então [Voltar] devolve o formulário exatamente onde estava.
+- 🔴 **`visibility: hidden` com `transition-delay` igual à duração.** Sem `visibility` o passo que
+  saiu continua no tab order; com `visibility` sem delay ele some **antes** de animar.
+- **O sinal do passo é um estado que já existia.** `confirmDoc != null` **é** o passo — não entrou
+  máquina de estado nova. Coreografia preservada: o `pendingEmitRef` (a emissão adiada até o
+  Confirmar), o efeito que zera `confirmDoc` quando o pai fecha, e o `scrollIntoView` do erro de
+  campo, que procura `.ctr-etapa2-content .is-field-error` e não depende de quem rola.
+- **Voltar um passo é `onDismissAttempt` devolvendo `false` com efeito colateral** — o mesmo padrão
+  que o "Descartar?" já usava. O guard `if (confirmDoc || pendingExit) return false`, que existia
+  para o ESC não fechar o painel **por baixo** do modal, virou o primeiro ramo do `canExit`.
+- **O "Ampliar" tem stage própria, não o `PhotoZoomViewer`.** Aquele é de **uma** imagem com pinça e
+  pan; aqui são N páginas em rolagem vertical, e o que resolve a legibilidade é a **largura**, não o
+  zoom. O ESC dela é em **fase de captura**, senão fecharia a ampliação **e** voltaria um passo do
+  painel.
+- 🔴 **`.ctr-doc-modal`, `.ctr-doc-content`, `.ctr-doc-frame`, `.ctr-doc-hint` e `.ctr-doc-actions`
+  não morreram** — o `EspelhoCorretagemModal` usa todas. Só as quatro regras exclusivas do
+  `.ctr-confirm-doc` saíram, aparadas **seletor a seletor** dentro das regras agrupadas.
+
+#### O que NÃO entrou
+
+**Picker → formulário como passos do mesmo painel** — o Flavio pediu e é a rodada seguinte. É mais
+cara: exige tirar o `BottomSheet` de dentro dos dois componentes e pôr um dono único acima, e o
+`SaleContractEtapa2Modal` serve **3 modos** (à vista, futuro, editar), dos quais só o à vista tem
+picker. Também fora: a largura do painel (fica 620px, por decisão dele — quem resolve a leitura de
+perto é o "Ampliar") e o layout/ordem dos campos do formulário, que é a RC-D18.
 
 ## Apêndice A — Ledger de decisões (condensado)
 
