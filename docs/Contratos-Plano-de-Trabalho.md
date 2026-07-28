@@ -123,7 +123,7 @@ Escopo original: `app/financeiro/page.tsx` deixa de ser redirect e vira a págin
 **RC-F4 — `/embarques` morre.** ✅ **IMPLEMENTADA em 2026-07-27, ANTECIPADA** — o roteiro a punha depois da RC-F2, e o Flavio escolheu juntá-la à F1 (RC-D21). Viável porque as duas ações que só a worklist oferecia mudaram de casa no mesmo passo (RC-D25). Ver §5.9. Dependia da RC-A2, fechada pela RC-D26.
 Escopo original: Rota vira redirect; `EmbarquePanel`, `AprovacoesPanel`, `EmbarqueCard`, `AprovacaoCard` apagados; deep-links re-apontados (`AvisosCard.tsx:23`, `EventsCalendarCard.tsx:58`, `HeaderAvatarMenu.tsx:168`, `AppShell.tsx:99-126`); `contractsHubTabs`/`contractTabRoute` removidos de `lib/roles.ts`; CSS morto varrido. ⚠️ **No mesmo passo, `Dashboard-Visao-Geral.md`** — a Visão Geral de contratos (§11) obriga a atualizá-la a cada mudança de rota, nome de aba ou valor de `?tab=`, e a RC muda os três.
 
-**RC-F5 — a criação repensada** (RC-D12). 🟡 **1ª rodada IMPLEMENTADA em 2026-07-28** (RC-D27..D36, §5.10): seleção do lote, auto-preenchimento, erro no campo e a conferência pelo documento. **Falta** a RC-D18 (ordem dos campos espelhando o documento + bloco de controle interno) e o redesenho FV do corpo do formulário, que ainda é markup `.app-modal-*`.
+**RC-F5 — a criação repensada** (RC-D12). 🟡 **1ª rodada IMPLEMENTADA em 2026-07-28** (RC-D27..D36, §5.10): seleção do lote, auto-preenchimento, erro no campo e a conferência pelo documento. 🟡 **2ª rodada IMPLEMENTADA no mesmo dia** (RC-D49..D52, §5.13): o **picker de lote** ganhou card FV em 4 colunas com cabeçalho fixo, e o status saiu dele. **Falta** a RC-D18 (ordem dos campos espelhando o documento + bloco de controle interno) e o redesenho FV do corpo do formulário, que ainda é markup `.app-modal-*` — as duas coisas na mesma passada, que é a 3ª rodada.
 
 **RC-F6 — o ciclo FV.** 🟡 **1ª rodada IMPLEMENTADA em 2026-07-28, ANTECIPADA** (RC-D42..D48, §5.12): moldura institucional, tabela no desktop, filtros em painel lateral, estados da lista, Espelho fora das ações da página. **Falta** o conteúdo do **card mobile** e a passada em `/financeiro`, que segue no kit legado.
 
@@ -500,6 +500,50 @@ estado é — e o meu `2100` absoluto. Consolidado em `tests/helpers/relative-da
 
 Conteúdo do card mobile · `/financeiro` · faixa de KPI · ordenação (não existe peça de sort no kit) ·
 as fases da RC-F3.
+
+### 5.13 RC-F5, 2ª rodada — o picker de lote (RC-D49..D52), 2026-07-28
+
+De volta ao fluxo de emissão. A RC-D29 tinha levado o **modal de seleção de lote** para painel
+lateral, mas só a moldura mudou: por dentro cada lote ainda era um **`.spv2-card` emprestado da
+`/samples`** — gradiente creme, radius 16, sombra tripla — com os dados corridos numa linha separada
+por pontos. Comparar dois lotes obrigava a reler cada linha inteira, porque um card não alinhava com
+o outro.
+
+| #      | Decisão                                                                                                                                      |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| RC-D49 | O card sai do `.spv2-card` e vira **superfície FV** (`.lotpick-card`): branco chapado, hairline, radius 10, sombra mínima                    |
+| RC-D50 | Os dados viram **4 colunas alinhadas** — Lote · Produtor · Sacas · Safra — com **cabeçalho fixo** (sticky) no topo da lista, como um `thead` |
+| RC-D51 | **O status sai do card.** Nesta lista todo lote é vendável (`sellableOnly`, RC-D30), então o chip dizia sempre a mesma coisa                 |
+| RC-D52 | **A largura fica em 620px** e o **celular mantém a linha corrida** de hoje, menos o status. O painel não cresce                              |
+
+**As colunas mostram o mesmo dado de antes, organizado** — decisão do Flavio contra a minha
+recomendação de acrescentar padrão e bebida (que vêm de graça no blob de `latestClassification`). A
+largura que sobra vai para o nome do produtor, que hoje truncava cedo.
+
+#### Achados do caminho
+
+- **A "faixa colorida de status" não existia neste modal.** O `.spv2-card-bar` é um elemento que o
+  picker nunca renderizou; as classes `is-card-*` só definiam variáveis CSS que nada consumia aqui.
+  Tirar o status foi tirar o chip — e, junto, uma classe que já era inerte.
+- 🔴 **`text-overflow: ellipsis` não funciona em contêiner flex.** A primeira versão dava
+  `display: flex` a todas as células e truncamento às de texto — as duas coisas se anulam. Só a
+  célula que precisa de itens lado a lado (Lote = número + badge) é flex.
+- 🔴 **`flex-basis: 0` no nome do produtor, não `auto`.** Com `flex-wrap: wrap`, quem decide a quebra
+  é o tamanho de **conteúdo** do item: um produtor comprido empurraria sacas e safra para uma
+  terceira linha **antes** de encolher. Com base 0 ele sempre cabe, cresce para ocupar a sobra e
+  trunca — que é o comportamento do `.spv2-card-owner` de hoje.
+- **Um markup só, sem `useIsDesktop()`.** Quem troca o desenho é a media query de 901px. O hook é
+  `false` na primeira pintura, e aqui o custo seria o card montar no desenho errado e saltar depois
+  da hidratação.
+- **O cabeçalho mora DENTRO da rolagem** (sticky), não acima dela: assim herda o padding lateral da
+  `.lotpick-list` e alinha com os cards sem recalcular recuo. O recuo à direita repõe a coluna do
+  chevron, que no card é irmão da grade.
+
+#### O que NÃO entrou
+
+Classificação (padrão/bebida/catação) · armazém · largura maior · skeleton e vazio-com-ícone dos
+estados da lista · lupa no campo de busca · **o formulário da Etapa 2**, que é a rodada seguinte
+junto com a RC-D18.
 
 ## Apêndice A — Ledger de decisões (condensado)
 

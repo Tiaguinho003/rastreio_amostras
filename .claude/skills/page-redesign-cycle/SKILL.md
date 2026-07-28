@@ -78,7 +78,10 @@ Fora do ciclo, em qualquer página:
 - **`ClientQuickCreateModal`** — múltiplos call-sites em áreas diferentes; já está no contêiner
   certo.
 - **`DetailOverlay`** — o componente em si. Usar, não editar; ele serve três páginas.
-- **Criação de contrato** (LotPicker + Etapa 2) — fora do ciclo, aguarda specs.
+- **Criação de contrato** (LotPicker + Etapa 2) — ~~aguarda specs~~. **Já tem dono: o ciclo RC**
+  (`Contratos-Plano-de-Trabalho.md` §5), que a levou pra painel lateral (RC-D29) e deu ao picker o
+  card FV em colunas (RC-D49..D52). O corpo da Etapa 2 ainda é markup `.app-modal-*` — a migração
+  pro `.fv-form-*` está travada com a RC-D18. Não tocar por fora do ledger RC.
 
 Se um desses **precisa** mudar para a página funcionar, isso é uma decisão a travar com o Flavio no
 plan mode, não uma edição de passagem.

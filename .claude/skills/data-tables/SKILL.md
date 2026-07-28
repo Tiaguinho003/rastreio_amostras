@@ -535,10 +535,13 @@ desabilitado). Se as duas divergirem, uma ação existe num breakpoint e some no
 
 ### Escopo do CSS
 
-O prefixo `spv2-` é **compartilhado** — `.spv2-card*` aparece em `RelatedSampleRow`, no
-`SaleContractLotPickerModal` e no `ClientsBrowser`; `/users` usa os ESTADOS (`.spv2-list-scroll`,
-`.spv2-empty`, `.spv2-error-banner`, `.spv2-skeleton-card`), não o card. Mudança de visual do card de lote
-vai escopada em `.samples-page-v2`; prefixo com nome de página não é escopo (`css-architecture`).
+O prefixo `spv2-` é **compartilhado** — `.spv2-card*` aparece em `SampleCard`,
+`SampleCardActionsSheet`, `RelatedSampleRow` e no `ClientsBrowser`, e em peças soltas
+(`.spv2-card-chevron` em `/users`, `.spv2-card-badge` no detalhe do contrato); `/users` usa os
+ESTADOS (`.spv2-list-scroll`, `.spv2-empty`, `.spv2-error-banner`, `.spv2-skeleton-card`), não o
+card. _(O `SaleContractLotPickerModal` **saiu** da lista na RC-D49, 2026-07-28: o card do picker
+virou superfície FV própria, `.lotpick-card`.)_ Mudança de visual do card de lote vai escopada em
+`.samples-page-v2`; prefixo com nome de página não é escopo (`css-architecture`).
 
 ---
 
