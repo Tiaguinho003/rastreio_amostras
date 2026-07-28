@@ -126,6 +126,31 @@ primeiro é o canônico; ao tocar num consumidor do segundo, migre.
 `<select>` nativo dentro de `.fv-form-field`. Não construir dropdown próprio para escolher um valor
 de uma lista — o nativo é acessível, funciona no mobile e já tem a geometria do kit.
 
+### Campo derivado de outro cadastro (travado)
+
+Quando o valor **pertence a outro registro** e editá-lo aqui escreveria de volta lá, o campo não é
+input desabilitado: vira **valor + instrução de onde trocar**. Sem ação no painel — não há o que
+clicar, então não pode parecer clicável. Molde em `SaleContractEtapa2Modal` (Vendedor de contrato com
+lote, RC-D37):
+
+```tsx
+<div className={fieldClass('seller')}>
+  <span className="app-modal-label">Vendedor</span>
+  <p className="ctr-locked-value">{seller?.displayName ?? 'Sem produtor'}</p>
+  <span className="ctr-locked-hint">
+    É o dono do lote. Para trocar, edite o dono no cadastro do lote.
+  </span>
+</div>
+```
+
+`.ctr-locked-value` tem o peso do texto do formulário (0.92rem/600, `--ink`); `.ctr-locked-hint` é a
+instrução (0.74rem, `--muted`). Duas armadilhas:
+
+- **O que a tela mostra é o que o servidor vai gravar**, não o que está salvo. Se os dois podem
+  divergir, a leitura tem que trazer o valor de origem (ali, `getSaleContract` devolve `sampleOwner`).
+- **Campos que dependiam do valor antigo precisam ser zerados** na hidratação, senão o submit estoura
+  um 422 de FK numa edição que nem tocou no campo travado (ali, filial + conta bancária).
+
 ---
 
 ## §4 `.fv-choice*` — escolher entre poucas opções

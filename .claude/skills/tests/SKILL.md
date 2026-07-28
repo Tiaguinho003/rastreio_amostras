@@ -43,6 +43,15 @@ description: Use this skill when writing, running, or debugging tests. Covers te
 
 - Testes de integracao criam dados proprios e limpam ao final (TRUNCATE no beforeEach)
 - Testes de contrato usam `tests/helpers/event-builders.js` para construir eventos
+- **Data fixa que o relogio ultrapassa = bomba-relogio.** Um fixture com data absoluta proxima
+  (`paymentDate: '2026-07-20'`) afirmando "previsto/agendado" passa ate a data chegar e quebra
+  sozinho depois, sem nada no codigo mudar. Quando a asserta e sobre FUTURO/PASSADO e nao sobre a
+  data em si, usar uma data estavelmente longe (`2100-01-20`, `2000-01-01` — idioma ja usado em
+  `sale-contract.integration.test.js`) em vez de uma data plausivel
+- **Cliente semeado que precisa passar pelo `resolveOwnerBinding` real** (suites de API, que montam o
+  `ClientService` de verdade) tem de nascer `status: 'ACTIVE'` **e** `isSeller: true` — o binding
+  recusa inativo e nao-vendedor. So o `INACTIVE` "so pra satisfazer a FK" e suficiente quando o teste
+  usa mock de client service (ex.: `buyerClientId` em `sample-blend-cascade`)
 - Uploads em testes: usar PNG 1x1 real (magic bytes validos), **nunca** `Buffer.from('texto')`
 - Exemplo de buffer PNG valido:
   ```js
