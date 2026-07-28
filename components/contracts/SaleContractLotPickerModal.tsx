@@ -13,11 +13,18 @@
 //
 // Ao escolher, HIDRATA o detalhe (getSampleDetail) pra obter o snapshot fresco
 // (version/availableSacks/dono/safra atuais) e devolve via onPicked.
+//
+// RC-D49/D50 (2026-07-28): o card saiu do `.spv2-card` legado (gradiente creme,
+// radius 16, sombra tripla) e virou superficie FV. Os dados — os MESMOS de antes
+// — deixaram de correr numa linha separada por pontos e viraram QUATRO COLUNAS
+// alinhadas, com cabecalho fixo no topo: comparar dois lotes deixou de exigir
+// reler cada linha inteira. Celular mantem a linha corrida (RC-D52), pelo mesmo
+// markup — quem troca o desenho e a media query, nao um branch em JS.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ApiError, getSampleDetail, listSamples } from '../../lib/api-client';
-import { ownerDisplayValue, sampleStatusDisplay } from '../../lib/sample-display';
+import { ownerDisplayValue } from '../../lib/sample-display';
 import type { SampleSnapshot, SessionData } from '../../lib/types';
 import { BottomSheet } from '../BottomSheet';
 import { BlendBadge } from '../samples/BlendBadge';
@@ -199,52 +206,56 @@ export function SaleContractLotPickerModal({
           </p>
         ) : (
           <>
+            {/* RC-D50: cabecalho das colunas, como o thead de uma tabela. Mora
+                DENTRO da rolagem (sticky) de proposito — assim herda o padding
+                lateral da lista e alinha com os cards sem recalcular recuo. So
+                aparece quando ha cards, e so no desktop (no celular o card volta
+                a ser uma linha corrida, sem coluna que rotular). aria-hidden
+                porque o rotulo nao tem como se associar a celula: quem le por
+                audio recebe o texto do proprio botao, ja com as unidades. */}
+            <div className="lotpick-head" aria-hidden="true">
+              <span>Lote</span>
+              <span>Produtor</span>
+              <span>Sacas</span>
+              <span>Safra</span>
+            </div>
             {items.map((sample) => {
-              const status = sampleStatusDisplay(sample);
               const available = availableSacks(sample);
               const moved = movedSacks(sample);
               return (
                 <button
                   key={sample.id}
                   type="button"
-                  className={`spv2-card ${status.modifier} lotpick-card`}
+                  className="lotpick-card"
                   onClick={() => void handlePick(sample)}
                 >
-                  <span className="spv2-card-content">
-                    <span className="spv2-card-top">
-                      <span className="spv2-card-code">{lotLabel(sample)}</span>
+                  {/* RC-D51: o chip de status saiu. Nesta lista TODO lote e
+                      vendavel (sellableOnly), entao ele dizia sempre a mesma
+                      coisa — e a classe `is-card-*` que vinha junto ja era
+                      inerte aqui (o .spv2-card-bar nunca foi renderizado). */}
+                  <span className="lotpick-card-grid">
+                    <span className="lotpick-c lotpick-c-lot">
+                      <span className="lotpick-lot-num">{lotLabel(sample)}</span>
                       {sample.isBlend ? <BlendBadge size="sm" /> : null}
-                      {/* Chip canonico (sampleStatusDisplay), nao rotulo fixo: o
-                          "Em aberto" era literal no JSX e nao dependia do lote. */}
-                      <span className={`fv-chip is-sm ${status.chip}`}>{status.label}</span>
                     </span>
-                    <span className="spv2-card-bottom">
-                      <span className="spv2-card-owner">{ownerLabel(sample)}</span>
-                      <span className="spv2-card-dot" aria-hidden="true">
-                        ·
-                      </span>
-                      <span className="spv2-card-detail">
+                    <span className="lotpick-c lotpick-c-owner">{ownerLabel(sample)}</span>
+                    <span className="lotpick-c lotpick-c-sacks">
+                      <span className="lotpick-c-value">
                         {available === null ? '—' : available} sacas
-                        {moved > 0 && available !== null ? (
-                          <span className="lotpick-card-of">de {available + moved}</span>
-                        ) : null}
                       </span>
-                      {sample.declared.harvest ? (
-                        <>
-                          <span className="spv2-card-dot" aria-hidden="true">
-                            ·
-                          </span>
-                          <span className="spv2-card-detail">
-                            <HarvestDisplay
-                              harvest={sample.declared.harvest}
-                              showMixSafras={false}
-                            />
-                          </span>
-                        </>
+                      {moved > 0 && available !== null ? (
+                        <span className="lotpick-card-of">de {available + moved}</span>
                       ) : null}
                     </span>
+                    <span className="lotpick-c lotpick-c-harvest">
+                      {sample.declared.harvest ? (
+                        <HarvestDisplay harvest={sample.declared.harvest} showMixSafras={false} />
+                      ) : (
+                        '—'
+                      )}
+                    </span>
                   </span>
-                  <svg className="spv2-card-chevron" viewBox="0 0 24 24" aria-hidden="true">
+                  <svg className="lotpick-card-chevron" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M9 6l6 6-6 6" />
                   </svg>
                 </button>

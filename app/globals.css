@@ -28470,33 +28470,125 @@ body:has(.app-modal-backdrop.is-stacked > .ctr-confirm-doc) .bottom-sheet-backdr
   font-size: 0.9rem;
   color: var(--brand-muted);
 }
-/* Cards dos lotes: reusam o design dos cards de /samples (.spv2-card +
-   .is-card-open) — mesmo padrao visual da pagina de Lotes. Markup em
+/* RC-D49: o card dos lotes SAIU do `.spv2-card` de /samples (gradiente creme,
+   radius 16, sombra tripla) e virou superficie FV — branco chapado, hairline e
+   sombra minima, como manda o §0.1 do design-system. Markup em
    components/contracts/SaleContractLotPickerModal.tsx.
-   Overrides (pedido do usuario): largura total na coluna do sheet, fundo BRANCO
-   puro (o .spv2-card base tem um leve creme no gradiente) e sombra reforcada
-   pra destacar no fundo branco do sheet. */
+
+   RC-D50: o conteudo virou GRADE de 4 colunas, compartilhada com o cabecalho
+   (.lotpick-head) por estas custom properties. Elas moram no sheet, e nao no
+   card, justamente pra as duas pecas nao poderem sair de sincronia: mudar uma
+   largura aqui move o titulo e a celula juntos.
+
+   Regra de larguras do `data-tables` §5: as fixas agrupadas e UMA elastica que
+   absorve a sobra — aqui o Produtor, que e o texto que mais varia. */
+.ctr-lotpick-sheet {
+  --lotpick-cols: 96px minmax(0, 1fr) 92px 78px;
+  --lotpick-colgap: 0.6rem;
+  --lotpick-pad-x: 0.85rem;
+  --lotpick-gap: 0.7rem;
+  --lotpick-chevron: 18px;
+}
 .lotpick-card {
+  display: flex;
+  align-items: center;
+  gap: var(--lotpick-gap);
   width: 100%;
-  /* Altura compacta (pedido do usuario): menos padding vertical que o
-     .spv2-card base, reduzindo o espaco em branco interno. Valor fixo (nao
-     clamp) pra a altura do card ser a mesma no mobile e no desktop — assim um
-     unico max-height na lista cai em ~3 cards nos dois. */
-  padding-top: 0.6rem;
-  padding-bottom: 0.6rem;
+  padding: 0.62rem var(--lotpick-pad-x);
   background: #ffffff;
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.06),
-    0 6px 16px rgba(0, 0, 0, 0.12),
-    0 14px 34px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--fv-line);
+  border-radius: var(--fv-radius);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+/* Feedback de toque = so profundidade, nunca cor (skill button-press-effect).
+   A `transition` vem do reset global de `button`, que lista as propriedades
+   uma a uma de proposito — sobrescrever aqui devolveria o fade de background
+   que aquele reset existe pra impedir. */
+.lotpick-card:active {
+  transform: scale(0.98);
+}
+.lotpick-card-chevron {
+  flex-shrink: 0;
+  width: var(--lotpick-chevron);
+  height: var(--lotpick-chevron);
+  fill: none;
+  stroke: var(--fv-line-strong);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* Base = CELULAR (RC-D52): a linha corrida de hoje. O numero do lote ocupa a
+   primeira linha inteira e o resto flui em sequencia; os separadores "·" que
+   antes eram <span> no JSX viram ::before aqui. */
+.lotpick-card-grid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem 0.3rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.lotpick-c {
+  min-width: 0;
+  font-size: 0.84rem;
+  color: var(--ink);
+}
+.lotpick-c-lot {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 0 0 100%;
+  font-weight: 600;
+}
+.lotpick-c-owner,
+.lotpick-c-sacks,
+.lotpick-c-harvest {
+  font-size: 0.8rem;
+  color: var(--brand-muted);
+}
+/* 🔴 `flex-basis: 0` no nome, nao `auto`: com `flex-wrap: wrap`, a quebra e
+   decidida pelo tamanho de CONTEUDO do item, entao um produtor comprido
+   empurraria sacas/safra pra uma terceira linha ANTES de encolher. Com base 0
+   ele sempre cabe, cresce pra ocupar a sobra e trunca — que e o comportamento
+   do card de hoje (`.spv2-card-owner`). Sacas e safra nao cedem. */
+.lotpick-c-owner {
+  flex: 1 1 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.lotpick-c-sacks,
+.lotpick-c-harvest {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.lotpick-lot-num {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.lotpick-c-sacks::before,
+.lotpick-c-harvest::before {
+  content: '·';
+  margin-right: 0.3rem;
+  color: var(--fv-line-strong);
 }
 /* "80 sacas de 300" — o total original em tom secundario, so quando parte do
-   lote ja saiu. Aqui todo lote e vendavel e o chip diria sempre a mesma coisa,
-   entao e o saldo que distingue um card do outro. */
+   lote ja saiu. Aqui todo lote e vendavel, entao e o saldo que distingue um
+   card do outro. */
 .lotpick-card-of {
   margin-left: 0.25rem;
   color: var(--brand-muted);
+  white-space: nowrap;
+}
+/* Cabecalho das colunas: `display: none` na base porque no celular nao ha
+   coluna que rotular. */
+.lotpick-head {
+  display: none;
 }
 .lotpick-sentinel {
   flex-shrink: 0;
@@ -28504,6 +28596,74 @@ body:has(.app-modal-backdrop.is-stacked > .ctr-confirm-doc) .bottom-sheet-backdr
   text-align: center;
   font-size: 0.82rem;
   color: var(--brand-muted);
+}
+
+/* RC-D50 — DESKTOP: a linha corrida vira grade de 4 colunas e o cabecalho
+   acende. O mesmo markup serve os dois tamanhos; quem troca o desenho e esta
+   media query, nao um branch em JS — o `useIsDesktop()` e false na primeira
+   pintura, e o card montaria no desenho errado antes de saltar. */
+@media (min-width: 901px) {
+  .lotpick-card-grid {
+    display: grid;
+    grid-template-columns: var(--lotpick-cols);
+    align-items: center;
+    column-gap: var(--lotpick-colgap);
+    row-gap: 0;
+  }
+  /* No desktop o rotulo esta no cabecalho, entao o valor volta ao tom do texto
+     — o cinza existia pra hierarquizar a linha corrida do celular. */
+  .lotpick-c-owner,
+  .lotpick-c-sacks,
+  .lotpick-c-harvest {
+    font-size: 0.84rem;
+    color: var(--ink);
+  }
+  /* Os separadores sao artefato da linha corrida: sem eles no desktop. */
+  .lotpick-c-sacks::before,
+  .lotpick-c-harvest::before {
+    content: none;
+  }
+  /* "de 300" desce pra segunda linha da celula (molde .fv-table-sub): a coluna
+     e estreita demais pra "80 sacas de 300" inteiro. */
+  .lotpick-c-sacks {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    white-space: normal;
+  }
+  .lotpick-card-of {
+    margin-left: 0;
+    font-size: 0.78rem;
+  }
+
+  .lotpick-head {
+    display: grid;
+    grid-template-columns: var(--lotpick-cols);
+    column-gap: var(--lotpick-colgap);
+    align-items: center;
+    /* Sticky DENTRO da rolagem: herda o padding lateral da .lotpick-list e
+       alinha com os cards sem recalcular recuo, e continua visivel ao rolar.
+       O recuo da direita repoe a coluna do chevron, que no card e irmao da
+       grade — sem isso os titulos ficariam meio passo a frente das celulas. */
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    flex-shrink: 0;
+    /* Cancela quase todo o `gap` da lista logo abaixo do cabecalho: com os
+       0.6rem inteiros, o card rolando pra cima aparecia como uma tira solta
+       entre o filete e o titulo antes de sumir por baixo dele. */
+    margin-bottom: -0.35rem;
+    padding: 0.15rem calc(var(--lotpick-pad-x) + var(--lotpick-gap) + var(--lotpick-chevron))
+      0.45rem calc(var(--lotpick-pad-x) + 1px);
+    background: var(--fv-surface);
+    border-bottom: 1px solid var(--fv-line);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+  }
 }
 
 /* ---------------------------------------------------------------------------
