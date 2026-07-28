@@ -510,7 +510,7 @@ Duas peças saíram, as duas confirmadas antes de implementar:
 
 A tipografia foi para os tokens do kit, na escala da tabela (eram três cinzas hardcoded: `#1a1a1a`, `#666`, `#72766f`). Padding e `gap` do card vieram junto: o `gap` existia para abrir o vão da barra e o padding esquerdo maior era a folga dela.
 
-**Escopo**: tudo em `.samples-page-v2` e no wrap. `.spv2-card-bar` e `.spv2-card-sep` seguem **vivos na base** — quem ainda os renderiza é o `RelatedSampleRow` e o `SaleContractLotPickerModal`, que não entraram no ciclo. Por isso o separador novo é classe própria (`.spv2-card-dot`), não um override do filete. No modo liga o card também perde a barra, mas mantém `gap` e padding do base: lá o vão separa a bolinha de seleção do texto.
+**Escopo**: tudo em `.samples-page-v2` e no wrap. `.spv2-card-bar` e `.spv2-card-sep` seguem **vivos na base** — quem ainda os renderiza é o `RelatedSampleRow`, que não entrou no ciclo (o picker de lote saiu na RC-D49). Por isso o separador novo é classe própria (`.spv2-card-dot`), não um override do filete. No modo liga o card também perde a barra, mas mantém `gap` e padding do base: lá o vão separa a bolinha de seleção do texto.
 
 **Varredura**: as variantes `open`/`sold`/`lost` do `.spv2-card-wrap` só definiam `--card-status-color`/`-bg` e ficaram sem consumidor dentro do wrap (o badge saiu no M2, a barra agora); sobra a invalidada, que apaga o card. O `contain-intrinsic-size` caiu de 88px para 72px — o card encolheu de verdade.
 

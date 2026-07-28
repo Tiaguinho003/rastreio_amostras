@@ -123,7 +123,7 @@ Escopo original: `app/financeiro/page.tsx` deixa de ser redirect e vira a págin
 **RC-F4 — `/embarques` morre.** ✅ **IMPLEMENTADA em 2026-07-27, ANTECIPADA** — o roteiro a punha depois da RC-F2, e o Flavio escolheu juntá-la à F1 (RC-D21). Viável porque as duas ações que só a worklist oferecia mudaram de casa no mesmo passo (RC-D25). Ver §5.9. Dependia da RC-A2, fechada pela RC-D26.
 Escopo original: Rota vira redirect; `EmbarquePanel`, `AprovacoesPanel`, `EmbarqueCard`, `AprovacaoCard` apagados; deep-links re-apontados (`AvisosCard.tsx:23`, `EventsCalendarCard.tsx:58`, `HeaderAvatarMenu.tsx:168`, `AppShell.tsx:99-126`); `contractsHubTabs`/`contractTabRoute` removidos de `lib/roles.ts`; CSS morto varrido. ⚠️ **No mesmo passo, `Dashboard-Visao-Geral.md`** — a Visão Geral de contratos (§11) obriga a atualizá-la a cada mudança de rota, nome de aba ou valor de `?tab=`, e a RC muda os três.
 
-**RC-F5 — a criação repensada** (RC-D12). 🟡 **1ª rodada IMPLEMENTADA em 2026-07-28** (RC-D27..D36, §5.10): seleção do lote, auto-preenchimento, erro no campo e a conferência pelo documento. 🟡 **2ª rodada no mesmo dia** (RC-D49..D52, §5.13): o **picker de lote** ganhou card FV em 4 colunas com cabeçalho fixo, e o status saiu dele. 🟡 **3ª rodada no mesmo dia** (RC-D53..D56, §5.14): a conferência deixou de ser modal central e virou o **2º passo do painel**, com deslize do miolo, ← e ESC voltando um passo e "Ampliar" para ler de perto. **Falta** a RC-D18 (ordem dos campos espelhando o documento + bloco de controle interno) e o redesenho FV do corpo do formulário, que ainda é markup `.app-modal-*` — as duas coisas na mesma passada, que é a 4ª rodada; e o **picker → formulário** como passos do mesmo painel, pedido do Flavio na 3ª rodada.
+**RC-F5 — a criação repensada** (RC-D12). 🟡 **1ª rodada IMPLEMENTADA em 2026-07-28** (RC-D27..D36, §5.10): seleção do lote, auto-preenchimento, erro no campo e a conferência pelo documento. 🟡 **2ª rodada no mesmo dia** (RC-D49..D52, §5.13): o **picker de lote** ganhou card FV em 4 colunas com cabeçalho fixo, e o status saiu dele. 🟡 **3ª rodada no mesmo dia** (RC-D53..D56, §5.14): a conferência deixou de ser modal central e virou o **2º passo do painel**, com deslize do miolo, ← e ESC voltando um passo e "Ampliar" para ler de perto. 🟡 **4ª rodada no mesmo dia** (RC-D57, §5.15): a **seleção de lote** virou o **1º passo** — o fluxo à vista inteiro (lote → formulário → documento) num painel só, e voltar ao lote deixou de descartar o formulário. **Falta** a RC-D18 (ordem dos campos espelhando o documento + bloco de controle interno) e o redesenho FV do corpo do formulário, que ainda é markup `.app-modal-*` — as duas coisas na mesma passada, que é a 5ª rodada.
 
 **RC-F6 — o ciclo FV.** 🟡 **1ª rodada IMPLEMENTADA em 2026-07-28, ANTECIPADA** (RC-D42..D48, §5.12): moldura institucional, tabela no desktop, filtros em painel lateral, estados da lista, Espelho fora das ações da página. **Falta** o conteúdo do **card mobile** e a passada em `/financeiro`, que segue no kit legado.
 
@@ -144,7 +144,9 @@ Escopo original: Rota vira redirect; `EmbarquePanel`, `AprovacoesPanel`, `Embarq
 
 > **Método (combinado 2026-07-27):** as decisões saem da **análise do fluxo, na ordem das ações do usuário** — um fluxo por vez, com layout e superfícies decididos junto. Este é o **primeiro**: do "+" até a emissão. Os status e ações seguintes (aprovação, embarque, faturamento, pagamento) vêm em sequência, depois.
 
-#### O fluxo hoje (medido no código)
+#### O fluxo em 2026-07-27, quando esta análise foi feita
+
+> ⚠️ **Retrato de partida, não o estado atual.** As superfícies descritas aqui foram refeitas pelas §5.10, §5.14 e §5.15 — hoje o fluxo à vista inteiro é **um painel de três passos**.
 
 `ContractCreateRadialFab` (leque de 3: À vista · Espelho · Futuro) → `SaleContractLotPickerModal` (BottomSheet; lotes `displayStatus=OPEN`, busca com debounce de 300 ms, scroll infinito de 30) → hidrata o lote (`getSampleDetail`) → `SaleContractEtapa2Modal` **empilhado por cima** do picker (`stacked`), 7 blocos e 20+ campos em 2 colunas → **[Emitir]** → `createSpotSaleContract` (venda + contrato EMITIDO na mesma transação, D97) → toast + volta à lista.
 
@@ -599,11 +601,63 @@ documento apareceu** (ou foi baixado, quando a rasterização falha).
 
 #### O que NÃO entrou
 
-**Picker → formulário como passos do mesmo painel** — o Flavio pediu e é a rodada seguinte. É mais
-cara: exige tirar o `BottomSheet` de dentro dos dois componentes e pôr um dono único acima, e o
-`SaleContractEtapa2Modal` serve **3 modos** (à vista, futuro, editar), dos quais só o à vista tem
-picker. Também fora: a largura do painel (fica 620px, por decisão dele — quem resolve a leitura de
-perto é o "Ampliar") e o layout/ordem dos campos do formulário, que é a RC-D18.
+**Picker → formulário como passos do mesmo painel** — o Flavio pediu e é a rodada seguinte
+(entregue na §5.15, no mesmo dia). Também fora: a largura do painel (fica 620px, por decisão dele —
+quem resolve a leitura de perto é o "Ampliar") e o layout/ordem dos campos do formulário, que é a
+RC-D18.
+
+### 5.15 RC-F5, 4ª rodada — o lote vira o 1º passo do painel (RC-D57), 2026-07-28
+
+A rodada anterior deixou o pedido pela metade: o documento virou passo, mas a **seleção de lote**
+continuava sendo um `BottomSheet` **irmão** do formulário. Escolher um lote fechava um painel e
+abria outro — um descendo enquanto o outro subia —, e o "Voltar" do formulário **destruía** o que
+tinha sido preenchido para reabrir a lista. Três superfícies para um ato só.
+
+| #      | Decisão                                                                                                                                   |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| RC-D57 | A seleção de lote vira o **1º passo** do painel do contrato. À vista = lote → formulário → documento; Futuro e Editar abrem no formulário |
+
+Consequências que valem registrar, porque mudam comportamento:
+
+- **Voltar ao lote NÃO descarta mais o formulário.** O passo continua montado ao lado, com o que foi
+  digitado e a rolagem onde estava — é a propriedade do padrão (`containers` §1-A), e trocar de lote
+  não é desistir do contrato. Com isso o "Descartar?" some dessa transição e passa a valer **só para
+  sair do painel**; o `pendingExit`, que era `'close' | 'back'`, virou booleano.
+- 🔴 **Mas o que o LOTE determina tem que morrer na troca.** Vendedor, filial, conta bancária,
+  viabilidade da liga e o aviso de dono divergente são zerados no começo da hidratação. O vendedor é
+  o dono do lote (RC-D37): uma filial ou conta do dono **anterior** sobreviveria calada e viraria um
+  422 de banco no submit. Antes isso não podia acontecer porque o formulário era destruído.
+- **O painel deixou de ser `stacked`.** Ele era (600/610) porque o sheet do picker ficava embaixo;
+  sem sheet embaixo, voltou ao tier normal — e os sub-modais (`ClientQuickCreateModal`,
+  `ClientUnitModal`), que são `stacked`, deixaram de empatar com ele no mesmo tier e passaram a
+  ganhar por z-index em vez de por ordem no DOM.
+- **Uma entrada de history em vez de duas.** Sheet `stacked` não injeta entry; o de baixo injetava.
+  O back do Android com o formulário aberto consumia a entry do **picker**. Hoje é um sheet só: o
+  back volta um passo, como a seta ← e o ESC.
+- **O passo do lote não tem rodapé.** Ali não há decisão a confirmar — escolher é tocar num lote —,
+  e um rodapé com um botão só seria chrome que não faz nada.
+
+#### Achados do caminho
+
+- **O picker foi para dentro do painel, não o contrário.** A alternativa era um "dono do fluxo"
+  acima dos dois, mas ele exigiria partir o `SaleContractEtapa2Modal` (1900 linhas, ~40 estados) em
+  hook + corpo + rodapé só para o pai poder montar o `BottomSheet`. O painel já era dono do sheet,
+  do rodapé e do `canExit` — acrescentar um passo à frente é incremental.
+- **Quem hidrata o lote é o painel, não o passo.** `getSampleDetail` + o próximo número abrem o
+  passo seguinte; a decisão de avançar não pode morar em quem só lista.
+- 🔴 **O passo do lote é a exceção a "cada passo rola sozinho".** Aqui quem rola é a
+  `.lotpick-list`, para a busca ficar parada no topo e o scroll infinito continuar com a lista como
+  root. Então `.ctr-step-lot` é coluna flex e **não** rola: fossem os dois, apareceria uma barra de
+  rolagem do passo, por fora da lista, sem nada para rolar.
+- **A hidratação agora aparece.** O guard de toque duplo era um `early-return` invisível; virou
+  `aria-busy` na lista, que recua enquanto o lote abre.
+- `.ctr-lotpick-sheet` morreu. As duas regras dela — a coluna flex do corpo e as custom properties
+  da grade de 4 colunas — mudaram de dono para `.ctr-step-lot`.
+
+#### O que NÃO entrou
+
+A ordem e o layout dos campos do formulário (RC-D18 + kit `.fv-form-*`), que seguem sendo a rodada
+seguinte.
 
 ## Apêndice A — Ledger de decisões (condensado)
 
