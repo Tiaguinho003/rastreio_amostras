@@ -1012,6 +1012,10 @@ export function SaleContractEtapa2Modal({
   // pergunta em cima de nada é só atrito. `true` = pode sair agora.
   function canExit(kind: 'close' | 'back'): boolean {
     if (saving) return false;
+    // O ESC do BottomSheet é global e o modal central não entra na pilha de
+    // sheets — sem este guard, apertar ESC com a conferência (ou o próprio
+    // "Descartar?") aberta fecharia o painel POR BAIXO deles.
+    if (confirmDoc || pendingExit) return false;
     if (touched) {
       setPendingExit(kind);
       return false;

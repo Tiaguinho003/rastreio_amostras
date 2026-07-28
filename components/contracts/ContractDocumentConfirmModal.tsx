@@ -112,6 +112,21 @@ export function ContractDocumentConfirmModal({
     };
   }, [blob]);
 
+  // ESC = Voltar. O painel de trás tem o próprio handler de ESC (global, do
+  // BottomSheet) e não sabe que este modal existe — quem bloqueia ele lá é o
+  // `canExit`; aqui a tecla precisa fazer a coisa certa, não nada.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || submitting) return;
+      event.preventDefault();
+      event.stopPropagation();
+      onBack();
+    };
+    // Fase de captura: chega antes do handler global do BottomSheet.
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
+  }, [submitting, onBack]);
+
   return createPortal(
     // Backdrop CHEIO, não `.fv-panel-scrim`: exceção deliberada à regra de
     // "confirmação sobre painel" (skill containers §2) — o documento precisa da

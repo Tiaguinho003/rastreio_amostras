@@ -1929,6 +1929,119 @@ if (!databaseUrl || !databaseReachable) {
     assert.ok(buffer.length > 1500);
   });
 
+  // RC-D27/D28: a previa da emissao monta o contrato QUE SERIA emitido, sem
+  // gravar nada. Os testes abaixo travam as tres propriedades que importam:
+  // nao persiste, casa com o que a emissao produz, e cobre os tres modos.
+  test('Previa (RC-D27): monta o contrato do formulario e NAO grava nada', async () => {
+    const sellerId = randomUUID();
+    await createSellerClient(sellerId);
+    const bankAccountId = await createSellerBankAccount(sellerId);
+    const buyerId = randomUUID();
+    await createBuyerClient(buyerId);
+    const lookups = await fetchLookups();
+    const before = await prisma.saleContract.count();
+
+    const preview = await saleContractService.previewSaleContract(
+      {
+        type: 'FUTURO',
+        buyerClientId: buyerId,
+        sellerClientId: sellerId,
+        ...saleFields(),
+        ...etapa2Payload({ bankAccountId, lookups }),
+      },
+      adminActor
+    );
+
+    // Nada de novo no banco: a previa e so leitura.
+    assert.equal(await prisma.saleContract.count(), before);
+    // Numero PROVISORIO — a alocacao real so acontece na tx sob advisory lock.
+    assert.equal(preview.provisionalNumber, true);
+    assert.match(preview.contract.contractNumber, /^\d{4}\/\d{2}$/);
+    // Os campos da fase 1 entram; os da etapa 2 vem do _resolveEmitData.
+    assert.equal(preview.contract.quantitySacks, 10);
+    assert.equal(preview.contract.unitPrice, 100);
+    // O dinheiro sai do computeContractMoneyWithAgio como string de 2 casas —
+    // mesma forma que vai pro banco.
+    assert.equal(Number(preview.contract.totalValue), 1000);
+    assert.equal(Number(preview.contract.sellerBrokerageValue), 20);
+    assert.equal(Number(preview.contract.buyerBrokerageValue), 10);
+    assert.ok(preview.contract.sellerBankSnapshot);
+    assert.ok(preview.contract.buyerSnapshot);
+
+    // E o renderizador da emissao aceita a forma montada em memoria.
+    const { buffer } = await saleContractPdfService.renderContractPdf(preview.contract, {
+      lotNumber: null,
+      issuer: getContractIssuer(),
+    });
+    assert.equal(buffer.subarray(0, 5).toString('latin1'), '%PDF-');
+  });
+
+  test('Previa (RC-D28): os numeros batem com os do contrato realmente emitido', async () => {
+    const { contractId, sampleId, sellerId, buyerId, bankAccountId } = await setupEmittableContract(
+      { lotNumber: '21055' }
+    );
+    const lookups = await fetchLookups();
+
+    // Mesma entrada que o "Editar" mandaria.
+    const preview = await saleContractService.previewSaleContract(
+      {
+        contractId,
+        sellerClientId: sellerId,
+        buyerClientId: buyerId,
+        saleFields: saleFields({ unitPrice: 120 }),
+        ...etapa2Payload({ bankAccountId, lookups }),
+      },
+      adminActor
+    );
+    // No "Editar" o numero JA existe — nao e provisorio.
+    assert.equal(preview.provisionalNumber, false);
+    assert.equal(preview.sampleId, sampleId);
+
+    const { contract } = await saleContractService.getSaleContract(contractId, adminActor);
+    assert.equal(preview.contract.contractNumber, contract.contractNumber);
+
+    // Emite de fato com a MESMA entrada e compara o dinheiro.
+    const emitted = await saleContractService.emitSaleContract(
+      contractId,
+      {
+        ...etapa2Payload({ bankAccountId, lookups, expectedVersion: contract.version }),
+        sellerClientId: sellerId,
+        buyerClientId: buyerId,
+        saleFields: saleFields({ unitPrice: 120 }),
+      },
+      adminActor
+    );
+    assert.equal(Number(emitted.contract.totalValue), Number(preview.contract.totalValue));
+    assert.equal(
+      Number(emitted.contract.sellerBrokerageValue),
+      Number(preview.contract.sellerBrokerageValue)
+    );
+    assert.equal(
+      Number(emitted.contract.buyerBrokerageValue),
+      Number(preview.contract.buyerBrokerageValue)
+    );
+  });
+
+  test('Previa (RC-D27): a vista sem vendedor explicito cai no dono do lote', async () => {
+    const { sampleId, sellerId, bankAccountId, buyerId } = await setupEmittableContract({
+      lotNumber: '21056',
+    });
+    const lookups = await fetchLookups();
+
+    const preview = await saleContractService.previewSaleContract(
+      {
+        type: 'MERCADO_A_VISTA',
+        sampleId,
+        buyerClientId: buyerId,
+        ...saleFields(),
+        ...etapa2Payload({ bankAccountId, lookups }),
+      },
+      adminActor
+    );
+    assert.equal(preview.contract.sellerClientId, sellerId);
+    assert.equal(preview.sampleId, sampleId);
+  });
+
   test('Espelho: contrato EMITIDO renderiza %PDF p/ os 2 lados, com a comissão de cada lado', async () => {
     const { contractId } = await setupConfirmedContract({ lotNumber: '21099' });
     const { contract } = await saleContractService.getSaleContract(contractId, adminActor);
