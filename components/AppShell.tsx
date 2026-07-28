@@ -121,10 +121,19 @@ const NAV_SUB_ITEMS: Record<string, readonly NavSubItem[]> = {
   // extinta — sem entrada aqui, a secao vira link simples (ver `if (!subItems)`).
 };
 
+// Tabbar mobile: 5 itens FIXOS (pedido do Flavio, 2026-07-28), na mesma ordem
+// relativa da sidenav desktop sem as duas ADMIN-only. Contratos subiu do menu
+// do avatar pra ca; Perfil, Usuarios e Financeiro sao os que ficaram no menu.
+// O CSS nao conta itens (grid-auto-flow redistribui as colunas sozinho), mas a
+// LARGURA por coluna caiu ~18% — ver o bloco .mobile-tabbar* em globals.css,
+// dimensionado pra 5.
+//
+// CAM-P3: o slot central da camera saiu — a camera virou bottom sheet global
+// aberto pelo icone no header (HeaderAvatarMenu).
 const MOBILE_NAV_ITEMS = [
   {
     href: '/dashboard',
-    mobileLabel: 'Inicio',
+    mobileLabel: 'Início',
     icon: 'dashboard' as NavIcon,
   },
   {
@@ -132,9 +141,11 @@ const MOBILE_NAV_ITEMS = [
     mobileLabel: 'Lotes',
     icon: 'samples' as NavIcon,
   },
-  // CAM-P3: o slot central da camera saiu — a camera virou bottom sheet
-  // global aberto pelo icone no header (HeaderAvatarMenu). Tabbar com 4
-  // itens; grid-auto-flow redistribui sozinho.
+  {
+    href: '/contratos',
+    mobileLabel: 'Contratos',
+    icon: 'contratos' as NavIcon,
+  },
   {
     href: '/cadastros',
     mobileLabel: 'Cadastros',
@@ -144,15 +155,6 @@ const MOBILE_NAV_ITEMS = [
     href: '/relatorios',
     mobileLabel: 'Relatórios',
     icon: 'informe' as NavIcon,
-  },
-  {
-    // Slot alternativo: papeis fora de INFORME_ROLES (CLASSIFIER, CADASTRO
-    // e REGISTRATION) nao tem Relatorios; recebem Perfil aqui para manter a
-    // tabbar com 4 itens como os demais. A filtragem (mutuamente exclusiva com
-    // /relatorios) fica no render da MobileTabbar.
-    href: '/profile',
-    mobileLabel: 'Perfil',
-    icon: 'profile' as NavIcon,
   },
 ] as const;
 
@@ -1067,17 +1069,16 @@ export function AppShell({
       {!hideMobileTabbar ? (
         <MobileTabbar
           items={MOBILE_NAV_ITEMS.filter((item) => {
-            // 4o slot da tabbar (mutuamente exclusivo): Relatorios (/relatorios)
-            // para quem esta em INFORME_ROLES; Perfil (/profile) para quem nao
-            // esta — hoje so o CLASSIFIER, unico nao-prospector fora de
-            // INFORME_ROLES. Assim todo papel da tabbar fica com 4 itens (o slot
-            // central da camera saiu na CAM-P3).
+            // Item de nav nao aponta pra rota que o papel nao abre. Hoje
+            // CONTRATOS_ROLES e INFORME_ROLES sao os mesmos 5 papeis
+            // nao-PROSPECTOR, entao todo mundo que ve a tabbar ve os 5 itens —
+            // os gates ficam pra acompanhar as constantes se elas apertarem.
             // (PROSPECTOR nao chega aqui: tabbar escondida por hideMobileTabbar.)
+            if (item.href === '/contratos') {
+              return isRoleAllowed(session.user.role, CONTRATOS_ROLES);
+            }
             if (item.href === '/relatorios') {
               return isRoleAllowed(session.user.role, INFORME_ROLES);
-            }
-            if (item.href === '/profile') {
-              return !isRoleAllowed(session.user.role, INFORME_ROLES);
             }
             return true;
           }).map((item) => ({

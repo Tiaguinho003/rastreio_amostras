@@ -3,14 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import {
-  canManageClients,
-  CONTRATOS_ROLES,
-  FINANCEIRO_ROLES,
-  getRoleLabel,
-  isAdmin,
-  isRoleAllowed,
-} from '../lib/roles';
+import { FINANCEIRO_ROLES, getRoleLabel, isAdmin, isRoleAllowed } from '../lib/roles';
 import type { SessionData } from '../lib/types';
 import { BottomSheet } from './BottomSheet';
 import { UserAvatar } from './UserAvatar';
@@ -130,36 +123,9 @@ export function HeaderAvatarMenu({ session, onLogout, trigger = 'avatar' }: Head
               </button>
             ) : null}
 
-            {canManageClients(session.user.role) ? (
-              <button
-                type="button"
-                className="header-avatar-menu-row"
-                onClick={() => go('/cadastros')}
-              >
-                <svg className="header-avatar-menu-row-icon" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M4 7a2 2 0 0 1 2-2h3l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" />
-                  <path d="M8 13h8" />
-                  <path d="M8 16h5" />
-                </svg>
-                <span className="header-avatar-menu-row-label">Cadastros</span>
-              </button>
-            ) : null}
-
-            {isRoleAllowed(session.user.role, CONTRATOS_ROLES) ? (
-              <button
-                type="button"
-                className="header-avatar-menu-row"
-                onClick={() => go('/contratos')}
-              >
-                <svg className="header-avatar-menu-row-icon" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" />
-                  <path d="M14 3v5h5" />
-                  <path d="M9 13h6" />
-                  <path d="M9 17h5" />
-                </svg>
-                <span className="header-avatar-menu-row-label">Contratos</span>
-              </button>
-            ) : null}
+            {/* Cadastros e Contratos saíram daqui em 2026-07-28: as duas viraram
+                aba da tabbar (MOBILE_NAV_ITEMS no AppShell) e o menu ficou só
+                com o que NÃO está na barra — sem caminho duplicado. */}
 
             {/* RC-D1/RC-D3: Financeiro voltou a ser pagina propria, so ADMIN. */}
             {isRoleAllowed(session.user.role, FINANCEIRO_ROLES) ? (
