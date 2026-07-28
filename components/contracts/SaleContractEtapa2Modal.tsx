@@ -1,6 +1,6 @@
 'use client';
 
-import { type CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import {
@@ -303,16 +303,12 @@ export function SaleContractEtapa2Modal({
   }
 
   function fieldClass(field: FormFieldKey): string {
-    return fieldError?.field === field ? 'app-modal-field is-field-error' : 'app-modal-field';
+    return fieldError?.field === field ? 'fv-form-field is-field-error' : 'fv-form-field';
   }
 
-  // `.app-modal-field-error`, não o `.fv-form-field-error` do kit: é a peça que
-  // este formulário já usa no aviso de fim de semana logo abaixo das datas — duas
-  // classes de erro no mesmo campo dariam dois vermelhos diferentes. O
-  // `.ctr-form-sheet` retinta a peça no tom do kit.
   function fieldMessage(field: FormFieldKey) {
     if (fieldError?.field !== field) return null;
-    return <span className="app-modal-field-error">{fieldError.message}</span>;
+    return <span className="fv-form-field-error">{fieldError.message}</span>;
   }
 
   // Volta do documento para o formulário. Um lugar só: o rodapé, a seta ← e o
@@ -996,25 +992,14 @@ export function SaleContractEtapa2Modal({
 
   const disabled = saving;
 
-  // Layout: pares lado a lado em grid 50/50 que casa o gap do .app-modal-content
-  // (molde da Etapa 1). Filiais e ágio extraídos pra compor em par sem duplicar.
-  const halfRowStyle: CSSProperties = {
-    display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
-    gap: '0.75rem',
-  };
-
-  // Valor só-leitura dos campos de topo (número + tipo): fundo levemente cinza
-  // pra sinalizar "não editável"; texto escuro/negrito pra o valor se destacar.
-  const infoValueStyle: CSSProperties = {
-    background: '#f5f6f5',
-    color: '#1a1a1a',
-    fontWeight: 600,
-  };
-
+  // RC-D58: os campos que compõem par com um vizinho CONDICIONAL (filial só
+  // existe em PF; o valor do ágio só quando há tipo) ficam extraídos, pra a
+  // linha poder virar de 1 ou 2 colunas sem duplicar o campo.
   const sellerUnitField = (
     <div className={fieldClass('sellerUnit')}>
-      <span className="app-modal-label">Filial do vendedor</span>
+      <span className="fv-form-label">
+        Filial<span className="fv-form-required"> *</span>
+      </span>
       <InlineSelectField
         options={sellerUnits.map((unit) => ({ id: unit.id, label: unitLabel(unit) }))}
         value={sellerUnitId}
@@ -1037,7 +1022,9 @@ export function SaleContractEtapa2Modal({
 
   const buyerUnitField = (
     <div className={fieldClass('buyerUnit')}>
-      <span className="app-modal-label">Filial do comprador</span>
+      <span className="fv-form-label">
+        Filial<span className="fv-form-required"> *</span>
+      </span>
       <InlineSelectField
         options={buyerUnits.map((unit) => ({ id: unit.id, label: unitLabel(unit) }))}
         value={buyerUnitId}
@@ -1059,10 +1046,9 @@ export function SaleContractEtapa2Modal({
   );
 
   const agioTypeField = (
-    <label className="app-modal-field">
-      <span className="app-modal-label">Ágio/Deságio (opcional)</span>
+    <label className="fv-form-field">
+      <span className="fv-form-label">Ágio/Deságio</span>
       <select
-        className="app-modal-input"
         value={agioType}
         disabled={disabled}
         onChange={(event) => {
@@ -1079,9 +1065,8 @@ export function SaleContractEtapa2Modal({
 
   const agioValueField = (
     <label className={fieldClass('agioValue')}>
-      <span className="app-modal-label">Valor (R$/saca)</span>
+      <span className="fv-form-label">Valor (R$/saca)</span>
       <input
-        className="app-modal-input"
         inputMode="decimal"
         value={agioValue}
         disabled={disabled}
@@ -1277,6 +1262,9 @@ export function SaleContractEtapa2Modal({
           className={`ctr-step${onDocumentStep ? ' is-past' : onLotStep ? ' is-next' : ''}`}
           aria-hidden={onDocumentStep || onLotStep}
         >
+          {/* Irmão do corpo, não filho: é o molde do painel (`forms` §1), e
+            dentro do `.fv-form-body` a margem dele somaria ao gap do grid. */}
+          <p className="fv-panel-lead">{sheetTitle}</p>
           {!onDocumentStep && error ? <p className="sdv-modal-error">{error}</p> : null}
           {loadError ? <p className="sdv-modal-error">{loadError}</p> : null}
           {/* Some sozinho quando a conta é reescolhida: o banner vale enquanto o
@@ -1289,654 +1277,645 @@ export function SaleContractEtapa2Modal({
           ) : null}
 
           {loading ? (
-            <div className="app-modal-content">
-              <p className="ctr-modal-loading">Carregando...</p>
-            </div>
+            <p className="ctr-modal-loading">Carregando...</p>
           ) : (
-            <div className="app-modal-content ctr-etapa2-content">
-              <p className="fv-panel-lead">{sheetTitle}</p>
-
-              {/* RC-D32: faixa de identidade do lote — antes daqui só havia uma
-                linha cinza com o número. É o que confirma, sem sair do passo,
-                que o lote é o certo; se não for, "Voltar" devolve a lista
-                (RC-D57) com o resto do formulário preservado. */}
-              {isSpotCreate && spotCreate ? (
-                <div className="ctr-lot-band">
-                  <span className="ctr-lot-band-code">
-                    Lote {spotCreate.internalLotNumber ?? 'sem número'}
-                  </span>
-                  {spotCreate.ownerName ? (
-                    <>
-                      <span className="ctr-lot-band-dot" aria-hidden="true">
-                        ·
-                      </span>
-                      <span className="ctr-lot-band-fact">{spotCreate.ownerName}</span>
-                    </>
-                  ) : null}
-                  {spotCreate.harvest ? (
-                    <>
-                      <span className="ctr-lot-band-dot" aria-hidden="true">
-                        ·
-                      </span>
-                      <span className="ctr-lot-band-fact">
-                        {/* HarvestDisplay, nao texto cru: liga com 2+ safras vira o
-                          badge "Mix" — mesmo desenho do card do picker que o
-                          usuario acabou de ver. `showMixSafras={false}` porque a
-                          faixa ja separa fatos por "·" e a lista de safras usa o
-                          mesmo separador. */}
-                        Safra <HarvestDisplay harvest={spotCreate.harvest} showMixSafras={false} />
-                      </span>
-                    </>
-                  ) : null}
-                  <span className="ctr-lot-band-dot" aria-hidden="true">
-                    ·
-                  </span>
-                  <span className="ctr-lot-band-fact">
-                    {spotCreate.availableSacks} sacas disponíveis
-                  </span>
+            <div className="fv-form-body ctr-etapa2-content">
+              {/* RC-D59: TUDO o que não se edita mora aqui, num cartão só. Antes
+                eram três apresentações diferentes — uma faixa com os fatos do
+                lote, dois pseudo-campos (número e tipo) que pareciam inputs
+                desabilitados, e o vendedor travado. Os dois do meio convidavam
+                ao clique e não faziam nada. */}
+              <div className="ctr-ident">
+                <div className="ctr-ident-top">
+                  <span className="ctr-ident-num">Nº {displayContractNumber}</span>
+                  <span className="ctr-ident-type">{displayContractType}</span>
                 </div>
-              ) : null}
+                {/* Só há fatos do lote na criação à vista: no Futuro não existe
+                  lote, e no Editar o contrato carregado não traz número nem
+                  safra do lote (só o sampleId). */}
+                {isSpotCreate && spotCreate ? (
+                  <div className="ctr-ident-facts">
+                    <span className="ctr-ident-fact is-strong">
+                      Lote {spotCreate.internalLotNumber ?? 'sem número'}
+                    </span>
+                    {spotCreate.ownerName ? (
+                      <>
+                        <span className="ctr-ident-dot" aria-hidden="true">
+                          ·
+                        </span>
+                        <span className="ctr-ident-fact">{spotCreate.ownerName}</span>
+                      </>
+                    ) : null}
+                    {spotCreate.harvest ? (
+                      <>
+                        <span className="ctr-ident-dot" aria-hidden="true">
+                          ·
+                        </span>
+                        <span className="ctr-ident-fact">
+                          {/* HarvestDisplay, nao texto cru: liga com 2+ safras vira o
+                            badge "Mix" — mesmo desenho do card do picker que o
+                            usuario acabou de ver. `showMixSafras={false}` porque a
+                            linha ja separa fatos por "·" e a lista de safras usa o
+                            mesmo separador. */}
+                          Safra{' '}
+                          <HarvestDisplay harvest={spotCreate.harvest} showMixSafras={false} />
+                        </span>
+                      </>
+                    ) : null}
+                    <span className="ctr-ident-dot" aria-hidden="true">
+                      ·
+                    </span>
+                    <span className="ctr-ident-fact">
+                      {spotCreate.availableSacks} sacas disponíveis
+                    </span>
+                  </div>
+                ) : null}
+              </div>
 
-              {/* Topo (primeira info após o header): número que será criado + tipo,
-                ambos só-leitura. */}
-              <div style={halfRowStyle}>
-                <div className="app-modal-field">
-                  <span className="app-modal-label">Número do contrato</span>
-                  <div className="app-modal-input" style={infoValueStyle}>
-                    {displayContractNumber}
-                  </div>
+              {/* ── RC-D58: daqui pra baixo a ordem é a do DOCUMENTO. As sete
+                primeiras seções são os trechos do PDF na sequência em que ele
+                imprime; a oitava é o que não é impresso. ── */}
+              <span className="fv-form-heading">Identificação</span>
+
+              <div className="fv-form-row fv-form-row-2col">
+                <label className="fv-form-field">
+                  <span className="fv-form-label">Nº de compra</span>
+                  <input
+                    value={purchaseNumber}
+                    disabled={disabled}
+                    onChange={(event) => setPurchaseNumber(event.target.value)}
+                    placeholder="Referência externa"
+                  />
+                </label>
+
+                <label className={fieldClass('saleDate')}>
+                  <span className="fv-form-label">
+                    Data do contrato<span className="fv-form-required"> *</span>
+                  </span>
+                  <input
+                    type="date"
+                    value={saleDate}
+                    disabled={disabled}
+                    onChange={(event) => {
+                      setSaleDate(event.target.value);
+                      onFieldChange();
+                    }}
+                  />
+                  {fieldMessage('saleDate')}
+                </label>
+              </div>
+
+              <span className="fv-form-heading">Comprador</span>
+
+              {/* A filial só existe em PF. Sem ela a linha vira de 1 coluna, em
+                vez de deixar meia largura vazia. */}
+              <div className={`fv-form-row${buyerIsPF ? ' fv-form-row-2col' : ''}`}>
+                <div className={fieldClass('buyer')}>
+                  <span className="fv-form-label">
+                    Comprador<span className="fv-form-required"> *</span>
+                  </span>
+                  <ClientLookupField
+                    session={session}
+                    label="Comprador"
+                    kind="buyer"
+                    selectedClient={buyer}
+                    disabled={disabled}
+                    compact
+                    onSelectClient={(client) => void handleSelectBuyer(client)}
+                    emptyMessage="Nenhum comprador encontrado."
+                    onRequestCreate={(searchTerm) => {
+                      setBuyerCreateSeed(searchTerm);
+                      setBuyerCreateOpen(true);
+                    }}
+                    createLabel="Cadastrar comprador"
+                  />
+                  {fieldMessage('buyer')}
                 </div>
-                <div className="app-modal-field">
-                  <span className="app-modal-label">Tipo</span>
-                  <div className="app-modal-input" style={infoValueStyle}>
-                    {displayContractType}
-                  </div>
+
+                {buyerIsPF ? buyerUnitField : null}
+              </div>
+
+              <div className="fv-form-row">
+                <div className="fv-form-field">
+                  <span className="fv-form-label">Armazém do comprador</span>
+                  <ClientLookupField
+                    session={session}
+                    label="Armazém do comprador"
+                    kind="any"
+                    selectedClient={buyerWarehouse}
+                    disabled={disabled}
+                    compact
+                    onSelectClient={(client) => void handleSelectWarehouse('buyer', client)}
+                    emptyMessage="Nenhum cliente encontrado."
+                    onRequestCreate={(searchTerm) => {
+                      setWarehouseCreateSeed(searchTerm);
+                      setWarehouseCreateFor('buyer');
+                    }}
+                    createLabel="Cadastrar armazém"
+                  />
                 </div>
               </div>
 
-              <div className="ctr-etapa2-cols">
-                <div className="ctr-etapa2-col">
-                  <div className="ctr-block">
-                    {/* Fase 1 (venda) — bloco em todos os modos. Sacas travadas em liga
-                  (F7.1 / à vista liga = 100%); à vista limita ao saldo do lote. */}
-                    <p className="ctr-section-title">Venda</p>
+              <span className="fv-form-heading">Vendedor</span>
 
-                    <label className={fieldClass('saleDate')}>
-                      <span className="app-modal-label">Data do contrato</span>
-                      <input
-                        className="app-modal-input"
-                        type="date"
-                        value={saleDate}
-                        disabled={disabled}
-                        onChange={(event) => {
-                          setSaleDate(event.target.value);
-                          onFieldChange();
-                        }}
-                      />
-                      {fieldMessage('saleDate')}
-                    </label>
-
-                    <div style={halfRowStyle}>
-                      <div className={fieldClass('saleSacks')}>
-                        <span className="app-modal-label">
-                          Sacas
-                          {sampleIsBlend
-                            ? ' (liga: 100%)'
-                            : isSpotCreate && spotCreate
-                              ? ` (${spotCreate.availableSacks} disp.)`
-                              : ''}
-                        </span>
-                        <input
-                          className="app-modal-input"
-                          inputMode="numeric"
-                          value={saleSacks}
-                          disabled={disabled || sampleIsBlend}
-                          onChange={(event) => {
-                            setSaleSacks(event.target.value.replace(/[^0-9]/g, ''));
-                            onFieldChange();
-                          }}
-                        />
-                        {fieldMessage('saleSacks')}
-                      </div>
-
-                      <label className={fieldClass('saleUnitPrice')}>
-                        <span className="app-modal-label">Preço por saca (R$)</span>
-                        <input
-                          className="app-modal-input"
-                          inputMode="decimal"
-                          value={saleUnitPrice}
-                          disabled={disabled}
-                          onChange={(event) => {
-                            setSaleUnitPrice(maskCurrencyInput(event.target.value));
-                            onFieldChange();
-                          }}
-                          placeholder="0,00"
-                        />
-                        {fieldMessage('saleUnitPrice')}
-                      </label>
-                    </div>
-
-                    <div style={halfRowStyle}>
-                      <label className={fieldClass('saleSellerPct')}>
-                        <span className="app-modal-label">Corretagem do vendedor (%)</span>
-                        <input
-                          className="app-modal-input"
-                          inputMode="decimal"
-                          value={saleSellerPct}
-                          disabled={disabled}
-                          onChange={(event) => {
-                            setSaleSellerPct(event.target.value.replace(/[^0-9.,]/g, ''));
-                            onFieldChange();
-                          }}
-                          placeholder="0"
-                        />
-                        {fieldMessage('saleSellerPct')}
-                      </label>
-
-                      <label className={fieldClass('saleBuyerPct')}>
-                        <span className="app-modal-label">Corretagem do comprador (%)</span>
-                        <input
-                          className="app-modal-input"
-                          inputMode="decimal"
-                          value={saleBuyerPct}
-                          disabled={disabled}
-                          onChange={(event) => {
-                            setSaleBuyerPct(event.target.value.replace(/[^0-9.,]/g, ''));
-                            onFieldChange();
-                          }}
-                          placeholder="0"
-                        />
-                        {fieldMessage('saleBuyerPct')}
-                      </label>
-                    </div>
-
-                    <div className={fieldClass('saleBrokers')}>
-                      <span className="app-modal-label">Corretores</span>
-                      <BrokerMultiSelectField
-                        session={session}
-                        selectedIds={saleBrokerIds}
-                        disabled={disabled}
-                        onChange={(ids) => {
-                          setSaleBrokerIds(ids);
-                          onFieldChange();
-                        }}
-                      />
-                      {fieldMessage('saleBrokers')}
-                    </div>
-                  </div>
-
-                  <div className="ctr-block">
-                    {/* Bloco Vendedor */}
-                    <p className="ctr-section-title">Vendedor</p>
-
-                    <div className="ctr-pair">
-                      <div className={fieldClass('seller')}>
-                        <span className="app-modal-label">Vendedor</span>
-                        {/* RC-D37: com lote, o vendedor é o dono do lote e o campo
-                          não abre. Trocá-lo aqui transferia o lote no ato de
-                          emitir — agora a troca se faz onde ela pertence, no
-                          cadastro do lote. */}
-                        {sellerLockedToLot ? (
-                          <>
-                            <p className="ctr-locked-value">
-                              {seller?.displayName ?? 'Sem produtor'}
-                            </p>
-                            <span className="ctr-locked-hint">
-                              É o dono do lote. Para trocar, edite o dono no cadastro do lote.
-                            </span>
-                          </>
-                        ) : (
-                          <ClientLookupField
-                            session={session}
-                            label="Vendedor"
-                            kind="owner"
-                            selectedClient={seller}
-                            disabled={disabled}
-                            compact
-                            onSelectClient={(client) => void handleSelectSeller(client)}
-                            emptyMessage="Nenhum vendedor encontrado."
-                            onRequestCreate={(searchTerm) => {
-                              setSellerCreateSeed(searchTerm);
-                              setSellerCreateOpen(true);
-                            }}
-                            createLabel="Cadastrar vendedor"
-                          />
-                        )}
-                        {fieldMessage('seller')}
-                      </div>
-
-                      {sellerIsPF ? sellerUnitField : null}
-                    </div>
-
-                    <div className="ctr-pair">
-                      <div className={fieldClass('bankAccount')}>
-                        <span className="app-modal-label">Banco do vendedor</span>
-                        <ClientBankAccountSelectField
-                          session={session}
-                          clientId={seller?.id ?? null}
-                          value={bankAccountId}
-                          disabled={disabled}
-                          defaultHolderName={seller?.displayName ?? null}
-                          defaultHolderTaxId={seller?.cnpj ?? seller?.cpf ?? null}
-                          onChange={(id) => {
-                            setBankAccountId(id ?? '');
-                            onFieldChange();
-                          }}
-                        />
-                        {fieldMessage('bankAccount')}
-                      </div>
-
-                      <div className="app-modal-field">
-                        <span className="app-modal-label">Armazém do vendedor (opcional)</span>
-                        <ClientLookupField
-                          session={session}
-                          label="Armazém do vendedor"
-                          kind="any"
-                          selectedClient={sellerWarehouse}
-                          disabled={disabled}
-                          compact
-                          onSelectClient={(client) => void handleSelectWarehouse('seller', client)}
-                          emptyMessage="Nenhum cliente encontrado."
-                          onRequestCreate={(searchTerm) => {
-                            setWarehouseCreateSeed(searchTerm);
-                            setWarehouseCreateFor('seller');
-                          }}
-                          createLabel="Cadastrar armazém"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="ctr-block">
-                    {/* Bloco Comprador: tudo do comprador junto */}
-                    <p className="ctr-section-title">Comprador</p>
-
-                    <div className="ctr-pair">
-                      <div className={fieldClass('buyer')}>
-                        <span className="app-modal-label">Comprador</span>
-                        <ClientLookupField
-                          session={session}
-                          label="Comprador"
-                          kind="buyer"
-                          selectedClient={buyer}
-                          disabled={disabled}
-                          compact
-                          onSelectClient={(client) => void handleSelectBuyer(client)}
-                          emptyMessage="Nenhum comprador encontrado."
-                          onRequestCreate={(searchTerm) => {
-                            setBuyerCreateSeed(searchTerm);
-                            setBuyerCreateOpen(true);
-                          }}
-                          createLabel="Cadastrar comprador"
-                        />
-                        {fieldMessage('buyer')}
-                      </div>
-
-                      {buyerIsPF ? buyerUnitField : null}
-                    </div>
-
-                    <div className="app-modal-field">
-                      <span className="app-modal-label">Armazém do comprador (opcional)</span>
-                      <ClientLookupField
-                        session={session}
-                        label="Armazém do comprador"
-                        kind="any"
-                        selectedClient={buyerWarehouse}
-                        disabled={disabled}
-                        compact
-                        onSelectClient={(client) => void handleSelectWarehouse('buyer', client)}
-                        emptyMessage="Nenhum cliente encontrado."
-                        onRequestCreate={(searchTerm) => {
-                          setWarehouseCreateSeed(searchTerm);
-                          setWarehouseCreateFor('buyer');
-                        }}
-                        createLabel="Cadastrar armazém"
-                      />
-                    </div>
-                  </div>
+              <div className={`fv-form-row${sellerIsPF ? ' fv-form-row-2col' : ''}`}>
+                <div className={fieldClass('seller')}>
+                  <span className="fv-form-label">
+                    Vendedor
+                    {sellerLockedToLot ? null : <span className="fv-form-required"> *</span>}
+                  </span>
+                  {/* RC-D37: com lote, o vendedor é o dono do lote e o campo
+                    não abre. Trocá-lo aqui transferia o lote no ato de
+                    emitir — agora a troca se faz onde ela pertence, no
+                    cadastro do lote. */}
+                  {sellerLockedToLot ? (
+                    <>
+                      <p className="ctr-locked-value">{seller?.displayName ?? 'Sem produtor'}</p>
+                      <span className="ctr-locked-hint">
+                        É o dono do lote. Para trocar, edite o dono no cadastro do lote.
+                      </span>
+                    </>
+                  ) : (
+                    <ClientLookupField
+                      session={session}
+                      label="Vendedor"
+                      kind="owner"
+                      selectedClient={seller}
+                      disabled={disabled}
+                      compact
+                      onSelectClient={(client) => void handleSelectSeller(client)}
+                      emptyMessage="Nenhum vendedor encontrado."
+                      onRequestCreate={(searchTerm) => {
+                        setSellerCreateSeed(searchTerm);
+                        setSellerCreateOpen(true);
+                      }}
+                      createLabel="Cadastrar vendedor"
+                    />
+                  )}
+                  {fieldMessage('seller')}
                 </div>
-                <div className="ctr-etapa2-col">
-                  <div className="ctr-block">
-                    {/* Pagamento & logística */}
-                    <p className="ctr-section-title">Pagamento e logística</p>
 
-                    <div style={halfRowStyle}>
-                      <label className={fieldClass('paymentForm')}>
-                        <span className="app-modal-label">Forma de pagamento</span>
-                        <InlineSelectField
-                          options={(lookups?.paymentForms ?? []).map((item) => ({
-                            id: item.id,
-                            label: item.name,
-                          }))}
-                          value={paymentFormId}
-                          onChange={(id) => {
-                            setPaymentFormId(id);
-                            onFieldChange();
-                          }}
-                          disabled={disabled}
-                          loading={!lookups}
-                          createLabel="Adicionar"
-                          onCreate={async (name) => {
-                            const { item } = await createContractLookup(session, {
-                              list: 'paymentForm',
-                              name,
-                            });
-                            setLookups((prev) =>
-                              prev ? { ...prev, paymentForms: [...prev.paymentForms, item] } : prev
-                            );
-                            return { id: item.id, label: item.name };
-                          }}
-                        />
-                        {fieldMessage('paymentForm')}
-                      </label>
+                {sellerIsPF ? sellerUnitField : null}
+              </div>
 
-                      <label className={fieldClass('modality')}>
-                        <span className="app-modal-label">Modalidade</span>
-                        <InlineSelectField
-                          options={(lookups?.modalities ?? []).map((item) => ({
-                            id: item.id,
-                            label: item.name,
-                          }))}
-                          value={modalityId}
-                          onChange={(id) => {
-                            setModalityId(id);
-                            onFieldChange();
-                          }}
-                          disabled={disabled}
-                          loading={!lookups}
-                          createLabel="Adicionar"
-                          onCreate={async (name) => {
-                            const { item } = await createContractLookup(session, {
-                              list: 'modality',
-                              name,
-                            });
-                            setLookups((prev) =>
-                              prev ? { ...prev, modalities: [...prev.modalities, item] } : prev
-                            );
-                            return { id: item.id, label: item.name };
-                          }}
-                        />
-                        {fieldMessage('modality')}
-                      </label>
-                    </div>
+              <div className="fv-form-row">
+                <div className="fv-form-field">
+                  <span className="fv-form-label">Armazém do vendedor</span>
+                  <ClientLookupField
+                    session={session}
+                    label="Armazém do vendedor"
+                    kind="any"
+                    selectedClient={sellerWarehouse}
+                    disabled={disabled}
+                    compact
+                    onSelectClient={(client) => void handleSelectWarehouse('seller', client)}
+                    emptyMessage="Nenhum cliente encontrado."
+                    onRequestCreate={(searchTerm) => {
+                      setWarehouseCreateSeed(searchTerm);
+                      setWarehouseCreateFor('seller');
+                    }}
+                    createLabel="Cadastrar armazém"
+                  />
+                </div>
+              </div>
 
-                    <label className={fieldClass('packaging')}>
-                      <span className="app-modal-label">Embalagem</span>
-                      <InlineSelectField
-                        options={(lookups?.packagings ?? []).map((item) => ({
-                          id: item.id,
-                          label: item.name,
-                        }))}
-                        value={packagingId}
-                        onChange={(id) => {
-                          setPackagingId(id);
-                          onFieldChange();
-                        }}
+              <span className="fv-form-heading">Pagamento e logística</span>
+
+              <div className="fv-form-row fv-form-row-2col">
+                <label className={fieldClass('paymentForm')}>
+                  <span className="fv-form-label">
+                    Forma de pagamento<span className="fv-form-required"> *</span>
+                  </span>
+                  <InlineSelectField
+                    options={(lookups?.paymentForms ?? []).map((item) => ({
+                      id: item.id,
+                      label: item.name,
+                    }))}
+                    value={paymentFormId}
+                    onChange={(id) => {
+                      setPaymentFormId(id);
+                      onFieldChange();
+                    }}
+                    disabled={disabled}
+                    loading={!lookups}
+                    createLabel="Adicionar"
+                    onCreate={async (name) => {
+                      const { item } = await createContractLookup(session, {
+                        list: 'paymentForm',
+                        name,
+                      });
+                      setLookups((prev) =>
+                        prev ? { ...prev, paymentForms: [...prev.paymentForms, item] } : prev
+                      );
+                      return { id: item.id, label: item.name };
+                    }}
+                  />
+                  {fieldMessage('paymentForm')}
+                </label>
+
+                <label className={fieldClass('modality')}>
+                  <span className="fv-form-label">
+                    Modalidade<span className="fv-form-required"> *</span>
+                  </span>
+                  <InlineSelectField
+                    options={(lookups?.modalities ?? []).map((item) => ({
+                      id: item.id,
+                      label: item.name,
+                    }))}
+                    value={modalityId}
+                    onChange={(id) => {
+                      setModalityId(id);
+                      onFieldChange();
+                    }}
+                    disabled={disabled}
+                    loading={!lookups}
+                    createLabel="Adicionar"
+                    onCreate={async (name) => {
+                      const { item } = await createContractLookup(session, {
+                        list: 'modality',
+                        name,
+                      });
+                      setLookups((prev) =>
+                        prev ? { ...prev, modalities: [...prev.modalities, item] } : prev
+                      );
+                      return { id: item.id, label: item.name };
+                    }}
+                  />
+                  {fieldMessage('modality')}
+                </label>
+              </div>
+
+              <div className="fv-form-row">
+                <label className={fieldClass('packaging')}>
+                  <span className="fv-form-label">
+                    Embalagem<span className="fv-form-required"> *</span>
+                  </span>
+                  <InlineSelectField
+                    options={(lookups?.packagings ?? []).map((item) => ({
+                      id: item.id,
+                      label: item.name,
+                    }))}
+                    value={packagingId}
+                    onChange={(id) => {
+                      setPackagingId(id);
+                      onFieldChange();
+                    }}
+                    disabled={disabled}
+                    loading={!lookups}
+                    createLabel="Adicionar"
+                    onCreate={async (name) => {
+                      const { item } = await createContractLookup(session, {
+                        list: 'packaging',
+                        name,
+                      });
+                      setLookups((prev) =>
+                        prev ? { ...prev, packagings: [...prev.packagings, item] } : prev
+                      );
+                      return { id: item.id, label: item.name };
+                    }}
+                  />
+                  {fieldMessage('packaging')}
+                </label>
+              </div>
+
+              {/* D144: no FUTURO cada data planejada tem o toggle "À definir"
+                (limpa/desabilita o input; o submit envia null explícito). */}
+              <div className="fv-form-row fv-form-row-2col">
+                <div className={fieldClass('invoiceDate')}>
+                  <span className="fv-form-label ctr-date-label">
+                    <span>
+                      Data de faturamento<span className="fv-form-required"> *</span>
+                    </span>
+                    {isFuturo ? (
+                      <button
+                        type="button"
+                        className={`ctr-tbd-toggle${invoiceDateTbd ? ' is-selected' : ''}`}
+                        aria-pressed={invoiceDateTbd}
                         disabled={disabled}
-                        loading={!lookups}
-                        createLabel="Adicionar"
-                        onCreate={async (name) => {
-                          const { item } = await createContractLookup(session, {
-                            list: 'packaging',
-                            name,
+                        onClick={() => {
+                          setInvoiceDateTbd((prev) => {
+                            if (!prev) setInvoiceDate('');
+                            return !prev;
                           });
-                          setLookups((prev) =>
-                            prev ? { ...prev, packagings: [...prev.packagings, item] } : prev
-                          );
-                          return { id: item.id, label: item.name };
+                          onFieldChange();
                         }}
-                      />
-                      {fieldMessage('packaging')}
-                    </label>
-
-                    {/* D144: no FUTURO cada data planejada tem o toggle "À definir"
-                      (limpa/desabilita o input; o submit envia null explícito). */}
-                    <div style={halfRowStyle}>
-                      <div className={fieldClass('invoiceDate')}>
-                        <span className="app-modal-label ctr-date-label">
-                          Data de faturamento
-                          {isFuturo ? (
-                            <button
-                              type="button"
-                              className={`ctr-tbd-toggle${invoiceDateTbd ? ' is-selected' : ''}`}
-                              aria-pressed={invoiceDateTbd}
-                              disabled={disabled}
-                              onClick={() => {
-                                setInvoiceDateTbd((prev) => {
-                                  if (!prev) setInvoiceDate('');
-                                  return !prev;
-                                });
-                                onFieldChange();
-                              }}
-                            >
-                              À definir
-                            </button>
-                          ) : null}
-                        </span>
-                        <input
-                          className="app-modal-input"
-                          type="date"
-                          aria-label="Data de faturamento"
-                          value={invoiceDate}
-                          disabled={disabled || invoiceDateTbd}
-                          onChange={(event) => {
-                            setInvoiceDate(event.target.value);
-                            onFieldChange();
-                          }}
-                        />
-                        {/* O aviso do submit entra só como ÚLTIMO caso: as datas já
-                          avisam ao vivo (fim de semana, ordem) e duas mensagens no
-                          mesmo campo seria ruído. */}
-                        {!invoiceDateTbd && isWeekendIso(invoiceDate) ? (
-                          <span className="app-modal-field-error">{WEEKEND_DATE_MESSAGE}</span>
-                        ) : (
-                          fieldMessage('invoiceDate')
-                        )}
-                      </div>
-
-                      <div className={fieldClass('paymentDate')}>
-                        <span className="app-modal-label ctr-date-label">
-                          Data de pagamento
-                          {isFuturo ? (
-                            <button
-                              type="button"
-                              className={`ctr-tbd-toggle${paymentDateTbd ? ' is-selected' : ''}`}
-                              aria-pressed={paymentDateTbd}
-                              disabled={disabled}
-                              onClick={() => {
-                                setPaymentDateTbd((prev) => {
-                                  if (!prev) setPaymentDate('');
-                                  return !prev;
-                                });
-                                onFieldChange();
-                              }}
-                            >
-                              À definir
-                            </button>
-                          ) : null}
-                        </span>
-                        <input
-                          className="app-modal-input"
-                          type="date"
-                          aria-label="Data de pagamento"
-                          value={paymentDate}
-                          disabled={disabled || paymentDateTbd}
-                          onChange={(event) => {
-                            setPaymentDate(event.target.value);
-                            onFieldChange();
-                          }}
-                        />
-                        {!paymentDateTbd && isWeekendIso(paymentDate) ? (
-                          <span className="app-modal-field-error">{WEEKEND_DATE_MESSAGE}</span>
-                        ) : !invoiceDateTbd &&
-                          !paymentDateTbd &&
-                          paymentDate &&
-                          invoiceDate &&
-                          paymentDate < invoiceDate ? (
-                          <span className="app-modal-field-error">
-                            A data de pagamento não pode ser anterior à data de faturamento.
-                          </span>
-                        ) : (
-                          fieldMessage('paymentDate')
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="ctr-block">
-                    {/* Aprovação (reforma AP1/AP6) */}
-                    <p className="ctr-section-title">Aprovação</p>
-
-                    <div className={fieldClass('requiresApproval')}>
-                      <span className="app-modal-label">Este contrato precisa de aprovação?</span>
-                      {isCreateLike ? (
-                        <div
-                          className="ctr-approval-choice"
-                          role="group"
-                          aria-label="Precisa de aprovação?"
-                        >
-                          <button
-                            type="button"
-                            className={`ctr-approval-btn${requiresApproval === true ? ' is-selected' : ''}`}
-                            aria-pressed={requiresApproval === true}
-                            disabled={disabled}
-                            onClick={() => {
-                              setRequiresApproval(true);
-                              onFieldChange();
-                            }}
-                          >
-                            Sim
-                          </button>
-                          <button
-                            type="button"
-                            className={`ctr-approval-btn${requiresApproval === false ? ' is-selected' : ''}`}
-                            aria-pressed={requiresApproval === false}
-                            disabled={disabled}
-                            onClick={() => {
-                              setRequiresApproval(false);
-                              onFieldChange();
-                            }}
-                          >
-                            Não
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          {/* AP32: no "Editar" o sinal é read-only — latch de mão única
-                            (muda só na criação e pelo botão "Solicitar aprovação"). */}
-                          <div
-                            className="ctr-approval-choice"
-                            role="group"
-                            aria-label="Precisa de aprovação?"
-                          >
-                            <button
-                              type="button"
-                              className="ctr-approval-btn is-selected"
-                              aria-pressed={true}
-                              disabled
-                            >
-                              {requiresApproval ? 'Sim' : 'Não'}
-                            </button>
-                          </div>
-                          {!requiresApproval ? (
-                            <p className="ctr-approval-note">
-                              Para exigir aprovação, use “Solicitar aprovação” no contrato.
-                            </p>
-                          ) : null}
-                        </>
-                      )}
-                      {fieldMessage('requiresApproval')}
-                    </div>
-
-                    {requiresApproval === true ? (
-                      <label className={fieldClass('approvalLead')}>
-                        <span className="app-modal-label">
-                          Lembrar quantos dias antes do faturamento?
-                        </span>
-                        <input
-                          className="app-modal-input"
-                          inputMode="numeric"
-                          value={approvalReminderLeadDays}
-                          disabled={disabled}
-                          onChange={(event) => {
-                            setApprovalReminderLeadDays(event.target.value.replace(/[^0-9]/g, ''));
-                            onFieldChange();
-                          }}
-                          placeholder="30"
-                        />
-                        {fieldMessage('approvalLead')}
-                      </label>
+                      >
+                        À definir
+                      </button>
                     ) : null}
-                  </div>
-
-                  <div className="ctr-block">
-                    {/* Valores */}
-                    <p className="ctr-section-title">Valores</p>
-
-                    <div style={halfRowStyle}>
-                      <label className="app-modal-field">
-                        <span className="app-modal-label">Número de compra (opcional)</span>
-                        <input
-                          className="app-modal-input"
-                          value={purchaseNumber}
-                          disabled={disabled}
-                          onChange={(event) => setPurchaseNumber(event.target.value)}
-                          placeholder="Referência externa"
-                        />
-                      </label>
-
-                      <label className="app-modal-field">
-                        <span className="app-modal-label">Peso (Kg) (opcional)</span>
-                        <input
-                          className="app-modal-input"
-                          inputMode="decimal"
-                          value={weightKg}
-                          disabled={disabled}
-                          onChange={(event) =>
-                            setWeightKg(event.target.value.replace(/[^0-9.,]/g, ''))
-                          }
-                          placeholder="0,00"
-                        />
-                      </label>
-                    </div>
-
-                    {agioType ? (
-                      <div style={halfRowStyle}>
-                        {agioTypeField}
-                        {agioValueField}
-                      </div>
-                    ) : (
-                      agioTypeField
-                    )}
-                  </div>
-
-                  <div className="ctr-block">
-                    {/* Textos */}
-                    <p className="ctr-section-title">Textos</p>
-
-                    <label className="app-modal-field">
-                      <span className="app-modal-label">Observações (opcional)</span>
-                      <textarea
-                        className="app-modal-input ctr-textarea"
-                        value={observations}
-                        disabled={disabled}
-                        onChange={(event) => setObservations(event.target.value)}
-                        rows={2}
-                      />
-                    </label>
-
-                    <label className="app-modal-field">
-                      <span className="app-modal-label">Descrição (opcional)</span>
-                      <textarea
-                        className="app-modal-input ctr-textarea"
-                        value={description}
-                        disabled={disabled}
-                        onChange={(event) => setDescription(event.target.value)}
-                        rows={2}
-                      />
-                    </label>
-                  </div>
+                  </span>
+                  <input
+                    type="date"
+                    aria-label="Data de faturamento"
+                    value={invoiceDate}
+                    disabled={disabled || invoiceDateTbd}
+                    onChange={(event) => {
+                      setInvoiceDate(event.target.value);
+                      onFieldChange();
+                    }}
+                  />
+                  {/* O aviso do submit entra só como ÚLTIMO caso: as datas já
+                    avisam ao vivo (fim de semana, ordem) e duas mensagens no
+                    mesmo campo seria ruído. */}
+                  {!invoiceDateTbd && isWeekendIso(invoiceDate) ? (
+                    <span className="fv-form-field-error">{WEEKEND_DATE_MESSAGE}</span>
+                  ) : (
+                    fieldMessage('invoiceDate')
+                  )}
                 </div>
+
+                <div className={fieldClass('paymentDate')}>
+                  <span className="fv-form-label ctr-date-label">
+                    <span>
+                      Data de pagamento<span className="fv-form-required"> *</span>
+                    </span>
+                    {isFuturo ? (
+                      <button
+                        type="button"
+                        className={`ctr-tbd-toggle${paymentDateTbd ? ' is-selected' : ''}`}
+                        aria-pressed={paymentDateTbd}
+                        disabled={disabled}
+                        onClick={() => {
+                          setPaymentDateTbd((prev) => {
+                            if (!prev) setPaymentDate('');
+                            return !prev;
+                          });
+                          onFieldChange();
+                        }}
+                      >
+                        À definir
+                      </button>
+                    ) : null}
+                  </span>
+                  <input
+                    type="date"
+                    aria-label="Data de pagamento"
+                    value={paymentDate}
+                    disabled={disabled || paymentDateTbd}
+                    onChange={(event) => {
+                      setPaymentDate(event.target.value);
+                      onFieldChange();
+                    }}
+                  />
+                  {!paymentDateTbd && isWeekendIso(paymentDate) ? (
+                    <span className="fv-form-field-error">{WEEKEND_DATE_MESSAGE}</span>
+                  ) : !invoiceDateTbd &&
+                    !paymentDateTbd &&
+                    paymentDate &&
+                    invoiceDate &&
+                    paymentDate < invoiceDate ? (
+                    <span className="fv-form-field-error">
+                      A data de pagamento não pode ser anterior à data de faturamento.
+                    </span>
+                  ) : (
+                    fieldMessage('paymentDate')
+                  )}
+                </div>
+              </div>
+
+              <span className="fv-form-heading">Quantidades e valores</span>
+
+              <div className="fv-form-row fv-form-row-3col">
+                <div className={fieldClass('saleSacks')}>
+                  <span className="fv-form-label">
+                    Sacas<span className="fv-form-required"> *</span>
+                    {/* O saldo do lote saiu daqui — o cartão de identidade já o
+                      diz. Fica só o que explica um campo TRAVADO. */}
+                    {sampleIsBlend ? ' (liga: 100%)' : ''}
+                  </span>
+                  <input
+                    inputMode="numeric"
+                    value={saleSacks}
+                    disabled={disabled || sampleIsBlend}
+                    onChange={(event) => {
+                      setSaleSacks(event.target.value.replace(/[^0-9]/g, ''));
+                      onFieldChange();
+                    }}
+                  />
+                  {fieldMessage('saleSacks')}
+                </div>
+
+                <label className={fieldClass('saleUnitPrice')}>
+                  <span className="fv-form-label">
+                    Preço/saca (R$)<span className="fv-form-required"> *</span>
+                  </span>
+                  <input
+                    inputMode="decimal"
+                    value={saleUnitPrice}
+                    disabled={disabled}
+                    onChange={(event) => {
+                      setSaleUnitPrice(maskCurrencyInput(event.target.value));
+                      onFieldChange();
+                    }}
+                    placeholder="0,00"
+                  />
+                  {fieldMessage('saleUnitPrice')}
+                </label>
+
+                <label className="fv-form-field">
+                  <span className="fv-form-label">Peso (kg)</span>
+                  <input
+                    inputMode="decimal"
+                    value={weightKg}
+                    disabled={disabled}
+                    onChange={(event) => setWeightKg(event.target.value.replace(/[^0-9.,]/g, ''))}
+                    placeholder="0,00"
+                  />
+                </label>
+              </div>
+
+              {/* O valor só aparece depois de escolher ágio ou deságio; sem tipo,
+                o seletor ocupa a linha inteira. */}
+              <div className={`fv-form-row${agioType ? ' fv-form-row-2col' : ''}`}>
+                {agioTypeField}
+                {agioType ? agioValueField : null}
+              </div>
+
+              <div className="fv-form-row fv-form-row-2col">
+                <label className={fieldClass('saleSellerPct')}>
+                  <span className="fv-form-label">Corretagem vendedor (%)</span>
+                  <input
+                    inputMode="decimal"
+                    value={saleSellerPct}
+                    disabled={disabled}
+                    onChange={(event) => {
+                      setSaleSellerPct(event.target.value.replace(/[^0-9.,]/g, ''));
+                      onFieldChange();
+                    }}
+                    placeholder="0"
+                  />
+                  {fieldMessage('saleSellerPct')}
+                </label>
+
+                <label className={fieldClass('saleBuyerPct')}>
+                  <span className="fv-form-label">Corretagem comprador (%)</span>
+                  <input
+                    inputMode="decimal"
+                    value={saleBuyerPct}
+                    disabled={disabled}
+                    onChange={(event) => {
+                      setSaleBuyerPct(event.target.value.replace(/[^0-9.,]/g, ''));
+                      onFieldChange();
+                    }}
+                    placeholder="0"
+                  />
+                  {fieldMessage('saleBuyerPct')}
+                </label>
+              </div>
+
+              <span className="fv-form-heading">Banco do vendedor</span>
+
+              <div className="fv-form-row">
+                <div className={fieldClass('bankAccount')}>
+                  <span className="fv-form-label">
+                    Conta bancária<span className="fv-form-required"> *</span>
+                  </span>
+                  <ClientBankAccountSelectField
+                    session={session}
+                    clientId={seller?.id ?? null}
+                    value={bankAccountId}
+                    disabled={disabled}
+                    defaultHolderName={seller?.displayName ?? null}
+                    defaultHolderTaxId={seller?.cnpj ?? seller?.cpf ?? null}
+                    onChange={(id) => {
+                      setBankAccountId(id ?? '');
+                      onFieldChange();
+                    }}
+                  />
+                  {fieldMessage('bankAccount')}
+                </div>
+              </div>
+
+              <span className="fv-form-heading">Textos</span>
+
+              <div className="fv-form-row fv-form-row-2col ctr-text-row">
+                <label className="fv-form-field">
+                  <span className="fv-form-label">Observações</span>
+                  <textarea
+                    className="ctr-textarea"
+                    value={observations}
+                    disabled={disabled}
+                    onChange={(event) => setObservations(event.target.value)}
+                    rows={3}
+                  />
+                </label>
+
+                <label className="fv-form-field">
+                  <span className="fv-form-label">Descrição</span>
+                  <textarea
+                    className="ctr-textarea"
+                    value={description}
+                    disabled={disabled}
+                    onChange={(event) => setDescription(event.target.value)}
+                    rows={3}
+                  />
+                </label>
+              </div>
+
+              {/* ── RC-D58: o que NÃO é impresso. Os corretores não saem no
+                documento (só a corretagem em %; a linha de assinatura diz
+                apenas "Corretor") e a aprovação é controle nosso. Juntá-los no
+                fim tira a decisão de mão única da aprovação (AP32) do meio do
+                formulário, onde ela estava. ── */}
+              <span className="fv-form-heading">Controle interno</span>
+              <p className="ctr-form-hint">Não aparece no documento.</p>
+
+              <div className="fv-form-row">
+                <div className={fieldClass('saleBrokers')}>
+                  <span className="fv-form-label">Corretores</span>
+                  <BrokerMultiSelectField
+                    session={session}
+                    selectedIds={saleBrokerIds}
+                    disabled={disabled}
+                    onChange={(ids) => {
+                      setSaleBrokerIds(ids);
+                      onFieldChange();
+                    }}
+                  />
+                  {fieldMessage('saleBrokers')}
+                </div>
+              </div>
+
+              <div className={`fv-form-row${requiresApproval === true ? ' fv-form-row-2col' : ''}`}>
+                <div className={fieldClass('requiresApproval')}>
+                  <span className="fv-form-label">
+                    Precisa de aprovação?<span className="fv-form-required"> *</span>
+                  </span>
+                  {isCreateLike ? (
+                    <div
+                      className="ctr-approval-choice"
+                      role="group"
+                      aria-label="Precisa de aprovação?"
+                    >
+                      <button
+                        type="button"
+                        className={`ctr-approval-btn${requiresApproval === true ? ' is-selected' : ''}`}
+                        aria-pressed={requiresApproval === true}
+                        disabled={disabled}
+                        onClick={() => {
+                          setRequiresApproval(true);
+                          onFieldChange();
+                        }}
+                      >
+                        Sim
+                      </button>
+                      <button
+                        type="button"
+                        className={`ctr-approval-btn${requiresApproval === false ? ' is-selected' : ''}`}
+                        aria-pressed={requiresApproval === false}
+                        disabled={disabled}
+                        onClick={() => {
+                          setRequiresApproval(false);
+                          onFieldChange();
+                        }}
+                      >
+                        Não
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {/* AP32: no "Editar" o sinal é read-only — latch de mão única
+                        (muda só na criação e pelo botão "Solicitar aprovação"). */}
+                      <div
+                        className="ctr-approval-choice"
+                        role="group"
+                        aria-label="Precisa de aprovação?"
+                      >
+                        <button
+                          type="button"
+                          className="ctr-approval-btn is-selected"
+                          aria-pressed={true}
+                          disabled
+                        >
+                          {requiresApproval ? 'Sim' : 'Não'}
+                        </button>
+                      </div>
+                      {!requiresApproval ? (
+                        <p className="ctr-approval-note">
+                          Para exigir aprovação, use “Solicitar aprovação” no contrato.
+                        </p>
+                      ) : null}
+                    </>
+                  )}
+                  {fieldMessage('requiresApproval')}
+                </div>
+
+                {requiresApproval === true ? (
+                  <label className={fieldClass('approvalLead')}>
+                    <span className="fv-form-label">Lembrete (dias antes do faturamento)</span>
+                    <input
+                      inputMode="numeric"
+                      value={approvalReminderLeadDays}
+                      disabled={disabled}
+                      onChange={(event) => {
+                        setApprovalReminderLeadDays(event.target.value.replace(/[^0-9]/g, ''));
+                        onFieldChange();
+                      }}
+                      placeholder="30"
+                    />
+                    {fieldMessage('approvalLead')}
+                  </label>
+                ) : null}
               </div>
             </div>
           )}

@@ -145,8 +145,11 @@ export function InlineSelectField({
 
   return (
     <div className="bms-field" ref={containerRef}>
+      {/* RC-D58: sem classe. O gatilho e um `input` dentro do `.fv-form-field`
+          do formulario que o hospeda, entao a geometria vem do kit — era
+          `app-modal-input`, que dependia de um bloco escopado ao sheet do
+          contrato e morreu com ele. */}
       <input
-        className="app-modal-input"
         value={search}
         disabled={disabled}
         placeholder={loading ? 'Carregando...' : placeholder}
@@ -178,7 +181,7 @@ export function InlineSelectField({
               <div className="bms-create-row">
                 <input
                   ref={createInputRef}
-                  className="app-modal-input bms-create-input"
+                  className="bms-create-input"
                   value={draft}
                   disabled={savingCreate}
                   placeholder="Novo valor"

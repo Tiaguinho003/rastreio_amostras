@@ -27450,6 +27450,11 @@ body.is-selection-mode .mobile-tabbar {
 .bms-field {
   position: relative;
 }
+/* RC-D58: mesma geometria do kit FV (`forms` §2) — a caixa e o unico controle
+   do formulario do contrato com markup proprio, e com o corpo migrado pro
+   `.fv-form-*` a borda de 2px em preto translucido e o anel num verde diferente
+   do `--fv-cta` a deixavam sozinha destoando. A altura maior fica: ela guarda
+   chips, nao texto. */
 .bms-control {
   display: flex;
   align-items: center;
@@ -27458,20 +27463,25 @@ body.is-selection-mode .mobile-tabbar {
   width: 100%;
   min-height: 3.05rem;
   padding: 0.32rem 0.5rem;
-  border: 2px solid rgba(0, 0, 0, 0.16);
-  border-radius: 12px;
+  border: 1px solid var(--fv-line-strong);
+  border-radius: var(--fv-radius);
   background: #ffffff;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
 }
 .bms-control:focus-within {
-  border-color: rgba(22, 91, 42, 0.5);
-  box-shadow: 0 0 0 3px rgba(22, 91, 42, 0.1);
+  border-color: var(--fv-cta);
+  box-shadow: 0 0 0 3px rgba(23, 60, 48, 0.12);
 }
-.bms-input {
+/* 🔴 `.bms-control .bms-input` (0,2,0), nao `.bms-input` (0,1,0): a caixa mora
+   dentro de um `.fv-form-field`, e o kit desenha `input` por DESCENDENCIA
+   (`.fv-form-field input`, 0,1,1). Com a especificidade antiga, o input interno
+   ganhava borda, fundo e 2.62rem de altura DENTRO da caixa que ja e o controle. */
+.bms-control .bms-input {
   flex: 1 0 6rem;
   min-width: 6rem;
+  min-height: 0;
   border: 0;
   outline: none;
   background: transparent;
@@ -27865,10 +27875,23 @@ body.is-selection-mode .mobile-tabbar {
   color: var(--brand-muted);
 }
 
-.ctr-etapa2-content {
-  display: flex;
-  flex-direction: column;
-  gap: 0.7rem;
+/* RC-D58: `.ctr-etapa2-content` nao tem mais regra — o layout do corpo vem do
+   `.fv-form-body` do kit. A classe fica no markup como ANCORA do
+   `scrollIntoView` do erro de campo (SaleContractEtapa2Modal:352, seletor
+   `.ctr-etapa2-content .is-field-error`): so ela distingue o formulario do
+   contrato de qualquer outro `.fv-form-body` aberto na pagina. */
+
+/* RC-D61: o painel do contrato e mais largo que os 620px do `.side-sheet` —
+   sao 26 campos e uma folha A4 pra conferir no ultimo passo, que a 620px
+   ficava em ~0,78 da escala. Vale para os TRES passos, porque a largura e do
+   sheet, nao do conteudo.
+   🔴 O seletor inclui `.side-sheet` DE PROPOSITO: `.bottom-sheet.side-sheet`
+   (0,2,0) mora depois neste arquivo, entao com a mesma especificidade ela
+   venceria por ordem. Mesma pegadinha do `.informativo-sheet`. */
+@media (min-width: 901px) {
+  .bottom-sheet.side-sheet.ctr-contract-sheet {
+    width: min(700px, 92vw);
+  }
 }
 
 /* ── RC-D53/D54/D57: o painel do contrato tem ATE TRES PASSOS (lote ->
@@ -28016,58 +28039,29 @@ body.is-selection-mode .mobile-tabbar {
   stroke-width: 2;
   stroke-linecap: round;
 }
-/* ── Forms de contrato (Etapa2 + LotPicker) migrados pra BOTTOM SHEET no mobile
-   (central no desktop pelo CSS do .bottom-sheet). Dentro do sheet nao ha
-   ancestral .app-modal.is-themed, entao reaplicamos os overrides dos campos
-   .app-modal-* escopados a .ctr-form-sheet (o gap do form vem do
-   .ctr-etapa2-content; o scroll/padding do .bottom-sheet-body). ── */
+/* ── Forms de contrato migrados pra BOTTOM SHEET no mobile (central no desktop
+   pelo CSS do .bottom-sheet). ── */
 /* Fundo BRANCO (sai o creme padrao do .bottom-sheet) nos sheets de contrato —
    inclui o footer sticky, que tem bg proprio. */
 .bottom-sheet.ctr-form-sheet,
 .bottom-sheet.ctr-form-sheet .bottom-sheet-footer {
   background: #ffffff;
 }
-/* RC-D29: os campos usam o desenho do kit FV. O corpo do formulario ainda e
-   markup `.app-modal-*` (a migracao pro `.fv-form-*` vai junto com a reordenacao
-   dos campos, RC-D18) — mas com o sheet virando painel do kit, borda de 2px em
-   preto translucido e anel de foco num verde diferente do `--fv-cta` deixavam a
-   metade de baixo do painel destoando da de cima. Mesma geometria do kit, sem
-   copiar o bloco (skill `forms` §2). */
-.bottom-sheet.ctr-form-sheet .app-modal-input {
-  border-width: 1px;
-  border-color: var(--fv-line-strong);
-  border-radius: var(--fv-radius);
-  background: #ffffff;
-  color: var(--ink);
-}
-.bottom-sheet.ctr-form-sheet .app-modal-input:focus-visible {
-  border-color: var(--fv-cta);
-  box-shadow: 0 0 0 3px rgba(23, 60, 48, 0.12);
-}
-.bottom-sheet.ctr-form-sheet .app-modal-label {
-  color: var(--brand-muted);
-  font-weight: 500;
-  font-size: 0.78rem;
-  letter-spacing: 0.01em;
-}
-/* RC-D35: erro DENTRO do campo, no lugar da mensagem unica no topo do sheet.
-   Mesmo desenho do `.fv-form-field.is-field-error` do kit — borda vermelha suave
-   no controle e a mensagem logo abaixo. Escopado ao sheet porque o markup do
-   corpo ainda e `.app-modal-*` (kit vs escopo, skill `css-architecture` §1);
-   quando a RC-D18 migrar os campos pro `.fv-form-*`, este bloco morre.
-   Alem do input direto (que o InlineSelectField tambem usa como gatilho), pinta
-   os compostos com controle proprio: a busca de cliente (`.client-lookup-shell
-   input`), a caixa de corretores (`.bms-control`) e os botoes Sim/Nao da
-   aprovacao. */
-.bottom-sheet.ctr-form-sheet .app-modal-field.is-field-error .app-modal-input,
-.bottom-sheet.ctr-form-sheet .app-modal-field.is-field-error .client-lookup-shell input,
-.bottom-sheet.ctr-form-sheet .app-modal-field.is-field-error .bms-control,
-.bottom-sheet.ctr-form-sheet .app-modal-field.is-field-error .ctr-approval-btn {
+/* 🪦 RC-D58 (2026-07-28): o bloco `.bottom-sheet.ctr-form-sheet .app-modal-*`
+   MORREU — input, foco, label, os tres do `input[type=date]` e a mensagem de
+   erro. Ele existia so pra dar o desenho do kit a um corpo que ainda era markup
+   legado; o corpo virou `.fv-form-*` e a geometria passou a vir do kit, como o
+   proprio comentario previa. Efeito colateral desejado: as datas trocam o icone
+   de calendario proprio pelo indicador NATIVO, que e o que todo painel FV usa.
+   Sobra so a regra dos compostos, abaixo — re-escopada, nao apagada. */
+/* RC-D35: erro DENTRO do campo. O kit pinta `input`/`select` DIRETOS do
+   `.fv-form-field`; estes tres tem controle proprio e ficariam sem a borda
+   vermelha — a busca de cliente (`.client-lookup-shell input`), a caixa de
+   corretores (`.bms-control`) e os botoes Sim/Nao da aprovacao. */
+.bottom-sheet.ctr-form-sheet .fv-form-field.is-field-error .client-lookup-shell input,
+.bottom-sheet.ctr-form-sheet .fv-form-field.is-field-error .bms-control,
+.bottom-sheet.ctr-form-sheet .fv-form-field.is-field-error .ctr-approval-btn {
   border-color: rgba(196, 92, 92, 0.55);
-}
-.bottom-sheet.ctr-form-sheet .app-modal-field-error {
-  color: #c45c5c;
-  font-weight: 600;
 }
 /* RC-D37: campo travado — o Vendedor de um contrato com lote nao abre, porque e
    o dono do lote. Le como VALOR (peso do texto do formulario), nao como input
@@ -28101,24 +28095,14 @@ body.is-selection-mode .mobile-tabbar {
   border: 1px solid var(--fv-line);
   border-radius: var(--fv-radius);
 }
-/* Fix do input date no WebKit (mesmo do modal central) — sem isso o campo
-   estoura a largura no iOS. */
-.bottom-sheet.ctr-form-sheet .app-modal-input[type='date'] {
-  -webkit-appearance: none;
-  appearance: none;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235a6b5e' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><rect x='4.5' y='5.5' width='15' height='14' rx='2.2'/><path d='M7.5 3.8v3.2'/><path d='M16.5 3.8v3.2'/><path d='M4.5 9.5h15'/></svg>");
-  background-repeat: no-repeat;
-  background-position: right 0.85rem center;
-  background-size: 1rem 1rem;
-  padding-right: 2.4rem;
-}
-.bottom-sheet.ctr-form-sheet .app-modal-input[type='date']::-webkit-calendar-picker-indicator {
-  opacity: 0;
-  pointer-events: none;
-}
-.bottom-sheet.ctr-form-sheet .app-modal-input[type='date']::-webkit-date-and-time-value {
-  text-align: left;
-  min-width: 0;
+/* RC-D58: linha de apoio de uma secao inteira ("Controle interno"). Nao e erro
+   nem aviso — e a regra que explica por que aqueles campos estao separados dos
+   outros: nada dali sai no documento. */
+.ctr-form-hint {
+  margin: -0.15rem 0 0;
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.35;
 }
 /* Acoes no footer do sheet: 50/50 — Cancelar (esq) / Emitir (dir). */
 .bottom-sheet.ctr-contract-sheet .ctr-etapa2-actions {
@@ -28131,56 +28115,65 @@ body.is-selection-mode .mobile-tabbar {
   min-width: 0;
 }
 
-/* ── Emissão do contrato (RC-D29): o formulário é PAINEL LATERAL, como o picker
-   que vem antes dele. Era um sheet centralizado de min(1180px, 80vw) com as
-   seções em 2 colunas (S74) — largura que existia pra caber tudo sem scroll.
-   Num painel de 620px a leitura é em COLUNA ÚNICA: os wrappers
-   .ctr-etapa2-cols/-col ficam `display: contents` em toda largura e as seções
-   caem na ordem do DOM. A conferência antes de emitir não depende mais de ver
-   tudo de uma vez — ela virou a tela do documento (RC-D27). ── */
-.ctr-etapa2-cols,
-.ctr-etapa2-col,
-.ctr-pair {
-  display: contents;
-}
-@media (min-width: 901px) {
-  /* Pares de campos lado a lado (Sacas | Preço, Filial | Banco): cabem nos
-     620px do painel. Com 1 campo (ex.: filial ausente em PJ) ele ocupa a linha
-     inteira (flex: 1). No mobile seguem empilhados pelo `display: contents`. */
-  .ctr-etapa2-content .ctr-pair {
-    display: flex;
-    gap: 0.6rem;
-    align-items: flex-start;
-  }
-  .ctr-etapa2-content .ctr-pair > * {
-    flex: 1 1 0;
-    min-width: 0;
-  }
-}
+/* 🪦 RC-D58 (2026-07-28): `.ctr-etapa2-cols`, `.ctr-etapa2-col` e `.ctr-pair`
+   NAO EXISTEM MAIS. Eram o resto do sheet central de 2 colunas (S74): viraram
+   `display: contents` quando o formulario virou painel (RC-D29) e desde entao
+   nao faziam nada em largura nenhuma. Quem divide linha agora e o
+   `.fv-form-row-2col`/`-3col` do kit, aplicado no proprio markup. */
 
-/* Faixa de identidade do lote (RC-D32): no lugar da linha cinza que só dizia
-   "Lote 1234". Fechado o picker, é a única chance de conferir que o lote é o
-   certo — então carrega número, produtor, safra e saldo. */
-.ctr-lot-band {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.3rem 0.5rem;
-  padding: 0.6rem 0.75rem;
+/* ── Cartao de identidade do contrato (RC-D59) ────────────────────────
+   Um lugar so pra TUDO que o formulario nao edita. Antes eram tres
+   apresentacoes diferentes na mesma tela: a faixa com os fatos do lote
+   (`.ctr-lot-band*`, morta aqui), e dois pseudo-campos — numero e tipo — com
+   rotulo e caixa de input desabilitada, que convidavam ao clique e nao faziam
+   nada. Cartao nao parece campo: superficie de canvas, hairline, sem borda de
+   controle. A linha de fatos so aparece na criacao a vista, que e o unico modo
+   em que ha lote carregado. ── */
+.ctr-ident {
+  padding: 0.6rem 0.8rem 0.65rem;
   border: 1px solid var(--fv-line);
   border-radius: var(--fv-radius);
   background: var(--fv-canvas);
 }
-.ctr-lot-band-code {
-  font-size: 0.95rem;
+.ctr-ident-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+.ctr-ident-num {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+.ctr-ident-type {
+  flex: 0 0 auto;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--brand-muted);
+}
+/* Filete separando a identidade do contrato dos fatos do lote — o mesmo peso
+   de hairline do `.fv-form-heading`, que e o vizinho de baixo. */
+.ctr-ident-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem 0.38rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--fv-line);
+  font-size: 0.82rem;
+  color: var(--brand-muted);
+  line-height: 1.35;
+}
+.ctr-ident-fact.is-strong {
   font-weight: 600;
   color: var(--ink);
 }
-.ctr-lot-band-fact {
-  font-size: 0.82rem;
-  color: var(--brand-muted);
-}
-.ctr-lot-band-dot {
+.ctr-ident-dot {
   color: var(--fv-line-strong);
 }
 /* 🪦 RC-D57 (2026-07-28): `.ctr-lotpick-sheet` NAO EXISTE MAIS. A selecao de lote
@@ -28441,21 +28434,24 @@ body.is-selection-mode .mobile-tabbar {
   letter-spacing: 0.04em;
   color: var(--brand-muted);
 }
-/* Bloco da Etapa 2 (Vendedor/Comprador/...): hairline cinza discreta em volta. */
-.ctr-block {
-  display: grid;
-  gap: 0.75rem;
-  padding: clamp(0.7rem, 2.5vw, 0.95rem);
-  border: 1px solid rgba(31, 42, 31, 0.2);
-  border-radius: 12px;
-}
-.ctr-block > .ctr-section-title {
-  margin-top: 0;
-}
+/* 🪦 RC-D60 (2026-07-28): `.ctr-block` NAO EXISTE MAIS. Era a caixa com hairline
+   em volta de cada secao do formulario de emissao — seis molduras aninhadas
+   dentro do painel, que ja e uma superficie. As secoes agora sao
+   `.fv-form-heading` (micro-cabecalho + filete), o padrao do kit. O
+   `.ctr-section-title` continua vivo: quem usa e a SaleContractDetailsModal. */
 .ctr-textarea {
   resize: vertical;
   min-height: 2.5rem;
   font-family: inherit;
+}
+/* RC-D58: Observacoes | Descricao dividem a linha no desktop. No celular o
+   `.fv-form-row-2col` do kit NAO colapsa (e proposital: dois campos curtos
+   lado a lado continuam legiveis), mas dois textareas a ~160px nao sao — entao
+   este par especifico empilha. Escopado ao formulario, nao ao kit. */
+@media (max-width: 900px) {
+  .ctr-etapa2-content .ctr-text-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -32516,6 +32512,13 @@ body.is-selection-mode .mobile-tabbar {
 }
 .fv-form-row-2col {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: end;
+}
+/* Tres campos curtos na mesma linha (Sacas | Preco/saca | Peso). `auto-fit`
+   no lugar de `repeat(3, ...)`: da as tres colunas onde o painel e largo e
+   degrada sozinha pra duas e depois uma, sem media query. */
+.fv-form-row-3col {
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
   align-items: end;
 }
 .fv-form-field {
