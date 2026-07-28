@@ -35,7 +35,7 @@ Um contrato não muda de página no ciclo: **tudo acontece em `/contratos`**. O 
 - **`/embarques`** — **extinta** (RC-D2): `redirect('/contratos')` server-side. Vale para qualquer `?tab=` que viesse junto.
 - **Compat de deep-link:** `/contratos?tab=financeiro` faz `router.replace('/financeiro')`; os demais valores de `?tab=` são **ignorados em silêncio** (a página não tem mais aba para ativar).
 - **`?details=<id>`** (detalhe do contrato) e **`?highlight=<id>`** (pisca/rola até ele, via `useContractHighlight`) continuam iguais — e agora são o **único** esquema de URL de `/contratos`.
-- **Nav:** **2 itens** — "Contratos" (`/contratos`, todo não-PROSPECTOR) e "Financeiro" (`/financeiro`, **só ADMIN**) — na sidenav desktop (DSB-D15) + menu do avatar mobile. O item "Embarques" saiu. Nenhum dos dois tem sub-itens (`NAV_SUB_ITEMS` perdeu as duas entradas; seção sem sub-itens vira link simples).
+- **Nav:** **2 itens** — "Contratos" (`/contratos`, todo não-PROSPECTOR) e "Financeiro" (`/financeiro`, **só ADMIN**). Na **sidenav desktop** os dois aparecem, agora em 3º e 6º lugar (ordem de 2026-07-28: Início · Lotes · **Contratos** · Relatórios · Cadastros · Financeiro · Usuários). No **mobile** eles se separaram: **Contratos é a 3ª aba da tabbar** (2026-07-28) e Financeiro segue no **menu do avatar**, que não repete nenhuma aba da barra. O item "Embarques" saiu. Nenhum dos dois tem sub-itens (`NAV_SUB_ITEMS` perdeu as duas entradas; seção sem sub-itens vira link simples).
 
 ### 2.2 Acesso por papel
 
@@ -242,7 +242,7 @@ _(O `Arquitetura-Tecnica.md` resume o domínio na seção "Modelo de dados" → 
 - `app/embarques/page.tsx` — `redirect('/contratos')` server-side
 - `components/contracts/*` — `ContratosPanel` + `SaleContractCard`; `components/financeiro/*` — `FinanceiroPanel`, `FinanceiroCard`. _(Apagados na RC-F4: `AprovacoesPanel`, `EmbarquePanel`, `AprovacaoCard`, `EmbarqueCard`; na RC-D26: `RecentSendsCard`.)_
 - Modais: `SaleContractEtapa2Modal`, `SaleContractDetailsModal`, `SaleContractLifecycleDialog`, `EspelhoCorretagemModal`, `EspelhoConferenciaModal`, `ApprovalLabelModal`, `ShipmentConfirmationModal` — os **2 últimos abrem de dentro do Detalhes** (RC-D25)
-- `components/AppShell.tsx` / `components/HeaderAvatarMenu.tsx` — os 2 itens de nav (Contratos + Financeiro), sem sub-itens
+- `components/AppShell.tsx` — os 2 itens de nav (Contratos + Financeiro) na sidenav desktop, sem sub-itens, e **Contratos na tabbar mobile** (`MOBILE_NAV_ITEMS`) / `components/HeaderAvatarMenu.tsx` — só Financeiro (Contratos saiu do menu quando virou aba)
 - `lib/roles.ts` — `NON_PROSPECTOR_ROLES`, `CONTRATOS_ROLES`, `FINANCEIRO_ROLES` (= ADMIN), `PAYMENT_FEED_ROLES`
 - `lib/currency.ts`, `lib/types.ts`
 
