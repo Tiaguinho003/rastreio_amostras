@@ -261,11 +261,12 @@ para de respeitar a coluna. **Uma classe `fv-col-*` por coluna, na ordem exata d
 
 **Larguras fixas agrupadas à direita, UMA coluna elástica que absorve a sobra.**
 
-| Página       | Elástica                            | Fixas                                                                        |
-| ------------ | ----------------------------------- | ---------------------------------------------------------------------------- |
-| `/samples`   | `fv-col-owner` (`min-width: 150px`) | lote 232px · sacas/safra/padrão/bebida/catação **112px cada** · ações 58px   |
-| `/cadastros` | `fv-col-contact`                    | cliente 32% · status 120px · doc 170px · atualizado 120px · ações 58px       |
-| `/users`     | `fv-col-contact`                    | usuário 32% · perfil 150px · status 120px · último acesso 120px · ações 58px |
+| Página       | Elástica                              | Fixas                                                                        |
+| ------------ | ------------------------------------- | ---------------------------------------------------------------------------- |
+| `/samples`   | `fv-col-owner` (`min-width: 150px`)   | lote 232px · sacas/safra/padrão/bebida/catação **112px cada** · ações 58px   |
+| `/cadastros` | `fv-col-contact`                      | cliente 32% · status 120px · doc 170px · atualizado 120px · ações 58px       |
+| `/users`     | `fv-col-contact`                      | usuário 32% · perfil 150px · status 120px · último acesso 120px · ações 58px |
+| `/contratos` | `fv-col-parties` (`min-width: 200px`) | contrato 148px · sacas 112px · datas 168px · status 120px · ações 58px       |
 
 Características do mesmo tipo (as cinco de `/samples`) levam a **mesma largura**: mesmo vão entre
 si, bloco visualmente coeso à direita. A identidade do registro fica à esquerda e ganha a sobra.
@@ -570,3 +571,7 @@ Ao tocar nestes pontos, alinhe:
 - **Loading inicial do `/cadastros`**: ainda texto, não skeleton.
 - **`.fv-table-lotes`**: classe aplicada no JSX de `/samples` sem regra CSS correspondente. Ou ganha
   regra, ou sai.
+- **Card mobile de `/contratos`** (`SaleContractCard`): a página entrou no kit pela RC-F6, mas o
+  **conteúdo** do card ficou de fora por decisão do Flavio — só a moldura em volta dele mudou. Não é
+  o `.cv2-card` do §"O card da lista"; é o `.ctr-card` legado. A rodada seguinte migra.
+- **`/financeiro`**: única lista ainda fora do kit — `.hero-search-wrap` própria, sem `.fv-toolbar`.

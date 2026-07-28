@@ -3066,7 +3066,8 @@ function SamplesPage() {
           (desktop = painel direito bloqueante; mobile = bottom sheet, mesma
           excecao deliberada de /cadastros). Mesmo rascunho + Aplicar/Limpar; o
           Aplicar do rodape submete o form via `form=`. O modal central
-          `.samples-filter-modal` morreu — o CSS dele ainda serve /contratos. */}
+          `.samples-filter-modal` morreu, e o CSS dele foi removido quando
+          /contratos — o ultimo consumidor — migrou tambem (RC-D47). */}
       <BottomSheet
         open={filtersOpen}
         onClose={closeFilters}

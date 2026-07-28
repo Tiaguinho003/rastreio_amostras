@@ -58,13 +58,16 @@ O alias fica assim, e é assim que se lê um no arquivo:
 **Um prefixo com nome de página não é escopo de página.** Quase todos foram reusados por outras
 telas. Consumidores hoje:
 
-| Prefixo   | Arquivos | Nasceu em           | Também serve                                               |
-| --------- | -------- | ------------------- | ---------------------------------------------------------- |
-| `.sdv-*`  | 33       | detalhe da amostra  | detalhe do cliente, e outros                               |
-| `.spv2-*` | 19       | lista de `/samples` | `/cadastros`, `/users`, `/profile`, contratos, financeiro  |
-| `.ctr-*`  | 15       | `/contratos`        | `/financeiro` (casca `.ctr-page`), embarque, espelho, ágio |
-| `.cv2-*`  | 8        | lista de clientes   | `/samples` e outras listas                                 |
-| `.rsm-*`  | 6        | `/relatorios`       | feed do dashboard do prospector                            |
+| Prefixo   | Arquivos | Nasceu em           | Também serve                                                 |
+| --------- | -------- | ------------------- | ------------------------------------------------------------ |
+| `.sdv-*`  | 33       | detalhe da amostra  | detalhe do cliente, e outros                                 |
+| `.spv2-*` | 19       | lista de `/samples` | `/cadastros`, `/users`, `/profile`, contratos, financeiro    |
+| `.ctr-*`  | 13       | `/contratos`        | `/financeiro` (casca `.ctr-page`), espelho, ágio, embarque\* |
+| `.cv2-*`  | 8        | lista de clientes   | `/samples` e outras listas                                   |
+| `.rsm-*`  | 6        | `/relatorios`       | feed do dashboard do prospector                              |
+
+> \* **embarque = o `ShipmentConfirmationModal`, não uma página** — `/embarques` foi extinta na RC-F1
+> (2026-07-27) e o embarque virou seção do detalhe do contrato.
 
 > **`.cdm-*` não existe mais.** Nasceu no modal de cliente, sobreviveu servindo o modal de `/users`
 > (§2.11 U6) e depois só pelo botão salvar de `/profile`; as últimas 9 regras saíram na §2.12 P3.
@@ -141,6 +144,23 @@ Duas verificações que fecham o buraco:
 
 E confirme o resultado por **diferença de conjuntos de seletores** antes/depois (`postcss.parse`),
 não pelo diff: o número que importa é "saiu algo que não continha token morto?".
+
+### 🔴 Regra agrupada: remover o SELETOR, não a regra
+
+O script de poda encontra a classe morta dentro de uma regra que tem **vários seletores** — e
+apagar a regra inteira leva junto os vivos. Aconteceu na RC-F6: uma passada removeu
+`.sample-detail-reclassify-actions` e o dropdown do `client-lookup` dentro do
+`.samples-filter-sheet`, os dois em produção, porque dividiam a chave `{ }` com um seletor morto.
+
+```js
+const alive = rule.selectors.filter((s) => !DEAD.test(s));
+if (alive.length === 0) rule.remove();
+else if (alive.length !== rule.selectors.length) rule.selectors = alive;
+```
+
+Duas consequências práticas: a poda relata **dois** números (regras removidas **e** regras
+_aparadas_), e o `git checkout` que conserta um estrago desses leva junto qualquer adição feita no
+mesmo arquivo na mesma sessão — reaplique-as depois de reverter.
 
 ---
 
