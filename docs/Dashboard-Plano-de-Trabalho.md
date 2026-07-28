@@ -14,6 +14,8 @@ Documentos relacionados: `Dashboard-Visao-Geral.md` (estado atual), `Revisao-Ger
 >
 > Também: o **feed de pagamento** do calendário agora é gateado por `PAYMENT_FEED_ROLES` (todo não-PROSPECTOR), e **não** por `FINANCEIRO_ROLES`, que virou ADMIN-only (**RC-D5**) — sem essa partição, 4 dos 5 papéis teriam perdido o pagamento no calendário.
 
+> ⚠️ **2026-07-14 → superado: a estrutura visual do DSB-D15 não existe mais.** O **RD13** trocou o desenho da sidenav (a decisão de _ter_ sidenav lateral no desktop continua valendo; o _como_ não). Fica abaixo como história — **o que vale hoje** está na skill `design-system` ("Chrome desktop"): painel **único** branco de altura inteira, sem o trilho de 2 colunas; `.app-sidenav-rail`, `.app-sidenav-panel` e o dropup `.app-sidenav-profile-menu` **não existem** no `globals.css`; o avatar migrou para a top bar; e o item ativo é fundo **neutro** `--fv-active-bg`, não a pílula verde. A **ordem** dos itens é de 2026-07-28 (ver `Auditoria-Navegacao-por-Papel.md`, errata do topo).
+
 ---
 
 ## 1. Protocolo de trabalho

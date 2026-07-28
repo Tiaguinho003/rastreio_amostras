@@ -1,6 +1,34 @@
 # Auditoria de Navegacao por Papel de Usuario
 
-> ## 🔴 Errata estrutural (2026-07-27) — a mais recente, leia primeiro
+> ## 🔴 Errata estrutural (2026-07-28) — a mais recente, leia primeiro
+>
+> Pedido direto do Flavio: a **ORDEM** das duas barras foi fixada e a tabbar mobile
+> passou a ter **5 abas**. Isso invalida o **item 3 da errata de 2026-07-27** (ordem da
+> sidenav), o **item 5** dela (menu do avatar) e o **item 2 da errata de 2026-07-22**
+> (tabbar de 4 itens). As **regras de acesso nao mudaram** — nenhum papel ganhou ou
+> perdeu pagina; o que mudou foi ONDE cada uma fica.
+>
+> 1. **Sidenav desktop, ordem definitiva:** Inicio · Lotes · **Contratos**
+>    (`CONTRATOS_ROLES`) · Relatorios (`INFORME_ROLES`) · Cadastros · **Financeiro**
+>    (ADMIN) · Usuarios (ADMIN). Contratos subiu de 5o para 3o; Relatorios e Cadastros
+>    desceram uma casa cada.
+> 2. **Tabbar mobile: 5 abas FIXAS** — Inicio `/dashboard` · Lotes `/samples` ·
+>    **Contratos `/contratos`** · Cadastros `/cadastros` · Relatorios `/relatorios`.
+>    **Nao ha mais slot mutuamente exclusivo.** O 4o slot alternava Relatorios/Perfil
+>    para manter 4 itens em todo papel, mas desde o acesso unificado de 2026-07-15
+>    `INFORME_ROLES === NON_PROSPECTOR_ROLES` — ou seja, todo papel que enxerga a tabbar
+>    ja estava em `INFORME_ROLES` e o ramo do Perfil **nunca renderizava**. Era codigo
+>    morto e foi removido. **Os 5 papeis nao-PROSPECTOR veem as mesmas 5 abas.**
+> 3. **Menu do avatar (mobile):** Perfil · Usuarios (ADMIN) · **Financeiro (ADMIN)** ·
+>    Sair. **Cadastros e Contratos SAIRAM** — quem esta na tabbar nao se repete no menu.
+>    Onde o corpo lista Cadastros ou Contratos como item do menu do avatar, leia "aba da
+>    tabbar".
+> 4. **PROSPECTOR inalterado:** segue sem tabbar (`hideMobileTabbar`) e sem sidenav.
+>
+> Fonte de verdade: `MOBILE_NAV_ITEMS` e `desktopNavItems` em `components/AppShell.tsx`,
+> `components/HeaderAvatarMenu.tsx`, `lib/roles.ts`.
+
+> ## 🔴 Errata estrutural (2026-07-27) — leia em seguida
 >
 > A **RC-F1 + RC-F4** (`Contratos-Plano-de-Trabalho.md` §5.9) reorganizou o dominio de
 > contratos. Isso invalida a **linha "Embarques"** e a **linha `/financeiro`** em todas
@@ -30,7 +58,7 @@
 > `lib/roles.ts`. A matriz de acesso do dominio de contratos e do
 > `Contratos-Visao-Geral.md` §2.2 — este doc segue apontando pra la.
 
-> ## 🔴 Errata estrutural (2026-07-22) — leia antes das tabelas
+> ## 🔴 Errata estrutural (2026-07-22) — a mais antiga; leia antes das tabelas
 >
 > O corpo deste doc e um levantamento de 2026-06-28, com emendas ate 2026-07-15. Tres
 > mudancas posteriores invalidaram afirmacoes que aparecem **dezenas de vezes** nas
@@ -143,11 +171,12 @@ compartilham a mesma fonte de estado (`useInformeCreateSheets`), então não há
 escape de um gate. Visão geral da página: `docs/Relatorios-Visao-Geral.md`.
 
 > ⚠️ **Ressalva sobre a TABBAR nas tabelas abaixo** — elas listam **5 itens com "Câmera" no centro**.
-> Isso está **desatualizado**: a CAM-P3 tirou o slot central (a câmera virou bottom sheet global, aberta
-> pelo ícone do header) e a tabbar tem hoje **4 slots** — Início · Lotes · Cadastros · e um 5º
-> mutuamente exclusivo (Relatórios para quem está em `INFORME_ROLES`, Perfil para quem não está), como
-> já diz o resumo no topo deste doc. A correção linha a linha das seções por papel pertence ao ciclo
-> **Shell & Navegação** (`docs/Shell-e-Navegacao-Plano-de-Trabalho.md` §5.1, inventário já verificado).
+> Isso está **desatualizado** por duas mudanças: a CAM-P3 tirou o slot central (a câmera virou bottom
+> sheet global, aberta pelo ícone do header) e, em **2026-07-28**, a barra foi fixada em **5 abas
+> iguais para todo papel** — Início · Lotes · **Contratos** · Cadastros · Relatórios —, sem o slot
+> mutuamente exclusivo que existiu no meio do caminho. Vale a **errata do topo deste doc**. A correção
+> linha a linha das seções por papel continua pertencendo ao ciclo **Shell & Navegação**
+> (`docs/Shell-e-Navegacao-Plano-de-Trabalho.md` §5.1).
 
 ## Como ler este documento
 
@@ -428,11 +457,11 @@ paginas de clientes por navegacao direta.)_
 # Detalhe por papel
 
 > **ACESSO UNIFICADO (2026-07-15):** depois desta data os **cinco papéis
-> não-PROSPECTOR compartilham a MESMA navegação** — a do ADMIN **menos "Usuários"**:
-> sidenav desktop `Início · Lotes · Relatórios · Cadastros · Contratos · Embarques`;
-> tabbar mobile (5) `Início · Lotes · Câmera · Cadastros · Relatórios`; menu do avatar
-> desktop `Perfil · Sair`, mobile `Perfil · Cadastros · Contratos · Embarques · Sair`.
-> Só o ADMIN acrescenta **"Usuários"** (sidenav 7; avatar mobile 6). O item "Clientes"
+> não-PROSPECTOR compartilham a MESMA navegação** — a do ADMIN **menos "Usuários"** (e,
+> desde a RC-D3, menos "Financeiro"). Esta regra continua valendo; o que envelheceu
+> foram as **listas** que ela citava (sidenav com "Embarques", tabbar com "Câmera",
+> avatar com Cadastros/Contratos). **As listas atuais estão na errata de 2026-07-28, no
+> topo deste doc** — uma cópia só, para não voltarem a divergir. O item "Clientes"
 > avulso saiu da nav de todos; Câmera só tem botão na tabbar mobile. As seções abaixo
 > mantêm por papel só as **particularidades de conteúdo** e o histórico; as tabelas de
 > nav apenas reafirmam esse conjunto comum. (PROSPECTOR à parte — app restrito.)
