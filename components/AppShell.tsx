@@ -455,20 +455,21 @@ export function AppShell({
     typeof session.user.fullName === 'string' && session.user.fullName.trim().length > 0
       ? session.user.fullName.trim()
       : session.user.username;
-  // Navegacao principal (desktop) montada por papel. Ordem (pedido do usuario):
-  // Inicio / Lotes (base) -> Relatorios (INFORME_ROLES) -> Cadastros (todo
-  // nao-PROSPECTOR) -> Contratos/Financeiro -> Usuarios (ADMIN). Itens
-  // condicionais somem por papel mantendo essa ordem relativa.
+  // Navegacao principal (desktop) montada por papel. Ordem (pedido do usuario,
+  // 2026-07-28): Inicio / Lotes (base) -> Contratos (CONTRATOS_ROLES) ->
+  // Relatorios (INFORME_ROLES) -> Cadastros (todo nao-PROSPECTOR) ->
+  // Financeiro (ADMIN) -> Usuarios (ADMIN). Itens condicionais somem por papel
+  // mantendo essa ordem relativa.
   const desktopNavItems = prospector
     ? DESKTOP_NAV_ITEMS.filter((item) => item.href === '/dashboard')
     : [
         ...DESKTOP_NAV_ITEMS,
-        ...(isRoleAllowed(session.user.role, INFORME_ROLES) ? [INFORME_NAV_ITEM] : []),
-        CADASTROS_NAV_ITEM,
         // RC-D1/RC-D2/RC-D3: "Contratos" p/ todo não-PROSPECTOR e "Financeiro"
         // (página própria de novo) só p/ ADMIN. "Embarques" saiu — a rota foi
         // extinta e virou fase dentro do contrato. Usuários segue ADMIN-only.
         ...(isRoleAllowed(session.user.role, CONTRATOS_ROLES) ? [CONTRATOS_NAV_ITEM] : []),
+        ...(isRoleAllowed(session.user.role, INFORME_ROLES) ? [INFORME_NAV_ITEM] : []),
+        CADASTROS_NAV_ITEM,
         ...(isRoleAllowed(session.user.role, FINANCEIRO_ROLES) ? [FINANCEIRO_NAV_ITEM] : []),
         ...(isAdmin(session.user.role) ? [ADMIN_NAV_ITEM] : []),
       ];
