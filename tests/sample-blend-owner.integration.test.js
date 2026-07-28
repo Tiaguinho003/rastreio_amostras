@@ -89,9 +89,9 @@ if (!databaseUrl || !databaseReachable) {
     await prisma.sample.update({ where: { id }, data: { status: 'CLASSIFIED' } });
   }
 
-  async function createBlend({ clientDraftId, components, lotNumber, ownerClientId, ownerFixed }) {
+  async function createBlend({ clientDraftId, components, lotNumber, ownerClientId }) {
     return commandService.createBlend(
-      { clientDraftId, components, sampleLotNumber: lotNumber, ownerClientId, ownerFixed },
+      { clientDraftId, components, sampleLotNumber: lotNumber, ownerClientId },
       actor
     );
   }
@@ -113,7 +113,11 @@ if (!databaseUrl || !databaseReachable) {
 
   async function ownerOf(sampleId) {
     const row = await prisma.sample.findUnique({ where: { id: sampleId } });
-    return { ownerClientId: row.ownerClientId, declaredOwner: row.declaredOwner };
+    return {
+      ownerClientId: row.ownerClientId,
+      declaredOwner: row.declaredOwner,
+      blendOwnerPinned: row.blendOwnerPinned,
+    };
   }
 
   async function blendRow(sampleId) {
@@ -130,8 +134,10 @@ if (!databaseUrl || !databaseReachable) {
     await resetDatabase();
   });
 
-  // 1. Criação: origens do mesmo dono -> liga herda
-  test('createBlend herda o dono quando todas as origens sao do mesmo cliente', async () => {
+  // 1. Criação: o dono vem ESCOLHIDO (RC-D38). Origens unânimes é o caso em que a
+  // tela pré-preenche com esse mesmo cliente — o backend não deriva mais nada,
+  // só grava o que recebeu, e sempre fixado.
+  test('createBlend grava o dono escolhido e o fixa (origens do mesmo cliente)', async () => {
     const c1 = randomUUID();
     await createClient(c1, 'Joao');
     const o1 = randomUUID();
@@ -158,15 +164,17 @@ if (!databaseUrl || !databaseReachable) {
         { originSampleId: o2, contributedSacks: 10 },
       ],
       lotNumber: '30003',
+      ownerClientId: c1,
     });
 
     const owner = await ownerOf(blend.sample.id);
     assert.equal(owner.ownerClientId, c1);
-    assert.equal(owner.declaredOwner, 'Joao');
+    assert.equal(owner.blendOwnerPinned, true, 'toda liga nova nasce fixada (RC-D38)');
   });
 
-  // 2. Criação: origens de donos diferentes -> liga sem dono
-  test('createBlend fica sem dono quando as origens sao de clientes diferentes', async () => {
+  // 2. Criação: sem dono escolhido -> 422 (RC-D38). Era aqui que nascia a liga
+  // sem dono, quando as origens divergiam: o backend derivava null e seguia.
+  test('createBlend sem dono e 422, mesmo com origens de clientes diferentes', async () => {
     const c1 = randomUUID();
     const c2 = randomUUID();
     await createClient(c1, 'Joao');
@@ -188,18 +196,21 @@ if (!databaseUrl || !databaseReachable) {
       ownerName: 'Maria',
     });
 
-    const blend = await createBlend({
-      clientDraftId: 'd-own-2',
-      components: [
-        { originSampleId: o1, contributedSacks: 10 },
-        { originSampleId: o2, contributedSacks: 10 },
-      ],
-      lotNumber: '31003',
-    });
+    await assert.rejects(
+      createBlend({
+        clientDraftId: 'd-own-2',
+        components: [
+          { originSampleId: o1, contributedSacks: 10 },
+          { originSampleId: o2, contributedSacks: 10 },
+        ],
+        lotNumber: '31003',
+      }),
+      (error) => error.status === 422 && /ownerClientId is required/.test(error.message)
+    );
 
-    const owner = await ownerOf(blend.sample.id);
-    assert.equal(owner.ownerClientId, null);
-    assert.equal(owner.declaredOwner, null);
+    // E nada foi criado — a liga nao nasce pela metade.
+    const created = await prisma.sample.findFirst({ where: { internalLotNumber: '31003' } });
+    assert.equal(created, null);
   });
 
   // 3. Propagação só-owner: liga unânime vira mista ao trocar o dono de um lote
@@ -234,6 +245,7 @@ if (!databaseUrl || !databaseReachable) {
         { originSampleId: o2, contributedSacks: 10 },
       ],
       lotNumber: '32003',
+      ownerClientId: c1,
     });
     assert.equal((await ownerOf(blend.sample.id)).ownerClientId, c1);
 
@@ -284,6 +296,7 @@ if (!databaseUrl || !databaseReachable) {
         { originSampleId: o2, contributedSacks: 10 },
       ],
       lotNumber: '33003',
+      ownerClientId: c1,
     });
 
     // Sem confirmacao: aplica direto, sem 409.
@@ -296,7 +309,7 @@ if (!databaseUrl || !databaseReachable) {
 
   // Dono fixado: um dono escolhido a mao (terceiro) fica FIXADO — editar uma
   // origem depois nao muda o dono da liga (so a safra deriva).
-  test('dono fixado: createBlend com ownerFixed fixa um terceiro; editar origem nao muda o dono', async () => {
+  test('dono fixado: createBlend fixa um terceiro; editar origem nao muda o dono', async () => {
     const luis = randomUUID();
     const junior = randomUUID();
     const joao = randomUUID();
@@ -329,7 +342,6 @@ if (!databaseUrl || !databaseReachable) {
       ],
       lotNumber: '31003',
       ownerClientId: joao,
-      ownerFixed: true,
     });
     assert.equal((await ownerOf(blend.sample.id)).ownerClientId, joao);
     assert.equal((await blendRow(blend.sample.id)).blendOwnerPinned, true);
@@ -345,9 +357,11 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  // Dono fixado — "carteira da corretora" (fixado + owner null): sobrevive a
-  // edicao de origem; a safra continua derivando.
-  test('dono fixado: carteira (fixado null) permanece; a safra ainda deriva das origens', async () => {
+  // Legado — "carteira da corretora" (fixado + owner null): a RC-D38 tirou esse
+  // estado da CRIACAO, mas ele existe em ligas antigas e tem que continuar
+  // sobrevivendo a edicao de origem, com a safra derivando normalmente. Por isso
+  // o cenario e montado direto na projecao: a API nao o produz mais.
+  test('legado: carteira (fixado null) permanece; a safra ainda deriva das origens', async () => {
     const c1 = randomUUID();
     await createClient(c1, 'C1');
     const o1 = randomUUID();
@@ -367,7 +381,6 @@ if (!databaseUrl || !databaseReachable) {
       ownerName: 'C1',
     });
 
-    // Carteira da corretora: ownerFixed=true, ownerClientId=null (sem dono, fixado).
     const blend = await createBlend({
       clientDraftId: 'd-pin-2',
       components: [
@@ -375,8 +388,14 @@ if (!databaseUrl || !databaseReachable) {
         { originSampleId: o2, contributedSacks: 10 },
       ],
       lotNumber: '31012',
-      ownerClientId: null,
-      ownerFixed: true,
+      ownerClientId: c1,
+    });
+    // Rebaixa para o estado LEGADO "carteira da corretora": fixado, sem dono.
+    // Direto na projecao — o servico recusaria (RC-D38 na criacao, e limpar o
+    // dono de um lote vinculado sempre foi proibido).
+    await prisma.sample.update({
+      where: { id: blend.sample.id },
+      data: { ownerClientId: null, declaredOwner: null, blendOwnerPinned: true },
     });
     assert.equal((await ownerOf(blend.sample.id)).ownerClientId, null);
     assert.equal((await blendRow(blend.sample.id)).blendOwnerPinned, true);
@@ -423,7 +442,6 @@ if (!databaseUrl || !databaseReachable) {
       ownerClientId: c1,
       ownerName: 'C1',
     });
-    // Liga nao-fixada (herda c1, reativa).
     const blend = await createBlend({
       clientDraftId: 'd-pin-3',
       components: [
@@ -431,6 +449,13 @@ if (!databaseUrl || !databaseReachable) {
         { originSampleId: o2, contributedSacks: 10 },
       ],
       lotNumber: '31022',
+      ownerClientId: c1,
+    });
+    // Rebaixa para LEGADO nao-fixado: desde a RC-D38 toda liga nova nasce fixada,
+    // e o auto-pin so tem o que fazer numa liga antiga.
+    await prisma.sample.update({
+      where: { id: blend.sample.id },
+      data: { blendOwnerPinned: false },
     });
     assert.equal((await blendRow(blend.sample.id)).blendOwnerPinned, false);
 
@@ -483,6 +508,7 @@ if (!databaseUrl || !databaseReachable) {
         { originSampleId: o2, contributedSacks: 10 },
       ],
       lotNumber: '34003',
+      ownerClientId: c1,
     });
 
     // Filtrar por c1 traz o1 (dono direto) + a liga (origem c1).
@@ -526,6 +552,7 @@ if (!databaseUrl || !databaseReachable) {
         { originSampleId: o2, contributedSacks: 10 },
       ],
       lotNumber: '35003',
+      ownerClientId: c1,
     });
 
     const onlyBlends = await queryService.listSamples({ isBlend: true });

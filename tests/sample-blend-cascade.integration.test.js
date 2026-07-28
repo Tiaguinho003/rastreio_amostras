@@ -14,6 +14,10 @@ import { SALE_CONTRACT_TEST_FIELDS, seedTestBroker } from './helpers/sale-contra
 const databaseUrl = process.env.DATABASE_URL;
 const databaseReachable = await canReachDatabase(databaseUrl);
 
+// RC-D38: createBlend passou a exigir dono. Um cliente fixo serve a todos os
+// cenarios — quem varia nos testes e a composicao da liga, nao o dono.
+const BLEND_OWNER_ID = '00000000-0000-4000-8000-0000000000b1';
+
 if (!databaseUrl || !databaseReachable) {
   test.skip('integration tests require DATABASE_URL and reachable PostgreSQL', () => {});
 } else {
@@ -90,6 +94,9 @@ if (!databaseUrl || !databaseReachable) {
       registrationConfirmedEvent(id, {
         payload: {
           sampleLotNumber: lotNumber,
+          // RC-D39: venda exige dono no lote — os lotes destes cenarios sao
+          // vendidos direto ou por cascata.
+          ownerClientId: BLEND_OWNER_ID,
           declared: {
             owner: 'Produtor',
             sacks: declaredSacks,
@@ -109,6 +116,9 @@ if (!databaseUrl || !databaseReachable) {
       registrationConfirmedEvent(id, {
         payload: {
           sampleLotNumber: lotNumber,
+          // RC-D39: venda exige dono no lote — os lotes destes cenarios sao
+          // vendidos direto ou por cascata.
+          ownerClientId: BLEND_OWNER_ID,
           declared: {
             owner: 'Produtor',
             sacks: declaredSacks,
@@ -130,6 +140,18 @@ if (!databaseUrl || !databaseReachable) {
 
   test.beforeEach(async () => {
     await resetDatabase();
+    await prisma.client.create({
+      data: {
+        id: BLEND_OWNER_ID,
+        personType: 'PF',
+        fullName: 'Dono da liga',
+        // ACTIVE + isSeller: o `resolveOwnerBinding` real (usado pelos testes de API)
+        // recusa cliente inativo ou nao-vendedor. O gatilho que exigia usuario
+        // comercial num cliente ACTIVE foi dropado em 20260701120000.
+        status: 'ACTIVE',
+        isSeller: true,
+      },
+    });
     await seedTestBroker(prisma);
   });
 
@@ -146,6 +168,7 @@ if (!databaseUrl || !databaseReachable) {
     const blend = await commandService.createBlend(
       {
         clientDraftId: 'draft-cascade-1',
+        ownerClientId: BLEND_OWNER_ID,
         components: [
           { originSampleId: origin1Id, contributedSacks: 20 },
           { originSampleId: origin2Id, contributedSacks: 25 },
@@ -226,6 +249,7 @@ if (!databaseUrl || !databaseReachable) {
     const blend = await commandService.createBlend(
       {
         clientDraftId: 'draft-cascade-registered',
+        ownerClientId: BLEND_OWNER_ID,
         components: [
           { originSampleId: registeredOriginId, contributedSacks: 10 },
           { originSampleId: classifiedOriginId, contributedSacks: 30 },
@@ -279,6 +303,7 @@ if (!databaseUrl || !databaseReachable) {
     const ligaA = await commandService.createBlend(
       {
         clientDraftId: 'draft-A',
+        ownerClientId: BLEND_OWNER_ID,
         components: [
           { originSampleId: x1, contributedSacks: 10 },
           { originSampleId: x2, contributedSacks: 15 },
@@ -296,6 +321,7 @@ if (!databaseUrl || !databaseReachable) {
     const ligaB = await commandService.createBlend(
       {
         clientDraftId: 'draft-B',
+        ownerClientId: BLEND_OWNER_ID,
         components: [
           { originSampleId: ligaA.sample.id, contributedSacks: 25 }, // 100% de A
           { originSampleId: y, contributedSacks: 15 },
@@ -366,6 +392,7 @@ if (!databaseUrl || !databaseReachable) {
     const blend = await commandService.createBlend(
       {
         clientDraftId: 'draft-block',
+        ownerClientId: BLEND_OWNER_ID,
         components: [
           { originSampleId: origin1Id, contributedSacks: 5 },
           { originSampleId: origin2Id, contributedSacks: 8 },
@@ -421,6 +448,7 @@ if (!databaseUrl || !databaseReachable) {
     const blend = await commandService.createBlend(
       {
         clientDraftId: 'draft-partial-ok',
+        ownerClientId: BLEND_OWNER_ID,
         components: [
           { originSampleId: origin1Id, contributedSacks: 5 },
           { originSampleId: origin2Id, contributedSacks: 8 },
@@ -468,6 +496,7 @@ if (!databaseUrl || !databaseReachable) {
     const blend = await commandService.createBlend(
       {
         clientDraftId: 'draft-loss',
+        ownerClientId: BLEND_OWNER_ID,
         components: [
           { originSampleId: origin1Id, contributedSacks: 6 },
           { originSampleId: origin2Id, contributedSacks: 9 },
@@ -516,6 +545,7 @@ if (!databaseUrl || !databaseReachable) {
     const blend = await commandService.createBlend(
       {
         clientDraftId: 'draft-cancel-1',
+        ownerClientId: BLEND_OWNER_ID,
         components: [
           { originSampleId: origin1Id, contributedSacks: 20 },
           { originSampleId: origin2Id, contributedSacks: 25 },
@@ -576,6 +606,7 @@ if (!databaseUrl || !databaseReachable) {
     const blend = await commandService.createBlend(
       {
         clientDraftId: 'draft-cancel-2',
+        ownerClientId: BLEND_OWNER_ID,
         components: [
           { originSampleId: origin1Id, contributedSacks: 20 },
           { originSampleId: origin2Id, contributedSacks: 25 },
@@ -639,6 +670,7 @@ if (!databaseUrl || !databaseReachable) {
     const blend = await commandService.createBlend(
       {
         clientDraftId: 'draft-cancel-3',
+        ownerClientId: BLEND_OWNER_ID,
         components: [
           { originSampleId: origin1Id, contributedSacks: 12 },
           { originSampleId: origin2Id, contributedSacks: 8 },
@@ -697,6 +729,7 @@ if (!databaseUrl || !databaseReachable) {
     const blend = await commandService.createBlend(
       {
         clientDraftId: 'draft-update-1',
+        ownerClientId: BLEND_OWNER_ID,
         components: [
           { originSampleId: origin1Id, contributedSacks: 20 },
           { originSampleId: origin2Id, contributedSacks: 25 },
@@ -754,6 +787,7 @@ if (!databaseUrl || !databaseReachable) {
     const blend = await commandService.createBlend(
       {
         clientDraftId: 'draft-guard-1',
+        ownerClientId: BLEND_OWNER_ID,
         components: [
           { originSampleId: origin1Id, contributedSacks: 20 },
           { originSampleId: origin2Id, contributedSacks: 25 },
@@ -812,6 +846,7 @@ if (!databaseUrl || !databaseReachable) {
     const blend = await commandService.createBlend(
       {
         clientDraftId: 'draft-update-reject',
+        ownerClientId: BLEND_OWNER_ID,
         components: [
           { originSampleId: origin1Id, contributedSacks: 20 },
           { originSampleId: origin2Id, contributedSacks: 25 },
@@ -868,6 +903,7 @@ if (!databaseUrl || !databaseReachable) {
     const blend = await commandService.createBlend(
       {
         clientDraftId: 'draft-cascaded-flag-1',
+        ownerClientId: BLEND_OWNER_ID,
         components: [
           { originSampleId: origin1Id, contributedSacks: 20 },
           { originSampleId: origin2Id, contributedSacks: 25 },
@@ -938,6 +974,7 @@ if (!databaseUrl || !databaseReachable) {
     const blend = await commandService.createBlend(
       {
         clientDraftId: 'draft-cascaded-flag-2',
+        ownerClientId: BLEND_OWNER_ID,
         components: [
           { originSampleId: origin1Id, contributedSacks: 20 },
           { originSampleId: origin2Id, contributedSacks: 25 },

@@ -108,10 +108,8 @@ export interface BlendCreateOptions {
   lotNumber: string | null;
   lotNumberManual: boolean;
   receivedDate: string | null;
-  /** Dono ESCOLHIDO da liga; null = "carteira da corretora". Liga (dono fixado). */
-  ownerClientId: string | null;
-  /** Sempre true na criação pela UI: o dono escolhido nasce fixado (herda e fixa). */
-  ownerFixed: boolean;
+  /** RC-D38: dono ESCOLHIDO da liga — obrigatório, e sempre nasce fixado. */
+  ownerClientId: string;
 }
 
 interface BlendConfirmationSheetProps {
@@ -269,11 +267,11 @@ export function BlendConfirmationSheet({
   const [blendReceivedDate, setBlendReceivedDate] = useState(() => todayAsInputDate());
   const blendLotEditedRef = useRef(false);
 
-  // Liga (dono fixado): dono ESCOLHIDO da liga. Pre-preenche com o dono unanime
-  // (quando ha); divergente/sem dono -> escolha obrigatoria. "Carteira da
-  // corretora" (ownerIsCorretora) = sem dono, mas escolha explicita (fixada).
+  // RC-D38: dono ESCOLHIDO da liga — obrigatorio. Pre-preenche com o dono unanime
+  // das origens; quando elas divergem, o campo nasce vazio e a escolha e do
+  // operador. Nao ha mais saida "carteira da corretora": liga sem dono so existe
+  // como estado legado, e nao vende (RC-D39).
   const [selectedOwnerClient, setSelectedOwnerClient] = useState<ClientSummary | null>(null);
-  const [ownerIsCorretora, setOwnerIsCorretora] = useState(false);
   const ownerTouchedRef = useRef(false);
 
   // Dono unanime das origens (mesma regra do deriveBlendOwner do backend): todas
@@ -321,7 +319,6 @@ export function BlendConfirmationSheet({
       setBlendReceivedDate(todayAsInputDate());
       blendLotEditedRef.current = false;
       setSelectedOwnerClient(null);
-      setOwnerIsCorretora(false);
       ownerTouchedRef.current = false;
     }
   }, [open]);
@@ -374,8 +371,8 @@ export function BlendConfirmationSheet({
   const canProceed = useMemo(() => {
     if (samples.length < 2) return false;
     if (total <= 0) return false;
-    // Liga (dono fixado): escolha do dono é obrigatória (um cliente OU carteira).
-    if (!selectedOwnerClient && !ownerIsCorretora) return false;
+    // RC-D38: a liga nasce com dono — sem cliente escolhido, não cria.
+    if (!selectedOwnerClient) return false;
     for (const sample of samples) {
       if (state.removing[sample.id]) continue;
       // Valida sempre (sem depender de touched) pra travar Continuar
@@ -384,10 +381,10 @@ export function BlendConfirmationSheet({
       if (validate(value, sample) !== null) return false;
     }
     return true;
-  }, [samples, state.values, state.removing, total, selectedOwnerClient, ownerIsCorretora]);
+  }, [samples, state.values, state.removing, total, selectedOwnerClient]);
 
   function handleProceedClick() {
-    if (!canProceed) return;
+    if (!canProceed || !selectedOwnerClient) return;
     const components: BlendContribution[] = samples
       .filter((s) => !state.removing[s.id])
       .map((s) => ({
@@ -401,9 +398,8 @@ export function BlendConfirmationSheet({
       lotNumber: trimmedLot || null,
       lotNumberManual,
       receivedDate: blendReceivedDate || null,
-      // Liga (dono fixado): o dono escolhido (ou carteira = null) nasce fixado.
-      ownerClientId: selectedOwnerClient?.id ?? null,
-      ownerFixed: true,
+      // RC-D38: o dono escolhido nasce fixado.
+      ownerClientId: selectedOwnerClient.id,
     });
   }
 
@@ -493,33 +489,16 @@ export function BlendConfirmationSheet({
                 label="Dono da liga"
                 kind="owner"
                 selectedClient={selectedOwnerClient}
-                disabled={submitting || ownerIsCorretora}
+                disabled={submitting}
                 placeholder="Buscar cliente…"
                 emptyMessage="Nenhum cliente encontrado."
                 onSelectClient={(client) => {
                   ownerTouchedRef.current = true;
                   setSelectedOwnerClient(client);
-                  if (client) setOwnerIsCorretora(false);
                 }}
               />
-              <label className="blend-conf-owner-toggle">
-                <input
-                  type="checkbox"
-                  checked={ownerIsCorretora}
-                  disabled={submitting}
-                  onChange={(event) => {
-                    ownerTouchedRef.current = true;
-                    const next = event.target.checked;
-                    setOwnerIsCorretora(next);
-                    if (next) setSelectedOwnerClient(null);
-                  }}
-                />
-                <span>Carteira da corretora (sem dono)</span>
-              </label>
-              {!selectedOwnerClient && !ownerIsCorretora ? (
-                <p className="blend-conf-owner-hint">
-                  Escolha o dono da liga ou marque &ldquo;carteira da corretora&rdquo;.
-                </p>
+              {!selectedOwnerClient ? (
+                <p className="blend-conf-owner-hint">Escolha o dono da liga.</p>
               ) : null}
             </div>
           ) : null}

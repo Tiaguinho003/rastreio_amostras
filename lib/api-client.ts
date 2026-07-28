@@ -1557,17 +1557,16 @@ export function getNextLotNumber(session: SessionData) {
 // um Sample com isBlend=true + N registros em SampleBlendComponent.
 // Idempotente via clientDraftId.
 //
-// F3.* revogadas em 2026-05-19: liga nao coleta mais dono / safra / local /
-// notes no momento da criacao. Tudo opcional aqui. Backend deriva a safra
-// automaticamente das origens (distinct ordenado, join ', ').
+// Safra, local e notes seguem fora da criacao (F3.* revogadas em 2026-05-19) —
+// o backend deriva a safra das origens. O DONO voltou a ser coletado e, desde a
+// RC-D38, e OBRIGATORIO: nao ha mais "carteira da corretora" na criacao.
 export function createBlend(
   session: SessionData,
   data: {
     clientDraftId: string;
     components: Array<{ originSampleId: string; contributedSacks: number }>;
-    ownerClientId?: string | null;
-    /** Liga (dono fixado): true = o dono escolhido nasce fixado. */
-    ownerFixed?: boolean;
+    /** RC-D38: dono da liga — obrigatorio, e sempre nasce fixado. */
+    ownerClientId: string;
     // Liga editavel (espelha createSample): numero manual (so quando
     // lotNumberManual) + data de chegada (YYYY-MM-DD).
     lotNumber?: string | null;
@@ -1579,8 +1578,7 @@ export function createBlend(
   const body: { [key: string]: JsonValue } = {
     clientDraftId: data.clientDraftId,
     components: data.components,
-    ownerClientId: data.ownerClientId ?? null,
-    ownerFixed: data.ownerFixed ?? false,
+    ownerClientId: data.ownerClientId,
     ...(data.lotNumberManual && data.lotNumber ? { sampleLotNumber: data.lotNumber } : {}),
     lotNumberManual: data.lotNumberManual ?? false,
     receivedDate: data.receivedDate ?? null,

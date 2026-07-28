@@ -20,6 +20,10 @@ import { registrationConfirmedEvent } from './helpers/event-builders.js';
 const databaseUrl = process.env.DATABASE_URL;
 const databaseReachable = await canReachDatabase(databaseUrl);
 
+// RC-D38: createBlend passou a exigir dono. Um cliente fixo serve a todos os
+// cenarios — quem varia nos testes e a composicao da liga, nao o dono.
+const BLEND_OWNER_ID = '00000000-0000-4000-8000-0000000000b1';
+
 if (!databaseUrl || !databaseReachable) {
   test.skip('blend api integration tests require DATABASE_URL and reachable PostgreSQL', () => {});
 } else {
@@ -142,6 +146,18 @@ if (!databaseUrl || !databaseReachable) {
 
   test.beforeEach(async () => {
     await resetDatabase();
+    await prisma.client.create({
+      data: {
+        id: BLEND_OWNER_ID,
+        personType: 'PF',
+        fullName: 'Dono da liga',
+        // ACTIVE + isSeller: o `resolveOwnerBinding` real (usado pelos testes de API)
+        // recusa cliente inativo ou nao-vendedor. O gatilho que exigia usuario
+        // comercial num cliente ACTIVE foi dropado em 20260701120000.
+        status: 'ACTIVE',
+        isSeller: true,
+      },
+    });
   });
 
   // Liga A3.1 — POST /samples/blends
@@ -156,6 +172,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         body: {
           clientDraftId: 'draft-api-blend-001',
+          ownerClientId: BLEND_OWNER_ID,
           components: [
             { originSampleId: o1, contributedSacks: 10 },
             { originSampleId: o2, contributedSacks: 15 },
@@ -180,6 +197,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         body: {
           clientDraftId: 'draft-api-blend-too-few',
+          ownerClientId: BLEND_OWNER_ID,
           components: [{ originSampleId: o1, contributedSacks: 5 }],
           harvest: 'MISTA',
         },
@@ -199,6 +217,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         body: {
           clientDraftId: 'draft-api-blend-404',
+          ownerClientId: BLEND_OWNER_ID,
           components: [
             { originSampleId: o1, contributedSacks: 5 },
             { originSampleId: fakeId, contributedSacks: 5 },
@@ -223,6 +242,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         body: {
           clientDraftId: 'draft-revert-api',
+          ownerClientId: BLEND_OWNER_ID,
           components: [
             { originSampleId: o1, contributedSacks: 10 },
             { originSampleId: o2, contributedSacks: 15 },
@@ -327,6 +347,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         body: {
           clientDraftId: 'draft-committed',
+          ownerClientId: BLEND_OWNER_ID,
           components: [
             { originSampleId: o1, contributedSacks: 12 },
             { originSampleId: o2, contributedSacks: 18 },
@@ -356,6 +377,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         body: {
           clientDraftId: 'draft-detail',
+          ownerClientId: BLEND_OWNER_ID,
           components: [
             { originSampleId: o1, contributedSacks: 8 },
             { originSampleId: o2, contributedSacks: 12 },
@@ -395,6 +417,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         body: {
           clientDraftId: 'draft-active',
+          ownerClientId: BLEND_OWNER_ID,
           components: [
             { originSampleId: o1, contributedSacks: 10 },
             { originSampleId: o2, contributedSacks: 15 },

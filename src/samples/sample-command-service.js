@@ -16,7 +16,7 @@ import {
   normalizeBrokerIds,
   normalizeUnitPrice,
 } from '../sale-contracts/sale-contract-support.js';
-import { deriveBlendHarvest, deriveBlendOriginLot, deriveBlendOwner } from './blend-harvest.js';
+import { deriveBlendHarvest, deriveBlendOriginLot } from './blend-harvest.js';
 import { buildEventEnvelope, normalizeActorContext } from './sample-event-factory.js';
 
 // LOT-D2 (revisao geral, 2026-07-07): PROSPECTOR fora por decisao — segunda
@@ -1753,7 +1753,6 @@ export class SampleCommandService {
     // paralelo pra derivar a safra da liga automaticamente (modal F3
     // removido — operador nao informa mais manualmente).
     const originHarvests = [];
-    const originOwners = [];
     const originOriginLots = [];
     for (const component of normalizedComponents) {
       const origin = await this.queryService.loadSampleSummary(component.originSampleId);
@@ -1787,10 +1786,6 @@ export class SampleCommandService {
       }
       originHarvests.push(origin.declaredHarvest);
       originOriginLots.push(origin.declaredOriginLot);
-      originOwners.push({
-        ownerClientId: origin.ownerClientId,
-        declaredOwner: origin.declaredOwner,
-      });
     }
 
     const declaredSacks = normalizedComponents.reduce(
@@ -1809,38 +1804,27 @@ export class SampleCommandService {
       ? normalizeRequiredText(input.harvest, 'harvest')
       : derivedHarvest;
 
-    // 3. Owner (Liga — dono fixado): quando o caller escolhe explicitamente o
-    // dono (`ownerFixed`, do modal de criacao) ele e FIXADO — pode ser um cliente
-    // qualquer (inclusive terceiro) ou `null` = "carteira da corretora". Sem
-    // escolha explicita, deriva das origens por UNANIMIDADE (mesmo cliente ->
-    // herda; divergente/alguma sem dono -> null) e NAO fixa. Compat: caller antigo
-    // que so manda `ownerClientId` (sem `ownerFixed`) segue fixando esse override.
+    // 3. Owner (RC-D38): a liga NASCE com dono — escolher e obrigatorio, e a
+    // escolha e sempre FIXADA (blendOwnerPinned abaixo). Pode ser um cliente
+    // qualquer, inclusive um terceiro que nao e dono de origem nenhuma; quando as
+    // origens sao unanimes, quem pre-preenche e a tela (o backend nao deriva mais).
+    // A "carteira da corretora" (dono null) deixou de ser CRIAVEL: sobrevive so
+    // como estado legado, e liga legada sem dono nao vende (RC-D39). O
+    // `deriveBlendOwner` saiu daqui e segue servindo o blend-backfill.
     const inputOwnerClientId = normalizeNullableUuid(input.ownerClientId, 'ownerClientId');
     const inputOwnerUnitId = normalizeNullableUuid(input.ownerUnitId, 'ownerUnitId');
-    const ownerFixed =
-      input.ownerFixed !== undefined ? input.ownerFixed === true : Boolean(inputOwnerClientId);
-    let ownerBinding = null;
-    if (inputOwnerClientId) {
-      ownerBinding = await this.clientService.resolveOwnerBinding({
-        ownerClientId: inputOwnerClientId,
-        ownerUnitId: inputOwnerUnitId ?? null,
+    if (!inputOwnerClientId) {
+      throw new HttpError(422, 'ownerClientId is required to create a blend', {
+        code: 'VALIDATION_ERROR',
+        field: 'ownerClientId',
       });
-    } else if (inputOwnerUnitId) {
-      throw new HttpError(422, 'ownerUnitId requires ownerClientId');
-    } else if (!ownerFixed) {
-      const derivedOwner = deriveBlendOwner(originOwners);
-      if (derivedOwner.ownerClientId) {
-        ownerBinding = {
-          ownerClientId: derivedOwner.ownerClientId,
-          displayName: derivedOwner.declaredOwner,
-        };
-      }
     }
-    // ownerFixed && sem cliente => "carteira da corretora": ownerBinding fica null
-    // (dono null), mas o blendOwnerPinned abaixo o congela como escolha explicita.
+    const ownerBinding = await this.clientService.resolveOwnerBinding({
+      ownerClientId: inputOwnerClientId,
+      ownerUnitId: inputOwnerUnitId ?? null,
+    });
 
-    // 4. declared.* — owner pode ser null (F3.3 / T0.C docstring Prisma).
-    //    harvest pode ser null tambem quando nenhuma origem tem safra
+    // 4. declared.* — harvest pode ser null quando nenhuma origem tem safra
     //    declarada (raro — origens normalmente declaram safra no registro).
     const declared = {
       owner: ownerBinding?.displayName ?? null,
@@ -1911,10 +1895,11 @@ export class SampleCommandService {
           // Liga editavel: numero manual + data, espelhando o lote normal.
           lotNumberManual: manualLot,
           declared,
-          ownerClientId: ownerBinding?.ownerClientId ?? null,
-          // Liga (dono fixado): a escolha manual do modal congela o dono, pra a
-          // propagacao reativa nao recalcular. false = derivado (unanimidade).
-          blendOwnerPinned: ownerFixed,
+          ownerClientId: ownerBinding.ownerClientId,
+          // Liga (dono fixado): a escolha do modal congela o dono. Desde a RC-D38
+          // escolher e obrigatorio, entao toda liga nova nasce fixada — o `false`
+          // (derivado por unanimidade) so existe em liga legada.
+          blendOwnerPinned: true,
           // ownerUnitId nao e mais emitido: a liga/lote nao vincula fazenda.
           // Liga T0.C: 'internal' substitui 'in_person' silencioso.
           receivedChannel: 'internal',

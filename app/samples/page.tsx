@@ -35,6 +35,7 @@ import { SampleSendFlow } from '../../components/samples/SampleSendFlow';
 import {
   BlendConfirmationSheet,
   type BlendContribution,
+  type BlendCreateOptions,
 } from '../../components/samples/BlendConfirmationSheet';
 import {
   SelectedSamplesDropdown,
@@ -1724,20 +1725,12 @@ function SamplesPage() {
   }
 
   // Liga B2.2 refinada em 2026-05-19: tap "Criar liga" no sheet chama
-  // createBlend direto (sem modal F3 intermediario). Caracteristicas da
-  // liga (dono / safra / local / notes) NAO sao coletadas — owner fica
-  // null (carteira da corretora — F3.A), safra deriva das origens no
-  // backend (distinct ', '), local/notes ficam null. Edicao posterior
-  // permite refinar via detalhe.
+  // createBlend direto (sem modal F3 intermediario). Safra deriva das origens no
+  // backend (distinct ', ') e local/notes ficam null — refinaveis depois pelo
+  // detalhe. O DONO e a excecao: desde a RC-D38 vem escolhido do sheet.
   async function handleProceedToCreate(
     components: BlendContribution[],
-    blendOptions?: {
-      lotNumber: string | null;
-      lotNumberManual: boolean;
-      receivedDate: string | null;
-      ownerClientId: string | null;
-      ownerFixed: boolean;
-    }
+    blendOptions: BlendCreateOptions
   ) {
     if (creatingBlend) return;
     if (!session) return;
@@ -1756,13 +1749,12 @@ function SamplesPage() {
       const result = await createBlend(session, {
         clientDraftId: blendDraftIdRef.current,
         components,
-        // Liga (dono fixado): o dono escolhido no modal (ou carteira = null)
-        // nasce FIXADO — a propagação reativa não recalcula depois.
-        ownerClientId: blendOptions?.ownerClientId ?? null,
-        ownerFixed: blendOptions?.ownerFixed ?? false,
-        lotNumber: blendOptions?.lotNumber ?? null,
-        lotNumberManual: blendOptions?.lotNumberManual ?? false,
-        receivedDate: blendOptions?.receivedDate ?? null,
+        // RC-D38: o dono escolhido no sheet é obrigatório e nasce FIXADO — a
+        // propagação reativa não recalcula depois.
+        ownerClientId: blendOptions.ownerClientId,
+        lotNumber: blendOptions.lotNumber,
+        lotNumberManual: blendOptions.lotNumberManual,
+        receivedDate: blendOptions.receivedDate,
       });
       const sampleId = result.sample.id;
       const lotNumber = result.sample.internalLotNumber ?? sampleId;

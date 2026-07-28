@@ -417,7 +417,6 @@ export function createBackendApiV1({
             clientDraftId: body.clientDraftId,
             components: body.components,
             ownerClientId: body.ownerClientId,
-            ownerFixed: body.ownerFixed,
             ownerUnitId: body.ownerUnitId,
             harvest: body.harvest,
             location: body.location,

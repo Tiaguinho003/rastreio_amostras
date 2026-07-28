@@ -14,6 +14,10 @@ import { SALE_CONTRACT_TEST_FIELDS, seedTestBroker } from './helpers/sale-contra
 const databaseUrl = process.env.DATABASE_URL;
 const databaseReachable = await canReachDatabase(databaseUrl);
 
+// RC-D38: createBlend passou a exigir dono. Um cliente fixo serve a todos os
+// cenarios — quem varia nos testes e a composicao da liga, nao o dono.
+const BLEND_OWNER_ID = '00000000-0000-4000-8000-0000000000b1';
+
 if (!databaseUrl || !databaseReachable) {
   test.skip('integration tests require DATABASE_URL and reachable PostgreSQL', () => {});
 } else {
@@ -106,7 +110,7 @@ if (!databaseUrl || !databaseReachable) {
   // Cria uma liga derivando a safra das origens (SEM override input.harvest).
   async function createBlend({ clientDraftId, components, lotNumber }) {
     return commandService.createBlend(
-      { clientDraftId, components, sampleLotNumber: lotNumber },
+      { clientDraftId, components, sampleLotNumber: lotNumber, ownerClientId: BLEND_OWNER_ID },
       actor
     );
   }
@@ -165,6 +169,18 @@ if (!databaseUrl || !databaseReachable) {
 
   test.beforeEach(async () => {
     await resetDatabase();
+    await prisma.client.create({
+      data: {
+        id: BLEND_OWNER_ID,
+        personType: 'PF',
+        fullName: 'Dono da liga',
+        // ACTIVE + isSeller: o `resolveOwnerBinding` real (usado pelos testes de API)
+        // recusa cliente inativo ou nao-vendedor. O gatilho que exigia usuario
+        // comercial num cliente ACTIVE foi dropado em 20260701120000.
+        status: 'ACTIVE',
+        isSeller: true,
+      },
+    });
     await seedTestBroker(prisma);
   });
 

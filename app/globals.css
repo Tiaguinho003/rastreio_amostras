@@ -33880,29 +33880,6 @@ body:has(.app-modal-backdrop.is-stacked > .ctr-confirm-doc) .bottom-sheet-backdr
   overflow-x: hidden;
 }
 
-/* "Carteira da corretora": opção de uma linha abaixo da busca. */
-.blend-conf-owner-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--ink);
-  cursor: pointer;
-  /* skill button-press-effect */
-  -webkit-tap-highlight-color: transparent;
-}
-.blend-conf-owner-toggle input[type='checkbox'] {
-  width: 1rem;
-  height: 1rem;
-  margin: 0;
-  accent-color: var(--fv-cta);
-  cursor: pointer;
-}
-.blend-conf-owner-toggle input[type='checkbox']:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
 .blend-conf-owner-hint {
   margin: 0;
   font-size: 0.74rem;
