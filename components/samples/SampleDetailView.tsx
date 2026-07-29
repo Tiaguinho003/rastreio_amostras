@@ -27,6 +27,7 @@ import { SampleMovementsPanel } from '../samples/SampleMovementsPanel';
 import { SampleSendFlow } from '../samples/SampleSendFlow';
 import {
   ApiError,
+  cancelSampleMovement,
   getBlendFeasibility,
   getSampleDetail,
   invalidateSample,
@@ -661,6 +662,16 @@ export function SampleDetailView({
   const hasActiveMovements = Boolean(
     detail && ((detail.sample.soldSacks ?? 0) > 0 || (detail.sample.lostSacks ?? 0) > 0)
   );
+  // RC-D87: o painel "Deletar lote" só age sobre PERDA. A venda que aparecer na
+  // lista é informação — ela se desfaz pelo Washout do contrato, e o serviço recusa
+  // por aqui (409 MOVEMENT_HAS_CONTRACT). Na prática a venda nem chega: o item do ⋯
+  // exige `soldSacks === 0`. O filtro é a rede para o que escapar disso.
+  const activeLossMovements = (activeMovements ?? []).filter(
+    (movement) => movement.movementType === 'LOSS'
+  );
+  const hasActiveSaleMovement = (activeMovements ?? []).some(
+    (movement) => movement.movementType === 'SALE'
+  );
   // RC-D88 (endurece a RC-D41): o vendedor do contrato É o dono do lote (RC-D37) e
   // o snapshot do vendedor é reescrito a cada save do contrato. Até aqui trocar o
   // dono era permitido e a UI só AVISAVA da consequência — um aviso que dependia de
@@ -1212,12 +1223,149 @@ export function SampleDetailView({
     }
   }
 
-  // 🪦 RC-D87 (2026-07-29): `handleCancelMovementsOnly` e
-  // `handleCancelMovementsAndInvalidate` NAO EXISTEM MAIS. As duas cancelavam TODAS
-  // as movimentacoes ativas em laco — e cancelar uma venda quebra o contrato ligado
-  // a ela (-> WASH_OUT) sem passar pela pergunta de corretagem da RC-D89. O lote nao
-  // desfaz movimentacao comercial: quem desfaz a venda e o Washout do contrato.
-  // `refetchActiveMovements` foi junto (so existia pros catches das duas).
+  async function refetchActiveMovements() {
+    if (!session) {
+      return;
+    }
+
+    try {
+      const res = await listSampleMovements(session, sampleId, { status: 'ACTIVE' });
+      setActiveMovements(res.movements ?? []);
+    } catch {
+      // ignore — usuario ja viu erro da operacao que falhou
+    }
+  }
+
+  // RC-D87: as duas funcoes abaixo cancelavam TODAS as movimentacoes ativas em laco
+  // — e cancelar uma VENDA quebra o contrato ligado a ela sem passar pela pergunta
+  // de corretagem da RC-D89. Elas voltaram restritas a PERDA (`activeLossMovements`),
+  // que nao tem contrato nenhum: uma perda registrada por engano precisava de
+  // desfazer, e sem ele o lote tambem ficava sem como ser deletado. A venda continua
+  // sendo desfeita so pelo Washout do contrato — o servico recusa o resto (409
+  // MOVEMENT_HAS_CONTRACT).
+  async function handleCancelLossesOnly() {
+    if (!session || !detail || activeLossMovements.length === 0) {
+      return;
+    }
+
+    const trimmedReason = invalidateReasonText.trim();
+    if (trimmedReason.length === 0) {
+      setInvalidateModalNotice({
+        kind: 'error',
+        text: 'Informe o motivo para cancelar as perdas.',
+      });
+      return;
+    }
+
+    setInvalidating(true);
+    setInvalidateModalNotice(null);
+
+    try {
+      let currentVersion = detail.sample.version;
+      for (const mv of activeLossMovements) {
+        await cancelSampleMovement(session, sampleId, mv.id, {
+          expectedVersion: currentVersion,
+          reasonText: trimmedReason,
+        });
+        const refreshed = await refreshDetail();
+        if (!refreshed) {
+          throw new Error('Falha ao recarregar o lote após cancelar a perda');
+        }
+        currentVersion = refreshed.sample.version;
+      }
+
+      setInvalidateModalOpen(false);
+      setInvalidateReasonCode('OTHER');
+      setInvalidateReasonText('');
+      // Efeito de X (sem mensagem verde), permanecendo na pagina.
+      showXEffect('Perdas canceladas', false);
+      void syncDetailState();
+    } catch (cause) {
+      setInvalidateModalNotice({
+        kind: 'error',
+        text:
+          cause instanceof ApiError
+            ? cause.message
+            : cause instanceof Error
+              ? cause.message
+              : 'Falha ao cancelar perdas',
+      });
+      await refetchActiveMovements();
+    } finally {
+      setInvalidating(false);
+    }
+  }
+
+  async function handleCancelLossesAndInvalidate() {
+    if (!session || !detail || activeLossMovements.length === 0) {
+      return;
+    }
+
+    const parsed = invalidateSampleSchema.safeParse({
+      reasonCode: invalidateReasonCode,
+      reasonText: invalidateReasonText,
+    });
+
+    if (!parsed.success) {
+      setInvalidateModalNotice({
+        kind: 'error',
+        text: parsed.error.issues[0]?.message ?? 'Dados de exclusão inválidos',
+      });
+      return;
+    }
+
+    setInvalidating(true);
+    setInvalidateModalNotice(null);
+
+    try {
+      let currentVersion = detail.sample.version;
+      for (const mv of activeLossMovements) {
+        await cancelSampleMovement(session, sampleId, mv.id, {
+          expectedVersion: currentVersion,
+          reasonText: parsed.data.reasonText,
+        });
+        const refreshed = await refreshDetail();
+        if (!refreshed) {
+          throw new Error('Falha ao recarregar o lote após cancelar a perda');
+        }
+        currentVersion = refreshed.sample.version;
+      }
+
+      await invalidateSample(session, sampleId, {
+        expectedVersion: currentVersion,
+        reasonCode: parsed.data.reasonCode,
+        reasonText: parsed.data.reasonText,
+      });
+
+      setInvalidateModalOpen(false);
+      setInvalidateReasonCode('OTHER');
+      setInvalidateReasonText('');
+      // Invalidou — efeito de X + volta pra lista de amostras.
+      showXEffect('Lote deletado', true);
+    } catch (cause) {
+      // Liga B3.5 (rede de segurança): 409 SAMPLE_HAS_ACTIVE_BLENDS → fecha
+      // o modal de invalidação e abre o modal de bloqueio com as ligas.
+      const blocked = extractActiveBlendsBlock(cause);
+      if (blocked) {
+        setInvalidateModalOpen(false);
+        setBlockedBlends(blocked);
+        setInvalidateBlockedOpen(true);
+      } else {
+        setInvalidateModalNotice({
+          kind: 'error',
+          text:
+            cause instanceof ApiError
+              ? cause.message
+              : cause instanceof Error
+                ? cause.message
+                : 'Falha ao cancelar perdas e deletar lote',
+        });
+        await refetchActiveMovements();
+      }
+    } finally {
+      setInvalidating(false);
+    }
+  }
 
   function startRegistrationEdit() {
     if (!detail || !canEditRegistrationStatus(detail.sample.status)) {
@@ -2488,9 +2636,39 @@ export function SampleDetailView({
         dragDisabled={invalidating}
         className="fv-panel-sheet side-sheet sample-invalidate-sheet"
         footer={
-          // RC-D87: com movimentacao ativa nao ha o que submeter — deletar exige
-          // saldo intacto e o lote nao desfaz movimentacao. Painel so explica.
-          hasActiveMovements ? null : (
+          // RC-D87: com VENDA ativa nao ha o que submeter — deletar exige o saldo
+          // intacto e o lote nao desfaz venda. Ai o painel so explica. Com PERDA, as
+          // duas acoes valem: cancelar as perdas e ficar, ou cancelar e deletar.
+          hasActiveSaleMovement ? null : hasActiveMovements ? (
+            <div className="fv-panel-footer-row">
+              <button
+                type="button"
+                className="app-modal-secondary"
+                onClick={() => {
+                  void handleCancelLossesOnly();
+                }}
+                disabled={
+                  invalidating ||
+                  invalidateReasonText.trim().length === 0 ||
+                  activeLossMovements.length === 0
+                }
+              >
+                {invalidating ? 'Cancelando...' : 'Cancelar perdas'}
+              </button>
+              <button
+                type="submit"
+                form="sample-invalidate-form"
+                className="app-modal-submit is-danger sample-detail-invalidate-submit"
+                disabled={
+                  invalidating ||
+                  invalidateReasonText.trim().length === 0 ||
+                  activeLossMovements.length === 0
+                }
+              >
+                {invalidating ? 'Deletando...' : 'Deletar'}
+              </button>
+            </div>
+          ) : (
             <button
               type="submit"
               form="sample-invalidate-form"
@@ -2504,8 +2682,8 @@ export function SampleDetailView({
       >
         <>
           <p className="fv-panel-lead">
-            {hasActiveMovements
-              ? 'Este lote ainda tem movimentação ativa.'
+            {hasActiveSaleMovement
+              ? 'Este lote tem venda ativa.'
               : 'Use apenas quando a operação realmente exigir.'}
           </p>
 
@@ -2514,7 +2692,14 @@ export function SampleDetailView({
             className="sample-invalidate-form"
             onSubmit={(event) => {
               event.preventDefault();
-              void handleInvalidateSample();
+              if (hasActiveSaleMovement) {
+                return;
+              }
+              if (hasActiveMovements) {
+                void handleCancelLossesAndInvalidate();
+              } else {
+                void handleInvalidateSample();
+              }
             }}
           >
             {hasActiveMovements ? (
@@ -2525,9 +2710,9 @@ export function SampleDetailView({
                     <path d="M12 9v4" />
                     <path d="M12 17h.01" />
                   </svg>
-                  {/* RC-D87: o painel EXPLICA e nao age. Deletar exige o saldo
-                      intacto, e desfazer movimentacao nao e coisa do lote — a venda
-                      se desfaz pelo Washout do contrato. A perda nao se desfaz. */}
+                  {/* RC-D87: a PERDA volta a ser cancelável aqui (ela não tem
+                      contrato); a VENDA não — ela se desfaz pelo Washout do
+                      contrato, e ali existe a pergunta da corretagem (RC-D89). */}
                   <div className="sdv-warn-text">
                     <strong>
                       Este lote possui{' '}
@@ -2535,8 +2720,9 @@ export function SampleDetailView({
                         ? `${activeMovements.length} ${activeMovements.length > 1 ? 'movimentações ativas' : 'movimentação ativa'}`
                         : 'movimentações ativas'}
                     </strong>
-                    Um lote só é deletável com o saldo intacto. Venda se desfaz pelo Washout do
-                    contrato, em Contratos. Perda registrada é definitiva.
+                    {hasActiveSaleMovement
+                      ? 'Venda se desfaz pelo Washout do contrato, em Contratos — não pelo lote. Enquanto ela existir, o lote não é deletável.'
+                      : 'Para deletar o lote, as perdas serão canceladas. Você também pode só cancelar as perdas.'}
                   </div>
                 </div>
 
@@ -2611,10 +2797,13 @@ export function SampleDetailView({
                   )}
                 </div>
               </>
-            ) : (
+            ) : null}
+
+            {/* RC-D87: o motivo some só quando NADA é submetível — com venda ativa
+                não há ação, e pedir o motivo de uma ação indisponível é pedir por
+                pedir. Com perda, ele volta: as duas ações o usam. */}
+            {hasActiveSaleMovement ? null : (
               <>
-                {/* Motivo so aparece quando ha exclusao a fazer (RC-D87): pedir o
-                    motivo de uma acao indisponivel e pedir por pedir. */}
                 <label className="app-modal-field">
                   <span className="app-modal-label">Motivo da exclusão</span>
                   <select

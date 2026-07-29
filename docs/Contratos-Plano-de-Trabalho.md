@@ -1277,7 +1277,7 @@ Pedida por ele antes de decidir. O que o lote conseguia fazer com um contrato:
 
 | #          | Decisão                                                                                                                                     |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| **RC-D87** | **O lote não cancela movimentação comercial.** A ação sai de `/samples`; movimento vira leitura ali. O washout do contrato é a única porta  |
+| **RC-D87** | **O lote não desfaz VENDA** — o washout do contrato é a única porta dela. A **perda** segue cancelável pelo lote: ela não tem contrato      |
 | **RC-D88** | **Lote com contrato tem o dono congelado** — ele vaza para um contrato já emitido. O número não precisa de trava: não é editável (vetor #6) |
 | **RC-D89** | O washout **pergunta se haverá cobrança de corretagem**. Escolha **crua e obrigatória** — nada pré-marcado, botão travado até responder     |
 | **RC-D90** | **A resposta é definitiva**, como o motivo do washout. Não se edita depois                                                                  |
@@ -1316,10 +1316,12 @@ guard na rota vale para a porta que a gente lembrou; guard no serviço vale para
 autoriza o cancelamento é **a presença da resposta** — quem chega sem ela é outro chamador, e a rota
 HTTP não lê esse campo de propósito. Comportamento externo idêntico ao do plano.
 
-**O painel "Deletar lote" passou a explicar em vez de agir.** Com movimentação ativa ele mostra o
-aviso e a lista, sem rodapé e sem pedir motivo — pedir o motivo de uma ação indisponível é pedir por
-pedir. O texto diz onde é a saída: _"Venda se desfaz pelo Washout do contrato, em Contratos. Perda
-registrada é definitiva."_
+**O painel "Deletar lote" separou perda de venda** (RC-D87 revisada na mesma sessão — ver §10.5).
+Com **venda** ativa ele só explica: sem rodapé e sem pedir motivo, porque não há ação a tomar e pedir
+o motivo de uma ação indisponível é pedir por pedir. O texto diz onde é a saída — _"Venda se desfaz
+pelo Washout do contrato, em Contratos — não pelo lote."_ Com **perda**, as duas ações continuam:
+"Cancelar perdas" e "Deletar" (que cancela as perdas e invalida). O laço que sobrou percorre
+`activeLossMovements`, nunca a lista inteira.
 
 **O dono virou campo travado** (`forms` §3: valor + instrução, não input desabilitado — ele não
 reabre depois, e "desabilitado" leria como "por enquanto não"). O detalhe do lote passou a trazer o
@@ -1328,11 +1330,15 @@ baixo (import/teste) não emite contrato, e a UI travaria um campo que o servido
 
 ### 10.5 Achados do caminho
 
-- 🔴 **A ação removida só cancelava perdas, na prática.** O item "Deletar lote" do ⋯ já exigia
-  `soldSacks === 0`, então o painel **nunca abria** num lote com venda ativa. O laço que quebrava
-  contratos era alcançável pela **rota**, não pelo botão. Consequência real da remoção: **perda
-  registrada por engano virou permanente**, e um lote com perda ativa deixou de ser deletável. Está
-  em aberto para o Flavio decidir se a ação volta **só para perdas** (uma linha).
+- 🔴 **A ação removida só cancelava perdas, na prática — e por isso voltou.** O item "Deletar lote"
+  do ⋯ já exigia `soldSacks === 0`, então o painel **nunca abria** num lote com venda ativa: o laço
+  que quebrava contratos era alcançável pela **rota**, não pelo botão. Removê-la inteira não
+  protegia contrato nenhum e custava caro — **perda registrada por engano virava permanente**, e um
+  lote com perda ativa deixava de ser deletável, sem saída. O Flavio mandou devolver **só para
+  perdas**, e é o que está no código: `handleCancelLossesOnly`/`handleCancelLossesAndInvalidate`
+  percorrem `activeLossMovements`. **A lição é sobre o alcance da decisão, não sobre a decisão**: a
+  RC-D87 era sobre movimentação **comercial com contrato**, e "movimentação" varria junto uma coisa
+  que nunca teve contrato.
 - **Três testes afirmavam o que a RC-D87 revoga.** Todos usavam o cancelamento pelo lote como
   caminho normal de washout. Viraram testes do 409 — e um deles agora prova as duas metades: o lote
   recusa, o contrato aceita.
