@@ -385,12 +385,16 @@ export function ApprovalLabelModal({
               >
                 {row.map((cell) => {
                   const field = FIELD_BY_KEY[cell.key];
-                  // Campo travado: valor, não input desabilitado (`forms` §3).
+                  // Campo travado: mantém a CAIXA do formulário, mas não é um
+                  // <input disabled> — é um <p> com a geometria do input e
+                  // `aria-disabled` (`forms` §3, apresentação recuada).
                   if (field.locked) {
                     return (
                       <div key={field.key} className="nsv2-field alm-field">
                         <span className="nsv2-field-label">{field.uiLabel}</span>
-                        <p className="alm-locked-value">{values[field.key] || '—'}</p>
+                        <p className="alm-locked-input" aria-disabled="true">
+                          {values[field.key] || '—'}
+                        </p>
                       </div>
                     );
                   }

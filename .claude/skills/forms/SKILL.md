@@ -207,6 +207,23 @@ como campo resolvido — o olho procura o controle que sumiu. Numa linha inteira
 com o que comparar, e a caixa vira moldura vazia. A regra é a mesma dos dois lados: **parecer o que
 é**.
 
+🔴 **Mas a unidade de comparação pode ser o FORM, não a linha.** Na etiqueta de aprovação são quatro
+travados e dois editáveis, distribuídos em três linhas — uma mista e duas inteiramente travadas. Pela
+regra da linha, as duas últimas seriam valor solto; o resultado é um form que **alterna** caixa e
+texto de linha em linha, e a alternância lê pior que qualquer das duas formas sozinha. Decisão do
+Flavio (2026-07-29): _"os campos que não são editáveis devem ter um design de campo normal, porém sem
+editar, e não texto"_ — **caixa em todos**.
+
+O critério que sobrevive às duas: **um form onde tudo está travado pode dispensar a caixa; um form
+que mistura não pode misturar as formas.** A vizinhança da linha resolve o caso de um travado isolado
+entre controles; o form inteiro decide quando são vários.
+
+Quando o form não é do kit `.fv-form-*` (a etiqueta usa `.nsv2-field-*`), a caixa travada copia a
+geometria **daquele** input — `.alm-locked-input` — e **precisa do override no tier desktop**: o
+`.nsv2-field-input` cresce lá (padding 1rem, borda 2px, radius 14px) e um travado preso no clamp
+mobile desalinha a linha. Vale para todo campo composto do form: o `.olc-wrap` dos chips tinha o
+mesmo problema.
+
 `.ctr-locked-value` tem o peso do texto do formulário (0.92rem/600, `--ink`). `.ctr-locked-field`
 copia a geometria de `.fv-form-field input` — um `<p>` não é alcançado por aquele seletor, então ela
 **não vem por herança** — e troca só o fundo para `--fv-canvas`; sem `:focus`, com `cursor: default`
@@ -244,6 +261,13 @@ As duas da tabela acima assumem que o valor é um texto. Quando o campo tem um *
 (chips, multi-select), a versão travada é o **mesmo componente em `disabled`**, não um `<p>` — o
 `OriginLotChips` já traz chip sem o ×, sem input e um `—` no vazio (RC-D100, `ApprovalLabelModal`).
 Trocar chips por uma string separada por vírgula faria o operador ler outra coisa que não o dado.
+
+⚠️ **Confira o que o `disabled` do componente compartilhado faz com a legibilidade.** O
+`.olc-wrap.is-disabled` desbota por `opacity: .75`, o que é certo onde `disabled` significa "aguarde o
+save" (o detalhe do lote) e errado onde significa **travado permanentemente** — ali o conteúdo é
+justamente o que a pessoa precisa conferir antes de imprimir. Na etiqueta a regra é **escopada**
+(`.alm-lots-group .olc-wrap.is-disabled`): fundo recuado, `opacity: 1`. Um estado com dois
+significados precisa de dois desenhos, escopados — não de um desbotamento no meio.
 
 **E travado por MOTIVO escreve o motivo.** Quando o mesmo campo às vezes edita e às vezes não, o
 `lockReason` vem do servidor e vira uma frase (`.alm-field-hint`):

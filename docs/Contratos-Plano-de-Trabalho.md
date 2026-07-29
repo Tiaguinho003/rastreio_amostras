@@ -2,7 +2,7 @@
 
 Status: Em andamento (backlog + decisões + pendências da página `/contratos`)
 Escopo: o backlog, as pendências e o **ledger de decisões** da feature de Contratos (hub `/contratos`: contrato/PDF, Espelho de Corretagem, Financeiro, Aprovações, Embarque). O **estado atual** do que existe vive em `Contratos-Visao-Geral.md`; aqui ficam as decisões (o porquê), as pendências abertas e o histórico condensado.
-Última revisão: 2026-07-29 (**§12 — RC-D96..D101 IMPLEMENTADAS**: a etiqueta de aprovação deixa de ser write-only — só **Nº compra** e **Lotes de origem** são editáveis, e os dois **gravam de volta** (contrato e cadastro do lote) antes de imprimir; o lote **trava** quando é liga ou componente de liga, e o campo edita o **texto cru**, nunca os chips recortados; lote vazio some do papel. Antes, no mesmo dia: **§11 — RC-D92..D95**, o `/financeiro` entra no kit FV — desktop vira **tabela**, os quatro estados viram a **KPI row clicável que é o filtro** (o `totalCommission` sai por ser a soma deles) e o acordeão do card morre. Fecha a **2ª rodada da RC-F6**. Antes, no mesmo dia: **§10 — RC-D87..D91**, o washout **pergunta** se haverá cobrança de corretagem e a resposta — não mais o tipo — decide o Financeiro (revoga a D145); o lote deixa de desfazer venda e de trocar de dono com contrato. **§9 — RC-D84..D86**: finalizar significa que o contrato inteiro aconteceu, e só existe a partir da data de faturamento. **§8 — RC-D74..D79**: status e fase são dois conceitos; embarque e faturamento são o MESMO DIA. **§7 — RC-D69..D73**: a seleção de lote vira **campo** e a criação à vista cai para dois passos. Anterior: 2026-07-28, **§6 — RC-D62..D68**: o contrato deixa de ser máquina de status e vira **agenda**)
+Última revisão: 2026-07-29 (**§12 — RC-D96..D102 IMPLEMENTADAS**: a etiqueta de aprovação deixa de ser write-only — só **Nº compra** e **Lotes de origem** são editáveis, e os dois **gravam de volta** (contrato e cadastro do lote) antes de imprimir; o lote **trava** quando é liga ou componente de liga, e o campo edita o **texto cru**, nunca os chips recortados; lote vazio some do papel. Antes, no mesmo dia: **§11 — RC-D92..D95**, o `/financeiro` entra no kit FV — desktop vira **tabela**, os quatro estados viram a **KPI row clicável que é o filtro** (o `totalCommission` sai por ser a soma deles) e o acordeão do card morre. Fecha a **2ª rodada da RC-F6**. Antes, no mesmo dia: **§10 — RC-D87..D91**, o washout **pergunta** se haverá cobrança de corretagem e a resposta — não mais o tipo — decide o Financeiro (revoga a D145); o lote deixa de desfazer venda e de trocar de dono com contrato. **§9 — RC-D84..D86**: finalizar significa que o contrato inteiro aconteceu, e só existe a partir da data de faturamento. **§8 — RC-D74..D79**: status e fase são dois conceitos; embarque e faturamento são o MESMO DIA. **§7 — RC-D69..D73**: a seleção de lote vira **campo** e a criação à vista cai para dois passos. Anterior: 2026-07-28, **§6 — RC-D62..D68**: o contrato deixa de ser máquina de status e vira **agenda**)
 Documentos relacionados: `Contratos-Visao-Geral.md` (documento-mãe / estado atual), `Dashboard-Visao-Geral.md`, `API-e-Contratos.md`, `Auditoria-Navegacao-por-Papel.md`
 
 > **Divisão de papéis:** a `Contratos-Visao-Geral.md` é a **verdade viva** (o que existe hoje). Este plano guarda **decisões (por quê), pendências (o que falta) e o backlog**. O histórico completo de sessões (S1–S91 etc.) e a prosa superada foram para o **Git** (docs antigos removidos em 2026-07-13); o ledger no apêndice condensa cada decisão à resolução final.
@@ -1436,7 +1436,7 @@ de âmbar leria como outro estado. `/samples`, que tem um cartão só, não escr
   uma limpeza de 8 pontos do arquivo com a mudança que precisa ser conferida na tela. É uma
   varredura própria — está registrado nas skills `data-tables` §1 e `design-system`.
 
-## 12. A etiqueta de aprovação deixa de ser write-only (RC-D96..D101) — 2026-07-29
+## 12. A etiqueta de aprovação deixa de ser write-only (RC-D96..D102) — 2026-07-29
 
 > **Fonte:** o Flavio, depois de perguntar como a etiqueta funcionava hoje: _"Vamos deixar apenas
 > alguns campos editaveis... apeanas o campo de Lotes de origem pode ser editavel, e gostaria que ele
@@ -1490,6 +1490,7 @@ Escolha dele, entre travar-nos-casos-perigosos, construir-o-fluxo-de-confirmaç�
 | **RC-D96**  | Lote vazio → o papel não imprime **nem o rótulo**: o campo LOTES some inteiro                                                                                        |
 | **RC-D97**  | O modal mostra **todos** os campos, inclusive o Lote de origem vazio (sai o "Sem lote de origem.")                                                                   |
 | **RC-D98**  | Só **Nº compra** e **Lotes de origem** são editáveis; os outros quatro viram leitura, com uma nota única dizendo que vêm do contrato                                 |
+| **RC-D102** | O travado **mantém a caixa do formulário** — não vira texto solto. Num form que mistura editáveis e travados, alternar as duas formas lê pior que qualquer uma delas |
 | **RC-D99**  | O Nº compra **cascateia para o contrato** por escrita estreita: sem re-snapshot da etapa 2 e sem linha "EDIÇÃO" na timeline                                          |
 | **RC-D100** | O Lote de origem **cascateia para o cadastro do lote**, e **trava com o motivo escrito** quando é liga, componente de liga, contrato Futuro ou status fora da janela |
 | **RC-D101** | O botão **"Limpar" sai**: com quatro campos travados ele só zeraria os dois que cascateiam — viraria um botão de apagar dado do cadastro                             |
@@ -1504,10 +1505,12 @@ Escolha dele, entre travar-nos-casos-perigosos, construir-o-fluxo-de-confirmaç�
   chamada de escrita a partir de um campo que não pode escrever.
 - **Endpoint**: `setSaleContractPurchaseNumber` (rota `/sale-contracts/:id/purchase-number`),
   idempotente, congelado fora de `EMITIDO`, normalizando pelo `optionalText` do emit.
-- **Modal**: os quatro travados renderizam **valor**, não input desabilitado (`forms` §3); o campo de
-  lotes passa a ser o **`OriginLotChips`** — o mesmo editor do detalhe do lote — sobre o texto cru; o
-  submit grava **antes** de imprimir; o "Limpar" saiu (lápides no CSS para `.alm-lots-readonly`,
-  `.alm-lot-chip`, `.alm-lots-empty` e `.nsv2-clear-btn`, que perdeu o último consumidor).
+- **Modal**: os quatro travados **mantêm a caixa** do formulário (`.alm-locked-input` — RC-D102), num
+  `<p aria-disabled>` com a geometria do `.nsv2-field-input` e sem o que promete edição (fundo
+  recuado, sem sombra, sem `:focus`); o campo de lotes passa a ser o **`OriginLotChips`** — o mesmo
+  editor do detalhe do lote — sobre o texto cru; o submit grava **antes** de imprimir; o "Limpar" saiu
+  (lápides no CSS para `.alm-lots-readonly`, `.alm-lot-chip`, `.alm-lots-empty` e `.nsv2-clear-btn`,
+  que perdeu o último consumidor).
 - **Envio**: `normalizeCustomLabelLines` recorta a linha LOTE pelo `splitOriginLotForLabel`.
 
 ### 12.5 GOTCHAs desta rodada
@@ -1530,6 +1533,21 @@ Escolha dele, entre travar-nos-casos-perigosos, construir-o-fluxo-de-confirmaç�
 - **O "Limpar" morreu por consequência, não por decisão de layout.** Ele fazia sentido quando os
   cinco campos eram rascunho de papel; com quatro travados e dois cascateando, o mesmo botão passaria
   a apagar o Nº compra do contrato e a origem do lote num clique.
+- 🔴 **RC-D102: a unidade de comparação do campo travado é o FORM, não a linha.** A primeira passada
+  seguiu a regra da RC-D73 (`forms` §3) ao pé da letra — valor solto em linha toda travada, caixa em
+  linha mista — e produziu um form que **alterna** as duas formas de linha em linha. Ele pediu caixa em
+  todos: _"os campos que não são editáveis devem ter um design de campo normal, porém sem editar, e
+  não texto"_. O critério refinado: **um form todo travado dispensa a caixa; um form que mistura não
+  pode misturar as formas.**
+- **Caixa travada em form fora do kit precisa do override do tier desktop.** O `.nsv2-field-input`
+  cresce no desktop (padding 1rem, borda 2px, radius 14px) e um travado preso no clamp mobile
+  desalinha a linha. Isso valeu também para o `.olc-wrap` dos chips, que **já estava** desalinhado no
+  desktop desde a passada anterior — o override existente é escopado ao `.new-sample-sheet`, que não
+  alcança este modal.
+- 🔴 **`disabled` com dois significados precisa de dois desenhos.** O `.olc-wrap.is-disabled` desbota
+  por `opacity: .75`, o que serve para "aguarde o save" (detalhe do lote) e atrapalha para "travado
+  permanentemente" — ali os chips são exatamente o que se confere antes de imprimir. Na etiqueta a
+  regra é escopada (`.alm-lots-group .olc-wrap.is-disabled`): recuado, `opacity: 1`.
 
 ## Apêndice A — Ledger de decisões (condensado)
 

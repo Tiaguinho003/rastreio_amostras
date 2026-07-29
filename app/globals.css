@@ -19522,15 +19522,30 @@ select.samples-filter-field-input {
   gap: clamp(3px, 1vw, 4px);
 }
 
-/* RC-D98: campo de LEITURA — vem do contrato. Peso do valor do formulário, sem
-   moldura: input desabilitado ainda parece um campo que vai destravar. */
-.alm-locked-value {
+/* RC-D98: campo de LEITURA — vem do contrato. Mantém a CAIXA do formulário
+   (pedido do Flavio, 2026-07-29: "design de campo normal, porém sem editar, e
+   não texto"), porque o form tem campos editáveis do lado e alternar caixa com
+   texto solto dentro do mesmo modal lê como campo faltando.
+   Copia a geometria do .nsv2-field-input — um <p> não é alcançado por aquele
+   seletor, então ela NÃO vem por herança — e troca o que diz "aqui se digita":
+   fundo mais recuado, sem sombra de profundidade, sem :focus, cursor default.
+   O `aria-disabled` no markup é o "não editável" que o desenho não fala. */
+.alm-locked-input {
   margin: 0;
-  padding: clamp(3px, 1vw, 4px) 0;
-  font-size: clamp(12.5px, 3.5vw, 13.5px);
-  font-weight: 600;
-  color: #24392f;
+  width: 100%;
+  padding: clamp(8px, 2.5vw, 10px) clamp(10px, 3vw, 12px);
+  border: 1.5px solid rgba(0, 0, 0, 0.07);
+  border-radius: clamp(8px, 2.5vw, 10px);
+  background: #f1f0ec;
+  font-size: clamp(12px, 3.5vw, 13px);
+  font-family: inherit;
+  color: #55605a;
+  cursor: default;
   overflow-wrap: anywhere;
+  /* Casa a altura do input editável mesmo vazio (o "—" já garante conteúdo,
+     mas um valor de 1 linha não pode ficar mais baixo que o vizinho). */
+  min-height: calc(clamp(12px, 3.5vw, 13px) * 1.35 + clamp(8px, 2.5vw, 10px) * 2 + 3px);
+  line-height: 1.35;
 }
 
 /* A nota única dos quatro travados (topo do form) e as linhas de apoio do campo
@@ -19665,6 +19680,18 @@ select.samples-filter-field-input {
 .olc-wrap.is-disabled {
   background: #f0efec;
   opacity: 0.75;
+}
+
+/* RC-D100: na etiqueta o `disabled` significa TRAVADO (liga, componente de
+   liga, Futuro), não "aguarde o save" como nos outros consumidores — e os chips
+   travados continuam sendo o que vai sair no papel. Por isso aqui o campo fica
+   RECUADO em vez de desbotado: o `opacity: 0.75` genérico apaga justamente a
+   informação que o operador precisa conferir antes de imprimir. */
+.alm-lots-group .olc-wrap.is-disabled {
+  opacity: 1;
+  border-color: rgba(0, 0, 0, 0.07);
+  background: #f1f0ec;
+  box-shadow: none;
 }
 
 .olc-wrap.has-error {
@@ -22032,6 +22059,45 @@ select.samples-filter-field-input {
   .nsv2-field-input::placeholder {
     color: #999;
     font-size: 0.95rem;
+  }
+
+  /* Campo travado da etiqueta: acompanha a caixa GRANDE do desktop (senao ele
+     fica na geometria mobile ao lado de um input de 1rem e desalinha a linha).
+     Segue sem o que promete edicao: borda mais fraca, fundo recuado, sem sombra
+     de profundidade, sem :hover e sem :focus. */
+  .alm-locked-input {
+    padding: 1rem 1.15rem;
+    font-size: 1rem;
+    border: 2px solid rgba(0, 0, 0, 0.14);
+    border-radius: 14px;
+    min-height: calc(1rem * 1.35 + 2rem + 4px);
+  }
+
+  /* O campo de CHIPS do lote acompanha a mesma caixa (o .olc-wrap base e
+     mobile-first e o override existente e escopado ao .new-sample-sheet, que
+     nao alcanca este modal). Sem isto, o unico campo composto do form fica
+     visivelmente menor que os vizinhos no desktop. */
+  .bottom-sheet.is-approval-label .olc-wrap {
+    padding: calc(1rem - 3px) 1.15rem;
+    border: 2px solid rgba(0, 0, 0, 0.3);
+    border-radius: 14px;
+    background: #ffffff;
+    min-height: calc(1rem * 1.35 + 2rem + 4px);
+    box-shadow:
+      0 2px 4px rgba(0, 0, 0, 0.05),
+      0 4px 12px rgba(0, 0, 0, 0.06);
+  }
+
+  .bottom-sheet.is-approval-label .olc-input,
+  .bottom-sheet.is-approval-label .olc-chip {
+    font-size: 0.95rem;
+  }
+
+  /* Travado no desktop: a mesma caixa, recuada (ver a regra base). */
+  .bottom-sheet.is-approval-label .olc-wrap.is-disabled {
+    border-color: rgba(0, 0, 0, 0.14);
+    background: #f1f0ec;
+    box-shadow: none;
   }
 
   /* Client/Warehouse lookup fields — mesmo padrao dos demais (2px, 0.3) */
