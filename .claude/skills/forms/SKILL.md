@@ -145,12 +145,37 @@ primeiro é o canônico; ao tocar num consumidor do segundo, migre.
 `<select>` nativo dentro de `.fv-form-field`. Não construir dropdown próprio para escolher um valor
 de uma lista — o nativo é acessível, funciona no mobile e já tem a geometria do kit.
 
-### Campo derivado de outro cadastro (travado)
+### Busca com dropdown para um recurso que não é cliente
 
-Quando o valor **pertence a outro registro** e editá-lo aqui escreveria de volta lá, o campo não é
-input desabilitado: vira **valor + instrução de onde trocar**. Sem ação no painel — não há o que
-clicar, então não pode parecer clicável. Molde em `SaleContractEtapa2Modal` (Vendedor de contrato com
-lote, RC-D37):
+`ClientLookupField` resolve clientes. Para outro recurso, **copie o molde, não as classes** — um
+prefixo próprio (`.ctr-lotfield-*` para o lote do contrato), porque o kit do cliente é dele. O que
+se copia: debounce → busca → dropdown absoluto, sincronizar o texto quando a seleção muda por fora,
+fechar no `mousedown` de fora, limpar (×), e `invalid` pintando a borda.
+
+O que **não** se copia:
+
+- **A geometria do input.** Dentro de um `.fv-form-field` ela vem do kit por descendência (§2). O
+  bloco novo traz só a caixa flutuante e a linha de opção.
+- **O piso de caracteres.** `lookupClients` responde 422 abaixo de 2 chars, por isso o campo de
+  cliente espera. `listSamples` aceita busca vazia — então abrir o campo **já mostra** a primeira
+  página, sem obrigar a digitar. Confira o backend antes de replicar a espera.
+- **O scroll infinito.** Dropdown de campo mostra os primeiros N e **diz que capou** ("Mostrando os
+  primeiros 8. Refine a busca para ver outros."). Um corte silencioso lê como "só existem 8".
+
+🔴 **A borda vermelha do erro precisa de uma regra.** `.fv-form-field.is-field-error` pinta `input` e
+`select` **diretos**; um controle composto fica de fora. O painel do contrato mantém uma lista
+escopada com todos eles (`.client-lookup-shell input`, `.ctr-lotfield-shell input`, `.bms-control`,
+`.ctr-approval-btn`) — campo composto novo entra ali.
+
+### Campo travado — o valor existe, a edição não
+
+Três casos, um desenho só: o valor **pertence a outro registro** (Vendedor = dono do lote, RC-D37),
+o valor **é do sistema** (Nº do contrato, gerado na emissão; Tipo, decidido pelo botão que abriu o
+painel — RC-D70), ou o valor **só se decide uma vez** (o Lote, escolhido na criação e imutável no
+Editar — RC-D72).
+
+Em nenhum deles o campo é input desabilitado: vira **valor + instrução**. Sem ação no painel — não há
+o que clicar, então não pode parecer clicável. Molde em `SaleContractEtapa2Modal`:
 
 ```tsx
 <div className={fieldClass('seller')}>
@@ -163,10 +188,21 @@ lote, RC-D37):
 ```
 
 `.ctr-locked-value` tem o peso do texto do formulário (0.92rem/600, `--ink`); `.ctr-locked-hint` é a
-instrução (0.74rem, `--muted`). Três armadilhas, nesta ordem:
+instrução (0.74rem, `--muted`), e é **opcional** — o Tipo não tem, porque "À vista" não deixa dúvida
+sobre por que não se edita.
+
+🔴 **Travado não é a mesma coisa que fora do formulário.** Já houve a tentativa oposta: juntar tudo o
+que não se edita num **cartão** no topo (RC-D59, morto na RC-D70). O que aquilo consertava era o
+_pseudo-campo_ — rótulo + caixa de input desabilitada, que convida ao clique e não faz nada — e isso
+o campo travado já resolve, sem tirar o dado da sequência do formulário. Cartão só se justifica se os
+fatos não pertencerem a nenhum campo; se pertencem, o dono é o campo.
+
+Quatro armadilhas, nesta ordem:
 
 - **O que a tela mostra é o que o servidor vai gravar**, não o que está salvo. Se os dois podem
   divergir, a leitura tem que trazer o valor de origem (ali, `getSaleContract` devolve `sampleOwner`).
+  E se o contrato guarda só o **id** do outro registro, a leitura precisa trazer o rótulo também —
+  senão o campo diz "Lote" e não diz qual (`sampleLotNumber`, RC-D72).
 - **Campos que dependiam do valor antigo precisam ser zerados** na hidratação, senão o submit estoura
   um 422 de FK numa edição que nem tocou no campo travado (ali, filial + conta bancária).
 - 🔴 **E o zeramento precisa se explicar.** Campo esvaziado em silêncio vira "campo obrigatório" no
@@ -210,6 +246,11 @@ um campo do destino.** Escolher "físico ou descrição" num modal central e dep
 para preencher os destinatários é um passo a mais sem informação nova: o usuário já sabia o que
 queria antes de clicar. Tipo e destinatário na mesma etapa, com o rótulo do submit mudando conforme
 a escolha ("Gerar laudo" / "Enviar").
+
+**A regra não para em 4 opções.** Com **N** itens vindos do servidor a superfície própria vira
+lista com busca — e continua sendo campo do destino, só que com dropdown em vez de cartões
+(`ContractLotField`, RC-D69). A forma muda com o tamanho; o critério não. `containers` §1-A tem os
+sinais de "isso é passo ou campo?".
 
 **Opção bloqueada escreve o motivo** no `fv-choice-hint` (`disabledHint`). Cartão apagado sem
 explicação vira um beco.

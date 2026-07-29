@@ -44,6 +44,28 @@ Quando um ato só tem **momentos** (preencher → conferir → emitir), eles sã
 painel**, não superfícies empilhadas. Sintoma de que você errou: um modal por cima de um painel que
 continua montado atrás, apagado; ou dois sheets irmãos, um descendo enquanto o outro sobe.
 
+### 🔴 Antes de criar o passo: ele responde mais de UMA pergunta?
+
+**Um passo que responde UMA pergunta é um campo, não um passo** (RC-D69). Um passo se justifica
+quando apresenta contexto que o anterior não tinha, ou quando a resposta muda o que vem depois de um
+jeito que não caberia na mesma tela. Escolher um item de uma lista não faz nem uma coisa nem outra:
+quem abriu o fluxo já sabe o que quer, e o efeito da escolha acontece **no passo seguinte**.
+
+O tamanho do que morre denuncia o erro: a seleção de lote do contrato era **261 linhas de TSX + 26
+regras de CSS** (cabeçalho sticky, grade de 4 colunas, scroll infinito por cursor) para uma pergunta
+que virou um `<input>` com dropdown. Os quatro fatos que as colunas comparavam couberam em título +
+linha de meta.
+
+Sinais de que o "passo" é campo disfarçado:
+
+- **não tem rodapé** — não há decisão a confirmar, só um item a tocar;
+- **o que ele coleta preenche campos do passo seguinte** — então o lugar dele é lá;
+- **precisa de chrome próprio parado** (busca fixa + lista rolando) para caber, quebrando o "cada
+  passo rola sozinho" de baixo.
+
+O contrário também vale: **conferir** um documento é passo legítimo, porque apresenta algo que o
+formulário não tinha e a decisão ("emitir?") é outra.
+
 **Como se monta.** Um `BottomSheet` só. O corpo vira a **trilha que recorta** e cada passo rola
 sozinho — os dois na mesma célula de grid, o que saiu deslocado para fora:
 
@@ -88,9 +110,9 @@ devolve o formulário exatamente onde estava.
 continua no tab order; com `visibility` sem delay ele some antes de animar.
 
 **Cabeçalho e rodapé não deslizam** — só o miolo. O rodapé é um só, do painel, e troca o rótulo do
-botão (`key` no elemento para o React remontar e o crossfade acontecer). Um passo **sem decisão a
-confirmar** (uma lista em que escolher é tocar num item) fica sem rodapé nenhum: `footer={null}` no
-`BottomSheet`, em vez de um botão que não faz nada.
+botão (`key` no elemento para o React remontar e o crossfade acontecer). Se um passo ficaria **sem
+rodapé nenhum** por não ter decisão a confirmar, releia o quadro no topo desta seção: ele é
+provavelmente um campo.
 
 **Voltar um passo, não fechar.** Seta ←, ESC e o back do Android voltam; quem responde é o
 `BottomSheet` via `onDismissAttempt` → devolver `false` **com efeito colateral** (§3). O primeiro
@@ -118,21 +140,28 @@ vendedor é o dono do lote, e uma filial ou conta bancária do dono anterior sob
 virar um 422 no submit. Enquanto os passos eram superfícies separadas o problema não existia — o
 conteúdo era destruído.
 
+> 🔴 **E se a escolha virar campo, ela ganha um terceiro caso: LIMPAR.** O efeito de hidratação
+> costuma ser chaveado pelo id do objeto e zerar os derivados **dentro** do `if (objeto)`. Com o id
+> indo a `null` esse ramo não roda, e os derivados do objeto anterior sobrevivem a um campo vazio —
+> a tela afirma um vendedor que não será gravado. O zeramento sobe para **antes** do `if`.
+
 **Quem faz o trabalho de avançar é o PAINEL, não o passo.** O passo lista, mostra, coleta; a
 chamada que produz o próximo passo mora no dono da superfície. É a mesma razão pela qual a
 rasterização do documento virou um hook chamado pelo pai: o rodapé é dele.
 
-**A rolagem é do passo — salvo quando o passo tem chrome próprio parado.** Um passo com busca fixa
-no topo e lista rolando embaixo vira coluna flex com `overflow: hidden`, e quem rola é a lista.
-Deixar os dois rolando põe uma barra de rolagem do passo por fora da lista, sem nada para rolar.
+**O que NÃO é do objeto escolhido não pode ser reescrito na troca.** Só zere (e só semeie) o que de
+fato deriva dele. Com uma escolha que era passo isso passa despercebido — trocar era ato deliberado
+de "voltar"; como campo, digitar reescreve calado o que o operador tinha decidido. No contrato a
+**data** era semeada com hoje a cada troca de lote, e a data nunca veio do lote: virou
+`setSaleDate((prev) => prev || hoje())`.
 
 **Conteúdo que não cabe em 620px** (uma folha A4, por exemplo) não justifica alargar o painel nem
 voltar ao modal: ganha um botão **"Ampliar"** — tela cheia sob demanda, portalada, com ESC em fase
 de captura para fechar só a ampliação e não atravessar até o painel.
 
 **A largura, se mudar, é do PAINEL — vale para todos os passos.** `/contratos` foi a 700px (RC-D61)
-quando o formulário passou a ter linhas de 3 colunas; o documento e o picker herdaram o respiro. É
-o oposto de alargar por causa de um passo só: não há como um passo ser mais largo que o painel.
+quando o formulário passou a ter linhas de 3 colunas; o documento herdou o respiro. É o oposto de
+alargar por causa de um passo só: não há como um passo ser mais largo que o painel.
 🔴 O seletor precisa citar `.side-sheet` — `.bottom-sheet.side-sheet` (620px, 0,2,0) mora **depois**
 no `globals.css` e, com a mesma especificidade, venceria por ordem.
 
@@ -141,8 +170,9 @@ do outro, o de cima provavelmente era `stacked` só por isso — e volta ao tier
 brinde uma entrada de history em vez de duas (sheet `stacked` não injeta a sua), então o back do
 Android passa a voltar um passo em vez de consumir a entry do sheet de baixo.
 
-Exemplo vivo: `SaleContractEtapa2Modal` — lote (`ContractLotPickerStep`) → formulário → documento
-(`ContractDocumentStep`), RC-D53..D57.
+Exemplo vivo: `SaleContractEtapa2Modal` — formulário → documento (`ContractDocumentStep`),
+RC-D53..D56. Ele já teve **três** passos: o lote vinha na frente (RC-D57) e virou campo na RC-D69,
+que é de onde sai o quadro no topo desta seção.
 
 ---
 
@@ -582,7 +612,7 @@ muda) · **🔜 ciclo** migra quando o redesenho chegar na página — nada de c
 | /relatorios             | Descarte de rascunho (`.is-scrim-none` + `.is-compact`); cancelar item; aviso 409 (sobre painel, `.fv-panel-scrim`)        | central                                        | fica                                                      |
 | /relatorios             | Criar: 3 **botões na faixa** (desktop) · **leque do FAB** (mobile-only) — mesma fonte de estado (`useInformeCreateSheets`) | —                                              | ✅ (§2.10 R8/R13)                                         |
 | /relatorios             | Filtro de tipo: **chips fixos no topo do feed**, aplicam imediato (não há painel de filtros)                               | inline                                         | ✅ (§2.10 R13/R14)                                        |
-| /contratos              | Criação à vista: lote → formulário → documento (`.ctr-form-sheet.ctr-contract-sheet`, **700px**)                           | painel de **três passos** (§1-A)               | ✅ (RC-D53/D57/D58..D61)                                  |
+| /contratos              | Criação à vista: formulário (lote é campo) → documento (`.ctr-form-sheet.ctr-contract-sheet`, **700px**)                   | painel de **dois passos** (§1-A)               | ✅ (RC-D53/D58..D61/D69)                                  |
 | /contratos ?details=    | Detalhe do contrato                                                                                                        | `DetailOverlay`                                | ✅                                                        |
 | /contratos              | Filtros                                                                                                                    | painel lateral (`.side-sheet.fv-filter-sheet`) | ✅ (RC-D47)                                               |
 | /contratos              | Ágio; washout; conferência do espelho; solicitar aprovação                                                                 | central                                        | fica                                                      |

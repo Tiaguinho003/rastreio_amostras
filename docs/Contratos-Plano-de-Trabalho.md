@@ -2,7 +2,7 @@
 
 Status: Em andamento (backlog + decisões + pendências da página `/contratos`)
 Escopo: o backlog, as pendências e o **ledger de decisões** da feature de Contratos (hub `/contratos`: contrato/PDF, Espelho de Corretagem, Financeiro, Aprovações, Embarque). O **estado atual** do que existe vive em `Contratos-Visao-Geral.md`; aqui ficam as decisões (o porquê), as pendências abertas e o histórico condensado.
-Última revisão: 2026-07-28 (**§6 — RC-D62..D68 IMPLEMENTADAS**: o contrato deixa de ser máquina de status e vira **agenda** — três situações (`EMITIDO`/`FINALIZADO`/`WASH_OUT`), o embarque morre inteiro, a aprovação não trava nada e o `/financeiro` vira leitura. Antes, no mesmo dia: §5.10–§5.16, a RC-F5 e a 1ª rodada da RC-F6. Anterior: 2026-07-27, §5.9 — RC-F1+F4)
+Última revisão: 2026-07-29 (**§7 — RC-D69..D72 IMPLEMENTADAS**: a seleção de lote deixa de ser passo e vira **campo obrigatório** da Identificação — a criação à vista cai para **dois passos**, o cartão de identidade morre e o Editar mostra o lote travado. Anterior: 2026-07-28, **§6 — RC-D62..D68**: o contrato deixa de ser máquina de status e vira **agenda** — três situações (`EMITIDO`/`FINALIZADO`/`WASH_OUT`), o embarque morre inteiro, a aprovação não trava nada e o `/financeiro` vira leitura. Antes, no mesmo dia: §5.10–§5.16, a RC-F5 e a 1ª rodada da RC-F6. Anterior: 2026-07-27, §5.9 — RC-F1+F4)
 Documentos relacionados: `Contratos-Visao-Geral.md` (documento-mãe / estado atual), `Dashboard-Visao-Geral.md`, `API-e-Contratos.md`, `Auditoria-Navegacao-por-Papel.md`
 
 > **Divisão de papéis:** a `Contratos-Visao-Geral.md` é a **verdade viva** (o que existe hoje). Este plano guarda **decisões (por quê), pendências (o que falta) e o backlog**. O histórico completo de sessões (S1–S91 etc.) e a prosa superada foram para o **Git** (docs antigos removidos em 2026-07-13); o ledger no apêndice condensa cada decisão à resolução final.
@@ -17,14 +17,14 @@ Contrato à vista + futuro, a criação repensada (RC-F5) e a moldura institucio
 
 > **Split 2026-07-13 + ACESSO UNIFICADO 2026-07-15:** o hub `/contratos` virou **2 páginas** — `/contratos` (Contratos + Financeiro, gestão) e `/embarques` (Embarque + Aprovações, operação). Desde 2026-07-15 **ambas abertas a todo não-PROSPECTOR** (`CONTRATOS_ROLES`/`FINANCEIRO_ROLES` = `NON_PROSPECTOR_ROLES`; a gestão era ADMIN+COMMERCIAL). O ledger histórico abaixo (D110/D135/D140, CC6, AP9/AP27, EMB26) descreve os gates **da época** — a fonte do estado atual é `Contratos-Visao-Geral.md` §2.
 
-> ⚠️ **A §5 (RC, 2026-07-27) reorganizou esta casca.** Já estão no código: `/financeiro` é página própria ADMIN, `/contratos` é página única sem sub-abas, `/embarques` é redirect (§5.9); a criação virou painel de 3 passos (§5.10–§5.16); a lista entrou no kit FV (§5.12). O que **ainda não** está: a RC-F2 e a RC-F3 — **as duas re-escopadas pela §6**, porque não há mais 5 fases para desenhar.
+> ⚠️ **A §5 (RC, 2026-07-27) reorganizou esta casca.** Já estão no código: `/financeiro` é página própria ADMIN, `/contratos` é página única sem sub-abas, `/embarques` é redirect (§5.9); a criação virou painel (§5.10–§5.16, hoje de **dois** passos pela §7); a lista entrou no kit FV (§5.12). O que **ainda não** está: a RC-F2 e a RC-F3 — **as duas re-escopadas pela §6**, porque não há mais 5 fases para desenhar.
 
 ## 2. Pendências abertas
 
 - **P27 — Layout e design das páginas de Contrato** (Fase G): **ENDEREÇADA pela §5 (RC)** desde 2026-07-27. A parte de _disposição das páginas_ virou o ledger RC-D1..D12; a parte de _layout e design_ é a **RC-F6** (ciclo FV), que só começa depois de as páginas estarem organizadas — ordem pedida pelo Flavio.
 - **P28 — Gestão das 3 listas cadastráveis** (Modalidade / Forma de pagamento / Embalagem): renomear / inativar / reordenar (`sortOrder`) — adiada (D95; hoje só existe "+ Adicionar").
 - ~~**AP-P2 — Estado "atrasado" na Aprovação**~~ — **FECHADA pela RC-D64 (§6)**: atraso passa a existir **só no `paymentDate`**. A aprovação não atrasa: o aviso aparece na janela do lead e se recolhe sozinho.
-- **Validação no device:** todo o fluxo (à vista/futuro, criação em 3 passos, lista FV, finalizar/reabrir) precisa do ✅ no aparelho.
+- **Validação no device:** todo o fluxo (à vista/futuro, criação em **2 passos** com o lote como campo, lista FV, finalizar/reabrir) precisa do ✅ no aparelho.
 
 ## 3. Dívidas / fora do escopo desta consolidação
 
@@ -128,7 +128,7 @@ Escopo original: `app/financeiro/page.tsx` deixa de ser redirect e vira a págin
 **RC-F4 — `/embarques` morre.** ✅ **IMPLEMENTADA em 2026-07-27, ANTECIPADA** — o roteiro a punha depois da RC-F2, e o Flavio escolheu juntá-la à F1 (RC-D21). Viável porque as duas ações que só a worklist oferecia mudaram de casa no mesmo passo (RC-D25). Ver §5.9. Dependia da RC-A2, fechada pela RC-D26.
 Escopo original: Rota vira redirect; `EmbarquePanel`, `AprovacoesPanel`, `EmbarqueCard`, `AprovacaoCard` apagados; deep-links re-apontados (`AvisosCard.tsx:23`, `EventsCalendarCard.tsx:58`, `HeaderAvatarMenu.tsx:168`, `AppShell.tsx:99-126`); `contractsHubTabs`/`contractTabRoute` removidos de `lib/roles.ts`; CSS morto varrido. ⚠️ **No mesmo passo, `Dashboard-Visao-Geral.md`** — a Visão Geral de contratos (§11) obriga a atualizá-la a cada mudança de rota, nome de aba ou valor de `?tab=`, e a RC muda os três.
 
-**RC-F5 — a criação repensada** (RC-D12). 🟡 **1ª rodada IMPLEMENTADA em 2026-07-28** (RC-D27..D36, §5.10): seleção do lote, auto-preenchimento, erro no campo e a conferência pelo documento. 🟡 **2ª rodada no mesmo dia** (RC-D49..D52, §5.13): o **picker de lote** ganhou card FV em 4 colunas com cabeçalho fixo, e o status saiu dele. 🟡 **3ª rodada no mesmo dia** (RC-D53..D56, §5.14): a conferência deixou de ser modal central e virou o **2º passo do painel**, com deslize do miolo, ← e ESC voltando um passo e "Ampliar" para ler de perto. 🟡 **4ª rodada no mesmo dia** (RC-D57, §5.15): a **seleção de lote** virou o **1º passo** — o fluxo à vista inteiro (lote → formulário → documento) num painel só, e voltar ao lote deixou de descartar o formulário. 🟡 **5ª rodada no mesmo dia** (RC-D18 + RC-D58..D61, §5.16): o **corpo do formulário** — ordem espelhando o documento, cartão de identidade no lugar dos três jeitos de mostrar o não-editável, seções sem moldura e o painel a 700px. **A fase está fechada**; falta só a conferência no aparelho.
+**RC-F5 — a criação repensada** (RC-D12). 🟡 **1ª rodada IMPLEMENTADA em 2026-07-28** (RC-D27..D36, §5.10): seleção do lote, auto-preenchimento, erro no campo e a conferência pelo documento. 🟡 **2ª rodada no mesmo dia** (RC-D49..D52, §5.13): o **picker de lote** ganhou card FV em 4 colunas com cabeçalho fixo, e o status saiu dele. 🟡 **3ª rodada no mesmo dia** (RC-D53..D56, §5.14): a conferência deixou de ser modal central e virou o **2º passo do painel**, com deslize do miolo, ← e ESC voltando um passo e "Ampliar" para ler de perto. 🟡 **4ª rodada no mesmo dia** (RC-D57, §5.15): a **seleção de lote** virou o **1º passo** — o fluxo à vista inteiro (lote → formulário → documento) num painel só, e voltar ao lote deixou de descartar o formulário. 🟡 **5ª rodada no mesmo dia** (RC-D18 + RC-D58..D61, §5.16): o **corpo do formulário** — ordem espelhando o documento, cartão de identidade no lugar dos três jeitos de mostrar o não-editável, seções sem moldura e o painel a 700px. 🟡 **6ª rodada em 2026-07-29** (RC-D69..D72, §7): o lote **deixou de ser passo e virou campo** — a criação à vista caiu para **dois passos** e o cartão de identidade morreu. **A fase está fechada**; falta só a conferência no aparelho.
 
 **RC-F6 — o ciclo FV.** 🟡 **1ª rodada IMPLEMENTADA em 2026-07-28, ANTECIPADA** (RC-D42..D48, §5.12): moldura institucional, tabela no desktop, filtros em painel lateral, estados da lista, Espelho fora das ações da página. **Falta** o conteúdo do **card mobile** e a passada em `/financeiro`, que segue no kit legado.
 
@@ -151,7 +151,7 @@ Escopo original: Rota vira redirect; `EmbarquePanel`, `AprovacoesPanel`, `Embarq
 
 #### O fluxo em 2026-07-27, quando esta análise foi feita
 
-> ⚠️ **Retrato de partida, não o estado atual.** As superfícies descritas aqui foram refeitas pelas §5.10, §5.14 e §5.15 — hoje o fluxo à vista inteiro é **um painel de três passos**.
+> ⚠️ **Retrato de partida, não o estado atual.** As superfícies descritas aqui foram refeitas pelas §5.10, §5.14, §5.15 e §7 — hoje o fluxo à vista inteiro é **um painel de dois passos**, com o lote como campo.
 
 `ContractCreateRadialFab` (leque de 3: À vista · Espelho · Futuro) → `SaleContractLotPickerModal` (BottomSheet; lotes `displayStatus=OPEN`, busca com debounce de 300 ms, scroll infinito de 30) → hidrata o lote (`getSampleDetail`) → `SaleContractEtapa2Modal` **empilhado por cima** do picker (`stacked`), 7 blocos e 20+ campos em 2 colunas → **[Emitir]** → `createSpotSaleContract` (venda + contrato EMITIDO na mesma transação, D97) → toast + volta à lista.
 
@@ -173,7 +173,7 @@ _(Conferido e **não** é bug: a filial aparece só para **PF** — é a D38; pa
 | ~~**RC-D16**~~ | ⚠️ **REVOGADA pela RC-D27 (§5.10)** — a dependência explícita que ela própria registrava se cumpriu: a prévia ao vivo caiu, e a confirmação voltou. Original: Como a prévia **é** a conferência: **não entra resumo de números** nem tela/modal de confirmação; "Emitir" segue emitindo direto. ⚠️ **Dependência explícita:** estas duas ausências se justificam pela RC-D13 — se a prévia ao vivo cair, as duas voltam à mesa. |
 | **RC-D17**     | ✅ **CUMPRIDA pela RC-D27** (§5.10). A conferência vale nos **três modos** do componente: criar à vista, criar futuro e **editar** (onde ganha peso extra — reemitir muda um contrato que já existe, e hoje não se vê o efeito antes de gravar).                                                                                                                                                                                |
 | **RC-D18**     | ✅ **IMPLEMENTADA em 2026-07-28** (§5.16), tabela abaixo aplicada campo a campo. **A ordem dos campos espelha a ordem do documento** — o olho vai do campo ao trecho sem procurar.                                                                                                                                                                                                                                              |
-| **RC-D19**     | ✅ **CUMPRIDA** (§5.10). **O lote continua um passo antes** (picker), como hoje: ele determina o vendedor e o teto de sacas, então o formulário nasce coerente.                                                                                                                                                                                                                                                                 |
+| **RC-D19**     | ✅ **CUMPRIDA** (§5.10) — ⚠️ **e depois revista pela RC-D69 (§7)**: o lote deixou de ser um passo antes e virou o **primeiro campo** do formulário. O motivo original (ele determina vendedor e teto de sacas) continua valendo, e é por isso que ele é o primeiro pendente apontado.                                                                                                                                           |
 | **RC-D20**     | ✅ **IMPLEMENTADA em 2026-07-28** (§5.10), nos três modos. Ao emitir, **fecha o formulário e abre o contrato recém-criado** (o detalhe com as fases) — no lugar do toast + volta à lista. A pessoa cai onde vai acompanhar aprovação, embarque e faturamento.                                                                                                                                                                   |
 
 #### A ordem do documento (extraída de `sale-contract-pdf-service.js:240-760`)
@@ -513,6 +513,9 @@ as fases da RC-F3.
 
 ### 5.13 RC-F5, 2ª rodada — o picker de lote (RC-D49..D52), 2026-07-28
 
+> ⚠️ **O picker foi APAGADO pela RC-D69 (§7)**: o lote virou campo, e as quatro colunas viraram
+> título + linha de meta na opção do dropdown. As decisões abaixo são históricas.
+
 De volta ao fluxo de emissão. A RC-D29 tinha levado o **modal de seleção de lote** para painel
 lateral, mas só a moldura mudou: por dentro cada lote ainda era um **`.spv2-card` emprestado da
 `/samples`** — gradiente creme, radius 16, sombra tripla — com os dados corridos numa linha separada
@@ -615,6 +618,10 @@ perto) e o layout/ordem dos campos do formulário, que é a RC-D18.
 
 ### 5.15 RC-F5, 4ª rodada — o lote vira o 1º passo do painel (RC-D57), 2026-07-28
 
+> ⚠️ **O passo foi extinto pela RC-D69 (§7)**: o lote virou um **campo** da Identificação e a criação
+> à vista caiu para dois passos. O que segue valendo desta rodada é a lição do meio — **o que o lote
+> determina tem que morrer na troca** —, que a §7 herdou e estendeu para a **limpeza** do campo.
+
 A rodada anterior deixou o pedido pela metade: o documento virou passo, mas a **seleção de lote**
 continuava sendo um `BottomSheet` **irmão** do formulário. Escolher um lote fechava um painel e
 abria outro — um descendo enquanto o outro subia —, e o "Voltar" do formulário **destruía** o que
@@ -691,19 +698,22 @@ dias antes do faturamento?".
 | #      | Decisão                                                                                                                                                                                                                  |
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | RC-D58 | **A ordem espelha o documento** (a tabela da RC-D18): Identificação · Comprador · Vendedor · Pagamento e logística · Quantidades e valores · Banco · Textos, e um 8º bloco **Controle interno** com o que não é impresso |
-| RC-D59 | O que **não se edita** vira **um cartão de identidade** no topo. Morrem os dois pseudo-campos e a faixa do lote separada                                                                                                 |
+| RC-D59 | O que **não se edita** vira **um cartão de identidade** no topo. Morrem os dois pseudo-campos e a faixa do lote separada — ⚠️ **o cartão foi extinto pela RC-D70 (§7)**; o que sobreviveu é a rejeição ao pseudo-campo   |
 | RC-D60 | As seções perdem a moldura e viram **micro-cabeçalho `.fv-form-heading`** — o padrão do kit                                                                                                                              |
-| RC-D61 | O painel vai a **700px** no desktop. Vale para os três passos: o lote ganha respiro e a folha A4 do documento sobe de ~0,78 para ~0,84 da escala                                                                         |
+| RC-D61 | O painel vai a **700px** no desktop. Vale para os passos todos: a folha A4 do documento sobe de ~0,78 para ~0,84 da escala _(à época o lote ainda era um passo e também ganhava respiro — RC-D69)_                       |
 
 O cartão de identidade tem duas linhas: número + tipo, e — **só na criação à vista** — lote ·
 produtor · safra · saldo. No Futuro não há lote; no Editar o `SaleContractDetail` carrega `sampleId`
 mas não o número do lote nem a safra, e buscá-los seria requisição nova (fora do escopo, registrado).
+_(A RC-D70 apagou o cartão e a RC-D72 pagou essa dívida: `getSaleContract` passou a devolver
+`sampleLotNumber`.)_
 
 **Menos texto, sem perder informação:** somem os oito "(opcional)" e entra o asterisco
 `.fv-form-required` nos obrigatórios. "Este contrato precisa de aprovação?" → "Precisa de aprovação?";
 "Lembrar quantos dias antes do faturamento?" → "Lembrete (dias antes do faturamento)"; "Preço por
 saca (R$)" → "Preço/saca (R$)". O sufixo "(300 disp.)" do campo Sacas saiu — o cartão já diz o saldo;
-"(liga: 100%)" ficou, porque explica um campo travado.
+"(liga: 100%)" ficou, porque explica um campo travado. _(Com o cartão morto, o saldo não voltou:
+ele **já é** o valor inicial do campo, pela RC-D31 — ver RC-D71.)_
 
 #### Achados do caminho
 
@@ -890,6 +900,96 @@ reversível é ruído. O washout continua pedindo motivo, porque continua defini
   `FinanceiroFilter` no front. Um só teria dado 422 silencioso no filtro "Recebida".
 - **`.next/types` guarda stub de rota apagada.** Depois de deletar rotas, `typecheck` acusa módulo
   inexistente até `rm -rf .next/types` — não é erro de código.
+
+## 7. O lote vira campo (RC-D69..D72) — 2026-07-29
+
+> **Fonte:** o Flavio olhou o fluxo que o operador de fato faz e pediu para reduzir a quantidade de
+> fases do preenchimento à vista, unificando a seleção de lote com o formulário: _"quero que a
+> seleção do lote se torne um campo de preenchimento... é claro que o preenchimento do campo do lote
+> é obrigatório"_.
+
+### 7.1 O problema
+
+A criação à vista tinha **três passos** — escolher o lote → preencher → conferir o documento. O
+primeiro era uma tela inteira (`ContractLotPickerStep`, 261 linhas + 26 regras de CSS) dedicada a
+uma única resposta.
+
+O critério que a rodada estabeleceu, e que vale além deste painel:
+
+> **Um passo que responde UMA pergunta é um campo, não um passo.**
+
+Um passo se justifica quando ele apresenta contexto que o anterior não tinha, ou quando a resposta
+muda o que vem depois de forma que não caberia na mesma tela. Escolher o lote não faz nem uma coisa
+nem outra: o operador já sabe qual lote quer antes de abrir o painel, e o efeito da escolha —
+preencher vendedor, filial, conta, sacas e liga — acontece **no formulário que estava do outro
+lado**.
+
+### 7.2 Decisões (ledger RC, continuação)
+
+| #      | Decisão                                                                                                                                                        |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| RC-D69 | A seleção de lote deixa de ser passo e vira **campo com dropdown de busca, obrigatório**. À vista cai para **dois passos**: formulário → documento             |
+| RC-D70 | **O cartão de identidade (RC-D59) morre.** Nº do contrato e Tipo viram **campos travados** — `.ctr-locked-value` (valor com rótulo), não input desabilitado    |
+| RC-D71 | **Safra e saldo não viram campo.** O produtor já é o **Vendedor** travado (RC-D37) e o saldo já é o **valor inicial** do campo Sacas (RC-D31)                  |
+| RC-D72 | **No Editar o lote aparece travado**, com o número. `getSaleContract` passa a devolver `sampleLotNumber` — a dívida que a RC-D59 tinha registrado e não pagara |
+
+### 7.3 A Identificação
+
+A ordem segue a **RC-D58** sem exceção: o PDF imprime `Nº Contrato · Nº Compra · Nº Lote · Mês ·
+Ano`, e Mês/Ano saem da data do contrato.
+
+```
+Nº do contrato [travado]   Tipo [travado]
+Nº de compra               Lote *
+Data do contrato *
+```
+
+⚠️ **O Tipo não é impresso em lugar nenhum do PDF.** Pela regra da RC-D58 ele cairia na 8ª seção,
+"Controle interno" — mas ali moram corretores e aprovação, decisões operacionais, e "À vista" no fim
+do formulário seria uma sobra. Fica ao lado do número, que é a outra metade de "que contrato é este".
+**Escolha do Claude, registrada para poder ser vetada.**
+
+**Por que o cartão morreu e não voltou em outra forma.** O que a RC-D59 combatia eram os
+**pseudo-campos** — rótulo + caixa de input desabilitada, que convidam ao clique e não fazem nada.
+Campo travado no molde da RC-D37 (valor com o peso do texto do formulário + instrução, sem caixa) não
+é pseudo-campo: não parece clicável porque não tem controle. Os dois fatos que o cartão ainda
+carregava tinham dono melhor — o produtor **é** o Vendedor, e o saldo **é** o valor com que o campo
+Sacas nasce.
+
+### 7.4 O que foi feito
+
+- **`ContractLotField.tsx`** (novo), molde do `ClientLookupField`: busca com debounce de 300 ms →
+  `listSamples({ sellableOnly: true, limit: 8 })`, dropdown com nº + `BlendBadge` no título e
+  produtor · sacas · safra na meta, limpar (×). `ContractLotPickerStep.tsx` apagado.
+- **Dois passos.** Somem `onLotStep`, `backToLot()` e o wrapper `.ctr-step-lot`; `canStepBack` virou
+  `onDocumentStep`. O rodapé volta a ter dois estados só ("Cancelar"/"Voltar").
+- **Validação**: `FormFieldKey` ganhou `'lot'`, e o lote é o **primeiro** pendente apontado — dele
+  saem vendedor, filial, conta e o teto de sacas, então apontar qualquer um deles antes mandaria
+  preencher o que o lote resolveria sozinho.
+- **CSS**: morreram as 26 regras `.lotpick-*` (com a media query das 4 colunas), o `.ctr-step-lot`
+  com as custom properties `--lotpick-*` e as 7 regras `.ctr-ident*`. Nasceu `.ctr-lotfield-*`, que
+  traz **só** o dropdown e a opção — a geometria do input vem do kit por descendência.
+- **Backend**: `internalLotNumber` no `select` que `getSaleContract` já fazia; `sampleLotNumber` no
+  `SaleContractDetail`. Teste de integração cobrindo à vista (o número) e Futuro (`null`).
+
+### 7.5 Achados do caminho
+
+- 🔴 **Limpar o campo precisava de tratamento que trocar de lote não precisava.** O efeito de
+  hidratação é chaveado pelo **id** do lote e zerava vendedor/filial/conta **dentro** do `if (spot)`.
+  Com o lote indo a `null`, o efeito caía no `if (!contractId) return` e não zerava nada: vendedor e
+  conta do lote anterior sobreviveriam a um campo vazio, e o formulário afirmaria um vendedor que não
+  seria gravado. O zeramento subiu para antes do `if`.
+- **O número do contrato não era propriedade do lote.** Ele vinha junto do pick, então trocar de lote
+  refazia `getNextContractNumber` por nada. Virou estado próprio, buscado uma vez na abertura — o
+  mesmo que o Futuro já fazia.
+- **A data do contrato deixou de ser reescrita na troca de lote.** Ela nunca veio do lote; com o
+  picker isso passava porque trocar era um ato deliberado de "voltar". Como campo, digitar no Lote
+  silenciosamente reescrevia a data escolhida. Agora só semeia quando está vazia.
+- **Custo aceito: o dropdown mostra 8 e pede refino**, em vez do scroll infinito sobre todos os
+  vendáveis. Quem sabe o número acha mais rápido; quem navegava para decidir perde a lista larga. A
+  linha "Mostrando os primeiros 8" existe para o corte não ler como "só existem 8".
+- **O `sellableOnly` (RC-D30) foi junto sem discussão** — é o filtro que impede lote sem quantidade
+  declarada e liga de cascata inviável de chegarem ao submit.
 
 ## Apêndice A — Ledger de decisões (condensado)
 
