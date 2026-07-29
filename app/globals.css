@@ -27948,24 +27948,12 @@ body.is-selection-mode .mobile-tabbar {
   flex-direction: column;
   gap: 0.6rem;
 }
-/* RC-D57: o passo do LOTE e a excecao a "cada passo rola sozinho" — aqui quem
-   rola e a lista (.lotpick-list), pra a busca ficar parada no topo e o scroll
-   infinito continuar com a lista como root. Entao o passo vira coluna flex e
-   NAO rola: fossem os dois, a barra de rolagem do passo apareceria por fora da
-   lista, sem nada pra rolar.
-
-   As larguras das colunas moram AQUI (nao no card) pra o cabecalho .lotpick-head
-   e a celula nao poderem sair de sincronia: mudar uma largura move os dois. */
-.ctr-step-lot {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  --lotpick-cols: 96px minmax(0, 1fr) 92px 78px;
-  --lotpick-colgap: 0.6rem;
-  --lotpick-pad-x: 0.85rem;
-  --lotpick-gap: 0.7rem;
-  --lotpick-chevron: 18px;
-}
+/* 🪦 RC-D69 (2026-07-29): `.ctr-step-lot` MORREU com o passo do lote. Ele era a
+   unica excecao a "cada passo rola sozinho" — quem rolava era a lista de lotes,
+   pra a busca ficar parada no topo e o scroll infinito ter a lista como root.
+   Com o lote virando CAMPO da Identificacao, os dois passos que sobraram (o
+   formulario e o documento) rolam sozinhos, e a excecao some junto com as
+   custom properties `--lotpick-*` que davam as 4 colunas. */
 /* A faixa do "Ampliar" fica encostada a direita, acima do documento. */
 .ctr-doc-stepbar {
   display: flex;
@@ -28055,10 +28043,12 @@ body.is-selection-mode .mobile-tabbar {
    de calendario proprio pelo indicador NATIVO, que e o que todo painel FV usa.
    Sobra so a regra dos compostos, abaixo — re-escopada, nao apagada. */
 /* RC-D35: erro DENTRO do campo. O kit pinta `input`/`select` DIRETOS do
-   `.fv-form-field`; estes tres tem controle proprio e ficariam sem a borda
-   vermelha — a busca de cliente (`.client-lookup-shell input`), a caixa de
-   corretores (`.bms-control`) e os botoes Sim/Nao da aprovacao. */
+   `.fv-form-field`; estes tem controle proprio e ficariam sem a borda vermelha —
+   a busca de cliente (`.client-lookup-shell input`), a busca de lote
+   (`.ctr-lotfield-shell input`, RC-D69), a caixa de corretores (`.bms-control`)
+   e os botoes Sim/Nao da aprovacao. */
 .bottom-sheet.ctr-form-sheet .fv-form-field.is-field-error .client-lookup-shell input,
+.bottom-sheet.ctr-form-sheet .fv-form-field.is-field-error .ctr-lotfield-shell input,
 .bottom-sheet.ctr-form-sheet .fv-form-field.is-field-error .bms-control,
 .bottom-sheet.ctr-form-sheet .fv-form-field.is-field-error .ctr-approval-btn {
   border-color: rgba(196, 92, 92, 0.55);
@@ -28121,66 +28111,159 @@ body.is-selection-mode .mobile-tabbar {
    nao faziam nada em largura nenhuma. Quem divide linha agora e o
    `.fv-form-row-2col`/`-3col` do kit, aplicado no proprio markup. */
 
-/* ── Cartao de identidade do contrato (RC-D59) ────────────────────────
-   Um lugar so pra TUDO que o formulario nao edita. Antes eram tres
-   apresentacoes diferentes na mesma tela: a faixa com os fatos do lote
-   (`.ctr-lot-band*`, morta aqui), e dois pseudo-campos — numero e tipo — com
-   rotulo e caixa de input desabilitada, que convidavam ao clique e nao faziam
-   nada. Cartao nao parece campo: superficie de canvas, hairline, sem borda de
-   controle. A linha de fatos so aparece na criacao a vista, que e o unico modo
-   em que ha lote carregado. ── */
-.ctr-ident {
-  padding: 0.6rem 0.8rem 0.65rem;
-  border: 1px solid var(--fv-line);
-  border-radius: var(--fv-radius);
-  background: var(--fv-canvas);
+/* 🪦 RC-D70 (2026-07-29): o CARTAO DE IDENTIDADE (`.ctr-ident*`, RC-D59) MORREU
+   — sete regras. Ele juntava num lugar so tudo o que o formulario nao edita:
+   numero, tipo e os fatos do lote. Com o lote virando CAMPO (RC-D69), os fatos
+   dele deixaram de precisar de vitrine (o produtor E o campo Vendedor; o saldo E
+   o valor inicial do campo Sacas), e numero e tipo voltaram a ser campos — os
+   TRAVADOS da RC-D37 (`.ctr-locked-value`: valor com rotulo, sem caixa), nao os
+   pseudo-campos com caixa de input desabilitada que a RC-D59 tinha matado. */
+
+/* 🪦 RC-D57/D69: `.ctr-lotpick-sheet` e depois `.lotpick-*` NAO EXISTEM MAIS. A
+   selecao de lote foi sheet irmao do formulario, virou o primeiro PASSO do
+   painel e hoje e um CAMPO — o `.ctr-lotfield-*` logo abaixo. */
+
+/* ── RC-D69: campo de LOTE com busca (`ContractLotField`) ──────────────
+   Mora dentro de um `.fv-form-field`, entao o input herda a geometria do kit
+   por descendencia (`.fv-form-field input` e (0,1,1)) — aqui so vive o que o
+   kit nao tem: a caixa flutuante e a linha de opcao. Molde do
+   `.client-lookup-*`, que ja resolve este mesmo problema tres campos abaixo
+   (Comprador, Vendedor, Armazens). ── */
+.ctr-lotfield {
+  position: relative;
+  display: grid;
 }
-.ctr-ident-top {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.6rem;
+.ctr-lotfield-shell {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr;
 }
-.ctr-ident-num {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--ink);
-  letter-spacing: -0.01em;
+/* Abre espaco pro (x) sem deixar o texto passar por baixo dele. */
+.ctr-lotfield-shell.has-selection input {
+  padding-right: 2.4rem;
 }
-.ctr-ident-type {
-  flex: 0 0 auto;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--brand-muted);
+.ctr-lotfield-clear {
+  position: absolute;
+  right: 0.35rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.08);
+  color: #6b6b6b;
+  cursor: pointer;
+  transition: background 120ms ease;
 }
-/* Filete separando a identidade do contrato dos fatos do lote — o mesmo peso
-   de hairline do `.fv-form-heading`, que e o vizinho de baixo. */
-.ctr-ident-facts {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.15rem 0.38rem;
-  margin-top: 0.5rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--fv-line);
-  font-size: 0.82rem;
-  color: var(--brand-muted);
+.ctr-lotfield-clear svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ctr-lotfield-clear:hover {
+  background: rgba(0, 0, 0, 0.14);
+}
+.ctr-lotfield-clear:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+/* z-index 24: o mesmo do `.client-lookup-dropdown.is-compact`, que e o valor
+   que ja funciona dentro deste painel. */
+.ctr-lotfield-dropdown {
+  position: absolute;
+  top: calc(100% + 0.32rem);
+  left: 0;
+  right: 0;
+  z-index: 24;
+  display: grid;
+  gap: 0.4rem;
+  max-height: min(22rem, 56vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid rgba(31, 93, 67, 0.18);
+  border-radius: clamp(11px, 3.2vw, 14px);
+  padding: clamp(7px, 2.2vw, 9px);
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(10, 30, 18, 0.1);
+  scrollbar-width: thin;
+}
+.ctr-lotfield-empty,
+.ctr-lotfield-more {
+  margin: 0;
+  padding: clamp(6px, 2vw, 8px) clamp(4px, 1.4vw, 6px);
+  color: var(--muted);
+  font-size: clamp(12px, 3.4vw, 13px);
   line-height: 1.35;
 }
-.ctr-ident-fact.is-strong {
+.ctr-lotfield-list {
+  display: grid;
+  gap: clamp(4px, 1.4vw, 6px);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.ctr-lotfield-option {
+  width: 100%;
+  display: grid;
+  gap: 2px;
+  padding: clamp(9px, 2.8vw, 11px) clamp(10px, 3.2vw, 12px);
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: clamp(9px, 2.6vw, 11px);
+  background: #faf9f6;
+  color: #1a3a28;
+  cursor: pointer;
+  overflow: hidden;
+  /* So transform (LNW-L2): o toque afunda, nao troca de cor. */
+  transition: transform 0.1s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (hover: hover) {
+  .ctr-lotfield-option:hover {
+    background: rgba(31, 93, 67, 0.07);
+    border-color: rgba(31, 93, 67, 0.22);
+  }
+}
+.ctr-lotfield-option:focus-visible {
+  background: rgba(31, 93, 67, 0.07);
+  border-color: rgba(31, 93, 67, 0.22);
+  outline: none;
+}
+.ctr-lotfield-option:active {
+  transform: scale(0.985);
+}
+.ctr-lotfield-option-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.ctr-lotfield-option-lot {
   font-weight: 600;
-  color: var(--ink);
+  font-size: clamp(13px, 3.6vw, 14px);
+  color: #1a3a28;
+  line-height: 1.25;
 }
-.ctr-ident-dot {
-  color: var(--fv-line-strong);
+/* Produtor · sacas · safra numa linha so, cortada com reticencias: sao os
+   MESMOS quatro fatos das quatro colunas da lista antiga, so que arranjados
+   pra caber num dropdown. */
+.ctr-lotfield-option-meta {
+  font-size: clamp(11px, 3vw, 12px);
+  color: rgba(0, 0, 0, 0.48);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-/* 🪦 RC-D57 (2026-07-28): `.ctr-lotpick-sheet` NAO EXISTE MAIS. A selecao de lote
-   era um sheet irmao do formulario (um descia enquanto o outro subia) e virou o
-   PRIMEIRO PASSO do painel do contrato. As duas regras que ela tinha — a coluna
-   flex do corpo e as custom properties da grade — mudaram de dono para
-   `.ctr-step-lot`, na secao dos passos do Etapa2. */
 
 /* ── Detalhes do contrato (Fase J, D120–D126; F3 do redesign): conteudo do
    DetailOverlay .ctr-details-overlay (peek 620px desktop / sheet mobile —
@@ -28535,258 +28618,12 @@ body.is-selection-mode .mobile-tabbar {
   color: var(--muted, #6b7280);
 }
 
-/* ---------------------------------------------------------------------------
-   Fechamento (criacao a vista pela pagina): modal de selecao de lote.
-   Header fixo + busca + lista rolavel (.app-modal.is-themed e flex-column com
-   altura limitada; a lista cresce e rola, o resto fica fixo).
-   --------------------------------------------------------------------------- */
-.lotpick-search {
-  flex-shrink: 0;
-  padding: clamp(0.85rem, 3vw, 1.1rem) clamp(0.3rem, 1.2vw, 0.5rem) 0.55rem;
-}
-/* Campo composto (markup proprio, sem .fv-form-field): recebe o MESMO desenho
-   do kit por uma regra pequena, em vez de copiar o bloco — regra da skill
-   `forms` §2. */
-.lotpick-search input {
-  width: 100%;
-  min-width: 0;
-  min-height: 2.62rem;
-  padding: clamp(0.5rem, 2vw, 0.62rem) clamp(0.6rem, 2.4vw, 0.78rem);
-  border: 1px solid var(--fv-line-strong);
-  border-radius: var(--fv-radius);
-  background: #ffffff;
-  font-family: inherit;
-  font-size: 0.88rem;
-  color: var(--ink);
-}
-.lotpick-search input:focus-visible {
-  outline: none;
-  border-color: var(--fv-cta);
-  box-shadow: 0 0 0 3px rgba(23, 60, 48, 0.12);
-}
-.lotpick-error {
-  margin: 0 clamp(1.1rem, 3.5vw, 1.4rem) 0.5rem;
-}
-.lotpick-list {
-  /* RC-D29: no painel lateral a lista OCUPA o que sobra e rola — o teto de
-     ~3 cards (max-height 14.5rem) existia pro sheet `is-fit-content`, que
-     encolhia pro conteudo. Num painel de altura cheia aquele teto deixaria dois
-     tercos da tela em branco. */
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  /* Gap um pouco maior pra as sombras dos .spv2-card respirarem. */
-  gap: 0.6rem;
-  /* Bordas laterais menores (o .bottom-sheet ja recua ~1rem): os cards e a
-     busca ganham largura. O pequeno recuo lateral preserva a sombra dos cards
-     (o .bottom-sheet-body tem overflow-x: hidden). */
-  padding: 0.15rem clamp(0.3rem, 1.2vw, 0.5rem) clamp(0.9rem, 3vw, 1.1rem);
-  overscroll-behavior: contain;
-}
-/* RC-D57: enquanto o lote escolhido hidrata (detalhe + proximo numero), a lista
-   recua. Antes o segundo toque era engolido por um early-return invisivel. */
-.lotpick-list[aria-busy='true'] {
-  opacity: 0.55;
-  pointer-events: none;
-}
-.lotpick-status {
-  margin: 0;
-  padding: 1.6rem 0.5rem;
-  text-align: center;
-  font-size: 0.9rem;
-  color: var(--brand-muted);
-}
-/* RC-D49: o card dos lotes SAIU do `.spv2-card` de /samples (gradiente creme,
-   radius 16, sombra tripla) e virou superficie FV — branco chapado, hairline e
-   sombra minima, como manda o §0.1 do design-system. Markup em
-   components/contracts/ContractLotPickerStep.tsx.
-
-   RC-D50: o conteudo virou GRADE de 4 colunas, compartilhada com o cabecalho
-   (.lotpick-head). As larguras vem por custom properties declaradas no PASSO
-   (.ctr-step-lot) — no ancestral, e nao no card, justamente pra as duas pecas
-   nao poderem sair de sincronia: mudar uma largura la move o titulo e a celula
-   juntos.
-
-   Regra de larguras do `data-tables` §5: as fixas agrupadas e UMA elastica que
-   absorve a sobra — aqui o Produtor, que e o texto que mais varia. */
-.lotpick-card {
-  display: flex;
-  align-items: center;
-  gap: var(--lotpick-gap);
-  width: 100%;
-  padding: 0.62rem var(--lotpick-pad-x);
-  background: #ffffff;
-  border: 1px solid var(--fv-line);
-  border-radius: var(--fv-radius);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  text-align: left;
-  -webkit-tap-highlight-color: transparent;
-  flex-shrink: 0;
-}
-/* Feedback de toque = so profundidade, nunca cor (skill button-press-effect).
-   A `transition` vem do reset global de `button`, que lista as propriedades
-   uma a uma de proposito — sobrescrever aqui devolveria o fade de background
-   que aquele reset existe pra impedir. */
-.lotpick-card:active {
-  transform: scale(0.98);
-}
-.lotpick-card-chevron {
-  flex-shrink: 0;
-  width: var(--lotpick-chevron);
-  height: var(--lotpick-chevron);
-  fill: none;
-  stroke: var(--fv-line-strong);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-/* Base = CELULAR (RC-D52): a linha corrida de hoje. O numero do lote ocupa a
-   primeira linha inteira e o resto flui em sequencia; os separadores "·" que
-   antes eram <span> no JSX viram ::before aqui. */
-.lotpick-card-grid {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.15rem 0.3rem;
-  flex: 1 1 auto;
-  min-width: 0;
-}
-.lotpick-c {
-  min-width: 0;
-  font-size: 0.84rem;
-  color: var(--ink);
-}
-.lotpick-c-lot {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  flex: 0 0 100%;
-  font-weight: 600;
-}
-.lotpick-c-owner,
-.lotpick-c-sacks,
-.lotpick-c-harvest {
-  font-size: 0.8rem;
-  color: var(--brand-muted);
-}
-/* 🔴 `flex-basis: 0` no nome, nao `auto`: com `flex-wrap: wrap`, a quebra e
-   decidida pelo tamanho de CONTEUDO do item, entao um produtor comprido
-   empurraria sacas/safra pra uma terceira linha ANTES de encolher. Com base 0
-   ele sempre cabe, cresce pra ocupar a sobra e trunca — que e o comportamento
-   do card de hoje (`.spv2-card-owner`). Sacas e safra nao cedem. */
-.lotpick-c-owner {
-  flex: 1 1 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.lotpick-c-sacks,
-.lotpick-c-harvest {
-  flex: 0 0 auto;
-  white-space: nowrap;
-}
-.lotpick-lot-num {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.lotpick-c-sacks::before,
-.lotpick-c-harvest::before {
-  content: '·';
-  margin-right: 0.3rem;
-  color: var(--fv-line-strong);
-}
-/* "80 sacas de 300" — o total original em tom secundario, so quando parte do
-   lote ja saiu. Aqui todo lote e vendavel, entao e o saldo que distingue um
-   card do outro. */
-.lotpick-card-of {
-  margin-left: 0.25rem;
-  color: var(--brand-muted);
-  white-space: nowrap;
-}
-/* Cabecalho das colunas: `display: none` na base porque no celular nao ha
-   coluna que rotular. */
-.lotpick-head {
-  display: none;
-}
-.lotpick-sentinel {
-  flex-shrink: 0;
-  padding: 0.5rem;
-  text-align: center;
-  font-size: 0.82rem;
-  color: var(--brand-muted);
-}
-
-/* RC-D50 — DESKTOP: a linha corrida vira grade de 4 colunas e o cabecalho
-   acende. O mesmo markup serve os dois tamanhos; quem troca o desenho e esta
-   media query, nao um branch em JS — o `useIsDesktop()` e false na primeira
-   pintura, e o card montaria no desenho errado antes de saltar. */
-@media (min-width: 901px) {
-  .lotpick-card-grid {
-    display: grid;
-    grid-template-columns: var(--lotpick-cols);
-    align-items: center;
-    column-gap: var(--lotpick-colgap);
-    row-gap: 0;
-  }
-  /* No desktop o rotulo esta no cabecalho, entao o valor volta ao tom do texto
-     — o cinza existia pra hierarquizar a linha corrida do celular. */
-  .lotpick-c-owner,
-  .lotpick-c-sacks,
-  .lotpick-c-harvest {
-    font-size: 0.84rem;
-    color: var(--ink);
-  }
-  /* Os separadores sao artefato da linha corrida: sem eles no desktop. */
-  .lotpick-c-sacks::before,
-  .lotpick-c-harvest::before {
-    content: none;
-  }
-  /* "de 300" desce pra segunda linha da celula (molde .fv-table-sub): a coluna
-     e estreita demais pra "80 sacas de 300" inteiro. */
-  .lotpick-c-sacks {
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
-    white-space: normal;
-  }
-  .lotpick-card-of {
-    margin-left: 0;
-    font-size: 0.78rem;
-  }
-
-  .lotpick-head {
-    display: grid;
-    grid-template-columns: var(--lotpick-cols);
-    column-gap: var(--lotpick-colgap);
-    align-items: center;
-    /* Sticky DENTRO da rolagem: herda o padding lateral da .lotpick-list e
-       alinha com os cards sem recalcular recuo, e continua visivel ao rolar.
-       O recuo da direita repoe a coluna do chevron, que no card e irmao da
-       grade — sem isso os titulos ficariam meio passo a frente das celulas. */
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    flex-shrink: 0;
-    /* Cancela quase todo o `gap` da lista logo abaixo do cabecalho: com os
-       0.6rem inteiros, o card rolando pra cima aparecia como uma tira solta
-       entre o filete e o titulo antes de sumir por baixo dele. */
-    margin-bottom: -0.35rem;
-    padding: 0.15rem calc(var(--lotpick-pad-x) + var(--lotpick-gap) + var(--lotpick-chevron))
-      0.45rem calc(var(--lotpick-pad-x) + 1px);
-    background: var(--fv-surface);
-    border-bottom: 1px solid var(--fv-line);
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--muted);
-    white-space: nowrap;
-  }
-}
+/* 🪦 RC-D69 (2026-07-29): o bloco `.lotpick-*` MORREU INTEIRO — 26 regras e a
+   media query de desktop que dava as quatro colunas. Era a lista de tela cheia
+   da selecao de lote: busca fixa no topo, cabecalho sticky, cards em grade e
+   sentinel de scroll infinito. O lote virou CAMPO (`.ctr-lotfield-*`, na secao
+   do formulario do contrato) e os quatro fatos que as colunas mostravam viraram
+   titulo + linha de meta na opcao do dropdown. */
 
 /* ---------------------------------------------------------------------------
    Financeiro (Fase F): pagina "Financeiro" — corretagem a receber por

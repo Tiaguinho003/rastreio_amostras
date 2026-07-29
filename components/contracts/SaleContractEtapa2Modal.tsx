@@ -31,10 +31,8 @@ import { BrokerMultiSelectField } from '../samples/BrokerMultiSelectField';
 import { ClientLookupField } from '../clients/ClientLookupField';
 import { ClientQuickCreateModal } from '../clients/ClientQuickCreateModal';
 import { ClientUnitModal } from '../clients/ClientUnitModal';
-import { HarvestDisplay } from '../samples/HarvestDisplay';
-import { ownerDisplayValue } from '../../lib/sample-display';
 import { ClientBankAccountSelectField } from './ClientBankAccountSelectField';
-import { ContractLotPickerStep } from './ContractLotPickerStep';
+import { ContractLotField } from './ContractLotField';
 import { InlineSelectField } from './InlineSelectField';
 import type {
   ClientSummary,
@@ -75,6 +73,11 @@ type SaleContractEtapa2ModalProps = {
 };
 
 // O que o formulário à vista precisa saber do lote escolhido.
+//
+// RC-D69: saíram `nextNumber` (o número é do CONTRATO, não do lote — hoje é
+// estado próprio, buscado uma vez na abertura) e `ownerName`/`harvest` (RC-D32,
+// que existiam só para a faixa de identidade — o cartão morreu, o produtor é o
+// campo Vendedor e a safra não vira campo).
 type SpotCreateState = {
   sampleId: string;
   sampleVersion: number;
@@ -82,16 +85,11 @@ type SpotCreateState = {
   availableSacks: number;
   isBlend: boolean;
   ownerClientId: string | null;
-  nextNumber: string | null;
-  // RC-D32: o que a faixa de identidade do lote mostra no topo do formulário.
-  // Tudo já vem do getSampleDetail do pick — não custa requisição.
-  ownerName: string | null;
-  harvest: string | null;
 };
 
-// Um mapeamento só, usado no pick e na re-hidratação depois do 409 do lote
+// Um mapeamento só, usado na escolha do lote e na re-hidratação depois do 409
 // (RC-D35) — assim os dois caminhos não podem divergir.
-function spotCreateFromSample(sample: SampleSnapshot, nextNumber: string | null): SpotCreateState {
+function spotCreateFromSample(sample: SampleSnapshot): SpotCreateState {
   return {
     sampleId: sample.id,
     sampleVersion: sample.version,
@@ -99,9 +97,6 @@ function spotCreateFromSample(sample: SampleSnapshot, nextNumber: string | null)
     availableSacks: sample.availableSacks ?? 0,
     isBlend: sample.isBlend ?? false,
     ownerClientId: sample.ownerClientId ?? null,
-    nextNumber,
-    ownerName: ownerDisplayValue(sample) || null,
-    harvest: sample.declared.harvest,
   };
 }
 
@@ -127,6 +122,7 @@ function unitLabel(unit: ClientUnitSummary): string {
 // typecheck pegar chave que não existe no markup — erro silencioso seria um campo
 // sem nenhuma marca vermelha.
 type FormFieldKey =
+  | 'lot'
   | 'saleDate'
   | 'saleSacks'
   | 'saleUnitPrice'
@@ -153,10 +149,12 @@ type FormFieldKey =
 // createFutureSaleContract). Na criação o contrato nasce EMITIDO numa só chamada
 // (D97). Pre-preenche via getSaleContract/getClient + listContractLookups.
 //
-// RC-D53/D57: o painel tem ATÉ TRÊS PASSOS na mesma superfície (`containers`
-// §1-A) — lote → formulário → documento. Só o à vista tem o primeiro; Futuro e
-// Editar abrem direto no formulário. Cabeçalho e rodapé não deslizam: quem anda
-// é o miolo.
+// RC-D53/D69: o painel tem DOIS PASSOS na mesma superfície (`containers` §1-A) —
+// formulário → documento. Cabeçalho e rodapé não deslizam: quem anda é o miolo.
+//
+// O lote já foi um terceiro passo (RC-D57), à frente dos outros dois. Ele
+// respondia UMA pergunta, e uma pergunta é um campo: virou o `ContractLotField`
+// da Identificação (RC-D69).
 export function SaleContractEtapa2Modal({
   session,
   open,
@@ -170,20 +168,20 @@ export function SaleContractEtapa2Modal({
   const isSpotCreate = spotFlow;
   const isCreateLike = isSpotCreate || futureCreate;
 
-  // RC-D57: o lote escolhido no passo 1. `null` = ainda estamos escolhendo.
+  // RC-D69: o lote escolhido no CAMPO da Identificação. `null` = campo vazio.
   const [spotCreate, setSpotCreate] = useState<SpotCreateState | null>(null);
   const [pickingId, setPickingId] = useState<string | null>(null);
   const [pickError, setPickError] = useState<string | null>(null);
-  // O passo do lote só existe no à vista, e some assim que um lote é escolhido.
-  const onLotStep = spotFlow && spotCreate == null;
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [contract, setContract] = useState<SaleContractDetail | null>(null);
   const [lookups, setLookups] = useState<ContractLookupsResponse | null>(null);
-  // Preview do número do contrato no modo Futuro (gerado de fato no submit;
-  // sequência contínua com o à vista). À vista traz via spotCreate.nextNumber.
-  const [futureNumber, setFutureNumber] = useState<string | null>(null);
+  // Preview do número na CRIAÇÃO (à vista e Futuro; gerado de fato no submit).
+  // RC-D69: vinha junto da escolha do lote, o que era errado duas vezes — o
+  // número não é propriedade do lote, e trocar de lote refazia a chamada por
+  // nada. Hoje é buscado uma vez, na abertura do painel.
+  const [previewNumber, setPreviewNumber] = useState<string | null>(null);
 
   // Partes / banco / armazens
   const [seller, setSeller] = useState<ClientSummary | null>(null);
@@ -320,12 +318,11 @@ export function SaleContractEtapa2Modal({
     setError(null);
   }, []);
 
-  // RC-D57: volta ao passo do LOTE. O formulário fica montado ao lado, com o que
-  // já foi digitado e a rolagem onde estava — trocar de lote não é descartar o
-  // contrato, então aqui não há "Descartar?". O que o lote determina (sacas,
-  // vendedor, filial, banco, liga) é re-hidratado pelo efeito de carga, que tem
-  // o id do lote na dependência.
-  const backToLot = useCallback(() => {
+  // RC-D69: limpar o CAMPO do lote. O resto do formulário fica como está —
+  // trocar de lote não é descartar o contrato. O que o lote determina (sacas,
+  // vendedor, filial, banco, liga) é zerado pelo efeito de carga, que tem o id
+  // do lote na dependência.
+  const clearLot = useCallback(() => {
     setSpotCreate(null);
     setPickError(null);
     setError(null);
@@ -377,16 +374,22 @@ export function SaleContractEtapa2Modal({
       setLoading(true);
       setLoadError(null);
       try {
-        // Modo CRIACAO À VISTA (1 modal): vem do picker de lote. Carrega lookups,
-        // pré-preenche o vendedor (dono do lote, se houver), semeia o blend e — para
-        // liga — semeia sacas = 100% e checa a viabilidade da cascata.
-        const spot = spotCreateRef.current;
-        if (spot) {
-          // RC-D57: dá pra VOLTAR e escolher outro lote sem perder o resto do
-          // formulário — então o que era do lote ANTERIOR tem que sair antes de
-          // hidratar o novo. Vendedor, filial e banco são os perigosos: o
-          // vendedor é o dono do lote (RC-D37), e uma filial/conta do dono
-          // antigo sobreviveria como um 422 de banco no submit.
+        // Modo CRIACAO À VISTA (1 modal): carrega lookups e, havendo lote
+        // escolhido no campo, pré-preenche o vendedor (dono do lote), semeia o
+        // blend e — para liga — semeia sacas = 100% e checa a viabilidade da
+        // cascata.
+        if (isSpotCreate) {
+          // RC-D57/D69: dá pra TROCAR de lote sem perder o resto do formulário
+          // — então o que era do lote ANTERIOR tem que sair antes de hidratar o
+          // novo. Vendedor, filial e banco são os perigosos: o vendedor é o dono
+          // do lote (RC-D37), e uma filial/conta do dono antigo sobreviveria
+          // como um 422 de banco no submit.
+          //
+          // O zeramento vem ANTES do `if (spot)` de propósito: LIMPAR o campo
+          // (spot === null) tem que zerar o mesmo tanto que trocar de lote. Com
+          // ele lá dentro, esvaziar o campo deixava vendedor e conta do lote
+          // anterior de pé — e o formulário afirmava um vendedor que não seria
+          // gravado.
           setSeller(null);
           setSellerUnits([]);
           setSellerUnitId('');
@@ -398,12 +401,23 @@ export function SaleContractEtapa2Modal({
           if (aborted) return;
           setLookups(lookupsRes);
           setContract(null);
+          // A data do contrato NÃO vem do lote: semeia só quando está vazia
+          // (abertura), senão trocar de lote reescreveria uma data que o
+          // operador tinha escolhido.
+          setSaleDate((prev) => prev || todayInputValue());
+          const spot = spotCreateRef.current;
+          if (!spot) {
+            // Sem lote ainda: o formulário existe e é preenchível, só não tem
+            // nada vindo do lote.
+            setSampleIsBlend(false);
+            setSaleSacks('');
+            return;
+          }
           setSampleIsBlend(spot.isBlend);
           // RC-D31: sacas = saldo do lote. Em liga isso e obrigatorio (venda de
           // liga e 100%, campo travado); em lote normal e so o caso comum —
           // vender o lote inteiro — com o campo livre pra reduzir.
           setSaleSacks(String(spot.availableSacks));
-          setSaleDate(todayInputValue());
           if (spot.ownerClientId) {
             const sellerD = await getClient(session, spot.ownerClientId).catch(() => null);
             if (aborted) return;
@@ -444,13 +458,6 @@ export function SaleContractEtapa2Modal({
           // RC-D31: mesma razao do a vista. Sacas ficam livres (contrato futuro
           // nao tem lote pra limitar).
           setSaleDate(todayInputValue());
-          // Preview do número (opcional; o número real é gerado no submit).
-          try {
-            const { contractNumber } = await getNextContractNumber(session);
-            if (!aborted) setFutureNumber(contractNumber);
-          } catch {
-            /* sem preview → cai para "—" */
-          }
           return;
         }
         if (!contractId) return;
@@ -539,7 +546,26 @@ export function SaleContractEtapa2Modal({
     return () => {
       aborted = true;
     };
-  }, [session, contractId, spotSampleId, futureCreate]);
+  }, [session, contractId, spotSampleId, futureCreate, isSpotCreate]);
+
+  // RC-D69: preview do número, uma vez por abertura. É opcional — falhar aqui
+  // não pode travar o fluxo; o campo mostra "—" e o número real é alocado na
+  // transação da emissão.
+  useEffect(() => {
+    if (!open || !isCreateLike) return;
+    let aborted = false;
+    void (async () => {
+      try {
+        const { contractNumber } = await getNextContractNumber(session);
+        if (!aborted) setPreviewNumber(contractNumber);
+      } catch {
+        /* sem preview → cai para "—" */
+      }
+    })();
+    return () => {
+      aborted = true;
+    };
+  }, [open, isCreateLike, session]);
 
   const sellerIsPF = seller?.personType === 'PF';
   const buyerIsPF = buyer?.personType === 'PF';
@@ -631,6 +657,13 @@ export function SaleContractEtapa2Modal({
     // Card: exige o contrato carregado. Criação (wizard/Futuro): não há contrato.
     if (!isCreateLike && !contract) return;
     // RC-D35: mensagem específica do 1º pendente, DENTRO do campo dele.
+    // RC-D69: o lote vem antes de tudo — é dele que saem o vendedor, a filial, a
+    // conta e o teto de sacas, então apontar qualquer um deles primeiro mandaria
+    // o operador preencher o que o lote resolveria sozinho.
+    if (isSpotCreate && !spotCreate) {
+      failField('lot', 'Escolha o lote.');
+      return;
+    }
     if (!seller) {
       failField('seller', 'Selecione o vendedor.');
       return;
@@ -775,7 +808,7 @@ export function SaleContractEtapa2Modal({
       expectedVersion: 0,
       // RC-D40: com lote o servidor deriva o vendedor do dono e RECUSA o campo
       // (422) — manda-lo seria pedir uma troca que não vai acontecer.
-      sellerClientId: sellerLockedToLot ? undefined : seller.id,
+      sellerClientId: hasLot ? undefined : seller.id,
       buyerClientId: buyer?.id ?? null,
       sellerUnitId: sellerIsPF ? sellerUnitId || null : null,
       buyerUnitId: buyerIsPF ? buyerUnitId || null : null,
@@ -945,7 +978,7 @@ export function SaleContractEtapa2Modal({
       // Mesmo lote, versão e saldo novos: o efeito de carga NÃO re-hidrata (a
       // dependência é o id), então o formulário preenchido sobrevive — que é
       // exatamente o ponto desta recuperação.
-      setSpotCreate((prev) => spotCreateFromSample(sample, prev?.nextNumber ?? null));
+      setSpotCreate(spotCreateFromSample(sample));
       // RC-D37: o vendedor é o dono do lote. Se o dono mudou no meio do
       // preenchimento, o campo travado tem que acompanhar — e a filial e o banco
       // do dono antigo deixam de valer.
@@ -1086,12 +1119,8 @@ export function SaleContractEtapa2Modal({
       ? 'Novo contrato — À vista'
       : `Editar contrato${contract ? ` ${contract.contractNumber}` : ''}`;
 
-  // Topo do form (só leitura): número que será criado + tipo do contrato.
-  const displayContractNumber = contract
-    ? contract.contractNumber
-    : isSpotCreate
-      ? (spotCreate?.nextNumber ?? '—')
-      : (futureNumber ?? '—');
+  // Identificação (só leitura): número que será criado + tipo do contrato.
+  const displayContractNumber = contract ? contract.contractNumber : (previewNumber ?? '—');
   const displayContractType = futureCreate || contract?.type === 'FUTURO' ? 'Futuro' : 'À vista';
 
   // Fechar (backdrop / ESC / arraste) no PRIMEIRO passo encerra o fluxo e volta
@@ -1099,38 +1128,33 @@ export function SaleContractEtapa2Modal({
   // só chamada, D97), não há venda parcial a limpar.
   const handleSheetClose = onClose;
 
-  // RC-D37: contrato COM lote tem o vendedor TRAVADO — é o dono do lote, e o
-  // servidor o deriva de lá (o payload não é lido). Trocar o vendedor se faz no
-  // cadastro do lote. No Futuro (sem lote) o campo segue livre.
-  const sellerLockedToLot = isSpotCreate || contract?.sampleId != null;
-
-  // RC-D57: há passo anterior para onde recuar? É o que decide entre "Voltar" e
-  // "Cancelar" no rodapé — e o que a seta ←, o ESC e o back do Android fazem.
-  const canStepBack = onDocumentStep || (spotFlow && spotCreate != null);
+  // O contrato tem lote? À vista sempre (RC-D69: o campo é obrigatório); no
+  // Editar, quando o contrato nasceu de um; no Futuro, nunca.
+  //
+  // RC-D37: é a mesma condição que TRAVA o vendedor, e não por acaso — o
+  // vendedor de um contrato com lote É o dono do lote, e o servidor o deriva de
+  // lá (o payload não é lido). Trocar o vendedor se faz no cadastro do lote.
+  const hasLot = isSpotCreate || contract?.sampleId != null;
 
   // RC-D34: sair do painel perde o formulário inteiro. Com algo preenchido pelo
   // usuário, pede confirmação; com o formulário intocado, sai direto — a
   // pergunta em cima de nada é só atrito. `true` = pode sair agora.
   //
-  // RC-D55/D57: com um passo atrás, a seta ←, o ESC e o back do Android VOLTAM
-  // UM PASSO em vez de sair. Devolver `false` com efeito colateral é o padrão
-  // daqui: é assim que o "Descartar?" logo abaixo já funciona.
+  // RC-D55: no documento, a seta ←, o ESC e o back do Android VOLTAM UM PASSO em
+  // vez de sair. Devolver `false` com efeito colateral é o padrão daqui: é assim
+  // que o "Descartar?" logo abaixo já funciona.
   function canExit(): boolean {
     if (saving) return false;
     if (onDocumentStep) {
       backToForm();
       return false;
     }
-    if (spotFlow && spotCreate != null) {
-      backToLot();
-      return false;
-    }
     // O ESC do BottomSheet é global e o "Descartar?" é modal central, que não
     // entra na pilha de sheets — sem este guard, apertar ESC com ele aberto
     // fecharia o painel POR BAIXO.
     if (pendingExit) return false;
-    // Enquanto o lote hidrata, o passo seguinte já está a caminho: sair no meio
-    // deixaria o `setSpotCreate` cair num painel fechando.
+    // Enquanto o lote hidrata, sair no meio deixaria o `setSpotCreate` cair num
+    // painel fechando.
     if (pickingId) return false;
     if (touched) {
       setPendingExit(true);
@@ -1150,24 +1174,18 @@ export function SaleContractEtapa2Modal({
     handleSheetClose();
   }
 
-  // RC-D57: escolher o lote. A hidratação (detalhe fresco + próximo número) é
-  // daqui e não do passo, porque o resultado é o que ABRE o passo seguinte — e
-  // quem manda no passo é este painel.
+  // RC-D69: escolher o lote no campo. A hidratação (detalhe FRESCO — versão e
+  // saldo do momento, não os da lista) é daqui e não do campo, porque o
+  // resultado preenche meio formulário.
   async function handlePickLot(sample: SampleSnapshot) {
     if (pickingId) return;
     setPickingId(sample.id);
     setPickError(null);
+    setFieldError(null);
+    setTouched(true);
     try {
       const detail = await getSampleDetail(session, sample.id);
-      // Número só de PREVIEW: o definitivo é alocado na transação da emissão.
-      // Falhar aqui não pode travar o fluxo — o formulário mostra "—".
-      let nextNumber: string | null = null;
-      try {
-        nextNumber = (await getNextContractNumber(session)).contractNumber;
-      } catch {
-        nextNumber = null;
-      }
-      setSpotCreate(spotCreateFromSample(detail.sample, nextNumber));
+      setSpotCreate(spotCreateFromSample(detail.sample));
     } catch (cause) {
       setPickError(cause instanceof ApiError ? cause.message : 'Falha ao abrir o lote.');
     } finally {
@@ -1178,10 +1196,6 @@ export function SaleContractEtapa2Modal({
   // RC-D54: o rodapé é UM só nos passos que têm ação — ele não desliza, só troca
   // de rótulo e de ação. É o que faz a virada ler como o mesmo painel mudando de
   // conteúdo, em vez de duas telas.
-  //
-  // RC-D57: no passo do LOTE não há rodapé. Ali não existe decisão a confirmar —
-  // escolher é tocar num lote —, e um rodapé com um botão só seria chrome que
-  // não faz nada.
   const sheetFooter = (
     <div className="app-modal-actions ctr-etapa2-actions" key={onDocumentStep ? 'doc' : 'form'}>
       <button
@@ -1189,12 +1203,11 @@ export function SaleContractEtapa2Modal({
         className="app-modal-secondary"
         onClick={() => {
           if (onDocumentStep) backToForm();
-          else if (canStepBack) backToLot();
           else requestExit();
         }}
         disabled={saving}
       >
-        {canStepBack ? 'Voltar' : 'Cancelar'}
+        {onDocumentStep ? 'Voltar' : 'Cancelar'}
       </button>
       {onDocumentStep ? (
         <button
@@ -1233,35 +1246,16 @@ export function SaleContractEtapa2Modal({
         onClose={handleSheetClose}
         onDismissAttempt={() => canExit()}
         title={null}
-        ariaLabel={onLotStep ? 'Selecionar lote' : sheetTitle}
-        footer={onLotStep ? null : sheetFooter}
+        ariaLabel={sheetTitle}
+        footer={sheetFooter}
         closeVariant="edge-back"
         dragDisabled={pendingExit || confirmDoc != null}
         className="fv-panel-sheet side-sheet ctr-form-sheet ctr-contract-sheet"
       >
-        {/* RC-D53/D54/D57: os passos vivem no corpo do mesmo painel, na mesma
+        {/* RC-D53/D54: os dois passos vivem no corpo do mesmo painel, na mesma
             célula da grade. Quem sai vai pra esquerda, quem entra vem da
-            direita, e o corpo recorta — cabeçalho e rodapé não se mexem.
-            No à vista são três (lote → formulário → documento); em Futuro e
-            Editar o primeiro nem é montado. */}
-        {spotFlow ? (
-          <div
-            className={`ctr-step ctr-step-lot${onLotStep ? '' : ' is-past'}`}
-            aria-hidden={!onLotStep}
-          >
-            <ContractLotPickerStep
-              session={session}
-              onPick={(sample) => void handlePickLot(sample)}
-              busy={pickingId != null}
-              pickError={pickError}
-            />
-          </div>
-        ) : null}
-
-        <div
-          className={`ctr-step${onDocumentStep ? ' is-past' : onLotStep ? ' is-next' : ''}`}
-          aria-hidden={onDocumentStep || onLotStep}
-        >
+            direita, e o corpo recorta — cabeçalho e rodapé não se mexem. */}
+        <div className={`ctr-step${onDocumentStep ? ' is-past' : ''}`} aria-hidden={onDocumentStep}>
           {/* Irmão do corpo, não filho: é o molde do painel (`forms` §1), e
             dentro do `.fv-form-body` a margem dele somaria ao gap do grid. */}
           <p className="fv-panel-lead">{sheetTitle}</p>
@@ -1280,64 +1274,39 @@ export function SaleContractEtapa2Modal({
             <p className="ctr-modal-loading">Carregando...</p>
           ) : (
             <div className="fv-form-body ctr-etapa2-content">
-              {/* RC-D59: TUDO o que não se edita mora aqui, num cartão só. Antes
-                eram três apresentações diferentes — uma faixa com os fatos do
-                lote, dois pseudo-campos (número e tipo) que pareciam inputs
-                desabilitados, e o vendedor travado. Os dois do meio convidavam
-                ao clique e não faziam nada. */}
-              <div className="ctr-ident">
-                <div className="ctr-ident-top">
-                  <span className="ctr-ident-num">Nº {displayContractNumber}</span>
-                  <span className="ctr-ident-type">{displayContractType}</span>
-                </div>
-                {/* Só há fatos do lote na criação à vista: no Futuro não existe
-                  lote, e no Editar o contrato carregado não traz número nem
-                  safra do lote (só o sampleId). */}
-                {isSpotCreate && spotCreate ? (
-                  <div className="ctr-ident-facts">
-                    <span className="ctr-ident-fact is-strong">
-                      Lote {spotCreate.internalLotNumber ?? 'sem número'}
-                    </span>
-                    {spotCreate.ownerName ? (
-                      <>
-                        <span className="ctr-ident-dot" aria-hidden="true">
-                          ·
-                        </span>
-                        <span className="ctr-ident-fact">{spotCreate.ownerName}</span>
-                      </>
-                    ) : null}
-                    {spotCreate.harvest ? (
-                      <>
-                        <span className="ctr-ident-dot" aria-hidden="true">
-                          ·
-                        </span>
-                        <span className="ctr-ident-fact">
-                          {/* HarvestDisplay, nao texto cru: liga com 2+ safras vira o
-                            badge "Mix" — mesmo desenho do card do picker que o
-                            usuario acabou de ver. `showMixSafras={false}` porque a
-                            linha ja separa fatos por "·" e a lista de safras usa o
-                            mesmo separador. */}
-                          Safra{' '}
-                          <HarvestDisplay harvest={spotCreate.harvest} showMixSafras={false} />
-                        </span>
-                      </>
-                    ) : null}
-                    <span className="ctr-ident-dot" aria-hidden="true">
-                      ·
-                    </span>
-                    <span className="ctr-ident-fact">
-                      {spotCreate.availableSacks} sacas disponíveis
-                    </span>
-                  </div>
-                ) : null}
-              </div>
-
-              {/* ── RC-D58: daqui pra baixo a ordem é a do DOCUMENTO. As sete
-                primeiras seções são os trechos do PDF na sequência em que ele
-                imprime; a oitava é o que não é impresso. ── */}
+              {/* ── RC-D58: a ordem é a do DOCUMENTO. As sete primeiras seções
+                são os trechos do PDF na sequência em que ele imprime; a oitava é
+                o que não é impresso. O bloco de Identificação do PDF é
+                `Nº Contrato · Nº Compra · Nº Lote · Mês · Ano` — e Mês/Ano saem
+                da data do contrato. ── */}
               <span className="fv-form-heading">Identificação</span>
 
+              {/* RC-D70: o cartão de identidade (RC-D59) morreu, e número e tipo
+                voltaram a ser campos. Não os pseudo-campos que a RC-D59 matou —
+                aqueles eram caixas de input desabilitadas, que convidavam ao
+                clique e não faziam nada. Estes são o campo TRAVADO da RC-D37:
+                valor com rótulo, sem caixa.
+
+                O Tipo não é impresso no PDF, então pela regra acima ele cairia
+                em "Controle interno". Fica aqui de propósito: ao lado do número
+                ele é a outra metade de "que contrato é este", e no fim do
+                formulário seria uma sobra. */}
               <div className="fv-form-row fv-form-row-2col">
+                <div className="fv-form-field">
+                  <span className="fv-form-label">Nº do contrato</span>
+                  <p className="ctr-locked-value">{displayContractNumber}</p>
+                  {contract ? null : <span className="ctr-locked-hint">Gerado na emissão.</span>}
+                </div>
+
+                <div className="fv-form-field">
+                  <span className="fv-form-label">Tipo</span>
+                  <p className="ctr-locked-value">{displayContractType}</p>
+                </div>
+              </div>
+
+              {/* A linha só vira de 2 colunas quando há lote: no Futuro o campo
+                não existe e meia largura vazia seria pior. */}
+              <div className={`fv-form-row${hasLot ? ' fv-form-row-2col' : ''}`}>
                 <label className="fv-form-field">
                   <span className="fv-form-label">Nº de compra</span>
                   <input
@@ -1348,6 +1317,51 @@ export function SaleContractEtapa2Modal({
                   />
                 </label>
 
+                {/* RC-D69: o LOTE, que era um passo inteiro antes deste
+                  formulário. Escolher preenche na hora vendedor, filial, conta
+                  bancária, sacas e liga — por isso ele vem cedo: apontar
+                  qualquer um desses como pendente antes do lote mandaria
+                  preencher o que o lote resolve sozinho. */}
+                {isSpotCreate ? (
+                  <div className={fieldClass('lot')}>
+                    <span className="fv-form-label">
+                      Lote<span className="fv-form-required"> *</span>
+                    </span>
+                    <ContractLotField
+                      session={session}
+                      selected={
+                        spotCreate
+                          ? { id: spotCreate.sampleId, lotNumber: spotCreate.internalLotNumber }
+                          : null
+                      }
+                      onSelect={(sample) => void handlePickLot(sample)}
+                      onClear={clearLot}
+                      disabled={disabled}
+                      busy={pickingId != null}
+                      invalid={fieldError?.field === 'lot'}
+                    />
+                    {/* A falha de ABRIR o lote é sobre o lote: divide o slot com
+                      o "Escolha o lote." em vez de virar erro geral no rodapé. */}
+                    {pickError ? (
+                      <span className="fv-form-field-error">{pickError}</span>
+                    ) : (
+                      fieldMessage('lot')
+                    )}
+                  </div>
+                ) : hasLot ? (
+                  // RC-D72: no Editar o lote não muda — trocá-lo transferiria a
+                  // venda de um lote para outro no ato de salvar.
+                  <div className="fv-form-field">
+                    <span className="fv-form-label">Lote</span>
+                    <p className="ctr-locked-value">{contract?.sampleLotNumber ?? 'Sem número'}</p>
+                    <span className="ctr-locked-hint">
+                      O lote é definido na criação e não muda depois.
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="fv-form-row">
                 <label className={fieldClass('saleDate')}>
                   <span className="fv-form-label">
                     Data do contrato<span className="fv-form-required"> *</span>
@@ -1422,13 +1436,13 @@ export function SaleContractEtapa2Modal({
                 <div className={fieldClass('seller')}>
                   <span className="fv-form-label">
                     Vendedor
-                    {sellerLockedToLot ? null : <span className="fv-form-required"> *</span>}
+                    {hasLot ? null : <span className="fv-form-required"> *</span>}
                   </span>
                   {/* RC-D37: com lote, o vendedor é o dono do lote e o campo
                     não abre. Trocá-lo aqui transferia o lote no ato de
                     emitir — agora a troca se faz onde ela pertence, no
                     cadastro do lote. */}
-                  {sellerLockedToLot ? (
+                  {hasLot ? (
                     <>
                       <p className="ctr-locked-value">{seller?.displayName ?? 'Sem produtor'}</p>
                       <span className="ctr-locked-hint">
@@ -1679,8 +1693,11 @@ export function SaleContractEtapa2Modal({
                 <div className={fieldClass('saleSacks')}>
                   <span className="fv-form-label">
                     Sacas<span className="fv-form-required"> *</span>
-                    {/* O saldo do lote saiu daqui — o cartão de identidade já o
-                      diz. Fica só o que explica um campo TRAVADO. */}
+                    {/* RC-D71: o saldo do lote não tem rótulo próprio porque ele
+                      JÁ É o valor deste campo — escolher o lote preenche as
+                      sacas com o disponível (RC-D31). Repeti-lo ao lado seria
+                      dizer duas vezes o mesmo número. Fica só o que explica um
+                      campo TRAVADO. */}
                     {sampleIsBlend ? ' (liga: 100%)' : ''}
                   </span>
                   <input
