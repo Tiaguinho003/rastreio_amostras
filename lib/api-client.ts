@@ -930,6 +930,21 @@ export function setSaleContractApprovalFlag(
   });
 }
 
+// RC-D99: cascata do "Nº compra" da etiqueta de aprovação. Escrita estreita — não
+// re-snapshota a etapa 2 nem deixa linha "EDIÇÃO" na timeline (o "Editar" faz as
+// duas coisas). String vazia grava null. Congelado fora de EMITIDO.
+export function setSaleContractPurchaseNumber(
+  session: SessionData,
+  contractId: string,
+  data: { purchaseNumber: string; expectedVersion: number }
+) {
+  return request<SaleContractResponse>(`/sale-contracts/${contractId}/purchase-number`, {
+    method: 'POST',
+    session,
+    body: data,
+  });
+}
+
 // RC-D62/D63: "Finalizar" tira o contrato da fila; "Reabrir" devolve. Sem data —
 // não é registro de um fato, é o contrato dizendo que não pede mais nada.
 export function finalizeSaleContract(

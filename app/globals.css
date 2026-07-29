@@ -19466,10 +19466,12 @@ select.samples-filter-field-input {
 
 /* ── Form Scroll & Submit ── */
 
+/* Rodapé da etiqueta de aprovação (único consumidor). Era 1fr 1fr por causa do
+   par Limpar+Imprimir; o "Limpar" saiu na RC-D101 e o submit ocupa a linha. */
 .nsv2-submit-wrap {
   flex-shrink: 0;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: clamp(8px, 2.5vw, 10px);
   padding: clamp(8px, 2vw, 10px) clamp(16px, 4.5vw, 20px) clamp(8px, 2vw, 10px);
   background: transparent;
@@ -19512,41 +19514,38 @@ select.samples-filter-field-input {
   min-width: 0;
 }
 
-/* Grupo de Lotes (campos dinâmicos): rótulo + fila de inputs pequenos que
-   enchem da esquerda; o "+" cria mais um ao lado e SEGUE o último campo. */
+/* Grupo de Lotes: rótulo + o OriginLotChips (o MESMO editor do detalhe do lote,
+   RC-D100) + as linhas de apoio (motivo da trava, aviso do recorte). */
 .alm-lots-group {
   display: flex;
   flex-direction: column;
   gap: clamp(3px, 1vw, 4px);
 }
 
-/* Aprovacao: lotes de origem READ-ONLY (espelham o cadastro do lote — o usuario
-   nao edita aqui; pra corrigir edita o lote/liga e reimprime). Chips discretos;
-   vazio (futuro) = texto "sem lote". */
-.alm-lots-readonly {
-  display: flex;
-  flex-wrap: wrap;
-  gap: clamp(4px, 1.2vw, 6px);
-}
-
-.alm-lot-chip {
-  display: inline-flex;
-  align-items: center;
-  padding: clamp(3px, 1vw, 5px) clamp(8px, 2.4vw, 11px);
-  border-radius: 999px;
-  background: #eef1ee;
-  color: #24392f;
-  font-size: clamp(12px, 3.4vw, 13px);
+/* RC-D98: campo de LEITURA — vem do contrato. Peso do valor do formulário, sem
+   moldura: input desabilitado ainda parece um campo que vai destravar. */
+.alm-locked-value {
+  margin: 0;
+  padding: clamp(3px, 1vw, 4px) 0;
+  font-size: clamp(12.5px, 3.5vw, 13.5px);
   font-weight: 600;
-  line-height: 1;
+  color: #24392f;
   overflow-wrap: anywhere;
 }
 
-.alm-lots-empty {
+/* A nota única dos quatro travados (topo do form) e as linhas de apoio do campo
+   de lotes — motivo da trava, aviso do recorte de 8. */
+.alm-locked-note,
+.alm-field-hint {
   margin: 0;
   font-size: clamp(11px, 3vw, 12px);
+  line-height: 1.35;
   color: #8a8a8a;
 }
+
+/* 🪦 .alm-lots-readonly / .alm-lot-chip / .alm-lots-empty — os lotes deixaram de
+   ser read-only na RC-D100 e o campo virou o OriginLotChips (.olc-*), que já traz
+   chip, estado disabled e o "—" do vazio. Sem markup desde 2026-07-29. */
 
 .nsv2-field {
   display: flex;
@@ -19806,34 +19805,10 @@ select.samples-filter-field-input {
   background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
 }
 
-.nsv2-clear-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  padding: clamp(10px, 3vw, 12px);
-  border: 1.5px solid rgba(0, 0, 0, 0.08);
-  border-radius: clamp(11px, 3.2vw, 13px);
-  background: transparent;
-  color: #777;
-  font-size: clamp(13px, 3.5vw, 14px);
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  /* So transform (LNW-L2): background no :active/transition e o
-     anti-pattern do tap-flash. */
-  transition: transform 0.15s;
-}
-
-.nsv2-clear-btn:active:not(:disabled) {
-  transform: scale(0.97);
-}
-
-.nsv2-clear-btn:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
+/* 🪦 .nsv2-clear-btn — o "Limpar" da etiqueta de aprovação era o último
+   consumidor e saiu na RC-D101: com quatro campos travados ele só zeraria os
+   dois que CASCATEIAM, virando um botão de apagar dado do cadastro. Sem markup
+   desde 2026-07-29 (havia também um override no tier desktop, apagado junto). */
 
 /* ── Photo Fullscreen ── */
 
@@ -22072,7 +22047,6 @@ select.samples-filter-field-input {
   }
 
   .nsv2-submit-wrap {
-    grid-template-columns: 1fr 1fr;
     gap: 1rem;
     padding: 0.5rem 3rem 0.65rem;
   }
@@ -22096,23 +22070,7 @@ select.samples-filter-field-input {
     box-shadow: 0 2px 8px rgba(27, 94, 32, 0.2);
   }
 
-  .nsv2-clear-btn {
-    padding: 0.8rem;
-    font-size: 1.1rem;
-    border-radius: 16px;
-    transition:
-      transform 0.2s ease,
-      background 0.2s ease;
-  }
-
-  .nsv2-clear-btn:hover {
-    background: rgba(0, 0, 0, 0.04);
-    border-color: rgba(0, 0, 0, 0.15);
-  }
-
-  .nsv2-clear-btn:active {
-    transform: scale(0.98);
-  }
+  /* 🪦 .nsv2-clear-btn (overrides desktop) — ver a lápide da regra base. */
 
   /* ══════════════════════════════════════════
      LOGIN — overrides para desktop (card maior)

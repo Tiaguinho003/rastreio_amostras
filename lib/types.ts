@@ -380,6 +380,12 @@ export interface ContractPhases {
 // Aprovação do contrato (Fase I, D112–D119): prefill da etiqueta montado no
 // backend (campos já cortados nos limites físicos e lotes quebrados do Lote
 // de origem, D115/D116).
+export type ApprovalOriginLotLockReason =
+  | 'NO_SAMPLE'
+  | 'BLEND'
+  | 'BLEND_COMPONENT'
+  | 'SAMPLE_STATUS';
+
 export interface ApprovalLabelPrefill {
   fields: {
     compra: string;
@@ -388,8 +394,19 @@ export interface ApprovalLabelPrefill {
     armazem: string;
     sacas: string;
   };
+  /** Recorte do PAPEL: 16 chars por código, 7 + "+" acima de 8. Nunca a fonte da edição. */
   lots: string[];
+  /** O texto CRU e inteiro do lote de origem — é sobre ele que o modal edita (RC-D100). */
   originLotText: string | null;
+  /** expectedVersion da cascata do Nº compra (RC-D99). */
+  contractVersion: number;
+  originLot: {
+    editable: boolean;
+    lockReason: ApprovalOriginLotLockReason | null;
+    /** Alvo da cascata; nulos quando travado. */
+    sampleId: string | null;
+    sampleVersion: number | null;
+  };
 }
 
 export interface SaleContract {
