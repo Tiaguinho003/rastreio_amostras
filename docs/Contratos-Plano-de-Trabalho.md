@@ -2,7 +2,7 @@
 
 Status: Em andamento (backlog + decisões + pendências da página `/contratos`)
 Escopo: o backlog, as pendências e o **ledger de decisões** da feature de Contratos (hub `/contratos`: contrato/PDF, Espelho de Corretagem, Financeiro, Aprovações, Embarque). O **estado atual** do que existe vive em `Contratos-Visao-Geral.md`; aqui ficam as decisões (o porquê), as pendências abertas e o histórico condensado.
-Última revisão: 2026-07-29 (**§7 — RC-D69..D73 IMPLEMENTADAS**: a seleção de lote deixa de ser passo e vira **campo obrigatório** da Identificação — a criação à vista cai para **dois passos**, o cartão de identidade morre e o Editar mostra o lote travado. Anterior: 2026-07-28, **§6 — RC-D62..D68**: o contrato deixa de ser máquina de status e vira **agenda** — três situações (`EMITIDO`/`FINALIZADO`/`WASH_OUT`), o embarque morre inteiro, a aprovação não trava nada e o `/financeiro` vira leitura. Antes, no mesmo dia: §5.10–§5.16, a RC-F5 e a 1ª rodada da RC-F6. Anterior: 2026-07-27, §5.9 — RC-F1+F4)
+Última revisão: 2026-07-29 (**§8 — RC-D74..D79 DECIDIDAS, sem código**: status e fase são dois conceitos, embarque e faturamento são o MESMO DIA — o embarque volta sem coluna nova — e o que falta construir é o quadro de fases, a RC-F2. Antes, no mesmo dia: **§7 — RC-D69..D73 IMPLEMENTADAS**: a seleção de lote deixa de ser passo e vira **campo obrigatório** da Identificação — a criação à vista cai para **dois passos**, o cartão de identidade morre e o Editar mostra o lote travado. Anterior: 2026-07-28, **§6 — RC-D62..D68**: o contrato deixa de ser máquina de status e vira **agenda** — três situações (`EMITIDO`/`FINALIZADO`/`WASH_OUT`), o embarque morre inteiro, a aprovação não trava nada e o `/financeiro` vira leitura. Antes, no mesmo dia: §5.10–§5.16, a RC-F5 e a 1ª rodada da RC-F6. Anterior: 2026-07-27, §5.9 — RC-F1+F4)
 Documentos relacionados: `Contratos-Visao-Geral.md` (documento-mãe / estado atual), `Dashboard-Visao-Geral.md`, `API-e-Contratos.md`, `Auditoria-Navegacao-por-Papel.md`
 
 > **Divisão de papéis:** a `Contratos-Visao-Geral.md` é a **verdade viva** (o que existe hoje). Este plano guarda **decisões (por quê), pendências (o que falta) e o backlog**. O histórico completo de sessões (S1–S91 etc.) e a prosa superada foram para o **Git** (docs antigos removidos em 2026-07-13); o ledger no apêndice condensa cada decisão à resolução final.
@@ -1016,6 +1016,74 @@ e **ficou como valor solto**, porque o pedido nomeou só o Vendedor. Decisão de
   linha "Mostrando os primeiros 8" existe para o corte não ler como "só existem 8".
 - **O `sellableOnly` (RC-D30) foi junto sem discussão** — é o filtro que impede lote sem quantidade
   declarada e liga de cascata inviável de chegarem ao submit.
+
+## 8. Status e fases — o modelo fechado (RC-D74..D79) — 2026-07-29
+
+> **Fonte:** conversa de decisão com o Flavio. Ele trouxe as cinco fases (emissão, aprovação,
+> embarque, faturamento, pagamento) e os três status, pediu para reintroduzir o **embarque** de forma
+> simples — só a data, sem foto nem ações — e perguntou se tudo deveria ser status ou se status e
+> fases eram coisas distintas.
+
+### 8.1 A pergunta e a resposta
+
+**Status e fase são dois conceitos, e não disputam o mesmo espaço.**
+
+|            | Pergunta que responde            | Como vive                   | Muda quando                                   |
+| ---------- | -------------------------------- | --------------------------- | --------------------------------------------- |
+| **Status** | "este contrato ainda está vivo?" | **persistido**, 3 valores   | alguém **age** (emitir · finalizar · washout) |
+| **Fase**   | "o que vem a seguir?"            | **derivada**, nunca gravada | o **calendário** anda                         |
+
+Tratar tudo como status quebraria em dois pontos: alguém teria que **marcar** "faturado" e
+"embarcado" — o que a §6 derrubou —, e o contrato ganharia uma **ordem obrigatória** (não dá para
+pagar antes de faturar) que a operação real não respeita.
+
+### 8.2 A regra que torna o modelo decidível
+
+> **Uma fase tem ação quando o ato dela produz um registro que o sistema já observa por outro
+> motivo. Não produzindo, ela é só uma data.**
+
+A regra **prevê** as observações do Flavio (só Aprovação e Pagamento têm ação) e explica por que 3
+status bastam para 5 fases: as fases com ação já se resolvem no status ou num registro existente.
+
+| Fase        | Ato                 | Registro que deixa      | Resultado                       |
+| ----------- | ------------------- | ----------------------- | ------------------------------- |
+| Emissão     | emitir              | o próprio contrato      | **ação** → `EMITIDO`            |
+| Aprovação   | imprimir a etiqueta | `ApprovalLabelLog`      | **ação** (o aviso some sozinho) |
+| Embarque    | —                   | nenhum                  | **data**                        |
+| Faturamento | —                   | nenhum                  | **data**                        |
+| Pagamento   | Finalizar           | `SaleContractStatusLog` | **ação** → `FINALIZADO`         |
+
+### 8.3 Decisões (ledger RC, continuação)
+
+| #          | Decisão                                                                                                                                                                                                         |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RC-D74** | **Status e fase são dois conceitos.** Status = persistido, 3 valores, muda por ato. Fase = derivada, nunca gravada, muda com o calendário                                                                       |
+| **RC-D75** | **A regra da §8.2**: fase tem ação quando o ato deixa registro que o sistema já observa; não deixando, é só uma data                                                                                            |
+| **RC-D76** | 🔴 **Embarque e faturamento são o MESMO DIA** — regra do negócio, sem exceção (a nota acompanha a carga). O embarque volta como **segunda leitura do `invoiceDate`**: sem coluna, sem migration, sem campo novo |
+| **RC-D77** | No quadro de fases, embarque e faturamento ganham **✓ quando a data passa**                                                                                                                                     |
+| **RC-D78** | **Nenhum rótulo muda**: formulário, PDF, lista, calendário e card de Avisos seguem dizendo "faturamento". O embarque existe em **um lugar só** — o quadro de fases do detalhe                                   |
+| **RC-D79** | **"Finalizar" significa "o pagamento entrou"** — confirma o que já vale (`/financeiro` move para "Recebida" ao finalizar)                                                                                       |
+
+> ⚠️ **A RC-D77 foi escolhida contra a minha recomendação.** Eu propus "só a data, sem marca", porque
+> embarque e faturamento **não deixam rastro** — passou o dia 12/08 e o sistema não sabe se o café
+> saiu. O ✓ ali afirma o que não foi observado: com o caminhão quebrado, o quadro diz que embarcou.
+> O Flavio viu esse caso no preview e escolheu assim. **Consequência aceita:** o ✓ tem dois
+> significados na mesma coluna — "aconteceu (há registro)" nas três fases com rastro, "a data passou"
+> nas duas sem.
+
+### 8.4 O que isto muda no código
+
+**Quase nada — e é o sinal de que o modelo já estava construído.** A §6 tinha chegado ao mesmo lugar
+por outro caminho: a agenda derivada **é** a fase.
+
+- **Aprovação** — nada. A âncora do lembrete é o `invoiceDate`, que **é** a data do embarque; a
+  observação de que ela estaria ancorada na data errada caiu quando a RC-D76 apareceu. Sem data
+  ("À definir") segue **avisando sempre**, e a aprovação segue **fora do calendário**, só no card de
+  Avisos.
+- **Embarque / Faturamento** — nada além da linha nova no quadro de fases.
+- **Pagamento** — nada. Segue sendo o único atraso do app (RC-D64).
+- **Dashboard** — nada. Card de Avisos e calendário ficam como estão.
+- **Falta construir:** o **quadro de fases no detalhe**, que é a **RC-F2**.
 
 ## Apêndice A — Ledger de decisões (condensado)
 
